@@ -1,150 +1,126 @@
 <?php
+// Inc/Pages/Admin.php
 
     namespace Inc\Pages;
 
     use Inc\Core\BaseController;
     use Inc\Core\Service;
-    use Inc\Core\SettingsApi;
+    use Inc\Core\PluginRegistrar;
+    use Inc\Core\PluginConstants;
     use Inc\Core\Callbacks\AdminCallbacks;
-    use Inc\Api\SubjectRepository;
+    use Inc\Pages\Builders\SubjectsMenuBuilder;
 
     /**
-     * Этот класс отвечает только за конфигурацию меню.
+     * Главный класс административного меню плагина.
+     *
+     * Ответственность: оркестрация регистрации меню и настроек.
+     * Делегирует построение меню и конфигурацию билдерам.
      */
     class Admin extends BaseController implements Service
     {
-        public SettingsApi $settings;
-        public AdminCallbacks $callbacks;
-        public SubjectRepository $subjects;
+        private PluginRegistrar         $registrar;
+        private AdminCallbacks          $callbacks;
+        private SubjectsMenuBuilder     $subjectsMenuBuilder;
+        private SettingsConfigurator    $settingsConfigurator;
 
-        public function __construct(SettingsApi $settings, AdminCallbacks $callbacks, SubjectRepository $subjects) {
+        public function __construct(
+            PluginRegistrar         $registrar,
+            AdminCallbacks          $callbacks,
+            SubjectsMenuBuilder     $subjectsMenuBuilder,
+            SettingsConfigurator    $settingsConfigurator
+        ) {
             parent::__construct();
-            $this->settings = $settings;
+
+            $this->registrar = $registrar;
             $this->callbacks = $callbacks;
-            $this->subjects = $subjects;
+            $this->subjectsMenuBuilder = $subjectsMenuBuilder;
+            $this->settingsConfigurator = $settingsConfigurator;
         }
 
-        public function register(): void {
+        /**
+         * Регистрирует все административные меню и настройки плагина.
+         */
+        public function register(): void
+        {
+            $this->settingsConfigurator->configure($this->registrar->settings());
+            $pages = $this->buildMainPages();
+            $subpages = $this->buildAllSubPages();
 
+
+            // Регистрируем меню
+            $this->registrar->menu()
+                ->addPages($pages)
+                ->addSubPages($subpages);
+
+            // Убираем дублирующийся пункт меню WordPress
+            $this->registrar->register();
+
+            $this->removeAutoSubMenuItem();
+        }
+
+        /**
+         * Строит конфигурацию главных страниц меню.
+         */
+        private function buildMainPages(): array
+        {
             $pages = [
                 [
                     'page_title' => 'FS LMS',
                     'menu_title' => 'FS LMS',
-                    'capability' => 'manage_options',
-                    'menu_slug'  => 'fs_lms',
+                    'capability' => PluginConstants::ADMIN_CAPABILITY,
+                    'menu_slug'  => PluginConstants::MAIN_MENU_SLUG,
                     'callback'   => [$this->callbacks, 'adminDashboard'],
                     'icon_url'   => 'dashicons-welcome-learn-more',
                     'position'   => 4
                 ]
             ];
 
-            $subjects = $this->subjects->get_all();
+            // Добавляем страницы предметов (если есть)
+            return array_merge($pages, $this->subjectsMenuBuilder->buildPages());
+        }
+
+        /**
+         * Собирает все подстраницы из разных источников.
+         */
+        private function buildAllSubPages(): array
+        {
             $subpages = [];
 
-            /**
-             * Если предметы есть — создаём меню "Предметы"
-             */
-            if (!empty($subjects)) {
+            // Подстраницы предметов
+            $subpages = array_merge($subpages, $this->subjectsMenuBuilder->buildSubPages());
 
-                $pages[] = [
-                    'page_title' => 'Предметы',
-                    'menu_title' => 'Предметы',
-                    'capability' => 'manage_options',
-                    'menu_slug'  => 'fs_subjects',
-                    'callback'   => [$this->callbacks, 'subjectsRoot'],
-                    'icon_url'   => 'dashicons-category',
-                    'position'   => 5
-                ];
+            // Подстраница настроек (всегда последняя)
+            $subpages[] = $this->buildSettingsSubPage();
 
-                foreach ($subjects as $key => $subject) {
-                    $subpages[] = [
-                        'parent_slug' => 'fs_subjects',
-                        'page_title'  => $subject['name'],
-                        'menu_title'  => $subject['name'],
-                        'capability'  => 'manage_options',
-                        'menu_slug'   => 'fs_subject_' . $key,
-                        'callback'    => [$this->callbacks, 'subjectPage'],
-                    ];
-                }
-            }
+            return $subpages;
+        }
 
-            /**
-             * Подпункт настроек
-             */
-            $subpages[] = [
-                'parent_slug' => 'fs_lms',
+        /**
+         * Конфигурация подстраницы настроек.
+         */
+        private function buildSettingsSubPage(): array
+        {
+            return [
+                'parent_slug' => PluginConstants::MAIN_MENU_SLUG,
                 'page_title'  => 'Настройки',
                 'menu_title'  => 'Настройки',
-                'capability'  => 'manage_options',
-                'menu_slug'   => 'fs_lms',
+                'capability'  => PluginConstants::ADMIN_CAPABILITY,
+                'menu_slug'   => PluginConstants::MAIN_MENU_SLUG,
                 'callback'    => [$this->callbacks, 'adminDashboard'],
             ];
+        }
 
-            $this->setSettings();
-            $this->setSections();
-            $this->setFields();
-
-            $this->settings
-                ->add_pages($pages)
-                ->add_sub_pages($subpages)
-                ->register();
-
-            /**
-             * Удаляем автоподпункт WordPress
-             */
+        /**
+         * WordPress автоматически создаёт первый подпункт с тем же названием.
+         * Удаляем его для чистоты меню.
+         */
+        private function removeAutoSubMenuItem(): void
+        {
             add_action('admin_menu', function () {
-                remove_submenu_page('fs_subjects', 'fs_subjects');
+                remove_submenu_page(
+                    PluginConstants::SUBJECTS_MENU_SLUG,
+                    PluginConstants::SUBJECTS_MENU_SLUG
+                );
             }, 999);
-
-        }
-
-        private function setSettings(): void {
-            $args = [[
-                'option_group' => 'fs_tasks_settings_group',
-                'option_name'  => 'fs_tasks_settings',
-                'callback'     => null
-            ]];
-            $this->settings->set_settings($args);
-        }
-
-        private function setSections(): void {
-            $args = [[
-                'id'       => 'fs_tasks_admin_index',
-                'title'    => 'Глобальные переключатели',
-                'callback' => function() { echo 'Включите необходимые модули:'; },
-                'page'     => 'fs_tasks'
-            ]];
-            $this->settings->set_sections($args);
-        }
-
-        // Хз зачем это тут, надо убрать потом
-        private function setFields(): void {
-            $args = [
-                [
-                    'id'       => 'python_course',
-                    'title'    => 'Курс Python (для школьников)',
-                    'callback' => [$this->callbacks, 'checkboxField'],
-                    'page'     => 'fs_tasks',
-                    'section'  => 'fs_tasks_admin_index',
-                    'args'     => [
-                        'label_for'   => 'python_course',
-                        'class'       => 'ui-toggle',
-                        'option_name' => 'fs_tasks_settings'
-                    ]
-                ],
-                [
-                    'id'       => 'ege_cs',
-                    'title'    => 'ЕГЭ Информатика',
-                    'callback' => [$this->callbacks, 'checkboxField'],
-                    'page'     => 'fs_tasks',
-                    'section'  => 'fs_tasks_admin_index',
-                    'args'     => [
-                        'label_for'   => 'ege_cs',
-                        'class'       => 'ui-toggle',
-                        'option_name' => 'fs_tasks_settings'
-                    ]
-                ]
-            ];
-            $this->settings->set_fields($args);
         }
     }
