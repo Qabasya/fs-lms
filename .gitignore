@@ -1,0 +1,38 @@
+# Composer dependencies
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Node (если появится сборка фронта)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build artifacts
+dist/
+build/
+
+# PHPUnit
+/phpunit.result.cache
+
+# Coverage
+coverage/
+
+# WordPress debug
+debug.log

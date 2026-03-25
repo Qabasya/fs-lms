@@ -1,0 +1,17 @@
+{
+  "name": "fs/lms",
+  "description": "FS LMS Plugin",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "authors": [
+    {
+      "name": "FutureStep"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Inc\\": "./inc"
+    }
+  },
+  "require": {}
+}
