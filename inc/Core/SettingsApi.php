@@ -3,13 +3,25 @@
     namespace Inc\Core;
 
     /**
-     * Класс-адаптер для регистрации страниц и полей настроек
+     * Класс-фасад для регистрации страниц и полей настроек
      * Нужен для изоляции от прямого вызова функций WP
      */
     class SettingsApi
     {
-        public array $pages = [];
-        public array $subpages = [];
+        protected MenuManager $menu_manager;
+        protected FieldManager $fields_manager;
+
+        private array $pages = [];
+        private array $subpages = [];
+
+        private array $settings = [];
+        private array $sections = [];
+        private array $fields = [];
+
+        public function __construct(MenuManager $menu_manager, FieldManager $fields_manager) {
+            $this->menu_manager = $menu_manager;
+            $this->fields_manager = $fields_manager;
+        }
 
         /**
          * Добавление пунктов меню (страниц)
@@ -19,11 +31,41 @@
             return $this;
         }
 
-        /*
- * Добавление подпунктов меню
- */
+        /**
+         * Добавление подпунктов меню
+         */
         public function add_sub_pages(array $subpages): self {
             $this->subpages = $subpages;
+            return $this;
+        }
+
+        /**
+         * Добавление настроек
+         * @param array $settings
+         * @return $this
+         */
+        public function set_settings(array $settings): self {
+            $this->settings = $settings;
+            return $this;
+        }
+
+        /**
+         * Добавление секций
+         * @param array $sections
+         * @return $this
+         */
+        public function set_sections(array $sections): self {
+            $this->sections = $sections;
+            return $this;
+        }
+
+        /**
+         * Добавление полей
+         * @param array $fields
+         * @return $this
+         */
+        public function set_fields(array $fields): self {
+            $this->fields = $fields;
             return $this;
         }
 
@@ -37,44 +79,27 @@
 
             if (!empty($this->subpages)) {
                 $parent = $this->pages[0];
-                $main_subpage = [[
-                    'parent_slug' => $parent['menu_slug'],
-                    'page_title'  => $parent['page_title'],
-                    'menu_title'  => 'Главная',
-                    'capability'  => $parent['capability'],
-                    'menu_slug'   => $parent['menu_slug'],
-                    'callback'    => $parent['callback'],
-                ]];
-                $this->subpages = array_merge($main_subpage, $this->subpages);
+
+                // Проверяем: если первый элемент подменю НЕ совпадает с родителем,
+                // только тогда добавляем автоматическую "Главную"
+                if ($this->subpages[0]['menu_slug'] !== $parent['menu_slug']) {
+                    $main_subpage = [[
+                        'parent_slug' => $parent['menu_slug'],
+                        'page_title'  => $parent['page_title'],
+                        'menu_title'  => 'Главная',
+                        'capability'  => $parent['capability'],
+                        'menu_slug'   => $parent['menu_slug'],
+                        'callback'    => $parent['callback'],
+                    ]];
+                    $this->subpages = array_merge($main_subpage, $this->subpages);
+                }
             }
 
-            add_action('admin_menu', [$this, 'add_admin_menu']);
-        }
+            // Управление передаётся менеджерам
+            $this->menu_manager
+                ->register($this->pages, $this->subpages);
 
-
-        /**
-         * Добавление основного пункта меню (через функции WP)
-         * @return void
-         */
-        public function add_admin_menu(): void {
-            foreach ($this->pages as $page) {
-                add_menu_page(
-                    $page['page_title'],
-                    $page['menu_title'],
-                    $page['capability'],
-                    $page['menu_slug'],
-                    $page['callback'],
-                    $page['icon_url'],
-                    $page['position']);
-            }
-            foreach ($this->subpages as $subpage) {
-                add_submenu_page(
-                    $subpage['parent_slug'],
-                    $subpage['page_title'],
-                    $subpage['menu_title'],
-                    $subpage['capability'],
-                    $subpage['menu_slug'],
-                    $subpage['callback']);
-            }
+            $this->fields_manager
+                ->register($this->settings, $this->sections, $this->fields);
         }
     }

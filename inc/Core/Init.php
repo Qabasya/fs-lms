@@ -2,8 +2,8 @@
 
     namespace Inc\Core;
 
-    use Inc\Core\Enqueue;
     use Inc\Pages\Admin;
+
 
 
     final class Init
@@ -17,6 +17,7 @@
             return [
                 Enqueue::class,
                 Admin::class,
+                CPTManager::class
             ];
         }
 
