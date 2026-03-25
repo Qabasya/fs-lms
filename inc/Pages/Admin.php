@@ -25,50 +25,60 @@
         }
 
         public function register(): void {
+
             $pages = [
-                // Это основной пункт FS LMS
                 [
-                    'page_title' => 'FS LMS Dashboard',
+                    'page_title' => 'FS LMS',
                     'menu_title' => 'FS LMS',
                     'capability' => 'manage_options',
-                    'menu_slug'  => 'fs_lms', // Это ключ всей группы
-                    'callback'   => [$this->callbacks, 'adminDashboard'], // Это страница по умолчанию
+                    'menu_slug'  => 'fs_lms',
+                    'callback'   => [$this->callbacks, 'adminDashboard'],
                     'icon_url'   => 'dashicons-welcome-learn-more',
                     'position'   => 4
-            ]];
-
-            $subpages = [
-                // Изменяем этот пункт:
-                [
-                    'parent_slug' => 'fs_lms',
-                    'page_title'  => 'Управление предметами',
-                    'menu_title'  => 'FS Tasks', // Теперь это будет ПЕРВЫЙ пункт (вместо "Главная")
-                    'capability'  => 'manage_options',
-                    'menu_slug'   => 'fs_lms', // ВАЖНО: слаг совпадает с родителем!
-                    'callback'    => [$this->callbacks, 'adminDashboard'],
-                ],
-                [
-                    'parent_slug' => 'fs_lms',
-                    'page_title'  => 'Импорт заданий',
-                    'menu_title'  => 'Импорт',
-                    'capability'  => 'manage_options',
-                    'menu_slug'   => 'fs_lms_import',
-                    'callback'    => [$this->callbacks, 'adminImport'],
                 ]
             ];
 
-            // Получаем предметы из базы и добавляем их в подменю
-            $all_subjects = $this->subjects->get_all();
-            foreach ($all_subjects as $subject) {
-                $subpages[] = [
-                    'parent_slug' => 'fs_lms',
-                    'page_title'  => $subject['name'],
-                    'menu_title'  => '— ' . $subject['name'],
-                    'capability'  => 'manage_options',
-                    'menu_slug'   => 'fs_subject_' . $subject['id'],
-                    'callback'    => [$this->callbacks, 'subjectPage'],
+            $subjects = $this->subjects->get_all();
+            $subpages = [];
+
+            /**
+             * Если предметы есть — создаём меню "Предметы"
+             */
+            if (!empty($subjects)) {
+
+                $pages[] = [
+                    'page_title' => 'Предметы',
+                    'menu_title' => 'Предметы',
+                    'capability' => 'manage_options',
+                    'menu_slug'  => 'fs_subjects',
+                    'callback'   => [$this->callbacks, 'subjectsRoot'],
+                    'icon_url'   => 'dashicons-category',
+                    'position'   => 5
                 ];
+
+                foreach ($subjects as $key => $subject) {
+                    $subpages[] = [
+                        'parent_slug' => 'fs_subjects',
+                        'page_title'  => $subject['name'],
+                        'menu_title'  => $subject['name'],
+                        'capability'  => 'manage_options',
+                        'menu_slug'   => 'fs_subject_' . $key,
+                        'callback'    => [$this->callbacks, 'subjectPage'],
+                    ];
+                }
             }
+
+            /**
+             * Подпункт настроек
+             */
+            $subpages[] = [
+                'parent_slug' => 'fs_lms',
+                'page_title'  => 'Настройки',
+                'menu_title'  => 'Настройки',
+                'capability'  => 'manage_options',
+                'menu_slug'   => 'fs_lms',
+                'callback'    => [$this->callbacks, 'adminDashboard'],
+            ];
 
             $this->setSettings();
             $this->setSections();
@@ -78,6 +88,14 @@
                 ->add_pages($pages)
                 ->add_sub_pages($subpages)
                 ->register();
+
+            /**
+             * Удаляем автоподпункт WordPress
+             */
+            add_action('admin_menu', function () {
+                remove_submenu_page('fs_subjects', 'fs_subjects');
+            }, 999);
+
         }
 
         private function setSettings(): void {
@@ -92,13 +110,14 @@
         private function setSections(): void {
             $args = [[
                 'id'       => 'fs_tasks_admin_index',
-                'title'    => 'Глобальные переключатели', // Поменяли заголовок секции
+                'title'    => 'Глобальные переключатели',
                 'callback' => function() { echo 'Включите необходимые модули:'; },
                 'page'     => 'fs_tasks'
             ]];
             $this->settings->set_sections($args);
         }
 
+        // Хз зачем это тут, надо убрать потом
         private function setFields(): void {
             $args = [
                 [

@@ -77,24 +77,6 @@
         public function register(): void {
             if (empty($this->pages)) return;
 
-            if (!empty($this->subpages)) {
-                $parent = $this->pages[0];
-
-                // Проверяем: если первый элемент подменю НЕ совпадает с родителем,
-                // только тогда добавляем автоматическую "Главную"
-                if ($this->subpages[0]['menu_slug'] !== $parent['menu_slug']) {
-                    $main_subpage = [[
-                        'parent_slug' => $parent['menu_slug'],
-                        'page_title'  => $parent['page_title'],
-                        'menu_title'  => 'Главная',
-                        'capability'  => $parent['capability'],
-                        'menu_slug'   => $parent['menu_slug'],
-                        'callback'    => $parent['callback'],
-                    ]];
-                    $this->subpages = array_merge($main_subpage, $this->subpages);
-                }
-            }
-
             // Управление передаётся менеджерам
             $this->menu_manager
                 ->register($this->pages, $this->subpages);

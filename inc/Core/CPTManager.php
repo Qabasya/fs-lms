@@ -12,8 +12,15 @@
         public function __construct(SubjectRepository $subjects) {
             $this->subjects = $subjects;
         }
+
         public function register(): void {
+            add_action('init', [$this, 'register_dynamic_cpt']);
+        }
+
+        public function register_dynamic_cpt(): void {
             $list = $this->subjects->get_all();
+
+            if (empty($list)) return;
 
             foreach ($list as $key => $data) {
                 $name = $data['name'];
@@ -31,16 +38,15 @@
                 'labels' => [
                     'name'               => $plural,
                     'singular_name'      => $singular,
-                    'add_new'            => 'Добавить',
-                    'add_new_item'       => "Добавить $singular",
-                    'edit_item'          => "Редактировать $singular",
-                    'all_items'          => "Все $plural",
+                    // ... остальные лабелы
                 ],
                 'public'      => true,
                 'has_archive' => true,
-                'show_in_menu'=> 'fs_lms',
-                'supports'    => ['title', 'editor', 'thumbnail', 'excerpt'],
+                'show_in_menu'=> false, // СКРЫВАЕМ ИЗ БОКОВОЙ ПАНЕЛИ
                 'show_in_rest'=> true,
+                'supports'    => ['title', 'editor', 'thumbnail', 'excerpt'],
             ]);
         }
+
+
     }
