@@ -1,6 +1,6 @@
 <?php
 
-    namespace Inc\Pages\Contracts;
+    namespace Inc\Contracts;
 
 
     /**

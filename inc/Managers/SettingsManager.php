@@ -1,10 +1,11 @@
 <?php
 
-    namespace Inc\Core;
+    namespace Inc\Managers;
+
     /**
      * Работа с наполнением меню - полями и секциями
      */
-    class FieldManager
+    class SettingsManager
     {
         public function register(array $settings, array $sections, array $fields): void {
             if (empty($settings)) return;

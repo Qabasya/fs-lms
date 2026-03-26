@@ -20,6 +20,7 @@
 
     <div class="tab-content">
         <div id="tab-1" class="tab-pane active" style="margin-top: 20px;">
+
             <h3>Список активных курсов</h3>
 
             <table class="wp-list-table widefat fixed striped" style="margin-bottom: 20px;">
@@ -53,6 +54,7 @@
         </div>
 
         <div id="tab-2" class="tab-pane" style="display:none; margin-top: 20px;">
+
             <form method="post" action="options.php">
                 <?php
                     settings_fields('fs_tasks_settings_group');
@@ -73,6 +75,7 @@
     <div class="fs-modal-content">
         <span class="fs-close">&times;</span>
         <h2>Создать новый предмет</h2>
+
         <form id="fs-add-subject-form">
             <div class="fs-form-group">
                 <label for="subj_name">Название (например: Информатика ЕГЭ)</label>

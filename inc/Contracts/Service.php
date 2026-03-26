@@ -1,6 +1,6 @@
 <?php
 
-    namespace Inc\Core;
+    namespace Inc\Contracts;
     /**
      * Это интерфейс для сервисов
      * Нужен для гарантии реализации метода register

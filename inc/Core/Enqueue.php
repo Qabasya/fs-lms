@@ -1,61 +1,95 @@
 <?php
 
-    namespace Inc\Core;
+	namespace Inc\Core;
 
-    /**
-     * Отвечает за подключение ресурсов
-     */
-    class Enqueue extends BaseController implements Service
+	use Inc\Contracts\Service;
 
-    {
-        public function register():void {
-            // hook: admin_enqueue_scripts https://developer.wordpress.org/reference/hooks/admin_enqueue_scripts/
-            // Вешаем хук на функцию enqueue_assets
-            // Админские ресурсы
-            add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
+	/**
+	 * Class Enqueue
+	 *
+	 * Менеджер подключения ресурсов (CSS/JS) плагина.
+	 *
+	 * Регистрирует и подключает все скрипты и стили плагина
+	 * через стандартные WordPress хуки:
+	 * - admin_enqueue_scripts — для админ-панели
+	 * - wp_enqueue_scripts — для фронтенда
+	 *
+	 * Использует минифицированные версии файлов для продакшена.
+	 *
+	 * @package Inc\Core
+	 * @implements Service
+	 */
+	class Enqueue extends BaseController implements Service
+	{
+		/**
+		 * Регистрирует хуки для подключения ресурсов.
+		 *
+		 * @return void
+		 */
+		public function register(): void
+		{
+			// Админские ресурсы (CSS/JS для админ-панели)
+			add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
 
-            // Ресурсы фронтенда
-            add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
-        }
+			// Ресурсы фронтенда (CSS/JS для публичной части)
+			add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
+		}
 
-        // Админские стили и скрипты
-        public function enqueue_admin_assets(): void {
-            // Подключаем стили css
-            wp_enqueue_style(
-                'fs-lms-admin-style',
-                $this->url( 'assets/css/admin.min.css' ),
-                array('wp-components'), // WordPress component styles dependency
-                $this->plugin_version // Version for cache busting
-            );
+		/**
+		 * Подключает стили и скрипты для административной панели.
+		 *
+		 * Загружает:
+		 * - CSS с зависимостью от wp-components (стили Gutenberg)
+		 * - JS с зависимостями от jQuery, WordPress API и интернационализации
+		 *
+		 * @return void
+		 */
+		public function enqueue_admin_assets(): void
+		{
+			// Подключение CSS стилей для админ-панели
+			wp_enqueue_style(
+				'fs-lms-admin-style',                         // Уникальный идентификатор
+				$this->url('assets/css/admin.min.css'),       // Путь к файлу
+				['wp-components'],                            // Зависимости
+				$this->plugin_version                         // Версия для кэширования
+			);
 
-            // Enqueue admin JavaScript with dependencies
-            wp_enqueue_script(
-                'fs-lms-admin-script',
-                $this->url( 'assets/js/admin.min.js' ),
-                array('jquery', 'wp-api', 'wp-i18n'), // jQuery, WordPress API, and i18n
-                $this->plugin_version, // Version for cache busting
-                true // Load in footer for better performance
-            );
-        }
+			// Подключение JavaScript для админ-панели
+			wp_enqueue_script(
+				'fs-lms-admin-script',                        // Уникальный идентификатор
+				$this->url('assets/js/admin.min.js'),         // Путь к файлу
+				['jquery', 'wp-api', 'wp-i18n'],              // Зависимости
+				$this->plugin_version,                        // Версия для кэширования
+				true                                          // Загрузка в футере
+			);
+		}
 
-        // Пользовательские стили и скрипты
-        public function enqueue_frontend_assets(): void {
-            // Подключаем стили css
-            wp_enqueue_style(
-                'fs-lms-frontend-style',
-                $this->url( 'assets/css/frontend.min.css' ),
-                array(), // No dependencies for frontend CSS
-                $this->plugin_version // Version for cache busting
-            );
+		/**
+		 * Подключает стили и скрипты для публичной части сайта.
+		 *
+		 * Загружает:
+		 * - CSS без зависимостей
+		 * - JS с зависимостью от jQuery
+		 *
+		 * @return void
+		 */
+		public function enqueue_frontend_assets(): void
+		{
+			// Подключение CSS стилей для фронтенда
+			wp_enqueue_style(
+				'fs-lms-frontend-style',                      // Уникальный идентификатор
+				$this->url('assets/css/frontend.min.css'),    // Путь к файлу
+				[],                                           // Нет зависимостей
+				$this->plugin_version                         // Версия для кэширования
+			);
 
-            // Enqueue frontend JavaScript with jQuery dependency
-            wp_enqueue_script(
-                'fs-lms-frontend-script',
-                $this->url( 'assets/js/frontend.min.js' ),
-                array('jquery'), // jQuery dependency
-                $this->plugin_version, // Version for cache busting
-                true // Load in footer
-            );
-        }
-
-    }
+			// Подключение JavaScript для фронтенда
+			wp_enqueue_script(
+				'fs-lms-frontend-script',                     // Уникальный идентификатор
+				$this->url('assets/js/frontend.min.js'),      // Путь к файлу
+				['jquery'],                                   // Зависимость от jQuery
+				$this->plugin_version,                        // Версия для кэширования
+				true                                          // Загрузка в футере
+			);
+		}
+	}

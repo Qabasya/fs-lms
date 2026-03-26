@@ -1,10 +1,10 @@
 <?php
 
-    namespace Inc\Pages;
+    namespace Inc\Controllers;
 
-    use Inc\Core\SettingsRegistrar;
-    use Inc\Core\Callbacks\AdminCallbacks;
-    use Inc\Core\PluginConstants;
+    use Inc\Callbacks\AdminCallbacks;
+    use Inc\Core\BaseController;
+    use Inc\Registrars\SettingsRegistrar;
 
     /**
      * Конфигурирует WordPress Settings API.
@@ -32,8 +32,8 @@
         {
             return [
                 [
-                    'option_group' => PluginConstants::SETTINGS_GROUP,
-                    'option_name'  => PluginConstants::SETTINGS_OPTION,
+                    'option_group' => BaseController::SETTINGS_GROUP,
+                    'option_name'  => BaseController::SETTINGS_OPTION,
                     'callback'     => null
                 ]
             ];
@@ -46,7 +46,7 @@
                 'id'       => 'fs_tasks_admin_index',
                 'title'    => 'Глобальные переключатели',
                 'callback' => fn() => print 'Включите необходимые модули:',
-                'page'     => PluginConstants::SETTINGS_PAGE
+                'page'     => BaseController::SETTINGS_PAGE
             ]];
         }
         /**
@@ -58,7 +58,7 @@
         {
             $baseArgs = [
                 'class'       => 'ui-toggle',
-                'option_name' => PluginConstants::SETTINGS_OPTION
+                'option_name' => BaseController::SETTINGS_OPTION
             ];
 
             return [
@@ -77,7 +77,7 @@
                 'id'       => $id,
                 'title'    => $title,
                 'callback' => [$this->callbacks, 'checkboxField'],
-                'page'     => PluginConstants::SETTINGS_PAGE,
+                'page'     => BaseController::SETTINGS_PAGE,
                 'section'  => 'fs_tasks_admin_index',
                 'args'     => array_merge($baseArgs, ['label_for' => $id])
             ];
