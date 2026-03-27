@@ -41,7 +41,7 @@
                         <tr>
                             <td><strong><?php echo esc_html($data['name']); ?></strong></td>
                             <td><code><?php echo esc_html($key); ?></code></td>
-                            <td><span style="color: green; font-weight: bold;">● Активный</span></td>
+                            <td><span style="color: green; font-weight: bold;">● Я меняю мастер</span></td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
