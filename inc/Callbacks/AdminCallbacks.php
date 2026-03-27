@@ -166,44 +166,9 @@ class AdminCallbacks extends BaseController {
 		$this->render( 'test', [ 'subjects' => $all_subjects ] );
 	}
 
-	/**
-	 * Коллбек для поля настроек типа checkbox.
-	 *
-	 * Рендерит HTML-разметку checkbox-поля с сохранённым значением.
-	 *
-	 * @param array $args Аргументы поля:
-	 *                    - label_for: идентификатор поля
-	 *                    - option_name: имя опции в WordPress
-	 *
-	 * @return void
-	 */
-	public function checkboxField( array $args ): void {
-		$name        = $args['label_for'];
-		$option_name = $args['option_name'];
-		$options     = get_option( $option_name );
-
-		$checked = isset( $options[ $name ] ) ? (bool) $options[ $name ] : false;
-
-		echo '<input type="checkbox" 
-                    id="' . esc_attr( $name ) . '" 
-                    name="' . esc_attr( $option_name ) . '[' . esc_attr( $name ) . ']" 
-                    value="1" 
-                    ' . checked( $checked, true, false ) . '>';
-	}
 
 	/**
-	 * Коллбек для дашборда предметов.
-	 *
-	 * Переиспользует тот же шаблон, что и adminDashboard().
-	 *
-	 * @return void
-	 */
-	public function subjectsDashboard(): void {
-		$all_subjects = $this->subjects->read_all();
-		$this->render( 'test', [ 'subjects' => $all_subjects ] );
-	}
-
-	/**
+	 *  ИСПРАВИТЬ
 	 * Коллбек для страницы управления конкретным предметом.
 	 *
 	 * Извлекает ключ предмета из URL-параметра page,
