@@ -41,7 +41,9 @@
                         <tr>
                             <td><strong><?php echo esc_html($data['name']); ?></strong></td>
                             <td><code><?php echo esc_html($key); ?></code></td>
-                            <td><span style="color: green; font-weight: bold;">● Залупа</span></td>
+
+                            <td><span style="color: green; font-weight: bold;">● Pull Request</span></td>
+
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
