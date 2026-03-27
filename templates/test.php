@@ -313,7 +313,7 @@
                 $('#subject-row-' + key).show();
             });
 
-            // Сабмит формы обновления
+
             $('#fs-quick-edit-form').on('submit', function (e) {
                 e.preventDefault();
                 var $form = $(this);
@@ -344,14 +344,13 @@
                 });
             });
         });
-        // 3. Удаление предмета НЕ УДАЛЯЕТСЯ ИЗ ПЕРВОЙ ВКЛАДКИ
-        // TODO: добавить синхронное удаление с первой вкладки
+
+        // Удаление предмета
         $('.delete-subject').on('click', function (e) {
             e.preventDefault();
 
             var $btn = $(this);
             var key = $btn.data('key');
-            // Берем имя из ячейки таблицы (первая колонка в этой строке)
             var name = $btn.closest('tr').find('td:first').text().trim();
 
             if (!confirm('Вы уверены, что хотите удалить предмет "' + name + '"? Это также отключит связанные типы записей.')) {
@@ -366,17 +365,12 @@
                 data: {
                     action: 'fs_delete_subject',
                     key: key,
-                    security: $('#fs-quick-edit-form [name="security"]').val() // Берем тот же nonce
+                    security: $('#fs-quick-edit-form [name="security"]').val()
                 },
                 success: function (response) {
                     if (response.success) {
-                        // Плавно скрываем строку и удаляем её
                         $('#subject-row-' + key).fadeOut(400, function () {
-                            $(this).remove();
-                            // Если таблица опустела, можно перезагрузить страницу
-                            if ($('#the-list tr').length === 0) {
-                                location.reload();
-                            }
+                            location.reload();
                         });
                     } else {
                         alert(response.data || 'Ошибка удаления');
