@@ -203,7 +203,7 @@ include plugin_dir_path( __FILE__ ) . '/components/modals/add-subject-modal.php'
                             var $tbody = $('#subjects-table tbody');
                             var $rows = $tbody.find('tr:visible');
 
-                            # Чет плохо работает, пофиксить
+                            // Чет плохо работает, пофиксить
                             if ($rows.length === 0) {
                                 // Если строк не осталось, показываем информационное сообщение
                                 location.reload();
