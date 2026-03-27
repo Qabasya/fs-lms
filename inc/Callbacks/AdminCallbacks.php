@@ -57,13 +57,20 @@ class AdminCallbacks extends BaseController {
 			wp_send_json_error( 'Нет прав' );
 		}
 
-		if ( empty( $_POST['name'] ) || empty( $_POST['key'] ) ) {
-			wp_send_json_error( 'Заполните все поля' );
+		// Теперь здесь получаем поля
+		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
+		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
+		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
+
+		// count можем выставить через валидацию на 1 (минимум, если не указано число), потом поменять в редактировании
+		if ( empty( $name ) || empty( $key ) ) {
+			wp_send_json_error( 'Название и ID обязательны для заполнения!' );
 		}
 
 		$new_subject = [
-			'name' => sanitize_text_field( $_POST['name'] ),
-			'key'  => sanitize_title( $_POST['key'] )
+			'name'        => sanitize_text_field( $name ),
+			'key'         => sanitize_title( $key ),
+			'tasks_count' => $count
 		];
 
 		// Сохраняем в наш репозиторий (который работает с Options)
@@ -72,7 +79,7 @@ class AdminCallbacks extends BaseController {
 		if ( $result ) {
 			// Очищаем правила ссылок, чтобы новые CPT сразу работали
 			flush_rewrite_rules();
-			wp_send_json_success();
+			wp_send_json_success( sprintf( 'Предмет «%s» успешно создан!', $name ) );
 		}
 
 		wp_send_json_error( 'Не удалось сохранить' );

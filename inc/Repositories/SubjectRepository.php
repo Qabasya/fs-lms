@@ -58,11 +58,12 @@ class SubjectRepository extends AbstractRepository {
 	public function update( array $data ): bool {
 		$subjects = $this->read_all();
 
-		$data = $this->sanitize( $data );
+		$clean_data = $this->sanitize( $data );
 
 		$subjects[ $data['key'] ] = [
-			'key'  => $data['key'],
-			'name' => $data['name']
+			'key'  => $clean_data['key'],
+			'name' => $clean_data['name'],
+			'tasks_count' => $clean_data['tasks_count']
 		];
 
 		return update_option( $this->option_name, $subjects );
@@ -80,9 +81,18 @@ class SubjectRepository extends AbstractRepository {
 	 * @return array{key: string, name: string} Очищенные данные
 	 */
 	protected function sanitize( array $data ): array {
+		// ВРЕМЕННАЯ валидация по кол-ву заданий, потом перенести
+		// Проверяем, что в tasks_count есть значение, если нет (должно быть) - ставим 1
+		$tasks_count = isset( $data['tasks_count'] ) ? (int) $data['tasks_count'] : self::MIN_TASKS_COUNT;
+
+		// Валидация по константам (СДЕЛАТЬ НОРМАЛЬНО)
+		if ( $tasks_count < self::MIN_TASKS_COUNT ) $tasks_count = self::MIN_TASKS_COUNT;
+		if ( $tasks_count > self::MAX_TASKS_COUNT ) $tasks_count = self::MAX_TASKS_COUNT;
+
 		return [
-			'key'  => isset( $data['key'] ) ? sanitize_title( $data['key'] ) : '',
-			'name' => isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '',
+			'key'         => isset( $data['key'] ) ? sanitize_title( $data['key'] ) : '',
+			'name'        => isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '',
+			'tasks_count' => $tasks_count,
 		];
 	}
 

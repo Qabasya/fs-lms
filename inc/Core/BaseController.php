@@ -69,6 +69,16 @@ class BaseController {
 	public const SUBJECTS_OPTION_NAME = 'fs_lms_subjects_list';
 
 	/**
+	 * Минимальное количество заданий в предмете.
+	 */
+	public const MIN_TASKS_COUNT = 1;
+
+	/**
+	 * Максимальное количество заданий в предмете.
+	 */
+	public const MAX_TASKS_COUNT = 100;
+
+	/**
 	 * Абсолютный путь к директории плагина.
 	 *
 	 * @var string
