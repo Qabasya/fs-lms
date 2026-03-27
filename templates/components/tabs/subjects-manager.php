@@ -72,12 +72,6 @@ $active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'tab
                                 <span class="title">Название</span>
                                 <span class="input-text-wrap"><input type="text" name="name" value=""></span>
                             </label>
-                            <label>
-                                <span class="title">Кол-во заданий</span>
-                                <span class="input-text-wrap">
-                                <input type="number" name="tasks_count" min="1" max="100">
-                            </span>
-                            </label>
                             <input type="hidden" name="key" value="">
 							<?php wp_nonce_field( 'fs_subject_nonce', 'security' ); ?>
                         </div>
