@@ -39,6 +39,10 @@ class AdminCallbacks extends BaseController {
 
 		// Регистрируем AJAX обработчик для сохранения предмета
 		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
+		// Регистрируем AJAX обработчик для редактирования предмета
+		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
+		// Регистрируем AJAX обработчик для удаления предмета
+		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
 	}
 
 	/**
@@ -68,8 +72,8 @@ class AdminCallbacks extends BaseController {
 		}
 
 		$new_subject = [
-			'name'        => sanitize_text_field( $name ),
-			'key'         => sanitize_title( $key ),
+			'name'        => $name,
+			'key'         => $key,
 			'tasks_count' => $count
 		];
 
@@ -83,6 +87,71 @@ class AdminCallbacks extends BaseController {
 		}
 
 		wp_send_json_error( 'Не удалось сохранить' );
+	}
+
+	/**
+	 * AJAX-обработчик редактирования предмета.
+	 */
+	public function updateSubject(): void {
+		check_ajax_referer( 'fs_subject_nonce', 'security' );
+
+		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
+		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
+		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
+
+		// Если ключа нет в базе
+		$current_data = $this->subjects->read_all();
+		if ( ! isset( $current_data[ $key ] ) ) {
+			wp_send_json_error( 'Предмет не найден в базе данных!' );
+		}
+
+		$updated_subject = [
+			'key'         => $key,
+			'name'        => $name,
+			'tasks_count' => $count
+		];
+
+		$result = $this->subjects->update( $updated_subject );
+		if ( $result ) {
+			wp_send_json_success( sprintf( 'Предмет "%s" успешно обновлен!', $name ) );
+		}
+
+		wp_send_json_error( 'Не удалось обновить данные.' );
+
+
+	}
+
+
+	/**
+	 * AJAX-обработчик удаления предмета.
+	 */
+	public function deleteSubject(): void {
+		check_ajax_referer( 'fs_subject_nonce', 'security' );
+
+		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
+		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
+		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
+
+		// Если ключа нет в базе
+		$current_data = $this->subjects->read_all();
+		if ( ! isset( $current_data[ $key ] ) ) {
+			wp_send_json_error( 'Предмет не найден в базе данных!' );
+		}
+
+		$deleted_subject = [
+			'key'         => $key,
+			'name'        => $name,
+			'tasks_count' => $count
+		];
+
+		$result = $this->subjects->delete( $deleted_subject );
+		if ( $result ) {
+			wp_send_json_success( sprintf( 'Предмет "%s" успешно удалён!', $name ) );
+		}
+
+		wp_send_json_error( 'Не удалось обновить данные.' );
+
+
 	}
 
 	/**

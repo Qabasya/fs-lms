@@ -50,6 +50,7 @@ class SubjectRepository extends AbstractRepository {
 
 	/**
 	 * Сохранить или обновить предмет.
+	 * Вообще тут лучше назвать upsert update+insert из-за update_option
 	 *
 	 * @param array{key: string, name: string} $data Данные предмета
 	 *
@@ -61,8 +62,8 @@ class SubjectRepository extends AbstractRepository {
 		$clean_data = $this->sanitize( $data );
 
 		$subjects[ $data['key'] ] = [
-			'key'  => $clean_data['key'],
-			'name' => $clean_data['name'],
+			'key'         => $clean_data['key'],
+			'name'        => $clean_data['name'],
 			'tasks_count' => $clean_data['tasks_count']
 		];
 
@@ -86,8 +87,12 @@ class SubjectRepository extends AbstractRepository {
 		$tasks_count = isset( $data['tasks_count'] ) ? (int) $data['tasks_count'] : self::MIN_TASKS_COUNT;
 
 		// Валидация по константам (СДЕЛАТЬ НОРМАЛЬНО)
-		if ( $tasks_count < self::MIN_TASKS_COUNT ) $tasks_count = self::MIN_TASKS_COUNT;
-		if ( $tasks_count > self::MAX_TASKS_COUNT ) $tasks_count = self::MAX_TASKS_COUNT;
+		if ( $tasks_count < self::MIN_TASKS_COUNT ) {
+			$tasks_count = self::MIN_TASKS_COUNT;
+		}
+		if ( $tasks_count > self::MAX_TASKS_COUNT ) {
+			$tasks_count = self::MAX_TASKS_COUNT;
+		}
 
 		return [
 			'key'         => isset( $data['key'] ) ? sanitize_title( $data['key'] ) : '',
@@ -103,7 +108,8 @@ class SubjectRepository extends AbstractRepository {
 	 *
 	 * @return bool Успешность удаления (false, если предмет не найден)
 	 */
-	public function delete( string $key ): bool {
+	public function delete( array $data ): bool {
+		$key      = $data['key'];
 		$subjects = $this->read_all();
 
 		if ( ! isset( $subjects[ $key ] ) ) {
