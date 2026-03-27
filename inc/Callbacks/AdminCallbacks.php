@@ -163,7 +163,7 @@ class AdminCallbacks extends BaseController {
 	 */
 	public function adminDashboard(): void {
 		$all_subjects = $this->subjects->read_all();
-		$this->render( 'test', [ 'subjects' => $all_subjects ] );
+		$this->render( 'settings', [ 'subjects' => $all_subjects ] );
 	}
 
 
