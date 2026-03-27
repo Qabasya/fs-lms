@@ -12,14 +12,16 @@
  * License URI:     https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  **/
 
-	use Inc\Core\Activate;
-	use Inc\Core\Deactivate;
+use Inc\Core\Activate;
+use Inc\Core\Deactivate;
 
-	if (!defined('ABSPATH')) exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
-require_once plugin_dir_path(__FILE__) . 'vendor/autoload.php';
+require_once plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
 
-register_activation_hook(__FILE__, [Activate::class, 'activate']);
-register_deactivation_hook(__FILE__, [Deactivate::class, 'deactivate']);
+register_activation_hook( __FILE__, [ Activate::class, 'activate' ] );
+register_deactivation_hook( __FILE__, [ Deactivate::class, 'deactivate' ] );
 
 Inc\Init::run();
