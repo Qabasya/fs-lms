@@ -175,7 +175,7 @@ include plugin_dir_path( __FILE__ ) . '/components/modals/add-subject-modal.php'
             var $btn = $(this);
             var key = $btn.data('key');
             var $row = $btn.closest('tr');
-            var name = $row.find('td:first').text().trim();
+            var name = $row.find('strong a').text().trim();
 
             if (!confirm('Вы уверены, что хотите удалить предмет "' + name + '"? Это также отключит связанные типы записей.')) {
                 return;
@@ -197,7 +197,17 @@ include plugin_dir_path( __FILE__ ) . '/components/modals/add-subject-modal.php'
                 success: function (response) {
                     if (response.success) {
                         $row.fadeOut(400, function () {
-                            location.reload();
+                            $(this).remove();
+
+                            // Проверяем, остались ли строки в таблице
+                            var $tbody = $('#subjects-table tbody');
+                            var $rows = $tbody.find('tr:visible');
+
+                            # Чет плохо работает, пофиксить
+                            if ($rows.length === 0) {
+                                // Если строк не осталось, показываем информационное сообщение
+                                location.reload();
+                            }
                         });
                     } else {
                         alert(response.data || 'Ошибка удаления');
