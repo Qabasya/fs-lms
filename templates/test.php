@@ -1,4 +1,4 @@
-<!-- Нейронное говно,  потом поменять!-->
+<!-- Нейронное говно, потом поменять!-->
 
 
 <?php
@@ -44,7 +44,6 @@
                             <td><code><?php echo esc_html( $key ); ?></code></td>
 
                             <td><span style="color: green; font-weight: bold;">● Активно</span></td>
-
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
