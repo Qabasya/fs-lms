@@ -39,6 +39,10 @@ class AdminCallbacks extends BaseController {
 
 		// Регистрируем AJAX обработчик для сохранения предмета
 		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
+		// Регистрируем AJAX обработчик для редактирования предмета
+		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
+		// Регистрируем AJAX обработчик для удаления предмета
+		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
 	}
 
 	/**
@@ -57,13 +61,20 @@ class AdminCallbacks extends BaseController {
 			wp_send_json_error( 'Нет прав' );
 		}
 
-		if ( empty( $_POST['name'] ) || empty( $_POST['key'] ) ) {
-			wp_send_json_error( 'Заполните все поля' );
+		// Теперь здесь получаем поля
+		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
+		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
+		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
+
+		// count можем выставить через валидацию на 1 (минимум, если не указано число), потом поменять в редактировании
+		if ( empty( $name ) || empty( $key ) ) {
+			wp_send_json_error( 'Название и ID обязательны для заполнения!' );
 		}
 
 		$new_subject = [
-			'name' => sanitize_text_field( $_POST['name'] ),
-			'key'  => sanitize_title( $_POST['key'] )
+			'name'        => $name,
+			'key'         => $key,
+			'tasks_count' => $count
 		];
 
 		// Сохраняем в наш репозиторий (который работает с Options)
@@ -72,10 +83,75 @@ class AdminCallbacks extends BaseController {
 		if ( $result ) {
 			// Очищаем правила ссылок, чтобы новые CPT сразу работали
 			flush_rewrite_rules();
-			wp_send_json_success();
+			wp_send_json_success( sprintf( 'Предмет «%s» успешно создан!', $name ) );
 		}
 
 		wp_send_json_error( 'Не удалось сохранить' );
+	}
+
+	/**
+	 * AJAX-обработчик редактирования предмета.
+	 */
+	public function updateSubject(): void {
+		check_ajax_referer( 'fs_subject_nonce', 'security' );
+
+		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
+		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
+		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
+
+		// Если ключа нет в базе
+		$current_data = $this->subjects->read_all();
+		if ( ! isset( $current_data[ $key ] ) ) {
+			wp_send_json_error( 'Предмет не найден в базе данных!' );
+		}
+
+		$updated_subject = [
+			'key'         => $key,
+			'name'        => $name,
+			'tasks_count' => $count
+		];
+
+		$result = $this->subjects->update( $updated_subject );
+		if ( $result ) {
+			wp_send_json_success( sprintf( 'Предмет "%s" успешно обновлен!', $name ) );
+		}
+
+		wp_send_json_error( 'Не удалось обновить данные.' );
+
+
+	}
+
+
+	/**
+	 * AJAX-обработчик удаления предмета.
+	 */
+	public function deleteSubject(): void {
+		check_ajax_referer( 'fs_subject_nonce', 'security' );
+
+		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
+		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
+		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
+
+		// Если ключа нет в базе
+		$current_data = $this->subjects->read_all();
+		if ( ! isset( $current_data[ $key ] ) ) {
+			wp_send_json_error( 'Предмет не найден в базе данных!' );
+		}
+
+		$deleted_subject = [
+			'key'         => $key,
+			'name'        => $name,
+			'tasks_count' => $count
+		];
+
+		$result = $this->subjects->delete( $deleted_subject );
+		if ( $result ) {
+			wp_send_json_success( sprintf( 'Предмет "%s" успешно удалён!', $name ) );
+		}
+
+		wp_send_json_error( 'Не удалось обновить данные.' );
+
+
 	}
 
 	/**
@@ -90,44 +166,9 @@ class AdminCallbacks extends BaseController {
 		$this->render( 'test', [ 'subjects' => $all_subjects ] );
 	}
 
-	/**
-	 * Коллбек для поля настроек типа checkbox.
-	 *
-	 * Рендерит HTML-разметку checkbox-поля с сохранённым значением.
-	 *
-	 * @param array $args Аргументы поля:
-	 *                    - label_for: идентификатор поля
-	 *                    - option_name: имя опции в WordPress
-	 *
-	 * @return void
-	 */
-	public function checkboxField( array $args ): void {
-		$name        = $args['label_for'];
-		$option_name = $args['option_name'];
-		$options     = get_option( $option_name );
-
-		$checked = isset( $options[ $name ] ) ? (bool) $options[ $name ] : false;
-
-		echo '<input type="checkbox" 
-                    id="' . esc_attr( $name ) . '" 
-                    name="' . esc_attr( $option_name ) . '[' . esc_attr( $name ) . ']" 
-                    value="1" 
-                    ' . checked( $checked, true, false ) . '>';
-	}
 
 	/**
-	 * Коллбек для дашборда предметов.
-	 *
-	 * Переиспользует тот же шаблон, что и adminDashboard().
-	 *
-	 * @return void
-	 */
-	public function subjectsDashboard(): void {
-		$all_subjects = $this->subjects->read_all();
-		$this->render( 'test', [ 'subjects' => $all_subjects ] );
-	}
-
-	/**
+	 *  ИСПРАВИТЬ
 	 * Коллбек для страницы управления конкретным предметом.
 	 *
 	 * Извлекает ключ предмета из URL-параметра page,

@@ -58,9 +58,9 @@ abstract class AbstractRepository extends BaseController {
 	/**
 	 * Удалить запись по ключу.
 	 *
-	 * @param string $key Уникальный идентификатор записи
+	 * @param array<string, mixed> $data Исходные данные
 	 *
 	 * @return bool Успешность удаления (false, если запись не найдена)
 	 */
-	abstract public function delete( string $key ): bool;
+	abstract public function delete( array $data ): bool;
 }
