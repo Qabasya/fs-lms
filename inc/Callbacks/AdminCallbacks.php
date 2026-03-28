@@ -1,9 +1,11 @@
 <?php
+
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
 use Inc\Shared\Traits\TemplateRenderer;
+
 
 /**
  * Class AdminCallbacks
@@ -14,9 +16,17 @@ use Inc\Shared\Traits\TemplateRenderer;
  * - Рендеринг страниц админ-панели (adminDashboard)
  * - AJAX-обработку CRUD операций с предметами (store, update, delete)
  *
+ * Если планируешь добавить новое действие, то:
+ * 1. Зарегистрируй его работу в SubjectRepository
+ * 2. Добавь хук AJAX
+ * 3. Проверь алгоритм, добавь действие в проверку на существование предмета, проверь правила перезаписи
+ * 4. Вызови зарегистрированный в репозитории метод через performRepositoryAction()
+ * 5. Добавь сообщение пользователю в getSuccessMessage()
+ * 6. Добавь AJAX обработчик
+ *
  * @package Inc\Callbacks
  *
- * @method void render(string $template, array $data = []) — трейт TemplateRenderer
+ * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
  */
 class AdminCallbacks extends BaseController {
 	use TemplateRenderer;
@@ -24,7 +34,7 @@ class AdminCallbacks extends BaseController {
 	/**
 	 * Репозиторий для работы с предметами.
 	 *
-	 * @var SubjectRepository
+	 * @var
 	 */
 	protected SubjectRepository $subjects;
 
@@ -35,135 +45,157 @@ class AdminCallbacks extends BaseController {
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
 	 */
-	public function __construct( SubjectRepository $subjects ) {
+	public function __construct(SubjectRepository $subjects) {
 		parent::__construct();
 		$this->subjects = $subjects;
 
-		// Регистрируем AJAX обработчик для сохранения предмета
+		// Регистрация AJAX
 		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
-		// Регистрируем AJAX обработчик для редактирования предмета
 		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
-		// Регистрируем AJAX обработчик для удаления предмета
 		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
 	}
 
+// ====================== ОБЩАЯ ЛОГИКА ======================
+
 	/**
-	 * Получает и валидирует данные предмета из AJAX-запроса.
+	 * Общая функция для выполнения операций с предметом (создание, обновление, удаление)
 	 *
-	 * Выполняет:
-	 * - Проверку nonce (security)
-	 * - Проверку прав доступа (manage_options)
-	 * - Санитизацию полей (name, key, tasks_count)
-	 * - Валидацию обязательного поля key
+	 * Это главный метод, который задаёт алгоритм действий:
+	 * 1. Считать данные get_validated_subject_data()
+	 * 2. Выполнить проверки
+	 * 3. Выбрать действие (update/delete)
+	 * 4. Сбросить или нет правила перезаписи flush_rewrite_rules()
+	 * 5. Вывести сообщение пользователю
 	 *
-	 * @return array<string, mixed> Массив с данными предмета (name, key, tasks_count)
-	 *
-	 * @throws void Отправляет JSON-ошибку через wp_send_json_error() при нарушении
+	 * Менять алгоритм ЗДЕСЬ
+	 */
+	protected function executeOperation( string $operation ): void {
+		$data = $this->get_validated_subject_data();
+
+		// Дополнительная проверка только при создании
+		if ( $operation === 'store' && empty( $data['name'] ) ) {
+			wp_send_json_error( 'Название обязательно для заполнения!' );
+			return;
+		}
+
+		// Проверяем, существует ли предмет (для редактирования и удаления)
+		if ( $operation === 'update' || $operation === 'delete' ) {
+			if ( ! $this->subjects->get_by_key( $data['key'] ) ) {
+				wp_send_json_error( 'Предмет не найден в базе!' );
+				return;
+			}
+		}
+		// Выполняем нужное действие
+		$success = $this->performRepositoryAction( $operation, $data );
+
+		if ( $success ) {
+			// Сбрасываем правила перезаписи при создании и удалении
+			if ( $operation === 'store' || $operation === 'delete' ) {
+				flush_rewrite_rules();
+			}
+
+			$message = $this->getSuccessMessage( $operation, $data['name'] );
+			wp_send_json_success( $message );
+		} else {
+			wp_send_json_error( "Не удалось выполнить операцию: {$operation}" );
+		}
+	}
+
+
+	// ===== Действия в репозитории ===== //
+
+	/**
+	 * Выполняет действие в репозитории в зависимости от операции
+	 */
+	protected function performRepositoryAction( string $operation, array $data ): bool {
+		if ( $operation === 'store' || $operation === 'update' ) {
+			return $this->subjects->update( $data );
+		}
+
+		if ( $operation === 'delete' ) {
+			return $this->subjects->delete( $data );
+		}
+
+		return false;
+	}
+
+	// ===== Сообщения ===== //
+
+	/**
+	 * Возвращает сообщение об успешном выполнении
+	 * Выбор сообщения исходя из действия
+	 */
+	protected function getSuccessMessage( string $operation, string $name ): string {
+		if ( $operation === 'store' ) {
+			return sprintf( 'Предмет «%s» создан!', $name );
+		}
+
+		if ( $operation === 'update' ) {
+			return sprintf( 'Предмет «%s» обновлен!', $name );
+		}
+
+		if ( $operation === 'delete' ) {
+			return sprintf( 'Предмет «%s» удалён.', $name );
+		}
+
+		return 'Операция выполнена успешно';
+	}
+
+// ====================== ТОНКИЕ AJAX-ОБРАБОТЧИКИ ======================
+// Фасады для комплексных операций
+
+	/**
+	 * Создание нового предмета
+	 */
+	public function storeSubject(): void {
+		$this->executeOperation( 'store' );
+	}
+
+	/**
+	 * Обновление существующего предмета
+	 */
+	public function updateSubject(): void {
+		$this->executeOperation( 'update' );
+	}
+
+	/**
+	 * Удаление предмета
+	 */
+	public function deleteSubject(): void {
+		$this->executeOperation( 'delete' );
+	}
+
+	// Потом здесь добавляется exportSubject()//
+
+// ====================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ======================
+
+	/**
+	 * Получение и валидация данных из AJAX-запроса
 	 */
 	protected function get_validated_subject_data(): array {
-		// Проверка прав
 		check_ajax_referer( 'fs_subject_nonce', 'security' );
+
 		if ( ! current_user_can( self::ADMIN_CAPABILITY ) ) {
 			wp_send_json_error( 'Нет прав' );
 		}
 
-		// Получение полей. Если нужно будет новое поле — добавлять здесь! (и в view)
 		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
 		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
 		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
 
-		// Проверка ID
 		if ( empty( $key ) ) {
 			wp_send_json_error( 'ID обязателен!' );
 		}
 
-		// Возвращаем объект "Предмет"
 		return [
 			'name'        => $name,
 			'key'         => $key,
-			'tasks_count' => $count
+			'tasks_count' => $count,
 		];
-
-	}
-
-	// TODO: тут нарушение DRY надо как-то переписать эти 3 функции мб?
-
-	/**
-	 * AJAX-обработчик создания нового предмета.
-	 *
-	 * Получает валидированные данные, проверяет наличие названия,
-	 * сохраняет предмет через репозиторий и сбрасывает правила перезаписи.
-	 *
-	 * @return void Отправляет JSON-ответ через wp_send_json_*()
-	 */
-	public function storeSubject(): void {
-		$data = $this->get_validated_subject_data();
-
-		// Дополнительная валидация для создания
-		if ( empty( $data['name'] ) ) {
-			wp_send_json_error( 'Название обязательно для заполнения!' );
-		}
-
-		if ( $this->subjects->update( $data ) ) {
-			flush_rewrite_rules();
-			wp_send_json_success( sprintf( 'Предмет «%s» создан!', $data['name'] ) );
-		}
-		wp_send_json_error( 'Не удалось сохранить' );
 	}
 
 	/**
-	 * AJAX-обработчик обновления существующего предмета.
-	 *
-	 * Получает валидированные данные, проверяет существование предмета,
-	 * обновляет его через репозиторий.
-	 *
-	 * @return void Отправляет JSON-ответ через wp_send_json_*()
-	 */
-	public function updateSubject(): void {
-		$data = $this->get_validated_subject_data();
-
-		// Проверяем существование
-		if ( ! $this->subjects->get_by_key( $data['key'] ) ) {
-			wp_send_json_error( 'Предмет не найден в базе!' );
-		}
-
-		if ( $this->subjects->update( $data ) ) {
-			wp_send_json_success( sprintf( 'Предмет "%s" обновлен!', $data['name'] ) );
-		}
-		wp_send_json_error( 'Ошибка обновления' );
-	}
-
-	/**
-	 * AJAX-обработчик удаления предмета.
-	 *
-	 * Получает валидированные данные, проверяет существование предмета,
-	 * удаляет его через репозиторий и сбрасывает правила перезаписи.
-	 *
-	 * @return void Отправляет JSON-ответ через wp_send_json_*()
-	 */
-	public function deleteSubject(): void {
-		$data = $this->get_validated_subject_data();
-
-		// Проверяем существование
-		if ( ! $this->subjects->get_by_key( $data['key'] ) ) {
-			wp_send_json_error( 'Предмет не найден в базе!' );
-		}
-
-		if ( $this->subjects->delete( $data ) ) {
-			flush_rewrite_rules();
-			wp_send_json_success( sprintf( 'Предмет "%s" удалён.', $data['name'] ) );
-		}
-		wp_send_json_error( 'Ошибка удаления' );
-	}
-
-
-	/**
-	 * Коллбек для главной страницы административной панели.
-	 *
-	 * Отображает дашборд со списком всех предметов.
-	 * Использует шаблон 'settings' для рендеринга.
-	 *
-	 * @return void
+	 * Рендер страницы настроек (дашборд)
 	 */
 	public function adminDashboard(): void {
 		$all_subjects = $this->subjects->read_all();
