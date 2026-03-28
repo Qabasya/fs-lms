@@ -47,6 +47,14 @@ class SubjectRepository extends AbstractRepository {
 
 		return $subjects;
 	}
+	/**
+	 * Получить предмет по ключу.
+
+	 */
+	public function get_by_key( string $key ): ?array {
+		$subjects = $this->read_all();
+		return $subjects[ $key ] ?? null;
+	}
 
 	/**
 	 * Сохранить или обновить предмет.

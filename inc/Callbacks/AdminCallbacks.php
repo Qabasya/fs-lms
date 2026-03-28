@@ -45,114 +45,88 @@ class AdminCallbacks extends BaseController {
 		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
 	}
 
-	/**
-	 * AJAX-обработчик сохранения нового предмета.
-	 *
-	 * Проверяет nonce и права доступа, затем сохраняет предмет через репозиторий.
-	 * После сохранения сбрасывает правила перезаписи для активации новых CPT.
-	 *
-	 * @return void Отправляет JSON-ответ через wp_send_json_*()
-	 */
-	public function storeSubject(): void {
-		// Проверка безопасности
-		check_ajax_referer( 'fs_subject_nonce', 'security' );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
+	protected function get_validated_subject_data(): array {
+		// Проверка прав
+		check_ajax_referer( 'fs_subject_nonce', 'security' );
+		if ( ! current_user_can( self::ADMIN_CAPABILITY ) ) {
 			wp_send_json_error( 'Нет прав' );
 		}
 
-		// Теперь здесь получаем поля
+		// Получение полей. Если нужно будет новое поле — добавлять здесь! (и в view)
 		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
 		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
 		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
 
-		// count можем выставить через валидацию на 1 (минимум, если не указано число), потом поменять в редактировании
-		if ( empty( $name ) || empty( $key ) ) {
-			wp_send_json_error( 'Название и ID обязательны для заполнения!' );
+		// Проверка ID
+		if ( empty( $key ) ) {
+			wp_send_json_error( 'ID обязателен!' );
 		}
 
-		$new_subject = [
+		// Возвращаем объект "Предмет"
+		return [
 			'name'        => $name,
 			'key'         => $key,
 			'tasks_count' => $count
 		];
 
-		// Сохраняем в наш репозиторий (который работает с Options)
-		$result = $this->subjects->update( $new_subject );
+	}
 
-		if ( $result ) {
-			flush_rewrite_rules();
-			wp_send_json_success( sprintf( 'Предмет «%s» успешно создан!', $name ) );
+	/**
+	 * AJAX: Сохранение (Create)
+	 */
+	public function storeSubject(): void {
+		$data = $this->get_validated_subject_data();
+
+		// Дополнительная валидация для создания
+		if ( empty( $data['name'] ) ) {
+			wp_send_json_error( 'Название обязательно для заполнения!' );
 		}
 
+		if ( $this->subjects->update( $data ) ) {
+			flush_rewrite_rules();
+			wp_send_json_success( sprintf( 'Предмет «%s» создан!', $data['name'] ) );
+		}
 		wp_send_json_error( 'Не удалось сохранить' );
 	}
 
 	/**
-	 * AJAX-обработчик редактирования предмета.
+	 * AJAX: Обновление (Update)
+	 * get_by_key - получение предмета по ключа. Находится в SubjetRepository
 	 */
 	public function updateSubject(): void {
-		check_ajax_referer( 'fs_subject_nonce', 'security' );
+		$data = $this->get_validated_subject_data();
 
-		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
-		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
-		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
-
-		// Если ключа нет в базе
-		$current_data = $this->subjects->read_all();
-		if ( ! isset( $current_data[ $key ] ) ) {
-			wp_send_json_error( 'Предмет не найден в базе данных!' );
+		// Проверяем существование
+		if ( ! $this->subjects->get_by_key( $data['key'] ) ) {
+			wp_send_json_error( 'Предмет не найден в базе!' );
 		}
 
-		$updated_subject = [
-			'key'         => $key,
-			'name'        => $name,
-			'tasks_count' => $count
-		];
-
-		$result = $this->subjects->update( $updated_subject );
-		if ( $result ) {
-			wp_send_json_success( sprintf( 'Предмет "%s" успешно обновлен!', $name ) );
+		if ( $this->subjects->update( $data ) ) {
+			wp_send_json_success( sprintf( 'Предмет "%s" обновлен!', $data['name'] ) );
 		}
-
-		wp_send_json_error( 'Не удалось обновить данные.' );
-
-
+		wp_send_json_error( 'Ошибка обновления' );
 	}
-
-
 	/**
-	 * AJAX-обработчик удаления предмета.
+	 * AJAX: Удаление (Delete)
 	 */
 	public function deleteSubject(): void {
-		check_ajax_referer( 'fs_subject_nonce', 'security' );
+		$data = $this->get_validated_subject_data();
 
-		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
-		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
-		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
-
-		// Если ключа нет в базе
-		$current_data = $this->subjects->read_all();
-		if ( ! isset( $current_data[ $key ] ) ) {
-			wp_send_json_error( 'Предмет не найден в базе данных!' );
+		// Получаем текущие данные, чтобы знать имя для сообщения
+		$current = $this->subjects->get_by_key( $data['key'] );
+		if ( ! $current ) {
+			wp_send_json_error( 'Предмет не найден!' );
 		}
 
-		$deleted_subject = [
-			'key'         => $key,
-			'name'        => $name,
-			'tasks_count' => $count
-		];
-
-		$result = $this->subjects->delete( $deleted_subject );
-		if ( $result ) {
+		if ( $this->subjects->delete( $data  ) ) {
 			flush_rewrite_rules();
-			wp_send_json_success( sprintf( 'Предмет "%s" успешно удалён!', $name ) );
+			wp_send_json_success( sprintf( 'Предмет "%s" удалён.', $current['name'] ) );
 		}
-
-		wp_send_json_error( 'Не удалось обновить данные.' );
-
-
+		wp_send_json_error( 'Ошибка удаления' );
 	}
+
+
 
 	/**
 	 * Коллбек для главной страницы административной панели.
