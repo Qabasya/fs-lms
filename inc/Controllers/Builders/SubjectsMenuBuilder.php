@@ -2,7 +2,7 @@
 
 namespace Inc\Controllers\Builders;
 
-use Inc\Callbacks\AdminCallbacks;
+use Inc\Callbacks\SubjectCallbacks;
 use Inc\Contracts\MenuBuilderInterface;
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
@@ -35,19 +35,19 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	/**
 	 * Коллбеки для рендеринга страниц админ-панели.
 	 *
-	 * @var AdminCallbacks
+	 * @var SubjectCallbacks
 	 */
-	private AdminCallbacks $callbacks;
+	private SubjectCallbacks $callbacks;
 
 	/**
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository $subjectRepository Репозиторий предметов
-	 * @param AdminCallbacks $callbacks Коллбеки административной панели
+	 * @param SubjectCallbacks $callbacks Коллбеки административной панели
 	 */
 	public function __construct(
 		SubjectRepository $subjectRepository,
-		AdminCallbacks $callbacks
+		SubjectCallbacks $callbacks
 	) {
 		$this->subjectRepository = $subjectRepository;
 		$this->callbacks         = $callbacks;
@@ -67,7 +67,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 *     menu_title: string,
 	 *     capability: string,
 	 *     menu_slug: string,
-	 *     callback: array{0: AdminCallbacks, 1: string},
+	 *     callback: array{0: SubjectCallbacks, 1: string},
 	 *     icon_url: string,
 	 *     position: int
 	 * }> Конфигурация страницы предметов
@@ -106,7 +106,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 *     menu_title: string,
 	 *     capability: string,
 	 *     menu_slug: string,
-	 *     callback: array{0: AdminCallbacks, 1: string}
+	 *     callback: array{0: SubjectCallbacks, 1: string}
 	 * }> Конфигурация подстраниц для каждого предмета
 	 */
 	public function buildSubPages(): array {
