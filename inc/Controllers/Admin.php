@@ -103,7 +103,7 @@ class Admin extends BaseController implements Service {
 		$this->registrar->register();
 
 		// Удаляем дублирующийся пункт, который WordPress создаёт автоматически
-		$this->removeAutoSubMenuItem();
+		$this->removeAutoSubMenuItems();
 	}
 
 	/**
@@ -125,17 +125,16 @@ class Admin extends BaseController implements Service {
 	private function buildMainPages(): array {
 		$pages = [
 			[
-				'page_title' => 'FS LMS',
+				'page_title' => 'FS LMS Dashboard',
 				'menu_title' => 'FS LMS',
-				'capability' => BaseController::ADMIN_CAPABILITY,
-				'menu_slug'  => BaseController::MAIN_MENU_SLUG,
+				'capability' => self::ADMIN_CAPABILITY,
+				'menu_slug'  => self::MAIN_MENU_SLUG,
 				'callback'   => [ $this->callbacks, 'adminDashboard' ],
 				'icon_url'   => 'dashicons-welcome-learn-more',
 				'position'   => 4
 			]
 		];
 
-		// Добавляем страницы предметов (если есть)
 		return array_merge( $pages, $this->subjectsMenuBuilder->buildPages() );
 	}
 
@@ -154,43 +153,34 @@ class Admin extends BaseController implements Service {
 	 *     callback: array{0: AdminCallbacks, 1: string}
 	 * }> Конфигурация всех подстраниц
 	 */
+
+// ====================== ПУНКТЫ ГЛАВНОГО МЕНЮ FS LMS ======================
 	private function buildAllSubPages(): array {
-		$subpages = [];
-
-		// Подстраницы предметов
-		$subpages = array_merge( $subpages, $this->subjectsMenuBuilder->buildSubPages() );
-
-		// Подстраница настроек (всегда последняя)
-		$subpages[] = $this->buildSettingsSubPage();
-
-		return $subpages;
-	}
-
-	/**
-	 * Конфигурация подстраницы настроек.
-	 *
-	 * Создаёт подстраницу для настроек плагина.
-	 * Использует тот же коллбек, что и главная страница.
-	 *
-	 * @return array{
-	 *     parent_slug: string,
-	 *     page_title: string,
-	 *     menu_title: string,
-	 *     capability: string,
-	 *     menu_slug: string,
-	 *     callback: array{0: AdminCallbacks, 1: string}
-	 * } Конфигурация подстраницы настроек
-	 */
-	private function buildSettingsSubPage(): array {
-		return [
-			'parent_slug' => BaseController::MAIN_MENU_SLUG,
-			'page_title'  => 'Настройки',
-			'menu_title'  => 'Настройки',
-			'capability'  => BaseController::ADMIN_CAPABILITY,
-			'menu_slug'   => BaseController::MAIN_MENU_SLUG,
+		$subpages   = [];
+		$subpages[] = [
+			'parent_slug' => self::MAIN_MENU_SLUG,
+			'page_title'  => self::FIRST_PAGE_TITLE,
+			'menu_title'  => self::FIRST_MENU_TITLE,
+			'capability'  => self::ADMIN_CAPABILITY,
+			'menu_slug'   => self::MAIN_MENU_SLUG,
 			'callback'    => [ $this->callbacks, 'adminDashboard' ],
 		];
+
+		$subpages[] = [
+			'parent_slug' => self::MAIN_MENU_SLUG,
+			'page_title'  => self::SECOND_PAGE_TITLE,
+			'menu_title'  => self::SECOND_MENU_TITLE,
+			'capability'  => self::ADMIN_CAPABILITY,
+			'menu_slug'   => 'fs_lms_settings',
+			'callback'    => [ $this->callbacks, 'settingsPage' ],
+		];
+
+		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
+
+		return array_merge( $subpages, $this->subjectsMenuBuilder->buildSubPages() );
 	}
+
+// ====================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ======================
 
 	/**
 	 * Удаляет автоматически созданный дублирующийся пункт меню.
@@ -204,7 +194,7 @@ class Admin extends BaseController implements Service {
 	 *
 	 * @return void
 	 */
-	private function removeAutoSubMenuItem(): void {
+	private function removeAutoSubMenuItems(): void {
 		add_action( 'admin_menu', function () {
 			remove_submenu_page(
 				BaseController::SUBJECTS_MENU_SLUG,

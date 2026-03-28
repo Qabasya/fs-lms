@@ -195,9 +195,16 @@ class AdminCallbacks extends BaseController {
 	}
 
 	/**
-	 * Рендер страницы настроек (дашборд)
+	 * Метод для пустой главной страницы (Dashboard)
 	 */
 	public function adminDashboard(): void {
+		// Временная заглушка
+		echo '<div class="wrap"><h1>Dashboard</h1><p>Данные о предметах</p></div>';
+	}
+	/**
+	 * Страница настроек (там добавляем предметы и прочее)
+	 */
+	public function settingsPage(): void {
 		$all_subjects = $this->subjects->read_all();
 		$this->render( 'settings', [ 'subjects' => $all_subjects ] );
 	}

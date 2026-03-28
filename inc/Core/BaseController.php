@@ -78,6 +78,12 @@ class BaseController {
 	 */
 	public const MAX_TASKS_COUNT = 100;
 
+	// ===== НАЗВАНИЯ МЕНЮ =====//
+	public const FIRST_PAGE_TITLE = 'Dashboard';
+	public const FIRST_MENU_TITLE = 'Статистика';
+	public const SECOND_PAGE_TITLE = 'Настройки';
+	public const SECOND_MENU_TITLE = 'Настройки плагина';
+
 	/**
 	 * Абсолютный путь к директории плагина.
 	 *
