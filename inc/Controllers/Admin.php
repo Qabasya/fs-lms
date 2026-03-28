@@ -153,23 +153,34 @@ class Admin extends BaseController implements Service {
 	 *     callback: array{0: AdminCallbacks, 1: string}
 	 * }> Конфигурация всех подстраниц
 	 */
-	private function buildAllSubPages(): array {
-		$subpages = [];
 
-		// Первым пунктом подменю WordPress автоматически сделает ссылку на родителя.
-		// Нам нужна страница настроек — добавляем её первой, она и будет первым видимым пунктом.
+// ====================== ПУНКТЫ ГЛАВНОГО МЕНЮ FS LMS ======================
+	private function buildAllSubPages(): array {
+		$subpages   = [];
 		$subpages[] = [
 			'parent_slug' => self::MAIN_MENU_SLUG,
-			'page_title'  => 'Настройки плагина',
-			'menu_title'  => 'Настройки',
+			'page_title'  => self::FIRST_PAGE_TITLE,
+			'menu_title'  => self::FIRST_MENU_TITLE,
+			'capability'  => self::ADMIN_CAPABILITY,
+			'menu_slug'   => self::MAIN_MENU_SLUG,
+			'callback'    => [ $this->callbacks, 'adminDashboard' ],
+		];
+
+		$subpages[] = [
+			'parent_slug' => self::MAIN_MENU_SLUG,
+			'page_title'  => self::SECOND_PAGE_TITLE,
+			'menu_title'  => self::SECOND_MENU_TITLE,
 			'capability'  => self::ADMIN_CAPABILITY,
 			'menu_slug'   => 'fs_lms_settings',
 			'callback'    => [ $this->callbacks, 'settingsPage' ],
 		];
 
+		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
+
 		return array_merge( $subpages, $this->subjectsMenuBuilder->buildSubPages() );
 	}
 
+// ====================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ======================
 
 	/**
 	 * Удаляет автоматически созданный дублирующийся пункт меню.
@@ -185,11 +196,10 @@ class Admin extends BaseController implements Service {
 	 */
 	private function removeAutoSubMenuItems(): void {
 		add_action( 'admin_menu', function () {
-			// Удаляем дубль FS LMS
-			remove_submenu_page( self::MAIN_MENU_SLUG, self::MAIN_MENU_SLUG );
-
-			// Удаляем дубль Предметы (используем константу из BaseController)
-			remove_submenu_page( self::SUBJECTS_MENU_SLUG, self::SUBJECTS_MENU_SLUG );
+			remove_submenu_page(
+				BaseController::SUBJECTS_MENU_SLUG,
+				BaseController::SUBJECTS_MENU_SLUG
+			);
 		}, 999 );
 	}
 }
