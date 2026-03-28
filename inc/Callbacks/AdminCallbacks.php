@@ -72,6 +72,7 @@ class AdminCallbacks extends BaseController {
 
 	}
 
+	// TODO: тут нарушение DRY надо как-то переписать эти 3 функции мб?
 	/**
 	 * AJAX: Сохранение (Create)
 	 */
@@ -113,15 +114,14 @@ class AdminCallbacks extends BaseController {
 	public function deleteSubject(): void {
 		$data = $this->get_validated_subject_data();
 
-		// Получаем текущие данные, чтобы знать имя для сообщения
-		$current = $this->subjects->get_by_key( $data['key'] );
-		if ( ! $current ) {
-			wp_send_json_error( 'Предмет не найден!' );
+		// Проверяем существование
+		if ( ! $this->subjects->get_by_key( $data['key'] ) ) {
+			wp_send_json_error( 'Предмет не найден в базе!' );
 		}
 
 		if ( $this->subjects->delete( $data  ) ) {
 			flush_rewrite_rules();
-			wp_send_json_success( sprintf( 'Предмет "%s" удалён.', $current['name'] ) );
+			wp_send_json_success( sprintf( 'Предмет "%s" удалён.', $data['name'] ) );
 		}
 		wp_send_json_error( 'Ошибка удаления' );
 	}
@@ -141,40 +141,5 @@ class AdminCallbacks extends BaseController {
 	}
 
 
-	/**
-	 *  ИСПРАВИТЬ
-	 * Коллбек для страницы управления конкретным предметом.
-	 *
-	 * Извлекает ключ предмета из URL-параметра page,
-	 * отображает информацию о предмете и ссылки на связанные CPT.
-	 *
-	 * @return void
-	 */
-	public function subjectPage(): void {
-		$page = $_GET['page'] ?? '';
-		$key  = str_replace( 'fs_subject_', '', $page );
 
-		$all_subjects    = $this->subjects->read_all();
-		$current_subject = $all_subjects[ $key ] ?? null;
-
-		if ( ! $current_subject ) {
-			echo "Предмет не найден";
-
-			return;
-		}
-
-		echo '<div class="wrap">';
-		echo '<h1>Управление предметом: ' . esc_html( $current_subject['name'] ) . '</h1>';
-		echo '<div class="card" style="max-width: 100%; margin-top: 20px; padding: 20px;">';
-		echo '<h3>Контент предмета</h3>';
-
-		// Генерируем прямые ссылки на списки CPT, которые мы скрыли из меню
-		$tasks_link    = admin_url( "edit.php?post_type={$key}_tasks" );
-		$articles_link = admin_url( "edit.php?post_type={$key}_articles" );
-
-		echo "<a href='" . esc_url( $tasks_link ) . "' class='button button-primary'>Перейти к Заданиям</a> ";
-		echo "<a href='" . esc_url( $articles_link ) . "' class='button button-secondary'>Перейти к Статьям</a>";
-
-		echo '</div></div>';
-	}
 }
