@@ -81,7 +81,6 @@ class AdminCallbacks extends BaseController {
 		$result = $this->subjects->update( $new_subject );
 
 		if ( $result ) {
-			// Очищаем правила ссылок, чтобы новые CPT сразу работали
 			flush_rewrite_rules();
 			wp_send_json_success( sprintf( 'Предмет «%s» успешно создан!', $name ) );
 		}
@@ -146,6 +145,7 @@ class AdminCallbacks extends BaseController {
 
 		$result = $this->subjects->delete( $deleted_subject );
 		if ( $result ) {
+			flush_rewrite_rules();
 			wp_send_json_success( sprintf( 'Предмет "%s" успешно удалён!', $name ) );
 		}
 
@@ -163,7 +163,7 @@ class AdminCallbacks extends BaseController {
 	 */
 	public function adminDashboard(): void {
 		$all_subjects = $this->subjects->read_all();
-		$this->render( 'test', [ 'subjects' => $all_subjects ] );
+		$this->render( 'settings', [ 'subjects' => $all_subjects ] );
 	}
 
 
