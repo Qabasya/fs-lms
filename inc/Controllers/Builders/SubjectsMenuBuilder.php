@@ -40,6 +40,14 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	private SubjectCallbacks $callbacks;
 
 	/**
+	 * Кэш результата read_all() — чтобы не ходить в базу дважды
+	 * при последовательном вызове buildPages() и buildSubPages().
+	 *
+	 * @var array|null
+	 */
+	private ?array $subjects = null;
+
+	/**
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository $subjectRepository Репозиторий предметов
@@ -54,13 +62,8 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	}
 
 	/**
-	 * Строит конфигурацию главных страниц меню.
-	 *
-	 * Возвращает массив с данными для создания родительской страницы
-	 * раздела "Предметы" в административном меню.
-	 *
-	 * Если предметы отсутствуют, возвращает пустой массив —
-	 * страница не будет создана.
+	 * Строит конфигурацию главной страницы раздела "Предметы".
+	 * Возвращает пустой массив, если предметов нет.
 	 *
 	 * @return array<int, array{
 	 *     page_title: string,
@@ -70,12 +73,10 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 *     callback: array{0: SubjectCallbacks, 1: string},
 	 *     icon_url: string,
 	 *     position: int
-	 * }> Конфигурация страницы предметов
+	 * }>
 	 */
 	public function buildPages(): array {
-		$subjects = $this->subjectRepository->read_all();
-
-		if ( empty( $subjects ) ) {
+		if ( empty( $this->getSubjects() ) ) {
 			return [];
 		}
 
@@ -87,33 +88,28 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 				'menu_slug'  => BaseController::SUBJECTS_MENU_SLUG,
 				'callback'   => [ $this->callbacks, 'subjectsRoot' ],
 				'icon_url'   => 'dashicons-category',
-				'position'   => 3
+				'position'   => 3,
 			]
 		];
 	}
 
 	/**
-	 * Строит конфигурацию подстраниц меню.
-	 *
-	 * Для каждого предмета из репозитория создаёт подстраницу
-	 * с уникальным идентификатором (fs_subject_{key}).
-	 *
-	 * Если предметы отсутствуют, возвращает пустой массив.
-	 *
-	 * @return array<int, array{
-	 *     parent_slug: string,
-	 *     page_title: string,
-	 *     menu_title: string,
-	 *     capability: string,
-	 *     menu_slug: string,
-	 *     callback: array{0: SubjectCallbacks, 1: string}
-	 * }> Конфигурация подстраниц для каждого предмета
-	 */
+ * Строит конфигурацию подстраниц для каждого предмета.
+ * Возвращает пустой массив, если предметов нет.
+ *
+ * @return array<int, array{
+ *     parent_slug: string,
+ *     page_title: string,
+ *     menu_title: string,
+ *     capability: string,
+ *     menu_slug: string,
+ *     callback: array{0: SubjectCallbacks, 1: string}
+ * }>
+ */
 	public function buildSubPages(): array {
-		$subjects = $this->subjectRepository->read_all();
 		$subpages = [];
 
-		foreach ( $subjects as $key => $subject ) {
+		foreach ( $this->getSubjects() as $key => $subject ) {
 			$subpages[] = [
 				'parent_slug' => BaseController::SUBJECTS_MENU_SLUG,
 				'page_title'  => $subject['name'],
@@ -125,5 +121,18 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 		}
 
 		return $subpages;
+	}
+
+	/**
+	 * Возвращает предметы из репозитория, кэшируя результат.
+	 *
+	 * @return array
+	 */
+	private function getSubjects(): array {
+		if ( $this->subjects === null ) {
+			$this->subjects = $this->subjectRepository->read_all();
+		}
+
+		return $this->subjects;
 	}
 }

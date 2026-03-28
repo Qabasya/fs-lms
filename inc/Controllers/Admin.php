@@ -156,11 +156,8 @@ class Admin extends BaseController implements Service {
 	private function buildAllSubPages(): array {
 		$subpages = [];
 
-		// 1. Скрытый дубликат главной (чтобы Dashboard был доступен, но не виден отдельной строкой в подменю)
-		// Мы его просто НЕ добавляем как отдельный видимый пункт,
-		// WordPress сам сделает первый пункт подменю ссылкой на родителя.
-
-		// 2. Добавляем "Настройки" (Предметы) - это будет ПЕРВЫЙ видимый пункт в подменю
+		// Первым пунктом подменю WordPress автоматически сделает ссылку на родителя.
+		// Нам нужна страница настроек — добавляем её первой, она и будет первым видимым пунктом.
 		$subpages[] = [
 			'parent_slug' => self::MAIN_MENU_SLUG,
 			'page_title'  => 'Настройки плагина',
@@ -170,10 +167,7 @@ class Admin extends BaseController implements Service {
 			'callback'    => [ $this->callbacks, 'settingsPage' ],
 		];
 
-		// 3. Подстраницы предметов из билдера
-		$subpages = array_merge( $subpages, $this->subjectsMenuBuilder->buildSubPages() );
-
-		return $subpages;
+		return array_merge( $subpages, $this->subjectsMenuBuilder->buildSubPages() );
 	}
 
 
