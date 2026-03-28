@@ -34,5 +34,8 @@ build/
 # Coverage
 coverage/
 
+# Assets
+assets/
+
 # WordPress debug
 debug.log
