@@ -1,6 +1,4 @@
 <?php
-/* TODO: REFACTOR */
-
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
@@ -10,11 +8,15 @@ use Inc\Shared\Traits\TemplateRenderer;
 /**
  * Class AdminCallbacks
  *
- * Обработчики для административной панели WordPress.
+ * Обработчики (коллбеки) для административной панели WordPress.
+ *
+ * Отвечает за:
+ * - Рендеринг страниц админ-панели (adminDashboard)
+ * - AJAX-обработку CRUD операций с предметами (store, update, delete)
  *
  * @package Inc\Callbacks
  *
- * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
+ * @method void render(string $template, array $data = []) — трейт TemplateRenderer
  */
 class AdminCallbacks extends BaseController {
 	use TemplateRenderer;
@@ -45,7 +47,19 @@ class AdminCallbacks extends BaseController {
 		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
 	}
 
-
+	/**
+	 * Получает и валидирует данные предмета из AJAX-запроса.
+	 *
+	 * Выполняет:
+	 * - Проверку nonce (security)
+	 * - Проверку прав доступа (manage_options)
+	 * - Санитизацию полей (name, key, tasks_count)
+	 * - Валидацию обязательного поля key
+	 *
+	 * @return array<string, mixed> Массив с данными предмета (name, key, tasks_count)
+	 *
+	 * @throws void Отправляет JSON-ошибку через wp_send_json_error() при нарушении
+	 */
 	protected function get_validated_subject_data(): array {
 		// Проверка прав
 		check_ajax_referer( 'fs_subject_nonce', 'security' );
@@ -73,8 +87,14 @@ class AdminCallbacks extends BaseController {
 	}
 
 	// TODO: тут нарушение DRY надо как-то переписать эти 3 функции мб?
+
 	/**
-	 * AJAX: Сохранение (Create)
+	 * AJAX-обработчик создания нового предмета.
+	 *
+	 * Получает валидированные данные, проверяет наличие названия,
+	 * сохраняет предмет через репозиторий и сбрасывает правила перезаписи.
+	 *
+	 * @return void Отправляет JSON-ответ через wp_send_json_*()
 	 */
 	public function storeSubject(): void {
 		$data = $this->get_validated_subject_data();
@@ -92,8 +112,12 @@ class AdminCallbacks extends BaseController {
 	}
 
 	/**
-	 * AJAX: Обновление (Update)
-	 * get_by_key - получение предмета по ключа. Находится в SubjetRepository
+	 * AJAX-обработчик обновления существующего предмета.
+	 *
+	 * Получает валидированные данные, проверяет существование предмета,
+	 * обновляет его через репозиторий.
+	 *
+	 * @return void Отправляет JSON-ответ через wp_send_json_*()
 	 */
 	public function updateSubject(): void {
 		$data = $this->get_validated_subject_data();
@@ -108,8 +132,14 @@ class AdminCallbacks extends BaseController {
 		}
 		wp_send_json_error( 'Ошибка обновления' );
 	}
+
 	/**
-	 * AJAX: Удаление (Delete)
+	 * AJAX-обработчик удаления предмета.
+	 *
+	 * Получает валидированные данные, проверяет существование предмета,
+	 * удаляет его через репозиторий и сбрасывает правила перезаписи.
+	 *
+	 * @return void Отправляет JSON-ответ через wp_send_json_*()
 	 */
 	public function deleteSubject(): void {
 		$data = $this->get_validated_subject_data();
@@ -119,7 +149,7 @@ class AdminCallbacks extends BaseController {
 			wp_send_json_error( 'Предмет не найден в базе!' );
 		}
 
-		if ( $this->subjects->delete( $data  ) ) {
+		if ( $this->subjects->delete( $data ) ) {
 			flush_rewrite_rules();
 			wp_send_json_success( sprintf( 'Предмет "%s" удалён.', $data['name'] ) );
 		}
@@ -127,11 +157,11 @@ class AdminCallbacks extends BaseController {
 	}
 
 
-
 	/**
 	 * Коллбек для главной страницы административной панели.
 	 *
 	 * Отображает дашборд со списком всех предметов.
+	 * Использует шаблон 'settings' для рендеринга.
 	 *
 	 * @return void
 	 */
@@ -139,7 +169,4 @@ class AdminCallbacks extends BaseController {
 		$all_subjects = $this->subjects->read_all();
 		$this->render( 'settings', [ 'subjects' => $all_subjects ] );
 	}
-
-
-
 }

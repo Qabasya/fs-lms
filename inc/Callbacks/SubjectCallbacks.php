@@ -5,22 +5,48 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
 use Inc\Shared\Traits\TemplateRenderer;
+
+
+/**
+ * Class SubjectCallbacks
+ *
+ * Обработчики (коллбеки) для страниц управления предметами.
+ *
+ * Отвечает за отображение страницы конкретного предмета с информацией
+ * о нём и ссылками на связанные CPT (задания и статьи).
+ *
+ * @package Inc\Callbacks
+ *
+ * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
+ */
 class SubjectCallbacks extends BaseController {
 	use TemplateRenderer;
 
+	/**
+	 * Репозиторий для работы с предметами.
+	 *
+	 * @var SubjectRepository
+	 */
 	protected SubjectRepository $subjects;
 
+	/**
+	 * Конструктор.
+	 *
+	 * @param SubjectRepository $subjects Репозиторий предметов
+	 */
 	public function __construct( SubjectRepository $subjects ) {
 		parent::__construct();
 		$this->subjects = $subjects;
 	}
 
 	/**
-	 *  ИСПРАВИТЬ
 	 * Коллбек для страницы управления конкретным предметом.
 	 *
 	 * Извлекает ключ предмета из URL-параметра page,
-	 * отображает информацию о предмете и ссылки на связанные CPT.
+	 * отображает информацию о предмете и ссылки на связанные CPT
+	 * (задания и статьи).
+	 *
+	 * Формат URL: /wp-admin/admin.php?page=fs_subject_{key}
 	 *
 	 * @return void
 	 */
