@@ -81,13 +81,13 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 
 		return [
 			[
-				'page_title' => 'Предметы',
+				'page_title' => 'Управление предметами',
 				'menu_title' => 'Предметы',
 				'capability' => BaseController::ADMIN_CAPABILITY,
 				'menu_slug'  => BaseController::SUBJECTS_MENU_SLUG,
 				'callback'   => [ $this->callbacks, 'subjectsRoot' ],
 				'icon_url'   => 'dashicons-category',
-				'position'   => 5
+				'position'   => 3
 			]
 		];
 	}
