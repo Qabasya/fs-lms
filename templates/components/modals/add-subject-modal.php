@@ -3,7 +3,7 @@
         <span class="fs-close">&times;</span>
         <h2>Создать новый предмет</h2>
 
-        <form id="fs-add-subject-form">
+        <form id="fs-add-subject-form" autocomplete="off">
             <div class="fs-form-group">
                 <label for="subj_name">Название (например: Информатика ЕГЭ)</label>
                 <input class="regular-text" type="text" id="subj_name" name="name" placeholder="Введите название..." required>
