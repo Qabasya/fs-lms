@@ -41,27 +41,6 @@ class BaseController {
 	public const ADMIN_CAPABILITY = 'manage_options';
 
 	/**
-	 * Группа настроек для Settings API.
-	 *
-	 * @var string
-	 */
-	public const SETTINGS_GROUP = 'fs_tasks_settings_group';
-
-	/**
-	 * Имя опции для хранения настроек.
-	 *
-	 * @var string
-	 */
-	public const SETTINGS_OPTION = 'fs_tasks_settings';
-
-	/**
-	 * Slug страницы настроек.
-	 *
-	 * @var string
-	 */
-	public const SETTINGS_PAGE = 'fs_tasks';
-
-	/**
 	 * Имя опции для хранения списка предметов.
 	 *
 	 * @var string

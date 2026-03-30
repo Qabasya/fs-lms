@@ -3,10 +3,11 @@
 namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
-use Inc\Controllers\Admin;
+use Inc\Controllers\AdminController;
+use Inc\Controllers\SubjectController;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
-use Inc\Managers\CPTManager;
+
 
 /**
  * Class Init
@@ -37,8 +38,8 @@ final class Init {
 	public static function getServices(): array {
 		return [
 			Enqueue::class,      // Подключение скриптов и стилей
-			Admin::class,        // Административное меню
-			CPTManager::class    // Пользовательские типы записей
+			AdminController::class,        // Административное меню
+			SubjectController::class    // Пользовательские типы записей
 		];
 	}
 

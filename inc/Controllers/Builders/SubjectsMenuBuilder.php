@@ -3,7 +3,7 @@
 namespace Inc\Controllers\Builders;
 
 use Inc\Contracts\MenuBuilderInterface;
-use Inc\Controllers\Subject;
+use Inc\Controllers\SubjectController;
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
 
@@ -35,9 +35,9 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	/**
 	 * Коллбеки для рендеринга страниц админ-панели.
 	 *
-	 * @var Subject
+	 * @var SubjectController
 	 */
-	private Subject $callbacks;
+	private SubjectController $callbacks;
 
 	/**
 	 * Кэш результата read_all() — чтобы не ходить в базу дважды
@@ -51,11 +51,11 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository $subjectRepository Репозиторий предметов
-	 * @param Subject $callbacks Коллбеки административной панели
+	 * @param SubjectController $callbacks Коллбеки административной панели
 	 */
 	public function __construct(
 		SubjectRepository $subjectRepository,
-		Subject $callbacks
+		SubjectController $callbacks
 	) {
 		$this->subjectRepository = $subjectRepository;
 		$this->callbacks         = $callbacks;
@@ -70,7 +70,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 *     menu_title: string,
 	 *     capability: string,
 	 *     menu_slug: string,
-	 *     callback: array{0: Subject, 1: string},
+	 *     callback: array{0: SubjectController, 1: string},
 	 *     icon_url: string,
 	 *     position: int
 	 * }>
@@ -103,7 +103,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
  *     menu_title: string,
  *     capability: string,
  *     menu_slug: string,
- *     callback: array{0: Subject, 1: string}
+ *     callback: array{0: SubjectController, 1: string}
  * }>
  */
 	public function buildSubPages(): array {

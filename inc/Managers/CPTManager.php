@@ -2,114 +2,51 @@
 
 namespace Inc\Managers;
 
-use Inc\Contracts\ServiceInterface;
-use Inc\Repositories\SubjectRepository;
-
 /**
  * Class CPTManager
  *
- * Менеджер регистрации пользовательских типов записей (CPT).
+ * Менеджер регистрации пользовательских типов записей (CPT) для предметов.
  *
- * Реализует низкоуровневую регистрацию CPT через WordPress API.
- * Для каждого предмета из репозитория создаёт два типа записей:
- * - {key}_tasks — для заданий
- * - {key}_articles — для статей
+ * Инкапсулирует вызовы WordPress API для создания CPT.
+ * Принимает массив конфигураций и регистрирует все типы записей
+ * через хук init.
  *
- * CPT скрыты из административного меню (show_in_menu => false),
- * доступ к ним осуществляется через отдельные страницы.
+ * Не содержит бизнес-логики, только техническую реализацию регистрации.
  *
  * @package Inc\Managers
- * @implements ServiceInterface
  */
-class CPTManager implements ServiceInterface {
+class CPTManager {
 	/**
-	 * Репозиторий предметов.
+	 * Регистрирует переданные типы записей в WordPress.
 	 *
-	 * @var SubjectRepository
-	 */
-	protected SubjectRepository $subjects;
-
-	/**
-	 * Конструктор.
+	 * Метод оборачивает вызовы register_post_type() в хук init.
+	 * Если массив post_types пуст, регистрация не выполняется.
 	 *
-	 * @param SubjectRepository $subjects Репозиторий предметов
-	 */
-	public function __construct( SubjectRepository $subjects ) {
-		$this->subjects = $subjects;
-	}
-
-	/**
-	 * Регистрирует хук для создания CPT.
+	 * @param array<string, array> $post_types Массив конфигураций CPT,
+	 *                                         где ключ — slug типа записи,
+	 *                                         значение — аргументы для register_post_type()
 	 *
 	 * @return void
+	 *
+	 * @example
+	 * $manager->register([
+	 *     'math_tasks' => [
+	 *         'labels' => ['name' => 'Задания', 'singular_name' => 'Задание'],
+	 *         'public' => true,
+	 *         'show_in_menu' => false
+	 *     ]
+	 * ]);
 	 */
-	public function register(): void {
-		add_action( 'init', [ $this, 'register_dynamic_cpt' ] );
-	}
-
-	/**
-	 * Динамически создаёт CPT для всех предметов.
-	 *
-	 * Для каждого предмета из репозитория создаёт:
-	 * - CPT для заданий (суффикс _tasks)
-	 * - CPT для статей (суффикс _articles)
-	 *
-	 * Если список предметов пуст, регистрация не выполняется.
-	 *
-	 * @return void
-	 */
-	public function register_dynamic_cpt(): void {
-		$list = $this->subjects->read_all();
-
-		if ( empty( $list ) ) {
+	public function register( array $post_types ): void {
+		if ( empty( $post_types ) ) {
 			return;
 		}
 
-		foreach ( $list as $key => $data ) {
-			$name = $data['name'];
-
-			// Регистрируем тип для ЗАДАНИЙ
-			$this->register_type( $key . '_tasks', "Задания ($name)", "Задание" );
-
-			// Регистрируем тип для СТАТЕЙ
-			$this->register_type( $key . '_articles', "Статьи ($name)", "Статья" );
-		}
+		add_action( 'init', function () use ( $post_types ) {
+			foreach ( $post_types as $slug => $args ) {
+				register_post_type( $slug, $args );
+			}
+		} );
 	}
 
-	/**
-	 * Регистрирует один тип записи.
-	 *
-	 * @param string $post_type Идентификатор типа записи (slug)
-	 * @param string $plural Множественное название (для меню и заголовков)
-	 * @param string $singular Единственное название
-	 *
-	 * @return void
-	 */
-	private function register_type( string $post_type, string $plural, string $singular ): void {
-		register_post_type( $post_type, [
-			'labels'       => [
-				'name'               => $plural,
-				'singular_name'      => $singular,
-				'menu_name'          => $plural,
-				'add_new'            => "Добавить {$singular}",
-				'add_new_item'       => "Добавить новый {$singular}",
-				'edit_item'          => "Редактировать {$singular}",
-				'new_item'           => "Новый {$singular}",
-				'view_item'          => "Просмотреть {$singular}",
-				'search_items'       => "Найти {$singular}",
-				'not_found'          => "{$plural} не найдены",
-				'not_found_in_trash' => "В корзине нет {$plural}",
-				'all_items'          => "Все {$plural}",
-			],
-			'public'       => true,
-			'has_archive'  => true,
-			'show_in_menu' => false, // Скрываем из боковой панели
-			'show_in_rest' => true,  // Включаем поддержку Gutenberg
-			'supports'     => [ 'title', 'editor', 'thumbnail', 'excerpt' ],
-			'rewrite'      => [
-				'slug'       => $post_type,
-				'with_front' => false
-			]
-		] );
-	}
 }

@@ -1,0 +1,201 @@
+<?php
+
+namespace Inc\Controllers;
+
+use Inc\Contracts\ServiceInterface;
+use Inc\Core\BaseController;
+use Inc\Registrars\PluginRegistrar;
+use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\TaxonomyRepository;
+use Inc\Shared\Traits\TemplateRenderer;
+use Inc\Shared\Traits\NumericSorter;
+
+/**
+ * Class SubjectController
+ *
+ * Контроллер для управления предметами и связанными с ними CPT.
+ *
+ * Отвечает за:
+ * - Динамическую регистрацию CPT (задания и статьи) для каждого предмета
+ * - Регистрацию таксономий (фиксированных и пользовательских)
+ * - Отображение страницы управления конкретным предметом
+ *
+ * @package Inc\Controllers
+ * @implements ServiceInterface
+ *
+ * @method void render(string $template, array $data = []) — трейт TemplateRenderer
+ */
+class SubjectController extends BaseController implements ServiceInterface {
+	use TemplateRenderer;
+	use NumericSorter;
+
+	/**
+	 * Репозиторий для работы с предметами.
+	 *
+	 * @var SubjectRepository
+	 */
+	protected SubjectRepository $subjects;
+
+	/**
+	 * Репозиторий для работы с кастомными таксономиями.
+	 *
+	 * @var TaxonomyRepository
+	 */
+	protected TaxonomyRepository $taxonomies;
+
+	/**
+	 * Композитный регистратор плагина.
+	 *
+	 * @var PluginRegistrar
+	 */
+	private PluginRegistrar $registrar;
+
+	/**
+	 * Конструктор.
+	 *
+	 * @param SubjectRepository  $subjects   Репозиторий предметов
+	 * @param PluginRegistrar    $registrar  Композитный регистратор плагина
+	 * @param TaxonomyRepository $taxonomies Репозиторий кастомных таксономий
+	 */
+	public function __construct(
+		SubjectRepository $subjects,
+		PluginRegistrar $registrar,
+		TaxonomyRepository $taxonomies
+	) {
+		parent::__construct();
+		$this->subjects   = $subjects;
+		$this->registrar  = $registrar;
+		$this->taxonomies = $taxonomies;
+	}
+
+	/**
+	 * Регистрирует все компоненты контроллера.
+	 *
+	 * Вызывается один раз при инициализации плагина (в Init.php).
+	 *
+	 * Процесс регистрации:
+	 * 1. Настройка сортировки терминов таксономий по числовому значению
+	 * 2. Для каждого предмета:
+	 *    - Регистрация CPT для заданий и статей
+	 *    - Регистрация фиксированной таксономии "Номера заданий"
+	 *    - Регистрация пользовательских таксономий из репозитория
+	 * 3. Выполнение регистрации через регистраторы
+	 *
+	 * @return void
+	 */
+	public function register(): void {
+		// Настройка сортировки терминов таксономий по числовому значению
+		// Применяется только к таксономиям, содержащим "_task_number"
+		$this->addNumericSort(
+			'get_terms_orderby',
+			't.name',
+			function ( $args ) {
+				$tax = (array) ( $args['taxonomy'] ?? [] );
+
+				return str_contains( reset( $tax ), '_task_number' );
+			}
+		);
+
+		$all_subjects = $this->subjects->read_all();
+
+		if ( empty( $all_subjects ) ) {
+			return;
+		}
+
+		// Регистрируем CPT и таксономии для каждого предмета
+		foreach ( $all_subjects as $key => $data ) {
+			$name        = $data['name'];
+			$task_cpt    = "{$key}_tasks";
+			$article_cpt = "{$key}_articles";
+
+			// 1. Регистрация CPT для заданий и статей
+			$this->registrar->cpt()
+			                ->addStandardType( $task_cpt, "Задания ($name)", "Задание" )
+			                ->addStandardType( $article_cpt, "Статьи ($name)", "Статья" );
+
+			// 2. Регистрация фиксированной таксономии "Номера заданий"
+			$fixed_tax_slug = "{$key}_task_number";
+
+			$this->registrar->taxonomy()
+			                ->addFixedTaxonomy(
+				                $fixed_tax_slug,
+				                [ $task_cpt  ],
+				                "Номера заданий ($name)",
+				                "Номер задания",
+				                [
+					                'capabilities' => [
+						                'manage_terms' => 'manage_categories',
+						                'edit_terms'   => 'manage_categories',
+						                'delete_terms' => 'manage_categories',
+						                'assign_terms' => 'edit_posts',
+					                ],
+					                'hierarchical'      => false,          // Плоская структура
+					                'show_admin_column' => true,           // Показываем колонку в списке постов
+				                ]
+			                );
+
+			// 3. Регистрация пользовательских таксономий из репозитория
+			$custom_taxes = $this->taxonomies->get_by_subject($key);
+			foreach ($custom_taxes as $tax_slug => $tax_data) {
+				$this->registrar->taxonomy()
+				                ->addStandardTaxonomy(
+					                $tax_slug,
+					                [$task_cpt, $article_cpt],             // Привязываем и к заданиям, и к статьям
+					                $tax_data['name'],
+					                $tax_data['name']
+				                );
+			}
+		}
+
+		// Выполняем регистрацию всех накопленных CPT и таксономий
+		$this->registrar->cpt()->register();
+		$this->registrar->taxonomy()->register();
+	}
+
+	/**
+	 * Коллбек для страницы управления конкретным предметом.
+	 *
+	 * Извлекает ключ предмета из URL-параметра page,
+	 * отображает информацию о предмете и ссылки на связанные CPT.
+	 *
+	 * Формат URL: /wp-admin/admin.php?page=fs_subject_{key}
+	 *
+	 * @return void
+	 */
+	public function subjectPage(): void {
+		// Извлекаем ключ предмета из URL
+		$page = $_GET['page'] ?? '';
+		$key  = str_replace( 'fs_subject_', '', $page );
+
+
+		// Получаем данные предмета
+		$all_subjects    = $this->subjects->read_all();
+		$current_subject = $all_subjects[ $key ] ?? null;
+
+		if ( ! $current_subject ) {
+			echo "Предмет не найден";
+
+			return;
+		}
+
+		// Получаем пользовательские таксономии для данного предмета
+		$custom_taxes = $this->taxonomies->get_by_subject( $key );
+
+		// Подготавливаем данные для шаблона
+		// Тут бы DTO
+		$data = [
+			'subject_key'   => $key,
+			'subject'       => $current_subject,
+			'tasks_url'     => admin_url( "edit.php?post_type={$key}_tasks" ),
+			'articles_url'  => admin_url( "edit.php?post_type={$key}_articles" ),
+			'protected_tax' => "{$key}_task_number",
+			'taxonomies'    => array_merge(
+				[ "{$key}_task_number" => [ 'name' => "Номера заданий ({$current_subject['name']})" ] ],
+				$custom_taxes
+			)
+		];
+
+		// Рендерим шаблон с переданными данными ЗАМЕНИТЬ
+		$this->render( 'SubjectTest', $data );
+	}
+}
