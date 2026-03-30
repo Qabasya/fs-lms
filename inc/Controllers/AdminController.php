@@ -3,6 +3,7 @@
 namespace Inc\Controllers;
 
 use Inc\Callbacks\AdminCallbacks;
+use Inc\Callbacks\SubjectSettingsCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\Builders\SubjectsMenuBuilder;
 use Inc\Core\BaseController;
@@ -47,9 +48,9 @@ class AdminController extends BaseController implements ServiceInterface {
 	/**
 	 * Конфигуратор настроек плагина.
 	 *
-	 * @var SettingsConfigurator
+	 * @var SubjectSettingsCallbacks
 	 */
-	private SettingsConfigurator $settingsConfigurator;
+	private SubjectSettingsCallbacks $subjectCallbacks;
 
 	/**
 	 * Конструктор.
@@ -63,14 +64,14 @@ class AdminController extends BaseController implements ServiceInterface {
 		PluginRegistrar $registrar,
 		AdminCallbacks $callbacks,
 		SubjectsMenuBuilder $subjectsMenuBuilder,
-		SettingsConfigurator $settingsConfigurator
+		SubjectSettingsCallbacks $subjectCallbacks
 	) {
 		parent::__construct();
 
-		$this->registrar            = $registrar;
-		$this->callbacks            = $callbacks;
-		$this->subjectsMenuBuilder  = $subjectsMenuBuilder;
-		$this->settingsConfigurator = $settingsConfigurator;
+		$this->registrar           = $registrar;
+		$this->callbacks           = $callbacks;
+		$this->subjectsMenuBuilder = $subjectsMenuBuilder;
+		$this->subjectCallbacks    = $subjectCallbacks;
 	}
 
 	/**
@@ -87,18 +88,13 @@ class AdminController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
-		$this->settingsConfigurator->configure( $this->registrar->settings() );
-
 		$pages    = $this->buildMainPages();
 		$subpages = $this->buildAllSubPages();
 
 		$this->registrar->menu()
 		                ->addPages( $pages )
-		                ->addSubPages( $subpages );
-
-
-		$this->registrar->menu()->register();
-		$this->registrar->settings()->register();
+		                ->addSubPages( $subpages )
+		                ->register();
 
 		$this->removeAutoSubMenuItems();
 	}
@@ -199,7 +195,6 @@ class AdminController extends BaseController implements ServiceInterface {
 			);
 		}, 999 );
 	}
-
 
 
 }
