@@ -7,29 +7,66 @@ use Inc\Core\BaseController;
 use Inc\Registrars\SettingsRegistrar;
 
 /**
- * Конфигурирует WordPress Settings API.
- * Отвечает за регистрацию настроек, секций и полей.
+ * Class SettingsConfigurator
+ *
+ * Конфигуратор для WordPress Settings API.
+ * Отвечает за формирование структуры настроек (опции, секции, поля)
+ * и передачу их в регистратор для регистрации.
+ *
+ * @package Inc\Controllers
  */
 class SettingsConfigurator {
+	/**
+	 * Коллбеки для рендеринга полей настроек.
+	 *
+	 * @var SubjectSettingsCallbacks
+	 */
 	private SubjectSettingsCallbacks $callbacks;
 
-	public function __construct( SubjectSettingsCallbacks $callbacks ) {
+	/**
+	 * Конструктор.
+	 *
+	 * @param SubjectSettingsCallbacks $callbacks Коллбеки для страниц настроек
+	 */
+	public function __construct(SubjectSettingsCallbacks $callbacks)
+	{
 		$this->callbacks = $callbacks;
 	}
 
 	/**
-	 * Применить всю конфигурацию к Settings API.
+	 * Применяет всю конфигурацию к регистратору настроек.
+	 *
+	 * Цепочка вызовов:
+	 * 1. Регистрирует опцию (настройку)
+	 * 2. Регистрирует секции
+	 * 3. Регистрирует поля
+	 *
+	 * @param SettingsRegistrar $registrar Регистратор настроек
+	 *
+	 * @return void
 	 */
-	public function configure( SettingsRegistrar $registrar ): void {
-		$registrar->addSettings( $this->getSettings() );
+	public function configure(SettingsRegistrar $registrar): void
+	{
+		// Регистрация основной опции настройки
+		$registrar->addSettings($this->getSettings());
 
-		// Секции и поля пока не регистрируются!!
+		// Секции и поля пока не регистрируются
 		// Когда будут готовы, раскомментировать:
-		// ->addSections( $this->getSections() )
-		// ->addFields( $this->getFields() );
+		// ->addSections($this->getSections())
+		// ->addFields($this->getFields());
 	}
 
-	private function getSettings(): array {
+	/**
+	 * Возвращает конфигурацию опции настройки.
+	 *
+	 * @return array<int, array{
+	 *     option_group: string,
+	 *     option_name: string,
+	 *     callback: null
+	 * }> Конфигурация опции
+	 */
+	private function getSettings(): array
+	{
 		return [
 			[
 				'option_group' => BaseController::SETTINGS_GROUP,

@@ -14,23 +14,46 @@ use Inc\Managers\TaxonomyManager;
  */
 class SubjectTaxonomyRegistrar {
 	/**
-	 * Низкоуровневый менеджер.
+	 * Низкоуровневый менеджер для выполнения регистрации.
+	 *
 	 * @var TaxonomyManager
 	 */
 	private TaxonomyManager $manager;
 
 	/**
 	 * Очередь таксономий на регистрацию.
+	 *
+	 * Структура:
+	 * [
+	 *     'taxonomy_slug' => [
+	 *         'post_types' => array|string,  // К каким CPT привязать
+	 *         'args'       => array          // Аргументы register_taxonomy()
+	 *     ]
+	 * ]
+	 *
 	 * @var array<string, array{post_types: array|string, args: array}>
 	 */
 	private array $taxonomies = [];
 
+	/**
+	 * Конструктор.
+	 *
+	 * @param TaxonomyManager $manager Менеджер для регистрации таксономий
+	 */
 	public function __construct( TaxonomyManager $manager ) {
 		$this->manager = $manager;
 	}
 
 	/**
 	 * Базовый метод добавления таксономии.
+	 *
+	 * Позволяет добавить таксономию с полным контролем над аргументами.
+	 *
+	 * @param string $slug Слаг таксономии (уникальный идентификатор)
+	 * @param array|string $post_types К какому CPT привязать (массив или строка)
+	 * @param array $args Аргументы для register_taxonomy()
+	 *
+	 * @return self Для цепочки вызовов (Fluent Interface)
 	 */
 	public function addTaxonomy( string $slug, array|string $post_types, array $args ): self {
 		$this->taxonomies[ $slug ] = [
@@ -42,22 +65,36 @@ class SubjectTaxonomyRegistrar {
 	}
 
 	/**
-	 * Хелпер для создания стандартной таксономии (например, Год или Автор).
+	 * Хелпер для создания стандартной иерархической таксономии.
+	 *
+	 * Создаёт таксономию с полным набором меток (как категории).
+	 * Подходит для: Год, Автор, Тема, Раздел и т.п.
+	 *
+	 * @param string $slug Слаг таксономии
+	 * @param array|string $post_types К какому CPT привязать
+	 * @param string $plural Множественное название (например, "Года")
+	 * @param string $singular Единственное название (например, "Год")
+	 *
+	 * @return self Для цепочки вызовов
 	 */
 	public function addStandardTaxonomy( string $slug, array|string $post_types, string $plural, string $singular ): self {
 		return $this->addTaxonomy( $slug, $post_types, [
 			'labels'            => [
-				'name'          => $plural,
-				'singular_name' => $singular,
-				'search_items'  => "Найти $plural",
-				'all_items'     => "Все $plural",
-				'edit_item'     => "Изменить $singular",
-				'update_item'   => "Обновить $singular",
-				'add_new_item'  => "Добавить новый $singular",
-				'new_item_name' => "Название нового $singular",
-				'menu_name'     => $plural,
+				'name'              => $plural,
+				'singular_name'     => $singular,
+				'search_items'      => "Найти $plural",
+				'all_items'         => "Все $plural",
+				'view_item '        => "Просмотр  $singular",
+				'parent_item'       => "Родитель $singular",
+				'parent_item_colon' => "Родитель $singular:",
+				'edit_item'         => "Изменить $singular",
+				'update_item'       => "Обновить $singular",
+				'add_new_item'      => "Добавить новый $singular",
+				'new_item_name'     => "Название нового $singular",
+				'menu_name'         => $plural,
+				'back_to_items'     => '← Назад к $singular',
 			],
-			'hierarchical'      => true, // Как категории
+			'hierarchical'      => true, // Как категории, с родителями
 			'show_ui'           => true,
 			'show_admin_column' => true,
 			'show_in_rest'      => true, // Для поддержки Gutenberg
@@ -66,26 +103,44 @@ class SubjectTaxonomyRegistrar {
 	}
 
 	/**
-	 * Хелпер для "жестких" таксономий (например, Номера заданий).
-	 * Ограничивает права на редактирование терминов для всех, кроме админов.
+	 * Хелпер для "фиксированных" таксономий с ограниченными правами.
+	 *
+	 * Создаёт плоскую (неиерархическую) таксономию, где термины нельзя редактировать
+	 * обычным пользователям. Подходит для: Номера заданий, Типы и т.п.
+	 *
+	 * @param string $slug Слаг таксономии
+	 * @param array $object_types К какому CPT привязать (только массив)
+	 * @param string $name Множественное название
+	 * @param string $singular_name Единственное название
+	 * @param array $extra_args Дополнительные аргументы (переопределяют стандартные)
+	 *
+	 * @return self Для цепочки вызовов
 	 */
-	public function addFixedTaxonomy( string $slug, array|string $post_types, string $plural, string $singular ): self {
-		return $this->addTaxonomy( $slug, $post_types, [
-			'labels'            => [ 'name' => $plural, 'singular_name' => $singular ],
-			'hierarchical'      => true,
+	public function addFixedTaxonomy( string $slug, array $object_types, string $name, string $singular_name, array $extra_args = [] ): self {
+		$args = array_merge( [
+			'hierarchical'      => false,
+			'labels'            => [ 'name' => $name, 'singular_name' => $singular_name ],
 			'show_ui'           => true,
 			'show_admin_column' => true,
-			'show_in_rest'      => true,
-			'capabilities'      => [
-				'assign_terms' => 'edit_posts',
-				'edit_terms'   => 'manage_options', // Только админ
-				'manage_terms' => 'manage_options',
-				'delete_terms' => 'manage_options',
-			],
-		] );
+			'query_var'         => true,
+			'rewrite'           => [ 'slug' => $slug ],
+		], $extra_args ); // Накладываем наши запреты поверх дефолтов
+
+		$this->taxonomies[ $slug ] = [
+			'object_types' => $object_types,
+			'args'         => $args
+		];
+
+		return $this;
 	}
+
 	/**
-	 * Передает накопленные данные менеджеру для регистрации.
+	 * Передаёт накопленные данные менеджеру для регистрации.
+	 *
+	 * Вызывает низкоуровневый TaxonomyManager, который зарегистрирует
+	 * все накопленные таксономии через WordPress API.
+	 *
+	 * @return void
 	 */
 	public function register(): void {
 		$this->manager->register( $this->taxonomies );

@@ -15,13 +15,15 @@
  * ▼
  * SQL-запрос уходит в базу данных
  */
+
 namespace Inc\Shared\Traits;
 
 trait NumericSorter {
 	/**
 	 * Превращает сортировку по полю в числовую для указанного хука.
-	 * * @param string $hook      Хук WordPress (например, 'get_terms_orderby', 'posts_orderby')
-	 * @param string $field     Поле в SQL, по которому идёт сортировка (например, 't.name' или 'post_title')
+	 * * @param string $hook Хук WordPress (например, 'get_terms_orderby', 'posts_orderby')
+	 *
+	 * @param string $field Поле в SQL, по которому идёт сортировка (например, 't.name' или 'post_title')
 	 * @param callable $condition Коллбек-проверка, нужно ли применять сортировку в данный момент
 	 */
 	protected function addNumericSort( string $hook, string $field, callable $condition ): void {

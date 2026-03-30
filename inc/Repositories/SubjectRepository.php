@@ -39,11 +39,11 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 * @return array<string, array{key: string, name: string}> Массив предметов
 	 */
 	public function read_all(): array {
-		$subjects = get_option( $this->option_name, [] );
+		$subjects = get_option( $this->option_name, array() );
 
 		// Если база упала и get_option вернул пустую строку, а не массив
 		if ( ! is_array( $subjects ) ) {
-			return [];
+			return array();
 		}
 
 		return $subjects;
@@ -113,6 +113,7 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 		}
 
 		unset( $subjects[ $key ] );
+
 		return update_option( $this->option_name, $subjects );
 	}
 }

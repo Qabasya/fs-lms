@@ -10,10 +10,41 @@ namespace Inc\Services;
  */
 class TaxonomySeeder {
 
+	/**
+	 * Конструктор.
+	 *
+	 * На данный момент не требует зависимостей, но оставлен для будущего расширения.
+	 *
+	 */
 	public function __construct() {
+		// Пустой конструктор для возможного DI в будущем
 	}
 
+	/**
+	 * Заполняет таксономию терминами с номерами заданий.
+	 *
+	 * Полностью очищает существующие термины в таксономии и создаёт новые
+	 * с номерами от 1 до $count.
+	 *
+	 * @param string $taxonomy Слаг таксономии (например, "math_task_number")
+	 * @param int $count Количество заданий (максимальный номер)
+	 *
+	 * @return void
+	 */
 	public function seedTaskNumbers( string $taxonomy, int $count ): void {
+		// Получаем все существующие термины в таксономии
+		$terms = get_terms( [
+			'taxonomy'   => $taxonomy,
+			'hide_empty' => false,
+			'fields'     => 'ids' // Оптимизация: получаем только ID
+		] );
+
+		// Удаляем все существующие термины (полная очистка перед сидингом)
+		foreach ( $terms as $term_id ) {
+			wp_delete_term( $term_id, $taxonomy );
+		}
+
+		// Создаём термины для каждого задания от 1 до $count
 		for ( $i = 1; $i <= $count; $i ++ ) {
 			$this->ensureTerm( (string) $i, $taxonomy, [
 				'description' => "Задание №{$i}",
@@ -24,19 +55,31 @@ class TaxonomySeeder {
 
 
 	/**
-	 * Вспомогательный метод: проверяет существование термина и создает его, если нужно.
+	 * Вспомогательный метод: проверяет существование термина и создаёт его, если нужно.
+	 *
+	 * Если таксономия ещё не зарегистрирована (например, при создании предмета),
+	 * метод автоматически регистрирует её с минимальными параметрами.
+	 *
+	 * @param string $name Название термина (будет использовано как имя)
+	 * @param string $taxonomy Слаг таксономии
+	 * @param array $args Дополнительные аргументы для wp_insert_term()
+	 *                         (description, slug, parent и т.д.)
+	 *
+	 * @return void
 	 */
 	private function ensureTerm( string $name, string $taxonomy, array $args = [] ): void {
+		// Если таксономия ещё не зарегистрирована, регистрируем её временно
 		if ( ! taxonomy_exists( $taxonomy ) ) {
-			// Если таксономия еще не зарегистрирована (момент создания предмета),
-			// регистрируем её с минимальными параметрами, чтобы WP разрешил вставку.
-			register_taxonomy( $taxonomy, [] );
+			// Регистрируем с минимальными параметрами, чтобы WP разрешил вставку терминов
+			register_taxonomy( $taxonomy, array() );
 		}
-		// Работаем только если таксономия уже зарегистрирована в системе
+
+		// Повторная проверка: если таксономия всё ещё не существует — выходим
 		if ( ! taxonomy_exists( $taxonomy ) ) {
 			return;
 		}
 
+		// Создаём термин, только если он ещё не существует
 		if ( ! term_exists( $name, $taxonomy ) ) {
 			wp_insert_term( $name, $taxonomy, $args );
 		}
