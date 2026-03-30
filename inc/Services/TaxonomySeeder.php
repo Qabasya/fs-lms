@@ -85,9 +85,9 @@ class TaxonomySeeder {
 		}
 	}
 
-
+// ============== Пока не используется! ============== //
 	/**
-	 * Пока не используется!
+
 	 * Позволяет массово добавить любые другие термины (например, Темы или Авторов).
 	 *
 	 * @param string $taxonomy Слаб таксономии
@@ -96,6 +96,27 @@ class TaxonomySeeder {
 	public function seedTerms( string $taxonomy, array $terms ): void {
 		foreach ( $terms as $term_name ) {
 			$this->ensureTerm( $term_name, $taxonomy );
+		}
+	}
+
+	/**
+	 * Полная очистка таксономии от всех терминов.
+	 * ВРЕМЕННЫЙ МЕТОД для дебага
+	 */
+	public function clearTaxonomy( string $taxonomy ): void {
+		// Получаем вообще все термины, даже пустые
+		$terms = get_terms( [
+			'taxonomy'   => $taxonomy,
+			'hide_empty' => false,
+		] );
+
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return;
+		}
+
+		foreach ( $terms as $term ) {
+			// Использование wp_delete_term напрямую в коде обходит AJAX-ошибки интерфейса
+			wp_delete_term( $term->term_id, $taxonomy );
 		}
 	}
 }

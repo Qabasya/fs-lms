@@ -115,6 +115,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 			// 2. Регистрация фиксированной таксономии "Номера заданий"
 			$fixed_tax_slug = "{$key}_task_number";
+
 			$this->registrar->taxonomy()
 			                ->addFixedTaxonomy(
 				                $fixed_tax_slug,
@@ -123,10 +124,10 @@ class SubjectController extends BaseController implements ServiceInterface {
 				                "Номер задания",
 				                [
 					                'capabilities' => [
-						                'manage_terms' => 'do_not_allow', // Запрет на создание терминов
-						                'edit_terms'   => 'do_not_allow', // Запрет на редактирование
-						                'delete_terms' => 'do_not_allow', // Запрет на удаление
-						                'assign_terms' => 'edit_posts',   // Разрешён выбор термина в посте
+						                'manage_terms' => 'manage_categories',
+						                'edit_terms'   => 'manage_categories',
+						                'delete_terms' => 'manage_categories',
+						                'assign_terms' => 'edit_posts',
 					                ],
 					                'hierarchical'      => false,          // Плоская структура
 					                'show_admin_column' => true,           // Показываем колонку в списке постов

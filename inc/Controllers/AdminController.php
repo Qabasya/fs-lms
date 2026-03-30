@@ -18,7 +18,6 @@ use Inc\Registrars\PluginRegistrar;
  * для регистрации административного интерфейса:
  * - Билдеры (SubjectsMenuBuilder) — строят структуру меню
  * - Регистраторы (PluginRegistrar) — регистрируют меню в WordPress
- * - Конфигураторы (SettingsConfigurator) — настраивают Settings API
  *
  * @package Inc\Controllers
  * @implements ServiceInterface
@@ -46,7 +45,7 @@ class AdminController extends BaseController implements ServiceInterface {
 	private SubjectsMenuBuilder $subjectsMenuBuilder;
 
 	/**
-	 * Конфигуратор настроек плагина.
+	 * Коллбеки для страниц настроек предметов
 	 *
 	 * @var SubjectSettingsCallbacks
 	 */
@@ -55,10 +54,10 @@ class AdminController extends BaseController implements ServiceInterface {
 	/**
 	 * Конструктор.
 	 *
-	 * @param PluginRegistrar $registrar Композитный регистратор
-	 * @param AdminCallbacks $callbacks Коллбеки админ-панели
-	 * @param SubjectsMenuBuilder $subjectsMenuBuilder Билдер меню предметов
-	 * @param SettingsConfigurator $settingsConfigurator Конфигуратор настроек
+	 * @param PluginRegistrar          $registrar           Композитный регистратор
+	 * @param AdminCallbacks           $callbacks           Коллбеки админ-панели
+	 * @param SubjectsMenuBuilder      $subjectsMenuBuilder Билдер меню предметов
+	 * @param SubjectSettingsCallbacks $subjectCallbacks    Коллбеки настроек предметов
 	 */
 	public function __construct(
 		PluginRegistrar $registrar,
@@ -75,27 +74,32 @@ class AdminController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Регистрирует все административные меню и настройки плагина.
+	 * Регистрирует все административные меню плагина.
 	 *
 	 * Основной метод, реализующий интерфейс ServiceInterface.
 	 * Выполняет следующие шаги:
-	 * 1. Конфигурирует настройки через SettingsConfigurator
-	 * 2. Собирает главные страницы меню
-	 * 3. Собирает все подстраницы
-	 * 4. Передаёт данные в регистратор
-	 * 5. Удаляет автоматически созданный дублирующийся пункт меню
+	 * 1. Собирает главные страницы меню
+	 * 2. Собирает все подстраницы
+	 * 3. Передаёт данные в регистратор и выполняет регистрацию
+	 * 4. Удаляет автоматически созданные дублирующиеся пункты меню
 	 *
 	 * @return void
 	 */
-	public function register(): void {
-		$pages    = $this->buildMainPages();
+	public function register(): void
+	{
+		// Сбор конфигураций главных страниц
+		$pages = $this->buildMainPages();
+
+		// Сбор конфигураций всех подстраниц
 		$subpages = $this->buildAllSubPages();
 
+		// Передаём данные в регистратор и выполняем регистрацию
 		$this->registrar->menu()
-		                ->addPages( $pages )
-		                ->addSubPages( $subpages )
+		                ->addPages($pages)
+		                ->addSubPages($subpages)
 		                ->register();
 
+		// Удаляем дублирующиеся пункты меню, созданные WordPress автоматически
 		$this->removeAutoSubMenuItems();
 	}
 
@@ -110,7 +114,7 @@ class AdminController extends BaseController implements ServiceInterface {
 	 *     menu_title: string,
 	 *     capability: string,
 	 *     menu_slug: string,
-	 *     callback: array{0: SubjectSettingsCallbacks, 1: string},
+	 *     callback: array{0: AdminCallbacks, 1: string},
 	 *     icon_url: string,
 	 *     position: int
 	 * }> Конфигурация главных страниц
@@ -148,6 +152,21 @@ class AdminController extends BaseController implements ServiceInterface {
 	 */
 
 // ====================== ПУНКТЫ ГЛАВНОГО МЕНЮ FS LMS ======================
+	/**
+	 * Собирает все подстраницы из разных источников.
+	 *
+	 * Формирует базовые подстраницы главного меню и объединяет их
+	 * с подстраницами предметов из билдера.
+	 *
+	 * @return array<int, array{
+	 *     parent_slug: string,
+	 *     page_title: string,
+	 *     menu_title: string,
+	 *     capability: string,
+	 *     menu_slug: string,
+	 *     callback: array{0: AdminCallbacks, 1: string}
+	 * }> Конфигурация всех подстраниц
+	 */
 	private function buildAllSubPages(): array {
 		$subpages   = [];
 		$subpages[] = [

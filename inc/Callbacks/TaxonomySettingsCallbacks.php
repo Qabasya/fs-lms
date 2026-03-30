@@ -81,7 +81,10 @@ class TaxonomySettingsCallbacks extends BaseController {
 
 		// --- ЗАЩИТА СИСТЕМНОЙ ТАКСОНОМИИ ---
 		if ( $tax_slug === "{$subject_key}_task_number" ) {
-			wp_send_json_error( 'Эту таксономию нельзя изменять или удалять!' );
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( 'У вас нет прав для изменения системной таксономии!' );
+			}
+			// Если мы здесь, значит это админ — позволяем коду идти дальше к switch
 		}
 
 		$success = false;
