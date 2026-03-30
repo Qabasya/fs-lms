@@ -48,12 +48,13 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 
 		return $subjects;
 	}
+
 	/**
 	 * Получить предмет по ключу.
-
 	 */
 	public function get_by_key( string $key ): ?array {
 		$subjects = $this->read_all();
+
 		return $subjects[ $key ] ?? null;
 	}
 
@@ -70,10 +71,9 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 
 		$clean_data = $this->sanitize( $data );
 
-		$subjects[ $data['key'] ] = [
-			'key'         => $clean_data['key'],
-			'name'        => $clean_data['name'],
-			'tasks_count' => $clean_data['tasks_count']
+		$subjects[ $clean_data['key'] ] = [
+			'key'  => $clean_data['key'],
+			'name' => $clean_data['name']
 		];
 
 		return update_option( $this->option_name, $subjects );
@@ -91,22 +91,9 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 * @return array{key: string, name: string} Очищенные данные
 	 */
 	protected function sanitize( array $data ): array {
-		// ВРЕМЕННАЯ валидация по кол-ву заданий, потом перенести
-		// Проверяем, что в tasks_count есть значение, если нет (должно быть) - ставим 1
-		$tasks_count = isset( $data['tasks_count'] ) ? (int) $data['tasks_count'] : self::MIN_TASKS_COUNT;
-
-		// Валидация по константам (СДЕЛАТЬ НОРМАЛЬНО)
-		if ( $tasks_count < self::MIN_TASKS_COUNT ) {
-			$tasks_count = self::MIN_TASKS_COUNT;
-		}
-		if ( $tasks_count > self::MAX_TASKS_COUNT ) {
-			$tasks_count = self::MAX_TASKS_COUNT;
-		}
-
 		return [
-			'key'         => isset( $data['key'] ) ? sanitize_title( $data['key'] ) : '',
-			'name'        => isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '',
-			'tasks_count' => $tasks_count,
+			'key'  => isset( $data['key'] ) ? sanitize_title( $data['key'] ) : '',
+			'name' => isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '',
 		];
 	}
 
@@ -118,7 +105,7 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 * @return bool Успешность удаления (false, если предмет не найден)
 	 */
 	public function delete( array $data ): bool {
-		$key      = $data['key'];
+		$key      = $data['key'] ?? '';
 		$subjects = $this->read_all();
 
 		if ( ! isset( $subjects[ $key ] ) ) {
@@ -126,7 +113,6 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 		}
 
 		unset( $subjects[ $key ] );
-
 		return update_option( $this->option_name, $subjects );
 	}
 }

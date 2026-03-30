@@ -10,11 +10,14 @@ namespace Inc\Services;
  */
 class TaxonomySeeder {
 
+	public function __construct() {
+	}
+
 	public function seedTaskNumbers( string $taxonomy, int $count ): void {
-		for ( $i = 1; $i <= $count; $i++ ) {
-			$this->ensureTerm( (string)$i, $taxonomy, [
+		for ( $i = 1; $i <= $count; $i ++ ) {
+			$this->ensureTerm( (string) $i, $taxonomy, [
 				'description' => "Задание №{$i}",
-				'slug'        => (string)$i
+				'slug'        => (string) $i
 			] );
 		}
 	}
@@ -24,6 +27,11 @@ class TaxonomySeeder {
 	 * Вспомогательный метод: проверяет существование термина и создает его, если нужно.
 	 */
 	private function ensureTerm( string $name, string $taxonomy, array $args = [] ): void {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			// Если таксономия еще не зарегистрирована (момент создания предмета),
+			// регистрируем её с минимальными параметрами, чтобы WP разрешил вставку.
+			register_taxonomy( $taxonomy, [] );
+		}
 		// Работаем только если таксономия уже зарегистрирована в системе
 		if ( ! taxonomy_exists( $taxonomy ) ) {
 			return;
@@ -33,7 +41,6 @@ class TaxonomySeeder {
 			wp_insert_term( $name, $taxonomy, $args );
 		}
 	}
-
 
 
 	/**

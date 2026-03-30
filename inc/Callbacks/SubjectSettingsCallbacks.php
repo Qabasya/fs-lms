@@ -4,6 +4,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
+use Inc\Services\TaxonomySeeder;
 use Inc\Shared\Traits\TemplateRenderer;
 
 
@@ -34,20 +35,30 @@ class SubjectSettingsCallbacks extends BaseController {
 	/**
 	 * Репозиторий для работы с предметами.
 	 *
-	 * @var
+	 * @var SubjectRepository
 	 */
 	protected SubjectRepository $subjects;
 
 	/**
+	 * Сервис для заполнения таксономий (сидинг номеров заданий).
+	 *
+	 * @var TaxonomySeeder
+	 */
+	protected TaxonomySeeder $seeder;
+
+	/**
 	 * Конструктор.
 	 *
-	 * Инициализирует репозиторий предметов и регистрирует AJAX-обработчики.
+	 * Инициализирует репозиторий предметов, сервис сидинга
+	 * и регистрирует AJAX-обработчики.
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
+	 * @param TaxonomySeeder $seeder Сервис заполнения таксономий
 	 */
-	public function __construct(SubjectRepository $subjects) {
+	public function __construct( SubjectRepository $subjects, TaxonomySeeder $seeder ) {
 		parent::__construct();
 		$this->subjects = $subjects;
+		$this->seeder   = $seeder;
 
 		// Регистрация AJAX
 		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
@@ -59,87 +70,87 @@ class SubjectSettingsCallbacks extends BaseController {
 
 	/**
 	 * Общая функция для выполнения операций с предметом (создание, обновление, удаление)
+	 * /**
+	 *  Общая функция для выполнения операций с предметом.
 	 *
-	 * Это главный метод, который задаёт алгоритм действий:
-	 * 1. Считать данные get_validated_subject_data()
-	 * 2. Выполнить проверки
-	 * 3. Выбрать действие (update/delete)
-	 * 4. Сбросить или нет правила перезаписи flush_rewrite_rules()
-	 * 5. Вывести сообщение пользователю
+	 *  Реализует единый алгоритм для всех CRUD-операций:
+	 *  1. Проверка nonce и прав доступа
+	 *  2. Получение и валидация данных
+	 *  3. Проверка существования предмета (для update/delete)
+	 *  4. Выполнение операции через репозиторий
+	 *  5. Сидинг таксономий (только для store)
+	 *  6. Сброс правил перезаписи (для store/delete)
+	 *  7. Отправка JSON-ответа
 	 *
-	 * Менять алгоритм ЗДЕСЬ
+	 * @param string $operation Тип операции: 'store', 'update', 'delete'
+	 *
+	 * @return void Отправляет JSON-ответ через wp_send_json_*()
 	 */
 	protected function executeOperation( string $operation ): void {
-		$data = $this->get_validated_subject_data();
+		check_ajax_referer( 'fs_subject_nonce', 'security' );
 
-		// Дополнительная проверка только при создании
-		if ( $operation === 'store' && empty( $data['name'] ) ) {
+		if ( ! current_user_can( self::ADMIN_CAPABILITY ) ) {
+			wp_send_json_error( 'Нет прав' );
+		}
+
+		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
+		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
+		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : 0;
+
+		if ( empty( $key ) ) {
+			wp_send_json_error( 'ID обязателен!' );
+		}
+
+		if ( in_array( $operation, [ 'store', 'update' ], true ) && empty( $name ) ) {
 			wp_send_json_error( 'Название обязательно для заполнения!' );
+
 			return;
 		}
 
-		// Проверяем, существует ли предмет (для редактирования и удаления)
-		if ( $operation === 'update' || $operation === 'delete' ) {
-			if ( ! $this->subjects->get_by_key( $data['key'] ) ) {
+		// Проверка существования для редактирования и удаления
+		if ( in_array( $operation, [ 'update', 'delete' ], true ) ) {
+			if ( ! $this->subjects->get_by_key( $key ) ) {
 				wp_send_json_error( 'Предмет не найден в базе!' );
+
 				return;
 			}
 		}
-		// Выполняем нужное действие
-		$success = $this->performRepositoryAction( $operation, $data );
+
+		$success = false;
+		$message = '';
+
+		switch ( $operation ) {
+			case 'store':
+				$success = $this->subjects->update( [ 'key' => $key, 'name' => $name ] );
+				if ( $success ) {
+					// Разовый сидинг номеров заданий
+					$this->seeder->seedTaskNumbers( "{$key}_task_number", $count );
+					flush_rewrite_rules();
+				}
+				$message = "Предмет «{$name}» успешно создан!";
+				break;
+
+			case 'update':
+				$success = $this->subjects->update( [ 'key' => $key, 'name' => $name ] );
+				$message = "Предмет «{$name}» обновлен";
+				break;
+
+			case 'delete':
+				$success = $this->subjects->delete( [ 'key' => $key ] );
+				if ( $success ) {
+					flush_rewrite_rules();
+				}
+				$message = "Предмет удалён";
+				break;
+		}
 
 		if ( $success ) {
-			// Сбрасываем правила перезаписи при создании и удалении
-			if ( $operation === 'store' || $operation === 'delete' ) {
-				flush_rewrite_rules();
-			}
-
-			$message = $this->getSuccessMessage( $operation, $data['name'] );
 			wp_send_json_success( $message );
 		} else {
-			wp_send_json_error( "Не удалось выполнить операцию: {$operation}" );
+			wp_send_json_error( "Ошибка при выполнении операции: {$operation}" );
 		}
 	}
 
-
-	// ===== Действия в репозитории ===== //
-
-	/**
-	 * Выполняет действие в репозитории в зависимости от операции
-	 */
-	protected function performRepositoryAction( string $operation, array $data ): bool {
-		if ( $operation === 'store' || $operation === 'update' ) {
-			return $this->subjects->update( $data );
-		}
-
-		if ( $operation === 'delete' ) {
-			return $this->subjects->delete( $data );
-		}
-
-		return false;
-	}
-
-	// ===== Сообщения ===== //
-
-	/**
-	 * Возвращает сообщение об успешном выполнении
-	 * Выбор сообщения исходя из действия
-	 */
-	protected function getSuccessMessage( string $operation, string $name ): string {
-		if ( $operation === 'store' ) {
-			return sprintf( 'Предмет «%s» создан!', $name );
-		}
-
-		if ( $operation === 'update' ) {
-			return sprintf( 'Предмет «%s» обновлен!', $name );
-		}
-
-		if ( $operation === 'delete' ) {
-			return sprintf( 'Предмет «%s» удалён.', $name );
-		}
-
-		return 'Операция выполнена успешно';
-	}
 
 // ====================== ТОНКИЕ AJAX-ОБРАБОТЧИКИ ======================
 // Фасады для комплексных операций
@@ -166,33 +177,4 @@ class SubjectSettingsCallbacks extends BaseController {
 	}
 
 	// Потом здесь добавляется exportSubject()//
-
-// ====================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ======================
-
-	/**
-	 * Получение и валидация данных из AJAX-запроса
-	 */
-	protected function get_validated_subject_data(): array {
-		check_ajax_referer( 'fs_subject_nonce', 'security' );
-
-		if ( ! current_user_can( self::ADMIN_CAPABILITY ) ) {
-			wp_send_json_error( 'Нет прав' );
-		}
-
-		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
-		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
-		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : self::MIN_TASKS_COUNT;
-
-		if ( empty( $key ) ) {
-			wp_send_json_error( 'ID обязателен!' );
-		}
-
-		return [
-			'name'        => $name,
-			'key'         => $key,
-			'tasks_count' => $count,
-		];
-	}
-
-
 }

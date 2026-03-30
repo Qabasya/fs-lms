@@ -9,7 +9,6 @@ use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 use Inc\Shared\Traits\NumericSorter;
-use Inc\Services\TaxonomySeeder;
 
 /**
  * Class SubjectController
@@ -33,18 +32,15 @@ class SubjectController extends BaseController implements ServiceInterface {
 	protected SubjectRepository $subjects;
 	protected TaxonomyRepository $taxonomies; // Свойство называется так
 	private PluginRegistrar $registrar;
-	private TaxonomySeeder $seeder;
 
 	public function __construct(
 		SubjectRepository $subjects,
 		PluginRegistrar $registrar,
-		TaxonomySeeder $seeder,
 		TaxonomyRepository $taxonomies // Имя аргумента для ясности
 	) {
 		parent::__construct();
 		$this->subjects     = $subjects;
 		$this->registrar    = $registrar;
-		$this->seeder       = $seeder;
 		$this->taxonomies = $taxonomies; // Исправлено: записываем в правильное свойство
 	}
 
@@ -89,7 +85,6 @@ class SubjectController extends BaseController implements ServiceInterface {
 			$this->registrar->taxonomy()
 			                ->addFixedTaxonomy( $fixed_tax_slug, [ $task_cpt ], "Номера заданий ($name)", "Номер задания" );
 
-			// Используем $this->taxonomies, которое мы корректно заполнили в конструкторе
 			$custom_taxes = $this->taxonomies->get_by_subject( $key );
 			foreach ( $custom_taxes as $tax_slug => $tax_data ) {
 				$this->registrar->taxonomy()
@@ -98,11 +93,6 @@ class SubjectController extends BaseController implements ServiceInterface {
 					                $article_cpt
 				                ], $tax_data['name'], $tax_data['name'] );
 			}
-
-			add_action( 'init', function () use ( $fixed_tax_slug, $data ) {
-				$count = $data['tasks_count'] ?? 27;
-				$this->seeder->seedTaskNumbers( $fixed_tax_slug, $count );
-			}, 20 );
 		}
 
 		$this->registrar->cpt()->register();
