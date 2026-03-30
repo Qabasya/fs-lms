@@ -1,12 +1,7 @@
 /**
- * Gulp configuration file for Future Step LMS plugin asset processing
- *
- * Handles compilation, minification, and optimization of SCSS and JavaScript assets
- * for both admin and frontend sections of the Future Step LMS WordPress plugin.
- *
- * @fileOverview Gulp build system configuration
- * @version 0.0.1
- * @license MIT
+ * Gulp configuration for Future Step LMS
+ * * Сохранена оригинальная структура путей и имен файлов.
+ * Добавлена поддержка ES6 Модулей (import/export) через Webpack.
  */
 
 const gulp = require('gulp');
@@ -15,19 +10,18 @@ const postcss = require('gulp-postcss');
 const autoprefixer = require('autoprefixer');
 const cssnano = require('cssnano');
 const sourcemaps = require('gulp-sourcemaps');
-const uglify = require('gulp-uglify');
-const concat = require('gulp-concat');
 const notify = require('gulp-notify');
 const plumber = require('gulp-plumber');
 const rename = require('gulp-rename');
 
+// Модули для работы с JS (Webpack заменяет concat и uglify для лучшей сборки)
+const webpack = require('webpack-stream');
+const named = require('vinyl-named');
+
 /**
- * File paths configuration for separated admin and frontend assets
- *
- * @namespace Paths
+ * ПУТИ
  */
 const paths = {
-    // Source directories
     scss: {
         admin: './src/scss/admin/admin.scss',
         frontend: './src/scss/frontend/frontend.scss',
@@ -35,13 +29,12 @@ const paths = {
         watch: './src/scss/**/*.scss'
     },
     js: {
-        admin: './src/js/admin/**/*.js',
-        frontend: './src/js/frontend/**/*.js',
-        common: './src/js/common/**/*.js',
+        // Точки входа (основные файлы, которые импортируют модули)
+        admin: './src/js/admin/admin.js',
+        frontend: './src/js/frontend/frontend.js',
+        // Следим за всеми файлами, включая подпапки
         watch: './src/js/**/*.js'
     },
-
-    // Output directories
     output: {
         css: './assets/css/',
         js: './assets/js/',
@@ -50,13 +43,42 @@ const paths = {
 };
 
 /**
- * Browser support configuration for Autoprefixer
+ * Настройки Webpack
+ * Собирает модули в один файл, минифицирует и делает код понятным старым браузерам
  */
-const browserSupport = ['last 2 versions', '> 1%', 'ie >= 11'];
+const webpackConfig = {
+    mode: 'production',
+    module: {
+        rules: [
+            {
+                test: /\.js$/,
+                // Добавляем эту строку, чтобы Webpack не падал на импортах до обработки Babel
+                type: 'javascript/auto',
+                exclude: /node_modules/,
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        presets: [
+                            ['@babel/preset-env', {
+                                modules: false
+                            }]
+                        ],
+                        sourceType: 'module'
+                    }
+                }
+            }
+        ]
+    },
+    resolve: {
+        extensions: ['.js', '.json'],
+        modules: ['node_modules', 'src/js/admin']
+    },
+    output: {
+        filename: '[name].min.js',
+    },
+    devtool: 'source-map'
+};
 
-/**
- * Error handler function for Gulp pipelines
- */
 const errorHandler = function (err) {
     notify.onError({
         title: "Gulp error in " + err.plugin,
@@ -66,129 +88,59 @@ const errorHandler = function (err) {
 };
 
 /**
- * Processes Admin SCSS files
- *
- * Compiles admin-specific SCSS with WordPress admin styling considerations
+ * ОБРАБОТКА CSS (Admin & Frontend)
  */
-function adminStyles() {
-    return gulp
-        .src(paths.scss.admin)
-        .pipe(plumber({errorHandler: errorHandler}))
+function stylesAdmin() {
+    return gulp.src(paths.scss.admin)
+        .pipe(plumber({errorHandler}))
         .pipe(sourcemaps.init())
-        .pipe(sass({
-            outputStyle: 'expanded',
-            includePaths: [paths.scss.common]
-        }).on('error', sass.logError))
-        .pipe(postcss([
-            autoprefixer({overrideBrowserslist: browserSupport}),
-            cssnano({
-                preset: ['default', {
-                    discardComments: {removeAll: true}
-                }]
-            })
-        ]))
-        .pipe(rename('admin.min.css'))
+        .pipe(sass({ includePaths: [paths.scss.common] }))
+        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(rename('admin.min.css')) // Имя файла без изменений
         .pipe(sourcemaps.write(paths.output.maps))
-        .pipe(gulp.dest(paths.output.css))
-        .pipe(notify({message: 'Admin CSS processed!', onLast: true}));
+        .pipe(gulp.dest(paths.output.css));
+}
+
+function stylesFrontend() {
+    return gulp.src(paths.scss.frontend)
+        .pipe(plumber({errorHandler}))
+        .pipe(sourcemaps.init())
+        .pipe(sass({ includePaths: [paths.scss.common] }))
+        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(rename('frontend.min.css')) // Имя файла без изменений
+        .pipe(sourcemaps.write(paths.output.maps))
+        .pipe(gulp.dest(paths.output.css));
 }
 
 /**
- * Processes Frontend SCSS files
- *
- * Compiles frontend-specific SCSS with responsive design considerations
+ * ОБРАБОТКА JS (Admin & Frontend)
  */
-function frontendStyles() {
-    return gulp
-        .src(paths.scss.frontend)
-        .pipe(plumber({errorHandler: errorHandler}))
-        .pipe(sourcemaps.init())
-        .pipe(sass({
-            outputStyle: 'expanded',
-            includePaths: [paths.scss.common]
-        }).on('error', sass.logError))
-        .pipe(postcss([
-            autoprefixer({overrideBrowserslist: browserSupport}),
-            cssnano({
-                preset: ['default', {
-                    discardComments: {removeAll: true}
-                }]
-            })
-        ]))
-        .pipe(rename('frontend.min.css'))
-        .pipe(sourcemaps.write(paths.output.maps))
-        .pipe(gulp.dest(paths.output.css))
-        .pipe(notify({message: 'Frontend CSS processed!', onLast: true}));
-}
-
-/**
- * Processes Admin JavaScript files
- *
- * Handles admin-specific JavaScript with WordPress admin dependencies
- */
-function adminScripts() {
-    return gulp
-        .src([
-            paths.js.common,
-            paths.js.admin
-        ])
-        .pipe(plumber({errorHandler: errorHandler}))
-        .pipe(sourcemaps.init())
-        .pipe(concat('admin.min.js'))
-        .pipe(uglify())
+function scripts() {
+    // Берем оба входных файла сразу
+    return gulp.src([paths.js.admin, paths.js.frontend])
+        .pipe(plumber({errorHandler}))
+        .pipe(named()) // Важно: сохраняет имена 'admin' и 'frontend' для Webpack
+        .pipe(webpack(webpackConfig))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.js))
-        .pipe(notify({message: 'Admin JS processed!', onLast: true}));
+        .pipe(notify({message: 'JS Modules processed!', onLast: true}));
 }
 
 /**
- * Processes Frontend JavaScript files
- *
- * Handles frontend-specific JavaScript with responsive behavior
- */
-function frontendScripts() {
-    return gulp
-        .src([
-            paths.js.common,
-            paths.js.frontend
-        ])
-        .pipe(plumber({errorHandler: errorHandler}))
-        .pipe(sourcemaps.init())
-        .pipe(concat('frontend.min.js'))
-        .pipe(uglify())
-        .pipe(sourcemaps.write(paths.output.maps))
-        .pipe(gulp.dest(paths.output.js))
-        .pipe(notify({message: 'Frontend JS processed!', onLast: true}));
-}
-
-/**
- * Watches all source files for changes
+ * WATCHER
  */
 function watchFiles() {
-    // Watch SCSS files
-    gulp.watch(paths.scss.watch, gulp.parallel(adminStyles, frontendStyles));
-
-    // Watch JS files
-    gulp.watch(paths.js.watch, gulp.parallel(adminScripts, frontendScripts));
-
-    console.log('Gulp is watching for file changes in admin and frontend...');
+    gulp.watch(paths.scss.watch, gulp.parallel(stylesAdmin, stylesFrontend));
+    gulp.watch(paths.js.watch, scripts);
+    console.log('Gulp is watching and building modules...');
 }
 
-/**
- * Builds all assets without watching
- */
-const build = gulp.parallel(adminStyles, frontendStyles, adminScripts, frontendScripts);
+// Экспорт задач
+const build = gulp.parallel(stylesAdmin, stylesFrontend, scripts);
 
-/**
- * Default task
- */
-const defaultTask = gulp.series(build, watchFiles);
-
-// Export tasks
-exports['styles:admin'] = adminStyles;
-exports['styles:frontend'] = frontendStyles;
-exports['scripts:admin'] = adminScripts;
-exports['scripts:frontend'] = frontendScripts;
-exports.watch = watchFiles;
+exports['styles:admin'] = stylesAdmin;
+exports['styles:frontend'] = stylesFrontend;
+exports['scripts'] = scripts;
 exports.build = build;
-exports.default = defaultTask;
+exports.watch = watchFiles;
+exports.default = gulp.series(build, watchFiles);
