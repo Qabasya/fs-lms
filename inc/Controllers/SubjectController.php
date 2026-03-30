@@ -6,8 +6,10 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Registrars\PluginRegistrar;
 use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\TaxonomyRepository;
 use Inc\Shared\Traits\TemplateRenderer;
-
+use Inc\Shared\Traits\NumericSorter;
+use Inc\Services\TaxonomySeeder;
 
 /**
  * Class SubjectController
@@ -22,36 +24,28 @@ use Inc\Shared\Traits\TemplateRenderer;
  * @package Inc\Controllers
  * @implements ServiceInterface
  *
- * @method void render(string $template, array $data = []) — трейт TemplateRenderer
+ * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
  */
-
-class SubjectController extends BaseController implements ServiceInterface{
+class SubjectController extends BaseController implements ServiceInterface {
 	use TemplateRenderer;
+	use NumericSorter;
 
-	/**
-	 * Репозиторий для работы с предметами.
-	 *
-	 * @var SubjectRepository
-	 */
 	protected SubjectRepository $subjects;
-
-	/**
-	 * Композитный регистратор плагина.
-	 *
-	 * @var PluginRegistrar
-	 */
+	protected TaxonomyRepository $taxonomies; // Свойство называется так
 	private PluginRegistrar $registrar;
+	private TaxonomySeeder $seeder;
 
-	/**
-	 * Конструктор.
-	 *
-	 * @param SubjectRepository $subjects  Репозиторий предметов
-	 * @param PluginRegistrar   $registrar Композитный регистратор плагина
-	 */
-	public function __construct( SubjectRepository $subjects, PluginRegistrar $registrar ) {
+	public function __construct(
+		SubjectRepository $subjects,
+		PluginRegistrar $registrar,
+		TaxonomySeeder $seeder,
+		TaxonomyRepository $taxonomies // Имя аргумента для ясности
+	) {
 		parent::__construct();
-		$this->subjects  = $subjects;
-		$this->registrar = $registrar;
+		$this->subjects     = $subjects;
+		$this->registrar    = $registrar;
+		$this->seeder       = $seeder;
+		$this->taxonomies = $taxonomies; // Исправлено: записываем в правильное свойство
 	}
 
 	/**
@@ -65,6 +59,17 @@ class SubjectController extends BaseController implements ServiceInterface{
 	 * @return void
 	 */
 	public function register(): void {
+		// Сортировка номеров заданий. Ключом сортировки является НАЗВАНИЕ (name)
+		$this->addNumericSort(
+			'get_terms_orderby',
+			't.name',
+			function ( $args ) {
+				$tax = (array) ( $args['taxonomy'] ?? [] );
+
+				return str_contains( reset( $tax ), '_task_number' );
+			}
+		);
+
 		$all_subjects = $this->subjects->read_all();
 
 		if ( empty( $all_subjects ) ) {
@@ -72,27 +77,38 @@ class SubjectController extends BaseController implements ServiceInterface{
 		}
 
 		foreach ( $all_subjects as $key => $data ) {
-			$name = $data['name'];
+			$name        = $data['name'];
+			$task_cpt    = "{$key}_tasks";
+			$article_cpt = "{$key}_articles";
+
 			$this->registrar->cpt()
-			                ->addStandardType( "{$key}_tasks", "Задания ($name)", "Задание" )
-			                ->addStandardType( "{$key}_articles", "Статьи ($name)", "Статья" );
+			                ->addStandardType( $task_cpt, "Задания ($name)", "Задание" )
+			                ->addStandardType( $article_cpt, "Статьи ($name)", "Статья" );
+
+			$fixed_tax_slug = "{$key}_task_number";
+			$this->registrar->taxonomy()
+			                ->addFixedTaxonomy( $fixed_tax_slug, [ $task_cpt ], "Номера заданий ($name)", "Номер задания" );
+
+			// Используем $this->taxonomies, которое мы корректно заполнили в конструкторе
+			$custom_taxes = $this->taxonomies->get_by_subject( $key );
+			foreach ( $custom_taxes as $tax_slug => $tax_data ) {
+				$this->registrar->taxonomy()
+				                ->addStandardTaxonomy( $tax_slug, [
+					                $task_cpt,
+					                $article_cpt
+				                ], $tax_data['name'], $tax_data['name'] );
+			}
+
+			add_action( 'init', function () use ( $fixed_tax_slug, $data ) {
+				$count = $data['tasks_count'] ?? 27;
+				$this->seeder->seedTaskNumbers( $fixed_tax_slug, $count );
+			}, 20 );
 		}
 
 		$this->registrar->cpt()->register();
+		$this->registrar->taxonomy()->register();
 	}
 
-
-	/**
-	 * Коллбек для страницы управления конкретным предметом.
-	 *
-	 * Извлекает ключ предмета из URL-параметра page,
-	 * отображает информацию о предмете и ссылки на связанные CPT
-	 * (задания и статьи).
-	 *
-	 * Формат URL: /wp-admin/admin.php?page=fs_subject_{key}
-	 *
-	 * @return void
-	 */
 	public function subjectPage(): void {
 		$page = $_GET['page'] ?? '';
 		$key  = str_replace( 'fs_subject_', '', $page );
@@ -102,20 +118,24 @@ class SubjectController extends BaseController implements ServiceInterface{
 
 		if ( ! $current_subject ) {
 			echo "Предмет не найден";
+
 			return;
 		}
 
-		echo '<div class="wrap">';
-		echo '<h1>Управление предметом: ' . esc_html( $current_subject['name'] ) . '</h1>';
-		echo '<div class="card" style="max-width: 100%; margin-top: 20px; padding: 20px;">';
-		echo '<h3>Контент предмета</h3>';
+		$custom_taxes = $this->taxonomies->get_by_subject( $key );
 
-		$tasks_link    = admin_url( "edit.php?post_type={$key}_tasks" );
-		$articles_link = admin_url( "edit.php?post_type={$key}_articles" );
+		$data = [
+			'subject_key'   => $key,
+			'subject'       => $current_subject,
+			'tasks_url'     => admin_url( "edit.php?post_type={$key}_tasks" ),
+			'articles_url'  => admin_url( "edit.php?post_type={$key}_articles" ),
+			'protected_tax' => "{$key}_task_number",
+			'taxonomies'    => array_merge(
+				[ "{$key}_task_number" => [ 'name' => "Номера заданий ({$current_subject['name']})" ] ],
+				$custom_taxes
+			)
+		];
 
-		echo "<a href='" . esc_url( $tasks_link ) . "' class='button button-primary'>Перейти к Заданиям</a> ";
-		echo "<a href='" . esc_url( $articles_link ) . "' class='button button-secondary'>Перейти к Статьям</a>";
-
-		echo '</div></div>';
+		$this->render( 'SubjectTest', $data );
 	}
 }

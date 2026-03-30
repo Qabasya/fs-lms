@@ -2,7 +2,7 @@
 
 namespace Inc\Registrars;
 
-use Inc\Managers\SubjectCPTManager;
+use Inc\Managers\CPTManager;
 
 /**
  * Class SubjectCPTRegistrar
@@ -16,7 +16,7 @@ use Inc\Managers\SubjectCPTManager;
  * После накопления данных делегирует регистрацию низкоуровневому менеджеру.
  *
  * Паттерны:
- * - Facade — упрощает интерфейс работы с SubjectCPTManager
+ * - Facade — упрощает интерфейс работы с CPTManager
  * - Fluent Interface — позволяет объединять вызовы в цепочку
  * - Builder — накапливает данные перед регистрацией
  *
@@ -26,9 +26,9 @@ class SubjectCPTRegistrar {
 	/**
 	 * Низкоуровневый менеджер для выполнения регистрации.
 	 *
-	 * @var SubjectCPTManager
+	 * @var CPTManager
 	 */
-	private SubjectCPTManager $manager;
+	private CPTManager $manager;
 
 	/**
 	 * Массив конфигураций CPT, где ключ — slug типа записи,
@@ -41,9 +41,9 @@ class SubjectCPTRegistrar {
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectCPTManager $manager Менеджер для регистрации CPT
+	 * @param CPTManager $manager Менеджер для регистрации CPT
 	 */
-	public function __construct( SubjectCPTManager $manager ) {
+	public function __construct( CPTManager $manager ) {
 		$this->manager = $manager;
 	}
 
@@ -100,7 +100,7 @@ class SubjectCPTRegistrar {
 	/**
 	 * Выполняет регистрацию всех накопленных типов записей.
 	 *
-	 * Делегирует регистрацию SubjectCPTManager.
+	 * Делегирует регистрацию CPTManager.
 	 *
 	 * @return void
 	 */

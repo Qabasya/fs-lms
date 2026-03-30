@@ -40,17 +40,25 @@ class PluginRegistrar {
 	 */
 	private SubjectCPTRegistrar $cpt;
 
+	private SubjectTaxonomyRegistrar $taxonomy;
+
 	/**
 	 * Конструктор.
 	 *
-	 * @param MenuRegistrar     $menu     Регистратор меню
+	 * @param MenuRegistrar $menu Регистратор меню
 	 * @param SettingsRegistrar $settings Регистратор настроек
-	 * @param SubjectCPTRegistrar $cpt    Регистратор CPT предметов
+	 * @param SubjectCPTRegistrar $cpt Регистратор CPT предметов
 	 */
-	public function __construct( MenuRegistrar $menu, SettingsRegistrar $settings, SubjectCPTRegistrar $cpt ) {
+	public function __construct(
+		MenuRegistrar $menu,
+		SettingsRegistrar $settings,
+		SubjectCPTRegistrar $cpt,
+		SubjectTaxonomyRegistrar $taxonomy
+	) {
 		$this->menu     = $menu;
 		$this->settings = $settings;
 		$this->cpt      = $cpt;
+		$this->taxonomy = $taxonomy;
 	}
 
 	/**
@@ -89,19 +97,25 @@ class PluginRegistrar {
 		return $this->cpt;
 	}
 
-	/**
-	 * Выполняет регистрацию всех компонентов плагина.
-	 *
-	 * Последовательно вызывает регистрацию:
-	 * 1. Административного меню
-	 * 2. Настроек WordPress
-	 * 3. Пользовательских типов записей (CPT)
-	 *
-	 * @return void
-	 */
-	public function register(): void {
-		$this->menu->register();
-		$this->settings->register();
-		$this->cpt->register();
+	public function taxonomy(): SubjectTaxonomyRegistrar {
+		return $this->taxonomy;
 	}
+
+//	/** Пока вообще не нужен */
+//	 * Выполняет регистрацию всех компонентов плагина.
+//	 *
+//	 * Последовательно вызывает регистрацию:
+//	 * 1. Административного меню
+//	 * 2. Настроек WordPress
+//	 * 3. Пользовательских типов записей (CPT)
+//	 *
+//	 * @return void
+//	 */
+//	public function register(): void {
+//		$this->menu->register();
+//		$this->settings->register();
+//		$this->cpt->register();
+//		$this->taxonomy->register();
+//	}
+
 }

@@ -3,7 +3,7 @@
 namespace Inc\Managers;
 
 /**
- * Class SubjectCPTManager
+ * Class CPTManager
  *
  * Менеджер регистрации пользовательских типов записей (CPT) для предметов.
  *
@@ -15,7 +15,7 @@ namespace Inc\Managers;
  *
  * @package Inc\Managers
  */
-class SubjectCPTManager {
+class CPTManager {
 	/**
 	 * Регистрирует переданные типы записей в WordPress.
 	 *
