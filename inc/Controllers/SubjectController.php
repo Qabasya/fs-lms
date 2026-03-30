@@ -12,21 +12,42 @@ use Inc\Shared\Traits\TemplateRenderer;
 /**
  * Class SubjectController
  *
- * Обработчики (коллбеки) для страниц управления предметами.
+ * Контроллер для управления предметами и связанными с ними CPT.
  *
- * Отвечает за отображение страницы конкретного предмета с информацией
- * о нём и ссылками на связанные CPT (задания и статьи).
+ * Отвечает за:
+ * - Динамическую регистрацию CPT (задания и статьи) для каждого предмета
+ * - Отображение страницы управления конкретным предметом с навигацией
+ *   к связанным типам записей
  *
- * @package Inc\Callbacks
+ * @package Inc\Controllers
+ * @implements ServiceInterface
  *
- * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
+ * @method void render(string $template, array $data = []) — трейт TemplateRenderer
  */
+
 class SubjectController extends BaseController implements ServiceInterface{
 	use TemplateRenderer;
 
+	/**
+	 * Репозиторий для работы с предметами.
+	 *
+	 * @var SubjectRepository
+	 */
 	protected SubjectRepository $subjects;
+
+	/**
+	 * Композитный регистратор плагина.
+	 *
+	 * @var PluginRegistrar
+	 */
 	private PluginRegistrar $registrar;
 
+	/**
+	 * Конструктор.
+	 *
+	 * @param SubjectRepository $subjects  Репозиторий предметов
+	 * @param PluginRegistrar   $registrar Композитный регистратор плагина
+	 */
 	public function __construct( SubjectRepository $subjects, PluginRegistrar $registrar ) {
 		parent::__construct();
 		$this->subjects  = $subjects;
@@ -34,8 +55,14 @@ class SubjectController extends BaseController implements ServiceInterface{
 	}
 
 	/**
-	 * Метод register() запускается один раз при инициализации плагина (в Init.php).
-	 * Здесь мы регистрируем CPT для всех предметов.
+	 * Регистрирует все компоненты контроллера.
+	 *
+	 * Вызывается один раз при инициализации плагина (в Init.php).
+	 * Для каждого предмета из репозитория создаёт два типа записей:
+	 * - {key}_tasks — задания
+	 * - {key}_articles — статьи
+	 *
+	 * @return void
 	 */
 	public function register(): void {
 		$all_subjects = $this->subjects->read_all();
@@ -51,7 +78,6 @@ class SubjectController extends BaseController implements ServiceInterface{
 			                ->addStandardType( "{$key}_articles", "Статьи ($name)", "Статья" );
 		}
 
-		// ЗАМЕНА: Регистрируем ТОЛЬКО CPT (хук init)
 		$this->registrar->cpt()->register();
 	}
 
@@ -66,9 +92,6 @@ class SubjectController extends BaseController implements ServiceInterface{
 	 * Формат URL: /wp-admin/admin.php?page=fs_subject_{key}
 	 *
 	 * @return void
-	 */
-	/**
-	 * Коллбек для страницы (то, что ты уже написал)
 	 */
 	public function subjectPage(): void {
 		$page = $_GET['page'] ?? '';

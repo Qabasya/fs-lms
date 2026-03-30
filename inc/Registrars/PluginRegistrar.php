@@ -33,13 +33,19 @@ class PluginRegistrar {
 	 */
 	private SettingsRegistrar $settings;
 
+	/**
+	 * Регистратор пользовательских типов записей для предметов.
+	 *
+	 * @var SubjectCPTRegistrar
+	 */
 	private SubjectCPTRegistrar $cpt;
 
 	/**
 	 * Конструктор.
 	 *
-	 * @param MenuRegistrar $menu Регистратор меню
+	 * @param MenuRegistrar     $menu     Регистратор меню
 	 * @param SettingsRegistrar $settings Регистратор настроек
+	 * @param SubjectCPTRegistrar $cpt    Регистратор CPT предметов
 	 */
 	public function __construct( MenuRegistrar $menu, SettingsRegistrar $settings, SubjectCPTRegistrar $cpt ) {
 		$this->menu     = $menu;
@@ -72,7 +78,12 @@ class PluginRegistrar {
 	}
 
 	/**
-	 * Геттер для работы с CPT через fluent-интерфейс.
+	 * Возвращает регистратор пользовательских типов записей.
+	 *
+	 * Позволяет получить доступ к fluent-интерфейсу SubjectCPTRegistrar
+	 * для добавления CPT предметов.
+	 *
+	 * @return SubjectCPTRegistrar Регистратор CPT
 	 */
 	public function cpt(): SubjectCPTRegistrar {
 		return $this->cpt;
@@ -84,6 +95,7 @@ class PluginRegistrar {
 	 * Последовательно вызывает регистрацию:
 	 * 1. Административного меню
 	 * 2. Настроек WordPress
+	 * 3. Пользовательских типов записей (CPT)
 	 *
 	 * @return void
 	 */
