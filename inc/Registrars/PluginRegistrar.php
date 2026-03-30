@@ -33,15 +33,18 @@ class PluginRegistrar {
 	 */
 	private SettingsRegistrar $settings;
 
+	private SubjectCPTRegistrar $cpt;
+
 	/**
 	 * Конструктор.
 	 *
 	 * @param MenuRegistrar $menu Регистратор меню
 	 * @param SettingsRegistrar $settings Регистратор настроек
 	 */
-	public function __construct( MenuRegistrar $menu, SettingsRegistrar $settings ) {
+	public function __construct( MenuRegistrar $menu, SettingsRegistrar $settings, SubjectCPTRegistrar $cpt ) {
 		$this->menu     = $menu;
 		$this->settings = $settings;
+		$this->cpt      = $cpt;
 	}
 
 	/**
@@ -69,6 +72,13 @@ class PluginRegistrar {
 	}
 
 	/**
+	 * Геттер для работы с CPT через fluent-интерфейс.
+	 */
+	public function cpt(): SubjectCPTRegistrar {
+		return $this->cpt;
+	}
+
+	/**
 	 * Выполняет регистрацию всех компонентов плагина.
 	 *
 	 * Последовательно вызывает регистрацию:
@@ -80,5 +90,6 @@ class PluginRegistrar {
 	public function register(): void {
 		$this->menu->register();
 		$this->settings->register();
+		$this->cpt->register();
 	}
 }

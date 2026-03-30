@@ -88,7 +88,7 @@ const errorHandler = function (err) {
 };
 
 /**
- * ОБРАБОТКА CSS (Admin & Frontend)
+ * ОБРАБОТКА CSS (AdminController & Frontend)
  */
 function stylesAdmin() {
     return gulp.src(paths.scss.admin)
@@ -113,7 +113,7 @@ function stylesFrontend() {
 }
 
 /**
- * ОБРАБОТКА JS (Admin & Frontend)
+ * ОБРАБОТКА JS (AdminController & Frontend)
  */
 function scripts() {
     // Берем оба входных файла сразу

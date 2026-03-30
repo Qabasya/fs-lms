@@ -2,13 +2,15 @@
 
 namespace Inc\Controllers;
 
+use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Registrars\PluginRegistrar;
 use Inc\Repositories\SubjectRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 
 /**
- * Class Subject
+ * Class SubjectController
  *
  * Обработчики (коллбеки) для страниц управления предметами.
  *
@@ -19,25 +21,40 @@ use Inc\Shared\Traits\TemplateRenderer;
  *
  * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
  */
-class Subject extends BaseController {
+class SubjectController extends BaseController implements ServiceInterface{
 	use TemplateRenderer;
 
-	/**
-	 * Репозиторий для работы с предметами.
-	 *
-	 * @var SubjectRepository
-	 */
 	protected SubjectRepository $subjects;
+	private PluginRegistrar $registrar;
+
+	public function __construct( SubjectRepository $subjects, PluginRegistrar $registrar ) {
+		parent::__construct();
+		$this->subjects  = $subjects;
+		$this->registrar = $registrar;
+	}
 
 	/**
-	 * Конструктор.
-	 *
-	 * @param SubjectRepository $subjects Репозиторий предметов
+	 * Метод register() запускается один раз при инициализации плагина (в Init.php).
+	 * Здесь мы регистрируем CPT для всех предметов.
 	 */
-	public function __construct( SubjectRepository $subjects ) {
-		parent::__construct();
-		$this->subjects = $subjects;
+	public function register(): void {
+		$all_subjects = $this->subjects->read_all();
+
+		if ( empty( $all_subjects ) ) {
+			return;
+		}
+
+		foreach ( $all_subjects as $key => $data ) {
+			$name = $data['name'];
+			$this->registrar->cpt()
+			                ->addStandardType( "{$key}_tasks", "Задания ($name)", "Задание" )
+			                ->addStandardType( "{$key}_articles", "Статьи ($name)", "Статья" );
+		}
+
+		// ЗАМЕНА: Регистрируем ТОЛЬКО CPT (хук init)
+		$this->registrar->cpt()->register();
 	}
+
 
 	/**
 	 * Коллбек для страницы управления конкретным предметом.
@@ -50,6 +67,9 @@ class Subject extends BaseController {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Коллбек для страницы (то, что ты уже написал)
+	 */
 	public function subjectPage(): void {
 		$page = $_GET['page'] ?? '';
 		$key  = str_replace( 'fs_subject_', '', $page );
@@ -59,7 +79,6 @@ class Subject extends BaseController {
 
 		if ( ! $current_subject ) {
 			echo "Предмет не найден";
-
 			return;
 		}
 
@@ -68,7 +87,6 @@ class Subject extends BaseController {
 		echo '<div class="card" style="max-width: 100%; margin-top: 20px; padding: 20px;">';
 		echo '<h3>Контент предмета</h3>';
 
-		// Генерируем прямые ссылки на списки CPT, которые мы скрыли из меню
 		$tasks_link    = admin_url( "edit.php?post_type={$key}_tasks" );
 		$articles_link = admin_url( "edit.php?post_type={$key}_articles" );
 

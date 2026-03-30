@@ -21,7 +21,7 @@ use ReflectionNamedType;
  *
  * @example
  * $container = new Container();
- * $admin = $container->get(Admin::class); // Автоматически внедрит все зависимости
+ * $admin = $container->get(AdminController::class); // Автоматически внедрит все зависимости
  */
 class Container {
 	/**

@@ -9,7 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Registrars\PluginRegistrar;
 
 /**
- * Class Admin
+ * Class AdminController
  *
  * Главный контроллер административной панели плагина.
  *
@@ -22,7 +22,7 @@ use Inc\Registrars\PluginRegistrar;
  * @package Inc\Controllers
  * @implements ServiceInterface
  */
-class Admin extends BaseController implements ServiceInterface {
+class AdminController extends BaseController implements ServiceInterface {
 	/**
 	 * Регистратор, объединяющий меню и настройки.
 	 *
@@ -87,22 +87,19 @@ class Admin extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
-		// Настройка Settings API
 		$this->settingsConfigurator->configure( $this->registrar->settings() );
 
-		// Построение структуры меню
 		$pages    = $this->buildMainPages();
 		$subpages = $this->buildAllSubPages();
 
-		// Регистрация меню через регистратор
 		$this->registrar->menu()
 		                ->addPages( $pages )
 		                ->addSubPages( $subpages );
 
-		// Выполнение регистрации
-		$this->registrar->register();
 
-		// Удаляем дублирующийся пункт, который WordPress создаёт автоматически
+		$this->registrar->menu()->register();
+		$this->registrar->settings()->register();
+
 		$this->removeAutoSubMenuItems();
 	}
 
