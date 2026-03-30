@@ -2,7 +2,7 @@
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\AdminCallbacks;
+use Inc\Callbacks\SubjectSettingsCallbacks;
 use Inc\Core\BaseController;
 use Inc\Registrars\SettingsRegistrar;
 
@@ -11,9 +11,9 @@ use Inc\Registrars\SettingsRegistrar;
  * Отвечает за регистрацию настроек, секций и полей.
  */
 class SettingsConfigurator {
-	private AdminCallbacks $callbacks;
+	private SubjectSettingsCallbacks $callbacks;
 
-	public function __construct( AdminCallbacks $callbacks ) {
+	public function __construct( SubjectSettingsCallbacks $callbacks ) {
 		$this->callbacks = $callbacks;
 	}
 

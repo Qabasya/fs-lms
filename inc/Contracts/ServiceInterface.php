@@ -6,6 +6,6 @@ namespace Inc\Contracts;
  * Нужен для гарантии реализации метода register
  * Чтобы не было проверок в Init
  */
-interface Service {
+interface ServiceInterface {
 	public function register(): void;
 }

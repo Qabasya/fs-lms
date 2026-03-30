@@ -2,7 +2,7 @@
 
 namespace Inc\Managers;
 
-use Inc\Contracts\Service;
+use Inc\Contracts\ServiceInterface;
 use Inc\Repositories\SubjectRepository;
 
 /**
@@ -19,9 +19,9 @@ use Inc\Repositories\SubjectRepository;
  * доступ к ним осуществляется через отдельные страницы.
  *
  * @package Inc\Managers
- * @implements Service
+ * @implements ServiceInterface
  */
-class CPTManager implements Service {
+class CPTManager implements ServiceInterface {
 	/**
 	 * Репозиторий предметов.
 	 *

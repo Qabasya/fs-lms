@@ -1,11 +1,11 @@
 <?php
 
-namespace Inc\Repositories;
+namespace Inc\Contracts;
 
-use Inc\Core\BaseController;
+
 
 /**
- * Class AbstractRepository
+ * Class RepositoryInterface
  *
  * Абстрактный базовый класс для всех репозиториев плагина.
  *
@@ -17,7 +17,7 @@ use Inc\Core\BaseController;
  *
  * @package Inc\Repositories
  */
-abstract class AbstractRepository extends BaseController {
+interface RepositoryInterface {
 	/**
 	 * Получить все записи.
 	 *
@@ -26,7 +26,7 @@ abstract class AbstractRepository extends BaseController {
 	 *
 	 * @return array<int|string, array<string, mixed>> Массив всех записей
 	 */
-	abstract public function read_all(): array;
+	 public function read_all(): array;
 
 	/**
 	 * Обновить или создать запись.
@@ -39,7 +39,7 @@ abstract class AbstractRepository extends BaseController {
 	 *
 	 * @return bool Успешность операции
 	 */
-	abstract public function update( array $data ): bool;
+	 public function update( array $data ): bool;
 
 	/**
 	 * Очистить (санитизировать) входные данные.
@@ -53,14 +53,5 @@ abstract class AbstractRepository extends BaseController {
 	 *
 	 * @return array<string, mixed> Очищенные данные
 	 */
-	abstract protected function sanitize( array $data ): array;
-
-	/**
-	 * Удалить запись по ключу.
-	 *
-	 * @param array<string, mixed> $data Исходные данные
-	 *
-	 * @return bool Успешность удаления (false, если запись не найдена)
-	 */
-	abstract public function delete( array $data ): bool;
+	 public function delete( array $data ): bool;
 }

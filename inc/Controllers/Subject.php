@@ -1,6 +1,6 @@
 <?php
 
-namespace Inc\Callbacks;
+namespace Inc\Controllers;
 
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
@@ -8,7 +8,7 @@ use Inc\Shared\Traits\TemplateRenderer;
 
 
 /**
- * Class SubjectCallbacks
+ * Class Subject
  *
  * Обработчики (коллбеки) для страниц управления предметами.
  *
@@ -19,7 +19,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  *
  * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
  */
-class SubjectCallbacks extends BaseController {
+class Subject extends BaseController {
 	use TemplateRenderer;
 
 	/**

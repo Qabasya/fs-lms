@@ -2,6 +2,7 @@
 
 namespace Inc\Repositories;
 
+use Inc\Contracts\RepositoryInterface;
 use Inc\Core\BaseController;
 
 /**
@@ -19,9 +20,9 @@ use Inc\Core\BaseController;
  * ]
  *
  * @package Inc\Repositories
- * @extends AbstractRepository
+ * @extends RepositoryInterface
  */
-class SubjectRepository extends AbstractRepository {
+class SubjectRepository extends BaseController implements RepositoryInterface {
 	/**
 	 * Имя опции WordPress для хранения предметов.
 	 *

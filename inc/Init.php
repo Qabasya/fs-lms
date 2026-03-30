@@ -2,7 +2,7 @@
 
 namespace Inc;
 
-use Inc\Contracts\Service;
+use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\Admin;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
@@ -13,11 +13,11 @@ use Inc\Managers\CPTManager;
  *
  * Точка входа для инициализации всех сервисов плагина.
  *
- * Реализует паттерн Service Registry — централизованно управляет
+ * Реализует паттерн ServiceInterface Registry — централизованно управляет
  * списком всех сервисов, которые необходимо зарегистрировать.
  *
  * Использует DI-контейнер для автоматического разрешения зависимостей
- * и гарантирует, что каждый сервис реализует интерфейс Service.
+ * и гарантирует, что каждый сервис реализует интерфейс ServiceInterface.
  *
  * @package Inc
  *
@@ -30,9 +30,9 @@ final class Init {
 	 * Возвращает список всех сервисов плагина.
 	 *
 	 * Сервисы регистрируются в порядке добавления.
-	 * Каждый сервис должен реализовывать интерфейс Service.
+	 * Каждый сервис должен реализовывать интерфейс ServiceInterface.
 	 *
-	 * @return array<int, class-string<Service>> Массив имён классов сервисов
+	 * @return array<int, class-string<ServiceInterface>> Массив имён классов сервисов
 	 */
 	public static function getServices(): array {
 		return [
@@ -48,7 +48,7 @@ final class Init {
 	 * Процесс инициализации:
 	 * 1. Создаёт DI-контейнер
 	 * 2. Для каждого сервиса из списка получает экземпляр через контейнер
-	 * 3. Проверяет, реализует ли объект интерфейс Service
+	 * 3. Проверяет, реализует ли объект интерфейс ServiceInterface
 	 * 4. Вызывает метод register() для инициализации сервиса
 	 *
 	 * @return void
@@ -59,8 +59,8 @@ final class Init {
 		foreach ( self::getServices() as $class ) {
 			$service = $container->get( $class );
 
-			// Проверяем, что объект реализует интерфейс Service
-			if ( $service instanceof Service ) {
+			// Проверяем, что объект реализует интерфейс ServiceInterface
+			if ( $service instanceof ServiceInterface ) {
 				$service->register();
 			}
 		}

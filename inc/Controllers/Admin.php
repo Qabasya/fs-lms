@@ -3,7 +3,7 @@
 namespace Inc\Controllers;
 
 use Inc\Callbacks\AdminCallbacks;
-use Inc\Contracts\Service;
+use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\Builders\SubjectsMenuBuilder;
 use Inc\Core\BaseController;
 use Inc\Registrars\PluginRegistrar;
@@ -20,9 +20,9 @@ use Inc\Registrars\PluginRegistrar;
  * - Конфигураторы (SettingsConfigurator) — настраивают Settings API
  *
  * @package Inc\Controllers
- * @implements Service
+ * @implements ServiceInterface
  */
-class Admin extends BaseController implements Service {
+class Admin extends BaseController implements ServiceInterface {
 	/**
 	 * Регистратор, объединяющий меню и настройки.
 	 *
@@ -76,7 +76,7 @@ class Admin extends BaseController implements Service {
 	/**
 	 * Регистрирует все административные меню и настройки плагина.
 	 *
-	 * Основной метод, реализующий интерфейс Service.
+	 * Основной метод, реализующий интерфейс ServiceInterface.
 	 * Выполняет следующие шаги:
 	 * 1. Конфигурирует настройки через SettingsConfigurator
 	 * 2. Собирает главные страницы меню
@@ -117,7 +117,7 @@ class Admin extends BaseController implements Service {
 	 *     menu_title: string,
 	 *     capability: string,
 	 *     menu_slug: string,
-	 *     callback: array{0: AdminCallbacks, 1: string},
+	 *     callback: array{0: SubjectSettingsCallbacks, 1: string},
 	 *     icon_url: string,
 	 *     position: int
 	 * }> Конфигурация главных страниц
@@ -150,7 +150,7 @@ class Admin extends BaseController implements Service {
 	 *     menu_title: string,
 	 *     capability: string,
 	 *     menu_slug: string,
-	 *     callback: array{0: AdminCallbacks, 1: string}
+	 *     callback: array{0: SubjectSettingsCallbacks, 1: string}
 	 * }> Конфигурация всех подстраниц
 	 */
 
@@ -202,4 +202,7 @@ class Admin extends BaseController implements Service {
 			);
 		}, 999 );
 	}
+
+
+
 }

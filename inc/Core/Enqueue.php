@@ -2,7 +2,7 @@
 
 namespace Inc\Core;
 
-use Inc\Contracts\Service;
+use Inc\Contracts\ServiceInterface;
 
 /**
  * Class Enqueue
@@ -17,9 +17,9 @@ use Inc\Contracts\Service;
  * Использует минифицированные версии файлов для продакшена.
  *
  * @package Inc\Core
- * @implements Service
+ * @implements ServiceInterface
  */
-class Enqueue extends BaseController implements Service {
+class Enqueue extends BaseController implements ServiceInterface {
 	/**
 	 * Регистрирует хуки для подключения ресурсов.
 	 *

@@ -2,8 +2,8 @@
 
 namespace Inc\Controllers\Builders;
 
-use Inc\Callbacks\SubjectCallbacks;
 use Inc\Contracts\MenuBuilderInterface;
+use Inc\Controllers\Subject;
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
 
@@ -35,9 +35,9 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	/**
 	 * Коллбеки для рендеринга страниц админ-панели.
 	 *
-	 * @var SubjectCallbacks
+	 * @var Subject
 	 */
-	private SubjectCallbacks $callbacks;
+	private Subject $callbacks;
 
 	/**
 	 * Кэш результата read_all() — чтобы не ходить в базу дважды
@@ -51,11 +51,11 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository $subjectRepository Репозиторий предметов
-	 * @param SubjectCallbacks $callbacks Коллбеки административной панели
+	 * @param Subject $callbacks Коллбеки административной панели
 	 */
 	public function __construct(
 		SubjectRepository $subjectRepository,
-		SubjectCallbacks $callbacks
+		Subject $callbacks
 	) {
 		$this->subjectRepository = $subjectRepository;
 		$this->callbacks         = $callbacks;
@@ -70,7 +70,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 *     menu_title: string,
 	 *     capability: string,
 	 *     menu_slug: string,
-	 *     callback: array{0: SubjectCallbacks, 1: string},
+	 *     callback: array{0: Subject, 1: string},
 	 *     icon_url: string,
 	 *     position: int
 	 * }>
@@ -79,7 +79,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 		if ( empty( $this->getSubjects() ) ) {
 			return [];
 		}
-
+// Это первая страница в Предметы, она удаляется
 		return [
 			[
 				'page_title' => 'Управление предметами',
@@ -103,7 +103,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
  *     menu_title: string,
  *     capability: string,
  *     menu_slug: string,
- *     callback: array{0: SubjectCallbacks, 1: string}
+ *     callback: array{0: Subject, 1: string}
  * }>
  */
 	public function buildSubPages(): array {
