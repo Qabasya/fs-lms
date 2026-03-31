@@ -96,6 +96,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 			}
 		);
 
+// ============================ ФУНКЦИОНАЛ РЕПОЗИТОРИЯ И РЕГИСТРАТОРА ============================ //
+
 		$all_subjects = $this->subjects->read_all();
 
 		if ( empty( $all_subjects ) ) {
