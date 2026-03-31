@@ -59,6 +59,20 @@ class Enqueue extends BaseController implements ServiceInterface {
 			$this->plugin_version,                        // Версия для кэширования
 			true                                          // Загрузка в футере
 		);
+
+
+		// ДОБАВЛЯЕМ ЛОГИКУ ДАННЫХ ДЛЯ МОДАЛКИ
+		$screen = get_current_screen();
+
+		// Проверяем, что это страница списка постов (_tasks)
+		if ( is_admin() && $screen && str_contains( $screen->post_type, '_tasks' ) ) {
+			wp_localize_script( 'fs-lms-admin-script', 'fsTaskData', [
+				'ajax_url'    => admin_url( 'admin-ajax.php' ),
+				'nonce'       => wp_create_nonce( 'fs_task_creation_nonce' ),
+				'subject_key' => str_replace( '_tasks', '', $screen->post_type ),
+				'post_type'   => $screen->post_type
+			]);
+		}
 	}
 
 	/**
@@ -88,4 +102,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 			true                                          // Загрузка в футере
 		);
 	}
+
+
 }

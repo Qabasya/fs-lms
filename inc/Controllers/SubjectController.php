@@ -219,4 +219,29 @@ class SubjectController extends BaseController implements ServiceInterface {
 		// Рендерим шаблон с переданными данными ЗАМЕНИТЬ
 		$this->render( 'SubjectTest', $data );
 	}
+
+	public function get_task_types_from_tax( string $subject_key ): array {
+		$taxonomy = "{$subject_key}_task_number";
+
+		// Получаем все термины таксономии (Задание 1, Задание 2...)
+		$terms = get_terms([
+			'taxonomy'   => $taxonomy,
+			'hide_empty' => false,
+			'orderby'    => 'slug', // Или по порядку, который ты задал
+			'order'      => 'ASC'
+		]);
+
+		$types = [];
+		foreach ( $terms as $term ) {
+			$types[] = [
+				'id'          => $term->term_id,
+				'name'        => $term->name,        // "Задание 1"
+				'description' => $term->description, // "Графы"
+				'slug'        => $term->slug         // "1"
+			];
+		}
+
+		return $types;
+	}
+
 }

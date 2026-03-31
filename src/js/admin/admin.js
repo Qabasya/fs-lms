@@ -1,5 +1,6 @@
 import {UI} from './modules/ui.js';
 import {Subjects} from './services/subjects.js';
+import {Tasks} from './services/tasks.js'; // Я насрал этим импортом
 
 (function ($) {
     'use strict';
@@ -12,7 +13,7 @@ import {Subjects} from './services/subjects.js';
         if ($('#fs-add-subject-form').length || $('.open-quick-edit').length) {
             Subjects.init();
         }
-
+        Tasks.init(); // и этой строчкой
     });
 
 })(jQuery);
