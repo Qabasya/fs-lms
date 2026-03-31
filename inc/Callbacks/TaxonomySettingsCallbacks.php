@@ -39,6 +39,15 @@ class TaxonomySettingsCallbacks extends BaseController {
 		$this->taxonomies = $taxonomies;
 
 		// Регистрация AJAX
+		$this->registerAjaxActions();
+
+	}
+
+	/**
+	 * Центральное место регистрации всех AJAX-действий
+	 */
+	private function registerAjaxActions(): void
+	{
 		add_action( 'wp_ajax_fs_store_taxonomy', [ $this, 'storeTaxonomy' ] );
 		add_action( 'wp_ajax_fs_update_taxonomy', [ $this, 'updateTaxonomy' ] );
 		add_action( 'wp_ajax_fs_delete_taxonomy', [ $this, 'deleteTaxonomy' ] );

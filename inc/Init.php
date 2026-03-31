@@ -6,6 +6,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\AdminController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\SubjectController;
+use Inc\Controllers\TaskCreationController;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
 
@@ -41,7 +42,8 @@ final class Init {
 			Enqueue::class,      // Подключение скриптов и стилей
 			AdminController::class,        // Административное меню
 			SubjectController::class,    // Пользовательские типы записей
-			MetaBoxController::class
+			MetaBoxController::class,
+			TaskCreationController::class
 		];
 	}
 

@@ -3,34 +3,42 @@
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\InputField;
+use Inc\MetaBoxes\Fields\LinkField;
 use Inc\MetaBoxes\Fields\TextareaField;
 
 /**
- * Class StandardTaskTemplate
+ * Class FileTaskTemplate
  *
- * Шаблон стандартного задания (условие + правильный ответ).
- * Базовый шаблон, используемый по умолчанию при создании заданий.
+ * Шаблон метабокса для задания с прикреплённым файлом.
+ * Содержит поля: условие задания, правильный ответ и ссылка на файл.
  *
  * @package Inc\MetaBoxes\Templates
  * @extends BaseTemplate
  */
-class StandardTaskTemplate extends BaseTemplate {
+class FileTaskTemplate extends BaseTemplate
+{
 	/**
 	 * Конструктор.
 	 *
 	 * Инициализирует набор полей шаблона:
 	 * - task_condition: условие задания (textarea)
 	 * - task_answer: правильный ответ (input)
+	 * - file: ссылка на файл задания (link field)
 	 */
-	public function __construct() {
+	public function __construct()
+	{
 		$this->fields = [
 			'task_condition' => [
 				'label'  => 'Условие задания',
 				'object' => new TextareaField()     // Многострочный текст
 			],
-			'task_answer'    => [
+			'task_answer' => [
 				'label'  => 'Правильный ответ',
 				'object' => new InputField()        // Текстовое поле
+			],
+			'file' => [
+				'label'  => 'Файл задания',
+				'object' => new LinkField()         // Поле для ссылки на файл
 			]
 		];
 	}
@@ -40,8 +48,9 @@ class StandardTaskTemplate extends BaseTemplate {
 	 *
 	 * @return string Уникальный ID шаблона
 	 */
-	public function get_id(): string {
-		return 'standard_task';
+	public function get_id(): string
+	{
+		return 'file_task';
 	}
 
 	/**
@@ -49,7 +58,8 @@ class StandardTaskTemplate extends BaseTemplate {
 	 *
 	 * @return string Название шаблона, отображаемое в интерфейсе
 	 */
-	public function get_name(): string {
-		return 'Стандартное задание';
+	public function get_name(): string
+	{
+		return 'Задание с файлом';
 	}
 }
