@@ -30,11 +30,28 @@ abstract class BaseTemplate {
 	 * * @param \WP_Post $post Объект текущего поста
 	 * @param array $values Текущие значения полей из базы
 	 */
-	public function render( $post, array $values ): void {
-		foreach ( $this->fields as $id => $config ) {
-			$value = $values[ $id ] ?? '';
-			$config['object']->render( $post, $id, $config['label'], $value );
+	public function render( \WP_Post $post): void {
+		// 1. Достаем наш единый массив данных из мета-поля
+		$values = get_post_meta( $post->ID, 'fs_lms_meta', true );
+
+		// Если данных еще нет, делаем пустой массив
+		if ( ! is_array( $values ) ) {
+			$values = [];
 		}
+
+		echo '<div class="fs-lms-template-wrapper" id="template-' . esc_attr( $this->get_id() ) . '">';
+
+		// 2. Проходим по всем зарегистрированным полям
+		foreach ( $this->fields as $field_id => $config ) {
+			$label  = $config['label'];
+			$field  = $config['object'];
+			$value  = $values[ $field_id ] ?? '';
+
+			// 3. Вызываем рендер самого поля (InputField, TextareaField и т.д.)
+			$field->render( $post, $field_id, $label, $value );
+		}
+
+		echo '</div>';
 	}
 
 	/**

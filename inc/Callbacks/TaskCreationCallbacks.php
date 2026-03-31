@@ -12,11 +12,16 @@ class TaskCreationCallbacks extends BaseController {
 		parent::__construct();
 		$this->subjectController = $subjectController;
 
-		// Регистрация AJAX
-		add_action( 'wp_ajax_fs_get_task_types', [ $this, 'ajaxGetTypes' ] );
-		add_action( 'wp_ajax_fs_create_task_action', [ $this, 'ajaxCreateTask' ] );
+		$this->registerAjaxActions();
 	}
-
+	/**
+	 * Центральное место регистрации всех AJAX-действий
+	 */
+	private function registerAjaxActions(): void
+	{
+		add_action('wp_ajax_fs_get_task_types', [$this, 'ajaxGetTypes']);
+		add_action('wp_ajax_fs_create_task_action', [$this, 'ajaxCreateTask']);
+	}
 	/**
 	 * Получение типов заданий для модалки
 	 */
@@ -32,7 +37,7 @@ class TaskCreationCallbacks extends BaseController {
 	}
 
 	/**
-	 * Создание задачи с генерацией номера (1004)
+	 * Создание задачи с генерацией номера
 	 */
 	public function ajaxCreateTask(): void {
 		check_ajax_referer( 'fs_task_creation_nonce', 'nonce' );

@@ -3,34 +3,34 @@
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\InputField;
+use Inc\MetaBoxes\Fields\LinkField;
 use Inc\MetaBoxes\Fields\TextareaField;
 
-/**
- * Шаблон: Стандартное задание (Условие + Ответ)
- * Не проебись с названием! Правильно: Standard
- */
-
-class StandardTaskTemplate extends BaseTemplate {
-
+class FileTaskTemplate extends BaseTemplate {
 
 	public function __construct() {
 		$this->fields = [
 			'task_condition' => [
-				'label'  => 'Условие задания',
+				'label' => 'Условие задания',
 				'object' => new TextareaField()
 			],
 			'task_answer' => [
 				'label'  => 'Правильный ответ',
 				'object' => new InputField()
+			],
+			'file' => [
+				'label'  => 'Файл задания',
+				'object' => new LinkField()
 			]
+
 		];
 	}
 
 	public function get_id(): string {
-		return 'standard_task';
+		return 'file_task';
 	}
 
 	public function get_name(): string {
-		return 'Стандартное задание';
+		return 'Задание с файлом';
 	}
 }

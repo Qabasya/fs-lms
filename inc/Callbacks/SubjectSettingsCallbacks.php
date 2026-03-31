@@ -59,8 +59,16 @@ class SubjectSettingsCallbacks extends BaseController {
 		parent::__construct();
 		$this->subjects = $subjects;
 		$this->seeder   = $seeder;
-
 		// Регистрация AJAX
+		$this->registerAjaxActions();
+
+	}
+
+	/**
+	 * Центральное место регистрации всех AJAX-действий
+	 */
+	private function registerAjaxActions(): void
+	{
 		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
 		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
 		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
