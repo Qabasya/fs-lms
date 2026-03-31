@@ -76,8 +76,8 @@ class SubjectCPTRegistrar {
 	 *
 	 * @return self Для цепочки вызовов
 	 */
-	public function addStandardType( string $slug, string $plural, string $singular ): self {
-		return $this->addPostType( $slug, [
+	public function addStandardType( string $slug, string $plural, string $singular, array $args = [] ): self {
+		$defaults = [
 			'labels'       => [
 				'name'          => $plural,
 				'singular_name' => $singular,
@@ -91,9 +91,13 @@ class SubjectCPTRegistrar {
 			'has_archive'  => true,
 			'show_in_menu' => false,
 			'show_in_rest' => true,
-			'supports'     => [ 'title', 'editor', 'thumbnail', 'excerpt' ],
+			'supports'     => [ 'title' ],
 			'rewrite'      => [ 'slug' => $slug, 'with_front' => false ]
-		] );
+		];
+
+		$final_args = array_replace_recursive( $defaults, $args );
+
+		return $this->addPostType( $slug, $final_args );
 	}
 
 
