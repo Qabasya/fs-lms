@@ -5,44 +5,79 @@ namespace Inc\Registrars;
 use Inc\Managers\MetaBoxManager;
 use Inc\MetaBoxes\Templates\BaseTemplate;
 
-
 /**
  * Class MetaBoxRegistrar
  *
  * Фасад для формирования конфигураций метабоксов.
  * Предоставляет Fluent Interface для накопления данных перед регистрацией.
+ *
+ * Паттерны:
+ * - Facade — упрощает интерфейс работы с MetaBoxManager
+ * - Fluent Interface — позволяет объединять вызовы в цепочку
+ * - Builder — накапливает данные перед регистрацией
+ *
+ * @package Inc\Registrars
  */
-class MetaBoxRegistrar {
+class MetaBoxRegistrar
+{
 	/**
-	 * Низкоуровневый менеджер для выполнения регистрации в WP.
+	 * Низкоуровневый менеджер для выполнения регистрации в WordPress.
+	 *
+	 * @var MetaBoxManager
 	 */
 	private MetaBoxManager $manager;
 
 	/**
 	 * Очередь метабоксов на регистрацию.
-	 * @var array
+	 *
+	 * Структура:
+	 * [
+	 *     'metabox_id' => [
+	 *         'title'      => string,
+	 *         'callback'   => callable,
+	 *         'post_types' => string|array,
+	 *         'context'    => string,
+	 *         'priority'   => string,
+	 *         'args'       => array
+	 *     ]
+	 * ]
+	 *
+	 * @var array<string, array{
+	 *     title: string,
+	 *     callback: callable,
+	 *     post_types: string|array,
+	 *     context: string,
+	 *     priority: string,
+	 *     args: array
+	 * }>
 	 */
 	private array $metaboxes = [];
 
 	/**
 	 * Конструктор.
 	 *
-	 * @param MetaBoxManager $manager Менеджер для регистрации
+	 * @param MetaBoxManager $manager Менеджер для регистрации метабоксов
 	 */
-	public function __construct( MetaBoxManager $manager ) {
+	public function __construct(MetaBoxManager $manager)
+	{
 		$this->manager = $manager;
 	}
 
 	/**
 	 * Базовый метод добавления метабокса с fluent interface.
 	 *
-	 * @param string $id Уникальный ID метабокса
-	 * @param string $title Заголовок метабокса
-	 * @param callable $callback Callback для отрисовки
-	 * @param string|string[] $post_types Типы записей (строка или массив)
-	 * @param array $args Дополнительные параметры (context, priority, args и т.д.)
+	 * Позволяет добавить метабокс с полным контролем над параметрами.
 	 *
-	 * @return self
+	 * @param string          $id          Уникальный ID метабокса
+	 * @param string          $title       Заголовок метабокса
+	 * @param callable        $callback    Коллбек для отрисовки содержимого
+	 * @param string|string[] $post_types  Типы записей (строка или массив)
+	 * @param array           $args        Дополнительные параметры:
+	 *                                     - context: 'normal', 'side', 'advanced'
+	 *                                     - priority: 'high', 'core', 'default', 'low'
+	 *                                     - args: дополнительные аргументы для коллбека
+	 *
+	 * @return self Для цепочки вызовов (Fluent Interface)
 	 */
 	public function add(
 		string $id,
@@ -51,50 +86,59 @@ class MetaBoxRegistrar {
 		string|array $post_types,
 		array $args = []
 	): self {
-		$this->metaboxes[ $id ] = [
+		$this->metaboxes[$id] = [
 			'title'      => $title,
 			'callback'   => $callback,
 			'post_types' => $post_types,
-			'context'    => $args['context'] ?? 'normal',
-			'priority'   => $args['priority'] ?? 'high',
-			'args'       => $args['args'] ?? $args, // если передали args напрямую — используем их
+			'context'    => $args['context'] ?? 'normal',        // Местоположение метабокса
+			'priority'   => $args['priority'] ?? 'high',         // Приоритет отображения
+			'args'       => $args['args'] ?? $args,              // Аргументы для коллбека
 		];
 
 		return $this;
 	}
 
 	/**
-	 * Специализированный метод для регистрации метабокса на основе нашего Шаблона.
+	 * Специализированный метод для регистрации метабокса на основе шаблона.
 	 *
-	 * Автоматически берет ID и Имя из объекта шаблона.
+	 * Автоматически берёт ID и название из объекта шаблона.
+	 * Шаблон передаётся в аргументы коллбека для дальнейшего использования.
 	 *
-	 * @param BaseTemplate $template Объект шаблона (например, StandardTaskTemplate)
-	 * @param array|string $post_types Типы записей
-	 * @param callable $callback Метод контроллера для рендеринга
+	 * @param BaseTemplate    $template   Объект шаблона (например, StandardTaskTemplate)
+	 * @param array|string    $post_types Типы записей, для которых регистрировать метабокс
+	 * @param callable        $callback   Метод контроллера для рендеринга
 	 *
-	 * @return self
+	 * @return self Для цепочки вызовов (Fluent Interface)
 	 */
-	public function addTemplateBox( BaseTemplate $template, $post_types, callable $callback ): self {
+	public function addTemplateBox(BaseTemplate $template, $post_types, callable $callback): self
+	{
 		return $this->add(
-			$template->get_id(),
-			$template->get_name(),
-			$callback,
+			$template->get_id(),                                 // ID метабокса из шаблона
+			$template->get_name(),                               // Заголовок из шаблона
+			$callback,                                           // Коллбек отрисовки
 			$post_types,
 			[
-				'args' => [ 'template' => $template ] // Передаем шаблон в аргументы коллбека
+				'args' => ['template' => $template]              // Передаём шаблон в аргументы
 			]
 		);
 	}
 
 	/**
 	 * Финализирует регистрацию — передаёт все накопленные метабоксы менеджеру.
+	 *
+	 * Если очередь метабоксов пуста, регистрация не выполняется.
+	 * После регистрации очищает очередь на случай повторного вызова.
+	 *
+	 * @return void
 	 */
 	public function register(): void
 	{
+		// Если нет метабоксов для регистрации — выходим
 		if (empty($this->metaboxes)) {
 			return;
 		}
 
+		// Делегируем регистрацию низкоуровневому менеджеру
 		$this->manager->register($this->metaboxes);
 
 		// Очищаем очередь после регистрации (на случай повторного вызова)

@@ -7,24 +7,60 @@ namespace Inc\Managers;
  *
  * Низкоуровневый менеджер для работы с метабоксами и мета-данными.
  * Инкапсулирует прямые вызовы WordPress API (add_meta_box, update_post_meta).
+ * Не содержит бизнес-логики, только техническую реализацию.
+ *
+ * @package Inc\Managers
  */
 class MetaBoxManager {
 
-	public function register( array $metaboxes ): void {
-		if ( empty( $metaboxes ) ) {
+	/**
+	 * Регистрирует несколько метабоксов в WordPress.
+	 *
+	 * Метод оборачивает вызовы add_meta_box() в хук add_meta_boxes.
+	 * Если массив метабоксов пуст, регистрация не выполняется.
+	 *
+	 * @param array<string, array{
+	 *     title: string,
+	 *     callback: callable,
+	 *     post_types: string|array<int, string>,
+	 *     context?: string,
+	 *     priority?: string,
+	 *     args?: array
+	 * }> $metaboxes Массив конфигураций метабоксов,
+	 *               где ключ — уникальный идентификатор метабокса
+	 *
+	 * @return void
+	 */
+	public function register(array $metaboxes): void
+	{
+		// Если нет метабоксов для регистрации — выходим
+		if (empty($metaboxes)) {
 			return;
 		}
 
-		add_action( 'add_meta_boxes', function () use ( $metaboxes ) {
-			foreach ( $metaboxes as $id => $config ) {
-				$this->addSingleMetabox( $id, $config );
+		// Подключаем регистрацию метабоксов на хуке add_meta_boxes
+		add_action('add_meta_boxes', function () use ($metaboxes) {
+			foreach ($metaboxes as $id => $config) {
+				$this->addSingleMetabox($id, $config);
 			}
-		} );
+		});
 	}
 
 	/**
 	 * Регистрирует один метабокс.
+	 *
 	 * Удобно использовать из контроллера при необходимости.
+	 * Метод оборачивает вызов add_meta_box() в хук add_meta_boxes.
+	 *
+	 * @param string          $id          Уникальный идентификатор метабокса
+	 * @param string          $title       Заголовок метабокса
+	 * @param callable        $callback    Коллбек для отрисовки содержимого
+	 * @param string|array    $post_types  Тип(ы) поста, для которых показывать метабокс
+	 * @param string          $context     Местоположение ('normal', 'side', 'advanced')
+	 * @param string          $priority    Приоритет ('high', 'core', 'default', 'low')
+	 * @param array           $args        Дополнительные аргументы, передаваемые в коллбек
+	 *
+	 * @return void
 	 */
 	public function addMetabox(
 		string $id,
@@ -35,22 +71,38 @@ class MetaBoxManager {
 		string $priority = 'default',
 		array $args = []
 	): void {
-		add_action( 'add_meta_boxes', function () use ( $id, $title, $callback, $post_types, $context, $priority, $args ) {
-			$this->addSingleMetabox( $id, [
+		// Оборачиваем добавление метабокса в хук add_meta_boxes
+		add_action('add_meta_boxes', function () use ($id, $title, $callback, $post_types, $context, $priority, $args) {
+			$this->addSingleMetabox($id, [
 				'title'      => $title,
 				'callback'   => $callback,
 				'post_types' => $post_types,
 				'context'    => $context,
 				'priority'   => $priority,
 				'args'       => $args,
-			] );
-		} );
+			]);
+		});
 	}
 
 	/**
 	 * Внутренний метод для добавления одного метабокса.
+	 *
+	 * Применяет стандартные настройки по умолчанию и нормализует post_types в массив.
+	 *
+	 * @param string $id     Уникальный идентификатор метабокса
+	 * @param array  $config Конфигурация метабокса с полями:
+	 *                       - title: заголовок
+	 *                       - callback: коллбек отрисовки
+	 *                       - post_types: типы постов
+	 *                       - context: местоположение
+	 *                       - priority: приоритет
+	 *                       - args: доп. аргументы
+	 *
+	 * @return void
 	 */
-	private function addSingleMetabox( string $id, array $config ): void {
+	private function addSingleMetabox(string $id, array $config): void
+	{
+		// Настройки по умолчанию
 		$defaults = [
 			'title'      => 'Untitled Metabox',
 			'callback'   => '__return_null',
@@ -60,16 +112,20 @@ class MetaBoxManager {
 			'args'       => [],
 		];
 
-		$config = wp_parse_args( $config, $defaults );
+		// Объединяем переданные настройки с дефолтными
+		$config = wp_parse_args($config, $defaults);
 
-		// Нормализуем post_types в массив
+		// Нормализуем post_types в массив (на случай, если передан строкой)
 		$post_types = (array) $config['post_types'];
 
-		foreach ( $post_types as $post_type ) {
-			if ( empty( $post_type ) || ! is_string( $post_type ) ) {
+		// Для каждого типа поста добавляем метабокс
+		foreach ($post_types as $post_type) {
+			// Пропускаем пустые или нестроковые значения
+			if (empty($post_type) || !is_string($post_type)) {
 				continue;
 			}
 
+			// Регистрируем метабокс через WordPress API
 			add_meta_box(
 				$id,
 				$config['title'],
@@ -85,31 +141,47 @@ class MetaBoxManager {
 	/**
 	 * Сохраняет мета-данные поста после всех проверок безопасности.
 	 *
-	 * @param int $post_id ID поста
+	 * Рекомендуется использовать в обработчике save_post.
+	 * Метод автоматически пропускает ревизии и автосохранения.
+	 *
+	 * @param int    $post_id  ID поста
 	 * @param string $meta_key Ключ мета-поля
-	 * @param mixed $value Значение (уже очищенное)
+	 * @param mixed  $value    Значение (уже очищенное на верхнем уровне)
+	 *
+	 * @return void
 	 */
-	public function saveMeta( int $post_id, string $meta_key, $value ): void {
-		if ( empty( $post_id ) || empty( $meta_key ) ) {
+	public function saveMeta(int $post_id, string $meta_key, $value): void
+	{
+		// Валидация обязательных параметров
+		if (empty($post_id) || empty($meta_key)) {
 			return;
 		}
 
-		// Дополнительная защита: проверяем, что пост существует и не является ревизией
-		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+		// Дополнительная защита: пропускаем ревизии и автосохранения
+		if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
 			return;
 		}
 
-		update_post_meta( $post_id, $meta_key, $value );
+		// Сохраняем мета-данные
+		update_post_meta($post_id, $meta_key, $value);
 	}
 
 	/**
 	 * Удаляет мета-данные поста.
+	 *
+	 * @param int    $post_id  ID поста
+	 * @param string $meta_key Ключ мета-поля
+	 *
+	 * @return void
 	 */
-	public function deleteMeta( int $post_id, string $meta_key ): void {
-		if ( empty( $post_id ) || empty( $meta_key ) ) {
+	public function deleteMeta(int $post_id, string $meta_key): void
+	{
+		// Валидация обязательных параметров
+		if (empty($post_id) || empty($meta_key)) {
 			return;
 		}
 
-		delete_post_meta( $post_id, $meta_key );
+		// Удаляем мета-данные
+		delete_post_meta($post_id, $meta_key);
 	}
 }
