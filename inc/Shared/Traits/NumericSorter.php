@@ -47,7 +47,7 @@ trait NumericSorter {
 			}
 
 			// Если в orderby нет поля (например, там пусто), принудительно ставим его первым
-			return "CAST($field AS UNSIGNED) ASC";
+			return "CAST($field AS UNSIGNED)";
 
 		}, 10, 2 );
 	}

@@ -94,7 +94,7 @@ class SubjectTaxonomyRegistrar {
 				'menu_name'         => $plural,
 				'back_to_items'     => '← Назад к $singular',
 			],
-			'hierarchical'      => true, // Как категории, с родителями
+			'hierarchical'      => false,
 			'show_ui'           => true,
 			'show_admin_column' => true,
 			'show_in_rest'      => true, // Для поддержки Gutenberg
@@ -119,16 +119,31 @@ class SubjectTaxonomyRegistrar {
 	public function addFixedTaxonomy( string $slug, array $object_types, string $name, string $singular_name, array $extra_args = [] ): self {
 		$args = array_merge( [
 			'hierarchical'      => false,
-			'labels'            => [ 'name' => $name, 'singular_name' => $singular_name ],
+			'labels'            => [
+				'name'              => $name,
+				'singular_name'     => $singular_name,
+				'menu_name'         => $name,
+				'all_items'         => "Все $name",
+				'edit_item'         => "Изменить",
+				'view_item'         => "Просмотреть",
+				'update_item'       => "Обновить",
+				'add_new_item'      => "Добавить",
+				'new_item_name'     => "Новое название",
+				'search_items'      => "Найти",
+				'not_found'         => "Не найдено",
+			],
 			'show_ui'           => true,
 			'show_admin_column' => true,
+			'show_in_nav_menus' => true,
+			'show_tagcloud'     => false,
 			'query_var'         => true,
 			'rewrite'           => [ 'slug' => $slug ],
-		], $extra_args ); // Накладываем наши запреты поверх дефолтов
+			'show_in_rest'      => true, // Важно для корректной работы современных запросов
+		], $extra_args );
 
 		$this->taxonomies[ $slug ] = [
-			'object_types' => $object_types,
-			'args'         => $args
+			'post_types' => $object_types,
+			'args'       => $args
 		];
 
 		return $this;
