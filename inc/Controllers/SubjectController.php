@@ -109,9 +109,24 @@ class SubjectController extends BaseController implements ServiceInterface {
 			$article_cpt = "{$key}_articles";
 
 			// 1. Регистрация CPT для заданий и статей
-			$this->registrar->cpt()
-			                ->addStandardType( $task_cpt, "Задания ($name)", "Задание" )
-			                ->addStandardType( $article_cpt, "Статьи ($name)", "Статья" );
+			// Настройка для ЗАДАНИЙ (Убираем редактор, отрывок и картинку)
+			$this->registrar->cpt()->addStandardType(
+				$task_cpt,
+				"Задания ($name)",
+				"Задание",
+				[
+					'supports' => [ 'title' ]
+				]
+			);
+			// Настройка для СТАТЕЙ (Тут редактор нам нужен)
+			$this->registrar->cpt()->addStandardType(
+				$article_cpt,
+				"Статьи ($name)",
+				"Статья",
+				[
+					'supports' => [ 'title', 'editor', 'thumbnail' ]
+				]
+			);
 
 			// 2. Регистрация фиксированной таксономии "Номера заданий"
 			$fixed_tax_slug = "{$key}_task_number";
@@ -156,6 +171,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$this->registrar->cpt()->register();
 		$this->registrar->taxonomy()->register();
 	}
+
 
 	/**
 	 * Коллбек для страницы управления конкретным предметом.

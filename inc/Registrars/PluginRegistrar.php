@@ -42,6 +42,8 @@ class PluginRegistrar {
 
 	private SubjectTaxonomyRegistrar $taxonomy;
 
+	private MetaBoxRegistrar $metabox;
+
 	/**
 	 * Конструктор.
 	 *
@@ -53,12 +55,14 @@ class PluginRegistrar {
 		MenuRegistrar $menu,
 		SettingsRegistrar $settings,
 		SubjectCPTRegistrar $cpt,
-		SubjectTaxonomyRegistrar $taxonomy
+		SubjectTaxonomyRegistrar $taxonomy,
+		MetaBoxRegistrar $metabox
 	) {
 		$this->menu     = $menu;
 		$this->settings = $settings;
 		$this->cpt      = $cpt;
 		$this->taxonomy = $taxonomy;
+		$this->metabox  = $metabox;
 	}
 
 	/**
@@ -99,6 +103,10 @@ class PluginRegistrar {
 
 	public function taxonomy(): SubjectTaxonomyRegistrar {
 		return $this->taxonomy;
+	}
+
+	public function metabox(): MetaBoxRegistrar {
+		return $this->metabox;
 	}
 
 //	/** Пока вообще не нужен */

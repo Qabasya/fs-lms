@@ -27,8 +27,7 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 	 *
 	 * @var string
 	 */
-	// Добавить потом константу
-	private string $option_name = 'fs_custom_taxonomies';
+	private string $option_name = BaseController::TAXONOMY_OPTION_NAME;
 
 	/**
 	 * Получить все кастомные таксономии всех предметов.

@@ -124,7 +124,7 @@ class SubjectSettingsCallbacks extends BaseController {
 				$success = $this->subjects->update( [ 'key' => $key, 'name' => $name ] );
 				if ( $success ) {
 					// Разовый сидинг номеров заданий
-					$this->seeder->seedTaskNumbers( "{$key}_task_number", $count );
+					$this->seeder->seedTaskNumbers( "{$key}_task_number", $count, $key );
 					flush_rewrite_rules();
 				}
 				$message = "Предмет «{$name}» успешно создан!";

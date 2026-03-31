@@ -19,6 +19,7 @@ namespace Inc\Core;
  * @package Inc\Core
  */
 class BaseController {
+	// ===== СЛАГИ =====//
 	/**
 	 * Slug главного меню плагина.
 	 *
@@ -33,6 +34,7 @@ class BaseController {
 	 */
 	public const SUBJECTS_MENU_SLUG = 'fs_subjects';
 
+	// ===== CAPABILITY=====//
 	/**
 	 * Capability (право доступа) для административных страниц.
 	 *
@@ -40,13 +42,17 @@ class BaseController {
 	 */
 	public const ADMIN_CAPABILITY = 'manage_options';
 
+	// ===== OPTION_NAME=====//
 	/**
 	 * Имя опции для хранения списка предметов.
 	 *
 	 * @var string
 	 */
 	public const SUBJECTS_OPTION_NAME = 'fs_lms_subjects_list';
+	public const TAXONOMY_OPTION_NAME = 'fs_lms_custom_metaboxes';
+	public const METABOXES_OPTION_NAME = 'fs_lms_custom_taxonomies';
 
+	// ===== ДЛЯ ВАЛИДАЦИИ =====//
 	/**
 	 * Минимальное количество заданий в предмете.
 	 */
