@@ -12,7 +12,7 @@ class MetaBoxRepository extends BaseController implements RepositoryInterface {
 	 * @var string
 	 */
 	// Добавить потом константу
-	private string $option_name = 'fs_custom_metaboxes';
+	private string $option_name = BaseController::METABOXES_OPTION_NAME;
 
 	public function read_all(): array {
 		return get_option( $this->option_name, [] );

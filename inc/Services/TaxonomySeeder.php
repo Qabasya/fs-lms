@@ -31,7 +31,7 @@ class TaxonomySeeder {
 	 *
 	 * @return void
 	 */
-	public function seedTaskNumbers( string $taxonomy, int $count ): void {
+	public function seedTaskNumbers( string $taxonomy, int $count, string $prefix): void {
 		// Получаем все существующие термины в таксономии
 		$terms = get_terms( [
 			'taxonomy'   => $taxonomy,
@@ -48,7 +48,7 @@ class TaxonomySeeder {
 		for ( $i = 1; $i <= $count; $i ++ ) {
 			$this->ensureTerm( (string) $i, $taxonomy, [
 				'description' => "Задание №{$i}",
-				'slug'        => (string) $i
+				'slug'        => "{$prefix}_{$i}"
 			] );
 		}
 	}
@@ -86,8 +86,8 @@ class TaxonomySeeder {
 	}
 
 // ============== Пока не используется! ============== //
-	/**
 
+	/**
 	 * Позволяет массово добавить любые другие термины (например, Темы или Авторов).
 	 *
 	 * @param string $taxonomy Слаб таксономии
