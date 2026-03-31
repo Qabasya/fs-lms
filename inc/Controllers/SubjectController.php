@@ -119,18 +119,23 @@ class SubjectController extends BaseController implements ServiceInterface {
 			$this->registrar->taxonomy()
 			                ->addFixedTaxonomy(
 				                $fixed_tax_slug,
-				                [ $task_cpt  ],
+				                [ $task_cpt ],
 				                "Номера заданий ($name)",
 				                "Номер задания",
 				                [
+					                'public'            => true,
+					                'show_ui'           => true,
+					                'show_in_menu'      => true,
+					                'show_admin_column' => true,
+					                'hierarchical'      => false,
+					                'query_var'         => true,
+					                'rewrite'           => [ 'slug' => $fixed_tax_slug ],
 					                'capabilities' => [
 						                'manage_terms' => 'manage_categories',
 						                'edit_terms'   => 'manage_categories',
-						                'delete_terms' => 'manage_categories',
+						                'delete_terms' => 'manage_categories', // Явно разрешаем удаление тем, кто может управлять категориями
 						                'assign_terms' => 'edit_posts',
 					                ],
-					                'hierarchical'      => false,          // Плоская структура
-					                'show_admin_column' => true,           // Показываем колонку в списке постов
 				                ]
 			                );
 
