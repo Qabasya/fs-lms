@@ -34,24 +34,30 @@ class MetaBoxRegistrar {
 	}
 
 	/**
-	 * Базовый метод добавления метабокса.
+	 * Базовый метод добавления метабокса с fluent interface.
 	 *
 	 * @param string $id Уникальный ID метабокса
-	 * @param string $title Заголовок, который увидит пользователь
-	 * @param callable $callback Функция, которая отрисует содержимое
-	 * @param array|string $post_types К какому CPT привязать
-	 * @param array $args Дополнительные аргументы (контекст, приоритет, данные)
+	 * @param string $title Заголовок метабокса
+	 * @param callable $callback Callback для отрисовки
+	 * @param string|string[] $post_types Типы записей (строка или массив)
+	 * @param array $args Дополнительные параметры (context, priority, args и т.д.)
 	 *
-	 * @return self Для цепочки вызовов
+	 * @return self
 	 */
-	public function add( string $id, string $title, callable $callback, $post_types, array $args = [] ): self {
+	public function add(
+		string $id,
+		string $title,
+		callable $callback,
+		string|array $post_types,
+		array $args = []
+	): self {
 		$this->metaboxes[ $id ] = [
 			'title'      => $title,
 			'callback'   => $callback,
 			'post_types' => $post_types,
-			'context'    => $args['context'] ?? 'normal',  // По умолчанию в центре
-			'priority'   => $args['priority'] ?? 'high',    // По умолчанию сверху
-			'args'       => $args['args'] ?? []             // Данные, пробрасываемые в callback
+			'context'    => $args['context'] ?? 'normal',
+			'priority'   => $args['priority'] ?? 'high',
+			'args'       => $args['args'] ?? $args, // если передали args напрямую — используем их
 		];
 
 		return $this;
@@ -81,9 +87,17 @@ class MetaBoxRegistrar {
 	}
 
 	/**
-	 * Передаёт накопленные данные менеджеру для регистрации.
+	 * Финализирует регистрацию — передаёт все накопленные метабоксы менеджеру.
 	 */
-	public function register(): void {
-		$this->manager->register( $this->metaboxes );
+	public function register(): void
+	{
+		if (empty($this->metaboxes)) {
+			return;
+		}
+
+		$this->manager->register($this->metaboxes);
+
+		// Очищаем очередь после регистрации (на случай повторного вызова)
+		$this->metaboxes = [];
 	}
 }

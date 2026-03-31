@@ -6,12 +6,7 @@ use Inc\Contracts\RepositoryInterface;
 use Inc\Core\BaseController;
 
 class MetaBoxRepository extends BaseController implements RepositoryInterface {
-	/**
-	 * Имя опции WordPress для хранения кастомных таксономий.
-	 *
-	 * @var string
-	 */
-	// Добавить потом константу
+
 	private string $option_name = BaseController::METABOXES_OPTION_NAME;
 
 	public function read_all(): array {
@@ -51,8 +46,11 @@ class MetaBoxRepository extends BaseController implements RepositoryInterface {
 
 
 		if ( isset( $all[ $subject ][ $task_number ] ) ) {
-
 			unset( $all[ $subject ][ $task_number ] );
+			// Если у предмета больше не осталось заданий — можно очистить пустой массив
+			if ( empty( $all[ $subject ] ) ) {
+				unset( $all[ $subject ] );
+			}
 
 			// Сохраняем обновлённый массив в опции WordPress
 			return update_option( $this->option_name, $all );
@@ -61,12 +59,8 @@ class MetaBoxRepository extends BaseController implements RepositoryInterface {
 		return false;
 	}
 
-	/**
-	 * Дополнительный хелпер (вне интерфейса) для быстрого получения одного шаблона
-	 */
-	public function get_template_for_task( string $subject, string $task_number ): string {
-		$all = $this->read_all();
-
-		return $all[ $subject ][ $task_number ] ?? 'standard_task';
+	public function clear(): bool {
+		return delete_option( $this->option_name );
 	}
+
 }

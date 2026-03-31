@@ -116,4 +116,8 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 
 		return update_option( $this->option_name, $subjects );
 	}
+
+	public function clear(): bool {
+		return delete_option( $this->option_name );
+	}
 }

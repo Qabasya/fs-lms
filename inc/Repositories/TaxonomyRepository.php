@@ -123,4 +123,8 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 		// Возвращаем таксономии предмета или пустой массив
 		return $all[ $subject_key ] ?? array();
 	}
+
+	public function clear(): bool {
+		return delete_option( $this->option_name );
+	}
 }
