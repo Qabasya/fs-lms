@@ -43,36 +43,45 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function enqueue_admin_assets(): void {
-		// Подключение CSS стилей для админ-панели
+		// 1. Подключаем стили
 		wp_enqueue_style(
-			'fs-lms-admin-style',                         // Уникальный идентификатор
-			$this->url( 'assets/css/admin.min.css' ),       // Путь к файлу
-			[ 'wp-components' ],                            // Зависимости
-			$this->plugin_version                         // Версия для кэширования
+			'fs-lms-admin-style',
+			$this->url( 'assets/css/admin.min.css' ),
+			[ 'wp-components' ],
+			$this->plugin_version
 		);
 
-		// Подключение JavaScript для админ-панели
+		// 2. Подключаем основной скрипт
+		// Запомним ID в переменную, чтобы не ошибиться
+		$script_handle = 'fs-lms-admin-script';
+
 		wp_enqueue_script(
-			'fs-lms-admin-script',                        // Уникальный идентификатор
-			$this->url( 'assets/js/admin.min.js' ),         // Путь к файлу
-			[ 'jquery', 'wp-api', 'wp-i18n' ],              // Зависимости
-			$this->plugin_version,                        // Версия для кэширования
-			true                                          // Загрузка в футере
+			$script_handle,
+			$this->url( 'assets/js/admin.min.js' ),
+			[ 'jquery', 'wp-api', 'wp-i18n' ],
+			$this->plugin_version,
+			true
 		);
 
-
-		// ДОБАВЛЯЕМ ЛОГИКУ ДАННЫХ ДЛЯ МОДАЛКИ
+		// 3. Локализация данных
 		$screen = get_current_screen();
 
-		// Проверяем, что это страница списка постов (_tasks)
+		// Данные для создания заданий (твоя старая логика для модалки)
 		if ( is_admin() && $screen && str_contains( $screen->post_type, '_tasks' ) ) {
-			wp_localize_script( 'fs-lms-admin-script', 'fsTaskData', [
+			wp_localize_script( $script_handle, 'fsTaskData', [
 				'ajax_url'    => admin_url( 'admin-ajax.php' ),
 				'nonce'       => wp_create_nonce( 'fs_task_creation_nonce' ),
 				'subject_key' => str_replace( '_tasks', '', $screen->post_type ),
 				'post_type'   => $screen->post_type
 			]);
 		}
+
+		// Данные для Менеджера заданий и общих настроек предмета
+		// Используем тот же $script_handle!
+		wp_localize_script( $script_handle, 'fs_lms_vars', [
+			'ajaxurl'  => admin_url( 'admin-ajax.php' ),
+			'security' => wp_create_nonce( 'fs_subject_nonce' )
+		]);
 	}
 
 	/**
