@@ -78,34 +78,50 @@ $key     = $args['subject_key'];
         <input type="radio" name="fs_tabs" id="tab4">
         <label for="tab4">Менеджер заданий</label>
         <div class="tab-content">
-            <h3>Управление шаблонами заданий</h3>
+            <h3>Управление шаблонами типов заданий</h3>
+            <p class="description">Здесь вы можете назначить визуальный шаблон для каждого номера задания. Все новые задачи этого типа будут использовать выбранный шаблон автоматически.</p>
+
             <table class="widefat fixed striped js-task-manager-table">
                 <thead>
                 <tr>
-                    <th>Задание</th>
-                    <th style="width: 250px;">Шаблон</th>
+                    <th>Тип задания (Номер)</th>
+                    <th style="width: 250px;">Визуальный шаблон</th>
                     <th style="width: 40px;"></th>
                 </tr>
                 </thead>
                 <tbody>
-                <?php foreach ( $args['tasks'] as $task ) :
-                    $current_tpl = get_post_meta( $task->ID, '_fs_lms_template_type', true ) ?: 'standard_task';
-                    ?>
-                    <tr data-task-id="<?php echo $task->ID; ?>">
-                        <td><strong><?php echo esc_html( $task->post_title ); ?></strong></td>
-                        <td>
-                            <select class="js-change-task-template" style="width:100%">
-                                <?php foreach ( $args['all_templates'] as $id => $name ) : ?>
-                                    <option value="<?php echo $id; ?>" <?php selected($current_tpl, $id); ?>><?php echo $name; ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </td>
-                        <td class="status-cell">
-                            <span class="spinner" style="float:none; margin:0;"></span>
-                            <span class="dashicons dashicons-yes js-success-icon" style="display:none; color:green;"></span>
-                        </td>
+                <?php if ( ! empty( $args['task_types'] ) ) : ?>
+                    <?php foreach ( $args['task_types'] as $type ) :
+                        // Получаем настройку шаблона из метаданных ТЕРМА
+                        $current_tpl = get_term_meta( $type['id'], '_fs_lms_preferred_template', true ) ?: 'standard_task';
+                        ?>
+                        <tr data-term-id="<?php echo $type['id']; ?>">
+                            <td>
+                                <strong><?php echo esc_html( $type['name'] ); ?></strong>
+                                <?php if ( ! empty( $type['description'] ) ) : ?>
+                                    <br><small style="color: #666;"><?php echo esc_html( $type['description'] ); ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <select class="js-change-term-template" style="width:100%">
+                                    <?php foreach ( $args['all_templates'] as $id => $name ) : ?>
+                                        <option value="<?php echo $id; ?>" <?php selected( $current_tpl, $id ); ?>>
+                                            <?php echo esc_html( $name ); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                            <td class="status-cell">
+                                <span class="spinner" style="float:none; margin:0;"></span>
+                                <span class="dashicons dashicons-yes js-success-icon" style="display:none; color:green; margin-top:4px;"></span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <tr>
+                        <td colspan="3">Типы заданий не найдены. Сначала создайте их в таксономии "Номера заданий".</td>
                     </tr>
-                <?php endforeach; ?>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>

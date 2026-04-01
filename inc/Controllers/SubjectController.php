@@ -199,21 +199,14 @@ class SubjectController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		// --- НОВАЯ ЛОГИКА ДЛЯ МЕНЕДЖЕРА ЗАДАНИЙ ---
 
-		// 1. Получаем все задания этого предмета
-		$tasks = get_posts([
-			'post_type'      => "{$key}_tasks",
-			'posts_per_page' => -1,
-			'post_status'    => 'any',
-			'orderby'        => 'title',
-			'order'          => 'ASC'
-		]);
+		// 1. Получаем список типов заданий (термов таксономии) для Менеджера заданий
+		$task_types = $this->get_task_types_from_tax( $key );
 
-		// 2. Получаем список визуальных шаблонов через фильтр из MetaBoxController
+		// 2. Получаем список визуальных шаблонов из MetaBoxController
 		$all_templates = apply_filters( 'fs_lms_get_templates', [] );
 
-		// Получаем пользовательские таксономии для данного предмета
+		// 3. Получаем пользовательские таксономии для данного предмета
 		$custom_taxes = $this->taxonomies->get_by_subject( $key );
 
 		// Подготавливаем данные для шаблона
@@ -221,6 +214,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$data = [
 			'subject_key'   => $key,
 			'subject'       => $current_subject,
+			'task_types'    => $task_types,     // Для Tab 4
+			'all_templates' => $all_templates,  // Для Tab 4
 			'tasks_url'     => admin_url( "edit.php?post_type={$key}_tasks" ),
 			'articles_url'  => admin_url( "edit.php?post_type={$key}_articles" ),
 			'protected_tax' => "{$key}_task_number",
@@ -229,7 +224,6 @@ class SubjectController extends BaseController implements ServiceInterface {
 				$custom_taxes
 			)
 		];
-
 		// Рендерим шаблон с переданными данными ЗАМЕНИТЬ
 		$this->render( 'SubjectTest', $data );
 	}

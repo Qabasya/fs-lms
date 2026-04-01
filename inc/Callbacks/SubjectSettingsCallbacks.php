@@ -72,7 +72,7 @@ class SubjectSettingsCallbacks extends BaseController {
 		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
 		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
 		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
-		add_action( 'wp_ajax_fs_update_task_template', [ $this, 'updateTaskTemplate' ] );
+		add_action( 'wp_ajax_fs_update_term_template', [ $this, 'updateTaskTemplate' ] );
 	}
 
 // ====================== ОБЩАЯ ЛОГИКА ======================
@@ -106,7 +106,7 @@ class SubjectSettingsCallbacks extends BaseController {
 		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
 		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : 0;
 
-		$task_id  = isset( $_POST['task_id'] ) ? (int) $_POST['task_id'] : 0;
+		$term_id  = isset( $_POST['term_id'] ) ? (int) $_POST['term_id'] : 0;
 		$template = isset( $_POST['template'] ) ? sanitize_text_field( $_POST['template'] ) : '';
 
 		if ( in_array( $operation, [ 'store', 'update', 'delete' ] ) ) {
@@ -150,19 +150,19 @@ class SubjectSettingsCallbacks extends BaseController {
 				$message = "Предмет удалён";
 				break;
 
-			case 'update_task_template':
-				if ( ! $task_id || ! $template ) {
-					wp_send_json_error( 'Недостаточно данных для обновления шаблона' );
+			case 'update_term_template':
+				if ( ! $term_id || ! $template ) {
+					wp_send_json_error( 'Недостаточно данных для обновления' );
 				}
-				// Прямое обновление метаданных поста
-				$success = (bool) update_post_meta( $task_id, '_fs_lms_template_type', $template );
 
-				// Если update_post_meta вернул false, это может значить, что значение не изменилось.
-				// В таких случаях в WP принято считать это успехом.
-				if ( ! $success && get_post_meta( $task_id, '_fs_lms_template_type', true ) === $template ) {
+				// Обновляем мета-поле ТЕРМА (номера задания)
+				$success = (bool) update_term_meta( $term_id, '_fs_lms_preferred_template', $template );
+
+				// WP возвращает false, если значение не изменилось. Считаем это успехом.
+				if ( ! $success && get_term_meta( $term_id, '_fs_lms_preferred_template', true ) === $template ) {
 					$success = true;
 				}
-				$message = "Шаблон задания обновлен!";
+				$message = "Шаблон для типа задания сохранен!";
 				break;
 		}
 
@@ -204,6 +204,6 @@ class SubjectSettingsCallbacks extends BaseController {
 	 * AJAX-обновление шаблона конкретного задания
 	 */
 	public function updateTaskTemplate(): void {
-		$this->executeOperation( 'update_task_template' );
+		$this->executeOperation( 'update_term_template' );
 	}
 }
