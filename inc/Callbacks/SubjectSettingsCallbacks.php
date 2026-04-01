@@ -72,6 +72,7 @@ class SubjectSettingsCallbacks extends BaseController {
 		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
 		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
 		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
+		add_action( 'wp_ajax_fs_update_task_template', [ $this, 'updateTaskTemplate' ] );
 	}
 
 // ====================== ОБЩАЯ ЛОГИКА ======================
@@ -105,22 +106,20 @@ class SubjectSettingsCallbacks extends BaseController {
 		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
 		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : 0;
 
-		if ( empty( $key ) ) {
-			wp_send_json_error( 'ID обязателен!' );
-		}
+		$task_id  = isset( $_POST['task_id'] ) ? (int) $_POST['task_id'] : 0;
+		$template = isset( $_POST['template'] ) ? sanitize_text_field( $_POST['template'] ) : '';
 
-		if ( in_array( $operation, [ 'store', 'update' ], true ) && empty( $name ) ) {
-			wp_send_json_error( 'Название обязательно для заполнения!' );
+		if ( in_array( $operation, [ 'store', 'update', 'delete' ] ) ) {
+			if ( empty( $key ) ) wp_send_json_error( 'ID обязателен!' );
 
-			return;
-		}
+			if ( in_array( $operation, [ 'store', 'update' ] ) && empty( $name ) ) {
+				wp_send_json_error( 'Название обязательно для заполнения!' );
+			}
 
-		// Проверка существования для редактирования и удаления
-		if ( in_array( $operation, [ 'update', 'delete' ], true ) ) {
-			if ( ! $this->subjects->get_by_key( $key ) ) {
-				wp_send_json_error( 'Предмет не найден в базе!' );
-
-				return;
+			if ( in_array( $operation, [ 'update', 'delete' ] ) ) {
+				if ( ! $this->subjects->get_by_key( $key ) ) {
+					wp_send_json_error( 'Предмет не найден в базе!' );
+				}
 			}
 		}
 
@@ -149,6 +148,21 @@ class SubjectSettingsCallbacks extends BaseController {
 					flush_rewrite_rules();
 				}
 				$message = "Предмет удалён";
+				break;
+
+			case 'update_task_template':
+				if ( ! $task_id || ! $template ) {
+					wp_send_json_error( 'Недостаточно данных для обновления шаблона' );
+				}
+				// Прямое обновление метаданных поста
+				$success = (bool) update_post_meta( $task_id, '_fs_lms_template_type', $template );
+
+				// Если update_post_meta вернул false, это может значить, что значение не изменилось.
+				// В таких случаях в WP принято считать это успехом.
+				if ( ! $success && get_post_meta( $task_id, '_fs_lms_template_type', true ) === $template ) {
+					$success = true;
+				}
+				$message = "Шаблон задания обновлен!";
 				break;
 		}
 
@@ -185,4 +199,11 @@ class SubjectSettingsCallbacks extends BaseController {
 	}
 
 	// Потом здесь добавляется exportSubject()//
+
+	/**
+	 * AJAX-обновление шаблона конкретного задания
+	 */
+	public function updateTaskTemplate(): void {
+		$this->executeOperation( 'update_task_template' );
+	}
 }
