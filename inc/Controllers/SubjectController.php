@@ -199,6 +199,20 @@ class SubjectController extends BaseController implements ServiceInterface {
 			return;
 		}
 
+		// --- НОВАЯ ЛОГИКА ДЛЯ МЕНЕДЖЕРА ЗАДАНИЙ ---
+
+		// 1. Получаем все задания этого предмета
+		$tasks = get_posts([
+			'post_type'      => "{$key}_tasks",
+			'posts_per_page' => -1,
+			'post_status'    => 'any',
+			'orderby'        => 'title',
+			'order'          => 'ASC'
+		]);
+
+		// 2. Получаем список визуальных шаблонов через фильтр из MetaBoxController
+		$all_templates = apply_filters( 'fs_lms_get_templates', [] );
+
 		// Получаем пользовательские таксономии для данного предмета
 		$custom_taxes = $this->taxonomies->get_by_subject( $key );
 
