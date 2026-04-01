@@ -249,4 +249,15 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		// Сохраняем очищенные мета-данные
 		update_post_meta( $post_id, 'fs_lms_meta', $sanitized );
 	}
+
+	/**
+	 * Возвращает ассоциативный массив [id => name] всех загруженных шаблонов.
+	 */
+	public function get_templates_list(): array {
+		$list = [];
+		foreach ( $this->templates as $id => $obj ) {
+			$list[ $id ] = $obj->get_name();
+		}
+		return $list;
+	}
 }
