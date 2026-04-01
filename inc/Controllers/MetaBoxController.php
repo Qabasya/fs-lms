@@ -154,6 +154,8 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 
 		// Подключаем обработчик сохранения мета-данных
 		add_action( 'save_post', [ $this, 'handleMetaSave' ] );
+
+		add_filter( 'fs_lms_get_templates', [ $this, 'get_templates_list' ] );
 	}
 
 // ============================ КОЛЛБЕКИ И ОБРАБОТКА ============================ //
