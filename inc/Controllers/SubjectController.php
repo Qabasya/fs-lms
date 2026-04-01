@@ -23,7 +23,7 @@ use Inc\Shared\Traits\NumericSorter;
  * @package Inc\Controllers
  * @implements ServiceInterface
  *
- * @method void render(string $template, array $data = []) — трейт TemplateRenderer
+ * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
  */
 class SubjectController extends BaseController implements ServiceInterface {
 	use TemplateRenderer;
@@ -53,8 +53,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository  $subjects   Репозиторий предметов
-	 * @param PluginRegistrar    $registrar  Композитный регистратор плагина
+	 * @param SubjectRepository $subjects Репозиторий предметов
+	 * @param PluginRegistrar $registrar Композитный регистратор плагина
 	 * @param TaxonomyRepository $taxonomies Репозиторий кастомных таксономий
 	 */
 	public function __construct(
@@ -145,22 +145,22 @@ class SubjectController extends BaseController implements ServiceInterface {
 					                'hierarchical'      => false,
 					                'query_var'         => true,
 					                'rewrite'           => [ 'slug' => $fixed_tax_slug ],
-					                'capabilities' => [
-						                'manage_terms' => 'manage_categories',
-						                'edit_terms'   => 'manage_categories',
-						                'delete_terms' => 'manage_categories', // Явно разрешаем удаление тем, кто может управлять категориями
-						                'assign_terms' => 'edit_posts',
+					                'capabilities'      => [
+						                'manage_terms' => 'manage_categories',  // Управление терминами
+						                'edit_terms'   => 'manage_categories',  // Редактирование терминов
+						                'delete_terms' => 'manage_categories',  // Удаление терминов
+						                'assign_terms' => 'edit_posts',         // Присвоение терминов постам
 					                ],
 				                ]
 			                );
 
 			// 3. Регистрация пользовательских таксономий из репозитория
-			$custom_taxes = $this->taxonomies->get_by_subject($key);
-			foreach ($custom_taxes as $tax_slug => $tax_data) {
+			$custom_taxes = $this->taxonomies->get_by_subject( $key );
+			foreach ( $custom_taxes as $tax_slug => $tax_data ) {
 				$this->registrar->taxonomy()
 				                ->addStandardTaxonomy(
 					                $tax_slug,
-					                [$task_cpt, $article_cpt],             // Привязываем и к заданиям, и к статьям
+					                [ $task_cpt, $article_cpt ],             // Привязываем и к заданиям, и к статьям
 					                $tax_data['name'],
 					                $tax_data['name']
 				                );
@@ -228,28 +228,42 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$this->render( 'SubjectTest', $data );
 	}
 
+	/**
+	 * Получает список типов заданий из таксономии предмета.
+	 *
+	 * Возвращает массив терминов таксономии "Номера заданий" для указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета (slug)
+	 *
+	 * @return array<int, array{
+	 *     id: int,
+	 *     name: string,
+	 *     description: string,
+	 *     slug: string
+	 * }> Список типов заданий
+	 */
 	public function get_task_types_from_tax( string $subject_key ): array {
 		$taxonomy = "{$subject_key}_task_number";
 
 		// Получаем все термины таксономии (Задание 1, Задание 2...)
-		$terms = get_terms([
+		$terms = get_terms( [
 			'taxonomy'   => $taxonomy,
 			'hide_empty' => false,
-			'orderby'    => 'slug', // Или по порядку, который ты задал
+			'orderby'    => 'slug',      // Сортировка по числовому значению
 			'order'      => 'ASC'
-		]);
+		] );
 
+		// Формируем массив данных для передачи в шаблон
 		$types = [];
 		foreach ( $terms as $term ) {
 			$types[] = [
 				'id'          => $term->term_id,
-				'name'        => $term->name,        // "Задание 1"
-				'description' => $term->description, // "Графы"
-				'slug'        => $term->slug         // "1"
+				'name'        => $term->name,          // "Задание 1"
+				'description' => $term->description,   // "Графы"
+				'slug'        => $term->slug           // "1"
 			];
 		}
 
 		return $types;
 	}
-
 }

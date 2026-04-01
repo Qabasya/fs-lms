@@ -254,11 +254,17 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 
 	/**
 	 * Возвращает ассоциативный массив [id => name] всех загруженных шаблонов.
+	 *
+	 * Используется в фильтре fs_lms_get_templates для получения списка
+	 * доступных шаблонов в других частях плагина.
+	 *
+	 * @return array<string, string> Массив шаблонов [template_id => template_name]
 	 */
-	public function get_templates_list(): array {
+	public function get_templates_list(): array
+	{
 		$list = [];
-		foreach ( $this->templates as $id => $obj ) {
-			$list[ $id ] = $obj->get_name();
+		foreach ($this->templates as $id => $obj) {
+			$list[$id] = $obj->get_name();
 		}
 		return $list;
 	}
