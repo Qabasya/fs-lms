@@ -19,11 +19,12 @@ use Inc\Shared\Traits\NumericSorter;
  * - Динамическую регистрацию CPT (задания и статьи) для каждого предмета
  * - Регистрацию таксономий (фиксированных и пользовательских)
  * - Отображение страницы управления конкретным предметом
+ * - Регистрацию AJAX-хуков для CRUD операций с предметами и таксономиями
  *
  * @package Inc\Controllers
  * @implements ServiceInterface
  *
- * @method void render(string $template, array $data = []) — трейт TemplateRenderer
+ * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
  */
 class SubjectController extends BaseController implements ServiceInterface {
 	use TemplateRenderer;
@@ -53,8 +54,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository  $subjects   Репозиторий предметов
-	 * @param PluginRegistrar    $registrar  Композитный регистратор плагина
+	 * @param SubjectRepository $subjects Репозиторий предметов
+	 * @param PluginRegistrar $registrar Композитный регистратор плагина
 	 * @param TaxonomyRepository $taxonomies Репозиторий кастомных таксономий
 	 */
 	public function __construct(
@@ -84,6 +85,19 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
+		// ====================== РЕГИСТРАЦИЯ AJAX-ОБРАБОТЧИКОВ ======================
+		// Обработчики для предметов (SubjectSettingsCallbacks)
+		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
+		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
+		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
+		add_action( 'wp_ajax_fs_update_term_template', [ $this, 'updateTaskTemplate' ] );
+
+		// Обработчики для таксономий (TaxonomySettingsCallbacks)
+		add_action( 'wp_ajax_fs_store_taxonomy', [ $this, 'storeTaxonomy' ] );
+		add_action( 'wp_ajax_fs_update_taxonomy', [ $this, 'updateTaxonomy' ] );
+		add_action( 'wp_ajax_fs_delete_taxonomy', [ $this, 'deleteTaxonomy' ] );
+
+		// ====================== НАСТРОЙКА СОРТИРОВКИ ======================
 		// Настройка сортировки терминов таксономий по числовому значению
 		// Применяется только к таксономиям, содержащим "_task_number"
 		$this->addNumericSort(
@@ -96,6 +110,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			}
 		);
 
+		// ====================== РЕГИСТРАЦИЯ CPT И ТАКСОНОМИЙ ======================
 		$all_subjects = $this->subjects->read_all();
 
 		if ( empty( $all_subjects ) ) {
@@ -108,8 +123,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			$task_cpt    = "{$key}_tasks";
 			$article_cpt = "{$key}_articles";
 
-			// 1. Регистрация CPT для заданий и статей
-			// Настройка для ЗАДАНИЙ (Убираем редактор, отрывок и картинку)
+			// 1. Регистрация CPT для заданий (только заголовок, без контента)
 			$this->registrar->cpt()->addStandardType(
 				$task_cpt,
 				"Задания ($name)",
@@ -118,7 +132,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 					'supports' => [ 'title' ]
 				]
 			);
-			// Настройка для СТАТЕЙ (Тут редактор нам нужен)
+
+			// 2. Регистрация CPT для статей (с редактором и картинкой)
 			$this->registrar->cpt()->addStandardType(
 				$article_cpt,
 				"Статьи ($name)",
@@ -128,7 +143,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 				]
 			);
 
-			// 2. Регистрация фиксированной таксономии "Номера заданий"
+			// 3. Регистрация фиксированной таксономии "Номера заданий"
 			$fixed_tax_slug = "{$key}_task_number";
 
 			$this->registrar->taxonomy()
@@ -145,22 +160,22 @@ class SubjectController extends BaseController implements ServiceInterface {
 					                'hierarchical'      => false,
 					                'query_var'         => true,
 					                'rewrite'           => [ 'slug' => $fixed_tax_slug ],
-					                'capabilities' => [
-						                'manage_terms' => 'manage_categories',
-						                'edit_terms'   => 'manage_categories',
-						                'delete_terms' => 'manage_categories', // Явно разрешаем удаление тем, кто может управлять категориями
-						                'assign_terms' => 'edit_posts',
+					                'capabilities'      => [
+						                'manage_terms' => 'manage_categories',  // Управление терминами
+						                'edit_terms'   => 'manage_categories',  // Редактирование терминов
+						                'delete_terms' => 'manage_categories',  // Удаление терминов
+						                'assign_terms' => 'edit_posts',         // Присвоение терминов постам
 					                ],
 				                ]
 			                );
 
-			// 3. Регистрация пользовательских таксономий из репозитория
-			$custom_taxes = $this->taxonomies->get_by_subject($key);
-			foreach ($custom_taxes as $tax_slug => $tax_data) {
+			// 4. Регистрация пользовательских таксономий из репозитория
+			$custom_taxes = $this->taxonomies->get_by_subject( $key );
+			foreach ( $custom_taxes as $tax_slug => $tax_data ) {
 				$this->registrar->taxonomy()
 				                ->addStandardTaxonomy(
 					                $tax_slug,
-					                [$task_cpt, $article_cpt],             // Привязываем и к заданиям, и к статьям
+					                [ $task_cpt, $article_cpt ],      // Привязываем и к заданиям, и к статьям
 					                $tax_data['name'],
 					                $tax_data['name']
 				                );
@@ -199,7 +214,14 @@ class SubjectController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		// Получаем пользовательские таксономии для данного предмета
+
+		// 1. Получаем список типов заданий (термов таксономии) для Менеджера заданий
+		$task_types = $this->get_task_types_from_tax( $key );
+
+		// 2. Получаем список визуальных шаблонов из MetaBoxController
+		$all_templates = apply_filters( 'fs_lms_get_templates', [] );
+
+		// 3. Получаем пользовательские таксономии для данного предмета
 		$custom_taxes = $this->taxonomies->get_by_subject( $key );
 
 		// Подготавливаем данные для шаблона
@@ -207,6 +229,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$data = [
 			'subject_key'   => $key,
 			'subject'       => $current_subject,
+			'task_types'    => $task_types,     // Для Tab 4
+			'all_templates' => $all_templates,  // Для Tab 4
 			'tasks_url'     => admin_url( "edit.php?post_type={$key}_tasks" ),
 			'articles_url'  => admin_url( "edit.php?post_type={$key}_articles" ),
 			'protected_tax' => "{$key}_task_number",
@@ -215,33 +239,46 @@ class SubjectController extends BaseController implements ServiceInterface {
 				$custom_taxes
 			)
 		];
-
 		// Рендерим шаблон с переданными данными ЗАМЕНИТЬ
 		$this->render( 'SubjectTest', $data );
 	}
 
+	/**
+	 * Получает список типов заданий из таксономии предмета.
+	 *
+	 * Возвращает массив терминов таксономии "Номера заданий" для указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета (slug)
+	 *
+	 * @return array<int, array{
+	 *     id: int,
+	 *     name: string,
+	 *     description: string,
+	 *     slug: string
+	 * }> Список типов заданий
+	 */
 	public function get_task_types_from_tax( string $subject_key ): array {
 		$taxonomy = "{$subject_key}_task_number";
 
 		// Получаем все термины таксономии (Задание 1, Задание 2...)
-		$terms = get_terms([
+		$terms = get_terms( [
 			'taxonomy'   => $taxonomy,
 			'hide_empty' => false,
-			'orderby'    => 'slug', // Или по порядку, который ты задал
+			'orderby'    => 'slug',      // Сортировка по числовому значению
 			'order'      => 'ASC'
-		]);
+		] );
 
+		// Формируем массив данных для передачи в шаблон
 		$types = [];
 		foreach ( $terms as $term ) {
 			$types[] = [
 				'id'          => $term->term_id,
-				'name'        => $term->name,        // "Задание 1"
-				'description' => $term->description, // "Графы"
-				'slug'        => $term->slug         // "1"
+				'name'        => $term->name,          // "Задание 1"
+				'description' => $term->description,   // "Графы"
+				'slug'        => $term->slug           // "1"
 			];
 		}
 
 		return $types;
 	}
-
 }

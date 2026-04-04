@@ -14,6 +14,8 @@ use Inc\Controllers\SubjectController;
  * - Получение типов заданий для модального окна
  * - Создание заданий с автоматической генерацией номера
  *
+ * Хуки регистрируются в TaskCreationController
+ *
  * @package Inc\Callbacks
  */
 class TaskCreationCallbacks extends BaseController {
@@ -32,21 +34,8 @@ class TaskCreationCallbacks extends BaseController {
 	public function __construct( SubjectController $subjectController ) {
 		parent::__construct();
 		$this->subjectController = $subjectController;
-
-		$this->registerAjaxActions();
 	}
 
-	/**
-	 * Центральное место регистрации всех AJAX-действий.
-	 *
-	 * Все AJAX-обработчики добавляются здесь для удобства поддержки.
-	 *
-	 * @return void
-	 */
-	private function registerAjaxActions(): void {
-		add_action( 'wp_ajax_fs_get_task_types', [ $this, 'ajaxGetTypes' ] );
-		add_action( 'wp_ajax_fs_create_task_action', [ $this, 'ajaxCreateTask' ] );
-	}
 // ============================ AJAX-КОЛЛБЕКИ ============================ //
 
 	/**
@@ -146,8 +135,16 @@ class TaskCreationCallbacks extends BaseController {
 		// Привязываем задание к термину (типу задания)
 		wp_set_object_terms( $new_id, $term_id, $taxonomy );
 
-		// Добавляем мета-поле с типом шаблона
-		update_post_meta( $new_id, '_fs_lms_template_type', 'standard_task' );
+		$preferred_template = get_term_meta( $term_id, '_fs_lms_preferred_template', true );
+
+		// 2. Если шаблон не задан (пусто в базе), используем 'standard_task' как фоллбек
+		$allowed_templates = apply_filters( 'fs_lms_get_templates', [] );
+		if ( empty( $preferred_template ) || ! array_key_exists( $preferred_template, $allowed_templates ) ) {
+			$preferred_template = 'standard_task';
+		}
+
+		// 3. Сохраняем этот шаблон в метаданные нового ПОСТА
+		update_post_meta( $new_id, '_fs_lms_template_type', $preferred_template );
 
 		// Возвращаем успешный ответ с ссылкой на редактирование
 		wp_send_json_success( [

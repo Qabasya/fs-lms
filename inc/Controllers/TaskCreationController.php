@@ -12,13 +12,12 @@ use Inc\Core\BaseController;
  *
  * Контроллер для инициализации функционала создания заданий.
  *
+ * Отвечает за регистрацию AJAX-обработчиков для создания заданий
+ * и получения типов заданий. Делегирует выполнение бизнес-логики
+ * классу TaskCreationCallbacks.
+ *
  * @package Inc\Controllers
  * @implements ServiceInterface
- *
- * Перенести логику регистрации скриптов и хуков из TaskCreationCallbacks сюда,
- * чтобы TaskCreationCallbacks занимался только обработкой AJAX.
- * Сейчас контроллер выполняет только роль "прокси" для регистрации в Init.php,
- * вся бизнес-логика находится в TaskCreationCallbacks.
  */
 class TaskCreationController extends BaseController implements ServiceInterface {
 	/**
@@ -33,7 +32,6 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 	 *
 	 * @param TaskCreationCallbacks $callbacks Коллбеки для обработки AJAX-запросов
 	 */
-
 	public function __construct( TaskCreationCallbacks $callbacks ) {
 		parent::__construct();
 		$this->callbacks = $callbacks;
@@ -43,13 +41,17 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 	 * Регистрирует компоненты контроллера.
 	 *
 	 * Вызывается из Init.php при инициализации плагина.
-	 * На данный момент вся логика вынесена в TaskCreationCallbacks,
-	 * который самостоятельно регистрирует AJAX-обработчики в конструкторе.
+	 * Регистрирует AJAX-обработчики для:
+	 * - получения списка типов заданий (ajaxGetTypes)
+	 * - создания нового задания (ajaxCreateTask)
 	 *
 	 * @return void
 	 */
 	public function register(): void {
+		// Регистрация AJAX-обработчика для получения типов заданий
+		add_action( 'wp_ajax_fs_get_task_types', [ $this->callbacks, 'ajaxGetTypes' ] );
 
+		// Регистрация AJAX-обработчика для создания нового задания
+		add_action( 'wp_ajax_fs_create_task_action', [ $this->callbacks, 'ajaxCreateTask' ] );
 	}
-
 }

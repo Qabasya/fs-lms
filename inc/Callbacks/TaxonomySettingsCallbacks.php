@@ -13,7 +13,6 @@ use Inc\Repositories\TaxonomyRepository;
  *
  * Отвечает за:
  * - AJAX-обработку CRUD операций с таксономиями (store, update, delete)
- * - Защиту системных таксономий (например, task_number) от изменения/удаления
  * - Сброс правил перезаписи после операций с таксономиями
  *
  * @package Inc\Callbacks
@@ -29,7 +28,8 @@ class TaxonomySettingsCallbacks extends BaseController {
 	/**
 	 * Конструктор.
 	 *
-	 * Инициализирует репозиторий таксономий и регистрирует AJAX-обработчики.
+	 * Инициализирует репозиторий таксономий.
+	 * AJAX-хуки регистрируются в SubjectController.
 	 *
 	 * @param TaxonomyRepository $taxonomies Репозиторий таксономий
 	 */
@@ -37,23 +37,12 @@ class TaxonomySettingsCallbacks extends BaseController {
 	public function __construct( TaxonomyRepository $taxonomies ) {
 		parent::__construct();
 		$this->taxonomies = $taxonomies;
-
-		// Регистрация AJAX
-		$this->registerAjaxActions();
-
 	}
 
-	/**
-	 * Центральное место регистрации всех AJAX-действий
-	 */
-	private function registerAjaxActions(): void
-	{
-		add_action( 'wp_ajax_fs_store_taxonomy', [ $this, 'storeTaxonomy' ] );
-		add_action( 'wp_ajax_fs_update_taxonomy', [ $this, 'updateTaxonomy' ] );
-		add_action( 'wp_ajax_fs_delete_taxonomy', [ $this, 'deleteTaxonomy' ] );
-	}
+
 
 // ====================== ОБЩАЯ ЛОГИКА ======================
+
 	/**
 	 * Общая функция для выполнения операций с таксономией.
 	 *
@@ -80,7 +69,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 		$tax_slug    = sanitize_title( $_POST['tax_slug'] ?? '' );
 		$tax_name    = sanitize_text_field( $_POST['tax_name'] ?? '' );
 
-		if ( in_array( $operation, ['store', 'update'], true ) && empty( $tax_name ) ) {
+		if ( in_array( $operation, [ 'store', 'update' ], true ) && empty( $tax_name ) ) {
 			wp_send_json_error( 'Название таксономии не может быть пустым' );
 		}
 
@@ -94,18 +83,18 @@ class TaxonomySettingsCallbacks extends BaseController {
 		switch ( $operation ) {
 			case 'store':
 			case 'update':
-				$success = $this->taxonomies->update([
+				$success = $this->taxonomies->update( [
 					'subject_key' => $subject_key,
 					'tax_slug'    => $tax_slug,
 					'name'        => $tax_name
-				]);
-				$message = ($operation === 'store') ? "Таксономия создана" : "Таксономия обновлена";
+				] );
+				$message = ( $operation === 'store' ) ? "Таксономия создана" : "Таксономия обновлена";
 				break;
 			case 'delete':
-				$success = $this->taxonomies->delete([
+				$success = $this->taxonomies->delete( [
 					'subject_key' => $subject_key,
 					'tax_slug'    => $tax_slug
-				]);
+				] );
 				$message = "Таксономия удалена";
 				break;
 		}

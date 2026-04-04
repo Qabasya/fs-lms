@@ -19,7 +19,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  *
  * Если планируешь добавить новое действие, то:
  * 1. Зарегистрируй его работу в SubjectRepository
- * 2. Добавь хук AJAX
+ * 2. Добавь хук AJAX (в контроллер)
  * 3. Проверь алгоритм, добавь действие в проверку на существование предмета, проверь правила перезаписи
  * 4. Вызови зарегистрированный в репозитории метод через performRepositoryAction()
  * 5. Добавь сообщение пользователю в getSuccessMessage()
@@ -49,8 +49,8 @@ class SubjectSettingsCallbacks extends BaseController {
 	/**
 	 * Конструктор.
 	 *
-	 * Инициализирует репозиторий предметов, сервис сидинга
-	 * и регистрирует AJAX-обработчики.
+	 * Инициализирует репозиторий предметов и сервис сидинга.
+	 * AJAX-хуки регистрируются в SubjectController.
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
 	 * @param TaxonomySeeder $seeder Сервис заполнения таксономий
@@ -59,19 +59,6 @@ class SubjectSettingsCallbacks extends BaseController {
 		parent::__construct();
 		$this->subjects = $subjects;
 		$this->seeder   = $seeder;
-		// Регистрация AJAX
-		$this->registerAjaxActions();
-
-	}
-
-	/**
-	 * Центральное место регистрации всех AJAX-действий
-	 */
-	private function registerAjaxActions(): void
-	{
-		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
-		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
-		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
 	}
 
 // ====================== ОБЩАЯ ЛОГИКА ======================
@@ -95,63 +82,93 @@ class SubjectSettingsCallbacks extends BaseController {
 	 * @return void Отправляет JSON-ответ через wp_send_json_*()
 	 */
 	protected function executeOperation( string $operation ): void {
+		// Проверка nonce для защиты от CSRF
 		check_ajax_referer( 'fs_subject_nonce', 'security' );
 
+		// Проверка прав доступа
 		if ( ! current_user_can( self::ADMIN_CAPABILITY ) ) {
 			wp_send_json_error( 'Нет прав' );
 		}
 
+		// Получение и санитизация общих данных
 		$name  = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : '';
 		$key   = isset( $_POST['key'] ) ? sanitize_title( $_POST['key'] ) : '';
 		$count = isset( $_POST['tasks_count'] ) ? (int) $_POST['tasks_count'] : 0;
 
-		if ( empty( $key ) ) {
-			wp_send_json_error( 'ID обязателен!' );
-		}
+		// Данные для операции update_term_template
+		$term_id  = isset( $_POST['term_id'] ) ? (int) $_POST['term_id'] : 0;
+		$template = isset( $_POST['template'] ) ? sanitize_text_field( $_POST['template'] ) : '';
 
-		if ( in_array( $operation, [ 'store', 'update' ], true ) && empty( $name ) ) {
-			wp_send_json_error( 'Название обязательно для заполнения!' );
+		// Валидация для операций с предметами
+		if ( in_array( $operation, [ 'store', 'update', 'delete' ] ) ) {
+			// Проверка обязательного ID
+			if ( empty( $key ) ) {
+				wp_send_json_error( 'ID обязателен!' );
+			}
 
-			return;
-		}
+			// Проверка названия для store и update
+			if ( in_array( $operation, [ 'store', 'update' ] ) && empty( $name ) ) {
+				wp_send_json_error( 'Название обязательно для заполнения!' );
+			}
 
-		// Проверка существования для редактирования и удаления
-		if ( in_array( $operation, [ 'update', 'delete' ], true ) ) {
-			if ( ! $this->subjects->get_by_key( $key ) ) {
-				wp_send_json_error( 'Предмет не найден в базе!' );
-
-				return;
+			// Проверка существования предмета для update и delete
+			if ( in_array( $operation, [ 'update', 'delete' ] ) ) {
+				if ( ! $this->subjects->get_by_key( $key ) ) {
+					wp_send_json_error( 'Предмет не найден в базе!' );
+				}
 			}
 		}
 
 		$success = false;
 		$message = '';
 
+		// Выполнение операции в зависимости от типа
 		switch ( $operation ) {
 			case 'store':
+				// Создание нового предмета
 				$success = $this->subjects->update( [ 'key' => $key, 'name' => $name ] );
 				if ( $success ) {
-					// Разовый сидинг номеров заданий
+					// Сидинг номеров заданий для созданного предмета
 					$this->seeder->seedTaskNumbers( "{$key}_task_number", $count, $key );
-					flush_rewrite_rules();
+					flush_rewrite_rules(); // Обновляем правила перезаписи для новых CPT
 				}
 				$message = "Предмет «{$name}» успешно создан!";
 				break;
 
 			case 'update':
+				// Обновление существующего предмета
 				$success = $this->subjects->update( [ 'key' => $key, 'name' => $name ] );
 				$message = "Предмет «{$name}» обновлен";
 				break;
 
 			case 'delete':
+				// Удаление предмета
 				$success = $this->subjects->delete( [ 'key' => $key ] );
 				if ( $success ) {
-					flush_rewrite_rules();
+					flush_rewrite_rules(); // Обновляем правила перезаписи после удаления
 				}
 				$message = "Предмет удалён";
 				break;
+
+			case 'update_term_template':
+				// Обновление шаблона для конкретного типа задания (термина таксономии)
+				if ( ! $term_id || ! $template ) {
+					wp_send_json_error( 'Недостаточно данных для обновления' );
+				}
+
+				// Сохраняем предпочитаемый шаблон в мета-поле термина
+				$success = (bool) update_term_meta( $term_id, '_fs_lms_preferred_template', $template );
+
+				// Если значение не изменилось (update_term_meta вернул false),
+				// но в базе уже есть нужное значение — считаем это успехом
+				if ( ! $success && get_term_meta( $term_id, '_fs_lms_preferred_template', true ) === $template ) {
+					$success = true;
+				}
+				$message = "Шаблон для типа задания сохранен!";
+				break;
 		}
 
+		// Отправка ответа клиенту
 		if ( $success ) {
 			wp_send_json_success( $message );
 		} else {
@@ -164,25 +181,38 @@ class SubjectSettingsCallbacks extends BaseController {
 // Фасады для комплексных операций
 
 	/**
-	 * Создание нового предмета
+	 * AJAX-обработчик создания нового предмета.
+	 *
+	 * @return void
 	 */
 	public function storeSubject(): void {
 		$this->executeOperation( 'store' );
 	}
 
 	/**
-	 * Обновление существующего предмета
+	 * AJAX-обработчик обновления существующего предмета.
+	 *
+	 * @return void
 	 */
 	public function updateSubject(): void {
 		$this->executeOperation( 'update' );
 	}
 
 	/**
-	 * Удаление предмета
+	 * AJAX-обработчик удаления предмета.
+	 *
+	 * @return void
 	 */
 	public function deleteSubject(): void {
 		$this->executeOperation( 'delete' );
 	}
 
-	// Потом здесь добавляется exportSubject()//
+	/**
+	 * AJAX-обработчик обновления шаблона для конкретного типа задания.
+	 *
+	 * @return void
+	 */
+	public function updateTaskTemplate(): void {
+		$this->executeOperation( 'update_term_template' );
+	}
 }

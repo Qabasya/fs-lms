@@ -39,40 +39,53 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * Загружает:
 	 * - CSS с зависимостью от wp-components (стили Gutenberg)
 	 * - JS с зависимостями от jQuery, WordPress API и интернационализации
+	 * - Локализует данные для JavaScript:
+	 *   - fsTaskData — данные для создания заданий (на страницах CPT _tasks)
+	 *   - fs_lms_vars — общие данные для AJAX (security, ajaxurl)
 	 *
 	 * @return void
 	 */
 	public function enqueue_admin_assets(): void {
-		// Подключение CSS стилей для админ-панели
+		// 1. Подключаем стили админ-панели
 		wp_enqueue_style(
 			'fs-lms-admin-style',                         // Уникальный идентификатор
-			$this->url( 'assets/css/admin.min.css' ),       // Путь к файлу
-			[ 'wp-components' ],                            // Зависимости
-			$this->plugin_version                         // Версия для кэширования
+			$this->url( 'assets/css/admin.min.css' ),       // Путь к минифицированному CSS
+			[ 'wp-components' ],                            // Зависимость от Gutenberg стилей
+			$this->plugin_version                         // Версия для сброса кэша
 		);
 
-		// Подключение JavaScript для админ-панели
+		// 2. Подключаем основной скрипт админ-панели
+		// Сохраняем идентификатор в переменную для дальнейшего использования
+		$script_handle = 'fs-lms-admin-script';
+
 		wp_enqueue_script(
-			'fs-lms-admin-script',                        // Уникальный идентификатор
-			$this->url( 'assets/js/admin.min.js' ),         // Путь к файлу
-			[ 'jquery', 'wp-api', 'wp-i18n' ],              // Зависимости
-			$this->plugin_version,                        // Версия для кэширования
-			true                                          // Загрузка в футере
+			$script_handle,                               // Уникальный идентификатор
+			$this->url( 'assets/js/admin.min.js' ),         // Путь к минифицированному JS
+			[ 'jquery', 'wp-api', 'wp-i18n' ],              // Зависимости: jQuery, WP REST API, интернационализация
+			$this->plugin_version,                        // Версия для сброса кэша
+			true                                          // Загрузка в футере для производительности
 		);
 
-
-		// ДОБАВЛЯЕМ ЛОГИКУ ДАННЫХ ДЛЯ МОДАЛКИ
+		// 3. Локализация данных для JavaScript
 		$screen = get_current_screen();
 
-		// Проверяем, что это страница списка постов (_tasks)
+		// Данные для создания заданий (модальное окно на страницах CPT * _tasks)
+		// Проверяем, находимся ли мы на странице редактирования/создания задания
 		if ( is_admin() && $screen && str_contains( $screen->post_type, '_tasks' ) ) {
-			wp_localize_script( 'fs-lms-admin-script', 'fsTaskData', [
-				'ajax_url'    => admin_url( 'admin-ajax.php' ),
-				'nonce'       => wp_create_nonce( 'fs_task_creation_nonce' ),
-				'subject_key' => str_replace( '_tasks', '', $screen->post_type ),
-				'post_type'   => $screen->post_type
-			]);
+			wp_localize_script( $script_handle, 'fsTaskData', [
+				'ajax_url'    => admin_url( 'admin-ajax.php' ),      // URL для AJAX-запросов
+				'nonce'       => wp_create_nonce( 'fs_task_creation_nonce' ), // Nonce для безопасности
+				'subject_key' => str_replace( '_tasks', '', $screen->post_type ), // Ключ предмета из CPT
+				'post_type'   => $screen->post_type               // Тип поста задания
+			] );
 		}
+
+		// Общие данные для менеджера заданий и настроек предметов
+		// Используем тот же идентификатор скрипта для локализации
+		wp_localize_script( $script_handle, 'fs_lms_vars', [
+			'ajaxurl'  => admin_url( 'admin-ajax.php' ),             // URL для AJAX-запросов
+			'security' => wp_create_nonce( 'fs_subject_nonce' )      // Nonce для операций с предметами
+		] );
 	}
 
 	/**
@@ -87,21 +100,19 @@ class Enqueue extends BaseController implements ServiceInterface {
 	public function enqueue_frontend_assets(): void {
 		// Подключение CSS стилей для фронтенда
 		wp_enqueue_style(
-			'fs-lms-frontend-style',                      // Уникальный идентификатор
-			$this->url( 'assets/css/frontend.min.css' ),    // Путь к файлу
-			[],                                           // Нет зависимостей
-			$this->plugin_version                         // Версия для кэширования
+			'fs-lms-frontend-style',                         // Уникальный идентификатор
+			$this->url( 'assets/css/frontend.min.css' ),       // Путь к минифицированному CSS
+			[],                                              // Нет зависимостей
+			$this->plugin_version                            // Версия для сброса кэша
 		);
 
 		// Подключение JavaScript для фронтенда
 		wp_enqueue_script(
-			'fs-lms-frontend-script',                     // Уникальный идентификатор
-			$this->url( 'assets/js/frontend.min.js' ),      // Путь к файлу
-			[ 'jquery' ],                                   // Зависимость от jQuery
-			$this->plugin_version,                        // Версия для кэширования
-			true                                          // Загрузка в футере
+			'fs-lms-frontend-script',                        // Уникальный идентификатор
+			$this->url( 'assets/js/frontend.min.js' ),         // Путь к минифицированному JS
+			[ 'jquery' ],                                      // Зависимость от jQuery
+			$this->plugin_version,                           // Версия для сброса кэша
+			true                                             // Загрузка в футере для производительности
 		);
 	}
-
-
 }
