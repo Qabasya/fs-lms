@@ -90,7 +90,7 @@ class TaxonomySeeder {
 	/**
 	 * Позволяет массово добавить любые другие термины (например, Темы или Авторов).
 	 *
-	 * @param string $taxonomy Слаб таксономии
+	 * @param string $taxonomy Слаг таксономии
 	 * @param array<string> $terms Список названий терминов
 	 */
 	public function seedTerms( string $taxonomy, array $terms ): void {

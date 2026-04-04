@@ -19,7 +19,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  *
  * Если планируешь добавить новое действие, то:
  * 1. Зарегистрируй его работу в SubjectRepository
- * 2. Добавь хук AJAX
+ * 2. Добавь хук AJAX (в контроллер)
  * 3. Проверь алгоритм, добавь действие в проверку на существование предмета, проверь правила перезаписи
  * 4. Вызови зарегистрированный в репозитории метод через performRepositoryAction()
  * 5. Добавь сообщение пользователю в getSuccessMessage()
@@ -49,8 +49,8 @@ class SubjectSettingsCallbacks extends BaseController {
 	/**
 	 * Конструктор.
 	 *
-	 * Инициализирует репозиторий предметов, сервис сидинга
-	 * и регистрирует AJAX-обработчики.
+	 * Инициализирует репозиторий предметов и сервис сидинга.
+	 * AJAX-хуки регистрируются в SubjectController.
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
 	 * @param TaxonomySeeder $seeder Сервис заполнения таксономий
@@ -59,23 +59,6 @@ class SubjectSettingsCallbacks extends BaseController {
 		parent::__construct();
 		$this->subjects = $subjects;
 		$this->seeder   = $seeder;
-		// Регистрация всех AJAX-обработчиков
-		$this->registerAjaxActions();
-
-	}
-
-	/**
-	 * Центральное место регистрации всех AJAX-действий.
-	 *
-	 * Все AJAX-обработчики добавляются здесь для удобства поддержки.
-	 *
-	 * @return void
-	 */
-	private function registerAjaxActions(): void {
-		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
-		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
-		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
-		add_action( 'wp_ajax_fs_update_term_template', [ $this, 'updateTaskTemplate' ] );
 	}
 
 // ====================== ОБЩАЯ ЛОГИКА ======================

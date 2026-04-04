@@ -14,6 +14,8 @@ use Inc\Controllers\SubjectController;
  * - Получение типов заданий для модального окна
  * - Создание заданий с автоматической генерацией номера
  *
+ * Хуки регистрируются в TaskCreationController
+ *
  * @package Inc\Callbacks
  */
 class TaskCreationCallbacks extends BaseController {
@@ -32,21 +34,8 @@ class TaskCreationCallbacks extends BaseController {
 	public function __construct( SubjectController $subjectController ) {
 		parent::__construct();
 		$this->subjectController = $subjectController;
-
-		$this->registerAjaxActions();
 	}
 
-	/**
-	 * Центральное место регистрации всех AJAX-действий.
-	 *
-	 * Все AJAX-обработчики добавляются здесь для удобства поддержки.
-	 *
-	 * @return void
-	 */
-	private function registerAjaxActions(): void {
-		add_action( 'wp_ajax_fs_get_task_types', [ $this, 'ajaxGetTypes' ] );
-		add_action( 'wp_ajax_fs_create_task_action', [ $this, 'ajaxCreateTask' ] );
-	}
 // ============================ AJAX-КОЛЛБЕКИ ============================ //
 
 	/**

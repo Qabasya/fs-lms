@@ -19,6 +19,7 @@ use Inc\Shared\Traits\NumericSorter;
  * - Динамическую регистрацию CPT (задания и статьи) для каждого предмета
  * - Регистрацию таксономий (фиксированных и пользовательских)
  * - Отображение страницы управления конкретным предметом
+ * - Регистрацию AJAX-хуков для CRUD операций с предметами и таксономиями
  *
  * @package Inc\Controllers
  * @implements ServiceInterface
@@ -84,6 +85,19 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
+		// ====================== РЕГИСТРАЦИЯ AJAX-ОБРАБОТЧИКОВ ======================
+		// Обработчики для предметов (SubjectSettingsCallbacks)
+		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
+		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
+		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
+		add_action( 'wp_ajax_fs_update_term_template', [ $this, 'updateTaskTemplate' ] );
+
+		// Обработчики для таксономий (TaxonomySettingsCallbacks)
+		add_action( 'wp_ajax_fs_store_taxonomy', [ $this, 'storeTaxonomy' ] );
+		add_action( 'wp_ajax_fs_update_taxonomy', [ $this, 'updateTaxonomy' ] );
+		add_action( 'wp_ajax_fs_delete_taxonomy', [ $this, 'deleteTaxonomy' ] );
+
+		// ====================== НАСТРОЙКА СОРТИРОВКИ ======================
 		// Настройка сортировки терминов таксономий по числовому значению
 		// Применяется только к таксономиям, содержащим "_task_number"
 		$this->addNumericSort(
@@ -96,6 +110,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			}
 		);
 
+		// ====================== РЕГИСТРАЦИЯ CPT И ТАКСОНОМИЙ ======================
 		$all_subjects = $this->subjects->read_all();
 
 		if ( empty( $all_subjects ) ) {
@@ -108,8 +123,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			$task_cpt    = "{$key}_tasks";
 			$article_cpt = "{$key}_articles";
 
-			// 1. Регистрация CPT для заданий и статей
-			// Настройка для ЗАДАНИЙ (Убираем редактор, отрывок и картинку)
+			// 1. Регистрация CPT для заданий (только заголовок, без контента)
 			$this->registrar->cpt()->addStandardType(
 				$task_cpt,
 				"Задания ($name)",
@@ -118,7 +132,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 					'supports' => [ 'title' ]
 				]
 			);
-			// Настройка для СТАТЕЙ (Тут редактор нам нужен)
+
+			// 2. Регистрация CPT для статей (с редактором и картинкой)
 			$this->registrar->cpt()->addStandardType(
 				$article_cpt,
 				"Статьи ($name)",
@@ -128,7 +143,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 				]
 			);
 
-			// 2. Регистрация фиксированной таксономии "Номера заданий"
+			// 3. Регистрация фиксированной таксономии "Номера заданий"
 			$fixed_tax_slug = "{$key}_task_number";
 
 			$this->registrar->taxonomy()
@@ -154,13 +169,13 @@ class SubjectController extends BaseController implements ServiceInterface {
 				                ]
 			                );
 
-			// 3. Регистрация пользовательских таксономий из репозитория
+			// 4. Регистрация пользовательских таксономий из репозитория
 			$custom_taxes = $this->taxonomies->get_by_subject( $key );
 			foreach ( $custom_taxes as $tax_slug => $tax_data ) {
 				$this->registrar->taxonomy()
 				                ->addStandardTaxonomy(
 					                $tax_slug,
-					                [ $task_cpt, $article_cpt ],             // Привязываем и к заданиям, и к статьям
+					                [ $task_cpt, $article_cpt ],      // Привязываем и к заданиям, и к статьям
 					                $tax_data['name'],
 					                $tax_data['name']
 				                );
