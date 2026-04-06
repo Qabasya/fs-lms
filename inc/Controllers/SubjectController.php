@@ -4,6 +4,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\TaskTypeDTO;
 use Inc\Registrars\PluginRegistrar;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
@@ -129,8 +130,9 @@ class SubjectController extends BaseController implements ServiceInterface {
 		}
 
 		// Регистрируем CPT и таксономии для каждого предмета
-		foreach ( $all_subjects as $key => $data ) {
-			$name        = $data['name'];
+		foreach ( $all_subjects as $subject ) {
+			$key         = $subject->key;
+			$name        = $subject->name;
 			$task_cpt    = "{$key}_tasks";
 			$article_cpt = "{$key}_articles";
 
@@ -235,7 +237,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$custom_taxes = $this->taxonomies->get_by_subject( $key );
 
 		$taxonomies    = array_merge(
-			[ "{$key}_task_number" => [ 'name' => "Номера заданий ({$current_subject['name']})" ] ],
+			[ "{$key}_task_number" => [ 'name' => "Номера заданий ({$current_subject->name})" ] ],
 			$custom_taxes
 		);
 
@@ -280,15 +282,19 @@ class SubjectController extends BaseController implements ServiceInterface {
 			'order'      => 'ASC'
 		] );
 
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return [];
+		}
+
 		// Формируем массив данных для передачи в шаблон
 		$types = [];
 		foreach ( $terms as $term ) {
-			$types[] = [
-				'id'          => $term->term_id,
-				'name'        => $term->name,          // "Задание 1"
-				'description' => $term->description,   // "Графы"
-				'slug'        => $term->slug           // "1"
-			];
+			$types[] = new TaskTypeDTO(
+				id:          $term->term_id,
+				name:        $term->name,
+				slug:        $term->slug,
+				description: $term->description
+			);
 		}
 
 		return $types;

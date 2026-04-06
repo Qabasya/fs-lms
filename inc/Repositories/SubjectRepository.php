@@ -32,6 +32,14 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	private string $option_name = BaseController::SUBJECTS_OPTION_NAME;
 
 	/**
+	 * ВНУТРЕННИЙ метод. Работает только с сырыми массивами из базы.
+	 */
+	private function get_raw(): array {
+		$subjects = get_option( $this->option_name, [] );
+		return is_array( $subjects ) ? $subjects : [];
+	}
+
+	/**
 	 * Получить все предметы.
 	 *
 	 * Возвращает ассоциативный массив, где ключ — уникальный
@@ -40,29 +48,21 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 * @return array<string, array{key: string, name: string}> Массив предметов
 	 */
 	public function read_all(): array {
-		$subjects = get_option( $this->option_name, array() );
-
-		// Если база упала и get_option вернул пустую строку, а не массив
-		if ( ! is_array( $subjects ) ) {
-			return array();
-		}
-
 		return array_map( function( $item ) {
 			return new SubjectDTO( $item['key'], $item['name'] );
-		}, $subjects );
+		}, $this->get_raw() );
 	}
 
 	/**
 	 * Получить предмет по ключу.
 	 */
-	public function get_by_key( string $key ): ?array {
-		$subjects = $this->read_all();
-
-		foreach ( $subjects as $subject ) {
-			if ( $subject->key === $key ) return $subject;
+	public function get_by_key( string $key ): ?SubjectDTO {
+		$raw = $this->get_raw();
+		if ( ! isset( $raw[ $key ] ) ) {
+			return null;
 		}
 
-		return null;
+		return new SubjectDTO( $raw[ $key ]['key'], $raw[ $key ]['name'] );
 	}
 
 	/**
@@ -74,13 +74,13 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 * @return bool Успешность сохранения
 	 */
 	public function update( array $data ): bool {
-		$subjects = $this->read_all();
+		// Работаем с сырыми данными для сохранения
+		$subjects = $this->get_raw();
+		$clean    = $this->sanitize( $data );
 
-		$clean_data = $this->sanitize( $data );
-
-		$subjects[ $clean_data['key'] ] = [
-			'key'  => $clean_data['key'],
-			'name' => $clean_data['name']
+		$subjects[ $clean['key'] ] = [
+			'key'  => $clean['key'],
+			'name' => $clean['name']
 		];
 
 		return update_option( $this->option_name, $subjects );
@@ -113,7 +113,7 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 */
 	public function delete( array $data ): bool {
 		$key      = $data['key'] ?? '';
-		$subjects = $this->read_all();
+		$subjects = $this->get_raw();
 
 		if ( ! isset( $subjects[ $key ] ) ) {
 			return false;

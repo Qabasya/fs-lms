@@ -21,35 +21,28 @@ $active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'tab
             </tr>
             </thead>
             <tbody>
-			<?php foreach ( $subjects as $key => $data ): ?>
-                <tr id="subject-row-<?php echo esc_attr( $key ); ?>">
+            <?php foreach ( $subjects as $subject ): ?>
+                <tr id="subject-row-<?php echo esc_attr( $subject->key ); ?>">
                     <td>
                         <strong>
                             <a class="row-title"
-                               href="?page=fs_subject_<?php echo esc_html( $data['key'] ); ?>"><?php echo esc_html( $data['name'] ); ?></a>
+                               href="?page=fs_subject_<?php echo esc_html( $subject->key ); ?>">
+                                <?php echo esc_html( $subject->name ); ?>
+                            </a>
                         </strong>
                         <div class="row-actions">
-                            <span class="inline hide-if-no-js">
-                                <button type="button" class="button-link editinline open-quick-edit"
-                                        data-key="<?php echo esc_attr( $key ); ?>"
-                                        data-name="<?php echo esc_attr( $data['name'] ); ?>"
-                                        data-count="<?php echo esc_attr( $data['tasks_count'] ?? 1 ); ?>">Редактировать</button>
-                            </span>
-                            |
-                            <span class="trash">
-                                <button type="button" class="button-link delete-subject" style="color: #a00;"
-                                        data-key="<?php echo esc_attr( $key ); ?>">Удалить</button>
-                            </span>
-                            |
-                            <span class="inline">
-                                <button type="button" class="button-link export-subject"
-                                        data-key="<?php echo esc_attr( $key ); ?>">Экспорт</button>
-                            </span>
+                <span class="inline">
+                    <button type="button" class="button-link open-quick-edit"
+                            data-key="<?php echo esc_attr( $subject->key ); ?>"
+                            data-name="<?php echo esc_attr( $subject->name ); ?>">
+                            Редактировать
+                    </button>
+                </span>
                         </div>
                     </td>
-                    <td><code><?php echo esc_html( $key ); ?></code></td>
+                    <td><code><?php echo esc_html( $subject->key ); ?></code></td>
                 </tr>
-			<?php endforeach; ?>
+            <?php endforeach; ?>
             </tbody>
             <tfoot>
             <tr>

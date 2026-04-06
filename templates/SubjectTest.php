@@ -25,7 +25,7 @@ $key     = $dto->subject_key;
 ?>
 
 <div class="wrap fs-lms-dashboard">
-    <h1>Управление предметом: <?php echo esc_html( $subject['name'] ); ?></h1>
+    <h1>Управление предметом: <?php echo esc_html( $subject->name ); ?></h1>
 
     <div class="fs-tabs">
         <input type="radio" name="fs_tabs" id="tab1" checked="checked">
@@ -103,13 +103,13 @@ $key     = $dto->subject_key;
                 <tbody>
                 <?php if ( ! empty( $dto->task_types ) ) : ?>
                     <?php foreach ( $dto->task_types as $type ) :
-                        $current_tpl = get_term_meta( $type['id'], '_fs_lms_preferred_template', true ) ?: 'standard_task';
+                        $current_tpl = get_term_meta( $type->id, '_fs_lms_preferred_template', true ) ?: 'standard_task';
                         ?>
-                        <tr data-term-id="<?php echo $type['id']; ?>">
+                        <tr data-term-id="<?php echo $type->id; ?>">
                             <td>
-                                <strong><?php echo esc_html( $type['name'] ); ?></strong>
-                                <?php if ( ! empty( $type['description'] ) ) : ?>
-                                    <br><small style="color: #666;"><?php echo esc_html( $type['description'] ); ?></small>
+                                <strong><?php echo esc_html( $type->name ); ?></strong>
+                                <?php if ( ! empty( $type->description ) ) : ?>
+                                    <br><small style="color: #666;"><?php echo esc_html( $type->description ); ?></small>
                                 <?php endif; ?>
                             </td>
                             <td>
