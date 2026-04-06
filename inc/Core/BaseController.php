@@ -18,8 +18,7 @@ namespace Inc\Core;
  *
  * @package Inc\Core
  */
-class BaseController
-{
+class BaseController {
 	// ===== СЛАГИ =====//
 
 	/**
@@ -148,19 +147,18 @@ class BaseController
 	 * Инициализирует пути и URL плагина.
 	 * Вызывается автоматически при создании экземпляра через DI-контейнер.
 	 */
-	public function __construct()
-	{
+	public function __construct() {
 		// Путь в корень плагина (на уровень выше папки Core)
-		$root_path = dirname(__FILE__, 2);
+		$root_path = dirname( __FILE__, 2 );
 
 		// Устанавливаем абсолютный путь к папке плагина
-		$this->plugin_path = plugin_dir_path($root_path);
+		$this->plugin_path = plugin_dir_path( $root_path );
 
 		// Устанавливаем URL папки плагина
-		$this->plugin_url = plugin_dir_url($root_path);
+		$this->plugin_url = plugin_dir_url( $root_path );
 
 		// Устанавливаем базовое имя плагина (например, "fs-lms/fs-lms.php")
-		$this->plugin_name = plugin_basename($root_path);
+		$this->plugin_name = plugin_basename( $root_path );
 	}
 
 	/**
@@ -174,9 +172,8 @@ class BaseController
 	 * $this->path('templates/admin.php');
 	 * // Результат: /var/www/wp-content/plugins/fs-lms/templates/admin.php
 	 */
-	public function path(string $path = ''): string
-	{
-		return $this->plugin_path . ltrim($path, '/\\');
+	public function path( string $path = '' ): string {
+		return $this->plugin_path . ltrim( $path, '/\\' );
 	}
 
 	/**
@@ -190,9 +187,8 @@ class BaseController
 	 * $this->url('assets/css/style.css');
 	 * // Результат: https://example.com/wp-content/plugins/fs-lms/assets/css/style.css
 	 */
-	public function url(string $path = ''): string
-	{
-		return $this->plugin_url . ltrim($path, '/');
+	public function url( string $path = '' ): string {
+		return $this->plugin_url . ltrim( $path, '/' );
 	}
 
 	/**
@@ -200,8 +196,7 @@ class BaseController
 	 *
 	 * @return string Базовое имя плагина (fs-lms/fs-lms.php)
 	 */
-	public function pluginName(): string
-	{
+	public function pluginName(): string {
 		return $this->plugin_name;
 	}
 }

@@ -25,7 +25,7 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 	 *
 	 * @var TaskCreationCallbacks
 	 */
-	protected TaskCreationCallbacks $callbacks;
+	private TaskCreationCallbacks $callbacks;
 
 	/**
 	 * Конструктор.

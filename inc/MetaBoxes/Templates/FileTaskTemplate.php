@@ -15,8 +15,7 @@ use Inc\MetaBoxes\Fields\TextareaField;
  * @package Inc\MetaBoxes\Templates
  * @extends BaseTemplate
  */
-class FileTaskTemplate extends BaseTemplate
-{
+class FileTaskTemplate extends BaseTemplate {
 	/**
 	 * Конструктор.
 	 *
@@ -25,18 +24,17 @@ class FileTaskTemplate extends BaseTemplate
 	 * - task_answer: правильный ответ (input)
 	 * - file: ссылка на файл задания (link field)
 	 */
-	public function __construct()
-	{
+	public function __construct() {
 		$this->fields = [
 			'task_condition' => [
 				'label'  => 'Условие задания',
 				'object' => new TextareaField()     // Многострочный текст
 			],
-			'task_answer' => [
+			'task_answer'    => [
 				'label'  => 'Правильный ответ',
 				'object' => new InputField()        // Текстовое поле
 			],
-			'file' => [
+			'file'           => [
 				'label'  => 'Файл задания',
 				'object' => new LinkField()         // Поле для ссылки на файл
 			]
@@ -48,8 +46,7 @@ class FileTaskTemplate extends BaseTemplate
 	 *
 	 * @return string Уникальный ID шаблона
 	 */
-	public function get_id(): string
-	{
+	public function get_id(): string {
 		return 'file_task';
 	}
 
@@ -58,8 +55,7 @@ class FileTaskTemplate extends BaseTemplate
 	 *
 	 * @return string Название шаблона, отображаемое в интерфейсе
 	 */
-	public function get_name(): string
-	{
+	public function get_name(): string {
 		return 'Задание с файлом';
 	}
 }

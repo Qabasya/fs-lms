@@ -37,14 +37,14 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 *
 	 * @var SubjectRepository
 	 */
-	protected SubjectRepository $subjects;
+	private SubjectRepository $subjects;
 
 	/**
 	 * Репозиторий для работы с кастомными таксономиями.
 	 *
 	 * @var TaxonomyRepository
 	 */
-	protected TaxonomyRepository $taxonomies;
+	private TaxonomyRepository $taxonomies;
 
 	/**
 	 * Композитный регистратор плагина.
@@ -53,8 +53,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 */
 	private PluginRegistrar $registrar;
 
-	protected SubjectSettingsCallbacks $subjectCallbacks;
-	protected TaxonomySettingsCallbacks $taxonomyCallbacks;
+	private SubjectSettingsCallbacks $subjectCallbacks;
+	private TaxonomySettingsCallbacks $taxonomyCallbacks;
 
 	/**
 	 * Конструктор.

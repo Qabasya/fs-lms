@@ -16,8 +16,7 @@ namespace Inc\MetaBoxes\Templates;
  *
  * @package Inc\MetaBoxes\Templates
  */
-abstract class BaseTemplate
-{
+abstract class BaseTemplate {
 	/**
 	 * Список полей в шаблоне.
 	 *
@@ -62,27 +61,26 @@ abstract class BaseTemplate
 	 *
 	 * @return void
 	 */
-	public function render(\WP_Post $post): void
-	{
+	public function render( \WP_Post $post ): void {
 		// 1. Достаём единый массив данных из мета-поля
-		$values = get_post_meta($post->ID, 'fs_lms_meta', true);
+		$values = get_post_meta( $post->ID, 'fs_lms_meta', true );
 
 		// Если данных ещё нет, инициализируем пустым массивом
-		if (!is_array($values)) {
+		if ( ! is_array( $values ) ) {
 			$values = [];
 		}
 
 		// 2. Открываем обёртку для шаблона
-		echo '<div class="fs-lms-template-wrapper" id="template-' . esc_attr($this->get_id()) . '">';
+		echo '<div class="fs-lms-template-wrapper" id="template-' . esc_attr( $this->get_id() ) . '">';
 
 		// 3. Проходим по всем зарегистрированным полям
-		foreach ($this->fields as $field_id => $config) {
+		foreach ( $this->fields as $field_id => $config ) {
 			$label = $config['label'];               // Текст метки поля
 			$field = $config['object'];              // Экземпляр класса поля
-			$value = $values[$field_id] ?? '';       // Текущее значение поля
+			$value = $values[ $field_id ] ?? '';       // Текущее значение поля
 
 			// 4. Делегируем рендеринг самому полю
-			$field->render($post, $field_id, $label, $value);
+			$field->render( $post, $field_id, $label, $value );
 		}
 
 		echo '</div>';
@@ -96,8 +94,7 @@ abstract class BaseTemplate
 	 *
 	 * @return array<string, array{label: string, object: object}> Список полей
 	 */
-	public function get_fields(): array
-	{
+	public function get_fields(): array {
 		return $this->fields;
 	}
 }

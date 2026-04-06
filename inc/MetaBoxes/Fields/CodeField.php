@@ -11,33 +11,31 @@ namespace Inc\MetaBoxes\Fields;
  * @package Inc\MetaBoxes\Fields
  * @extends BaseField
  */
-class CodeField extends BaseField
-{
+class CodeField extends BaseField {
     /**
      * Рендерит HTML-разметку поля для ввода кода.
      *
      * Выводит textarea с моноширинным оформлением и описанием.
      *
-     * @param WP_Post $post  Текущий пост (не используется, но обязателен для интерфейса)
-     * @param string  $id    Уникальный идентификатор поля
-     * @param string  $label Текст метки (label) поля
-     * @param string  $value Текущее значение поля
+     * @param WP_Post $post Текущий пост (не используется, но обязателен для интерфейса)
+     * @param string $id Уникальный идентификатор поля
+     * @param string $label Текст метки (label) поля
+     * @param string $value Текущее значение поля
      *
      * @return void
      */
-    public function render($post, string $id, string $label, $value): void
-    {
+    public function render( $post, string $id, string $label, $value ): void {
         ?>
         <div class="fs-lms-field-group fs-lms-code-group">
-            <label class="fs-lms-label" for="<?php echo esc_attr($id); ?>">
-                <?php echo esc_html($label); ?>
+            <label class="fs-lms-label" for="<?php echo esc_attr( $id ); ?>">
+                <?php echo esc_html( $label ); ?>
             </label>
             <div class="fs-lms-input-wrapper">
-                <textarea id="<?php echo esc_attr($id); ?>"
-                          name="<?php echo esc_attr($this->get_field_name($id)); ?>"
+                <textarea id="<?php echo esc_attr( $id ); ?>"
+                          name="<?php echo esc_attr( $this->get_field_name( $id ) ); ?>"
                           rows="12"
                           spellcheck="false"
-                          class="large-text fs-lms-textarea fs-lms-code-editor"><?php echo esc_textarea($value); ?></textarea>
+                          class="large-text fs-lms-textarea fs-lms-code-editor"><?php echo esc_textarea( $value ); ?></textarea>
                 <p class="description">Введите код решения</p>
             </div>
         </div>
@@ -55,8 +53,7 @@ class CodeField extends BaseField
      *
      * @return string Оригинальное значение без изменений
      */
-    public function sanitize($value)
-    {
+    public function sanitize( $value ) {
         // Ничего не трогаем, сохраняем текст со всеми отступами и пробелами
         return $value;
     }
