@@ -5,7 +5,6 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
 use Inc\Services\TaxonomySeeder;
-use Inc\Shared\Traits\TemplateRenderer;
 
 
 /**
@@ -27,10 +26,8 @@ use Inc\Shared\Traits\TemplateRenderer;
  *
  * @package Inc\Callbacks
  *
- * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
  */
 class SubjectSettingsCallbacks extends BaseController {
-	use TemplateRenderer;
 
 	/**
 	 * Репозиторий для работы с предметами.

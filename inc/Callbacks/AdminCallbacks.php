@@ -8,7 +8,7 @@ use Inc\Shared\Traits\TemplateRenderer;
 
 
 /**
- * Class SubjectSettingsCallbacks
+ * Class AdminCallbacks
  *
  * Обработчики (коллбеки) для административной панели WordPress.
  *
@@ -36,7 +36,7 @@ class AdminCallbacks extends BaseController {
 	 *
 	 * @var
 	 */
-	protected SubjectRepository $subjects;
+	private SubjectRepository $subjects;
 
 	/**
 	 * Конструктор.

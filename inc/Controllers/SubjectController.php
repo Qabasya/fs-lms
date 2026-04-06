@@ -251,8 +251,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 			taxonomies:    $taxonomies
 		);
 
-		// Рендерим шаблон с переданными данными ЗАМЕНИТЬ
-		$this->render( 'SubjectTest', [ 'data' => $dto ] );
+		// Рендерим шаблон с переданными данными
+		$this->render( 'SubjectTest', $dto );
 	}
 
 	/**
