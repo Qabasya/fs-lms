@@ -106,7 +106,6 @@ class ThreeInOneTemplate extends BaseTemplate {
 		$field  = $config['object'];
 		$value  = $values[ $field_id ] ?? '';
 
-		// Вызываем точно так же: ($post, $field_id, $label, $value)
 		$field->render( $post, $field_id, $label, $value );
 	}
 }

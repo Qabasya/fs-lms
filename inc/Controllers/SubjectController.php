@@ -11,6 +11,7 @@ use Inc\Shared\Traits\TemplateRenderer;
 use Inc\Shared\Traits\NumericSorter;
 use Inc\Callbacks\SubjectSettingsCallbacks;
 use Inc\Callbacks\TaxonomySettingsCallbacks;
+use Inc\DTO\SubjectViewDTO;
 
 /**
  * Class SubjectController
@@ -233,23 +234,25 @@ class SubjectController extends BaseController implements ServiceInterface {
 		// 3. Получаем пользовательские таксономии для данного предмета
 		$custom_taxes = $this->taxonomies->get_by_subject( $key );
 
+		$taxonomies    = array_merge(
+			[ "{$key}_task_number" => [ 'name' => "Номера заданий ({$current_subject['name']})" ] ],
+			$custom_taxes
+		);
+
 		// Подготавливаем данные для шаблона
-		// Тут бы DTO
-		$data = [
-			'subject_key'   => $key,
-			'subject'       => $current_subject,
-			'task_types'    => $task_types,     // Для Tab 4
-			'all_templates' => $all_templates,  // Для Tab 4
-			'tasks_url'     => admin_url( "edit.php?post_type={$key}_tasks" ),
-			'articles_url'  => admin_url( "edit.php?post_type={$key}_articles" ),
-			'protected_tax' => "{$key}_task_number",
-			'taxonomies'    => array_merge(
-				[ "{$key}_task_number" => [ 'name' => "Номера заданий ({$current_subject['name']})" ] ],
-				$custom_taxes
-			)
-		];
+		$dto = new SubjectViewDTO(
+			subject_key:   $key,
+			subject_data:  $current_subject,
+			task_types:    $task_types,
+			all_templates: $all_templates,
+			tasks_url:     admin_url( "edit.php?post_type={$key}_tasks" ),
+			articles_url:  admin_url( "edit.php?post_type={$key}_articles" ),
+			protected_tax: "{$key}_task_number",
+			taxonomies:    $taxonomies
+		);
+
 		// Рендерим шаблон с переданными данными ЗАМЕНИТЬ
-		$this->render( 'SubjectTest', $data );
+		$this->render( 'SubjectTest', [ 'data' => $dto ] );
 	}
 
 	/**

@@ -9,8 +9,19 @@
  * 'taxonomies'    => array
  * ]
  */
-$subject = $args['subject'];
-$key     = $args['subject_key'];
+
+/**
+ * Шаблон страницы управления предметом.
+ * * @var array $args Содержит объект DTO под ключом 'data'
+ */
+
+/** @var \Inc\DTO\SubjectViewDTO $dto */
+$dto = $args['data'];
+
+// Для удобства и чтобы не переписывать весь HTML,
+// можно оставить эти локальные переменные, достав их из DTO
+$subject = $dto->subject_data;
+$key     = $dto->subject_key;
 ?>
 
 <div class="wrap fs-lms-dashboard">
@@ -21,7 +32,7 @@ $key     = $args['subject_key'];
         <label for="tab1">Задания</label>
         <div class="tab-content">
             <div class="card">
-                <a href="<?php echo esc_url( $args['tasks_url'] ); ?>" class="button button-primary">Перейти к Заданиям</a>
+                <a href="<?php echo esc_url( $dto->tasks_url ); ?>" class="button button-primary">Перейти к Заданиям</a>
             </div>
         </div>
 
@@ -29,7 +40,7 @@ $key     = $args['subject_key'];
         <label for="tab2">Статьи</label>
         <div class="tab-content">
             <div class="card">
-                <a href="<?php echo esc_url( $args['articles_url'] ); ?>" class="button button-secondary">Перейти к Статьям</a>
+                <a href="<?php echo esc_url( $dto->articles_url ); ?>" class="button button-secondary">Перейти к Статьям</a>
             </div>
         </div>
 
@@ -50,8 +61,8 @@ $key     = $args['subject_key'];
                 </tr>
                 </thead>
                 <tbody>
-                <?php foreach ( $args['taxonomies'] as $tax_slug => $tax_data ) :
-                    $is_protected = ( $tax_slug === $args['protected_tax'] );
+                <?php foreach ( $dto->taxonomies as $tax_slug => $tax_data ) :
+                    $is_protected = ( $tax_slug === $dto->protected_tax );
                     $display_name = $tax_data['name'] ?? $tax_slug;
                     ?>
                     <tr data-slug="<?php echo esc_attr( $tax_slug ); ?>" data-name="<?php echo esc_attr( $display_name ); ?>">
@@ -79,7 +90,7 @@ $key     = $args['subject_key'];
         <label for="tab4">Менеджер заданий</label>
         <div class="tab-content">
             <h3>Управление шаблонами типов заданий</h3>
-            <p class="description">Здесь вы можете назначить визуальный шаблон для каждого номера задания. Все новые задачи этого типа будут использовать выбранный шаблон автоматически.</p>
+            <p class="description">Здесь вы можете назначить визуальный шаблон для каждого номера задания.</p>
 
             <table class="widefat fixed striped js-task-manager-table">
                 <thead>
@@ -90,9 +101,8 @@ $key     = $args['subject_key'];
                 </tr>
                 </thead>
                 <tbody>
-                <?php if ( ! empty( $args['task_types'] ) ) : ?>
-                    <?php foreach ( $args['task_types'] as $type ) :
-                        // Получаем настройку шаблона из метаданных ТЕРМА
+                <?php if ( ! empty( $dto->task_types ) ) : ?>
+                    <?php foreach ( $dto->task_types as $type ) :
                         $current_tpl = get_term_meta( $type['id'], '_fs_lms_preferred_template', true ) ?: 'standard_task';
                         ?>
                         <tr data-term-id="<?php echo $type['id']; ?>">
@@ -104,9 +114,9 @@ $key     = $args['subject_key'];
                             </td>
                             <td>
                                 <select class="js-change-term-template" style="width:100%">
-                                    <?php foreach ( $args['all_templates'] as $id => $name ) : ?>
-                                        <option value="<?php echo $id; ?>" <?php selected( $current_tpl, $id ); ?>>
-                                            <?php echo esc_html( $name ); ?>
+                                    <?php foreach ( $dto->all_templates as $tpl_id => $tpl_name ) : ?>
+                                        <option value="<?php echo $tpl_id; ?>" <?php selected( $current_tpl, $tpl_id ); ?>>
+                                            <?php echo esc_html( $tpl_name ); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -118,9 +128,7 @@ $key     = $args['subject_key'];
                         </tr>
                     <?php endforeach; ?>
                 <?php else : ?>
-                    <tr>
-                        <td colspan="3">Типы заданий не найдены. Сначала создайте их в таксономии "Номера заданий".</td>
-                    </tr>
+                    <tr><td colspan="3">Типы заданий не найдены.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>
@@ -131,7 +139,7 @@ $key     = $args['subject_key'];
 <div id="fs-taxonomy-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;">
     <div style="background:#fff; width:400px; margin:100px auto; padding:20px; border-radius:5px;">
         <h3 id="modal-title">Новая таксономия</h3>
-        <input type="hidden" id="tax-subject-key" value="<?php echo esc_attr( $key ); ?>">
+        <input type="hidden" id="tax-subject-key" value="<?php echo esc_attr( $dto->subject_key ); ?>">
         <input type="hidden" id="tax-action" value="store">
 
         <p>
@@ -154,8 +162,9 @@ $key     = $args['subject_key'];
     .fs-tabs { display: flex; flex-wrap: wrap; margin-top: 20px; }
     .fs-tabs label { padding: 10px 20px; background: #e0e0e0; cursor: pointer; border: 1px solid #ccc; border-bottom: none; margin-right: 5px; }
     .fs-tabs input[type="radio"] { display: none; }
-    .fs-tabs .tab-content { width: 100%; order: 1; display: none; padding: 20px; background: #fff; border: 1px solid #ccc; }
-    .fs-tabs input[type="radio"]:checked + label { background: #fff; border-bottom: 1px solid #fff; margin-bottom: -1px; }
+    .fs-tabs .tab-content { width: 100%; order: 1; display: none; padding: 20px; background: #fff; border: 1px solid #ccc; min-height: 200px;}
+    .fs-tabs input[type="radio"]:checked + label { background: #fff; border-bottom: 1px solid #fff; margin-bottom: -1px; font-weight: bold;}
     .fs-tabs input[type="radio"]:checked + label + .tab-content { display: block; }
     .dashicons-lock { font-size: 14px; color: #999; vertical-align: middle; }
+    .column-name { vertical-align: middle !important; }
 </style>
