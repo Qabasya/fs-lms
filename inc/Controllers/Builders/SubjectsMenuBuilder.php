@@ -130,7 +130,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 */
 	private function getSubjects(): array {
 		if ( $this->subjects === null ) {
-			$this->subjects = $this->subjectRepository->read_all();
+			$this->subjects = $this->subjectRepository->readAll();
 		}
 
 		return $this->subjects;

@@ -12,21 +12,21 @@ namespace Inc\DTO;
  *
  * @package Inc\DTO
  */
-class TaskTypeDTO
-{
+class TaskTypeDTO {
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param int    $id          ID термина таксономии
-	 * @param string $name        Название типа задания (например, "Задание 1")
-	 * @param string $slug        Слаг термина (например, "1")
+	 * @param int $id ID термина таксономии
+	 * @param string $name Название типа задания (например, "Задание 1")
+	 * @param string $slug Слаг термина (например, "1")
 	 * @param string $description Описание типа задания (например, "Графы")
 	 */
 	public function __construct(
 		public readonly int $id,
 		public readonly string $name,
 		public readonly string $slug,
-		public readonly string $description = ''
+		public readonly string $description = '',
+		public readonly string $current_template = 'standard_task'
 	) {
 	}
 }

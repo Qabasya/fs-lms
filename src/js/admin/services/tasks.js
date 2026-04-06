@@ -64,45 +64,46 @@ export const Tasks = {
     },
     // Новая логика для Менеджера заданий (Tab 4)
     initTemplateManager: function ($) {
-        console.log('FS LMS: Менеджер шаблонов типов заданий запущен');
-
-        // Вешаем событие на смену значения в выпадающем списке
         $('.js-task-manager-table').on('change', '.js-change-term-template', function () {
             const $select = $(this);
             const $row = $select.closest('tr');
+
+            // Формируем данные строго под твой executeOperation
+            const sendData = {
+                action: 'fs_update_term_template',
+                security: fs_lms_vars.security,    // Тот самый fs_subject_nonce
+                term_id: $row.data('term-id'),     //
+                template: $select.val(),           //
+                // Добавляем пустые заглушки для key и name,
+                // чтобы executeOperation не ругался на отсутствие полей (если это требуется)
+                key: '',
+                name: ''
+            };
+
             const $spinner = $row.find('.spinner');
             const $success = $row.find('.js-success-icon');
 
-            // Получаем ID ТЕРМА (номера задания) и выбранный шаблон
-            const termId = $row.data('term-id');
-            const templateId = $select.val();
-
-            // Визуальная индикация начала загрузки
             $spinner.addClass('is-active').show();
             $success.hide();
 
             $.ajax({
                 url: fs_lms_vars.ajaxurl,
                 type: 'POST',
-                data: {
-                    action: 'fs_update_term_template', // Наш метод в SubjectSettingsCallbacks
-                    security: fs_lms_vars.security,    // Наш nonce
-                    term_id: termId,                   // ID ТЕРМА
-                    template: templateId               // ID ШАБЛОНА
-                },
+                data: sendData,
                 success: function (response) {
                     $spinner.removeClass('is-active').hide();
-
                     if (response.success) {
-                        // Показываем галочку успеха на 1.5 секунды
-                        $success.fadeIn().delay(1500).fadeOut();
+                        $success.fadeIn().delay(1000).fadeOut();
                     } else {
-                        alert(response.data || 'Ошибка при сохранении');
+                        // Если success: false, выводим ошибку из PHP (например, "Тип задания не найден")
+                        alert('Ошибка: ' + response.data);
                     }
                 },
-                error: function () {
+                error: function (xhr) {
                     $spinner.removeClass('is-active').hide();
-                    alert('Системная ошибка AJAX');
+                    // Если статус 403, значит nonce всё-таки не прошел проверку
+                    console.log('Статус ошибки:', xhr.status);
+                    alert('Системная ошибка AJAX. Проверьте консоль.');
                 }
             });
         });

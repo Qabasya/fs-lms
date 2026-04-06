@@ -4,6 +4,7 @@ namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\TaskTemplateAssignmentDTO;
 
 /**
  * Class MetaBoxRepository
@@ -20,6 +21,9 @@ use Inc\Core\BaseController;
  *     ...
  * ]
  *
+ * При чтении данных возвращает DTO-объекты (TaskTemplateAssignmentDTO)
+ * для типобезопасной работы.
+ *
  * @package Inc\Repositories
  * @implements RepositoryInterface
  */
@@ -32,13 +36,69 @@ class MetaBoxRepository extends BaseController implements RepositoryInterface {
 	private string $option_name = BaseController::METABOXES_OPTION_NAME;
 
 	/**
-	 * Получить все привязки заданий к шаблонам.
+	 * Внутренний метод для получения сырых данных из Options API.
 	 *
-	 * @return array<string, array<string, string>> Массив всех привязок,
-	 *         сгруппированных по предметам и номерам заданий
+	 * @return array<string, array<string, string>> Сырые данные привязок
 	 */
-	public function read_all(): array {
-		return get_option( $this->option_name, [] );
+	private function getRaw(): array {
+		$data = get_option( $this->option_name, [] );
+
+		return is_array( $data ) ? $data : [];
+	}
+
+	/**
+	 * Возвращает все привязки заданий к шаблонам.
+	 *
+	 * @return TaskTemplateAssignmentDTO[] Массив DTO-объектов всех привязок
+	 */
+	public function readAll(): array {
+		$raw_all = $this->getRaw();
+		$result  = [];
+
+		foreach ( $raw_all as $subject => $tasks ) {
+			foreach ( $tasks as $number => $template_id ) {
+				// Создаём DTO для каждой привязки
+				$result[] = new TaskTemplateAssignmentDTO(
+					(string) $subject,
+					(string) $number,
+					(string) $template_id
+				);
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Получить шаблон для конкретного задания.
+	 *
+	 * Хелпер для быстрой проверки привязки.
+	 *
+	 * @param string $subject Ключ предмета (например, 'inf')
+	 * @param string $task_number Номер задания (например, '1')
+	 *
+	 * @return TaskTemplateAssignmentDTO|null DTO-объект привязки или null, если не найдена
+	 */
+	public function getAssignment( string $subject, string $task_number ): ?TaskTemplateAssignmentDTO {
+		$all = $this->getRaw();
+
+		// Проверяем существование ключа предмета
+		if ( ! isset( $all[ $subject ] ) ) {
+			return null;
+		}
+
+		// Приводим номер к строке для надёжного поиска в ключах массива
+		$number_key = (string) $task_number;
+
+		// Ищем ID шаблона
+		$template_id = $all[ $subject ][ $number_key ] ?? null;
+
+		if ( ! $template_id ) {
+			return null;
+		}
+
+		// Возвращаем DTO
+		return new TaskTemplateAssignmentDTO( $subject, $number_key, $template_id );
 	}
 
 	/**
@@ -60,8 +120,7 @@ class MetaBoxRepository extends BaseController implements RepositoryInterface {
 			return false;
 		}
 
-		// Получаем текущие данные всех привязок
-		$all = $this->read_all();
+		$all = $this->getRaw();
 
 		$subject     = $data['subject'];
 		$task_number = $data['task_number'];
@@ -71,11 +130,30 @@ class MetaBoxRepository extends BaseController implements RepositoryInterface {
 			$all[ $subject ] = [];
 		}
 
-		// Сохраняем привязку: предмет → номер задания → ID шаблона
+		// Сохраняем привязку
 		$all[ $subject ][ $task_number ] = $data['template_id'];
 
 		// Сохраняем обновлённый массив в опции WordPress
 		return update_option( $this->option_name, $all );
+	}
+
+	/**
+	 * Хелпер для обновления привязки.
+	 *
+	 * Удобная обёртка над методом update().
+	 *
+	 * @param string $subject Ключ предмета
+	 * @param string $task_number Номер задания
+	 * @param string $template_id ID шаблона
+	 *
+	 * @return bool Успешность операции
+	 */
+	public function updateAssignment( string $subject, string $task_number, string $template_id ): bool {
+		return $this->update( [
+			'subject'     => $subject,
+			'task_number' => $task_number,
+			'template_id' => $template_id
+		] );
 	}
 
 	/**
@@ -96,8 +174,7 @@ class MetaBoxRepository extends BaseController implements RepositoryInterface {
 			return false;
 		}
 
-		// Получаем текущие данные всех привязок
-		$all = $this->read_all();
+		$all = $this->getRaw();
 
 		$subject     = $data['subject'];
 		$task_number = $data['task_number'];
@@ -116,7 +193,6 @@ class MetaBoxRepository extends BaseController implements RepositoryInterface {
 			return update_option( $this->option_name, $all );
 		}
 
-		// Привязка не найдена
 		return false;
 	}
 

@@ -26,7 +26,7 @@ interface RepositoryInterface {
 	 *
 	 * @return array<int|string, array<string, mixed>> Массив всех записей
 	 */
-	 public function read_all(): array;
+	 public function readAll(): array;
 
 	/**
 	 * Обновить или создать запись.

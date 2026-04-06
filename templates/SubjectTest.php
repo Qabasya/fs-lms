@@ -94,7 +94,7 @@ $key     = $dto->subject_key;
             <h3>Управление шаблонами типов заданий</h3>
             <p class="description">Здесь вы можете назначить визуальный шаблон для каждого номера задания.</p>
 
-            <table class="widefat fixed striped js-task-manager-table">
+            <table class="widefat fixed striped js-task-manager-table" data-subject="<?php echo esc_attr( $dto->subject_key ); ?>">
                 <thead>
                 <tr>
                     <th>Тип задания (Номер)</th>
@@ -104,22 +104,21 @@ $key     = $dto->subject_key;
                 </thead>
                 <tbody>
                 <?php if ( ! empty( $dto->task_types ) ) : ?>
-                    <?php foreach ( $dto->task_types as $type ) :
-                        $current_tpl = get_term_meta( $type->id, '_fs_lms_preferred_template', true ) ?: 'standard_task';
-                        ?>
-                        <tr data-term-id="<?php echo $type->id; ?>">
+                    <?php foreach ( $dto->task_types as $type ) : ?>
+                        <tr data-term-id="<?php echo $type->id; ?>" data-task-slug="<?php echo esc_attr($type->slug); ?>">
+
                             <td>
                                 <strong><?php echo esc_html( $type->name ); ?></strong>
                                 <?php if ( ! empty( $type->description ) ) : ?>
-                                    <br><small
-                                            style="color: #666;"><?php echo esc_html( $type->description ); ?></small>
+                                    <br><small style="color: #666;"><?php echo esc_html( $type->description ); ?></small>
                                 <?php endif; ?>
                             </td>
                             <td>
                                 <select class="js-change-term-template" style="width:100%">
-                                    <?php foreach ( $dto->all_templates as $tpl_id => $tpl_name ) : ?>
-                                        <option value="<?php echo $tpl_id; ?>" <?php selected( $current_tpl, $tpl_id ); ?>>
-                                            <?php echo esc_html( $tpl_name ); ?>
+                                    <?php foreach ( $dto->all_templates as $tpl ) :
+                                        /** @var \Inc\DTO\TaskMetaDTO $tpl */ ?>
+                                        <option value="<?php echo esc_attr( $tpl->id ); ?>" <?php selected( $type->current_template, $tpl->id ); ?>>
+                                            <?php echo esc_html( $tpl->title ); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>

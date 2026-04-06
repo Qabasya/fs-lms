@@ -12,6 +12,8 @@ use Inc\MetaBoxes\Templates\ThreeInOneTemplate;
 use Inc\MetaBoxes\Templates\TwoFileCodeTaskTemplate;
 use Inc\Repositories\SubjectRepository;
 use Inc\Registrars\PluginRegistrar;
+use Inc\Repositories\MetaBoxRepository;
+use Inc\DTO\TaskMetaDTO;
 
 /**
  * Class MetaBoxController
@@ -47,20 +49,32 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	private PluginRegistrar $registrar;
 
 	/**
+	 * Репозиторий для работы с привязками заданий к шаблонам.
+	 *
+	 * @var MetaBoxRepository
+	 */
+	private MetaBoxRepository $metaboxes;
+
+	/**
 	 * Конструктор.
 	 *
-	 * Инициализирует репозиторий, регистратор и регистрирует все шаблоны метабоксов.
+	 * Инициализирует репозитории, регистратор и регистрирует все шаблоны метабоксов.
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
 	 * @param PluginRegistrar $registrar Композитный регистратор
+	 * @param MetaBoxRepository $metaboxes Репозиторий привязок заданий к шаблонам
 	 */
-	public function __construct( SubjectRepository $subjects, PluginRegistrar $registrar ) {
+	public function __construct(
+		SubjectRepository $subjects,
+		PluginRegistrar $registrar,
+		MetaBoxRepository $metaboxes
+	) {
 		parent::__construct();
-
 		$this->subjects  = $subjects;
 		$this->registrar = $registrar;
+		$this->metaboxes = $metaboxes;
 
-		// Регистрируем все доступные шаблоны
+		// Регистрация всех доступных шаблонов
 		$this->registerTemplates();
 	}
 
@@ -126,49 +140,43 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 * Регистрирует метабоксы для каждого предмета и подключает обработчик сохранения.
 	 *
 	 * Процесс регистрации:
-	 * 1. Получение всех предметов
-	 * 2. Определение шаблона по умолчанию (standard_task или первый в списке)
-	 * 3. Для каждого предмета регистрация метабокса через регистратор
-	 * 4. Подключение хуков: сохранение поста, фильтр списка шаблонов
+	 * 1. Регистрация метабоксов через нативный хук add_meta_boxes
+	 * 2. Для каждого предмета создаётся метабокс на CPT заданий
+	 * 3. Подключение хуков: сохранение поста, фильтр списка шаблонов
 	 *
 	 * @return void
 	 */
 	public function register(): void {
-		// Получаем все предметы
-		$all_subjects = $this->subjects->read_all();
-		if ( empty( $all_subjects ) ) {
-			return;
-		}
+		// Регистрация метабоксов на нативном хуке WordPress
+		add_action( 'add_meta_boxes', function () {
+			$all_subjects = $this->subjects->readAll();
 
-		// Определяем шаблон по умолчанию
-		$default_template = $this->templates['standard_task'] ?? reset( $this->templates );
+			if ( empty( $all_subjects ) ) {
+				return;
+			}
 
-		if ( ! $default_template ) {
-			error_log( 'FS LMS: Default template not found. Metaboxes will not work.' );
+			// Для каждого предмета регистрируем метабокс
+			foreach ( $all_subjects as $subject ) {
+				// Формируем CPT (например, math_tasks)
+				$task_cpt = "{$subject->key}_tasks";
 
-			return;
-		}
+				// Регистрируем метабокс напрямую через WP API
+				add_meta_box(
+					'fs_lms_task_metabox',           // Уникальный ID метабокса
+					'Данные задания',                // Заголовок метабокса
+					[ $this, 'renderMetaboxContent' ], // Коллбек для отрисовки
+					$task_cpt,                       // Тип поста (CPT заданий)
+					'normal',                        // Контекст отображения
+					'high'                           // Приоритет
+				);
+			}
+		} );
 
-		// Регистрируем метабокс для каждого предмета
-		foreach ( $all_subjects as $key => $data ) {
-			$task_cpt = "{$key}_tasks";
-
-			$this->registrar->metabox()
-			                ->addTemplateBox(
-				                $default_template,           // Шаблон по умолчанию
-				                $task_cpt,                   // Тип поста (CPT заданий)
-				                [ $this, 'renderMetaboxContent' ] // Коллбек отрисовки
-			                );
-		}
-
-		// Выполняем регистрацию всех накопленных метабоксов
-		$this->registrar->metabox()->register();
-
-		// Подключаем обработчик сохранения мета-данных
+		// Подключение обработчика сохранения мета-данных
 		add_action( 'save_post', [ $this, 'handleMetaSave' ] );
 
-		// Регистрируем фильтр для получения списка шаблонов
-		add_filter( 'fs_lms_get_templates', [ $this, 'get_templates_list' ] );
+		// Регистрация фильтра для получения списка шаблонов
+		add_filter( 'fs_lms_get_templates', [ $this, 'getTemplatesList' ] );
 	}
 
 	// ============================ КОЛЛБЕКИ И ОБРАБОТКА ============================ //
@@ -185,17 +193,16 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function renderMetaboxContent( $post, $callback_args ): void {
-		// Получаем тип шаблона из мета-поля (устанавливается при создании задания)
-		$template_id = get_post_meta( $post->ID, '_fs_lms_template_type', true ) ?: 'standard_task';
+		// Определяем ID шаблона для текущего поста
+		$template_id = $this->getTemplateId( $post );
 
 		// Находим объект шаблона в зарегистрированном списке
 		$template = $this->templates[ $template_id ]
 		            ?? $this->templates['standard_task']
 		               ?? reset( $this->templates );
 
-		// Если шаблон не найден — выводим сообщение об ошибке
 		if ( ! $template ) {
-			echo '<p style="color:red;">Ошибка: Шаблон не найден. Проверьте регистрацию шаблонов в MetaBoxController.</p>';
+			echo 'Ошибка: Шаблон не найден.';
 
 			return;
 		}
@@ -223,9 +230,8 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function handleMetaSave( int $post_id ): void {
-		// Проверка nonce
-		if ( ! isset( $_POST['fs_lms_meta_nonce'] )
-		     || ! wp_verify_nonce( $_POST['fs_lms_meta_nonce'], 'fs_lms_save_meta' ) ) {
+		// 1. Стандартные проверки безопасности
+		if ( ! isset( $_POST['fs_lms_meta_nonce'] ) || ! wp_verify_nonce( $_POST['fs_lms_meta_nonce'], 'fs_lms_save_meta' ) ) {
 			return;
 		}
 
@@ -239,47 +245,89 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		// Определяем тип шаблона для выбора полей санитизации
-		$template_id = get_post_meta( $post_id, '_fs_lms_template_type', true ) ?: 'standard_task';
-		$template    = $this->templates[ $template_id ] ?? null;
+		// 2. Определяем шаблон точно так же, как при отрисовке
+		$post        = get_post( $post_id );
+		$template_id = $this->getTemplateId( $post );
+
+		$template = $this->templates[ $template_id ] ?? null;
 
 		// Если шаблон не найден или не имеет метода get_fields — выходим
 		if ( ! $template || ! method_exists( $template, 'get_fields' ) ) {
 			return;
 		}
 
-		// Получаем список полей из шаблона
-		$fields = $template->get_fields();
-
-		// Получаем сырые данные из POST
-		$raw_data = $_POST['fs_lms_meta'] ?? [];
-
-		// Санитизация каждого поля в соответствии с его типом
+		// 3. Санитизация и сохранение мета-данных
+		$fields    = $template->get_fields();
+		$raw_data  = $_POST['fs_lms_meta'] ?? [];
 		$sanitized = [];
+
 		foreach ( $fields as $id => $config ) {
 			if ( isset( $raw_data[ $id ] ) && isset( $config['object'] ) ) {
 				$sanitized[ $id ] = $config['object']->sanitize( $raw_data[ $id ] );
 			}
 		}
 
-		// Сохраняем очищенные мета-данные
 		update_post_meta( $post_id, 'fs_lms_meta', $sanitized );
 	}
 
 	/**
-	 * Возвращает ассоциативный массив [id => name] всех зарегистрированных шаблонов.
+	 * Возвращает список всех зарегистрированных шаблонов в виде объектов DTO.
 	 *
-	 * Используется в фильтре fs_lms_get_templates для получения списка
-	 * доступных шаблонов в других частях плагина (например, в SubjectController).
+	 * Используется в фильтре fs_lms_get_templates для передачи данных
+	 * в контроллеры и шаблоны.
 	 *
-	 * @return array<string, string> Массив шаблонов [template_id => template_name]
+	 * @return TaskMetaDTO[] Массив объектов конфигурации шаблонов
 	 */
-	public function get_templates_list(): array {
+	public function getTemplatesList(): array {
 		$list = [];
-		foreach ( $this->templates as $id => $obj ) {
-			$list[ $id ] = $obj->get_name();
+		foreach ( $this->templates as $template ) {
+			$list[] = new TaskMetaDTO(
+				id: $template->get_id(),
+				title: $template->get_name(),
+				fields: method_exists( $template, 'get_fields' ) ? $template->get_fields() : []
+			);
 		}
 
 		return $list;
+	}
+
+	/**
+	 * Определяет ID шаблона для конкретного поста.
+	 *
+	 * Реализует иерархию выбора шаблона:
+	 * 1. Приоритет: Глобальные настройки предмета (из MetaBoxRepository)
+	 * 2. Приоритет: Мета-поле конкретного поста (_fs_lms_template_type)
+	 * 3. Приоритет: Стандартный шаблон (standard_task)
+	 *
+	 * @param \WP_Post $post Объект поста
+	 *
+	 * @return string ID выбранного шаблона
+	 */
+	private function getTemplateId( $post ): string {
+		// Извлекаем ключ предмета из post_type (например, "math_tasks" → "math")
+		$subject_key = str_replace( '_tasks', '', $post->post_type );
+		$taxonomy    = "{$subject_key}_task_number";
+
+		// Получаем номер задания (термин таксономии)
+		$terms = wp_get_post_terms( $post->ID, $taxonomy );
+
+		// ПРИОРИТЕТ 1: Глобальные настройки предмета (репозиторий)
+		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+			$task_slug  = (string) $terms[0]->slug;
+			$assignment = $this->metaboxes->getAssignment( $subject_key, $task_slug );
+
+			if ( $assignment ) {
+				return $assignment->template_id;
+			}
+		}
+
+		// ПРИОРИТЕТ 2: Мета-поле конкретного поста (обратная совместимость)
+		$saved_meta = get_post_meta( $post->ID, '_fs_lms_template_type', true );
+		if ( ! empty( $saved_meta ) ) {
+			return $saved_meta;
+		}
+
+		// ПРИОРИТЕТ 3: Стандартный шаблон по умолчанию
+		return 'standard_task';
 	}
 }

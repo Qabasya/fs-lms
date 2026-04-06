@@ -3,78 +3,82 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\SubjectRepository;
 use Inc\Services\TaxonomySeeder;
-
 
 /**
  * Class SubjectSettingsCallbacks
  *
- * Обработчики (коллбеки) для административной панели WordPress.
+ * Обработчики (коллбеки) для управления предметами через AJAX.
  *
  * Отвечает за:
- * - Рендеринг страниц админ-панели (adminDashboard)
  * - AJAX-обработку CRUD операций с предметами (store, update, delete)
+ * - Обновление шаблона для конкретного типа задания (update_term_template)
+ * - Сидинг таксономий при создании предмета
+ * - Сброс правил перезаписи при создании/удалении
  *
- * Если планируешь добавить новое действие, то:
- * 1. Зарегистрируй его работу в SubjectRepository
- * 2. Добавь хук AJAX (в контроллер)
- * 3. Проверь алгоритм, добавь действие в проверку на существование предмета, проверь правила перезаписи
- * 4. Вызови зарегистрированный в репозитории метод через performRepositoryAction()
- * 5. Добавь сообщение пользователю в getSuccessMessage()
- * 6. Добавь AJAX обработчик
+ * AJAX-хуки регистрируются в SubjectController.
  *
  * @package Inc\Callbacks
- *
  */
 class SubjectSettingsCallbacks extends BaseController {
-
 	/**
 	 * Репозиторий для работы с предметами.
 	 *
 	 * @var SubjectRepository
 	 */
-	protected SubjectRepository $subjects;
+	private SubjectRepository $subjects;
+
+	/**
+	 * Репозиторий для работы с привязками заданий к шаблонам.
+	 *
+	 * @var MetaBoxRepository
+	 */
+	private MetaBoxRepository $metaboxes;
 
 	/**
 	 * Сервис для заполнения таксономий (сидинг номеров заданий).
 	 *
 	 * @var TaxonomySeeder
 	 */
-	protected TaxonomySeeder $seeder;
+	private TaxonomySeeder $seeder;
 
 	/**
 	 * Конструктор.
 	 *
-	 * Инициализирует репозиторий предметов и сервис сидинга.
-	 * AJAX-хуки регистрируются в SubjectController.
+	 * Инициализирует репозитории и сервис сидинга.
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
 	 * @param TaxonomySeeder $seeder Сервис заполнения таксономий
+	 * @param MetaBoxRepository $metaboxes Репозиторий привязок заданий к шаблонам
 	 */
-	public function __construct( SubjectRepository $subjects, TaxonomySeeder $seeder ) {
+	public function __construct(
+		SubjectRepository $subjects,
+		TaxonomySeeder $seeder,
+		MetaBoxRepository $metaboxes
+	) {
 		parent::__construct();
-		$this->subjects = $subjects;
-		$this->seeder   = $seeder;
+		$this->subjects  = $subjects;
+		$this->seeder    = $seeder;
+		$this->metaboxes = $metaboxes;
 	}
 
-// ====================== ОБЩАЯ ЛОГИКА ======================
+	// ====================== ОБЩАЯ ЛОГИКА ======================
 
 	/**
-	 * Общая функция для выполнения операций с предметом (создание, обновление, удаление)
-	 * /**
-	 *  Общая функция для выполнения операций с предметом.
+	 * Общая функция для выполнения операций с предметом.
 	 *
-	 *  Реализует единый алгоритм для всех CRUD-операций:
-	 *  1. Проверка nonce и прав доступа
-	 *  2. Получение и валидация данных
-	 *  3. Проверка существования предмета (для update/delete)
-	 *  4. Выполнение операции через репозиторий
-	 *  5. Сидинг таксономий (только для store)
-	 *  6. Сброс правил перезаписи (для store/delete)
-	 *  7. Отправка JSON-ответа
+	 * Реализует единый алгоритм для всех CRUD-операций:
+	 * 1. Проверка nonce и прав доступа
+	 * 2. Получение и валидация данных
+	 * 3. Проверка существования предмета (для update/delete)
+	 * 4. Выполнение операции через репозиторий
+	 * 5. Сидинг таксономий (только для store)
+	 * 6. Сброс правил перезаписи (для store/delete)
+	 * 7. Отправка JSON-ответа
 	 *
-	 * @param string $operation Тип операции: 'store', 'update', 'delete'
+	 * @param string $operation Тип операции: 'store', 'update', 'delete', 'update_term_template'
 	 *
 	 * @return void Отправляет JSON-ответ через wp_send_json_*()
 	 */
@@ -110,7 +114,7 @@ class SubjectSettingsCallbacks extends BaseController {
 
 			// Проверка существования предмета для update и delete
 			if ( in_array( $operation, [ 'update', 'delete' ] ) ) {
-				if ( ! $this->subjects->get_by_key( $key ) ) {
+				if ( ! $this->subjects->getByKey( $key ) ) {
 					wp_send_json_error( 'Предмет не найден в базе!' );
 				}
 			}
@@ -149,19 +153,32 @@ class SubjectSettingsCallbacks extends BaseController {
 
 			case 'update_term_template':
 				// Обновление шаблона для конкретного типа задания (термина таксономии)
+
+				// 1. Валидация входных данных
 				if ( ! $term_id || ! $template ) {
 					wp_send_json_error( 'Недостаточно данных для обновления' );
 				}
 
-				// Сохраняем предпочитаемый шаблон в мета-поле термина
-				$success = (bool) update_term_meta( $term_id, '_fs_lms_preferred_template', $template );
-
-				// Если значение не изменилось (update_term_meta вернул false),
-				// но в базе уже есть нужное значение — считаем это успехом
-				if ( ! $success && get_term_meta( $term_id, '_fs_lms_preferred_template', true ) === $template ) {
-					$success = true;
+				// 2. Получаем объект термина, чтобы узнать его таксономию и slug
+				$term = get_term( $term_id );
+				if ( ! $term || is_wp_error( $term ) ) {
+					wp_send_json_error( 'Тип задания не найден в базе WordPress' );
 				}
-				$message = "Шаблон для типа задания сохранен!";
+
+				// 3. Вычисляем subject_key (например, из "phys_task_number" получаем "phys")
+				// Это критически важно, так как репозиторий группирует данные по этому ключу
+				$subject_key = str_replace( '_task_number', '', $term->taxonomy );
+
+				// 4. Сохраняем в репозиторий.
+				// В качестве task_number используем $term->slug (например, "1", "2"),
+				// так как именно по нему MetaBoxController ищет шаблон в редакторе.
+				$success = $this->metaboxes->updateAssignment(
+					$subject_key,
+					(string) $term->slug,
+					$template
+				);
+
+				$message = "Шаблон для задания №{$term->slug} успешно сохранен!";
 				break;
 		}
 
@@ -173,9 +190,7 @@ class SubjectSettingsCallbacks extends BaseController {
 		}
 	}
 
-
-// ====================== ТОНКИЕ AJAX-ОБРАБОТЧИКИ ======================
-// Фасады для комплексных операций
+	// ====================== ТОНКИЕ AJAX-ОБРАБОТЧИКИ ======================
 
 	/**
 	 * AJAX-обработчик создания нового предмета.

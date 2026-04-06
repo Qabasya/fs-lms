@@ -4,7 +4,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\Controllers\SubjectController;
-
+use Inc\Repositories\MetaBoxRepository;
 
 /**
  * Class TaskCreationCallbacks
@@ -13,8 +13,9 @@ use Inc\Controllers\SubjectController;
  * Отвечает за:
  * - Получение типов заданий для модального окна
  * - Создание заданий с автоматической генерацией номера
+ * - Сохранение привязки шаблонов к типам заданий
  *
- * Хуки регистрируются в TaskCreationController
+ * Хуки регистрируются в TaskCreationController.
  *
  * @package Inc\Callbacks
  */
@@ -24,19 +25,31 @@ class TaskCreationCallbacks extends BaseController {
 	 *
 	 * @var SubjectController
 	 */
-	protected SubjectController $subjectController;
+	private SubjectController $subjectController;
+
+	/**
+	 * Репозиторий для работы с привязками заданий к шаблонам.
+	 *
+	 * @var MetaBoxRepository
+	 */
+	private MetaBoxRepository $metaboxes;
 
 	/**
 	 * Конструктор.
 	 *
 	 * @param SubjectController $subjectController Контроллер предметов
+	 * @param MetaBoxRepository $metaboxes Репозиторий привязок шаблонов
 	 */
-	public function __construct( SubjectController $subjectController ) {
+	public function __construct(
+		SubjectController $subjectController,
+		MetaBoxRepository $metaboxes
+	) {
 		parent::__construct();
 		$this->subjectController = $subjectController;
+		$this->metaboxes         = $metaboxes;
 	}
 
-// ============================ AJAX-КОЛЛБЕКИ ============================ //
+	// ============================ AJAX-КОЛЛБЕКИ ============================ //
 
 	/**
 	 * Получение типов заданий для модального окна.
@@ -56,7 +69,7 @@ class TaskCreationCallbacks extends BaseController {
 		}
 
 		// Получаем типы заданий через контроллер предмета
-		$types = $this->subjectController->get_task_types_from_tax( $subject_key );
+		$types = $this->subjectController->getTaskTypesFromTax( $subject_key );
 
 		// Возвращаем успешный ответ с данными
 		wp_send_json_success( $types );
@@ -113,7 +126,7 @@ class TaskCreationCallbacks extends BaseController {
 		// Подсчёт уже существующих заданий этого типа
 		$current_count = $this->getExistingTasksCount( $taxonomy, $term_id );
 
-		/// Генерируем slug: префикс + трёхзначный порядковый номер (например, 1004, 2015)
+		// Генерируем slug: префикс + трёхзначный порядковый номер (например, 1004, 2015)
 		$custom_slug = $type_prefix . str_pad( $current_count, 3, '0', STR_PAD_LEFT );
 
 		// Создаём пост-задание в черновике
@@ -135,15 +148,16 @@ class TaskCreationCallbacks extends BaseController {
 		// Привязываем задание к термину (типу задания)
 		wp_set_object_terms( $new_id, $term_id, $taxonomy );
 
-		$preferred_template = get_term_meta( $term_id, '_fs_lms_preferred_template', true );
+		// Получаем слаг термина (номер задания, например "5")
+		$term_slug = $term->slug;
 
-		// 2. Если шаблон не задан (пусто в базе), используем 'standard_task' как фоллбек
-		$allowed_templates = apply_filters( 'fs_lms_get_templates', [] );
-		if ( empty( $preferred_template ) || ! array_key_exists( $preferred_template, $allowed_templates ) ) {
-			$preferred_template = 'standard_task';
-		}
+		// Спрашиваем у репозитория, какой шаблон назначен этому номеру
+		$assignment = $this->metaboxes->getAssignment( $subject_key, (string) $term_slug );
 
-		// 3. Сохраняем этот шаблон в метаданные нового ПОСТА
+		// Если в настройках что-то выбрано — берем это, иначе — стандартный шаблон
+		$preferred_template = $assignment ? $assignment->template_id : 'standard_task';
+
+		// Записываем шаблон в мета-поле задания
 		update_post_meta( $new_id, '_fs_lms_template_type', $preferred_template );
 
 		// Возвращаем успешный ответ с ссылкой на редактирование
@@ -152,7 +166,42 @@ class TaskCreationCallbacks extends BaseController {
 		] );
 	}
 
-// ============================ ВСПОМОГАТЕЛЬНЫЙ ФУНКЦИОНАЛ ============================ //
+	/**
+	 * AJAX-сохранение назначения шаблона для конкретного номера задания.
+	 *
+	 * Вызывается из менеджера заданий при смене значения в выпадающем списке.
+	 *
+	 * @return void Отправляет JSON-ответ через wp_send_json_*()
+	 */
+	public function ajaxSaveTemplateAssignment(): void {
+		check_ajax_referer( 'fs_lms_manager_nonce', 'nonce' );
+
+		// Проверка прав доступа
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'У вас недостаточно прав для этого действия' );
+		}
+
+		// Сбор и санитизация данных
+		$subject_key = sanitize_text_field( $_POST['subject_key'] ?? '' );
+		$task_number = sanitize_text_field( $_POST['task_number'] ?? '' );
+		$template_id = sanitize_text_field( $_POST['template_id'] ?? '' );
+
+		// Валидация обязательных полей
+		if ( empty( $subject_key ) || empty( $task_number ) ) {
+			wp_send_json_error( 'Недостаточно данных для сохранения' );
+		}
+
+		// Сохранение привязки через репозиторий
+		$this->metaboxes->updateAssignment( $subject_key, $task_number, $template_id );
+
+		// Возвращаем успешный ответ
+		wp_send_json_success( [
+			'message'  => 'Шаблон успешно обновлен',
+			'template' => $template_id
+		] );
+	}
+
+	// ============================ ВСПОМОГАТЕЛЬНЫЙ ФУНКЦИОНАЛ ============================ //
 
 	/**
 	 * Извлекает последнюю последовательность цифр из slug.
@@ -199,7 +248,7 @@ class TaskCreationCallbacks extends BaseController {
 		$query = new \WP_Query( [
 			'post_type'      => "{$subject_key}_tasks",  // Тип поста задания
 			'post_status'    => 'any',                   // Учитываем все статусы
-			'posts_per_page' => 1,                       // Не грузим все посты
+			'posts_per_page' => 1,                       // Не грузим все посты (оптимизация)
 			'fields'         => 'ids',                   // Получаем только ID
 			'no_found_rows'  => false,                   // Обязательно для found_posts
 			'tax_query'      => [

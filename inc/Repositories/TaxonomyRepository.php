@@ -38,7 +38,7 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 	 *
 	 * @return array<string, array<string, array{name: string}>> Сырые данные из опции
 	 */
-	private function get_raw(): array {
+	private function getRaw(): array {
 		$all = get_option( $this->option_name, [] );
 
 		// Гарантируем возврат массива даже при повреждённых данных
@@ -55,8 +55,8 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 	 *         Массив всех таксономий, сгруппированных по предметам,
 	 *         значения — массив DTO-объектов
 	 */
-	public function read_all(): array {
-		$raw_all = $this->get_raw();
+	public function readAll(): array {
+		$raw_all = $this->getRaw();
 		$result  = [];
 
 		foreach ( $raw_all as $subject_key => $taxonomies ) {
@@ -85,7 +85,7 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 	 * @return bool Успешность операции
 	 */
 	public function update( array $data ): bool {
-		$all = $this->get_raw();
+		$all = $this->getRaw();
 
 		$subject_key = $data['subject_key'] ?? '';
 		$tax_slug    = $data['tax_slug'] ?? '';
@@ -122,7 +122,7 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 	 * @return bool Успешность операции (false, если таксономия не найдена)
 	 */
 	public function delete( array $data ): bool {
-		$all         = $this->get_raw();
+		$all         = $this->getRaw();
 		$subject_key = $data['subject_key'] ?? '';
 		$tax_slug    = $data['tax_slug'] ?? '';
 
@@ -148,8 +148,8 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 	 * @return array<int, TaxonomyDataDTO>
 	 *         Массив DTO-объектов таксономий предмета или пустой массив
 	 */
-	public function get_by_subject( string $subject_key ): array {
-		$raw_all       = $this->get_raw();
+	public function getBySubject( string $subject_key ): array {
+		$raw_all       = $this->getRaw();
 		$subject_taxes = $raw_all[ $subject_key ] ?? [];
 
 		$result = [];

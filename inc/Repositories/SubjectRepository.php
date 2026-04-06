@@ -38,7 +38,7 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 *
 	 * @return array<string, array{key: string, name: string}> Сырые данные предметов
 	 */
-	private function get_raw(): array {
+	private function getRaw(): array {
 		$subjects = get_option( $this->option_name, [] );
 
 		// Гарантируем возврат массива даже при повреждённых данных
@@ -52,10 +52,10 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 *
 	 * @return SubjectDTO[] Массив DTO-объектов предметов
 	 */
-	public function read_all(): array {
+	public function readAll(): array {
 		return array_map( function ( $item ) {
 			return new SubjectDTO( $item['key'], $item['name'] );
-		}, $this->get_raw() );
+		}, $this->getRaw() );
 	}
 
 	/**
@@ -65,8 +65,8 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 *
 	 * @return SubjectDTO|null DTO-объект предмета или null, если не найден
 	 */
-	public function get_by_key( string $key ): ?SubjectDTO {
-		$raw = $this->get_raw();
+	public function getByKey( string $key ): ?SubjectDTO {
+		$raw = $this->getRaw();
 
 		if ( ! isset( $raw[ $key ] ) ) {
 			return null;
@@ -87,7 +87,7 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 */
 	public function update( array $data ): bool {
 		// Работаем с сырыми данными для сохранения
-		$subjects = $this->get_raw();
+		$subjects = $this->getRaw();
 
 		// Очищаем входные данные
 		$clean = $this->sanitize( $data );
@@ -129,7 +129,7 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	 */
 	public function delete( array $data ): bool {
 		$key      = $data['key'] ?? '';
-		$subjects = $this->get_raw();
+		$subjects = $this->getRaw();
 
 		// Проверяем существование предмета
 		if ( ! isset( $subjects[ $key ] ) ) {

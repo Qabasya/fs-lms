@@ -88,34 +88,34 @@ class MetaBoxRegistrar {
 			'title'      => $title,
 			'callback'   => $callback,
 			'post_types' => $post_types,
-			'context'    => $args['context'] ?? 'normal',        // Местоположение метабокса
-			'priority'   => $args['priority'] ?? 'high',         // Приоритет отображения
-			'args'       => $args['args'] ?? $args,              // Аргументы для коллбека
+			'context'    => $args['context'] ?? 'normal',   // Местоположение метабокса
+			'priority'   => $args['priority'] ?? 'high',    // Приоритет отображения
+			'args'       => $args['args'] ?? $args,         // Аргументы для коллбека
 		];
 
 		return $this;
 	}
 
 	/**
-	 * Специализированный метод для регистрации метабокса на основе шаблона.
+	 * Добавляет метабокс на основе шаблона.
 	 *
-	 * Автоматически берёт ID и название из объекта шаблона.
-	 * Шаблон передаётся в аргументы коллбека для дальнейшего использования.
+	 * Упрощённый метод для регистрации метабокса из объекта шаблона.
+	 * Автоматически извлекает ID и название из шаблона.
 	 *
-	 * @param BaseTemplate $template Объект шаблона (например, StandardTaskTemplate)
-	 * @param array|string $post_types Типы записей, для которых регистрировать метабокс
-	 * @param callable $callback Метод контроллера для рендеринга
+	 * @param object $template Объект шаблона (должен иметь методы get_id и get_name)
+	 * @param array|string $post_types Типы записей (строка или массив)
+	 * @param callable $callback Коллбек для отрисовки содержимого
 	 *
 	 * @return self Для цепочки вызовов (Fluent Interface)
 	 */
-	public function addTemplateBox( BaseTemplate $template, $post_types, callable $callback ): self {
+	public function addTemplateBox( $template, $post_types, callable $callback ): self {
 		return $this->add(
-			$template->get_id(),                                 // ID метабокса из шаблона
-			$template->get_name(),                               // Заголовок из шаблона
-			$callback,                                           // Коллбек отрисовки
+			$template->get_id(),
+			$template->get_name() . ' (Настройка)',  // Добавляем суффикс для ясности
+			$callback,
 			$post_types,
 			[
-				'args' => [ 'template' => $template ]              // Передаём шаблон в аргументы
+				'args' => [ 'template' => $template ]   // Передаём шаблон в аргументы коллбека
 			]
 		);
 	}
