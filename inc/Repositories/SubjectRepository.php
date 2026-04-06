@@ -4,6 +4,7 @@ namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\SubjectDTO;
 
 /**
  * Class SubjectRepository
@@ -46,7 +47,9 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 			return array();
 		}
 
-		return $subjects;
+		return array_map( function( $item ) {
+			return new SubjectDTO( $item['key'], $item['name'] );
+		}, $subjects );
 	}
 
 	/**
@@ -55,7 +58,11 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	public function get_by_key( string $key ): ?array {
 		$subjects = $this->read_all();
 
-		return $subjects[ $key ] ?? null;
+		foreach ( $subjects as $subject ) {
+			if ( $subject->key === $key ) return $subject;
+		}
+
+		return null;
 	}
 
 	/**

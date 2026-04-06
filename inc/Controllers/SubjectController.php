@@ -12,6 +12,7 @@ use Inc\Shared\Traits\NumericSorter;
 use Inc\Callbacks\SubjectSettingsCallbacks;
 use Inc\Callbacks\TaxonomySettingsCallbacks;
 use Inc\DTO\SubjectViewDTO;
+use Inc\DTO\TaxonomyDataDTO;
 
 /**
  * Class SubjectController
@@ -214,9 +215,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$key  = str_replace( 'fs_subject_', '', $page );
 
 
-		// Получаем данные предмета
-		$all_subjects    = $this->subjects->read_all();
-		$current_subject = $all_subjects[ $key ] ?? null;
+		// Получаем данные предмета DTO!
+		$current_subject = $this->subjects->get_by_key( $key );
 
 		if ( ! $current_subject ) {
 			echo "Предмет не найден";
@@ -242,7 +242,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		// Подготавливаем данные для шаблона
 		$dto = new SubjectViewDTO(
 			subject_key:   $key,
-			subject_data:  $current_subject,
+			subject_data:  $current_subject, // DTO!
 			task_types:    $task_types,
 			all_templates: $all_templates,
 			tasks_url:     admin_url( "edit.php?post_type={$key}_tasks" ),
