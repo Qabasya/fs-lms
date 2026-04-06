@@ -13,8 +13,7 @@ use Inc\Contracts\FieldInterface;
  * @package Inc\MetaBoxes\Fields
  * @implements FieldInterface
  */
-abstract class BaseField implements FieldInterface
-{
+abstract class BaseField implements FieldInterface {
 	/**
 	 * Хелпер для генерации атрибута name.
 	 *
@@ -29,8 +28,7 @@ abstract class BaseField implements FieldInterface
 	 * $this->get_field_name('task_text')
 	 * // Результат: fs_lms_meta[task_text]
 	 */
-	protected function get_field_name(string $id): string
-	{
+	protected function get_field_name( string $id ): string {
 		return "fs_lms_meta[$id]";
 	}
 }

@@ -45,7 +45,7 @@ class AdminCallbacks extends BaseController {
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
 	 */
-	public function __construct(SubjectRepository $subjects) {
+	public function __construct( SubjectRepository $subjects ) {
 		parent::__construct();
 		$this->subjects = $subjects;
 
@@ -59,6 +59,7 @@ class AdminCallbacks extends BaseController {
 		// Временная заглушка
 		echo '<div class="wrap"><h1>Dashboard</h1><p>Данные о предметах</p></div>';
 	}
+
 	/**
 	 * Страница настроек (там добавляем предметы и прочее)
 	 */

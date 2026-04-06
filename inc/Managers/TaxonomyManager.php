@@ -13,8 +13,7 @@ namespace Inc\Managers;
  *
  * @package Inc\Managers
  */
-class TaxonomyManager
-{
+class TaxonomyManager {
 	/**
 	 * Регистрирует накопленные конфигурации таксономий.
 	 *
@@ -31,16 +30,15 @@ class TaxonomyManager
 	 *
 	 * @return void
 	 */
-	public function register(array $taxonomies): void
-	{
+	public function register( array $taxonomies ): void {
 		// Если нет таксономий для регистрации — выходим
-		if (empty($taxonomies)) {
+		if ( empty( $taxonomies ) ) {
 			return;
 		}
 
 		// Регистрируем таксономии на хуке init (как и CPT)
-		add_action('init', function () use ($taxonomies) {
-			foreach ($taxonomies as $slug => $data) {
+		add_action( 'init', function () use ( $taxonomies ) {
+			foreach ( $taxonomies as $slug => $data ) {
 				// Регистрируем каждую таксономию через WordPress API
 				register_taxonomy(
 					$slug,                      // Слаг таксономии (уникальный идентификатор)
@@ -48,6 +46,6 @@ class TaxonomyManager
 					$data['args']               // Аргументы конфигурации таксономии
 				);
 			}
-		});
+		} );
 	}
 }

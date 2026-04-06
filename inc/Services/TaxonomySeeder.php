@@ -31,7 +31,7 @@ class TaxonomySeeder {
 	 *
 	 * @return void
 	 */
-	public function seedTaskNumbers( string $taxonomy, int $count, string $prefix): void {
+	public function seedTaskNumbers( string $taxonomy, int $count, string $prefix ): void {
 		// Получаем все существующие термины в таксономии
 		$terms = get_terms( [
 			'taxonomy'   => $taxonomy,

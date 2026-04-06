@@ -55,10 +55,10 @@ class AdminController extends BaseController implements ServiceInterface {
 	/**
 	 * Конструктор.
 	 *
-	 * @param PluginRegistrar          $registrar           Композитный регистратор
-	 * @param AdminCallbacks           $callbacks           Коллбеки админ-панели
-	 * @param SubjectsMenuBuilder      $subjectsMenuBuilder Билдер меню предметов
-	 * @param SubjectSettingsCallbacks $subjectCallbacks    Коллбеки настроек предметов
+	 * @param PluginRegistrar $registrar Композитный регистратор
+	 * @param AdminCallbacks $callbacks Коллбеки админ-панели
+	 * @param SubjectsMenuBuilder $subjectsMenuBuilder Билдер меню предметов
+	 * @param SubjectSettingsCallbacks $subjectCallbacks Коллбеки настроек предметов
 	 */
 	public function __construct(
 		PluginRegistrar $registrar,
@@ -86,8 +86,7 @@ class AdminController extends BaseController implements ServiceInterface {
 	 *
 	 * @return void
 	 */
-	public function register(): void
-	{
+	public function register(): void {
 		// Сбор конфигураций главных страниц
 		$pages = $this->buildMainPages();
 
@@ -96,8 +95,8 @@ class AdminController extends BaseController implements ServiceInterface {
 
 		// Передаём данные в регистратор и выполняем регистрацию
 		$this->registrar->menu()
-		                ->addPages($pages)
-		                ->addSubPages($subpages)
+		                ->addPages( $pages )
+		                ->addSubPages( $subpages )
 		                ->register();
 
 		// Удаляем дублирующиеся пункты меню, созданные WordPress автоматически
