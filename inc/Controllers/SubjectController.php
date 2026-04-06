@@ -9,6 +9,8 @@ use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 use Inc\Shared\Traits\NumericSorter;
+use Inc\Callbacks\SubjectSettingsCallbacks;
+use Inc\Callbacks\TaxonomySettingsCallbacks;
 
 /**
  * Class SubjectController
@@ -51,6 +53,9 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 */
 	private PluginRegistrar $registrar;
 
+	protected SubjectSettingsCallbacks $subjectCallbacks;
+	protected TaxonomySettingsCallbacks $taxonomyCallbacks;
+
 	/**
 	 * Конструктор.
 	 *
@@ -61,12 +66,16 @@ class SubjectController extends BaseController implements ServiceInterface {
 	public function __construct(
 		SubjectRepository $subjects,
 		PluginRegistrar $registrar,
-		TaxonomyRepository $taxonomies
+		TaxonomyRepository $taxonomies,
+		SubjectSettingsCallbacks $subjectCallbacks,
+		TaxonomySettingsCallbacks $taxonomyCallbacks
 	) {
 		parent::__construct();
-		$this->subjects   = $subjects;
-		$this->registrar  = $registrar;
-		$this->taxonomies = $taxonomies;
+		$this->subjects          = $subjects;
+		$this->registrar         = $registrar;
+		$this->taxonomies        = $taxonomies;
+		$this->subjectCallbacks  = $subjectCallbacks;
+		$this->taxonomyCallbacks = $taxonomyCallbacks;
 	}
 
 	/**
@@ -87,15 +96,15 @@ class SubjectController extends BaseController implements ServiceInterface {
 	public function register(): void {
 		// ====================== РЕГИСТРАЦИЯ AJAX-ОБРАБОТЧИКОВ ======================
 		// Обработчики для предметов (SubjectSettingsCallbacks)
-		add_action( 'wp_ajax_fs_store_subject', [ $this, 'storeSubject' ] );
-		add_action( 'wp_ajax_fs_update_subject', [ $this, 'updateSubject' ] );
-		add_action( 'wp_ajax_fs_delete_subject', [ $this, 'deleteSubject' ] );
-		add_action( 'wp_ajax_fs_update_term_template', [ $this, 'updateTaskTemplate' ] );
+		add_action( 'wp_ajax_fs_store_subject', [ $this->subjectCallbacks, 'storeSubject' ] );
+		add_action( 'wp_ajax_fs_update_subject', [ $this->subjectCallbacks, 'updateSubject' ] );
+		add_action( 'wp_ajax_fs_delete_subject', [ $this->subjectCallbacks, 'deleteSubject' ] );
+		add_action( 'wp_ajax_fs_update_term_template', [ $this->subjectCallbacks, 'updateTaskTemplate' ] );
 
 		// Обработчики для таксономий (TaxonomySettingsCallbacks)
-		add_action( 'wp_ajax_fs_store_taxonomy', [ $this, 'storeTaxonomy' ] );
-		add_action( 'wp_ajax_fs_update_taxonomy', [ $this, 'updateTaxonomy' ] );
-		add_action( 'wp_ajax_fs_delete_taxonomy', [ $this, 'deleteTaxonomy' ] );
+		add_action( 'wp_ajax_fs_store_taxonomy', [ $this->taxonomyCallbacks, 'storeTaxonomy' ] );
+		add_action( 'wp_ajax_fs_update_taxonomy', [ $this->taxonomyCallbacks, 'updateTaxonomy' ] );
+		add_action( 'wp_ajax_fs_delete_taxonomy', [ $this->taxonomyCallbacks, 'deleteTaxonomy' ] );
 
 		// ====================== НАСТРОЙКА СОРТИРОВКИ ======================
 		// Настройка сортировки терминов таксономий по числовому значению
