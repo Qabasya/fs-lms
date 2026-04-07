@@ -41,12 +41,15 @@ class SubjectController extends BaseController implements ServiceInterface {
 	private TaxonomyRepository $taxonomies;
 	private MetaBoxRepository $metaboxes;
 
-
 	private SubjectCPTRegistrar $cptRegistrar;
 	private SubjectTaxonomyRegistrar $taxRegistrar;
 
 	private SubjectSettingsCallbacks $subjectCallbacks;
 	private TaxonomySettingsCallbacks $taxonomyCallbacks;
+
+	// =========================================================================
+	//                  Публичные методы
+	// =========================================================================
 
 	public function __construct(
 		SubjectRepository $subjects,
@@ -68,213 +71,86 @@ class SubjectController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Регистрирует все компоненты контроллера.
+	 * Точка входа контроллера — регистрирует все его компоненты.
 	 *
-	 * Вызывается один раз при инициализации плагина (в Init.php).
-	 *
-	 * Процесс регистрации:
-	 * 1. Регистрация AJAX-обработчиков для CRUD операций
-	 * 2. Настройка сортировки терминов таксономий по числовому значению
-	 * 3. Для каждого предмета:
-	 *    - Регистрация CPT для заданий и статей
-	 *    - Регистрация фиксированной таксономии "Номера заданий"
-	 *    - Регистрация пользовательских таксономий из репозитория
-	 * 4. Выполнение регистрации через регистраторы
-	 *
-	 * @return void
+	 * Вызывается один раз при инициализации плагина. Порядок важен:
+	 * сначала вешаем AJAX-обработчики, затем настраиваем сортировку
+	 * терминов, и только потом регистрируем CPT и таксономии,
+	 * потому что CPT/таксономии опираются на данные из БД.
 	 */
 	public function register(): void {
-		// ====================== РЕГИСТРАЦИЯ AJAX-ОБРАБОТЧИКОВ ======================
-		// Регистрация AJAX-обработчиков для CRUD операций с предметами
-		add_action( 'wp_ajax_fs_store_subject', [ $this->subjectCallbacks, 'storeSubject' ] );
-		add_action( 'wp_ajax_fs_update_subject', [ $this->subjectCallbacks, 'updateSubject' ] );
-		add_action( 'wp_ajax_fs_delete_subject', [ $this->subjectCallbacks, 'deleteSubject' ] );
-		add_action( 'wp_ajax_fs_update_term_template', [ $this->subjectCallbacks, 'updateTaskTemplate' ] );
-
-		// Регистрация AJAX-обработчиков для CRUD операций с таксономиями
-		add_action( 'wp_ajax_fs_store_taxonomy', [ $this->taxonomyCallbacks, 'storeTaxonomy' ] );
-		add_action( 'wp_ajax_fs_update_taxonomy', [ $this->taxonomyCallbacks, 'updateTaxonomy' ] );
-		add_action( 'wp_ajax_fs_delete_taxonomy', [ $this->taxonomyCallbacks, 'deleteTaxonomy' ] );
-
-		// ====================== НАСТРОЙКА СОРТИРОВКИ ======================
-		// Настройка сортировки терминов таксономий по числовому значению
-		// Применяется только к таксономиям, содержащим "_task_number"
-		$this->addNumericSort(
-			'get_terms_orderby',
-			't.name',
-			function ( $args ) {
-				$tax = (array) ( $args['taxonomy'] ?? [] );
-
-				return str_contains( reset( $tax ), '_task_number' );
-			}
-		);
-
-		// ====================== РЕГИСТРАЦИЯ CPT И ТАКСОНОМИЙ ======================
-		$all_subjects = $this->subjects->readAll();
-
-		if ( empty( $all_subjects ) ) {
-			return;
-		}
-
-		// Регистрируем CPT и таксономии для каждого предмета
-		foreach ( $all_subjects as $subject ) {
-			$key         = $subject->key;
-			$name        = $subject->name;
-			$task_cpt    = "{$key}_tasks";
-			$article_cpt = "{$key}_articles";
-
-			// 1. Регистрация CPT для заданий (только заголовок, без контента)
-			$this->cptRegistrar->addStandardType(
-				$task_cpt,
-				"Задания ($name)",
-				"Задание",
-				[ 'supports' => [ 'title' ] ]
-			);
-
-			// 2. Регистрация CPT для статей (с редактором и картинкой)
-			$this->cptRegistrar->addStandardType(
-				$article_cpt,
-				"Статьи ($name)",
-				"Статья",
-				[ 'supports' => [ 'title', 'editor', 'thumbnail' ] ]
-			);
-
-			// 3. Регистрация фиксированной таксономии "Номера заданий"
-			$fixed_tax_slug = "{$key}_task_number";
-
-			$this->taxRegistrar->addFixedTaxonomy(
-				$fixed_tax_slug,
-				[ $task_cpt ],
-				"Номера заданий ($name)",
-				"Номер задания",
-				[
-					'public'            => true,
-					'show_ui'           => true,
-					'show_in_menu'      => true,
-					'show_admin_column' => true,
-					'hierarchical'      => false,
-					'query_var'         => true,
-					'rewrite'           => [ 'slug' => $fixed_tax_slug ],
-					'capabilities'      => [
-						'manage_terms' => 'manage_categories',
-						'edit_terms'   => 'manage_categories',
-						'delete_terms' => 'manage_categories',
-						'assign_terms' => 'edit_posts',
-					],
-				]
-			);
-
-			// 4. Регистрация пользовательских таксономий из репозитория
-			$custom_taxes = $this->taxonomies->getBySubject( $key );
-
-			foreach ( $custom_taxes as $tax_dto ) {
-				$this->taxRegistrar->addStandardTaxonomy(
-					$tax_dto->slug,
-					[ $task_cpt, $article_cpt ],
-					$tax_dto->name,
-					$tax_dto->name
-				);
-			}
-		}
-
-		// Выполняем регистрацию всех накопленных CPT и таксономий
-		$this->cptRegistrar->register();
-		$this->taxRegistrar->register();
+		$this->registerAjaxHooks();       // AJAX-обработчики для CRUD (предметы, таксономии)
+		$this->setupTermSorting();        // Числовая сортировка терминов (1, 2, 3... а не 1, 10, 2...)
+		$this->registerCptsAndTaxonomies(); // CPT и таксономии для каждого предмета из БД
 	}
 
 	/**
-	 * Коллбек для страницы управления конкретным предметом.
+	 * Коллбек страницы управления конкретным предметом в админке.
 	 *
-	 * Извлекает ключ предмета из URL-параметра page,
-	 * отображает информацию о предмете и ссылки на связанные CPT.
-	 *
-	 * Формат URL: /wp-admin/admin.php?page=fs_subject_{key}
-	 *
-	 * @return void
+	 * WordPress вызывает этот метод, когда администратор открывает
+	 * страницу вида /wp-admin/admin.php?page=fs_subject_math.
+	 * Из GET-параметра извлекается ключ предмета, по нему собираются
+	 * все нужные данные, и шаблон отрисовывается на экран.
 	 */
 	public function subjectPage(): void {
-		// Извлекаем ключ предмета из URL
+		// Получаем slug страницы из URL, например: "fs_subject_math"
 		$page = $_GET['page'] ?? '';
-		$key  = str_replace( 'fs_subject_', '', $page );
 
-		// Получаем данные предмета в виде DTO
-		$current_subject = $this->subjects->getByKey( $key );
+		// Убираем префикс "fs_subject_", остаётся только ключ предмета, например: "math"
+		$key = str_replace( 'fs_subject_', '', $page );
 
-		if ( ! $current_subject ) {
+		// Собираем все данные для шаблона в один DTO-объект
+		$dto = $this->prepareSubjectViewData( $key );
+
+		// Если предмет с таким ключом не существует в БД — выводим сообщение и выходим
+		if ( ! $dto ) {
 			echo "Предмет не найден";
 
 			return;
 		}
 
-		// 1. Получаем список типов заданий (термов таксономии) для менеджера заданий
-		$task_types = $this->getTaskTypesFromTax( $key );
-
-		// 2. Получаем список визуальных шаблонов из MetaBoxController
-		$all_templates = apply_filters( 'fs_lms_get_templates', [] );
-
-		// 3. Получаем пользовательские таксономии для данного предмета
-		$custom_taxes = $this->taxonomies->getBySubject( $key );
-
-		// Создаём DTO для системной таксономии "Номера заданий", чтобы всё было однородным
-		$fixed_tax_dto = new TaxonomyDataDTO(
-			slug: "{$key}_task_number",
-			name: "Номера заданий ({$current_subject->name})",
-			subject_key: $key,
-			is_protected: true
-		);
-
-		// Объединяем системную и пользовательские таксономии
-		$taxonomies = array_merge( [ $fixed_tax_dto ], $custom_taxes );
-
-		// Создаём DTO для передачи всех данных в шаблон
-		$dto = new SubjectViewDTO(
-			subject_key: $key,
-			subject_data: $current_subject,
-			task_types: $task_types,
-			all_templates: $all_templates,
-			tasks_url: admin_url( "edit.php?post_type={$key}_tasks" ),
-			articles_url: admin_url( "edit.php?post_type={$key}_articles" ),
-			protected_tax: "{$key}_task_number",
-			taxonomies: $taxonomies  // Массив объектов TaxonomyDataDTO
-		);
-
-		// Рендерим шаблон с переданными данными
+		// Передаём DTO в шаблон SubjectTest и рисуем страницу
 		$this->render( 'SubjectTest', $dto );
 	}
 
 	/**
-	 * Получает список типов заданий из таксономии предмета.
+	 * Возвращает список типов заданий (терминов таксономии "номера заданий") для предмета.
 	 *
-	 * Возвращает массив DTO-объектов терминов таксономии "Номера заданий"
-	 * для указанного предмета.
+	 * Каждый тип задания — это термин таксономии вида `{subject_key}_task_number`.
+	 * Например, для предмета "math" таксономия называется "math_task_number",
+	 * а её термины — "Задание 1", "Задание 2" и т.д.
 	 *
-	 * @param string $subject_key Ключ предмета (slug)
+	 * Метод публичный, потому что его могут вызывать другие части плагина
+	 * (например, при построении форм выбора шаблона задания).
 	 *
-	 * @return TaskTypeDTO[] Список DTO-объектов типов заданий
+	 * @param string $subject_key Ключ предмета (slug), например: "math"
+	 *
+	 * @return TaskTypeDTO[] Список DTO-объектов типов заданий; пустой массив, если терминов нет
 	 */
 	public function getTaskTypesFromTax( string $subject_key ): array {
+		// Формируем slug таксономии из ключа предмета
 		$taxonomy = "{$subject_key}_task_number";
 
-		// Получаем все термины таксономии (Задание 1, Задание 2...)
+		// Запрашиваем все термины этой таксономии, включая пустые (без записей),
+		// и сортируем по slug, чтобы порядок был предсказуемым
 		$terms = get_terms( [
 			'taxonomy'   => $taxonomy,
 			'hide_empty' => false,
-			'orderby'    => 'slug',      // Сортировка по числовому значению
+			'orderby'    => 'slug',
 			'order'      => 'ASC'
 		] );
 
-		// Обрабатываем возможные ошибки WP_Error
+		// Если WordPress вернул ошибку или терминов нет — возвращаем пустой массив
 		if ( is_wp_error( $terms ) || empty( $terms ) ) {
 			return [];
 		}
 
-		// Формируем массив DTO-объектов для передачи в шаблон
+		// Для каждого термина создаём DTO с данными о типе задания
 		$types = [];
 		foreach ( $terms as $term ) {
-			// Получаем привязку шаблона к данному типу задания
+			// Получаем привязанный шаблон из метабокса; если не задан — используем стандартный
 			$assignment = $this->metaboxes->getAssignment( $subject_key, $term->slug );
-
-			$types[] = new TaskTypeDTO(
+			$types[]    = new TaskTypeDTO(
 				id: $term->term_id,
 				name: $term->name,
 				slug: $term->slug,
@@ -284,5 +160,213 @@ class SubjectController extends BaseController implements ServiceInterface {
 		}
 
 		return $types;
+	}
+
+	// =========================================================================
+	//                  Приватные методы
+	// =========================================================================
+
+	/**
+	 * Регистрирует AJAX-обработчики для CRUD-операций с предметами и таксономиями.
+	 *
+	 * Хук wp_ajax_{action} срабатывает, когда авторизованный пользователь
+	 * отправляет AJAX-запрос с соответствующим action. Каждый обработчик
+	 * живёт в своём классе Callbacks, чтобы не раздувать этот контроллер.
+	 */
+	private function registerAjaxHooks(): void {
+		// --- Операции с предметами ---
+
+		// Создать предмет
+		add_action( 'wp_ajax_fs_store_subject', [ $this->subjectCallbacks, 'storeSubject' ] );
+		// Обновить предмет
+		add_action( 'wp_ajax_fs_update_subject', [ $this->subjectCallbacks, 'updateSubject' ] );
+		// Удалить предмет
+		add_action( 'wp_ajax_fs_delete_subject', [ $this->subjectCallbacks, 'deleteSubject' ] );
+		// Сменить шаблон задания
+		add_action( 'wp_ajax_fs_update_term_template', [ $this->subjectCallbacks,	'updateTaskTemplate' ] );
+
+		// --- Операции с таксономиями ---
+
+		// Создать таксономию
+		add_action( 'wp_ajax_fs_store_taxonomy', [ $this->taxonomyCallbacks, 'storeTaxonomy' ] );
+		// Обновить таксономию
+		add_action( 'wp_ajax_fs_update_taxonomy', [ $this->taxonomyCallbacks, 'updateTaxonomy' ] );
+		// Удалить таксономию
+		add_action( 'wp_ajax_fs_delete_taxonomy', [ $this->taxonomyCallbacks, 'deleteTaxonomy' ] );
+	}
+
+	/**
+	 * Подключает числовую сортировку для таксономий типа "{subject}_task_number".
+	 *
+	 * По умолчанию WordPress сортирует термины лексикографически:
+	 * "1", "10", "2", "3"... Это неудобно для номеров заданий.
+	 * Трейт NumericSorter добавляет сортировку по числовому значению имени:
+	 * "1", "2", "3", "10"...
+	 *
+	 * Фильтр применяется только к таксономиям с суффиксом _task_number,
+	 * чтобы не ломать сортировку всех остальных таксономий на сайте.
+	 */
+	private function setupTermSorting(): void {
+		$this->addNumericSort(
+			'get_terms_orderby',  // Стандартный WordPress-фильтр для сортировки терминов
+			't.name',             // SQL-псевдоним поля имени термина в запросе
+			function ( $args ) {
+				// Получаем таксономию из аргументов запроса и приводим к массиву
+				$tax = (array) ( $args['taxonomy'] ?? [] );
+
+				// Включаем числовую сортировку только для таксономий номеров заданий
+				return str_contains( reset( $tax ), '_task_number' );
+			}
+		);
+	}
+
+	/**
+	 * Перебирает все предметы из БД и регистрирует для каждого CPT и таксономии.
+	 *
+	 * После того как все предметы обработаны, вызываем финальную регистрацию
+	 * в WordPress — она должна выполниться один раз после добавления всех типов,
+	 * поэтому вынесена за пределы цикла.
+	 */
+	private function registerCptsAndTaxonomies(): void {
+		// Загружаем все предметы из базы данных
+		$all_subjects = $this->subjects->readAll();
+
+		// Если предметов ещё нет — нечего регистрировать, выходим
+		if ( empty( $all_subjects ) ) {
+			return;
+		}
+
+		// Для каждого предмета добавляем его CPT и таксономии в очередь регистраторов
+		foreach ( $all_subjects as $subject ) {
+			$this->registerForSubject( $subject );
+		}
+
+		// Финальная регистрация: здесь регистраторы вызывают register_post_type()
+		// и register_taxonomy() для всего накопленного списка
+		$this->cptRegistrar->register();
+		$this->taxRegistrar->register();
+	}
+
+	/**
+	 * Добавляет CPT и таксономии одного предмета в очередь регистраторов.
+	 *
+	 * Для каждого предмета создаётся:
+	 * — CPT для заданий  ({key}_tasks)
+	 * — CPT для статей   ({key}_articles)
+	 * — Фиксированная таксономия номеров заданий ({key}_task_number) — привязана только к заданиям
+	 * — Пользовательские таксономии из БД — привязаны и к заданиям, и к статьям
+	 *
+	 * Метод только накапливает данные в регистраторах, сама регистрация в WordPress
+	 * происходит позже, в registerCptsAndTaxonomies().
+	 *
+	 * @param object $subject DTO предмета (содержит поля key и name).
+	 */
+	private function registerForSubject( object $subject ): void {
+		$key         = $subject->key;   // Уникальный ключ предмета, например: "math"
+		$name        = $subject->name;  // Читаемое название предмета, например: "Математика"
+		$task_cpt    = "{$key}_tasks";     // Slug CPT заданий
+		$article_cpt = "{$key}_articles";  // Slug CPT статей
+
+		// 1. Регистрация CPT для заданий
+		//    Поддерживает только title — у задания нет текстового содержимого,
+		//    всё хранится в мета-полях
+		$this->cptRegistrar->addStandardType(
+			$task_cpt,
+			"Задания ($name)",
+			"Задание",
+			[ 'supports' => [ 'title' ] ]
+		);
+
+		// 2. Регистрация CPT для статей
+		//    Поддерживает title, редактор и миниатюру — полноценные статьи с содержимым
+		$this->cptRegistrar->addStandardType(
+			$article_cpt,
+			"Статьи ($name)",
+			"Статья",
+			[ 'supports' => [ 'title', 'editor', 'thumbnail' ] ]
+		);
+
+		// 3. Регистрация фиксированной таксономии "Номера заданий"
+		//    Эта таксономия создаётся автоматически для каждого предмета и защищена от удаления.
+		//    Привязывается только к CPT заданий — статьи не нумеруются.
+		$fixed_tax_slug = "{$key}_task_number";
+		$this->taxRegistrar->addFixedTaxonomy(
+			$fixed_tax_slug,
+			[ $task_cpt ],
+			"Номера заданий ($name)",
+			"Номер задания",
+			[
+				'public'       => true,
+				'show_ui'      => true,
+				'show_in_menu' => true,
+				'rewrite'      => [ 'slug' => $fixed_tax_slug ],
+			]
+		);
+
+		// 4. Регистрация пользовательских таксономий из БД
+		//    Администратор может создавать свои таксономии для предмета (например, "Тема", "Уровень").
+		//    Они привязываются и к заданиям, и к статьям, чтобы можно было фильтровать оба типа.
+		$custom_taxes = $this->taxonomies->getBySubject( $key );
+		foreach ( $custom_taxes as $tax_dto ) {
+			$this->taxRegistrar->addStandardTaxonomy(
+				$tax_dto->slug,
+				[ $task_cpt, $article_cpt ],
+				$tax_dto->name,
+				$tax_dto->name
+			);
+		}
+	}
+
+	/**
+	 * Собирает все данные для страницы управления предметом и упаковывает их в DTO.
+	 *
+	 * Метод запрашивает данные из нескольких источников и объединяет их
+	 * в один объект SubjectViewDTO, который шаблон получает как единый аргумент.
+	 * Это избавляет шаблон от прямых обращений к репозиториям.
+	 *
+	 * @param string $key Ключ предмета, например: "math"
+	 *
+	 * @return SubjectViewDTO|null DTO для шаблона или null, если предмет не найден в БД
+	 */
+	private function prepareSubjectViewData( string $key ): ?SubjectViewDTO {
+		// Ищем предмет в БД по ключу; если не нашли — возвращаем null
+		$current_subject = $this->subjects->getByKey( $key );
+		if ( ! $current_subject ) {
+			return null;
+		}
+
+		// Получаем типы заданий (термины таксономии номеров) с их текущими шаблонами
+		$task_types = $this->getTaskTypesFromTax( $key );
+
+		// Получаем список всех доступных шаблонов заданий через фильтр плагина
+		$all_templates = apply_filters( 'fs_lms_get_templates', [] );
+
+		// Получаем пользовательские таксономии предмета из БД
+		$custom_taxes = $this->taxonomies->getBySubject( $key );
+
+		// Создаём DTO фиксированной таксономии номеров заданий.
+		// Она не хранится в БД пользовательских таксономий, поэтому собираем вручную.
+		// Флаг is_protected = true запрещает её удаление в интерфейсе.
+		$fixed_tax_dto = new TaxonomyDataDTO(
+			slug: "{$key}_task_number",
+			name: "Номера заданий ({$current_subject->name})",
+			subject_key: $key,
+			is_protected: true
+		);
+
+		// Объединяем таксономии: фиксированная идёт первой, затем пользовательские
+		$taxonomies = array_merge( [ $fixed_tax_dto ], $custom_taxes );
+
+		// Собираем итоговый DTO и возвращаем его в subjectPage()
+		return new SubjectViewDTO(
+			subject_key: $key,
+			subject_data: $current_subject,
+			task_types: $task_types,
+			all_templates: $all_templates,
+			tasks_url: admin_url( "edit.php?post_type={$key}_tasks" ),       // URL списка заданий в админке
+			articles_url: admin_url( "edit.php?post_type={$key}_articles" ), // URL списка статей в админке
+			protected_tax: "{$key}_task_number",
+			taxonomies: $taxonomies
+		);
 	}
 }
