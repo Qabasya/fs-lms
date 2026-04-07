@@ -4,6 +4,7 @@ namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\SubjectDTO;
 
 /**
  * Class SubjectRepository
@@ -19,8 +20,10 @@ use Inc\Core\BaseController;
  *     'another_key' => ['key' => 'another_key', 'name' => 'Другое название'],
  * ]
  *
+ * При чтении данных возвращает DTO-объекты (SubjectDTO) для типобезопасной работы.
+ *
  * @package Inc\Repositories
- * @extends RepositoryInterface
+ * @implements RepositoryInterface
  */
 class SubjectRepository extends BaseController implements RepositoryInterface {
 	/**
@@ -31,51 +34,71 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	private string $option_name = BaseController::SUBJECTS_OPTION_NAME;
 
 	/**
+	 * Внутренний метод для получения сырых данных из Options API.
+	 *
+	 * @return array<string, array{key: string, name: string}> Сырые данные предметов
+	 */
+	private function getRaw(): array {
+		$subjects = get_option( $this->option_name, [] );
+
+		// Гарантируем возврат массива даже при повреждённых данных
+		return is_array( $subjects ) ? $subjects : [];
+	}
+
+	/**
 	 * Получить все предметы.
 	 *
-	 * Возвращает ассоциативный массив, где ключ — уникальный
-	 * идентификатор предмета, значение — массив с ключом и названием.
+	 * Возвращает массив DTO-объектов для типобезопасной работы.
 	 *
-	 * @return array<string, array{key: string, name: string}> Массив предметов
+	 * @return SubjectDTO[] Массив DTO-объектов предметов
 	 */
-	public function read_all(): array {
-		$subjects = get_option( $this->option_name, array() );
-
-		// Если база упала и get_option вернул пустую строку, а не массив
-		if ( ! is_array( $subjects ) ) {
-			return array();
-		}
-
-		return $subjects;
+	public function readAll(): array {
+		return array_map( function ( $item ) {
+			return new SubjectDTO( $item['key'], $item['name'] );
+		}, $this->getRaw() );
 	}
 
 	/**
 	 * Получить предмет по ключу.
+	 *
+	 * @param string $key Уникальный идентификатор предмета (slug)
+	 *
+	 * @return SubjectDTO|null DTO-объект предмета или null, если не найден
 	 */
-	public function get_by_key( string $key ): ?array {
-		$subjects = $this->read_all();
+	public function getByKey( string $key ): ?SubjectDTO {
+		$raw = $this->getRaw();
 
-		return $subjects[ $key ] ?? null;
+		if ( ! isset( $raw[ $key ] ) ) {
+			return null;
+		}
+
+		return new SubjectDTO( $raw[ $key ]['key'], $raw[ $key ]['name'] );
 	}
 
 	/**
-	 * Сохранить или обновить предмет.
-	 * Вообще тут лучше назвать upsert update+insert из-за update_option
+	 * Сохранить или обновить предмет (upsert).
+	 *
+	 * Метод работает как update + insert: если предмет с таким ключом существует —
+	 * обновляет, если нет — создаёт новый.
 	 *
 	 * @param array{key: string, name: string} $data Данные предмета
 	 *
 	 * @return bool Успешность сохранения
 	 */
 	public function update( array $data ): bool {
-		$subjects = $this->read_all();
+		// Работаем с сырыми данными для сохранения
+		$subjects = $this->getRaw();
 
-		$clean_data = $this->sanitize( $data );
+		// Очищаем входные данные
+		$clean = $this->sanitize( $data );
 
-		$subjects[ $clean_data['key'] ] = [
-			'key'  => $clean_data['key'],
-			'name' => $clean_data['name']
+		// Сохраняем предмет в массиве
+		$subjects[ $clean['key'] ] = [
+			'key'  => $clean['key'],
+			'name' => $clean['name']
 		];
 
+		// Сохраняем обновлённый массив в опции WordPress
 		return update_option( $this->option_name, $subjects );
 	}
 
@@ -100,23 +123,33 @@ class SubjectRepository extends BaseController implements RepositoryInterface {
 	/**
 	 * Удалить предмет по ключу.
 	 *
-	 * @param string $key Уникальный идентификатор предмета
+	 * @param array{key: string} $data Данные с ключом предмета
 	 *
 	 * @return bool Успешность удаления (false, если предмет не найден)
 	 */
 	public function delete( array $data ): bool {
 		$key      = $data['key'] ?? '';
-		$subjects = $this->read_all();
+		$subjects = $this->getRaw();
 
+		// Проверяем существование предмета
 		if ( ! isset( $subjects[ $key ] ) ) {
 			return false;
 		}
 
+		// Удаляем предмет из массива
 		unset( $subjects[ $key ] );
 
+		// Сохраняем обновлённый массив в опции WordPress
 		return update_option( $this->option_name, $subjects );
 	}
 
+	/**
+	 * Полностью очистить все предметы.
+	 *
+	 * Удаляет опцию из базы данных целиком.
+	 *
+	 * @return bool Успешность операции
+	 */
 	public function clear(): bool {
 		return delete_option( $this->option_name );
 	}

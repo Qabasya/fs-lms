@@ -4,6 +4,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\TaskTypeDTO;
 use Inc\Registrars\PluginRegistrar;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
@@ -11,6 +12,9 @@ use Inc\Shared\Traits\TemplateRenderer;
 use Inc\Shared\Traits\NumericSorter;
 use Inc\Callbacks\SubjectSettingsCallbacks;
 use Inc\Callbacks\TaxonomySettingsCallbacks;
+use Inc\DTO\SubjectViewDTO;
+use Inc\DTO\TaxonomyDataDTO;
+use Inc\Repositories\MetaBoxRepository;
 
 /**
  * Class SubjectController
@@ -53,8 +57,26 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 */
 	private PluginRegistrar $registrar;
 
+	/**
+	 * Коллбеки для операций с предметами.
+	 *
+	 * @var SubjectSettingsCallbacks
+	 */
 	private SubjectSettingsCallbacks $subjectCallbacks;
+
+	/**
+	 * Коллбеки для операций с таксономиями.
+	 *
+	 * @var TaxonomySettingsCallbacks
+	 */
 	private TaxonomySettingsCallbacks $taxonomyCallbacks;
+
+	/**
+	 * Репозиторий для работы с привязками заданий к шаблонам.
+	 *
+	 * @var MetaBoxRepository
+	 */
+	private MetaBoxRepository $metaboxes;
 
 	/**
 	 * Конструктор.
@@ -62,13 +84,17 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * @param SubjectRepository $subjects Репозиторий предметов
 	 * @param PluginRegistrar $registrar Композитный регистратор плагина
 	 * @param TaxonomyRepository $taxonomies Репозиторий кастомных таксономий
+	 * @param SubjectSettingsCallbacks $subjectCallbacks Коллбеки для операций с предметами
+	 * @param TaxonomySettingsCallbacks $taxonomyCallbacks Коллбеки для операций с таксономиями
+	 * @param MetaBoxRepository $metaboxes Репозиторий привязок заданий к шаблонам
 	 */
 	public function __construct(
 		SubjectRepository $subjects,
 		PluginRegistrar $registrar,
 		TaxonomyRepository $taxonomies,
 		SubjectSettingsCallbacks $subjectCallbacks,
-		TaxonomySettingsCallbacks $taxonomyCallbacks
+		TaxonomySettingsCallbacks $taxonomyCallbacks,
+		MetaBoxRepository $metaboxes
 	) {
 		parent::__construct();
 		$this->subjects          = $subjects;
@@ -76,6 +102,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$this->taxonomies        = $taxonomies;
 		$this->subjectCallbacks  = $subjectCallbacks;
 		$this->taxonomyCallbacks = $taxonomyCallbacks;
+		$this->metaboxes         = $metaboxes;
 	}
 
 	/**
@@ -84,24 +111,25 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * Вызывается один раз при инициализации плагина (в Init.php).
 	 *
 	 * Процесс регистрации:
-	 * 1. Настройка сортировки терминов таксономий по числовому значению
-	 * 2. Для каждого предмета:
+	 * 1. Регистрация AJAX-обработчиков для CRUD операций
+	 * 2. Настройка сортировки терминов таксономий по числовому значению
+	 * 3. Для каждого предмета:
 	 *    - Регистрация CPT для заданий и статей
 	 *    - Регистрация фиксированной таксономии "Номера заданий"
 	 *    - Регистрация пользовательских таксономий из репозитория
-	 * 3. Выполнение регистрации через регистраторы
+	 * 4. Выполнение регистрации через регистраторы
 	 *
 	 * @return void
 	 */
 	public function register(): void {
 		// ====================== РЕГИСТРАЦИЯ AJAX-ОБРАБОТЧИКОВ ======================
-		// Обработчики для предметов (SubjectSettingsCallbacks)
+		// Регистрация AJAX-обработчиков для CRUD операций с предметами
 		add_action( 'wp_ajax_fs_store_subject', [ $this->subjectCallbacks, 'storeSubject' ] );
 		add_action( 'wp_ajax_fs_update_subject', [ $this->subjectCallbacks, 'updateSubject' ] );
 		add_action( 'wp_ajax_fs_delete_subject', [ $this->subjectCallbacks, 'deleteSubject' ] );
 		add_action( 'wp_ajax_fs_update_term_template', [ $this->subjectCallbacks, 'updateTaskTemplate' ] );
 
-		// Обработчики для таксономий (TaxonomySettingsCallbacks)
+		// Регистрация AJAX-обработчиков для CRUD операций с таксономиями
 		add_action( 'wp_ajax_fs_store_taxonomy', [ $this->taxonomyCallbacks, 'storeTaxonomy' ] );
 		add_action( 'wp_ajax_fs_update_taxonomy', [ $this->taxonomyCallbacks, 'updateTaxonomy' ] );
 		add_action( 'wp_ajax_fs_delete_taxonomy', [ $this->taxonomyCallbacks, 'deleteTaxonomy' ] );
@@ -120,15 +148,16 @@ class SubjectController extends BaseController implements ServiceInterface {
 		);
 
 		// ====================== РЕГИСТРАЦИЯ CPT И ТАКСОНОМИЙ ======================
-		$all_subjects = $this->subjects->read_all();
+		$all_subjects = $this->subjects->readAll();
 
 		if ( empty( $all_subjects ) ) {
 			return;
 		}
 
 		// Регистрируем CPT и таксономии для каждого предмета
-		foreach ( $all_subjects as $key => $data ) {
-			$name        = $data['name'];
+		foreach ( $all_subjects as $subject ) {
+			$key         = $subject->key;
+			$name        = $subject->name;
 			$task_cpt    = "{$key}_tasks";
 			$article_cpt = "{$key}_articles";
 
@@ -179,14 +208,16 @@ class SubjectController extends BaseController implements ServiceInterface {
 			                );
 
 			// 4. Регистрация пользовательских таксономий из репозитория
-			$custom_taxes = $this->taxonomies->get_by_subject( $key );
-			foreach ( $custom_taxes as $tax_slug => $tax_data ) {
+			$custom_taxes = $this->taxonomies->getBySubject( $key );
+
+			foreach ( $custom_taxes as $tax_dto ) {
+				/** @var TaxonomyDataDTO $tax_dto */
 				$this->registrar->taxonomy()
 				                ->addStandardTaxonomy(
-					                $tax_slug,
-					                [ $task_cpt, $article_cpt ],      // Привязываем и к заданиям, и к статьям
-					                $tax_data['name'],
-					                $tax_data['name']
+					                $tax_dto->slug,
+					                [ $task_cpt, $article_cpt ],
+					                $tax_dto->name,
+					                $tax_dto->name
 				                );
 			}
 		}
@@ -195,7 +226,6 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$this->registrar->cpt()->register();
 		$this->registrar->taxonomy()->register();
 	}
-
 
 	/**
 	 * Коллбек для страницы управления конкретным предметом.
@@ -212,10 +242,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$page = $_GET['page'] ?? '';
 		$key  = str_replace( 'fs_subject_', '', $page );
 
-
-		// Получаем данные предмета
-		$all_subjects    = $this->subjects->read_all();
-		$current_subject = $all_subjects[ $key ] ?? null;
+		// Получаем данные предмета в виде DTO
+		$current_subject = $this->subjects->getByKey( $key );
 
 		if ( ! $current_subject ) {
 			echo "Предмет не найден";
@@ -223,50 +251,53 @@ class SubjectController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-
-		// 1. Получаем список типов заданий (термов таксономии) для Менеджера заданий
-		$task_types = $this->get_task_types_from_tax( $key );
+		// 1. Получаем список типов заданий (термов таксономии) для менеджера заданий
+		$task_types = $this->getTaskTypesFromTax( $key );
 
 		// 2. Получаем список визуальных шаблонов из MetaBoxController
 		$all_templates = apply_filters( 'fs_lms_get_templates', [] );
 
 		// 3. Получаем пользовательские таксономии для данного предмета
-		$custom_taxes = $this->taxonomies->get_by_subject( $key );
+		$custom_taxes = $this->taxonomies->getBySubject( $key );
 
-		// Подготавливаем данные для шаблона
-		// Тут бы DTO
-		$data = [
-			'subject_key'   => $key,
-			'subject'       => $current_subject,
-			'task_types'    => $task_types,     // Для Tab 4
-			'all_templates' => $all_templates,  // Для Tab 4
-			'tasks_url'     => admin_url( "edit.php?post_type={$key}_tasks" ),
-			'articles_url'  => admin_url( "edit.php?post_type={$key}_articles" ),
-			'protected_tax' => "{$key}_task_number",
-			'taxonomies'    => array_merge(
-				[ "{$key}_task_number" => [ 'name' => "Номера заданий ({$current_subject['name']})" ] ],
-				$custom_taxes
-			)
-		];
-		// Рендерим шаблон с переданными данными ЗАМЕНИТЬ
-		$this->render( 'SubjectTest', $data );
+		// Создаём DTO для системной таксономии "Номера заданий", чтобы всё было однородным
+		$fixed_tax_dto = new TaxonomyDataDTO(
+			slug: "{$key}_task_number",
+			name: "Номера заданий ({$current_subject->name})",
+			subject_key: $key,
+			is_protected: true
+		);
+
+		// Объединяем системную и пользовательские таксономии
+		$taxonomies = array_merge( [ $fixed_tax_dto ], $custom_taxes );
+
+		// Создаём DTO для передачи всех данных в шаблон
+		$dto = new SubjectViewDTO(
+			subject_key: $key,
+			subject_data: $current_subject,
+			task_types: $task_types,
+			all_templates: $all_templates,
+			tasks_url: admin_url( "edit.php?post_type={$key}_tasks" ),
+			articles_url: admin_url( "edit.php?post_type={$key}_articles" ),
+			protected_tax: "{$key}_task_number",
+			taxonomies: $taxonomies  // Массив объектов TaxonomyDataDTO
+		);
+
+		// Рендерим шаблон с переданными данными
+		$this->render( 'SubjectTest', $dto );
 	}
 
 	/**
 	 * Получает список типов заданий из таксономии предмета.
 	 *
-	 * Возвращает массив терминов таксономии "Номера заданий" для указанного предмета.
+	 * Возвращает массив DTO-объектов терминов таксономии "Номера заданий"
+	 * для указанного предмета.
 	 *
 	 * @param string $subject_key Ключ предмета (slug)
 	 *
-	 * @return array<int, array{
-	 *     id: int,
-	 *     name: string,
-	 *     description: string,
-	 *     slug: string
-	 * }> Список типов заданий
+	 * @return TaskTypeDTO[] Список DTO-объектов типов заданий
 	 */
-	public function get_task_types_from_tax( string $subject_key ): array {
+	public function getTaskTypesFromTax( string $subject_key ): array {
 		$taxonomy = "{$subject_key}_task_number";
 
 		// Получаем все термины таксономии (Задание 1, Задание 2...)
@@ -277,15 +308,24 @@ class SubjectController extends BaseController implements ServiceInterface {
 			'order'      => 'ASC'
 		] );
 
-		// Формируем массив данных для передачи в шаблон
+		// Обрабатываем возможные ошибки WP_Error
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return [];
+		}
+
+		// Формируем массив DTO-объектов для передачи в шаблон
 		$types = [];
 		foreach ( $terms as $term ) {
-			$types[] = [
-				'id'          => $term->term_id,
-				'name'        => $term->name,          // "Задание 1"
-				'description' => $term->description,   // "Графы"
-				'slug'        => $term->slug           // "1"
-			];
+			// Получаем привязку шаблона к данному типу задания
+			$assignment = $this->metaboxes->getAssignment( $subject_key, $term->slug );
+
+			$types[] = new TaskTypeDTO(
+				id: $term->term_id,
+				name: $term->name,
+				slug: $term->slug,
+				description: $term->description,
+				current_template: $assignment ? $assignment->template_id : 'standard_task'
+			);
 		}
 
 		return $types;

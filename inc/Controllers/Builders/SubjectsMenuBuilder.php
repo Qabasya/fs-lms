@@ -109,13 +109,13 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	public function buildSubPages(): array {
 		$subpages = [];
 
-		foreach ( $this->getSubjects() as $key => $subject ) {
+		foreach ( $this->getSubjects() as $subject ) {
 			$subpages[] = [
 				'parent_slug' => BaseController::SUBJECTS_MENU_SLUG,
-				'page_title'  => $subject['name'],
-				'menu_title'  => $subject['name'],
+				'page_title'  => $subject->name, // Используем -> вместо ['name']
+				'menu_title'  => $subject->name,
 				'capability'  => BaseController::ADMIN_CAPABILITY,
-				'menu_slug'   => 'fs_subject_' . $key,
+				'menu_slug'   => 'fs_subject_' . $subject->key, // Используем свойство key
 				'callback'    => [ $this->callbacks, 'subjectPage' ],
 			];
 		}
@@ -126,11 +126,11 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	/**
 	 * Возвращает предметы из репозитория, кэшируя результат.
 	 *
-	 * @return array
+	 * @return \Inc\DTO\SubjectDTO[]
 	 */
 	private function getSubjects(): array {
 		if ( $this->subjects === null ) {
-			$this->subjects = $this->subjectRepository->read_all();
+			$this->subjects = $this->subjectRepository->readAll();
 		}
 
 		return $this->subjects;

@@ -4,12 +4,14 @@ namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\TaxonomyDataDTO;
 
 /**
  * Class TaxonomyRepository
  *
- * Управляет кастомными таксономиями, привязанными к предметам.
- * Данные хранятся в формате:
+ * Репозиторий для хранения пользовательских таксономий, привязанных к предметам.
+ *
+ * Данные хранятся в WordPress-опции в формате:
  * [
  *     'subject_key' => [
  *         'tax_slug' => ['name' => 'Название таксономии'],
@@ -17,6 +19,8 @@ use Inc\Core\BaseController;
  *     ],
  *     ...
  * ]
+ *
+ * При чтении данных возвращает DTO-объекты (TaxonomyDataDTO) для типобезопасной работы.
  *
  * @package Inc\Repositories
  * @implements RepositoryInterface
@@ -30,16 +34,42 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 	private string $option_name = BaseController::TAXONOMY_OPTION_NAME;
 
 	/**
-	 * Получить все кастомные таксономии всех предметов.
+	 * Внутренний метод для получения сырых данных из Options API.
 	 *
-	 * @return array<string, array<string, array{name: string}>>
-	 *         Массив всех таксономий, сгруппированных по предметам
+	 * @return array<string, array<string, array{name: string}>> Сырые данные из опции
 	 */
-	public function read_all(): array {
-		// Получаем опцию из БД, если пусто — возвращаем пустой массив
-		return get_option( $this->option_name, array() );
+	private function getRaw(): array {
+		$all = get_option( $this->option_name, [] );
+
+		// Гарантируем возврат массива даже при повреждённых данных
+		return is_array( $all ) ? $all : [];
 	}
 
+	/**
+	 * Получить все кастомные таксономии всех предметов.
+	 *
+	 * Возвращает структурированный массив, где каждый элемент таксономии
+	 * представлен объектом TaxonomyDataDTO.
+	 *
+	 * @return array<string, array<int, TaxonomyDataDTO>>
+	 *         Массив всех таксономий, сгруппированных по предметам,
+	 *         значения — массив DTO-объектов
+	 */
+	public function readAll(): array {
+		$raw_all = $this->getRaw();
+		$result  = [];
+
+		foreach ( $raw_all as $subject_key => $taxonomies ) {
+			$result[ $subject_key ] = [];
+
+			foreach ( $taxonomies as $slug => $data ) {
+				// Преобразуем сырые данные в DTO
+				$result[ $subject_key ][] = TaxonomyDataDTO::fromArray( $slug, $data, $subject_key );
+			}
+		}
+
+		return $result;
+	}
 
 	/**
 	 * Обновить или создать таксономию для предмета.
@@ -55,20 +85,24 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 	 * @return bool Успешность операции
 	 */
 	public function update( array $data ): bool {
-		// Получаем текущие данные всех таксономий
-		$all = $this->read_all();
+		$all = $this->getRaw();
 
-		$subject_key = $data['subject_key'];
-		$tax_slug    = $data['tax_slug'];
+		$subject_key = $data['subject_key'] ?? '';
+		$tax_slug    = $data['tax_slug'] ?? '';
+
+		// Валидация обязательных полей
+		if ( empty( $subject_key ) || empty( $tax_slug ) ) {
+			return false;
+		}
 
 		// Инициализируем массив предмета, если его ещё нет
 		if ( ! isset( $all[ $subject_key ] ) ) {
-			$all[ $subject_key ] = array();
+			$all[ $subject_key ] = [];
 		}
 
-		// Сохраняем данные таксономии с санитизацией названия
+		// Сохраняем в базу только необходимые поля (массивом)
 		$all[ $subject_key ][ $tax_slug ] = [
-			'name' => sanitize_text_field( $data['name'] )
+			'name' => sanitize_text_field( $data['name'] ?? '' )
 		];
 
 		// Сохраняем обновлённый массив в опции WordPress
@@ -88,42 +122,52 @@ class TaxonomyRepository extends BaseController implements RepositoryInterface {
 	 * @return bool Успешность операции (false, если таксономия не найдена)
 	 */
 	public function delete( array $data ): bool {
-		// Получаем текущие данные всех таксономий
-		$all = $this->read_all();
+		$all         = $this->getRaw();
+		$subject_key = $data['subject_key'] ?? '';
+		$tax_slug    = $data['tax_slug'] ?? '';
 
-		$subject_key = $data['subject_key'];
-		$tax_slug    = $data['tax_slug'];
-
-		// Проверяем существование таксономии
+		// Проверяем существование таксономии перед удалением
 		if ( isset( $all[ $subject_key ][ $tax_slug ] ) ) {
-			// Удаляем конкретную таксономию
 			unset( $all[ $subject_key ][ $tax_slug ] );
 
 			// Сохраняем обновлённый массив в опции WordPress
 			return update_option( $this->option_name, $all );
 		}
 
-		// Таксономия не найдена
 		return false;
 	}
 
 	/**
 	 * Получить таксономии конкретного предмета.
 	 *
-	 * Хелпер для контроллеров — возвращает только таксономии указанного предмета.
+	 * Хелпер для контроллеров — возвращает только таксономии указанного предмета
+	 * в виде массива DTO-объектов.
 	 *
 	 * @param string $subject_key Ключ предмета (slug)
 	 *
-	 * @return array<string, array{name: string}>
-	 *         Массив таксономий предмета или пустой массив, если предмет не найден
+	 * @return array<int, TaxonomyDataDTO>
+	 *         Массив DTO-объектов таксономий предмета или пустой массив
 	 */
-	public function get_by_subject( string $subject_key ): array {
-		$all = $this->read_all();
+	public function getBySubject( string $subject_key ): array {
+		$raw_all       = $this->getRaw();
+		$subject_taxes = $raw_all[ $subject_key ] ?? [];
 
-		// Возвращаем таксономии предмета или пустой массив
-		return $all[ $subject_key ] ?? array();
+		$result = [];
+		foreach ( $subject_taxes as $slug => $data ) {
+			// Преобразуем сырые данные в DTO
+			$result[] = TaxonomyDataDTO::fromArray( $slug, $data, $subject_key );
+		}
+
+		return $result;
 	}
 
+	/**
+	 * Полностью очистить все кастомные таксономии.
+	 *
+	 * Удаляет опцию из базы данных целиком.
+	 *
+	 * @return bool Успешность операции
+	 */
 	public function clear(): bool {
 		return delete_option( $this->option_name );
 	}

@@ -8,7 +8,7 @@ use Inc\Shared\Traits\TemplateRenderer;
 
 
 /**
- * Class SubjectSettingsCallbacks
+ * Class AdminCallbacks
  *
  * Обработчики (коллбеки) для административной панели WordPress.
  *
@@ -36,7 +36,7 @@ class AdminCallbacks extends BaseController {
 	 *
 	 * @var
 	 */
-	protected SubjectRepository $subjects;
+	private SubjectRepository $subjects;
 
 	/**
 	 * Конструктор.
@@ -64,7 +64,7 @@ class AdminCallbacks extends BaseController {
 	 * Страница настроек (там добавляем предметы и прочее)
 	 */
 	public function settingsPage(): void {
-		$all_subjects = $this->subjects->read_all();
+		$all_subjects = $this->subjects->readAll();
 		$this->render( 'settings', [ 'subjects' => $all_subjects ] );
 	}
 

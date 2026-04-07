@@ -13,29 +13,33 @@ namespace Inc\Shared\Traits;
  *
  * @package Inc\Shared\Traits
  */
+
+/**
+ * Trait TemplateRenderer
+ */
 trait TemplateRenderer {
 	/**
-	 * Загружает и отображает PHP-шаблон с переданными данными.
+	 * Рендерит шаблон, принимая данные в виде массива или объекта (DTO).
 	 *
-	 * Преобразует массив $args в переменные, доступные в шаблоне,
-	 * используя функцию extract().
-	 *
-	 * @param string $template_name Имя файла шаблона (без расширения .php)
-	 * @param array<string, mixed> $args Ассоциативный массив данных для передачи в шаблон
-	 *
-	 * @return void
-	 *
-	 * @example
-	 * $this->render('admin-dashboard', ['subjects' => $subjects]);
-	 * // В шаблоне будет доступна переменная $subjects
+	 * @param string $template_name Имя файла без .php
+	 * @param array|object $data Данные для шаблона
 	 */
-	protected function render( string $template_name, array $args = [] ): void {
+	protected function render( string $template_name, array|object $data = [] ): void {
 		$file = $this->path( "templates/{$template_name}.php" );
 
 		if ( ! file_exists( $file ) ) {
-			echo "";
-
 			return;
+		}
+
+		/**
+		 * Если передан объект (DTO), мы упаковываем его в массив под ключом 'data'.
+		 * В шаблоне он будет доступен как $data.
+		 * Если передан массив, используем extract() как раньше для совместимости.
+		 */
+		if ( is_object( $data ) ) {
+			$args = [ 'data' => $data ];
+		} else {
+			$args = $data;
 		}
 
 		if ( ! empty( $args ) ) {

@@ -6,15 +6,14 @@ use Inc\Callbacks\TaskCreationCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 
-
 /**
  * Class TaskCreationController
  *
  * Контроллер для инициализации функционала создания заданий.
  *
- * Отвечает за регистрацию AJAX-обработчиков для создания заданий
- * и получения типов заданий. Делегирует выполнение бизнес-логики
- * классу TaskCreationCallbacks.
+ * Отвечает за регистрацию AJAX-обработчиков для создания заданий,
+ * получения типов заданий и сохранения привязки шаблонов.
+ * Делегирует выполнение бизнес-логики классу TaskCreationCallbacks.
  *
  * @package Inc\Controllers
  * @implements ServiceInterface
@@ -44,6 +43,7 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 	 * Регистрирует AJAX-обработчики для:
 	 * - получения списка типов заданий (ajaxGetTypes)
 	 * - создания нового задания (ajaxCreateTask)
+	 * - сохранения привязки шаблона к типу задания (ajaxSaveTemplateAssignment)
 	 *
 	 * @return void
 	 */
@@ -53,5 +53,8 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 
 		// Регистрация AJAX-обработчика для создания нового задания
 		add_action( 'wp_ajax_fs_create_task_action', [ $this->callbacks, 'ajaxCreateTask' ] );
+
+		// Регистрация AJAX-обработчика для сохранения привязки шаблона к типу задания
+		add_action( 'wp_ajax_save_template_assignment', [ $this->callbacks, 'ajaxSaveTemplateAssignment' ] );
 	}
 }
