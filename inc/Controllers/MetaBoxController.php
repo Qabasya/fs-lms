@@ -43,13 +43,6 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	private SubjectRepository $subjects;
 
 	/**
-	 * Композитный регистратор плагина.
-	 *
-	 * @var PluginRegistrar
-	 */
-	private PluginRegistrar $registrar;
-
-	/**
 	 * Репозиторий для работы с привязками заданий к шаблонам.
 	 *
 	 * @var MetaBoxRepository
@@ -200,7 +193,7 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 *
 	 * @return void
 	 */
-	public function renderMetaboxContent($post, $callback_args): void
+	public function renderMetaboxContent($post): void
 	{
 		// Определяем ID шаблона для текущего поста
 		$template_id = $this->getTemplateId($post);
