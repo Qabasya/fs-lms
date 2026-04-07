@@ -5,7 +5,6 @@ namespace Inc\Controllers;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeDTO;
-use Inc\Registrars\PluginRegistrar;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -15,6 +14,8 @@ use Inc\Callbacks\TaxonomySettingsCallbacks;
 use Inc\DTO\SubjectViewDTO;
 use Inc\DTO\TaxonomyDataDTO;
 use Inc\Repositories\MetaBoxRepository;
+use Inc\Registrars\SubjectCPTRegistrar;
+use Inc\Registrars\SubjectTaxonomyRegistrar;
 
 /**
  * Class SubjectController
@@ -36,61 +37,21 @@ class SubjectController extends BaseController implements ServiceInterface {
 	use TemplateRenderer;
 	use NumericSorter;
 
-	/**
-	 * Репозиторий для работы с предметами.
-	 *
-	 * @var SubjectRepository
-	 */
 	private SubjectRepository $subjects;
-
-	/**
-	 * Репозиторий для работы с кастомными таксономиями.
-	 *
-	 * @var TaxonomyRepository
-	 */
 	private TaxonomyRepository $taxonomies;
-
-	/**
-	 * Композитный регистратор плагина.
-	 *
-	 * @var PluginRegistrar
-	 */
-	private PluginRegistrar $registrar;
-
-	/**
-	 * Коллбеки для операций с предметами.
-	 *
-	 * @var SubjectSettingsCallbacks
-	 */
-	private SubjectSettingsCallbacks $subjectCallbacks;
-
-	/**
-	 * Коллбеки для операций с таксономиями.
-	 *
-	 * @var TaxonomySettingsCallbacks
-	 */
-	private TaxonomySettingsCallbacks $taxonomyCallbacks;
-
-	/**
-	 * Репозиторий для работы с привязками заданий к шаблонам.
-	 *
-	 * @var MetaBoxRepository
-	 */
 	private MetaBoxRepository $metaboxes;
 
-	/**
-	 * Конструктор.
-	 *
-	 * @param SubjectRepository $subjects Репозиторий предметов
-	 * @param PluginRegistrar $registrar Композитный регистратор плагина
-	 * @param TaxonomyRepository $taxonomies Репозиторий кастомных таксономий
-	 * @param SubjectSettingsCallbacks $subjectCallbacks Коллбеки для операций с предметами
-	 * @param TaxonomySettingsCallbacks $taxonomyCallbacks Коллбеки для операций с таксономиями
-	 * @param MetaBoxRepository $metaboxes Репозиторий привязок заданий к шаблонам
-	 */
+
+	private SubjectCPTRegistrar $cptRegistrar;
+	private SubjectTaxonomyRegistrar $taxRegistrar;
+
+	private SubjectSettingsCallbacks $subjectCallbacks;
+	private TaxonomySettingsCallbacks $taxonomyCallbacks;
+
 	public function __construct(
 		SubjectRepository $subjects,
-		PluginRegistrar $registrar,
+		SubjectCPTRegistrar $cptRegistrar,
+		SubjectTaxonomyRegistrar $taxRegistrar,
 		TaxonomyRepository $taxonomies,
 		SubjectSettingsCallbacks $subjectCallbacks,
 		TaxonomySettingsCallbacks $taxonomyCallbacks,
@@ -98,7 +59,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 	) {
 		parent::__construct();
 		$this->subjects          = $subjects;
-		$this->registrar         = $registrar;
+		$this->cptRegistrar      = $cptRegistrar;
+		$this->taxRegistrar      = $taxRegistrar;
 		$this->taxonomies        = $taxonomies;
 		$this->subjectCallbacks  = $subjectCallbacks;
 		$this->taxonomyCallbacks = $taxonomyCallbacks;
@@ -162,69 +124,62 @@ class SubjectController extends BaseController implements ServiceInterface {
 			$article_cpt = "{$key}_articles";
 
 			// 1. Регистрация CPT для заданий (только заголовок, без контента)
-			$this->registrar->cpt()->addStandardType(
+			$this->cptRegistrar->addStandardType(
 				$task_cpt,
 				"Задания ($name)",
 				"Задание",
-				[
-					'supports' => [ 'title' ]
-				]
+				[ 'supports' => [ 'title' ] ]
 			);
 
 			// 2. Регистрация CPT для статей (с редактором и картинкой)
-			$this->registrar->cpt()->addStandardType(
+			$this->cptRegistrar->addStandardType(
 				$article_cpt,
 				"Статьи ($name)",
 				"Статья",
-				[
-					'supports' => [ 'title', 'editor', 'thumbnail' ]
-				]
+				[ 'supports' => [ 'title', 'editor', 'thumbnail' ] ]
 			);
 
 			// 3. Регистрация фиксированной таксономии "Номера заданий"
 			$fixed_tax_slug = "{$key}_task_number";
 
-			$this->registrar->taxonomy()
-			                ->addFixedTaxonomy(
-				                $fixed_tax_slug,
-				                [ $task_cpt ],
-				                "Номера заданий ($name)",
-				                "Номер задания",
-				                [
-					                'public'            => true,
-					                'show_ui'           => true,
-					                'show_in_menu'      => true,
-					                'show_admin_column' => true,
-					                'hierarchical'      => false,
-					                'query_var'         => true,
-					                'rewrite'           => [ 'slug' => $fixed_tax_slug ],
-					                'capabilities'      => [
-						                'manage_terms' => 'manage_categories',  // Управление терминами
-						                'edit_terms'   => 'manage_categories',  // Редактирование терминов
-						                'delete_terms' => 'manage_categories',  // Удаление терминов
-						                'assign_terms' => 'edit_posts',         // Присвоение терминов постам
-					                ],
-				                ]
-			                );
+			$this->taxRegistrar->addFixedTaxonomy(
+				$fixed_tax_slug,
+				[ $task_cpt ],
+				"Номера заданий ($name)",
+				"Номер задания",
+				[
+					'public'            => true,
+					'show_ui'           => true,
+					'show_in_menu'      => true,
+					'show_admin_column' => true,
+					'hierarchical'      => false,
+					'query_var'         => true,
+					'rewrite'           => [ 'slug' => $fixed_tax_slug ],
+					'capabilities'      => [
+						'manage_terms' => 'manage_categories',
+						'edit_terms'   => 'manage_categories',
+						'delete_terms' => 'manage_categories',
+						'assign_terms' => 'edit_posts',
+					],
+				]
+			);
 
 			// 4. Регистрация пользовательских таксономий из репозитория
 			$custom_taxes = $this->taxonomies->getBySubject( $key );
 
 			foreach ( $custom_taxes as $tax_dto ) {
-				/** @var TaxonomyDataDTO $tax_dto */
-				$this->registrar->taxonomy()
-				                ->addStandardTaxonomy(
-					                $tax_dto->slug,
-					                [ $task_cpt, $article_cpt ],
-					                $tax_dto->name,
-					                $tax_dto->name
-				                );
+				$this->taxRegistrar->addStandardTaxonomy(
+					$tax_dto->slug,
+					[ $task_cpt, $article_cpt ],
+					$tax_dto->name,
+					$tax_dto->name
+				);
 			}
 		}
 
 		// Выполняем регистрацию всех накопленных CPT и таксономий
-		$this->registrar->cpt()->register();
-		$this->registrar->taxonomy()->register();
+		$this->cptRegistrar->register();
+		$this->taxRegistrar->register();
 	}
 
 	/**

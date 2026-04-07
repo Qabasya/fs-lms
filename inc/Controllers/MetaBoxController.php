@@ -10,8 +10,8 @@ use Inc\MetaBoxes\Templates\StandardTaskTemplate;
 use Inc\MetaBoxes\Templates\CodeTaskTemplate;
 use Inc\MetaBoxes\Templates\ThreeInOneTemplate;
 use Inc\MetaBoxes\Templates\TwoFileCodeTaskTemplate;
+use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\SubjectRepository;
-use Inc\Registrars\PluginRegistrar;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\DTO\TaskMetaDTO;
 
@@ -27,27 +27,10 @@ use Inc\DTO\TaskMetaDTO;
  */
 class MetaBoxController extends BaseController implements ServiceInterface
 {
-	/**
-	 * Список доступных шаблонов метабоксов.
-	 * Структура: [ 'template_id' => TemplateObject ]
-	 *
-	 * @var array<string, object>
-	 */
 	private array $templates = [];
-
-	/**
-	 * Репозиторий предметов.
-	 *
-	 * @var SubjectRepository
-	 */
 	private SubjectRepository $subjects;
-
-	/**
-	 * Репозиторий для работы с привязками заданий к шаблонам.
-	 *
-	 * @var MetaBoxRepository
-	 */
 	private MetaBoxRepository $metaboxes;
+	private MetaBoxRegistrar $registrar;
 
 	/**
 	 * Конструктор.
@@ -55,18 +38,17 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 * Инициализирует репозитории, регистратор и регистрирует все шаблоны метабоксов.
 	 *
 	 * @param SubjectRepository $subjects  Репозиторий предметов
-	 * @param PluginRegistrar   $registrar Композитный регистратор
 	 * @param MetaBoxRepository $metaboxes Репозиторий привязок заданий к шаблонам
 	 */
 	public function __construct(
 		SubjectRepository $subjects,
-		PluginRegistrar $registrar,
-		MetaBoxRepository $metaboxes
+		MetaBoxRepository $metaboxes,
+		MetaBoxRegistrar $registrar
 	) {
 		parent::__construct();
-		$this->subjects  = $subjects;
-		$this->registrar = $registrar;
+		$this->subjects = $subjects;
 		$this->metaboxes = $metaboxes;
+		$this->registrar = $registrar;
 	}
 
 	/**
@@ -141,42 +123,27 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 */
 	public function register(): void
 	{
-		// add_meta_boxes срабатывает только на экранах редактирования —
-		// никаких ручных проверок $pagenow не нужно
-
-		// Регистрация метабоксов (сработает в редакторе)
 		add_action('add_meta_boxes', function () {
-			// Убеждаемся, что шаблоны загружены
-			if (empty($this->templates)) {
-				$this->registerTemplates();
-			}
+			$this->registerTemplates();
 
 			$all_subjects = $this->subjects->readAll();
+			if (empty($all_subjects)) return;
 
-			if (empty($all_subjects)) {
-				return;
-			}
-
-			// Для каждого предмета добавляем метабокс на CPT заданий
+			$task_post_types = [];
 			foreach ($all_subjects as $subject) {
-				$task_cpt = "{$subject->key}_tasks";
-
-				add_meta_box(
-					'fs_lms_task_metabox',           // Уникальный ID метабокса
-					'Данные задания',                // Заголовок метабокса
-					[$this, 'renderMetaboxContent'], // Коллбек для отрисовки
-					$task_cpt,                       // Тип поста (CPT заданий)
-					'normal',                        // Контекст отображения
-					'high'                           // Приоритет
-				);
+				$task_post_types[] = "{$subject->key}_tasks";
 			}
+
+			// Используем регистратор вместо прямого вызова add_meta_box
+			$this->registrar->add(
+				'fs_lms_task_metabox',
+				'Данные задания',
+				[$this, 'renderMetaboxContent'],
+				$task_post_types
+			)->register();
 		});
 
-		// save_post — вешаем всегда, но шаблоны регистрируем внутри,
-		// только когда это реальный POST-запрос на сохранение
 		add_action('save_post', [$this, 'handleMetaSave']);
-
-		// Регистрация фильтра для получения списка шаблонов
 		add_filter('fs_lms_get_templates', [$this, 'getTemplatesList']);
 	}
 
@@ -292,7 +259,6 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 */
 	public function getTemplatesList(): array
 	{
-		// Если шаблоны ещё не загружены — загружаем
 		if (empty($this->templates)) {
 			$this->registerTemplates();
 		}

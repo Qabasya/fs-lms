@@ -7,7 +7,8 @@ use Inc\Callbacks\SubjectSettingsCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\Builders\SubjectsMenuBuilder;
 use Inc\Core\BaseController;
-use Inc\Registrars\PluginRegistrar;
+use Inc\Registrars\MenuRegistrar;
+use Inc\Registrars\SettingsRegistrar;
 
 /**
  * Class AdminController
@@ -24,33 +25,10 @@ use Inc\Registrars\PluginRegistrar;
  * @implements ServiceInterface
  */
 class AdminController extends BaseController implements ServiceInterface {
-	/**
-	 * Регистратор, объединяющий меню и настройки.
-	 *
-	 * @var PluginRegistrar
-	 */
-	private PluginRegistrar $registrar;
-
-	/**
-	 * Коллбеки для рендеринга страниц.
-	 *
-	 * @var AdminCallbacks
-	 */
+	private MenuRegistrar $menuRegistrar;
+	private SettingsRegistrar $settingsRegistrar;
 	private AdminCallbacks $callbacks;
-
-	/**
-	 * Билдер для построения меню предметов.
-	 *
-	 * @var SubjectsMenuBuilder
-	 */
 	private SubjectsMenuBuilder $subjectsMenuBuilder;
-
-	/**
-	 * Коллбеки для страниц настроек предметов
-	 *
-	 * @var SubjectSettingsCallbacks
-	 */
-	private SubjectSettingsCallbacks $subjectCallbacks;
 
 	/**
 	 * Конструктор.
@@ -61,17 +39,17 @@ class AdminController extends BaseController implements ServiceInterface {
 	 * @param SubjectSettingsCallbacks $subjectCallbacks Коллбеки настроек предметов
 	 */
 	public function __construct(
-		PluginRegistrar $registrar,
+		MenuRegistrar $menuRegistrar,
+		SettingsRegistrar $settingsRegistrar,
 		AdminCallbacks $callbacks,
-		SubjectsMenuBuilder $subjectsMenuBuilder,
-		SubjectSettingsCallbacks $subjectCallbacks
+		SubjectsMenuBuilder $subjectsMenuBuilder
 	) {
 		parent::__construct();
 
-		$this->registrar           = $registrar;
-		$this->callbacks           = $callbacks;
+		$this->menuRegistrar = $menuRegistrar;
+		$this->settingsRegistrar = $settingsRegistrar;
+		$this->callbacks = $callbacks;
 		$this->subjectsMenuBuilder = $subjectsMenuBuilder;
-		$this->subjectCallbacks    = $subjectCallbacks;
 	}
 
 	/**
@@ -94,10 +72,9 @@ class AdminController extends BaseController implements ServiceInterface {
 		$subpages = $this->buildAllSubPages();
 
 		// Передаём данные в регистратор и выполняем регистрацию
-		$this->registrar->menu()
-		                ->addPages( $pages )
-		                ->addSubPages( $subpages )
-		                ->register();
+		$this->menuRegistrar->addPages( $pages )
+		                    ->addSubPages( $subpages )
+		                    ->register();
 
 		// Удаляем дублирующиеся пункты меню, созданные WordPress автоматически
 		$this->removeAutoSubMenuItems();
@@ -136,22 +113,6 @@ class AdminController extends BaseController implements ServiceInterface {
 
 		return array_merge( $pages, $this->subjectsMenuBuilder->buildPages() );
 	}
-
-	/**
-	 * Собирает все подстраницы из разных источников.
-	 *
-	 * Объединяет подстраницы предметов из билдера
-	 * и добавляет подстраницу настроек.
-	 *
-	 * @return array<int, array{
-	 *     parent_slug: string,
-	 *     page_title: string,
-	 *     menu_title: string,
-	 *     capability: string,
-	 *     menu_slug: string,
-	 *     callback: array{0: SubjectSettingsCallbacks, 1: string}
-	 * }> Конфигурация всех подстраниц
-	 */
 
 // ====================== ПУНКТЫ ГЛАВНОГО МЕНЮ FS LMS ======================
 	/**
