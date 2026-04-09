@@ -4,7 +4,7 @@ namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\CodeField;
 use Inc\MetaBoxes\Fields\InputField;
-use Inc\MetaBoxes\Fields\TextareaField;
+use Inc\MetaBoxes\Fields\ConditionField;
 
 /*
  * Это класс для 19-21 заданий ЕГЭ по информатике
@@ -20,15 +20,15 @@ class ThreeInOneTemplate extends BaseTemplate {
 	public function __construct() {
 		$this->fields = [
 			// 1. Задание 19
-			'task_19_condition' => [ 'label' => 'Условие к №19', 'object' => new TextareaField() ],
+			'task_19_condition' => [ 'label' => 'Условие к №19', 'object' => new ConditionField() ],
 			'task_19_answer'    => [ 'label' => 'Ответ №19', 'object' => new InputField() ],
 
 			// 2. Задание 20
-			'task_20_condition' => [ 'label' => 'Условие к №20', 'object' => new TextareaField() ],
+			'task_20_condition' => [ 'label' => 'Условие к №20', 'object' => new ConditionField() ],
 			'task_20_answer'    => [ 'label' => 'Ответ №20', 'object' => new InputField() ],
 
 			// 3. Задание 21
-			'task_21_condition' => [ 'label' => 'Условие к №21', 'object' => new TextareaField() ],
+			'task_21_condition' => [ 'label' => 'Условие к №21', 'object' => new ConditionField() ],
 			'task_21_answer'    => [ 'label' => 'Ответ №21', 'object' => new InputField() ],
 
 			// 4. Программное решение (мб потом разделить на 3?)

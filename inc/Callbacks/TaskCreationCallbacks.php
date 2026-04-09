@@ -202,11 +202,11 @@ class TaskCreationCallbacks extends BaseController {
 				return;
 			}
 
-			// Фильтрация полей: оставляем только TextareaField (для boilerplate)
+			// Фильтрация полей: оставляем только ConditionField (условия)
 			$fields = array_filter(
 				$template_obj->get_fields(),
 				static fn( $config ) => isset( $config['object'] )
-				                        && $config['object'] instanceof \Inc\MetaBoxes\Fields\TextareaField
+				                        && $config['object'] instanceof \Inc\MetaBoxes\Fields\ConditionField
 			);
 
 			// Преобразование структуры полей для передачи на клиент

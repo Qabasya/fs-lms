@@ -3,7 +3,7 @@
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\InputField;
-use Inc\MetaBoxes\Fields\TextareaField;
+use Inc\MetaBoxes\Fields\ConditionField;
 
 /**
  * Class CommonConditionTemplate
@@ -35,11 +35,11 @@ class CommonConditionTemplate extends BaseTemplate
 		$this->fields = [
 			'common_condition' => [
 				'label'  => 'Базовое условие:',
-				'object' => new TextareaField()    // Неизменяемая часть условия
+				'object' => new ConditionField()    // Неизменяемая часть условия
 			],
 			'task_condition' => [
 				'label'  => 'Вариативное условие:',
-				'object' => new TextareaField()    // Изменяемая часть условия
+				'object' => new ConditionField()    // Изменяемая часть условия
 			],
 			'task_answer' => [
 				'label'  => 'Ответ',

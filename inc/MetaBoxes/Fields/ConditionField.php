@@ -3,15 +3,18 @@
 namespace Inc\MetaBoxes\Fields;
 
 /**
- * Class TextareaField
+ * Class ConditionField
  *
  * Поле для многострочного текстового ввода (textarea).
+ *
+ * ТОЛЬКО для условий!!!
+ *
  * Сохраняет HTML-контент с использованием wp_kses_post для безопасности.
  *
  * @package Inc\MetaBoxes\Fields
  * @extends BaseField
  */
-class TextareaField extends BaseField {
+class ConditionField extends BaseField {
     /**
      * Рендерит HTML-разметку текстовой области.
      *
