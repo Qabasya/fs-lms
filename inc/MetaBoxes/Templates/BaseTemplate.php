@@ -30,7 +30,7 @@ abstract class BaseTemplate {
 	 *
 	 * @var array<string, array{label: string, object: object}>
 	 */
-	protected array $fields = [];
+	public array $fields = [];
 
 	/**
 	 * Возвращает уникальное имя (ID) шаблона.
