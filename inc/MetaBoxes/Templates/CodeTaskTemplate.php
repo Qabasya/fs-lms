@@ -4,7 +4,7 @@ namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\CodeField;
 use Inc\MetaBoxes\Fields\InputField;
-use Inc\MetaBoxes\Fields\TextareaField;
+use Inc\MetaBoxes\Fields\ConditionField;
 
 /**
  * Class CodeTaskTemplate
@@ -28,7 +28,7 @@ class CodeTaskTemplate extends BaseTemplate {
 		$this->fields = [
 			'task_condition' => [
 				'label'  => 'Условие задания',
-				'object' => new TextareaField()     // Многострочный текст
+				'object' => new ConditionField()     // Многострочный текст
 			],
 			'task_answer'    => [
 				'label'  => 'Правильный ответ',
