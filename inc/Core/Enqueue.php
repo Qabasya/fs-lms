@@ -83,8 +83,9 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// Общие данные для менеджера заданий и настроек предметов
 		// Используем тот же идентификатор скрипта для локализации
 		wp_localize_script( $script_handle, 'fs_lms_vars', [
-			'ajaxurl'  => admin_url( 'admin-ajax.php' ),             // URL для AJAX-запросов
-			'security' => wp_create_nonce( 'fs_subject_nonce' )      // Nonce для операций с предметами
+			'ajaxurl'       => admin_url( 'admin-ajax.php' ),
+			'security'      => wp_create_nonce( 'fs_subject_nonce' ),      // Для CRUD предметов
+			'manager_nonce' => wp_create_nonce( 'fs_lms_manager_nonce' )   // Для Менеджера заданий (Tab 4)
 		] );
 	}
 
