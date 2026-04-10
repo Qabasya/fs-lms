@@ -1,6 +1,5 @@
 /*
 Хуки из TaskCreationController
-
 wp_ajax_get_task_types
 wp_ajax_create_task
 wp_ajax_get_template_structure
@@ -156,24 +155,26 @@ export const Tasks = {
             const $saveBtn = $(this);
             if (typeof Utils !== 'undefined') Utils.toggleButton($saveBtn, true, 'Сохранение...');
 
-            // Берем только первый (главный) редактор, так как мы уходим от JSON для простоты
-            const $textarea = $container.find('.js-boilerplate-editor').first();
-            const id = $textarea.attr('id');
-            let finalContent = '';
+            // Собираем объект со всеми полями
+            const values = {};
+            $container.find('.js-boilerplate-editor').each(function () {
+                const id = $(this).attr('id');
+                const key = $(this).data('field-key');
 
-            if (window.tinymce && window.tinymce.get(id)) {
-                window.tinymce.get(id).save();
-                finalContent = window.tinymce.get(id).getContent();
-            } else {
-                finalContent = $textarea.val();
-            }
+                if (window.tinymce && window.tinymce.get(id)) {
+                    window.tinymce.get(id).save();
+                    values[key] = window.tinymce.get(id).getContent();
+                } else {
+                    values[key] = $(this).val();
+                }
+            });
 
             $.post(ajaxurl, {
                 action: 'save_task_boilerplate',
                 nonce: fs_lms_vars.manager_nonce,
                 subject_key: $modal.find('#boilerplate-subject-key').val(),
                 term_slug: $modal.find('#boilerplate-term-slug').val(),
-                text: finalContent // ОТПРАВЛЯЕМ ЧИСТЫЙ ТЕКСТ
+                text: JSON.stringify(values) // Сохраняем как JSON-строку
             }, (res) => {
                 if (typeof Utils !== 'undefined') Utils.toggleButton($saveBtn, false, 'Сохранить');
                 if (res.success) {
@@ -198,21 +199,31 @@ export const Tasks = {
             term_slug:   termSlug,
             nonce:       fs_lms_vars.manager_nonce
         }, (res) => {
-            let val = (res.success && res.data.text) ? res.data.text : '';
+            console.log('Ответ от сервера:', res.data.text);
+            let contentValues = {};
 
-            // Если в базе всё еще лежит старый JSON-мусор, пытаемся вытащить текст
-            if (typeof val === 'string' && val.trim().startsWith('{')) {
+            if (res.success && res.data.text) {
+                let rawData = res.data.text;
+
+                // Пытаемся распарсить JSON
                 try {
-                    const parsed = JSON.parse(val);
-                    val = parsed.task_condition || val;
+                    contentValues = (typeof rawData === 'string' && rawData.trim().startsWith('{'))
+                        ? JSON.parse(rawData)
+                        : rawData;
                 } catch (e) {
-                    console.log("Это не JSON, оставляем как есть");
+                    // Если это не JSON, записываем старый текст в первое доступное поле
+                    const firstKey = $('.js-boilerplate-editor').first().data('field-key');
+                    if (firstKey) contentValues[firstKey] = rawData;
                 }
             }
 
             $('.js-boilerplate-editor').each(function () {
                 const $textarea = $(this);
                 const id  = $textarea.attr('id');
+                const key = $textarea.data('field-key');
+
+                // Распределяем текст по ключам
+                let val = (contentValues && contentValues[key]) ? contentValues[key] : '';
 
                 $textarea.val(val);
 
