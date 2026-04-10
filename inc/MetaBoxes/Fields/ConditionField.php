@@ -34,15 +34,32 @@ class ConditionField extends BaseField {
             <label class="fs-lms-label" for="<?php echo esc_attr( $id ); ?>">
                 <?php echo esc_html( $label ); ?>
             </label>
-            <div class="fs-lms-input-wrapper">
-                <textarea id="<?php echo esc_attr( $id ); ?>"
-                          name="<?php echo esc_attr( $this->get_field_name( $id ) ); ?>"
-                          rows="8"
-                          class="large-text fs-lms-textarea"><?php echo esc_textarea( $value ); ?></textarea>
+            <div class="fs-lms-editor-wrapper">
+                <?php
+                // 1. Формируем чистое имя поля для обработки в MetaBoxController
+                $field_name = $this->get_field_name( $id );
+
+                // 2. Генерируем ID для редактора (должен быть только строчными буквами и подчеркиваниями)
+                $editor_id = strtolower( preg_replace( '/[^a-z0-9_]/i', '_', $id ) );
+
+                // 3. Настройки редактора для соответствия скриншотам
+                $settings = [
+                        'textarea_name' => $field_name,   // Имя для массива fs_lms_meta
+                        'textarea_rows' => 12,           // Высота поля
+                        'media_buttons' => true,         // Кнопка "Добавить медиафайл"
+                        'tinymce'       => true,         // Вкладка "Визуально"
+                        'quicktags'     => true,         // Вкладка "Текст" (Код)
+                        'wpautop'       => true,         // Автоматические параграфы <p>
+                ];
+
+                // 4. Отрисовка
+                wp_editor( (string)$value, $editor_id, $settings );
+                ?>
             </div>
         </div>
         <?php
     }
+
 
     /**
      * Санитизация значения поля.
