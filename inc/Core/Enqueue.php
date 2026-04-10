@@ -46,6 +46,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function enqueue_admin_assets(): void {
+		wp_enqueue_media();
+
 		// 1. Подключаем стили админ-панели
 		wp_enqueue_style(
 			'fs-lms-admin-style',                         // Уникальный идентификатор
@@ -61,7 +63,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		wp_enqueue_script(
 			$script_handle,                               // Уникальный идентификатор
 			$this->url( 'assets/js/admin.min.js' ),         // Путь к минифицированному JS
-			[ 'jquery', 'wp-api', 'wp-i18n' ],              // Зависимости: jQuery, WP REST API, интернационализация
+			[ 'jquery', 'wp-api', 'wp-i18n', 'editor', 'quicktags' ],           // Зависимости: jQuery, WP REST API, интернационализация
 			$this->plugin_version,                        // Версия для сброса кэша
 			true                                          // Загрузка в футере для производительности
 		);

@@ -82,6 +82,9 @@ $key     = $dto->subject_key;
 
         <input type="radio" name="fs_tabs" id="tab4">
         <label for="tab4">Менеджер заданий</label>
+
+
+
         <div class="tab-content">
             <h3>Управление шаблонами и условиями типов заданий</h3>
             <p class="description">Настройте визуальный шаблон и типовое условие, которое будет автоматически подставляться при создании нового задания этого типа.</p>
@@ -171,6 +174,20 @@ $key     = $dto->subject_key;
         </div>
     </div>
 </div>
+
+<?php
+wp_enqueue_editor();
+wp_enqueue_media();
+// Обязательно вне вкладок, перед закрывающим тегом или скриптами
+echo '<div style="display:none;">';
+wp_editor( '', 'fs_lms_init_editor', [
+        'tinymce'       => true,
+        'quicktags'     => true,
+        'media_buttons' => true
+] );
+echo '</div>';
+?>
+
 
 <style>
     /* Базовые стили модалок */
