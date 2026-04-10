@@ -210,11 +210,24 @@ class TaskCreationCallbacks extends BaseController {
 			);
 
 			// Преобразование структуры полей для передачи на клиент
-			$structure = array_map(
-				static fn( $key, $config ) => [ 'id' => $key, 'label' => $config['label'] ],
-				array_keys( $fields ),
-				$fields
-			);
+			$structure = [];
+			foreach ( $fields as $key => $config ) {
+				// Генерируем уникальный ID для TinyMCE (только буквы и подчеркивания)
+				$editor_id = 'tinymce_' . strtolower( preg_replace( '/[^a-z0-9_]/i', '_', $key ) );
+
+				$structure[] = [
+					'id'    => $key,
+					'label' => $config['label'],
+					// Передаем HTML-заготовку, которую "оживит" JS
+					'html'  => sprintf(
+						'<div class="fs-lms-boilerplate-editor-container">
+                    <textarea id="%s" class="js-boilerplate-editor" data-field-key="%s" rows="10" style="width:100%%;"></textarea>
+                 </div>',
+						esc_attr( $editor_id ),
+						esc_attr( $key )
+					)
+				];
+			}
 
 			wp_send_json_success( [ 'fields' => array_values( $structure ) ] );
 		} catch ( \Throwable $e ) {

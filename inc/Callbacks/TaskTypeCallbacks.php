@@ -40,41 +40,23 @@ class TaskTypeCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxSaveBoilerplate(): void {
-		// Проверка nonce для защиты от CSRF
 		check_ajax_referer( 'fs_lms_manager_nonce', 'nonce' );
 
-		// Проверка прав доступа (управление настройками)
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
+		// Получаем текст и ОЧИЩАЕМ его от магических слешей WP
+		$text = isset($_POST['text']) ? wp_unslash($_POST['text']) : '';
 
-			return;
-		}
+		$subject_key = sanitize_text_field($_POST['subject_key']);
+		$term_slug   = sanitize_text_field($_POST['term_slug']);
 
-		// Получение и санитизация данных
-		$subject_key = sanitize_text_field( wp_unslash( $_POST['subject_key'] ?? '' ) );
-		$term_slug   = sanitize_text_field( wp_unslash( $_POST['term_slug'] ?? '' ) );
-		$text        = wp_unslash( $_POST['text'] ?? '' ); // Текст может содержать HTML, не санитизируем как plain text
-
-		// Валидация обязательных полей
-		if ( ! $this->hasRequiredKeys( $subject_key, $term_slug ) ) {
-			wp_send_json_error( 'Не указан предмет или тип задания' );
-
-			return;
-		}
-
-		// Сохранение через репозиторий
-		$success = $this->repository->update( [
+		// Если ты используешь update_option или свою таблицу:
+		// Просто сохраняем $text как есть.
+		$this->repository->update([
 			'subject_key' => $subject_key,
 			'term_slug'   => $term_slug,
-			'text'        => $text,
-		] );
+			'text'        => $text // Теперь тут просто текст, а не JSON
+		]);
 
-		// Отправка ответа
-		if ( $success ) {
-			wp_send_json_success( [ 'message' => 'Типовое условие сохранено' ] );
-		} else {
-			wp_send_json_error( 'Не удалось сохранить данные' );
-		}
+		wp_send_json_success();
 	}
 
 	/**
