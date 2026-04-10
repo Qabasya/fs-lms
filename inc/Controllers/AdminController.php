@@ -25,31 +25,21 @@ use Inc\Registrars\SettingsRegistrar;
  * @implements ServiceInterface
  */
 class AdminController extends BaseController implements ServiceInterface {
-	private MenuRegistrar $menuRegistrar;
-	private SettingsRegistrar $settingsRegistrar;
-	private AdminCallbacks $callbacks;
-	private SubjectsMenuBuilder $subjectsMenuBuilder;
-
 	/**
 	 * Конструктор.
 	 *
-	 * @param PluginRegistrar $registrar Композитный регистратор
+	 * @param MenuRegistrar $menuRegistrar Регистратор меню
+	 * @param SettingsRegistrar $settingsRegistrar Регистратор настроек ПОКА НЕ ИСПОЛЬЗУЕТСЯ
 	 * @param AdminCallbacks $callbacks Коллбеки админ-панели
 	 * @param SubjectsMenuBuilder $subjectsMenuBuilder Билдер меню предметов
-	 * @param SubjectSettingsCallbacks $subjectCallbacks Коллбеки настроек предметов
 	 */
 	public function __construct(
-		MenuRegistrar $menuRegistrar,
-		SettingsRegistrar $settingsRegistrar,
-		AdminCallbacks $callbacks,
-		SubjectsMenuBuilder $subjectsMenuBuilder
+		private MenuRegistrar $menuRegistrar,
+//		private SettingsRegistrar $settingsRegistrar,
+		private AdminCallbacks $callbacks,
+		private SubjectsMenuBuilder $subjectsMenuBuilder
 	) {
 		parent::__construct();
-
-		$this->menuRegistrar = $menuRegistrar;
-		$this->settingsRegistrar = $settingsRegistrar;
-		$this->callbacks = $callbacks;
-		$this->subjectsMenuBuilder = $subjectsMenuBuilder;
 	}
 
 	/**

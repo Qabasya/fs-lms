@@ -1,4 +1,12 @@
-// НейроЗолото
+/*
+Хуки из TaskCreationController
+
+wp_ajax_get_task_types
+wp_ajax_create_task
+wp_ajax_get_template_structure
+wp_ajax_save_task_boilerplate
+wp_ajax_get_task_boilerplate
+ */
 import {Utils} from '../modules/utils.js';
 
 export const Tasks = {
@@ -22,7 +30,7 @@ export const Tasks = {
                 e.preventDefault();
 
                 $.get(fsTaskData.ajax_url, {
-                    action: 'fs_get_task_types',
+                    action: 'get_task_types',
                     subject_key: fsTaskData.subject_key,
                     nonce: fsTaskData.nonce
                 }, function (res) {
@@ -39,7 +47,7 @@ export const Tasks = {
                             const title = prompt(`Создаем Задание №${userInp}. Введите заголовок:`);
                             if (title) {
                                 $.post(fsTaskData.ajax_url, {
-                                    action: 'fs_create_task_action',
+                                    action: 'create_task',
                                     nonce: fsTaskData.nonce,
                                     subject_key: fsTaskData.subject_key,
                                     term_id: selected.id,
@@ -64,7 +72,7 @@ export const Tasks = {
             const $row = $select.closest('tr');
 
             const sendData = {
-                action: 'fs_update_term_template',
+                action: 'update_term_template',
                 security: fs_lms_vars.security,
                 term_id: $row.data('term-id'),
                 template: $select.val(),
@@ -122,9 +130,10 @@ export const Tasks = {
 
             $modal.fadeIn(200, () => {
                 $.get(ajaxurl, {
-                    action: 'fs_get_template_structure',
+                    action: 'get_template_structure',
                     subject_key: subjectKey,
-                    term_slug: termSlug
+                    term_slug: termSlug,
+                    nonce: fs_lms_vars.manager_nonce
                 }, (structRes) => {
                     $container.empty();
 
@@ -160,7 +169,7 @@ export const Tasks = {
             }
 
             $.post(ajaxurl, {
-                action: 'fs_save_task_type_boilerplate',
+                action: 'save_task_boilerplate',
                 nonce: fs_lms_vars.manager_nonce,
                 subject_key: $modal.find('#boilerplate-subject-key').val(),
                 term_slug: $modal.find('#boilerplate-term-slug').val(),
@@ -184,7 +193,7 @@ export const Tasks = {
 
     loadBoilerplateContent: function ($, subjectKey, termSlug) {
         $.get(ajaxurl, {
-            action:      'fs_get_task_type_boilerplate',
+            action:      'get_task_boilerplate',
             subject_key: subjectKey,
             term_slug:   termSlug,
             nonce:       fs_lms_vars.manager_nonce
