@@ -6,6 +6,11 @@ wp_ajax_get_template_structure
 wp_ajax_save_task_boilerplate
 wp_ajax_get_task_boilerplate
  */
+
+//TODO: модалка слишком длинная выходит для задания 19-21
+//TODO: увеличить ширину выпадашки "Визуальный шаблон"
+//TODO: нужно куда-то поместить типы заданий и дать возможность редактировать boilerplate каждого
+
 import {Utils} from '../modules/utils.js';
 
 export const Tasks = {
