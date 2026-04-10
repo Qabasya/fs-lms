@@ -1,4 +1,11 @@
 import {Utils} from '../modules/utils.js';
+/*
+Хуки из SubjectController
+
+wp_ajax_store_subject
+wp_ajax_update_subject
+wp_ajax_delete_subject
+ */
 
 export const Subjects = {
     init() {
@@ -23,7 +30,7 @@ export const Subjects = {
 
         Utils.toggleButton($btn, true, 'Сохранение...');
 
-        jQuery.post(ajaxurl, $form.serialize() + '&action=fs_store_subject', (res) => {
+        jQuery.post(ajaxurl, $form.serialize() + '&action=store_subject', (res) => {
             if (res.success) location.reload();
             else {
                 alert(res.data || 'Ошибка сохранения');
@@ -57,7 +64,7 @@ export const Subjects = {
             const $saveBtn = $editRow.find('.save');
             Utils.toggleButton($saveBtn, true, '...');
 
-            jQuery.post(ajaxurl, jQuery(event.target).serialize() + '&action=fs_update_subject', (res) => {
+            jQuery.post(ajaxurl, jQuery(event.target).serialize() + '&action=update_subject', (res) => {
                 if (res.success) location.reload();
                 else alert('Ошибка');
             }).fail(Utils.apiError);
@@ -76,7 +83,7 @@ export const Subjects = {
         Utils.toggleButton($btn, true, '...');
 
         jQuery.post(ajaxurl, {
-            action: 'fs_delete_subject',
+            action: 'delete_subject',
             key: key,
             security: jQuery('#fs-quick-edit-form [name="security"]').val()
         }, (res) => {

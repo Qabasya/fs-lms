@@ -32,23 +32,16 @@ class AdminCallbacks extends BaseController {
 	use TemplateRenderer;
 
 	/**
-	 * Репозиторий для работы с предметами.
-	 *
-	 * @var
-	 */
-	private SubjectRepository $subjects;
-
-	/**
 	 * Конструктор.
 	 *
 	 * Инициализирует репозиторий предметов и регистрирует AJAX-обработчики.
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
 	 */
-	public function __construct( SubjectRepository $subjects ) {
+	public function __construct(
+		private SubjectRepository $subjects
+	) {
 		parent::__construct();
-		$this->subjects = $subjects;
-
 	}
 
 

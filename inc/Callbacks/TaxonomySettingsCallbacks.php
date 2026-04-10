@@ -5,136 +5,178 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\Repositories\TaxonomyRepository;
 
-
 /**
  * Class TaxonomySettingsCallbacks
  *
- * Обработчики (коллбеки) для управления таксономиями через AJAX.
- *
- * Отвечает за:
- * - AJAX-обработку CRUD операций с таксономиями (store, update, delete)
- * - Сброс правил перезаписи после операций с таксономиями
+ * AJAX-обработчики для CRUD-операций с таксономиями.
+ * Отвечает за создание, обновление и удаление кастомных таксономий предметов.
  *
  * @package Inc\Callbacks
  */
-class TaxonomySettingsCallbacks extends BaseController {
-	/**
-	 * Репозиторий для работы с таксономиями.
-	 *
-	 * @var TaxonomyRepository
-	 */
-	protected TaxonomyRepository $taxonomies;
-
+class TaxonomySettingsCallbacks extends BaseController
+{
 	/**
 	 * Конструктор.
 	 *
-	 * Инициализирует репозиторий таксономий.
-	 * AJAX-хуки регистрируются в SubjectController.
-	 *
 	 * @param TaxonomyRepository $taxonomies Репозиторий таксономий
 	 */
-
-	public function __construct( TaxonomyRepository $taxonomies ) {
+	public function __construct(
+		private TaxonomyRepository $taxonomies,
+	) {
 		parent::__construct();
-		$this->taxonomies = $taxonomies;
 	}
 
-
-
-// ====================== ОБЩАЯ ЛОГИКА ======================
+	// ============================ AJAX-КОЛЛБЕКИ ============================ //
 
 	/**
-	 * Общая функция для выполнения операций с таксономией.
-	 *
-	 * Реализует единый алгоритм для всех CRUD-операций:
-	 * 1. Проверка nonce и прав доступа
-	 * 2. Получение и валидация данных (subject_key, tax_slug, tax_name)
-	 * 3. Защита системных таксономий (блокировка изменения/удаления)
-	 * 4. Выполнение операции через репозиторий
-	 * 5. Сброс правил перезаписи
-	 * 6. Отправка JSON-ответа
-	 *
-	 * @param string $operation Тип операции: 'store', 'update', 'delete'
-	 *
-	 * @return void Отправляет JSON-ответ через wp_send_json_*()
-	 */
-	protected function executeOperation( string $operation ): void {
-		check_ajax_referer( 'fs_subject_nonce', 'security' );
-
-		if ( ! current_user_can( self::ADMIN_CAPABILITY ) ) {
-			wp_send_json_error( 'Нет прав' );
-		}
-
-		$subject_key = sanitize_title( $_POST['subject_key'] ?? '' );
-		$tax_slug    = sanitize_title( $_POST['tax_slug'] ?? '' );
-		$tax_name    = sanitize_text_field( $_POST['tax_name'] ?? '' );
-
-		if ( in_array( $operation, [ 'store', 'update' ], true ) && empty( $tax_name ) ) {
-			wp_send_json_error( 'Название таксономии не может быть пустым' );
-		}
-
-		if ( empty( $subject_key ) || empty( $tax_slug ) ) {
-			wp_send_json_error( 'Недостаточно данных для операции' );
-		}
-
-		$success = false;
-		$message = '';
-
-		switch ( $operation ) {
-			case 'store':
-			case 'update':
-				$success = $this->taxonomies->update( [
-					'subject_key' => $subject_key,
-					'tax_slug'    => $tax_slug,
-					'name'        => $tax_name
-				] );
-				$message = ( $operation === 'store' ) ? "Таксономия создана" : "Таксономия обновлена";
-				break;
-			case 'delete':
-				$success = $this->taxonomies->delete( [
-					'subject_key' => $subject_key,
-					'tax_slug'    => $tax_slug
-				] );
-				$message = "Таксономия удалена";
-				break;
-		}
-
-		if ( $success ) {
-			flush_rewrite_rules();
-			wp_send_json_success( $message );
-		} else {
-			wp_send_json_error( 'Ошибка репозитория при выполнении операции' );
-		}
-	}
-
-
-// ====================== ТОНКИЕ AJAX-ОБРАБОТЧИКИ ======================
-// Фасады для комплексных операций
-
-	/**
-	 * AJAX-обработчик создания новой таксономии.
+	 * Создаёт новую таксономию для предмета.
 	 *
 	 * @return void
 	 */
-	public function storeTaxonomy(): void {
-		$this->executeOperation( 'store' );
+	public function storeTaxonomy(): void
+	{
+		// Проверка прав доступа и nonce
+		$this->authorize();
+
+		// Получение и валидация данных таксономии
+		[$subject_key, $tax_slug, $tax_name] = $this->requireTaxonomyData();
+
+		// Сохранение через репозиторий
+		$success = $this->taxonomies->update([
+			'subject_key' => $subject_key,
+			'tax_slug'    => $tax_slug,
+			'name'        => $tax_name,
+		]);
+
+		// Отправка результата
+		$this->sendResult($success, 'Таксономия создана');
 	}
 
 	/**
-	 * AJAX-обработчик обновления таксономии (Quick Edit).
+	 * Обновляет существующую таксономию (Quick Edit).
 	 *
 	 * @return void
 	 */
-	public function updateTaxonomy(): void {
-		$this->executeOperation( 'update' );
+	public function updateTaxonomy(): void
+	{
+		// Проверка прав доступа и nonce
+		$this->authorize();
+
+		// Получение и валидация данных таксономии
+		[$subject_key, $tax_slug, $tax_name] = $this->requireTaxonomyData();
+
+		// Обновление через репозиторий
+		$success = $this->taxonomies->update([
+			'subject_key' => $subject_key,
+			'tax_slug'    => $tax_slug,
+			'name'        => $tax_name,
+		]);
+
+		// Отправка результата
+		$this->sendResult($success, 'Таксономия обновлена');
 	}
 
 	/**
-	 * AJAX-обработчик удаления таксономии.
+	 * Удаляет таксономию предмета.
 	 *
 	 * @return void
 	 */
-	public function deleteTaxonomy(): void {
-		$this->executeOperation( 'delete' );
+	public function deleteTaxonomy(): void
+	{
+		// Проверка прав доступа и nonce
+		$this->authorize();
+
+		// Получение и валидация ключа предмета и слага таксономии
+		[$subject_key, $tax_slug] = $this->requireSubjectAndSlug();
+
+		// Удаление через репозиторий
+		$success = $this->taxonomies->delete([
+			'subject_key' => $subject_key,
+			'tax_slug'    => $tax_slug,
+		]);
+
+		// Отправка результата
+		$this->sendResult($success, 'Таксономия удалена');
+	}
+
+	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
+
+	/**
+	 * Проверяет nonce и права администратора.
+	 * Завершает выполнение через wp_send_json_error при неудаче.
+	 *
+	 * @return void
+	 */
+	private function authorize(): void
+	{
+		// Проверка nonce для защиты от CSRF
+		check_ajax_referer('fs_subject_nonce', 'security');
+
+		// Проверка прав доступа (только администраторы)
+		if (!current_user_can(self::ADMIN_CAPABILITY)) {
+			wp_send_json_error('Нет прав', 403);
+		}
+	}
+
+	/**
+	 * Читает и валидирует subject_key и tax_slug из POST.
+	 *
+	 * @return array{0: string, 1: string} [subject_key, tax_slug]
+	 */
+	private function requireSubjectAndSlug(): array
+	{
+		$subject_key = sanitize_title(wp_unslash($_POST['subject_key'] ?? ''));
+		$tax_slug    = sanitize_title(wp_unslash($_POST['tax_slug'] ?? ''));
+
+		// Валидация обязательных полей
+		if (empty($subject_key) || empty($tax_slug)) {
+			wp_send_json_error('Недостаточно данных для операции');
+		}
+
+		return [$subject_key, $tax_slug];
+	}
+
+	/**
+	 * Читает и валидирует полный набор данных таксономии из POST.
+	 * Используется в store и update.
+	 *
+	 * @return array{0: string, 1: string, 2: string} [subject_key, tax_slug, tax_name]
+	 */
+	private function requireTaxonomyData(): array
+	{
+		// Получаем ключ предмета и слаг таксономии
+		[$subject_key, $tax_slug] = $this->requireSubjectAndSlug();
+
+		// Получение названия таксономии
+		$tax_name = sanitize_text_field(wp_unslash($_POST['tax_name'] ?? ''));
+
+		// Валидация названия
+		if (empty($tax_name)) {
+			wp_send_json_error('Название таксономии не может быть пустым');
+		}
+
+		return [$subject_key, $tax_slug, $tax_name];
+	}
+
+	/**
+	 * Отправляет результат операции клиенту и при успехе сбрасывает правила перезаписи.
+	 *
+	 * @param bool   $success Результат операции репозитория
+	 * @param string $message Сообщение для клиента при успехе
+	 *
+	 * @return void
+	 */
+	private function sendResult(bool $success, string $message): void
+	{
+		// В случае ошибки репозитория
+		if (!$success) {
+			wp_send_json_error('Ошибка репозитория при выполнении операции');
+			return;
+		}
+
+		// Обновление правил перезаписи после изменений таксономий
+		flush_rewrite_rules();
+
+		wp_send_json_success($message);
 	}
 }
