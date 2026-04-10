@@ -34,10 +34,10 @@ class AdminController extends BaseController implements ServiceInterface {
 	 * @param SubjectsMenuBuilder $subjectsMenuBuilder Билдер меню предметов
 	 */
 	public function __construct(
-		private MenuRegistrar $menuRegistrar,
+		private readonly MenuRegistrar $menuRegistrar,
 //		private SettingsRegistrar $settingsRegistrar,
-		private AdminCallbacks $callbacks,
-		private SubjectsMenuBuilder $subjectsMenuBuilder
+		private readonly AdminCallbacks $callbacks,
+		private readonly SubjectsMenuBuilder $subjectsMenuBuilder
 	) {
 		parent::__construct();
 	}

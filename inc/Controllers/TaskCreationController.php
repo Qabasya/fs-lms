@@ -32,8 +32,8 @@ class TaskCreationController extends BaseController implements ServiceInterface
 	 * @param TemplateManagerCallbacks  $templateManagerCallbacks  Коллбеки для управления типами заданий
 	 */
 	public function __construct(
-		private TaskCreationCallbacks $taskCreationCallbacks,
-		private TemplateManagerCallbacks $templateManagerCallbacks
+		private readonly TaskCreationCallbacks $taskCreationCallbacks,
+		private readonly TemplateManagerCallbacks $templateManagerCallbacks
 	) {
 		parent::__construct();
 	}

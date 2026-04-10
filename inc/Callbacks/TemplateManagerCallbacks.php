@@ -217,33 +217,32 @@ class TemplateManagerCallbacks extends BaseController
 	public function ajaxSaveBoilerplate(): void
 	{
 		// Проверка nonce для защиты от CSRF
-		check_ajax_referer('fs_lms_manager_nonce', 'nonce');
+		check_ajax_referer( 'fs_lms_manager_nonce', 'nonce' );
 
-		// Проверка прав доступа (управление настройками)
-		if (!current_user_can('manage_options')) {
-			wp_send_json_error('Доступ запрещён', 403);
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Доступ запрещён', 403 );
 			return;
 		}
 
-		// Получение и валидация данных
-		$subject_key = sanitize_text_field(wp_unslash($_POST['subject_key'] ?? ''));
-		$term_slug   = sanitize_text_field(wp_unslash($_POST['term_slug'] ?? ''));
-		// wp_unslash убирает magic quotes WordPress; репозиторий санирует через wp_kses_post
-		$text = wp_unslash($_POST['text'] ?? '');
+		$subject_key = sanitize_text_field( wp_unslash( $_POST['subject_key'] ?? '' ) );
+		$term_slug   = sanitize_text_field( wp_unslash( $_POST['term_slug'] ?? '' ) );
 
-		if (!$this->hasRequiredKeys($subject_key, $term_slug)) {
-			wp_send_json_error('Недостаточно данных');
+		// ВАЖНО: wp_unslash здесь обязателен для корректного хранения JSON
+		$text = wp_unslash( $_POST['text'] ?? '' );
+
+		if ( empty( $subject_key ) || empty( $term_slug ) ) {
+			wp_send_json_error( 'Недостаточно данных' );
 			return;
 		}
 
-		// Сохранение через репозиторий
-		$this->taskTypes->update([
+		// Репозиторий должен просто обновить запись в таблице
+		$this->taskTypes->update( [
 			'subject_key' => $subject_key,
 			'term_slug'   => $term_slug,
 			'text'        => $text,
-		]);
+		] );
 
-		wp_send_json_success(['message' => 'Типовое условие сохранено']);
+		wp_send_json_success( [ 'message' => 'Типовое условие сохранено' ] );
 	}
 
 	/**
@@ -265,6 +264,8 @@ class TemplateManagerCallbacks extends BaseController
 		// Получение данных из GET-запроса
 		$subject_key = sanitize_text_field(wp_unslash($_GET['subject_key'] ?? ''));
 		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
+
+		$text = wp_unslash( $_POST['text'] ?? '' );
 
 		if (!$this->hasRequiredKeys($subject_key, $term_slug)) {
 			wp_send_json_error('Недостаточно данных');

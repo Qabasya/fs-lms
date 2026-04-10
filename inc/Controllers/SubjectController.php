@@ -50,14 +50,14 @@ class SubjectController extends BaseController implements ServiceInterface
 	 * @param MetaBoxRepository           $metaboxes         Репозиторий метабоксов
 	 */
 	public function __construct(
-		private SubjectRepository $subjects,
-		private SubjectCPTRegistrar $cptRegistrar,
-		private SubjectTaxonomyRegistrar $taxRegistrar,
-		private TaxonomyRepository $taxonomies,
-		private SubjectSettingsCallbacks $subjectCallbacks,
-		private TaxonomySettingsCallbacks $taxonomyCallbacks,
-		private TemplateManagerCallbacks $templateCallbacks,
-		private MetaBoxRepository $metaboxes,
+		private readonly SubjectRepository $subjects,
+		private readonly SubjectCPTRegistrar $cptRegistrar,
+		private readonly SubjectTaxonomyRegistrar $taxRegistrar,
+		private readonly TaxonomyRepository $taxonomies,
+		private readonly SubjectSettingsCallbacks $subjectCallbacks,
+		private readonly TaxonomySettingsCallbacks $taxonomyCallbacks,
+		private readonly TemplateManagerCallbacks $templateCallbacks,
+		private readonly MetaBoxRepository $metaboxes,
 	) {
 		parent::__construct();
 	}

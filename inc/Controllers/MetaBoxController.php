@@ -35,9 +35,9 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	private array $templates = [];
 
 	public function __construct(
-		private SubjectRepository $subjects,
-		private MetaBoxRepository $metaboxes,
-		private MetaBoxRegistrar $registrar
+		private readonly SubjectRepository $subjects,
+		private readonly MetaBoxRepository $metaboxes,
+		private readonly MetaBoxRegistrar $registrar
 	) {
 		parent::__construct();
 	}
