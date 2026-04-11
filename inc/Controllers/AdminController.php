@@ -140,7 +140,18 @@ class AdminController extends BaseController implements ServiceInterface {
 			'callback'    => [ $this->callbacks, 'settingsPage' ],
 		];
 
+		// Страница управления типовыми условиями (скрытая)
+		$subpages[] = [
+			'parent_slug' => '', // Оставляем пустым, чтобы страница была скрытой
+			'page_title'  => 'Управление типовыми условиями',
+			'menu_title'  => 'Boilerplate Manager', // Это никто не увидит в меню
+			'capability'  => self::ADMIN_CAPABILITY,
+			'menu_slug'   => 'fs_boilerplate_manager',
+			'callback'    => [ $this->callbacks, 'boilerplatePage' ],
+		];
+
 		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
+
 
 		return array_merge( $subpages, $this->subjectsMenuBuilder->buildSubPages() );
 	}

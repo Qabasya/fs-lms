@@ -1,6 +1,9 @@
 import {UI} from './modules/ui.js';
 import {Subjects} from './services/subjects.js';
-import {Tasks} from './services/tasks.js'; // Я насрал этим импортом
+import {Tasks} from './services/tasks.js';
+import {Boilerplates} from './services/boilerplates.js';
+import {TaskCreation} from './components/task-creation-modal';
+
 
 (function ($) {
     'use strict';
@@ -13,7 +16,10 @@ import {Tasks} from './services/tasks.js'; // Я насрал этим импо�
         if ($('#fs-add-subject-form').length || $('.open-quick-edit').length) {
             Subjects.init();
         }
-        Tasks.init(); // и этой строчкой
+        Tasks.init();
+
+        Boilerplates.init();
+        TaskCreation.init();
     });
 
 })(jQuery);
