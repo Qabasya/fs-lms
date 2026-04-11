@@ -44,87 +44,87 @@ export const Tasks = {
         }
     },
 
-
-    // ============================================================
-    // БЫСТРОЕ СОЗДАНИЕ ЗАДАНИЯ
-    //
-    // Перехватываем стандартную кнопку WordPress «Добавить новый»
-    // и вместо перехода на страницу редактора — показываем свой
-    // диалог через prompt(). Пользователь выбирает тип задания,
-    // вводит заголовок, и мы сразу создаём запись через AJAX.
-    // ============================================================
-    initQuickCreation: function ($) {
-
-        // Вешаем обработчик клика на body (а не на саму кнопку) — это «делегирование событий».
-        // Нужно потому, что кнопка .page-title-action может появиться на странице позже,
-        // уже после того как JS был инициализирован.
-        $('body').on('click', '.page-title-action', function (e) {
-            const href = $(this).attr('href') || '';
-
-            // Кнопок «Добавить новый» в админке может быть несколько (разные типы постов).
-            // Убеждаемся, что кликнули именно по кнопке нашего типа поста.
-            const isOurPostType = href.includes('post-new.php') && href.includes('post_type=' + fsTaskData.post_type);
-            if (!isOurPostType) return;
-
-            // Отменяем стандартный переход по ссылке — берём управление в свои руки
-            e.preventDefault();
-
-            // Шаг 1: запрашиваем у сервера список существующих типов заданий (таксономия).
-            // $.get — это сокращение для AJAX GET-запроса: «дай мне данные, ничего не меняй».
-            $.get(fsTaskData.ajax_url, {
-                action:      'get_task_types',       // Название хука на PHP-стороне: wp_ajax_get_task_types
-                subject_key: fsTaskData.subject_key, // Ключ предмета, например 'math' или 'physics'
-                nonce:       fsTaskData.nonce        // Одноразовый токен — защита от CSRF-атак
-            }, function (res) {
-
-                // res.success — стандартное поле ответа WordPress при использовании wp_send_json_success()
-                if (!res.success || res.data.length === 0) return;
-
-                // Формируем текст для диалога prompt() — нативного окна браузера с полем ввода
-                let promptMessage = "Введите НОМЕР задания (например: 1, 2, 3...):\n";
-                res.data.forEach(taskType => {
-                    promptMessage += `№${taskType.slug} — ${taskType.description}\n`;
-                });
-
-                // prompt() возвращает строку с введённым значением или null при отмене
-                const userInput = prompt(promptMessage);
-                if (userInput === null) return; // Пользователь нажал «Отмена»
-
-                // Ищем в массиве тип задания, slug которого совпадает с введённым номером.
-                // Проверяем два варианта: голый номер ("1") и с префиксом ("math_1").
-                const selectedType = res.data.find(taskType =>
-                    taskType.slug == userInput ||
-                    taskType.slug == `${fsTaskData.subject_key}_${userInput}`
-                );
-
-                if (!selectedType) {
-                    alert('Задание с таким номером не найдено!');
-                    return;
-                }
-
-                // Шаг 2: просим ввести заголовок для новой записи
-                const title = prompt(`Создаем Задание №${userInput}. Введите заголовок:`);
-                if (!title) return; // Пользователь нажал «Отмена» или оставил поле пустым
-
-                // Шаг 3: отправляем данные на сервер для создания записи.
-                // $.post — AJAX POST-запрос: «измени что-то на сервере».
-                $.post(fsTaskData.ajax_url, {
-                    action:      'create_task',
-                    nonce:       fsTaskData.nonce,
-                    subject_key: fsTaskData.subject_key,
-                    term_id:     selectedType.id, // ID таксономии (типа задания)
-                    title:       title
-                }, function (response) {
-                    if (response.success) {
-                        // Сервер вернул URL только что созданной записи — переходим туда
-                        window.location.href = response.data.redirect;
-                    } else {
-                        alert('Ошибка: ' + response.data);
-                    }
-                });
-            });
-        });
-    },
+// // УДАЛИТЬ
+//     // ============================================================
+//     // БЫСТРОЕ СОЗДАНИЕ ЗАДАНИЯ
+//     //
+//     // Перехватываем стандартную кнопку WordPress «Добавить новый»
+//     // и вместо перехода на страницу редактора — показываем свой
+//     // диалог через prompt(). Пользователь выбирает тип задания,
+//     // вводит заголовок, и мы сразу создаём запись через AJAX.
+//     // ============================================================
+//     initQuickCreation: function ($) {
+//
+//         // Вешаем обработчик клика на body (а не на саму кнопку) — это «делегирование событий».
+//         // Нужно потому, что кнопка .page-title-action может появиться на странице позже,
+//         // уже после того как JS был инициализирован.
+//         $('body').on('click', '.page-title-action', function (e) {
+//             const href = $(this).attr('href') || '';
+//
+//             // Кнопок «Добавить новый» в админке может быть несколько (разные типы постов).
+//             // Убеждаемся, что кликнули именно по кнопке нашего типа поста.
+//             const isOurPostType = href.includes('post-new.php') && href.includes('post_type=' + fsTaskData.post_type);
+//             if (!isOurPostType) return;
+//
+//             // Отменяем стандартный переход по ссылке — берём управление в свои руки
+//             e.preventDefault();
+//
+//             // Шаг 1: запрашиваем у сервера список существующих типов заданий (таксономия).
+//             // $.get — это сокращение для AJAX GET-запроса: «дай мне данные, ничего не меняй».
+//             $.get(fsTaskData.ajax_url, {
+//                 action:      'get_task_types',       // Название хука на PHP-стороне: wp_ajax_get_task_types
+//                 subject_key: fsTaskData.subject_key, // Ключ предмета, например 'math' или 'physics'
+//                 nonce:       fsTaskData.nonce        // Одноразовый токен — защита от CSRF-атак
+//             }, function (res) {
+//
+//                 // res.success — стандартное поле ответа WordPress при использовании wp_send_json_success()
+//                 if (!res.success || res.data.length === 0) return;
+//
+//                 // Формируем текст для диалога prompt() — нативного окна браузера с полем ввода
+//                 let promptMessage = "Введите НОМЕР задания (например: 1, 2, 3...):\n";
+//                 res.data.forEach(taskType => {
+//                     promptMessage += `№${taskType.slug} — ${taskType.description}\n`;
+//                 });
+//
+//                 // prompt() возвращает строку с введённым значением или null при отмене
+//                 const userInput = prompt(promptMessage);
+//                 if (userInput === null) return; // Пользователь нажал «Отмена»
+//
+//                 // Ищем в массиве тип задания, slug которого совпадает с введённым номером.
+//                 // Проверяем два варианта: голый номер ("1") и с префиксом ("math_1").
+//                 const selectedType = res.data.find(taskType =>
+//                     taskType.slug == userInput ||
+//                     taskType.slug == `${fsTaskData.subject_key}_${userInput}`
+//                 );
+//
+//                 if (!selectedType) {
+//                     alert('Задание с таким номером не найдено!');
+//                     return;
+//                 }
+//
+//                 // Шаг 2: просим ввести заголовок для новой записи
+//                 const title = prompt(`Создаем Задание №${userInput}. Введите заголовок:`);
+//                 if (!title) return; // Пользователь нажал «Отмена» или оставил поле пустым
+//
+//                 // Шаг 3: отправляем данные на сервер для создания записи.
+//                 // $.post — AJAX POST-запрос: «измени что-то на сервере».
+//                 $.post(fsTaskData.ajax_url, {
+//                     action:      'create_task',
+//                     nonce:       fsTaskData.nonce,
+//                     subject_key: fsTaskData.subject_key,
+//                     term_id:     selectedType.id, // ID таксономии (типа задания)
+//                     title:       title
+//                 }, function (response) {
+//                     if (response.success) {
+//                         // Сервер вернул URL только что созданной записи — переходим туда
+//                         window.location.href = response.data.redirect;
+//                     } else {
+//                         alert('Ошибка: ' + response.data);
+//                     }
+//                 });
+//             });
+//         });
+//     },
 
 
     // ============================================================

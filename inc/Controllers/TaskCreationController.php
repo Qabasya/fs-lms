@@ -23,13 +23,12 @@ use Inc\Core\BaseController;
  * @package Inc\Controllers
  * @implements ServiceInterface
  */
-class TaskCreationController extends BaseController implements ServiceInterface
-{
+class TaskCreationController extends BaseController implements ServiceInterface {
 	/**
 	 * Конструктор.
 	 *
-	 * @param TaskCreationCallbacks     $taskCreationCallbacks     Коллбеки для создания заданий
-	 * @param TemplateManagerCallbacks  $templateManagerCallbacks  Коллбеки для управления типами заданий
+	 * @param TaskCreationCallbacks $taskCreationCallbacks Коллбеки для создания заданий
+	 * @param TemplateManagerCallbacks $templateManagerCallbacks Коллбеки для управления типами заданий
 	 */
 	public function __construct(
 		private readonly TaskCreationCallbacks $taskCreationCallbacks,
@@ -53,26 +52,36 @@ class TaskCreationController extends BaseController implements ServiceInterface
 	 *
 	 * @return void
 	 */
-	public function register(): void
-	{
+	public function register(): void {
+
+		// Выводим HTML модалки в самом низу страницы
+		add_action( 'admin_footer', function () {
+			$screen = get_current_screen();
+			// Показываем только если мы в админке на типе поста, заканчивающемся на _tasks
+			if ( $screen && str_contains( $screen->post_type, '_tasks' ) ) {
+				include_once $this->plugin_path . 'templates/components/modals/task-creation-modal.php';
+			}
+		} );
 		// --- Типы заданий -> tasks.js & TaskCreationCallbacks ---
 
 		// Регистрация AJAX-обработчика для получения типов заданий
-		add_action('wp_ajax_get_task_types', [$this->taskCreationCallbacks, 'ajaxGetTypes']);
+		add_action( 'wp_ajax_get_task_types', [ $this->taskCreationCallbacks, 'ajaxGetTypes' ] );
+
+		add_action( 'wp_ajax_get_task_boilerplates', [ $this->taskCreationCallbacks, 'ajaxGetBoilerplates' ] );
 
 		// Регистрация AJAX-обработчика для создания нового задания
-		add_action('wp_ajax_create_task', [$this->taskCreationCallbacks, 'ajaxCreateTask']);
+		add_action( 'wp_ajax_create_task', [ $this->taskCreationCallbacks, 'ajaxCreateTask' ] );
 
 		// --- Шаблоны -> tasks.js & TemplateManagerCallbacks- --
 
 		// Регистрация AJAX-обработчика для получения структуры полей шаблона
-		add_action('wp_ajax_get_template_structure', [$this->templateManagerCallbacks, 'ajaxGetTemplateStructure']);
+		add_action( 'wp_ajax_get_template_structure', [ $this->templateManagerCallbacks, 'ajaxGetTemplateStructure' ] );
 
 		// Регистрация AJAX-обработчика для сохранения типового условия (boilerplate)
-		add_action('wp_ajax_save_task_boilerplate', [$this->templateManagerCallbacks, 'ajaxSaveBoilerplate']);
+		add_action( 'wp_ajax_save_task_boilerplate', [ $this->templateManagerCallbacks, 'ajaxSaveBoilerplate' ] );
 
 		// Регистрация AJAX-обработчика для получения типового условия (boilerplate)
-		add_action('wp_ajax_get_task_boilerplate', [$this->templateManagerCallbacks, 'ajaxGetBoilerplate']);
+		add_action( 'wp_ajax_get_task_boilerplate', [ $this->templateManagerCallbacks, 'ajaxGetBoilerplate' ] );
 
 		//// Регистрация AJAX-обработчика для сохранения привязки шаблона к типу задания
 		//add_action('wp_ajax_save_template_assignment', [ $this->templateManagerCallbacks, 'ajaxSaveTemplateAssignment' ]);

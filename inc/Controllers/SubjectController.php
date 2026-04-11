@@ -170,7 +170,7 @@ class SubjectController extends BaseController implements ServiceInterface
 		add_action( 'wp_ajax_delete_taxonomy', [ $this->taxonomyCallbacks, 'deleteTaxonomy' ] );
 
 		// --- Шаблоны -> tasks.js & TemplateManagerCallbacks ---
-		add_action('wp_ajax_update_term_template', [$this->templateCallbacks, 'ajaxUpdateTaskTemplate']);
+		add_action('wp_ajax_update_term_template', [$this->templateCallbacks, 'updateTaskTemplate' ]);
 	}
 
 	/**

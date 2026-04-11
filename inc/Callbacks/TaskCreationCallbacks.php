@@ -72,46 +72,70 @@ class TaskCreationCallbacks extends BaseController
 	 */
 	public function ajaxCreateTask(): void
 	{
-		// Валидация запроса
 		$this->validateCreateTaskRequest();
-
-		// Сбор и валидация данных из POST
 		[$subject_key, $term_id, $title] = $this->collectCreateTaskData();
+
+		// НОВОЕ: получаем конкретный UID шаблона, который выбрал пользователь
+		$boilerplate_uid = sanitize_text_field(wp_unslash($_POST['boilerplate_uid'] ?? ''));
 
 		$taxonomy = "{$subject_key}_task_number";
 		$term     = get_term($term_id, $taxonomy);
 
-		// Проверка существования термина
 		if (!$term || is_wp_error($term)) {
 			wp_send_json_error('Тип задания не найден');
 			return;
 		}
 
-		$term_slug   = (string) $term->slug;
+		$term_slug = (string) $term->slug;
+		$task_text = '';
 
-		$variants = $this->taskTypes->getBoilerplates( $subject_key, $term_slug );
-		$boilerplate = !empty($variants) ? $variants[0] : null; // Берем первый попавшийся вариант
+		// Если выбран конкретный шаблон, ищем его
+		if (!empty($boilerplate_uid)) {
+			$bp = $this->taskTypes->findBoilerplate($subject_key, $term_slug, $boilerplate_uid);
+			$task_text = $bp ? $bp->content : '';
+		}
 
-		$content = $boilerplate ? $boilerplate->content : '';
-
-		$task_text   = ($boilerplate && !empty($content)) ? $content : '';
-
-		// Создание поста задания
+		// Создание поста (используем твой существующий метод)
 		$new_id = $this->insertTaskPost($subject_key, $taxonomy, $term_id, $term, $term_slug, $title, $task_text);
 
-		// Проверка ошибок при создании
 		if (is_wp_error($new_id)) {
 			wp_send_json_error('Ошибка базы данных: ' . $new_id->get_error_message());
 			return;
 		}
 
-		// Применение мета-данных к посту
 		$this->applyPostMeta($new_id, $subject_key, $term_slug, $task_text);
 
-		// Успешный ответ со ссылкой на редактирование
 		wp_send_json_success(['redirect' => get_edit_post_link($new_id, 'abs')]);
 	}
 
+	public function ajaxGetBoilerplates(): void
+	{
+		check_ajax_referer('fs_task_creation_nonce', 'nonce');
+
+		if (!current_user_can('edit_posts')) {
+			wp_send_json_error('Доступ запрещён', 403);
+			return;
+		}
+
+		$subject_key = sanitize_text_field(wp_unslash($_GET['subject_key'] ?? ''));
+		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
+
+		if (empty($subject_key) || empty($term_slug)) {
+			wp_send_json_error('Недостаточно данных');
+			return;
+		}
+
+		// Получаем все варианты из репозитория
+		$variants = $this->taskTypes->getBoilerplates($subject_key, $term_slug);
+
+		// Формируем легкий список для выпадашки
+		$response = array_map(static fn($bp) => [
+			'uid'   => $bp->uid,
+			'title' => $bp->title,
+		], $variants);
+
+		wp_send_json_success($response);
+	}
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
 	/**

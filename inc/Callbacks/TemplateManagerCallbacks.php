@@ -66,7 +66,7 @@ class TemplateManagerCallbacks extends BaseController
 	 *
 	 * @return void
 	 */
-	public function ajaxUpdateTaskTemplate(): void
+	public function updateTaskTemplate(): void
 	{
 		// Проверка nonce для защиты от CSRF
 		check_ajax_referer('fs_subject_nonce', 'security');
@@ -117,7 +117,7 @@ class TemplateManagerCallbacks extends BaseController
 	 *
 	 * @return void
 	 */
-	public function ajaxSaveTemplateAssignment(): void
+	public function saveTemplateAssignment(): void
 	{
 		// Проверка nonce для защиты от CSRF
 		check_ajax_referer('fs_lms_manager_nonce', 'nonce');

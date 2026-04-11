@@ -158,37 +158,9 @@ $key     = $dto->subject_key;
     </div>
 </div>
 
-<div id="fs-boilerplate-modal" class="fs-lms-modal" style="display:none;">
-    <div class="fs-lms-modal-content" style="width: 600px;">
-        <h3>Настройка условия: <span id="boilerplate-task-name"></span></h3>
-        <input type="hidden" id="boilerplate-subject-key" value="<?php echo esc_attr( $dto->subject_key ); ?>">
-        <input type="hidden" id="boilerplate-term-slug" value="">
 
-        <div id="boilerplate-fields-container">
-        </div>
 
-        <p class="description">Этот текст будет автоматически подставлен в поле «Условие» при создании нового задания данного типа.</p>
 
-        <div style="text-align:right; margin-top:20px;">
-            <span class="spinner js-boilerplate-spinner" style="float:none; margin: 0 10px 0 0;"></span>
-            <button class="button js-boilerplate-modal-close">Отмена</button>
-            <button class="button button-primary js-boilerplate-modal-save">Сохранить</button>
-        </div>
-    </div>
-</div>
-
-<?php
-wp_enqueue_editor();
-wp_enqueue_media();
-// Обязательно вне вкладок, перед закрывающим тегом или скриптами
-echo '<div style="display:none;">';
-wp_editor( '', 'fs_lms_init_editor', [
-        'tinymce'       => true,
-        'quicktags'     => true,
-        'media_buttons' => true
-] );
-echo '</div>';
-?>
 
 
 <style>
