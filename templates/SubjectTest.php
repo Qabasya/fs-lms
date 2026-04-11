@@ -94,7 +94,7 @@ $key     = $dto->subject_key;
                 <tr>
                     <th>Тип задания (Номер)</th>
                     <th style="width: 200px;">Визуальный шаблон</th>
-                    <th style="width: 120px;">Настройка</th>
+                    <th style="width: 120px;">Типовые условия</th>
                     <th style="width: 40px;"></th>
                 </tr>
                 </thead>
@@ -117,9 +117,11 @@ $key     = $dto->subject_key;
                                 </select>
                             </td>
                             <td>
-                                <button type="button" class="button js-open-boilerplate-modal" title="Настроить текст условия">
-                                    <span class="dashicons dashicons-admin-appearance" style="margin-top:4px;"></span> Текст
-                                </button>
+                                <a href="<?php echo admin_url("admin.php?page=fs_boilerplate_manager&subject=" . esc_attr($dto->subject_key) . "&term=" . esc_attr($type->slug)); ?>"
+                                   class="button"
+                                   title="Настроить типовые условия">
+                                    <span class="dashicons dashicons-editor-textcolor" style="margin-top:4px;"></span> Условия
+                                </a>
                             </td>
                             <td class="status-cell">
                                 <span class="spinner" style="float:none; margin:0;"></span>

@@ -2,8 +2,10 @@
 
 namespace Inc\Callbacks;
 
+use Inc\Controllers\BoilerplateController;
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\TaskTypeRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 
@@ -39,7 +41,9 @@ class AdminCallbacks extends BaseController {
 	 * @param SubjectRepository $subjects Репозиторий предметов
 	 */
 	public function __construct(
-		private SubjectRepository $subjects
+		private readonly SubjectRepository $subjects,
+		private readonly TaskTypeRepository $taskTypes,
+		private readonly BoilerplateController $boilerplateController
 	) {
 		parent::__construct();
 	}
@@ -59,6 +63,13 @@ class AdminCallbacks extends BaseController {
 	public function settingsPage(): void {
 		$all_subjects = $this->subjects->readAll();
 		$this->render( 'settings', [ 'subjects' => $all_subjects ] );
+	}
+
+	/**
+	 * Метод-прослойка. Всю грязную работу теперь делает BoilerplateController.
+	 */
+	public function boilerplatePage(): void {
+		$this->boilerplateController->displayPage();
 	}
 
 

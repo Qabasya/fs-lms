@@ -4,6 +4,7 @@ namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\AdminController;
+use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
@@ -43,7 +44,8 @@ final class Init {
 			AdminController::class,        // Административное меню
 			SubjectController::class,    // Пользовательские типы записей
 			MetaBoxController::class,
-			TaskCreationController::class
+			TaskCreationController::class,
+			BoilerplateController::class
 		];
 	}
 

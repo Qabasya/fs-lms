@@ -88,8 +88,13 @@ class TaskCreationCallbacks extends BaseController
 		}
 
 		$term_slug   = (string) $term->slug;
-		$boilerplate = $this->taskTypes->getBoilerplate($subject_key, $term_slug);
-		$task_text   = ($boilerplate && !empty($boilerplate->text)) ? $boilerplate->text : '';
+
+		$variants = $this->taskTypes->getBoilerplates( $subject_key, $term_slug );
+		$boilerplate = !empty($variants) ? $variants[0] : null; // Берем первый попавшийся вариант
+
+		$content = $boilerplate ? $boilerplate->content : '';
+
+		$task_text   = ($boilerplate && !empty($content)) ? $content : '';
 
 		// Создание поста задания
 		$new_id = $this->insertTaskPost($subject_key, $taxonomy, $term_id, $term, $term_slug, $title, $task_text);
@@ -265,18 +270,19 @@ class TaskCreationCallbacks extends BaseController
 	 */
 	private function resolveDisplayContent(string $task_text): string
 	{
-		if (empty($task_text)) {
-			return '';
-		}
+		if (empty($task_text)) return '';
 
-		$decoded = json_decode(wp_unslash($task_text), true);
+		$clean = wp_unslash($task_text);
+		$decoded = json_decode($clean, true);
 
-		// Если текст — JSON-массив, склеиваем его элементы
+		// Если это сложный шаблон из нескольких полей (19-21 задачи)
 		if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+			// Склеиваем все части условия в один текст для редактора
 			return implode("\n\n", $decoded);
 		}
 
-		return $task_text;
+		// Если это обычная строка (старый формат или простое условие)
+		return $clean;
 	}
 
 	/**
