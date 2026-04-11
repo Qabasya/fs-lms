@@ -5,6 +5,7 @@ namespace Inc\Controllers;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeDTO;
+use Inc\Enums\TaskTemplate;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Repositories\MetaBoxRepository;
@@ -135,12 +136,15 @@ class SubjectController extends BaseController implements ServiceInterface
 			function ($term) use ($subject_key): TaskTypeDTO {
 				$assignment = $this->metaboxes->getAssignment($subject_key, $term->slug);
 
+				$template_enum = TaskTemplate::tryFrom($assignment->template_id ?? '')
+				                 ?? TaskTemplate::STANDARD;
+
 				return new TaskTypeDTO(
-					id: $term->term_id,
-					name: $term->name,
-					slug: $term->slug,
-					description: $term->description,
-					current_template: $assignment->template_id ?? TemplateManagerCallbacks::DEFAULT_TEMPLATE,
+					$term->term_id,
+					$term->slug,
+					$term->taxonomy,
+					$term->description,
+					$template_enum
 				);
 			},
 			$terms

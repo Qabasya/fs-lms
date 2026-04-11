@@ -2,6 +2,8 @@
 
 namespace Inc\DTO;
 
+use Inc\Enums\TaskTemplate;
+
 /**
  * Class TaskTypeDTO
  *
@@ -12,21 +14,44 @@ namespace Inc\DTO;
  *
  * @package Inc\DTO
  */
-class TaskTypeDTO {
+class TaskTypeDTO
+{
+	/**
+	 * Отображаемое название типа задания (берётся из описания термина).
+	 *
+	 * @var string
+	 */
+	public readonly string $name;
+
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param int $id ID термина таксономии
-	 * @param string $name Название типа задания (например, "Задание 1")
-	 * @param string $slug Слаг термина (например, "1")
-	 * @param string $description Описание типа задания (например, "Графы")
+	 * @param int          $id               ID термина таксономии
+	 * @param string       $slug             Слаг термина (например, "1", "2")
+	 * @param string       $taxonomy         Имя таксономии (например, "math_task_number")
+	 * @param string       $description      Описание термина (отображаемое название)
+	 * @param TaskTemplate $current_template Текущий шаблон для этого типа задания
 	 */
 	public function __construct(
 		public readonly int $id,
-		public readonly string $name,
 		public readonly string $slug,
-		public readonly string $description = '',
-		public readonly string $current_template = 'standard_task'
+		public readonly string $taxonomy,
+		public readonly string $description,
+		public readonly TaskTemplate $current_template,
 	) {
+		$this->name = $description;
+	}
+
+	/**
+	 * Возвращает строковый ID шаблона.
+	 *
+	 * Полезный метод для обратной совместимости, если где-то на фронте
+	 * или в устаревшем коде всё ещё нужна строка вместо enum.
+	 *
+	 * @return string Строковый идентификатор шаблона (например, "standard_task")
+	 */
+	public function getTemplateId(): string
+	{
+		return $this->current_template->value;
 	}
 }

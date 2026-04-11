@@ -121,7 +121,7 @@ class TaskCreationCallbacks extends BaseController
 		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
 
 		if (empty($subject_key) || empty($term_slug)) {
-			wp_send_json_error('Недостаточно данных');
+			wp_send_json_error('Недостаточно данных 2');
 			return;
 		}
 
@@ -167,7 +167,7 @@ class TaskCreationCallbacks extends BaseController
 
 		// Валидация обязательных полей
 		if (empty($subject_key) || $term_id === 0) {
-			wp_send_json_error('Недостаточно данных');
+			wp_send_json_error('Недостаточно данных 3');
 			// return нужен для статических анализаторов (psalm/phpstan):
 			// wp_send_json_error завершает выполнение через wp_die()
 			return [];

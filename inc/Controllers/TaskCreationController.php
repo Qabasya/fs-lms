@@ -62,17 +62,19 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 				include_once $this->plugin_path . 'templates/components/modals/task-creation-modal.php';
 			}
 		} );
+
 		// --- Типы заданий -> tasks.js & TaskCreationCallbacks ---
 
 		// Регистрация AJAX-обработчика для получения типов заданий
 		add_action( 'wp_ajax_get_task_types', [ $this->taskCreationCallbacks, 'ajaxGetTypes' ] );
 
+		// Регистрация AJAX-обработчика для получения типовых условий (списком)
 		add_action( 'wp_ajax_get_task_boilerplates', [ $this->taskCreationCallbacks, 'ajaxGetBoilerplates' ] );
 
 		// Регистрация AJAX-обработчика для создания нового задания
 		add_action( 'wp_ajax_create_task', [ $this->taskCreationCallbacks, 'ajaxCreateTask' ] );
 
-		// --- Шаблоны -> tasks.js & TemplateManagerCallbacks- --
+		// --- Шаблоны -> tasks.js & TemplateManagerCallbacks ---
 
 		// Регистрация AJAX-обработчика для получения структуры полей шаблона
 		add_action( 'wp_ajax_get_template_structure', [ $this->templateManagerCallbacks, 'ajaxGetTemplateStructure' ] );
@@ -80,7 +82,7 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 		// Регистрация AJAX-обработчика для сохранения типового условия (boilerplate)
 		add_action( 'wp_ajax_save_task_boilerplate', [ $this->templateManagerCallbacks, 'ajaxSaveBoilerplate' ] );
 
-		// Регистрация AJAX-обработчика для получения типового условия (boilerplate)
+		// Регистрация AJAX-обработчика для получения типового условия (одного boilerplate)
 		add_action( 'wp_ajax_get_task_boilerplate', [ $this->templateManagerCallbacks, 'ajaxGetBoilerplate' ] );
 
 		//// Регистрация AJAX-обработчика для сохранения привязки шаблона к типу задания

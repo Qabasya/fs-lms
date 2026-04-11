@@ -2,7 +2,7 @@ import {UI} from './modules/ui.js';
 import {Subjects} from './services/subjects.js';
 import {Tasks} from './services/tasks.js';
 import {Boilerplates} from './services/boilerplates.js';
-import { TaskCreation } from './components/task-creation-modal';
+import {TaskCreation} from './components/task-creation-modal';
 
 
 (function ($) {

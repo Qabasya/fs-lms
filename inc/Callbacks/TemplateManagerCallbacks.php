@@ -3,8 +3,11 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\DTO\TaskTypeBoilerplateDTO;
+use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\TaskTypeRepository;
+use Inc\Enums\TaskTemplate;
 
 /**
  * Class TemplateManagerCallbacks
@@ -20,24 +23,26 @@ use Inc\Repositories\TaskTypeRepository;
 class TemplateManagerCallbacks extends BaseController
 {
 	/**
-	 * Маппинг ID шаблона → FQCN класса.
-	 * При добавлении нового шаблона — только сюда, методы не трогать.
-	 *
-	 * @var array<string, class-string>
-	 */
-	private const TEMPLATES_MAP = [
-		'standard_task'        => \Inc\MetaBoxes\Templates\StandardTaskTemplate::class,
-		'triple_task'          => \Inc\MetaBoxes\Templates\ThreeInOneTemplate::class,
-		'common_standard_task' => \Inc\MetaBoxes\Templates\CommonConditionTemplate::class,
-	];
-
-	/**
 	 * ID шаблона по умолчанию.
 	 * Публичная — используется в TaskCreationCallbacks при назначении шаблона новому посту.
 	 *
+	 * @var TaskTemplate
+	 */
+	public const DEFAULT_TEMPLATE = TaskTemplate::STANDARD;
+
+	/**
+	 * Nonce для операций менеджера заданий.
+	 *
 	 * @var string
 	 */
-	public const DEFAULT_TEMPLATE = 'standard_task';
+	private const NONCE_ACTION = 'fs_lms_manager_nonce';
+
+	/**
+	 * Ключ nonce в запросе.
+	 *
+	 * @var string
+	 */
+	private const NONCE_KEY = 'nonce';
 
 	/**
 	 * Конструктор.
@@ -57,24 +62,19 @@ class TemplateManagerCallbacks extends BaseController
 	/**
 	 * Обновляет привязку шаблона к конкретному типу задания (термину таксономии).
 	 *
-	 * Получает term_id из POST, находит термин в WordPress, вычисляет subject_key
-	 * и сохраняет привязку через репозиторий. Использует тот же nonce, что и
-	 * остальные операции с предметами (fs_subject_nonce), потому что вызывается
-	 * из того же интерфейса.
-	 *
-	 * Переехало из SubjectSettingsCallbacks — логически принадлежит управлению шаблонами.
+	 * Использует nonce fs_subject_nonce — вызывается из интерфейса управления предметами,
+	 * поэтому имеет собственную авторизацию вместо общего authorize().
 	 *
 	 * @return void
 	 */
 	public function updateTaskTemplate(): void
 	{
-		// Проверка nonce для защиты от CSRF
+		// Проверка nonce для защиты от CSRF (используется nonce предметов)
 		check_ajax_referer('fs_subject_nonce', 'security');
 
 		// Проверка прав доступа (только администраторы)
 		if (!current_user_can(self::ADMIN_CAPABILITY)) {
 			wp_send_json_error('Нет прав', 403);
-			return;
 		}
 
 		// Получение и валидация данных
@@ -83,7 +83,6 @@ class TemplateManagerCallbacks extends BaseController
 
 		if (!$term_id || !$template_id) {
 			wp_send_json_error('Недостаточно данных для обновления');
-			return;
 		}
 
 		// Получение объекта термина
@@ -91,10 +90,9 @@ class TemplateManagerCallbacks extends BaseController
 
 		if (!$term || is_wp_error($term)) {
 			wp_send_json_error('Тип задания не найден в WordPress');
-			return;
 		}
 
-		// Вычисляем subject_key из slug таксономии: "phys_task_number" → "phys"
+		// Извлечение ключа предмета из таксономии: "phys_task_number" → "phys"
 		$subject_key = str_replace('_task_number', '', $term->taxonomy);
 
 		// Сохранение привязки через репозиторий
@@ -106,7 +104,6 @@ class TemplateManagerCallbacks extends BaseController
 
 		if (!$success) {
 			wp_send_json_error('Ошибка сохранения шаблона');
-			return;
 		}
 
 		wp_send_json_success("Шаблон для задания №{$term->slug} успешно сохранён!");
@@ -119,179 +116,184 @@ class TemplateManagerCallbacks extends BaseController
 	 */
 	public function saveTemplateAssignment(): void
 	{
-		// Проверка nonce для защиты от CSRF
-		check_ajax_referer('fs_lms_manager_nonce', 'nonce');
-
-		// Проверка прав доступа (управление настройками)
-		if (!current_user_can('manage_options')) {
-			wp_send_json_error('Доступ запрещён', 403);
-			return;
-		}
+		// Проверка прав доступа и nonce
+		$this->authorize();
 
 		// Получение и валидация данных
 		$subject_key = sanitize_text_field(wp_unslash($_POST['subject_key'] ?? ''));
 		$task_number = sanitize_text_field(wp_unslash($_POST['task_number'] ?? ''));
 		$template_id = sanitize_text_field(wp_unslash($_POST['template_id'] ?? ''));
 
-		if (!$this->hasRequiredKeys($subject_key, $task_number)) {
+		if (!$subject_key || !$task_number) {
 			wp_send_json_error('Некорректные данные');
-			return;
 		}
 
 		// Сохранение привязки через репозиторий
-		$this->metaboxes->updateAssignment($subject_key, $task_number, $template_id);
+		$success = $this->metaboxes->updateAssignment($subject_key, $task_number, $template_id);
+
+		if (!$success) {
+			wp_send_json_error('Ошибка сохранения настроек');
+		}
 
 		wp_send_json_success(['message' => 'Настройки сохранены']);
 	}
 
 	/**
 	 * Возвращает структуру ConditionField-полей шаблона для конкретного типа задания.
+	 *
 	 * Используется на фронте для построения редактора boilerplate.
+	 * Отдаёт только данные (id, label) — HTML строит JS на стороне клиента.
 	 *
 	 * @return void
 	 */
 	public function ajaxGetTemplateStructure(): void
 	{
-		// Проверка nonce для защиты от CSRF
-		check_ajax_referer('fs_lms_manager_nonce', 'nonce');
+		// Проверка прав доступа и nonce
+		$this->authorize();
 
-		// Проверка прав доступа (управление настройками)
-		if (!current_user_can('manage_options')) {
-			wp_send_json_error('Доступ запрещён', 403);
-			return;
-		}
-
-		// Получение данных из GET-запроса
+		// Получение и валидация данных из GET-запроса
 		$subject_key = sanitize_text_field(wp_unslash($_GET['subject_key'] ?? ''));
 		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
 
-		// Определение ID шаблона
-		$assignment  = $this->metaboxes->getAssignment($subject_key, $term_slug);
-		$template_id = $assignment->template_id ?? self::DEFAULT_TEMPLATE;
-		$class_name  = self::TEMPLATES_MAP[$template_id] ?? self::TEMPLATES_MAP[self::DEFAULT_TEMPLATE];
+		if (!$subject_key || !$term_slug) {
+			wp_send_json_error('Недостаточно данных 1');
+		}
+
+		// Получаем объект привязки из БД
+		$assignment = $this->metaboxes->getAssignment($subject_key, $term_slug);
+
+		// Определяем шаблон через Enum (это и есть наш "источник правды")
+		$template = TaskTemplate::tryFrom($assignment->template_id ?? '')
+		            ?? self::DEFAULT_TEMPLATE;
+
+		// Получаем имя класса из Enum
+		$class_name = $template->class();
 
 		try {
+			// Прямое создание объекта (вместо поиска в фильтрах)
+			if (!class_exists($class_name)) {
+				throw new \Exception("Класс шаблона {$class_name} не найден.");
+			}
+
 			/** @var \Inc\MetaBoxes\Templates\BaseTemplate $template_obj */
 			$template_obj = new $class_name();
 
-			// Фильтрация полей: оставляем только ConditionField
-			$fields = array_filter(
-				$template_obj->get_fields(),
+			// Вызываем метод get_fields() прямо у объекта шаблона
+			$all_fields = $template_obj->get_fields();
+
+			// Фильтрация: оставляем только ConditionField-поля
+			$condition_fields = array_filter(
+				$all_fields,
 				static fn($config) => isset($config['object'])
-				                      && $config['object'] instanceof \Inc\MetaBoxes\Fields\ConditionField
+				                      && $config['object'] instanceof ConditionField
 			);
 
-			// Преобразование структуры полей для передачи на клиент
+			// Отдаём только данные (id, label)
 			$structure = array_values(array_map(
-				function (string $key, array $config): array {
-					// Генерация уникального ID для TinyMCE редактора
-					$editor_id = 'tinymce_' . strtolower(preg_replace('/[^a-z0-9_]/i', '_', $key));
-
-					return [
-						'id'    => $key,
-						'label' => $config['label'],
-						'html'  => sprintf(
-							'<div class="fs-lms-boilerplate-editor-container">
-                                <textarea id="%s" class="js-boilerplate-editor" data-field-key="%s" rows="10" style="width:100%%"></textarea>
-                            </div>',
-							esc_attr($editor_id),
-							esc_attr($key)
-						),
-					];
-				},
-				array_keys($fields),
-				$fields
+				static fn(string $key, array $config): array => [
+					'id'    => $key,
+					'label' => $config['label'],
+				],
+				array_keys($condition_fields),
+				$condition_fields
 			));
 
 			wp_send_json_success(['fields' => $structure]);
 		} catch (\Throwable $e) {
-			wp_send_json_error('Ошибка PHP: ' . $e->getMessage());
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('FS LMS TemplateManagerCallbacks: ' . $e->getMessage());
+			}
+			wp_send_json_error('Ошибка загрузки структуры: ' . $e->getMessage());
 		}
 	}
 
 	/**
 	 * Сохраняет boilerplate-текст для типа задания.
 	 *
+	 * Использует фиксированный uid 'default' — этот метод работает
+	 * в режиме "один boilerplate на тип задания" (legacy Менеджер заданий).
+	 * Полноценный CRUD с несколькими вариантами — в BoilerplateCallbacks.
+	 *
 	 * @return void
 	 */
 	public function ajaxSaveBoilerplate(): void
 	{
-		// Проверка nonce для защиты от CSRF
-		check_ajax_referer( 'fs_lms_manager_nonce', 'nonce' );
+		// Проверка прав доступа и nonce
+		$this->authorize();
 
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( 'Доступ запрещён', 403 );
-			return;
+		// Получение и валидация данных
+		$subject_key = sanitize_text_field(wp_unslash($_POST['subject_key'] ?? ''));
+		$term_slug   = sanitize_text_field(wp_unslash($_POST['term_slug'] ?? ''));
+		// wp_unslash обязателен для корректного хранения HTML/JSON из редактора
+		$text = wp_kses_post(wp_unslash($_POST['text'] ?? ''));
+
+		if (!$subject_key || !$term_slug) {
+			wp_send_json_error('Недостаточно данных 4');
 		}
 
-		$subject_key = sanitize_text_field( wp_unslash( $_POST['subject_key'] ?? '' ) );
-		$term_slug   = sanitize_text_field( wp_unslash( $_POST['term_slug'] ?? '' ) );
+		// Фиксированный uid гарантирует обновление, а не создание нового варианта
+		$dto = new TaskTypeBoilerplateDTO(
+			uid: 'default',
+			subject_key: $subject_key,
+			term_slug: $term_slug,
+			title: 'Типовое условие',
+			content: $text,
+			is_default: true
+		);
 
-		// ВАЖНО: wp_unslash здесь обязателен для корректного хранения JSON
-		$text = wp_unslash( $_POST['text'] ?? '' );
+		// Сохранение через репозиторий
+		$success = $this->taskTypes->updateBoilerplate($dto);
 
-		if ( empty( $subject_key ) || empty( $term_slug ) ) {
-			wp_send_json_error( 'Недостаточно данных' );
-			return;
+		if (!$success) {
+			wp_send_json_error('Ошибка сохранения типового условия');
 		}
 
-		// Репозиторий должен просто обновить запись в таблице
-		$this->taskTypes->update( [
-			'subject_key' => $subject_key,
-			'term_slug'   => $term_slug,
-			'text'        => $text,
-		] );
-
-		wp_send_json_success( [ 'message' => 'Типовое условие сохранено' ] );
+		wp_send_json_success(['message' => 'Типовое условие сохранено']);
 	}
 
 	/**
-	 * Возвращает boilerplate-текст для типа задания.
+	 * Возвращает дефолтный boilerplate для типа задания.
 	 *
 	 * @return void
 	 */
 	public function ajaxGetBoilerplate(): void
 	{
-		// Проверка nonce для защиты от CSRF
-		check_ajax_referer('fs_lms_manager_nonce', 'nonce');
+		// Проверка прав доступа и nonce
+		$this->authorize();
 
-		// Проверка прав доступа (управление настройками)
-		if (!current_user_can('manage_options')) {
-			wp_send_json_error('У вас недостаточно прав', 403);
-			return;
-		}
-
-		// Получение данных из GET-запроса
+		// Получение и валидация данных из GET-запроса
 		$subject_key = sanitize_text_field(wp_unslash($_GET['subject_key'] ?? ''));
 		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
 
-		$text = wp_unslash( $_POST['text'] ?? '' );
-
-		if (!$this->hasRequiredKeys($subject_key, $term_slug)) {
-			wp_send_json_error('Недостаточно данных');
-			return;
+		if (!$subject_key || !$term_slug) {
+			wp_send_json_error('Недостаточно данных 5');
 		}
 
-		// Получение данных из репозитория
-		$boilerplate = $this->taskTypes->getBoilerplate($subject_key, $term_slug);
+		// Репозиторий сам знает, как найти дефолтный вариант
+		$result = $this->taskTypes->getDefaultBoilerplate($subject_key, $term_slug);
 
 		wp_send_json_success([
-			'text' => $boilerplate->text ?? '',
+			'text' => $result?->content ?? '',
+			'uid'  => $result?->uid ?? null,
 		]);
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
 	/**
-	 * Проверяет, что оба обязательных ключа не пустые.
+	 * Проверяет nonce и права администратора.
+	 * Завершает выполнение через wp_send_json_error при неудаче.
 	 *
-	 * @param string $subject_key Ключ предмета
-	 * @param string $term_slug   Слаг термина
-	 *
-	 * @return bool true, если оба ключа не пустые
+	 * @return void
 	 */
-	private function hasRequiredKeys(string $subject_key, string $term_slug): bool
+	private function authorize(): void
 	{
-		return !empty($subject_key) && !empty($term_slug);
+		// Проверка nonce для защиты от CSRF
+		check_ajax_referer(self::NONCE_ACTION, self::NONCE_KEY);
+
+		// Проверка прав доступа (только администраторы)
+		if (!current_user_can(self::ADMIN_CAPABILITY)) {
+			wp_send_json_error('Доступ запрещён', 403);
+		}
 	}
 }
