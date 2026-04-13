@@ -49,56 +49,46 @@ export const Tasks = {
     // Показываем спиннер во время запроса и галочку после успеха.
     // ============================================================
     initTemplateManager: function ($) {
+        $('.js-task-manager-table').on('change', '.js-change-term-template', function (e) {
+            e.stopImmediatePropagation(); // Защита от двойного срабатывания
 
-        // Используем делегирование: вешаем обработчик на таблицу, а не на каждый select.
-        // Так работает даже для строк, добавленных в таблицу динамически.
-        $('.js-task-manager-table').on('change', '.js-change-term-template', function () {
             const $select = $(this);
-            const $row    = $select.closest('tr'); // Строка таблицы, в которой находится select
+            const $row    = $select.closest('tr');
+            const $table  = $select.closest('.js-task-manager-table'); // Находим саму таблицу
 
-            // Собираем данные для отправки на сервер
             const requestData = {
                 action:   'update_term_template',
                 security: fs_lms_vars.security,
-                term_id:  $row.data('term-id'),  // data-term-id="..." из HTML-атрибута строки
-                template: $select.val(),          // Выбранное значение в select
-                key:      '',
-                name:     ''
+                term_id:  $row.data('term-id'),
+                template: $select.val(),
+                key:      $table.data('subject'), // Берем "test_1" из атрибута таблицы
+                name:     $row.data('task-name')  // Берем "Задание №1" из строки
             };
 
-            // Находим элементы индикации прямо в этой строке таблицы
             const $spinner = $row.find('.spinner');
             const $success = $row.find('.js-success-icon');
 
-            // Показываем спиннер, прячем иконку успеха — запрос начался
             $spinner.addClass('is-active').show();
             $success.hide();
 
-            // $.ajax — более гибкий вариант запроса, чем $.get или $.post.
-            // Позволяет явно задать тип запроса и обработать ошибки сети.
             $.ajax({
                 url:  fs_lms_vars.ajaxurl,
                 type: 'POST',
                 data: requestData,
                 success: function (response) {
                     $spinner.removeClass('is-active').hide();
-
                     if (response.success) {
-                        // fadeIn().delay(1000).fadeOut() — плавно появляется, ждёт секунду, плавно исчезает
                         $success.fadeIn().delay(1000).fadeOut();
                     } else {
                         alert('Ошибка: ' + response.data);
                     }
                 },
                 error: function () {
-                    // Этот блок срабатывает при сетевых ошибках (нет интернета, сервер упал и т.д.)
-                    // В отличие от success, здесь response может вообще не существовать.
                     $spinner.removeClass('is-active').hide();
                     alert('Системная ошибка AJAX. Проверьте консоль.');
                 }
             });
         });
     },
-
 
 };
