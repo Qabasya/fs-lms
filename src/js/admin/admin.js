@@ -1,25 +1,32 @@
-import {UI} from './modules/ui.js';
-import {Subjects} from './services/subjects.js';
-import {Tasks} from './services/tasks.js';
-import {Boilerplates} from './services/boilerplates.js';
-import {TaskCreation} from './components/task-creation-modal';
-
+import { UI }           from './modules/ui.js';
+import { Subjects }     from './services/subjects.js';
+import { Tasks }        from './services/tasks.js';
+import { Boilerplates } from './services/boilerplates.js';
+import { TaskCreation } from './services/task-creation.js';
+import { Taxonomies }   from './services/taxonomies.js';
 
 (function ($) {
     'use strict';
 
     $(document).ready(function () {
-        // Инициализируем общий интерфейс
+        // Инициализируем все компоненты из папки components/ (модальные окна)
         UI.init();
 
-        // Инициализируем предметы только там, где есть форма или таблица
+        // Предметы — только там, где есть форма или таблица
         if ($('#fs-add-subject-form').length || $('.open-quick-edit').length) {
             Subjects.init();
         }
-        Tasks.init();
 
+        Tasks.init();
         Boilerplates.init();
+
+        // Создание заданий — init безопасен: внутри проверяет наличие модалки
         TaskCreation.init();
+
+        // Таксономии — только на странице управления предметом
+        if ($('.js-taxonomy-table').length) {
+            Taxonomies.init();
+        }
     });
 
 })(jQuery);
