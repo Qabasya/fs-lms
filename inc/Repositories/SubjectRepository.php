@@ -3,7 +3,7 @@
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\Core\BaseController;
+use Inc\Core\PluginConfig;
 use Inc\DTO\SubjectDTO;
 
 /**
@@ -25,13 +25,13 @@ use Inc\DTO\SubjectDTO;
  * @package Inc\Repositories
  * @implements RepositoryInterface
  */
-class SubjectRepository extends BaseController implements RepositoryInterface {
+class SubjectRepository implements RepositoryInterface {
 	/**
 	 * Имя опции WordPress для хранения предметов.
 	 *
 	 * @var string
 	 */
-	private string $option_name = BaseController::SUBJECTS_OPTION_NAME;
+	private string $option_name = PluginConfig::SUBJECTS_OPTION_NAME;
 
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.

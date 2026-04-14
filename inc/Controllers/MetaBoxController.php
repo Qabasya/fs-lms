@@ -85,6 +85,14 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	/**
 	 * Ленивая инициализация шаблонов — единственная точка загрузки.
 	 * Повторный вызов безопасен: если шаблоны уже загружены, ничего не происходит.
+	 *
+	 * Встроенные шаблоны передаются через фильтр fs_lms_register_templates,
+	 * что позволяет внешнему коду добавлять свои шаблоны:
+	 *
+	 *   add_filter('fs_lms_register_templates', function(array $templates): array {
+	 *       $templates[] = new MyCustomTemplate();
+	 *       return $templates;
+	 *   });
 	 */
 	private function ensureTemplatesLoaded(): void
 	{
@@ -92,7 +100,7 @@ class MetaBoxController extends BaseController implements ServiceInterface
 			return;
 		}
 
-		$candidates = [
+		$builtin = [
 			new CodeTaskTemplate(),
 			new FileCodeTaskTemplate(),
 			new FileTaskTemplate(),
@@ -101,6 +109,9 @@ class MetaBoxController extends BaseController implements ServiceInterface
 			new ThreeInOneTemplate(),
 			new CommonConditionTemplate(),
 		];
+
+		/** @var BaseTemplate[] $candidates */
+		$candidates = apply_filters( 'fs_lms_register_templates', $builtin );
 
 		foreach ( $candidates as $template ) {
 			if ( $template instanceof BaseTemplate ) {

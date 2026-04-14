@@ -3,8 +3,10 @@
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\Core\BaseController;
+use Inc\Core\PluginConfig;
 use Inc\DTO\TaskTemplateAssignmentDTO;
+use Inc\DTO\TaskTypeDTO;
+use Inc\Enums\TaskTemplate;
 
 /**
  * Class MetaBoxRepository
@@ -27,13 +29,13 @@ use Inc\DTO\TaskTemplateAssignmentDTO;
  * @package Inc\Repositories
  * @implements RepositoryInterface
  */
-class MetaBoxRepository extends BaseController implements RepositoryInterface {
+class MetaBoxRepository implements RepositoryInterface {
 	/**
 	 * Имя опции WordPress для хранения привязки заданий к шаблонам.
 	 *
 	 * @var string
 	 */
-	private string $option_name = BaseController::METABOXES_OPTION_NAME;
+	private string $option_name = PluginConfig::METABOXES_OPTION_NAME;
 
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.
@@ -205,5 +207,50 @@ class MetaBoxRepository extends BaseController implements RepositoryInterface {
 	 */
 	public function clear(): bool {
 		return delete_option( $this->option_name );
+	}
+
+	// ============================ ЗАПРОСЫ К WP-ТАКСОНОМИЯМ ============================ //
+
+	/**
+	 * Возвращает типы заданий предмета в виде DTO с привязанными шаблонами.
+	 *
+	 * Комбинирует термины таксономии {subject_key}_task_number с хранимыми
+	 * привязками шаблонов. Если привязка отсутствует — подставляет STANDARD.
+	 *
+	 * @param string $subject_key Ключ предмета, например: "inf"
+	 *
+	 * @return TaskTypeDTO[] Массив DTO типов заданий
+	 */
+	public function getTaskTypes( string $subject_key ): array {
+		$taxonomy = "{$subject_key}_task_number";
+
+		$terms = get_terms( [
+			'taxonomy'   => $taxonomy,
+			'hide_empty' => false,
+			'orderby'    => 'slug',
+			'order'      => 'ASC',
+		] );
+
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return [];
+		}
+
+		return array_map(
+			function ( $term ) use ( $subject_key ): TaskTypeDTO {
+				$assignment = $this->getAssignment( $subject_key, $term->slug );
+
+				$template_enum = TaskTemplate::tryFrom( $assignment->template_id ?? '' )
+				                 ?? TaskTemplate::STANDARD;
+
+				return new TaskTypeDTO(
+					$term->term_id,
+					$term->slug,
+					$term->taxonomy,
+					$term->description,
+					$template_enum
+				);
+			},
+			$terms
+		);
 	}
 }

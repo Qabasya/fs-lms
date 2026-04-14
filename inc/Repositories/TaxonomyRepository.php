@@ -3,7 +3,7 @@
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\Core\BaseController;
+use Inc\Core\PluginConfig;
 use Inc\DTO\TaxonomyDataDTO;
 
 /**
@@ -25,13 +25,13 @@ use Inc\DTO\TaxonomyDataDTO;
  * @package Inc\Repositories
  * @implements RepositoryInterface
  */
-class TaxonomyRepository extends BaseController implements RepositoryInterface {
+class TaxonomyRepository implements RepositoryInterface {
 	/**
 	 * Имя опции WordPress для хранения кастомных таксономий.
 	 *
 	 * @var string
 	 */
-	private string $option_name = BaseController::TAXONOMY_OPTION_NAME;
+	private string $option_name = PluginConfig::TAXONOMY_OPTION_NAME;
 
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.

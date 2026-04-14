@@ -4,8 +4,6 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\DTO\TaskTypeDTO;
-use Inc\Enums\TaskTemplate;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Repositories\MetaBoxRepository;
@@ -105,50 +103,6 @@ class SubjectController extends BaseController implements ServiceInterface
 		}
 
 		$this->render('SubjectTest', $dto);
-	}
-
-	/**
-	 * Возвращает список типов заданий (терминов таксономии номеров) для предмета.
-	 *
-	 * Публичный метод — используется в других частях плагина
-	 * (например, при построении форм выбора шаблона задания).
-	 *
-	 * @param string $subject_key Ключ предмета, например: "math"
-	 *
-	 * @return TaskTypeDTO[] Массив DTO типов заданий
-	 */
-	public function getTaskTypesFromTax(string $subject_key): array
-	{
-		$taxonomy = "{$subject_key}_task_number";
-
-		$terms = get_terms([
-			'taxonomy'   => $taxonomy,
-			'hide_empty' => false,
-			'orderby'    => 'slug',
-			'order'      => 'ASC',
-		]);
-
-		if (is_wp_error($terms) || empty($terms)) {
-			return [];
-		}
-
-		return array_map(
-			function ($term) use ($subject_key): TaskTypeDTO {
-				$assignment = $this->metaboxes->getAssignment($subject_key, $term->slug);
-
-				$template_enum = TaskTemplate::tryFrom($assignment->template_id ?? '')
-				                 ?? TaskTemplate::STANDARD;
-
-				return new TaskTypeDTO(
-					$term->term_id,
-					$term->slug,
-					$term->taxonomy,
-					$term->description,
-					$template_enum
-				);
-			},
-			$terms
-		);
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
@@ -310,7 +264,7 @@ class SubjectController extends BaseController implements ServiceInterface
 		return new SubjectViewDTO(
 			subject_key: $key,
 			subject_data: $current_subject,
-			task_types: $this->getTaskTypesFromTax($key),
+			task_types: $this->metaboxes->getTaskTypes($key),
 			all_templates: apply_filters('fs_lms_get_templates', []),
 			tasks_url: admin_url("edit.php?post_type={$key}_tasks"),
 			articles_url: admin_url("edit.php?post_type={$key}_articles"),

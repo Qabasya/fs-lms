@@ -3,7 +3,6 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
-use Inc\Controllers\SubjectController;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\TaskTypeRepository;
 
@@ -21,12 +20,10 @@ class TaskCreationCallbacks extends BaseController
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectController  $subjectController Контроллер предметов
-	 * @param MetaBoxRepository  $metaboxes         Репозиторий привязок шаблонов
-	 * @param TaskTypeRepository $taskTypes         Репозиторий типов заданий
+	 * @param MetaBoxRepository  $metaboxes Репозиторий привязок шаблонов и типов заданий
+	 * @param TaskTypeRepository $taskTypes Репозиторий типовых условий (boilerplate)
 	 */
 	public function __construct(
-		private SubjectController $subjectController,
 		private MetaBoxRepository $metaboxes,
 		private TaskTypeRepository $taskTypes
 	) {
@@ -59,9 +56,8 @@ class TaskCreationCallbacks extends BaseController
 			return;
 		}
 
-		// Получение типов заданий через контроллер
 		wp_send_json_success(
-			$this->subjectController->getTaskTypesFromTax($subject_key)
+			$this->metaboxes->getTaskTypes($subject_key)
 		);
 	}
 
