@@ -36,6 +36,7 @@ export const Taxonomies = {
             TaxonomyModal.open('update', {
                 slug: $row.data('slug'),
                 name: $row.data('name'),
+                display: $row.data('display'),
             });
         });
 
@@ -56,6 +57,9 @@ export const Taxonomies = {
 
     save(data) {
         if (!data.tax_name || (data.action === 'store' && !data.tax_slug)) {
+            console.log(data.tax_name)
+            console.log(data.action)
+            console.log(data.tax_slug)
             alert('Пожалуйста, заполните все поля');
             return;
         }
@@ -68,6 +72,7 @@ export const Taxonomies = {
             subject_key: data.subject_key,
             tax_slug:    data.tax_slug,
             tax_name:    data.tax_name,
+            display_type: data.display_type,
         })
         .done((res) => {
             if (res.success) {

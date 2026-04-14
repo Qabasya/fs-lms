@@ -59,12 +59,15 @@ $key     = $dto->subject_key;
         <input type="radio" name="fs_tabs" id="tab3">
         <label for="tab3">Таксономии</label>
         <div class="tab-content">
-            <div class="tab-header" style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+
                 <h3>Дополнительные классификаторы</h3>
+                <p class="description">
+                    Здесь можно добавить дополнительные таксономии (например, автора, год, сложность задания и т.д.)
+                </p>
                 <button type="button" class="button button-primary js-add-taxonomy">
                     Добавить таксономию
                 </button>
-            </div>
+
 
             <table class="widefat fixed striped js-taxonomy-table">
                 <thead>
@@ -76,7 +79,7 @@ $key     = $dto->subject_key;
                 </thead>
                 <tbody>
                 <?php foreach ($dto->taxonomies as $tax) : ?>
-                    <tr data-slug="<?php echo esc_attr($tax->slug); ?>" data-name="<?php echo esc_attr($tax->name); ?>">
+                    <tr data-slug="<?php echo esc_attr($tax->slug); ?>" data-name="<?php echo esc_attr($tax->name); ?>" data-display="<?php echo esc_attr($tax->display_type); ?>">
                         <td class="column-name">
                             <strong><?php echo esc_html($tax->name); ?></strong>
                             <?php if ($tax->slug === $dto->protected_tax) : ?>
@@ -161,29 +164,7 @@ $key     = $dto->subject_key;
     </div>
 </div>
 
-<!-- ============================ МОДАЛЬНОЕ ОКНО ДЛЯ ТАКСОНОМИЙ ============================ -->
-<div id="fs-taxonomy-modal" class="fs-lms-modal" style="display:none;">
-    <div class="fs-lms-modal-content">
-        <h3 id="modal-title">Новая таксономия</h3>
-        <input type="hidden" id="tax-subject-key" value="<?php echo esc_attr($dto->subject_key); ?>">
-        <input type="hidden" id="tax-action" value="store">
-
-        <p>
-            <label>Название:</label><br>
-            <input type="text" id="tax-name" style="width:100%">
-        </p>
-
-        <p id="slug-container">
-            <label>Slug:</label><br>
-            <input type="text" id="tax-slug" style="width:100%">
-        </p>
-
-        <div style="text-align:right; margin-top:20px;">
-            <button class="button js-modal-close">Отмена</button>
-            <button class="button button-primary js-modal-save">Сохранить</button>
-        </div>
-    </div>
-</div>
+<?php include __DIR__ . '/components/modals/taxonomy-modal.php'; ?>
 
 <!-- ============================ СТИЛИ ============================ -->
 <style>

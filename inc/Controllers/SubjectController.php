@@ -215,11 +215,12 @@ class SubjectController extends BaseController implements ServiceInterface
 		$this->taxRegistrar->addFixedTaxonomy(
 			$fixed_tax_slug,
 			[$task_cpt],
-			"Номера заданий ($name)",
+			"Номера заданий: ($name)",
 			'Номер задания',
 			[
 				'public'       => true,
-				'show_ui'      => true,
+				'show_ui'      => true, // проверить
+				'meta_box_cb' => '__return_false',
 				'show_in_menu' => true,
 				'rewrite'      => ['slug' => $fixed_tax_slug],
 			]

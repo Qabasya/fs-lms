@@ -3,6 +3,7 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\Enums\TaskTemplate;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\TaskTypeRepository;
 
@@ -240,11 +241,17 @@ class TaskCreationCallbacks extends BaseController
 		// Получение привязки шаблона для данного типа задания
 		$assignment = $this->metaboxes->getAssignment($subject_key, $term_slug);
 
+		$template_id = $assignment->template_id ?? TemplateManagerCallbacks::DEFAULT_TEMPLATE;
+
+		$meta_value = ($template_id instanceof TaskTemplate)
+			? $template_id->value
+			: $template_id;
+
 		// Сохранение ID шаблона в мета-поле поста
 		update_post_meta(
 			$new_id,
 			'_fs_lms_template_type',
-			$assignment->template_id ?? TemplateManagerCallbacks::DEFAULT_TEMPLATE
+			$meta_value
 		);
 
 		// Сохранение boilerplate-текста (если есть)

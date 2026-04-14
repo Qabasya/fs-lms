@@ -63,6 +63,9 @@ export const TaxonomyModal = {
         $('#tax-slug').val(isUpdate ? (data.slug ?? '') : '');
         $('#tax-name').val(isUpdate ? (data.name ?? '') : '');
 
+        const displayType = (isUpdate && data.display) ? data.display : 'select';
+        this.$modal.find(`input[name="tax_display_type"][value="${displayType}"]`).prop('checked', true);
+
         this.$modal.fadeIn(200, () => $('#tax-name').trigger('focus'));
     },
 
@@ -70,6 +73,7 @@ export const TaxonomyModal = {
         this.$modal.fadeOut(200, () => {
             $('#tax-name, #tax-slug').val('');
             $('#tax-action').val('store');
+            this.$modal.find('input[name="tax_display_type"][value="select"]').prop('checked', true);
         });
     },
 
@@ -86,6 +90,7 @@ export const TaxonomyModal = {
             subject_key: $('#tax-subject-key').val(),
             tax_slug:    $('#tax-slug').val(),
             tax_name:    $('#tax-name').val(),
+            display_type: this.$modal.find('input[name="tax_display_type"]:checked').val()
         };
     },
 };

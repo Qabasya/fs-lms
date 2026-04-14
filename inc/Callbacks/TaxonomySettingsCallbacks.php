@@ -39,17 +39,18 @@ class TaxonomySettingsCallbacks extends BaseController
 		$this->authorize();
 
 		// Получение и валидация данных таксономии
-		[$subject_key, $tax_slug, $tax_name] = $this->requireTaxonomyData();
+		[$subject_key, $tax_slug, $tax_name, $display_type] = $this->requireTaxonomyData();
 
 		// Сохранение через репозиторий
-		$success = $this->taxonomies->update([
-			'subject_key' => $subject_key,
-			'tax_slug'    => $tax_slug,
-			'name'        => $tax_name,
+		$this->taxonomies->update([
+			'subject_key'  => $subject_key,
+			'tax_slug'     => $tax_slug,
+			'name'         => $tax_name,
+			'display_type' => $display_type,
 		]);
 
 		// Отправка результата
-		$this->sendResult($success, 'Таксономия создана');
+		$this->sendResult('Таксономия создана');
 	}
 
 	/**
@@ -63,17 +64,18 @@ class TaxonomySettingsCallbacks extends BaseController
 		$this->authorize();
 
 		// Получение и валидация данных таксономии
-		[$subject_key, $tax_slug, $tax_name] = $this->requireTaxonomyData();
+		[$subject_key, $tax_slug, $tax_name, $display_type] = $this->requireTaxonomyData();
 
 		// Обновление через репозиторий
-		$success = $this->taxonomies->update([
-			'subject_key' => $subject_key,
-			'tax_slug'    => $tax_slug,
-			'name'        => $tax_name,
+		$this->taxonomies->update([
+			'subject_key'  => $subject_key,
+			'tax_slug'     => $tax_slug,
+			'name'         => $tax_name,
+			'display_type' => $display_type,
 		]);
 
 		// Отправка результата
-		$this->sendResult($success, 'Таксономия обновлена');
+		$this->sendResult('Таксономия обновлена');
 	}
 
 	/**
@@ -90,13 +92,13 @@ class TaxonomySettingsCallbacks extends BaseController
 		[$subject_key, $tax_slug] = $this->requireSubjectAndSlug();
 
 		// Удаление через репозиторий
-		$success = $this->taxonomies->delete([
+		$this->taxonomies->delete([
 			'subject_key' => $subject_key,
 			'tax_slug'    => $tax_slug,
 		]);
 
 		// Отправка результата
-		$this->sendResult($success, 'Таксономия удалена');
+		$this->sendResult('Таксономия удалена');
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
@@ -140,7 +142,7 @@ class TaxonomySettingsCallbacks extends BaseController
 	 * Читает и валидирует полный набор данных таксономии из POST.
 	 * Используется в store и update.
 	 *
-	 * @return array{0: string, 1: string, 2: string} [subject_key, tax_slug, tax_name]
+	 * @return array{0: string, 1: string, 2: string, 3: string} [subject_key, tax_slug, tax_name, display_type]
 	 */
 	private function requireTaxonomyData(): array
 	{
@@ -155,28 +157,28 @@ class TaxonomySettingsCallbacks extends BaseController
 			wp_send_json_error('Название таксономии не может быть пустым');
 		}
 
-		return [$subject_key, $tax_slug, $tax_name];
+		// Получение и валидация типа отображения
+		$raw_display  = sanitize_text_field(wp_unslash($_POST['display_type'] ?? ''));
+		$display_type = in_array($raw_display, ['select', 'radio', 'checkbox'], true)
+			? $raw_display
+			: 'select';
+
+		return [$subject_key, $tax_slug, $tax_name, $display_type];
 	}
 
 	/**
-	 * Отправляет результат операции клиенту и при успехе сбрасывает правила перезаписи.
+	 * Сбрасывает правила перезаписи и отправляет успешный ответ клиенту.
 	 *
-	 * @param bool   $success Результат операции репозитория
-	 * @param string $message Сообщение для клиента при успехе
+	 * Примечание: update_option() возвращает false как при ошибке БД, так и когда
+	 * значение не изменилось — оба случая являются допустимым исходом для CRUD таксономий.
+	 *
+	 * @param string $message Сообщение для клиента
 	 *
 	 * @return void
 	 */
-	private function sendResult(bool $success, string $message): void
+	private function sendResult(string $message): void
 	{
-		// В случае ошибки репозитория
-		if (!$success) {
-			wp_send_json_error('Ошибка репозитория при выполнении операции');
-			return;
-		}
-
-		// Обновление правил перезаписи после изменений таксономий
 		flush_rewrite_rules();
-
 		wp_send_json_success($message);
 	}
 }
