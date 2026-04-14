@@ -3,7 +3,7 @@
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\Core\BaseController;
+use Inc\Core\PluginConfig;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 
 /**
@@ -31,14 +31,14 @@ use Inc\DTO\TaskTypeBoilerplateDTO;
  * @package Inc\Repositories
  * @implements RepositoryInterface
  */
-class TaskTypeRepository extends BaseController implements RepositoryInterface
+class TaskTypeRepository implements RepositoryInterface
 {
 	/**
 	 * Имя опции WordPress для хранения типовых условий.
 	 *
 	 * @var string
 	 */
-	private string $option_name = BaseController::BOILERPLATE_OPTION_NAME;
+	private string $option_name = PluginConfig::BOILERPLATE_OPTION_NAME;
 
 	// ============================ ЧТЕНИЕ ============================ //
 

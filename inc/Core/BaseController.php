@@ -5,121 +5,20 @@ namespace Inc\Core;
 /**
  * Class BaseController
  *
- * Базовый контроллер с общей конфигурацией и утилитами.
+ * Базовый класс для контроллеров, коллбеков и других сервисов,
+ * которым нужны пути/URL плагина.
  *
- * Содержит константы для всех критических идентификаторов плагина:
- * - Slugs страниц меню
- * - Capabilities (права доступа)
- * - Настройки (option groups, option names)
- * - Пути к файлам
+ * Наследует все константы из PluginConfig (slugs, capabilities,
+ * option names и т.д.), предоставляя к ним доступ через self::
+ * во всех классах-наследниках.
  *
- * Также предоставляет удобные методы для получения путей и URL
- * внутри плагина.
+ * Репозитории и классы без зависимости от WP-путей используют
+ * PluginConfig напрямую и не наследуют BaseController.
  *
  * @package Inc\Core
  */
-class BaseController
+class BaseController extends PluginConfig
 {
-	// ===== СЛАГИ =====//
-
-	/**
-	 * Slug главного меню плагина.
-	 *
-	 * @var string
-	 */
-	public const MAIN_MENU_SLUG = 'fs_lms';
-
-	/**
-	 * Slug меню предметов.
-	 *
-	 * @var string
-	 */
-	public const SUBJECTS_MENU_SLUG = 'fs_subjects';
-
-	// ===== CAPABILITY =====//
-
-	/**
-	 * Capability (право доступа) для административных страниц.
-	 *
-	 * @var string
-	 */
-	public const ADMIN_CAPABILITY = 'manage_options';
-
-	// ===== OPTION NAMES =====//
-
-	/**
-	 * Имя опции для хранения списка предметов.
-	 *
-	 * @var string
-	 */
-	public const SUBJECTS_OPTION_NAME = 'fs_lms_subjects_list';
-
-	/**
-	 * Имя опции для хранения кастомных метабоксов.
-	 *
-	 * @var string
-	 */
-	public const TAXONOMY_OPTION_NAME = 'fs_lms_custom_metaboxes';
-
-	/**
-	 * Имя опции для хранения кастомных таксономий.
-	 *
-	 * @var string
-	 */
-	public const METABOXES_OPTION_NAME = 'fs_lms_custom_taxonomies';
-
-	/**
-	 * Имя опции для хранения типовых условий (boilerplate) заданий.
-	 *
-	 * @var string
-	 */
-	public const BOILERPLATE_OPTION_NAME = 'fs_lms_task_type_boilerplates';
-
-	// ===== ВАЛИДАЦИЯ =====//
-
-	/**
-	 * Минимальное количество заданий в предмете.
-	 *
-	 * @var int
-	 */
-	public const MIN_TASKS_COUNT = 1;
-
-	/**
-	 * Максимальное количество заданий в предмете.
-	 *
-	 * @var int
-	 */
-	public const MAX_TASKS_COUNT = 100;
-
-	// ===== НАЗВАНИЯ МЕНЮ =====//
-
-	/**
-	 * Заголовок первой страницы меню.
-	 *
-	 * @var string
-	 */
-	public const FIRST_PAGE_TITLE = 'Dashboard';
-
-	/**
-	 * Название первого пункта меню.
-	 *
-	 * @var string
-	 */
-	public const FIRST_MENU_TITLE = 'Статистика';
-
-	/**
-	 * Заголовок второй страницы меню.
-	 *
-	 * @var string
-	 */
-	public const SECOND_PAGE_TITLE = 'Настройки';
-
-	/**
-	 * Название второго пункта меню.
-	 *
-	 * @var string
-	 */
-	public const SECOND_MENU_TITLE = 'Настройки плагина';
 
 	/**
 	 * Абсолютный путь к директории плагина.

@@ -46,6 +46,6 @@ trait TemplateRenderer {
 			extract( $args );
 		}
 
-		require_once $file;
+		require $file;
 	}
 }
