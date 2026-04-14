@@ -4,6 +4,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeBoilerplateDTO;
+use Inc\Enums\Capability;
 use Inc\Repositories\TaskTypeRepository;
 
 /**
@@ -16,14 +17,15 @@ use Inc\Repositories\TaskTypeRepository;
  *
  * @package Inc\Callbacks
  */
-class BoilerplateCallbacks extends BaseController {
+class BoilerplateCallbacks {
+	// TODO: ВЫНЕСТИ В NONCE ENUM
 	private const NONCE_ACTION = 'save_boilerplate_nonce';
 	private const NONCE_KEY = 'nonce';
 
 	public function __construct(
 		private readonly TaskTypeRepository $taskTypes,
 	) {
-		parent::__construct();
+
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -101,7 +103,7 @@ class BoilerplateCallbacks extends BaseController {
 	private function authorize(): void {
 		check_ajax_referer( self::NONCE_ACTION, self::NONCE_KEY );
 
-		if ( ! current_user_can( self::ADMIN_CAPABILITY ) ) {
+		if ( ! current_user_can( Capability::ADMIN->value ) ) {
 			wp_send_json_error( 'У вас недостаточно прав', 403 );
 		}
 	}

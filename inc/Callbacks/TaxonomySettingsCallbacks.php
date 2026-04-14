@@ -3,6 +3,7 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\Enums\Capability;
 use Inc\Repositories\TaxonomyRepository;
 
 /**
@@ -13,7 +14,7 @@ use Inc\Repositories\TaxonomyRepository;
  *
  * @package Inc\Callbacks
  */
-class TaxonomySettingsCallbacks extends BaseController
+class TaxonomySettingsCallbacks
 {
 	/**
 	 * Конструктор.
@@ -23,7 +24,6 @@ class TaxonomySettingsCallbacks extends BaseController
 	public function __construct(
 		private TaxonomyRepository $taxonomies,
 	) {
-		parent::__construct();
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -115,7 +115,7 @@ class TaxonomySettingsCallbacks extends BaseController
 		check_ajax_referer('fs_subject_nonce', 'security');
 
 		// Проверка прав доступа (только администраторы)
-		if (!current_user_can(self::ADMIN_CAPABILITY)) {
+		if (!current_user_can(Capability::ADMIN->value)) {
 			wp_send_json_error('Нет прав', 403);
 		}
 	}

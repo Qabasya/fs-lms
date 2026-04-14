@@ -2,7 +2,7 @@
 
 namespace Inc\Callbacks;
 
-use Inc\Core\BaseController;
+use Inc\Enums\Capability;
 use Inc\Repositories\SubjectRepository;
 use Inc\Services\TaxonomySeeder;
 
@@ -16,7 +16,7 @@ use Inc\Services\TaxonomySeeder;
  *
  * @package Inc\Callbacks
  */
-class SubjectSettingsCallbacks extends BaseController {
+class SubjectSettingsCallbacks {
 	/**
 	 * Конструктор.
 	 *
@@ -27,7 +27,6 @@ class SubjectSettingsCallbacks extends BaseController {
 		private SubjectRepository $subjects,
 		private TaxonomySeeder $seeder,
 	) {
-		parent::__construct();
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -135,7 +134,7 @@ class SubjectSettingsCallbacks extends BaseController {
 		check_ajax_referer( 'fs_subject_nonce', 'security' );
 
 		// Проверка прав доступа (только администраторы)
-		if ( ! current_user_can( self::ADMIN_CAPABILITY ) ) {
+		if ( ! current_user_can( Capability::ADMIN->value ) ) {
 			wp_send_json_error( 'Нет прав', 403 );
 		}
 	}

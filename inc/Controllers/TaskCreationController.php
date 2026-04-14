@@ -10,6 +10,8 @@ use Inc\Core\BaseController;
 /**
  * Class TaskCreationController
  *
+ * Он наследует BaseController для использования пути (path)
+ *
  * Контроллер для инициализации функционала создания и настройки заданий.
  *
  * Отвечает за регистрацию AJAX-обработчиков для:

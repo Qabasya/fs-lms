@@ -31,7 +31,7 @@ use Inc\Registrars\SubjectTaxonomyRegistrar;
  * @package Inc\Controllers
  * @implements ServiceInterface
  */
-class SubjectController extends BaseController implements ServiceInterface
+class SubjectController implements ServiceInterface
 {
 	use TemplateRenderer;
 	use NumericSorter;
@@ -58,7 +58,6 @@ class SubjectController extends BaseController implements ServiceInterface
 		private readonly TemplateManagerCallbacks $templateCallbacks,
 		private readonly MetaBoxRepository $metaboxes,
 	) {
-		parent::__construct();
 	}
 
 	// ============================ ПУБЛИЧНЫЕ МЕТОДЫ ============================ //

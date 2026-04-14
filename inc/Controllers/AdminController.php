@@ -7,6 +7,10 @@ use Inc\Callbacks\SubjectSettingsCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\Builders\SubjectsMenuBuilder;
 use Inc\Core\BaseController;
+use Inc\Enums\Capability;
+use Inc\Enums\MenuSlug;
+use Inc\Enums\MenuTitle;
+use Inc\Enums\PageTitle;
 use Inc\Registrars\MenuRegistrar;
 use Inc\Registrars\SettingsRegistrar;
 
@@ -24,7 +28,7 @@ use Inc\Registrars\SettingsRegistrar;
  * @package Inc\Controllers
  * @implements ServiceInterface
  */
-class AdminController extends BaseController implements ServiceInterface {
+class AdminController implements ServiceInterface {
 	/**
 	 * Конструктор.
 	 *
@@ -39,7 +43,6 @@ class AdminController extends BaseController implements ServiceInterface {
 		private readonly AdminCallbacks $callbacks,
 		private readonly SubjectsMenuBuilder $subjectsMenuBuilder
 	) {
-		parent::__construct();
 	}
 
 	/**
@@ -93,8 +96,8 @@ class AdminController extends BaseController implements ServiceInterface {
 			[
 				'page_title' => 'FS LMS Dashboard',
 				'menu_title' => 'FS LMS',
-				'capability' => self::ADMIN_CAPABILITY,
-				'menu_slug'  => self::MAIN_MENU_SLUG,
+				'capability' => Capability::ADMIN->value,
+				'menu_slug'  => MenuSlug::MAIN->value,
 				'callback'   => [ $this->callbacks, 'adminDashboard' ],
 				'icon_url'   => 'dashicons-welcome-learn-more',
 				'position'   => 4
@@ -105,6 +108,7 @@ class AdminController extends BaseController implements ServiceInterface {
 	}
 
 // ====================== ПУНКТЫ ГЛАВНОГО МЕНЮ FS LMS ======================
+
 	/**
 	 * Собирает все подстраницы из разных источников.
 	 *
@@ -123,19 +127,19 @@ class AdminController extends BaseController implements ServiceInterface {
 	private function buildAllSubPages(): array {
 		$subpages   = [];
 		$subpages[] = [
-			'parent_slug' => self::MAIN_MENU_SLUG,
-			'page_title'  => self::FIRST_PAGE_TITLE,
-			'menu_title'  => self::FIRST_MENU_TITLE,
-			'capability'  => self::ADMIN_CAPABILITY,
-			'menu_slug'   => self::MAIN_MENU_SLUG,
+			'parent_slug' => MenuSlug::MAIN->value,
+			'page_title'  => PageTitle::FIRST->value,
+			'menu_title'  => MenuTitle::FIRST->value,
+			'capability'  => Capability::ADMIN->value,
+			'menu_slug'   => MenuSlug::MAIN->value,
 			'callback'    => [ $this->callbacks, 'adminDashboard' ],
 		];
 
 		$subpages[] = [
-			'parent_slug' => self::MAIN_MENU_SLUG,
-			'page_title'  => self::SECOND_PAGE_TITLE,
-			'menu_title'  => self::SECOND_MENU_TITLE,
-			'capability'  => self::ADMIN_CAPABILITY,
+			'parent_slug' => MenuSlug::MAIN->value,
+			'page_title'  => PageTitle::SECOND->value,
+			'menu_title'  => MenuTitle::SECOND->value,
+			'capability'  => Capability::ADMIN->value,
 			'menu_slug'   => 'fs_lms_settings',
 			'callback'    => [ $this->callbacks, 'settingsPage' ],
 		];
@@ -145,7 +149,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'parent_slug' => '', // Оставляем пустым, чтобы страница была скрытой
 			'page_title'  => 'Управление типовыми условиями',
 			'menu_title'  => 'Boilerplate Manager', // Это никто не увидит в меню
-			'capability'  => self::ADMIN_CAPABILITY,
+			'capability'  => Capability::ADMIN->value,
 			'menu_slug'   => 'fs_boilerplate_manager',
 			'callback'    => [ $this->callbacks, 'boilerplatePage' ],
 		];
@@ -173,8 +177,8 @@ class AdminController extends BaseController implements ServiceInterface {
 	private function removeAutoSubMenuItems(): void {
 		add_action( 'admin_menu', function () {
 			remove_submenu_page(
-				BaseController::SUBJECTS_MENU_SLUG,
-				BaseController::SUBJECTS_MENU_SLUG
+				MenuSlug::SUBJECTS->value,
+				MenuSlug::SUBJECTS->value
 			);
 		}, 999 );
 	}

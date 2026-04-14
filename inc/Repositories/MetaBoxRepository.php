@@ -3,9 +3,9 @@
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\Core\PluginConfig;
 use Inc\DTO\TaskTemplateAssignmentDTO;
 use Inc\DTO\TaskTypeDTO;
+use Inc\Enums\OptionName;
 use Inc\Enums\TaskTemplate;
 
 /**
@@ -35,7 +35,7 @@ class MetaBoxRepository implements RepositoryInterface {
 	 *
 	 * @var string
 	 */
-	private string $option_name = PluginConfig::METABOXES_OPTION_NAME;
+	private string $option_name = OptionName::METABOXES->value;
 
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.

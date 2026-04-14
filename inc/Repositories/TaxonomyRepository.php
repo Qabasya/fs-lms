@@ -3,8 +3,8 @@
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\Core\PluginConfig;
 use Inc\DTO\TaxonomyDataDTO;
+use Inc\Enums\OptionName;
 
 /**
  * Class TaxonomyRepository
@@ -31,7 +31,7 @@ class TaxonomyRepository implements RepositoryInterface {
 	 *
 	 * @var string
 	 */
-	private string $option_name = PluginConfig::TAXONOMY_OPTION_NAME;
+	private string $option_name = OptionName::TAXONOMY->value;
 
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.
@@ -99,7 +99,6 @@ class TaxonomyRepository implements RepositoryInterface {
 		if ( ! isset( $all[ $subject_key ] ) ) {
 			$all[ $subject_key ] = [];
 		}
-
 
 
 		// Сохраняем в базу только необходимые поля (массивом)

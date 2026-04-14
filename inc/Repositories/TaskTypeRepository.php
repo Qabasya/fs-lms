@@ -3,8 +3,9 @@
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\Core\PluginConfig;
+
 use Inc\DTO\TaskTypeBoilerplateDTO;
+use Inc\Enums\OptionName;
 
 /**
  * Class TaskTypeRepository
@@ -38,7 +39,7 @@ class TaskTypeRepository implements RepositoryInterface
 	 *
 	 * @var string
 	 */
-	private string $option_name = PluginConfig::BOILERPLATE_OPTION_NAME;
+	private string $option_name = OptionName::BOILERPLATE->value;
 
 	// ============================ ЧТЕНИЕ ============================ //
 

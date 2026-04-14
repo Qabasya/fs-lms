@@ -23,7 +23,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  * @package Inc\Controllers
  * @implements ServiceInterface
  */
-class BoilerplateController extends BaseController implements ServiceInterface
+class BoilerplateController implements ServiceInterface
 {
 	use TemplateRenderer;
 
@@ -39,7 +39,6 @@ class BoilerplateController extends BaseController implements ServiceInterface
 		private readonly MetaBoxRepository $metaboxes,
 		private readonly BoilerplateCallbacks $callbacks,
 	) {
-		parent::__construct();
 	}
 
 	// ============================ РЕГИСТРАЦИЯ ============================ //

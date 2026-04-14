@@ -5,6 +5,7 @@ namespace Inc\Repositories;
 use Inc\Contracts\RepositoryInterface;
 use Inc\Core\PluginConfig;
 use Inc\DTO\SubjectDTO;
+use Inc\Enums\OptionName;
 
 /**
  * Class SubjectRepository
@@ -31,7 +32,7 @@ class SubjectRepository implements RepositoryInterface {
 	 *
 	 * @var string
 	 */
-	private string $option_name = PluginConfig::SUBJECTS_OPTION_NAME;
+	private string $option_name = OptionName::SUBJECTS->value;
 
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.

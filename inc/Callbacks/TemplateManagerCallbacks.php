@@ -4,6 +4,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeBoilerplateDTO;
+use Inc\Enums\Capability;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\TaskTypeRepository;
@@ -20,15 +21,9 @@ use Inc\Enums\TaskTemplate;
  *
  * @package Inc\Callbacks
  */
-class TemplateManagerCallbacks extends BaseController
+class TemplateManagerCallbacks
 {
-	/**
-	 * ID шаблона по умолчанию.
-	 * Публичная — используется в TaskCreationCallbacks при назначении шаблона новому посту.
-	 *
-	 * @var TaskTemplate
-	 */
-	public const DEFAULT_TEMPLATE = TaskTemplate::STANDARD;
+
 
 	/**
 	 * Nonce для операций менеджера заданий.
@@ -54,7 +49,7 @@ class TemplateManagerCallbacks extends BaseController
 		private MetaBoxRepository $metaboxes,
 		private TaskTypeRepository $taskTypes,
 	) {
-		parent::__construct();
+
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -73,7 +68,7 @@ class TemplateManagerCallbacks extends BaseController
 		check_ajax_referer('fs_subject_nonce', 'security');
 
 		// Проверка прав доступа (только администраторы)
-		if (!current_user_can(self::ADMIN_CAPABILITY)) {
+		if (!current_user_can(Capability::ADMIN->value)) {
 			wp_send_json_error('Нет прав', 403);
 		}
 
@@ -164,7 +159,7 @@ class TemplateManagerCallbacks extends BaseController
 
 		// Определяем шаблон через Enum (это и есть наш "источник правды")
 		$template = TaskTemplate::tryFrom($assignment->template_id ?? '')
-		            ?? self::DEFAULT_TEMPLATE;
+		            ?? TaskTemplate::STANDARD;
 
 		// Получаем имя класса из Enum
 		$class_name = $template->class();
@@ -292,7 +287,7 @@ class TemplateManagerCallbacks extends BaseController
 		check_ajax_referer(self::NONCE_ACTION, self::NONCE_KEY);
 
 		// Проверка прав доступа (только администраторы)
-		if (!current_user_can(self::ADMIN_CAPABILITY)) {
+		if (!current_user_can(Capability::ADMIN->value)) {
 			wp_send_json_error('Доступ запрещён', 403);
 		}
 	}

@@ -4,6 +4,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\TaskTemplate;
 use Inc\MetaBoxes\Templates\BaseTemplate;
 use Inc\MetaBoxes\Templates\CommonConditionTemplate;
 use Inc\MetaBoxes\Templates\FileCodeTaskTemplate;
@@ -27,10 +28,7 @@ use Inc\DTO\TaskMetaDTO;
  * @package Inc\Controllers
  * @implements ServiceInterface
  */
-class MetaBoxController extends BaseController implements ServiceInterface
-{
-	private const DEFAULT_TEMPLATE = 'standard_task';
-
+class MetaBoxController implements ServiceInterface {
 	/** @var array<string, BaseTemplate> */
 	private array $templates = [];
 
@@ -39,7 +37,7 @@ class MetaBoxController extends BaseController implements ServiceInterface
 		private readonly MetaBoxRepository $metaboxes,
 		private readonly MetaBoxRegistrar $registrar
 	) {
-		parent::__construct();
+
 	}
 
 	// ============================ РЕГИСТРАЦИЯ ============================ //
@@ -47,8 +45,7 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	/**
 	 * Точка входа в сервис (вызывается из Init.php).
 	 */
-	public function register(): void
-	{
+	public function register(): void {
 		add_action( 'add_meta_boxes', [ $this, 'handleAddMetaBoxes' ] );
 		add_action( 'save_post', [ $this, 'handleMetaSave' ] );
 		add_filter( 'fs_lms_get_templates', [ $this, 'getTemplatesList' ] );
@@ -58,8 +55,7 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 * Колбек хука add_meta_boxes.
 	 * Вынесен в именованный метод, чтобы хук можно было снять через remove_action.
 	 */
-	public function handleAddMetaBoxes(): void
-	{
+	public function handleAddMetaBoxes(): void {
 		$this->ensureTemplatesLoaded();
 
 		$all_subjects = $this->subjects->readAll();
@@ -94,8 +90,7 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 *       return $templates;
 	 *   });
 	 */
-	private function ensureTemplatesLoaded(): void
-	{
+	private function ensureTemplatesLoaded(): void {
 		if ( ! empty( $this->templates ) ) {
 			return;
 		}
@@ -129,10 +124,9 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	/**
 	 * Резолвит объект шаблона по ID с фолбеком на дефолтный.
 	 */
-	private function resolveTemplate( string $template_id ): ?BaseTemplate
-	{
+	private function resolveTemplate( string $template_id ): ?BaseTemplate {
 		return $this->templates[ $template_id ]
-		       ?? $this->templates[ self::DEFAULT_TEMPLATE ]
+		       ?? $this->templates[ TaskTemplate::STANDARD->value ]
 		          ?? ( ! empty( $this->templates ) ? array_values( $this->templates )[0] : null );
 	}
 
@@ -143,14 +137,14 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 *
 	 * @param \WP_Post $post Текущий пост
 	 */
-	public function renderMetaboxContent( \WP_Post $post ): void
-	{
+	public function renderMetaboxContent( \WP_Post $post ): void {
 		$this->ensureTemplatesLoaded();
 
 		$template = $this->resolveTemplate( $this->getTemplateId( $post ) );
 
 		if ( ! $template ) {
 			echo '<p>Ошибка: шаблон не найден.</p>';
+
 			return;
 		}
 
@@ -166,8 +160,7 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 *
 	 * @param int $post_id ID сохраняемого поста
 	 */
-	public function handleMetaSave( int $post_id ): void
-	{
+	public function handleMetaSave( int $post_id ): void {
 		// Пропускаем автосохранение
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
@@ -215,14 +208,13 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 *
 	 * @return TaskMetaDTO[]
 	 */
-	public function getTemplatesList(): array
-	{
+	public function getTemplatesList(): array {
 		$this->ensureTemplatesLoaded();
 
 		return array_values( array_map(
 			static fn( BaseTemplate $template ) => new TaskMetaDTO(
-				id:     $template->get_id(),
-				title:  $template->get_name(),
+				id: $template->get_id(),
+				title: $template->get_name(),
 				fields: $template->get_fields()
 			),
 			$this->templates
@@ -240,10 +232,10 @@ class MetaBoxController extends BaseController implements ServiceInterface
 	 * 3. Дефолтный шаблон (standard_task)
 	 *
 	 * @param \WP_Post $post Объект поста
+	 *
 	 * @return string ID выбранного шаблона
 	 */
-	private function getTemplateId( \WP_Post $post ): string
-	{
+	private function getTemplateId( \WP_Post $post ): string {
 		$subject_key = str_replace( '_tasks', '', $post->post_type );
 		$taxonomy    = "{$subject_key}_task_number";
 
@@ -261,6 +253,6 @@ class MetaBoxController extends BaseController implements ServiceInterface
 			return (string) $saved_meta;
 		}
 
-		return self::DEFAULT_TEMPLATE;
+		return TaskTemplate::STANDARD->value;
 	}
 }

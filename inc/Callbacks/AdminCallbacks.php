@@ -3,7 +3,6 @@
 namespace Inc\Callbacks;
 
 use Inc\Controllers\BoilerplateController;
-use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaskTypeRepository;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -30,7 +29,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  *
  * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
  */
-class AdminCallbacks extends BaseController {
+class AdminCallbacks {
 	use TemplateRenderer;
 
 	/**
@@ -45,7 +44,6 @@ class AdminCallbacks extends BaseController {
 		private readonly TaskTypeRepository $taskTypes,
 		private readonly BoilerplateController $boilerplateController
 	) {
-		parent::__construct();
 	}
 
 

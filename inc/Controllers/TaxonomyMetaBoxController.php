@@ -7,7 +7,7 @@ use Inc\Core\BaseController;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\DTO\TaxonomyDataDTO;
 
-class TaxonomyMetaBoxController extends BaseController implements ServiceInterface {
+class TaxonomyMetaBoxController implements ServiceInterface {
 
 
 	public function __construct(

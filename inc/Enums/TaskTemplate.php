@@ -36,6 +36,7 @@ enum TaskTemplate: string
 	 */
 	case COMMON = 'common_standard_task';
 
+
 	/**
 	 * Возвращает FQCN (полное имя класса) шаблона.
 	 *

@@ -4,7 +4,8 @@ namespace Inc\Controllers\Builders;
 
 use Inc\Contracts\MenuBuilderInterface;
 use Inc\Controllers\SubjectController;
-use Inc\Core\BaseController;
+use Inc\Enums\Capability;
+use Inc\Enums\MenuSlug;
 use Inc\Repositories\SubjectRepository;
 
 /**
@@ -79,13 +80,14 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 		if ( empty( $this->getSubjects() ) ) {
 			return [];
 		}
+
 // Это первая страница в Предметы, она удаляется
 		return [
 			[
 				'page_title' => 'Управление предметами',
 				'menu_title' => 'Предметы',
-				'capability' => BaseController::ADMIN_CAPABILITY,
-				'menu_slug'  => BaseController::SUBJECTS_MENU_SLUG,
+				'capability' => Capability::ADMIN->value,
+				'menu_slug'  => MenuSlug::SUBJECTS->value,
 				'callback'   => [ $this->callbacks, 'subjectsRoot' ],
 				'icon_url'   => 'dashicons-category',
 				'position'   => 3,
@@ -94,27 +96,27 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	}
 
 	/**
- * Строит конфигурацию подстраниц для каждого предмета.
- * Возвращает пустой массив, если предметов нет.
- *
- * @return array<int, array{
- *     parent_slug: string,
- *     page_title: string,
- *     menu_title: string,
- *     capability: string,
- *     menu_slug: string,
- *     callback: array{0: SubjectController, 1: string}
- * }>
- */
+	 * Строит конфигурацию подстраниц для каждого предмета.
+	 * Возвращает пустой массив, если предметов нет.
+	 *
+	 * @return array<int, array{
+	 *     parent_slug: string,
+	 *     page_title: string,
+	 *     menu_title: string,
+	 *     capability: string,
+	 *     menu_slug: string,
+	 *     callback: array{0: SubjectController, 1: string}
+	 * }>
+	 */
 	public function buildSubPages(): array {
 		$subpages = [];
 
 		foreach ( $this->getSubjects() as $subject ) {
 			$subpages[] = [
-				'parent_slug' => BaseController::SUBJECTS_MENU_SLUG,
+				'parent_slug' => MenuSlug::SUBJECTS->value,
 				'page_title'  => $subject->name, // Используем -> вместо ['name']
 				'menu_title'  => $subject->name,
-				'capability'  => BaseController::ADMIN_CAPABILITY,
+				'capability'  => Capability::ADMIN->value,
 				'menu_slug'   => 'fs_subject_' . $subject->key, // Используем свойство key
 				'callback'    => [ $this->callbacks, 'subjectPage' ],
 			];
