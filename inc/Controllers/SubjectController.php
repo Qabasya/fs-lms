@@ -254,7 +254,8 @@ class SubjectController extends BaseController implements ServiceInterface
 				$tax_dto->slug,
 				[$task_cpt, $article_cpt],
 				$tax_dto->name,
-				$tax_dto->name
+				$tax_dto->name,
+				$tax_dto->display_type
 			);
 		}
 	}

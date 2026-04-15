@@ -101,10 +101,9 @@ class TaxonomyRepository implements RepositoryInterface {
 		}
 
 
-		// Сохраняем в базу только необходимые поля (массивом)
 		$all[ $subject_key ][ $tax_slug ] = [
 			'name'         => sanitize_text_field( $data['name'] ?? '' ),
-			'display_type' => sanitize_text_field( $data['display_type'] ?? 'select' )
+			'display_type' => sanitize_text_field( $data['display_type'] ?? 'select' ),
 		];
 
 		// Сохраняем обновлённый массив в опции WordPress

@@ -18,18 +18,18 @@ enum AjaxHook: string {
 	case DeleteTaxonomy = 'DeleteTaxonomy';
 
 	// === BoilerplateController (Полноценный CRUD редактор) ===
-	case SaveBoilerplate   = 'Save'; // Вызовет ajaxSave в BoilerplateCallbacks
+	case SaveBoilerplate   = 'SaveBoilerplate';
 	case DeleteBoilerplate = 'DeleteBoilerplate';
 
 	// === TaskCreationController (Создание задач в модалке) ===
-	case GetTaskTypes        = 'GetTypes';        // ajaxGetTypes
-	case GetTaskBoilerplates = 'GetBoilerplates'; // ajaxGetBoilerplates
-	case CreateTask          = 'CreateTask';      // ajaxCreateTask
+	case GetTaskTypes        = 'GetTaskTypes';
+	case GetTaskBoilerplates = 'GetTaskBoilerplates';
+	case CreateTask          = 'CreateTask';
 
 	// === TemplateManager (Быстрые настройки и структура) ===
 	case GetTemplateStructure    = 'GetTemplateStructure';
-	case SaveTaskBoilerplate     = 'SaveTaskBoilerplate'; // ajaxSaveTaskBoilerplate
-	case GetTaskBoilerplate      = 'GetTaskBoilerplate';
+	case SaveTaskBoilerplate     = 'SaveTaskBoilerplate';
+	case GetTaskBoilerplate      = 'GetBoilerplate';
 	case UpdateTermTemplate      = 'UpdateTermTemplate';
 	case SaveTemplateAssignment  = 'SaveTemplateAssignment';
 
