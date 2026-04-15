@@ -12,6 +12,7 @@ enum AjaxHook: string {
 	case UpdateSubject  = 'UpdateSubject';
 	case DeleteSubject  = 'DeleteSubject';
 	case ExportSubject  = 'ExportSubject';
+	case ImportSubject  = 'ImportSubject';
 
 	// === SubjectController (Таксономии) ===
 	case StoreTaxonomy  = 'StoreTaxonomy';

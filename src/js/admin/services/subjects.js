@@ -12,6 +12,10 @@ export const Subjects = {
 
         $(document).on('click', '.open-quick-edit', (e) => this.handleQuickEdit(e));
         $(document).on('click', '.delete-subject', (e) => this.handleDelete(e));
+        $(document).on('click', '.js-export-subject', (e) => this.handleRowExport(e));
+
+        $('#fs-import-trigger').on('click', () => $('#fs-import-file').trigger('click'));
+        $('#fs-import-file').on('change', (e) => this.handleImport(e));
     },
 
     handleSave(e) {
@@ -66,10 +70,70 @@ export const Subjects = {
         const key = $btn.data('key');
         const $row = $btn.closest('tr');
         const name = $row.find('strong a').text().trim();
-        const security = jQuery('#fs-add-subject-form [name="security"]').val()
-                      || jQuery('[name="security"]').first().val();
+        const security = this._nonce();
 
         this._showWarningModal(name, key, security, $btn, $row);
+    },
+
+    handleRowExport(e) {
+        e.preventDefault();
+        const $link = jQuery(e.target);
+        const key = $link.data('key');
+        this._exportSubject(key, this._nonce(), $link);
+    },
+
+    handleImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        e.target.value = '';
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            let data;
+            try {
+                data = JSON.parse(ev.target.result);
+            } catch (_) {
+                alert('Не удалось прочитать файл. Убедитесь, что это корректный JSON.');
+                return;
+            }
+
+            const name = data?.subject?.name || data?.subject?.key || 'предмет';
+
+            const $modal = this._createModal(
+                `<p>Импортировать <strong>${name}</strong>?</p>` +
+                `<p>Будут восстановлены: таксономии, термины, шаблоны, boilerplates и записи.</p>` +
+                `<div class="fs-modal-actions">` +
+                    `<button class="button" data-action="cancel">Отмена</button>` +
+                    `<button class="button button-primary" data-action="confirm">Импортировать</button>` +
+                `</div>`
+            );
+
+            $modal.find('[data-action="cancel"]').on('click', () => $modal.remove());
+
+            $modal.find('[data-action="confirm"]').on('click', (ev2) => {
+                const $btn = jQuery(ev2.target);
+                Utils.toggleButton($btn, true, 'Импорт...');
+
+                jQuery.post(ajaxurl, {
+                    action: 'import_subject',
+                    json: ev.target.result,
+                    security: this._nonce(),
+                }, (res) => {
+                    $modal.remove();
+                    if (res.success) {
+                        location.reload();
+                    } else {
+                        alert(res.data || 'Ошибка импорта');
+                    }
+                }).fail(() => {
+                    $modal.remove();
+                    Utils.apiError();
+                });
+            });
+        };
+
+        reader.readAsText(file);
     },
 
     _showWarningModal(name, key, security, $btn, $row) {
@@ -168,5 +232,10 @@ export const Subjects = {
                 alert(res.data || 'Ошибка удаления');
             }
         }).fail(Utils.apiError);
+    },
+
+    _nonce() {
+        return jQuery('#fs-add-subject-form [name="security"]').val()
+            || jQuery('#fs-quick-edit-form [name="security"]').val();
     },
 };

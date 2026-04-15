@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Callbacks;
 
+use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\MetaBoxRepository;
@@ -15,8 +16,8 @@ use Inc\Services\TaxonomySeeder;
 class SubjectSettingsCallbacks
 {
 	public function __construct(
-		private SubjectRepository $subjects,
-		private TaxonomySeeder    $seeder,
+		private SubjectRepository  $subjects,
+		private TaxonomySeeder     $seeder,
 		private TaxonomyRepository $taxonomies,
 		private MetaBoxRepository  $metaboxes,
 		private TaskTypeRepository $boilerplates,
@@ -104,7 +105,83 @@ class SubjectSettingsCallbacks
 			'taxonomies'   => $this->taxonomies->getRawForSubject($key),
 			'metaboxes'    => $this->metaboxes->getRawForSubject($key),
 			'boilerplates' => $this->boilerplates->getRawForSubject($key),
+			'terms'        => $this->collectTerms($key),
+			'posts'        => $this->collectPosts($key),
 		]);
+	}
+
+	public function ajaxImportSubject(): void
+	{
+		$this->authorize();
+
+		$raw = wp_unslash($_POST['json'] ?? '');
+
+		if (empty($raw)) {
+			wp_send_json_error('JSON не передан');
+			return;
+		}
+
+		$data = json_decode($raw, true);
+
+		if (!is_array($data) || !isset($data['subject']['key'], $data['subject']['name'])) {
+			wp_send_json_error('Неверный формат файла');
+			return;
+		}
+
+		$key  = sanitize_title($data['subject']['key']);
+		$name = sanitize_text_field($data['subject']['name']);
+
+		if (empty($key) || empty($name)) {
+			wp_send_json_error('Ключ или название предмета пусты');
+			return;
+		}
+
+		if ($this->subjects->getByKey($key)) {
+			wp_send_json_error("Предмет с ключом «{$key}» уже существует");
+			return;
+		}
+
+		$this->subjects->update(['key' => $key, 'name' => $name]);
+
+		foreach ($data['taxonomies'] ?? [] as $tax_slug => $tax_data) {
+			$this->taxonomies->update([
+				'subject_key'  => $key,
+				'tax_slug'     => sanitize_title((string) $tax_slug),
+				'name'         => sanitize_text_field($tax_data['name'] ?? ''),
+				'display_type' => sanitize_text_field($tax_data['display_type'] ?? 'select'),
+			]);
+		}
+
+		foreach ($data['metaboxes'] ?? [] as $task_number => $template_id) {
+			$this->metaboxes->update([
+				'subject'     => $key,
+				'task_number' => sanitize_text_field((string) $task_number),
+				'template_id' => sanitize_text_field((string) $template_id),
+			]);
+		}
+
+		foreach ($data['boilerplates'] ?? [] as $term_slug => $bp_list) {
+			foreach ((array) $bp_list as $bp) {
+				$this->boilerplates->updateBoilerplate(new TaskTypeBoilerplateDTO(
+					uid:         sanitize_text_field($bp['uid'] ?? uniqid('bp_', true)),
+					subject_key: $key,
+					term_slug:   sanitize_text_field((string) $term_slug),
+					title:       sanitize_text_field($bp['title'] ?? ''),
+					content:     wp_kses_post($bp['content'] ?? ''),
+					is_default:  (bool) ($bp['is_default'] ?? false),
+				));
+			}
+		}
+
+		foreach ($data['terms'] ?? [] as $tax_slug => $term_list) {
+			$this->importTerms(sanitize_title((string) $tax_slug), (array) $term_list);
+		}
+
+		$this->importPosts($data['posts'] ?? []);
+
+		flush_rewrite_rules();
+
+		wp_send_json_success("Предмет «{$name}» успешно импортирован");
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
@@ -178,6 +255,125 @@ class SubjectSettingsCallbacks
 
 		foreach ($ids as $id) {
 			wp_delete_term((int) $id, $taxonomy);
+		}
+	}
+
+	private function collectTerms(string $subject_key): array
+	{
+		$slugs = array_merge(
+			["{$subject_key}_task_number"],
+			array_map(fn($dto) => $dto->slug, $this->taxonomies->getBySubject($subject_key))
+		);
+
+		$result = [];
+
+		foreach ($slugs as $tax_slug) {
+			$terms = get_terms(['taxonomy' => $tax_slug, 'hide_empty' => false]);
+
+			if (!is_wp_error($terms)) {
+				$result[$tax_slug] = array_map(fn($t) => [
+					'name'        => $t->name,
+					'slug'        => $t->slug,
+					'description' => $t->description,
+					'parent'      => $t->parent,
+				], $terms);
+			}
+		}
+
+		return $result;
+	}
+
+	private function collectPosts(string $subject_key): array
+	{
+		$tax_slugs = array_merge(
+			["{$subject_key}_task_number"],
+			array_map(fn($dto) => $dto->slug, $this->taxonomies->getBySubject($subject_key))
+		);
+
+		$result = [];
+
+		foreach (["{$subject_key}_tasks", "{$subject_key}_articles"] as $post_type) {
+			$posts = get_posts(['post_type' => $post_type, 'numberposts' => -1, 'post_status' => 'any']);
+
+			$result[$post_type] = array_map(function ($post) use ($tax_slugs) {
+				$terms = [];
+
+				foreach ($tax_slugs as $tax_slug) {
+					$assigned = wp_get_post_terms($post->ID, $tax_slug, ['fields' => 'slugs']);
+					if (!is_wp_error($assigned) && !empty($assigned)) {
+						$terms[$tax_slug] = $assigned;
+					}
+				}
+
+				$meta = [];
+				foreach (get_post_meta($post->ID) as $meta_key => $_) {
+					$meta[$meta_key] = get_post_meta($post->ID, $meta_key, true);
+				}
+
+				return [
+					'post_title'   => $post->post_title,
+					'post_content' => $post->post_content,
+					'post_excerpt' => $post->post_excerpt,
+					'post_status'  => $post->post_status,
+					'post_date'    => $post->post_date,
+					'menu_order'   => (int) $post->menu_order,
+					'meta'         => $meta,
+					'terms'        => $terms,
+				];
+			}, $posts);
+		}
+
+		return $result;
+	}
+
+	private function importTerms(string $taxonomy, array $terms): void
+	{
+		if (!taxonomy_exists($taxonomy)) {
+			register_taxonomy($taxonomy, []);
+		}
+
+		foreach ($terms as $term_data) {
+			$name = sanitize_text_field($term_data['name'] ?? '');
+
+			if (empty($name) || term_exists($name, $taxonomy)) {
+				continue;
+			}
+
+			wp_insert_term($name, $taxonomy, [
+				'slug'        => sanitize_title($term_data['slug'] ?? $name),
+				'description' => sanitize_text_field($term_data['description'] ?? ''),
+			]);
+		}
+	}
+
+	private function importPosts(array $posts_data): void
+	{
+		foreach ($posts_data as $post_type => $post_list) {
+			$clean_type = sanitize_key((string) $post_type);
+
+			foreach ((array) $post_list as $post_data) {
+				$post_id = wp_insert_post([
+					'post_type'    => $clean_type,
+					'post_title'   => sanitize_text_field($post_data['post_title'] ?? ''),
+					'post_content' => wp_kses_post($post_data['post_content'] ?? ''),
+					'post_excerpt' => sanitize_text_field($post_data['post_excerpt'] ?? ''),
+					'post_status'  => sanitize_text_field($post_data['post_status'] ?? 'publish'),
+					'post_date'    => sanitize_text_field($post_data['post_date'] ?? ''),
+					'menu_order'   => absint($post_data['menu_order'] ?? 0),
+				]);
+
+				if (is_wp_error($post_id) || !$post_id) {
+					continue;
+				}
+
+				foreach ($post_data['meta'] ?? [] as $meta_key => $meta_value) {
+					update_post_meta($post_id, sanitize_key((string) $meta_key), $meta_value);
+				}
+
+				foreach ($post_data['terms'] ?? [] as $tax_slug => $term_slugs) {
+					wp_set_post_terms($post_id, (array) $term_slugs, sanitize_title((string) $tax_slug));
+				}
+			}
 		}
 	}
 }
