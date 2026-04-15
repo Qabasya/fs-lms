@@ -59,12 +59,13 @@ $key     = $dto->subject_key;
         <input type="radio" name="fs_tabs" id="tab3">
         <label for="tab3">Таксономии</label>
         <div class="tab-content">
-            <div class="tab-header" style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                <h3>Дополнительные классификаторы</h3>
-                <button type="button" class="button button-primary js-add-taxonomy">
-                    Добавить таксономию
-                </button>
-            </div>
+            <h3>Дополнительные классификаторы</h3>
+            <p class="description">
+                Здесь можно добавить дополнительные таксономии (например, автора, год, сложность задания и т.д.)
+            </p>
+            <button type="button" class="button button-primary js-add-taxonomy">
+                Добавить таксономию
+            </button>
 
             <table class="widefat fixed striped js-taxonomy-table">
                 <thead>
@@ -76,7 +77,9 @@ $key     = $dto->subject_key;
                 </thead>
                 <tbody>
                 <?php foreach ($dto->taxonomies as $tax) : ?>
-                    <tr data-slug="<?php echo esc_attr($tax->slug); ?>" data-name="<?php echo esc_attr($tax->name); ?>">
+                    <tr data-slug="<?php echo esc_attr($tax->slug); ?>"
+                        data-name="<?php echo esc_attr($tax->name); ?>"
+                        data-display="<?php echo esc_attr($tax->display_type); ?>">
                         <td class="column-name">
                             <strong><?php echo esc_html($tax->name); ?></strong>
                             <?php if ($tax->slug === $dto->protected_tax) : ?>
@@ -85,7 +88,8 @@ $key     = $dto->subject_key;
                         </td>
                         <td><code><?php echo esc_html($tax->slug); ?></code></td>
                         <td>
-                            <a href="<?php echo admin_url("edit-tags.php?taxonomy={$tax->slug}"); ?>" class="button button-small">
+                            <a href="<?php echo admin_url("edit-tags.php?taxonomy={$tax->slug}"); ?>"
+                               class="button button-small">
                                 Термины
                             </a>
                             <?php if ($tax->slug !== $dto->protected_tax) : ?>
@@ -109,13 +113,14 @@ $key     = $dto->subject_key;
                 подставляться при создании нового задания этого типа.
             </p>
 
-            <table class="widefat fixed striped js-task-manager-table" data-subject="<?php echo esc_attr($dto->subject_key); ?>">
+            <table class="widefat fixed striped js-task-manager-table"
+                   data-subject="<?php echo esc_attr($dto->subject_key); ?>">
                 <thead>
                 <tr>
-                    <th>Тип задания (Номер)</th>
-                    <th style="width: 200px;">Визуальный шаблон</th>
-                    <th style="width: 120px;">Типовые условия</th>
-                    <th style="width: 40px;"></th>
+                    <th class="column-task-name">Тип задания (Номер)</th>
+                    <th class="column-template-select">Визуальный шаблон</th>
+                    <th class="column-actions">Типовые условия</th>
+                    <th class="status-cell"></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -128,9 +133,10 @@ $key     = $dto->subject_key;
                                 <strong><?php echo esc_html($type->description); ?></strong>
                             </td>
                             <td>
-                                <select class="js-change-term-template" style="width:100%">
+                                <select class="js-change-term-template">
                                     <?php foreach ($dto->all_templates as $tpl) : ?>
-                                        <option value="<?php echo esc_attr($tpl->id); ?>" <?php selected($type->current_template->value, (string) $tpl->id); ?>>
+                                        <option value="<?php echo esc_attr($tpl->id); ?>"
+                                                <?php selected($type->getTemplateId(), (string) $tpl->id); ?>>
                                             <?php echo esc_html($tpl->title); ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -146,7 +152,8 @@ $key     = $dto->subject_key;
                             </td>
                             <td class="status-cell">
                                 <span class="spinner" style="float:none; margin:0;"></span>
-                                <span class="dashicons dashicons-yes js-success-icon" style="display:none; color:green; margin-top:4px;"></span>
+                                <span class="dashicons dashicons-yes js-success-icon"
+                                      style="display:none; color:green; margin-top:4px;"></span>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -161,29 +168,7 @@ $key     = $dto->subject_key;
     </div>
 </div>
 
-<!-- ============================ МОДАЛЬНОЕ ОКНО ДЛЯ ТАКСОНОМИЙ ============================ -->
-<div id="fs-taxonomy-modal" class="fs-lms-modal" style="display:none;">
-    <div class="fs-lms-modal-content">
-        <h3 id="modal-title">Новая таксономия</h3>
-        <input type="hidden" id="tax-subject-key" value="<?php echo esc_attr($dto->subject_key); ?>">
-        <input type="hidden" id="tax-action" value="store">
-
-        <p>
-            <label>Название:</label><br>
-            <input type="text" id="tax-name" style="width:100%">
-        </p>
-
-        <p id="slug-container">
-            <label>Slug:</label><br>
-            <input type="text" id="tax-slug" style="width:100%">
-        </p>
-
-        <div style="text-align:right; margin-top:20px;">
-            <button class="button js-modal-close">Отмена</button>
-            <button class="button button-primary js-modal-save">Сохранить</button>
-        </div>
-    </div>
-</div>
+<?php include __DIR__ . '/components/modals/taxonomy-modal.php'; ?>
 
 <!-- ============================ СТИЛИ ============================ -->
 <style>
@@ -259,4 +244,3 @@ $key     = $dto->subject_key;
         vertical-align: middle !important;
     }
 </style>
-

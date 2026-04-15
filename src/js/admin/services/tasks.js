@@ -58,7 +58,7 @@ export const Tasks = {
 
             const requestData = {
                 action:   'update_term_template',
-                security: fs_lms_vars.security,
+                security: fs_lms_vars.subject_nonce,
                 term_id:  $row.data('term-id'),
                 template: $select.val(),
                 key:      $table.data('subject'), // Берем "test_1" из атрибута таблицы

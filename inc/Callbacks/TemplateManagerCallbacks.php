@@ -2,59 +2,36 @@
 
 namespace Inc\Callbacks;
 
-use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeBoilerplateDTO;
+use Inc\Enums\Capability;
+use Inc\Enums\Nonce;
+use Inc\Enums\TaskTemplate;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\TaskTypeRepository;
-use Inc\Enums\TaskTemplate;
 
 /**
  * Class TemplateManagerCallbacks
  *
  * AJAX-обработчики для Менеджера заданий:
  * - привязка шаблонов к типам заданий
- * - обновление шаблона конкретного термина (переехало из SubjectSettingsCallbacks)
+ * - обновление шаблона конкретного термина
  * - получение структуры полей шаблона
- * - сохранение и получение boilerplate-текста
+ * - сохранение и получение boilerplate-текста (legacy режим)
  *
  * @package Inc\Callbacks
  */
-class TemplateManagerCallbacks extends BaseController
-{
-	/**
-	 * ID шаблона по умолчанию.
-	 * Публичная — используется в TaskCreationCallbacks при назначении шаблона новому посту.
-	 *
-	 * @var TaskTemplate
-	 */
-	public const DEFAULT_TEMPLATE = TaskTemplate::STANDARD;
-
-	/**
-	 * Nonce для операций менеджера заданий.
-	 *
-	 * @var string
-	 */
-	private const NONCE_ACTION = 'fs_lms_manager_nonce';
-
-	/**
-	 * Ключ nonce в запросе.
-	 *
-	 * @var string
-	 */
-	private const NONCE_KEY = 'nonce';
-
+class TemplateManagerCallbacks {
 	/**
 	 * Конструктор.
 	 *
-	 * @param MetaBoxRepository  $metaboxes Репозиторий привязок шаблонов
+	 * @param MetaBoxRepository $metaboxes Репозиторий привязок шаблонов
 	 * @param TaskTypeRepository $taskTypes Репозиторий типов заданий
 	 */
 	public function __construct(
 		private MetaBoxRepository $metaboxes,
 		private TaskTypeRepository $taskTypes,
 	) {
-		parent::__construct();
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -62,38 +39,31 @@ class TemplateManagerCallbacks extends BaseController
 	/**
 	 * Обновляет привязку шаблона к конкретному типу задания (термину таксономии).
 	 *
-	 * Использует nonce fs_subject_nonce — вызывается из интерфейса управления предметами,
-	 * поэтому имеет собственную авторизацию вместо общего authorize().
+	 * Используется в интерфейсе управления предметами.
 	 *
 	 * @return void
 	 */
-	public function updateTaskTemplate(): void
-	{
-		// Проверка nonce для защиты от CSRF (используется nonce предметов)
-		check_ajax_referer('fs_subject_nonce', 'security');
-
-		// Проверка прав доступа (только администраторы)
-		if (!current_user_can(self::ADMIN_CAPABILITY)) {
-			wp_send_json_error('Нет прав', 403);
-		}
+	public function ajaxUpdateTermTemplate(): void {
+		// Проверка прав доступа и nonce
+		$this->authorize();
 
 		// Получение и валидация данных
-		$term_id     = absint($_POST['term_id'] ?? 0);
-		$template_id = sanitize_text_field(wp_unslash($_POST['template'] ?? ''));
+		$term_id     = absint( $_POST['term_id'] ?? 0 );
+		$template_id = sanitize_text_field( wp_unslash( $_POST['template'] ?? '' ) );
 
-		if (!$term_id || !$template_id) {
-			wp_send_json_error('Недостаточно данных для обновления');
+		if ( ! $term_id || ! $template_id ) {
+			wp_send_json_error( 'Недостаточно данных для обновления' );
 		}
 
 		// Получение объекта термина
-		$term = get_term($term_id);
+		$term = get_term( $term_id );
 
-		if (!$term || is_wp_error($term)) {
-			wp_send_json_error('Тип задания не найден в WordPress');
+		if ( ! $term || is_wp_error( $term ) ) {
+			wp_send_json_error( 'Тип задания не найден в WordPress' );
 		}
 
 		// Извлечение ключа предмета из таксономии: "phys_task_number" → "phys"
-		$subject_key = str_replace('_task_number', '', $term->taxonomy);
+		$subject_key = str_replace( '_task_number', '', $term->taxonomy );
 
 		// Сохранение привязки через репозиторий
 		$success = $this->metaboxes->updateAssignment(
@@ -102,40 +72,11 @@ class TemplateManagerCallbacks extends BaseController
 			$template_id
 		);
 
-		if (!$success) {
-			wp_send_json_error('Ошибка сохранения шаблона');
+		if ( ! $success ) {
+			wp_send_json_error( 'Ошибка сохранения шаблона' );
 		}
 
-		wp_send_json_success("Шаблон для задания №{$term->slug} успешно сохранён!");
-	}
-
-	/**
-	 * Сохраняет привязку шаблона к типу задания в Менеджере заданий.
-	 *
-	 * @return void
-	 */
-	public function saveTemplateAssignment(): void
-	{
-		// Проверка прав доступа и nonce
-		$this->authorize();
-
-		// Получение и валидация данных
-		$subject_key = sanitize_text_field(wp_unslash($_POST['subject_key'] ?? ''));
-		$task_number = sanitize_text_field(wp_unslash($_POST['task_number'] ?? ''));
-		$template_id = sanitize_text_field(wp_unslash($_POST['template_id'] ?? ''));
-
-		if (!$subject_key || !$task_number) {
-			wp_send_json_error('Некорректные данные');
-		}
-
-		// Сохранение привязки через репозиторий
-		$success = $this->metaboxes->updateAssignment($subject_key, $task_number, $template_id);
-
-		if (!$success) {
-			wp_send_json_error('Ошибка сохранения настроек');
-		}
-
-		wp_send_json_success(['message' => 'Настройки сохранены']);
+		wp_send_json_success( "Шаблон для задания №{$term->slug} успешно сохранён!" );
 	}
 
 	/**
@@ -146,33 +87,31 @@ class TemplateManagerCallbacks extends BaseController
 	 *
 	 * @return void
 	 */
-	public function ajaxGetTemplateStructure(): void
-	{
+	public function ajaxGetTemplateStructure(): void {
 		// Проверка прав доступа и nonce
 		$this->authorize();
 
 		// Получение и валидация данных из GET-запроса
-		$subject_key = sanitize_text_field(wp_unslash($_GET['subject_key'] ?? ''));
-		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
+		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
+		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
 
-		if (!$subject_key || !$term_slug) {
-			wp_send_json_error('Недостаточно данных 1');
+		if ( ! $subject_key || ! $term_slug ) {
+			wp_send_json_error( 'Недостаточно данных' );
 		}
 
 		// Получаем объект привязки из БД
-		$assignment = $this->metaboxes->getAssignment($subject_key, $term_slug);
+		$assignment = $this->metaboxes->getAssignment( $subject_key, $term_slug );
 
-		// Определяем шаблон через Enum (это и есть наш "источник правды")
-		$template = TaskTemplate::tryFrom($assignment->template_id ?? '')
-		            ?? self::DEFAULT_TEMPLATE;
+		// Определяем шаблон через Enum (метод fromDatabase обрабатывает строку или null)
+		$template = TaskTemplate::fromDatabase( $assignment->template_id ?? '' );
 
 		// Получаем имя класса из Enum
 		$class_name = $template->class();
 
 		try {
 			// Прямое создание объекта (вместо поиска в фильтрах)
-			if (!class_exists($class_name)) {
-				throw new \Exception("Класс шаблона {$class_name} не найден.");
+			if ( ! class_exists( $class_name ) ) {
+				throw new \Exception( "Класс шаблона {$class_name} не найден." );
 			}
 
 			/** @var \Inc\MetaBoxes\Templates\BaseTemplate $template_obj */
@@ -184,51 +123,50 @@ class TemplateManagerCallbacks extends BaseController
 			// Фильтрация: оставляем только ConditionField-поля
 			$condition_fields = array_filter(
 				$all_fields,
-				static fn($config) => isset($config['object'])
-				                      && $config['object'] instanceof ConditionField
+				static fn( $config ) => isset( $config['object'] )
+				                        && $config['object'] instanceof ConditionField
 			);
 
 			// Отдаём только данные (id, label)
-			$structure = array_values(array_map(
-				static fn(string $key, array $config): array => [
+			$structure = array_values( array_map(
+				static fn( string $key, array $config ): array => [
 					'id'    => $key,
 					'label' => $config['label'],
 				],
-				array_keys($condition_fields),
+				array_keys( $condition_fields ),
 				$condition_fields
-			));
+			) );
 
-			wp_send_json_success(['fields' => $structure]);
-		} catch (\Throwable $e) {
-			if (defined('WP_DEBUG') && WP_DEBUG) {
-				error_log('FS LMS TemplateManagerCallbacks: ' . $e->getMessage());
+			wp_send_json_success( [ 'fields' => $structure ] );
+		} catch ( \Throwable $e ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'FS LMS TemplateManagerCallbacks: ' . $e->getMessage() );
 			}
-			wp_send_json_error('Ошибка загрузки структуры: ' . $e->getMessage());
+			wp_send_json_error( 'Ошибка загрузки структуры: ' . $e->getMessage() );
 		}
 	}
 
 	/**
-	 * Сохраняет boilerplate-текст для типа задания.
+	 * Сохраняет boilerplate-текст для типа задания (legacy режим).
 	 *
 	 * Использует фиксированный uid 'default' — этот метод работает
-	 * в режиме "один boilerplate на тип задания" (legacy Менеджер заданий).
+	 * в режиме "один boilerplate на тип задания".
 	 * Полноценный CRUD с несколькими вариантами — в BoilerplateCallbacks.
 	 *
 	 * @return void
 	 */
-	public function ajaxSaveBoilerplate(): void
-	{
+	public function ajaxSaveTaskBoilerplate(): void {
 		// Проверка прав доступа и nonce
 		$this->authorize();
 
 		// Получение и валидация данных
-		$subject_key = sanitize_text_field(wp_unslash($_POST['subject_key'] ?? ''));
-		$term_slug   = sanitize_text_field(wp_unslash($_POST['term_slug'] ?? ''));
+		$subject_key = sanitize_text_field( wp_unslash( $_POST['subject_key'] ?? '' ) );
+		$term_slug   = sanitize_text_field( wp_unslash( $_POST['term_slug'] ?? '' ) );
 		// wp_unslash обязателен для корректного хранения HTML/JSON из редактора
-		$text = wp_kses_post(wp_unslash($_POST['text'] ?? ''));
+		$text = wp_kses_post( wp_unslash( $_POST['text'] ?? '' ) );
 
-		if (!$subject_key || !$term_slug) {
-			wp_send_json_error('Недостаточно данных 4');
+		if ( ! $subject_key || ! $term_slug ) {
+			wp_send_json_error( 'Недостаточно данных' );
 		}
 
 		// Фиксированный uid гарантирует обновление, а не создание нового варианта
@@ -242,40 +180,39 @@ class TemplateManagerCallbacks extends BaseController
 		);
 
 		// Сохранение через репозиторий
-		$success = $this->taskTypes->updateBoilerplate($dto);
+		$success = $this->taskTypes->updateBoilerplate( $dto );
 
-		if (!$success) {
-			wp_send_json_error('Ошибка сохранения типового условия');
+		if ( ! $success ) {
+			wp_send_json_error( 'Ошибка сохранения типового условия' );
 		}
 
-		wp_send_json_success(['message' => 'Типовое условие сохранено']);
+		wp_send_json_success( [ 'message' => 'Типовое условие сохранено' ] );
 	}
 
 	/**
-	 * Возвращает дефолтный boilerplate для типа задания.
+	 * Возвращает дефолтный boilerplate для типа задания (legacy режим).
 	 *
 	 * @return void
 	 */
-	public function ajaxGetBoilerplate(): void
-	{
+	public function ajaxGetBoilerplate(): void {
 		// Проверка прав доступа и nonce
 		$this->authorize();
 
 		// Получение и валидация данных из GET-запроса
-		$subject_key = sanitize_text_field(wp_unslash($_GET['subject_key'] ?? ''));
-		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
+		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
+		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
 
-		if (!$subject_key || !$term_slug) {
-			wp_send_json_error('Недостаточно данных 5');
+		if ( ! $subject_key || ! $term_slug ) {
+			wp_send_json_error( 'Недостаточно данных' );
 		}
 
 		// Репозиторий сам знает, как найти дефолтный вариант
-		$result = $this->taskTypes->getDefaultBoilerplate($subject_key, $term_slug);
+		$result = $this->taskTypes->getDefaultBoilerplate( $subject_key, $term_slug );
 
-		wp_send_json_success([
+		wp_send_json_success( [
 			'text' => $result?->content ?? '',
 			'uid'  => $result?->uid ?? null,
-		]);
+		] );
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
@@ -286,14 +223,13 @@ class TemplateManagerCallbacks extends BaseController
 	 *
 	 * @return void
 	 */
-	private function authorize(): void
-	{
+	private function authorize(): void {
 		// Проверка nonce для защиты от CSRF
-		check_ajax_referer(self::NONCE_ACTION, self::NONCE_KEY);
+		Nonce::Subject->verify( 'security' );
 
 		// Проверка прав доступа (только администраторы)
-		if (!current_user_can(self::ADMIN_CAPABILITY)) {
-			wp_send_json_error('Доступ запрещён', 403);
+		if ( ! current_user_can( Capability::ADMIN->value ) ) {
+			wp_send_json_error( 'У вас недостаточно прав', 403 );
 		}
 	}
 }

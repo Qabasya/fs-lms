@@ -14,8 +14,7 @@ use Inc\Enums\TaskTemplate;
  *
  * @package Inc\DTO
  */
-class TaskTypeDTO
-{
+class TaskTypeDTO {
 	/**
 	 * Отображаемое название типа задания (берётся из описания термина).
 	 *
@@ -26,11 +25,12 @@ class TaskTypeDTO
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param int          $id               ID термина таксономии
-	 * @param string       $slug             Слаг термина (например, "1", "2")
-	 * @param string       $taxonomy         Имя таксономии (например, "math_task_number")
-	 * @param string       $description      Описание термина (отображаемое название)
-	 * @param TaskTemplate $current_template Текущий шаблон для этого типа задания
+	 * @param int $id ID термина таксономии
+	 * @param string $slug Слаг термина (например, "1", "2")
+	 * @param string $taxonomy Имя таксономии (например, "math_task_number")
+	 * @param string $description Описание термина (отображаемое название)
+	 * @param TaskTemplate $current_template Текущий шаблон для этого типа задания (enum)
+	 * @param string $raw_id Строковый ID шаблона для обратной совместимости
 	 */
 	public function __construct(
 		public readonly int $id,
@@ -38,6 +38,7 @@ class TaskTypeDTO
 		public readonly string $taxonomy,
 		public readonly string $description,
 		public readonly TaskTemplate $current_template,
+		public readonly string $raw_id
 	) {
 		$this->name = $description;
 	}
@@ -50,8 +51,7 @@ class TaskTypeDTO
 	 *
 	 * @return string Строковый идентификатор шаблона (например, "standard_task")
 	 */
-	public function getTemplateId(): string
-	{
-		return $this->current_template->value;
+	public function getTemplateId(): string {
+		return $this->raw_id;
 	}
 }

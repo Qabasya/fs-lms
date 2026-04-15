@@ -1,15 +1,17 @@
-export const Modal = {
+const $ = jQuery;
+
+export const SubjectModal = {
     init() {
-        const $ = jQuery;
-        const $modal = $('#fs-subject-modal');
+        this.$modal = $('#fs-subject-modal');
+        if (!this.$modal.length) return;
 
-        if (!$modal.length) return;
-
-        $('#open-subject-modal').on('click', () => $modal.fadeIn(200));
-        $('.fs-close').on('click', () => $modal.fadeOut(200));
-
+        $('#open-subject-modal').on('click', () => this.open());
+        this.$modal.on('click', '.fs-close', () => this.close());
         $(window).on('click', (e) => {
-            if ($(e.target).is($modal)) $modal.fadeOut(200);
+            if ($(e.target).is(this.$modal)) this.close();
         });
-    }
+    },
+
+    open()  { this.$modal.fadeIn(200); },
+    close() { this.$modal.fadeOut(200); },
 };

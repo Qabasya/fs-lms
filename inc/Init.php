@@ -11,13 +11,12 @@ use Inc\Controllers\TaskCreationController;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
 
-
 /**
  * Class Init
  *
  * Точка входа для инициализации всех сервисов плагина.
  *
- * Реализует паттерн ServiceInterface Registry — централизованно управляет
+ * Реализует паттерн Service Registry — централизованно управляет
  * списком всех сервисов, которые необходимо зарегистрировать.
  *
  * Использует DI-контейнер для автоматического разрешения зависимостей
@@ -29,7 +28,8 @@ use Inc\Core\Enqueue;
  * // Запуск плагина
  * Init::run();
  */
-final class Init {
+final class Init
+{
 	/**
 	 * Возвращает список всех сервисов плагина.
 	 *
@@ -38,14 +38,15 @@ final class Init {
 	 *
 	 * @return array<int, class-string<ServiceInterface>> Массив имён классов сервисов
 	 */
-	public static function getServices(): array {
+	public static function getServices(): array
+	{
 		return [
-			Enqueue::class,      // Подключение скриптов и стилей
-			AdminController::class,        // Административное меню
-			SubjectController::class,    // Пользовательские типы записей
-			MetaBoxController::class,
-			TaskCreationController::class,
-			BoilerplateController::class
+			Enqueue::class,           // Подключение скриптов и стилей
+			AdminController::class,   // Административное меню
+			SubjectController::class, // Управление предметами и CPT
+			MetaBoxController::class, // Метабоксы заданий
+			TaskCreationController::class, // Создание заданий
+			BoilerplateController::class,  // Типовые условия (boilerplate)
 		];
 	}
 
@@ -60,14 +61,15 @@ final class Init {
 	 *
 	 * @return void
 	 */
-	public static function run(): void {
+	public static function run(): void
+	{
 		$container = new Container();
 
-		foreach ( self::getServices() as $class ) {
-			$service = $container->get( $class );
+		foreach (self::getServices() as $class) {
+			$service = $container->get($class);
 
 			// Проверяем, что объект реализует интерфейс ServiceInterface
-			if ( $service instanceof ServiceInterface ) {
+			if ($service instanceof ServiceInterface) {
 				$service->register();
 			}
 		}

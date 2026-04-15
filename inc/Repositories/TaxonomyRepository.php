@@ -3,8 +3,8 @@
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\Core\PluginConfig;
 use Inc\DTO\TaxonomyDataDTO;
+use Inc\Enums\OptionName;
 
 /**
  * Class TaxonomyRepository
@@ -31,7 +31,7 @@ class TaxonomyRepository implements RepositoryInterface {
 	 *
 	 * @var string
 	 */
-	private string $option_name = PluginConfig::TAXONOMY_OPTION_NAME;
+	private string $option_name = OptionName::TAXONOMY->value;
 
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.
@@ -100,9 +100,10 @@ class TaxonomyRepository implements RepositoryInterface {
 			$all[ $subject_key ] = [];
 		}
 
-		// Сохраняем в базу только необходимые поля (массивом)
+
 		$all[ $subject_key ][ $tax_slug ] = [
-			'name' => sanitize_text_field( $data['name'] ?? '' )
+			'name'         => sanitize_text_field( $data['name'] ?? '' ),
+			'display_type' => sanitize_text_field( $data['display_type'] ?? 'select' ),
 		];
 
 		// Сохраняем обновлённый массив в опции WordPress
@@ -159,6 +160,36 @@ class TaxonomyRepository implements RepositoryInterface {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Удалить все таксономии указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return bool Успешность операции
+	 */
+	public function deleteBySubject( string $subject_key ): bool {
+		$all = $this->getRaw();
+
+		if ( ! isset( $all[ $subject_key ] ) ) {
+			return true;
+		}
+
+		unset( $all[ $subject_key ] );
+
+		return update_option( $this->option_name, $all );
+	}
+
+	/**
+	 * Вернуть сырые данные таксономий указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return array<string, array{name: string, display_type: string}>
+	 */
+	public function getRawForSubject( string $subject_key ): array {
+		return $this->getRaw()[ $subject_key ] ?? [];
 	}
 
 	/**

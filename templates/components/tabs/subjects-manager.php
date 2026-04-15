@@ -12,6 +12,8 @@ if ( isset( $_GET['tab'] ) ) {
 
     <h1 class="wp-heading-inline">Активные предметы</h1>
     <a class="page-title-action" id="open-subject-modal">Добавить предмет</a>
+    <a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
+    <input type="file" id="fs-import-file" accept=".json" style="display:none;">
 
     <?php settings_errors(); ?>
 
@@ -133,7 +135,11 @@ if ( isset( $_GET['tab'] ) ) {
 
                             <input type="hidden" name="key" value="">
 
-                            <?php wp_nonce_field( 'fs_subject_nonce', 'security' ); ?>
+                            <?php
+                            use Inc\Enums\Nonce;
+
+                            wp_nonce_field( Nonce::Subject->value, 'security' );
+                            ?>
 
                         </div>
 

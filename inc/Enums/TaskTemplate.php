@@ -2,9 +2,9 @@
 
 namespace Inc\Enums;
 
+use Inc\MetaBoxes\Templates\CommonConditionTemplate;
 use Inc\MetaBoxes\Templates\StandardTaskTemplate;
 use Inc\MetaBoxes\Templates\ThreeInOneTemplate;
-use Inc\MetaBoxes\Templates\CommonConditionTemplate;
 
 /**
  * Enum TaskTemplate
@@ -19,22 +19,49 @@ use Inc\MetaBoxes\Templates\CommonConditionTemplate;
  *
  * @package Inc\Enums
  */
-enum TaskTemplate: string
-{
+enum TaskTemplate: string {
 	/**
-	 * Одно условие
+	 * Стандартное задание с одним условием.
 	 */
 	case STANDARD = 'standard_task';
 
 	/**
-	 * Три условия
+	 * Задание "Три в одном" (для ЕГЭ 19-21).
 	 */
 	case TRIPLE = 'triple_task';
 
 	/**
-	 * Два условия (одно не меняется)
+	 * Задание с общим (неизменяемым) условием.
 	 */
 	case COMMON = 'common_standard_task';
+
+	/**
+	 * Умный конструктор Enum с фолбеком на STANDARD.
+	 *
+	 * Если в БД сохранён ID шаблона, которого нет в списке
+	 * (например, кастомный шаблон номера), приводим его к STANDARD,
+	 * чтобы не ломать интерфейс.
+	 *
+	 * @param string|null $value Строковое значение из БД
+	 *
+	 * @return self Соответствующий кейс или STANDARD по умолчанию
+	 */
+	public static function fromDatabase( ?string $value ): self {
+		// Если значение пустое — возвращаем STANDARD
+		if ( ! $value ) {
+			return self::STANDARD;
+		}
+
+		// Пытаемся найти точное совпадение
+		$tryCase = self::tryFrom( $value );
+
+		if ( $tryCase ) {
+			return $tryCase;
+		}
+
+		// Если это не TRIPLE и не COMMON — считаем стандартным визуальным редактором
+		return self::STANDARD;
+	}
 
 	/**
 	 * Возвращает FQCN (полное имя класса) шаблона.
@@ -44,12 +71,11 @@ enum TaskTemplate: string
 	 *
 	 * @return string Полное имя класса шаблона
 	 */
-	public function class(): string
-	{
-		return match ($this) {
+	public function class(): string {
+		return match ( $this ) {
 			self::STANDARD => StandardTaskTemplate::class,
-			self::TRIPLE   => ThreeInOneTemplate::class,
-			self::COMMON   => CommonConditionTemplate::class,
+			self::TRIPLE => ThreeInOneTemplate::class,
+			self::COMMON => CommonConditionTemplate::class,
 		};
 	}
 
@@ -60,12 +86,11 @@ enum TaskTemplate: string
 	 *
 	 * @return string Название шаблона
 	 */
-	public function label(): string
-	{
-		return match ($this) {
+	public function label(): string {
+		return match ( $this ) {
 			self::STANDARD => 'Стандартное задание',
-			self::TRIPLE   => 'Три в одном (ЕГЭ 19-21)',
-			self::COMMON   => 'Общее условие',
+			self::TRIPLE => 'Три в одном (ЕГЭ 19-21)',
+			self::COMMON => 'Общее условие',
 		};
 	}
 }

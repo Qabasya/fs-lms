@@ -18,16 +18,19 @@
 
             <div class="fs-form-group">
                 <label for="subj_tasks_count">Количество типов заданий
-                    (от <?php echo Inc\Core\BaseController::MIN_TASKS_COUNT; ?>
-                    до <?php echo Inc\Core\BaseController::MAX_TASKS_COUNT; ?>)</label>
+                    (от 1 до 100)</label>
                 <input class="regular-text" type="number" id="subj_tasks_count" name="tasks_count"
-                       min="<?php echo Inc\Core\BaseController::MIN_TASKS_COUNT; ?>"
-                       max="<?php echo Inc\Core\BaseController::MAX_TASKS_COUNT; ?>"
+                       min="1"
+                       max="100"
                        value="1" required>
                 <p class="description">Сколько уникальных номеров заданий будет в курсе.</p>
             </div>
 
-			<?php wp_nonce_field( 'fs_subject_nonce', 'security' ); ?>
+            <?php
+            use Inc\Enums\Nonce;
+
+            wp_nonce_field( Nonce::Subject->value, 'security' );
+            ?>
             <button type="submit" class="button button-primary">Создать предмет и CPT</button>
         </form>
     </div>

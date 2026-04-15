@@ -3,9 +3,9 @@
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\Core\PluginConfig;
 use Inc\DTO\TaskTemplateAssignmentDTO;
 use Inc\DTO\TaskTypeDTO;
+use Inc\Enums\OptionName;
 use Inc\Enums\TaskTemplate;
 
 /**
@@ -35,7 +35,7 @@ class MetaBoxRepository implements RepositoryInterface {
 	 *
 	 * @var string
 	 */
-	private string $option_name = PluginConfig::METABOXES_OPTION_NAME;
+	private string $option_name = OptionName::METABOXES->value;
 
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.
@@ -199,6 +199,36 @@ class MetaBoxRepository implements RepositoryInterface {
 	}
 
 	/**
+	 * Удалить все привязки шаблонов для указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return bool Успешность операции
+	 */
+	public function deleteBySubject( string $subject_key ): bool {
+		$all = $this->getRaw();
+
+		if ( ! isset( $all[ $subject_key ] ) ) {
+			return true;
+		}
+
+		unset( $all[ $subject_key ] );
+
+		return update_option( $this->option_name, $all );
+	}
+
+	/**
+	 * Вернуть сырые данные привязок шаблонов для указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return array<string, string>
+	 */
+	public function getRawForSubject( string $subject_key ): array {
+		return $this->getRaw()[ $subject_key ] ?? [];
+	}
+
+	/**
 	 * Полностью очистить все привязки заданий к шаблонам.
 	 *
 	 * Удаляет опцию из базы данных целиком.
@@ -239,15 +269,19 @@ class MetaBoxRepository implements RepositoryInterface {
 			function ( $term ) use ( $subject_key ): TaskTypeDTO {
 				$assignment = $this->getAssignment( $subject_key, $term->slug );
 
-				$template_enum = TaskTemplate::tryFrom( $assignment->template_id ?? '' )
-				                 ?? TaskTemplate::STANDARD;
+				// 1. Берем ID из базы (строка)
+				$db_id = $assignment ? $assignment->template_id : 'standard_task';
+
+				// 2. Получаем Enum только для логики (boilerplate)
+				$template_enum = TaskTemplate::fromDatabase( $db_id );
 
 				return new TaskTypeDTO(
 					$term->term_id,
 					$term->slug,
 					$term->taxonomy,
 					$term->description,
-					$template_enum
+					$template_enum, // Для логики
+					$db_id          // Для селекта (raw_id)
 				);
 			},
 			$terms

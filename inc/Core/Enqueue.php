@@ -3,6 +3,7 @@
 namespace Inc\Core;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\Nonce;
 
 /**
  * Class Enqueue
@@ -76,7 +77,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		if ( is_admin() && $screen && str_contains( $screen->post_type, '_tasks' ) ) {
 			wp_localize_script( $script_handle, 'fsTaskData', [
 				'ajax_url'    => admin_url( 'admin-ajax.php' ),      // URL для AJAX-запросов
-				'nonce'       => wp_create_nonce( 'fs_task_creation_nonce' ), // Nonce для безопасности
+				'nonce'       => Nonce::TaskCreation->create(),
 				'subject_key' => str_replace( '_tasks', '', $screen->post_type ), // Ключ предмета из CPT
 				'post_type'   => $screen->post_type               // Тип поста задания
 			] );
@@ -86,8 +87,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// Используем тот же идентификатор скрипта для локализации
 		wp_localize_script( $script_handle, 'fs_lms_vars', [
 			'ajaxurl'       => admin_url( 'admin-ajax.php' ),
-			'security'      => wp_create_nonce( 'fs_subject_nonce' ),      // Для CRUD предметов
-			'manager_nonce' => wp_create_nonce( 'fs_lms_manager_nonce' )   // Для Менеджера заданий (Tab 4)
+			'subject_nonce'      => Nonce::Subject->create(),
+			'manager_nonce' => Nonce::Manager->create()
 		] );
 	}
 

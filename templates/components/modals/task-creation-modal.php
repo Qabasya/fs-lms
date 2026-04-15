@@ -8,6 +8,9 @@
  *
  * @var string $subject_key Ключ текущего предмета (например, "math")
  */
+
+use Inc\Enums\Nonce;
+
 ?>
 
 <div id="fs-task-modal" class="fs-modal-overlay" style="display: none;">
@@ -19,7 +22,7 @@
 
         <form id="fs-task-creation-form">
             <!-- Nonce для защиты от CSRF -->
-            <?php wp_nonce_field('fs_task_creation_nonce', 'nonce'); ?>
+            <?php wp_nonce_field( Nonce::TaskCreation->value, 'nonce' ); ?>
 
             <!-- Скрытое поле с ключом предмета -->
             <input type="hidden" name="subject_key" id="fs-modal-subject" value="<?php echo esc_attr($subject_key ?? ''); ?>">

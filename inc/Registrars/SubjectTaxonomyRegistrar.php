@@ -77,7 +77,7 @@ class SubjectTaxonomyRegistrar {
 	 *
 	 * @return self Для цепочки вызовов
 	 */
-	public function addStandardTaxonomy( string $slug, array|string $post_types, string $plural, string $singular ): self {
+	public function addStandardTaxonomy( string $slug, array|string $post_types, string $plural, string $singular, string $display_type = 'select' ): self {
 		return $this->addTaxonomy( $slug, $post_types, [
 			'labels'            => [
 				'name'              => $plural,
@@ -97,9 +97,63 @@ class SubjectTaxonomyRegistrar {
 			'hierarchical'      => false,
 			'show_ui'           => true,
 			'show_admin_column' => true,
-			'show_in_rest'      => true, // Для поддержки Gutenberg
+			'show_in_rest'      => true,
 			'rewrite'           => [ 'slug' => $slug ],
+			'meta_box_cb'       => $this->buildMetaBoxCallback( $display_type ),
 		] );
+	}
+
+	private function buildMetaBoxCallback( string $display_type ): callable {
+		return static function ( \WP_Post $post, array $box ) use ( $display_type ): void {
+			$taxonomy = $box['args']['taxonomy'];
+			$terms    = get_terms( [ 'taxonomy' => $taxonomy, 'hide_empty' => false ] );
+
+			if ( is_wp_error( $terms ) || empty( $terms ) ) {
+				printf(
+					'<p><a href="%s">Добавить термины</a></p>',
+					esc_url( admin_url( "edit-tags.php?taxonomy={$taxonomy}" ) )
+				);
+				return;
+			}
+
+			$current       = wp_get_post_terms( $post->ID, $taxonomy );
+			$current_slugs = is_wp_error( $current ) ? [] : wp_list_pluck( $current, 'slug' );
+
+			echo '<div class="fs-lms-tax-field">';
+
+			if ( $display_type === 'radio' ) {
+				printf( '<input type="hidden" name="tax_input[%s][]" value="">', esc_attr( $taxonomy ) );
+				foreach ( $terms as $term ) {
+					$checked = in_array( $term->slug, $current_slugs, true ) ? 'checked' : '';
+					printf(
+						'<label style="display:block;margin:3px 0"><input type="radio" name="tax_input[%s][]" value="%s" %s> %s</label>',
+						esc_attr( $taxonomy ), esc_attr( $term->slug ), $checked, esc_html( $term->name )
+					);
+				}
+			} elseif ( $display_type === 'checkbox' ) {
+				printf( '<input type="hidden" name="tax_input[%s][]" value="">', esc_attr( $taxonomy ) );
+				foreach ( $terms as $term ) {
+					$checked = in_array( $term->slug, $current_slugs, true ) ? 'checked' : '';
+					printf(
+						'<label style="display:block;margin:3px 0"><input type="checkbox" name="tax_input[%s][]" value="%s" %s> %s</label>',
+						esc_attr( $taxonomy ), esc_attr( $term->slug ), $checked, esc_html( $term->name )
+					);
+				}
+			} else {
+				printf( '<select name="tax_input[%s][]" style="width:100%%">', esc_attr( $taxonomy ) );
+				echo '<option value="">— Не выбрано —</option>';
+				foreach ( $terms as $term ) {
+					$selected = in_array( $term->slug, $current_slugs, true ) ? 'selected' : '';
+					printf(
+						'<option value="%s" %s>%s</option>',
+						esc_attr( $term->slug ), $selected, esc_html( $term->name )
+					);
+				}
+				echo '</select>';
+			}
+
+			echo '</div>';
+		};
 	}
 
 	/**

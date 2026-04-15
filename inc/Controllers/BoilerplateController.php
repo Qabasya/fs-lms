@@ -5,6 +5,7 @@ namespace Inc\Controllers;
 use Inc\Callbacks\BoilerplateCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\AjaxHook;
 use Inc\Repositories\TaskTypeRepository;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -30,14 +31,14 @@ class BoilerplateController extends BaseController implements ServiceInterface
 	/**
 	 * Конструктор.
 	 *
-	 * @param TaskTypeRepository   $taskTypes  Репозиторий типов заданий
-	 * @param MetaBoxRepository    $metaboxes  Репозиторий метабоксов
-	 * @param BoilerplateCallbacks $callbacks  Коллбеки для AJAX-операций
+	 * @param TaskTypeRepository   $taskTypes            Репозиторий типов заданий
+	 * @param MetaBoxRepository    $metaboxes            Репозиторий метабоксов
+	 * @param BoilerplateCallbacks $boilerplateCallbacks Коллбеки для AJAX-операций
 	 */
 	public function __construct(
 		private readonly TaskTypeRepository $taskTypes,
 		private readonly MetaBoxRepository $metaboxes,
-		private readonly BoilerplateCallbacks $callbacks,
+		private readonly BoilerplateCallbacks $boilerplateCallbacks,
 	) {
 		parent::__construct();
 	}
@@ -51,11 +52,8 @@ class BoilerplateController extends BaseController implements ServiceInterface
 	 */
 	public function register(): void
 	{
-		// Регистрация AJAX-обработчика для сохранения boilerplate
-		add_action('wp_ajax_save_boilerplate', [$this->callbacks, 'ajaxSave']);
-
-		// Регистрация AJAX-обработчика для удаления boilerplate
-		add_action('wp_ajax_delete_boilerplate', [$this->callbacks, 'ajaxDelete']);
+		// Регистрация AJAX-обработчиков
+		$this->registerAjaxHooks();
 	}
 
 	// ============================ ОТОБРАЖЕНИЕ ============================ //
@@ -87,6 +85,28 @@ class BoilerplateController extends BaseController implements ServiceInterface
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
+
+	/**
+	 * Регистрирует AJAX-обработчики для операций с boilerplate.
+	 *
+	 * @return void
+	 */
+	private function registerAjaxHooks(): void
+	{
+		// Список хуков для регистрации
+		$hooks = [
+			AjaxHook::SaveBoilerplate,   // Сохранение boilerplate
+			AjaxHook::DeleteBoilerplate, // Удаление boilerplate
+		];
+
+		// Регистрация каждого хука
+		foreach ($hooks as $hook) {
+			add_action(
+				$hook->action(),                                    // Название AJAX-действия
+				[$this->boilerplateCallbacks, $hook->callbackMethod()] // Коллбек для обработки
+			);
+		}
+	}
 
 	/**
 	 * Отрисовывает список boilerplate-шаблонов для указанного типа задания.
@@ -138,7 +158,7 @@ class BoilerplateController extends BaseController implements ServiceInterface
 		// Получение ID шаблона для определения доступных полей условий
 		$assignment  = $this->metaboxes->getAssignment($subject_key, $term_slug);
 		$template_id = ($assignment && !empty($assignment->template_id))
-			? $assignment->template_id
+			? ($assignment->template_id instanceof \UnitEnum ? $assignment->template_id->name : $assignment->template_id)
 			: 'standard_task';
 
 		// Рендеринг шаблона редактора

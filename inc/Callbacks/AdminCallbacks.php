@@ -8,23 +8,13 @@ use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaskTypeRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
-
 /**
  * Class AdminCallbacks
  *
  * Обработчики (коллбеки) для административной панели WordPress.
  *
  * Отвечает за:
- * - Рендеринг страниц админ-панели (adminDashboard)
- * - AJAX-обработку CRUD операций с предметами (store, update, delete)
- *
- * Если планируешь добавить новое действие, то:
- * 1. Зарегистрируй его работу в SubjectRepository
- * 2. Добавь хук AJAX
- * 3. Проверь алгоритм, добавь действие в проверку на существование предмета, проверь правила перезаписи
- * 4. Вызови зарегистрированный в репозитории метод через performRepositoryAction()
- * 5. Добавь сообщение пользователю в getSuccessMessage()
- * 6. Добавь AJAX обработчик
+ * - Рендеринг страниц админ-панели (Dashboard, Настройки, Boilerplate)
  *
  * @package Inc\Callbacks
  *
@@ -36,9 +26,9 @@ class AdminCallbacks extends BaseController {
 	/**
 	 * Конструктор.
 	 *
-	 * Инициализирует репозиторий предметов и регистрирует AJAX-обработчики.
-	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
+	 * @param TaskTypeRepository $taskTypes Репозиторий типов заданий
+	 * @param BoilerplateController $boilerplateController Контроллер для страницы boilerplate
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -48,29 +38,38 @@ class AdminCallbacks extends BaseController {
 		parent::__construct();
 	}
 
-
 	/**
-	 * Метод для пустой главной страницы (Dashboard)
+	 * Метод для главной страницы (Dashboard).
+	 *
+	 * @return void
 	 */
 	public function adminDashboard(): void {
-		// Временная заглушка
+		// Временная заглушка, будет заменена на реальный дашборд
 		echo '<div class="wrap"><h1>Dashboard</h1><p>Данные о предметах</p></div>';
 	}
 
 	/**
-	 * Страница настроек (там добавляем предметы и прочее)
+	 * Страница настроек (добавление предметов и прочее).
+	 *
+	 * @return void
 	 */
 	public function settingsPage(): void {
+		// Получение всех предметов из репозитория
 		$all_subjects = $this->subjects->readAll();
+
+		// Рендеринг шаблона настроек с переданными данными
 		$this->render( 'settings', [ 'subjects' => $all_subjects ] );
 	}
 
 	/**
-	 * Метод-прослойка. Всю грязную работу теперь делает BoilerplateController.
+	 * Метод-прослойка для страницы управления типовыми условиями (boilerplate).
+	 *
+	 * Вся логика отображения (список, создание, редактирование)
+	 * делегируется BoilerplateController.
+	 *
+	 * @return void
 	 */
 	public function boilerplatePage(): void {
 		$this->boilerplateController->displayPage();
 	}
-
-
 }

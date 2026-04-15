@@ -1,0 +1,45 @@
+// src/scss/admin/components/_task-manager.scss
+
+.js-task-manager-table {
+  margin-top: 20px;
+  width: 100%; // Таблица всегда занимает всю ширину контейнера
+  border-collapse: collapse;
+
+  thead {
+    th {
+      padding: 12px 10px;
+      font-weight: 600;
+      text-align: left;
+      border-bottom: 2px solid #e2e4e7;
+    }
+  }
+
+  // Распределяем ширину колонок в процентах
+  .column-task-name {
+    width: 45%; // Самая широкая колонка с текстом
+  }
+
+  .column-template-select {
+    width: 35%; // Отводим достаточно места под выпадающий список
+
+    select {
+      width: 100%; // Селект занимает всю ширину своей колонки
+      max-width: 350px; // Но не становится огромным
+    }
+  }
+
+  .column-actions {
+    width: 15%; // Компактная колонка для кнопки
+    white-space: nowrap; // Чтобы кнопка не переносилась на новую строку
+  }
+
+  .status-cell {
+    width: 5%; // Минимальное место для спиннера
+    text-align: center;
+  }
+
+  tbody td {
+    padding: 10px;
+    vertical-align: middle;
+  }
+}
