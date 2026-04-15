@@ -7,11 +7,11 @@
  * @var \Inc\DTO\TaskTypeBoilerplateDTO[] $boilerplates Массив DTO типовых условий
  */
 
+use Inc\Enums\Nonce;
+
 // ============================ ПОДГОТОВКА ДАННЫХ ============================
 
 // Формируем название таксономии для получения объекта термина
-use Inc\Enums\Nonce;
-
 $taxonomy = $subject . '_task_number';
 
 // Получаем объект термина по его слагу
@@ -40,7 +40,7 @@ if (!empty($all_subjects)) {
 
 <div class="wrap">
     <!-- Nonce-поле для безопасности (используется в JS при удалении) -->
-    <?php wp_nonce_field( Nonce::SaveBoilerplate->value, 'nonce' ); ?>
+    <?php wp_nonce_field(Nonce::SaveBoilerplate->value, 'nonce'); ?>
 
     <h1 class="wp-heading-inline">
         Типовые условия<br>
@@ -122,7 +122,7 @@ if (!empty($all_subjects)) {
             e.preventDefault();
 
             const uid = $(this).data('uid');
-            const nonce = $('#fs_lms_boilerplate_nonce').val();
+            const nonce = $('#nonce').val();
 
             if (confirm('Вы уверены, что хотите удалить это типовое условие?')) {
                 $.post(ajaxurl, {

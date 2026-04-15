@@ -18,18 +18,17 @@ use Inc\Shared\Traits\TemplateRenderer;
  *
  * @package Inc\Callbacks
  *
- * @method void render(string $template, array $data = []) — трейт TemplateRenderer
+ * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
  */
-class AdminCallbacks extends BaseController
-{
+class AdminCallbacks extends BaseController {
 	use TemplateRenderer;
 
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository       $subjects              Репозиторий предметов
-	 * @param TaskTypeRepository      $taskTypes             Репозиторий типов заданий
-	 * @param BoilerplateController   $boilerplateController Контроллер для страницы boilerplate
+	 * @param SubjectRepository $subjects Репозиторий предметов
+	 * @param TaskTypeRepository $taskTypes Репозиторий типов заданий
+	 * @param BoilerplateController $boilerplateController Контроллер для страницы boilerplate
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -44,9 +43,8 @@ class AdminCallbacks extends BaseController
 	 *
 	 * @return void
 	 */
-	public function adminDashboard(): void
-	{
-		// Временная заглушка
+	public function adminDashboard(): void {
+		// Временная заглушка, будет заменена на реальный дашборд
 		echo '<div class="wrap"><h1>Dashboard</h1><p>Данные о предметах</p></div>';
 	}
 
@@ -55,20 +53,23 @@ class AdminCallbacks extends BaseController
 	 *
 	 * @return void
 	 */
-	public function settingsPage(): void
-	{
+	public function settingsPage(): void {
+		// Получение всех предметов из репозитория
 		$all_subjects = $this->subjects->readAll();
-		$this->render('settings', ['subjects' => $all_subjects]);
+
+		// Рендеринг шаблона настроек с переданными данными
+		$this->render( 'settings', [ 'subjects' => $all_subjects ] );
 	}
 
 	/**
 	 * Метод-прослойка для страницы управления типовыми условиями (boilerplate).
-	 * Вся логика отображения делегируется BoilerplateController.
+	 *
+	 * Вся логика отображения (список, создание, редактирование)
+	 * делегируется BoilerplateController.
 	 *
 	 * @return void
 	 */
-	public function boilerplatePage(): void
-	{
+	public function boilerplatePage(): void {
 		$this->boilerplateController->displayPage();
 	}
 }

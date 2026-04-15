@@ -15,16 +15,16 @@ use Inc\Repositories\TaxonomyRepository;
  *
  * @package Inc\Callbacks
  */
-class TaxonomySettingsCallbacks
-{
+class TaxonomySettingsCallbacks {
 	/**
 	 * Конструктор.
 	 *
 	 * @param TaxonomyRepository $taxonomies Репозиторий таксономий
+	 * @param TermManager $terms Менеджер терминов для удаления
 	 */
 	public function __construct(
 		private TaxonomyRepository $taxonomies,
-		private TermManager        $terms,
+		private TermManager $terms,
 	) {
 	}
 
@@ -32,56 +32,68 @@ class TaxonomySettingsCallbacks
 
 	/**
 	 * Создаёт новую таксономию для предмета.
+	 *
 	 * Итоговый slug = {subject_key}_{suffix}, где suffix — данные от клиента.
+	 * Например: math_author, inf_genre и т.д.
 	 *
 	 * @return void
 	 */
-	public function ajaxStoreTaxonomy(): void
-	{
+	public function ajaxStoreTaxonomy(): void {
+		// Проверка прав доступа и nonce
 		$this->authorize();
 
-		[$subject_key, $tax_suffix, $tax_name, $display_type] = $this->requireTaxonomyData();
+		// Получение и валидация данных таксономии
+		[ $subject_key, $tax_suffix, $tax_name, $display_type ] = $this->requireTaxonomyData();
 
+		// Формирование полного слага таксономии
 		$tax_slug = "{$subject_key}_{$tax_suffix}";
 
-		if (strlen($tax_slug) > 32) {
-			wp_send_json_error('Ярлык слишком длинный (макс. ' . (32 - strlen($subject_key) - 1) . ' символов)');
+		// Проверка длины слага (максимум 32 символа в WordPress)
+		if ( strlen( $tax_slug ) > 32 ) {
+			wp_send_json_error( 'Ярлык слишком длинный (макс. ' . ( 32 - strlen( $subject_key ) - 1 ) . ' символов)' );
 		}
 
-		if (taxonomy_exists($tax_slug)) {
-			wp_send_json_error('Таксономия с таким ярлыком уже существует');
+		// Проверка, не существует ли уже такая таксономия в WordPress
+		if ( taxonomy_exists( $tax_slug ) ) {
+			wp_send_json_error( 'Таксономия с таким ярлыком уже существует' );
 		}
 
-		$this->taxonomies->update([
+		// Сохранение через репозиторий
+		$this->taxonomies->update( [
 			'subject_key'  => $subject_key,
 			'tax_slug'     => $tax_slug,
 			'name'         => $tax_name,
 			'display_type' => $display_type,
-		]);
+		] );
 
-		$this->sendResult('Таксономия создана');
+		// Отправка результата
+		$this->sendResult( 'Таксономия создана' );
 	}
 
 	/**
 	 * Обновляет существующую таксономию (название, тип отображения).
+	 *
 	 * Slug не меняется — передаётся полный slug из клиента.
 	 *
 	 * @return void
 	 */
-	public function ajaxUpdateTaxonomy(): void
-	{
+	public function ajaxUpdateTaxonomy(): void {
+		// Проверка прав доступа и nonce
 		$this->authorize();
 
-		[$subject_key, $tax_slug, $tax_name, $display_type] = $this->requireTaxonomyData();
+		// Получение и валидация данных таксономии
+		[ $subject_key, $tax_slug, $tax_name, $display_type ] = $this->requireTaxonomyData();
 
-		$this->taxonomies->update([
+		// Обновление через репозиторий
+		$this->taxonomies->update( [
 			'subject_key'  => $subject_key,
 			'tax_slug'     => $tax_slug,
 			'name'         => $tax_name,
 			'display_type' => $display_type,
-		]);
+		] );
 
-		$this->sendResult('Таксономия обновлена');
+		// Отправка результата
+		$this->sendResult( 'Таксономия обновлена' );
 	}
 
 	/**
@@ -89,35 +101,41 @@ class TaxonomySettingsCallbacks
 	 *
 	 * @return void
 	 */
-	public function ajaxDeleteTaxonomy(): void
-	{
+	public function ajaxDeleteTaxonomy(): void {
+		// Проверка прав доступа и nonce
 		$this->authorize();
 
-		[$subject_key, $tax_slug] = $this->requireSubjectAndSlug();
+		// Получение и валидация ключа предмета и слага таксономии
+		[ $subject_key, $tax_slug ] = $this->requireSubjectAndSlug();
 
-		$this->terms->deleteAll($tax_slug);
+		// Удаление всех терминов таксономии через менеджер
+		$this->terms->deleteAll( $tax_slug );
 
-		$this->taxonomies->delete([
+		// Удаление записи о таксономии из репозитория
+		$this->taxonomies->delete( [
 			'subject_key' => $subject_key,
 			'tax_slug'    => $tax_slug,
-		]);
+		] );
 
-		$this->sendResult('Таксономия удалена');
+		// Отправка результата
+		$this->sendResult( 'Таксономия удалена' );
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
 	/**
 	 * Проверяет nonce и права администратора.
+	 * Завершает выполнение через wp_send_json_error при неудаче.
 	 *
 	 * @return void
 	 */
-	private function authorize(): void
-	{
-		Nonce::Subject->verify('security');
+	private function authorize(): void {
+		// Проверка nonce для защиты от CSRF
+		Nonce::Subject->verify( 'security' );
 
-		if (!current_user_can(Capability::ADMIN->value)) {
-			wp_send_json_error('У вас недостаточно прав', 403);
+		// Проверка прав доступа (только администраторы)
+		if ( ! current_user_can( Capability::ADMIN->value ) ) {
+			wp_send_json_error( 'У вас недостаточно прав', 403 );
 		}
 	}
 
@@ -126,52 +144,56 @@ class TaxonomySettingsCallbacks
 	 *
 	 * @return array{0: string, 1: string} [subject_key, tax_slug]
 	 */
-	private function requireSubjectAndSlug(): array
-	{
-		$subject_key = sanitize_title(wp_unslash($_POST['subject_key'] ?? ''));
-		$tax_slug    = sanitize_title(wp_unslash($_POST['tax_slug'] ?? ''));
+	private function requireSubjectAndSlug(): array {
+		$subject_key = sanitize_title( wp_unslash( $_POST['subject_key'] ?? '' ) );
+		$tax_slug    = sanitize_title( wp_unslash( $_POST['tax_slug'] ?? '' ) );
 
-		if (empty($subject_key) || empty($tax_slug)) {
-			wp_send_json_error('Недостаточно данных для операции');
+		if ( empty( $subject_key ) || empty( $tax_slug ) ) {
+			wp_send_json_error( 'Недостаточно данных для операции' );
 		}
 
-		return [$subject_key, $tax_slug];
+		return [ $subject_key, $tax_slug ];
 	}
 
 	/**
 	 * Читает и валидирует полный набор данных таксономии из POST.
+	 *
 	 * Используется в store (возвращает suffix) и update (возвращает полный slug).
 	 *
 	 * @return array{0: string, 1: string, 2: string, 3: string}
 	 *         [subject_key, tax_slug_or_suffix, tax_name, display_type]
 	 */
-	private function requireTaxonomyData(): array
-	{
-		[$subject_key, $tax_slug] = $this->requireSubjectAndSlug();
+	private function requireTaxonomyData(): array {
+		// Получение ключа предмета и слага (или суффикса)
+		[ $subject_key, $tax_slug ] = $this->requireSubjectAndSlug();
 
-		$tax_name = sanitize_text_field(wp_unslash($_POST['tax_name'] ?? ''));
+		// Получение названия таксономии
+		$tax_name = sanitize_text_field( wp_unslash( $_POST['tax_name'] ?? '' ) );
 
-		if (empty($tax_name)) {
-			wp_send_json_error('Название таксономии не может быть пустым');
+		if ( empty( $tax_name ) ) {
+			wp_send_json_error( 'Название таксономии не может быть пустым' );
 		}
 
-		$raw_display  = sanitize_text_field(wp_unslash($_POST['display_type'] ?? ''));
-		$display_type = in_array($raw_display, ['select', 'radio', 'checkbox'], true)
+		// Получение и валидация типа отображения
+		$raw_display  = sanitize_text_field( wp_unslash( $_POST['display_type'] ?? '' ) );
+		$display_type = in_array( $raw_display, [ 'select', 'radio', 'checkbox' ], true )
 			? $raw_display
 			: 'select';
 
-		return [$subject_key, $tax_slug, $tax_name, $display_type];
+		return [ $subject_key, $tax_slug, $tax_name, $display_type ];
 	}
 
 	/**
-	 * Сбрасывает правила перезаписи и отправляет успешный ответ.
+	 * Сбрасывает правила перезаписи и отправляет успешный ответ клиенту.
 	 *
-	 * @param string $message
+	 * @param string $message Сообщение для клиента
+	 *
 	 * @return void
 	 */
-	private function sendResult(string $message): void
-	{
+	private function sendResult( string $message ): void {
+		// Сброс правил перезаписи после изменений таксономий
 		flush_rewrite_rules();
-		wp_send_json_success($message);
+
+		wp_send_json_success( $message );
 	}
 }

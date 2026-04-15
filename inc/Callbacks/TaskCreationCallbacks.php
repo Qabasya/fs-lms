@@ -16,12 +16,11 @@ use Inc\Repositories\TaskTypeRepository;
  *
  * @package Inc\Callbacks
  */
-class TaskCreationCallbacks
-{
+class TaskCreationCallbacks {
 	/**
 	 * Конструктор.
 	 *
-	 * @param MetaBoxRepository  $metaboxes Репозиторий привязок шаблонов и типов заданий
+	 * @param MetaBoxRepository $metaboxes Репозиторий привязок шаблонов и типов заданий
 	 * @param TaskTypeRepository $taskTypes Репозиторий типовых условий (boilerplate)
 	 */
 	public function __construct(
@@ -37,27 +36,28 @@ class TaskCreationCallbacks
 	 *
 	 * @return void
 	 */
-	public function ajaxGetTaskTypes(): void
-	{
+	public function ajaxGetTaskTypes(): void {
 		// Проверка nonce для защиты от CSRF
-		check_ajax_referer('fs_task_creation_nonce', 'nonce');
+		check_ajax_referer( 'fs_task_creation_nonce', 'nonce' );
 
 		// Проверка прав доступа (редактирование постов)
-		if (!current_user_can('edit_posts')) {
-			wp_send_json_error('Доступ запрещён', 403);
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( 'Доступ запрещён', 403 );
+
 			return;
 		}
 
 		// Получение и санитизация ключа предмета
-		$subject_key = sanitize_text_field(wp_unslash($_GET['subject_key'] ?? ''));
+		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
 
-		if (empty($subject_key)) {
-			wp_send_json_error('Предмет не указан');
+		if ( empty( $subject_key ) ) {
+			wp_send_json_error( 'Предмет не указан' );
+
 			return;
 		}
 
 		wp_send_json_success(
-			$this->metaboxes->getTaskTypes($subject_key)
+			$this->metaboxes->getTaskTypes( $subject_key )
 		);
 	}
 
@@ -66,22 +66,22 @@ class TaskCreationCallbacks
 	 *
 	 * @return void
 	 */
-	public function ajaxCreateTask(): void
-	{
+	public function ajaxCreateTask(): void {
 		// Валидация запроса
 		$this->authorize();
 
 		// Сбор и валидация данных
-		[$subject_key, $term_id, $title] = $this->collectCreateTaskData();
+		[ $subject_key, $term_id, $title ] = $this->collectCreateTaskData();
 
 		// Получение UID выбранного boilerplate
-		$boilerplate_uid = sanitize_text_field(wp_unslash($_POST['boilerplate_uid'] ?? ''));
+		$boilerplate_uid = sanitize_text_field( wp_unslash( $_POST['boilerplate_uid'] ?? '' ) );
 
 		$taxonomy = "{$subject_key}_task_number";
-		$term     = get_term($term_id, $taxonomy);
+		$term     = get_term( $term_id, $taxonomy );
 
-		if (!$term || is_wp_error($term)) {
-			wp_send_json_error('Тип задания не найден');
+		if ( ! $term || is_wp_error( $term ) ) {
+			wp_send_json_error( 'Тип задания не найден' );
+
 			return;
 		}
 
@@ -89,23 +89,24 @@ class TaskCreationCallbacks
 		$task_text = '';
 
 		// Если выбран конкретный шаблон — загружаем его содержимое
-		if (!empty($boilerplate_uid)) {
-			$bp        = $this->taskTypes->findBoilerplate($subject_key, $term_slug, $boilerplate_uid);
+		if ( ! empty( $boilerplate_uid ) ) {
+			$bp        = $this->taskTypes->findBoilerplate( $subject_key, $term_slug, $boilerplate_uid );
 			$task_text = $bp ? $bp->content : '';
 		}
 
 		// Создание поста
-		$new_id = $this->insertTaskPost($subject_key, $taxonomy, $term_id, $term, $term_slug, $title, $task_text);
+		$new_id = $this->insertTaskPost( $subject_key, $taxonomy, $term_id, $term, $term_slug, $title, $task_text );
 
-		if (is_wp_error($new_id)) {
-			wp_send_json_error('Ошибка базы данных: ' . $new_id->get_error_message());
+		if ( is_wp_error( $new_id ) ) {
+			wp_send_json_error( 'Ошибка базы данных: ' . $new_id->get_error_message() );
+
 			return;
 		}
 
 		// Применение мета-данных
-		$this->applyPostMeta($new_id, $subject_key, $term_slug, $task_text);
+		$this->applyPostMeta( $new_id, $subject_key, $term_slug, $task_text );
 
-		wp_send_json_success(['redirect' => get_edit_post_link($new_id, 'abs')]);
+		wp_send_json_success( [ 'redirect' => get_edit_post_link( $new_id, 'abs' ) ] );
 	}
 
 	/**
@@ -114,36 +115,37 @@ class TaskCreationCallbacks
 	 *
 	 * @return void
 	 */
-	public function ajaxGetTaskBoilerplates(): void
-	{
+	public function ajaxGetTaskBoilerplates(): void {
 		// Проверка nonce для защиты от CSRF
-		check_ajax_referer('fs_task_creation_nonce', 'nonce');
+		check_ajax_referer( 'fs_task_creation_nonce', 'nonce' );
 
 		// Проверка прав доступа (редактирование постов)
-		if (!current_user_can('edit_posts')) {
-			wp_send_json_error('Доступ запрещён', 403);
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( 'Доступ запрещён', 403 );
+
 			return;
 		}
 
 		// Получение и санитизация данных
-		$subject_key = sanitize_text_field(wp_unslash($_GET['subject_key'] ?? ''));
-		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
+		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
+		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
 
-		if (empty($subject_key) || empty($term_slug)) {
-			wp_send_json_error('Недостаточно данных');
+		if ( empty( $subject_key ) || empty( $term_slug ) ) {
+			wp_send_json_error( 'Недостаточно данных' );
+
 			return;
 		}
 
 		// Получение всех вариантов из репозитория
-		$variants = $this->taskTypes->getBoilerplates($subject_key, $term_slug);
+		$variants = $this->taskTypes->getBoilerplates( $subject_key, $term_slug );
 
 		// Формирование лёгкого списка для выпадающего списка
-		$response = array_map(static fn($bp) => [
+		$response = array_map( static fn( $bp ) => [
 			'uid'   => $bp->uid,
 			'title' => $bp->title,
-		], $variants);
+		], $variants );
 
-		wp_send_json_success($response);
+		wp_send_json_success( $response );
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
@@ -153,13 +155,13 @@ class TaskCreationCallbacks
 	 *
 	 * @return void
 	 */
-	private function authorize(): void
-	{
-		Nonce::TaskCreation->verify('nonce');
+	private function authorize(): void {
+		// Проверка nonce для защиты от CSRF
+		Nonce::TaskCreation->verify( 'nonce' );
 
 		// Проверка прав доступа (редактирование постов)
-		if (!current_user_can('edit_posts')) {
-			wp_send_json_error('У вас недостаточно прав', 403);
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_send_json_error( 'У вас недостаточно прав', 403 );
 		}
 	}
 
@@ -168,33 +170,32 @@ class TaskCreationCallbacks
 	 *
 	 * @return array{0: string, 1: int, 2: string} [subject_key, term_id, title]
 	 */
-	private function collectCreateTaskData(): array
-	{
-		$subject_key = sanitize_text_field(wp_unslash($_POST['subject_key'] ?? ''));
-		$term_id     = absint($_POST['term_id'] ?? 0);
-		$title       = sanitize_text_field(wp_unslash($_POST['title'] ?? 'Новое задание'));
+	private function collectCreateTaskData(): array {
+		$subject_key = sanitize_text_field( wp_unslash( $_POST['subject_key'] ?? '' ) );
+		$term_id     = absint( $_POST['term_id'] ?? 0 );
+		$title       = sanitize_text_field( wp_unslash( $_POST['title'] ?? 'Новое задание' ) );
 
 		// Валидация обязательных полей
-		if (empty($subject_key) || $term_id === 0) {
-			wp_send_json_error('Недостаточно данных');
+		if ( empty( $subject_key ) || $term_id === 0 ) {
+			wp_send_json_error( 'Недостаточно данных' );
 			// return нужен для статических анализаторов (psalm/phpstan):
 			// wp_send_json_error завершает выполнение через wp_die()
 			return [];
 		}
 
-		return [$subject_key, $term_id, $title];
+		return [ $subject_key, $term_id, $title ];
 	}
 
 	/**
 	 * Создаёт пост задания и привязывает его к таксономии.
 	 *
-	 * @param string   $subject_key Ключ предмета
-	 * @param string   $taxonomy    Имя таксономии
-	 * @param int      $term_id     ID термина
-	 * @param \WP_Term $term        Объект термина
-	 * @param string   $term_slug   Слаг термина
-	 * @param string   $title       Заголовок задания
-	 * @param string   $task_text   Текст задания (boilerplate)
+	 * @param string $subject_key Ключ предмета
+	 * @param string $taxonomy Имя таксономии
+	 * @param int $term_id ID термина
+	 * @param \WP_Term $term Объект термина
+	 * @param string $term_slug Слаг термина
+	 * @param string $title Заголовок задания
+	 * @param string $task_text Текст задания (boilerplate)
 	 *
 	 * @return int|\WP_Error ID созданного поста или объект ошибки
 	 */
@@ -208,27 +209,27 @@ class TaskCreationCallbacks
 		string $task_text
 	) {
 		// Генерация числового префикса из слага термина
-		$type_prefix = $this->extractNumberFromSlug($term_slug) ?: $term->term_id;
+		$type_prefix = $this->extractNumberFromSlug( $term_slug ) ?: $term->term_id;
 
 		// Подсчёт существующих заданий этого типа
-		$current_count = $this->getExistingTasksCount($subject_key, $taxonomy, $term_id);
+		$current_count = $this->getExistingTasksCount( $subject_key, $taxonomy, $term_id );
 
 		// Генерация уникального slug: префикс + трёхзначный номер
-		$custom_slug = $type_prefix . str_pad((string) $current_count, 3, '0', STR_PAD_LEFT);
+		$custom_slug = $type_prefix . str_pad( (string) $current_count, 3, '0', STR_PAD_LEFT );
 
 		// Создание поста
-		$new_id = wp_insert_post([
+		$new_id = wp_insert_post( [
 			'post_title'   => $title,
 			'post_name'    => $custom_slug,
 			'post_type'    => "{$subject_key}_tasks",
 			'post_status'  => 'draft',
 			'post_author'  => get_current_user_id(),
-			'post_content' => $this->resolveDisplayContent($task_text),
-		], true);
+			'post_content' => $this->resolveDisplayContent( $task_text ),
+		], true );
 
 		// Привязка к таксономии (если пост создан успешно)
-		if (!is_wp_error($new_id)) {
-			wp_set_object_terms($new_id, $term_id, $taxonomy);
+		if ( ! is_wp_error( $new_id ) ) {
+			wp_set_object_terms( $new_id, $term_id, $taxonomy );
 		}
 
 		return $new_id;
@@ -237,10 +238,10 @@ class TaskCreationCallbacks
 	/**
 	 * Сохраняет мета-данные созданного поста: шаблон и boilerplate.
 	 *
-	 * @param int    $new_id      ID созданного поста
+	 * @param int $new_id ID созданного поста
 	 * @param string $subject_key Ключ предмета
-	 * @param string $term_slug   Слаг термина
-	 * @param string $task_text   Текст задания (boilerplate)
+	 * @param string $term_slug Слаг термина
+	 * @param string $task_text Текст задания (boilerplate)
 	 *
 	 * @return void
 	 */
@@ -251,25 +252,25 @@ class TaskCreationCallbacks
 		string $task_text
 	): void {
 		// Получение привязки шаблона для данного типа задания
-		$assignment = $this->metaboxes->getAssignment($subject_key, $term_slug);
+		$assignment = $this->metaboxes->getAssignment( $subject_key, $term_slug );
 
 		$template_id = $assignment->template_id ?? TaskTemplate::STANDARD;
 
 		// Приведение к строковому значению (если передан Enum)
-		$meta_value = ($template_id instanceof TaskTemplate)
+		$meta_value = ( $template_id instanceof TaskTemplate )
 			? $template_id->value
 			: $template_id;
 
 		// Сохранение ID шаблона в мета-поле поста
-		update_post_meta($new_id, '_fs_lms_template_type', $meta_value);
+		update_post_meta( $new_id, '_fs_lms_template_type', $meta_value );
 
 		// Сохранение boilerplate-текста (если есть)
-		if (empty($task_text)) {
+		if ( empty( $task_text ) ) {
 			return;
 		}
 
-		update_post_meta($new_id, 'fs_lms_meta', $this->buildMetaFromBoilerplate($task_text));
-		clean_post_cache($new_id);
+		update_post_meta( $new_id, 'fs_lms_meta', $this->buildMetaFromBoilerplate( $task_text ) );
+		clean_post_cache( $new_id );
 	}
 
 	/**
@@ -279,14 +280,13 @@ class TaskCreationCallbacks
 	 *
 	 * @return array<string, string> Массив мета-данных
 	 */
-	private function buildMetaFromBoilerplate(string $task_text): array
-	{
-		$clean   = wp_unslash($task_text);
-		$decoded = json_decode($clean, true);
+	private function buildMetaFromBoilerplate( string $task_text ): array {
+		$clean   = wp_unslash( $task_text );
+		$decoded = json_decode( $clean, true );
 
 		// Если текст — JSON-массив, используем его как основу
-		if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-			return $decoded + ['task_answer' => ''];
+		if ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) {
+			return $decoded + [ 'task_answer' => '' ];
 		}
 
 		// Иначе — обычный текст
@@ -304,19 +304,18 @@ class TaskCreationCallbacks
 	 *
 	 * @return string Контент для post_content
 	 */
-	private function resolveDisplayContent(string $task_text): string
-	{
-		if (empty($task_text)) {
+	private function resolveDisplayContent( string $task_text ): string {
+		if ( empty( $task_text ) ) {
 			return '';
 		}
 
-		$clean   = wp_unslash($task_text);
-		$decoded = json_decode($clean, true);
+		$clean   = wp_unslash( $task_text );
+		$decoded = json_decode( $clean, true );
 
 		// Если это сложный шаблон из нескольких полей (19-21 задачи)
-		if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+		if ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) {
 			// Склеиваем все части условия в один текст для редактора
-			return implode("\n\n", $decoded);
+			return implode( "\n\n", $decoded );
 		}
 
 		// Если это обычная строка (старый формат или простое условие)
@@ -331,9 +330,8 @@ class TaskCreationCallbacks
 	 *
 	 * @return int Числовой суффикс или 0
 	 */
-	private function extractNumberFromSlug(string $slug): int
-	{
-		return preg_match('/(\d+)$/', $slug, $matches) ? (int) $matches[1] : 0;
+	private function extractNumberFromSlug( string $slug ): int {
+		return preg_match( '/(\d+)$/', $slug, $matches ) ? (int) $matches[1] : 0;
 	}
 
 	/**
@@ -341,14 +339,13 @@ class TaskCreationCallbacks
 	 * Используется для генерации числового суффикса в slug.
 	 *
 	 * @param string $subject_key Ключ предмета
-	 * @param string $taxonomy    Имя таксономии
-	 * @param int    $term_id     ID термина
+	 * @param string $taxonomy Имя таксономии
+	 * @param int $term_id ID термина
 	 *
 	 * @return int Количество заданий
 	 */
-	private function getExistingTasksCount(string $subject_key, string $taxonomy, int $term_id): int
-	{
-		$query = new \WP_Query([
+	private function getExistingTasksCount( string $subject_key, string $taxonomy, int $term_id ): int {
+		$query = new \WP_Query( [
 			'post_type'      => "{$subject_key}_tasks",
 			'post_status'    => 'any',
 			'posts_per_page' => 1,
@@ -361,7 +358,7 @@ class TaskCreationCallbacks
 					'terms'    => $term_id,
 				]
 			],
-		]);
+		] );
 
 		return (int) $query->found_posts;
 	}

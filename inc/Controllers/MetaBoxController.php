@@ -4,20 +4,20 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\TaskMetaDTO;
 use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
 use Inc\MetaBoxes\Templates\BaseTemplate;
+use Inc\MetaBoxes\Templates\CodeTaskTemplate;
 use Inc\MetaBoxes\Templates\CommonConditionTemplate;
 use Inc\MetaBoxes\Templates\FileCodeTaskTemplate;
 use Inc\MetaBoxes\Templates\FileTaskTemplate;
 use Inc\MetaBoxes\Templates\StandardTaskTemplate;
-use Inc\MetaBoxes\Templates\CodeTaskTemplate;
 use Inc\MetaBoxes\Templates\ThreeInOneTemplate;
 use Inc\MetaBoxes\Templates\TwoFileCodeTaskTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
-use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\MetaBoxRepository;
-use Inc\DTO\TaskMetaDTO;
+use Inc\Repositories\SubjectRepository;
 
 /**
  * Class MetaBoxController
@@ -33,6 +33,13 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	/** @var array<string, BaseTemplate> */
 	private array $templates = [];
 
+	/**
+	 * Конструктор.
+	 *
+	 * @param SubjectRepository $subjects Репозиторий предметов
+	 * @param MetaBoxRepository $metaboxes Репозиторий привязок метабоксов
+	 * @param MetaBoxRegistrar $registrar Регистратор метабоксов
+	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
 		private readonly MetaBoxRepository $metaboxes,
@@ -45,35 +52,49 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 
 	/**
 	 * Точка входа в сервис (вызывается из Init.php).
+	 *
+	 * @return void
 	 */
 	public function register(): void {
+		// Регистрация метабоксов на хуке add_meta_boxes
 		add_action( 'add_meta_boxes', [ $this, 'handleAddMetaBoxes' ] );
+
+		// Обработка сохранения мета-данных поста
 		add_action( 'save_post', [ $this, 'handleMetaSave' ] );
+
+		// Фильтр для получения списка шаблонов
 		add_filter( 'fs_lms_get_templates', [ $this, 'getTemplatesList' ] );
 	}
 
 	/**
-	 * Колбек хука add_meta_boxes.
+	 * Коллбек хука add_meta_boxes.
 	 * Вынесен в именованный метод, чтобы хук можно было снять через remove_action.
+	 *
+	 * @return void
 	 */
 	public function handleAddMetaBoxes(): void {
+		// Ленивая загрузка шаблонов
 		$this->ensureTemplatesLoaded();
 
+		// Получение всех предметов
 		$all_subjects = $this->subjects->readAll();
+
 		if ( empty( $all_subjects ) ) {
 			return;
 		}
 
+		// Сбор всех CPT заданий для регистрации метабокса
 		$task_post_types = array_map(
 			static fn( $subject ) => "{$subject->key}_tasks",
 			$all_subjects
 		);
 
+		// Регистрация метабокса через регистратор
 		$this->registrar->add(
-			'fs_lms_task_metabox',
-			'Данные задания',
-			[ $this, 'renderMetaboxContent' ],
-			$task_post_types
+			'fs_lms_task_metabox',           // Уникальный ID метабокса
+			'Данные задания',                // Заголовок метабокса
+			[ $this, 'renderMetaboxContent' ], // Коллбек для отрисовки
+			$task_post_types                 // Типы постов (все CPT заданий)
 		)->register();
 	}
 
@@ -90,12 +111,16 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 *       $templates[] = new MyCustomTemplate();
 	 *       return $templates;
 	 *   });
+	 *
+	 * @return void
 	 */
 	private function ensureTemplatesLoaded(): void {
+		// Если шаблоны уже загружены — выходим
 		if ( ! empty( $this->templates ) ) {
 			return;
 		}
 
+		// Встроенные шаблоны
 		$builtin = [
 			new CodeTaskTemplate(),
 			new FileCodeTaskTemplate(),
@@ -106,9 +131,11 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			new CommonConditionTemplate(),
 		];
 
+		// Применяем фильтр для возможности добавления кастомных шаблонов
 		/** @var BaseTemplate[] $candidates */
 		$candidates = apply_filters( 'fs_lms_register_templates', $builtin );
 
+		// Регистрация каждого шаблона (только если это экземпляр BaseTemplate)
 		foreach ( $candidates as $template ) {
 			if ( $template instanceof BaseTemplate ) {
 				$this->templates[ $template->get_id() ] = $template;
@@ -117,6 +144,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			}
 		}
 
+		// Логируем, если шаблоны не загрузились
 		if ( empty( $this->templates ) && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			error_log( 'FS LMS: No templates were registered!' );
 		}
@@ -124,6 +152,10 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 
 	/**
 	 * Резолвит объект шаблона по ID с фолбеком на дефолтный.
+	 *
+	 * @param string $template_id ID шаблона
+	 *
+	 * @return BaseTemplate|null Объект шаблона или null
 	 */
 	private function resolveTemplate( string $template_id ): ?BaseTemplate {
 		return $this->templates[ $template_id ]
@@ -137,10 +169,14 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 * Отрисовка контента метабокса.
 	 *
 	 * @param \WP_Post $post Текущий пост
+	 *
+	 * @return void
 	 */
 	public function renderMetaboxContent( \WP_Post $post ): void {
+		// Ленивая загрузка шаблонов
 		$this->ensureTemplatesLoaded();
 
+		// Определение шаблона для текущего поста
 		$template = $this->resolveTemplate( $this->getTemplateId( $post ) );
 
 		if ( ! $template ) {
@@ -149,8 +185,10 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			return;
 		}
 
+		// Добавление nonce-поля для безопасности
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
 
+		// Рендеринг содержимого метабокса
 		echo '<div class="fs-lms-metabox-wrapper">';
 		$template->render( $post );
 		echo '</div>';
@@ -160,6 +198,8 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 * Обработка сохранения мета-данных поста.
 	 *
 	 * @param int $post_id ID сохраняемого поста
+	 *
+	 * @return void
 	 */
 	public function handleMetaSave( int $post_id ): void {
 		// Пропускаем автосохранение
@@ -169,37 +209,47 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 
 		$post = get_post( $post_id );
 
+		// Проверяем, что пост существует и является заданием (оканчивается на "_tasks")
 		if ( ! $post || ! str_ends_with( $post->post_type, '_tasks' ) ) {
 			return;
 		}
 
+		// Проверка nonce
 		$nonce = $_POST['fs_lms_meta_nonce'] ?? '';
 		if ( ! wp_verify_nonce( $nonce, Nonce::SaveMeta->value ) ) {
 			return;
 		}
 
+		// Проверка прав текущего пользователя
 		if ( ! current_user_can( 'edit_post', $post_id ) ) {
 			return;
 		}
 
+		// Ленивая загрузка шаблонов
 		$this->ensureTemplatesLoaded();
 
+		// Определение шаблона для текущего поста
 		$template = $this->resolveTemplate( $this->getTemplateId( $post ) );
 
 		if ( ! $template ) {
 			return;
 		}
 
-		$fields    = $template->get_fields();
-		$raw_data  = wp_unslash( $_POST['fs_lms_meta'] ?? [] );
-		$sanitized = [];
+		// Получение полей шаблона
+		$fields = $template->get_fields();
 
+		// Получение сырых данных из POST
+		$raw_data = wp_unslash( $_POST['fs_lms_meta'] ?? [] );
+
+		// Санитизация данных
+		$sanitized = [];
 		foreach ( $fields as $id => $config ) {
 			if ( isset( $raw_data[ $id ], $config['object'] ) ) {
 				$sanitized[ $id ] = $config['object']->sanitize( $raw_data[ $id ] );
 			}
 		}
 
+		// Сохранение мета-данных
 		update_post_meta( $post_id, 'fs_lms_meta', $sanitized );
 	}
 
@@ -210,6 +260,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 * @return TaskMetaDTO[]
 	 */
 	public function getTemplatesList(): array {
+		// Ленивая загрузка шаблонов
 		$this->ensureTemplatesLoaded();
 
 		return array_values( array_map(
@@ -237,11 +288,16 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 * @return string ID выбранного шаблона
 	 */
 	private function getTemplateId( \WP_Post $post ): string {
+		// Извлечение ключа предмета из post_type (например, "math_tasks" → "math")
 		$subject_key = str_replace( '_tasks', '', $post->post_type );
-		$taxonomy    = "{$subject_key}_task_number";
 
+		// Имя таксономии для номеров заданий
+		$taxonomy = "{$subject_key}_task_number";
+
+		// Получение терминов (номеров заданий) для поста
 		$terms = wp_get_post_terms( $post->ID, $taxonomy );
 
+		// ПРИОРИТЕТ 1: Глобальные настройки предмета (из MetaBoxRepository)
 		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
 			$assignment = $this->metaboxes->getAssignment( $subject_key, (string) $terms[0]->slug );
 			if ( $assignment ) {
@@ -249,11 +305,13 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			}
 		}
 
+		// ПРИОРИТЕТ 2: Мета-поле конкретного поста (обратная совместимость)
 		$saved_meta = get_post_meta( $post->ID, '_fs_lms_template_type', true );
 		if ( ! empty( $saved_meta ) ) {
 			return (string) $saved_meta;
 		}
 
+		// ПРИОРИТЕТ 3: Стандартный шаблон по умолчанию
 		return TaskTemplate::STANDARD->value;
 	}
 }
