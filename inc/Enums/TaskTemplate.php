@@ -36,6 +36,27 @@ enum TaskTemplate: string
 	 */
 	case COMMON = 'common_standard_task';
 
+	/**
+	 * Умный конструктор Enum.
+	 * * Если в БД сохранен ID шаблона, которого нет в списке (например, кастомный шаблон номера),
+	 * мы приводим его к STANDARD, чтобы не ломать интерфейс.
+	 */
+	public static function fromDatabase( ?string $value ): self {
+		if ( ! $value ) {
+			return self::STANDARD;
+		}
+
+		// Пытаемся найти точное совпадение
+		$tryCase = self::tryFrom( $value );
+
+		if ( $tryCase ) {
+			return $tryCase;
+		}
+
+		// ТОТ САМЫЙ МАППИНГ:
+		// Если это не Triple и не Common — значит это стандартный визуальный редактор
+		return self::STANDARD;
+	}
 
 	/**
 	 * Возвращает FQCN (полное имя класса) шаблона.

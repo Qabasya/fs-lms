@@ -38,6 +38,7 @@ class TaskTypeDTO
 		public readonly string $taxonomy,
 		public readonly string $description,
 		public readonly TaskTemplate $current_template,
+		public readonly string $raw_id
 	) {
 		$this->name = $description;
 	}
@@ -52,6 +53,6 @@ class TaskTypeDTO
 	 */
 	public function getTemplateId(): string
 	{
-		return $this->current_template->value;
+		return $this->raw_id;
 	}
 }

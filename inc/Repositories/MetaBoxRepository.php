@@ -239,15 +239,19 @@ class MetaBoxRepository implements RepositoryInterface {
 			function ( $term ) use ( $subject_key ): TaskTypeDTO {
 				$assignment = $this->getAssignment( $subject_key, $term->slug );
 
-				$template_enum = TaskTemplate::tryFrom( $assignment->template_id ?? '' )
-				                 ?? TaskTemplate::STANDARD;
+				// 1. Берем ID из базы (строка)
+				$db_id = $assignment ? $assignment->template_id : 'standard_task';
+
+				// 2. Получаем Enum только для логики (boilerplate)
+				$template_enum = TaskTemplate::fromDatabase( $db_id );
 
 				return new TaskTypeDTO(
 					$term->term_id,
 					$term->slug,
 					$term->taxonomy,
 					$term->description,
-					$template_enum
+					$template_enum, // Для логики
+					$db_id          // Для селекта (raw_id)
 				);
 			},
 			$terms

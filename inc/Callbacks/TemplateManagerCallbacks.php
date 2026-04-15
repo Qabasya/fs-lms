@@ -25,20 +25,6 @@ use Inc\Enums\TaskTemplate;
 class TemplateManagerCallbacks
 {
 	/**
-	 * Nonce для операций менеджера заданий.
-	 *
-	 * @var string
-	 */
-	private const NONCE_ACTION = 'fs_lms_manager_nonce';
-
-	/**
-	 * Ключ nonce в запросе.
-	 *
-	 * @var string
-	 */
-	private const NONCE_KEY = 'nonce';
-
-	/**
 	 * Конструктор.
 	 *
 	 * @param MetaBoxRepository  $metaboxes Репозиторий привязок шаблонов
@@ -121,8 +107,7 @@ class TemplateManagerCallbacks
 		$assignment = $this->metaboxes->getAssignment($subject_key, $term_slug);
 
 		// Определяем шаблон через Enum (это и есть наш "источник правды")
-		$template = TaskTemplate::tryFrom($assignment->template_id ?? '')
-		            ?? TaskTemplate::STANDARD;
+		$template = TaskTemplate::fromDatabase($assignment->template_id ?? '');
 
 		// Получаем имя класса из Enum
 		$class_name = $template->class();
