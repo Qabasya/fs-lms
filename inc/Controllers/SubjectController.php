@@ -4,6 +4,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\AjaxHook;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Repositories\MetaBoxRepository;
@@ -31,7 +32,7 @@ use Inc\Registrars\SubjectTaxonomyRegistrar;
  * @package Inc\Controllers
  * @implements ServiceInterface
  */
-class SubjectController implements ServiceInterface
+class SubjectController extends BaseController implements ServiceInterface
 {
 	use TemplateRenderer;
 	use NumericSorter;
@@ -39,14 +40,14 @@ class SubjectController implements ServiceInterface
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository           $subjects          Репозиторий предметов
-	 * @param SubjectCPTRegistrar         $cptRegistrar      Регистратор CPT
-	 * @param SubjectTaxonomyRegistrar    $taxRegistrar      Регистратор таксономий
-	 * @param TaxonomyRepository          $taxonomies        Репозиторий таксономий
-	 * @param SubjectSettingsCallbacks    $subjectCallbacks  Коллбеки для предметов
-	 * @param TaxonomySettingsCallbacks   $taxonomyCallbacks Коллбеки для таксономий
-	 * @param TemplateManagerCallbacks    $templateCallbacks Коллбеки для шаблонов
-	 * @param MetaBoxRepository           $metaboxes         Репозиторий метабоксов
+	 * @param SubjectRepository          $subjects          Репозиторий предметов
+	 * @param SubjectCPTRegistrar        $cptRegistrar      Регистратор CPT
+	 * @param SubjectTaxonomyRegistrar   $taxRegistrar      Регистратор таксономий
+	 * @param TaxonomyRepository         $taxonomies        Репозиторий таксономий
+	 * @param SubjectSettingsCallbacks   $subjectCallbacks  Коллбеки для предметов
+	 * @param TaxonomySettingsCallbacks  $taxonomyCallbacks Коллбеки для таксономий
+	 * @param TemplateManagerCallbacks   $templateCallbacks Коллбеки для шаблонов
+	 * @param MetaBoxRepository          $metaboxes         Репозиторий метабоксов
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -58,6 +59,7 @@ class SubjectController implements ServiceInterface
 		private readonly TemplateManagerCallbacks $templateCallbacks,
 		private readonly MetaBoxRepository $metaboxes,
 	) {
+		parent::__construct();
 	}
 
 	// ============================ ПУБЛИЧНЫЕ МЕТОДЫ ============================ //
@@ -116,18 +118,39 @@ class SubjectController implements ServiceInterface
 	 */
 	private function registerAjaxHooks(): void
 	{
-		// --- Предметы -> subjects.js & SubjectSettingsCallbacks ---
-		add_action('wp_ajax_store_subject',  [$this->subjectCallbacks, 'storeSubject']);
-		add_action('wp_ajax_update_subject', [$this->subjectCallbacks, 'updateSubject']);
-		add_action('wp_ajax_delete_subject', [$this->subjectCallbacks, 'deleteSubject']);
+		// === SubjectSettingsCallbacks -> subjects.js === //
+		$subjectHooks = [
+			AjaxHook::StoreSubject,
+			AjaxHook::UpdateSubject,
+			AjaxHook::DeleteSubject,
+		];
 
-		// --- Таксономии -> нет файла JS & TaxonomySettingsCallbacks---
-		add_action( 'wp_ajax_store_taxonomy',  [ $this->taxonomyCallbacks, 'storeTaxonomy' ] );
-		add_action( 'wp_ajax_update_taxonomy', [ $this->taxonomyCallbacks, 'updateTaxonomy' ] );
-		add_action( 'wp_ajax_delete_taxonomy', [ $this->taxonomyCallbacks, 'deleteTaxonomy' ] );
+		// === TaxonomySettingsCallbacks -> общая логика === //
+		$taxonomyHooks = [
+			AjaxHook::StoreTaxonomy,
+			AjaxHook::UpdateTaxonomy,
+			AjaxHook::DeleteTaxonomy,
+		];
 
-		// --- Шаблоны -> tasks.js & TemplateManagerCallbacks ---
-		add_action('wp_ajax_update_term_template', [$this->templateCallbacks, 'updateTaskTemplate' ]);
+		// === TemplateManagerCallbacks -> tasks.js === //
+		$templateHooks = [
+			AjaxHook::UpdateTermTemplate,
+		];
+
+		// Регистрация хуков для предметов
+		foreach ($subjectHooks as $hook) {
+			add_action($hook->action(), [$this->subjectCallbacks, $hook->callbackMethod()]);
+		}
+
+		// Регистрация хуков для таксономий
+		foreach ($taxonomyHooks as $hook) {
+			add_action($hook->action(), [$this->taxonomyCallbacks, $hook->callbackMethod()]);
+		}
+
+		// Регистрация хуков для шаблонов
+		foreach ($templateHooks as $hook) {
+			add_action($hook->action(), [$this->templateCallbacks, $hook->callbackMethod()]);
+		}
 	}
 
 	/**
@@ -218,8 +241,8 @@ class SubjectController implements ServiceInterface
 			'Номер задания',
 			[
 				'public'       => true,
-				'show_ui'      => true, // проверить
-				'meta_box_cb' => '__return_false',
+				'show_ui'      => true,
+				'meta_box_cb'  => false,        // Отключаем метабокс на странице редактирования
 				'show_in_menu' => true,
 				'rewrite'      => ['slug' => $fixed_tax_slug],
 			]

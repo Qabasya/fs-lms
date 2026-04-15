@@ -23,8 +23,6 @@ use Inc\Enums\TaskTemplate;
  */
 class TemplateManagerCallbacks
 {
-
-
 	/**
 	 * Nonce для операций менеджера заданий.
 	 *
@@ -49,7 +47,6 @@ class TemplateManagerCallbacks
 		private MetaBoxRepository $metaboxes,
 		private TaskTypeRepository $taskTypes,
 	) {
-
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -62,7 +59,7 @@ class TemplateManagerCallbacks
 	 *
 	 * @return void
 	 */
-	public function updateTaskTemplate(): void
+	public function ajaxUpdateTermTemplate(): void
 	{
 		// Проверка nonce для защиты от CSRF (используется nonce предметов)
 		check_ajax_referer('fs_subject_nonce', 'security');
@@ -105,35 +102,6 @@ class TemplateManagerCallbacks
 	}
 
 	/**
-	 * Сохраняет привязку шаблона к типу задания в Менеджере заданий.
-	 *
-	 * @return void
-	 */
-	public function saveTemplateAssignment(): void
-	{
-		// Проверка прав доступа и nonce
-		$this->authorize();
-
-		// Получение и валидация данных
-		$subject_key = sanitize_text_field(wp_unslash($_POST['subject_key'] ?? ''));
-		$task_number = sanitize_text_field(wp_unslash($_POST['task_number'] ?? ''));
-		$template_id = sanitize_text_field(wp_unslash($_POST['template_id'] ?? ''));
-
-		if (!$subject_key || !$task_number) {
-			wp_send_json_error('Некорректные данные');
-		}
-
-		// Сохранение привязки через репозиторий
-		$success = $this->metaboxes->updateAssignment($subject_key, $task_number, $template_id);
-
-		if (!$success) {
-			wp_send_json_error('Ошибка сохранения настроек');
-		}
-
-		wp_send_json_success(['message' => 'Настройки сохранены']);
-	}
-
-	/**
 	 * Возвращает структуру ConditionField-полей шаблона для конкретного типа задания.
 	 *
 	 * Используется на фронте для построения редактора boilerplate.
@@ -151,7 +119,7 @@ class TemplateManagerCallbacks
 		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
 
 		if (!$subject_key || !$term_slug) {
-			wp_send_json_error('Недостаточно данных 1');
+			wp_send_json_error('Недостаточно данных');
 		}
 
 		// Получаем объект привязки из БД
@@ -211,7 +179,7 @@ class TemplateManagerCallbacks
 	 *
 	 * @return void
 	 */
-	public function ajaxSaveBoilerplate(): void
+	public function ajaxSaveTaskBoilerplate(): void
 	{
 		// Проверка прав доступа и nonce
 		$this->authorize();
@@ -223,7 +191,7 @@ class TemplateManagerCallbacks
 		$text = wp_kses_post(wp_unslash($_POST['text'] ?? ''));
 
 		if (!$subject_key || !$term_slug) {
-			wp_send_json_error('Недостаточно данных 4');
+			wp_send_json_error('Недостаточно данных');
 		}
 
 		// Фиксированный uid гарантирует обновление, а не создание нового варианта
@@ -261,7 +229,7 @@ class TemplateManagerCallbacks
 		$term_slug   = sanitize_text_field(wp_unslash($_GET['term_slug'] ?? ''));
 
 		if (!$subject_key || !$term_slug) {
-			wp_send_json_error('Недостаточно данных 5');
+			wp_send_json_error('Недостаточно данных');
 		}
 
 		// Репозиторий сам знает, как найти дефолтный вариант

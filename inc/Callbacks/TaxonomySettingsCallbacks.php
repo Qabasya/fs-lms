@@ -33,13 +33,13 @@ class TaxonomySettingsCallbacks
 	 *
 	 * @return void
 	 */
-	public function storeTaxonomy(): void
+	public function ajaxStoreTaxonomy(): void
 	{
 		// Проверка прав доступа и nonce
 		$this->authorize();
 
 		// Получение и валидация данных таксономии
-		[$subject_key, $tax_slug, $tax_name, $display_type] = $this->requireTaxonomyData();
+		[$subject_key, $tax_slug, $tax_name, $display_type, $default_term] = $this->requireTaxonomyData();
 
 		// Сохранение через репозиторий
 		$this->taxonomies->update([
@@ -47,6 +47,7 @@ class TaxonomySettingsCallbacks
 			'tax_slug'     => $tax_slug,
 			'name'         => $tax_name,
 			'display_type' => $display_type,
+			'default_term' => $default_term,
 		]);
 
 		// Отправка результата
@@ -58,13 +59,13 @@ class TaxonomySettingsCallbacks
 	 *
 	 * @return void
 	 */
-	public function updateTaxonomy(): void
+	public function ajaxUpdateTaxonomy(): void
 	{
 		// Проверка прав доступа и nonce
 		$this->authorize();
 
 		// Получение и валидация данных таксономии
-		[$subject_key, $tax_slug, $tax_name, $display_type] = $this->requireTaxonomyData();
+		[$subject_key, $tax_slug, $tax_name, $display_type, $default_term] = $this->requireTaxonomyData();
 
 		// Обновление через репозиторий
 		$this->taxonomies->update([
@@ -72,6 +73,7 @@ class TaxonomySettingsCallbacks
 			'tax_slug'     => $tax_slug,
 			'name'         => $tax_name,
 			'display_type' => $display_type,
+			'default_term' => $default_term,
 		]);
 
 		// Отправка результата
@@ -83,7 +85,7 @@ class TaxonomySettingsCallbacks
 	 *
 	 * @return void
 	 */
-	public function deleteTaxonomy(): void
+	public function ajaxDeleteTaxonomy(): void
 	{
 		// Проверка прав доступа и nonce
 		$this->authorize();
@@ -142,7 +144,8 @@ class TaxonomySettingsCallbacks
 	 * Читает и валидирует полный набор данных таксономии из POST.
 	 * Используется в store и update.
 	 *
-	 * @return array{0: string, 1: string, 2: string, 3: string} [subject_key, tax_slug, tax_name, display_type]
+	 * @return array{0: string, 1: string, 2: string, 3: string, 4: string}
+	 *         [subject_key, tax_slug, tax_name, display_type, default_term]
 	 */
 	private function requireTaxonomyData(): array
 	{
@@ -163,7 +166,10 @@ class TaxonomySettingsCallbacks
 			? $raw_display
 			: 'select';
 
-		return [$subject_key, $tax_slug, $tax_name, $display_type];
+		// Ярлык термина по умолчанию (опционально)
+		$default_term = sanitize_title(wp_unslash($_POST['default_term'] ?? ''));
+
+		return [$subject_key, $tax_slug, $tax_name, $display_type, $default_term];
 	}
 
 	/**
@@ -178,7 +184,9 @@ class TaxonomySettingsCallbacks
 	 */
 	private function sendResult(string $message): void
 	{
+		// Сброс правил перезаписи после изменений таксономий
 		flush_rewrite_rules();
+
 		wp_send_json_success($message);
 	}
 }

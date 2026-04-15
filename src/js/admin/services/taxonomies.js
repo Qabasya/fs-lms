@@ -57,9 +57,6 @@ export const Taxonomies = {
 
     save(data) {
         if (!data.tax_name || (data.action === 'store' && !data.tax_slug)) {
-            console.log(data.tax_name)
-            console.log(data.action)
-            console.log(data.tax_slug)
             alert('Пожалуйста, заполните все поля');
             return;
         }

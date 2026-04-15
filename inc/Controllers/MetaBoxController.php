@@ -28,7 +28,7 @@ use Inc\DTO\TaskMetaDTO;
  * @package Inc\Controllers
  * @implements ServiceInterface
  */
-class MetaBoxController implements ServiceInterface {
+class MetaBoxController  extends BaseController implements ServiceInterface {
 	/** @var array<string, BaseTemplate> */
 	private array $templates = [];
 

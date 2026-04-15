@@ -13,6 +13,7 @@
         <h3 id="modal-title">Добавить новую таксономию</h3>
         <input type="hidden" id="tax-subject-key" value="<?php echo esc_attr( $dto->subject_key ); ?>">
         <input type="hidden" id="tax-action" value="store">
+        <input type="hidden" id="tax-original-slug" value="">
 
         <p>
             <label>Название:</label><br>
@@ -21,10 +22,10 @@
 
         <p id="slug-container">
             <label>Ярлык:</label><br>
-            <input type="text" id="tax-slug" style="width:100%" >
+            <span id="tax-slug-prefix" style="font-family:monospace;"><?php echo esc_html( $dto->subject_key ); ?>_</span><input type="text" id="tax-slug" style="width:calc(100% - <?php echo esc_attr( strlen( $dto->subject_key ) + 1 ); ?>ch - 4px)">
         </p>
 
-        <p id="slug-container">
+        <p>
             <label>Тип отображения:</label><br>
             <div class="fs-radio-group">
                 <label><input type="radio" name="tax_display_type" value="select" checked> Выпадающий список (Select)</label><br>

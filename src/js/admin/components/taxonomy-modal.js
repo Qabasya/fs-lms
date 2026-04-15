@@ -50,7 +50,7 @@ export const TaxonomyModal = {
      * Открывает модалку в нужном режиме.
      *
      * @param {'store'|'update'} action
-     * @param {{ slug?: string, name?: string }} data
+     * @param {{ slug?: string, name?: string, display?: string }} data
      */
     open(action, data = {}) {
         const isUpdate = action === 'update';
@@ -58,9 +58,15 @@ export const TaxonomyModal = {
         $('#tax-action').val(action);
         $('#modal-title').text(isUpdate ? 'Редактировать название' : 'Новая таксономия');
 
-        // Slug нельзя менять при редактировании
         $('#slug-container').toggle(!isUpdate);
-        $('#tax-slug').val(isUpdate ? (data.slug ?? '') : '');
+
+        if (isUpdate) {
+            $('#tax-original-slug').val(data.slug ?? '');
+        } else {
+            $('#tax-slug').val('');
+            $('#tax-original-slug').val('');
+        }
+
         $('#tax-name').val(isUpdate ? (data.name ?? '') : '');
 
         const displayType = (isUpdate && data.display) ? data.display : 'select';
@@ -71,7 +77,7 @@ export const TaxonomyModal = {
 
     close() {
         this.$modal.fadeOut(200, () => {
-            $('#tax-name, #tax-slug').val('');
+            $('#tax-name, #tax-slug, #tax-original-slug').val('');
             $('#tax-action').val('store');
             this.$modal.find('input[name="tax_display_type"][value="select"]').prop('checked', true);
         });
@@ -85,10 +91,11 @@ export const TaxonomyModal = {
     },
 
     _collectFormData() {
+        const action = $('#tax-action').val();
         return {
-            action:      $('#tax-action').val(),
+            action,
             subject_key: $('#tax-subject-key').val(),
-            tax_slug:    $('#tax-slug').val(),
+            tax_slug:    action === 'update' ? $('#tax-original-slug').val() : $('#tax-slug').val(),
             tax_name:    $('#tax-name').val(),
             display_type: this.$modal.find('input[name="tax_display_type"]:checked').val()
         };

@@ -16,12 +16,13 @@ use Inc\Services\TaxonomySeeder;
  *
  * @package Inc\Callbacks
  */
-class SubjectSettingsCallbacks {
+class SubjectSettingsCallbacks
+{
 	/**
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
-	 * @param TaxonomySeeder $seeder Сервис заполнения таксономий
+	 * @param TaxonomySeeder    $seeder   Сервис заполнения таксономий
 	 */
 	public function __construct(
 		private SubjectRepository $subjects,
@@ -36,32 +37,32 @@ class SubjectSettingsCallbacks {
 	 *
 	 * @return void
 	 */
-	public function storeSubject(): void {
+	public function ajaxStoreSubject(): void
+	{
 		// Проверка прав доступа и nonce
 		$this->authorize();
 
 		// Получение и валидация ключа и названия предмета
-		[ $key, $name ] = $this->requireKeyAndName();
+		[$key, $name] = $this->requireKeyAndName();
 
 		// Получение количества заданий (по умолчанию 0)
-		$count = absint( wp_unslash( $_POST['tasks_count'] ?? 0 ) );
+		$count = absint(wp_unslash($_POST['tasks_count'] ?? 0));
 
 		// Сохранение предмета через репозиторий
-		$success = $this->subjects->update( [ 'key' => $key, 'name' => $name ] );
+		$success = $this->subjects->update(['key' => $key, 'name' => $name]);
 
-		if ( ! $success ) {
-			wp_send_json_error( 'Ошибка при создании предмета' );
-
+		if (!$success) {
+			wp_send_json_error('Ошибка при создании предмета');
 			return;
 		}
 
 		// Засев таксономии номерами заданий
-		$this->seeder->seedTaskNumbers( "{$key}_task_number", $count, $key );
+		$this->seeder->seedTaskNumbers("{$key}_task_number", $count, $key);
 
 		// Сброс правил перезаписи для активации новых CPT
 		flush_rewrite_rules();
 
-		wp_send_json_success( "Предмет «{$name}» успешно создан!" );
+		wp_send_json_success("Предмет «{$name}» успешно создан!");
 	}
 
 	/**
@@ -69,26 +70,26 @@ class SubjectSettingsCallbacks {
 	 *
 	 * @return void
 	 */
-	public function updateSubject(): void {
+	public function ajaxUpdateSubject(): void
+	{
 		// Проверка прав доступа и nonce
 		$this->authorize();
 
 		// Получение и валидация ключа и названия предмета
-		[ $key, $name ] = $this->requireKeyAndName();
+		[$key, $name] = $this->requireKeyAndName();
 
 		// Проверка существования предмета
-		$this->requireExists( $key );
+		$this->requireExists($key);
 
 		// Обновление предмета через репозиторий
-		$success = $this->subjects->update( [ 'key' => $key, 'name' => $name ] );
+		$success = $this->subjects->update(['key' => $key, 'name' => $name]);
 
-		if ( ! $success ) {
-			wp_send_json_error( 'Ошибка при обновлении предмета' );
-
+		if (!$success) {
+			wp_send_json_error('Ошибка при обновлении предмета');
 			return;
 		}
 
-		wp_send_json_success( "Предмет «{$name}» обновлён" );
+		wp_send_json_success("Предмет «{$name}» обновлён");
 	}
 
 	/**
@@ -96,7 +97,8 @@ class SubjectSettingsCallbacks {
 	 *
 	 * @return void
 	 */
-	public function deleteSubject(): void {
+	public function ajaxDeleteSubject(): void
+	{
 		// Проверка прав доступа и nonce
 		$this->authorize();
 
@@ -104,21 +106,20 @@ class SubjectSettingsCallbacks {
 		$key = $this->requireKey();
 
 		// Проверка существования предмета
-		$this->requireExists( $key );
+		$this->requireExists($key);
 
 		// Удаление предмета через репозиторий
-		$success = $this->subjects->delete( [ 'key' => $key ] );
+		$success = $this->subjects->delete(['key' => $key]);
 
-		if ( ! $success ) {
-			wp_send_json_error( 'Ошибка при удалении предмета' );
-
+		if (!$success) {
+			wp_send_json_error('Ошибка при удалении предмета');
 			return;
 		}
 
 		// Сброс правил перезаписи после удаления CPT
 		flush_rewrite_rules();
 
-		wp_send_json_success( 'Предмет удалён' );
+		wp_send_json_success('Предмет удалён');
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
@@ -129,13 +130,14 @@ class SubjectSettingsCallbacks {
 	 *
 	 * @return void
 	 */
-	private function authorize(): void {
+	private function authorize(): void
+	{
 		// Проверка nonce для защиты от CSRF
-		check_ajax_referer( 'fs_subject_nonce', 'security' );
+		check_ajax_referer('fs_subject_nonce', 'security');
 
 		// Проверка прав доступа (только администраторы)
-		if ( ! current_user_can( Capability::ADMIN->value ) ) {
-			wp_send_json_error( 'Нет прав', 403 );
+		if (!current_user_can(Capability::ADMIN->value)) {
+			wp_send_json_error('Нет прав', 403);
 		}
 	}
 
@@ -145,11 +147,12 @@ class SubjectSettingsCallbacks {
 	 *
 	 * @return string Санированный ключ предмета
 	 */
-	private function requireKey(): string {
-		$key = sanitize_title( wp_unslash( $_POST['key'] ?? '' ) );
+	private function requireKey(): string
+	{
+		$key = sanitize_title(wp_unslash($_POST['key'] ?? ''));
 
-		if ( empty( $key ) ) {
-			wp_send_json_error( 'ID предмета обязателен' );
+		if (empty($key)) {
+			wp_send_json_error('ID предмета обязателен');
 		}
 
 		return $key;
@@ -161,15 +164,16 @@ class SubjectSettingsCallbacks {
 	 *
 	 * @return array{0: string, 1: string} [key, name]
 	 */
-	private function requireKeyAndName(): array {
+	private function requireKeyAndName(): array
+	{
 		$key  = $this->requireKey();
-		$name = sanitize_text_field( wp_unslash( $_POST['name'] ?? '' ) );
+		$name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
 
-		if ( empty( $name ) ) {
-			wp_send_json_error( 'Название предмета обязательно' );
+		if (empty($name)) {
+			wp_send_json_error('Название предмета обязательно');
 		}
 
-		return [ $key, $name ];
+		return [$key, $name];
 	}
 
 	/**
@@ -180,9 +184,10 @@ class SubjectSettingsCallbacks {
 	 *
 	 * @return void
 	 */
-	private function requireExists( string $key ): void {
-		if ( ! $this->subjects->getByKey( $key ) ) {
-			wp_send_json_error( 'Предмет не найден в базе данных' );
+	private function requireExists(string $key): void
+	{
+		if (!$this->subjects->getByKey($key)) {
+			wp_send_json_error('Предмет не найден в базе данных');
 		}
 	}
 }
