@@ -4,6 +4,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
 use Inc\MetaBoxes\Templates\BaseTemplate;
 use Inc\MetaBoxes\Templates\CommonConditionTemplate;
@@ -148,7 +149,7 @@ class MetaBoxController  extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		wp_nonce_field( 'fs_lms_save_meta', 'fs_lms_meta_nonce' );
+		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
 
 		echo '<div class="fs-lms-metabox-wrapper">';
 		$template->render( $post );
@@ -173,7 +174,7 @@ class MetaBoxController  extends BaseController implements ServiceInterface {
 		}
 
 		$nonce = $_POST['fs_lms_meta_nonce'] ?? '';
-		if ( ! wp_verify_nonce( $nonce, 'fs_lms_save_meta' ) ) {
+		if ( ! wp_verify_nonce( $nonce, Nonce::SaveMeta->value ) ) {
 			return;
 		}
 

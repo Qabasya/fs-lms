@@ -4,6 +4,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Capability;
+use Inc\Enums\Nonce;
 use Inc\Repositories\TaxonomyRepository;
 
 /**
@@ -113,12 +114,11 @@ class TaxonomySettingsCallbacks
 	 */
 	private function authorize(): void
 	{
-		// Проверка nonce для защиты от CSRF
-		check_ajax_referer('fs_subject_nonce', 'security');
+		Nonce::Subject->verify('security');
 
 		// Проверка прав доступа (только администраторы)
 		if (!current_user_can(Capability::ADMIN->value)) {
-			wp_send_json_error('Нет прав', 403);
+			wp_send_json_error('У вас недостаточно прав', 403);
 		}
 	}
 

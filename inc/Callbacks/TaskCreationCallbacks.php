@@ -2,6 +2,7 @@
 
 namespace Inc\Callbacks;
 
+use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\TaskTypeRepository;
@@ -68,7 +69,7 @@ class TaskCreationCallbacks
 	public function ajaxCreateTask(): void
 	{
 		// Валидация запроса
-		$this->validateCreateTaskRequest();
+		$this->authorize();
 
 		// Сбор и валидация данных
 		[$subject_key, $term_id, $title] = $this->collectCreateTaskData();
@@ -152,14 +153,13 @@ class TaskCreationCallbacks
 	 *
 	 * @return void
 	 */
-	private function validateCreateTaskRequest(): void
+	private function authorize(): void
 	{
-		// Проверка nonce для защиты от CSRF
-		check_ajax_referer('fs_task_creation_nonce', 'nonce');
+		Nonce::TaskCreation->verify('nonce');
 
 		// Проверка прав доступа (редактирование постов)
 		if (!current_user_can('edit_posts')) {
-			wp_send_json_error('У вас недостаточно прав для создания задания', 403);
+			wp_send_json_error('У вас недостаточно прав', 403);
 		}
 	}
 

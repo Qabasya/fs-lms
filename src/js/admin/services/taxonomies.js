@@ -65,7 +65,7 @@ export const Taxonomies = {
 
         $.post(ajaxurl, {
             action:      data.action === 'store' ? 'store_taxonomy' : 'update_taxonomy',
-            security:    fs_lms_vars.security,
+            security:    fs_lms_vars.subject_nonce,
             subject_key: data.subject_key,
             tax_slug:    data.tax_slug,
             tax_name:    data.tax_name,
@@ -88,7 +88,7 @@ export const Taxonomies = {
     _ajaxDelete(slug, subjectKey) {
         $.post(ajaxurl, {
             action:      'delete_taxonomy',
-            security:    fs_lms_vars.security,
+            security:    fs_lms_vars.subject_nonce,
             subject_key: subjectKey,
             tax_slug:    slug,
         })

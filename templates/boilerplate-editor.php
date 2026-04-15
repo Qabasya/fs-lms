@@ -16,6 +16,8 @@
  */
 
 // Определение режима (создание или редактирование)
+use Inc\Enums\Nonce;
+
 $is_edit = !empty($boilerplate);
 $title   = $is_edit ? 'Редактировать условие' : 'Добавить новое типовое условие';
 $uid     = $is_edit ? $boilerplate->uid : uniqid('bp_');
@@ -44,7 +46,7 @@ if (!empty($raw_content)) {
         <input type="hidden" name="subject_key" value="<?php echo esc_attr($subject); ?>">
         <input type="hidden" name="term_slug" value="<?php echo esc_attr($term); ?>">
         <input type="hidden" name="uid" value="<?php echo esc_attr($uid); ?>">
-        <?php wp_nonce_field('save_boilerplate_nonce', 'nonce'); ?>
+        <?php wp_nonce_field( Nonce::SaveBoilerplate->value, 'nonce' ); ?>
 
         <div id="poststuff">
             <div id="post-body" class="metabox-holder columns-2">

@@ -26,7 +26,11 @@
                 <p class="description">Сколько уникальных номеров заданий будет в курсе.</p>
             </div>
 
-			<?php wp_nonce_field( 'fs_subject_nonce', 'security' ); ?>
+            <?php
+            use Inc\Enums\Nonce;
+
+            wp_nonce_field( Nonce::Subject->value, 'security' );
+            ?>
             <button type="submit" class="button button-primary">Создать предмет и CPT</button>
         </form>
     </div>

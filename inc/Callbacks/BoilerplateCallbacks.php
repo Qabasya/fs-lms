@@ -3,6 +3,7 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\Enums\Nonce;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Capability;
 use Inc\Repositories\TaskTypeRepository;
@@ -17,21 +18,8 @@ use Inc\Repositories\TaskTypeRepository;
  *
  * @package Inc\Callbacks
  */
-class BoilerplateCallbacks
+class BoilerplateCallbacks extends BaseController
 {
-	/**
-	 * Название nonce для проверки безопасности.
-	 *
-	 * @var string
-	 */
-	private const NONCE_ACTION = 'save_boilerplate_nonce';
-
-	/**
-	 * Ключ nonce в запросе.
-	 *
-	 * @var string
-	 */
-	private const NONCE_KEY = 'nonce';
 
 	/**
 	 * Конструктор.
@@ -41,6 +29,7 @@ class BoilerplateCallbacks
 	public function __construct(
 		private readonly TaskTypeRepository $taskTypes,
 	) {
+		parent::__construct();
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -129,8 +118,7 @@ class BoilerplateCallbacks
 	 */
 	private function authorize(): void
 	{
-		// Проверка nonce для защиты от CSRF
-		check_ajax_referer(self::NONCE_ACTION, self::NONCE_KEY);
+		Nonce::SaveBoilerplate->verify('nonce');
 
 		// Проверка прав доступа (только администраторы)
 		if (!current_user_can(Capability::ADMIN->value)) {

@@ -5,6 +5,7 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Capability;
+use Inc\Enums\Nonce;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\TaskTypeRepository;
@@ -61,13 +62,7 @@ class TemplateManagerCallbacks
 	 */
 	public function ajaxUpdateTermTemplate(): void
 	{
-		// Проверка nonce для защиты от CSRF (используется nonce предметов)
-		check_ajax_referer('fs_subject_nonce', 'security');
-
-		// Проверка прав доступа (только администраторы)
-		if (!current_user_can(Capability::ADMIN->value)) {
-			wp_send_json_error('Нет прав', 403);
-		}
+		$this->authorize();
 
 		// Получение и валидация данных
 		$term_id     = absint($_POST['term_id'] ?? 0);
@@ -251,12 +246,11 @@ class TemplateManagerCallbacks
 	 */
 	private function authorize(): void
 	{
-		// Проверка nonce для защиты от CSRF
-		check_ajax_referer(self::NONCE_ACTION, self::NONCE_KEY);
+		Nonce::Subject->verify('security');
 
 		// Проверка прав доступа (только администраторы)
 		if (!current_user_can(Capability::ADMIN->value)) {
-			wp_send_json_error('Доступ запрещён', 403);
+			wp_send_json_error('У вас недостаточно прав', 403);
 		}
 	}
 }

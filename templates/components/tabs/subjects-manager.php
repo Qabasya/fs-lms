@@ -133,7 +133,11 @@ if ( isset( $_GET['tab'] ) ) {
 
                             <input type="hidden" name="key" value="">
 
-                            <?php wp_nonce_field( 'fs_subject_nonce', 'security' ); ?>
+                            <?php
+                            use Inc\Enums\Nonce;
+
+                            wp_nonce_field( Nonce::Subject->value, 'security' );
+                            ?>
 
                         </div>
 
