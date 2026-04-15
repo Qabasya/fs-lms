@@ -29,7 +29,7 @@ use Inc\DTO\TaskMetaDTO;
  * @package Inc\Controllers
  * @implements ServiceInterface
  */
-class MetaBoxController  extends BaseController implements ServiceInterface {
+class MetaBoxController extends BaseController implements ServiceInterface {
 	/** @var array<string, BaseTemplate> */
 	private array $templates = [];
 
@@ -38,7 +38,7 @@ class MetaBoxController  extends BaseController implements ServiceInterface {
 		private readonly MetaBoxRepository $metaboxes,
 		private readonly MetaBoxRegistrar $registrar
 	) {
-
+		parent::__construct();
 	}
 
 	// ============================ РЕГИСТРАЦИЯ ============================ //
