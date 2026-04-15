@@ -7,6 +7,8 @@ namespace Inc\Callbacks;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
+use Inc\Managers\PostManager;
+use Inc\Managers\TermManager;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaskTypeRepository;
@@ -21,6 +23,8 @@ class SubjectSettingsCallbacks
 		private TaxonomyRepository $taxonomies,
 		private MetaBoxRepository  $metaboxes,
 		private TaskTypeRepository $boilerplates,
+		private TermManager        $terms,
+		private PostManager        $posts,
 	) {
 	}
 
@@ -228,34 +232,18 @@ class SubjectSettingsCallbacks
 	private function cascadeDelete(string $key): void
 	{
 		foreach ($this->taxonomies->getBySubject($key) as $tax_dto) {
-			$this->deleteWpTerms($tax_dto->slug);
+			$this->terms->deleteAll($tax_dto->slug);
 		}
 
-		$this->deleteWpTerms("{$key}_task_number");
+		$this->terms->deleteAll("{$key}_task_number");
 
 		foreach (["{$key}_tasks", "{$key}_articles"] as $post_type) {
-			$ids = get_posts(['post_type' => $post_type, 'numberposts' => -1, 'post_status' => 'any', 'fields' => 'ids']);
-			foreach ($ids as $id) {
-				wp_delete_post((int) $id, true);
-			}
+			$this->posts->deleteAll($post_type);
 		}
 
 		$this->taxonomies->deleteBySubject($key);
 		$this->metaboxes->deleteBySubject($key);
 		$this->boilerplates->deleteBySubject($key);
-	}
-
-	private function deleteWpTerms(string $taxonomy): void
-	{
-		$ids = get_terms(['taxonomy' => $taxonomy, 'hide_empty' => false, 'fields' => 'ids']);
-
-		if (is_wp_error($ids)) {
-			return;
-		}
-
-		foreach ($ids as $id) {
-			wp_delete_term((int) $id, $taxonomy);
-		}
 	}
 
 	private function collectTerms(string $subject_key): array
@@ -268,16 +256,14 @@ class SubjectSettingsCallbacks
 		$result = [];
 
 		foreach ($slugs as $tax_slug) {
-			$terms = get_terms(['taxonomy' => $tax_slug, 'hide_empty' => false]);
+			$wpTerms = $this->terms->getAll($tax_slug);
 
-			if (!is_wp_error($terms)) {
-				$result[$tax_slug] = array_map(fn($t) => [
-					'name'        => $t->name,
-					'slug'        => $t->slug,
-					'description' => $t->description,
-					'parent'      => $t->parent,
-				], $terms);
-			}
+			$result[$tax_slug] = array_map(fn($t) => [
+				'name'        => $t->name,
+				'slug'        => $t->slug,
+				'description' => $t->description,
+				'parent'      => $t->parent,
+			], $wpTerms);
 		}
 
 		return $result;
@@ -293,21 +279,13 @@ class SubjectSettingsCallbacks
 		$result = [];
 
 		foreach (["{$subject_key}_tasks", "{$subject_key}_articles"] as $post_type) {
-			$posts = get_posts(['post_type' => $post_type, 'numberposts' => -1, 'post_status' => 'any']);
-
 			$result[$post_type] = array_map(function ($post) use ($tax_slugs) {
-				$terms = [];
-
+				$termMap = [];
 				foreach ($tax_slugs as $tax_slug) {
-					$assigned = wp_get_post_terms($post->ID, $tax_slug, ['fields' => 'slugs']);
-					if (!is_wp_error($assigned) && !empty($assigned)) {
-						$terms[$tax_slug] = $assigned;
+					$slugs = $this->terms->getPostSlugs($post->ID, $tax_slug);
+					if (!empty($slugs)) {
+						$termMap[$tax_slug] = $slugs;
 					}
-				}
-
-				$meta = [];
-				foreach (get_post_meta($post->ID) as $meta_key => $_) {
-					$meta[$meta_key] = get_post_meta($post->ID, $meta_key, true);
 				}
 
 				return [
@@ -317,10 +295,10 @@ class SubjectSettingsCallbacks
 					'post_status'  => $post->post_status,
 					'post_date'    => $post->post_date,
 					'menu_order'   => (int) $post->menu_order,
-					'meta'         => $meta,
-					'terms'        => $terms,
+					'meta'         => $this->posts->getAllMeta($post->ID),
+					'terms'        => $termMap,
 				];
-			}, $posts);
+			}, $this->posts->getAll($post_type));
 		}
 
 		return $result;
@@ -328,18 +306,16 @@ class SubjectSettingsCallbacks
 
 	private function importTerms(string $taxonomy, array $terms): void
 	{
-		if (!taxonomy_exists($taxonomy)) {
-			register_taxonomy($taxonomy, []);
-		}
+		$this->terms->ensureTaxonomy($taxonomy);
 
 		foreach ($terms as $term_data) {
 			$name = sanitize_text_field($term_data['name'] ?? '');
 
-			if (empty($name) || term_exists($name, $taxonomy)) {
+			if (empty($name)) {
 				continue;
 			}
 
-			wp_insert_term($name, $taxonomy, [
+			$this->terms->insert($name, $taxonomy, [
 				'slug'        => sanitize_title($term_data['slug'] ?? $name),
 				'description' => sanitize_text_field($term_data['description'] ?? ''),
 			]);
@@ -349,11 +325,9 @@ class SubjectSettingsCallbacks
 	private function importPosts(array $posts_data): void
 	{
 		foreach ($posts_data as $post_type => $post_list) {
-			$clean_type = sanitize_key((string) $post_type);
-
 			foreach ((array) $post_list as $post_data) {
-				$post_id = wp_insert_post([
-					'post_type'    => $clean_type,
+				$post_id = $this->posts->insert([
+					'post_type'    => sanitize_key((string) $post_type),
 					'post_title'   => sanitize_text_field($post_data['post_title'] ?? ''),
 					'post_content' => wp_kses_post($post_data['post_content'] ?? ''),
 					'post_excerpt' => sanitize_text_field($post_data['post_excerpt'] ?? ''),
@@ -362,16 +336,16 @@ class SubjectSettingsCallbacks
 					'menu_order'   => absint($post_data['menu_order'] ?? 0),
 				]);
 
-				if (is_wp_error($post_id) || !$post_id) {
+				if (!$post_id) {
 					continue;
 				}
 
 				foreach ($post_data['meta'] ?? [] as $meta_key => $meta_value) {
-					update_post_meta($post_id, sanitize_key((string) $meta_key), $meta_value);
+					$this->posts->updateMeta($post_id, sanitize_key((string) $meta_key), $meta_value);
 				}
 
 				foreach ($post_data['terms'] ?? [] as $tax_slug => $term_slugs) {
-					wp_set_post_terms($post_id, (array) $term_slugs, sanitize_title((string) $tax_slug));
+					$this->terms->setPostTerms($post_id, (array) $term_slugs, sanitize_title((string) $tax_slug));
 				}
 			}
 		}

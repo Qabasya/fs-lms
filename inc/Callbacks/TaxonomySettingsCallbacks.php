@@ -2,9 +2,9 @@
 
 namespace Inc\Callbacks;
 
-use Inc\Core\BaseController;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
+use Inc\Managers\TermManager;
 use Inc\Repositories\TaxonomyRepository;
 
 /**
@@ -24,6 +24,7 @@ class TaxonomySettingsCallbacks
 	 */
 	public function __construct(
 		private TaxonomyRepository $taxonomies,
+		private TermManager        $terms,
 	) {
 	}
 
@@ -94,12 +95,7 @@ class TaxonomySettingsCallbacks
 
 		[$subject_key, $tax_slug] = $this->requireSubjectAndSlug();
 
-		$terms = get_terms(['taxonomy' => $tax_slug, 'hide_empty' => false, 'fields' => 'ids']);
-		if (!is_wp_error($terms)) {
-			foreach ($terms as $term_id) {
-				wp_delete_term((int) $term_id, $tax_slug);
-			}
-		}
+		$this->terms->deleteAll($tax_slug);
 
 		$this->taxonomies->delete([
 			'subject_key' => $subject_key,

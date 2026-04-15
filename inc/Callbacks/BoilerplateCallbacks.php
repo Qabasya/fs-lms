@@ -109,20 +109,17 @@ class BoilerplateCallbacks extends BaseController
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-
 	/**
 	 * Проверяет nonce и права администратора.
 	 * Завершает выполнение через wp_send_json_error при неудаче.
 	 *
 	 * @return void
 	 */
-	private function authorize(): void
-	{
-		Nonce::SaveBoilerplate->verify('nonce');
+	private function authorize(): void {
+		Nonce::SaveBoilerplate->verify( 'nonce' );
 
-		// Проверка прав доступа (только администраторы)
-		if (!current_user_can(Capability::ADMIN->value)) {
-			wp_send_json_error('У вас недостаточно прав', 403);
+		if ( ! current_user_can( Capability::ADMIN->value ) ) {
+			wp_send_json_error( 'У вас недостаточно прав', 403 );
 		}
 	}
 
