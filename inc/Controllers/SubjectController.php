@@ -123,6 +123,7 @@ class SubjectController extends BaseController implements ServiceInterface
 			AjaxHook::StoreSubject,
 			AjaxHook::UpdateSubject,
 			AjaxHook::DeleteSubject,
+			AjaxHook::ExportSubject,
 		];
 
 		// === TaxonomySettingsCallbacks -> общая логика === //

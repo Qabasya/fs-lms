@@ -199,6 +199,36 @@ class MetaBoxRepository implements RepositoryInterface {
 	}
 
 	/**
+	 * Удалить все привязки шаблонов для указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return bool Успешность операции
+	 */
+	public function deleteBySubject( string $subject_key ): bool {
+		$all = $this->getRaw();
+
+		if ( ! isset( $all[ $subject_key ] ) ) {
+			return true;
+		}
+
+		unset( $all[ $subject_key ] );
+
+		return update_option( $this->option_name, $all );
+	}
+
+	/**
+	 * Вернуть сырые данные привязок шаблонов для указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return array<string, string>
+	 */
+	public function getRawForSubject( string $subject_key ): array {
+		return $this->getRaw()[ $subject_key ] ?? [];
+	}
+
+	/**
 	 * Полностью очистить все привязки заданий к шаблонам.
 	 *
 	 * Удаляет опцию из базы данных целиком.

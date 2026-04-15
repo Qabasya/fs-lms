@@ -285,4 +285,36 @@ class TaskTypeRepository implements RepositoryInterface
 
 		return $this->deleteBoilerplate($data['subject_key'], $data['term_slug'], $data['uid']);
 	}
+
+	/**
+	 * Удаляет все boilerplates для указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return bool Успешность операции
+	 */
+	public function deleteBySubject(string $subject_key): bool
+	{
+		$all = $this->getRaw();
+
+		if (!isset($all[$subject_key])) {
+			return true;
+		}
+
+		unset($all[$subject_key]);
+
+		return update_option($this->option_name, $all);
+	}
+
+	/**
+	 * Вернуть сырые данные boilerplates для указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return array<string, array<int, array<string, mixed>>>
+	 */
+	public function getRawForSubject(string $subject_key): array
+	{
+		return $this->getRaw()[$subject_key] ?? [];
+	}
 }

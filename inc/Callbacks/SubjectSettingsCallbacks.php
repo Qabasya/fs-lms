@@ -1,55 +1,38 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Inc\Callbacks;
 
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
+use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\TaskTypeRepository;
+use Inc\Repositories\TaxonomyRepository;
 use Inc\Services\TaxonomySeeder;
 
-/**
- * Class SubjectSettingsCallbacks
- *
- * AJAX-обработчики для CRUD-операций с предметами.
- *
- * Отвечает только за предметы: создание, обновление, удаление.
- * Управление шаблонами (update_term_template) перенесено в TemplateManagerCallbacks.
- *
- * @package Inc\Callbacks
- */
 class SubjectSettingsCallbacks
 {
-	/**
-	 * Конструктор.
-	 *
-	 * @param SubjectRepository $subjects Репозиторий предметов
-	 * @param TaxonomySeeder    $seeder   Сервис заполнения таксономий
-	 */
 	public function __construct(
 		private SubjectRepository $subjects,
-		private TaxonomySeeder $seeder,
+		private TaxonomySeeder    $seeder,
+		private TaxonomyRepository $taxonomies,
+		private MetaBoxRepository  $metaboxes,
+		private TaskTypeRepository $boilerplates,
 	) {
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
 
-	/**
-	 * Создаёт новый предмет и засевает таксономию номеров заданий.
-	 *
-	 * @return void
-	 */
 	public function ajaxStoreSubject(): void
 	{
-		// Проверка прав доступа и nonce
 		$this->authorize();
 
-		// Получение и валидация ключа и названия предмета
 		[$key, $name] = $this->requireKeyAndName();
 
-		// Получение количества заданий (по умолчанию 0)
 		$count = absint(wp_unslash($_POST['tasks_count'] ?? 0));
 
-		// Сохранение предмета через репозиторий
 		$success = $this->subjects->update(['key' => $key, 'name' => $name]);
 
 		if (!$success) {
@@ -57,32 +40,21 @@ class SubjectSettingsCallbacks
 			return;
 		}
 
-		// Засев таксономии номерами заданий
 		$this->seeder->seedTaskNumbers("{$key}_task_number", $count, $key);
 
-		// Сброс правил перезаписи для активации новых CPT
 		flush_rewrite_rules();
 
 		wp_send_json_success("Предмет «{$name}» успешно создан!");
 	}
 
-	/**
-	 * Обновляет название существующего предмета.
-	 *
-	 * @return void
-	 */
 	public function ajaxUpdateSubject(): void
 	{
-		// Проверка прав доступа и nonce
 		$this->authorize();
 
-		// Получение и валидация ключа и названия предмета
 		[$key, $name] = $this->requireKeyAndName();
 
-		// Проверка существования предмета
 		$this->requireExists($key);
 
-		// Обновление предмета через репозиторий
 		$success = $this->subjects->update(['key' => $key, 'name' => $name]);
 
 		if (!$success) {
@@ -93,23 +65,16 @@ class SubjectSettingsCallbacks
 		wp_send_json_success("Предмет «{$name}» обновлён");
 	}
 
-	/**
-	 * Удаляет предмет из базы данных.
-	 *
-	 * @return void
-	 */
 	public function ajaxDeleteSubject(): void
 	{
-		// Проверка прав доступа и nonce
 		$this->authorize();
 
-		// Получение и валидация ключа предмета
 		$key = $this->requireKey();
 
-		// Проверка существования предмета
 		$this->requireExists($key);
 
-		// Удаление предмета через репозиторий
+		$this->cascadeDelete($key);
+
 		$success = $this->subjects->delete(['key' => $key]);
 
 		if (!$success) {
@@ -117,37 +82,42 @@ class SubjectSettingsCallbacks
 			return;
 		}
 
-		// Сброс правил перезаписи после удаления CPT
 		flush_rewrite_rules();
 
 		wp_send_json_success('Предмет удалён');
 	}
 
+	public function ajaxExportSubject(): void
+	{
+		$this->authorize();
+
+		$key     = $this->requireKey();
+		$subject = $this->subjects->getByKey($key);
+
+		if (!$subject) {
+			wp_send_json_error('Предмет не найден');
+			return;
+		}
+
+		wp_send_json_success([
+			'subject'      => ['key' => $subject->key, 'name' => $subject->name],
+			'taxonomies'   => $this->taxonomies->getRawForSubject($key),
+			'metaboxes'    => $this->metaboxes->getRawForSubject($key),
+			'boilerplates' => $this->boilerplates->getRawForSubject($key),
+		]);
+	}
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
-	/**
-	 * Проверяет nonce и права администратора.
-	 * Завершает выполнение через wp_send_json_error при неудаче.
-	 *
-	 * @return void
-	 */
 	private function authorize(): void
 	{
-		// Проверка nonce для защиты от CSRF
 		Nonce::Subject->verify('security');
 
-		// Проверка прав доступа (только администраторы)
 		if (!current_user_can(Capability::ADMIN->value)) {
 			wp_send_json_error('У вас недостаточно прав', 403);
 		}
 	}
 
-	/**
-	 * Читает и валидирует ключ предмета из POST.
-	 * Завершает выполнение, если ключ пустой.
-	 *
-	 * @return string Санированный ключ предмета
-	 */
 	private function requireKey(): string
 	{
 		$key = sanitize_title(wp_unslash($_POST['key'] ?? ''));
@@ -159,12 +129,6 @@ class SubjectSettingsCallbacks
 		return $key;
 	}
 
-	/**
-	 * Читает и валидирует ключ + название предмета из POST.
-	 * Завершает выполнение, если одно из значений пустое.
-	 *
-	 * @return array{0: string, 1: string} [key, name]
-	 */
 	private function requireKeyAndName(): array
 	{
 		$key  = $this->requireKey();
@@ -177,18 +141,43 @@ class SubjectSettingsCallbacks
 		return [$key, $name];
 	}
 
-	/**
-	 * Проверяет существование предмета в БД.
-	 * Завершает выполнение, если предмет не найден.
-	 *
-	 * @param string $key Ключ предмета
-	 *
-	 * @return void
-	 */
 	private function requireExists(string $key): void
 	{
 		if (!$this->subjects->getByKey($key)) {
 			wp_send_json_error('Предмет не найден в базе данных');
+		}
+	}
+
+	private function cascadeDelete(string $key): void
+	{
+		foreach ($this->taxonomies->getBySubject($key) as $tax_dto) {
+			$this->deleteWpTerms($tax_dto->slug);
+		}
+
+		$this->deleteWpTerms("{$key}_task_number");
+
+		foreach (["{$key}_tasks", "{$key}_articles"] as $post_type) {
+			$ids = get_posts(['post_type' => $post_type, 'numberposts' => -1, 'post_status' => 'any', 'fields' => 'ids']);
+			foreach ($ids as $id) {
+				wp_delete_post((int) $id, true);
+			}
+		}
+
+		$this->taxonomies->deleteBySubject($key);
+		$this->metaboxes->deleteBySubject($key);
+		$this->boilerplates->deleteBySubject($key);
+	}
+
+	private function deleteWpTerms(string $taxonomy): void
+	{
+		$ids = get_terms(['taxonomy' => $taxonomy, 'hide_empty' => false, 'fields' => 'ids']);
+
+		if (is_wp_error($ids)) {
+			return;
+		}
+
+		foreach ($ids as $id) {
+			wp_delete_term((int) $id, $taxonomy);
 		}
 	}
 }
