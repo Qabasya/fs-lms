@@ -11,7 +11,7 @@ use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\SubjectRepository;
-use Inc\Repositories\TaskTypeRepository;
+use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Services\TaxonomySeeder;
 
@@ -31,7 +31,7 @@ class SubjectSettingsCallbacks {
 	 * @param TaxonomySeeder $seeder Сервис заполнения таксономий
 	 * @param TaxonomyRepository $taxonomies Репозиторий таксономий
 	 * @param MetaBoxRepository $metaboxes Репозиторий метабоксов (привязка шаблонов)
-	 * @param TaskTypeRepository $boilerplates Репозиторий типовых условий
+	 * @param BoilerplateRepository $boilerplates Репозиторий типовых условий
 	 * @param TermManager $terms Менеджер терминов
 	 * @param PostManager $posts Менеджер постов
 	 */
@@ -40,7 +40,7 @@ class SubjectSettingsCallbacks {
 		private TaxonomySeeder $seeder,
 		private TaxonomyRepository $taxonomies,
 		private MetaBoxRepository $metaboxes,
-		private TaskTypeRepository $boilerplates,
+		private BoilerplateRepository $boilerplates,
 		private TermManager $terms,
 		private PostManager $posts,
 	) {

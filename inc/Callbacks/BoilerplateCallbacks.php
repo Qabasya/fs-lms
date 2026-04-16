@@ -6,7 +6,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
-use Inc\Repositories\TaskTypeRepository;
+use Inc\Repositories\BoilerplateRepository;
 
 /**
  * Class BoilerplateCallbacks
@@ -22,10 +22,10 @@ class BoilerplateCallbacks extends BaseController {
 	/**
 	 * Конструктор.
 	 *
-	 * @param TaskTypeRepository $taskTypes Репозиторий типов заданий
+	 * @param BoilerplateRepository $boilerplates Репозиторий типов заданий
 	 */
 	public function __construct(
-		private readonly TaskTypeRepository $taskTypes,
+		private readonly BoilerplateRepository $boilerplates,
 	) {
 		parent::__construct();
 	}
@@ -63,7 +63,7 @@ class BoilerplateCallbacks extends BaseController {
 		);
 
 		// Сохранение через репозиторий
-		$result = $this->taskTypes->updateBoilerplate( $dto );
+		$result = $this->boilerplates->updateBoilerplate( $dto );
 
 		if ( $result ) {
 			wp_send_json_success( [
@@ -95,7 +95,7 @@ class BoilerplateCallbacks extends BaseController {
 		}
 
 		// Удаление через репозиторий
-		$result = $this->taskTypes->deleteBoilerplate( $subject_key, $term_slug, $uid );
+		$result = $this->boilerplates->deleteBoilerplate( $subject_key, $term_slug, $uid );
 
 		if ( $result ) {
 			wp_send_json_success( 'Шаблон успешно удалён' );

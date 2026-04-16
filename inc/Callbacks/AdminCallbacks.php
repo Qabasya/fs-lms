@@ -5,7 +5,6 @@ namespace Inc\Callbacks;
 use Inc\Controllers\BoilerplateController;
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
-use Inc\Repositories\TaskTypeRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -27,12 +26,10 @@ class AdminCallbacks extends BaseController {
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository $subjects Репозиторий предметов
-	 * @param TaskTypeRepository $taskTypes Репозиторий типов заданий
 	 * @param BoilerplateController $boilerplateController Контроллер для страницы boilerplate
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
-		private readonly TaskTypeRepository $taskTypes,
 		private readonly BoilerplateController $boilerplateController
 	) {
 		parent::__construct();
