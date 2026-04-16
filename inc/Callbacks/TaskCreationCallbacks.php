@@ -5,7 +5,7 @@ namespace Inc\Callbacks;
 use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
 use Inc\Repositories\MetaBoxRepository;
-use Inc\Repositories\TaskTypeRepository;
+use Inc\Repositories\BoilerplateRepository;
 
 /**
  * Class TaskCreationCallbacks
@@ -21,11 +21,11 @@ class TaskCreationCallbacks {
 	 * Конструктор.
 	 *
 	 * @param MetaBoxRepository $metaboxes Репозиторий привязок шаблонов и типов заданий
-	 * @param TaskTypeRepository $taskTypes Репозиторий типовых условий (boilerplate)
+	 * @param BoilerplateRepository $boilerplates Репозиторий типовых условий (boilerplate)
 	 */
 	public function __construct(
 		private MetaBoxRepository $metaboxes,
-		private TaskTypeRepository $taskTypes
+		private BoilerplateRepository $boilerplates
 	) {
 	}
 
@@ -90,7 +90,7 @@ class TaskCreationCallbacks {
 
 		// Если выбран конкретный шаблон — загружаем его содержимое
 		if ( ! empty( $boilerplate_uid ) ) {
-			$bp        = $this->taskTypes->findBoilerplate( $subject_key, $term_slug, $boilerplate_uid );
+			$bp        = $this->boilerplates->findBoilerplate( $subject_key, $term_slug, $boilerplate_uid );
 			$task_text = $bp ? $bp->content : '';
 		}
 
@@ -137,7 +137,7 @@ class TaskCreationCallbacks {
 		}
 
 		// Получение всех вариантов из репозитория
-		$variants = $this->taskTypes->getBoilerplates( $subject_key, $term_slug );
+		$variants = $this->boilerplates->getBoilerplates( $subject_key, $term_slug );
 
 		// Формирование лёгкого списка для выпадающего списка
 		$response = array_map( static fn( $bp ) => [

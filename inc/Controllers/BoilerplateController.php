@@ -6,7 +6,7 @@ use Inc\Callbacks\BoilerplateCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\AjaxHook;
-use Inc\Repositories\TaskTypeRepository;
+use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
@@ -31,12 +31,12 @@ class BoilerplateController extends BaseController implements ServiceInterface
 	/**
 	 * Конструктор.
 	 *
-	 * @param TaskTypeRepository   $taskTypes            Репозиторий типов заданий
+	 * @param BoilerplateRepository   $boilerplates            Репозиторий типов заданий
 	 * @param MetaBoxRepository    $metaboxes            Репозиторий метабоксов
 	 * @param BoilerplateCallbacks $boilerplateCallbacks Коллбеки для AJAX-операций
 	 */
 	public function __construct(
-		private readonly TaskTypeRepository $taskTypes,
+		private readonly BoilerplateRepository $boilerplates,
 		private readonly MetaBoxRepository $metaboxes,
 		private readonly BoilerplateCallbacks $boilerplateCallbacks,
 	) {
@@ -119,7 +119,7 @@ class BoilerplateController extends BaseController implements ServiceInterface
 	private function renderList(string $subject_key, string $term_slug): void
 	{
 		// Получение всех boilerplate для указанного типа задания
-		$boilerplates = $this->taskTypes->getBoilerplates($subject_key, $term_slug);
+		$boilerplates = $this->boilerplates->getBoilerplates($subject_key, $term_slug);
 
 		// Рендеринг шаблона списка
 		$this->render('boilerplate-list', [
@@ -147,7 +147,7 @@ class BoilerplateController extends BaseController implements ServiceInterface
 
 		// Загрузка существующего boilerplate (если UID указан)
 		$boilerplate = $uid
-			? $this->taskTypes->findBoilerplate($subject_key, $term_slug, $uid)
+			? $this->boilerplates->findBoilerplate($subject_key, $term_slug, $uid)
 			: null;
 
 		// Декодирование контента для отображения в форме

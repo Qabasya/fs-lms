@@ -8,7 +8,7 @@ use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\MetaBoxRepository;
-use Inc\Repositories\TaskTypeRepository;
+use Inc\Repositories\BoilerplateRepository;
 
 /**
  * Class TemplateManagerCallbacks
@@ -26,11 +26,11 @@ class TemplateManagerCallbacks {
 	 * Конструктор.
 	 *
 	 * @param MetaBoxRepository $metaboxes Репозиторий привязок шаблонов
-	 * @param TaskTypeRepository $taskTypes Репозиторий типов заданий
+	 * @param BoilerplateRepository $boilerplates Репозиторий типов заданий
 	 */
 	public function __construct(
 		private MetaBoxRepository $metaboxes,
-		private TaskTypeRepository $taskTypes,
+		private BoilerplateRepository $boilerplates,
 	) {
 	}
 
@@ -180,7 +180,7 @@ class TemplateManagerCallbacks {
 		);
 
 		// Сохранение через репозиторий
-		$success = $this->taskTypes->updateBoilerplate( $dto );
+		$success = $this->boilerplates->updateBoilerplate( $dto );
 
 		if ( ! $success ) {
 			wp_send_json_error( 'Ошибка сохранения типового условия' );
@@ -207,7 +207,7 @@ class TemplateManagerCallbacks {
 		}
 
 		// Репозиторий сам знает, как найти дефолтный вариант
-		$result = $this->taskTypes->getDefaultBoilerplate( $subject_key, $term_slug );
+		$result = $this->boilerplates->getDefaultBoilerplate( $subject_key, $term_slug );
 
 		wp_send_json_success( [
 			'text' => $result?->content ?? '',

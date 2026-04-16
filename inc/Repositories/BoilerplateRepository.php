@@ -8,7 +8,7 @@ use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\OptionName;
 
 /**
- * Class TaskTypeRepository
+ * Class BoilerplateRepository
  *
  * Репозиторий для хранения типовых условий (boilerplate) для подтипов заданий.
  *
@@ -32,7 +32,7 @@ use Inc\Enums\OptionName;
  * @package Inc\Repositories
  * @implements RepositoryInterface
  */
-class TaskTypeRepository implements RepositoryInterface
+class BoilerplateRepository implements RepositoryInterface
 {
 	/**
 	 * Имя опции WordPress для хранения типовых условий.
@@ -263,7 +263,6 @@ class TaskTypeRepository implements RepositoryInterface
 			subject_key: $data['subject_key'],
 			term_slug:   $data['term_slug'],
 			title:       $data['title'] ?? '',
-			// TODO: поле 'text' — обратная совместимость, удалить после миграции данных
 			content:     $data['content'] ?? $data['text'] ?? '',
 		);
 
