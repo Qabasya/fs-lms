@@ -1,0 +1,42 @@
+// src/scss/admin/components/_add-row-button.scss
+
+.fs-add-row-container {
+  margin-top: -1px; // Чтобы прилегало к границе таблицы без двойной линии
+  width: 100%;
+
+  .fs-add-row-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 12px;
+    background: #fff;
+    border: 1px dashed #c3c4c7; // Пунктир в стиле WP
+    color: #2271b1;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    outline: none;
+
+    &:hover {
+      background-color: #f0f6fa;
+      border-color: #2271b1;
+      color: #135e96;
+
+      .dashicons {
+        transform: scale(1.1);
+      }
+    }
+
+    .dashicons {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+      transition: transform 0.2s ease;
+      color: #a7aaad; // В покое он серый, как в WP
+    }
+
+    &:hover .dashicons {
+      color: #2271b1;
+    }
+  }
+}

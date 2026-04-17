@@ -6,6 +6,7 @@ use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
+use Inc\Managers\PostManager;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\BoilerplateRepository;
@@ -31,6 +32,7 @@ class TemplateManagerCallbacks {
 	public function __construct(
 		private MetaBoxRepository $metaboxes,
 		private BoilerplateRepository $boilerplates,
+		private PostManager $posts,
 	) {
 	}
 
@@ -64,6 +66,13 @@ class TemplateManagerCallbacks {
 
 		// Извлечение ключа предмета из таксономии: "phys_task_number" → "phys"
 		$subject_key = str_replace( '_task_number', '', $term->taxonomy );
+
+		// Запрет изменения шаблона, если по этому типу уже созданы задания
+		$post_count = $this->posts->countByTerm( "{$subject_key}_tasks", $term->taxonomy, $term->term_id );
+
+		if ( $post_count > 0 ) {
+			wp_send_json_error( "Нельзя изменить шаблон: по этому типу уже создано {$post_count} заданий." );
+		}
 
 		// Сохранение привязки через репозиторий
 		$success = $this->metaboxes->updateAssignment(

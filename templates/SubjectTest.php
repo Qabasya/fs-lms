@@ -63,9 +63,6 @@ $key     = $dto->subject_key;
             <p class="description">
                 Здесь можно добавить дополнительные таксономии (например, автора, год, сложность задания и т.д.)
             </p>
-            <button type="button" class="button button-primary js-add-taxonomy">
-                Добавить таксономию
-            </button>
 
             <table class="widefat fixed striped js-taxonomy-table">
                 <thead>
@@ -101,6 +98,12 @@ $key     = $dto->subject_key;
                 <?php endforeach; ?>
                 </tbody>
             </table>
+
+            <div class="fs-add-row-container">
+                <button type="button" class="fs-add-row-button js-add-taxonomy" title="Добавить новую таксономию">
+                    <span class="dashicons dashicons-plus-alt2"></span>
+                </button>
+            </div>
         </div>
 
         <!-- Вкладка 4: Менеджер заданий -->
@@ -117,7 +120,7 @@ $key     = $dto->subject_key;
                    data-subject="<?php echo esc_attr($dto->subject_key); ?>">
                 <thead>
                 <tr>
-                    <th class="column-task-name">Тип задания (Номер)</th>
+                    <th class="column-task-name">Номер задания</th>
                     <th class="column-template-select">Визуальный шаблон</th>
                     <th class="column-actions">Типовые условия</th>
                     <th class="status-cell"></th>
@@ -133,7 +136,11 @@ $key     = $dto->subject_key;
                                 <strong><?php echo esc_html($type->description); ?></strong>
                             </td>
                             <td>
-                                <select class="js-change-term-template">
+                                <select class="js-change-term-template"
+                                        <?php if ($type->post_count > 0) : ?>
+                                            disabled
+                                            title="Нельзя изменить: по этому типу создано <?php echo esc_attr($type->post_count); ?> заданий"
+                                        <?php endif; ?>>
                                     <?php foreach ($dto->all_templates as $tpl) : ?>
                                         <option value="<?php echo esc_attr($tpl->id); ?>"
                                                 <?php selected($type->getTemplateId(), (string) $tpl->id); ?>>
@@ -141,6 +148,11 @@ $key     = $dto->subject_key;
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <?php if ($type->post_count > 0) : ?>
+                                    <span class="dashicons dashicons-lock"
+                                          style="vertical-align:middle; color:#888;"
+                                          title="Нельзя изменить: по этому типу создано <?php echo esc_attr($type->post_count); ?> заданий"></span>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <a href="<?php echo admin_url("admin.php?page=fs_boilerplate_manager&subject=" . esc_attr($dto->subject_key) . "&term=" . esc_attr($type->slug)); ?>"

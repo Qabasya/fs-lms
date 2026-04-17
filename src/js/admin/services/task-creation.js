@@ -46,7 +46,7 @@ export const TaskCreation = {
             term_slug:   termSlug,
             nonce:       fs_lms_task_data.nonce,
         }).done((res) => {
-            let html = '<option value="">-- Без шаблона (пусто) --</option>';
+            let html = '<option value="">-- Без шаблона --</option>';
             if (res.success && Array.isArray(res.data)) {
                 res.data.forEach(bp => {
                     html += `<option value="${bp.uid}">${bp.title}</option>`;

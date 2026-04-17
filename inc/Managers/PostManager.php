@@ -76,6 +76,29 @@ class PostManager
 	}
 
 	/**
+	 * Считает посты любого статуса, привязанные к термину таксономии.
+	 *
+	 * @param string $post_type Тип поста
+	 * @param string $taxonomy  Слаг таксономии
+	 * @param int    $term_id   ID термина
+	 *
+	 * @return int Количество постов
+	 */
+	public function countByTerm( string $post_type, string $taxonomy, int $term_id ): int {
+		return count( get_posts( [
+			'post_type'      => $post_type,
+			'numberposts'    => -1,
+			'post_status'    => 'any',
+			'fields'         => 'ids',
+			'tax_query'      => [ [
+				'taxonomy' => $taxonomy,
+				'field'    => 'term_id',
+				'terms'    => $term_id,
+			] ],
+		] ) );
+	}
+
+	/**
 	 * Создаёт новый пост.
 	 *
 	 * @param array $data Данные поста (post_title, post_content, post_type и т.д.)

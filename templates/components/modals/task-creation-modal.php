@@ -25,7 +25,8 @@ use Inc\Enums\Nonce;
             <?php wp_nonce_field( Nonce::TaskCreation->value, 'nonce' ); ?>
 
             <!-- Скрытое поле с ключом предмета -->
-            <input type="hidden" name="subject_key" id="fs-modal-subject" value="<?php echo esc_attr($subject_key ?? ''); ?>">
+            <input type="hidden" name="subject_key" id="fs-modal-subject"
+                   value="<?php echo esc_attr( $subject_key ?? '' ); ?>">
 
             <!-- Поле выбора номера задания (термин таксономии) -->
             <div class="fs-form-group">

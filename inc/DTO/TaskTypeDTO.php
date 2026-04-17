@@ -38,7 +38,8 @@ class TaskTypeDTO {
 		public readonly string $taxonomy,
 		public readonly string $description,
 		public readonly TaskTemplate $current_template,
-		public readonly string $raw_id
+		public readonly string $raw_id,
+		public readonly int $post_count = 0,
 	) {
 		$this->name = $description;
 	}

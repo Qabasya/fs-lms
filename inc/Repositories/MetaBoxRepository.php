@@ -7,6 +7,7 @@ use Inc\DTO\TaskTemplateAssignmentDTO;
 use Inc\DTO\TaskTypeDTO;
 use Inc\Enums\OptionName;
 use Inc\Enums\TaskTemplate;
+use Inc\Managers\PostManager;
 
 /**
  * Class MetaBoxRepository
@@ -36,6 +37,8 @@ class MetaBoxRepository implements RepositoryInterface {
 	 * @var string
 	 */
 	private string $option_name = OptionName::METABOXES->value;
+
+	public function __construct( private PostManager $posts ) {}
 
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.
@@ -252,7 +255,8 @@ class MetaBoxRepository implements RepositoryInterface {
 	 * @return TaskTypeDTO[] Массив DTO типов заданий
 	 */
 	public function getTaskTypes( string $subject_key ): array {
-		$taxonomy = "{$subject_key}_task_number";
+		$taxonomy  = "{$subject_key}_task_number";
+		$post_type = "{$subject_key}_tasks";
 
 		$terms = get_terms( [
 			'taxonomy'   => $taxonomy,
@@ -266,22 +270,21 @@ class MetaBoxRepository implements RepositoryInterface {
 		}
 
 		return array_map(
-			function ( $term ) use ( $subject_key ): TaskTypeDTO {
+			function ( $term ) use ( $subject_key, $taxonomy, $post_type ): TaskTypeDTO {
 				$assignment = $this->getAssignment( $subject_key, $term->slug );
 
-				// 1. Берем ID из базы (строка)
-				$db_id = $assignment ? $assignment->template_id : 'standard_task';
-
-				// 2. Получаем Enum только для логики (boilerplate)
+				$db_id         = $assignment ? $assignment->template_id : 'standard_task';
 				$template_enum = TaskTemplate::fromDatabase( $db_id );
+				$post_count    = $this->posts->countByTerm( $post_type, $taxonomy, (int) $term->term_id );
 
 				return new TaskTypeDTO(
 					$term->term_id,
 					$term->slug,
 					$term->taxonomy,
 					$term->description,
-					$template_enum, // Для логики
-					$db_id          // Для селекта (raw_id)
+					$template_enum,
+					$db_id,
+					$post_count,
 				);
 			},
 			$terms
