@@ -79,7 +79,9 @@ export const TaskCreation = {
         })
         .done((res) => {
             if (res.success) {
-                window.location.href = res.data.redirect;
+                window.open(res.data.redirect, '_blank');
+                TaskCreationModal.close();
+                TaskCreationModal.setSubmitState(false);
             } else {
                 alert(res.data);
                 TaskCreationModal.setSubmitState(false);
