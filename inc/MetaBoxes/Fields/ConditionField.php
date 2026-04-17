@@ -21,10 +21,10 @@ class ConditionField extends BaseField {
      * Выводит textarea с возможностью ввода многострочного текста,
      * включая базовое HTML-форматирование.
      *
-     * @param WP_Post $post Текущий пост (не используется, но обязателен для интерфейса)
-     * @param string $id Уникальный идентификатор поля
-     * @param string $label Текст метки (label) поля
-     * @param string $value Текущее значение поля
+     * @param WP_Post $post  Текущий пост (не используется, но обязателен для интерфейса)
+     * @param string  $id    Уникальный идентификатор поля
+     * @param string  $label Текст метки (label) поля
+     * @param string  $value Текущее значение поля
      *
      * @return void
      */
@@ -45,15 +45,15 @@ class ConditionField extends BaseField {
                 // 3. Настройки редактора для соответствия скриншотам
                 $settings = [
                         'textarea_name' => $field_name,   // Имя для массива fs_lms_meta
-                        'textarea_rows' => 12,           // Высота поля
-                        'media_buttons' => true,         // Кнопка "Добавить медиафайл"
-                        'tinymce'       => true,         // Вкладка "Визуально"
-                        'quicktags'     => true,         // Вкладка "Текст" (Код)
-                        'wpautop'       => true,         // Автоматические параграфы <p>
+                        'textarea_rows' => 12,            // Высота поля
+                        'media_buttons' => true,          // Кнопка "Добавить медиафайл"
+                        'tinymce'       => true,          // Вкладка "Визуально"
+                        'quicktags'     => true,          // Вкладка "Текст" (Код)
+                        'wpautop'       => true,          // Автоматические параграфы <p>
                 ];
 
                 // 4. Отрисовка
-                wp_editor( (string)$value, $editor_id, $settings );
+                wp_editor( (string) $value, $editor_id, $settings );
                 ?>
             </div>
         </div>

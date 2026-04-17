@@ -1,25 +1,94 @@
+/**
+ * @fileoverview Модуль управления таксономиями (Taxonomies) для плагина FS-LMS.
+ * @description Обеспечивает полный цикл управления таксономиями: создание, редактирование,
+ *              удаление через модальное окно с AJAX-запросами и перезагрузкой таблицы.
+ * @requires jQuery - глобальная зависимость WordPress.
+ * @requires ../_types.js - глобальные типы данных.
+ * @requires ../components/taxonomy-modal.js - Модальное окно управления таксономиями.
+ */
+
 import '../_types.js';
 import { TaxonomyModal } from '../components/taxonomy-modal.js';
 
 const $ = jQuery;
 
+/**
+ * Объект для управления таксономиями.
+ * @namespace Taxonomies
+ * @typedef {Object} Taxonomies
+ */
 export const Taxonomies = {
+    /**
+     * Инициализирует модуль управления таксономиями.
+     * Проверяет наличие таблицы таксономий, настраивает колбэк сохранения и навешивает обработчики событий.
+     * @memberof Taxonomies
+     * @instance
+     * @returns {void}
+     * @example
+     * // Инициализация после загрузки DOM
+     * jQuery(document).ready(() => {
+     *     Taxonomies.init();
+     * });
+     */
     init() {
+        /**
+         * Проверяем наличие таблицы таксономий на странице.
+         * Если таблица отсутствует — прекращаем инициализацию.
+         */
         if (!$('.js-taxonomy-table').length) return;
 
+        /**
+         * Устанавливаем колбэк для сохранения таксономии через модальное окно.
+         * @param {TaxonomyFormData} data - Данные формы таксономии
+         */
         TaxonomyModal.onSave((data) => this.save(data));
+
+        /**
+         * Навешиваем обработчики событий для кнопок добавления, редактирования и удаления.
+         */
         this._bindEvents();
     },
 
+    /**
+     * Навешивает обработчики событий для управления таксономиями.
+     * @memberof Taxonomies
+     * @instance
+     * @private
+     * @listens click.js-add-taxonomy - Открытие модального окна для создания таксономии
+     * @listens click.js-edit-tax - Открытие модального окна для редактирования таксономии
+     * @listens click.js-delete-tax - Удаление таксономии после подтверждения
+     * @returns {void}
+     */
     _bindEvents() {
+        /**
+         * Обработчик клика по кнопке "Добавить таксономию".
+         * @param {Event} e - Событие click
+         */
         $('.js-add-taxonomy').on('click', (e) => {
-            e.preventDefault();
-            TaxonomyModal.open('store');
+            e.preventDefault(); // Отменяем стандартное поведение ссылки
+            TaxonomyModal.open('store'); // Открываем модальное окно в режиме создания
         });
 
+        /**
+         * Обработчик клика по кнопке редактирования таксономии (делегирование на таблицу).
+         * @param {Event} e - Событие click
+         */
         $('.js-taxonomy-table').on('click', '.js-edit-tax', (e) => {
-            e.preventDefault();
+            e.preventDefault(); // Отменяем стандартное поведение ссылки
+
+            /**
+             * Строка таблицы, содержащая редактируемую таксономию.
+             * @type {jQuery}
+             */
             const $row = $(e.currentTarget).closest('tr');
+
+            /**
+             * Открываем модальное окно в режиме обновления с данными из строки таблицы.
+             * @type {Object} data
+             * @property {string} slug - Слаг таксономии (из data-атрибута)
+             * @property {string} name - Название таксономии (из data-атрибута)
+             * @property {string} display - Тип отображения (из data-атрибута)
+             */
             TaxonomyModal.open('update', {
                 slug: $row.data('slug'),
                 name: $row.data('name'),
@@ -27,26 +96,80 @@ export const Taxonomies = {
             });
         });
 
+        /**
+         * Обработчик клика по кнопке удаления таксономии (делегирование на таблицу).
+         * @param {Event} e - Событие click
+         */
         $('.js-taxonomy-table').on('click', '.js-delete-tax', (e) => {
-            e.preventDefault();
-            const $row       = $(e.currentTarget).closest('tr');
-            const slug       = $row.data('slug');
+            e.preventDefault(); // Отменяем стандартное поведение ссылки
+
+            /**
+             * Строка таблицы, содержащая удаляемую таксономию.
+             * @type {jQuery}
+             */
+            const $row = $(e.currentTarget).closest('tr');
+
+            /**
+             * Слаг таксономии для удаления.
+             * @type {string}
+             */
+            const slug = $row.data('slug');
+
+            /**
+             * Ключ предмета (из скрытого поля формы).
+             * @type {string}
+             */
             const subject_key = $('#tax-subject-key').val();
 
+            /**
+             * Показываем подтверждение удаления с предупреждением о последствиях.
+             * @type {boolean}
+             */
             if (confirm(`Удалить таксономию "${$row.data('name')}"?\nВсе связанные термины будут стёрты.`)) {
                 this._ajaxDelete(slug, subject_key);
             }
         });
     },
 
+    /**
+     * Сохраняет таксономию (создаёт или обновляет) через AJAX-запрос.
+     * @memberof Taxonomies
+     * @instance
+     * @param {TaxonomyFormData} data - Данные формы таксономии.
+     * @param {string} data.tax_name - Название таксономии (обязательное поле).
+     * @param {string} data.tax_slug - Слаг таксономии (обязателен при создании).
+     * @param {string} data.action - Тип действия ('store' или 'update').
+     * @param {string} data.subject_key - Ключ предмета.
+     * @param {string} data.display_type - Тип отображения ('select' или другой).
+     * @returns {void}
+     * @fires $.post - AJAX-запрос на сохранение таксономии
+     */
     save(data) {
+        /**
+         * Валидация обязательных полей:
+         * - tax_name: название таксономии всегда обязательно
+         * - tax_slug: слаг обязателен только при создании новой таксономии
+         */
         if (!data.tax_name || (data.action === 'store' && !data.tax_slug)) {
             alert('Пожалуйста, заполните все поля');
             return;
         }
 
+        // Блокируем кнопку сохранения в модальном окне
         TaxonomyModal.setSaveState(true);
 
+        /**
+         * Выполняем AJAX-запрос на сохранение таксономии.
+         * Действие (storeTaxonomy или updateTaxonomy) выбирается в зависимости от data.action.
+         * @param {string} url - URL обработчика AJAX WordPress
+         * @param {Object} requestData - Данные для отправки
+         * @param {string} requestData.action - AJAX-действие для сохранения таксономии
+         * @param {string} requestData.security - Nonce для проверки безопасности
+         * @param {string} requestData.subject_key - Ключ предмета
+         * @param {string} requestData.tax_slug - Слаг таксономии
+         * @param {string} requestData.tax_name - Название таксономии
+         * @param {string} requestData.display_type - Тип отображения
+         */
         $.post(fs_lms_vars.ajaxurl, {
             action:       data.action === 'store' ? fs_lms_vars.ajax_actions.storeTaxonomy : fs_lms_vars.ajax_actions.updateTaxonomy,
             security:     fs_lms_vars.subject_nonce,
@@ -55,31 +178,114 @@ export const Taxonomies = {
             tax_name:     data.tax_name,
             display_type: data.display_type,
         })
-        .done((res) => {
-            if (res.success) {
-                location.reload();
-            } else {
-                alert('Ошибка: ' + res.data);
+            .done((res) => {
+                /**
+                 * Обработка успешного ответа сервера.
+                 * @param {Object} res - Ответ сервера
+                 * @param {boolean} res.success - Флаг успешности операции
+                 * @param {string} res.data - Сообщение об ошибке (при неудаче)
+                 */
+                if (res.success) {
+                    /**
+                     * При успехе перезагружаем страницу для отображения обновлённого списка таксономий.
+                     */
+                    location.reload();
+                } else {
+                    /**
+                     * При ошибке, возвращённой сервером, показываем сообщение и разблокируем кнопку.
+                     */
+                    alert('Ошибка: ' + res.data);
+                    TaxonomyModal.setSaveState(false);
+                }
+            })
+            .fail(() => {
+                /**
+                 * Обработка ошибки HTTP-запроса (сервер недоступен, таймаут и т.д.).
+                 */
+                alert('Системная ошибка сервера');
                 TaxonomyModal.setSaveState(false);
-            }
-        })
-        .fail(() => {
-            alert('Системная ошибка сервера');
-            TaxonomyModal.setSaveState(false);
-        });
+            });
     },
 
+    /**
+     * Удаляет таксономию через AJAX-запрос.
+     * @memberof Taxonomies
+     * @instance
+     * @private
+     * @param {string} slug - Слаг таксономии для удаления.
+     * @param {string} subject_key - Ключ предмета.
+     * @returns {void}
+     * @fires $.post - AJAX-запрос на удаление таксономии
+     */
     _ajaxDelete(slug, subject_key) {
+        /**
+         * Выполняем AJAX-запрос на удаление таксономии.
+         * @param {string} url - URL обработчика AJAX WordPress
+         * @param {Object} data - Данные для отправки
+         * @param {string} data.action - AJAX-действие для удаления таксономии
+         * @param {string} data.security - Nonce для проверки безопасности
+         * @param {string} data.subject_key - Ключ предмета
+         * @param {string} data.tax_slug - Слаг таксономии для удаления
+         */
         $.post(fs_lms_vars.ajaxurl, {
             action:      fs_lms_vars.ajax_actions.deleteTaxonomy,
             security:    fs_lms_vars.subject_nonce,
             subject_key: subject_key,
             tax_slug:    slug,
         })
-        .done((res) => {
-            if (res.success) location.reload();
-            else alert('Ошибка при удалении: ' + res.data);
-        })
-        .fail(() => alert('Системная ошибка при удалении'));
+            .done((res) => {
+                /**
+                 * Обработка ответа сервера.
+                 * @param {Object} res - Ответ сервера
+                 * @param {boolean} res.success - Флаг успешности операции
+                 * @param {string} res.data - Сообщение об ошибке (при неудаче)
+                 */
+                if (res.success) {
+                    /**
+                     * При успешном удалении перезагружаем страницу.
+                     */
+                    location.reload();
+                } else {
+                    /**
+                     * При ошибке показываем сообщение от сервера.
+                     */
+                    alert('Ошибка при удалении: ' + res.data);
+                }
+            })
+            .fail(() => {
+                /**
+                 * Обработка ошибки HTTP-запроса.
+                 */
+                alert('Системная ошибка при удалении');
+            });
     },
 };
+
+/**
+ * @typedef {Object} TaxonomyFormData
+ * @property {string} action - Тип действия ('store' или 'update')
+ * @property {string} subject_key - Ключ предмета
+ * @property {string} tax_slug - Слаг таксономии
+ * @property {string} tax_name - Название таксономии
+ * @property {string} display_type - Тип отображения ('select' или другой)
+ */
+
+/**
+ * @typedef {Object} SaveTaxonomyResponse
+ * @property {boolean} success - Флаг успешности операции
+ * @property {string} [data] - Сообщение об ошибке (при success = false)
+ */
+
+/**
+ * @typedef {Object} DeleteTaxonomyResponse
+ * @property {boolean} success - Флаг успешности удаления
+ * @property {string} [data] - Сообщение об ошибке (при success = false)
+ */
+
+/**
+ * @typedef {Object} TaxonomyRowData
+ * @property {string} slug - Слаг таксономии
+ * @property {string} name - Название таксономии
+ * @property {string} display - Тип отображения
+ * @property {number} [term_count] - Количество терминов в таксономии (опционально)
+ */

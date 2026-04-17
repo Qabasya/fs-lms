@@ -21,16 +21,16 @@ class TaskTypeDTO {
 	 * @var string
 	 */
 	public readonly string $name;
-
+	
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param int $id ID термина таксономии
-	 * @param string $slug Слаг термина (например, "1", "2")
-	 * @param string $taxonomy Имя таксономии (например, "math_task_number")
-	 * @param string $description Описание термина (отображаемое название)
+	 * @param int          $id               ID термина таксономии
+	 * @param string       $slug             Слаг термина (например, "1", "2")
+	 * @param string       $taxonomy         Имя таксономии (например, "math_task_number")
+	 * @param string       $description      Описание термина (отображаемое название)
 	 * @param TaskTemplate $current_template Текущий шаблон для этого типа задания (enum)
-	 * @param string $raw_id Строковый ID шаблона для обратной совместимости
+	 * @param string       $raw_id           Строковый ID шаблона для обратной совместимости
 	 */
 	public function __construct(
 		public readonly int $id,
@@ -43,7 +43,7 @@ class TaskTypeDTO {
 	) {
 		$this->name = $description;
 	}
-
+	
 	/**
 	 * Возвращает строковый ID шаблона.
 	 *

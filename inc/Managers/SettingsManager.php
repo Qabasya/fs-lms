@@ -38,7 +38,7 @@ class SettingsManager {
 	 *     page: string,
 	 *     section: string,
 	 *     args?: array<string, mixed>|string
-	 * }> $fields Конфигурация полей настроек
+	 * }> $fields   Конфигурация полей настроек
 	 *
 	 * @return void
 	 */
@@ -47,7 +47,7 @@ class SettingsManager {
 		if ( empty( $settings ) ) {
 			return;
 		}
-
+		
 		// Регистрируем все компоненты на хуке admin_init
 		add_action( 'admin_init', function () use ( $settings, $sections, $fields ) {
 			// Регистрация опций (настроек)
@@ -58,7 +58,7 @@ class SettingsManager {
 					$setting["callback"] ?? ''              // Коллбек санитизации (если есть)
 				);
 			}
-
+			
 			// Регистрация секций настроек
 			foreach ( $sections as $section ) {
 				add_settings_section(
@@ -68,7 +68,7 @@ class SettingsManager {
 					$section["page"]                        // Страница, на которой отображается секция
 				);
 			}
-
+			
 			// Регистрация полей настроек
 			foreach ( $fields as $field ) {
 				add_settings_field(

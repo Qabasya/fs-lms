@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types=1);
+declare( strict_types=1 );
 
 namespace Inc\Managers;
 
@@ -13,8 +13,7 @@ namespace Inc\Managers;
  *
  * @package Inc\Managers
  */
-class TermManager
-{
+class TermManager {
 	/**
 	 * Возвращает массив ID терминов указанной таксономии.
 	 *
@@ -22,17 +21,16 @@ class TermManager
 	 *
 	 * @return int[] Массив ID терминов
 	 */
-	public function getIds(string $taxonomy): array
-	{
-		$ids = get_terms([
+	public function getIds( string $taxonomy ): array {
+		$ids = get_terms( [
 			'taxonomy'   => $taxonomy,
 			'hide_empty' => false,
 			'fields'     => 'ids',
-		]);
-
-		return is_wp_error($ids) ? [] : (array) $ids;
+		] );
+		
+		return is_wp_error( $ids ) ? [] : (array) $ids;
 	}
-
+	
 	/**
 	 * Возвращает массив объектов терминов указанной таксономии.
 	 *
@@ -40,16 +38,15 @@ class TermManager
 	 *
 	 * @return \WP_Term[] Массив объектов терминов
 	 */
-	public function getAll(string $taxonomy): array
-	{
-		$terms = get_terms([
+	public function getAll( string $taxonomy ): array {
+		$terms = get_terms( [
 			'taxonomy'   => $taxonomy,
 			'hide_empty' => false,
-		]);
-
-		return is_wp_error($terms) ? [] : (array) $terms;
+		] );
+		
+		return is_wp_error( $terms ) ? [] : (array) $terms;
 	}
-
+	
 	/**
 	 * Удаляет термин по ID.
 	 *
@@ -58,11 +55,10 @@ class TermManager
 	 *
 	 * @return void
 	 */
-	public function delete(int $term_id, string $taxonomy): void
-	{
-		wp_delete_term($term_id, $taxonomy);
+	public function delete( int $term_id, string $taxonomy ): void {
+		wp_delete_term( $term_id, $taxonomy );
 	}
-
+	
 	/**
 	 * Удаляет все термины указанной таксономии.
 	 *
@@ -70,13 +66,12 @@ class TermManager
 	 *
 	 * @return void
 	 */
-	public function deleteAll(string $taxonomy): void
-	{
-		foreach ($this->getIds($taxonomy) as $id) {
-			$this->delete((int) $id, $taxonomy);
+	public function deleteAll( string $taxonomy ): void {
+		foreach ( $this->getIds( $taxonomy ) as $id ) {
+			$this->delete( (int) $id, $taxonomy );
 		}
 	}
-
+	
 	/**
 	 * Проверяет существование термина по названию.
 	 *
@@ -85,11 +80,10 @@ class TermManager
 	 *
 	 * @return bool true, если термин существует
 	 */
-	public function exists(string $name, string $taxonomy): bool
-	{
-		return (bool) term_exists($name, $taxonomy);
+	public function exists( string $name, string $taxonomy ): bool {
+		return (bool) term_exists( $name, $taxonomy );
 	}
-
+	
 	/**
 	 * Регистрирует таксономию, если она ещё не существует.
 	 *
@@ -97,14 +91,13 @@ class TermManager
 	 *
 	 * @return void
 	 */
-	public function ensureTaxonomy(string $taxonomy): void
-	{
-		if (!taxonomy_exists($taxonomy)) {
+	public function ensureTaxonomy( string $taxonomy ): void {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
 			// Регистрируем с минимальными параметрами для возможности вставки терминов
-			register_taxonomy($taxonomy, []);
+			register_taxonomy( $taxonomy, [] );
 		}
 	}
-
+	
 	/**
 	 * Создаёт термин, если его ещё нет.
 	 *
@@ -114,13 +107,12 @@ class TermManager
 	 *
 	 * @return void
 	 */
-	public function insert(string $name, string $taxonomy, array $args = []): void
-	{
-		if (!$this->exists($name, $taxonomy)) {
-			wp_insert_term($name, $taxonomy, $args);
+	public function insert( string $name, string $taxonomy, array $args = [] ): void {
+		if ( ! $this->exists( $name, $taxonomy ) ) {
+			wp_insert_term( $name, $taxonomy, $args );
 		}
 	}
-
+	
 	/**
 	 * Возвращает массив слагов терминов, привязанных к посту.
 	 *
@@ -129,13 +121,12 @@ class TermManager
 	 *
 	 * @return string[] Массив слагов терминов
 	 */
-	public function getPostSlugs(int $post_id, string $taxonomy): array
-	{
-		$slugs = wp_get_post_terms($post_id, $taxonomy, ['fields' => 'slugs']);
-
-		return is_wp_error($slugs) ? [] : (array) $slugs;
+	public function getPostSlugs( int $post_id, string $taxonomy ): array {
+		$slugs = wp_get_post_terms( $post_id, $taxonomy, [ 'fields' => 'slugs' ] );
+		
+		return is_wp_error( $slugs ) ? [] : (array) $slugs;
 	}
-
+	
 	/**
 	 * Привязывает термины к посту.
 	 *
@@ -145,8 +136,7 @@ class TermManager
 	 *
 	 * @return void
 	 */
-	public function setPostTerms(int $post_id, array $slugs, string $taxonomy): void
-	{
-		wp_set_post_terms($post_id, $slugs, $taxonomy);
+	public function setPostTerms( int $post_id, array $slugs, string $taxonomy ): void {
+		wp_set_post_terms( $post_id, $slugs, $taxonomy );
 	}
 }

@@ -30,7 +30,7 @@ class MenuManager {
 	 *     callback: callable,
 	 *     icon_url: string,
 	 *     position: int
-	 * }> $pages Конфигурация главных страниц меню
+	 * }> $pages    Конфигурация главных страниц меню
 	 *
 	 * @param array<int, array{
 	 *     parent_slug: string,
@@ -47,7 +47,7 @@ class MenuManager {
 		if ( empty( $pages ) ) {
 			return;
 		}
-
+		
 		add_action( 'admin_menu', function () use ( $pages, $subpages ) {
 			// Регистрация главных страниц меню
 			foreach ( $pages as $page ) {
@@ -61,7 +61,7 @@ class MenuManager {
 					$page['position']
 				);
 			}
-
+			
 			// Регистрация подстраниц меню
 			foreach ( $subpages as $subpage ) {
 				add_submenu_page(

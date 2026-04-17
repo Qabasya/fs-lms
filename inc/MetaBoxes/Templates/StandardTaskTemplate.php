@@ -34,7 +34,7 @@ class StandardTaskTemplate extends BaseTemplate {
 			]
 		];
 	}
-
+	
 	/**
 	 * Возвращает уникальный идентификатор шаблона.
 	 *
@@ -43,7 +43,7 @@ class StandardTaskTemplate extends BaseTemplate {
 	public function get_id(): string {
 		return 'standard_task';
 	}
-
+	
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *

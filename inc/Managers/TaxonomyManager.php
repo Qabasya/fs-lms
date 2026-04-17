@@ -35,7 +35,7 @@ class TaxonomyManager {
 		if ( empty( $taxonomies ) ) {
 			return;
 		}
-
+		
 		// Регистрируем таксономии на хуке init (как и CPT)
 		add_action( 'init', function () use ( $taxonomies ) {
 			foreach ( $taxonomies as $slug => $data ) {

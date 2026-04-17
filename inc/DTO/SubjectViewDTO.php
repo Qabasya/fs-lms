@@ -16,14 +16,16 @@ class SubjectViewDTO {
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param string $subject_key Ключ предмета (slug)
-	 * @param SubjectDTO $subject_data DTO с данными предмета
-	 * @param array<int, TaskTypeDTO> $task_types Массив DTO типов заданий
-	 * @param array<string, string> $all_templates Массив доступных шаблонов [id => name]
-	 * @param string $tasks_url URL списка заданий
-	 * @param string $articles_url URL списка статей
-	 * @param string $protected_tax Слаг защищённой таксономии (номера заданий)
-	 * @param TaxonomyDataDTO[] $taxonomies Массив DTO кастомных таксономий
+	 * @param string                  $subject_key    Ключ предмета (slug)
+	 * @param SubjectDTO              $subject_data   DTO с данными предмета
+	 * @param array<int, TaskTypeDTO> $task_types     Массив DTO типов заданий
+	 * @param array<string, string>   $all_templates  Массив доступных шаблонов [id => name]
+	 * @param string                  $tasks_url      URL списка заданий
+	 * @param string                  $articles_url   URL списка статей
+	 * @param string                  $protected_tax  Слаг защищённой таксономии (номера заданий)
+	 * @param TaxonomyDataDTO[]       $taxonomies     Массив DTO кастомных таксономий
+	 * @param PostsListTableDTO|null  $tasks_table    DTO таблицы заданий (опционально)
+	 * @param PostsListTableDTO|null  $articles_table DTO таблицы статей (опционально)
 	 */
 	public function __construct(
 		public readonly string $subject_key,
@@ -33,7 +35,6 @@ class SubjectViewDTO {
 		public readonly string $tasks_url,
 		public readonly string $articles_url,
 		public readonly string $protected_tax,
-		/** @var \Inc\DTO\TaxonomyDataDTO[] */
 		public readonly array $taxonomies,
 		public readonly ?PostsListTableDTO $tasks_table = null,
 		public readonly ?PostsListTableDTO $articles_table = null,

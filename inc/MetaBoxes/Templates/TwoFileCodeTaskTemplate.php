@@ -51,7 +51,7 @@ class TwoFileCodeTaskTemplate extends BaseTemplate {
 			]
 		];
 	}
-
+	
 	/**
 	 * Возвращает уникальный идентификатор шаблона.
 	 *
@@ -60,7 +60,7 @@ class TwoFileCodeTaskTemplate extends BaseTemplate {
 	public function get_id(): string {
 		return 'two_file_code_task';
 	}
-
+	
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *

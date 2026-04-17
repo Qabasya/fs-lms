@@ -19,7 +19,7 @@ class SubjectTaxonomyRegistrar {
 	 * @var TaxonomyManager
 	 */
 	private TaxonomyManager $manager;
-
+	
 	/**
 	 * Очередь таксономий на регистрацию.
 	 *
@@ -34,7 +34,7 @@ class SubjectTaxonomyRegistrar {
 	 * @var array<string, array{post_types: array|string, args: array}>
 	 */
 	private array $taxonomies = [];
-
+	
 	/**
 	 * Конструктор.
 	 *
@@ -43,15 +43,15 @@ class SubjectTaxonomyRegistrar {
 	public function __construct( TaxonomyManager $manager ) {
 		$this->manager = $manager;
 	}
-
+	
 	/**
 	 * Базовый метод добавления таксономии.
 	 *
 	 * Позволяет добавить таксономию с полным контролем над аргументами.
 	 *
-	 * @param string $slug Слаг таксономии (уникальный идентификатор)
+	 * @param string       $slug       Слаг таксономии (уникальный идентификатор)
 	 * @param array|string $post_types К какому CPT привязать (массив или строка)
-	 * @param array $args Аргументы для register_taxonomy()
+	 * @param array        $args       Аргументы для register_taxonomy()
 	 *
 	 * @return self Для цепочки вызовов (Fluent Interface)
 	 */
@@ -60,20 +60,20 @@ class SubjectTaxonomyRegistrar {
 			'post_types' => $post_types,
 			'args'       => $args
 		];
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * Хелпер для создания стандартной иерархической таксономии.
 	 *
 	 * Создаёт таксономию с полным набором меток (как категории).
 	 * Подходит для: Год, Автор, Тема, Раздел и т.п.
 	 *
-	 * @param string $slug Слаг таксономии
+	 * @param string       $slug       Слаг таксономии
 	 * @param array|string $post_types К какому CPT привязать
-	 * @param string $plural Множественное название (например, "Года")
-	 * @param string $singular Единственное название (например, "Год")
+	 * @param string       $plural     Множественное название (например, "Года")
+	 * @param string       $singular   Единственное название (например, "Год")
 	 *
 	 * @return self Для цепочки вызовов
 	 */
@@ -102,25 +102,26 @@ class SubjectTaxonomyRegistrar {
 			'meta_box_cb'       => $this->buildMetaBoxCallback( $display_type ),
 		] );
 	}
-
+	
 	private function buildMetaBoxCallback( string $display_type ): callable {
 		return static function ( \WP_Post $post, array $box ) use ( $display_type ): void {
 			$taxonomy = $box['args']['taxonomy'];
 			$terms    = get_terms( [ 'taxonomy' => $taxonomy, 'hide_empty' => false ] );
-
+			
 			if ( is_wp_error( $terms ) || empty( $terms ) ) {
 				printf(
 					'<p><a href="%s">Добавить термины</a></p>',
 					esc_url( admin_url( "edit-tags.php?taxonomy={$taxonomy}" ) )
 				);
+				
 				return;
 			}
-
+			
 			$current       = wp_get_post_terms( $post->ID, $taxonomy );
 			$current_slugs = is_wp_error( $current ) ? [] : wp_list_pluck( $current, 'slug' );
-
+			
 			echo '<div class="fs-lms-tax-field">';
-
+			
 			if ( $display_type === 'radio' ) {
 				printf( '<input type="hidden" name="tax_input[%s][]" value="">', esc_attr( $taxonomy ) );
 				foreach ( $terms as $term ) {
@@ -151,22 +152,22 @@ class SubjectTaxonomyRegistrar {
 				}
 				echo '</select>';
 			}
-
+			
 			echo '</div>';
 		};
 	}
-
+	
 	/**
 	 * Хелпер для "фиксированных" таксономий с ограниченными правами.
 	 *
 	 * Создаёт плоскую (неиерархическую) таксономию, где термины нельзя редактировать
 	 * обычным пользователям. Подходит для: Номера заданий, Типы и т.п.
 	 *
-	 * @param string $slug Слаг таксономии
-	 * @param array $object_types К какому CPT привязать (только массив)
-	 * @param string $name Множественное название
+	 * @param string $slug          Слаг таксономии
+	 * @param array  $object_types  К какому CPT привязать (только массив)
+	 * @param string $name          Множественное название
 	 * @param string $singular_name Единственное название
-	 * @param array $extra_args Дополнительные аргументы (переопределяют стандартные)
+	 * @param array  $extra_args    Дополнительные аргументы (переопределяют стандартные)
 	 *
 	 * @return self Для цепочки вызовов
 	 */
@@ -194,15 +195,15 @@ class SubjectTaxonomyRegistrar {
 			'rewrite'           => [ 'slug' => $slug ],
 			'show_in_rest'      => true, // Важно для корректной работы современных запросов
 		], $extra_args );
-
+		
 		$this->taxonomies[ $slug ] = [
 			'post_types' => $object_types,
 			'args'       => $args
 		];
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * Передаёт накопленные данные менеджеру для регистрации.
 	 *
@@ -214,5 +215,5 @@ class SubjectTaxonomyRegistrar {
 	public function register(): void {
 		$this->manager->register( $this->taxonomies );
 	}
-
+	
 }

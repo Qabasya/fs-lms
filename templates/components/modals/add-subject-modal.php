@@ -25,7 +25,9 @@
             </div>
 
             <?php
+
             use Inc\Enums\Nonce;
+
             wp_nonce_field( Nonce::Subject->value, 'security' );
             ?>
 
