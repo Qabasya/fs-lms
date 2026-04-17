@@ -103,10 +103,17 @@ if (!empty($all_subjects)) {
         </tbody>
     </table>
 
-    <!-- Кнопка возврата к настройкам предметов -->
+    <!-- Кнопка возврата в менеджер заданий-->
     <p>
-        <a href="<?php echo admin_url("admin.php?page=fs_lms_settings"); ?>" class="button">
-            &larr; Назад в настройки предметов
+        <?php
+        // Формируем URL: страница предмета + таб 5
+        $back_url = add_query_arg([
+                'page' => 'fs_subject_' . $subject,
+                'tab'  => 'tab-5'
+        ], admin_url('admin.php'));
+        ?>
+        <a href="<?php echo esc_url($back_url); ?>" class="button">
+            &larr; Назад в Менеджер заданий
         </a>
     </p>
 </div>

@@ -36,7 +36,7 @@ $tabs = [
 ?>
 
     <div class="wrap fs-lms-dashboard">
-        <h1>Управление предметом: <?php echo esc_html($subject->name ?? 'Без названия'); ?></h1>
+        <h1><?php echo esc_html($subject->name ?? 'Без названия'); ?></h1>
 
         <h2 class="nav-tab-wrapper">
             <?php foreach ($tabs as $tab_id => $tab) : ?>
