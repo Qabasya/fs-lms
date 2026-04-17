@@ -1,3 +1,6 @@
+<?php
+/** @var \Inc\DTO\SubjectViewDTO $dto */
+?>
 <div id="fs-taxonomy-modal" class="fs-lms-modal">
     <div class="fs-lms-modal-content">
         <span class="fs-close js-modal-close">&times;</span>

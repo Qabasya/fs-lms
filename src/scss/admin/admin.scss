@@ -1,4 +1,7 @@
-@use 'components/tabs';
+@use 'components/add-row-button';
 @use 'components/modal';
 @use 'components/subject-table';
-@use 'components/_add-row-button';
+@use 'components/subject-tabs';
+@use 'components/tabs';
+@use 'components/task-manager-table';
+@use 'components/taxonomies-table';
