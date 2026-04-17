@@ -27,7 +27,7 @@ class MenuRegistrar {
 	 * @var MenuManager
 	 */
 	private MenuManager $manager;
-	
+
 	/**
 	 * Массив конфигураций главных страниц меню.
 	 *
@@ -41,8 +41,8 @@ class MenuRegistrar {
 	 *     position: int
 	 * }>
 	 */
-	private array $pages = [];
-	
+	private array $pages = array();
+
 	/**
 	 * Массив конфигураций подстраниц меню.
 	 *
@@ -55,8 +55,8 @@ class MenuRegistrar {
 	 *     callback: callable
 	 * }>
 	 */
-	private array $subpages = [];
-	
+	private array $subpages = array();
+
 	/**
 	 * Конструктор.
 	 *
@@ -65,7 +65,7 @@ class MenuRegistrar {
 	public function __construct( MenuManager $manager ) {
 		$this->manager = $manager;
 	}
-	
+
 	/**
 	 * Добавляет одну или несколько главных страниц меню.
 	 *
@@ -85,10 +85,10 @@ class MenuRegistrar {
 	 */
 	public function addPages( array $pages ): self {
 		$this->pages = array_merge( $this->pages, $pages );
-		
+
 		return $this;
 	}
-	
+
 	/**
 	 * Добавляет одну или несколько подстраниц меню.
 	 *
@@ -107,10 +107,10 @@ class MenuRegistrar {
 	 */
 	public function addSubPages( array $subpages ): self {
 		$this->subpages = array_merge( $this->subpages, $subpages );
-		
+
 		return $this;
 	}
-	
+
 	/**
 	 * Выполняет регистрацию всех накопленных страниц и подстраниц.
 	 *
@@ -123,7 +123,7 @@ class MenuRegistrar {
 		if ( empty( $this->pages ) ) {
 			return;
 		}
-		
+
 		$this->manager->register( $this->pages, $this->subpages );
 	}
 }

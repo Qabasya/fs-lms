@@ -30,22 +30,22 @@ class CommonConditionTemplate extends BaseTemplate {
 	 * - task_answer: правильный ответ
 	 */
 	public function __construct() {
-		$this->fields = [
-			'common_condition' => [
+		$this->fields = array(
+			'common_condition' => array(
 				'label'  => 'Базовое условие:',
-				'object' => new ConditionField()    // Неизменяемая часть условия
-			],
-			'task_condition'   => [
+				'object' => new ConditionField(),    // Неизменяемая часть условия
+			),
+			'task_condition'   => array(
 				'label'  => 'Вариативное условие:',
-				'object' => new ConditionField()    // Изменяемая часть условия
-			],
-			'task_answer'      => [
+				'object' => new ConditionField(),    // Изменяемая часть условия
+			),
+			'task_answer'      => array(
 				'label'  => 'Ответ',
-				'object' => new InputField()       // Поле для ответа
-			],
-		];
+				'object' => new InputField(),       // Поле для ответа
+			),
+		);
 	}
-	
+
 	/**
 	 * Возвращает уникальный идентификатор шаблона.
 	 *
@@ -54,7 +54,7 @@ class CommonConditionTemplate extends BaseTemplate {
 	public function get_id(): string {
 		return 'common_standard_task';
 	}
-	
+
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *

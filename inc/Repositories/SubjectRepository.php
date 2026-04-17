@@ -33,19 +33,19 @@ class SubjectRepository implements RepositoryInterface {
 	 * @var string
 	 */
 	private string $option_name = OptionName::SUBJECTS->value;
-	
+
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.
 	 *
 	 * @return array<string, array{key: string, name: string}> Сырые данные предметов
 	 */
 	private function getRaw(): array {
-		$subjects = get_option( $this->option_name, [] );
-		
+		$subjects = get_option( $this->option_name, array() );
+
 		// Гарантируем возврат массива даже при повреждённых данных
-		return is_array( $subjects ) ? $subjects : [];
+		return is_array( $subjects ) ? $subjects : array();
 	}
-	
+
 	/**
 	 * Получить все предметы.
 	 *
@@ -54,11 +54,14 @@ class SubjectRepository implements RepositoryInterface {
 	 * @return SubjectDTO[] Массив DTO-объектов предметов
 	 */
 	public function readAll(): array {
-		return array_map( function ( $item ) {
-			return new SubjectDTO( $item['key'], $item['name'] );
-		}, $this->getRaw() );
+		return array_map(
+			function ( $item ) {
+				return new SubjectDTO( $item['key'], $item['name'] );
+			},
+			$this->getRaw()
+		);
 	}
-	
+
 	/**
 	 * Получить предмет по ключу.
 	 *
@@ -68,14 +71,14 @@ class SubjectRepository implements RepositoryInterface {
 	 */
 	public function getByKey( string $key ): ?SubjectDTO {
 		$raw = $this->getRaw();
-		
+
 		if ( ! isset( $raw[ $key ] ) ) {
 			return null;
 		}
-		
+
 		return new SubjectDTO( $raw[ $key ]['key'], $raw[ $key ]['name'] );
 	}
-	
+
 	/**
 	 * Сохранить или обновить предмет (upsert).
 	 *
@@ -89,20 +92,20 @@ class SubjectRepository implements RepositoryInterface {
 	public function update( array $data ): bool {
 		// Работаем с сырыми данными для сохранения
 		$subjects = $this->getRaw();
-		
+
 		// Очищаем входные данные
 		$clean = $this->sanitize( $data );
-		
+
 		// Сохраняем предмет в массиве
-		$subjects[ $clean['key'] ] = [
+		$subjects[ $clean['key'] ] = array(
 			'key'  => $clean['key'],
-			'name' => $clean['name']
-		];
-		
+			'name' => $clean['name'],
+		);
+
 		// Сохраняем обновлённый массив в опции WordPress
 		return update_option( $this->option_name, $subjects );
 	}
-	
+
 	/**
 	 * Очистить данные предмета перед сохранением.
 	 *
@@ -115,12 +118,12 @@ class SubjectRepository implements RepositoryInterface {
 	 * @return array{key: string, name: string} Очищенные данные
 	 */
 	protected function sanitize( array $data ): array {
-		return [
+		return array(
 			'key'  => isset( $data['key'] ) ? sanitize_title( $data['key'] ) : '',
 			'name' => isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '',
-		];
+		);
 	}
-	
+
 	/**
 	 * Удалить предмет по ключу.
 	 *
@@ -131,19 +134,19 @@ class SubjectRepository implements RepositoryInterface {
 	public function delete( array $data ): bool {
 		$key      = $data['key'] ?? '';
 		$subjects = $this->getRaw();
-		
+
 		// Проверяем существование предмета
 		if ( ! isset( $subjects[ $key ] ) ) {
 			return false;
 		}
-		
+
 		// Удаляем предмет из массива
 		unset( $subjects[ $key ] );
-		
+
 		// Сохраняем обновлённый массив в опции WordPress
 		return update_option( $this->option_name, $subjects );
 	}
-	
+
 	/**
 	 * Полностью очистить все предметы.
 	 *

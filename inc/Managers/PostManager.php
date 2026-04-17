@@ -22,14 +22,16 @@ class PostManager {
 	 * @return int[] Массив ID постов
 	 */
 	public function getIds( string $post_type ): array {
-		return get_posts( [
-			'post_type'   => $post_type,
-			'numberposts' => - 1,      // Получить все посты
-			'post_status' => 'any',    // Все статусы (опубликованные, черновики, корзина)
-			'fields'      => 'ids',    // Возвращать только ID
-		] );
+		return get_posts(
+			array(
+				'post_type'   => $post_type,
+				'numberposts' => - 1,      // Получить все посты
+				'post_status' => 'any',    // Все статусы (опубликованные, черновики, корзина)
+				'fields'      => 'ids',    // Возвращать только ID
+			)
+		);
 	}
-	
+
 	/**
 	 * Возвращает массив объектов WP_Post указанного типа.
 	 *
@@ -38,13 +40,15 @@ class PostManager {
 	 * @return \WP_Post[] Массив объектов постов
 	 */
 	public function getAll( string $post_type ): array {
-		return get_posts( [
-			'post_type'   => $post_type,
-			'numberposts' => - 1,      // Получить все посты
-			'post_status' => 'any',    // Все статусы
-		] );
+		return get_posts(
+			array(
+				'post_type'   => $post_type,
+				'numberposts' => - 1,      // Получить все посты
+				'post_status' => 'any',    // Все статусы
+			)
+		);
 	}
-	
+
 	/**
 	 * Удаляет пост полностью (включая корзину).
 	 *
@@ -56,7 +60,7 @@ class PostManager {
 		// true — полное удаление без перемещения в корзину
 		wp_delete_post( $post_id, true );
 	}
-	
+
 	/**
 	 * Удаляет все посты указанного типа.
 	 *
@@ -69,7 +73,7 @@ class PostManager {
 			$this->delete( (int) $id );
 		}
 	}
-	
+
 	/**
 	 * Считает посты любого статуса, привязанные к термину таксономии.
 	 *
@@ -80,21 +84,25 @@ class PostManager {
 	 * @return int Количество постов
 	 */
 	public function countByTerm( string $post_type, string $taxonomy, int $term_id ): int {
-		return count( get_posts( [
-			'post_type'   => $post_type,
-			'numberposts' => - 1,
-			'post_status' => 'any',
-			'fields'      => 'ids',
-			'tax_query'   => [
-				[
-					'taxonomy' => $taxonomy,
-					'field'    => 'term_id',
-					'terms'    => $term_id,
-				]
-			],
-		] ) );
+		return count(
+			get_posts(
+				array(
+					'post_type'   => $post_type,
+					'numberposts' => - 1,
+					'post_status' => 'any',
+					'fields'      => 'ids',
+					'tax_query'   => array(
+						array(
+							'taxonomy' => $taxonomy,
+							'field'    => 'term_id',
+							'terms'    => $term_id,
+						),
+					),
+				)
+			)
+		);
 	}
-	
+
 	/**
 	 * Строит WP_Posts_List_Table для указанного CPT и вкладки, переопределяя REQUEST_URI.
 	 *
@@ -108,24 +116,27 @@ class PostManager {
 		if ( ! class_exists( 'WP_Posts_List_Table' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/class-wp-posts-list-table.php';
 		}
-		
+
 		set_current_screen( 'edit-' . $post_type );
-		$table = _get_list_table( 'WP_Posts_List_Table', [ 'screen' => 'edit-' . $post_type ] );
-		
+		$table = _get_list_table( 'WP_Posts_List_Table', array( 'screen' => 'edit-' . $post_type ) );
+
 		$edit_base   = admin_url( 'edit.php?post_type=' . $post_type );
 		$custom_base = admin_url( 'admin.php?page=' . $page . '&tab=' . $tab );
-		
-		$uri_args = [ 'page' => $page, 'tab' => $tab ];
+
+		$uri_args = array(
+			'page' => $page,
+			'tab'  => $tab,
+		);
 		if ( ! empty( $_GET['post_status'] ) ) {
 			$uri_args['post_status'] = sanitize_key( $_GET['post_status'] );
 		}
-		
+
 		$original_uri           = $_SERVER['REQUEST_URI'];
 		$_SERVER['REQUEST_URI'] = '/wp-admin/admin.php?' . http_build_query( $uri_args );
-		
+
 		$_GET['post_type'] = $post_type;
 		$table->prepare_items();
-		
+
 		return new \Inc\DTO\PostsListTableDTO(
 			table           : $table,
 			post_type_object: get_post_type_object( $post_type ),
@@ -137,7 +148,7 @@ class PostManager {
 			page_slug       : $page,
 		);
 	}
-	
+
 	/**
 	 * Создаёт новый пост.
 	 *
@@ -147,11 +158,11 @@ class PostManager {
 	 */
 	public function insert( array $data ): int {
 		$id = wp_insert_post( $data );
-		
+
 		// При ошибке wp_insert_post возвращает WP_Error
 		return is_wp_error( $id ) ? 0 : (int) $id;
 	}
-	
+
 	/**
 	 * Возвращает все мета-поля поста в виде ассоциативного массива.
 	 *
@@ -161,16 +172,16 @@ class PostManager {
 	 */
 	public function getAllMeta( int $post_id ): array {
 		$raw    = get_post_meta( $post_id );
-		$result = [];
-		
+		$result = array();
+
 		foreach ( $raw as $key => $_ ) {
 			// get_post_meta с true возвращает одно значение (не массив)
 			$result[ $key ] = get_post_meta( $post_id, $key, true );
 		}
-		
+
 		return $result;
 	}
-	
+
 	/**
 	 * Обновляет мета-поле поста.
 	 *

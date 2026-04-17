@@ -28,30 +28,30 @@ class TwoFileCodeTaskTemplate extends BaseTemplate {
 	 * - task_code: листинг кода (code field)
 	 */
 	public function __construct() {
-		$this->fields = [
-			'task_condition' => [
+		$this->fields = array(
+			'task_condition' => array(
 				'label'  => 'Условие задания',
-				'object' => new ConditionField()     // Многострочный текст
-			],
-			'task_answer'    => [
+				'object' => new ConditionField(),     // Многострочный текст
+			),
+			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
-				'object' => new InputField()        // Текстовое поле
-			],
-			'file_primary'   => [
+				'object' => new InputField(),        // Текстовое поле
+			),
+			'file_primary'   => array(
 				'label'  => 'Основной файл (A)',
-				'object' => new LinkField()         // Поле для ссылки на файл A
-			],
-			'file_secondary' => [
+				'object' => new LinkField(),         // Поле для ссылки на файл A
+			),
+			'file_secondary' => array(
 				'label'  => 'Дополнительный файл (B)',
-				'object' => new LinkField()         // Поле для ссылки на файл B
-			],
-			'task_code'      => [
+				'object' => new LinkField(),         // Поле для ссылки на файл B
+			),
+			'task_code'      => array(
 				'label'  => 'Листинг кода (Python)',
-				'object' => new CodeField()         // Поле для ввода кода
-			]
-		];
+				'object' => new CodeField(),         // Поле для ввода кода
+			),
+		);
 	}
-	
+
 	/**
 	 * Возвращает уникальный идентификатор шаблона.
 	 *
@@ -60,7 +60,7 @@ class TwoFileCodeTaskTemplate extends BaseTemplate {
 	public function get_id(): string {
 		return 'two_file_code_task';
 	}
-	
+
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *

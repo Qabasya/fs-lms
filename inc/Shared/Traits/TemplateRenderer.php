@@ -24,28 +24,28 @@ trait TemplateRenderer {
 	 * @param string       $template_name Имя файла без .php
 	 * @param array|object $data          Данные для шаблона
 	 */
-	protected function render( string $template_name, array|object $data = [] ): void {
+	protected function render( string $template_name, array|object $data = array() ): void {
 		$file = $this->path( "templates/{$template_name}.php" );
-		
+
 		if ( ! file_exists( $file ) ) {
 			return;
 		}
-		
+
 		/**
 		 * Если передан объект (DTO), мы упаковываем его в массив под ключом 'data'.
 		 * В шаблоне он будет доступен как $data.
 		 * Если передан массив, используем extract() как раньше для совместимости.
 		 */
 		if ( is_object( $data ) ) {
-			$args = [ 'data' => $data ];
+			$args = array( 'data' => $data );
 		} else {
 			$args = $data;
 		}
-		
+
 		if ( ! empty( $args ) ) {
 			extract( $args );
 		}
-		
+
 		require $file;
 	}
 }

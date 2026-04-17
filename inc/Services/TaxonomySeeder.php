@@ -9,7 +9,7 @@ namespace Inc\Services;
  * Паттерн Seeder — когда мы «засеиваем» базу данных начальными данными.
  */
 class TaxonomySeeder {
-	
+
 	/**
 	 * Конструктор.
 	 *
@@ -19,7 +19,7 @@ class TaxonomySeeder {
 	public function __construct() {
 		// Пустой конструктор для возможного DI в будущем
 	}
-	
+
 	/**
 	 * Заполняет таксономию терминами с номерами заданий.
 	 *
@@ -33,27 +33,33 @@ class TaxonomySeeder {
 	 */
 	public function seedTaskNumbers( string $taxonomy, int $count, string $prefix ): void {
 		// Получаем все существующие термины в таксономии
-		$terms = get_terms( [
-			'taxonomy'   => $taxonomy,
-			'hide_empty' => false,
-			'fields'     => 'ids' // Оптимизация: получаем только ID
-		] );
-		
+		$terms = get_terms(
+			array(
+				'taxonomy'   => $taxonomy,
+				'hide_empty' => false,
+				'fields'     => 'ids', // Оптимизация: получаем только ID
+			)
+		);
+
 		// Удаляем все существующие термины (полная очистка перед сидингом)
 		foreach ( $terms as $term_id ) {
 			wp_delete_term( $term_id, $taxonomy );
 		}
-		
+
 		// Создаём термины для каждого задания от 1 до $count
-		for ( $i = 1; $i <= $count; $i ++ ) {
-			$this->ensureTerm( (string) $i, $taxonomy, [
-				'description' => "Задание №{$i}",
-				'slug'        => "{$prefix}_{$i}"
-			] );
+		for ( $i = 1; $i <= $count; $i++ ) {
+			$this->ensureTerm(
+				(string) $i,
+				$taxonomy,
+				array(
+					'description' => "Задание №{$i}",
+					'slug'        => "{$prefix}_{$i}",
+				)
+			);
 		}
 	}
-	
-	
+
+
 	/**
 	 * Вспомогательный метод: проверяет существование термина и создаёт его, если нужно.
 	 *
@@ -67,26 +73,26 @@ class TaxonomySeeder {
 	 *
 	 * @return void
 	 */
-	private function ensureTerm( string $name, string $taxonomy, array $args = [] ): void {
+	private function ensureTerm( string $name, string $taxonomy, array $args = array() ): void {
 		// Если таксономия ещё не зарегистрирована, регистрируем её временно
 		if ( ! taxonomy_exists( $taxonomy ) ) {
 			// Регистрируем с минимальными параметрами, чтобы WP разрешил вставку терминов
 			register_taxonomy( $taxonomy, array() );
 		}
-		
+
 		// Повторная проверка: если таксономия всё ещё не существует — выходим
 		if ( ! taxonomy_exists( $taxonomy ) ) {
 			return;
 		}
-		
+
 		// Создаём термин, только если он ещё не существует
 		if ( ! term_exists( $name, $taxonomy ) ) {
 			wp_insert_term( $name, $taxonomy, $args );
 		}
 	}
 
-// ============== Пока не используется! ============== //
-	
+	// ============== Пока не используется! ============== //
+
 	/**
 	 * Позволяет массово добавить любые другие термины (например, Темы или Авторов).
 	 *
@@ -98,22 +104,24 @@ class TaxonomySeeder {
 			$this->ensureTerm( $term_name, $taxonomy );
 		}
 	}
-	
+
 	/**
 	 * Полная очистка таксономии от всех терминов.
 	 * ВРЕМЕННЫЙ МЕТОД для дебага
 	 */
 	public function clearTaxonomy( string $taxonomy ): void {
 		// Получаем вообще все термины, даже пустые
-		$terms = get_terms( [
-			'taxonomy'   => $taxonomy,
-			'hide_empty' => false,
-		] );
-		
+		$terms = get_terms(
+			array(
+				'taxonomy'   => $taxonomy,
+				'hide_empty' => false,
+			)
+		);
+
 		if ( is_wp_error( $terms ) || empty( $terms ) ) {
 			return;
 		}
-		
+
 		foreach ( $terms as $term ) {
 			// Использование wp_delete_term напрямую в коде обходит AJAX-ошибки интерфейса
 			wp_delete_term( $term->term_id, $taxonomy );

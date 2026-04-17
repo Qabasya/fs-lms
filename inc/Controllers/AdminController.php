@@ -43,7 +43,7 @@ class AdminController extends BaseController implements ServiceInterface {
 	) {
 		parent::__construct();
 	}
-	
+
 	/**
 	 * Регистрирует все административные меню плагина.
 	 *
@@ -59,21 +59,21 @@ class AdminController extends BaseController implements ServiceInterface {
 	public function register(): void {
 		// Сбор конфигураций главных страниц
 		$pages = $this->buildMainPages();
-		
+
 		// Сбор конфигураций всех подстраниц
 		$subpages = $this->buildAllSubPages();
-		
+
 		// Передаём данные в регистратор и выполняем регистрацию
 		$this->menuRegistrar->addPages( $pages )
-		                    ->addSubPages( $subpages )
-		                    ->register();
-		
+							->addSubPages( $subpages )
+							->register();
+
 		// Удаляем дублирующиеся пункты меню, созданные WordPress автоматически
 		$this->removeAutoSubMenuItems();
 	}
-	
+
 	// ============================ ФУНКЦИОНАЛ РЕГИСТРАТОРА ============================ //
-	
+
 	/**
 	 * Строит конфигурацию главных страниц меню.
 	 *
@@ -91,22 +91,22 @@ class AdminController extends BaseController implements ServiceInterface {
 	 * }> Конфигурация главных страниц
 	 */
 	private function buildMainPages(): array {
-		$pages = [
-			[
+		$pages = array(
+			array(
 				'page_title' => 'FS LMS Dashboard',
 				'menu_title' => 'FS LMS',
 				'capability' => Capability::ADMIN->value,
 				'menu_slug'  => MenuSlug::MAIN->value,
-				'callback'   => [ $this->callbacks, 'adminDashboard' ],
+				'callback'   => array( $this->callbacks, 'adminDashboard' ),
 				'icon_url'   => 'dashicons-welcome-learn-more',
-				'position'   => 4
-			]
-		];
-		
+				'position'   => 4,
+			),
+		);
+
 		// Добавляем страницы предметов из билдера
 		return array_merge( $pages, $this->subjectsMenuBuilder->buildPages() );
 	}
-	
+
 	/**
 	 * Собирает все подстраницы из разных источников.
 	 *
@@ -123,46 +123,46 @@ class AdminController extends BaseController implements ServiceInterface {
 	 * }> Конфигурация всех подстраниц
 	 */
 	private function buildAllSubPages(): array {
-		$subpages = [];
-		
+		$subpages = array();
+
 		// Первая подстраница (дублирует главную, будет скрыта WordPress)
-		$subpages[] = [
+		$subpages[] = array(
 			'parent_slug' => MenuSlug::MAIN->value,
 			'page_title'  => PageTitle::FIRST->value,
 			'menu_title'  => MenuTitle::FIRST->value,
 			'capability'  => Capability::ADMIN->value,
 			'menu_slug'   => MenuSlug::MAIN->value,
-			'callback'    => [ $this->callbacks, 'adminDashboard' ],
-		];
-		
+			'callback'    => array( $this->callbacks, 'adminDashboard' ),
+		);
+
 		// Страница настроек
-		$subpages[] = [
+		$subpages[] = array(
 			'parent_slug' => MenuSlug::MAIN->value,
 			'page_title'  => PageTitle::SECOND->value,
 			'menu_title'  => MenuTitle::SECOND->value,
 			'capability'  => Capability::ADMIN->value,
 			'menu_slug'   => 'fs_lms_settings',
-			'callback'    => [ $this->callbacks, 'settingsPage' ],
-		];
-		
+			'callback'    => array( $this->callbacks, 'settingsPage' ),
+		);
+
 		// Скрытая страница управления типовыми условиями (не отображается в меню)
-		$subpages[] = [
+		$subpages[] = array(
 			'parent_slug' => '', // Пустой parent_slug делает страницу скрытой
 			'page_title'  => 'Управление типовыми условиями',
 			'menu_title'  => 'Boilerplate Manager',
 			'capability'  => Capability::ADMIN->value,
 			'menu_slug'   => 'fs_boilerplate_manager',
-			'callback'    => [ $this->callbacks, 'boilerplatePage' ],
-		];
-		
+			'callback'    => array( $this->callbacks, 'boilerplatePage' ),
+		);
+
 		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
-		
+
 		// Добавляем подстраницы предметов (каждый предмет — отдельная подстраница)
 		return array_merge( $subpages, $this->subjectsMenuBuilder->buildSubPages() );
 	}
-	
+
 	// ====================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ======================
-	
+
 	/**
 	 * Удаляет автоматически созданные дублирующиеся пункты меню.
 	 *
@@ -176,11 +176,15 @@ class AdminController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	private function removeAutoSubMenuItems(): void {
-		add_action( 'admin_menu', function () {
-			remove_submenu_page(
-				MenuSlug::SUBJECTS->value,
-				MenuSlug::SUBJECTS->value
-			);
-		}, 999 );
+		add_action(
+			'admin_menu',
+			function () {
+				remove_submenu_page(
+					MenuSlug::SUBJECTS->value,
+					MenuSlug::SUBJECTS->value
+				);
+			},
+			999
+		);
 	}
 }

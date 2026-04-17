@@ -19,7 +19,7 @@ class SubjectTaxonomyRegistrar {
 	 * @var TaxonomyManager
 	 */
 	private TaxonomyManager $manager;
-	
+
 	/**
 	 * Очередь таксономий на регистрацию.
 	 *
@@ -33,8 +33,8 @@ class SubjectTaxonomyRegistrar {
 	 *
 	 * @var array<string, array{post_types: array|string, args: array}>
 	 */
-	private array $taxonomies = [];
-	
+	private array $taxonomies = array();
+
 	/**
 	 * Конструктор.
 	 *
@@ -43,7 +43,7 @@ class SubjectTaxonomyRegistrar {
 	public function __construct( TaxonomyManager $manager ) {
 		$this->manager = $manager;
 	}
-	
+
 	/**
 	 * Базовый метод добавления таксономии.
 	 *
@@ -56,14 +56,14 @@ class SubjectTaxonomyRegistrar {
 	 * @return self Для цепочки вызовов (Fluent Interface)
 	 */
 	public function addTaxonomy( string $slug, array|string $post_types, array $args ): self {
-		$this->taxonomies[ $slug ] = [
+		$this->taxonomies[ $slug ] = array(
 			'post_types' => $post_types,
-			'args'       => $args
-		];
-		
+			'args'       => $args,
+		);
+
 		return $this;
 	}
-	
+
 	/**
 	 * Хелпер для создания стандартной иерархической таксономии.
 	 *
@@ -78,57 +78,69 @@ class SubjectTaxonomyRegistrar {
 	 * @return self Для цепочки вызовов
 	 */
 	public function addStandardTaxonomy( string $slug, array|string $post_types, string $plural, string $singular, string $display_type = 'select' ): self {
-		return $this->addTaxonomy( $slug, $post_types, [
-			'labels'            => [
-				'name'              => $plural,
-				'singular_name'     => $singular,
-				'search_items'      => "Найти $plural",
-				'all_items'         => "Все $plural",
-				'view_item '        => "Просмотр  $singular",
-				'parent_item'       => "Родитель $singular",
-				'parent_item_colon' => "Родитель $singular:",
-				'edit_item'         => "Изменить $singular",
-				'update_item'       => "Обновить $singular",
-				'add_new_item'      => "Добавить новый $singular",
-				'new_item_name'     => "Название нового $singular",
-				'menu_name'         => $plural,
-				'back_to_items'     => '← Назад к $singular',
-			],
-			'hierarchical'      => false,
-			'show_ui'           => true,
-			'show_admin_column' => true,
-			'show_in_rest'      => true,
-			'rewrite'           => [ 'slug' => $slug ],
-			'meta_box_cb'       => $this->buildMetaBoxCallback( $display_type ),
-		] );
+		return $this->addTaxonomy(
+			$slug,
+			$post_types,
+			array(
+				'labels'            => array(
+					'name'              => $plural,
+					'singular_name'     => $singular,
+					'search_items'      => "Найти $plural",
+					'all_items'         => "Все $plural",
+					'view_item '        => "Просмотр  $singular",
+					'parent_item'       => "Родитель $singular",
+					'parent_item_colon' => "Родитель $singular:",
+					'edit_item'         => "Изменить $singular",
+					'update_item'       => "Обновить $singular",
+					'add_new_item'      => "Добавить новый $singular",
+					'new_item_name'     => "Название нового $singular",
+					'menu_name'         => $plural,
+					'back_to_items'     => '← Назад к $singular',
+				),
+				'hierarchical'      => false,
+				'show_ui'           => true,
+				'show_admin_column' => true,
+				'show_in_rest'      => true,
+				'rewrite'           => array( 'slug' => $slug ),
+				'meta_box_cb'       => $this->buildMetaBoxCallback( $display_type ),
+			)
+		);
 	}
-	
+
 	private function buildMetaBoxCallback( string $display_type ): callable {
 		return static function ( \WP_Post $post, array $box ) use ( $display_type ): void {
 			$taxonomy = $box['args']['taxonomy'];
-			$terms    = get_terms( [ 'taxonomy' => $taxonomy, 'hide_empty' => false ] );
-			
+			$terms    = get_terms(
+				array(
+					'taxonomy'   => $taxonomy,
+					'hide_empty' => false,
+				)
+			);
+
 			if ( is_wp_error( $terms ) || empty( $terms ) ) {
 				printf(
 					'<p><a href="%s">Добавить термины</a></p>',
 					esc_url( admin_url( "edit-tags.php?taxonomy={$taxonomy}" ) )
 				);
-				
+
 				return;
 			}
-			
+
 			$current       = wp_get_post_terms( $post->ID, $taxonomy );
-			$current_slugs = is_wp_error( $current ) ? [] : wp_list_pluck( $current, 'slug' );
-			
+			$current_slugs = is_wp_error( $current ) ? array() : wp_list_pluck( $current, 'slug' );
+
 			echo '<div class="fs-lms-tax-field">';
-			
+
 			if ( $display_type === 'radio' ) {
 				printf( '<input type="hidden" name="tax_input[%s][]" value="">', esc_attr( $taxonomy ) );
 				foreach ( $terms as $term ) {
 					$checked = in_array( $term->slug, $current_slugs, true ) ? 'checked' : '';
 					printf(
 						'<label style="display:block;margin:3px 0"><input type="radio" name="tax_input[%s][]" value="%s" %s> %s</label>',
-						esc_attr( $taxonomy ), esc_attr( $term->slug ), $checked, esc_html( $term->name )
+						esc_attr( $taxonomy ),
+						esc_attr( $term->slug ),
+						$checked,
+						esc_html( $term->name )
 					);
 				}
 			} elseif ( $display_type === 'checkbox' ) {
@@ -137,7 +149,10 @@ class SubjectTaxonomyRegistrar {
 					$checked = in_array( $term->slug, $current_slugs, true ) ? 'checked' : '';
 					printf(
 						'<label style="display:block;margin:3px 0"><input type="checkbox" name="tax_input[%s][]" value="%s" %s> %s</label>',
-						esc_attr( $taxonomy ), esc_attr( $term->slug ), $checked, esc_html( $term->name )
+						esc_attr( $taxonomy ),
+						esc_attr( $term->slug ),
+						$checked,
+						esc_html( $term->name )
 					);
 				}
 			} else {
@@ -147,16 +162,18 @@ class SubjectTaxonomyRegistrar {
 					$selected = in_array( $term->slug, $current_slugs, true ) ? 'selected' : '';
 					printf(
 						'<option value="%s" %s>%s</option>',
-						esc_attr( $term->slug ), $selected, esc_html( $term->name )
+						esc_attr( $term->slug ),
+						$selected,
+						esc_html( $term->name )
 					);
 				}
 				echo '</select>';
 			}
-			
+
 			echo '</div>';
 		};
 	}
-	
+
 	/**
 	 * Хелпер для "фиксированных" таксономий с ограниченными правами.
 	 *
@@ -171,39 +188,42 @@ class SubjectTaxonomyRegistrar {
 	 *
 	 * @return self Для цепочки вызовов
 	 */
-	public function addFixedTaxonomy( string $slug, array $object_types, string $name, string $singular_name, array $extra_args = [] ): self {
-		$args = array_merge( [
-			'hierarchical'      => false,
-			'labels'            => [
-				'name'          => $name,
-				'singular_name' => $singular_name,
-				'menu_name'     => $name,
-				'all_items'     => "Все $name",
-				'edit_item'     => "Изменить",
-				'view_item'     => "Просмотреть",
-				'update_item'   => "Обновить",
-				'add_new_item'  => "Добавить",
-				'new_item_name' => "Новое название",
-				'search_items'  => "Найти",
-				'not_found'     => "Не найдено",
-			],
-			'show_ui'           => true,
-			'show_admin_column' => true,
-			'show_in_nav_menus' => true,
-			'show_tagcloud'     => false,
-			'query_var'         => true,
-			'rewrite'           => [ 'slug' => $slug ],
-			'show_in_rest'      => true, // Важно для корректной работы современных запросов
-		], $extra_args );
-		
-		$this->taxonomies[ $slug ] = [
+	public function addFixedTaxonomy( string $slug, array $object_types, string $name, string $singular_name, array $extra_args = array() ): self {
+		$args = array_merge(
+			array(
+				'hierarchical'      => false,
+				'labels'            => array(
+					'name'          => $name,
+					'singular_name' => $singular_name,
+					'menu_name'     => $name,
+					'all_items'     => "Все $name",
+					'edit_item'     => 'Изменить',
+					'view_item'     => 'Просмотреть',
+					'update_item'   => 'Обновить',
+					'add_new_item'  => 'Добавить',
+					'new_item_name' => 'Новое название',
+					'search_items'  => 'Найти',
+					'not_found'     => 'Не найдено',
+				),
+				'show_ui'           => true,
+				'show_admin_column' => true,
+				'show_in_nav_menus' => true,
+				'show_tagcloud'     => false,
+				'query_var'         => true,
+				'rewrite'           => array( 'slug' => $slug ),
+				'show_in_rest'      => true, // Важно для корректной работы современных запросов
+			),
+			$extra_args
+		);
+
+		$this->taxonomies[ $slug ] = array(
 			'post_types' => $object_types,
-			'args'       => $args
-		];
-		
+			'args'       => $args,
+		);
+
 		return $this;
 	}
-	
+
 	/**
 	 * Передаёт накопленные данные менеджеру для регистрации.
 	 *
@@ -215,5 +235,4 @@ class SubjectTaxonomyRegistrar {
 	public function register(): void {
 		$this->manager->register( $this->taxonomies );
 	}
-	
 }

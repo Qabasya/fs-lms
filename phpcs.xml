@@ -4,12 +4,34 @@
 
     <rule ref="WordPress"/>
 
-    <!-- Отключаем излишнюю строгость -->
-    <rule ref="WordPress.Files.FileName">
-        <severity>0</severity>
+    <!-- Что проверяем -->
+    <file>.</file>
+
+    <!-- Исключения -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+    <exclude-pattern>*/tests/*</exclude-pattern>
+    <exclude-pattern>*.min.js</exclude-pattern>
+    <exclude-pattern>*.min.css</exclude-pattern>
+
+    <!-- Стандарты WordPress -->
+    <rule ref="WordPress">
+        <!-- Можно ослабить конкретные правила -->
+        <!-- <exclude name="WordPress.Files.FileName.InvalidClassFileName"/> -->
     </rule>
 
-    <!-- Исключаем папки -->
-    <exclude-pattern>vendor/*</exclude-pattern>
-    <exclude-pattern>node_modules/*</exclude-pattern>
+    <!-- Дополнительные правила -->
+    <rule ref="WordPress-Docs"/>
+    <rule ref="WordPress-Extra"/>
+
+    <!-- Формат вывода -->
+    <arg name="report" value="full"/>
+    <arg name="colors"/>
+    <arg value="ps"/>
+
+    <!-- Минимальная версия WordPress -->
+    <config name="minimum_supported_wp_version" value="5.8"/>
+
+    <!-- Тип проекта -->
+    <config name="testVersion" value="7.4-"/>
 </ruleset>

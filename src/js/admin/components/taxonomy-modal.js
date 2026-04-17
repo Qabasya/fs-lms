@@ -39,13 +39,17 @@ export const TaxonomyModal = {
      */
     init() {
         // Предотвращаем повторную инициализацию
-        if (this._initialized) return;
+        if (this._initialized) {
+            return;
+        }
 
         // Кэшируем jQuery-объект модального окна
         this.$modal = $('#fs-taxonomy-modal');
 
         // Если модальное окно отсутствует в DOM — прекращаем инициализацию
-        if (!this.$modal.length) return;
+        if (!this.$modal.length) {
+            return;
+        }
 
         // Устанавливаем флаг инициализации
         this._initialized = true;

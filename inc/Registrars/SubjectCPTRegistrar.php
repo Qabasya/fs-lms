@@ -29,15 +29,15 @@ class SubjectCPTRegistrar {
 	 * @var CPTManager
 	 */
 	private CPTManager $manager;
-	
+
 	/**
 	 * Массив конфигураций CPT, где ключ — slug типа записи,
 	 * значение — аргументы для register_post_type().
 	 *
 	 * @var array<string, array>
 	 */
-	private array $post_types = [];
-	
+	private array $post_types = array();
+
 	/**
 	 * Конструктор.
 	 *
@@ -46,7 +46,7 @@ class SubjectCPTRegistrar {
 	public function __construct( CPTManager $manager ) {
 		$this->manager = $manager;
 	}
-	
+
 	/**
 	 * Добавляет тип записи в очередь на регистрацию.
 	 *
@@ -59,10 +59,10 @@ class SubjectCPTRegistrar {
 	 */
 	public function addPostType( string $slug, array $args ): self {
 		$this->post_types[ $slug ] = $args;
-		
+
 		return $this;
 	}
-	
+
 	/**
 	 * Хелпер для быстрого создания стандартного типа записи.
 	 *
@@ -76,9 +76,9 @@ class SubjectCPTRegistrar {
 	 *
 	 * @return self Для цепочки вызовов
 	 */
-	public function addStandardType( string $slug, string $plural, string $singular, array $args = [] ): self {
-		$defaults = [
-			'labels'       => [
+	public function addStandardType( string $slug, string $plural, string $singular, array $args = array() ): self {
+		$defaults = array(
+			'labels'       => array(
 				'name'          => $plural,
 				'singular_name' => $singular,
 				'menu_name'     => $plural,
@@ -86,21 +86,24 @@ class SubjectCPTRegistrar {
 				'add_new_item'  => "Добавить новый {$singular}",
 				'edit_item'     => "Редактировать {$singular}",
 				'all_items'     => "Все {$plural}",
-			],
+			),
 			'public'       => true,
 			'has_archive'  => true,
 			'show_in_menu' => false,
 			'show_in_rest' => true,
-			'supports'     => [ 'title' ],
-			'rewrite'      => [ 'slug' => $slug, 'with_front' => false ]
-		];
-		
+			'supports'     => array( 'title' ),
+			'rewrite'      => array(
+				'slug'       => $slug,
+				'with_front' => false,
+			),
+		);
+
 		$final_args = array_replace_recursive( $defaults, $args );
-		
+
 		return $this->addPostType( $slug, $final_args );
 	}
-	
-	
+
+
 	/**
 	 * Выполняет регистрацию всех накопленных типов записей.
 	 *
@@ -111,5 +114,4 @@ class SubjectCPTRegistrar {
 	public function register(): void {
 		$this->manager->register( $this->post_types );
 	}
-	
 }

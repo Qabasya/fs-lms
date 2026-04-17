@@ -25,22 +25,22 @@ class FileTaskTemplate extends BaseTemplate {
 	 * - file: ссылка на файл задания (link field)
 	 */
 	public function __construct() {
-		$this->fields = [
-			'task_condition' => [
+		$this->fields = array(
+			'task_condition' => array(
 				'label'  => 'Условие задания',
-				'object' => new ConditionField()     // Многострочный текст
-			],
-			'task_answer'    => [
+				'object' => new ConditionField(),     // Многострочный текст
+			),
+			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
-				'object' => new InputField()        // Текстовое поле
-			],
-			'file'           => [
+				'object' => new InputField(),        // Текстовое поле
+			),
+			'file'           => array(
 				'label'  => 'Файл задания',
-				'object' => new LinkField()         // Поле для ссылки на файл
-			]
-		];
+				'object' => new LinkField(),         // Поле для ссылки на файл
+			),
+		);
 	}
-	
+
 	/**
 	 * Возвращает уникальный идентификатор шаблона.
 	 *
@@ -49,7 +49,7 @@ class FileTaskTemplate extends BaseTemplate {
 	public function get_id(): string {
 		return 'file_task';
 	}
-	
+
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *

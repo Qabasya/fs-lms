@@ -27,26 +27,26 @@ class FileCodeTaskTemplate extends BaseTemplate {
 	 * - task_code: листинг кода (code field)
 	 */
 	public function __construct() {
-		$this->fields = [
-			'task_condition' => [
+		$this->fields = array(
+			'task_condition' => array(
 				'label'  => 'Условие задания',
-				'object' => new ConditionField()     // Многострочный текст
-			],
-			'task_answer'    => [
+				'object' => new ConditionField(),     // Многострочный текст
+			),
+			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
-				'object' => new InputField()        // Текстовое поле
-			],
-			'file'           => [
+				'object' => new InputField(),        // Текстовое поле
+			),
+			'file'           => array(
 				'label'  => 'Файл задания',
-				'object' => new LinkField()         // Поле для ссылки на файл
-			],
-			'task_code'      => [
+				'object' => new LinkField(),         // Поле для ссылки на файл
+			),
+			'task_code'      => array(
 				'label'  => 'Листинг кода (Python)',
-				'object' => new CodeField()         // Поле для ввода кода
-			]
-		];
+				'object' => new CodeField(),         // Поле для ввода кода
+			),
+		);
 	}
-	
+
 	/**
 	 * Возвращает уникальный идентификатор шаблона.
 	 *
@@ -55,7 +55,7 @@ class FileCodeTaskTemplate extends BaseTemplate {
 	public function get_id(): string {
 		return 'file_code_task';
 	}
-	
+
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *

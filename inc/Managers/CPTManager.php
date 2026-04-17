@@ -41,12 +41,14 @@ class CPTManager {
 		if ( empty( $post_types ) ) {
 			return;
 		}
-		
-		add_action( 'init', function () use ( $post_types ) {
-			foreach ( $post_types as $slug => $args ) {
-				register_post_type( $slug, $args );
+
+		add_action(
+			'init',
+			function () use ( $post_types ) {
+				foreach ( $post_types as $slug => $args ) {
+					register_post_type( $slug, $args );
+				}
 			}
-		} );
+		);
 	}
-	
 }

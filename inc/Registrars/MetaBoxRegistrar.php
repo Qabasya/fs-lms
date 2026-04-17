@@ -25,7 +25,7 @@ class MetaBoxRegistrar {
 	 * @var MetaBoxManager
 	 */
 	private MetaBoxManager $manager;
-	
+
 	/**
 	 * Очередь метабоксов на регистрацию.
 	 *
@@ -50,8 +50,8 @@ class MetaBoxRegistrar {
 	 *     args: array
 	 * }>
 	 */
-	private array $metaboxes = [];
-	
+	private array $metaboxes = array();
+
 	/**
 	 * Конструктор.
 	 *
@@ -60,7 +60,7 @@ class MetaBoxRegistrar {
 	public function __construct( MetaBoxManager $manager ) {
 		$this->manager = $manager;
 	}
-	
+
 	/**
 	 * Базовый метод добавления метабокса с fluent interface.
 	 *
@@ -82,20 +82,20 @@ class MetaBoxRegistrar {
 		string $title,
 		callable $callback,
 		string|array $post_types,
-		array $args = []
+		array $args = array()
 	): self {
-		$this->metaboxes[ $id ] = [
+		$this->metaboxes[ $id ] = array(
 			'title'      => $title,
 			'callback'   => $callback,
 			'post_types' => $post_types,
 			'context'    => $args['context'] ?? 'normal',   // Местоположение метабокса
 			'priority'   => $args['priority'] ?? 'high',    // Приоритет отображения
 			'args'       => $args['args'] ?? $args,         // Аргументы для коллбека
-		];
-		
+		);
+
 		return $this;
 	}
-	
+
 	/**
 	 * Добавляет метабокс на основе шаблона.
 	 *
@@ -114,12 +114,12 @@ class MetaBoxRegistrar {
 			$template->get_name() . ' (Настройка)',  // Добавляем суффикс для ясности
 			$callback,
 			$post_types,
-			[
-				'args' => [ 'template' => $template ]   // Передаём шаблон в аргументы коллбека
-			]
+			array(
+				'args' => array( 'template' => $template ),   // Передаём шаблон в аргументы коллбека
+			)
 		);
 	}
-	
+
 	/**
 	 * Финализирует регистрацию — передаёт все накопленные метабоксы менеджеру.
 	 *
@@ -133,11 +133,11 @@ class MetaBoxRegistrar {
 		if ( empty( $this->metaboxes ) ) {
 			return;
 		}
-		
+
 		// Делегируем регистрацию низкоуровневому менеджеру
 		$this->manager->register( $this->metaboxes );
-		
+
 		// Очищаем очередь после регистрации (на случай повторного вызова)
-		$this->metaboxes = [];
+		$this->metaboxes = array();
 	}
 }

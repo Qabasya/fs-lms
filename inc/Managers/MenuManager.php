@@ -47,32 +47,35 @@ class MenuManager {
 		if ( empty( $pages ) ) {
 			return;
 		}
-		
-		add_action( 'admin_menu', function () use ( $pages, $subpages ) {
-			// Регистрация главных страниц меню
-			foreach ( $pages as $page ) {
-				add_menu_page(
-					$page['page_title'],
-					$page['menu_title'],
-					$page['capability'],
-					$page['menu_slug'],
-					$page['callback'],
-					$page['icon_url'],
-					$page['position']
-				);
+
+		add_action(
+			'admin_menu',
+			function () use ( $pages, $subpages ) {
+				// Регистрация главных страниц меню
+				foreach ( $pages as $page ) {
+					add_menu_page(
+						$page['page_title'],
+						$page['menu_title'],
+						$page['capability'],
+						$page['menu_slug'],
+						$page['callback'],
+						$page['icon_url'],
+						$page['position']
+					);
+				}
+
+				// Регистрация подстраниц меню
+				foreach ( $subpages as $subpage ) {
+					add_submenu_page(
+						$subpage['parent_slug'],
+						$subpage['page_title'],
+						$subpage['menu_title'],
+						$subpage['capability'],
+						$subpage['menu_slug'],
+						$subpage['callback']
+					);
+				}
 			}
-			
-			// Регистрация подстраниц меню
-			foreach ( $subpages as $subpage ) {
-				add_submenu_page(
-					$subpage['parent_slug'],
-					$subpage['page_title'],
-					$subpage['menu_title'],
-					$subpage['capability'],
-					$subpage['menu_slug'],
-					$subpage['callback']
-				);
-			}
-		} );
+		);
 	}
 }
