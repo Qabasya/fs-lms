@@ -13,22 +13,33 @@
         </a>
         <hr class="wp-header-end">
 
-        <?php echo $t->views(); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+        <div class="fs-posts-table-container"
+             data-tab="<?php echo esc_attr( $t->tab ); ?>"
+             data-subject="<?php echo esc_attr( $dto->subject_key ); ?>"
+             data-page="<?php echo esc_attr( $t->page_slug ); ?>">
 
-        <form id="posts-filter" method="get">
-            <input type="hidden" name="page" value="<?php echo esc_attr( sanitize_text_field( $_REQUEST['page'] ?? '' ) ); ?>" />
-            <input type="hidden" name="tab" value="tab-3" />
-            <input type="hidden" name="post_type" value="<?php echo esc_attr( $t->post_type ); ?>" />
+            <?php echo $t->views(); // phpcs:ignore WordPress.Security.EscapeOutput ?>
 
-            <?php if ( isset( $_REQUEST['post_status'] ) ) : ?>
-                <input type="hidden" name="post_status"
-                       value="<?php echo esc_attr( $_REQUEST['post_status'] ); ?>" />
-            <?php endif; ?>
+            <form id="posts-filter" method="get">
+                <input type="hidden" name="page" value="<?php echo esc_attr( $t->page_slug ); ?>" />
+                <input type="hidden" name="tab" value="<?php echo esc_attr( $t->tab ); ?>" />
+                <input type="hidden" name="post_type" value="<?php echo esc_attr( $t->post_type ); ?>" />
 
-            <?php $t->table->search_box( $t->post_type_object->labels->search_items, 'post' ); ?>
+                <?php if ( isset( $_REQUEST['post_status'] ) ) : ?>
+                    <input type="hidden" name="post_status"
+                           value="<?php echo esc_attr( $_REQUEST['post_status'] ); ?>" />
+                <?php endif; ?>
 
-            <?php echo $t->display(); // phpcs:ignore WordPress.Security.EscapeOutput ?>
-        </form>
+                <?php $t->table->search_box( $t->post_type_object->labels->search_items, 'post' ); ?>
+
+                <?php echo $t->display(); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+            </form>
+
+            <div id="ajax-response"></div>
+
+            <?php echo $t->inlineEdit(); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+
+        </div>
     </div>
 
     <?php $t->restore(); endif; ?>

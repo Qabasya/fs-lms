@@ -54,6 +54,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'subject_key' => $subject_key,
 				'post_type'   => $subject_key . '_tasks',
 			] );
+			wp_enqueue_script( 'inline-edit-post' );
 		}
 
 		wp_localize_script( $script_handle, 'fs_lms_vars', [

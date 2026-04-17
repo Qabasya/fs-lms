@@ -12,6 +12,8 @@ class PostsListTableDTO {
 		public readonly string $edit_base,
 		public readonly string $custom_base,
 		public readonly string $original_uri,
+		public readonly string $tab = '',
+		public readonly string $page_slug = '',
 	) {}
 
 	public function views(): string {
@@ -24,6 +26,12 @@ class PostsListTableDTO {
 		ob_start();
 		$this->table->display();
 		return str_replace( $this->edit_base, $this->custom_base, (string) ob_get_clean() );
+	}
+
+	public function inlineEdit(): string {
+		ob_start();
+		$this->table->inline_edit();
+		return (string) ob_get_clean();
 	}
 
 	public function restore(): void {

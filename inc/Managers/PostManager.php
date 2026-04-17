@@ -136,6 +136,8 @@ class PostManager
 			edit_base:        $edit_base,
 			custom_base:      $custom_base,
 			original_uri:     $original_uri,
+			tab:              $tab,
+			page_slug:        $page,
 		);
 	}
 

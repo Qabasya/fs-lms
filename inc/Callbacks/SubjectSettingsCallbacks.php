@@ -490,4 +490,67 @@ class SubjectSettingsCallbacks {
 			}
 		}
 	}
+
+	/**
+	 * Возвращает HTML таблицы постов для AJAX-обновления вкладки.
+	 *
+	 * @return void
+	 */
+	public function ajaxGetPostsTable(): void {
+		Nonce::Subject->verify();
+
+		$subject_key = sanitize_key( $_POST['subject_key'] ?? '' );
+		$tab         = sanitize_key( $_POST['tab'] ?? '' );
+		$page_slug   = sanitize_text_field( $_POST['page_slug'] ?? '' );
+		$post_status = sanitize_key( $_POST['post_status'] ?? '' );
+		$paged       = max( 1, absint( $_POST['paged'] ?? 1 ) );
+		$s           = sanitize_text_field( $_POST['s'] ?? '' );
+
+		if ( ! in_array( $tab, [ 'tab-2', 'tab-3' ], true ) || ! $subject_key ) {
+			wp_send_json_error( 'Invalid parameters.' );
+		}
+
+		// Populate $_GET/$_REQUEST so prepare_items() picks up filters.
+		if ( $post_status ) {
+			$_GET['post_status'] = $_REQUEST['post_status'] = $post_status;
+		} else {
+			unset( $_GET['post_status'], $_REQUEST['post_status'] );
+		}
+		if ( $paged > 1 ) {
+			$_GET['paged'] = $_REQUEST['paged'] = $paged;
+		} else {
+			unset( $_GET['paged'], $_REQUEST['paged'] );
+		}
+		if ( $s !== '' ) {
+			$_GET['s'] = $_REQUEST['s'] = $s;
+		} else {
+			unset( $_GET['s'], $_REQUEST['s'] );
+		}
+
+		$post_type = $tab === 'tab-2'
+			? "{$subject_key}_tasks"
+			: "{$subject_key}_articles";
+
+		$t = $this->posts->buildListTable( $post_type, $page_slug, $tab );
+
+		$views_html = $t->views();
+
+		ob_start();
+		$t->table->search_box( $t->post_type_object->labels->search_items, 'post' );
+		$search_html = (string) ob_get_clean();
+
+		$table_html  = $t->display();
+		$inline_html = $t->inlineEdit();
+		$t->restore();
+
+		$html = $views_html
+			. '<form id="posts-filter" method="get">'
+			. $search_html
+			. $table_html
+			. '</form>'
+			. '<div id="ajax-response"></div>'
+			. $inline_html;
+
+		wp_send_json_success( [ 'html' => $html ] );
+	}
 }

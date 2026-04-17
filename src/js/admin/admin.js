@@ -4,6 +4,7 @@ import { Tasks }        from './services/tasks.js';
 import { Boilerplates } from './services/boilerplates.js';
 import { TaskCreation } from './services/task-creation.js';
 import { Taxonomies }   from './services/taxonomies.js';
+import { PostsTable }   from './services/posts-table.js';
 
 (function ($) {
     'use strict';
@@ -18,6 +19,7 @@ import { Taxonomies }   from './services/taxonomies.js';
         }
 
         Tasks.init();
+        PostsTable.init();
         Boilerplates.init();
 
         // Создание заданий — init безопасен: внутри проверяет наличие модалки
