@@ -1,42 +1,41 @@
-// src/scss/admin/components/_add-row-button.scss
-
 .fs-add-row-container {
-  margin-top: -1px; // Чтобы прилегало к границе таблицы без двойной линии
-  width: 100%;
+  margin-top: -1px; // Приклейка к границе таблицы
+  background: #fff;
+  border: 1px solid #c3c4c7; // Совпадаем с рамкой таблицы
+  border-top: none;
 
   .fs-add-row-button {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    padding: 12px;
-    background: #fff;
-    border: 1px dashed #c3c4c7; // Пунктир в стиле WP
-    color: #2271b1;
+    height: 40px; // Фиксированная высота, чтобы не было дыр
+    background: transparent;
+    border: none;
     cursor: pointer;
-    transition: all 0.2s ease-in-out;
+    transition: background 0.1s ease-in-out;
     outline: none;
+    padding: 0;
 
     &:hover {
-      background-color: #f0f6fa;
-      border-color: #2271b1;
-      color: #135e96;
+      background-color: #f6f7f7;
 
       .dashicons {
-        transform: scale(1.1);
+        color: #2271b1;
       }
     }
 
     .dashicons {
-      font-size: 24px;
-      width: 24px;
-      height: 24px;
-      transition: transform 0.2s ease;
-      color: #a7aaad; // В покое он серый, как в WP
+      font-size: 20px;
+      color: #a7aaad;
     }
+  }
+}
 
-    &:hover .dashicons {
-      color: #2271b1;
-    }
+// Выравнивание действий в таблице
+.js-taxonomy-table {
+  .row-actions {
+    vertical-align: middle !important;
+    padding: 8px 10px !important;
   }
 }

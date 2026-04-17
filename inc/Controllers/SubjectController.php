@@ -103,7 +103,7 @@ class SubjectController extends BaseController implements ServiceInterface
 			return;
 		}
 
-		$this->render('SubjectTest', $dto);
+		$this->render('subject', $dto);
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //

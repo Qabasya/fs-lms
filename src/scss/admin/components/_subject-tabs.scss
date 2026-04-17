@@ -1,0 +1,59 @@
+.fs-lms-dashboard {
+  .fs-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 20px;
+    width: 100%;
+    max-width: 95vw; // Для твоего 4K монитора
+
+    label {
+      padding: 12px 24px;
+      background: #dcdcde;
+      cursor: pointer;
+      border: 1px solid #c3c4c7;
+      border-bottom: none;
+      margin-right: 4px;
+      transition: all 0.2s;
+      font-weight: 500;
+
+      &:hover {
+        background: #f0f0f1;
+      }
+    }
+
+    input[type="radio"] {
+      display: none;
+
+      &:checked + label {
+        background: #fff;
+        border-bottom: 1px solid #fff;
+        margin-bottom: -1px;
+        font-weight: 600;
+        box-shadow: 0 -2px 0 #2271b1 inset; // Синяя полоска снизу вместо жирности
+      }
+
+      &:checked + label + .tab-content {
+        display: block;
+      }
+    }
+
+    .tab-content {
+      width: 100%;
+      order: 1;
+      display: none;
+      padding: 30px;
+      background: #fff;
+      border: 1px solid #c3c4c7;
+      min-height: 400px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+  }
+}
+
+// Стили ссылок в таблице (Row Actions)
+.row-actions {
+  a {
+    text-decoration: none;
+    &:hover { color: #2271b1; }
+  }
+}

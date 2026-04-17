@@ -1,69 +1,96 @@
-.tab-pane {
-  animation: fadeIn 0.3s;
+@keyframes fsModalIn {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.97); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* Стили модального окна */
-.fs-modal {
+.fs-lms-modal {
+  display: none;
   position: fixed;
-  z-index: 1;
-  left: 0;
   top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.6);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 999999;
 
-  .fs-modal-content {
-    background-color: #fff;
-    margin: 10% auto;
+  .fs-lms-modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: fsModalIn 0.2s ease-out;
+
+    background: #fff;
+    width: 450px;
     padding: 25px;
-    border-radius: 4px;
-    width: 400px;
-    position: relative;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    box-sizing: border-box;
 
     h2 {
-      margin-top: 0;
+      margin: 0 0 20px 0;
+      font-size: 1.4em;
+      color: #1d2327;
+      border-bottom: 1px solid #f0f0f1;
+      padding-bottom: 15px;
     }
 
     .fs-close {
       position: absolute;
-      right: 16px;
-      top: 10px;
-      font-size: 24px;
+      right: 20px;
+      top: 20px;
+      font-size: 28px;
+      line-height: 1;
+      color: #949494;
       cursor: pointer;
-      color: #666;
+      transition: color 0.2s;
 
       &:hover {
-        color: #000;
+        color: #d63638;
       }
     }
   }
 }
 
 .fs-form-group {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 
   label {
     display: block;
-    margin-bottom: 8px;
     font-weight: 600;
-    font-size: 14px;
+    margin-bottom: 8px;
+    color: #2c3338;
   }
 
-  input {
+  input[type="text"],
+  input[type="number"],
+  select {
     width: 100%;
-    padding: 8px;
-    border: 1px solid #ccc;
+    height: 35px;
+    padding: 0 10px;
+    border: 1px solid #8c8f94;
     border-radius: 4px;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.07);
+    box-sizing: border-box;
+
+    &:focus {
+      border-color: #2271b1;
+      box-shadow: 0 0 0 1px #2271b1;
+      outline: none;
+    }
   }
+
+  .description {
+    font-size: 12px;
+    font-style: italic;
+    color: #646970;
+    margin-top: 5px;
+  }
+}
+
+.fs-modal-footer {
+  margin-top: 30px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
