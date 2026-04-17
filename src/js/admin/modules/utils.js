@@ -1,7 +1,4 @@
 export const Utils = {
-    /**
-     * Управляет состоянием кнопки (блокировка + текст/спиннер)
-     */
     toggleButton($btn, isLoading, loadingText = '...') {
         if (isLoading) {
             $btn.data('original-text', $btn.html())
@@ -13,11 +10,8 @@ export const Utils = {
         }
     },
 
-    /**
-     * Базовый обработчик ошибок API
-     */
     apiError(error) {
         console.error('FS-LMS API Error:', error);
         alert('Произошла ошибка при связи с сервером.');
-    }
+    },
 };

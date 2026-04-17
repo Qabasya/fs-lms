@@ -1,3 +1,4 @@
+import '../_types.js';
 import {Utils} from '../modules/utils.js';
 
 export const Subjects = {
@@ -25,7 +26,7 @@ export const Subjects = {
 
         Utils.toggleButton($btn, true, 'Сохранение...');
 
-        jQuery.post(ajaxurl, $form.serialize() + '&action=store_subject', (res) => {
+        jQuery.post(fs_lms_vars.ajaxurl, $form.serialize() + '&action=' + fs_lms_vars.ajax_actions.storeSubject, (res) => {
             if (res.success) location.reload();
             else {
                 alert(res.data || 'Ошибка сохранения');
@@ -57,7 +58,7 @@ export const Subjects = {
             const $saveBtn = $editRow.find('.save');
             Utils.toggleButton($saveBtn, true, '...');
 
-            jQuery.post(ajaxurl, jQuery(event.target).serialize() + '&action=update_subject', (res) => {
+            jQuery.post(fs_lms_vars.ajaxurl, jQuery(event.target).serialize() + '&action=' + fs_lms_vars.ajax_actions.updateSubject, (res) => {
                 if (res.success) location.reload();
                 else alert('Ошибка');
             }).fail(Utils.apiError);
@@ -115,8 +116,8 @@ export const Subjects = {
                 const $btn = jQuery(ev2.target);
                 Utils.toggleButton($btn, true, 'Импорт...');
 
-                jQuery.post(ajaxurl, {
-                    action: 'import_subject',
+                jQuery.post(fs_lms_vars.ajaxurl, {
+                    action: fs_lms_vars.ajax_actions.importSubject,
                     json: ev.target.result,
                     security: this._nonce(),
                 }, (res) => {
@@ -194,8 +195,8 @@ export const Subjects = {
         const origText = $btn.text();
         Utils.toggleButton($btn, true, 'Экспорт...');
 
-        jQuery.post(ajaxurl, {
-            action: 'export_subject',
+        jQuery.post(fs_lms_vars.ajaxurl, {
+            action: fs_lms_vars.ajax_actions.exportSubject,
             key: key,
             security: security,
         }, (res) => {
@@ -217,8 +218,8 @@ export const Subjects = {
     _doDelete(key, security, $btn, $row) {
         Utils.toggleButton($btn, true, '...');
 
-        jQuery.post(ajaxurl, {
-            action: 'delete_subject',
+        jQuery.post(fs_lms_vars.ajaxurl, {
+            action: fs_lms_vars.ajax_actions.deleteSubject,
             key: key,
             security: security,
         }, (res) => {

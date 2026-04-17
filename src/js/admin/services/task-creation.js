@@ -1,21 +1,12 @@
-const $ = jQuery;
-
+import '../_types.js';
 import { TaskCreationModal } from '../components/task-creation-modal.js';
 
-/**
- * Сервис создания заданий.
- *
- * Содержит всю AJAX-логику: загрузку типов заданий, boilerplate'ов
- * и отправку запроса на создание поста. Работает через API компонента
- * TaskCreationModal, не трогая DOM напрямую.
- *
- * @global fsTaskData Данные из WordPress (ajax_url, subject_key, nonce, post_type)
- */
+const $ = jQuery;
+
 export const TaskCreation = {
     _submitting: false,
 
     init() {
-        // Компонент уже инициализирован через UI.init(), вызов повторный безопасен
         TaskCreationModal.init();
 
         TaskCreationModal.onOpen(() => this.loadTaskTypes());
@@ -23,15 +14,13 @@ export const TaskCreation = {
         TaskCreationModal.onSubmit((data) => this.createTask(data));
     },
 
-    // ─── Загрузка данных ──────────────────────────────────────────────────────
-
     loadTaskTypes() {
         TaskCreationModal.setTerms('<option value="">Загрузка...</option>');
 
-        $.get(fsTaskData.ajax_url, {
-            action:      'get_task_types',
-            subject_key: fsTaskData.subject_key,
-            nonce:       fsTaskData.nonce,
+        $.get(fs_lms_vars.ajaxurl, {
+            action:      fs_lms_vars.ajax_actions.getTaskTypes,
+            subject_key: fs_lms_task_data.subject_key,
+            nonce:       fs_lms_task_data.nonce,
         }).done((res) => {
             let html = '<option value="">-- Выберите номер --</option>';
             if (res.success) {
@@ -51,11 +40,11 @@ export const TaskCreation = {
 
         TaskCreationModal.setBoilerplates('<option value="">Загрузка...</option>');
 
-        $.get(fsTaskData.ajax_url, {
-            action:      'get_task_boilerplates',
-            subject_key: fsTaskData.subject_key,
+        $.get(fs_lms_vars.ajaxurl, {
+            action:      fs_lms_vars.ajax_actions.getTaskBoilerplates,
+            subject_key: fs_lms_task_data.subject_key,
             term_slug:   termSlug,
-            nonce:       fsTaskData.nonce,
+            nonce:       fs_lms_task_data.nonce,
         }).done((res) => {
             let html = '<option value="">-- Без шаблона (пусто) --</option>';
             if (res.success && Array.isArray(res.data)) {
@@ -67,14 +56,12 @@ export const TaskCreation = {
         });
     },
 
-    // ─── Создание задания ─────────────────────────────────────────────────────
-
     createTask(data) {
         if (this._submitting) return;
 
-        const subjectKey = typeof fsTaskData !== 'undefined' ? fsTaskData.subject_key : '';
+        const subject_key = typeof fs_lms_task_data !== 'undefined' ? fs_lms_task_data.subject_key : '';
 
-        if (!data.termId || !subjectKey || !data.title) {
+        if (!data.termId || !subject_key || !data.title) {
             alert('Пожалуйста, заполните все обязательные поля (Номер, Предмет, Заголовок).');
             return;
         }
@@ -82,10 +69,10 @@ export const TaskCreation = {
         this._submitting = true;
         TaskCreationModal.setSubmitState(true);
 
-        $.post(fsTaskData.ajax_url, {
-            action:          'create_task',
-            nonce:           fsTaskData.nonce,
-            subject_key:     subjectKey,
+        $.post(fs_lms_vars.ajaxurl, {
+            action:          fs_lms_vars.ajax_actions.createTask,
+            nonce:           fs_lms_task_data.nonce,
+            subject_key:     subject_key,
             term_id:         data.termId,
             boilerplate_uid: data.boilerplateUid,
             title:           data.title,

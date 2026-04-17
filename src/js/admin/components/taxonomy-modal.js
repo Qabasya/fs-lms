@@ -1,14 +1,5 @@
 const $ = jQuery;
 
-/**
- * Компонент модального окна управления таксономиями.
- *
- * Отвечает только за UI: показать/скрыть окно, заполнить поля,
- * сбросить состояние. Бизнес-логика и AJAX — в Taxonomies (services).
- *
- * Точка связи с сервисом — метод onSave(callback):
- *   TaxonomyModal.onSave((data) => Taxonomies.save(data));
- */
 export const TaxonomyModal = {
     _onSaveCallback: null,
 
@@ -21,18 +12,15 @@ export const TaxonomyModal = {
     },
 
     _bindEvents() {
-        // Закрытие по кнопке «Отмена»
         this.$modal.on('click', '.js-modal-close', (e) => {
             e.preventDefault();
             this.close();
         });
 
-        // Закрытие по клику на оверлей
         this.$modal.on('click', (e) => {
             if ($(e.target).is(this.$modal)) this.close();
         });
 
-        // Сохранение — делегируем в сервис через callback
         this.$modal.on('click', '.js-modal-save', (e) => {
             e.preventDefault();
             if (typeof this._onSaveCallback === 'function') {
@@ -41,16 +29,13 @@ export const TaxonomyModal = {
         });
     },
 
-    /** Регистрирует callback, вызываемый при нажатии «Сохранить». */
     onSave(callback) {
         this._onSaveCallback = callback;
     },
 
     /**
-     * Открывает модалку в нужном режиме.
-     *
      * @param {'store'|'update'} action
-     * @param {{ slug?: string, name?: string, display?: string }} data
+     * @param {{ slug?: string, name?: string, display?: string }} [data]
      */
     open(action, data = {}) {
         const isUpdate = action === 'update';
@@ -83,7 +68,6 @@ export const TaxonomyModal = {
         });
     },
 
-    /** Блокирует/разблокирует кнопку «Сохранить» во время запроса. */
     setSaveState(loading) {
         $('.js-modal-save')
             .prop('disabled', loading)
@@ -94,10 +78,10 @@ export const TaxonomyModal = {
         const action = $('#tax-action').val();
         return {
             action,
-            subject_key: $('#tax-subject-key').val(),
-            tax_slug:    action === 'update' ? $('#tax-original-slug').val() : $('#tax-slug').val(),
-            tax_name:    $('#tax-name').val(),
-            display_type: this.$modal.find('input[name="tax_display_type"]:checked').val()
+            subject_key:  $('#tax-subject-key').val(),
+            tax_slug:     action === 'update' ? $('#tax-original-slug').val() : $('#tax-slug').val(),
+            tax_name:     $('#tax-name').val(),
+            display_type: this.$modal.find('input[name="tax_display_type"]:checked').val(),
         };
     },
 };
