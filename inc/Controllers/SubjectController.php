@@ -15,6 +15,7 @@ use Inc\Callbacks\TaxonomySettingsCallbacks;
 use Inc\Callbacks\TemplateManagerCallbacks;
 use Inc\DTO\SubjectViewDTO;
 use Inc\DTO\TaxonomyDataDTO;
+use Inc\Managers\PostManager;
 use Inc\Registrars\SubjectCPTRegistrar;
 use Inc\Registrars\SubjectTaxonomyRegistrar;
 
@@ -58,6 +59,7 @@ class SubjectController extends BaseController implements ServiceInterface
 		private readonly TaxonomySettingsCallbacks $taxonomyCallbacks,
 		private readonly TemplateManagerCallbacks $templateCallbacks,
 		private readonly MetaBoxRepository $metaboxes,
+		private readonly PostManager $posts,
 	) {
 		parent::__construct();
 	}
@@ -277,8 +279,6 @@ class SubjectController extends BaseController implements ServiceInterface
 			return null;
 		}
 
-		// Фиксированная таксономия номеров — не хранится в БД пользовательских таксономий,
-		// поэтому собираем вручную. Флаг is_protected запрещает удаление в интерфейсе.
 		$fixed_tax_dto = new TaxonomyDataDTO(
 			slug: "{$key}_task_number",
 			name: "Номера заданий ({$current_subject->name})",
@@ -286,7 +286,18 @@ class SubjectController extends BaseController implements ServiceInterface
 			is_protected: true
 		);
 
-		// Создаём DTO для передачи всех данных в шаблон
+		$page       = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
+		$active_tab = sanitize_text_field( wp_unslash( $_GET['tab'] ?? '' ) );
+
+		$tasks_table    = null;
+		$articles_table = null;
+
+		if ( $active_tab === 'tab-2' ) {
+			$tasks_table = $this->posts->buildListTable( "{$key}_tasks", $page, 'tab-2' );
+		} elseif ( $active_tab === 'tab-3' ) {
+			$articles_table = $this->posts->buildListTable( "{$key}_articles", $page, 'tab-3' );
+		}
+
 		return new SubjectViewDTO(
 			subject_key: $key,
 			subject_data: $current_subject,
@@ -295,7 +306,9 @@ class SubjectController extends BaseController implements ServiceInterface
 			tasks_url: admin_url("edit.php?post_type={$key}_tasks"),
 			articles_url: admin_url("edit.php?post_type={$key}_articles"),
 			protected_tax: "{$key}_task_number",
-			taxonomies: array_merge([$fixed_tax_dto], $this->taxonomies->getBySubject($key))
+			taxonomies: array_merge([$fixed_tax_dto], $this->taxonomies->getBySubject($key)),
+			tasks_table: $tasks_table,
+			articles_table: $articles_table,
 		);
 	}
 }

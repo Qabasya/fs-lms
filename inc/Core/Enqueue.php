@@ -36,12 +36,23 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 		$screen = get_current_screen();
 
+		$page = sanitize_text_field( $_GET['page'] ?? '' );
+
 		if ( is_admin() && $screen && str_contains( $screen->post_type, '_tasks' ) ) {
+			$subject_key = str_replace( '_tasks', '', $screen->post_type );
 			wp_localize_script( $script_handle, 'fs_lms_task_data', [
 				'ajax_url'    => admin_url( 'admin-ajax.php' ),
 				'nonce'       => Nonce::TaskCreation->create(),
-				'subject_key' => str_replace( '_tasks', '', $screen->post_type ),
+				'subject_key' => $subject_key,
 				'post_type'   => $screen->post_type,
+			] );
+		} elseif ( str_starts_with( $page, 'fs_subject_' ) ) {
+			$subject_key = substr( $page, strlen( 'fs_subject_' ) );
+			wp_localize_script( $script_handle, 'fs_lms_task_data', [
+				'ajax_url'    => admin_url( 'admin-ajax.php' ),
+				'nonce'       => Nonce::TaskCreation->create(),
+				'subject_key' => $subject_key,
+				'post_type'   => $subject_key . '_tasks',
 			] );
 		}
 

@@ -1,10 +1,35 @@
-<?php
-/** @var \Inc\DTO\SubjectViewDTO $dto */
-?>
+<?php /** @var \Inc\DTO\SubjectViewDTO $dto */ ?>
 
-<h3>Методические материалы</h3>
-<div class="card">
-	<a href="<?php echo esc_url($dto->articles_url); ?>" class="button button-secondary">
-		Перейти к Статьям
-	</a>
+<div id="tab-2" class="tab-pane <?php echo $active_tab === 'tab-3' ? 'active' : ''; ?>">
+    <?php if ( $dto->articles_table ) : $t = $dto->articles_table; ?>
+
+    <div class="wrap">
+        <h1 class="wp-heading-inline">
+            <?php echo esc_html( $t->post_type_object->labels->name ); ?>
+        </h1>
+        <a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=' . $t->post_type ) ); ?>"
+           class="page-title-action">
+            <?php echo esc_html( $t->post_type_object->labels->add_new ); ?>
+        </a>
+        <hr class="wp-header-end">
+
+        <?php echo $t->views(); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+
+        <form id="posts-filter" method="get">
+            <input type="hidden" name="page" value="<?php echo esc_attr( sanitize_text_field( $_REQUEST['page'] ?? '' ) ); ?>" />
+            <input type="hidden" name="tab" value="tab-3" />
+            <input type="hidden" name="post_type" value="<?php echo esc_attr( $t->post_type ); ?>" />
+
+            <?php if ( isset( $_REQUEST['post_status'] ) ) : ?>
+                <input type="hidden" name="post_status"
+                       value="<?php echo esc_attr( $_REQUEST['post_status'] ); ?>" />
+            <?php endif; ?>
+
+            <?php $t->table->search_box( $t->post_type_object->labels->search_items, 'post' ); ?>
+
+            <?php echo $t->display(); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+        </form>
+    </div>
+
+    <?php $t->restore(); endif; ?>
 </div>

@@ -34,7 +34,9 @@ class SubjectViewDTO {
 		public readonly string $articles_url,
 		public readonly string $protected_tax,
 		/** @var \Inc\DTO\TaxonomyDataDTO[] */
-		public readonly array $taxonomies
+		public readonly array $taxonomies,
+		public readonly ?PostsListTableDTO $tasks_table = null,
+		public readonly ?PostsListTableDTO $articles_table = null,
 	) {
 	}
 }

@@ -57,11 +57,20 @@ class TaskCreationController extends BaseController implements ServiceInterface
 		// Вывод HTML модального окна создания задания в футере админ-панели
 		add_action('admin_footer', function () {
 			$screen = get_current_screen();
+			$page   = sanitize_text_field( $_GET['page'] ?? '' );
 
-			// Показываем модальное окно только на страницах CPT, заканчивающихся на "_tasks"
-			if ($screen && str_contains($screen->post_type, '_tasks')) {
-				include_once $this->plugin_path . 'templates/components/modals/task-creation-modal.php';
+			$on_tasks_cpt    = $screen && str_contains( $screen->post_type, '_tasks' );
+			$on_subject_page = str_starts_with( $page, 'fs_subject_' );
+
+			if ( ! $on_tasks_cpt && ! $on_subject_page ) {
+				return;
 			}
+
+			$subject_key = $on_subject_page
+				? substr( $page, strlen( 'fs_subject_' ) )
+				: str_replace( '_tasks', '', $screen->post_type );
+
+			include_once $this->plugin_path . 'templates/components/modals/task-creation-modal.php';
 		});
 
 		// Регистрация AJAX-обработчиков

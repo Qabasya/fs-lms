@@ -99,6 +99,47 @@ class PostManager
 	}
 
 	/**
+	 * Строит WP_Posts_List_Table для указанного CPT и вкладки, переопределяя REQUEST_URI.
+	 *
+	 * @param string $post_type CPT slug (например, "math_tasks")
+	 * @param string $page      Значение GET-параметра page
+	 * @param string $tab       Слаг вкладки (например, "tab-2")
+	 *
+	 * @return \Inc\DTO\PostsListTableDTO
+	 */
+	public function buildListTable( string $post_type, string $page, string $tab ): \Inc\DTO\PostsListTableDTO {
+		if ( ! class_exists( 'WP_Posts_List_Table' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/class-wp-posts-list-table.php';
+		}
+
+		set_current_screen( 'edit-' . $post_type );
+		$table = _get_list_table( 'WP_Posts_List_Table', [ 'screen' => 'edit-' . $post_type ] );
+
+		$edit_base   = admin_url( 'edit.php?post_type=' . $post_type );
+		$custom_base = admin_url( 'admin.php?page=' . $page . '&tab=' . $tab );
+
+		$uri_args = [ 'page' => $page, 'tab' => $tab ];
+		if ( ! empty( $_GET['post_status'] ) ) {
+			$uri_args['post_status'] = sanitize_key( $_GET['post_status'] );
+		}
+
+		$original_uri           = $_SERVER['REQUEST_URI'];
+		$_SERVER['REQUEST_URI'] = '/wp-admin/admin.php?' . http_build_query( $uri_args );
+
+		$_GET['post_type'] = $post_type;
+		$table->prepare_items();
+
+		return new \Inc\DTO\PostsListTableDTO(
+			table:            $table,
+			post_type_object: get_post_type_object( $post_type ),
+			post_type:        $post_type,
+			edit_base:        $edit_base,
+			custom_base:      $custom_base,
+			original_uri:     $original_uri,
+		);
+	}
+
+	/**
 	 * Создаёт новый пост.
 	 *
 	 * @param array $data Данные поста (post_title, post_content, post_type и т.д.)
