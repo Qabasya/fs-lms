@@ -7,14 +7,19 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint:js": "eslint .",
+    "fix:js": "eslint . --fix"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.2",
+    "@eslint/js": "^10.0.1",
+    "@wordpress/eslint-plugin": "^25.0.0",
     "autoprefixer": "^10.4.21",
     "babel-loader": "^10.1.1",
     "cssnano": "^7.1.1",
+    "eslint": "^9.39.4",
     "gulp": "^5.0.1",
     "gulp-concat": "^2.6.1",
     "gulp-notify": "^5.0.0",

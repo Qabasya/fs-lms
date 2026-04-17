@@ -35,6 +35,9 @@ enum AjaxHook: string {
 	case GetTaskBoilerplates = 'GetTaskBoilerplates';
 	case CreateTask = 'CreateTask';
 
+	// ==================== SubjectController (Таблица постов) ====================
+	case GetPostsTable = 'GetPostsTable';
+
 	// ==================== TemplateManager (Быстрые настройки и структура) ====================
 	case GetTemplateStructure = 'GetTemplateStructure';
 	case SaveTaskBoilerplate = 'SaveTaskBoilerplate';

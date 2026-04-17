@@ -29,7 +29,7 @@ class SubjectCPTRegistrar {
 	 * @var CPTManager
 	 */
 	private CPTManager $manager;
-
+	
 	/**
 	 * Массив конфигураций CPT, где ключ — slug типа записи,
 	 * значение — аргументы для register_post_type().
@@ -37,7 +37,7 @@ class SubjectCPTRegistrar {
 	 * @var array<string, array>
 	 */
 	private array $post_types = [];
-
+	
 	/**
 	 * Конструктор.
 	 *
@@ -46,23 +46,23 @@ class SubjectCPTRegistrar {
 	public function __construct( CPTManager $manager ) {
 		$this->manager = $manager;
 	}
-
+	
 	/**
 	 * Добавляет тип записи в очередь на регистрацию.
 	 *
 	 * Поддерживает цепочку вызовов (Fluent Interface).
 	 *
 	 * @param string $slug Уникальный идентификатор типа записи
-	 * @param array $args Аргументы для register_post_type()
+	 * @param array  $args Аргументы для register_post_type()
 	 *
 	 * @return self Для цепочки вызовов
 	 */
 	public function addPostType( string $slug, array $args ): self {
 		$this->post_types[ $slug ] = $args;
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * Хелпер для быстрого создания стандартного типа записи.
 	 *
@@ -70,8 +70,8 @@ class SubjectCPTRegistrar {
 	 * - labels (множественное/единственное число, пункты меню)
 	 * - public, has_archive, show_in_menu, show_in_rest, supports, rewrite
 	 *
-	 * @param string $slug Уникальный идентификатор типа записи
-	 * @param string $plural Множественное название (для меню и заголовков)
+	 * @param string $slug     Уникальный идентификатор типа записи
+	 * @param string $plural   Множественное название (для меню и заголовков)
 	 * @param string $singular Единственное название
 	 *
 	 * @return self Для цепочки вызовов
@@ -94,13 +94,13 @@ class SubjectCPTRegistrar {
 			'supports'     => [ 'title' ],
 			'rewrite'      => [ 'slug' => $slug, 'with_front' => false ]
 		];
-
+		
 		$final_args = array_replace_recursive( $defaults, $args );
-
+		
 		return $this->addPostType( $slug, $final_args );
 	}
-
-
+	
+	
 	/**
 	 * Выполняет регистрацию всех накопленных типов записей.
 	 *
@@ -111,5 +111,5 @@ class SubjectCPTRegistrar {
 	public function register(): void {
 		$this->manager->register( $this->post_types );
 	}
-
+	
 }

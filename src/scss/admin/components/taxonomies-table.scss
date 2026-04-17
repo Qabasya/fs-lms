@@ -1,0 +1,76 @@
+.taxonomy-manager-wrapper {
+  .js-taxonomy-table {
+    margin-top: 20px;
+
+    tbody td {
+      vertical-align: middle;
+    }
+
+    // Настройка колонок
+    .column-primary { width: 40%; }
+    th:nth-child(2), td:nth-child(2) { width: 30%; }
+    .column-actions { width: 30%; }
+
+    // Выравнивание названия и замочка
+    .column-title {
+      strong {
+        display: inline-block;
+        vertical-align: middle;
+      }
+
+      .dashicons-lock {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        color: #999;
+        vertical-align: middle;
+        margin-left: 4px;
+        display: inline-flex;
+        align-items: center;
+        line-height: 1;
+      }
+    }
+
+    // Стили ссылок действий
+    .row-actions {
+      .trash a {
+        color: #d63638;
+        &:hover { color: #d63638; }
+      }
+    }
+
+    // Строка добавления в футере
+    .fs-add-row-tr {
+      td {
+        padding: 0 !important;
+        background: #f6f7f7;
+        transition: background 0.1s ease-in-out;
+
+        &:hover {
+          background: #fff !important;
+          .dashicons-plus { color: #2271b1; }
+        }
+      }
+
+      .js-add-taxonomy {
+        width: 100%;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        box-shadow: none !important;
+        text-decoration: none;
+
+        .dashicons-plus {
+          color: #787c82;
+          font-size: 20px;
+          margin-top: 2px; // Тот самый паддинг для визуального центра
+          transition: color 0.1s ease-in-out;
+        }
+      }
+    }
+  }
+}

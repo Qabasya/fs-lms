@@ -32,7 +32,7 @@ class TaxonomyRepository implements RepositoryInterface {
 	 * @var string
 	 */
 	private string $option_name = OptionName::TAXONOMY->value;
-
+	
 	/**
 	 * Внутренний метод для получения сырых данных из Options API.
 	 *
@@ -40,11 +40,11 @@ class TaxonomyRepository implements RepositoryInterface {
 	 */
 	private function getRaw(): array {
 		$all = get_option( $this->option_name, [] );
-
+		
 		// Гарантируем возврат массива даже при повреждённых данных
 		return is_array( $all ) ? $all : [];
 	}
-
+	
 	/**
 	 * Получить все кастомные таксономии всех предметов.
 	 *
@@ -58,19 +58,19 @@ class TaxonomyRepository implements RepositoryInterface {
 	public function readAll(): array {
 		$raw_all = $this->getRaw();
 		$result  = [];
-
+		
 		foreach ( $raw_all as $subject_key => $taxonomies ) {
 			$result[ $subject_key ] = [];
-
+			
 			foreach ( $taxonomies as $slug => $data ) {
 				// Преобразуем сырые данные в DTO
 				$result[ $subject_key ][] = TaxonomyDataDTO::fromArray( $slug, $data, $subject_key );
 			}
 		}
-
+		
 		return $result;
 	}
-
+	
 	/**
 	 * Обновить или создать таксономию для предмета.
 	 *
@@ -86,30 +86,30 @@ class TaxonomyRepository implements RepositoryInterface {
 	 */
 	public function update( array $data ): bool {
 		$all = $this->getRaw();
-
+		
 		$subject_key = $data['subject_key'] ?? '';
 		$tax_slug    = $data['tax_slug'] ?? '';
-
+		
 		// Валидация обязательных полей
 		if ( empty( $subject_key ) || empty( $tax_slug ) ) {
 			return false;
 		}
-
+		
 		// Инициализируем массив предмета, если его ещё нет
 		if ( ! isset( $all[ $subject_key ] ) ) {
 			$all[ $subject_key ] = [];
 		}
-
-
+		
+		
 		$all[ $subject_key ][ $tax_slug ] = [
 			'name'         => sanitize_text_field( $data['name'] ?? '' ),
 			'display_type' => sanitize_text_field( $data['display_type'] ?? 'select' ),
 		];
-
+		
 		// Сохраняем обновлённый массив в опции WordPress
 		return update_option( $this->option_name, $all );
 	}
-
+	
 	/**
 	 * Удалить таксономию предмета.
 	 *
@@ -126,18 +126,18 @@ class TaxonomyRepository implements RepositoryInterface {
 		$all         = $this->getRaw();
 		$subject_key = $data['subject_key'] ?? '';
 		$tax_slug    = $data['tax_slug'] ?? '';
-
+		
 		// Проверяем существование таксономии перед удалением
 		if ( isset( $all[ $subject_key ][ $tax_slug ] ) ) {
 			unset( $all[ $subject_key ][ $tax_slug ] );
-
+			
 			// Сохраняем обновлённый массив в опции WordPress
 			return update_option( $this->option_name, $all );
 		}
-
+		
 		return false;
 	}
-
+	
 	/**
 	 * Получить таксономии конкретного предмета.
 	 *
@@ -152,16 +152,16 @@ class TaxonomyRepository implements RepositoryInterface {
 	public function getBySubject( string $subject_key ): array {
 		$raw_all       = $this->getRaw();
 		$subject_taxes = $raw_all[ $subject_key ] ?? [];
-
+		
 		$result = [];
 		foreach ( $subject_taxes as $slug => $data ) {
 			// Преобразуем сырые данные в DTO
 			$result[] = TaxonomyDataDTO::fromArray( $slug, $data, $subject_key );
 		}
-
+		
 		return $result;
 	}
-
+	
 	/**
 	 * Удалить все таксономии указанного предмета.
 	 *
@@ -171,16 +171,16 @@ class TaxonomyRepository implements RepositoryInterface {
 	 */
 	public function deleteBySubject( string $subject_key ): bool {
 		$all = $this->getRaw();
-
+		
 		if ( ! isset( $all[ $subject_key ] ) ) {
 			return true;
 		}
-
+		
 		unset( $all[ $subject_key ] );
-
+		
 		return update_option( $this->option_name, $all );
 	}
-
+	
 	/**
 	 * Вернуть сырые данные таксономий указанного предмета.
 	 *
@@ -191,7 +191,7 @@ class TaxonomyRepository implements RepositoryInterface {
 	public function getRawForSubject( string $subject_key ): array {
 		return $this->getRaw()[ $subject_key ] ?? [];
 	}
-
+	
 	/**
 	 * Полностью очистить все кастомные таксономии.
 	 *

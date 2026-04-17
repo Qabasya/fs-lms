@@ -21,10 +21,10 @@ class LinkField extends InputField {
      * Выводит input с типом url, кнопку проверки ссылки
      * (если значение уже заполнено) и подсказку для пользователя.
      *
-     * @param WP_Post $post Текущий пост (не используется, но обязателен для интерфейса)
-     * @param string $id Уникальный идентификатор поля
-     * @param string $label Текст метки (label) поля
-     * @param string $value Текущее значение поля (URL)
+     * @param WP_Post $post  Текущий пост (не используется, но обязателен для интерфейса)
+     * @param string  $id    Уникальный идентификатор поля
+     * @param string  $label Текст метки (label) поля
+     * @param string  $value Текущее значение поля (URL)
      *
      * @return void
      */

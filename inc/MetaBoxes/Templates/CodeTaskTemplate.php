@@ -40,7 +40,7 @@ class CodeTaskTemplate extends BaseTemplate {
 			]
 		];
 	}
-
+	
 	/**
 	 * Возвращает уникальный идентификатор шаблона.
 	 *
@@ -49,7 +49,7 @@ class CodeTaskTemplate extends BaseTemplate {
 	public function get_id(): string {
 		return 'code_task';
 	}
-
+	
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *

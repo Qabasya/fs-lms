@@ -27,7 +27,7 @@ class SettingsRegistrar {
 	 * @var SettingsManager
 	 */
 	private SettingsManager $manager;
-
+	
 	/**
 	 * Массив конфигураций опций настроек.
 	 *
@@ -38,7 +38,7 @@ class SettingsRegistrar {
 	 * }>
 	 */
 	private array $settings = [];
-
+	
 	/**
 	 * Массив конфигураций секций настроек.
 	 *
@@ -50,7 +50,7 @@ class SettingsRegistrar {
 	 * }>
 	 */
 	private array $sections = [];
-
+	
 	/**
 	 * Массив конфигураций полей настроек.
 	 *
@@ -64,7 +64,7 @@ class SettingsRegistrar {
 	 * }>
 	 */
 	private array $fields = [];
-
+	
 	/**
 	 * Конструктор.
 	 *
@@ -73,7 +73,7 @@ class SettingsRegistrar {
 	public function __construct( SettingsManager $manager ) {
 		$this->manager = $manager;
 	}
-
+	
 	/**
 	 * Добавляет одну или несколько опций настроек.
 	 *
@@ -89,10 +89,10 @@ class SettingsRegistrar {
 	 */
 	public function addSettings( array $settings ): self {
 		$this->settings = array_merge( $this->settings, $settings );
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * Добавляет одну или несколько секций настроек.
 	 *
@@ -109,10 +109,10 @@ class SettingsRegistrar {
 	 */
 	public function addSections( array $sections ): self {
 		$this->sections = array_merge( $this->sections, $sections );
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * Добавляет одно или несколько полей настроек.
 	 *
@@ -131,10 +131,10 @@ class SettingsRegistrar {
 	 */
 	public function addFields( array $fields ): self {
 		$this->fields = array_merge( $this->fields, $fields );
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * Выполняет регистрацию всех накопленных настроек.
 	 *
@@ -147,7 +147,7 @@ class SettingsRegistrar {
 		if ( empty( $this->settings ) ) {
 			return;
 		}
-
+		
 		$this->manager->register(
 			$this->settings,
 			$this->sections,

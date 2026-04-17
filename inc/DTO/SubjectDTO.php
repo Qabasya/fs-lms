@@ -12,8 +12,7 @@ namespace Inc\DTO;
  *
  * @package Inc\DTO
  */
-class SubjectDTO
-{
+class SubjectDTO {
 	/**
 	 * Конструктор DTO.
 	 *

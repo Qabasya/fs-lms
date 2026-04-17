@@ -46,7 +46,7 @@ class FileCodeTaskTemplate extends BaseTemplate {
 			]
 		];
 	}
-
+	
 	/**
 	 * Возвращает уникальный идентификатор шаблона.
 	 *
@@ -55,7 +55,7 @@ class FileCodeTaskTemplate extends BaseTemplate {
 	public function get_id(): string {
 		return 'file_code_task';
 	}
-
+	
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *

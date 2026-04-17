@@ -17,7 +17,7 @@ class TaskTypeBoilerplateDTO {
 		public readonly bool $is_default = false
 	) {
 	}
-
+	
 	/**
 	 * Преобразовать DTO в массив для сохранения в БД
 	 */

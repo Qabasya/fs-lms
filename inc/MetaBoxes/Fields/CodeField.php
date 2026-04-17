@@ -1,6 +1,7 @@
 <?php
 
 namespace Inc\MetaBoxes\Fields;
+use WP_Post;
 
 /**
  * Class CodeField
@@ -17,10 +18,10 @@ class CodeField extends BaseField {
      *
      * Выводит textarea с моноширинным оформлением и описанием.
      *
-     * @param WP_Post $post Текущий пост (не используется, но обязателен для интерфейса)
-     * @param string $id Уникальный идентификатор поля
-     * @param string $label Текст метки (label) поля
-     * @param string $value Текущее значение поля
+     * @param WP_Post $post  Текущий пост (не используется, но обязателен для интерфейса)
+     * @param string  $id    Уникальный идентификатор поля
+     * @param string  $label Текст метки (label) поля
+     * @param string  $value Текущее значение поля
      *
      * @return void
      */

@@ -12,15 +12,15 @@ $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'tab-1';
 $tabs = [
         'tab-1' => [
                 'title' => 'Предметы',
-                'file'  => '/components/tabs/subjects-manager.php',
+                'file'  => '/components/tabs/settings-tabs/settings-1-subjects-manager.php',
         ],
         'tab-2' => [
                 'title' => 'Вкладка 2',
-                'file'  => '/components/tabs/tab-2.php',
+                'file'  => '/components/tabs/settings-tabs/tab-2.php',
         ],
         'tab-3' => [
                 'title' => 'Вкладка 3',
-                'file'  => '/components/tabs/tab-3.php',
+                'file'  => '/components/tabs/settings-tabs/tab-3.php',
         ],
 ];
 ?>

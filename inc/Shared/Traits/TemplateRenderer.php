@@ -21,16 +21,16 @@ trait TemplateRenderer {
 	/**
 	 * Рендерит шаблон, принимая данные в виде массива или объекта (DTO).
 	 *
-	 * @param string $template_name Имя файла без .php
-	 * @param array|object $data Данные для шаблона
+	 * @param string       $template_name Имя файла без .php
+	 * @param array|object $data          Данные для шаблона
 	 */
 	protected function render( string $template_name, array|object $data = [] ): void {
 		$file = $this->path( "templates/{$template_name}.php" );
-
+		
 		if ( ! file_exists( $file ) ) {
 			return;
 		}
-
+		
 		/**
 		 * Если передан объект (DTO), мы упаковываем его в массив под ключом 'data'.
 		 * В шаблоне он будет доступен как $data.
@@ -41,11 +41,11 @@ trait TemplateRenderer {
 		} else {
 			$args = $data;
 		}
-
+		
 		if ( ! empty( $args ) ) {
 			extract( $args );
 		}
-
+		
 		require $file;
 	}
 }
