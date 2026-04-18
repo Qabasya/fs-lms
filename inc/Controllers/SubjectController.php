@@ -41,23 +41,23 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository         $subjects          Репозиторий предметов
-	 * @param SubjectCPTRegistrar       $cptRegistrar      Регистратор CPT
-	 * @param SubjectTaxonomyRegistrar  $taxRegistrar      Регистратор таксономий
+	 * @param SubjectCPTRegistrar       $cpt_registrar      Регистратор CPT
+	 * @param SubjectTaxonomyRegistrar  $tax_registrar      Регистратор таксономий
 	 * @param TaxonomyRepository        $taxonomies        Репозиторий таксономий
-	 * @param SubjectSettingsCallbacks  $subjectCallbacks  Коллбеки для предметов
-	 * @param TaxonomySettingsCallbacks $taxonomyCallbacks Коллбеки для таксономий
-	 * @param TemplateManagerCallbacks  $templateCallbacks Коллбеки для шаблонов
+	 * @param SubjectSettingsCallbacks  $subject_callbacks  Коллбеки для предметов
+	 * @param TaxonomySettingsCallbacks $taxonomy_callbacks Коллбеки для таксономий
+	 * @param TemplateManagerCallbacks  $template_callbacks Коллбеки для шаблонов
 	 * @param MetaBoxRepository         $metaboxes         Репозиторий метабоксов
 	 * @param PostManager               $posts             Менеджер постов
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
-		private readonly SubjectCPTRegistrar $cptRegistrar,
-		private readonly SubjectTaxonomyRegistrar $taxRegistrar,
+		private readonly SubjectCPTRegistrar $cpt_registrar,
+		private readonly SubjectTaxonomyRegistrar $tax_registrar,
 		private readonly TaxonomyRepository $taxonomies,
-		private readonly SubjectSettingsCallbacks $subjectCallbacks,
-		private readonly TaxonomySettingsCallbacks $taxonomyCallbacks,
-		private readonly TemplateManagerCallbacks $templateCallbacks,
+		private readonly SubjectSettingsCallbacks $subject_callbacks,
+		private readonly TaxonomySettingsCallbacks $taxonomy_callbacks,
+		private readonly TemplateManagerCallbacks $template_callbacks,
 		private readonly MetaBoxRepository $metaboxes,
 		private readonly PostManager $posts,
 	) {
@@ -142,17 +142,17 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		// Регистрация хуков для предметов
 		foreach ( $subjectHooks as $hook ) {
-			add_action( $hook->action(), array( $this->subjectCallbacks, $hook->callbackMethod() ) );
+			add_action( $hook->action(), array( $this->subject_callbacks, $hook->callbackMethod() ) );
 		}
 
 		// Регистрация хуков для таксономий
 		foreach ( $taxonomyHooks as $hook ) {
-			add_action( $hook->action(), array( $this->taxonomyCallbacks, $hook->callbackMethod() ) );
+			add_action( $hook->action(), array( $this->taxonomy_callbacks, $hook->callbackMethod() ) );
 		}
 
 		// Регистрация хуков для шаблонов
 		foreach ( $templateHooks as $hook ) {
-			add_action( $hook->action(), array( $this->templateCallbacks, $hook->callbackMethod() ) );
+			add_action( $hook->action(), array( $this->template_callbacks, $hook->callbackMethod() ) );
 		}
 	}
 
@@ -194,8 +194,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 		}
 
 		// Выполнение регистрации всех накопленных CPT и таксономий
-		$this->cptRegistrar->register();
-		$this->taxRegistrar->register();
+		$this->cpt_registrar->register();
+		$this->tax_registrar->register();
 	}
 
 	/**
@@ -218,7 +218,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$article_cpt = "{$key}_articles";
 
 		// Регистрация CPT для заданий (только заголовок)
-		$this->cptRegistrar->addStandardType(
+		$this->cpt_registrar->addStandardType(
 			$task_cpt,
 			"Задания ($name)",
 			'Задание',
@@ -226,7 +226,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		);
 
 		// Регистрация CPT для статей (с редактором и картинкой)
-		$this->cptRegistrar->addStandardType(
+		$this->cpt_registrar->addStandardType(
 			$article_cpt,
 			"Статьи ($name)",
 			'Статья',
@@ -235,7 +235,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		// Регистрация фиксированной таксономии "Номера заданий"
 		$fixed_tax_slug = "{$key}_task_number";
-		$this->taxRegistrar->addFixedTaxonomy(
+		$this->tax_registrar->addFixedTaxonomy(
 			$fixed_tax_slug,
 			array( $task_cpt ),
 			"Номера заданий: ($name)",
@@ -251,7 +251,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		// Регистрация пользовательских таксономий из репозитория
 		foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
-			$this->taxRegistrar->addStandardTaxonomy(
+			$this->tax_registrar->addStandardTaxonomy(
 				$tax_dto->slug,
 				array( $task_cpt, $article_cpt ),
 				$tax_dto->name,

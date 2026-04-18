@@ -26,11 +26,11 @@ class AdminCallbacks extends BaseController {
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository     $subjects              Репозиторий предметов
-	 * @param BoilerplateController $boilerplateController Контроллер для страницы boilerplate
+	 * @param BoilerplateController $boilerplate_controller Контроллер для страницы boilerplate
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
-		private readonly BoilerplateController $boilerplateController
+		private readonly BoilerplateController $boilerplate_controller
 	) {
 		parent::__construct();
 	}
@@ -67,6 +67,6 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function boilerplatePage(): void {
-		$this->boilerplateController->displayPage();
+		$this->boilerplate_controller->displayPage();
 	}
 }

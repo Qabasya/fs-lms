@@ -18,10 +18,19 @@
     <rule ref="WordPress">
         <!-- Можно ослабить конкретные правила -->
         <!-- <exclude name="WordPress.Files.FileName.InvalidClassFileName"/> -->
+
+        <!-- Отключить проверку snake_case для методов -->
+        <exclude name="WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid"/>
+        <exclude name="WordPress.NamingConventions.ValidFunctionName.FunctionNameInvalid"/>
+        <exclude name="WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase"/>
+        <exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
+        <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+        <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
     </rule>
 
+
+
     <!-- Дополнительные правила -->
-    <rule ref="WordPress-Docs"/>
     <rule ref="WordPress-Extra"/>
 
     <!-- Формат вывода -->

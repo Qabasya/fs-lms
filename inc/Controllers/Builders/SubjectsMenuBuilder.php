@@ -31,7 +31,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 *
 	 * @var SubjectRepository
 	 */
-	private SubjectRepository $subjectRepository;
+	private SubjectRepository $subject_repository;
 
 	/**
 	 * Коллбеки для рендеринга страниц админ-панели.
@@ -51,14 +51,14 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository $subjectRepository Репозиторий предметов
+	 * @param SubjectRepository $subject_repository Репозиторий предметов
 	 * @param SubjectController $callbacks Коллбеки административной панели
 	 */
 	public function __construct(
-		SubjectRepository $subjectRepository,
+		SubjectRepository $subject_repository,
 		SubjectController $callbacks
 	) {
-		$this->subjectRepository = $subjectRepository;
+		$this->subject_repository = $subject_repository;
 		$this->callbacks         = $callbacks;
 	}
 
@@ -132,7 +132,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 */
 	private function getSubjects(): array {
 		if ( $this->subjects === null ) {
-			$this->subjects = $this->subjectRepository->readAll();
+			$this->subjects = $this->subject_repository->readAll();
 		}
 
 		return $this->subjects;

@@ -32,14 +32,14 @@ class AdminController extends BaseController implements ServiceInterface {
 	/**
 	 * Конструктор.
 	 *
-	 * @param MenuRegistrar       $menuRegistrar       Регистратор меню
+	 * @param MenuRegistrar       $menu_registrar       Регистратор меню
 	 * @param AdminCallbacks      $callbacks           Коллбеки админ-панели
-	 * @param SubjectsMenuBuilder $subjectsMenuBuilder Билдер меню предметов
+	 * @param SubjectsMenuBuilder $subjects_menu_builder Билдер меню предметов
 	 */
 	public function __construct(
-		private readonly MenuRegistrar $menuRegistrar,
+		private readonly MenuRegistrar $menu_registrar,
 		private readonly AdminCallbacks $callbacks,
-		private readonly SubjectsMenuBuilder $subjectsMenuBuilder
+		private readonly SubjectsMenuBuilder $subjects_menu_builder
 	) {
 		parent::__construct();
 	}
@@ -64,7 +64,7 @@ class AdminController extends BaseController implements ServiceInterface {
 		$subpages = $this->buildAllSubPages();
 
 		// Передаём данные в регистратор и выполняем регистрацию
-		$this->menuRegistrar->addPages( $pages )
+		$this->menu_registrar->addPages( $pages )
 							->addSubPages( $subpages )
 							->register();
 
@@ -104,7 +104,7 @@ class AdminController extends BaseController implements ServiceInterface {
 		);
 
 		// Добавляем страницы предметов из билдера
-		return array_merge( $pages, $this->subjectsMenuBuilder->buildPages() );
+		return array_merge( $pages, $this->subjects_menu_builder->buildPages() );
 	}
 
 	/**
@@ -158,7 +158,7 @@ class AdminController extends BaseController implements ServiceInterface {
 		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
 
 		// Добавляем подстраницы предметов (каждый предмет — отдельная подстраница)
-		return array_merge( $subpages, $this->subjectsMenuBuilder->buildSubPages() );
+		return array_merge( $subpages, $this->subjects_menu_builder->buildSubPages() );
 	}
 
 	// ====================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ======================

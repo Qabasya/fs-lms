@@ -32,12 +32,12 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 	 *
 	 * @param BoilerplateRepository $boilerplates         Репозиторий типов заданий
 	 * @param MetaBoxRepository     $metaboxes            Репозиторий метабоксов
-	 * @param BoilerplateCallbacks  $boilerplateCallbacks Коллбеки для AJAX-операций
+	 * @param BoilerplateCallbacks  $boilerplate_callbacks Коллбеки для AJAX-операций
 	 */
 	public function __construct(
 		private readonly BoilerplateRepository $boilerplates,
 		private readonly MetaBoxRepository $metaboxes,
-		private readonly BoilerplateCallbacks $boilerplateCallbacks,
+		private readonly BoilerplateCallbacks $boilerplate_callbacks,
 	) {
 		parent::__construct();
 	}
@@ -100,7 +100,7 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 		foreach ( $hooks as $hook ) {
 			add_action(
 				$hook->action(),                                    // Название AJAX-действия
-				array( $this->boilerplateCallbacks, $hook->callbackMethod() ) // Коллбек для обработки
+				array( $this->boilerplate_callbacks, $hook->callbackMethod() ) // Коллбек для обработки
 			);
 		}
 	}
