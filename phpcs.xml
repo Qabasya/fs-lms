@@ -13,6 +13,8 @@
     <exclude-pattern>*/tests/*</exclude-pattern>
     <exclude-pattern>*.min.js</exclude-pattern>
     <exclude-pattern>*.min.css</exclude-pattern>
+    <exclude-pattern>*.js</exclude-pattern>
+    <exclude-pattern>*.scss</exclude-pattern>
 
     <!-- Стандарты WordPress -->
     <rule ref="WordPress">
@@ -25,6 +27,7 @@
         <exclude name="WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase"/>
         <exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
         <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
         <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
     </rule>
 

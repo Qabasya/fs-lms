@@ -25,8 +25,8 @@ class AdminCallbacks extends BaseController {
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository     $subjects              Репозиторий предметов
-	 * @param BoilerplateController $boilerplate_controller Контроллер для страницы boilerplate
+	 * @param SubjectRepository     $subjects              Репозиторий предметов.
+	 * @param BoilerplateController $boilerplate_controller Контроллер для страницы boilerplate.
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -41,7 +41,7 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function adminDashboard(): void {
-		// Временная заглушка, будет заменена на реальный дашборд
+		// Временная заглушка, будет заменена на реальный дашборд.
 		echo '<div class="wrap"><h1>Dashboard</h1><p>Данные о предметах</p></div>';
 	}
 
