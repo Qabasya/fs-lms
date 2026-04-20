@@ -9,7 +9,8 @@ import '../_types.js';
 import {
     toggleButton,
     apiError,
-    showNotice
+    showNotice,
+    escapeHtml,
 } from '../modules/utils.js';
 import { ConfirmModal } from '../components/confirm-modal.js';
 
@@ -161,7 +162,7 @@ export const Subjects = {
             }
 
             const name = data?.subject?.name || data?.subject?.key || 'предмет';
-            const safeName = this._escapeHtml(name);
+            const safeName = escapeHtml(name);
 
             ConfirmModal.confirm({
                 title: 'Импорт предмета',
@@ -207,7 +208,7 @@ export const Subjects = {
      * @private
      */
     _showWarningModal(name, key, security, $btn, $row) {
-        const safeName = this._escapeHtml(name);
+        const safeName = escapeHtml(name);
         const message =
             `Вы собираетесь удалить предмет «${safeName}».\n\n` +
             `Будут безвозвратно удалены все связанные таксономии, термины, привязки шаблонов, типовые условия и записи.\n` +
@@ -251,7 +252,7 @@ export const Subjects = {
      * @private
      */
     _showFinalConfirm(name, key, security, $btn, $row) {
-        const safeName = this._escapeHtml(name);
+        const safeName = escapeHtml(name);
 
         ConfirmModal.confirm({
             title: 'Подтвердите удаление',
@@ -348,22 +349,5 @@ export const Subjects = {
         return $('#fs-add-subject-form [name="security"]').val()
             || $('#fs-quick-edit-form [name="security"]').val()
             || '';
-    },
-
-    /**
-     * Экранирует строку для безопасной вставки в HTML.
-     * @param {string} str
-     * @returns {string}
-     * @private
-     */
-    _escapeHtml(str) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;',
-        };
-        return String(str).replace(/[&<>"']/g, (m) => map[m]);
     },
 };

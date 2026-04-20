@@ -4,7 +4,7 @@
 
 import '../_types.js';
 import { ConfirmModal } from '../components/confirm-modal.js';
-import { showNotice } from '../modules/utils.js';
+import { showNotice, fadeDeleteRow } from '../modules/utils.js';
 
 const $ = jQuery;
 
@@ -83,11 +83,7 @@ export const Boilerplates = {
 
         $.post(fs_lms_vars.ajaxurl, data, (response) => {
             if (response.success) {
-                $el.closest('tr')
-                    .css('background', '#ff8d8d')
-                    .fadeOut(400, function () {
-                        $(this).remove();
-                    });
+                fadeDeleteRow($el.closest('tr'));
             } else {
                 alert('Ошибка: ' + (response.data?.message || response.data || 'Неизвестная ошибка'));
             }

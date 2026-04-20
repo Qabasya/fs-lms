@@ -10,7 +10,7 @@
 import '../_types.js';
 import { TaxonomyModal } from '../components/taxonomy-modal.js';
 import { ConfirmModal } from '../components/confirm-modal.js';
-import { showNotice } from '../modules/utils.js';
+import { showNotice, fadeDeleteRow } from '../modules/utils.js';
 
 const $ = jQuery;
 
@@ -218,12 +218,9 @@ export const Taxonomies = {
             .done((res) => {
                 if (res.success) {
                     if ($row?.length) {
-                        $row
-                            .css('background', '#ff8d8d')
-                            .fadeOut(400, function () {
-                                $(this).remove();
-                                showNotice('Таксономия удалена', 'success', $('.js-taxonomy-table'));
-                            });
+                        fadeDeleteRow($row, () => {
+                            showNotice('Таксономия удалена', 'success', $('.js-taxonomy-table'));
+                        });
                     } else {
                         location.reload();
                     }

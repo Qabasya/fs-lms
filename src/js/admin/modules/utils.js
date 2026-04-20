@@ -10,7 +10,7 @@ const $ = window.jQuery || jQuery;
  * @returns {string} Экранированная строка
  * @private
  */
-function escapeHtml(str) {
+export function escapeHtml(str) {
     const map = {
         '&': '&amp;',
         '<': '&lt;',
@@ -214,4 +214,16 @@ export function showNotice(message, type = 'info', $container = null, options = 
     }
 
     return $notice;
+}
+
+/**
+ * Анимирует удаление строки таблицы: подсвечивает красным и скрывает.
+ * @param {JQuery} $row - Строка таблицы
+ * @param {Function} [onRemoved] - Коллбек после удаления из DOM
+ */
+export function fadeDeleteRow($row, onRemoved) {
+    $row.css('background', '#ff8d8d').fadeOut(400, function () {
+        $(this).remove();
+        if (typeof onRemoved === 'function') onRemoved();
+    });
 }
