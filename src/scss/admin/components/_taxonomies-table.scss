@@ -3,6 +3,7 @@
    ================================================================= */
 
 @use '../variables' as *;
+@use 'add-row-button' as add-row;
 
 .taxonomy-manager-wrapper {
   .js-taxonomy-table {
@@ -53,42 +54,5 @@
       }
     }
 
-    /* -----------------------------------------------------------------
-       Строка добавления (футер таблицы с кнопкой "+")
-       ----------------------------------------------------------------- */
-    .fs-add-row-tr {
-      td {
-        padding: 0 !important;
-        background: $taxonomy-manager-bg-row;
-        transition: background 0.1s ease-in-out;
-
-        &:hover {
-          background: #fff !important;
-          .dashicons-plus { color: $taxonomy-manager-color-primary; }
-        }
-      }
-
-      // Кнопка добавления таксономии
-      .js-add-taxonomy {
-        width: 100%;
-        height: $taxonomy-manager-row-height;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: none;
-        background: transparent;
-        cursor: pointer;
-        box-shadow: none !important;
-        text-decoration: none;
-
-        // Иконка "+" (Dashicons)
-        .dashicons-plus {
-          color: $taxonomy-manager-color-icon;
-          font-size: $taxonomy-manager-icon-size;
-          margin-top: 2px; // Визуальная коррекция центрирования иконки
-          transition: color 0.1s ease-in-out;
-        }
-      }
-    }
   }
 }

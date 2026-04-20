@@ -122,6 +122,7 @@ $taxonomy-manager-margin-top:    20px;
 $taxonomy-manager-color-danger:  #d63638;
 $taxonomy-manager-color-primary: #2271b1;
 $taxonomy-manager-color-icon:    #787c82;
+$taxonomy-manager-color-border:  #3c434a;
 $taxonomy-manager-color-lock:    #999;
 $taxonomy-manager-bg-row:        #f6f7f7;
 $taxonomy-manager-row-height:    44px;
@@ -159,3 +160,14 @@ $sidebar-padding:      10px 12px;
 $sidebar-border-color: #dcdcde;
 $sidebar-danger-color: #d63638;
 $sidebar-btn-gap:      10px;
+
+/* ── Tables: Add Row Button */
+$table-row-add-bg:        #f6f7f7;        // Фон строки добавления
+$table-add-btn-bg:        #c3c4c7;        // Фон кнопки
+$table-add-btn-width:      32px;           // Размер кнопки
+$table-add-btn-height:      30px;           // Размер кнопки
+$table-add-icon-size:     22px;           // Размер иконки
+$table-add-icon-color:    #787c82;        // Цвет иконки
+$table-add-container-height: 48px;        // Высота контейнера
+$table-border-color:      #c3c4c7;        // Цвет границ
+$table-primary-color:     #2271b1;        // Основной цвет (ховер)

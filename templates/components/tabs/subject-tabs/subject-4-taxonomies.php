@@ -44,7 +44,7 @@
 		<tfoot>
 		<tr class="fs-add-row-tr">
 			<td colspan="3">
-				<button type="button" class="button-link js-add-taxonomy" title="Добавить таксономию">
+				<button type="button" class="button-link scss-add-item js-add-taxonomy" title="Добавить таксономию">
 					<span class="dashicons dashicons-plus"></span>
 				</button>
 			</td>
