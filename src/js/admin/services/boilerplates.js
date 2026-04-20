@@ -4,40 +4,11 @@
 
 import '../_types.js';
 import { ConfirmModal } from '../components/confirm-modal.js';
+import { showNotice } from '../modules/utils.js';
 
 const $ = jQuery;
 
-/**
- * Выводит нативное уведомление WordPress.
- */
-function showNotice(message, type, $container) {
-    $container.find('.notice').remove();
 
-    const $notice = $(`
-        <div class="notice notice-${type} is-dismissible" style="margin-top: 10px; margin-bottom: 15px;">
-            <p><strong>${type === 'success' ? 'Готово!' : 'Ошибка:'}</strong> ${message}</p>
-            <button type="button" class="notice-dismiss">
-                <span class="screen-reader-text">Закрыть уведомление</span>
-            </button>
-        </div>
-    `);
-
-    $notice.on('click', '.notice-dismiss', function() {
-        $notice.fadeTo(100, 0, function() {
-            $notice.slideUp(100, function() {
-                $(this).remove();
-            });
-        });
-    });
-
-    $container.prepend($notice);
-
-    if (type === 'success') {
-        setTimeout(() => {
-            $notice.find('.notice-dismiss').trigger('click');
-        }, 5000);
-    }
-}
 
 export const Boilerplates = {
     init() {

@@ -9,8 +9,8 @@
             <p class="fs-lms-modal-message"></p>
         </div>
         <div class="fs-lms-modal-footer">
-            <button type="button" id="fs-modal-cancel" class="button">Отмена</button>
-            <button type="button" id="fs-modal-confirm" class="button button-link-delete">Удалить</button>
+            <button type="button" class="fs-lms-modal-cancel button"></button>
+            <button type="button" class="fs-lms-modal-confirm button button-link-delete"></button>
         </div>
     </div>
 </div>

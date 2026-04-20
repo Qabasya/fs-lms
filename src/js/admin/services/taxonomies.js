@@ -10,36 +10,9 @@
 import '../_types.js';
 import { TaxonomyModal } from '../components/taxonomy-modal.js';
 import { ConfirmModal } from '../components/confirm-modal.js';
+import { showNotice } from '../modules/utils.js';
 
 const $ = jQuery;
-
-/**
- * Показывает уведомление WordPress-стиля.
- */
-function showNotice(message, type, $container) {
-    $container.find('.notice').remove();
-
-    const $notice = $(`
-        <div class="notice notice-${type} is-dismissible" style="margin: 10px 0;">
-            <p><strong>${type === 'success' ? 'Готово!' : 'Ошибка:'}</strong> ${message}</p>
-            <button type="button" class="notice-dismiss">
-                <span class="screen-reader-text">Закрыть</span>
-            </button>
-        </div>
-    `);
-
-    $notice.on('click', '.notice-dismiss', function() {
-        $notice.fadeTo(100, 0, function() {
-            $notice.slideUp(100, function() { $(this).remove(); });
-        });
-    });
-
-    $container.prepend($notice);
-
-    if (type === 'success') {
-        setTimeout(() => $notice.find('.notice-dismiss').trigger('click'), 5000);
-    }
-}
 
 /**
  * Объект для управления таксономиями.
@@ -142,7 +115,6 @@ export const Taxonomies = {
                 confirmText: 'Удалить',
                 cancelText: 'Отмена',
             }).then(() => {
-                // 🔥 Успешное подтверждение — запускаем удаление
                 this._ajaxDelete(slug, subject_key, $row);
             }).catch(() => {
                 // Отмена — ничего не делаем

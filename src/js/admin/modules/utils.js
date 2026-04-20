@@ -4,7 +4,7 @@
  *              обработки ошибок API и других общих задач.
  * @requires jQuery - глобальная зависимость WordPress.
  */
-
+const $ = window.jQuery || jQuery;
 /**
  * Объект с вспомогательными утилитами для плагина.
  * @namespace Utils
@@ -251,4 +251,65 @@ export function apiErrorEnhanced(error, options = {}) {
     }
 
     return userMessage;
+}
+
+/**
+ * Показывает уведомление в стиле WordPress Admin Notice.
+ * Автоматически удаляет предыдущие уведомления в том же контейнере.
+ * @param {string} message Текст сообщения
+ * @param {'success'|'error'|'warning'|'info'} [type='info'] Тип уведомления
+ * @param {JQuery|string} [$container] Контейнер для вставки (по умолчанию $('body'))
+ * @param {Object} [options] Дополнительные настройки
+ * @param {boolean} [options.autoDismiss=true] Автозакрытие для успешных сообщений
+ * @param {number} [options.autoDismissDelay=1000] Задержка перед автозакрытием (мс)
+ * @returns {JQuery} Созданный элемент уведомления (для цепочек или ручного управления)
+ */
+export function showNotice(message, type = 'info', $container = $('body'), options = {}) {
+    const { autoDismiss = true, autoDismissDelay = 1000 } = options;
+
+    // Нормализуем контейнер
+    $container = $container instanceof $ ? $container : $($container);
+    if (!$container.length) $container = $('body');
+
+    // Удаляем старые уведомления в этом контейнере
+    $container.find('.fs-notice').remove();
+
+    const labels = {
+        success: 'Готово!',
+        error: 'Ошибка:',
+        warning: 'Внимание:',
+        info: 'Информация:',
+    };
+    const title = labels[type] || labels.info;
+
+    const $notice = $(`
+        <div class="notice notice-${type} is-dismissible fs-notice" style="margin: 10px 0;">
+            <p><strong>${title}</strong> ${message}</p>
+            <button type="button" class="notice-dismiss">
+                <span class="screen-reader-text">Закрыть</span>
+            </button>
+        </div>
+    `);
+
+    // Обработчик закрытия с анимацией
+    $notice.on('click', '.notice-dismiss', function () {
+        $notice.fadeTo(100, 0, function () {
+            $notice.slideUp(100, function () {
+                $(this).remove();
+            });
+        });
+    });
+
+    $container.prepend($notice);
+
+    // Автозакрытие для успеха (если не отключено)
+    if (type === 'success' && autoDismiss) {
+        setTimeout(() => {
+            if ($notice.is(':visible')) {
+                $notice.find('.notice-dismiss').trigger('click');
+            }
+        }, autoDismissDelay);
+    }
+
+    return $notice;
 }

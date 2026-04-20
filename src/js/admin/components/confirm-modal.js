@@ -2,11 +2,20 @@ import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base
 
 const $ = jQuery;
 
+/**
+ * Утилита для управления модальным окном подтверждения действий.
+ * @namespace ConfirmModal
+ */
 const ConfirmModal = {
+    /** @type {JQuery} */
     $modal: null,
+    /** @type {JQuery} */
     $body: null,
-    _reject: null,
 
+    /**
+     * Инициализация модуля: кэширует DOM-элементы.
+     * Вызывать один раз после отрисовки страницы.
+     */
     init() {
         this.$body = $('body');
         this.$modal = $('#fs-lms-confirm-modal');
@@ -16,6 +25,15 @@ const ConfirmModal = {
         }
     },
 
+    /**
+     * Открывает модалку и возвращает Promise.
+     * @param {Object} [options] Параметры отображения
+     * @param {string} [options.title='Подтвердите действие']
+     * @param {string} [options.message='']
+     * @param {string} [options.confirmText='Подтвердить']
+     * @param {string} [options.cancelText='Отмена']
+     * @returns {Promise<void>} Резолвится при подтверждении, реджектится при отмене/ESC
+     */
     confirm({ title = 'Подтвердите действие', message = '', confirmText = 'Подтвердить', cancelText = 'Отмена' } = {}) {
         this.$modal.find('.fs-lms-modal-title').text(title);
         this.$modal.find('.fs-lms-modal-message').text(message);
@@ -39,10 +57,13 @@ const ConfirmModal = {
         });
     },
 
+    /**
+     * Закрывает модалку, отвязывает слушатели и сбрасывает состояние.
+     * @private
+     */
     _close() {
         closeModal(this.$modal);
         unbindEsc('confirm');
-        this._reject = null;
     },
 };
 
