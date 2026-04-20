@@ -135,7 +135,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			AjaxHook::DeleteTaxonomy,
 		);
 
-		// === TemplateManagerCallbacks -> tasks.js === //
+		// === TemplateManagerCallbacks -> template-manager.js === //
 		$templateHooks = array(
 			AjaxHook::UpdateTermTemplate,
 		);

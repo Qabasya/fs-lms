@@ -2,9 +2,18 @@
    COMPONENT: Task Manager Wrapper
    ================================================================= */
 
-$task-manager-margin-top: 20px;
+// Переменные для быстрого редактирования
+$task-manager-margin-top:    20px;
 $task-manager-status-success: #46b450;
 $task-manager-status-icon-size: 20px;
+
+// Ширина колонок (3 колонки = ~33% каждая)
+$task-manager-col-name-width:      30%; // Чуть шире для текста задания
+$task-manager-col-template-width:  30%; // Селект шаблона
+$task-manager-col-actions-width:   40%; // Кнопка действия (компенсирует округление)
+
+// Выравнивание текста в колонках
+$task-manager-col-text-align: left;
 
 .task-manager-wrapper {
   margin-top: $task-manager-margin-top;
@@ -12,15 +21,24 @@ $task-manager-status-icon-size: 20px;
   .js-task-manager-table {
 
     /* -----------------------------------------------------------------
-       Колонки таблицы: распределение ширины
+       Колонки таблицы: равномерное распределение (3 колонки)
        ----------------------------------------------------------------- */
-    .column-task-name { width: 35%; }
-    .column-template-select { width: 30%; }
-    .column-actions { width: 25%; }
-    .status-cell {
-      width: 10%;
-      text-align: center;
+    .column-task-name {
+      width: $task-manager-col-name-width;
+      text-align: $task-manager-col-text-align;
     }
+
+    .column-template-select {
+      width: $task-manager-col-template-width;
+      text-align: $task-manager-col-text-align;
+    }
+
+    .column-actions {
+      width: $task-manager-col-actions-width;
+      text-align: $task-manager-col-text-align;
+    }
+
+    // Убрали .status-cell — колонка больше не используется
 
     /* -----------------------------------------------------------------
        Селект выбора шаблона
@@ -28,39 +46,6 @@ $task-manager-status-icon-size: 20px;
     select.js-change-term-template {
       max-width: 100%;
       height: 30px;
-    }
-
-    /* -----------------------------------------------------------------
-       Индикаторы статуса (спиннер / галочка успеха)
-       ----------------------------------------------------------------- */
-    .status-cell {
-      position: relative;
-      vertical-align: middle !important;
-
-      // Спиннер загрузки (стандартный класс WordPress)
-      // Видимость управляется через JS: добавление/удаление .is-active
-      .spinner {
-        float: none;
-        margin: 0;
-        visibility: hidden;
-
-        &.is-active {
-          visibility: visible;
-        }
-      }
-
-      // Иконка успеха (галочка)
-      // По умолчанию скрыта, показывается через .is-visible
-      .js-success-icon {
-        display: none;
-        color: $task-manager-status-success;
-        font-size: $task-manager-status-icon-size;
-        vertical-align: middle;
-
-        &.is-visible {
-          display: inline-block;
-        }
-      }
     }
 
     /* -----------------------------------------------------------------
