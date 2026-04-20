@@ -4,6 +4,7 @@
 
 <div class="task-manager-wrapper">
 	<h1 class="wp-heading-inline">Менеджер шаблонов</h1>
+	<p class="description">Управление визуальными шаблонами заданий</p>
 
 	<table class="wp-list-table widefat fixed striped js-task-manager-table"
 			data-subject="<?php echo esc_attr( $dto->subject_key ); ?>">
@@ -46,7 +47,7 @@
 				</tr>
 			<?php endforeach; ?>
 		<?php else : ?>
-			<tr class="no-items"><td colspan="4">Задания не найдены.</td></tr>
+			<tr class="no-items"><td colspan="3">Задания не найдены.</td></tr>
 		<?php endif; ?>
 		</tbody>
 	</table>

@@ -105,7 +105,7 @@ class TemplateManagerCallbacks {
 		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
 
 		if ( ! $subject_key || ! $term_slug ) {
-			wp_send_json_error( 'Недостаточно данных' );
+			wp_send_json_error( 'Недостаточно данных. Error code: #TMC108' );
 		}
 
 		// Получаем объект привязки из БД
@@ -177,7 +177,7 @@ class TemplateManagerCallbacks {
 		$text = wp_kses_post( wp_unslash( $_POST['text'] ?? '' ) );
 
 		if ( ! $subject_key || ! $term_slug ) {
-			wp_send_json_error( 'Недостаточно данных' );
+			wp_send_json_error( 'Недостаточно данных. Error code: #TMC180' );
 		}
 
 		// Фиксированный uid гарантирует обновление, а не создание нового варианта
@@ -214,7 +214,7 @@ class TemplateManagerCallbacks {
 		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
 
 		if ( ! $subject_key || ! $term_slug ) {
-			wp_send_json_error( 'Недостаточно данных' );
+			wp_send_json_error( 'Недостаточно данных. Error code: #TMC217' );
 		}
 
 		// Репозиторий сам знает, как найти дефолтный вариант

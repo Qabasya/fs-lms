@@ -42,7 +42,7 @@ class TaskCreationCallbacks {
 
 		// Проверка прав доступа (редактирование постов)
 		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_send_json_error( 'Доступ запрещён', 403 );
+			wp_send_json_error( 'У вас недостаточно прав', 403 );
 
 			return;
 		}
@@ -121,7 +121,7 @@ class TaskCreationCallbacks {
 
 		// Проверка прав доступа (редактирование постов)
 		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_send_json_error( 'Доступ запрещён', 403 );
+			wp_send_json_error( 'У вас недостаточно прав', 403 );
 
 			return;
 		}
@@ -131,7 +131,7 @@ class TaskCreationCallbacks {
 		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
 
 		if ( empty( $subject_key ) || empty( $term_slug ) ) {
-			wp_send_json_error( 'Недостаточно данных' );
+			wp_send_json_error( 'Недостаточно данных. Error code: #TCC134' );
 
 			return;
 		}
@@ -180,7 +180,7 @@ class TaskCreationCallbacks {
 
 		// Валидация обязательных полей
 		if ( empty( $subject_key ) || $term_id === 0 ) {
-			wp_send_json_error( 'Недостаточно данных' );
+			wp_send_json_error( 'Недостаточно данных. Error code: #TCC134' );
 			// return нужен для статических анализаторов (psalm/phpstan):
 			// wp_send_json_error завершает выполнение через wp_die()
 			return array();
