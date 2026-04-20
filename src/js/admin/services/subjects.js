@@ -1,655 +1,369 @@
 /**
- * @fileoverview Модуль управления предметами (Subjects) для плагина FS-LMS.
- * @description Обеспечивает полный цикл управления предметами: создание, редактирование,
- *              удаление (с многоступенчатым подтверждением), экспорт и импорт.
- *              Включает функционал быстрого редактирования inline и модальные окна подтверждения.
- * @requires jQuery - глобальная зависимость WordPress.
- * @requires ../_types.js - глобальные типы данных.
- * @requires ../modules/utils.js - Утилиты для работы с кнопками и ошибками.
+ * Модуль управления предметами (Subjects) для плагина FS-LMS.
+ * @requires jQuery
+ * @requires ../modules/utils.js
+ * @requires ../components/confirm-modal.js
  */
 
 import '../_types.js';
-import {Utils} from '../modules/utils.js';
+import {
+    toggleButton,
+    apiError,
+    showNotice
+} from '../modules/utils.js';
+import { ConfirmModal } from '../components/confirm-modal.js';
+
+const $ = jQuery;
 
 /**
- * Объект для управления предметами (Subjects).
+ * Управление предметами: CRUD, экспорт/импорт, inline-редактирование.
  * @namespace Subjects
- * @typedef {Object} Subjects
  */
 export const Subjects = {
     /**
-     * Инициализирует модуль управления предметами.
-     * @memberof Subjects
-     * @instance
-     * @returns {void}
-     * @example
-     * // Инициализация после загрузки DOM
-     * jQuery(document).ready(() => {
-     *     Subjects.init();
-     * });
+     * Инициализация модуля.
      */
     init() {
-        this.bindEvents();
+        this._bindEvents();
     },
 
     /**
-     * Навешивает все обработчики событий для управления предметами.
-     * @memberof Subjects
-     * @instance
-     * @listens submit#fs-add-subject-form - Сохранение нового предмета
-     * @listens click.open-quick-edit - Открытие формы быстрого редактирования
-     * @listens click.delete-subject - Удаление предмета
-     * @listens click.js-export-subject - Экспорт предмета
-     * @listens click#fs-import-trigger - Триггер выбора файла для импорта
-     * @listens change#fs-import-file - Обработка выбранного файла импорта
-     * @returns {void}
+     * Привязка обработчиков событий.
+     * @private
      */
-    bindEvents() {
-        const $ = jQuery;
-
-        /**
-         * Обработчик отправки формы добавления предмета.
-         * @param {Event} e - Событие submit
-         */
-        $('#fs-add-subject-form').on('submit', (e) => this.handleSave(e));
-
-        /**
-         * Обработчик клика по кнопке быстрого редактирования (делегирование на document).
-         * @param {Event} e - Событие click
-         */
-        $(document).on('click', '.open-quick-edit', (e) => this.handleQuickEdit(e));
-
-        /**
-         * Обработчик клика по кнопке удаления предмета (делегирование на document).
-         * @param {Event} e - Событие click
-         */
-        $(document).on('click', '.delete-subject', (e) => this.handleDelete(e));
-
-        /**
-         * Обработчик клика по кнопке экспорта предмета (делегирование на document).
-         * @param {Event} e - Событие click
-         */
-        $(document).on('click', '.js-export-subject', (e) => this.handleRowExport(e));
-
-        /**
-         * Обработчик клика по триггеру импорта — имитирует клик по скрытому input file.
-         */
+    _bindEvents() {
+        $('#fs-add-subject-form').on('submit', (e) => this._handleSave(e));
+        $(document).on('click', '.open-quick-edit', (e) => this._handleQuickEdit(e));
+        $(document).on('click', '.delete-subject', (e) => this._handleDelete(e));
+        $(document).on('click', '.js-export-subject', (e) => this._handleExport(e));
         $('#fs-import-trigger').on('click', () => $('#fs-import-file').trigger('click'));
-
-        /**
-         * Обработчик выбора файла для импорта.
-         * @param {Event} e - Событие change
-         */
-        $('#fs-import-file').on('change', (e) => this.handleImport(e));
+        $('#fs-import-file').on('change', (e) => this._handleImport(e));
     },
 
     /**
-     * Обрабатывает сохранение (создание) нового предмета.
-     * @memberof Subjects
-     * @instance
-     * @param {Event} e - Событие submit
-     * @returns {void}
-     * @fires jQuery.post - AJAX-запрос на сохранение предмета
+     * Обработка сохранения нового предмета.
+     * @param {Event} e
+     * @private
      */
-    handleSave(e) {
-        e.preventDefault(); // Отменяем стандартную отправку формы
-
-        /**
-         * Форма добавления предмета.
-         * @type {jQuery}
-         */
-        const $form = jQuery(e.target);
-
-        /**
-         * Кнопка отправки формы.
-         * @type {jQuery}
-         */
+    _handleSave(e) {
+        e.preventDefault();
+        const $form = $(e.target);
         const $btn = $form.find('.button-primary');
 
-        // Переключаем кнопку в состояние загрузки
-        Utils.toggleButton($btn, true, 'Сохранение...');
+        toggleButton($btn, true, 'Сохранение...');
 
-        /**
-         * Выполняем AJAX-запрос на сервер для сохранения предмета.
-         * @param {string} url - URL обработчика AJAX WordPress
-         * @param {string} data - Сериализованные данные формы + action
-         * @param {Object} res - Ответ сервера
-         * @param {boolean} res.success - Флаг успешности операции
-         * @param {string} res.data - Сообщение об ошибке (при неудаче)
-         */
-        jQuery.post(fs_lms_vars.ajaxurl, $form.serialize() + '&action=' + fs_lms_vars.ajax_actions.storeSubject, (res) => {
-            if (res.success) {
-                // При успехе перезагружаем страницу для отображения обновлённого списка
-                location.reload();
-            } else {
-                // При ошибке показываем сообщение и восстанавливаем кнопку
-                alert(res.data || 'Ошибка сохранения');
-                Utils.toggleButton($btn, false);
-            }
-        }).fail(Utils.apiError); // Обработка ошибок HTTP-запроса
+        $.post(fs_lms_vars.ajaxurl, $form.serialize() + '&action=' + fs_lms_vars.ajax_actions.storeSubject)
+            .done((res) => {
+                if (res.success) {
+                    location.reload();
+                } else {
+                    showNotice(res.data || 'Ошибка сохранения', 'error', $form);
+                    toggleButton($btn, false);
+                }
+            })
+            .fail(() => {
+                apiError('Failed to save subject');
+                toggleButton($btn, false);
+            });
     },
 
     /**
-     * Обрабатывает открытие формы быстрого редактирования предмета (inline edit).
-     * @memberof Subjects
-     * @instance
-     * @param {Event} e - Событие click
-     * @returns {void}
+     * Обработка inline-редактирования предмета.
+     * @param {Event} e
+     * @private
      */
-    handleQuickEdit(e) {
-        e.preventDefault(); // Отменяем стандартное поведение ссылки
-
-        /**
-         * Кнопка, по которой был клик.
-         * @type {jQuery}
-         */
-        const $btn = jQuery(e.target);
-
-        /**
-         * Данные из data-атрибутов кнопки.
-         * @type {Object}
-         * @property {string} name - Название предмета
-         * @property {string} count - Количество задач
-         * @property {string} key - Уникальный ключ предмета
-         */
+    _handleQuickEdit(e) {
+        e.preventDefault();
+        const $btn = $(e.target);
         const data = $btn.data();
-
-        /**
-         * Строка таблицы, содержащая редактируемый предмет.
-         * @type {jQuery}
-         */
         const $row = $btn.closest('tr');
+        const $editRow = $('#fs-quick-edit-row').clone().show();
 
-        /**
-         * Клонируем шаблон формы быстрого редактирования и показываем его.
-         * @type {jQuery}
-         */
-        const $editRow = jQuery('#fs-quick-edit-row').clone().show();
-
-        // Заполняем поля формы текущими значениями
         $editRow.find('input[name="name"]').val(data.name);
         $editRow.find('input[name="tasks_count"]').val(data.count);
         $editRow.find('input[name="key"]').val(data.key);
 
-        // Скрываем исходную строку и вставляем форму редактирования после неё
         $row.hide().after($editRow);
 
-        /**
-         * Обработчик отмены редактирования.
-         */
         $editRow.find('.cancel').on('click', () => {
-            $editRow.remove(); // Удаляем форму редактирования
-            $row.show();       // Показываем исходную строку
+            $editRow.remove();
+            $row.show();
         });
 
-        /**
-         * Обработчик отправки формы быстрого редактирования.
-         * @param {Event} event - Событие submit
-         */
         $editRow.find('#fs-quick-edit-form').on('submit', (event) => {
             event.preventDefault();
-
-            /**
-             * Кнопка сохранения в форме редактирования.
-             * @type {jQuery}
-             */
             const $saveBtn = $editRow.find('.save');
-            Utils.toggleButton($saveBtn, true, '...');
+            toggleButton($saveBtn, true, '...');
 
-            /**
-             * Выполняем AJAX-запрос на обновление предмета.
-             */
-            jQuery.post(fs_lms_vars.ajaxurl, jQuery(event.target).serialize() + '&action=' + fs_lms_vars.ajax_actions.updateSubject, (res) => {
-                if (res.success) {
-                    // При успехе перезагружаем страницу
-                    location.reload();
-                } else {
-                    alert('Ошибка');
-                }
-            }).fail(Utils.apiError);
+            $.post(fs_lms_vars.ajaxurl, $(event.target).serialize() + '&action=' + fs_lms_vars.ajax_actions.updateSubject)
+                .done((res) => {
+                    if (res.success) {
+                        location.reload();
+                    } else {
+                        showNotice('Ошибка обновления', 'error', $editRow);
+                        toggleButton($saveBtn, false);
+                    }
+                })
+                .fail(() => {
+                    apiError('Failed to update subject');
+                    toggleButton($saveBtn, false);
+                });
         });
     },
 
     /**
-     * Обрабатывает начало процесса удаления предмета (показывает предупреждение).
-     * @memberof Subjects
-     * @instance
-     * @param {Event} e - Событие click
-     * @returns {void}
+     * Начало процесса удаления: показ предупреждения.
+     * @param {Event} e
+     * @private
      */
-    handleDelete(e) {
-        e.preventDefault(); // Отменяем стандартное поведение
-
-        /**
-         * Кнопка удаления.
-         * @type {jQuery}
-         */
-        const $btn = jQuery(e.target);
-
-        /**
-         * Ключ предмета для удаления.
-         * @type {string}
-         */
+    _handleDelete(e) {
+        e.preventDefault();
+        const $btn = $(e.target);
         const key = $btn.data('key');
-
-        /**
-         * Строка таблицы с предметом.
-         * @type {jQuery}
-         */
         const $row = $btn.closest('tr');
-
-        /**
-         * Название предмета (из текста ссылки в первой ячейке).
-         * @type {string}
-         */
         const name = $row.find('strong a').text().trim();
+        const security = this._getNonce();
 
-        /**
-         * Nonce для безопасности запроса.
-         * @type {string}
-         */
-        const security = this._nonce();
-
-        // Показываем модальное окно с предупреждением
         this._showWarningModal(name, key, security, $btn, $row);
     },
 
     /**
-     * Обрабатывает экспорт предмета.
-     * @memberof Subjects
-     * @instance
-     * @param {Event} e - Событие click
-     * @returns {void}
-     * @fires jQuery.post - AJAX-запрос на экспорт данных предмета
+     * Обработка экспорта предмета.
+     * @param {Event} e
+     * @private
      */
-    handleRowExport(e) {
-        e.preventDefault(); // Отменяем стандартное поведение ссылки
-
-        /**
-         * Ссылка экспорта.
-         * @type {jQuery}
-         */
-        const $link = jQuery(e.target);
-
-        /**
-         * Ключ предмета для экспорта.
-         * @type {string}
-         */
-        const key = $link.data('key');
-
-        /**
-         * Выполняем экспорт предмета.
-         */
-        this._exportSubject(key, this._nonce(), $link);
+    _handleExport(e) {
+        e.preventDefault();
+        const key = $(e.target).data('key');
+        const security = this._getNonce();
+        this._exportSubject(key, security, $(e.target));
     },
 
     /**
-     * Обрабатывает импорт предмета из JSON-файла.
-     * @memberof Subjects
-     * @instance
-     * @param {Event} e - Событие change от input file
-     * @returns {void}
-     * @fires FileReader - Чтение выбранного файла
-     * @fires jQuery.post - AJAX-запрос на импорт данных
+     * Обработка импорта предмета из JSON-файла.
+     * @param {Event} e
+     * @private
      */
-    handleImport(e) {
-        /**
-         * Выбранный файл.
-         * @type {File|undefined}
-         */
+    _handleImport(e) {
         const file = e.target.files[0];
-
-        // Если файл не выбран — выходим
         if (!file) return;
 
-        // Очищаем значение input, чтобы можно было выбрать тот же файл повторно
         e.target.value = '';
-
-        /**
-         * Читаем файл с помощью FileReader.
-         * @type {FileReader}
-         */
         const reader = new FileReader();
 
-        /**
-         * Обработчик успешного чтения файла.
-         * @param {ProgressEvent} ev - Событие завершения чтения
-         */
         reader.onload = (ev) => {
-            /**
-             * Парсим JSON из файла.
-             * @type {Object}
-             */
             let data;
             try {
                 data = JSON.parse(ev.target.result);
-            } catch (_) {
-                alert('Не удалось прочитать файл. Убедитесь, что это корректный JSON.');
+            } catch {
+                showNotice('Не удалось прочитать файл. Убедитесь, что это корректный JSON.', 'error', $('#fs-import-trigger').parent());
                 return;
             }
 
-            /**
-             * Название предмета из импортируемых данных.
-             * @type {string}
-             */
             const name = data?.subject?.name || data?.subject?.key || 'предмет';
+            const safeName = this._escapeHtml(name);
 
-            /**
-             * Создаём модальное окно подтверждения импорта.
-             * @type {jQuery}
-             */
-            const $modal = this._createModal(
-                `<p>Импортировать <strong>${name}</strong>?</p>` +
-                `<p>Будут восстановлены: таксономии, термины, шаблоны, boilerplates и записи.</p>` +
-                `<div class="fs-modal-actions">` +
-                `<button class="button" data-action="cancel">Отмена</button>` +
-                `<button class="button button-primary" data-action="confirm">Импортировать</button>` +
-                `</div>`
-            );
-
-            /**
-             * Обработчик кнопки "Отмена".
-             */
-            $modal.find('[data-action="cancel"]').on('click', () => $modal.remove());
-
-            /**
-             * Обработчик кнопки "Импортировать".
-             * @param {Event} ev2 - Событие click
-             */
-            $modal.find('[data-action="confirm"]').on('click', (ev2) => {
-                /**
-                 * Кнопка импорта.
-                 * @type {jQuery}
-                 */
-                const $btn = jQuery(ev2.target);
-                Utils.toggleButton($btn, true, 'Импорт...');
-
-                /**
-                 * Выполняем AJAX-запрос на импорт данных.
-                 */
-                jQuery.post(fs_lms_vars.ajaxurl, {
-                    action: fs_lms_vars.ajax_actions.importSubject,
-                    json: ev.target.result,
-                    security: this._nonce(),
-                }, (res) => {
-                    $modal.remove(); // Закрываем модальное окно
-
-                    if (res.success) {
-                        // При успехе перезагружаем страницу
-                        location.reload();
-                    } else {
-                        alert(res.data || 'Ошибка импорта');
-                    }
-                }).fail(() => {
-                    $modal.remove();
-                    Utils.apiError();
-                });
-            });
+            ConfirmModal.confirm({
+                title: 'Импорт предмета',
+                message: `Импортировать «${safeName}»?\nБудут восстановлены: таксономии, термины, шаблоны, boilerplates и записи.`,
+                confirmText: 'Импортировать',
+                cancelText: 'Отмена',
+            })
+                .then(() => {
+                    $.post(fs_lms_vars.ajaxurl, {
+                        action: fs_lms_vars.ajax_actions.importSubject,
+                        json: ev.target.result,
+                        security: this._getNonce(),
+                    })
+                        .done((res) => {
+                            if (res.success) {
+                                location.reload();
+                            } else {
+                                showNotice(res.data || 'Ошибка импорта', 'error', $('#fs-import-trigger').parent());
+                            }
+                        })
+                        .fail(() => {
+                            apiError('Failed to import subject');
+                        });
+                })
+                .catch(() => {});
         };
 
-        // Запускаем чтение файла как текст
+        reader.onerror = () => {
+            showNotice('Ошибка чтения файла', 'error', $('#fs-import-trigger').parent());
+        };
+
         reader.readAsText(file);
     },
 
     /**
-     * Показывает модальное окно с предупреждением перед удалением предмета.
-     * @memberof Subjects
-     * @instance
+     * Показывает предупреждение перед удалением с опциями «Экспорт» и «Удалить».
+     * Закрытие — через крестик или ESC.
+     * @param {string} name
+     * @param {string} key
+     * @param {string} security
+     * @param {JQuery} $btn
+     * @param {JQuery} $row
      * @private
-     * @param {string} name - Название предмета.
-     * @param {string} key - Ключ предмета.
-     * @param {string} security - Nonce для безопасности.
-     * @param {jQuery} $btn - Кнопка, вызвавшая удаление.
-     * @param {jQuery} $row - Строка таблицы с предметом.
-     * @returns {void}
      */
     _showWarningModal(name, key, security, $btn, $row) {
-        /**
-         * Создаём модальное окно с предупреждением о последствиях удаления.
-         * @type {jQuery}
-         */
-        const $modal = this._createModal(
-            `<p>Вы собираетесь удалить предмет <strong>${name}</strong>.</p>` +
-            `<p>Будут безвозвратно удалены все связанные таксономии, термины, привязки шаблонов, boilerplates и записи.</p>` +
-            `<p>Рекомендуем экспортировать данные перед удалением.</p>` +
-            `<div class="fs-modal-actions">` +
-            `<button class="button" data-action="cancel">Отмена</button>` +
-            `<button class="button button-secondary" data-action="export">Экспорт</button>` +
-            `<button class="button" data-action="proceed" style="background:#d63638;border-color:#d63638;color:#fff;">Удалить всё равно</button>` +
-            `</div>`
-        );
+        const safeName = this._escapeHtml(name);
+        const message =
+            `Вы собираетесь удалить предмет «${safeName}».\n\n` +
+            `Будут безвозвратно удалены все связанные таксономии, термины, привязки шаблонов, типовые условия и записи.\n` +
+            `Рекомендуем экспортировать данные перед удалением.\n\n` +
+            `Для выхода нажмите клавишу Esc или знак Х справа вверху`;
 
-        /**
-         * Обработчик кнопки "Отмена".
-         */
-        $modal.find('[data-action="cancel"]').on('click', () => $modal.remove());
-
-        /**
-         * Обработчик кнопки "Экспорт".
-         * @param {Event} ev - Событие click
-         */
-        $modal.find('[data-action="export"]').on('click', (ev) => {
-            this._exportSubject(key, security, jQuery(ev.target));
-        });
-
-        /**
-         * Обработчик кнопки "Удалить всё равно" — показывает финальное подтверждение.
-         */
-        $modal.find('[data-action="proceed"]').on('click', () => {
-            $modal.remove();
-            this._showConfirmModal(name, key, security, $btn, $row);
-        });
+        // Используем ConfirmModal, но переопределяем текст кнопок:
+        // confirmText → "Удалить всё равно", cancelText → "Экспорт"
+        ConfirmModal.confirm({
+            title: 'Предупреждение',
+            message: message,
+            confirmText: 'Удалить всё равно',
+            cancelText: 'Экспорт',
+        })
+            .then(() => {
+                // Пользователь нажал "Удалить всё равно" → показываем финальное подтверждение
+                this._showFinalConfirm(name, key, security, $btn, $row);
+            })
+            .catch(() => {
+                // Пользователь нажал "Экспорт" или закрыл модалку (ESC/крестик)
+                // Проверяем, было ли это нажатие на кнопку "Экспорт"
+                // Для этого вешаем временный обработчик на кнопку модалки
+                const $exportBtn = $('#fs-lms-confirm-modal .fs-lms-modal-cancel');
+                if ($exportBtn.is(':visible') && $exportBtn.text().trim() === 'Экспорт') {
+                    // Если модалка ещё не закрылась полностью — ждём и запускаем экспорт
+                    setTimeout(() => {
+                        this._exportSubject(key, security, $btn);
+                    }, 100);
+                }
+                // Если закрыли через крестик/ESC — ничего не делаем (просто отмена)
+            });
     },
 
     /**
-     * Показывает финальное модальное окно подтверждения удаления предмета.
-     * @memberof Subjects
-     * @instance
+     * Показывает финальное подтверждение удаления.
+     * @param {string} name
+     * @param {string} key
+     * @param {string} security
+     * @param {JQuery} $btn
+     * @param {JQuery} $row
      * @private
-     * @param {string} name - Название предмета.
-     * @param {string} key - Ключ предмета.
-     * @param {string} security - Nonce для безопасности.
-     * @param {jQuery} $btn - Кнопка, вызвавшая удаление.
-     * @param {jQuery} $row - Строка таблицы с предметом.
-     * @returns {void}
      */
-    _showConfirmModal(name, key, security, $btn, $row) {
-        /**
-         * Создаём финальное модальное окно подтверждения.
-         * @type {jQuery}
-         */
-        const $modal = this._createModal(
-            `<p><strong>Точно удалить «${name}»?</strong></p>` +
-            `<p>Это действие необратимо.</p>` +
-            `<div class="fs-modal-actions">` +
-            `<button class="button" data-action="cancel">Отмена</button>` +
-            `<button class="button" data-action="confirm" style="background:#d63638;border-color:#d63638;color:#fff;">Точно удалить предмет</button>` +
-            `</div>`
-        );
+    _showFinalConfirm(name, key, security, $btn, $row) {
+        const safeName = this._escapeHtml(name);
 
-        /**
-         * Обработчик кнопки "Отмена".
-         */
-        $modal.find('[data-action="cancel"]').on('click', () => $modal.remove());
-
-        /**
-         * Обработчик кнопки "Точно удалить предмет" — выполняет удаление.
-         */
-        $modal.find('[data-action="confirm"]').on('click', () => {
-            $modal.remove();
-            this._doDelete(key, security, $btn, $row);
-        });
+        ConfirmModal.confirm({
+            title: 'Подтвердите удаление',
+            message: `Точно удалить предмет «${safeName}»?\nЭто действие необратимо.`,
+            confirmText: 'Да, удалить',
+            cancelText: 'Отмена',
+        })
+            .then(() => {
+                this._doDelete(key, security, $btn, $row);
+            })
+            .catch(() => {
+                // Отмена — ничего не делаем
+            });
     },
 
     /**
-     * Создаёт модальное окно с заданным содержимым.
-     * @memberof Subjects
-     * @instance
+     * Экспортирует предмет и скачивает JSON-файл.
+     * @param {string} key
+     * @param {string} security
+     * @param {JQuery} $btn
      * @private
-     * @param {string} content - HTML-содержимое модального окна.
-     * @returns {jQuery} jQuery-объект созданного модального окна.
-     */
-    _createModal(content) {
-        /**
-         * Создаём overlay и модальное окно с переданным содержимым.
-         * @type {jQuery}
-         */
-        const $overlay = jQuery(
-            `<div class="fs-modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:160000;display:flex;align-items:center;justify-content:center;">` +
-            `<div class="fs-modal-box" style="background:#fff;padding:24px;max-width:480px;width:90%;border-radius:4px;box-shadow:0 4px 20px rgba(0,0,0,.3);">` +
-            content +
-            `</div>` +
-            `</div>`
-        );
-
-        // Добавляем модальное окно в DOM
-        jQuery('body').append($overlay);
-
-        return $overlay;
-    },
-
-    /**
-     * Выполняет экспорт предмета и скачивает JSON-файл.
-     * @memberof Subjects
-     * @instance
-     * @private
-     * @param {string} key - Ключ предмета для экспорта.
-     * @param {string} security - Nonce для безопасности.
-     * @param {jQuery} $btn - Кнопка, вызвавшая экспорт.
-     * @returns {void}
-     * @fires jQuery.post - AJAX-запрос на получение данных для экспорта
      */
     _exportSubject(key, security, $btn) {
-        /**
-         * Оригинальный текст кнопки для восстановления.
-         * @type {string}
-         */
-        const origText = $btn.text();
-        Utils.toggleButton($btn, true, 'Экспорт...');
+        toggleButton($btn, true, 'Экспорт...');
 
-        /**
-         * Выполняем AJAX-запрос на получение данных для экспорта.
-         */
-        jQuery.post(fs_lms_vars.ajaxurl, {
+        $.post(fs_lms_vars.ajaxurl, {
             action: fs_lms_vars.ajax_actions.exportSubject,
             key: key,
             security: security,
-        }, (res) => {
-            // Восстанавливаем состояние кнопки
-            Utils.toggleButton($btn, false, origText);
+        })
+            .done((res) => {
+                toggleButton($btn, false);
 
-            // Проверяем успешность ответа
-            if (!res.success) {
-                alert(res.data || 'Ошибка экспорта');
-                return;
-            }
+                if (!res.success) {
+                    showNotice(res.data || 'Ошибка экспорта', 'error', $btn.closest('td'));
+                    return;
+                }
 
-            /**
-             * Создаём Blob с JSON-данными и инициируем скачивание файла.
-             * @type {Blob}
-             */
-            const blob = new Blob([JSON.stringify(res.data, null, 2)], {type: 'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'subject_' + key + '_export.json';
-            a.click(); // Программный клик для скачивания
-            URL.revokeObjectURL(url); // Освобождаем URL-объект
-        }).fail(Utils.apiError);
+                const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'subject_' + key + '_export.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            })
+            .fail(() => {
+                toggleButton($btn, false);
+                apiError('Failed to export subject');
+            });
     },
 
     /**
-     * Выполняет фактическое удаление предмета после подтверждения.
-     * @memberof Subjects
-     * @instance
+     * Выполняет удаление предмета после подтверждения.
+     * @param {string} key
+     * @param {string} security
+     * @param {JQuery} $btn
+     * @param {JQuery} $row
      * @private
-     * @param {string} key - Ключ предмета для удаления.
-     * @param {string} security - Nonce для безопасности.
-     * @param {jQuery} $btn - Кнопка, вызвавшая удаление.
-     * @param {jQuery} $row - Строка таблицы с предметом.
-     * @returns {void}
-     * @fires jQuery.post - AJAX-запрос на удаление предмета
      */
     _doDelete(key, security, $btn, $row) {
-        // Переключаем кнопку в состояние загрузки
-        Utils.toggleButton($btn, true, '...');
+        toggleButton($btn, true, '...');
 
-        /**
-         * Выполняем AJAX-запрос на удаление предмета.
-         */
-        jQuery.post(fs_lms_vars.ajaxurl, {
+        $.post(fs_lms_vars.ajaxurl, {
             action: fs_lms_vars.ajax_actions.deleteSubject,
             key: key,
             security: security,
-        }, (res) => {
-            if (res.success) {
-                /**
-                 * При успешном удалении плавно скрываем строку таблицы.
-                 */
-                $row.fadeOut(400, () => {
-                    $row.remove(); // Удаляем строку из DOM
-
-                    /**
-                     * Если в таблице не осталось строк — перезагружаем страницу.
-                     */
-                    if (jQuery('#tab-1 table.wp-list-table tbody').find('tr').length === 0) {
-                        location.reload();
-                    }
-                });
-            } else {
-                // При ошибке восстанавливаем кнопку и показываем сообщение
-                Utils.toggleButton($btn, false);
-                alert(res.data || 'Ошибка удаления');
-            }
-        }).fail(Utils.apiError);
+        })
+            .done((res) => {
+                if (res.success) {
+                    $row.fadeOut(400, () => {
+                        $row.remove();
+                        if ($('#tab-1 table.wp-list-table tbody tr').length === 0) {
+                            location.reload();
+                        }
+                    });
+                } else {
+                    toggleButton($btn, false);
+                    showNotice(res.data || 'Ошибка удаления', 'error', $btn.closest('td'));
+                }
+            })
+            .fail(() => {
+                toggleButton($btn, false);
+                apiError('Failed to delete subject');
+            });
     },
 
     /**
-     * Получает значение nonce из форм на странице.
-     * @memberof Subjects
-     * @instance
+     * Получает nonce из доступных форм.
+     * @returns {string}
      * @private
-     * @returns {string} Значение nonce из формы добавления или формы быстрого редактирования.
      */
-    _nonce() {
-        return jQuery('#fs-add-subject-form [name="security"]').val()
-            || jQuery('#fs-quick-edit-form [name="security"]').val();
+    _getNonce() {
+        return $('#fs-add-subject-form [name="security"]').val()
+            || $('#fs-quick-edit-form [name="security"]').val()
+            || '';
+    },
+
+    /**
+     * Экранирует строку для безопасной вставки в HTML.
+     * @param {string} str
+     * @returns {string}
+     * @private
+     */
+    _escapeHtml(str) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;',
+        };
+        return String(str).replace(/[&<>"']/g, (m) => map[m]);
     },
 };
-
-/**
- * @typedef {Object} SubjectData
- * @property {string} name - Название предмета
- * @property {string} count - Количество задач в предмете
- * @property {string} key - Уникальный ключ предмета
- */
-
-/**
- * @typedef {Object} ImportResponse
- * @property {boolean} success - Флаг успешности импорта
- * @property {string} [data] - Сообщение об ошибке
- */
-
-/**
- * @typedef {Object} ExportResponse
- * @property {boolean} success - Флаг успешности получения данных
- * @property {Object} data - Экспортируемые данные предмета
- */
-
-/**
- * @typedef {Object} DeleteResponse
- * @property {boolean} success - Флаг успешности удаления
- * @property {string} [data] - Сообщение об ошибке
- */
-
-/**
- * @typedef {Object} StoreSubjectResponse
- * @property {boolean} success - Флаг успешности сохранения
- * @property {string} [data] - Сообщение об ошибке
- */
-
-/**
- * @typedef {Object} UpdateSubjectResponse
- * @property {boolean} success - Флаг успешности обновления
- * @property {string} [data] - Сообщение об ошибке
- */
