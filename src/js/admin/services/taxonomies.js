@@ -9,8 +9,37 @@
 
 import '../_types.js';
 import { TaxonomyModal } from '../components/taxonomy-modal.js';
+import { ConfirmModal } from '../components/confirm-modal.js';
 
 const $ = jQuery;
+
+/**
+ * Показывает уведомление WordPress-стиля.
+ */
+function showNotice(message, type, $container) {
+    $container.find('.notice').remove();
+
+    const $notice = $(`
+        <div class="notice notice-${type} is-dismissible" style="margin: 10px 0;">
+            <p><strong>${type === 'success' ? 'Готово!' : 'Ошибка:'}</strong> ${message}</p>
+            <button type="button" class="notice-dismiss">
+                <span class="screen-reader-text">Закрыть</span>
+            </button>
+        </div>
+    `);
+
+    $notice.on('click', '.notice-dismiss', function() {
+        $notice.fadeTo(100, 0, function() {
+            $notice.slideUp(100, function() { $(this).remove(); });
+        });
+    });
+
+    $container.prepend($notice);
+
+    if (type === 'success') {
+        setTimeout(() => $notice.find('.notice-dismiss').trigger('click'), 5000);
+    }
+}
 
 /**
  * Объект для управления таксономиями.
@@ -101,33 +130,23 @@ export const Taxonomies = {
          * @param {Event} e - Событие click
          */
         $('.js-taxonomy-table').on('click', '.js-delete-tax', (e) => {
-            e.preventDefault(); // Отменяем стандартное поведение ссылки
-
-            /**
-             * Строка таблицы, содержащая удаляемую таксономию.
-             * @type {jQuery}
-             */
+            e.preventDefault();
             const $row = $(e.currentTarget).closest('tr');
-
-            /**
-             * Слаг таксономии для удаления.
-             * @type {string}
-             */
             const slug = $row.data('slug');
-
-            /**
-             * Ключ предмета (из скрытого поля формы).
-             * @type {string}
-             */
             const subject_key = $('#tax-subject-key').val();
+            const taxName = $row.data('name');
 
-            /**
-             * Показываем подтверждение удаления с предупреждением о последствиях.
-             * @type {boolean}
-             */
-            if (confirm(`Удалить таксономию "${$row.data('name')}"?\nВсе связанные термины будут стёрты.`)) {
-                this._ajaxDelete(slug, subject_key);
-            }
+            ConfirmModal.confirm({
+                title: 'Удаление таксономии',
+                message: `Удалить таксономию «${taxName}»?\nВсе связанные термины будут безвозвратно стёрты.`,
+                confirmText: 'Удалить',
+                cancelText: 'Отмена',
+            }).then(() => {
+                // 🔥 Успешное подтверждение — запускаем удаление
+                this._ajaxDelete(slug, subject_key, $row);
+            }).catch(() => {
+                // Отмена — ничего не делаем
+            });
         });
     },
 
@@ -217,16 +236,7 @@ export const Taxonomies = {
      * @returns {void}
      * @fires $.post - AJAX-запрос на удаление таксономии
      */
-    _ajaxDelete(slug, subject_key) {
-        /**
-         * Выполняем AJAX-запрос на удаление таксономии.
-         * @param {string} url - URL обработчика AJAX WordPress
-         * @param {Object} data - Данные для отправки
-         * @param {string} data.action - AJAX-действие для удаления таксономии
-         * @param {string} data.security - Nonce для проверки безопасности
-         * @param {string} data.subject_key - Ключ предмета
-         * @param {string} data.tax_slug - Слаг таксономии для удаления
-         */
+    _ajaxDelete(slug, subject_key, $row) {
         $.post(fs_lms_vars.ajaxurl, {
             action:      fs_lms_vars.ajax_actions.deleteTaxonomy,
             security:    fs_lms_vars.subject_nonce,
@@ -234,28 +244,22 @@ export const Taxonomies = {
             tax_slug:    slug,
         })
             .done((res) => {
-                /**
-                 * Обработка ответа сервера.
-                 * @param {Object} res - Ответ сервера
-                 * @param {boolean} res.success - Флаг успешности операции
-                 * @param {string} res.data - Сообщение об ошибке (при неудаче)
-                 */
                 if (res.success) {
-                    /**
-                     * При успешном удалении перезагружаем страницу.
-                     */
-                    location.reload();
+                    if ($row?.length) {
+                        $row
+                            .css('background', '#ff8d8d')
+                            .fadeOut(400, function () {
+                                $(this).remove();
+                                showNotice('Таксономия удалена', 'success', $('.js-taxonomy-table'));
+                            });
+                    } else {
+                        location.reload();
+                    }
                 } else {
-                    /**
-                     * При ошибке показываем сообщение от сервера.
-                     */
                     alert('Ошибка при удалении: ' + res.data);
                 }
             })
             .fail(() => {
-                /**
-                 * Обработка ошибки HTTP-запроса.
-                 */
                 alert('Системная ошибка при удалении');
             });
     },
