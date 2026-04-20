@@ -1,0 +1,61 @@
+.boilerplate-manager-wrapper {
+  .js-boilerplate-table {
+    margin-top: 20px;
+
+    tbody td {
+      vertical-align: middle;
+    }
+
+    // Настройка колонок в соответствии со 2-м скриншотом
+    .column-primary { width: 70%; }
+    .column-actions { width: 30%; }
+
+    // Стили заголовков
+    .column-title strong {
+      display: inline-block;
+      vertical-align: middle;
+      font-size: 14px;
+    }
+
+    // Стили ссылок действий (row-actions)
+    .row-actions {
+      .trash a {
+        color: #d63638;
+        &:hover { color: #d63638; }
+      }
+    }
+
+    // Оформление строки добавления (футер с плюсом)
+    .fs-add-row-tr {
+      td {
+        padding: 0 !important;
+        background: #f6f7f7;
+        transition: background 0.1s ease-in-out;
+
+        &:hover {
+          background: #fff !important;
+          .dashicons-plus { color: #2271b1; }
+        }
+      }
+
+      .js-add-boilerplate {
+        width: 100%;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        text-decoration: none;
+        box-shadow: none !important;
+
+        .dashicons-plus {
+          color: #787c82;
+          font-size: 20px;
+          margin-top: 2px;
+          transition: color 0.1s ease-in-out;
+        }
+      }
+    }
+  }
+}

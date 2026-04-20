@@ -45,12 +45,14 @@ class BoilerplateCallbacks extends BaseController {
 		[ $subject_key, $term_slug ] = $this->requireSubjectAndTerm( 'POST' );
 
 		// Получение данных из POST
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$uid        = sanitize_text_field( wp_unslash( $_POST['uid'] ?? '' ) );
 		$title      = sanitize_text_field( wp_unslash( $_POST['title'] ?? 'Без названия' ) );
-		$is_default = isset( $_POST['is_default'] ) && $_POST['is_default'] === '1';
+		$is_default = isset( $_POST['is_default'] ) && '1' === $_POST['is_default'];
 
 		// Санитизация контента (массив полей из TinyMCE)
-		$content = $this->sanitizeContent( $_POST['content'] ?? array() );
+		$raw_content = isset( $_POST['content'] ) ? wp_unslash( $_POST['content'] ) : array();
+		$content     = $this->sanitizeContent( $raw_content );
 
 		// Создание DTO
 		$dto = new TaskTypeBoilerplateDTO(
@@ -90,6 +92,7 @@ class BoilerplateCallbacks extends BaseController {
 		[ $subject_key, $term_slug ] = $this->requireSubjectAndTerm( 'POST' );
 
 		// Получение UID из POST
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$uid = sanitize_text_field( wp_unslash( $_POST['uid'] ?? '' ) );
 
 		if ( empty( $uid ) ) {
@@ -137,7 +140,7 @@ class BoilerplateCallbacks extends BaseController {
 	 * @return array{0: string, 1: string} [subject_key, term_slug]
 	 */
 	private function requireSubjectAndTerm( string $method = 'POST' ): array {
-		$source = $method === 'GET' ? $_GET : $_POST;
+		$source = 'GET' === $method ? $_GET : $_POST;
 
 		$subject_key = sanitize_text_field( wp_unslash( $source['subject_key'] ?? '' ) );
 		$term_slug   = sanitize_text_field( wp_unslash( $source['term_slug'] ?? '' ) );

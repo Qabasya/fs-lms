@@ -54,21 +54,6 @@ export const Boilerplates = {
             });
         }
 
-        /**
-         * Обработчик клика по ссылке удаления шаблона (делегирование на body).
-         * @param {Event} e - Событие click
-         */
-        $body.on('click', '.delete-boilerplate-link', (e) => {
-            e.preventDefault(); // Отменяем переход по ссылке
-
-            /**
-             * Подтверждение удаления через стандартный диалог браузера.
-             * @type {boolean}
-             */
-            if (confirm('Вы уверены, что хотите удалить этот шаблон?')) {
-                this.delete($(e.currentTarget));
-            }
-        });
     },
 
     /**

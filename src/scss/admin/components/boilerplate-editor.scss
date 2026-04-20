@@ -1,0 +1,53 @@
+#postbox-container-1 {
+  .postbox {
+    .inside {
+      margin: 0;
+      padding: 0;
+    }
+
+    // Убираем лишние отступы и границы у внутреннего контейнера WP
+    .submitbox {
+      background: transparent;
+    }
+
+    #minor-publishing {
+      padding: 10px 12px;
+      border-bottom: 1px solid #dcdcde;
+    }
+
+    #major-publishing-actions {
+      padding: 10px 12px;
+      background: transparent; // Убираем серый фон вокруг кнопки сохранения
+      border-top: none;
+      display: flex;
+      flex-direction: column; // Ставим кнопки друг под другом
+      gap: 10px;
+
+      // Сброс флоатов WP, чтобы flex работал корректно
+      #delete-action, #publishing-action {
+        float: none;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+      }
+
+      // Делаем кнопки на всю ширину
+      .button, input[type="submit"] {
+        width: 100%;
+        margin: 0;
+        justify-content: center;
+      }
+
+      // Ссылка "Назад" в стиле текстовой кнопки
+      .submitdelete {
+        display: block;
+        text-decoration: none;
+        padding: 4px 0;
+
+        &:hover {
+          color: #d63638;
+        }
+      }
+    }
+  }
+}

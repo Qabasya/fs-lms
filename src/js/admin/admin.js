@@ -1,7 +1,8 @@
 import { UI }           from './modules/ui.js';
 import { Subjects }     from './services/subjects.js';
 import { Tasks }        from './services/tasks.js';
-import { Boilerplates } from './services/boilerplates.js';
+import { Boilerplates }    from './services/boilerplates.js';
+import { BoilerplateList } from './services/boilerplate-list.js';
 import { TaskCreation } from './services/task-creation.js';
 import { Taxonomies }   from './services/taxonomies.js';
 import { PostsTable }   from './services/posts-table.js';
@@ -21,6 +22,7 @@ import { PostsTable }   from './services/posts-table.js';
         Tasks.init();
         PostsTable.init();
         Boilerplates.init();
+        BoilerplateList.init();
 
         // Создание заданий — init безопасен: внутри проверяет наличие модалки
         TaskCreation.init();
