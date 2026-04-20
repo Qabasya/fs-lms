@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\AjaxHook;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\MetaBoxRepository;
+use Inc\Repositories\SubjectRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -37,6 +38,7 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 	public function __construct(
 		private readonly BoilerplateRepository $boilerplates,
 		private readonly MetaBoxRepository $metaboxes,
+		private readonly SubjectRepository $subjects,
 		private readonly BoilerplateCallbacks $boilerplate_callbacks,
 	) {
 		parent::__construct();
@@ -114,16 +116,34 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	private function renderList( string $subject_key, string $term_slug ): void {
-		// Получение всех boilerplate для указанного типа задания
 		$boilerplates = $this->boilerplates->getBoilerplates( $subject_key, $term_slug );
 
-		// Рендеринг шаблона списка
+		$taxonomy     = $subject_key . '_task_number';
+		$term_object  = get_term_by( 'slug', $term_slug, $taxonomy );
+		$display_name = ( $term_object && ! empty( $term_object->description ) )
+			? $term_object->description
+			: $term_slug;
+
+		$subject_dto          = $this->subjects->getByKey( $subject_key );
+		$subject_display_name = $subject_dto ? $subject_dto->name : $subject_key;
+
+		$back_url = add_query_arg(
+			array(
+				'page' => 'fs_subject_' . $subject_key,
+				'tab'  => 'tab-5',
+			),
+			admin_url( 'admin.php' )
+		);
+
 		$this->render(
 			'boilerplate-list',
 			array(
-				'subject'      => $subject_key,
-				'term'         => $term_slug,
-				'boilerplates' => $boilerplates,
+				'subject'              => $subject_key,
+				'term'                 => $term_slug,
+				'boilerplates'         => $boilerplates,
+				'display_name'         => $display_name,
+				'subject_display_name' => $subject_display_name,
+				'back_url'             => $back_url,
 			)
 		);
 	}
@@ -159,14 +179,21 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 			? ( $assignment->template_id instanceof \UnitEnum ? $assignment->template_id->name : $assignment->template_id )
 			: 'standard_task';
 
-		// Рендеринг шаблона редактора
+		$is_edit    = null !== $boilerplate;
+		$page_title = $is_edit ? 'Редактировать условие' : 'Добавить новое типовое условие';
+		$bp_uid     = $is_edit ? $boilerplate->uid : uniqid( 'bp_' );
+		$bp_title   = $is_edit ? $boilerplate->title : '';
+
 		$this->render(
 			'boilerplate-editor',
 			array(
 				'subject'        => $subject_key,
 				'term'           => $term_slug,
 				'template_id'    => $template_id,
-				'boilerplate'    => $boilerplate,
+				'is_edit'        => $is_edit,
+				'page_title'     => $page_title,
+				'bp_uid'         => $bp_uid,
+				'bp_title'       => $bp_title,
 				'content_fields' => $decoded_content,
 				'fields'         => $this->getConditionFields( $template_id ),
 			)

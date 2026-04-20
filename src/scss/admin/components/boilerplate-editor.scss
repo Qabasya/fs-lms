@@ -1,3 +1,16 @@
+.boilerplate-field-group {
+  background: #fff;
+  padding: 15px;
+  border: 1px solid #ccd0d4;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+
+  label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 14px;
+  }
+}
+
 #postbox-container-1 {
   .postbox {
     .inside {
