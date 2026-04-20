@@ -1,59 +1,293 @@
+/* =================================================================
+   COMPONENT: LMS Dashboard Tabs
+   File: src/scss/admin/components/_dashboard-tabs.scss
+   ================================================================= */
+
+// Переменные: цвета (стиль WordPress Admin)
+$dashboard-tabs-bg-inactive:      #dcdcde;
+$dashboard-tabs-bg-active:        #ffffff;
+$dashboard-tabs-bg-hover:         #f0f0f1;
+$dashboard-tabs-border-color:     #c3c4c7;
+$dashboard-tabs-accent-color:     #2271b1;
+$dashboard-tabs-text-color:       #2c3338;
+$dashboard-tabs-shadow:           0 2px 5px rgba(0, 0, 0, 0.05);
+
+// Переменные: размеры и отступы
+$dashboard-tabs-margin-top:       20px;
+$dashboard-tabs-padding-label:    12px 24px;
+$dashboard-tabs-padding-content:  30px;
+$dashboard-tabs-gap:              4px;
+$dashboard-tabs-min-height:       400px;
+$dashboard-tabs-max-width:        95vw;
+
+// Переменные: типографика
+$dashboard-tabs-font-weight:      500;
+$dashboard-tabs-font-weight-active: 600;
+
+// Переменные: анимации
+$dashboard-tabs-transition:       all 0.2s ease-in-out;
+$dashboard-tabs-accent-thickness: 2px;
+
+
+/* =================================================================
+   BASE DASHBOARD CONTAINER
+   ================================================================= */
+
+// Обёрка дашборда LMS
+// Содержит навигацию по вкладкам и контент секций
 .fs-lms-dashboard {
+
+  /* -----------------------------------------------------------------
+     Tabs Navigation (CSS-only implementation using radio hack)
+     ----------------------------------------------------------------- */
+
+  // Контейнер вкладок
+  // Реализация без JavaScript: переключение через :checked псевдокласс
   .fs-tabs {
     display: flex;
     flex-wrap: wrap;
-    margin-top: 20px;
+    margin-top: $dashboard-tabs-margin-top;
     width: 100%;
-    max-width: 95vw; // Для твоего 4K монитора
+    max-width: $dashboard-tabs-max-width; // Ограничение для ультрашироких экранов
 
+    // Метка вкладки (визуально выглядит как кнопка)
     label {
-      padding: 12px 24px;
-      background: #dcdcde;
+      padding: $dashboard-tabs-padding-label;
+      background: $dashboard-tabs-bg-inactive;
       cursor: pointer;
-      border: 1px solid #c3c4c7;
-      border-bottom: none;
-      margin-right: 4px;
-      transition: all 0.2s;
-      font-weight: 500;
+      border: 1px solid $dashboard-tabs-border-color;
+      border-bottom: none; // Убираем нижнюю границу для эффекта "вкладки"
+      margin-right: $dashboard-tabs-gap;
+      transition: $dashboard-tabs-transition;
+      font-weight: $dashboard-tabs-font-weight;
+      color: $dashboard-tabs-text-color;
+      border-radius: 3px 3px 0 0; // Скругление только сверху
 
+      // Состояние ховера
       &:hover {
-        background: #f0f0f1;
+        background: $dashboard-tabs-bg-hover;
+      }
+
+      // Доступность: видимый фокус для клавиатурной навигации
+      &:focus {
+        outline: 2px solid $dashboard-tabs-accent-color;
+        outline-offset: -2px;
       }
     }
 
+    /* -----------------------------------------------------------------
+       Radio Button Logic (скрытый инпут + селекторы соседей)
+       ----------------------------------------------------------------- */
+
+    // Скрываем нативные радио-кнопки
+    // Переключение управляется через клик по label
     input[type="radio"] {
       display: none;
 
+      // Активная вкладка: стили для label, связанного с выбранным radio
       &:checked + label {
-        background: #fff;
-        border-bottom: 1px solid #fff;
-        margin-bottom: -1px;
-        font-weight: 600;
-        box-shadow: 0 -2px 0 #2271b1 inset; // Синяя полоска снизу вместо жирности
+        background: $dashboard-tabs-bg-active;
+        border-bottom: 1px solid $dashboard-tabs-bg-active; // Маскируем границу контейнера
+        margin-bottom: -$dashboard-tabs-gap; // Компенсируем ширину границы
+        font-weight: $dashboard-tabs-font-weight-active;
+        // Визуальный индикатор активной вкладки: цветная полоса снизу
+        box-shadow: 0 -#{$dashboard-tabs-accent-thickness} 0 $dashboard-tabs-accent-color inset;
+        z-index: 1; // Поднимаем активную вкладку над остальными
       }
 
+      // Показываем контент, связанный с выбранной вкладкой
+      // Селектор + .tab-content выбирает следующий соседний элемент
       &:checked + label + .tab-content {
         display: block;
       }
     }
 
+    /* -----------------------------------------------------------------
+       Tab Content Panels
+       ----------------------------------------------------------------- */
+
+    // Панель контента вкладки
+    // По умолчанию скрыта, показывается при выборе соответствующего radio
     .tab-content {
       width: 100%;
-      order: 1;
+      order: 1; // Гарантируем отображение контента после навигации при flex-wrap
       display: none;
-      padding: 30px;
-      background: #fff;
-      border: 1px solid #c3c4c7;
-      min-height: 400px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      padding: $dashboard-tabs-padding-content;
+      background: $dashboard-tabs-bg-active;
+      border: 1px solid $dashboard-tabs-border-color;
+      min-height: $dashboard-tabs-min-height; // Предотвращает "прыжки" высоты
+      box-shadow: $dashboard-tabs-shadow;
+      border-radius: 0 0 3px 3px; // Скругление только снизу
+
+      // Плавное появление контента (опционально, требует JS для класса)
+      &.is-active {
+        animation: fadeIn 0.15s ease-in-out;
+      }
     }
   }
 }
 
-// Стили ссылок в таблице (Row Actions)
+
+/* =================================================================
+   ANIMATIONS
+   ================================================================= */
+
+// Анимация плавного появления контента вкладки
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* =================================================================
+   UTILITIES: Row Actions Links
+   ================================================================= */
+
+// Глобальные стили для ссылок действий в таблицах
+// Используется в списках записей, таксономий и других админ-таблицах
 .row-actions {
   a {
     text-decoration: none;
-    &:hover { color: #2271b1; }
+    color: inherit;
+    transition: color 0.15s ease-in-out;
+
+    &:hover {
+      color: $dashboard-tabs-accent-color;
+    }
+
+    // Доступность: видимый фокус
+    &:focus {
+      outline: 2px solid $dashboard-tabs-accent-color;
+      outline-offset: 2px;
+    }
+  }
+}
+
+
+/* =================================================================
+   MIXINS (опционально для переиспользования)
+   ================================================================= */
+
+// Миксин для создания вкладок без JavaScript
+// @param {Color} $bg-inactive - фон неактивной вкладки
+// @param {Color} $bg-active - фон активной вкладки
+// @param {Color} $accent-color - цвет индикатора активности
+// @param {String} $transition-speed [0.2s] - скорость анимации
+// @example: @include css-tabs(#dcdcde, #fff, #2271b1);
+@mixin css-tabs($bg-inactive, $bg-active, $accent-color, $transition-speed: 0.2s) {
+  display: flex;
+  flex-wrap: wrap;
+
+  label {
+    padding: 12px 24px;
+    background: $bg-inactive;
+    cursor: pointer;
+    border: 1px solid $dashboard-tabs-border-color;
+    border-bottom: none;
+    margin-right: 4px;
+    transition: all $transition-speed;
+    font-weight: 500;
+    border-radius: 3px 3px 0 0;
+
+    &:hover {
+      background: $bg-active;
+    }
+  }
+
+  input[type="radio"] {
+    display: none;
+
+    &:checked + label {
+      background: $bg-active;
+      border-bottom: 1px solid $bg-active;
+      margin-bottom: -1px;
+      font-weight: 600;
+      box-shadow: 0 -2px 0 $accent-color inset;
+      z-index: 1;
+    }
+
+    &:checked + label + .tab-content {
+      display: block;
+    }
+  }
+
+  .tab-content {
+    width: 100%;
+    order: 1;
+    display: none;
+    padding: 30px;
+    background: $bg-active;
+    border: 1px solid $dashboard-tabs-border-color;
+    border-radius: 0 0 3px 3px;
+  }
+}
+
+// Миксин для ссылок действий в таблицах
+// @param {Color} $hover-color - цвет при наведении
+// @param {Color} $focus-color - цвет обводки при фокусе
+// @example: @include row-action-links(#2271b1, #2271b1);
+@mixin row-action-links($hover-color, $focus-color) {
+  a {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.15s ease-in-out;
+
+    &:hover {
+      color: $hover-color;
+    }
+
+    &:focus {
+      outline: 2px solid $focus-color;
+      outline-offset: 2px;
+    }
+  }
+}
+
+
+/* =================================================================
+   RESPONSIVE ADAPTATIONS
+   ================================================================= */
+
+// Адаптация вкладок для мобильных устройств
+// Брейкпоинт 782px соответствует мобильному меню в админке WordPress
+@media (max-width: 782px) {
+  .fs-lms-dashboard {
+    .fs-tabs {
+      // Горизонтальный скролл для вкладок, если не помещаются
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch; // Плавная прокрутка на iOS
+      padding-bottom: 1px; // Скрываем скроллбар визуально
+
+      // Метки вкладок: уменьшенные отступы для компактности
+      label {
+        padding: 10px 16px;
+        font-size: 13px;
+        white-space: nowrap; // Предотвращаем перенос текста
+      }
+
+      // Контент вкладок: уменьшенные отступы
+      .tab-content {
+        padding: 20px;
+        min-height: 300px;
+      }
+    }
+  }
+}
+
+// Адаптация для очень широких экранов (4K и выше)
+// Ограничиваем максимальную ширину, чтобы интерфейс не "расплывался"
+@media (min-width: 2560px) {
+  .fs-lms-dashboard {
+    .fs-tabs {
+      max-width: 1800px; // Фиксированный максимум вместо 95vw
+      margin-left: auto;
+      margin-right: auto;
+    }
   }
 }

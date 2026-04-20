@@ -1,35 +1,60 @@
+/* =================================================================
+   COMPONENT: Task Manager Wrapper
+   ================================================================= */
+
+$task-manager-margin-top: 20px;
+$task-manager-status-success: #46b450;
+$task-manager-status-icon-size: 20px;
+
 .task-manager-wrapper {
-  margin-top: 20px;
+  margin-top: $task-manager-margin-top;
 
   .js-task-manager-table {
-    // Колонки
+
+    /* -----------------------------------------------------------------
+       Колонки таблицы: распределение ширины
+       ----------------------------------------------------------------- */
     .column-task-name { width: 35%; }
     .column-template-select { width: 30%; }
     .column-actions { width: 25%; }
-    .status-cell { width: 10%; text-align: center; }
+    .status-cell {
+      width: 10%;
+      text-align: center;
+    }
 
-    // Селект шаблона
+    /* -----------------------------------------------------------------
+       Селект выбора шаблона
+       ----------------------------------------------------------------- */
     select.js-change-term-template {
       max-width: 100%;
       height: 30px;
     }
 
-    // Индикаторы статуса сохранения
+    /* -----------------------------------------------------------------
+       Индикаторы статуса (спиннер / галочка успеха)
+       ----------------------------------------------------------------- */
     .status-cell {
       position: relative;
       vertical-align: middle !important;
 
+      // Спиннер загрузки (стандартный класс WordPress)
+      // Видимость управляется через JS: добавление/удаление .is-active
       .spinner {
         float: none;
         margin: 0;
-        visibility: hidden; // Показываем через JS добавлением класса .is-active
-        &.is-active { visibility: visible; }
+        visibility: hidden;
+
+        &.is-active {
+          visibility: visible;
+        }
       }
 
+      // Иконка успеха (галочка)
+      // По умолчанию скрыта, показывается через .is-visible
       .js-success-icon {
         display: none;
-        color: #46b450;
-        font-size: 20px;
+        color: $task-manager-status-success;
+        font-size: $task-manager-status-icon-size;
         vertical-align: middle;
 
         &.is-visible {
@@ -38,7 +63,9 @@
       }
     }
 
-    // Текстовые подсказки в row-actions
+    /* -----------------------------------------------------------------
+       Подсказки в действиях строки (код/параметры)
+       ----------------------------------------------------------------- */
     .row-actions code {
       padding: 1px 4px;
       font-size: 11px;

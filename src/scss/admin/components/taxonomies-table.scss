@@ -1,28 +1,47 @@
+/* =================================================================
+   COMPONENT: Taxonomy Manager Wrapper
+   ================================================================= */
+
+// Переменные для быстрого редактирования
+$taxonomy-manager-margin-top:    20px;
+$taxonomy-manager-color-danger:  #d63638;
+$taxonomy-manager-color-primary: #2271b1;
+$taxonomy-manager-color-icon:    #787c82;
+$taxonomy-manager-color-lock:    #999;
+$taxonomy-manager-bg-row:        #f6f7f7;
+$taxonomy-manager-row-height:    44px;
+$taxonomy-manager-icon-size:     20px;
+
 .taxonomy-manager-wrapper {
   .js-taxonomy-table {
-    margin-top: 20px;
+    margin-top: $taxonomy-manager-margin-top;
 
     tbody td {
       vertical-align: middle;
     }
 
-    // Настройка колонок
+    /* -----------------------------------------------------------------
+       Колонки таблицы: распределение ширины
+       ----------------------------------------------------------------- */
     .column-primary { width: 40%; }
     th:nth-child(2), td:nth-child(2) { width: 30%; }
     .column-actions { width: 30%; }
 
-    // Выравнивание названия и замочка
+    /* -----------------------------------------------------------------
+       Заголовок строки: название + иконка замка
+       ----------------------------------------------------------------- */
     .column-title {
       strong {
         display: inline-block;
         vertical-align: middle;
       }
 
+      // Иконка замка (защищённая таксономия)
       .dashicons-lock {
         font-size: 14px;
         width: 14px;
         height: 14px;
-        color: #999;
+        color: $taxonomy-manager-color-lock;
         vertical-align: middle;
         margin-left: 4px;
         display: inline-flex;
@@ -31,30 +50,36 @@
       }
     }
 
-    // Стили ссылок действий
+    /* -----------------------------------------------------------------
+       Ссылки действий (редактировать / удалить)
+       ----------------------------------------------------------------- */
     .row-actions {
+      // Ссылка удаления — красный цвет как деструктивное действие
       .trash a {
-        color: #d63638;
-        &:hover { color: #d63638; }
+        color: $taxonomy-manager-color-danger;
+        &:hover { color: $taxonomy-manager-color-danger; }
       }
     }
 
-    // Строка добавления в футере
+    /* -----------------------------------------------------------------
+       Строка добавления (футер таблицы с кнопкой "+")
+       ----------------------------------------------------------------- */
     .fs-add-row-tr {
       td {
         padding: 0 !important;
-        background: #f6f7f7;
+        background: $taxonomy-manager-bg-row;
         transition: background 0.1s ease-in-out;
 
         &:hover {
           background: #fff !important;
-          .dashicons-plus { color: #2271b1; }
+          .dashicons-plus { color: $taxonomy-manager-color-primary; }
         }
       }
 
+      // Кнопка добавления таксономии
       .js-add-taxonomy {
         width: 100%;
-        height: 44px;
+        height: $taxonomy-manager-row-height;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -64,10 +89,11 @@
         box-shadow: none !important;
         text-decoration: none;
 
+        // Иконка "+" (Dashicons)
         .dashicons-plus {
-          color: #787c82;
-          font-size: 20px;
-          margin-top: 2px; // Тот самый паддинг для визуального центра
+          color: $taxonomy-manager-color-icon;
+          font-size: $taxonomy-manager-icon-size;
+          margin-top: 2px; // Визуальная коррекция центрирования иконки
           transition: color 0.1s ease-in-out;
         }
       }

@@ -1,15 +1,29 @@
-.fs-add-row-container {
-  margin-top: -1px; // Приклейка к границе таблицы
-  background: #fff;
-  border: 1px solid #c3c4c7; // Совпадаем с рамкой таблицы
-  border-top: none;
+/* =================================================================
+   COMPONENT: Add Row Container (Table Extension)
+   ================================================================= */
 
+// Переменные для компонента (локальные, если не вынесены в глобальный tokens.scss)
+$add-row-border-color: #c3c4c7;
+$add-row-hover-bg:     #f6f7f7;
+$add-row-icon-color:   #a7aaad;
+$add-row-icon-hover:   #2271b1;
+$add-row-height:       40px;
+
+.fs-add-row-container {
+  // Отрицательный марджин для визуального присоединения к таблице снизу
+  // Компенсирует двойную границу (border-collapse таблицы + собственный border)
+  margin-top: -1px;
+  background: #fff;
+  border: 1px solid $add-row-border-color;
+  border-top: none; // Убираем верхнюю границу, чтобы слиться с таблицей
+
+  // Кнопка добавления строки
   .fs-add-row-button {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    height: 40px; // Фиксированная высота, чтобы не было дыр
+    height: $add-row-height;
     background: transparent;
     border: none;
     cursor: pointer;
@@ -17,25 +31,45 @@
     outline: none;
     padding: 0;
 
+    // Состояние ховера для всей кнопки
     &:hover {
-      background-color: #f6f7f7;
+      background-color: $add-row-hover-bg;
 
       .dashicons {
-        color: #2271b1;
+        color: $add-row-icon-hover;
       }
     }
 
+    // Иконка (Dashicons - стандарт WordPress)
     .dashicons {
       font-size: 20px;
-      color: #a7aaad;
+      color: $add-row-icon-color;
+      transition: color 0.1s ease-in-out; // Плавная смена цвета иконки
+    }
+
+    // Доступность: видимый фокус при навигации с клавиатуры
+    &:focus {
+      box-shadow: inset 0 0 0 2px $add-row-icon-hover;
     }
   }
 }
 
-// Выравнивание действий в таблице
+
+/* =================================================================
+   COMPONENT: Table Actions Alignment
+   ================================================================= */
+
+// Контейнер для таблицы таксономий
+// Назначение: обеспечение визуального выравнивания действий в строках
 .js-taxonomy-table {
   .row-actions {
+    // Принудительное вертикальное выравнивание по центру ячейки
+    // !important используется для переопределения стилей админки WordPress
     vertical-align: middle !important;
     padding: 8px 10px !important;
+
+    // Опционально: можно добавить плавное появление действий при ховере
+    // на строку таблицы, если это требуется по дизайну
+    // .js-taxonomy-table tr:hover & { opacity: 1; }
   }
 }
