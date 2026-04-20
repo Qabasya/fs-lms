@@ -1,0 +1,161 @@
+// =================================================================
+// GLOBAL DESIGN TOKENS
+// =================================================================
+
+// ── Цветовая палитра
+$color-primary:        #1e73be;
+$color-primary-hover:  #155a8a;
+$color-danger:         #d63638;
+$color-danger-hover:   #b32d2e;
+$color-secondary:      #a0a0a0;
+$color-secondary-hover:#888;
+
+$color-text-primary:   #2c3338;
+$color-text-secondary: #646970;
+$color-text-inverse:   #ffffff;
+
+$color-bg-modal:       #ffffff;
+$color-bg-backdrop:    rgba(0, 0, 0, 0.6);
+$color-bg-footer:      #f9f9f9;
+
+$color-border-input:   #8c8f94;
+$color-border-footer:  #e0e0e0;
+$color-focus:          #2271b1;
+
+// ── Размеры и отступы
+$spacing-xs: 5px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 15px;
+$spacing-xl: 20px;
+
+$border-radius-sm: 3px;
+$border-radius-md: 4px;
+
+$shadow-modal: 0 2px 20px rgba(0, 0, 0, 0.3);
+
+// ── Тайминги
+$transition-fast:    0.2s ease-out;
+$transition-default: all $transition-fast;
+
+// ── Брейкпоинты
+$breakpoint-mobile: 768px;
+
+// ── Z-index
+$z-modal-backdrop: 1;
+$z-modal-content:  2;
+$z-modal-root:     999999;
+
+// =================================================================
+// COMPONENT: Add Row Button
+// =================================================================
+
+$add-row-border-color: #c3c4c7;
+$add-row-hover-bg:     #f6f7f7;
+$add-row-icon-color:   #2271b1;
+$add-row-icon-hover:   #2271b1;
+$add-row-height:       40px;
+
+// =================================================================
+// COMPONENT: Subject Tabs
+// =================================================================
+
+$dashboard-tabs-margin-top:       20px;
+$dashboard-tabs-max-width:        95vw;
+$dashboard-tabs-gap:              4px;
+$dashboard-tabs-padding:          12px 24px;
+$dashboard-tabs-content-padding:  30px;
+$dashboard-tabs-min-height:       400px;
+$dashboard-tabs-bg-inactive:      #dcdcde;
+$dashboard-tabs-bg-active:        #fff;
+$dashboard-tabs-bg-hover:         #f0f0f1;
+$dashboard-tabs-border:           #c3c4c7;
+$dashboard-tabs-accent:           #2271b1;
+$dashboard-tabs-shadow:           0 2px 5px rgba(0, 0, 0, 0.05);
+$dashboard-tabs-transition:       all 0.2s;
+
+// =================================================================
+// COMPONENT: Tab Pane
+// =================================================================
+
+$tab-pane-padding: 10px;
+
+// =================================================================
+// COMPONENT: Subject Table
+// =================================================================
+
+$task-table-margin-top:      20px;
+$task-table-header-padding:  12px 10px;
+$task-table-cell-padding:    10px;
+$task-table-border-width:    2px;
+$task-table-border-color:    #e2e4e7;
+$task-table-text-primary:    #2c3338;
+$task-table-text-secondary:  #646970;
+$task-col-name-width:        45%;
+$task-col-template-width:    35%;
+$task-col-actions-width:     15%;
+$task-col-status-width:      5%;
+$task-select-max-width:      350px;
+$task-header-font-weight:    600;
+$task-header-text-align:     left;
+
+// =================================================================
+// COMPONENT: Task Manager Table
+// =================================================================
+
+$task-manager-margin-top:         20px;
+$task-manager-color-danger:       #d63638;
+$task-manager-color-primary:      #2271b1;
+$task-manager-color-icon:         #787c82;
+$task-manager-color-text:         #3c434a;
+$task-manager-bg-code:            #f0f0f1;
+$task-manager-status-success:     #46b450;
+$task-manager-col-name-width:     25%;
+$task-manager-col-template-width: 25%;
+$task-manager-col-actions-width:  25%;
+
+// =================================================================
+// COMPONENT: Taxonomy Manager
+// =================================================================
+
+$taxonomy-manager-margin-top:    20px;
+$taxonomy-manager-color-danger:  #d63638;
+$taxonomy-manager-color-primary: #2271b1;
+$taxonomy-manager-color-icon:    #787c82;
+$taxonomy-manager-color-lock:    #999;
+$taxonomy-manager-bg-row:        #f6f7f7;
+$taxonomy-manager-row-height:    44px;
+$taxonomy-manager-icon-size:     20px;
+
+// =================================================================
+// COMPONENT: Boilerplate List
+// =================================================================
+
+$boilerplate-table-margin-top:   20px;
+$boilerplate-col-primary-width:  70%;
+$boilerplate-col-actions-width:  30%;
+$boilerplate-title-font-size:    14px;
+$boilerplate-color-danger:       #d63638;
+$boilerplate-color-primary:      #2271b1;
+$boilerplate-color-icon-default: #787c82;
+$boilerplate-bg-row-add:         #f6f7f7;
+$boilerplate-bg-row-add-hover:   #ffffff;
+$boilerplate-row-height:         44px;
+$boilerplate-icon-size:          20px;
+$boilerplate-transition-speed:   0.1s;
+
+// =================================================================
+// COMPONENT: Boilerplate Editor
+// =================================================================
+
+$field-group-bg:           #ffffff;
+$field-group-border:       #ccd0d4;
+$field-group-shadow:       0 1px 1px rgba(0, 0, 0, 0.04);
+$field-group-padding:      15px;
+$field-group-label-size:   14px;
+$field-group-label-margin: 10px;
+
+$sidebar-padding:      10px 12px;
+$sidebar-border-color: #dcdcde;
+$sidebar-danger-color: #d63638;
+$sidebar-btn-gap:      10px;

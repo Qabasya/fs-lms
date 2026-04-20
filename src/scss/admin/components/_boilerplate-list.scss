@@ -2,23 +2,9 @@
    COMPONENT: Boilerplate Manager Wrapper
    ================================================================= */
 
-// Переменные для таблицы бойлерплейтов
-$boilerplate-table-margin-top:    20px;
-$boilerplate-col-primary-width:   70%;
-$boilerplate-col-actions-width:   30%;
-$boilerplate-title-font-size:     14px;
+@use '../variables' as *;
 
-// Цвета для действий и состояний
-$boilerplate-color-danger:        #d63638;
-$boilerplate-color-primary:       #2271b1;
-$boilerplate-color-icon-default:  #787c82;
-$boilerplate-bg-row-add:          #f6f7f7;
-$boilerplate-bg-row-add-hover:    #ffffff;
 
-// Размеры и отступы
-$boilerplate-row-height:          44px;
-$boilerplate-icon-size:           20px;
-$boilerplate-transition-speed:    0.1s;
 
 // Обёрка менеджера бойлерплейтов
 // Содержит таблицу со списком шаблонов и кнопкой добавления

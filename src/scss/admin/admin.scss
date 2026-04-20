@@ -1,3 +1,5 @@
+@use 'variables' as *;
+@use 'mixins' as m;
 @use 'components/add-row-button';
 @use 'components/modal';
 @use 'components/subject-table';

@@ -3,29 +3,7 @@
    File: src/scss/admin/components/_task-manager.scss
    ================================================================= */
 
-// Переменные: размеры и отступы
-$task-table-margin-top:           20px;
-$task-table-header-padding:       12px 10px;
-$task-table-cell-padding:         10px;
-$task-table-border-width:         2px;
-
-// Переменные: цвета
-$task-table-border-color:         #e2e4e7;
-$task-table-text-primary:         #2c3338;
-$task-table-text-secondary:       #646970;
-
-// Переменные: ширина колонок (в процентах)
-$task-col-name-width:             45%;
-$task-col-template-width:         35%;
-$task-col-actions-width:          15%;
-$task-col-status-width:           5%;
-
-// Переменные: ограничения для элементов формы
-$task-select-max-width:           350px;
-
-// Переменные: типографика
-$task-header-font-weight:         600;
-$task-header-text-align:          left;
+@use '../variables' as *;
 
 
 /* =================================================================
@@ -119,7 +97,7 @@ $task-header-text-align:          left;
   .column-actions {
     width: $task-col-actions-width;
     white-space: nowrap; // Предотвращаем перенос кнопки на новую строку
-    text-align: right;   // Выравнивание действий вправо
+    text-align: left;   // Выравнивание действий вправо
 
     // Кнопка выполнения задачи
     .js-run-task {

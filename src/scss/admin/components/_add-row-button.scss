@@ -2,12 +2,7 @@
    COMPONENT: Add Row Container (Table Extension)
    ================================================================= */
 
-// Переменные для компонента (локальные, если не вынесены в глобальный tokens.scss)
-$add-row-border-color: #c3c4c7;
-$add-row-hover-bg:     #f6f7f7;
-$add-row-icon-color:   #2271b1;
-$add-row-icon-hover:   #2271b1; // пока не меняется цвет
-$add-row-height:       40px;
+@use '../variables' as *;
 
 .fs-add-row-container {
   // Отрицательный марджин для визуального присоединения к таблице снизу

@@ -2,15 +2,7 @@
    COMPONENT: Taxonomy Manager Wrapper
    ================================================================= */
 
-// Переменные для быстрого редактирования
-$taxonomy-manager-margin-top:    20px;
-$taxonomy-manager-color-danger:  #d63638;
-$taxonomy-manager-color-primary: #2271b1;
-$taxonomy-manager-color-icon:    #787c82;
-$taxonomy-manager-color-lock:    #999;
-$taxonomy-manager-bg-row:        #f6f7f7;
-$taxonomy-manager-row-height:    44px;
-$taxonomy-manager-icon-size:     20px;
+@use '../variables' as *;
 
 .taxonomy-manager-wrapper {
   .js-taxonomy-table {

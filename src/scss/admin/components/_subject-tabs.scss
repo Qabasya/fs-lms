@@ -2,24 +2,7 @@
    COMPONENT: LMS Dashboard Tabs
    ================================================================= */
 
-// Переменные для быстрого редактирования
-$dashboard-tabs-margin-top:    20px;
-$dashboard-tabs-max-width:     95vw;
-$dashboard-tabs-gap:           4px;
-$dashboard-tabs-padding:       12px 24px;
-$dashboard-tabs-content-padding: 30px;
-$dashboard-tabs-min-height:    400px;
-
-// Цвета (стиль WordPress Admin)
-$dashboard-tabs-bg-inactive:   #dcdcde;
-$dashboard-tabs-bg-active:     #fff;
-$dashboard-tabs-bg-hover:      #f0f0f1;
-$dashboard-tabs-border:        #c3c4c7;
-$dashboard-tabs-accent:        #2271b1;
-$dashboard-tabs-shadow:        0 2px 5px rgba(0,0,0,0.05);
-
-// Анимации
-$dashboard-tabs-transition:    all 0.2s;
+@use '../variables' as *;
 
 .fs-lms-dashboard {
   .fs-tabs {

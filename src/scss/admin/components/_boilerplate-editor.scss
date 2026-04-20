@@ -1,0 +1,100 @@
+/* =================================================================
+   COMPONENT: Boilerplate Field Group
+   ================================================================= */
+
+@use '../variables' as *;
+@use '../mixins' as m;
+
+// Блок группы полей с визуальным выделением
+.boilerplate-field-group {
+  background: $field-group-bg;
+  padding: $field-group-padding;
+  border: 1px solid $field-group-border;
+  box-shadow: $field-group-shadow;
+
+  label {
+    display: block;
+    margin-bottom: $field-group-label-margin;
+    font-size: $field-group-label-size;
+  }
+}
+
+
+/* =================================================================
+   COMPONENT: Post Sidebar Actions (Postbox Container)
+   ================================================================= */
+
+#postbox-container-1 {
+  .postbox {
+    .inside {
+      margin: 0;
+      padding: 0;
+    }
+
+    .submitbox {
+      background: transparent;
+    }
+
+    #minor-publishing {
+      padding: $sidebar-padding;
+      border-bottom: 1px solid $sidebar-border-color;
+    }
+
+    #major-publishing-actions {
+      padding: $sidebar-padding;
+      background: transparent;
+      border-top: none;
+      display: flex;
+      flex-direction: column;
+      gap: $sidebar-btn-gap;
+
+      #delete-action,
+      #publishing-action {
+        float: none;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+        width: 100%;
+      }
+
+      .button,
+      input[type="submit"] {
+        @include m.sidebar-button;
+        justify-content: center;
+      }
+
+      .submitdelete {
+        display: block;
+        text-decoration: none;
+        padding: 4px 0;
+        color: inherit;
+        text-align: center;
+        transition: color 0.15s ease-in-out;
+
+        &:hover {
+          color: $sidebar-danger-color;
+          text-decoration: underline;
+        }
+
+        &:focus {
+          outline: 2px solid #2271b1;
+          outline-offset: 2px;
+        }
+      }
+    }
+  }
+}
+
+
+/* =================================================================
+   UTILITIES
+   ================================================================= */
+
+// Медиа-запрос оставляем здесь — это не миксин, а утилита
+@media (max-width: 782px) {
+  #postbox-container-1 {
+    .hide-on-mobile {
+      display: none;
+    }
+  }
+}

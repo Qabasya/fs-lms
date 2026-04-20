@@ -1,0 +1,132 @@
+/* =================================================================
+   COMPONENT: Task Manager Wrapper
+   ================================================================= */
+
+@use '../variables' as *;
+
+.task-manager-wrapper {
+  .js-task-manager-table {
+    margin-top: $task-manager-margin-top;
+
+    /* -----------------------------------------------------------------
+       Заголовки таблицы: убираем жирность
+       ----------------------------------------------------------------- */
+    thead th {
+      font-weight: 400; // Убираем жирность (было 600)
+      font-size: 14px;
+      color: $task-manager-color-text;
+      padding: 8px 12px;
+    }
+
+    /* -----------------------------------------------------------------
+       Ячейки таблицы: выравнивание и отступы
+       ----------------------------------------------------------------- */
+    tbody td {
+      padding: 10px 12px;
+      vertical-align: middle;
+      font-size: 13px;
+    }
+
+    /* -----------------------------------------------------------------
+       Колонки таблицы: распределение ширины
+       ----------------------------------------------------------------- */
+    .column-task-name {
+      width: $task-manager-col-name-width;
+    }
+
+    .column-template-select {
+      width: $task-manager-col-template-width;
+    }
+
+    .column-actions {
+      width: $task-manager-col-actions-width;
+      text-align: left;
+    }
+
+    /* -----------------------------------------------------------------
+       Название задания + slug
+       ----------------------------------------------------------------- */
+    .column-title {
+      strong {
+        display: block;
+        font-weight: 600; // Жирным только название, не заголовки
+        color: $task-manager-color-text;
+        margin-bottom: 2px;
+      }
+
+      // Код с slug (как в таксономиях)
+      .row-actions code {
+        display: inline-block;
+        background: $task-manager-bg-code;
+        padding: 2px 6px;
+        border-radius: 2px;
+        font-size: 11px;
+        color: #646970;
+        font-weight: 400;
+      }
+    }
+
+    /* -----------------------------------------------------------------
+       Select выбора шаблона
+       ----------------------------------------------------------------- */
+    .column-template-select {
+      select.js-change-term-template {
+        width: 80%;
+        max-width: 80%;
+        height: 30px;
+        padding: 0 8px;
+        font-size: 13px;
+        border: 1px solid #8c8f94;
+        border-radius: 2px;
+        background: #fff;
+        cursor: pointer;
+        vertical-align: middle;
+
+        &:disabled {
+          background: #f6f7f7;
+          color: #a7aaad;
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+
+        &:focus {
+          border-color: #2271b1;
+          box-shadow: 0 0 0 1px #2271b1;
+          outline: none;
+        }
+      }
+    }
+
+    /* -----------------------------------------------------------------
+       Кнопка "Настроить"
+       ----------------------------------------------------------------- */
+    .column-actions {
+      .button.button-secondary {
+        display: inline-block;
+        padding: 4px 16px;
+        font-size: 13px;
+        height: 30px;
+        line-height: 20px;
+        vertical-align: middle;
+        text-decoration: none;
+        border: 1px solid #2271b1;
+        background: #f6f7f7;
+        color: #2271b1;
+        border-radius: 2px;
+        cursor: pointer;
+        transition: all 0.1s ease-in-out;
+
+        &:hover {
+          background: #f0f0f1;
+          border-color: #155a8a;
+          color: #155a8a;
+        }
+
+        &:focus {
+          box-shadow: 0 0 0 1px #2271b1;
+          outline: none;
+        }
+      }
+    }
+  }
+}
