@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\AjaxHook;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\MetaBoxRepository;
+use Inc\Repositories\SubjectRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -26,24 +27,25 @@ use Inc\Shared\Traits\TemplateRenderer;
  */
 class BoilerplateController extends BaseController implements ServiceInterface {
 	use TemplateRenderer;
-	
+
 	/**
 	 * Конструктор.
 	 *
 	 * @param BoilerplateRepository $boilerplates         Репозиторий типов заданий
 	 * @param MetaBoxRepository     $metaboxes            Репозиторий метабоксов
-	 * @param BoilerplateCallbacks  $boilerplateCallbacks Коллбеки для AJAX-операций
+	 * @param BoilerplateCallbacks  $boilerplate_callbacks Коллбеки для AJAX-операций
 	 */
 	public function __construct(
 		private readonly BoilerplateRepository $boilerplates,
 		private readonly MetaBoxRepository $metaboxes,
-		private readonly BoilerplateCallbacks $boilerplateCallbacks,
+		private readonly SubjectRepository $subjects,
+		private readonly BoilerplateCallbacks $boilerplate_callbacks,
 	) {
 		parent::__construct();
 	}
-	
+
 	// ============================ РЕГИСТРАЦИЯ ============================ //
-	
+
 	/**
 	 * Точка входа контроллера — регистрирует AJAX-хуки.
 	 *
@@ -53,9 +55,9 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 		// Регистрация AJAX-обработчиков
 		$this->registerAjaxHooks();
 	}
-	
+
 	// ============================ ОТОБРАЖЕНИЕ ============================ //
-	
+
 	/**
 	 * Главная точка входа для отрисовки страницы.
 	 * Вызывается из AdminCallbacks::boilerplatePage.
@@ -67,23 +69,23 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject'] ?? '' ) );
 		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term'] ?? '' ) );
 		$action      = sanitize_text_field( wp_unslash( $_GET['action'] ?? 'list' ) );
-		
+
 		// Валидация обязательных параметров
 		if ( empty( $subject_key ) || empty( $term_slug ) ) {
 			echo '<div class="notice notice-error"><p>Ошибка: недостаточно данных для загрузки страницы.</p></div>';
-			
+
 			return;
 		}
-		
+
 		// Рендеринг соответствующего представления в зависимости от действия
 		match ( $action ) {
 			'new', 'edit' => $this->renderEditor( $subject_key, $term_slug ),
 			default => $this->renderList( $subject_key, $term_slug ),
 		};
 	}
-	
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
+
 	/**
 	 * Регистрирует AJAX-обработчики для операций с boilerplate.
 	 *
@@ -91,20 +93,20 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 	 */
 	private function registerAjaxHooks(): void {
 		// Список хуков для регистрации
-		$hooks = [
+		$hooks = array(
 			AjaxHook::SaveBoilerplate,   // Сохранение boilerplate
 			AjaxHook::DeleteBoilerplate, // Удаление boilerplate
-		];
-		
+		);
+
 		// Регистрация каждого хука
 		foreach ( $hooks as $hook ) {
 			add_action(
 				$hook->action(),                                    // Название AJAX-действия
-				[ $this->boilerplateCallbacks, $hook->callbackMethod() ] // Коллбек для обработки
+				array( $this->boilerplate_callbacks, $hook->callbackMethod() ) // Коллбек для обработки
 			);
 		}
 	}
-	
+
 	/**
 	 * Отрисовывает список boilerplate-шаблонов для указанного типа задания.
 	 *
@@ -114,17 +116,38 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	private function renderList( string $subject_key, string $term_slug ): void {
-		// Получение всех boilerplate для указанного типа задания
 		$boilerplates = $this->boilerplates->getBoilerplates( $subject_key, $term_slug );
-		
-		// Рендеринг шаблона списка
-		$this->render( 'boilerplate-list', [
-			'subject'      => $subject_key,
-			'term'         => $term_slug,
-			'boilerplates' => $boilerplates,
-		] );
+
+		$taxonomy     = $subject_key . '_task_number';
+		$term_object  = get_term_by( 'slug', $term_slug, $taxonomy );
+		$display_name = ( $term_object && ! empty( $term_object->description ) )
+			? $term_object->description
+			: $term_slug;
+
+		$subject_dto          = $this->subjects->getByKey( $subject_key );
+		$subject_display_name = $subject_dto ? $subject_dto->name : $subject_key;
+
+		$back_url = add_query_arg(
+			array(
+				'page' => 'fs_subject_' . $subject_key,
+				'tab'  => 'tab-5',
+			),
+			admin_url( 'admin.php' )
+		);
+
+		$this->render(
+			'boilerplate-list',
+			array(
+				'subject'              => $subject_key,
+				'term'                 => $term_slug,
+				'boilerplates'         => $boilerplates,
+				'display_name'         => $display_name,
+				'subject_display_name' => $subject_display_name,
+				'back_url'             => $back_url,
+			)
+		);
 	}
-	
+
 	/**
 	 * Отрисовывает редактор boilerplate-шаблона.
 	 *
@@ -139,34 +162,44 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 	private function renderEditor( string $subject_key, string $term_slug ): void {
 		// Получение UID из GET-параметра
 		$uid = sanitize_text_field( wp_unslash( $_GET['uid'] ?? '' ) );
-		
+
 		// Загрузка существующего boilerplate (если UID указан)
 		$boilerplate = $uid
 			? $this->boilerplates->findBoilerplate( $subject_key, $term_slug, $uid )
 			: null;
-		
+
 		// Декодирование контента для отображения в форме
 		$decoded_content = $boilerplate
 			? $this->decodeContent( $boilerplate->content )
-			: [];
-		
+			: array();
+
 		// Получение ID шаблона для определения доступных полей условий
 		$assignment  = $this->metaboxes->getAssignment( $subject_key, $term_slug );
 		$template_id = ( $assignment && ! empty( $assignment->template_id ) )
 			? ( $assignment->template_id instanceof \UnitEnum ? $assignment->template_id->name : $assignment->template_id )
 			: 'standard_task';
-		
-		// Рендеринг шаблона редактора
-		$this->render( 'boilerplate-editor', [
-			'subject'        => $subject_key,
-			'term'           => $term_slug,
-			'template_id'    => $template_id,
-			'boilerplate'    => $boilerplate,
-			'content_fields' => $decoded_content,
-			'fields'         => $this->getConditionFields( $template_id ),
-		] );
+
+		$is_edit    = null !== $boilerplate;
+		$page_title = $is_edit ? 'Редактировать условие' : 'Добавить новое типовое условие';
+		$bp_uid     = $is_edit ? $boilerplate->uid : uniqid( 'bp_' );
+		$bp_title   = $is_edit ? $boilerplate->title : '';
+
+		$this->render(
+			'boilerplate-editor',
+			array(
+				'subject'        => $subject_key,
+				'term'           => $term_slug,
+				'template_id'    => $template_id,
+				'is_edit'        => $is_edit,
+				'page_title'     => $page_title,
+				'bp_uid'         => $bp_uid,
+				'bp_title'       => $bp_title,
+				'content_fields' => $decoded_content,
+				'fields'         => $this->getConditionFields( $template_id ),
+			)
+		);
 	}
-	
+
 	/**
 	 * Возвращает только поля с суффиксом '_condition' для указанного шаблона.
 	 *
@@ -179,8 +212,8 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 	 */
 	private function getConditionFields( string $template_id ): array {
 		// Получение списка всех шаблонов через фильтр
-		$templates = apply_filters( 'fs_lms_get_templates', [] );
-		
+		$templates = apply_filters( 'fs_lms_get_templates', array() );
+
 		// Поиск нужного шаблона по ID
 		foreach ( $templates as $tpl ) {
 			if ( isset( $tpl->id ) && $tpl->id === $template_id ) {
@@ -190,20 +223,20 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 					static fn( string $key ): bool => str_contains( $key, '_condition' ),
 					ARRAY_FILTER_USE_KEY
 				);
-				
+
 				// Возвращаем найденные поля условий
 				if ( ! empty( $condition_fields ) ) {
 					return $condition_fields;
 				}
-				
+
 				break;
 			}
 		}
-		
+
 		// Фолбек: стандартное поле условия
-		return [ 'task_condition' => [ 'label' => 'Условие задания' ] ];
+		return array( 'task_condition' => array( 'label' => 'Условие задания' ) );
 	}
-	
+
 	/**
 	 * Декодирует сохранённый контент boilerplate.
 	 *
@@ -216,18 +249,18 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 	 */
 	private function decodeContent( string $raw ): array {
 		if ( empty( $raw ) ) {
-			return [];
+			return array();
 		}
-		
+
 		// Попытка декодировать JSON
 		$decoded = json_decode( $raw, true );
-		
+
 		// Если JSON валидный и является массивом — возвращаем его
 		if ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) {
 			return $decoded;
 		}
-		
+
 		// Иначе — оборачиваем строку в массив с ключом по умолчанию
-		return [ 'task_condition' => $raw ];
+		return array( 'task_condition' => $raw );
 	}
 }

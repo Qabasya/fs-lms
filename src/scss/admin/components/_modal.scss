@@ -1,0 +1,439 @@
+@use '../variables' as *;
+
+
+/* =================================================================
+   MIXINS (переиспользуемые паттерны)
+   ================================================================= */
+
+/// Миксин для кнопок модального окна
+/// @param {Color} $bg-color - цвет фона
+/// @param {Color} $hover-color - цвет фона при ховере
+/// @param {Color} $text-color [=$color-text-inverse] - цвет текста
+@mixin modal-button($bg-color, $hover-color, $text-color: $color-text-inverse) {
+  background: $bg-color;
+  color: $text-color;
+  transition: $transition-default;
+
+  &:hover {
+    background: $hover-color;
+  }
+}
+
+/// Миксин для полей ввода с состоянием фокуса
+/// @param {Color} $focus-color [$color-focus] - цвет обводки при фокусе
+@mixin form-input($focus-color: $color-focus) {
+  width: 100%;
+  height: 35px;
+  padding: 0 $spacing-md;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-md;
+  box-sizing: border-box;
+  font-size: 13px;
+  transition: $transition-default;
+
+  &:focus {
+    border-color: $focus-color;
+    box-shadow: 0 0 0 1px $focus-color;
+    outline: none;
+  }
+
+  &::placeholder {
+    color: $color-text-secondary;
+  }
+}
+
+/// Миксин для сброса стилей кнопки
+@mixin reset-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+
+/* =================================================================
+   ANIMATIONS
+   ================================================================= */
+
+/// Анимация появления модального окна
+/// Эффект: плавное увеличение (scale) + появление (opacity)
+@keyframes fsModalIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+
+/* =================================================================
+   MODAL: Base Structure
+   ================================================================= */
+
+// ── Блокировка скролла у body при открытом модале
+// Важно: переменная --scrollbar-width должна устанавливаться через JS
+// для компенсации ширины скроллбара и предотвращения "прыжка" контента
+html.modal-open {
+  overflow: hidden;
+  padding-right: var(--scrollbar-width, 0px);
+}
+
+// ── Контейнер модального окна (оверлей на весь экран)
+.fs-lms-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: $z-modal-root;
+
+  // Состояния видимости
+  // Приоритет: .active > :not(.hidden) > default
+  &.active,
+  &:not(.hidden) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  // ── Backdrop: затемнение фона
+  .fs-lms-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: $color-bg-backdrop;
+    z-index: $z-modal-backdrop;
+    // 💡 Tip: для кликов "мимо" модалки добавить: pointer-events: none;
+    //        и включить их у .fs-lms-modal-content
+  }
+}
+
+
+/* =================================================================
+   📦 MODAL: Content Box (WPBakery Style)
+   ================================================================= */
+
+.fs-lms-modal-content {
+  // Центрирование через transform (классический паттерн)
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: fsModalIn $transition-fast;
+
+  // Визуальное оформление
+  background: $color-bg-modal;
+  width: 100%;
+  max-width: 600px; // 🔧 Переопределяется через модификаторы .fs-modal-*
+  max-height: 90vh;
+  border-radius: $border-radius-sm;
+  box-shadow: $shadow-modal;
+  z-index: $z-modal-content;
+
+  // Flex-контейнер для вертикальной структуры: header → body → footer
+  display: flex;
+  flex-direction: column;
+
+  /* ── HEADER: заголовок + кнопка закрытия */
+  .fs-lms-modal-header {
+    background: $color-primary;
+    color: $color-text-inverse;
+    padding: $spacing-lg $spacing-xl;
+    border-radius: $border-radius-sm $border-radius-sm 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0; // Не сжимать хедер при переполнении контента
+
+    // Заголовок модалки
+    h2.fs-lms-modal-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.4;
+      color: $color-text-inverse !important;
+
+      // Сброс наследуемых стилей (актуально для WPBakery)
+      border: none !important;
+      border-bottom: none !important;
+      box-shadow: none !important;
+      padding: 0;
+    }
+
+    // Кнопка закрытия (крестик)
+    .fs-lms-modal-close,
+    .fs-close {
+      @include reset-button;
+      color: $color-text-inverse;
+      font-size: 24px;
+      line-height: 1;
+      padding: 0 $spacing-xs;
+      opacity: 0.8;
+      transition: opacity $transition-fast;
+
+      &:hover {
+        opacity: 1;
+      }
+
+      // Accessibility: видимый фокус для клавиатурной навигации
+      &:focus {
+        outline: 2px solid $color-text-inverse;
+        outline-offset: 2px;
+      }
+    }
+  }
+
+  /* ── BODY: основной контент с прокруткой */
+  .fs-lms-modal-body {
+    padding: $spacing-xl;
+    overflow-y: auto; // Скролл только внутри body, если контент не влезает
+    flex: 1;          // Занимает всё доступное пространство
+
+    // Базовые стили для параграфов
+    p {
+      margin: 0 0 $spacing-xl 0;
+      line-height: 1.5;
+      color: $color-text-primary;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  /* ── FOOTER: панель действий (кнопки) */
+  .fs-lms-modal-footer,
+  .fs-modal-footer {
+    border-top: 1px solid $color-border-footer;
+    padding: $spacing-lg $spacing-xl;
+    border-radius: 0 0 $border-radius-sm $border-radius-sm;
+    display: flex;
+    justify-content: space-between;
+    gap: $spacing-md;
+    flex-shrink: 0;
+
+    // Базовые стили для всех кнопок в футере
+    button,
+    .button {
+      padding: $spacing-sm $spacing-xl;
+      font-size: 13px;
+      line-height: 1.5;
+      border: none;
+      border-radius: $border-radius-sm;
+      cursor: pointer;
+      transition: $transition-default;
+
+      // 🔘 Вторичная кнопка (Отмена/Закрыть)
+      &.fs-lms-modal-cancel,
+      &.button-secondary {
+        @include modal-button($color-secondary, $color-secondary-hover);
+      }
+
+      // 🔵 Primary кнопка (Подтвердить/Сохранить)
+      &.fs-lms-modal-confirm,
+      &.button-primary {
+        @include modal-button($color-primary, $color-primary-hover);
+      }
+
+      // 🔴 Деструктивная кнопка (Удалить)
+      &.button-link-delete {
+        @include modal-button($color-danger, $color-danger-hover);
+      }
+
+      // Accessibility: фокус для клавиатурной навигации
+      &:focus {
+        outline: 2px solid $color-focus;
+        outline-offset: 2px;
+      }
+    }
+  }
+}
+
+
+/* =================================================================
+   FORM ELEMENTS (для форм внутри модалок)
+   ================================================================= */
+
+.fs-form-group {
+  margin-bottom: $spacing-xl;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  // Подпись к полю
+  label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: $spacing-sm;
+    color: $color-text-primary;
+    font-size: 13px;
+  }
+
+  // Поля ввода: text, email, password и т.д.
+  $input-types: text, number, email, url, password;
+  @each $type in $input-types {
+    input[type="#{$type}"] {
+      @include form-input;
+    }
+  }
+
+  // Select и textarea
+  select,
+  textarea {
+    @include form-input;
+  }
+
+  // Особые стили для textarea
+  textarea {
+    height: auto;
+    min-height: 100px;
+    padding: $spacing-md $spacing-md;
+    resize: vertical; // Разрешить изменение высоты
+  }
+
+  // Кастомный select со стрелочкой (SVG inline)
+  select {
+    cursor: pointer;
+    appearance: none; // Сброс нативного стиля
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23646970' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right $spacing-md center;
+    padding-right: 35px; // Место под иконку
+  }
+
+  // Подсказка под полем
+  .description {
+    font-size: 12px;
+    font-style: italic;
+    color: $color-text-secondary;
+    margin-top: $spacing-xs;
+    line-height: 1.4;
+  }
+
+  // Состояние ошибки валидации
+  .error {
+    border-color: $color-danger !important;
+
+    + .error-message {
+      color: $color-danger;
+      font-size: 12px;
+      margin-top: $spacing-xs;
+      display: block;
+    }
+  }
+}
+
+
+/* =================================================================
+   MODAL SIZE MODIFIERS (опционально)
+   ================================================================= */
+
+// Классы-модификаторы для изменения ширины модалки
+// Использование: <div class="fs-lms-modal-content fs-modal-lg">
+.fs-lms-modal-content {
+  &.fs-modal-sm { max-width: 400px; }
+  &.fs-modal-md { max-width: 600px; } // default
+  &.fs-modal-lg { max-width: 800px; }
+  &.fs-modal-xl { max-width: 1000px; }
+}
+
+
+/* =================================================================
+   UTILITIES & OVERRIDES
+   ================================================================= */
+
+// ── Сброс стилей WPBakery postbox внутри модалки
+// Чтобы встроенные виджеты не ломали верстку
+.fs-lms-modal-content {
+  .postbox {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+
+    .postbox-header {
+      display: none; // Скрываем дублирующий заголовок
+    }
+
+    .inside {
+      padding: 0; // Убираем лишние отступы
+    }
+  }
+}
+
+// ── Группа радио-кнопок
+.fs-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin-top: $spacing-xs;
+}
+
+.fs-radio-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  cursor: pointer;
+  font-size: 13px;
+  color: $color-text-primary;
+
+  input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: $color-primary; // Нативная окраска (современные браузеры)
+  }
+
+  &:hover span {
+    color: $color-primary;
+  }
+}
+
+// ── Сохранение переносов строк в сообщениях
+.fs-lms-modal-message {
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: 1.5;
+}
+
+
+/* =================================================================
+   RESPONSIVE: Mobile Adaptation
+   ================================================================= */
+
+@media (max-width: $breakpoint-mobile) {
+  .fs-lms-modal-content {
+    // Отступы по краям экрана + уменьшенная высота
+    max-width: calc(100% - 40px);
+    max-height: calc(100vh - 40px);
+
+    .fs-lms-modal-header {
+      padding: $spacing-md $spacing-lg;
+
+      h2.fs-lms-modal-title {
+        font-size: 15px;
+      }
+
+      .fs-lms-modal-close {
+        font-size: 22px;
+      }
+    }
+
+    .fs-lms-modal-body {
+      padding: $spacing-lg;
+    }
+
+    .fs-lms-modal-footer {
+      padding: $spacing-md $spacing-lg;
+      flex-wrap: wrap; // Кнопки переносятся на новую строку
+
+      button {
+        flex: 1;           // Равная ширина кнопок
+        min-width: 100px;  // Минимальная удобная ширина для тапа
+      }
+    }
+  }
+}

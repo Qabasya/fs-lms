@@ -47,39 +47,42 @@ class SettingsManager {
 		if ( empty( $settings ) ) {
 			return;
 		}
-		
+
 		// Регистрируем все компоненты на хуке admin_init
-		add_action( 'admin_init', function () use ( $settings, $sections, $fields ) {
-			// Регистрация опций (настроек)
-			foreach ( $settings as $setting ) {
-				register_setting(
-					$setting["option_group"],               // Группа настроек
-					$setting["option_name"],                // Имя опции в БД
-					$setting["callback"] ?? ''              // Коллбек санитизации (если есть)
-				);
+		add_action(
+			'admin_init',
+			function () use ( $settings, $sections, $fields ) {
+				// Регистрация опций (настроек)
+				foreach ( $settings as $setting ) {
+					register_setting(
+						$setting['option_group'],               // Группа настроек
+						$setting['option_name'],                // Имя опции в БД
+						$setting['callback'] ?? ''              // Коллбек санитизации (если есть)
+					);
+				}
+
+				// Регистрация секций настроек
+				foreach ( $sections as $section ) {
+					add_settings_section(
+						$section['id'],                         // Уникальный ID секции
+						$section['title'],                      // Заголовок секции
+						$section['callback'] ?? '',             // Коллбек для вывода описания секции
+						$section['page']                        // Страница, на которой отображается секция
+					);
+				}
+
+				// Регистрация полей настроек
+				foreach ( $fields as $field ) {
+					add_settings_field(
+						$field['id'],                           // Уникальный ID поля
+						$field['title'],                        // Заголовок поля
+						$field['callback'] ?? '',               // Коллбек для отрисовки поля
+						$field['page'],                         // Страница настройки
+						$field['section'],                      // ID секции, к которой принадлежит поле
+						$field['args'] ?? ''                    // Дополнительные аргументы для коллбека
+					);
+				}
 			}
-			
-			// Регистрация секций настроек
-			foreach ( $sections as $section ) {
-				add_settings_section(
-					$section["id"],                         // Уникальный ID секции
-					$section["title"],                      // Заголовок секции
-					$section["callback"] ?? '',             // Коллбек для вывода описания секции
-					$section["page"]                        // Страница, на которой отображается секция
-				);
-			}
-			
-			// Регистрация полей настроек
-			foreach ( $fields as $field ) {
-				add_settings_field(
-					$field["id"],                           // Уникальный ID поля
-					$field["title"],                        // Заголовок поля
-					$field["callback"] ?? '',               // Коллбек для отрисовки поля
-					$field["page"],                         // Страница настройки
-					$field["section"],                      // ID секции, к которой принадлежит поле
-					$field["args"] ?? ''                    // Дополнительные аргументы для коллбека
-				);
-			}
-		} );
+		);
 	}
 }

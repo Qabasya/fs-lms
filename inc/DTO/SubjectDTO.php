@@ -12,16 +12,17 @@ namespace Inc\DTO;
  *
  * @package Inc\DTO
  */
-class SubjectDTO {
-	/**
-	 * Конструктор DTO.
-	 *
-	 * @param string $key  Уникальный идентификатор предмета (slug)
-	 * @param string $name Отображаемое название предмета
-	 */
-	public function __construct(
-		public readonly string $key,
-		public readonly string $name
-	) {
-	}
+class SubjectDTO
+{
+    /**
+     * Конструктор DTO.
+     *
+     * @param string $key  Уникальный идентификатор предмета (slug)
+     * @param string $name Отображаемое название предмета
+     */
+    public function __construct(
+        public readonly string $key,
+        public readonly string $name
+    ) {
+    }
 }

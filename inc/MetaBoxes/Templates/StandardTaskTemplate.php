@@ -23,18 +23,18 @@ class StandardTaskTemplate extends BaseTemplate {
 	 * - task_answer: правильный ответ (input)
 	 */
 	public function __construct() {
-		$this->fields = [
-			'task_condition' => [
+		$this->fields = array(
+			'task_condition' => array(
 				'label'  => 'Условие задания',
-				'object' => new ConditionField()     // Многострочный текст
-			],
-			'task_answer'    => [
+				'object' => new ConditionField(),     // Многострочный текст
+			),
+			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
-				'object' => new InputField()        // Текстовое поле
-			]
-		];
+				'object' => new InputField(),        // Текстовое поле
+			),
+		);
 	}
-	
+
 	/**
 	 * Возвращает уникальный идентификатор шаблона.
 	 *
@@ -43,7 +43,7 @@ class StandardTaskTemplate extends BaseTemplate {
 	public function get_id(): string {
 		return 'standard_task';
 	}
-	
+
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *

@@ -15,34 +15,34 @@ namespace Inc\Enums;
  */
 enum AjaxHook: string {
 	// ==================== SubjectController (Предметы) ====================
-	case StoreSubject = 'StoreSubject';
+	case StoreSubject  = 'StoreSubject';
 	case UpdateSubject = 'UpdateSubject';
 	case DeleteSubject = 'DeleteSubject';
 	case ExportSubject = 'ExportSubject';
 	case ImportSubject = 'ImportSubject';
 
 	// ==================== SubjectController (Таксономии) ====================
-	case StoreTaxonomy = 'StoreTaxonomy';
+	case StoreTaxonomy  = 'StoreTaxonomy';
 	case UpdateTaxonomy = 'UpdateTaxonomy';
 	case DeleteTaxonomy = 'DeleteTaxonomy';
 
 	// ==================== BoilerplateController (Полноценный CRUD редактор) ====================
-	case SaveBoilerplate = 'SaveBoilerplate';
+	case SaveBoilerplate   = 'SaveBoilerplate';
 	case DeleteBoilerplate = 'DeleteBoilerplate';
 
 	// ==================== TaskCreationController (Создание задач в модалке) ====================
-	case GetTaskTypes = 'GetTaskTypes';
+	case GetTaskTypes        = 'GetTaskTypes';
 	case GetTaskBoilerplates = 'GetTaskBoilerplates';
-	case CreateTask = 'CreateTask';
+	case CreateTask          = 'CreateTask';
 
 	// ==================== SubjectController (Таблица постов) ====================
 	case GetPostsTable = 'GetPostsTable';
 
 	// ==================== TemplateManager (Быстрые настройки и структура) ====================
-	case GetTemplateStructure = 'GetTemplateStructure';
-	case SaveTaskBoilerplate = 'SaveTaskBoilerplate';
-	case GetTaskBoilerplate = 'GetBoilerplate';
-	case UpdateTermTemplate = 'UpdateTermTemplate';
+	case GetTemplateStructure   = 'GetTemplateStructure';
+	case SaveTaskBoilerplate    = 'SaveTaskBoilerplate';
+	case GetTaskBoilerplate     = 'GetBoilerplate';
+	case UpdateTermTemplate     = 'UpdateTermTemplate';
 	case SaveTemplateAssignment = 'SaveTemplateAssignment';
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
@@ -98,7 +98,7 @@ enum AjaxHook: string {
 	 * @return array<string, string> Массив [lcfirst(case) => jsAction]
 	 */
 	public static function toJsArray(): array {
-		$actions = [];
+		$actions = array();
 		foreach ( self::cases() as $case ) {
 			$actions[ lcfirst( $case->name ) ] = $case->jsAction();
 		}

@@ -1,10 +1,10 @@
-import { UI }           from './modules/ui.js';
-import { Subjects }     from './services/subjects.js';
-import { Tasks }        from './services/tasks.js';
-import { Boilerplates } from './services/boilerplates.js';
-import { TaskCreation } from './services/task-creation.js';
-import { Taxonomies }   from './services/taxonomies.js';
-import { PostsTable }   from './services/posts-table.js';
+import {UI} from './modules/ui.js';
+import {Subjects} from './services/subjects.js';
+import {TemplateManager} from './services/template-manager.js';
+import {Boilerplates} from './services/boilerplates.js';
+import {TaskCreation} from './services/task-creation.js';
+import {Taxonomies} from './services/taxonomies.js';
+import {PostsTable} from './services/posts-table.js';
 
 (function ($) {
     'use strict';
@@ -18,7 +18,7 @@ import { PostsTable }   from './services/posts-table.js';
             Subjects.init();
         }
 
-        Tasks.init();
+        TemplateManager.init();
         PostsTable.init();
         Boilerplates.init();
 

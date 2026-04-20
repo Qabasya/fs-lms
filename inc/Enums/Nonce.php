@@ -23,6 +23,7 @@ enum Nonce: string {
 
 	/**
 	 * Создает защитный токен.
+	 *
 	 * @return string
 	 */
 	public function create(): string {
@@ -31,7 +32,8 @@ enum Nonce: string {
 
 	/**
 	 * Проверяет входящий запрос.
-	 * @param string $queryArg Ключ в массиве $_POST/$_REQUEST (обычно 'security' или 'nonce')
+	 *
+	 * @param string $queryArg Ключ в массиве $_POST/$_REQUEST (обычно 'security' или 'nonce').
 	 */
 	public function verify( string $queryArg = 'security' ): void {
 		check_ajax_referer( $this->value, $queryArg );

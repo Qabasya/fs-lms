@@ -1,0 +1,74 @@
+/* =================================================================
+   COMPONENT: LMS Dashboard Tabs
+   ================================================================= */
+
+@use '../variables' as *;
+
+.fs-lms-dashboard {
+  .fs-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: $dashboard-tabs-margin-top;
+    width: 100%;
+    max-width: $dashboard-tabs-max-width;
+
+    // Метка вкладки (визуально кнопка)
+    label {
+      padding: $dashboard-tabs-padding;
+      background: $dashboard-tabs-bg-inactive;
+      cursor: pointer;
+      border: 1px solid $dashboard-tabs-border;
+      border-bottom: none;
+      margin-right: $dashboard-tabs-gap;
+      transition: $dashboard-tabs-transition;
+      font-weight: 500;
+
+      &:hover {
+        background: $dashboard-tabs-bg-hover;
+      }
+    }
+
+    // Скрытый radio + логика переключения через соседние селекторы
+    input[type="radio"] {
+      display: none;
+
+      // Активная вкладка: меняем стиль label и показываем контент
+      &:checked + label {
+        background: $dashboard-tabs-bg-active;
+        border-bottom: 1px solid $dashboard-tabs-bg-active;
+        margin-bottom: -1px; // Компенсация границы для эффекта "вкладки"
+        font-weight: 600;
+        box-shadow: 0 -2px 0 $dashboard-tabs-accent inset; // Синий индикатор
+      }
+
+      // Показываем контент, следующий за активным label
+      &:checked + label + .tab-content {
+        display: block;
+      }
+    }
+
+    // Панель контента вкладки
+    .tab-content {
+      width: 100%;
+      order: 1; // Гарантируем порядок при flex-wrap
+      display: none;
+      padding: $dashboard-tabs-content-padding;
+      background: $dashboard-tabs-bg-active;
+      border: 1px solid $dashboard-tabs-border;
+      min-height: $dashboard-tabs-min-height;
+      box-shadow: $dashboard-tabs-shadow;
+    }
+  }
+}
+
+/* =================================================================
+   UTILITY: Row Actions Links
+   ================================================================= */
+
+// Ссылки действий в таблицах (редактировать, удалить и т.д.)
+.row-actions {
+  a {
+    text-decoration: none;
+    &:hover { color: $dashboard-tabs-accent; }
+  }
+}

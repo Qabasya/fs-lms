@@ -21,30 +21,30 @@ use Inc\Shared\Traits\TemplateRenderer;
  */
 class AdminCallbacks extends BaseController {
 	use TemplateRenderer;
-	
+
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository     $subjects              Репозиторий предметов
-	 * @param BoilerplateController $boilerplateController Контроллер для страницы boilerplate
+	 * @param SubjectRepository     $subjects              Репозиторий предметов.
+	 * @param BoilerplateController $boilerplate_controller Контроллер для страницы boilerplate.
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
-		private readonly BoilerplateController $boilerplateController
+		private readonly BoilerplateController $boilerplate_controller
 	) {
 		parent::__construct();
 	}
-	
+
 	/**
 	 * Метод для главной страницы (Dashboard).
 	 *
 	 * @return void
 	 */
 	public function adminDashboard(): void {
-		// Временная заглушка, будет заменена на реальный дашборд
+		// Временная заглушка, будет заменена на реальный дашборд.
 		echo '<div class="wrap"><h1>Dashboard</h1><p>Данные о предметах</p></div>';
 	}
-	
+
 	/**
 	 * Страница настроек (добавление предметов и прочее).
 	 *
@@ -53,11 +53,11 @@ class AdminCallbacks extends BaseController {
 	public function settingsPage(): void {
 		// Получение всех предметов из репозитория
 		$all_subjects = $this->subjects->readAll();
-		
+
 		// Рендеринг шаблона настроек с переданными данными
-		$this->render( 'settings', [ 'subjects' => $all_subjects ] );
+		$this->render( 'settings', array( 'subjects' => $all_subjects ) );
 	}
-	
+
 	/**
 	 * Метод-прослойка для страницы управления типовыми условиями (boilerplate).
 	 *
@@ -67,6 +67,6 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function boilerplatePage(): void {
-		$this->boilerplateController->displayPage();
+		$this->boilerplate_controller->displayPage();
 	}
 }

@@ -30,8 +30,8 @@ abstract class BaseTemplate {
 	 *
 	 * @var array<string, array{label: string, object: object}>
 	 */
-	public array $fields = [];
-	
+	public array $fields = array();
+
 	/**
 	 * Возвращает уникальное имя (ID) шаблона.
 	 *
@@ -40,7 +40,7 @@ abstract class BaseTemplate {
 	 * @return string Уникальный идентификатор шаблона (например, 'standard_task')
 	 */
 	abstract public function get_id(): string;
-	
+
 	/**
 	 * Возвращает человекочитаемое название шаблона.
 	 *
@@ -49,7 +49,7 @@ abstract class BaseTemplate {
 	 * @return string Название шаблона (например, 'Стандартное задание')
 	 */
 	abstract public function get_name(): string;
-	
+
 	/**
 	 * Отрисовывает все поля шаблона.
 	 *
@@ -64,28 +64,28 @@ abstract class BaseTemplate {
 	public function render( \WP_Post $post ): void {
 		// 1. Достаём единый массив данных из мета-поля
 		$values = get_post_meta( $post->ID, 'fs_lms_meta', true );
-		
+
 		// Если данных ещё нет, инициализируем пустым массивом
 		if ( ! is_array( $values ) ) {
-			$values = [];
+			$values = array();
 		}
-		
+
 		// 2. Открываем обёртку для шаблона
 		echo '<div class="fs-lms-template-wrapper" id="template-' . esc_attr( $this->get_id() ) . '">';
-		
+
 		// 3. Проходим по всем зарегистрированным полям
 		foreach ( $this->fields as $field_id => $config ) {
 			$label = $config['label'];                 // Текст метки поля
 			$field = $config['object'];                // Экземпляр класса поля
 			$value = $values[ $field_id ] ?? '';       // Текущее значение поля
-			
+
 			// 4. Делегируем рендеринг самому полю
 			$field->render( $post, $field_id, $label, $value );
 		}
-		
+
 		echo '</div>';
 	}
-	
+
 	/**
 	 * Возвращает конфигурацию полей для процесса сохранения.
 	 *

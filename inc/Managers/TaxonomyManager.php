@@ -35,17 +35,20 @@ class TaxonomyManager {
 		if ( empty( $taxonomies ) ) {
 			return;
 		}
-		
+
 		// Регистрируем таксономии на хуке init (как и CPT)
-		add_action( 'init', function () use ( $taxonomies ) {
-			foreach ( $taxonomies as $slug => $data ) {
-				// Регистрируем каждую таксономию через WordPress API
-				register_taxonomy(
-					$slug,                      // Слаг таксономии (уникальный идентификатор)
-					$data['post_types'],        // Тип(ы) постов для привязки
-					$data['args']               // Аргументы конфигурации таксономии
-				);
+		add_action(
+			'init',
+			function () use ( $taxonomies ) {
+				foreach ( $taxonomies as $slug => $data ) {
+					// Регистрируем каждую таксономию через WordPress API
+					register_taxonomy(
+						$slug,                      // Слаг таксономии (уникальный идентификатор)
+						$data['post_types'],        // Тип(ы) постов для привязки
+						$data['args']               // Аргументы конфигурации таксономии
+					);
+				}
 			}
-		} );
+		);
 	}
 }

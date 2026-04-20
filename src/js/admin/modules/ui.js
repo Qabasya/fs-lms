@@ -1,177 +1,71 @@
 /**
- * @fileoverview Модуль инициализации UI компонентов плагина.
- * @description Автоматически обнаруживает и инициализирует все компоненты (модальные окна и другие UI элементы)
- *              из директории '../components'. Использует Webpack require.context для динамического импорта.
- * @requires webpack - Требуется для работы require.context
- */
-
-/**
- * Объект для централизованной инициализации всех UI компонентов.
+ * Модуль централизованной инициализации UI-компонентов.
  * @namespace UI
- * @typedef {Object} UI
  */
 export const UI = {
     /**
-     * Инициализирует все компоненты из директории '../components'.
-     * Автоматически находит все .js файлы, импортирует их и вызывает метод init(),
-     * если компонент имеет такой метод.
-     *
-     * @memberof UI
-     * @instance
+     * Находит и инициализирует все компоненты из '../components'.
      * @returns {void}
-     *
-     * @example
-     * // Инициализация всех компонентов после загрузки DOM
-     * jQuery(document).ready(() => {
-     *     UI.init();
-     * });
-     *
-     * @example
-     * // Если компоненты нужно инициализировать после AJAX-загрузки контента
-     * $.ajax({
-     *     url: '/some-endpoint',
-     *     success: function(response) {
-     *         $('#container').html(response.html);
-     *         UI.init(); // Повторная инициализация для новых компонентов
-     *     }
-     * });
      */
     init() {
-        /**
-         * Контекст для динамического импорта всех JavaScript файлов из директории '../components'
-         * @type {__WebpackModuleApi.RequireContext}
-         * @description require.context - это специальная функция Webpack, которая позволяет
-         *              динамически импортировать несколько файлов из указанной директории.
-         *              Параметры:
-         *              - '../components' - путь к директории с компонентами
-         *              - false - не искать рекурсивно во вложенных папках
-         *              - /\.js$/ - регулярное выражение для фильтрации файлов (только .js)
-         */
+        // require.context: Webpack-specific API для динамического импорта
+        // Параметры: (путь, рекурсия, фильтр)
         const requireComponent = require.context('../components', false, /\.js$/);
 
-        /**
-         * Перебираем все найденные файлы компонентов
-         * @param {string} fileName - Имя файла компонента (например, './Modal.js')
-         */
         requireComponent.keys().forEach(fileName => {
-            /**
-             * Импортированный модуль компонента
-             * @type {Object}
-             * @description Модуль может экспортировать компонент в разных форматах:
-             *              - как свойство Modal
-             *              - как default экспорт
-             *              - как первый попавшийся экспорт
-             */
             const componentConfig = requireComponent(fileName);
 
-            /**
-             * Извлечение компонента из модуля
-             * @type {Object|Function|*}
-             * @description Пытаемся получить компонент в следующем порядке приоритета:
-             *              1. Свойство Modal (если компонент экспортирован как Modal)
-             *              2. Default экспорт (если используется export default)
-             *              3. Первое свойство модуля (если компонент экспортирован без имени)
-             */
+            // Поддержка разных стилей экспорта: named, default, first-export
             const component = componentConfig.Modal ||
                 componentConfig.default ||
                 componentConfig[Object.keys(componentConfig)[0]];
 
-            /**
-             * Проверяем, что компонент существует и имеет метод init
-             * @type {boolean}
-             */
-            const hasInitMethod = component && typeof component.init === 'function';
-
-            /**
-             * Если компонент корректен - вызываем его метод init()
-             * @description Используем условный вызов для предотвращения ошибок
-             */
-            if (hasInitMethod) {
-                component.init();
+            if (component && typeof component.init === 'function') {
+                try {
+                    component.init();
+                } catch (err) {
+                    console.error(`[UI] Failed to initialize component "${fileName}":`, err);
+                }
             }
         });
     },
 };
 
 /**
- * @typedef {Object} ComponentModule
- * @property {Object} [Modal] - Экспортированный компонент с именем Modal
- * @property {Object} [default] - Экспортированный компонент по умолчанию
- * @property {Object} [key] - Динамические экспортированные компоненты
- */
-
-/**
- * @typedef {Object} UIComponent
- * @property {Function} init - Метод инициализации компонента
- * @property {Function} [destroy] - Опциональный метод уничтожения компонента
- * @property {Function} [open] - Опциональный метод открытия компонента
- * @property {Function} [close] - Опциональный метод закрытия компонента
- */
-
-/**
- * Функция-обёртка для безопасной инициализации UI в WordPress.
- * @function initUI
- * @description Проверяет наличие jQuery и DOM, затем инициализирует все компоненты.
+ * Точка входа для инициализации UI.
+ * Проверяет окружение и вызывает UI.init() после готовности DOM.
  * @returns {void}
- *
- * @example
- * // В основном файле скрипта плагина
- * if (typeof window.fsLmsPlugin !== 'undefined') {
- *     initUI();
- * }
  */
 export function initUI() {
-    // Проверяем, что jQuery загружена
     if (typeof jQuery === 'undefined') {
-        console.error('[UI] Ошибка: jQuery не загружена. Компоненты не будут инициализированы.');
+        console.error('[UI] jQuery not loaded. Components skipped.');
         return;
     }
 
-    // Проверяем, что DOM загружен
     const isDOMReady = document.readyState !== 'loading';
 
     if (isDOMReady) {
-        // DOM уже загружен, инициализируем сразу
         UI.init();
     } else {
-        // DOM ещё загружается, ждём события
-        jQuery(document).ready(() => {
-            UI.init();
-        });
+        jQuery(document).ready(() => UI.init());
     }
 }
 
 /**
- * Функция для повторной инициализации компонентов после динамической загрузки контента.
- * @function reinitUI
- * @description Полезна при использовании AJAX-загрузки контента, когда новые компоненты
- *              добавляются в DOM после первоначальной инициализации.
- * @param {HTMLElement|jQuery|string} [context] - Контекст для частичной инициализации (опционально).
+ * Повторная инициализация компонентов после динамической подгрузки контента.
+ * @param {HTMLElement|jQuery|string} [context] - Не используется в текущей реализации
  * @returns {void}
- *
- * @example
- * // После AJAX-загрузки нового контента
- * $.ajax({
- *     url: '/load-content',
- *     success: function(html) {
- *         $('#dynamic-content').html(html);
- *         reinitUI('#dynamic-content'); // Инициализируем только новые компоненты
- *     }
- * });
  */
 export function reinitUI(context) {
     if (typeof jQuery === 'undefined') {
-        console.error('[UI] Ошибка: jQuery не загружена.');
+        console.error('[UI] jQuery not loaded.');
         return;
     }
 
-    // Если передан контекст - сохраняем текущие компоненты и инициализируем заново
-    // Примечание: полная реинициализация всех компонентов может привести к дублированию обработчиков
-    // Рекомендуется вместо этого использовать destroy() методы компонентов или инициализировать только новые
-
     if (context) {
-        console.warn('[UI] Частичная реинициализация с контекстом требует доработки компонентов');
+        console.warn('[UI] Context-based reinit not implemented. Full reinit called.');
     }
 
+    // Предупреждение: полная реинициализация может дублировать обработчики событий
     UI.init();
 }

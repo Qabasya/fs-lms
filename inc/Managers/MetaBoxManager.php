@@ -35,13 +35,13 @@ class MetaBoxManager {
 		if ( empty( $metaboxes ) ) {
 			return;
 		}
-		
+
 		// Регистрируем каждый метабокс
 		foreach ( $metaboxes as $id => $config ) {
 			$this->addSingleMetabox( $id, $config );
 		}
 	}
-	
+
 	/**
 	 * Регистрирует один метабокс.
 	 *
@@ -65,21 +65,27 @@ class MetaBoxManager {
 		string|array $post_types,
 		string $context = 'normal',
 		string $priority = 'default',
-		array $args = []
+		array $args = array()
 	): void {
 		// Оборачиваем добавление метабокса в хук add_meta_boxes
-		add_action( 'add_meta_boxes', function () use ( $id, $title, $callback, $post_types, $context, $priority, $args ) {
-			$this->addSingleMetabox( $id, [
-				'title'      => $title,
-				'callback'   => $callback,
-				'post_types' => $post_types,
-				'context'    => $context,
-				'priority'   => $priority,
-				'args'       => $args,
-			] );
-		} );
+		add_action(
+			'add_meta_boxes',
+			function () use ( $id, $title, $callback, $post_types, $context, $priority, $args ) {
+				$this->addSingleMetabox(
+					$id,
+					array(
+						'title'      => $title,
+						'callback'   => $callback,
+						'post_types' => $post_types,
+						'context'    => $context,
+						'priority'   => $priority,
+						'args'       => $args,
+					)
+				);
+			}
+		);
 	}
-	
+
 	/**
 	 * Внутренний метод для добавления одного метабокса.
 	 *
@@ -98,27 +104,27 @@ class MetaBoxManager {
 	 */
 	private function addSingleMetabox( string $id, array $config ): void {
 		// Настройки по умолчанию
-		$defaults = [
+		$defaults = array(
 			'title'      => 'Untitled Metabox',
 			'callback'   => '__return_null',
-			'post_types' => [],
+			'post_types' => array(),
 			'context'    => 'normal',
 			'priority'   => 'default',
-			'args'       => [],
-		];
-		
+			'args'       => array(),
+		);
+
 		// Объединяем переданные настройки с дефолтными
 		$config = wp_parse_args( $config, $defaults );
-		
+
 		// Нормализуем post_types в массив
 		$post_types = (array) $config['post_types'];
-		
+
 		// Регистрируем метабокс для каждого типа поста
 		foreach ( $post_types as $post_type ) {
 			if ( empty( $post_type ) ) {
 				continue;
 			}
-			
+
 			add_meta_box(
 				$id,
 				$config['title'],
@@ -130,7 +136,7 @@ class MetaBoxManager {
 			);
 		}
 	}
-	
+
 	/**
 	 * Сохраняет мета-данные поста после всех проверок безопасности.
 	 *
@@ -148,16 +154,16 @@ class MetaBoxManager {
 		if ( empty( $post_id ) || empty( $meta_key ) ) {
 			return;
 		}
-		
+
 		// Дополнительная защита: пропускаем ревизии и автосохранения
 		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
 			return;
 		}
-		
+
 		// Сохраняем мета-данные
 		update_post_meta( $post_id, $meta_key, $value );
 	}
-	
+
 	/**
 	 * Удаляет мета-данные поста.
 	 *
@@ -171,7 +177,7 @@ class MetaBoxManager {
 		if ( empty( $post_id ) || empty( $meta_key ) ) {
 			return;
 		}
-		
+
 		// Удаляем мета-данные
 		delete_post_meta( $post_id, $meta_key );
 	}

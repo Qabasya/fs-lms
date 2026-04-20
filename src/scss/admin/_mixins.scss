@@ -1,0 +1,61 @@
+// src/scss/admin/_mixins.scss
+// Глобальные миксины для админки FS-LMS
+
+// ── Кнопки в сайдбаре (постбокс)
+// @param {String} $width [100%] - ширина кнопки
+// @param {String} $justify [center] - выравнивание контента внутри
+// @example: @include sidebar-button(100%, center);
+@mixin sidebar-button($width: 100%, $justify: center) {
+  width: $width;
+  margin: 0;
+  justify-content: $justify;
+  box-sizing: border-box;
+}
+
+// ── Поля ввода с фокус-стилем (стиль WP)
+// @param {Color} $focus-color [$wp-color-primary] - цвет обводки при фокусе
+// @example: @include wp-input();
+@mixin wp-input($focus-color: $wp-color-primary) {
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid $wp-color-border;
+  border-radius: 2px;
+  font-size: 13px;
+  transition: border-color 0.1s ease-in-out;
+
+  &:focus {
+    border-color: $focus-color;
+    box-shadow: 0 0 0 1px $focus-color;
+    outline: none;
+  }
+
+  &::placeholder {
+    color: $wp-color-text-secondary;
+  }
+}
+
+// ── Ссылки действий в таблицах (редактировать/удалить)
+// @param {Color} $hover-color [$wp-color-primary] - цвет при наведении
+// @param {Color} $danger-color [$wp-color-danger] - цвет для деструктивных действий
+// @example: @include row-action-links();
+@mixin row-action-links($hover-color: $wp-color-primary, $danger-color: $wp-color-danger) {
+  a {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.15s ease-in-out;
+
+    &:hover {
+      color: $hover-color;
+    }
+
+    &:focus {
+      outline: 2px solid $hover-color;
+      outline-offset: 2px;
+    }
+
+    &.trash {
+      color: $danger-color;
+      &:hover { color: $danger-color; }
+    }
+  }
+}

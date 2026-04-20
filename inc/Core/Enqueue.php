@@ -12,6 +12,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 	public function register(): void {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_assets' ] );
+		add_action( 'admin_footer', [ $this, 'render_confirm_modal' ] );
 	}
 
 	public function enqueue_admin_assets(): void {
@@ -80,5 +81,23 @@ class Enqueue extends BaseController implements ServiceInterface {
 			$this->plugin_version,
 			true
 		);
+	}
+	
+	/**
+	 * Глобально рендерит HTML модалки подтверждения в админке.
+	 */
+	public function render_confirm_modal(): void {
+		// Загружаем только на страницах нашего плагина (оптимизация)
+		$page = sanitize_text_field( $_GET['page'] ?? '' );
+		if ( ! str_starts_with( $page, 'fs_' ) ) {
+			return;
+		}
+		
+		// Надёжный путь от inc/Core/ до templates/components/modals/
+		$modal_path = dirname( __DIR__, 2 ) . '/templates/components/modals/confirm-modal.php';
+		
+		if ( file_exists( $modal_path ) ) {
+			require_once $modal_path;
+		}
 	}
 }

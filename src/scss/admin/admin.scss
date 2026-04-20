@@ -1,3 +1,5 @@
+@use 'variables' as *;
+@use 'mixins' as m;
 @use 'components/add-row-button';
 @use 'components/modal';
 @use 'components/subject-table';
@@ -5,3 +7,5 @@
 @use 'components/tabs';
 @use 'components/task-manager-table';
 @use 'components/taxonomies-table';
+@use 'components/boilerplate-editor';
+@use 'components/boilerplate-list';

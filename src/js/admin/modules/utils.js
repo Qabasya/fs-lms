@@ -1,169 +1,79 @@
 /**
- * @fileoverview Утилиты для работы с плагином FS-LMS.
- * @description Набор вспомогательных функций для управления состоянием кнопок,
- *              обработки ошибок API и других общих задач.
- * @requires jQuery - глобальная зависимость WordPress.
+ * Утилиты для плагина FS-LMS.
+ * @requires jQuery
  */
+const $ = window.jQuery || jQuery;
 
 /**
- * Объект с вспомогательными утилитами для плагина.
- * @namespace Utils
- * @typedef {Object} Utils
+ * Экранирует строку для безопасной вставки в HTML.
+ * @param {string} str - Исходная строка
+ * @returns {string} Экранированная строка
+ * @private
  */
-export const Utils = {
-    /**
-     * Переключает состояние кнопки между загрузкой и обычным режимом.
-     * При включении режима загрузки кнопка блокируется, текст меняется на указанный,
-     * а оригинальный текст сохраняется в data-атрибуте для последующего восстановления.
-     *
-     * @memberof Utils
-     * @instance
-     * @param {jQuery} $btn - jQuery-объект кнопки, состояние которой нужно переключить.
-     * @param {boolean} isLoading - Флаг состояния: true - включить режим загрузки,
-     *                               false - выключить режим загрузки и восстановить оригинальный текст.
-     * @param {string} [loadingText='...'] - Текст, отображаемый на кнопке в режиме загрузки.
-     *                                        По умолчанию используется '...'.
-     * @returns {void}
-     *
-     * @example
-     * // Включение режима загрузки
-     * Utils.toggleButton($('#submit-btn'), true, 'Сохранение...');
-     *
-     * @example
-     * // Выключение режима загрузки (восстановление исходного состояния)
-     * Utils.toggleButton($('#submit-btn'), false);
-     *
-     * @example
-     * // Использование с AJAX-запросом
-     * const $btn = $('#save-settings');
-     * Utils.toggleButton($btn, true, 'Отправка...');
-     * $.ajax({
-     *     url: '/api/save',
-     *     complete: () => Utils.toggleButton($btn, false)
-     * });
-     */
-    toggleButton($btn, isLoading, loadingText = '...') {
-        // Проверяем, что передан корректный jQuery-объект
-        if (!$btn || !$btn.jquery) {
-            console.error('[Utils.toggleButton] Ошибка: передан некорректный jQuery-объект', $btn);
-            return;
-        }
+export function escapeHtml(str) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+    };
+    return String(str).replace(/[&<>"']/g, (m) => map[m]);
+}
 
-        if (isLoading) {
-            /**
-             * Включение режима загрузки:
-             * 1. Сохраняем оригинальный HTML-контент кнопки в data-атрибут 'original-text'
-             * 2. Блокируем кнопку, чтобы предотвратить повторные клики
-             * 3. Устанавливаем текст загрузки
-             */
-            $btn.data('original-text', $btn.html())
-                .prop('disabled', true)
-                .text(loadingText);
+/**
+ * Переключает кнопку в режим загрузки/обычный режим.
+ * @param {JQuery} $btn - jQuery-объект кнопки
+ * @param {boolean} isLoading - true: блокировка и текст загрузки, false: восстановление
+ * @param {string} [loadingText='...'] - Текст для режима загрузки
+ */
+export function toggleButton($btn, isLoading, loadingText = '...') {
+    if (!$btn || !$btn.jquery) {
+        console.error('[Utils.toggleButton] Invalid jQuery object', $btn);
+        return;
+    }
+
+    if (isLoading) {
+        $btn.data('original-text', $btn.html())
+            .prop('disabled', true)
+            .text(loadingText);
+    } else {
+        $btn.prop('disabled', false)
+            .html($btn.data('original-text'));
+    }
+}
+
+/**
+ * Логирует ошибку API и показывает уведомление.
+ * @param {Error|Object|string} error - Объект или текст ошибки
+ * @param {Object} [options] - Настройки
+ * @param {boolean} [options.silent=false] - Не показывать уведомление пользователю
+ * @param {Function} [options.onNotify] - Кастомная функция для показа ошибки (вместо alert)
+ */
+export function apiError(error, options = {}) {
+    const { silent = false, onNotify = null } = options;
+
+    console.error('FS-LMS API Error:', error);
+
+    if (!silent) {
+        const message = 'Произошла ошибка при связи с сервером.';
+        if (typeof onNotify === 'function') {
+            onNotify(message, 'error');
         } else {
-            /**
-             * Выключение режима загрузки:
-             * 1. Разблокируем кнопку
-             * 2. Восстанавливаем оригинальный HTML-контент из data-атрибута
-             * Примечание: используем .html() вместо .text(), чтобы восстановить возможные HTML-теги
-             */
-            $btn.prop('disabled', false)
-                .html($btn.data('original-text'));
+            alert(message);
         }
-    },
-
-    /**
-     * Обрабатывает ошибки API-запросов.
-     * Выводит детальную информацию об ошибке в консоль браузера и показывает
-     * понятное пользователю сообщение через alert.
-     *
-     * @memberof Utils
-     * @instance
-     * @param {Error|Object|string} error - Объект ошибки, полученный от API.
-     *                                       Может быть экземпляром Error, объектом ответа сервера
-     *                                       или строковым сообщением.
-     * @returns {void}
-     *
-     * @example
-     * // Обработка ошибки в catch блоке
-     * try {
-     *     const response = await fetch('/api/data');
-     *     if (!response.ok) throw new Error('Сервер вернул ошибку');
-     * } catch (error) {
-     *     Utils.apiError(error);
-     * }
-     *
-     * @example
-     * // Использование с jQuery.ajax
-     * $.ajax({
-     *     url: '/api/save',
-     *     error: (xhr, status, error) => Utils.apiError(error)
-     * });
-     *
-     * @example
-     * // Обработка ошибки с дополнительной информацией
-     * $.ajax({
-     *     url: '/api/submit',
-     *     error: (xhr) => {
-     *         const message = xhr.responseJSON?.message || xhr.statusText;
-     *         Utils.apiError(message);
-     *     }
-     * });
-     */
-    apiError(error) {
-        /**
-         * Вывод детальной информации об ошибке в консоль для разработчиков.
-         * Используется префикс 'FS-LMS API Error:' для удобной фильтрации логов.
-         *
-         * @type {Error|Object|string}
-         */
-        console.error('FS-LMS API Error:', error);
-
-        /**
-         * Показываем простое и понятное сообщение пользователю через системный alert.
-         * В production-версии рекомендуется заменить на более дружелюбное уведомление
-         * (например, всплывающий toast или сообщение внутри интерфейса).
-         *
-         * @type {string}
-         */
-        alert('Произошла ошибка при связи с сервером.');
-    },
-};
+    }
+}
 
 /**
- * @typedef {Object} ButtonState
- * @property {string} originalText - Оригинальный текст кнопки, сохранённый в data-атрибуте
- * @property {boolean} isDisabled - Флаг блокировки кнопки
- * @property {string} currentText - Текущий текст кнопки
- */
-
-/**
- * @typedef {Object} ApiErrorObject
- * @property {string} message - Человекочитаемое сообщение об ошибке
- * @property {number} [code] - Код ошибки HTTP или внутренний код ошибки
- * @property {Object} [data] - Дополнительные данные об ошибке
- * @property {string} [type] - Тип ошибки (например, 'validation', 'server', 'network')
- */
-
-/**
- * Расширенная версия утилиты для работы с кнопками с дополнительными возможностями.
- * @function toggleButtonExtended
- * @description Альтернативная реализация с поддержкой callback-функций и Promise.
- * @param {jQuery} $btn - jQuery-объект кнопки.
- * @param {boolean} isLoading - Флаг загрузки.
- * @param {Object} [options] - Дополнительные опции.
- * @param {string} [options.loadingText='...'] - Текст в режиме загрузки.
- * @param {string} [options.successText] - Текст при успешном завершении (временный).
- * @param {number} [options.successDuration=2000] - Длительность отображения successText в мс.
- * @param {Function} [options.onComplete] - Callback после завершения загрузки.
- * @returns {void}
- *
- * @example
- * Utils.toggleButtonExtended($('#submit'), true, {
- *     loadingText: 'Отправка...',
- *     successText: 'Готово!',
- *     successDuration: 1500,
- *     onComplete: () => console.log('Готово')
- * });
+ * Расширенное переключение кнопки с поддержкой коллбеков.
+ * @param {JQuery} $btn - jQuery-объект кнопки
+ * @param {boolean} isLoading - Флаг режима загрузки
+ * @param {Object} [options] - Настройки
+ * @param {string} [options.loadingText='...']
+ * @param {string} [options.successText] - Временный текст после успеха
+ * @param {number} [options.successDuration=2000] - Длительность показа успеха (мс)
+ * @param {Function} [options.onComplete] - Коллбек после завершения
  */
 export function toggleButtonExtended($btn, isLoading, options = {}) {
     const {
@@ -174,16 +84,13 @@ export function toggleButtonExtended($btn, isLoading, options = {}) {
     } = options;
 
     if (isLoading) {
-        // Сохраняем оригинальный текст и переключаем в режим загрузки
         $btn.data('original-text', $btn.html())
             .prop('disabled', true)
             .text(loadingText);
     } else {
-        // Выходим из режима загрузки
         $btn.prop('disabled', false)
             .html($btn.data('original-text'));
 
-        // Если указан текст успеха, временно показываем его
         if (successText) {
             const originalText = $btn.html();
             $btn.text(successText);
@@ -198,36 +105,26 @@ export function toggleButtonExtended($btn, isLoading, options = {}) {
 }
 
 /**
- * Улучшенная обработка ошибок API с поддержкой различных форматов ответа.
- * @function apiErrorEnhanced
- * @param {Error|Object|string} error - Объект ошибки.
- * @param {Object} [options] - Дополнительные опции.
- * @param {boolean} [options.silent=false] - Если true, не показывать alert пользователю.
- * @param {Function} [options.onError] - Callback при ошибке.
- * @returns {string} - Человекочитаемое сообщение об ошибке.
- *
- * @example
- * const errorMessage = Utils.apiErrorEnhanced(error, {
- *     silent: true,
- *     onError: (msg) => showToast(msg)
- * });
+ * Обработка ошибки API с гибким выводом сообщения.
+ * @param {Error|Object|string} error - Объект ошибки
+ * @param {Object} [options] - Настройки
+ * @param {boolean} [options.silent=false] - Не показывать уведомление пользователю
+ * @param {Function} [options.onError] - Коллбек с текстом ошибки
+ * @param {Function} [options.onNotify] - Кастомная функция для показа ошибки
+ * @returns {string} Человекочитаемое сообщение об ошибке
  */
 export function apiErrorEnhanced(error, options = {}) {
-    const { silent = false, onError = null } = options;
-
+    const { silent = false, onError = null, onNotify = null } = options;
     let userMessage = 'Произошла ошибка при связи с сервером.';
 
-    // Пытаемся извлечь понятное сообщение из различных форматов ошибки
     if (typeof error === 'string') {
         userMessage = error;
     } else if (error && typeof error === 'object') {
-        // Обработка разных форматов ошибок
         userMessage = error.message ||
             error.responseJSON?.message ||
             error.statusText ||
             userMessage;
 
-        // Логируем дополнительные детали для разработчиков
         if (error.responseJSON?.data) {
             console.debug('[API Error Details]:', error.responseJSON.data);
         }
@@ -236,19 +133,97 @@ export function apiErrorEnhanced(error, options = {}) {
         }
     }
 
-    // Выводим в консоль для разработчиков
     console.error('[FS-LMS API Error]:', error);
     console.debug('[User Message]:', userMessage);
 
-    // Показываем пользователю, если не запрошен silent режим
     if (!silent) {
-        alert(userMessage);
+        if (typeof onNotify === 'function') {
+            onNotify(userMessage, 'error');
+        } else {
+            alert(userMessage);
+        }
     }
 
-    // Вызываем колбэк, если он предоставлен
     if (typeof onError === 'function') {
         onError(userMessage);
     }
 
     return userMessage;
+}
+
+/**
+ * Показывает уведомление в стиле WordPress Admin Notice.
+ * @param {string} message - Текст сообщения
+ * @param {'success'|'error'|'warning'|'info'} [type='info'] - Тип уведомления
+ * @param {JQuery|string|null} [$container=null] - Контейнер для вставки (по умолчанию $('body'))
+ * @param {Object} [options] - Дополнительные настройки
+ * @param {boolean} [options.autoDismiss=true] - Автозакрытие для типа 'success'
+ * @param {number} [options.autoDismissDelay=1000] - Задержка автозакрытия (мс)
+ * @param {boolean} [options.escape=true] - Экранировать сообщение для защиты от XSS
+ * @returns {JQuery} Созданный элемент уведомления
+ */
+export function showNotice(message, type = 'info', $container = null, options = {}) {
+    const { autoDismiss = true, autoDismissDelay = 1000, escape = true } = options;
+
+    // Разрешаем $container только после готовности DOM
+    if (!$container) {
+        $container = $('body');
+    } else if (!($container instanceof $)) {
+        $container = $($container);
+    }
+    if (!$container.length) {
+        $container = $('body');
+    }
+
+    $container.find('.fs-notice').remove();
+
+    const labels = {
+        success: 'Готово!',
+        error: 'Ошибка:',
+        warning: 'Внимание:',
+        info: 'Информация:',
+    };
+    const title = labels[type] || labels.info;
+    const safeMessage = escape ? escapeHtml(message) : message;
+
+    const $notice = $(`
+        <div class="notice notice-${type} is-dismissible fs-notice" style="margin: 10px 0;">
+            <p><strong>${title}</strong> ${safeMessage}</p>
+            <button type="button" class="notice-dismiss">
+                <span class="screen-reader-text">Закрыть</span>
+            </button>
+        </div>
+    `);
+
+    $notice.on('click', '.notice-dismiss', function () {
+        $notice.fadeTo(100, 0, function () {
+            $notice.slideUp(100, function () {
+                $(this).remove();
+            });
+        });
+    });
+
+    $container.prepend($notice);
+
+    if (type === 'success' && autoDismiss) {
+        setTimeout(() => {
+            if ($notice.is(':visible')) {
+                $notice.find('.notice-dismiss').trigger('click');
+            }
+        }, autoDismissDelay);
+    }
+
+    return $notice;
+}
+
+/**
+ * Анимирует удаление строки таблицы: подсвечивает красным и скрывает.
+ * @param {JQuery} $row - Строка таблицы
+ * @param {Function} [onRemoved] - Коллбек после удаления из DOM
+ */
+export function fadeDeleteRow($row, onRemoved) {
+    $row.css('background', '#ff8d8d').fadeOut(400, function () {
+        $(this).remove();
+        if (typeof onRemoved === 'function') onRemoved();
+    });
 }

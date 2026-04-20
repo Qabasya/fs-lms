@@ -22,15 +22,17 @@ class TermManager {
 	 * @return int[] Массив ID терминов
 	 */
 	public function getIds( string $taxonomy ): array {
-		$ids = get_terms( [
-			'taxonomy'   => $taxonomy,
-			'hide_empty' => false,
-			'fields'     => 'ids',
-		] );
-		
-		return is_wp_error( $ids ) ? [] : (array) $ids;
+		$ids = get_terms(
+			array(
+				'taxonomy'   => $taxonomy,
+				'hide_empty' => false,
+				'fields'     => 'ids',
+			)
+		);
+
+		return is_wp_error( $ids ) ? array() : (array) $ids;
 	}
-	
+
 	/**
 	 * Возвращает массив объектов терминов указанной таксономии.
 	 *
@@ -39,14 +41,16 @@ class TermManager {
 	 * @return \WP_Term[] Массив объектов терминов
 	 */
 	public function getAll( string $taxonomy ): array {
-		$terms = get_terms( [
-			'taxonomy'   => $taxonomy,
-			'hide_empty' => false,
-		] );
-		
-		return is_wp_error( $terms ) ? [] : (array) $terms;
+		$terms = get_terms(
+			array(
+				'taxonomy'   => $taxonomy,
+				'hide_empty' => false,
+			)
+		);
+
+		return is_wp_error( $terms ) ? array() : (array) $terms;
 	}
-	
+
 	/**
 	 * Удаляет термин по ID.
 	 *
@@ -58,7 +62,7 @@ class TermManager {
 	public function delete( int $term_id, string $taxonomy ): void {
 		wp_delete_term( $term_id, $taxonomy );
 	}
-	
+
 	/**
 	 * Удаляет все термины указанной таксономии.
 	 *
@@ -71,7 +75,7 @@ class TermManager {
 			$this->delete( (int) $id, $taxonomy );
 		}
 	}
-	
+
 	/**
 	 * Проверяет существование термина по названию.
 	 *
@@ -83,7 +87,7 @@ class TermManager {
 	public function exists( string $name, string $taxonomy ): bool {
 		return (bool) term_exists( $name, $taxonomy );
 	}
-	
+
 	/**
 	 * Регистрирует таксономию, если она ещё не существует.
 	 *
@@ -94,10 +98,10 @@ class TermManager {
 	public function ensureTaxonomy( string $taxonomy ): void {
 		if ( ! taxonomy_exists( $taxonomy ) ) {
 			// Регистрируем с минимальными параметрами для возможности вставки терминов
-			register_taxonomy( $taxonomy, [] );
+			register_taxonomy( $taxonomy, array() );
 		}
 	}
-	
+
 	/**
 	 * Создаёт термин, если его ещё нет.
 	 *
@@ -107,12 +111,12 @@ class TermManager {
 	 *
 	 * @return void
 	 */
-	public function insert( string $name, string $taxonomy, array $args = [] ): void {
+	public function insert( string $name, string $taxonomy, array $args = array() ): void {
 		if ( ! $this->exists( $name, $taxonomy ) ) {
 			wp_insert_term( $name, $taxonomy, $args );
 		}
 	}
-	
+
 	/**
 	 * Возвращает массив слагов терминов, привязанных к посту.
 	 *
@@ -122,11 +126,11 @@ class TermManager {
 	 * @return string[] Массив слагов терминов
 	 */
 	public function getPostSlugs( int $post_id, string $taxonomy ): array {
-		$slugs = wp_get_post_terms( $post_id, $taxonomy, [ 'fields' => 'slugs' ] );
-		
-		return is_wp_error( $slugs ) ? [] : (array) $slugs;
+		$slugs = wp_get_post_terms( $post_id, $taxonomy, array( 'fields' => 'slugs' ) );
+
+		return is_wp_error( $slugs ) ? array() : (array) $slugs;
 	}
-	
+
 	/**
 	 * Привязывает термины к посту.
 	 *

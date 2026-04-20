@@ -14,6 +14,7 @@ namespace Inc\DTO;
  * @package Inc\DTO
  */
 class TaxonomyDataDTO {
+
 	/**
 	 * Конструктор DTO.
 	 *
@@ -30,10 +31,10 @@ class TaxonomyDataDTO {
 		public readonly string $subject_key,
 		public readonly string $display_type = 'select',
 		public readonly bool $is_protected = false,
-		public readonly array $post_types = []
+		public readonly array $post_types = array()
 	) {
 	}
-	
+
 	/**
 	 * Статический фабричный метод для создания DTO из массива.
 	 *
@@ -53,7 +54,7 @@ class TaxonomyDataDTO {
 			subject_key : $subject_key ?: ( $data['subject_key'] ?? '' ),
 			display_type: $data['display_type'] ?? 'select',
 			is_protected: $data['is_protected'] ?? false,
-			post_types  : $data['post_types'] ?? []
+			post_types  : $data['post_types'] ?? array()
 		);
 	}
 }
