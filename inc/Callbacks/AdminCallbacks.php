@@ -17,20 +17,21 @@ use Inc\Shared\Traits\TemplateRenderer;
  *
  * @package Inc\Callbacks
  *
- * @method void render( string $template, array $data = [] ) — трейт TemplateRenderer
+ * @method void render(string $template, array $data = []) — трейт TemplateRenderer
  */
 class AdminCallbacks extends BaseController {
+
 	use TemplateRenderer;
 
 	/**
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository     $subjects              Репозиторий предметов.
-	 * @param BoilerplateController $boilerplate_controller Контроллер для страницы boilerplate.
+	 * @param BoilerplateController $boilerplateController Контроллер для страницы boilerplate.
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
-		private readonly BoilerplateController $boilerplate_controller
+		private readonly BoilerplateController $boilerplateController
 	) {
 		parent::__construct();
 	}
@@ -67,6 +68,6 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function boilerplatePage(): void {
-		$this->boilerplate_controller->displayPage();
+		$this->boilerplateController->displayPage();
 	}
 }
