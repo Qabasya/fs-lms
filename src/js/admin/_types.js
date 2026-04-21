@@ -36,7 +36,7 @@
  *
  * @typedef {Object} FSLmsTaskData
  * @property {string} ajax_url    URL для AJAX-запросов
- * @property {string} nonce       Nonce для создания заданий
+ * @property {string} security    Nonce для создания заданий
  * @property {string} subject_key Ключ текущего предмета
  * @property {string} post_type   Тип поста (CPT заданий)
  */

@@ -14,7 +14,7 @@
 		<!-- Тело модалки -->
 		<div class="fs-lms-modal-body">
 			<form id="fs-task-creation-form">
-				<?php wp_nonce_field( Nonce::TaskCreation->value, 'nonce' ); ?>
+				<?php wp_nonce_field( Nonce::TaskCreation->value, 'security' ); ?>
 
 				<input type="hidden" name="subject_key" id="fs-modal-subject"
 						value="<?php echo esc_attr( $subject_key ?? '' ); ?>">

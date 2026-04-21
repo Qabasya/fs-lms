@@ -2,10 +2,11 @@
 
 namespace Inc\Callbacks;
 
-use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Managers\TermManager;
 use Inc\Repositories\TaxonomyRepository;
+use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class TaxonomySettingsCallbacks
@@ -16,6 +17,9 @@ use Inc\Repositories\TaxonomyRepository;
  * @package Inc\Callbacks
  */
 class TaxonomySettingsCallbacks {
+	use Authorizer;
+	use Sanitizer;
+
 	/**
 	 * Конструктор.
 	 *
@@ -40,13 +44,14 @@ class TaxonomySettingsCallbacks {
 	 */
 	public function ajaxStoreTaxonomy(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorize( Nonce::Subject );
+		
+		$subject_key = $this->requireKey( 'subject_key' );
+		$tax_suffix  = $this->requireKey( 'tax_slug' );
+		$tax_name    = $this->requireText( 'tax_name', error: 'Название таксономии обязательно' );
 
-		// Получение и валидация данных таксономии
-		[ $subject_key, $tax_suffix, $tax_name, $display_type ] = $this->requireTaxonomyData();
-
-		// Формирование полного слага таксономии
-		$tax_slug = "{$subject_key}_{$tax_suffix}";
+		$display_type = $this->getValidatedDisplayType();
+		$tax_slug     = "{$subject_key}_{$tax_suffix}";
 
 		// Проверка длины слага (максимум 32 символа в WordPress)
 		if ( strlen( $tax_slug ) > 32 ) {
@@ -81,10 +86,12 @@ class TaxonomySettingsCallbacks {
 	 */
 	public function ajaxUpdateTaxonomy(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorize( Nonce::Subject );
 
 		// Получение и валидация данных таксономии
-		[ $subject_key, $tax_slug, $tax_name, $display_type ] = $this->requireTaxonomyData();
+		$subject_key = $this->requireKey( 'subject_key' );
+		$tax_slug    = $this->requireKey( 'tax_slug' );
+		$tax_name    = $this->requireText( 'tax_name', error: 'Название обязательно' );
 
 		// Обновление через репозиторий
 		$this->taxonomies->update(
@@ -92,7 +99,7 @@ class TaxonomySettingsCallbacks {
 				'subject_key'  => $subject_key,
 				'tax_slug'     => $tax_slug,
 				'name'         => $tax_name,
-				'display_type' => $display_type,
+				'display_type' => $this->getValidatedDisplayType(),
 			)
 		);
 
@@ -107,10 +114,11 @@ class TaxonomySettingsCallbacks {
 	 */
 	public function ajaxDeleteTaxonomy(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorize( Nonce::Subject );
 
 		// Получение и валидация ключа предмета и слага таксономии
-		[ $subject_key, $tax_slug ] = $this->requireSubjectAndSlug();
+		$subject_key = $this->requireKey( 'subject_key' );
+		$tax_slug    = $this->requireKey( 'tax_slug' );
 
 		// Удаление всех терминов таксономии через менеджер
 		$this->terms->deleteAll( $tax_slug );
@@ -129,66 +137,15 @@ class TaxonomySettingsCallbacks {
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
-	/**
-	 * Проверяет nonce и права администратора.
-	 * Завершает выполнение через wp_send_json_error при неудаче.
-	 *
-	 * @return void
-	 */
-	private function authorize(): void {
-		// Проверка nonce для защиты от CSRF
-		Nonce::Subject->verify( 'security' );
-
-		// Проверка прав доступа (только администраторы)
-		if ( ! current_user_can( Capability::ADMIN->value ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
-		}
-	}
 
 	/**
-	 * Читает и валидирует subject_key и tax_slug из POST.
-	 *
-	 * @return array{0: string, 1: string} [subject_key, tax_slug]
+	 * Валидация типа отображения.
+	 * Оставляем как маленький хелпер, так как это специфичная бизнес-логика.
 	 */
-	private function requireSubjectAndSlug(): array {
-		$subject_key = sanitize_title( wp_unslash( $_POST['subject_key'] ?? '' ) );
-		$tax_slug    = sanitize_title( wp_unslash( $_POST['tax_slug'] ?? '' ) );
-
-		if ( empty( $subject_key ) || empty( $tax_slug ) ) {
-			wp_send_json_error( 'Недостаточно данных для операции' );
-		}
-
-		return array( $subject_key, $tax_slug );
+	private function getValidatedDisplayType(): string {
+		$type = $this->sanitizeText( 'display_type' );
+		return in_array( $type, array( 'select', 'radio', 'checkbox' ), true ) ? $type : 'select';
 	}
-
-	/**
-	 * Читает и валидирует полный набор данных таксономии из POST.
-	 *
-	 * Используется в store (возвращает suffix) и update (возвращает полный slug).
-	 *
-	 * @return array{0: string, 1: string, 2: string, 3: string}
-	 *         [subject_key, tax_slug_or_suffix, tax_name, display_type]
-	 */
-	private function requireTaxonomyData(): array {
-		// Получение ключа предмета и слага (или суффикса)
-		[ $subject_key, $tax_slug ] = $this->requireSubjectAndSlug();
-
-		// Получение названия таксономии
-		$tax_name = sanitize_text_field( wp_unslash( $_POST['tax_name'] ?? '' ) );
-
-		if ( empty( $tax_name ) ) {
-			wp_send_json_error( 'Название таксономии не может быть пустым' );
-		}
-
-		// Получение и валидация типа отображения
-		$raw_display  = sanitize_text_field( wp_unslash( $_POST['display_type'] ?? '' ) );
-		$display_type = in_array( $raw_display, array( 'select', 'radio', 'checkbox' ), true )
-			? $raw_display
-			: 'select';
-
-		return array( $subject_key, $tax_slug, $tax_name, $display_type );
-	}
-
 	/**
 	 * Сбрасывает правила перезаписи и отправляет успешный ответ клиенту.
 	 *

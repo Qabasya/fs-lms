@@ -12,7 +12,7 @@ use Inc\Enums\Nonce;
 ?>
 
 <div class="wrap boilerplate-manager-wrapper">
-	<?php wp_nonce_field( Nonce::SaveBoilerplate->value, 'nonce' ); ?>
+	<?php wp_nonce_field( Nonce::SaveBoilerplate->value, 'security' ); ?>
 
 	<h1 class="wp-heading-inline">Типовые условия</h1>
 	<p class="description"><?php echo esc_html( $display_name ); ?> / <?php echo esc_html( $subject_display_name ); ?></p>

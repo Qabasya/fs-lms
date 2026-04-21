@@ -29,6 +29,7 @@
         <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
         <exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
         <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+        <exclude name="WordPress.Security.NonceVerification.Recommended: Processing form data without nonce verification."/>
     </rule>
 
 

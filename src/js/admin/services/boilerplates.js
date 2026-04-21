@@ -75,7 +75,7 @@ export const Boilerplates = {
         const params = new URLSearchParams(window.location.search);
         const data = {
             action: fs_lms_vars.ajax_actions.deleteBoilerplate,
-            nonce: $('#nonce').val(),
+            security: $('#security').val(),
             uid: $el.data('uid'),
             subject_key: params.get('subject'),
             term_slug: params.get('term'),
