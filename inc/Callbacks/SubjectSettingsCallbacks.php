@@ -12,8 +12,9 @@ use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
-use Inc\Services\TaxonomySeeder;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
+use Inc\Shared\Traits\TaxonomySeeder;
 
 
 /**
@@ -26,12 +27,13 @@ use Inc\Shared\Traits\Authorizer;
  */
 class SubjectSettingsCallbacks {
 	use Authorizer;
+	use Sanitizer;
+	use TaxonomySeeder;
 	
 	/**
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository     $subjects     Репозиторий предметов
-	 * @param TaxonomySeeder        $seeder       Сервис заполнения таксономий
 	 * @param TaxonomyRepository    $taxonomies   Репозиторий таксономий
 	 * @param MetaBoxRepository     $metaboxes    Репозиторий метабоксов (привязка шаблонов)
 	 * @param BoilerplateRepository $boilerplates Репозиторий типовых условий
@@ -40,7 +42,6 @@ class SubjectSettingsCallbacks {
 	 */
 	public function __construct(
 		private SubjectRepository $subjects,
-		private TaxonomySeeder $seeder,
 		private TaxonomyRepository $taxonomies,
 		private MetaBoxRepository $metaboxes,
 		private BoilerplateRepository $boilerplates,
@@ -64,7 +65,7 @@ class SubjectSettingsCallbacks {
 		[ $key, $name ] = $this->requireKeyAndName();
 		
 		// Получение количества заданий (по умолчанию 0)
-		$count = absint( wp_unslash( $_POST['tasks_count'] ?? 0 ) );
+		$count = $this->sanitizeInt( 'tasks_count' );
 		
 		// Сохранение предмета через репозиторий
 		$success = $this->subjects->update(
@@ -81,7 +82,7 @@ class SubjectSettingsCallbacks {
 		}
 		
 		// Засев таксономии номерами заданий
-		$this->seeder->seedTaskNumbers( "{$key}_task_number", $count, $key );
+		$this->seedTaskNumbers( "{$key}_task_number", $count, $key );
 		
 		// Сброс правил перезаписи для активации новых CPT
 		flush_rewrite_rules();
@@ -131,7 +132,7 @@ class SubjectSettingsCallbacks {
 		$this->authorize( Nonce::Subject );
 		
 		// Получение и валидация ключа предмета
-		$key = $this->requireKey();
+		$key = $this->requireSubjectKey();
 		
 		// Проверка существования предмета
 		$this->requireExists( $key );
@@ -164,7 +165,7 @@ class SubjectSettingsCallbacks {
 		$this->authorize( Nonce::Subject );
 		
 		// Получение и валидация ключа предмета
-		$key     = $this->requireKey();
+		$key     = $this->requireSubjectKey();
 		$subject = $this->subjects->getByKey( $key );
 		
 		if ( ! $subject ) {
@@ -198,7 +199,7 @@ class SubjectSettingsCallbacks {
 		$this->authorize( Nonce::Subject );
 		
 		// Получение и декодирование JSON
-		$raw = wp_unslash( $_POST['json'] ?? '' );
+		$raw = $this->sanitizeHtml( 'json' );
 		
 		if ( empty( $raw ) ) {
 			wp_send_json_error( 'JSON не передан' );
@@ -301,12 +302,12 @@ class SubjectSettingsCallbacks {
 		$this->authorize( Nonce::Subject );
 		
 		// Получение и валидация параметров
-		$subject_key = sanitize_key( $_POST['subject_key'] ?? '' );
-		$tab         = sanitize_key( $_POST['tab'] ?? '' );
-		$page_slug   = sanitize_text_field( $_POST['page_slug'] ?? '' );
-		$post_status = sanitize_key( $_POST['post_status'] ?? '' );
-		$paged       = max( 1, absint( $_POST['paged'] ?? 1 ) );
-		$s           = sanitize_text_field( $_POST['s'] ?? '' );
+		$subject_key = $this->sanitizeKey( 'subject_key' );
+		$tab         = $this->sanitizeKey( 'tab' );
+		$page_slug   = $this->sanitizeText( 'page_slug' );
+		$post_status = $this->sanitizeKey( 'post_status' );
+		$paged       = max( 1, $this->sanitizeInt( 'paged' ) );
+		$s           = $this->sanitizeText( 's' );
 		
 		// Валидация параметров
 		if ( ! in_array( $tab, array( 'tab-2', 'tab-3' ), true ) || ! $subject_key ) {
@@ -376,31 +377,15 @@ class SubjectSettingsCallbacks {
 	 *
 	 * @return string Санированный ключ предмета
 	 */
-	private function requireKey(): string {
-		$key = sanitize_title( wp_unslash( $_POST['key'] ?? '' ) );
-		
-		if ( empty( $key ) ) {
-			wp_send_json_error( 'ID предмета обязателен' );
-		}
-		
-		return $key;
+	private function requireSubjectKey(): string {
+		return $this->requireKey( 'key', error: 'ID предмета обязателен' );
 	}
-	
-	/**
-	 * Читает и валидирует ключ + название предмета из POST.
-	 * Завершает выполнение, если одно из значений пустое.
-	 *
-	 * @return array{0: string, 1: string} [key, name]
-	 */
+
 	private function requireKeyAndName(): array {
-		$key  = $this->requireKey();
-		$name = sanitize_text_field( wp_unslash( $_POST['name'] ?? '' ) );
-		
-		if ( empty( $name ) ) {
-			wp_send_json_error( 'Название предмета обязательно' );
-		}
-		
-		return array( $key, $name );
+		return array(
+			$this->requireKey( 'key', error: 'ID предмета обязателен' ),
+			$this->requireText( 'name', error: 'Название предмета обязательно' ),
+		);
 	}
 	
 	/**

@@ -7,6 +7,7 @@ use Inc\Enums\TaskTemplate;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 
 
 /**
@@ -20,6 +21,7 @@ use Inc\Shared\Traits\Authorizer;
  */
 class TaskCreationCallbacks {
 	use Authorizer;
+	use Sanitizer;
 	
 	/**
 	 * Конструктор.
@@ -45,13 +47,7 @@ class TaskCreationCallbacks {
 		$this->authorize( Nonce::TaskCreation );
 		
 		// Получение и санитизация ключа предмета
-		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
-		
-		if ( empty( $subject_key ) ) {
-			wp_send_json_error( 'Предмет не указан' );
-			
-			return;
-		}
+		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Предмет не указан' );
 		
 		wp_send_json_success(
 			$this->metaboxes->getTaskTypes( $subject_key )
@@ -68,10 +64,10 @@ class TaskCreationCallbacks {
 		$this->authorize( Nonce::TaskCreation );
 		
 		// Сбор и валидация данных
-		[ $subject_key, $term_id, $title ] = $this->collectCreateTaskData();
-		
-		// Получение UID выбранного boilerplate
-		$boilerplate_uid = sanitize_text_field( wp_unslash( $_POST['boilerplate_uid'] ?? '' ) );
+		$subject_key     = $this->requireKey( 'subject_key', error: 'Недостаточно данных. Error code: #TCC134' );
+		$term_id         = $this->requireInt( 'term_id', error: 'Недостаточно данных. Error code: #TCC134' );
+		$title           = $this->sanitizeText( 'title' ) ?: 'Новое задание';
+		$boilerplate_uid = $this->sanitizeText( 'boilerplate_uid' );
 		
 		$taxonomy = "{$subject_key}_task_number";
 		$term     = get_term( $term_id, $taxonomy );
@@ -117,14 +113,8 @@ class TaskCreationCallbacks {
 		$this->authorize( Nonce::TaskCreation );
 		
 		// Получение и санитизация данных
-		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
-		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
-		
-		if ( empty( $subject_key ) || empty( $term_slug ) ) {
-			wp_send_json_error( 'Недостаточно данных. Error code: #TCC134' );
-			
-			return;
-		}
+		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TCC134' );
+		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TCC134' );
 		
 		// Получение всех вариантов из репозитория
 		$variants = $this->boilerplates->getBoilerplates( $subject_key, $term_slug );
@@ -142,27 +132,6 @@ class TaskCreationCallbacks {
 	}
 	
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
-	/**
-	 * Собирает и валидирует POST-данные запроса.
-	 *
-	 * @return array{0: string, 1: int, 2: string} [subject_key, term_id, title]
-	 */
-	private function collectCreateTaskData(): array {
-		$subject_key = sanitize_text_field( wp_unslash( $_POST['subject_key'] ?? '' ) );
-		$term_id     = absint( $_POST['term_id'] ?? 0 );
-		$title       = sanitize_text_field( wp_unslash( $_POST['title'] ?? 'Новое задание' ) );
-		
-		// Валидация обязательных полей
-		if ( empty( $subject_key ) || $term_id === 0 ) {
-			wp_send_json_error( 'Недостаточно данных. Error code: #TCC134' );
-			// return нужен для статических анализаторов (psalm/phpstan):
-			// wp_send_json_error завершает выполнение через wp_die()
-			return array();
-		}
-		
-		return array( $subject_key, $term_id, $title );
-	}
 	
 	/**
 	 * Создаёт пост задания и привязывает его к таксономии.

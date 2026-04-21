@@ -86,7 +86,7 @@ export const TaskCreation = {
         $.get(fs_lms_vars.ajaxurl, {
             action:      fs_lms_vars.ajax_actions.getTaskTypes,
             subject_key: fs_lms_task_data.subject_key,
-            nonce:       fs_lms_task_data.nonce,
+            security:    fs_lms_task_data.security,
         }).done((res) => {
             /**
              * Формируем HTML для выпадающего списка.
@@ -144,7 +144,7 @@ export const TaskCreation = {
             action:      fs_lms_vars.ajax_actions.getTaskBoilerplates,
             subject_key: fs_lms_task_data.subject_key,
             term_slug:   termSlug,
-            nonce:       fs_lms_task_data.nonce,
+            security:    fs_lms_task_data.security,
         }).done((res) => {
             /**
              * Формируем HTML для выпадающего списка шаблонов.
@@ -224,7 +224,7 @@ export const TaskCreation = {
          */
         $.post(fs_lms_vars.ajaxurl, {
             action:          fs_lms_vars.ajax_actions.createTask,
-            nonce:           fs_lms_task_data.nonce,
+            security:        fs_lms_task_data.security,
             subject_key:     subject_key,
             term_id:         data.termId,
             boilerplate_uid: data.boilerplateUid,

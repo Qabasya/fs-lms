@@ -7,6 +7,7 @@ use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Nonce;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class BoilerplateCallbacks
@@ -20,6 +21,7 @@ use Inc\Shared\Traits\Authorizer;
  */
 class BoilerplateCallbacks extends BaseController {
 	use Authorizer;
+	use Sanitizer;
 	
 	/**
 	 * Конструктор.
@@ -44,17 +46,17 @@ class BoilerplateCallbacks extends BaseController {
 		$this->authorize( Nonce::SaveBoilerplate );
 		
 		// Получение и валидация subject_key и term_slug
-		[ $subject_key, $term_slug ] = $this->requireSubjectAndTerm( 'POST' );
-		
+		$subject_key = $this->requireKey( 'subject_key', error: 'Предмет и тип задания обязательны' );
+		$term_slug   = $this->requireKey( 'term_slug', error: 'Предмет и тип задания обязательны' );
+
 		// Получение данных из POST
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$uid        = sanitize_text_field( wp_unslash( $_POST['uid'] ?? '' ) );
-		$title      = sanitize_text_field( wp_unslash( $_POST['title'] ?? 'Без названия' ) );
-		$is_default = isset( $_POST['is_default'] ) && '1' === $_POST['is_default'];
+		$uid        = $this->sanitizeText( 'uid' );
+		$title      = $this->sanitizeText( 'title' ) ?: 'Без названия';
+		$is_default = $this->sanitizeInt( 'is_default' ) === 1;
 		
 		// Санитизация контента (массив полей из TinyMCE)
-		$raw_content = isset( $_POST['content'] ) ? wp_unslash( $_POST['content'] ) : array();
-		$content     = $this->sanitizeContent( $raw_content );
+		$content = $this->sanitizeEditorContent( 'content' );
 		
 		// Создание DTO
 		$dto = new TaskTypeBoilerplateDTO(
@@ -91,15 +93,9 @@ class BoilerplateCallbacks extends BaseController {
 		$this->authorize( Nonce::SaveBoilerplate );
 		
 		// Получение и валидация subject_key и term_slug
-		[ $subject_key, $term_slug ] = $this->requireSubjectAndTerm( 'POST' );
-		
-		// Получение UID из POST
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$uid = sanitize_text_field( wp_unslash( $_POST['uid'] ?? '' ) );
-		
-		if ( empty( $uid ) ) {
-			wp_send_json_error( 'UID шаблона обязателен' );
-		}
+		$subject_key = $this->sanitizeKey( 'subject_key' );
+		$term_slug   = $this->sanitizeKey( 'term_slug' );
+		$uid         = $this->requireText( 'uid', error: 'UID шаблона обязателен' );
 		
 		// Удаление через репозиторий
 		$result = $this->boilerplates->deleteBoilerplate( $subject_key, $term_slug, $uid );
@@ -107,63 +103,7 @@ class BoilerplateCallbacks extends BaseController {
 		if ( $result ) {
 			wp_send_json_success( 'Шаблон успешно удалён' );
 		} else {
-			wp_send_json_error( 'Не удалось удалить шаблон или он не найден' );
+			wp_send_json_error( 'Не удалось удалить шаблон' );
 		}
-	}
-	
-	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
-	/**
-	 * Читает и валидирует subject_key + term_slug из указанного супер-глобального массива.
-	 * Завершает выполнение, если одно из значений пустое.
-	 *
-	 * Единый метод для POST (сохранение/удаление) — устраняет прежнюю
-	 * несогласованность ключей между ajaxSave ('subject_key'/'term_slug')
-	 * и ajaxDelete ('subject'/'term').
-	 *
-	 * @param 'POST'|'GET' $method Источник данных
-	 *
-	 * @return array{0: string, 1: string} [subject_key, term_slug]
-	 */
-	private function requireSubjectAndTerm( string $method = 'POST' ): array {
-		$source = 'GET' === $method ? $_GET : $_POST;
-		
-		$subject_key = sanitize_text_field( wp_unslash( $source['subject_key'] ?? '' ) );
-		$term_slug   = sanitize_text_field( wp_unslash( $source['term_slug'] ?? '' ) );
-		
-		if ( empty( $subject_key ) || empty( $term_slug ) ) {
-			wp_send_json_error( 'Предмет и тип задания обязательны' );
-		}
-		
-		return array( $subject_key, $term_slug );
-	}
-	
-	/**
-	 * Санирует массив полей контента из TinyMCE.
-	 *
-	 * Если передано одно поле — возвращает его значение строкой (простой формат).
-	 * Если несколько полей — кодирует в JSON (сложный шаблон).
-	 *
-	 * @param mixed $raw Сырые данные из $_POST['content']
-	 *
-	 * @return string Готовый контент для сохранения
-	 */
-	private function sanitizeContent( mixed $raw ): string {
-		// Если данные не являются массивом или пусты — возвращаем пустую строку
-		if ( ! is_array( $raw ) || empty( $raw ) ) {
-			return '';
-		}
-		
-		// Санитизация каждого поля контента
-		$sanitized = array();
-		foreach ( $raw as $key => $value ) {
-			$sanitized[ sanitize_key( $key ) ] = wp_kses_post( $value );
-		}
-		
-		// Если только одно поле — возвращаем его как строку (простой формат)
-		// Если несколько полей — кодируем в JSON (сложный шаблон)
-		return count( $sanitized ) === 1
-			? reset( $sanitized )
-			: wp_json_encode( $sanitized, JSON_UNESCAPED_UNICODE );
 	}
 }

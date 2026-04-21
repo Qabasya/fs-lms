@@ -43,7 +43,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 			$subject_key = str_replace( '_tasks', '', $screen->post_type );
 			wp_localize_script( $script_handle, 'fs_lms_task_data', [
 				'ajax_url'    => admin_url( 'admin-ajax.php' ),
-				'nonce'       => Nonce::TaskCreation->create(),
+				'security'    => Nonce::TaskCreation->create(),
 				'subject_key' => $subject_key,
 				'post_type'   => $screen->post_type,
 			] );
@@ -51,7 +51,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 			$subject_key = substr( $page, strlen( 'fs_subject_' ) );
 			wp_localize_script( $script_handle, 'fs_lms_task_data', [
 				'ajax_url'    => admin_url( 'admin-ajax.php' ),
-				'nonce'       => Nonce::TaskCreation->create(),
+				'security'    => Nonce::TaskCreation->create(),
 				'subject_key' => $subject_key,
 				'post_type'   => $subject_key . '_tasks',
 			] );

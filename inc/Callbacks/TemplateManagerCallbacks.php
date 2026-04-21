@@ -10,6 +10,7 @@ use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 
 
 /**
@@ -25,6 +26,7 @@ use Inc\Shared\Traits\Authorizer;
  */
 class TemplateManagerCallbacks {
 	use Authorizer;
+	use Sanitizer;
 	
 	/**
 	 * Конструктор.
@@ -36,7 +38,6 @@ class TemplateManagerCallbacks {
 		private MetaBoxRepository $metaboxes,
 		private BoilerplateRepository $boilerplates,
 		private PostManager $posts,
-		private readonly AuthorizationValidator $authorization_validator,
 	) {
 	}
 	
@@ -54,12 +55,8 @@ class TemplateManagerCallbacks {
 		$this->authorize( Nonce::Subject );
 		
 		// Получение и валидация данных
-		$term_id     = absint( $_POST['term_id'] ?? 0 );
-		$template_id = sanitize_text_field( wp_unslash( $_POST['template'] ?? '' ) );
-		
-		if ( ! $term_id || ! $template_id ) {
-			wp_send_json_error( 'Недостаточно данных для обновления' );
-		}
+		$term_id     = $this->requireInt( 'term_id', error: 'Недостаточно данных для обновления' );
+		$template_id = $this->requireText( 'template', error: 'Недостаточно данных для обновления' );
 		
 		// Получение объекта термина
 		$term = get_term( $term_id );
@@ -105,12 +102,8 @@ class TemplateManagerCallbacks {
 		$this->authorize( Nonce::Subject );
 		
 		// Получение и валидация данных из GET-запроса
-		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
-		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
-		
-		if ( ! $subject_key || ! $term_slug ) {
-			wp_send_json_error( 'Недостаточно данных. Error code: #TMC108' );
-		}
+		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TMC108' );
+		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TMC108' );
 		
 		// Получаем объект привязки из БД
 		$assignment = $this->metaboxes->getAssignment( $subject_key, $term_slug );
@@ -175,14 +168,9 @@ class TemplateManagerCallbacks {
 		$this->authorize( Nonce::Subject );
 		
 		// Получение и валидация данных
-		$subject_key = sanitize_text_field( wp_unslash( $_POST['subject_key'] ?? '' ) );
-		$term_slug   = sanitize_text_field( wp_unslash( $_POST['term_slug'] ?? '' ) );
-		// wp_unslash обязателен для корректного хранения HTML/JSON из редактора
-		$text = wp_kses_post( wp_unslash( $_POST['text'] ?? '' ) );
-		
-		if ( ! $subject_key || ! $term_slug ) {
-			wp_send_json_error( 'Недостаточно данных. Error code: #TMC180' );
-		}
+		$subject_key = $this->requireKey( 'subject_key', error: 'Недостаточно данных. Error code: #TMC172' );
+		$term_slug   = $this->requireKey( 'term_slug', error: 'Недостаточно данных. Error code: #TMC173' );
+		$text        = $this->sanitizeHtml( 'text' );
 		
 		// Фиксированный uid гарантирует обновление, а не создание нового варианта
 		$dto = new TaskTypeBoilerplateDTO(
@@ -214,12 +202,8 @@ class TemplateManagerCallbacks {
 		$this->authorize( Nonce::Subject );
 		
 		// Получение и валидация данных из GET-запроса
-		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
-		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
-		
-		if ( ! $subject_key || ! $term_slug ) {
-			wp_send_json_error( 'Недостаточно данных. Error code: #TMC217' );
-		}
+		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TMC206' );
+		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TMC207' );
 		
 		// Репозиторий сам знает, как найти дефолтный вариант
 		$result = $this->boilerplates->getDefaultBoilerplate( $subject_key, $term_slug );

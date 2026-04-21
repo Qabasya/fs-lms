@@ -23,7 +23,7 @@ use Inc\Enums\Nonce;
 		<input type="hidden" name="subject_key" value="<?php echo esc_attr( $subject ); ?>">
 		<input type="hidden" name="term_slug" value="<?php echo esc_attr( $term ); ?>">
 		<input type="hidden" name="uid" value="<?php echo esc_attr( $bp_uid ); ?>">
-		<?php wp_nonce_field( Nonce::SaveBoilerplate->value, 'nonce' ); ?>
+		<?php wp_nonce_field( Nonce::SaveBoilerplate->value, 'security' ); ?>
 
 		<div id="poststuff">
 			<div id="post-body" class="metabox-holder columns-2">
