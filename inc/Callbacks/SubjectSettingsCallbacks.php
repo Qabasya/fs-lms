@@ -14,6 +14,7 @@ use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Services\TaxonomySeeder;
+use Inc\Validators\AuthorizationValidator;
 
 /**
  * Class SubjectSettingsCallbacks
@@ -43,6 +44,7 @@ class SubjectSettingsCallbacks {
 		private BoilerplateRepository $boilerplates,
 		private TermManager $terms,
 		private PostManager $posts,
+		private readonly AuthorizationValidator $authorization_validator,
 	) {
 	}
 
@@ -55,7 +57,7 @@ class SubjectSettingsCallbacks {
 	 */
 	public function ajaxStoreSubject(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация ключа и названия предмета
 		[ $key, $name ] = $this->requireKeyAndName();
@@ -93,7 +95,7 @@ class SubjectSettingsCallbacks {
 	 */
 	public function ajaxUpdateSubject(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация ключа и названия предмета
 		[ $key, $name ] = $this->requireKeyAndName();
@@ -125,7 +127,7 @@ class SubjectSettingsCallbacks {
 	 */
 	public function ajaxDeleteSubject(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация ключа предмета
 		$key = $this->requireKey();
@@ -158,7 +160,7 @@ class SubjectSettingsCallbacks {
 	 */
 	public function ajaxExportSubject(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация ключа предмета
 		$key     = $this->requireKey();
@@ -192,7 +194,7 @@ class SubjectSettingsCallbacks {
 	 */
 	public function ajaxImportSubject(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и декодирование JSON
 		$raw = wp_unslash( $_POST['json'] ?? '' );
@@ -366,21 +368,6 @@ class SubjectSettingsCallbacks {
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
-	/**
-	 * Проверяет nonce и права администратора.
-	 * Завершает выполнение через wp_send_json_error при неудаче.
-	 *
-	 * @return void
-	 */
-	private function authorize(): void {
-		// Проверка nonce для защиты от CSRF
-		Nonce::Subject->verify( 'security' );
-
-		// Проверка прав доступа (только администраторы)
-		if ( ! current_user_can( Capability::ADMIN->value ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
-		}
-	}
 
 	/**
 	 * Читает и валидирует ключ предмета из POST.

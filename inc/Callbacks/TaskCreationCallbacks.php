@@ -6,6 +6,7 @@ use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\BoilerplateRepository;
+use Inc\Validators\AuthorizationValidator;
 
 /**
  * Class TaskCreationCallbacks
@@ -17,6 +18,8 @@ use Inc\Repositories\BoilerplateRepository;
  * @package Inc\Callbacks
  */
 class TaskCreationCallbacks {
+
+	
 	/**
 	 * Конструктор.
 	 *
@@ -25,7 +28,8 @@ class TaskCreationCallbacks {
 	 */
 	public function __construct(
 		private MetaBoxRepository $metaboxes,
-		private BoilerplateRepository $boilerplates
+		private BoilerplateRepository $boilerplates,
+		private readonly AuthorizationValidator $authorization_validator,
 	) {
 	}
 
@@ -38,14 +42,7 @@ class TaskCreationCallbacks {
 	 */
 	public function ajaxGetTaskTypes(): void {
 		// Проверка nonce для защиты от CSRF
-		check_ajax_referer( 'fs_task_creation_nonce', 'nonce' );
-
-		// Проверка прав доступа (редактирование постов)
-		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
-
-			return;
-		}
+		$this->authorization_validator->authorize( Nonce::TaskCreation );
 
 		// Получение и санитизация ключа предмета
 		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
@@ -68,7 +65,7 @@ class TaskCreationCallbacks {
 	 */
 	public function ajaxCreateTask(): void {
 		// Валидация запроса
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::TaskCreation );
 
 		// Сбор и валидация данных
 		[ $subject_key, $term_id, $title ] = $this->collectCreateTaskData();
@@ -116,15 +113,7 @@ class TaskCreationCallbacks {
 	 * @return void
 	 */
 	public function ajaxGetTaskBoilerplates(): void {
-		// Проверка nonce для защиты от CSRF
-		check_ajax_referer( 'fs_task_creation_nonce', 'nonce' );
-
-		// Проверка прав доступа (редактирование постов)
-		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
-
-			return;
-		}
+		$this->authorization_validator->authorize( Nonce::TaskCreation );
 
 		// Получение и санитизация данных
 		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
@@ -152,28 +141,13 @@ class TaskCreationCallbacks {
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-
-	/**
-	 * Проверяет nonce и права доступа для запроса создания задания.
-	 *
-	 * @return void
-	 */
-	private function authorize(): void {
-		// Проверка nonce для защиты от CSRF
-		Nonce::TaskCreation->verify( 'nonce' );
-
-		// Проверка прав доступа (редактирование постов)
-		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
-		}
-	}
-
 	/**
 	 * Собирает и валидирует POST-данные запроса.
 	 *
 	 * @return array{0: string, 1: int, 2: string} [subject_key, term_id, title]
 	 */
 	private function collectCreateTaskData(): array {
+		$this->authorization_validator->authorize( Nonce::TaskCreation );
 		$subject_key = sanitize_text_field( wp_unslash( $_POST['subject_key'] ?? '' ) );
 		$term_id     = absint( $_POST['term_id'] ?? 0 );
 		$title       = sanitize_text_field( wp_unslash( $_POST['title'] ?? 'Новое задание' ) );

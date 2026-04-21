@@ -7,6 +7,7 @@ use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\BoilerplateRepository;
+use Inc\Validators\AuthorizationValidator;
 
 /**
  * Class BoilerplateCallbacks
@@ -26,6 +27,7 @@ class BoilerplateCallbacks extends BaseController {
 	 */
 	public function __construct(
 		private readonly BoilerplateRepository $boilerplates,
+		private readonly AuthorizationValidator $authorization_validator,
 	) {
 		parent::__construct();
 	}
@@ -39,7 +41,7 @@ class BoilerplateCallbacks extends BaseController {
 	 */
 	public function ajaxSaveBoilerplate(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::SaveBoilerplate );
 
 		// Получение и валидация subject_key и term_slug
 		[ $subject_key, $term_slug ] = $this->requireSubjectAndTerm( 'POST' );
@@ -86,7 +88,7 @@ class BoilerplateCallbacks extends BaseController {
 	 */
 	public function ajaxDeleteBoilerplate(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::SaveBoilerplate );
 
 		// Получение и валидация subject_key и term_slug
 		[ $subject_key, $term_slug ] = $this->requireSubjectAndTerm( 'POST' );
@@ -110,22 +112,6 @@ class BoilerplateCallbacks extends BaseController {
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-
-	/**
-	 * Проверяет nonce и права администратора.
-	 * Завершает выполнение через wp_send_json_error при неудаче.
-	 *
-	 * @return void
-	 */
-	private function authorize(): void {
-		// Проверка nonce для защиты от CSRF
-		Nonce::SaveBoilerplate->verify( 'nonce' );
-
-		// Проверка прав доступа (только администраторы)
-		if ( ! current_user_can( Capability::ADMIN->value ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
-		}
-	}
 
 	/**
 	 * Читает и валидирует subject_key + term_slug из указанного супер-глобального массива.

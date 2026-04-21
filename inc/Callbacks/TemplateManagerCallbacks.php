@@ -10,6 +10,7 @@ use Inc\Managers\PostManager;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\BoilerplateRepository;
+use Inc\Validators\AuthorizationValidator;
 
 /**
  * Class TemplateManagerCallbacks
@@ -33,6 +34,7 @@ class TemplateManagerCallbacks {
 		private MetaBoxRepository $metaboxes,
 		private BoilerplateRepository $boilerplates,
 		private PostManager $posts,
+		private readonly AuthorizationValidator $authorization_validator,
 	) {
 	}
 
@@ -47,7 +49,7 @@ class TemplateManagerCallbacks {
 	 */
 	public function ajaxUpdateTermTemplate(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация данных
 		$term_id     = absint( $_POST['term_id'] ?? 0 );
@@ -98,8 +100,8 @@ class TemplateManagerCallbacks {
 	 */
 	public function ajaxGetTemplateStructure(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
-
+		$this->authorization_validator->authorize( Nonce::Subject );
+		
 		// Получение и валидация данных из GET-запроса
 		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
 		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term_slug'] ?? '' ) );
@@ -168,7 +170,7 @@ class TemplateManagerCallbacks {
 	 */
 	public function ajaxSaveTaskBoilerplate(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация данных
 		$subject_key = sanitize_text_field( wp_unslash( $_POST['subject_key'] ?? '' ) );
@@ -207,7 +209,7 @@ class TemplateManagerCallbacks {
 	 */
 	public function ajaxGetBoilerplate(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация данных из GET-запроса
 		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject_key'] ?? '' ) );
@@ -226,23 +228,5 @@ class TemplateManagerCallbacks {
 				'uid'  => $result?->uid ?? null,
 			)
 		);
-	}
-
-	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-
-	/**
-	 * Проверяет nonce и права администратора.
-	 * Завершает выполнение через wp_send_json_error при неудаче.
-	 *
-	 * @return void
-	 */
-	private function authorize(): void {
-		// Проверка nonce для защиты от CSRF
-		Nonce::Subject->verify( 'security' );
-
-		// Проверка прав доступа (только администраторы)
-		if ( ! current_user_can( Capability::ADMIN->value ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
-		}
 	}
 }

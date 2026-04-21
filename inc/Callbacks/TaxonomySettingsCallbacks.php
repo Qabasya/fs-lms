@@ -6,6 +6,7 @@ use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Managers\TermManager;
 use Inc\Repositories\TaxonomyRepository;
+use Inc\Validators\AuthorizationValidator;
 
 /**
  * Class TaxonomySettingsCallbacks
@@ -25,6 +26,7 @@ class TaxonomySettingsCallbacks {
 	public function __construct(
 		private TaxonomyRepository $taxonomies,
 		private TermManager $terms,
+		private readonly AuthorizationValidator $authorization_validator,
 	) {
 	}
 
@@ -40,7 +42,7 @@ class TaxonomySettingsCallbacks {
 	 */
 	public function ajaxStoreTaxonomy(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация данных таксономии
 		[ $subject_key, $tax_suffix, $tax_name, $display_type ] = $this->requireTaxonomyData();
@@ -81,7 +83,7 @@ class TaxonomySettingsCallbacks {
 	 */
 	public function ajaxUpdateTaxonomy(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация данных таксономии
 		[ $subject_key, $tax_slug, $tax_name, $display_type ] = $this->requireTaxonomyData();
@@ -107,7 +109,7 @@ class TaxonomySettingsCallbacks {
 	 */
 	public function ajaxDeleteTaxonomy(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize();
+		$this->authorization_validator->authorize( Nonce::Subject );
 
 		// Получение и валидация ключа предмета и слага таксономии
 		[ $subject_key, $tax_slug ] = $this->requireSubjectAndSlug();
@@ -129,21 +131,6 @@ class TaxonomySettingsCallbacks {
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
-	/**
-	 * Проверяет nonce и права администратора.
-	 * Завершает выполнение через wp_send_json_error при неудаче.
-	 *
-	 * @return void
-	 */
-	private function authorize(): void {
-		// Проверка nonce для защиты от CSRF
-		Nonce::Subject->verify( 'security' );
-
-		// Проверка прав доступа (только администраторы)
-		if ( ! current_user_can( Capability::ADMIN->value ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
-		}
-	}
 
 	/**
 	 * Читает и валидирует subject_key и tax_slug из POST.
