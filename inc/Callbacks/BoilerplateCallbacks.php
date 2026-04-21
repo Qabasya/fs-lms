@@ -4,10 +4,9 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeBoilerplateDTO;
-use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\BoilerplateRepository;
-use Inc\Validators\AuthorizationValidator;
+use Inc\Shared\Traits\Authorizer;
 
 /**
  * Class BoilerplateCallbacks
@@ -20,6 +19,8 @@ use Inc\Validators\AuthorizationValidator;
  * @package Inc\Callbacks
  */
 class BoilerplateCallbacks extends BaseController {
+	use Authorizer;
+	
 	/**
 	 * Конструктор.
 	 *
@@ -27,13 +28,12 @@ class BoilerplateCallbacks extends BaseController {
 	 */
 	public function __construct(
 		private readonly BoilerplateRepository $boilerplates,
-		private readonly AuthorizationValidator $authorization_validator,
 	) {
 		parent::__construct();
 	}
-
+	
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
-
+	
 	/**
 	 * Сохраняет (создаёт или обновляет) boilerplate-шаблон.
 	 *
@@ -41,21 +41,21 @@ class BoilerplateCallbacks extends BaseController {
 	 */
 	public function ajaxSaveBoilerplate(): void {
 		// Проверка прав доступа и nonce
-		$this->authorization_validator->authorize( Nonce::SaveBoilerplate );
-
+		$this->authorize( Nonce::SaveBoilerplate );
+		
 		// Получение и валидация subject_key и term_slug
 		[ $subject_key, $term_slug ] = $this->requireSubjectAndTerm( 'POST' );
-
+		
 		// Получение данных из POST
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$uid        = sanitize_text_field( wp_unslash( $_POST['uid'] ?? '' ) );
 		$title      = sanitize_text_field( wp_unslash( $_POST['title'] ?? 'Без названия' ) );
 		$is_default = isset( $_POST['is_default'] ) && '1' === $_POST['is_default'];
-
+		
 		// Санитизация контента (массив полей из TinyMCE)
 		$raw_content = isset( $_POST['content'] ) ? wp_unslash( $_POST['content'] ) : array();
 		$content     = $this->sanitizeContent( $raw_content );
-
+		
 		// Создание DTO
 		$dto = new TaskTypeBoilerplateDTO(
 			uid        : $uid,
@@ -65,10 +65,10 @@ class BoilerplateCallbacks extends BaseController {
 			content    : $content,
 			is_default : $is_default,
 		);
-
+		
 		// Сохранение через репозиторий
 		$result = $this->boilerplates->updateBoilerplate( $dto );
-
+		
 		if ( $result ) {
 			wp_send_json_success(
 				array(
@@ -80,7 +80,7 @@ class BoilerplateCallbacks extends BaseController {
 			wp_send_json_error( 'Не удалось сохранить шаблон' );
 		}
 	}
-
+	
 	/**
 	 * Удаляет boilerplate-шаблон по UID.
 	 *
@@ -88,31 +88,31 @@ class BoilerplateCallbacks extends BaseController {
 	 */
 	public function ajaxDeleteBoilerplate(): void {
 		// Проверка прав доступа и nonce
-		$this->authorization_validator->authorize( Nonce::SaveBoilerplate );
-
+		$this->authorize( Nonce::SaveBoilerplate );
+		
 		// Получение и валидация subject_key и term_slug
 		[ $subject_key, $term_slug ] = $this->requireSubjectAndTerm( 'POST' );
-
+		
 		// Получение UID из POST
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$uid = sanitize_text_field( wp_unslash( $_POST['uid'] ?? '' ) );
-
+		
 		if ( empty( $uid ) ) {
 			wp_send_json_error( 'UID шаблона обязателен' );
 		}
-
+		
 		// Удаление через репозиторий
 		$result = $this->boilerplates->deleteBoilerplate( $subject_key, $term_slug, $uid );
-
+		
 		if ( $result ) {
 			wp_send_json_success( 'Шаблон успешно удалён' );
 		} else {
 			wp_send_json_error( 'Не удалось удалить шаблон или он не найден' );
 		}
 	}
-
+	
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-
+	
 	/**
 	 * Читает и валидирует subject_key + term_slug из указанного супер-глобального массива.
 	 * Завершает выполнение, если одно из значений пустое.
@@ -127,17 +127,17 @@ class BoilerplateCallbacks extends BaseController {
 	 */
 	private function requireSubjectAndTerm( string $method = 'POST' ): array {
 		$source = 'GET' === $method ? $_GET : $_POST;
-
+		
 		$subject_key = sanitize_text_field( wp_unslash( $source['subject_key'] ?? '' ) );
 		$term_slug   = sanitize_text_field( wp_unslash( $source['term_slug'] ?? '' ) );
-
+		
 		if ( empty( $subject_key ) || empty( $term_slug ) ) {
 			wp_send_json_error( 'Предмет и тип задания обязательны' );
 		}
-
+		
 		return array( $subject_key, $term_slug );
 	}
-
+	
 	/**
 	 * Санирует массив полей контента из TinyMCE.
 	 *
@@ -153,13 +153,13 @@ class BoilerplateCallbacks extends BaseController {
 		if ( ! is_array( $raw ) || empty( $raw ) ) {
 			return '';
 		}
-
+		
 		// Санитизация каждого поля контента
 		$sanitized = array();
 		foreach ( $raw as $key => $value ) {
 			$sanitized[ sanitize_key( $key ) ] = wp_kses_post( $value );
 		}
-
+		
 		// Если только одно поле — возвращаем его как строку (простой формат)
 		// Если несколько полей — кодируем в JSON (сложный шаблон)
 		return count( $sanitized ) === 1

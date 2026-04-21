@@ -2,11 +2,10 @@
 
 namespace Inc\Callbacks;
 
-use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Managers\TermManager;
 use Inc\Repositories\TaxonomyRepository;
-use Inc\Validators\AuthorizationValidator;
+use Inc\Shared\Traits\Authorizer;
 
 /**
  * Class TaxonomySettingsCallbacks
@@ -17,6 +16,8 @@ use Inc\Validators\AuthorizationValidator;
  * @package Inc\Callbacks
  */
 class TaxonomySettingsCallbacks {
+	use Authorizer;
+	
 	/**
 	 * Конструктор.
 	 *
@@ -26,12 +27,11 @@ class TaxonomySettingsCallbacks {
 	public function __construct(
 		private TaxonomyRepository $taxonomies,
 		private TermManager $terms,
-		private readonly AuthorizationValidator $authorization_validator,
 	) {
 	}
-
+	
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
-
+	
 	/**
 	 * Создаёт новую таксономию для предмета.
 	 *
@@ -42,24 +42,24 @@ class TaxonomySettingsCallbacks {
 	 */
 	public function ajaxStoreTaxonomy(): void {
 		// Проверка прав доступа и nonce
-		$this->authorization_validator->authorize( Nonce::Subject );
-
+		$this->authorize( Nonce::Subject );
+		
 		// Получение и валидация данных таксономии
 		[ $subject_key, $tax_suffix, $tax_name, $display_type ] = $this->requireTaxonomyData();
-
+		
 		// Формирование полного слага таксономии
 		$tax_slug = "{$subject_key}_{$tax_suffix}";
-
+		
 		// Проверка длины слага (максимум 32 символа в WordPress)
 		if ( strlen( $tax_slug ) > 32 ) {
 			wp_send_json_error( 'Ярлык слишком длинный (макс. ' . ( 32 - strlen( $subject_key ) - 1 ) . ' символов)' );
 		}
-
+		
 		// Проверка, не существует ли уже такая таксономия в WordPress
 		if ( taxonomy_exists( $tax_slug ) ) {
 			wp_send_json_error( 'Таксономия с таким ярлыком уже существует' );
 		}
-
+		
 		// Сохранение через репозиторий
 		$this->taxonomies->update(
 			array(
@@ -69,11 +69,11 @@ class TaxonomySettingsCallbacks {
 				'display_type' => $display_type,
 			)
 		);
-
+		
 		// Отправка результата
 		$this->sendResult( 'Таксономия создана' );
 	}
-
+	
 	/**
 	 * Обновляет существующую таксономию (название, тип отображения).
 	 *
@@ -83,11 +83,11 @@ class TaxonomySettingsCallbacks {
 	 */
 	public function ajaxUpdateTaxonomy(): void {
 		// Проверка прав доступа и nonce
-		$this->authorization_validator->authorize( Nonce::Subject );
-
+		$this->authorize( Nonce::Subject );
+		
 		// Получение и валидация данных таксономии
 		[ $subject_key, $tax_slug, $tax_name, $display_type ] = $this->requireTaxonomyData();
-
+		
 		// Обновление через репозиторий
 		$this->taxonomies->update(
 			array(
@@ -97,11 +97,11 @@ class TaxonomySettingsCallbacks {
 				'display_type' => $display_type,
 			)
 		);
-
+		
 		// Отправка результата
 		$this->sendResult( 'Таксономия обновлена' );
 	}
-
+	
 	/**
 	 * Удаляет таксономию предмета и все её термины из базы данных.
 	 *
@@ -109,14 +109,14 @@ class TaxonomySettingsCallbacks {
 	 */
 	public function ajaxDeleteTaxonomy(): void {
 		// Проверка прав доступа и nonce
-		$this->authorization_validator->authorize( Nonce::Subject );
-
+		$this->authorize( Nonce::Subject );
+		
 		// Получение и валидация ключа предмета и слага таксономии
 		[ $subject_key, $tax_slug ] = $this->requireSubjectAndSlug();
-
+		
 		// Удаление всех терминов таксономии через менеджер
 		$this->terms->deleteAll( $tax_slug );
-
+		
 		// Удаление записи о таксономии из репозитория
 		$this->taxonomies->delete(
 			array(
@@ -124,14 +124,14 @@ class TaxonomySettingsCallbacks {
 				'tax_slug'    => $tax_slug,
 			)
 		);
-
+		
 		// Отправка результата
 		$this->sendResult( 'Таксономия удалена' );
 	}
-
+	
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-
-
+	
+	
 	/**
 	 * Читает и валидирует subject_key и tax_slug из POST.
 	 *
@@ -140,14 +140,14 @@ class TaxonomySettingsCallbacks {
 	private function requireSubjectAndSlug(): array {
 		$subject_key = sanitize_title( wp_unslash( $_POST['subject_key'] ?? '' ) );
 		$tax_slug    = sanitize_title( wp_unslash( $_POST['tax_slug'] ?? '' ) );
-
+		
 		if ( empty( $subject_key ) || empty( $tax_slug ) ) {
 			wp_send_json_error( 'Недостаточно данных для операции' );
 		}
-
+		
 		return array( $subject_key, $tax_slug );
 	}
-
+	
 	/**
 	 * Читает и валидирует полный набор данных таксономии из POST.
 	 *
@@ -159,23 +159,23 @@ class TaxonomySettingsCallbacks {
 	private function requireTaxonomyData(): array {
 		// Получение ключа предмета и слага (или суффикса)
 		[ $subject_key, $tax_slug ] = $this->requireSubjectAndSlug();
-
+		
 		// Получение названия таксономии
 		$tax_name = sanitize_text_field( wp_unslash( $_POST['tax_name'] ?? '' ) );
-
+		
 		if ( empty( $tax_name ) ) {
 			wp_send_json_error( 'Название таксономии не может быть пустым' );
 		}
-
+		
 		// Получение и валидация типа отображения
 		$raw_display  = sanitize_text_field( wp_unslash( $_POST['display_type'] ?? '' ) );
 		$display_type = in_array( $raw_display, array( 'select', 'radio', 'checkbox' ), true )
 			? $raw_display
 			: 'select';
-
+		
 		return array( $subject_key, $tax_slug, $tax_name, $display_type );
 	}
-
+	
 	/**
 	 * Сбрасывает правила перезаписи и отправляет успешный ответ клиенту.
 	 *
@@ -186,7 +186,7 @@ class TaxonomySettingsCallbacks {
 	private function sendResult( string $message ): void {
 		// Сброс правил перезаписи после изменений таксономий
 		flush_rewrite_rules();
-
+		
 		wp_send_json_success( $message );
 	}
 }
