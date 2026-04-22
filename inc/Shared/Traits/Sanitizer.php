@@ -146,6 +146,13 @@ trait Sanitizer {
 	 *
 	 * @return int Очищенное целое число
 	 */
+	protected function sanitizeBool( string $key, string $source = 'POST' ): bool {
+		$data  = $source === 'POST' ? $_POST : $_GET;
+		$value = $data[ $key ] ?? null;
+
+		return in_array( $value, array( '1', 'on', 'true', true, 1 ), true );
+	}
+
 	protected function requireInt( string $key, string $method = 'POST', string $error = 'Неверный идентификатор' ): int {
 		$value = $this->sanitizeInt( $key, $method );
 		if ( 0 === $value ) {

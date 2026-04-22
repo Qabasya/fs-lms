@@ -83,6 +83,22 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		// Регистрация CPT и таксономий для всех предметов
 		$this->registerCptsAndTaxonomies();
+
+		// Уведомление об ошибке обязательной таксономии (после серверной проверки)
+		add_action( 'admin_notices', array( $this, 'showRequiredTaxNotice' ) );
+	}
+
+	public function showRequiredTaxNotice(): void {
+		$key = 'fs_lms_required_tax_error_' . get_current_user_id();
+		$msg = get_transient( $key );
+		if ( ! $msg ) {
+			return;
+		}
+		delete_transient( $key );
+		printf(
+			'<div class="notice notice-error is-dismissible"><p>Обязательная таксономия «%s» не заполнена. Задание сохранено как черновик.</p></div>',
+			esc_html( $msg )
+		);
 	}
 
 	/**
@@ -259,6 +275,38 @@ class SubjectController extends BaseController implements ServiceInterface {
 				$tax_dto->display_type
 			);
 		}
+
+		// Серверная проверка обязательных таксономий при публикации
+		add_filter(
+			'wp_insert_post_data',
+			function ( array $data, array $postarr ) use ( $key ): array {
+				if ( ( $data['post_type'] ?? '' ) !== "{$key}_tasks" ) {
+					return $data;
+				}
+				if ( ! in_array( $data['post_status'], array( 'publish', 'future' ), true ) ) {
+					return $data;
+				}
+				if ( empty( $postarr['ID'] ) || ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) ) {
+					return $data;
+				}
+
+				foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
+					if ( ! $tax_dto->is_required ) {
+						continue;
+					}
+					$values = array_filter( (array) ( $_POST['tax_input'][ $tax_dto->slug ] ?? array() ) );
+					if ( empty( $values ) ) {
+						$data['post_status'] = 'draft';
+						set_transient( 'fs_lms_required_tax_error_' . get_current_user_id(), $tax_dto->name, 30 );
+						break;
+					}
+				}
+
+				return $data;
+			},
+			10,
+			2
+		);
 	}
 
 	/**

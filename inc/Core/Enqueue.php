@@ -7,8 +7,14 @@ namespace Inc\Core;
 use Inc\Contracts\ServiceInterface;
 use Inc\Enums\AjaxHook;
 use Inc\Enums\Nonce;
+use Inc\Repositories\TaxonomyRepository;
 
 class Enqueue extends BaseController implements ServiceInterface {
+
+	public function __construct( private readonly TaxonomyRepository $taxonomy_repository ) {
+		parent::__construct();
+	}
+
 	public function register(): void {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_assets' ] );
@@ -42,18 +48,20 @@ class Enqueue extends BaseController implements ServiceInterface {
 		if ( is_admin() && $screen && str_contains( $screen->post_type, '_tasks' ) ) {
 			$subject_key = str_replace( '_tasks', '', $screen->post_type );
 			wp_localize_script( $script_handle, 'fs_lms_task_data', [
-				'ajax_url'    => admin_url( 'admin-ajax.php' ),
-				'security'    => Nonce::TaskCreation->create(),
-				'subject_key' => $subject_key,
-				'post_type'   => $screen->post_type,
+				'ajax_url'            => admin_url( 'admin-ajax.php' ),
+				'security'            => Nonce::TaskCreation->create(),
+				'subject_key'         => $subject_key,
+				'post_type'           => $screen->post_type,
+				'required_taxonomies' => $this->getRequiredTaxonomySlugs( $subject_key ),
 			] );
 		} elseif ( str_starts_with( $page, 'fs_subject_' ) ) {
 			$subject_key = substr( $page, strlen( 'fs_subject_' ) );
 			wp_localize_script( $script_handle, 'fs_lms_task_data', [
-				'ajax_url'    => admin_url( 'admin-ajax.php' ),
-				'security'    => Nonce::TaskCreation->create(),
-				'subject_key' => $subject_key,
-				'post_type'   => $subject_key . '_tasks',
+				'ajax_url'            => admin_url( 'admin-ajax.php' ),
+				'security'            => Nonce::TaskCreation->create(),
+				'subject_key'         => $subject_key,
+				'post_type'           => $subject_key . '_tasks',
+				'required_taxonomies' => $this->getRequiredTaxonomySlugs( $subject_key ),
 			] );
 			wp_enqueue_script( 'inline-edit-post' );
 		}
@@ -83,6 +91,16 @@ class Enqueue extends BaseController implements ServiceInterface {
 		);
 	}
 	
+	private function getRequiredTaxonomySlugs( string $subject_key ): array {
+		return array_values( array_map(
+			fn( $dto ) => $dto->slug,
+			array_filter(
+				$this->taxonomy_repository->getBySubject( $subject_key ),
+				fn( $dto ) => $dto->is_required
+			)
+		) );
+	}
+
 	/**
 	 * Глобально рендерит HTML модалки подтверждения в админке.
 	 */

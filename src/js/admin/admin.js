@@ -5,6 +5,7 @@ import {Boilerplates} from './services/boilerplates.js';
 import {TaskCreation} from './services/task-creation.js';
 import {Taxonomies} from './services/taxonomies.js';
 import {PostsTable} from './services/posts-table.js';
+import {RequiredTaxGuard} from './services/required-tax-guard.js';
 
 (function ($) {
     'use strict';
@@ -29,6 +30,8 @@ import {PostsTable} from './services/posts-table.js';
         if ($('.js-taxonomy-table').length) {
             Taxonomies.init();
         }
+
+        RequiredTaxGuard.init();
     });
 
 })(jQuery);

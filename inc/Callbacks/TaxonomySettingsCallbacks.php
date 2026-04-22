@@ -72,7 +72,7 @@ class TaxonomySettingsCallbacks {
 				'tax_slug'     => $tax_slug,
 				'name'         => $tax_name,
 				'display_type' => $display_type,
-				'is_required'  => isset( $_POST['is_required'] ) && '1' === $_POST['is_required'],
+				'is_required'  => $this->sanitizeBool( 'is_required' ),
 			)
 		);
 
@@ -103,7 +103,7 @@ class TaxonomySettingsCallbacks {
 				'tax_slug'     => $tax_slug,
 				'name'         => $tax_name,
 				'display_type' => $this->getValidatedDisplayType(),
-				'is_required'  => isset( $_POST['is_required'] ) && '1' === $_POST['is_required'],
+				'is_required'  => $this->sanitizeBool( 'is_required' ),
 			)
 		);
 
