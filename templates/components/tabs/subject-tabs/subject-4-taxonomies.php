@@ -22,7 +22,7 @@ $display_labels = array(
 		<tr>
 			<th class="manage-column column-primary" style="width: 30%;">Название</th>
 			<th class="manage-column" style="width: 20%;">Ярлык (Slug)</th>
-			<th class="manage-column" style="width: 20%;">Тип вида</th>
+			<th class="manage-column" style="width: 20%;">Тип отображения</th>
 			<th class="manage-column" style="width: 10%;">Обязательна</th>
 			<th class="manage-column" style="width: 20%;">Действия</th>
 		</tr>
