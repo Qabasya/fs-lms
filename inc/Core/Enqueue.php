@@ -25,9 +25,16 @@ class Enqueue extends BaseController implements ServiceInterface {
 		wp_enqueue_media();
 
 		wp_enqueue_style(
+			'fs-lms-common-style',
+			$this->url( 'assets/css/common.min.css' ),
+			[],
+			$this->plugin_version
+		);
+
+		wp_enqueue_style(
 			'fs-lms-admin-style',
 			$this->url( 'assets/css/admin.min.css' ),
-			[ 'wp-components' ],
+			[ 'wp-components', 'fs-lms-common-style' ],
 			$this->plugin_version
 		);
 
@@ -84,9 +91,16 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 	public function enqueue_frontend_assets(): void {
 		wp_enqueue_style(
+			'fs-lms-common-style',
+			$this->url( 'assets/css/common.min.css' ),
+			[],
+			$this->plugin_version
+		);
+
+		wp_enqueue_style(
 			'fs-lms-frontend-style',
 			$this->url( 'assets/css/frontend.min.css' ),
-			[],
+			[ 'fs-lms-common-style' ],
 			$this->plugin_version
 		);
 

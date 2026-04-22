@@ -6,11 +6,7 @@ function render_fs_toggle( $name, $value = false, $args = array() ) {
 		'args'  => $args,
 	);
 
-	$template_path = plugin_dir_path( __FILE__ ) . '../templates/components/UI/toggle.php';
-
-	if ( file_exists( $template_path ) ) {
-		include $template_path;
-	}
+	include __DIR__ . '/components/UI/toggle.php';
 }
 
 function render_fs_badge( $text, $color = 'gray', $class = '' ) {
@@ -18,9 +14,5 @@ function render_fs_badge( $text, $color = 'gray', $class = '' ) {
 	$template_data = compact( 'text', 'color', 'class' );
 
 	// Путь к файлу шаблона
-	$template_path = plugin_dir_path( __FILE__ ) . '../templates/components/UI/badge.php';
-
-	if ( file_exists( $template_path ) ) {
-		include $template_path;
-	}
+	include __DIR__ . '/components/UI/badge.php';
 }

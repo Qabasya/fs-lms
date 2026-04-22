@@ -43,7 +43,12 @@
 
   // Вариант "Только чтение" (Status Only)
   &.is-readonly {
+    cursor: default;
     pointer-events: none;
-    opacity: 0.8;
+    opacity: 0.9;
+
+    .fs-toggle-switch {
+      cursor: default;
+    }
   }
 }

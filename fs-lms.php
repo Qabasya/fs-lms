@@ -19,7 +19,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-require_once plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
+define( 'FS_LMS_PATH', plugin_dir_path( __FILE__ ) );
+
+require_once FS_LMS_PATH . 'vendor/autoload.php';
 
 register_activation_hook( __FILE__, [ Activate::class, 'activate' ] );
 register_deactivation_hook( __FILE__, [ Deactivate::class, 'deactivate' ] );

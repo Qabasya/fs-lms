@@ -88,15 +88,26 @@ const errorHandler = function (err) {
 };
 
 /**
- * ОБРАБОТКА CSS (AdminController & Frontend)
+ * ОБРАБОТКА CSS (AdminController & Frontend & Common)
  */
+function stylesCommon() {
+    return gulp.src(paths.scss.common)
+        .pipe(plumber({errorHandler}))
+        .pipe(sourcemaps.init())
+        .pipe(sass())
+        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(rename('common.min.css'))
+        .pipe(sourcemaps.write(paths.output.maps))
+        .pipe(gulp.dest(paths.output.css));
+}
+
 function stylesAdmin() {
     return gulp.src(paths.scss.admin)
         .pipe(plumber({errorHandler}))
         .pipe(sourcemaps.init())
         .pipe(sass({ includePaths: [paths.scss.common] }))
         .pipe(postcss([autoprefixer(), cssnano()]))
-        .pipe(rename('admin.min.css')) // Имя файла без изменений
+        .pipe(rename('admin.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
 }
@@ -107,10 +118,12 @@ function stylesFrontend() {
         .pipe(sourcemaps.init())
         .pipe(sass({ includePaths: [paths.scss.common] }))
         .pipe(postcss([autoprefixer(), cssnano()]))
-        .pipe(rename('frontend.min.css')) // Имя файла без изменений
+        .pipe(rename('frontend.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
 }
+
+
 
 /**
  * ОБРАБОТКА JS (AdminController & Frontend)
@@ -136,9 +149,10 @@ function watchFiles() {
 }
 
 // Экспорт задач
-const build = gulp.parallel(stylesAdmin, stylesFrontend, scripts);
+const build = gulp.parallel(stylesCommon, stylesAdmin, stylesFrontend, scripts);
 
-exports['styles:admin'] = stylesAdmin;
+exports['styles:common']   = stylesCommon;
+exports['styles:admin']    = stylesAdmin;
 exports['styles:frontend'] = stylesFrontend;
 exports['scripts'] = scripts;
 exports.build = build;
