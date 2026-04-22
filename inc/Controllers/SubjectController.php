@@ -281,7 +281,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 			slug        : "{$key}_task_number",
 			name        : "Номера заданий ({$current_subject->name})",
 			subject_key : $key,
-			is_protected: true
+			is_protected: true,
+			is_required : true
 		);
 
 		// Получение текущей вкладки для определения необходимости построения таблиц

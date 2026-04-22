@@ -18,7 +18,8 @@
 			<?php $is_protected = ( $tax->slug === $dto->protected_tax ); ?>
 			<tr data-slug="<?php echo esc_attr( $tax->slug ); ?>"
 				data-name="<?php echo esc_attr( $tax->name ); ?>"
-				data-display="<?php echo esc_attr( $tax->display_type ?? 'select' ); ?>">
+				data-display="<?php echo esc_attr( $tax->display_type ?? 'select' ); ?>"
+				data-required="<?php echo esc_attr( $tax->is_required ? '1' : '0' ); ?>">
 				<td class="column-title">
 					<strong><?php echo esc_html( $tax->name ); ?></strong>
 					<?php if ( $is_protected ) : ?>
