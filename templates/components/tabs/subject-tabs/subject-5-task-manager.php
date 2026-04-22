@@ -24,9 +24,6 @@
 
 					<td class="column-title has-row-actions">
 						<strong><?php echo esc_html( $type->description ); ?></strong>
-						<div class="row-actions visible">
-							<span class="view">Slug: <code><?php echo esc_attr( $type->slug ); ?></code></span>
-						</div>
 					</td>
 
 					<td class="column-template-select">
