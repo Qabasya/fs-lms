@@ -1,6 +1,6 @@
 <div id="fs-lms-confirm-modal" class="fs-lms-modal hidden">
     <div class="fs-lms-modal-backdrop"></div>
-    <div class="fs-lms-modal-content fs-modal-sm">
+    <div class="fs-lms-modal-content fs-modal-md">
         <div class="fs-lms-modal-header">
             <h2 class="fs-lms-modal-title"></h2>
             <button type="button" class="fs-lms-modal-close" aria-label="Закрыть">&times;</button>

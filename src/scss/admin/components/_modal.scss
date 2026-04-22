@@ -128,7 +128,7 @@ html.modal-open {
   // Визуальное оформление
   background: $color-bg-modal;
   width: 100%;
-  max-width: 600px; // 🔧 Переопределяется через модификаторы .fs-modal-*
+  max-width: 800px; // 🔧 Переопределяется через модификаторы .fs-modal-*
   max-height: 90vh;
   border-radius: $border-radius-sm;
   box-shadow: $shadow-modal;

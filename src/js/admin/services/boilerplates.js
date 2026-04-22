@@ -30,6 +30,8 @@ export const Boilerplates = {
             ConfirmModal.confirm({
                 title: 'Удаление шаблона',
                 message: 'Вы уверены, что хотите удалить этот шаблон?',
+                size: 'sm',
+                isDanger: true,
                 confirmText: 'Удалить',
                 cancelText: 'Отмена',
             }).then(() => this.deleteBoilerplate($(e.currentTarget)));

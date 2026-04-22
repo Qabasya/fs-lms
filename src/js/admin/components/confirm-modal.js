@@ -34,10 +34,30 @@ const ConfirmModal = {
      * @param {string} [options.cancelText='Отмена']
      * @returns {Promise<void>} Резолвится при подтверждении, реджектится при отмене/ESC
      */
-    confirm({ title = 'Подтвердите действие', message = '', confirmText = 'Подтвердить', cancelText = 'Отмена' } = {}) {
+    confirm({
+                title = 'Подтвердите действие',
+                message = '',
+                confirmText = 'Подтвердить',
+                cancelText = 'Отмена',
+                size = 'md',
+                isDanger = true
+            } = {}) {
+
+        const $content = this.$modal.find('.fs-lms-modal-content');
+        $content.removeClass('fs-modal-sm fs-modal-md fs-modal-lg fs-modal-xl')
+            .addClass(`fs-modal-${size}`);
+
+        const $confirmBtn = this.$modal.find('.fs-lms-modal-confirm');
+        $confirmBtn.removeClass('button-link-delete button-primary');
+        if (isDanger) {
+            $confirmBtn.addClass('button-link-delete');
+        } else {
+            $confirmBtn.addClass('button-primary');
+        }
+
         this.$modal.find('.fs-lms-modal-title').text(title);
         this.$modal.find('.fs-lms-modal-message').text(message);
-        this.$modal.find('.fs-lms-modal-confirm').text(confirmText);
+        $confirmBtn.text(confirmText);
         this.$modal.find('.fs-lms-modal-cancel').text(cancelText);
 
         openModal(this.$modal);
@@ -45,18 +65,21 @@ const ConfirmModal = {
         return new Promise((resolve, reject) => {
             this._reject = reject;
 
-            this.$modal.find('.fs-lms-modal-confirm')
+            $confirmBtn
                 .off('click.confirm')
                 .on('click.confirm', () => { this._close(); resolve(); });
 
             this.$modal.find('.fs-lms-modal-cancel, .fs-lms-modal-close, .fs-lms-modal-backdrop')
                 .off('click.confirm')
-                .on('click.confirm', () => { this._close(); reject(); });
+                .on('click.confirm', () => { this._close(); reject('cancel'); });
 
-            bindEsc('confirm', () => { this._close(); reject(); });
+            bindEsc('confirm', () => { this._close(); reject('esc'); });
         });
     },
 
+    close() {
+        this._close();
+    },
     /**
      * Закрывает модалку, отвязывает слушатели и сбрасывает состояние.
      * @private
