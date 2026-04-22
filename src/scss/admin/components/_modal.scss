@@ -336,10 +336,7 @@ html.modal-open {
 // Классы-модификаторы для изменения ширины модалки
 // Использование: <div class="fs-lms-modal-content fs-modal-lg">
 .fs-lms-modal-content {
-  &.fs-modal-sm { max-width: 400px; }
-  &.fs-modal-md { max-width: 600px; } // default
-  &.fs-modal-lg { max-width: 800px; }
-  &.fs-modal-xl { max-width: 1000px; }
+  &.fs-modal-md { max-width: 600px; }
 }
 
 

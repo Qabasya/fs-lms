@@ -93,144 +93,10 @@
   }
 
   // Колонка: Действия (кнопки)
-  // Компактная, с запретом переноса контента
   .column-actions {
     width: $task-col-actions-width;
-    white-space: nowrap; // Предотвращаем перенос кнопки на новую строку
-    text-align: left;   // Выравнивание действий вправо
-
-    // Кнопка выполнения задачи
-    .js-run-task {
-      padding: 6px 16px;
-      font-size: 13px;
-      line-height: 1.5;
-      background: #2271b1;
-      color: #fff;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-      transition: background 0.15s ease-in-out;
-
-      &:hover {
-        background: #155a8a;
-      }
-
-      // Состояние disabled (когда задача уже выполняется)
-      &:disabled {
-        background: #a0a0a0;
-        cursor: not-allowed;
-        opacity: 0.7;
-      }
-
-      // Доступность: видимый фокус
-      &:focus {
-        outline: 2px solid #2271b1;
-        outline-offset: 2px;
-      }
-    }
-  }
-
-  // Колонка: Статус (индикатор загрузки)
-  // Минимальная ширина, центрированное содержимое
-  .status-cell {
-    width: $task-col-status-width;
-    text-align: center;
-    padding: 0; // Убираем лишний паддинг для точного центрирования спиннера
-
-    // Индикатор загрузки (спиннер)
-    .js-status-spinner {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 2px solid #f0f0f1;
-      border-top-color: #2271b1;
-      border-radius: 50%;
-      animation: taskSpinnerRotate 0.6s linear infinite;
-      opacity: 0; // Скрыт по умолчанию
-      transition: opacity 0.15s ease-in-out;
-
-      // Показываем спиннер при активном статусе
-      &.is-active {
-        opacity: 1;
-      }
-    }
-
-    // Текстовый статус (успех/ошибка)
-    .js-status-text {
-      font-size: 12px;
-      color: $task-table-text-secondary;
-
-      &.is-success {
-        color: #00a32a;
-      }
-
-      &.is-error {
-        color: #d63638;
-      }
-    }
-  }
-}
-
-
-/* =================================================================
-   ANIMATIONS
-   ================================================================= */
-
-// Анимация вращения спиннера загрузки
-@keyframes taskSpinnerRotate {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-
-/* =================================================================
-   UTILITIES & MIXINS (опционально)
-   ================================================================= */
-
-// Миксин для настройки колонок таблицы
-// @param {String} $width - ширина колонки
-// @param {String} $align [left] - выравнивание текста
-// @param {Boolean} $nowrap [false] - запрещать перенос текста
-// @example: @include task-table-column(35%, right, true);
-@mixin task-table-column($width, $align: left, $nowrap: false) {
-  width: $width;
-  text-align: $align;
-
-  @if $nowrap {
     white-space: nowrap;
-  }
-}
-
-// Миксин для кнопок действий в таблице
-// @param {Color} $bg - цвет фона
-// @param {Color} $hover - цвет фона при ховере
-// @param {Color} $text [$color-text-inverse] - цвет текста
-// @example: @include task-action-button(#2271b1, #155a8a);
-@mixin task-action-button($bg, $hover, $text: #fff) {
-  padding: 6px 16px;
-  font-size: 13px;
-  line-height: 1.5;
-  background: $bg;
-  color: $text;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background 0.15s ease-in-out;
-
-  &:hover {
-    background: $hover;
-  }
-
-  &:disabled {
-    background: #a0a0a0;
-    cursor: not-allowed;
-    opacity: 0.7;
-  }
-
-  &:focus {
-    outline: 2px solid #2271b1;
-    outline-offset: 2px;
+    text-align: left;
   }
 }
 
@@ -271,13 +137,7 @@
 
     .column-actions {
       min-width: 100px;
-      text-align: left; // Выравнивание по левому краю на мобильных
-    }
-
-    // Увеличиваем область нажатия для кнопок
-    .js-run-task {
-      padding: 8px 20px;
-      font-size: 14px;
+      text-align: left;
     }
   }
 }

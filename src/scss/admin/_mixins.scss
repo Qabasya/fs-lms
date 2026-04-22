@@ -1,4 +1,6 @@
-// src/scss/admin/_mixins.scss
+@use 'variables' as *;
+
+@use "sass:color";
 // Глобальные миксины для админки FS-LMS
 
 // ── Кнопки в сайдбаре (постбокс)
@@ -42,7 +44,7 @@
   a,
   button.button-link {
     text-decoration: none;
-    color: inherit;
+    color: $color-primary;
     transition: color 0.15s ease-in-out;
     background: none;  
     border: none;      
@@ -65,7 +67,7 @@
       color: $danger-color !important;
 
       &:hover {
-        color: darken($danger-color, 10%) !important;
+        color: color.adjust($danger-color, $lightness: -10%) !important;
       }
     }
   }
@@ -74,7 +76,7 @@
       color: $danger-color !important;
 
       &:hover {
-        color: darken($danger-color, 10%) !important;
+        color: color.adjust($danger-color, $lightness: -10%) !important;
       }
     }
   }

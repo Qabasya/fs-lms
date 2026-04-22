@@ -76,22 +76,22 @@
         height: 30px;
         padding: 0 8px;
         font-size: 13px;
-        border: 1px solid #8c8f94;
+        border: 1px solid $color-border-input;
         border-radius: 2px;
         background: #fff;
         cursor: pointer;
         vertical-align: middle;
 
         &:disabled {
-          background: #f6f7f7;
+          background: $color-bg-footer;
           color: #a7aaad;
           cursor: not-allowed;
           opacity: 0.7;
         }
 
         &:focus {
-          border-color: #2271b1;
-          box-shadow: 0 0 0 1px #2271b1;
+          border-color: $color-focus;
+          box-shadow: 0 0 0 1px $color-focus;
           outline: none;
         }
       }
@@ -109,21 +109,21 @@
         line-height: 20px;
         vertical-align: middle;
         text-decoration: none;
-        border: 1px solid #2271b1;
-        background: #f6f7f7;
-        color: #2271b1;
+        border: 1px solid $color-focus;
+        background: $color-bg-footer;
+        color: $color-focus;
         border-radius: 2px;
         cursor: pointer;
         transition: all 0.1s ease-in-out;
 
         &:hover {
           background: #f0f0f1;
-          border-color: #155a8a;
-          color: #155a8a;
+          border-color: $color-primary-hover;
+          color: $color-primary-hover;
         }
 
         &:focus {
-          box-shadow: 0 0 0 1px #2271b1;
+          box-shadow: 0 0 0 1px $color-focus;
           outline: none;
         }
       }

@@ -50,11 +50,7 @@ $z-modal-root:     999999;
 // COMPONENT: Add Row Button
 // =================================================================
 
-$add-row-border-color: #c3c4c7;
-$add-row-hover-bg:     #f6f7f7;
-$add-row-icon-color:   #2271b1;
-$add-row-icon-hover:   #2271b1;
-$add-row-height:       40px;
+$add-row-height: 40px;
 
 // =================================================================
 // COMPONENT: Subject Tabs
@@ -94,7 +90,6 @@ $task-table-text-secondary:  #646970;
 $task-col-name-width:        45%;
 $task-col-template-width:    35%;
 $task-col-actions-width:     15%;
-$task-col-status-width:      5%;
 $task-select-max-width:      350px;
 $task-header-font-weight:    600;
 $task-header-text-align:     left;
@@ -104,12 +99,8 @@ $task-header-text-align:     left;
 // =================================================================
 
 $task-manager-margin-top:         20px;
-$task-manager-color-danger:       #d63638;
-$task-manager-color-primary:      #2271b1;
-$task-manager-color-icon:         #787c82;
 $task-manager-color-text:         #3c434a;
 $task-manager-bg-code:            #f0f0f1;
-$task-manager-status-success:     #46b450;
 $task-manager-col-name-width:     25%;
 $task-manager-col-template-width: 25%;
 $task-manager-col-actions-width:  25%;
@@ -119,14 +110,7 @@ $task-manager-col-actions-width:  25%;
 // =================================================================
 
 $taxonomy-manager-margin-top:    20px;
-$taxonomy-manager-color-danger:  #d63638;
-$taxonomy-manager-color-primary: #2271b1;
-$taxonomy-manager-color-icon:    #787c82;
-$taxonomy-manager-color-border:  #3c434a;
 $taxonomy-manager-color-lock:    #999;
-$taxonomy-manager-bg-row:        #f6f7f7;
-$taxonomy-manager-row-height:    44px;
-$taxonomy-manager-icon-size:     20px;
 
 // =================================================================
 // COMPONENT: Boilerplate List
@@ -136,14 +120,6 @@ $boilerplate-table-margin-top:   20px;
 $boilerplate-col-primary-width:  70%;
 $boilerplate-col-actions-width:  30%;
 $boilerplate-title-font-size:    14px;
-$boilerplate-color-danger:       #d63638;
-$boilerplate-color-primary:      #2271b1;
-$boilerplate-color-icon-default: #787c82;
-$boilerplate-bg-row-add:         #f6f7f7;
-$boilerplate-bg-row-add-hover:   #ffffff;
-$boilerplate-row-height:         44px;
-$boilerplate-icon-size:          20px;
-$boilerplate-transition-speed:   0.1s;
 
 // =================================================================
 // COMPONENT: Boilerplate Editor

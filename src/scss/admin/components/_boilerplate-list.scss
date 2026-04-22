@@ -55,7 +55,7 @@
     // Контейнер действий: редактировать, удалить
     // Располагается под заголовком на мобильных или при ховере на десктопе
     .row-actions {
-      @include row-action-links($hover-color: $boilerplate-color-primary, $danger-color: $boilerplate-color-danger);
+      @include row-action-links($hover-color: $color-focus, $danger-color: $color-danger);
     }
 
     /* -----------------------------------------------------------------
@@ -68,51 +68,6 @@
   }
 }
 
-
-/* =================================================================
-   UTILITIES: Table Helpers (опционально)
-   ================================================================= */
-
-// Миксин для колонок таблицы с фиксированной шириной
-// @param {String} $width - ширина колонки
-// @param {String} $align [left] - выравнивание текста
-// @example: @include table-column(30%, right);
-@mixin table-column($width, $align: left) {
-  width: $width;
-  text-align: $align;
-
-  // Для заголовков таблиц добавляем перенос текста
-  &.column-title {
-    word-wrap: break-word;
-    max-width: $width;
-  }
-}
-
-// Миксин для кнопок-иконок в таблицах
-// @param {Color} $color-default - цвет иконки по умолчанию
-// @param {Color} $color-hover - цвет иконки при наведении
-// @param {Color} $color-focus - цвет обводки при фокусе
-// @example: @include table-icon-button(#787c82, #2271b1, #2271b1);
-@mixin table-icon-button($color-default, $color-hover, $color-focus) {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background $boilerplate-transition-speed ease-in-out;
-
-  .dashicons {
-    color: $color-default;
-    transition: color $boilerplate-transition-speed ease-in-out;
-  }
-
-  &:hover .dashicons {
-    color: $color-hover;
-  }
-
-  &:focus {
-    outline: 2px solid $color-focus;
-    outline-offset: -2px;
-  }
-}
 
 // Адаптивные стили для таблиц на мобильных устройствах
 // @breakpoint 782px - стандартный брейкпоинт мобильного меню в WordPress
@@ -128,7 +83,7 @@
 
       // Действия переносим под заголовок на всю ширину
       .row-actions {
-        @include row-action-links($hover-color: $boilerplate-color-primary, $danger-color: $boilerplate-color-danger);
+        @include row-action-links($hover-color: $color-focus, $danger-color: $color-danger);
         display: block;
         padding-top: 8px;
         margin-top: 8px;

@@ -1,0 +1,21 @@
+@use '../variables' as *;
+
+tab-pane {
+  .wp-list-table {
+    tbody td {
+      vertical-align: middle !important; // Перебиваем системный vertical-align: top
+
+      // Дополнительно для колонки с действиями
+      &.column-actions {
+        vertical-align: middle !important;
+      }
+    }
+
+    code, .fs-badge {
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+      margin: 0;
+    }
+  }
+}
