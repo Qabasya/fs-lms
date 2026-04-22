@@ -3,6 +3,7 @@
    ================================================================= */
 
 @use '../variables' as *;
+@use '../mixins' as *;
 
 
 
@@ -54,23 +55,7 @@
     // Контейнер действий: редактировать, удалить
     // Располагается под заголовком на мобильных или при ховере на десктопе
     .row-actions {
-      // Ссылка удаления выделена красным как деструктивное действие
-      .trash a {
-        color: $boilerplate-color-danger;
-        text-decoration: none;
-        transition: opacity $boilerplate-transition-speed ease-in-out;
-
-        &:hover {
-          color: $boilerplate-color-danger;
-          opacity: 0.8; // Визуальный отклик без изменения цвета
-        }
-
-        // Доступность: видимый фокус для клавиатурной навигации
-        &:focus {
-          outline: 2px solid $boilerplate-color-primary;
-          outline-offset: 2px;
-        }
-      }
+      @include row-action-links($hover-color: $boilerplate-color-primary, $danger-color: $boilerplate-color-danger);
     }
 
     /* -----------------------------------------------------------------
@@ -143,6 +128,7 @@
 
       // Действия переносим под заголовок на всю ширину
       .row-actions {
+        @include row-action-links($hover-color: $boilerplate-color-primary, $danger-color: $boilerplate-color-danger);
         display: block;
         padding-top: 8px;
         margin-top: 8px;

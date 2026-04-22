@@ -3,6 +3,7 @@
    ================================================================= */
 
 @use '../variables' as *;
+@use '../mixins' as *;
 
 .fs-lms-dashboard {
   .fs-tabs {
@@ -67,8 +68,10 @@
 
 // Ссылки действий в таблицах (редактировать, удалить и т.д.)
 .row-actions {
-  a {
-    text-decoration: none;
-    &:hover { color: $dashboard-tabs-accent; }
+  @include row-action-links();
+
+  &.visible {
+    opacity: 1;
+    visibility: visible;
   }
 }

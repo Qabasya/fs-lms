@@ -13,12 +13,12 @@
 }
 
 // ── Поля ввода с фокус-стилем (стиль WP)
-// @param {Color} $focus-color [$wp-color-primary] - цвет обводки при фокусе
+// @param {Color} $focus-color [$color-primary] - цвет обводки при фокусе
 // @example: @include wp-input();
-@mixin wp-input($focus-color: $wp-color-primary) {
+@mixin wp-input($focus-color: $color-primary) {
   width: 100%;
   padding: 0 12px;
-  border: 1px solid $wp-color-border;
+  border: 1px solid $color-border-input;
   border-radius: 2px;
   font-size: 13px;
   transition: border-color 0.1s ease-in-out;
@@ -30,22 +30,30 @@
   }
 
   &::placeholder {
-    color: $wp-color-text-secondary;
+    color: $color-text-secondary;
   }
 }
 
 // ── Ссылки действий в таблицах (редактировать/удалить)
-// @param {Color} $hover-color [$wp-color-primary] - цвет при наведении
-// @param {Color} $danger-color [$wp-color-danger] - цвет для деструктивных действий
+// @param {Color} $hover-color [$color-primary] - цвет при наведении
+// @param {Color} $danger-color [$color-danger] - цвет для деструктивных действий
 // @example: @include row-action-links();
-@mixin row-action-links($hover-color: $wp-color-primary, $danger-color: $wp-color-danger) {
-  a {
+@mixin row-action-links($hover-color: $color-primary, $danger-color: $color-danger) {
+  a,
+  button.button-link {
     text-decoration: none;
     color: inherit;
     transition: color 0.15s ease-in-out;
+    background: none;  
+    border: none;      
+    padding: 0;        
+    cursor: pointer;   
+    font-size: inherit;
+    line-height: inherit;
 
     &:hover {
       color: $hover-color;
+      text-decoration: underline;
     }
 
     &:focus {
@@ -54,8 +62,20 @@
     }
 
     &.trash {
-      color: $danger-color;
-      &:hover { color: $danger-color; }
+      color: $danger-color !important;
+
+      &:hover {
+        color: darken($danger-color, 10%) !important;
+      }
+    }
+  }
+  .trash {
+    a, button {
+      color: $danger-color !important;
+
+      &:hover {
+        color: darken($danger-color, 10%) !important;
+      }
     }
   }
 }
