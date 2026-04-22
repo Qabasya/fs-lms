@@ -253,8 +253,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$fixed_tax_slug = "{$key}_task_number";
 		$this->tax_registrar->addFixedTaxonomy(
 			$fixed_tax_slug,
-			array( $task_cpt ),
-			"Номера заданий: ($name)",
+			array( $task_cpt, $article_cpt ),
+			"Номера заданий",
 			'Номер задания',
 			array(
 				'public'       => true,
@@ -327,7 +327,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		// поэтому собираем вручную. Флаг is_protected запрещает удаление в интерфейсе.
 		$fixed_tax_dto = new TaxonomyDataDTO(
 			slug        : "{$key}_task_number",
-			name        : "Номера заданий ({$current_subject->name})",
+			name        : "Номера заданий",
 			subject_key : $key,
 			is_protected: true,
 			is_required : true

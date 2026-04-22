@@ -21,6 +21,11 @@ if ( isset( $_GET['tab'] ) ) {
 
 		<div class="notice notice-info inline" style="margin:20px 0 0 0;">
 			<p>Вы еще не создали ни одного предмета.</p>
+			<button type="button"
+					class="page-title-action js-add-subject"
+					title="Добавить первый предмет">
+				Добавить первый предмет
+			</button>
 		</div>
 
 	<?php else : ?>

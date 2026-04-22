@@ -51,7 +51,6 @@ class BoilerplateCallbacks extends BaseController {
 		$term_slug   = $this->requireKey( 'term_slug', error: 'Предмет и тип задания обязательны' );
 
 		// Получение данных из POST
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$uid        = $this->sanitizeText( 'uid' );
 		$title      = $this->sanitizeText( 'title' ) ?: 'Без названия';
 		$is_default = $this->sanitizeInt( 'is_default' ) === 1;
