@@ -61,8 +61,8 @@ class SubjectSettingsCallbacks {
 		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
 
-		// Получение и валидация ключа и названия предмета
-		[$key, $name] = $this->requireKeyAndName();
+		$key   = $this->requireKey( 'key', error: 'ID предмета обязателен' );
+		$name  = $this->requireText( 'name', error: 'Название предмета обязательно' );
 
 		// Получение количества заданий (по умолчанию 0)
 		$count = $this->sanitizeInt( 'tasks_count' );
@@ -98,8 +98,8 @@ class SubjectSettingsCallbacks {
 		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
 
-		// Получение и валидация ключа и названия предмета
-		[$key, $name] = $this->requireKeyAndName();
+		$key  = $this->requireKey( 'key', error: 'ID предмета обязателен' );
+		$name = $this->requireText( 'name', error: 'Название предмета обязательно' );
 
 		// Проверка существования предмета
 		$this->requireExists( $key );
@@ -129,8 +129,7 @@ class SubjectSettingsCallbacks {
 		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
 
-		// Получение и валидация ключа предмета
-		$key = $this->requireSubjectKey();
+		$key = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 
 		// Проверка существования предмета
 		$this->requireExists( $key );
@@ -161,8 +160,7 @@ class SubjectSettingsCallbacks {
 		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
 
-		// Получение и валидация ключа предмета
-		$key     = $this->requireSubjectKey();
+		$key     = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 		$subject = $this->subjects->getByKey( $key );
 
 		if ( ! $subject ) {
@@ -361,29 +359,6 @@ class SubjectSettingsCallbacks {
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-
-	/**
-	 * Читает и валидирует ключ предмета из POST.
-	 * Завершает выполнение, если ключ пустой.
-	 *
-	 * @return string Санированный ключ предмета
-	 */
-	private function requireSubjectKey(): string {
-		return $this->requireKey( 'key', error: 'ID предмета обязателен' );
-	}
-
-	/**
-	 * Читает и валидирует ключ и название предмета из POST.
-	 * Завершает выполнение, если одно из значений пустое.
-	 *
-	 * @return array{0: string, 1: string} [key, name]
-	 */
-	private function requireKeyAndName(): array {
-		return array(
-			$this->requireKey( 'key', error: 'ID предмета обязателен' ),
-			$this->requireText( 'name', error: 'Название предмета обязательно' ),
-		);
-	}
 
 	/**
 	 * Проверяет существование предмета в БД.
