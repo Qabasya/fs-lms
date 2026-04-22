@@ -34,6 +34,14 @@ class Enqueue extends BaseController implements ServiceInterface {
 		$script_handle = 'fs-lms-admin-script';
 
 		wp_enqueue_script(
+			'fs-lms-common-script',
+			$this->url( 'assets/js/common.min.js' ),
+			[ 'jquery' ],
+			$this->plugin_version,
+			true
+		);
+
+		wp_enqueue_script(
 			$script_handle,
 			$this->url( 'assets/js/admin.min.js' ),
 			[ 'jquery', 'wp-api', 'wp-i18n', 'editor', 'quicktags' ],
@@ -83,9 +91,17 @@ class Enqueue extends BaseController implements ServiceInterface {
 		);
 
 		wp_enqueue_script(
+			'fs-lms-common-script',
+			$this->url( 'assets/js/common.min.js' ),
+			[ 'jquery' ],
+			$this->plugin_version,
+			true
+		);
+
+		wp_enqueue_script(
 			'fs-lms-frontend-script',
 			$this->url( 'assets/js/frontend.min.js' ),
-			[ 'jquery' ],
+			[ 'jquery', 'fs-lms-common-script' ],
 			$this->plugin_version,
 			true
 		);

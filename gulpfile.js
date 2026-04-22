@@ -25,14 +25,14 @@ const paths = {
     scss: {
         admin: './src/scss/admin/admin.scss',
         frontend: './src/scss/frontend/frontend.scss',
-        common: './src/scss/common/',
+        common: './src/scss/common/common.scss',
         watch: './src/scss/**/*.scss'
     },
     js: {
         // Точки входа (основные файлы, которые импортируют модули)
         admin: './src/js/admin/admin.js',
         frontend: './src/js/frontend/frontend.js',
-        // Следим за всеми файлами, включая подпапки
+        common: './src/js/common/common.js',
         watch: './src/js/**/*.js'
     },
     output: {
@@ -117,7 +117,7 @@ function stylesFrontend() {
  */
 function scripts() {
     // Берем оба входных файла сразу
-    return gulp.src([paths.js.admin, paths.js.frontend])
+    return gulp.src([paths.js.admin, paths.js.frontend, paths.js.common])
         .pipe(plumber({errorHandler}))
         .pipe(named()) // Важно: сохраняет имена 'admin' и 'frontend' для Webpack
         .pipe(webpack(webpackConfig))
