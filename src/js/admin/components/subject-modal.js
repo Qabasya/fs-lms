@@ -22,9 +22,12 @@ export const SubjectModal = {
         }
 
         // Namespace `.subject` защищает от дублирования хендлеров при повторных вызовах init()
-        $('#open-subject-modal')
-            .off('click.subject')
-            .on('click.subject', () => this.open());
+        $(document)
+            .off('click.subject', '.js-add-subject')
+            .on('click.subject', '.js-add-subject', (e) => {
+                e.preventDefault();
+                this.open();
+            });
 
         this.$modal.on('click', '.fs-lms-modal-backdrop, .fs-lms-modal-close, .fs-lms-modal-cancel, .js-modal-close, .fs-close', (e) => {
             e.preventDefault();

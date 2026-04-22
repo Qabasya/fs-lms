@@ -32,7 +32,7 @@
     // Колонка с действиями (редактировать, удалить)
     .column-actions {
       width: $boilerplate-col-actions-width;
-      text-align: right; // Выравнивание действий вправо для лучшей читаемости
+      text-align: left; // Выравнивание действий вправо для лучшей читаемости
     }
 
     /* -----------------------------------------------------------------
@@ -79,56 +79,7 @@
 
     // Строка-кнопка для добавления нового элемента
     // Визуально отделена от основного контента таблицы
-    .fs-add-row-tr {
-      td {
-        padding: 0 !important; // Сброс стандартных паддингов WP-таблиц
-        background: $boilerplate-bg-row-add;
-        transition: background $boilerplate-transition-speed ease-in-out;
 
-        // Эффект при наведении на строку
-        &:hover {
-          background: $boilerplate-bg-row-add-hover !important;
-
-          .dashicons-plus {
-            color: $boilerplate-color-primary;
-          }
-        }
-      }
-
-      // Кнопка добавления (занимает всю ширину ячейки)
-      .js-add-boilerplate {
-        width: 100%;
-        height: $boilerplate-row-height;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: none;
-        background: transparent;
-        text-decoration: none;
-        box-shadow: none !important; // Сброс теней админки WP
-        cursor: pointer;
-        transition: background $boilerplate-transition-speed ease-in-out;
-
-        // Иконка "плюс" (Dashicons)
-        .dashicons-plus {
-          color: $boilerplate-color-icon-default;
-          font-size: $boilerplate-icon-size;
-          margin-top: 2px; // Визуальная коррекция центрирования иконки
-          transition: color $boilerplate-transition-speed ease-in-out;
-        }
-
-        // Доступность: фокус для клавиатурной навигации
-        &:focus {
-          outline: 2px solid $boilerplate-color-primary;
-          outline-offset: -2px; // Отрицательный offset для вписывания в границы
-        }
-
-        // Состояние активного нажатия
-        &:active {
-          background: rgba($boilerplate-color-primary, 0.05);
-        }
-      }
-    }
   }
 }
 

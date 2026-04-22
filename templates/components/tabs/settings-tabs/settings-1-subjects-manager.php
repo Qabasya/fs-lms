@@ -3,168 +3,170 @@
 $active_tab = 'tab-1';
 
 if ( isset( $_GET['tab'] ) ) {
-    $active_tab = sanitize_text_field( $_GET['tab'] );
+	$active_tab = sanitize_text_field( $_GET['tab'] );
 }
 
 ?>
 
 <div id="tab-1" class="tab-pane <?php echo $active_tab === 'tab-1' ? 'active' : ''; ?>">
 
-    <h1 class="wp-heading-inline">Активные предметы</h1>
-    <a class="page-title-action" id="open-subject-modal">Добавить предмет</a>
-    <a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
-    <input type="file" id="fs-import-file" accept=".json" style="display:none;">
+	<h1 class="wp-heading-inline">Активные предметы</h1>
 
-    <?php settings_errors(); ?>
+	<a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
+	<input type="file" id="fs-import-file" accept=".json" style="display:none;">
 
-    <?php if ( empty( $subjects ) ) : ?>
+	<?php settings_errors(); ?>
 
-        <div class="notice notice-info inline" style="margin:20px 0 0 0;">
-            <p>Вы еще не создали ни одного предмета.</p>
-        </div>
+	<?php if ( empty( $subjects ) ) : ?>
 
-    <?php else : ?>
+		<div class="notice notice-info inline" style="margin:20px 0 0 0;">
+			<p>Вы еще не создали ни одного предмета.</p>
+		</div>
 
-        <table class="wp-list-table widefat fixed striped" style="margin:20px 0;">
+	<?php else : ?>
 
-            <thead>
-            <tr>
-                <th class="manage-column column-title column-primary">Название предмета</th>
-                <th class="manage-column column-title column-primary">ID предмета</th>
-            </tr>
-            </thead>
+		<table class="wp-list-table widefat fixed striped" style="margin:20px 0;">
 
-            <tbody>
+			<thead>
+			<tr>
+				<th class="manage-column column-title column-primary">Название предмета</th>
+				<th class="manage-column column-title column-primary">ID предмета</th>
+			</tr>
+			</thead>
 
-            <?php foreach ( $subjects as $subject ) : ?>
+			<tbody>
 
-                <tr id="subject-row-<?php echo esc_attr( $subject->key ); ?>">
+			<?php foreach ( $subjects as $subject ) : ?>
 
-                    <td>
+				<tr id="subject-row-<?php echo esc_attr( $subject->key ); ?>">
 
-                        <strong>
-                            <a
-                                    class="row-title"
-                                    href="?page=fs_subject_<?php echo esc_attr( $subject->key ); ?>"
-                            >
-                                <?php echo esc_html( $subject->name ); ?>
-                            </a>
-                        </strong>
+					<td>
 
-                        <div class="row-actions">
+						<strong>
+							<a
+									class="row-title"
+									href="?page=fs_subject_<?php echo esc_attr( $subject->key ); ?>"
+							>
+								<?php echo esc_html( $subject->name ); ?>
+							</a>
+						</strong>
 
-                                <span class="inline">
-                                    <button
-                                            type="button"
-                                            class="button-link open-quick-edit"
-                                            data-key="<?php echo esc_attr( $subject->key ); ?>"
-                                            data-name="<?php echo esc_attr( $subject->name ); ?>"
-                                    >
-                                        Изменить
-                                    </button>
-                                </span> |
+						<div class="row-actions">
 
-                            <span class="trash">
-                                    <button
-                                            type="button"
-                                            class="button-link delete-subject"
-                                            style="color:#a00;"
-                                            data-key="<?php echo esc_attr( $subject->key ); ?>"
-                                    >
-                                        Удалить
-                                    </button>
-                                </span> |
+								<span class="inline">
+									<button
+											type="button"
+											class="button-link open-quick-edit"
+											data-key="<?php echo esc_attr( $subject->key ); ?>"
+											data-name="<?php echo esc_attr( $subject->name ); ?>"
+									>
+										Изменить
+									</button>
+								</span> |
 
-                            <span class="export">
-                                    <a
-                                            href="#"
-                                            class="js-export-subject"
-                                            data-key="<?php echo esc_attr( $subject->key ); ?>"
-                                            style="color:#2271b1;"
-                                    >
-                                        Экспорт
-                                    </a>
-                                </span>
+							<span class="trash">
+									<button
+											type="button"
+											class="button-link delete-subject"
+											style="color:#a00;"
+											data-key="<?php echo esc_attr( $subject->key ); ?>"
+									>
+										Удалить
+									</button>
+								</span> |
 
-                        </div>
+							<span class="export">
+									<a
+											href="#"
+											class="js-export-subject"
+											data-key="<?php echo esc_attr( $subject->key ); ?>"
+											style="color:#2271b1;"
+									>
+										Экспорт
+									</a>
+								</span>
 
-                    </td>
+						</div>
 
-                    <td>
-                        <code><?php echo esc_html( $subject->key ); ?></code>
-                    </td>
+					</td>
 
-                </tr>
+					<td>
+						<code><?php echo esc_html( $subject->key ); ?></code>
+					</td>
 
-            <?php endforeach; ?>
+				</tr>
 
-            </tbody>
+			<?php endforeach; ?>
 
+			</tbody>
             <tfoot>
-            <tr>
-                <th class="manage-column column-title column-primary">Название предмета</th>
-                <th class="manage-column column-title column-primary">ID предмета</th>
+            <tr class="fs-add-row-tr">
+                <td colspan="2"> <button type="button"
+                                         class="button-link scss-add-item js-add-subject"
+                                         title="Добавить новый предмет">
+                        <span class="dashicons dashicons-plus"></span>
+                    </button>
+                </td>
             </tr>
             </tfoot>
+		</table>
 
-        </table>
-
-    <?php endif; ?>
+	<?php endif; ?>
 
 
-    <table style="display:none;">
-        <tr id="fs-quick-edit-row" class="inline-edit-row" style="display:none;">
-            <td colspan="4" class="colspanchange">
+	<table style="display:none;">
+		<tr id="fs-quick-edit-row" class="inline-edit-row" style="display:none;">
+			<td colspan="4" class="colspanchange">
 
-                <form id="fs-quick-edit-form">
+				<form id="fs-quick-edit-form">
 
-                    <fieldset class="inline-edit-col-left">
+					<fieldset class="inline-edit-col-left">
 
-                        <legend class="inline-edit-legend">
-                            Быстрое редактирование
-                        </legend>
+						<legend class="inline-edit-legend">
+							Быстрое редактирование
+						</legend>
 
-                        <div class="inline-edit-col">
+						<div class="inline-edit-col">
 
-                            <label>
-                                <span class="title">Название</span>
-                                <span class="input-text-wrap">
-                                    <input type="text" name="name" value="">
-                                </span>
-                            </label>
+							<label>
+								<span class="title">Название</span>
+								<span class="input-text-wrap">
+									<input type="text" name="name" value="">
+								</span>
+							</label>
 
-                            <input type="hidden" name="key" value="">
+							<input type="hidden" name="key" value="">
 
-                            <?php
-                            use Inc\Enums\Nonce;
+							<?php
+							use Inc\Enums\Nonce;
 
-                            wp_nonce_field( Nonce::Subject->value, 'security' );
-                            ?>
+							wp_nonce_field( Nonce::Subject->value, 'security' );
+							?>
 
-                        </div>
+						</div>
 
-                    </fieldset>
+					</fieldset>
 
-                    <p class="submit inline-edit-save">
+					<p class="submit inline-edit-save">
 
-                        <button type="button" class="button cancel alignleft">
-                            Отмена
-                        </button>
+						<button type="button" class="button cancel alignleft">
+							Отмена
+						</button>
 
-                        <button type="submit" class="button button-primary save alignright">
-                            Обновить
-                        </button>
+						<button type="submit" class="button button-primary save alignright">
+							Обновить
+						</button>
 
-                        <span class="spinner"></span>
+						<span class="spinner"></span>
 
-                        <br class="clear">
+						<br class="clear">
 
-                    </p>
+					</p>
 
-                </form>
+				</form>
 
-            </td>
-        </tr>
-    </table>
+			</td>
+		</tr>
+	</table>
 
 </div>
