@@ -1,25 +1,23 @@
 /* =================================================================
-   TABLES: Shared Styles
+   TABLES: Base Component (BEM-style)
    ================================================================= */
 
 @use '../variables' as *;
 @use '../mixins' as m;
 
-// ── SHARED BASE: все кастомные таблицы плагина
+// ── BLOCK: .fs-table (базовые стили)
 // ──────────────────────────────────────────────────────────────
 
-.js-task-manager-table,
-.js-taxonomy-table,
-.js-boilerplate-table {
+.fs-table {
   @include m.table-base();
 
   thead th {
-    padding: 8px 12px;
-    font-weight: 600;
+    padding: $spacing-sm $spacing-md;
+    font-weight: $font-bold;
     text-align: left;
-    font-size: 14px;
+    font-size: $font-size;
     color: $color-text-primary;
-    border-bottom: 2px solid $task-table-border-color;
+    //border-bottom: 2px solid $table-border-color;
 
     a {
       color: inherit;
@@ -29,7 +27,7 @@
   }
 
   tbody td {
-    padding: 10px 12px;
+    padding: $spacing-sm $spacing-md;
     border-bottom: 1px solid $table-row-border;
     &:last-child { border-bottom: none; }
   }
@@ -37,7 +35,7 @@
   .column-title strong {
     display: inline-block;
     vertical-align: middle;
-    font-weight: 600;
+    font-weight: $font-bold;
   }
 
   .column-actions {
@@ -46,89 +44,23 @@
   }
 }
 
-// ── .fs-lms-table: обёртка над стандартной WP list table
+// ── MODIFIER: .fs-table--task (таблица заданий)
 // ──────────────────────────────────────────────────────────────
 
-.fs-lms-table {
-  @include m.table-base();
-
-  &.wp-list-table {
-    border: 1px solid $dashboard-tabs-border;
-    box-shadow: none;
-
-    thead th {
-      background: $table-header-bg;
-      font-weight: 600;
-      padding: $spacing-md;
-      vertical-align: middle;
-    }
-
-    tbody td {
-      padding: $spacing-md;
-      // scss-lint disable ImportantRule
-      vertical-align: middle !important;
-      // scss-lint enable ImportantRule
-    }
-
-    .column-actions {
-      width: 180px;
-      .row-actions { @include m.row-action-links(); }
-    }
-
-    .fs-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: $border-radius-md;
-      font-family: monospace;
-      font-size: 11px;
-
-      &.badge-gray { background: $table-row-border; color: #50575e; }
-      &.badge-blue { background: #f0f6fa; color: $color-primary; }
-    }
-  }
-}
-
-// ── .tab-pane: WP list table на странице предмета
-// ──────────────────────────────────────────────────────────────
-
-.tab-pane {
-  .wp-list-table {
-    tbody td {
-      // scss-lint disable ImportantRule
-      vertical-align: middle !important;
-      &.column-actions { vertical-align: middle !important; }
-      // scss-lint enable ImportantRule
-    }
-
-    code, .fs-badge {
-      display: inline-flex;
-      align-items: center;
-      vertical-align: middle;
-      margin: 0;
-    }
-  }
-}
-
-// ── .js-task-manager-table: специфичные стили
-// ──────────────────────────────────────────────────────────────
-
-.js-task-manager-table {
+.fs-table--task {
   .column-task-name {
     width: $task-col-name-width;
     max-width: $task-col-name-width;
     word-wrap: break-word;
-    font-weight: 500;
+    font-weight: $font-regular;
   }
 
   .column-template-select {
     width: $task-col-template-width;
-
     select {
       width: 100%;
       max-width: $task-select-max-width;
       box-sizing: border-box;
-
       &:focus {
         border-color: $color-focus;
         box-shadow: 0 0 0 1px $color-focus;
@@ -139,173 +71,54 @@
 
   .column-actions { width: $task-col-actions-width; }
 
+  // Сортировка заголовков (только для task-таблицы)
   thead th.sortable {
-    padding: 8px 12px;
+    padding: $spacing-sm $spacing-md;
     cursor: pointer;
     user-select: none;
-
     &::after {
-      font: normal 16px/1 dashicons;
+      font: normal 14px/1 dashicons;
       speak: never;
       content: '\f140';
       display: inline-block;
       vertical-align: middle;
-      margin-left: 4px;
+      margin-left: $spacing-xs;
       opacity: 0.2;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
     }
-
     &:hover { background: $table-header-bg; }
     &:hover::after { opacity: 0.6; }
-
     &.sort-asc::after {
-      content: '\f142';  // arrow-down-alt2 — текущий порядок ASC
+      content: '\f142';
       opacity: 1;
       color: $color-primary;
     }
-
     &.sort-desc::after {
-      content: '\f140';  // arrow-up-alt2 — текущий порядок DESC
+      content: '\f140';
       opacity: 1;
       color: $color-primary;
     }
   }
 }
 
-// ── .task-manager-wrapper: контекстные переопределения
+// ── MODIFIER: .fs-table--taxonomy (таблица таксономий)
 // ──────────────────────────────────────────────────────────────
 
-.task-manager-wrapper {
-  .js-task-manager-table {
-    .column-task-name  { width: $task-manager-col-name-width; }
-    .column-template-select { width: $task-manager-col-template-width; }
-    .column-actions    { width: $task-manager-col-actions-width; }
+.fs-table--taxonomy {
+  .column-primary { width: 40%; }
+  .column-slug { width: 30%; }
+  .column-actions { width: 30%; }
 
-    .column-title strong { display: block; margin-bottom: 2px; }
-
-    .column-title .row-actions code {
-      display: inline-block;
-      background: $task-manager-bg-code;
-      padding: 2px 6px;
-      border-radius: 2px;
-      font-size: 11px;
-      color: $color-text-secondary;
-      font-weight: 400;
-    }
-
-    .column-template-select select.js-change-term-template {
-      @include m.wp-input;
-      height: 30px;
-      max-width: 80%;
-    }
-
-    .column-actions .button.button-secondary {
-      @include m.sidebar-button(100%, center);
-      height: 30px;
-      padding: 4px 16px;
-      font-size: 13px;
-      line-height: 20px;
-      vertical-align: middle;
-      text-decoration: none;
-      border: 1px solid $color-focus;
-      background: $color-bg-footer;
-      color: $color-focus;
-      border-radius: 2px;
-      cursor: pointer;
-      transition: $transition-default;
-
-      &:hover {
-        background: $table-row-border;
-        border-color: $color-primary-hover;
-        color: $color-primary-hover;
-      }
-
-      &:focus {
-        box-shadow: 0 0 0 1px $color-focus;
-        outline: none;
-      }
-    }
-  }
-}
-
-// ── .taxonomy-manager-wrapper
-// ──────────────────────────────────────────────────────────────
-
-.taxonomy-manager-wrapper {
-  .js-taxonomy-table {
-    .column-primary { width: 40%; }
-    th:nth-child(2), td:nth-child(2) { width: 30%; }
-    .column-actions { width: 30%; }
-
-    .column-title .dashicons-lock {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      color: $taxonomy-manager-color-lock;
-      vertical-align: middle;
-      margin-left: 4px;
-      display: inline-flex;
-      align-items: center;
-      line-height: 1;
-    }
-  }
-}
-
-// ── .boilerplate-manager-wrapper
-// ──────────────────────────────────────────────────────────────
-
-.boilerplate-manager-wrapper {
-  .js-boilerplate-table {
-    .column-primary { width: $boilerplate-col-primary-width; }
-    .column-actions { width: $boilerplate-col-actions-width; }
-    .column-title strong { font-size: $boilerplate-title-font-size; }
-  }
-}
-
-// ── RESPONSIVE: Mobile adaptations (782px breakpoint)
-// ──────────────────────────────────────────────────────────────
-
-@media (max-width: 782px) {
-  // Boilerplate Manager
-  .boilerplate-manager-wrapper .js-boilerplate-table {
-    .column-primary,
-    .column-actions {
-      width: auto;
-      display: block;
-    }
-
-    .row-actions {
-      display: block;
-      padding-top: 8px;
-      margin-top: 8px;
-      border-top: 1px solid $table-row-border;
-    }
-
-    .fs-add-row-tr .js-add-boilerplate { height: 50px; }
-  }
-
-  // Task Manager
-  .js-task-manager-table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-
-    thead {
-      position: sticky;
-      top: 0;
-      background: #fff;
-      z-index: 1;
-    }
-
-    .column-task-name { min-width: 200px; }
-
-    .column-template-select {
-      min-width: 180px;
-      select { max-width: none; }
-    }
-
-    .column-actions { min-width: 100px; }
+  .column-title .dashicons-lock {
+    font-size: $font-size;
+    width: $font-size;
+    height: $font-size;
+    color: $taxonomy-manager-color-lock;
+    vertical-align: middle;
+    margin-left: $spacing-xs;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
   }
 }
 
@@ -324,7 +137,7 @@
     height: $table-add-container-height;
     transition: background 0.15s ease-in-out;
 
-    &:hover { background: #fff; }
+    &:hover { background: $color-bg-modal; }
   }
 
   // scss-lint disable ImportantRule
@@ -355,7 +168,7 @@
 
     .dashicons-plus {
       font-size: $table-add-icon-size;
-      color: #fff;
+      color: $color-text-inverse;
       margin: 0 !important;
       padding: 0 !important;
       line-height: 1;
@@ -373,7 +186,7 @@
 
 .inline-edit-row {
   td {
-    padding: 15px 20px !important;
+    padding: $spacing-lg $spacing-xl !important;
     background-color: $color-bg-footer;
   }
 
@@ -383,11 +196,11 @@
     border: none;
   }
 
-  .inline-edit-col { padding: 10px 0; }
+  .inline-edit-col { padding: $spacing-md 0; }
 
   .submit.inline-edit-save {
-    padding: 15px 0 5px;
-    margin-top: 10px;
+    padding: $spacing-lg 0 $spacing-xs;
+    margin-top: $spacing-md;
     border-top: 1px solid $color-border-footer;
   }
 }

@@ -17,7 +17,7 @@ $display_labels = array(
 		<br>Обязательные таксономии используются для фильтрации на странице отображения задания
 	</p>
 
-	<table class="wp-list-table widefat fixed striped js-taxonomy-table">
+	<table class="wp-list-table widefat fixed striped fs-table fs-table--taxonomy js-taxonomy-table">
 		<thead>
 		<tr>
 			<th class="manage-column column-primary" style="width: 30%;">Название</th>

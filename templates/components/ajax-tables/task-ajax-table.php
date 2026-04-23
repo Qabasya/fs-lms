@@ -4,7 +4,7 @@
  * @var \Inc\DTO\TaxonomyDataDTO[]  $taxonomies  Видимые таксономии (без "Номер задания")
  */
 ?>
-<table class="wp-list-table widefat fixed striped js-task-manager-table">
+<table class="wp-list-table widefat fixed striped fs-table fs-table--task js-task-manager-table">
 	<thead>
 	<tr>
 		<th class="column-primary tw-10">Номер</th>

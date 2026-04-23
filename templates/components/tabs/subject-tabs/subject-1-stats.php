@@ -10,7 +10,7 @@ require_once FS_LMS_PATH . 'templates/ui_renderers.php';
 	</p>
 	<!-- Таблица 1 -->
 	<h3 class="wp-heading-inline">Общая сводка</h3>
-	<table class="wp-list-table widefat fixed striped">
+	<table class="wp-list-table widefat fixed striped fs-table">
 		<thead>
 		<tr>
 			<th scope="col" class="manage-column column-primary">Тип записи</th>
@@ -60,7 +60,7 @@ require_once FS_LMS_PATH . 'templates/ui_renderers.php';
 
 	<!-- Таблица 2 -->
 	<h3 class="wp-heading-inline">Сводка по заданиям</h3>
-	<table class="wp-list-table widefat fixed striped">
+	<table class="wp-list-table widefat fixed striped fs-table">
 		<thead>
 		<tr>
 			<th scope="col" class="manage-column column-primary">Номер задания</th>
