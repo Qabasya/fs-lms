@@ -10,6 +10,7 @@
 
 import '../_types.js';
 import { TaskCreationModal } from '../components/task-creation-modal.js';
+import { showNotice } from '../modules/utils.js';
 
 const $ = jQuery;
 
@@ -202,8 +203,13 @@ export const TaskCreation = {
          * - subject_key (ключ предмета)
          * - title (заголовок задачи)
          */
-        if (!data.termId || !subject_key || !data.title) {
-            alert('Пожалуйста, заполните все обязательные поля (Номер, Предмет, Заголовок).');
+        if (!data.termId) {
+            showNotice('Номер задания обязателен для заполнения', 'error', TaskCreationModal.$modal);
+            return;
+        }
+
+        if (!subject_key || !data.title) {
+            showNotice('Заполните все обязательные поля', 'error', TaskCreationModal.$modal);
             return;
         }
 

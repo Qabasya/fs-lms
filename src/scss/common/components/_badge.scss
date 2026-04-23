@@ -1,0 +1,40 @@
+.fs-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px; // Согласно твоим параметрам
+  padding: 0 12px;
+  border-radius: 4px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
+
+  // Цветовые схемы
+  &.is-green {
+    background-color: rgb(198, 225, 198); // Твой цвет со скрина
+    color: rgb(44, 71, 0);
+  }
+
+  &.is-blue {
+    background-color: #d1e4f3;
+    color: #184a6d;
+  }
+
+  &.is-gray {
+    background-color: #e5e5e5;
+    color: #2c3338;
+  }
+
+  &.is-yellow {
+    background-color: #fef7e3;
+    color: #715c00;
+  }
+
+  &.is-red {
+    background-color: #fbeaea;
+    color: #d63638;
+  }
+}

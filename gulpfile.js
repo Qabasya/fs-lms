@@ -25,14 +25,14 @@ const paths = {
     scss: {
         admin: './src/scss/admin/admin.scss',
         frontend: './src/scss/frontend/frontend.scss',
-        common: './src/scss/common/',
+        common: './src/scss/common/common.scss',
         watch: './src/scss/**/*.scss'
     },
     js: {
         // Точки входа (основные файлы, которые импортируют модули)
         admin: './src/js/admin/admin.js',
         frontend: './src/js/frontend/frontend.js',
-        // Следим за всеми файлами, включая подпапки
+        common: './src/js/common/common.js',
         watch: './src/js/**/*.js'
     },
     output: {
@@ -88,15 +88,26 @@ const errorHandler = function (err) {
 };
 
 /**
- * ОБРАБОТКА CSS (AdminController & Frontend)
+ * ОБРАБОТКА CSS (AdminController & Frontend & Common)
  */
+function stylesCommon() {
+    return gulp.src(paths.scss.common)
+        .pipe(plumber({errorHandler}))
+        .pipe(sourcemaps.init())
+        .pipe(sass())
+        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(rename('common.min.css'))
+        .pipe(sourcemaps.write(paths.output.maps))
+        .pipe(gulp.dest(paths.output.css));
+}
+
 function stylesAdmin() {
     return gulp.src(paths.scss.admin)
         .pipe(plumber({errorHandler}))
         .pipe(sourcemaps.init())
         .pipe(sass({ includePaths: [paths.scss.common] }))
         .pipe(postcss([autoprefixer(), cssnano()]))
-        .pipe(rename('admin.min.css')) // Имя файла без изменений
+        .pipe(rename('admin.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
 }
@@ -107,17 +118,19 @@ function stylesFrontend() {
         .pipe(sourcemaps.init())
         .pipe(sass({ includePaths: [paths.scss.common] }))
         .pipe(postcss([autoprefixer(), cssnano()]))
-        .pipe(rename('frontend.min.css')) // Имя файла без изменений
+        .pipe(rename('frontend.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
 }
+
+
 
 /**
  * ОБРАБОТКА JS (AdminController & Frontend)
  */
 function scripts() {
     // Берем оба входных файла сразу
-    return gulp.src([paths.js.admin, paths.js.frontend])
+    return gulp.src([paths.js.admin, paths.js.frontend, paths.js.common])
         .pipe(plumber({errorHandler}))
         .pipe(named()) // Важно: сохраняет имена 'admin' и 'frontend' для Webpack
         .pipe(webpack(webpackConfig))
@@ -136,9 +149,10 @@ function watchFiles() {
 }
 
 // Экспорт задач
-const build = gulp.parallel(stylesAdmin, stylesFrontend, scripts);
+const build = gulp.parallel(stylesCommon, stylesAdmin, stylesFrontend, scripts);
 
-exports['styles:admin'] = stylesAdmin;
+exports['styles:common']   = stylesCommon;
+exports['styles:admin']    = stylesAdmin;
 exports['styles:frontend'] = stylesFrontend;
 exports['scripts'] = scripts;
 exports.build = build;

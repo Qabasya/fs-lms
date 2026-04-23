@@ -56,7 +56,7 @@ use Inc\Enums\Nonce;
 											'textarea_name' => "content[$id]",
 											'textarea_rows' => 12,
 											'media_buttons' => true,
-											'tinymce'       => array(
+											'tinymce' => array(
 												'setup' => 'function(ed) { ed.on("change", function() { ed.save(); }); }',
 											),
 										)
@@ -75,23 +75,30 @@ use Inc\Enums\Nonce;
 							<div class="submitbox" id="submitpost">
 
 								<div id="minor-publishing">
-									<div id="minor-publishing-actions">
-										<div class="details">
-											<p><strong>Шаблон:</strong> <code><?php echo esc_html( $template_id ); ?></code></p>
+									<div id="misc-publishing-actions">
+
+										<div class="misc-pub-section">
+											<span class="dashicons dashicons-layout" style="color: #8c8f94; vertical-align: text-bottom;"></span>
+											<strong>Шаблон:</strong>
+											<code><?php echo esc_html( $template_id ); ?></code>
 										</div>
+
 									</div>
+									<div class="clear"></div>
 								</div>
 
 								<div id="major-publishing-actions">
-									<div id="publishing-action">
-										<input type="submit" name="save" id="publish" class="button button-primary button-large" value="Сохранить шаблон">
-									</div>
 
 									<div id="delete-action">
 										<a href="<?php echo esc_url( admin_url( "admin.php?page=fs_boilerplate_manager&subject=$subject&term=$term" ) ); ?>" class="submitdelete deletion">
-											&larr; Назад к списку
+											&larr; Назад
 										</a>
 									</div>
+
+									<div id="publishing-action">
+										<span class="spinner"></span> <input type="submit" name="save" id="publish" class="button button-primary button-large" value="Сохранить шаблон">
+									</div>
+
 									<div class="clear"></div>
 								</div>
 							</div>

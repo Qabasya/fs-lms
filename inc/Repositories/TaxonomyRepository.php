@@ -103,6 +103,7 @@ class TaxonomyRepository implements RepositoryInterface {
 		$all[ $subject_key ][ $tax_slug ] = array(
 			'name'         => sanitize_text_field( $data['name'] ?? '' ),
 			'display_type' => sanitize_text_field( $data['display_type'] ?? 'select' ),
+			'is_required'  => (bool) ( $data['is_required'] ?? false ),
 		);
 
 		// Сохраняем обновлённый массив в опции WordPress

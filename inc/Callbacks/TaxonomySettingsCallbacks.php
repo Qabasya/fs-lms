@@ -17,6 +17,7 @@ use Inc\Shared\Traits\Sanitizer;
  * @package Inc\Callbacks
  */
 class TaxonomySettingsCallbacks {
+
 	use Authorizer;
 	use Sanitizer;
 
@@ -45,7 +46,8 @@ class TaxonomySettingsCallbacks {
 	public function ajaxStoreTaxonomy(): void {
 		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
-		
+
+		// Получение и валидация данных
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_suffix  = $this->requireKey( 'tax_slug' );
 		$tax_name    = $this->requireText( 'tax_name', error: 'Название таксономии обязательно' );
@@ -70,6 +72,7 @@ class TaxonomySettingsCallbacks {
 				'tax_slug'     => $tax_slug,
 				'name'         => $tax_name,
 				'display_type' => $display_type,
+				'is_required'  => $this->sanitizeBool( 'is_required' ),
 			)
 		);
 
@@ -100,6 +103,7 @@ class TaxonomySettingsCallbacks {
 				'tax_slug'     => $tax_slug,
 				'name'         => $tax_name,
 				'display_type' => $this->getValidatedDisplayType(),
+				'is_required'  => $this->sanitizeBool( 'is_required' ),
 			)
 		);
 
@@ -137,15 +141,17 @@ class TaxonomySettingsCallbacks {
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
-
 	/**
 	 * Валидация типа отображения.
 	 * Оставляем как маленький хелпер, так как это специфичная бизнес-логика.
+	 *
+	 * @return string Валидный тип отображения ('select', 'radio', 'checkbox')
 	 */
 	private function getValidatedDisplayType(): string {
 		$type = $this->sanitizeText( 'display_type' );
 		return in_array( $type, array( 'select', 'radio', 'checkbox' ), true ) ? $type : 'select';
 	}
+
 	/**
 	 * Сбрасывает правила перезаписи и отправляет успешный ответ клиенту.
 	 *

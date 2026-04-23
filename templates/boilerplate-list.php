@@ -21,8 +21,8 @@ use Inc\Enums\Nonce;
 	<table class="wp-list-table widefat fixed striped js-boilerplate-table">
 		<thead>
 		<tr>
-			<th class="manage-column column-primary">Название шаблона</th>
-			<th class="manage-column column-actions">Действия</th>
+			<th class="manage-column column-primary" style="width: 60%;">Название шаблона</th>
+			<th class="manage-column column-actions" style="width: 40%;">Действия</th>
 		</tr>
 		</thead>
 
@@ -60,12 +60,16 @@ use Inc\Enums\Nonce;
 		<tr class="fs-add-row-tr">
 			<td colspan="2">
 				<a href="<?php echo esc_url( admin_url( "admin.php?page=fs_boilerplate_manager&subject=$subject&term=$term&action=new" ) ); ?>"
-					class="button-link js-add-boilerplate" title="Добавить новое условие">
+					class="button-link scss-add-item js-add-boilerplate"
+					title="Добавить новое условие">
 					<span class="dashicons dashicons-plus"></span>
 				</a>
 			</td>
 		</tr>
 		</tfoot>
+
+
+
 	</table>
 
 	<p style="margin-top: 20px;">

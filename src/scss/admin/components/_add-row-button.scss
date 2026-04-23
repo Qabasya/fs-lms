@@ -27,7 +27,9 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%); // Точное центрирование по центру ячейки
+    transform: translate(-50%, -50%);
+
+    text-decoration: none !important;
 
     display: flex;
     align-items: center;

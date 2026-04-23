@@ -7,5 +7,6 @@
 @use 'components/tabs';
 @use 'components/task-manager-table';
 @use 'components/taxonomies-table';
-@use 'components/boilerplate-editor';
 @use 'components/boilerplate-list';
+@use 'components/inline-edit-row';
+@use 'components/subjects-table';

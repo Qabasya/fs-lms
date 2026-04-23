@@ -1,0 +1,23 @@
+/* Стили для строки быстрого редактирования */
+.inline-edit-row {
+  td {
+    padding: 15px 20px !important; // Возвращаем паддинги ячейке
+    background-color: #f9f9f9;    // Делаем легкий фон, чтобы отличить от обычных строк
+  }
+
+  fieldset {
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+
+  .inline-edit-col {
+    padding: 10px 0; // Дополнительный отступ внутри колонок формы
+  }
+
+  .submit.inline-edit-save {
+    padding: 15px 0 5px;
+    margin-top: 10px;
+    border-top: 1px solid #ddd; // Отделяем кнопки линией для чистоты
+  }
+}

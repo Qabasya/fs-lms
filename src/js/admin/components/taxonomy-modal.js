@@ -17,6 +17,7 @@ export const TaxonomyModal = {
     $nameInput: null, $slugInput: null, $originalSlugInput: null,
     $actionInput: null, $subjectKeyInput: null,
     $displayInputs: null, $saveBtn: null, $slugContainer: null, $titleEl: null,
+    $isRequiredInput: null,
 
     /**
      * Инициализация модуля. Кэширует DOM и привязывает события.
@@ -43,6 +44,7 @@ export const TaxonomyModal = {
         this.$saveBtn           = $('.js-modal-save');
         this.$slugContainer     = this.$modal.find('#slug-container');
         this.$titleEl           = this.$modal.find('#modal-title');
+        this.$isRequiredInput   = $('#tax-is-required');
     },
 
     /** Привязка кликов по кнопкам закрытия и сохранения. @private */
@@ -99,6 +101,7 @@ export const TaxonomyModal = {
 
         const displayType = (isUpdate && data.display) ? data.display : 'select';
         this.$displayInputs.filter(`[value="${displayType}"]`).prop('checked', true);
+        this.$isRequiredInput.prop('checked', isUpdate ? !!data.is_required : false);
 
         openModal(this.$modal);
         bindEsc('taxonomy', () => this.close());
@@ -144,6 +147,7 @@ export const TaxonomyModal = {
         this.$originalSlugInput.val('');
         this.$actionInput.val('store');
         this.$displayInputs.filter('[value="select"]').prop('checked', true);
+        this.$isRequiredInput.prop('checked', false);
     },
 
     /** Собирает данные формы. @returns {Object} @private */
@@ -155,6 +159,7 @@ export const TaxonomyModal = {
             tax_slug:     action === 'update' ? this.$originalSlugInput.val() : this.$slugInput.val(),
             tax_name:     this.$nameInput.val().trim(),
             display_type: this.$displayInputs.filter(':checked').val(),
+            is_required:  this.$isRequiredInput.is(':checked') ? '1' : '0',
         };
     },
 };

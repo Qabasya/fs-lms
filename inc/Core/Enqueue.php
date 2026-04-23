@@ -7,8 +7,14 @@ namespace Inc\Core;
 use Inc\Contracts\ServiceInterface;
 use Inc\Enums\AjaxHook;
 use Inc\Enums\Nonce;
+use Inc\Repositories\TaxonomyRepository;
 
 class Enqueue extends BaseController implements ServiceInterface {
+
+	public function __construct( private readonly TaxonomyRepository $taxonomy_repository ) {
+		parent::__construct();
+	}
+
 	public function register(): void {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_assets' ] );
@@ -19,13 +25,28 @@ class Enqueue extends BaseController implements ServiceInterface {
 		wp_enqueue_media();
 
 		wp_enqueue_style(
+			'fs-lms-common-style',
+			$this->url( 'assets/css/common.min.css' ),
+			[],
+			$this->plugin_version
+		);
+
+		wp_enqueue_style(
 			'fs-lms-admin-style',
 			$this->url( 'assets/css/admin.min.css' ),
-			[ 'wp-components' ],
+			[ 'wp-components', 'fs-lms-common-style' ],
 			$this->plugin_version
 		);
 
 		$script_handle = 'fs-lms-admin-script';
+
+		wp_enqueue_script(
+			'fs-lms-common-script',
+			$this->url( 'assets/js/common.min.js' ),
+			[ 'jquery' ],
+			$this->plugin_version,
+			true
+		);
 
 		wp_enqueue_script(
 			$script_handle,
@@ -42,18 +63,20 @@ class Enqueue extends BaseController implements ServiceInterface {
 		if ( is_admin() && $screen && str_contains( $screen->post_type, '_tasks' ) ) {
 			$subject_key = str_replace( '_tasks', '', $screen->post_type );
 			wp_localize_script( $script_handle, 'fs_lms_task_data', [
-				'ajax_url'    => admin_url( 'admin-ajax.php' ),
-				'security'    => Nonce::TaskCreation->create(),
-				'subject_key' => $subject_key,
-				'post_type'   => $screen->post_type,
+				'ajax_url'            => admin_url( 'admin-ajax.php' ),
+				'security'            => Nonce::TaskCreation->create(),
+				'subject_key'         => $subject_key,
+				'post_type'           => $screen->post_type,
+				'required_taxonomies' => $this->getRequiredTaxonomies( $subject_key ),
 			] );
 		} elseif ( str_starts_with( $page, 'fs_subject_' ) ) {
 			$subject_key = substr( $page, strlen( 'fs_subject_' ) );
 			wp_localize_script( $script_handle, 'fs_lms_task_data', [
-				'ajax_url'    => admin_url( 'admin-ajax.php' ),
-				'security'    => Nonce::TaskCreation->create(),
-				'subject_key' => $subject_key,
-				'post_type'   => $subject_key . '_tasks',
+				'ajax_url'            => admin_url( 'admin-ajax.php' ),
+				'security'            => Nonce::TaskCreation->create(),
+				'subject_key'         => $subject_key,
+				'post_type'           => $subject_key . '_tasks',
+				'required_taxonomies' => $this->getRequiredTaxonomies( $subject_key ),
 			] );
 			wp_enqueue_script( 'inline-edit-post' );
 		}
@@ -68,21 +91,46 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 	public function enqueue_frontend_assets(): void {
 		wp_enqueue_style(
-			'fs-lms-frontend-style',
-			$this->url( 'assets/css/frontend.min.css' ),
+			'fs-lms-common-style',
+			$this->url( 'assets/css/common.min.css' ),
 			[],
 			$this->plugin_version
+		);
+
+		wp_enqueue_style(
+			'fs-lms-frontend-style',
+			$this->url( 'assets/css/frontend.min.css' ),
+			[ 'fs-lms-common-style' ],
+			$this->plugin_version
+		);
+
+		wp_enqueue_script(
+			'fs-lms-common-script',
+			$this->url( 'assets/js/common.min.js' ),
+			[ 'jquery' ],
+			$this->plugin_version,
+			true
 		);
 
 		wp_enqueue_script(
 			'fs-lms-frontend-script',
 			$this->url( 'assets/js/frontend.min.js' ),
-			[ 'jquery' ],
+			[ 'jquery', 'fs-lms-common-script' ],
 			$this->plugin_version,
 			true
 		);
 	}
 	
+	private function getRequiredTaxonomies( string $subject_key ): array {
+		return array_values( array_map(
+			fn( $dto ) => [ 'slug' => $dto->slug, 'name' => $dto->name ],
+			array_filter(
+				$this->taxonomy_repository->getBySubject( $subject_key ),
+				fn( $dto ) => $dto->is_required
+			)
+		) );
+	}
+
 	/**
 	 * Глобально рендерит HTML модалки подтверждения в админке.
 	 */

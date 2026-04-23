@@ -83,6 +83,22 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		// Регистрация CPT и таксономий для всех предметов
 		$this->registerCptsAndTaxonomies();
+
+		// Уведомление об ошибке обязательной таксономии (после серверной проверки)
+		add_action( 'admin_notices', array( $this, 'showRequiredTaxNotice' ) );
+	}
+
+	public function showRequiredTaxNotice(): void {
+		$key = 'fs_lms_required_tax_error_' . get_current_user_id();
+		$msg = get_transient( $key );
+		if ( ! $msg ) {
+			return;
+		}
+		delete_transient( $key );
+		printf(
+			'<div class="notice notice-error is-dismissible"><p>Обязательная таксономия «%s» не заполнена. Задание сохранено как черновик.</p></div>',
+			esc_html( $msg )
+		);
 	}
 
 	/**
@@ -204,8 +220,9 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * Для каждого предмета создаётся:
 	 * — CPT для заданий  ({key}_tasks)     — только title
 	 * — CPT для статей   ({key}_articles)  — title, editor, thumbnail
-	 * — Фиксированная таксономия номеров заданий ({key}_task_number)
-	 * — Пользовательские таксономии из БД
+	 * — Фиксированная таксономия {key}_task_number — привязана к обоим CPT на уровне данных,
+	 *   но метабокс скрыт на Tasks (выбор — через модальное окно); на Articles — dropdown.
+	 * — Пользовательские таксономии — только для Tasks; на Articles не регистрируются.
 	 *
 	 * @param object $subject DTO предмета (содержит поля key и name)
 	 *
@@ -233,32 +250,77 @@ class SubjectController extends BaseController implements ServiceInterface {
 			array( 'supports' => array( 'title', 'editor', 'thumbnail' ) )
 		);
 
-		// Регистрация фиксированной таксономии "Номера заданий"
+		// "Номер задания" регистрируется для обоих CPT — модальному окну в Tasks
+		// нужен доступ к wp_set_post_terms() для этой таксономии.
+		// На Articles — кастомный select-callback (WP по умолчанию рисует tag-input для
+		// неиерархических таксономий, что не подходит для выбора одного значения).
 		$fixed_tax_slug = "{$key}_task_number";
 		$this->tax_registrar->addFixedTaxonomy(
 			$fixed_tax_slug,
-			array( $task_cpt ),
-			"Номера заданий: ($name)",
+			array( $task_cpt, $article_cpt ),
+			"Номера заданий",
 			'Номер задания',
 			array(
 				'public'       => true,
 				'show_ui'      => true,
-				'meta_box_cb'  => false,        // Отключаем метабокс на странице редактирования
+				'meta_box_cb'  => $this->tax_registrar->buildMetaBoxCallback( 'select' ),
 				'show_in_menu' => true,
 				'rewrite'      => array( 'slug' => $fixed_tax_slug ),
 			)
 		);
 
-		// Регистрация пользовательских таксономий из репозитория
+		// Скрываем метабокс "Номер задания" на экране Tasks — там выбор через модальное окно.
+		// Таксономия при этом остаётся зарегистрированной для Tasks на уровне данных.
+		add_action(
+			'add_meta_boxes',
+			static function () use ( $task_cpt, $fixed_tax_slug ): void {
+				remove_meta_box( "tagsdiv-{$fixed_tax_slug}", $task_cpt, 'side' );
+			}
+		);
+
+		// Пользовательские таксономии — только для Tasks.
+		// Не регистрируем для Articles: метабоксы там не нужны.
 		foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
 			$this->tax_registrar->addStandardTaxonomy(
 				$tax_dto->slug,
-				array( $task_cpt, $article_cpt ),
+				array( $task_cpt ),
 				$tax_dto->name,
 				$tax_dto->name,
 				$tax_dto->display_type
 			);
 		}
+
+		// Серверная проверка обязательных таксономий при публикации
+		add_filter(
+			'wp_insert_post_data',
+			function ( array $data, array $postarr ) use ( $key ): array {
+				if ( ( $data['post_type'] ?? '' ) !== "{$key}_tasks" ) {
+					return $data;
+				}
+				if ( ! in_array( $data['post_status'], array( 'publish', 'future' ), true ) ) {
+					return $data;
+				}
+				if ( empty( $postarr['ID'] ) || ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) ) {
+					return $data;
+				}
+
+				foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
+					if ( ! $tax_dto->is_required ) {
+						continue;
+					}
+					$values = array_filter( (array) ( $_POST['tax_input'][ $tax_dto->slug ] ?? array() ) );
+					if ( empty( $values ) ) {
+						$data['post_status'] = 'draft';
+						set_transient( 'fs_lms_required_tax_error_' . get_current_user_id(), $tax_dto->name, 30 );
+						break;
+					}
+				}
+
+				return $data;
+			},
+			10,
+			2
+		);
 	}
 
 	/**
@@ -279,9 +341,10 @@ class SubjectController extends BaseController implements ServiceInterface {
 		// поэтому собираем вручную. Флаг is_protected запрещает удаление в интерфейсе.
 		$fixed_tax_dto = new TaxonomyDataDTO(
 			slug        : "{$key}_task_number",
-			name        : "Номера заданий ({$current_subject->name})",
+			name        : "Номера заданий",
 			subject_key : $key,
-			is_protected: true
+			is_protected: true,
+			is_required : true
 		);
 
 		// Получение текущей вкладки для определения необходимости построения таблиц

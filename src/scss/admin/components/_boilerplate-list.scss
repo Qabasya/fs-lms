@@ -3,6 +3,7 @@
    ================================================================= */
 
 @use '../variables' as *;
+@use '../mixins' as *;
 
 
 
@@ -32,7 +33,7 @@
     // Колонка с действиями (редактировать, удалить)
     .column-actions {
       width: $boilerplate-col-actions-width;
-      text-align: right; // Выравнивание действий вправо для лучшей читаемости
+      text-align: left; // Выравнивание действий вправо для лучшей читаемости
     }
 
     /* -----------------------------------------------------------------
@@ -54,23 +55,7 @@
     // Контейнер действий: редактировать, удалить
     // Располагается под заголовком на мобильных или при ховере на десктопе
     .row-actions {
-      // Ссылка удаления выделена красным как деструктивное действие
-      .trash a {
-        color: $boilerplate-color-danger;
-        text-decoration: none;
-        transition: opacity $boilerplate-transition-speed ease-in-out;
-
-        &:hover {
-          color: $boilerplate-color-danger;
-          opacity: 0.8; // Визуальный отклик без изменения цвета
-        }
-
-        // Доступность: видимый фокус для клавиатурной навигации
-        &:focus {
-          outline: 2px solid $boilerplate-color-primary;
-          outline-offset: 2px;
-        }
-      }
+      @include row-action-links($hover-color: $color-focus, $danger-color: $color-danger);
     }
 
     /* -----------------------------------------------------------------
@@ -79,104 +64,10 @@
 
     // Строка-кнопка для добавления нового элемента
     // Визуально отделена от основного контента таблицы
-    .fs-add-row-tr {
-      td {
-        padding: 0 !important; // Сброс стандартных паддингов WP-таблиц
-        background: $boilerplate-bg-row-add;
-        transition: background $boilerplate-transition-speed ease-in-out;
 
-        // Эффект при наведении на строку
-        &:hover {
-          background: $boilerplate-bg-row-add-hover !important;
-
-          .dashicons-plus {
-            color: $boilerplate-color-primary;
-          }
-        }
-      }
-
-      // Кнопка добавления (занимает всю ширину ячейки)
-      .js-add-boilerplate {
-        width: 100%;
-        height: $boilerplate-row-height;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: none;
-        background: transparent;
-        text-decoration: none;
-        box-shadow: none !important; // Сброс теней админки WP
-        cursor: pointer;
-        transition: background $boilerplate-transition-speed ease-in-out;
-
-        // Иконка "плюс" (Dashicons)
-        .dashicons-plus {
-          color: $boilerplate-color-icon-default;
-          font-size: $boilerplate-icon-size;
-          margin-top: 2px; // Визуальная коррекция центрирования иконки
-          transition: color $boilerplate-transition-speed ease-in-out;
-        }
-
-        // Доступность: фокус для клавиатурной навигации
-        &:focus {
-          outline: 2px solid $boilerplate-color-primary;
-          outline-offset: -2px; // Отрицательный offset для вписывания в границы
-        }
-
-        // Состояние активного нажатия
-        &:active {
-          background: rgba($boilerplate-color-primary, 0.05);
-        }
-      }
-    }
   }
 }
 
-
-/* =================================================================
-   UTILITIES: Table Helpers (опционально)
-   ================================================================= */
-
-// Миксин для колонок таблицы с фиксированной шириной
-// @param {String} $width - ширина колонки
-// @param {String} $align [left] - выравнивание текста
-// @example: @include table-column(30%, right);
-@mixin table-column($width, $align: left) {
-  width: $width;
-  text-align: $align;
-
-  // Для заголовков таблиц добавляем перенос текста
-  &.column-title {
-    word-wrap: break-word;
-    max-width: $width;
-  }
-}
-
-// Миксин для кнопок-иконок в таблицах
-// @param {Color} $color-default - цвет иконки по умолчанию
-// @param {Color} $color-hover - цвет иконки при наведении
-// @param {Color} $color-focus - цвет обводки при фокусе
-// @example: @include table-icon-button(#787c82, #2271b1, #2271b1);
-@mixin table-icon-button($color-default, $color-hover, $color-focus) {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background $boilerplate-transition-speed ease-in-out;
-
-  .dashicons {
-    color: $color-default;
-    transition: color $boilerplate-transition-speed ease-in-out;
-  }
-
-  &:hover .dashicons {
-    color: $color-hover;
-  }
-
-  &:focus {
-    outline: 2px solid $color-focus;
-    outline-offset: -2px;
-  }
-}
 
 // Адаптивные стили для таблиц на мобильных устройствах
 // @breakpoint 782px - стандартный брейкпоинт мобильного меню в WordPress
@@ -192,6 +83,7 @@
 
       // Действия переносим под заголовок на всю ширину
       .row-actions {
+        @include row-action-links($hover-color: $color-focus, $danger-color: $color-danger);
         display: block;
         padding-top: 8px;
         margin-top: 8px;

@@ -31,6 +31,7 @@ class TaxonomyDataDTO {
 		public readonly string $subject_key,
 		public readonly string $display_type = 'select',
 		public readonly bool $is_protected = false,
+		public readonly bool $is_required = false,
 		public readonly array $post_types = array()
 	) {
 	}
@@ -54,6 +55,7 @@ class TaxonomyDataDTO {
 			subject_key : $subject_key ?: ( $data['subject_key'] ?? '' ),
 			display_type: $data['display_type'] ?? 'select',
 			is_protected: $data['is_protected'] ?? false,
+			is_required : (bool) ( $data['is_required'] ?? false ),
 			post_types  : $data['post_types'] ?? array()
 		);
 	}

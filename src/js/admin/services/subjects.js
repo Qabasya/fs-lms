@@ -220,25 +220,31 @@ export const Subjects = {
         ConfirmModal.confirm({
             title: 'Предупреждение',
             message: message,
-            confirmText: 'Удалить всё равно',
-            cancelText: 'Экспорт',
+            size: 'lg',
+            isDanger: true,
+            confirmText: 'Перейти к удалению',
+            cancelText: 'Экспортировать и удалить',
         })
             .then(() => {
                 // Пользователь нажал "Удалить всё равно" → показываем финальное подтверждение
                 this._showFinalConfirm(name, key, security, $btn, $row);
             })
-            .catch(() => {
-                // Пользователь нажал "Экспорт" или закрыл модалку (ESC/крестик)
-                // Проверяем, было ли это нажатие на кнопку "Экспорт"
-                // Для этого вешаем временный обработчик на кнопку модалки
-                const $exportBtn = $('#fs-lms-confirm-modal .fs-lms-modal-cancel');
-                if ($exportBtn.is(':visible') && $exportBtn.text().trim() === 'Экспорт') {
-                    // Если модалка ещё не закрылась полностью — ждём и запускаем экспорт
-                    setTimeout(() => {
-                        this._exportSubject(key, security, $btn);
-                    }, 100);
+            .catch((reason) => {
+                // ConfirmModal обычно реджектится и при отмене, и при закрытии.
+                // Проверяем, был ли это клик по кнопке "Экспорт"
+                const isExportClick = $('#fs-lms-confirm-modal .fs-lms-modal-cancel:focus').length > 0
+                    || reason === 'cancel'; // зависит от реализации ConfirmModal
+
+                if (isExportClick) {
+                    // Запускаем экспорт
+                    this._exportSubject(key, security, $btn, () => {
+                        // ПОСЛЕ ЭКСПОРТА: Автоматически открываем вторую модалку
+                        // Пользователю не нужно снова искать кнопку в таблице!
+                        setTimeout(() => {
+                            this._showFinalConfirm(name, key, security, $btn, $row);
+                        }, 500);
+                    });
                 }
-                // Если закрыли через крестик/ESC — ничего не делаем (просто отмена)
             });
     },
 
@@ -257,6 +263,8 @@ export const Subjects = {
         ConfirmModal.confirm({
             title: 'Подтвердите удаление',
             message: `Точно удалить предмет «${safeName}»?\nЭто действие необратимо.`,
+            size: 'sm',
+            isDanger: true,
             confirmText: 'Да, удалить',
             cancelText: 'Отмена',
         })
@@ -275,7 +283,7 @@ export const Subjects = {
      * @param {JQuery} $btn
      * @private
      */
-    _exportSubject(key, security, $btn) {
+    _exportSubject(key, security, $btn, onComplete = null) {
         toggleButton($btn, true, 'Экспорт...');
 
         $.post(fs_lms_vars.ajaxurl, {
@@ -284,24 +292,25 @@ export const Subjects = {
             security: security,
         })
             .done((res) => {
-                toggleButton($btn, false);
-
-                if (!res.success) {
+                if (res.success) {
+                    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `subject_${key}_export.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } else {
                     showNotice(res.data || 'Ошибка экспорта', 'error', $btn.closest('td'));
-                    return;
                 }
-
-                const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'subject_' + key + '_export.json';
-                a.click();
-                URL.revokeObjectURL(url);
             })
-            .fail(() => {
+            .fail(() => apiError('Failed to export subject'))
+            .always(() => {
                 toggleButton($btn, false);
-                apiError('Failed to export subject');
+                // Вызываем callback, если он был передан (например, для закрытия модалки)
+                if (typeof onComplete === 'function') {
+                    onComplete();
+                }
             });
     },
 

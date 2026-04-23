@@ -33,6 +33,13 @@
 			</div>
 
 			<div class="fs-form-group">
+				<label>
+					<input type="checkbox" id="tax-is-required" value="1">
+					Сделать обязательной
+				</label>
+			</div>
+
+			<div class="fs-form-group">
 				<label>Тип отображения:</label>
 				<div class="fs-radio-group">
 					<label class="fs-radio-label">

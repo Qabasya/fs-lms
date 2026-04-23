@@ -4,7 +4,8 @@
 
 <div class="task-manager-wrapper">
 	<h1 class="wp-heading-inline">Менеджер шаблонов</h1>
-	<p class="description">Управление визуальными шаблонами заданий</p>
+	<p class="description">Управление визуальными шаблонами заданий.
+	<br>Если у задания уже существуют посты, то изменить визуальный шаблон нельзя!</p>
 
 	<table class="wp-list-table widefat fixed striped js-task-manager-table"
 			data-subject="<?php echo esc_attr( $dto->subject_key ); ?>">
@@ -24,9 +25,6 @@
 
 					<td class="column-title has-row-actions">
 						<strong><?php echo esc_html( $type->description ); ?></strong>
-						<div class="row-actions visible">
-							<span class="view">Slug: <code><?php echo esc_attr( $type->slug ); ?></code></span>
-						</div>
 					</td>
 
 					<td class="column-template-select">

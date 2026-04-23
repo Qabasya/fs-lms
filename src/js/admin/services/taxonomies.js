@@ -92,9 +92,10 @@ export const Taxonomies = {
              * @property {string} display - Тип отображения (из data-атрибута)
              */
             TaxonomyModal.open('update', {
-                slug: $row.data('slug'),
-                name: $row.data('name'),
-                display: $row.data('display'),
+                slug:        $row.data('slug'),
+                name:        $row.data('name'),
+                display:     $row.data('display'),
+                is_required: $row.data('required') === 1,
             });
         });
 
@@ -168,6 +169,7 @@ export const Taxonomies = {
             tax_slug:     data.tax_slug,
             tax_name:     data.tax_name,
             display_type: data.display_type,
+            is_required:  data.is_required,
         })
             .done((res) => {
                 /**
