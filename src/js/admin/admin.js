@@ -6,6 +6,7 @@ import {TaskCreation} from './services/task-creation.js';
 import {Taxonomies} from './services/taxonomies.js';
 import {PostsTable} from './services/posts-table.js';
 import {RequiredTaxGuard} from './services/required-tax-guard.js';
+import {TaskFilter} from "./services/task-dashboard.js";
 
 (function ($) {
     'use strict';
@@ -32,6 +33,10 @@ import {RequiredTaxGuard} from './services/required-tax-guard.js';
         }
 
         RequiredTaxGuard.init();
+
+        if ($('#fs-task-number-filter').length) {
+            TaskFilter.init();
+        }
     });
 
 })(jQuery);
