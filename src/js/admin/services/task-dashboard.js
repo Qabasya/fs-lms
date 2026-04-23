@@ -5,6 +5,7 @@ const $ = jQuery;
 export const TaskFilter = {
     init() {
         this._initNumberFilter();
+        this._initTableSort();
     },
 
     _initNumberFilter() {
@@ -26,10 +27,10 @@ export const TaskFilter = {
             $.post(
                 fs_lms_vars.ajaxurl,
                 {
-                    action: fs_lms_vars.ajax_actions.getTasksByNumber,
-                    security: fs_lms_vars.subject_nonce,
+                    action:      fs_lms_vars.ajax_actions.getTasksByNumber,
+                    security:    fs_lms_vars.subject_nonce,
                     subject_key: fs_lms_task_data.subject_key,
-                    term_id: termId,
+                    term_id:     termId,
                 },
                 (response) => {
                     if (response.success) {
@@ -42,4 +43,33 @@ export const TaskFilter = {
         });
     },
 
-}
+    _initTableSort() {
+        $('#fs-task-table-container').on('click', 'th.sortable', (e) => {
+            const $th    = $(e.currentTarget);
+            const $table = $th.closest('table');
+            const col    = $th.index();
+            const isAsc  = $th.hasClass('sort-asc');
+
+            $table.find('thead th').removeClass('sort-asc sort-desc');
+            $th.addClass(isAsc ? 'sort-desc' : 'sort-asc');
+
+            const $tbody = $table.find('tbody');
+            const $rows  = $tbody.find('tr').filter((_, tr) => !$(tr).find('[colspan]').length).toArray();
+
+            $rows.sort((a, b) => {
+                const aVal = $(a).find('td').eq(col).data('val') ?? '';
+                const bVal = $(b).find('td').eq(col).data('val') ?? '';
+
+                // пустые значения всегда в конец
+                if (!aVal && bVal) return 1;
+                if (aVal && !bVal) return -1;
+
+                return isAsc
+                    ? String(bVal).localeCompare(String(aVal), 'ru', { numeric: true })
+                    : String(aVal).localeCompare(String(bVal), 'ru', { numeric: true });
+            });
+
+            $tbody.append($rows);
+        });
+    },
+};

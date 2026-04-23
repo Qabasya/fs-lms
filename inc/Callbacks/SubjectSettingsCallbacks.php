@@ -367,7 +367,6 @@ class SubjectSettingsCallbacks extends BaseController {
 
 	/**
 	 * Получает список задач и статей по конкретному номеру задания (термину).
-	 * Генерирует HTML таблицу для вставки через AJAX.
 	 *
 	 * @return void
 	 */
@@ -384,8 +383,11 @@ class SubjectSettingsCallbacks extends BaseController {
 			return;
 		}
 
+		$taxonomies  = $this->taxonomies->getBySubject( $subject_key );
+		$visible_tax = array_filter( $taxonomies, fn( $t ) => $t->slug !== $number_taxonomy );
+
 		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
-		$query = new \WP_Query(
+		$wp_query = new \WP_Query(
 			array(
 				'post_type'      => $task_cpt,
 				'posts_per_page' => -1,
@@ -400,13 +402,35 @@ class SubjectSettingsCallbacks extends BaseController {
 			)
 		);
 
+		// Строим данные строк здесь — get_edit_post_link() и get_the_terms()
+		// вызываются по одному разу на пост, без модификации глобального $post.
+		$rows = array_map(
+			function ( \WP_Post $post ) use ( $visible_tax ): array {
+				$terms = array();
+				foreach ( $visible_tax as $tax ) {
+					$wp_terms            = get_the_terms( $post->ID, $tax->slug );
+					$terms[ $tax->slug ] = ( ! empty( $wp_terms ) && ! is_wp_error( $wp_terms ) )
+						? implode( ', ', wp_list_pluck( $wp_terms, 'name' ) )
+						: '';
+				}
+
+				return array(
+					'title'     => $post->post_title,
+					'number'    => $post->post_name,
+					'status'    => $post->post_status,
+					'edit_link' => get_edit_post_link( $post->ID ) ?? '',
+					'terms'     => $terms,
+				);
+			},
+			$wp_query->posts
+		);
+
 		ob_start();
 		$this->render(
 			'components/ajax-tables/task-ajax-table',
 			array(
-				'query'           => $query,
-				'taxonomies'      => $this->taxonomies->getBySubject( $subject_key ),
-				'number_taxonomy' => $number_taxonomy,
+				'rows'       => $rows,
+				'taxonomies' => $visible_tax,
 			)
 		);
 		$html = (string) ob_get_clean();

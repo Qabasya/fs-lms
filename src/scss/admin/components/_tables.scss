@@ -138,6 +138,39 @@
   }
 
   .column-actions { width: $task-col-actions-width; }
+
+  thead th.sortable {
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+
+    &::after {
+      font: normal 16px/1 dashicons;
+      speak: never;
+      content: '\f140';
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 4px;
+      opacity: 0.2;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    &:hover { background: $table-header-bg; }
+    &:hover::after { opacity: 0.6; }
+
+    &.sort-asc::after {
+      content: '\f142';  // arrow-down-alt2 — текущий порядок ASC
+      opacity: 1;
+      color: $color-primary;
+    }
+
+    &.sort-desc::after {
+      content: '\f140';  // arrow-up-alt2 — текущий порядок DESC
+      opacity: 1;
+      color: $color-primary;
+    }
+  }
 }
 
 // ── .task-manager-wrapper: контекстные переопределения
