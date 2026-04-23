@@ -39,8 +39,11 @@
 					</td>
 
 					<td class="column-actions">
-						<a href="<?php echo admin_url( 'admin.php?page=fs_boilerplate_manager&subject=' . esc_attr( $dto->subject_key ) . '&term=' . esc_attr( $type->slug ) ); ?>"
-							class="button button-secondary">Настроить</a>
+						<div class="row-actions visible">
+						<span class="edit">
+							<a href="<?php echo esc_url( admin_url( 'admin.php?page=fs_boilerplate_manager&subject=' . esc_attr( $dto->subject_key ) . '&term=' . esc_attr( $type->slug ) ) ); ?>">Настроить</a>
+						</span>
+						</div>
 					</td>
 				</tr>
 			<?php endforeach; ?>

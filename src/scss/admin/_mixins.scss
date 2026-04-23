@@ -36,6 +36,20 @@
   }
 }
 
+// ── Базовые стили таблицы: margin, collapse, выравнивание ячеек
+// @param {Color} $margin-top [$table-margin-top] - отступ сверху
+// @example: @include table-base(); @include table-base(0);
+@mixin table-base($margin-top: $table-margin-top) {
+  margin-top: $margin-top;
+  width: 100%;
+  border-collapse: collapse;
+
+  tbody td {
+    vertical-align: middle !important;
+    font-size: 13px;
+  }
+}
+
 // ── Ссылки действий в таблицах (редактировать/удалить)
 // @param {Color} $hover-color [$color-primary] - цвет при наведении
 // @param {Color} $danger-color [$color-danger] - цвет для деструктивных действий
