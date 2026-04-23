@@ -1,0 +1,64 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+.fs-lms-table {
+  // Наследуем и дополняем стандартную таблицу WP
+  &.wp-list-table {
+    margin: 20px 0;
+    border: 1px solid $dashboard-tabs-border;
+    box-shadow: none;
+
+    thead th {
+      background: #f8f9fa;
+      font-weight: 600;
+      padding: 12px;
+      vertical-align: middle;
+    }
+
+    tbody td {
+      padding: 12px;
+      vertical-align: middle !important; // Твое выравнивание по центру
+      font-size: 13px;
+    }
+
+    // Колонка действий
+    .column-actions {
+      width: 180px;
+
+      .row-actions {
+        @include row-action-links(); // Тот самый миксин
+
+        &.visible {
+          opacity: 1;
+          visibility: visible;
+          position: static;
+        }
+      }
+    }
+
+    // Бейджи внутри таблиц
+    .fs-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+
+      &.badge-gray { background: #f0f0f1; color: #50575e; }
+      &.badge-blue { background: #f0f6fa; color: #2271b1; }
+    }
+  }
+
+  // Стили для футера (кнопка плюс)
+  .fs-add-row-tr {
+    td {
+      padding: 0 !important;
+      background: #fff;
+    }
+
+    .scss-add-item {
+      @include scss-add-button-style(); // Можно тоже вынести в миксин
+    }
+  }
+}
