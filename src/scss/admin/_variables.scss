@@ -23,16 +23,21 @@ $color-border-footer:  #e0e0e0;
 $color-focus:          #2271b1;
 
 // ── Размеры и отступы
-$spacing-xs: 5px;
+$spacing-xs: 4px;
 $spacing-sm: 8px;
 $spacing-md: 12px;
-$spacing-lg: 15px;
+$spacing-lg: 16px;
 $spacing-xl: 20px;
 
 $border-radius-sm: 3px;
 $border-radius-md: 4px;
 
 $shadow-modal: 0 2px 20px rgba(0, 0, 0, 0.3);
+
+// ── Шрифты
+$font-bold: 600;
+$font-regular: 450;
+$font-size: 14px;
 
 // ── Тайминги
 $transition-fast:    0.2s ease-out;
@@ -136,6 +141,11 @@ $sidebar-padding:      10px 12px;
 $sidebar-border-color: #dcdcde;
 $sidebar-danger-color: #d63638;
 $sidebar-btn-gap:      10px;
+
+/* ── Tables: shared base */
+$table-margin-top:   20px;
+$table-row-border:   #f0f0f1;
+$table-header-bg:    #f8f9fa;
 
 /* ── Tables: Add Row Button */
 $table-row-add-bg:        #f6f7f7;        // Фон строки добавления

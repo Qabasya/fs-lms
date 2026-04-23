@@ -30,7 +30,7 @@ if ( isset( $_GET['tab'] ) ) {
 
 	<?php else : ?>
 
-		<table class="wp-list-table widefat fixed striped" style="margin:20px 0;">
+		<table class="wp-list-table widefat fixed striped fs-table fs-table--boilerplate">
 
 			<thead>
 			<tr>

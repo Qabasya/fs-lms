@@ -7,7 +7,7 @@
 	<p class="description">Управление визуальными шаблонами заданий.
 	<br>Если у задания уже существуют посты, то изменить визуальный шаблон нельзя!</p>
 
-	<table class="wp-list-table widefat fixed striped js-task-manager-table"
+	<table class="wp-list-table widefat fixed striped fs-table js-task-manager-table"
 			data-subject="<?php echo esc_attr( $dto->subject_key ); ?>">
 		<thead>
 		<tr>
@@ -39,8 +39,11 @@
 					</td>
 
 					<td class="column-actions">
-						<a href="<?php echo admin_url( 'admin.php?page=fs_boilerplate_manager&subject=' . esc_attr( $dto->subject_key ) . '&term=' . esc_attr( $type->slug ) ); ?>"
-							class="button button-secondary">Настроить</a>
+						<div class="row-actions visible">
+						<span class="edit">
+							<a href="<?php echo esc_url( admin_url( 'admin.php?page=fs_boilerplate_manager&subject=' . esc_attr( $dto->subject_key ) . '&term=' . esc_attr( $type->slug ) ) ); ?>">Настроить</a>
+						</span>
+						</div>
 					</td>
 				</tr>
 			<?php endforeach; ?>

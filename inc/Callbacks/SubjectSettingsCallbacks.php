@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Callbacks;
 
+use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Nonce;
 use Inc\Managers\PostManager;
@@ -15,6 +16,7 @@ use Inc\Repositories\TaxonomyRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class SubjectSettingsCallbacks
@@ -24,11 +26,12 @@ use Inc\Shared\Traits\TaxonomySeeder;
  *
  * @package Inc\Callbacks
  */
-class SubjectSettingsCallbacks {
+class SubjectSettingsCallbacks extends BaseController {
 
 	use Authorizer;
 	use Sanitizer;
 	use TaxonomySeeder;
+	use TemplateRenderer;
 
 	/**
 	 * Конструктор.
@@ -48,6 +51,7 @@ class SubjectSettingsCallbacks {
 		private TermManager $terms,
 		private PostManager $posts,
 	) {
+		parent::__construct();
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -61,8 +65,8 @@ class SubjectSettingsCallbacks {
 		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
 
-		$key   = $this->requireKey( 'key', error: 'ID предмета обязателен' );
-		$name  = $this->requireText( 'name', error: 'Название предмета обязательно' );
+		$key  = $this->requireKey( 'key', error: 'ID предмета обязателен' );
+		$name = $this->requireText( 'name', error: 'Название предмета обязательно' );
 
 		// Получение количества заданий (по умолчанию 0)
 		$count = $this->sanitizeInt( 'tasks_count' );
@@ -282,6 +286,9 @@ class SubjectSettingsCallbacks {
 		wp_send_json_success( "Предмет «{$name}» успешно импортирован" );
 	}
 
+
+	// === === === Прочие AJAX хуки, связанные с предметами === === ===  //
+
 	/**
 	 * Возвращает HTML таблицы постов для AJAX-обновления вкладки.
 	 *
@@ -357,6 +364,80 @@ class SubjectSettingsCallbacks {
 
 		wp_send_json_success( array( 'html' => $html ) );
 	}
+
+	/**
+	 * Получает список задач и статей по конкретному номеру задания (термину).
+	 *
+	 * @return void
+	 */
+	public function ajaxGetTasksByNumber(): void {
+		$this->authorize( Nonce::Subject );
+
+		$subject_key     = $this->requireKey( 'subject_key' );
+		$term_id         = absint( $_POST['term_id'] ?? 0 );
+		$task_cpt        = "{$subject_key}_tasks";
+		$number_taxonomy = "{$subject_key}_task_number";
+
+		if ( ! $term_id ) {
+			wp_send_json_error( 'Не выбран номер задания' );
+			return;
+		}
+
+		$taxonomies  = $this->taxonomies->getBySubject( $subject_key );
+		$visible_tax = array_filter( $taxonomies, fn( $t ) => $t->slug !== $number_taxonomy );
+
+		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
+		$wp_query = new \WP_Query(
+			array(
+				'post_type'      => $task_cpt,
+				'posts_per_page' => -1,
+				'post_status'    => 'publish',
+				'tax_query'      => array(
+					array(
+						'taxonomy' => $number_taxonomy,
+						'field'    => 'term_id',
+						'terms'    => $term_id,
+					),
+				),
+			)
+		);
+
+		// Строим данные строк здесь — get_edit_post_link() и get_the_terms()
+		// вызываются по одному разу на пост, без модификации глобального $post.
+		$rows = array_map(
+			function ( \WP_Post $post ) use ( $visible_tax ): array {
+				$terms = array();
+				foreach ( $visible_tax as $tax ) {
+					$wp_terms            = get_the_terms( $post->ID, $tax->slug );
+					$terms[ $tax->slug ] = ( ! empty( $wp_terms ) && ! is_wp_error( $wp_terms ) )
+						? implode( ', ', wp_list_pluck( $wp_terms, 'name' ) )
+						: '';
+				}
+
+				return array(
+					'title'     => $post->post_title,
+					'number'    => $post->post_name,
+					'status'    => $post->post_status,
+					'edit_link' => get_edit_post_link( $post->ID ) ?? '',
+					'terms'     => $terms,
+				);
+			},
+			$wp_query->posts
+		);
+
+		ob_start();
+		$this->render(
+			'components/ajax-tables/task-ajax-table',
+			array(
+				'rows'       => $rows,
+				'taxonomies' => $visible_tax,
+			)
+		);
+		$html = (string) ob_get_clean();
+
+		wp_send_json_success( array( 'html' => $html ) );
+	}
+
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 

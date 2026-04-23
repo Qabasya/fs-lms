@@ -142,6 +142,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			AjaxHook::ExportSubject,
 			AjaxHook::ImportSubject,
 			AjaxHook::GetPostsTable,
+			AjaxHook::GetTasksByNumber,
 		);
 
 		// === TaxonomySettingsCallbacks -> общая логика === //
@@ -258,7 +259,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		$this->tax_registrar->addFixedTaxonomy(
 			$fixed_tax_slug,
 			array( $task_cpt, $article_cpt ),
-			"Номера заданий",
+			'Номера заданий',
 			'Номер задания',
 			array(
 				'public'       => true,
@@ -341,7 +342,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		// поэтому собираем вручную. Флаг is_protected запрещает удаление в интерфейсе.
 		$fixed_tax_dto = new TaxonomyDataDTO(
 			slug        : "{$key}_task_number",
-			name        : "Номера заданий",
+			name        : 'Номера заданий',
 			subject_key : $key,
 			is_protected: true,
 			is_required : true

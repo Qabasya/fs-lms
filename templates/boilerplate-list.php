@@ -18,7 +18,7 @@ use Inc\Enums\Nonce;
 	<p class="description"><?php echo esc_html( $display_name ); ?> / <?php echo esc_html( $subject_display_name ); ?></p>
 	<hr class="wp-header-end">
 
-	<table class="wp-list-table widefat fixed striped js-boilerplate-table">
+	<table class="wp-list-table widefat fixed striped fs-table js-boilerplate-table">
 		<thead>
 		<tr>
 			<th class="manage-column column-primary" style="width: 60%;">Название шаблона</th>
