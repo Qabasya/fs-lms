@@ -220,8 +220,9 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * Для каждого предмета создаётся:
 	 * — CPT для заданий  ({key}_tasks)     — только title
 	 * — CPT для статей   ({key}_articles)  — title, editor, thumbnail
-	 * — Фиксированная таксономия номеров заданий ({key}_task_number)
-	 * — Пользовательские таксономии из БД
+	 * — Фиксированная таксономия {key}_task_number — привязана к обоим CPT на уровне данных,
+	 *   но метабокс скрыт на Tasks (выбор — через модальное окно); на Articles — dropdown.
+	 * — Пользовательские таксономии — только для Tasks; на Articles не регистрируются.
 	 *
 	 * @param object $subject DTO предмета (содержит поля key и name)
 	 *
@@ -249,7 +250,10 @@ class SubjectController extends BaseController implements ServiceInterface {
 			array( 'supports' => array( 'title', 'editor', 'thumbnail' ) )
 		);
 
-		// Регистрация фиксированной таксономии "Номера заданий"
+		// "Номер задания" регистрируется для обоих CPT — модальному окну в Tasks
+		// нужен доступ к wp_set_post_terms() для этой таксономии.
+		// На Articles — кастомный select-callback (WP по умолчанию рисует tag-input для
+		// неиерархических таксономий, что не подходит для выбора одного значения).
 		$fixed_tax_slug = "{$key}_task_number";
 		$this->tax_registrar->addFixedTaxonomy(
 			$fixed_tax_slug,
@@ -259,17 +263,27 @@ class SubjectController extends BaseController implements ServiceInterface {
 			array(
 				'public'       => true,
 				'show_ui'      => true,
-				'meta_box_cb'  => false,        // Отключаем метабокс на странице редактирования
+				'meta_box_cb'  => $this->tax_registrar->buildMetaBoxCallback( 'select' ),
 				'show_in_menu' => true,
 				'rewrite'      => array( 'slug' => $fixed_tax_slug ),
 			)
 		);
 
-		// Регистрация пользовательских таксономий из репозитория
+		// Скрываем метабокс "Номер задания" на экране Tasks — там выбор через модальное окно.
+		// Таксономия при этом остаётся зарегистрированной для Tasks на уровне данных.
+		add_action(
+			'add_meta_boxes',
+			static function () use ( $task_cpt, $fixed_tax_slug ): void {
+				remove_meta_box( "tagsdiv-{$fixed_tax_slug}", $task_cpt, 'side' );
+			}
+		);
+
+		// Пользовательские таксономии — только для Tasks.
+		// Не регистрируем для Articles: метабоксы там не нужны.
 		foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
 			$this->tax_registrar->addStandardTaxonomy(
 				$tax_dto->slug,
-				array( $task_cpt, $article_cpt ),
+				array( $task_cpt ),
 				$tax_dto->name,
 				$tax_dto->name,
 				$tax_dto->display_type

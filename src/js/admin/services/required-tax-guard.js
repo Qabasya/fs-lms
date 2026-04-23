@@ -5,14 +5,23 @@ const $ = jQuery;
 
 export const RequiredTaxGuard = {
     init() {
-        const required = typeof fs_lms_task_data !== 'undefined'
+        const rawRequired = typeof fs_lms_task_data !== 'undefined'
             ? (fs_lms_task_data.required_taxonomies || [])
             : [];
+        const formatSlug = (str) => str.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+        const required = rawRequired.map(t => {
+            const isObj = typeof t === 'object' && t !== null;
+            const slug = isObj ? t.slug : t;
+            // Приоритет: name → label → отформатированный слаг
+            const name = isObj ? (t.name || t.label || formatSlug(slug)) : formatSlug(slug);
+            return { slug, name };
+        });
 
         if (!required.length || !$('#publish').length) return;
 
         $('#publish').on('click.fs-required', (e) => {
-            const missing = required.filter(slug => !this._hasValue(slug));
+            const missing = required.filter(t => !this._hasValue(t.slug));
             if (!missing.length) return;
 
             e.preventDefault();
@@ -21,9 +30,11 @@ export const RequiredTaxGuard = {
             $('.spinner').removeClass('is-active');
 
             const $container = $('.wrap');
+            // Собираем имена недостающих таксономий через запятую
+            const missingNames = missing.map(t => t.name).join(', ');
 
             showNotice(
-                'Заполните все обязательные таксономии перед публикацией',
+                `Заполните все обязательные таксономии: ${missingNames}`,
                 'error',
                 $container
             );

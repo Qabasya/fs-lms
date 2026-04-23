@@ -107,7 +107,7 @@ class SubjectTaxonomyRegistrar {
 		);
 	}
 
-	private function buildMetaBoxCallback( string $display_type ): callable {
+	public function buildMetaBoxCallback( string $display_type ): callable {
 		return static function ( \WP_Post $post, array $box ) use ( $display_type ): void {
 			$taxonomy = $box['args']['taxonomy'];
 			$terms    = get_terms(

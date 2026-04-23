@@ -67,7 +67,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'security'            => Nonce::TaskCreation->create(),
 				'subject_key'         => $subject_key,
 				'post_type'           => $screen->post_type,
-				'required_taxonomies' => $this->getRequiredTaxonomySlugs( $subject_key ),
+				'required_taxonomies' => $this->getRequiredTaxonomies( $subject_key ),
 			] );
 		} elseif ( str_starts_with( $page, 'fs_subject_' ) ) {
 			$subject_key = substr( $page, strlen( 'fs_subject_' ) );
@@ -76,7 +76,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'security'            => Nonce::TaskCreation->create(),
 				'subject_key'         => $subject_key,
 				'post_type'           => $subject_key . '_tasks',
-				'required_taxonomies' => $this->getRequiredTaxonomySlugs( $subject_key ),
+				'required_taxonomies' => $this->getRequiredTaxonomies( $subject_key ),
 			] );
 			wp_enqueue_script( 'inline-edit-post' );
 		}
@@ -121,9 +121,9 @@ class Enqueue extends BaseController implements ServiceInterface {
 		);
 	}
 	
-	private function getRequiredTaxonomySlugs( string $subject_key ): array {
+	private function getRequiredTaxonomies( string $subject_key ): array {
 		return array_values( array_map(
-			fn( $dto ) => $dto->slug,
+			fn( $dto ) => [ 'slug' => $dto->slug, 'name' => $dto->name ],
 			array_filter(
 				$this->taxonomy_repository->getBySubject( $subject_key ),
 				fn( $dto ) => $dto->is_required
