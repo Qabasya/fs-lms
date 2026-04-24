@@ -165,7 +165,7 @@ class TaskCreationCallbacks {
 		// Создание поста
 		$new_id = wp_insert_post(
 			array(
-				'post_title'   => $title,
+				'post_title'   => "№ {$custom_slug}. {$title}",
 				'post_name'    => $custom_slug,
 				'post_type'    => "{$subject_key}_tasks",
 				'post_status'  => 'draft',

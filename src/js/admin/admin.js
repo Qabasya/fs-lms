@@ -7,6 +7,7 @@ import {Taxonomies} from './services/taxonomies.js';
 import {PostsTable} from './services/posts-table.js';
 import {RequiredTaxGuard} from './services/required-tax-guard.js';
 import {TaskFilter} from "./services/task-dashboard.js";
+import {RecentTasks} from "./services/recent-posts";
 
 (function ($) {
     'use strict';
@@ -37,6 +38,11 @@ import {TaskFilter} from "./services/task-dashboard.js";
         if ($('#fs-task-number-filter').length) {
             TaskFilter.init();
         }
+
+        if ($('#fs-recent-tasks-container').length) {
+            RecentTasks.init();
+        }
+
     });
 
 })(jQuery);

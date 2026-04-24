@@ -437,7 +437,63 @@ class SubjectSettingsCallbacks extends BaseController {
 
 		wp_send_json_success( array( 'html' => $html ) );
 	}
-
+	
+	/**
+	 * Получает последние 10 созданных задач по предмету.
+	 */
+	public function ajaxGetRecentTasks(): void {
+		$this->authorize( Nonce::Subject );
+		
+		$subject_key = $this->requireKey( 'subject_key' );
+		$task_cpt    = "{$subject_key}_tasks";
+		$tax_number  = "{$subject_key}_task_number";
+		
+		// Получаем список таксономий предмета
+		$taxonomies = $this->taxonomies->getBySubject( $subject_key );
+		
+		$query = new \WP_Query( array(
+			'post_type'      => $task_cpt,
+			'posts_per_page' => 10,
+			'post_status'    => 'publish',
+			'orderby'        => 'date',
+			'order'          => 'DESC',
+		) );
+		
+		$rows = array();
+		if ( $query->have_posts() ) {
+			while ( $query->have_posts() ) {
+				$query->the_post();
+				$post_id = get_the_ID();
+				
+				// Собираем термины "Номера задания"
+				$numbers = get_the_terms( $post_id, $tax_number );
+				$number_val = $numbers ? implode( ', ', wp_list_pluck( $numbers, 'name' ) ) : '—';
+				
+				$terms_data = array();
+				foreach ( $taxonomies as $tax ) {
+					if ( $tax->slug === $tax_number ) continue;
+					$terms = get_the_terms( $post_id, $tax->slug );
+					$terms_data[ $tax->slug ] = $terms ? implode( ', ', wp_list_pluck( $terms, 'name' ) ) : '';
+				}
+				
+				$rows[] = array(
+					'number'    => $number_val,
+					'title'     => get_the_title(),
+					'edit_link' => get_edit_post_link( $post_id ),
+					'terms'     => $terms_data,
+				);
+			}
+			wp_reset_postdata();
+		}
+		
+		ob_start();
+		$this->render( 'components/ajax-tables/tasks-ajax-table', array(
+			'rows'       => $rows,
+			'taxonomies' => array_filter( $taxonomies, fn($t) => $t->slug !== $tax_number ),
+		) );
+		
+		wp_send_json_success( array( 'html' => ob_get_clean() ) );
+	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 

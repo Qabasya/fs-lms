@@ -61,6 +61,14 @@ class PostManager {
 		wp_delete_post( $post_id, true );
 	}
 
+	public function trash( int $post_id ): void {
+		wp_trash_post( $post_id );
+	}
+
+	public function untrash( int $post_id ): void {
+		wp_untrash_post( $post_id );
+	}
+
 	/**
 	 * Удаляет все посты указанного типа.
 	 *
@@ -195,3 +203,4 @@ class PostManager {
 		update_post_meta( $post_id, $key, $value );
 	}
 }
+

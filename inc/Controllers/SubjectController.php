@@ -86,6 +86,9 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		// Уведомление об ошибке обязательной таксономии (после серверной проверки)
 		add_action( 'admin_notices', array( $this, 'showRequiredTaxNotice' ) );
+
+		// Обработка bulk actions до отправки заголовков
+		add_action( 'admin_init', array( $this, 'processBulkActionsEarly' ) );
 	}
 
 	public function showRequiredTaxNotice(): void {
@@ -108,6 +111,14 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 *
 	 * @return void
 	 */
+	public function processBulkActionsEarly(): void {
+		$page = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
+		if ( ! str_starts_with( $page, 'fs_subject_' ) ) {
+			return;
+		}
+		$this->handleBulkActions( $page );
+	}
+
 	public function subjectPage(): void {
 		$page = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
 		$key  = str_replace( 'fs_subject_', '', $page );
@@ -124,6 +135,66 @@ class SubjectController extends BaseController implements ServiceInterface {
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
+	
+	private function handleBulkActions( string $page ): void {
+		// Поддержка и POST (форма), и GET (прямые ссылки)
+		$action = sanitize_key( $_POST['action'] ?? $_GET['action'] ?? '-1' );
+		if ( '-1' === $action ) {
+			$action = sanitize_key( $_POST['action2'] ?? $_GET['action2'] ?? '-1' );
+		}
+		
+		if ( '-1' === $action ) {
+			return;
+		}
+		
+		// Читаем из POST или GET
+		$post_ids = array_map( 'intval', (array) ( $_POST['post'] ?? $_GET['post'] ?? [] ) );
+		if ( empty( $post_ids ) ) {
+			return;
+		}
+		
+		// Проверка nonce (из POST или GET)
+		$nonce = $_POST['_wpnonce'] ?? $_GET['_wpnonce'] ?? '';
+		if ( ! wp_verify_nonce( $nonce, 'bulk-posts' ) ) {
+			error_log( "[BULK] Nonce failed" );
+			return;
+		}
+		
+		$post_type = sanitize_key( $_POST['post_type'] ?? $_GET['post_type'] ?? '' );
+		$tab = sanitize_key( $_POST['tab'] ?? $_GET['tab'] ?? '' );
+		$post_status = sanitize_key( $_POST['post_status'] ?? $_GET['post_status'] ?? '' );
+		
+		// Проверка прав
+		$post_type_object = get_post_type_object( $post_type );
+		if ( ! $post_type_object || ! current_user_can( $post_type_object->cap->edit_posts ) ) {
+			return;
+		}
+		
+		// Обработка
+		foreach ( $post_ids as $id ) {
+			match ( $action ) {
+				'trash'   => $this->posts->trash( $id ),
+				'untrash' => $this->posts->untrash( $id ),
+				'delete'  => $this->posts->delete( $id ),
+				default   => null,
+			};
+		}
+		
+		// Редирект без post_status при изменении статуса
+		$redirect_args = array( 'page' => $page, 'tab' => $tab );
+		$status_changing = array( 'trash', 'untrash', 'delete' );
+		if ( $post_status && ! in_array( $action, $status_changing, true ) ) {
+			$redirect_args['post_status'] = $post_status;
+		}
+		
+		// Добавляем параметры для уведомления
+		$redirect_args['bulk_done'] = '1';
+		$redirect_args['bulk_count'] = count( $post_ids );
+		$redirect_args['bulk_action'] = $action;
+		
+		wp_safe_redirect( admin_url( 'admin.php?' . http_build_query( $redirect_args ) ) );
+		exit;
+	}
 
 	/**
 	 * Регистрирует AJAX-обработчики:
@@ -143,6 +214,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			AjaxHook::ImportSubject,
 			AjaxHook::GetPostsTable,
 			AjaxHook::GetTasksByNumber,
+			AjaxHook::GetRecentTasks,
 		);
 
 		// === TaxonomySettingsCallbacks -> общая логика === //

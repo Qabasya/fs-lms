@@ -1,0 +1,16 @@
+@use '../variables' as *;
+
+.btn-filled {
+  background-color: $color-primary !important;
+  color: #ffffff !important;
+  border-color: $color-primary !important;
+  text-shadow: none;
+  box-shadow: none;
+
+  &:hover,
+  &:focus {
+    background-color: $color-primary-hover !important;
+    border-color: $color-primary-hover !important;
+    color: #ffffff !important;
+  }
+}
