@@ -1,14 +1,16 @@
+@use '../variables' as *;
+
 .header-row {
   display: flex;
   justify-content: flex-start;
   align-items: flex-end; // Выравнивание по верхнему краю
-  gap: 100px;
-  margin-bottom: 20px;
+  gap: $gap-sm;
+  margin-bottom: $spacing-xl;
 
 
   .header-actions {
     display: flex;
-    gap: 10px; // Расстояние между кнопками
+    gap: $spacing-lg; // Расстояние между кнопками
     white-space: nowrap; // Чтобы кнопки не переносились на новую строку
   }
 }
