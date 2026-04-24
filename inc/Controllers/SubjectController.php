@@ -89,6 +89,10 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		// Обработка bulk actions до отправки заголовков
 		add_action( 'admin_init', array( $this, 'processBulkActionsEarly' ) );
+		
+		// Для кеширования
+		add_action( 'save_post', array( $this, 'clearRecentTasksCache' ), 10, 3 );
+		add_action( 'delete_post', array( $this, 'clearRecentTasksCacheOnDelete' ) );
 	}
 
 	public function showRequiredTaxNotice(): void {
@@ -447,5 +451,52 @@ class SubjectController extends BaseController implements ServiceInterface {
 			tasks_table   : $tasks_table,
 			articles_table: $articles_table,
 		);
+	}
+	
+	/**
+	 * Сбрасывает кеш таблицы "Последние задания" при сохранении поста.
+	 */
+	public function clearRecentTasksCache( int $post_id, \WP_Post $post, bool $update ): void {
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+			return;
+		}
+		
+		if ( ! str_ends_with( $post->post_type, '_tasks' ) ) {
+			return;
+		}
+		
+		// Только при публикации нового поста или изменении статуса на publish
+		$old_status = $_POST['original_post_status'] ?? '';
+		if ( $post->post_status !== 'publish' && $old_status !== 'publish' ) {
+			return;
+		}
+		
+		$subject_key = preg_replace( '/_tasks$/', '', $post->post_type );
+		if ( ! $subject_key ) {
+			return;
+		}
+		
+		$cache_key = "fs_lms_recent_tasks_{$subject_key}";
+		delete_transient( $cache_key );
+//		error_log( "[CACHE] Cleared on publish: $cache_key" );
+	}
+	
+	/**
+	 * Сбрасывает кеш при безвозвратном удалении поста.
+	 */
+	public function clearRecentTasksCacheOnDelete( int $post_id ): void {
+		$post = get_post( $post_id );
+		if ( ! $post || ! str_ends_with( $post->post_type, '_tasks' ) ) {
+			return;
+		}
+		
+		$subject_key = preg_replace( '/_tasks$/', '', $post->post_type );
+		if ( ! $subject_key ) {
+			return;
+		}
+		
+		$cache_key = "fs_lms_recent_tasks_{$subject_key}";
+		delete_transient( $cache_key );
+//		error_log( "[CACHE] Cleared on delete: $cache_key" );
 	}
 }
