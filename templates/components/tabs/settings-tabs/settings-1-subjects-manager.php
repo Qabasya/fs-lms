@@ -41,9 +41,9 @@ if ( isset( $_GET['tab'] ) ) {
 
                 <thead>
                 <tr>
-                    <th class="manage-column column-title column-primary" style="width: 40%;">Название предмета</th>
-                    <th class="manage-column column-title column-primary" style="width: 40%;">ID предмета</th>
-                    <th class="manage-column column-title column-primary" style="width: 20%;">Действия</th>
+                    <th class="manage-column column-title column-primary  tw-40" >Название предмета</th>
+                    <th class="manage-column column-title column-primary" >ID предмета</th>
+                    <th class="manage-column column-title column-primary" >Действия</th>
                 </tr>
                 </thead>
 
@@ -109,7 +109,7 @@ if ( isset( $_GET['tab'] ) ) {
 
 
         <table style="display:none;">
-            <tr id="fs-quick-edit-row" class="inline-edit-row" style="display:none;">
+            <tr id="fs-quick-edit-row" class="inline-edit-row">
                 <td colspan="4" class="colspanchange">
 
                     <form id="fs-quick-edit-form">
