@@ -19,15 +19,15 @@
 		<?php foreach ( $rows as $row ) : ?>
 			<tr>
 				<td>
-					<?php echo esc_html( $row['number'] ); ?>
+					<p> Задание №<?php echo esc_html( $row['number'] ); ?> </p>
 				</td>
-                <td class="column-actions">
-                    <div class="row-actions visible">
+				<td class="column-actions">
+					<div class="row-actions visible">
 						<span class="edit">
 							<a href="<?php echo esc_url( $row['edit_link'] ); ?>" target="_blank"><?php echo esc_html( $row['title'] ); ?></a>
 						</span>
-                    </div>
-                </td>
+					</div>
+				</td>
 				<?php
 				foreach ( $taxonomies as $tax ) :
 					$val = $row['terms'][ $tax->slug ] ?? '';
@@ -44,7 +44,7 @@
 		<?php endforeach; ?>
 	<?php else : ?>
 		<tr>
-			<td colspan="<?php echo esc_attr( (string) ( count( $taxonomies ) + 3 ) ); ?>">Задачи не найдены</td>
+			<td colspan="<?php echo esc_attr( (string) ( count( $taxonomies ) + 2 ) ); ?>">Еще нет ни одного задания</td>
 		</tr>
 	<?php endif; ?>
 	</tbody>
