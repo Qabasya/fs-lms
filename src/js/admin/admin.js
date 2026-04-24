@@ -7,7 +7,7 @@ import {Taxonomies} from './services/taxonomies.js';
 import {PostsTable} from './services/posts-table.js';
 import {RequiredTaxGuard} from './services/required-tax-guard.js';
 import {TaskFilter} from "./services/task-dashboard.js";
-import {RecentTasks} from "./services/recent-posts";
+import {RecentContent} from "./services/recent-posts";
 
 (function ($) {
     'use strict';
@@ -39,8 +39,8 @@ import {RecentTasks} from "./services/recent-posts";
             TaskFilter.init();
         }
 
-        if ($('#fs-recent-tasks-container').length) {
-            RecentTasks.init();
+        if ($('#fs-recent-tasks-container, #fs-recent-articles-container').length) {
+            RecentContent.init();
         }
 
     });

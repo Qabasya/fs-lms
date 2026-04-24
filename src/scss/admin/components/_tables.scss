@@ -29,7 +29,10 @@
   tbody td {
     padding: $spacing-sm $spacing-md;
     border-bottom: 1px solid $table-row-border;
-    &:last-child { border-bottom: none; }
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
   }
 
   .column-title strong {

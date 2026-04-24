@@ -34,6 +34,7 @@ use Inc\Registrars\SubjectTaxonomyRegistrar;
  * @implements ServiceInterface
  */
 class SubjectController extends BaseController implements ServiceInterface {
+
 	use TemplateRenderer;
 	use NumericSorter;
 
@@ -41,10 +42,10 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository         $subjects          Репозиторий предметов
-	 * @param SubjectCPTRegistrar       $cpt_registrar      Регистратор CPT
-	 * @param SubjectTaxonomyRegistrar  $tax_registrar      Регистратор таксономий
+	 * @param SubjectCPTRegistrar       $cpt_registrar     Регистратор CPT
+	 * @param SubjectTaxonomyRegistrar  $tax_registrar     Регистратор таксономий
 	 * @param TaxonomyRepository        $taxonomies        Репозиторий таксономий
-	 * @param SubjectSettingsCallbacks  $subject_callbacks  Коллбеки для предметов
+	 * @param SubjectSettingsCallbacks  $subject_callbacks Коллбеки для предметов
 	 * @param TaxonomySettingsCallbacks $taxonomy_callbacks Коллбеки для таксономий
 	 * @param TemplateManagerCallbacks  $template_callbacks Коллбеки для шаблонов
 	 * @param MetaBoxRepository         $metaboxes         Репозиторий метабоксов
@@ -89,23 +90,45 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		// Обработка bulk actions до отправки заголовков
 		add_action( 'admin_init', array( $this, 'processBulkActionsEarly' ) );
-		
+
 		// Для кеширования
-		add_action( 'save_post', array( $this, 'clearRecentTasksCache' ), 10, 3 );
-		add_action( 'delete_post', array( $this, 'clearRecentTasksCacheOnDelete' ) );
+		add_action( 'save_post', array( $this, 'clearRecentContentCache' ), 10, 3 );
+		add_action( 'delete_post', array( $this, 'clearRecentContentCacheOnDelete' ) );
 	}
 
+	/**
+	 * Отображает уведомление об ошибке обязательной таксономии.
+	 *
+	 * @return void
+	 */
 	public function showRequiredTaxNotice(): void {
 		$key = 'fs_lms_required_tax_error_' . get_current_user_id();
 		$msg = get_transient( $key );
+
 		if ( ! $msg ) {
 			return;
 		}
+
 		delete_transient( $key );
+
 		printf(
 			'<div class="notice notice-error is-dismissible"><p>Обязательная таксономия «%s» не заполнена. Задание сохранено как черновик.</p></div>',
 			esc_html( $msg )
 		);
+	}
+
+	/**
+	 * Обрабатывает bulk actions до отправки заголовков.
+	 *
+	 * @return void
+	 */
+	public function processBulkActionsEarly(): void {
+		$page = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
+		if ( ! str_starts_with( $page, 'fs_subject_' ) ) {
+			return;
+		}
+
+		$this->handleBulkActions( $page );
 	}
 
 	/**
@@ -115,14 +138,6 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 *
 	 * @return void
 	 */
-	public function processBulkActionsEarly(): void {
-		$page = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
-		if ( ! str_starts_with( $page, 'fs_subject_' ) ) {
-			return;
-		}
-		$this->handleBulkActions( $page );
-	}
-
 	public function subjectPage(): void {
 		$page = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
 		$key  = str_replace( 'fs_subject_', '', $page );
@@ -131,7 +146,6 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		if ( ! $dto ) {
 			echo 'Предмет не найден';
-
 			return;
 		}
 
@@ -139,41 +153,48 @@ class SubjectController extends BaseController implements ServiceInterface {
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
+
+	/**
+	 * Обрабатывает массовые действия с постами.
+	 *
+	 * @param string $page Текущая страница
+	 *
+	 * @return void
+	 */
 	private function handleBulkActions( string $page ): void {
 		// Поддержка и POST (форма), и GET (прямые ссылки)
 		$action = sanitize_key( $_POST['action'] ?? $_GET['action'] ?? '-1' );
 		if ( '-1' === $action ) {
 			$action = sanitize_key( $_POST['action2'] ?? $_GET['action2'] ?? '-1' );
 		}
-		
+
 		if ( '-1' === $action ) {
 			return;
 		}
-		
+
 		// Читаем из POST или GET
-		$post_ids = array_map( 'intval', (array) ( $_POST['post'] ?? $_GET['post'] ?? [] ) );
+		$post_ids = array_map( 'intval', (array) ( $_POST['post'] ?? $_GET['post'] ?? array() ) );
 		if ( empty( $post_ids ) ) {
 			return;
 		}
-		
+
 		// Проверка nonce (из POST или GET)
 		$nonce = $_POST['_wpnonce'] ?? $_GET['_wpnonce'] ?? '';
 		if ( ! wp_verify_nonce( $nonce, 'bulk-posts' ) ) {
-			error_log( "[BULK] Nonce failed" );
+			error_log( '[BULK] Nonce failed' );
 			return;
 		}
-		
-		$post_type = sanitize_key( $_POST['post_type'] ?? $_GET['post_type'] ?? '' );
-		$tab = sanitize_key( $_POST['tab'] ?? $_GET['tab'] ?? '' );
+
+		$post_type   = sanitize_key( $_POST['post_type'] ?? $_GET['post_type'] ?? '' );
+		$tab         = sanitize_key( $_POST['tab'] ?? $_GET['tab'] ?? '' );
 		$post_status = sanitize_key( $_POST['post_status'] ?? $_GET['post_status'] ?? '' );
-		
+
 		// Проверка прав
 		$post_type_object = get_post_type_object( $post_type );
 		if ( ! $post_type_object || ! current_user_can( $post_type_object->cap->edit_posts ) ) {
 			return;
 		}
-		
+
 		// Обработка
 		foreach ( $post_ids as $id ) {
 			match ( $action ) {
@@ -183,19 +204,23 @@ class SubjectController extends BaseController implements ServiceInterface {
 				default   => null,
 			};
 		}
-		
+
 		// Редирект без post_status при изменении статуса
-		$redirect_args = array( 'page' => $page, 'tab' => $tab );
+		$redirect_args   = array(
+			'page' => $page,
+			'tab'  => $tab,
+		);
 		$status_changing = array( 'trash', 'untrash', 'delete' );
+
 		if ( $post_status && ! in_array( $action, $status_changing, true ) ) {
 			$redirect_args['post_status'] = $post_status;
 		}
-		
+
 		// Добавляем параметры для уведомления
-		$redirect_args['bulk_done'] = '1';
-		$redirect_args['bulk_count'] = count( $post_ids );
+		$redirect_args['bulk_done']   = '1';
+		$redirect_args['bulk_count']  = count( $post_ids );
 		$redirect_args['bulk_action'] = $action;
-		
+
 		wp_safe_redirect( admin_url( 'admin.php?' . http_build_query( $redirect_args ) ) );
 		exit;
 	}
@@ -219,6 +244,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			AjaxHook::GetPostsTable,
 			AjaxHook::GetTasksByNumber,
 			AjaxHook::GetRecentTasks,
+			AjaxHook::GetRecentArticles,
 		);
 
 		// === TaxonomySettingsCallbacks -> общая логика === //
@@ -263,7 +289,6 @@ class SubjectController extends BaseController implements ServiceInterface {
 			't.name',
 			static function ( $args ): bool {
 				$tax = (array) ( $args['taxonomy'] ?? array() );
-
 				return str_contains( reset( $tax ), '_task_number' );
 			}
 		);
@@ -374,9 +399,11 @@ class SubjectController extends BaseController implements ServiceInterface {
 				if ( ( $data['post_type'] ?? '' ) !== "{$key}_tasks" ) {
 					return $data;
 				}
+
 				if ( ! in_array( $data['post_status'], array( 'publish', 'future' ), true ) ) {
 					return $data;
 				}
+
 				if ( empty( $postarr['ID'] ) || ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) ) {
 					return $data;
 				}
@@ -385,6 +412,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 					if ( ! $tax_dto->is_required ) {
 						continue;
 					}
+
 					$values = array_filter( (array) ( $_POST['tax_input'][ $tax_dto->slug ] ?? array() ) );
 					if ( empty( $values ) ) {
 						$data['post_status'] = 'draft';
@@ -417,11 +445,11 @@ class SubjectController extends BaseController implements ServiceInterface {
 		// Фиксированная таксономия номеров — не хранится в БД пользовательских таксономий,
 		// поэтому собираем вручную. Флаг is_protected запрещает удаление в интерфейсе.
 		$fixed_tax_dto = new TaxonomyDataDTO(
-			slug        : "{$key}_task_number",
-			name        : 'Номера заданий',
-			subject_key : $key,
+			slug: "{$key}_task_number",
+			name: 'Номера заданий',
+			subject_key: $key,
 			is_protected: true,
-			is_required : true
+			is_required: true
 		);
 
 		// Получение текущей вкладки для определения необходимости построения таблиц
@@ -440,63 +468,73 @@ class SubjectController extends BaseController implements ServiceInterface {
 
 		// Создаём DTO для передачи всех данных в шаблон
 		return new SubjectViewDTO(
-			subject_key   : $key,
-			subject_data  : $current_subject,
-			task_types    : $this->metaboxes->getTaskTypes( $key ),
-			all_templates : apply_filters( 'fs_lms_get_templates', array() ),
-			tasks_url     : admin_url( "edit.php?post_type={$key}_tasks" ),
-			articles_url  : admin_url( "edit.php?post_type={$key}_articles" ),
-			protected_tax : "{$key}_task_number",
-			taxonomies    : array_merge( array( $fixed_tax_dto ), $this->taxonomies->getBySubject( $key ) ),
-			tasks_table   : $tasks_table,
+			subject_key: $key,
+			subject_data: $current_subject,
+			task_types: $this->metaboxes->getTaskTypes( $key ),
+			all_templates: apply_filters( 'fs_lms_get_templates', array() ),
+			tasks_url: admin_url( "edit.php?post_type={$key}_tasks" ),
+			articles_url: admin_url( "edit.php?post_type={$key}_articles" ),
+			protected_tax: "{$key}_task_number",
+			taxonomies: array_merge( array( $fixed_tax_dto ), $this->taxonomies->getBySubject( $key ) ),
+			tasks_table: $tasks_table,
 			articles_table: $articles_table,
 		);
 	}
-	
+
 	/**
-	 * Сбрасывает кеш таблицы "Последние задания" при сохранении поста.
+	 * Сбрасывает кеш таблицы "Последние задания/статьи" при сохранении поста.
+	 * Универсальный для {_tasks} и {_articles}.
+	 *
+	 * @param int      $post_id ID поста
+	 * @param \WP_Post $post    Объект поста
+	 * @param bool     $update  Флаг обновления
+	 *
+	 * @return void
 	 */
-	public function clearRecentTasksCache( int $post_id, \WP_Post $post, bool $update ): void {
+	public function clearRecentContentCache( int $post_id, \WP_Post $post, bool $update ): void {
 		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
 			return;
 		}
-		
-		if ( ! str_ends_with( $post->post_type, '_tasks' ) ) {
+
+		// Проверяем, что пост относится к нашему плагину (tasks или articles)
+		if ( ! str_ends_with( $post->post_type, '_tasks' ) && ! str_ends_with( $post->post_type, '_articles' ) ) {
 			return;
 		}
-		
-		// Только при публикации нового поста или изменении статуса на publish
-		$old_status = $_POST['original_post_status'] ?? '';
-		if ( $post->post_status !== 'publish' && $old_status !== 'publish' ) {
-			return;
-		}
-		
-		$subject_key = preg_replace( '/_tasks$/', '', $post->post_type );
+
+		// Извлекаем subject_key (например, из "phys_tasks" или "phys_articles" получаем "phys")
+		$subject_key = preg_replace( '/_(tasks|articles)$/', '', $post->post_type );
 		if ( ! $subject_key ) {
 			return;
 		}
-		
-		$cache_key = "fs_lms_recent_tasks_{$subject_key}";
-		delete_transient( $cache_key );
-//		error_log( "[CACHE] Cleared on publish: $cache_key" );
+
+		// Ключи кеша отличаются только суффиксом
+		$type_suffix = str_ends_with( $post->post_type, '_tasks' ) ? 'tasks' : 'articles';
+		delete_transient( "fs_lms_recent_{$type_suffix}_{$subject_key}" );
 	}
-	
+
 	/**
 	 * Сбрасывает кеш при безвозвратном удалении поста.
+	 *
+	 * @param int $post_id ID поста
+	 *
+	 * @return void
 	 */
-	public function clearRecentTasksCacheOnDelete( int $post_id ): void {
+	public function clearRecentContentCacheOnDelete( int $post_id ): void {
 		$post = get_post( $post_id );
-		if ( ! $post || ! str_ends_with( $post->post_type, '_tasks' ) ) {
+		if ( ! $post ) {
 			return;
 		}
-		
-		$subject_key = preg_replace( '/_tasks$/', '', $post->post_type );
+
+		if ( ! str_ends_with( $post->post_type, '_tasks' ) && ! str_ends_with( $post->post_type, '_articles' ) ) {
+			return;
+		}
+
+		$subject_key = preg_replace( '/_(tasks|articles)$/', '', $post->post_type );
 		if ( ! $subject_key ) {
 			return;
 		}
-		
-		$cache_key = "fs_lms_recent_tasks_{$subject_key}";
-		delete_transient( $cache_key );
-//		error_log( "[CACHE] Cleared on delete: $cache_key" );
+
+		$type_suffix = str_ends_with( $post->post_type, '_tasks' ) ? 'tasks' : 'articles';
+		delete_transient( "fs_lms_recent_{$type_suffix}_{$subject_key}" );
 	}
 }

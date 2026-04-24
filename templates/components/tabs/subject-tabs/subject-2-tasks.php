@@ -36,12 +36,16 @@ if ( $dto->tasks_table ) :
 		<br>Для отображения всех заданий и применения массовых действий нажмите на кнопку «Перейти к заданиям».
 	</p>
 
-	<div id="fs-recent-tasks-container" data-subject="<?php echo esc_attr( $subject_key ); ?>">
-		<p class="description">Загрузка последних задач...</p>
-	</div>
+    <div id="fs-recent-tasks-container"
+         class="fs-recent-container"
+         data-subject="<?php echo esc_attr( $subject_key ); ?>"
+         data-type="tasks">
+        <p class="description">Загрузка последних заданий...</p>
+    </div>
 
 
-	<?php
+
+    <?php
 	$t->restore();
 	endif;
 ?>

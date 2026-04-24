@@ -39,6 +39,7 @@ enum AjaxHook: string {
 	case GetPostsTable = 'GetPostsTable';
 	case GetTasksByNumber = 'GetTasksByNumber';
 	case GetRecentTasks = 'GetRecentTasks';
+	case GetRecentArticles = 'GetRecentArticles';
 	
 	// ==================== TemplateManager (Быстрые настройки и структура) ====================
 	case GetTemplateStructure   = 'GetTemplateStructure';
