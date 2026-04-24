@@ -76,14 +76,14 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
+		// Регистрация CPT и таксономий для всех предметов
+		$this->registerCptsAndTaxonomies();
+		
 		// Регистрация AJAX-обработчиков
 		$this->registerAjaxHooks();
 
 		// Настройка числовой сортировки терминов таксономий
 		$this->setupTermSorting();
-
-		// Регистрация CPT и таксономий для всех предметов
-		$this->registerCptsAndTaxonomies();
 
 		// Уведомление об ошибке обязательной таксономии (после серверной проверки)
 		add_action( 'admin_notices', array( $this, 'showRequiredTaxNotice' ) );
@@ -339,16 +339,26 @@ class SubjectController extends BaseController implements ServiceInterface {
 		// Регистрация CPT для заданий (только заголовок)
 		$this->cpt_registrar->addStandardType(
 			$task_cpt,
-			"Задания ($name)",
-			'Задание',
+			"Задания",
+			array(
+				'nom'    => 'Задание',
+				'acc'    => 'задание',
+				'gen'    => 'задания',
+				'gender' => 'neuter',
+			),
 			array( 'supports' => array( 'title' ) )
 		);
 
 		// Регистрация CPT для статей (с редактором и картинкой)
 		$this->cpt_registrar->addStandardType(
 			$article_cpt,
-			"Статьи ($name)",
-			'Статья',
+			"Статьи",
+			array(
+				'nom'    => 'Статья',
+				'acc'    => 'статью',
+				'gen'    => 'статьи',
+				'gender' => 'feminine',
+			),
 			array( 'supports' => array( 'title', 'editor', 'thumbnail' ) )
 		);
 
