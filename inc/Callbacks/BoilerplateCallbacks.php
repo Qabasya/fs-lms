@@ -27,10 +27,10 @@ use Inc\Shared\Traits\Sanitizer;
  * авторизацией и форматированием ответа.
  */
 class BoilerplateCallbacks extends BaseController {
-	
+
 	use Authorizer;   // Трейт с методами authorize(), requireKey(), requireText() и др.
 	use Sanitizer;    // Трейт с методами sanitizeText(), sanitizeInt(), sanitizeEditorContent()
-	
+
 	/**
 	 * Конструктор.
 	 *
@@ -41,9 +41,9 @@ class BoilerplateCallbacks extends BaseController {
 	) {
 		parent::__construct();
 	}
-	
+
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
-	
+
 	/**
 	 * Сохраняет (создаёт или обновляет) boilerplate-шаблон.
 	 *
@@ -53,20 +53,20 @@ class BoilerplateCallbacks extends BaseController {
 		// authorize() — метод трейта Authorizer
 		// Проверяет nonce (wp_verify_nonce) и права текущего пользователя
 		$this->authorize( Nonce::SaveBoilerplate );
-		
+
 		// requireKey() — требует наличия непустого ключа в POST-данных
 		$subject_key = $this->requireKey( 'subject_key', error: 'Предмет и тип задания обязательны' );
 		$term_slug   = $this->requireKey( 'term_slug', error: 'Предмет и тип задания обязательны' );
-		
+
 		// sanitizeText() — очищает строку от тегов и спецсимволов
-		$uid        = $this->sanitizeText( 'uid' );
+		$uid = $this->sanitizeText( 'uid' );
 		// ?: — оператор Elvis, возвращает 'Без названия' если $title пустой
-		$title      = $this->sanitizeText( 'title' ) ?: 'Без названия';
+		$title = $this->sanitizeText( 'title' ) ?: 'Без названия';
 		// sanitizeInt() — преобразует значение в целое число
 		$is_default = $this->sanitizeInt( 'is_default' ) === 1;
 		// sanitizeEditorContent() — очищает HTML от вредоносных тегов (wp_kses_post)
-		$content    = $this->sanitizeEditorContent( 'content' );
-		
+		$content = $this->sanitizeEditorContent( 'content' );
+
 		// Создание DTO (Data Transfer Object) для передачи данных в репозиторий
 		$dto = new TaskTypeBoilerplateDTO(
 			uid: $uid,
@@ -76,10 +76,10 @@ class BoilerplateCallbacks extends BaseController {
 			content: $content,
 			is_default: $is_default,
 		);
-		
+
 		// Сохранение через репозиторий
 		$result = $this->boilerplates->updateBoilerplate( $dto );
-		
+
 		// respond() — метод трейта Authorizer, отправляет JSON-ответ
 		// При успехе — wp_send_json_success(), при ошибке — wp_send_json_error()
 		$this->respond(
@@ -89,7 +89,7 @@ class BoilerplateCallbacks extends BaseController {
 			extra_data: array( 'uid' => $uid )
 		);
 	}
-	
+
 	/**
 	 * Удаляет boilerplate-шаблон по UID.
 	 *
@@ -98,16 +98,16 @@ class BoilerplateCallbacks extends BaseController {
 	public function ajaxDeleteBoilerplate(): void {
 		// Проверка прав доступа
 		$this->authorize( Nonce::SaveBoilerplate );
-		
+
 		// sanitizeKey() — очищает строку для использования в качестве ключа/слага
 		$subject_key = $this->sanitizeKey( 'subject_key' );
 		$term_slug   = $this->sanitizeKey( 'term_slug' );
 		// requireText() — требует наличия текстового значения
-		$uid         = $this->requireText( 'uid', error: 'UID шаблона обязателен' );
-		
+		$uid = $this->requireText( 'uid', error: 'UID шаблона обязателен' );
+
 		// Каскадное удаление через репозиторий
 		$result = $this->boilerplates->deleteBoilerplate( $subject_key, $term_slug, $uid );
-		
+
 		// Отправка ответа
 		$this->respond(
 			$result,

@@ -24,7 +24,7 @@ namespace Inc\Managers;
  * предоставляя унифицированный интерфейс для работы с терминами в плагине.
  */
 class TermManager {
-	
+
 	/**
 	 * Возвращает массив ID терминов указанной таксономии.
 	 *
@@ -43,11 +43,11 @@ class TermManager {
 				'fields'     => 'ids',
 			)
 		);
-		
+
 		// is_wp_error() — проверка на ошибку WordPress
 		return is_wp_error( $ids ) ? array() : (array) $ids;
 	}
-	
+
 	/**
 	 * Возвращает массив объектов терминов указанной таксономии.
 	 *
@@ -62,10 +62,10 @@ class TermManager {
 				'hide_empty' => false,
 			)
 		);
-		
+
 		return is_wp_error( $terms ) ? array() : (array) $terms;
 	}
-	
+
 	/**
 	 * Удаляет термин по ID.
 	 *
@@ -78,7 +78,7 @@ class TermManager {
 		// wp_delete_term() — удаляет термин и его связи с постами
 		wp_delete_term( $term_id, $taxonomy );
 	}
-	
+
 	/**
 	 * Удаляет все термины указанной таксономии.
 	 *
@@ -91,7 +91,7 @@ class TermManager {
 			$this->delete( (int) $id, $taxonomy );
 		}
 	}
-	
+
 	/**
 	 * Проверяет существование термина по названию.
 	 *
@@ -104,7 +104,7 @@ class TermManager {
 		// term_exists() — возвращает ID термина или false
 		return (bool) term_exists( $name, $taxonomy );
 	}
-	
+
 	/**
 	 * Регистрирует таксономию, если она ещё не существует.
 	 *
@@ -120,7 +120,7 @@ class TermManager {
 			register_taxonomy( $taxonomy, array() );
 		}
 	}
-	
+
 	/**
 	 * Создаёт термин, если его ещё нет.
 	 *
@@ -136,7 +136,7 @@ class TermManager {
 			wp_insert_term( $name, $taxonomy, $args );
 		}
 	}
-	
+
 	/**
 	 * Возвращает массив слагов терминов, привязанных к посту.
 	 *
@@ -149,10 +149,10 @@ class TermManager {
 		// wp_get_post_terms() — возвращает термины поста
 		// 'fields' => 'slugs' — возвращать только слаги
 		$slugs = wp_get_post_terms( $post_id, $taxonomy, array( 'fields' => 'slugs' ) );
-		
+
 		return is_wp_error( $slugs ) ? array() : (array) $slugs;
 	}
-	
+
 	/**
 	 * Привязывает термины к посту.
 	 *
@@ -167,7 +167,7 @@ class TermManager {
 		// Умеет работать как с ID, так и со слагами
 		wp_set_post_terms( $post_id, $terms, $taxonomy );
 	}
-	
+
 	/**
 	 * Получает объект термина по ID и таксономии.
 	 *

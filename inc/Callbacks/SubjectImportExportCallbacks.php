@@ -38,7 +38,7 @@ class SubjectImportExportCallbacks extends BaseController {
 	use Authorizer;
 	use Sanitizer;
 	use TaxonomySeeder;
-	
+
 	public function __construct(
 		private SubjectRepository $subjects,
 		private TaxonomyRepository $taxonomies,
@@ -49,9 +49,9 @@ class SubjectImportExportCallbacks extends BaseController {
 	) {
 		parent::__construct();
 	}
-	
+
 	// ============================ AJAX-КОЛЛБЕКИ (Import/Export) ============================ //
-	
+
 	/**
 	 * Экспортирует все данные предмета в JSON.
 	 *
@@ -59,14 +59,14 @@ class SubjectImportExportCallbacks extends BaseController {
 	 */
 	public function ajaxExportSubject(): void {
 		$this->authorize( Nonce::Subject );
-		
+
 		$key     = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 		$subject = $this->subjects->getByKey( $key );
-		
+
 		if ( ! $subject ) {
 			$this->error( 'Предмет не найден', array( 'key' => $key ) );
 		}
-		
+
 		// Формирование массива для экспорта
 		$this->success(
 			array(
@@ -83,7 +83,7 @@ class SubjectImportExportCallbacks extends BaseController {
 			)
 		);
 	}
-	
+
 	/**
 	 * Импортирует полные данные предмета из JSON.
 	 *
@@ -91,33 +91,33 @@ class SubjectImportExportCallbacks extends BaseController {
 	 */
 	public function ajaxImportSubject(): void {
 		$this->authorize( Nonce::Subject );
-		
+
 		// sanitizeHtml() — использует wp_kses_post() для очистки HTML
 		$raw = $this->sanitizeHtml( 'json' );
 		if ( empty( $raw ) ) {
 			$this->error( 'JSON не передан' );
 		}
-		
+
 		// json_decode(, true) — преобразует JSON в ассоциативный массив
 		$data = json_decode( $raw, true );
 		if ( ! is_array( $data ) || ! isset( $data['subject']['key'], $data['subject']['name'] ) ) {
 			$this->error( 'Неверный формат файла импорта', array( 'raw_length' => strlen( $raw ) ) );
 		}
-		
+
 		// sanitize_title() — преобразует строку в slug (транслитерация, нижний регистр, дефисы)
-		$key  = sanitize_title( (string) $data['subject']['key'] );
+		$key = sanitize_title( (string) $data['subject']['key'] );
 		// sanitize_text_field() — удаляет теги и спецсимволы
 		$name = sanitize_text_field( (string) $data['subject']['name'] );
-		
+
 		if ( empty( $key ) || empty( $name ) ) {
 			$this->error( 'Ключ или название предмета пусты в файле импорта' );
 		}
-		
+
 		// Проверка на дубликат
 		if ( $this->subjects->getByKey( $key ) ) {
 			$this->error( "Предмет с ключом «{$key}» уже существует. Импорт невозможен." );
 		}
-		
+
 		// Создание предмета
 		$result = $this->subjects->update(
 			array(
@@ -125,11 +125,11 @@ class SubjectImportExportCallbacks extends BaseController {
 				'name' => $name,
 			)
 		);
-		
+
 		if ( ! $result ) {
 			$this->error( 'Критическая ошибка при создании записи предмета в БД' );
 		}
-		
+
 		// Импорт таксономий
 		foreach ( $data['taxonomies'] ?? array() as $tax_slug => $tax_data ) {
 			$this->taxonomies->update(
@@ -141,7 +141,7 @@ class SubjectImportExportCallbacks extends BaseController {
 				)
 			);
 		}
-		
+
 		// Импорт метабоксов (привязка шаблонов к номерам заданий)
 		foreach ( $data['metaboxes'] ?? array() as $task_number => $template_id ) {
 			$this->metaboxes->update(
@@ -152,7 +152,7 @@ class SubjectImportExportCallbacks extends BaseController {
 				)
 			);
 		}
-		
+
 		// Импорт boilerplate-шаблонов
 		foreach ( $data['boilerplates'] ?? array() as $term_slug => $bp_list ) {
 			foreach ( (array) $bp_list as $bp ) {
@@ -170,25 +170,25 @@ class SubjectImportExportCallbacks extends BaseController {
 				);
 			}
 		}
-		
+
 		// Импорт терминов (элементы таксономий)
 		foreach ( $data['terms'] ?? array() as $tax_slug => $term_list ) {
 			$this->importTerms( sanitize_title( (string) $tax_slug ), (array) $term_list );
 		}
-		
+
 		// Импорт постов (задания и статьи)
 		$this->importPosts( $data['posts'] ?? array() );
-		
+
 		// flush_rewrite_rules() — перестраивает правила ЧПУ после регистрации новых таксономий/CPT
 		flush_rewrite_rules();
-		
+
 		$this->success( array( 'message' => "Предмет «{$name}» успешно импортирован" ) );
 	}
-	
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ-ХЕЛПЕРЫ ============================ //
-	
+
 	// ============================ Экспорт ============================ //
-	
+
 	/**
 	 * Собирает все термины для указанного предмета.
 	 *
@@ -203,12 +203,12 @@ class SubjectImportExportCallbacks extends BaseController {
 			array( "{$subject_key}_task_number" ),
 			array_map( fn( $dto ) => $dto->slug, $this->taxonomies->getBySubject( $subject_key ) )
 		);
-		
+
 		$result = array();
-		
+
 		foreach ( $slugs as $tax_slug ) {
 			$wpTerms = $this->terms->getAll( $tax_slug );
-			
+
 			$result[ $tax_slug ] = array_map(
 				fn( $t ) => array(
 					'name'        => $t->name,
@@ -219,10 +219,10 @@ class SubjectImportExportCallbacks extends BaseController {
 				$wpTerms
 			);
 		}
-		
+
 		return $result;
 	}
-	
+
 	/**
 	 * Собирает все посты (задания и статьи) для указанного предмета.
 	 *
@@ -235,14 +235,14 @@ class SubjectImportExportCallbacks extends BaseController {
 			array( "{$subject_key}_task_number" ),
 			array_map( fn( $dto ) => $dto->slug, $this->taxonomies->getBySubject( $subject_key ) )
 		);
-		
+
 		$result = array();
-		
+
 		foreach ( array( "{$subject_key}_tasks", "{$subject_key}_articles" ) as $post_type ) {
 			$result[ $post_type ] = array_map(
 				function ( $post ) use ( $tax_slugs ) {
 					$termMap = array();
-					
+
 					// Сбор слаг-терминов для каждой таксономии
 					foreach ( $tax_slugs as $tax_slug ) {
 						$slugs = $this->terms->getPostSlugs( $post->ID, $tax_slug );
@@ -250,7 +250,7 @@ class SubjectImportExportCallbacks extends BaseController {
 							$termMap[ $tax_slug ] = $slugs;
 						}
 					}
-					
+
 					return array(
 						'post_title'   => $post->post_title,
 						'post_content' => $post->post_content,
@@ -265,12 +265,12 @@ class SubjectImportExportCallbacks extends BaseController {
 				$this->posts->getAll( $post_type )
 			);
 		}
-		
+
 		return $result;
 	}
-	
+
 	// ============================ Импорт ============================ //
-	
+
 	/**
 	 * Импортирует термины в указанную таксономию.
 	 *
@@ -282,14 +282,14 @@ class SubjectImportExportCallbacks extends BaseController {
 	private function importTerms( string $taxonomy, array $terms ): void {
 		// ensureTaxonomy() — проверяет существование таксономии и регистрирует её при необходимости
 		$this->terms->ensureTaxonomy( $taxonomy );
-		
+
 		foreach ( $terms as $term_data ) {
 			$name = sanitize_text_field( $term_data['name'] ?? '' );
-			
+
 			if ( empty( $name ) ) {
 				continue;
 			}
-			
+
 			// insert() — создаёт новый термин таксономии
 			$this->terms->insert(
 				$name,
@@ -301,7 +301,7 @@ class SubjectImportExportCallbacks extends BaseController {
 			);
 		}
 	}
-	
+
 	/**
 	 * Импортирует посты (задания и статьи) из массива данных.
 	 *
@@ -325,16 +325,16 @@ class SubjectImportExportCallbacks extends BaseController {
 						'menu_order'   => absint( $post_data['menu_order'] ?? 0 ),
 					)
 				);
-				
+
 				if ( ! $post_id ) {
 					continue;
 				}
-				
+
 				// Импорт мета-полей поста
 				foreach ( $post_data['meta'] ?? array() as $meta_key => $meta_value ) {
 					$this->posts->updateMeta( $post_id, sanitize_key( (string) $meta_key ), $meta_value );
 				}
-				
+
 				// Привязка терминов к посту
 				foreach ( $post_data['terms'] ?? array() as $tax_slug => $term_slugs ) {
 					// setPostTerms() — устанавливает термины для указанной таксономии

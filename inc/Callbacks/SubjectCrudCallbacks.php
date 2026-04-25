@@ -37,7 +37,7 @@ class SubjectCrudCallbacks extends BaseController {
 	use Authorizer;
 	use Sanitizer;
 	use TaxonomySeeder;  // Трейт с методом seedTaskNumbers() для генерации терминов
-	
+
 	public function __construct(
 		private readonly SubjectRepository $subjects,
 		private readonly TaxonomyRepository $taxonomies,
@@ -48,9 +48,9 @@ class SubjectCrudCallbacks extends BaseController {
 	) {
 		parent::__construct();
 	}
-	
+
 	// ============================ AJAX-КОЛЛБЕКИ (CRUD) ============================ //
-	
+
 	/**
 	 * Создаёт новый предмет и засевает таксономию номеров заданий.
 	 *
@@ -59,12 +59,12 @@ class SubjectCrudCallbacks extends BaseController {
 	public function ajaxStoreSubject(): void {
 		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
-		
+
 		// Валидация входных данных
 		$key   = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 		$name  = $this->requireText( 'name', error: 'Название предмета обязательно' );
 		$count = $this->sanitizeInt( 'tasks_count' );
-		
+
 		// Сохранение предмета в БД
 		$result = $this->subjects->update(
 			array(
@@ -72,7 +72,7 @@ class SubjectCrudCallbacks extends BaseController {
 				'name' => $name,
 			)
 		);
-		
+
 		// seedTaskNumbers() — метод трейта TaxonomySeeder
 		// Создаёт термины таксономии (1, 2, 3... $count) для номеров заданий
 		if ( $result ) {
@@ -81,7 +81,7 @@ class SubjectCrudCallbacks extends BaseController {
 			// Необходимо после регистрации новых таксономий/CPT
 			flush_rewrite_rules();
 		}
-		
+
 		// Отправка JSON-ответа
 		$this->respond(
 			$result,
@@ -89,7 +89,7 @@ class SubjectCrudCallbacks extends BaseController {
 			success_msg: "Предмет «{$name}» успешно создан!"
 		);
 	}
-	
+
 	/**
 	 * Обновляет название существующего предмета.
 	 *
@@ -97,27 +97,27 @@ class SubjectCrudCallbacks extends BaseController {
 	 */
 	public function ajaxUpdateSubject(): void {
 		$this->authorize( Nonce::Subject );
-		
+
 		$key  = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 		$name = $this->requireText( 'name', error: 'Название предмета обязательно' );
-		
+
 		// Проверка, что предмет существует
 		$this->requireExists( $key );
-		
+
 		$result = $this->subjects->update(
 			array(
 				'key'  => $key,
 				'name' => $name,
 			)
 		);
-		
+
 		$this->respond(
 			$result,
 			error_msg: 'Ошибка при обновлении предмета',
 			success_msg: "Предмет «{$name}» обновлён"
 		);
 	}
-	
+
 	/**
 	 * Удаляет предмет из базы данных каскадно (все связанные данные).
 	 *
@@ -125,30 +125,30 @@ class SubjectCrudCallbacks extends BaseController {
 	 */
 	public function ajaxDeleteSubject(): void {
 		$this->authorize( Nonce::Subject );
-		
+
 		$key = $this->requireKey( 'key', error: 'ID предмета обязателен' );
-		
+
 		$this->requireExists( $key );
-		
+
 		// Каскадное удаление связанных данных
 		$this->cascadeDelete( $key );
-		
+
 		// Удаление самого предмета
 		$result = $this->subjects->delete( array( 'key' => $key ) );
-		
+
 		if ( $result ) {
 			flush_rewrite_rules();
 		}
-		
+
 		$this->respond(
 			$result,
 			error_msg: 'Ошибка при удалении предмета',
-			success_msg: "Предмет удалён"
+			success_msg: 'Предмет удалён'
 		);
 	}
-	
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ-ХЕЛПЕРЫ ============================ //
-	
+
 	/**
 	 * Проверяет существование предмета в БД.
 	 *
@@ -163,7 +163,7 @@ class SubjectCrudCallbacks extends BaseController {
 			wp_send_json_error( 'Предмет не найден в базе данных' );
 		}
 	}
-	
+
 	/**
 	 * Каскадное удаление всех данных, связанных с предметом.
 	 *
@@ -177,15 +177,15 @@ class SubjectCrudCallbacks extends BaseController {
 			// deleteAll() — удаляет все термины указанной таксономии
 			$this->terms->deleteAll( $tax_dto->slug );
 		}
-		
+
 		// Удаление системной таксономии номеров заданий
 		$this->terms->deleteAll( "{$key}_task_number" );
-		
+
 		// Удаление всех постов (заданий и статей)
 		foreach ( array( "{$key}_tasks", "{$key}_articles" ) as $post_type ) {
 			$this->posts->deleteAll( $post_type );
 		}
-		
+
 		// Очистка записей в таблицах связей
 		$this->taxonomies->deleteBySubject( $key );
 		$this->metaboxes->deleteBySubject( $key );

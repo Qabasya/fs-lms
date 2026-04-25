@@ -49,7 +49,7 @@ use Inc\Registrars\SettingsRegistrar;
  * - **Enums (Capability, MenuSlug, MenuTitle, PageTitle)** — централизованное хранение констант
  */
 class AdminController extends BaseController implements ServiceInterface {
-	
+
 	/**
 	 * Конструктор контроллера.
 	 *
@@ -73,7 +73,7 @@ class AdminController extends BaseController implements ServiceInterface {
 	) {
 		parent::__construct();
 	}
-	
+
 	/**
 	 * Регистрирует все административные меню плагина.
 	 *
@@ -91,21 +91,21 @@ class AdminController extends BaseController implements ServiceInterface {
 	public function register(): void {
 		// Сбор конфигураций главных страниц
 		$pages = $this->buildMainPages();
-		
+
 		// Сбор конфигураций всех подстраниц
 		$subpages = $this->buildAllSubPages();
-		
+
 		// Передаём данные в регистратор и выполняем регистрацию
 		$this->menu_registrar->addPages( $pages )
-		                     ->addSubPages( $subpages )
-		                     ->register();
-		
+							->addSubPages( $subpages )
+							->register();
+
 		// Удаляем дублирующиеся пункты меню, созданные WordPress автоматически
 		$this->removeAutoSubMenuItems();
 	}
-	
+
 	// ============================ ФУНКЦИОНАЛ РЕГИСТРАТОРА ============================ //
-	
+
 	/**
 	 * Строит конфигурацию главных страниц меню.
 	 *
@@ -144,11 +144,11 @@ class AdminController extends BaseController implements ServiceInterface {
 				'position'   => 4,
 			),
 		);
-		
+
 		// Добавляем страницы предметов из билдера
 		return array_merge( $pages, $this->subjects_menu_builder->buildPages() );
 	}
-	
+
 	/**
 	 * Собирает все подстраницы из разных источников.
 	 *
@@ -169,7 +169,7 @@ class AdminController extends BaseController implements ServiceInterface {
 	 */
 	private function buildAllSubPages(): array {
 		$subpages = array();
-		
+
 		// Первая подстраница (дублирует главную, будет скрыта WordPress)
 		// WordPress автоматически создаёт её, чтобы у родительского пункта был дочерний
 		$subpages[] = array(
@@ -180,7 +180,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'menu_slug'   => MenuSlug::MAIN->value,
 			'callback'    => array( $this->callbacks, 'adminDashboard' ),
 		);
-		
+
 		// Страница настроек плагина
 		$subpages[] = array(
 			'parent_slug' => MenuSlug::MAIN->value,
@@ -190,7 +190,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'menu_slug'   => 'fs_lms_settings',
 			'callback'    => array( $this->callbacks, 'settingsPage' ),
 		);
-		
+
 		// Скрытая страница управления типовыми условиями (не отображается в боковом меню)
 		// Parent_slug = '' делает страницу доступной только по прямому URL
 		$subpages[] = array(
@@ -201,15 +201,15 @@ class AdminController extends BaseController implements ServiceInterface {
 			'menu_slug'   => 'fs_boilerplate_manager',
 			'callback'    => array( $this->callbacks, 'boilerplatePage' ),
 		);
-		
+
 		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
-		
+
 		// Добавляем подстраницы предметов (каждый предмет — отдельная подстраница)
 		return array_merge( $subpages, $this->subjects_menu_builder->buildSubPages() );
 	}
-	
+
 	// ====================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ======================
-	
+
 	/**
 	 * Удаляет автоматически созданные дублирующиеся пункты меню.
 	 *

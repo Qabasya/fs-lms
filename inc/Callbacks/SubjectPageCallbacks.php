@@ -26,7 +26,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  */
 class SubjectPageCallbacks extends BaseController {
 	use TemplateRenderer;
-	
+
 	public function __construct(
 		private readonly SubjectRepository $subjects,
 		private readonly TaxonomyRepository $taxonomies,
@@ -35,9 +35,9 @@ class SubjectPageCallbacks extends BaseController {
 	) {
 		parent::__construct();
 	}
-	
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
+
 	/**
 	 * Собирает все данные для страницы управления предметом.
 	 *
@@ -47,11 +47,11 @@ class SubjectPageCallbacks extends BaseController {
 	 */
 	private function prepareSubjectViewData( string $key ): ?SubjectViewDTO {
 		$current_subject = $this->subjects->getByKey( $key );
-		
+
 		if ( ! $current_subject ) {
 			return null;
 		}
-		
+
 		// DTO для системной таксономии номеров заданий (защищена от удаления)
 		$fixed_tax_dto = new TaxonomyDataDTO(
 			slug: "{$key}_task_number",
@@ -60,14 +60,14 @@ class SubjectPageCallbacks extends BaseController {
 			is_protected: true,
 			is_required: true
 		);
-		
+
 		// Определение активной вкладки из URL
 		$page       = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
 		$active_tab = sanitize_text_field( wp_unslash( $_GET['tab'] ?? '' ) );
-		
+
 		$tasks_table    = null;
 		$articles_table = null;
-		
+
 		// buildListTable() — создаёт объект WP_ListTable для указанного типа поста
 		// Таблица строится только для активной вкладки (ленивая загрузка)
 		if ( $active_tab === 'tab-2' ) {
@@ -75,7 +75,7 @@ class SubjectPageCallbacks extends BaseController {
 		} elseif ( $active_tab === 'tab-3' ) {
 			$articles_table = $this->posts->buildListTable( "{$key}_articles", $page, 'tab-3' );
 		}
-		
+
 		return new SubjectViewDTO(
 			subject_key: $key,
 			subject_data: $current_subject,
@@ -92,9 +92,9 @@ class SubjectPageCallbacks extends BaseController {
 			articles_table: $articles_table,
 		);
 	}
-	
+
 	// ============================ КОЛЛБЕКИ СТРАНИЦ ============================ //
-	
+
 	/**
 	 * Коллбек страницы управления конкретным предметом в админке.
 	 *
@@ -103,19 +103,19 @@ class SubjectPageCallbacks extends BaseController {
 	public function subjectPage(): void {
 		$page = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
 		// str_replace() — удаляет префикс 'fs_subject_' из слага страницы
-		$key  = str_replace( 'fs_subject_', '', $page );
-		
+		$key = str_replace( 'fs_subject_', '', $page );
+
 		$dto = $this->prepareSubjectViewData( $key );
-		
+
 		if ( ! $dto ) {
 			echo 'Предмет не найден';
 			return;
 		}
-		
+
 		// render() — подключает шаблон из папки /templates/admin/
 		$this->render( 'subject', $dto );
 	}
-	
+
 	/**
 	 * Отображает уведомление об ошибке обязательной таксономии.
 	 * Вызывается через хук admin_notices.
@@ -127,14 +127,14 @@ class SubjectPageCallbacks extends BaseController {
 		$key = 'fs_lms_required_tax_error_' . get_current_user_id();
 		// get_transient() — получает временные данные из кеша (хранятся до 30 секунд)
 		$msg = get_transient( $key );
-		
+
 		if ( ! $msg ) {
 			return;
 		}
-		
+
 		// delete_transient() — удаляет временные данные после отображения
 		delete_transient( $key );
-		
+
 		// printf() — выводит отформатированную строку
 		// esc_html() — экранирует HTML-символы для безопасного вывода
 		printf(

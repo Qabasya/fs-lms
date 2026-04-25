@@ -29,13 +29,13 @@ use Inc\Shared\Traits\TemplateRenderer;
  * @method void render(string $template, array $data = []) — метод трейта TemplateRenderer
  */
 class AdminCallbacks extends BaseController {
-	
+
 	use TemplateRenderer;
-	
+
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository          $subjects               Репозиторий предметов
+	 * @param SubjectRepository         $subjects               Репозиторий предметов
 	 * @param BoilerplatePageController $boilerplatePageController Контроллер страницы boilerplate
 	 */
 	public function __construct(
@@ -44,7 +44,7 @@ class AdminCallbacks extends BaseController {
 	) {
 		parent::__construct();
 	}
-	
+
 	/**
 	 * Главная страница Dashboard (временная заглушка).
 	 *
@@ -55,7 +55,7 @@ class AdminCallbacks extends BaseController {
 		// Класс 'wrap' — стандартный контейнер WordPress для страниц админ-панели
 		echo '<div class="wrap"><h1>Dashboard</h1><p>Данные о предметах</p></div>';
 	}
-	
+
 	/**
 	 * Страница настроек (управление предметами).
 	 *
@@ -64,12 +64,12 @@ class AdminCallbacks extends BaseController {
 	public function settingsPage(): void {
 		// Получение всех предметов из базы данных
 		$all_subjects = $this->subjects->readAll();
-		
+
 		// render() — метод трейта TemplateRenderer
 		// Подключает файл /templates/admin/settings.php и передаёт в него переменную $subjects
 		$this->render( 'settings', array( 'subjects' => $all_subjects ) );
 	}
-	
+
 	/**
 	 * Прокси-метод для страницы управления типовыми условиями (boilerplate).
 	 *

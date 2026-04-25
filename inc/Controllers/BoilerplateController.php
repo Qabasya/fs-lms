@@ -44,7 +44,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  */
 class BoilerplateController extends BaseController implements ServiceInterface {
 	use TemplateRenderer;
-	
+
 	/**
 	 * Конструктор контроллера.
 	 *
@@ -64,9 +64,9 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 	) {
 		parent::__construct();
 	}
-	
+
 	// ============================ РЕГИСТРАЦИЯ ============================ //
-	
+
 	/**
 	 * Точка входа контроллера, вызываемая при инициализации плагина.
 	 *
@@ -80,9 +80,9 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 		// Делегирование регистрации AJAX-обработчиков в приватный метод
 		$this->registerAjaxHooks();
 	}
-	
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
+
 	/**
 	 * Регистрирует AJAX-обработчики для операций с boilerplate.
 	 *
@@ -103,7 +103,7 @@ class BoilerplateController extends BaseController implements ServiceInterface {
 			AjaxHook::SaveBoilerplate,   // Обработчик сохранения (создание/обновление) boilerplate
 			AjaxHook::DeleteBoilerplate, // Обработчик удаления boilerplate по UID
 		);
-		
+
 		// Перебор всех хуков и подключение соответствующих коллбеков
 		foreach ( $hooks as $hook ) {
 			/**

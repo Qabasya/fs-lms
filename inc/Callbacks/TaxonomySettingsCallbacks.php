@@ -27,10 +27,10 @@ use Inc\Shared\Traits\Sanitizer;
  * Делегирует операции с БД репозиторию TaxonomyRepository, а удаление терминов — TermManager.
  */
 class TaxonomySettingsCallbacks extends BaseController {
-	
+
 	use Authorizer;  // Трейт с методами authorize(), requireKey(), respond() и др.
 	use Sanitizer;   // Трейт с методами sanitizeText(), sanitizeBool() и др.
-	
+
 	/**
 	 * Конструктор.
 	 *
@@ -43,9 +43,9 @@ class TaxonomySettingsCallbacks extends BaseController {
 	) {
 		parent::__construct();
 	}
-	
+
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
-	
+
 	/**
 	 * Создаёт новую таксономию для предмета.
 	 *
@@ -53,26 +53,26 @@ class TaxonomySettingsCallbacks extends BaseController {
 	 */
 	public function ajaxStoreTaxonomy(): void {
 		$this->authorize( Nonce::Subject );
-		
+
 		// Получение данных из POST
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_suffix  = $this->requireKey( 'tax_slug' );
 		$tax_name    = $this->requireText( 'tax_name', error: 'Название таксономии обязательно' );
-		
+
 		$display_type = $this->getValidatedDisplayType();
 		// Формирование полного слага: {subject_key}_{suffix} (например, math_author)
-		$tax_slug     = "{$subject_key}_{$tax_suffix}";
-		
+		$tax_slug = "{$subject_key}_{$tax_suffix}";
+
 		// strlen() — максимальная длина слага таксономии в WordPress — 32 символа
 		if ( strlen( $tax_slug ) > 32 ) {
 			$this->error( 'Ярлык слишком длинный (макс. ' . ( 32 - strlen( $subject_key ) - 1 ) . ' символов)' );
 		}
-		
+
 		// taxonomy_exists() — проверяет, зарегистрирована ли таксономия в WordPress
 		if ( taxonomy_exists( $tax_slug ) ) {
 			$this->error( "Таксономия «{$tax_slug}» уже существует в системе", array( 'slug' => $tax_slug ) );
 		}
-		
+
 		// sanitizeBool() — преобразует значение в 1 или 0 для БД
 		$result = $this->taxonomies->update(
 			array(
@@ -83,19 +83,19 @@ class TaxonomySettingsCallbacks extends BaseController {
 				'is_required'  => $this->sanitizeBool( 'is_required' ),
 			)
 		);
-		
+
 		if ( $result ) {
 			// flush_rewrite_rules() — перестраивает правила ЧПУ после регистрации новой таксономии
 			flush_rewrite_rules();
 		}
-		
+
 		$this->respond(
 			$result,
 			error_msg: 'Не удалось сохранить таксономию',
 			success_msg: 'Таксономия создана'
 		);
 	}
-	
+
 	/**
 	 * Обновляет существующую таксономию (название, тип отображения).
 	 *
@@ -103,11 +103,11 @@ class TaxonomySettingsCallbacks extends BaseController {
 	 */
 	public function ajaxUpdateTaxonomy(): void {
 		$this->authorize( Nonce::Subject );
-		
+
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_slug    = $this->requireKey( 'tax_slug' );
 		$tax_name    = $this->requireText( 'tax_name', error: 'Название обязательно' );
-		
+
 		$result = $this->taxonomies->update(
 			array(
 				'subject_key'  => $subject_key,
@@ -117,18 +117,18 @@ class TaxonomySettingsCallbacks extends BaseController {
 				'is_required'  => $this->sanitizeBool( 'is_required' ),
 			)
 		);
-		
+
 		if ( $result ) {
 			flush_rewrite_rules();
 		}
-		
+
 		$this->respond(
 			$result,
 			error_msg: 'Ошибка при обновлении таксономии',
 			success_msg: 'Таксономия обновлена'
 		);
 	}
-	
+
 	/**
 	 * Удаляет таксономию предмета и все её термины из базы данных.
 	 *
@@ -136,33 +136,33 @@ class TaxonomySettingsCallbacks extends BaseController {
 	 */
 	public function ajaxDeleteTaxonomy(): void {
 		$this->authorize( Nonce::Subject );
-		
+
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_slug    = $this->requireKey( 'tax_slug' );
-		
+
 		// deleteAll() — удаляет все термины указанной таксономии из таблиц wp_terms
 		$this->terms->deleteAll( $tax_slug );
-		
+
 		$result = $this->taxonomies->delete(
 			array(
 				'subject_key' => $subject_key,
 				'tax_slug'    => $tax_slug,
 			)
 		);
-		
+
 		if ( $result ) {
 			flush_rewrite_rules();
 		}
-		
+
 		$this->respond(
 			$result,
 			error_msg: 'Ошибка при удалении таксономии',
 			success_msg: 'Таксономия удалена'
 		);
 	}
-	
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
+
 	/**
 	 * Валидация типа отображения таксономии.
 	 *

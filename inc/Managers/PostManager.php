@@ -24,7 +24,7 @@ namespace Inc\Managers;
  * предоставляя унифицированный интерфейс для работы с постами в плагине.
  */
 class PostManager {
-	
+
 	/**
 	 * Возвращает массив ID постов указанного типа.
 	 *
@@ -46,7 +46,7 @@ class PostManager {
 			)
 		);
 	}
-	
+
 	/**
 	 * Возвращает массив объектов WP_Post указанного типа.
 	 *
@@ -63,7 +63,7 @@ class PostManager {
 			)
 		);
 	}
-	
+
 	/**
 	 * Удаляет пост полностью (без перемещения в корзину).
 	 *
@@ -75,7 +75,7 @@ class PostManager {
 		// wp_delete_post(, true) — второй параметр true = полное удаление
 		wp_delete_post( $post_id, true );
 	}
-	
+
 	/**
 	 * Перемещает пост в корзину.
 	 *
@@ -86,7 +86,7 @@ class PostManager {
 	public function trash( int $post_id ): void {
 		wp_trash_post( $post_id );
 	}
-	
+
 	/**
 	 * Восстанавливает пост из корзины.
 	 *
@@ -97,7 +97,7 @@ class PostManager {
 	public function untrash( int $post_id ): void {
 		wp_untrash_post( $post_id );
 	}
-	
+
 	/**
 	 * Удаляет все посты указанного типа.
 	 *
@@ -110,7 +110,7 @@ class PostManager {
 			$this->delete( (int) $id );
 		}
 	}
-	
+
 	/**
 	 * Считает посты, привязанные к термину таксономии.
 	 *
@@ -140,7 +140,7 @@ class PostManager {
 			)
 		);
 	}
-	
+
 	/**
 	 * Строит WP_Posts_List_Table для указанного CPT и вкладки.
 	 *
@@ -155,16 +155,16 @@ class PostManager {
 		if ( ! class_exists( 'WP_Posts_List_Table' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/class-wp-posts-list-table.php';
 		}
-		
+
 		// set_current_screen() — устанавливает текущий экран для корректной работы ListTable
 		set_current_screen( 'edit-' . $post_type );
-		
+
 		// _get_list_table() — возвращает экземпляр класса таблицы
 		$table = _get_list_table( 'WP_Posts_List_Table', array( 'screen' => 'edit-' . $post_type ) );
-		
+
 		$edit_base   = admin_url( 'edit.php?post_type=' . $post_type );
 		$custom_base = admin_url( 'admin.php?page=' . $page . '&tab=' . $tab );
-		
+
 		// Подмена REQUEST_URI для правильной работы пагинации и фильтров
 		$uri_args = array(
 			'page' => $page,
@@ -173,13 +173,13 @@ class PostManager {
 		if ( ! empty( $_GET['post_status'] ) ) {
 			$uri_args['post_status'] = sanitize_key( $_GET['post_status'] );
 		}
-		
+
 		$original_uri           = $_SERVER['REQUEST_URI'];
 		$_SERVER['REQUEST_URI'] = '/wp-admin/admin.php?' . http_build_query( $uri_args );
-		
+
 		$_GET['post_type'] = $post_type;
 		$table->prepare_items();
-		
+
 		return new \Inc\DTO\PostsListTableDTO(
 			table           : $table,
 			post_type_object: get_post_type_object( $post_type ),
@@ -191,7 +191,7 @@ class PostManager {
 			page_slug       : $page,
 		);
 	}
-	
+
 	/**
 	 * Создаёт новый пост.
 	 *
@@ -201,11 +201,11 @@ class PostManager {
 	 */
 	public function insert( array $data ): int {
 		$id = wp_insert_post( $data );
-		
+
 		// is_wp_error() — проверяет, является ли результат ошибкой WordPress
 		return is_wp_error( $id ) ? 0 : (int) $id;
 	}
-	
+
 	/**
 	 * Возвращает все мета-поля поста в виде ассоциативного массива.
 	 *
@@ -217,15 +217,15 @@ class PostManager {
 		// get_post_meta() без ключа возвращает все мета-поля
 		$raw    = get_post_meta( $post_id );
 		$result = array();
-		
+
 		foreach ( $raw as $key => $_ ) {
 			// get_post_meta(, true) возвращает одно значение (не массив)
 			$result[ $key ] = get_post_meta( $post_id, $key, true );
 		}
-		
+
 		return $result;
 	}
-	
+
 	/**
 	 * Обновляет мета-поле поста.
 	 *
@@ -238,7 +238,7 @@ class PostManager {
 	public function updateMeta( int $post_id, string $key, mixed $value ): void {
 		update_post_meta( $post_id, $key, $value );
 	}
-	
+
 	/**
 	 * Получает список постов с их терминами по конкретному ID термина.
 	 *
@@ -251,31 +251,36 @@ class PostManager {
 	 */
 	public function getPostsByTerm( string $post_type, string $taxonomy, int $term_id, array $visible_taxonomies ): array {
 		// WP_Query — основной класс запросов WordPress
-		$query = new \WP_Query([
-			'post_type'      => $post_type,
-			'posts_per_page' => -1,
-			'post_status'    => 'publish',
-			'tax_query'      => [
-				[
-					'taxonomy' => $taxonomy,
-					'field'    => 'term_id',
-					'terms'    => $term_id,
-				],
-			],
-		]);
-		
-		return array_map( function ( \WP_Post $post ) use ( $visible_taxonomies ) {
-			return [
-				'title'     => $post->post_title,
-				'number'    => $post->post_name,  // slug как номер задания
-				'status'    => $post->post_status,
-				// get_edit_post_link() — URL для редактирования поста в админке
-				'edit_link' => get_edit_post_link( $post->ID ) ?? '',
-				'terms'     => $this->collectTermsData( $post->ID, $visible_taxonomies ),
-			];
-		}, $query->posts );
+		$query = new \WP_Query(
+			array(
+				'post_type'      => $post_type,
+				'posts_per_page' => -1,
+				'post_status'    => 'publish',
+				'tax_query'      => array(
+					array(
+						'taxonomy' => $taxonomy,
+						'field'    => 'term_id',
+						'terms'    => $term_id,
+					),
+				),
+			)
+		);
+
+		return array_map(
+			function ( \WP_Post $post ) use ( $visible_taxonomies ) {
+				return array(
+					'title'     => $post->post_title,
+					'number'    => $post->post_name,  // slug как номер задания
+					'status'    => $post->post_status,
+					// get_edit_post_link() — URL для редактирования поста в админке
+					'edit_link' => get_edit_post_link( $post->ID ) ?? '',
+					'terms'     => $this->collectTermsData( $post->ID, $visible_taxonomies ),
+				);
+			},
+			$query->posts
+		);
 	}
-	
+
 	/**
 	 * Получает последние N постов с привязанными терминами.
 	 *
@@ -287,32 +292,34 @@ class PostManager {
 	 * @return array
 	 */
 	public function getRecentPosts( string $post_type, int $limit, string $number_tax, array $other_taxonomies ): array {
-		$query = new \WP_Query([
-			'post_type'      => $post_type,
-			'posts_per_page' => $limit,
-			'post_status'    => 'publish',
-			'orderby'        => 'date',
-			'order'          => 'DESC',
-		]);
-		
-		$rows = [];
+		$query = new \WP_Query(
+			array(
+				'post_type'      => $post_type,
+				'posts_per_page' => $limit,
+				'post_status'    => 'publish',
+				'orderby'        => 'date',
+				'order'          => 'DESC',
+			)
+		);
+
+		$rows = array();
 		foreach ( $query->posts as $post ) {
 			// get_the_terms() — возвращает массив объектов терминов для поста
-			$numbers    = get_the_terms( $post->ID, $number_tax );
+			$numbers = get_the_terms( $post->ID, $number_tax );
 			// wp_list_pluck() — извлекает поле 'name' из массива объектов
 			$number_val = $numbers && ! is_wp_error( $numbers ) ? implode( ', ', wp_list_pluck( $numbers, 'name' ) ) : '—';
-			
-			$rows[] = [
+
+			$rows[] = array(
 				'number'    => $number_val,
 				'title'     => $post->post_title,
 				'edit_link' => get_edit_post_link( $post->ID ),
 				'terms'     => $this->collectTermsData( $post->ID, $other_taxonomies ),
-			];
+			);
 		}
-		
+
 		return $rows;
 	}
-	
+
 	/**
 	 * Вспомогательный метод для сбора названий терминов по списку таксономий.
 	 *
@@ -322,15 +329,15 @@ class PostManager {
 	 * @return array
 	 */
 	private function collectTermsData( int $post_id, array $taxonomies ): array {
-		$data = [];
+		$data = array();
 		foreach ( $taxonomies as $tax ) {
-			$slug = is_object( $tax ) ? $tax->slug : $tax;
-			$terms = get_the_terms( $post_id, $slug );
+			$slug          = is_object( $tax ) ? $tax->slug : $tax;
+			$terms         = get_the_terms( $post_id, $slug );
 			$data[ $slug ] = $terms && ! is_wp_error( $terms ) ? implode( ', ', wp_list_pluck( $terms, 'name' ) ) : '';
 		}
 		return $data;
 	}
-	
+
 	/**
 	 * Получает объект поста по ID.
 	 *
@@ -342,7 +349,7 @@ class PostManager {
 		$post = get_post( $post_id );
 		return $post instanceof \WP_Post ? $post : null;
 	}
-	
+
 	/**
 	 * Получает конкретное мета-поле поста.
 	 *

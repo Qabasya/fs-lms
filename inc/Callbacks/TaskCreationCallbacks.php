@@ -30,10 +30,10 @@ use Inc\Shared\Traits\Sanitizer;
  * Делегирует бизнес-логику TaskManager, а получение данных — репозиториям.
  */
 class TaskCreationCallbacks extends BaseController {
-	
+
 	use Authorizer;  // Трейт с методами authorize(), requireKey(), requireInt(), success(), error()
 	use Sanitizer;   // Трейт с методами sanitizeText() и др.
-	
+
 	/**
 	 * Конструктор.
 	 *
@@ -48,9 +48,9 @@ class TaskCreationCallbacks extends BaseController {
 	) {
 		parent::__construct();
 	}
-	
+
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
-	
+
 	/**
 	 * Создаёт новое задание через TaskManager.
 	 *
@@ -58,13 +58,13 @@ class TaskCreationCallbacks extends BaseController {
 	 */
 	public function ajaxCreateTask(): void {
 		$this->authorize( Nonce::TaskCreation );
-		
+
 		// requireInt() — требует наличие целочисленного значения в POST-данных
 		$subject_key     = $this->requireKey( 'subject_key', error: 'Не указан предмет. #TCC134' );
 		$term_id         = $this->requireInt( 'term_id', error: 'Не выбран тип задания. #TCC134' );
 		$title           = $this->sanitizeText( 'title' ) ?: 'Новое задание';
 		$boilerplate_uid = $this->sanitizeText( 'boilerplate_uid' );
-		
+
 		try {
 			$new_id = $this->taskManager->createNewTask(
 				$subject_key,
@@ -72,7 +72,7 @@ class TaskCreationCallbacks extends BaseController {
 				$title,
 				$boilerplate_uid
 			);
-			
+
 			// get_edit_post_link() — возвращает URL для редактирования поста
 			// Параметр 'abs' — возвращает абсолютный URL (с http://)
 			$this->success(
@@ -80,12 +80,12 @@ class TaskCreationCallbacks extends BaseController {
 					'redirect' => get_edit_post_link( $new_id, 'abs' ),
 				)
 			);
-			
+
 		} catch ( \Throwable $e ) {
 			$this->error( 'Не удалось создать задание: ' . $e->getMessage() );
 		}
 	}
-	
+
 	/**
 	 * Возвращает типы заданий для выпадающего списка.
 	 *
@@ -93,15 +93,15 @@ class TaskCreationCallbacks extends BaseController {
 	 */
 	public function ajaxGetTaskTypes(): void {
 		$this->authorize( Nonce::TaskCreation );
-		
+
 		// Второй параметр 'GET' — указывает на чтение данных из $_GET вместо $_POST
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Предмет не указан' );
-		
+
 		$this->success(
 			$this->metaboxes->getTaskTypes( $subject_key )
 		);
 	}
-	
+
 	/**
 	 * Возвращает список доступных шаблонов (boilerplates) для типа задания.
 	 *
@@ -109,12 +109,12 @@ class TaskCreationCallbacks extends BaseController {
 	 */
 	public function ajaxGetTaskBoilerplates(): void {
 		$this->authorize( Nonce::TaskCreation );
-		
+
 		$subject_key = $this->requireKey( 'subject_key', 'GET' );
 		$term_slug   = $this->requireKey( 'term_slug', 'GET' );
-		
+
 		$variants = $this->boilerplates->getBoilerplates( $subject_key, $term_slug );
-		
+
 		// array_map() — преобразует массив объектов в упрощённый массив для фронтенда
 		// static fn() — статическое замыкание (экономит память, не привязывает $this)
 		$response = array_map(
@@ -124,7 +124,7 @@ class TaskCreationCallbacks extends BaseController {
 			),
 			$variants
 		);
-		
+
 		$this->success( $response );
 	}
 }
