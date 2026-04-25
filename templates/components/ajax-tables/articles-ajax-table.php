@@ -7,8 +7,8 @@
 <table class="wp-list-table widefat fixed striped fs-table  ">
 	<thead>
 	<tr>
-		<th class="column-primary tw-5">Номер</th>
-		<th class="column-primary " >Название</th>
+		<th class="column-primary tw-10">Номер</th>
+		<th class="column-primary" >Название</th>
 	</tr>
 	</thead>
 	<tbody>

@@ -7,7 +7,7 @@
 <table class="wp-list-table widefat fixed striped fs-table  ">
 	<thead>
 	<tr>
-		<th class="column-primary tw-5">Номер</th>
+		<th class="column-primary tw-10">Номер</th>
 		<th class="column-primary tw-20" >Название</th>
 		<?php foreach ( $taxonomies as $tax ) : ?>
 			<th scope="col" ><?php echo esc_html( $tax->name ); ?></th>
