@@ -2,8 +2,8 @@
 
 namespace Inc\Controllers\Builders;
 
+use Inc\Callbacks\SubjectPageCallbacks;
 use Inc\Contracts\MenuBuilderInterface;
-use Inc\Controllers\SubjectController;
 use Inc\Enums\Capability;
 use Inc\Enums\MenuSlug;
 use Inc\Repositories\SubjectRepository;
@@ -36,9 +36,9 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	/**
 	 * Коллбеки для рендеринга страниц админ-панели.
 	 *
-	 * @var SubjectController
+	 * @var SubjectPageCallbacks
 	 */
-	private SubjectController $callbacks;
+	private SubjectPageCallbacks $callbacks;
 
 	/**
 	 * Кэш результата read_all() — чтобы не ходить в базу дважды
@@ -51,15 +51,15 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository $subject_repository Репозиторий предметов
-	 * @param SubjectController $callbacks Коллбеки административной панели
+	 * @param SubjectRepository    $subject_repository Репозиторий предметов
+	 * @param SubjectPageCallbacks $callbacks          Коллбеки рендера страниц
 	 */
 	public function __construct(
 		SubjectRepository $subject_repository,
-		SubjectController $callbacks
+		SubjectPageCallbacks $callbacks
 	) {
 		$this->subject_repository = $subject_repository;
-		$this->callbacks         = $callbacks;
+		$this->callbacks          = $callbacks;
 	}
 
 	/**
@@ -71,28 +71,28 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 *     menu_title: string,
 	 *     capability: string,
 	 *     menu_slug: string,
-	 *     callback: array{0: SubjectController, 1: string},
+	 *     callback: array{0: SubjectPageCallbacks, 1: string},
 	 *     icon_url: string,
 	 *     position: int
 	 * }>
 	 */
 	public function buildPages(): array {
 		if ( empty( $this->getSubjects() ) ) {
-			return [];
+			return array();
 		}
 
-// Это первая страница в Предметы, она удаляется
-		return [
-			[
+		// Это первая страница в Предметы, она удаляется
+		return array(
+			array(
 				'page_title' => 'Управление предметами',
 				'menu_title' => 'Предметы',
 				'capability' => Capability::ADMIN->value,
 				'menu_slug'  => MenuSlug::SUBJECTS->value,
-				'callback'   => [ $this->callbacks, 'subjectsRoot' ],
+				'callback'   => array( $this->callbacks, 'subjectsRoot' ),
 				'icon_url'   => 'dashicons-category',
 				'position'   => 3,
-			]
-		];
+			),
+		);
 	}
 
 	/**
@@ -105,21 +105,21 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 *     menu_title: string,
 	 *     capability: string,
 	 *     menu_slug: string,
-	 *     callback: array{0: SubjectController, 1: string}
+	 *     callback: array{0: SubjectPageCallbacks, 1: string}
 	 * }>
 	 */
 	public function buildSubPages(): array {
-		$subpages = [];
+		$subpages = array();
 
 		foreach ( $this->getSubjects() as $subject ) {
-			$subpages[] = [
+			$subpages[] = array(
 				'parent_slug' => MenuSlug::SUBJECTS->value,
 				'page_title'  => $subject->name, // Используем -> вместо ['name']
 				'menu_title'  => $subject->name,
 				'capability'  => Capability::ADMIN->value,
 				'menu_slug'   => 'fs_subject_' . $subject->key, // Используем свойство key
-				'callback'    => [ $this->callbacks, 'subjectPage' ],
-			];
+				'callback'    => array( $this->callbacks, 'subjectPage' ),
+			);
 		}
 
 		return $subpages;

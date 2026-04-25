@@ -2,7 +2,7 @@
 
 namespace Inc\Callbacks;
 
-use Inc\Controllers\BoilerplateController;
+use Inc\Controllers\BoilerplatePageController;
 use Inc\Core\BaseController;
 use Inc\Repositories\SubjectRepository;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -31,7 +31,7 @@ class AdminCallbacks extends BaseController {
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
-		private readonly BoilerplateController $boilerplateController
+		private readonly BoilerplatePageController $boilerplatePageController
 	) {
 		parent::__construct();
 	}
@@ -68,6 +68,6 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function boilerplatePage(): void {
-		$this->boilerplateController->displayPage();
+		$this->boilerplatePageController->displayPage();
 	}
 }

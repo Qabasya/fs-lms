@@ -202,5 +202,74 @@ class PostManager {
 	public function updateMeta( int $post_id, string $key, mixed $value ): void {
 		update_post_meta( $post_id, $key, $value );
 	}
+	
+	/**
+	 * Получает список постов с их терминами по конкретному ID термина.
+	 */
+	public function getPostsByTerm(string $post_type, string $taxonomy, int $term_id, array $visible_taxonomies): array {
+		$query = new \WP_Query([
+			'post_type'      => $post_type,
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+			'tax_query'      => [
+				[
+					'taxonomy' => $taxonomy,
+					'field'    => 'term_id',
+					'terms'    => $term_id,
+				],
+			],
+		]);
+		
+		return array_map(function (\WP_Post $post) use ($visible_taxonomies) {
+			return [
+				'title'     => $post->post_title,
+				'number'    => $post->post_name,
+				'status'    => $post->post_status,
+				'edit_link' => get_edit_post_link($post->ID) ?? '',
+				'terms'     => $this->collectTermsData($post->ID, $visible_taxonomies),
+			];
+		}, $query->posts);
+	}
+	
+	/**
+	 * Получает последние N постов с привязанными терминами.
+	 */
+	public function getRecentPosts(string $post_type, int $limit, string $number_tax, array $other_taxonomies): array {
+		$query = new \WP_Query([
+			'post_type'      => $post_type,
+			'posts_per_page' => $limit,
+			'post_status'    => 'publish',
+			'orderby'        => 'date',
+			'order'          => 'DESC',
+		]);
+		
+		$rows = [];
+		foreach ($query->posts as $post) {
+			$numbers    = get_the_terms($post->ID, $number_tax);
+			$number_val = $numbers && !is_wp_error($numbers) ? implode(', ', wp_list_pluck($numbers, 'name')) : '—';
+			
+			$rows[] = [
+				'number'    => $number_val,
+				'title'     => $post->post_title,
+				'edit_link' => get_edit_post_link($post->ID),
+				'terms'     => $this->collectTermsData($post->ID, $other_taxonomies),
+			];
+		}
+		
+		return $rows;
+	}
+	
+	/**
+	 * Вспомогательный метод для сбора названий терминов по списку таксономий.
+	 */
+	private function collectTermsData(int $post_id, array $taxonomies): array {
+		$data = [];
+		foreach ($taxonomies as $tax) {
+			$slug = is_object($tax) ? $tax->slug : $tax;
+			$terms = get_the_terms($post_id, $slug);
+			$data[$slug] = $terms && !is_wp_error($terms) ? implode(', ', wp_list_pluck($terms, 'name')) : '';
+		}
+		return $data;
+	}
 }
 
