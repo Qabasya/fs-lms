@@ -1,9 +1,12 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Callbacks;
 
+use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
-use Inc\Enums\TaskTemplate;
+use Inc\Managers\TaskManager;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Shared\Traits\Authorizer;
@@ -13,111 +16,107 @@ use Inc\Shared\Traits\Sanitizer;
  * Class TaskCreationCallbacks
  *
  * AJAX-обработчики для создания новых заданий.
- * Отвечает только за процесс создания поста задания:
- * получение типов, вставку поста, slug-генерацию и назначение мета-данных.
  *
  * @package Inc\Callbacks
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Создание задания** — получение данных из AJAX и делегирование TaskManager.
+ * 2. **Получение типов заданий** — возврат списка доступных типов для выпадающего списка.
+ * 3. **Получение шаблонов** — возврат списка boilerplate для конкретного типа задания.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует бизнес-логику TaskManager, а получение данных — репозиториям.
  */
-class TaskCreationCallbacks {
+class TaskCreationCallbacks extends BaseController {
 
-	use Authorizer;
-	use Sanitizer;
+	use Authorizer;  // Трейт с методами authorize(), requireKey(), requireInt(), success(), error()
+	use Sanitizer;   // Трейт с методами sanitizeText() и др.
 
 	/**
 	 * Конструктор.
 	 *
 	 * @param MetaBoxRepository     $metaboxes    Репозиторий привязок шаблонов и типов заданий
-	 * @param BoilerplateRepository $boilerplates Репозиторий типовых условий (boilerplate)
+	 * @param BoilerplateRepository $boilerplates Репозиторий типовых условий
+	 * @param TaskManager           $taskManager  Менеджер создания заданий
 	 */
 	public function __construct(
-		private MetaBoxRepository $metaboxes,
-		private BoilerplateRepository $boilerplates,
+		private readonly MetaBoxRepository $metaboxes,
+		private readonly BoilerplateRepository $boilerplates,
+		private readonly TaskManager $taskManager,
 	) {
+		parent::__construct();
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
 
 	/**
-	 * Возвращает типы заданий для выпадающего списка в модальном окне создания.
+	 * Создаёт новое задание через TaskManager.
+	 *
+	 * @return void
+	 */
+	public function ajaxCreateTask(): void {
+		$this->authorize( Nonce::TaskCreation );
+
+		// requireInt() — требует наличие целочисленного значения в POST-данных
+		$subject_key     = $this->requireKey( 'subject_key', error: 'Не указан предмет. #TCC134' );
+		$term_id         = $this->requireInt( 'term_id', error: 'Не выбран тип задания. #TCC134' );
+		$title           = $this->sanitizeText( 'title' ) ?: 'Новое задание';
+		$boilerplate_uid = $this->sanitizeText( 'boilerplate_uid' );
+
+		try {
+			$new_id = $this->taskManager->createNewTask(
+				$subject_key,
+				$term_id,
+				$title,
+				$boilerplate_uid
+			);
+
+			// get_edit_post_link() — возвращает URL для редактирования поста
+			// Параметр 'abs' — возвращает абсолютный URL (с http://)
+			$this->success(
+				array(
+					'redirect' => get_edit_post_link( $new_id, 'abs' ),
+				)
+			);
+
+		} catch ( \Throwable $e ) {
+			$this->error( 'Не удалось создать задание: ' . $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Возвращает типы заданий для выпадающего списка.
 	 *
 	 * @return void
 	 */
 	public function ajaxGetTaskTypes(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::TaskCreation );
 
-		// Получение и санитизация ключа предмета
+		// Второй параметр 'GET' — указывает на чтение данных из $_GET вместо $_POST
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Предмет не указан' );
 
-		wp_send_json_success(
+		$this->success(
 			$this->metaboxes->getTaskTypes( $subject_key )
 		);
 	}
 
 	/**
-	 * Создаёт новое задание: пост + мета-данные + boilerplate.
-	 *
-	 * @return void
-	 */
-	public function ajaxCreateTask(): void {
-		// Проверка прав доступа и nonce
-		$this->authorize( Nonce::TaskCreation );
-
-		// Сбор и валидация данных
-		$subject_key     = $this->requireKey( 'subject_key', error: 'Недостаточно данных. Error code: #TCC134' );
-		$term_id         = $this->requireInt( 'term_id', error: 'Недостаточно данных. Error code: #TCC134' );
-		$title           = $this->sanitizeText( 'title' ) ?: 'Новое задание';
-		$boilerplate_uid = $this->sanitizeText( 'boilerplate_uid' );
-
-		$taxonomy = "{$subject_key}_task_number";
-		$term     = get_term( $term_id, $taxonomy );
-
-		if ( ! $term || is_wp_error( $term ) ) {
-			wp_send_json_error( 'Тип задания не найден' );
-			return;
-		}
-
-		$term_slug = (string) $term->slug;
-		$task_text = '';
-
-		// Если выбран конкретный шаблон — загружаем его содержимое
-		if ( ! empty( $boilerplate_uid ) ) {
-			$bp        = $this->boilerplates->findBoilerplate( $subject_key, $term_slug, $boilerplate_uid );
-			$task_text = $bp ? $bp->content : '';
-		}
-
-		// Создание поста
-		$new_id = $this->insertTaskPost( $subject_key, $taxonomy, $term_id, $term, $term_slug, $title, $task_text );
-
-		if ( is_wp_error( $new_id ) ) {
-			wp_send_json_error( 'Ошибка базы данных: ' . $new_id->get_error_message() );
-			return;
-		}
-
-		// Применение мета-данных
-		$this->applyPostMeta( $new_id, $subject_key, $term_slug, $task_text );
-
-		wp_send_json_success( array( 'redirect' => get_edit_post_link( $new_id, 'abs' ) ) );
-	}
-
-	/**
-	 * Возвращает список доступных boilerplate для выбранного типа задания.
-	 * Используется для заполнения выпадающего списка в модальном окне.
+	 * Возвращает список доступных шаблонов (boilerplates) для типа задания.
 	 *
 	 * @return void
 	 */
 	public function ajaxGetTaskBoilerplates(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::TaskCreation );
 
-		// Получение и санитизация данных
-		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TCC134' );
-		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TCC134' );
+		$subject_key = $this->requireKey( 'subject_key', 'GET' );
+		$term_slug   = $this->requireKey( 'term_slug', 'GET' );
 
-		// Получение всех вариантов из репозитория
 		$variants = $this->boilerplates->getBoilerplates( $subject_key, $term_slug );
 
-		// Формирование лёгкого списка для выпадающего списка
+		// array_map() — преобразует массив объектов в упрощённый массив для фронтенда
+		// static fn() — статическое замыкание (экономит память, не привязывает $this)
 		$response = array_map(
 			static fn( $bp ) => array(
 				'uid'   => $bp->uid,
@@ -126,190 +125,6 @@ class TaskCreationCallbacks {
 			$variants
 		);
 
-		wp_send_json_success( $response );
-	}
-
-	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-
-	/**
-	 * Создаёт пост задания и привязывает его к таксономии.
-	 *
-	 * @param string   $subject_key Ключ предмета
-	 * @param string   $taxonomy    Имя таксономии
-	 * @param int      $term_id     ID термина
-	 * @param \WP_Term $term        Объект термина
-	 * @param string   $term_slug   Слаг термина
-	 * @param string   $title       Заголовок задания
-	 * @param string   $task_text   Текст задания (boilerplate)
-	 *
-	 * @return int|\WP_Error ID созданного поста или объект ошибки
-	 */
-	private function insertTaskPost(
-		string $subject_key,
-		string $taxonomy,
-		int $term_id,
-		\WP_Term $term,
-		string $term_slug,
-		string $title,
-		string $task_text
-	) {
-		// Генерация числового префикса из слага термина
-		$type_prefix = $this->extractNumberFromSlug( $term_slug ) ?: $term->term_id;
-
-		// Подсчёт существующих заданий этого типа
-		$current_count = $this->getExistingTasksCount( $subject_key, $taxonomy, $term_id );
-
-		// Генерация уникального slug: префикс + трёхзначный номер
-		$custom_slug = $type_prefix . str_pad( (string) $current_count, 3, '0', STR_PAD_LEFT );
-
-		// Создание поста
-		$new_id = wp_insert_post(
-			array(
-				'post_title'   => $title,
-				'post_name'    => $custom_slug,
-				'post_type'    => "{$subject_key}_tasks",
-				'post_status'  => 'draft',
-				'post_author'  => get_current_user_id(),
-				'post_content' => $this->resolveDisplayContent( $task_text ),
-			),
-			true
-		);
-
-		// Привязка к таксономии (если пост создан успешно)
-		if ( ! is_wp_error( $new_id ) ) {
-			wp_set_object_terms( $new_id, $term_id, $taxonomy );
-		}
-
-		return $new_id;
-	}
-
-	/**
-	 * Сохраняет мета-данные созданного поста: шаблон и boilerplate.
-	 *
-	 * @param int    $new_id      ID созданного поста
-	 * @param string $subject_key Ключ предмета
-	 * @param string $term_slug   Слаг термина
-	 * @param string $task_text   Текст задания (boilerplate)
-	 *
-	 * @return void
-	 */
-	private function applyPostMeta(
-		int $new_id,
-		string $subject_key,
-		string $term_slug,
-		string $task_text
-	): void {
-		// Получение привязки шаблона для данного типа задания
-		$assignment = $this->metaboxes->getAssignment( $subject_key, $term_slug );
-
-		$template_id = $assignment->template_id ?? TaskTemplate::STANDARD;
-
-		// Приведение к строковому значению (если передан Enum)
-		$meta_value = ( $template_id instanceof TaskTemplate )
-			? $template_id->value
-			: $template_id;
-
-		// Сохранение ID шаблона в мета-поле поста
-		update_post_meta( $new_id, '_fs_lms_template_type', $meta_value );
-
-		// Сохранение boilerplate-текста (если есть)
-		if ( empty( $task_text ) ) {
-			return;
-		}
-
-		update_post_meta( $new_id, 'fs_lms_meta', $this->buildMetaFromBoilerplate( $task_text ) );
-		clean_post_cache( $new_id );
-	}
-
-	/**
-	 * Парсит boilerplate-текст (JSON или строку) в массив для fs_lms_meta.
-	 *
-	 * @param string $task_text Текст задания (boilerplate)
-	 *
-	 * @return array<string, string> Массив мета-данных
-	 */
-	private function buildMetaFromBoilerplate( string $task_text ): array {
-		$clean   = wp_unslash( $task_text );
-		$decoded = json_decode( $clean, true );
-
-		// Если текст — JSON-массив, используем его как основу
-		if ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) {
-			return $decoded + array( 'task_answer' => '' );
-		}
-
-		// Иначе — обычный текст
-		return array(
-			'task_condition' => $clean,
-			'task_answer'    => '',
-		);
-	}
-
-	/**
-	 * Формирует строку для post_content редактора из boilerplate.
-	 * JSON-массив склеивается через двойной перенос строки.
-	 *
-	 * @param string $task_text Текст задания (boilerplate)
-	 *
-	 * @return string Контент для post_content
-	 */
-	private function resolveDisplayContent( string $task_text ): string {
-		if ( empty( $task_text ) ) {
-			return '';
-		}
-
-		$clean   = wp_unslash( $task_text );
-		$decoded = json_decode( $clean, true );
-
-		// Если это сложный шаблон из нескольких полей (19-21 задачи)
-		if ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) {
-			// Склеиваем все части условия в один текст для редактора
-			return implode( "\n\n", $decoded );
-		}
-
-		// Если это обычная строка (старый формат или простое условие)
-		return $clean;
-	}
-
-	/**
-	 * Извлекает числовой суффикс из слага термина.
-	 * Пример: 'inf_5' → 5, 'task' → 0.
-	 *
-	 * @param string $slug Слаг термина
-	 *
-	 * @return int Числовой суффикс или 0
-	 */
-	private function extractNumberFromSlug( string $slug ): int {
-		return preg_match( '/(\d+)$/', $slug, $matches ) ? (int) $matches[1] : 0;
-	}
-
-	/**
-	 * Считает количество существующих заданий данного типа.
-	 * Используется для генерации числового суффикса в slug.
-	 *
-	 * @param string $subject_key Ключ предмета
-	 * @param string $taxonomy    Имя таксономии
-	 * @param int    $term_id     ID термина
-	 *
-	 * @return int Количество заданий
-	 */
-	private function getExistingTasksCount( string $subject_key, string $taxonomy, int $term_id ): int {
-		$query = new \WP_Query(
-			array(
-				'post_type'      => "{$subject_key}_tasks",
-				'post_status'    => 'any',
-				'posts_per_page' => 1,
-				'fields'         => 'ids',
-				'no_found_rows'  => false,
-				'tax_query'      => array(
-					array(
-						'taxonomy' => $taxonomy,
-						'field'    => 'term_id',
-						'terms'    => $term_id,
-					),
-				),
-			)
-		);
-
-		return (int) $query->found_posts;
+		$this->success( $response );
 	}
 }

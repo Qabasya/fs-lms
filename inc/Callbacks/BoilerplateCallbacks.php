@@ -14,15 +14,22 @@ use Inc\Shared\Traits\Sanitizer;
  *
  * AJAX-обработчики для CRUD-операций с типовыми условиями (boilerplate).
  *
- * Отвечает только за сохранение и удаление boilerplate через AJAX,
- * чтобы страница не перезагружалась лишний раз.
- *
  * @package Inc\Callbacks
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Сохранение boilerplate** — создание или обновление шаблона через AJAX.
+ * 2. **Удаление boilerplate** — удаление шаблона по UID через AJAX.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует бизнес-логику BoilerplateRepository, а сам занимается только валидацией,
+ * авторизацией и форматированием ответа.
  */
 class BoilerplateCallbacks extends BaseController {
 
-	use Authorizer;
-	use Sanitizer;
+	use Authorizer;   // Трейт с методами authorize(), requireKey(), requireText() и др.
+	use Sanitizer;    // Трейт с методами sanitizeText(), sanitizeInt(), sanitizeEditorContent()
 
 	/**
 	 * Конструктор.
@@ -43,22 +50,24 @@ class BoilerplateCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxSaveBoilerplate(): void {
-		// Проверка прав доступа и nonce
+		// authorize() — метод трейта Authorizer
+		// Проверяет nonce (wp_verify_nonce) и права текущего пользователя
 		$this->authorize( Nonce::SaveBoilerplate );
 
-		// Получение и валидация subject_key и term_slug
+		// requireKey() — требует наличия непустого ключа в POST-данных
 		$subject_key = $this->requireKey( 'subject_key', error: 'Предмет и тип задания обязательны' );
 		$term_slug   = $this->requireKey( 'term_slug', error: 'Предмет и тип задания обязательны' );
 
-		// Получение данных из POST
-		$uid        = $this->sanitizeText( 'uid' );
-		$title      = $this->sanitizeText( 'title' ) ?: 'Без названия';
+		// sanitizeText() — очищает строку от тегов и спецсимволов
+		$uid = $this->sanitizeText( 'uid' );
+		// ?: — оператор Elvis, возвращает 'Без названия' если $title пустой
+		$title = $this->sanitizeText( 'title' ) ?: 'Без названия';
+		// sanitizeInt() — преобразует значение в целое число
 		$is_default = $this->sanitizeInt( 'is_default' ) === 1;
-
-		// Санитизация контента (массив полей из TinyMCE)
+		// sanitizeEditorContent() — очищает HTML от вредоносных тегов (wp_kses_post)
 		$content = $this->sanitizeEditorContent( 'content' );
 
-		// Создание DTO
+		// Создание DTO (Data Transfer Object) для передачи данных в репозиторий
 		$dto = new TaskTypeBoilerplateDTO(
 			uid: $uid,
 			subject_key: $subject_key,
@@ -71,16 +80,14 @@ class BoilerplateCallbacks extends BaseController {
 		// Сохранение через репозиторий
 		$result = $this->boilerplates->updateBoilerplate( $dto );
 
-		if ( $result ) {
-			wp_send_json_success(
-				array(
-					'message' => 'Шаблон успешно сохранён',
-					'uid'     => $uid,
-				)
-			);
-		} else {
-			wp_send_json_error( 'Не удалось сохранить шаблон' );
-		}
+		// respond() — метод трейта Authorizer, отправляет JSON-ответ
+		// При успехе — wp_send_json_success(), при ошибке — wp_send_json_error()
+		$this->respond(
+			$result,
+			error_msg: 'Не удалось сохранить шаблон',
+			success_msg: 'Шаблон успешно сохранён',
+			extra_data: array( 'uid' => $uid )
+		);
 	}
 
 	/**
@@ -89,21 +96,23 @@ class BoilerplateCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxDeleteBoilerplate(): void {
-		// Проверка прав доступа и nonce
+		// Проверка прав доступа
 		$this->authorize( Nonce::SaveBoilerplate );
 
-		// Получение и валидация subject_key и term_slug
+		// sanitizeKey() — очищает строку для использования в качестве ключа/слага
 		$subject_key = $this->sanitizeKey( 'subject_key' );
 		$term_slug   = $this->sanitizeKey( 'term_slug' );
-		$uid         = $this->requireText( 'uid', error: 'UID шаблона обязателен' );
+		// requireText() — требует наличия текстового значения
+		$uid = $this->requireText( 'uid', error: 'UID шаблона обязателен' );
 
-		// Удаление через репозиторий
+		// Каскадное удаление через репозиторий
 		$result = $this->boilerplates->deleteBoilerplate( $subject_key, $term_slug, $uid );
 
-		if ( $result ) {
-			wp_send_json_success( 'Шаблон успешно удалён' );
-		} else {
-			wp_send_json_error( 'Не удалось удалить шаблон' );
-		}
+		// Отправка ответа
+		$this->respond(
+			$result,
+			error_msg:'Не удалось удалить шаблон',
+			success_msg: 'Шаблон успешно удалён'
+		);
 	}
 }

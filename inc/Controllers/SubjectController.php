@@ -2,64 +2,78 @@
 
 namespace Inc\Controllers;
 
+use Inc\Callbacks\SubjectPageCallbacks;
+use Inc\Callbacks\SubjectCrudCallbacks;
+use Inc\Callbacks\SubjectDataCallbacks;
+use Inc\Callbacks\SubjectImportExportCallbacks;
+use Inc\Callbacks\SubjectValidationCallbacks;
+use Inc\Callbacks\TaxonomySettingsCallbacks;
+use Inc\Callbacks\TemplateManagerCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\AjaxHook;
-use Inc\Repositories\SubjectRepository;
-use Inc\Repositories\TaxonomyRepository;
-use Inc\Repositories\MetaBoxRepository;
-use Inc\Shared\Traits\TemplateRenderer;
-use Inc\Shared\Traits\NumericSorter;
-use Inc\Callbacks\SubjectSettingsCallbacks;
-use Inc\Callbacks\TaxonomySettingsCallbacks;
-use Inc\Callbacks\TemplateManagerCallbacks;
-use Inc\DTO\SubjectViewDTO;
-use Inc\DTO\TaxonomyDataDTO;
 use Inc\Managers\PostManager;
 use Inc\Registrars\SubjectCPTRegistrar;
 use Inc\Registrars\SubjectTaxonomyRegistrar;
+use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\TaxonomyRepository;
+use Inc\Services\ContentCacheService;
+use Inc\Shared\Traits\NumericSorter;
 
 /**
  * Class SubjectController
  *
  * Контроллер для управления предметами и связанными с ними CPT.
  *
- * Отвечает за:
- * - Динамическую регистрацию CPT (задания и статьи) для каждого предмета
- * - Регистрацию таксономий (фиксированных и пользовательских)
- * - Отображение страницы управления конкретным предметом
- * - Регистрацию AJAX-хуков для CRUD операций с предметами, таксономиями и шаблонами
- *
  * @package Inc\Controllers
  * @implements ServiceInterface
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Регистрация CPT** — динамически создаёт типы постов "задания" и "статьи" для каждого предмета.
+ * 2. **Регистрация таксономий** — подключает фиксированную таксономию номеров заданий и пользовательские таксономии.
+ * 3. **Регистрация AJAX-хуков** — подключает обработчики CRUD, данных, импорта/экспорта, таксономий и шаблонов.
+ * 4. **Настройка сортировки** — реализует числовую сортировку для таксономии номеров заданий.
+ * 5. **Кеширование** — очищает кеш при сохранении/удалении постов.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует регистрацию CPT и таксономий специализированным регистраторам, а AJAX-логику — коллбекам.
  */
 class SubjectController extends BaseController implements ServiceInterface {
-	use TemplateRenderer;
 	use NumericSorter;
 
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository         $subjects          Репозиторий предметов
-	 * @param SubjectCPTRegistrar       $cpt_registrar      Регистратор CPT
-	 * @param SubjectTaxonomyRegistrar  $tax_registrar      Регистратор таксономий
-	 * @param TaxonomyRepository        $taxonomies        Репозиторий таксономий
-	 * @param SubjectSettingsCallbacks  $subject_callbacks  Коллбеки для предметов
-	 * @param TaxonomySettingsCallbacks $taxonomy_callbacks Коллбеки для таксономий
-	 * @param TemplateManagerCallbacks  $template_callbacks Коллбеки для шаблонов
-	 * @param MetaBoxRepository         $metaboxes         Репозиторий метабоксов
-	 * @param PostManager               $posts             Менеджер постов
+	 * @param SubjectRepository            $subjects                 Репозиторий предметов
+	 * @param SubjectCPTRegistrar          $cpt_registrar            Регистратор CPT
+	 * @param SubjectTaxonomyRegistrar     $tax_registrar            Регистратор таксономий
+	 * @param TaxonomyRepository           $taxonomies               Репозиторий таксономий
+	 * @param SubjectCrudCallbacks         $crud_callbacks           Коллбеки CRUD
+	 * @param SubjectDataCallbacks         $data_callbacks           Коллбеки получения данных
+	 * @param SubjectImportExportCallbacks $import_export_callbacks  Коллбеки импорта/экспорта
+	 * @param TaxonomySettingsCallbacks    $taxonomy_callbacks       Коллбеки таксономий
+	 * @param TemplateManagerCallbacks     $template_callbacks       Коллбеки шаблонов
+	 * @param PostManager                  $posts                     Менеджер постов
+	 * @param SubjectPageCallbacks         $page_callbacks            Коллбеки страниц
+	 * @param SubjectValidationCallbacks   $validation_callbacks      Коллбеки валидации
+	 * @param ContentCacheService          $cache_service            Сервис кеширования
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
 		private readonly SubjectCPTRegistrar $cpt_registrar,
 		private readonly SubjectTaxonomyRegistrar $tax_registrar,
 		private readonly TaxonomyRepository $taxonomies,
-		private readonly SubjectSettingsCallbacks $subject_callbacks,
+		private readonly SubjectCrudCallbacks $crud_callbacks,
+		private readonly SubjectDataCallbacks $data_callbacks,
+		private readonly SubjectImportExportCallbacks $import_export_callbacks,
 		private readonly TaxonomySettingsCallbacks $taxonomy_callbacks,
 		private readonly TemplateManagerCallbacks $template_callbacks,
-		private readonly MetaBoxRepository $metaboxes,
 		private readonly PostManager $posts,
+		private readonly SubjectPageCallbacks $page_callbacks,
+		private readonly SubjectValidationCallbacks $validation_callbacks,
+		private readonly ContentCacheService $cache_service,
 	) {
 		parent::__construct();
 	}
@@ -69,105 +83,91 @@ class SubjectController extends BaseController implements ServiceInterface {
 	/**
 	 * Точка входа контроллера — регистрирует все его компоненты.
 	 *
-	 * Порядок важен: сначала AJAX-хуки, затем сортировка терминов,
-	 * и только потом CPT/таксономии (они опираются на данные из БД).
-	 *
 	 * @return void
 	 */
 	public function register(): void {
+		// Регистрация CPT и таксономий для всех предметов
+		$this->registerCptsAndTaxonomies();
+
 		// Регистрация AJAX-обработчиков
 		$this->registerAjaxHooks();
 
 		// Настройка числовой сортировки терминов таксономий
 		$this->setupTermSorting();
 
-		// Регистрация CPT и таксономий для всех предметов
-		$this->registerCptsAndTaxonomies();
+		// add_action() — регистрирует хук административного уведомления
+		// 'admin_notices' — срабатывает в верхней части админ-панели
+		add_action( 'admin_notices', array( $this->page_callbacks, 'showRequiredTaxNotice' ) );
 
-		// Уведомление об ошибке обязательной таксономии (после серверной проверки)
-		add_action( 'admin_notices', array( $this, 'showRequiredTaxNotice' ) );
-	}
-
-	public function showRequiredTaxNotice(): void {
-		$key = 'fs_lms_required_tax_error_' . get_current_user_id();
-		$msg = get_transient( $key );
-		if ( ! $msg ) {
-			return;
-		}
-		delete_transient( $key );
-		printf(
-			'<div class="notice notice-error is-dismissible"><p>Обязательная таксономия «%s» не заполнена. Задание сохранено как черновик.</p></div>',
-			esc_html( $msg )
-		);
-	}
-
-	/**
-	 * Коллбек страницы управления конкретным предметом в админке.
-	 *
-	 * Вызывается WordPress при открытии /wp-admin/admin.php?page=fs_subject_{key}.
-	 *
-	 * @return void
-	 */
-	public function subjectPage(): void {
-		$page = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
-		$key  = str_replace( 'fs_subject_', '', $page );
-
-		$dto = $this->prepareSubjectViewData( $key );
-
-		if ( ! $dto ) {
-			echo 'Предмет не найден';
-
-			return;
-		}
-
-		$this->render( 'subject', $dto );
+		// Очистка кеша при сохранении или удалении поста
+		// 'save_post' — хук сохранения поста (передаёт ID и объект поста)
+		add_action( 'save_post', array( $this->cache_service, 'clearRecentContentCache' ), 10, 2 );
+		// 'delete_post' — хук удаления поста (передаёт ID поста)
+		add_action( 'delete_post', array( $this->cache_service, 'clearCacheOnDelete' ) );
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
 	/**
-	 * Регистрирует AJAX-обработчики:
-	 * - CRUD предметов (SubjectSettingsCallbacks)
-	 * - CRUD таксономий (TaxonomySettingsCallbacks)
-	 * - Управление шаблонами (TemplateManagerCallbacks)
+	 * Регистрирует AJAX-обработчики, распределяя их по специализированным классам.
 	 *
 	 * @return void
 	 */
 	private function registerAjaxHooks(): void {
-		// === SubjectSettingsCallbacks -> subjects.js === //
-		$subjectHooks = array(
+		// 1. Операции создания, обновления и удаления (CRUD)
+		$crudHooks = array(
 			AjaxHook::StoreSubject,
 			AjaxHook::UpdateSubject,
 			AjaxHook::DeleteSubject,
-			AjaxHook::ExportSubject,
-			AjaxHook::ImportSubject,
-			AjaxHook::GetPostsTable,
-			AjaxHook::GetTasksByNumber,
 		);
 
-		// === TaxonomySettingsCallbacks -> общая логика === //
+		// 2. Операции получения данных (UI/Tables)
+		$dataHooks = array(
+			AjaxHook::GetPostsTable,
+			AjaxHook::GetTasksByNumber,
+			AjaxHook::GetRecentTasks,
+			AjaxHook::GetRecentArticles,
+		);
+
+		// 3. Операции импорта и экспорта
+		$importExportHooks = array(
+			AjaxHook::ExportSubject,
+			AjaxHook::ImportSubject,
+		);
+
+		// 4. Таксономии
 		$taxonomyHooks = array(
 			AjaxHook::StoreTaxonomy,
 			AjaxHook::UpdateTaxonomy,
 			AjaxHook::DeleteTaxonomy,
 		);
 
-		// === TemplateManagerCallbacks -> template-manager.js === //
+		// 5. Шаблоны
 		$templateHooks = array(
 			AjaxHook::UpdateTermTemplate,
 		);
 
-		// Регистрация хуков для предметов
-		foreach ( $subjectHooks as $hook ) {
-			add_action( $hook->action(), array( $this->subject_callbacks, $hook->callbackMethod() ) );
+		// Регистрация CRUD
+		foreach ( $crudHooks as $hook ) {
+			add_action( $hook->action(), array( $this->crud_callbacks, $hook->callbackMethod() ) );
 		}
 
-		// Регистрация хуков для таксономий
+		// Регистрация получения данных
+		foreach ( $dataHooks as $hook ) {
+			add_action( $hook->action(), array( $this->data_callbacks, $hook->callbackMethod() ) );
+		}
+
+		// Регистрация импорта/экспорта
+		foreach ( $importExportHooks as $hook ) {
+			add_action( $hook->action(), array( $this->import_export_callbacks, $hook->callbackMethod() ) );
+		}
+
+		// Регистрация таксономий
 		foreach ( $taxonomyHooks as $hook ) {
 			add_action( $hook->action(), array( $this->taxonomy_callbacks, $hook->callbackMethod() ) );
 		}
 
-		// Регистрация хуков для шаблонов
+		// Регистрация шаблонов
 		foreach ( $templateHooks as $hook ) {
 			add_action( $hook->action(), array( $this->template_callbacks, $hook->callbackMethod() ) );
 		}
@@ -176,18 +176,17 @@ class SubjectController extends BaseController implements ServiceInterface {
 	/**
 	 * Подключает числовую сортировку для таксономий вида "{subject}_task_number".
 	 *
-	 * Без неё WordPress сортирует термины лексикографически: 1, 10, 2, 3...
-	 * Трейт NumericSorter исправляет порядок на числовой: 1, 2, 3, 10...
-	 *
 	 * @return void
 	 */
 	private function setupTermSorting(): void {
+		// addNumericSort() — метод трейта NumericSorter
+		// Параметры: хук, поле сортировки, условие применения
 		$this->addNumericSort(
-			'get_terms_orderby',
-			't.name',
+			'get_terms_orderby',    // Хук WordPress для изменения сортировки терминов
+			't.name',               // Поле для сортировки
 			static function ( $args ): bool {
 				$tax = (array) ( $args['taxonomy'] ?? array() );
-
+				// str_contains() — проверяет наличие подстроки '_task_number'
 				return str_contains( reset( $tax ), '_task_number' );
 			}
 		);
@@ -218,43 +217,34 @@ class SubjectController extends BaseController implements ServiceInterface {
 	/**
 	 * Добавляет CPT и таксономии одного предмета в очередь регистраторов.
 	 *
-	 * Для каждого предмета создаётся:
-	 * — CPT для заданий  ({key}_tasks)     — только title
-	 * — CPT для статей   ({key}_articles)  — title, editor, thumbnail
-	 * — Фиксированная таксономия {key}_task_number — привязана к обоим CPT на уровне данных,
-	 *   но метабокс скрыт на Tasks (выбор — через модальное окно); на Articles — dropdown.
-	 * — Пользовательские таксономии — только для Tasks; на Articles не регистрируются.
-	 *
 	 * @param object $subject DTO предмета (содержит поля key и name)
 	 *
 	 * @return void
 	 */
 	private function registerForSubject( object $subject ): void {
 		$key         = $subject->key;
-		$name        = $subject->name;
 		$task_cpt    = "{$key}_tasks";
 		$article_cpt = "{$key}_articles";
 
-		// Регистрация CPT для заданий (только заголовок)
+		// 1. Регистрация Заданий (только заголовок)
+		$task_args = $this->getDefaultCptArgs( 'tasks', $subject );
 		$this->cpt_registrar->addStandardType(
 			$task_cpt,
-			"Задания ($name)",
-			'Задание',
-			array( 'supports' => array( 'title' ) )
+			'Задания',
+			$task_args['labels'],
+			$task_args['options']
 		);
 
-		// Регистрация CPT для статей (с редактором и картинкой)
+		// 2. Регистрация Статей (заголовок, редактор, миниатюра)
+		$article_args = $this->getDefaultCptArgs( 'articles', $subject );
 		$this->cpt_registrar->addStandardType(
 			$article_cpt,
-			"Статьи ($name)",
-			'Статья',
-			array( 'supports' => array( 'title', 'editor', 'thumbnail' ) )
+			'Статьи',
+			$article_args['labels'],
+			$article_args['options']
 		);
 
-		// "Номер задания" регистрируется для обоих CPT — модальному окну в Tasks
-		// нужен доступ к wp_set_post_terms() для этой таксономии.
-		// На Articles — кастомный select-callback (WP по умолчанию рисует tag-input для
-		// неиерархических таксономий, что не подходит для выбора одного значения).
+		// Регистрация фиксированной таксономии "Номера заданий"
 		$fixed_tax_slug = "{$key}_task_number";
 		$this->tax_registrar->addFixedTaxonomy(
 			$fixed_tax_slug,
@@ -264,14 +254,15 @@ class SubjectController extends BaseController implements ServiceInterface {
 			array(
 				'public'       => true,
 				'show_ui'      => true,
+				// buildMetaBoxCallback() — создаёт коллбек для отображения метабокса
 				'meta_box_cb'  => $this->tax_registrar->buildMetaBoxCallback( 'select' ),
 				'show_in_menu' => true,
 				'rewrite'      => array( 'slug' => $fixed_tax_slug ),
 			)
 		);
 
-		// Скрываем метабокс "Номер задания" на экране Tasks — там выбор через модальное окно.
-		// Таксономия при этом остаётся зарегистрированной для Tasks на уровне данных.
+		// remove_meta_box() — удаляет стандартный метабокс таксономии
+		// Для заданий скрываем метабокс (выбор номера через модальное окно)
 		add_action(
 			'add_meta_boxes',
 			static function () use ( $task_cpt, $fixed_tax_slug ): void {
@@ -279,8 +270,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			}
 		);
 
-		// Пользовательские таксономии — только для Tasks.
-		// Не регистрируем для Articles: метабоксы там не нужны.
+		// Регистрация пользовательских таксономий (только для заданий)
 		foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
 			$this->tax_registrar->addStandardTaxonomy(
 				$tax_dto->slug,
@@ -291,89 +281,49 @@ class SubjectController extends BaseController implements ServiceInterface {
 			);
 		}
 
-		// Серверная проверка обязательных таксономий при публикации
-		add_filter(
-			'wp_insert_post_data',
-			function ( array $data, array $postarr ) use ( $key ): array {
-				if ( ( $data['post_type'] ?? '' ) !== "{$key}_tasks" ) {
-					return $data;
-				}
-				if ( ! in_array( $data['post_status'], array( 'publish', 'future' ), true ) ) {
-					return $data;
-				}
-				if ( empty( $postarr['ID'] ) || ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) ) {
-					return $data;
-				}
-
-				foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
-					if ( ! $tax_dto->is_required ) {
-						continue;
-					}
-					$values = array_filter( (array) ( $_POST['tax_input'][ $tax_dto->slug ] ?? array() ) );
-					if ( empty( $values ) ) {
-						$data['post_status'] = 'draft';
-						set_transient( 'fs_lms_required_tax_error_' . get_current_user_id(), $tax_dto->name, 30 );
-						break;
-					}
-				}
-
-				return $data;
-			},
-			10,
-			2
-		);
+		// add_filter() — регистрирует фильтр для валидации обязательных таксономий
+		// 'wp_insert_post_data' — фильтр данных поста перед сохранением
+		add_filter( 'wp_insert_post_data', array( $this->validation_callbacks, 'validateRequiredTaxonomies' ), 10, 2 );
 	}
 
 	/**
-	 * Собирает все данные для страницы управления предметом и упаковывает в SubjectViewDTO.
+	 * Формирует дефолтную конфигурацию для CPT и прогоняет её через фильтр.
 	 *
-	 * @param string $key Ключ предмета, например: "math"
+	 * @param string $type    Тип (tasks|articles)
+	 * @param object $subject DTO предмета
 	 *
-	 * @return SubjectViewDTO|null DTO для шаблона или null, если предмет не найден
+	 * @return array{labels: array, options: array}
 	 */
-	private function prepareSubjectViewData( string $key ): ?SubjectViewDTO {
-		$current_subject = $this->subjects->getByKey( $key );
+	private function getDefaultCptArgs( string $type, object $subject ): array {
+		$args = match ( $type ) {
+			'tasks' => array(
+				'labels'  => array(
+					'nom'    => 'Задание',
+					'acc'    => 'задание',
+					'gen'    => 'задания',
+					'gender' => 'neuter',
+				),
+				'options' => array( 'supports' => array( 'title' ) ),
+			),
+			'articles' => array(
+				'labels'  => array(
+					'nom'    => 'Статья',
+					'acc'    => 'статью',
+					'gen'    => 'статьи',
+					'gender' => 'feminine',
+				),
+				'options' => array( 'supports' => array( 'title', 'editor', 'thumbnail' ) ),
+			),
+			default => array()
+		};
 
-		if ( ! $current_subject ) {
-			return null;
-		}
-
-		// Фиксированная таксономия номеров — не хранится в БД пользовательских таксономий,
-		// поэтому собираем вручную. Флаг is_protected запрещает удаление в интерфейсе.
-		$fixed_tax_dto = new TaxonomyDataDTO(
-			slug        : "{$key}_task_number",
-			name        : 'Номера заданий',
-			subject_key : $key,
-			is_protected: true,
-			is_required : true
-		);
-
-		// Получение текущей вкладки для определения необходимости построения таблиц
-		$page       = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
-		$active_tab = sanitize_text_field( wp_unslash( $_GET['tab'] ?? '' ) );
-
-		$tasks_table    = null;
-		$articles_table = null;
-
-		// Построение таблицы заданий только если активна соответствующая вкладка
-		if ( $active_tab === 'tab-2' ) {
-			$tasks_table = $this->posts->buildListTable( "{$key}_tasks", $page, 'tab-2' );
-		} elseif ( $active_tab === 'tab-3' ) {
-			$articles_table = $this->posts->buildListTable( "{$key}_articles", $page, 'tab-3' );
-		}
-
-		// Создаём DTO для передачи всех данных в шаблон
-		return new SubjectViewDTO(
-			subject_key   : $key,
-			subject_data  : $current_subject,
-			task_types    : $this->metaboxes->getTaskTypes( $key ),
-			all_templates : apply_filters( 'fs_lms_get_templates', array() ),
-			tasks_url     : admin_url( "edit.php?post_type={$key}_tasks" ),
-			articles_url  : admin_url( "edit.php?post_type={$key}_articles" ),
-			protected_tax : "{$key}_task_number",
-			taxonomies    : array_merge( array( $fixed_tax_dto ), $this->taxonomies->getBySubject( $key ) ),
-			tasks_table   : $tasks_table,
-			articles_table: $articles_table,
-		);
+		/**
+		 * apply_filters() — применяет фильтр для модификации аргументов CPT.
+		 *
+		 * @param array  $args    Массив с labels и options
+		 * @param string $type    Тип контента (tasks или articles)
+		 * @param object $subject Объект предмета
+		 */
+		return apply_filters( 'fs_lms_cpt_args', $args, $type, $subject );
 	}
 }

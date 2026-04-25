@@ -2,6 +2,7 @@
 
 namespace Inc\Callbacks;
 
+use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
 use Inc\Managers\TermManager;
 use Inc\Repositories\TaxonomyRepository;
@@ -12,14 +13,23 @@ use Inc\Shared\Traits\Sanitizer;
  * Class TaxonomySettingsCallbacks
  *
  * AJAX-обработчики для CRUD-операций с таксономиями.
- * Отвечает за создание, обновление и удаление кастомных таксономий предметов.
  *
  * @package Inc\Callbacks
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Создание таксономии** — сохранение новой пользовательской таксономии для предмета.
+ * 2. **Обновление таксономии** — изменение названия, типа отображения и флага обязательности.
+ * 3. **Удаление таксономии** — удаление таксономии и всех её терминов каскадно.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует операции с БД репозиторию TaxonomyRepository, а удаление терминов — TermManager.
  */
-class TaxonomySettingsCallbacks {
+class TaxonomySettingsCallbacks extends BaseController {
 
-	use Authorizer;
-	use Sanitizer;
+	use Authorizer;  // Трейт с методами authorize(), requireKey(), respond() и др.
+	use Sanitizer;   // Трейт с методами sanitizeText(), sanitizeBool() и др.
 
 	/**
 	 * Конструктор.
@@ -28,9 +38,10 @@ class TaxonomySettingsCallbacks {
 	 * @param TermManager        $terms      Менеджер терминов для удаления
 	 */
 	public function __construct(
-		private TaxonomyRepository $taxonomies,
-		private TermManager $terms,
+		private readonly TaxonomyRepository $taxonomies,
+		private readonly TermManager $terms,
 	) {
+		parent::__construct();
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -38,35 +49,32 @@ class TaxonomySettingsCallbacks {
 	/**
 	 * Создаёт новую таксономию для предмета.
 	 *
-	 * Итоговый slug = {subject_key}_{suffix}, где suffix — данные от клиента.
-	 * Например: math_author, inf_genre и т.д.
-	 *
 	 * @return void
 	 */
 	public function ajaxStoreTaxonomy(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
 
-		// Получение и валидация данных
+		// Получение данных из POST
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_suffix  = $this->requireKey( 'tax_slug' );
 		$tax_name    = $this->requireText( 'tax_name', error: 'Название таксономии обязательно' );
 
 		$display_type = $this->getValidatedDisplayType();
-		$tax_slug     = "{$subject_key}_{$tax_suffix}";
+		// Формирование полного слага: {subject_key}_{suffix} (например, math_author)
+		$tax_slug = "{$subject_key}_{$tax_suffix}";
 
-		// Проверка длины слага (максимум 32 символа в WordPress)
+		// strlen() — максимальная длина слага таксономии в WordPress — 32 символа
 		if ( strlen( $tax_slug ) > 32 ) {
-			wp_send_json_error( 'Ярлык слишком длинный (макс. ' . ( 32 - strlen( $subject_key ) - 1 ) . ' символов)' );
+			$this->error( 'Ярлык слишком длинный (макс. ' . ( 32 - strlen( $subject_key ) - 1 ) . ' символов)' );
 		}
 
-		// Проверка, не существует ли уже такая таксономия в WordPress
+		// taxonomy_exists() — проверяет, зарегистрирована ли таксономия в WordPress
 		if ( taxonomy_exists( $tax_slug ) ) {
-			wp_send_json_error( 'Таксономия с таким ярлыком уже существует' );
+			$this->error( "Таксономия «{$tax_slug}» уже существует в системе", array( 'slug' => $tax_slug ) );
 		}
 
-		// Сохранение через репозиторий
-		$this->taxonomies->update(
+		// sanitizeBool() — преобразует значение в 1 или 0 для БД
+		$result = $this->taxonomies->update(
 			array(
 				'subject_key'  => $subject_key,
 				'tax_slug'     => $tax_slug,
@@ -76,28 +84,31 @@ class TaxonomySettingsCallbacks {
 			)
 		);
 
-		// Отправка результата
-		$this->sendResult( 'Таксономия создана' );
+		if ( $result ) {
+			// flush_rewrite_rules() — перестраивает правила ЧПУ после регистрации новой таксономии
+			flush_rewrite_rules();
+		}
+
+		$this->respond(
+			$result,
+			error_msg: 'Не удалось сохранить таксономию',
+			success_msg: 'Таксономия создана'
+		);
 	}
 
 	/**
 	 * Обновляет существующую таксономию (название, тип отображения).
 	 *
-	 * Slug не меняется — передаётся полный slug из клиента.
-	 *
 	 * @return void
 	 */
 	public function ajaxUpdateTaxonomy(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
 
-		// Получение и валидация данных таксономии
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_slug    = $this->requireKey( 'tax_slug' );
 		$tax_name    = $this->requireText( 'tax_name', error: 'Название обязательно' );
 
-		// Обновление через репозиторий
-		$this->taxonomies->update(
+		$result = $this->taxonomies->update(
 			array(
 				'subject_key'  => $subject_key,
 				'tax_slug'     => $tax_slug,
@@ -107,8 +118,15 @@ class TaxonomySettingsCallbacks {
 			)
 		);
 
-		// Отправка результата
-		$this->sendResult( 'Таксономия обновлена' );
+		if ( $result ) {
+			flush_rewrite_rules();
+		}
+
+		$this->respond(
+			$result,
+			error_msg: 'Ошибка при обновлении таксономии',
+			success_msg: 'Таксономия обновлена'
+		);
 	}
 
 	/**
@@ -117,53 +135,42 @@ class TaxonomySettingsCallbacks {
 	 * @return void
 	 */
 	public function ajaxDeleteTaxonomy(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
 
-		// Получение и валидация ключа предмета и слага таксономии
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_slug    = $this->requireKey( 'tax_slug' );
 
-		// Удаление всех терминов таксономии через менеджер
+		// deleteAll() — удаляет все термины указанной таксономии из таблиц wp_terms
 		$this->terms->deleteAll( $tax_slug );
 
-		// Удаление записи о таксономии из репозитория
-		$this->taxonomies->delete(
+		$result = $this->taxonomies->delete(
 			array(
 				'subject_key' => $subject_key,
 				'tax_slug'    => $tax_slug,
 			)
 		);
 
-		// Отправка результата
-		$this->sendResult( 'Таксономия удалена' );
-	}
+		if ( $result ) {
+			flush_rewrite_rules();
+		}
 
+		$this->respond(
+			$result,
+			error_msg: 'Ошибка при удалении таксономии',
+			success_msg: 'Таксономия удалена'
+		);
+	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
 	/**
-	 * Валидация типа отображения.
-	 * Оставляем как маленький хелпер, так как это специфичная бизнес-логика.
+	 * Валидация типа отображения таксономии.
 	 *
-	 * @return string Валидный тип отображения ('select', 'radio', 'checkbox')
+	 * @return string
 	 */
 	private function getValidatedDisplayType(): string {
 		$type = $this->sanitizeText( 'display_type' );
+		// in_array() — проверяет, что значение входит в список допустимых
 		return in_array( $type, array( 'select', 'radio', 'checkbox' ), true ) ? $type : 'select';
-	}
-
-	/**
-	 * Сбрасывает правила перезаписи и отправляет успешный ответ клиенту.
-	 *
-	 * @param string $message Сообщение для клиента
-	 *
-	 * @return void
-	 */
-	private function sendResult( string $message ): void {
-		// Сброс правил перезаписи после изменений таксономий
-		flush_rewrite_rules();
-
-		wp_send_json_success( $message );
 	}
 }

@@ -2,9 +2,13 @@
 
 namespace Inc\Enums;
 
+use Inc\MetaBoxes\Templates\CodeTaskTemplate;
 use Inc\MetaBoxes\Templates\CommonConditionTemplate;
+use Inc\MetaBoxes\Templates\FileCodeTaskTemplate;
+use Inc\MetaBoxes\Templates\FileTaskTemplate;
 use Inc\MetaBoxes\Templates\StandardTaskTemplate;
 use Inc\MetaBoxes\Templates\ThreeInOneTemplate;
+use Inc\MetaBoxes\Templates\TwoFileCodeTaskTemplate;
 
 /**
  * Enum TaskTemplate
@@ -34,6 +38,11 @@ enum TaskTemplate: string {
 	 * Задание с общим (неизменяемым) условием.
 	 */
 	case COMMON = 'common_standard_task';
+
+	case CODE      = 'code_task';
+	case FILE_CODE = 'file_code_task';
+	case FILE      = 'file_task';
+	case TWO_FILE  = 'two_file_code_task';
 
 	/**
 	 * Умный конструктор Enum с фолбеком на STANDARD.
@@ -76,6 +85,11 @@ enum TaskTemplate: string {
 			self::STANDARD => StandardTaskTemplate::class,
 			self::TRIPLE => ThreeInOneTemplate::class,
 			self::COMMON => CommonConditionTemplate::class,
+			
+			self::CODE      => CodeTaskTemplate::class,
+			self::FILE_CODE => FileCodeTaskTemplate::class,
+			self::FILE      => FileTaskTemplate::class,
+			self::TWO_FILE  => TwoFileCodeTaskTemplate::class,
 		};
 	}
 
