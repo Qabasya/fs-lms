@@ -16,19 +16,26 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class TemplateManagerCallbacks
  *
- * AJAX-обработчики для Менеджера заданий:
- * - привязка шаблонов к типам заданий
- * - обновление шаблона конкретного термина
- * - получение структуры полей шаблона
- * - сохранение и получение boilerplate-текста (legacy режим)
+ * AJAX-обработчики для управления шаблонами заданий.
  *
  * @package Inc\Callbacks
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Привязка шаблона к типу задания** — обновление шаблона для конкретного термина таксономии.
+ * 2. **Получение структуры полей** — возврат списка ConditionField для фронтенд-редактора.
+ * 3. **Сохранение boilerplate** — сохранение типового условия для типа задания (legacy режим).
+ * 4. **Получение boilerplate** — возврат сохранённого типового условия для редактирования.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует работу с шаблонами метабоксам и репозиториям, а валидацию — трейтам Authorizer/Sanitizer.
  */
 class TemplateManagerCallbacks extends BaseController {
-
+	
 	use Authorizer;
 	use Sanitizer;
-
+	
 	/**
 	 * Конструктор.
 	 *
@@ -43,100 +50,89 @@ class TemplateManagerCallbacks extends BaseController {
 	) {
 		parent::__construct();
 	}
-
+	
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
-
+	
 	/**
 	 * Обновляет привязку шаблона к конкретному типу задания (термину таксономии).
-	 *
-	 * Используется в интерфейсе управления предметами.
 	 *
 	 * @return void
 	 */
 	public function ajaxUpdateTermTemplate(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
-
-		// Получение и валидация данных
+		
 		$term_id     = $this->requireInt( 'term_id', error: 'Недостаточно данных для обновления' );
 		$template_id = $this->requireText( 'template', error: 'Недостаточно данных для обновления' );
-
-		// Получение объекта термина
+		
+		// get_term() — получает объект термина по ID
 		$term = get_term( $term_id );
-
+		
+		// is_wp_error() — проверяет, является ли результат ошибкой WordPress
 		if ( ! $term || is_wp_error( $term ) ) {
 			$this->error( 'Тип задания не найден в WordPress', array( 'term_id' => $term_id ) );
 		}
-
-		// Извлечение ключа предмета из таксономии: "phys_task_number" → "phys"
+		
+		// str_replace() — удаляет суффикс '_task_number' для получения ключа предмета
 		$subject_key = str_replace( '_task_number', '', $term->taxonomy );
-
-		// Запрет изменения шаблона, если по этому типу уже созданы задания
+		
+		// countByTerm() — подсчёт постов, привязанных к данному термину
 		$post_count = $this->posts->countByTerm( "{$subject_key}_tasks", $term->taxonomy, $term->term_id );
-
+		
 		if ( $post_count > 0 ) {
 			$this->error( "Нельзя изменить шаблон: по этому типу уже создано {$post_count} заданий." );
 		}
-
-		// Сохранение привязки через репозиторий
+		
+		// updateAssignment() — сохраняет привязку шаблона к термину
 		$result = $this->metaboxes->updateAssignment(
 			$subject_key,
 			(string) $term->slug,
 			$template_id
 		);
-
+		
 		$this->respond(
 			$result,
 			error_msg: 'Ошибка сохранения шаблона',
 			success_msg: "Шаблон для задания №{$term->slug} успешно сохранён!"
 		);
 	}
-
+	
 	/**
 	 * Возвращает структуру ConditionField-полей шаблона для конкретного типа задания.
-	 *
-	 * Используется на фронте для построения редактора boilerplate.
-	 * Отдаёт только данные (id, label) — HTML строит JS на стороне клиента.
 	 *
 	 * @return void
 	 */
 	public function ajaxGetTemplateStructure(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
-
-		// Получение и валидация данных из GET-запроса
+		
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TMC108' );
 		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TMC108' );
-
-		// Получаем объект привязки из БД
+		
+		// Получение ID шаблона из привязки
 		$assignment = $this->metaboxes->getAssignment( $subject_key, $term_slug );
-
-		// Определяем шаблон через Enum (метод fromDatabase обрабатывает строку или null)
-		$template = TaskTemplate::fromDatabase( $assignment->template_id ?? '' );
-
-		// Получаем имя класса из Enum
+		
+		// TaskTemplate::fromDatabase() — преобразует строку в enum TaskTemplate
+		$template   = TaskTemplate::fromDatabase( $assignment->template_id ?? '' );
 		$class_name = $template->class();
-
+		
 		try {
-			// Прямое создание объекта (вместо поиска в фильтрах)
+			// class_exists() — проверяет существование класса
 			if ( ! class_exists( $class_name ) ) {
 				throw new \Exception( "Класс шаблона {$class_name} не найден." );
 			}
-
+			
 			/** @var \Inc\MetaBoxes\Templates\BaseTemplate $template_obj */
 			$template_obj = new $class_name();
-
-			// Вызываем метод get_fields() прямо у объекта шаблона
+			
 			$all_fields = $template_obj->get_fields();
-
-			// Фильтрация: оставляем только ConditionField-поля
+			
+			// instanceof — проверяет, принадлежит ли объект классу ConditionField
 			$condition_fields = array_filter(
 				$all_fields,
 				static fn( $config ) => isset( $config['object'] )
-										&& $config['object'] instanceof ConditionField
+				                        && $config['object'] instanceof ConditionField
 			);
-
-			// Отдаём только данные (id, label)
+			
+			// array_values() — сбрасывает ключи массива для преобразования в нумерованный
 			$structure = array_values(
 				array_map(
 					static fn( string $key, array $config ): array => array(
@@ -147,33 +143,28 @@ class TemplateManagerCallbacks extends BaseController {
 					$condition_fields
 				)
 			);
-
+			
 			$this->success( array( 'fields' => $structure ) );
-
+			
 		} catch ( \Throwable $e ) {
 			$this->error( 'Ошибка загрузки структуры: ' . $e->getMessage() );
 		}
 	}
-
+	
 	/**
 	 * Сохраняет boilerplate-текст для типа задания (legacy режим).
-	 *
-	 * Использует фиксированный uid 'default' — этот метод работает
-	 * в режиме "один boilerplate на тип задания".
-	 * Полноценный CRUD с несколькими вариантами — в BoilerplateCallbacks.
+	 * Использует фиксированный UID 'default' для совместимости со старым кодом.
 	 *
 	 * @return void
 	 */
 	public function ajaxSaveTaskBoilerplate(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
-
-		// Получение и валидация данных
+		
 		$subject_key = $this->requireKey( 'subject_key', error: 'Недостаточно данных. Error code: #TMC172' );
 		$term_slug   = $this->requireKey( 'term_slug', error: 'Недостаточно данных. Error code: #TMC173' );
+		// sanitizeHtml() — очищает HTML-контент через wp_kses_post()
 		$text        = $this->sanitizeHtml( 'text' );
-
-		// Фиксированный uid гарантирует обновление, а не создание нового варианта
+		
 		$dto = new TaskTypeBoilerplateDTO(
 			uid: 'default',
 			subject_key: $subject_key,
@@ -182,33 +173,31 @@ class TemplateManagerCallbacks extends BaseController {
 			content: $text,
 			is_default: true
 		);
-
-		// Сохранение через репозиторий
+		
 		$result = $this->boilerplates->updateBoilerplate( $dto );
-
+		
 		$this->respond(
 			$result,
 			error_msg: 'Ошибка сохранения типового условия',
 			success_msg: 'Типовое условие сохранено'
 		);
 	}
-
+	
 	/**
 	 * Возвращает дефолтный boilerplate для типа задания (legacy режим).
 	 *
 	 * @return void
 	 */
 	public function ajaxGetBoilerplate(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
-
-		// Получение и валидация данных из GET-запроса
+		
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TMC206' );
 		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TMC207' );
-
-		// Репозиторий сам знает, как найти дефолтный вариант
+		
+		// getDefaultBoilerplate() — возвращает один DTO с UID 'default'
 		$result = $this->boilerplates->getDefaultBoilerplate( $subject_key, $term_slug );
-
+		
+		// Оператор ?-> (nullsafe) — безопасный доступ к свойству, если объект не null (PHP 8.0)
 		$this->success(
 			array(
 				'text' => $result?->content ?? '',
