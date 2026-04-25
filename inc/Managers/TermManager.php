@@ -130,17 +130,21 @@ class TermManager {
 
 		return is_wp_error( $slugs ) ? array() : (array) $slugs;
 	}
-
+	
+	
 	/**
-	 * Привязывает термины к посту.
-	 *
-	 * @param int      $post_id  ID поста
-	 * @param string[] $slugs    Массив слагов терминов
-	 * @param string   $taxonomy Слаг таксономии
-	 *
-	 * @return void
+	 * Привязывает термины к посту (принимает ID или слаги).
 	 */
-	public function setPostTerms( int $post_id, array $slugs, string $taxonomy ): void {
-		wp_set_post_terms( $post_id, $slugs, $taxonomy );
+	public function setPostTerms( int $post_id, array $terms, string $taxonomy ): void {
+		// WP переварит и массив ID, и массив слагов
+		wp_set_post_terms( $post_id, $terms, $taxonomy );}
+	
+	/**
+	 * Получает объект термина по ID и таксономии.
+	 */
+	public function get( int $term_id, string $taxonomy ): ?\WP_Term {
+		$term = get_term( $term_id, $taxonomy );
+		return ( $term instanceof \WP_Term ) ? $term : null;
 	}
+
 }

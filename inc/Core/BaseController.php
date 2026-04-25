@@ -2,6 +2,8 @@
 
 namespace Inc\Core;
 
+use Inc\Shared\Traits\AjaxResponse;
+
 /**
  * Class BaseController
  *
@@ -18,6 +20,7 @@ namespace Inc\Core;
  * @package Inc\Core
  */
 class BaseController {
+	use AjaxResponse;
 
 	/**
 	 * Абсолютный путь к директории плагина.

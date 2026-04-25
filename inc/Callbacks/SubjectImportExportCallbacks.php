@@ -49,11 +49,10 @@ class SubjectImportExportCallbacks extends BaseController {
 		$subject = $this->subjects->getByKey( $key );
 
 		if ( ! $subject ) {
-			wp_send_json_error( 'Предмет не найден' );
-			return;
+			$this->error( 'Предмет не найден', array( 'key' => $key ) );
 		}
 
-		wp_send_json_success(
+		$this->success(
 			array(
 				'subject'      => array(
 					'key'  => $subject->key,
@@ -74,47 +73,42 @@ class SubjectImportExportCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxImportSubject(): void {
-		// Проверка прав доступа и nonce
 		$this->authorize( Nonce::Subject );
 
-		// Получение и декодирование JSON
 		$raw = $this->sanitizeHtml( 'json' );
-
 		if ( empty( $raw ) ) {
-			wp_send_json_error( 'JSON не передан' );
-			return;
+			$this->error( 'JSON не передан' );
 		}
 
 		$data = json_decode( $raw, true );
-
 		if ( ! is_array( $data ) || ! isset( $data['subject']['key'], $data['subject']['name'] ) ) {
-			wp_send_json_error( 'Неверный формат файла' );
-			return;
+			$this->error( 'Неверный формат файла импорта', array( 'raw_length' => strlen( $raw ) ) );
 		}
 
-		$key  = sanitize_title( $data['subject']['key'] );
-		$name = sanitize_text_field( $data['subject']['name'] );
+		$key  = sanitize_title( (string) $data['subject']['key'] );
+		$name = sanitize_text_field( (string) $data['subject']['name'] );
 
 		if ( empty( $key ) || empty( $name ) ) {
-			wp_send_json_error( 'Ключ или название предмета пусты' );
-			return;
+			$this->error( 'Ключ или название предмета пусты в файле импорта' );
 		}
 
-		// Проверка на существование предмета
 		if ( $this->subjects->getByKey( $key ) ) {
-			wp_send_json_error( "Предмет с ключом «{$key}» уже существует" );
-			return;
+			$this->error( "Предмет с ключом «{$key}» уже существует. Импорт невозможен." );
 		}
 
-		// Создание предмета
-		$this->subjects->update(
+		// Начало процесса импорта
+		$result = $this->subjects->update(
 			array(
 				'key'  => $key,
 				'name' => $name,
 			)
 		);
 
-		// Импорт таксономий
+		if ( ! $result ) {
+			$this->error( 'Критическая ошибка при создании записи предмета в БД' );
+		}
+
+		// 1. Таксономии
 		foreach ( $data['taxonomies'] ?? array() as $tax_slug => $tax_data ) {
 			$this->taxonomies->update(
 				array(
@@ -126,7 +120,7 @@ class SubjectImportExportCallbacks extends BaseController {
 			);
 		}
 
-		// Импорт привязок метабоксов (шаблонов)
+		// 2. Метабоксы
 		foreach ( $data['metaboxes'] ?? array() as $task_number => $template_id ) {
 			$this->metaboxes->update(
 				array(
@@ -137,7 +131,7 @@ class SubjectImportExportCallbacks extends BaseController {
 			);
 		}
 
-		// Импорт типовых условий (boilerplate)
+		// 3. Boilerplates
 		foreach ( $data['boilerplates'] ?? array() as $term_slug => $bp_list ) {
 			foreach ( (array) $bp_list as $bp ) {
 				$this->boilerplates->updateBoilerplate(
@@ -153,18 +147,16 @@ class SubjectImportExportCallbacks extends BaseController {
 			}
 		}
 
-		// Импорт терминов
+		// 4. Термины и посты
 		foreach ( $data['terms'] ?? array() as $tax_slug => $term_list ) {
 			$this->importTerms( sanitize_title( (string) $tax_slug ), (array) $term_list );
 		}
 
-		// Импорт постов (заданий и статей)
 		$this->importPosts( $data['posts'] ?? array() );
 
-		// Сброс правил перезаписи для активации новых CPT
 		flush_rewrite_rules();
 
-		wp_send_json_success( "Предмет «{$name}» успешно импортирован" );
+		$this->success( array( 'message' => "Предмет «{$name}» успешно импортирован" ) );
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ-ХЕЛПЕРЫ ============================ //

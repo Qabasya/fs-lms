@@ -2,6 +2,7 @@
 
 namespace Inc\Callbacks;
 
+use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
 use Inc\Managers\TermManager;
 use Inc\Repositories\TaxonomyRepository;
@@ -16,7 +17,7 @@ use Inc\Shared\Traits\Sanitizer;
  *
  * @package Inc\Callbacks
  */
-class TaxonomySettingsCallbacks {
+class TaxonomySettingsCallbacks extends BaseController {
 
 	use Authorizer;
 	use Sanitizer;
@@ -28,9 +29,10 @@ class TaxonomySettingsCallbacks {
 	 * @param TermManager        $terms      Менеджер терминов для удаления
 	 */
 	public function __construct(
-		private TaxonomyRepository $taxonomies,
-		private TermManager $terms,
+		private readonly TaxonomyRepository $taxonomies,
+		private readonly TermManager $terms,
 	) {
+		parent::__construct();
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -57,16 +59,16 @@ class TaxonomySettingsCallbacks {
 
 		// Проверка длины слага (максимум 32 символа в WordPress)
 		if ( strlen( $tax_slug ) > 32 ) {
-			wp_send_json_error( 'Ярлык слишком длинный (макс. ' . ( 32 - strlen( $subject_key ) - 1 ) . ' символов)' );
+			$this->error( 'Ярлык слишком длинный (макс. ' . ( 32 - strlen( $subject_key ) - 1 ) . ' символов)' );
 		}
 
-		// Проверка, не существует ли уже такая таксономия в WordPress
+		// Проверка существования
 		if ( taxonomy_exists( $tax_slug ) ) {
-			wp_send_json_error( 'Таксономия с таким ярлыком уже существует' );
+			$this->error( "Таксономия «{$tax_slug}» уже существует в системе", array( 'slug' => $tax_slug ) );
 		}
 
 		// Сохранение через репозиторий
-		$this->taxonomies->update(
+		$result = $this->taxonomies->update(
 			array(
 				'subject_key'  => $subject_key,
 				'tax_slug'     => $tax_slug,
@@ -76,8 +78,15 @@ class TaxonomySettingsCallbacks {
 			)
 		);
 
-		// Отправка результата
-		$this->sendResult( 'Таксономия создана' );
+		if ( $result ) {
+			flush_rewrite_rules();
+		}
+
+		$this->respond(
+			$result,
+			error_msg: 'Не удалось сохранить таксономию',
+			success_msg: 'Таксономия создана'
+		);
 	}
 
 	/**
@@ -97,18 +106,19 @@ class TaxonomySettingsCallbacks {
 		$tax_name    = $this->requireText( 'tax_name', error: 'Название обязательно' );
 
 		// Обновление через репозиторий
-		$this->taxonomies->update(
-			array(
-				'subject_key'  => $subject_key,
-				'tax_slug'     => $tax_slug,
-				'name'         => $tax_name,
-				'display_type' => $this->getValidatedDisplayType(),
-				'is_required'  => $this->sanitizeBool( 'is_required' ),
-			)
-		);
-
-		// Отправка результата
-		$this->sendResult( 'Таксономия обновлена' );
+		$result = $this->taxonomies->update([
+			'subject_key'  => $subject_key,
+			'tax_slug'     => $tax_slug,
+			'name'         => $tax_name,
+			'display_type' => $this->getValidatedDisplayType(),
+			'is_required'  => $this->sanitizeBool( 'is_required' ),
+		]);
+		
+		if ( $result ) {
+			flush_rewrite_rules();
+		}
+		
+		$this->respond( $result, 'Ошибка при обновлении таксономии', 'Таксономия обновлена' );
 	}
 
 	/**
@@ -128,16 +138,18 @@ class TaxonomySettingsCallbacks {
 		$this->terms->deleteAll( $tax_slug );
 
 		// Удаление записи о таксономии из репозитория
-		$this->taxonomies->delete(
-			array(
-				'subject_key' => $subject_key,
-				'tax_slug'    => $tax_slug,
-			)
-		);
-
-		// Отправка результата
-		$this->sendResult( 'Таксономия удалена' );
+		$result = $this->taxonomies->delete([
+			'subject_key' => $subject_key,
+			'tax_slug'    => $tax_slug,
+		]);
+		
+		if ( $result ) {
+			flush_rewrite_rules();
+		}
+		
+		$this->respond( $result, 'Ошибка при удалении таксономии', 'Таксономия удалена' );
 	}
+	
 
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
@@ -152,18 +164,5 @@ class TaxonomySettingsCallbacks {
 		$type = $this->sanitizeText( 'display_type' );
 		return in_array( $type, array( 'select', 'radio', 'checkbox' ), true ) ? $type : 'select';
 	}
-
-	/**
-	 * Сбрасывает правила перезаписи и отправляет успешный ответ клиенту.
-	 *
-	 * @param string $message Сообщение для клиента
-	 *
-	 * @return void
-	 */
-	private function sendResult( string $message ): void {
-		// Сброс правил перезаписи после изменений таксономий
-		flush_rewrite_rules();
-
-		wp_send_json_success( $message );
-	}
+	
 }

@@ -271,5 +271,20 @@ class PostManager {
 		}
 		return $data;
 	}
+	
+	/**
+	 * Получает объект поста по ID.
+	 */
+	public function get( int $post_id ): ?\WP_Post {
+		$post = get_post( $post_id );
+		return $post instanceof \WP_Post ? $post : null;
+	}
+	
+	/**
+	 * Получает конкретное мета-поле поста.
+	 */
+	public function getMeta( int $post_id, string $key, bool $single = true ): mixed {
+		return get_post_meta( $post_id, $key, $single );
+	}
 }
 

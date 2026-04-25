@@ -15,12 +15,13 @@ use Inc\Repositories\TaxonomyRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
-
+use Inc\Shared\Traits\TemplateRenderer;
 
 class SubjectDataCallbacks extends BaseController {
 	use Authorizer;
 	use Sanitizer;
 	use TaxonomySeeder;
+	use TemplateRenderer;
 
 	public function __construct(
 		private SubjectRepository $subjects,
@@ -51,7 +52,13 @@ class SubjectDataCallbacks extends BaseController {
 		$page_slug   = $this->sanitizeText( 'page_slug' );
 
 		if ( ! in_array( $tab, array( 'tab-2', 'tab-3' ), true ) || ! $subject_key ) {
-			wp_send_json_error( 'Invalid parameters.' );
+			$this->error(
+				'Неверные параметры запроса.',
+				array(
+					'tab' => $tab,
+					'key' => $subject_key,
+				)
+			);
 		}
 
 		// Вся низкоуровневая работа с глобальными переменными для ListTable
@@ -71,7 +78,8 @@ class SubjectDataCallbacks extends BaseController {
 				. $t->inlineEdit();
 
 		$t->restore();
-		wp_send_json_success( array( 'html' => $html ) );
+
+		$this->success( array( 'html' => $html ) );
 	}
 
 	/**
@@ -87,8 +95,7 @@ class SubjectDataCallbacks extends BaseController {
 		$tax_number  = "{$subject_key}_task_number";
 
 		if ( ! $term_id ) {
-			wp_send_json_error( 'Не выбран номер задания' );
-			return;
+			$this->error( 'Не выбран номер задания' );
 		}
 
 		$all_taxonomies = $this->taxonomies->getBySubject( $subject_key );
@@ -104,7 +111,7 @@ class SubjectDataCallbacks extends BaseController {
 			)
 		);
 
-		wp_send_json_success( array( 'html' => $html ) );
+		$this->success( array( 'html' => $html ) );
 	}
 
 	/**
@@ -118,8 +125,7 @@ class SubjectDataCallbacks extends BaseController {
 		$cache_key   = "fs_lms_recent_tasks_{$subject_key}";
 
 		if ( $html = get_transient( $cache_key ) ) {
-			wp_send_json_success( array( 'html' => $html ) );
-			return;
+			$this->success( array( 'html' => $html ) );
 		}
 
 		$tax_number = "{$subject_key}_task_number";
@@ -137,7 +143,8 @@ class SubjectDataCallbacks extends BaseController {
 		);
 
 		set_transient( $cache_key, $html, DAY_IN_SECONDS );
-		wp_send_json_success( array( 'html' => $html ) );
+
+		$this->success( array( 'html' => $html ) );
 	}
 
 	/**
@@ -151,8 +158,7 @@ class SubjectDataCallbacks extends BaseController {
 		$cache_key   = "fs_lms_recent_articles_{$subject_key}";
 
 		if ( $html = get_transient( $cache_key ) ) {
-			wp_send_json_success( array( 'html' => $html ) );
-			return;
+			$this->success( array( 'html' => $html ) );
 		}
 
 		$rows = $this->posts->getRecentPosts( "{$subject_key}_articles", 10, "{$subject_key}_task_number", array() );
@@ -166,11 +172,12 @@ class SubjectDataCallbacks extends BaseController {
 		);
 
 		set_transient( $cache_key, $html, DAY_IN_SECONDS );
-		wp_send_json_success( array( 'html' => $html ) );
+		
+		$this->success( [ 'html' => $html ] );
 	}
-	
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
+
 	private function prepareTableGlobals(): void {
 		$status = $this->sanitizeKey( 'post_status' );
 		$paged  = $this->sanitizeInt( 'paged' );

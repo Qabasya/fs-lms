@@ -36,7 +36,7 @@ use Inc\Shared\Traits\NumericSorter;
  */
 class SubjectController extends BaseController implements ServiceInterface {
 	use NumericSorter;
-	
+
 	/**
 	 * Конструктор.
 	 */
@@ -57,9 +57,9 @@ class SubjectController extends BaseController implements ServiceInterface {
 	) {
 		parent::__construct();
 	}
-	
+
 	// ============================ ПУБЛИЧНЫЕ МЕТОДЫ ============================ //
-	
+
 	/**
 	 * Точка входа контроллера — регистрирует все его компоненты.
 	 *
@@ -71,35 +71,35 @@ class SubjectController extends BaseController implements ServiceInterface {
 	public function register(): void {
 		// Регистрация CPT и таксономий для всех предметов
 		$this->registerCptsAndTaxonomies();
-		
+
 		// Регистрация AJAX-обработчиков
 		$this->registerAjaxHooks();
-		
+
 		// Настройка числовой сортировки терминов таксономий
 		$this->setupTermSorting();
-		
+
 		// Уведомление об ошибке обязательной таксономии (после серверной проверки)
 		add_action( 'admin_notices', array( $this->page_callbacks, 'showRequiredTaxNotice' ) );
-		
+
 		// Для кеширования
 		add_action( 'save_post', array( $this->cache_service, 'clearRecentContentCache' ), 10, 2 );
 		add_action( 'delete_post', array( $this->cache_service, 'clearCacheOnDelete' ) );
 	}
-	
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
+
 	/**
 	 * Регистрирует AJAX-обработчики, распределяя их по специализированным классам.
 	 */
 	private function registerAjaxHooks(): void {
-		
+
 		// 1. Операции создания, обновления и удаления (CRUD)
 		$crudHooks = array(
 			AjaxHook::StoreSubject,
 			AjaxHook::UpdateSubject,
 			AjaxHook::DeleteSubject,
 		);
-		
+
 		// 2. Операции получения данных (UI/Tables)
 		$dataHooks = array(
 			AjaxHook::GetPostsTable,
@@ -107,40 +107,40 @@ class SubjectController extends BaseController implements ServiceInterface {
 			AjaxHook::GetRecentTasks,
 			AjaxHook::GetRecentArticles,
 		);
-		
+
 		// 3. Операции импорта и экспорта
 		$importExportHooks = array(
 			AjaxHook::ExportSubject,
 			AjaxHook::ImportSubject,
 		);
-		
+
 		// 4. Таксономии
 		$taxonomyHooks = array(
 			AjaxHook::StoreTaxonomy,
 			AjaxHook::UpdateTaxonomy,
 			AjaxHook::DeleteTaxonomy,
 		);
-		
+
 		// 5. Шаблоны
 		$templateHooks = array(
 			AjaxHook::UpdateTermTemplate,
 		);
-		
+
 		// Регистрация CRUD
 		foreach ( $crudHooks as $hook ) {
 			add_action( $hook->action(), array( $this->crud_callbacks, $hook->callbackMethod() ) );
 		}
-		
+
 		// Регистрация получения данных
 		foreach ( $dataHooks as $hook ) {
 			add_action( $hook->action(), array( $this->data_callbacks, $hook->callbackMethod() ) );
 		}
-		
+
 		// Регистрация импорта/экспорта
 		foreach ( $importExportHooks as $hook ) {
 			add_action( $hook->action(), array( $this->import_export_callbacks, $hook->callbackMethod() ) );
 		}
-		
+
 		// Остальные хуки
 		foreach ( $taxonomyHooks as $hook ) {
 			add_action( $hook->action(), array( $this->taxonomy_callbacks, $hook->callbackMethod() ) );
@@ -149,7 +149,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			add_action( $hook->action(), array( $this->template_callbacks, $hook->callbackMethod() ) );
 		}
 	}
-	
+
 	/**
 	 * Подключает числовую сортировку для таксономий вида "{subject}_task_number".
 	 *
@@ -164,12 +164,12 @@ class SubjectController extends BaseController implements ServiceInterface {
 			't.name',
 			static function ( $args ): bool {
 				$tax = (array) ( $args['taxonomy'] ?? array() );
-				
+
 				return str_contains( reset( $tax ), '_task_number' );
 			}
 		);
 	}
-	
+
 	/**
 	 * Перебирает все предметы из БД и регистрирует для каждого CPT и таксономии.
 	 *
@@ -177,21 +177,21 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 */
 	private function registerCptsAndTaxonomies(): void {
 		$all_subjects = $this->subjects->readAll();
-		
+
 		if ( empty( $all_subjects ) ) {
 			return;
 		}
-		
+
 		// Регистрация CPT и таксономий для каждого предмета
 		foreach ( $all_subjects as $subject ) {
 			$this->registerForSubject( $subject );
 		}
-		
+
 		// Выполнение регистрации всех накопленных CPT и таксономий
 		$this->cpt_registrar->register();
 		$this->tax_registrar->register();
 	}
-	
+
 	/**
 	 * Добавляет CPT и таксономии одного предмета в очередь регистраторов.
 	 *
@@ -208,40 +208,28 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 */
 	private function registerForSubject( object $subject ): void {
 		$key         = $subject->key;
-		$name        = $subject->name;
 		$task_cpt    = "{$key}_tasks";
 		$article_cpt = "{$key}_articles";
-		
-		// Регистрация CPT для заданий (только заголовок)
+
+		// 1. Регистрация Заданий с возможностью внешней кастомизации
+		$task_args = $this->getDefaultCptArgs( 'tasks', $subject );
 		$this->cpt_registrar->addStandardType(
 			$task_cpt,
 			'Задания',
-			array(
-				'nom'    => 'Задание',
-				'acc'    => 'задание',
-				'gen'    => 'задания',
-				'gender' => 'neuter',
-			),
-			array( 'supports' => array( 'title' ) )
+			$task_args['labels'],
+			$task_args['options']
 		);
-		
-		// Регистрация CPT для статей (с редактором и картинкой)
+
+		// 2. Регистрация Статей с возможностью внешней кастомизации
+		$article_args = $this->getDefaultCptArgs( 'articles', $subject );
 		$this->cpt_registrar->addStandardType(
 			$article_cpt,
 			'Статьи',
-			array(
-				'nom'    => 'Статья',
-				'acc'    => 'статью',
-				'gen'    => 'статьи',
-				'gender' => 'feminine',
-			),
-			array( 'supports' => array( 'title', 'editor', 'thumbnail' ) )
+			$article_args['labels'],
+			$article_args['options']
 		);
-		
-		// "Номер задания" регистрируется для обоих CPT — модальному окну в Tasks
-		// нужен доступ к wp_set_post_terms() для этой таксономии.
-		// На Articles — кастомный select-callback (WP по умолчанию рисует tag-input для
-		// неиерархических таксономий, что не подходит для выбора одного значения).
+
+		// "Номер задания" и пользовательские таксономии (логика без изменений)
 		$fixed_tax_slug = "{$key}_task_number";
 		$this->tax_registrar->addFixedTaxonomy(
 			$fixed_tax_slug,
@@ -256,86 +244,58 @@ class SubjectController extends BaseController implements ServiceInterface {
 				'rewrite'      => array( 'slug' => $fixed_tax_slug ),
 			)
 		);
-		
-		// Скрываем метабокс "Номер задания" на экране Tasks — там выбор через модальное окно.
-		// Таксономия при этом остаётся зарегистрированной для Tasks на уровне данных.
+
 		add_action(
 			'add_meta_boxes',
 			static function () use ( $task_cpt, $fixed_tax_slug ): void {
 				remove_meta_box( "tagsdiv-{$fixed_tax_slug}", $task_cpt, 'side' );
 			}
 		);
-		
-		// Пользовательские таксономии — только для Tasks.
-		// Не регистрируем для Articles: метабоксы там не нужны.
+
 		foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
-			$this->tax_registrar->addStandardTaxonomy(
-				$tax_dto->slug,
-				array( $task_cpt ),
-				$tax_dto->name,
-				$tax_dto->name,
-				$tax_dto->display_type
-			);
+			$this->tax_registrar->addStandardTaxonomy( $tax_dto->slug, array( $task_cpt ), $tax_dto->name, $tax_dto->name, $tax_dto->display_type );
 		}
-		
+
 		add_filter( 'wp_insert_post_data', array( $this->validation_callbacks, 'validateRequiredTaxonomies' ), 10, 2 );
 	}
-	
-	
+
 	/**
-	 * Сбрасывает кеш таблицы "Последние задания/статьи" при сохранении поста.
-	 * Универсальный для {_tasks} и {_articles}.
+	 * Формирует дефолтную конфигурацию для CPT и прогоняет её через фильтр.
 	 *
-	 * @param int      $post_id ID поста
-	 * @param \WP_Post $post    Объект поста
-	 * @param bool     $update  Флаг обновления
-	 *
-	 * @return void
+	 * @param string $type    Тип (tasks|articles)
+	 * @param object $subject DTO предмета
+	 * @return array{labels: array, options: array}
 	 */
-	public function clearRecentContentCache( int $post_id, \WP_Post $post, bool $update ): void {
-		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
-			return;
-		}
-		
-		// Проверяем, что пост относится к нашему плагину (tasks или articles)
-		if ( ! str_ends_with( $post->post_type, '_tasks' ) && ! str_ends_with( $post->post_type, '_articles' ) ) {
-			return;
-		}
-		
-		// Извлекаем subject_key (например, из "phys_tasks" или "phys_articles" получаем "phys")
-		$subject_key = preg_replace( '/_(tasks|articles)$/', '', $post->post_type );
-		if ( ! $subject_key ) {
-			return;
-		}
-		
-		// Ключи кеша отличаются только суффиксом
-		$type_suffix = str_ends_with( $post->post_type, '_tasks' ) ? 'tasks' : 'articles';
-		delete_transient( "fs_lms_recent_{$type_suffix}_{$subject_key}" );
-	}
-	
-	/**
-	 * Сбрасывает кеш при безвозвратном удалении поста.
-	 *
-	 * @param int $post_id ID поста
-	 *
-	 * @return void
-	 */
-	public function clearRecentContentCacheOnDelete( int $post_id ): void {
-		$post = get_post( $post_id );
-		if ( ! $post ) {
-			return;
-		}
-		
-		if ( ! str_ends_with( $post->post_type, '_tasks' ) && ! str_ends_with( $post->post_type, '_articles' ) ) {
-			return;
-		}
-		
-		$subject_key = preg_replace( '/_(tasks|articles)$/', '', $post->post_type );
-		if ( ! $subject_key ) {
-			return;
-		}
-		
-		$type_suffix = str_ends_with( $post->post_type, '_tasks' ) ? 'tasks' : 'articles';
-		delete_transient( "fs_lms_recent_{$type_suffix}_{$subject_key}" );
+	private function getDefaultCptArgs( string $type, object $subject ): array {
+		$args = match ( $type ) {
+			'tasks' => array(
+				'labels'  => array(
+					'nom'    => 'Задание',
+					'acc'    => 'задание',
+					'gen'    => 'задания',
+					'gender' => 'neuter',
+				),
+				'options' => array( 'supports' => array( 'title' ) ),
+			),
+			'articles' => array(
+				'labels'  => array(
+					'nom'    => 'Статья',
+					'acc'    => 'статью',
+					'gen'    => 'статьи',
+					'gender' => 'feminine',
+				),
+				'options' => array( 'supports' => array( 'title', 'editor', 'thumbnail' ) ),
+			),
+			default => array()
+		};
+
+		/**
+		 * Позволяет модифицировать аргументы регистрации CPT для конкретного предмета.
+		 * * @param array  $args    Массив с labels и options.
+		 *
+		 * @param string $type    Тип контента (tasks или articles).
+		 * @param object $subject Объект предмета.
+		 */
+		return apply_filters( 'fs_lms_cpt_args', $args, $type, $subject );
 	}
 }

@@ -71,16 +71,12 @@ class BoilerplateCallbacks extends BaseController {
 		// Сохранение через репозиторий
 		$result = $this->boilerplates->updateBoilerplate( $dto );
 
-		if ( $result ) {
-			wp_send_json_success(
-				array(
-					'message' => 'Шаблон успешно сохранён',
-					'uid'     => $uid,
-				)
-			);
-		} else {
-			wp_send_json_error( 'Не удалось сохранить шаблон' );
-		}
+		$this->respond(
+			$result,
+			error_msg: 'Не удалось сохранить шаблон',
+			success_msg: 'Шаблон успешно сохранён',
+			extra_data: array( 'uid' => $uid )
+		);
 	}
 
 	/**
@@ -100,10 +96,10 @@ class BoilerplateCallbacks extends BaseController {
 		// Удаление через репозиторий
 		$result = $this->boilerplates->deleteBoilerplate( $subject_key, $term_slug, $uid );
 
-		if ( $result ) {
-			wp_send_json_success( 'Шаблон успешно удалён' );
-		} else {
-			wp_send_json_error( 'Не удалось удалить шаблон' );
-		}
+		$this->respond(
+			$result,
+			error_msg:'Не удалось удалить шаблон',
+			success_msg: 'Шаблон успешно удалён'
+		);
 	}
 }

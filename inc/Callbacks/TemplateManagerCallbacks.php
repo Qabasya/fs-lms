@@ -2,6 +2,7 @@
 
 namespace Inc\Callbacks;
 
+use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
@@ -23,7 +24,7 @@ use Inc\Shared\Traits\Sanitizer;
  *
  * @package Inc\Callbacks
  */
-class TemplateManagerCallbacks {
+class TemplateManagerCallbacks extends BaseController {
 
 	use Authorizer;
 	use Sanitizer;
@@ -40,6 +41,7 @@ class TemplateManagerCallbacks {
 		private BoilerplateRepository $boilerplates,
 		private PostManager $posts,
 	) {
+		parent::__construct();
 	}
 
 	// ============================ AJAX-КОЛЛБЕКИ ============================ //
@@ -63,7 +65,7 @@ class TemplateManagerCallbacks {
 		$term = get_term( $term_id );
 
 		if ( ! $term || is_wp_error( $term ) ) {
-			wp_send_json_error( 'Тип задания не найден в WordPress' );
+			$this->error( 'Тип задания не найден в WordPress', array( 'term_id' => $term_id ) );
 		}
 
 		// Извлечение ключа предмета из таксономии: "phys_task_number" → "phys"
@@ -73,21 +75,21 @@ class TemplateManagerCallbacks {
 		$post_count = $this->posts->countByTerm( "{$subject_key}_tasks", $term->taxonomy, $term->term_id );
 
 		if ( $post_count > 0 ) {
-			wp_send_json_error( "Нельзя изменить шаблон: по этому типу уже создано {$post_count} заданий." );
+			$this->error( "Нельзя изменить шаблон: по этому типу уже создано {$post_count} заданий." );
 		}
 
 		// Сохранение привязки через репозиторий
-		$success = $this->metaboxes->updateAssignment(
+		$result = $this->metaboxes->updateAssignment(
 			$subject_key,
 			(string) $term->slug,
 			$template_id
 		);
 
-		if ( ! $success ) {
-			wp_send_json_error( 'Ошибка сохранения шаблона' );
-		}
-
-		wp_send_json_success( "Шаблон для задания №{$term->slug} успешно сохранён!" );
+		$this->respond(
+			$result,
+			error_msg: 'Ошибка сохранения шаблона',
+			success_msg: "Шаблон для задания №{$term->slug} успешно сохранён!"
+		);
 	}
 
 	/**
@@ -146,12 +148,10 @@ class TemplateManagerCallbacks {
 				)
 			);
 
-			wp_send_json_success( array( 'fields' => $structure ) );
+			$this->success( array( 'fields' => $structure ) );
+
 		} catch ( \Throwable $e ) {
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( 'FS LMS TemplateManagerCallbacks: ' . $e->getMessage() );
-			}
-			wp_send_json_error( 'Ошибка загрузки структуры: ' . $e->getMessage() );
+			$this->error( 'Ошибка загрузки структуры: ' . $e->getMessage() );
 		}
 	}
 
@@ -184,13 +184,13 @@ class TemplateManagerCallbacks {
 		);
 
 		// Сохранение через репозиторий
-		$success = $this->boilerplates->updateBoilerplate( $dto );
+		$result = $this->boilerplates->updateBoilerplate( $dto );
 
-		if ( ! $success ) {
-			wp_send_json_error( 'Ошибка сохранения типового условия' );
-		}
-
-		wp_send_json_success( array( 'message' => 'Типовое условие сохранено' ) );
+		$this->respond(
+			$result,
+			error_msg: 'Ошибка сохранения типового условия',
+			success_msg: 'Типовое условие сохранено'
+		);
 	}
 
 	/**
@@ -209,7 +209,7 @@ class TemplateManagerCallbacks {
 		// Репозиторий сам знает, как найти дефолтный вариант
 		$result = $this->boilerplates->getDefaultBoilerplate( $subject_key, $term_slug );
 
-		wp_send_json_success(
+		$this->success(
 			array(
 				'text' => $result?->content ?? '',
 				'uid'  => $result?->uid ?? null,
