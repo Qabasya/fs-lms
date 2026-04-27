@@ -1,6 +1,6 @@
 <?php
 /** @var \Inc\DTO\SubjectViewDTO $dto */
-require_once FS_LMS_PATH . 'templates/ui_renderers.php';
+require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 
 ?>
 

@@ -125,7 +125,7 @@ class SubjectDataCallbacks extends BaseController {
 		$rows = $this->posts->getPostsByTerm( "{$subject_key}_tasks", $tax_number, $term_id, $visible_tax );
 
 		$html = $this->view(
-			'components/ajax-tables/task-ajax-table',
+			'admin/components/ajax-tables/task-ajax-table',
 			array(
 				'rows'       => $rows,
 				'taxonomies' => $visible_tax,
@@ -159,7 +159,7 @@ class SubjectDataCallbacks extends BaseController {
 		$rows = $this->posts->getRecentPosts( "{$subject_key}_tasks", 10, $tax_number, $other_tax );
 
 		$html = $this->view(
-			'components/ajax-tables/tasks-ajax-table',
+			'admin/components/ajax-tables/tasks-ajax-table',
 			array(
 				'rows'       => $rows,
 				'taxonomies' => $other_tax,
@@ -191,7 +191,7 @@ class SubjectDataCallbacks extends BaseController {
 		$rows = $this->posts->getRecentPosts( "{$subject_key}_articles", 10, "{$subject_key}_task_number", array() );
 
 		$html = $this->view(
-			'components/ajax-tables/articles-ajax-table',
+			'admin/components/ajax-tables/articles-ajax-table',
 			array(
 				'rows'       => $rows,
 				'taxonomies' => array(),

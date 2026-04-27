@@ -1,0 +1,77 @@
+<?php
+/**
+ * templates/subject.php
+ *
+ * @var array $args
+ */
+
+/** @var \Inc\DTO\SubjectViewDTO $dto */
+$dto     = $args['data'];
+$subject = $dto->subject_data;
+
+// Определение активной вкладки, по умолчанию tab-1
+$active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'tab-1';
+
+// Массив вкладок с заголовками и путями к файлам
+$tabs = array(
+	'tab-1' => array(
+		'title' => 'Статистика',
+		'file'  => '/components/tabs/subject-tabs/subject-1-stats.php',
+	),
+	'tab-2' => array(
+		'title' => 'Задания',
+		'file'  => '/components/tabs/subject-tabs/subject-2-tasks.php',
+	),
+	'tab-3' => array(
+		'title' => 'Статьи',
+		'file'  => '/components/tabs/subject-tabs/subject-3-articles.php',
+	),
+	'tab-4' => array(
+		'title' => 'Таксономии',
+		'file'  => '/components/tabs/subject-tabs/subject-4-taxonomies.php',
+	),
+	'tab-5' => array(
+		'title' => 'Менеджер заданий',
+		'file'  => '/components/tabs/subject-tabs/subject-5-task-manager.php',
+	),
+);
+?>
+
+	<div class="wrap fs-lms-dashboard">
+		<h1><?php echo esc_html( $subject->name ?? 'Без названия' ); ?></h1>
+
+        <!-- Навигация по вкладкам -->
+		<h2 class="nav-tab-wrapper">
+			<?php foreach ( $tabs as $tab_id => $tab ) : ?>
+				<a href="?page=<?php echo esc_attr( $_GET['page'] ?? '' ); ?>&tab=<?php echo esc_attr( $tab_id ); ?>"
+					class="nav-tab <?php echo $active_tab === $tab_id ? 'nav-tab-active' : ''; ?>">
+					<?php echo esc_html( $tab['title'] ); ?>
+				</a>
+			<?php endforeach; ?>
+		</h2>
+
+        <!-- Содержимое активной вкладки -->
+		<div class="tab-content">
+			<?php
+            // Подключение файла активной вкладки
+			if ( isset( $tabs[ $active_tab ] ) ) {
+				// rtrim нужен, чтобы не было двойного слэша // между путем и файлом
+				$file_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . $tabs[ $active_tab ]['file'];
+
+				if ( file_exists( $file_path ) ) {
+					include $file_path;
+				} else {
+					echo "<div class='notice notice-error'><p>Файл не найден: <code>{$file_path}</code></p></div>";
+				}
+			}
+			?>
+		</div>
+	</div>
+
+<?php
+// Подключение модального окна (путь относительно папки templates/)
+$modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/taxonomy-modal.php';
+if ( file_exists( $modal_path ) ) {
+	include $modal_path;
+}
+?>
