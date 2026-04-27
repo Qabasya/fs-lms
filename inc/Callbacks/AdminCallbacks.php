@@ -67,7 +67,7 @@ class AdminCallbacks extends BaseController {
 
 		// render() — метод трейта TemplateRenderer
 		// Подключает файл /templates/admin/settings.php и передаёт в него переменную $subjects
-		$this->render( 'settings', array( 'subjects' => $all_subjects ) );
+		$this->render( 'admin/settings', array( 'subjects' => $all_subjects ) );
 	}
 
 	/**

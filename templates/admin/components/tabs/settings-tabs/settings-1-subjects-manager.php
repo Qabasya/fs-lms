@@ -1,5 +1,5 @@
 <?php
-require_once FS_LMS_PATH . 'templates/ui_renderers.php';
+require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 $active_tab = 'tab-1';
 
 if ( isset( $_GET['tab'] ) ) {

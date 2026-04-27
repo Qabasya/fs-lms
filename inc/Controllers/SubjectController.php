@@ -7,6 +7,7 @@ use Inc\Callbacks\SubjectCrudCallbacks;
 use Inc\Callbacks\SubjectDataCallbacks;
 use Inc\Callbacks\SubjectImportExportCallbacks;
 use Inc\Callbacks\SubjectValidationCallbacks;
+use Inc\Callbacks\TaskPageCallbacks;
 use Inc\Callbacks\TaxonomySettingsCallbacks;
 use Inc\Callbacks\TemplateManagerCallbacks;
 use Inc\Contracts\ServiceInterface;
@@ -74,6 +75,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		private readonly SubjectPageCallbacks $page_callbacks,
 		private readonly SubjectValidationCallbacks $validation_callbacks,
 		private readonly ContentCacheService $cache_service,
+		private readonly TaskPageCallbacks $task_page_callbacks
 	) {
 		parent::__construct();
 	}
@@ -104,6 +106,9 @@ class SubjectController extends BaseController implements ServiceInterface {
 		add_action( 'save_post', array( $this->cache_service, 'clearRecentContentCache' ), 10, 2 );
 		// 'delete_post' — хук удаления поста (передаёт ID поста)
 		add_action( 'delete_post', array( $this->cache_service, 'clearCacheOnDelete' ) );
+		
+		// Регистрация шаблона фронтенда
+		add_filter( 'template_include', array( $this->task_page_callbacks, 'loadTaskFrontendTemplate' ) );
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //

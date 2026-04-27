@@ -113,7 +113,7 @@ class SubjectPageCallbacks extends BaseController {
 		}
 
 		// render() — подключает шаблон из папки /templates/admin/
-		$this->render( 'subject', $dto );
+		$this->render( 'admin/subject', $dto );
 	}
 
 	/**

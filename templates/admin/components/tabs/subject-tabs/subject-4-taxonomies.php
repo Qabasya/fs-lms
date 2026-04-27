@@ -1,6 +1,6 @@
 <?php
 /** @var \Inc\DTO\SubjectViewDTO $dto */
-require_once FS_LMS_PATH . 'templates/ui_renderers.php';
+require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 
 // 1. Выносим словарь за пределы цикла, чтобы не нагружать память
 $display_labels = array(
