@@ -13,10 +13,10 @@ readonly class UserDTO {
 		public string $displayName,
 		public UserRole $role,
 		public ?string $telegramId = null,
-		public array $meta = []
+		public array $meta = array()
 	) {
 	}
-	
+
 	/**
 	 * Статический метод для создания DTO из WP_User
 	 */
@@ -29,14 +29,14 @@ readonly class UserDTO {
 				break;
 			}
 		}
-		
+
 		return new self(
 			id         : $user->ID,
 			email      : $user->user_email,
 			displayName: $user->display_name,
 			role       : $userRole,
 			telegramId : get_user_meta( $user->ID, 'fs_telegram_id', true ) ?: null,
-			meta       : [] // Сюда можно подгрузить остальное
+			meta       : array() // Сюда можно подгрузить остальное
 		);
 	}
 }
