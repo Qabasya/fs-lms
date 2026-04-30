@@ -181,4 +181,17 @@ class TermManager {
 		$term = get_term( $term_id, $taxonomy );
 		return ( $term instanceof \WP_Term ) ? $term : null;
 	}
+
+	/**
+	 * Возвращает массив объектов терминов, привязанных к посту.
+	 *
+	 * @param int    $post_id  ID поста
+	 * @param string $taxonomy Слаг таксономии
+	 *
+	 * @return \WP_Term[]
+	 */
+	public function getPostTerms( int $post_id, string $taxonomy ): array {
+		$terms = get_the_terms( $post_id, $taxonomy );
+		return ( $terms && ! is_wp_error( $terms ) ) ? $terms : array();
+	}
 }
