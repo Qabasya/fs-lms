@@ -155,7 +155,30 @@ class UserManager {
 
 		return $query;
 	}
-
+	
+//	/** Пока не используем */
+//	 * Фильтрует список ролей, доступных для редактирования.
+//	 *
+//	 * @param array $all_roles Список всех ролей WP
+//	 * @return array
+//	 */
+//	public function filterEditableRoles( array $all_roles ): array {
+//		// 1. Получаем список "чистых" значений наших ролей из Enum
+//		$my_roles_values = array_map( fn( $role ) => $role->value, UserRole::cases() );
+//
+//		// 2. Всегда оставляем администратора (чтобы не "сломать" сайт)
+//		$my_roles_values[] = 'administrator';
+//
+//		// 3. Убираем всё лишнее
+//		foreach ( $all_roles as $role_key => $role_data ) {
+//			if ( ! in_array( $role_key, $my_roles_values, true ) ) {
+//				unset( $all_roles[ $role_key ] );
+//			}
+//		}
+//
+//		return $all_roles;
+//	}
+	
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
 	/**

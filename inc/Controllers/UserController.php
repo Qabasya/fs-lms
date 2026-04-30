@@ -71,6 +71,8 @@ class UserController extends BaseController implements ServiceInterface {
 			}
 		);
 
+//		add_filter( 'editable_roles', array( $this->user_manager, 'filterEditableRoles' ) );
+
 		// 4. В будущем здесь будут AJAX-обработчики для фронтенд-профиля
 		// $this->registerAjaxHooks();
 	}
