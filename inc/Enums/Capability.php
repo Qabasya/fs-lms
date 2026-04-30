@@ -8,8 +8,12 @@ namespace Inc\Enums;
  *
  * @package Inc\Core\Config
  */
-enum Capability: string
-{
+enum Capability: string {
+
 	/** Capability для административных страниц. */
 	case ADMIN = 'manage_options';
+
+	/** Capability для своих преподавателей */
+	case ViewLMSStats         = 'view_lms_stats';
+	case ManageLMSAssignments = 'manage_lms_assignments';
 }

@@ -61,13 +61,13 @@ class TaskPageCallbacks extends BaseController {
 		return array(
 			'condition'  => $this->getCombinedCondition( $meta ),
 			'answer'     => $meta['task_answer'] ?? '',
-			'code'       => $meta['task_code']   ?? '',
+			'code'       => $meta['task_code'] ?? '',
 			'taxonomies' => $this->getRequiredTaxonomies( $post_id, $subject_key ),
 		);
 	}
-	
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
-	
+
 	/**
 	 * Возвращает обязательные таксономии с их терминами для задания.
 	 *
@@ -81,8 +81,8 @@ class TaskPageCallbacks extends BaseController {
 
 		foreach ( $this->taxonomy_repository->getBySubject( $subject_key ) as $dto ) {
 			if ( $dto->is_required ) {
-				$taxonomy             = $dto->slug;
-				$result[ $dto->slug ] = $this->term_manager->getPostTerms( $post_id, $taxonomy );
+				$taxonomy            = $dto->slug;
+				$result[ $taxonomy ] = $this->term_manager->getPostTerms( $post_id, $taxonomy );
 			}
 		}
 
