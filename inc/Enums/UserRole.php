@@ -17,11 +17,11 @@ enum UserRole: string {
 	 */
 	public function label(): string {
 		return match ( $this ) {
-			self::FSTeacher => 'Преподаватель',
-			self::FSStudent  => 'Ученик',
-			self::FSParent  => 'Родитель',
-			self::Student   => 'Пользователь',
-			self::Teacher   => 'Учитель',
+			self::FSTeacher => '🎓 LMS: Преподаватель',
+			self::FSStudent  => '🎓 LMS: Ученик',
+			self::FSParent  => '🎓 LMS: Родитель',
+			self::Student   => '🌐 LMS: Пользователь',
+			self::Teacher   => '🌐 LMS: Учитель',
 		};
 	}
 }
