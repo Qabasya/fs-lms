@@ -8,6 +8,7 @@ use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
+use Inc\Controllers\UserController;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
 
@@ -47,6 +48,7 @@ final class Init
 			MetaBoxController::class, // Метабоксы заданий
 			TaskCreationController::class, // Создание заданий
 			BoilerplateController::class,  // Типовые условия (boilerplate)
+			UserController::class,  // Типовые условия (boilerplate)
 		];
 	}
 

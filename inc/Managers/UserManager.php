@@ -122,9 +122,9 @@ class UserManager {
 
 			// is_user_logged_in() — проверяет, авторизован ли пользователь
 			// current_user_can() — проверяет наличие права у текущего пользователя
-			// 'manage_options' — право администратора WordPress
+			// Capability::ADMIN ('manage_options') — право администратора WordPress
 			if ( is_user_logged_in() &&
-				! current_user_can( 'manage_options' ) &&
+				! current_user_can( Capability::ADMIN->value ) &&
 				! current_user_can( UserRole::FSTeacher->value )
 			) {
 				// wp_safe_redirect() — безопасное перенаправление (только разрешённые домены)
@@ -133,6 +133,27 @@ class UserManager {
 				exit;  // Прерываем выполнение после редиректа
 			}
 		}
+	}
+
+	/**
+	 * Формирует аргументы запроса к медиабиблиотеке, чтобы пользователи
+	 * видели только свои загрузки.
+	 *
+	 * @param array $query Аргументы запроса WP_Query
+	 * @return array
+	 */
+	public function getMediaFilterArgs( array $query ): array {
+		// Если мы в админке и у пользователя есть право редактировать чужое (админ) — не фильтруем
+		if ( current_user_can( Capability::ADMIN->value ) ) {
+			return $query;
+		}
+
+		$user_id = get_current_user_id();
+		if ( $user_id ) {
+			$query['author'] = $user_id;
+		}
+
+		return $query;
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
