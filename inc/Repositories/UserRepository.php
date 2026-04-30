@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories;
 
 use Inc\Contracts\RepositoryInterface;
+use Inc\DTO\UserDTO;
 use Inc\Enums\UserRole;
 
 /**
@@ -27,14 +28,25 @@ use Inc\Enums\UserRole;
 class UserRepository implements RepositoryInterface {
 
 	/**
-	 * Возвращает всех пользователей текущего сайта.
+	 * Возвращает всех пользователей текущего сайта в виде массива DTO.
 	 *
 	 * @inheritDoc
-	 * @return \WP_User[]
+	 * @return UserDTO[]
 	 */
 	public function readAll(): array {
-		// get_current_blog_id() — возвращает ID текущего сайта (для мультисайтов), с одними сайтом - 1
-		return get_users( array( 'blog_id' => get_current_blog_id() ) );
+		// get_users() — возвращает массив объектов WP_User
+		// get_current_blog_id() — ID текущего сайта (для мультисайтов)
+		$users = get_users( array( 'blog_id' => get_current_blog_id() ) );
+
+		if ( empty( $users ) ) {
+			return array();
+		}
+
+		// array_map() — преобразуем каждый WP_User в UserDTO
+		return array_map(
+			fn( \WP_User $user ) => UserDTO::fromWPUser( $user ),
+			$users
+		);
 	}
 
 	/**
@@ -82,35 +94,39 @@ class UserRepository implements RepositoryInterface {
 	 *
 	 * @param int $user_id ID пользователя
 	 *
-	 * @return \WP_User|null
+	 * @return UserDTO|null
 	 */
-	public function getById( int $user_id ): ?\WP_User {
-		// get_userdata() — возвращает объект пользователя или false
+	public function getById( int $user_id ): ?UserDTO {
+		// get_userdata() — возвращает объект WP_User или false
 		$user = get_userdata( $user_id );
-		return $user instanceof \WP_User ? $user : null;
+		return $user instanceof \WP_User ? UserDTO::fromWPUser( $user ) : null;
 	}
 
 	/**
-	 * Получает пользователей по роли из Enum.
+	 * Получает пользователей по роли из Enum и возвращает массив DTO.
 	 *
 	 * @param UserRole $role Роль пользователя
 	 *
-	 * @return \WP_User[]
+	 * @return UserDTO[]
 	 */
 	public function getByRole( UserRole $role ): array {
-		// get_users() с параметром 'role' — фильтрация по роли
-		return get_users( array( 'role' => $role->value ) );
+		$users = get_users( array( 'role' => $role->value ) );
+
+		return array_map(
+			fn( \WP_User $user ) => UserDTO::fromWPUser( $user ),
+			$users
+		);
 	}
 
 	/**
 	 * Поиск пользователя по социальному ID (для Hybridauth).
 	 *
-	 * @param string $provider   Название соцсети (например, 'vk', 'google')
+	 * @param string $provider   Название соцсети (vk, google, facebook)
 	 * @param string $identifier Уникальный ID пользователя в соцсети
 	 *
-	 * @return \WP_User|null
+	 * @return UserDTO|null
 	 */
-	public function getBySocialId( string $provider, string $identifier ): ?\WP_User {
+	public function getBySocialId( string $provider, string $identifier ): ?UserDTO {
 		$users = get_users(
 			array(
 				// 'meta_key' — имя мета-поля для хранения ID в соцсети
@@ -119,12 +135,14 @@ class UserRepository implements RepositoryInterface {
 				'meta_value' => $identifier,
 				// 'number' => 1 — ограничиваем результат одним пользователем
 				'number'     => 1,
-				// 'fields' => 'all' — возвращаем полные объекты WP_User
 				'fields'     => 'all',
 			)
 		);
 
-		// Возвращаем первого найденного или null
-		return ! empty( $users ) ? $users[0] : null;
+		if ( empty( $users ) ) {
+			return null;
+		}
+
+		return UserDTO::fromWPUser( $users[0] );
 	}
 }
