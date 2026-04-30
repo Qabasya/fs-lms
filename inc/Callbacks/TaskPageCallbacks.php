@@ -50,6 +50,7 @@ class TaskPageCallbacks extends BaseController {
 	 * @param int $post_id ID поста задания
 	 *
 	 * @return array Массив с данными задания (condition, answer, code, taxonomies)
+	 *               TODO: Enum для полей в БД
 	 */
 	public function getTaskData( int $post_id ): array {
 		$post        = $this->post_manager->get( $post_id );
@@ -64,7 +65,9 @@ class TaskPageCallbacks extends BaseController {
 			'taxonomies' => $this->getRequiredTaxonomies( $post_id, $subject_key ),
 		);
 	}
-
+	
+	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
+	
 	/**
 	 * Возвращает обязательные таксономии с их терминами для задания.
 	 *
@@ -78,7 +81,7 @@ class TaskPageCallbacks extends BaseController {
 
 		foreach ( $this->taxonomy_repository->getBySubject( $subject_key ) as $dto ) {
 			if ( $dto->is_required ) {
-				$taxonomy             = $subject_key . '_' . $dto->slug;
+				$taxonomy             = $dto->slug;
 				$result[ $dto->slug ] = $this->term_manager->getPostTerms( $post_id, $taxonomy );
 			}
 		}
