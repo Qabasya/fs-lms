@@ -78,3 +78,11 @@ use Inc\Enums\Nonce;
 		</a>
 	</p>
 </div>
+
+<?php
+// Подключение модального окна (путь относительно папки templates/)
+$modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/confirm-modal.php';
+if ( file_exists( $modal_path ) ) {
+    include $modal_path;
+}
+?>

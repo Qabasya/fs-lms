@@ -192,9 +192,9 @@ class AdminController extends BaseController implements ServiceInterface {
 		);
 
 		// Скрытая страница управления типовыми условиями (не отображается в боковом меню)
-		// Parent_slug = '' делает страницу доступной только по прямому URL
+		// parent_slug' => 'options.php' делает страницу доступной только по прямому URL
 		$subpages[] = array(
-			'parent_slug' => '',
+			'parent_slug' => 'options.php',
 			'page_title'  => 'Управление типовыми условиями',
 			'menu_title'  => 'Boilerplate Manager',
 			'capability'  => Capability::ADMIN->value,

@@ -101,7 +101,7 @@ class BoilerplatePageController extends BaseController implements ServiceInterfa
 		// admin_url() — возвращает полный URL к административной панели WordPress
 		// Формирует ссылку для возврата к настройкам предмета (вкладка 5)
 		$this->render(
-			'boilerplate-list',
+			'admin/boilerplate-list',
 			array(
 				'subject'              => $subject_key,
 				'term'                 => $term_slug,
@@ -137,7 +137,7 @@ class BoilerplatePageController extends BaseController implements ServiceInterfa
 		// uniqid() — генерирует уникальный идентификатор на основе микросекунд
 		// Префикс 'bp_' добавляется для удобства идентификации
 		$this->render(
-			'boilerplate-editor',
+			'admin/boilerplate-editor',
 			array(
 				'subject'        => $subject_key,
 				'term'           => $term_slug,
