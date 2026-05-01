@@ -28,5 +28,8 @@
   "scripts": {
     "lint:php": "phpcs",
     "fix:php": "phpcbf"
+  },
+  "require": {
+    "hybridauth/hybridauth": "^3.13"
   }
 }

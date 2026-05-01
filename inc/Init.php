@@ -4,6 +4,7 @@ namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\AdminController;
+use Inc\Controllers\AuthController;
 use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\SubjectController;
@@ -48,7 +49,8 @@ final class Init
 			MetaBoxController::class, // Метабоксы заданий
 			TaskCreationController::class, // Создание заданий
 			BoilerplateController::class,  // Типовые условия (boilerplate)
-			UserController::class,  // Типовые условия (boilerplate)
+			UserController::class,  //
+			AuthController::class,  //
 		];
 	}
 

@@ -87,6 +87,49 @@ class UserRepository implements RepositoryInterface {
 		return wp_delete_user( $data['ID'], $data['reassign'] ?? null );
 	}
 
+    /**
+     * Поиск пользователя по Email.
+     */
+    public function getByEmail( string $email ): ?UserDTO {
+        $user = get_user_by( 'email', $email );
+        return $user instanceof \WP_User ? UserDTO::fromWPUser( $user ) : null;
+    }
+
+    /**
+     * Создание нового пользователя.
+     */
+    public function create( array $data ): ?UserDTO {
+        $user_id = wp_insert_user( [
+            'user_login'   => $data['user_login'],
+            'user_email'   => $data['user_email'],
+            'display_name' => $data['display_name'],
+            'role'         => $data['role'],
+            'user_pass'    => wp_generate_password()
+        ] );
+
+        if ( is_wp_error( $user_id ) ) {
+            return null;
+        }
+
+        // Используем новый метод вместо дублирования логики
+        if ( ! empty( $data['meta'] ) ) {
+            $this->updateMeta( $user_id, $data['meta'] );
+        }
+
+        return $this->getById( $user_id );
+    }
+
+    /**
+     * Массовое обновление мета-полей.
+     * Полезно для AuthService и сохранения кастомных настроек профиля.
+     */
+    public function updateMeta( int $user_id, array $meta ): void {
+        foreach ( $meta as $key => $value ) {
+            // update_user_meta сам проверяет, изменилось ли значение
+            update_user_meta( $user_id, $key, $value );
+        }
+    }
+
 	// ============================ КАСТОМНЫЕ МЕТОДЫ ============================ //
 
 	/**
@@ -145,4 +188,5 @@ class UserRepository implements RepositoryInterface {
 
 		return UserDTO::fromWPUser( $users[0] );
 	}
+
 }
