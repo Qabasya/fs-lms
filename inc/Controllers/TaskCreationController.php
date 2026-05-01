@@ -72,7 +72,7 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 
 				// include_once — подключает PHP-файл с HTML-разметкой модального окна
 				// $this->plugin_path — свойство родительского класса BaseController (путь к плагину)
-				include_once $this->plugin_path . 'templates/components/modals/task-creation-modal.php';
+				include_once $this->plugin_path . 'templates/admin/components/modals/task-creation-modal.php';
 			}
 		);
 
