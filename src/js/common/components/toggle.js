@@ -17,8 +17,6 @@ export const ToggleComponent = {
 
 
             const $switch = $checkbox.next('.fs-toggle-switch');
-            $switch.css('opacity', '0.5');
-
 
         });
     }

@@ -7,7 +7,7 @@ namespace Inc\Enums;
 enum AuthProvider: string {
     case GOOGLE    = 'Google';
     case VK = 'VK';
-    case GITHUB    = 'GitHub';
+    case GITHUB    = 'Github';
 
     /**
      * Возвращает человекочитаемое название для админки
@@ -16,7 +16,7 @@ enum AuthProvider: string {
         return match( $this ) {
             self::GOOGLE    => 'Google Auth',
             self::VK => 'ВКонтакте',
-            self::GITHUB    => 'GitHub',
+            self::GITHUB    => 'Github',
         };
     }
 }

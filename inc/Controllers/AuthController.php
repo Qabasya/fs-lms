@@ -2,6 +2,7 @@
 
 namespace Inc\Controllers;
 
+use Inc\Callbacks\AuthCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 
@@ -12,7 +13,8 @@ class AuthController extends BaseController implements ServiceInterface
 {
 
     public function __construct(
-        private readonly AuthService $auth_service
+        private readonly AuthService $auth_service,
+        private readonly AuthCallbacks $callbacks
     ) {
         parent::__construct();
     }
@@ -20,6 +22,7 @@ class AuthController extends BaseController implements ServiceInterface
     public function register(): void
     {
         add_action( 'template_redirect', [ $this, 'handleAuthRoutes' ] );
+        add_shortcode( 'lms_auth_test', [ $this->callbacks, 'renderAuthTestPage' ] );
     }
 
     /**
@@ -29,7 +32,6 @@ class AuthController extends BaseController implements ServiceInterface
         $path = trim( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ), '/' );
         $parts = explode( '/', $path );
 
-        // Проверяем, начинается ли путь с lms-auth
         if ( empty( $parts[0] ) || $parts[0] !== 'lms-auth' ) {
             return;
         }
@@ -40,7 +42,15 @@ class AuthController extends BaseController implements ServiceInterface
             exit;
         }
 
-        // 2. Обработка Login: site/lms-auth/{provider}
+        // 2. Обработка Login
+        // Если путь /lms-auth/login?provider=github
+        if ( isset( $parts[1] ) && $parts[1] === 'login' ) {
+            $provider_name = $_GET['provider'] ?? '';
+            $this->processLogin( $provider_name );
+            exit;
+        }
+
+        // 3. Обработка прямого пути (на всякий случай): site/lms-auth/github
         if ( isset( $parts[1] ) ) {
             $this->processLogin( $parts[1] );
             exit;
@@ -69,23 +79,40 @@ class AuthController extends BaseController implements ServiceInterface
      * Обработка возврата пользователя от соцсети.
      */
     private function processCallback(): void {
-        // В callback Hybridauth сам знает, какой провайдер вернулся,
-        // если мы передали его в URL или сессии.
-        // Для надежности можно передать провайдера в параметре: site/lms-auth/callback?provider=Google
+        // 1. Пробуем взять из GET (если мы сами его туда приклеили)
         $provider_name = $_GET['provider'] ?? '';
-        $provider = AuthProvider::tryFrom( ucfirst( strtolower( $provider_name ) ) );
 
-        if ( $provider ) {
-            $user = $this->auth_service->authenticate( $provider, $this->getAuthConfig( $provider ) );
+        // 2. Если в GET пусто, GitHub мог вернуть нас на чистый /callback
+        // В этом случае мы можем попробовать определить провайдера по контексту
+        // или запустить аутентификацию для GitHub по умолчанию, если пришел код.
+        if ( empty( $provider_name ) && isset( $_GET['code'] ) ) {
+            // Для теста форсируем GitHub, если видим, что это возврат от него
+            $provider_name = 'github';
+        }
 
-            if ( $user ) {
-                // Всё прошло успешно, юзер залогинен сервисом
-                wp_safe_redirect( admin_url( 'profile.php' ) );
-                exit;
+        $provider = null;
+        foreach ( AuthProvider::cases() as $case ) {
+            if ( strcasecmp( $case->value, $provider_name ) === 0 ) {
+                $provider = $case;
+                break;
             }
         }
 
-        wp_die( 'Ошибка авторизации. Попробуйте еще раз.' );
+        if ( $provider ) {
+            try {
+                $user = $this->auth_service->authenticate( $provider, $this->getAuthConfig( $provider ) );
+
+                if ( $user ) {
+                    wp_safe_redirect( home_url( '/wp-admin/profile.php' ) );
+                    exit;
+                }
+            } catch ( \Exception $e ) {
+                // Если что-то пошло не так внутри Hybridauth, посмотрим ошибку
+                wp_die( 'Hybridauth error: ' . $e->getMessage() );
+            }
+        }
+
+        wp_die( 'Ошибка авторизации: не удалось определить провайдера.' );
     }
 
     /**
@@ -93,34 +120,45 @@ class AuthController extends BaseController implements ServiceInterface
      * чтобы формировать уникальный callback URL.
      */
     private function getAuthConfig( ?AuthProvider $current_provider = null ): array {
+        // Получаем сохраненные настройки из базы
+        $settings = get_option( 'fs_lms_auth_settings', [] );
+
         $callback = home_url( '/lms-auth/callback' );
 
-        // Добавляем в callback параметр провайдера, чтобы не терять его
         if ( $current_provider ) {
-            $callback = add_query_arg( 'provider', $current_provider->value, $callback );
+            // Приводим к нижнему регистру для URL: github, vk, google
+            $callback = add_query_arg( 'provider', strtolower($current_provider->value), $callback );
         }
 
         return [
             'callback'  => $callback,
             'providers' => [
                 'Google' => [
-                    'enabled' => true,
+                    'enabled' => !empty($settings['google_enabled']),
                     'keys'    => [
-                        'id'     => 'ВАШ_ID.apps.googleusercontent.com',
-                        'secret' => 'ВАШ_СЕКРЕТ'
+                        'id'     => $settings['google_id'] ?? '',
+                        'secret' => $settings['google_secret'] ?? ''
                     ],
                 ],
-                'VK' => [
-                    'enabled' => true,
+                // ВАЖНО: Для Hybridauth используем ключ 'Vkontakte'
+                'Vkontakte' => [
+                    'enabled' => !empty($settings['vk_enabled']),
                     'keys'    => [
-                        'id'     => 'ID_ПРИЛОЖЕНИЯ_ВК',
-                        'secret' => 'СЕКРЕТНЫЙ_КЛЮЧ_ВК'
+                        'id'     => $settings['vk_id'] ?? '',
+                        'secret' => $settings['vk_secret'] ?? ''
+                    ],
+                ],
+                // ВАЖНО: Для Hybridauth используем ключ 'GitHub'
+                'GitHub' => [
+                    'enabled' => !empty($settings['github_enabled']),
+                    'keys'    => [
+                        'id'     => $settings['github_id'] ?? '',
+                        'secret' => $settings['github_secret'] ?? ''
                     ],
                 ],
             ],
-            // Полезно для отладки, создаст файл в корне плагина
             'debug_mode' => true,
-            'debug_file' => __DIR__ . '/hybridauth.log',
+            'debug_file' => WP_CONTENT_DIR . '/hybridauth.log',
         ];
     }
 }

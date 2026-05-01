@@ -8,6 +8,7 @@ import {PostsTable} from './services/posts-table.js';
 import {RequiredTaxGuard} from './services/required-tax-guard.js';
 import {TaskFilter} from "./services/task-dashboard.js";
 import {RecentContent} from "./services/recent-posts";
+import {AuthSettings} from "./services/AuthSettings";
 
 (function ($) {
     'use strict';
@@ -41,6 +42,10 @@ import {RecentContent} from "./services/recent-posts";
 
         if ($('#fs-recent-tasks-container, #fs-recent-articles-container').length) {
             RecentContent.init();
+        }
+
+        if ($('.js-provider-toggle').length) {
+            AuthSettings.init();
         }
 
     });
