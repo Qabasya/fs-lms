@@ -105,6 +105,8 @@ class AuthService {
             ]
         ]);
     }
+
+    // Тут еще подумать, может убрать эту приписку в конце
     private function generateUniqueLogin( string $baseName ): string {
         $login = sanitize_user( $baseName, true );
         // Добавляем случайный хвост для уникальности

@@ -6,7 +6,7 @@ namespace Inc\Enums;
 
 enum AuthProvider: string {
     case GOOGLE    = 'Google';
-    case VK = 'VK';
+    case VKONTAKTE = 'VK';
     case GITHUB    = 'Github';
 
     /**
@@ -15,8 +15,28 @@ enum AuthProvider: string {
     public function label(): string {
         return match( $this ) {
             self::GOOGLE    => 'Google Auth',
-            self::VK => 'ВКонтакте',
+            self::VKONTAKTE => 'ВКонтакте',
             self::GITHUB    => 'Github',
+        };
+    }
+    public static function fromRequest(string $value): ?self
+    {
+        $value = strtolower(trim($value));
+
+        return match ($value) {
+            'google' => self::GOOGLE,
+            'vk', 'vkontakte', 'vk.com' => self::VKONTAKTE,
+            'github', 'git hub' => self::GITHUB,
+            default => null,
+        };
+    }
+
+    public function configKey(): string
+    {
+        return match ($this) {
+            self::GOOGLE => 'google',
+            self::VKONTAKTE => 'vk',
+            self::GITHUB => 'github',
         };
     }
 }

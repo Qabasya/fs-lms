@@ -21,4 +21,6 @@ enum OptionName: string
 
 	/** Опция для хранения типовых условий (boilerplate) заданий. */
 	case BOILERPLATE = 'fs_lms_task_type_boilerplates';
+
+    case AUTH_SETTINGS = 'fs_lms_auth_settings';
 }
