@@ -57,6 +57,8 @@ class BaseController {
 	 */
 	public string $plugin_version = '0.0.1';
 
+    public const OPTION_PREFIX = 'fs_lms_';
+
 	/**
 	 * Конструктор.
 	 *

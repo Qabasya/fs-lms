@@ -8,8 +8,8 @@ use Inc\DTO\TaskMetaDTO;
 use Inc\Enums\Nonce;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\SubjectRepository;
-use Inc\Services\TemplateRegistry;
-use Inc\Services\TemplateResolver;
+use Inc\Services\TemplateService\TemplateRegistry;
+use Inc\Services\TemplateService\TemplateResolver;
 
 /**
  * Class MetaBoxController

@@ -3,162 +3,207 @@
 namespace Inc\Controllers;
 
 use Inc\Callbacks\AuthCallbacks;
+use Inc\Contracts\AuthStrategyInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-
-use Inc\Services\AuthService;
 use Inc\Enums\AuthProvider;
+use Inc\Services\AuthService\AuthStrategies\GithubAuthStrategy;
+use Inc\Services\AuthService\AuthStrategies\GoogleAuthStrategy;
+use Inc\Services\AuthService\AuthStrategies\VkAuthStrategy;
+use Inc\Services\AuthService\ProviderResolver;
+use Inc\Shared\Traits\ErrorHandler;
 
+/**
+ * Class AuthController
+ *
+ * Контроллер аутентификации через социальные сети (Hybridauth).
+ *
+ * @package Inc\Controllers
+ * @implements ServiceInterface
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Маршрутизация** — обработка кастомных маршрутов для входа через соцсети (/lms-auth/vk, /lms-auth/google).
+ * 2. **Инициализация входа** — перенаправление на страницу авторизации провайдера.
+ * 3. **Обработка callback'а** — получение данных пользователя после успешной авторизации.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует бизнес-логику стратегиям аутентификации (GoogleAuthStrategy, VkAuthStrategy и др.),
+ * определение провайдера — ProviderResolver. Является точкой входа для всего функционала
+ * аутентификации через соцсети.
+ */
 class AuthController extends BaseController implements ServiceInterface
 {
+    use ErrorHandler;  // Трейт с методами logException(), sendError()
+
+    // Префикс маршрутов для аутентификации (URL: /lms-auth/{provider})
+    private const string ROUTE_PREFIX = 'lms-auth';
+
+    /**
+     * Список доступных стратегий (провайдер → объект стратегии).
+     *
+     * @var array<string, AuthStrategyInterface>
+     */
+    private array $strategies = [];
 
     public function __construct(
-        private readonly AuthService $auth_service,
-        private readonly AuthCallbacks $callbacks
+        private readonly AuthCallbacks    $callbacks,
+        private readonly ProviderResolver $provider_resolver,
+
+        // Внедрение конкретных стратегий через DI-контейнер
+        GoogleAuthStrategy                $google_strategy,
+        VkAuthStrategy                    $vk_strategy,
+        GithubAuthStrategy                $github_strategy,
     ) {
         parent::__construct();
+
+        // Регистрация стратегий с привязкой к значению enum
+        $this->strategies = [
+            AuthProvider::GOOGLE->value    => $google_strategy,
+            AuthProvider::VKONTAKTE->value => $vk_strategy,
+            AuthProvider::GITHUB->value    => $github_strategy,
+        ];
     }
 
+    /**
+     * Регистрирует все хуки и шорткоды контроллера.
+     *
+     * @return void
+     */
     public function register(): void
     {
+        // 'template_redirect' — хук, срабатывающий перед загрузкой шаблона темы
         add_action( 'template_redirect', [ $this, 'handleAuthRoutes' ] );
+
+        // add_shortcode() — регистрирует шорткод для тестовой страницы авторизации
         add_shortcode( 'lms_auth_test', [ $this->callbacks, 'renderAuthTestPage' ] );
     }
 
     /**
-     * Логика "роутинга" через разбор URL.
+     * Обрабатывает кастомные маршруты аутентификации.
+     *
+     * @return void
      */
-    public function handleAuthRoutes(): void {
-        $path = trim( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ), '/' );
-        $parts = explode( '/', $path );
+    public function handleAuthRoutes(): void
+    {
+        // parse_url(, PHP_URL_PATH) — извлекает только путь из URL
+        $path = trim( parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH ), '/' );
 
-        if ( empty( $parts[0] ) || $parts[0] !== 'lms-auth' ) {
+        // str_starts_with() — проверяет начало строки (PHP 8.0)
+        if ( ! str_starts_with( $path, self::ROUTE_PREFIX . '/' ) ) {
             return;
         }
 
-        // 1. Обработка Callback: site/lms-auth/callback
-        if ( isset( $parts[1] ) && $parts[1] === 'callback' ) {
+        // explode() — разбивает строку по разделителю '/'
+        // array_filter() — удаляет пустые элементы
+        // array_values() — переиндексирует массив
+        $parts  = array_values( array_filter( explode( '/', $path ) ) );
+        $action = $parts[1] ?? null;
+
+        // Маршрут: /lms-auth/callback — обработка ответа от провайдера
+        if ( $action === 'callback' ) {
             $this->processCallback();
-            exit;
+            return;
         }
 
-        // 2. Обработка Login
-        // Если путь /lms-auth/login?provider=github
-        if ( isset( $parts[1] ) && $parts[1] === 'login' ) {
-            $provider_name = $_GET['provider'] ?? '';
-            $this->processLogin( $provider_name );
-            exit;
+        // Если это /lms-auth/login — показываем выбор провайдеров
+        if ( $action === 'login' ) {
+            // Здесь может быть рендер страницы логина (заглушка)
+            return;
         }
 
-        // 3. Обработка прямого пути (на всякий случай): site/lms-auth/github
-        if ( isset( $parts[1] ) ) {
-            $this->processLogin( $parts[1] );
-            exit;
-        }
-    }
-
-    /**
-     * Запуск процесса авторизации.
-     */
-    private function processLogin( string $provider_name ): void {
-        // Пытаемся найти провайдера в нашем Enum
-        $provider = AuthProvider::tryFrom( ucfirst( strtolower( $provider_name ) ) );
-
-        if ( ! $provider ) {
-            wp_die( 'Неизвестный провайдер авторизации.', 'Ошибка LMS', [ 'response' => 404 ] );
-        }
-
-        // Получаем конфиг (пока хардкод, позже вынесем в SettingsManager)
-        $config = $this->getAuthConfig();
-
-        // Запускаем процесс (AuthService сам сделает редирект на сторону соцсети)
-        $this->auth_service->authenticate( $provider, $config );
-    }
-
-    /**
-     * Обработка возврата пользователя от соцсети.
-     */
-    private function processCallback(): void {
-        // 1. Пробуем взять из GET (если мы сами его туда приклеили)
-        $provider_name = $_GET['provider'] ?? '';
-
-        // 2. Если в GET пусто, GitHub мог вернуть нас на чистый /callback
-        // В этом случае мы можем попробовать определить провайдера по контексту
-        // или запустить аутентификацию для GitHub по умолчанию, если пришел код.
-        if ( empty( $provider_name ) && isset( $_GET['code'] ) ) {
-            // Для теста форсируем GitHub, если видим, что это возврат от него
-            $provider_name = 'github';
-        }
-
-        $provider = null;
-        foreach ( AuthProvider::cases() as $case ) {
-            if ( strcasecmp( $case->value, $provider_name ) === 0 ) {
-                $provider = $case;
-                break;
-            }
-        }
-
+        // Если это /lms-auth/{provider} — вход через конкретного провайдера
+        $provider = AuthProvider::fromRequest( (string) $action );
         if ( $provider ) {
-            try {
-                $user = $this->auth_service->authenticate( $provider, $this->getAuthConfig( $provider ) );
-
-                if ( $user ) {
-                    wp_safe_redirect( home_url( '/wp-admin/profile.php' ) );
-                    exit;
-                }
-            } catch ( \Exception $e ) {
-                // Если что-то пошло не так внутри Hybridauth, посмотрим ошибку
-                wp_die( 'Hybridauth error: ' . $e->getMessage() );
-            }
+            $this->processLogin( $provider );
         }
-
-        wp_die( 'Ошибка авторизации: не удалось определить провайдера.' );
     }
 
     /**
-     * Конфигурация. Добавим параметр $current_provider,
-     * чтобы формировать уникальный callback URL.
+     * Инициализирует процесс входа через социальную сеть.
+     *
+     * @param AuthProvider|null $provider Провайдер (vk, google, github)
+     *
+     * @return void
      */
-    private function getAuthConfig( ?AuthProvider $current_provider = null ): array {
-        // Получаем сохраненные настройки из базы
-        $settings = get_option( 'fs_lms_auth_settings', [] );
+    private function processLogin( ?AuthProvider $provider = null ): void
+    {
+        $provider = $provider ?? $this->provider_resolver->fromRequest();
+        $strategy = $this->getStrategy( $provider );
 
-        $callback = home_url( '/lms-auth/callback' );
-
-        if ( $current_provider ) {
-            // Приводим к нижнему регистру для URL: github, vk, google
-            $callback = add_query_arg( 'provider', strtolower($current_provider->value), $callback );
+        if ( ! $strategy ) {
+            $this->sendError( 'unknown_provider', 'Провайдер не поддерживается или не настроен', 400 );
+            return;
         }
 
-        return [
-            'callback'  => $callback,
-            'providers' => [
-                'Google' => [
-                    'enabled' => !empty($settings['google_enabled']),
-                    'keys'    => [
-                        'id'     => $settings['google_id'] ?? '',
-                        'secret' => $settings['google_secret'] ?? ''
-                    ],
-                ],
-                // ВАЖНО: Для Hybridauth используем ключ 'Vkontakte'
-                'Vkontakte' => [
-                    'enabled' => !empty($settings['vk_enabled']),
-                    'keys'    => [
-                        'id'     => $settings['vk_id'] ?? '',
-                        'secret' => $settings['vk_secret'] ?? ''
-                    ],
-                ],
-                // ВАЖНО: Для Hybridauth используем ключ 'GitHub'
-                'GitHub' => [
-                    'enabled' => !empty($settings['github_enabled']),
-                    'keys'    => [
-                        'id'     => $settings['github_id'] ?? '',
-                        'secret' => $settings['github_secret'] ?? ''
-                    ],
-                ],
-            ],
-            'debug_mode' => true,
-            'debug_file' => WP_CONTENT_DIR . '/hybridauth.log',
-        ];
+        // login() — перенаправляет на страницу авторизации провайдера
+        $strategy->login();
+    }
+
+    /**
+     * Обрабатывает callback-запрос от провайдера после авторизации.
+     *
+     * @return void
+     */
+    private function processCallback(): void
+    {
+        $provider = $this->provider_resolver->fromCallback();
+        $strategy = $this->getStrategy( $provider );
+
+        if ( ! $strategy ) {
+            $this->sendError( 'unknown_provider', 'Не удалось определить стратегию для callback', 400 );
+            return;
+        }
+
+        try {
+            // authenticate() — получает профиль и возвращает UserDTO
+            $user = $strategy->authenticate();
+
+            if ( $user ) {
+                // apply_filters() — позволяет переопределить URL редиректа
+                $redirect = apply_filters( 'lms_auth_redirect_url', home_url( '/wp-admin/profile.php' ), $user );
+                // wp_safe_redirect() — безопасный редирект (только локальные URL)
+                wp_safe_redirect( $redirect );
+                exit;
+            }
+
+            $this->sendError( 'auth_failed', 'Ошибка авторизации через соцсеть', 401 );
+
+        } catch ( \Exception $e ) {
+            $this->logAuthError( $e, $provider );
+            $this->sendError( 'auth_error', 'Техническая ошибка при обработке ответа', 500 );
+        }
+    }
+
+    /**
+     * Возвращает стратегию для указанного провайдера.
+     *
+     * @param AuthProvider|null $provider Провайдер
+     *
+     * @return AuthStrategyInterface|null
+     */
+    private function getStrategy( ?AuthProvider $provider ): ?AuthStrategyInterface
+    {
+        if ( ! $provider ) {
+            return null;
+        }
+        return $this->strategies[ $provider->value ] ?? null;
+    }
+
+    /**
+     * Логирует ошибку аутентификации.
+     *
+     * @param \Throwable   $e        Исключение
+     * @param AuthProvider $provider Провайдер
+     *
+     * @return void
+     */
+    private function logAuthError( \Throwable $e, AuthProvider $provider ): void
+    {
+        $this->logException( $e, [
+            'provider'  => $provider->value,
+            'component' => 'auth',
+        ] );
     }
 }

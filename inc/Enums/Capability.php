@@ -16,4 +16,7 @@ enum Capability: string {
 	/** Capability для своих преподавателей */
 	case ViewLMSStats         = 'view_lms_stats';
 	case ManageLMSAssignments = 'manage_lms_assignments';
+
+    /** Capability для своих авторизации */
+    case Read         = 'read';
 }
