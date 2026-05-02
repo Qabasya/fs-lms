@@ -3,12 +3,14 @@
 namespace Inc\Controllers;
 
 use Inc\Callbacks\AuthCallbacks;
+use Inc\Contracts\AuthStrategyInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\AuthProvider;
-use Inc\Services\AuthConfigFactory;
-use Inc\Services\AuthService;
-use Inc\Services\ProviderResolver;
+use Inc\Services\AuthService\AuthStrategies\GithubAuthStrategy;
+use Inc\Services\AuthService\AuthStrategies\GoogleAuthStrategy;
+use Inc\Services\AuthService\AuthStrategies\VkAuthStrategy;
+use Inc\Services\AuthService\ProviderResolver;
 use Inc\Shared\Traits\ErrorHandler;
 
 /**
@@ -27,9 +29,9 @@ use Inc\Shared\Traits\ErrorHandler;
  *
  * ### Архитектурная роль:
  *
- * Делегирует бизнес-логику AuthService, определение провайдера — ProviderResolver,
- * а создание конфигурации — AuthConfigFactory. Является точкой входа для всего
- * функционала аутентификации через соцсети.
+ * Делегирует бизнес-логику стратегиям аутентификации (GoogleAuthStrategy, VkAuthStrategy и др.),
+ * определение провайдера — ProviderResolver. Является точкой входа для всего функционала
+ * аутентификации через соцсети.
  */
 class AuthController extends BaseController implements ServiceInterface
 {
@@ -38,13 +40,30 @@ class AuthController extends BaseController implements ServiceInterface
     // Префикс маршрутов для аутентификации (URL: /lms-auth/{provider})
     private const string ROUTE_PREFIX = 'lms-auth';
 
+    /**
+     * Список доступных стратегий (провайдер → объект стратегии).
+     *
+     * @var array<string, AuthStrategyInterface>
+     */
+    private array $strategies = [];
+
     public function __construct(
-        private readonly AuthService       $auth_service,
-        private readonly AuthCallbacks     $callbacks,
-        private readonly ProviderResolver  $provider_resolver,
-        private readonly AuthConfigFactory $config_factory,
+        private readonly AuthCallbacks    $callbacks,
+        private readonly ProviderResolver $provider_resolver,
+
+        // Внедрение конкретных стратегий через DI-контейнер
+        GoogleAuthStrategy                $google_strategy,
+        VkAuthStrategy                    $vk_strategy,
+        GithubAuthStrategy                $github_strategy,
     ) {
         parent::__construct();
+
+        // Регистрация стратегий с привязкой к значению enum
+        $this->strategies = [
+            AuthProvider::GOOGLE->value    => $google_strategy,
+            AuthProvider::VKONTAKTE->value => $vk_strategy,
+            AuthProvider::GITHUB->value    => $github_strategy,
+        ];
     }
 
     /**
@@ -68,8 +87,7 @@ class AuthController extends BaseController implements ServiceInterface
      */
     public function handleAuthRoutes(): void
     {
-        // parse_url() — разбирает URL на компоненты
-        // PHP_URL_PATH — получить только путь
+        // parse_url(, PHP_URL_PATH) — извлекает только путь из URL
         $path = trim( parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH ), '/' );
 
         // str_starts_with() — проверяет начало строки (PHP 8.0)
@@ -89,47 +107,38 @@ class AuthController extends BaseController implements ServiceInterface
             return;
         }
 
-        // Маршрут: /lms-auth/login — страница выбора провайдера
+        // Если это /lms-auth/login — показываем выбор провайдеров
         if ( $action === 'login' ) {
-            $this->processLogin();
+            // Здесь может быть рендер страницы логина (заглушка)
             return;
         }
 
-        // Маршрут: /lms-auth/{provider} — вход через конкретного провайдера
+        // Если это /lms-auth/{provider} — вход через конкретного провайдера
         $provider = AuthProvider::fromRequest( (string) $action );
-
-        if ( ! $provider ) {
-            $this->sendError( 'unknown_provider', 'Неизвестный провайдер', 404 );
-            return;
+        if ( $provider ) {
+            $this->processLogin( $provider );
         }
-
-        $this->processLogin( $provider );
     }
 
     /**
      * Инициализирует процесс входа через социальную сеть.
      *
-     * @param AuthProvider|null $provider Провайдер (vk, google, facebook)
+     * @param AuthProvider|null $provider Провайдер (vk, google, github)
      *
      * @return void
      */
     private function processLogin( ?AuthProvider $provider = null ): void
     {
-        // Если провайдер не передан — пытаемся определить из запроса
-        if ( ! $provider ) {
-            $provider = $this->provider_resolver->fromRequest();
-        }
+        $provider = $provider ?? $this->provider_resolver->fromRequest();
+        $strategy = $this->getStrategy( $provider );
 
-        if ( ! $provider ) {
-            $this->sendError( 'unknown_provider', 'Провайдер не указан', 400 );
+        if ( ! $strategy ) {
+            $this->sendError( 'unknown_provider', 'Провайдер не поддерживается или не настроен', 400 );
             return;
         }
 
-        // Создание конфигурации для Hybridauth
-        $config = $this->config_factory->make( $provider );
-
-        // Перенаправление на страницу авторизации соцсети
-        $this->auth_service->startLogin( $provider, $config );
+        // login() — перенаправляет на страницу авторизации провайдера
+        $strategy->login();
     }
 
     /**
@@ -139,18 +148,17 @@ class AuthController extends BaseController implements ServiceInterface
      */
     private function processCallback(): void
     {
-        // Определяем провайдера из параметров callback'а
         $provider = $this->provider_resolver->fromCallback();
+        $strategy = $this->getStrategy( $provider );
 
-        if ( ! $provider instanceof AuthProvider ) {
-            $this->sendError( 'unknown_provider', 'Не удалось определить провайдера', 400 );
+        if ( ! $strategy ) {
+            $this->sendError( 'unknown_provider', 'Не удалось определить стратегию для callback', 400 );
             return;
         }
 
         try {
-            $config = $this->config_factory->make( $provider );
-            // Аутентификация и создание/вход пользователя
-            $user = $this->auth_service->authenticate( $provider, $config );
+            // authenticate() — получает профиль и возвращает UserDTO
+            $user = $strategy->authenticate();
 
             if ( $user ) {
                 // apply_filters() — позволяет переопределить URL редиректа
@@ -160,12 +168,27 @@ class AuthController extends BaseController implements ServiceInterface
                 exit;
             }
 
-            $this->sendError( 'auth_failed', 'Не удалось получить данные пользователя', 401 );
+            $this->sendError( 'auth_failed', 'Ошибка авторизации через соцсеть', 401 );
 
         } catch ( \Exception $e ) {
             $this->logAuthError( $e, $provider );
-            $this->sendError( 'auth_error', 'Произошла ошибка при авторизации', 500 );
+            $this->sendError( 'auth_error', 'Техническая ошибка при обработке ответа', 500 );
         }
+    }
+
+    /**
+     * Возвращает стратегию для указанного провайдера.
+     *
+     * @param AuthProvider|null $provider Провайдер
+     *
+     * @return AuthStrategyInterface|null
+     */
+    private function getStrategy( ?AuthProvider $provider ): ?AuthStrategyInterface
+    {
+        if ( ! $provider ) {
+            return null;
+        }
+        return $this->strategies[ $provider->value ] ?? null;
     }
 
     /**

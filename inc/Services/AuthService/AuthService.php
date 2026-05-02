@@ -2,13 +2,13 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\AuthService;
 
 use Hybridauth\Hybridauth;
-use Inc\Enums\AuthProvider;
-use Inc\Repositories\UserRepository;
 use Inc\DTO\UserDTO;
+use Inc\Enums\AuthProvider;
 use Inc\Enums\UserRole;
+use Inc\Repositories\UserRepository;
 
 /**
  * Class AuthService
@@ -37,72 +37,42 @@ class AuthService {
     ) {}
 
     /**
-     * Инициирует OAuth-редирект к провайдеру.
+     * Основная точка входа для всех стратегий.
+     * Принимает очищенный профиль из соцсети и выполняет "приземление" данных.
      *
-     * @param AuthProvider $provider Провайдер (Google, VK, GitHub)
-     * @param array        $config   Конфигурация Hybridauth
-     *
-     * @return void
-     */
-    public function startLogin( AuthProvider $provider, array $config ): void {
-        $this->init( $config );
-        // authenticate() — перенаправляет на страницу авторизации провайдера
-        $this->hybridauth->authenticate( $provider->hybridauthKey() );
-    }
-
-    /**
-     * Обрабатывает возврат от провайдера.
-     *
-     * @param AuthProvider $provider Провайдер
-     * @param array        $config   Конфигурация Hybridauth
-     *
+     * @param AuthProvider $provider
+     * @param object       $profile Профиль от Hybridauth
      * @return UserDTO|null
      */
-    public function authenticate( AuthProvider $provider, array $config ): ?UserDTO {
-        try {
-            $this->init( $config );
+    public function processUserFromSocialProfile( AuthProvider $provider, object $profile ): ?UserDTO
+    {
+        // 1. Пытаемся найти пользователя по ID соцсети
+        $user = $this->user_repo->getBySocialId( $provider->value, (string) $profile->identifier );
 
-            $adapter = $this->hybridauth->authenticate( $provider->hybridauthKey() );
-            // getUserProfile() — получает профиль пользователя из соцсети
-            $profile = $adapter->getUserProfile();
+        // 2. Если по ID не нашли, проверяем по Email (склейка аккаунтов)
+        if ( ! $user && ! empty( $profile->email ) ) {
+            $user = $this->user_repo->getByEmail( $profile->email );
 
-            // disconnect() — закрывает соединение с провайдером
-            $adapter->disconnect();
-
-            // 1. Поиск пользователя по Social ID (мета-поле fs_social_{provider}_id)
-            $user = $this->user_repo->getBySocialId( $provider->value, (string) $profile->identifier );
-
-            // 2. Если не нашли — ищем по Email
-            if ( ! $user && ! empty( $profile->email ) ) {
-                $user = $this->user_repo->getByEmail( $profile->email );
-
-                // Если нашли по Email — привязываем соцсеть к существующему аккаунту
-                if ( $user ) {
-                    $this->user_repo->updateMeta( $user->id, [
-                        "fs_social_{$provider->value}_id" => $profile->identifier
-                    ] );
-                }
-            }
-
-            // 3. Если пользователь не найден — регистрируем нового
-            if ( ! $user ) {
-                $user = $this->registerSocialUser( $provider, $profile );
-            }
-
-            // 4. Если пользователь успешно найден или создан — выполняем вход
             if ( $user ) {
-                $this->login( $user );
+                // Если нашли по email — привязываем текущую соцсеть
+                $this->user_repo->updateMeta( $user->id, [
+                    "fs_social_{$provider->value}_id" => $profile->identifier
+                ] );
             }
-
-            return $user;
-
-        } catch ( \Exception $e ) {
-            // error_log() — записывает ошибку в лог PHP
-            error_log( 'LMS Auth Error: ' . $e->getMessage() );
-            return null;
         }
-    }
 
+        // 3. Если пользователя всё еще нет — регистрируем нового
+        if ( ! $user ) {
+            $user = $this->registerSocialUser( $provider, $profile );
+        }
+
+        // 4. Если в итоге пользователь есть — логиним его в WP
+        if ( $user ) {
+            $this->login( $user );
+        }
+
+        return $user;
+    }
     /**
      * Выполняет вход пользователя в WordPress.
      *
@@ -122,18 +92,6 @@ class AuthService {
         do_action( 'wp_login', $user->email, get_userdata( $user->id ) );
     }
 
-    /**
-     * Инициализирует объект Hybridauth.
-     *
-     * @param array $config Конфигурация
-     *
-     * @return void
-     */
-    private function init( array $config ): void {
-        if ( null === $this->hybridauth ) {
-            $this->hybridauth = new Hybridauth( $config );
-        }
-    }
 
     /**
      * Создаёт нового пользователя на основе профиля из соцсети.
