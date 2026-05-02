@@ -34,9 +34,18 @@ enum AuthProvider: string {
     public function configKey(): string
     {
         return match ($this) {
-            self::GOOGLE => 'google',
+            self::GOOGLE    => 'google',
             self::VKONTAKTE => 'vk',
-            self::GITHUB => 'github',
+            self::GITHUB    => 'github',
+        };
+    }
+
+    public function hybridauthKey(): string
+    {
+        return match ($this) {
+            self::GOOGLE    => 'Google',
+            self::VKONTAKTE => 'Vkontakte',
+            self::GITHUB    => 'GitHub',
         };
     }
 }

@@ -19,6 +19,7 @@ const ConfirmModal = {
     init() {
         this.$body = $('body');
         this.$modal = $('#fs-lms-confirm-modal');
+
     },
 
     /**

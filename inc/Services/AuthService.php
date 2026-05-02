@@ -23,13 +23,21 @@ class AuthService {
     ) {}
 
     /**
-     * Основной метод входа. Принимает Enum провайдера и массив конфига.
+     * Инициирует OAuth-редирект к провайдеру. Вызывается на этапе логина.
+     */
+    public function startLogin( AuthProvider $provider, array $config ): void {
+        $this->init( $config );
+        $this->hybridauth->authenticate( $provider->hybridauthKey() );
+    }
+
+    /**
+     * Обрабатывает возврат от провайдера, возвращает UserDTO. Вызывается на этапе callback.
      */
     public function authenticate( AuthProvider $provider, array $config ): ?UserDTO {
         try {
             $this->init( $config );
 
-            $adapter = $this->hybridauth->authenticate( $provider->value );
+            $adapter = $this->hybridauth->authenticate( $provider->hybridauthKey() );
             $profile = $adapter->getUserProfile();
 
             // Важно: отключаемся от адаптера, чтобы не держать лишних соединений

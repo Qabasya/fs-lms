@@ -54,7 +54,7 @@ class AuthConfigFactory
         foreach (AuthProvider::cases() as $provider) {
             $key = $provider->configKey();
 
-            $result[$provider->label()] = $this->buildProvider($key, $settings);
+            $result[$provider->hybridauthKey()] = $this->buildProvider($key, $settings);
         }
 
         return $result;

@@ -4,7 +4,6 @@ namespace Inc\Shared\Traits;
 
 use Inc\Enums\Capability;
 use Throwable;
-use Inc\Enums\AuthProvider;
 
 trait ErrorHandler
 {
@@ -64,17 +63,6 @@ trait ErrorHandler
                 'trace' => WP_DEBUG ? $e->getTraceAsString() : null,
             ])
         );
-    }
-
-    /**
-     * Удобный метод для логирования ошибок авторизации.
-     */
-    protected function logAuthError(Throwable $e, AuthProvider $provider): void
-    {
-        $this->logException($e, [
-            'provider' => $provider->value,
-            'component' => 'auth',
-        ]);
     }
 
     /**
