@@ -11,7 +11,7 @@ class AuthCallbacks extends BaseController
     public function __construct( private readonly SettingsRepository $settings_repo ) {
         parent::__construct();
     }
-
+// Временная функция
     public function renderAuthTestPage(): string {
         $output  = '<div class="lms-auth-test-wrapper" style="padding: 20px; border: 1px solid #ccc;">';
         $output .= '<h3>Тест авторизации</h3>';
