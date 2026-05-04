@@ -15,8 +15,8 @@ $tabs = array(
 		'file'  => '/components/tabs/settings-tabs/settings-1-subjects-manager.php',
 	),
 	'tab-2' => array(
-		'title' => 'Вкладка 2',
-		'file'  => '/components/tabs/settings-tabs/tab-2.php',
+		'title' => 'Настройки',
+		'file'  => '/components/tabs/settings-tabs/settings-2-settings-manager.php',
 	),
 	'tab-3' => array(
 		'title' => 'Вкладка 3',

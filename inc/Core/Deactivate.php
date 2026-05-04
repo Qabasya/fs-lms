@@ -2,6 +2,9 @@
 
 namespace Inc\Core;
 
+use Inc\Managers\UserManager;
+use Inc\Core\Container;
+
 /**
  * Class Deactivate
  *
@@ -30,6 +33,14 @@ class Deactivate {
 	 * @return void
 	 */
 	public static function deactivate(): void {
+		// Создаем контейнер, чтобы разрешить зависимости UserManager
+		$container = new Container();
+		
+		/** @var UserManager $user_manager */
+		$user_manager = $container->get( UserManager::class );
+		
+		$user_manager->removeRoles();
+		
 		flush_rewrite_rules();
 	}
 }

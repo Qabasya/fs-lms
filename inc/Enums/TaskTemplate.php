@@ -7,6 +7,7 @@ use Inc\MetaBoxes\Templates\CommonConditionTemplate;
 use Inc\MetaBoxes\Templates\FileCodeTaskTemplate;
 use Inc\MetaBoxes\Templates\FileTaskTemplate;
 use Inc\MetaBoxes\Templates\StandardTaskTemplate;
+use Inc\MetaBoxes\Templates\TaskTextSolution;
 use Inc\MetaBoxes\Templates\ThreeInOneTemplate;
 use Inc\MetaBoxes\Templates\TwoFileCodeTaskTemplate;
 
@@ -39,10 +40,11 @@ enum TaskTemplate: string {
 	 */
 	case COMMON = 'common_standard_task';
 
-	case CODE      = 'code_task';
-	case FILE_CODE = 'file_code_task';
-	case FILE      = 'file_task';
-	case TWO_FILE  = 'two_file_code_task';
+	case CODE          = 'code_task';
+	case FILE_CODE     = 'file_code_task';
+	case FILE          = 'file_task';
+	case TWO_FILE      = 'two_file_code_task';
+	case TEXT_SOLUTION = 'text_task';
 
 	/**
 	 * Умный конструктор Enum с фолбеком на STANDARD.
@@ -85,16 +87,17 @@ enum TaskTemplate: string {
 			self::STANDARD => StandardTaskTemplate::class,
 			self::TRIPLE => ThreeInOneTemplate::class,
 			self::COMMON => CommonConditionTemplate::class,
-			
+
 			self::CODE      => CodeTaskTemplate::class,
 			self::FILE_CODE => FileCodeTaskTemplate::class,
 			self::FILE      => FileTaskTemplate::class,
 			self::TWO_FILE  => TwoFileCodeTaskTemplate::class,
+			self::TEXT_SOLUTION  => TaskTextSolution::class,
 		};
 	}
 
 	/**
-	 * Возвращает человекочитаемое название шаблона для интерфейса.
+	 * Возвращает человекочитаемое название шаблона для boilerplate.
 	 *
 	 * Используется в выпадающих списках и метках интерфейса.
 	 *

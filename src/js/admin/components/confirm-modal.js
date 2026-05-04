@@ -20,9 +20,6 @@ const ConfirmModal = {
         this.$body = $('body');
         this.$modal = $('#fs-lms-confirm-modal');
 
-        if (!this.$modal.length) {
-            console.warn('[ConfirmModal] Модалка не найдена в DOM. Проверьте подключение confirm-modal.php');
-        }
     },
 
     /**

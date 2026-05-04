@@ -33,7 +33,7 @@ class CommonConditionTemplate extends BaseTemplate {
 		$this->fields = array(
 			'common_condition' => array(
 				'label'  => 'Базовое условие:',
-				'object' => new ConditionField(),    // Неизменяемая часть условия
+				'object' => new ConditionField(),    // Неизменяемая часть условия (важно, чтобы при сортировке было первым)
 			),
 			'task_condition'   => array(
 				'label'  => 'Вариативное условие:',

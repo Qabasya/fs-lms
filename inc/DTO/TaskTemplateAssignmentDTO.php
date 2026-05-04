@@ -8,24 +8,31 @@ namespace Inc\DTO;
  * Data Transfer Object для хранения информации о назначении шаблона
  * конкретному номеру задания в определённом предмете.
  *
- * Используется для типобезопасной передачи данных о привязке
- * заданий к шаблонам метабоксов между слоями приложения.
- *
  * @package Inc\DTO
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Хранение привязки** — объединяет ключ предмета, номер задания и ID шаблона.
+ * 2. **Типобезопасная передача** — обеспечивает строгую типизацию данных о привязке.
+ *
+ * ### Архитектурная роль:
+ *
+ * Используется в MetaBoxRepository для передачи данных о том,
+ * какой шаблон метабокса привязан к конкретному номеру задания в предмете.
  */
-class TaskTemplateAssignmentDTO
+readonly class TaskTemplateAssignmentDTO
 {
-    /**
-     * Конструктор DTO.
-     *
-     * @param string $subject_key Ключ предмета (slug), к которому относится задание
-     * @param string $task_number Номер задания (например, "1" или "task_1")
-     * @param string $template_id Идентификатор шаблона метабокса (например, "standard_task")
-     */
-    public function __construct(
-        public readonly string $subject_key,
-        public readonly string $task_number,
-        public readonly string $template_id
-    ) {
-    }
+	/**
+	 * Конструктор DTO.
+	 *
+	 * @param string $subject_key Ключ предмета (slug), например 'math' или 'physics'
+	 * @param string $task_number Номер задания (например, '1', '2' или 'task_1')
+	 * @param string $template_id Идентификатор шаблона метабокса (например, 'standard_task')
+	 */
+	public function __construct(
+		public string $subject_key,
+		public string $task_number,
+		public string $template_id
+	) {
+	}
 }
