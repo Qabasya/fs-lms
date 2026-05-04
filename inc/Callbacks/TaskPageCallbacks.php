@@ -5,16 +5,19 @@ declare( strict_types=1 );
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\DTO\SubjectDTO;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\ArticleRepository;
 
 class TaskPageCallbacks extends BaseController {
 
 	public function __construct(
 		private readonly TaxonomyRepository $taxonomy_repository,
 		private readonly SubjectRepository $subject_repository,
+		private readonly ArticleRepository $article_repository,
 		private readonly PostManager $post_manager,
 		private readonly TermManager $term_manager,
 	) {
@@ -101,20 +104,19 @@ class TaskPageCallbacks extends BaseController {
 	 * @param \WP_Post|null $post
 	 * @param string $subject_key
 	 * @param array $meta
-	 * @param mixed|null $subject
+	 * @param SubjectDTO|null $subject
 	 * @param \WP_Term|null $current_task_type
 	 *
 	 * @return array Массив данных страницы задания.
 	 */
-
 	private function buildTaskData(
 		?\WP_Post $post = null,
 		string $subject_key = '',
 		array $meta = array(),
-		mixed $subject = null,
+		?SubjectDTO $subject = null,
 		?\WP_Term $current_task_type = null
 	): array {
-		$post_id = $post ? (int) $post->ID : 0;
+		$post_id = (int) $post?->ID;
 		$subject_label = $subject ? $subject->name : $subject_key;
 
 		return array(
@@ -299,21 +301,15 @@ class TaskPageCallbacks extends BaseController {
 			return array();
 		}
 
-		$query = new \WP_Query( array(
-			'post_type'      => "{$subject_key}_articles",
-			'post_status'    => 'publish',
-			'posts_per_page' => 4,
-			'no_found_rows'  => true,
-			'tax_query'      => array(
-				array(
-					'taxonomy' => $current_task_type->taxonomy,
-					'field'     => 'term_id',
-					'terms'     => $current_task_type->term_id,
-				),
-			),
-		));
+		$post_type = "{$subject_key}_articles";
 
-		return $this->formatArticlePosts( $query->posts );
+		$posts = $this->article_repository->findRelated(
+			$post_type,
+			$current_task_type->term_id,
+			$current_task_type->taxonomy
+		);
+
+		return $this->formatArticlePosts( $posts );
 	}
 
 
@@ -329,15 +325,10 @@ class TaskPageCallbacks extends BaseController {
 			return array();
 		}
 
-		$query = new \WP_Query( array(
-			'post_type'      => "{$subject_key}_articles",
-			'post_status'    => 'publish',
-			'posts_per_page' => 4,
-			'no_found_rows'  => true,
-			'orderby'        => 'rand',
-		));
+		$post_type = "{$subject_key}_articles";
+		$posts     = $this->article_repository->findRandom( $post_type );
 
-		return $this->formatArticlePosts( $query->posts );
+		return $this->formatArticlePosts( $posts );
 	}
 
 	/**
