@@ -25,7 +25,7 @@ require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
                             [
                                     'class' => 'js-provider-toggle',
                                     'id'    => 'google_toggle',
-                                    'args'  => [ 'data-provider' => 'google' ] // Добавили
+                                    'args'  => [ 'data-provider' => 'google' ]
                             ]
                     ); ?>
                 </td>
