@@ -16,6 +16,7 @@ use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
 use Inc\Shared\Traits\TemplateRenderer;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class SubjectDataCallbacks
@@ -77,7 +78,7 @@ class SubjectDataCallbacks extends BaseController {
 		$this->prepareTableGlobals();
 
 		// Определение типа поста
-		$post_type = $tab === 'tab-2' ? "{$subject_key}_tasks" : "{$subject_key}_articles";
+		$post_type = $tab === 'tab-2' ? PostTypeResolver::tasks( $subject_key ) : PostTypeResolver::articles( $subject_key );
 		// buildListTable() — создаёт объект WP_ListTable для указанного типа поста
 		$t = $this->posts->buildListTable( $post_type, $page_slug, $tab );
 
@@ -122,7 +123,7 @@ class SubjectDataCallbacks extends BaseController {
 		$visible_tax = array_filter( $all_taxonomies, fn( $t ) => $t->slug !== $tax_number );
 
 		// getPostsByTerm() — получает посты, привязанные к указанному термину таксономии
-		$rows = $this->posts->getPostsByTerm( "{$subject_key}_tasks", $tax_number, $term_id, $visible_tax );
+		$rows = $this->posts->getPostsByTerm( PostTypeResolver::tasks( $subject_key ), $tax_number, $term_id, $visible_tax );
 
 		$html = $this->view(
 			'admin/components/ajax-tables/task-ajax-table',
@@ -156,7 +157,7 @@ class SubjectDataCallbacks extends BaseController {
 		$other_tax  = array_filter( $taxonomies, fn( $t ) => $t->slug !== $tax_number );
 
 		// getRecentPosts() — получает последние N постов указанного типа
-		$rows = $this->posts->getRecentPosts( "{$subject_key}_tasks", 10, $tax_number, $other_tax );
+		$rows = $this->posts->getRecentPosts( PostTypeResolver::tasks( $subject_key ), 10, $tax_number, $other_tax );
 
 		$html = $this->view(
 			'admin/components/ajax-tables/tasks-ajax-table',
@@ -188,7 +189,7 @@ class SubjectDataCallbacks extends BaseController {
 			$this->success( array( 'html' => $html ) );
 		}
 
-		$rows = $this->posts->getRecentPosts( "{$subject_key}_articles", 10, "{$subject_key}_task_number", array() );
+		$rows = $this->posts->getRecentPosts( PostTypeResolver::articles( $subject_key ), 10, "{$subject_key}_task_number", array() );
 
 		$html = $this->view(
 			'admin/components/ajax-tables/articles-ajax-table',

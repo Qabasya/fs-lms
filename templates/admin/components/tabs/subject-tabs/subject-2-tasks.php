@@ -6,7 +6,7 @@
 if ( $dto->tasks_table ) :
 	$t               = $dto->tasks_table;
 	$subject_key     = $dto->subject_key;
-	$task_cpt        = "{$subject_key}_tasks";
+	$task_cpt        = \Inc\Services\PostTypeResolver::tasks( $subject_key );
 	$task_number_tax = "{$subject_key}_task_number";
 	?>
 

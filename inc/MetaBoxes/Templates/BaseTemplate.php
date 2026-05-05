@@ -2,6 +2,8 @@
 
 namespace Inc\MetaBoxes\Templates;
 
+use Inc\Enums\PostMetaName;
+
 /**
  * Class BaseTemplate
  *
@@ -63,7 +65,7 @@ abstract class BaseTemplate {
 	 */
 	public function render( \WP_Post $post ): void {
 		// 1. Достаём единый массив данных из мета-поля
-		$values = get_post_meta( $post->ID, 'fs_lms_meta', true );
+		$values = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
 
 		// Если данных ещё нет, инициализируем пустым массивом
 		if ( ! is_array( $values ) ) {

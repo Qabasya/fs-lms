@@ -22,12 +22,11 @@ require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 		<tbody id="the-list">
 		<?php
 		$post_types = array(
-			'tasks'    => 'Заданий',
-			'articles' => 'Статей',
+			\Inc\Services\PostTypeResolver::tasks( $dto->subject_key )    => 'Заданий',
+			\Inc\Services\PostTypeResolver::articles( $dto->subject_key ) => 'Статей',
 		);
 
-		foreach ( $post_types as $suffix => $label ) :
-			$cpt_name = "{$dto->subject_key}_{$suffix}";
+		foreach ( $post_types as $cpt_name => $label ) :
 			$counts   = wp_count_posts( $cpt_name );
 
 			$total     = array_sum( (array) $counts ) - ( $counts->trash ?? 0 );
@@ -71,8 +70,8 @@ require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 		<tbody id="the-list">
 		<?php
 		$taxonomy    = "{$dto->subject_key}_task_number";
-		$task_cpt    = "{$dto->subject_key}_tasks";
-		$article_cpt = "{$dto->subject_key}_articles";
+		$task_cpt    = \Inc\Services\PostTypeResolver::tasks( $dto->subject_key );
+		$article_cpt = \Inc\Services\PostTypeResolver::articles( $dto->subject_key );
 
 		// Получаем все номера заданий
 		$terms = get_terms(

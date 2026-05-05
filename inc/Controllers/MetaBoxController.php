@@ -6,8 +6,10 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\TaskMetaDTO;
 use Inc\Enums\Nonce;
+use Inc\Enums\PostMetaName;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\SubjectRepository;
+use Inc\Services\PostTypeResolver;
 use Inc\Services\TemplateService\TemplateRegistry;
 use Inc\Services\TemplateService\TemplateResolver;
 
@@ -84,7 +86,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 
 		// Формирование списка типов постов заданий (например: ['math_tasks', 'phys_tasks'])
 		$task_post_types = array_map(
-			static fn( $subject ) => "{$subject->key}_tasks",
+			static fn( $subject ) => PostTypeResolver::tasks( $subject->key ),
 			$all_subjects
 		);
 
@@ -139,9 +141,9 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		}
 
 		// get_post() — получает объект поста по ID
-		// str_ends_with() — проверяет окончание строки (задания имеют суффикс '_tasks')
+		// PostTypeResolver::isTaskPostType() — проверяет, что запись относится к CPT заданий.
 		$post = get_post( $post_id );
-		if ( ! $post || ! str_ends_with( $post->post_type, '_tasks' ) ) {
+		if ( ! $post || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
 			return;
 		}
 
@@ -163,7 +165,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		$fields = $template->get_fields();
 
 		// wp_unslash() — удаляет экранирование слешей (обратная операция для wp_slash)
-		$raw_data  = wp_unslash( $_POST['fs_lms_meta'] ?? array() );
+		$raw_data  = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
 		$sanitized = array();
 
 		// Санитизация каждого поля через его объект Field
@@ -175,7 +177,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 
 		// update_post_meta() — обновляет или создаёт мета-поле поста
 		// Сохраняем как ассоциативный массив (автоматически сериализуется)
-		update_post_meta( $post_id, 'fs_lms_meta', $sanitized );
+		update_post_meta( $post_id, PostMetaName::Meta->value, $sanitized );
 	}
 
 	/**

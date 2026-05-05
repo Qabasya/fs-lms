@@ -7,6 +7,8 @@ namespace Inc\Managers;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Enums\TaskTemplate;
+use Inc\Enums\PostMetaName;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class TaskManager
@@ -75,7 +77,7 @@ class TaskManager {
 			array(
 				'post_title'   => "№ {$customSlug}. {$title}",
 				'post_name'    => $customSlug,
-				'post_type'    => "{$subjectKey}_tasks",
+				'post_type'    => PostTypeResolver::tasks( $subjectKey ),
 				'post_status'  => 'draft',    // Задание создаётся как черновик
 				'post_content' => $this->prepareContentForEditor( $taskText ),
 			)
@@ -108,7 +110,7 @@ class TaskManager {
 		// Извлекаем числовой префикс из слага (например 'task_5' → 5)
 		$prefix = $this->extractNumberFromSlug( $slug ) ?: $id;
 		// Считаем существующие посты в этом термине
-		$count = $this->postManager->countByTerm( "{$key}_tasks", $tax, $id );
+		$count = $this->postManager->countByTerm( PostTypeResolver::tasks( $key ), $tax, $id );
 
 		// str_pad() — дополняет число нулями слева до 3 цифр (1 → 001)
 		return $prefix . str_pad( (string) $count, 3, '0', STR_PAD_LEFT );
@@ -131,10 +133,10 @@ class TaskManager {
 		// Преобразование Enum или строки в конечное значение
 		$metaValue = ( $templateId instanceof TaskTemplate ) ? $templateId->value : $templateId;
 
-		$this->postManager->updateMeta( $postId, '_fs_lms_template_type', $metaValue );
+		$this->postManager->updateMeta( $postId, PostMetaName::TemplateType->value, $metaValue );
 
 		if ( ! empty( $text ) ) {
-			$this->postManager->updateMeta( $postId, 'fs_lms_meta', $this->parseBoilerplateToMeta( $text ) );
+			$this->postManager->updateMeta( $postId, PostMetaName::Meta->value, $this->parseBoilerplateToMeta( $text ) );
 		}
 	}
 

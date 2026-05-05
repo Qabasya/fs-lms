@@ -16,6 +16,7 @@ use Inc\Repositories\TaxonomyRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class SubjectImportExportCallbacks
@@ -238,7 +239,7 @@ class SubjectImportExportCallbacks extends BaseController {
 
 		$result = array();
 
-		foreach ( array( "{$subject_key}_tasks", "{$subject_key}_articles" ) as $post_type ) {
+		foreach ( array( PostTypeResolver::tasks( $subject_key ), PostTypeResolver::articles( $subject_key ) ) as $post_type ) {
 			$result[ $post_type ] = array_map(
 				function ( $post ) use ( $tax_slugs ) {
 					$termMap = array();

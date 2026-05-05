@@ -7,6 +7,7 @@ use Inc\Callbacks\TemplateManagerCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\AjaxHook;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class TaskCreationController
@@ -56,7 +57,7 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 				$page   = sanitize_text_field( $_GET['page'] ?? '' );
 
 				// str_contains() — проверяет наличие подстроки (PHP 8.0)
-				$on_tasks_cpt = $screen && str_contains( $screen->post_type, '_tasks' );
+				$on_tasks_cpt = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
 				// str_starts_with() — проверяет начало строки (PHP 8.0)
 				$on_subject_page = str_starts_with( $page, 'fs_subject_' );
 
@@ -68,7 +69,7 @@ class TaskCreationController extends BaseController implements ServiceInterface 
 				// substr() — извлекает ключ предмета из строки 'fs_subject_math' → 'math'
 				$subject_key = $on_subject_page
 					? substr( $page, strlen( 'fs_subject_' ) )
-					: str_replace( '_tasks', '', $screen->post_type );
+					: PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
 
 				// include_once — подключает PHP-файл с HTML-разметкой модального окна
 				// $this->plugin_path — свойство родительского класса BaseController (путь к плагину)

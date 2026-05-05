@@ -10,6 +10,7 @@ use Inc\Managers\PostManager;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\MetaBoxRepository;
+use Inc\Services\PostTypeResolver;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -76,7 +77,7 @@ class TemplateManagerCallbacks extends BaseController {
 		$subject_key = str_replace( '_task_number', '', $term->taxonomy );
 
 		// countByTerm() — подсчёт постов, привязанных к данному термину
-		$post_count = $this->posts->countByTerm( "{$subject_key}_tasks", $term->taxonomy, $term->term_id );
+		$post_count = $this->posts->countByTerm( PostTypeResolver::tasks( $subject_key ), $term->taxonomy, $term->term_id );
 
 		if ( $post_count > 0 ) {
 			$this->error( "Нельзя изменить шаблон: по этому типу уже создано {$post_count} заданий." );

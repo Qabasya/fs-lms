@@ -8,6 +8,7 @@ use Inc\DTO\TaskTypeDTO;
 use Inc\Enums\OptionName;
 use Inc\Enums\TaskTemplate;
 use Inc\Managers\PostManager;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class MetaBoxRepository
@@ -259,7 +260,7 @@ class MetaBoxRepository implements RepositoryInterface {
 	 */
 	public function getTaskTypes( string $subject_key ): array {
 		$taxonomy  = "{$subject_key}_task_number";
-		$post_type = "{$subject_key}_tasks";
+		$post_type = PostTypeResolver::tasks( $subject_key );
 
 		$terms = get_terms(
 			array(

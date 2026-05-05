@@ -5,7 +5,9 @@ declare( strict_types=1 );
 namespace Inc\Services\TemplateService;
 
 use Inc\Enums\TaskTemplate;
+use Inc\Enums\PostMetaName;
 use Inc\Repositories\MetaBoxRepository;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class TemplateResolver
@@ -51,7 +53,7 @@ class TemplateResolver {
 	 */
 	public function resolveId( \WP_Post $post ): string {
 		// 1. Извлечение ключа предмета из типа поста (например, "math_tasks" -> "math")
-		$subject_key = str_replace( '_tasks', '', $post->post_type );
+		$subject_key = PostTypeResolver::subjectFromTaskPostType( $post->post_type );
 		
 		// 2. ПРИОРИТЕТ 1: Глобальные настройки в БД (MetaBoxRepository)
 		$taxonomy = "{$subject_key}_task_number";
@@ -71,7 +73,10 @@ class TemplateResolver {
 		
 		// 3. ПРИОРИТЕТ 2: Мета-поле конкретного поста (обратная совместимость со старыми данными)
 		// get_post_meta() — получает мета-поле поста (третий параметр true — одно значение)
-		$saved_meta = get_post_meta( $post->ID, '_fs_lms_template_type', true );
+		$saved_meta = get_post_meta( $post->ID, PostMetaName::TemplateType->value, true );
+		if ( empty( $saved_meta ) ) {
+			$saved_meta = get_post_meta( $post->ID, '_fs_lms_template_type', true );
+		}
 		if ( ! empty( $saved_meta ) ) {
 			return (string) $saved_meta;
 		}

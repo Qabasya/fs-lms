@@ -8,6 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Enums\AjaxHook;
 use Inc\Enums\Nonce;
 use Inc\Repositories\TaxonomyRepository;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class Enqueue
@@ -98,8 +99,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 		$page = sanitize_text_field( $_GET['page'] ?? '' );
 
 		// На странице списка заданий (CPT с суффиксом '_tasks')
-		if ( is_admin() && $screen && str_contains( $screen->post_type, '_tasks' ) ) {
-			$subject_key = str_replace( '_tasks', '', $screen->post_type );
+		if ( is_admin() && $screen && PostTypeResolver::isTaskPostType( $screen->post_type ) ) {
+			$subject_key = PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
 
 			// wp_localize_script() — передаёт PHP-данные в JS-объект
 			wp_localize_script(
@@ -124,7 +125,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'ajax_url'            => admin_url( 'admin-ajax.php' ),
 					'security'            => Nonce::TaskCreation->create(),
 					'subject_key'         => $subject_key,
-					'post_type'           => $subject_key . '_tasks',
+					'post_type'           => PostTypeResolver::tasks( $subject_key ),
 					'required_taxonomies' => $this->getRequiredTaxonomies( $subject_key ),
 				)
 			);

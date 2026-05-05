@@ -15,6 +15,7 @@ use Inc\Repositories\TaxonomyRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class SubjectCrudCallbacks
@@ -182,7 +183,7 @@ class SubjectCrudCallbacks extends BaseController {
 		$this->terms->deleteAll( "{$key}_task_number" );
 
 		// Удаление всех постов (заданий и статей)
-		foreach ( array( "{$key}_tasks", "{$key}_articles" ) as $post_type ) {
+		foreach ( array( PostTypeResolver::tasks( $key ), PostTypeResolver::articles( $key ) ) as $post_type ) {
 			$this->posts->deleteAll( $post_type );
 		}
 
