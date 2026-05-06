@@ -1,5 +1,7 @@
 <?php
-/** @var \Inc\DTO\SubjectViewDTO $dto */
+/** @var \Inc\DTO\SubjectViewDTO $dto
+ * @var \Inc\Services\PostTypeResolver $service
+ * */
 require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 
 ?>
@@ -22,8 +24,8 @@ require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 		<tbody id="the-list">
 		<?php
 		$post_types = array(
-			\Inc\Services\PostTypeResolver::tasks( $dto->subject_key )    => 'Заданий',
-			\Inc\Services\PostTypeResolver::articles( $dto->subject_key ) => 'Статей',
+                $service::tasks( $dto->subject_key )    => 'Заданий',
+                $service::articles( $dto->subject_key ) => 'Статей',
 		);
 
 		foreach ( $post_types as $cpt_name => $label ) :
@@ -70,8 +72,8 @@ require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 		<tbody id="the-list">
 		<?php
 		$taxonomy    = "{$dto->subject_key}_task_number";
-		$task_cpt    = \Inc\Services\PostTypeResolver::tasks( $dto->subject_key );
-		$article_cpt = \Inc\Services\PostTypeResolver::articles( $dto->subject_key );
+		$task_cpt    = $service::tasks( $dto->subject_key );
+		$article_cpt = $service::articles( $dto->subject_key );
 
 		// Получаем все номера заданий
 		$terms = get_terms(
