@@ -10,6 +10,7 @@ use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Shared\Traits\TemplateRenderer;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class SubjectPageCallbacks
@@ -71,9 +72,9 @@ class SubjectPageCallbacks extends BaseController {
 		// buildListTable() — создаёт объект WP_ListTable для указанного типа поста
 		// Таблица строится только для активной вкладки (ленивая загрузка)
 		if ( $active_tab === 'tab-2' ) {
-			$tasks_table = $this->posts->buildListTable( "{$key}_tasks", $page, 'tab-2' );
+			$tasks_table = $this->posts->buildListTable( PostTypeResolver::tasks( $key ), $page, 'tab-2' );
 		} elseif ( $active_tab === 'tab-3' ) {
-			$articles_table = $this->posts->buildListTable( "{$key}_articles", $page, 'tab-3' );
+			$articles_table = $this->posts->buildListTable( PostTypeResolver::articles( $key ), $page, 'tab-3' );
 		}
 
 		return new SubjectViewDTO(
@@ -83,8 +84,8 @@ class SubjectPageCallbacks extends BaseController {
 			// apply_filters() — позволяет сторонним разработчикам расширять список шаблонов
 			all_templates: apply_filters( 'fs_lms_get_templates', array() ),
 			// admin_url() — формирует полный URL к административной панели
-			tasks_url: admin_url( "edit.php?post_type={$key}_tasks" ),
-			articles_url: admin_url( "edit.php?post_type={$key}_articles" ),
+			tasks_url: admin_url( 'edit.php?post_type=' . PostTypeResolver::tasks( $key ) ),
+			articles_url: admin_url( 'edit.php?post_type=' . PostTypeResolver::articles( $key ) ),
 			protected_tax: "{$key}_task_number",
 			// array_merge() — объединяет системную таксономию с пользовательскими
 			taxonomies: array_merge( array( $fixed_tax_dto ), $this->taxonomies->getBySubject( $key ) ),

@@ -3,6 +3,7 @@
 namespace Inc\MetaBoxes\Fields;
 
 use Inc\Contracts\FieldInterface;
+use Inc\Enums\PostMetaName;
 
 /**
  * Class BaseField
@@ -29,6 +30,6 @@ abstract class BaseField implements FieldInterface {
 	 * // Результат: fs_lms_meta[task_text]
 	 */
 	protected function get_field_name( string $id ): string {
-		return "fs_lms_meta[$id]";
+		return PostMetaName::Meta->value . "[$id]";
 	}
 }

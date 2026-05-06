@@ -18,6 +18,7 @@ use Inc\Registrars\SubjectCPTRegistrar;
 use Inc\Registrars\SubjectTaxonomyRegistrar;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
+use Inc\Services\PostTypeResolver;
 use Inc\Services\ContentCacheService;
 use Inc\Shared\Traits\NumericSorter;
 
@@ -228,8 +229,8 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 */
 	private function registerForSubject( object $subject ): void {
 		$key         = $subject->key;
-		$task_cpt    = "{$key}_tasks";
-		$article_cpt = "{$key}_articles";
+		$task_cpt    = PostTypeResolver::tasks( $key );
+		$article_cpt = PostTypeResolver::articles( $key );
 
 		// 1. Регистрация Заданий (только заголовок)
 		$task_args = $this->getDefaultCptArgs( 'tasks', $subject );

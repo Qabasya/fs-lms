@@ -4,23 +4,49 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories;
 
-class ArticleRepository {
+use Inc\Contracts\RepositoryInterface;
+
+/**
+ * Class ArticleRepository
+ *
+ * Repository для работы со статьями предметов.
+ *
+ * Инкапсулирует CRUD-операции над WordPress-записями статей и запросы статей
+ * для frontend-страницы задания.
+ *
+ * @package Inc\Repositories
+ * @implements RepositoryInterface
+ */
+class ArticleRepository implements RepositoryInterface {
+	/**
+	 * Возвращает все статьи.
+	 *
+	 * Для статей post_type зависит от предмета, поэтому общий readAll() без
+	 * параметров не используется. Для выборок применяются findRelated() и findRandom().
+	 *
+	 * @return array Пустой массив.
+	 */
+	public function readAll(): array {
+		return array();
+	}
+
 	/**
 	 * Получает статью по ID.
 	 *
-	 * @param int $post_id
+	 * @param int $post_id ID статьи.
 	 *
 	 * @return \WP_Post|null Объект статьи или null, если запись не найдена.
 	 */
 	public function get( int $post_id ): ?\WP_Post {
 		$post = get_post( $post_id );
+
 		return $post instanceof \WP_Post ? $post : null;
 	}
 
 	/**
 	 * Создает новую статью.
 	 *
-	 * @param array $data
+	 * @param array $data Данные статьи для wp_insert_post().
 	 *
 	 * @return int ID созданной статьи или 0 при ошибке.
 	 */
@@ -33,13 +59,15 @@ class ArticleRepository {
 	/**
 	 * Обновляет статью.
 	 *
-	 * @param int $post_id
-	 * @param array $data
+	 * @param array $data Данные статьи для wp_update_post().
 	 *
 	 * @return bool true, если статья обновлена без ошибки.
 	 */
-	public function update( int $post_id, array $data ): bool {
-		$data['ID'] = $post_id;
+	public function update( array $data ): bool {
+		if ( empty( $data['ID'] ) ) {
+			return false;
+		}
+
 		$result = wp_update_post( $data, true );
 
 		return ! is_wp_error( $result );
@@ -48,12 +76,18 @@ class ArticleRepository {
 	/**
 	 * Удаляет статью.
 	 *
-	 * @param int $post_id
-	 * @param bool $force
+	 * @param array $data Данные удаления статьи.
 	 *
 	 * @return bool true, если статья удалена или перемещена в корзину.
 	 */
-	public function delete( int $post_id, bool $force = false ): bool {
+	public function delete( array $data ): bool {
+		$post_id = (int) ( $data['ID'] ?? 0 );
+		$force   = (bool) ( $data['force'] ?? false );
+
+		if ( ! $post_id ) {
+			return false;
+		}
+
 		return (bool) wp_delete_post( $post_id, $force );
 	}
 

@@ -4,6 +4,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\Repositories\TaxonomyRepository;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class SubjectValidationCallbacks
@@ -42,7 +43,7 @@ class SubjectValidationCallbacks extends BaseController {
 
 		// str_ends_with() — проверяет окончание строки (PHP 8.0)
 		// Валидация только для кастомных типов постов заданий (суффикс '_tasks')
-		if ( ! str_ends_with( $post_type, '_tasks' ) ) {
+		if ( ! PostTypeResolver::isTaskPostType( $post_type ) ) {
 			return $data;
 		}
 
@@ -58,7 +59,7 @@ class SubjectValidationCallbacks extends BaseController {
 
 		// preg_replace() — регулярное выражение для удаления суффикса '_tasks'
 		// Например: 'math_tasks' → 'math'
-		$subject_key = preg_replace( '/_tasks$/', '', $post_type );
+		$subject_key = PostTypeResolver::subjectFromTaskPostType( $post_type );
 
 		// Получение всех таксономий предмета из БД
 		$subject_taxonomies = $this->taxonomies->getBySubject( $subject_key );

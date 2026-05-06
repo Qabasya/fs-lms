@@ -5,6 +5,7 @@ namespace Inc\MetaBoxes\Templates;
 use Inc\MetaBoxes\Fields\CodeField;
 use Inc\MetaBoxes\Fields\InputField;
 use Inc\MetaBoxes\Fields\ConditionField;
+use Inc\Enums\PostMetaName;
 
 /*
  * Это класс для 19-21 заданий ЕГЭ по информатике
@@ -71,7 +72,7 @@ class ThreeInOneTemplate extends BaseTemplate {
 	 */
 	public function render( \WP_Post $post ): void {
 		// 1. Получаем данные точно так же, как в BaseTemplate
-		$values = get_post_meta( $post->ID, 'fs_lms_meta', true );
+		$values = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
 		if ( ! is_array( $values ) ) {
 			$values = array();
 		}

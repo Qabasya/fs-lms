@@ -6,11 +6,13 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\DTO\SubjectDTO;
+use Inc\Enums\PostMetaName;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\ArticleRepository;
+use Inc\Services\PostTypeResolver;
 
 class TaskPageCallbacks extends BaseController {
 
@@ -36,7 +38,7 @@ class TaskPageCallbacks extends BaseController {
 		if ( is_singular() ) {
 			$post_type = get_post_type();
 
-			if ( $post_type && str_ends_with( $post_type, '_tasks' ) ) {
+			if ( $post_type && PostTypeResolver::isTaskPostType( $post_type ) ) {
 				$custom_template = FS_LMS_PATH . 'templates/frontend/single-task.php';
 
 				if ( file_exists( $custom_template ) ) {
@@ -59,12 +61,12 @@ class TaskPageCallbacks extends BaseController {
 	public function getTaskData( int $post_id ): array {
 		$post        = $this->post_manager->get( $post_id );
 
-		if ( ! $post || ! str_ends_with( $post->post_type, '_tasks' ) ) {
+		if ( ! $post || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
 			return $this->emptyTaskData();
 		}
 
-		$subject_key = substr( $post->post_type, 0, -strlen( '_tasks' ) );
-		$meta        = $this->post_manager->getMeta( $post_id, 'fs_lms_meta' );
+		$subject_key = PostTypeResolver::subjectFromTaskPostType( $post->post_type );
+		$meta        = $this->post_manager->getMeta( $post_id, PostMetaName::Meta->value );
 		$meta        = is_array( $meta ) ? $meta : array();
 
 		$subject = $this->subject_repository->getByKey( $subject_key );
@@ -301,7 +303,7 @@ class TaskPageCallbacks extends BaseController {
 			return array();
 		}
 
-		$post_type = "{$subject_key}_articles";
+		$post_type = PostTypeResolver::articles( $subject_key );
 
 		$posts = $this->article_repository->findRelated(
 			$post_type,
@@ -325,7 +327,7 @@ class TaskPageCallbacks extends BaseController {
 			return array();
 		}
 
-		$post_type = "{$subject_key}_articles";
+		$post_type = PostTypeResolver::articles( $subject_key );
 		$posts     = $this->article_repository->findRandom( $post_type );
 
 		return $this->formatArticlePosts( $posts );
@@ -357,6 +359,16 @@ class TaskPageCallbacks extends BaseController {
 		return $articles;
 	}
 
+	/**
+	 * Возвращает короткий текст статьи для карточки на frontend.
+	 *
+	 * Использует ручной excerpt, если он заполнен, иначе берет post_content.
+	 * HTML удаляется перед обрезкой, чтобы в превью не попадала разметка.
+	 *
+	 * @param \WP_Post $post Запись статьи WordPress.
+	 *
+	 * @return string Обрезанный текст статьи.
+	 */
 	private function getArticleExcerpt( \WP_Post $post ): string {
 		$excerpt = has_excerpt( $post->ID ) ? get_the_excerpt( $post->ID ) : $post->post_content;
 
