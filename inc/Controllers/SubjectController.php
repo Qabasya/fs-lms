@@ -7,7 +7,7 @@ use Inc\Callbacks\SubjectCrudCallbacks;
 use Inc\Callbacks\SubjectDataCallbacks;
 use Inc\Callbacks\SubjectImportExportCallbacks;
 use Inc\Callbacks\SubjectValidationCallbacks;
-use Inc\Callbacks\TaskPageCallbacks;
+use Inc\Callbacks\TemplateCallbacks;
 use Inc\Callbacks\TaxonomySettingsCallbacks;
 use Inc\Callbacks\TemplateManagerCallbacks;
 use Inc\Contracts\ServiceInterface;
@@ -76,7 +76,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		private readonly SubjectPageCallbacks $page_callbacks,
 		private readonly SubjectValidationCallbacks $validation_callbacks,
 		private readonly ContentCacheService $cache_service,
-		private readonly TaskPageCallbacks $task_page_callbacks
+		private readonly TemplateCallbacks $task_page_callbacks
 	) {
 		parent::__construct();
 	}

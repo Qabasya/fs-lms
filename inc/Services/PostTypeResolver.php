@@ -24,6 +24,11 @@ class PostTypeResolver {
 	public const ARTICLES_SUFFIX = '_articles';
 
 	/**
+	 * Суффикс таксономии типов заданий.
+	 */
+	public const TASK_NUMBER_SUFFIX = '_task_number';
+
+	/**
 	 * Возвращает CPT заданий указанного предмета.
 	 *
 	 * @param string $subject_key Ключ предмета.
@@ -69,5 +74,16 @@ class PostTypeResolver {
 		}
 
 		return substr( $post_type, 0, -strlen( self::TASKS_SUFFIX ) );
+	}
+
+	/**
+	 * Возвращает слаг таксономии типов заданий для указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 *
+	 * @return string Слаг таксономии.
+	 */
+	public static function getTaskTaxonomy( string $subject_key ): string {
+		return $subject_key . self::TASK_NUMBER_SUFFIX;
 	}
 }
