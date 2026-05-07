@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Services;
 
+use Inc\DTO\TermViewDTO;
 use Inc\Repositories\ArticleRepository;
 
 /**
@@ -17,19 +18,23 @@ use Inc\Repositories\ArticleRepository;
  * @package Inc\Services
  */
 class ArticleService {
+
+	/**
+	 * @param ArticleRepository $article_repository Репозиторий статей.
+	 */
 	public function __construct(
 		private readonly ArticleRepository $article_repository,
 	) {}
 
 	/**
-	 * Возвращает статьи текущего предмета, связанные с типом задания.
+	 * Возвращает статьи предмета, связанные с типом задания.
 	 *
-	 * @param string $subject_key
-	 * @param \WP_Term|null $current_task_type
+	 * @param string           $subject_key       Ключ предмета.
+	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
 	 * @return array Список связанных статей.
 	 */
-	public function getRelatedArticles( string $subject_key, ?\WP_Term $current_task_type ): array {
+	public function getRelatedArticles( string $subject_key, ?TermViewDTO $current_task_type ): array {
 		if ( $subject_key === '' || ! $current_task_type ) {
 			return array();
 		}
@@ -38,7 +43,7 @@ class ArticleService {
 
 		$posts = $this->article_repository->findRelated(
 			$post_type,
-			$current_task_type->term_id,
+			$current_task_type->id,
 			$current_task_type->taxonomy
 		);
 
@@ -46,11 +51,11 @@ class ArticleService {
 	}
 
 	/**
-	 * Возвращает рандомный список статей
+	 * Возвращает случайные статьи предмета.
 	 *
-	 * @param string $subject_key
+	 * @param string $subject_key Ключ предмета.
 	 *
-	 * @return array Список рандомных статей
+	 * @return array Список случайных статей.
 	 */
 	public function getRandomArticles( string $subject_key ): array {
 		if ( $subject_key === '' ) {
@@ -66,7 +71,7 @@ class ArticleService {
 	/**
 	 * Приводит записи статей к единому формату для шаблона.
 	 *
-	 * @param array $posts
+	 * @param array $posts Массив WP_Post объектов.
 	 *
 	 * @return array Список статей.
 	 */
@@ -79,10 +84,10 @@ class ArticleService {
 			}
 
 			$articles[] = array(
-				'id'        => $post->ID,
-				'title'     => get_the_title( $post->ID ),
-				'url'       => get_permalink( $post->ID ),
-				'excerpt'   => $this->getArticleExcerpt( $post ),
+				'id'      => $post->ID,
+				'title'   => get_the_title( $post->ID ),
+				'url'     => get_permalink( $post->ID ),
+				'excerpt' => $this->getArticleExcerpt( $post ),
 			);
 		}
 
@@ -92,7 +97,7 @@ class ArticleService {
 	/**
 	 * Возвращает короткий текст статьи для карточки на frontend.
 	 *
-	 * Использует ручной excerpt, если он заполнен, иначе берет post_content.
+	 * Использует ручной excerpt, если он заполнен, иначе берёт post_content.
 	 * HTML удаляется перед обрезкой, чтобы в превью не попадала разметка.
 	 *
 	 * @param \WP_Post $post Запись статьи WordPress.

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Inc\Controllers\Builders;
 
+use Inc\DTO\PostViewDTO;
 use Inc\DTO\SubjectDTO;
+use Inc\DTO\TermViewDTO;
 use Inc\Enums\PostMetaName;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
@@ -20,8 +22,8 @@ use Inc\Repositories\TaxonomyRepository;
  * Строитель данных frontend-страницы задания.
  *
  * Собирает полный массив данных для шаблона: запись, предмет, контент,
- * файлы, теги, статьи и навигацию. Делегирует мета-логику в TaskMetaService,
- * а выборку статей — в ArticleService.
+ * файлы, теги, статьи и навигацию. WP_Post и WP_Term нормализуются в DTO
+ * на входе, после чего сборка работает только с типизированными объектами.
  *
  * @package Inc\Controllers\Builders
  */
@@ -62,30 +64,31 @@ class TaskDataBuilder {
 		$meta              = $this->post_manager->getMeta( $post_id, PostMetaName::Meta->value );
 		$meta              = is_array( $meta ) ? $meta : array();
 		$subject           = $this->subject_repository->getByKey( $subject_key );
+		$post_view         = PostViewDTO::fromPost( $post );
 		$current_task_type = $this->getCurrentTaskType( $post_id, $subject_key );
 
-		return $this->buildTaskData( $post, $subject_key, $meta, $subject, $current_task_type );
+		return $this->buildTaskData( $post_view, $subject_key, $meta, $subject, $current_task_type );
 	}
 
 	/**
 	 * Собирает единую структуру данных страницы задания.
 	 *
-	 * @param \WP_Post|null  $post              Запись задания.
-	 * @param string         $subject_key       Ключ предмета.
-	 * @param array          $meta              Мета-данные задания.
-	 * @param SubjectDTO|null $subject           DTO предмета.
-	 * @param \WP_Term|null  $current_task_type Термин текущего типа задания.
+	 * @param PostViewDTO|null  $post              DTO записи задания.
+	 * @param string            $subject_key       Ключ предмета.
+	 * @param array             $meta              Мета-данные задания.
+	 * @param SubjectDTO|null   $subject           DTO предмета.
+	 * @param TermViewDTO|null  $current_task_type DTO текущего типа задания.
 	 *
 	 * @return array Массив данных страницы задания.
 	 */
 	private function buildTaskData(
-		?\WP_Post $post = null,
+		?PostViewDTO $post = null,
 		string $subject_key = '',
 		array $meta = array(),
 		?SubjectDTO $subject = null,
-		?\WP_Term $current_task_type = null
+		?TermViewDTO $current_task_type = null
 	): array {
-		$post_id       = (int) $post?->ID;
+		$post_id       = $post?->id ?? 0;
 		$subject_label = $subject ? $subject->name : $subject_key;
 
 		return array(
@@ -100,21 +103,19 @@ class TaskDataBuilder {
 	}
 
 	/**
-	 * Возвращает данные записи WordPress для шаблона.
+	 * Возвращает данные записи для шаблона из DTO.
 	 *
-	 * @param \WP_Post|null $post Запись задания.
+	 * @param PostViewDTO|null $post DTO записи задания.
 	 *
 	 * @return array
 	 */
-	private function buildPostData( ?\WP_Post $post ): array {
-		$post_id = (int) $post?->ID;
-
+	private function buildPostData( ?PostViewDTO $post ): array {
 		return array(
-			'id'        => $post_id,
-			'title'     => $post ? get_the_title( $post_id ) : '',
-			'slug'      => $post ? $post->post_name : '',
-			'post_type' => $post ? $post->post_type : '',
-			'url'       => $post ? get_permalink( $post_id ) : '',
+			'id'        => $post?->id ?? 0,
+			'title'     => $post?->title ?? '',
+			'slug'      => $post?->slug ?? '',
+			'post_type' => $post?->post_type ?? '',
+			'url'       => $post?->url ?? '',
 		);
 	}
 
@@ -152,14 +153,15 @@ class TaskDataBuilder {
 	 * Возвращает теги и метрики задания.
 	 *
 	 * Включает тег типа задания и все термины пользовательских таксономий предмета.
+	 * Термины из WP_Term нормализуются в TermViewDTO внутри метода.
 	 *
-	 * @param int           $post_id           ID записи.
-	 * @param string        $subject_key       Ключ предмета.
-	 * @param \WP_Term|null $current_task_type Термин текущего типа задания.
+	 * @param int              $post_id           ID записи.
+	 * @param string           $subject_key       Ключ предмета.
+	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
 	 * @return array Список тегов задания.
 	 */
-	private function buildTags( int $post_id, string $subject_key, ?\WP_Term $current_task_type ): array {
+	private function buildTags( int $post_id, string $subject_key, ?TermViewDTO $current_task_type ): array {
 		$tags = array();
 
 		if ( $current_task_type ) {
@@ -167,22 +169,28 @@ class TaskDataBuilder {
 				'type'     => 'task_type',
 				'label'    => 'Задание №' . $current_task_type->name,
 				'taxonomy' => $current_task_type->taxonomy,
-				'term_id'  => $current_task_type->term_id,
+				'term_id'  => $current_task_type->id,
 				'slug'     => $current_task_type->slug,
 				'url'      => '',
 			);
 		}
 
 		foreach ( $this->taxonomy_repository->getBySubject( $subject_key ) as $taxonomy_dto ) {
-			$terms = $this->term_manager->getPostTerms( $post_id, $taxonomy_dto->slug );
+			$raw_terms = $this->term_manager->getPostTerms( $post_id, $taxonomy_dto->slug );
 
-			foreach ( $terms as $term ) {
+			foreach ( $raw_terms as $raw_term ) {
+				$term = TermViewDTO::fromTerm( $raw_term );
+
+				if ( ! $term ) {
+					continue;
+				}
+
 				$tags[] = array(
 					'type'          => 'taxonomy',
 					'taxonomy'      => $taxonomy_dto->slug,
 					'taxonomy_name' => $taxonomy_dto->name,
 					'label'         => $term->name,
-					'term_id'       => $term->term_id,
+					'term_id'       => $term->id,
 					'slug'          => $term->slug,
 					'url'           => '',
 				);
@@ -195,12 +203,12 @@ class TaskDataBuilder {
 	/**
 	 * Возвращает статьи для страницы задания.
 	 *
-	 * @param string        $subject_key       Ключ предмета.
-	 * @param \WP_Term|null $current_task_type Термин текущего типа задания.
+	 * @param string           $subject_key       Ключ предмета.
+	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
 	 * @return array Массив с ключами 'related' и 'random'.
 	 */
-	private function buildArticles( string $subject_key, ?\WP_Term $current_task_type ): array {
+	private function buildArticles( string $subject_key, ?TermViewDTO $current_task_type ): array {
 		return array(
 			'related' => $this->article_service->getRelatedArticles( $subject_key, $current_task_type ),
 			'random'  => $this->article_service->getRandomArticles( $subject_key ),
@@ -210,15 +218,13 @@ class TaskDataBuilder {
 	/**
 	 * Возвращает данные навигации и хлебных крошек.
 	 *
-	 * @param \WP_Post|null $post              Запись задания.
-	 * @param string        $subject_label     Название предмета.
-	 * @param \WP_Term|null $current_task_type Термин текущего типа задания.
+	 * @param PostViewDTO|null $post              DTO записи задания.
+	 * @param string           $subject_label     Название предмета.
+	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
 	 * @return array
 	 */
-	private function buildNavigation( ?\WP_Post $post, string $subject_label, ?\WP_Term $current_task_type ): array {
-		$post_id = (int) $post?->ID;
-
+	private function buildNavigation( ?PostViewDTO $post, string $subject_label, ?TermViewDTO $current_task_type ): array {
 		return array(
 			'breadcrumbs' => array(
 				'subject'   => array(
@@ -230,34 +236,34 @@ class TaskDataBuilder {
 					'url'   => '',
 				),
 				'task_type' => $current_task_type ? array(
-					'id'    => $current_task_type->term_id,
+					'id'    => $current_task_type->id,
 					'label' => $current_task_type->name . ' задание',
 					'slug'  => $current_task_type->slug,
 					'url'   => '',
 				) : null,
 				'task'      => array(
-					'label' => $post ? '№ ' . $post->post_name : '',
-					'url'   => $post ? get_permalink( $post_id ) : '',
+					'label' => $post ? '№ ' . $post->slug : '',
+					'url'   => $post?->url ?? '',
 				),
 			),
 		);
 	}
 
 	/**
-	 * Возвращает термин типа задания, привязанный к записи.
+	 * Возвращает DTO типа задания, привязанного к записи.
 	 *
 	 * @param int    $post_id     ID записи.
 	 * @param string $subject_key Ключ предмета.
 	 *
-	 * @return \WP_Term|null
+	 * @return TermViewDTO|null
 	 */
-	private function getCurrentTaskType( int $post_id, string $subject_key ): ?\WP_Term {
+	private function getCurrentTaskType( int $post_id, string $subject_key ): ?TermViewDTO {
 		$terms = $this->term_manager->getPostTerms(
 			$post_id,
 			PostTypeResolver::getTaskTaxonomy( $subject_key )
 		);
 
-		return $terms[0] ?? null;
+		return TermViewDTO::fromTerm( $terms[0] ?? null );
 	}
 
 	/**
