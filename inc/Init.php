@@ -9,6 +9,7 @@ use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
+use Inc\Controllers\TaskPageController;
 use Inc\Controllers\UserController;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
@@ -48,6 +49,7 @@ final class Init
 			SubjectController::class, // Управление предметами и CPT
 			MetaBoxController::class, // Метабоксы заданий
 			TaskCreationController::class, // Создание заданий
+			TaskPageController::class,     // Frontend-страница задания
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,  //
 			AuthController::class,  //

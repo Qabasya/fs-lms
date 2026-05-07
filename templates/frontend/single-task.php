@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 $post_id = get_the_ID();
 
 $container           = new \Inc\Core\Container();
-$task_page_callbacks = $container->get( \Inc\Callbacks\TaskPageCallbacks::class );
+$task_page_callbacks = $container->get( \Inc\Callbacks\TemplateCallbacks::class );
 $task_data           = $task_page_callbacks->getTaskData( $post_id );
 
 echo '<pre>';
