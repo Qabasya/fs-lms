@@ -1,14 +1,8 @@
 <?php
 require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
-$active_tab = 'tab-1';
-
-if ( isset( $_GET['tab'] ) ) {
-    $active_tab = sanitize_text_field( $_GET['tab'] );
-}
-
 ?>
 
-<div id="tab-1" class="tab-pane <?php echo $active_tab === 'tab-1' ? 'active' : ''; ?>">
+<div id="tab-1" class="tab-pane active">
 
     <div class="header-row">
         <h1 class="wp-heading-inline">Активные предметы</h1>

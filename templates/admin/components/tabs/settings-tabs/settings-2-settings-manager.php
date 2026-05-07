@@ -2,7 +2,7 @@
 require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 ?>
 
-<div id="tab-2" class="tab-pane <?php echo $active_tab == 'tab-2' ? 'active' : ''; ?>">
+<div id="tab-2" class="tab-pane active">
     <div class="header-row">
         <h1 class="wp-heading-inline">Настройка авторизации</h1>
 

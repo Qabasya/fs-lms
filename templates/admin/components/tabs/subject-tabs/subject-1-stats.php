@@ -1,11 +1,9 @@
 <?php
-/** @var \Inc\DTO\SubjectViewDTO $dto
- * @var \Inc\Services\PostTypeResolver $service
- * */
+/** @var \Inc\DTO\SubjectViewDTO $dto */
+/** @var \Inc\Services\PostTypeResolver $service */
+$service = \Inc\Services\PostTypeResolver::class;
 require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
-
 ?>
-
 <div class="task-dashboard-wrapper">
 	<h1 class="wp-heading-inline">Статистика по предмету</h1>
 	<p class="description">Здесь отображается вся доступная статистика по выбранному предмету
@@ -24,8 +22,8 @@ require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 		<tbody id="the-list">
 		<?php
 		$post_types = array(
-                $service::tasks( $dto->subject_key )    => 'Заданий',
-                $service::articles( $dto->subject_key ) => 'Статей',
+			$service::tasks( $dto->subject_key )    => 'Заданий',
+			$service::articles( $dto->subject_key ) => 'Статей',
 		);
 
 		foreach ( $post_types as $cpt_name => $label ) :
@@ -71,7 +69,7 @@ require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 		</thead>
 		<tbody id="the-list">
 		<?php
-		$taxonomy    = "{$dto->subject_key}_task_number";
+		$taxonomy    = $service::getTaskTaxonomy( $dto->subject_key );
 		$task_cpt    = $service::tasks( $dto->subject_key );
 		$article_cpt = $service::articles( $dto->subject_key );
 

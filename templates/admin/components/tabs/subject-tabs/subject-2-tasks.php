@@ -5,6 +5,7 @@
 ?>
 
 <?php
+$service = \Inc\Services\PostTypeResolver::class;
 if ( $dto->tasks_table ) :
 	$t               = $dto->tasks_table;
 	$subject_key     = $dto->subject_key;
