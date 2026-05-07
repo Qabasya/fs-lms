@@ -64,7 +64,7 @@ class TaskDataBuilder {
 		$meta              = $this->post_manager->getMeta( $post_id, PostMetaName::Meta->value );
 		$meta              = is_array( $meta ) ? $meta : array();
 		$subject           = $this->subject_repository->getByKey( $subject_key );
-		$post_view         = PostViewDTO::fromPost( $post );
+		$post_view         = PostViewDTO::normalizePost( $post );
 		$current_task_type = $this->getCurrentTaskType( $post_id, $subject_key );
 
 		return $this->buildTaskData( $post_view, $subject_key, $meta, $subject, $current_task_type );
@@ -179,7 +179,7 @@ class TaskDataBuilder {
 			$raw_terms = $this->term_manager->getPostTerms( $post_id, $taxonomy_dto->slug );
 
 			foreach ( $raw_terms as $raw_term ) {
-				$term = TermViewDTO::fromTerm( $raw_term );
+				$term = TermViewDTO::normalizeTerm( $raw_term );
 
 				if ( ! $term ) {
 					continue;
@@ -263,7 +263,7 @@ class TaskDataBuilder {
 			PostTypeResolver::getTaskTaxonomy( $subject_key )
 		);
 
-		return TermViewDTO::fromTerm( $terms[0] ?? null );
+		return TermViewDTO::normalizeTerm( $terms[0] ?? null );
 	}
 
 	/**
