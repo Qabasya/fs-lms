@@ -98,7 +98,7 @@ class TaskDataBuilder {
 			'files'      => $this->task_meta_service->getTaskFiles( $meta ),
 			'tags'       => $this->buildTags( $post_id, $subject_key, $current_task_type ),
 			'articles'   => $this->buildArticles( $subject_key, $current_task_type ),
-			'navigation' => $this->buildNavigation( $post, $subject_label, $current_task_type ),
+			'navigation' => $this->buildNavigation( $post, $subject_label, $current_task_type, $subject_key ),
 		);
 	}
 
@@ -146,6 +146,7 @@ class TaskDataBuilder {
 			'condition' => $this->task_meta_service->getCombinedCondition( $meta ),
 			'answer'    => $meta['task_answer'] ?? '',
 			'code'      => $meta['task_code'] ?? '',
+			'text'      => $meta['task_text'] ?? '',
 		);
 	}
 
@@ -216,36 +217,64 @@ class TaskDataBuilder {
 	}
 
 	/**
-	 * Возвращает данные навигации и хлебных крошек.
+	 * Возвращает данные навигации, хлебных крошек и соседних постов.
 	 *
 	 * @param PostViewDTO|null $post              DTO записи задания.
 	 * @param string           $subject_label     Название предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
+	 * @param string           $subject_key       Ключ предмета.
 	 *
 	 * @return array
 	 */
-	private function buildNavigation( ?PostViewDTO $post, string $subject_label, ?TermViewDTO $current_task_type ): array {
+	private function buildNavigation(
+		?PostViewDTO $post,
+		string $subject_label,
+		?TermViewDTO $current_task_type,
+		string $subject_key = ''
+	): array {
+		$post_id     = $post?->id ?? 0;
+		$archive_url = $subject_key ? ( get_post_type_archive_link( $subject_key . '_tasks' ) ?: '' ) : '';
+		$term_url    = '';
+
+		if ( $current_task_type ) {
+			$link     = get_term_link( $current_task_type->id, $current_task_type->taxonomy );
+			$term_url = is_wp_error( $link ) ? '' : $link;
+		}
+
+		$prev_post = $post_id ? $this->post_manager->getAdjacent( $post_id, true ) : null;
+		$next_post = $post_id ? $this->post_manager->getAdjacent( $post_id, false ) : null;
+
 		return array(
 			'breadcrumbs' => array(
 				'subject'   => array(
 					'label' => $subject_label,
-					'url'   => '',
+					'url'   => $archive_url,
 				),
 				'trainer'   => array(
 					'label' => 'Тренажер',
-					'url'   => '',
+					'url'   => $archive_url,
 				),
 				'task_type' => $current_task_type ? array(
 					'id'    => $current_task_type->id,
 					'label' => $current_task_type->name . ' задание',
 					'slug'  => $current_task_type->slug,
-					'url'   => '',
+					'url'   => $term_url,
 				) : null,
 				'task'      => array(
-					'label' => $post ? '№ ' . $post->slug : '',
+					'label' => $post ? '№ ' . rawurldecode( $post->slug ) : '',
 					'url'   => $post?->url ?? '',
 				),
 			),
+			'prev'        => $prev_post ? array(
+				'title' => $prev_post->post_title,
+				'url'   => get_permalink( $prev_post->ID ),
+				'slug'  => rawurldecode( $prev_post->post_name ),
+			) : null,
+			'next'        => $next_post ? array(
+				'title' => $next_post->post_title,
+				'url'   => get_permalink( $next_post->ID ),
+				'slug'  => rawurldecode( $next_post->post_name ),
+			) : null,
 		);
 	}
 
