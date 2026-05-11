@@ -1,0 +1,509 @@
+@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap");
+.fs-task-page,
+.fs-task-carousel {
+  font-family: "Ubuntu", Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  color: #242424;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.fs-task-page *, .fs-task-page *::before, .fs-task-page *::after,
+.fs-task-carousel *,
+.fs-task-carousel *::before,
+.fs-task-carousel *::after {
+  box-sizing: border-box;
+}
+.fs-task-page button,
+.fs-task-carousel button {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.fs-task-page a,
+.fs-task-carousel a {
+  color: inherit;
+  text-decoration: none;
+}
+.fs-task-page ul, .fs-task-page ol,
+.fs-task-carousel ul,
+.fs-task-carousel ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.fs-task-page p,
+.fs-task-carousel p {
+  margin: 0;
+}
+.fs-task-page h1, .fs-task-page h2, .fs-task-page h3, .fs-task-page h4, .fs-task-page h5, .fs-task-page h6,
+.fs-task-carousel h1,
+.fs-task-carousel h2,
+.fs-task-carousel h3,
+.fs-task-carousel h4,
+.fs-task-carousel h5,
+.fs-task-carousel h6 {
+  margin: 0;
+  padding: 0;
+  font: inherit;
+}
+
+.fs-task-page {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 32px;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  align-items: start;
+}
+
+.fs-task-sidebar {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fs-sidebar-block {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 16px;
+}
+
+.fs-sidebar-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin: 0 0 10px;
+}
+
+.fs-sidebar-stub {
+  font-size: 13px;
+  color: #888;
+}
+
+.fs-sidebar-articles li {
+  padding: 8px 0;
+  border-bottom: 1px solid #ddd;
+}
+.fs-sidebar-articles li:first-child {
+  padding-top: 0;
+}
+.fs-sidebar-articles li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.fs-sidebar-articles li a {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: color 0.15s ease;
+}
+.fs-sidebar-articles li a:hover {
+  color: #28c0f1;
+}
+.fs-sidebar-articles li p {
+  font-size: 12px;
+  color: #888;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.fs-task-main {
+  min-width: 0;
+}
+
+.fs-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 10px;
+}
+.fs-breadcrumbs a {
+  transition: color 0.15s ease;
+}
+.fs-breadcrumbs a:hover {
+  color: #28c0f1;
+}
+.fs-breadcrumbs__sep {
+  color: #ccc;
+  user-select: none;
+}
+.fs-breadcrumbs__current {
+  color: #242424;
+}
+
+.fs-task-page .fs-task-title {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 18px;
+}
+
+.fs-task-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+}
+.fs-task-nav__side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.fs-task-nav__side--next {
+  flex-direction: row-reverse;
+}
+.fs-task-nav__arrow {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.fs-task-nav__arrow:hover {
+  border-color: #28c0f1;
+  color: #28c0f1;
+}
+.fs-task-nav__arrow--disabled {
+  color: #ccc;
+  border-color: #eee;
+  cursor: default;
+  pointer-events: none;
+}
+.fs-task-nav__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fs-task-nav__info--right {
+  text-align: right;
+}
+.fs-task-nav__label {
+  font-size: 12px;
+  color: #888;
+}
+.fs-task-nav__title {
+  font-size: 14px;
+  font-weight: 700;
+}
+.fs-task-nav__title a {
+  transition: color 0.15s ease;
+}
+.fs-task-nav__title a:hover {
+  color: #28c0f1;
+}
+.fs-task-nav__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.fs-task-nav__circle {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid #888;
+  border-radius: 50%;
+}
+.fs-task-nav__all {
+  font-size: 13px;
+  color: #888;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+.fs-task-nav__all:hover {
+  color: #28c0f1;
+}
+.fs-task-nav__all--plain {
+  cursor: default;
+}
+.fs-task-nav__all--plain:hover {
+  color: #888;
+}
+
+.fs-task-divider {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 0;
+}
+
+.fs-task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 22px 0 14px 0;
+}
+
+.fs-tag {
+  font-size: 13px;
+  color: #888;
+}
+.fs-tag--task_type {
+  color: #242424;
+  font-weight: 700;
+}
+
+.fs-task-condition {
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+  color: #242424;
+}
+.fs-task-condition * {
+  color: #242424;
+}
+.fs-task-condition img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+.fs-task-condition table {
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+.fs-task-condition td, .fs-task-condition th {
+  border: 1px solid #ddd;
+  padding: 5px 10px;
+  font-size: 15px;
+}
+
+.fs-task-files {
+  margin-bottom: 20px;
+}
+.fs-task-files strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+.fs-file-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  margin: 0 6px 6px 0;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.fs-file-link:hover {
+  border-color: #28c0f1;
+  color: #28c0f1;
+}
+
+.fs-tabs-nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  min-height: 40px;
+}
+
+.fs-task-page .fs-tab-btn {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 7px 22px;
+  border-radius: 20px;
+  background: #28c0f1;
+  color: #fff;
+  transition: opacity 0.15s ease;
+}
+.fs-task-page .fs-tab-btn:hover {
+  opacity: 0.85;
+}
+.fs-task-page .fs-tab-btn.is-active {
+  background: transparent;
+  color: #242424;
+  padding-left: 4px;
+  padding-right: 4px;
+  cursor: default;
+  opacity: 1;
+}
+
+.fs-tabs-content {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.fs-tab-panel {
+  display: none;
+  padding: 16px 20px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.fs-tab-panel.is-active {
+  display: block;
+}
+.fs-tab-panel pre {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 4px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+.fs-tab-panel code {
+  background: #f4f4f4;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 14px;
+}
+
+.fs-task-carousel {
+  position: relative;
+  max-width: 1160px;
+  margin: 40px auto 0;
+  padding: 0 28px;
+}
+
+.fs-carousel-overflow {
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.fs-carousel-track {
+  display: flex;
+  transition: transform 0.3s ease;
+}
+
+.fs-carousel-item {
+  flex: 0 0 33.3333333333%;
+  padding: 0 8px;
+}
+.fs-carousel-item a {
+  display: block;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 14px 16px;
+  transition: border-color 0.15s ease;
+}
+.fs-carousel-item a:hover {
+  border-color: #28c0f1;
+}
+.fs-carousel-item a strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 6px;
+  color: #242424;
+}
+.fs-carousel-item a p {
+  font-size: 13px;
+  color: #888;
+  line-height: 1.5;
+}
+
+.fs-task-carousel .fs-carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #242424;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.fs-task-carousel .fs-carousel-btn:hover {
+  border-color: #28c0f1;
+  color: #28c0f1;
+}
+.fs-task-carousel .fs-carousel-btn.fs-carousel-btn--prev {
+  left: -6px;
+}
+.fs-task-carousel .fs-carousel-btn.fs-carousel-btn--next {
+  right: -6px;
+}
+
+@media (max-width: 900px) {
+  .fs-task-page {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+  .fs-task-sidebar {
+    position: static;
+    order: 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .fs-task-main {
+    order: 1;
+  }
+  .fs-carousel-item {
+    flex: 0 0 50%;
+  }
+}
+@media (max-width: 600px) {
+  .fs-task-title {
+    font-size: 18px;
+  }
+  .fs-task-nav__info {
+    max-width: 90px;
+  }
+  .fs-task-nav__title {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .fs-task-sidebar {
+    grid-template-columns: 1fr;
+  }
+  .fs-carousel-item {
+    flex: 0 0 100%;
+  }
+  .fs-task-carousel .fs-carousel-btn {
+    display: none;
+  }
+}
+
+/*# sourceMappingURL=frontend.css.map */

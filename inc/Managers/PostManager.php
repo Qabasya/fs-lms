@@ -351,6 +351,25 @@ class PostManager {
 	}
 
 	/**
+	 * Возвращает соседний пост (предыдущий или следующий) относительно указанного.
+	 *
+	 * @param int  $post_id  ID поста.
+	 * @param bool $previous true — предыдущий, false — следующий.
+	 *
+	 * @return \WP_Post|null
+	 */
+	public function getAdjacent( int $post_id, bool $previous = true ): ?\WP_Post {
+		global $post;
+		$saved = $post;
+		$post  = get_post( $post_id );
+		setup_postdata( $post );
+		$adjacent = get_adjacent_post( false, '', $previous );
+		$post     = $saved;
+		wp_reset_postdata();
+		return $adjacent instanceof \WP_Post ? $adjacent : null;
+	}
+
+	/**
 	 * Получает конкретное мета-поле поста.
 	 *
 	 * @param int    $post_id ID поста
