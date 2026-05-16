@@ -1,20 +1,12 @@
+@use 'variables' as *;
 @import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap');
-
-// ─── Variables ───────────────────────────────────────────────────────────────
-$font:         'Ubuntu', Arial, Helvetica, sans-serif;
-$text:         #242424;
-$muted:        #888;
-$border:       #ddd;
-$cyan:         #28C0F1FF;
-$white:        #fff;
-$transition:   0.15s ease;
 
 // ─── Scoped element reset ─────────────────────────────────────────────────────
 .fs-task-page,
 .fs-task-carousel {
-  font-family: $font;
-  font-size: 16px;
-  color: $text;
+  font-family: $font-family;
+  font-size: $font-size-base;
+  color: $color-text;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 
@@ -36,10 +28,7 @@ $transition:   0.15s ease;
     letter-spacing: normal;
   }
 
-  a {
-    color: inherit;
-    text-decoration: none;
-  }
+  a { color: inherit; text-decoration: none; }
 
   ul, ol { list-style: none; margin: 0; padding: 0; }
   p       { margin: 0; }
@@ -49,9 +38,9 @@ $transition:   0.15s ease;
 // ─── Page layout ─────────────────────────────────────────────────────────────
 .fs-task-page {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: $sidebar-width 1fr;
   gap: 32px;
-  max-width: 1160px;
+  max-width: $max-width;
   margin: 0 auto;
   padding: 24px 20px;
   align-items: start;
@@ -67,47 +56,51 @@ $transition:   0.15s ease;
 }
 
 .fs-sidebar-block {
-  background: $white;
-  border: 1px solid $border;
-  border-radius: 4px;
+  background: $color-white;
+  border: 1px solid $color-border;
+  border-radius: $radius;
   padding: 16px;
 }
 
 .fs-sidebar-title {
-  font-size: 12px;
+  font-size: $font-size-xxs;
   font-weight: 700;
-  color: $muted;
+  color: $color-muted;
   text-transform: uppercase;
   letter-spacing: 0.7px;
-  margin: 0 0 10px;
+  margin: 0 0 20px;
 }
 
 .fs-sidebar-stub {
-  font-size: 13px;
-  color: $muted;
+  font-size: $font-size-xs;
+  color: $color-muted;
 }
 
 .fs-sidebar-articles li {
   padding: 8px 0;
-  border-bottom: 1px solid $border;
+  border-bottom: 1px solid $color-border;
 
   &:first-child { padding-top: 0; }
   &:last-child  { border-bottom: none; padding-bottom: 0; }
 
   a {
     display: block;
-    font-size: 13px;
+    font-size: $font-size-xs;
     font-weight: 500;
-    line-height: 1.4;
+    line-height: $line-height-tight;
     transition: color $transition;
-    &:hover { color: $cyan; }
+    &:hover { color: $color-accent; }
   }
 
   p {
-    font-size: 12px;
-    color: $muted;
+    font-size: $font-size-xxs;
+    color: $color-muted;
     margin-top: 3px;
-    line-height: 1.4;
+    line-height: $line-height-tight;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 }
 
@@ -120,14 +113,14 @@ $transition:   0.15s ease;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 6px;
-  font-size: 13px;
-  color: $muted;
+  font-size: $font-size-xs;
+  color: $color-muted;
   margin-bottom: 10px;
 
-  a { transition: color $transition; &:hover { color: $cyan; } }
+  a { transition: color $transition; &:hover { color: $color-accent; } }
 
-  &__sep     { color: #ccc; user-select: none; }
-  &__current { color: $text; }
+  &__sep     { color: $color-separator; user-select: none; }
+  &__current { color: $color-text; }
 }
 
 // ─── Title ───────────────────────────────────────────────────────────────────
@@ -159,8 +152,8 @@ $transition:   0.15s ease;
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    border: 1px solid $border;
-    background: $white;
+    border: 1px solid $color-border;
+    background: $color-white;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -168,8 +161,8 @@ $transition:   0.15s ease;
     line-height: 1;
     transition: border-color $transition, color $transition;
 
-    &:hover                { border-color: $cyan; color: $cyan; }
-    &--disabled            { color: #ccc; border-color: #eee; cursor: default; pointer-events: none; }
+    &:hover     { border-color: $color-accent; color: $color-accent; }
+    &--disabled { color: $color-separator; border-color: $color-border-light; cursor: default; pointer-events: none; }
   }
 
   &__info {
@@ -179,12 +172,12 @@ $transition:   0.15s ease;
     &--right { text-align: right; }
   }
 
-  &__label { font-size: 12px; color: $muted; }
+  &__label { font-size: $font-size-xxs; color: $color-muted; }
 
   &__title {
-    font-size: 14px;
+    font-size: $font-size-sm;
     font-weight: 700;
-    a { transition: color $transition; &:hover { color: $cyan; } }
+    a { transition: color $transition; &:hover { color: $color-accent; } }
   }
 
   &__center {
@@ -198,24 +191,24 @@ $transition:   0.15s ease;
   &__circle {
     width: 18px;
     height: 18px;
-    border: 1.5px solid $muted;
+    border: 1.5px solid $color-muted;
     border-radius: 50%;
   }
 
   &__all {
-    font-size: 13px;
-    color: $muted;
+    font-size: $font-size-xs;
+    color: $color-muted;
     white-space: nowrap;
     transition: color $transition;
 
-    &:hover       { color: $cyan; }
-    &--plain      { cursor: default; &:hover { color: $muted; } }
+    &:hover  { color: $color-accent; }
+    &--plain { cursor: default; &:hover { color: $color-muted; } }
   }
 }
 
 .fs-task-divider {
   border: none;
-  border-top: 1px solid $border;
+  border-top: 1px solid $color-border;
   margin: 0;
 }
 
@@ -224,28 +217,27 @@ $transition:   0.15s ease;
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
-  margin: 22px 0 14px 0;
+  margin: 22px 0 14px;
 }
 
 .fs-tag {
-  font-size: 13px;
-  color: $muted;
-  &--task_type { color: $text; font-weight: 700; }
+  font-size: $font-size-xs;
+  color: $color-muted;
+  &--task_type { color: $color-text; font-weight: 700; }
 }
 
 // ─── Condition ───────────────────────────────────────────────────────────────
 .fs-task-condition {
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: $font-size-base;
+  line-height: $line-height-base;
   margin-bottom: 24px;
+  color: $color-text;
 
-  // Override any theme color leaking into condition content
-  color: $text;
-  * { color: $text; }
+  * { color: $color-text; }
 
   img    { max-width: 100%; height: auto; display: block; }
   table  { border-collapse: collapse; margin: 12px 0; }
-  td, th { border: 1px solid $border; padding: 5px 10px; font-size: 15px; }
+  td, th { border: 1px solid $color-border; padding: 5px 10px; font-size: 15px; }
 }
 
 // ─── Files ───────────────────────────────────────────────────────────────────
@@ -254,9 +246,9 @@ $transition:   0.15s ease;
 
   strong {
     display: block;
-    font-size: 12px;
+    font-size: $font-size-xxs;
     font-weight: 700;
-    color: $muted;
+    color: $color-muted;
     text-transform: uppercase;
     letter-spacing: 0.6px;
     margin-bottom: 8px;
@@ -267,13 +259,13 @@ $transition:   0.15s ease;
   display: inline-flex;
   align-items: center;
   padding: 5px 12px;
-  border: 1px solid $border;
-  border-radius: 4px;
-  font-size: 13px;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  font-size: $font-size-xs;
   margin: 0 6px 6px 0;
   transition: border-color $transition, color $transition;
 
-  &:hover { border-color: $cyan; color: $cyan; }
+  &:hover { border-color: $color-accent; color: $color-accent; }
 }
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
@@ -286,83 +278,90 @@ $transition:   0.15s ease;
   min-height: 40px;
 }
 
-// Inactive = cyan pill button; Active = plain bold text.
-// Specificity (0,2,0) beats theme's (0,0,1) via scoped reset above.
 .fs-task-page .fs-tab-btn {
   display: inline-block;
   font-size: 15px;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: $line-height-tight;
   padding: 7px 22px;
-  border-radius: 20px;
-  background: $cyan;
-  color: $white;
+  border-radius: 5px;
+  border: 1px solid $color-accent;
+  background: $color-accent;
+  color: $color-white;
   transition: opacity $transition;
 
   &:hover { opacity: 0.85; }
 
   &.is-active {
     background: transparent;
-    color: $text;
-    padding-left: 4px;
-    padding-right: 4px;
+    color: $color-text;
     cursor: default;
     opacity: 1;
   }
 }
 
 .fs-tabs-content {
-  border: 1px solid $border;
-  border-radius: 4px;
+  border: 1px solid $color-border;
+  border-radius: $radius;
   overflow: hidden;
+  background: $color-white;
 }
 
 .fs-tab-panel {
   display: none;
   padding: 16px 20px;
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: $font-size-base;
+  line-height: $line-height-base;
+  background: $color-white;
+  color: $color-text;
 
   &.is-active { display: block; }
 
-
   pre {
-    background: #1e1e2e;
-    color: #cdd6f4;
-    border-radius: 4px;
+    background: $color-bg-subtle;
+    color: $color-text;
+    border-radius: $radius;
     padding: 14px 16px;
     overflow-x: auto;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 14px;
-    line-height: 1.6;
+    font-family: $font-mono;
+    font-size: $font-size-sm;
+    line-height: $line-height-base;
     margin: 0;
   }
 
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+  }
+
   code {
-    background: #f4f4f4;
-    border-radius: 3px;
+    background: $color-bg-subtle;
+    border-radius: $radius;
     padding: 1px 5px;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 14px;
+    font-family: $font-mono;
+    font-size: $font-size-sm;
+    color: $color-text;
   }
 }
 
 // ─── Carousel ────────────────────────────────────────────────────────────────
 .fs-task-carousel {
   position: relative;
-  max-width: 1160px;
+  max-width: $max-width;
   margin: 40px auto 0;
-  padding: 0 28px;
+  padding: 0 $carousel-padding;
 }
 
 .fs-carousel-overflow {
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: $radius;
 }
 
 .fs-carousel-track {
   display: flex;
-  transition: transform 0.3s ease;
 }
 
 .fs-carousel-item {
@@ -371,26 +370,27 @@ $transition:   0.15s ease;
 
   a {
     display: block;
-    background: $white;
-    border: 1px solid $border;
-    border-radius: 4px;
+    background: $color-white;
+    border: 1px solid $color-border;
+    border-radius: $radius;
     padding: 14px 16px;
     transition: border-color $transition;
 
-    &:hover { border-color: $cyan; }
+    &:hover { border-color: $color-accent; }
 
     strong {
       display: block;
-      font-size: 14px;
+      font-size: $font-size-base;
       font-weight: 700;
-      line-height: 1.4;
+      line-height: $line-height-tight;
       margin-bottom: 6px;
-      color: $text;
+      color: $color-text;
+      text-align: left;
     }
 
     p {
-      font-size: 13px;
-      color: $muted;
+      font-size: $font-size-xs;
+      color: $color-muted;
       line-height: 1.5;
     }
   }
@@ -404,9 +404,9 @@ $transition:   0.15s ease;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 1px solid $border;
-  background: $white;
-  color: $text;
+  border: 1px solid $color-border;
+  background: $color-white;
+  color: $color-text;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -414,13 +414,13 @@ $transition:   0.15s ease;
   line-height: 1;
   transition: border-color $transition, color $transition;
 
-  &:hover             { border-color: $cyan; color: $cyan; }
+  &:hover                 { border-color: $color-accent; color: $color-accent; }
   &.fs-carousel-btn--prev { left: -6px; }
   &.fs-carousel-btn--next { right: -6px; }
 }
 
 // ─── Responsive ──────────────────────────────────────────────────────────────
-@media (max-width: 900px) {
+@media (max-width: $bp-md) {
   .fs-task-page {
     grid-template-columns: 1fr;
     padding: 16px;
@@ -439,13 +439,13 @@ $transition:   0.15s ease;
   .fs-carousel-item { flex: 0 0 50%; }
 }
 
-@media (max-width: 600px) {
+@media (max-width: $bp-sm) {
   .fs-task-title { font-size: 18px; }
 
   .fs-task-nav__info { max-width: 90px; }
 
   .fs-task-nav__title {
-    font-size: 12px;
+    font-size: $font-size-xxs;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

@@ -1,0 +1,38 @@
+// =================================================================
+// DESIGN TOKENS — Frontend
+// =================================================================
+
+// ── Цвета
+$color-accent:        #28c0f1;
+$color-text:          #242424;
+$color-muted:         #888;
+$color-border:        #ddd;
+$color-border-light:  #eee;
+$color-separator:     #ccc;
+$color-white:         #fff;
+$color-bg-subtle:     #f4f4f4;
+
+// ── Типографика
+$font-family:         'Ubuntu', Arial, Helvetica, sans-serif;
+$font-mono:           'Courier New', Courier, monospace;
+$font-size-base:      16px;
+$font-size-sm:        14px;
+$font-size-xs:        13px;
+$font-size-xxs:       12px;
+$line-height-base:    1.6;
+$line-height-tight:   1.4;
+
+// ── Компоновка
+$max-width:           1160px;
+$sidebar-width:       260px;
+$carousel-padding:    60px;
+
+// ── Форма
+$radius:              4px;
+
+// ── Анимации
+$transition:          0.15s ease;
+
+// ── Брейкпоинты
+$bp-md:               900px;
+$bp-sm:               600px;

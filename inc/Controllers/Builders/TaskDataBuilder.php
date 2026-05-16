@@ -142,10 +142,12 @@ class TaskDataBuilder {
 	 * @return array
 	 */
 	private function buildContentData( array $meta ): array {
+		$raw_code = $meta['task_code'] ?? '';
+
 		return array(
 			'condition' => $this->task_meta_service->getCombinedCondition( $meta ),
 			'answer'    => $meta['task_answer'] ?? '',
-			'code'      => $meta['task_code'] ?? '',
+			'code'      => $raw_code !== '' ? '<pre><code>' . esc_html( $raw_code ) . '</code></pre>' : '',
 			'text'      => $meta['task_text'] ?? '',
 		);
 	}
@@ -261,7 +263,7 @@ class TaskDataBuilder {
 					'url'   => $term_url,
 				) : null,
 				'task'      => array(
-					'label' => $post ? '№ ' . rawurldecode( $post->slug ) : '',
+					'label' => $post ? $post->title : '',
 					'url'   => $post?->url ?? '',
 				),
 			),
