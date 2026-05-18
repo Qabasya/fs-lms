@@ -168,13 +168,14 @@ class TaskDataBuilder {
 		$tags = array();
 
 		if ( $current_task_type ) {
+			$link   = get_term_link( $current_task_type->id, $current_task_type->taxonomy );
 			$tags[] = array(
 				'type'     => 'task_type',
 				'label'    => 'Задание №' . $current_task_type->name,
 				'taxonomy' => $current_task_type->taxonomy,
 				'term_id'  => $current_task_type->id,
 				'slug'     => $current_task_type->slug,
-				'url'      => '',
+				'url'      => is_wp_error( $link ) ? '' : $link,
 			);
 		}
 
@@ -188,6 +189,7 @@ class TaskDataBuilder {
 					continue;
 				}
 
+				$link   = get_term_link( $term->id, $taxonomy_dto->slug );
 				$tags[] = array(
 					'type'          => 'taxonomy',
 					'taxonomy'      => $taxonomy_dto->slug,
@@ -195,7 +197,7 @@ class TaskDataBuilder {
 					'label'         => $term->name,
 					'term_id'       => $term->id,
 					'slug'          => $term->slug,
-					'url'           => '',
+					'url'           => is_wp_error( $link ) ? '' : $link,
 				);
 			}
 		}

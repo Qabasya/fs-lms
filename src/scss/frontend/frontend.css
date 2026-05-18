@@ -189,6 +189,7 @@
   justify-content: center;
   font-size: 22px;
   line-height: 1;
+  padding-bottom: 5px;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .fs-task-nav__arrow:hover {
@@ -262,16 +263,35 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
-  margin: 22px 0 14px;
+  margin: 10px 0 15px;
 }
 
 .fs-tag {
+  position: relative;
   font-size: 13px;
-  color: #888;
-}
-.fs-tag--task_type {
   color: #242424;
-  font-weight: 700;
+  padding: 5px 12px 5px 23px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  transition: border-color 0.15s ease;
+}
+.fs-tag::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ddd;
+  transition: background 0.15s ease;
+}
+.fs-tag:hover {
+  border-color: #28c0f1;
+}
+.fs-tag:hover::before {
+  background: #28c0f1;
 }
 
 .fs-task-condition {
@@ -459,6 +479,8 @@
   align-items: center;
   justify-content: center;
   font-size: 22px;
+  line-height: 1;
+  padding-bottom: 5px;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .fs-task-carousel .fs-carousel-btn:hover {

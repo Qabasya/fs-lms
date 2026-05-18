@@ -159,6 +159,7 @@
     justify-content: center;
     font-size: 22px;
     line-height: 1;
+    padding-bottom: 5px;
     transition: border-color $transition, color $transition;
 
     &:hover     { border-color: $color-accent; color: $color-accent; }
@@ -217,13 +218,35 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
-  margin: 22px 0 14px;
+  margin: 10px 0 15px;
 }
 
 .fs-tag {
+  position: relative;
   font-size: $font-size-xs;
-  color: $color-muted;
-  &--task_type { color: $color-text; font-weight: 700; }
+  color: $color-text;
+  padding: 5px 12px 5px 23px;
+  border: 1px solid $color-border;
+  border-radius: 6px;
+  transition: border-color $transition;
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $color-border;
+    transition: background $transition;
+  }
+
+  &:hover {
+    border-color: $color-accent;
+    &::before { background: $color-accent; }
+  }
 }
 
 // ─── Condition ───────────────────────────────────────────────────────────────
@@ -407,6 +430,8 @@
   align-items: center;
   justify-content: center;
   font-size: 22px;
+  line-height: 1;
+  padding-bottom: 5px;
   transition: border-color $transition, color $transition;
 
   &:hover                 { border-color: $color-accent; color: $color-accent; }

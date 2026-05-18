@@ -166,7 +166,12 @@ if ( ! empty( $content['text'] ) ) {
 		<?php if ( ! empty( $tags ) ) : ?>
 			<div class="fs-task-tags">
 				<?php foreach ( $tags as $tag ) : ?>
-					<span class="fs-tag fs-tag--<?php echo esc_attr( $tag['type'] ); ?>"><?php echo esc_html( $tag['label'] ); ?></span>
+					<?php $class = 'fs-tag fs-tag--' . esc_attr( $tag['type'] ); ?>
+					<?php if ( ! empty( $tag['url'] ) ) : ?>
+						<a href="<?php echo esc_url( $tag['url'] ); ?>" class="<?php echo $class; ?>"><?php echo esc_html( $tag['label'] ); ?></a>
+					<?php else : ?>
+						<span class="<?php echo $class; ?>"><?php echo esc_html( $tag['label'] ); ?></span>
+					<?php endif; ?>
 				<?php endforeach; ?>
 			</div>
 		<?php endif; ?>
