@@ -1,0 +1,72 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+.fs-task-divider {
+  border: none;
+  border-top: 1px solid $color-border;
+  margin: 0;
+}
+
+.fs-task-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+
+  &__side {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    &--next { flex-direction: row-reverse; }
+  }
+
+  &__arrow {
+    @include circle-btn(42px);
+    flex-shrink: 0;
+    line-height: 1;
+
+    &--disabled { color: $color-separator; border-color: $color-border-light; cursor: default; pointer-events: none; }
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    &--right { text-align: right; }
+  }
+
+  &__label { font-size: $font-size-xxs; color: $color-muted; }
+
+  &__title {
+    font-size: $font-size-sm;
+    font-weight: 700;
+    a { transition: color $transition; &:hover { color: $color-accent; } }
+  }
+
+  &__center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  &__circle {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid $color-muted;
+    border-radius: 50%;
+  }
+
+  &__all {
+    font-size: $font-size-xs;
+    color: $color-muted;
+    white-space: nowrap;
+    transition: color $transition;
+
+    &:hover  { color: $color-accent; }
+    &--plain { cursor: default; &:hover { color: $color-muted; } }
+  }
+}

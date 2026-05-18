@@ -1,0 +1,76 @@
+@use '../variables' as *;
+
+.fs-tabs-nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  min-height: 40px;
+}
+
+.fs-task-page .fs-tab-btn {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: $line-height-tight;
+  padding: 7px 22px;
+  border-radius: 5px;
+  border: 1px solid $color-accent;
+  background: $color-accent;
+  color: $color-white;
+  transition: opacity $transition;
+
+  &:hover { opacity: 0.85; }
+
+  &.is-active {
+    background: transparent;
+    color: $color-text;
+    cursor: default;
+    opacity: 1;
+  }
+}
+
+.fs-tabs-content {
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  overflow: hidden;
+  background: $color-white;
+}
+
+.fs-tab-panel {
+  display: none;
+  padding: 16px 20px;
+  font-size: $font-size-base;
+  line-height: $line-height-base;
+
+  &.is-active { display: block; }
+
+  pre {
+    background: $color-bg-subtle;
+    color: $color-text;
+    border-radius: $radius;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: $font-mono;
+    font-size: $font-size-sm;
+    line-height: $line-height-base;
+    margin: 0;
+  }
+
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  code {
+    background: $color-bg-subtle;
+    border-radius: $radius;
+    padding: 1px 5px;
+    font-family: $font-mono;
+    font-size: $font-size-sm;
+    color: $color-text;
+  }
+}

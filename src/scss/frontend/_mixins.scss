@@ -1,0 +1,34 @@
+@use 'variables' as *;
+
+// ── Круглая кнопка-иконка с hover-акцентом
+@mixin circle-btn($size: 42px) {
+  width: $size;
+  height: $size;
+  border-radius: 50%;
+  border: 1px solid $color-border;
+  background: $color-white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  transition: border-color $transition, color $transition;
+
+  &:hover { border-color: $color-accent; color: $color-accent; }
+}
+
+// ── Заголовок секции (uppercase, muted)
+@mixin section-label {
+  font-size: $font-size-xxs;
+  font-weight: 700;
+  color: $color-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+// ── Многострочный клэмп
+@mixin line-clamp($lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

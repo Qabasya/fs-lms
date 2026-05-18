@@ -1,0 +1,83 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+.fs-task-carousel {
+  position: relative;
+  max-width: $max-width;
+  margin: 40px auto 0;
+  padding: 0 $carousel-padding;
+}
+
+.fs-carousel-overflow {
+  overflow: hidden;
+  border-radius: $radius;
+}
+
+.fs-carousel-track {
+  display: flex;
+}
+
+.fs-carousel-item {
+  flex: 0 0 calc(100% / 3);
+  padding: 0 8px;
+
+  a {
+    display: block;
+    background: $color-white;
+    border: 1px solid $color-border;
+    border-radius: $radius;
+    padding: 14px 16px;
+    transition: border-color $transition;
+
+    &:hover { border-color: $color-accent; }
+
+    strong {
+      display: block;
+      font-size: $font-size-base;
+      font-weight: 700;
+      line-height: $line-height-tight;
+      margin-bottom: 6px;
+      color: $color-text;
+    }
+
+    p {
+      font-size: $font-size-xs;
+      color: $color-muted;
+      line-height: 1.5;
+    }
+  }
+}
+
+.fs-task-carousel .fs-carousel-btn {
+  @include circle-btn(36px);
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  color: $color-text;
+
+  &.fs-carousel-btn--prev { left: -6px; }
+  &.fs-carousel-btn--next { right: -6px; }
+}
+
+.fs-carousel-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.fs-task-carousel .fs-carousel-dot {
+  height: 4px;
+  width: 20px;
+  border-radius: 2px;
+  background: $color-border;
+  cursor: pointer;
+  transition: width 0.25s ease, background 0.25s ease;
+
+  &.is-active {
+    width: 36px;
+    background: $color-accent;
+  }
+}
