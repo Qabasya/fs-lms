@@ -27,7 +27,7 @@ use Inc\Repositories\TaxonomyRepository;
  *
  * @package Inc\Controllers\Builders
  */
-class TaskDataBuilder {
+readonly class TaskDataBuilder {
 
 	/**
 	 * @param SubjectRepository  $subject_repository  Репозиторий предметов.
@@ -38,12 +38,12 @@ class TaskDataBuilder {
 	 * @param TermManager        $term_manager        Менеджер терминов таксономии.
 	 */
 	public function __construct(
-		private readonly SubjectRepository $subject_repository,
-		private readonly TaxonomyRepository $taxonomy_repository,
-		private readonly TaskMetaService $task_meta_service,
-		private readonly PostManager $post_manager,
-		private readonly ArticleService $article_service,
-		private readonly TermManager $term_manager,
+		private SubjectRepository $subject_repository,
+		private TaxonomyRepository $taxonomy_repository,
+		private TaskMetaService $task_meta_service,
+		private PostManager $post_manager,
+		private ArticleService $article_service,
+		private TermManager $term_manager,
 	) {}
 
 	/**
@@ -73,11 +73,11 @@ class TaskDataBuilder {
 	/**
 	 * Собирает единую структуру данных страницы задания.
 	 *
-	 * @param PostViewDTO|null  $post              DTO записи задания.
-	 * @param string            $subject_key       Ключ предмета.
-	 * @param array             $meta              Мета-данные задания.
-	 * @param SubjectDTO|null   $subject           DTO предмета.
-	 * @param TermViewDTO|null  $current_task_type DTO текущего типа задания.
+	 * @param PostViewDTO|null $post              DTO записи задания.
+	 * @param string           $subject_key       Ключ предмета.
+	 * @param array            $meta              Мета-данные задания.
+	 * @param SubjectDTO|null  $subject           DTO предмета.
+	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
 	 * @return array Массив данных страницы задания.
 	 */
@@ -147,7 +147,7 @@ class TaskDataBuilder {
 		return array(
 			'condition' => $this->task_meta_service->getCombinedCondition( $meta ),
 			'answer'    => $meta['task_answer'] ?? '',
-			'code'      => $raw_code !== '' ? '<pre><code>' . esc_html( $raw_code ) . '</code></pre>' : '',
+			'code'      => '' !== $raw_code ? '<pre><code>' . esc_html( $raw_code ) . '</code></pre>' : '',
 			'text'      => $meta['task_text'] ?? '',
 		);
 	}
@@ -235,8 +235,12 @@ class TaskDataBuilder {
 		string $subject_key = ''
 	): array {
 		$post_id     = $post?->id ?? 0;
-		$archive_url = $subject_key ? ( get_post_type_archive_link( $subject_key . '_tasks' ) ?: '' ) : '';
-		$term_url    = '';
+		$archive_url = '';
+		if ( $subject_key ) {
+			$task_link   = get_post_type_archive_link( $subject_key . '_tasks' );
+			$archive_url = false !== $task_link ? $task_link : '';
+		}
+		$term_url = '';
 
 		if ( $current_task_type ) {
 			$link     = get_term_link( $current_task_type->id, $current_task_type->taxonomy );

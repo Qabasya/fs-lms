@@ -15,7 +15,7 @@ namespace Inc\DTO;
  *
  * @package Inc\DTO
  */
-class PostViewDTO {
+readonly class PostViewDTO {
 
 	/**
 	 * @param int    $id        ID записи.
