@@ -11,6 +11,7 @@
   align-items: center;
   justify-content: center;
   font-size: 22px;
+  padding-bottom: 4px;
   transition: border-color $transition, color $transition;
 
   &:hover { border-color: $color-accent; color: $color-accent; }
