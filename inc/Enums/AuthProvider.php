@@ -34,8 +34,8 @@ enum AuthProvider: string {
 	 */
 	public function label(): string {
 		return match ( $this ) {
-			self::GOOGLE    => 'Google Auth',
-			self::VKONTAKTE => 'ВКонтакте',
+			self::GOOGLE    => 'Google',
+			self::VKONTAKTE => 'VK',
 			self::GITHUB    => 'Github',
 		};
 	}

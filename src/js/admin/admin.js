@@ -8,7 +8,7 @@ import {PostsTable} from './services/posts-table.js';
 import {RequiredTaxGuard} from './services/required-tax-guard.js';
 import {TaskFilter} from "./services/task-dashboard.js";
 import {RecentContent} from "./services/recent-posts";
-import {AuthSettings} from "./services/AuthSettings";
+import {AuthSettings} from "./services/auth-settings";
 
 (function ($) {
     'use strict';
