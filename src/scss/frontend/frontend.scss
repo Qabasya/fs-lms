@@ -1,9 +1,10 @@
 @use 'variables' as *;
+@use 'mixins' as m;
+@use 'components/reset';
+@use 'components/layout';
 @use 'components/sidebar';
 @use 'components/task-content';
 @use 'components/nav';
 @use 'components/tabs';
 @use 'components/carousel';
-
-@import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap');
 

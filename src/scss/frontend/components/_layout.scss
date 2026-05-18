@@ -1,0 +1,51 @@
+@use '../variables' as *;
+
+.fs-task-page {
+  display: grid;
+  grid-template-columns: $sidebar-width 1fr;
+  gap: 32px;
+  max-width: $max-width;
+  margin: 0 auto;
+  padding: 24px 20px;
+  align-items: start;
+}
+
+.fs-task-main { min-width: 0; }
+
+@media (max-width: $bp-md) {
+  .fs-task-page {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .fs-task-sidebar {
+    position: static;
+    order: 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .fs-task-main { order: 1; }
+
+  .fs-carousel-item { flex: 0 0 50%; }
+}
+
+@media (max-width: $bp-sm) {
+  .fs-task-title { font-size: 18px; }
+
+  .fs-task-nav__info { max-width: 90px; }
+
+  .fs-task-nav__title {
+    font-size: $font-size-xxs;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .fs-task-sidebar { grid-template-columns: 1fr; }
+
+  .fs-carousel-item { flex: 0 0 100%; }
+
+  .fs-task-carousel .fs-carousel-btn { display: none; }
+}
