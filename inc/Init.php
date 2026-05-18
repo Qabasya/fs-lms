@@ -5,6 +5,7 @@ namespace Inc;
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\AdminController;
 use Inc\Controllers\AuthController;
+use Inc\Controllers\AuthPageController;
 use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\SubjectController;
@@ -31,8 +32,8 @@ use Inc\Core\Enqueue;
  * // Запуск плагина
  * Init::run();
  */
-final class Init
-{
+final class Init {
+
 	/**
 	 * Возвращает список всех сервисов плагина.
 	 *
@@ -41,9 +42,8 @@ final class Init
 	 *
 	 * @return array<int, class-string<ServiceInterface>> Массив имён классов сервисов
 	 */
-	public static function getServices(): array
-	{
-		return [
+	public static function getServices(): array {
+		return array(
 			Enqueue::class,           // Подключение скриптов и стилей
 			AdminController::class,   // Административное меню
 			SubjectController::class, // Управление предметами и CPT
@@ -51,9 +51,10 @@ final class Init
 			TaskCreationController::class, // Создание заданий
 			TaskPageController::class,     // Frontend-страница задания
 			BoilerplateController::class,  // Типовые условия (boilerplate)
-			UserController::class,  //
-			AuthController::class,  //
-		];
+			UserController::class,
+			AuthController::class,
+			AuthPageController::class,
+		);
 	}
 
 	/**
@@ -67,15 +68,14 @@ final class Init
 	 *
 	 * @return void
 	 */
-	public static function run(): void
-	{
+	public static function run(): void {
 		$container = new Container();
 
-		foreach (self::getServices() as $class) {
-			$service = $container->get($class);
+		foreach ( self::getServices() as $class ) {
+			$service = $container->get( $class );
 
 			// Проверяем, что объект реализует интерфейс ServiceInterface
-			if ($service instanceof ServiceInterface) {
+			if ( $service instanceof ServiceInterface ) {
 				$service->register();
 			}
 		}

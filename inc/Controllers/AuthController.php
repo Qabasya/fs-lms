@@ -55,6 +55,9 @@ class AuthController extends BaseController implements ServiceInterface {
 		// 'template_redirect' — хук, срабатывающий перед загрузкой шаблона темы
 		add_action( 'template_redirect', array( $this, 'handleAuthRoutes' ) );
 
+		add_filter( 'lms_auth_redirect_url', array( $this, 'filterRedirectUrl' ), 10, 2 );
+		add_filter( 'get_avatar_url', array( $this, 'filterAvatarUrl' ), 10, 3 );
+
 		// Шорткод для тестовой страницы — доступен только в режиме отладки
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			add_shortcode( 'lms_auth_test', array( $this->callbacks, 'renderAuthTestPage' ) );
@@ -160,5 +163,54 @@ class AuthController extends BaseController implements ServiceInterface {
 			);
 			$this->sendError( 'auth_error', 'Техническая ошибка при обработке ответа', 500 );
 		}
+	}
+
+	/**
+	 * Определяет, куда перенаправить пользователя после успешного входа.
+	 *
+	 * @param string   $redirect_url Дефолтный URL редиректа.
+	 * @param UserDTO  $user_dto     Объект с данными пользователя.
+	 * @return string
+	 */
+	public function filterRedirectUrl( string $redirect_url, $user_dto ): string {
+		// Получаем текущего вошедшего пользователя WordPress
+		$wp_user = wp_get_current_user();
+
+		if ( ! $wp_user->exists() ) {
+			return home_url();
+		}
+
+		// Если это администратор или редактор/преподаватель — пускаем в админку
+		if ( array_intersect( array( 'administrator', 'editor' ), $wp_user->roles ) ) {
+			return admin_url(); // или дефолтный profile.php
+		}
+
+		// Обычных студентов отправляем на кастомную фронтенд-страницу
+		// TODO: Заменить '/dashboard/' на слаг страницы личного кабинета LMS (profile мб)
+		return home_url( '/dashboard/' );
+	}
+
+	/**
+	 * Подменяет стандартный URL Gravatar на сохраненную ссылку из соцсети.
+	 */
+	public function filterAvatarUrl( string $url, $id_or_email, array $args ): string {
+		$user_id = 0;
+
+		if ( is_numeric( $id_or_email ) ) {
+			$user_id = (int) $id_or_email;
+		} elseif ( is_object( $id_or_email ) && isset( $id_or_email->user_id ) && $id_or_email->user_id > 0 ) {
+			$user_id = (int) $id_or_email->user_id;
+		} elseif ( is_string( $id_or_email ) && ( $user = get_user_by( 'email', $id_or_email ) ) ) {
+			$user_id = $user->ID;
+		}
+
+		if ( $user_id <= 0 ) {
+			return $url;
+		}
+
+		// Читаем правильный ключ, который пишет твой UserRepository
+		$social_avatar = get_user_meta( $user_id, 'fs_avatar_url', true );
+
+		return ! empty( $social_avatar ) ? esc_url_raw( $social_avatar ) : $url;
 	}
 }

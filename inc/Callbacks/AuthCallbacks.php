@@ -36,6 +36,31 @@ class AuthCallbacks extends BaseController {
 	}
 
 	/**
+	 * Возвращает список только включенных и настроенных социальных провайдеров.
+	 * Используется как для тестовых, так и для боевых страниц авторизации.
+	 *
+	 * @return array<array{url: string, id: string, label: string}> Массив активных провайдеров
+	 */
+	public function getEnabledProviders(): array {
+		$providers = array();
+
+		foreach ( AuthProvider::cases() as $provider ) {
+			// isProviderEnabled() — проверяет настройку {provider}_enabled
+			if ( ! $this->settings_repo->isProviderEnabled( $provider->value ) ) {
+				continue;
+			}
+
+			$providers[] = array(
+				'url'   => home_url( '/lms-auth/' . $provider->configKey() ),
+				'id'    => $provider->configKey(),
+				'label' => $provider->label(),
+			);
+		}
+
+		return $providers;
+	}
+
+	/**
 	 * Рендерит тестовую страницу с кнопками входа через соцсети.
 	 * Вызывается шорткодом [lms_auth_test].
 	 *
