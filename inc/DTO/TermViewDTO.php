@@ -15,7 +15,7 @@ namespace Inc\DTO;
  *
  * @package Inc\DTO
  */
-class TermViewDTO {
+readonly class TermViewDTO {
 
 	/**
 	 * @param int    $id       ID термина (из WP_Term::term_id).

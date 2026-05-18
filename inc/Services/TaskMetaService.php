@@ -58,13 +58,13 @@ class TaskMetaService {
 		foreach ( $file_keys as $key ) {
 			$url = $meta[ $key ] ?? '';
 
-			if (! is_string($url) || '' === $url) {
+			if ( ! is_string( $url ) || '' === $url ) {
 				continue;
 			}
 
 			$files[] = array(
-				'name'  => $this->getFileNameFromUrl( $url ),
-				'url'   => $url,
+				'name' => $this->getFileNameFromUrl( $url ),
+				'url'  => $url,
 			);
 
 			if ( count( $files ) === 2 ) {
@@ -85,12 +85,12 @@ class TaskMetaService {
 	private function getFileNameFromUrl( string $url ): string {
 		$path = wp_parse_url( $url, PHP_URL_PATH );
 
-		if ( ! is_string( $path ) || $path === '' ) {
+		if ( ! is_string( $path ) || '' === $path ) {
 			return $url;
 		}
 
 		$file_name = wp_basename( $path );
 
-		return $file_name !== '' ? $file_name : $url;
+		return '' !== $file_name ? $file_name : $url;
 	}
 }

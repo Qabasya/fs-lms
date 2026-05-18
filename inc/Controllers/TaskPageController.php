@@ -35,6 +35,6 @@ class TaskPageController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
-		add_filter( 'template_include', [ $this->callbacks, 'loadTaskFrontendTemplate' ] );
+		add_filter( 'template_include', array( $this->callbacks, 'loadTaskFrontendTemplate' ) );
 	}
 }

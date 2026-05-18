@@ -16,17 +16,17 @@ class PostTypeResolver {
 	/**
 	 * Суффикс CPT заданий.
 	 */
-	public const TASKS_SUFFIX = '_tasks';
+	public const string TASKS_SUFFIX = '_tasks';
 
 	/**
 	 * Суффикс CPT статей.
 	 */
-	public const ARTICLES_SUFFIX = '_articles';
+	public const string ARTICLES_SUFFIX = '_articles';
 
 	/**
 	 * Суффикс таксономии типов заданий.
 	 */
-	public const TASK_NUMBER_SUFFIX = '_task_number';
+	public const string TASK_NUMBER_SUFFIX = '_task_number';
 
 	/**
 	 * Возвращает CPT заданий указанного предмета.
