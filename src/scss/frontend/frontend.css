@@ -69,7 +69,7 @@
 
 .fs-task-sidebar {
   position: sticky;
-  top: 20px;
+  top: 35px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -369,8 +369,6 @@
   padding: 16px 20px;
   font-size: 16px;
   line-height: 1.6;
-  background: #fff;
-  color: #242424;
 }
 .fs-tab-panel.is-active {
   display: block;
@@ -391,7 +389,6 @@
   color: inherit;
   padding: 0;
   border-radius: 0;
-  font-size: inherit;
 }
 .fs-tab-panel code {
   background: #f4f4f4;
@@ -440,7 +437,6 @@
   line-height: 1.4;
   margin-bottom: 6px;
   color: #242424;
-  text-align: left;
 }
 .fs-carousel-item a p {
   font-size: 13px;
@@ -463,7 +459,6 @@
   align-items: center;
   justify-content: center;
   font-size: 22px;
-  line-height: 1;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .fs-task-carousel .fs-carousel-btn:hover {
@@ -475,6 +470,27 @@
 }
 .fs-task-carousel .fs-carousel-btn.fs-carousel-btn--next {
   right: -6px;
+}
+
+.fs-carousel-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.fs-task-carousel .fs-carousel-dot {
+  height: 4px;
+  width: 20px;
+  border-radius: 2px;
+  background: #ddd;
+  cursor: pointer;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+.fs-task-carousel .fs-carousel-dot.is-active {
+  width: 36px;
+  background: #28c0f1;
 }
 
 @media (max-width: 900px) {

@@ -49,7 +49,7 @@
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 .fs-task-sidebar {
   position: sticky;
-  top: 20px;
+  top: 35px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -312,8 +312,6 @@
   padding: 16px 20px;
   font-size: $font-size-base;
   line-height: $line-height-base;
-  background: $color-white;
-  color: $color-text;
 
   &.is-active { display: block; }
 
@@ -334,7 +332,6 @@
     color: inherit;
     padding: 0;
     border-radius: 0;
-    font-size: inherit;
   }
 
   code {
@@ -385,7 +382,6 @@
       line-height: $line-height-tight;
       margin-bottom: 6px;
       color: $color-text;
-      text-align: left;
     }
 
     p {
@@ -411,12 +407,33 @@
   align-items: center;
   justify-content: center;
   font-size: 22px;
-  line-height: 1;
   transition: border-color $transition, color $transition;
 
   &:hover                 { border-color: $color-accent; color: $color-accent; }
   &.fs-carousel-btn--prev { left: -6px; }
   &.fs-carousel-btn--next { right: -6px; }
+}
+
+.fs-carousel-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.fs-task-carousel .fs-carousel-dot {
+  height: 4px;
+  width: 20px;
+  border-radius: 2px;
+  background: $color-border;
+  cursor: pointer;
+  transition: width 0.25s ease, background 0.25s ease;
+
+  &.is-active {
+    width: 36px;
+    background: $color-accent;
+  }
 }
 
 // ─── Responsive ──────────────────────────────────────────────────────────────
