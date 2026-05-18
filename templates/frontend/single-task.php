@@ -21,16 +21,28 @@ $breadcrumbs = $navigation['breadcrumbs'];
 $nav_prev    = $navigation['prev'] ?? null;
 $nav_next    = $navigation['next'] ?? null;
 
-$tabs = [];
+$tabs = array();
 
 if ( ! empty( $content['answer'] ) ) {
-	$tabs[] = [ 'id' => 'answer', 'label' => 'Ответ',     'content' => $content['answer'] ];
+	$tabs[] = array(
+		'id'      => 'answer',
+		'label'   => 'Ответ',
+		'content' => $content['answer'],
+	);
 }
 if ( ! empty( $content['code'] ) ) {
-	$tabs[] = [ 'id' => 'code',   'label' => 'Python',    'content' => $content['code'] ];
+	$tabs[] = array(
+		'id'      => 'code',
+		'label'   => 'Python',
+		'content' => $content['code'],
+	);
 }
 if ( ! empty( $content['text'] ) ) {
-	$tabs[] = [ 'id' => 'text',   'label' => 'Пояснение', 'content' => $content['text'] ];
+	$tabs[] = array(
+		'id'      => 'text',
+		'label'   => 'Пояснение',
+		'content' => $content['text'],
+	);
 }
 
 \Inc\Services\ThemeCompat::header();
@@ -111,7 +123,7 @@ if ( ! empty( $content['text'] ) ) {
 		<h1 class="fs-task-title"><?php echo esc_html( $post_data['title'] ); ?></h1>
 
 		<!-- Навигация: предыдущее / все задания / следующее -->
-        <hr class="fs-task-divider">
+		<hr class="fs-task-divider">
 		<nav class="fs-task-nav">
 			<div class="fs-task-nav__side fs-task-nav__side--prev">
 				<?php if ( $nav_prev ) : ?>
