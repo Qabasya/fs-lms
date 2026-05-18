@@ -1,9 +1,10 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Services\AuthService;
 
 use Inc\Enums\AuthProvider;
-use Inc\Repositories\SettingsRepository;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -11,71 +12,45 @@ use Inc\Shared\Traits\Sanitizer;
  *
  * Сервис для определения провайдера аутентификации из запроса.
  *
- * @package Inc\Services
+ * @package Inc\Services\AuthService
  *
  * ### Основные обязанности:
  *
  * 1. **Определение из параметров** — получение провайдера из GET-параметра 'provider'.
- * 2. **Определение из callback'а** — автоматическое определение провайдера по наличию кода в ответе.
+ * 2. **Определение из callback'а** — получение провайдера из callback-запроса.
  *
  * ### Архитектурная роль:
  *
  * Используется в AuthController для определения, через какую соцсеть
  * пользователь пытается авторизоваться.
  */
-class ProviderResolver
-{
-    use Sanitizer;  // Трейт с методами sanitizeText(), sanitizeBool()
+class ProviderResolver {
 
-    public function __construct(
-        private readonly SettingsRepository $settings_repo
-    ) {}
+	use Sanitizer;  // Трейт с методами sanitizeText() для безопасного получения данных
 
-    /**
-     * Определяет провайдера из GET-параметра 'provider'.
-     *
-     * @return AuthProvider|null
-     */
-    public function fromRequest(): ?AuthProvider
-    {
-        // sanitizeText() — получаем значение параметра 'provider' из $_GET
-        $provider = $this->sanitizeText( 'provider', 'GET' );
+	/**
+	 * Определяет провайдера из GET-параметра 'provider'.
+	 *
+	 * @return AuthProvider|null
+	 */
+	public function fromRequest(): ?AuthProvider {
+		// sanitizeText() — получаем значение параметра 'provider' из $_GET
+		$provider = $this->sanitizeText( 'provider', 'GET' );
 
-        if ( $provider === '' ) {
-            return null;
-        }
+		if ( $provider === '' ) {
+			return null;
+		}
 
-        return AuthProvider::fromRequest( $provider );
-    }
+		return AuthProvider::fromRequest( $provider );
+	}
 
-    /**
-     * Определяет провайдера из callback-запроса.
-     * Использует параметр 'provider' или ищет первый включённый провайдер.
-     *
-     * @return AuthProvider|null
-     */
-    public function fromCallback(): ?AuthProvider
-    {
-        // Сначала пробуем получить провайдер из явного параметра
-        $provider = $this->fromRequest();
-
-        if ( $provider ) {
-            return $provider;
-        }
-
-        // Если параметра нет — проверяем наличие code (OAuth-код авторизации)
-        // sanitizeBool() проверяет наличие параметра 'code' в GET-запросе
-        if ( ! $this->sanitizeBool( 'code', 'GET' ) && ! isset( $_GET['code'] ) ) {
-            return null;
-        }
-
-        // Возвращаем первый включённый провайдер из настроек
-        foreach ( AuthProvider::cases() as $case ) {
-            if ( $this->settings_repo->isProviderEnabled( $case->value ) ) {
-                return $case;
-            }
-        }
-
-        return null;
-    }
+	/**
+	 * Определяет провайдера из callback-запроса.
+	 * В текущей реализации просто делегирует в fromRequest().
+	 *
+	 * @return AuthProvider|null
+	 */
+	public function fromCallback(): ?AuthProvider {
+		return $this->fromRequest();
+	}
 }
