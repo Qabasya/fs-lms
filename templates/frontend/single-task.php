@@ -239,10 +239,10 @@ if ( ! empty( $content['text'] ) ) {
 					<div class="fs-carousel-item">
 						<a href="<?php echo esc_url( $article['url'] ); ?>">
 							<strong><?php echo esc_html( $article['title'] ); ?></strong>
+							<?php if ( ! empty( $article['excerpt'] ) ) : ?>
+								<p><?php echo esc_html( $article['excerpt'] ); ?></p>
+							<?php endif; ?>
 						</a>
-						<?php if ( ! empty( $article['excerpt'] ) ) : ?>
-							<p><?php echo esc_html( $article['excerpt'] ); ?></p>
-						<?php endif; ?>
 					</div>
 				<?php endforeach; ?>
 			</div>

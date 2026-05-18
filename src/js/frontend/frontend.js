@@ -22,21 +22,19 @@ function initTabs() {
 }
 
 function initCarousel() {
-    const carousel   = document.querySelector('.fs-task-carousel');
+    const carousel  = document.querySelector('.fs-task-carousel');
     if (!carousel) return;
 
-    const overflow   = carousel.querySelector('.fs-carousel-overflow');
-    const track      = carousel.querySelector('.fs-carousel-track');
-    const origItems  = Array.from(carousel.querySelectorAll('.fs-carousel-item'));
+    const overflow  = carousel.querySelector('.fs-carousel-overflow');
+    const track     = carousel.querySelector('.fs-carousel-track');
+    const origItems = Array.from(carousel.querySelectorAll('.fs-carousel-item'));
     if (!overflow || !track || origItems.length === 0) return;
 
     const realCount = origItems.length;
 
-    // Prepend and append full copies for seamless infinite looping
     origItems.forEach(item => track.insertBefore(item.cloneNode(true), track.firstChild));
     origItems.forEach(item => track.appendChild(item.cloneNode(true)));
 
-    // Start at first real item (after the prepended clones)
     let index = realCount;
 
     const visibleCount = () => {
@@ -45,12 +43,37 @@ function initCarousel() {
         return 3;
     };
 
-    const update = (animate = true) => {
-        track.style.transition = animate ? 'transform 0.3s ease' : 'none';
-        track.style.transform  = `translateX(-${index * (overflow.offsetWidth / visibleCount())}px)`;
+    const itemWidth = () => overflow.offsetWidth / visibleCount();
+
+    // ── Dots
+    const dotsWrap = document.createElement('div');
+    dotsWrap.className = 'fs-carousel-dots';
+
+    for (let i = 0; i < realCount; i++) {
+        const dot = document.createElement('button');
+        dot.className = 'fs-carousel-dot';
+        dot.setAttribute('aria-label', `Статья ${i + 1}`);
+        dot.addEventListener('click', () => {
+            index = realCount + i;
+            update();
+        });
+        dotsWrap.appendChild(dot);
+    }
+    carousel.appendChild(dotsWrap);
+
+    const updateDots = () => {
+        const realIdx = ((index - realCount) % realCount + realCount) % realCount;
+        dotsWrap.querySelectorAll('.fs-carousel-dot').forEach((dot, i) => {
+            dot.classList.toggle('is-active', i === realIdx);
+        });
     };
 
-    // After each animated move, snap back to the real zone if we landed on a clone
+    const update = (animate = true) => {
+        track.style.transition = animate ? 'transform 0.3s ease' : 'none';
+        track.style.transform  = `translateX(-${index * itemWidth()}px)`;
+        updateDots();
+    };
+
     track.addEventListener('transitionend', () => {
         if (index >= realCount * 2) {
             index -= realCount;
