@@ -50,7 +50,7 @@ use Inc\Registrars\SettingsRegistrar;
  */
 class AdminController extends BaseController implements ServiceInterface {
 
-    /**
+	/**
 	 * Конструктор контроллера.
 	 *
 	 * Внедряет все необходимые зависимости через конструктор.
@@ -101,17 +101,17 @@ class AdminController extends BaseController implements ServiceInterface {
 							->addSubPages( $subpages )
 							->register();
 
-        $auth_settings = [
-            [
-                'option_group' => 'fs_lms_auth_group', // Совпадает с settings_fields() в шаблоне
-                'option_name'  => 'fs_lms_auth_settings', // Ключ в таблице wp_options
-                'callback'     => null, // Здесь можно указать метод для валидации данных
-            ]
-        ];
+		$auth_settings = array(
+			array(
+				'option_group' => 'fs_lms_auth_group', // Совпадает с settings_fields() в шаблоне
+				'option_name'  => 'fs_lms_auth_settings', // Ключ в таблице wp_options
+				'callback'     => null, // Здесь можно указать метод для валидации данных
+			),
+		);
 
-        $this->settings_registrar
-            ->addSettings( $auth_settings )
-            ->register();
+		$this->settings_registrar
+			->addSettings( $auth_settings )
+			->register();
 
 		// Удаляем дублирующиеся пункты меню, созданные WordPress автоматически
 		$this->removeAutoSubMenuItems();
