@@ -22,15 +22,22 @@ function initTabs() {
 }
 
 function initCarousel() {
-    const carousel = document.querySelector('.fs-task-carousel');
+    const carousel   = document.querySelector('.fs-task-carousel');
     if (!carousel) return;
 
-    const overflow = carousel.querySelector('.fs-carousel-overflow');
-    const track    = carousel.querySelector('.fs-carousel-track');
-    const items    = carousel.querySelectorAll('.fs-carousel-item');
-    if (!overflow || !track || items.length === 0) return;
+    const overflow   = carousel.querySelector('.fs-carousel-overflow');
+    const track      = carousel.querySelector('.fs-carousel-track');
+    const origItems  = Array.from(carousel.querySelectorAll('.fs-carousel-item'));
+    if (!overflow || !track || origItems.length === 0) return;
 
-    let index = 0;
+    const realCount = origItems.length;
+
+    // Prepend and append full copies for seamless infinite looping
+    origItems.forEach(item => track.insertBefore(item.cloneNode(true), track.firstChild));
+    origItems.forEach(item => track.appendChild(item.cloneNode(true)));
+
+    // Start at first real item (after the prepended clones)
+    let index = realCount;
 
     const visibleCount = () => {
         if (window.innerWidth <= 600) return 1;
@@ -38,34 +45,27 @@ function initCarousel() {
         return 3;
     };
 
-    const clampIndex = () => {
-        const max = Math.max(0, items.length - visibleCount());
-        if (index > max) index = max;
-        if (index < 0)   index = 0;
+    const update = (animate = true) => {
+        track.style.transition = animate ? 'transform 0.3s ease' : 'none';
+        track.style.transform  = `translateX(-${index * (overflow.offsetWidth / visibleCount())}px)`;
     };
 
-    const update = () => {
-        clampIndex();
-        const itemWidth = overflow.offsetWidth / visibleCount();
-        track.style.transform = `translateX(-${index * itemWidth}px)`;
-    };
-
-    carousel.querySelector('.fs-carousel-btn--prev')?.addEventListener('click', () => {
-        const max = Math.max(0, items.length - visibleCount());
-        index = index <= 0 ? max : index - 1;
-        update();
+    // After each animated move, snap back to the real zone if we landed on a clone
+    track.addEventListener('transitionend', () => {
+        if (index >= realCount * 2) {
+            index -= realCount;
+            update(false);
+        } else if (index < realCount) {
+            index += realCount;
+            update(false);
+        }
     });
 
-    carousel.querySelector('.fs-carousel-btn--next')?.addEventListener('click', () => {
-        const max = Math.max(0, items.length - visibleCount());
-        index = index >= max ? 0 : index + 1;
-        update();
-    });
+    carousel.querySelector('.fs-carousel-btn--prev')?.addEventListener('click', () => { index--; update(); });
+    carousel.querySelector('.fs-carousel-btn--next')?.addEventListener('click', () => { index++; update(); });
 
-    window.addEventListener('resize', update);
-
-    // Wait one frame so layout is complete before measuring
-    requestAnimationFrame(update);
+    window.addEventListener('resize', () => update(false));
+    requestAnimationFrame(() => update(false));
 }
 
 document.addEventListener('DOMContentLoaded', () => {
