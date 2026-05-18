@@ -22,7 +22,7 @@ class AuthCallbacks extends BaseController {
 			}
 
 			$id        = $provider->configKey();
-			$login_url = home_url( '/lms-auth/login?provider=' . $id );
+			$login_url = home_url( "/lms-auth/{$id}" );
 			$output   .= sprintf(
 				'<p><a href="%s" class="button auth-btn-%s" style="display:inline-block; padding:10px 20px; background:#0073aa; color:#fff; text-decoration:none; border-radius:4px; margin-bottom:5px;">Войти через %s</a></p>',
 				esc_url( $login_url ),
