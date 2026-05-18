@@ -8,6 +8,7 @@ use Inc\Callbacks\AuthCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Shared\Traits\TemplateRenderer;
+
 class AuthPageController extends BaseController implements ServiceInterface {
 
 	use TemplateRenderer;
@@ -17,12 +18,12 @@ class AuthPageController extends BaseController implements ServiceInterface {
 	) {
 		parent::__construct();
 	}
-	public function register(): void {
-		// Регистрируем шорткод боевой страницы авторизации
-		add_shortcode( 'fs_lms_login_form', array( $this, 'renderLoginPage' ) );
 
-		// Перехватываем стандартный wp-login.php и редиректим на нашу кастомную страницу
+	public function register(): void {
+		add_shortcode( 'fs_lms_login_form', array( $this, 'renderLoginPage' ) );
 		add_action( 'init', array( $this, 'redirectToCustomLogin' ) );
+
+		add_filter( 'template_include', array( $this, 'forceCleanAuthLayout' ), 9999 );
 	}
 
 	/**
@@ -49,6 +50,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 				'lost_pass_url' => wp_lostpassword_url(),
 			)
 		);
+
 		return (string) ob_get_clean();
 	}
 
@@ -65,5 +67,29 @@ class AuthPageController extends BaseController implements ServiceInterface {
 			exit;
 		}
 	}
+
+	/**
+	 * Полностью перехватывает вывод WordPress для страницы авторизации.
+	 */
+	public function forceCleanAuthLayout( string $template ): string {
+		// Если мы в админке, ничего не делаем
+		if ( is_admin() ) {
+			return $template;
+		}
+
+		global $post;
+
+		if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'fs_lms_login_form' ) ) {
+
+			$plugin_template = $this->path( 'templates/frontend/clean-page.php' );
+
+			if ( file_exists( $plugin_template ) ) {
+				return $plugin_template; 			}
+		}
+
+		return $template;
+	}
+
+
 
 }

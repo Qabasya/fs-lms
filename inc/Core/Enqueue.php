@@ -162,7 +162,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		wp_enqueue_style(
 			'fs-lms-frontend-style',
 			$this->url( 'assets/css/frontend.min.css' ),
-			array( 'fs-lms-common-style' ),
+			array( 'fs-lms-common-style', 'dashicons' ),
 			$this->plugin_version
 		);
 

@@ -31,27 +31,7 @@ export const AuthSettings = {
             }
         });
 
-        // 2. Кнопка «глазик» для отображения/скрытия секретного ключа (API secret)
-        $(document).on('click', '.js-toggle-secret', function() {
-            const $button = $(this);
-            const $container = $button.closest('.fs-lms-secret-field');
-            const $input = $container.find('input');
-            const $icon = $button.find('.dashicons');
-
-            if ($input.attr('type') === 'password') {
-                // Показываем секрет: меняем тип input на text
-                $input.attr('type', 'text');
-                $icon.removeClass('dashicons-visibility').addClass('dashicons-hidden');
-                $button.attr('aria-label', 'Скрыть секретный ключ');
-            } else {
-                // Скрываем секрет: меняем тип input на password
-                $input.attr('type', 'password');
-                $icon.removeClass('dashicons-hidden').addClass('dashicons-visibility');
-                $button.attr('aria-label', 'Показать секретный ключ');
-            }
-        });
-
-        // 3. AJAX-отправка формы настроек (для вкладки tab-2)
+        // 2. AJAX-отправка формы настроек (для вкладки tab-2)
         $('#tab-2 form').on('submit', function(e) {
             e.preventDefault(); // Блокируем стандартную перезагрузку страницы
 
