@@ -33,177 +33,173 @@ use Inc\Shared\Traits\ErrorHandler;
  * определение провайдера — ProviderResolver. Является точкой входа для всего функционала
  * аутентификации через соцсети.
  */
-class AuthController extends BaseController implements ServiceInterface
-{
-    use ErrorHandler;  // Трейт с методами logException(), sendError()
+class AuthController extends BaseController implements ServiceInterface {
 
-    // Префикс маршрутов для аутентификации (URL: /lms-auth/{provider})
-    private const string ROUTE_PREFIX = 'lms-auth';
+	use ErrorHandler;  // Трейт с методами logException(), sendError()
 
-    /**
-     * Список доступных стратегий (провайдер → объект стратегии).
-     *
-     * @var array<string, AuthStrategyInterface>
-     */
-    private array $strategies = [];
+	// Префикс маршрутов для аутентификации (URL: /lms-auth/{provider})
+	private const string ROUTE_PREFIX = 'lms-auth';
 
-    public function __construct(
-        private readonly AuthCallbacks    $callbacks,
-        private readonly ProviderResolver $provider_resolver,
+	/**
+	 * Список доступных стратегий (провайдер → объект стратегии).
+	 *
+	 * @var array<string, AuthStrategyInterface>
+	 */
+	private array $strategies = array();
 
-        // Внедрение конкретных стратегий через DI-контейнер
-        GoogleAuthStrategy                $google_strategy,
-        VkAuthStrategy                    $vk_strategy,
-        GithubAuthStrategy                $github_strategy,
-    ) {
-        parent::__construct();
+	public function __construct(
+		private readonly AuthCallbacks $callbacks,
+		private readonly ProviderResolver $provider_resolver,
+		// Внедрение конкретных стратегий через DI-контейнер
+		GoogleAuthStrategy $google_strategy,
+		VkAuthStrategy $vk_strategy,
+		GithubAuthStrategy $github_strategy,
+	) {
+		parent::__construct();
 
-        // Регистрация стратегий с привязкой к значению enum
-        $this->strategies = [
-            AuthProvider::GOOGLE->value    => $google_strategy,
-            AuthProvider::VKONTAKTE->value => $vk_strategy,
-            AuthProvider::GITHUB->value    => $github_strategy,
-        ];
-    }
+		// Регистрация стратегий с привязкой к значению enum
+		$this->strategies = array(
+			AuthProvider::GOOGLE->value    => $google_strategy,
+			AuthProvider::VKONTAKTE->value => $vk_strategy,
+			AuthProvider::GITHUB->value    => $github_strategy,
+		);
+	}
 
-    /**
-     * Регистрирует все хуки и шорткоды контроллера.
-     *
-     * @return void
-     */
-    public function register(): void
-    {
-        // 'template_redirect' — хук, срабатывающий перед загрузкой шаблона темы
-        add_action( 'template_redirect', [ $this, 'handleAuthRoutes' ] );
+	/**
+	 * Регистрирует все хуки и шорткоды контроллера.
+	 *
+	 * @return void
+	 */
+	public function register(): void {
+		// 'template_redirect' — хук, срабатывающий перед загрузкой шаблона темы
+		add_action( 'template_redirect', array( $this, 'handleAuthRoutes' ) );
 
-        // add_shortcode() — регистрирует шорткод для тестовой страницы авторизации
-        add_shortcode( 'lms_auth_test', [ $this->callbacks, 'renderAuthTestPage' ] );
-    }
+		// add_shortcode() — регистрирует шорткод для тестовой страницы авторизации
+		add_shortcode( 'lms_auth_test', array( $this->callbacks, 'renderAuthTestPage' ) );
+	}
 
-    /**
-     * Обрабатывает кастомные маршруты аутентификации.
-     *
-     * @return void
-     */
-    public function handleAuthRoutes(): void
-    {
-        // parse_url(, PHP_URL_PATH) — извлекает только путь из URL
-        $path = trim( parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH ), '/' );
+	/**
+	 * Обрабатывает кастомные маршруты аутентификации.
+	 *
+	 * @return void
+	 */
+	public function handleAuthRoutes(): void {
+		// parse_url(, PHP_URL_PATH) — извлекает только путь из URL
+		$path = trim( parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH ), '/' );
 
-        // str_starts_with() — проверяет начало строки (PHP 8.0)
-        if ( ! str_starts_with( $path, self::ROUTE_PREFIX . '/' ) ) {
-            return;
-        }
+		// str_starts_with() — проверяет начало строки (PHP 8.0)
+		if ( ! str_starts_with( $path, self::ROUTE_PREFIX . '/' ) ) {
+			return;
+		}
 
-        // explode() — разбивает строку по разделителю '/'
-        // array_filter() — удаляет пустые элементы
-        // array_values() — переиндексирует массив
-        $parts  = array_values( array_filter( explode( '/', $path ) ) );
-        $action = $parts[1] ?? null;
+		// explode() — разбивает строку по разделителю '/'
+		// array_filter() — удаляет пустые элементы
+		// array_values() — переиндексирует массив
+		$parts  = array_values( array_filter( explode( '/', $path ) ) );
+		$action = $parts[1] ?? null;
 
-        // Маршрут: /lms-auth/callback — обработка ответа от провайдера
-        if ( $action === 'callback' ) {
-            $this->processCallback();
-            return;
-        }
+		// Маршрут: /lms-auth/callback — обработка ответа от провайдера
+		if ( $action === 'callback' ) {
+			$this->processCallback();
+			return;
+		}
 
-        // Если это /lms-auth/login — показываем выбор провайдеров
-        if ( $action === 'login' ) {
-            // Здесь может быть рендер страницы логина (заглушка)
-            return;
-        }
+		// Если это /lms-auth/login — показываем выбор провайдеров
+		if ( $action === 'login' ) {
+			// Здесь может быть рендер страницы логина (заглушка)
+			return;
+		}
 
-        // Если это /lms-auth/{provider} — вход через конкретного провайдера
-        $provider = AuthProvider::fromRequest( (string) $action );
-        if ( $provider ) {
-            $this->processLogin( $provider );
-        }
-    }
+		// Если это /lms-auth/{provider} — вход через конкретного провайдера
+		$provider = AuthProvider::fromRequest( (string) $action );
+		if ( $provider ) {
+			$this->processLogin( $provider );
+		}
+	}
 
-    /**
-     * Инициализирует процесс входа через социальную сеть.
-     *
-     * @param AuthProvider|null $provider Провайдер (vk, google, github)
-     *
-     * @return void
-     */
-    private function processLogin( ?AuthProvider $provider = null ): void
-    {
-        $provider = $provider ?? $this->provider_resolver->fromRequest();
-        $strategy = $this->getStrategy( $provider );
+	/**
+	 * Инициализирует процесс входа через социальную сеть.
+	 *
+	 * @param AuthProvider|null $provider Провайдер (vk, google, github)
+	 *
+	 * @return void
+	 */
+	private function processLogin( ?AuthProvider $provider = null ): void {
+		$provider = $provider ?? $this->provider_resolver->fromRequest();
+		$strategy = $this->getStrategy( $provider );
 
-        if ( ! $strategy ) {
-            $this->sendError( 'unknown_provider', 'Провайдер не поддерживается или не настроен', 400 );
-            return;
-        }
+		if ( ! $strategy ) {
+			$this->sendError( 'unknown_provider', 'Провайдер не поддерживается или не настроен', 400 );
+			return;
+		}
 
-        // login() — перенаправляет на страницу авторизации провайдера
-        $strategy->login();
-    }
+		// login() — перенаправляет на страницу авторизации провайдера
+		$strategy->login();
+	}
 
-    /**
-     * Обрабатывает callback-запрос от провайдера после авторизации.
-     *
-     * @return void
-     */
-    private function processCallback(): void
-    {
-        $provider = $this->provider_resolver->fromCallback();
-        $strategy = $this->getStrategy( $provider );
+	/**
+	 * Обрабатывает callback-запрос от провайдера после авторизации.
+	 *
+	 * @return void
+	 */
+	private function processCallback(): void {
+		$provider = $this->provider_resolver->fromCallback();
+		$strategy = $this->getStrategy( $provider );
 
-        if ( ! $strategy ) {
-            $this->sendError( 'unknown_provider', 'Не удалось определить стратегию для callback', 400 );
-            return;
-        }
+		if ( ! $strategy ) {
+			$this->sendError( 'unknown_provider', 'Не удалось определить стратегию для callback', 400 );
+			return;
+		}
 
-        try {
-            // authenticate() — получает профиль и возвращает UserDTO
-            $user = $strategy->authenticate();
+		try {
+			// authenticate() — получает профиль и возвращает UserDTO
+			$user = $strategy->authenticate();
 
-            if ( $user ) {
-                // apply_filters() — позволяет переопределить URL редиректа
-                $redirect = apply_filters( 'lms_auth_redirect_url', home_url( '/wp-admin/profile.php' ), $user );
-                // wp_safe_redirect() — безопасный редирект (только локальные URL)
-                wp_safe_redirect( $redirect );
-                exit;
-            }
+			if ( $user ) {
+				// apply_filters() — позволяет переопределить URL редиректа
+				$redirect = apply_filters( 'lms_auth_redirect_url', home_url( '/wp-admin/profile.php' ), $user );
+				// wp_safe_redirect() — безопасный редирект (только локальные URL)
+				wp_safe_redirect( $redirect );
+				exit;
+			}
 
-            $this->sendError( 'auth_failed', 'Ошибка авторизации через соцсеть', 401 );
+			$this->sendError( 'auth_failed', 'Ошибка авторизации через соцсеть', 401 );
 
-        } catch ( \Exception $e ) {
-            $this->logAuthError( $e, $provider );
-            $this->sendError( 'auth_error', 'Техническая ошибка при обработке ответа', 500 );
-        }
-    }
+		} catch ( \Exception $e ) {
+			$this->logAuthError( $e, $provider );
+			$this->sendError( 'auth_error', 'Техническая ошибка при обработке ответа', 500 );
+		}
+	}
 
-    /**
-     * Возвращает стратегию для указанного провайдера.
-     *
-     * @param AuthProvider|null $provider Провайдер
-     *
-     * @return AuthStrategyInterface|null
-     */
-    private function getStrategy( ?AuthProvider $provider ): ?AuthStrategyInterface
-    {
-        if ( ! $provider ) {
-            return null;
-        }
-        return $this->strategies[ $provider->value ] ?? null;
-    }
+	/**
+	 * Возвращает стратегию для указанного провайдера.
+	 *
+	 * @param AuthProvider|null $provider Провайдер
+	 *
+	 * @return AuthStrategyInterface|null
+	 */
+	private function getStrategy( ?AuthProvider $provider ): ?AuthStrategyInterface {
+		if ( ! $provider ) {
+			return null;
+		}
+		return $this->strategies[ $provider->value ] ?? null;
+	}
 
-    /**
-     * Логирует ошибку аутентификации.
-     *
-     * @param \Throwable   $e        Исключение
-     * @param AuthProvider $provider Провайдер
-     *
-     * @return void
-     */
-    private function logAuthError( \Throwable $e, AuthProvider $provider ): void
-    {
-        $this->logException( $e, [
-            'provider'  => $provider->value,
-            'component' => 'auth',
-        ] );
-    }
+	/**
+	 * Логирует ошибку аутентификации.
+	 *
+	 * @param \Throwable   $e        Исключение
+	 * @param AuthProvider $provider Провайдер
+	 *
+	 * @return void
+	 */
+	private function logAuthError( \Throwable $e, AuthProvider $provider ): void {
+		$this->logException(
+			$e,
+			array(
+				'provider'  => $provider->value,
+				'component' => 'auth',
+			)
+		);
+	}
 }
