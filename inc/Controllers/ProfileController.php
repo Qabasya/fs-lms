@@ -7,45 +7,87 @@ namespace Inc\Controllers;
 use Inc\Core\BaseController;
 use Inc\Contracts\ServiceInterface;
 use Inc\Enums\PageRoutes;
+use Inc\Enums\ShortCode;
 use Inc\Shared\Traits\TemplateRenderer;
 
+/**
+ * Class ProfileController
+ *
+ * Контроллер для управления личным кабинетом пользователя.
+ *
+ * @package Inc\Controllers
+ * @implements ServiceInterface
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Маршрутизация профиля** — редирект незалогиненных пользователей со страницы профиля на вход.
+ * 2. **Редирект со страницы входа** — перенаправление залогиненных пользователей со страницы входа в профиль.
+ * 3. **Рендеринг профиля** — отображение личного кабинета через шорткод.
+ *
+ * ### Архитектурная роль:
+ *
+ * Использует PageRoutes для работы с URL (проверка текущей страницы, получение URL).
+ * Делегирует рендеринг шаблонов трейту TemplateRenderer.
+ */
 class ProfileController extends BaseController implements ServiceInterface {
 
-	use TemplateRenderer;
+	use TemplateRenderer;  // Трейт с методом render() для подключения шаблонов
 
 	public function __construct() {
 		parent::__construct();
 	}
 
+	/**
+	 * Регистрирует все хуки и шорткоды контроллера.
+	 *
+	 * @return void
+	 */
 	public function register(): void {
+		// 'template_redirect' — хук, срабатывающий перед загрузкой шаблона темы
 		add_action( 'template_redirect', array( $this, 'handleRoutingAndPrivacy' ) );
-		add_shortcode( 'fs_lms_profile', array( $this, 'renderProfileShortcode' ) );
+
+		// Шорткод для вставки профиля на любую страницу
+		add_shortcode( ShortCode::Profile->value, array( $this, 'renderProfileShortcode' ) );
 	}
 
+	/**
+	 * Обрабатывает маршрутизацию и проверку доступа к страницам.
+	 *
+	 * @return void
+	 */
 	public function handleRoutingAndPrivacy(): void {
+		// Если пользователь залогинен и находится на странице входа — редирект в профиль
+		// is_user_logged_in() — проверяет авторизацию
+		// isCurrent() — метод enum PageRoutes, проверяет соответствие текущей страницы
 		if ( is_user_logged_in() && PageRoutes::SIGN_IN->isCurrent() ) {
 			wp_safe_redirect( PageRoutes::USER_PROFILE->url() );
 			exit;
 		}
 
+		// Если пользователь не залогинен и находится на странице профиля — редирект на вход
 		if ( ! is_user_logged_in() && PageRoutes::USER_PROFILE->isCurrent() ) {
 			wp_safe_redirect( PageRoutes::SIGN_IN->url() );
 			exit;
 		}
 	}
 
+	/**
+	 * Рендерит личный кабинет пользователя через шорткод.
+	 *
+	 * @return string HTML-контент профиля
+	 */
 	public function renderProfileShortcode(): string {
-		// 1. Проверяем авторизацию
+		// Проверка авторизации
 		if ( ! is_user_logged_in() ) {
 			return '<p>Доступ ограничен. Пожалуйста, авторизуйтесь.</p>';
 		}
 
+		// wp_get_current_user() — возвращает объект текущего пользователя
 		$current_user = wp_get_current_user();
 
-		// 2. Включаем буферизацию вывода, так как трейт возвращает void (делает require)
+		// Буферизация вывода (трейт render() выводит напрямую, а шорткод должен возвращать строку)
 		ob_start();
 
-		// Трейт выполнит require, и HTML запишется в буфер, а не уйдет на экран сразу
 		$this->render(
 			'frontend/profile',
 			array(
@@ -53,7 +95,7 @@ class ProfileController extends BaseController implements ServiceInterface {
 			)
 		);
 
-		// 3. Забираем накопленный HTML из буфера в виде чистой строки и закрываем буфер
-		return ob_get_clean();
+		// ob_get_clean() — получаем содержимое буфера и очищаем его
+		return (string) ob_get_clean();
 	}
 }

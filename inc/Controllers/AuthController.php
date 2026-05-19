@@ -8,6 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\AuthProvider;
 use Inc\Enums\PageRoutes;
+use Inc\Enums\ShortCode;
 use Inc\Services\AuthService\AuthStrategyRegistry;
 use Inc\Services\AuthService\ProviderResolver;
 use Inc\Shared\Traits\ErrorHandler;
@@ -58,11 +59,6 @@ class AuthController extends BaseController implements ServiceInterface {
 
 		add_filter( 'lms_auth_redirect_url', array( $this, 'filterRedirectUrl' ), 10, 2 );
 		add_filter( 'get_avatar_url', array( $this, 'filterAvatarUrl' ), 10, 3 );
-
-		// Шорткод для тестовой страницы — доступен только в режиме отладки
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			add_shortcode( 'lms_auth_test', array( $this->callbacks, 'renderAuthTestPage' ) );
-		}
 	}
 
 	/**
@@ -169,8 +165,8 @@ class AuthController extends BaseController implements ServiceInterface {
 	/**
 	 * Определяет, куда перенаправить пользователя после успешного входа.
 	 *
-	 * @param string   $redirect_url Дефолтный PageRoutes редиректа.
-	 * @param UserDTO  $user_dto     Объект с данными пользователя.
+	 * @param string  $redirect_url Дефолтный PageRoutes редиректа.
+	 * @param UserDTO $user_dto     Объект с данными пользователя.
 	 * @return string
 	 */
 	public function filterRedirectUrl( string $redirect_url, $user_dto ): string {

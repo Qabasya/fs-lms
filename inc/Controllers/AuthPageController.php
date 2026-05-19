@@ -9,6 +9,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Shared\Traits\TemplateRenderer;
 use Inc\Enums\PageRoutes;
+use Inc\Enums\ShortCode;
 
 /**
  * Class AuthPageController
@@ -47,7 +48,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 	 */
 	public function register(): void {
 		// Шорткод для вставки формы входа на любую страницу
-		add_shortcode( 'fs_lms_login_form', array( $this, 'renderLoginPage' ) );
+		add_shortcode( ShortCode::LoginForm->value, array( $this, 'renderLoginPage' ) );
 
 		// 'init' — хук, срабатывающий после загрузки WordPress
 		add_action( 'init', array( $this, 'redirectToCustomLogin' ) );
@@ -122,7 +123,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 
 		// Проверяем, что пост существует и содержит шорткод 'fs_lms_login_form'
 		// has_shortcode() — проверяет наличие шорткода в контенте
-		if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'fs_lms_login_form' ) ) {
+		if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, ShortCode::LoginForm->value ) ) {
 
 			// path() — метод родительского BaseController, возвращает полный путь к файлу
 			$plugin_template = $this->path( 'templates/frontend/clean-page.php' );
