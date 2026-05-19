@@ -128,7 +128,7 @@ class UserManager {
 				! current_user_can( UserRole::FSTeacher->value )
 			) {
 				// wp_safe_redirect() — безопасное перенаправление (только разрешённые домены)
-				// home_url() — возвращает URL главной страницы сайта
+				// home_url() — возвращает PageRoutes главной страницы сайта
 				wp_safe_redirect( home_url( '/profile/' ) );
 				exit;  // Прерываем выполнение после редиректа
 			}

@@ -129,7 +129,7 @@ class AdminController extends BaseController implements ServiceInterface {
 	 * - page_title — заголовок страницы (<title>)
 	 * - menu_title — текст пункта меню
 	 * - capability — минимальная роль/права доступа
-	 * - menu_slug — уникальный идентификатор (используется в URL)
+	 * - menu_slug — уникальный идентификатор (используется в PageRoutes)
 	 * - callback — функция/метод для отрисовки содержимого
 	 * - icon_url — иконка пункта меню (Dashicons)
 	 * - position — позиция в меню (чем меньше число, тем выше)
@@ -205,7 +205,7 @@ class AdminController extends BaseController implements ServiceInterface {
 		);
 
 		// Скрытая страница управления типовыми условиями (не отображается в боковом меню)
-		// parent_slug' => 'options.php' делает страницу доступной только по прямому URL
+		// parent_slug' => 'options.php' делает страницу доступной только по прямому PageRoutes
 		$subpages[] = array(
 			'parent_slug' => 'options.php',
 			'page_title'  => 'Управление типовыми условиями',

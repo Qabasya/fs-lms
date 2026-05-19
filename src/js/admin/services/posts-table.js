@@ -90,8 +90,8 @@ export const PostsTable = {
      * @instance
      * @private
      * @param {JQuery} $container - jQuery-объект контейнера таблицы (.fs-posts-table-container).
-     * @param {string|null} url - URL из ссылки (для фильтров и пагинации), содержащий параметры запроса.
-     * @param {Object} [overrides] - Объект с параметрами, переопределяющими значения из URL.
+     * @param {string|null} url - PageRoutes из ссылки (для фильтров и пагинации), содержащий параметры запроса.
+     * @param {Object} [overrides] - Объект с параметрами, переопределяющими значения из PageRoutes.
      * @param {string} [overrides.post_status] - Статус постов для фильтрации (publish, draft, trash и т.д.).
      * @param {number} [overrides.paged] - Номер страницы пагинации.
      * @param {string} [overrides.s] - Поисковый запрос.
@@ -100,8 +100,8 @@ export const PostsTable = {
      */
     _load($container, url, overrides = {}) {
         /**
-         * Извлекаем параметры из URL, если он передан.
-         * Создаём новый URLSearchParams на основе строки запроса из URL.
+         * Извлекаем параметры из PageRoutes, если он передан.
+         * Создаём новый URLSearchParams на основе строки запроса из PageRoutes.
          * @type {URLSearchParams}
          */
         const params = url
@@ -116,9 +116,9 @@ export const PostsTable = {
          * @property {string} subject_key - Ключ предмета (из data-атрибута контейнера)
          * @property {string} tab - Вкладка (из data-атрибута контейнера)
          * @property {string} page_slug - Слаг страницы (из data-атрибута контейнера)
-         * @property {string} post_status - Статус постов (из URL или overrides)
-         * @property {number} paged - Номер страницы (из URL или overrides)
-         * @property {string} s - Поисковый запрос (из URL или overrides)
+         * @property {string} post_status - Статус постов (из PageRoutes или overrides)
+         * @property {number} paged - Номер страницы (из PageRoutes или overrides)
+         * @property {string} s - Поисковый запрос (из PageRoutes или overrides)
          */
         const data = {
             action: fs_lms_vars.ajax_actions.getPostsTable,
@@ -138,7 +138,7 @@ export const PostsTable = {
 
         /**
          * Выполняем AJAX-запрос к серверу.
-         * @param {string} url - URL обработчика AJAX WordPress
+         * @param {string} url - PageRoutes обработчика AJAX WordPress
          * @param {string} type - HTTP метод запроса
          * @param {Object} data - Данные для отправки
          */

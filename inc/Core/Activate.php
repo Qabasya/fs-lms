@@ -1,46 +1,32 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Core;
 
 use Inc\Managers\UserManager;
-use Inc\Core\Container;
+use Inc\Services\PageGeneratorService;
+use Inc\Enums\PageRoutes;
 
-/**
- * Class Activate
- *
- * Обработчик события активации плагина.
- *
- * Вызывается при активации плагина через WordPress admin.
- * Содержит все необходимые операции для корректного запуска плагина:
- * - Сброс правил перезаписи (flush rewrite rules)
- * - Создание таблиц базы данных
- * - Установка значений по умолчанию
- * - Инициализация опций
- *
- * @package Inc\Core
- *
- * @example
- * // Регистрация в главном файле плагина
- * register_activation_hook(__FILE__, [Activate::class, 'activate']);
- */
 class Activate {
-	/**
-	 * Выполняет действия при активации плагина.
-	 *
-	 * Сбрасывает правила перезаписи WordPress, чтобы пользовательские
-	 * типы записей (CPT) и таксономии корректно работали с ЧПУ.
-	 *
-	 * @return void
-	 */
+
 	public static function activate(): void {
-		// Создаем контейнер, чтобы разрешить зависимости UserManager
 		$container = new Container();
-		
+
 		/** @var UserManager $user_manager */
 		$user_manager = $container->get( UserManager::class );
-		
 		$user_manager->createRoles();
-		
+
+		self::generatePages();
+
 		flush_rewrite_rules();
+	}
+
+	private static function generatePages(): void {
+		$generator = new PageGeneratorService();
+
+		$generator->createPageIfNeeded( PageRoutes::SIGN_IN, 'Авторизация', '[fs_lms_login_form]' );
+		$generator->createPageIfNeeded( PageRoutes::SIGN_UP, 'Регистрация', '[fs_lms_register_form]' );
+		$generator->createPageIfNeeded( PageRoutes::USER_PROFILE, 'Личный кабинет', '[fs_lms_profile]' );
 	}
 }

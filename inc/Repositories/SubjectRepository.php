@@ -110,7 +110,7 @@ class SubjectRepository implements RepositoryInterface {
 	 * Очистить данные предмета перед сохранением.
 	 *
 	 * Применяет безопасную обработку:
-	 * - key: преобразует в slug (безопасный для URL)
+	 * - key: преобразует в slug (безопасный для PageRoutes)
 	 * - name: удаляет HTML-теги и экранирует специальные символы
 	 *
 	 * @param array{key?: string, name?: string} $data Исходные данные

@@ -76,7 +76,7 @@ class TaskMetaService {
 	}
 
 	/**
-	 * Получает имя файла из URL.
+	 * Получает имя файла из PageRoutes.
 	 *
 	 * @param string $url
 	 *

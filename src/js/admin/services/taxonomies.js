@@ -153,7 +153,7 @@ export const Taxonomies = {
         /**
          * Выполняем AJAX-запрос на сохранение таксономии.
          * Действие (storeTaxonomy или updateTaxonomy) выбирается в зависимости от data.action.
-         * @param {string} url - URL обработчика AJAX WordPress
+         * @param {string} url - PageRoutes обработчика AJAX WordPress
          * @param {Object} requestData - Данные для отправки
          * @param {string} requestData.action - AJAX-действие для сохранения таксономии
          * @param {string} requestData.security - Nonce для проверки безопасности

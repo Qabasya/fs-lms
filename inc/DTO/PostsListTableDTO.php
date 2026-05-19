@@ -13,8 +13,8 @@ namespace Inc\DTO;
  *
  * ### Основные обязанности:
  *
- * 1. **Хранение состояния** — инкапсулирует объект таблицы, тип поста, URL и параметры.
- * 2. **Подмена ссылок** — заменяет стандартные URL таблицы на кастомные (для работы в админ-страницах).
+ * 1. **Хранение состояния** — инкапсулирует объект таблицы, тип поста, PageRoutes и параметры.
+ * 2. **Подмена ссылок** — заменяет стандартные PageRoutes таблицы на кастомные (для работы в админ-страницах).
  * 3. **Восстановление URI** — возвращает оригинальный REQUEST_URI после модификации.
  *
  * ### Архитектурная роль:
@@ -30,8 +30,8 @@ readonly class PostsListTableDTO {
 	 * @param \WP_Posts_List_Table $table            Объект таблицы постов
 	 * @param \WP_Post_Type        $post_type_object Объект типа поста (метаданные CPT)
 	 * @param string               $post_type        Слаг типа поста (например, 'math_tasks')
-	 * @param string               $edit_base        Базовый URL для редактирования (обычно "post.php")
-	 * @param string               $custom_base      Кастомный базовый URL для подмены (admin.php?page=...)
+	 * @param string               $edit_base        Базовый PageRoutes для редактирования (обычно "post.php")
+	 * @param string               $custom_base      Кастомный базовый PageRoutes для подмены (admin.php?page=...)
 	 * @param string               $original_uri     Оригинальный REQUEST_URI для восстановления
 	 * @param string               $tab              Идентификатор вкладки (tab-2, tab-3)
 	 * @param string               $page_slug        Слаг страницы (например, 'fs_subject_math')

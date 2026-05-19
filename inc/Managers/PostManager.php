@@ -272,7 +272,7 @@ class PostManager {
 					'title'     => $post->post_title,
 					'number'    => $post->post_name,  // slug как номер задания
 					'status'    => $post->post_status,
-					// get_edit_post_link() — URL для редактирования поста в админке
+					// get_edit_post_link() — PageRoutes для редактирования поста в админке
 					'edit_link' => get_edit_post_link( $post->ID ) ?? '',
 					'terms'     => $this->collectTermsData( $post->ID, $visible_taxonomies ),
 				);

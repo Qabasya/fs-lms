@@ -98,7 +98,7 @@ class BoilerplatePageController extends BaseController implements ServiceInterfa
 		// Получение данных предмета
 		$subject_dto = $this->subjects->getByKey( $subject_key );
 
-		// admin_url() — возвращает полный URL к административной панели WordPress
+		// admin_url() — возвращает полный PageRoutes к административной панели WordPress
 		// Формирует ссылку для возврата к настройкам предмета (вкладка 5)
 		$this->render(
 			'admin/boilerplate-list',

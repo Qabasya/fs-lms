@@ -22,7 +22,7 @@ use Inc\Services\PostTypeResolver;
  *
  * 1. **Подключение стилей** — регистрация и подключение CSS-файлов для админки и фронтенда.
  * 2. **Подключение скриптов** — регистрация JS-файлов с зависимостями (jQuery, wp-api, wp-i18n).
- * 3. **Локализация данных** — передача PHP-данных (nonce, AJAX URL, таксономии) в JavaScript.
+ * 3. **Локализация данных** — передача PHP-данных (nonce, AJAX PageRoutes, таксономии) в JavaScript.
  * 4. **Рендеринг модалки** — вывод HTML-шаблона модального окна подтверждения в админ-футере.
  *
  * ### Архитектурная роль:
@@ -62,7 +62,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// wp_enqueue_style() — подключает CSS-файл
 		wp_enqueue_style(
 			'fs-lms-common-style',                        // Идентификатор стиля
-			$this->url( 'assets/css/common.min.css' ),    // URL файла
+			$this->url( 'assets/css/common.min.css' ),    // PageRoutes файла
 			array(),                                            // Зависимости
 			$this->plugin_version                         // Версия (для очистки кеша)
 		);

@@ -78,7 +78,7 @@ export const TaskCreation = {
 
         /**
          * Выполняем AJAX-запрос на получение типов задач.
-         * @param {string} url - URL обработчика AJAX WordPress
+         * @param {string} url - PageRoutes обработчика AJAX WordPress
          * @param {Object} data - Параметры запроса
          * @param {string} data.action - AJAX-действие для получения типов задач
          * @param {string} data.subject_key - Ключ предмета
@@ -134,7 +134,7 @@ export const TaskCreation = {
 
         /**
          * Выполняем AJAX-запрос на получение шаблонов для выбранного термина.
-         * @param {string} url - URL обработчика AJAX WordPress
+         * @param {string} url - PageRoutes обработчика AJAX WordPress
          * @param {Object} data - Параметры запроса
          * @param {string} data.action - AJAX-действие для получения шаблонов задач
          * @param {string} data.subject_key - Ключ предмета
@@ -219,7 +219,7 @@ export const TaskCreation = {
 
         /**
          * Выполняем AJAX-запрос на создание задачи.
-         * @param {string} url - URL обработчика AJAX WordPress
+         * @param {string} url - PageRoutes обработчика AJAX WordPress
          * @param {Object} requestData - Данные для отправки
          * @param {string} requestData.action - AJAX-действие для создания задачи
          * @param {string} requestData.nonce - Nonce для проверки безопасности
@@ -242,7 +242,7 @@ export const TaskCreation = {
                  * @param {Object} res - Ответ сервера
                  * @param {boolean} res.success - Флаг успешности операции
                  * @param {Object} res.data - Данные ответа
-                 * @param {string} res.data.redirect - URL для открытия созданной задачи
+                 * @param {string} res.data.redirect - PageRoutes для открытия созданной задачи
                  */
                 if (res.success) {
                     /**

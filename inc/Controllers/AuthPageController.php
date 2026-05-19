@@ -8,8 +8,28 @@ use Inc\Callbacks\AuthCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Shared\Traits\TemplateRenderer;
-use Inc\Enums\URL;
+use Inc\Enums\PageRoutes;
 
+/**
+ * Class AuthPageController
+ *
+ * Контроллер для управления страницами аутентификации (вход, регистрация).
+ *
+ * @package Inc\Controllers
+ * @implements ServiceInterface
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Рендеринг страницы входа** — отображение кастомной страницы авторизации через шорткод.
+ * 2. **Перехват wp-login.php** — редирект со стандартной страницы входа на кастомную.
+ * 3. **Защита от залогиненных пользователей** — редирект со страницы входа на профиль.
+ * 4. **Чистый шаблон** — подмена шаблона темы на чистый (без хедера и футера).
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует получение активных провайдеров AuthCallbacks.
+ * Использует PageRoutes для хранения URL и TemplateRenderer для рендеринга.
+ */
 class AuthPageController extends BaseController implements ServiceInterface {
 
 	use TemplateRenderer;
@@ -20,35 +40,46 @@ class AuthPageController extends BaseController implements ServiceInterface {
 		parent::__construct();
 	}
 
+	/**
+	 * Регистрирует все хуки и шорткоды контроллера.
+	 *
+	 * @return void
+	 */
 	public function register(): void {
+		// Шорткод для вставки формы входа на любую страницу
 		add_shortcode( 'fs_lms_login_form', array( $this, 'renderLoginPage' ) );
-		add_action( 'init', array( $this, 'redirectToCustomLogin' ) );
-		add_action( 'template_redirect', array( $this, 'redirectAuthenticatedFromSignIn' ) );
 
+		// 'init' — хук, срабатывающий после загрузки WordPress
+		add_action( 'init', array( $this, 'redirectToCustomLogin' ) );
+
+		// 'template_include' — фильтр для подмены шаблона темы (приоритет 9999 для переопределения)
 		add_filter( 'template_include', array( $this, 'forceCleanAuthLayout' ), 9999 );
 	}
 
 	/**
 	 * Рендерит кастомную страницу авторизации через шорткод.
+	 *
+	 * @return string HTML-контент страницы
 	 */
 	public function renderLoginPage(): string {
+		// is_user_logged_in() — проверяет, авторизован ли пользователь
 		if ( is_user_logged_in() ) {
-			// Если юзер уже залогинен, отправляем его туда, куда положено
-			// Метод filterRedirectUrl мы уже написали в AuthController
-			wp_safe_redirect( apply_filters( 'lms_auth_redirect_url', home_url(), null ) );
+			wp_safe_redirect( PageRoutes::USER_PROFILE->url() );
 			exit;
 		}
 
-		// Собираем активные провайдеры (метод уже есть в твоем AuthCallbacks)
-		// Но теперь мы рендерим не тестовый шаблон, а красивый боевой
+		// Получение списка активных провайдеров из AuthCallbacks
 		$providers = $this->auth_callbacks->getEnabledProviders();
 
+		// Буферизация вывода для возврата строки (шорткод должен возвращать, а не выводить)
 		ob_start();
 		$this->render(
 			'frontend/auth-page',
 			array(
 				'providers'     => $providers,
-				'register_url'  => URL::SIGN_UP->url(), // URL для регистрации вручную
+				// PageRoutes::SIGN_UP->url() — URL страницы регистрации (для ручной регистрации)
+				'register_url'  => PageRoutes::SIGN_UP->url(),
+				// wp_lostpassword_url() — возвращает URL страницы восстановления пароля
 				'lost_pass_url' => wp_lostpassword_url(),
 			)
 		);
@@ -56,51 +87,50 @@ class AuthPageController extends BaseController implements ServiceInterface {
 		return (string) ob_get_clean();
 	}
 
-
 	/**
-	 * Заменяет стандартный wp-login.php на нашу страницу
+	 * Заменяет стандартный wp-login.php на кастомную страницу входа.
+	 * Подключается к хуку 'init'.
+	 *
+	 * @return void
 	 */
 	public function redirectToCustomLogin(): void {
-		global $pagenow;
+		global $pagenow;  // Глобальная переменная WordPress с именем текущего файла
 
-		// Проверяем, что мы на странице логина и это не AJAX/POST запрос сохранения формы
+		// Проверяем, что мы на странице логина, это GET-запрос и не отправка формы
+		// 'wp-submit' — стандартное поле отправки формы авторизации
 		if ( 'wp-login.php' === $pagenow && ! isset( $_POST['wp-submit'] ) && 'GET' === $_SERVER['REQUEST_METHOD'] ) {
-			wp_safe_redirect( URL::SIGN_IN->url() );
-			exit;
-		}
-	}
-
-	/**
-	 * Перенаправляет аутентифицированного пользователя со страницы входа на профиль.
-	 */
-	public function redirectAuthenticatedFromSignIn(): void {
-		if ( ! is_user_logged_in() ) {
-			return;
-		}
-
-		if ( is_page( 'sign-in' ) ) {
-			wp_safe_redirect( URL::USER_PROFILE->url() );
+			wp_safe_redirect( PageRoutes::SIGN_IN->url() );
 			exit;
 		}
 	}
 
 	/**
 	 * Полностью перехватывает вывод WordPress для страницы авторизации.
+	 * Подменяет шаблон темы на чистый (без хедера и футера).
+	 *
+	 * @param string $template Путь к текущему шаблону темы
+	 *
+	 * @return string
 	 */
 	public function forceCleanAuthLayout( string $template ): string {
-		// Если мы в админке, ничего не делаем
+		// Если мы в админке, ничего не меняем
 		if ( is_admin() ) {
 			return $template;
 		}
 
 		global $post;
 
+		// Проверяем, что пост существует и содержит шорткод 'fs_lms_login_form'
+		// has_shortcode() — проверяет наличие шорткода в контенте
 		if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'fs_lms_login_form' ) ) {
 
+			// path() — метод родительского BaseController, возвращает полный путь к файлу
 			$plugin_template = $this->path( 'templates/frontend/clean-page.php' );
 
+			// file_exists() — проверяет существование файла
 			if ( file_exists( $plugin_template ) ) {
-				return $plugin_template;            }
+				return $plugin_template;
+			}
 		}
 
 		return $template;
