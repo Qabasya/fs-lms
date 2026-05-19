@@ -11,6 +11,7 @@
   gap: $spacing-lg;
   max-width: $dashboard-tabs-max-width;
   margin-bottom: $spacing-lg;
+  margin-top: $spacing-lg;
 }
 
 .fs-lms-auth-card {
@@ -145,4 +146,17 @@
       outline: none;
     }
   }
+}
+  /* Нижняя панель с кнопкой сохранения */
+  .fs-lms-auth-footer {
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+    margin-top: $spacing-md;
+
+
+    &__notice {
+      font-size: $font-size;
+      color: $color-text-secondary;
+    }
 }

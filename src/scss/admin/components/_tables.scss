@@ -17,7 +17,7 @@
     text-align: left;
     font-size: $font-size;
     color: $color-text-primary;
-    //border-bottom: 2px solid $table-border-color;
+    //border-bottom: 2px solid $color-border-input;
 
     a {
       color: inherit;
@@ -65,8 +65,8 @@
       max-width: $task-select-max-width;
       box-sizing: border-box;
       &:focus {
-        border-color: $color-focus;
-        box-shadow: 0 0 0 1px $color-focus;
+        border-color: $color-primary;
+        box-shadow: 0 0 0 1px $color-primary;
         outline: none;
       }
     }
@@ -116,7 +116,7 @@
     font-size: $font-size;
     width: $font-size;
     height: $font-size;
-    color: $taxonomy-manager-color-lock;
+    color: $color-secondary;
     vertical-align: middle;
     margin-left: $spacing-xs;
     display: inline-flex;
@@ -133,7 +133,7 @@
     position: relative;
     padding: 0 !important;
     background: $table-row-add-bg;
-    border-top: 1px dashed $table-border-color;
+    border-top: 1px dashed $color-border-input;
     border-bottom: none;
     border-left: none;
     border-right: none;
@@ -155,17 +155,17 @@
     justify-content: center;
     width: $table-add-btn-width;
     height: $table-add-btn-height;
-    background: $table-add-btn-bg;
+    background: $color-border-input;
     border: none;
     border-radius: $border-radius-md;
     cursor: pointer;
     padding: 0;
     transition: background 0.15s ease-in-out;
 
-    &:hover { background: $table-primary-color; }
+    &:hover { background: $color-primary; }
 
     &:focus {
-      outline: 2px solid $table-primary-color;
+      outline: 2px solid $color-primary;
       outline-offset: 2px;
     }
 

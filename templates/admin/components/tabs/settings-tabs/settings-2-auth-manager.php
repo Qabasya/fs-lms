@@ -160,3 +160,5 @@ require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 		</div>
 	</form>
 </div>
+
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/help-modal.php'; ?>

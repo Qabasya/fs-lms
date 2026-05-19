@@ -3,12 +3,15 @@
 // =================================================================
 
 // ── Цветовая палитра
-$color-primary:        #1e73be;
-$color-primary-hover:  #155a8a;
-$color-danger:         #d63638;
-$color-danger-hover:   #b32d2e;
-$color-secondary:      #a0a0a0;
-$color-secondary-hover:#888;
+
+$color-primary: #2271b1; // blue 50
+$color-primary-hover:  #135e96; // blue 60
+
+$color-danger:         #d63638; // red 50
+$color-danger-hover:   #8a2424; // red 70
+
+$color-secondary:      #a7aaad; // gray 20
+$color-secondary-hover:#787c82; // gray 40
 
 $color-text-primary:   #2c3338;
 $color-text-secondary: #646970;
@@ -20,7 +23,28 @@ $color-bg-footer:      #f9f9f9;
 
 $color-border-input:   #c3c4c7;
 $color-border-footer:  #e0e0e0;
-$color-focus:          #2271b1;
+
+$wp-admin-blue:  #2271b1; // blue 50
+$wp-admin-blue-bg:  #c5d9ed; // blue 5
+$wp-admin-gray-bg-light:  #f0f6fc; // blue 0
+$wp-admin-blue-text:  #0a4b78; // 70
+
+$wp-admin-green:  #008a20; // green 50
+$wp-admin-green-bg:  #b8e6bf; // green 5
+$wp-admin-green-text:  #005c12; // 70
+
+$wp-admin-gray:  #646970; // gray 50
+$wp-admin-gray-bg:  #dcdcde; // gray 5
+$wp-admin-gray-bg-light:  #f6f7f7; // gray 0
+$wp-admin-gray-text:  #3c434a; // 70
+
+$wp-admin-yellow:  #996800; // yellow 50
+$wp-admin-yellow-bg:  #f5e6ab; // yellow 5
+$wp-admin-yellow-text:  #614200; // 70
+
+$wp-admin-red:  #d63638; // red 50
+$wp-admin-red-bg:  #facfd2; // red 5
+$wp-admin-red-text:  #691c1c; // 80
 
 // ── Размеры и отступы
 $spacing-xs: 4px;
@@ -32,6 +56,7 @@ $spacing-xxl: 28px;
 
 $border-radius-sm: 3px;
 $border-radius-md: 4px;
+$border-radius-l: 6px;
 
 $shadow-modal: 0 2px 20px rgba(0, 0, 0, 0.3);
 
@@ -41,6 +66,8 @@ $gap-md: 100px;
 // ── Шрифты
 $font-bold: 600;
 $font-regular: 450;
+
+$font-size-sm: 10px;
 $font-size: 13px;
 $font-size-m: 16px;
 $font-size-l: 26px;
@@ -58,108 +85,35 @@ $z-modal-content:  2;
 $z-modal-root:     999999;
 
 // =================================================================
-// COMPONENT: Add Row Button
-// =================================================================
-
-$add-row-height: 40px;
-
-// =================================================================
 // COMPONENT: Subject Tabs
 // =================================================================
 
-$dashboard-tabs-margin-top:       20px;
 $dashboard-tabs-max-width:        95vw;
-$dashboard-tabs-gap:              4px;
 $dashboard-tabs-padding:          12px 24px;
 $dashboard-tabs-content-padding:  30px;
 $dashboard-tabs-min-height:       400px;
 $dashboard-tabs-bg-inactive:      #dcdcde;
-$dashboard-tabs-bg-active:        #fff;
 $dashboard-tabs-bg-hover:         #f0f0f1;
-$dashboard-tabs-border:           #c3c4c7;
-$dashboard-tabs-accent:           #2271b1;
 $dashboard-tabs-shadow:           0 2px 5px rgba(0, 0, 0, 0.05);
 $dashboard-tabs-transition:       all 0.2s;
-
-// =================================================================
-// COMPONENT: Tab Pane
-// =================================================================
-
-$tab-pane-padding: 10px;
 
 // =================================================================
 // COMPONENT: Subject Table
 // =================================================================
 
-$task-table-margin-top:      20px;
-$task-table-header-padding:  12px 10px;
-$task-table-cell-padding:    10px;
-$task-table-border-width:    2px;
-$task-table-border-color:    #e2e4e7;
-$task-table-text-primary:    #2c3338;
-$task-table-text-secondary:  #646970;
-$task-col-name-width:        45%;
-$task-col-template-width:    35%;
-$task-col-actions-width:     15%;
-$task-select-max-width:      350px;
-$task-header-font-weight:    600;
-$task-header-text-align:     left;
+$task-col-name-width:     45%;
+$task-col-template-width: 35%;
+$task-col-actions-width:  15%;
+$task-select-max-width:   350px;
 
 // =================================================================
-// COMPONENT: Task Manager Table
+// COMPONENT: Tables (shared)
 // =================================================================
 
-$task-manager-margin-top:         20px;
-$task-manager-color-text:         #3c434a;
-$task-manager-bg-code:            #f0f0f1;
-$task-manager-col-name-width:     25%;
-$task-manager-col-template-width: 25%;
-$task-manager-col-actions-width:  25%;
-
-// =================================================================
-// COMPONENT: Taxonomy Manager
-// =================================================================
-
-$taxonomy-manager-margin-top:    20px;
-$taxonomy-manager-color-lock:    #999;
-
-// =================================================================
-// COMPONENT: Boilerplate List
-// =================================================================
-
-$boilerplate-table-margin-top:   20px;
-$boilerplate-col-primary-width:  70%;
-$boilerplate-col-actions-width:  30%;
-$boilerplate-title-font-size:    14px;
-
-// =================================================================
-// COMPONENT: Boilerplate Editor
-// =================================================================
-
-$field-group-bg:           #ffffff;
-$field-group-border:       #ccd0d4;
-$field-group-shadow:       0 1px 1px rgba(0, 0, 0, 0.04);
-$field-group-padding:      15px;
-$field-group-label-size:   14px;
-$field-group-label-margin: 10px;
-
-$sidebar-padding:      10px 12px;
-$sidebar-border-color: #dcdcde;
-$sidebar-danger-color: #d63638;
-$sidebar-btn-gap:      10px;
-
-/* ── Tables: shared base */
-$table-margin-top:   20px;
-$table-row-border:   #f0f0f1;
-$table-header-bg:    #f8f9fa;
-
-/* ── Tables: Add Row Button */
-$table-row-add-bg:        #f6f7f7;        // Фон строки добавления
-$table-add-btn-bg:        #c3c4c7;        // Фон кнопки
-$table-add-btn-width:      32px;           // Размер кнопки
-$table-add-btn-height:      30px;           // Размер кнопки
-$table-add-icon-size:     22px;           // Размер иконки
-$table-add-icon-color:    #787c82;        // Цвет иконки
-$table-add-container-height: 48px;        // Высота контейнера
-$table-border-color:      #c3c4c7;        // Цвет границ
-$table-primary-color:     #2271b1;        // Основной цвет (ховер)
+$table-row-border:           #f0f0f1;
+$table-header-bg:            #f8f9fa;
+$table-row-add-bg:           #f6f7f7;
+$table-add-btn-width:        32px;
+$table-add-btn-height:       30px;
+$table-add-icon-size:        22px;
+$table-add-container-height: 48px;

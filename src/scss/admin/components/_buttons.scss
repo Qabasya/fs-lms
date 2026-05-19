@@ -2,7 +2,7 @@
 
 .btn-filled {
   background-color: $color-primary !important;
-  color: #ffffff !important;
+  color: $color-text-inverse !important;
   border-color: $color-primary !important;
   text-shadow: none;
   box-shadow: none;
@@ -11,6 +11,6 @@
   &:focus {
     background-color: $color-primary-hover !important;
     border-color: $color-primary-hover !important;
-    color: #ffffff !important;
+    color: $color-text-inverse !important;
   }
 }

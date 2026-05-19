@@ -8,6 +8,7 @@
 const $ = jQuery;
 
 import { showNotice } from '../modules/utils.js';
+import { HelpModal } from '../components/help-modal.js';
 
 export const AuthSettings = {
 
@@ -17,6 +18,7 @@ export const AuthSettings = {
      */
     init() {
         this.bindEvents();
+        HelpModal.init();
     },
 
     /**

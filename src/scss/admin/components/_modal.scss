@@ -20,8 +20,8 @@
 }
 
 /// Миксин для полей ввода с состоянием фокуса
-/// @param {Color} $focus-color [$color-focus] - цвет обводки при фокусе
-@mixin form-input($focus-color: $color-focus) {
+/// @param {Color} $focus-color [$color-primary] - цвет обводки при фокусе
+@mixin form-input($focus-color: $color-primary) {
   width: 100%;
   height: 35px;
   padding: 0 $spacing-md;
@@ -152,7 +152,7 @@ html.modal-open {
     // Заголовок модалки
     h2.fs-lms-modal-title {
       margin: 0;
-      font-size: 16px;
+      font-size: $font-size-m;
       font-weight: 400;
       line-height: 1.4;
       color: $color-text-inverse !important;
@@ -169,7 +169,7 @@ html.modal-open {
     .fs-close {
       @include reset-button;
       color: $color-text-inverse;
-      font-size: 24px;
+      font-size: $font-size-l;
       line-height: 1;
       padding: 0 $spacing-xs;
       opacity: 0.8;
@@ -215,12 +215,17 @@ html.modal-open {
     justify-content: space-between;
     gap: $spacing-md;
     flex-shrink: 0;
+    &:has(> button:only-child),
+    &:has(> .button:only-child),
+    &:has(> :only-child) {
+      justify-content: center;
+    }
 
     // Базовые стили для всех кнопок в футере
     button,
     .button {
       padding: $spacing-sm $spacing-xl;
-      font-size: 13px;
+      font-size: $font-size;
       line-height: 1.5;
       border: none;
       border-radius: $border-radius-sm;
@@ -246,7 +251,7 @@ html.modal-open {
 
       // Accessibility: фокус для клавиатурной навигации
       &:focus {
-        outline: 2px solid $color-focus;
+        outline: 2px solid $color-primary;
         outline-offset: 2px;
       }
     }
@@ -308,7 +313,7 @@ html.modal-open {
 
   // Подсказка под полем
   .description {
-    font-size: 12px;
+    font-size: $font-size;
     font-style: italic;
     color: $color-text-secondary;
     margin-top: $spacing-xs;
@@ -321,7 +326,7 @@ html.modal-open {
 
     + .error-message {
       color: $color-danger;
-      font-size: 12px;
+      font-size: $font-size;
       margin-top: $spacing-xs;
       display: block;
     }
@@ -414,7 +419,7 @@ html.modal-open {
       padding: $spacing-md $spacing-lg;
 
       h2.fs-lms-modal-title {
-        font-size: 15px;
+        font-size: $font-size-m;
       }
 
       .fs-lms-modal-close {
@@ -434,6 +439,264 @@ html.modal-open {
         flex: 1;           // Равная ширина кнопок
         min-width: 100px;  // Минимальная удобная ширина для тапа
       }
+    }
+  }
+}
+
+/* =================================================================
+   REDIRECT URI COPY BOX (Блок копирования URI)
+   ================================================================= */
+.fs-lms-modal-body-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: $spacing-xl;
+  padding-bottom: $spacing-xl;
+  border-bottom: 1px solid $color-border-footer;
+  margin-bottom: $spacing-xl;
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+  }
+
+  &__icon {
+    width: 48px;
+    height: 48px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
+
+    &--google { background-image: url('../../img/google.svg'); }
+    &--vk     { background-image: url('../../img/vk.svg'); }
+    &--github { background-image: url('../../img/github.svg'); }
+  }
+
+  &__title-group {
+    h3 {
+      margin: 0 0 $spacing-xs 0 !important;
+      font-size: $font-size-m !important;
+      font-weight: $font-bold !important;
+      color: $color-text-primary !important;
+    }
+    p {
+      margin: 0 !important;
+      font-size: $font-size !important;
+      color: $color-text-secondary !important;
+    }
+  }
+
+  /* Кнопка "Открыть Console" справа */
+  &__link {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    background: #fff;
+    border: 1px solid $wp-admin-blue;
+    color: $wp-admin-blue !important;
+    padding: $spacing-sm $spacing-lg;
+    border-radius: $border-radius-md;
+    font-size: $font-size;
+    font-weight: $font-regular;
+    text-decoration: none;
+    transition: $transition-fast;
+    white-space: nowrap;
+
+    .dashicons {
+      font-size: $font-size-m;
+      width: $font-size-m;
+      height: $font-size-m;
+    }
+
+    &:hover {
+      background: rgba($wp-admin-blue, 0.08);
+      border-color: $wp-admin-blue;
+      color: $wp-admin-blue-text !important;
+    }
+  }
+}
+
+/* Красивый список шагов (Таймлайн с синими кружками) */
+.fs-lms-help-content {
+  ol {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xl;
+
+    li {
+      position: relative;
+      padding-left: 45px !important;
+      margin: 0 !important;
+      font-size: 14px !important;
+      line-height: 1.6 !important;
+      color: $color-text-primary;
+
+      // Синий кружок с номером шага
+      &::before {
+        counter-increment: my-counter;
+        content: counter(my-counter);
+        position: absolute;
+        left: 0;
+        top: 2px;
+        width: 26px;
+        height: 26px;
+        background: rgba($wp-admin-blue, 0.08);
+        border: 2px solid $wp-admin-blue;
+        color: $wp-admin-blue;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 12px;
+        z-index: 2;
+      }
+
+      // Соединительная пунктирная линия между кружками
+      &:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        left: 12px;
+        top: 30px;
+        bottom: -22px;
+        width: 2px;
+        background: rgba($color-border-input, 0.6);
+        z-index: 1;
+      }
+
+      // Стилизация внутренних тегов списка
+      strong { color: $color-text-primary; }
+      a { color: $wp-admin-blue; text-decoration: none; &:hover { text-decoration: underline; } }
+      code { background: #f0f0f1; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    }
+  }
+
+  // Обнуляем кастомный счетчик для каждого провайдера отдельно
+  counter-reset: my-counter;
+}
+
+/* Финальный блок "Готово!" внизу */
+.fs-lms-help-success {
+  display: flex;
+  gap: $spacing-md;
+  margin-top: $spacing-xl;
+  padding-top: $spacing-xl;
+  border-top: 1px solid $color-border-footer;
+  align-items: flex-start;
+
+  &__badge {
+    width: 28px;
+    height: 28px;
+    background: rgba($wp-admin-green, 0.08);
+    border: 2px solid $wp-admin-green;
+    color: $wp-admin-green;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    .dashicons {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      font-weight: bold;
+    }
+  }
+
+  &__text {
+    h4 {
+      margin: 0 0 4px 0 !important;
+      font-size: $font-size-m!important;
+      font-weight: $font-bold !important;
+      color: $color-text-primary !important;
+    }
+    p {
+      margin: 0 !important;
+      font-size: $font-size !important;
+      color: $color-text-secondary !important;
+    }
+  }
+}
+
+/* Переопределение блока копирования под нативные цвета WP */
+.fs-lms-redirect-box {
+  background: rgba($wp-admin-gray, 0.08);
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-l;
+  padding: $spacing-lg;
+  margin: $spacing-md 0;
+
+  &__label {
+    font-weight: $font-bold;
+    font-size: $font-size;
+    color: $color-text-primary;
+  }
+
+  &__field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: $spacing-md;
+    background: transparent;
+    padding: 0;
+    margin: $spacing-md 0;
+  }
+
+  // Моноширинная текстовая ссылка
+  &__url {
+    font-family: Consolas, Monaco, monospace;
+    font-size: $font-size;
+    color: $color-text-primary;
+    word-break: break-all;
+    user-select: all;
+    -moz-user-select: all;
+    -webkit-user-select: all;
+    -ms-user-select: all;
+    line-height: 1.5;
+    cursor: pointer;
+  }
+
+  // Белая кнопка с рамкой и динамической сменой цветов
+
+
+  // Мелкий текст-подсказка прямо под ссылкой
+  &__subtext {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+  }
+
+  // Информационная плашка (Иконка "i" и текст в одну строку)
+  &__info {
+    background: rgba($wp-admin-blue, 0.08);
+    border: 1px solid rgba($wp-admin-blue, 0.2);
+    border-left: 4px solid $wp-admin-blue;
+    padding: $spacing-sm $spacing-md;
+    border-radius: 0 $border-radius-md $border-radius-md 0;
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-sm;
+
+    .dashicons {
+      color: $wp-admin-blue;
+      font-size: $font-size-l;
+      width: $font-size-l;
+      height: $font-size-l;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    p {
+      margin: 0 !important;
+      font-size: $font-size !important;
+      line-height: 1.4 !important;
+      color: $color-text-primary !important;
     }
   }
 }
