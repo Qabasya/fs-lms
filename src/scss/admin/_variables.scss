@@ -18,7 +18,7 @@ $color-bg-modal:       #ffffff;
 $color-bg-backdrop:    rgba(0, 0, 0, 0.6);
 $color-bg-footer:      #f9f9f9;
 
-$color-border-input:   #8c8f94;
+$color-border-input:   #c3c4c7;
 $color-border-footer:  #e0e0e0;
 $color-focus:          #2271b1;
 
@@ -28,6 +28,7 @@ $spacing-sm: 8px;
 $spacing-md: 12px;
 $spacing-lg: 16px;
 $spacing-xl: 20px;
+$spacing-xxl: 28px;
 
 $border-radius-sm: 3px;
 $border-radius-md: 4px;
@@ -40,7 +41,9 @@ $gap-md: 100px;
 // ── Шрифты
 $font-bold: 600;
 $font-regular: 450;
-$font-size: 14px;
+$font-size: 13px;
+$font-size-m: 16px;
+$font-size-l: 26px;
 
 // ── Тайминги
 $transition-fast:    0.2s ease-out;
