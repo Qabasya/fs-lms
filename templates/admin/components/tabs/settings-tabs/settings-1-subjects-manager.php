@@ -159,3 +159,4 @@ require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
 		</table>
 
 	</div>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/confirm-modal.php'; ?>

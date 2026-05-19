@@ -222,7 +222,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 		// dirname(, 2) — поднимаемся на 2 уровня вверх от текущей директории
 		// Из Inc/Core/Enqueue.php → Inc/Core → Inc → корень плагина
-		$modal_path = dirname( __DIR__, 2 ) . '/templates/components/modals/confirm-modal.php';
+		$modal_path = dirname( __DIR__, 2 ) . '/templates/admin/components/modals/confirm-modal.php';
 
 		// file_exists() — проверяет существование файла перед подключением
 		if ( file_exists( $modal_path ) ) {
