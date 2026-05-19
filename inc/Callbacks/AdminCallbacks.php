@@ -76,7 +76,7 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function boilerplatePage(): void {
-		// displayPage() — самостоятельно определяет режим (список/редактор) по параметрам URL
+		// displayPage() — самостоятельно определяет режим (список/редактор) по параметрам PageRoutes
 		$this->boilerplatePageController->displayPage();
 	}
 }

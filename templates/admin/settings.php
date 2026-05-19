@@ -15,8 +15,8 @@ $tabs = array(
 		'file'  => '/components/tabs/settings-tabs/settings-1-subjects-manager.php',
 	),
 	'tab-2' => array(
-		'title' => 'Настройки',
-		'file'  => '/components/tabs/settings-tabs/settings-2-settings-manager.php',
+		'title' => 'Авторизация',
+		'file'  => '/components/tabs/settings-tabs/settings-2-auth-manager.php',
 	),
 	'tab-3' => array(
 		'title' => 'Вкладка 3',

@@ -15,6 +15,6 @@
   // Активная вкладка: видимая и с отступами
   &.active {
     display: block;
-    padding: $tab-pane-padding;
+    padding: $spacing-sm;
   }
 }

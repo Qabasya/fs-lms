@@ -15,7 +15,7 @@ use Inc\Repositories\SettingsRepository;
  * ### Основные обязанности:
  *
  * 1. **Формирование конфигурации** — создание массива настроек для библиотеки Hybridauth.
- * 2. **Построение callback URL** — генерация URL для обратного вызова после авторизации.
+ * 2. **Построение callback PageRoutes** — генерация PageRoutes для обратного вызова после авторизации.
  * 3. **Конфигурация провайдеров** — сбор настроек всех поддерживаемых соцсетей из репозитория.
  *
  * ### Архитектурная роль:
@@ -32,7 +32,7 @@ readonly class AuthConfigFactory {
 	/**
 	 * Создаёт полную конфигурацию для Hybridauth.
 	 *
-	 * @param AuthProvider|null $provider Провайдер (для построения callback URL)
+	 * @param AuthProvider|null $provider Провайдер (для построения callback PageRoutes)
 	 *
 	 * @return array
 	 */
@@ -46,21 +46,21 @@ readonly class AuthConfigFactory {
 	}
 
 	/**
-	 * Строит callback URL для провайдера.
+	 * Строит callback PageRoutes для провайдера.
 	 *
 	 * @param AuthProvider|null $provider Провайдер
 	 *
 	 * @return string
 	 */
 	private function buildCallback( ?AuthProvider $provider ): string {
-		// home_url() — возвращает URL главной страницы сайта
+		// home_url() — возвращает PageRoutes главной страницы сайта
 		$base = home_url( '/lms-auth/callback' );
 
 		if ( ! $provider ) {
 			return $base;
 		}
 
-		// add_query_arg() — добавляет параметр к URL
+		// add_query_arg() — добавляет параметр к PageRoutes
 		return add_query_arg(
 			'provider',
 			strtolower( $provider->value ),

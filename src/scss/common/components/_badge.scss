@@ -1,13 +1,15 @@
+@use '../../admin/variables' as *;
+
 .fs-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   height: 32px;
-  padding: 0 12px;
-  border-radius: 4px;
+  padding: 0 $spacing-md;
+  border-radius: $border-radius-md;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  font-size: 13px;
-  font-weight: 400;
+  font-size: $font-size;
+  font-weight: $font-regular;
   white-space: nowrap;
   max-width: 100%;
   box-sizing: border-box;
@@ -19,22 +21,22 @@
   }
 
   &.is-blue {
-    background-color: #d1e4f3;
-    color: #184a6d;
+    background-color: $wp-admin-blue-bg;
+    color: $wp-admin-blue-text;
   }
 
   &.is-gray {
-    background-color: #e5e5e5;
-    color: #2c3338;
+    background-color: $wp-admin-gray-bg;
+    color: $wp-admin-gray-text;
   }
 
   &.is-yellow {
-    background-color: #fef7e3;
-    color: #715c00;
+    background-color: $wp-admin-yellow-bg;
+    color: $wp-admin-yellow-text;
   }
 
   &.is-red {
-    background-color: #fbeaea;
-    color: #d63638;
+    background-color: $wp-admin-red-bg;
+    color: $wp-admin-red-text;
   }
 }

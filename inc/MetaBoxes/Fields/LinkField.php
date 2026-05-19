@@ -6,7 +6,7 @@ namespace Inc\MetaBoxes\Fields;
  * Class LinkField
  *
  * Поле для ввода ссылки на файл (задания, дополнительные материалы).
- * Расширяет InputField, добавляя специфическую валидацию URL
+ * Расширяет InputField, добавляя специфическую валидацию PageRoutes
  * и кнопку проверки/перехода по ссылке.
  *
  * @package Inc\MetaBoxes\Fields
@@ -14,7 +14,7 @@ namespace Inc\MetaBoxes\Fields;
  */
 class LinkField extends InputField {
 	/**
-	 * Рендерит HTML-разметку поля для ввода URL.
+	 * Рендерит HTML-разметку поля для ввода PageRoutes.
 	 *
 	 * Выводит input с типом url, кнопку проверки ссылки
 	 * (если значение уже заполнено) и подсказку для пользователя.
@@ -22,7 +22,7 @@ class LinkField extends InputField {
 	 * @param WP_Post $post  Текущий пост (не используется, но обязателен для интерфейса)
 	 * @param string  $id    Уникальный идентификатор поля
 	 * @param string  $label Текст метки (label) поля
-	 * @param string  $value Текущее значение поля (URL)
+	 * @param string  $value Текущее значение поля (PageRoutes)
 	 *
 	 * @return void
 	 */
@@ -58,12 +58,12 @@ class LinkField extends InputField {
 	 * Санитизация значения поля.
 	 *
 	 * Использует встроенную WordPress-функцию esc_url_raw(),
-	 * которая очищает URL: удаляет опасные символы, проверяет протокол,
+	 * которая очищает PageRoutes: удаляет опасные символы, проверяет протокол,
 	 * удаляет лишние пробелы и экранирует специальные символы.
 	 *
 	 * @param mixed $value Сырое значение из POST-запроса
 	 *
-	 * @return string Очищенный URL
+	 * @return string Очищенный PageRoutes
 	 */
 	public function sanitize( $value ): string {
 		return esc_url_raw( $value );

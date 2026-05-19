@@ -7,6 +7,8 @@ use Inc\Callbacks\AuthCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\AuthProvider;
+use Inc\Enums\PageRoutes;
+use Inc\Enums\ShortCode;
 use Inc\Services\AuthService\AuthStrategyRegistry;
 use Inc\Services\AuthService\ProviderResolver;
 use Inc\Shared\Traits\ErrorHandler;
@@ -35,7 +37,7 @@ class AuthController extends BaseController implements ServiceInterface {
 
 	use ErrorHandler;  // Трейт с методами logException(), sendError()
 
-	// Префикс маршрутов для аутентификации (URL: /lms-auth/{provider})
+	// Префикс маршрутов для аутентификации (PageRoutes: /lms-auth/{provider})
 	private const string ROUTE_PREFIX = 'lms-auth';
 
 	public function __construct(
@@ -57,11 +59,6 @@ class AuthController extends BaseController implements ServiceInterface {
 
 		add_filter( 'lms_auth_redirect_url', array( $this, 'filterRedirectUrl' ), 10, 2 );
 		add_filter( 'get_avatar_url', array( $this, 'filterAvatarUrl' ), 10, 3 );
-
-		// Шорткод для тестовой страницы — доступен только в режиме отладки
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			add_shortcode( 'lms_auth_test', array( $this->callbacks, 'renderAuthTestPage' ) );
-		}
 	}
 
 	/**
@@ -143,9 +140,9 @@ class AuthController extends BaseController implements ServiceInterface {
 			$user = $strategy->authenticate();
 
 			if ( $user ) {
-				// apply_filters() — позволяет переопределить URL редиректа
+				// apply_filters() — позволяет переопределить PageRoutes редиректа
 				$redirect = apply_filters( 'lms_auth_redirect_url', home_url( '/wp-admin/profile.php' ), $user );
-				// wp_safe_redirect() — безопасный редирект (только локальные URL)
+				// wp_safe_redirect() — безопасный редирект (только локальные PageRoutes)
 				wp_safe_redirect( $redirect );
 				exit;
 			}
@@ -168,8 +165,8 @@ class AuthController extends BaseController implements ServiceInterface {
 	/**
 	 * Определяет, куда перенаправить пользователя после успешного входа.
 	 *
-	 * @param string   $redirect_url Дефолтный URL редиректа.
-	 * @param UserDTO  $user_dto     Объект с данными пользователя.
+	 * @param string  $redirect_url Дефолтный PageRoutes редиректа.
+	 * @param UserDTO $user_dto     Объект с данными пользователя.
 	 * @return string
 	 */
 	public function filterRedirectUrl( string $redirect_url, $user_dto ): string {
@@ -185,13 +182,11 @@ class AuthController extends BaseController implements ServiceInterface {
 			return admin_url(); // или дефолтный profile.php
 		}
 
-		// Обычных студентов отправляем на кастомную фронтенд-страницу
-		// TODO: Заменить '/dashboard/' на слаг страницы личного кабинета LMS (profile мб)
-		return home_url( '/dashboard/' );
+		return PageRoutes::USER_PROFILE->url();
 	}
 
 	/**
-	 * Подменяет стандартный URL Gravatar на сохраненную ссылку из соцсети.
+	 * Подменяет стандартный PageRoutes Gravatar на сохраненную ссылку из соцсети.
 	 */
 	public function filterAvatarUrl( string $url, $id_or_email, array $args ): string {
 		$user_id = 0;

@@ -4,9 +4,6 @@
 // Глобальные миксины для админки FS-LMS
 
 // ── Кнопки в сайдбаре (постбокс)
-// @param {String} $width [100%] - ширина кнопки
-// @param {String} $justify [center] - выравнивание контента внутри
-// @example: @include sidebar-button(100%, center);
 @mixin sidebar-button($width: 100%, $justify: center) {
   width: $width;
   margin: 0;
@@ -15,14 +12,12 @@
 }
 
 // ── Поля ввода с фокус-стилем (стиль WP)
-// @param {Color} $focus-color [$color-primary] - цвет обводки при фокусе
-// @example: @include wp-input();
 @mixin wp-input($focus-color: $color-primary) {
   width: 100%;
-  padding: 0 12px;
+  padding: 0 $spacing-md;
   border: 1px solid $color-border-input;
   border-radius: 2px;
-  font-size: 13px;
+  font-size: $font-size;
   transition: border-color 0.1s ease-in-out;
 
   &:focus {
@@ -37,33 +32,28 @@
 }
 
 // ── Базовые стили таблицы: margin, collapse, выравнивание ячеек
-// @param {Color} $margin-top [$table-margin-top] - отступ сверху
-// @example: @include table-base(); @include table-base(0);
-@mixin table-base($margin-top: $table-margin-top) {
+@mixin table-base($margin-top: $spacing-xl) {
   margin-top: $margin-top;
   width: 100%;
   border-collapse: collapse;
 
   tbody td {
     vertical-align: middle !important;
-    font-size: 13px;
+    font-size: $font-size;
   }
 }
 
 // ── Ссылки действий в таблицах (редактировать/удалить)
-// @param {Color} $hover-color [$color-primary] - цвет при наведении
-// @param {Color} $danger-color [$color-danger] - цвет для деструктивных действий
-// @example: @include row-action-links();
 @mixin row-action-links($hover-color: $color-primary, $danger-color: $color-danger) {
   a,
   button.button-link {
     text-decoration: none;
     color: $color-primary;
     transition: color 0.15s ease-in-out;
-    background: none;  
-    border: none;      
-    padding: 0;        
-    cursor: pointer;   
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
     font-size: inherit;
     line-height: inherit;
 

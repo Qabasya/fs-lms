@@ -73,8 +73,8 @@ class TaskCreationCallbacks extends BaseController {
 				$boilerplate_uid
 			);
 
-			// get_edit_post_link() — возвращает URL для редактирования поста
-			// Параметр 'abs' — возвращает абсолютный URL (с http://)
+			// get_edit_post_link() — возвращает PageRoutes для редактирования поста
+			// Параметр 'abs' — возвращает абсолютный PageRoutes (с http://)
 			$this->success(
 				array(
 					'redirect' => get_edit_post_link( $new_id, 'abs' ),

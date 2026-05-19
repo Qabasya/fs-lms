@@ -11,11 +11,11 @@
 
 .fs-task-page .fs-tab-btn {
   display: inline-block;
-  font-size: 15px;
+  font-size: $font-size-sm;
   font-weight: 700;
   line-height: $line-height-tight;
   padding: 7px 22px;
-  border-radius: 5px;
+  border-radius: $radius;
   border: 1px solid $color-accent;
   background: $color-accent;
   color: $color-white;

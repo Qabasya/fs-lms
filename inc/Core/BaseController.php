@@ -13,7 +13,7 @@ use Inc\Shared\Traits\AjaxResponse;
  *
  * ### Основные обязанности:
  *
- * 1. **Хранение путей плагина** — предоставляет доступ к абсолютному пути и URL директории плагина.
+ * 1. **Хранение путей плагина** — предоставляет доступ к абсолютному пути и PageRoutes директории плагина.
  * 2. **Утилитарные методы** — методы path() и url() для построения полных путей к файлам.
  * 3. **Трейт AjaxResponse** — добавляет методы для отправки JSON-ответов (success, error, respond).
  *
@@ -35,7 +35,7 @@ class BaseController {
 	public string $plugin_path;
 
 	/**
-	 * URL директории плагина.
+	 * PageRoutes директории плагина.
 	 * Пример: https://example.com/wp-content/plugins/fs-lms/
 	 *
 	 * @var string
@@ -62,7 +62,7 @@ class BaseController {
 	/**
 	 * Конструктор.
 	 *
-	 * Инициализирует пути и URL плагина.
+	 * Инициализирует пути и PageRoutes плагина.
 	 * Вызывается автоматически при создании экземпляра через DI-контейнер.
 	 */
 	public function __construct() {
@@ -73,7 +73,7 @@ class BaseController {
 		// plugin_dir_path() — возвращает путь к директории плагина с завершающим слешем
 		$this->plugin_path = plugin_dir_path( $root_path );
 
-		// plugin_dir_url() — возвращает URL директории плагина с завершающим слешем
+		// plugin_dir_url() — возвращает PageRoutes директории плагина с завершающим слешем
 		$this->plugin_url = plugin_dir_url( $root_path );
 
 		// plugin_basename() — возвращает относительный путь от папки wp-content/plugins
@@ -93,11 +93,11 @@ class BaseController {
 	}
 
 	/**
-	 * Возвращает URL к файлу внутри плагина.
+	 * Возвращает PageRoutes к файлу внутри плагина.
 	 *
 	 * @param string $path Относительный путь (например, 'assets/css/style.css')
 	 *
-	 * @return string URL к файлу
+	 * @return string PageRoutes к файлу
 	 */
 	public function url( string $path = '' ): string {
 		return $this->plugin_url . ltrim( $path, '/' );

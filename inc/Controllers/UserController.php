@@ -6,9 +6,11 @@ namespace Inc\Controllers;
 
 use Inc\Core\BaseController;
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\AjaxHook;
+use Inc\Enums\Capability;
+use Inc\Enums\PageRoutes;
 use Inc\Managers\UserManager;
 use Inc\Repositories\UserRepository;
-use Inc\Enums\AjaxHook;
 
 /**
  * Class UserController
@@ -53,6 +55,21 @@ class UserController extends BaseController implements ServiceInterface {
 		// 'admin_init' — хук, срабатывающий при инициализации админ-панели
 		// Подходит для проверки прав и редиректа
 		add_action( 'admin_init', array( $this->user_manager, 'restrictAdminAccess' ) );
+
+		add_filter(
+			'login_redirect',
+			function ( string $redirect_to, string $requested_redirect_to, \WP_User|\WP_Error $user ): string {
+				if ( ! ( $user instanceof \WP_User ) ) {
+					return $redirect_to;
+				}
+				if ( array_intersect( array( 'administrator', 'editor' ), $user->roles ) ) {
+					return admin_url();
+				}
+				return PageRoutes::USER_PROFILE->url();
+			},
+			10,
+			3
+		);
 
 		// 2. Фильтрация медиафайлов в AJAX-запросах (для фронтенда)
 		// 'ajax_query_attachments_args' — хук для изменения параметров запроса вложений

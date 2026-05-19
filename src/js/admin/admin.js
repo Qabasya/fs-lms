@@ -10,6 +10,8 @@ import {TaskFilter} from "./services/task-dashboard.js";
 import {RecentContent} from "./services/recent-posts";
 import {AuthSettings} from "./services/auth-settings";
 
+import { HelpModal } from './components/help-modal.js';
+
 (function ($) {
     'use strict';
 

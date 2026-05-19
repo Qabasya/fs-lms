@@ -30,8 +30,8 @@ readonly class SubjectViewDTO {
 	 * @param SubjectDTO              $subject_data   DTO с данными предмета (ключ + название)
 	 * @param array<int, TaskTypeDTO> $task_types     Массив DTO типов заданий (для выпадающего списка)
 	 * @param array<string, string>   $all_templates  Массив доступных шаблонов [id => name]
-	 * @param string                  $tasks_url      URL списка заданий (edit.php?post_type=...)
-	 * @param string                  $articles_url   URL списка статей (edit.php?post_type=...)
+	 * @param string                  $tasks_url      PageRoutes списка заданий (edit.php?post_type=...)
+	 * @param string                  $articles_url   PageRoutes списка статей (edit.php?post_type=...)
 	 * @param string                  $protected_tax  Слаг защищённой таксономии (номера заданий)
 	 * @param TaxonomyDataDTO[]       $taxonomies     Массив DTO кастомных таксономий предмета
 	 * @param PostsListTableDTO|null  $tasks_table    DTO таблицы заданий (для вкладки tab-2)

@@ -32,7 +32,7 @@
 }
 
 @media (max-width: $bp-sm) {
-  .fs-task-title { font-size: 18px; }
+  .fs-task-title { font-size: $font-size-base; }
 
   .fs-task-nav__info { max-width: 90px; }
 

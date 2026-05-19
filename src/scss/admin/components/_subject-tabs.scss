@@ -9,7 +9,7 @@
   .fs-tabs {
     display: flex;
     flex-wrap: wrap;
-    margin-top: $dashboard-tabs-margin-top;
+    margin-top: $spacing-xl;
     width: 100%;
     max-width: $dashboard-tabs-max-width;
 
@@ -18,9 +18,9 @@
       padding: $dashboard-tabs-padding;
       background: $dashboard-tabs-bg-inactive;
       cursor: pointer;
-      border: 1px solid $dashboard-tabs-border;
+      border: 1px solid $color-border-input;
       border-bottom: none;
-      margin-right: $dashboard-tabs-gap;
+      margin-right: $spacing-xs;
       transition: $dashboard-tabs-transition;
       font-weight: 500;
 
@@ -35,11 +35,11 @@
 
       // Активная вкладка: меняем стиль label и показываем контент
       &:checked + label {
-        background: $dashboard-tabs-bg-active;
-        border-bottom: 1px solid $dashboard-tabs-bg-active;
+        background: $color-bg-modal;
+        border-bottom: 1px solid $color-bg-modal;
         margin-bottom: -1px; // Компенсация границы для эффекта "вкладки"
         font-weight: 600;
-        box-shadow: 0 -2px 0 $dashboard-tabs-accent inset; // Синий индикатор
+        box-shadow: 0 -2px 0 $color-primary inset; // Синий индикатор
       }
 
       // Показываем контент, следующий за активным label
@@ -54,8 +54,8 @@
       order: 1; // Гарантируем порядок при flex-wrap
       display: none;
       padding: $dashboard-tabs-content-padding;
-      background: $dashboard-tabs-bg-active;
-      border: 1px solid $dashboard-tabs-border;
+      background: $color-bg-modal;
+      border: 1px solid $color-border-input;
       min-height: $dashboard-tabs-min-height;
       box-shadow: $dashboard-tabs-shadow;
     }

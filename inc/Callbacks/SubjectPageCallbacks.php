@@ -62,7 +62,7 @@ class SubjectPageCallbacks extends BaseController {
 			is_required: true
 		);
 
-		// Определение активной вкладки из URL
+		// Определение активной вкладки из PageRoutes
 		$page       = sanitize_text_field( wp_unslash( $_GET['page'] ?? '' ) );
 		$active_tab = sanitize_text_field( wp_unslash( $_GET['tab'] ?? '' ) );
 
@@ -83,7 +83,7 @@ class SubjectPageCallbacks extends BaseController {
 			task_types: $this->metaboxes->getTaskTypes( $key ),
 			// apply_filters() — позволяет сторонним разработчикам расширять список шаблонов
 			all_templates: apply_filters( 'fs_lms_get_templates', array() ),
-			// admin_url() — формирует полный URL к административной панели
+			// admin_url() — формирует полный PageRoutes к административной панели
 			tasks_url: admin_url( 'edit.php?post_type=' . PostTypeResolver::tasks( $key ) ),
 			articles_url: admin_url( 'edit.php?post_type=' . PostTypeResolver::articles( $key ) ),
 			protected_tax: "{$key}_task_number",

@@ -25,7 +25,7 @@
  * Глобальные переменные плагина для AJAX-запросов и настроек.
  *
  * @typedef {Object} FSLmsVars
- * @property {string}     ajaxurl        URL для AJAX-запросов
+ * @property {string}     ajaxurl        PageRoutes для AJAX-запросов
  * @property {string}     subject_nonce  Nonce для операций с предметами
  * @property {string}     manager_nonce  Nonce для операций менеджера заданий
  * @property {FSLmsHooks} ajax_actions   Объект с названиями AJAX-действий
@@ -35,7 +35,7 @@
  * Данные для создания заданий (передаются из PHP в JS).
  *
  * @typedef {Object} FSLmsTaskData
- * @property {string} ajax_url    URL для AJAX-запросов
+ * @property {string} ajax_url    PageRoutes для AJAX-запросов
  * @property {string} security    Nonce для создания заданий
  * @property {string} subject_key Ключ текущего предмета
  * @property {string} post_type   Тип поста (CPT заданий)
@@ -143,7 +143,7 @@
 
 /**
  * @typedef {Object} CreateTaskResponseData
- * @property {string} redirect - URL для открытия созданной задачи
+ * @property {string} redirect - PageRoutes для открытия созданной задачи
  * @property {string} [message] - Сообщение об ошибке
  */
 
