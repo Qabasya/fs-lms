@@ -14,7 +14,7 @@ export function openModal($modal) {
     $modal.removeClass('hidden');
 
     // Force reflow: гарантируем, что браузер применит стили перед запуском транзишна
-    void $modal[0].offsetHeight;
+    if ($modal[0]) void $modal[0].offsetHeight;
 
     $modal.addClass('active');
 }
