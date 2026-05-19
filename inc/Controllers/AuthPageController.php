@@ -8,6 +8,7 @@ use Inc\Callbacks\AuthCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Shared\Traits\TemplateRenderer;
+use Inc\Enums\URL;
 
 class AuthPageController extends BaseController implements ServiceInterface {
 
@@ -22,6 +23,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 	public function register(): void {
 		add_shortcode( 'fs_lms_login_form', array( $this, 'renderLoginPage' ) );
 		add_action( 'init', array( $this, 'redirectToCustomLogin' ) );
+		add_action( 'template_redirect', array( $this, 'redirectAuthenticatedFromSignIn' ) );
 
 		add_filter( 'template_include', array( $this, 'forceCleanAuthLayout' ), 9999 );
 	}
@@ -46,7 +48,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 			'frontend/auth-page',
 			array(
 				'providers'     => $providers,
-				'register_url'  => home_url( '/sign-up/' ), // URL для регистрации вручную
+				'register_url'  => URL::SIGN_UP->url(), // URL для регистрации вручную
 				'lost_pass_url' => wp_lostpassword_url(),
 			)
 		);
@@ -63,7 +65,21 @@ class AuthPageController extends BaseController implements ServiceInterface {
 
 		// Проверяем, что мы на странице логина и это не AJAX/POST запрос сохранения формы
 		if ( 'wp-login.php' === $pagenow && ! isset( $_POST['wp-submit'] ) && 'GET' === $_SERVER['REQUEST_METHOD'] ) {
-			wp_safe_redirect( home_url( '/sign-in/' ) );
+			wp_safe_redirect( URL::SIGN_IN->url() );
+			exit;
+		}
+	}
+
+	/**
+	 * Перенаправляет аутентифицированного пользователя со страницы входа на профиль.
+	 */
+	public function redirectAuthenticatedFromSignIn(): void {
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+		if ( is_page( 'sign-in' ) ) {
+			wp_safe_redirect( URL::USER_PROFILE->url() );
 			exit;
 		}
 	}
@@ -84,12 +100,9 @@ class AuthPageController extends BaseController implements ServiceInterface {
 			$plugin_template = $this->path( 'templates/frontend/clean-page.php' );
 
 			if ( file_exists( $plugin_template ) ) {
-				return $plugin_template; 			}
+				return $plugin_template;            }
 		}
 
 		return $template;
 	}
-
-
-
 }
