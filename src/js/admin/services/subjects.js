@@ -226,23 +226,16 @@ export const Subjects = {
             cancelText: 'Экспортировать и удалить',
         })
             .then(() => {
-                // Пользователь нажал "Удалить всё равно" → показываем финальное подтверждение
-                this._showFinalConfirm(name, key, security, $btn, $row);
+                setTimeout(() => {
+                    this._showFinalConfirm(name, key, security, $btn, $row);
+                }, 250);
             })
             .catch((reason) => {
-                // ConfirmModal обычно реджектится и при отмене, и при закрытии.
-                // Проверяем, был ли это клик по кнопке "Экспорт"
-                const isExportClick = $('#fs-lms-confirm-modal .fs-lms-modal-cancel:focus').length > 0
-                    || reason === 'cancel'; // зависит от реализации ConfirmModal
-
-                if (isExportClick) {
-                    // Запускаем экспорт
+                if (reason === 'cancel') {
                     this._exportSubject(key, security, $btn, () => {
-                        // ПОСЛЕ ЭКСПОРТА: Автоматически открываем вторую модалку
-                        // Пользователю не нужно снова искать кнопку в таблице!
                         setTimeout(() => {
                             this._showFinalConfirm(name, key, security, $btn, $row);
-                        }, 500);
+                        }, 250);
                     });
                 }
             });

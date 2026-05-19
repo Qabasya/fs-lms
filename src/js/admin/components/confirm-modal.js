@@ -66,9 +66,13 @@ const ConfirmModal = {
                 .off('click.confirm')
                 .on('click.confirm', () => { this._close(); resolve(); });
 
-            this.$modal.find('.fs-lms-modal-cancel, .fs-lms-modal-close, .fs-lms-modal-backdrop')
+            this.$modal.find('.fs-lms-modal-cancel')
                 .off('click.confirm')
                 .on('click.confirm', () => { this._close(); reject('cancel'); });
+
+            this.$modal.find('.fs-lms-modal-close, .fs-lms-modal-backdrop')
+                .off('click.confirm')
+                .on('click.confirm', () => { this._close(); reject('close'); });
 
             bindEsc('confirm', () => { this._close(); reject('esc'); });
         });
