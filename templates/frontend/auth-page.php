@@ -40,9 +40,9 @@
 		<input type="hidden" name="redirect_to" value="<?php echo esc_url( apply_filters( 'lms_auth_redirect_url', home_url(), null ) ); ?>">
 	</form>
 
-	<!-- Ссылка на страницу регистрации -->
+	<!-- Ссылка на страницу регистрации преподавателей -->
 	<div class="fs-auth-card__switch">
-		Еще нет аккаунта? <a href="<?php echo esc_url( $register_url ); ?>">Зарегистрироваться</a>
+		Вы преподаватель?<br><a href="<?php echo esc_url( $register_url ); ?>">Зарегистрироваться как преподаватель</a>
 	</div>
 
 	<!-- Блок авторизации через социальные сети (отображается только если есть активные провайдеры) -->

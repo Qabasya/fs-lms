@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\AuthProvider;
 use Inc\Enums\PageRoutes;
 use Inc\Enums\ShortCode;
+use Inc\Enums\Capability;
 use Inc\Services\AuthService\AuthStrategyRegistry;
 use Inc\Services\AuthService\ProviderResolver;
 use Inc\Shared\Traits\ErrorHandler;
@@ -59,6 +60,8 @@ class AuthController extends BaseController implements ServiceInterface {
 
 		add_filter( 'lms_auth_redirect_url', array( $this, 'filterRedirectUrl' ), 10, 2 );
 		add_filter( 'get_avatar_url', array( $this, 'filterAvatarUrl' ), 10, 3 );
+
+		add_filter( 'show_admin_bar', array( $this, 'handleAdminBarVisibility' ) );
 	}
 
 	/**
@@ -207,5 +210,26 @@ class AuthController extends BaseController implements ServiceInterface {
 		$social_avatar = get_user_meta( $user_id, 'fs_avatar_url', true );
 
 		return ! empty( $social_avatar ) ? esc_url_raw( $social_avatar ) : $url;
+	}
+
+	/**
+	 * Управляет видимостью админ-бара на основе возможностей пользователя.
+	 * * @param bool $show Текущее состояние видимости админ-бара.
+	 *
+	 * @return bool Измененное состояние видимости.
+	 */
+	public function handleAdminBarVisibility( bool $show ): bool {
+		// Если пользователь не авторизован, скрываем в любом случае
+		if ( ! is_user_logged_in() ) {
+			return false;
+		}
+
+		// Используем ваш Enum Capability::ADMIN (по умолчанию 'manage_options')
+		// Если у пользователя нет прав администратора, скрываем админ-бар
+		if ( ! current_user_can( Capability::ADMIN->value ) ) {
+			return false;
+		}
+
+		return $show;
 	}
 }

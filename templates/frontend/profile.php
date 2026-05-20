@@ -38,7 +38,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	</div>
 
 	<div class="fs-lms-profile-footer">
-		<a href="<?php echo wp_logout_url( home_url() ); ?>" class="button button-secondary">
+		<a href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>" class="button button-secondary">
 			<span class="dashicons dashicons-signout"></span> Выйти из аккаунта
 		</a>
 	</div>
