@@ -7,7 +7,6 @@ export const AuthSettings = {
 
     init() {
         this.bindEvents();
-        HelpModal.init();
         this._syncAllRequired();
     },
 

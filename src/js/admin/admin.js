@@ -9,8 +9,7 @@ import {RequiredTaxGuard} from './services/required-tax-guard.js';
 import {TaskFilter} from "./services/task-dashboard.js";
 import {RecentContent} from "./services/recent-posts";
 import {AuthSettings} from "./services/auth-settings";
-
-import { HelpModal } from './components/help-modal.js';
+import {AcademicPeriodManager} from "./services/academic-period-manager";
 
 (function ($) {
     'use strict';
@@ -22,6 +21,10 @@ import { HelpModal } from './components/help-modal.js';
         // Предметы — только там, где есть форма или таблица
         if ($('#fs-add-subject-form').length || $('.open-quick-edit').length) {
             Subjects.init();
+        }
+
+        if ($('.js-add-period').length || $('.js-edit-period').length) {
+            AcademicPeriodManager.init();
         }
 
         TemplateManager.init();

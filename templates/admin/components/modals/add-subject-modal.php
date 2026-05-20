@@ -31,10 +31,7 @@
 					<p class="description">Сколько уникальных номеров заданий будет в курсе.</p>
 				</div>
 
-				<?php
-				use Inc\Enums\Nonce;
-				wp_nonce_field( Nonce::Subject->value, 'security' );
-				?>
+				<?php wp_nonce_field( 'fs_subject_nonce', 'security' ); ?>
 
 				<!-- Футер с кнопками -->
 				<div class="fs-lms-modal-footer">

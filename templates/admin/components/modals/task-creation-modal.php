@@ -1,5 +1,3 @@
-<?php use Inc\Enums\Nonce; ?>
-
 <div id="fs-task-modal" class="fs-lms-modal hidden">
 	<div class="fs-lms-modal-backdrop"></div>
 
@@ -14,8 +12,6 @@
 		<!-- Тело модалки -->
 		<div class="fs-lms-modal-body">
 			<form id="fs-task-creation-form">
-				<?php wp_nonce_field( Nonce::TaskCreation->value, 'security' ); ?>
-
 				<input type="hidden" name="subject_key" id="fs-modal-subject"
 						value="<?php echo esc_attr( $subject_key ?? '' ); ?>">
 
@@ -41,7 +37,7 @@
 				</div>
 
 				<!-- Футер с кнопками -->
-				<div class="fs-modal-footer">
+				<div class="fs-lms-modal-footer">
 					<button type="button" class="button fs-lms-modal-cancel js-modal-close">Отмена</button>
 					<button type="submit" class="button button-primary" id="fs-modal-submit">Продолжить</button>
 				</div>

@@ -19,8 +19,8 @@ $tabs = array(
 		'file'  => '/components/tabs/settings-tabs/settings-2-auth-manager.php',
 	),
 	'tab-3' => array(
-		'title' => 'Вкладка 3',
-		'file'  => '/components/tabs/settings-tabs/tab-3.php',
+		'title' => 'Периоды',
+		'file'  => '/components/tabs/settings-tabs/settings-3-periods.php',
 	),
 );
 ?>
@@ -59,5 +59,10 @@ $tabs = array(
 $modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/add-subject-modal.php';
 if ( file_exists( $modal_path ) ) {
     include $modal_path;
+}
+
+$period_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/add-academic-period.php';
+if ( file_exists( $period_modal_path ) ) {
+    include $period_modal_path;
 }
 ?>

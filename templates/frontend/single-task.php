@@ -45,7 +45,7 @@ if ( ! empty( $content['text'] ) ) {
 	);
 }
 
-\Inc\Services\ThemeCompat::header();
+\Inc\Services\ThemeCompatService::header();
 ?>
 
 <div class="fs-task-page">
@@ -257,4 +257,4 @@ if ( ! empty( $content['text'] ) ) {
 	</div>
 <?php endif; ?>
 
-<?php \Inc\Services\ThemeCompat::footer(); ?>
+<?php \Inc\Services\ThemeCompatService::footer(); ?>

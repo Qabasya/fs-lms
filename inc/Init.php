@@ -3,6 +3,7 @@
 namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Controllers\AcademicPeriodController;
 use Inc\Controllers\AdminController;
 use Inc\Controllers\AuthController;
 use Inc\Controllers\AuthPageController;
@@ -56,6 +57,7 @@ final class Init {
 			AuthController::class,
 			AuthPageController::class,
 			ProfileController::class,
+			AcademicPeriodController::class,
 		);
 	}
 
