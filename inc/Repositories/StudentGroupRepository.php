@@ -28,7 +28,7 @@ class StudentGroupRepository implements RepositoryInterface {
 	 * @inheritDoc
 	 */
 	public function update( array $data ): bool {
-		if ( ! isset( $data['id'] ) || ! isset( $data['name'] ) || ! isset( $data['year_id'] ) ) {
+		if ( ! isset( $data['id'] ) || ! isset( $data['name'] ) || ! isset( $data['period_id'] ) ) {
 			return false;
 		}
 
@@ -37,7 +37,7 @@ class StudentGroupRepository implements RepositoryInterface {
 		$groups[ $data['id'] ] = array(
 			'id'          => (string) $data['id'],
 			'name'        => (string) $data['name'],
-			'year_id'     => (string) $data['year_id'],
+			'period_id'   => (string) $data['period_id'],
 			'subject_key' => (string) ( $data['subject_key'] ?? '' ),
 		);
 
@@ -79,19 +79,18 @@ class StudentGroupRepository implements RepositoryInterface {
 	}
 
 	/**
-	 * Получает группы, отфильтрованные по году обучения и предмету.
-	 * Сюда переехала чистая выборка из бывшего сервиса.
+	 * Получает группы, отфильтрованные по периоду обучения и предмету.
 	 *
-	 * @param string $year_id
+	 * @param string $period_id
 	 * @param string $subject_key
 	 *
 	 * @return array
 	 */
-	public function getByYearAndSubject( string $year_id, string $subject_key ): array {
+	public function getByPeriodAndSubject( string $period_id, string $subject_key ): array {
 		return array_filter(
 			$this->readAll(),
-			static function ( array $group ) use ( $year_id, $subject_key ): bool {
-				return $year_id === ( $group['year_id'] ?? '' )
+			static function ( array $group ) use ( $period_id, $subject_key ): bool {
+				return $period_id === ( $group['period_id'] ?? '' )
 				       && $subject_key === ( $group['subject_key'] ?? '' );
 			}
 		);
