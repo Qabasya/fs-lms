@@ -19,7 +19,7 @@ enum Nonce: string {
 	case SaveMeta = 'fs_lms_save_meta';
 
 	/** Сохранение шаблона (Boilerplate). */
-	case SaveBoilerplate = 'save_boilerplate_nonce';
+	case SaveBoilerplate = 'fs_save_boilerplate_nonce';
 
 	/**
 	 * Создает защитный токен.

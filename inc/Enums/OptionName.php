@@ -37,12 +37,12 @@ enum OptionName: string {
 	/** Опция для хранения настроек аутентификации (API ключи соцсетей). */
 	case AUTH_SETTINGS = 'fs_lms_auth_settings';
 
-	/** Опция для хранения учебных годов. */
-	case ACADEMIC_YEARS = 'fs_lms_academic_years';
+	/** Опция для хранения учебных периодов. */
+	case ACADEMIC_PERIODS = 'fs_lms_academic_periods';
 
 	/** Опция для хранения групп студентов. */
 	case STUDENT_GROUPS = 'fs_lms_student_groups';
 
-	/** Опция для хранения мета-данных привязки студентов к годам. */
-	case STUDENT_YEAR_META = 'fs_lms_student_year_meta';
+	/** Опция для хранения мета-данных привязки студентов к периодам. */
+	case STUDENT_PERIOD_META = 'fs_lms_student_period_meta';
 }
