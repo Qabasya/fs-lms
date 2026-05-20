@@ -224,7 +224,7 @@ class AuthController extends BaseController implements ServiceInterface {
 			return false;
 		}
 
-		// Используем ваш Enum Capability::ADMIN (по умолчанию 'manage_options')
+		// Используем Enum Capability::ADMIN (по умолчанию 'manage_options')
 		// Если у пользователя нет прав администратора, скрываем админ-бар
 		if ( ! current_user_can( Capability::ADMIN->value ) ) {
 			return false;
