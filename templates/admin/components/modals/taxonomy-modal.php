@@ -59,7 +59,7 @@
 		</div>
 
 		<!-- Футер -->
-		<div class="fs-modal-footer">
+		<div class="fs-lms-modal-footer">
 			<button type="button" class="button fs-lms-modal-cancel js-modal-close">Отмена</button>
 			<button type="button" class="button button-primary js-modal-save">Сохранить</button>
 		</div>

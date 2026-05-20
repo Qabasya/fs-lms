@@ -20,36 +20,39 @@ enum AjaxHook: string {
 	case DeleteSubject = 'DeleteSubject';
 	case ExportSubject = 'ExportSubject';
 	case ImportSubject = 'ImportSubject';
-	
+
 	// ==================== SubjectController (Таксономии) ====================
 	case StoreTaxonomy  = 'StoreTaxonomy';
 	case UpdateTaxonomy = 'UpdateTaxonomy';
 	case DeleteTaxonomy = 'DeleteTaxonomy';
-	
+
 	// ==================== BoilerplateController (Полноценный CRUD редактор) ====================
 	case SaveBoilerplate   = 'SaveBoilerplate';
 	case DeleteBoilerplate = 'DeleteBoilerplate';
-	
+
 	// ==================== TaskCreationController (Создание задач в модалке) ====================
 	case GetTaskTypes        = 'GetTaskTypes';
 	case GetTaskBoilerplates = 'GetTaskBoilerplates';
 	case CreateTask          = 'CreateTask';
-	
+
 	// ==================== SubjectController (Прочие хуки) ====================
-	case GetPostsTable = 'GetPostsTable';
-	case GetTasksByNumber = 'GetTasksByNumber';
-	case GetRecentTasks = 'GetRecentTasks';
+	case GetPostsTable     = 'GetPostsTable';
+	case GetTasksByNumber  = 'GetTasksByNumber';
+	case GetRecentTasks    = 'GetRecentTasks';
 	case GetRecentArticles = 'GetRecentArticles';
-	
+
 	// ==================== TemplateManager (Быстрые настройки и структура) ====================
 	case GetTemplateStructure   = 'GetTemplateStructure';
 	case SaveTaskBoilerplate    = 'SaveTaskBoilerplate';
 	case GetTaskBoilerplate     = 'GetBoilerplate';
 	case UpdateTermTemplate     = 'UpdateTermTemplate';
 	case SaveTemplateAssignment = 'SaveTemplateAssignment';
-	
+
+	// ==================== AcademicPeriod (Учебные периоды) ====================
+		case SaveAcademicPeriod   = 'SaveAcademicPeriod';
+		case DeleteAcademicPeriod = 'DeleteAcademicPeriod';
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
-	
+
 	/**
 	 * Возвращает полное имя WordPress AJAX-действия для авторизованных пользователей.
 	 *
@@ -58,7 +61,7 @@ enum AjaxHook: string {
 	public function action(): string {
 		return 'wp_ajax_' . $this->toSnakeCase();
 	}
-	
+
 	/**
 	 * Возвращает полное имя WordPress AJAX-действия для неавторизованных пользователей.
 	 *
@@ -67,7 +70,7 @@ enum AjaxHook: string {
 	public function noPrivAction(): string {
 		return 'wp_ajax_nopriv_' . $this->toSnakeCase();
 	}
-	
+
 	/**
 	 * Возвращает имя экшена для использования в JavaScript (параметр action).
 	 *
@@ -76,7 +79,7 @@ enum AjaxHook: string {
 	public function jsAction(): string {
 		return $this->toSnakeCase();
 	}
-	
+
 	/**
 	 * Возвращает имя метода в PHP-коллбеке.
 	 *
@@ -85,7 +88,7 @@ enum AjaxHook: string {
 	public function callbackMethod(): string {
 		return 'ajax' . $this->value;
 	}
-	
+
 	/**
 	 * Конвертирует PascalCase в snake_case.
 	 *
@@ -94,7 +97,7 @@ enum AjaxHook: string {
 	private function toSnakeCase(): string {
 		return strtolower( preg_replace( '/(?<!^)[A-Z]/', '_$0', $this->name ) );
 	}
-	
+
 	/**
 	 * Возвращает массив всех хуков для передачи в JavaScript через wp_localize_script.
 	 *
@@ -105,7 +108,7 @@ enum AjaxHook: string {
 		foreach ( self::cases() as $case ) {
 			$actions[ lcfirst( $case->name ) ] = $case->jsAction();
 		}
-		
+
 		return $actions;
 	}
 }

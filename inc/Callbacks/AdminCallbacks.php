@@ -6,6 +6,7 @@ namespace Inc\Callbacks;
 
 use Inc\Controllers\BoilerplatePageController;
 use Inc\Core\BaseController;
+use Inc\Repositories\AcademicPeriodRepository;
 use Inc\Repositories\SubjectRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
@@ -40,6 +41,7 @@ class AdminCallbacks extends BaseController {
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
+		private readonly AcademicPeriodRepository $periods,
 		private readonly BoilerplatePageController $boilerplatePageController
 	) {
 		parent::__construct();
@@ -62,12 +64,10 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function settingsPage(): void {
-		// Получение всех предметов из базы данных
-		$all_subjects = $this->subjects->readAll();
-
-		// render() — метод трейта TemplateRenderer
-		// Подключает файл /templates/admin/settings.php и передаёт в него переменную $subjects
-		$this->render( 'admin/settings', array( 'subjects' => $all_subjects ) );
+		$this->render( 'admin/settings', array(
+			'subjects'          => $this->subjects->readAll(),
+			'academic_periods'  => $this->periods->readAll(),
+		) );
 	}
 
 	/**
