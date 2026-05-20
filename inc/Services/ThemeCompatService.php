@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inc\Services;
 
 /**
- * Class ThemeCompat
+ * Class ThemeCompatService
  *
  * Совместимость с классическими и блочными (FSE) темами WordPress.
  *
@@ -14,7 +14,7 @@ namespace Inc\Services;
  * темы и вызывает нужный API: для блочных — block_template_part() + ручной
  * HTML-скелет, для классических — стандартные get_header() / get_footer().
  */
-class ThemeCompat {
+class ThemeCompatService {
 
 	/**
 	 * Выводит открывающий HTML-скелет и шапку сайта.
