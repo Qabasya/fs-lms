@@ -2,34 +2,23 @@ import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base
 
 const $ = jQuery;
 
-/**
- * Модальное окно создания/редактирования учебных периодов.
- * Реализовано по образу и подобию TaxonomyModal (слабая связность).
- *
- * @namespace AcademicPeriodModal
- */
 export const AcademicPeriodModal = {
-    /** @type {JQuery} */
     $modal: null,
-    /** @type {Function[]} Стек коллбеков сохранения */
     _saveCallbacks: [],
     _initialized: false,
 
-    // Кэшированные поля формы
     $idInput: null,
     $nameInput: null,
     $startDateInput: null,
     $endDateInput: null,
     $isCurrentInput: null,
     $actionInput: null,
+    $form: null,
 
     $saveBtn: null,
     $titleEl: null,
     $idContainer: null,
 
-    /**
-     * Инициализация модуля. Кэширует DOM и привязывает базовые события закрытия/сохранения.
-     */
     init() {
         if (this._initialized) return;
 
@@ -41,23 +30,20 @@ export const AcademicPeriodModal = {
         this._bindEvents();
     },
 
-    /** Кэширует элементы для повторного использования. @private */
     _cacheElements() {
-        this.$idInput          = $('#period_id');
-        this.$nameInput        = $('#period_name');
-        this.$startDateInput   = $('#period_start_date');
-        this.$endDateInput     = $('#period_end_date');
-        this.$isCurrentInput   = $('#period_is_current');
-        this.$actionInput      = $('#period_action_type');
+        this.$idInput        = $('#period_id');
+        this.$nameInput      = $('#period_name');
+        this.$startDateInput = $('#period_start_date');
+        this.$endDateInput   = $('#period_end_date');
+        this.$isCurrentInput = $('#period_is_current');
+        this.$actionInput    = $('#period_action_type');
 
-        this.$saveBtn          = $('#period-submit-btn');
-        this.$titleEl          = $('#period-modal-title');
-        this.$idContainer      = $('#period-id-group');
-
-        this.$form             = this.$modal.find('form');
+        this.$saveBtn     = $('#period-submit-btn');
+        this.$titleEl     = $('#period-modal-title');
+        this.$idContainer = $('#period-id-group');
+        this.$form        = this.$modal.find('form');
     },
 
-    /** Привязка внутренних событий модалки. @private */
     _bindEvents() {
         this.$modal.on('click', '.fs-lms-modal-backdrop, .fs-lms-modal-cancel, .js-modal-close, .fs-close', (e) => {
             e.preventDefault();
@@ -74,23 +60,18 @@ export const AcademicPeriodModal = {
         this.$startDateInput.add(this.$endDateInput).on('change.fs', () => {
             this.$endDateInput[0].setCustomValidity('');
         });
+
+        this.$idInput.on('input.fs', () => {
+            this.$idInput[0].setCustomValidity('');
+        });
     },
 
-    /**
-     * Регистрирует внешний обработчик сохранения.
-     * @param {Function} callback
-     */
     onSave(callback) {
         if (typeof callback === 'function') {
             this._saveCallbacks.push(callback);
         }
     },
 
-    /**
-     * Открывает модалку снаружи в нужном режиме с нужными данными.
-     * @param {'add'|'edit'} action
-     * @param {Object} [data={}]
-     */
     open(action, data = {}) {
         const isUpdate = action === 'edit';
 
@@ -114,7 +95,6 @@ export const AcademicPeriodModal = {
         openModal(this.$modal);
         bindEsc('academic_period', () => this.close());
 
-        // Фокус на первое доступное поле
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 if (isUpdate) {
@@ -126,17 +106,12 @@ export const AcademicPeriodModal = {
         });
     },
 
-    /** Закрывает модалку и сбрасывает форму. */
     close() {
         closeModal(this.$modal);
         unbindEsc('academic_period');
         this._resetForm();
     },
 
-    /**
-     * Изменяет состояние кнопки (загрузка/обычное)
-     * @param {boolean} loading
-     */
     setSaveState(loading) {
         const isUpdate = this.$actionInput.val() === 'edit';
         this.$saveBtn
@@ -153,9 +128,14 @@ export const AcademicPeriodModal = {
         return true;
     },
 
-    /** Сбрасывает поля и убирает ошибки @private */
+    setIdError(message) {
+        this.$idInput[0].setCustomValidity(message);
+        this.$idInput[0].reportValidity();
+    },
+
     _resetForm() {
         this.$idInput.val('').prop('readonly', false);
+        this.$idInput[0].setCustomValidity('');
         this.$nameInput.val('');
         this.$startDateInput.val('');
         this.$endDateInput.val('');
@@ -164,7 +144,6 @@ export const AcademicPeriodModal = {
         this.$actionInput.val('add');
     },
 
-    /** Собирает чистый объект данных. @returns {Object} @private */
     _collectFormData() {
         return {
             action_type: this.$actionInput.val(),

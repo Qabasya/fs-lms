@@ -104,33 +104,3 @@ PhpMyAdmin -> localhost:8081
     server: db
     user: root
     password: root
-
-
-inc/Services/
-│
-├── Auth/                           # Already well-structured
-│   ├── AuthService.php
-│   ├── AuthConfigFactory.php
-│   ├── AuthStrategyRegistry.php
-│   ├── ProviderResolver.php
-│   └── AuthStrategies/
-│
-├── Subject/                        # New — three services with shared subject aggregate
-│   ├── SubjectDeletionService.php
-│   ├── SubjectExportService.php
-│   └── SubjectImportService.php
-│
-├── Task/                           # New — task-domain services
-│   ├── TaskTypeService.php         # Enricher: terms + template + count
-│   └── TaskMetaService.php         # Transformer: fs_lms_meta parsing
-│
-├── Template/                       # Rename from TemplateService/ (cleaner)
-│   ├── TemplateRegistry.php
-│   └── TemplateResolver.php
-│
-├── AcademicPeriodService.php       # Stays flat — own domain, single file
-├── ArticleService.php              # Stays flat — frontend-only, thin
-├── ContentCacheService.php         # Stays flat — infrastructure crosscut
-├── PageGeneratorService.php        # Stays flat — activation-only utility
-├── PostTypeResolver.php            # Stays flat — used everywhere, move would break all imports
-└── ThemeCompatService.php          # Stays flat — infrastructure adapter

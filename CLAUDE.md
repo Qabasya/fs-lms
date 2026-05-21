@@ -216,7 +216,7 @@ Use snake_case for all WP-related identifiers.
 
 - All AJAX logic in Callbacks classes
 - Controllers only register `wp_ajax_{action}` / `wp_ajax_nopriv_{action}`
-- Always: validate nonce, sanitize input, return via `wp_send_json_success` / `wp_send_json_error`
+- Always: validate nonce (trait Authorizer), sanitize input (trait Sanitizer), return via `wp_send_json_success` / `wp_send_json_error` - use trait AjaxResponse ONLY!
 - No direct `echo` / `die`
 
 ### Data Handling

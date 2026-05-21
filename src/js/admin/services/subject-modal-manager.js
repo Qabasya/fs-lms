@@ -1,39 +1,23 @@
-/**
- * Модуль управления предметами (Subjects) для плагина FS-LMS.
- * @requires jQuery
- * @requires ../modules/utils.js
- * @requires ../components/confirm-modal.js
- */
-
 import '../_types.js';
+import { SubjectModal } from '../components/subject-modal.js';
+import { ConfirmModal } from '../components/confirm-modal.js';
 import {
     toggleButton,
     apiError,
     showNotice,
     escapeHtml,
 } from '../modules/utils.js';
-import { ConfirmModal } from '../components/confirm-modal.js';
 
 const $ = jQuery;
 
-/**
- * Управление предметами: CRUD, экспорт/импорт, inline-редактирование.
- * @namespace Subjects
- */
-export const Subjects = {
-    /**
-     * Инициализация модуля.
-     */
+export const SubjectModalManager = {
     init() {
+        SubjectModal.init();
+        SubjectModal.onSave((formData) => this._handleSave(formData));
         this._bindEvents();
     },
 
-    /**
-     * Привязка обработчиков событий.
-     * @private
-     */
     _bindEvents() {
-        $('#fs-add-subject-form').on('submit', (e) => this._handleSave(e));
         $(document).on('click', '.open-quick-edit', (e) => this._handleQuickEdit(e));
         $(document).on('click', '.delete-subject', (e) => this._handleDelete(e));
         $(document).on('click', '.js-export-subject', (e) => this._handleExport(e));
@@ -41,38 +25,33 @@ export const Subjects = {
         $('#fs-import-file').on('change', (e) => this._handleImport(e));
     },
 
-    /**
-     * Обработка сохранения нового предмета.
-     * @param {Event} e
-     * @private
-     */
-    _handleSave(e) {
-        e.preventDefault();
-        const $form = $(e.target);
-        const $btn = $form.find('.button-primary');
+    _handleSave(formData) {
+        SubjectModal.setSaveState(true);
 
-        toggleButton($btn, true, 'Сохранение...');
-
-        $.post(fs_lms_vars.ajaxurl, $form.serialize() + '&action=' + fs_lms_vars.ajax_actions.storeSubject)
+        $.post(fs_lms_vars.ajaxurl, {
+            action:      fs_lms_vars.ajax_actions.storeSubject,
+            name:        formData.name,
+            key:         formData.key,
+            tasks_count: formData.tasks_count,
+            security:    formData.security,
+        })
             .done((res) => {
                 if (res.success) {
                     location.reload();
+                } else if (res.data?.error_code === 'duplicate_key') {
+                    SubjectModal.setKeyError(res.data.message);
+                    SubjectModal.setSaveState(false);
                 } else {
-                    showNotice(res.data || 'Ошибка сохранения', 'error', $form);
-                    toggleButton($btn, false);
+                    showNotice(res.data?.message || res.data || 'Ошибка сохранения', 'error', SubjectModal.$modal);
+                    SubjectModal.setSaveState(false);
                 }
             })
             .fail(() => {
                 apiError('Failed to save subject');
-                toggleButton($btn, false);
+                SubjectModal.setSaveState(false);
             });
     },
 
-    /**
-     * Обработка inline-редактирования предмета.
-     * @param {Event} e
-     * @private
-     */
     _handleQuickEdit(e) {
         e.preventDefault();
         const $btn = $(e.target);
@@ -112,11 +91,6 @@ export const Subjects = {
         });
     },
 
-    /**
-     * Начало процесса удаления: показ предупреждения.
-     * @param {Event} e
-     * @private
-     */
     _handleDelete(e) {
         e.preventDefault();
         const $btn = $(e.target);
@@ -128,11 +102,6 @@ export const Subjects = {
         this._showWarningModal(name, key, security, $btn, $row);
     },
 
-    /**
-     * Обработка экспорта предмета.
-     * @param {Event} e
-     * @private
-     */
     _handleExport(e) {
         e.preventDefault();
         const key = $(e.target).data('key');
@@ -140,11 +109,6 @@ export const Subjects = {
         this._exportSubject(key, security, $(e.target));
     },
 
-    /**
-     * Обработка импорта предмета из JSON-файла.
-     * @param {Event} e
-     * @private
-     */
     _handleImport(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -172,8 +136,8 @@ export const Subjects = {
             })
                 .then(() => {
                     $.post(fs_lms_vars.ajaxurl, {
-                        action: fs_lms_vars.ajax_actions.importSubject,
-                        json: ev.target.result,
+                        action:   fs_lms_vars.ajax_actions.importSubject,
+                        json:     ev.target.result,
                         security: this._getNonce(),
                     })
                         .done((res) => {
@@ -197,16 +161,6 @@ export const Subjects = {
         reader.readAsText(file);
     },
 
-    /**
-     * Показывает предупреждение перед удалением с опциями «Экспорт» и «Удалить».
-     * Закрытие — через крестик или ESC.
-     * @param {string} name
-     * @param {string} key
-     * @param {string} security
-     * @param {JQuery} $btn
-     * @param {JQuery} $row
-     * @private
-     */
     _showWarningModal(name, key, security, $btn, $row) {
         const safeName = escapeHtml(name);
         const message =
@@ -215,8 +169,6 @@ export const Subjects = {
             `Рекомендуем экспортировать данные перед удалением.\n\n` +
             `Для выхода нажмите клавишу Esc или знак Х справа вверху`;
 
-        // Используем ConfirmModal, но переопределяем текст кнопок:
-        // confirmText → "Удалить всё равно", cancelText → "Экспорт"
         ConfirmModal.confirm({
             title: 'Предупреждение',
             message: message,
@@ -241,15 +193,6 @@ export const Subjects = {
             });
     },
 
-    /**
-     * Показывает финальное подтверждение удаления.
-     * @param {string} name
-     * @param {string} key
-     * @param {string} security
-     * @param {JQuery} $btn
-     * @param {JQuery} $row
-     * @private
-     */
     _showFinalConfirm(name, key, security, $btn, $row) {
         const safeName = escapeHtml(name);
 
@@ -264,24 +207,15 @@ export const Subjects = {
             .then(() => {
                 this._doDelete(key, security, $btn, $row);
             })
-            .catch(() => {
-                // Отмена — ничего не делаем
-            });
+            .catch(() => {});
     },
 
-    /**
-     * Экспортирует предмет и скачивает JSON-файл.
-     * @param {string} key
-     * @param {string} security
-     * @param {JQuery} $btn
-     * @private
-     */
     _exportSubject(key, security, $btn, onComplete = null) {
         toggleButton($btn, true, 'Экспорт...');
 
         $.post(fs_lms_vars.ajaxurl, {
-            action: fs_lms_vars.ajax_actions.exportSubject,
-            key: key,
+            action:   fs_lms_vars.ajax_actions.exportSubject,
+            key:      key,
             security: security,
         })
             .done((res) => {
@@ -300,27 +234,18 @@ export const Subjects = {
             .fail(() => apiError('Failed to export subject'))
             .always(() => {
                 toggleButton($btn, false);
-                // Вызываем callback, если он был передан (например, для закрытия модалки)
                 if (typeof onComplete === 'function') {
                     onComplete();
                 }
             });
     },
 
-    /**
-     * Выполняет удаление предмета после подтверждения.
-     * @param {string} key
-     * @param {string} security
-     * @param {JQuery} $btn
-     * @param {JQuery} $row
-     * @private
-     */
     _doDelete(key, security, $btn, $row) {
         toggleButton($btn, true, '...');
 
         $.post(fs_lms_vars.ajaxurl, {
-            action: fs_lms_vars.ajax_actions.deleteSubject,
-            key: key,
+            action:   fs_lms_vars.ajax_actions.deleteSubject,
+            key:      key,
             security: security,
         })
             .done((res) => {
@@ -342,11 +267,6 @@ export const Subjects = {
             });
     },
 
-    /**
-     * Получает nonce из доступных форм.
-     * @returns {string}
-     * @private
-     */
     _getNonce() {
         return $('#fs-add-subject-form [name="security"]').val()
             || $('#fs-quick-edit-form [name="security"]').val()

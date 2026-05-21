@@ -37,7 +37,7 @@
                 <div class="fs-form-group">
                     <label class="fs-checkbox-label">
                         <input type="checkbox" id="period_is_current" value="1">
-                        <span>Сделать этот период активным по умолчанию</span>
+                        <span>Сделать этот период Текущим</span>
                     </label>
                 </div>
 

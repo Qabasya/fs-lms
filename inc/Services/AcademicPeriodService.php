@@ -53,20 +53,22 @@ readonly class AcademicPeriodService {
 
 	/**
 	 * Валидирует даты и сохраняет учебный период через репозиторий.
-	 * Логика «только один текущий период» делегирована репозиторию.
+	 * Обеспечивает инвариант: не более одного текущего периода.
 	 *
 	 * @param AcademicPeriodDTO $dto DTO с данными периода
 	 *
 	 * @return bool
 	 */
 	public function savePeriod( AcademicPeriodDTO $dto ): bool {
-		// strtotime() — преобразует строку даты в Unix timestamp
 		$start_ts = strtotime( $dto->start_date );
 		$end_ts   = strtotime( $dto->end_date );
 
-		// Валидация: даты должны быть корректными, начало не позже окончания
 		if ( false === $start_ts || false === $end_ts || $start_ts > $end_ts ) {
 			return false;
+		}
+
+		if ( $dto->is_current ) {
+			$this->period_repository->clearAllCurrentFlags();
 		}
 
 		return $this->period_repository->save( $dto );
@@ -115,25 +117,21 @@ readonly class AcademicPeriodService {
 			return array();
 		}
 
-		// Получение всех групп (индексированный массив)
-		$all_groups = $this->group_repository->readAll();
-		$result     = array();
+		$result = array();
 
 		foreach ( $matrix as $enrollment ) {
-			// Получение DTO ученика по ID
 			$student_dto = $this->user_repository->getById( $enrollment->student_id );
 
 			if ( null === $student_dto ) {
 				continue;
 			}
 
-			// Получение названия группы (с фолбеком)
-			$group_name = $all_groups[ $enrollment->group_id ]['name'] ?? 'Без группы';
+			$group_dto  = $this->group_repository->getById( $enrollment->group_id );
+			$group_name = $group_dto?->title ?? 'Без группы';
 
-			// Сборка итогового массива
 			$result[] = array(
 				'id'         => $student_dto->id,
-				'name'       => $student_dto->displayName ?? '',
+				'name'       => $student_dto->displayName,
 				'email'      => $student_dto->email,
 				'class_num'  => $enrollment->class_num,
 				'group_name' => $group_name,

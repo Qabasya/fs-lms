@@ -216,6 +216,15 @@ class AdminController extends BaseController implements ServiceInterface {
 		);
 
 		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
+		// Новая страница: Группы
+		$subpages[] = array(
+			'parent_slug' => MenuSlug::MAIN->value,        // Привязываем к главному меню FS LMS
+			'page_title'  => 'Управление группами',        // Заголовок в теге <title>
+			'menu_title'  => 'Группы',                     // Название пункта в боковом меню
+			'capability'  => Capability::ADMIN->value,     // Права доступа
+			'menu_slug'   => 'fs_lms_groups',              // Уникальный слаг страницы
+			'callback'    => array( $this->callbacks, 'groupsPage' ), // Метод-коллбек для отрисовки
+		);
 
 		// Добавляем подстраницы предметов (каждый предмет — отдельная подстраница)
 		return array_merge( $subpages, $this->subjects_menu_builder->buildSubPages() );

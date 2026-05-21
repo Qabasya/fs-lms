@@ -81,7 +81,12 @@ trait AjaxResponse {
 		}
 		
 		// wp_send_json_error() — отправляет JSON-ответ с ключом 'success' => false
-		wp_send_json_error( $message );
+		// Если передан контекст — объединяем с сообщением в массив для доступа из JS
+		if ( ! empty( $context ) ) {
+			wp_send_json_error( array_merge( array( 'message' => $message ), $context ) );
+		} else {
+			wp_send_json_error( $message );
+		}
 	}
 	
 	/**

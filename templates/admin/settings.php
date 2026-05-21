@@ -56,12 +56,13 @@ $tabs = array(
 
 <?php
 // Подключение модального окна (путь относительно папки templates/)
-$modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/add-subject-modal.php';
+$modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/subject-modal.php';
+
 if ( file_exists( $modal_path ) ) {
     include $modal_path;
 }
 
-$period_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/add-academic-period.php';
+$period_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/academic-period-modal.php';
 if ( file_exists( $period_modal_path ) ) {
     include $period_modal_path;
 }
