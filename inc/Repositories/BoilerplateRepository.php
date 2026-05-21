@@ -7,15 +7,58 @@ namespace Inc\Repositories;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\OptionName;
 
+/**
+ * Class BoilerplateRepository
+ *
+ * Репозиторий для работы с типовыми условиями (boilerplate) заданий.
+ *
+ * @package Inc\Repositories
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **CRUD-операции** — создание, чтение, обновление и удаление boilerplate.
+ * 2. **Структура данных** — хранение в формате [subject_key][term_slug][...items].
+ * 3. **Управление дефолтным шаблоном** — автоматическое снятие флага is_default при добавлении нового.
+ * 4. **Каскадное удаление** — удаление всех boilerplate предмета по subject_key.
+ *
+ * ### Архитектурная роль:
+ *
+ * Инкапсулирует работу с опцией `fs_lms_task_type_boilerplates` в wp_options.
+ * Обрабатывает структурированные данные (трёхуровневый массив) и преобразует
+ * их в DTO TaskTypeBoilerplateDTO и обратно.
+ */
 class BoilerplateRepository {
 
+	/**
+	 * Конструктор репозитория.
+	 */
+	public function __construct() {}
+
+	/**
+	 * Имя опции в wp_options.
+	 */
 	private string $option_name = OptionName::BOILERPLATE->value;
 
+	/**
+	 * Получает "сырые" данные из опции.
+	 *
+	 * @return array
+	 */
 	private function getRaw(): array {
+		// get_option() — получает опцию из таблицы wp_options
 		$data = get_option( $this->option_name, array() );
 		return is_array( $data ) ? $data : array();
 	}
 
+	/**
+	 * Преобразует "сырой" массив в DTO.
+	 *
+	 * @param array  $item        Массив с данными boilerplate
+	 * @param string $subject_key Ключ предмета
+	 * @param string $term_slug   Слаг термина (номер задания)
+	 *
+	 * @return TaskTypeBoilerplateDTO
+	 */
 	private function hydrateDTO( array $item, string $subject_key, string $term_slug ): TaskTypeBoilerplateDTO {
 		return new TaskTypeBoilerplateDTO(
 			uid:         $item['uid'],
@@ -27,7 +70,11 @@ class BoilerplateRepository {
 		);
 	}
 
-	/** @return TaskTypeBoilerplateDTO[] */
+	/**
+	 * Возвращает все существующие boilerplate в виде плоского массива DTO.
+	 *
+	 * @return TaskTypeBoilerplateDTO[]
+	 */
 	public function readAll(): array {
 		$flat = array();
 
@@ -42,7 +89,14 @@ class BoilerplateRepository {
 		return $flat;
 	}
 
-	/** @return TaskTypeBoilerplateDTO[] */
+	/**
+	 * Возвращает список boilerplate для конкретного предмета и типа задания.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 * @param string $term_slug   Слаг термина (номер задания)
+	 *
+	 * @return TaskTypeBoilerplateDTO[]
+	 */
 	public function getBoilerplates( string $subject_key, string $term_slug ): array {
 		$raw_list = $this->getRaw()[ $subject_key ][ $term_slug ] ?? array();
 
@@ -52,6 +106,14 @@ class BoilerplateRepository {
 		);
 	}
 
+	/**
+	 * Возвращает дефолтный boilerplate для указанного предмета и типа задания.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 * @param string $term_slug   Слаг термина (номер задания)
+	 *
+	 * @return TaskTypeBoilerplateDTO|null
+	 */
 	public function getDefaultBoilerplate( string $subject_key, string $term_slug ): ?TaskTypeBoilerplateDTO {
 		$list = $this->getBoilerplates( $subject_key, $term_slug );
 
@@ -61,9 +123,19 @@ class BoilerplateRepository {
 			}
 		}
 
+		// Если дефолтного нет — возвращаем первый в списке
 		return $list[0] ?? null;
 	}
 
+	/**
+	 * Находит boilerplate по UID.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 * @param string $term_slug   Слаг термина (номер задания)
+	 * @param string $uid         Уникальный ID boilerplate
+	 *
+	 * @return TaskTypeBoilerplateDTO|null
+	 */
 	public function findBoilerplate( string $subject_key, string $term_slug, string $uid ): ?TaskTypeBoilerplateDTO {
 		$raw_list = $this->getRaw()[ $subject_key ][ $term_slug ] ?? array();
 
@@ -76,6 +148,13 @@ class BoilerplateRepository {
 		return null;
 	}
 
+	/**
+	 * Сохраняет (создаёт или обновляет) boilerplate.
+	 *
+	 * @param TaskTypeBoilerplateDTO $dto DTO с данными
+	 *
+	 * @return bool
+	 */
 	public function save( TaskTypeBoilerplateDTO $dto ): bool {
 		$all  = $this->getRaw();
 		$list = &$all[ $dto->subject_key ][ $dto->term_slug ];
@@ -86,6 +165,7 @@ class BoilerplateRepository {
 
 		$found = false;
 
+		// Обновление существующего или снятие флага is_default у других
 		foreach ( $list as &$item ) {
 			if ( $item['uid'] === $dto->uid ) {
 				$item  = $dto->toArray();
@@ -96,16 +176,28 @@ class BoilerplateRepository {
 		}
 		unset( $item );
 
+		// Если не нашли — добавляем новый
 		if ( ! $found ) {
 			$list[] = $dto->toArray();
 		}
 
+		// update_option() — обновляет опцию, возвращает false при ошибке
 		return update_option( $this->option_name, $all );
 	}
 
+	/**
+	 * Удаляет конкретный boilerplate по UID.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 * @param string $term_slug   Слаг термина (номер задания)
+	 * @param string $uid         Уникальный ID boilerplate
+	 *
+	 * @return bool
+	 */
 	public function remove( string $subject_key, string $term_slug, string $uid ): bool {
 		$all = $this->getRaw();
 
+		// Проверка существования пути
 		if ( ! isset( $all[ $subject_key ][ $term_slug ] ) || ! is_array( $all[ $subject_key ][ $term_slug ] ) ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				error_log( "FS LMS: Path not found in database: [$subject_key][$term_slug]" );
@@ -115,6 +207,7 @@ class BoilerplateRepository {
 
 		$found = false;
 
+		// Поиск и удаление элемента
 		foreach ( $all[ $subject_key ][ $term_slug ] as $index => $item ) {
 			if ( isset( $item['uid'] ) && $item['uid'] === $uid ) {
 				unset( $all[ $subject_key ][ $term_slug ][ $index ] );
@@ -130,8 +223,10 @@ class BoilerplateRepository {
 			return false;
 		}
 
+		// Переиндексация массива (после unset)
 		$all[ $subject_key ][ $term_slug ] = array_values( $all[ $subject_key ][ $term_slug ] );
 
+		// Удаление пустых уровней
 		if ( empty( $all[ $subject_key ][ $term_slug ] ) ) {
 			unset( $all[ $subject_key ][ $term_slug ] );
 		}
@@ -143,11 +238,18 @@ class BoilerplateRepository {
 		return update_option( $this->option_name, $all );
 	}
 
+	/**
+	 * Удаляет все boilerplate указанного предмета (каскадное удаление).
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return bool
+	 */
 	public function removeBySubject( string $subject_key ): bool {
 		$all = $this->getRaw();
 
 		if ( ! isset( $all[ $subject_key ] ) ) {
-			return true;
+			return true;  // Нечего удалять
 		}
 
 		unset( $all[ $subject_key ] );
