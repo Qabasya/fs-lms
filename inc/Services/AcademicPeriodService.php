@@ -134,7 +134,7 @@ readonly class AcademicPeriodService {
 			$result[] = array(
 				'id'         => $student_dto->id,
 				'name'       => $student_dto->displayName ?? '',
-				'email'      => $student_dto->userEmail ?? '',
+				'email'      => $student_dto->email,
 				'class_num'  => $enrollment->class_num,
 				'group_name' => $group_name,
 			);

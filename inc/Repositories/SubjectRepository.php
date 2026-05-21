@@ -56,7 +56,7 @@ class SubjectRepository {
 	 */
 	public function readAll(): array {
 		return array_map(
-			fn( $item ) => new SubjectDTO( $item['key'], $item['name'] ),
+			fn( array $item ) => SubjectDTO::fromArray( $item ),
 			$this->getRaw()
 		);
 	}
@@ -73,7 +73,7 @@ class SubjectRepository {
 		if ( ! isset( $raw[ $key ] ) ) {
 			return null;
 		}
-		return new SubjectDTO( $raw[ $key ]['key'], $raw[ $key ]['name'] );
+		return SubjectDTO::fromArray( $raw[ $key ] );
 	}
 
 	/**
@@ -84,22 +84,13 @@ class SubjectRepository {
 	 * @return bool
 	 */
 	public function save( SubjectDTO $dto ): bool {
-		// sanitize_title() — преобразует строку в slug (транслитерация, нижний регистр, дефисы)
-		$key = sanitize_title( $dto->key );
-		// sanitize_text_field() — удаляет теги и спецсимволы
-		$name = sanitize_text_field( $dto->name );
-
-		if ( empty( $key ) || empty( $name ) ) {
+		if ( empty( $dto->key ) || empty( $dto->name ) ) {
 			return false;
 		}
 
-		$subjects         = $this->getRaw();
-		$subjects[ $key ] = array(
-			'key'  => $key,
-			'name' => $name,
-		);
+		$subjects           = $this->getRaw();
+		$subjects[ $dto->key ] = $dto->toArray();
 
-		// update_option() — обновляет опцию, возвращает false при ошибке или отсутствии изменений
 		return update_option( $this->option_name, $subjects );
 	}
 

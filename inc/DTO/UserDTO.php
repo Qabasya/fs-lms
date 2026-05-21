@@ -6,7 +6,36 @@ namespace Inc\DTO;
 
 use Inc\Enums\UserRole;
 
+/**
+ * Class UserDTO
+ *
+ * Data Transfer Object для передачи данных о пользователе.
+ *
+ * @package Inc\DTO
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Типобезопасная передача** — обеспечивает строгую типизацию данных пользователя.
+ * 2. **Фабричные методы** — создание DTO из WP_User и преобразование в массив.
+ *
+ * ### Архитектурная роль:
+ *
+ * Используется для передачи данных между слоями:
+ * - Из UserRepository в сервисы и контроллеры
+ * - Для обмена данными о пользователе между компонентами плагина
+ */
 readonly class UserDTO {
+
+	/**
+	 * Конструктор DTO.
+	 *
+	 * @param int         $id          ID пользователя
+	 * @param string      $email       Email пользователя
+	 * @param string      $displayName Отображаемое имя пользователя
+	 * @param UserRole    $role        Роль пользователя (из enum)
+	 * @param string|null $telegramId  ID в Telegram (для связи с ботом)
+	 * @param array       $meta        Дополнительные мета-данные пользователя
+	 */
 	public function __construct(
 		public int $id,
 		public string $email,
@@ -18,12 +47,34 @@ readonly class UserDTO {
 	}
 
 	/**
-	 * Статический метод для создания DTO из WP_User
+	 * Преобразует DTO в массив для сохранения в БД или передачи.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function toArray(): array {
+		return array(
+			'id'          => $this->id,
+			'email'       => $this->email,
+			'displayName' => $this->displayName,
+			'role'        => $this->role->value,
+			'telegramId'  => $this->telegramId,
+			'meta'        => $this->meta,
+		);
+	}
+
+	/**
+	 * Создаёт DTO из объекта WP_User.
+	 *
+	 * @param \WP_User $user Объект пользователя WordPress
+	 *
+	 * @return self
 	 */
 	public static function fromWPUser( \WP_User $user ): self {
-		// Получаем роль из нашего Enum (берем первую совпавшую)
-		$userRole = UserRole::Student; // дефолт
+		// Получаем роль из нашего enum (берём первую совпадающую)
+		$userRole = UserRole::Student; // Значение по умолчанию
+
 		foreach ( UserRole::cases() as $role ) {
+			// in_array() — проверяет, есть ли роль пользователя в списке
 			if ( in_array( $role->value, $user->roles ) ) {
 				$userRole = $role;
 				break;
@@ -35,8 +86,9 @@ readonly class UserDTO {
 			email      : $user->user_email,
 			displayName: $user->display_name,
 			role       : $userRole,
+			// get_user_meta() — получает мета-поле пользователя
 			telegramId : get_user_meta( $user->ID, 'fs_telegram_id', true ) ?: null,
-			meta       : array() // Сюда можно подгрузить остальное
+			meta       : array()  // Сюда можно подгрузить остальные мета-поля
 		);
 	}
 }

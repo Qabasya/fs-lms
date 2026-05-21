@@ -102,14 +102,8 @@ class TaxonomyRepository {
 			$all[ $dto->subject_key ] = array();
 		}
 
-		// Санитизация данных перед сохранением
-		$all[ $dto->subject_key ][ $dto->slug ] = array(
-			'name'         => sanitize_text_field( $dto->name ),
-			'display_type' => sanitize_text_field( $dto->display_type ),
-			'is_required'  => (bool) $dto->is_required,
-		);
+		$all[ $dto->subject_key ][ $dto->slug ] = $dto->toArray();
 
-		// update_option() — обновляет опцию, возвращает false при ошибке или отсутствии изменений
 		return update_option( $this->option_name, $all );
 	}
 
