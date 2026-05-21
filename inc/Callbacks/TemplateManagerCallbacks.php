@@ -3,6 +3,7 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\DTO\TaskTemplateAssignmentDTO;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
@@ -83,11 +84,8 @@ class TemplateManagerCallbacks extends BaseController {
 			$this->error( "Нельзя изменить шаблон: по этому типу уже создано {$post_count} заданий." );
 		}
 
-		// updateAssignment() — сохраняет привязку шаблона к термину
-		$result = $this->metaboxes->updateAssignment(
-			$subject_key,
-			(string) $term->slug,
-			$template_id
+		$result = $this->metaboxes->save(
+			new TaskTemplateAssignmentDTO( $subject_key, (string) $term->slug, $template_id )
 		);
 
 		$this->respond(
@@ -175,7 +173,7 @@ class TemplateManagerCallbacks extends BaseController {
 			is_default: true
 		);
 
-		$result = $this->boilerplates->updateBoilerplate( $dto );
+		$result = $this->boilerplates->save( $dto );
 
 		$this->respond(
 			$result,

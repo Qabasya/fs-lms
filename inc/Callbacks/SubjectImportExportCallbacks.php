@@ -5,7 +5,10 @@ declare( strict_types=1 );
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\DTO\SubjectDTO;
+use Inc\DTO\TaskTemplateAssignmentDTO;
 use Inc\DTO\TaskTypeBoilerplateDTO;
+use Inc\DTO\TaxonomyDataDTO;
 use Inc\Enums\Nonce;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
@@ -68,21 +71,14 @@ class SubjectImportExportCallbacks extends BaseController {
 			$this->error( 'Предмет не найден', array( 'key' => $key ) );
 		}
 
-		// Формирование массива для экспорта
-		$this->success(
-			array(
-				'subject'      => array(
-					'key'  => $subject->key,
-					'name' => $subject->name,
-				),
-				// getRawForSubject() — возвращает записи в виде массивов (не объектов)
-				'taxonomies'   => $this->taxonomies->getRawForSubject( $key ),
-				'metaboxes'    => $this->metaboxes->getRawForSubject( $key ),
-				'boilerplates' => $this->boilerplates->getRawForSubject( $key ),
-				'terms'        => $this->collectTerms( $key ),
-				'posts'        => $this->collectPosts( $key ),
-			)
-		);
+		$this->success( array(
+			'subject'      => array( 'key' => $subject->key, 'name' => $subject->name ),
+			'taxonomies'   => $this->exportTaxonomies( $key ),
+			'metaboxes'    => $this->exportMetaboxes( $key ),
+			'boilerplates' => $this->exportBoilerplates( $key ),
+			'terms'        => $this->collectTerms( $key ),
+			'posts'        => $this->collectPosts( $key ),
+		) );
 	}
 
 	/**
@@ -120,12 +116,7 @@ class SubjectImportExportCallbacks extends BaseController {
 		}
 
 		// Создание предмета
-		$result = $this->subjects->update(
-			array(
-				'key'  => $key,
-				'name' => $name,
-			)
-		);
+		$result = $this->subjects->save( new SubjectDTO( $key, $name ) );
 
 		if ( ! $result ) {
 			$this->error( 'Критическая ошибка при создании записи предмета в БД' );
@@ -133,25 +124,22 @@ class SubjectImportExportCallbacks extends BaseController {
 
 		// Импорт таксономий
 		foreach ( $data['taxonomies'] ?? array() as $tax_slug => $tax_data ) {
-			$this->taxonomies->update(
-				array(
-					'subject_key'  => $key,
-					'tax_slug'     => sanitize_title( (string) $tax_slug ),
-					'name'         => sanitize_text_field( $tax_data['name'] ?? '' ),
-					'display_type' => sanitize_text_field( $tax_data['display_type'] ?? 'select' ),
-				)
-			);
+			$this->taxonomies->save( new TaxonomyDataDTO(
+				slug:         sanitize_title( (string) $tax_slug ),
+				name:         sanitize_text_field( $tax_data['name'] ?? '' ),
+				subject_key:  $key,
+				display_type: sanitize_text_field( $tax_data['display_type'] ?? 'select' ),
+				is_required:  (bool) ( $tax_data['is_required'] ?? false ),
+			) );
 		}
 
 		// Импорт метабоксов (привязка шаблонов к номерам заданий)
 		foreach ( $data['metaboxes'] ?? array() as $task_number => $template_id ) {
-			$this->metaboxes->update(
-				array(
-					'subject'     => $key,
-					'task_number' => sanitize_text_field( (string) $task_number ),
-					'template_id' => sanitize_text_field( (string) $template_id ),
-				)
-			);
+			$this->metaboxes->save( new TaskTemplateAssignmentDTO(
+				$key,
+				sanitize_text_field( (string) $task_number ),
+				sanitize_text_field( (string) $template_id ),
+			) );
 		}
 
 		// Импорт boilerplate-шаблонов
@@ -159,7 +147,7 @@ class SubjectImportExportCallbacks extends BaseController {
 			foreach ( (array) $bp_list as $bp ) {
 				// uniqid(, true) — генерирует уникальный ID с микросекундами (более уникальный)
 				// wp_kses_post() — разрешает только безопасные HTML-теги для контента постов
-				$this->boilerplates->updateBoilerplate(
+				$this->boilerplates->save(
 					new TaskTypeBoilerplateDTO(
 						uid: sanitize_text_field( $bp['uid'] ?? uniqid( 'bp_', true ) ),
 						subject_key: $key,
@@ -189,6 +177,43 @@ class SubjectImportExportCallbacks extends BaseController {
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ-ХЕЛПЕРЫ ============================ //
 
 	// ============================ Экспорт ============================ //
+
+	private function exportTaxonomies( string $subject_key ): array {
+		$result = array();
+		foreach ( $this->taxonomies->getBySubject( $subject_key ) as $dto ) {
+			$result[ $dto->slug ] = array(
+				'name'         => $dto->name,
+				'display_type' => $dto->display_type,
+				'is_required'  => $dto->is_required,
+			);
+		}
+		return $result;
+	}
+
+	private function exportMetaboxes( string $subject_key ): array {
+		$result = array();
+		foreach ( $this->metaboxes->readAll() as $dto ) {
+			if ( $dto->subject_key === $subject_key ) {
+				$result[ $dto->task_number ] = $dto->template_id;
+			}
+		}
+		return $result;
+	}
+
+	private function exportBoilerplates( string $subject_key ): array {
+		$result = array();
+		foreach ( $this->boilerplates->readAll() as $dto ) {
+			if ( $dto->subject_key === $subject_key ) {
+				$result[ $dto->term_slug ][] = array(
+					'uid'        => $dto->uid,
+					'title'      => $dto->title,
+					'content'    => $dto->content,
+					'is_default' => $dto->is_default,
+				);
+			}
+		}
+		return $result;
+	}
 
 	/**
 	 * Собирает все термины для указанного предмета.
