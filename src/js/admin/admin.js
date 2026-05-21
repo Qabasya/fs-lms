@@ -1,42 +1,44 @@
 import {UI} from './modules/ui.js';
-import {Subjects} from './services/subjects.js';
 import {TemplateManager} from './services/template-manager.js';
 import {Boilerplates} from './services/boilerplates.js';
-import {TaskCreation} from './services/task-creation.js';
-import {Taxonomies} from './services/taxonomies.js';
+import {TaxonomyModalManager} from './services/taxonomy-modal-manager.js';
 import {PostsTable} from './services/posts-table.js';
 import {RequiredTaxGuard} from './services/required-tax-guard.js';
 import {TaskFilter} from "./services/task-dashboard.js";
 import {RecentContent} from "./services/recent-posts";
 import {AuthSettings} from "./services/auth-settings";
-import {AcademicPeriodManager} from "./services/academic-period-manager";
+import {AcademicPeriodModalManager} from "./services/academic-period-modal-manager";
+import {GroupModalManager} from "./services/group-modal-manager.js";
+import {SubjectModalManager} from "./services/subject-modal-manager";
+import {TaskModalManager} from "./services/task-modal-manager";
+import {HelpModalManager} from "./services/help-modal-manager";
 
 (function ($) {
     'use strict';
 
     $(document).ready(function () {
-        // Инициализируем все компоненты из папки components/ (модальные окна)
         UI.init();
 
-        // Предметы — только там, где есть форма или таблица
         if ($('#fs-add-subject-form').length || $('.open-quick-edit').length) {
-            Subjects.init();
+            SubjectModalManager.init();
         }
 
         if ($('.js-add-period').length || $('.js-edit-period').length) {
-            AcademicPeriodManager.init();
+            AcademicPeriodModalManager.init();
         }
+
+
+        GroupModalManager.init();
+
 
         TemplateManager.init();
         PostsTable.init();
         Boilerplates.init();
 
-        // Создание заданий — init безопасен: внутри проверяет наличие модалки
-        TaskCreation.init();
+        TaskModalManager.init();
 
-        // Таксономии — только на странице управления предметом
         if ($('.js-taxonomy-table').length) {
-            Taxonomies.init();
+            TaxonomyModalManager.init();
         }
 
         RequiredTaxGuard.init();
@@ -51,6 +53,10 @@ import {AcademicPeriodManager} from "./services/academic-period-manager";
 
         if ($('.js-provider-toggle').length) {
             AuthSettings.init();
+        }
+
+        if ($('.js-open-help-modal').length) {
+            HelpModalManager.init();
         }
 
     });

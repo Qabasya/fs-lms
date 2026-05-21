@@ -2,26 +2,16 @@ import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base
 
 const $ = jQuery;
 
-/**
- * Модальное окно создания/редактирования таксономий.
- * @namespace TaxonomyModal
- */
 export const TaxonomyModal = {
-    /** @type {JQuery} */
     $modal: null,
-    /** @type {Function[]} Стек коллбеков сохранения */
     _saveCallbacks: [],
     _initialized: false,
 
-    // Кэшированные поля
     $nameInput: null, $slugInput: null, $originalSlugInput: null,
     $actionInput: null, $subjectKeyInput: null,
     $displayInputs: null, $saveBtn: null, $slugContainer: null, $titleEl: null,
     $isRequiredInput: null,
 
-    /**
-     * Инициализация модуля. Кэширует DOM и привязывает события.
-     */
     init() {
         if (this._initialized) return;
 
@@ -33,7 +23,6 @@ export const TaxonomyModal = {
         this._bindEvents();
     },
 
-    /** Кэширует элементы для повторного использования. @private */
     _cacheElements() {
         this.$nameInput         = $('#tax-name');
         this.$slugInput         = $('#tax-slug');
@@ -47,7 +36,6 @@ export const TaxonomyModal = {
         this.$isRequiredInput   = $('#tax-is-required');
     },
 
-    /** Привязка кликов по кнопкам закрытия и сохранения. @private */
     _bindEvents() {
         this.$modal.on('click', '.fs-lms-modal-backdrop, .fs-lms-modal-cancel, .fs-lms-modal-close, .js-modal-close, .fs-close', (e) => {
             e.preventDefault();
@@ -62,7 +50,6 @@ export const TaxonomyModal = {
             this._saveCallbacks.forEach(cb => cb(formData));
         });
 
-        // Снимаем подсветку ошибок при вводе
         this.$nameInput.add(this.$slugInput).on('input.fs', (e) => {
             $(e.currentTarget).removeClass('fs-input-error');
         });
@@ -72,21 +59,12 @@ export const TaxonomyModal = {
         });
     },
 
-    /**
-     * Регистрирует обработчик сохранения.
-     * @param {Function} callback
-     */
     onSave(callback) {
         if (typeof callback === 'function') {
             this._saveCallbacks.push(callback);
         }
     },
 
-    /**
-     * Открывает модалку в режиме создания или редактирования.
-     * @param {'store'|'update'} action
-     * @param {Object} [data={}]
-     */
     open(action, data = {}) {
         const isUpdate = action === 'update';
 
@@ -113,22 +91,16 @@ export const TaxonomyModal = {
         requestAnimationFrame(() => requestAnimationFrame(() => this.$nameInput.trigger('focus')));
     },
 
-    /** Закрывает модалку и сбрасывает форму. */
     close() {
         closeModal(this.$modal);
         unbindEsc('taxonomy');
         this._resetForm();
     },
 
-    /**
-     * Переключает состояние кнопки сохранения.
-     * @param {boolean} loading
-     */
     setSaveState(loading) {
         this.$saveBtn.prop('disabled', loading).text(loading ? 'Сохранение...' : 'Сохранить');
     },
 
-    /** Простая валидация обязательных полей. @returns {boolean} @private */
     _validate() {
         let isValid = true;
         const required = [this.$nameInput];
@@ -144,16 +116,11 @@ export const TaxonomyModal = {
         return isValid;
     },
 
-    /**
-     * Устанавливает нативную ошибку валидации на поле слага.
-     * @param {string} message
-     */
     setSlugError(message) {
         this.$slugInput[0].setCustomValidity(message);
         this.$slugInput[0].reportValidity();
     },
 
-    /** Сбрасывает поля и стили ошибок. @private */
     _resetForm() {
         this.$nameInput.val('').removeClass('fs-input-error');
         this.$slugInput.val('').removeClass('fs-input-error');
@@ -164,7 +131,6 @@ export const TaxonomyModal = {
         this.$isRequiredInput.prop('checked', false);
     },
 
-    /** Собирает данные формы. @returns {Object} @private */
     _collectFormData() {
         const action = this.$actionInput.val();
         return {

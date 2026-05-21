@@ -10,6 +10,7 @@ use Inc\Controllers\AuthPageController;
 use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\ProfileController;
+use Inc\Controllers\StudentGroupController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
 use Inc\Controllers\TaskPageController;
@@ -58,6 +59,7 @@ final class Init {
 			AuthPageController::class,
 			ProfileController::class,
 			AcademicPeriodController::class,
+			StudentGroupController::class,
 		);
 	}
 

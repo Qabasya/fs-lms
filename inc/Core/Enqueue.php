@@ -56,66 +56,71 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function enqueue_admin_assets(): void {
+		$screen = get_current_screen();
+		$page   = sanitize_text_field( $_GET['page'] ?? '' );
+
+		// Проверяем, является ли текущая страница частью нашего плагина
+		$is_plugin_page = str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' );
+		$is_task_cpt    = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
+
+		// Guard Clause: Подключаем админские ресурсы плагина ТОЛЬКО на страницах плагина или наших CPT
+		if ( ! $is_plugin_page && ! $is_task_cpt ) {
+			return;
+		}
+
 		// wp_enqueue_media() — подключает медиа-библиотеку WordPress (для загрузки изображений)
 		wp_enqueue_media();
 
 		// wp_enqueue_style() — подключает CSS-файл
 		wp_enqueue_style(
-			'fs-lms-common-style',                        // Идентификатор стиля
-			$this->url( 'assets/css/common.min.css' ),    // PageRoutes файла
-			array(),                                            // Зависимости
-			$this->plugin_version                         // Версия (для очистки кеша)
+			'fs-lms-common-style',
+			$this->url( 'assets/css/common.min.css' ),
+			array(),
+			filemtime( $this->path( 'assets/css/common.min.css' ) )
 		);
 
 		wp_enqueue_style(
 			'fs-lms-admin-style',
 			$this->url( 'assets/css/admin.min.css' ),
-			array( 'wp-components', 'fs-lms-common-style' ),  // Зависит от компонентов WP и общего стиля
-			$this->plugin_version
+			array( 'wp-components', 'fs-lms-common-style' ),
+			filemtime( $this->path( 'assets/css/admin.min.css' ) )
 		);
 
 		$script_handle = 'fs-lms-admin-script';
 
-		// wp_enqueue_script() — подключает JS-файл
 		wp_enqueue_script(
 			'fs-lms-common-script',
 			$this->url( 'assets/js/common.min.js' ),
-			array( 'jquery' ),      // Зависимость от jQuery
-			$this->plugin_version,
-			true               // Загружать в футере
+			array( 'jquery' ),
+			filemtime( $this->path( 'assets/js/common.min.js' ) ),
+			true
 		);
 
 		wp_enqueue_script(
 			$script_handle,
 			$this->url( 'assets/js/admin.min.js' ),
 			array( 'jquery', 'wp-api', 'wp-i18n', 'editor', 'quicktags' ),
-			$this->plugin_version,
+			filemtime( $this->path( 'assets/js/admin.min.js' ) ),
 			true
 		);
 
-		// get_current_screen() — возвращает объект текущего экрана админки
-		$screen = get_current_screen();
-
-		$page = sanitize_text_field( $_GET['page'] ?? '' );
-
-		// На странице списка заданий (CPT с суффиксом '_tasks')
-		if ( is_admin() && $screen && PostTypeResolver::isTaskPostType( $screen->post_type ) ) {
+		// Контекстная локализация данных для страниц задач (CPT с суффиксом '_tasks')
+		if ( $is_task_cpt ) {
 			$subject_key = PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
 
-			// wp_localize_script() — передаёт PHP-данные в JS-объект
 			wp_localize_script(
 				$script_handle,
 				'fs_lms_task_data',
 				array(
 					'ajax_url'            => admin_url( 'admin-ajax.php' ),
-					'security'            => Nonce::TaskCreation->create(),  // Создание nonce
+					'security'            => Nonce::TaskCreation->create(),
 					'subject_key'         => $subject_key,
 					'post_type'           => $screen->post_type,
 					'required_taxonomies' => $this->getRequiredTaxonomies( $subject_key ),
 				)
 			);
 		}
-		// На странице управления предметом (префикс 'fs_subject_')
+		// Контекстная локализация для страниц предметов (префикс 'fs_subject_')
 		elseif ( str_starts_with( $page, 'fs_subject_' ) ) {
 			$subject_key = substr( $page, strlen( 'fs_subject_' ) );
 			wp_localize_script(
@@ -133,7 +138,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 			wp_enqueue_script( 'inline-edit-post' );
 		}
 
-		// Глобальные переменные для всех страниц админки
+		// Глобальные переменные для ВСЕХ страниц админки нашего плагина
 		wp_localize_script(
 			$script_handle,
 			'fs_lms_vars',
@@ -141,7 +146,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'ajaxurl'       => admin_url( 'admin-ajax.php' ),
 				'subject_nonce' => Nonce::Subject->create(),
 				'manager_nonce' => Nonce::Manager->create(),
-				'ajax_actions'  => AjaxHook::toJsArray(),  // Массив AJAX-действий для JS
+				'ajax_actions'  => AjaxHook::toJsArray(),  // Массив AJAX-действий для JS (в змейке)
 			)
 		);
 	}
@@ -191,8 +196,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return array
 	 */
 	private function getRequiredTaxonomies( string $subject_key ): array {
-		// array_filter() — оставляет только таксономии с флагом is_required = true
-		// array_values() — сбрасывает ключи после фильтрации
 		return array_values(
 			array_map(
 				fn( $dto ) => array(
@@ -215,16 +218,13 @@ class Enqueue extends BaseController implements ServiceInterface {
 	public function render_confirm_modal(): void {
 		$page = sanitize_text_field( $_GET['page'] ?? '' );
 
-		// Показываем модалку только на страницах нашего плагина (с префиксом 'fs_')
-		if ( ! str_starts_with( $page, 'fs_' ) ) {
+		// Показываем модалку только на страницах нашего плагина
+		if ( ! str_starts_with( $page, 'fs_' ) && ! str_starts_with( $page, 'student_' ) ) {
 			return;
 		}
 
-		// dirname(, 2) — поднимаемся на 2 уровня вверх от текущей директории
-		// Из Inc/Core/Enqueue.php → Inc/Core → Inc → корень плагина
 		$modal_path = dirname( __DIR__, 2 ) . '/templates/admin/components/modals/confirm-modal.php';
 
-		// file_exists() — проверяет существование файла перед подключением
 		if ( file_exists( $modal_path ) ) {
 			require_once $modal_path;
 		}

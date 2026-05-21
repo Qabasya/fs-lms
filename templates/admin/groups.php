@@ -2,35 +2,87 @@
 /**
  * Шаблон страницы управления группами.
  *
- * @var array $subjects          Список предметов (передан из коллбека)
- * @var array $academic_periods  Список академических периодов (передан из коллбека)
+ * @var array                       $subjects          Список предметов (из коллбека)
+ * @var array                       $academic_periods  Список академических периодов (из коллбека)
+ * @var \Inc\DTO\StudentGroupDTO[]  $groups            Массив DTO групп (из коллбека)
+ * @var \WP_User[]                  $teachers          Список преподавателей (из коллбека)
  */
+
+declare( strict_types=1 );
 ?>
 
 	<div class="wrap">
-		<h1 class="wp-heading-inline">Группы</h1>
-
-		<a href="#" class="page-title-action">Добавить группу</a>
+		<h1 class="wp-heading-inline">Группы учеников</h1>
+		<button type="button" class="page-title-action js-open-group-modal">Добавить группу</button>
 
 		<hr class="wp-header-end">
 
 		<div class="tab-content" style="margin-top: 20px;">
-			<div class="card" style="max-width: 100%; padding: 20px; background: #fff; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
-				<h2>Список групп</h2>
-				<p>Здесь будет отображаться таблица управления группами студентов (в разработке).</p>
+			<table class="wp-list-table widefat fixed striping table-view-list groups-table">
+				<thead>
+				<tr>
+					<th scope="col" class="manage-column column-title column-primary">Название группы</th>
+					<th scope="col" class="manage-column column-period">Учебный период</th>
+					<th scope="col" class="manage-column column-subject">Предмет</th>
+					<th scope="col" class="manage-column column-teacher">Преподаватель</th>
+					<th scope="col" class="manage-column column-actions" style="width: 100px;">Действия</th>
+				</tr>
+				</thead>
 
-				<?php
-				// Переданные переменные $subjects и $academic_periods уже доступны здесь,
-				// если они понадобятся для фильтров или привязки групп к периодам/предметам.
-				?>
-			</div>
+				<tbody id="the-list">
+				<?php if ( empty( $groups ) ) : ?>
+					<tr class="no-items">
+						<td class="colspanchange" colspan="5">Группы ещё не созданы.</td>
+					</tr>
+				<?php else : ?>
+					<?php
+					foreach ( $groups as $group ) :
+						// Ищем название периода и предмета по их ID из переданных массивов
+						$period_name  = $academic_periods[ $group->period_id ]['name'] ?? $group->period_id;
+						$subject_name = $subjects[ $group->subject_id ]['name'] ?? $group->subject_id;
+
+						// Ищем преподавателя среди переданного списка teachers
+						$teacher_name = 'Не назначен';
+						foreach ( $teachers as $teacher ) {
+							if ( $teacher->ID === $group->teacher_id ) {
+								$teacher_name = $teacher->display_name;
+								break;
+							}
+						}
+						?>
+						<tr id="group-row-<?php echo esc_attr( $group->id ); ?>">
+							<td class="column-title column-primary data-title">
+								<strong><?php echo esc_html( $group->title ); ?></strong>
+								<div class="row-actions">
+									<span class="id">ID: <?php echo esc_html( $group->id ); ?></span>
+								</div>
+							</td>
+							<td><?php echo esc_html( $period_name ); ?></td>
+							<td><?php echo esc_html( $subject_name ); ?></td>
+							<td><?php echo esc_html( $teacher_name ); ?></td>
+							<td>
+								<span class="trash">
+									<a href="#"
+										class="submitdelete js-delete-group"
+										data-id="<?php echo esc_attr( $group->id ); ?>">
+										Удалить
+									</a>
+								</span>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				<?php endif; ?>
+				</tbody>
+			</table>
 		</div>
 	</div>
 
 <?php
-// Сюда можно будет подключать модальные окна для групп, когда они понадобятся:
-// $group_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/../modals/add-group-modal.php';
-// if ( file_exists( $group_modal_path ) ) {
-//     include $group_modal_path;
-// }
+// Подключаем модальное окно добавления группы (переданные $teachers, $subjects и $academic_periods прокинутся автоматически)
+$group_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/group-modal.php';
+
+if ( file_exists( $group_modal_path ) ) {
+	include $group_modal_path;
+}
+
 ?>

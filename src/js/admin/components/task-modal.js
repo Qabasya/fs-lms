@@ -3,14 +3,8 @@ import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base
 
 const $ = jQuery;
 
-/**
- * Модальное окно создания задачи.
- * Управляет формой, состоянием UI и callback-хуками.
- * @namespace TaskCreationModal
- */
-export const TaskCreationModal = {
+export const TaskModal = {
     _initialized: false,
-    /** @type {{ onOpen: Function|null, onTermChange: Function|null, onSubmit: Function|null }} */
     _callbacks: { onOpen: null, onTermChange: null, onSubmit: null },
 
     $modal: null,
@@ -20,7 +14,6 @@ export const TaskCreationModal = {
     $submitBtn: null,
     $titleInput: null,
 
-    /** Инициализация: кэширует элементы и привязывает события. */
     init() {
         this.$modal = $('#fs-task-modal');
         this.$form  = $('#fs-task-creation-form');
@@ -31,16 +24,14 @@ export const TaskCreationModal = {
 
         this._initialized = true;
 
-        // Кэшируем элементы, которые используются повторно
-        this.$termSelect       = $('#fs-modal-term');
+        this.$termSelect        = $('#fs-modal-term');
         this.$boilerplateSelect = $('#fs-modal-boilerplate');
-        this.$submitBtn        = $('#fs-modal-submit');
-        this.$titleInput       = $('#fs-modal-title');
+        this.$submitBtn         = $('#fs-modal-submit');
+        this.$titleInput        = $('#fs-modal-title');
 
         this._bindEvents();
     },
 
-    /** Привязка делегированных и прямых обработчиков. @private */
     _bindEvents() {
         $('body')
             .off('click.fs', '.page-title-action')
@@ -74,14 +65,10 @@ export const TaskCreationModal = {
         });
     },
 
-    /** @param {Function} fn */
     onOpen(fn)       { this._callbacks.onOpen = fn; },
-    /** @param {Function} fn */
     onTermChange(fn) { this._callbacks.onTermChange = fn; },
-    /** @param {Function} fn */
     onSubmit(fn)     { this._callbacks.onSubmit = fn; },
 
-    /** Открывает модалку, сбрасывает форму и вызывает коллбек onOpen. */
     open() {
         openModal(this.$modal);
         bindEsc('task_creation', () => this.close());
@@ -95,34 +82,21 @@ export const TaskCreationModal = {
         }
     },
 
-    /** Закрывает модалку. */
     close() {
         closeModal(this.$modal);
         unbindEsc('task_creation');
     },
 
-    /**
-     * Обновляет список термов.
-     * @param {string} html
-     */
     setTerms(html) {
         if (!this.$termSelect.length) return;
         this.$termSelect.html(html).prop('disabled', false);
     },
 
-    /**
-     * Обновляет список шаблонов.
-     * @param {string} html
-     */
     setBoilerplates(html) {
         if (!this.$boilerplateSelect.length) return;
         this.$boilerplateSelect.html(html).prop('disabled', false);
     },
 
-    /**
-     * Переключает состояние кнопки отправки.
-     * @param {boolean} loading
-     */
     setSubmitState(loading) {
         if (!this.$submitBtn.length) return;
         this.$submitBtn
@@ -130,7 +104,6 @@ export const TaskCreationModal = {
             .text(loading ? 'Создание...' : 'Продолжить');
     },
 
-    /** Собирает данные формы. @returns {{ termId: string, title: string, boilerplateUid: string }} @private */
     _getFormData() {
         return {
             termId:         this.$termSelect.val(),

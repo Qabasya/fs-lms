@@ -68,7 +68,7 @@ class TaskCreationController extends AjaxController {
 					: PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
 
 				// Подключение шаблона модального окна
-				include_once $this->plugin_path . 'templates/admin/components/modals/task-creation-modal.php';
+				include_once $this->plugin_path . 'templates/admin/components/modals/task-modal.php';
 			}
 		);
 

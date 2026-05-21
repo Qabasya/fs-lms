@@ -6,8 +6,12 @@ namespace Inc\Callbacks;
 
 use Inc\Controllers\BoilerplatePageController;
 use Inc\Core\BaseController;
+use Inc\DTO\StudentGroupDTO;
+use Inc\Enums\UserRole;
 use Inc\Repositories\AcademicPeriodRepository;
+use Inc\Repositories\StudentGroupRepository;
 use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\UserRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -36,12 +40,17 @@ class AdminCallbacks extends BaseController {
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository         $subjects               Репозиторий предметов
+	 * @param SubjectRepository         $subjects                  Репозиторий предметов
+	 * @param AcademicPeriodRepository  $periods                   Репозиторий учебных периодов
+	 * @param StudentGroupRepository    $groups                    Репозиторий групп учеников
+	 * @param UserRepository            $users                     Репозиторий пользователей
 	 * @param BoilerplatePageController $boilerplatePageController Контроллер страницы boilerplate
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
 		private readonly AcademicPeriodRepository $periods,
+		private readonly StudentGroupRepository $groups,
+		private readonly UserRepository $users,
 		private readonly BoilerplatePageController $boilerplatePageController
 	) {
 		parent::__construct();
@@ -79,11 +88,31 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function groupsPage(): void {
+		// Читаем сырые данные групп из внедренного репозитория
+		$all_groups_raw = $this->groups->readAll();
+
+		// Мапим сырые массивы в строго типизированные DTO
+		$groups_dtos = array_map(
+			function ( $group_data ) {
+				return StudentGroupDTO::fromArray( $group_data );
+			},
+			$all_groups_raw
+		);
+
+		// Получаем пользователей с ролью LMS-преподавателя через WordPress API, используя Enum роли
+		$teachers = get_users(
+			array(
+				'role' => UserRole::FSTeacher->value,
+			)
+		);
+
 		$this->render(
 			'admin/groups',
 			array(
 				'subjects'         => $this->subjects->readAll(),
 				'academic_periods' => $this->periods->readAll(),
+				'groups'           => $groups_dtos,
+				'teachers'         => $teachers,
 			)
 		);
 	}

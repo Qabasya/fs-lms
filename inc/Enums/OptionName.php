@@ -43,6 +43,8 @@ enum OptionName: string {
 	/** Опция для хранения групп студентов. */
 	case STUDENT_GROUPS = 'fs_lms_student_groups';
 
+	case STUDENT_GROUP_MATRIX = 'fs_lms_student_group_matrix';  // Матрица связей студентов с группами
+
 	/** Опция для хранения мета-данных привязки студентов к периодам. */
 	case STUDENT_PERIOD_META = 'fs_lms_student_period_meta';
 }

@@ -49,8 +49,12 @@ enum AjaxHook: string {
 	case SaveTemplateAssignment = 'SaveTemplateAssignment';
 
 	// ==================== AcademicPeriod (Учебные периоды) ====================
-		case SaveAcademicPeriod   = 'SaveAcademicPeriod';
-		case DeleteAcademicPeriod = 'DeleteAcademicPeriod';
+	case SaveAcademicPeriod   = 'SaveAcademicPeriod';
+	case DeleteAcademicPeriod = 'DeleteAcademicPeriod';
+
+	// ==================== Группы ====================
+	case SaveStudentGroup   = 'SaveStudentGroup';
+	case DeleteStudentGroup = 'DeleteStudentGroup';
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 
 	/**
