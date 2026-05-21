@@ -57,8 +57,14 @@ export const Subjects = {
             .done((res) => {
                 if (res.success) {
                     location.reload();
+                } else if (res.data?.error_code === 'duplicate_key') {
+                    const $keyInput = $form.find('#subj_key');
+                    $keyInput[0].setCustomValidity(res.data.message);
+                    $keyInput[0].reportValidity();
+                    $keyInput.one('input.fs-validity', () => $keyInput[0].setCustomValidity(''));
+                    toggleButton($btn, false);
                 } else {
-                    showNotice(res.data || 'Ошибка сохранения', 'error', $form);
+                    showNotice(res.data?.message || res.data || 'Ошибка сохранения', 'error', $form);
                     toggleButton($btn, false);
                 }
             })

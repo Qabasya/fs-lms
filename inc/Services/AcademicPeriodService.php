@@ -60,13 +60,15 @@ readonly class AcademicPeriodService {
 	 * @return bool
 	 */
 	public function savePeriod( AcademicPeriodDTO $dto ): bool {
-		// strtotime() — преобразует строку даты в Unix timestamp
 		$start_ts = strtotime( $dto->start_date );
 		$end_ts   = strtotime( $dto->end_date );
 
-		// Валидация: даты должны быть корректными, начало не позже окончания
 		if ( false === $start_ts || false === $end_ts || $start_ts > $end_ts ) {
 			return false;
+		}
+
+		if ( $dto->is_current ) {
+			$this->period_repository->clearAllCurrentFlags();
 		}
 
 		return $this->period_repository->save( $dto );

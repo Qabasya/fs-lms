@@ -62,6 +62,10 @@ class SubjectCrudCallbacks extends BaseController {
 		$name  = $this->requireText( 'name', error: 'Название предмета обязательно' );
 		$count = $this->sanitizeInt( 'tasks_count' );
 
+		if ( null !== $this->subjects->getByKey( $key ) ) {
+			$this->error( 'Предмет с таким техническим ключом уже существует.', array( 'error_code' => 'duplicate_key' ) );
+		}
+
 		// Сохранение предмета через репозиторий
 		$result = $this->subjects->save( new SubjectDTO( $key, $name ) );
 

@@ -97,9 +97,11 @@ export const AcademicPeriodManager = {
             .done((res) => {
                 if (res.success) {
                     location.reload();
+                } else if (res.data?.error_code === 'duplicate_id') {
+                    AcademicPeriodModal.setIdError(res.data.message);
+                    AcademicPeriodModal.setSaveState(false);
                 } else {
-                    // Так как форма внутри кастомного враппера, выводим нативный alert или привязываем к контейнеру модалки
-                    alert(res.data?.message || 'Ошибка сохранения.');
+                    alert(res.data?.message || res.data || 'Ошибка сохранения.');
                     AcademicPeriodModal.setSaveState(false);
                 }
             })

@@ -38,7 +38,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 		}
 
 		if ( taxonomy_exists( $tax_slug ) ) {
-			$this->error( "Таксономия «{$tax_slug}» уже существует в системе", array( 'slug' => $tax_slug ) );
+			$this->error( "Таксономия «{$tax_slug}» уже существует в системе", array( 'error_code' => 'duplicate_slug', 'slug' => $tax_slug ) );
 		}
 
 		$result = $this->taxonomies->save( new TaxonomyDataDTO(

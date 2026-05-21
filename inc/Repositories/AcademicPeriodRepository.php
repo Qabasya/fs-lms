@@ -97,8 +97,30 @@ class AcademicPeriodRepository {
 	}
 
 	/**
-	 * Сохраняет или обновляет учебный период. Если период помечен как текущий,
-	 * снимает флаг is_current со всех остальных периодов (уникальность текущего).
+	 * Сбрасывает флаг is_current у всех периодов.
+	 *
+	 * @return bool
+	 */
+	public function clearAllCurrentFlags(): bool {
+		$periods = $this->readAll();
+		$changed = false;
+
+		foreach ( $periods as $key => $period ) {
+			if ( ! empty( $period['is_current'] ) ) {
+				$periods[ $key ]['is_current'] = false;
+				$changed                       = true;
+			}
+		}
+
+		if ( ! $changed ) {
+			return true;
+		}
+
+		return (bool) update_option( OptionName::ACADEMIC_PERIODS->value, $periods );
+	}
+
+	/**
+	 * Сохраняет или обновляет учебный период.
 	 *
 	 * @param AcademicPeriodDTO $dto DTO с данными периода
 	 *
@@ -107,17 +129,8 @@ class AcademicPeriodRepository {
 	public function save( AcademicPeriodDTO $dto ): bool {
 		$periods = $this->readAll();
 
-		// Если сохраняемый период помечен как текущий — сбрасываем флаг у всех остальных
-		if ( $dto->is_current ) {
-			foreach ( $periods as $key => $period ) {
-				$periods[ $key ]['is_current'] = false;
-			}
-		}
-
-		// Сохраняем период (toArray() — преобразует DTO в массив)
 		$periods[ $dto->id ] = $dto->toArray();
 
-		// update_option() — обновляет опцию, возвращает false при ошибке или отсутствии изменений
 		return (bool) update_option( OptionName::ACADEMIC_PERIODS->value, $periods );
 	}
 

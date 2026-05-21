@@ -74,6 +74,10 @@ export const AcademicPeriodModal = {
         this.$startDateInput.add(this.$endDateInput).on('change.fs', () => {
             this.$endDateInput[0].setCustomValidity('');
         });
+
+        this.$idInput.on('input.fs', () => {
+            this.$idInput[0].setCustomValidity('');
+        });
     },
 
     /**
@@ -153,9 +157,19 @@ export const AcademicPeriodModal = {
         return true;
     },
 
+    /**
+     * Устанавливает нативную ошибку валидации на поле ID.
+     * @param {string} message
+     */
+    setIdError(message) {
+        this.$idInput[0].setCustomValidity(message);
+        this.$idInput[0].reportValidity();
+    },
+
     /** Сбрасывает поля и убирает ошибки @private */
     _resetForm() {
         this.$idInput.val('').prop('readonly', false);
+        this.$idInput[0].setCustomValidity('');
         this.$nameInput.val('');
         this.$startDateInput.val('');
         this.$endDateInput.val('');

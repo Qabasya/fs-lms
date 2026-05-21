@@ -66,6 +66,10 @@ export const TaxonomyModal = {
         this.$nameInput.add(this.$slugInput).on('input.fs', (e) => {
             $(e.currentTarget).removeClass('fs-input-error');
         });
+
+        this.$slugInput.on('input.fs-validity', () => {
+            this.$slugInput[0].setCustomValidity('');
+        });
     },
 
     /**
@@ -140,10 +144,20 @@ export const TaxonomyModal = {
         return isValid;
     },
 
+    /**
+     * Устанавливает нативную ошибку валидации на поле слага.
+     * @param {string} message
+     */
+    setSlugError(message) {
+        this.$slugInput[0].setCustomValidity(message);
+        this.$slugInput[0].reportValidity();
+    },
+
     /** Сбрасывает поля и стили ошибок. @private */
     _resetForm() {
         this.$nameInput.val('').removeClass('fs-input-error');
         this.$slugInput.val('').removeClass('fs-input-error');
+        this.$slugInput[0].setCustomValidity('');
         this.$originalSlugInput.val('');
         this.$actionInput.val('store');
         this.$displayInputs.filter('[value="select"]').prop('checked', true);

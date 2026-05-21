@@ -179,15 +179,12 @@ export const Taxonomies = {
                  * @param {string} res.data - Сообщение об ошибке (при неудаче)
                  */
                 if (res.success) {
-                    /**
-                     * При успехе перезагружаем страницу для отображения обновлённого списка таксономий.
-                     */
                     location.reload();
+                } else if (res.data?.error_code === 'duplicate_slug') {
+                    TaxonomyModal.setSlugError(res.data.message);
+                    TaxonomyModal.setSaveState(false);
                 } else {
-                    /**
-                     * При ошибке, возвращённой сервером, показываем сообщение и разблокируем кнопку.
-                     */
-                    alert('Ошибка: ' + res.data);
+                    alert('Ошибка: ' + (res.data?.message || res.data));
                     TaxonomyModal.setSaveState(false);
                 }
             })

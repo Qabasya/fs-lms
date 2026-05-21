@@ -64,10 +64,28 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function settingsPage(): void {
-		$this->render( 'admin/settings', array(
-			'subjects'          => $this->subjects->readAll(),
-			'academic_periods'  => $this->periods->readAll(),
-		) );
+		$this->render(
+			'admin/settings',
+			array(
+				'subjects'         => $this->subjects->readAll(),
+				'academic_periods' => $this->periods->readAll(),
+			)
+		);
+	}
+
+	/**
+	 * Страница групп
+	 *
+	 * @return void
+	 */
+	public function groupsPage(): void {
+		$this->render(
+			'admin/groups',
+			array(
+				'subjects'         => $this->subjects->readAll(),
+				'academic_periods' => $this->periods->readAll(),
+			)
+		);
 	}
 
 	/**

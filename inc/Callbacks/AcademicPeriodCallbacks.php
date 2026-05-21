@@ -32,7 +32,7 @@ class AcademicPeriodCallbacks extends BaseController {
 		$action_type = $this->sanitizeText( 'action_type' ) === 'edit' ? 'edit' : 'add';
 
 		if ( 'add' === $action_type && null !== $this->period_service->getById( $id ) ) {
-			$this->error( 'Период с таким техническим ID уже существует.' );
+			$this->error( 'Период с таким техническим ID уже существует.', array( 'error_code' => 'duplicate_id' ) );
 		}
 
 		$dto   = new AcademicPeriodDTO( $id, $name, $start_date, $end_date, $is_current );
