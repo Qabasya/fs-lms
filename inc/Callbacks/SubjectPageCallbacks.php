@@ -11,7 +11,7 @@ use Inc\Managers\PostManager;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
 use Inc\Services\PostTypeResolver;
-use Inc\Services\TaskTypeService;
+use Inc\Services\Task\TaskTypeService;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
 

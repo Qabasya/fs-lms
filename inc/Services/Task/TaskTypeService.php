@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Inc\Services;
+namespace Inc\Services\Task;
 
 use Inc\DTO\TaskTypeDTO;
 use Inc\Enums\TaskTemplate;
 use Inc\Managers\PostManager;
 use Inc\Repositories\MetaBoxRepository;
+use Inc\Services\PostTypeResolver;
 
 /**
  * Class TaskTypeService

@@ -7,8 +7,8 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
 use Inc\Repositories\SubjectRepository;
-use Inc\Services\SubjectExportService;
-use Inc\Services\SubjectImportService;
+use Inc\Services\Subject\SubjectExportService;
+use Inc\Services\Subject\SubjectImportService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 

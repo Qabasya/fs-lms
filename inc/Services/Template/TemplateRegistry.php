@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services\TemplateService;
+namespace Inc\Services\Template;
 
 use Inc\Enums\TaskTemplate;
 use Inc\MetaBoxes\Templates\BaseTemplate;

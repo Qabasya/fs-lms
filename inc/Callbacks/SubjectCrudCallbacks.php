@@ -8,7 +8,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\SubjectDTO;
 use Inc\Enums\Nonce;
 use Inc\Repositories\SubjectRepository;
-use Inc\Services\SubjectDeletionService;
+use Inc\Services\Subject\SubjectDeletionService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;

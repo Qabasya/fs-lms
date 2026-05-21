@@ -2,13 +2,14 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Subject;
 
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\BoilerplateRepository;
 use Inc\Repositories\MetaBoxRepository;
 use Inc\Repositories\TaxonomyRepository;
+use Inc\Services\PostTypeResolver;
 
 class SubjectDeletionService {
 
