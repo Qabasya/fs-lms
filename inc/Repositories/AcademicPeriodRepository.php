@@ -1,168 +1,143 @@
 <?php
 
 declare(strict_types=1);
+
 namespace Inc\Repositories;
 
-use Inc\Contracts\RepositoryInterface;
+use Inc\DTO\AcademicPeriodDTO;
 use Inc\Enums\OptionName;
 
 /**
  * Class AcademicPeriodRepository
  *
- * Репозиторий для работы с учебными периодами.
+ * Репозиторий для работы с учебными периодами (годами/семестрами).
  *
  * @package Inc\Repositories
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **CRUD-операции** — чтение, сохранение и удаление учебных периодов.
+ * 2. **Управление текущим периодом** — автоматическое снятие флага is_current
+ *    при сохранении нового текущего периода.
+ * 3. **Очистка данных** — фильтрация некорректных записей при чтении.
+ *
+ * ### Архитектурная роль:
+ *
+ * Инкапсулирует работу с опцией `fs_lms_academic_periods` в wp_options.
+ * Обрабатывает данные как структурированный массив согласно правилам проекта.
+ * Использует DTO AcademicPeriodDTO для типобезопасной передачи данных.
  */
-class AcademicPeriodRepository implements RepositoryInterface {
+class AcademicPeriodRepository {
 
 	/**
-	 * Возвращает все учебные периоды с автоматической фильтрацией битых данных.
+	 * Конструктор репозитория.
+	 */
+	public function __construct() {}
+
+	/**
+	 * Возвращает все учебные периоды. Фильтрует записи с отсутствующим/несовпадающим ID
+	 * или пустым именем. Не выполняет запись и не модифицирует данные при чтении.
 	 *
-	 * @inheritDoc
-	 * @return array Массив всех учебных периодов [id => ['id', 'name', 'start_date', 'end_date', 'is_current']]
+	 * @return array<string, array<string, mixed>> Массив периодов [id => данные]
 	 */
 	public function readAll(): array {
+		// get_option() — получает опцию из таблицы wp_options
 		$periods = get_option( OptionName::ACADEMIC_PERIODS->value, array() );
+
 		if ( ! is_array( $periods ) ) {
 			return array();
 		}
 
-		$clean_periods = array();
-		$has_corrupted = false;
+		$clean = array();
 
-		// Самоочистка базы: фильтруем записи с неправильными, пустыми ключами или кривыми датами
 		foreach ( $periods as $key => $period ) {
+			// Санитизация ID и имени
 			$id   = isset( $period['id'] ) ? trim( (string) $period['id'] ) : '';
 			$name = isset( $period['name'] ) ? trim( (string) $period['name'] ) : '';
 
-			// Если ID пустой, или ключ массива не совпадает с ID, или имя пустое — это битая запись
+			// Пропускаем некорректные записи (ID пуст, имя пусто, ключ не совпадает с ID)
 			if ( empty( $id ) || empty( $name ) || (string) $key !== $id ) {
-				$has_corrupted = true;
 				continue;
 			}
 
-			// Проверяем хронологию дат уже существующих записей
-			$start_ts = ! empty( $period['start_date'] ) ? strtotime( (string) $period['start_date'] ) : false;
-			$end_ts   = ! empty( $period['end_date'] ) ? strtotime( (string) $period['end_date'] ) : false;
-
-			if ( $start_ts && $end_ts && $start_ts > $end_ts ) {
-				// Если в базе уже лежит период, где дата начала позже даты конца — меняем их местами
-				$tmp = $period['start_date'];
-				$period['start_date'] = $period['end_date'];
-				$period['end_date'] = $tmp;
-				$has_corrupted = true;
-			}
-
-			$clean_periods[ $id ] = $period;
+			$clean[ $id ] = $period;
 		}
 
-		// Если нашли и вычистили мусор — обновляем опцию в БД, чтобы она больше не грузила сервер
-		if ( $has_corrupted ) {
-			update_option( OptionName::ACADEMIC_PERIODS->value, $clean_periods );
-		}
-
-		return $clean_periods;
+		return $clean;
 	}
 
 	/**
-	 * Добавляет или обновляет учебный период с жесткой валидацией данных.
+	 * Получает учебный период по ID.
 	 *
-	 * @inheritDoc
-	 * @param array $data Массив данных периода
+	 * @param string $id ID учебного периода (например, '2025_2026')
 	 *
-	 * @return bool Возвращает false, если данные не прошли валидацию
+	 * @return AcademicPeriodDTO|null
 	 */
-	public function update( array $data ): bool {
-		$id         = isset( $data['id'] ) ? sanitize_key( trim( (string) $data['id'] ) ) : '';
-		$name       = isset( $data['name'] ) ? sanitize_text_field( trim( (string) $data['name'] ) ) : '';
-		$start_date = isset( $data['start_date'] ) ? sanitize_text_field( trim( (string) $data['start_date'] ) ) : '';
-		$end_date   = isset( $data['end_date'] ) ? sanitize_text_field( trim( (string) $data['end_date'] ) ) : '';
+	public function getById( string $id ): ?AcademicPeriodDTO {
+		$periods = $this->readAll();
+		$data    = $periods[ trim( $id ) ] ?? null;
 
-		if ( empty( $id ) || empty( $name ) || empty( $start_date ) || empty( $end_date ) ) {
-			return false;
+		// fromArray() — фабричный метод DTO для создания из массива
+		return $data ? AcademicPeriodDTO::fromArray( $data ) : null;
+	}
+
+	/**
+	 * Получает текущий активный учебный период.
+	 *
+	 * @return AcademicPeriodDTO|null
+	 */
+	public function getCurrentPeriod(): ?AcademicPeriodDTO {
+		foreach ( $this->readAll() as $period ) {
+			if ( true === ( $period['is_current'] ?? false ) ) {
+				return AcademicPeriodDTO::fromArray( $period );
+			}
 		}
 
-		if ( ! preg_match( '/^[a-z0-9_]+$/', $id ) ) {
-			return false;
-		}
+		return null;
+	}
 
-		$start_ts = strtotime( $start_date );
-		$end_ts   = strtotime( $end_date );
+	/**
+	 * Сохраняет или обновляет учебный период. Если период помечен как текущий,
+	 * снимает флаг is_current со всех остальных периодов (уникальность текущего).
+	 *
+	 * @param AcademicPeriodDTO $dto DTO с данными периода
+	 *
+	 * @return bool
+	 */
+	public function save( AcademicPeriodDTO $dto ): bool {
+		$periods = $this->readAll();
 
-		if ( false === $start_ts || false === $end_ts || $start_ts > $end_ts ) {
-			return false;
-		}
-
-		$periods    = $this->readAll();
-		$is_current = (bool) ( $data['is_current'] ?? false );
-
-		if ( true === $is_current ) {
+		// Если сохраняемый период помечен как текущий — сбрасываем флаг у всех остальных
+		if ( $dto->is_current ) {
 			foreach ( $periods as $key => $period ) {
 				$periods[ $key ]['is_current'] = false;
 			}
 		}
 
-		// Записываем чистые, отвалидированные данные
-		$periods[ $id ] = array(
-			'id'         => $id,
-			'name'       => $name,
-			'start_date' => $start_date,
-			'end_date'   => $end_date,
-			'is_current' => $is_current,
-		);
+		// Сохраняем период (toArray() — преобразует DTO в массив)
+		$periods[ $dto->id ] = $dto->toArray();
 
-		update_option( OptionName::ACADEMIC_PERIODS->value, $periods );
-
-		return true;
+		// update_option() — обновляет опцию, возвращает false при ошибке или отсутствии изменений
+		return (bool) update_option( OptionName::ACADEMIC_PERIODS->value, $periods );
 	}
 
 	/**
-	 * Удаляет учебный период по его ID.
+	 * Удаляет учебный период по ID.
 	 *
-	 * @inheritDoc
-	 * @param array $data Массив, содержащий ключ 'id'
+	 * @param string $id ID учебного периода
 	 *
 	 * @return bool
 	 */
-	public function delete( array $data ): bool {
-		if ( ! isset( $data['id'] ) ) {
-			return false;
-		}
-
-		$id      = trim( (string) $data['id'] );
+	public function remove( string $id ): bool {
 		$periods = $this->readAll();
 
 		if ( ! isset( $periods[ $id ] ) ) {
 			return false;
 		}
 
+		// unset() — удаляет элемент из массива по ключу
 		unset( $periods[ $id ] );
-		update_option( OptionName::ACADEMIC_PERIODS->value, $periods );
-		return true;
-	}
 
-	// ============================ КАСТОМНЫЕ МЕТОДЫ ============================ //
-
-	/**
-	 * Получает конкретный учебный период по его ID.
-	 */
-	public function getById( string $id ): ?array {
-		$periods = $this->readAll();
-		return $periods[ trim( $id ) ] ?? null;
-	}
-
-	/**
-	 * Получает текущий активный учебный период.
-	 */
-	public function getCurrentPeriod(): ?array {
-		$periods = $this->readAll();
-
-		foreach ( $periods as $period ) {
-			if ( true === ( $period['is_current'] ?? false ) ) {
-				return $period;
-			}
-		}
-
-		return null;
+		return (bool) update_option( OptionName::ACADEMIC_PERIODS->value, $periods );
 	}
 }

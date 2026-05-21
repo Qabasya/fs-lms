@@ -10,8 +10,6 @@ use Inc\Callbacks\SubjectValidationCallbacks;
 use Inc\Callbacks\TemplateCallbacks;
 use Inc\Callbacks\TaxonomySettingsCallbacks;
 use Inc\Callbacks\TemplateManagerCallbacks;
-use Inc\Contracts\ServiceInterface;
-use Inc\Core\BaseController;
 use Inc\Enums\AjaxHook;
 use Inc\Managers\PostManager;
 use Inc\Registrars\SubjectCPTRegistrar;
@@ -28,7 +26,6 @@ use Inc\Shared\Traits\NumericSorter;
  * Контроллер для управления предметами и связанными с ними CPT.
  *
  * @package Inc\Controllers
- * @implements ServiceInterface
  *
  * ### Основные обязанности:
  *
@@ -42,8 +39,8 @@ use Inc\Shared\Traits\NumericSorter;
  *
  * Делегирует регистрацию CPT и таксономий специализированным регистраторам, а AJAX-логику — коллбекам.
  */
-class SubjectController extends BaseController implements ServiceInterface {
-	use NumericSorter;
+class SubjectController extends AjaxController {
+	use NumericSorter;  // Трейт с методом addNumericSort() для числовой сортировки терминов
 
 	/**
 	 * Конструктор.
@@ -57,10 +54,11 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 * @param SubjectImportExportCallbacks $import_export_callbacks  Коллбеки импорта/экспорта
 	 * @param TaxonomySettingsCallbacks    $taxonomy_callbacks       Коллбеки таксономий
 	 * @param TemplateManagerCallbacks     $template_callbacks       Коллбеки шаблонов
-	 * @param PostManager                  $posts                     Менеджер постов
-	 * @param SubjectPageCallbacks         $page_callbacks            Коллбеки страниц
-	 * @param SubjectValidationCallbacks   $validation_callbacks      Коллбеки валидации
+	 * @param PostManager                  $posts                    Менеджер постов
+	 * @param SubjectPageCallbacks         $page_callbacks           Коллбеки страниц
+	 * @param SubjectValidationCallbacks   $validation_callbacks     Коллбеки валидации
 	 * @param ContentCacheService          $cache_service            Сервис кеширования
+	 * @param TemplateCallbacks            $task_page_callbacks      Коллбеки фронтенда заданий
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -92,92 +90,57 @@ class SubjectController extends BaseController implements ServiceInterface {
 		// Регистрация CPT и таксономий для всех предметов
 		$this->registerCptsAndTaxonomies();
 
-		// Регистрация AJAX-обработчиков
+		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
 		$this->registerAjaxHooks();
 
 		// Настройка числовой сортировки терминов таксономий
 		$this->setupTermSorting();
 
-		// add_action() — регистрирует хук административного уведомления
-		// 'admin_notices' — срабатывает в верхней части админ-панели
+		// 'admin_notices' — хук для вывода уведомлений в админ-панели
 		add_action( 'admin_notices', array( $this->page_callbacks, 'showRequiredTaxNotice' ) );
 
 		// Очистка кеша при сохранении или удалении поста
 		// 'save_post' — хук сохранения поста (передаёт ID и объект поста)
 		add_action( 'save_post', array( $this->cache_service, 'clearRecentContentCache' ), 10, 2 );
+
 		// 'delete_post' — хук удаления поста (передаёт ID поста)
 		add_action( 'delete_post', array( $this->cache_service, 'clearCacheOnDelete' ) );
-		
-		// Регистрация шаблона фронтенда
+
+		// 'template_include' — фильтр для подмены шаблона темы
 		add_filter( 'template_include', array( $this->task_page_callbacks, 'loadTaskFrontendTemplate' ) );
 	}
 
-	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
+	// ============================ AJAX-ДЕЙСТВИЯ ============================ //
 
 	/**
-	 * Регистрирует AJAX-обработчики, распределяя их по специализированным классам.
+	 * Возвращает список AJAX-действий для регистрации (только для авторизованных пользователей).
 	 *
-	 * @return void
+	 * @return array Массив действий, каждое с хуком и объектом-коллбеком
 	 */
-	private function registerAjaxHooks(): void {
-		// 1. Операции создания, обновления и удаления (CRUD)
-		$crudHooks = array(
-			AjaxHook::StoreSubject,
-			AjaxHook::UpdateSubject,
-			AjaxHook::DeleteSubject,
+	protected function ajaxActions(): array {
+		return array(
+			// CRUD-операции с предметами
+			array( AjaxHook::StoreSubject, $this->crud_callbacks ),
+			array( AjaxHook::UpdateSubject, $this->crud_callbacks ),
+			array( AjaxHook::DeleteSubject, $this->crud_callbacks ),
+			// Получение данных (таблицы, списки)
+			array( AjaxHook::GetPostsTable, $this->data_callbacks ),
+			array( AjaxHook::GetTasksByNumber, $this->data_callbacks ),
+			array( AjaxHook::GetRecentTasks, $this->data_callbacks ),
+			array( AjaxHook::GetRecentArticles, $this->data_callbacks ),
+			// Импорт/экспорт предметов
+			array( AjaxHook::ExportSubject, $this->import_export_callbacks ),
+			array( AjaxHook::ImportSubject, $this->import_export_callbacks ),
+			// Управление таксономиями
+			array( AjaxHook::StoreTaxonomy, $this->taxonomy_callbacks ),
+			array( AjaxHook::UpdateTaxonomy, $this->taxonomy_callbacks ),
+			array( AjaxHook::DeleteTaxonomy, $this->taxonomy_callbacks ),
+			// Управление шаблонами метабоксов
+			array( AjaxHook::UpdateTermTemplate, $this->template_callbacks ),
 		);
-
-		// 2. Операции получения данных (UI/Tables)
-		$dataHooks = array(
-			AjaxHook::GetPostsTable,
-			AjaxHook::GetTasksByNumber,
-			AjaxHook::GetRecentTasks,
-			AjaxHook::GetRecentArticles,
-		);
-
-		// 3. Операции импорта и экспорта
-		$importExportHooks = array(
-			AjaxHook::ExportSubject,
-			AjaxHook::ImportSubject,
-		);
-
-		// 4. Таксономии
-		$taxonomyHooks = array(
-			AjaxHook::StoreTaxonomy,
-			AjaxHook::UpdateTaxonomy,
-			AjaxHook::DeleteTaxonomy,
-		);
-
-		// 5. Шаблоны
-		$templateHooks = array(
-			AjaxHook::UpdateTermTemplate,
-		);
-
-		// Регистрация CRUD
-		foreach ( $crudHooks as $hook ) {
-			add_action( $hook->action(), array( $this->crud_callbacks, $hook->callbackMethod() ) );
-		}
-
-		// Регистрация получения данных
-		foreach ( $dataHooks as $hook ) {
-			add_action( $hook->action(), array( $this->data_callbacks, $hook->callbackMethod() ) );
-		}
-
-		// Регистрация импорта/экспорта
-		foreach ( $importExportHooks as $hook ) {
-			add_action( $hook->action(), array( $this->import_export_callbacks, $hook->callbackMethod() ) );
-		}
-
-		// Регистрация таксономий
-		foreach ( $taxonomyHooks as $hook ) {
-			add_action( $hook->action(), array( $this->taxonomy_callbacks, $hook->callbackMethod() ) );
-		}
-
-		// Регистрация шаблонов
-		foreach ( $templateHooks as $hook ) {
-			add_action( $hook->action(), array( $this->template_callbacks, $hook->callbackMethod() ) );
-		}
 	}
+
+	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 
 	/**
 	 * Подключает числовую сортировку для таксономий вида "{subject}_task_number".
@@ -186,7 +149,6 @@ class SubjectController extends BaseController implements ServiceInterface {
 	 */
 	private function setupTermSorting(): void {
 		// addNumericSort() — метод трейта NumericSorter
-		// Параметры: хук, поле сортировки, условие применения
 		$this->addNumericSort(
 			'get_terms_orderby',    // Хук WordPress для изменения сортировки терминов
 			't.name',               // Поле для сортировки
@@ -210,7 +172,6 @@ class SubjectController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		// Регистрация CPT и таксономий для каждого предмета
 		foreach ( $all_subjects as $subject ) {
 			$this->registerForSubject( $subject );
 		}
@@ -250,7 +211,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			$article_args['options']
 		);
 
-		// Регистрация фиксированной таксономии "Номера заданий"
+		// 3. Регистрация фиксированной таксономии "Номера заданий"
 		$fixed_tax_slug = "{$key}_task_number";
 		$this->tax_registrar->addFixedTaxonomy(
 			$fixed_tax_slug,
@@ -276,7 +237,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			}
 		);
 
-		// Регистрация пользовательских таксономий (только для заданий)
+		// 4. Регистрация пользовательских таксономий (только для заданий)
 		foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
 			$this->tax_registrar->addStandardTaxonomy(
 				$tax_dto->slug,
@@ -287,8 +248,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 			);
 		}
 
-		// add_filter() — регистрирует фильтр для валидации обязательных таксономий
-		// 'wp_insert_post_data' — фильтр данных поста перед сохранением
+		// 5. Фильтр для валидации обязательных таксономий при сохранении поста
 		add_filter( 'wp_insert_post_data', array( $this->validation_callbacks, 'validateRequiredTaxonomies' ), 10, 2 );
 	}
 
@@ -324,7 +284,7 @@ class SubjectController extends BaseController implements ServiceInterface {
 		};
 
 		/**
-		 * apply_filters() — применяет фильтр для модификации аргументов CPT.
+		 * apply_filters() — позволяет модифицировать аргументы CPT через сторонние плагины.
 		 *
 		 * @param array  $args    Массив с labels и options
 		 * @param string $type    Тип контента (tasks или articles)

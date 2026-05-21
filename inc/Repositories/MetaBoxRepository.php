@@ -1,70 +1,65 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Inc\Repositories;
 
-use Inc\Contracts\RepositoryInterface;
 use Inc\DTO\TaskTemplateAssignmentDTO;
-use Inc\DTO\TaskTypeDTO;
 use Inc\Enums\OptionName;
-use Inc\Enums\TaskTemplate;
-use Inc\Managers\PostManager;
-use Inc\Services\PostTypeResolver;
 
 /**
  * Class MetaBoxRepository
  *
- * Репозиторий для хранения информации о том, какой шаблон метабокса
- * используется для каждого задания (предмет + номер задания).
- *
- * Данные хранятся в WordPress-опции в формате:
- * [
- *     'subject_key' => [
- *         'task_number' => 'template_id',
- *         ...
- *     ],
- *     ...
- * ]
- *
- * При чтении данных возвращает DTO-объекты (TaskTemplateAssignmentDTO)
- * для типобезопасной работы.
+ * Репозиторий для работы с привязками шаблонов метабоксов к типам заданий.
  *
  * @package Inc\Repositories
- * @implements RepositoryInterface
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **CRUD-операции** — создание, чтение, обновление и удаление привязок шаблонов.
+ * 2. **Структура данных** — хранение в формате [subject_key][task_number] => template_id.
+ * 3. **Каскадное удаление** — удаление всех привязок предмета по subject_key.
+ *
+ * ### Архитектурная роль:
+ *
+ * Инкапсулирует работу с опцией `fs_lms_custom_metaboxes` в wp_options.
+ * Обрабатывает данные о том, какой шаблон метабокса привязан к конкретному
+ * номеру задания в определённом предмете. Использует DTO TaskTemplateAssignmentDTO
+ * для типобезопасной передачи данных.
  */
-class MetaBoxRepository implements RepositoryInterface {
+class MetaBoxRepository {
+
 	/**
-	 * Имя опции WordPress для хранения привязки заданий к шаблонам.
-	 *
-	 * @var string
+	 * Конструктор репозитория.
+	 */
+	public function __construct() {}
+
+	/**
+	 * Имя опции в wp_options.
 	 */
 	private string $option_name = OptionName::METABOXES->value;
 
-	public function __construct( private PostManager $posts ) {
-	}
-
 	/**
-	 * Внутренний метод для получения сырых данных из Options API.
+	 * Получает "сырые" данные из опции.
 	 *
-	 * @return array<string, array<string, string>> Сырые данные привязок
+	 * @return array
 	 */
 	private function getRaw(): array {
+		// get_option() — получает опцию из таблицы wp_options
 		$data = get_option( $this->option_name, array() );
-
 		return is_array( $data ) ? $data : array();
 	}
 
 	/**
-	 * Возвращает все привязки заданий к шаблонам.
+	 * Возвращает все привязки шаблонов в виде массива DTO.
 	 *
-	 * @return TaskTemplateAssignmentDTO[] Массив DTO-объектов всех привязок
+	 * @return TaskTemplateAssignmentDTO[]
 	 */
 	public function readAll(): array {
-		$raw_all = $this->getRaw();
-		$result  = array();
+		$result = array();
 
-		foreach ( $raw_all as $subject => $tasks ) {
+		foreach ( $this->getRaw() as $subject => $tasks ) {
 			foreach ( $tasks as $number => $template_id ) {
-				// Создаём DTO для каждой привязки
 				$result[] = new TaskTemplateAssignmentDTO(
 					(string) $subject,
 					(string) $number,
@@ -77,146 +72,82 @@ class MetaBoxRepository implements RepositoryInterface {
 	}
 
 	/**
-	 * Получить шаблон для конкретного задания.
+	 * Получает привязку шаблона для указанного предмета и номера задания.
 	 *
-	 * Хелпер для быстрой проверки привязки.
+	 * @param string $subject      Ключ предмета (например, 'math')
+	 * @param string $task_number  Номер задания (например, '1')
 	 *
-	 * @param string $subject     Ключ предмета (например, 'inf')
-	 * @param string $task_number Номер задания (например, '1')
-	 *
-	 * @return TaskTemplateAssignmentDTO|null DTO-объект привязки или null, если не найдена
+	 * @return TaskTemplateAssignmentDTO|null
 	 */
 	public function getAssignment( string $subject, string $task_number ): ?TaskTemplateAssignmentDTO {
-		$all = $this->getRaw();
-
-		// Проверяем существование ключа предмета
-		if ( ! isset( $all[ $subject ] ) ) {
-			return null;
-		}
-
-		// Приводим номер к строке для надёжного поиска в ключах массива
-		$number_key = (string) $task_number;
-
-		// Ищем ID шаблона
-		$template_id = $all[ $subject ][ $number_key ] ?? null;
+		$all         = $this->getRaw();
+		$template_id = $all[ $subject ][ $task_number ] ?? null;
 
 		if ( ! $template_id ) {
 			return null;
 		}
 
-		// Возвращаем DTO
-		return new TaskTemplateAssignmentDTO( $subject, $number_key, $template_id );
+		return new TaskTemplateAssignmentDTO( $subject, $task_number, $template_id );
 	}
 
 	/**
-	 * Обновить или создать привязку задания к шаблону.
+	 * Сохраняет (создаёт или обновляет) привязку шаблона.
 	 *
-	 * Ожидает в $data:
-	 * - subject: ключ предмета (slug)
-	 * - task_number: номер задания
-	 * - template_id: идентификатор шаблона (например, 'standard_task')
+	 * @param TaskTemplateAssignmentDTO $dto DTO с данными привязки
 	 *
-	 * @param array{subject: string, task_number: string, template_id: string} $data
-	 *        Данные для сохранения привязки
-	 *
-	 * @return bool Успешность операции
+	 * @return bool
 	 */
-	public function update( array $data ): bool {
-		// Валидация обязательных полей
-		if ( ! isset( $data['subject'], $data['task_number'], $data['template_id'] ) ) {
-			return false;
-		}
-
+	public function save( TaskTemplateAssignmentDTO $dto ): bool {
 		$all = $this->getRaw();
 
-		$subject     = $data['subject'];
-		$task_number = $data['task_number'];
-
-		// Инициализируем массив предмета, если его ещё нет
-		if ( ! isset( $all[ $subject ] ) ) {
-			$all[ $subject ] = array();
+		if ( ! isset( $all[ $dto->subject_key ] ) ) {
+			$all[ $dto->subject_key ] = array();
 		}
 
-		// Сохраняем привязку
-		$all[ $subject ][ $task_number ] = $data['template_id'];
+		$all[ $dto->subject_key ][ $dto->task_number ] = $dto->template_id;
 
-		// Сохраняем обновлённый массив в опции WordPress
+		// update_option() — обновляет опцию, возвращает false при ошибке или отсутствии изменений
 		return update_option( $this->option_name, $all );
 	}
 
 	/**
-	 * Хелпер для обновления привязки.
+	 * Удаляет привязку шаблона для указанного предмета и номера задания.
 	 *
-	 * Удобная обёртка над методом update().
+	 * @param string $subject      Ключ предмета
+	 * @param string $task_number  Номер задания
 	 *
-	 * @param string $subject     Ключ предмета
-	 * @param string $task_number Номер задания
-	 * @param string $template_id ID шаблона
-	 *
-	 * @return bool Успешность операции
+	 * @return bool
 	 */
-	public function updateAssignment( string $subject, string $task_number, string $template_id ): bool {
-		return $this->update(
-			array(
-				'subject'     => $subject,
-				'task_number' => $task_number,
-				'template_id' => $template_id,
-			)
-		);
-	}
+	public function remove( string $subject, string $task_number ): bool {
+		$all = $this->getRaw();
 
-	/**
-	 * Удалить привязку задания к шаблону.
-	 *
-	 * Ожидает в $data:
-	 * - subject: ключ предмета (slug)
-	 * - task_number: номер задания
-	 *
-	 * @param array{subject: string, task_number: string} $data
-	 *        Данные для удаления привязки
-	 *
-	 * @return bool Успешность операции (false, если привязка не найдена)
-	 */
-	public function delete( array $data ): bool {
-		// Валидация обязательных полей
-		if ( ! isset( $data['subject'], $data['task_number'] ) ) {
+		if ( ! isset( $all[ $subject ][ $task_number ] ) ) {
 			return false;
 		}
 
-		$all = $this->getRaw();
+		// unset() — удаляет элемент из массива по ключу
+		unset( $all[ $subject ][ $task_number ] );
 
-		$subject     = $data['subject'];
-		$task_number = $data['task_number'];
-
-		// Проверяем существование привязки
-		if ( isset( $all[ $subject ][ $task_number ] ) ) {
-			// Удаляем конкретную привязку
-			unset( $all[ $subject ][ $task_number ] );
-
-			// Если у предмета больше не осталось заданий — удаляем ключ предмета
-			if ( empty( $all[ $subject ] ) ) {
-				unset( $all[ $subject ] );
-			}
-
-			// Сохраняем обновлённый массив в опции WordPress
-			return update_option( $this->option_name, $all );
+		// Если у предмета не осталось привязок — удаляем весь ключ предмета
+		if ( empty( $all[ $subject ] ) ) {
+			unset( $all[ $subject ] );
 		}
 
-		return false;
+		return update_option( $this->option_name, $all );
 	}
 
 	/**
-	 * Удалить все привязки шаблонов для указанного предмета.
+	 * Удаляет все привязки шаблонов указанного предмета (каскадное удаление).
 	 *
 	 * @param string $subject_key Ключ предмета
 	 *
-	 * @return bool Успешность операции
+	 * @return bool
 	 */
-	public function deleteBySubject( string $subject_key ): bool {
+	public function removeBySubject( string $subject_key ): bool {
 		$all = $this->getRaw();
 
 		if ( ! isset( $all[ $subject_key ] ) ) {
-			return true;
+			return true;  // Нечего удалять
 		}
 
 		unset( $all[ $subject_key ] );
@@ -225,75 +156,12 @@ class MetaBoxRepository implements RepositoryInterface {
 	}
 
 	/**
-	 * Вернуть сырые данные привязок шаблонов для указанного предмета.
+	 * Полностью очищает все привязки шаблонов (удаляет опцию).
 	 *
-	 * @param string $subject_key Ключ предмета
-	 *
-	 * @return array<string, string>
-	 */
-	public function getRawForSubject( string $subject_key ): array {
-		return $this->getRaw()[ $subject_key ] ?? array();
-	}
-
-	/**
-	 * Полностью очистить все привязки заданий к шаблонам.
-	 *
-	 * Удаляет опцию из базы данных целиком.
-	 *
-	 * @return bool Успешность операции
+	 * @return bool
 	 */
 	public function clear(): bool {
+		// delete_option() — удаляет опцию из таблицы wp_options
 		return delete_option( $this->option_name );
-	}
-
-	// ============================ ЗАПРОСЫ К WP-ТАКСОНОМИЯМ ============================ //
-
-	/**
-	 * Возвращает типы заданий предмета в виде DTO с привязанными шаблонами.
-	 *
-	 * Комбинирует термины таксономии {subject_key}_task_number с хранимыми
-	 * привязками шаблонов. Если привязка отсутствует — подставляет STANDARD.
-	 *
-	 * @param string $subject_key Ключ предмета, например: "inf"
-	 *
-	 * @return TaskTypeDTO[] Массив DTO типов заданий
-	 */
-	public function getTaskTypes( string $subject_key ): array {
-		$taxonomy  = "{$subject_key}_task_number";
-		$post_type = PostTypeResolver::tasks( $subject_key );
-
-		$terms = get_terms(
-			array(
-				'taxonomy'   => $taxonomy,
-				'hide_empty' => false,
-				'orderby'    => 'slug',
-				'order'      => 'ASC',
-			)
-		);
-
-		if ( is_wp_error( $terms ) || empty( $terms ) ) {
-			return array();
-		}
-
-		return array_map(
-			function ( $term ) use ( $subject_key, $taxonomy, $post_type ): TaskTypeDTO {
-				$assignment = $this->getAssignment( $subject_key, $term->slug );
-
-				$db_id         = $assignment ? $assignment->template_id : 'standard_task';
-				$template_enum = TaskTemplate::fromDatabase( $db_id );
-				$post_count    = $this->posts->countByTerm( $post_type, $taxonomy, (int) $term->term_id );
-
-				return new TaskTypeDTO(
-					$term->term_id,
-					$term->slug,
-					$term->taxonomy,
-					$term->description,
-					$template_enum,
-					$db_id,
-					$post_count,
-				);
-			},
-			$terms
-		);
 	}
 }

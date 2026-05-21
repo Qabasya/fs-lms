@@ -13,6 +13,7 @@ namespace Inc\DTO;
  *
  * 1. **Типобезопасная передача** — обеспечивает строгую типизацию данных предмета.
  * 2. **Инкапсуляция данных** — объединяет ключ и название предмета в один объект.
+ * 3. **Фабричные методы** — преобразование из массива в DTO и обратно.
  *
  * ### Архитектурная роль:
  *
@@ -30,7 +31,32 @@ readonly class SubjectDTO
 	 */
 	public function __construct(
 		public string $key,
-		public string $name
-	) {
+		public string $name,
+	) {}
+
+	/**
+	 * Создаёт DTO из массива.
+	 *
+	 * @param array<string, mixed> $data Массив с ключами 'key' и 'name'
+	 *
+	 * @return self
+	 */
+	public static function fromArray( array $data ): self {
+		return new self(
+			key:  (string) ( $data['key'] ?? '' ),
+			name: (string) ( $data['name'] ?? '' ),
+		);
+	}
+
+	/**
+	 * Преобразует DTO в массив.
+	 *
+	 * @return array<string, string>
+	 */
+	public function toArray(): array {
+		return array(
+			'key'  => $this->key,
+			'name' => $this->name,
+		);
 	}
 }

@@ -1,8 +1,8 @@
 <?php
 
-namespace Inc\Repositories;
+declare(strict_types=1);
 
-use Inc\Contracts\RepositoryInterface;
+namespace Inc\Repositories;
 
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\OptionName;
@@ -10,76 +10,74 @@ use Inc\Enums\OptionName;
 /**
  * Class BoilerplateRepository
  *
- * Репозиторий для хранения типовых условий (boilerplate) для подтипов заданий.
- *
- * Данные хранятся в WordPress-опции в формате:
- * [
- *     'subject_key' => [
- *         'term_slug' => [
- *             [
- *                 'uid'        => 'bp_xxx',
- *                 'title'      => 'Название',
- *                 'content'    => 'Содержимое (JSON или текст)',
- *                 'is_default' => true/false
- *             ],
- *             ...
- *         ],
- *         ...
- *     ],
- *     ...
- * ]
+ * Репозиторий для работы с типовыми условиями (boilerplate) заданий.
  *
  * @package Inc\Repositories
- * @implements RepositoryInterface
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **CRUD-операции** — создание, чтение, обновление и удаление boilerplate.
+ * 2. **Структура данных** — хранение в формате [subject_key][term_slug][...items].
+ * 3. **Управление дефолтным шаблоном** — автоматическое снятие флага is_default при добавлении нового.
+ * 4. **Каскадное удаление** — удаление всех boilerplate предмета по subject_key.
+ *
+ * ### Архитектурная роль:
+ *
+ * Инкапсулирует работу с опцией `fs_lms_task_type_boilerplates` в wp_options.
+ * Обрабатывает структурированные данные (трёхуровневый массив) и преобразует
+ * их в DTO TaskTypeBoilerplateDTO и обратно.
  */
-class BoilerplateRepository implements RepositoryInterface {
+class BoilerplateRepository {
+
 	/**
-	 * Имя опции WordPress для хранения типовых условий.
-	 *
-	 * @var string
+	 * Конструктор репозитория.
+	 */
+	public function __construct() {}
+
+	/**
+	 * Имя опции в wp_options.
 	 */
 	private string $option_name = OptionName::BOILERPLATE->value;
 
-	// ============================ ЧТЕНИЕ ============================ //
-
 	/**
-	 * Получает сырые данные из опции WordPress.
+	 * Получает "сырые" данные из опции.
 	 *
-	 * @return array<string, array<string, array<int, array<string, mixed>>>>
+	 * @return array
 	 */
 	private function getRaw(): array {
+		// get_option() — получает опцию из таблицы wp_options
 		$data = get_option( $this->option_name, array() );
-
 		return is_array( $data ) ? $data : array();
 	}
 
 	/**
-	 * Преобразует сырые данные массива в DTO-объект.
+	 * Преобразует "сырой" массив в DTO.
 	 *
-	 * @param array<string, mixed> $item        Данные boilerplate
-	 * @param string               $subject_key Ключ предмета
-	 * @param string               $term_slug   Слаг термина
+	 * @param array  $item        Массив с данными boilerplate
+	 * @param string $subject_key Ключ предмета
+	 * @param string $term_slug   Слаг термина (номер задания)
 	 *
 	 * @return TaskTypeBoilerplateDTO
 	 */
 	private function hydrateDTO( array $item, string $subject_key, string $term_slug ): TaskTypeBoilerplateDTO {
 		return new TaskTypeBoilerplateDTO(
-			uid        : $item['uid'],
+			uid:         $item['uid'],
 			subject_key: $subject_key,
-			term_slug  : $term_slug,
-			title      : $item['title'] ?? 'Без названия',
-			content    : $item['content'] ?? '',
-			is_default : $item['is_default'] ?? false
+			term_slug:   $term_slug,
+			title:       $item['title'] ?? 'Без названия',
+			content:     $item['content'] ?? '',
+			is_default:  $item['is_default'] ?? false
 		);
 	}
 
 	/**
-	 * Возвращает все типовые условия из всех предметов и терминов.
+	 * Возвращает все существующие boilerplate в виде плоского массива DTO.
 	 *
-	 * @return TaskTypeBoilerplateDTO[] Массив DTO-объектов всех условий
+	 * @return TaskTypeBoilerplateDTO[]
 	 */
 	public function readAll(): array {
 		$flat = array();
+
 		foreach ( $this->getRaw() as $subject_key => $terms ) {
 			foreach ( $terms as $term_slug => $list ) {
 				foreach ( $list as $item ) {
@@ -92,12 +90,12 @@ class BoilerplateRepository implements RepositoryInterface {
 	}
 
 	/**
-	 * Получает список boilerplate для конкретного предмета и типа задания.
+	 * Возвращает список boilerplate для конкретного предмета и типа задания.
 	 *
 	 * @param string $subject_key Ключ предмета
-	 * @param string $term_slug   Слаг типа задания
+	 * @param string $term_slug   Слаг термина (номер задания)
 	 *
-	 * @return TaskTypeBoilerplateDTO[] Массив DTO-объектов условий
+	 * @return TaskTypeBoilerplateDTO[]
 	 */
 	public function getBoilerplates( string $subject_key, string $term_slug ): array {
 		$raw_list = $this->getRaw()[ $subject_key ][ $term_slug ] ?? array();
@@ -109,14 +107,12 @@ class BoilerplateRepository implements RepositoryInterface {
 	}
 
 	/**
-	 * Возвращает boilerplate по умолчанию для типа задания.
-	 *
-	 * Если ни один не помечен как is_default, возвращает первый в списке.
+	 * Возвращает дефолтный boilerplate для указанного предмета и типа задания.
 	 *
 	 * @param string $subject_key Ключ предмета
-	 * @param string $term_slug   Слаг типа задания
+	 * @param string $term_slug   Слаг термина (номер задания)
 	 *
-	 * @return TaskTypeBoilerplateDTO|null DTO или null, если нет ни одного
+	 * @return TaskTypeBoilerplateDTO|null
 	 */
 	public function getDefaultBoilerplate( string $subject_key, string $term_slug ): ?TaskTypeBoilerplateDTO {
 		$list = $this->getBoilerplates( $subject_key, $term_slug );
@@ -127,6 +123,7 @@ class BoilerplateRepository implements RepositoryInterface {
 			}
 		}
 
+		// Если дефолтного нет — возвращаем первый в списке
 		return $list[0] ?? null;
 	}
 
@@ -134,10 +131,10 @@ class BoilerplateRepository implements RepositoryInterface {
 	 * Находит boilerplate по UID.
 	 *
 	 * @param string $subject_key Ключ предмета
-	 * @param string $term_slug   Слаг типа задания
-	 * @param string $uid         Уникальный идентификатор
+	 * @param string $term_slug   Слаг термина (номер задания)
+	 * @param string $uid         Уникальный ID boilerplate
 	 *
-	 * @return TaskTypeBoilerplateDTO|null DTO или null, если не найден
+	 * @return TaskTypeBoilerplateDTO|null
 	 */
 	public function findBoilerplate( string $subject_key, string $term_slug, string $uid ): ?TaskTypeBoilerplateDTO {
 		$raw_list = $this->getRaw()[ $subject_key ][ $term_slug ] ?? array();
@@ -151,16 +148,14 @@ class BoilerplateRepository implements RepositoryInterface {
 		return null;
 	}
 
-	// ============================ ЗАПИСЬ ============================ //
-
 	/**
-	 * Сохраняет или обновляет типовое условие.
+	 * Сохраняет (создаёт или обновляет) boilerplate.
 	 *
-	 * @param TaskTypeBoilerplateDTO $dto DTO с данными для сохранения
+	 * @param TaskTypeBoilerplateDTO $dto DTO с данными
 	 *
-	 * @return bool Успешность операции
+	 * @return bool
 	 */
-	public function updateBoilerplate( TaskTypeBoilerplateDTO $dto ): bool {
+	public function save( TaskTypeBoilerplateDTO $dto ): bool {
 		$all  = $this->getRaw();
 		$list = &$all[ $dto->subject_key ][ $dto->term_slug ];
 
@@ -170,13 +165,12 @@ class BoilerplateRepository implements RepositoryInterface {
 
 		$found = false;
 
-		// Обновляем существующий или сбрасываем флаги у других при установке is_default
+		// Обновление существующего или снятие флага is_default у других
 		foreach ( $list as &$item ) {
 			if ( $item['uid'] === $dto->uid ) {
 				$item  = $dto->toArray();
 				$found = true;
 			} elseif ( $dto->is_default ) {
-				// Сбрасываем флаг у остальных в одном проходе
 				$item['is_default'] = false;
 			}
 		}
@@ -187,19 +181,20 @@ class BoilerplateRepository implements RepositoryInterface {
 			$list[] = $dto->toArray();
 		}
 
+		// update_option() — обновляет опцию, возвращает false при ошибке
 		return update_option( $this->option_name, $all );
 	}
 
 	/**
-	 * Удаляет типовое условие по UID.
+	 * Удаляет конкретный boilerplate по UID.
 	 *
 	 * @param string $subject_key Ключ предмета
-	 * @param string $term_slug   Слаг типа задания
-	 * @param string $uid         Уникальный идентификатор
+	 * @param string $term_slug   Слаг термина (номер задания)
+	 * @param string $uid         Уникальный ID boilerplate
 	 *
-	 * @return bool Успешность операции
+	 * @return bool
 	 */
-	public function deleteBoilerplate( string $subject_key, string $term_slug, string $uid ): bool {
+	public function remove( string $subject_key, string $term_slug, string $uid ): bool {
 		$all = $this->getRaw();
 
 		// Проверка существования пути
@@ -207,12 +202,12 @@ class BoilerplateRepository implements RepositoryInterface {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				error_log( "FS LMS: Path not found in database: [$subject_key][$term_slug]" );
 			}
-
 			return false;
 		}
 
-		// Поиск и удаление элемента
 		$found = false;
+
+		// Поиск и удаление элемента
 		foreach ( $all[ $subject_key ][ $term_slug ] as $index => $item ) {
 			if ( isset( $item['uid'] ) && $item['uid'] === $uid ) {
 				unset( $all[ $subject_key ][ $term_slug ][ $index ] );
@@ -225,16 +220,17 @@ class BoilerplateRepository implements RepositoryInterface {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				error_log( "FS LMS: UID $uid not found inside [$subject_key][$term_slug]" );
 			}
-
 			return false;
 		}
 
-		// Переиндексация и очистка пустых веток
+		// Переиндексация массива (после unset)
 		$all[ $subject_key ][ $term_slug ] = array_values( $all[ $subject_key ][ $term_slug ] );
 
+		// Удаление пустых уровней
 		if ( empty( $all[ $subject_key ][ $term_slug ] ) ) {
 			unset( $all[ $subject_key ][ $term_slug ] );
 		}
+
 		if ( empty( $all[ $subject_key ] ) ) {
 			unset( $all[ $subject_key ] );
 		}
@@ -242,70 +238,22 @@ class BoilerplateRepository implements RepositoryInterface {
 		return update_option( $this->option_name, $all );
 	}
 
-	// ============================ ИНТЕРФЕЙС RepositoryInterface ============================ //
-
 	/**
-	 * Сохраняет или обновляет типовое условие (интерфейс RepositoryInterface).
-	 *
-	 * @param array{subject_key: string, term_slug: string, title?: string, content?: string, text?: string, uid?:
-	 *                                   string} $data
-	 *
-	 * @return bool Успешность операции
-	 */
-	public function update( array $data ): bool {
-		$dto = new TaskTypeBoilerplateDTO(
-			uid        : $data['uid'] ?? uniqid( 'bp_', true ),
-			subject_key: $data['subject_key'],
-			term_slug  : $data['term_slug'],
-			title      : $data['title'] ?? '',
-			content    : $data['content'] ?? $data['text'] ?? '',
-		);
-
-		return $this->updateBoilerplate( $dto );
-	}
-
-	/**
-	 * Удаляет типовое условие (интерфейс RepositoryInterface).
-	 *
-	 * @param array{subject_key: string, term_slug: string, uid: string} $data
-	 *
-	 * @return bool Успешность операции
-	 */
-	public function delete( array $data ): bool {
-		if ( ! isset( $data['subject_key'], $data['term_slug'], $data['uid'] ) ) {
-			return false;
-		}
-
-		return $this->deleteBoilerplate( $data['subject_key'], $data['term_slug'], $data['uid'] );
-	}
-
-	/**
-	 * Удаляет все boilerplates для указанного предмета.
+	 * Удаляет все boilerplate указанного предмета (каскадное удаление).
 	 *
 	 * @param string $subject_key Ключ предмета
 	 *
-	 * @return bool Успешность операции
+	 * @return bool
 	 */
-	public function deleteBySubject( string $subject_key ): bool {
+	public function removeBySubject( string $subject_key ): bool {
 		$all = $this->getRaw();
 
 		if ( ! isset( $all[ $subject_key ] ) ) {
-			return true;
+			return true;  // Нечего удалять
 		}
 
 		unset( $all[ $subject_key ] );
 
 		return update_option( $this->option_name, $all );
-	}
-
-	/**
-	 * Вернуть сырые данные boilerplates для указанного предмета.
-	 *
-	 * @param string $subject_key Ключ предмета
-	 *
-	 * @return array<string, array<int, array<string, mixed>>>
-	 */
-	public function getRawForSubject( string $subject_key ): array {
-		return $this->getRaw()[ $subject_key ] ?? array();
 	}
 }

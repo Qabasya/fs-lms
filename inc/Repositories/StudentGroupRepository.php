@@ -4,95 +4,119 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories;
 
-use Inc\Contracts\RepositoryInterface;
+use Inc\DTO\StudentGroupDTO;
 use Inc\Enums\OptionName;
 
 /**
  * Class StudentGroupRepository
  *
- * Репозиторий для управления группами учащихся.
+ * Репозиторий для работы с группами учеников.
  *
  * @package Inc\Repositories
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **CRUD-операции** — чтение, сохранение и удаление групп учеников.
+ * 2. **Фильтрация по периоду и предмету** — получение групп, относящихся к указанному
+ *    учебному периоду и предмету.
+ * 3. **Преобразование в DTO** — работа с типобезопасными объектами StudentGroupDTO.
+ *
+ * ### Архитектурная роль:
+ *
+ * Инкапсулирует работу с опцией `fs_lms_student_groups` в wp_options.
+ * Хранит данные групп в структурированном виде (ID → данные).
+ * Использует DTO StudentGroupDTO для передачи данных между слоями приложения.
  */
-class StudentGroupRepository implements RepositoryInterface {
+class StudentGroupRepository {
 
 	/**
-	 * @inheritDoc
+	 * Конструктор репозитория.
+	 */
+	public function __construct() {
+	}
+
+	/**
+	 * Возвращает все группы учеников.
+	 *
+	 * @return array<string, array<string, mixed>> Массив групп [id => данные]
 	 */
 	public function readAll(): array {
+		// get_option() — получает опцию из таблицы wp_options
 		$groups = get_option( OptionName::STUDENT_GROUPS->value, array() );
+
 		return is_array( $groups ) ? $groups : array();
 	}
 
 	/**
-	 * @inheritDoc
+	 * Получает группу учеников по ID.
+	 *
+	 * @param string $id ID группы
+	 *
+	 * @return StudentGroupDTO|null
 	 */
-	public function update( array $data ): bool {
-		if ( ! isset( $data['id'] ) || ! isset( $data['name'] ) || ! isset( $data['period_id'] ) ) {
-			return false;
-		}
+	public function getById( string $id ): ?StudentGroupDTO {
+		$data = $this->readAll()[ $id ] ?? null;
 
-		$groups = $this->readAll();
-
-		$groups[ $data['id'] ] = array(
-			'id'          => (string) $data['id'],
-			'name'        => (string) $data['name'],
-			'period_id'   => (string) $data['period_id'],
-			'subject_key' => (string) ( $data['subject_key'] ?? '' ),
-		);
-
-		update_option( OptionName::STUDENT_GROUPS->value, $groups );
-		return true;
+		// fromArray() — фабричный метод DTO для создания из массива
+		return $data ? StudentGroupDTO::fromArray( $data ) : null;
 	}
 
 	/**
-	 * @inheritDoc
-	 */
-	public function delete( array $data ): bool {
-		if ( ! isset( $data['id'] ) ) {
-			return false;
-		}
-
-		$groups = $this->readAll();
-
-		if ( ! isset( $groups[ $data['id'] ] ) ) {
-			return false;
-		}
-
-		unset( $groups[ $data['id'] ] );
-		update_option( OptionName::STUDENT_GROUPS->value, $groups );
-		return true;
-	}
-
-	// ============================ КАСТОМНЫЕ МЕТОДЫ ============================ //
-
-	/**
-	 * Получает конкретную группу по её уникальному ID.
+	 * Возвращает группы учеников, отфильтрованные по учебному периоду и предмету.
 	 *
-	 * @param string $id
+	 * @param string $period_id ID учебного периода
+	 * @param string $subject_key Ключ предмета
 	 *
-	 * @return array|null
-	 */
-	public function getById( string $id ): ?array {
-		$groups = $this->readAll();
-		return $groups[ $id ] ?? null;
-	}
-
-	/**
-	 * Получает группы, отфильтрованные по периоду обучения и предмету.
-	 *
-	 * @param string $period_id
-	 * @param string $subject_key
-	 *
-	 * @return array
+	 * @return StudentGroupDTO[]
 	 */
 	public function getByPeriodAndSubject( string $period_id, string $subject_key ): array {
-		return array_filter(
-			$this->readAll(),
-			static function ( array $group ) use ( $period_id, $subject_key ): bool {
-				return $period_id === ( $group['period_id'] ?? '' )
-				       && $subject_key === ( $group['subject_key'] ?? '' );
-			}
+		return array_values(
+			array_map(
+				fn( array $g ) => StudentGroupDTO::fromArray( $g ),
+				// array_filter() — оставляет только группы с совпадающим period_id и subject_key
+				array_filter(
+					$this->readAll(),
+					fn( array $g ) => $period_id === ( $g['period_id'] ?? '' )
+					                  && $subject_key === ( $g['subject_key'] ?? '' )
+				)
+			)
 		);
+	}
+
+	/**
+	 * Сохраняет (создаёт или обновляет) группу учеников.
+	 *
+	 * @param StudentGroupDTO $dto DTO с данными группы
+	 *
+	 * @return bool
+	 */
+	public function save( StudentGroupDTO $dto ): bool {
+		$groups = $this->readAll();
+
+		// Сохраняем группу по её ID
+		$groups[ $dto->id ] = $dto->toArray();
+
+		// update_option() — обновляет опцию, возвращает false при ошибке или отсутствии изменений
+		return (bool) update_option( OptionName::STUDENT_GROUPS->value, $groups );
+	}
+
+	/**
+	 * Удаляет группу учеников по ID.
+	 *
+	 * @param string $id ID группы
+	 *
+	 * @return bool
+	 */
+	public function remove( string $id ): bool {
+		$groups = $this->readAll();
+
+		if ( ! isset( $groups[ $id ] ) ) {
+			return false;
+		}
+
+		// unset() — удаляет элемент из массива по ключу
+		unset( $groups[ $id ] );
+
+		return (bool) update_option( OptionName::STUDENT_GROUPS->value, $groups );
 	}
 }

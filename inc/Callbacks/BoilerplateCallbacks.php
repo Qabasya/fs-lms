@@ -78,7 +78,7 @@ class BoilerplateCallbacks extends BaseController {
 		);
 
 		// Сохранение через репозиторий
-		$result = $this->boilerplates->updateBoilerplate( $dto );
+		$result = $this->boilerplates->save( $dto );
 
 		// respond() — метод трейта Authorizer, отправляет JSON-ответ
 		// При успехе — wp_send_json_success(), при ошибке — wp_send_json_error()
@@ -106,7 +106,7 @@ class BoilerplateCallbacks extends BaseController {
 		$uid = $this->requireText( 'uid', error: 'UID шаблона обязателен' );
 
 		// Каскадное удаление через репозиторий
-		$result = $this->boilerplates->deleteBoilerplate( $subject_key, $term_slug, $uid );
+		$result = $this->boilerplates->remove( $subject_key, $term_slug, $uid );
 
 		// Отправка ответа
 		$this->respond(

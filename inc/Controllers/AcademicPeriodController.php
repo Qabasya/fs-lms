@@ -5,47 +5,48 @@ declare( strict_types=1 );
 namespace Inc\Controllers;
 
 use Inc\Callbacks\AcademicPeriodCallbacks;
-use Inc\Contracts\ServiceInterface;
-use Inc\Core\BaseController;
 use Inc\Enums\AjaxHook;
 
 /**
  * Class AcademicPeriodController
  *
- * Контроллер для управления функционалом учебных периодов.
- * То, что он так раздут - так надо.
+ * Контроллер для управления учебными периодами (годами/семестрами).
  *
  * @package Inc\Controllers
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Регистрация AJAX-обработчиков** — подключение коллбеков для сохранения и удаления учебных периодов.
+ *
+ * ### Архитектурная роль:
+ *
+ * Наследует абстрактный класс AjaxController, который реализует регистрацию AJAX-хуков
+ * через метод ajaxActions(). Делегирует бизнес-логику AcademicPeriodCallbacks.
  */
-class AcademicPeriodController extends BaseController implements ServiceInterface {
+class AcademicPeriodController extends AjaxController {
 
 	/**
-	 * Конструктор принимает коллбеки через DI.
+	 * Конструктор контроллера.
+	 *
+	 * @param AcademicPeriodCallbacks $academic_period_callbacks Коллбеки для операций с периодами
 	 */
 	public function __construct(
-		private readonly AcademicPeriodCallbacks $academic_period_callbacks
+		private readonly AcademicPeriodCallbacks $academic_period_callbacks,
 	) {
 		parent::__construct();
 	}
-	public function register(): void {
-		// Регистрация AJAX-обработчиков
-		$this->registerAjaxHooks();
-	}
 
 	/**
-	 * Регистрация AJAX-хуков для учебных периодов.
+	 * Возвращает список AJAX-действий для регистрации.
+	 *
+	 * @return array Массив действий, каждое с хуком и объектом-коллбеком
 	 */
-	private function registerAjaxHooks(): void {
-		$academicHooks = array(
-			AjaxHook::SaveAcademicPeriod,
-			AjaxHook::DeleteAcademicPeriod,
+	protected function ajaxActions(): array {
+		return array(
+			// Сохранение учебного периода (создание/обновление)
+			array( AjaxHook::SaveAcademicPeriod, $this->academic_period_callbacks ),
+			// Удаление учебного периода по ID
+			array( AjaxHook::DeleteAcademicPeriod, $this->academic_period_callbacks ),
 		);
-
-		foreach ( $academicHooks as $hook ) {
-			add_action(
-				$hook->action(),
-				array( $this->academic_period_callbacks, $hook->callbackMethod() )
-			);
-		}
 	}
 }

@@ -12,7 +12,7 @@ namespace Inc\DTO;
  * ### Основные обязанности:
  *
  * 1. **Хранение данных таксономии** — объединяет слаг, название, тип отображения и флаги.
- * 2. **Фабричный метод** — создание DTO из массива данных (удобно для БД и $_POST).
+ * 2. **Фабричные методы** — преобразование из массива в DTO и обратно.
  *
  * ### Архитектурная роль:
  *
@@ -22,7 +22,7 @@ namespace Inc\DTO;
  * - из контроллера в представление (шаблон)
  */
 readonly class TaxonomyDataDTO {
-	
+
 	/**
 	 * Конструктор DTO.
 	 *
@@ -44,9 +44,22 @@ readonly class TaxonomyDataDTO {
 		public array $post_types = array()
 	) {
 	}
-	
+
 	/**
-	 * Статический фабричный метод для создания DTO из массива.
+	 * Преобразует DTO в массив для сохранения в БД.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function toArray(): array {
+		return array(
+			'name'         => $this->name,
+			'display_type' => $this->display_type,
+			'is_required'  => $this->is_required,
+		);
+	}
+
+	/**
+	 * Создаёт DTO из массива данных.
 	 *
 	 * @param string $slug        Слаг таксономии (уникальный идентификатор)
 	 * @param array  $data        Массив с данными таксономии

@@ -10,8 +10,8 @@ use Inc\Enums\PostMetaName;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\SubjectRepository;
 use Inc\Services\PostTypeResolver;
-use Inc\Services\TemplateService\TemplateRegistry;
-use Inc\Services\TemplateService\TemplateResolver;
+use Inc\Services\Template\TemplateRegistry;
+use Inc\Services\Template\TemplateResolver;
 
 /**
  * Class MetaBoxController

@@ -3,6 +3,7 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\DTO\TaskTemplateAssignmentDTO;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
@@ -34,8 +35,8 @@ use Inc\Shared\Traits\Sanitizer;
  */
 class TemplateManagerCallbacks extends BaseController {
 
-	use Authorizer;
-	use Sanitizer;
+	use Authorizer;  // Трейт с методами authorize(), requireInt(), respond() и др.
+	use Sanitizer;   // Трейт с методами sanitizeHtml(), requireKey() и др.
 
 	/**
 	 * Конструктор.
@@ -45,9 +46,9 @@ class TemplateManagerCallbacks extends BaseController {
 	 * @param PostManager           $posts        Менеджер постов
 	 */
 	public function __construct(
-		private MetaBoxRepository $metaboxes,
-		private BoilerplateRepository $boilerplates,
-		private PostManager $posts,
+		private readonly MetaBoxRepository $metaboxes,
+		private readonly BoilerplateRepository $boilerplates,
+		private readonly PostManager $posts,
 	) {
 		parent::__construct();
 	}
@@ -65,29 +66,23 @@ class TemplateManagerCallbacks extends BaseController {
 		$term_id     = $this->requireInt( 'term_id', error: 'Недостаточно данных для обновления' );
 		$template_id = $this->requireText( 'template', error: 'Недостаточно данных для обновления' );
 
-		// get_term() — получает объект термина по ID
 		$term = get_term( $term_id );
 
-		// is_wp_error() — проверяет, является ли результат ошибкой WordPress
 		if ( ! $term || is_wp_error( $term ) ) {
 			$this->error( 'Тип задания не найден в WordPress', array( 'term_id' => $term_id ) );
 		}
 
-		// str_replace() — удаляет суффикс '_task_number' для получения ключа предмета
 		$subject_key = str_replace( '_task_number', '', $term->taxonomy );
 
-		// countByTerm() — подсчёт постов, привязанных к данному термину
+		// Подсчёт заданий, уже созданных для этого типа (чтобы нельзя было менять шаблон)
 		$post_count = $this->posts->countByTerm( PostTypeResolver::tasks( $subject_key ), $term->taxonomy, $term->term_id );
 
 		if ( $post_count > 0 ) {
 			$this->error( "Нельзя изменить шаблон: по этому типу уже создано {$post_count} заданий." );
 		}
 
-		// updateAssignment() — сохраняет привязку шаблона к термину
-		$result = $this->metaboxes->updateAssignment(
-			$subject_key,
-			(string) $term->slug,
-			$template_id
+		$result = $this->metaboxes->save(
+			new TaskTemplateAssignmentDTO( $subject_key, (string) $term->slug, $template_id )
 		);
 
 		$this->respond(
@@ -108,32 +103,26 @@ class TemplateManagerCallbacks extends BaseController {
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TMC108' );
 		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TMC108' );
 
-		// Получение ID шаблона из привязки
 		$assignment = $this->metaboxes->getAssignment( $subject_key, $term_slug );
-
-		// TaskTemplate::fromDatabase() — преобразует строку в enum TaskTemplate
 		$template   = TaskTemplate::fromDatabase( $assignment->template_id ?? '' );
 		$class_name = $template->class();
 
 		try {
-			// class_exists() — проверяет существование класса
 			if ( ! class_exists( $class_name ) ) {
 				throw new \Exception( "Класс шаблона {$class_name} не найден." );
 			}
 
 			/** @var \Inc\MetaBoxes\Templates\BaseTemplate $template_obj */
 			$template_obj = new $class_name();
+			$all_fields   = $template_obj->get_fields();
 
-			$all_fields = $template_obj->get_fields();
-
-			// instanceof — проверяет, принадлежит ли объект классу ConditionField
+			// Оставляем только ConditionField (условные поля для редактора boilerplate)
 			$condition_fields = array_filter(
 				$all_fields,
 				static fn( $config ) => isset( $config['object'] )
-										&& $config['object'] instanceof ConditionField
+				                        && $config['object'] instanceof ConditionField
 			);
 
-			// array_values() — сбрасывает ключи массива для преобразования в нумерованный
 			$structure = array_values(
 				array_map(
 					static fn( string $key, array $config ): array => array(
@@ -163,8 +152,7 @@ class TemplateManagerCallbacks extends BaseController {
 
 		$subject_key = $this->requireKey( 'subject_key', error: 'Недостаточно данных. Error code: #TMC172' );
 		$term_slug   = $this->requireKey( 'term_slug', error: 'Недостаточно данных. Error code: #TMC173' );
-		// sanitizeHtml() — очищает HTML-контент через wp_kses_post()
-		$text = $this->sanitizeHtml( 'text' );
+		$text        = $this->sanitizeHtml( 'text' );
 
 		$dto = new TaskTypeBoilerplateDTO(
 			uid: 'default',
@@ -175,7 +163,7 @@ class TemplateManagerCallbacks extends BaseController {
 			is_default: true
 		);
 
-		$result = $this->boilerplates->updateBoilerplate( $dto );
+		$result = $this->boilerplates->save( $dto );
 
 		$this->respond(
 			$result,
@@ -195,10 +183,8 @@ class TemplateManagerCallbacks extends BaseController {
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TMC206' );
 		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TMC207' );
 
-		// getDefaultBoilerplate() — возвращает один DTO с UID 'default'
 		$result = $this->boilerplates->getDefaultBoilerplate( $subject_key, $term_slug );
 
-		// Оператор ?-> (nullsafe) — безопасный доступ к свойству, если объект не null (PHP 8.0)
 		$this->success(
 			array(
 				'text' => $result?->content ?? '',
