@@ -49,6 +49,12 @@ export const GroupModal = {
             this.close();
         });
 
+        this.$titleInput.on('input.fs', () => {
+            if (/[a-zA-Zа-яёА-ЯЁ\d]/.test(this.$titleInput.val())) {
+                this.$titleInput[0].setCustomValidity('');
+            }
+        });
+
         this.$form.on('submit.fs', (e) => {
             e.preventDefault();
             if (!this._validate()) return;
@@ -106,11 +112,23 @@ export const GroupModal = {
     },
 
     _validate() {
+        const title = this.$titleInput.val().trim();
+        const hasSlugChars = /[a-zA-Zа-яёА-ЯЁ\d]/.test(title);
+
+        if (!hasSlugChars) {
+            this.$titleInput[0].setCustomValidity(
+                'Название должно содержать хотя бы одну букву или цифру.'
+            );
+        } else {
+            this.$titleInput[0].setCustomValidity('');
+        }
+
         return this.$form[0].checkValidity();
     },
 
     _resetForm() {
         this.$form[0].reset();
+        this.$titleInput[0].setCustomValidity('');
         if (this.$groupIdInput.length) this.$groupIdInput.val('');
         if (this.$actionInput.length) this.$actionInput.val('add');
     },

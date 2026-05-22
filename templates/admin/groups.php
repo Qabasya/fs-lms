@@ -53,9 +53,6 @@ declare( strict_types=1 );
 						<tr id="group-row-<?php echo esc_attr( $group->id ); ?>">
 							<td class="column-title column-primary data-title">
 								<strong><?php echo esc_html( $group->title ); ?></strong>
-								<div class="row-actions">
-									<span class="id">ID: <?php echo esc_html( $group->id ); ?></span>
-								</div>
 							</td>
 							<td><?php echo esc_html( $period_name ); ?></td>
 							<td><?php echo esc_html( $subject_name ); ?></td>
