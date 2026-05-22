@@ -1,5 +1,5 @@
 <?php
-require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 
 <div id="tab-1" class="tab-pane active">

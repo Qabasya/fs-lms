@@ -5,7 +5,7 @@ declare( strict_types=1 );
 /**
  * @var array $academic_periods Массив учебных периодов из репозитория
  */
-require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 
 <div id="tab-academic-periods" class="tab-pane active">
