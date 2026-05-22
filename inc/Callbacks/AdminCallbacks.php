@@ -63,11 +63,7 @@ class AdminCallbacks extends BaseController {
 	 */
 	public function adminDashboard(): void {
 		$this->render(
-			'admin/dashboard',
-			array(
-				'subjects'         => $this->subjects->readAll(),
-				'academic_periods' => $this->periods->readAll(),
-			)
+			'admin/dashboard'
 		);
 	}
 
