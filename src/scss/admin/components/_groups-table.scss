@@ -1,0 +1,62 @@
+@use '../variables' as *;
+
+// Стили для таблицы управления группами учеников
+.groups-table {
+
+  // Основная строка группы (интерактивная)
+  .js-toggle-students {
+    transition: background-color 0.15s ease-in-out;
+
+    &:hover {
+      background-color: $dashboard-tabs-bg-hover !important; // Мягкий подсвет строки при наведении
+    }
+
+    // Ячейка с названием группы
+    .column-title {
+      display: flex;
+      align-items: center; // Выравнивание стрелки и текста строго по центру по вертикали
+      gap: $spacing-xs;            // Отступ между стрелочкой и текстом
+
+      strong {
+        font-size: 14px;
+        line-height: 1.4;
+      }
+    }
+
+    // Иконка-стрелка аккордеона
+    .accordion-arrow {
+      display: inline-block;
+      color: $wp-admin-blue;
+      font-size: $font-size-m;
+      width: $font-size-m;
+      height: $font-size-m;
+      line-height: $font-size-m;
+    }
+  }
+
+  // Техническая строка-аккордеон с учениками
+  .students-accordion-row {
+    &.hidden {
+      display: none !important; // Гарантированное скрытие строки
+    }
+
+    td {
+      border-top: 1px inset $wp-admin-gray-bg;
+      border-bottom: 1px solid $wp-admin-gray-bg;
+    }
+
+    .students-accordion-content {
+      padding: $spacing-sm $spacing-md;
+
+      .description {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+
+        .dashicons {
+          color: $color-secondary;
+        }
+      }
+    }
+  }
+}

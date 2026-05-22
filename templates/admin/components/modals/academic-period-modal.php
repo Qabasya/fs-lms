@@ -10,16 +10,18 @@
         <div class="fs-lms-modal-body">
             <form id="fs-academic-period-form" autocomplete="off">
 
+
+
+                <div class="fs-form-group">
+                    <label for="period_name">Название периода (например: Осенний триместр 2026)</label>
+                    <input type="text" id="period_name" placeholder="Введите название периода..." required>
+                </div>
+
                 <div class="fs-form-group" id="period-id-group">
                     <label for="period_id">Технический ключ (например: 2026_autumn)</label>
                     <input type="text" id="period_id" name="key" placeholder="Только латиница и подчеркивания..." required
                            pattern="[a-z0-9_]+">
                     <p class="description">Используется для названия типов записей в базе.</p>
-                </div>
-
-                <div class="fs-form-group">
-                    <label for="period_name">Название периода (например: Осенний триместр 2026)</label>
-                    <input type="text" id="period_name" placeholder="Введите название периода..." required>
                 </div>
 
                 <div class="fs-form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">

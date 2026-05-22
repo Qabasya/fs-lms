@@ -6,7 +6,7 @@ function render_fs_toggle( $name, $value = false, $args = array() ) {
 		'args'  => $args,
 	);
 
-	include __DIR__ . '/components/UI/toggle.php';
+	include __DIR__ . '/toggle.php';
 }
 
 function render_fs_badge( $text, $color = 'gray', $class = '' ) {
@@ -14,5 +14,5 @@ function render_fs_badge( $text, $color = 'gray', $class = '' ) {
 	$template_data = compact( 'text', 'color', 'class' );
 
 	// Путь к файлу шаблона
-	include __DIR__ . '/components/UI/badge.php';
+	include __DIR__ . '/badge.php';
 }

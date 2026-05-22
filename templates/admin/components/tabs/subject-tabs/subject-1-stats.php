@@ -2,7 +2,7 @@
 /** @var \Inc\DTO\SubjectViewDTO $dto */
 /** @var \Inc\Services\PostTypeResolver $service */
 $service = \Inc\Services\PostTypeResolver::class;
-require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 <div class="task-dashboard-wrapper">
 	<h1 class="wp-heading-inline">Статистика по предмету</h1>

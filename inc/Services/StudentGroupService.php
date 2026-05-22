@@ -6,6 +6,7 @@ namespace Inc\Services;
 
 use Inc\DTO\StudentGroupDTO;
 use Inc\Repositories\StudentGroupRepository;
+use Inc\Shared\Traits\SlugGenerator;
 
 /**
  * Class StudentGroupService
@@ -25,8 +26,10 @@ use Inc\Repositories\StudentGroupRepository;
  * Слоистый изолятор бизнес-логики. Делегирует непосредственное сохранение данных
  * репозиторию StudentGroupRepository, не совершая прямых вызовов WordPress API.
  */
-
 readonly class StudentGroupService {
+
+	use SlugGenerator;
+
 	/**
 	 * Конструктор сервиса.
 	 *
@@ -67,15 +70,24 @@ readonly class StudentGroupService {
 			return null;
 		}
 
-		// Автогенерация слага: перевод в транслит/нижний регистр + слаг периода
-		$slugized_title = sanitize_title( $title );
-		$generated_id   = sprintf( '%s-%s', $slugized_title, $period_id );
+		// 1. Транслитерация + санитизация через трейт SlugGenerator
+		$slugized_title  = $this->slugify( $title, 'group' );
+		$clean_period_id = $this->slugify( $period_id );
 
-		// Проверяем, существует ли уже группа с таким сгенерированным ID
-		if ( null !== $this->group_repository->getById( $generated_id ) ) {
-			return null; // Группа с таким уникальным идентификатором уже создана
+		// 2. Формируем базовый уникальный ID по маске: [название]_[слаг_периода]
+		$base_id      = sprintf( '%s_%s', $slugized_title, $clean_period_id );
+		$generated_id = $base_id;
+
+		$counter = 1;
+
+		// 3. Цикл защиты от коллизий: крутимся, пока не найдем свободный ID в репозитории
+		while ( null !== $this->group_repository->getById( $generated_id ) ) {
+			$counter++;
+			// Маска коллизии: robo-1-2_2026_autumn
+			$generated_id = sprintf( '%s-%d_%s', $slugized_title, $counter, $clean_period_id );
 		}
 
+		// 4. Формируем DTO с гарантированно уникальным ID
 		$dto = new StudentGroupDTO(
 			id:         $generated_id,
 			title:      $title,
@@ -103,4 +115,5 @@ readonly class StudentGroupService {
 
 		return $this->group_repository->remove( $id );
 	}
+
 }

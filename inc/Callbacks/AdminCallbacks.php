@@ -62,9 +62,13 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function adminDashboard(): void {
-		// echo — выводит HTML-код непосредственно в браузер
-		// Класс 'wrap' — стандартный контейнер WordPress для страниц админ-панели
-		echo '<div class="wrap"><h1>Dashboard</h1><p>Данные о предметах</p></div>';
+		$this->render(
+			'admin/dashboard',
+			array(
+				'subjects'         => $this->subjects->readAll(),
+				'academic_periods' => $this->periods->readAll(),
+			)
+		);
 	}
 
 	/**

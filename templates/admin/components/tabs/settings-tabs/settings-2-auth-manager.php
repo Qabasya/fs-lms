@@ -1,5 +1,5 @@
 <?php
-require_once FS_LMS_PATH . 'templates/admin/ui_renderers.php';
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 
 <div id="tab-2" class="tab-pane active fs-lms-auth-settings">

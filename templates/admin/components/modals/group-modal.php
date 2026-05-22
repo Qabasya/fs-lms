@@ -27,41 +27,41 @@
 					<input type="text" id="group-title" name="title" placeholder="Например: Робо-1..." required>
 				</div>
 
-<!--				<div class="fs-form-group">-->
-<!--					<label for="group-period">Учебный период</label>-->
-<!--					<select id="group-period" name="period_id" required>-->
-<!--						<option value="">-- Выберите период --</option>-->
-<!--						--><?php //foreach ( $academic_periods as $id => $period ) : ?>
-<!--							<option value="--><?php //echo esc_attr( (string) $id ); ?><!--">-->
-<!--								--><?php //echo esc_html( $period['name'] ?? $id ); ?>
-<!--							</option>-->
-<!--						--><?php //endforeach; ?>
-<!--					</select>-->
-<!--				</div>-->
-<!---->
-<!--				<div class="fs-form-group">-->
-<!--					<label for="group-subject">Предмет</label>-->
-<!--					<select id="group-subject" name="subject_id" required>-->
-<!--						<option value="">-- Выберите предмет --</option>-->
-<!--						--><?php //foreach ( $subjects as $id => $subject ) : ?>
-<!--							<option value="--><?php //echo esc_attr( (string) $id ); ?><!--">-->
-<!--								--><?php //echo esc_html( $subject['name'] ?? $id ); ?>
-<!--							</option>-->
-<!--						--><?php //endforeach; ?>
-<!--					</select>-->
-<!--				</div>-->
-<!---->
-<!--				<div class="fs-form-group">-->
-<!--					<label for="group-teacher">Преподаватель</label>-->
-<!--					<select id="group-teacher" name="teacher_id" required>-->
-<!--						<option value="">-- Выберите преподавателя --</option>-->
-<!--						--><?php //foreach ( $teachers as $teacher ) : ?>
-<!--							<option value="--><?php //echo esc_attr( (string) $teacher->ID ); ?><!--">-->
-<!--								--><?php //echo esc_html( $teacher->display_name ); ?>
-<!--							</option>-->
-<!--						--><?php //endforeach; ?>
-<!--					</select>-->
-<!--				</div>-->
+				<div class="fs-form-group">
+					<label for="group-period">Учебный период</label>
+					<select id="group-period" name="period_id" required>
+						<option value="">-- Выберите период --</option>
+						<?php foreach ( $academic_periods ?? [] as $id => $period ) : ?>
+							<option value="<?php echo esc_attr( (string) $id ); ?>">
+								<?php echo esc_html( $period['name'] ?? $id ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+
+				<div class="fs-form-group">
+					<label for="group-subject">Предмет</label>
+					<select id="group-subject" name="subject_id" required>
+						<option value="">-- Выберите предмет --</option>
+						<?php foreach ( $subjects ?? [] as $id => $subject ) : ?>
+							<option value="<?php echo esc_attr( (string) $id ); ?>">
+								<?php echo esc_html( $subject->name ?? $id ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+
+				<div class="fs-form-group">
+					<label for="group-teacher">Преподаватель</label>
+					<select id="group-teacher" name="teacher_id" required>
+						<option value="">-- Выберите преподавателя --</option>
+						<?php foreach ( $teachers ?? [] as $teacher ) : ?>
+							<option value="<?php echo esc_attr( (string) $teacher->ID ); ?>">
+								<?php echo esc_html( $teacher->display_name ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</div>
 
                 <input type="hidden" name="action_type" value="add">
                 <input type="hidden" name="id" value="">
