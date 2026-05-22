@@ -63,11 +63,7 @@ class AdminCallbacks extends BaseController {
 	 */
 	public function adminDashboard(): void {
 		$this->render(
-			'admin/dashboard',
-			array(
-				'subjects'         => $this->subjects->readAll(),
-				'academic_periods' => $this->periods->readAll(),
-			)
+			'admin/dashboard'
 		);
 	}
 
@@ -117,6 +113,21 @@ class AdminCallbacks extends BaseController {
 				'academic_periods' => $this->periods->readAll(),
 				'groups'           => $groups_dtos,
 				'teachers'         => $teachers,
+			)
+		);
+	}
+
+	/**
+	 * Страница пользователей
+	 *
+	 * @return void
+	 */
+	public function userlistPage(): void {
+		$this->render(
+			'admin/userlist',
+			array(
+				'subjects'         => $this->subjects->readAll(),
+				'academic_periods' => $this->periods->readAll(),
 			)
 		);
 	}
