@@ -12,6 +12,7 @@ import {GroupModalManager} from "./services/group-modal-manager.js";
 import {SubjectModalManager} from "./services/subject-modal-manager";
 import {TaskModalManager} from "./services/task-modal-manager";
 import {HelpModalManager} from "./services/help-modal-manager";
+import { GroupsTable } from "./services/groups-table.js";
 
 (function ($) {
     'use strict';
@@ -29,7 +30,7 @@ import {HelpModalManager} from "./services/help-modal-manager";
 
 
         GroupModalManager.init();
-
+        GroupsTable.init();
 
         TemplateManager.init();
         PostsTable.init();
