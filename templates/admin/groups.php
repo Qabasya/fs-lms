@@ -39,7 +39,7 @@ declare( strict_types=1 );
 					foreach ( $groups as $group ) :
 						// Ищем название периода и предмета по их ID из переданных массивов
 						$period_name  = $academic_periods[ $group->period_id ]['name'] ?? $group->period_id;
-						$subject_name = $subjects[ $group->subject_id ]['name'] ?? $group->subject_id;
+						$subject_name = $subjects[ $group->subject_id ]->name ?? $group->subject_id;
 
 						// Ищем преподавателя среди переданного списка teachers
 						$teacher_name = 'Не назначен';
