@@ -118,6 +118,21 @@ class AdminCallbacks extends BaseController {
 	}
 
 	/**
+	 * Страница пользователей
+	 *
+	 * @return void
+	 */
+	public function userlistPage(): void {
+		$this->render(
+			'admin/userlist',
+			array(
+				'subjects'         => $this->subjects->readAll(),
+				'academic_periods' => $this->periods->readAll(),
+			)
+		);
+	}
+
+	/**
 	 * Прокси-метод для страницы управления типовыми условиями (boilerplate).
 	 *
 	 * @return void
