@@ -7,6 +7,7 @@ namespace Inc\Callbacks;
 use Inc\Controllers\BoilerplatePageController;
 use Inc\Core\BaseController;
 use Inc\DTO\AcademicPeriodDTO;
+use Inc\DTO\StudentGroupDTO;
 use Inc\Enums\UserRole;
 use Inc\Repositories\AcademicPeriodRepository;
 use Inc\Repositories\SubjectRepository;
@@ -107,16 +108,33 @@ class AdminCallbacks extends BaseController {
 			? $this->group_service->getGroupsByPeriod( $selected_period_id )
 			: array();
 		$teachers = $this->users->getByRole( UserRole::FSTeacher );
+		$subjects = $this->subjects->readAll();
+
+		$teacher_map = array();
+		foreach ( $teachers as $teacher ) {
+			$teacher_map[ $teacher->id ] = $teacher->displayName;
+		}
+
+		$groups_view = array_map(
+			fn( StudentGroupDTO $g ) => array(
+				'id'           => $g->id,
+				'title'        => $g->title,
+				'period_name'  => $raw_periods[ $g->period_id ]['name'] ?? $g->period_id,
+				'subject_name' => $subjects[ $g->subject_id ]->name ?? $g->subject_id,
+				'teacher_name' => $teacher_map[ $g->teacher_id ] ?? 'Не назначен',
+			),
+			$groups
+		);
 
 		$this->render(
 			'admin/groups',
 			array(
-				'subjects'           => $this->subjects->readAll(),
+				'subjects'           => $subjects,
 				'academic_periods'   => $raw_periods,
 				'current_period'     => $current_period,
 				'other_periods'      => $other_periods,
 				'selected_period_id' => $selected_period_id,
-				'groups'             => $groups,
+				'groups_view'        => $groups_view,
 				'teachers'           => $teachers,
 			)
 		);

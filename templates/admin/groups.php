@@ -2,13 +2,13 @@
 /**
  * Шаблон страницы управления группами.
  *
- * @var array                       $subjects            Список предметов
- * @var array                       $academic_periods    Полный список академических периодов для маппинга названий в таблице
+ * @var array                       $subjects            Список предметов (для модального окна)
+ * @var array                       $academic_periods    Список академических периодов (для модального окна)
  * @var array|null                  $current_period      Текущий период структуры ['id' => string, 'name' => string] или null
  * @var array<string, string>       $other_periods       Массив остальных периодов ['id' => 'name']
  * @var string                      $selected_period_id  ID выбранного периода фильтра
- * @var \Inc\DTO\StudentGroupDTO[]  $groups              Массив DTO групп
- * @var \Inc\DTO\UserDTO[]           $teachers            Список преподавателей
+ * @var array                       $groups_view         Подготовленные данные групп ['id', 'title', 'period_name', 'subject_name', 'teacher_name']
+ * @var \Inc\DTO\UserDTO[]           $teachers            Список преподавателей (для модального окна)
  */
 
 declare( strict_types=1 );
@@ -57,48 +57,36 @@ declare( strict_types=1 );
 				</thead>
 
 				<tbody id="the-list">
-				<?php if ( empty( $groups ) ) : ?>
+				<?php if ( empty( $groups_view ) ) : ?>
 					<tr class="no-items">
 						<td class="colspanchange" colspan="5">
 							<?php echo '' === $selected_period_id ? 'Нет учебных периодов.' : 'В выбранном периоде ещё нет групп.'; ?>
 						</td>
 					</tr>
 				<?php else : ?>
-					<?php
-					foreach ( $groups as $group ) :
-						$period_name  = $academic_periods[ $group->period_id ]['name'] ?? $group->period_id;
-						$subject_name = $subjects[ $group->subject_id ]->name ?? $group->subject_id;
-
-						$teacher_name = 'Не назначен';
-						foreach ( $teachers as $teacher ) {
-							if ( $teacher->id === $group->teacher_id ) {
-								$teacher_name = $teacher->displayName;
-								break;
-							}
-						}
-						?>
-						<tr id="group-row-<?php echo esc_attr( (string) $group->id ); ?>"
+					<?php foreach ( $groups_view as $group ) : ?>
+						<tr id="group-row-<?php echo esc_attr( $group['id'] ); ?>"
 							class="js-toggle-students"
-							data-group-id="<?php echo esc_attr( (string) $group->id ); ?>">
+							data-group-id="<?php echo esc_attr( $group['id'] ); ?>">
 							<td class="column-title column-primary data-title">
 								<span class="dashicons dashicons-arrow-right-alt2 accordion-arrow"></span>
-								<strong><?php echo esc_html( $group->title ); ?></strong>
+								<strong><?php echo esc_html( $group['title'] ); ?></strong>
 							</td>
-							<td><?php echo esc_html( $period_name ); ?></td>
-							<td><?php echo esc_html( $subject_name ); ?></td>
-							<td><?php echo esc_html( $teacher_name ); ?></td>
+							<td><?php echo esc_html( $group['period_name'] ); ?></td>
+							<td><?php echo esc_html( $group['subject_name'] ); ?></td>
+							<td><?php echo esc_html( $group['teacher_name'] ); ?></td>
 							<td>
-						<span class="trash">
-							<a href="#"
-								class="submitdelete js-delete-group"
-								data-id="<?php echo esc_attr( (string) $group->id ); ?>">
-								Удалить
-							</a>
-						</span>
+								<span class="trash">
+									<a href="#"
+										class="submitdelete js-delete-group"
+										data-id="<?php echo esc_attr( $group['id'] ); ?>">
+										Удалить
+									</a>
+								</span>
 							</td>
 						</tr>
 
-						<tr id="students-row-<?php echo esc_attr( (string) $group->id ); ?>" class="students-accordion-row hidden">
+						<tr id="students-row-<?php echo esc_attr( $group['id'] ); ?>" class="students-accordion-row hidden">
 							<td colspan="5">
 								<div class="students-accordion-content">
 									<p class="description">
