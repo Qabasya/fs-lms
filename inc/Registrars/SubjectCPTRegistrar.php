@@ -141,16 +141,16 @@ class SubjectCPTRegistrar {
 		$last2 = mb_substr( $word, -2 );
 		$lower = mb_strtolower( $last );
 
-		if ( $lower === 'а' && $last2 !== 'ия' ) {
+		if ( 'а' === $lower && 'ия' !== $last2 ) {
 			return 'feminine';  // статья, задача
 		}
-		if ( $last2 === 'ия' ) {
+		if ( 'ия' === $last2 ) {
 			return 'feminine';                    // таксономия, статья
 		}
 		if ( in_array( $lower, array( 'о', 'е' ), true ) ) {
 			return 'neuter'; // задание, поле
 		}
-		if ( $lower === 'ь' ) {
+		if ( 'ь' === $lower ) {
 			return 'masculine'; // fallback, обычно мужской род
 		}
 		return 'masculine';

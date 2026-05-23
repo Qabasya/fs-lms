@@ -37,7 +37,7 @@ class ProviderResolver {
 		// sanitizeText() — получаем значение параметра 'provider' из $_GET
 		$provider = $this->sanitizeText( 'provider', 'GET' );
 
-		if ( $provider === '' ) {
+		if ( '' === $provider ) {
 			return null;
 		}
 

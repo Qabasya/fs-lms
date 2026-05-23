@@ -99,7 +99,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 
 		// Проверяем, что мы на странице логина, это GET-запрос и не отправка формы
 		// 'wp-submit' — стандартное поле отправки формы авторизации
-		if ( 'wp-login.php' === $pagenow && ! isset( $_POST['wp-submit'] ) && 'GET' === $_SERVER['REQUEST_METHOD'] && ( $_GET['action'] ?? '' ) !== 'logout' ) {
+		if ( 'wp-login.php' === $pagenow && ! isset( $_POST['wp-submit'] ) && 'GET' === $_SERVER['REQUEST_METHOD'] && 'logout' !== ( $_GET['action'] ?? '' ) ) {
 			wp_safe_redirect( PageRoutes::SIGN_IN->url() );
 			exit;
 		}

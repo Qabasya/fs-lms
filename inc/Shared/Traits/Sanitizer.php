@@ -33,7 +33,7 @@ trait Sanitizer {
 	 */
 	protected function sanitizeText( string $key, string $source = 'POST' ): string {
 		// Выбор источника данных
-		$data  = $source === 'POST' ? $_POST : $_GET;
+		$data  = 'POST' === $source ? $_POST : $_GET;
 		$value = $data[ $key ] ?? '';
 		
 		// wp_unslash() — удаляет экранирование слешей
@@ -63,7 +63,7 @@ trait Sanitizer {
 	 * @return int Очищенное целое число
 	 */
 	protected function sanitizeInt( string $key, string $source = 'POST' ): int {
-		$data = $source === 'POST' ? $_POST : $_GET;
+		$data = 'POST' === $source ? $_POST : $_GET;
 		
 		// absint() — преобразует значение в абсолютное целое число (без знака)
 		return absint( $data[ $key ] ?? 0 );
@@ -78,7 +78,7 @@ trait Sanitizer {
 	 * @return string Очищенный HTML
 	 */
 	protected function sanitizeHtml( string $key, string $source = 'POST' ): string {
-		$data  = $source === 'POST' ? $_POST : $_GET;
+		$data  = 'POST' === $source ? $_POST : $_GET;
 		$value = $data[ $key ] ?? '';
 		
 		// wp_kses_post() — разрешает только безопасные HTML-теги (для контента постов)
@@ -94,7 +94,7 @@ trait Sanitizer {
 	 * @return string Готовый контент (строка или JSON)
 	 */
 	protected function sanitizeEditorContent( string $key = 'content', string $source = 'POST' ): string {
-		$data = $source === 'POST' ? $_POST : $_GET;
+		$data = 'POST' === $source ? $_POST : $_GET;
 		$raw  = $data[ $key ] ?? [];
 		
 		if ( ! is_array( $raw ) || empty( $raw ) ) {
@@ -161,7 +161,7 @@ trait Sanitizer {
 	 * @return bool
 	 */
 	protected function sanitizeBool( string $key, string $source = 'POST' ): bool {
-		$data  = $source === 'POST' ? $_POST : $_GET;
+		$data  = 'POST' === $source ? $_POST : $_GET;
 		$value = $data[ $key ] ?? null;
 		
 		// in_array() с проверкой на различные представления "истины"

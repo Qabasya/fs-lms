@@ -131,7 +131,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	 * @return \Inc\DTO\SubjectDTO[]
 	 */
 	private function getSubjects(): array {
-		if ( $this->subjects === null ) {
+		if ( null === $this->subjects ) {
 			$this->subjects = $this->subject_repository->readAll();
 		}
 

@@ -51,7 +51,7 @@ class SettingsRepository {
 	 */
 	public function readAll(): array {
 		// Возвращаем кэш, если он есть
-		if ( self::$cache !== null ) {
+		if ( null !== self::$cache ) {
 			return self::$cache;
 		}
 
@@ -78,7 +78,7 @@ class SettingsRepository {
 			self::$cache = $data;
 		}
 
-		return $result !== false;
+		return false !== $result;
 	}
 
 	/**
