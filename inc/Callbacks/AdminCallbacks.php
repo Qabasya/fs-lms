@@ -6,12 +6,13 @@ namespace Inc\Callbacks;
 
 use Inc\Controllers\BoilerplatePageController;
 use Inc\Core\BaseController;
-use Inc\DTO\StudentGroupDTO;
+use Inc\DTO\AcademicPeriodDTO;
 use Inc\Enums\UserRole;
 use Inc\Repositories\AcademicPeriodRepository;
-use Inc\Repositories\StudentGroupRepository;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\UserRepository;
+use Inc\Services\AcademicPeriodService;
+use Inc\Services\StudentGroupService;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -42,16 +43,18 @@ class AdminCallbacks extends BaseController {
 	 *
 	 * @param SubjectRepository         $subjects                  Репозиторий предметов
 	 * @param AcademicPeriodRepository  $periods                   Репозиторий учебных периодов
-	 * @param StudentGroupRepository    $groups                    Репозиторий групп учеников
 	 * @param UserRepository            $users                     Репозиторий пользователей
 	 * @param BoilerplatePageController $boilerplatePageController Контроллер страницы boilerplate
+	 * @param AcademicPeriodService     $period_service            Сервис учебных периодов
+	 * @param StudentGroupService       $group_service             Сервис групп учеников
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
 		private readonly AcademicPeriodRepository $periods,
-		private readonly StudentGroupRepository $groups,
 		private readonly UserRepository $users,
-		private readonly BoilerplatePageController $boilerplatePageController
+		private readonly BoilerplatePageController $boilerplatePageController,
+		private readonly AcademicPeriodService $period_service,
+		private readonly StudentGroupService $group_service,
 	) {
 		parent::__construct();
 	}
@@ -88,31 +91,33 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function groupsPage(): void {
-		// Читаем сырые данные групп из внедренного репозитория
-		$all_groups_raw = $this->groups->readAll();
+		$raw_periods    = $this->periods->readAll();
+		$period_dtos    = array_map( fn( array $p ) => AcademicPeriodDTO::fromArray( $p ), $raw_periods );
+		$sorted         = $this->period_service->getSortedPeriods( $period_dtos );
+		$current_period = $sorted['current'];
+		$other_periods  = $sorted['other'];
 
-		// Мапим сырые массивы в строго типизированные DTO
-		$groups_dtos = array_map(
-			function ( $group_data ) {
-				return StudentGroupDTO::fromArray( $group_data );
-			},
-			$all_groups_raw
-		);
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$selected_period_id = sanitize_key( wp_unslash( $_GET['period_filter'] ?? '' ) );
+		if ( '' === $selected_period_id ) {
+			$selected_period_id = $current_period['id'] ?? '';
+		}
 
-		// Получаем пользователей с ролью LMS-преподавателя через WordPress API, используя Enum роли
-		$teachers = get_users(
-			array(
-				'role' => UserRole::FSTeacher->value,
-			)
-		);
+		$groups   = '' !== $selected_period_id
+			? $this->group_service->getGroupsByPeriod( $selected_period_id )
+			: array();
+		$teachers = get_users( array( 'role' => UserRole::FSTeacher->value ) );
 
 		$this->render(
 			'admin/groups',
 			array(
-				'subjects'         => $this->subjects->readAll(),
-				'academic_periods' => $this->periods->readAll(),
-				'groups'           => $groups_dtos,
-				'teachers'         => $teachers,
+				'subjects'           => $this->subjects->readAll(),
+				'academic_periods'   => $raw_periods,
+				'current_period'     => $current_period,
+				'other_periods'      => $other_periods,
+				'selected_period_id' => $selected_period_id,
+				'groups'             => $groups,
+				'teachers'           => $teachers,
 			)
 		);
 	}
