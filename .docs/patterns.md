@@ -89,7 +89,7 @@ $candidates = apply_filters('fs_lms_register_templates', $builtin);
 - `MenuBuilderInterface` — только `buildPages(): array` и `buildSubPages(): array`
 - `AuthStrategyInterface` — только `getProvider()`, `login()`, `authenticate()`
 
-Ни один класс не реализует больше одного интерфейса.
+Ни один класс не реализует больше одного интерфейса. 
 
 ---
 
