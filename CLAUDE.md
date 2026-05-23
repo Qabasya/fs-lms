@@ -199,6 +199,12 @@ JS modules: `components/` (UI only, no AJAX), `services/` (AJAX + business logic
 - Build step runs separately
 - Frontend task page template injected via `template_include` filter in `TaskPageCallbacks`
 
+## CSS / SCSS Rules
+
+- **No inline styles** — never use `style=""` attributes in PHP templates or JS DOM manipulation
+- **Variables required** — all SCSS component files must use tokens from `src/scss/admin/_variables.scss` (or frontend equivalent); no hardcoded colors, spacing, font sizes, or transition values
+- **No raw values in components** — if a needed token doesn't exist in `_variables.scss`, add it there first, then use it
+
 ---
 
 ## WordPress Rules
