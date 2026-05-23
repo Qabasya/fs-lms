@@ -1,22 +1,28 @@
 @use '../variables' as *;
 
+.fs-page-wrapper {
+  background: $color-bg-subtle;
+  padding: 44px 32px 96px;
+}
+
+.fs-page-shell {
+  max-width: $max-width;
+  margin: 0 auto;
+}
+
 .fs-task-page {
   display: grid;
   grid-template-columns: $sidebar-width 1fr;
-  gap: 32px;
-  max-width: $max-width;
-  margin: 0 auto;
-  padding: 24px 20px;
+  gap: 40px;
   align-items: start;
 }
 
 .fs-task-main { min-width: 0; }
 
 @media (max-width: $bp-md) {
-  .fs-task-page {
-    grid-template-columns: 1fr;
-    padding: 16px;
-  }
+  .fs-page-wrapper { padding: 16px 16px 48px; }
+
+  .fs-task-page { grid-template-columns: 1fr; }
 
   .fs-task-sidebar {
     position: static;
@@ -32,7 +38,7 @@
 }
 
 @media (max-width: $bp-sm) {
-  .fs-task-title { font-size: $font-size-base; }
+  .fs-task-title { font-size: $font-size-base !important; }
 
   .fs-task-nav__info { max-width: 90px; }
 

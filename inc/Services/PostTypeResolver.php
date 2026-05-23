@@ -77,6 +77,21 @@ class PostTypeResolver {
 	}
 
 	/**
+	 * Возвращает ключ предмета из CPT статей.
+	 *
+	 * @param string $post_type CPT статей.
+	 *
+	 * @return string Ключ предмета или пустая строка, если CPT не является статьями.
+	 */
+	public static function subjectFromArticlePostType( string $post_type ): string {
+		if ( ! str_ends_with( $post_type, self::ARTICLES_SUFFIX ) ) {
+			return '';
+		}
+
+		return substr( $post_type, 0, -strlen( self::ARTICLES_SUFFIX ) );
+	}
+
+	/**
 	 * Возвращает слаг таксономии типов заданий для указанного предмета.
 	 *
 	 * @param string $subject_key Ключ предмета.
