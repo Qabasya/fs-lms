@@ -27,16 +27,6 @@ use Inc\Enums\AuthProvider;
 class GithubAuthStrategy extends AbstractHybridAuthStrategy {
 
 	/**
-	 * Конструктор стратегии.
-	 * Наследует родительский конструктор.
-	 */
-	public function __construct(
-		// Параметры передаются через DI-контейнер в родительский конструктор
-	) {
-		parent::__construct( ...func_get_args() );
-	}
-
-	/**
 	 * Возвращает провайдера аутентификации (GitHub).
 	 *
 	 * @return AuthProvider

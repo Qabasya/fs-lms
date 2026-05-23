@@ -24,25 +24,14 @@ use Inc\Enums\AuthProvider;
  * работы с Hybridauth. Передаёт полученный профиль в AuthService
  * для обработки (поиск или создание пользователя, вход в WordPress).
  */
-class VkAuthStrategy extends AbstractHybridAuthStrategy
-{
-	/**
-	 * Конструктор стратегии.
-	 * Наследует родительский конструктор.
-	 */
-	public function __construct(
-		// Параметры передаются через DI-контейнер в родительский конструктор
-	) {
-		parent::__construct(...func_get_args());
-	}
+class VkAuthStrategy extends AbstractHybridAuthStrategy {
 
 	/**
 	 * Возвращает провайдера аутентификации (ВКонтакте).
 	 *
 	 * @return AuthProvider
 	 */
-	public function getProvider(): AuthProvider
-	{
+	public function getProvider(): AuthProvider {
 		return AuthProvider::VKONTAKTE;
 	}
 
@@ -51,23 +40,30 @@ class VkAuthStrategy extends AbstractHybridAuthStrategy
 	 *
 	 * @return UserDTO|null
 	 */
-	public function authenticate(): ?UserDTO
-	{
+	public function authenticate(): ?UserDTO {
 		try {
 			$this->initHybrid();
 
 			// authenticate() — получает адаптер после возврата пользователя со страницы VK
-			$adapter = $this->hybridauth->authenticate($this->getProvider()->hybridauthKey());
+			$adapter = $this->hybridauth->authenticate( $this->getProvider()->hybridauthKey() );
 			// getUserProfile() — получает профиль пользователя (email, имя, avatar)
 			$profile = $adapter->getUserProfile();
 			// disconnect() — закрывает соединение с провайдером
 			$adapter->disconnect();
 
 			// Делегирование обработки профиля сервису аутентификации
-			return $this->auth_service->processUserFromSocialProfile($this->getProvider(), $profile);
+			return $this->auth_service->processUserFromSocialProfile( $this->getProvider(), $profile );
 		} catch ( \Exception $e ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( '[FS LMS] VkAuthStrategy: ' . $e->getMessage() . ' | Context: ' . wp_json_encode( array( 'file' => $e->getFile(), 'line' => $e->getLine() ), JSON_UNESCAPED_UNICODE ) );
+				error_log(
+					'[FS LMS] VkAuthStrategy: ' . $e->getMessage() . ' | Context: ' . wp_json_encode(
+						array(
+							'file' => $e->getFile(),
+							'line' => $e->getLine(),
+						),
+						JSON_UNESCAPED_UNICODE
+					)
+				);
 			}
 			return null;
 		}
