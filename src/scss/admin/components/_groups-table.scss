@@ -9,6 +9,7 @@
 
     &:hover {
       background-color: $dashboard-tabs-bg-hover !important; // Мягкий подсвет строки при наведении
+      cursor: pointer;
     }
 
     // Ячейка с названием группы
@@ -31,11 +32,14 @@
       width: $font-size-m;
       height: $font-size-m;
       line-height: $font-size-m;
+      transition: transform $transition-fast;
     }
   }
 
   // Техническая строка-аккордеон с учениками
   .students-accordion-row {
+    background-color: $wp-admin-gray-bg-light;
+
     &.hidden {
       display: none !important; // Гарантированное скрытие строки
     }
@@ -58,5 +62,23 @@
         }
       }
     }
+  }
+  .groups-filter-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0 0 0;
+    clear: none;
+
+    .page-title-action {
+      margin: 0;
+      position: relative;
+      top: -1px;
+    }
+  }
+
+  // Общий отступ для контента под фильтрами
+  .groups-tab-content {
+    margin-top: 20px;
   }
 }

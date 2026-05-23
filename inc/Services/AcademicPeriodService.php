@@ -140,4 +140,38 @@ readonly class AcademicPeriodService {
 
 		return $result;
 	}
+
+	/**
+	 * Разделяет массив академических периодов на текущий и остальные для вывода в UI.
+	 *
+	 * @param AcademicPeriodDTO[] $academic_periods Исходный массив DTO периодов из репозитория
+	 *
+	 * @return array{current: array{id: string, name: string}|null, other: array<string, string>}
+	 */
+	public function getSortedPeriods( array $academic_periods ): array {
+		$current_period = null;
+		$other_periods  = array();
+
+		if ( ! empty( $academic_periods ) ) {
+			foreach ( $academic_periods as $period_dto ) {
+				if ( ! ( $period_dto instanceof AcademicPeriodDTO ) ) {
+					continue;
+				}
+
+				if ( $period_dto->is_current ) {
+					$current_period = array(
+						'id'   => (string) $period_dto->id,
+						'name' => (string) $period_dto->name,
+					);
+				} else {
+					$other_periods[ (string) $period_dto->id ] = (string) $period_dto->name;
+				}
+			}
+		}
+
+		return array(
+			'current' => $current_period,
+			'other'   => $other_periods,
+		);
+	}
 }

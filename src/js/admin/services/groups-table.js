@@ -16,6 +16,15 @@ export const GroupsTable = {
     _bindEvents() {
         // Делегированное событие клика по строке группы
         $(document).on('click', '.js-toggle-students', (e) => this._handleToggleAccordion(e));
+        this._bindPeriodFilter();
+    },
+
+    _bindPeriodFilter() {
+        $('#filter-by-period').on('change', function () {
+            const url = new URL(window.location.href);
+            url.searchParams.set('period_filter', this.value);
+            window.location.href = url.toString();
+        });
     },
 
     _handleToggleAccordion(e) {
