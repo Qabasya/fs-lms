@@ -8,7 +8,6 @@ use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
 use Inc\Services\StudentGroupService;
 use Inc\Shared\Traits\Authorizer;
-use Inc\Shared\Traits\ErrorHandler;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -63,8 +62,8 @@ class StudentGroupCallbacks extends BaseController {
 
 		// Унифицированный ответ через трейт AjaxResponse
 		$this->respond(
-			result:      $group_dto ? array( 'group' => $group_dto->toArray() ) : false,
-			error_msg:   'Не удалось создать группу. Возможно, группа с таким названием в этом периоде уже существует.',
+			result: $group_dto ? array( 'group' => $group_dto->toArray() ) : false,
+			error_msg: 'Не удалось создать группу. Возможно, группа с таким названием в этом периоде уже существует.',
 			success_msg: 'Группа успешно создана.'
 		);
 	}
@@ -86,8 +85,8 @@ class StudentGroupCallbacks extends BaseController {
 
 		// Унифицированный ответ через трейт AjaxResponse
 		$this->respond(
-			result:      $deleted ? array( 'id' => $id ) : false,
-			error_msg:   'Ошибка удаления. Группа не найдена или уже удалена.',
+			result: $deleted ? array( 'id' => $id ) : false,
+			error_msg: 'Ошибка удаления. Группа не найдена или уже удалена.',
 			success_msg: 'Группа успешно удалена.'
 		);
 	}

@@ -18,7 +18,7 @@ trait SlugGenerator {
 	protected function slugify( string $input, string $fallback = 'item' ): string {
 		$slug = sanitize_title( $this->transliterate( trim( $input ) ) );
 
-		return $slug !== '' ? $slug : sanitize_key( $fallback );
+		return '' !== $slug ? $slug : sanitize_key( $fallback );
 	}
 
 	/**
@@ -30,7 +30,7 @@ trait SlugGenerator {
 	 * @return bool
 	 */
 	protected function isValidSlug( string $slug ): bool {
-		return $slug !== '' && (bool) preg_match( '/^[a-z0-9][a-z0-9\-]*$/', $slug );
+		return '' !== $slug && (bool) preg_match( '/^[a-z0-9][a-z0-9\-]*$/', $slug );
 	}
 
 	/**

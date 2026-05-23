@@ -87,9 +87,9 @@ class SubjectPageCallbacks extends BaseController {
 
 		// buildListTable() — создаёт объект WP_ListTable для указанного типа поста
 		// Таблица строится только для активной вкладки (ленивая загрузка)
-		if ( $active_tab === 'tab-2' ) {
+		if ( 'tab-2' === $active_tab ) {
 			$tasks_table = $this->posts->buildListTable( PostTypeResolver::tasks( $key ), $page, 'tab-2' );
-		} elseif ( $active_tab === 'tab-3' ) {
+		} elseif ( 'tab-3' === $active_tab ) {
 			$articles_table = $this->posts->buildListTable( PostTypeResolver::articles( $key ), $page, 'tab-3' );
 		}
 

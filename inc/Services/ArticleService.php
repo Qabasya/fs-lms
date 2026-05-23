@@ -35,7 +35,7 @@ class ArticleService {
 	 * @return array Список связанных статей.
 	 */
 	public function getRelatedArticles( string $subject_key, ?TermViewDTO $current_task_type ): array {
-		if ( $subject_key === '' || ! $current_task_type ) {
+		if ( '' === $subject_key || ! $current_task_type ) {
 			return array();
 		}
 
@@ -58,7 +58,7 @@ class ArticleService {
 	 * @return array Список случайных статей.
 	 */
 	public function getRandomArticles( string $subject_key ): array {
-		if ( $subject_key === '' ) {
+		if ( '' === $subject_key ) {
 			return array();
 		}
 

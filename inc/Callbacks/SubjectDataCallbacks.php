@@ -78,7 +78,7 @@ class SubjectDataCallbacks extends BaseController {
 		$this->prepareTableGlobals();
 
 		// Определение типа поста
-		$post_type = $tab === 'tab-2' ? PostTypeResolver::tasks( $subject_key ) : PostTypeResolver::articles( $subject_key );
+		$post_type = 'tab-2' === $tab ? PostTypeResolver::tasks( $subject_key ) : PostTypeResolver::articles( $subject_key );
 		// buildListTable() — создаёт объект WP_ListTable для указанного типа поста
 		$t = $this->posts->buildListTable( $post_type, $page_slug, $tab );
 
@@ -223,7 +223,7 @@ class SubjectDataCallbacks extends BaseController {
 		if ( $paged > 1 ) {
 			$_GET['paged'] = $_REQUEST['paged'] = $paged;
 		}
-		if ( $s !== '' ) {
+		if ( '' !== $s ) {
 			$_GET['s'] = $_REQUEST['s'] = $s;
 		}
 	}

@@ -73,7 +73,7 @@ class Container {
 		$constructor = $reflection->getConstructor();
 
 		// Если конструктора нет — просто создаем объект
-		if ( $constructor === null ) {
+		if ( null === $constructor ) {
 			return $this->instances[ $class ] = $reflection->newInstance();
 		}
 

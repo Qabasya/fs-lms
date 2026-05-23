@@ -131,7 +131,7 @@ class SubjectTaxonomyRegistrar {
 
 			echo '<div class="fs-lms-tax-field">';
 
-			if ( $display_type === 'radio' ) {
+			if ( 'radio' === $display_type ) {
 				printf( '<input type="hidden" name="tax_input[%s][]" value="">', esc_attr( $taxonomy ) );
 				foreach ( $terms as $term ) {
 					$checked = in_array( $term->slug, $current_slugs, true ) ? 'checked' : '';
@@ -143,7 +143,7 @@ class SubjectTaxonomyRegistrar {
 						esc_html( $term->name )
 					);
 				}
-			} elseif ( $display_type === 'checkbox' ) {
+			} elseif ( 'checkbox' === $display_type ) {
 				printf( '<input type="hidden" name="tax_input[%s][]" value="">', esc_attr( $taxonomy ) );
 				foreach ( $terms as $term ) {
 					$checked = in_array( $term->slug, $current_slugs, true ) ? 'checked' : '';

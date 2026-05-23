@@ -139,7 +139,7 @@ trait ErrorHandler {
 		// strtoupper() — преобразует строку в верхний регистр
 		// json_encode(, JSON_UNESCAPED_UNICODE) — JSON без экранирования Unicode
 		$log_message = sprintf(
-			'[LMS] %s: %s | Context: %s',
+			'[FS LMS] %s: %s | Context: %s',
 			strtoupper( $code ),
 			$message,
 			json_encode( $log_data, JSON_UNESCAPED_UNICODE )
