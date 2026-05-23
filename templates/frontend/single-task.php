@@ -156,9 +156,9 @@ $nav_next    = $navigation['next'] ?? null;
 						<?php foreach ( $tags as $tag ) : ?>
 							<?php $class = 'fs-tag fs-tag--' . esc_attr( $tag['type'] ); ?>
 							<?php if ( ! empty( $tag['url'] ) ) : ?>
-								<a href="<?php echo esc_url( $tag['url'] ); ?>" class="<?php echo $class; ?>"><?php echo esc_html( $tag['label'] ); ?></a>
+								<a href="<?php echo esc_url( $tag['url'] ); ?>" class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $tag['label'] ); ?></a>
 							<?php else : ?>
-								<span class="<?php echo $class; ?>"><?php echo esc_html( $tag['label'] ); ?></span>
+								<span class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $tag['label'] ); ?></span>
 							<?php endif; ?>
 						<?php endforeach; ?>
 					</div>
@@ -194,7 +194,7 @@ $nav_next    = $navigation['next'] ?? null;
 								<div class="fs-tabs-nav">
 									<?php foreach ( $tabs as $i => $tab ) : ?>
 										<button
-											class="fs-tab-btn<?php echo $i === 0 ? ' is-active' : ''; ?>"
+											class="fs-tab-btn<?php echo 0 === $i ? ' is-active' : ''; ?>"
 											data-tab="<?php echo esc_attr( $tab['id'] ); ?>">
 											<?php echo esc_html( $tab['label'] ); ?>
 										</button>
@@ -204,7 +204,7 @@ $nav_next    = $navigation['next'] ?? null;
 							<div class="fs-tabs-content">
 								<?php foreach ( $tabs as $i => $tab ) : ?>
 									<div
-										class="fs-tab-panel<?php echo $i === 0 ? ' is-active' : ''; ?>"
+										class="fs-tab-panel<?php echo 0 === $i ? ' is-active' : ''; ?>"
 										data-panel="<?php echo esc_attr( $tab['id'] ); ?>">
 										<?php echo wp_kses_post( $tab['content'] ); ?>
 									</div>
