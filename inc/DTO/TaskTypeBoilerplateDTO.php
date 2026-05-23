@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\DTO;
 
 /**
@@ -46,13 +48,23 @@ readonly class TaskTypeBoilerplateDTO
 	 *
 	 * @return array
 	 */
-	public function toArray(): array
-	{
-		return [
+	public static function fromArray( array $data ): self {
+		return new self(
+			uid:         (string) ( $data['uid'] ?? '' ),
+			subject_key: (string) ( $data['subject_key'] ?? '' ),
+			term_slug:   (string) ( $data['term_slug'] ?? '' ),
+			title:       (string) ( $data['title'] ?? '' ),
+			content:     (string) ( $data['content'] ?? '' ),
+			is_default:  (bool)   ( $data['is_default'] ?? false ),
+		);
+	}
+
+	public function toArray(): array {
+		return array(
 			'uid'        => $this->uid,
 			'title'      => $this->title,
 			'content'    => $this->content,
-			'is_default' => $this->is_default
-		];
+			'is_default' => $this->is_default,
+		);
 	}
 }

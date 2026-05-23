@@ -1,8 +1,8 @@
 <?php
 
-namespace Inc\DTO;
+declare( strict_types=1 );
 
-use Inc\DTO\SubjectDTO;
+namespace Inc\DTO;
 
 /**
  * Class SubjectViewDTO

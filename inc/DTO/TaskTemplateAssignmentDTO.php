@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\DTO;
 
 /**
@@ -32,7 +34,23 @@ readonly class TaskTemplateAssignmentDTO
 	public function __construct(
 		public string $subject_key,
 		public string $task_number,
-		public string $template_id
+		public string $template_id,
 	) {
+	}
+
+	public static function fromArray( array $data ): self {
+		return new self(
+			subject_key: (string) ( $data['subject_key'] ?? '' ),
+			task_number: (string) ( $data['task_number'] ?? '' ),
+			template_id: (string) ( $data['template_id'] ?? '' ),
+		);
+	}
+
+	public function toArray(): array {
+		return array(
+			'subject_key' => $this->subject_key,
+			'task_number' => $this->task_number,
+			'template_id' => $this->template_id,
+		);
 	}
 }

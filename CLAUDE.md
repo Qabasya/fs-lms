@@ -49,16 +49,15 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 | Services | `inc/Services/` | Stateless services (auth, caching, template resolution, post type helpers) |
 | Shared | `inc/Shared/Traits/` | Reusable traits (AjaxResponse, Sanitizer, Authorizer, NumericSorter, TemplateRenderer, TaxonomySeeder, ErrorHandler) |
 
-**BaseController** (`Inc\Core\BaseController`): provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Extend this in Controllers and Callbacks that need plugin file paths.
+**BaseController** (`Inc\Core\BaseController`): infrastructure utility only — not a domain or architectural base class. Provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Also declares the `AjaxResponse` trait (inherited by all subclasses). Extend this purely to gain access to plugin path helpers and AJAX transport — not to express any domain relationship. Controllers and Callbacks extending it are unrelated to each other beyond sharing these utilities.
 
 ### Contracts
 
 `inc/Contracts/` defines interfaces all implementations must satisfy:
 - `ServiceInterface` — `register(): void`; required by DI container bootstrap
-- `RepositoryInterface` — base contract for all repositories
 - `FieldInterface` — implemented by MetaBox field classes
-- `MenuBuilderInterface` — implemented by Builder classes
 - `AuthStrategyInterface` — implemented by each OAuth provider strategy
+- `MenuBuilderInterface` — implemented by Builder classes (single implementation; interface exists for future extension)
 
 ### Data Model
 

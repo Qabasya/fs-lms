@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\DTO;
 
 /**
@@ -50,13 +52,21 @@ readonly class TaskMetaDTO
 	 *
 	 * @return self
 	 */
-	public static function fromArray( string $id, array $config ): self
-	{
+	public static function fromArray( array $data ): self {
 		return new self(
-			id         : $id,
-			title      : $config['title'] ?? $id,
-			fields     : $config['fields'] ?? [],
-			description: $config['description'] ?? ''
+			id:          (string) ( $data['id'] ?? '' ),
+			title:       (string) ( $data['title'] ?? $data['id'] ?? '' ),
+			fields:      (array)  ( $data['fields'] ?? array() ),
+			description: (string) ( $data['description'] ?? '' ),
+		);
+	}
+
+	public function toArray(): array {
+		return array(
+			'id'          => $this->id,
+			'title'       => $this->title,
+			'fields'      => $this->fields,
+			'description' => $this->description,
 		);
 	}
 }

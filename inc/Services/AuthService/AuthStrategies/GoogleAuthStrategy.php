@@ -5,24 +5,69 @@ namespace Inc\Services\AuthService\AuthStrategies;
 use Inc\DTO\UserDTO;
 use Inc\Enums\AuthProvider;
 
-class GoogleAuthStrategy extends AbstractHybridAuthStrategy {
-
-
-	public function getProvider(): AuthProvider {
-		return AuthProvider::GOOGLE;
+/**
+ * Class VkAuthStrategy
+ *
+ * Стратегия аутентификации через ВКонтакте (VK).
+ *
+ * @package Inc\Services\AuthService\AuthStrategies
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Определение провайдера** — возвращает enum AuthProvider::VKONTAKTE.
+ * 2. **Аутентификация через VK** — получение профиля пользователя через Hybridauth.
+ *
+ * ### Архитектурная роль:
+ *
+ * Конкретная реализация стратегии для ВКонтакте.
+ * Наследует AbstractHybridAuthStrategy, который содержит общую логику
+ * работы с Hybridauth. Передаёт полученный профиль в AuthService
+ * для обработки (поиск или создание пользователя, вход в WordPress).
+ */
+class VkAuthStrategy extends AbstractHybridAuthStrategy
+{
+	/**
+	 * Конструктор стратегии.
+	 * Наследует родительский конструктор.
+	 */
+	public function __construct(
+		// Параметры передаются через DI-контейнер в родительский конструктор
+	) {
+		parent::__construct(...func_get_args());
 	}
 
-	public function authenticate(): ?UserDTO {
+	/**
+	 * Возвращает провайдера аутентификации (ВКонтакте).
+	 *
+	 * @return AuthProvider
+	 */
+	public function getProvider(): AuthProvider
+	{
+		return AuthProvider::VKONTAKTE;
+	}
+
+	/**
+	 * Выполняет аутентификацию через ВКонтакте и возвращает DTO пользователя.
+	 *
+	 * @return UserDTO|null
+	 */
+	public function authenticate(): ?UserDTO
+	{
 		try {
 			$this->initHybrid();
-			$adapter = $this->hybridauth->authenticate( $this->getProvider()->hybridauthKey() );
+
+			// authenticate() — получает адаптер после возврата пользователя со страницы VK
+			$adapter = $this->hybridauth->authenticate($this->getProvider()->hybridauthKey());
+			// getUserProfile() — получает профиль пользователя (email, имя, avatar)
 			$profile = $adapter->getUserProfile();
+			// disconnect() — закрывает соединение с провайдером
 			$adapter->disconnect();
 
-			// Передаем профиль в сервис для обработки логики WP
-			return $this->auth_service->processUserFromSocialProfile( $this->getProvider(), $profile );
-		} catch ( \Exception $e ) {
-			error_log( 'LMS Google Auth Error: ' . $e->getMessage() );
+			// Делегирование обработки профиля сервису аутентификации
+			return $this->auth_service->processUserFromSocialProfile($this->getProvider(), $profile);
+		} catch (\Exception $e) {
+			// error_log() — записывает ошибку в лог PHP
+			error_log('LMS VK Auth Error: ' . $e->getMessage());
 			return null;
 		}
 	}
