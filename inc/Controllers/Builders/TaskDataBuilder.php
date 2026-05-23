@@ -6,15 +6,16 @@ namespace Inc\Controllers\Builders;
 
 use Inc\DTO\PostViewDTO;
 use Inc\DTO\SubjectDTO;
+use Inc\DTO\TaskPageDTO;
 use Inc\DTO\TermViewDTO;
 use Inc\Enums\PostMetaName;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
-use Inc\Repositories\SubjectRepository;
-use Inc\Repositories\TaxonomyRepository;
 use Inc\Services\ArticleService;
 use Inc\Services\PostTypeResolver;
-use Inc\Services\Task\TaskMetaService;
+use Inc\Services\TaskMetaService;
+use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\TaxonomyRepository;
 
 /**
  * Class TaskDataBuilder
@@ -28,6 +29,10 @@ use Inc\Services\Task\TaskMetaService;
  * @package Inc\Controllers\Builders
  */
 readonly class TaskDataBuilder {
+
+	private const KEY_ANSWER = 'answer';
+	private const KEY_CODE   = 'code';
+	private const KEY_TEXT   = 'text';
 
 	/**
 	 * @param SubjectRepository  $subject_repository  Репозиторий предметов.
@@ -47,13 +52,13 @@ readonly class TaskDataBuilder {
 	) {}
 
 	/**
-	 * Возвращает полный массив данных задания для frontend-шаблона.
+	 * Возвращает данные задания для frontend-шаблона.
 	 *
 	 * @param int $post_id ID записи задания.
 	 *
-	 * @return array Массив данных страницы задания.
+	 * @return TaskPageDTO
 	 */
-	public function getTaskData( int $post_id ): array {
+	public function getTaskData( int $post_id ): TaskPageDTO {
 		$post = $this->post_manager->get( $post_id );
 
 		if ( ! $post || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
@@ -71,7 +76,7 @@ readonly class TaskDataBuilder {
 	}
 
 	/**
-	 * Собирает единую структуру данных страницы задания.
+	 * Собирает DTO данных страницы задания.
 	 *
 	 * @param PostViewDTO|null $post              DTO записи задания.
 	 * @param string           $subject_key       Ключ предмета.
@@ -79,7 +84,7 @@ readonly class TaskDataBuilder {
 	 * @param SubjectDTO|null  $subject           DTO предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
-	 * @return array Массив данных страницы задания.
+	 * @return TaskPageDTO
 	 */
 	private function buildTaskData(
 		?PostViewDTO $post = null,
@@ -87,50 +92,20 @@ readonly class TaskDataBuilder {
 		array $meta = array(),
 		?SubjectDTO $subject = null,
 		?TermViewDTO $current_task_type = null
-	): array {
-		$post_id       = $post?->id ?? 0;
-		$subject_label = $subject ? $subject->name : $subject_key;
+	): TaskPageDTO {
+		$subject_name = $subject ? $subject->name : $subject_key;
+		$content      = $this->buildContentData( $meta );
 
-		return array(
-			'post'       => $this->buildPostData( $post ),
-			'subject'    => $this->buildSubjectData( $subject_key, $subject_label ),
-			'content'    => $this->buildContentData( $meta ),
-			'files'      => $this->task_meta_service->getTaskFiles( $meta ),
-			'tags'       => $this->buildTags( $post_id, $subject_key, $current_task_type ),
-			'articles'   => $this->buildArticles( $subject_key, $current_task_type ),
-			'navigation' => $this->buildNavigation( $post, $subject_label, $current_task_type, $subject_key ),
-		);
-	}
-
-	/**
-	 * Возвращает данные записи для шаблона из DTO.
-	 *
-	 * @param PostViewDTO|null $post DTO записи задания.
-	 *
-	 * @return array
-	 */
-	private function buildPostData( ?PostViewDTO $post ): array {
-		return array(
-			'id'        => $post?->id ?? 0,
-			'title'     => $post?->title ?? '',
-			'slug'      => $post?->slug ?? '',
-			'post_type' => $post?->post_type ?? '',
-			'url'       => $post?->url ?? '',
-		);
-	}
-
-	/**
-	 * Возвращает данные предмета для шаблона.
-	 *
-	 * @param string $subject_key   Ключ предмета.
-	 * @param string $subject_label Название предмета.
-	 *
-	 * @return array
-	 */
-	private function buildSubjectData( string $subject_key, string $subject_label ): array {
-		return array(
-			'key'  => $subject_key,
-			'name' => $subject_label,
+		return new TaskPageDTO(
+			post:         $post,
+			subject_key:  $subject_key,
+			subject_name: $subject_name,
+			content:      $content,
+			files:        $this->task_meta_service->getTaskFiles( $meta ),
+			tags:         $this->buildTags( $post?->id ?? 0, $subject_key, $current_task_type ),
+			articles:     $this->buildArticles( $subject_key, $current_task_type ),
+			navigation:   $this->buildNavigation( $post, $subject_key, $subject_name, $current_task_type ),
+			tabs:         $this->buildTabs( $content ),
 		);
 	}
 
@@ -145,11 +120,34 @@ readonly class TaskDataBuilder {
 		$raw_code = $meta['task_code'] ?? '';
 
 		return array(
-			'condition' => $this->task_meta_service->getCombinedCondition( $meta ),
-			'answer'    => $meta['task_answer'] ?? '',
-			'code'      => '' !== $raw_code ? '<pre><code>' . esc_html( $raw_code ) . '</code></pre>' : '',
-			'text'      => $meta['task_text'] ?? '',
+			'condition'       => $this->task_meta_service->getCombinedCondition( $meta ),
+			self::KEY_ANSWER  => $meta['task_answer'] ?? '',
+			self::KEY_CODE    => '' !== $raw_code ? '<pre><code>' . esc_html( $raw_code ) . '</code></pre>' : '',
+			self::KEY_TEXT    => $meta['task_text'] ?? '',
 		);
+	}
+
+	/**
+	 * Возвращает список табов для шаблона на основе готового массива content.
+	 *
+	 * @param array $content Массив контента задания из buildContentData().
+	 *
+	 * @return array Список табов.
+	 */
+	private function buildTabs( array $content ): array {
+		$tabs = array();
+
+		if ( ! empty( $content[ self::KEY_ANSWER ] ) ) {
+			$tabs[] = array( 'id' => self::KEY_ANSWER, 'label' => 'Ответ', 'content' => $content[ self::KEY_ANSWER ] );
+		}
+		if ( ! empty( $content[ self::KEY_CODE ] ) ) {
+			$tabs[] = array( 'id' => self::KEY_CODE, 'label' => 'Решение', 'content' => $content[ self::KEY_CODE ] );
+		}
+		if ( ! empty( $content[ self::KEY_TEXT ] ) ) {
+			$tabs[] = array( 'id' => self::KEY_TEXT, 'label' => 'Пояснение', 'content' => $content[ self::KEY_TEXT ] );
+		}
+
+		return $tabs;
 	}
 
 	/**
@@ -168,14 +166,13 @@ readonly class TaskDataBuilder {
 		$tags = array();
 
 		if ( $current_task_type ) {
-			$link   = get_term_link( $current_task_type->id, $current_task_type->taxonomy );
 			$tags[] = array(
 				'type'     => 'task_type',
 				'label'    => 'Задание №' . $current_task_type->name,
 				'taxonomy' => $current_task_type->taxonomy,
 				'term_id'  => $current_task_type->id,
 				'slug'     => $current_task_type->slug,
-				'url'      => is_wp_error( $link ) ? '' : $link,
+				'url'      => $this->term_manager->getLink( $current_task_type->id, $current_task_type->taxonomy ),
 			);
 		}
 
@@ -189,7 +186,6 @@ readonly class TaskDataBuilder {
 					continue;
 				}
 
-				$link   = get_term_link( $term->id, $taxonomy_dto->slug );
 				$tags[] = array(
 					'type'          => 'taxonomy',
 					'taxonomy'      => $taxonomy_dto->slug,
@@ -197,7 +193,7 @@ readonly class TaskDataBuilder {
 					'label'         => $term->name,
 					'term_id'       => $term->id,
 					'slug'          => $term->slug,
-					'url'           => is_wp_error( $link ) ? '' : $link,
+					'url'           => $this->term_manager->getLink( $term->id, $taxonomy_dto->slug ),
 				);
 			}
 		}
@@ -224,33 +220,24 @@ readonly class TaskDataBuilder {
 	 * Возвращает данные навигации, хлебных крошек и соседних постов.
 	 *
 	 * @param PostViewDTO|null $post              DTO записи задания.
+	 * @param string           $subject_key       Ключ предмета.
 	 * @param string           $subject_label     Название предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
-	 * @param string           $subject_key       Ключ предмета.
 	 *
 	 * @return array
 	 */
 	private function buildNavigation(
 		?PostViewDTO $post,
+		string $subject_key,
 		string $subject_label,
 		?TermViewDTO $current_task_type,
-		string $subject_key = ''
 	): array {
 		$post_id     = $post?->id ?? 0;
-		$archive_url = '';
-		if ( $subject_key ) {
-			$task_link   = get_post_type_archive_link( $subject_key . '_tasks' );
-			$archive_url = false !== $task_link ? $task_link : '';
-		}
-		$term_url = '';
+		$archive_url = $subject_key ? $this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) ) : '';
+		$term_url    = $current_task_type ? $this->term_manager->getLink( $current_task_type->id, $current_task_type->taxonomy ) : '';
 
-		if ( $current_task_type ) {
-			$link     = get_term_link( $current_task_type->id, $current_task_type->taxonomy );
-			$term_url = is_wp_error( $link ) ? '' : $link;
-		}
-
-		$prev_post = $post_id ? $this->post_manager->getAdjacent( $post_id, true ) : null;
-		$next_post = $post_id ? $this->post_manager->getAdjacent( $post_id, false ) : null;
+		$prev_post = $post_id ? PostViewDTO::normalizePost( $this->post_manager->getAdjacent( $post_id, true ) ) : null;
+		$next_post = $post_id ? PostViewDTO::normalizePost( $this->post_manager->getAdjacent( $post_id, false ) ) : null;
 
 		return array(
 			'breadcrumbs' => array(
@@ -274,14 +261,14 @@ readonly class TaskDataBuilder {
 				),
 			),
 			'prev'        => $prev_post ? array(
-				'title' => $prev_post->post_title,
-				'url'   => get_permalink( $prev_post->ID ),
-				'slug'  => rawurldecode( $prev_post->post_name ),
+				'title' => $prev_post->title,
+				'url'   => $prev_post->url,
+				'slug'  => rawurldecode( $prev_post->slug ),
 			) : null,
 			'next'        => $next_post ? array(
-				'title' => $next_post->post_title,
-				'url'   => get_permalink( $next_post->ID ),
-				'slug'  => rawurldecode( $next_post->post_name ),
+				'title' => $next_post->title,
+				'url'   => $next_post->url,
+				'slug'  => rawurldecode( $next_post->slug ),
 			) : null,
 		);
 	}
@@ -304,13 +291,13 @@ readonly class TaskDataBuilder {
 	}
 
 	/**
-	 * Возвращает пустую структуру данных страницы задания.
+	 * Возвращает пустой TaskPageDTO.
 	 *
 	 * Используется, если запись не найдена или не является заданием.
 	 *
-	 * @return array
+	 * @return TaskPageDTO
 	 */
-	private function emptyTaskData(): array {
+	private function emptyTaskData(): TaskPageDTO {
 		return $this->buildTaskData();
 	}
 }

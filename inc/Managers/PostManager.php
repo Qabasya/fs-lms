@@ -381,4 +381,16 @@ class PostManager {
 	public function getMeta( int $post_id, string $key, bool $single = true ): mixed {
 		return get_post_meta( $post_id, $key, $single );
 	}
+
+	/**
+	 * Возвращает URL архива типа записи или пустую строку, если архив недоступен.
+	 *
+	 * @param string $post_type Тип записи.
+	 *
+	 * @return string
+	 */
+	public function getArchiveLink( string $post_type ): string {
+		$link = get_post_type_archive_link( $post_type );
+		return false !== $link ? $link : '';
+	}
 }
