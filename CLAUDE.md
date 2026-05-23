@@ -97,6 +97,12 @@ Available nonces: `TaskCreation`, `Subject`, `Manager`, `SaveMeta`, `SaveBoilerp
 - `requireText()`, `requireInt()`, `requireKey()` — same as above but throw on empty/missing input
 
 **`AjaxResponse`** — `$this->success($data)` / `$this->error($message)` wrap `wp_send_json_*` and log in `WP_DEBUG` mode.
+**Required in all Callback classes. Inherited via `BaseController` — do not re-declare unless the class does not extend `BaseController`.**
+
+**`ErrorHandler`** — `$this->sendError(code, message, status)` auto-detects context (`wp_doing_ajax()`) and responds with either `wp_send_json_error()` or `wp_die()`. `$this->logException(Throwable)` logs exceptions with file/line/trace.
+**Allowed only in Controllers that handle both AJAX and standard HTTP flows (currently: `AuthController` only). Do NOT use in Callback classes — they are AJAX-only; `AjaxResponse` is sufficient.**
+
+Log format for both traits: `[FS LMS] CONTEXT: message | Context: {...}` — grep-able with `[FS LMS]`.
 
 **`TemplateRenderer`** — `$this->render('template-name', $dataOrDTO)` loads from `templates/`, extracts variables or accepts a DTO.
 

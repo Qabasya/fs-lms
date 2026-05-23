@@ -69,15 +69,13 @@ trait AjaxResponse {
 	 * @return void
 	 */
 	protected function error( string $message, array $context = array() ): void {
-		// WP_DEBUG — константа WordPress для режима отладки
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			// get_class() — возвращает имя класса текущего объекта
-			$class = property_exists( $this, 'class' ) ? get_class( $this ) : 'Unknown Class';
-			
-			// error_log() — записывает сообщение в лог PHP (обычно в wp-content/debug.log)
-			// sprintf() — форматирует строку
-			// wp_json_encode() — преобразует массив в JSON-строку
-			error_log( sprintf( '[FS LMS AJAX Error] %s: %s | Context: %s', $class, $message, wp_json_encode( $context ) ) );
+			error_log( sprintf(
+				'[FS LMS] %s: %s | Context: %s',
+				get_class( $this ),
+				$message,
+				wp_json_encode( $context, JSON_UNESCAPED_UNICODE )
+			) );
 		}
 		
 		// wp_send_json_error() — отправляет JSON-ответ с ключом 'success' => false
