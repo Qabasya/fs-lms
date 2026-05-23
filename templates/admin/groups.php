@@ -19,7 +19,7 @@ declare( strict_types=1 );
 
 		<div class="tablenav top groups-filter-nav">
 			<div class="actions alignleft">
-				<label class="screen-reader-text" for="filter-by-period">Фильтр по учебному периоду</label>
+				<label for="filter-by-period">Выберите период:</label>
 				<select name="period_filter" id="filter-by-period" class="js-filter-by-period">
 					<?php if ( null !== $current_period ) : ?>
 						<option value="<?php echo esc_attr( $current_period['id'] ); ?>" <?php selected( $selected_period_id, $current_period['id'] ); ?>>
