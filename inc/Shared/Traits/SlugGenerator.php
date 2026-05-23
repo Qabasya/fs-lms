@@ -4,6 +4,24 @@ declare( strict_types=1 );
 
 namespace Inc\Shared\Traits;
 
+/**
+ * Trait SlugGenerator
+ *
+ * Предоставляет методы для генерации и валидации WordPress-совместимых слагов.
+ *
+ * @package Inc\Shared\Traits
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Генерация слага** — преобразование строки (включая кириллицу) в WP-совместимый slug.
+ * 2. **Транслитерация** — преобразование кириллических символов в латинские.
+ * 3. **Валидация слага** — проверка, соответствует ли строка формату WP-slug.
+ *
+ * ### Архитектурная роль:
+ *
+ * Используется в классах, где требуется создание уникальных идентификаторов
+ * для CPT, таксономий, терминов или других сущностей WordPress.
+ */
 trait SlugGenerator {
 
 	/**
@@ -16,8 +34,12 @@ trait SlugGenerator {
 	 * @return string
 	 */
 	protected function slugify( string $input, string $fallback = 'item' ): string {
+		// trim() — удаляет пробелы в начале и конце строки
+		// transliterate() — преобразует кириллицу в латиницу
+		// sanitize_title() — WordPress-функция для создания slug
 		$slug = sanitize_title( $this->transliterate( trim( $input ) ) );
 
+		// Если slug не пустой — возвращаем его, иначе fallback (очищенный через sanitize_key)
 		return '' !== $slug ? $slug : sanitize_key( $fallback );
 	}
 
@@ -25,11 +47,13 @@ trait SlugGenerator {
 	 * Проверяет, является ли строка валидным WP-слагом.
 	 * Допустимый формат: только строчные латинские буквы, цифры и дефисы.
 	 *
-	 * @param string $slug
+	 * @param string $slug Строка для проверки
 	 *
 	 * @return bool
 	 */
 	protected function isValidSlug( string $slug ): bool {
+		// preg_match() — регулярное выражение для проверки формата slug
+		// Разрешены: строчные латинские буквы (a-z), цифры (0-9), дефисы (не в начале)
 		return '' !== $slug && (bool) preg_match( '/^[a-z0-9][a-z0-9\-]*$/', $slug );
 	}
 
@@ -41,7 +65,9 @@ trait SlugGenerator {
 	 * @return string
 	 */
 	private function transliterate( string $string ): string {
+		// Массив соответствий кириллических символов латинским
 		$map = array(
+			// Строчные буквы
 			'а' => 'a',
 			'б' => 'b',
 			'в' => 'v',
@@ -76,6 +102,7 @@ trait SlugGenerator {
 			'ю' => 'yu',
 			'я' => 'ya',
 
+			// Заглавные буквы
 			'А' => 'A',
 			'Б' => 'B',
 			'В' => 'V',
@@ -111,6 +138,7 @@ trait SlugGenerator {
 			'Я' => 'Ya',
 		);
 
+		// strtr() — заменяет символы по таблице соответствий
 		return strtr( $string, $map );
 	}
 }
