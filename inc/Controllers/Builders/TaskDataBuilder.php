@@ -13,7 +13,7 @@ use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Services\ArticleService;
 use Inc\Services\PostTypeResolver;
-use Inc\Services\TaskMetaService;
+use Inc\Services\Task\TaskMetaService;
 use Inc\Repositories\SubjectRepository;
 use Inc\Repositories\TaxonomyRepository;
 

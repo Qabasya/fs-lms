@@ -4,8 +4,6 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories;
 
-use Inc\Contracts\RepositoryInterface;
-
 /**
  * Class ArticleRepository
  *
@@ -15,9 +13,8 @@ use Inc\Contracts\RepositoryInterface;
  * для frontend-страницы задания.
  *
  * @package Inc\Repositories
- * @implements RepositoryInterface
  */
-class ArticleRepository implements RepositoryInterface {
+class ArticleRepository {
 	/**
 	 * Возвращает все статьи.
 	 *

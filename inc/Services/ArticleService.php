@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Inc\Services;
 
 use Inc\DTO\TermViewDTO;
+use Inc\Managers\TermManager;
 use Inc\Repositories\ArticleRepository;
 
 /**
@@ -21,9 +22,11 @@ class ArticleService {
 
 	/**
 	 * @param ArticleRepository $article_repository Репозиторий статей.
+	 * @param TermManager       $term_manager       Менеджер терминов таксономии.
 	 */
 	public function __construct(
 		private readonly ArticleRepository $article_repository,
+		private readonly TermManager $term_manager,
 	) {}
 
 	/**
@@ -83,11 +86,26 @@ class ArticleService {
 				continue;
 			}
 
+			$subject_key = PostTypeResolver::subjectFromArticlePostType( $post->post_type );
+			$task_number = '';
+
+			if ( $subject_key ) {
+				$terms = $this->term_manager->getPostTerms(
+					$post->ID,
+					PostTypeResolver::getTaskTaxonomy( $subject_key )
+				);
+
+				if ( ! empty( $terms ) ) {
+					$task_number = $terms[0]->name ?? '';
+				}
+			}
+
 			$articles[] = array(
-				'id'      => $post->ID,
-				'title'   => get_the_title( $post->ID ),
-				'url'     => get_permalink( $post->ID ),
-				'excerpt' => $this->getArticleExcerpt( $post ),
+				'id'          => $post->ID,
+				'title'       => get_the_title( $post->ID ),
+				'url'         => get_permalink( $post->ID ),
+				'excerpt'     => $this->getArticleExcerpt( $post ),
+				'task_number' => $task_number,
 			);
 		}
 

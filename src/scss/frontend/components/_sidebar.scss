@@ -3,50 +3,77 @@
 
 .fs-task-sidebar {
   position: sticky;
-  top: 35px;
+  top: 28px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .fs-sidebar-block {
   background: $color-white;
-  border: 1px solid $color-border;
-  border-radius: $radius;
-  padding: 16px;
+  border: 1px solid $color-border-light;
+  border-radius: $radius-lg;
+  padding: 20px 22px 22px;
 }
 
 .fs-sidebar-title {
-  @include section-label;
-  margin: 0 0 20px;
+  font-size: $font-size-xxs;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: $color-separator;
+  margin: 0 0 10px;
 }
 
 .fs-sidebar-stub {
   font-size: $font-size-xs;
   color: $color-muted;
+  margin-bottom: 8px;
 }
 
-.fs-sidebar-articles li {
-  padding: 8px 0;
-  border-bottom: 1px solid $color-border;
+.fs-sidebar-more {
+  display: inline-block;
+  font-size: $font-size-xxs;
+  color: $color-separator;
+  transition: color $transition;
+  margin-top: 20px;
 
-  &:first-child { padding-top: 0; }
-  &:last-child  { border-bottom: none; padding-bottom: 0; }
+  &:hover { color: $color-accent; }
+}
 
-  a {
-    display: block;
-    font-size: $font-size-xs;
-    font-weight: 500;
-    line-height: $line-height-tight;
-    transition: color $transition;
-    &:hover { color: $color-accent; }
+.fs-sidebar-articles {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+
+  li {
+    padding: 12px 0;
+    border-bottom: 1px solid $color-border-light;
+
+    &:first-child { padding-top: 0; }
+    &:last-child  { border-bottom: none; padding-bottom: 0; }
+
+    a {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      transition: color $transition;
+
+      &:hover { color: $color-accent; }
+    }
   }
+}
 
-  p {
-    font-size: $font-size-xxs;
-    color: $color-muted;
-    margin-top: 3px;
-    line-height: $line-height-tight;
-    @include line-clamp(2);
-  }
+.fs-sidebar-article-title {
+  font-size: $font-size-xs;
+  font-weight: 500;
+  line-height: $line-height-tight;
+}
+
+.fs-sidebar-article-desc {
+  font-size: $font-size-xxs;
+  color: $color-muted;
+  line-height: $line-height-tight;
+  @include line-clamp(2);
+  transition: color $transition;
 }

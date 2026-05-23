@@ -1,46 +1,51 @@
 @use '../variables' as *;
 
-.fs-tabs-nav {
+.fs-tabs-toolbar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-  min-height: 40px;
+  padding: 14px 20px;
+  background: $color-bg-subtle;
+  border-top: 1px solid $color-border;
+}
+
+.fs-tabs-nav {
+  display: inline-flex;
+  align-items: center;
+  background: $color-white;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: 2px;
+  gap: 0;
 }
 
 .fs-task-page .fs-tab-btn {
   display: inline-block;
-  font-size: $font-size-sm;
-  font-weight: 700;
-  line-height: $line-height-tight;
-  padding: 7px 22px;
-  border-radius: $radius;
-  border: 1px solid $color-accent;
-  background: $color-accent;
-  color: $color-white;
-  transition: opacity $transition;
+  font-size: $font-size-xs;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: $radius-sm;
+  border: 0;
+  background: transparent;
+  color: $color-muted;
+  transition: color $transition, background $transition;
 
-  &:hover { opacity: 0.85; }
+  &:hover { color: $color-accent; }
 
   &.is-active {
-    background: transparent;
+    background: $color-bg-subtle;
     color: $color-text;
+    font-weight: 600;
     cursor: default;
-    opacity: 1;
   }
 }
 
 .fs-tabs-content {
-  border: 1px solid $color-border;
-  border-radius: $radius;
-  overflow: hidden;
   background: $color-white;
 }
 
 .fs-tab-panel {
   display: none;
-  padding: 16px 20px;
+  padding: 28px 36px;
   font-size: $font-size-base;
   line-height: $line-height-base;
 

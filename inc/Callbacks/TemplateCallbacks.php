@@ -86,7 +86,7 @@ class TemplateCallbacks extends BaseController {
 		}
 
 		foreach ( $query->query_vars as $key => $value ) {
-			if ( '' !== (string) $value && str_ends_with( $key, PostTypeResolver::TASK_NUMBER_SUFFIX ) ) {
+			if ( is_string( $value ) && '' !== $value && str_ends_with( $key, PostTypeResolver::TASK_NUMBER_SUFFIX ) ) {
 				$subject_key = substr( $key, 0, -strlen( PostTypeResolver::TASK_NUMBER_SUFFIX ) );
 				$query->set( 'post_type', PostTypeResolver::tasks( $subject_key ) );
 				return;
@@ -107,7 +107,7 @@ class TemplateCallbacks extends BaseController {
 	 */
 	public function filterTaskTaxonomyRequest( array $query_vars ): array {
 		foreach ( $query_vars as $key => $value ) {
-			if ( '' !== (string) $value && str_ends_with( $key, PostTypeResolver::TASK_NUMBER_SUFFIX ) ) {
+			if ( is_string( $value ) && '' !== $value && str_ends_with( $key, PostTypeResolver::TASK_NUMBER_SUFFIX ) ) {
 				$subject_key             = substr( $key, 0, -strlen( PostTypeResolver::TASK_NUMBER_SUFFIX ) );
 				$query_vars['post_type'] = PostTypeResolver::tasks( $subject_key );
 				break;
