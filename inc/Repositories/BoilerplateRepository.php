@@ -200,7 +200,7 @@ class BoilerplateRepository {
 		// Проверка существования пути
 		if ( ! isset( $all[ $subject_key ][ $term_slug ] ) || ! is_array( $all[ $subject_key ][ $term_slug ] ) ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( "FS LMS: Path not found in database: [$subject_key][$term_slug]" );
+				error_log( "[FS LMS] BoilerplateRepository: path not found | Context: " . wp_json_encode( array( 'subject_key' => $subject_key, 'term_slug' => $term_slug ), JSON_UNESCAPED_UNICODE ) );
 			}
 			return false;
 		}
@@ -218,7 +218,7 @@ class BoilerplateRepository {
 
 		if ( ! $found ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( "FS LMS: UID $uid not found inside [$subject_key][$term_slug]" );
+				error_log( "[FS LMS] BoilerplateRepository: uid not found | Context: " . wp_json_encode( array( 'uid' => $uid, 'subject_key' => $subject_key, 'term_slug' => $term_slug ), JSON_UNESCAPED_UNICODE ) );
 			}
 			return false;
 		}

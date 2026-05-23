@@ -64,8 +64,9 @@ class GithubAuthStrategy extends AbstractHybridAuthStrategy {
 			// Делегирование обработки профиля сервису аутентификации
 			return $this->auth_service->processUserFromSocialProfile( $this->getProvider(), $profile );
 		} catch ( \Exception $e ) {
-			// error_log() — записывает ошибку в лог PHP
-			error_log( 'LMS GitHub Auth Error: ' . $e->getMessage() );
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( '[FS LMS] GithubAuthStrategy: ' . $e->getMessage() . ' | Context: ' . wp_json_encode( array( 'file' => $e->getFile(), 'line' => $e->getLine() ), JSON_UNESCAPED_UNICODE ) );
+			}
 			return null;
 		}
 	}
