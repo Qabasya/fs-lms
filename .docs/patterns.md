@@ -12,7 +12,7 @@
 
 ### S — Single Responsibility Principle
 
-Каждый класс имеет одну причину для изменения.
+Каждый класс выполняет строго одну функцию (имеет одну обязанность)
 
 **Как реализовано:**
 
@@ -23,17 +23,17 @@
 | `Controllers/` | Регистрация WP-хуков (`add_action`, `add_filter`) |
 | `Callbacks/` | Обработка AJAX: санитизация → вызов сервиса → ответ |
 | `Services/` | Бизнес-логика, не знает о WP-хуках и HTTP |
-| `Repositories/` | Чтение/запись `wp_options`, возвращает DTO |
-| `Managers/` | Обёртка над WP API (`get_posts`, `update_post_meta`) |
+| `Repositories/` | Чтение/запись `wp_options` (CRUD), возвращает и принимает DTO |
+| `Managers/` | Обёртка над WP API (`get_posts`, `update_post_meta`) - низкоуровневая инкапсуляция WP методов |
 | `DTO/` | Передача данных между слоями, без логики |
 
 **Пример корректного разделения:**
 
-`StudentGroupCallbacks::ajaxSaveStudentGroup()` только проверяет nonce, собирает данные и делегирует. Вся логика генерации слага, проверки коллизий и сохранения — в `StudentGroupService::createGroup()`.
+`StudentGroupCallbacks::ajaxSaveStudentGroup()` только проверяет nonce, собирает данные и делегирует. Вся логика генерации слага, проверки коллизий и сохранения — в `StudentGroupService::createGroup()`. Проверка nonce и ajax ответы выполняются трейтами.
 
 **Слабые места:**
 
-`AdminCallbacks` накапливает коллбеки для всех страниц плагина (`adminDashboard`, `settingsPage`, `groupsPage`, `userlistPage`, `boilerplatePage`). Технически каждый метод не нарушает SRP, но класс растёт с каждой новой страницей. При дальнейшем росте стоит разделить на `DashboardCallbacks`, `GroupCallbacks` и т.д.
+`AdminCallbacks` накапливает коллбеки для всех страниц плагина (`adminDashboard`, `settingsPage`, `groupsPage`, `userlistPage`, `boilerplatePage`). Технически каждый метод не нарушает SRP, но класс растёт с каждой новой страницей. Далее разделим логику.
 
 ---
 
@@ -78,7 +78,7 @@ $candidates = apply_filters('fs_lms_register_templates', $builtin);
 
 ### I — Interface Segregation Principle
 
-Интерфейсы не должны заставлять реализовывать ненужные методы.
+Интерфейсы не должны заставлять реализовывать ненужные методы. На данном этапе интерфейсы редко используются. В будущем планируется внедрение большего числа интерфейсов.
 
 **Как реализовано:**
 
@@ -89,7 +89,7 @@ $candidates = apply_filters('fs_lms_register_templates', $builtin);
 - `MenuBuilderInterface` — только `buildPages(): array` и `buildSubPages(): array`
 - `AuthStrategyInterface` — только `getProvider()`, `login()`, `authenticate()`
 
-Ни один класс не реализует больше одного интерфейса. Репозитории не реализуют `ServiceInterface`, поэтому Container не будет пытаться вызывать `register()` на них.
+Ни один класс не реализует больше одного интерфейса.
 
 ---
 
@@ -474,7 +474,7 @@ JS (fs_lms_vars.ajax_actions.saveStudentGroup)
 
 ---
 
-### Слабые места и отклонения от архитектуры
+### Отклонения от архитектуры
 
 **`AdminCallbacks` растёт** с каждой новой страницей (сейчас: dashboard, settings, groups, userlist, boilerplate). При добавлении следующих страниц стоит разбить на отдельные Callback-классы по доменам.
 
