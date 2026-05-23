@@ -4,46 +4,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$post_id = get_the_ID();
-
-$container = new \Inc\Core\Container();
-$callbacks = $container->get( \Inc\Callbacks\TemplateCallbacks::class );
-$task_data = $callbacks->getTaskData( $post_id );
-
-$post_data   = $task_data['post'];
-$subject     = $task_data['subject'];
-$content     = $task_data['content'];
-$files       = $task_data['files'];
-$tags        = $task_data['tags'];
-$articles    = $task_data['articles'];
-$navigation  = $task_data['navigation'];
-$breadcrumbs = $navigation['breadcrumbs'];
+/** @var \Inc\DTO\TaskPageDTO $task_data */
+$task_data   = get_query_var( 'fs_task_data' );
+$post        = $task_data->post;
+$content     = $task_data->content;
+$files       = $task_data->files;
+$tags        = $task_data->tags;
+$articles    = $task_data->articles;
+$navigation  = $task_data->navigation;
+$tabs        = $task_data->tabs;
+$breadcrumbs = $navigation['breadcrumbs'] ?? array();
 $nav_prev    = $navigation['prev'] ?? null;
 $nav_next    = $navigation['next'] ?? null;
-
-$tabs = array();
-
-if ( ! empty( $content['answer'] ) ) {
-	$tabs[] = array(
-		'id'      => 'answer',
-		'label'   => 'Ответ',
-		'content' => $content['answer'],
-	);
-}
-if ( ! empty( $content['code'] ) ) {
-	$tabs[] = array(
-		'id'      => 'code',
-		'label'   => 'Python',
-		'content' => $content['code'],
-	);
-}
-if ( ! empty( $content['text'] ) ) {
-	$tabs[] = array(
-		'id'      => 'text',
-		'label'   => 'Пояснение',
-		'content' => $content['text'],
-	);
-}
 
 \Inc\Services\ThemeCompatService::header();
 ?>
@@ -62,7 +34,7 @@ if ( ! empty( $content['text'] ) ) {
 			<div class="fs-sidebar-block">
 				<h3 class="fs-sidebar-title">Статьи</h3>
 				<ul class="fs-sidebar-articles">
-					<?php foreach ( array_slice( $articles['related'], 0, 4 ) as $article ) : ?>
+					<?php foreach ( $articles['related'] as $article ) : ?>
 						<li>
 							<a href="<?php echo esc_url( $article['url'] ); ?>">
 								<?php echo esc_html( $article['title'] ); ?>
@@ -120,7 +92,7 @@ if ( ! empty( $content['text'] ) ) {
 		</nav>
 
 		<!-- Заголовок задания -->
-		<h1 class="fs-task-title"><?php echo esc_html( $post_data['title'] ); ?></h1>
+		<h1 class="fs-task-title"><?php echo esc_html( $post?->title ?? '' ); ?></h1>
 
 		<!-- Навигация: предыдущее / все задания / следующее -->
 		<hr class="fs-task-divider">
@@ -155,6 +127,11 @@ if ( ! empty( $content['text'] ) ) {
 			</div>
 
 			<div class="fs-task-nav__side fs-task-nav__side--next">
+                <?php if ( $nav_next ) : ?>
+                    <a href="<?php echo esc_url( $nav_next['url'] ); ?>" class="fs-task-nav__arrow" aria-label="Следующее">&#8250;</a>
+                <?php else : ?>
+                    <span class="fs-task-nav__arrow fs-task-nav__arrow--disabled" aria-hidden="true">&#8250;</span>
+                <?php endif; ?>
 				<div class="fs-task-nav__info fs-task-nav__info--right">
 					<span class="fs-task-nav__label">Следующее</span>
 					<span class="fs-task-nav__title">
@@ -165,11 +142,6 @@ if ( ! empty( $content['text'] ) ) {
 						<?php endif; ?>
 					</span>
 				</div>
-				<?php if ( $nav_next ) : ?>
-					<a href="<?php echo esc_url( $nav_next['url'] ); ?>" class="fs-task-nav__arrow" aria-label="Следующее">&#8250;</a>
-				<?php else : ?>
-					<span class="fs-task-nav__arrow fs-task-nav__arrow--disabled" aria-hidden="true">&#8250;</span>
-				<?php endif; ?>
 			</div>
 		</nav>
 		<hr class="fs-task-divider">
@@ -240,7 +212,7 @@ if ( ! empty( $content['text'] ) ) {
 
 		<div class="fs-carousel-overflow">
 			<div class="fs-carousel-track">
-				<?php foreach ( array_slice( $articles['random'], 0, 6 ) as $article ) : ?>
+				<?php foreach ( $articles['random'] as $article ) : ?>
 					<div class="fs-carousel-item">
 						<a href="<?php echo esc_url( $article['url'] ); ?>">
 							<strong><?php echo esc_html( $article['title'] ); ?></strong>

@@ -6,6 +6,7 @@ namespace Inc\Callbacks;
 
 use Inc\Controllers\Builders\TaskDataBuilder;
 use Inc\Core\BaseController;
+use Inc\DTO\TaskPageDTO;
 use Inc\Services\PostTypeResolver;
 
 /**
@@ -47,6 +48,7 @@ class TemplateCallbacks extends BaseController {
 				$custom_template = FS_LMS_PATH . 'templates/frontend/single-task.php';
 
 				if ( file_exists( $custom_template ) ) {
+					set_query_var( 'fs_task_data', $this->getTaskData( get_queried_object_id() ) );
 					return $custom_template;
 				}
 			}
@@ -58,13 +60,13 @@ class TemplateCallbacks extends BaseController {
 	/**
 	 * Возвращает данные задания для frontend-шаблона.
 	 *
-	 * Вызывается напрямую из single-task.php. Делегирует сборку данных в TaskDataBuilder.
+	 * Делегирует сборку данных в TaskDataBuilder.
 	 *
 	 * @param int $post_id ID записи задания.
 	 *
-	 * @return array Массив данных страницы задания.
+	 * @return TaskPageDTO
 	 */
-	public function getTaskData( int $post_id ): array {
+	public function getTaskData( int $post_id ): TaskPageDTO {
 		return $this->task_data_builder->getTaskData( $post_id );
 	}
 

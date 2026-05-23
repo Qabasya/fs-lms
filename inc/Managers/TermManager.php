@@ -194,4 +194,17 @@ class TermManager {
 		$terms = get_the_terms( $post_id, $taxonomy );
 		return ( $terms && ! is_wp_error( $terms ) ) ? $terms : array();
 	}
+
+	/**
+	 * Возвращает URL термина или пустую строку при ошибке.
+	 *
+	 * @param int    $term_id  ID термина.
+	 * @param string $taxonomy Слаг таксономии.
+	 *
+	 * @return string
+	 */
+	public function getLink( int $term_id, string $taxonomy ): string {
+		$link = get_term_link( $term_id, $taxonomy );
+		return is_wp_error( $link ) ? '' : $link;
+	}
 }
