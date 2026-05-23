@@ -223,7 +223,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		$modal_path = dirname( __DIR__, 2 ) . '/templates/admin/components/modals/confirm-modal.php';
+		$modal_path = $this->path( 'templates/admin/components/modals/confirm-modal.php' );
 
 		if ( file_exists( $modal_path ) ) {
 			require_once $modal_path;
