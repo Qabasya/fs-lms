@@ -8,7 +8,7 @@
  * @var array<string, string>       $other_periods       Массив остальных периодов ['id' => 'name']
  * @var string                      $selected_period_id  ID выбранного периода фильтра
  * @var \Inc\DTO\StudentGroupDTO[]  $groups              Массив DTO групп
- * @var \WP_User[]                  $teachers            Список преподавателей
+ * @var \Inc\DTO\UserDTO[]           $teachers            Список преподавателей
  */
 
 declare( strict_types=1 );
@@ -71,8 +71,8 @@ declare( strict_types=1 );
 
 						$teacher_name = 'Не назначен';
 						foreach ( $teachers as $teacher ) {
-							if ( $teacher->ID === $group->teacher_id ) {
-								$teacher_name = $teacher->display_name;
+							if ( $teacher->id === $group->teacher_id ) {
+								$teacher_name = $teacher->displayName;
 								break;
 							}
 						}

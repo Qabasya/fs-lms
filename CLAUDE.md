@@ -49,16 +49,15 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 | Services | `inc/Services/` | Stateless services (auth, caching, template resolution, post type helpers) |
 | Shared | `inc/Shared/Traits/` | Reusable traits (AjaxResponse, Sanitizer, Authorizer, NumericSorter, TemplateRenderer, TaxonomySeeder, ErrorHandler) |
 
-**BaseController** (`Inc\Core\BaseController`): provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Extend this in Controllers and Callbacks that need plugin file paths.
+**BaseController** (`Inc\Core\BaseController`): infrastructure utility only — not a domain or architectural base class. Provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Also declares the `AjaxResponse` trait (inherited by all subclasses). Extend this purely to gain access to plugin path helpers and AJAX transport — not to express any domain relationship. Controllers and Callbacks extending it are unrelated to each other beyond sharing these utilities.
 
 ### Contracts
 
 `inc/Contracts/` defines interfaces all implementations must satisfy:
 - `ServiceInterface` — `register(): void`; required by DI container bootstrap
-- `RepositoryInterface` — base contract for all repositories
 - `FieldInterface` — implemented by MetaBox field classes
-- `MenuBuilderInterface` — implemented by Builder classes
 - `AuthStrategyInterface` — implemented by each OAuth provider strategy
+- `MenuBuilderInterface` — implemented by Builder classes (single implementation; interface exists for future extension)
 
 ### Data Model
 
@@ -198,6 +197,12 @@ JS modules: `components/` (UI only, no AJAX), `services/` (AJAX + business logic
 - Modify only source files in `src/js/` or `src/scss/`
 - Build step runs separately
 - Frontend task page template injected via `template_include` filter in `TaskPageCallbacks`
+
+## CSS / SCSS Rules
+
+- **No inline styles** — never use `style=""` attributes in PHP templates or JS DOM manipulation
+- **Variables required** — all SCSS component files must use tokens from `src/scss/admin/_variables.scss` (or frontend equivalent); no hardcoded colors, spacing, font sizes, or transition values
+- **No raw values in components** — if a needed token doesn't exist in `_variables.scss`, add it there first, then use it
 
 ---
 

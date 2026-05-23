@@ -69,6 +69,17 @@ readonly class UserDTO {
 	 *
 	 * @return self
 	 */
+	public static function fromArray( array $data ): self {
+		return new self(
+			id:          (int)    ( $data['id'] ?? 0 ),
+			email:       (string) ( $data['email'] ?? '' ),
+			displayName: (string) ( $data['displayName'] ?? '' ),
+			role:        UserRole::tryFrom( (string) ( $data['role'] ?? '' ) ) ?? UserRole::Student,
+			telegramId:  isset( $data['telegramId'] ) ? (string) $data['telegramId'] : null,
+			meta:        (array)  ( $data['meta'] ?? array() ),
+		);
+	}
+
 	public static function fromWPUser( \WP_User $user ): self {
 		// Получаем роль из нашего enum (берём первую совпадающую)
 		$userRole = UserRole::Student; // Значение по умолчанию

@@ -1524,13 +1524,13 @@ Enrollment snapshot **сохраняется**, но также подлежит
 В соответствии с архитектурой CLAUDE.md:
 
 **Repositories (`inc/Repositories/`):**
-- `ApplicationRepository implements RepositoryInterface`
-- `PersonRepository implements RepositoryInterface`
-- `RelationshipRepository implements RepositoryInterface`
-- `EnrollmentRepository implements RepositoryInterface`
-- `ConsentRepository implements RepositoryInterface`
-- `AuditLogRepository implements RepositoryInterface`
-- `PiiAccessLogRepository implements RepositoryInterface`
+- `ApplicationRepository`
+- `PersonRepository`
+- `RelationshipRepository`
+- `EnrollmentRepository`
+- `ConsentRepository`
+- `AuditLogRepository`
+- `PiiAccessLogRepository`
 
 Каждый — обёртка над `$wpdb` для конкретной таблицы. Работают **только со структурированными массивами / DTO**, никаких прямых SQL-фрагментов наружу.
 

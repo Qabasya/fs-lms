@@ -39,6 +39,15 @@ readonly class TermViewDTO {
 	 *
 	 * @return self|null
 	 */
+	public function toArray(): array {
+		return array(
+			'id'       => $this->id,
+			'name'     => $this->name,
+			'slug'     => $this->slug,
+			'taxonomy' => $this->taxonomy,
+		);
+	}
+
 	public static function normalizeTerm( ?\WP_Term $term ): ?self {
 		if ( ! $term ) {
 			return null;

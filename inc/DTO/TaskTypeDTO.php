@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\DTO;
 
 use Inc\Enums\TaskTemplate;
@@ -62,5 +64,29 @@ readonly class TaskTypeDTO {
 	 */
 	public function getTemplateId(): string {
 		return $this->raw_id;
+	}
+
+	public static function fromArray( array $data ): self {
+		return new self(
+			id:               (int)    ( $data['id'] ?? 0 ),
+			slug:             (string) ( $data['slug'] ?? '' ),
+			taxonomy:         (string) ( $data['taxonomy'] ?? '' ),
+			description:      (string) ( $data['description'] ?? '' ),
+			current_template: TaskTemplate::fromDatabase( $data['current_template'] ?? null ),
+			raw_id:           (string) ( $data['raw_id'] ?? '' ),
+			post_count:       (int)    ( $data['post_count'] ?? 0 ),
+		);
+	}
+
+	public function toArray(): array {
+		return array(
+			'id'               => $this->id,
+			'slug'             => $this->slug,
+			'taxonomy'         => $this->taxonomy,
+			'description'      => $this->description,
+			'current_template' => $this->current_template->value,
+			'raw_id'           => $this->raw_id,
+			'post_count'       => $this->post_count,
+		);
 	}
 }

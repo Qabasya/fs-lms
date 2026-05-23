@@ -4,7 +4,7 @@
  *
  * @var array                       $subjects          Список предметов (передан из коллбека)
  * @var array                       $academic_periods  Список академических периодов (передан из коллбека)
- * @var \WP_User[]                  $teachers          Список преподавателей (передан из коллбека)
+ * @var \Inc\DTO\UserDTO[]           $teachers          Список преподавателей (передан из коллбека)
  */
 
 
@@ -56,8 +56,8 @@
 					<select id="group-teacher" name="teacher_id" required>
 						<option value="">-- Выберите преподавателя --</option>
 						<?php foreach ( $teachers ?? [] as $teacher ) : ?>
-							<option value="<?php echo esc_attr( (string) $teacher->ID ); ?>">
-								<?php echo esc_html( $teacher->display_name ); ?>
+							<option value="<?php echo esc_attr( (string) $teacher->id ); ?>">
+								<?php echo esc_html( $teacher->displayName ); ?>
 							</option>
 						<?php endforeach; ?>
 					</select>

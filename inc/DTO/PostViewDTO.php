@@ -42,6 +42,16 @@ readonly class PostViewDTO {
 	 *
 	 * @return self|null
 	 */
+	public function toArray(): array {
+		return array(
+			'id'        => $this->id,
+			'title'     => $this->title,
+			'slug'      => $this->slug,
+			'post_type' => $this->post_type,
+			'url'       => $this->url,
+		);
+	}
+
 	public static function normalizePost( ?\WP_Post $post ): ?self {
 		if ( ! $post ) {
 			return null;

@@ -106,7 +106,7 @@ class AdminCallbacks extends BaseController {
 		$groups   = '' !== $selected_period_id
 			? $this->group_service->getGroupsByPeriod( $selected_period_id )
 			: array();
-		$teachers = get_users( array( 'role' => UserRole::FSTeacher->value ) );
+		$teachers = $this->users->getByRole( UserRole::FSTeacher );
 
 		$this->render(
 			'admin/groups',
