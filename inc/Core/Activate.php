@@ -6,8 +6,9 @@ namespace Inc\Core;
 
 use Inc\Enums\PageRoutes;
 use Inc\Enums\ShortCode;
-use Inc\Managers\UserManager;
+use Inc\Managers\RoleManager;
 use Inc\Services\PageGeneratorService;
+use Inc\Services\PiiCryptoService;
 
 /**
  * Class Activate
@@ -36,13 +37,34 @@ class Activate {
 	 * @return void
 	 */
 	public static function activate(): void {
+		if ( ! PiiCryptoService::isAvailable() ) {
+			wp_die(
+				'<h1>FS LMS: Ошибка активации</h1>'
+				. '<p>Плагин не может быть активирован без настроенного шифрования персональных данных.</p>'
+				. '<p>Добавьте в файл <code>wp-config.php</code> следующие константы:</p>'
+				. '<pre>'
+				. "define('FS_LMS_ENC_KEY', '&lt;base64_ключ_32_байта&gt;');\n"
+				. "define('FS_LMS_HASH_SALT', '&lt;случайная_строка&gt;');"
+				. '</pre>'
+				. '<p>Для генерации ключа выполните в терминале:</p>'
+				. '<pre>php -r "echo base64_encode(sodium_crypto_secretbox_keygen());"</pre>'
+				. '<p>Для `FS_LMS_HASH_SALT` подойдёт любая уникальная строка.</p>'
+				. '<p>Рекомендуется использовать генератор случайных паролей или выполнить:</p>'
+				. '<pre>php -r "echo bin2hex(random_bytes(32));"</pre>',
+				'FS LMS — Требуется настройка шифрования',
+				array(
+					'response'  => 200,
+					'back_link' => true,
+				)
+			);
+		}
+
 		// Создание экземпляра DI-контейнера
 		$container = new Container();
 
-		/** @var UserManager $user_manager */
-		$user_manager = $container->get( UserManager::class );
-		// Создание кастомных ролей пользователей
-		$user_manager->createRoles();
+		/** @var RoleManager $role_manager */
+		$role_manager = $container->get( RoleManager::class );
+		$role_manager->registerAll();
 
 		// Автоматическое создание страниц входа, регистрации и профиля
 		self::generatePages();
