@@ -36,7 +36,7 @@ class SubjectRepository {
 	/**
 	 * Имя опции в wp_options.
 	 */
-	private string $option_name = OptionName::SUBJECTS->value;
+	private string $option_name = OptionName::Subjects->value;
 
 	/**
 	 * Получает "сырые" данные из опции.

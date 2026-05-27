@@ -10,8 +10,8 @@ namespace Inc\Enums;
 enum MenuTitle: string
 {
 	/** Заголовок первого пункта меню. */
-	case FIRST = 'Статистика';
+	case First = 'Статистика';
 
 	/** Заголовок второго пункта меню. */
-	case SECOND = 'Настройки плагина';
+	case Second = 'Настройки плагина';
 }

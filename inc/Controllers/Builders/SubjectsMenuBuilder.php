@@ -86,8 +86,8 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 			array(
 				'page_title' => 'Управление предметами',
 				'menu_title' => 'Предметы',
-				'capability' => Capability::ADMIN->value,
-				'menu_slug'  => MenuSlug::SUBJECTS->value,
+				'capability' => Capability::Admin->value,
+				'menu_slug'  => MenuSlug::Subjects->value,
 				'callback'   => array( $this->callbacks, 'subjectsRoot' ),
 				'icon_url'   => 'dashicons-category',
 				'position'   => 3,
@@ -113,10 +113,10 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 
 		foreach ( $this->getSubjects() as $subject ) {
 			$subpages[] = array(
-				'parent_slug' => MenuSlug::SUBJECTS->value,
+				'parent_slug' => MenuSlug::Subjects->value,
 				'page_title'  => $subject->name, // Используем -> вместо ['name']
 				'menu_title'  => $subject->name,
-				'capability'  => Capability::ADMIN->value,
+				'capability'  => Capability::Admin->value,
 				'menu_slug'   => 'fs_subject_' . $subject->key, // Используем свойство key
 				'callback'    => array( $this->callbacks, 'subjectPage' ),
 			);

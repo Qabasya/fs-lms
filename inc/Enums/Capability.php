@@ -11,7 +11,7 @@ namespace Inc\Enums;
 enum Capability: string {
 
 	/** Capability для административных страниц. */
-	case ADMIN = 'manage_options';
+	case Admin = 'manage_options';
 
 	/** Capability для своих преподавателей */
 	case ViewLMSStats         = 'view_lms_stats';

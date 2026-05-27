@@ -28,39 +28,39 @@ enum TaskTemplate: string {
 	/**
 	 * Стандартное задание с одним условием.
 	 */
-	case STANDARD = 'standard_task';
+	case Standard = 'standard_task';
 
 	/**
 	 * Задание "Три в одном" (для ЕГЭ 19-21).
 	 */
-	case TRIPLE = 'triple_task';
+	case Triple = 'triple_task';
 
 	/**
 	 * Задание с общим (неизменяемым) условием.
 	 */
-	case COMMON = 'common_standard_task';
+	case Common = 'common_standard_task';
 
-	case CODE          = 'code_task';
-	case FILE_CODE     = 'file_code_task';
-	case FILE          = 'file_task';
-	case TWO_FILE      = 'two_file_code_task';
-	case TEXT_SOLUTION = 'text_task';
+	case Code        = 'code_task';
+	case FileCode    = 'file_code_task';
+	case File        = 'file_task';
+	case TwoFile     = 'two_file_code_task';
+	case TextSolution = 'text_task';
 
 	/**
-	 * Умный конструктор Enum с фолбеком на STANDARD.
+	 * Умный конструктор Enum с фолбеком на Standard.
 	 *
 	 * Если в БД сохранён ID шаблона, которого нет в списке
-	 * (например, кастомный шаблон номера), приводим его к STANDARD,
+	 * (например, кастомный шаблон номера), приводим его к Standard,
 	 * чтобы не ломать интерфейс.
 	 *
 	 * @param string|null $value Строковое значение из БД
 	 *
-	 * @return self Соответствующий кейс или STANDARD по умолчанию
+	 * @return self Соответствующий кейс или Standard по умолчанию
 	 */
 	public static function fromDatabase( ?string $value ): self {
-		// Если значение пустое — возвращаем STANDARD
+		// Если значение пустое — возвращаем Standard
 		if ( ! $value ) {
-			return self::STANDARD;
+			return self::Standard;
 		}
 
 		// Пытаемся найти точное совпадение
@@ -70,8 +70,8 @@ enum TaskTemplate: string {
 			return $tryCase;
 		}
 
-		// Если это не TRIPLE и не COMMON — считаем стандартным визуальным редактором
-		return self::STANDARD;
+		// Если это не Triple и не Common — считаем стандартным визуальным редактором
+		return self::Standard;
 	}
 
 	/**
@@ -84,15 +84,15 @@ enum TaskTemplate: string {
 	 */
 	public function class(): string {
 		return match ( $this ) {
-			self::STANDARD => StandardTaskTemplate::class,
-			self::TRIPLE => ThreeInOneTemplate::class,
-			self::COMMON => CommonConditionTemplate::class,
+			self::Standard => StandardTaskTemplate::class,
+			self::Triple => ThreeInOneTemplate::class,
+			self::Common => CommonConditionTemplate::class,
 
-			self::CODE      => CodeTaskTemplate::class,
-			self::FILE_CODE => FileCodeTaskTemplate::class,
-			self::FILE      => FileTaskTemplate::class,
-			self::TWO_FILE  => TwoFileCodeTaskTemplate::class,
-			self::TEXT_SOLUTION  => TaskTextSolution::class,
+			self::Code     => CodeTaskTemplate::class,
+			self::FileCode => FileCodeTaskTemplate::class,
+			self::File     => FileTaskTemplate::class,
+			self::TwoFile  => TwoFileCodeTaskTemplate::class,
+			self::TextSolution  => TaskTextSolution::class,
 		};
 	}
 
@@ -105,9 +105,9 @@ enum TaskTemplate: string {
 	 */
 	public function label(): string {
 		return match ( $this ) {
-			self::STANDARD => 'Стандартное задание',
-			self::TRIPLE => 'Три в одном (ЕГЭ 19-21)',
-			self::COMMON => 'Общее условие',
+			self::Standard => 'Стандартное задание',
+			self::Triple => 'Три в одном (ЕГЭ 19-21)',
+			self::Common => 'Общее условие',
 		};
 	}
 }

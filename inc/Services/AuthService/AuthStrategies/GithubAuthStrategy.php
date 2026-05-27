@@ -14,7 +14,7 @@ use Inc\Enums\AuthProvider;
  *
  * ### Основные обязанности:
  *
- * 1. **Определение провайдера** — возвращает enum AuthProvider::GITHUB.
+ * 1. **Определение провайдера** — возвращает enum AuthProvider::Github.
  * 2. **Аутентификация через GitHub** — получение профиля пользователя через Hybridauth.
  *
  * ### Архитектурная роль:
@@ -32,7 +32,7 @@ class GithubAuthStrategy extends AbstractHybridAuthStrategy {
 	 * @return AuthProvider
 	 */
 	public function getProvider(): AuthProvider {
-		return AuthProvider::GITHUB;
+		return AuthProvider::Github;
 	}
 
 	/**

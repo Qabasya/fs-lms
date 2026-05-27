@@ -9,7 +9,7 @@ class GoogleAuthStrategy extends AbstractHybridAuthStrategy {
 
 
 	public function getProvider(): AuthProvider {
-		return AuthProvider::GOOGLE;
+		return AuthProvider::Google;
 	}
 
 	public function authenticate(): ?UserDTO {

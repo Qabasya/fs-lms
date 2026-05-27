@@ -14,7 +14,7 @@ use Inc\Enums\AuthProvider;
  *
  * ### Основные обязанности:
  *
- * 1. **Определение провайдера** — возвращает enum AuthProvider::VKONTAKTE.
+ * 1. **Определение провайдера** — возвращает enum AuthProvider::Vkontakte.
  * 2. **Аутентификация через VK** — получение профиля пользователя через Hybridauth.
  *
  * ### Архитектурная роль:
@@ -32,7 +32,7 @@ class VkAuthStrategy extends AbstractHybridAuthStrategy {
 	 * @return AuthProvider
 	 */
 	public function getProvider(): AuthProvider {
-		return AuthProvider::VKONTAKTE;
+		return AuthProvider::Vkontakte;
 	}
 
 	/**

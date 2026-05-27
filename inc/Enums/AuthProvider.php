@@ -23,9 +23,9 @@ namespace Inc\Enums;
  * для типобезопасной идентификации провайдера авторизации.
  */
 enum AuthProvider: string {
-	case GOOGLE    = 'Google';
-	case VKONTAKTE = 'VK';
-	case GITHUB    = 'Github';
+	case Google    = 'Google';
+	case Vkontakte = 'VK';
+	case Github    = 'Github';
 
 	/**
 	 * Возвращает человекочитаемое название для админки.
@@ -34,9 +34,9 @@ enum AuthProvider: string {
 	 */
 	public function label(): string {
 		return match ( $this ) {
-			self::GOOGLE    => 'Google',
-			self::VKONTAKTE => 'VK',
-			self::GITHUB    => 'Github',
+			self::Google    => 'Google',
+			self::Vkontakte => 'VK',
+			self::Github    => 'Github',
 		};
 	}
 
@@ -54,9 +54,9 @@ enum AuthProvider: string {
 		$value = strtolower( trim( $value ) );
 
 		return match ( $value ) {
-			'google'                           => self::GOOGLE,
-			'vk', 'vkontakte', 'vk.com'        => self::VKONTAKTE,
-			'github', 'git hub'                => self::GITHUB,
+			'google'                           => self::Google,
+			'vk', 'vkontakte', 'vk.com'        => self::Vkontakte,
+			'github', 'git hub'                => self::Github,
 			default                            => null,
 		};
 	}
@@ -68,9 +68,9 @@ enum AuthProvider: string {
 	 */
 	public function configKey(): string {
 		return match ( $this ) {
-			self::GOOGLE    => 'google',
-			self::VKONTAKTE => 'vk',
-			self::GITHUB    => 'github',
+			self::Google    => 'google',
+			self::Vkontakte => 'vk',
+			self::Github    => 'github',
 		};
 	}
 
@@ -81,9 +81,9 @@ enum AuthProvider: string {
 	 */
 	public function hybridauthKey(): string {
 		return match ( $this ) {
-			self::GOOGLE    => 'Google',
-			self::VKONTAKTE => 'Vkontakte',
-			self::GITHUB    => 'GitHub',
+			self::Google    => 'Google',
+			self::Vkontakte => 'Vkontakte',
+			self::Github    => 'GitHub',
 		};
 	}
 }

@@ -10,8 +10,8 @@ namespace Inc\Enums;
  */
 enum PageTitle: string {
 	/** Заголовок первой страницы (Dashboard). */
-	case FIRST = 'Dashboard';
+	case First = 'Dashboard';
 
 	/** Заголовок второй страницы (Настройки). */
-	case SECOND = 'Настройки';
+	case Second = 'Настройки';
 }

@@ -41,7 +41,7 @@ class StudentGroupRepository {
 	 * @return array<string, array<string, mixed>> Массив групп [id => данные]
 	 */
 	public function readAll(): array {
-		$groups = get_option( OptionName::STUDENT_GROUPS->value, array() );
+		$groups = get_option( OptionName::StudentGroups->value, array() );
 
 		return is_array( $groups ) ? $groups : array();
 	}
@@ -107,7 +107,7 @@ class StudentGroupRepository {
 
 		$groups[ $dto->id ] = $dto->toArray();
 
-		return (bool) update_option( OptionName::STUDENT_GROUPS->value, $groups );
+		return (bool) update_option( OptionName::StudentGroups->value, $groups );
 	}
 
 	/**
@@ -126,6 +126,6 @@ class StudentGroupRepository {
 
 		unset( $groups[ $id ] );
 
-		return (bool) update_option( OptionName::STUDENT_GROUPS->value, $groups );
+		return (bool) update_option( OptionName::StudentGroups->value, $groups );
 	}
 }

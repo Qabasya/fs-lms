@@ -128,7 +128,7 @@ class TaskManager {
 	 */
 	private function syncTaskMetadata( int $postId, string $key, string $slug, string $text ): void {
 		$assignment = $this->metaboxes->getAssignment( $key, $slug );
-		$templateId = $assignment->template_id ?? TaskTemplate::STANDARD;
+		$templateId = $assignment->template_id ?? TaskTemplate::Standard;
 
 		// Преобразование Enum или строки в конечное значение
 		$metaValue = ( $templateId instanceof TaskTemplate ) ? $templateId->value : $templateId;

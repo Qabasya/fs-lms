@@ -40,7 +40,7 @@ class StudentPeriodMatrixRepository {
 	 */
 	public function readAll(): array {
 		// get_option() — получает опцию из таблицы wp_options
-		$matrix = get_option( OptionName::STUDENT_PERIOD_META->value, array() );
+		$matrix = get_option( OptionName::StudentPeriodMeta->value, array() );
 		return is_array( $matrix ) ? $matrix : array();
 	}
 
@@ -78,7 +78,7 @@ class StudentPeriodMatrixRepository {
 		$matrix[ $dto->storageKey() ] = $dto->toArray();
 
 		// update_option() — обновляет опцию, возвращает false при ошибке или отсутствии изменений
-		return (bool) update_option( OptionName::STUDENT_PERIOD_META->value, $matrix );
+		return (bool) update_option( OptionName::StudentPeriodMeta->value, $matrix );
 	}
 
 	/**
@@ -102,6 +102,6 @@ class StudentPeriodMatrixRepository {
 		// unset() — удаляет элемент из массива по ключу
 		unset( $matrix[ $key ] );
 
-		return (bool) update_option( OptionName::STUDENT_PERIOD_META->value, $matrix );
+		return (bool) update_option( OptionName::StudentPeriodMeta->value, $matrix );
 	}
 }

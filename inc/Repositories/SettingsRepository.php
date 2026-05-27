@@ -35,7 +35,7 @@ class SettingsRepository {
 	/**
 	 * Имя опции в wp_options.
 	 */
-	private string $option_name = OptionName::AUTH_SETTINGS->value;
+	private string $option_name = OptionName::AuthSettings->value;
 
 	/**
 	 * Кэш полученных настроек для избежания повторных запросов к БД.

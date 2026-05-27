@@ -185,7 +185,7 @@ class AuthController extends BaseController implements ServiceInterface {
 			return admin_url(); // или дефолтный profile.php
 		}
 
-		return PageRoutes::USER_PROFILE->url();
+		return PageRoutes::UserProfile->url();
 	}
 
 	/**
@@ -224,9 +224,9 @@ class AuthController extends BaseController implements ServiceInterface {
 			return false;
 		}
 
-		// Используем ваш Enum Capability::ADMIN (по умолчанию 'manage_options')
+		// Используем ваш Enum Capability::Admin (по умолчанию 'manage_options')
 		// Если у пользователя нет прав администратора, скрываем админ-бар
-		if ( ! current_user_can( Capability::ADMIN->value ) ) {
+		if ( ! current_user_can( Capability::Admin->value ) ) {
 			return false;
 		}
 
