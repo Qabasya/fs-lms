@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Services;
+namespace Unit\Services;
 
 use Inc\Services\PiiCryptoService;
 use PHPUnit\Framework\TestCase;

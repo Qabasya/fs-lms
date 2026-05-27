@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Services;
+namespace Unit\Services;
 
 use PHPUnit\Framework\TestCase;
 use Inc\Services\PiiMaskingService;

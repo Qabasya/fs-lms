@@ -1,5 +1,5 @@
 <?php
-
+// тут просто константы, которые должны быть в wp-config.php
 declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
