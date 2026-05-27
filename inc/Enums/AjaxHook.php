@@ -55,6 +55,21 @@ enum AjaxHook: string {
 	// ==================== Группы ====================
 	case SaveStudentGroup   = 'SaveStudentGroup';
 	case DeleteStudentGroup = 'DeleteStudentGroup';
+
+	// ==================== Система зачисления ====================
+	case CreateApplication     = 'CreateApplication';
+	case SubmitParentData      = 'SubmitParentData';
+	case EnrollStudent         = 'EnrollStudent';
+	case RejectApplication     = 'RejectApplication';
+	case RevealPiiField        = 'RevealPiiField';
+	case AddRepresentative     = 'AddRepresentative';
+	case ReplaceRepresentative = 'ReplaceRepresentative';
+	case UpdatePerson          = 'UpdatePerson';
+	case WithdrawConsent       = 'WithdrawConsent';
+	case RequestPiiDeletion    = 'RequestPiiDeletion';
+	case ExportPii             = 'ExportPii';
+
+
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 
 	/**
