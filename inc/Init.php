@@ -4,6 +4,7 @@ namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\AcademicPeriodController;
+use Inc\Controllers\CronController;
 use Inc\Controllers\AdminController;
 use Inc\Controllers\AuthController;
 use Inc\Controllers\AuthPageController;
@@ -60,6 +61,7 @@ final class Init {
 			ProfileController::class,
 			AcademicPeriodController::class,
 			StudentGroupController::class,
+			CronController::class,
 		);
 	}
 

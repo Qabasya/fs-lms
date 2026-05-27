@@ -6,6 +6,8 @@ namespace Inc\Core;
 
 use Inc\Enums\PageRoutes;
 use Inc\Enums\ShortCode;
+use Inc\Enums\CronHook;
+use Inc\Managers\CronManager;
 use Inc\Managers\RoleManager;
 use Inc\Services\PageGeneratorService;
 use Inc\Services\PiiCryptoService;
@@ -65,6 +67,14 @@ class Activate {
 		/** @var RoleManager $role_manager */
 		$role_manager = $container->get( RoleManager::class );
 		$role_manager->registerAll();
+
+		/** @var CronManager $cron_manager */
+		$cron_manager = $container->get( CronManager::class );
+		$cron_manager->addCustomInterval( 'every_15_minutes', 900, 'Every 15 minutes' );
+		add_filter( 'cron_schedules', array( $cron_manager, 'filterCronSchedules' ) );
+		$cron_manager->schedule( CronHook::ExpireApplications->value, 'daily' );
+		$cron_manager->schedule( CronHook::RetentionCleanup->value, 'daily' );
+		$cron_manager->schedule( CronHook::RecoveryTick->value, 'every_15_minutes' );
 
 		// Автоматическое создание страниц входа, регистрации и профиля
 		self::generatePages();

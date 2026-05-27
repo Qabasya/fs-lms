@@ -2,6 +2,7 @@
 
 namespace Inc\Core;
 
+use Inc\Managers\CronManager;
 use Inc\Managers\RoleManager;
 
 /**
@@ -37,6 +38,10 @@ class Deactivate {
 		/** @var RoleManager $role_manager */
 		$role_manager = $container->get( RoleManager::class );
 		$role_manager->unregisterAll();
+
+		/** @var CronManager $cron_manager */
+		$cron_manager = $container->get( CronManager::class );
+		$cron_manager->unregisterAll();
 		
 		flush_rewrite_rules();
 	}
