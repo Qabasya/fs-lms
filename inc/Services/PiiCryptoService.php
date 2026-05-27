@@ -40,15 +40,14 @@ class PiiCryptoService {
 	 *
 	 * @since 1.0.0
 	 */
-	public function __construct()
-	{
-		if ( ! defined('FS_LMS_ENC_KEY')) {
-			throw new RuntimeException('Константа FS_LMS_ENC_KEY не определена в wp-config.php');
+	public function __construct() {
+		if ( ! defined( 'FS_LMS_ENC_KEY' ) ) {
+			throw new RuntimeException( 'Константа FS_LMS_ENC_KEY не определена в wp-config.php' );
 		}
 
-		$decodedKey = base64_decode(FS_LMS_ENC_KEY, true);
+		$decodedKey = base64_decode( FS_LMS_ENC_KEY, true );
 
-		if (false === $decodedKey || strlen($decodedKey) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+		if ( false === $decodedKey || strlen( $decodedKey ) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES ) {
 			throw new RuntimeException(
 				sprintf(
 					'Неверная длина ключа шифрования. Ожидается %d байт',
@@ -59,8 +58,8 @@ class PiiCryptoService {
 
 		$this->key = $decodedKey;
 
-		if ( ! defined('FS_LMS_HASH_SALT') || '' === FS_LMS_HASH_SALT) {
-			throw new RuntimeException('Константа FS_LMS_HASH_SALT не определена или пуста в wp-config.php');
+		if ( ! defined( 'FS_LMS_HASH_SALT' ) || '' === FS_LMS_HASH_SALT ) {
+			throw new RuntimeException( 'Константа FS_LMS_HASH_SALT не определена или пуста в wp-config.php' );
 		}
 
 		$this->hashSalt = FS_LMS_HASH_SALT;
@@ -81,10 +80,9 @@ class PiiCryptoService {
 	 *
 	 * @since 1.0.0
 	 */
-	public function encrypt(string $plaintext): string
-	{
-		$nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-		$ciphertext = sodium_crypto_secretbox($plaintext, $nonce, $this->key);
+	public function encrypt( string $plaintext ): string {
+		$nonce      = random_bytes( SODIUM_CRYPTO_SECRETBOX_NONCEBYTES );
+		$ciphertext = sodium_crypto_secretbox( $plaintext, $nonce, $this->key );
 
 		return $nonce . $ciphertext;
 	}
@@ -104,22 +102,21 @@ class PiiCryptoService {
 	 *
 	 * @since 1.0.0
 	 */
-	public function decrypt(string $blob): string
-	{
+	public function decrypt( string $blob ): string {
 		$nonceLength = SODIUM_CRYPTO_SECRETBOX_NONCEBYTES;
-		$minLength = $nonceLength + SODIUM_CRYPTO_SECRETBOX_MACBYTES;
+		$minLength   = $nonceLength + SODIUM_CRYPTO_SECRETBOX_MACBYTES;
 
-		if (strlen($blob) < $minLength) {
-			throw new RuntimeException('Неверный формат зашифрованных данных');
+		if ( strlen( $blob ) < $minLength ) {
+			throw new RuntimeException( 'Неверный формат зашифрованных данных' );
 		}
 
-		$nonce = substr($blob, 0, $nonceLength);
-		$ciphertext = substr($blob, $nonceLength);
+		$nonce      = substr( $blob, 0, $nonceLength );
+		$ciphertext = substr( $blob, $nonceLength );
 
-		$plaintext = sodium_crypto_secretbox_open($ciphertext, $nonce, $this->key);
+		$plaintext = sodium_crypto_secretbox_open( $ciphertext, $nonce, $this->key );
 
-		if (false === $plaintext) {
-			throw new RuntimeException('Ошибка расшифровки: данные повреждены или ключ неверен');
+		if ( false === $plaintext ) {
+			throw new RuntimeException( 'Ошибка расшифровки: данные повреждены или ключ неверен' );
 		}
 
 		return $plaintext;
@@ -140,11 +137,10 @@ class PiiCryptoService {
 	 *
 	 * @since 1.0.0
 	 */
-	public function hash(string $value): string
-	{
-		$normalized = mb_strtolower(trim($value));
+	public function hash( string $value ): string {
+		$normalized = mb_strtolower( trim( $value ) );
 
-		return hash('sha256', $normalized . $this->hashSalt);
+		return hash( 'sha256', $normalized . $this->hashSalt );
 	}
 
 	/**
@@ -157,23 +153,21 @@ class PiiCryptoService {
 	 *
 	 * @since 1.0.0
 	 */
-	public static function isAvailable(): bool
-	{
-		if ( ! defined('FS_LMS_ENC_KEY')) {
+	public static function isAvailable(): bool {
+		if ( ! defined( 'FS_LMS_ENC_KEY' ) ) {
 			return false;
 		}
 
-		$decodedKey = base64_decode(FS_LMS_ENC_KEY, true);
+		$decodedKey = base64_decode( FS_LMS_ENC_KEY, true );
 
-		if (false === $decodedKey || strlen($decodedKey) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+		if ( false === $decodedKey || strlen( $decodedKey ) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES ) {
 			return false;
 		}
 
-		if ( ! defined('FS_LMS_HASH_SALT') || '' === FS_LMS_HASH_SALT) {
+		if ( ! defined( 'FS_LMS_HASH_SALT' ) || '' === FS_LMS_HASH_SALT ) {
 			return false;
 		}
 
 		return true;
 	}
-
 }
