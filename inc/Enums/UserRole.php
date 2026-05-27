@@ -65,26 +65,40 @@ enum UserRole: string {
 	}
 
 	/**
-	 * Возвращает перечень кастомных возможностей (capabilities) для роли.
+	 * Возвращает встроенные WordPress-возможности, передаваемые в add_role().
 	 *
-	 * @return array<string, bool> Массив [capability => значение]
+	 * @return array<string, bool>
+	 */
+	public function baseCapabilities(): array {
+		return match ( $this ) {
+			self::FSTeacher => array( 'read' => true, 'edit_posts' => true, 'upload_files' => true ),
+			self::FSStudent => array( 'read' => true, 'upload_files' => true ),
+			self::FSParent  => array( 'read' => true ),
+			self::FSOffice  => array( 'read' => true ),
+			self::Student   => array( 'read' => true, 'upload_files' => true ),
+			self::Teacher   => array( 'read' => true, 'upload_files' => true ),
+		};
+	}
+
+	/**
+	 * Возвращает кастомные LMS-capabilities роли.
+	 * Используется в RoleManager::syncCapabilities() для применения матрицы прав.
+	 *
+	 * @return array<string, bool>
 	 */
 	public function capabilities(): array {
 		return match ( $this ) {
-			// Администратор LMS имеет права на управление заявками, зачисление, PII
 			self::FSOffice => array(
 				Capability::ManageApplications->value => true,
 				Capability::EnrollStudent->value      => true,
 				Capability::ViewPII->value            => true,
 				Capability::ManagePersons->value      => true,
 			),
-			// Преподаватель — без прав на PII и зачисление (на данном этапе)
-			self::FSTeacher => array(),
-			// Родитель — без дополнительных прав
-			self::FSParent  => array(),
-			// Ученик — без дополнительных прав
-			self::FSStudent => array(),
-			// Свободные роли без прав
+			self::FSTeacher => array(
+				Capability::ViewLMSStats->value        => true,
+				Capability::ManageLMSAssignments->value => true,
+			),
+			self::FSStudent, self::FSParent,
 			self::Student, self::Teacher => array(),
 		};
 	}
