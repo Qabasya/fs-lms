@@ -10,17 +10,35 @@ namespace Inc\Enums;
  */
 enum Capability: string {
 
-	/** Capability для административных страниц. */
+// ===== Администрирование =====
+
+	/** Базовое право администратора WordPress для доступа к настройкам */
 	case Admin = 'manage_options';
 
-	/** Capability для своих преподавателей */
-	case ViewLMSStats         = 'view_lms_stats';
+	// ===== Преподавательские права =====
+
+	/** Право просмотра статистики LMS */
+	case ViewLMSStats = 'view_lms_stats';
+
+	/** Право управления заданиями (создание, редактирование, удаление) */
 	case ManageLMSAssignments = 'manage_lms_assignments';
 
-	/** Capability для события зачисления */
+	// ===== Управление заявками =====
+
+	/** Право управления заявками на обучение */
 	case ManageApplications = 'manage_applications';
-	case EnrollStudents     = 'enroll_students';
-	case ViewPII            = 'view_pii';
-	case ExportPII          = 'export_pii';
-	case ManagePersons      = 'manage_persons';
+
+	/** Право зачисления студентов */
+	case EnrollStudent = 'enroll_student';
+
+	// ===== PII (Персональные данные) =====
+
+	/** Право просмотра персональных данных */
+	case ViewPII = 'view_pii';
+
+	/** Право экспорта персональных данных */
+	case ExportPII = 'export_pii';
+
+	/** Право управления данными о людях (создание, редактирование, удаление) */
+	case ManagePersons = 'manage_persons';
 }
