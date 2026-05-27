@@ -17,6 +17,10 @@ enum Capability: string {
 	case ViewLMSStats         = 'view_lms_stats';
 	case ManageLMSAssignments = 'manage_lms_assignments';
 
-    /** Capability для своих авторизации */
-    case Read         = 'read';
+	/** Capability для события зачисления */
+	case ManageApplications = 'manage_applications';
+	case EnrollStudents     = 'enroll_students';
+	case ViewPII            = 'view_pii';
+	case ExportPII          = 'export_pii';
+	case ManagePersons      = 'manage_persons';
 }
