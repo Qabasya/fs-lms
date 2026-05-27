@@ -6,11 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Core\BaseController;
 use Inc\Contracts\ServiceInterface;
-use Inc\Enums\AjaxHook;
-use Inc\Enums\Capability;
-use Inc\Enums\PageRoutes;
 use Inc\Managers\UserManager;
-use Inc\Repositories\UserRepository;
 
 /**
  * Class UserController
@@ -23,84 +19,36 @@ use Inc\Repositories\UserRepository;
  * ### Основные обязанности:
  *
  * 1. **Ограничение доступа** — фильтрация доступа к админ-панели и медиафайлам.
- * 2. **Регистрация хуков** — подключение всех WordPress-хуков для управления пользователями.
+ * 2. **Редирект после входа** — направление пользователей на правильную страницу после login.
+ * 3. **Регистрация хуков** — подключение всех WordPress-хуков для управления пользователями.
  *
  * ### Архитектурная роль:
  *
- * Делегирует управление пользователями UserManager, а получение данных — UserRepository.
- * Является точкой входа для регистрации всех хуков, связанных с пользовательской системой.
+ * Делегирует всю логику UserManager. Является точкой регистрации хуков пользовательской системы.
  */
 class UserController extends BaseController implements ServiceInterface {
 
-	/**
-	 * Конструктор контроллера.
-	 *
-	 * @param UserManager    $user_manager Менеджер для работы с WordPress (роли, доступ, медиа)
-	 * @param UserRepository $user_repo    Репозиторий для работы с данными пользователей
-	 */
 	public function __construct(
 		private readonly UserManager $user_manager,
-		private readonly UserRepository $user_repo
 	) {
 		parent::__construct();
 	}
 
-	/**
-	 * Регистрирует все необходимые хуки в системе.
-	 *
-	 * @return void
-	 */
 	public function register(): void {
-		// 1. Ограничение доступа к админ-панели
-		// 'admin_init' — хук, срабатывающий при инициализации админ-панели
-		// Подходит для проверки прав и редиректа
 		add_action( 'admin_init', array( $this->user_manager, 'restrictAdminAccess' ) );
 
-		add_filter(
-			'login_redirect',
-			function ( string $redirect_to, string $requested_redirect_to, \WP_User|\WP_Error $user ): string {
-				if ( ! ( $user instanceof \WP_User ) ) {
-					return $redirect_to;
-				}
-				if ( array_intersect( array( 'administrator', 'editor' ), $user->roles ) ) {
-					return admin_url();
-				}
-				return PageRoutes::UserProfile->url();
-			},
-			10,
-			3
-		);
+		add_filter( 'login_redirect', array( $this->user_manager, 'resolveLoginRedirect' ), 10, 3 );
 
-		// 2. Фильтрация медиафайлов в AJAX-запросах (для фронтенда)
-		// 'ajax_query_attachments_args' — хук для изменения параметров запроса вложений
 		add_filter( 'ajax_query_attachments_args', array( $this->user_manager, 'getMediaFilterArgs' ) );
 
-		// 3. Фильтрация медиафайлов в обычных запросах (админка)
-		// 'request' — хук для изменения параметров запроса к WordPress
 		add_filter(
 			'request',
 			function ( $query ) {
-				// Проверяем, что запрос идёт к типу поста 'attachment' (медиафайлы)
 				if ( isset( $query['post_type'] ) && 'attachment' === $query['post_type'] ) {
 					return $this->user_manager->getMediaFilterArgs( $query );
 				}
 				return $query;
 			}
 		);
-
-//		add_filter( 'editable_roles', array( $this->user_manager, 'filterEditableRoles' ) );
-
-		// 4. В будущем здесь будут AJAX-обработчики для фронтенд-профиля
-		// $this->registerAjaxHooks();
-	}
-
-	/**
-	 * Регистрирует AJAX-хуки для фронтенд-профиля пользователя.
-	 * (Заглушка для будущего расширения)
-	 *
-	 * @return void
-	 */
-	private function registerAjaxHooks(): void {
-		// Здесь будет регистрация хуков
 	}
 }
