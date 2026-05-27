@@ -40,4 +40,6 @@ assets/
 # WordPress debug
 .docs/TASKS.md
 
+.phpunit.cache
+
 settings.local.json
