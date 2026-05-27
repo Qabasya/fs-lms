@@ -52,11 +52,11 @@ class AcademicPeriodCallbacks extends BaseController {
 		$this->authorize( Nonce::Manager );
 
 		// Валидация входных данных
-		$id         = $this->requireKey( 'id', error: 'Ключ периода обязателен.' );
-		$name       = $this->requireText( 'name', error: 'Название периода обязательно.' );
-		$start_date = $this->requireText( 'start_date', error: 'Дата начала обязательна.' );
-		$end_date   = $this->requireText( 'end_date', error: 'Дата окончания обязательна.' );
-		$is_current = $this->sanitizeBool( 'is_current' );
+		$id          = $this->requireKey( 'id', error: 'Ключ периода обязателен.' );
+		$name        = $this->requireText( 'name', error: 'Название периода обязательно.' );
+		$start_date  = $this->requireText( 'start_date', error: 'Дата начала обязательна.' );
+		$end_date    = $this->requireText( 'end_date', error: 'Дата окончания обязательна.' );
+		$is_current  = $this->sanitizeBool( 'is_current' );
 		$action_type = 'edit' === $this->sanitizeText( 'action_type' ) ? 'edit' : 'add';
 
 		// Проверка на дубликат ID при создании
