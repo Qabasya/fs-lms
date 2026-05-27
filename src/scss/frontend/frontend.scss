@@ -1,5 +1,4 @@
 @use 'variables' as *;
-@use 'mixins' as m;
 @use 'components/reset';
 @use 'components/layout';
 @use 'components/sidebar';
@@ -8,3 +7,4 @@
 @use 'components/tabs';
 @use 'components/carousel';
 @use 'components/auth-page';
+@use 'components/all-tasks';

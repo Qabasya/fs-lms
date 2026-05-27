@@ -15,61 +15,46 @@ namespace Inc\Enums;
  */
 enum AjaxHook: string {
 	// ==================== SubjectController (Предметы) ====================
-	case StoreSubject  = 'store_subject';
-	case UpdateSubject = 'update_subject';
-	case DeleteSubject = 'delete_subject';
-	case ExportSubject = 'export_subject';
-	case ImportSubject = 'import_subject';
+	case StoreSubject  = 'StoreSubject';
+	case UpdateSubject = 'UpdateSubject';
+	case DeleteSubject = 'DeleteSubject';
+	case ExportSubject = 'ExportSubject';
+	case ImportSubject = 'ImportSubject';
 
 	// ==================== SubjectController (Таксономии) ====================
-	case StoreTaxonomy  = 'store_taxonomy';
-	case UpdateTaxonomy = 'update_taxonomy';
-	case DeleteTaxonomy = 'delete_taxonomy';
+	case StoreTaxonomy  = 'StoreTaxonomy';
+	case UpdateTaxonomy = 'UpdateTaxonomy';
+	case DeleteTaxonomy = 'DeleteTaxonomy';
 
 	// ==================== BoilerplateController (Полноценный CRUD редактор) ====================
-	case SaveBoilerplate   = 'save_boilerplate';
-	case DeleteBoilerplate = 'delete_boilerplate';
+	case SaveBoilerplate   = 'SaveBoilerplate';
+	case DeleteBoilerplate = 'DeleteBoilerplate';
 
 	// ==================== TaskCreationController (Создание задач в модалке) ====================
-	case GetTaskTypes        = 'get_task_types';
-	case GetTaskBoilerplates = 'get_task_boilerplates';
-	case CreateTask          = 'create_task';
+	case GetTaskTypes        = 'GetTaskTypes';
+	case GetTaskBoilerplates = 'GetTaskBoilerplates';
+	case CreateTask          = 'CreateTask';
 
 	// ==================== SubjectController (Прочие хуки) ====================
-	case GetPostsTable     = 'get_posts_table';
-	case GetTasksByNumber  = 'get_tasks_by_number';
-	case GetRecentTasks    = 'get_recent_tasks';
-	case GetRecentArticles = 'get_recent_articles';
+	case GetPostsTable     = 'GetPostsTable';
+	case GetTasksByNumber  = 'GetTasksByNumber';
+	case GetRecentTasks    = 'GetRecentTasks';
+	case GetRecentArticles = 'GetRecentArticles';
 
 	// ==================== TemplateManager (Быстрые настройки и структура) ====================
-	case GetTemplateStructure   = 'get_template_structure';
-	case SaveTaskBoilerplate    = 'save_task_boilerplate';
-	case GetTaskBoilerplate     = 'get_boilerplate';
-	case UpdateTermTemplate     = 'update_term_template';
-	case SaveTemplateAssignment = 'save_template_assignment';
+	case GetTemplateStructure   = 'GetTemplateStructure';
+	case SaveTaskBoilerplate    = 'SaveTaskBoilerplate';
+	case GetTaskBoilerplate     = 'GetBoilerplate';
+	case UpdateTermTemplate     = 'UpdateTermTemplate';
+	case SaveTemplateAssignment = 'SaveTemplateAssignment';
 
 	// ==================== AcademicPeriod (Учебные периоды) ====================
-	case SaveAcademicPeriod   = 'save_academic_period';
-	case DeleteAcademicPeriod = 'delete_academic_period';
+	case SaveAcademicPeriod   = 'SaveAcademicPeriod';
+	case DeleteAcademicPeriod = 'DeleteAcademicPeriod';
 
 	// ==================== Группы ====================
-	case SaveStudentGroup   = 'save_student_group';
-	case DeleteStudentGroup = 'delete_student_group';
-
-	// ==================== Система зачисления ====================
-	case CreateApplication     = 'create_application';
-	case SubmitParentData      = 'submit_parent_data';
-	case EnrollStudent         = 'enroll_student';
-	case RejectApplication     = 'reject_application';
-	case RevealPiiField        = 'reveal_pii_field';
-	case AddRepresentative     = 'add_representative';
-	case ReplaceRepresentative = 'replace_representative';
-	case UpdatePerson          = 'update_person';
-	case WithdrawConsent       = 'withdraw_consent';
-	case RequestPiiDeletion    = 'request_pii_deletion';
-	case ExportPii             = 'export_pii';
-
-
+	case SaveStudentGroup   = 'SaveStudentGroup';
+	case DeleteStudentGroup = 'DeleteStudentGroup';
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 
 	/**
@@ -105,7 +90,7 @@ enum AjaxHook: string {
 	 * @return string Например: "ajaxStoreSubject"
 	 */
 	public function callbackMethod(): string {
-		return 'ajax' . $this->name;
+		return 'ajax' . $this->value;
 	}
 
 	/**

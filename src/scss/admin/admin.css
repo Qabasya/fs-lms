@@ -1,6 +1,4 @@
 @charset "UTF-8";
-/* ── Tables: shared base */
-/* ── Tables: Add Row Button */
 /* =================================================================
    TABLES: Base Component (BEM-style)
    ================================================================= */
@@ -11,7 +9,7 @@
 }
 .fs-table tbody td {
   vertical-align: middle !important;
-  font-size: 13px;
+  font-size: 14px;
 }
 .fs-table thead th {
   padding: 8px 12px;
@@ -45,23 +43,23 @@
 .fs-table .column-actions .row-actions a,
 .fs-table .column-actions .row-actions button.button-link {
   text-decoration: none;
-  color: #1e73be;
+  color: #2271b1;
   transition: color 0.15s ease-in-out;
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
-  font-size: inherit;
+  font-size: 14px;
   line-height: inherit;
 }
 .fs-table .column-actions .row-actions a:hover,
 .fs-table .column-actions .row-actions button.button-link:hover {
-  color: #1e73be;
+  color: #2271b1;
   text-decoration: underline;
 }
 .fs-table .column-actions .row-actions a:focus,
 .fs-table .column-actions .row-actions button.button-link:focus {
-  outline: 2px solid #1e73be;
+  outline: 2px solid #2271b1;
   outline-offset: 2px;
 }
 .fs-table .column-actions .row-actions a.trash,
@@ -125,12 +123,12 @@
 .fs-table--task thead th.sortable.sort-asc::after {
   content: "\f142";
   opacity: 1;
-  color: #1e73be;
+  color: #2271b1;
 }
 .fs-table--task thead th.sortable.sort-desc::after {
   content: "\f140";
   opacity: 1;
-  color: #1e73be;
+  color: #2271b1;
 }
 
 .fs-table--taxonomy .column-primary {
@@ -146,7 +144,7 @@
   font-size: 14px;
   width: 14px;
   height: 14px;
-  color: #999;
+  color: #a7aaad;
   vertical-align: middle;
   margin-left: 4px;
   display: inline-flex;
@@ -287,7 +285,7 @@ html.modal-open {
   /* ── HEADER: заголовок + кнопка закрытия */
 }
 .fs-lms-modal-content .fs-lms-modal-header {
-  background: #1e73be;
+  background: #2271b1;
   color: #ffffff;
   padding: 16px 20px;
   border-radius: 3px 3px 0 0;
@@ -316,7 +314,7 @@ html.modal-open {
   font: inherit;
   color: inherit;
   color: #ffffff;
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
   padding: 0 4px;
   opacity: 0.8;
@@ -360,12 +358,18 @@ html.modal-open {
   gap: 12px;
   flex-shrink: 0;
 }
+.fs-lms-modal-content .fs-lms-modal-footer:has(> button:only-child), .fs-lms-modal-content .fs-lms-modal-footer:has(> .button:only-child), .fs-lms-modal-content .fs-lms-modal-footer:has(> :only-child),
+.fs-lms-modal-content .fs-modal-footer:has(> button:only-child),
+.fs-lms-modal-content .fs-modal-footer:has(> .button:only-child),
+.fs-lms-modal-content .fs-modal-footer:has(> :only-child) {
+  justify-content: center;
+}
 .fs-lms-modal-content .fs-lms-modal-footer button,
 .fs-lms-modal-content .fs-lms-modal-footer .button,
 .fs-lms-modal-content .fs-modal-footer button,
 .fs-lms-modal-content .fs-modal-footer .button {
   padding: 8px 20px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   border: none;
   border-radius: 3px;
@@ -379,7 +383,7 @@ html.modal-open {
 .fs-lms-modal-content .fs-modal-footer button.button-secondary,
 .fs-lms-modal-content .fs-modal-footer .button.fs-lms-modal-cancel,
 .fs-lms-modal-content .fs-modal-footer .button.button-secondary {
-  background: #a0a0a0;
+  background: #a7aaad;
   color: #ffffff;
   transition: all 0.2s ease-out;
 }
@@ -390,7 +394,7 @@ html.modal-open {
 .fs-lms-modal-content .fs-modal-footer button.button-secondary:hover,
 .fs-lms-modal-content .fs-modal-footer .button.fs-lms-modal-cancel:hover,
 .fs-lms-modal-content .fs-modal-footer .button.button-secondary:hover {
-  background: #888;
+  background: #787c82;
 }
 .fs-lms-modal-content .fs-lms-modal-footer button.fs-lms-modal-confirm, .fs-lms-modal-content .fs-lms-modal-footer button.button-primary,
 .fs-lms-modal-content .fs-lms-modal-footer .button.fs-lms-modal-confirm,
@@ -399,7 +403,7 @@ html.modal-open {
 .fs-lms-modal-content .fs-modal-footer button.button-primary,
 .fs-lms-modal-content .fs-modal-footer .button.fs-lms-modal-confirm,
 .fs-lms-modal-content .fs-modal-footer .button.button-primary {
-  background: #1e73be;
+  background: #2271b1;
   color: #ffffff;
   transition: all 0.2s ease-out;
 }
@@ -410,7 +414,7 @@ html.modal-open {
 .fs-lms-modal-content .fs-modal-footer button.button-primary:hover,
 .fs-lms-modal-content .fs-modal-footer .button.fs-lms-modal-confirm:hover,
 .fs-lms-modal-content .fs-modal-footer .button.button-primary:hover {
-  background: #155a8a;
+  background: #135e96;
 }
 .fs-lms-modal-content .fs-lms-modal-footer button.button-link-delete,
 .fs-lms-modal-content .fs-lms-modal-footer .button.button-link-delete,
@@ -424,7 +428,7 @@ html.modal-open {
 .fs-lms-modal-content .fs-lms-modal-footer .button.button-link-delete:hover,
 .fs-lms-modal-content .fs-modal-footer button.button-link-delete:hover,
 .fs-lms-modal-content .fs-modal-footer .button.button-link-delete:hover {
-  background: #b32d2e;
+  background: #8a2424;
 }
 .fs-lms-modal-content .fs-lms-modal-footer button:focus,
 .fs-lms-modal-content .fs-lms-modal-footer .button:focus,
@@ -454,7 +458,7 @@ html.modal-open {
   width: 100%;
   height: 35px;
   padding: 0 12px;
-  border: 1px solid #8c8f94;
+  border: 1px solid #c3c4c7;
   border-radius: 4px;
   box-sizing: border-box;
   font-size: 13px;
@@ -472,7 +476,7 @@ html.modal-open {
   width: 100%;
   height: 35px;
   padding: 0 12px;
-  border: 1px solid #8c8f94;
+  border: 1px solid #c3c4c7;
   border-radius: 4px;
   box-sizing: border-box;
   font-size: 13px;
@@ -490,7 +494,7 @@ html.modal-open {
   width: 100%;
   height: 35px;
   padding: 0 12px;
-  border: 1px solid #8c8f94;
+  border: 1px solid #c3c4c7;
   border-radius: 4px;
   box-sizing: border-box;
   font-size: 13px;
@@ -508,7 +512,7 @@ html.modal-open {
   width: 100%;
   height: 35px;
   padding: 0 12px;
-  border: 1px solid #8c8f94;
+  border: 1px solid #c3c4c7;
   border-radius: 4px;
   box-sizing: border-box;
   font-size: 13px;
@@ -526,7 +530,7 @@ html.modal-open {
   width: 100%;
   height: 35px;
   padding: 0 12px;
-  border: 1px solid #8c8f94;
+  border: 1px solid #c3c4c7;
   border-radius: 4px;
   box-sizing: border-box;
   font-size: 13px;
@@ -545,7 +549,7 @@ html.modal-open {
   width: 100%;
   height: 35px;
   padding: 0 12px;
-  border: 1px solid #8c8f94;
+  border: 1px solid #c3c4c7;
   border-radius: 4px;
   box-sizing: border-box;
   font-size: 13px;
@@ -576,7 +580,7 @@ html.modal-open {
   padding-right: 35px;
 }
 .fs-form-group .description {
-  font-size: 12px;
+  font-size: 14px;
   font-style: italic;
   color: #646970;
   margin-top: 4px;
@@ -587,7 +591,7 @@ html.modal-open {
 }
 .fs-form-group .error + .error-message {
   color: #d63638;
-  font-size: 12px;
+  font-size: 14px;
   margin-top: 4px;
   display: block;
 }
@@ -641,10 +645,10 @@ html.modal-open {
 .fs-radio-label input[type=radio] {
   margin: 0;
   cursor: pointer;
-  accent-color: #1e73be;
+  accent-color: #2271b1;
 }
 .fs-radio-label:hover span {
-  color: #1e73be;
+  color: #2271b1;
 }
 
 .fs-lms-modal-message {
@@ -665,7 +669,7 @@ html.modal-open {
     padding: 12px 16px;
   }
   .fs-lms-modal-content .fs-lms-modal-header h2.fs-lms-modal-title {
-    font-size: 15px;
+    font-size: 16px;
   }
   .fs-lms-modal-content .fs-lms-modal-header .fs-lms-modal-close {
     font-size: 22px;
@@ -682,6 +686,249 @@ html.modal-open {
     min-width: 100px;
   }
 }
+/* =================================================================
+   REDIRECT URI COPY BOX (Блок копирования URI)
+   ================================================================= */
+.fs-lms-modal-body-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 20px;
+}
+.fs-lms-modal-body-header__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.fs-lms-modal-body-header__icon {
+  width: 48px;
+  height: 48px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex-shrink: 0;
+}
+.fs-lms-modal-body-header__icon--google {
+  background-image: url("../../img/google.svg");
+}
+.fs-lms-modal-body-header__icon--vk {
+  background-image: url("../../img/vk.svg");
+}
+.fs-lms-modal-body-header__icon--github {
+  background-image: url("../../img/github.svg");
+}
+.fs-lms-modal-body-header__title-group h3 {
+  margin: 0 0 4px 0 !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #2c3338 !important;
+}
+.fs-lms-modal-body-header__title-group p {
+  margin: 0 !important;
+  font-size: 14px !important;
+  color: #646970 !important;
+}
+.fs-lms-modal-body-header {
+  /* Кнопка "Открыть Console" справа */
+}
+.fs-lms-modal-body-header__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid #2271b1;
+  color: #2271b1 !important;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 450;
+  text-decoration: none;
+  transition: 0.2s ease-out;
+  white-space: nowrap;
+}
+.fs-lms-modal-body-header__link .dashicons {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+.fs-lms-modal-body-header__link:hover {
+  background: rgba(34, 113, 177, 0.08);
+  border-color: #2271b1;
+  color: #0a4b78 !important;
+}
+
+/* Красивый список шагов (Таймлайн с синими кружками) */
+.fs-lms-help-content ol {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.fs-lms-help-content ol li {
+  position: relative;
+  padding-left: 45px !important;
+  margin: 0 !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  color: #2c3338;
+}
+.fs-lms-help-content ol li::before {
+  counter-increment: my-counter;
+  content: counter(my-counter);
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 26px;
+  height: 26px;
+  background: rgba(34, 113, 177, 0.08);
+  border: 2px solid #2271b1;
+  color: #2271b1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  z-index: 2;
+}
+.fs-lms-help-content ol li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 30px;
+  bottom: -22px;
+  width: 2px;
+  background: rgba(195, 196, 199, 0.6);
+  z-index: 1;
+}
+.fs-lms-help-content ol li strong {
+  color: #2c3338;
+}
+.fs-lms-help-content ol li a {
+  color: #2271b1;
+  text-decoration: none;
+}
+.fs-lms-help-content ol li a:hover {
+  text-decoration: underline;
+}
+.fs-lms-help-content ol li code {
+  background: #f0f0f1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.fs-lms-help-content {
+  counter-reset: my-counter;
+}
+
+/* Финальный блок "Готово!" внизу */
+.fs-lms-help-success {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+  align-items: flex-start;
+}
+.fs-lms-help-success__badge {
+  width: 28px;
+  height: 28px;
+  background: rgba(0, 138, 32, 0.08);
+  border: 2px solid #008a20;
+  color: #008a20;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.fs-lms-help-success__badge .dashicons {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  font-weight: bold;
+}
+.fs-lms-help-success__text h4 {
+  margin: 0 0 4px 0 !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #2c3338 !important;
+}
+.fs-lms-help-success__text p {
+  margin: 0 !important;
+  font-size: 14px !important;
+  color: #646970 !important;
+}
+
+/* Переопределение блока копирования под нативные цвета WP */
+.fs-lms-redirect-box {
+  background: rgba(100, 105, 112, 0.08);
+  border: 1px solid #c3c4c7;
+  border-radius: 6px;
+  padding: 16px;
+  margin: 12px 0;
+}
+.fs-lms-redirect-box__label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #2c3338;
+}
+.fs-lms-redirect-box__field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  padding: 0;
+  margin: 12px 0;
+}
+.fs-lms-redirect-box__url {
+  font-family: Consolas, Monaco, monospace;
+  font-size: 14px;
+  color: #2c3338;
+  word-break: break-all;
+  user-select: all;
+  -moz-user-select: all;
+  -webkit-user-select: all;
+  -ms-user-select: all;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.fs-lms-redirect-box__subtext {
+  font-size: 10px;
+  color: #646970;
+}
+.fs-lms-redirect-box__info {
+  background: rgba(34, 113, 177, 0.08);
+  border: 1px solid rgba(34, 113, 177, 0.2);
+  border-left: 4px solid #2271b1;
+  padding: 8px 12px;
+  border-radius: 0 4px 4px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.fs-lms-redirect-box__info .dashicons {
+  color: #2271b1;
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.fs-lms-redirect-box__info p {
+  margin: 0 !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  color: #2c3338 !important;
+}
+
 /* =================================================================
    COMPONENT: LMS Dashboard Tabs
    ================================================================= */
@@ -709,8 +956,8 @@ html.modal-open {
   display: none;
 }
 .fs-lms-dashboard .fs-tabs input[type=radio]:checked + label {
-  background: #fff;
-  border-bottom: 1px solid #fff;
+  background: #ffffff;
+  border-bottom: 1px solid #ffffff;
   margin-bottom: -1px;
   font-weight: 600;
   box-shadow: 0 -2px 0 #2271b1 inset;
@@ -723,7 +970,7 @@ html.modal-open {
   order: 1;
   display: none;
   padding: 30px;
-  background: #fff;
+  background: #ffffff;
   border: 1px solid #c3c4c7;
   min-height: 400px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
@@ -735,23 +982,23 @@ html.modal-open {
 .row-actions a,
 .row-actions button.button-link {
   text-decoration: none;
-  color: #1e73be;
+  color: #2271b1;
   transition: color 0.15s ease-in-out;
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
-  font-size: inherit;
+  font-size: 14px;
   line-height: inherit;
 }
 .row-actions a:hover,
 .row-actions button.button-link:hover {
-  color: #1e73be;
+  color: #2271b1;
   text-decoration: underline;
 }
 .row-actions a:focus,
 .row-actions button.button-link:focus {
-  outline: 2px solid #1e73be;
+  outline: 2px solid #2271b1;
   outline-offset: 2px;
 }
 .row-actions a.trash,
@@ -784,19 +1031,19 @@ html.modal-open {
 }
 .tab-content > .tab-pane.active {
   display: block;
-  padding: 10px;
+  padding: 8px;
 }
 
 .btn-filled {
-  background-color: #1e73be !important;
+  background-color: #2271b1 !important;
   color: #ffffff !important;
-  border-color: #1e73be !important;
+  border-color: #2271b1 !important;
   text-shadow: none;
   box-shadow: none;
 }
 .btn-filled:hover, .btn-filled:focus {
-  background-color: #155a8a !important;
-  border-color: #155a8a !important;
+  background-color: #135e96 !important;
+  border-color: #135e96 !important;
   color: #ffffff !important;
 }
 
@@ -807,10 +1054,226 @@ html.modal-open {
   gap: 50px;
   margin-bottom: 20px;
 }
-.header-row .header-actions {
+.header-row .description-actions {
   display: flex;
   gap: 16px;
   white-space: nowrap;
+}
+
+/* =================================================================
+   COMPONENT: LMS Auth Admin Settings
+   ================================================================= */
+.fs-lms-auth-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 95vw;
+  margin-bottom: 16px;
+  margin-top: 16px;
+}
+
+.fs-lms-auth-card {
+  background: #ffffff;
+  border: 1px solid #c3c4c7;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+.fs-lms-auth-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #ffffff;
+}
+.fs-lms-auth-card__info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.fs-lms-auth-card__icon {
+  width: 36px;
+  height: 36px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.fs-lms-auth-card__icon--google {
+  background-image: url("../../img/google.svg");
+}
+.fs-lms-auth-card__icon--vk {
+  background-image: url("../../img/vk.svg");
+}
+.fs-lms-auth-card__icon--github {
+  background-image: url("../../img/github.svg");
+}
+.fs-lms-auth-card__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fs-lms-auth-card__title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: #2c3338;
+}
+.fs-lms-auth-card__desc {
+  font-size: 14px;
+  font-weight: 450;
+  color: #646970;
+  margin: 0;
+}
+.fs-lms-auth-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.fs-lms-auth-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  font-size: 14px;
+  color: #2271b1;
+}
+.fs-lms-auth-card__link:hover {
+  color: #135e96;
+}
+.fs-lms-auth-card__link .dashicons {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+.fs-lms-auth-card__body {
+  padding: 20px;
+  background: #ffffff;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.fs-lms-auth-card__body.hidden {
+  display: none;
+}
+
+/* Элементы форм */
+.fs-lms-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.fs-lms-form-group label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #2c3338;
+}
+.fs-lms-form-group input[type=text],
+.fs-lms-form-group input[type=password] {
+  width: 100% !important;
+  max-width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #c3c4c7;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: none;
+  box-sizing: border-box;
+}
+.fs-lms-form-group input[type=text]:focus,
+.fs-lms-form-group input[type=password]:focus {
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #2271b1;
+  outline: none;
+}
+
+/* Нижняя панель с кнопкой сохранения */
+.fs-lms-auth-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+.fs-lms-auth-footer__notice {
+  font-size: 14px;
+  color: #646970;
+}
+
+.groups-table .js-toggle-students {
+  transition: background-color 0.15s ease-in-out;
+}
+.groups-table .js-toggle-students:hover {
+  background-color: #f0f0f1 !important;
+  cursor: pointer;
+}
+.groups-table .js-toggle-students .column-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.groups-table .js-toggle-students .column-title strong {
+  font-size: 14px;
+  line-height: 1.4;
+}
+.groups-table .js-toggle-students .accordion-arrow {
+  display: inline-block;
+  color: #2271b1;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  transition: transform 0.2s ease-out;
+}
+.groups-table .students-accordion-row {
+  background-color: #f6f7f7;
+}
+.groups-table .students-accordion-row.hidden {
+  display: none !important;
+}
+.groups-table .students-accordion-row td {
+  border-top: 1px inset #dcdcde;
+  border-bottom: 1px solid #dcdcde;
+}
+.groups-table .students-accordion-row .students-accordion-content {
+  padding: 8px 12px;
+}
+.groups-table .students-accordion-row .students-accordion-content .description {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.groups-table .students-accordion-row .students-accordion-content .description .dashicons {
+  color: #a7aaad;
+}
+
+.groups-filter-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  clear: none;
+}
+.groups-filter-nav .actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.groups-filter-nav .actions label {
+  margin: 0;
+  white-space: nowrap;
+}
+.groups-filter-nav .actions select {
+  float: none;
+  margin: 0;
+}
+.groups-filter-nav .page-title-action {
+  margin: 0;
+}
+
+.groups-tab-content {
+  margin-top: 12px;
 }
 
 /*# sourceMappingURL=admin.css.map */
