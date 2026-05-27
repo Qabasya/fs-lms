@@ -37,7 +37,7 @@ class MetaBoxRepository {
 	/**
 	 * Имя опции в wp_options.
 	 */
-	private string $option_name = OptionName::METABOXES->value;
+	private string $option_name = OptionName::Metaboxes->value;
 
 	/**
 	 * Получает "сырые" данные из опции.

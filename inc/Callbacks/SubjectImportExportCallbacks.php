@@ -82,7 +82,7 @@ class SubjectImportExportCallbacks extends BaseController {
 		$this->authorize( Nonce::Subject );
 
 		// Получение и валидация JSON-данных
-		$raw = $this->sanitizeHtml( 'json' );
+		$raw = wp_unslash( $_POST['json'] ?? '' );
 		if ( empty( $raw ) ) {
 			$this->error( 'JSON не передан' );
 		}

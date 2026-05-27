@@ -37,7 +37,7 @@ class BoilerplateRepository {
 	/**
 	 * Имя опции в wp_options.
 	 */
-	private string $option_name = OptionName::BOILERPLATE->value;
+	private string $option_name = OptionName::Boilerplate->value;
 
 	/**
 	 * Получает "сырые" данные из опции.

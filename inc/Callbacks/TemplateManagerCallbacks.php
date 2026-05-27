@@ -177,7 +177,7 @@ class TemplateManagerCallbacks extends BaseController {
 	 *
 	 * @return void
 	 */
-	public function ajaxGetBoilerplate(): void {
+	public function ajaxGetTaskBoilerplate(): void {
 		$this->authorize( Nonce::Subject );
 
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TMC206' );

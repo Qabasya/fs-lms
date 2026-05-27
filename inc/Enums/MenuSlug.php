@@ -12,8 +12,8 @@ namespace Inc\Enums;
 enum MenuSlug: string
 {
 	/** Slug главного меню плагина. */
-	case MAIN = 'fs_lms';
+	case Main = 'fs_lms';
 
 	/** Slug меню предметов. */
-	case SUBJECTS = 'fs_subjects';
+	case Subjects = 'fs_subjects';
 }

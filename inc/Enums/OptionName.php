@@ -23,28 +23,35 @@ namespace Inc\Enums;
 enum OptionName: string {
 
 	/** Опция для хранения списка предметов. */
-	case SUBJECTS = 'fs_lms_subjects_list';
+	case Subjects = 'fs_lms_subjects_list';
 
 	/** Опция для хранения привязок заданий к шаблонам метабоксов. */
-	case METABOXES = 'fs_lms_custom_metaboxes';
+	case Metaboxes = 'fs_lms_custom_metaboxes';
 
 	/** Опция для хранения пользовательских таксономий. */
-	case TAXONOMY = 'fs_lms_custom_taxonomies';
+	case Taxonomy = 'fs_lms_custom_taxonomies';
 
 	/** Опция для хранения типовых условий (boilerplate) заданий. */
-	case BOILERPLATE = 'fs_lms_task_type_boilerplates';
+	case Boilerplate = 'fs_lms_task_type_boilerplates';
 
 	/** Опция для хранения настроек аутентификации (API ключи соцсетей). */
-	case AUTH_SETTINGS = 'fs_lms_auth_settings';
+	case AuthSettings = 'fs_lms_auth_settings';
 
 	/** Опция для хранения учебных периодов. */
-	case ACADEMIC_PERIODS = 'fs_lms_academic_periods';
+	case AcademicPeriods = 'fs_lms_academic_periods';
 
 	/** Опция для хранения групп студентов. */
-	case STUDENT_GROUPS = 'fs_lms_student_groups';
+	case StudentGroups = 'fs_lms_student_groups';
 
-	case STUDENT_GROUP_MATRIX = 'fs_lms_student_group_matrix';  // Матрица связей студентов с группами
+	/** Матрица связей студентов с группами */
+	case StudentGroupMatrix = 'fs_lms_student_group_matrix';
 
 	/** Опция для хранения мета-данных привязки студентов к периодам. */
-	case STUDENT_PERIOD_META = 'fs_lms_student_period_meta';
+	case StudentPeriodMeta = 'fs_lms_student_period_meta';
+
+	/** Версия схемы БД */
+	case SchemaVersion = 'fs_lms_schema_version';
+
+	/** Справочник учебных периодов */
+	case Periods = 'fs_lms_periods_lust';
 }

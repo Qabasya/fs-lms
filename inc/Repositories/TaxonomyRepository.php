@@ -38,7 +38,7 @@ class TaxonomyRepository {
 	/**
 	 * Имя опции в wp_options.
 	 */
-	private string $option_name = OptionName::TAXONOMY->value;
+	private string $option_name = OptionName::Taxonomy->value;
 
 	/**
 	 * Получает "сырые" данные из опции.

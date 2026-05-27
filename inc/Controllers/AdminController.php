@@ -150,8 +150,8 @@ class AdminController extends BaseController implements ServiceInterface {
 			array(
 				'page_title' => 'FS LMS Dashboard',
 				'menu_title' => 'FS LMS',
-				'capability' => Capability::ADMIN->value,
-				'menu_slug'  => MenuSlug::MAIN->value,
+				'capability' => Capability::Admin->value,
+				'menu_slug'  => MenuSlug::Main->value,
 				'callback'   => array( $this->callbacks, 'adminDashboard' ),
 				'icon_url'   => 'dashicons-welcome-learn-more',
 				'position'   => 4,
@@ -186,20 +186,20 @@ class AdminController extends BaseController implements ServiceInterface {
 		// Первая подстраница (дублирует главную, будет скрыта WordPress)
 		// WordPress автоматически создаёт её, чтобы у родительского пункта был дочерний
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::MAIN->value,
-			'page_title'  => PageTitle::FIRST->value,
-			'menu_title'  => MenuTitle::FIRST->value,
-			'capability'  => Capability::ADMIN->value,
-			'menu_slug'   => MenuSlug::MAIN->value,
+			'parent_slug' => MenuSlug::Main->value,
+			'page_title'  => PageTitle::First->value,
+			'menu_title'  => MenuTitle::First->value,
+			'capability'  => Capability::Admin->value,
+			'menu_slug'   => MenuSlug::Main->value,
 			'callback'    => array( $this->callbacks, 'adminDashboard' ),
 		);
 
 		// Страница настроек плагина
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::MAIN->value,
-			'page_title'  => PageTitle::SECOND->value,
-			'menu_title'  => MenuTitle::SECOND->value,
-			'capability'  => Capability::ADMIN->value,
+			'parent_slug' => MenuSlug::Main->value,
+			'page_title'  => PageTitle::Second->value,
+			'menu_title'  => MenuTitle::Second->value,
+			'capability'  => Capability::Admin->value,
 			'menu_slug'   => 'fs_lms_settings',
 			'callback'    => array( $this->callbacks, 'settingsPage' ),
 		);
@@ -210,7 +210,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'parent_slug' => 'options.php',
 			'page_title'  => 'Управление типовыми условиями',
 			'menu_title'  => 'Boilerplate Manager',
-			'capability'  => Capability::ADMIN->value,
+			'capability'  => Capability::Admin->value,
 			'menu_slug'   => 'fs_boilerplate_manager',
 			'callback'    => array( $this->callbacks, 'boilerplatePage' ),
 		);
@@ -218,20 +218,20 @@ class AdminController extends BaseController implements ServiceInterface {
 		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
 		// Группы
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::MAIN->value,        // Привязываем к главному меню FS LMS
+			'parent_slug' => MenuSlug::Main->value,        // Привязываем к главному меню FS LMS
 			'page_title'  => 'Управление группами',        // Заголовок в теге <title>
 			'menu_title'  => 'Группы',                     // Название пункта в боковом меню
-			'capability'  => Capability::ADMIN->value,     // Права доступа
+			'capability'  => Capability::Admin->value,     // Права доступа
 			'menu_slug'   => 'fs_lms_groups',              // Уникальный слаг страницы
 			'callback'    => array( $this->callbacks, 'groupsPage' ), // Метод-коллбек для отрисовки
 		);
 
 		// Список пользователей
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::MAIN->value,        // Привязываем к главному меню FS LMS
+			'parent_slug' => MenuSlug::Main->value,        // Привязываем к главному меню FS LMS
 			'page_title'  => 'Список пользователей',        // Заголовок в теге <title>
 			'menu_title'  => 'Пользователи',                     // Название пункта в боковом меню
-			'capability'  => Capability::ADMIN->value,     // Права доступа
+			'capability'  => Capability::Admin->value,     // Права доступа
 			'menu_slug'   => 'fs_lms_userlist',              // Уникальный слаг страницы
 			'callback'    => array( $this->callbacks, 'userlistPage' ), // Метод-коллбек для отрисовки
 		);
@@ -257,8 +257,8 @@ class AdminController extends BaseController implements ServiceInterface {
 			function () {
 				// Удаляем дублирующийся подпункт для страницы списка предметов
 				remove_submenu_page(
-					MenuSlug::SUBJECTS->value,
-					MenuSlug::SUBJECTS->value
+					MenuSlug::Subjects->value,
+					MenuSlug::Subjects->value
 				);
 			},
 			999

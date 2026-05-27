@@ -35,7 +35,7 @@ trait Authorizer {
 	 */
 	public function authorize(
 		Nonce $nonceEnum,
-		Capability $capability = Capability::ADMIN,
+		Capability $capability = Capability::Admin,
 		string $queryArg = 'security'
 	): void {
 		// 1. Проверка Nonce

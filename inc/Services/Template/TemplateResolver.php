@@ -31,7 +31,7 @@ use Inc\Services\PostTypeResolver;
  *
  * 1. **Глобальная привязка в БД** — настройка на уровне типа задания (термина таксономии).
  * 2. **Мета-поле поста** — индивидуальная настройка для конкретного задания (обратная совместимость).
- * 3. **Стандартный шаблон** — значение по умолчанию из Enum TaskTemplate::STANDARD.
+ * 3. **Стандартный шаблон** — значение по умолчанию из Enum TaskTemplate::Standard.
  */
 class TemplateResolver {
 	
@@ -82,7 +82,7 @@ class TemplateResolver {
 		}
 		
 		// 4. ПРИОРИТЕТ 3: Стандартный шаблон (из Enum)
-		return TaskTemplate::STANDARD->value;
+		return TaskTemplate::Standard->value;
 	}
 	
 	/**

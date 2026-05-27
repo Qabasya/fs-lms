@@ -51,9 +51,9 @@ class AuthStrategyRegistry {
 	) {
 		// Регистрация стратегий с привязкой к значению enum
 		$this->strategies = array(
-			AuthProvider::GOOGLE->value    => $google_strategy,
-			AuthProvider::VKONTAKTE->value => $vk_strategy,
-			AuthProvider::GITHUB->value    => $github_strategy,
+			AuthProvider::Google->value    => $google_strategy,
+			AuthProvider::Vkontakte->value => $vk_strategy,
+			AuthProvider::Github->value    => $github_strategy,
 		);
 	}
 

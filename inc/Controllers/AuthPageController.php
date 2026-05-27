@@ -65,7 +65,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 	public function renderLoginPage(): string {
 		// is_user_logged_in() — проверяет, авторизован ли пользователь
 		if ( is_user_logged_in() ) {
-			wp_safe_redirect( PageRoutes::USER_PROFILE->url() );
+			wp_safe_redirect( PageRoutes::UserProfile->url() );
 			exit;
 		}
 
@@ -78,8 +78,8 @@ class AuthPageController extends BaseController implements ServiceInterface {
 			'frontend/auth-page',
 			array(
 				'providers'     => $providers,
-				// PageRoutes::SIGN_UP->url() — URL страницы регистрации (для ручной регистрации)
-				'register_url'  => PageRoutes::SIGN_UP->url(),
+				// PageRoutes::SignUp->url() — URL страницы регистрации (для ручной регистрации)
+				'register_url'  => PageRoutes::SignUp->url(),
 				// wp_lostpassword_url() — возвращает URL страницы восстановления пароля
 				'lost_pass_url' => wp_lostpassword_url(),
 			)
@@ -100,7 +100,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 		// Проверяем, что мы на странице логина, это GET-запрос и не отправка формы
 		// 'wp-submit' — стандартное поле отправки формы авторизации
 		if ( 'wp-login.php' === $pagenow && ! isset( $_POST['wp-submit'] ) && 'GET' === $_SERVER['REQUEST_METHOD'] && 'logout' !== ( $_GET['action'] ?? '' ) ) {
-			wp_safe_redirect( PageRoutes::SIGN_IN->url() );
+			wp_safe_redirect( PageRoutes::SignIn->url() );
 			exit;
 		}
 	}

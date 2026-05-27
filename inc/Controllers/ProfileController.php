@@ -59,14 +59,14 @@ class ProfileController extends BaseController implements ServiceInterface {
 		// Если пользователь залогинен и находится на странице входа — редирект в профиль
 		// is_user_logged_in() — проверяет авторизацию
 		// isCurrent() — метод enum PageRoutes, проверяет соответствие текущей страницы
-		if ( is_user_logged_in() && PageRoutes::SIGN_IN->isCurrent() ) {
-			wp_safe_redirect( PageRoutes::USER_PROFILE->url() );
+		if ( is_user_logged_in() && PageRoutes::SignIn->isCurrent() ) {
+			wp_safe_redirect( PageRoutes::UserProfile->url() );
 			exit;
 		}
 
 		// Если пользователь не залогинен и находится на странице профиля — редирект на вход
-		if ( ! is_user_logged_in() && PageRoutes::USER_PROFILE->isCurrent() ) {
-			wp_safe_redirect( PageRoutes::SIGN_IN->url() );
+		if ( ! is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
+			wp_safe_redirect( PageRoutes::SignIn->url() );
 			exit;
 		}
 	}

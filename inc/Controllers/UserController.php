@@ -65,7 +65,7 @@ class UserController extends BaseController implements ServiceInterface {
 				if ( array_intersect( array( 'administrator', 'editor' ), $user->roles ) ) {
 					return admin_url();
 				}
-				return PageRoutes::USER_PROFILE->url();
+				return PageRoutes::UserProfile->url();
 			},
 			10,
 			3

@@ -1,3 +1,4 @@
+<?php use Inc\Enums\Nonce; ?>
 <div id="fs-subject-modal" class="fs-lms-modal hidden">
 	<!-- Затемнение (прозрачное по умолчанию, можно включить при необходимости) -->
 	<div class="fs-lms-modal-backdrop"></div>
@@ -31,7 +32,7 @@
 					<p class="description">Сколько уникальных номеров заданий будет в курсе.</p>
 				</div>
 
-				<?php wp_nonce_field( 'fs_subject_nonce', 'security' ); ?>
+				<?php wp_nonce_field( Nonce::Subject->value, 'security' ); ?>
 
 				<!-- Футер с кнопками -->
 				<div class="fs-lms-modal-footer">

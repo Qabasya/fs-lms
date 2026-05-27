@@ -23,13 +23,13 @@ namespace Inc\Enums;
 enum PageRoutes: string {
 
 	/** Страница авторизации (вход в личный кабинет) */
-	case SIGN_IN      = 'sign-in';
+	case SignIn      = 'sign-in';
 
 	/** Страница регистрации нового пользователя */
-	case SIGN_UP      = 'sign-up';
+	case SignUp      = 'sign-up';
 
 	/** Страница личного кабинета пользователя */
-	case USER_PROFILE = 'profile';
+	case UserProfile = 'profile';
 
 	/**
 	 * Возвращает полный абсолютный URL для текущего маршрута.

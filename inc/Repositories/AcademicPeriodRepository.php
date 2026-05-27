@@ -42,7 +42,7 @@ class AcademicPeriodRepository {
 	 */
 	public function readAll(): array {
 		// get_option() — получает опцию из таблицы wp_options
-		$periods = get_option( OptionName::ACADEMIC_PERIODS->value, array() );
+		$periods = get_option( OptionName::AcademicPeriods->value, array() );
 
 		if ( ! is_array( $periods ) ) {
 			return array();
@@ -116,7 +116,7 @@ class AcademicPeriodRepository {
 			return true;
 		}
 
-		return (bool) update_option( OptionName::ACADEMIC_PERIODS->value, $periods );
+		return (bool) update_option( OptionName::AcademicPeriods->value, $periods );
 	}
 
 	/**
@@ -131,7 +131,7 @@ class AcademicPeriodRepository {
 
 		$periods[ $dto->id ] = $dto->toArray();
 
-		return (bool) update_option( OptionName::ACADEMIC_PERIODS->value, $periods );
+		return (bool) update_option( OptionName::AcademicPeriods->value, $periods );
 	}
 
 	/**
@@ -151,6 +151,6 @@ class AcademicPeriodRepository {
 		// unset() — удаляет элемент из массива по ключу
 		unset( $periods[ $id ] );
 
-		return (bool) update_option( OptionName::ACADEMIC_PERIODS->value, $periods );
+		return (bool) update_option( OptionName::AcademicPeriods->value, $periods );
 	}
 }
