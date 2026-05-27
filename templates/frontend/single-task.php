@@ -101,54 +101,52 @@ $nav_next    = $navigation['next'] ?? null;
 				<!-- Навигация: предыдущее / все задания / следующее -->
 				<hr class="fs-task-divider">
 				<nav class="fs-task-nav">
+					<?php if ( $nav_prev ) : ?>
+					<a href="<?php echo esc_url( $nav_prev['url'] ); ?>" class="fs-task-nav__side fs-task-nav__side--prev" aria-label="Предыдущее задание">
+					<?php else : ?>
 					<div class="fs-task-nav__side fs-task-nav__side--prev">
-						<?php if ( $nav_prev ) : ?>
-							<a href="<?php echo esc_url( $nav_prev['url'] ); ?>" class="fs-task-nav__arrow" aria-label="Предыдущее">&#8249;</a>
-						<?php else : ?>
-							<span class="fs-task-nav__arrow fs-task-nav__arrow--disabled" aria-hidden="true">&#8249;</span>
-						<?php endif; ?>
+					<?php endif; ?>
+						<span class="fs-task-nav__arrow<?php echo ! $nav_prev ? ' fs-task-nav__arrow--disabled' : ''; ?>" aria-hidden="true">&#8249;</span>
 						<div class="fs-task-nav__info">
 							<span class="fs-task-nav__label">Предыдущее</span>
 							<span class="fs-task-nav__title">
-								<?php if ( $nav_prev ) : ?>
-									<a href="<?php echo esc_url( $nav_prev['url'] ); ?>"><?php echo esc_html( $nav_prev['title'] ); ?></a>
-								<?php else : ?>
-									&mdash;
-								<?php endif; ?>
+								<?php echo $nav_prev ? esc_html( $nav_prev['title'] ) : '&mdash;'; ?>
 							</span>
 						</div>
+					<?php if ( $nav_prev ) : ?>
+					</a>
+					<?php else : ?>
 					</div>
+					<?php endif; ?>
 
 					<div class="fs-task-nav__center">
 						<div class="fs-task-nav__circle"></div>
-						<?php if ( ! empty( $breadcrumbs['task_type']['url'] ) ) : ?>
-							<a href="<?php echo esc_url( $breadcrumbs['task_type']['url'] ); ?>" class="fs-task-nav__all">Все задания</a>
-						<?php elseif ( ! empty( $breadcrumbs['subject']['url'] ) ) : ?>
+						<?php if ( ! empty( $breadcrumbs['subject']['url'] ) ) : ?>
 							<a href="<?php echo esc_url( $breadcrumbs['subject']['url'] ); ?>" class="fs-task-nav__all">Все задания</a>
 						<?php else : ?>
 							<span class="fs-task-nav__all fs-task-nav__all--plain">Все задания</span>
 						<?php endif; ?>
 					</div>
 
+					<?php if ( $nav_next ) : ?>
+					<a href="<?php echo esc_url( $nav_next['url'] ); ?>" class="fs-task-nav__side fs-task-nav__side--next" aria-label="Следующее задание">
+					<?php else : ?>
 					<div class="fs-task-nav__side fs-task-nav__side--next">
-						<?php if ( $nav_next ) : ?>
-							<a href="<?php echo esc_url( $nav_next['url'] ); ?>" class="fs-task-nav__arrow" aria-label="Следующее">&#8250;</a>
-						<?php else : ?>
-							<span class="fs-task-nav__arrow fs-task-nav__arrow--disabled" aria-hidden="true">&#8250;</span>
-						<?php endif; ?>
+					<?php endif; ?>
+						<span class="fs-task-nav__arrow<?php echo ! $nav_next ? ' fs-task-nav__arrow--disabled' : ''; ?>" aria-hidden="true">&#8250;</span>
 						<div class="fs-task-nav__info fs-task-nav__info--right">
 							<span class="fs-task-nav__label">Следующее</span>
 							<span class="fs-task-nav__title">
-								<?php if ( $nav_next ) : ?>
-									<a href="<?php echo esc_url( $nav_next['url'] ); ?>"><?php echo esc_html( $nav_next['title'] ); ?></a>
-								<?php else : ?>
-									&mdash;
-								<?php endif; ?>
+								<?php echo $nav_next ? esc_html( $nav_next['title'] ) : '&mdash;'; ?>
 							</span>
 						</div>
+					<?php if ( $nav_next ) : ?>
+					</a>
+					<?php else : ?>
 					</div>
-				</nav>
-				<hr class="fs-task-divider">
+					<?php endif; ?>
+					</nav>
+					<hr class="fs-task-divider">
 
 				<!-- Теги -->
 				<?php if ( ! empty( $tags ) ) : ?>

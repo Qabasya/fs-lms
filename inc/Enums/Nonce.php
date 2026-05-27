@@ -42,6 +42,9 @@ enum Nonce: string {
 		return wp_create_nonce( $this->value );
 	}
 
+	/** Страница «Все задания» и AJAX-фильтрация. */
+	case AllTasks = 'fs_lms_all_tasks_nonce';
+
 	/**
 	 * Проверяет входящий запрос.
 	 *
