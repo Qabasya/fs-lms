@@ -38,6 +38,6 @@ coverage/
 assets/
 
 # WordPress debug
-debug.log
+.docs/TASKS.md
 
 settings.local.json
