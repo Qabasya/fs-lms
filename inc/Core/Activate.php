@@ -6,7 +6,7 @@ namespace Inc\Core;
 
 use Inc\Enums\PageRoutes;
 use Inc\Enums\ShortCode;
-use Inc\Managers\UserManager;
+use Inc\Managers\RoleManager;
 use Inc\Services\PageGeneratorService;
 
 /**
@@ -39,10 +39,9 @@ class Activate {
 		// Создание экземпляра DI-контейнера
 		$container = new Container();
 
-		/** @var UserManager $user_manager */
-		$user_manager = $container->get( UserManager::class );
-		// Создание кастомных ролей пользователей
-		$user_manager->createRoles();
+		/** @var RoleManager $role_manager */
+		$role_manager = $container->get( RoleManager::class );
+		$role_manager->registerAll();
 
 		// Автоматическое создание страниц входа, регистрации и профиля
 		self::generatePages();
