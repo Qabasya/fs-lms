@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\DTO;
 
 /**
- * Class RequestContext
+ * Class RequestContextDTO
  *
  * Контекст HTTP-запроса.
  *
@@ -22,17 +22,16 @@ namespace Inc\DTO;
  *
  * ### Примечания:
  *
- * - IP хранится как бинарная строка через inet_pton для совместимости с типом VARBINARY(16)
- *   (поддержка как IPv4, так и IPv6).
+ * - IP хранится как текстовая строка (varchar(45)), поддерживает IPv4 и IPv6.
  * - userAgent — строка User-Agent из HTTP-заголовка.
  * - actorUserId — ID пользователя WordPress, выполняющего действие.
  */
-readonly class RequestContext {
+readonly class RequestContextDTO {
 
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param string $ip          IP-адрес пользователя (бинарное представление через inet_pton)
+	 * @param string $ip          IP-адрес пользователя (текстовый, varchar(45))
 	 * @param string $userAgent   User-Agent браузера
 	 * @param int    $actorUserId ID пользователя WordPress (0 для неавторизованных)
 	 */
