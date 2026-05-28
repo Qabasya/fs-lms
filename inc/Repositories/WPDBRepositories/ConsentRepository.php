@@ -132,8 +132,33 @@ class ConsentRepository implements RepositoryInterface {
 	 */
 	public function withdraw( int $id, string $reason ): bool {
 		return $this->update( $id, array(
-			'withdrawn_at'     => current_time( 'mysql' ), // Текущая дата и время
+			'withdrawn_at'     => current_time( 'mysql' ),
 			'withdrawn_reason' => $reason,
 		) );
+	}
+
+	/**
+	 * Привязывает согласия заявки к записям person по роли субъекта.
+	 *
+	 * Обновляет person_id у всех согласий заявки, у которых subject_role
+	 * совпадает с ключом personMap. Вызывается после создания person-записей,
+	 * когда заявка переходит в статус pending_review.
+	 *
+	 * @param int                   $appId     ID заявки
+	 * @param array<string, int>    $personMap subject_role => person_id
+	 *
+	 * @return void
+	 */
+	public function bindApplicationConsentsToPersons( int $appId, array $personMap ): void {
+		foreach ( $personMap as $role => $personId ) {
+			$this->wpdb->update(
+				$this->table,
+				array( 'person_id' => $personId ),
+				array(
+					'application_id' => $appId,
+					'subject_role'   => $role,
+				)
+			);
+		}
 	}
 }
