@@ -61,20 +61,13 @@ class ApplicationRepository implements RepositoryInterface {
 	 * @return ApplicationDTO|null
 	 */
 	public function find( int $id ): ?ApplicationDTO {
-		// prepare() — подготавливает SQL-запрос с экранированием параметров
-		$query = $this->wpdb->prepare(
-			"SELECT * FROM {$this->table} WHERE id = %d LIMIT 1",
-			$id
+		// %i — плейсхолдер для идентификатора таблицы, get_row() с ARRAY_A — строка как ассоциативный массив
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare( 'SELECT * FROM %i WHERE id = %d LIMIT 1', $this->table, $id ),
+			ARRAY_A
 		);
 
-		// get_row() — получает одну строку результата в виде массива
-		$row = $this->wpdb->get_row( $query, ARRAY_A );
-
-		if ( null === $row || false === $row ) {
-			return null;
-		}
-
-		return ApplicationDTO::fromArray( $row );
+		return $row ? ApplicationDTO::fromArray( $row ) : null;
 	}
 
 	/**
@@ -92,21 +85,19 @@ class ApplicationRepository implements RepositoryInterface {
 			ApplicationStatus::Enrolling->value,
 		);
 
-		// array_fill() — создаёт массив с плейсхолдерами (%s, %s, %s)
+		// array_fill() — создаёт массив с плейсхолдерами (%s, %s, %s); значения статусов — из enum, не из user input
 		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
 
-		$query = $this->wpdb->prepare(
-			"SELECT * FROM {$this->table} WHERE join_code_hash = %s AND status IN ($placeholders) LIMIT 1",
-			array_merge( array( $hash ), $statuses )
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE join_code_hash = %s AND status IN ($placeholders) LIMIT 1",
+				array_merge( array( $this->table, $hash ), $statuses )
+			),
+			ARRAY_A
 		);
 
-		$row = $this->wpdb->get_row( $query, ARRAY_A );
-
-		if ( null === $row || false === $row ) {
-			return null;
-		}
-
-		return ApplicationDTO::fromArray( $row );
+		return $row ? ApplicationDTO::fromArray( $row ) : null;
 	}
 
 	/**
@@ -124,18 +115,16 @@ class ApplicationRepository implements RepositoryInterface {
 
 		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
 
-		$query = $this->wpdb->prepare(
-			"SELECT * FROM {$this->table} WHERE student_email_hash = %s AND status IN ($placeholders) LIMIT 1",
-			array_merge( array( $emailHash ), $statuses )
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE student_email_hash = %s AND status IN ($placeholders) LIMIT 1",
+				array_merge( array( $this->table, $emailHash ), $statuses )
+			),
+			ARRAY_A
 		);
 
-		$row = $this->wpdb->get_row( $query, ARRAY_A );
-
-		if ( null === $row || false === $row ) {
-			return null;
-		}
-
-		return ApplicationDTO::fromArray( $row );
+		return $row ? ApplicationDTO::fromArray( $row ) : null;
 	}
 
 	/**
@@ -176,9 +165,10 @@ class ApplicationRepository implements RepositoryInterface {
 		$bindings[] = $perPage;
 		$bindings[] = $offset;
 
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$query = $this->wpdb->prepare(
-			"SELECT * FROM {$this->table} WHERE {$whereStr} ORDER BY id DESC LIMIT %d OFFSET %d",
-			$bindings
+			"SELECT * FROM %i WHERE $whereStr ORDER BY id DESC LIMIT %d OFFSET %d",
+			array_merge( array( $this->table ), $bindings )
 		);
 
 		$rows   = $this->wpdb->get_results( $query, ARRAY_A );
@@ -221,9 +211,10 @@ class ApplicationRepository implements RepositoryInterface {
 
 		$whereStr = implode( ' AND ', $conditions );
 
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$query = $this->wpdb->prepare(
-			"SELECT COUNT(*) FROM {$this->table} WHERE {$whereStr}",
-			$bindings
+			"SELECT COUNT(*) FROM %i WHERE $whereStr",
+			array_merge( array( $this->table ), $bindings )
 		);
 
 		// get_var() — получает одно значение из результата запроса
@@ -326,13 +317,15 @@ class ApplicationRepository implements RepositoryInterface {
 	 * @return array<int, ApplicationDTO>
 	 */
 	public function findStuckEnrolling( int $minMinutes ): array {
-		$query = $this->wpdb->prepare(
-			"SELECT * FROM {$this->table} WHERE status = %s AND updated_at < DATE_SUB(NOW(), INTERVAL %d MINUTE)",
-			ApplicationStatus::Enrolling->value,
-			$minMinutes
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE status = %s AND updated_at < DATE_SUB(NOW(), INTERVAL %d MINUTE)',
+				$this->table,
+				ApplicationStatus::Enrolling->value,
+				$minMinutes
+			),
+			ARRAY_A
 		);
-
-		$rows   = $this->wpdb->get_results( $query, ARRAY_A );
 		$result = array();
 
 		if ( ! empty( $rows ) && is_array( $rows ) ) {
@@ -357,12 +350,14 @@ class ApplicationRepository implements RepositoryInterface {
 
 		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
 
-		$query = $this->wpdb->prepare(
-			"SELECT * FROM {$this->table} WHERE status IN ($placeholders) AND join_code_expires_at < NOW()",
-			$statuses
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE status IN ($placeholders) AND join_code_expires_at < NOW()",
+				array_merge( array( $this->table ), $statuses )
+			),
+			ARRAY_A
 		);
-
-		$rows   = $this->wpdb->get_results( $query, ARRAY_A );
 		$result = array();
 
 		if ( ! empty( $rows ) && is_array( $rows ) ) {
