@@ -117,7 +117,7 @@ public static function run(): void {
 
 ### 1. Репозиторий (`TaxonomyRepository`)
 
-**Файл:** `inc/Repositories/TaxonomyRepository.php`
+**Файл:** `Inc/Repositories/WPDBRepositories/TaxonomyRepository.php`
 
 **Назначение:** CRUD-операции с данными таксономий в БД (таблица `wp_options`).
 
@@ -1262,7 +1262,7 @@ class TaxonomySettingsCallbacks {
 
 ## Репозитории
 
-**Расположение:** `inc/Repositories/`
+**Расположение:** `Inc/Repositories/WPDBRepositories/`
 
 ### Назначение
 

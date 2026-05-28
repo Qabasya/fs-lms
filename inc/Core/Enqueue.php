@@ -7,7 +7,7 @@ namespace Inc\Core;
 use Inc\Contracts\ServiceInterface;
 use Inc\Enums\AjaxHook;
 use Inc\Enums\Nonce;
-use Inc\Repositories\TaxonomyRepository;
+use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\PostTypeResolver;
 
 /**

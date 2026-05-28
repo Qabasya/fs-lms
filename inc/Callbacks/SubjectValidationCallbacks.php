@@ -3,7 +3,7 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
-use Inc\Repositories\TaxonomyRepository;
+use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\PostTypeResolver;
 
 /**

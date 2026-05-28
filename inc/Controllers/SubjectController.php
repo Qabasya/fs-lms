@@ -2,22 +2,22 @@
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\SubjectPageCallbacks;
 use Inc\Callbacks\SubjectCrudCallbacks;
 use Inc\Callbacks\SubjectDataCallbacks;
 use Inc\Callbacks\SubjectImportExportCallbacks;
+use Inc\Callbacks\SubjectPageCallbacks;
 use Inc\Callbacks\SubjectValidationCallbacks;
-use Inc\Callbacks\TemplateCallbacks;
 use Inc\Callbacks\TaxonomySettingsCallbacks;
+use Inc\Callbacks\TemplateCallbacks;
 use Inc\Callbacks\TemplateManagerCallbacks;
 use Inc\Enums\AjaxHook;
 use Inc\Managers\PostManager;
 use Inc\Registrars\SubjectCPTRegistrar;
 use Inc\Registrars\SubjectTaxonomyRegistrar;
-use Inc\Repositories\SubjectRepository;
-use Inc\Repositories\TaxonomyRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\ContentCacheService;
+use Inc\Services\PostTypeResolver;
 use Inc\Shared\Traits\NumericSorter;
 
 /**

@@ -9,6 +9,8 @@ use Inc\Enums\ShortCode;
 use Inc\Enums\CronHook;
 use Inc\Managers\CronManager;
 use Inc\Managers\RoleManager;
+use Inc\Migrations\Migration_1_0_0;
+use Inc\Migrations\MigrationRunner;
 use Inc\Services\PageGeneratorService;
 use Inc\Services\PiiCryptoService;
 
@@ -75,6 +77,10 @@ class Activate {
 		$cron_manager->schedule( CronHook::ExpireApplications->value, 'daily' );
 		$cron_manager->schedule( CronHook::RetentionCleanup->value, 'daily' );
 		$cron_manager->schedule( CronHook::RecoveryTick->value, 'every_15_minutes' );
+
+		$migration_runner = new MigrationRunner();
+		$migration_runner->register( new Migration_1_0_0() );
+		$migration_runner->run();
 
 		// Автоматическое создание страниц входа, регистрации и профиля
 		self::generatePages();

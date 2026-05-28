@@ -4,10 +4,10 @@ declare( strict_types=1 );
 
 namespace Inc\Managers;
 
-use Inc\Repositories\MetaBoxRepository;
-use Inc\Repositories\BoilerplateRepository;
-use Inc\Enums\TaskTemplate;
 use Inc\Enums\PostMetaName;
+use Inc\Enums\TaskTemplate;
+use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
+use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Services\PostTypeResolver;
 
 /**

@@ -7,7 +7,7 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
 use Inc\Managers\TaskManager;
-use Inc\Repositories\BoilerplateRepository;
+use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Services\Task\TaskTypeService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;

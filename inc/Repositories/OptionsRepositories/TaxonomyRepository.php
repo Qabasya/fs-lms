@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Inc\Repositories;
+namespace Inc\Repositories\OptionsRepositories;
 
 use Inc\DTO\TaxonomyDataDTO;
 use Inc\Enums\OptionName;
@@ -54,7 +54,7 @@ class TaxonomyRepository {
 	/**
 	 * Возвращает все таксономии, сгруппированные по предметам.
 	 *
-	 * @return array<string, TaxonomyDataDTO[]> [subject_key => DTO[]]
+	 * @return TaxonomyDataDTO [subject_key => DTO[]]
 	 */
 	public function readAll(): array {
 		$result = array();

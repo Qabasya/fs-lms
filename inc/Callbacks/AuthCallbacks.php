@@ -6,7 +6,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\Enums\AuthProvider;
-use Inc\Repositories\SettingsRepository;
+use Inc\Repositories\OptionsRepositories\SettingsRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**

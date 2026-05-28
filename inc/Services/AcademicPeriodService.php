@@ -6,10 +6,10 @@ namespace Inc\Services;
 
 use Inc\DTO\AcademicPeriodDTO;
 use Inc\DTO\StudentEnrollmentDTO;
-use Inc\Repositories\AcademicPeriodRepository;
-use Inc\Repositories\StudentGroupRepository;
-use Inc\Repositories\StudentPeriodMatrixRepository;
-use Inc\Repositories\UserRepository;
+use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
+use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+use Inc\Repositories\OptionsRepositories\StudentPeriodMatrixRepository;
+use Inc\Repositories\OptionsRepositories\UserRepository;
 
 /**
  * Class AcademicPeriodService

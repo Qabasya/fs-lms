@@ -6,9 +6,9 @@ namespace Inc\Services\Subject;
 
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
-use Inc\Repositories\BoilerplateRepository;
-use Inc\Repositories\MetaBoxRepository;
-use Inc\Repositories\TaxonomyRepository;
+use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
+use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
+use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\PostTypeResolver;
 
 /**

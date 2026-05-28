@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services;
 
 use Inc\DTO\StudentGroupDTO;
-use Inc\Repositories\StudentGroupRepository;
+use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Shared\Traits\SlugGenerator;
 
 /**

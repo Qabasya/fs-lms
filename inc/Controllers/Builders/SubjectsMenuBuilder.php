@@ -6,7 +6,7 @@ use Inc\Callbacks\SubjectPageCallbacks;
 use Inc\Contracts\MenuBuilderInterface;
 use Inc\Enums\Capability;
 use Inc\Enums\MenuSlug;
-use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 
 /**
  * Class SubjectsMenuBuilder

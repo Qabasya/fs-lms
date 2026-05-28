@@ -4,9 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Template;
 
-use Inc\Enums\TaskTemplate;
 use Inc\Enums\PostMetaName;
-use Inc\Repositories\MetaBoxRepository;
+use Inc\Enums\TaskTemplate;
+use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Services\PostTypeResolver;
 
 /**

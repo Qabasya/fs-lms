@@ -11,11 +11,11 @@ use Inc\DTO\TermViewDTO;
 use Inc\Enums\PostMetaName;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\ArticleService;
 use Inc\Services\PostTypeResolver;
 use Inc\Services\Task\TaskMetaService;
-use Inc\Repositories\SubjectRepository;
-use Inc\Repositories\TaxonomyRepository;
 
 /**
  * Class TaskDataBuilder

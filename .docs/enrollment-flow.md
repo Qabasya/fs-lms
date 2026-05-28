@@ -1523,7 +1523,7 @@ Enrollment snapshot **сохраняется**, но также подлежит
 
 В соответствии с архитектурой CLAUDE.md:
 
-**Repositories (`inc/Repositories/`):**
+**Repositories (`Inc/Repositories/WPDBRepositories/`):**
 - `ApplicationRepository`
 - `PersonRepository`
 - `RelationshipRepository`
@@ -1543,7 +1543,7 @@ Enrollment snapshot **сохраняется**, но также подлежит
 - `PersonReader` — обёртка над `PersonRepository::find()` с автоматическим `pii_access_log`.
 
 **DTO (`inc/DTO/`):**
-- `ApplicationDto`, `PersonDto`, `EnrollmentDto`, `RelationshipDto`, `ConsentDto` — для передачи между слоями.
+- `ApplicationDTO`, `PersonDTO`, `EnrollmentDTO`, `RelationshipDTO`, `ConsentDTO` — для передачи между слоями.
 - `EnrollmentInput` — входной DTO для `EnrollmentService::enroll()`.
 
 **Controllers (`inc/Controllers/`):**
