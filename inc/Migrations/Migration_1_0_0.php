@@ -64,17 +64,17 @@ class Migration_1_0_0 implements MigrationInterface {
 		dbDelta(
 			"CREATE TABLE $persons (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			wp_user_id bigint(20) unsigned DEFAULT NULL,                 -- ID пользователя WP
-			email varchar(255) DEFAULT NULL,                             -- Email (дубликат для поиска)
-			full_name_enc longblob DEFAULT NULL,                         -- ФИО (шифрованное)
-			doc_number_enc longblob DEFAULT NULL,                        -- Номер документа (шифрованный)
-			inn_enc longblob DEFAULT NULL,                               -- ИНН (шифрованный)
-			snils_enc longblob DEFAULT NULL,                             -- СНИЛС (шифрованный)
-			address_enc longblob DEFAULT NULL,                           -- Адрес (шифрованный)
-			phone_enc longblob DEFAULT NULL,                             -- Телефон (шифрованный)
-			doc_number_hash varchar(64) DEFAULT NULL,                    -- Хеш номера документа (для поиска)
-			inn_hash varchar(64) DEFAULT NULL,                           -- Хеш ИНН (для поиска)
-			deleted_at datetime DEFAULT NULL,                            -- Мягкое удаление
+			wp_user_id bigint(20) unsigned DEFAULT NULL,
+			email varchar(255) DEFAULT NULL,
+			full_name_enc longblob DEFAULT NULL,
+			doc_number_enc longblob DEFAULT NULL,
+			inn_enc longblob DEFAULT NULL,
+			snils_enc longblob DEFAULT NULL,
+			address_enc longblob DEFAULT NULL,
+			phone_enc longblob DEFAULT NULL,
+			doc_number_hash varchar(64) DEFAULT NULL,
+			inn_hash varchar(64) DEFAULT NULL,
+			deleted_at datetime DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -90,15 +90,20 @@ class Migration_1_0_0 implements MigrationInterface {
 		dbDelta(
 			"CREATE TABLE $applications (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			student_person_id bigint(20) unsigned DEFAULT NULL,          -- ID ученика (из persons)
-			parent_person_id bigint(20) unsigned DEFAULT NULL,           -- ID родителя (из persons)
-			period_key varchar(50) NOT NULL,                             -- Учебный период
-			status varchar(50) NOT NULL,                                 -- Статус заявки
-			join_code_hash varchar(64) DEFAULT NULL,                     -- Хеш кода для вступления
-			join_code_expires_at datetime DEFAULT NULL,                  -- Срок действия кода
-			student_email_hash varchar(64) DEFAULT NULL,                 -- Хеш email ученика (для поиска)
-			converted_to_enrollment_id bigint(20) unsigned DEFAULT NULL, -- ID зачисления после конвертации
-			form_data longtext DEFAULT NULL,                             -- Данные формы (JSON)
+			student_person_id bigint(20) unsigned DEFAULT NULL,
+			parent_person_id bigint(20) unsigned DEFAULT NULL,
+			period_key varchar(50) NOT NULL,
+			status varchar(50) NOT NULL,
+			join_code_hash varchar(64) DEFAULT NULL,
+			join_code_expires_at datetime DEFAULT NULL,
+			student_email_hash varchar(64) DEFAULT NULL,
+			student_data_enc longblob DEFAULT NULL,
+			parent_data_enc longblob DEFAULT NULL,
+			converted_to_enrollment_id bigint(20) unsigned DEFAULT NULL,
+			parent_submitted_ip varchar(45) DEFAULT NULL,
+			parent_submitted_ua varchar(500) DEFAULT NULL,
+			reviewed_by_user_id bigint(20) unsigned DEFAULT NULL,
+			rejected_reason text DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -115,11 +120,11 @@ class Migration_1_0_0 implements MigrationInterface {
 		dbDelta(
 			"CREATE TABLE $relationships (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			guardian_person_id bigint(20) unsigned NOT NULL,             -- ID опекуна
-			student_person_id bigint(20) unsigned NOT NULL,              -- ID ученика
-			relation_type varchar(50) NOT NULL,                          -- Тип связи (мать, отец, опекун)
-			valid_from date NOT NULL,                                    -- Дата начала действия
-			valid_to date DEFAULT NULL,                                  -- Дата окончания действия
+			guardian_person_id bigint(20) unsigned NOT NULL,
+			student_person_id bigint(20) unsigned NOT NULL,
+			relation_type varchar(50) NOT NULL,
+			valid_from date NOT NULL,
+			valid_to date DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY guardian_student_from (guardian_person_id, student_person_id, valid_from),
@@ -132,16 +137,17 @@ class Migration_1_0_0 implements MigrationInterface {
 		dbDelta(
 			"CREATE TABLE $enrollments (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			student_person_id bigint(20) unsigned NOT NULL,              -- ID ученика
-			source_application_id bigint(20) unsigned DEFAULT NULL,      -- ID исходной заявки
-			group_id bigint(20) unsigned DEFAULT NULL,                   -- ID группы
-			subject_key varchar(50) NOT NULL,                            -- Ключ предмета
-			period_key varchar(50) NOT NULL,                             -- Учебный период
-			status varchar(50) NOT NULL,                                 -- Статус зачисления
-			enrolled_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,     -- Дата зачисления
-			terminated_at datetime DEFAULT NULL,                         -- Дата завершения обучения
-			terminated_reason text DEFAULT NULL,                         -- Причина завершения
-			terminated_by_user_id bigint(20) unsigned DEFAULT NULL,      -- Кто завершил
+			student_person_id bigint(20) unsigned NOT NULL,
+			source_application_id bigint(20) unsigned DEFAULT NULL,
+			group_id bigint(20) unsigned DEFAULT NULL,
+			subject_key varchar(50) NOT NULL,
+			period_key varchar(50) NOT NULL,
+			status varchar(50) NOT NULL,
+			enrolled_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			terminated_at datetime DEFAULT NULL,
+			terminated_reason text DEFAULT NULL,
+			terminated_by_user_id bigint(20) unsigned DEFAULT NULL,
+			snapshot_enc longblob DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -157,21 +163,24 @@ class Migration_1_0_0 implements MigrationInterface {
 		dbDelta(
 			"CREATE TABLE $consents (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			application_id bigint(20) unsigned DEFAULT NULL,             -- ID заявки
-			person_id bigint(20) unsigned DEFAULT NULL,                  -- ID человека
-			subject_role varchar(20) NOT NULL,                           -- Роль субъекта (student, parent)
-			consent_type varchar(50) NOT NULL,                           -- Тип согласия
-			version varchar(20) NOT NULL,                                -- Версия согласия
-			ip_address varchar(45) NOT NULL,                             -- IP-адрес подписавшего
-			user_agent varchar(255) NOT NULL,                            -- User-Agent браузера
-			accepted_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,     -- Дата подписания
-			valid_until datetime DEFAULT NULL,                           -- Действительно до
-			withdrawn_at datetime DEFAULT NULL,                          -- Дата отзыва
-			withdrawn_reason text DEFAULT NULL,                          -- Причина отзыва
+			application_id bigint(20) unsigned DEFAULT NULL,
+			person_id bigint(20) unsigned DEFAULT NULL,
+			subject_role varchar(20) NOT NULL,
+			consent_type varchar(50) NOT NULL,
+			version varchar(20) NOT NULL,
+			document_hash varchar(64) NOT NULL DEFAULT '',
+			ip_address varchar(45) NOT NULL,
+			user_agent varchar(500) NOT NULL DEFAULT '',
+			accepted_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			valid_until datetime DEFAULT NULL,
+			withdrawn_at datetime DEFAULT NULL,
+			withdrawn_reason text DEFAULT NULL,
+			signed_for_person_id bigint(20) unsigned DEFAULT NULL,
 			PRIMARY KEY  (id),
 			KEY application_id (application_id),
 			KEY person_id (person_id),
-			KEY consent_type (consent_type)
+			KEY consent_type (consent_type),
+			KEY signed_for_person_id (signed_for_person_id)
 		) $cc;"
 		);
 
@@ -180,14 +189,14 @@ class Migration_1_0_0 implements MigrationInterface {
 		dbDelta(
 			"CREATE TABLE $audit_log (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			actor_user_id bigint(20) unsigned DEFAULT NULL,              -- ID пользователя (из WP)
-			actor_role varchar(50) DEFAULT NULL,                         -- Роль пользователя
-			action varchar(100) NOT NULL,                                -- Тип действия
-			target_type varchar(50) DEFAULT NULL,                        -- Тип цели (application, enrollment)
-			target_id bigint(20) unsigned DEFAULT NULL,                  -- ID цели
-			details_json longtext DEFAULT NULL,                          -- Детали в JSON
-			actor_ip varchar(45) NOT NULL,                               -- IP-адрес
-			actor_ua text DEFAULT NULL,                                  -- User-Agent
+			actor_user_id bigint(20) unsigned DEFAULT NULL,
+			actor_role varchar(50) DEFAULT NULL,
+			action varchar(100) NOT NULL,
+			target_type varchar(50) DEFAULT NULL,
+			target_id bigint(20) unsigned DEFAULT NULL,
+			details_json longtext DEFAULT NULL,
+			actor_ip varchar(45) NOT NULL,
+			actor_ua text DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY actor_user_id (actor_user_id),
@@ -201,12 +210,12 @@ class Migration_1_0_0 implements MigrationInterface {
 		dbDelta(
 			"CREATE TABLE $pii_access_log (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			actor_user_id bigint(20) unsigned NOT NULL,                  -- ID пользователя (из WP)
-			actor_role varchar(50) DEFAULT NULL,                         -- Роль пользователя
-			person_id bigint(20) unsigned NOT NULL,                      -- ID человека (из persons)
-			fields_accessed text NOT NULL,                               -- Какие поля были запрошены
-			access_reason varchar(255) NOT NULL,                         -- Причина доступа
-			actor_ip varchar(45) NOT NULL,                               -- IP-адрес
+			actor_user_id bigint(20) unsigned NOT NULL,
+			actor_role varchar(50) DEFAULT NULL,
+			person_id bigint(20) unsigned NOT NULL,
+			fields_accessed text NOT NULL,
+			access_reason varchar(255) NOT NULL,
+			actor_ip varchar(45) NOT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY actor_user_id (actor_user_id),

@@ -144,7 +144,7 @@ CREATE TABLE wp_fs_lms_persons (
 
     -- Документы
     doc_type            VARCHAR(32)          NULL,
-                        -- passport_rf | birth_certificate | foreign_passport
+                        -- pass_rf | birth_certificate | foreign_pass
     doc_number_enc      BLOB                 NULL,
     doc_number_hash     CHAR(64)             NULL,  -- для дедупликации
     doc_issued_by_enc   BLOB                 NULL,
@@ -374,7 +374,7 @@ CREATE TABLE wp_fs_lms_pii_access_log (
     actor_role          VARCHAR(32)          NOT NULL,
     person_id           BIGINT UNSIGNED      NOT NULL,
     fields_accessed     VARCHAR(255)         NOT NULL,
-                        -- comma-separated: 'passport,inn,address'
+                        -- comma-separated: 'pass,inn,address'
     access_reason       VARCHAR(64)          NULL,
                         -- enrollment_review | data_export | gdpr_request | etc.
     actor_ip            VARBINARY(16)        NOT NULL,
@@ -556,7 +556,7 @@ final class PiiCryptoService
 Хэш позволяет проверять "есть ли уже такой паспорт", не расшифровывая существующие записи:
 
 ```php
-$hash = $crypto->hash($newPassportNumber);
+$hash = $crypto->hash($newPassNumber);
 $existing = $personRepo->findByDocHash($hash);
 ```
 
@@ -565,7 +565,7 @@ $existing = $personRepo->findByDocHash($hash);
 ### 5.4. Маскирование в UI
 
 Helper `Pii::mask(string $value, string $type): string`:
-- `passport`: `4015 •• •••• 1234` (первые 4 + последние 4)
+- `pass`: `4015 •• •••• 1234` (первые 4 + последние 4)
 - `inn`: `•••• •••• 1234`
 - `phone`: `+7 9•• ••• 12 34`
 - `address`: `г. Москва, ••••••`
@@ -644,7 +644,7 @@ templates/consents/
 $piiAccessLog->record(
     actor: get_current_user_id(),
     person_id: $personId,
-    fields: ['passport', 'inn'],
+    fields: ['pass', 'inn'],
     reason: 'enrollment_review',
 );
 ```

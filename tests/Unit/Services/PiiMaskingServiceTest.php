@@ -87,19 +87,19 @@ class PiiMaskingServiceTest extends TestCase {
 	public function testMaskBulk(): void {
 		$rawData = array(
 			'name'    => 'Петров Петр',
-			'passport'=> '4020 998877',
+			'pass'=> '4020 998877',
 			'some_id' => '12345',
 		);
 
 		$types = array(
 			'name'     => PiiField::FullName,
-			'passport' => PiiField::Pass,
+			'pass' => PiiField::Pass,
 			// 'some_id' умышленно пропускаем, чтобы проверить поведение без указания типа
 		);
 
 		$expected = array(
 			'name'     => 'Петров Петр',
-			'passport' => '40 •• ••••77',
+			'pass' => '40 •• ••••77',
 			'some_id'  => '12345',
 		);
 
