@@ -41,7 +41,6 @@ readonly class ParentDataDTO {
 	 * @param string $docIssuedBy    Кем выдан документ
 	 * @param string $docIssuedDate  Дата выдачи документа (Y-m-d)
 	 * @param string $inn            ИНН (10 или 12 цифр)
-	 * @param string $snils          СНИЛС (11 цифр)
 	 * @param string $address        Адрес регистрации/проживания
 	 * @param string $phone          Номер телефона
 	 * @param string $email          Email для связи
@@ -55,7 +54,6 @@ readonly class ParentDataDTO {
 		public string $docIssuedBy,
 		public string $docIssuedDate,
 		public string $inn,
-		public string $snils,
 		public string $address,
 		public string $phone,
 		public string $email,
@@ -78,7 +76,6 @@ readonly class ParentDataDTO {
 			docIssuedBy:   (string) ( $data['doc_issued_by'] ?? '' ),
 			docIssuedDate: (string) ( $data['doc_issued_date'] ?? '' ),
 			inn:           (string) ( $data['inn'] ?? '' ),
-			snils:         (string) ( $data['snils'] ?? '' ),
 			address:       (string) ( $data['address'] ?? '' ),
 			phone:         (string) ( $data['phone'] ?? '' ),
 			email:         (string) ( $data['email'] ?? '' ),
@@ -100,7 +97,6 @@ readonly class ParentDataDTO {
 			'doc_issued_by'   => $this->docIssuedBy,
 			'doc_issued_date' => $this->docIssuedDate,
 			'inn'             => $this->inn,
-			'snils'           => $this->snils,
 			'address'         => $this->address,
 			'phone'           => $this->phone,
 			'email'           => $this->email,

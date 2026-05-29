@@ -36,6 +36,11 @@ class StudentGroupController extends AjaxController {
 		parent::__construct();
 	}
 
+	public function register(): void {
+		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
+		parent::register();
+	}
+
 	/**
 	 * Возвращает список защищённых AJAX-действий для регистрации.
 	 * Данные действия доступны только авторизованным пользователям с соответствующими правами.

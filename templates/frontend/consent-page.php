@@ -10,10 +10,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use Inc\Services\ThemeCompatService;
+
 $consent_text    = get_query_var( 'fs_consent_text', '' );
 $consent_version = get_query_var( 'fs_consent_version', '' );
 
-get_header();
+ThemeCompatService::header();
 ?>
 
 <main class="fs-lms-consent-page">
@@ -34,4 +36,4 @@ get_header();
 	</div>
 </main>
 
-<?php get_footer(); ?>
+<?php ThemeCompatService::footer(); ?>

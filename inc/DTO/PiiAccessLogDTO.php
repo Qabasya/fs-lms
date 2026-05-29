@@ -26,7 +26,7 @@ namespace Inc\DTO;
  * - Записи журнала неизменяемы — только append (создание) и чтение.
  * - update() запрещён для обеспечения compliance с 152-ФЗ.
  * - fields_accessed — список полей, к которым был осуществлён доступ
- *   (full_name, pass, inn, snils, address, phone).
+ *   (full_name, pass, inn, address, phone).
  * - access_reason — обязательное поле, указывает цель доступа
  */
 readonly class PiiAccessLogDTO {

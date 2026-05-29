@@ -33,7 +33,7 @@ use RuntimeException;
  *
  * ### Имена полей ($fields / $field):
  *
- * full_name, doc_number, inn, snils, address, phone
+ * full_name, doc_number, inn, address, phone
  *
  * ### Маппинг полей:
  *
@@ -42,7 +42,6 @@ use RuntimeException;
  * | full_name   | fullNameEnc        | fullName                    |
  * | doc_number  | docNumberEnc       | pass                        |
  * | inn         | innEnc             | inn                         |
- * | snils       | snilsEnc           | snils                       |
  * | address     | addressEnc         | address                     |
  * | phone       | phoneEnc           | phone                       |
  */
@@ -54,7 +53,6 @@ readonly class PersonReader {
 		'full_name'  => 'fullNameEnc',
 		'doc_number' => 'docNumberEnc',
 		'inn'        => 'innEnc',
-		'snils'      => 'snilsEnc',
 		'address'    => 'addressEnc',
 		'phone'      => 'phoneEnc',
 	);
@@ -113,7 +111,6 @@ readonly class PersonReader {
 			fullName: $decrypted['full_name'],
 			pass:     $decrypted['doc_number'],
 			inn:      $decrypted['inn'],
-			snils:    $decrypted['snils'],
 			address:  $decrypted['address'],
 			phone:    $decrypted['phone'],
 		);
@@ -126,7 +123,7 @@ readonly class PersonReader {
 	 * затем JS возвращает маску. Пишет запись в pii_access_log.
 	 *
 	 * @param int    $personId ID записи person
-	 * @param string $field    Имя поля (full_name, doc_number, inn, snils, address, phone)
+	 * @param string $field    Имя поля (full_name, doc_number, inn, address, phone)
 	 * @param string $reason   Причина доступа
 	 *
 	 * @return string Расшифрованное значение или '' если поле обезличено

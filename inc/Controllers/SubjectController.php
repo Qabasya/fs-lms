@@ -91,7 +91,7 @@ class SubjectController extends AjaxController {
 		$this->registerCptsAndTaxonomies();
 
 		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
-		$this->registerAjaxHooks();
+		parent::register();
 
 		// Настройка числовой сортировки терминов таксономий
 		$this->setupTermSorting();

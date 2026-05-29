@@ -5,10 +5,16 @@ declare( strict_types=1 );
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\Enums\AuditAction;
+use Inc\Enums\ApplicationStatus;
 use Inc\Enums\Nonce;
+use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\ApplicationService;
+use Inc\Services\AuditService;
 use Inc\Services\CaptchaService;
 use Inc\Services\EmailOtpService;
+use Inc\Services\JoinCodeService;
+use Inc\Services\PiiCryptoService;
 use Inc\Services\RateLimitService;
 use Inc\DTO\ApplicationInputDTO;
 use Inc\DTO\ParentSubmissionInputDTO;
@@ -20,32 +26,115 @@ use Inc\Shared\Traits\Sanitizer;
  * AJAX-коллбеки публичной формы зачисления (двухэтапный OTP-флоу).
  *
  * @package Inc\Callbacks
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Подготовка JOIN-страницы** — валидация кода, расшифровка данных ученика.
+ * 2. **Шаг A (OTP)** — отправка одноразового кода на email.
+ * 3. **Шаг B (создание заявки)** — верификация OTP и создание заявки в БД.
+ * 4. **Отправка данных родителя** — заполнение анкеты по JOIN-ссылке.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует бизнес-логику ApplicationService, EmailOtpService, CaptchaService и др.
+ * Реализует двухэтапный процесс создания заявки с OTP-подтверждением email.
  */
 class ApplicationCallbacks extends BaseController {
 
 	use Sanitizer;
 
+	/**
+	 * Конструктор коллбеков.
+	 *
+	 * @param ApplicationService   $applicationService    Сервис работы с заявками
+	 * @param EmailOtpService      $emailOtpService       Сервис OTP-кодов
+	 * @param CaptchaService       $captchaService        Сервис капчи
+	 * @param RateLimitService     $rateLimitService      Сервис ограничения запросов
+	 * @param JoinCodeService      $joinCodeService       Сервис JOIN-кодов
+	 * @param ApplicationRepository $applicationRepository Репозиторий заявок
+	 * @param PiiCryptoService     $crypto                Сервис шифрования PII
+	 * @param AuditService         $auditService          Сервис аудита
+	 */
 	public function __construct(
-		private readonly ApplicationService $applicationService,
-		private readonly EmailOtpService    $emailOtpService,
-		private readonly CaptchaService     $captchaService,
-		private readonly RateLimitService   $rateLimitService,
+		private readonly ApplicationService  $applicationService,
+		private readonly EmailOtpService     $emailOtpService,
+		private readonly CaptchaService      $captchaService,
+		private readonly RateLimitService    $rateLimitService,
+		private readonly JoinCodeService     $joinCodeService,
+		private readonly ApplicationRepository $applicationRepository,
+		private readonly PiiCryptoService    $crypto,
+		private readonly AuditService        $auditService,
 	) {
 		parent::__construct();
 	}
 
 	/**
+	 * Валидирует JOIN-код, расшифровывает данные ученика и передаёт их
+	 * в шаблон через set_query_var. Возвращает false, если нужно отдать 404.
+	 *
+	 * @return bool
+	 */
+	public function prepareJoinPage(): bool {
+		$ip   = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+		// get_query_var() — получает кастомный параметр из URL
+		$code = get_query_var( 'fs_lms_join_code', '' );
+
+		// Проверка формата JOIN-кода
+		if ( '' === $code || ! $this->joinCodeService->isValidFormat( $code ) ) {
+			return false;
+		}
+
+		// Проверка лимита попыток ввода
+		if ( ! $this->rateLimitService->allowJoinAttempt( $ip ) ) {
+			return false;
+		}
+
+		$hash = $this->joinCodeService->hash( $code );
+		$app  = $this->applicationRepository->findByJoinCodeHash( $hash );
+
+		// Заявка должна существовать и находиться в статусе ожидания родителя
+		if ( null === $app || ApplicationStatus::PendingParent !== $app->status ) {
+			return false;
+		}
+
+		try {
+			// Расшифровка и декодирование данных ученика
+			$studentData = json_decode( $this->crypto->decrypt( $app->student_data_enc ), true );
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+
+		// Логируем факт просмотра ссылки
+		$this->auditService->recordAnonymous(
+			AuditAction::ViewJoinLink->value,
+			'application',
+			$app->id
+		);
+
+		// Передаём данные в шаблон через query vars
+		set_query_var( 'fs_lms_student_data', $studentData );
+		set_query_var( 'fs_lms_join_code',    $code );
+		set_query_var( 'fs_lms_app_id',       $app->id );
+
+		return true;
+	}
+
+	/**
 	 * Шаг A: проверяет капчу, отправляет OTP-код на email.
+	 *
+	 * @return void
 	 */
 	public function ajaxSendOtpCode(): void {
 		Nonce::Apply->verify();
 
 		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
 
+		// Ограничение частоты запросов
 		if ( ! $this->rateLimitService->allowApplicationCreation( $ip ) ) {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
+		// Валидация капчи
 		$captchaToken = $this->sanitizeText( $_POST['captcha_token'] ?? '' );
 		if ( ! $this->captchaService->validate( $captchaToken, $ip ) ) {
 			$this->error( 'Проверка капчи не пройдена.' );
@@ -53,18 +142,23 @@ class ApplicationCallbacks extends BaseController {
 
 		$email = $this->sanitizeText( $_POST['email'] ?? '' );
 
+		// Проверка возможности повторной отправки
 		if ( ! $this->emailOtpService->canResend( $email ) ) {
 			$this->error( 'Повторная отправка возможна через 60 секунд.' );
 		}
 
+		// Отправка OTP-кода
 		$this->emailOtpService->sendCode( $email );
 
+		// Маскирование email для отображения в интерфейсе
 		$masked = (string) preg_replace( '/(?<=.).(?=[^@]*@)/', '*', $email );
 		$this->success( array( 'masked_email' => $masked ) );
 	}
 
 	/**
 	 * Шаг B: верифицирует OTP, создаёт заявку.
+	 *
+	 * @return void
 	 */
 	public function ajaxCreateApplication(): void {
 		Nonce::VerifyOtp->verify();
@@ -75,6 +169,7 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
+		// Сбор и валидация данных формы
 		$fullName  = $this->requireText( $_POST['full_name'] ?? '' );
 		$email     = $this->requireText( $_POST['email'] ?? '' );
 		$school    = $this->sanitizeText( $_POST['school'] ?? '' );
@@ -99,8 +194,10 @@ class ApplicationCallbacks extends BaseController {
 		try {
 			$result = $this->applicationService->createApplication( $dto );
 		} catch ( \DomainException $e ) {
+			// Ошибка валидации бизнес-правил
 			$this->error( $e->getMessage() );
 		} catch ( \RuntimeException $e ) {
+			// Неверный или истёкший OTP-код
 			$this->error( 'Неверный или истёкший код подтверждения.' );
 		}
 
@@ -112,6 +209,8 @@ class ApplicationCallbacks extends BaseController {
 
 	/**
 	 * Родитель отправляет свои данные по JOIN-ссылке.
+	 *
+	 * @return void
 	 */
 	public function ajaxSubmitParentData(): void {
 		Nonce::ParentSubmit->verify();
@@ -122,6 +221,7 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
+		// Сбор данных формы родителя
 		$dto = new ParentSubmissionInputDTO(
 			joinCode:          $this->requireText( $_POST['join_code'] ?? '' ),
 			parentFullName:    $this->requireText( $_POST['parent_full_name'] ?? '' ),
@@ -132,7 +232,6 @@ class ApplicationCallbacks extends BaseController {
 			docIssuedBy:       $this->sanitizeText( $_POST['doc_issued_by'] ?? '' ),
 			docIssuedDate:     $this->sanitizeText( $_POST['doc_issued_date'] ?? '' ),
 			inn:               $this->sanitizeText( $_POST['inn'] ?? '' ),
-			snils:             $this->sanitizeText( $_POST['snils'] ?? '' ),
 			address:           $this->sanitizeText( $_POST['address'] ?? '' ),
 			phone:             $this->sanitizeText( $_POST['phone'] ?? '' ),
 			email:             $this->requireText( $_POST['email'] ?? '' ),

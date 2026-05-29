@@ -42,7 +42,6 @@ readonly class ParentSubmissionInputDTO {
 	 * @param string $docIssuedBy         Кем выдан документ родителя
 	 * @param string $docIssuedDate       Дата выдачи документа родителя (Y-m-d)
 	 * @param string $inn                 ИНН родителя
-	 * @param string $snils               СНИЛС родителя
 	 * @param string $address             Адрес родителя
 	 * @param string $phone               Телефон родителя
 	 * @param string $email               Email родителя
@@ -65,7 +64,6 @@ readonly class ParentSubmissionInputDTO {
 		public string $docIssuedBy,
 		public string $docIssuedDate,
 		public string $inn,
-		public string $snils,
 		public string $address,
 		public string $phone,
 		public string $email,

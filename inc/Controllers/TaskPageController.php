@@ -13,15 +13,27 @@ use Inc\Core\BaseController;
  *
  * Контроллер frontend-страницы задания.
  *
- * Регистрирует фильтр template_include для подмены стандартного шаблона WordPress
- * на кастомный шаблон плагина при просмотре одиночной записи задания.
- *
  * @package Inc\Controllers
+ * @implements ServiceInterface
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Подмена шаблона** — перехват template_include для загрузки кастомного шаблона задания.
+ * 2. **Настройка архивов таксономий** — модификация запросов для корректного отображения
+ *    архивов заданий по таксономиям.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует бизнес-логику TemplateCallbacks.
+ * Регистрирует фильтры для отображения страницы одного задания на фронтенде
+ * и архивов заданий по таксономиям.
  */
 class TaskPageController extends BaseController implements ServiceInterface {
 
 	/**
-	 * @param TemplateCallbacks $callbacks Коллбеки frontend-шаблона задания.
+	 * Конструктор контроллера.
+	 *
+	 * @param TemplateCallbacks $callbacks Коллбеки frontend-шаблона задания
 	 */
 	public function __construct(
 		private readonly TemplateCallbacks $callbacks
@@ -35,8 +47,13 @@ class TaskPageController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
+		// 'template_include' — фильтр для подмены шаблона темы
 		add_filter( 'template_include', array( $this->callbacks, 'loadTaskFrontendTemplate' ) );
-		add_action( 'pre_get_posts',    array( $this->callbacks, 'filterTaskTaxonomyArchive' ) );
-		add_filter( 'request',          array( $this->callbacks, 'filterTaskTaxonomyRequest' ) );
+
+		// 'pre_get_posts' — фильтр для изменения параметров запроса перед выполнением
+		add_action( 'pre_get_posts', array( $this->callbacks, 'filterTaskTaxonomyArchive' ) );
+
+		// 'request' — фильтр для изменения параметров запроса к базе данных
+		add_filter( 'request', array( $this->callbacks, 'filterTaskTaxonomyRequest' ) );
 	}
 }

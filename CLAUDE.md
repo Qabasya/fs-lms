@@ -198,6 +198,23 @@ JS modules: `components/` (UI only, no AJAX), `services/` (AJAX + business logic
 - Build step runs separately
 - Frontend task page template injected via `template_include` filter in `TaskPageCallbacks`
 
+### ThemeCompatService — обязательно для всех публичных шаблонов
+
+**Никогда не вызывать `get_header()` / `get_footer()` напрямую** в шаблонах плагина. Использовать только:
+
+```php
+use Inc\Services\ThemeCompatService;
+
+ThemeCompatService::header(); // вместо get_header()
+ThemeCompatService::footer(); // вместо get_footer()
+```
+
+Причина: блочные (FSE) темы не имеют `header.php` / `footer.php`, прямые вызовы выдают Deprecated. `ThemeCompatService` автоматически выбирает нужный API в зависимости от типа темы.
+
+### wp_localize_script — только в Enqueue.php
+
+Все `wp_localize_script()` вызовы должны быть в `inc/Core/Enqueue.php`, не в шаблонах.
+
 ## CSS / SCSS Rules
 
 - **No inline styles** — never use `style=""` attributes in PHP templates or JS DOM manipulation

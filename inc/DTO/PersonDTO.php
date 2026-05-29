@@ -40,7 +40,6 @@ readonly class PersonDTO {
 	 * @param string|null $fullNameEnc   Зашифрованное ФИО
 	 * @param string|null $docNumberEnc  Зашифрованный номер документа
 	 * @param string|null $innEnc        Зашифрованный ИНН
-	 * @param string|null $snilsEnc      Зашифрованный СНИЛС
 	 * @param string|null $addressEnc    Зашифрованный адрес
 	 * @param string|null $phoneEnc      Зашифрованный телефон
 	 * @param string|null $docNumberHash Хэш номера документа (для поиска)
@@ -56,7 +55,6 @@ readonly class PersonDTO {
 		public ?string $fullNameEnc,
 		public ?string $docNumberEnc,
 		public ?string $innEnc,
-		public ?string $snilsEnc,
 		public ?string $addressEnc,
 		public ?string $phoneEnc,
 		public ?string $docNumberHash,
@@ -81,7 +79,6 @@ readonly class PersonDTO {
 			fullNameEnc:   isset( $row['full_name_enc'] ) ? (string) $row['full_name_enc'] : null,
 			docNumberEnc:  isset( $row['doc_number_enc'] ) ? (string) $row['doc_number_enc'] : null,
 			innEnc:        isset( $row['inn_enc'] ) ? (string) $row['inn_enc'] : null,
-			snilsEnc:      isset( $row['snils_enc'] ) ? (string) $row['snils_enc'] : null,
 			addressEnc:    isset( $row['address_enc'] ) ? (string) $row['address_enc'] : null,
 			phoneEnc:      isset( $row['phone_enc'] ) ? (string) $row['phone_enc'] : null,
 			docNumberHash: isset( $row['doc_number_hash'] ) ? (string) $row['doc_number_hash'] : null,
@@ -105,7 +102,6 @@ readonly class PersonDTO {
 			'full_name_enc'   => $this->fullNameEnc,
 			'doc_number_enc'  => $this->docNumberEnc,
 			'inn_enc'         => $this->innEnc,
-			'snils_enc'       => $this->snilsEnc,
 			'address_enc'     => $this->addressEnc,
 			'phone_enc'       => $this->phoneEnc,
 			'doc_number_hash' => $this->docNumberHash,
