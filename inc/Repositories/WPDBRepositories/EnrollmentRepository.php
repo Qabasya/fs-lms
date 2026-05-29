@@ -138,4 +138,30 @@ class EnrollmentRepository implements RepositoryInterface {
 			'updated_at' => current_time( 'mysql' ),  // Автоматическое обновление времени
 		) );
 	}
+
+	public function findBySourceApplication( int $appId ): ?EnrollmentDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE source_application_id = %d LIMIT 1',
+				$this->table,
+				$appId
+			),
+			ARRAY_A
+		);
+
+		return $row ? EnrollmentDTO::fromArray( $row ) : null;
+	}
+
+	public function existsActive( int $personId, string $subjectKey, string $periodKey ): bool {
+		return 0 < (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND subject_key = %s AND period_key = %s AND status = %s',
+				$this->table,
+				$personId,
+				$subjectKey,
+				$periodKey,
+				EnrollmentStatus::Active->value
+			)
+		);
+	}
 }

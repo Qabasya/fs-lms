@@ -110,6 +110,74 @@ class UserManager {
 		}
 	}
 
+	public function create( array $data ): int {
+		$result = wp_insert_user( $data );
+
+		if ( is_wp_error( $result ) ) {
+			throw new \RuntimeException( 'Ошибка создания пользователя: ' . $result->get_error_message() );
+		}
+
+		return (int) $result;
+	}
+
+	public function update( int $id, array $data ): bool {
+		$result = wp_update_user( array_merge( $data, array( 'ID' => $id ) ) );
+
+		return ! is_wp_error( $result );
+	}
+
+	public function findByEmail( string $email ): ?\WP_User {
+		$user = get_user_by( 'email', $email );
+
+		return false !== $user ? $user : null;
+	}
+
+	public function findByLogin( string $login ): ?\WP_User {
+		$user = get_user_by( 'login', $login );
+
+		return false !== $user ? $user : null;
+	}
+
+	public function exists( int $id ): bool {
+		return false !== get_userdata( $id );
+	}
+
+	public function setRole( int $id, string $role ): void {
+		$user = $this->find( $id );
+
+		if ( null !== $user ) {
+			$user->set_role( $role );
+		}
+	}
+
+	public function addRole( int $id, string $role ): void {
+		$user = $this->find( $id );
+
+		if ( null !== $user ) {
+			$user->add_role( $role );
+		}
+	}
+
+	public function removeRole( int $id, string $role ): void {
+		$user = $this->find( $id );
+
+		if ( null !== $user ) {
+			$user->remove_role( $role );
+		}
+	}
+
+	public function randomizePassword( int $id ): void {
+		wp_set_password( wp_generate_password( 64, true, true ), $id );
+	}
+
+	public function setPersonId( int $userId, int $personId ): void {
+		update_user_meta( $userId, 'fs_lms_person_id', $personId );
+	}
+
+	public function setStatus( int $userId, string $status ): void {
+		update_user_meta( $userId, 'fs_lms_user_status', $status );
+	}
+
 	/**
 	 * Ограничивает доступ к админ-панели для всех, кроме администраторов и LMS-преподавателей.
 	 * Подключается к хуку 'admin_init'.

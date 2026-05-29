@@ -132,6 +132,48 @@ readonly class ConsentService {
 	}
 
 	/**
+	 * Фиксирует подписание согласия самим субъектом (subject_role = 'self').
+	 *
+	 * @param int|null          $appId ID заявки (null — вне контекста заявки)
+	 * @param ConsentType       $type  Тип согласия
+	 * @param RequestContextDTO $ctx   Контекст HTTP-запроса (IP, UA)
+	 *
+	 * @return int ID созданной записи
+	 *
+	 * @throws RuntimeException Если шаблон согласия не найден
+	 */
+	public function recordSelfConsent( ?int $appId, ConsentType $type, RequestContextDTO $ctx ): int {
+		$version = $this->getCurrentVersion( $type );
+		$hash    = $this->getDocumentHash( $type, $version );
+
+		$id = $this->consentRepository->create( array(
+			'application_id'       => $appId,
+			'consent_type'         => $type->value,
+			'subject_role'         => 'self',
+			'version'              => $version,
+			'document_hash'        => $hash,
+			'ip_address'           => $ctx->ip,
+			'user_agent'           => $ctx->userAgent,
+			'accepted_at'          => current_time( 'mysql', true ),
+			'signed_for_person_id' => null,
+		) );
+
+		$this->auditService->recordAnonymous(
+			AuditAction::ConsentSigned->value,
+			'consent',
+			$id,
+			array(
+				'consent_type'   => $type->value,
+				'version'        => $version,
+				'application_id' => $appId,
+				'subject_role'   => 'self',
+			),
+		);
+
+		return $id;
+	}
+
+	/**
 	 * Фиксирует подписание согласия законным представителем за ребёнка.
 	 *
 	 * Аналогично recordSelfConsent, но subject_role = 'guardian' и заполняется

@@ -190,4 +190,34 @@ class PersonRepository implements RepositoryInterface {
 			'phone_enc'      => null,
 		) );
 	}
+
+	public function setWpUser( int $id, int $wpUserId ): bool {
+		return $this->update( $id, array( 'wp_user_id' => $wpUserId ) );
+	}
+
+	public function findByEmail( string $email ): ?PersonDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE email = %s AND deleted_at IS NULL LIMIT 1',
+				$this->table,
+				$email
+			),
+			ARRAY_A
+		);
+
+		return $row ? PersonDTO::fromArray( $row ) : null;
+	}
+
+	public function findDeletedOlderThan( int $days ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE deleted_at IS NOT NULL AND deleted_at < DATE_SUB(NOW(), INTERVAL %d DAY)',
+				$this->table,
+				$days
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $row ) => PersonDTO::fromArray( $row ), $rows ?: array() );
+	}
 }
