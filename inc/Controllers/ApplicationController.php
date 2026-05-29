@@ -87,13 +87,6 @@ class ApplicationController extends AjaxController {
 		// add_rewrite_rule() — добавляет правило перезаписи URL
 		// Параметры: regex, соответствие, позиция ('top' — в начало списка)
 
-		// Маршрут: /lms/apply → index.php?fs_lms_page=apply
-		add_rewrite_rule(
-			'^lms/apply/?$',
-			'index.php?fs_lms_page=apply',
-			'top'
-		);
-
 		// Маршрут: /lms/join/{code} → index.php?fs_lms_page=join&fs_lms_join_code={code}
 		add_rewrite_rule(
 			'^lms/join/([A-Z0-9\-]+)/?$',
@@ -127,13 +120,6 @@ class ApplicationController extends AjaxController {
 	public function loadTemplate( string $template ): string {
 		// get_query_var() — получает значение кастомной query-переменной
 		$page = get_query_var( 'fs_lms_page' );
-
-		// Страница создания заявки (/lms/apply)
-		if ( 'apply' === $page ) {
-			$path = $this->path( 'templates/frontend/apply.php' );
-
-			return file_exists( $path ) ? $path : $template;
-		}
 
 		// Страница присоединения родителя (/lms/join/{code})
 		if ( 'join' === $page ) {
