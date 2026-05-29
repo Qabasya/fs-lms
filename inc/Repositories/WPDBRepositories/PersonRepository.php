@@ -185,7 +185,6 @@ class PersonRepository implements RepositoryInterface {
 			'full_name_enc'  => null,
 			'doc_number_enc' => null,
 			'inn_enc'        => null,
-			'snils_enc'      => null,
 			'address_enc'    => null,
 			'phone_enc'      => null,
 		) );

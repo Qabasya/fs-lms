@@ -69,7 +69,6 @@ class Migration_1_0_0 implements MigrationInterface {
 			full_name_enc longblob DEFAULT NULL,
 			doc_number_enc longblob DEFAULT NULL,
 			inn_enc longblob DEFAULT NULL,
-			snils_enc longblob DEFAULT NULL,
 			address_enc longblob DEFAULT NULL,
 			phone_enc longblob DEFAULT NULL,
 			doc_number_hash varchar(64) DEFAULT NULL,

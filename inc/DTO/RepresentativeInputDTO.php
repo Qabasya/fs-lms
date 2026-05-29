@@ -43,7 +43,6 @@ readonly class RepresentativeInputDTO {
 	 * @param string $docIssuedBy     Кем выдан документ
 	 * @param string $docIssuedDate   Дата выдачи документа (Y-m-d)
 	 * @param string $inn             ИНН представителя
-	 * @param string $snils           СНИЛС представителя
 	 * @param string $address         Адрес представителя
 	 * @param string $phone           Телефон представителя
 	 * @param string $email           Email представителя
@@ -58,7 +57,6 @@ readonly class RepresentativeInputDTO {
 		public string $docIssuedBy,
 		public string $docIssuedDate,
 		public string $inn,
-		public string $snils,
 		public string $address,
 		public string $phone,
 		public string $email,

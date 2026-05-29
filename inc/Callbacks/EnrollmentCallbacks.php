@@ -21,14 +21,37 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class EnrollmentCallbacks
  *
- * Callbacks для страниц заявок и операций зачисления в adminке.
+ * Коллбеки для страниц заявок и операций зачисления в административной панели.
  *
  * @package Inc\Callbacks
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Отображение списка заявок** — рендеринг таблицы с фильтрами и пагинацией.
+ * 2. **Просмотр карточки заявки** — отображение деталей заявки с PII (с логированием доступа).
+ * 3. **Зачисление студента** — обработка AJAX-запроса на создание зачисления.
+ * 4. **Отклонение заявки** — изменение статуса на Rejected с указанием причины.
+ * 5. **Корзина заявок** — перемещение в корзину, восстановление, очистка.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует бизнес-логику ApplicationRepository, EnrollmentService, AuditService.
+ * Управляет отображением страниц и AJAX-операциями в админ-панели.
  */
 class EnrollmentCallbacks extends BaseController {
 
 	use Sanitizer;
 
+	/**
+	 * Конструктор коллбеков.
+	 *
+	 * @param ApplicationRepository   $applicationRepository Репозиторий заявок
+	 * @param EnrollmentService       $enrollmentService     Сервис зачисления
+	 * @param AuditService            $auditService          Сервис аудита
+	 * @param PiiCryptoService        $crypto                Сервис шифрования PII
+	 * @param PiiMaskingService       $piiMasking            Сервис маскирования PII
+	 * @param PiiAccessLogRepository  $piiAccessLog          Репозиторий логов доступа к PII
+	 */
 	public function __construct(
 		private readonly ApplicationRepository  $applicationRepository,
 		private readonly EnrollmentService      $enrollmentService,
@@ -41,13 +64,17 @@ class EnrollmentCallbacks extends BaseController {
 	}
 
 	/**
-	 * Страница списка заявок: /wp-admin/admin.php?page=fs-lms-applications
+	 * Таб "Заявки" страницы "Пользователи" (?page=fs_lms_userlist&tab=tab-1)
+	 *
+	 * @return void
 	 */
 	public function renderApplicationsListPage(): void {
+		// Проверка прав доступа
 		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 			wp_die( 'Доступ запрещён.' );
 		}
 
+		// Получение и санитизация параметров фильтрации
 		$status   = sanitize_key( $_GET['status'] ?? '' );
 		$dateFrom = sanitize_text_field( $_GET['date_from'] ?? '' );
 		$dateTo   = sanitize_text_field( $_GET['date_to'] ?? '' );
@@ -63,6 +90,7 @@ class EnrollmentCallbacks extends BaseController {
 		$apps    = $this->applicationRepository->list( $filters, $page, $perPage );
 		$total   = $this->applicationRepository->count( $filters );
 
+		// Подключение шаблона списка заявок
 		$template = $this->path( 'templates/admin/enrollment/applications-list.php' );
 
 		if ( file_exists( $template ) ) {
@@ -73,7 +101,9 @@ class EnrollmentCallbacks extends BaseController {
 	}
 
 	/**
-	 * Страница карточки заявки: ?page=fs-lms-application-detail&id=N
+	 * Страница карточки заявки (?page=fs-lms-application-detail&id=N)
+	 *
+	 * @return void
 	 */
 	public function renderApplicationDetailPage(): void {
 		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
@@ -90,6 +120,7 @@ class EnrollmentCallbacks extends BaseController {
 		$studentData = null;
 		$parentData  = null;
 
+		// Расшифровка данных студента (если есть права ViewPII)
 		if ( ! empty( $app->student_data_enc ) && current_user_can( Capability::ViewPII->value ) ) {
 			try {
 				$studentData = json_decode( $this->crypto->decrypt( $app->student_data_enc ), true );
@@ -97,17 +128,19 @@ class EnrollmentCallbacks extends BaseController {
 				$studentData = null;
 			}
 
+			// Логирование факта доступа к PII
 			$this->piiAccessLog->create( array(
-				'actor_user_id'  => get_current_user_id(),
-				'actor_role'     => 'admin',
-				'person_id'      => null,
+				'actor_user_id'   => get_current_user_id(),
+				'actor_role'      => 'admin',
+				'person_id'       => null,
 				'fields_accessed' => 'student_data',
-				'access_reason'  => 'application_review',
-				'actor_ip'       => (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ),
-				'created_at'     => current_time( 'mysql', true ),
+				'access_reason'   => 'application_review',
+				'actor_ip'        => (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ),
+				'created_at'      => current_time( 'mysql', true ),
 			) );
 		}
 
+		// Расшифровка данных родителя (если есть права ViewPII)
 		if ( ! empty( $app->parent_data_enc ) && current_user_can( Capability::ViewPII->value ) ) {
 			try {
 				$parentData = json_decode( $this->crypto->decrypt( $app->parent_data_enc ), true );
@@ -116,12 +149,14 @@ class EnrollmentCallbacks extends BaseController {
 			}
 		}
 
+		// Логирование просмотра заявки
 		$this->auditService->record(
 			AuditAction::ViewApplication->value,
 			'application',
 			$id
 		);
 
+		// Подключение шаблона детальной карточки
 		$template = $this->path( 'templates/admin/enrollment/application-detail.php' );
 
 		if ( file_exists( $template ) ) {
@@ -132,9 +167,12 @@ class EnrollmentCallbacks extends BaseController {
 	}
 
 	/**
-	 * AJAX: зачислить студента.
+	 * AJAX: зачисление студента.
+	 *
+	 * @return void
 	 */
 	public function ajaxEnrollStudent(): void {
+		// check_ajax_referer() — проверка nonce для AJAX-запроса
 		check_ajax_referer( Nonce::Enroll->value, 'security' );
 
 		if ( ! current_user_can( Capability::EnrollStudent->value ) ) {
@@ -162,6 +200,7 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( $e->getMessage() );
 		}
 
+		// Частичный сбой — пользователи будут созданы асинхронно
 		if ( $result->partialFailure ) {
 			$this->success( array(
 				'partial'       => true,
@@ -172,6 +211,7 @@ class EnrollmentCallbacks extends BaseController {
 
 		$response = array( 'enrollment_id' => $result->enrollmentId );
 
+		// Ссылки для установки паролей (не отправлены автоматически)
 		if ( null !== $result->guardianPasswordLink ) {
 			$response['guardian_link'] = $result->guardianPasswordLink;
 			$response['student_link']  = $result->studentPasswordLink;
@@ -184,7 +224,9 @@ class EnrollmentCallbacks extends BaseController {
 	}
 
 	/**
-	 * AJAX: отклонить заявку.
+	 * AJAX: отклонение заявки.
+	 *
+	 * @return void
 	 */
 	public function ajaxRejectApplication(): void {
 		check_ajax_referer( Nonce::Reject->value, 'security' );
@@ -196,12 +238,13 @@ class EnrollmentCallbacks extends BaseController {
 		$id     = $this->sanitizeInt( $_POST['application_id'] ?? 0 );
 		$reason = $this->sanitizeText( $_POST['reason'] ?? '' );
 
+		// Обновление статуса и заполнение полей отклонения
 		$this->applicationRepository->update( $id, array(
-			'status'               => ApplicationStatus::Rejected->value,
-			'rejected_reason'      => $reason,
-			'reviewed_by_user_id'  => get_current_user_id(),
-			'reviewed_at'          => current_time( 'mysql', true ),
-			'updated_at'           => current_time( 'mysql', true ),
+			'status'              => ApplicationStatus::Rejected->value,
+			'rejected_reason'     => $reason,
+			'reviewed_by_user_id' => get_current_user_id(),
+			'reviewed_at'         => current_time( 'mysql', true ),
+			'updated_at'          => current_time( 'mysql', true ),
 		) );
 
 		$this->auditService->record(
@@ -215,7 +258,9 @@ class EnrollmentCallbacks extends BaseController {
 	}
 
 	/**
-	 * AJAX: переместить заявку в корзину.
+	 * AJAX: перемещение заявки в корзину.
+	 *
+	 * @return void
 	 */
 	public function ajaxMoveApplicationToTrash(): void {
 		check_ajax_referer( Nonce::TrashApplication->value, 'security' );
@@ -238,7 +283,9 @@ class EnrollmentCallbacks extends BaseController {
 	}
 
 	/**
-	 * AJAX: восстановить заявку из корзины.
+	 * AJAX: восстановление заявки из корзины.
+	 *
+	 * @return void
 	 */
 	public function ajaxRestoreApplicationFromTrash(): void {
 		check_ajax_referer( Nonce::TrashApplication->value, 'security' );
@@ -254,6 +301,7 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( 'Заявка не найдена.' );
 		}
 
+		// Определение целевого статуса: ReadyForReview (заполнена родителем) или PendingParent
 		$target = ! empty( $app->parent_data_enc )
 			? ApplicationStatus::ReadyForReview
 			: ApplicationStatus::PendingParent;
@@ -270,7 +318,9 @@ class EnrollmentCallbacks extends BaseController {
 	}
 
 	/**
-	 * AJAX: очистить корзину (физически удалить все trash-заявки).
+	 * AJAX: очистка корзины (физическое удаление всех заявок со статусом Trash).
+	 *
+	 * @return void
 	 */
 	public function ajaxEmptyApplicationsTrash(): void {
 		check_ajax_referer( Nonce::TrashApplication->value, 'security' );
@@ -279,6 +329,7 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( 'Доступ запрещён.' );
 		}
 
+		// Получение всех заявок в корзине
 		$trashApps = $this->applicationRepository->list(
 			array( 'status' => ApplicationStatus::Trash->value ),
 			1,
@@ -289,6 +340,7 @@ class EnrollmentCallbacks extends BaseController {
 
 		foreach ( $trashApps as $app ) {
 			try {
+				// Физическое удаление записи из БД
 				$this->applicationRepository->delete( $app->id );
 				$count++;
 			} catch ( \Throwable $e ) {

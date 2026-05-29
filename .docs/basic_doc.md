@@ -1064,6 +1064,47 @@ protected function ajaxActions(): array {
 
 ---
 
+## ThemeCompatService
+
+**Файл:** `inc/Services/ThemeCompatService.php`
+
+Статический сервис совместимости с классическими и блочными (FSE) темами WordPress.
+
+Блочные темы не имеют `header.php` / `footer.php`, поэтому прямой вызов `get_header()` / `get_footer()` выдаёт Deprecated-предупреждение. `ThemeCompatService` определяет тип темы и вызывает нужный API.
+
+### Использование в шаблонах
+
+**Все frontend-шаблоны плагина** обязаны использовать `ThemeCompatService` вместо `get_header()` / `get_footer()`:
+
+```php
+use Inc\Services\ThemeCompatService;
+
+ThemeCompatService::header(); // вместо get_header()
+// ... контент страницы ...
+ThemeCompatService::footer(); // вместо get_footer()
+```
+
+### Логика
+
+| Тип темы | `header()` | `footer()` |
+|---|---|---|
+| Классическая | `get_header()` | `get_footer()` |
+| Блочная (FSE) | `openHtmlSkeleton()` + `block_template_part('header')` | `block_template_part('footer')` + `wp_footer()` + `</body></html>` |
+
+`openHtmlSkeleton()` выводит `<!DOCTYPE html>`, `<head>`, `wp_head()`, `<body>`.
+
+### Где применяется
+
+- `templates/frontend/single-task.php`
+- `templates/frontend/apply.php`
+- Все новые публичные страницы плагина
+
+### Не использовать
+
+`get_header()` / `get_footer()` — **не вызывать напрямую** в шаблонах плагина.
+
+---
+
 ## Трейты
 
 **Расположение:** `inc/Shared/Traits/`

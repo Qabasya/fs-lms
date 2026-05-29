@@ -8,6 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Enums\AjaxHook;
 use Inc\Enums\Nonce;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\CaptchaService;
 use Inc\Services\PostTypeResolver;
 
 /**
@@ -21,8 +22,8 @@ use Inc\Services\PostTypeResolver;
  * ### Основные обязанности:
  *
  * 1. **Подключение стилей** — регистрация и подключение CSS-файлов для админки и фронтенда.
- * 2. **Подключение скриптов** — регистрация JS-файлов с зависимостями (jQuery, wp-api, wp-i18n).
- * 3. **Локализация данных** — передача PHP-данных (nonce, AJAX PageRoutes, таксономии) в JavaScript.
+ * 2. **Подключение скриптов** — регистрация JS-файлов с зависимостями.
+ * 3. **Локализация данных** — передача PHP-данных (nonce, AJAX-действия, таксономии) в JavaScript.
  * 4. **Рендеринг модалки** — вывод HTML-шаблона модального окна подтверждения в админ-футере.
  *
  * ### Архитектурная роль:
@@ -32,7 +33,16 @@ use Inc\Services\PostTypeResolver;
  */
 class Enqueue extends BaseController implements ServiceInterface {
 
-	public function __construct( private readonly TaxonomyRepository $taxonomy_repository ) {
+	/**
+	 * Конструктор.
+	 *
+	 * @param TaxonomyRepository $taxonomy_repository Репозиторий таксономий
+	 * @param CaptchaService     $captchaService      Сервис капчи (для получения site key)
+	 */
+	public function __construct(
+		private readonly TaxonomyRepository $taxonomy_repository,
+		private readonly CaptchaService     $captchaService,
+	) {
 		parent::__construct();
 	}
 
@@ -56,14 +66,15 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function enqueue_admin_assets(): void {
+		// get_current_screen() — возвращает объект текущего экрана админки
 		$screen = get_current_screen();
 		$page   = sanitize_text_field( $_GET['page'] ?? '' );
 
-		// Проверяем, является ли текущая страница частью нашего плагина
+		// str_starts_with() — проверяет начало строки (PHP 8.0)
 		$is_plugin_page = str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' );
 		$is_task_cpt    = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
 
-		// Guard Clause: Подключаем админские ресурсы плагина ТОЛЬКО на страницах плагина или наших CPT
+		// Подключаем ресурсы ТОЛЬКО на страницах плагина или наших CPT
 		if ( ! $is_plugin_page && ! $is_task_cpt ) {
 			return;
 		}
@@ -71,7 +82,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// wp_enqueue_media() — подключает медиа-библиотеку WordPress (для загрузки изображений)
 		wp_enqueue_media();
 
-		// wp_enqueue_style() — подключает CSS-файл
+		// filemtime() — используется для версионирования (кеш-бастинг)
 		wp_enqueue_style(
 			'fs-lms-common-style',
 			$this->url( 'assets/css/common.min.css' ),
@@ -104,7 +115,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 			true
 		);
 
-		// Контекстная локализация данных для страниц задач (CPT с суффиксом '_tasks')
+		// === Контекстная локализация для страниц CPT заданий ===
 		if ( $is_task_cpt ) {
 			$subject_key = PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
 
@@ -120,7 +131,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 				)
 			);
 		}
-		// Контекстная локализация для страниц предметов (префикс 'fs_subject_')
+		// === Контекстная локализация для страниц предметов (fs_subject_*) ===
 		elseif ( str_starts_with( $page, 'fs_subject_' ) ) {
 			$subject_key = substr( $page, strlen( 'fs_subject_' ) );
 			wp_localize_script(
@@ -138,7 +149,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 			wp_enqueue_script( 'inline-edit-post' );
 		}
 
-		// Глобальные переменные для ВСЕХ страниц админки нашего плагина
+		// === Глобальные переменные для всех страниц админки нашего плагина ===
 		wp_localize_script(
 			$script_handle,
 			'fs_lms_vars',
@@ -146,7 +157,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'ajaxurl'       => admin_url( 'admin-ajax.php' ),
 				'subject_nonce' => Nonce::Subject->create(),
 				'manager_nonce' => Nonce::Manager->create(),
-				'ajax_actions'  => AjaxHook::toJsArray(),  // Массив AJAX-действий для JS (в змейке)
+				'ajax_actions'  => AjaxHook::toJsArray(),
 			)
 		);
 	}
@@ -186,6 +197,43 @@ class Enqueue extends BaseController implements ServiceInterface {
 			$this->plugin_version,
 			true
 		);
+
+		// === Переменные для формы создания заявки (/lms/apply) ===
+		if ( 'apply' === get_query_var( 'fs_lms_page' ) ) {
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_apply_vars',
+				array(
+					'ajax_url'    => admin_url( 'admin-ajax.php' ),
+					'captcha_key' => $this->captchaService->getSiteKey(),
+					'actions'     => array(
+						'send_otp' => AjaxHook::SendOtpCode->jsAction(),
+						'create'   => AjaxHook::CreateApplication->jsAction(),
+					),
+					'nonces'      => array(
+						'apply'      => Nonce::Apply->create(),
+						'verify_otp' => Nonce::VerifyOtp->create(),
+					),
+				)
+			);
+		}
+
+		// === Переменные для формы завершения регистрации родителя (/lms/join) ===
+		if ( 'join' === get_query_var( 'fs_lms_page' ) ) {
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_join_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'actions'  => array(
+						'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
+					),
+					'nonces'   => array(
+						'parent_submit' => Nonce::ParentSubmit->create(),
+					),
+				)
+			);
+		}
 	}
 
 	/**
@@ -225,6 +273,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 		$modal_path = $this->path( 'templates/admin/components/modals/confirm-modal.php' );
 
+		// file_exists() — проверяет существование файла перед подключением
 		if ( file_exists( $modal_path ) ) {
 			require_once $modal_path;
 		}

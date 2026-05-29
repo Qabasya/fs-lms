@@ -29,7 +29,6 @@ use RuntimeException;
  * | full_name    | full_name_enc   | —                |
  * | doc_number   | doc_number_enc  | doc_number_hash  |
  * | inn          | inn_enc         | inn_hash         |
- * | snils        | snils_enc       | —                |
  * | address      | address_enc     | —                |
  * | phone        | phone_enc       | —                |
  *
@@ -44,7 +43,6 @@ readonly class PersonService {
 		'full_name'  => 'full_name_enc',
 		'doc_number' => 'doc_number_enc',
 		'inn'        => 'inn_enc',
-		'snils'      => 'snils_enc',
 		'address'    => 'address_enc',
 		'phone'      => 'phone_enc',
 	);
@@ -74,7 +72,7 @@ readonly class PersonService {
 	 * без создания дублей. Поиск по doc_number обязателен — без него метод
 	 * выбросит исключение.
 	 *
-	 * @param array $rawData Сырые данные: full_name, doc_number, inn, snils,
+	 * @param array $rawData Сырые данные: full_name, doc_number, inn,
 	 *                       address, phone, email, wp_user_id (опционально)
 	 *
 	 * @return int ID существующей или созданной записи

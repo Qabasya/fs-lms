@@ -36,6 +36,11 @@ class BoilerplateController extends AjaxController {
 		parent::__construct();
 	}
 
+	public function register(): void {
+		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
+		parent::register();
+	}
+
 	/**
 	 * Возвращает список AJAX-действий для регистрации (только для авторизованных пользователей).
 	 *

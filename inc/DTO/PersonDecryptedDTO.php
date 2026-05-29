@@ -37,7 +37,6 @@ readonly class PersonDecryptedDTO {
 	 * @param string $fullName  Полное имя (Фамилия Имя Отчество)
 	 * @param string $pass  Данные документа (серия + номер)
 	 * @param string $inn       ИНН (10 или 12 цифр)
-	 * @param string $snils     СНИЛС (11 цифр)
 	 * @param string $address   Адрес регистрации/проживания
 	 * @param string $phone     Номер телефона
 	 */
@@ -46,7 +45,6 @@ readonly class PersonDecryptedDTO {
 		public string $fullName,
 		public string $pass,
 		public string $inn,
-		public string $snils,
 		public string $address,
 		public string $phone,
 	) {}
