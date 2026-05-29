@@ -8,13 +8,10 @@
  */
 
 use Inc\Enums\Nonce;
-use Inc\Services\ThemeCompatService;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-
-ThemeCompatService::header();
 ?>
 
 <main class="fs-lms-apply-page">
@@ -131,5 +128,3 @@ ThemeCompatService::header();
 		</div>
 	</div>
 </main>
-
-<?php ThemeCompatService::footer(); ?>

@@ -2,12 +2,13 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Person;
 
 use Inc\DTO\PersonDecryptedDTO;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
+use Inc\Services\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use RuntimeException;
 

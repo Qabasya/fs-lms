@@ -9,12 +9,12 @@ use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Services\AuditService;
 use Inc\Services\EmailService;
-use Inc\Services\PasswordLinkService;
-use Inc\Services\PersonReader;
-use Inc\Services\PersonService;
-use Inc\Services\PiiExportService;
+use Inc\Services\Enrollment\PasswordLinkService;
+use Inc\Services\Person\PersonReader;
+use Inc\Services\Person\PersonService;
+use Inc\Services\Person\PiiExportService;
+use Inc\Services\Person\RelationshipService;
 use Inc\Services\RateLimitService;
-use Inc\Services\RelationshipService;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Shared\Traits\Sanitizer;
 

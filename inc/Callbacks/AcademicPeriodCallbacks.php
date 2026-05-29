@@ -7,7 +7,7 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\DTO\AcademicPeriodDTO;
 use Inc\Enums\Nonce;
-use Inc\Services\AcademicPeriodService;
+use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 

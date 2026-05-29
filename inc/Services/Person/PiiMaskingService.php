@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Person;
 
 use Inc\Enums\PiiField;
 
@@ -160,18 +160,4 @@ class PiiMaskingService {
 		return 'г. ••••••, ••••••';
 	}
 
-	/**
-	 * СНИЛС: оставить последние 2 цифры
-	 * Пример из требований: "••• ••• •••-34"
-	 */
-	private function maskSnils( string $value ): string {
-		$digits = (string) preg_replace( '/\D/', '', $value );
-
-		if ( strlen( $digits ) >= 2 ) {
-			$end = substr( $digits, -2 );
-			return '••• ••• •••-' . $end;
-		}
-
-		return '••• ••• •••-••';
-	}
 }

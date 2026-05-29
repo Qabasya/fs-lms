@@ -8,8 +8,10 @@ use Inc\DTO\RequestContextDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\ConsentType;
 use Inc\Enums\OptionName;
+use Inc\Enums\PageRoutes;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
 use RuntimeException;
+use WP_Post;
 
 /**
  * Class ConsentService
@@ -18,43 +20,29 @@ use RuntimeException;
  *
  * @package Inc\Services
  *
- * ### Основные обязанности:
+ * ### Источник текста:
  *
- * 1. **Версионирование документов** — определяет актуальную версию по папкам templates/consents/.
- * 2. **Чтение текстов** — возвращает содержимое HTML-файла согласия; папки версий неизменны.
- * 3. **Фиксация факта подписания** — создаёт запись с версией, хэшем документа, IP и UA.
- * 4. **Отзыв согласия** — проставляет withdrawn_at и пишет аудит.
- * 5. **Привязка к persons** — после создания person-записей обновляет person_id в согласиях.
+ * Текст согласия хранится непосредственно в содержимом WP-страницы
+ * с маршрутом PageRoutes::ConsentPage ('consent'). Редактируется через стандартный
+ * редактор WordPress — без отдельного пункта в меню плагина.
  *
- * ### Хранение текстов:
+ * ### Версионирование:
  *
- * Тексты согласий управляются через вкладку "Согласия" в настройках плагина
- * и хранятся в wp_options (OptionName::ConsentTexts). Структура:
- * [
- *   'pd_processing' => [
- *     'current_version' => 'v1',
- *     'versions' => ['v1' => 'HTML-текст...', 'v2' => 'HTML-текст v2...'],
- *   ],
- *   ...
- * ]
- * Версии никогда не удаляются — только добавляются новые, чтобы можно было
- * воспроизвести точный текст, который подписал конкретный человек.
+ * При каждом сохранении страницы (хук save_post, через ConsentController) вычисляется
+ * sha256 от post_content и сохраняется в wp_options (OptionName::ConsentPageMeta)
+ * вместе с датой обновления. Этот хэш используется как идентификатор версии
+ * в записях таблицы consents.
  *
- * ### Хэш документа:
- *
- * sha256 от текста согласия. Хранится в consents.document_hash для доказательства
- * соответствия подписанного текста версии в архиве.
+ * Полная история текстов сохраняется через штатные ревизии WordPress.
  *
  * ### Роль субъекта (subject_role):
  *
- * Единственная роль — 'guardian': законный представитель подписывает за ребёнка.
- * По 152-ФЗ достаточно одного согласия от родителя; отдельное согласие от ученика не требуется.
+ * 'self'     — ученик соглашается за себя.
+ * 'guardian' — законный представитель соглашается за ребёнка (по 152-ФЗ).
  */
 readonly class ConsentService {
 
 	/**
-	 * Конструктор сервиса.
-	 *
 	 * @param ConsentRepository $consentRepository Репозиторий согласий
 	 * @param AuditService      $auditService      Сервис аудита
 	 */
@@ -64,135 +52,93 @@ readonly class ConsentService {
 	) {}
 
 	/**
-	 * Возвращает текущую (активную) версию согласия.
+	 * Возвращает текущую версию согласия — sha256-хэш актуального текста.
 	 *
-	 * @param ConsentType $type Тип согласия
-	 *
-	 * @return string Версия (например 'v1')
-	 *
-	 * @throws RuntimeException Если для данного типа нет ни одной опубликованной версии
+	 * @throws RuntimeException Если хэш ещё не вычислен (страница ни разу не сохранялась после активации)
 	 */
 	public function getCurrentVersion( ConsentType $type ): string {
-		$data = $this->loadAll();
-		$key  = $type->value;
+		$hash = $this->getStoredHash();
 
-		if ( empty( $data[ $key ]['current_version'] ) ) {
+		if ( '' === $hash ) {
 			throw new RuntimeException(
-				'Текст согласия "' . $type->label() . '" не опубликован. Добавьте его в Настройки → Согласия.'
+				'Хэш согласия не вычислен. Сохраните страницу «Согласие» в редакторе WordPress.'
 			);
 		}
 
-		return (string) $data[ $key ]['current_version'];
+		return $hash;
 	}
 
 	/**
-	 * Возвращает HTML-текст согласия для заданной версии.
+	 * Возвращает HTML-текст согласия из содержимого WP-страницы.
 	 *
-	 * @param ConsentType $type    Тип согласия
-	 * @param string      $version Версия (например 'v1')
+	 * Параметры $type и $version сохранены для обратной совместимости сигнатуры
+	 * (ConsentController передаёт их из URL /lms/consent/{type}/{version}).
 	 *
-	 * @return string HTML-текст согласия
-	 *
-	 * @throws RuntimeException Если версия не найдена
+	 * @throws RuntimeException Если страница не найдена
 	 */
 	public function getDocumentText( ConsentType $type, string $version ): string {
-		$data = $this->loadAll();
-		$key  = $type->value;
+		$page = get_page_by_path( PageRoutes::ConsentPage->value );
 
-		$text = $data[ $key ]['versions'][ $version ] ?? null;
-
-		if ( null === $text || '' === $text ) {
+		if ( null === $page ) {
 			throw new RuntimeException(
-				'Версия "' . $version . '" согласия "' . $type->label() . '" не найдена.'
+				'Страница согласия не найдена. Переактивируйте плагин.'
 			);
 		}
 
-		return (string) $text;
+		return $page->post_content;
 	}
 
 	/**
-	 * Сохраняет новую версию текста согласия и делает её текущей.
+	 * Возвращает sha256-хэш текста согласия из wp_options.
 	 *
-	 * Вызывается из callback-а страницы настроек плагина (вкладка "Согласия").
-	 * Версии только добавляются, никогда не изменяются.
-	 *
-	 * @param ConsentType $type Тип согласия
-	 * @param string      $text HTML-текст новой версии
-	 *
-	 * @return string Присвоенный номер версии (например 'v2')
-	 */
-	public function saveVersion( ConsentType $type, string $text ): string {
-		$data = $this->loadAll();
-		$key  = $type->value;
-
-		$existing = $data[ $key ]['versions'] ?? array();
-		$nextNum  = count( $existing ) + 1;
-		$version  = 'v' . $nextNum;
-
-		$data[ $key ]['versions'][ $version ]  = $text;
-		$data[ $key ]['current_version']        = $version;
-
-		update_option( OptionName::ConsentTexts->value, $data );
-
-		return $version;
-	}
-
-	/**
-	 * Возвращает все версии текстов для заданного типа.
-	 *
-	 * @param ConsentType $type Тип согласия
-	 *
-	 * @return array<string, string> ['v1' => 'текст', 'v2' => '...']
-	 */
-	public function getVersions( ConsentType $type ): array {
-		$data = $this->loadAll();
-		return (array) ( $data[ $type->value ]['versions'] ?? array() );
-	}
-
-	/**
-	 * Загружает все тексты согласий из wp_options.
-	 *
-	 * @return array
-	 */
-	private function loadAll(): array {
-		return (array) get_option( OptionName::ConsentTexts->value, array() );
-	}
-
-	/**
-	 * Возвращает sha256-хэш байтового содержимого файла согласия.
-	 *
-	 * @param ConsentType $type    Тип согласия
-	 * @param string      $version Версия (например 'v1')
-	 *
-	 * @return string Hex-строка sha256
-	 *
-	 * @throws RuntimeException Если файл не найден
+	 * Параметры $type и $version сохранены для обратной совместимости сигнатуры.
 	 */
 	public function getDocumentHash( ConsentType $type, string $version ): string {
-		return hash( 'sha256', $this->getDocumentText( $type, $version ) );
+		return $this->getStoredHash();
+	}
+
+	/**
+	 * Пересчитывает хэш и дату обновления, если сохраняется страница согласия.
+	 *
+	 * Вызывается из ConsentController на хуке save_post.
+	 * Игнорирует автосохранения, черновики и посты с другим slug.
+	 */
+	public function onConsentPageSaved( WP_Post $post ): void {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		if ( 'page' !== $post->post_type || 'publish' !== $post->post_status ) {
+			return;
+		}
+
+		if ( PageRoutes::ConsentPage->value !== $post->post_name ) {
+			return;
+		}
+
+		update_option(
+			OptionName::ConsentPageMeta->value,
+			array(
+				'hash'       => hash( 'sha256', $post->post_content ),
+				'updated_at' => current_time( 'c', true ),
+			)
+		);
 	}
 
 	/**
 	 * Фиксирует подписание согласия самим субъектом (subject_role = 'self').
 	 *
-	 * @param int|null          $appId ID заявки (null — вне контекста заявки)
-	 * @param ConsentType       $type  Тип согласия
-	 * @param RequestContextDTO $ctx   Контекст HTTP-запроса (IP, UA)
-	 *
-	 * @return int ID созданной записи
-	 *
-	 * @throws RuntimeException Если шаблон согласия не найден
+	 * @throws RuntimeException Если хэш согласия ещё не вычислен
 	 */
 	public function recordSelfConsent( ?int $appId, ConsentType $type, RequestContextDTO $ctx ): int {
 		$version = $this->getCurrentVersion( $type );
-		$hash    = $this->getDocumentHash( $type, $version );
 
 		$id = $this->consentRepository->create( array(
 			'application_id'       => $appId,
 			'consent_type'         => $type->value,
 			'subject_role'         => 'self',
 			'version'              => $version,
-			'document_hash'        => $hash,
+			'document_hash'        => $version,
 			'ip_address'           => $ctx->ip,
 			'user_agent'           => $ctx->userAgent,
 			'accepted_at'          => current_time( 'mysql', true ),
@@ -217,31 +163,20 @@ readonly class ConsentService {
 	/**
 	 * Фиксирует подписание согласия законным представителем за ребёнка.
 	 *
-	 * Аналогично recordSelfConsent, но subject_role = 'guardian' и заполняется
-	 * signed_for_person_id — ID person ребёнка, за которого подписано согласие.
-	 *
-	 * @param int|null          $appId       ID заявки (null — вне контекста заявки)
-	 * @param ConsentType       $type        Тип согласия
-	 * @param int               $forPersonId ID person ребёнка
-	 * @param RequestContextDTO $ctx         Контекст HTTP-запроса (IP, UA)
-	 *
-	 * @return int ID созданной записи
-	 *
-	 * @throws RuntimeException Если шаблон согласия не найден
+	 * @throws RuntimeException Если хэш согласия ещё не вычислен
 	 */
 	public function recordGuardianConsent( ?int $appId, ConsentType $type, int $forPersonId, RequestContextDTO $ctx ): int {
 		$version = $this->getCurrentVersion( $type );
-		$hash    = $this->getDocumentHash( $type, $version );
 
 		$id = $this->consentRepository->create( array(
-			'application_id'      => $appId,
-			'consent_type'        => $type->value,
-			'subject_role'        => 'guardian',
-			'version'             => $version,
-			'document_hash'       => $hash,
-			'ip_address'          => $ctx->ip,
-			'user_agent'          => $ctx->userAgent,
-			'accepted_at'         => current_time( 'mysql', true ),
+			'application_id'       => $appId,
+			'consent_type'         => $type->value,
+			'subject_role'         => 'guardian',
+			'version'              => $version,
+			'document_hash'        => $version,
+			'ip_address'           => $ctx->ip,
+			'user_agent'           => $ctx->userAgent,
+			'accepted_at'          => current_time( 'mysql', true ),
 			'signed_for_person_id' => $forPersonId,
 		) );
 
@@ -250,11 +185,11 @@ readonly class ConsentService {
 			'consent',
 			$id,
 			array(
-				'consent_type'    => $type->value,
-				'version'         => $version,
-				'application_id'  => $appId,
-				'subject_role'    => 'guardian',
-				'for_person_id'   => $forPersonId,
+				'consent_type'   => $type->value,
+				'version'        => $version,
+				'application_id' => $appId,
+				'subject_role'   => 'guardian',
+				'for_person_id'  => $forPersonId,
 			),
 		);
 
@@ -263,14 +198,6 @@ readonly class ConsentService {
 
 	/**
 	 * Привязывает согласия заявки к записям person по роли субъекта.
-	 *
-	 * Вызывается после того, как person-записи созданы: обновляет person_id
-	 * в согласиях на основе subject_role → person_id.
-	 *
-	 * @param int                $appId     ID заявки
-	 * @param array<string, int> $personMap subject_role => person_id
-	 *
-	 * @return void
 	 */
 	public function bindToPersons( int $appId, array $personMap ): void {
 		$this->consentRepository->bindApplicationConsentsToPersons( $appId, $personMap );
@@ -278,13 +205,6 @@ readonly class ConsentService {
 
 	/**
 	 * Отзывает согласие.
-	 *
-	 * Проставляет withdrawn_at и причину отзыва. Пишет audit log.
-	 *
-	 * @param int    $consentId ID согласия
-	 * @param string $reason    Причина отзыва
-	 *
-	 * @return void
 	 *
 	 * @throws RuntimeException Если согласие не найдено
 	 */
@@ -301,5 +221,10 @@ readonly class ConsentService {
 			$consentId,
 			array( 'reason' => $reason ),
 		);
+	}
+
+	private function getStoredHash(): string {
+		$meta = (array) get_option( OptionName::ConsentPageMeta->value, array() );
+		return (string) ( $meta['hash'] ?? '' );
 	}
 }

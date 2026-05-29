@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Enrollment;
 
 use DomainException;
 use Inc\DTO\EnrollmentInputDTO;
@@ -15,6 +15,12 @@ use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\AuditService;
+use Inc\Services\ConsentService;
+use Inc\Services\EmailService;
+use Inc\Services\Person\PersonService;
+use Inc\Services\Person\RelationshipService;
+use Inc\Services\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\TransactionRunner;
 use InvalidArgumentException;

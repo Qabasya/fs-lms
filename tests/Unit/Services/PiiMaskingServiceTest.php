@@ -3,7 +3,7 @@
 namespace Unit\Services;
 
 use PHPUnit\Framework\TestCase;
-use Inc\Services\PiiMaskingService;
+use Inc\Services\Person\PiiMaskingService;
 use Inc\Enums\PiiField;
 
 class PiiMaskingServiceTest extends TestCase {
@@ -73,13 +73,6 @@ class PiiMaskingServiceTest extends TestCase {
 		$this->assertSame( 'г. Калининград, ••••••', $this->service->mask( 'г. Калининград', PiiField::Address ) );
 	}
 
-	/**
-	 * Тест маскирования СНИЛС
-	 */
-	public function testMaskSnils(): void {
-		$this->assertSame( '••• ••• •••-34', $this->service->mask( '123-456-789 34', PiiField::Snils ) );
-		$this->assertSame( '••• ••• •••-00', $this->service->mask( '00000000000', PiiField::Snils ) );
-	}
 
 	/**
 	 * Тест пакетного маскирования (maskBulk)

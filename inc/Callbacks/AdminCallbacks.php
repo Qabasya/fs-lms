@@ -12,7 +12,7 @@ use Inc\Enums\UserRole;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
-use Inc\Services\AcademicPeriodService;
+use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Services\StudentGroupService;
 use Inc\Shared\Traits\TemplateRenderer;
 

@@ -7,6 +7,7 @@ namespace Inc\Core;
 use Inc\Contracts\ServiceInterface;
 use Inc\Enums\AjaxHook;
 use Inc\Enums\Nonce;
+use Inc\Enums\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\CaptchaService;
 use Inc\Services\PostTypeResolver;
@@ -198,8 +199,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 			true
 		);
 
-		// === Переменные для формы создания заявки (/lms/apply) ===
-		if ( 'apply' === get_query_var( 'fs_lms_page' ) ) {
+		// === Переменные для формы создания заявки (/apply) ===
+		if ( PageRoutes::Apply->isCurrent() ) {
 			wp_localize_script(
 				'fs-lms-frontend-script',
 				'fs_lms_apply_vars',

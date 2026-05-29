@@ -9,11 +9,11 @@ use Inc\Enums\AuditAction;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
-use Inc\Services\ApplicationService;
+use Inc\Services\Application\ApplicationService;
+use Inc\Services\Application\JoinCodeService;
 use Inc\Services\AuditService;
 use Inc\Services\CaptchaService;
 use Inc\Services\EmailOtpService;
-use Inc\Services\JoinCodeService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\RateLimitService;
 use Inc\DTO\ApplicationInputDTO;
@@ -79,6 +79,20 @@ class ApplicationCallbacks extends BaseController {
 		// get_query_var() — получает кастомный параметр из URL
 		$code = get_query_var( 'fs_lms_join_code', '' );
 
+		// Тестовый дебаг-режим: /lms/join/000000000000 → тестовые данные без БД
+		if ( defined( 'FS_LMS_TEST_ENV' ) && '000000000000' === $code ) {
+			set_query_var( 'fs_lms_student_data', array(
+				'full_name'  => 'Тестов Тест Тестович',
+				'birth_date' => '2010-05-15',
+				'school'     => 'Тестовая школа №1',
+				'grade'      => 7,
+				'email'      => 'test-student@example.com',
+			) );
+			set_query_var( 'fs_lms_join_code', $code );
+			set_query_var( 'fs_lms_app_id',    0 );
+			return true;
+		}
+
 		// Проверка формата JOIN-кода
 		if ( '' === $code || ! $this->joinCodeService->isValidFormat( $code ) ) {
 			return false;
@@ -134,10 +148,12 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
-		// Валидация капчи
-		$captchaToken = $this->sanitizeText( $_POST['captcha_token'] ?? '' );
-		if ( ! $this->captchaService->validate( $captchaToken, $ip ) ) {
-			$this->error( 'Проверка капчи не пройдена.' );
+		// Капча пропускается только в тестовом окружении (FS_LMS_TEST_ENV в wp-config.php)
+		if ( ! defined( 'FS_LMS_TEST_ENV' ) ) {
+			$captchaToken = $this->sanitizeText( $_POST['captcha_token'] ?? '' );
+			if ( ! $this->captchaService->validate( $captchaToken, $ip ) ) {
+				$this->error( 'Проверка капчи не пройдена.' );
+			}
 		}
 
 		$email = $this->sanitizeText( $_POST['email'] ?? '' );

@@ -2,13 +2,14 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Person;
 
 use Inc\DTO\RelationshipDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\RelationType;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\RelationshipRepository;
+use Inc\Services\AuditService;
 use Inc\Shared\Traits\TransactionRunner;
 use RuntimeException;
 
