@@ -95,6 +95,46 @@ class PiiAccessLogRepository implements RepositoryInterface {
 		return (int) $this->wpdb->insert_id;
 	}
 
+	public function listByPerson( int $personId, int $limit = 50 ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE person_id = %d ORDER BY created_at DESC LIMIT %d',
+				$this->table,
+				$personId,
+				$limit
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $row ) => PiiAccessLogDTO::fromArray( $row ), $rows ?: array() );
+	}
+
+	public function listByActor( int $userId, int $limit = 50 ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE actor_user_id = %d ORDER BY created_at DESC LIMIT %d',
+				$this->table,
+				$userId,
+				$limit
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $row ) => PiiAccessLogDTO::fromArray( $row ), $rows ?: array() );
+	}
+
+	public function purgeOlderThan( int $days ): int {
+		$this->wpdb->query(
+			$this->wpdb->prepare(
+				'DELETE FROM %i WHERE created_at < DATE_SUB(NOW(), INTERVAL %d DAY)',
+				$this->table,
+				$days
+			)
+		);
+
+		return (int) $this->wpdb->rows_affected;
+	}
+
 	/**
 	 * Обновление записей журнала доступа к ПД запрещено по compliance-требованиям.
 	 *

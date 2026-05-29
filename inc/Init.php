@@ -4,14 +4,18 @@ namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\AcademicPeriodController;
+use Inc\Controllers\ApplicationController;
 use Inc\Controllers\ConsentController;
 use Inc\Controllers\CronController;
 use Inc\Controllers\AdminController;
 use Inc\Controllers\AuthController;
 use Inc\Controllers\AuthPageController;
 use Inc\Controllers\BoilerplateController;
+use Inc\Controllers\EnrollmentController;
 use Inc\Controllers\MetaBoxController;
+use Inc\Controllers\PiiController;
 use Inc\Controllers\ProfileController;
+use Inc\Controllers\RecoveryController;
 use Inc\Controllers\StudentGroupController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
@@ -64,6 +68,10 @@ final class Init {
 			StudentGroupController::class,
 			CronController::class,
 			ConsentController::class,
+			ApplicationController::class,
+			EnrollmentController::class,
+			PiiController::class,
+			RecoveryController::class,
 		);
 	}
 

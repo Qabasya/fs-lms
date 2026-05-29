@@ -16,18 +16,16 @@ enum ConsentType: string {
 	case Marketing = 'marketing';
 
 	/**
-	 * Возвращает относительный путь к файлу шаблона согласия для конкретной версии.
-	 *
-	 * @param string $version Версия шаблона (например, 'v1', 'v2')
+	 * Возвращает человекочитаемое название типа согласия для UI.
 	 *
 	 * @return string
 	 */
-	public function templateFile( string $version ): string {
+	public function label(): string {
 		return match ( $this ) {
-			self::PdProcessing      => "templates/consents/{$version}/pd_processing.html",
-			self::PdChildProcessing => "templates/consents/{$version}/pd_child_processing.html",
-			self::PdTransfer        => "templates/consents/{$version}/pd_transfer.html",
-			self::Marketing         => "templates/consents/{$version}/marketing.html",
+			self::PdProcessing      => 'Обработка персональных данных',
+			self::PdChildProcessing => 'Обработка ПД ребёнка (от лица представителя)',
+			self::PdTransfer        => 'Передача ПД третьим лицам',
+			self::Marketing         => 'Маркетинговые рассылки',
 		};
 	}
 }

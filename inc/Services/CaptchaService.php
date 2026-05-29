@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services;
 
 use Inc\Contracts\CaptchaProviderInterface;
+use Inc\Services\CaptchaProviders\NullCaptchaProvider;
 
 /**
  * Class CaptchaService
@@ -37,10 +38,13 @@ readonly class CaptchaService {
 	/**
 	 * Конструктор сервиса.
 	 *
-	 * @param CaptchaProviderInterface $provider Провайдер капчи (из DI-контейнера)
+	 * Дефолтный провайдер — NullCaptchaProvider (пропускает все запросы).
+	 * Для подключения реального провайдера заменить тип-хинт на нужную реализацию.
+	 *
+	 * @param NullCaptchaProvider $provider Провайдер капчи
 	 */
 	public function __construct(
-		private CaptchaProviderInterface $provider,
+		private NullCaptchaProvider $provider,
 	) {}
 
 	/**
