@@ -8,7 +8,7 @@ use Hybridauth\Hybridauth;
 use Inc\DTO\UserDTO;
 use Inc\Enums\AuthProvider;
 use Inc\Enums\UserRole;
-use Inc\Repositories\UserRepository;
+use Inc\Repositories\OptionsRepositories\UserRepository;
 
 /**
  * Class AuthService

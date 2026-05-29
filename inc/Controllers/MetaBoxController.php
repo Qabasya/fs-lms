@@ -8,7 +8,7 @@ use Inc\DTO\TaskMetaDTO;
 use Inc\Enums\Nonce;
 use Inc\Enums\PostMetaName;
 use Inc\Registrars\MetaBoxRegistrar;
-use Inc\Repositories\SubjectRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;

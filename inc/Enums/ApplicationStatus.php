@@ -23,6 +23,9 @@ enum ApplicationStatus: string {
 	/** Истекло время ожидания (конечный статус) */
 	case Expired = 'expired';
 
+	/** Перемещено в корзину администратором (восстанавливаемо) */
+	case Trash = 'trash';
+
 	/**
 	 * Проверяет, разрешён ли переход из текущего статуса в следующий.
 	 * Реализует правила конечного автомата для статусов заявки.
@@ -33,17 +36,23 @@ enum ApplicationStatus: string {
 	 */
 	public function canTransitionTo( self $next ): bool {
 		return match ( $this ) {
-			// Из ожидания родителя можно отправить на проверку или истечь по времени
-			self::PendingParent => ( self::ReadyForReview === $next || self::Expired === $next ),
-
-			// На проверке можно одобрить (на зачисление), отклонить или дать истечь
-			self::ReadyForReview => ( self::Enrolling === $next || self::Rejected === $next || self::Expired === $next ),
-
-			// В процессе зачисления можно завершить зачисление (успех) или вернуть на проверку
-			self::Enrolling => ( self::Converted === $next || self::ReadyForReview === $next ),
-
-			// Терминальные статусы — из них переходы запрещены
-			self::Converted, self::Rejected, self::Expired => false,
+			self::PendingParent  => in_array( $next, [ self::ReadyForReview, self::Expired, self::Trash ], true ),
+			self::ReadyForReview => in_array( $next, [ self::Enrolling, self::Rejected, self::Expired, self::Trash ], true ),
+			self::Enrolling      => in_array( $next, [ self::Converted, self::ReadyForReview ], true ),
+			self::Rejected       => self::Trash === $next,
+			self::Expired        => self::Trash === $next,
+			// Trash восстанавливается в PendingParent или ReadyForReview
+			self::Trash          => in_array( $next, [ self::PendingParent, self::ReadyForReview ], true ),
+			self::Converted      => false,
 		};
+	}
+
+	/**
+	 * Можно ли переместить заявку в корзину.
+	 *
+	 * @return bool
+	 */
+	public function isTrashable(): bool {
+		return in_array( $this, [ self::PendingParent, self::ReadyForReview, self::Rejected, self::Expired ], true );
 	}
 }

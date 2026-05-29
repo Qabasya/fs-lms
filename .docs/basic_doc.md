@@ -13,6 +13,11 @@
 9. [Трейты](#трейты)
 10. [Контроллеры и Callbacks](#контроллеры-и-callbacks)
 11. [Репозитории](#репозитории)
+12. [Система зачисления](#система-зачисления)
+13. [WPDB Репозитории](#wpdb-репозитории)
+14. [Сервисы системы зачисления](#сервисы-системы-зачисления)
+15. [Миграции](#миграции)
+16. [Согласия на обработку ПД](#согласия-на-обработку-пд)
 
 ---
 
@@ -117,7 +122,7 @@ public static function run(): void {
 
 ### 1. Репозиторий (`TaxonomyRepository`)
 
-**Файл:** `inc/Repositories/TaxonomyRepository.php`
+**Файл:** `Inc/Repositories/WPDBRepositories/TaxonomyRepository.php`
 
 **Назначение:** CRUD-операции с данными таксономий в БД (таблица `wp_options`).
 
@@ -1262,7 +1267,7 @@ class TaxonomySettingsCallbacks {
 
 ## Репозитории
 
-**Расположение:** `inc/Repositories/`
+**Расположение:** `Inc/Repositories/WPDBRepositories/`
 
 ### Назначение
 
@@ -1330,6 +1335,347 @@ class TaxonomyRepository {
 
 ---
 
+## Система зачисления
+
+Система зачисления реализует полный жизненный цикл приёма ученика в LMS — от первичного обращения до активного зачисления на предметы.
+
+### Flow зачисления
+
+```
+1. Менеджер создаёт заявку (ApplicationRepository)
+   └─ Генерируется JOIN-код (JoinCodeService)
+   └─ Ссылка отправляется родителю
+
+2. Родитель переходит по JOIN-ссылке
+   └─ Проверяется формат и срок действия кода
+   └─ Проверяется RateLimit (IP, 10 попыток/час)
+   └─ Проверяется CAPTCHA
+
+3. Родитель заполняет данные ученика и подписывает согласие
+   └─ PersonService::createOrFindBy() — идемпотентное создание person
+   └─ ConsentService::record() — фиксация согласия с IP/UA
+   └─ ApplicationRepository::linkPersons() — привязка person к заявке
+
+4. Администратор проверяет заявку и принимает решение
+   └─ Approve → EnrollmentService::enroll()
+      └─ PersonService создаёт WP-пользователя
+      └─ PasswordLinkService::generate() — одноразовая ссылка на почту
+      └─ RelationshipService::addRepresentative() — связь родитель↔ученик
+      └─ EnrollmentRepository::create() — запись о зачислении
+   └─ Reject → заявка отклоняется с причиной
+
+5. Аудит
+   └─ AuditService::record() пишется на каждом значимом шаге
+   └─ PersonReader::read() пишет в pii_access_log при каждом чтении PII
+```
+
+### Статусы заявки
+
+| Статус | Описание |
+|---|---|
+| `pending_parent` | Ожидает заполнения родителем |
+| `pending_review` | Ожидает проверки администратором |
+| `approved` | Принята, зачисление выполнено |
+| `rejected` | Отклонена с указанием причины |
+| `expired` | JOIN-код истёк, заявка не заполнена |
+
+### Инварианты
+
+- JOIN-код хранится только в виде хэша; сырой код не логируется
+- PII всегда шифруется до записи в БД (sodium_crypto_secretbox)
+- Поиск по документу — по хэшу, не по зашифрованному полю
+- Один ученик не может быть зачислен на один предмет дважды в одном периоде (UNIQUE KEY)
+- Согласие фиксируется до любых операций с персональными данными
+
+---
+
+## WPDB Репозитории
+
+### Почему не wp_options
+
+Существующие репозитории (`SubjectsRepository`, `TaxonomyRepository` и т.д.) хранят данные в `wp_options` как сериализованные массивы. Для небольших справочных данных это удобно: не нужны миграции, данные атомарно обновляются одним вызовом.
+
+Система зачисления работает с другим классом данных:
+- **Реляционные связи** (заявка → person, person → enrollment, опекун ↔ ученик)
+- **Временны́е диапазоны** (valid_from / valid_to у relationship)
+- **Большие объёмы записей** (тысячи заявок, строк аудита)
+- **Поиск по хэшам** (doc_number_hash, join_code_hash) — требует индексов
+
+Хранить всё это в `wp_options` невозможно без потери производительности и целостности. Поэтому созданы **7 выделенных таблиц** и отдельный слой WPDB-репозиториев.
+
+### Таблицы
+
+| Таблица | Класс репозитория | Назначение |
+|---|---|---|
+| `{prefix}persons` | `PersonRepository` | Персональные данные (зашифрованные) |
+| `{prefix}applications` | `ApplicationRepository` | Заявки на зачисление |
+| `{prefix}relationships` | `RelationshipRepository` | Связи опекун ↔ ученик |
+| `{prefix}enrollments` | `EnrollmentRepository` | Зачисления на предметы |
+| `{prefix}consents` | `ConsentRepository` | Согласия на обработку ПД |
+| `{prefix}audit_log` | `AuditLogRepository` | Аудит-лог действий |
+| `{prefix}pii_access_log` | `PiiAccessLogRepository` | Лог доступа к PII |
+
+### Паттерн WPDB-репозитория
+
+Все WPDB-репозитории расположены в `inc/Repositories/WPDBRepositories/` и следуют единому паттерну:
+
+```php
+class PersonRepository {
+
+    private string $table;
+
+    public function __construct() {
+        global $wpdb;
+        $this->table = $wpdb->prefix . 'persons';
+    }
+
+    public function find(int $id): ?PersonDTO {
+        global $wpdb;
+        $row = $wpdb->get_row(
+            $wpdb->prepare("SELECT * FROM {$this->table} WHERE id = %d", $id),
+            ARRAY_A
+        );
+        return $row ? PersonDTO::fromRow($row) : null;
+    }
+
+    public function create(array $data): int {
+        global $wpdb;
+        $wpdb->insert($this->table, $data);
+        return (int) $wpdb->insert_id;
+    }
+}
+```
+
+**Ключевые правила:**
+- Все параметры в запросах — через `$wpdb->prepare()` с плейсхолдерами `%d`, `%s`, `%f`
+- Нет raw-интерполяции пользовательских данных в SQL
+- Имя таблицы не параметризуется (используется только внутри класса)
+- Результат всегда преобразуется в DTO или массив DTO — голые массивы наружу не передаются
+
+### Идемпотентные операции
+
+`RelationshipRepository::createIfNotExists()` использует `INSERT IGNORE` + fallback SELECT:
+
+```php
+public function createIfNotExists(array $data): int {
+    global $wpdb;
+    $wpdb->query($wpdb->prepare(
+        "INSERT IGNORE INTO {$this->table} (guardian_person_id, student_person_id, valid_from, ...)
+         VALUES (%d, %d, %s, ...)",
+        ...
+    ));
+    if ($wpdb->rows_affected > 0) {
+        return (int) $wpdb->insert_id;
+    }
+    // Запись уже существует — находим её
+    return (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM {$this->table} WHERE guardian_person_id = %d AND student_person_id = %d AND valid_from = %s",
+        ...
+    ));
+}
+```
+
+---
+
+## Сервисы системы зачисления
+
+Все сервисы расположены в `inc/Services/` и являются `readonly`-классами (кроме тех, кто использует трейты с `$this`-мутацией).
+
+### AuditService
+
+Единственная точка записи в `audit_log`. Использует трейт `RequestContextProvider` для автоматического сбора IP/UA.
+
+- `record(action, targetType, targetId, details)` — для аутентифицированных действий; автоматически определяет `actor_user_id` и `actor_role` через `get_current_user_id()` и `UserManager::find()`
+- `recordAnonymous(...)` — для публичных эндпоинтов (заполнение формы родителем)
+
+Детали (`details`) пишутся как JSON. **Никогда не содержат PII, ключей или хэшей** — только идентификаторы и типы операций.
+
+### JoinCodeService
+
+Генерирует одноразовые коды вида `JOIN-XXXX-XXXX-XXXX`.
+
+- Алфавит: `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` — исключены визуально похожие символы (0/O, 1/I)
+- В БД хранится только `hash($code)` — сырой код нигде не сохраняется
+- `isValidFormat(string $code): bool` — валидация формата без проверки существования
+- `hash(string $code): string` — делегирует в `PiiCryptoService::hash()`
+
+### PasswordLinkService
+
+Генерирует и инвалидирует одноразовые ссылки установки пароля.
+
+- `generate(int $userId): string` — вызывает `UserManager::generatePasswordResetKey()`, строит URL, пишет аудит
+- `invalidate(int $userId): void` — сбрасывает `user_activation_key` через `UserManager::clearActivationKey()`
+- `getDefaultTtl(): int` — возвращает TTL через фильтр `password_reset_expiration` (базовый: 24 ч, для LMS-ролей расширяется до 48 ч в контроллере)
+
+Все WordPress-вызовы (`get_userdata`, `get_password_reset_key`, `wp_update_user`) инкапсулированы в `UserManager` — сервис никогда не обращается к WP API напрямую.
+
+### RateLimitService
+
+Фиксированное окно (fixed-window) через WP transients.
+
+- Хранит `['count' => N, 'reset_at' => timestamp]` внутри transient — TTL transient'а устанавливается равным длине окна только при создании
+- Это гарантирует, что окно не сдвигается при каждом инкременте (в отличие от sliding window)
+- IP хэшируется: `hash('sha256', $ip . FS_LMS_HASH_SALT)` — IP в transient-ключах не хранится
+
+Лимиты по умолчанию:
+
+| Действие | Лимит | Окно |
+|---|---|---|
+| Подача заявки | 5 | 1 час |
+| Ввод JOIN-кода | 10 | 1 час |
+| Отправка данных родителем | 3 | 1 час |
+| Чтение PII | 100 | 1 час |
+
+### CaptchaService
+
+Тонкий фасад над `CaptchaProviderInterface`. Следует принципу OCP: добавление нового провайдера (reCAPTCHA v3, Turnstile, hCaptcha) не требует изменения сервиса.
+
+```
+CaptchaService
+└── CaptchaProviderInterface
+    ├── NullCaptchaProvider   (fallback, isConfigured() → false)
+    └── RecaptchaProvider     (пример реализации, подключается в DI)
+```
+
+- `validate(token, remoteIp): bool` — делегирует в провайдер
+- `getSiteKey(): string` — ключ для фронтенда
+- `isConfigured(): bool` — фронтенд показывает виджет только если `true`
+
+### PersonService
+
+Управляет жизненным циклом записей в таблице `persons`.
+
+- `createOrFindBy(array $rawData): int` — идемпотентный поиск по `doc_number_hash` перед созданием; шифрует все PII-поля до записи
+- `update(int $id, array $rawData): void` — шифрует изменённые поля; в аудит пишет только имена полей (не значения)
+- `softDelete(int $id): void` — проставляет `deleted_at`; запись остаётся в БД для аудита
+- `anonymize(int $id): void` — обнуляет все `*_enc` поля; вызывается retention job, не пишет в аудит
+
+Константы `ENCRYPTED_FIELDS` и `HASH_FIELDS` — декларативная карта: `rawData key → DB column`. Добавление нового зашифрованного поля — изменение только константы.
+
+### PersonReader
+
+Единственный авторизованный путь для чтения PII. Каждое чтение автоматически логируется в `pii_access_log`.
+
+```php
+$dto = $personReader->read(
+    personId: $id,
+    fields:   ['full_name', 'doc_number'],
+    reason:   'admin_card_view',
+);
+// $dto->fullName, $dto->pass — расшифрованные значения
+```
+
+- Запрос только конкретных полей (`fields`) — принцип минимального доступа
+- `reason` — обязательная строка; попадает в `pii_access_log.access_reason`
+- NULL-поля (незаполненные) возвращаются как `''` без исключений
+
+### RelationshipService
+
+Управляет связями опекун ↔ ученик.
+
+- `addRepresentative(...)`: идемпотентное создание через `RelationshipRepository::createIfNotExists()`
+- `replaceRepresentative(oldId, newGuardianPersonId, newType)`: атомарная замена через `TransactionRunner::inTransaction()` — terminate(old) + create(new) в одной транзакции
+- `terminate(id, reason)`: проставляет `valid_to = TODAY`
+- `canRepresent(guardianWpUserId, studentPersonId): bool`: авторизация родителя к данным ребёнка на уровне приложения
+
+Инвариант активной связи: `valid_from <= TODAY AND (valid_to IS NULL OR valid_to > TODAY)`.
+
+---
+
+## Миграции
+
+### Расположение
+
+```
+inc/
+└── Migrations/
+    ├── MigrationRunner.php    # Оркестратор
+    └── Migration_1_0_0.php   # Первая монолитная миграция
+```
+
+### MigrationInterface
+
+```php
+interface MigrationInterface {
+    public function up(): void;
+    public function down(): void;
+    public function version(): string; // semver: '1.0.0'
+}
+```
+
+### MigrationRunner
+
+Отслеживает текущую версию схемы в опции `fs_lms_schema_version` (`OptionName::SchemaVersion`).
+
+- `register(MigrationInterface $migration)` — добавляет миграцию в пул
+- `run()` — сортирует по `version_compare`, применяет только те, что выше текущей версии; обновляет опцию после успешного применения
+- `rollback()` — откатывает все в обратном порядке; удаляет опцию версии
+
+Запуск происходит в хуке `plugins_loaded` (или `register_activation_hook`) — до инициализации репозиториев, которые обращаются к уже созданным таблицам.
+
+### Migration_1_0_0
+
+Монолитная первая миграция. Создаёт все 7 таблиц системы зачисления через `dbDelta()`. `down()` удаляет таблицы в обратном порядке (от зависимых к основным), чтобы не нарушить возможные FK-ограничения будущих версий.
+
+Версия `1.0.0` — базовая схема. При изменении схемы добавляется новый класс `Migration_X_Y_Z` — Runner применит его автоматически при следующем запуске плагина.
+
+---
+
+## Согласия на обработку ПД
+
+### Архитектура
+
+Система согласий состоит из трёх слоёв:
+
+| Слой | Файл | Роль |
+|---|---|---|
+| Хранилище текстов | `templates/consents/v1/*.html` | Неизменяемые юридические документы |
+| Сервис | `inc/Services/ConsentService.php` | Версионирование, хэширование, фиксация |
+| Контроллер | `inc/Controllers/ConsentController.php` | Rewrite rule + template_include |
+
+### Версионирование текстов
+
+Файлы согласий хранятся в `templates/consents/{version}/{type}.html`. Папки версий (`v1/`, `v2/`, ...) **никогда не изменяются и не удаляются** — только добавляются новые. Это обеспечивает воспроизводимость: по записи в `consents.version` + `consents.document_hash` всегда можно восстановить точный текст, который подписал конкретный человек в конкретную дату.
+
+`ConsentService::getDocumentHash()` считает `sha256` от байтового содержимого файла. Этот хэш хранится в `consents.document_hash` и служит криптографическим доказательством неизменности документа.
+
+### Публичная страница согласия
+
+**URL:** `/lms/consent/{type}/{version}` — например `/lms/consent/pd_child_processing/v1`
+
+Rewrite rule регистрируется в `ConsentController::addRewriteRule()` через хук `init`. Переменные `fs_consent_type` и `fs_consent_version` объявляются в `addQueryVars()`. Фильтр `template_include` проверяет:
+1. Существование `ConsentType::tryFrom($typeSlug)` → 404 при несуществующем типе
+2. Наличие файла через `ConsentService::getDocumentText()` → 404 при несуществующей версии
+3. Передаёт текст в `templates/frontend/consent-page.php` через `set_query_var()`
+
+Шаблон использует `get_header()` / `get_footer()` темы и выводит HTML через `wp_kses_post()`.
+
+### Страница согласия в теме
+
+При активации плагина `Activate::generatePages()` создаёт WP-страницу со slug `consent` ("Согласие на обработку персональных данных") с текстом-заглушкой. Эта страница предназначена для ссылки в футере сайта — её текст администратор редактирует в стандартном редакторе WordPress.
+
+### Как администратор меняет текст согласия
+
+Сейчас текст согласия хранится в HTML-файлах и развёртывается разработчиком. Для изменения:
+1. Создать папку `templates/consents/v2/`
+2. Положить в неё обновлённый `pd_child_processing.html`
+3. `ConsentService::getCurrentVersion()` автоматически подхватит `v2` как последнюю версию
+4. Все новые подписи будут фиксироваться с `version = 'v2'`
+5. Старые записи с `version = 'v1'` по-прежнему будут корректно отображаться по URL `/lms/consent/pd_child_processing/v1`
+
+### Управление текстом через админку (TODO)
+
+Текущий подход требует деплоя для смены текста. Чтобы администратор мог редактировать текст через WP Admin без разработчика, нужна доработка:
+
+- Создать страницу настроек (`ConsentSettingsPage`) с полем `wp_editor()` для каждого типа согласия
+- При сохранении: записывать текст в `wp_option` с ключом `fs_lms_consent_{type}_v{N}` и инкрементировать версию
+- `ConsentService::getDocumentText()` читать сначала из options, затем fallback на файл
+- `ConsentService::getCurrentVersion()` читать из options
+
+Пока этого нет, текст меняется только через файловую систему (деплой новой версии папки).
+
+---
+
 ## Заключение
 
 Данная документация описывает архитектуру плагина FS LMS, включая:
@@ -1341,5 +1687,6 @@ class TaxonomyRepository {
 - **Группировку Сервисов** по назначению
 - **DTO и Enum** для типобезопасности
 - **Трейты** для переиспользуемого поведения
+- **Систему зачисления** с шифрованием PII, аудитом и реляционными таблицами
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.

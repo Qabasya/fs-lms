@@ -33,6 +33,9 @@ enum Nonce: string {
 	case WithdrawConsent       = 'fs_lms_withdraw_consent';
 	case RequestPiiDeletion    = 'fs_lms_request_pii_deletion';
 	case ExportPii             = 'fs_lms_export_pii';
+	case VerifyOtp             = 'fs_lms_verify_otp';
+	case TrashApplication      = 'fs_lms_trash_application';
+
 	/**
 	 * Создает защитный токен.
 	 *

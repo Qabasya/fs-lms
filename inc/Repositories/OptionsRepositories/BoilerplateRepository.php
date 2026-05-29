@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Inc\Repositories;
+namespace Inc\Repositories\OptionsRepositories;
 
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\OptionName;

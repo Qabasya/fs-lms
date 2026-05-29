@@ -8,7 +8,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\TaxonomyDataDTO;
 use Inc\Enums\Nonce;
 use Inc\Managers\TermManager;
-use Inc\Repositories\TaxonomyRepository;
+use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 

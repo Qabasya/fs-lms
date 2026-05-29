@@ -37,8 +37,9 @@ coverage/
 # Assets
 assets/
 
-# WordPress debug
+# Приватная документация по этапам разработки
 .docs/TASKS.md
+.docs/migrations-and-repositories.md
 
 .phpunit.cache
 

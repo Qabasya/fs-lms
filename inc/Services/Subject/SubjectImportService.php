@@ -10,10 +10,10 @@ use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\DTO\TaxonomyDataDTO;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
-use Inc\Repositories\BoilerplateRepository;
-use Inc\Repositories\MetaBoxRepository;
-use Inc\Repositories\SubjectRepository;
-use Inc\Repositories\TaxonomyRepository;
+use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
+use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 
 /**
  * Class SubjectImportService

@@ -3,7 +3,7 @@
 namespace Inc\Services\AuthService;
 
 use Inc\Enums\AuthProvider;
-use Inc\Repositories\SettingsRepository;
+use Inc\Repositories\OptionsRepositories\SettingsRepository;
 
 /**
  * Class AuthConfigFactory

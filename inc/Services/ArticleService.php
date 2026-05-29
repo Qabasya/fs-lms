@@ -6,7 +6,7 @@ namespace Inc\Services;
 
 use Inc\DTO\TermViewDTO;
 use Inc\Managers\TermManager;
-use Inc\Repositories\ArticleRepository;
+use Inc\Repositories\OptionsRepositories\ArticleRepository;
 
 /**
  * Class ArticleService

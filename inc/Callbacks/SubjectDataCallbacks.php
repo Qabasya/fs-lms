@@ -8,15 +8,15 @@ use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
-use Inc\Repositories\BoilerplateRepository;
-use Inc\Repositories\MetaBoxRepository;
-use Inc\Repositories\SubjectRepository;
-use Inc\Repositories\TaxonomyRepository;
+use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
+use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\PostTypeResolver;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
 use Inc\Shared\Traits\TemplateRenderer;
-use Inc\Services\PostTypeResolver;
 
 /**
  * Class SubjectDataCallbacks

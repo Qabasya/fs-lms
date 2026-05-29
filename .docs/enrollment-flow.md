@@ -144,7 +144,7 @@ CREATE TABLE wp_fs_lms_persons (
 
     -- Документы
     doc_type            VARCHAR(32)          NULL,
-                        -- passport_rf | birth_certificate | foreign_passport
+                        -- pass_rf | birth_certificate | foreign_pass
     doc_number_enc      BLOB                 NULL,
     doc_number_hash     CHAR(64)             NULL,  -- для дедупликации
     doc_issued_by_enc   BLOB                 NULL,
@@ -374,7 +374,7 @@ CREATE TABLE wp_fs_lms_pii_access_log (
     actor_role          VARCHAR(32)          NOT NULL,
     person_id           BIGINT UNSIGNED      NOT NULL,
     fields_accessed     VARCHAR(255)         NOT NULL,
-                        -- comma-separated: 'passport,inn,address'
+                        -- comma-separated: 'pass,inn,address'
     access_reason       VARCHAR(64)          NULL,
                         -- enrollment_review | data_export | gdpr_request | etc.
     actor_ip            VARBINARY(16)        NOT NULL,
@@ -556,7 +556,7 @@ final class PiiCryptoService
 Хэш позволяет проверять "есть ли уже такой паспорт", не расшифровывая существующие записи:
 
 ```php
-$hash = $crypto->hash($newPassportNumber);
+$hash = $crypto->hash($newPassNumber);
 $existing = $personRepo->findByDocHash($hash);
 ```
 
@@ -565,7 +565,7 @@ $existing = $personRepo->findByDocHash($hash);
 ### 5.4. Маскирование в UI
 
 Helper `Pii::mask(string $value, string $type): string`:
-- `passport`: `4015 •• •••• 1234` (первые 4 + последние 4)
+- `pass`: `4015 •• •••• 1234` (первые 4 + последние 4)
 - `inn`: `•••• •••• 1234`
 - `phone`: `+7 9•• ••• 12 34`
 - `address`: `г. Москва, ••••••`
@@ -644,7 +644,7 @@ templates/consents/
 $piiAccessLog->record(
     actor: get_current_user_id(),
     person_id: $personId,
-    fields: ['passport', 'inn'],
+    fields: ['pass', 'inn'],
     reason: 'enrollment_review',
 );
 ```
@@ -910,13 +910,30 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 
 Входить можно по логину или по email + привяжется профиль социальной сети с таким же email.
 
-**1.3. Submit (`wp_ajax_nopriv_fs_lms_create_application`):**
+**1.3. Submit — двухэтапный поток:**
+
+**Шаг A — капча + отправка OTP (`wp_ajax_nopriv_fs_lms_send_otp_code`):**
 
 ```
 1. Authorize: nonce 'fs_lms_apply' (генерируется на GET)
-2. Rate limit: 5 заявок с IP в час → 429
+2. Rate limit: 5 попыток с IP в час → 429
 3. Капча → невалидна → 400
-4. Sanitize всех полей через Sanitizer trait
+4. Sanitize email
+5. Cooldown: EmailOtpService::canResend($email) → если false,
+   ответить {"error": "Повторная отправка через N секунд"}
+6. EmailOtpService::sendCode($email)
+7. Response: {"success": true, "masked_email": "p****@gmail.com"}
+   → JS показывает экран ввода кода
+```
+
+**Шаг B — верификация OTP + создание заявки (`wp_ajax_nopriv_fs_lms_create_application`):**
+
+```
+1. Authorize: nonce 'fs_lms_verify_otp' (генерируется после шага A)
+2. Rate limit: 5 попыток с IP в час → 429
+3. Sanitize всех полей + otp_code
+4. OTP: EmailOtpService::verify($email, $otpCode) → 400 если
+   неверный или истёкший код
 5. Валидация:
    - email уникален среди active applications (status IN
      pending_parent, ready_for_review) — иначе подсказка
@@ -942,6 +959,10 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
    }
 9. На странице — экран с ссылкой и инструкцией.
 ```
+
+**Bypass-код для внутреннего использования:**
+
+Если в `wp-config.php` определена константа `FS_LMS_OTP_BYPASS_CODE` — ввод этого значения вместо кода из письма всегда проходит верификацию. Предназначено исключительно для тестирования и демо-сессий. В продакшне без обоснованной необходимости не использовать.
 
 **Где какие данные:**
 - `applications.student_data_enc` ← JSON `{full_name, email, school, grade, birth_date}` зашифрованный.
@@ -1051,6 +1072,8 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 
 Фильтры: статус, период подачи, search по фрагменту имени (по `full_name_hash` точное совпадение → не работает; полнотекстовый поиск по name на этой итерации не реализуется, чтобы не хранить открыто).
 
+**По умолчанию список не показывает заявки в статусе `Trash`** — они скрыты. Переключатель "Корзина" показывает только `Trash`-заявки. В представлении "Корзина" вместо обычных действий доступны: "Восстановить" и кнопка "Очистить корзину" (удаляет все `Trash`-заявки физически, требует confirm-диалога).
+
 **Audit log:** `view_applications_list` пишется **не на каждую загрузку страницы** (лог распухнет), а суммарно — sample 1:50 или по фильтру `WP_DEBUG`.
 
 ### Этап 4: Админ открывает заявку
@@ -1081,11 +1104,20 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 - Возврат расшифрованного значения, показ на 30 секунд
 
 **4.3. "Отклонить":**
-- Модалка с причиной (свободный текст)
+- Модалка с причиной (свободный текст, обязательное)
 - UPDATE applications SET status='rejected', rejected_reason=?,
   reviewed_by_user_id=?, reviewed_at=NOW()
 - Audit log: action='reject_application'
 - (опционально) уведомление родителю email-ом
+
+**4.4. "В корзину":**
+- Доступно для `PendingParent`, `ReadyForReview`, `Rejected`, `Expired`
+- Отличается от "Отклонить": корзина — административный мусор (дубли, тестовые заявки, ошибочные записи), отклонение — бизнес-решение с официальной причиной и уведомлением
+- Без модалки с причиной; confirm-диалог в JS достаточен
+- UPDATE applications SET status='trash'
+- Audit log: action='move_to_trash'
+- Заявка исчезает из основного списка, попадает в раздел "Корзина"
+- Восстановление из корзины: `setStatus($id, PendingParent|ReadyForReview)` в зависимости от заполненности `parent_data_enc`
 
 ### Этап 5: Модалка "Зачислить"
 
@@ -1523,7 +1555,7 @@ Enrollment snapshot **сохраняется**, но также подлежит
 
 В соответствии с архитектурой CLAUDE.md:
 
-**Repositories (`inc/Repositories/`):**
+**Repositories (`Inc/Repositories/WPDBRepositories/`):**
 - `ApplicationRepository`
 - `PersonRepository`
 - `RelationshipRepository`
@@ -1543,7 +1575,7 @@ Enrollment snapshot **сохраняется**, но также подлежит
 - `PersonReader` — обёртка над `PersonRepository::find()` с автоматическим `pii_access_log`.
 
 **DTO (`inc/DTO/`):**
-- `ApplicationDto`, `PersonDto`, `EnrollmentDto`, `RelationshipDto`, `ConsentDto` — для передачи между слоями.
+- `ApplicationDTO`, `PersonDTO`, `EnrollmentDTO`, `RelationshipDTO`, `ConsentDTO` — для передачи между слоями.
 - `EnrollmentInput` — входной DTO для `EnrollmentService::enroll()`.
 
 **Controllers (`inc/Controllers/`):**
@@ -1613,24 +1645,26 @@ Enrollment snapshot **сохраняется**, но также подлежит
 Порядок implementation для команды:
 
 1. [ ] Миграция схемы: создать все таблицы.
-2. [ ] `PiiCryptoService` + конфигурация ключей.
-3. [ ] Все Repositories (CRUD без бизнес-логики).
-4. [ ] DTO и Enums.
+2. [ ] `PiiCryptoService` + конфигурация ключей (`FS_LMS_ENC_KEY`, `FS_LMS_HASH_SALT`, опционально `FS_LMS_OTP_BYPASS_CODE`).
+3. [ ] Все Repositories (CRUD без бизнес-логики), включая `ApplicationRepository::delete()` (только из `trash`).
+4. [ ] DTO и Enums, включая `ApplicationStatus::Trash` и `AuditAction::MoveToTrash/RestoreFromTrash/EmptyTrash`.
 5. [ ] `JoinCodeService`, `PasswordLinkService`, `UserFactory`.
-6. [ ] `PiiAccessLogRepository` + `PersonReader`.
-7. [ ] `ApplicationController` + публичные формы (этапы 1-2).
-8. [ ] Тексты согласий + версионирование.
-9. [ ] Админ-список заявок + карточка (этапы 3-4).
-10. [ ] AJAX `reveal_pii_field` + маскирование в UI.
-11. [ ] `EnrollmentService` + транзакционная оркестрация (этап 6).
-12. [ ] Модалка зачисления + AJAX `enroll_student` (этап 5).
-13. [ ] Recovery cron job.
-14. [ ] Email-шаблоны + интеграция с password reset link.
-15. [ ] Управление представителями (добавить/заменить) — этап 10.5-10.6.
-16. [ ] Функции экспорта и удаления ПД.
-17. [ ] Retention cron jobs.
-18. [ ] Регистрация ролей и capabilities.
-19. [ ] Интеграционные тесты ключевых сценариев (создание заявки → зачисление → установка пароля).
+6. [ ] `EmailOtpService` + шаблон письма `templates/emails/otp-code.php`.
+7. [ ] `PiiAccessLogRepository` + `PersonReader`.
+8. [ ] `ApplicationController` + публичные формы (этапы 1-2) с двухэтапным OTP-потоком.
+9. [ ] Тексты согласий + версионирование.
+10. [ ] Админ-список заявок с фильтром "Корзина" + карточка (этапы 3-4).
+11. [ ] AJAX `reveal_pii_field` + маскирование в UI.
+12. [ ] AJAX корзины: `move_to_trash`, `restore_from_trash`, `empty_trash`.
+13. [ ] `EnrollmentService` + транзакционная оркестрация (этап 6).
+14. [ ] Модалка зачисления + AJAX `enroll_student` (этап 5).
+15. [ ] Recovery cron job.
+16. [ ] Email-шаблоны + интеграция с password reset link.
+17. [ ] Управление представителями (добавить/заменить) — этап 10.5-10.6.
+18. [ ] Функции экспорта и удаления ПД.
+19. [ ] Retention cron jobs.
+20. [ ] Регистрация ролей и capabilities.
+21. [ ] Интеграционные тесты ключевых сценариев (создание заявки → OTP → зачисление → установка пароля).
 
 ## Приложение B: Открытые вопросы для уточнения
 

@@ -5,7 +5,7 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\DTO\TaskTypeBoilerplateDTO;
 use Inc\Enums\Nonce;
-use Inc\Repositories\BoilerplateRepository;
+use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
