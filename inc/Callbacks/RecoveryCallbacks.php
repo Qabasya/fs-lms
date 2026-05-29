@@ -5,9 +5,9 @@ declare( strict_types=1 );
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
-use Inc\Services\ApplicationService;
+use Inc\Services\Application\ApplicationService;
 use Inc\Services\Enrollment\RecoveryService;
-use Inc\Services\RetentionService;
+use Inc\Services\Person\RetentionService;
 
 /**
  * Class RecoveryCallbacks

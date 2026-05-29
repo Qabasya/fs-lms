@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services\Enrollment;
+namespace Inc\Services\Person;
 
 use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;

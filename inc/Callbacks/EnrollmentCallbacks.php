@@ -13,7 +13,7 @@ use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\AuditService;
 use Inc\Services\Enrollment\EnrollmentService;
 use Inc\Services\PiiCryptoService;
-use Inc\Services\PiiMaskingService;
+use Inc\Services\Person\PiiMaskingService;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\DTO\EnrollmentInputDTO;
 use Inc\Shared\Traits\Sanitizer;

@@ -2,7 +2,9 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Application;
+
+use Inc\Services\PiiCryptoService;
 
 /**
  * Class JoinCodeService

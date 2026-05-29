@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Application;
 
 use DomainException;
 use Inc\DTO\ApplicationCreatedDTO;
@@ -12,6 +12,10 @@ use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
 use Inc\Enums\ConsentType;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Services\AuditService;
+use Inc\Services\ConsentService;
+use Inc\Services\EmailOtpService;
+use Inc\Services\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\TransactionRunner;
 use RuntimeException;
