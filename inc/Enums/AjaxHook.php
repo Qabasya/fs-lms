@@ -65,9 +65,13 @@ enum AjaxHook: string {
 	case AddRepresentative     = 'add_representative';
 	case ReplaceRepresentative = 'replace_representative';
 	case UpdatePerson          = 'update_person';
-	case WithdrawConsent       = 'withdraw_consent';
-	case RequestPiiDeletion    = 'request_pii_deletion';
-	case ExportPii             = 'export_pii';
+	case WithdrawConsent              = 'withdraw_consent';
+	case RequestPiiDeletion           = 'request_pii_deletion';
+	case ExportPii                    = 'export_pii';
+	case SendOtpCode                  = 'send_otp_code';
+	case MoveApplicationToTrash       = 'move_application_to_trash';
+	case RestoreApplicationFromTrash  = 'restore_application_from_trash';
+	case EmptyApplicationsTrash       = 'empty_applications_trash';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

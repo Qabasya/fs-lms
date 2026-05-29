@@ -141,10 +141,13 @@ class ApplicationRepository implements RepositoryInterface {
 		$conditions = array( '1=1' );
 		$bindings   = array();
 
-		// Фильтр по статусу
+		// Фильтр по статусу; без явного фильтра корзина скрыта
 		if ( ! empty( $filters['status'] ) ) {
 			$conditions[] = 'status = %s';
 			$bindings[]   = $filters['status'];
+		} else {
+			$conditions[] = 'status != %s';
+			$bindings[]   = ApplicationStatus::Trash->value;
 		}
 
 		// Фильтр по дате начала
@@ -197,6 +200,9 @@ class ApplicationRepository implements RepositoryInterface {
 		if ( ! empty( $filters['status'] ) ) {
 			$conditions[] = 'status = %s';
 			$bindings[]   = $filters['status'];
+		} else {
+			$conditions[] = 'status != %s';
+			$bindings[]   = ApplicationStatus::Trash->value;
 		}
 
 		if ( ! empty( $filters['date_from'] ) ) {
@@ -335,6 +341,33 @@ class ApplicationRepository implements RepositoryInterface {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Физически удаляет заявку. Разрешено только если статус — 'trash'.
+	 *
+	 * @param int $id ID заявки
+	 *
+	 * @throws \LogicException Если статус заявки не 'trash'
+	 *
+	 * @return bool
+	 */
+	public function delete( int $id ): bool {
+		$application = $this->find( $id );
+
+		if ( null === $application ) {
+			throw new \InvalidArgumentException( "Заявка с ID {$id} не найдена." );
+		}
+
+		if ( ApplicationStatus::Trash !== $application->status ) {
+			throw new \LogicException(
+				sprintf( "Физическое удаление разрешено только для заявок в статусе 'trash'. Текущий статус: '%s'.", $application->status->value )
+			);
+		}
+
+		$result = $this->wpdb->delete( $this->table, array( 'id' => $id ) );
+
+		return false !== $result;
 	}
 
 	/**

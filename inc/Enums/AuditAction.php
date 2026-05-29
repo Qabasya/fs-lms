@@ -78,4 +78,15 @@ enum AuditAction: string {
 
 	/** Просмотр списка заявок */
 	case ViewApplicationsList = 'view_applications_list';
+
+	// ===== Корзина заявок =====
+
+	/** Перемещение заявки в корзину */
+	case MoveToTrash = 'move_to_trash';
+
+	/** Восстановление заявки из корзины */
+	case RestoreFromTrash = 'restore_from_trash';
+
+	/** Очистка корзины (физическое удаление всех trash-заявок) */
+	case EmptyTrash = 'empty_trash';
 }

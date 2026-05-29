@@ -22,7 +22,8 @@ namespace Inc\DTO;
  *
  * ### Примечания:
  *
- * - Капча (captchaToken) проверяется в сервисе перед созданием заявки.
+ * - OTP-код (otpCode) верифицируется через EmailOtpService перед созданием заявки.
+ *   Капча проверяется на предыдущем шаге (ajaxSendOtpCode) и здесь не передаётся.
  * - IP и User-Agent фиксируются для аудита и защиты от спама.
  * - Согласие (consentAccepted) должно быть true для создания заявки.
  */
@@ -37,7 +38,7 @@ readonly class ApplicationInputDTO {
 	 * @param int    $grade           Класс обучения (1-11)
 	 * @param string $birthDate       Дата рождения в формате Y-m-d
 	 * @param bool   $consentAccepted Согласие на обработку персональных данных
-	 * @param string $captchaToken    Токен капчи (Google reCAPTCHA)
+	 * @param string $otpCode         6-значный код подтверждения email (шаг B двухэтапной формы)
 	 * @param string $ip              IP-адрес отправителя (для аудита)
 	 * @param string $userAgent       User-Agent браузера (для аудита)
 	 */
@@ -48,7 +49,7 @@ readonly class ApplicationInputDTO {
 		public int    $grade,
 		public string $birthDate,
 		public bool   $consentAccepted,
-		public string $captchaToken,
+		public string $otpCode,
 		public string $ip,
 		public string $userAgent,
 	) {}
