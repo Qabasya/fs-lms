@@ -82,35 +82,44 @@ class Container {
 
 		// Получаем параметры и собираем зависимости для каждого
 		foreach ( $constructor->getParameters() as $parameter ) {
-			$type = $parameter->getType();
+			$type     = $parameter->getType();
+			$hasDefault = $parameter->isDefaultValueAvailable();
 
-			// Проверяем, что тип параметра — именованный (не union, не mixed и т.д.)
+			// Нет тайп-хинта или union/intersection — только дефолт
 			if ( ! $type instanceof ReflectionNamedType ) {
-				throw new Exception( "Неподдерживаемый тип параметра {$parameter->getName()}" );
-			}
-
-			// Если параметр — встроенный тип (string, int, bool, array и т.д.)
-			if ( $type->isBuiltin() ) {
-				// Пытаемся взять значение по умолчанию
-				if ( $parameter->isDefaultValueAvailable() ) {
+				if ( $hasDefault ) {
 					$dependencies[] = $parameter->getDefaultValue();
 					continue;
 				}
+				throw new Exception( 'Неподдерживаемый тип параметра ' . $parameter->getName() . ' в ' . $class );
+			}
 
-				// Встроенный тип без значения по умолчанию — невозможно разрешить
+			// Встроенный тип (string, int, bool, array и т.д.) — только дефолт
+			if ( $type->isBuiltin() ) {
+				if ( $hasDefault ) {
+					$dependencies[] = $parameter->getDefaultValue();
+					continue;
+				}
 				throw new Exception(
-					"Невозможно разрешить встроенный тип {$type->getName()} в {$class}"
+					'Невозможно разрешить встроенный тип ' . $type->getName() . ' для параметра ' . $parameter->getName() . ' в ' . $class
 				);
 			}
 
-			// Рекурсивно создаем зависимость (если ей тоже что-то нужно)
-			$dependencies[] = $this->get( $type->getName() );
+			// Класс или интерфейс — попытка autowire; при неудаче использовать дефолт
+			try {
+				$dependencies[] = $this->get( $type->getName() );
+			} catch ( Exception $e ) {
+				if ( $hasDefault ) {
+					$dependencies[] = $parameter->getDefaultValue();
+				} else {
+					throw $e;
+				}
+			}
 		}
 
-		// Создаём объект с внедрёнными зависимостями
-		$instance = $reflection->newInstanceArgs( $dependencies );
+		// Создаём объект с внедрёнными зависимостями и кэшируем
+		$this->instances[ $class ] = $reflection->newInstanceArgs( $dependencies );
 
-		// Сохраняем в кэше для последующих вызовов
-		return $this->instances[ $class ] = $instance;
+		return $this->instances[ $class ];
 	}
 }
