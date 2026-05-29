@@ -40,10 +40,10 @@
 		<input type="hidden" name="redirect_to" value="<?php echo esc_url( apply_filters( 'lms_auth_redirect_url', home_url(), null ) ); ?>">
 	</form>
 
-	<!-- Ссылка на страницу регистрации преподавателей -->
-	<div class="fs-auth-card__switch">
-		Вы преподаватель?<br><a href="<?php echo esc_url( $register_url ); ?>">Зарегистрироваться как преподаватель</a>
-	</div>
+	<!-- Ссылка на страницу регистрации преподавателей  ВРЕМЕННО НЕДОСТУПНО-->
+<!--	<div class="fs-auth-card__switch">-->
+<!--		Вы преподаватель?<br><a href="--><?php //echo esc_url( $register_url ); ?><!--">Зарегистрироваться как преподаватель</a>-->
+<!--	</div>-->
 
 	<!-- Блок авторизации через социальные сети (отображается только если есть активные провайдеры) -->
 	<?php if ( ! empty( $providers ) ) : ?>

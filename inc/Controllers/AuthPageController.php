@@ -78,8 +78,8 @@ class AuthPageController extends BaseController implements ServiceInterface {
 			'frontend/auth-page',
 			array(
 				'providers'     => $providers,
-				// PageRoutes::SignUp->url() — URL страницы регистрации (для ручной регистрации)
-				'register_url'  => PageRoutes::SignUp->url(),
+//				// PageRoutes::SignUp->url() — URL страницы регистрации (для ручной регистрации)
+//				'register_url'  => PageRoutes::SignUp->url(),
 				// wp_lostpassword_url() — возвращает URL страницы восстановления пароля
 				'lost_pass_url' => wp_lostpassword_url(),
 			)
