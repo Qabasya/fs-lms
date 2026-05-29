@@ -892,7 +892,7 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 ### Этап 1: Ученик заполняет заявку
 
 **1.1. Точка входа:**
-Публичная страница `/lms/apply` (короткий код или дочерняя страница). Регистрация маршрута через `rewrite_rule` в `ApplicationController`.
+Публичная страница `/apply` (короткий код или дочерняя страница). Регистрация маршрута через `rewrite_rule` в `ApplicationController`.
 
 **1.2. Форма:**
 - ФИО (три поля текста)
@@ -963,14 +963,29 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 9. На странице — экран с ссылкой и инструкцией.
 ```
 
-**Конфигурационные константы для управления OTP и капчей:**
+**Конфигурационные константы для управления OTP, капчей и дебаг-доступом:**
 
 | Константа в `wp-config.php` | Поведение |
 |---|---|
-| `FS_LMS_TEST_ENV` | Тестовое окружение: капча не проверяется, письмо с OTP не отправляется. Ученик вводит `FS_LMS_OTP_BYPASS_CODE`. |
+| `FS_LMS_TEST_ENV` | Тестовое окружение: капча не проверяется, письмо с OTP не отправляется. Ученик вводит `FS_LMS_OTP_BYPASS_CODE`. Открывает дебаг-маршруты (см. ниже). |
 | `FS_LMS_OTP_BYPASS_CODE` | Постоянный bypass-код: принимается вместо кода с почты в **любом** окружении. Используется когда у ученика нет доступа к email. |
 
 Обе константы независимы. Если определена только `FS_LMS_OTP_BYPASS_CODE` (без `FS_LMS_TEST_ENV`) — капча работает в штатном режиме, письмо отправляется, но ученик может ввести bypass-код вместо кода из письма.
+
+**Дебаг-маршрут страницы родителя:**
+
+При наличии `FS_LMS_TEST_ENV` GET-запрос на `/lms/join/000000000000` рендерит `join.php` с тестовыми данными ученика без обращения к БД:
+
+```
+full_name  = 'Тестов Тест Тестович'
+birth_date = '2010-05-15'
+school     = 'Тестовая школа №1'
+grade      = 7
+email      = 'test-student@example.com'
+app_id     = 0
+```
+
+Реализовано в `ApplicationCallbacks::prepareJoinPage()` — перехват происходит до валидации формата и rate limit. В продакшне без `FS_LMS_TEST_ENV` адрес отдаёт 404 (код не проходит формат `JOIN-XXXX-XXXX-XXXX`).
 
 **Где какие данные:**
 - `applications.student_data_enc` ← JSON `{full_name, email, school, grade, birth_date}` зашифрованный.
@@ -980,7 +995,7 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 
 ### Этап 2: Родитель открывает ссылку
 
-**2.1. GET `/lms/join/{code}`:**
+**2.1. GET `/join/{code}`:**
 
 ```
 1. Rate limit на IP: 10 попыток открытия любых кодов в час

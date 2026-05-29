@@ -79,6 +79,20 @@ class ApplicationCallbacks extends BaseController {
 		// get_query_var() — получает кастомный параметр из URL
 		$code = get_query_var( 'fs_lms_join_code', '' );
 
+		// Тестовый дебаг-режим: /lms/join/000000000000 → тестовые данные без БД
+		if ( defined( 'FS_LMS_TEST_ENV' ) && '000000000000' === $code ) {
+			set_query_var( 'fs_lms_student_data', array(
+				'full_name'  => 'Тестов Тест Тестович',
+				'birth_date' => '2010-05-15',
+				'school'     => 'Тестовая школа №1',
+				'grade'      => 7,
+				'email'      => 'test-student@example.com',
+			) );
+			set_query_var( 'fs_lms_join_code', $code );
+			set_query_var( 'fs_lms_app_id',    0 );
+			return true;
+		}
+
 		// Проверка формата JOIN-кода
 		if ( '' === $code || ! $this->joinCodeService->isValidFormat( $code ) ) {
 			return false;
