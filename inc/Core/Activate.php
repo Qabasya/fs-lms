@@ -101,7 +101,7 @@ class Activate {
 		// createPageIfNeeded() — создаёт страницу, если её ещё нет
 		// Параметры: enum страницы, заголовок, шорткод для вставки
 		$generator->createPageIfNeeded( PageRoutes::SignIn, 'Авторизация', ShortCode::LoginForm->tag() );
-		$generator->createPageIfNeeded( PageRoutes::SignUp, 'Регистрация', ShortCode::RegisterForm->tag() );
+//		$generator->createPageIfNeeded( PageRoutes::SignUp, 'Регистрация', ShortCode::RegisterForm->tag() ); // Временно не работает, можно заменить на apply
 		$generator->createPageIfNeeded( PageRoutes::UserProfile, 'Личный кабинет', ShortCode::Profile->tag() );
 		$generator->createPageIfNeeded(
 			PageRoutes::ConsentPage,
