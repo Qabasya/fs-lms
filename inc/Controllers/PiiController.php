@@ -29,7 +29,7 @@ class PiiController extends AjaxController {
 		add_action( 'init',             array( $this, 'addPiiExportRewriteRule' ) );
 		add_filter( 'query_vars',       array( $this, 'addPiiExportQueryVar' ) );
 		add_filter( 'template_include', array( $this, 'handlePiiExportDownload' ) );
-		$this->registerAjaxHooks();
+		parent::register();
 	}
 
 	protected function ajaxActions(): array {

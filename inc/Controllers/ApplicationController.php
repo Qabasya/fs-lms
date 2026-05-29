@@ -26,7 +26,7 @@ class ApplicationController extends AjaxController {
 		add_action( 'init',             array( $this, 'addRewriteRules' ) );
 		add_filter( 'query_vars',       array( $this, 'addQueryVars' ) );
 		add_filter( 'template_include', array( $this, 'loadTemplate' ) );
-		$this->registerAjaxHooks();
+		parent::register();
 	}
 
 	protected function publicAjaxActions(): array {

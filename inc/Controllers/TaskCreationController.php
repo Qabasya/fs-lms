@@ -73,7 +73,7 @@ class TaskCreationController extends AjaxController {
 		);
 
 		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
-		$this->registerAjaxHooks();
+		parent::register();
 	}
 
 	/**

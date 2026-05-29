@@ -25,7 +25,7 @@ class EnrollmentController extends AjaxController {
 
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'registerAdminPages' ) );
-		$this->registerAjaxHooks();
+		parent::register();
 	}
 
 	protected function ajaxActions(): array {
