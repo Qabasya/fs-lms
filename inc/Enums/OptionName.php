@@ -57,4 +57,7 @@ enum OptionName: string {
 
 	/** Тексты согласий (версионированные, редактируются в настройках плагина) */
 	case ConsentTexts = 'fs_lms_consent_texts';
+
+	/** Шаблоны email-писем (редактируются в настройках плагина) */
+	case EmailTemplates = 'fs_lms_email_templates';
 }

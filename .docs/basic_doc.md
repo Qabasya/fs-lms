@@ -1621,58 +1621,134 @@ interface MigrationInterface {
 
 ---
 
+<!-- Раздел перенесён выше в "Согласия на обработку ПД" -->
+
+---
+
+## Email-шаблоны (Strategy pattern)
+
+### Проблема
+
+Тексты писем нельзя хардкодить в `EmailService`: администратор должен иметь возможность редактировать их через UI без деплоя, а разработчик — менять дефолты через PHP-файлы.
+
+### Архитектура
+
+```
+EmailTemplateInterface          ← контракт стратегии (inc/Contracts/)
+├── PhpEmailTemplate            ← читает templates/emails/{type}.php
+└── WpOptionsEmailTemplate      ← читает wp_options, fallback → PhpEmailTemplate
+```
+
+`EmailService` зависит от `WpOptionsEmailTemplate` (внедряется DI-контейнером). Сам сервис не знает, откуда пришли тексты.
+
+### EmailTemplateInterface
+
+```php
+interface EmailTemplateInterface {
+    public function get(string $type, array $vars = []): EmailTemplateData;
+}
+```
+
+Один метод возвращает `EmailTemplateData` с `subject` и `body` — оба уже готовы для `wp_mail()`.
+
+### PhpEmailTemplate
+
+Загружает `templates/emails/{type}.php`. Каждый файл должен вернуть массив:
+
+```php
+// templates/emails/otp_code.php
+<?php
+return [
+    'subject' => 'Код подтверждения — FS LMS',
+    'body'    => '<p>Ваш код: <strong>' . esc_html($code) . '</strong>.</p>',
+];
+```
+
+Переменные из `$vars` доступны через `extract()` до `include`.
+
+### WpOptionsEmailTemplate
+
+Хранит шаблоны в `wp_options` (ключ `fs_lms_email_templates`):
+
+```php
+[
+  'otp_code' => [
+    'subject' => 'Код: FS LMS',
+    'body'    => '<p>Ваш код: <strong>{code}</strong>.</p>',
+  ],
+]
+```
+
+Переменные подставляются как `{key}` → `esc_html(value)`. Если для типа нет записи в options — делегирует в `PhpEmailTemplate`.
+
+### Добавление нового типа письма
+
+1. Создать `templates/emails/{type}.php`, вернуть массив с `subject` и `body`.
+2. Добавить метод в `EmailService`, вызвать `$this->template->get('{type}', $vars)`.
+3. Документировать плейсхолдеры — они отобразятся в UI вкладки "Шаблоны писем".
+
+### Редактирование через UI
+
+Вкладка "Шаблоны писем" в настройках плагина (реализуется через `EmailTemplateSettingsCallbacks`):
+- Показывает текущий текст (из options или из PHP-файла как дефолт)
+- Сохраняет изменения в `OptionName::EmailTemplates` (`fs_lms_email_templates`)
+- Кнопка "Сбросить к умолчанию" удаляет запись из options → автоматический fallback на PHP-файл
+
+### Существующие типы
+
+| Тип | Метод EmailService | Плейсхолдеры |
+|---|---|---|
+| `otp_code` | `sendOtpCode` | `{code}` |
+| `password_setup` | `sendPasswordSetup` | `{link}`, `{display_name}` |
+| `application_confirmation` | `sendApplicationConfirmation` | `{join_url}`, `{expires_at}` |
+| `application_ready` | `sendApplicationReadyNotification` | — |
+| `rejection` | `sendRejectionNotification` | `{reason}` |
+| `new_representative` | `sendNewRepresentativeNotification` | `{display_name}`, `{link}` |
+
+---
+
 ## Согласия на обработку ПД
 
 ### Архитектура
 
-Система согласий состоит из трёх слоёв:
+Тексты согласий управляются через вкладку "Согласия" в настройках плагина и хранятся в `wp_options` (ключ `fs_lms_consent_texts`). Версии неизменяемы — только добавляются новые.
 
 | Слой | Файл | Роль |
 |---|---|---|
-| Хранилище текстов | `templates/consents/v1/*.html` | Неизменяемые юридические документы |
+| Хранилище текстов | `wp_options[fs_lms_consent_texts]` | Версионированные тексты, редактируемые в UI |
 | Сервис | `inc/Services/ConsentService.php` | Версионирование, хэширование, фиксация |
 | Контроллер | `inc/Controllers/ConsentController.php` | Rewrite rule + template_include |
 
-### Версионирование текстов
+### Структура хранилища
 
-Файлы согласий хранятся в `templates/consents/{version}/{type}.html`. Папки версий (`v1/`, `v2/`, ...) **никогда не изменяются и не удаляются** — только добавляются новые. Это обеспечивает воспроизводимость: по записи в `consents.version` + `consents.document_hash` всегда можно восстановить точный текст, который подписал конкретный человек в конкретную дату.
+```php
+fs_lms_consent_texts = [
+  'pd_processing' => [
+    'current_version' => 'v2',
+    'versions' => [
+      'v1' => 'HTML текст v1...',
+      'v2' => 'HTML текст v2...',
+    ],
+  ],
+  'pd_child_processing' => [...],
+]
+```
 
-`ConsentService::getDocumentHash()` считает `sha256` от байтового содержимого файла. Этот хэш хранится в `consents.document_hash` и служит криптографическим доказательством неизменности документа.
+### ConsentService API
 
-### Публичная страница согласия
+- `getCurrentVersion(ConsentType $type): string` — активная версия
+- `getDocumentText(ConsentType $type, string $version): string` — текст версии
+- `getDocumentHash(ConsentType $type, string $version): string` — sha256 текста
+- `saveVersion(ConsentType $type, string $text): string` — добавляет версию, делает текущей
+- `getVersions(ConsentType $type): array` — все версии типа
 
-**URL:** `/lms/consent/{type}/{version}` — например `/lms/consent/pd_child_processing/v1`
+### Версионирование
 
-Rewrite rule регистрируется в `ConsentController::addRewriteRule()` через хук `init`. Переменные `fs_consent_type` и `fs_consent_version` объявляются в `addQueryVars()`. Фильтр `template_include` проверяет:
-1. Существование `ConsentType::tryFrom($typeSlug)` → 404 при несуществующем типе
-2. Наличие файла через `ConsentService::getDocumentText()` → 404 при несуществующей версии
-3. Передаёт текст в `templates/frontend/consent-page.php` через `set_query_var()`
+Версии **только добавляются**, никогда не редактируются — это криптографически доказывает, что подписанный человеком текст соответствует конкретной версии. `document_hash` в таблице `consents` хранит sha256 подписанного текста.
 
-Шаблон использует `get_header()` / `get_footer()` темы и выводит HTML через `wp_kses_post()`.
+### Публичная страница
 
-### Страница согласия в теме
-
-При активации плагина `Activate::generatePages()` создаёт WP-страницу со slug `consent` ("Согласие на обработку персональных данных") с текстом-заглушкой. Эта страница предназначена для ссылки в футере сайта — её текст администратор редактирует в стандартном редакторе WordPress.
-
-### Как администратор меняет текст согласия
-
-Сейчас текст согласия хранится в HTML-файлах и развёртывается разработчиком. Для изменения:
-1. Создать папку `templates/consents/v2/`
-2. Положить в неё обновлённый `pd_child_processing.html`
-3. `ConsentService::getCurrentVersion()` автоматически подхватит `v2` как последнюю версию
-4. Все новые подписи будут фиксироваться с `version = 'v2'`
-5. Старые записи с `version = 'v1'` по-прежнему будут корректно отображаться по URL `/lms/consent/pd_child_processing/v1`
-
-### Управление текстом через админку (TODO)
-
-Текущий подход требует деплоя для смены текста. Чтобы администратор мог редактировать текст через WP Admin без разработчика, нужна доработка:
-
-- Создать страницу настроек (`ConsentSettingsPage`) с полем `wp_editor()` для каждого типа согласия
-- При сохранении: записывать текст в `wp_option` с ключом `fs_lms_consent_{type}_v{N}` и инкрементировать версию
-- `ConsentService::getDocumentText()` читать сначала из options, затем fallback на файл
-- `ConsentService::getCurrentVersion()` читать из options
-
-Пока этого нет, текст меняется только через файловую систему (деплой новой версии папки).
+**URL:** `/lms/consent/{type}/{version}` — отображает текст согласия (зарегистрирован `ConsentController`).
 
 ---
 
@@ -1688,5 +1764,7 @@ Rewrite rule регистрируется в `ConsentController::addRewriteRule(
 - **DTO и Enum** для типобезопасности
 - **Трейты** для переиспользуемого поведения
 - **Систему зачисления** с шифрованием PII, аудитом и реляционными таблицами
+- **Email-шаблоны** через Strategy pattern с поддержкой редактирования в UI
+- **Согласия на обработку ПД** с неизменяемым версионированием через wp_options
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.
