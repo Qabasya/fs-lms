@@ -1,6 +1,3 @@
-@charset "UTF-8";
-/* ── Tables: shared base */
-/* ── Tables: Add Row Button */
 .fs-toggle {
   display: inline-block;
   vertical-align: middle;
@@ -10,7 +7,7 @@
   display: block;
   width: 40px;
   height: 20px;
-  background-color: #a0a0a0;
+  background-color: #a7aaad;
   border-radius: 15px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -31,7 +28,7 @@
   display: none;
 }
 .fs-toggle input[type=checkbox]:checked + .fs-toggle-switch {
-  background-color: #1e73be;
+  background-color: #2271b1;
   opacity: 1 !important;
 }
 .fs-toggle input[type=checkbox]:checked + .fs-toggle-switch::after {
@@ -54,8 +51,8 @@
   padding: 0 12px;
   border-radius: 4px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  font-size: 13px;
-  font-weight: 400;
+  font-size: 14px;
+  font-weight: 450;
   white-space: nowrap;
   max-width: 100%;
   box-sizing: border-box;
@@ -65,20 +62,20 @@
   color: rgb(44, 71, 0);
 }
 .fs-badge.is-blue {
-  background-color: #d1e4f3;
-  color: #184a6d;
+  background-color: #c5d9ed;
+  color: #0a4b78;
 }
 .fs-badge.is-gray {
-  background-color: #e5e5e5;
-  color: #2c3338;
+  background-color: #dcdcde;
+  color: #3c434a;
 }
 .fs-badge.is-yellow {
-  background-color: #fef7e3;
-  color: #715c00;
+  background-color: #f5e6ab;
+  color: #614200;
 }
 .fs-badge.is-red {
-  background-color: #fbeaea;
-  color: #d63638;
+  background-color: #facfd2;
+  color: #691c1c;
 }
 
 .tw-5 {
@@ -185,7 +182,6 @@
   position: relative;
   display: inline-block;
   width: 100%;
-  max-width: 25em;
 }
 .fs-lms-secret-field .regular-text {
   width: 100% !important;
@@ -202,7 +198,7 @@
   padding: 0;
   margin: 0;
   cursor: pointer;
-  color: #a0a0a0;
+  color: #a7aaad;
   transition: color 0.15s ease-in-out;
   display: flex;
   align-items: center;
@@ -211,15 +207,15 @@
   width: 30px;
 }
 .fs-lms-secret-field .fs-lms-toggle-secret:hover, .fs-lms-secret-field .fs-lms-toggle-secret:focus {
-  color: #155a8a;
+  color: #135e96;
   background: none;
   outline: none;
   box-shadow: none;
 }
 .fs-lms-secret-field .fs-lms-toggle-secret .dashicons {
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
 }
 
 /*# sourceMappingURL=common.css.map */
