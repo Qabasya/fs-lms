@@ -21,7 +21,7 @@ use RuntimeException;
  *
  * 1. **Rewrite rule** — регистрирует маршрут /lms/consent/{type}/{version}.
  * 2. **Query vars** — объявляет переменные fs_consent_type и fs_consent_version.
- * 3. **Template include** — подменяет шаблон темы на templates/public/consent-page.php.
+ * 3. **Template include** — подменяет шаблон темы на templates/frontend/consent-page.php.
  *
  * ### URL-формат:
  *

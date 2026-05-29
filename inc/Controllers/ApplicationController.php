@@ -61,13 +61,13 @@ class ApplicationController extends AjaxController {
 		$page = get_query_var( 'fs_lms_page' );
 
 		if ( 'apply' === $page ) {
-			$path = $this->path( 'templates/public/apply.php' );
+			$path = $this->path( 'templates/frontend/apply.php' );
 
 			return file_exists( $path ) ? $path : $template;
 		}
 
 		if ( 'join' === $page ) {
-			$path = $this->path( 'templates/public/join.php' );
+			$path = $this->path( 'templates/frontend/join.php' );
 
 			return file_exists( $path ) ? $path : $template;
 		}
