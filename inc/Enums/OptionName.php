@@ -53,5 +53,5 @@ enum OptionName: string {
 	case SchemaVersion = 'fs_lms_schema_version';
 
 	/** Справочник учебных периодов */
-	case Periods = 'fs_lms_periods_lust';
+	case Periods = 'fs_lms_periods_list';
 }

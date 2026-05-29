@@ -29,6 +29,88 @@ use Inc\Enums\UserRole;
 class UserManager {
 
 	/**
+	 * Находит WP-пользователя по ID.
+	 *
+	 * @param int $id ID пользователя WordPress
+	 *
+	 * @return \WP_User|null null если пользователь не найден
+	 */
+	public function find( int $id ): ?\WP_User {
+		$user = get_userdata( $id );
+
+		return false !== $user ? $user : null;
+	}
+
+	/**
+	 * Возвращает ID записи person, привязанной к WP-пользователю.
+	 *
+	 * @param int $userId ID пользователя WordPress
+	 *
+	 * @return int|null null если usermeta не установлена
+	 */
+	public function getPersonId( int $userId ): ?int {
+		$value = get_user_meta( $userId, 'fs_lms_person_id', true );
+
+		return $value !== '' && $value !== false ? (int) $value : null;
+	}
+
+	/**
+	 * Генерирует WP password reset key для пользователя.
+	 *
+	 * Сохраняет хэш ключа в user_activation_key. Предыдущий ключ
+	 * при этом автоматически инвалидируется WordPress.
+	 *
+	 * @param int $userId ID пользователя WordPress
+	 *
+	 * @return string Сырой ключ для включения в URL (не хэшированный)
+	 *
+	 * @throws \RuntimeException Если пользователь не найден или WP вернул WP_Error
+	 */
+	public function generatePasswordResetKey( int $userId ): string {
+		$user = $this->find( $userId );
+
+		if ( null === $user ) {
+			throw new \RuntimeException( "Пользователь с ID {$userId} не найден." );
+		}
+
+		$key = get_password_reset_key( $user );
+
+		if ( is_wp_error( $key ) ) {
+			throw new \RuntimeException(
+				'Ошибка генерации ключа сброса пароля: ' . $key->get_error_message()
+			);
+		}
+
+		return $key;
+	}
+
+	/**
+	 * Инвалидирует ссылку сброса пароля, очищая user_activation_key.
+	 *
+	 * @param int $userId ID пользователя WordPress
+	 *
+	 * @return void
+	 *
+	 * @throws \RuntimeException Если пользователь не найден или обновление не удалось
+	 */
+	public function clearActivationKey( int $userId ): void {
+		if ( null === $this->find( $userId ) ) {
+			throw new \RuntimeException( "Пользователь с ID {$userId} не найден." );
+		}
+
+		$result = wp_update_user( array(
+			'ID'                  => $userId,
+			'user_activation_key' => '',
+		) );
+
+		if ( is_wp_error( $result ) ) {
+			throw new \RuntimeException(
+				'Ошибка инвалидации ключа: ' . $result->get_error_message()
+			);
+		}
+	}
+
+	/**
 	 * Ограничивает доступ к админ-панели для всех, кроме администраторов и LMS-преподавателей.
 	 * Подключается к хуку 'admin_init'.
 	 *

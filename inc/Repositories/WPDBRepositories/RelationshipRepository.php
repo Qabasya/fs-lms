@@ -129,6 +129,131 @@ class RelationshipRepository implements RepositoryInterface {
 	}
 
 	/**
+	 * Находит активные связи ученика (действующие на сегодня).
+	 *
+	 * @param int $studentPersonId ID ученика из таблицы persons
+	 *
+	 * @return RelationshipDTO[]
+	 */
+	public function findActiveByStudent( int $studentPersonId ): array {
+		$today = current_time( 'Y-m-d' );
+		$rows  = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE student_person_id = %d AND valid_from <= %s AND (valid_to IS NULL OR valid_to > %s) ORDER BY valid_from DESC',
+				$this->table,
+				$studentPersonId,
+				$today,
+				$today
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $row ) => RelationshipDTO::fromArray( $row ), $rows ?: array() );
+	}
+
+	/**
+	 * Находит активные связи опекуна (действующие на сегодня).
+	 *
+	 * @param int $guardianPersonId ID опекуна из таблицы persons
+	 *
+	 * @return RelationshipDTO[]
+	 */
+	public function findActiveByGuardian( int $guardianPersonId ): array {
+		$today = current_time( 'Y-m-d' );
+		$rows  = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE guardian_person_id = %d AND valid_from <= %s AND (valid_to IS NULL OR valid_to > %s) ORDER BY valid_from DESC',
+				$this->table,
+				$guardianPersonId,
+				$today,
+				$today
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $row ) => RelationshipDTO::fromArray( $row ), $rows ?: array() );
+	}
+
+	/**
+	 * Находит активную пару опекун-ученик на сегодняшнюю дату.
+	 *
+	 * @param int $guardianPersonId ID опекуна
+	 * @param int $studentPersonId  ID ученика
+	 *
+	 * @return RelationshipDTO|null
+	 */
+	public function findActivePair( int $guardianPersonId, int $studentPersonId ): ?RelationshipDTO {
+		$today = current_time( 'Y-m-d' );
+		$row   = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE guardian_person_id = %d AND student_person_id = %d AND valid_from <= %s AND (valid_to IS NULL OR valid_to > %s) LIMIT 1',
+				$this->table,
+				$guardianPersonId,
+				$studentPersonId,
+				$today,
+				$today
+			),
+			ARRAY_A
+		);
+
+		return $row ? RelationshipDTO::fromArray( $row ) : null;
+	}
+
+	/**
+	 * Создаёт связь или возвращает ID существующей (INSERT IGNORE).
+	 *
+	 * Уникальный ключ: (guardian_person_id, student_person_id, valid_from).
+	 * Если строка уже существует — возвращает её ID без создания дубля.
+	 *
+	 * @param array $data Массив полей таблицы
+	 *
+	 * @return int ID созданной или существующей записи
+	 */
+	public function createIfNotExists( array $data ): int {
+		$this->wpdb->query(
+			$this->wpdb->prepare(
+				'INSERT IGNORE INTO %i (guardian_person_id, student_person_id, relation_type, valid_from, created_at) VALUES (%d, %d, %s, %s, %s)',
+				$this->table,
+				(int) $data['guardian_person_id'],
+				(int) $data['student_person_id'],
+				(string) $data['relation_type'],
+				(string) $data['valid_from'],
+				(string) ( $data['created_at'] ?? current_time( 'mysql', true ) )
+			)
+		);
+
+		if ( $this->wpdb->insert_id > 0 ) {
+			return (int) $this->wpdb->insert_id;
+		}
+
+		$existing = $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT id FROM %i WHERE guardian_person_id = %d AND student_person_id = %d AND valid_from = %s LIMIT 1',
+				$this->table,
+				(int) $data['guardian_person_id'],
+				(int) $data['student_person_id'],
+				(string) $data['valid_from']
+			)
+		);
+
+		return (int) $existing;
+	}
+
+	/**
+	 * Завершает связь, проставляя valid_to.
+	 *
+	 * @param int         $id   ID связи
+	 * @param string|null $date Дата окончания (Y-m-d); если null — сегодня
+	 *
+	 * @return bool
+	 */
+	public function terminate( int $id, ?string $date = null ): bool {
+		return $this->update( $id, array(
+			'valid_to' => $date ?? current_time( 'Y-m-d' ),
+		) );
+	}
+
+	/**
 	 * Создаёт новую запись связи опекун-ученик.
 	 *
 	 * @param array $data Массив полей таблицы (guardian_person_id, student_person_id, relation_type, valid_from, valid_to)

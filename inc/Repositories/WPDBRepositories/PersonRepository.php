@@ -156,6 +156,38 @@ class PersonRepository implements RepositoryInterface {
 	 * @return bool
 	 */
 	public function delete( int $id ): bool {
-		return $this->update( $id, array( 'deleted_at' => current_time( 'mysql' ) ) );
+		return $this->softDelete( $id );
+	}
+
+	/**
+	 * Помечает запись как удалённую (deleted_at = NOW()).
+	 * Данные остаются в БД для аудита; retention job обезличит их позже.
+	 *
+	 * @param int $id ID записи
+	 *
+	 * @return bool
+	 */
+	public function softDelete( int $id ): bool {
+		return $this->update( $id, array( 'deleted_at' => current_time( 'mysql', true ) ) );
+	}
+
+	/**
+	 * Обезличивает запись: обнуляет все зашифрованные поля (*_enc).
+	 * Вызывается retention job после истечения срока хранения.
+	 * Запись остаётся в БД (для ссылочной целостности), но PII удалены безвозвратно.
+	 *
+	 * @param int $id ID записи
+	 *
+	 * @return bool
+	 */
+	public function anonymize( int $id ): bool {
+		return $this->update( $id, array(
+			'full_name_enc'  => null,
+			'doc_number_enc' => null,
+			'inn_enc'        => null,
+			'snils_enc'      => null,
+			'address_enc'    => null,
+			'phone_enc'      => null,
+		) );
 	}
 }
