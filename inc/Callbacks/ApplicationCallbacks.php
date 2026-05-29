@@ -134,10 +134,12 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
-		// Валидация капчи
-		$captchaToken = $this->sanitizeText( $_POST['captcha_token'] ?? '' );
-		if ( ! $this->captchaService->validate( $captchaToken, $ip ) ) {
-			$this->error( 'Проверка капчи не пройдена.' );
+		// Капча пропускается только в тестовом окружении (FS_LMS_TEST_ENV в wp-config.php)
+		if ( ! defined( 'FS_LMS_TEST_ENV' ) ) {
+			$captchaToken = $this->sanitizeText( $_POST['captcha_token'] ?? '' );
+			if ( ! $this->captchaService->validate( $captchaToken, $ip ) ) {
+				$this->error( 'Проверка капчи не пройдена.' );
+			}
 		}
 
 		$email = $this->sanitizeText( $_POST['email'] ?? '' );

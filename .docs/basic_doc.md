@@ -1570,6 +1570,24 @@ public function createIfNotExists(array $data): int {
 | Отправка данных родителем | 3 | 1 час |
 | Чтение PII | 100 | 1 час |
 
+### EmailOtpService
+
+Генерирует, отправляет и верифицирует одноразовые коды подтверждения email (шаг A/B формы заявки).
+
+- `sendCode(string $email)` — генерирует 6-значный код, сохраняет sha256-хэш в transient (TTL 10 мин), отправляет письмо. Если определена `FS_LMS_TEST_ENV` — сразу возвращает `return`, письмо не отправляется.
+- `verify(string $email, string $code): bool` — сравнивает хэши через `hash_equals()`. Если определена `FS_LMS_OTP_BYPASS_CODE` и `$code === FS_LMS_OTP_BYPASS_CODE` — возвращает `true` без проверки transient (работает в любом окружении).
+- `canResend(string $email): bool` — проверяет cooldown (60 сек).
+- `invalidate(string $email)` — удаляет transient кода и cooldown.
+
+**Конфигурационные константы (`wp-config.php`):**
+
+| Константа | Назначение |
+|---|---|
+| `FS_LMS_TEST_ENV` | Тестовое окружение: письмо не отправляется, капча в `ApplicationCallbacks` пропускается. Ученик вводит `FS_LMS_OTP_BYPASS_CODE`. |
+| `FS_LMS_OTP_BYPASS_CODE` | Постоянный bypass-код: принимается вместо кода с почты в любом окружении. Удобно когда у ученика нет доступа к email. |
+
+Константы независимы. Без `FS_LMS_TEST_ENV` капча и письмо работают штатно; `FS_LMS_OTP_BYPASS_CODE` при этом всё равно принимается как валидный код.
+
 ### CaptchaService
 
 Тонкий фасад над `CaptchaProviderInterface`. Следует принципу OCP: добавление нового провайдера (reCAPTCHA v3, Turnstile, hCaptcha) не требует изменения сервиса.
@@ -1584,6 +1602,8 @@ CaptchaService
 - `validate(token, remoteIp): bool` — делегирует в провайдер
 - `getSiteKey(): string` — ключ для фронтенда
 - `isConfigured(): bool` — фронтенд показывает виджет только если `true`
+
+Проверка капчи в `ApplicationCallbacks::ajaxSendOtpCode()` пропускается если в `wp-config.php` определена константа `FS_LMS_TEST_ENV`.
 
 ### PersonService
 

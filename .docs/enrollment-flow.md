@@ -916,10 +916,13 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 1. Authorize: nonce 'fs_lms_apply' (генерируется на GET)
 2. Rate limit: 5 попыток с IP в час → 429
 3. Капча → невалидна → 400
+   [пропускается если FS_LMS_TEST_ENV определена в wp-config.php]
 4. Sanitize email
 5. Cooldown: EmailOtpService::canResend($email) → если false,
    ответить {"error": "Повторная отправка через N секунд"}
+   [пропускается если FS_LMS_TEST_ENV определена]
 6. EmailOtpService::sendCode($email)
+   [письмо не отправляется если FS_LMS_TEST_ENV определена]
 7. Response: {"success": true, "masked_email": "p****@gmail.com"}
    → JS показывает экран ввода кода
 ```
@@ -932,6 +935,8 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 3. Sanitize всех полей + otp_code
 4. OTP: EmailOtpService::verify($email, $otpCode) → 400 если
    неверный или истёкший код
+   [если задана FS_LMS_OTP_BYPASS_CODE и otp_code совпадает с ней —
+    верификация проходит без проверки transient]
 5. Валидация:
    - email уникален среди active applications (status IN
      pending_parent, ready_for_review) — иначе подсказка
@@ -958,9 +963,14 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 9. На странице — экран с ссылкой и инструкцией.
 ```
 
-**Bypass-код для внутреннего использования:**
+**Конфигурационные константы для управления OTP и капчей:**
 
-Если в `wp-config.php` определена константа `FS_LMS_OTP_BYPASS_CODE` — ввод этого значения вместо кода из письма всегда проходит верификацию. Предназначено исключительно для тестирования и демо-сессий. В продакшне без обоснованной необходимости не использовать.
+| Константа в `wp-config.php` | Поведение |
+|---|---|
+| `FS_LMS_TEST_ENV` | Тестовое окружение: капча не проверяется, письмо с OTP не отправляется. Ученик вводит `FS_LMS_OTP_BYPASS_CODE`. |
+| `FS_LMS_OTP_BYPASS_CODE` | Постоянный bypass-код: принимается вместо кода с почты в **любом** окружении. Используется когда у ученика нет доступа к email. |
+
+Обе константы независимы. Если определена только `FS_LMS_OTP_BYPASS_CODE` (без `FS_LMS_TEST_ENV`) — капча работает в штатном режиме, письмо отправляется, но ученик может ввести bypass-код вместо кода из письма.
 
 **Где какие данные:**
 - `applications.student_data_enc` ← JSON `{full_name, email, school, grade, birth_date}` зашифрованный.
