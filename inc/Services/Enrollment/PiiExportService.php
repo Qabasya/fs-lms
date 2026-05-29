@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Enrollment;
 
 use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
@@ -10,6 +10,8 @@ use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\Repositories\WPDBRepositories\RelationshipRepository;
+use Inc\Services\AuditService;
+use Inc\Services\PiiCryptoService;
 use InvalidArgumentException;
 
 /**

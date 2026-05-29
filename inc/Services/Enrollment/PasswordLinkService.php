@@ -2,10 +2,11 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Enrollment;
 
 use Inc\Enums\AuditAction;
 use Inc\Managers\UserManager;
+use Inc\Services\AuditService;
 use RuntimeException;
 
 /**

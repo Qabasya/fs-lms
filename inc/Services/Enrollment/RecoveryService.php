@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services;
+namespace Inc\Services\Enrollment;
 
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\UserRole;
@@ -10,6 +10,7 @@ use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\AuditService;
 
 readonly class RecoveryService {
 

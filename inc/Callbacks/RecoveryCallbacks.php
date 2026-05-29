@@ -6,7 +6,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\Services\ApplicationService;
-use Inc\Services\RecoveryService;
+use Inc\Services\Enrollment\RecoveryService;
 use Inc\Services\RetentionService;
 
 /**
