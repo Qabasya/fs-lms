@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\ConsentType;
 use Inc\Services\ConsentService;
 use RuntimeException;
+use WP_Post;
 
 /**
  * Class ConsentController
@@ -56,6 +57,17 @@ class ConsentController extends BaseController implements ServiceInterface {
 		add_action( 'init',            array( $this, 'addRewriteRule' ) );
 		add_filter( 'query_vars',      array( $this, 'addQueryVars' ) );
 		add_filter( 'template_include', array( $this, 'loadConsentTemplate' ) );
+		add_action( 'save_post',       array( $this, 'handleConsentPageSave' ), 10, 2 );
+	}
+
+	/**
+	 * @param int     $postId ID сохраняемого поста
+	 * @param WP_Post $post   Объект поста
+	 *
+	 * @return void
+	 */
+	public function handleConsentPageSave( int $postId, WP_Post $post ): void {
+		$this->consentService->onConsentPageSaved( $post );
 	}
 
 	/**

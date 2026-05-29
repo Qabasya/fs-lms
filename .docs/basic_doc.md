@@ -1096,8 +1096,11 @@ ThemeCompatService::footer(); // вместо get_footer()
 ### Где применяется
 
 - `templates/frontend/single-task.php`
-- `templates/frontend/apply.php`
-- Все новые публичные страницы плагина
+- Все новые публичные страницы, подключаемые через `template_include` (минуя шорткод)
+
+### Не применяется
+
+Шаблоны, рендеримые через шорткод (`apply.php`, `auth-page.php`, `profile.php`), **не вызывают** `ThemeCompatService` — тема WordPress уже выводит header/footer вокруг шорткода.
 
 ### Не использовать
 
@@ -1752,44 +1755,54 @@ return [
 
 ### Архитектура
 
-Тексты согласий управляются через вкладку "Согласия" в настройках плагина и хранятся в `wp_options` (ключ `fs_lms_consent_texts`). Версии неизменяемы — только добавляются новые.
+Текст согласия хранится непосредственно в содержимом WordPress-страницы с slug `consent` (создаётся при активации). Администратор редактирует его через стандартный редактор — без отдельного пункта в меню плагина.
 
 | Слой | Файл | Роль |
 |---|---|---|
-| Хранилище текстов | `wp_options[fs_lms_consent_texts]` | Версионированные тексты, редактируемые в UI |
-| Сервис | `inc/Services/ConsentService.php` | Версионирование, хэширование, фиксация |
-| Контроллер | `inc/Controllers/ConsentController.php` | Rewrite rule + template_include |
+| Источник текста | WP-страница slug `consent` (`post_content`) | Редактируемый текст согласия |
+| Мета-хранилище | `wp_options[fs_lms_consent_page_meta]` | Текущий sha256-хэш и дата обновления |
+| Контроллер | `inc/Controllers/ConsentController.php` | Хук `save_post` + rewrite rule |
+| Сервис | `inc/Services/ConsentService.php` | Чтение текста, хранение хэша, фиксация |
 
-### Структура хранилища
+### Структура wp_options
 
 ```php
-fs_lms_consent_texts = [
-  'pd_processing' => [
-    'current_version' => 'v2',
-    'versions' => [
-      'v1' => 'HTML текст v1...',
-      'v2' => 'HTML текст v2...',
-    ],
-  ],
-  'pd_child_processing' => [...],
+fs_lms_consent_page_meta = [
+  'hash'       => 'a3f1...e9d2',   // sha256 от post_content
+  'updated_at' => '2025-01-15T10:30:00+03:00',
 ]
 ```
 
+### Обновление версии
+
+При сохранении страницы `consent` в WordPress-редакторе:
+
+1. `ConsentController::handleConsentPageSave(int $postId, WP_Post $post)` срабатывает на хук `save_post`
+2. Делегирует в `ConsentService::onConsentPageSaved(WP_Post $post)`
+3. Сервис проверяет: не автосохранение, тип `page`, статус `publish`, slug `consent`
+4. Вычисляет `sha256(post_content)` и записывает хэш + дату в `ConsentPageMeta`
+
+История текстов сохраняется через **встроенные ревизии WordPress** (`wp_revisions`).
+
 ### ConsentService API
 
-- `getCurrentVersion(ConsentType $type): string` — активная версия
-- `getDocumentText(ConsentType $type, string $version): string` — текст версии
-- `getDocumentHash(ConsentType $type, string $version): string` — sha256 текста
-- `saveVersion(ConsentType $type, string $text): string` — добавляет версию, делает текущей
-- `getVersions(ConsentType $type): array` — все версии типа
+- `getCurrentVersion(ConsentType $type): string` — возвращает sha256-хэш из `ConsentPageMeta` (хэш = идентификатор версии)
+- `getDocumentText(ConsentType $type, string $version): string` — возвращает `post_content` WP-страницы (параметры сигнатуры сохранены для обратной совместимости с `ConsentController`)
+- `getDocumentHash(ConsentType $type, string $version): string` — возвращает sha256 из `ConsentPageMeta`
+- `onConsentPageSaved(WP_Post $post): void` — пересчитывает мету при сохранении страницы
+- `recordSelfConsent(...)` / `recordGuardianConsent(...)` — фиксируют подписание; в поле `version` таблицы `consents` записывается текущий sha256-хэш
 
 ### Версионирование
 
-Версии **только добавляются**, никогда не редактируются — это криптографически доказывает, что подписанный человеком текст соответствует конкретной версии. `document_hash` в таблице `consents` хранит sha256 подписанного текста.
+`version` в таблице `consents` = sha256-хэш текста на момент подписания. Это позволяет:
+- Доказать, что конкретная версия текста существовала (хэш не изменить задним числом)
+- Восстановить точный текст через ревизии WordPress по дате подписания
 
 ### Публичная страница
 
-**URL:** `/lms/consent/{type}/{version}` — отображает текст согласия (зарегистрирован `ConsentController`).
+Администратор открывает `/consent` — стандартную WP-страницу. Шорткод не нужен: страница содержит `post_content` напрямую.
+
+`ConsentController` также регистрирует маршрут `/lms/consent/{type}/{version}` для отображения текста по ссылке из записей аудита — возвращает актуальный `post_content` страницы.
 
 ---
 
@@ -1806,6 +1819,6 @@ fs_lms_consent_texts = [
 - **Трейты** для переиспользуемого поведения
 - **Систему зачисления** с шифрованием PII, аудитом и реляционными таблицами
 - **Email-шаблоны** через Strategy pattern с поддержкой редактирования в UI
-- **Согласия на обработку ПД** с неизменяемым версионированием через wp_options
+- **Согласия на обработку ПД** с версионированием через sha256-хэш WP-страницы и ревизии WordPress
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.
