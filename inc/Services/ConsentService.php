@@ -7,6 +7,7 @@ namespace Inc\Services;
 use Inc\DTO\RequestContextDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\ConsentType;
+use Inc\Enums\OptionName;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
 use RuntimeException;
 
@@ -25,15 +26,24 @@ use RuntimeException;
  * 4. **Отзыв согласия** — проставляет withdrawn_at и пишет аудит.
  * 5. **Привязка к persons** — после создания person-записей обновляет person_id в согласиях.
  *
- * ### Инвариант версионирования:
+ * ### Хранение текстов:
  *
- * Папки v1/, v2/, ... никогда не изменяются и не удаляются — только добавляются новые.
- * Это гарантирует воспроизведение точного текста, который подписал конкретный человек.
+ * Тексты согласий управляются через вкладку "Согласия" в настройках плагина
+ * и хранятся в wp_options (OptionName::ConsentTexts). Структура:
+ * [
+ *   'pd_processing' => [
+ *     'current_version' => 'v1',
+ *     'versions' => ['v1' => 'HTML-текст...', 'v2' => 'HTML-текст v2...'],
+ *   ],
+ *   ...
+ * ]
+ * Версии никогда не удаляются — только добавляются новые, чтобы можно было
+ * воспроизвести точный текст, который подписал конкретный человек.
  *
  * ### Хэш документа:
  *
- * sha256 от байтового содержимого HTML-файла. Хранится в consents.document_hash
- * для доказательства того, что подписанный текст соответствует версии в архиве.
+ * sha256 от текста согласия. Хранится в consents.document_hash для доказательства
+ * соответствия подписанного текста версии в архиве.
  *
  * ### Роль субъекта (subject_role):
  *
@@ -54,39 +64,25 @@ readonly class ConsentService {
 	) {}
 
 	/**
-	 * Возвращает последнюю доступную версию согласия.
-	 *
-	 * Сканирует директорию templates/consents/ на наличие папок вида v1, v2, ...
-	 * и возвращает натурально-максимальную. Не зависит от конкретного типа согласия —
-	 * все типы версионируются совместно.
+	 * Возвращает текущую (активную) версию согласия.
 	 *
 	 * @param ConsentType $type Тип согласия
 	 *
 	 * @return string Версия (например 'v1')
 	 *
-	 * @throws RuntimeException Если директория не найдена или не содержит ни одной версии
+	 * @throws RuntimeException Если для данного типа нет ни одной опубликованной версии
 	 */
-	public function getCurrentVersion( ConsentType $type ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
-		$dir = FS_LMS_PATH . 'templates/consents/';
+	public function getCurrentVersion( ConsentType $type ): string {
+		$data = $this->loadAll();
+		$key  = $type->value;
 
-		if ( ! is_dir( $dir ) ) {
-			throw new RuntimeException( "Директория согласий не найдена: {$dir}" );
+		if ( empty( $data[ $key ]['current_version'] ) ) {
+			throw new RuntimeException(
+				'Текст согласия "' . $type->label() . '" не опубликован. Добавьте его в Настройки → Согласия.'
+			);
 		}
 
-		$entries   = scandir( $dir );
-		$versions  = array_filter(
-			$entries !== false ? $entries : array(),
-			static fn( string $entry ) => preg_match( '/^v\d+$/', $entry ) === 1
-				&& is_dir( $dir . $entry )
-		);
-
-		if ( empty( $versions ) ) {
-			throw new RuntimeException( "В директории {$dir} нет ни одной версии согласия." );
-		}
-
-		natsort( $versions );
-
-		return end( $versions );
+		return (string) $data[ $key ]['current_version'];
 	}
 
 	/**
@@ -95,26 +91,71 @@ readonly class ConsentService {
 	 * @param ConsentType $type    Тип согласия
 	 * @param string      $version Версия (например 'v1')
 	 *
-	 * @return string Содержимое HTML-файла
+	 * @return string HTML-текст согласия
 	 *
-	 * @throws RuntimeException Если файл согласия не существует
+	 * @throws RuntimeException Если версия не найдена
 	 */
 	public function getDocumentText( ConsentType $type, string $version ): string {
-		$path = FS_LMS_PATH . $type->templateFile( $version );
+		$data = $this->loadAll();
+		$key  = $type->value;
 
-		if ( ! file_exists( $path ) ) {
+		$text = $data[ $key ]['versions'][ $version ] ?? null;
+
+		if ( null === $text || '' === $text ) {
 			throw new RuntimeException(
-				"Текст согласия не найден: {$type->value} {$version} ({$path})"
+				'Версия "' . $version . '" согласия "' . $type->label() . '" не найдена.'
 			);
 		}
 
-		$content = file_get_contents( $path );
+		return (string) $text;
+	}
 
-		if ( $content === false ) {
-			throw new RuntimeException( "Не удалось прочитать файл согласия: {$path}" );
-		}
+	/**
+	 * Сохраняет новую версию текста согласия и делает её текущей.
+	 *
+	 * Вызывается из callback-а страницы настроек плагина (вкладка "Согласия").
+	 * Версии только добавляются, никогда не изменяются.
+	 *
+	 * @param ConsentType $type Тип согласия
+	 * @param string      $text HTML-текст новой версии
+	 *
+	 * @return string Присвоенный номер версии (например 'v2')
+	 */
+	public function saveVersion( ConsentType $type, string $text ): string {
+		$data = $this->loadAll();
+		$key  = $type->value;
 
-		return $content;
+		$existing = $data[ $key ]['versions'] ?? array();
+		$nextNum  = count( $existing ) + 1;
+		$version  = 'v' . $nextNum;
+
+		$data[ $key ]['versions'][ $version ]  = $text;
+		$data[ $key ]['current_version']        = $version;
+
+		update_option( OptionName::ConsentTexts->value, $data );
+
+		return $version;
+	}
+
+	/**
+	 * Возвращает все версии текстов для заданного типа.
+	 *
+	 * @param ConsentType $type Тип согласия
+	 *
+	 * @return array<string, string> ['v1' => 'текст', 'v2' => '...']
+	 */
+	public function getVersions( ConsentType $type ): array {
+		$data = $this->loadAll();
+		return (array) ( $data[ $type->value ]['versions'] ?? array() );
+	}
+
+	/**
+	 * Загружает все тексты согласий из wp_options.
+	 *
+	 * @return array
+	 */
+	private function loadAll(): array {
+		return (array) get_option( OptionName::ConsentTexts->value, array() );
 	}
 
 	/**
