@@ -412,6 +412,91 @@ class EnrollmentCallbacks extends BaseController {
 	}
 
 	/**
+	 * AJAX: обновление данных заявки в статусе ReadyForReview (ученик + родитель).
+	 *
+	 * @return void
+	 */
+	public function ajaxUpdateReviewData(): void {
+		check_ajax_referer( Nonce::ReviewApplication->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::ReadyForReview ) {
+			$this->error( 'Заявка не найдена или недоступна.' );
+		}
+
+		// Обновление данных ученика
+		$studentData = array();
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+			} catch ( \Throwable $e ) {
+				$this->error( 'Ошибка расшифровки данных ученика.' );
+			}
+		}
+
+		$sLast   = $this->requireText( 'student_last_name' );
+		$sFirst  = $this->requireText( 'student_first_name' );
+		$sMid    = $this->sanitizeText( 'student_middle_name' );
+		$studentData['full_name']  = trim( "$sLast $sFirst $sMid" );
+		$studentData['birth_date'] = $this->sanitizeText( 'student_birth_date' );
+		$studentData['doc_type']   = $this->sanitizeText( 'student_doc_type' );
+		$studentData['doc_number'] = $this->sanitizeText( 'student_doc_number' );
+		$studentData['inn']        = $this->sanitizeText( 'student_inn' );
+
+		// Обновление данных родителя
+		$parentData = array();
+		if ( ! empty( $app->parentDataEnc ) ) {
+			try {
+				$parentData = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array();
+			} catch ( \Throwable $e ) {
+				$this->error( 'Ошибка расшифровки данных родителя.' );
+			}
+		}
+
+		$pLast   = $this->requireText( 'parent_last_name' );
+		$pFirst  = $this->requireText( 'parent_first_name' );
+		$pMid    = $this->sanitizeText( 'parent_middle_name' );
+		$parentData['full_name']       = trim( "$pLast $pFirst $pMid" );
+		$parentData['birth_date']      = $this->sanitizeText( 'parent_birth_date' );
+		$parentData['relation_type']   = $this->sanitizeText( 'relation_type' );
+		$parentData['email']           = $this->sanitizeText( 'parent_email' );
+		$parentData['phone']           = $this->sanitizeText( 'parent_phone' );
+		$parentData['doc_type']        = $this->sanitizeText( 'parent_doc_type' );
+		$parentData['doc_number']      = $this->sanitizeText( 'parent_doc_number' );
+		$parentData['doc_issued_by']   = $this->sanitizeText( 'parent_doc_issued_by' );
+		$parentData['doc_issued_date'] = $this->sanitizeText( 'parent_doc_issued_date' );
+		$parentData['inn']             = $this->sanitizeText( 'parent_inn' );
+		$parentData['address']         = $this->sanitizeText( 'parent_address' );
+
+		try {
+			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
+			$newParentDataEnc  = $this->crypto->encrypt( (string) wp_json_encode( $parentData ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Ошибка шифрования данных.' );
+		}
+
+		$this->applicationRepository->update( $id, array(
+			'student_data_enc' => $newStudentDataEnc,
+			'parent_data_enc'  => $newParentDataEnc,
+			'updated_at'       => current_time( 'mysql', true ),
+		) );
+
+		$this->auditService->record(
+			AuditAction::UpdateReviewData->value,
+			'application',
+			$id
+		);
+
+		$this->success();
+	}
+
+	/**
 	 * AJAX: очистка корзины (физическое удаление всех заявок со статусом Trash).
 	 *
 	 * @return void

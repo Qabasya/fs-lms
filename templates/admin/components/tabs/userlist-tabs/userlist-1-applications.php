@@ -111,17 +111,49 @@ $statusLabels = array_combine(
 						$studentSchool     = $sd['school']     ?? '';
 						$studentGrade      = (string) ( $sd['grade'] ?? '' );
 						$studentBirthDate  = $sd['birth_date'] ?? '';
+						$studentDocType    = $sd['doc_type']   ?? '';
+						$studentDocNumber  = $sd['doc_number'] ?? '';
+						$studentInn        = $sd['inn']        ?? '';
 					} catch ( \Throwable $e ) {
 						$studentName = '<em>Ошибка расшифровки</em>';
 					}
 				}
 
 				// Расшифровка данных родителя (если заполнена)
-				$parentName = '—';
+				$parentName        = '—';
+				$parentLastName    = '';
+				$parentFirstName   = '';
+				$parentMiddleName  = '';
+				$parentBirthDate   = '';
+				$parentRelationType  = '';
+				$parentDocType     = '';
+				$parentDocNumber   = '';
+				$parentDocIssuedBy = '';
+				$parentDocIssuedDate = '';
+				$parentInn         = '';
+				$parentAddress     = '';
+				$parentPhone       = '';
+				$parentEmail       = '';
+
 				if ( ! empty( $app->parentDataEnc ) ) {
 					try {
 						$pd         = json_decode( $crypto->decrypt( $app->parentDataEnc ), true );
 						$parentName = $pd['parent_full_name'] ?? $pd['full_name'] ?? '—';
+
+						$pParts             = explode( ' ', $pd['full_name'] ?? '', 3 );
+						$parentLastName     = $pParts[0] ?? '';
+						$parentFirstName    = $pParts[1] ?? '';
+						$parentMiddleName   = $pParts[2] ?? '';
+						$parentBirthDate    = $pd['birth_date']      ?? '';
+						$parentRelationType = $pd['relation_type']   ?? '';
+						$parentDocType      = $pd['doc_type']        ?? '';
+						$parentDocNumber    = $pd['doc_number']      ?? '';
+						$parentDocIssuedBy  = $pd['doc_issued_by']   ?? '';
+						$parentDocIssuedDate = $pd['doc_issued_date'] ?? '';
+						$parentInn          = $pd['inn']             ?? '';
+						$parentAddress      = $pd['address']         ?? '';
+						$parentPhone        = $pd['phone']           ?? '';
+						$parentEmail        = $pd['email']           ?? '';
 					} catch ( \Throwable $e ) {
 						$parentName = '<em>Ошибка расшифровки</em>';
 					}
@@ -226,6 +258,32 @@ $statusLabels = array_combine(
 					   data-grade="<?php echo esc_attr( $studentGrade ); ?>">
 						<?php esc_html_e( 'Изменить', 'fs-lms' ); ?>
 					</a>
+				<?php elseif ( $app->status === ApplicationStatus::ReadyForReview ) : ?>
+					<a href="#"
+					   class="js-review-application"
+					   data-id="<?php echo esc_attr( (string) $app->id ); ?>"
+					   data-s-last-name="<?php echo esc_attr( $studentLastName ); ?>"
+					   data-s-first-name="<?php echo esc_attr( $studentFirstName ); ?>"
+					   data-s-middle-name="<?php echo esc_attr( $studentMiddleName ); ?>"
+					   data-s-birth-date="<?php echo esc_attr( $studentBirthDate ); ?>"
+					   data-s-doc-type="<?php echo esc_attr( $studentDocType ); ?>"
+					   data-s-doc-number="<?php echo esc_attr( $studentDocNumber ); ?>"
+					   data-s-inn="<?php echo esc_attr( $studentInn ); ?>"
+					   data-p-last-name="<?php echo esc_attr( $parentLastName ); ?>"
+					   data-p-first-name="<?php echo esc_attr( $parentFirstName ); ?>"
+					   data-p-middle-name="<?php echo esc_attr( $parentMiddleName ); ?>"
+					   data-p-birth-date="<?php echo esc_attr( $parentBirthDate ); ?>"
+					   data-p-relation-type="<?php echo esc_attr( $parentRelationType ); ?>"
+					   data-p-email="<?php echo esc_attr( $parentEmail ); ?>"
+					   data-p-phone="<?php echo esc_attr( $parentPhone ); ?>"
+					   data-p-doc-type="<?php echo esc_attr( $parentDocType ); ?>"
+					   data-p-doc-number="<?php echo esc_attr( $parentDocNumber ); ?>"
+					   data-p-doc-issued-by="<?php echo esc_attr( $parentDocIssuedBy ); ?>"
+					   data-p-doc-issued-date="<?php echo esc_attr( $parentDocIssuedDate ); ?>"
+					   data-p-inn="<?php echo esc_attr( $parentInn ); ?>"
+					   data-p-address="<?php echo esc_attr( $parentAddress ); ?>">
+						<?php esc_html_e( 'Изменить', 'fs-lms' ); ?>
+					</a>
 				<?php else : ?>
 					<a href="<?php echo esc_url( $detailUrl ); ?>">
 						<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
@@ -272,3 +330,4 @@ $statusLabels = array_combine(
 </div>
 
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-review-modal.php'; ?>

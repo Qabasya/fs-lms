@@ -15,6 +15,7 @@ import {HelpModalManager} from "./services/help-modal-manager";
 import { GroupsTable } from "./services/groups-table.js";
 import { ApplicationsTable } from './services/applications-table.js';
 import { ApplicationModalManager } from './services/application-modal-manager.js';
+import { ApplicationReviewModalManager } from './services/application-review-modal-manager.js';
 
 (function ($) {
     'use strict';
@@ -65,6 +66,7 @@ import { ApplicationModalManager } from './services/application-modal-manager.js
         if ( document.querySelector( '.fs-lms-applications' ) ) {
             ApplicationsTable.init();
             ApplicationModalManager.init();
+            ApplicationReviewModalManager.init();
         }
 
     });

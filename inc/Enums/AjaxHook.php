@@ -74,6 +74,7 @@ enum AjaxHook: string {
 	case EmptyApplicationsTrash      = 'empty_applications_trash';
 	case DeleteApplication           = 'delete_application';
 	case UpdateApplicationData       = 'update_application_data';
+	case UpdateReviewData            = 'update_review_data';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

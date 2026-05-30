@@ -752,3 +752,62 @@ html.modal-open {
     flex: 1;
   }
 }
+
+
+/* =================================================================
+   ACCORDION (review modal sections)
+   ================================================================= */
+
+.fs-modal-accordion {
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-md;
+  overflow: hidden;
+
+  &__item {
+    &:not(:last-child) {
+      border-bottom: 1px solid $color-border-input;
+    }
+  }
+
+  &__header {
+    @include reset-button;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-md $spacing-lg;
+    background: rgba($wp-admin-gray, 0.06);
+    text-align: left;
+    cursor: pointer;
+    transition: background $transition-fast;
+
+    &:hover {
+      background: rgba($wp-admin-gray, 0.12);
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: $color-text-primary;
+    }
+
+    .dashicons {
+      transition: transform $transition-fast;
+      flex-shrink: 0;
+      color: $color-text-secondary;
+    }
+
+    &[aria-expanded="true"] .dashicons {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__body {
+    padding: $spacing-xl;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+}

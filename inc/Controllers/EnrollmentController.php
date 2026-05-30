@@ -77,6 +77,8 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::DeleteApplication, $this->callbacks ),
 			// Редактирование данных заявки
 			array( AjaxHook::UpdateApplicationData, $this->callbacks ),
+			// Редактирование данных заявки на проверке (ReadyForReview)
+			array( AjaxHook::UpdateReviewData, $this->callbacks ),
 		);
 	}
 
