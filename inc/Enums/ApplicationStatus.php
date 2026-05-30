@@ -55,4 +55,16 @@ enum ApplicationStatus: string {
 	public function isTrashable(): bool {
 		return in_array( $this, [ self::PendingParent, self::ReadyForReview, self::Rejected, self::Expired ], true );
 	}
+
+	public function label(): string {
+		return match ( $this ) {
+			self::PendingParent  => 'Ждёт родителя',
+			self::ReadyForReview => 'Готово к проверке',
+			self::Enrolling      => 'Зачисляется',
+			self::Converted      => 'Зачислен',
+			self::Rejected       => 'Отклонён',
+			self::Expired        => 'Истёк',
+			self::Trash          => 'Корзина',
+		};
+	}
 }

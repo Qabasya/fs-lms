@@ -1,0 +1,189 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+.fs-apply-page {
+  padding: 40px 16px;
+}
+
+.fs-apply-card {
+  background: $color-white;
+  padding: 32px 30px;
+  border: 1px solid $color-border-light;
+  border-radius: $radius-md;
+  max-width: 480px;
+  margin: 0 auto;
+  box-shadow: $shadow-card;
+  font-family: $font-family;
+
+  &__title {
+    font-size: $font-size-heading;
+    font-weight: 700;
+    line-height: $line-height-tight;
+    text-align: center;
+    color: $color-text;
+    margin: 0 0 24px;
+  }
+
+  &__step {
+    display: none;
+
+    &--active {
+      display: block;
+    }
+  }
+
+  &__field-group {
+    position: relative;
+    margin-bottom: 14px;
+
+    .dashicons {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: $color-muted;
+      font-size: $font-size-base;
+      pointer-events: none;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="date"],
+    select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px 10px 38px;
+      font-size: $font-size-sm;
+      border: 1px solid $color-border;
+      border-radius: $radius;
+      background-color: $color-bg-subtle;
+      color: $color-text;
+      transition: border-color $transition, background-color $transition;
+      font-family: $font-family;
+
+      &:focus {
+        border-color: $color-accent;
+        background-color: $color-white;
+        outline: none;
+      }
+
+      &::placeholder {
+        color: $color-muted;
+      }
+    }
+
+    select {
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .js-toggle-secret {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      color: $color-muted;
+      display: flex;
+      align-items: center;
+
+      &:hover { color: $color-text; }
+
+      .dashicons {
+        position: static;
+        transform: none;
+      }
+    }
+
+    &--otp input {
+      letter-spacing: 0.2em;
+      font-size: $font-size-base;
+      font-family: $font-mono;
+    }
+  }
+
+  &__captcha {
+    margin-bottom: 14px;
+  }
+
+  &__submit {
+    width: 100% !important;
+    box-sizing: border-box;
+    padding: 10px 16px !important;
+    height: auto !important;
+    font-size: $font-size-sm !important;
+    font-weight: 700;
+  }
+
+  &__description {
+    font-size: $font-size-sm;
+    color: $color-muted;
+    margin: 0 0 16px;
+    text-align: center;
+
+    strong {
+      color: $color-text;
+    }
+  }
+
+  &__resend {
+    text-align: center;
+    margin-top: 14px;
+    font-size: $font-size-xs;
+
+    .js-resend-otp {
+      color: $color-muted;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: $font-size-xs;
+      transition: color $transition;
+
+      &:not(:disabled):hover {
+        color: $color-accent;
+      }
+
+      &:disabled {
+        cursor: default;
+      }
+
+      .js-otp-countdown {
+        margin-left: 4px;
+      }
+    }
+  }
+
+  &__success {
+    text-align: center;
+    padding: 16px 0;
+  }
+
+  &__success-icon {
+    font-size: 48px;
+    color: $color-accent;
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  &__success-title {
+    font-size: $font-size-base;
+    font-weight: 700;
+    color: $color-text;
+    margin: 0;
+  }
+
+  &__error {
+    font-size: $font-size-xs;
+    color: #c0392b;
+    background: #fdf0ef;
+    border: 1px solid #f5c6c3;
+    border-radius: $radius;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+}

@@ -80,7 +80,7 @@ class ApplicationCallbacks extends BaseController {
 		$code = get_query_var( 'fs_lms_join_code', '' );
 
 		// Тестовый дебаг-режим: /lms/join/000000000000 → тестовые данные без БД
-		if ( defined( 'FS_LMS_TEST_ENV' ) && '000000000000' === $code ) {
+		if ( defined( 'FS_LMS_TEST_ENV' ) && '000' === $code ) {
 			set_query_var( 'fs_lms_student_data', array(
 				'full_name'  => 'Тестов Тест Тестович',
 				'birth_date' => '2010-05-15',
@@ -113,7 +113,7 @@ class ApplicationCallbacks extends BaseController {
 
 		try {
 			// Расшифровка и декодирование данных ученика
-			$studentData = json_decode( $this->crypto->decrypt( $app->student_data_enc ), true );
+			$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
 		} catch ( \Throwable $e ) {
 			return false;
 		}
@@ -150,13 +150,13 @@ class ApplicationCallbacks extends BaseController {
 
 		// Капча пропускается только в тестовом окружении (FS_LMS_TEST_ENV в wp-config.php)
 		if ( ! defined( 'FS_LMS_TEST_ENV' ) ) {
-			$captchaToken = $this->sanitizeText( $_POST['captcha_token'] ?? '' );
+			$captchaToken = $this->sanitizeText( 'captcha_token' );
 			if ( ! $this->captchaService->validate( $captchaToken, $ip ) ) {
 				$this->error( 'Проверка капчи не пройдена.' );
 			}
 		}
 
-		$email = $this->sanitizeText( $_POST['email'] ?? '' );
+		$email = $this->sanitizeText( 'email' );
 
 		// Проверка возможности повторной отправки
 		if ( ! $this->emailOtpService->canResend( $email ) ) {
@@ -186,13 +186,15 @@ class ApplicationCallbacks extends BaseController {
 		}
 
 		// Сбор и валидация данных формы
-		$fullName  = $this->requireText( $_POST['full_name'] ?? '' );
-		$email     = $this->requireText( $_POST['email'] ?? '' );
-		$school    = $this->sanitizeText( $_POST['school'] ?? '' );
-		$grade     = $this->sanitizeInt( $_POST['grade'] ?? 0 );
-		$birthDate = $this->requireText( $_POST['birth_date'] ?? '' );
-		$consent   = ! empty( $_POST['consent_accepted'] );
-		$otpCode   = $this->requireText( $_POST['otp_code'] ?? '' );
+		$lastName   = $this->requireText( 'last_name' );
+		$firstName  = $this->requireText( 'first_name' );
+		$middleName = $this->sanitizeText( 'middle_name' );
+		$fullName   = trim( "$lastName $firstName $middleName" );
+		$email      = $this->requireText( 'email' );
+		$school     = $this->sanitizeText( 'school' );
+		$grade      = $this->sanitizeInt( 'grade' );
+		$birthDate  = $this->requireText( 'birth_date' );
+		$otpCode    = $this->requireText( 'otp_code' );
 		$ua        = (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' );
 
 		$dto = new ApplicationInputDTO(
@@ -201,7 +203,6 @@ class ApplicationCallbacks extends BaseController {
 			school:          $school,
 			grade:           $grade,
 			birthDate:       $birthDate,
-			consentAccepted: $consent,
 			otpCode:         $otpCode,
 			ip:              $ip,
 			userAgent:       $ua,
@@ -213,8 +214,7 @@ class ApplicationCallbacks extends BaseController {
 			// Ошибка валидации бизнес-правил
 			$this->error( $e->getMessage() );
 		} catch ( \RuntimeException $e ) {
-			// Неверный или истёкший OTP-код
-			$this->error( 'Неверный или истёкший код подтверждения.' );
+			$this->error( $e->getMessage() );
 		}
 
 		$this->success( array(
@@ -239,23 +239,23 @@ class ApplicationCallbacks extends BaseController {
 
 		// Сбор данных формы родителя
 		$dto = new ParentSubmissionInputDTO(
-			joinCode:          $this->requireText( $_POST['join_code'] ?? '' ),
-			parentFullName:    $this->requireText( $_POST['parent_full_name'] ?? '' ),
-			parentBirthDate:   $this->requireText( $_POST['parent_birth_date'] ?? '' ),
-			relationType:      $this->requireKey( $_POST['relation_type'] ?? '' ),
-			docType:           $this->requireKey( $_POST['doc_type'] ?? '' ),
-			docNumber:         $this->requireText( $_POST['doc_number'] ?? '' ),
-			docIssuedBy:       $this->sanitizeText( $_POST['doc_issued_by'] ?? '' ),
-			docIssuedDate:     $this->sanitizeText( $_POST['doc_issued_date'] ?? '' ),
-			inn:               $this->sanitizeText( $_POST['inn'] ?? '' ),
-			address:           $this->sanitizeText( $_POST['address'] ?? '' ),
-			phone:             $this->sanitizeText( $_POST['phone'] ?? '' ),
-			email:             $this->requireText( $_POST['email'] ?? '' ),
-			studentFullName:   $this->requireText( $_POST['student_full_name'] ?? '' ),
-			studentBirthDate:  $this->requireText( $_POST['student_birth_date'] ?? '' ),
-			studentDocType:    $this->requireKey( $_POST['student_doc_type'] ?? '' ),
-			studentDocNumber:  $this->requireText( $_POST['student_doc_number'] ?? '' ),
-			studentInn:        $this->sanitizeText( $_POST['student_inn'] ?? '' ),
+			joinCode:          $this->requireText( 'join_code' ),
+			parentFullName:    $this->requireText( 'parent_full_name' ),
+			parentBirthDate:   $this->requireText( 'parent_birth_date' ),
+			relationType:      $this->requireKey( 'relation_type' ),
+			docType:           $this->requireKey( 'doc_type' ),
+			docNumber:         $this->requireText( 'doc_number' ),
+			docIssuedBy:       $this->sanitizeText( 'doc_issued_by' ),
+			docIssuedDate:     $this->sanitizeText( 'doc_issued_date' ),
+			inn:               $this->sanitizeText( 'inn' ),
+			address:           $this->sanitizeText( 'address' ),
+			phone:             $this->sanitizeText( 'phone' ),
+			email:             $this->requireText( 'email' ),
+			studentFullName:   $this->requireText( 'student_full_name' ),
+			studentBirthDate:  $this->requireText( 'student_birth_date' ),
+			studentDocType:    $this->requireKey( 'student_doc_type' ),
+			studentDocNumber:  $this->requireText( 'student_doc_number' ),
+			studentInn:        $this->sanitizeText( 'student_inn' ),
 		);
 
 		try {

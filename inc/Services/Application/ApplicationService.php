@@ -90,6 +90,7 @@ readonly class ApplicationService {
 		// Генерация JOIN-кода и срока его действия
 		$joinCode      = $this->joinCodeService->generate();
 		$joinCodeHash  = $this->joinCodeService->hash( $joinCode );
+		$joinCodeEnc   = $this->crypto->encrypt( $joinCode );
 		$expiresAt     = gmdate( 'Y-m-d H:i:s', time() + 14 * DAY_IN_SECONDS );
 
 		// Шифрование данных ученика
@@ -104,11 +105,12 @@ readonly class ApplicationService {
 		// inTransaction() — атомарное выполнение блока операций
 		$ctx = $this->requestContext();
 
-		$appId = $this->inTransaction( function () use ( $emailHash, $joinCodeHash, $expiresAt, $studentDataEnc, $ctx, $input ): int {
+		$appId = $this->inTransaction( function () use ( $emailHash, $joinCodeHash, $joinCodeEnc, $expiresAt, $studentDataEnc, $ctx, $input ): int {
 			// Создание записи заявки
 			$id = $this->applicationRepository->create( array(
 				'status'               => ApplicationStatus::PendingParent->value,
 				'join_code_hash'       => $joinCodeHash,
+				'join_code_enc'        => $joinCodeEnc,
 				'join_code_expires_at' => $expiresAt,
 				'student_email_hash'   => $emailHash,
 				'student_data_enc'     => $studentDataEnc,

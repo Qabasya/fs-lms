@@ -1,0 +1,52 @@
+@use '../variables' as *;
+
+.fs-lms-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: $border-radius-md;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--pending-parent {
+    background: $status-pending-bg;
+    color: $status-pending-text;
+    border: 1px solid $status-pending-color;
+  }
+
+  &--ready-for-review {
+    background: $status-review-bg;
+    color: $status-review-text;
+    border: 1px solid $status-review-color;
+  }
+
+  &--enrolling {
+    background: $status-enrolling-bg;
+    color: $status-enrolling-text;
+    border: 1px solid $status-enrolling-color;
+  }
+
+  &--converted {
+    background: $status-converted-bg;
+    color: $status-converted-text;
+    border: 1px solid $status-converted-color;
+  }
+
+  &--rejected {
+    background: $status-rejected-bg;
+    color: $status-rejected-text;
+    border: 1px solid $status-rejected-color;
+  }
+
+  &--expired {
+    background: $status-expired-bg;
+    color: $status-expired-text;
+    border: 1px solid $status-expired-color;
+  }
+
+  &--trash {
+    background: $status-trash-bg;
+    color: $status-trash-text;
+    border: 1px solid $status-trash-color;
+  }
+}

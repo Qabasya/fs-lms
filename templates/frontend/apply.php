@@ -26,8 +26,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 				<div class="fs-apply-card__field-group">
 					<span class="dashicons dashicons-admin-users"></span>
-					<input type="text" name="full_name" id="fs_full_name"
-						placeholder="<?php esc_attr_e( 'ФИО', 'fs-lms' ); ?>" required>
+					<input type="text" name="last_name" id="fs_last_name"
+						placeholder="<?php esc_attr_e( 'Фамилия', 'fs-lms' ); ?>" required>
+				</div>
+
+				<div class="fs-apply-card__field-group">
+					<span class="dashicons dashicons-admin-users"></span>
+					<input type="text" name="first_name" id="fs_first_name"
+						placeholder="<?php esc_attr_e( 'Имя', 'fs-lms' ); ?>" required>
+				</div>
+
+				<div class="fs-apply-card__field-group">
+					<span class="dashicons dashicons-admin-users"></span>
+					<input type="text" name="middle_name" id="fs_middle_name"
+						placeholder="<?php esc_attr_e( 'Отчество', 'fs-lms' ); ?>">
 				</div>
 
 				<div class="fs-apply-card__field-group">

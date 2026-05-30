@@ -58,28 +58,28 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 						<td class="column-actions">
 							<div class="row-actions visible">
-		<span class="edit">
-			<a href="#"
-				class="open-quick-edit"
-				data-key="<?php echo esc_attr( $subject->key ); ?>"
-				data-name="<?php echo esc_attr( $subject->name ); ?>">
-				Изменить
-			</a>
-		</span> |
-								<span class="export">
-			<a href="#"
-				class="js-export-subject"
-				data-key="<?php echo esc_attr( $subject->key ); ?>">
-				Экспорт
-			</a>
-		</span> |
-								<span class="trash">
-			<a href="#"
-				class="delete-subject"
-				data-key="<?php echo esc_attr( $subject->key ); ?>">
-				Удалить
-			</a>
-		</span>
+                                <span class="edit">
+                                    <a href="#"
+                                        class="open-quick-edit"
+                                        data-key="<?php echo esc_attr( $subject->key ); ?>"
+                                        data-name="<?php echo esc_attr( $subject->name ); ?>">
+                                        Изменить
+                                    </a>
+                                </span> |
+                                                        <span class="export">
+                                    <a href="#"
+                                        class="js-export-subject"
+                                        data-key="<?php echo esc_attr( $subject->key ); ?>">
+                                        Экспорт
+                                    </a>
+                                </span> |
+                                                        <span class="trash">
+                                    <a href="#"
+                                        class="delete-subject"
+                                        data-key="<?php echo esc_attr( $subject->key ); ?>">
+                                        Удалить
+                                    </a>
+                                </span>
 							</div>
 						</td>
 					</tr>

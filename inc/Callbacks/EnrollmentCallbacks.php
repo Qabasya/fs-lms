@@ -121,9 +121,9 @@ class EnrollmentCallbacks extends BaseController {
 		$parentData  = null;
 
 		// Расшифровка данных студента (если есть права ViewPII)
-		if ( ! empty( $app->student_data_enc ) && current_user_can( Capability::ViewPII->value ) ) {
+		if ( ! empty( $app->studentDataEnc ) && current_user_can( Capability::ViewPII->value ) ) {
 			try {
-				$studentData = json_decode( $this->crypto->decrypt( $app->student_data_enc ), true );
+				$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
 			} catch ( \Throwable $e ) {
 				$studentData = null;
 			}
@@ -141,9 +141,9 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		// Расшифровка данных родителя (если есть права ViewPII)
-		if ( ! empty( $app->parent_data_enc ) && current_user_can( Capability::ViewPII->value ) ) {
+		if ( ! empty( $app->parentDataEnc ) && current_user_can( Capability::ViewPII->value ) ) {
 			try {
-				$parentData = json_decode( $this->crypto->decrypt( $app->parent_data_enc ), true );
+				$parentData = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true );
 			} catch ( \Throwable $e ) {
 				$parentData = null;
 			}
@@ -180,15 +180,15 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		$dto = new EnrollmentInputDTO(
-			applicationId: $this->sanitizeInt( $_POST['application_id'] ?? 0 ),
-			contractNo:    $this->requireText( $_POST['contract_no'] ?? '' ),
-			contractDate:  $this->requireText( $_POST['contract_date'] ?? '' ),
-			orderNo:       $this->requireText( $_POST['order_no'] ?? '' ),
-			orderDate:     $this->requireText( $_POST['order_date'] ?? '' ),
-			enrolledAt:    $this->requireText( $_POST['enrolled_at'] ?? '' ),
-			subjectKey:    $this->requireKey( $_POST['subject_key'] ?? '' ),
-			groupId:       $this->sanitizeInt( $_POST['group_id'] ?? 0 ),
-			periodKey:     $this->requireKey( $_POST['period_key'] ?? '' ),
+			applicationId: $this->sanitizeInt( 'application_id' ),
+			contractNo:    $this->requireText( 'contract_no' ),
+			contractDate:  $this->requireText( 'contract_date' ),
+			orderNo:       $this->requireText( 'order_no' ),
+			orderDate:     $this->requireText( 'order_date' ),
+			enrolledAt:    $this->requireText( 'enrolled_at' ),
+			subjectKey:    $this->requireKey( 'subject_key' ),
+			groupId:       $this->sanitizeInt( 'group_id' ),
+			periodKey:     $this->requireKey( 'period_key' ),
 			sendEmailAuto: ! empty( $_POST['send_email_auto'] ),
 		);
 
@@ -235,8 +235,8 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( 'Доступ запрещён.' );
 		}
 
-		$id     = $this->sanitizeInt( $_POST['application_id'] ?? 0 );
-		$reason = $this->sanitizeText( $_POST['reason'] ?? '' );
+		$id     = $this->sanitizeInt( 'application_id' );
+		$reason = $this->sanitizeText( 'reason' );
 
 		// Обновление статуса и заполнение полей отклонения
 		$this->applicationRepository->update( $id, array(
@@ -269,7 +269,7 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( 'Доступ запрещён.' );
 		}
 
-		$id = $this->sanitizeInt( $_POST['application_id'] ?? 0 );
+		$id = $this->sanitizeInt( 'application_id' );
 
 		$this->applicationRepository->setStatus( $id, ApplicationStatus::Trash );
 
@@ -294,7 +294,7 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( 'Доступ запрещён.' );
 		}
 
-		$id  = $this->sanitizeInt( $_POST['application_id'] ?? 0 );
+		$id  = $this->sanitizeInt( 'application_id' );
 		$app = $this->applicationRepository->find( $id );
 
 		if ( null === $app ) {
@@ -302,7 +302,7 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		// Определение целевого статуса: ReadyForReview (заполнена родителем) или PendingParent
-		$target = ! empty( $app->parent_data_enc )
+		$target = ! empty( $app->parentDataEnc )
 			? ApplicationStatus::ReadyForReview
 			: ApplicationStatus::PendingParent;
 
@@ -312,6 +312,37 @@ class EnrollmentCallbacks extends BaseController {
 			AuditAction::RestoreFromTrash->value,
 			'application',
 			$id
+		);
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: постоянное удаление одной заявки (только из корзины).
+	 *
+	 * @return void
+	 */
+	public function ajaxDeleteApplication(): void {
+		check_ajax_referer( Nonce::TrashApplication->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::Trash ) {
+			$this->error( 'Заявка не найдена или не в корзине.' );
+		}
+
+		$this->applicationRepository->delete( $id );
+
+		$this->auditService->record(
+			AuditAction::EmptyTrash->value,
+			'application',
+			$id,
+			array( 'deleted_count' => 1 )
 		);
 
 		$this->success();

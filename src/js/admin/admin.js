@@ -1,4 +1,4 @@
-import {UI} from './modules/ui.js';
+import {UI as ApplicationsTableю, UI} from './modules/ui.js';
 import {TemplateManager} from './services/template-manager.js';
 import {Boilerplates} from './services/boilerplates.js';
 import {TaxonomyModalManager} from './services/taxonomy-modal-manager.js';
@@ -13,6 +13,7 @@ import {SubjectModalManager} from "./services/subject-modal-manager";
 import {TaskModalManager} from "./services/task-modal-manager";
 import {HelpModalManager} from "./services/help-modal-manager";
 import { GroupsTable } from "./services/groups-table.js";
+import { ApplicationsTable } from './services/applications-table.js';
 
 (function ($) {
     'use strict';
@@ -58,6 +59,10 @@ import { GroupsTable } from "./services/groups-table.js";
 
         if ($('.js-open-help-modal').length) {
             HelpModalManager.init();
+        }
+
+        if ( document.querySelector( '.fs-lms-applications' ) ) {
+            ApplicationsTable.init();
         }
 
     });

@@ -73,6 +73,8 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::RestoreApplicationFromTrash, $this->callbacks ),
 			// Очистка корзины (физическое удаление всех заявок со статусом Trash)
 			array( AjaxHook::EmptyApplicationsTrash, $this->callbacks ),
+			// Постоянное удаление одной заявки из корзины
+			array( AjaxHook::DeleteApplication, $this->callbacks ),
 		);
 	}
 
