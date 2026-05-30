@@ -700,3 +700,55 @@ html.modal-open {
     }
   }
 }
+
+/* =================================================================
+   EDITABLE FIELD (pencil toggle)
+   ================================================================= */
+
+.fs-editable-field {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &__display {
+    flex: 1;
+    min-height: 35px;
+    line-height: 35px;
+    font-size: 13px;
+    color: $color-text-primary;
+    padding: 0 $spacing-sm;
+  }
+
+  &__btn {
+    @include reset-button;
+    color: $color-text-secondary;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: $color-primary;
+    }
+
+    .dashicons {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  input,
+  select {
+    flex: 1;
+  }
+}
+
+.fs-form-row {
+  display: flex;
+  gap: $spacing-lg;
+
+  .fs-form-group {
+    flex: 1;
+  }
+}

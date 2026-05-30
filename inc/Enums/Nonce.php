@@ -35,6 +35,7 @@ enum Nonce: string {
 	case ExportPii             = 'fs_lms_export_pii';
 	case VerifyOtp             = 'fs_lms_verify_otp';
 	case TrashApplication      = 'fs_lms_trash_application';
+	case EditApplication       = 'fs_lms_edit_application';
 
 	/**
 	 * Создает защитный токен.

@@ -191,6 +191,7 @@ class ApplicationCallbacks extends BaseController {
 		$middleName = $this->sanitizeText( 'middle_name' );
 		$fullName   = trim( "$lastName $firstName $middleName" );
 		$email      = $this->requireText( 'email' );
+		$phone      = $this->requireText( 'phone' );
 		$school     = $this->sanitizeText( 'school' );
 		$grade      = $this->sanitizeInt( 'grade' );
 		$birthDate  = $this->requireText( 'birth_date' );
@@ -200,6 +201,7 @@ class ApplicationCallbacks extends BaseController {
 		$dto = new ApplicationInputDTO(
 			fullName:        $fullName,
 			email:           $email,
+			phone:           $phone,
 			school:          $school,
 			grade:           $grade,
 			birthDate:       $birthDate,

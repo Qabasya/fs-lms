@@ -97,6 +97,7 @@ readonly class ApplicationService {
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array(
 			'full_name'  => $input->fullName,
 			'email'      => $input->email,
+			'phone'      => $input->phone,
 			'school'     => $input->school,
 			'grade'      => $input->grade,
 			'birth_date' => $input->birthDate,

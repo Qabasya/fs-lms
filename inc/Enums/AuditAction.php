@@ -89,4 +89,7 @@ enum AuditAction: string {
 
 	/** Очистка корзины (физическое удаление всех trash-заявок) */
 	case EmptyTrash = 'empty_trash';
+
+	/** Редактирование данных заявки администратором */
+	case UpdateApplicationData = 'update_application_data';
 }

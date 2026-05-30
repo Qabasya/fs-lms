@@ -1830,6 +1830,126 @@ fs_lms_consent_page_meta = [
 
 ---
 
+## JavaScript архитектура
+
+### Структура директорий
+
+```
+src/js/
+├── admin/
+│   ├── admin.js          — точка входа; jQuery $(document).ready()
+│   ├── _types.js         — JSDoc-типы для window-глобалов (fs_lms_vars, fs_lms_task_data)
+│   ├── components/       — только UI, AJAX запрещён (модальные окна, виджеты)
+│   ├── services/         — AJAX + бизнес-логика, оркестрирует компоненты
+│   └── modules/          — общие утилиты (modal-base, utils, ui-авторегистратор)
+├── frontend/
+│   ├── frontend.js       — точка входа; чистый DOMContentLoaded
+│   ├── components/       — только UI, AJAX запрещён (вкладки, карусели)
+│   └── services/         — AJAX + бизнес-логика (apply-form)
+└── common/
+    ├── common.js         — точка входа
+    └── components/       — общие UI-компоненты для обеих сторон
+```
+
+### Паттерны экспорта
+
+#### Admin — объектный паттерн (jQuery)
+
+Все файлы в `admin/components/` и `admin/services/` экспортируют объект с методом `init()`:
+
+```js
+// src/js/admin/services/my-service.js
+import { ConfirmModal } from '../components/confirm-modal.js';
+
+const $ = jQuery;
+
+export const MyService = {
+    init() {
+        ConfirmModal.init();
+        this.bindEvents();
+    },
+    bindEvents() {
+        $( document ).on( 'click', '.my-btn', this.handleClick.bind( this ) );
+    },
+    handleClick( e ) { ... },
+};
+
+// admin.js:
+// if ( $( '.my-trigger' ).length ) { MyService.init(); }
+```
+
+#### Frontend — функциональный паттерн (pure JS)
+
+Все файлы в `frontend/components/` и `frontend/services/` экспортируют именованную функцию `initX()`:
+
+```js
+// src/js/frontend/services/my-form.js
+const vars = window.fs_lms_my_vars;
+
+export function initMyForm() {
+    if ( ! window.fs_lms_my_vars ) { return; }
+    if ( ! document.getElementById( 'my-form' ) ) { return; }
+    document.getElementById( 'my-form' ).addEventListener( 'submit', handleSubmit );
+}
+
+// frontend.js:
+// import { initMyForm } from './services/my-form.js';
+// document.addEventListener( 'DOMContentLoaded', () => { initMyForm(); });
+```
+
+#### Modules — именованные функции
+
+```js
+// src/js/admin/modules/modal-base.js
+export function openModal( $modal ) { ... }
+export function closeModal( $modal ) { ... }
+```
+
+### Правила разделения по директориям
+
+| Директория | Может делать AJAX? | jQuery? | Пример |
+|---|---|---|---|
+| `admin/components/` | ❌ Нет | ✅ Да | `confirm-modal.js`, `subject-modal.js` |
+| `admin/services/` | ✅ Да | ✅ Да | `applications-table.js`, `boilerplates.js` |
+| `admin/modules/` | ❌ Нет | ✅ Да | `modal-base.js`, `utils.js` |
+| `frontend/components/` | ❌ Нет | ❌ Нет | `task-tabs.js`, `article-carousel.js` |
+| `frontend/services/` | ✅ Да | ❌ Нет | `apply-form.js` |
+| `common/components/` | ❌ Нет | ✅ Да | `toggle-secret.js`, `badge.js` |
+
+### Авторегистратор компонентов (admin)
+
+`admin/modules/ui.js` использует `require.context` для автоматической загрузки всех файлов из `admin/components/`. Компоненты **не нужно импортировать вручную** в `admin.js` — авторегистратор вызывает их `init()` сам. Сервисы импортируются и инициализируются в `admin.js` вручную.
+
+### Глобальные переменные (window)
+
+Все вызовы `wp_localize_script()` — **только в `Enqueue.php`**, никогда в шаблонах.
+
+| Переменная | Где доступна | Содержимое |
+|---|---|---|
+| `fs_lms_vars` | все страницы плагина в админке | `ajaxurl`, `ajax_actions`, nonces |
+| `fs_lms_task_data` | страницы CPT `_tasks` | `ajax_url`, `nonce`, `subject_key`, `post_type` |
+| `fs_lms_apply_vars` | фронтенд `/lms/apply` | `ajax_url`, `actions`, `nonces`, `captcha_key` |
+| `fs_lms_applications_vars` | админ `fs_lms_userlist` | `nonces.trash` |
+
+AJAX-экшены доступны через `fs_lms_vars.ajax_actions.camelCaseName` — экспортируются из `AjaxHook::toJsArray()` в формате `['camelCaseName' => 'snake_case_action']`.
+
+### Добавление нового AJAX-модуля
+
+**Admin-сервис:**
+1. Создать `src/js/admin/services/my-service.js`, экспортировать `export const MyService = { init() {} }`
+2. Добавить `import { MyService } from './services/my-service.js'` в `admin.js`
+3. Инициализировать с гардом: `if ( $( '.my-trigger' ).length ) { MyService.init(); }`
+
+**Frontend-сервис:**
+1. Создать `src/js/frontend/services/my-feature.js`, экспортировать `export function initMyFeature() {}`
+2. Добавить импорт и вызов в `frontend.js` внутри `DOMContentLoaded`
+
+**Локализация переменных:**
+1. Добавить `wp_localize_script()` в `Enqueue.php` с условием по `$page` или `$screen->id`
+2. Обращаться из JS через `window.fs_lms_*_vars`
+
+---
+
 ## Заключение
 
 Данная документация описывает архитектуру плагина FS LMS, включая:

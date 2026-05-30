@@ -1,4 +1,4 @@
-import {UI as ApplicationsTableю, UI} from './modules/ui.js';
+import {UI} from './modules/ui.js';
 import {TemplateManager} from './services/template-manager.js';
 import {Boilerplates} from './services/boilerplates.js';
 import {TaxonomyModalManager} from './services/taxonomy-modal-manager.js';
@@ -14,6 +14,7 @@ import {TaskModalManager} from "./services/task-modal-manager";
 import {HelpModalManager} from "./services/help-modal-manager";
 import { GroupsTable } from "./services/groups-table.js";
 import { ApplicationsTable } from './services/applications-table.js';
+import { ApplicationModalManager } from './services/application-modal-manager.js';
 
 (function ($) {
     'use strict';
@@ -63,6 +64,7 @@ import { ApplicationsTable } from './services/applications-table.js';
 
         if ( document.querySelector( '.fs-lms-applications' ) ) {
             ApplicationsTable.init();
+            ApplicationModalManager.init();
         }
 
     });

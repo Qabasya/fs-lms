@@ -158,6 +158,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 				array(
 					'nonces' => array(
 						'trash' => Nonce::TrashApplication->create(),
+						'edit'  => Nonce::EditApplication->create(),
 					),
 				)
 			);

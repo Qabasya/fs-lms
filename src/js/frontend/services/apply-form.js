@@ -26,6 +26,7 @@ function collectFormData() {
         middle_name: middleName,
         full_name:   [ lastName, firstName, middleName ].filter( Boolean ).join( ' ' ),
         email:       document.getElementById( 'fs_email' )?.value.trim()      ?? '',
+        phone:       document.getElementById( 'fs_phone' )?.value.trim()      ?? '',
         username:    document.getElementById( 'fs_username' )?.value.trim()   ?? '',
         password:    document.getElementById( 'fs_password' )?.value          ?? '',
         birth_date:  document.getElementById( 'fs_birth_date' )?.value        ?? '',
@@ -35,7 +36,7 @@ function collectFormData() {
 }
 
 function validateStep1( data ) {
-    const required = [ 'last_name', 'first_name', 'email', 'username', 'password', 'birth_date', 'grade' ];
+    const required = [ 'last_name', 'first_name', 'email', 'phone', 'username', 'password', 'birth_date', 'grade' ];
     return required.every( key => data[ key ] !== '' );
 }
 

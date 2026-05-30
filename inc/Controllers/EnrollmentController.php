@@ -75,6 +75,8 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::EmptyApplicationsTrash, $this->callbacks ),
 			// Постоянное удаление одной заявки из корзины
 			array( AjaxHook::DeleteApplication, $this->callbacks ),
+			// Редактирование данных заявки
+			array( AjaxHook::UpdateApplicationData, $this->callbacks ),
 		);
 	}
 

@@ -87,11 +87,30 @@ $statusLabels = array_combine(
 		<?php else : ?>
 			<?php foreach ( $apps as $app ) :
 				// Расшифровка данных ученика
-				$studentName = '—';
+				$studentName       = '—';
+				$studentLastName   = '';
+				$studentFirstName  = '';
+				$studentMiddleName = '';
+				$studentEmail      = '';
+				$studentPhone      = '';
+				$studentSchool     = '';
+				$studentGrade      = '';
+				$studentBirthDate  = '';
+
 				if ( ! empty( $app->studentDataEnc ) ) {
 					try {
 						$sd          = json_decode( $crypto->decrypt( $app->studentDataEnc ), true );
 						$studentName = $sd['full_name'] ?? '—';
+
+						$nameParts         = explode( ' ', $sd['full_name'] ?? '', 3 );
+						$studentLastName   = $nameParts[0] ?? '';
+						$studentFirstName  = $nameParts[1] ?? '';
+						$studentMiddleName = $nameParts[2] ?? '';
+						$studentEmail      = $sd['email']      ?? '';
+						$studentPhone      = $sd['phone']      ?? '';
+						$studentSchool     = $sd['school']     ?? '';
+						$studentGrade      = (string) ( $sd['grade'] ?? '' );
+						$studentBirthDate  = $sd['birth_date'] ?? '';
 					} catch ( \Throwable $e ) {
 						$studentName = '<em>Ошибка расшифровки</em>';
 					}
@@ -193,9 +212,25 @@ $statusLabels = array_combine(
 							<?php endif; ?>
 
                             <span class="edit">
-				<a href="<?php echo esc_url( $detailUrl ); ?>">
-					<?php esc_html_e( 'Изменить', 'fs-lms' ); ?>
-				</a>
+				<?php if ( $app->status === ApplicationStatus::PendingParent ) : ?>
+					<a href="#"
+					   class="js-edit-application"
+					   data-id="<?php echo esc_attr( (string) $app->id ); ?>"
+					   data-last-name="<?php echo esc_attr( $studentLastName ); ?>"
+					   data-first-name="<?php echo esc_attr( $studentFirstName ); ?>"
+					   data-middle-name="<?php echo esc_attr( $studentMiddleName ); ?>"
+					   data-birth-date="<?php echo esc_attr( $studentBirthDate ); ?>"
+					   data-email="<?php echo esc_attr( $studentEmail ); ?>"
+					   data-phone="<?php echo esc_attr( $studentPhone ); ?>"
+					   data-school="<?php echo esc_attr( $studentSchool ); ?>"
+					   data-grade="<?php echo esc_attr( $studentGrade ); ?>">
+						<?php esc_html_e( 'Изменить', 'fs-lms' ); ?>
+					</a>
+				<?php else : ?>
+					<a href="<?php echo esc_url( $detailUrl ); ?>">
+						<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
+					</a>
+				<?php endif; ?>
 			</span>
 
 							<?php if ( $canTrash ) : ?>
@@ -235,3 +270,5 @@ $statusLabels = array_combine(
 		</div>
 	<?php endif; ?>
 </div>
+
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-modal.php'; ?>

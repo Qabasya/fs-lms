@@ -165,13 +165,81 @@ OAuth via Hybridauth. `AuthService` orchestrates the full flow: find user by soc
 
 ## JS Architecture
 
-Two globals injected via `wp_localize_script`:
-- `fs_lms_vars` — always available on admin pages: `ajaxurl`, `subject_nonce`, `manager_nonce`, `ajax_actions`
-- `fs_lms_task_data` — only on `_tasks` CPT pages: `ajax_url`, `nonce`, `subject_key`, `post_type`
+### Directory layout
 
-Both are typed in `src/js/admin/_types.js` (JSDoc `@typedef` + `window.*` declarations). Import `_types.js` in any file that uses these globals.
+```
+src/js/
+├── admin/
+│   ├── admin.js          — entry point; jQuery $(document).ready()
+│   ├── _types.js         — JSDoc @typedef for window globals (fs_lms_vars, fs_lms_task_data)
+│   ├── components/       — UI only; NO AJAX (modals, UI widgets)
+│   ├── services/         — AJAX + business logic; orchestrates components
+│   └── modules/          — shared utilities (modal-base, utils, ui registry)
+├── frontend/
+│   ├── frontend.js       — entry point; pure DOMContentLoaded
+│   ├── components/       — UI only; NO AJAX (tabs, carousels)
+│   └── services/         — AJAX + business logic (apply-form)
+└── common/
+    ├── common.js         — entry point
+    └── components/       — shared UI components used on both sides
+```
 
-JS modules: `components/` (UI only, no AJAX), `services/` (AJAX + business logic), `modules/` (shared utilities). Services use component callbacks for decoupling — service registers `onSubmit(fn)`, component fires it.
+### Export conventions
+
+**Admin** (`admin/components/`, `admin/services/`) — jQuery-based, object pattern:
+```js
+export const MyService = {
+    init() { ... },
+    bindEvents() { ... },
+};
+// admin.js: MyService.init();
+```
+
+**Frontend** (`frontend/components/`, `frontend/services/`) — pure JS, function pattern:
+```js
+export function initMyFeature() {
+    if ( ! document.getElementById( 'my-element' ) ) { return; }
+    // ...
+}
+// frontend.js: initMyFeature();
+```
+
+**Modules** (`admin/modules/`) — named function exports:
+```js
+export function openModal( $modal ) { ... }
+export function closeModal( $modal ) { ... }
+```
+
+**Never mix patterns** within a bundle: admin files use jQuery object pattern, frontend files use pure-JS function pattern.
+
+### Entry points
+
+`admin.js` wraps everything in `(function ($) { $(document).ready(...) })(jQuery)`.  
+`frontend.js` uses `document.addEventListener('DOMContentLoaded', ...)`.
+
+### Initialization guards
+
+- Admin: check selector presence before calling `.init()` — `if ($('.selector').length) { MyService.init(); }`
+- Frontend: guard inside `initX()` — `if ( ! document.getElementById('el') ) { return; }`
+
+### Auto-loader
+
+`modules/ui.js` uses `require.context` to auto-load all files from `admin/components/` — no manual import needed for components (the auto-loader calls their `.init()`). Services are imported and initialized manually in `admin.js`.
+
+### Globals (window)
+
+All `wp_localize_script` calls live in `Enqueue.php` only — never in templates.
+
+| Variable | Scope | Contents |
+|---|---|---|
+| `fs_lms_vars` | all admin pages | `ajaxurl`, `ajax_actions`, nonces |
+| `fs_lms_task_data` | task CPT pages only | `ajax_url`, `nonce`, `subject_key`, `post_type` |
+| `fs_lms_apply_vars` | frontend `/lms/apply` | `ajax_url`, `actions`, `nonces`, `captcha_key` |
+| `fs_lms_applications_vars` | admin `fs_lms_userlist` | `nonces.trash` |
+
+`fs_lms_vars` and `fs_lms_task_data` are typed in `src/js/admin/_types.js`. Import `_types.js` in any admin file that uses these globals.
+
+`AjaxHook::toJsArray()` exports all hooks as `['camelCaseName' => 'snake_case_action']` — accessed as `fs_lms_vars.ajax_actions.myActionName`.
 
 ---
 

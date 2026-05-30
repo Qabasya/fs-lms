@@ -1,3 +1,4 @@
+// TODO: все переделать, завязать на переменные, поправить позиционирование дэшиконок
 @use '../variables' as *;
 @use '../mixins' as *;
 
@@ -49,6 +50,7 @@
     input[type="text"],
     input[type="email"],
     input[type="password"],
+    input[type="tel"],
     input[type="date"],
     select {
       width: 100%;

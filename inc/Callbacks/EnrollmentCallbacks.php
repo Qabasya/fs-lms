@@ -349,6 +349,69 @@ class EnrollmentCallbacks extends BaseController {
 	}
 
 	/**
+	 * AJAX: обновление данных заявки администратором.
+	 *
+	 * @return void
+	 */
+	public function ajaxUpdateApplicationData(): void {
+		check_ajax_referer( Nonce::EditApplication->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app ) {
+			$this->error( 'Заявка не найдена.' );
+		}
+
+		$studentData = array();
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+			} catch ( \Throwable $e ) {
+				$this->error( 'Ошибка расшифровки данных.' );
+			}
+		}
+
+		$lastName   = $this->requireText( 'last_name' );
+		$firstName  = $this->requireText( 'first_name' );
+		$middleName = $this->sanitizeText( 'middle_name' );
+		$fullName   = trim( "$lastName $firstName $middleName" );
+
+		$studentData['full_name']  = $fullName;
+		$studentData['email']      = $this->requireText( 'email' );
+		$studentData['phone']      = $this->requireText( 'phone' );
+		$studentData['school']     = $this->sanitizeText( 'school' );
+		$studentData['grade']      = $this->sanitizeInt( 'grade' );
+		$studentData['birth_date'] = $this->requireText( 'birth_date' );
+
+		try {
+			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Ошибка шифрования данных.' );
+		}
+
+		$emailHash = $this->crypto->hash( $studentData['email'] );
+
+		$this->applicationRepository->update( $id, array(
+			'student_data_enc'   => $newStudentDataEnc,
+			'student_email_hash' => $emailHash,
+			'updated_at'         => current_time( 'mysql', true ),
+		) );
+
+		$this->auditService->record(
+			AuditAction::UpdateApplicationData->value,
+			'application',
+			$id
+		);
+
+		$this->success();
+	}
+
+	/**
 	 * AJAX: очистка корзины (физическое удаление всех заявок со статусом Trash).
 	 *
 	 * @return void

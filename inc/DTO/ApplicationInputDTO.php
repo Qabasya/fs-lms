@@ -33,6 +33,7 @@ readonly class ApplicationInputDTO {
 	 *
 	 * @param string $fullName        Полное имя ученика (Фамилия Имя Отчество)
 	 * @param string $email           Email ученика (будет использован для связи)
+	 * @param string $phone           Номер телефона ученика
 	 * @param string $school          Школа или учебное заведение
 	 * @param int    $grade           Класс обучения (1-11)
 	 * @param string $birthDate       Дата рождения в формате Y-m-d
@@ -43,6 +44,7 @@ readonly class ApplicationInputDTO {
 	public function __construct(
 		public string $fullName,
 		public string $email,
+		public string $phone,
 		public string $school,
 		public int    $grade,
 		public string $birthDate,
