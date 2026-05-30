@@ -10,12 +10,14 @@ use Inc\Enums\AuditAction;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Services\AuditService;
 use Inc\Services\Enrollment\EnrollmentService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\Person\PiiMaskingService;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\DTO\EnrollmentInputDTO;
+use Inc\DTO\StudentGroupDTO;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -59,6 +61,7 @@ class EnrollmentCallbacks extends BaseController {
 		private readonly PiiCryptoService       $crypto,
 		private readonly PiiMaskingService      $piiMasking,
 		private readonly PiiAccessLogRepository $piiAccessLog,
+		private readonly StudentGroupRepository $studentGroupRepository,
 	) {
 		parent::__construct();
 	}
@@ -187,7 +190,7 @@ class EnrollmentCallbacks extends BaseController {
 			orderDate:     $this->requireText( 'order_date' ),
 			enrolledAt:    $this->requireText( 'enrolled_at' ),
 			subjectKey:    $this->requireKey( 'subject_key' ),
-			groupId:       $this->sanitizeInt( 'group_id' ),
+			groupId:       $this->requireText( 'group_id' ),
 			periodKey:     $this->requireKey( 'period_key' ),
 			sendEmailAuto: ! empty( $_POST['send_email_auto'] ),
 		);
@@ -494,6 +497,131 @@ class EnrollmentCallbacks extends BaseController {
 		);
 
 		$this->success();
+	}
+
+	/**
+	 * AJAX: перевод заявки из ReadyForReview в Enrolling.
+	 *
+	 * @return void
+	 */
+	public function ajaxStartEnrollment(): void {
+		check_ajax_referer( Nonce::Manager->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::ReadyForReview ) {
+			$this->error( 'Заявка не найдена или не в статусе "Готова к зачислению".' );
+		}
+
+		$this->applicationRepository->update( $id, array(
+			'status'     => ApplicationStatus::Enrolling->value,
+			'updated_at' => current_time( 'mysql', true ),
+		) );
+
+		$this->auditService->record( AuditAction::StartEnrollment->value, 'application', $id );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: получение расшифрованных данных заявки (ученик + родитель).
+	 *
+	 * @return void
+	 */
+	public function ajaxGetApplicationData(): void {
+		check_ajax_referer( Nonce::Manager->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app ) {
+			$this->error( 'Заявка не найдена.' );
+		}
+
+		$student = null;
+		$parent  = null;
+
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$sd        = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
+				$nameParts = explode( ' ', $sd['full_name'] ?? '', 3 );
+				$student   = array(
+					'last_name'   => $nameParts[0] ?? '',
+					'first_name'  => $nameParts[1] ?? '',
+					'middle_name' => $nameParts[2] ?? '',
+					'birth_date'  => $sd['birth_date']  ?? '',
+					'email'       => $sd['email']       ?? '',
+					'phone'       => $sd['phone']       ?? '',
+					'school'      => $sd['school']      ?? '',
+					'grade'       => $sd['grade']       ?? '',
+					'doc_type'    => $sd['doc_type']    ?? '',
+					'doc_number'  => $sd['doc_number']  ?? '',
+					'inn'         => $sd['inn']         ?? '',
+				);
+			} catch ( \Throwable $e ) {
+				$student = null;
+			}
+		}
+
+		if ( ! empty( $app->parentDataEnc ) ) {
+			try {
+				$pd     = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true );
+				$pParts = explode( ' ', $pd['full_name'] ?? '', 3 );
+				$parent = array(
+					'last_name'       => $pParts[0] ?? '',
+					'first_name'      => $pParts[1] ?? '',
+					'middle_name'     => $pParts[2] ?? '',
+					'birth_date'      => $pd['birth_date']      ?? '',
+					'relation_type'   => $pd['relation_type']   ?? '',
+					'email'           => $pd['email']           ?? '',
+					'phone'           => $pd['phone']           ?? '',
+					'doc_type'        => $pd['doc_type']        ?? '',
+					'doc_number'      => $pd['doc_number']      ?? '',
+					'doc_issued_by'   => $pd['doc_issued_by']   ?? '',
+					'doc_issued_date' => $pd['doc_issued_date'] ?? '',
+					'inn'             => $pd['inn']             ?? '',
+					'address'         => $pd['address']         ?? '',
+				);
+			} catch ( \Throwable $e ) {
+				$parent = null;
+			}
+		}
+
+		$this->success( array( 'student' => $student, 'parent' => $parent ) );
+	}
+
+	/**
+	 * AJAX: список групп по периоду и предмету.
+	 *
+	 * @return void
+	 */
+	public function ajaxGetStudentGroups(): void {
+		check_ajax_referer( Nonce::Manager->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$periodId  = $this->sanitizeText( 'period_id' );
+		$subjectId = $this->sanitizeText( 'subject_id' );
+
+		$groups = $this->studentGroupRepository->getByPeriodAndSubject( $periodId, $subjectId );
+
+		$result = array_values( array_map(
+			static fn( StudentGroupDTO $g ) => array( 'id' => $g->id, 'title' => $g->title ),
+			$groups
+		) );
+
+		$this->success( $result );
 	}
 
 	/**

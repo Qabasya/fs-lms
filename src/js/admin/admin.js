@@ -16,6 +16,7 @@ import { GroupsTable } from "./services/groups-table.js";
 import { ApplicationsTable } from './services/applications-table.js';
 import { ApplicationModalManager } from './services/application-modal-manager.js';
 import { ApplicationReviewModalManager } from './services/application-review-modal-manager.js';
+import { ApplicationEnrollmentModalManager } from './services/application-enrollment-modal-manager.js';
 
 (function ($) {
     'use strict';
@@ -67,6 +68,7 @@ import { ApplicationReviewModalManager } from './services/application-review-mod
             ApplicationsTable.init();
             ApplicationModalManager.init();
             ApplicationReviewModalManager.init();
+            ApplicationEnrollmentModalManager.init();
         }
 
     });

@@ -93,4 +93,5 @@ enum AuditAction: string {
 	/** Редактирование данных заявки администратором */
 	case UpdateApplicationData = 'update_application_data';
 	case UpdateReviewData      = 'update_review_data';
+	case StartEnrollment       = 'start_enrollment';
 }

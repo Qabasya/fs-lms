@@ -1,0 +1,164 @@
+import { ApplicationEnrollmentModal } from '../components/application-enrollment-modal.js';
+
+const $ = jQuery;
+const appVars = window.fs_lms_applications_vars;
+
+export const ApplicationEnrollmentModalManager = {
+    init() {
+        ApplicationEnrollmentModal.init();
+        if ( ! ApplicationEnrollmentModal._initialized ) return;
+
+        this._loadModalOptions();
+        this._bindEvents();
+    },
+
+    _loadModalOptions() {
+        const $modal    = $( '#fs-application-enrollment-modal' );
+        const periods   = JSON.parse( $modal.data( 'periods' )  || '[]' );
+        const subjects  = JSON.parse( $modal.data( 'subjects' ) || '[]' );
+        const currentId = $modal.data( 'current-period' ) || '';
+
+        ApplicationEnrollmentModal.populatePeriods( periods, currentId );
+        ApplicationEnrollmentModal.populateSubjects( subjects );
+    },
+
+    _bindEvents() {
+        $( document ).on( 'click', '.js-enrollment-application', ( e ) => {
+            e.preventDefault();
+            const appId = $( e.currentTarget ).data( 'id' );
+            this._handleOpen( appId );
+        } );
+
+        $( document ).on( 'click', '.js-start-enrollment', ( e ) => {
+            e.preventDefault();
+            this._handleStartEnrollment( $( e.currentTarget ) );
+        } );
+
+        // Reload groups when period or subject changes
+        $( document ).on( 'change', '#enroll-period, #enroll-subject', () => {
+            this._reloadGroups();
+        } );
+
+        ApplicationEnrollmentModal.onEnroll( ( data ) => this._handleEnroll( data ) );
+        ApplicationEnrollmentModal.onReject( ( data ) => this._handleReject( data ) );
+    },
+
+    _handleOpen( appId ) {
+        ApplicationEnrollmentModal.open( appId );
+        this._loadApplicationData( appId );
+    },
+
+    _handleStartEnrollment( $btn ) {
+        $btn.prop( 'disabled', true );
+
+        $.post( fs_lms_vars.ajaxurl, {
+            action:         fs_lms_vars.ajax_actions.startEnrollment,
+            security:       appVars.nonces.manager,
+            application_id: $btn.data( 'id' ),
+        } )
+            .done( ( res ) => {
+                if ( res.success ) {
+                    location.reload();
+                } else {
+                    alert( res.data?.message || res.data || 'Ошибка.' );
+                    $btn.prop( 'disabled', false );
+                }
+            } )
+            .fail( () => {
+                alert( 'Ошибка соединения.' );
+                $btn.prop( 'disabled', false );
+            } );
+    },
+
+    _loadApplicationData( appId ) {
+        $.post( fs_lms_vars.ajaxurl, {
+            action:         fs_lms_vars.ajax_actions.getApplicationData,
+            security:       appVars.nonces.manager,
+            application_id: appId,
+        } )
+            .done( ( res ) => {
+                if ( res.success ) {
+                    ApplicationEnrollmentModal.populateStudentData( res.data.student );
+                    ApplicationEnrollmentModal.populateParentData( res.data.parent );
+                }
+            } );
+    },
+
+    _reloadGroups() {
+        const periodId  = $( '#enroll-period' ).val();
+        const subjectId = $( '#enroll-subject' ).val();
+
+        if ( ! periodId || ! subjectId ) {
+            ApplicationEnrollmentModal.populateGroups( [] );
+            return;
+        }
+
+        $.post( fs_lms_vars.ajaxurl, {
+            action:    fs_lms_vars.ajax_actions.getStudentGroups,
+            security:  appVars.nonces.manager,
+            period_id:  periodId,
+            subject_id: subjectId,
+        } )
+            .done( ( res ) => {
+                if ( res.success ) {
+                    ApplicationEnrollmentModal.populateGroups( res.data );
+                }
+            } );
+    },
+
+    _handleEnroll( data ) {
+        ApplicationEnrollmentModal.setEnrollState( true );
+
+        $.post( fs_lms_vars.ajaxurl, {
+            action:         fs_lms_vars.ajax_actions.enrollStudent,
+            security:       appVars.nonces.enroll,
+            application_id: data.application_id,
+            contract_no:    data.contract_no,
+            contract_date:  data.contract_date,
+            order_no:       data.order_no,
+            order_date:     data.order_date,
+            enrolled_at:    data.enrolled_at,
+            period_key:     data.period_key,
+            subject_key:    data.subject_key,
+            group_id:       data.group_id,
+            send_email_auto: data.send_email_auto,
+        } )
+            .done( ( res ) => {
+                if ( res.success ) {
+                    ApplicationEnrollmentModal.close();
+                    location.reload();
+                } else {
+                    alert( res.data?.message || res.data || 'Ошибка зачисления.' );
+                    ApplicationEnrollmentModal.setEnrollState( false );
+                }
+            } )
+            .fail( () => {
+                alert( 'Ошибка соединения.' );
+                ApplicationEnrollmentModal.setEnrollState( false );
+            } );
+    },
+
+    _handleReject( data ) {
+        ApplicationEnrollmentModal.setRejectState( true );
+
+        $.post( fs_lms_vars.ajaxurl, {
+            action:         fs_lms_vars.ajax_actions.rejectApplication,
+            security:       appVars.nonces.reject,
+            application_id: data.application_id,
+            reason:         data.reason,
+        } )
+            .done( ( res ) => {
+                if ( res.success ) {
+                    ApplicationEnrollmentModal.close();
+                    location.reload();
+                } else {
+                    alert( res.data?.message || res.data || 'Ошибка отклонения.' );
+                    ApplicationEnrollmentModal.setRejectState( false );
+                }
+            } )
+            .fail( () => {
+                alert( 'Ошибка соединения.' );
+                ApplicationEnrollmentModal.setRejectState( false );
+            } );
+    },
+};
