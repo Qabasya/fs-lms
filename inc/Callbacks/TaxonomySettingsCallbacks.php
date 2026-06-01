@@ -7,8 +7,10 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\DTO\TaxonomyDataDTO;
 use Inc\Enums\Nonce;
+use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\PostTypeResolver;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -43,6 +45,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 	public function __construct(
 		private readonly TaxonomyRepository $taxonomies,
 		private readonly TermManager        $terms,
+		private readonly PostManager        $posts,
 	) {
 		parent::__construct();
 	}
@@ -72,17 +75,22 @@ class TaxonomySettingsCallbacks extends BaseController {
 			$this->error( "Таксономия «{$tax_slug}» уже существует в системе", array( 'error_code' => 'duplicate_slug', 'slug' => $tax_slug ) );
 		}
 
-		$result = $this->taxonomies->save( new TaxonomyDataDTO(
+		$dto    = new TaxonomyDataDTO(
 			slug:         $tax_slug,
 			name:         $tax_name,
 			subject_key:  $subject_key,
 			display_type: $display_type,
 			is_required:  $this->sanitizeBool( 'is_required' ),
-		) );
+		);
+		$result = $this->taxonomies->save( $dto );
 
 		if ( $result ) {
 			// flush_rewrite_rules() — перестраивает правила ЧПУ после регистрации новой таксономии
 			flush_rewrite_rules();
+		}
+
+		if ( $dto->is_required ) {
+			$this->assignDefaultTermToExistingPosts( $dto );
 		}
 
 		$this->respond(
@@ -104,16 +112,21 @@ class TaxonomySettingsCallbacks extends BaseController {
 		$tax_slug    = $this->requireKey( 'tax_slug' );
 		$tax_name    = $this->requireText( 'tax_name', error: 'Название обязательно' );
 
-		$result = $this->taxonomies->save( new TaxonomyDataDTO(
+		$dto    = new TaxonomyDataDTO(
 			slug:         $tax_slug,
 			name:         $tax_name,
 			subject_key:  $subject_key,
 			display_type: $this->getValidatedDisplayType(),
 			is_required:  $this->sanitizeBool( 'is_required' ),
-		) );
+		);
+		$result = $this->taxonomies->save( $dto );
 
 		if ( $result ) {
 			flush_rewrite_rules();
+		}
+
+		if ( $dto->is_required ) {
+			$this->assignDefaultTermToExistingPosts( $dto );
 		}
 
 		$this->respond(
@@ -148,6 +161,31 @@ class TaxonomySettingsCallbacks extends BaseController {
 			error_msg: 'Ошибка при удалении таксономии',
 			success_msg: 'Таксономия удалена'
 		);
+	}
+
+	/**
+	 * Назначает первый терм таксономии всем заданиям предмета, у которых этот терм не выставлен.
+	 *
+	 * @param TaxonomyDataDTO $dto DTO таксономии
+	 *
+	 * @return void
+	 */
+	private function assignDefaultTermToExistingPosts( TaxonomyDataDTO $dto ): void {
+		$terms = $this->terms->getAll( $dto->slug );
+		if ( empty( $terms ) ) {
+			return;
+		}
+
+		$first_term_id = (int) $terms[0]->term_id;
+		$post_type     = PostTypeResolver::tasks( $dto->subject_key );
+		$post_ids      = $this->posts->getIds( $post_type );
+
+		foreach ( $post_ids as $post_id ) {
+			$existing = $this->terms->getPostTerms( (int) $post_id, $dto->slug );
+			if ( empty( $existing ) ) {
+				$this->terms->setPostTerms( (int) $post_id, array( $first_term_id ), $dto->slug );
+			}
+		}
 	}
 
 	/**
