@@ -135,12 +135,6 @@ $today = current_time( 'Y-m-d' );
 								</div>
 
 								<div class="fs-form-group">
-									<label for="enroll-enrolled-at"><?php esc_html_e( 'Дата зачисления', 'fs-lms' ); ?></label>
-									<input type="date" id="enroll-enrolled-at" name="enrolled_at"
-										value="<?php echo esc_attr( $today ); ?>" required>
-								</div>
-
-								<div class="fs-form-group">
 									<label for="enroll-period"><?php esc_html_e( 'Учебный период', 'fs-lms' ); ?></label>
 									<select id="enroll-period" name="period_key" required>
 										<option value=""><?php esc_html_e( '— Выберите период —', 'fs-lms' ); ?></option>
@@ -161,12 +155,6 @@ $today = current_time( 'Y-m-d' );
 									</select>
 								</div>
 
-								<div class="fs-form-group">
-									<label class="fs-checkbox-label">
-										<input type="checkbox" name="send_email_auto" value="1" checked>
-										<span><?php esc_html_e( 'Отправить уведомление на email автоматически', 'fs-lms' ); ?></span>
-									</label>
-								</div>
 
 							</div>
 						</div>

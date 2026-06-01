@@ -176,7 +176,7 @@ $statusLabels = array_combine(
 				$statusClass = 'fs-lms-status--' . str_replace( '_', '-', $statusVal );
 
 				$detailUrl = admin_url( 'admin.php?page=fs-lms-application-detail&id=' . $app->id );
-				$canEnroll = $app->status === ApplicationStatus::ReadyForReview;
+				$canEnroll = in_array( $app->status, [ ApplicationStatus::ReadyForReview, ApplicationStatus::Enrolling ], true );
 				$canTrash  = $app->status->isTrashable();
 			?>
 			<tr data-app-id="<?php echo esc_attr( (string) $app->id ); ?>">
@@ -236,7 +236,10 @@ $statusLabels = array_combine(
 
 							<?php if ( $canEnroll ) : ?>
                                 <span class="enroll">
-					<a href="<?php echo esc_url( $detailUrl ); ?>">
+					<a href="#"
+					   class="js-enrollment-application"
+					   data-id="<?php echo esc_attr( (string) $app->id ); ?>"
+					   data-status="<?php echo esc_attr( $app->status->value ); ?>">
 						<?php esc_html_e( 'Зачислить', 'fs-lms' ); ?>
 					</a>
 				</span>
@@ -331,3 +334,4 @@ $statusLabels = array_combine(
 
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-modal.php'; ?>
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-review-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-enrollment-modal.php'; ?>

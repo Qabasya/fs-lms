@@ -76,6 +76,7 @@ enum AjaxHook: string {
 	case UpdateApplicationData       = 'update_application_data';
 	case UpdateReviewData            = 'update_review_data';
 	case StartEnrollment             = 'start_enrollment';
+	case CancelEnrollment            = 'cancel_enrollment';
 	case GetApplicationData          = 'get_application_data';
 	case GetStudentGroups            = 'get_student_groups';
 

@@ -14,9 +14,9 @@ export const ApplicationEnrollmentModalManager = {
 
     _loadModalOptions() {
         const $modal    = $( '#fs-application-enrollment-modal' );
-        const periods   = JSON.parse( $modal.data( 'periods' )  || '[]' );
-        const subjects  = JSON.parse( $modal.data( 'subjects' ) || '[]' );
-        const currentId = $modal.data( 'current-period' ) || '';
+        const periods   = JSON.parse( $modal.attr( 'data-periods' )  || '[]' );
+        const subjects  = JSON.parse( $modal.attr( 'data-subjects' ) || '[]' );
+        const currentId = $modal.attr( 'data-current-period' ) || '';
 
         ApplicationEnrollmentModal.populatePeriods( periods, currentId );
         ApplicationEnrollmentModal.populateSubjects( subjects );
@@ -25,8 +25,15 @@ export const ApplicationEnrollmentModalManager = {
     _bindEvents() {
         $( document ).on( 'click', '.js-enrollment-application', ( e ) => {
             e.preventDefault();
-            const appId = $( e.currentTarget ).data( 'id' );
-            this._handleOpen( appId );
+            const $btn   = $( e.currentTarget );
+            const appId  = $btn.data( 'id' );
+            const status = $btn.data( 'status' );
+
+            if ( status === 'ready_for_review' ) {
+                this._handleStartThenOpen( appId, $btn );
+            } else {
+                this._handleOpen( appId );
+            }
         } );
 
         $( document ).on( 'click', '.js-start-enrollment', ( e ) => {
@@ -62,6 +69,28 @@ export const ApplicationEnrollmentModalManager = {
                 } else {
                     alert( res.data?.message || res.data || 'Ошибка.' );
                     $btn.prop( 'disabled', false );
+                }
+            } )
+            .fail( () => {
+                alert( 'Ошибка соединения.' );
+                $btn.prop( 'disabled', false );
+            } );
+    },
+
+    _handleStartThenOpen( appId, $btn ) {
+        $btn.prop( 'disabled', true );
+
+        $.post( fs_lms_vars.ajaxurl, {
+            action:         fs_lms_vars.ajax_actions.startEnrollment,
+            security:       appVars.nonces.manager,
+            application_id: appId,
+        } )
+            .done( ( res ) => {
+                $btn.prop( 'disabled', false );
+                if ( res.success ) {
+                    this._handleOpen( appId );
+                } else {
+                    alert( res.data?.message || res.data || 'Ошибка.' );
                 }
             } )
             .fail( () => {

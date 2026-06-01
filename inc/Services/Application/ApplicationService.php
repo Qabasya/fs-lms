@@ -175,13 +175,25 @@ readonly class ApplicationService {
 			'email'           => $input->email,
 		) ) );
 
-		// Шифрование скорректированных данных ученика
-		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array(
-			'full_name'  => $input->studentFullName,
-			'birth_date' => $input->studentBirthDate,
-			'doc_type'   => $input->studentDocType,
-			'doc_number' => $input->studentDocNumber,
-			'inn'        => $input->studentInn,
+		// Слияние с исходными данными ученика (email, phone, school, grade сохраняются)
+		$existingStudentData = array();
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$existingStudentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+			} catch ( \Throwable ) {
+				$existingStudentData = array();
+			}
+		}
+
+		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array_merge(
+			$existingStudentData,
+			array(
+				'full_name'  => $input->studentFullName,
+				'birth_date' => $input->studentBirthDate,
+				'doc_type'   => $input->studentDocType,
+				'doc_number' => $input->studentDocNumber,
+				'inn'        => $input->studentInn,
+			)
 		) ) );
 
 		$appId = $app->id;

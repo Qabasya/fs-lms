@@ -52,11 +52,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 						placeholder="<?php esc_attr_e( 'ivanov@fs.ru', 'fs-lms' ); ?>" required>
 				</div>
 
-                <div class="fs-apply-card__field-group">
+                <div class="fs-apply-card__field-group" id="fs-phone-group">
                     <label for="fs_phone">Номер телефона:</label>
                     <span class="dashicons dashicons-phone"></span>
-                    <input type="tel" name="phone" id="fs_phone"
-                           placeholder="<?php esc_attr_e( '+7', 'fs-lms' ); ?>" required>
+                    <input
+                            type="tel"
+                            id="fs_phone"
+                            name="phone"
+                            placeholder="+7(999)-000-00-00"
+                            required
+                            novalidate
+                    >
+                    <span class="fs-field-error-message" style="display: none;"></span>
                 </div>
 
 

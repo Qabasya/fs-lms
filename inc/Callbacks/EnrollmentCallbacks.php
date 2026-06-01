@@ -18,6 +18,8 @@ use Inc\Services\Person\PiiMaskingService;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\DTO\EnrollmentInputDTO;
 use Inc\DTO\StudentGroupDTO;
+use Inc\Enums\DocumentType;
+use Inc\Enums\RelationType;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -192,7 +194,7 @@ class EnrollmentCallbacks extends BaseController {
 			subjectKey:    $this->requireKey( 'subject_key' ),
 			groupId:       $this->requireText( 'group_id' ),
 			periodKey:     $this->requireKey( 'period_key' ),
-			sendEmailAuto: ! empty( $_POST['send_email_auto'] ),
+			sendEmailAuto: true,
 		);
 
 		try {
@@ -563,7 +565,7 @@ class EnrollmentCallbacks extends BaseController {
 					'phone'       => $sd['phone']       ?? '',
 					'school'      => $sd['school']      ?? '',
 					'grade'       => $sd['grade']       ?? '',
-					'doc_type'    => $sd['doc_type']    ?? '',
+					'doc_type'    => DocumentType::tryFrom( $sd['doc_type'] ?? '' )?->label() ?? ( $sd['doc_type'] ?? '' ),
 					'doc_number'  => $sd['doc_number']  ?? '',
 					'inn'         => $sd['inn']         ?? '',
 				);
@@ -581,10 +583,10 @@ class EnrollmentCallbacks extends BaseController {
 					'first_name'      => $pParts[1] ?? '',
 					'middle_name'     => $pParts[2] ?? '',
 					'birth_date'      => $pd['birth_date']      ?? '',
-					'relation_type'   => $pd['relation_type']   ?? '',
+					'relation_type'   => RelationType::tryFrom( $pd['relation_type'] ?? '' )?->label() ?? ( $pd['relation_type'] ?? '' ),
 					'email'           => $pd['email']           ?? '',
 					'phone'           => $pd['phone']           ?? '',
-					'doc_type'        => $pd['doc_type']        ?? '',
+					'doc_type'        => DocumentType::tryFrom( $pd['doc_type'] ?? '' )?->label() ?? ( $pd['doc_type'] ?? '' ),
 					'doc_number'      => $pd['doc_number']      ?? '',
 					'doc_issued_by'   => $pd['doc_issued_by']   ?? '',
 					'doc_issued_date' => $pd['doc_issued_date'] ?? '',
@@ -597,6 +599,34 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		$this->success( array( 'student' => $student, 'parent' => $parent ) );
+	}
+
+	/**
+	 * AJAX: отмена зачисления (Enrolling → ReadyForReview).
+	 *
+	 * @return void
+	 */
+	public function ajaxCancelEnrollment(): void {
+		check_ajax_referer( Nonce::Manager->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::Enrolling ) {
+			$this->success();
+			return;
+		}
+
+		$this->applicationRepository->update( $id, array(
+			'status'     => ApplicationStatus::ReadyForReview->value,
+			'updated_at' => current_time( 'mysql', true ),
+		) );
+
+		$this->success();
 	}
 
 	/**

@@ -73,6 +73,16 @@
       &::placeholder {
         color: $color-muted;
       }
+      input[type="tel"] {
+        font-family: $font-mono;
+        letter-spacing: 0.05em;
+      }
+
+      &--otp input {
+        letter-spacing: 0.2em;
+        font-size: $font-size-base;
+        font-family: $font-mono;
+      }
     }
 
     select {

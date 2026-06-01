@@ -6,6 +6,8 @@ export const ApplicationEnrollmentModal = {
     $modal: null,
     _enrollCallbacks: [],
     _rejectCallbacks: [],
+    _closeCallbacks: [],
+    _completed: false,
     _initialized: false,
 
     $form: null,
@@ -126,10 +128,10 @@ export const ApplicationEnrollmentModal = {
     open( appId ) {
         $( '#enrollment-modal-id' ).text( '#' + appId );
         this.$form.find( '[name="application_id"]' ).val( appId );
+        this._completed = false;
 
         this._resetDetailFields();
         this._hideRejectionPanel();
-
         this._resetAccordion();
 
         openModal( this.$modal );
@@ -137,8 +139,22 @@ export const ApplicationEnrollmentModal = {
     },
 
     close() {
+        if ( ! this._completed ) {
+            const appId = this.$form.find( '[name="application_id"]' ).val();
+            if ( appId ) {
+                this._closeCallbacks.forEach( cb => cb( { application_id: appId } ) );
+            }
+        }
         closeModal( this.$modal );
         unbindEsc( 'application_enrollment' );
+    },
+
+    markCompleted() {
+        this._completed = true;
+    },
+
+    onClose( callback ) {
+        if ( typeof callback === 'function' ) { this._closeCallbacks.push( callback ); }
     },
 
     populateStudentData( student ) {
@@ -195,7 +211,7 @@ export const ApplicationEnrollmentModal = {
         } else {
             $select.append( '<option value="">— Выберите группу —</option>' );
             groups.forEach( g => {
-                $select.append( `<option value="${ g.id }">${ g.title }</option>` );
+                $select.append( `<option value="${ g.title }">${ g.title }</option>` );
             } );
             $select.prop( 'disabled', false );
         }

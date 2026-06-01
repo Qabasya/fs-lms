@@ -81,6 +81,8 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::UpdateReviewData, $this->callbacks ),
 			// Начало зачисления (ReadyForReview → Enrolling)
 			array( AjaxHook::StartEnrollment, $this->callbacks ),
+			// Отмена зачисления (Enrolling → ReadyForReview)
+			array( AjaxHook::CancelEnrollment, $this->callbacks ),
 			// Получение данных заявки (расшифрованных)
 			array( AjaxHook::GetApplicationData, $this->callbacks ),
 			// Получение групп по периоду и предмету
