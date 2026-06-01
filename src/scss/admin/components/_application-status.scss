@@ -1,0 +1,43 @@
+@use '../variables' as *;
+
+.fs-lms-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: $border-radius-md;
+  font-size: $font-size;
+  font-weight: $font-regular;
+  white-space: nowrap;
+
+  &--pending-parent {
+    background: $wp-admin-yellow-bg;
+    color: $wp-admin-yellow-text;
+    border: 1px solid $wp-admin-yellow;
+  }
+
+  &--ready-for-review {
+    background: $wp-admin-green-bg;
+    color: $wp-admin-green-text;
+    border: 1px solid $wp-admin-green;
+
+  }
+
+  &--enrolling {
+    background: $wp-admin-blue-bg;
+    color: $wp-admin-blue-text;
+    border: 1px solid $wp-admin-blue;
+  }
+
+
+
+  &--expired {
+    background: $wp-admin-gray-bg;
+    color: $wp-admin-gray-text;
+    border: 1px solid $wp-admin-gray;
+  }
+
+  &--trash {
+    background: $wp-admin-red-bg;
+    color: $wp-admin-red-text;
+    border: 1px solid $wp-admin-red;
+  }
+}

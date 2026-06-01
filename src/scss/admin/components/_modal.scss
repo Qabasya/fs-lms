@@ -206,6 +206,11 @@ html.modal-open {
   }
 
   /* ── FOOTER: панель действий (кнопки) */
+  .fs-lms-modal-footer[hidden],
+  .fs-modal-footer[hidden] {
+    display: none !important;
+  }
+
   .fs-lms-modal-footer,
   .fs-modal-footer {
     border-top: 1px solid $color-border-footer;
@@ -697,6 +702,188 @@ html.modal-open {
       font-size: $font-size !important;
       line-height: 1.4 !important;
       color: $color-text-primary !important;
+    }
+  }
+}
+
+/* =================================================================
+   EDITABLE FIELD (pencil toggle)
+   ================================================================= */
+
+.fs-editable-field {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &__display {
+    flex: 1;
+    min-height: 35px;
+    line-height: 35px;
+    font-size: 13px;
+    color: $color-text-primary;
+    padding: 0 $spacing-sm;
+  }
+
+  &__btn {
+    @include reset-button;
+    color: $color-text-secondary;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: $color-primary;
+    }
+
+    .dashicons {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  input,
+  select {
+    flex: 1;
+  }
+}
+
+.fs-form-row {
+  display: flex;
+  gap: $spacing-lg;
+
+  .fs-form-group {
+    flex: 1;
+  }
+}
+
+
+/* =================================================================
+   DETAIL GRID (read-only data display in enrollment/review modals)
+   ================================================================= */
+
+.fs-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-md;
+  overflow: hidden;
+}
+
+.fs-detail-row {
+  display: contents;
+
+  .fs-detail-label,
+  .fs-detail-value {
+    padding: $spacing-sm $spacing-md;
+    font-size: 13px;
+    border-bottom: 1px solid $color-border-input;
+    line-height: 1.4;
+  }
+
+  .fs-detail-label {
+    background: rgba($wp-admin-gray, 0.06);
+    font-weight: 600;
+    color: $color-text-secondary;
+    white-space: nowrap;
+  }
+
+  .fs-detail-value {
+    color: $color-text-primary;
+    word-break: break-word;
+  }
+
+  &:last-child .fs-detail-label,
+  &:last-child .fs-detail-value {
+    border-bottom: none;
+  }
+
+  &--full {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    .fs-detail-label,
+    .fs-detail-value {
+      border-bottom: none;
+    }
+  }
+}
+
+.fs-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  cursor: pointer;
+  font-size: 13px;
+  color: $color-text-primary;
+
+  input[type="checkbox"] {
+    width: auto;
+    height: auto;
+    margin: 0;
+    cursor: pointer;
+    accent-color: $color-primary;
+  }
+}
+
+
+/* =================================================================
+   ACCORDION (review modal sections)
+   ================================================================= */
+
+.fs-modal-accordion {
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-md;
+  overflow: hidden;
+
+  &__item {
+    &:not(:last-child) {
+      border-bottom: 1px solid $color-border-input;
+    }
+  }
+
+  &__header {
+    @include reset-button;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-md $spacing-lg;
+    background: rgba($wp-admin-gray, 0.06);
+    text-align: left;
+    cursor: pointer;
+    transition: background $transition-fast;
+
+    &:hover {
+      background: rgba($wp-admin-gray, 0.12);
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: $color-text-primary;
+    }
+
+    .dashicons {
+      transition: transform $transition-fast;
+      flex-shrink: 0;
+      color: $color-text-secondary;
+    }
+
+    &[aria-expanded="true"] .dashicons {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__body {
+    padding: $spacing-xl;
+
+    &[hidden] {
+      display: none;
     }
   }
 }

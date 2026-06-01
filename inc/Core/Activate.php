@@ -10,6 +10,8 @@ use Inc\Enums\CronHook;
 use Inc\Managers\CronManager;
 use Inc\Managers\RoleManager;
 use Inc\Migrations\Migration_1_0_0;
+use Inc\Migrations\Migration_1_0_1;
+use Inc\Migrations\Migration_1_0_2;
 use Inc\Migrations\MigrationRunner;
 use Inc\Services\PageGeneratorService;
 use Inc\Services\PiiCryptoService;
@@ -80,6 +82,8 @@ class Activate {
 
 		$migration_runner = new MigrationRunner();
 		$migration_runner->register( new Migration_1_0_0() );
+		$migration_runner->register( new Migration_1_0_1() );
+		$migration_runner->register( new Migration_1_0_2() );
 		$migration_runner->run();
 
 		// Автоматическое создание страниц входа, регистрации и профиля

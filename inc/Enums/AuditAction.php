@@ -28,9 +28,6 @@ enum AuditAction: string {
 	/** Ошибка при зачислении студента */
 	case EnrollStudentFailed = 'enroll_student_failed';
 
-	/** Отклонение заявки */
-	case RejectApplication = 'reject_application';
-
 	/** Прекращение обучения студента */
 	case TerminateEnrollment = 'terminate_enrollment';
 
@@ -89,4 +86,9 @@ enum AuditAction: string {
 
 	/** Очистка корзины (физическое удаление всех trash-заявок) */
 	case EmptyTrash = 'empty_trash';
+
+	/** Редактирование данных заявки администратором */
+	case UpdateApplicationData = 'update_application_data';
+	case UpdateReviewData      = 'update_review_data';
+	case StartEnrollment       = 'start_enrollment';
 }

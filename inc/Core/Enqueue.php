@@ -150,6 +150,23 @@ class Enqueue extends BaseController implements ServiceInterface {
 			wp_enqueue_script( 'inline-edit-post' );
 		}
 
+		// === Переменные для таблицы заявок ===
+		if ( 'fs_lms_userlist' === $page ) {
+			wp_localize_script(
+				$script_handle,
+				'fs_lms_applications_vars',
+				array(
+					'nonces' => array(
+						'trash'   => Nonce::TrashApplication->create(),
+						'edit'    => Nonce::EditApplication->create(),
+						'review'  => Nonce::ReviewApplication->create(),
+						'enroll'  => Nonce::Enroll->create(),
+						'manager' => Nonce::Manager->create(),
+					),
+				)
+			);
+		}
+
 		// === Глобальные переменные для всех страниц админки нашего плагина ===
 		wp_localize_script(
 			$script_handle,

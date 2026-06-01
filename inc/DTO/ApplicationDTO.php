@@ -50,7 +50,6 @@ readonly class ApplicationDTO {
 	 * @param string|null       $parentSubmittedIp         IP родителя при заполнении формы
 	 * @param string|null       $parentSubmittedUa         User-Agent родителя
 	 * @param int|null          $reviewedByUserId          ID модератора, проверившего заявку
-	 * @param string|null       $rejectedReason            Причина отклонения
 	 * @param string            $createdAt                 Дата создания
 	 * @param string            $updatedAt                 Дата обновления
 	 */
@@ -61,6 +60,7 @@ readonly class ApplicationDTO {
 		public string $periodKey,
 		public ApplicationStatus $status,
 		public ?string $joinCodeHash,
+		public ?string $joinCodeEnc,
 		public ?string $joinCodeExpiresAt,
 		public ?string $studentEmailHash,
 		public ?string $studentDataEnc,
@@ -69,7 +69,6 @@ readonly class ApplicationDTO {
 		public ?string $parentSubmittedIp,
 		public ?string $parentSubmittedUa,
 		public ?int $reviewedByUserId,
-		public ?string $rejectedReason,
 		public string $createdAt,
 		public string $updatedAt,
 	) {}
@@ -89,6 +88,7 @@ readonly class ApplicationDTO {
 			periodKey:               (string) $row['period_key'],
 			status:                  ApplicationStatus::from( (string) $row['status'] ),
 			joinCodeHash:            isset( $row['join_code_hash'] ) ? (string) $row['join_code_hash'] : null,
+			joinCodeEnc:             isset( $row['join_code_enc'] ) ? (string) $row['join_code_enc'] : null,
 			joinCodeExpiresAt:       isset( $row['join_code_expires_at'] ) ? (string) $row['join_code_expires_at'] : null,
 			studentEmailHash:        isset( $row['student_email_hash'] ) ? (string) $row['student_email_hash'] : null,
 			studentDataEnc:          isset( $row['student_data_enc'] ) ? (string) $row['student_data_enc'] : null,
@@ -97,7 +97,6 @@ readonly class ApplicationDTO {
 			parentSubmittedIp:       isset( $row['parent_submitted_ip'] ) ? (string) $row['parent_submitted_ip'] : null,
 			parentSubmittedUa:       isset( $row['parent_submitted_ua'] ) ? (string) $row['parent_submitted_ua'] : null,
 			reviewedByUserId:        isset( $row['reviewed_by_user_id'] ) ? (int) $row['reviewed_by_user_id'] : null,
-			rejectedReason:          isset( $row['rejected_reason'] ) ? (string) $row['rejected_reason'] : null,
 			createdAt:               (string) $row['created_at'],
 			updatedAt:               (string) $row['updated_at'],
 		);
@@ -116,6 +115,7 @@ readonly class ApplicationDTO {
 			'period_key'                 => $this->periodKey,
 			'status'                     => $this->status->value,
 			'join_code_hash'             => $this->joinCodeHash,
+			'join_code_enc'              => $this->joinCodeEnc,
 			'join_code_expires_at'       => $this->joinCodeExpiresAt,
 			'student_email_hash'         => $this->studentEmailHash,
 			'student_data_enc'           => $this->studentDataEnc,
@@ -124,7 +124,6 @@ readonly class ApplicationDTO {
 			'parent_submitted_ip'        => $this->parentSubmittedIp,
 			'parent_submitted_ua'        => $this->parentSubmittedUa,
 			'reviewed_by_user_id'        => $this->reviewedByUserId,
-			'rejected_reason'            => $this->rejectedReason,
 			'created_at'                 => $this->createdAt,
 			'updated_at'                 => $this->updatedAt,
 		);

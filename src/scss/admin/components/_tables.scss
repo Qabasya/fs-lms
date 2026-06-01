@@ -184,6 +184,37 @@
   // scss-lint enable ImportantRule
 }
 
+// ── MODIFIER: .fs-table--applications (таблица заявок)
+// ──────────────────────────────────────────────────────────────
+
+.fs-table--applications {
+  .column-date {
+    white-space: nowrap;
+    color: $color-text-secondary;
+    font-size: $font-size;
+  }
+
+  .fs-lms-join-code {
+    font-family: Consolas, Monaco, monospace;
+    font-size: $font-size;
+    color: $color-primary;
+    text-decoration: underline;
+  }
+
+  .fs-table__empty-value {
+    color: $color-secondary;
+  }
+}
+
+// ── UTILITY: пустая строка таблицы
+// ──────────────────────────────────────────────────────────────
+
+.fs-table__no-items {
+  text-align: center;
+  padding: $spacing-xl $spacing-md;
+  color: $color-text-secondary;
+}
+
 // ── INLINE EDIT ROW: Быстрое редактирование
 // ──────────────────────────────────────────────────────────────
 

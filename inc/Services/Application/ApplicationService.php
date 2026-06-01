@@ -90,12 +90,14 @@ readonly class ApplicationService {
 		// Генерация JOIN-кода и срока его действия
 		$joinCode      = $this->joinCodeService->generate();
 		$joinCodeHash  = $this->joinCodeService->hash( $joinCode );
+		$joinCodeEnc   = $this->crypto->encrypt( $joinCode );
 		$expiresAt     = gmdate( 'Y-m-d H:i:s', time() + 14 * DAY_IN_SECONDS );
 
 		// Шифрование данных ученика
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array(
 			'full_name'  => $input->fullName,
 			'email'      => $input->email,
+			'phone'      => $input->phone,
 			'school'     => $input->school,
 			'grade'      => $input->grade,
 			'birth_date' => $input->birthDate,
@@ -104,11 +106,12 @@ readonly class ApplicationService {
 		// inTransaction() — атомарное выполнение блока операций
 		$ctx = $this->requestContext();
 
-		$appId = $this->inTransaction( function () use ( $emailHash, $joinCodeHash, $expiresAt, $studentDataEnc, $ctx, $input ): int {
+		$appId = $this->inTransaction( function () use ( $emailHash, $joinCodeHash, $joinCodeEnc, $expiresAt, $studentDataEnc, $ctx, $input ): int {
 			// Создание записи заявки
 			$id = $this->applicationRepository->create( array(
 				'status'               => ApplicationStatus::PendingParent->value,
 				'join_code_hash'       => $joinCodeHash,
+				'join_code_enc'        => $joinCodeEnc,
 				'join_code_expires_at' => $expiresAt,
 				'student_email_hash'   => $emailHash,
 				'student_data_enc'     => $studentDataEnc,
@@ -172,13 +175,25 @@ readonly class ApplicationService {
 			'email'           => $input->email,
 		) ) );
 
-		// Шифрование скорректированных данных ученика
-		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array(
-			'full_name'  => $input->studentFullName,
-			'birth_date' => $input->studentBirthDate,
-			'doc_type'   => $input->studentDocType,
-			'doc_number' => $input->studentDocNumber,
-			'inn'        => $input->studentInn,
+		// Слияние с исходными данными ученика (email, phone, school, grade сохраняются)
+		$existingStudentData = array();
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$existingStudentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+			} catch ( \Throwable ) {
+				$existingStudentData = array();
+			}
+		}
+
+		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array_merge(
+			$existingStudentData,
+			array(
+				'full_name'  => $input->studentFullName,
+				'birth_date' => $input->studentBirthDate,
+				'doc_type'   => $input->studentDocType,
+				'doc_number' => $input->studentDocNumber,
+				'inn'        => $input->studentInn,
+			)
 		) ) );
 
 		$appId = $app->id;

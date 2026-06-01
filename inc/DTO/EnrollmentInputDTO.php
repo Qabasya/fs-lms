@@ -39,7 +39,7 @@ readonly class EnrollmentInputDTO {
 	 * @param string $orderDate     Дата приказа (Y-m-d)
 	 * @param string $enrolledAt    Дата зачисления (Y-m-d H:i:s)
 	 * @param string $subjectKey    Ключ предмета, на который зачисляется студент
-	 * @param int    $groupId       ID группы (из таблицы student_groups)
+	 * @param string $groupId       ID группы (slug из student_groups)
 	 * @param string $periodKey     Ключ учебного периода
 	 * @param bool   $sendEmailAuto Автоматически отправить уведомление студенту
 	 */
@@ -51,7 +51,7 @@ readonly class EnrollmentInputDTO {
 		public string $orderDate,
 		public string $enrolledAt,
 		public string $subjectKey,
-		public int    $groupId,
+		public string $groupId,
 		public string $periodKey,
 		public bool   $sendEmailAuto,
 	) {}

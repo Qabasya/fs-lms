@@ -53,6 +53,7 @@ readonly class RateLimitService {
 	 * @return bool false если лимит превышен
 	 */
 	public function allowApplicationCreation( string $ip ): bool {
+		if ( defined( 'FS_LMS_TEST_ENV' ) ) { return true; }
 		return $this->check( $this->ipKey( 'apply', $ip ), self::LIMIT_APPLICATION );
 	}
 
@@ -64,6 +65,7 @@ readonly class RateLimitService {
 	 * @return bool false если лимит превышен
 	 */
 	public function allowJoinAttempt( string $ip ): bool {
+		if ( defined( 'FS_LMS_TEST_ENV' ) ) { return true; }
 		return $this->check( $this->ipKey( 'join', $ip ), self::LIMIT_JOIN );
 	}
 
@@ -75,6 +77,7 @@ readonly class RateLimitService {
 	 * @return bool false если лимит превышен
 	 */
 	public function allowParentSubmit( string $ip ): bool {
+		if ( defined( 'FS_LMS_TEST_ENV' ) ) { return true; }
 		return $this->check( $this->ipKey( 'parent', $ip ), self::LIMIT_PARENT );
 	}
 

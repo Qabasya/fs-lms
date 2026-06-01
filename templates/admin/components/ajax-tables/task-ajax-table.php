@@ -7,8 +7,8 @@
 <table class="wp-list-table widefat fixed striped fs-table fs-table--task js-task-manager-table">
     <thead>
     <tr>
-        <th class="column-primary tw-10">Номер</th>
-        <th class="column-primary tw-10">Название задания</th>
+        <th class="tw-10">Номер</th>
+        <th class="tw-10">Название задания</th>
         <?php foreach ( $taxonomies as $tax ) : ?>
             <th scope="col" class="sortable"><?php echo esc_html( $tax->name ); ?></th>
         <?php endforeach; ?>

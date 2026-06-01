@@ -13,6 +13,10 @@ import {SubjectModalManager} from "./services/subject-modal-manager";
 import {TaskModalManager} from "./services/task-modal-manager";
 import {HelpModalManager} from "./services/help-modal-manager";
 import { GroupsTable } from "./services/groups-table.js";
+import { ApplicationsTable } from './services/applications-table.js';
+import { ApplicationModalManager } from './services/application-modal-manager.js';
+import { ApplicationReviewModalManager } from './services/application-review-modal-manager.js';
+import { ApplicationEnrollmentModalManager } from './services/application-enrollment-modal-manager.js';
 
 (function ($) {
     'use strict';
@@ -58,6 +62,13 @@ import { GroupsTable } from "./services/groups-table.js";
 
         if ($('.js-open-help-modal').length) {
             HelpModalManager.init();
+        }
+
+        if ( document.querySelector( '.fs-lms-applications' ) ) {
+            ApplicationsTable.init();
+            ApplicationModalManager.init();
+            ApplicationReviewModalManager.init();
+            ApplicationEnrollmentModalManager.init();
         }
 
     });

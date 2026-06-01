@@ -13,10 +13,10 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 	<table class="wp-list-table widefat fixed striped fs-table">
 		<thead>
 		<tr>
-			<th scope="col" class="manage-column column-primary">Тип записи</th>
-			<th scope="col" class="manage-column">Общее кол-во</th>
-			<th scope="col" class="manage-column">Опубликовано</th>
-			<th scope="col" class="manage-column">Черновиков</th>
+			<th scope="col" class=" column-primary">Тип записи</th>
+			<th scope="col" class="">Общее кол-во</th>
+			<th scope="col" class="">Опубликовано</th>
+			<th scope="col" class="">Черновиков</th>
 		</tr>
 		</thead>
 		<tbody id="the-list">
@@ -62,9 +62,9 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 	<table class="wp-list-table widefat fixed striped fs-table">
 		<thead>
 		<tr>
-			<th scope="col" class="manage-column column-primary">Номер задания</th>
-			<th scope="col" class="manage-column">Количество задач</th>
-			<th scope="col" class="manage-column">Количество статей</th>
+			<th scope="col" class=" column-primary">Номер задания</th>
+			<th scope="col" class="">Количество задач</th>
+			<th scope="col" class="">Количество статей</th>
 		</tr>
 		</thead>
 		<tbody id="the-list">

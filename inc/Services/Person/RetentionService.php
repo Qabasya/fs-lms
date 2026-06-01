@@ -49,7 +49,7 @@ class RetentionService {
 
 	public function purgeExpiredApplications(): int {
 		$table        = TableName::Applications->prefixed();
-		$statuses     = array( 'rejected', 'expired', 'trash' );
+		$statuses     = array( 'expired', 'trash' );
 		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared

@@ -65,14 +65,26 @@ class EnrollmentController extends AjaxController {
 		return array(
 			// Зачисление студента
 			array( AjaxHook::EnrollStudent, $this->callbacks ),
-			// Отклонение заявки
-			array( AjaxHook::RejectApplication, $this->callbacks ),
 			// Перемещение заявки в корзину
 			array( AjaxHook::MoveApplicationToTrash, $this->callbacks ),
 			// Восстановление заявки из корзины
 			array( AjaxHook::RestoreApplicationFromTrash, $this->callbacks ),
 			// Очистка корзины (физическое удаление всех заявок со статусом Trash)
 			array( AjaxHook::EmptyApplicationsTrash, $this->callbacks ),
+			// Постоянное удаление одной заявки из корзины
+			array( AjaxHook::DeleteApplication, $this->callbacks ),
+			// Редактирование данных заявки
+			array( AjaxHook::UpdateApplicationData, $this->callbacks ),
+			// Редактирование данных заявки на проверке (ReadyForReview)
+			array( AjaxHook::UpdateReviewData, $this->callbacks ),
+			// Начало зачисления (ReadyForReview → Enrolling)
+			array( AjaxHook::StartEnrollment, $this->callbacks ),
+			// Отмена зачисления (Enrolling → ReadyForReview)
+			array( AjaxHook::CancelEnrollment, $this->callbacks ),
+			// Получение данных заявки (расшифрованных)
+			array( AjaxHook::GetApplicationData, $this->callbacks ),
+			// Получение групп по периоду и предмету
+			array( AjaxHook::GetStudentGroups, $this->callbacks ),
 		);
 	}
 

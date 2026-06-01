@@ -18,6 +18,7 @@
 14. [Сервисы системы зачисления](#сервисы-системы-зачисления)
 15. [Миграции](#миграции)
 16. [Согласия на обработку ПД](#согласия-на-обработку-пд)
+17. [Клиентская валидация форм](#клиентская-валидация-форм)
 
 ---
 
@@ -1581,16 +1582,16 @@ public function createIfNotExists(array $data): int {
 
 **Конфигурационные константы (`wp-config.php`):**
 
-| Константа | Назначение |
-|---|---|
-| `FS_LMS_TEST_ENV` | Тестовое окружение: письмо не отправляется, капча в `ApplicationCallbacks` пропускается. Открывает дебаг-маршрут `/lms/join/000000000000`. |
-| `FS_LMS_OTP_BYPASS_CODE` | Постоянный bypass-код: принимается вместо кода с почты в любом окружении. Удобно когда у ученика нет доступа к email. |
+| Константа | Назначение                                                                                                                        |
+|---|-----------------------------------------------------------------------------------------------------------------------------------|
+| `FS_LMS_TEST_ENV` | Тестовое окружение: письмо не отправляется, капча в `ApplicationCallbacks` пропускается. Открывает дебаг-маршрут `/lms/join/000`. |
+| `FS_LMS_OTP_BYPASS_CODE` | Постоянный bypass-код: принимается вместо кода с почты в любом окружении. Удобно когда у ученика нет доступа к email.             |
 
 Константы независимы. Без `FS_LMS_TEST_ENV` капча и письмо работают штатно; `FS_LMS_OTP_BYPASS_CODE` при этом всё равно принимается как валидный код.
 
 **Дебаг-маршрут страницы родителя** (`FS_LMS_TEST_ENV`):
 
-`GET /lms/join/000000000000` — рендерит `join.php` с тестовыми данными без обращения к БД. Реализовано в `ApplicationCallbacks::prepareJoinPage()` — перехват до валидации формата и rate limit. В продакшне (без константы) адрес возвращает 404, так как `000000000000` не соответствует формату `JOIN-XXXX-XXXX-XXXX`.
+`GET /lms/join/000` — рендерит `join.php` с тестовыми данными без обращения к БД. Реализовано в `ApplicationCallbacks::prepareJoinPage()` — перехват до валидации формата и rate limit. В продакшне (без константы) адрес возвращает 404, так как `000` не соответствует формату `JOIN-XXXX-XXXX-XXXX`.
 
 ### CaptchaService
 
@@ -1827,6 +1828,275 @@ fs_lms_consent_page_meta = [
 Администратор открывает `/consent` — стандартную WP-страницу. Шорткод не нужен: страница содержит `post_content` напрямую.
 
 `ConsentController` также регистрирует маршрут `/lms/consent/{type}/{version}` для отображения текста по ссылке из записей аудита — возвращает актуальный `post_content` страницы.
+
+---
+
+## JavaScript архитектура
+
+### Структура директорий
+
+```
+src/js/
+├── admin/
+│   ├── admin.js          — точка входа; jQuery $(document).ready()
+│   ├── _types.js         — JSDoc-типы для window-глобалов (fs_lms_vars, fs_lms_task_data)
+│   ├── components/       — только UI, AJAX запрещён (модальные окна, виджеты)
+│   ├── services/         — AJAX + бизнес-логика, оркестрирует компоненты
+│   └── modules/          — общие утилиты (modal-base, utils, ui-авторегистратор)
+├── frontend/
+│   ├── frontend.js       — точка входа; чистый DOMContentLoaded
+│   ├── components/       — только UI, AJAX запрещён (вкладки, карусели)
+│   └── services/         — AJAX + бизнес-логика (apply-form)
+└── common/
+    ├── common.js         — точка входа
+    └── components/       — общие UI-компоненты для обеих сторон
+```
+
+### Паттерны экспорта
+
+#### Admin — объектный паттерн (jQuery)
+
+Все файлы в `admin/components/` и `admin/services/` экспортируют объект с методом `init()`:
+
+```js
+// src/js/admin/services/my-service.js
+import { ConfirmModal } from '../components/confirm-modal.js';
+
+const $ = jQuery;
+
+export const MyService = {
+    init() {
+        ConfirmModal.init();
+        this.bindEvents();
+    },
+    bindEvents() {
+        $( document ).on( 'click', '.my-btn', this.handleClick.bind( this ) );
+    },
+    handleClick( e ) { ... },
+};
+
+// admin.js:
+// if ( $( '.my-trigger' ).length ) { MyService.init(); }
+```
+
+#### Frontend — функциональный паттерн (pure JS)
+
+Все файлы в `frontend/components/` и `frontend/services/` экспортируют именованную функцию `initX()`:
+
+```js
+// src/js/frontend/services/my-form.js
+const vars = window.fs_lms_my_vars;
+
+export function initMyForm() {
+    if ( ! window.fs_lms_my_vars ) { return; }
+    if ( ! document.getElementById( 'my-form' ) ) { return; }
+    document.getElementById( 'my-form' ).addEventListener( 'submit', handleSubmit );
+}
+
+// frontend.js:
+// import { initMyForm } from './services/my-form.js';
+// document.addEventListener( 'DOMContentLoaded', () => { initMyForm(); });
+```
+
+#### Modules — именованные функции
+
+```js
+// src/js/admin/modules/modal-base.js
+export function openModal( $modal ) { ... }
+export function closeModal( $modal ) { ... }
+```
+
+### Правила разделения по директориям
+
+| Директория | Может делать AJAX? | jQuery? | Пример |
+|---|---|---|---|
+| `admin/components/` | ❌ Нет | ✅ Да | `confirm-modal.js`, `subject-modal.js` |
+| `admin/services/` | ✅ Да | ✅ Да | `applications-table.js`, `boilerplates.js` |
+| `admin/modules/` | ❌ Нет | ✅ Да | `modal-base.js`, `utils.js` |
+| `frontend/components/` | ❌ Нет | ❌ Нет | `task-tabs.js`, `article-carousel.js` |
+| `frontend/services/` | ✅ Да | ❌ Нет | `apply-form.js` |
+| `common/components/` | ❌ Нет | ✅ Да | `toggle-secret.js`, `badge.js` |
+
+### Авторегистратор компонентов (admin)
+
+`admin/modules/ui.js` использует `require.context` для автоматической загрузки всех файлов из `admin/components/`. Компоненты **не нужно импортировать вручную** в `admin.js` — авторегистратор вызывает их `init()` сам. Сервисы импортируются и инициализируются в `admin.js` вручную.
+
+### Глобальные переменные (window)
+
+Все вызовы `wp_localize_script()` — **только в `Enqueue.php`**, никогда в шаблонах.
+
+| Переменная | Где доступна | Содержимое |
+|---|---|---|
+| `fs_lms_vars` | все страницы плагина в админке | `ajaxurl`, `ajax_actions`, nonces |
+| `fs_lms_task_data` | страницы CPT `_tasks` | `ajax_url`, `nonce`, `subject_key`, `post_type` |
+| `fs_lms_apply_vars` | фронтенд `/lms/apply` | `ajax_url`, `actions`, `nonces`, `captcha_key` |
+| `fs_lms_applications_vars` | админ `fs_lms_userlist` | `nonces.trash` |
+
+AJAX-экшены доступны через `fs_lms_vars.ajax_actions.camelCaseName` — экспортируются из `AjaxHook::toJsArray()` в формате `['camelCaseName' => 'snake_case_action']`.
+
+### Добавление нового AJAX-модуля
+
+**Admin-сервис:**
+1. Создать `src/js/admin/services/my-service.js`, экспортировать `export const MyService = { init() {} }`
+2. Добавить `import { MyService } from './services/my-service.js'` в `admin.js`
+3. Инициализировать с гардом: `if ( $( '.my-trigger' ).length ) { MyService.init(); }`
+
+**Frontend-сервис:**
+1. Создать `src/js/frontend/services/my-feature.js`, экспортировать `export function initMyFeature() {}`
+2. Добавить импорт и вызов в `frontend.js` внутри `DOMContentLoaded`
+
+**Локализация переменных:**
+1. Добавить `wp_localize_script()` в `Enqueue.php` с условием по `$page` или `$screen->id`
+2. Обращаться из JS через `window.fs_lms_*_vars`
+
+---
+
+## Клиентская валидация форм
+
+### Расположение файлов
+
+```
+src/js/common/
+├── validators/
+│   ├── BaseValidator.js       — базовый класс всех валидаторов
+│   ├── PhoneValidator.js      — валидация телефона (+7(999)-000-00-00)
+│   ├── CyrillicNameValidator.js
+│   ├── LatinOnlyValidator.js
+│   └── index.js              — реестр: { phone, cyrillicName, latinOnly, default }
+└── validation-manager.js     — менеджер: привязка событий, рендер ошибок
+
+src/scss/common/components/
+└── _validation.scss          — стили ошибок (.fs-form-group.form-invalid, .fs-field-error)
+```
+
+### Архитектура
+
+Система состоит из трёх независимых слоёв:
+
+| Слой | Файл | Ответственность |
+|---|---|---|
+| Валидатор | `validators/MyValidator.js` | Только логика проверки значения |
+| Реестр | `validators/index.js` | Маппинг ключ → экземпляр валидатора |
+| Менеджер | `validation-manager.js` | Сканирование DOM, события, рендер ошибок |
+
+### Контракт валидатора
+
+Все валидаторы наследуют `BaseValidator` и переопределяют `checkCustom`:
+
+```js
+// src/js/common/validators/MyValidator.js
+import { BaseValidator } from './BaseValidator.js';
+
+export class MyValidator extends BaseValidator {
+    checkCustom( value, input ) {
+        if ( ! /^\d{10}$/.test( value ) ) {
+            return 'Должно быть 10 цифр.';
+        }
+        return null; // null = поле валидно
+    }
+}
+```
+
+`BaseValidator.validate(input)` автоматически обрабатывает нативные HTML5-атрибуты (`required`, `minlength`, `type="email"`) через `ValidityState` — переопределять их в `checkCustom` не нужно.
+
+### Добавление нового валидатора (3 шага)
+
+**Шаг 1.** Создать файл `src/js/common/validators/InnValidator.js`:
+
+```js
+import { BaseValidator } from './BaseValidator.js';
+
+export class InnValidator extends BaseValidator {
+    checkCustom( value ) {
+        if ( value.length !== 10 && value.length !== 12 ) {
+            return 'ИНН должен содержать 10 или 12 цифр.';
+        }
+        if ( ! /^\d+$/.test( value ) ) {
+            return 'ИНН должен содержать только цифры.';
+        }
+        return null;
+    }
+}
+```
+
+**Шаг 2.** Зарегистрировать в `src/js/common/validators/index.js`:
+
+```js
+import { InnValidator } from './InnValidator.js';
+
+export const FieldValidators = {
+    phone:        new PhoneValidator(),
+    cyrillicName: new CyrillicNameValidator(),
+    latinOnly:    new LatinOnlyValidator(),
+    inn:          new InnValidator(), // ← добавить
+    default:      new BaseValidator()
+};
+```
+
+**Шаг 3.** Добавить `data-validate` к инпуту в шаблоне:
+
+```html
+<input type="text" name="inn" data-validate="inn" required>
+```
+
+Больше ничего не нужно. Менеджер подхватит атрибут автоматически.
+
+### Привязка к форме
+
+#### Автоматически (через common.js)
+
+Формы с атрибутом `data-fs-validate` или классом `.fs-lms-form` подхватываются глобальным менеджером в `common.js` автоматически при загрузке страницы:
+
+```html
+<form data-fs-validate>
+    <div class="fs-form-group">
+        <input type="tel" data-validate="phone" required>
+    </div>
+</form>
+```
+
+#### Вручную (для форм с AJAX-сабмитом)
+
+Если форма обрабатывается своим JS-модулем (как `apply-form.js`), вызвать `initFormValidation` явно и использовать возвращённую функцию `validateAll()` перед AJAX-запросом:
+
+```js
+import { initFormValidation } from '../../common/validation-manager.js';
+
+export function initMyForm() {
+    const form = document.getElementById( 'my-form' );
+    if ( ! form ) { return; }
+
+    const validateAll = initFormValidation( form ); // привязывает blur + input
+
+    form.addEventListener( 'submit', async ( e ) => {
+        e.preventDefault();
+        if ( ! validateAll() ) { return; } // показывает ошибки, фокусирует первый невалидный
+        // ... AJAX
+    } );
+}
+```
+
+### Требования к разметке
+
+Каждый валидируемый инпут должен быть обёрнут в контейнер с классом `.fs-form-group`:
+
+```html
+<div class="fs-form-group">
+    <input type="tel" name="phone" data-validate="phone" required>
+</div>
+```
+
+Менеджер добавляет класс `form-invalid` на контейнер и вставляет `<p class="fs-field-error">` с текстом ошибки. Стили `.fs-form-group.form-invalid` описаны в `src/scss/common/components/_validation.scss` и применяются на всех страницах через `common.min.css`.
+
+На формах с собственной компонентной стилизацией (например, `apply.php`) добавлять `fs-form-group` как дополнительный класс: `class="fs-apply-card__field-group fs-form-group"`.
+
+### Поведение при валидации
+
+| Событие | Действие |
+|---|---|
+| `blur` (потеря фокуса) | Запускает валидатор, рендерит ошибку если есть |
+| `input` (ввод символа) | Убирает ошибку (мягкий сброс, не перепроверяет) |
+| `submit` | Проверяет все поля, показывает все ошибки, фокусирует первый невалидный |
 
 ---
 

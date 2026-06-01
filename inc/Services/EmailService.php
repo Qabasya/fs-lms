@@ -100,20 +100,6 @@ readonly class EmailService {
 	}
 
 	/**
-	 * Отправляет уведомление об отклонении заявки.
-	 *
-	 * @param string $email  Email заявителя
-	 * @param string $reason Причина отклонения
-	 *
-	 * @return bool
-	 */
-	public function sendRejectionNotification( string $email, string $reason ): bool {
-		$t = $this->template->get( 'rejection', array( 'reason' => $reason ) );
-
-		return $this->send( $email, $t->subject, $t->body );
-	}
-
-	/**
 	 * Отправляет родителю уведомление о добавлении нового подопечного.
 	 *
 	 * @param int         $userId ID пользователя (родителя)

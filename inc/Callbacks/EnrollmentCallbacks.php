@@ -10,12 +10,16 @@ use Inc\Enums\AuditAction;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Services\AuditService;
 use Inc\Services\Enrollment\EnrollmentService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\Person\PiiMaskingService;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\DTO\EnrollmentInputDTO;
+use Inc\DTO\StudentGroupDTO;
+use Inc\Enums\DocumentType;
+use Inc\Enums\RelationType;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -30,8 +34,7 @@ use Inc\Shared\Traits\Sanitizer;
  * 1. **Отображение списка заявок** — рендеринг таблицы с фильтрами и пагинацией.
  * 2. **Просмотр карточки заявки** — отображение деталей заявки с PII (с логированием доступа).
  * 3. **Зачисление студента** — обработка AJAX-запроса на создание зачисления.
- * 4. **Отклонение заявки** — изменение статуса на Rejected с указанием причины.
- * 5. **Корзина заявок** — перемещение в корзину, восстановление, очистка.
+ * 4. **Корзина заявок** — перемещение в корзину, восстановление, очистка.
  *
  * ### Архитектурная роль:
  *
@@ -59,6 +62,7 @@ class EnrollmentCallbacks extends BaseController {
 		private readonly PiiCryptoService       $crypto,
 		private readonly PiiMaskingService      $piiMasking,
 		private readonly PiiAccessLogRepository $piiAccessLog,
+		private readonly StudentGroupRepository $studentGroupRepository,
 	) {
 		parent::__construct();
 	}
@@ -121,9 +125,9 @@ class EnrollmentCallbacks extends BaseController {
 		$parentData  = null;
 
 		// Расшифровка данных студента (если есть права ViewPII)
-		if ( ! empty( $app->student_data_enc ) && current_user_can( Capability::ViewPII->value ) ) {
+		if ( ! empty( $app->studentDataEnc ) && current_user_can( Capability::ViewPII->value ) ) {
 			try {
-				$studentData = json_decode( $this->crypto->decrypt( $app->student_data_enc ), true );
+				$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
 			} catch ( \Throwable $e ) {
 				$studentData = null;
 			}
@@ -141,9 +145,9 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		// Расшифровка данных родителя (если есть права ViewPII)
-		if ( ! empty( $app->parent_data_enc ) && current_user_can( Capability::ViewPII->value ) ) {
+		if ( ! empty( $app->parentDataEnc ) && current_user_can( Capability::ViewPII->value ) ) {
 			try {
-				$parentData = json_decode( $this->crypto->decrypt( $app->parent_data_enc ), true );
+				$parentData = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true );
 			} catch ( \Throwable $e ) {
 				$parentData = null;
 			}
@@ -180,16 +184,16 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		$dto = new EnrollmentInputDTO(
-			applicationId: $this->sanitizeInt( $_POST['application_id'] ?? 0 ),
-			contractNo:    $this->requireText( $_POST['contract_no'] ?? '' ),
-			contractDate:  $this->requireText( $_POST['contract_date'] ?? '' ),
-			orderNo:       $this->requireText( $_POST['order_no'] ?? '' ),
-			orderDate:     $this->requireText( $_POST['order_date'] ?? '' ),
-			enrolledAt:    $this->requireText( $_POST['enrolled_at'] ?? '' ),
-			subjectKey:    $this->requireKey( $_POST['subject_key'] ?? '' ),
-			groupId:       $this->sanitizeInt( $_POST['group_id'] ?? 0 ),
-			periodKey:     $this->requireKey( $_POST['period_key'] ?? '' ),
-			sendEmailAuto: ! empty( $_POST['send_email_auto'] ),
+			applicationId: $this->sanitizeInt( 'application_id' ),
+			contractNo:    $this->requireText( 'contract_no' ),
+			contractDate:  $this->requireText( 'contract_date' ),
+			orderNo:       $this->requireText( 'order_no' ),
+			orderDate:     $this->requireText( 'order_date' ),
+			enrolledAt:    $this->requireText( 'enrolled_at' ),
+			subjectKey:    $this->requireKey( 'subject_key' ),
+			groupId:       $this->requireText( 'group_id' ),
+			periodKey:     $this->requireKey( 'period_key' ),
+			sendEmailAuto: true,
 		);
 
 		try {
@@ -217,47 +221,13 @@ class EnrollmentCallbacks extends BaseController {
 			$response['student_link']  = $result->studentPasswordLink;
 			$response['message']       = 'Зачисление выполнено. Передайте ссылки представителю.';
 		} else {
-			$response['message'] = 'Зачисление выполнено. Ссылки для установки пароля отправлены на email.';
+			$response['message'] = 'Зачисление выполнено. Ссылка для установки пароля отправлена на почту родителя.';
 		}
 
 		$this->success( $response );
 	}
 
-	/**
-	 * AJAX: отклонение заявки.
-	 *
-	 * @return void
-	 */
-	public function ajaxRejectApplication(): void {
-		check_ajax_referer( Nonce::Reject->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
-
-		$id     = $this->sanitizeInt( $_POST['application_id'] ?? 0 );
-		$reason = $this->sanitizeText( $_POST['reason'] ?? '' );
-
-		// Обновление статуса и заполнение полей отклонения
-		$this->applicationRepository->update( $id, array(
-			'status'              => ApplicationStatus::Rejected->value,
-			'rejected_reason'     => $reason,
-			'reviewed_by_user_id' => get_current_user_id(),
-			'reviewed_at'         => current_time( 'mysql', true ),
-			'updated_at'          => current_time( 'mysql', true ),
-		) );
-
-		$this->auditService->record(
-			AuditAction::RejectApplication->value,
-			'application',
-			$id,
-			array( 'reason' => $reason )
-		);
-
-		$this->success();
-	}
-
-	/**
+		/**
 	 * AJAX: перемещение заявки в корзину.
 	 *
 	 * @return void
@@ -269,7 +239,7 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( 'Доступ запрещён.' );
 		}
 
-		$id = $this->sanitizeInt( $_POST['application_id'] ?? 0 );
+		$id = $this->sanitizeInt( 'application_id' );
 
 		$this->applicationRepository->setStatus( $id, ApplicationStatus::Trash );
 
@@ -294,7 +264,7 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( 'Доступ запрещён.' );
 		}
 
-		$id  = $this->sanitizeInt( $_POST['application_id'] ?? 0 );
+		$id  = $this->sanitizeInt( 'application_id' );
 		$app = $this->applicationRepository->find( $id );
 
 		if ( null === $app ) {
@@ -302,7 +272,7 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		// Определение целевого статуса: ReadyForReview (заполнена родителем) или PendingParent
-		$target = ! empty( $app->parent_data_enc )
+		$target = ! empty( $app->parentDataEnc )
 			? ApplicationStatus::ReadyForReview
 			: ApplicationStatus::PendingParent;
 
@@ -315,6 +285,338 @@ class EnrollmentCallbacks extends BaseController {
 		);
 
 		$this->success();
+	}
+
+	/**
+	 * AJAX: постоянное удаление одной заявки (только из корзины).
+	 *
+	 * @return void
+	 */
+	public function ajaxDeleteApplication(): void {
+		check_ajax_referer( Nonce::TrashApplication->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::Trash ) {
+			$this->error( 'Заявка не найдена или не в корзине.' );
+		}
+
+		$this->applicationRepository->delete( $id );
+
+		$this->auditService->record(
+			AuditAction::EmptyTrash->value,
+			'application',
+			$id,
+			array( 'deleted_count' => 1 )
+		);
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: обновление данных заявки администратором.
+	 *
+	 * @return void
+	 */
+	public function ajaxUpdateApplicationData(): void {
+		check_ajax_referer( Nonce::EditApplication->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app ) {
+			$this->error( 'Заявка не найдена.' );
+		}
+
+		$studentData = array();
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+			} catch ( \Throwable $e ) {
+				$this->error( 'Ошибка расшифровки данных.' );
+			}
+		}
+
+		$lastName   = $this->requireText( 'last_name' );
+		$firstName  = $this->requireText( 'first_name' );
+		$middleName = $this->sanitizeText( 'middle_name' );
+		$fullName   = trim( "$lastName $firstName $middleName" );
+
+		$studentData['full_name']  = $fullName;
+		$studentData['email']      = $this->requireText( 'email' );
+		$studentData['phone']      = $this->requireText( 'phone' );
+		$studentData['school']     = $this->sanitizeText( 'school' );
+		$studentData['grade']      = $this->sanitizeInt( 'grade' );
+		$studentData['birth_date'] = $this->requireText( 'birth_date' );
+
+		try {
+			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Ошибка шифрования данных.' );
+		}
+
+		$emailHash = $this->crypto->hash( $studentData['email'] );
+
+		$this->applicationRepository->update( $id, array(
+			'student_data_enc'   => $newStudentDataEnc,
+			'student_email_hash' => $emailHash,
+			'updated_at'         => current_time( 'mysql', true ),
+		) );
+
+		$this->auditService->record(
+			AuditAction::UpdateApplicationData->value,
+			'application',
+			$id
+		);
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: обновление данных заявки в статусе ReadyForReview (ученик + родитель).
+	 *
+	 * @return void
+	 */
+	public function ajaxUpdateReviewData(): void {
+		check_ajax_referer( Nonce::ReviewApplication->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::ReadyForReview ) {
+			$this->error( 'Заявка не найдена или недоступна.' );
+		}
+
+		// Обновление данных ученика
+		$studentData = array();
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+			} catch ( \Throwable $e ) {
+				$this->error( 'Ошибка расшифровки данных ученика.' );
+			}
+		}
+
+		$sLast   = $this->requireText( 'student_last_name' );
+		$sFirst  = $this->requireText( 'student_first_name' );
+		$sMid    = $this->sanitizeText( 'student_middle_name' );
+		$studentData['full_name']  = trim( "$sLast $sFirst $sMid" );
+		$studentData['birth_date'] = $this->sanitizeText( 'student_birth_date' );
+		$studentData['doc_type']   = $this->sanitizeText( 'student_doc_type' );
+		$studentData['doc_number'] = $this->sanitizeText( 'student_doc_number' );
+		$studentData['inn']        = $this->sanitizeText( 'student_inn' );
+
+		// Обновление данных родителя
+		$parentData = array();
+		if ( ! empty( $app->parentDataEnc ) ) {
+			try {
+				$parentData = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array();
+			} catch ( \Throwable $e ) {
+				$this->error( 'Ошибка расшифровки данных родителя.' );
+			}
+		}
+
+		$pLast   = $this->requireText( 'parent_last_name' );
+		$pFirst  = $this->requireText( 'parent_first_name' );
+		$pMid    = $this->sanitizeText( 'parent_middle_name' );
+		$parentData['full_name']       = trim( "$pLast $pFirst $pMid" );
+		$parentData['birth_date']      = $this->sanitizeText( 'parent_birth_date' );
+		$parentData['relation_type']   = $this->sanitizeText( 'relation_type' );
+		$parentData['email']           = $this->sanitizeText( 'parent_email' );
+		$parentData['phone']           = $this->sanitizeText( 'parent_phone' );
+		$parentData['doc_type']        = $this->sanitizeText( 'parent_doc_type' );
+		$parentData['doc_number']      = $this->sanitizeText( 'parent_doc_number' );
+		$parentData['doc_issued_by']   = $this->sanitizeText( 'parent_doc_issued_by' );
+		$parentData['doc_issued_date'] = $this->sanitizeText( 'parent_doc_issued_date' );
+		$parentData['inn']             = $this->sanitizeText( 'parent_inn' );
+		$parentData['address']         = $this->sanitizeText( 'parent_address' );
+
+		try {
+			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
+			$newParentDataEnc  = $this->crypto->encrypt( (string) wp_json_encode( $parentData ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Ошибка шифрования данных.' );
+		}
+
+		$this->applicationRepository->update( $id, array(
+			'student_data_enc' => $newStudentDataEnc,
+			'parent_data_enc'  => $newParentDataEnc,
+			'updated_at'       => current_time( 'mysql', true ),
+		) );
+
+		$this->auditService->record(
+			AuditAction::UpdateReviewData->value,
+			'application',
+			$id
+		);
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: перевод заявки из ReadyForReview в Enrolling.
+	 *
+	 * @return void
+	 */
+	public function ajaxStartEnrollment(): void {
+		check_ajax_referer( Nonce::Manager->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::ReadyForReview ) {
+			$this->error( 'Заявка не найдена или не в статусе "Готова к зачислению".' );
+		}
+
+		$this->applicationRepository->update( $id, array(
+			'status'     => ApplicationStatus::Enrolling->value,
+			'updated_at' => current_time( 'mysql', true ),
+		) );
+
+		$this->auditService->record( AuditAction::StartEnrollment->value, 'application', $id );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: получение расшифрованных данных заявки (ученик + родитель).
+	 *
+	 * @return void
+	 */
+	public function ajaxGetApplicationData(): void {
+		check_ajax_referer( Nonce::Manager->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app ) {
+			$this->error( 'Заявка не найдена.' );
+		}
+
+		$student = null;
+		$parent  = null;
+
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$sd        = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
+				$nameParts = explode( ' ', $sd['full_name'] ?? '', 3 );
+				$student   = array(
+					'last_name'   => $nameParts[0] ?? '',
+					'first_name'  => $nameParts[1] ?? '',
+					'middle_name' => $nameParts[2] ?? '',
+					'birth_date'  => $sd['birth_date']  ?? '',
+					'email'       => $sd['email']       ?? '',
+					'phone'       => $sd['phone']       ?? '',
+					'school'      => $sd['school']      ?? '',
+					'grade'       => $sd['grade']       ?? '',
+					'doc_type'    => DocumentType::tryFrom( $sd['doc_type'] ?? '' )?->label() ?? ( $sd['doc_type'] ?? '' ),
+					'doc_number'  => $sd['doc_number']  ?? '',
+					'inn'         => $sd['inn']         ?? '',
+				);
+			} catch ( \Throwable $e ) {
+				$student = null;
+			}
+		}
+
+		if ( ! empty( $app->parentDataEnc ) ) {
+			try {
+				$pd     = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true );
+				$pParts = explode( ' ', $pd['full_name'] ?? '', 3 );
+				$parent = array(
+					'last_name'       => $pParts[0] ?? '',
+					'first_name'      => $pParts[1] ?? '',
+					'middle_name'     => $pParts[2] ?? '',
+					'birth_date'      => $pd['birth_date']      ?? '',
+					'relation_type'   => RelationType::tryFrom( $pd['relation_type'] ?? '' )?->label() ?? ( $pd['relation_type'] ?? '' ),
+					'email'           => $pd['email']           ?? '',
+					'phone'           => $pd['phone']           ?? '',
+					'doc_type'        => DocumentType::tryFrom( $pd['doc_type'] ?? '' )?->label() ?? ( $pd['doc_type'] ?? '' ),
+					'doc_number'      => $pd['doc_number']      ?? '',
+					'doc_issued_by'   => $pd['doc_issued_by']   ?? '',
+					'doc_issued_date' => $pd['doc_issued_date'] ?? '',
+					'inn'             => $pd['inn']             ?? '',
+					'address'         => $pd['address']         ?? '',
+				);
+			} catch ( \Throwable $e ) {
+				$parent = null;
+			}
+		}
+
+		$this->success( array( 'student' => $student, 'parent' => $parent ) );
+	}
+
+	/**
+	 * AJAX: отмена зачисления (Enrolling → ReadyForReview).
+	 *
+	 * @return void
+	 */
+	public function ajaxCancelEnrollment(): void {
+		check_ajax_referer( Nonce::Manager->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::Enrolling ) {
+			$this->success();
+			return;
+		}
+
+		$this->applicationRepository->update( $id, array(
+			'status'     => ApplicationStatus::ReadyForReview->value,
+			'updated_at' => current_time( 'mysql', true ),
+		) );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: список групп по периоду и предмету.
+	 *
+	 * @return void
+	 */
+	public function ajaxGetStudentGroups(): void {
+		check_ajax_referer( Nonce::Manager->value, 'security' );
+
+		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
+			$this->error( 'Доступ запрещён.' );
+		}
+
+		$periodId  = $this->sanitizeText( 'period_id' );
+		$subjectId = $this->sanitizeText( 'subject_id' );
+
+		$groups = $this->studentGroupRepository->getByPeriodAndSubject( $periodId, $subjectId );
+
+		$result = array_values( array_map(
+			static fn( StudentGroupDTO $g ) => array( 'id' => $g->id, 'title' => $g->title ),
+			$groups
+		) );
+
+		$this->success( $result );
 	}
 
 	/**

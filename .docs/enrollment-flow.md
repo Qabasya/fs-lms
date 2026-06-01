@@ -974,7 +974,7 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 
 **Дебаг-маршрут страницы родителя:**
 
-При наличии `FS_LMS_TEST_ENV` GET-запрос на `/lms/join/000000000000` рендерит `join.php` с тестовыми данными ученика без обращения к БД:
+При наличии `FS_LMS_TEST_ENV` GET-запрос на `/lms/join/000` рендерит `join.php` с тестовыми данными ученика без обращения к БД:
 
 ```
 full_name  = 'Тестов Тест Тестович'

@@ -97,9 +97,8 @@ readonly class EnrollmentService {
 			throw new InvalidArgumentException( 'Заявка не найдена.' );
 		}
 
-		// Только заявки в статусе ready_for_review можно зачислить
-		if ( ApplicationStatus::ReadyForReview !== $app->status ) {
-			throw new DomainException( 'Заявка не в статусе ready_for_review.' );
+		if ( ApplicationStatus::Enrolling !== $app->status ) {
+			throw new DomainException( 'Заявка не в статусе enrolling.' );
 		}
 
 		// Расшифровка данных студента и родителя
@@ -187,9 +186,6 @@ readonly class EnrollmentService {
 				)
 			);
 
-			// Перевод заявки в статус "зачисляется"
-			$this->applicationRepository->setStatus( $app->id, ApplicationStatus::Enrolling );
-
 			return array( $enrollmentId, $studentPersonId, $guardianPersonId );
 		} );
 
@@ -248,16 +244,18 @@ readonly class EnrollmentService {
 			// Завершение заявки: статус converted
 			$this->applicationRepository->markConverted( $app->id, $enrollmentId );
 
-			// Генерация ссылки для установки пароля родителю
+			// Генерация ссылок установки пароля для студента и родителя
 			$guardianLink = $this->passwordLinkService->generate( $guardianUserId );
+			$studentLink  = $this->passwordLinkService->generate( $studentUserId );
 
-			// Отправка email с ссылкой (если требуется)
 			if ( $input->sendEmailAuto ) {
 				$this->emailService->sendPasswordSetup( $guardianUserId, $guardianLink );
+				$this->emailService->sendPasswordSetup( $studentUserId, $studentLink );
 				$guardianLink = null;
+				$studentLink  = null;
 			}
 
-			return new EnrollmentResultDTO( $enrollmentId, $studentUserId, $guardianUserId, null, $guardianLink, false );
+			return new EnrollmentResultDTO( $enrollmentId, $studentUserId, $guardianUserId, $studentLink, $guardianLink, false );
 		} catch ( \Throwable $e ) {
 			// Логирование ошибки создания пользователей
 			$this->auditService->record(

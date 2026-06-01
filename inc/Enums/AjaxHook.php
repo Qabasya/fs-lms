@@ -60,7 +60,6 @@ enum AjaxHook: string {
 	case CreateApplication           = 'create_application';
 	case SubmitParentData            = 'submit_parent_data';
 	case EnrollStudent               = 'enroll_student';
-	case RejectApplication           = 'reject_application';
 	case RevealPiiField              = 'reveal_pii_field';
 	case AddRepresentative           = 'add_representative';
 	case ReplaceRepresentative       = 'replace_representative';
@@ -72,6 +71,13 @@ enum AjaxHook: string {
 	case MoveApplicationToTrash      = 'move_application_to_trash';
 	case RestoreApplicationFromTrash = 'restore_application_from_trash';
 	case EmptyApplicationsTrash      = 'empty_applications_trash';
+	case DeleteApplication           = 'delete_application';
+	case UpdateApplicationData       = 'update_application_data';
+	case UpdateReviewData            = 'update_review_data';
+	case StartEnrollment             = 'start_enrollment';
+	case CancelEnrollment            = 'cancel_enrollment';
+	case GetApplicationData          = 'get_application_data';
+	case GetStudentGroups            = 'get_student_groups';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
