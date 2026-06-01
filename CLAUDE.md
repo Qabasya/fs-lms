@@ -71,7 +71,7 @@ Subjects are stored in `wp_options` (key: `fs_lms_subjects_list`) as `['subject_
 - `AUTH_SETTINGS` → `fs_lms_auth_settings`
 
 **Other key enums:**
-- `Capability` — `ADMIN` (`manage_options`), `ViewLMSStats`, `ManageLMSAssignments`, `Read`
+- `Capability` — `Admin` (`manage_options`), `ViewLMSStats`, `ManageLMSAssignments`, `ManageApplications`, `EnrollStudent`, `ViewPII`, `ExportPII`, `ManagePersons`
 - `PostMetaName` — `TemplateType` (`fs_lms_template_type`), `Meta` (`fs_lms_meta`) — use these instead of raw strings when reading/writing post meta
 - `UserRole` — internal roles (`FSTeacher`, `FSStudent`, `FSParent`) and external/free roles (`Student`, `Teacher`); each has a `->label()` method
 
@@ -83,13 +83,15 @@ Subjects are stored in `wp_options` (key: `fs_lms_subjects_list`) as `['subject_
 - `create(): string` — generates nonce
 - `verify(string $queryArg = 'security'): void` — validates request
 
-Available nonces: `TaskCreation`, `Subject`, `Manager`, `SaveMeta`, `SaveBoilerplate`.
+Available nonces: `TaskCreation`, `Subject`, `Manager`, `SaveMeta`, `SaveBoilerplate`, `Apply`, `ParentSubmit`, `Enroll`, `RevealPii`, `AddRepresentative`, `ReplaceRepresentative`, `UpdatePerson`, `WithdrawConsent`, `RequestPiiDeletion`, `ExportPii`, `VerifyOtp`, `TrashApplication`, `EditApplication`, `ReviewApplication`.
 
-**Usage:** Always call `Nonce::Subject->verify()` (or appropriate case) at the top of every AJAX callback.
+**Usage in admin AJAX callbacks (with capability check):** always `$this->authorize(Nonce::X, Capability::Y)` — never call `check_ajax_referer()` or `current_user_can()` directly.
+
+**Usage in public/nopriv AJAX callbacks (no capability check):** `Nonce::X->verify()` directly, since `authorize()` requires a capability.
 
 ## Shared Traits
 
-**`Authorizer`** — call `$this->authorize(Nonce::Subject, Capability::ADMIN)` to check nonce + capability in one step. Throws and sends a JSON error on failure.
+**`Authorizer`** — `$this->authorize(Nonce::X, Capability::Y)` checks nonce + capability in one call and sends a JSON 403 on failure. Declare `use Authorizer;` + `use Inc\Shared\Traits\Authorizer;` in every Callback class that handles admin AJAX. Never call `check_ajax_referer()` or `current_user_can()` directly in Callback methods.
 
 **`Sanitizer`** — use these instead of raw WP functions:
 - `sanitizeText()`, `sanitizeKey()`, `sanitizeInt()`, `sanitizeHtml()`, `sanitizeEditorContent()`, `sanitizeBool()`
@@ -340,7 +342,10 @@ Use snake_case for all WP-related identifiers.
 
 - All AJAX logic in Callbacks classes
 - Controllers only register `wp_ajax_{action}` / `wp_ajax_nopriv_{action}`
-- Always: validate nonce (trait Authorizer), sanitize input (trait Sanitizer), return via `wp_send_json_success` / `wp_send_json_error` - use trait AjaxResponse ONLY!
+- Admin AJAX: validate with `$this->authorize(Nonce::X, Capability::Y)` — never `check_ajax_referer()` or `current_user_can()` directly
+- Public/nopriv AJAX (no capability): validate with `Nonce::X->verify()`
+- Sanitize input via `Sanitizer` trait methods only
+- Return via `$this->success()` / `$this->error()` from `AjaxResponse` — never `wp_send_json_*` directly
 - No direct `echo` / `die`
 
 ### Data Handling
