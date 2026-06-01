@@ -220,6 +220,12 @@ class Migration_1_0_0 implements MigrationInterface {
 			KEY person_id (person_id)
 		) $cc;"
 		);
+
+		// ===== Cleanup: удаление колонок, убранных из схемы =====
+		// Добавлять сюда при удалении любой колонки вместо создания нового файла миграции.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( "ALTER TABLE `$applications` DROP COLUMN IF EXISTS `rejected_reason`" );
+		// phpcs:enable
 	}
 
 	/**

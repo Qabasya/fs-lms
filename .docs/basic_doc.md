@@ -1401,28 +1401,28 @@ class TaxonomyRepository {
    └─ ConsentService::record() — фиксация согласия с IP/UA
    └─ ApplicationRepository::linkPersons() — привязка person к заявке
 
-4. Администратор проверяет заявку и принимает решение
-   └─ Approve → EnrollmentService::enroll()
+4. Администратор проверяет заявку и зачисляет
+   └─ EnrollmentService::enroll()
       └─ PersonService создаёт WP-пользователя
       └─ PasswordLinkService::generate() — одноразовая ссылка на почту
       └─ RelationshipService::addRepresentative() — связь родитель↔ученик
       └─ EnrollmentRepository::create() — запись о зачислении
-   └─ Reject → заявка отклоняется с причиной
 
 5. Аудит
    └─ AuditService::record() пишется на каждом значимом шаге
    └─ PersonReader::read() пишет в pii_access_log при каждом чтении PII
 ```
 
-### Статусы заявки
+### Статусы заявки (`ApplicationStatus`)
 
 | Статус | Описание |
 |---|---|
 | `pending_parent` | Ожидает заполнения родителем |
-| `pending_review` | Ожидает проверки администратором |
-| `approved` | Принята, зачисление выполнено |
-| `rejected` | Отклонена с указанием причины |
-| `expired` | JOIN-код истёк, заявка не заполнена |
+| `ready_for_review` | Родитель заполнил, ждёт проверки администратором |
+| `enrolling` | Администратор начал оформление документов |
+| `converted` | Зачислен (конечный статус) |
+| `expired` | JOIN-код истёк, заявка не заполнена (конечный) |
+| `trash` | Перемещён в корзину администратором (восстанавливаемо) |
 
 ### Инварианты
 
@@ -1653,44 +1653,139 @@ $dto = $personReader->read(
 
 ## Миграции
 
-### Расположение
+### Зачем нужны миграции
+
+Основные данные плагина (предметы, таксономии, шаблоны) хранятся в `wp_options` как сериализованные массивы. Для них миграции не нужны — структура данных определяется PHP-кодом.
+
+Система зачисления работает с другим классом данных: реляционные связи, большие объёмы записей, поиск по хэшам. Для этого созданы **7 выделенных таблиц** в MySQL. `dbDelta()` (WordPress) умеет создавать таблицы и добавлять колонки, но **никогда не удаляет** их — поэтому изменения схемы нужно версионировать явно.
+
+### Структура
 
 ```
-inc/
-└── Migrations/
-    ├── MigrationRunner.php    # Оркестратор
-    └── Migration_1_0_0.php   # Первая монолитная миграция
+inc/Migrations/
+├── MigrationRunner.php    — оркестратор, отслеживает версию в wp_options
+├── Migration_1_0_0.php    — базовая схема: 7 таблиц системы зачисления + секция cleanup
+├── Migration_1_0_1.php    — добавлена колонка join_code_enc в applications
+└── Migration_1_0_2.php    — изменён тип group_id в enrollments: bigint → varchar(100)
 ```
+
+Регистрация всех миграций — в `inc/Core/Activate.php`. При добавлении нового файла нужно зарегистрировать его там же.
 
 ### MigrationInterface
 
 ```php
 interface MigrationInterface {
-    public function up(): void;
-    public function down(): void;
-    public function version(): string; // semver: '1.0.0'
+    public function up(): void;        // применить миграцию
+    public function down(): void;      // откатить миграцию
+    public function version(): string; // semver: '1.0.1'
 }
 ```
 
-### MigrationRunner
+### Как работает MigrationRunner
 
-Отслеживает текущую версию схемы в опции `fs_lms_schema_version` (`OptionName::SchemaVersion`).
+Текущая версия схемы хранится в `wp_options` под ключом `fs_lms_schema_version` (`OptionName::SchemaVersion`).
 
-- `register(MigrationInterface $migration)` — добавляет миграцию в пул
-- `run()` — сортирует по `version_compare`, применяет только те, что выше текущей версии; обновляет опцию после успешного применения
-- `rollback()` — откатывает все в обратном порядке; удаляет опцию версии
+**`run()`:**
+1. Сортирует зарегистрированные миграции по `version_compare`
+2. Применяет только те, чья версия выше текущей
+3. Обновляет опцию версии после успешного применения
 
-Запуск происходит в хуке `plugins_loaded` (или `register_activation_hook`) — до инициализации репозиториев, которые обращаются к уже созданным таблицам.
+**`rollback()`:** откатывает все миграции в обратном порядке (от новой к старой); удаляет опцию версии.
 
-### Migration_1_0_0
+**`reset()`:** устанавливает версию в `'0.0.0'` — при следующем `run()` все миграции применятся заново. Только для dev-окружения.
 
-Монолитная первая миграция. Создаёт все 7 таблиц системы зачисления через `dbDelta()`. `down()` удаляет таблицы в обратном порядке (от зависимых к основным), чтобы не нарушить возможные FK-ограничения будущих версий.
+`run()` вызывается в `Activate::activate()` (`register_activation_hook`) — таблицы создаются или обновляются при каждой активации плагина.
 
-Версия `1.0.0` — базовая схема. При изменении схемы добавляется новый класс `Migration_X_Y_Z` — Runner применит его автоматически при следующем запуске плагина.
+### Таблицы
 
----
+| Таблица | Репозиторий | Назначение |
+|---|---|---|
+| `{prefix}persons` | `PersonRepository` | Персональные данные (зашифрованные) |
+| `{prefix}applications` | `ApplicationRepository` | Заявки на зачисление |
+| `{prefix}relationships` | `RelationshipRepository` | Связи опекун ↔ ученик |
+| `{prefix}enrollments` | `EnrollmentRepository` | Зачисления на предметы |
+| `{prefix}consents` | `ConsentRepository` | Согласия на обработку ПД |
+| `{prefix}audit_log` | `AuditLogRepository` | Аудит-лог действий |
+| `{prefix}pii_access_log` | `PiiAccessLogRepository` | Лог доступа к PII |
 
-<!-- Раздел перенесён выше в "Согласия на обработку ПД" -->
+### Когда создавать новый файл миграции
+
+**Создавать новый `Migration_1_0_X.php` при:**
+- добавлении новой таблицы
+- добавлении колонки в существующую таблицу
+- изменении типа или дефолта существующей колонки
+- добавлении или удалении индекса
+
+**Не создавать новый файл при:**
+- удалении колонки — см. секцию "Cleanup" ниже
+
+### Удаление колонки — без нового файла
+
+`dbDelta()` не дропает колонки. Вместо отдельного файла на каждый дроп:
+
+1. Убрать колонку из DDL (`CREATE TABLE`) в `Migration_1_0_0::up()`
+2. Добавить `DROP COLUMN IF EXISTS` в секцию "Cleanup" в конце того же `up()`:
+
+```php
+// ===== Cleanup: удаление колонок, убранных из схемы =====
+// Добавлять сюда при удалении любой колонки вместо создания нового файла миграции.
+$wpdb->query( "ALTER TABLE `$applications` DROP COLUMN IF EXISTS `rejected_reason`" );
+```
+
+3. Сбросить версию схемы в dev и перезапустить:
+
+```bash
+docker exec wp_db mariadb -u root -proot wordpress \
+  -e "UPDATE wp_options SET option_value='0.0.0' WHERE option_name='fs_lms_schema_version';"
+```
+
+Или вызвать `MigrationRunner::reset()` из кода, затем `run()`. После сброса все миграции выполнятся заново: `1_0_0` пересоздаст таблицы + выполнит cleanup, `1_0_1` и `1_0_2` — применятся идемпотентно (оба проверяют наличие колонки перед изменением).
+
+### Добавление новой миграции — пример
+
+Нужно добавить колонку `notes text NULL` в таблицу `applications`:
+
+**Шаг 1.** Создать `inc/Migrations/Migration_1_0_3.php`:
+
+```php
+declare( strict_types=1 );
+
+namespace Inc\Migrations;
+
+use Inc\Contracts\MigrationInterface;
+use Inc\Enums\TableName;
+
+class Migration_1_0_3 implements MigrationInterface {
+
+    public function version(): string {
+        return '1.0.3';
+    }
+
+    public function up(): void {
+        global $wpdb;
+        $table = TableName::Applications->prefixed();
+
+        $cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore
+        if ( ! in_array( 'notes', $cols, true ) ) {
+            $wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN `notes` text NULL" ); // phpcs:ignore
+        }
+    }
+
+    public function down(): void {
+        global $wpdb;
+        $table = TableName::Applications->prefixed();
+        $wpdb->query( "ALTER TABLE `{$table}` DROP COLUMN IF EXISTS `notes`" ); // phpcs:ignore
+    }
+}
+```
+
+**Шаг 2.** Зарегистрировать в `inc/Core/Activate.php`:
+
+```php
+$migration_runner->register( new Migration_1_0_3() );
+```
+
+Runner применит её автоматически при следующей активации плагина.
 
 ---
 
@@ -1771,7 +1866,6 @@ return [
 | `password_setup` | `sendPasswordSetup` | `{link}`, `{display_name}` |
 | `application_confirmation` | `sendApplicationConfirmation` | `{join_url}`, `{expires_at}` |
 | `application_ready` | `sendApplicationReadyNotification` | — |
-| `rejection` | `sendRejectionNotification` | `{reason}` |
 | `new_representative` | `sendNewRepresentativeNotification` | `{display_name}`, `{link}` |
 
 ---

@@ -378,6 +378,18 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SELECT ..."
 
 Data is stored in `wp_options` — never in term meta or post meta directly.
 
+### Миграции в dev-окружении
+
+**Удаление колонки** — не создавать новый файл миграции. Вместо этого:
+1. Удалить колонку из DDL в `Migration_1_0_0::up()`
+2. Добавить строку в секцию "Cleanup" того же файла: `$wpdb->query( "ALTER TABLE \`$table\` DROP COLUMN IF EXISTS \`col\`" );`
+3. Сбросить версию схемы: `docker exec wp_db mariadb -u root -proot wordpress -e "UPDATE wp_options SET option_value='0.0.0' WHERE option_name='fs_lms_schema_version';"`
+4. Перезагрузить любую страницу WP — все миграции перезапустятся автоматически
+
+Или вызвать `MigrationRunner::reset()` из кода, а затем `run()`.
+
+**Новые таблицы и добавление колонок** — по-прежнему через отдельный файл миграции (`Migration_1_0_X`).
+
 ---
 
 ## Logs
