@@ -48,11 +48,11 @@ declare( strict_types=1 );
 			<table class="wp-list-table widefat fixed striping table-view-list groups-table">
 				<thead>
 				<tr>
-					<th scope="col" class="manage-column column-title column-primary">Название группы</th>
-					<th scope="col" class="manage-column column-period">Учебный период</th>
-					<th scope="col" class="manage-column column-subject">Предмет</th>
-					<th scope="col" class="manage-column column-teacher">Преподаватель</th>
-					<th scope="col" class="manage-column column-actions">Действия</th>
+					<th scope="col" class=" column-title column-primary">Название группы</th>
+					<th scope="col" class=" column-period">Учебный период</th>
+					<th scope="col" class=" column-subject">Предмет</th>
+					<th scope="col" class=" column-teacher">Преподаватель</th>
+					<th scope="col" class=" column-actions">Действия</th>
 				</tr>
 				</thead>
 
@@ -68,7 +68,7 @@ declare( strict_types=1 );
 						<tr id="group-row-<?php echo esc_attr( $group['id'] ); ?>"
 							class="js-toggle-students"
 							data-group-id="<?php echo esc_attr( $group['id'] ); ?>">
-							<td class="column-title column-primary data-title">
+							<td class="column-title data-title">
 								<span class="dashicons dashicons-arrow-right-alt2 accordion-arrow"></span>
 								<strong><?php echo esc_html( $group['title'] ); ?></strong>
 							</td>

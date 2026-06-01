@@ -44,7 +44,7 @@ $statusLabels = array_combine(
 <div class="fs-lms-applications">
 
 	<!-- Фильтры по статусу -->
-	<ul class="subsubsub" style="margin: 12px 0;">
+	<ul class="subsubsub">
 		<li>
 			<a href="?page=fs_lms_userlist&tab=tab-1"
 				class="<?php echo ! $statusFilter ? 'current' : ''; ?>">
@@ -66,28 +66,47 @@ $statusLabels = array_combine(
 		<?php endforeach; ?>
 	</ul>
 
-	<table class="wp-list-table widefat fixed striped">
-		<thead>
-			<tr>
-				<th> <?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?></th>
-				<th><?php esc_html_e( 'ФИО родителя', 'fs-lms' ); ?></th>
-				<th ><?php esc_html_e( 'Статус', 'fs-lms' ); ?></th>
-				<th ><?php esc_html_e( 'JOIN-ссылка', 'fs-lms' ); ?></th>
-				<th><?php esc_html_e( 'Создана', 'fs-lms' ); ?></th>
-				<th><?php esc_html_e( 'Действия', 'fs-lms' ); ?></th>
-			</tr>
-		</thead>
-		<tbody>
-		<?php if ( empty( $apps ) ) : ?>
-			<tr>
-				<td colspan="6" style="text-align:center;padding:24px;color:#6b7280">
-					<?php esc_html_e( 'Заявок нет.', 'fs-lms' ); ?>
-				</td>
-			</tr>
-		<?php else : ?>
+    <table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
+
+        <thead>
+        <tr>
+            <th class=" column-title column-primary">
+                <?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?>
+            </th>
+
+            <th class=" column-title">
+                <?php esc_html_e( 'ФИО родителя', 'fs-lms' ); ?>
+            </th>
+
+            <th class=" column-title">
+                <?php esc_html_e( 'Статус', 'fs-lms' ); ?>
+            </th>
+
+            <th class=" column-title">
+                <?php esc_html_e( 'JOIN-ссылка', 'fs-lms' ); ?>
+            </th>
+
+            <th class=" column-title">
+                <?php esc_html_e( 'Создана', 'fs-lms' ); ?>
+            </th>
+
+            <th class=" column-title">
+                <?php esc_html_e( 'Действия', 'fs-lms' ); ?>
+            </th>
+        </tr>
+        </thead>
+
+        <tbody id="the-list">
+        <?php if ( empty( $apps ) ) : ?>
+
+            <div class="notice notice-info inline fs-table__no-items">
+                <p><?php esc_html_e( 'Заявок пока нет.', 'fs-lms' ); ?></p>
+            </div>
+
+        <?php else : ?>
 			<?php foreach ( $apps as $app ) :
 				// Расшифровка данных ученика
-				$studentName       = '—';
+				$studentName       = '';
 				$studentLastName   = '';
 				$studentFirstName  = '';
 				$studentMiddleName = '';
@@ -181,9 +200,15 @@ $statusLabels = array_combine(
 			?>
 			<tr data-app-id="<?php echo esc_attr( (string) $app->id ); ?>">
 
-				<td><?php echo esc_html( $studentName ); ?></td>
+				   <td class="column-title">
 
-				<td><?php echo esc_html( $parentName ); ?></td>
+                        <?php echo esc_html( $studentName ); ?>
+
+                </td>
+
+				<td class="column-title">
+
+                    <?php echo esc_html( $parentName ); ?></td>
 
 				<td>
 					<span class="fs-lms-status <?php echo esc_attr( $statusClass ); ?>">
@@ -194,18 +219,17 @@ $statusLabels = array_combine(
 				<td>
 					<?php if ( $joinUrl ) : ?>
 						<button type="button"
-							class="button-link fs-lms-copy-join"
+							class="button-link fs-lms-copy-join fs-lms-join-code"
 							data-url="<?php echo esc_attr( $joinUrl ); ?>"
-							title="<?php esc_attr_e( 'Нажмите, чтобы скопировать ссылку', 'fs-lms' ); ?>"
-							style="font-family:monospace;font-size:11px;color:#0369a1;text-decoration:underline;cursor:pointer">
+							title="<?php esc_attr_e( 'Нажмите, чтобы скопировать ссылку', 'fs-lms' ); ?>">
 							<?php echo esc_html( $joinDisplay ); ?>
 						</button>
 					<?php else : ?>
-						<span style="color:#9ca3af">—</span>
+						<span class="fs-table__empty-value">—</span>
 					<?php endif; ?>
 				</td>
 
-				<td style="white-space:nowrap;font-size:12px;color:#6b7280">
+				<td class="column-date">
 					<?php echo esc_html( substr( $app->createdAt, 0, 10 ) ); ?>
 				</td>
 
@@ -316,14 +340,13 @@ $statusLabels = array_combine(
 	</table>
 
 	<?php if ( $pages > 1 ) : ?>
-		<div class="tablenav bottom" style="margin-top:8px">
+		<div class="tablenav bottom">
 			<div class="tablenav-pages">
 				<?php for ( $p = 1; $p <= $pages; $p++ ) :
 					$url = add_query_arg( array( 'paged' => $p ) );
 					?>
 					<a href="<?php echo esc_url( $url ); ?>"
-						class="button button-small <?php echo $p === $page ? 'button-primary' : ''; ?>"
-						style="margin-right:2px">
+						class="button button-small <?php echo $p === $page ? 'button-primary' : ''; ?>">
 						<?php echo esc_html( (string) $p ); ?>
 					</a>
 				<?php endfor; ?>

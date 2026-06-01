@@ -21,8 +21,8 @@ use Inc\Enums\Nonce;
 	<table class="wp-list-table widefat fixed striped fs-table js-boilerplate-table">
 		<thead>
 		<tr>
-			<th class="manage-column column-primary  tw-60">Название шаблона</th>
-			<th class="manage-column column-actions" >Действия</th>
+			<th class="  tw-60">Название шаблона</th>
+			<th class=" column-actions" >Действия</th>
 		</tr>
 		</thead>
 

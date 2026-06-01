@@ -4,49 +4,40 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: $border-radius-md;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: $font-size;
+  font-weight: $font-regular;
   white-space: nowrap;
 
   &--pending-parent {
-    background: $status-pending-bg;
-    color: $status-pending-text;
-    border: 1px solid $status-pending-color;
+    background: $wp-admin-yellow-bg;
+    color: $wp-admin-yellow-text;
+    border: 1px solid $wp-admin-yellow;
   }
 
   &--ready-for-review {
-    background: $status-review-bg;
-    color: $status-review-text;
-    border: 1px solid $status-review-color;
+    background: $wp-admin-green-bg;
+    color: $wp-admin-green-text;
+    border: 1px solid $wp-admin-green;
+
   }
 
   &--enrolling {
-    background: $status-enrolling-bg;
-    color: $status-enrolling-text;
-    border: 1px solid $status-enrolling-color;
+    background: $wp-admin-blue-bg;
+    color: $wp-admin-blue-text;
+    border: 1px solid $wp-admin-blue;
   }
 
-  &--converted {
-    background: $status-converted-bg;
-    color: $status-converted-text;
-    border: 1px solid $status-converted-color;
-  }
 
-  &--rejected {
-    background: $status-rejected-bg;
-    color: $status-rejected-text;
-    border: 1px solid $status-rejected-color;
-  }
 
   &--expired {
-    background: $status-expired-bg;
-    color: $status-expired-text;
-    border: 1px solid $status-expired-color;
+    background: $wp-admin-gray-bg;
+    color: $wp-admin-gray-text;
+    border: 1px solid $wp-admin-gray;
   }
 
   &--trash {
-    background: $status-trash-bg;
-    color: $status-trash-text;
-    border: 1px solid $status-trash-color;
+    background: $wp-admin-red-bg;
+    color: $wp-admin-red-text;
+    border: 1px solid $wp-admin-red;
   }
 }

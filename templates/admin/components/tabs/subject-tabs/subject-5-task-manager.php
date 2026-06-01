@@ -11,9 +11,9 @@
 			data-subject="<?php echo esc_attr( $dto->subject_key ); ?>">
 		<thead>
 		<tr>
-			<th class="manage-column column-primary column-task-name">Номер задания</th>
-			<th class="manage-column column-template-select">Визуальный шаблон</th>
-			<th class="manage-column column-actions">Типовые условия</th>
+			<th class=" column-task-name">Номер задания</th>
+			<th class=" column-template-select">Визуальный шаблон</th>
+			<th class=" column-actions">Типовые условия</th>
 		</tr>
 		</thead>
 

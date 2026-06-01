@@ -19,7 +19,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 	<?php if ( empty( $academic_periods ) ) : ?>
 
-		<div class="notice notice-info inline" style="margin:20px 0 0 0;">
+		<div class="notice notice-info inline fs-table__no-items">
 			<p>Вы еще не создали ни одного учебного периода.</p>
 			<button type="button" class="page-title-action js-add-period">
 				Добавить первый период
@@ -31,11 +31,11 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 		<table class="wp-list-table widefat fixed striped fs-table fs-table--boilerplate">
 			<thead>
 			<tr>
-				<th class="manage-column column-title column-primary tw-30">Название периода</th>
-				<th class="manage-column column-title column-primary">ID (Ключ)</th>
-				<th class="manage-column column-title column-primary">Сроки проведения</th>
-				<th class="manage-column column-title column-primary">Статус</th>
-				<th class="manage-column column-title column-primary">Действия</th>
+				<th class=" column-title tw-30">Название периода</th>
+				<th class=" column-title column-primary">ID (Ключ)</th>
+				<th class=" column-title column-primary">Сроки проведения</th>
+				<th class=" column-title column-primary">Статус</th>
+				<th class=" column-title column-primary">Действия</th>
 			</tr>
 			</thead>
 

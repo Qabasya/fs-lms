@@ -20,11 +20,11 @@ $display_labels = array(
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--taxonomy js-taxonomy-table">
 		<thead>
 		<tr>
-			<th class="manage-column column-primary tw-30">Название</th>
-			<th class="manage-column" >Ярлык (Slug)</th>
-			<th class="manage-column">Тип отображения</th>
-			<th class="manage-column">Обязательна</th>
-			<th class="manage-column">Действия</th>
+			<th class=" column-primary tw-30">Название</th>
+			<th class="" >Ярлык (Slug)</th>
+			<th class="">Тип отображения</th>
+			<th class="">Обязательна</th>
+			<th class="">Действия</th>
 		</tr>
 		</thead>
 
