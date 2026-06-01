@@ -128,4 +128,16 @@ class StudentGroupRepository {
 
 		return (bool) update_option( OptionName::StudentGroups->value, $groups );
 	}
+
+	/**
+	 * Удаляет все группы, привязанные к указанному предмету.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 */
+	public function removeBySubject( string $subject_key ): void {
+		$groups   = $this->readAll();
+		$filtered = array_filter( $groups, fn( array $g ) => ( $g['subject_id'] ?? '' ) !== $subject_key );
+
+		update_option( OptionName::StudentGroups->value, $filtered );
+	}
 }
