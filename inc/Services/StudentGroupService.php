@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services;
 
 use Inc\DTO\StudentGroupDTO;
+use Inc\Repositories\OptionsRepositories\StudentGroupMatrixRepository;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Shared\Traits\SlugGenerator;
 
@@ -36,7 +37,8 @@ readonly class StudentGroupService {
 	 * @param StudentGroupRepository $group_repository Репозиторий групп учеников
 	 */
 	public function __construct(
-		private StudentGroupRepository $group_repository
+		private StudentGroupRepository       $group_repository,
+		private StudentGroupMatrixRepository $matrix_repository,
 	) {
 	}
 
@@ -113,7 +115,13 @@ readonly class StudentGroupService {
 			return false;
 		}
 
-		return $this->group_repository->remove( $id );
+		$deleted = $this->group_repository->remove( $id );
+
+		if ( $deleted ) {
+			$this->matrix_repository->removeGroup( $id );
+		}
+
+		return $deleted;
 	}
 
 }
