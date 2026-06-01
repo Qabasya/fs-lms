@@ -279,6 +279,34 @@ ThemeCompatService::footer(); // вместо get_footer()
 
 Причина: блочные (FSE) темы не имеют `header.php` / `footer.php`, прямые вызовы выдают Deprecated. `ThemeCompatService` автоматически выбирает нужный API в зависимости от типа темы.
 
+### Клиентская валидация форм
+
+Система валидации: `src/js/common/validators/` + `src/js/common/validation-manager.js`.
+
+**Добавить валидатор к полю:**
+1. Добавить `data-validate="ключ"` к `<input>`
+2. Обернуть поле в `<div class="fs-form-group">`
+
+**Создать новый валидатор (3 шага):**
+1. Создать `src/js/common/validators/MyValidator.js` — наследовать `BaseValidator`, переопределить `checkCustom(value, input)` — возвращать строку ошибки или `null`
+2. Зарегистрировать в `validators/index.js`: `{ myKey: new MyValidator() }`
+3. Добавить `data-validate="myKey"` к инпуту — больше ничего
+
+**Автоматическая привязка:** формы с `data-fs-validate` или `.fs-lms-form` подхватываются `common.js` автоматически.
+
+**Ручная привязка** (AJAX-формы со своим submit-обработчиком):
+```js
+import { initFormValidation } from '../../common/validation-manager.js';
+const validateAll = initFormValidation( form ); // blur + input события
+form.addEventListener( 'submit', async ( e ) => {
+    e.preventDefault();
+    if ( ! validateAll() ) { return; }
+    // ... AJAX
+} );
+```
+
+**Стили ошибок:** `src/scss/common/components/_validation.scss` — единственное место. Переменная `$color-danger` из admin-переменных. Не дублировать в компонентных SCSS.
+
 ### wp_localize_script — только в Enqueue.php
 
 Все `wp_localize_script()` вызовы должны быть в `inc/Core/Enqueue.php`, не в шаблонах.

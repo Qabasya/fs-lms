@@ -7,8 +7,7 @@
  * Глобальные переменные: fs_lms_apply_vars (локализуются в Enqueue.php)
  */
 
-import { PhoneValidator } from '../../common/validators/PhoneValidator';
-
+import { initFormValidation } from '../../common/validation-manager.js';
 
 /** @type {{ ajax_url: string, captcha_key: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
 const vars = window.fs_lms_apply_vars;
@@ -23,9 +22,8 @@ function collectFormData() {
     const firstName  = document.getElementById( 'fs_first_name' )?.value.trim() ?? '';
     const middleName = document.getElementById( 'fs_middle_name' )?.value.trim() ?? '';
 
-    // Телефон
     const rawPhone   = document.getElementById( 'fs_phone' )?.value.trim() ?? '';
-    const cleanPhone = rawPhone.replace( /[()\-]/g, '' ); // Из "+7(999)-123-45-67" делает "+79991234567"
+    const cleanPhone = rawPhone.replace( /[()\-]/g, '' );
 
     return {
         last_name:   lastName,
@@ -42,48 +40,18 @@ function collectFormData() {
     };
 }
 
-function validateStep1( data ) {
-    const required = [ 'last_name', 'first_name', 'email', 'phone','birth_date', 'school',  'grade', 'username', 'password' ];
-
-    // 1. Проверяем заполненность базовых полей
-    const allRequiredFilled = required.every( key => data[ key ] !== '' );
-    if ( ! allRequiredFilled ) {
-        return false;
-    }
-
-    // 2. Валидация телефона через наш новый PhoneValidator
-    const phoneInput = document.getElementById( 'fs_phone' );
-    if ( phoneInput ) {
-        const phoneError = PhoneValidator.validate( phoneInput );
-
-        if ( phoneError ) {
-            // Если есть ошибка, подсвечиваем поле и выводим сообщение из валидатора
-            setFieldInvalid( phoneInput, phoneError );
-            return false;
-        } else {
-            // Если всё чисто, убираем старые алерты валидации
-            setFieldValid( phoneInput );
-        }
-    }
-
-    return true;
-}
-
 // ── Маскирование телефона ───────────────────────────────────────────────────
 
 function handlePhoneInput( e ) {
     const input = e.target;
     let value = input.value;
 
-    // 1. Если пользователь полностью стёр данные, принудительно возвращаем "+7("
     if ( ! value ) {
         input.value = '+7(';
         return;
     }
 
-    // 2. Если пользователь пытается ввести что-то до "+7(", сбрасываем это поведение
     if ( ! value.startsWith( '+7(' ) ) {
-        // Выделяем только цифры, игнорируя начальные +7, 7, 8
         let digits = value.replace( /\D/g, '' );
         if ( digits.startsWith( '7' ) || digits.startsWith( '8' ) ) {
             digits = digits.substring( 1 );
@@ -91,7 +59,6 @@ function handlePhoneInput( e ) {
         value = '+7(' + digits;
     }
 
-    // 3. Форматируем только цифровую часть после "+7("
     const prefix = '+7(';
     const maxDigitsAfterPrefix = 10;
     let pureDigits = value.substring( prefix.length ).replace( /\D/g, '' ).substring( 0, maxDigitsAfterPrefix );
@@ -104,7 +71,6 @@ function handlePhoneInput( e ) {
     if ( pureDigits.length >= 3 ) {
         formatted += ')-';
     } else if ( e.type === 'blur' && pureDigits.length > 0 ) {
-        // На случай потери фокуса дополняем закрывающей скобкой
         formatted += ')';
     }
 
@@ -129,7 +95,6 @@ function handlePhoneInput( e ) {
 
 // ── AJAX-утилиты ─────────────────────────────────────────────────────────────
 
-/** wp_send_json_error() без контекста кладёт строку в data, с контекстом — объект */
 function extractError( res, fallback ) {
     if ( typeof res?.data === 'string' ) { return res.data; }
     return res?.data?.message ?? fallback;
@@ -200,49 +165,6 @@ function showSuccess() {
 
 // ── Обработчики событий ───────────────────────────────────────────────────────
 
-async function handleApplySubmit( e ) {
-    e.preventDefault();
-
-    const form = document.getElementById( 'fs-lms-apply-form' );
-    const btn  = document.getElementById( 'fs-apply-submit' );
-    const data = collectFormData();
-
-    clearError( form );
-
-    if ( ! validateStep1( data ) ) {
-        showError( form, 'Пожалуйста, заполните все поля.' );
-        return;
-    }
-
-    setLoading( btn, true );
-
-    // captcha_key пустой → NullCaptchaProvider, токен не нужен
-    const captchaToken = vars.captcha_key ? ( window._fsCaptchaToken ?? '' ) : '';
-
-    let res;
-    try {
-        res = await ajaxPost( vars.actions.send_otp, {
-            security:      vars.nonces.apply,
-            email:         data.email,
-            captcha_token: captchaToken,
-        } );
-    } catch {
-        setLoading( btn, false );
-        showError( form, 'Ошибка соединения. Попробуйте позже.' );
-        return;
-    }
-
-    setLoading( btn, false );
-
-    if ( ! res?.success ) {
-        showError( form, extractError( res, 'Ошибка при отправке кода.' ) );
-        return;
-    }
-
-    _formData = data;
-    showOtpStep( res.data.masked_email );
-}
-
 async function handleOtpSubmit( e ) {
     e.preventDefault();
 
@@ -309,10 +231,49 @@ async function handleResendOtp() {
 
 export function initApplyForm() {
     if ( ! window.fs_lms_apply_vars ) { return; }
-    if ( ! document.getElementById( 'fs-lms-apply-form' ) ) { return; }
 
-    document.getElementById( 'fs-lms-apply-form' )
-        .addEventListener( 'submit', handleApplySubmit );
+    const applyForm = document.getElementById( 'fs-lms-apply-form' );
+    if ( ! applyForm ) { return; }
+
+    const validateAll = initFormValidation( applyForm );
+
+    applyForm.addEventListener( 'submit', async ( e ) => {
+        e.preventDefault();
+
+        const btn  = document.getElementById( 'fs-apply-submit' );
+        const data = collectFormData();
+
+        clearError( applyForm );
+
+        if ( ! validateAll() ) { return; }
+
+        setLoading( btn, true );
+
+        const captchaToken = vars.captcha_key ? ( window._fsCaptchaToken ?? '' ) : '';
+
+        let res;
+        try {
+            res = await ajaxPost( vars.actions.send_otp, {
+                security:      vars.nonces.apply,
+                email:         data.email,
+                captcha_token: captchaToken,
+            } );
+        } catch {
+            setLoading( btn, false );
+            showError( applyForm, 'Ошибка соединения. Попробуйте позже.' );
+            return;
+        }
+
+        setLoading( btn, false );
+
+        if ( ! res?.success ) {
+            showError( applyForm, extractError( res, 'Ошибка при отправке кода.' ) );
+            return;
+        }
+
+        _formData = data;
+        showOtpStep( res.data.masked_email );
+    } );
 
     document.getElementById( 'fs-lms-otp-form' )
         .addEventListener( 'submit', handleOtpSubmit );
@@ -322,7 +283,7 @@ export function initApplyForm() {
 
     const phoneInput = document.getElementById( 'fs_phone' );
     if ( phoneInput ) {
-        phoneInput.addEventListener( 'focus', (e) => {
+        phoneInput.addEventListener( 'focus', ( e ) => {
             if ( ! e.target.value ) {
                 e.target.value = '+7(';
             }
@@ -330,17 +291,7 @@ export function initApplyForm() {
 
         phoneInput.addEventListener( 'input', handlePhoneInput );
 
-        // При ручном размыкании (blur) тоже прогоняем валидацию, чтобы подсветить ошибку сразу
-        phoneInput.addEventListener( 'blur', () => {
-            if ( phoneInput.value && phoneInput.value !== '+7(' ) {
-                const error = PhoneValidator.validate( phoneInput );
-                if ( error ) {
-                    setFieldInvalid( phoneInput, error );
-                }
-            }
-        } );
-
-        phoneInput.addEventListener( 'keydown', (e) => {
+        phoneInput.addEventListener( 'keydown', ( e ) => {
             const value = e.target.value;
             if ( value === '+7(' && ( e.key === 'Backspace' || e.key === 'Delete' ) ) {
                 e.preventDefault();

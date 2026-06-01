@@ -24,35 +24,35 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 				<?php wp_nonce_field( Nonce::Apply->value, 'security' ); ?>
 
-				<div class="fs-apply-card__field-group">
+				<div class="fs-apply-card__field-group fs-form-group">
                     <label for="fs_last_name">Фамилия:</label>
 					<span class="dashicons dashicons-admin-users"></span>
 					<input type="text" name="last_name" id="fs_last_name"
 						placeholder="<?php esc_attr_e( 'Иванов', 'fs-lms' ); ?>" required>
 				</div>
 
-				<div class="fs-apply-card__field-group">
+				<div class="fs-apply-card__field-group fs-form-group">
                     <label for="fs_first_name">Имя:</label>
 					<span class="dashicons dashicons-admin-users"></span>
 					<input type="text" name="first_name" id="fs_first_name"
 						placeholder="<?php esc_attr_e( 'Иван', 'fs-lms' ); ?>" required>
 				</div>
 
-				<div class="fs-apply-card__field-group">
+				<div class="fs-apply-card__field-group fs-form-group">
                     <label for="fs_middle_name">Отчество:</label>
 					<span class="dashicons dashicons-admin-users"></span>
 					<input type="text" name="middle_name" id="fs_middle_name"
 						placeholder="<?php esc_attr_e( 'Иванович', 'fs-lms' ); ?>">
 				</div>
 
-				<div class="fs-apply-card__field-group">
+				<div class="fs-apply-card__field-group fs-form-group">
                     <label for="fs_email">Почта:</label>
 					<span class="dashicons dashicons-email"></span>
 					<input type="email" name="email" id="fs_email"
 						placeholder="<?php esc_attr_e( 'ivanov@fs.ru', 'fs-lms' ); ?>" required>
 				</div>
 
-                <div class="fs-apply-card__field-group" id="fs-phone-group">
+                <div class="fs-apply-card__field-group fs-form-group" id="fs-phone-group">
                     <label for="fs_phone">Номер телефона:</label>
                     <span class="dashicons dashicons-phone"></span>
                     <input
@@ -67,21 +67,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 
 
-				<div class="fs-apply-card__field-group">
+				<div class="fs-apply-card__field-group fs-form-group">
                     <label for="fs_birth_date">Дата рождения:</label>
 					<span class="dashicons dashicons-calendar-alt"></span>
 					<input type="date" name="birth_date" id="fs_birth_date" required
 						aria-label="<?php esc_attr_e( 'Дата рождения', 'fs-lms' ); ?>">
 				</div>
 
-				<div class="fs-apply-card__field-group">
+				<div class="fs-apply-card__field-group fs-form-group">
                     <label for="fs_school">Школа:</label>
 					<span class="dashicons dashicons-welcome-learn-more"></span>
 					<input type="text" name="school" id="fs_school"
 						placeholder="<?php esc_attr_e( 'МАОУ СОШ №', 'fs-lms' ); ?>">
 				</div>
 
-				<div class="fs-apply-card__field-group">
+				<div class="fs-apply-card__field-group fs-form-group">
                     <label for="fs_grade">Класс:</label>
 					<span class="dashicons dashicons-list-view"></span>
 					<select name="grade" id="fs_grade" required>
@@ -93,14 +93,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<?php endfor; ?>
 					</select>
 				</div>
-                <div class="fs-apply-card__field-group">
+                <div class="fs-apply-card__field-group fs-form-group">
                     <label for="fs_username">Логин:</label>
                     <span class="dashicons dashicons-id"></span>
                     <input type="text" name="username" id="fs_username"
                            placeholder="<?php esc_attr_e( 'Логин', 'fs-lms' ); ?>" required autocomplete="username">
                 </div>
 
-                <div class="fs-apply-card__field-group fs-lms-secret-field">
+                <div class="fs-apply-card__field-group fs-form-group fs-lms-secret-field">
                     <label for="fs_password">Пароль:</label>
                     <span class="dashicons dashicons-admin-network"></span>
                     <input type="password" name="password" id="fs_password"

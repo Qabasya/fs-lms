@@ -18,6 +18,7 @@
 14. [Сервисы системы зачисления](#сервисы-системы-зачисления)
 15. [Миграции](#миграции)
 16. [Согласия на обработку ПД](#согласия-на-обработку-пд)
+17. [Клиентская валидация форм](#клиентская-валидация-форм)
 
 ---
 
@@ -1947,6 +1948,155 @@ AJAX-экшены доступны через `fs_lms_vars.ajax_actions.camelCas
 **Локализация переменных:**
 1. Добавить `wp_localize_script()` в `Enqueue.php` с условием по `$page` или `$screen->id`
 2. Обращаться из JS через `window.fs_lms_*_vars`
+
+---
+
+## Клиентская валидация форм
+
+### Расположение файлов
+
+```
+src/js/common/
+├── validators/
+│   ├── BaseValidator.js       — базовый класс всех валидаторов
+│   ├── PhoneValidator.js      — валидация телефона (+7(999)-000-00-00)
+│   ├── CyrillicNameValidator.js
+│   ├── LatinOnlyValidator.js
+│   └── index.js              — реестр: { phone, cyrillicName, latinOnly, default }
+└── validation-manager.js     — менеджер: привязка событий, рендер ошибок
+
+src/scss/common/components/
+└── _validation.scss          — стили ошибок (.fs-form-group.form-invalid, .fs-field-error)
+```
+
+### Архитектура
+
+Система состоит из трёх независимых слоёв:
+
+| Слой | Файл | Ответственность |
+|---|---|---|
+| Валидатор | `validators/MyValidator.js` | Только логика проверки значения |
+| Реестр | `validators/index.js` | Маппинг ключ → экземпляр валидатора |
+| Менеджер | `validation-manager.js` | Сканирование DOM, события, рендер ошибок |
+
+### Контракт валидатора
+
+Все валидаторы наследуют `BaseValidator` и переопределяют `checkCustom`:
+
+```js
+// src/js/common/validators/MyValidator.js
+import { BaseValidator } from './BaseValidator.js';
+
+export class MyValidator extends BaseValidator {
+    checkCustom( value, input ) {
+        if ( ! /^\d{10}$/.test( value ) ) {
+            return 'Должно быть 10 цифр.';
+        }
+        return null; // null = поле валидно
+    }
+}
+```
+
+`BaseValidator.validate(input)` автоматически обрабатывает нативные HTML5-атрибуты (`required`, `minlength`, `type="email"`) через `ValidityState` — переопределять их в `checkCustom` не нужно.
+
+### Добавление нового валидатора (3 шага)
+
+**Шаг 1.** Создать файл `src/js/common/validators/InnValidator.js`:
+
+```js
+import { BaseValidator } from './BaseValidator.js';
+
+export class InnValidator extends BaseValidator {
+    checkCustom( value ) {
+        if ( value.length !== 10 && value.length !== 12 ) {
+            return 'ИНН должен содержать 10 или 12 цифр.';
+        }
+        if ( ! /^\d+$/.test( value ) ) {
+            return 'ИНН должен содержать только цифры.';
+        }
+        return null;
+    }
+}
+```
+
+**Шаг 2.** Зарегистрировать в `src/js/common/validators/index.js`:
+
+```js
+import { InnValidator } from './InnValidator.js';
+
+export const FieldValidators = {
+    phone:        new PhoneValidator(),
+    cyrillicName: new CyrillicNameValidator(),
+    latinOnly:    new LatinOnlyValidator(),
+    inn:          new InnValidator(), // ← добавить
+    default:      new BaseValidator()
+};
+```
+
+**Шаг 3.** Добавить `data-validate` к инпуту в шаблоне:
+
+```html
+<input type="text" name="inn" data-validate="inn" required>
+```
+
+Больше ничего не нужно. Менеджер подхватит атрибут автоматически.
+
+### Привязка к форме
+
+#### Автоматически (через common.js)
+
+Формы с атрибутом `data-fs-validate` или классом `.fs-lms-form` подхватываются глобальным менеджером в `common.js` автоматически при загрузке страницы:
+
+```html
+<form data-fs-validate>
+    <div class="fs-form-group">
+        <input type="tel" data-validate="phone" required>
+    </div>
+</form>
+```
+
+#### Вручную (для форм с AJAX-сабмитом)
+
+Если форма обрабатывается своим JS-модулем (как `apply-form.js`), вызвать `initFormValidation` явно и использовать возвращённую функцию `validateAll()` перед AJAX-запросом:
+
+```js
+import { initFormValidation } from '../../common/validation-manager.js';
+
+export function initMyForm() {
+    const form = document.getElementById( 'my-form' );
+    if ( ! form ) { return; }
+
+    const validateAll = initFormValidation( form ); // привязывает blur + input
+
+    form.addEventListener( 'submit', async ( e ) => {
+        e.preventDefault();
+        if ( ! validateAll() ) { return; } // показывает ошибки, фокусирует первый невалидный
+        // ... AJAX
+    } );
+}
+```
+
+### Требования к разметке
+
+Каждый валидируемый инпут должен быть обёрнут в контейнер с классом `.fs-form-group`:
+
+```html
+<div class="fs-form-group">
+    <input type="tel" name="phone" data-validate="phone" required>
+</div>
+```
+
+Менеджер добавляет класс `form-invalid` на контейнер и вставляет `<p class="fs-field-error">` с текстом ошибки. Стили `.fs-form-group.form-invalid` описаны в `src/scss/common/components/_validation.scss` и применяются на всех страницах через `common.min.css`.
+
+На формах с собственной компонентной стилизацией (например, `apply.php`) добавлять `fs-form-group` как дополнительный класс: `class="fs-apply-card__field-group fs-form-group"`.
+
+### Поведение при валидации
+
+| Событие | Действие |
+|---|---|
+| `blur` (потеря фокуса) | Запускает валидатор, рендерит ошибку если есть |
+| `input` (ввод символа) | Убирает ошибку (мягкий сброс, не перепроверяет) |
+| `submit` | Проверяет все поля, показывает все ошибки, фокусирует первый невалидный |
 
 ---
 

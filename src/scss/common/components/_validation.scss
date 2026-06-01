@@ -1,0 +1,30 @@
+@use '../../admin/variables' as *;
+
+.fs-form-group {
+  .fs-field-error {
+    color: $color-danger;
+    font-size: 13px;
+    font-style: italic;
+    margin: 5px 0 0;
+    display: block;
+  }
+
+  &.form-invalid {
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="password"],
+    input[type="date"],
+    input[type="number"],
+    input[type="url"],
+    select,
+    textarea {
+      border-color: $color-danger;
+      box-shadow: 0 0 0 1px $color-danger;
+
+      &:focus {
+        box-shadow: 0 0 0 2px $color-danger;
+      }
+    }
+  }
+}
