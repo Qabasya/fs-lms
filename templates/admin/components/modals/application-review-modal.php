@@ -6,6 +6,9 @@
  * @package FS LMS
  */
 
+use Inc\Enums\DocumentType;
+use Inc\Enums\RelationType;
+
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 ?>
 
@@ -83,7 +86,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 										<button type="button" class="fs-editable-field__btn button-link" aria-label="<?php esc_attr_e( 'Редактировать', 'fs-lms' ); ?>">
 											<span class="dashicons dashicons-edit"></span>
 										</button>
-										<input type="text" name="student_doc_type" hidden>
+										<select name="student_doc_type" hidden>
+											<option value=""><?php esc_html_e( '— Выберите —', 'fs-lms' ); ?></option>
+											<?php foreach ( DocumentType::cases() as $dt ) : ?>
+												<option value="<?php echo esc_attr( $dt->value ); ?>"><?php echo esc_html( $dt->label() ); ?></option>
+											<?php endforeach; ?>
+										</select>
 									</div>
 								</div>
 								<div class="fs-form-group">
@@ -172,7 +180,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 										<button type="button" class="fs-editable-field__btn button-link" aria-label="<?php esc_attr_e( 'Редактировать', 'fs-lms' ); ?>">
 											<span class="dashicons dashicons-edit"></span>
 										</button>
-										<input type="text" name="relation_type" hidden>
+										<select name="relation_type" hidden>
+											<option value=""><?php esc_html_e( '— Выберите —', 'fs-lms' ); ?></option>
+											<?php foreach ( RelationType::cases() as $rt ) : ?>
+												<option value="<?php echo esc_attr( $rt->value ); ?>"><?php echo esc_html( $rt->label() ); ?></option>
+											<?php endforeach; ?>
+										</select>
 									</div>
 								</div>
 							</div>
@@ -208,7 +221,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 										<button type="button" class="fs-editable-field__btn button-link" aria-label="<?php esc_attr_e( 'Редактировать', 'fs-lms' ); ?>">
 											<span class="dashicons dashicons-edit"></span>
 										</button>
-										<input type="text" name="parent_doc_type" hidden>
+										<select name="parent_doc_type" hidden>
+											<option value=""><?php esc_html_e( '— Выберите —', 'fs-lms' ); ?></option>
+											<?php foreach ( DocumentType::cases() as $dt ) : ?>
+												<option value="<?php echo esc_attr( $dt->value ); ?>"><?php echo esc_html( $dt->label() ); ?></option>
+											<?php endforeach; ?>
+										</select>
 									</div>
 								</div>
 								<div class="fs-form-group">

@@ -74,6 +74,7 @@ export const ApplicationReviewModal = {
         if ( isEditing ) {
             $display[0].hidden = false;
             $input[0].hidden   = true;
+            $display.text( $input.is( 'select' ) ? ( $input.find( 'option:selected' ).text() || '—' ) : ( $input.val() || '—' ) );
             $icon.removeClass( 'dashicons-undo' ).addClass( 'dashicons-edit' );
         } else {
             $display[0].hidden = true;
@@ -109,8 +110,8 @@ export const ApplicationReviewModal = {
             const $display = $field.find( '.fs-editable-field__display' );
             const $input   = $field.find( 'input, select' );
 
-            $display.text( value || '—' );
             $input.val( String( value ) );
+            $display.text( $input.is( 'select' ) ? ( $input.find( 'option:selected' ).text() || '—' ) : ( value || '—' ) );
             $display[0].hidden = false;
             $input[0].hidden   = true;
             $field.find( '.dashicons' ).removeClass( 'dashicons-undo' ).addClass( 'dashicons-edit' );

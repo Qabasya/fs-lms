@@ -74,14 +74,16 @@ ThemeCompatService::header();
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-calendar-alt"></span>
-						<input type="date" name="birth_date" id="fs_birth_date"
-								value="<?php echo esc_attr( $student_data['birth_date'] ?? '' ); ?>" required>
+						<input type="date" name="student_birth_date" id="fs_birth_date"
+								value="<?php echo esc_attr( $student_data['birth_date'] ?? '' ); ?>" required
+								aria-label="<?php esc_attr_e( 'Дата рождения ученика', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-phone"></span>
-						<input type="tel" name="phone" id="fs_phone"
-								placeholder="<?php esc_attr_e( 'Телефон ученика (при наличии)', 'fs-lms' ); ?>">
+						<input type="tel" name="student_phone" id="fs_phone"
+							value="<?php echo esc_attr( $student_data['phone'] ?? '' ); ?>"
+							placeholder="<?php esc_attr_e( 'Телефон ученика', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">
@@ -89,7 +91,7 @@ ThemeCompatService::header();
 						<select name="student_doc_type" id="fs_student_doc_type" required>
 							<option value="" disabled selected><?php esc_html_e( 'Тип документа ученика', 'fs-lms' ); ?></option>
 							<option value="birth_certificate"><?php esc_html_e( 'Свидетельство о рождении', 'fs-lms' ); ?></option>
-							<option value="passport"><?php esc_html_e( 'Паспорт', 'fs-lms' ); ?></option>
+							<option value="pass"><?php esc_html_e( 'Паспорт', 'fs-lms' ); ?></option>
 						</select>
 					</div>
 
@@ -142,31 +144,60 @@ ThemeCompatService::header();
 					</div>
 
 					<div class="fs-join-card__field-group">
+						<span class="dashicons dashicons-media-document"></span>
+						<select name="doc_type" id="fs_doc_type" required aria-label="<?php esc_attr_e( 'Тип документа представителя', 'fs-lms' ); ?>">
+							<option value="" disabled selected><?php esc_html_e( 'Тип документа (паспорт)', 'fs-lms' ); ?></option>
+							<option value="pass"><?php esc_html_e( 'Паспорт РФ', 'fs-lms' ); ?></option>
+							<option value="foreign_pass"><?php esc_html_e( 'Иностранный паспорт', 'fs-lms' ); ?></option>
+						</select>
+					</div>
+
+					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-id-alt"></span>
 						<input type="text" name="doc_number" id="fs_doc_number"
-								placeholder="<?php esc_attr_e( 'Паспорт: серия и номер', 'fs-lms' ); ?>" required>
+								placeholder="<?php esc_attr_e( 'Серия и номер', 'fs-lms' ); ?>" required
+								aria-label="<?php esc_attr_e( 'Серия и номер документа', 'fs-lms' ); ?>">
+					</div>
+
+					<div class="fs-join-card__field-group">
+						<span class="dashicons dashicons-building"></span>
+						<input type="text" name="doc_issued_by" id="fs_doc_issued_by"
+								placeholder="<?php esc_attr_e( 'Кем выдан (необязательно)', 'fs-lms' ); ?>"
+								aria-label="<?php esc_attr_e( 'Кем выдан документ', 'fs-lms' ); ?>">
+					</div>
+
+					<div class="fs-join-card__field-group">
+						<span class="dashicons dashicons-calendar-alt"></span>
+						<input type="date" name="doc_issued_date" id="fs_doc_issued_date"
+								aria-label="<?php esc_attr_e( 'Дата выдачи документа (необязательно)', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-awards"></span>
-						<input type="text" name="inn" id="fs_inn" placeholder="<?php esc_attr_e( 'ИНН представителя', 'fs-lms' ); ?>" required>
+						<input type="text" name="inn" id="fs_inn"
+							placeholder="<?php esc_attr_e( 'ИНН представителя', 'fs-lms' ); ?>" required
+							aria-label="<?php esc_attr_e( 'ИНН представителя', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-location"></span>
-						<input type="text" name="address" id="fs_address" placeholder="<?php esc_attr_e( 'Адрес регистрации (по паспорту)', 'fs-lms' ); ?>" required>
+						<input type="text" name="address" id="fs_address"
+							placeholder="<?php esc_attr_e( 'Адрес регистрации (по паспорту)', 'fs-lms' ); ?>" required
+							aria-label="<?php esc_attr_e( 'Адрес регистрации', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-phone"></span>
-						<input type="tel" name="phone" id="fs_parent_phone" placeholder="<?php esc_attr_e( 'Контактный телефон', 'fs-lms' ); ?>" required>
+						<input type="tel" name="phone" id="fs_parent_phone"
+							placeholder="<?php esc_attr_e( 'Контактный телефон', 'fs-lms' ); ?>" required
+							aria-label="<?php esc_attr_e( 'Контактный телефон представителя', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-email"></span>
 						<input type="email" name="email" id="fs_parent_email"
-								value="<?php echo esc_attr( $student_data['email'] ?? '' ); ?>"
-								placeholder="<?php esc_attr_e( 'Email для уведомлений', 'fs-lms' ); ?>" required>
+								placeholder="<?php esc_attr_e( 'Email для уведомлений', 'fs-lms' ); ?>" required
+								aria-label="<?php esc_attr_e( 'Email для уведомлений', 'fs-lms' ); ?>">
 					</div>
 				</fieldset>
 
