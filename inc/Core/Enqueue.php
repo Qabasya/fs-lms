@@ -161,7 +161,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'edit'    => Nonce::EditApplication->create(),
 						'review'  => Nonce::ReviewApplication->create(),
 						'enroll'  => Nonce::Enroll->create(),
-						'reject'  => Nonce::Reject->create(),
 						'manager' => Nonce::Manager->create(),
 					),
 				)

@@ -102,7 +102,6 @@ class Migration_1_0_0 implements MigrationInterface {
 			parent_submitted_ip varchar(45) DEFAULT NULL,
 			parent_submitted_ua varchar(500) DEFAULT NULL,
 			reviewed_by_user_id bigint(20) unsigned DEFAULT NULL,
-			rejected_reason text DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),

@@ -60,7 +60,6 @@ enum AjaxHook: string {
 	case CreateApplication           = 'create_application';
 	case SubmitParentData            = 'submit_parent_data';
 	case EnrollStudent               = 'enroll_student';
-	case RejectApplication           = 'reject_application';
 	case RevealPiiField              = 'reveal_pii_field';
 	case AddRepresentative           = 'add_representative';
 	case ReplaceRepresentative       = 'replace_representative';

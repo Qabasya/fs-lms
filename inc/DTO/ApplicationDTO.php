@@ -50,7 +50,6 @@ readonly class ApplicationDTO {
 	 * @param string|null       $parentSubmittedIp         IP родителя при заполнении формы
 	 * @param string|null       $parentSubmittedUa         User-Agent родителя
 	 * @param int|null          $reviewedByUserId          ID модератора, проверившего заявку
-	 * @param string|null       $rejectedReason            Причина отклонения
 	 * @param string            $createdAt                 Дата создания
 	 * @param string            $updatedAt                 Дата обновления
 	 */
@@ -70,7 +69,6 @@ readonly class ApplicationDTO {
 		public ?string $parentSubmittedIp,
 		public ?string $parentSubmittedUa,
 		public ?int $reviewedByUserId,
-		public ?string $rejectedReason,
 		public string $createdAt,
 		public string $updatedAt,
 	) {}
@@ -99,7 +97,6 @@ readonly class ApplicationDTO {
 			parentSubmittedIp:       isset( $row['parent_submitted_ip'] ) ? (string) $row['parent_submitted_ip'] : null,
 			parentSubmittedUa:       isset( $row['parent_submitted_ua'] ) ? (string) $row['parent_submitted_ua'] : null,
 			reviewedByUserId:        isset( $row['reviewed_by_user_id'] ) ? (int) $row['reviewed_by_user_id'] : null,
-			rejectedReason:          isset( $row['rejected_reason'] ) ? (string) $row['rejected_reason'] : null,
 			createdAt:               (string) $row['created_at'],
 			updatedAt:               (string) $row['updated_at'],
 		);
@@ -127,7 +124,6 @@ readonly class ApplicationDTO {
 			'parent_submitted_ip'        => $this->parentSubmittedIp,
 			'parent_submitted_ua'        => $this->parentSubmittedUa,
 			'reviewed_by_user_id'        => $this->reviewedByUserId,
-			'rejected_reason'            => $this->rejectedReason,
 			'created_at'                 => $this->createdAt,
 			'updated_at'                 => $this->updatedAt,
 		);

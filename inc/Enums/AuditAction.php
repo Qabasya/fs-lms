@@ -28,9 +28,6 @@ enum AuditAction: string {
 	/** Ошибка при зачислении студента */
 	case EnrollStudentFailed = 'enroll_student_failed';
 
-	/** Отклонение заявки */
-	case RejectApplication = 'reject_application';
-
 	/** Прекращение обучения студента */
 	case TerminateEnrollment = 'terminate_enrollment';
 

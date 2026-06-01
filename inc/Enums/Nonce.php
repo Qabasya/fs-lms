@@ -25,7 +25,6 @@ enum Nonce: string {
 	case Apply                 = 'fs_lms_apply';
 	case ParentSubmit          = 'fs_lms_parent_submit';
 	case Enroll                = 'fs_lms_enroll';
-	case Reject                = 'fs_lms_reject';
 	case RevealPii             = 'fs_lms_reveal_pii';
 	case AddRepresentative     = 'fs_lms_add_representative';
 	case ReplaceRepresentative = 'fs_lms_replace_representative';

@@ -34,8 +34,7 @@ use Inc\Shared\Traits\Sanitizer;
  * 1. **Отображение списка заявок** — рендеринг таблицы с фильтрами и пагинацией.
  * 2. **Просмотр карточки заявки** — отображение деталей заявки с PII (с логированием доступа).
  * 3. **Зачисление студента** — обработка AJAX-запроса на создание зачисления.
- * 4. **Отклонение заявки** — изменение статуса на Rejected с указанием причины.
- * 5. **Корзина заявок** — перемещение в корзину, восстановление, очистка.
+ * 4. **Корзина заявок** — перемещение в корзину, восстановление, очистка.
  *
  * ### Архитектурная роль:
  *
@@ -222,47 +221,13 @@ class EnrollmentCallbacks extends BaseController {
 			$response['student_link']  = $result->studentPasswordLink;
 			$response['message']       = 'Зачисление выполнено. Передайте ссылки представителю.';
 		} else {
-			$response['message'] = 'Зачисление выполнено. Ссылки для установки пароля отправлены на email.';
+			$response['message'] = 'Зачисление выполнено. Ссылка для установки пароля отправлена на почту родителя.';
 		}
 
 		$this->success( $response );
 	}
 
-	/**
-	 * AJAX: отклонение заявки.
-	 *
-	 * @return void
-	 */
-	public function ajaxRejectApplication(): void {
-		check_ajax_referer( Nonce::Reject->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
-
-		$id     = $this->sanitizeInt( 'application_id' );
-		$reason = $this->sanitizeText( 'reason' );
-
-		// Обновление статуса и заполнение полей отклонения
-		$this->applicationRepository->update( $id, array(
-			'status'              => ApplicationStatus::Rejected->value,
-			'rejected_reason'     => $reason,
-			'reviewed_by_user_id' => get_current_user_id(),
-			'reviewed_at'         => current_time( 'mysql', true ),
-			'updated_at'          => current_time( 'mysql', true ),
-		) );
-
-		$this->auditService->record(
-			AuditAction::RejectApplication->value,
-			'application',
-			$id,
-			array( 'reason' => $reason )
-		);
-
-		$this->success();
-	}
-
-	/**
+		/**
 	 * AJAX: перемещение заявки в корзину.
 	 *
 	 * @return void

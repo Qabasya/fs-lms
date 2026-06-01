@@ -17,9 +17,6 @@ enum ApplicationStatus: string {
 	/** Успешно зачислен (конечный статус) */
 	case Converted = 'converted';
 
-	/** Отклонено (конечный статус) */
-	case Rejected = 'rejected';
-
 	/** Истекло время ожидания (конечный статус) */
 	case Expired = 'expired';
 
@@ -37,9 +34,8 @@ enum ApplicationStatus: string {
 	public function canTransitionTo( self $next ): bool {
 		return match ( $this ) {
 			self::PendingParent  => in_array( $next, [ self::ReadyForReview, self::Expired, self::Trash ], true ),
-			self::ReadyForReview => in_array( $next, [ self::Enrolling, self::Rejected, self::Expired, self::Trash ], true ),
+			self::ReadyForReview => in_array( $next, [ self::Enrolling, self::Expired, self::Trash ], true ),
 			self::Enrolling      => in_array( $next, [ self::Converted, self::ReadyForReview ], true ),
-			self::Rejected       => self::Trash === $next,
 			self::Expired        => self::Trash === $next,
 			// Trash восстанавливается в PendingParent или ReadyForReview
 			self::Trash          => in_array( $next, [ self::PendingParent, self::ReadyForReview ], true ),
@@ -53,7 +49,7 @@ enum ApplicationStatus: string {
 	 * @return bool
 	 */
 	public function isTrashable(): bool {
-		return in_array( $this, [ self::PendingParent, self::ReadyForReview, self::Rejected, self::Expired ], true );
+		return in_array( $this, [ self::PendingParent, self::ReadyForReview, self::Expired ], true );
 	}
 
 	public function label(): string {
@@ -62,7 +58,6 @@ enum ApplicationStatus: string {
 			self::ReadyForReview => 'Готово к проверке',
 			self::Enrolling      => 'Зачисляется',
 			self::Converted      => 'Зачислен',
-			self::Rejected       => 'Отклонён',
 			self::Expired        => 'Истёк',
 			self::Trash          => 'Корзина',
 		};
