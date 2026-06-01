@@ -35,13 +35,38 @@ function renderFieldError( input, errorMessage ) {
  * @returns {boolean} True if the field is valid
  */
 export function validateField( input ) {
-    const validatorKey = input.dataset.validate || input.type;
-    const validator    = FieldValidators[ validatorKey ] || FieldValidators.default;
-    const errorMessage = validator.validate( input );
+    const keys = ( input.dataset.validate || input.type ).trim().split( /\s+/ ).filter( Boolean );
 
-    renderFieldError( input, errorMessage );
+    // Нативные проверки (required, minlength, type=email и т.д.) — один раз, от первого валидатора
+    const primary    = FieldValidators[ keys[ 0 ] ] || FieldValidators.default;
+    const nativeError = primary.checkNative( input );
 
-    return null === errorMessage;
+    if ( null !== nativeError ) {
+        renderFieldError( input, nativeError );
+        return false;
+    }
+
+    const value = input.value.trim();
+
+    // Пустое необязательное поле — кастомные правила не применяем
+    if ( ! value ) {
+        renderFieldError( input, null );
+        return true;
+    }
+
+    // Кастомные правила — последовательно для каждого ключа
+    for ( const key of keys ) {
+        const validator = FieldValidators[ key ] || FieldValidators.default;
+        const error     = validator.checkCustom( value, input );
+
+        if ( null !== error ) {
+            renderFieldError( input, error );
+            return false;
+        }
+    }
+
+    renderFieldError( input, null );
+    return true;
 }
 
 /**
