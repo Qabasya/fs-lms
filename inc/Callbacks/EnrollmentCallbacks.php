@@ -13,6 +13,7 @@ use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Services\AuditService;
 use Inc\Services\Enrollment\EnrollmentService;
+use Inc\Services\PasswordGeneratorService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\Person\PiiMaskingService;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
@@ -58,13 +59,14 @@ class EnrollmentCallbacks extends BaseController {
 	 * @param PiiAccessLogRepository  $piiAccessLog          Репозиторий логов доступа к PII
 	 */
 	public function __construct(
-		private readonly ApplicationRepository  $applicationRepository,
-		private readonly EnrollmentService      $enrollmentService,
-		private readonly AuditService           $auditService,
-		private readonly PiiCryptoService       $crypto,
-		private readonly PiiMaskingService      $piiMasking,
-		private readonly PiiAccessLogRepository $piiAccessLog,
-		private readonly StudentGroupRepository $studentGroupRepository,
+		private readonly ApplicationRepository   $applicationRepository,
+		private readonly EnrollmentService       $enrollmentService,
+		private readonly AuditService            $auditService,
+		private readonly PiiCryptoService        $crypto,
+		private readonly PiiMaskingService       $piiMasking,
+		private readonly PiiAccessLogRepository  $piiAccessLog,
+		private readonly StudentGroupRepository  $studentGroupRepository,
+		private readonly PasswordGeneratorService $passwordGenerator,
 	) {
 		parent::__construct();
 	}
@@ -616,5 +618,29 @@ class EnrollmentCallbacks extends BaseController {
 		);
 
 		$this->success( array( 'deleted' => $count ) );
+	}
+
+	/**
+	 * AJAX: возвращает логин и расшифрованный пароль пользователя.
+	 * Используется кнопкой "Показать логин+пароль" в карточке заявки/зачисления.
+	 *
+	 * Принимает: user_id (int)
+	 *
+	 * @return void
+	 */
+	public function ajaxRevealUserCredentials(): void {
+		$this->authorize( Nonce::RevealPii, Capability::ManageApplications );
+
+		$user_id = $this->requireInt( 'user_id', error: 'ID пользователя не указан.' );
+
+		$credentials = $this->passwordGenerator->getCredentials( $user_id );
+
+		if ( null === $credentials ) {
+			$this->error( 'Пароль недоступен. Пользователь сменил пароль самостоятельно — воспользуйтесь функцией сброса.' );
+
+			return;
+		}
+
+		$this->success( $credentials );
 	}
 }

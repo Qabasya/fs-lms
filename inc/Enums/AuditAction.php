@@ -60,6 +60,9 @@ enum AuditAction: string {
 	/** Генерация ссылки для установки пароля */
 	case PasswordLinkGenerated = 'password_link_generated';
 
+	/** Генерация и установка пароля администратором при зачислении */
+	case PasswordGenerated = 'password_generated';
+
 	/** Установка пароля пользователем */
 	case PasswordSet = 'password_set';
 
