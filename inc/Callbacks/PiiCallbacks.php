@@ -9,7 +9,6 @@ use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Services\AuditService;
 use Inc\Services\EmailService;
-use Inc\Services\Enrollment\PasswordLinkService;
 use Inc\Services\Person\PersonReader;
 use Inc\Services\Person\PersonService;
 use Inc\Services\Person\PiiExportService;
@@ -53,7 +52,6 @@ class PiiCallbacks extends BaseController {
 	 * @param RelationshipService $relationshipService Сервис управления связями
 	 * @param RateLimitService    $rateLimitService    Сервис ограничения запросов
 	 * @param PiiExportService    $piiExportService    Сервис экспорта PII
-	 * @param PasswordLinkService $passwordLinkService Сервис генерации ссылок паролей
 	 * @param EmailService        $emailService        Сервис отправки email
 	 * @param AuditService        $auditService        Сервис аудита
 	 */
@@ -64,7 +62,6 @@ class PiiCallbacks extends BaseController {
 		private readonly RelationshipService $relationshipService,
 		private readonly RateLimitService    $rateLimitService,
 		private readonly PiiExportService    $piiExportService,
-		private readonly PasswordLinkService $passwordLinkService,
 		private readonly EmailService        $emailService,
 		private readonly AuditService        $auditService,
 	) {

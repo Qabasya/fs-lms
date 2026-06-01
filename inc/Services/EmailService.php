@@ -77,6 +77,31 @@ readonly class EmailService {
 	 *
 	 * @return bool
 	 */
+	/**
+	 * Отправляет новому пользователю логин и пароль для входа.
+	 *
+	 * @param int    $userId   ID пользователя
+	 * @param string $password Сгенерированный пароль в открытом виде
+	 *
+	 * @return bool
+	 */
+	public function sendWelcomeWithCredentials( int $userId, string $password ): bool {
+		$user = $this->userManager->find( $userId );
+
+		if ( null === $user ) {
+			return false;
+		}
+
+		$t = $this->template->get( 'welcome_with_credentials', array(
+			'login'        => $user->user_login,
+			'password'     => $password,
+			'display_name' => $user->display_name,
+			'login_url'    => wp_login_url(),
+		) );
+
+		return $this->send( $user->user_email, $t->subject, $t->body );
+	}
+
 	public function sendApplicationConfirmation( string $email, string $joinUrl, string $expiresAt ): bool {
 		$t = $this->template->get( 'application_confirmation', array(
 			'join_url'   => $joinUrl,

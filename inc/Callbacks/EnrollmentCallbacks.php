@@ -203,7 +203,6 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( $e->getMessage() );
 		}
 
-		// Частичный сбой — пользователи будут созданы асинхронно
 		if ( $result->partialFailure ) {
 			$this->success( array(
 				'partial'       => true,
@@ -212,18 +211,14 @@ class EnrollmentCallbacks extends BaseController {
 			) );
 		}
 
-		$response = array( 'enrollment_id' => $result->enrollmentId );
-
-		// Ссылки для установки паролей (не отправлены автоматически)
-		if ( null !== $result->guardianPasswordLink ) {
-			$response['guardian_link'] = $result->guardianPasswordLink;
-			$response['student_link']  = $result->studentPasswordLink;
-			$response['message']       = 'Зачисление выполнено. Передайте ссылки представителю.';
-		} else {
-			$response['message'] = 'Зачисление выполнено. Ссылка для установки пароля отправлена на почту родителя.';
-		}
-
-		$this->success( $response );
+		$this->success( array(
+			'enrollment_id'    => $result->enrollmentId,
+			'student_login'    => $result->studentLogin,
+			'student_password' => $result->studentPassword,
+			'guardian_login'   => $result->guardianLogin,
+			'guardian_password' => $result->guardianPassword,
+			'message'          => 'Зачисление выполнено.',
+		) );
 	}
 
 		/**
