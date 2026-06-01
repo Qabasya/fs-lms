@@ -9,13 +9,13 @@ use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Services\AuditService;
 use Inc\Services\EmailService;
-use Inc\Services\Enrollment\PasswordLinkService;
 use Inc\Services\Person\PersonReader;
 use Inc\Services\Person\PersonService;
 use Inc\Services\Person\PiiExportService;
 use Inc\Services\Person\RelationshipService;
 use Inc\Services\RateLimitService;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -40,6 +40,7 @@ use Inc\Shared\Traits\Sanitizer;
  */
 class PiiCallbacks extends BaseController {
 
+	use Authorizer;
 	use Sanitizer;
 
 	/**
@@ -51,7 +52,6 @@ class PiiCallbacks extends BaseController {
 	 * @param RelationshipService $relationshipService Сервис управления связями
 	 * @param RateLimitService    $rateLimitService    Сервис ограничения запросов
 	 * @param PiiExportService    $piiExportService    Сервис экспорта PII
-	 * @param PasswordLinkService $passwordLinkService Сервис генерации ссылок паролей
 	 * @param EmailService        $emailService        Сервис отправки email
 	 * @param AuditService        $auditService        Сервис аудита
 	 */
@@ -62,7 +62,6 @@ class PiiCallbacks extends BaseController {
 		private readonly RelationshipService $relationshipService,
 		private readonly RateLimitService    $rateLimitService,
 		private readonly PiiExportService    $piiExportService,
-		private readonly PasswordLinkService $passwordLinkService,
 		private readonly EmailService        $emailService,
 		private readonly AuditService        $auditService,
 	) {
@@ -75,11 +74,7 @@ class PiiCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxRevealPiiField(): void {
-		check_ajax_referer( Nonce::RevealPii->value, 'security' );
-
-		if ( ! current_user_can( Capability::ViewPII->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::RevealPii, Capability::ViewPII );
 
 		// Лимит раскрытий на пользователя
 		if ( ! $this->rateLimitService->allowPiiReveal( get_current_user_id() ) ) {
@@ -103,11 +98,7 @@ class PiiCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxRequestPiiDeletion(): void {
-		check_ajax_referer( Nonce::RequestPiiDeletion->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::RequestPiiDeletion, Capability::ManagePersons );
 
 		$personId = $this->sanitizeInt( $_POST['person_id'] ?? 0 );
 
@@ -123,11 +114,7 @@ class PiiCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxExportPii(): void {
-		check_ajax_referer( Nonce::ExportPii->value, 'security' );
-
-		if ( ! current_user_can( Capability::ExportPII->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::ExportPii, Capability::ExportPII );
 
 		$personId = $this->sanitizeInt( $_POST['person_id'] ?? 0 );
 		$actorId  = get_current_user_id();
@@ -146,11 +133,7 @@ class PiiCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxAddRepresentative(): void {
-		check_ajax_referer( Nonce::AddRepresentative->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::AddRepresentative, Capability::ManagePersons );
 
 		$studentPersonId = $this->sanitizeInt( $_POST['student_person_id'] ?? 0 );
 		$relationType    = \Inc\Enums\RelationType::from( $this->requireKey( $_POST['relation_type'] ?? '' ) );
@@ -181,11 +164,7 @@ class PiiCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxReplaceRepresentative(): void {
-		check_ajax_referer( Nonce::ReplaceRepresentative->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::ReplaceRepresentative, Capability::ManagePersons );
 
 		$oldRelId = $this->sanitizeInt( $_POST['relationship_id'] ?? 0 );
 		$newType  = \Inc\Enums\RelationType::from( $this->requireKey( $_POST['relation_type'] ?? '' ) );
@@ -208,11 +187,7 @@ class PiiCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxUpdatePerson(): void {
-		check_ajax_referer( Nonce::UpdatePerson->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::UpdatePerson, Capability::ManagePersons );
 
 		$personId = $this->sanitizeInt( $_POST['person_id'] ?? 0 );
 

@@ -78,6 +78,7 @@ enum AjaxHook: string {
 	case CancelEnrollment            = 'cancel_enrollment';
 	case GetApplicationData          = 'get_application_data';
 	case GetStudentGroups            = 'get_student_groups';
+	case RevealUserCredentials       = 'reveal_user_credentials';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

@@ -13,6 +13,7 @@ use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Services\AuditService;
 use Inc\Services\Enrollment\EnrollmentService;
+use Inc\Services\PasswordGeneratorService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\Person\PiiMaskingService;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
@@ -20,6 +21,7 @@ use Inc\DTO\EnrollmentInputDTO;
 use Inc\DTO\StudentGroupDTO;
 use Inc\Enums\DocumentType;
 use Inc\Enums\RelationType;
+use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -43,6 +45,7 @@ use Inc\Shared\Traits\Sanitizer;
  */
 class EnrollmentCallbacks extends BaseController {
 
+	use Authorizer;
 	use Sanitizer;
 
 	/**
@@ -56,13 +59,14 @@ class EnrollmentCallbacks extends BaseController {
 	 * @param PiiAccessLogRepository  $piiAccessLog          Репозиторий логов доступа к PII
 	 */
 	public function __construct(
-		private readonly ApplicationRepository  $applicationRepository,
-		private readonly EnrollmentService      $enrollmentService,
-		private readonly AuditService           $auditService,
-		private readonly PiiCryptoService       $crypto,
-		private readonly PiiMaskingService      $piiMasking,
-		private readonly PiiAccessLogRepository $piiAccessLog,
-		private readonly StudentGroupRepository $studentGroupRepository,
+		private readonly ApplicationRepository   $applicationRepository,
+		private readonly EnrollmentService       $enrollmentService,
+		private readonly AuditService            $auditService,
+		private readonly PiiCryptoService        $crypto,
+		private readonly PiiMaskingService       $piiMasking,
+		private readonly PiiAccessLogRepository  $piiAccessLog,
+		private readonly StudentGroupRepository  $studentGroupRepository,
+		private readonly PasswordGeneratorService $passwordGenerator,
 	) {
 		parent::__construct();
 	}
@@ -176,12 +180,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxEnrollStudent(): void {
-		// check_ajax_referer() — проверка nonce для AJAX-запроса
-		check_ajax_referer( Nonce::Enroll->value, 'security' );
-
-		if ( ! current_user_can( Capability::EnrollStudent->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::Enroll, Capability::EnrollStudent );
 
 		$dto = new EnrollmentInputDTO(
 			applicationId: $this->sanitizeInt( 'application_id' ),
@@ -204,7 +203,6 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( $e->getMessage() );
 		}
 
-		// Частичный сбой — пользователи будут созданы асинхронно
 		if ( $result->partialFailure ) {
 			$this->success( array(
 				'partial'       => true,
@@ -213,18 +211,14 @@ class EnrollmentCallbacks extends BaseController {
 			) );
 		}
 
-		$response = array( 'enrollment_id' => $result->enrollmentId );
-
-		// Ссылки для установки паролей (не отправлены автоматически)
-		if ( null !== $result->guardianPasswordLink ) {
-			$response['guardian_link'] = $result->guardianPasswordLink;
-			$response['student_link']  = $result->studentPasswordLink;
-			$response['message']       = 'Зачисление выполнено. Передайте ссылки представителю.';
-		} else {
-			$response['message'] = 'Зачисление выполнено. Ссылка для установки пароля отправлена на почту родителя.';
-		}
-
-		$this->success( $response );
+		$this->success( array(
+			'enrollment_id'    => $result->enrollmentId,
+			'student_login'    => $result->studentLogin,
+			'student_password' => $result->studentPassword,
+			'guardian_login'   => $result->guardianLogin,
+			'guardian_password' => $result->guardianPassword,
+			'message'          => 'Зачисление выполнено.',
+		) );
 	}
 
 		/**
@@ -233,11 +227,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxMoveApplicationToTrash(): void {
-		check_ajax_referer( Nonce::TrashApplication->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::TrashApplication, Capability::ManageApplications );
 
 		$id = $this->sanitizeInt( 'application_id' );
 
@@ -258,11 +248,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxRestoreApplicationFromTrash(): void {
-		check_ajax_referer( Nonce::TrashApplication->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::TrashApplication, Capability::ManageApplications );
 
 		$id  = $this->sanitizeInt( 'application_id' );
 		$app = $this->applicationRepository->find( $id );
@@ -293,11 +279,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxDeleteApplication(): void {
-		check_ajax_referer( Nonce::TrashApplication->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::TrashApplication, Capability::ManageApplications );
 
 		$id  = $this->sanitizeInt( 'application_id' );
 		$app = $this->applicationRepository->find( $id );
@@ -324,11 +306,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxUpdateApplicationData(): void {
-		check_ajax_referer( Nonce::EditApplication->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::EditApplication, Capability::ManageApplications );
 
 		$id  = $this->sanitizeInt( 'application_id' );
 		$app = $this->applicationRepository->find( $id );
@@ -387,11 +365,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxUpdateReviewData(): void {
-		check_ajax_referer( Nonce::ReviewApplication->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::ReviewApplication, Capability::ManageApplications );
 
 		$id  = $this->sanitizeInt( 'application_id' );
 		$app = $this->applicationRepository->find( $id );
@@ -472,11 +446,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxStartEnrollment(): void {
-		check_ajax_referer( Nonce::Manager->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
 
 		$id  = $this->sanitizeInt( 'application_id' );
 		$app = $this->applicationRepository->find( $id );
@@ -501,11 +471,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetApplicationData(): void {
-		check_ajax_referer( Nonce::Manager->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
 
 		$id  = $this->sanitizeInt( 'application_id' );
 		$app = $this->applicationRepository->find( $id );
@@ -572,11 +538,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxCancelEnrollment(): void {
-		check_ajax_referer( Nonce::Manager->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
 
 		$id  = $this->sanitizeInt( 'application_id' );
 		$app = $this->applicationRepository->find( $id );
@@ -600,11 +562,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetStudentGroups(): void {
-		check_ajax_referer( Nonce::Manager->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
 
 		$periodId  = $this->sanitizeText( 'period_id' );
 		$subjectId = $this->sanitizeText( 'subject_id' );
@@ -625,11 +583,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxEmptyApplicationsTrash(): void {
-		check_ajax_referer( Nonce::TrashApplication->value, 'security' );
-
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			$this->error( 'Доступ запрещён.' );
-		}
+		$this->authorize( Nonce::TrashApplication, Capability::ManageApplications );
 
 		// Получение всех заявок в корзине
 		$trashApps = $this->applicationRepository->list(
@@ -659,5 +613,29 @@ class EnrollmentCallbacks extends BaseController {
 		);
 
 		$this->success( array( 'deleted' => $count ) );
+	}
+
+	/**
+	 * AJAX: возвращает логин и расшифрованный пароль пользователя.
+	 * Используется кнопкой "Показать логин+пароль" в карточке заявки/зачисления.
+	 *
+	 * Принимает: user_id (int)
+	 *
+	 * @return void
+	 */
+	public function ajaxRevealUserCredentials(): void {
+		$this->authorize( Nonce::RevealPii, Capability::ManageApplications );
+
+		$user_id = $this->requireInt( 'user_id', error: 'ID пользователя не указан.' );
+
+		$credentials = $this->passwordGenerator->getCredentials( $user_id );
+
+		if ( null === $credentials ) {
+			$this->error( 'Пароль недоступен. Пользователь сменил пароль самостоятельно — воспользуйтесь функцией сброса.' );
+
+			return;
+		}
+
+		$this->success( $credentials );
 	}
 }

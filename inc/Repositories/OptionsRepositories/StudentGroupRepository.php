@@ -128,4 +128,32 @@ class StudentGroupRepository {
 
 		return (bool) update_option( OptionName::StudentGroups->value, $groups );
 	}
+
+	/**
+	 * Удаляет все группы, привязанные к указанному предмету.
+	 * Возвращает ID удалённых групп для последующей очистки матрицы.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return string[] ID удалённых групп
+	 */
+	public function removeBySubject( string $subject_key ): array {
+		$groups      = $this->readAll();
+		$removed_ids = array();
+		$remaining   = array();
+
+		foreach ( $groups as $id => $data ) {
+			if ( ( $data['subject_id'] ?? '' ) === $subject_key ) {
+				$removed_ids[] = $id;
+			} else {
+				$remaining[ $id ] = $data;
+			}
+		}
+
+		if ( ! empty( $removed_ids ) ) {
+			update_option( OptionName::StudentGroups->value, $remaining );
+		}
+
+		return $removed_ids;
+	}
 }

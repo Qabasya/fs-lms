@@ -371,6 +371,19 @@ class ApplicationRepository implements RepositoryInterface {
 	}
 
 	/**
+	 * Физически удаляет заявку без проверки статуса. Используется сервисом зачисления.
+	 *
+	 * @param int $id ID заявки
+	 *
+	 * @return bool
+	 */
+	public function forceDelete( int $id ): bool {
+		$result = $this->wpdb->delete( $this->table, array( 'id' => $id ) );
+
+		return false !== $result;
+	}
+
+	/**
 	 * Находит просроченные заявки на этапе ожидания заполнения родителем.
 	 *
 	 * @return array<int, ApplicationDTO>

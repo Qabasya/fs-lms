@@ -85,6 +85,8 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::GetApplicationData, $this->callbacks ),
 			// Получение групп по периоду и предмету
 			array( AjaxHook::GetStudentGroups, $this->callbacks ),
+			// Показать логин и пароль пользователя (расшифровать из user meta)
+			array( AjaxHook::RevealUserCredentials, $this->callbacks ),
 		);
 	}
 
