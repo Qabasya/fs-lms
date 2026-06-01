@@ -2,7 +2,7 @@ import { ToggleComponent } from './components/toggle.js';
 import { BadgeComponent } from './components/badge.js';
 import { ToggleSecretComponent } from './components/toggle-secret.js';
 
-import { FieldValidators } from '/validators/index.js';
+import { FieldValidators } from './validators/index.js';
 
 
 /**

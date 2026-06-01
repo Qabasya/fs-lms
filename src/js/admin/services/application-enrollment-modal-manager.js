@@ -47,7 +47,7 @@ export const ApplicationEnrollmentModalManager = {
         } );
 
         ApplicationEnrollmentModal.onEnroll( ( data ) => this._handleEnroll( data ) );
-        ApplicationEnrollmentModal.onReject( ( data ) => this._handleReject( data ) );
+        ApplicationEnrollmentModal.onClose( ( data ) => this._handleRevertStatus( data.application_id ) );
     },
 
     _handleOpen( appId ) {
@@ -154,6 +154,7 @@ export const ApplicationEnrollmentModalManager = {
         } )
             .done( ( res ) => {
                 if ( res.success ) {
+                    ApplicationEnrollmentModal.markCompleted();
                     ApplicationEnrollmentModal.close();
                     location.reload();
                 } else {
@@ -167,27 +168,11 @@ export const ApplicationEnrollmentModalManager = {
             } );
     },
 
-    _handleReject( data ) {
-        ApplicationEnrollmentModal.setRejectState( true );
-
+    _handleRevertStatus( appId ) {
         $.post( fs_lms_vars.ajaxurl, {
-            action:         fs_lms_vars.ajax_actions.rejectApplication,
-            security:       appVars.nonces.reject,
-            application_id: data.application_id,
-            reason:         data.reason,
-        } )
-            .done( ( res ) => {
-                if ( res.success ) {
-                    ApplicationEnrollmentModal.close();
-                    location.reload();
-                } else {
-                    alert( res.data?.message || res.data || 'Ошибка отклонения.' );
-                    ApplicationEnrollmentModal.setRejectState( false );
-                }
-            } )
-            .fail( () => {
-                alert( 'Ошибка соединения.' );
-                ApplicationEnrollmentModal.setRejectState( false );
-            } );
+            action:         fs_lms_vars.ajax_actions.cancelEnrollment,
+            security:       appVars.nonces.manager,
+            application_id: appId,
+        } );
     },
 };

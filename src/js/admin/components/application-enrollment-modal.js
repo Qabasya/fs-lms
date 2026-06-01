@@ -5,21 +5,12 @@ const $ = jQuery;
 export const ApplicationEnrollmentModal = {
     $modal: null,
     _enrollCallbacks: [],
-    _rejectCallbacks: [],
     _closeCallbacks: [],
     _completed: false,
     _initialized: false,
 
     $form: null,
     $enrollBtn: null,
-    $rejectBtn: null,
-    $confirmRejectBtn: null,
-    $cancelRejectBtn: null,
-    $mainContent: null,
-    $rejectionPanel: null,
-    $footerMain: null,
-    $footerRejection: null,
-    $reasonTextarea: null,
 
     init() {
         if ( this._initialized ) return;
@@ -33,24 +24,12 @@ export const ApplicationEnrollmentModal = {
     },
 
     _cacheElements() {
-        this.$form             = $( '#fs-application-enrollment-form' );
-        this.$enrollBtn        = $( '#enrollment-modal-enroll-btn' );
-        this.$rejectBtn        = $( '#enrollment-modal-reject-btn' );
-        this.$confirmRejectBtn = $( '#enrollment-confirm-reject-btn' );
-        this.$cancelRejectBtn  = $( '#enrollment-cancel-reject-btn' );
-        this.$mainContent      = $( '#enrollment-main-content' );
-        this.$rejectionPanel   = $( '#enrollment-rejection-panel' );
-        this.$footerMain       = $( '#enrollment-footer-main' );
-        this.$footerRejection  = $( '#enrollment-footer-rejection' );
-        this.$reasonTextarea   = $( '#enrollment-rejection-reason' );
+        this.$form      = $( '#fs-application-enrollment-form' );
+        this.$enrollBtn = $( '#enrollment-modal-enroll-btn' );
     },
 
     _bindEvents() {
         this.$modal.on( 'click', '.fs-lms-modal-backdrop, .fs-lms-modal-cancel, .js-modal-close, .fs-close', ( e ) => {
-            if ( $( e.currentTarget ).is( '#enrollment-cancel-reject-btn' ) ) {
-                this._hideRejectionPanel();
-                return;
-            }
             e.preventDefault();
             this.close();
         } );
@@ -73,56 +52,6 @@ export const ApplicationEnrollmentModal = {
                 this.$form.trigger( 'submit' );
             }
         } );
-
-        this.$rejectBtn.on( 'click', () => this._showRejectionPanel() );
-
-        this.$confirmRejectBtn.on( 'click', () => {
-            const reason = this.$reasonTextarea.val().trim();
-            if ( ! reason ) {
-                this.$reasonTextarea[0].setCustomValidity( 'Укажите причину.' );
-                this.$reasonTextarea[0].reportValidity();
-                return;
-            }
-            this.$reasonTextarea[0].setCustomValidity( '' );
-            const appId = this.$form.find( '[name="application_id"]' ).val();
-            this._rejectCallbacks.forEach( cb => cb( { application_id: appId, reason } ) );
-        } );
-    },
-
-    _toggleAccordion( $header ) {
-        const isOpen = $header.attr( 'aria-expanded' ) === 'true';
-        const bodyId = $header.attr( 'aria-controls' );
-
-        this.$modal.find( '.fs-modal-accordion__header' ).attr( 'aria-expanded', 'false' );
-        this.$modal.find( '.fs-modal-accordion__body' ).prop( 'hidden', true );
-
-        if ( ! isOpen ) {
-            $header.attr( 'aria-expanded', 'true' );
-            $( '#' + bodyId ).prop( 'hidden', false );
-        }
-    },
-
-    _showRejectionPanel() {
-        this.$mainContent[0].hidden    = true;
-        this.$rejectionPanel[0].hidden = false;
-        this.$footerMain[0].hidden     = true;
-        this.$footerRejection[0].hidden = false;
-        this.$reasonTextarea.val( '' ).trigger( 'focus' );
-    },
-
-    _hideRejectionPanel() {
-        this.$mainContent[0].hidden    = false;
-        this.$rejectionPanel[0].hidden = true;
-        this.$footerMain[0].hidden     = false;
-        this.$footerRejection[0].hidden = true;
-    },
-
-    onEnroll( callback ) {
-        if ( typeof callback === 'function' ) { this._enrollCallbacks.push( callback ); }
-    },
-
-    onReject( callback ) {
-        if ( typeof callback === 'function' ) { this._rejectCallbacks.push( callback ); }
     },
 
     open( appId ) {
@@ -131,7 +60,6 @@ export const ApplicationEnrollmentModal = {
         this._completed = false;
 
         this._resetDetailFields();
-        this._hideRejectionPanel();
         this._resetAccordion();
 
         openModal( this.$modal );
@@ -155,6 +83,23 @@ export const ApplicationEnrollmentModal = {
 
     onClose( callback ) {
         if ( typeof callback === 'function' ) { this._closeCallbacks.push( callback ); }
+    },
+
+    _toggleAccordion( $header ) {
+        const isOpen = $header.attr( 'aria-expanded' ) === 'true';
+        const bodyId = $header.attr( 'aria-controls' );
+
+        this.$modal.find( '.fs-modal-accordion__header' ).attr( 'aria-expanded', 'false' );
+        this.$modal.find( '.fs-modal-accordion__body' ).prop( 'hidden', true );
+
+        if ( ! isOpen ) {
+            $header.attr( 'aria-expanded', 'true' );
+            $( '#' + bodyId ).prop( 'hidden', false );
+        }
+    },
+
+    onEnroll( callback ) {
+        if ( typeof callback === 'function' ) { this._enrollCallbacks.push( callback ); }
     },
 
     populateStudentData( student ) {
@@ -221,10 +166,6 @@ export const ApplicationEnrollmentModal = {
         this.$enrollBtn.prop( 'disabled', loading ).text( loading ? 'Зачисление...' : 'Зачислить' );
     },
 
-    setRejectState( loading ) {
-        this.$confirmRejectBtn.prop( 'disabled', loading ).text( loading ? 'Отклонение...' : 'Подтвердить отклонение' );
-    },
-
     _setField( key, value ) {
         this.$modal.find( `[data-field="${ key }"]` ).text( value || '—' );
     },
@@ -258,18 +199,18 @@ export const ApplicationEnrollmentModal = {
     },
 
     _collectEnrollmentData() {
-        const f = this.$form;
+        const f          = this.$form;
+        const order_date = f.find( '[name="order_date"]' ).val();
         return {
-            application_id:  f.find( '[name="application_id"]' ).val(),
-            contract_no:     f.find( '[name="contract_no"]' ).val(),
-            contract_date:   f.find( '[name="contract_date"]' ).val(),
-            order_no:        f.find( '[name="order_no"]' ).val(),
-            order_date:      f.find( '[name="order_date"]' ).val(),
-            enrolled_at:     f.find( '[name="enrolled_at"]' ).val(),
-            period_key:      f.find( '[name="period_key"]' ).val(),
-            subject_key:     f.find( '[name="subject_key"]' ).val(),
-            group_id:        f.find( '[name="group_id"]' ).val(),
-            send_email_auto: f.find( '[name="send_email_auto"]' ).is( ':checked' ) ? '1' : '0',
+            application_id: f.find( '[name="application_id"]' ).val(),
+            contract_no:    f.find( '[name="contract_no"]' ).val(),
+            contract_date:  f.find( '[name="contract_date"]' ).val(),
+            order_no:       f.find( '[name="order_no"]' ).val(),
+            order_date,
+            enrolled_at:    order_date,
+            period_key:     f.find( '[name="period_key"]' ).val(),
+            subject_key:    f.find( '[name="subject_key"]' ).val(),
+            group_id:       f.find( '[name="group_id"]' ).val(),
         };
     },
 };

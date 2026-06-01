@@ -18,7 +18,7 @@ $currentPeriodId = $currentPeriod ? $currentPeriod->id : '';
 
 $periodsJson = (string) wp_json_encode(
 	array_values( array_map(
-		static fn( $p ) => array( 'id' => $p->id, 'name' => $p->name, 'is_current' => $p->is_current ),
+		static fn( $p ) => array( 'id' => $p['id'], 'name' => $p['name'], 'is_current' => $p['is_current'] ?? false ),
 		$allPeriods
 	) )
 );
@@ -163,33 +163,12 @@ $today = current_time( 'Y-m-d' );
 				</form>
 			</div><!-- /#enrollment-main-content -->
 
-			<!-- Панель отклонения (скрыта по умолчанию) -->
-			<div id="enrollment-rejection-panel" hidden>
-				<div class="fs-form-group">
-					<label for="enrollment-rejection-reason"><?php esc_html_e( 'Причина отклонения', 'fs-lms' ); ?></label>
-					<textarea id="enrollment-rejection-reason" rows="4" required
-						placeholder="<?php esc_attr_e( 'Укажите причину отклонения заявки...', 'fs-lms' ); ?>"></textarea>
-				</div>
-			</div>
+			</div><!-- /.fs-lms-modal-body -->
 
-		</div><!-- /.fs-lms-modal-body -->
-
-		<!-- Нормальный футер -->
-		<div class="fs-lms-modal-footer" id="enrollment-footer-main">
+		<div class="fs-lms-modal-footer">
 			<button type="button" class="button fs-lms-modal-cancel"><?php esc_html_e( 'Закрыть', 'fs-lms' ); ?></button>
 			<button type="submit" form="fs-application-enrollment-form" class="button button-primary" id="enrollment-modal-enroll-btn">
 				<?php esc_html_e( 'Зачислить', 'fs-lms' ); ?>
-			</button>
-			<button type="button" class="button button-link-delete" id="enrollment-modal-reject-btn">
-				<?php esc_html_e( 'Отклонить', 'fs-lms' ); ?>
-			</button>
-		</div>
-
-		<!-- Футер панели отклонения -->
-		<div class="fs-lms-modal-footer" id="enrollment-footer-rejection" hidden>
-			<button type="button" class="button fs-lms-modal-cancel" id="enrollment-cancel-reject-btn"><?php esc_html_e( 'Назад', 'fs-lms' ); ?></button>
-			<button type="button" class="button button-link-delete" id="enrollment-confirm-reject-btn">
-				<?php esc_html_e( 'Подтвердить отклонение', 'fs-lms' ); ?>
 			</button>
 		</div>
 

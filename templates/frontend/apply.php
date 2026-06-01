@@ -61,9 +61,8 @@ if ( ! defined( 'ABSPATH' ) ) {
                             name="phone"
                             placeholder="+7(999)-000-00-00"
                             required
-                            novalidate
+                            data-validate="phone"
                     >
-                    <span class="fs-field-error-message" style="display: none;"></span>
                 </div>
 
 

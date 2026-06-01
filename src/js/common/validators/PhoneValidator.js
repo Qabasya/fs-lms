@@ -1,4 +1,4 @@
-import { BaseValidator } from 'BaseValidator.js';
+import { BaseValidator } from './BaseValidator.js';
 
 export class PhoneValidator extends BaseValidator {
     /**

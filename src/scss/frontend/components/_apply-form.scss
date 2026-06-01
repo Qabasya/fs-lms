@@ -116,6 +116,29 @@
       font-size: $font-size-base;
       font-family: $font-mono;
     }
+
+    &.form-invalid {
+      input[type="text"],
+      input[type="tel"],
+      input[type="email"],
+      textarea {
+        border-color: #d63638 !important; // Стандартный красный цвет WordPress-ошибок
+        box-shadow: 0 0 0 1px #d63638;
+
+        &:focus {
+          box-shadow: 0 0 0 2px #d63638;
+        }
+      }
+
+      // Стили для текста ошибки, сгенерированного вашим handleValidationResult
+      .fs-field-error {
+        color: #d63638;
+        font-size: 13px;
+        margin: 5px 0 0 0;
+        font-style: italic;
+        display: block;
+      }
+    }
   }
 
   &__captcha {
