@@ -80,6 +80,7 @@ enum AjaxHook: string {
 	case GetStudentGroups            = 'get_student_groups';
 	case RevealUserCredentials       = 'reveal_user_credentials';
 	case GetStudentsByGroup          = 'get_students_by_group';
+	case GetPersonData               = 'get_person_data';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

@@ -170,11 +170,10 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 							<a href="#"
 							   class="js-view-person"
 							   data-person-id="<?php echo esc_attr( (string) $personId ); ?>"
+							   data-wp-user-id="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>"
 							   data-person-type="parent"
 							   data-display-name="<?php echo esc_attr( $user->display_name ); ?>"
-							   data-email="<?php echo esc_attr( $email ); ?>"
-							   data-birth-date="<?php echo esc_attr( $guardianData['birth_date'] ?? '' ); ?>"
-							   data-relation-type="<?php echo esc_attr( RelationType::tryFrom( $guardianData['relation_type'] ?? '' )?->label() ?? ( $guardianData['relation_type'] ?? '' ) ); ?>">
+							   data-email="<?php echo esc_attr( $email ); ?>">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>
 						</span>
@@ -204,4 +203,4 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/person-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/parent-person-modal.php'; ?>

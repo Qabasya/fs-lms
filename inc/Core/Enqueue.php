@@ -175,12 +175,15 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'fs_lms_applications_vars',
 				array(
 					'nonces' => array(
-						'trash'   => Nonce::TrashApplication->create(),
-						'edit'    => Nonce::EditApplication->create(),
-						'review'  => Nonce::ReviewApplication->create(),
-						'enroll'  => Nonce::Enroll->create(),
-						'manager' => Nonce::Manager->create(),
-						'reveal'  => Nonce::RevealPii->create(),
+						'trash'        => Nonce::TrashApplication->create(),
+						'edit'         => Nonce::EditApplication->create(),
+						'review'       => Nonce::ReviewApplication->create(),
+						'enroll'       => Nonce::Enroll->create(),
+						'manager'      => Nonce::Manager->create(),
+						'revealPii'    => Nonce::RevealPii->create(),
+						'updatePerson' => Nonce::UpdatePerson->create(),
+						'exportPii'    => Nonce::ExportPii->create(),
+						'deletePii'    => Nonce::RequestPiiDeletion->create(),
 					),
 				)
 			);

@@ -21,7 +21,7 @@ import { ApplicationViewModal } from './components/application-view-modal.js';
 import { StudentViewModal } from './components/student-view-modal.js';
 import { ParentViewModal } from './components/parent-view-modal.js';
 import { TeacherViewModal } from './components/teacher-view-modal.js';
-import { PersonViewModal } from './components/person-view-modal.js';
+import { PersonModalManager } from './services/person-modal-manager.js';
 import { PersonDetail } from './services/person-detail.js';
 
 (function ($) {
@@ -87,7 +87,7 @@ import { PersonDetail } from './services/person-detail.js';
         }
 
         if ( document.querySelector( '.fs-lms-students, .fs-lms-parents' ) ) {
-            PersonViewModal.init();
+            PersonModalManager.init();
         }
 
         if ( document.querySelector( '.fs-lms-teachers' ) ) {

@@ -185,12 +185,10 @@ $pages       = (int) ceil( $total / $perPage );
 							<a href="#"
 							   class="js-view-person"
 							   data-person-id="<?php echo esc_attr( (string) $studentPersonId ); ?>"
+							   data-wp-user-id="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>"
 							   data-person-type="student"
 							   data-display-name="<?php echo esc_attr( $studentName ); ?>"
-							   data-email="<?php echo esc_attr( $person?->email ?? '' ); ?>"
-							   data-birth-date="<?php echo esc_attr( $sd['birth_date'] ?? '' ); ?>"
-							   data-school="<?php echo esc_attr( $sd['school'] ?? '' ); ?>"
-							   data-grade="<?php echo esc_attr( isset( $sd['grade'] ) ? (string) $sd['grade'] : '' ); ?>">
+							   data-email="<?php echo esc_attr( $person?->email ?? '' ); ?>">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>
 						</span>
@@ -220,4 +218,4 @@ $pages       = (int) ceil( $total / $perPage );
 
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/person-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/student-person-modal.php'; ?>

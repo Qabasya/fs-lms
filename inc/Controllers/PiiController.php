@@ -87,6 +87,8 @@ class PiiController extends AjaxController {
 			array( AjaxHook::ReplaceRepresentative, $this->callbacks ),
 			// Обновление данных лица (person)
 			array( AjaxHook::UpdatePerson, $this->callbacks ),
+			// Данные вкладок модального окна (представители, зачисления)
+			array( AjaxHook::GetPersonData, $this->callbacks ),
 		);
 	}
 
