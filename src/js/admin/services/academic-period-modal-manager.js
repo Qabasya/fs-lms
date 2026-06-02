@@ -47,7 +47,7 @@ export const AcademicPeriodModalManager = {
 
         $.post(fs_lms_vars.ajaxurl, {
             action:      fs_lms_vars.ajax_actions.saveAcademicPeriod,
-            security:    fs_lms_vars.manager_nonce,
+            security:    fs_lms_vars.nonces.manager,
             action_type: formData.action_type,
             id:          formData.id,
             name:        formData.name,
@@ -100,7 +100,7 @@ export const AcademicPeriodModalManager = {
 
         $.post(fs_lms_vars.ajaxurl, {
             action:   fs_lms_vars.ajax_actions.deleteAcademicPeriod,
-            security: fs_lms_vars.manager_nonce,
+            security: fs_lms_vars.nonces.manager,
             id:       id
         })
             .done((res) => {

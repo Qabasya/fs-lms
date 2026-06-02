@@ -33,7 +33,7 @@ export const GroupModalManager = {
 
         $.post(fs_lms_vars.ajaxurl, {
             action:     fs_lms_vars.ajax_actions.saveStudentGroup,
-            security:   fs_lms_vars.manager_nonce,
+            security:   fs_lms_vars.nonces.manager,
             title:      formData.title,
             period_id:  formData.period_id,
             subject_id: formData.subject_id,
@@ -79,7 +79,7 @@ export const GroupModalManager = {
 
         $.post(fs_lms_vars.ajaxurl, {
             action:   fs_lms_vars.ajax_actions.deleteStudentGroup,
-            security: fs_lms_vars.manager_nonce,
+            security: fs_lms_vars.nonces.manager,
             id:       id
         })
             .done((res) => {

@@ -24,11 +24,18 @@
 /**
  * Глобальные переменные плагина для AJAX-запросов и настроек.
  *
+ * @typedef {Object} FSLmsVarsNonces
+ * @property {string} subject  Nonce для операций с предметами
+ * @property {string} manager  Nonce для операций менеджера
+ */
+
+/**
+ * Глобальные переменные плагина для AJAX-запросов и настроек.
+ *
  * @typedef {Object} FSLmsVars
- * @property {string}     ajaxurl        PageRoutes для AJAX-запросов
- * @property {string}     subject_nonce  Nonce для операций с предметами
- * @property {string}     manager_nonce  Nonce для операций менеджера заданий
- * @property {FSLmsHooks} ajax_actions   Объект с названиями AJAX-действий
+ * @property {string}          ajaxurl       URL для AJAX-запросов
+ * @property {FSLmsVarsNonces} nonces        Nonce-токены
+ * @property {FSLmsHooks}      ajax_actions  Объект с названиями AJAX-действий
  */
 
 /**

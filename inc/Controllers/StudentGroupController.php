@@ -49,10 +49,9 @@ class StudentGroupController extends AjaxController {
 	 */
 	protected function ajaxActions(): array {
 		return array(
-			// Создание или обновление группы учеников
-			array( AjaxHook::SaveStudentGroup, $this->student_group_callbacks ),
-			// Удаление группы учеников по её уникальному ID (слагу)
-			array( AjaxHook::DeleteStudentGroup, $this->student_group_callbacks ),
+			array( AjaxHook::SaveStudentGroup,    $this->student_group_callbacks ),
+			array( AjaxHook::DeleteStudentGroup,  $this->student_group_callbacks ),
+			array( AjaxHook::GetStudentsByGroup,  $this->student_group_callbacks ),
 		);
 	}
 }

@@ -59,7 +59,7 @@ export const TaxonomyModalManager = {
 
         $.post(fs_lms_vars.ajaxurl, {
             action:       data.action === 'store' ? fs_lms_vars.ajax_actions.storeTaxonomy : fs_lms_vars.ajax_actions.updateTaxonomy,
-            security:     fs_lms_vars.subject_nonce,
+            security:     fs_lms_vars.nonces.subject,
             subject_key:  data.subject_key,
             tax_slug:     data.tax_slug,
             tax_name:     data.tax_name,
@@ -86,7 +86,7 @@ export const TaxonomyModalManager = {
     _doDelete(slug, subject_key, $row) {
         $.post(fs_lms_vars.ajaxurl, {
             action:      fs_lms_vars.ajax_actions.deleteTaxonomy,
-            security:    fs_lms_vars.subject_nonce,
+            security:    fs_lms_vars.nonces.subject,
             subject_key: subject_key,
             tax_slug:    slug,
         })

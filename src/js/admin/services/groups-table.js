@@ -28,7 +28,6 @@ export const GroupsTable = {
     },
 
     _handleToggleAccordion(e) {
-        // Игнорируем клик, если нажали на кнопку удаления или другие ссылки/кнопки внутри строки
         if ($(e.target).closest('.js-delete-group, .row-actions, a, button').length) {
             return;
         }
@@ -39,19 +38,42 @@ export const GroupsTable = {
         const $arrow = $row.find('.accordion-arrow');
 
         if ($accordionRow.hasClass('hidden')) {
-            // // Опционально: закрываем остальные открытые аккордеоны, чтобы не раздувать таблицу
-            // $('.students-accordion-row').addClass('hidden');
-            // $('.accordion-arrow').css('transform', 'rotate(0deg)');
-
-            // Открываем текущий
             $accordionRow.removeClass('hidden');
             $arrow.css('transform', 'rotate(90deg)');
-
-            // Задел на будущее: здесь можно будет вызвать подгрузку учеников через AJAX
-            // this._loadStudentsIfNeeded(groupId, $accordionRow);
+            this._loadStudentsIfNeeded(groupId, $accordionRow);
         } else {
             $accordionRow.addClass('hidden');
             $arrow.css('transform', 'rotate(0deg)');
         }
+    },
+
+    _loadStudentsIfNeeded(groupId, $accordionRow) {
+        if ($accordionRow.data('loaded')) return;
+
+        const $content = $accordionRow.find('.students-accordion-content');
+        $content.html('<p class="description">Загрузка...</p>');
+
+        $.post(fs_lms_vars.ajaxurl, {
+            action:   fs_lms_vars.ajax_actions.getStudentsByGroup,
+            group_id: groupId,
+            security: fs_lms_vars.nonces.manager,
+        })
+        .done((res) => {
+            if (!res.success) {
+                $content.html('<p class="description">Ошибка загрузки.</p>');
+                return;
+            }
+            const students = res.data;
+            if (!students.length) {
+                $content.html('<p class="description"><span class="dashicons dashicons-groups"></span> Ученики ещё не добавлены</p>');
+            } else {
+                const items = students.map(s => `<li>${ $('<span>').text(s.name).html() }</li>`).join('');
+                $content.html(`<ul class="students-list">${items}</ul>`);
+            }
+            $accordionRow.data('loaded', true);
+        })
+        .fail(() => {
+            $content.html('<p class="description">Ошибка загрузки.</p>');
+        });
     }
 };

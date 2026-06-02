@@ -28,7 +28,7 @@ export const TaskFilter = {
                 fs_lms_vars.ajaxurl,
                 {
                     action:      fs_lms_vars.ajax_actions.getTasksByNumber,
-                    security:    fs_lms_vars.subject_nonce,
+                    security:    fs_lms_vars.nonces.subject,
                     subject_key: fs_lms_task_data.subject_key,
                     term_id:     termId,
                 },

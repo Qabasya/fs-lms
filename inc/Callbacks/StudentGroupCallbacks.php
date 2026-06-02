@@ -6,6 +6,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
+use Inc\Repositories\OptionsRepositories\StudentGroupMatrixRepository;
 use Inc\Services\StudentGroupService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\AjaxResponse;
@@ -36,7 +37,8 @@ class StudentGroupCallbacks extends BaseController {
 	 * @param StudentGroupService $group_service Сервис управления группами
 	 */
 	public function __construct(
-		private readonly StudentGroupService $group_service
+		private readonly StudentGroupService         $group_service,
+		private readonly StudentGroupMatrixRepository $matrix_repository,
 	) {
 		parent::__construct();
 	}
@@ -74,6 +76,26 @@ class StudentGroupCallbacks extends BaseController {
 	 *
 	 * @return void
 	 */
+	public function ajaxGetStudentsByGroup(): void {
+		$this->authorize( Nonce::Manager );
+
+		$group_id  = $this->requireKey( 'group_id', error: 'ID группы не указан.' );
+		$user_ids  = $this->matrix_repository->getStudentsByGroup( $group_id );
+
+		$students = array();
+		foreach ( $user_ids as $user_id ) {
+			$user = get_userdata( $user_id );
+			if ( $user ) {
+				$students[] = array(
+					'id'   => $user_id,
+					'name' => $user->display_name,
+				);
+			}
+		}
+
+		$this->success( $students );
+	}
+
 	public function ajaxDeleteStudentGroup(): void {
 		// Защита
 		$this->authorize( Nonce::Manager );
