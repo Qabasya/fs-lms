@@ -94,7 +94,6 @@ $today = current_time( 'Y-m-d' );
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_phone">—</span></div>
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Документ', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_doc">—</span></div>
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'ИНН', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_inn">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'ИНН ученика', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_inn_p">—</span></div>
 									<div class="fs-detail-row fs-detail-row--full"><span class="fs-detail-label"><?php esc_html_e( 'Адрес', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_address">—</span></div>
 								</div>
 							</div>

@@ -112,9 +112,13 @@ readonly class EnrollmentService {
 			$this->relationshipService->addRepresentative( $guardianPersonId, $studentPersonId, $relationType, true );
 
 			$snapshot    = array(
-				'student'     => $studentData,
-				'guardian'    => $parentData,
-				'enrolled_at' => $input->enrolledAt,
+				'student'       => $studentData,
+				'guardian'      => $parentData,
+				'enrolled_at'   => $input->enrolledAt,
+				'contract_no'   => $input->contractNo,
+				'contract_date' => $input->contractDate,
+				'order_no'      => $input->orderNo,
+				'order_date'    => $input->orderDate,
 			);
 			$enrollmentId = $this->enrollmentRepository->create( array(
 				'student_person_id'     => $studentPersonId,

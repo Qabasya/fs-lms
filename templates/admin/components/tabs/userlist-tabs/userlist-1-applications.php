@@ -98,10 +98,13 @@ $statusLabels = array_combine(
 
         <tbody id="the-list">
         <?php if ( empty( $apps ) ) : ?>
-
-            <div class="notice notice-info inline fs-table__no-items">
-                <p><?php esc_html_e( 'Заявок пока нет.', 'fs-lms' ); ?></p>
-            </div>
+            <tr>
+                <td colspan="6">
+                    <div class="notice notice-info inline fs-table__no-items">
+                        <p><?php esc_html_e( 'Заявок пока нет.', 'fs-lms' ); ?></p>
+                    </div>
+                </td>
+            </tr>
 
         <?php else : ?>
 			<?php foreach ( $apps as $app ) :

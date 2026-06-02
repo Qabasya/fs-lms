@@ -164,4 +164,58 @@ class EnrollmentRepository implements RepositoryInterface {
 			)
 		);
 	}
+
+	/**
+	 * Возвращает список зачислений с пагинацией.
+	 *
+	 * @param array<string, string> $filters Фильтры (status)
+	 * @param int                   $page    Номер страницы (с 1)
+	 * @param int                   $perPage Записей на страницу
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function list( array $filters = array(), int $page = 1, int $perPage = 20 ): array {
+		$offset = ( $page - 1 ) * $perPage;
+		$where  = 'WHERE 1=1';
+		$args   = array( $this->table );
+
+		if ( ! empty( $filters['status'] ) ) {
+			$where  .= ' AND status = %s';
+			$args[] = $filters['status'];
+		}
+
+		$args[] = $perPage;
+		$args[] = $offset;
+
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i {$where} ORDER BY enrolled_at DESC LIMIT %d OFFSET %d",
+				...$args
+			),
+			ARRAY_A
+		);
+
+		return $rows ?: array();
+	}
+
+	/**
+	 * Возвращает количество зачислений по фильтрам.
+	 *
+	 * @param array<string, string> $filters Фильтры (status)
+	 *
+	 * @return int
+	 */
+	public function count( array $filters = array() ): int {
+		$where = 'WHERE 1=1';
+		$args  = array( $this->table );
+
+		if ( ! empty( $filters['status'] ) ) {
+			$where  .= ' AND status = %s';
+			$args[] = $filters['status'];
+		}
+
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare( "SELECT COUNT(*) FROM %i {$where}", ...$args )
+		);
+	}
 }

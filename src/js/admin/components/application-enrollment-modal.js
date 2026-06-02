@@ -156,7 +156,7 @@ export const ApplicationEnrollmentModal = {
         } else {
             $select.append( '<option value="">— Выберите группу —</option>' );
             groups.forEach( g => {
-                $select.append( `<option value="${ g.title }">${ g.title }</option>` );
+                $select.append( `<option value="${ g.id }">${ g.title }</option>` );
             } );
             $select.prop( 'disabled', false );
         }

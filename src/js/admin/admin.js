@@ -17,6 +17,9 @@ import { ApplicationsTable } from './services/applications-table.js';
 import { ApplicationModalManager } from './services/application-modal-manager.js';
 import { ApplicationReviewModalManager } from './services/application-review-modal-manager.js';
 import { ApplicationEnrollmentModalManager } from './services/application-enrollment-modal-manager.js';
+import { StudentViewModal } from './components/student-view-modal.js';
+import { ParentViewModal } from './components/parent-view-modal.js';
+import { TeacherViewModal } from './components/teacher-view-modal.js';
 
 (function ($) {
     'use strict';
@@ -69,6 +72,18 @@ import { ApplicationEnrollmentModalManager } from './services/application-enroll
             ApplicationModalManager.init();
             ApplicationReviewModalManager.init();
             ApplicationEnrollmentModalManager.init();
+        }
+
+        if ( document.querySelector( '.fs-lms-students' ) ) {
+            StudentViewModal.init();
+        }
+
+        if ( document.querySelector( '.fs-lms-parents' ) ) {
+            ParentViewModal.init();
+        }
+
+        if ( document.querySelector( '.fs-lms-teachers' ) ) {
+            TeacherViewModal.init();
         }
 
     });
