@@ -49,13 +49,16 @@ $pages       = (int) ceil( $total / $perPage );
 				<?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
-				<?php esc_html_e( 'Направление', 'fs-lms' ); ?>
+				<?php esc_html_e( 'Телефон', 'fs-lms' ); ?>
+			</th>
+			<th class="column-title">
+				<?php esc_html_e( 'Предмет', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
 				<?php esc_html_e( 'Группа', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
-				<?php esc_html_e( 'Преподаватель', 'fs-lms' ); ?>
+				<?php esc_html_e( 'Расписание', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
 				<?php esc_html_e( 'Номер договора', 'fs-lms' ); ?>
@@ -69,7 +72,7 @@ $pages       = (int) ceil( $total / $perPage );
 		<tbody id="the-list">
 		<?php if ( empty( $enrollments ) ) : ?>
 			<tr>
-				<td colspan="6">
+				<td colspan="7">
 					<div class="notice notice-info inline fs-table__no-items">
 						<p><?php esc_html_e( 'Зачисленных учеников пока нет.', 'fs-lms' ); ?></p>
 					</div>
@@ -90,14 +93,11 @@ $pages       = (int) ceil( $total / $perPage );
 					$studentName = $wpUser ? $wpUser->display_name : '—';
 				}
 
-				// Группа и преподаватель
-				$groupTitle   = '—';
-				$teacherName  = '—';
-				$group        = $groupRepo->getById( $groupId );
+				// Группа
+				$groupTitle = '—';
+				$group      = $groupRepo->getById( $groupId );
 				if ( $group ) {
-					$groupTitle  = $group->title;
-					$teacher     = get_userdata( $group->teacher_id );
-					$teacherName = $teacher ? $teacher->display_name : '—';
+					$groupTitle = $group->title;
 				}
 
 				// Направление
@@ -119,13 +119,13 @@ $pages       = (int) ceil( $total / $perPage );
 					}
 				}
 
-				$sd = $snapshot['student']  ?? array();
-				$gd = $snapshot['guardian'] ?? array();
+				$sd            = $snapshot['student']  ?? array();
+				$gd            = $snapshot['guardian'] ?? array();
+				$studentPhone  = $sd['phone'] ?? '';
 
 				$enrollmentData = array(
 					'subject'                  => $subjectName,
 					'group'                    => $groupTitle,
-					'teacher'                  => $teacherName,
 					'contract_no'              => $snapshot['contract_no']   ?? '',
 					'contract_date'            => $snapshot['contract_date'] ?? '',
 					'order_no'                 => $snapshot['order_no']      ?? '',
@@ -159,6 +159,14 @@ $pages       = (int) ceil( $total / $perPage );
 					<?php echo esc_html( $studentName ); ?>
 				</td>
 
+				<td>
+					<?php if ( $studentPhone ) : ?>
+						<?php echo esc_html( $studentPhone ); ?>
+					<?php else : ?>
+						<span class="fs-table__empty-value">—</span>
+					<?php endif; ?>
+				</td>
+
 				<td class="column-title">
 					<?php echo esc_html( $subjectName ); ?>
 				</td>
@@ -167,8 +175,8 @@ $pages       = (int) ceil( $total / $perPage );
 					<?php echo esc_html( $groupTitle ); ?>
 				</td>
 
-				<td class="column-title">
-					<?php echo esc_html( $teacherName ); ?>
+				<td>
+					<span class="fs-table__empty-value">—</span>
 				</td>
 
 				<td>
