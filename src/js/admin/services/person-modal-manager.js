@@ -125,7 +125,10 @@ export const PersonModalManager = {
             if ( rep ) $modal.find( '[data-val="guardian_name"]' ).text( rep.name || '—' );
 
             const dep = d.dependents && d.dependents[0];
-            if ( dep ) $modal.find( '[data-val="dependent_name"]' ).text( dep.name || '—' );
+            if ( dep ) {
+                $modal.find( '[data-val="dependent_name"]' ).text( dep.name || '—' );
+                $modal.find( '[data-val="relation_type"]' ).text( dep.type_label || '—' );
+            }
 
             if ( d.wp_user_id ) $modal.data( 'wpUserId', d.wp_user_id );
         } );

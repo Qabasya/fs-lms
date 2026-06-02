@@ -636,6 +636,20 @@ class EnrollmentCallbacks extends BaseController {
 			return;
 		}
 
+		$actor_id  = get_current_user_id();
+		$actor_wp  = $actor_id ? get_userdata( $actor_id ) : false;
+		$personId  = (int) get_user_meta( $user_id, 'fs_lms_person_id', true ) ?: null;
+
+		$this->piiAccessLog->create( array(
+			'actor_user_id'   => $actor_id ?: null,
+			'actor_role'      => ( $actor_wp && ! empty( $actor_wp->roles ) ) ? (string) reset( $actor_wp->roles ) : null,
+			'person_id'       => $personId,
+			'fields_accessed' => 'login,password',
+			'access_reason'   => 'admin_reveal_credentials',
+			'actor_ip'        => sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '' ),
+			'created_at'      => current_time( 'mysql', true ),
+		) );
+
 		$this->success( $credentials );
 	}
 }
