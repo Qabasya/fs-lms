@@ -27,4 +27,23 @@
       }
     }
   }
+
+  &--inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    input,
+    select,
+    textarea {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .fs-field-error {
+      flex: 0 0 auto;
+      margin: 0;
+      white-space: nowrap;
+    }
+  }
 }
