@@ -37,6 +37,8 @@ readonly class PersonDTO {
 	 * @param int         $id            ID записи
 	 * @param int|null    $wpUserId      ID пользователя WordPress (если связан)
 	 * @param string|null $email         Email (дублируется для поиска)
+	 * @param string|null $birthDate     Дата рождения (YYYY-MM-DD, не шифруется)
+	 * @param string|null $docType       Тип документа (pass, birth_certificate, не шифруется)
 	 * @param string|null $fullNameEnc   Зашифрованное ФИО
 	 * @param string|null $docNumberEnc  Зашифрованный номер документа
 	 * @param string|null $innEnc        Зашифрованный ИНН
@@ -52,6 +54,8 @@ readonly class PersonDTO {
 		public int     $id,
 		public ?int    $wpUserId,
 		public ?string $email,
+		public ?string $birthDate,
+		public ?string $docType,
 		public ?string $fullNameEnc,
 		public ?string $docNumberEnc,
 		public ?string $innEnc,
@@ -76,6 +80,8 @@ readonly class PersonDTO {
 			id:            (int) $row['id'],
 			wpUserId:      isset( $row['wp_user_id'] ) ? (int) $row['wp_user_id'] : null,
 			email:         isset( $row['email'] ) ? (string) $row['email'] : null,
+			birthDate:     isset( $row['birth_date'] ) ? (string) $row['birth_date'] : null,
+			docType:       isset( $row['doc_type'] ) ? (string) $row['doc_type'] : null,
 			fullNameEnc:   isset( $row['full_name_enc'] ) ? (string) $row['full_name_enc'] : null,
 			docNumberEnc:  isset( $row['doc_number_enc'] ) ? (string) $row['doc_number_enc'] : null,
 			innEnc:        isset( $row['inn_enc'] ) ? (string) $row['inn_enc'] : null,
@@ -99,6 +105,8 @@ readonly class PersonDTO {
 			'id'              => $this->id,
 			'wp_user_id'      => $this->wpUserId,
 			'email'           => $this->email,
+			'birth_date'      => $this->birthDate,
+			'doc_type'        => $this->docType,
 			'full_name_enc'   => $this->fullNameEnc,
 			'doc_number_enc'  => $this->docNumberEnc,
 			'inn_enc'         => $this->innEnc,

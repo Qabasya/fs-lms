@@ -11,18 +11,18 @@ use Inc\Enums\Capability;
 /**
  * Class PiiController
  *
- * Контроллер для работы с персональными данными (PII): раскрытие, экспорт, удаление,
- * управление представителями, страница "Люди" в админ-панели, эндпоинт скачивания экспорта.
+ * Контроллер для работы с персональными данными (PII): раскрытие, удаление,
+ * управление представителями, страница "Люди" в админ-панели, эндпоинт скачивания файлов.
  *
  * @package Inc\Controllers
  *
  * ### Основные обязанности:
  *
- * 1. **Управление PII** — раскрытие полей, экспорт данных, запрос на удаление.
+ * 1. **Управление PII** — раскрытие полей, запрос на удаление.
  * 2. **Управление представителями** — добавление и замена законных представителей учеников.
  * 3. **Управление лицами (Persons)** — обновление данных.
  * 4. **Административные страницы** — карточка лица (person) в админ-панели.
- * 5. **Эндпоинт скачивания экспорта** — обработка одноразовой ссылки на скачивание PII.
+ * 5. **Эндпоинт скачивания файлов** — одноразовая ссылка для скачивания CSV-экспортов.
  *
  * ### Архитектурная роль:
  *
@@ -31,7 +31,7 @@ use Inc\Enums\Capability;
  *
  * ### Маршруты:
  *
- * - `/lms/pii-export/{token}` — одноразовая ссылка для скачивания экспорта PII
+ * - `/lms/export/{token}` — одноразовая ссылка для скачивания файла экспорта
  */
 class PiiController extends AjaxController {
 
@@ -55,14 +55,9 @@ class PiiController extends AjaxController {
 		// 'admin_menu' — хук для регистрации страниц админ-панели
 		add_action( 'admin_menu', array( $this, 'registerPersonDetailPage' ) );
 
-		// 'init' — хук для добавления rewrite правил
-		add_action( 'init', array( $this, 'addPiiExportRewriteRule' ) );
-
-		// 'query_vars' — фильтр для добавления кастомных query-переменных
-		add_filter( 'query_vars', array( $this, 'addPiiExportQueryVar' ) );
-
-		// 'template_include' — фильтр для перехвата запроса на скачивание экспорта
-		add_filter( 'template_include', array( $this, 'handlePiiExportDownload' ) );
+		add_action( 'init',             array( $this, 'addExportRewriteRule' ) );
+		add_filter( 'query_vars',       array( $this, 'addExportQueryVar' ) );
+		add_filter( 'template_include', array( $this, 'handleExportDownload' ) );
 
 		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
 		parent::register();
@@ -75,20 +70,12 @@ class PiiController extends AjaxController {
 	 */
 	protected function ajaxActions(): array {
 		return array(
-			// Раскрытие одного PII-поля (временно, на 30 секунд)
-			array( AjaxHook::RevealPiiField, $this->callbacks ),
-			// Запрос на удаление персональных данных (soft delete)
-			array( AjaxHook::RequestPiiDeletion, $this->callbacks ),
-			// Экспорт персональных данных в JSON
-			array( AjaxHook::ExportPii, $this->callbacks ),
-			// Добавление законного представителя к ученику
-			array( AjaxHook::AddRepresentative, $this->callbacks ),
-			// Замена законного представителя
+			array( AjaxHook::RevealPiiField,       $this->callbacks ),
+			array( AjaxHook::RequestPiiDeletion,   $this->callbacks ),
+			array( AjaxHook::AddRepresentative,    $this->callbacks ),
 			array( AjaxHook::ReplaceRepresentative, $this->callbacks ),
-			// Обновление данных лица (person)
-			array( AjaxHook::UpdatePerson, $this->callbacks ),
-			// Данные вкладок модального окна (представители, зачисления)
-			array( AjaxHook::GetPersonData, $this->callbacks ),
+			array( AjaxHook::UpdatePerson,         $this->callbacks ),
+			array( AjaxHook::GetPersonData,        $this->callbacks ),
 		);
 	}
 
@@ -110,74 +97,62 @@ class PiiController extends AjaxController {
 	}
 
 	/**
-	 * Добавляет rewrite правило для эндпоинта скачивания экспорта PII.
+	 * Добавляет rewrite правило для эндпоинта скачивания файлов экспорта.
 	 *
 	 * @return void
 	 */
-	public function addPiiExportRewriteRule(): void {
-		// Маршрут: /lms/pii-export/{token} → index.php?fs_lms_page=pii_export&fs_lms_token={token}
+	public function addExportRewriteRule(): void {
 		add_rewrite_rule(
-			'^lms/pii-export/([a-zA-Z0-9]+)/?$',
-			'index.php?fs_lms_page=pii_export&fs_lms_token=$matches[1]',
+			'^lms/export/([a-zA-Z0-9]+)/?$',
+			'index.php?fs_lms_page=lms_export&fs_lms_token=$matches[1]',
 			'top'
 		);
 	}
 
 	/**
-	 * Добавляет кастомную query-переменную для токена экспорта.
-	 *
-	 * @param array $vars Существующие query-переменные
-	 *
+	 * @param array $vars
 	 * @return array
 	 */
-	public function addPiiExportQueryVar( array $vars ): array {
+	public function addExportQueryVar( array $vars ): array {
 		$vars[] = 'fs_lms_token';
 		return $vars;
 	}
 
 	/**
-	 * Отдаёт файл экспорта по одноразовому токену.
-	 * Перехватывает запрос, не позволяя WordPress загрузить шаблон темы.
+	 * Отдаёт файл экспорта по одноразовому токену и удаляет его.
+	 * Transient хранит массив: ['file' => path, 'filename' => name, 'content_type' => mime].
 	 *
-	 * @param string $template Путь к текущему шаблону темы
-	 *
+	 * @param string $template
 	 * @return string
 	 */
-	public function handlePiiExportDownload( string $template ): string {
-		// Проверка, что запрошена страница экспорта PII
-		if ( 'pii_export' !== get_query_var( 'fs_lms_page' ) ) {
+	public function handleExportDownload( string $template ): string {
+		if ( 'lms_export' !== get_query_var( 'fs_lms_page' ) ) {
 			return $template;
 		}
 
-		// Получение токена из URL
 		$token = sanitize_key( get_query_var( 'fs_lms_token' ) );
-		// get_transient() — получение временных данных (путь к файлу)
-		$file = get_transient( 'fs_lms_export_' . $token );
+		$meta  = get_transient( 'fs_lms_export_' . $token );
 
-		// Проверка существования файла
-		if ( ! $file || ! file_exists( (string) $file ) ) {
+		if ( ! is_array( $meta ) || empty( $meta['file'] ) || ! file_exists( (string) $meta['file'] ) ) {
 			global $wp_query;
 			$wp_query->set_404();
 			status_header( 404 );
 			nocache_headers();
-
 			return get_404_template();
 		}
 
-		// Удаление токена (одноразовая ссылка)
 		delete_transient( 'fs_lms_export_' . $token );
 
-		// Отправка заголовков для скачивания файла
-		header( 'Content-Disposition: attachment; filename="pii-export.json"' );
-		header( 'Content-Type: application/json; charset=utf-8' );
-		nocache_headers();  // Запрет кеширования
+		$filename     = (string) ( $meta['filename']     ?? 'export' );
+		$contentType  = (string) ( $meta['content_type'] ?? 'application/octet-stream' );
 
-		// readfile() — вывод содержимого файла в буфер вывода
-		readfile( (string) $file );
-		// unlink() — удаление временного файла после скачивания
-		unlink( (string) $file );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+		header( 'Content-Type: ' . $contentType );
+		nocache_headers();
 
-		// Завершение выполнения скрипта (не передаём управление WordPress)
+		readfile( (string) $meta['file'] );
+		unlink( (string) $meta['file'] );
+
 		exit;
 	}
 }

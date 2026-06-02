@@ -145,6 +145,16 @@ readonly class PersonService {
 			$changedFields[] = 'email';
 		}
 
+		if ( isset( $changes['birth_date'] ) ) {
+			$data['birth_date'] = (string) $changes['birth_date'];
+			$changedFields[] = 'birth_date';
+		}
+
+		if ( isset( $changes['doc_type'] ) ) {
+			$data['doc_type'] = (string) $changes['doc_type'];
+			$changedFields[] = 'doc_type';
+		}
+
 		if ( empty( $data ) ) {
 			return;
 		}
@@ -229,6 +239,14 @@ readonly class PersonService {
 
 		if ( isset( $rawData['email'] ) ) {
 			$data['email'] = (string) $rawData['email'];
+		}
+
+		if ( isset( $rawData['birth_date'] ) && '' !== (string) $rawData['birth_date'] ) {
+			$data['birth_date'] = (string) $rawData['birth_date'];
+		}
+
+		if ( isset( $rawData['doc_type'] ) && '' !== (string) $rawData['doc_type'] ) {
+			$data['doc_type'] = (string) $rawData['doc_type'];
 		}
 
 		if ( isset( $rawData['wp_user_id'] ) ) {

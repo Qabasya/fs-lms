@@ -13,6 +13,7 @@
 - `PiiCryptoService`, `PiiMaskingService`, `PersonReader`, `PersonService`
 - `EnrollmentService` (включая snapshot с contract_no/contract_date/order_no/order_date)
 - `EmailService` + strategy pattern (`WpOptionsEmailTemplate` / `PhpEmailTemplate`)
+- `CsvExportService` + `CsvColumn` — Column Projection, одноразовые ссылки `/lms/export/{token}`
 
 **Контроллеры** (все зарегистрированы в Init.php):
 - `ApplicationController` — маршруты `/lms/apply`, `/lms/join/{code}`
@@ -24,7 +25,7 @@
 **Callbacks** (все методы реализованы):
 - `ApplicationCallbacks` — ajaxSendOtpCode, ajaxCreateApplication, ajaxSubmitParentData
 - `EnrollmentCallbacks` — весь цикл заявок (список, карточка, зачисление, корзина, редактирование)
-- `PiiCallbacks` — reveal, export, soft-delete, add/replace representative, update person, renderPersonDetailPage
+- `PiiCallbacks` — reveal, soft-delete, add/replace representative, update person, renderPersonDetailPage
 - `RecoveryCallbacks` — все cron-тики
 
 **Шаблоны — готовы:**
@@ -100,7 +101,7 @@
 
 * Данные паспорта, ИНН, дата рождения
 
-Кнопки (внизу модального окна): Закрыть, Экспорт, Удалить, Редактировать
+Кнопки (внизу модального окна): Закрыть, Экспорт (CSV через CsvExportService), Удалить, Редактировать
 
 
 ### Вид карточки для родителя (`lms_parent`):
@@ -120,7 +121,7 @@
 
 * Прописка
 
-Кнопки (внизу модального окна): Закрыть, Экспорт, Удалить, Редактировать
+Кнопки (внизу модального окна): Закрыть, Экспорт (CSV через CsvExportService), Удалить, Редактировать
 
 Действия (кнопки) в модальном окне:
 * Закрыть модальное окно

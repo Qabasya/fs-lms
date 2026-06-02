@@ -17,7 +17,6 @@ use Inc\Services\AuditService;
 use Inc\Services\EmailService;
 use Inc\Services\Person\PersonReader;
 use Inc\Services\Person\PersonService;
-use Inc\Services\Person\PiiExportService;
 use Inc\Services\Person\RelationshipService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\RateLimitService;
@@ -36,8 +35,7 @@ use Inc\Shared\Traits\Sanitizer;
  * 1. **Раскрытие PII-полей** — временное раскрытие зашифрованных данных на 30 секунд.
  * 2. **Управление лицами (Persons)** — создание, обновление, мягкое удаление записей.
  * 3. **Управление представителями** — добавление и замена законных представителей учеников.
- * 4. **Экспорт PII** — создание одноразовой ссылки для экспорта персональных данных.
- * 5. **Отображение страниц** — рендеринг списков лиц и детальных карточек.
+ * 4. **Отображение страниц** — рендеринг списков лиц и детальных карточек.
  *
  * ### Архитектурная роль:
  *
@@ -57,7 +55,6 @@ class PiiCallbacks extends BaseController {
 	 * @param PersonRepository    $personRepository    Репозиторий лиц
 	 * @param RelationshipService $relationshipService Сервис управления связями
 	 * @param RateLimitService    $rateLimitService    Сервис ограничения запросов
-	 * @param PiiExportService    $piiExportService    Сервис экспорта PII
 	 * @param EmailService        $emailService        Сервис отправки email
 	 * @param AuditService        $auditService        Сервис аудита
 	 */
@@ -67,7 +64,6 @@ class PiiCallbacks extends BaseController {
 		private readonly PersonRepository       $personRepository,
 		private readonly RelationshipService    $relationshipService,
 		private readonly RateLimitService       $rateLimitService,
-		private readonly PiiExportService       $piiExportService,
 		private readonly EmailService           $emailService,
 		private readonly AuditService           $auditService,
 		private readonly EnrollmentRepository   $enrollmentRepository,
@@ -119,25 +115,6 @@ class PiiCallbacks extends BaseController {
 		$this->personService->softDelete( $personId, get_current_user_id() );
 
 		$this->success();
-	}
-
-	/**
-	 * AJAX: создать файл экспорта ПД и вернуть одноразовую ссылку.
-	 *
-	 * @return void
-	 */
-	public function ajaxExportPii(): void {
-		$this->authorize( Nonce::ExportPii, Capability::ExportPII );
-
-		$personId = $this->sanitizeInt( $_POST['person_id'] ?? 0 );
-		$actorId  = get_current_user_id();
-
-		// Формирование JSON-данных для экспорта
-		$payload = $this->piiExportService->buildExport( $personId, $actorId );
-		// Генерация одноразовой ссылки на скачивание
-		$link = $this->piiExportService->createDownloadLink( $payload );
-
-		$this->success( array( 'download_url' => $link ) );
 	}
 
 	/**

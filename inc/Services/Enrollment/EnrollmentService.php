@@ -93,8 +93,10 @@ readonly class EnrollmentService {
 				: $this->personService->createOrFindBy( array(
 					'full_name'  => $studentData['full_name'],
 					'doc_number' => $studentData['doc_number'],
-					'inn'        => $studentData['inn'] ?? '',
-					'email'      => $studentData['email'] ?? null,
+					'birth_date' => $studentData['birth_date'] ?? '',
+					'doc_type'   => $studentData['doc_type']   ?? '',
+					'inn'        => $studentData['inn']        ?? '',
+					'email'      => $studentData['email']      ?? null,
 				) );
 
 			$guardianPersonId = $existingGuardian !== null
@@ -102,9 +104,11 @@ readonly class EnrollmentService {
 				: $this->personService->createOrFindBy( array(
 					'full_name'  => $parentData['full_name'],
 					'doc_number' => $parentData['doc_number'],
-					'inn'        => $parentData['inn'] ?? '',
-					'address'    => $parentData['address'] ?? '',
-					'phone'      => $parentData['phone'] ?? '',
+					'birth_date' => $parentData['birth_date'] ?? '',
+					'doc_type'   => $parentData['doc_type']   ?? '',
+					'inn'        => $parentData['inn']        ?? '',
+					'address'    => $parentData['address']    ?? '',
+					'phone'      => $parentData['phone']      ?? '',
 					'email'      => $parentData['email'],
 				) );
 
