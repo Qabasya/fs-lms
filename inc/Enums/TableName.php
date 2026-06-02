@@ -11,8 +11,9 @@ enum TableName: string {
 	case Relationships  = 'fs_lms_relationships';
 	case Enrollments    = 'fs_lms_enrollments';
 	case Consents       = 'fs_lms_consents';
-	case AuditLog       = 'fs_lms_audit_log';
-	case PiiAccessLog   = 'fs_lms_pii_access_log';
+	case AuditLog        = 'fs_lms_audit_log';
+	case PiiAccessLog    = 'fs_lms_pii_access_log';
+	case ExpelledArchive = 'fs_lms_expelled_archive';
 
 	public function prefixed(): string {
 		global $wpdb;

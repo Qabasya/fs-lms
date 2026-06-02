@@ -23,6 +23,7 @@ import { ParentViewModal } from './components/parent-view-modal.js';
 import { TeacherViewModal } from './components/teacher-view-modal.js';
 import { PersonModalManager } from './services/person-modal-manager.js';
 import { PersonDetail } from './services/person-detail.js';
+import { ExpelModalManager } from './services/expel-modal-manager.js';
 
 (function ($) {
     'use strict';
@@ -95,6 +96,7 @@ import { PersonDetail } from './services/person-detail.js';
         }
 
         PersonDetail.init();
+        ExpelModalManager.init();
 
     });
 

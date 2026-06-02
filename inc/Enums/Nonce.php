@@ -36,6 +36,7 @@ enum Nonce: string {
 	case TrashApplication      = 'fs_lms_trash_application';
 	case EditApplication       = 'fs_lms_edit_application';
 	case ReviewApplication     = 'fs_lms_review_application';
+	case Expulsion             = 'fs_lms_expulsion';
 
 	/**
 	 * Создает защитный токен.

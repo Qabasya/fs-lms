@@ -94,4 +94,12 @@ enum AuditAction: string {
 	case UpdateApplicationData = 'update_application_data';
 	case UpdateReviewData      = 'update_review_data';
 	case StartEnrollment       = 'start_enrollment';
+
+	// ===== Отчисление =====
+
+	/** Отчисление студента с удалением профилей */
+	case StudentExpelled = 'student_expelled';
+
+	/** Экспорт записи архива отчисленных */
+	case ExpelledArchiveExported = 'expelled_archive_exported';
 }

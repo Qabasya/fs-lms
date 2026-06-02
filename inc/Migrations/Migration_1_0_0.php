@@ -224,6 +224,29 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 8. Таблица архива отчисленных (expelled_archive) =====
+		$expelled_archive = TableName::ExpelledArchive->prefixed();
+		dbDelta(
+			"CREATE TABLE $expelled_archive (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			enrollment_id bigint(20) unsigned DEFAULT NULL,
+			student_person_id bigint(20) unsigned DEFAULT NULL,
+			parent_person_id bigint(20) unsigned DEFAULT NULL,
+			data_enc longblob NOT NULL,
+			expelled_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			expelled_by_user_id bigint(20) unsigned DEFAULT NULL,
+			reason text DEFAULT NULL,
+			restored_at datetime DEFAULT NULL,
+			restored_by_user_id bigint(20) unsigned DEFAULT NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY enrollment_id (enrollment_id),
+			KEY student_person_id (student_person_id),
+			KEY expelled_at (expelled_at),
+			KEY restored_at (restored_at)
+		) $cc;"
+		);
+
 		// ===== Cleanup: добавление/удаление колонок без нового файла миграции =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$applications` DROP COLUMN IF EXISTS `rejected_reason`" );
@@ -244,6 +267,7 @@ class Migration_1_0_0 implements MigrationInterface {
 
 		// Таблицы удаляются в обратном порядке (от зависимых к основным)
 		$tables = array(
+			TableName::ExpelledArchive->prefixed(),
 			TableName::PiiAccessLog->prefixed(),
 			TableName::AuditLog->prefixed(),
 			TableName::Consents->prefixed(),

@@ -196,8 +196,9 @@ class Enqueue extends BaseController implements ServiceInterface {
 			array(
 				'ajaxurl'      => admin_url( 'admin-ajax.php' ),
 				'nonces'       => array(
-					'subject' => Nonce::Subject->create(),
-					'manager' => Nonce::Manager->create(),
+					'subject'   => Nonce::Subject->create(),
+					'manager'   => Nonce::Manager->create(),
+					'expulsion' => Nonce::Expulsion->create(),
 				),
 				'ajax_actions' => AjaxHook::toJsArray(),
 			)

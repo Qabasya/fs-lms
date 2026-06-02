@@ -56,6 +56,10 @@ enum AjaxHook: string {
 	case SaveStudentGroup   = 'save_student_group';
 	case DeleteStudentGroup = 'delete_student_group';
 
+	// ==================== Отчисление ====================
+	case ExpelStudent         = 'expel_student';
+	case ExportExpelledRecord = 'export_expelled_record';
+
 	// ==================== Система зачисления ====================
 	case CreateApplication           = 'create_application';
 	case SubmitParentData            = 'submit_parent_data';

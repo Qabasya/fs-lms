@@ -4,6 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build Commands
 
+> **Claude не запускает сборку.** Gulp и Docker-команды выполняет пользователь самостоятельно.
+> При необходимости — показать команду в тексте ответа, не вызывать через инструменты.
+
 ```bash
 npx gulp build            # JS + all CSS once
 npx gulp watch            # watch + rebuild
@@ -364,6 +367,8 @@ Use snake_case for all WP-related identifiers.
 
 ## Docker Environment
 
+> **Claude не выполняет docker-команды.** При необходимости — показать команду в тексте ответа, пользователь запустит её сам.
+
 The plugin runs inside Docker. The plugin directory is mounted as a volume — PHP file changes apply immediately, but OPcache may hold stale bytecode.
 
 ```bash
@@ -386,9 +391,7 @@ Data is stored in `wp_options` — never in term meta or post meta directly.
 3. Сбросить версию схемы: `docker exec wp_db mariadb -u root -proot wordpress -e "UPDATE wp_options SET option_value='0.0.0' WHERE option_name='fs_lms_schema_version';"`
 4. Перезагрузить любую страницу WP — все миграции перезапустятся автоматически
 
-Или вызвать `MigrationRunner::reset()` из кода, а затем `run()`.
-
-**Новые таблицы и добавление колонок** — по-прежнему через отдельный файл миграции (`Migration_1_0_X`).
+**Новые таблицы** — добавлять в `Migration_1_0_0::up()` и `down()`, не создавать отдельный файл.
 
 ---
 

@@ -16,6 +16,7 @@ use Inc\Controllers\EnrollmentController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\PiiController;
 use Inc\Controllers\ProfileController;
+use Inc\Controllers\ExpulsionController;
 use Inc\Controllers\RecoveryController;
 use Inc\Controllers\StudentGroupController;
 use Inc\Controllers\SubjectController;
@@ -74,6 +75,7 @@ final class Init {
 			EnrollmentController::class,
 			PiiController::class,
 			RecoveryController::class,
+			ExpulsionController::class,
 		);
 	}
 

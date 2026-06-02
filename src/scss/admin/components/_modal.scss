@@ -957,3 +957,39 @@ html.modal-open {
     height: 35px;
   }
 }
+
+
+/* =================================================================
+   EXPEL MODAL (предупреждение об отчислении)
+   ================================================================= */
+
+.fs-expel-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  background: rgba($color-danger, 0.06);
+  border: 1px solid rgba($color-danger, 0.2);
+  border-left: 4px solid $color-danger;
+  border-radius: 0 $border-radius-md $border-radius-md 0;
+  padding: $spacing-sm $spacing-md;
+  margin-bottom: $spacing-lg;
+  font-size: 13px;
+  color: $wp-admin-red-text;
+
+  .dashicons {
+    color: $color-danger;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
+.fs-expel-student-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: $color-text-primary;
+  margin-bottom: $spacing-lg;
+
+  &:empty {
+    display: none;
+  }
+}
