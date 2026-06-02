@@ -1,7 +1,7 @@
 # FS LMS — Оставшиеся задачи
 
 Версия: 2026-06-02  
-Статус: вся инфраструктура реализована. Остаётся: несколько шаблонов, настройки, безопасность, тесты, документация.
+Статус: вся инфраструктура реализована. Остаётся: карточки пользователей, отчисление, CSV-экспорт, настройки, безопасность, тесты, документация.
 
 ---
 
@@ -9,7 +9,7 @@
 
 **Инфраструктура:**
 - Все enum-ы, все репозитории, все сервисы, все DTO, все shared traits
-- `UserManager`, `RoleManager`, `CronManager`, `MigrationRunner`, `Migration_1_0_0..3`
+- `UserManager`, `RoleManager`, `CronManager`, `MigrationRunner`, `Migration_1_0_0` (единственная, всё слито)
 - `PiiCryptoService`, `PiiMaskingService`, `PersonReader`, `PersonService`
 - `EnrollmentService` (включая snapshot с contract_no/contract_date/order_no/order_date)
 - `EmailService` + strategy pattern (`WpOptionsEmailTemplate` / `PhpEmailTemplate`)
@@ -35,6 +35,8 @@
 - `templates/admin/components/tabs/userlist-tabs/userlist-2-students.php` — зачисленные ученики
 - `templates/admin/components/tabs/userlist-tabs/userlist-3-parents.php` — родители/представители
 - `templates/admin/components/tabs/userlist-tabs/userlist-4-teachers.php` — преподаватели
+- `templates/admin/components/tabs/userlist-tabs/userlist-5-archive.php` — архив отчисленных/завершивших
+- `templates/admin/components/modals/archive-view-modal.php` + `archive-view-modal.js` — аккордеон с данными
 - Все модальные окна: enrollment, review, change, student-view, parent-view, teacher-view
 - `application-view-modal` — read-only просмотр заявки для статусов Enrolling/Converted/Expired/Trash
 - Все 6 email-шаблонов
@@ -131,17 +133,12 @@
 
 ---
 
-### 1.2 `templates/admin/components/tabs/userlist-tabs/userlist-5-archive.php`
+### 1.2 `userlist-5-archive.php` — ✅ реализовано
 
-Таб «Архив» — ученики с завершёнными/отчисленными зачислениями.
-
-**Перед реализацией:** расширить `EnrollmentRepository::list()` — сейчас фильтр `status` принимает только одну строку. Нужно добавить поддержку массива: если передан `array`, генерировать `WHERE status IN (...)`. Текущая сигнатура `list(array $filters, int $page, int $perPage)` не меняется, меняется только обработка значения `$filters['status']`.
-
-Источник данных: `EnrollmentRepository::list(['status' => ['expelled', 'finished', 'transferred']], $page, $perPage)`.
-
-Колонки: ФИО ученика, Направление, Группа, Статус зачисления, Дата завершения, Причина, Действия («Просмотреть»).
-
-Аналогичная структура с `userlist-2-students.php`, но фильтр по `EnrollmentStatus` ≠ active.
+`EnrollmentRepository::list()` поддерживает массив статусов (`IN (...)`).  
+Источник: `['status' => ['expelled', 'finished', 'transferred']]`.  
+Колонки: ФИО, Направление, Группа, Статус, Дата завершения, Причина, Действия.  
+Модалка `archive-view-modal` — аккордеон: данные ребёнка / родителя / зачисления.
 
 ---
 
@@ -321,19 +318,105 @@ add_action('admin_init', function() {
 
 ---
 
-### 7. Отчисление ученика
+## 7. Отчисление ученика
 
-Добавить возможность отчисления ученика. При отчислении все данные переходят в таблицу Архив. Пользователи удаляются. Но все данные остаются в базе и доступны через модальное окно Посмотреть в архиве.
+Кнопка «Отчислить» в карточке ученика (`person-detail.php`) или в таблице учеников (`userlist-2-students.php`).
+
+### 7.1 Бэкенд
+
+**`AjaxHook`**: добавить `case ExpelStudent = 'expel_student'`.
+
+**`EnrollmentCallbacks::ajaxExpelStudent()`**:
+- `$this->authorize(Nonce::Manager, Capability::ManageApplications)`
+- Принимает: `enrollment_id`, `reason` (текст причины)
+- Вызывает `EnrollmentService::expel(int $enrollmentId, string $reason, int $actorId)`
+
+**`EnrollmentService::expel()`**:
+1. Найти enrollment, проверить что статус `active`
+2. `EnrollmentRepository::update()` — установить `status = expelled`, `terminated_at = now()`, `terminated_reason`, `terminated_by_user_id`
+3. Удалить WP-пользователей ученика и родителя (`wp_delete_user()`), если у родителя нет других активных подопечных
+4. Удалить ученика из матрицы группы (`StudentGroupMatrixRepository::removeStudent()`)
+5. Записать в `AuditService`: `AuditAction::ExpelStudent`
+
+**Регистрация** в `EnrollmentController::ajaxActions()`.
+
+### 7.2 Фронтенд
+
+Модальное окно подтверждения с полем «Причина отчисления» (обязательное).  
+После успеха — строка исчезает из таблицы Ученики, появляется в Архиве.
+
+### 7.3 Данные в архиве
+
+После `expel()` строка enrollment со статусом `expelled` автоматически попадает в `userlist-5-archive.php` — дополнительных действий не требуется. `snapshot_enc` с момента зачисления остаётся неизменным.
+
+---
+
+## 8. CSV-экспорт
+
+Инфраструктура готова: `CsvExportService` + `CsvColumn` (Column Projection).  
+Маршрут скачивания: `/lms/export/{token}` → `PiiController::handleExportDownload()`.  
+Авторизация: `Nonce::ExportPii` + `Capability::ExportPII`.
+
+### 8.1 Экспорт одного ученика (из карточки)
+
+**Триггер**: кнопка «Экспорт» в модалке `student-person-modal` / `person-detail.php`.
+
+**`AjaxHook`**: `ExportPii` (уже есть, но не зарегистрирован — добавить в `PiiController::ajaxActions()`).
+
+**`PiiCallbacks::ajaxExportStudentCsv()`**:
+- Принимает `enrollment_id`
+- Расшифровывает `snapshot_enc` из enrollments
+- Читает данные группы/предмета из репозиториев
+- Вызывает `CsvExportService::export()` с колонками:
+
+```
+ФИО ученика, Дата рождения, Email, Телефон, Школа, Класс,
+Тип документа, Номер документа, ИНН,
+ФИО родителя, Роль, Телефон родителя, Email родителя,
+Паспорт родителя, ИНН родителя, Адрес,
+Предмет, Группа, № договора, Дата договора, № приказа, Дата приказа
+```
+
+- Возвращает одноразовый URL через `CsvExportService::createDownloadLink($csv, 'student-{id}.csv')`
+
+### 8.2 Экспорт одного родителя (из карточки)
+
+Аналогично 8.1, но данные берутся из snapshot первого активного зачисления подопечного.  
+Имя файла: `parent-{person_id}.csv`.
+
+### 8.3 Экспорт таблицы учеников (bulk)
+
+**Триггер**: кнопка «Экспорт в CSV» над таблицей `userlist-2-students.php`.
+
+**`AjaxHook`**: добавить `case ExportStudents = 'export_students'`.
+
+Источник: `EnrollmentRepository::list(['status' => 'active'])` — все активные зачисления.  
+Для каждой строки расшифровывается `snapshot_enc`.  
+Колонки те же что в 8.1.  
+Имя файла: `students-{date}.csv`.
+
+### 8.4 Экспорт из архива (bulk)
+
+**Триггер**: кнопка «Экспорт в CSV» над таблицей `userlist-5-archive.php`.
+
+**`AjaxHook`**: добавить `case ExportArchive = 'export_archive'`.
+
+Источник: `EnrollmentRepository::list(['status' => ['expelled', 'finished', 'transferred']])`.  
+Дополнительные колонки: Статус, Дата завершения, Причина отчисления.  
+Имя файла: `archive-{date}.csv`.
+
+---
 
 ## Приоритет
 
 ```
 1. templates/admin/enrollment/person-detail.php  ← блокирует карточку ученика/родителя
-2. userlist-5-archive.php                        ← таб уже в навигации, но пустой
-3. Политика паролей + HTTPS-предупреждение       ← безопасность
-4. Вкладка «Шаблоны писем» в настройках         ← управление без деплоя
-5. Вкладка «Согласия» в настройках              ← управление без деплоя
-6. Журналы (AuditLog, PiiAccessLog) в админке   ← compliance
-7. Тесты                                         ← стабильность
-8. Документация                                  ← передача знаний
+2. Отчисление ученика (раздел 7)                 ← нужно для наполнения архива
+3. CSV-экспорт (раздел 8)                        ← зависит от person-detail и архива
+4. Политика паролей + HTTPS-предупреждение       ← безопасность
+5. Вкладка «Шаблоны писем» в настройках         ← управление без деплоя
+6. Вкладка «Согласия» в настройках              ← управление без деплоя
+7. Журналы (AuditLog, PiiAccessLog) в админке   ← compliance
+8. Тесты                                         ← стабильность
+9. Документация                                  ← передача знаний
 ```
