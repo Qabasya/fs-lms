@@ -190,17 +190,18 @@ class ApplicationCallbacks extends BaseController {
 		$lastName   = $this->requireText( 'last_name' );
 		$firstName  = $this->requireText( 'first_name' );
 		$middleName = $this->sanitizeText( 'middle_name' );
-		$fullName   = trim( "$lastName $firstName $middleName" );
 		$email      = $this->requireText( 'email' );
 		$phone      = $this->requireText( 'phone' );
 		$school     = $this->sanitizeText( 'school' );
 		$grade      = $this->sanitizeInt( 'grade' );
 		$birthDate  = $this->requireText( 'birth_date' );
 		$otpCode    = $this->requireText( 'otp_code' );
-		$ua        = (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' );
+		$ua         = (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' );
 
 		$dto = new ApplicationInputDTO(
-			fullName:        $fullName,
+			lastName:        $lastName,
+			firstName:       $firstName,
+			middleName:      $middleName,
 			email:           $email,
 			phone:           $phone,
 			school:          $school,
@@ -242,23 +243,27 @@ class ApplicationCallbacks extends BaseController {
 
 		// Сбор данных формы родителя
 		$dto = new ParentSubmissionInputDTO(
-			joinCode:          $this->requireText( 'join_code' ),
-			parentFullName:    $this->requireText( 'parent_full_name' ),
-			parentBirthDate:   $this->requireText( 'parent_birth_date' ),
-			relationType:      $this->requireKey( 'relation_type' ),
-			docType:           $this->requireKey( 'doc_type' ),
-			docNumber:         $this->requireText( 'doc_number' ),
-			docIssuedBy:       $this->sanitizeText( 'doc_issued_by' ),
-			docIssuedDate:     $this->sanitizeText( 'doc_issued_date' ),
-			inn:               $this->sanitizeText( 'inn' ),
-			address:           $this->sanitizeText( 'address' ),
-			phone:             $this->sanitizeText( 'phone' ),
-			email:             $this->requireText( 'email' ),
-			studentFullName:   $this->requireText( 'student_full_name' ),
-			studentBirthDate:  $this->requireText( 'student_birth_date' ),
-			studentDocType:    $this->requireKey( 'student_doc_type' ),
-			studentDocNumber:  $this->requireText( 'student_doc_number' ),
-			studentInn:        $this->sanitizeText( 'student_inn' ),
+			joinCode:           $this->requireText( 'join_code' ),
+			parentLastName:     $this->requireText( 'parent_last_name' ),
+			parentFirstName:    $this->requireText( 'parent_first_name' ),
+			parentMiddleName:   $this->sanitizeText( 'parent_middle_name' ),
+			parentBirthDate:    $this->requireText( 'parent_birth_date' ),
+			relationType:       $this->requireKey( 'relation_type' ),
+			docType:            $this->requireKey( 'doc_type' ),
+			docNumber:          $this->requireText( 'doc_number' ),
+			docIssuedBy:        $this->sanitizeText( 'doc_issued_by' ),
+			docIssuedDate:      $this->sanitizeText( 'doc_issued_date' ),
+			inn:                $this->sanitizeText( 'inn' ),
+			address:            $this->sanitizeText( 'address' ),
+			phone:              $this->sanitizeText( 'phone' ),
+			email:              $this->requireText( 'email' ),
+			studentLastName:    $this->requireText( 'student_last_name' ),
+			studentFirstName:   $this->requireText( 'student_first_name' ),
+			studentMiddleName:  $this->sanitizeText( 'student_middle_name' ),
+			studentBirthDate:   $this->requireText( 'student_birth_date' ),
+			studentDocType:     $this->requireKey( 'student_doc_type' ),
+			studentDocNumber:   $this->requireText( 'student_doc_number' ),
+			studentInn:         $this->sanitizeText( 'student_inn' ),
 		);
 
 		try {

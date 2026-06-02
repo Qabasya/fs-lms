@@ -124,10 +124,10 @@ $statusLabels = array_combine(
 						$sd          = json_decode( $crypto->decrypt( $app->studentDataEnc ), true );
 						$studentName = $sd['full_name'] ?? '—';
 
-						$nameParts         = explode( ' ', $sd['full_name'] ?? '', 3 );
-						$studentLastName   = $nameParts[0] ?? '';
-						$studentFirstName  = $nameParts[1] ?? '';
-						$studentMiddleName = $nameParts[2] ?? '';
+						$sParts            = explode( ' ', $sd['full_name'] ?? '', 3 );
+						$studentLastName   = $sd['last_name']   ?? $sParts[0] ?? '';
+						$studentFirstName  = $sd['first_name']  ?? $sParts[1] ?? '';
+						$studentMiddleName = $sd['middle_name'] ?? $sParts[2] ?? '';
 						$studentEmail      = $sd['email']      ?? '';
 						$studentPhone      = $sd['phone']      ?? '';
 						$studentSchool     = $sd['school']     ?? '';
@@ -160,12 +160,12 @@ $statusLabels = array_combine(
 				if ( ! empty( $app->parentDataEnc ) ) {
 					try {
 						$pd         = json_decode( $crypto->decrypt( $app->parentDataEnc ), true );
-						$parentName = $pd['parent_full_name'] ?? $pd['full_name'] ?? '—';
+						$parentName = $pd['full_name'] ?? '—';
 
 						$pParts             = explode( ' ', $pd['full_name'] ?? '', 3 );
-						$parentLastName     = $pParts[0] ?? '';
-						$parentFirstName    = $pParts[1] ?? '';
-						$parentMiddleName   = $pParts[2] ?? '';
+						$parentLastName     = $pd['last_name']   ?? $pParts[0] ?? '';
+						$parentFirstName    = $pd['first_name']  ?? $pParts[1] ?? '';
+						$parentMiddleName   = $pd['middle_name'] ?? $pParts[2] ?? '';
 						$parentBirthDate    = $pd['birth_date']      ?? '';
 						$parentRelationType = $pd['relation_type']   ?? '';
 						$parentDocType      = $pd['doc_type']        ?? '';

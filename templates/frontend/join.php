@@ -45,9 +45,23 @@ ThemeCompatService::header();
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-admin-users"></span>
-						<input type="text" name="student_full_name" id="fs_student_full_name"
-								value="<?php echo esc_attr( $student_data['full_name'] ?? '' ); ?>"
-								placeholder="<?php esc_attr_e( 'ФИО ученика', 'fs-lms' ); ?>" required>
+						<input type="text" name="student_last_name" id="fs_student_last_name"
+								value="<?php echo esc_attr( $student_data['last_name'] ?? '' ); ?>"
+								placeholder="<?php esc_attr_e( 'Фамилия ученика', 'fs-lms' ); ?>" required>
+					</div>
+
+					<div class="fs-join-card__field-group">
+						<span class="dashicons dashicons-admin-users"></span>
+						<input type="text" name="student_first_name" id="fs_student_first_name"
+								value="<?php echo esc_attr( $student_data['first_name'] ?? '' ); ?>"
+								placeholder="<?php esc_attr_e( 'Имя ученика', 'fs-lms' ); ?>" required>
+					</div>
+
+					<div class="fs-join-card__field-group">
+						<span class="dashicons dashicons-admin-users"></span>
+						<input type="text" name="student_middle_name" id="fs_student_middle_name"
+								value="<?php echo esc_attr( $student_data['middle_name'] ?? '' ); ?>"
+								placeholder="<?php esc_attr_e( 'Отчество ученика', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">
@@ -115,8 +129,20 @@ ThemeCompatService::header();
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-businessperson"></span>
-						<input type="text" name="parent_full_name" id="fs_parent_full_name"
-								placeholder="<?php esc_attr_e( 'ФИО родителя / представителя', 'fs-lms' ); ?>" required>
+						<input type="text" name="parent_last_name" id="fs_parent_last_name"
+								placeholder="<?php esc_attr_e( 'Фамилия родителя / представителя', 'fs-lms' ); ?>" required>
+					</div>
+
+					<div class="fs-join-card__field-group">
+						<span class="dashicons dashicons-businessperson"></span>
+						<input type="text" name="parent_first_name" id="fs_parent_first_name"
+								placeholder="<?php esc_attr_e( 'Имя родителя / представителя', 'fs-lms' ); ?>" required>
+					</div>
+
+					<div class="fs-join-card__field-group">
+						<span class="dashicons dashicons-businessperson"></span>
+						<input type="text" name="parent_middle_name" id="fs_parent_middle_name"
+								placeholder="<?php esc_attr_e( 'Отчество родителя / представителя', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">

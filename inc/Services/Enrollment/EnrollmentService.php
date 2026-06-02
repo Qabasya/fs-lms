@@ -173,6 +173,8 @@ readonly class EnrollmentService {
 						'user_email'   => $studentEmail,
 						'user_pass'    => wp_generate_password( 64 ),
 						'display_name' => (string) $studentData['full_name'],
+						'first_name'   => (string) ( $studentData['first_name'] ?? '' ),
+						'last_name'    => (string) ( $studentData['last_name']  ?? '' ),
 						'role'         => UserRole::FSStudent->value,
 					) );
 				}
@@ -203,6 +205,8 @@ readonly class EnrollmentService {
 						'user_email'   => $guardianEmail,
 						'user_pass'    => wp_generate_password( 64 ),
 						'display_name' => (string) $parentData['full_name'],
+						'first_name'   => (string) ( $parentData['first_name'] ?? '' ),
+						'last_name'    => (string) ( $parentData['last_name']  ?? '' ),
 						'role'         => UserRole::FSParent->value,
 					) );
 				}

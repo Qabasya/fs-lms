@@ -203,9 +203,9 @@ export const ApplicationEnrollmentModal = {
         const order_date = f.find( '[name="order_date"]' ).val();
         return {
             application_id: f.find( '[name="application_id"]' ).val(),
-            contract_no:    f.find( '[name="contract_no"]' ).val(),
+            contract_no:    f.find( '[name="contract_no"]' ).val() || 'б/н',
             contract_date:  f.find( '[name="contract_date"]' ).val(),
-            order_no:       f.find( '[name="order_no"]' ).val(),
+            order_no:       f.find( '[name="order_no"]' ).val() || 'б/н',
             order_date,
             enrolled_at:    order_date,
             period_key:     f.find( '[name="period_key"]' ).val(),

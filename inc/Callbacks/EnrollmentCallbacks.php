@@ -327,9 +327,11 @@ class EnrollmentCallbacks extends BaseController {
 		$lastName   = $this->requireText( 'last_name' );
 		$firstName  = $this->requireText( 'first_name' );
 		$middleName = $this->sanitizeText( 'middle_name' );
-		$fullName   = trim( "$lastName $firstName $middleName" );
 
-		$studentData['full_name']  = $fullName;
+		$studentData['last_name']  = $lastName;
+		$studentData['first_name'] = $firstName;
+		$studentData['middle_name'] = $middleName;
+		$studentData['full_name']  = trim( "$lastName $firstName $middleName" );
 		$studentData['email']      = $this->requireText( 'email' );
 		$studentData['phone']      = $this->requireText( 'phone' );
 		$studentData['school']     = $this->sanitizeText( 'school' );
@@ -387,11 +389,14 @@ class EnrollmentCallbacks extends BaseController {
 		$sLast   = $this->requireText( 'student_last_name' );
 		$sFirst  = $this->requireText( 'student_first_name' );
 		$sMid    = $this->sanitizeText( 'student_middle_name' );
-		$studentData['full_name']  = trim( "$sLast $sFirst $sMid" );
-		$studentData['birth_date'] = $this->sanitizeText( 'student_birth_date' );
-		$studentData['doc_type']   = $this->sanitizeText( 'student_doc_type' );
-		$studentData['doc_number'] = $this->sanitizeText( 'student_doc_number' );
-		$studentData['inn']        = $this->sanitizeText( 'student_inn' );
+		$studentData['last_name']   = $sLast;
+		$studentData['first_name']  = $sFirst;
+		$studentData['middle_name'] = $sMid;
+		$studentData['full_name']   = trim( "$sLast $sFirst $sMid" );
+		$studentData['birth_date']  = $this->sanitizeText( 'student_birth_date' );
+		$studentData['doc_type']    = $this->sanitizeText( 'student_doc_type' );
+		$studentData['doc_number']  = $this->sanitizeText( 'student_doc_number' );
+		$studentData['inn']         = $this->sanitizeText( 'student_inn' );
 
 		// Обновление данных родителя
 		$parentData = array();
@@ -406,7 +411,10 @@ class EnrollmentCallbacks extends BaseController {
 		$pLast   = $this->requireText( 'parent_last_name' );
 		$pFirst  = $this->requireText( 'parent_first_name' );
 		$pMid    = $this->sanitizeText( 'parent_middle_name' );
-		$parentData['full_name']       = trim( "$pLast $pFirst $pMid" );
+		$parentData['last_name']   = $pLast;
+		$parentData['first_name']  = $pFirst;
+		$parentData['middle_name'] = $pMid;
+		$parentData['full_name']   = trim( "$pLast $pFirst $pMid" );
 		$parentData['birth_date']      = $this->sanitizeText( 'parent_birth_date' );
 		$parentData['relation_type']   = $this->sanitizeText( 'relation_type' );
 		$parentData['email']           = $this->sanitizeText( 'parent_email' );
@@ -486,11 +494,11 @@ class EnrollmentCallbacks extends BaseController {
 		if ( ! empty( $app->studentDataEnc ) ) {
 			try {
 				$sd        = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
-				$nameParts = explode( ' ', $sd['full_name'] ?? '', 3 );
+				$sParts    = explode( ' ', $sd['full_name'] ?? '', 3 );
 				$student   = array(
-					'last_name'   => $nameParts[0] ?? '',
-					'first_name'  => $nameParts[1] ?? '',
-					'middle_name' => $nameParts[2] ?? '',
+					'last_name'   => $sd['last_name']   ?? $sParts[0] ?? '',
+					'first_name'  => $sd['first_name']  ?? $sParts[1] ?? '',
+					'middle_name' => $sd['middle_name'] ?? $sParts[2] ?? '',
 					'birth_date'  => $sd['birth_date']  ?? '',
 					'email'       => $sd['email']       ?? '',
 					'phone'       => $sd['phone']       ?? '',
@@ -510,9 +518,9 @@ class EnrollmentCallbacks extends BaseController {
 				$pd     = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true );
 				$pParts = explode( ' ', $pd['full_name'] ?? '', 3 );
 				$parent = array(
-					'last_name'       => $pParts[0] ?? '',
-					'first_name'      => $pParts[1] ?? '',
-					'middle_name'     => $pParts[2] ?? '',
+					'last_name'       => $pd['last_name']   ?? $pParts[0] ?? '',
+					'first_name'      => $pd['first_name']  ?? $pParts[1] ?? '',
+					'middle_name'     => $pd['middle_name'] ?? $pParts[2] ?? '',
 					'birth_date'      => $pd['birth_date']      ?? '',
 					'relation_type'   => RelationType::tryFrom( $pd['relation_type'] ?? '' )?->label() ?? ( $pd['relation_type'] ?? '' ),
 					'email'           => $pd['email']           ?? '',

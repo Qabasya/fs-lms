@@ -95,12 +95,15 @@ readonly class ApplicationService {
 
 		// Шифрование данных ученика
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array(
-			'full_name'  => $input->fullName,
-			'email'      => $input->email,
-			'phone'      => $input->phone,
-			'school'     => $input->school,
-			'grade'      => $input->grade,
-			'birth_date' => $input->birthDate,
+			'last_name'   => $input->lastName,
+			'first_name'  => $input->firstName,
+			'middle_name' => $input->middleName,
+			'full_name'   => $input->fullName(),
+			'email'       => $input->email,
+			'phone'       => $input->phone,
+			'school'      => $input->school,
+			'grade'       => $input->grade,
+			'birth_date'  => $input->birthDate,
 		) ) );
 
 		// inTransaction() — атомарное выполнение блока операций
@@ -162,7 +165,10 @@ readonly class ApplicationService {
 
 		// Шифрование данных родителя
 		$parentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array(
-			'full_name'       => $input->parentFullName,
+			'last_name'       => $input->parentLastName,
+			'first_name'      => $input->parentFirstName,
+			'middle_name'     => $input->parentMiddleName,
+			'full_name'       => $input->parentFullName(),
 			'birth_date'      => $input->parentBirthDate,
 			'relation_type'   => $input->relationType,
 			'doc_type'        => $input->docType,
@@ -188,11 +194,14 @@ readonly class ApplicationService {
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array_merge(
 			$existingStudentData,
 			array(
-				'full_name'  => $input->studentFullName,
-				'birth_date' => $input->studentBirthDate,
-				'doc_type'   => $input->studentDocType,
-				'doc_number' => $input->studentDocNumber,
-				'inn'        => $input->studentInn,
+				'last_name'   => $input->studentLastName,
+				'first_name'  => $input->studentFirstName,
+				'middle_name' => $input->studentMiddleName,
+				'full_name'   => $input->studentFullName(),
+				'birth_date'  => $input->studentBirthDate,
+				'doc_type'    => $input->studentDocType,
+				'doc_number'  => $input->studentDocNumber,
+				'inn'         => $input->studentInn,
 			)
 		) ) );
 

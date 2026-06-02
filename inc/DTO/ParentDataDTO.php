@@ -33,7 +33,9 @@ readonly class ParentDataDTO {
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param string $fullName       Полное имя (Фамилия Имя Отчество)
+	 * @param string $lastName       Фамилия родителя
+	 * @param string $firstName      Имя родителя
+	 * @param string $middleName     Отчество родителя
 	 * @param string $birthDate      Дата рождения (Y-m-d)
 	 * @param string $relationType   Тип родства (mother, father, guardian)
 	 * @param string $docType        Тип документа (pass, birth_certificate)
@@ -46,7 +48,9 @@ readonly class ParentDataDTO {
 	 * @param string $email          Email для связи
 	 */
 	public function __construct(
-		public string $fullName,
+		public string $lastName,
+		public string $firstName,
+		public string $middleName,
 		public string $birthDate,
 		public string $relationType,
 		public string $docType,
@@ -59,6 +63,10 @@ readonly class ParentDataDTO {
 		public string $email,
 	) {}
 
+	public function fullName(): string {
+		return trim( "$this->lastName $this->firstName $this->middleName" );
+	}
+
 	/**
 	 * Создаёт DTO из массива данных.
 	 *
@@ -67,18 +75,26 @@ readonly class ParentDataDTO {
 	 * @return static
 	 */
 	public static function fromArray( array $data ): static {
+		// Обратная совместимость: если отдельных полей нет, разбиваем full_name
+		$parts      = explode( ' ', (string) ( $data['full_name'] ?? '' ), 3 );
+		$lastName   = (string) ( $data['last_name']   ?? $parts[0] ?? '' );
+		$firstName  = (string) ( $data['first_name']  ?? $parts[1] ?? '' );
+		$middleName = (string) ( $data['middle_name'] ?? $parts[2] ?? '' );
+
 		return new static(
-			fullName:      (string) ( $data['full_name'] ?? '' ),
-			birthDate:     (string) ( $data['birth_date'] ?? '' ),
-			relationType:  (string) ( $data['relation_type'] ?? '' ),
-			docType:       (string) ( $data['doc_type'] ?? '' ),
-			docNumber:     (string) ( $data['doc_number'] ?? '' ),
-			docIssuedBy:   (string) ( $data['doc_issued_by'] ?? '' ),
+			lastName:      $lastName,
+			firstName:     $firstName,
+			middleName:    $middleName,
+			birthDate:     (string) ( $data['birth_date']      ?? '' ),
+			relationType:  (string) ( $data['relation_type']   ?? '' ),
+			docType:       (string) ( $data['doc_type']        ?? '' ),
+			docNumber:     (string) ( $data['doc_number']      ?? '' ),
+			docIssuedBy:   (string) ( $data['doc_issued_by']   ?? '' ),
 			docIssuedDate: (string) ( $data['doc_issued_date'] ?? '' ),
-			inn:           (string) ( $data['inn'] ?? '' ),
-			address:       (string) ( $data['address'] ?? '' ),
-			phone:         (string) ( $data['phone'] ?? '' ),
-			email:         (string) ( $data['email'] ?? '' ),
+			inn:           (string) ( $data['inn']             ?? '' ),
+			address:       (string) ( $data['address']         ?? '' ),
+			phone:         (string) ( $data['phone']           ?? '' ),
+			email:         (string) ( $data['email']           ?? '' ),
 		);
 	}
 
@@ -89,7 +105,10 @@ readonly class ParentDataDTO {
 	 */
 	public function toArray(): array {
 		return array(
-			'full_name'       => $this->fullName,
+			'last_name'       => $this->lastName,
+			'first_name'      => $this->firstName,
+			'middle_name'     => $this->middleName,
+			'full_name'       => $this->fullName(),
 			'birth_date'      => $this->birthDate,
 			'relation_type'   => $this->relationType,
 			'doc_type'        => $this->docType,

@@ -24,7 +24,7 @@ namespace Inc\DTO;
  * ### Примечания:
  *
  * - joinCode — открытый код присоединения (не хэш), полученный от ученика
- * - Родитель может скорректировать данные ученика (studentFullName, studentBirthDate и т.д.)
+ * - Родитель может скорректировать данные ученика (имя, дата рождения и т.д.)
  * - Данные родителя обязательны для заполнения
  */
 readonly class ParentSubmissionInputDTO {
@@ -34,7 +34,9 @@ readonly class ParentSubmissionInputDTO {
 	 *
 	 * @param string $joinCode            Код присоединения (получен от ученика)
 	 *
-	 * @param string $parentFullName      Полное имя родителя (Фамилия Имя Отчество)
+	 * @param string $parentLastName      Фамилия родителя
+	 * @param string $parentFirstName     Имя родителя
+	 * @param string $parentMiddleName    Отчество родителя
 	 * @param string $parentBirthDate     Дата рождения родителя (Y-m-d)
 	 * @param string $relationType        Тип родства (mother, father, guardian)
 	 * @param string $docType             Тип документа родителя (pass, birth_certificate)
@@ -46,7 +48,9 @@ readonly class ParentSubmissionInputDTO {
 	 * @param string $phone               Телефон родителя
 	 * @param string $email               Email родителя
 	 *
-	 * @param string $studentFullName     Скорректированное имя ученика
+	 * @param string $studentLastName     Скорректированная фамилия ученика
+	 * @param string $studentFirstName    Скорректированное имя ученика
+	 * @param string $studentMiddleName   Скорректированное отчество ученика
 	 * @param string $studentBirthDate    Скорректированная дата рождения ученика (Y-m-d)
 	 * @param string $studentDocType      Тип документа ученика
 	 * @param string $studentDocNumber    Номер документа ученика
@@ -56,7 +60,9 @@ readonly class ParentSubmissionInputDTO {
 		public string $joinCode,
 
 		// Данные родителя/представителя
-		public string $parentFullName,
+		public string $parentLastName,
+		public string $parentFirstName,
+		public string $parentMiddleName,
 		public string $parentBirthDate,
 		public string $relationType,
 		public string $docType,
@@ -69,10 +75,20 @@ readonly class ParentSubmissionInputDTO {
 		public string $email,
 
 		// Скорректированные данные ученика (может изменить родитель)
-		public string $studentFullName,
+		public string $studentLastName,
+		public string $studentFirstName,
+		public string $studentMiddleName,
 		public string $studentBirthDate,
 		public string $studentDocType,
 		public string $studentDocNumber,
 		public string $studentInn,
 	) {}
+
+	public function parentFullName(): string {
+		return trim( "$this->parentLastName $this->parentFirstName $this->parentMiddleName" );
+	}
+
+	public function studentFullName(): string {
+		return trim( "$this->studentLastName $this->studentFirstName $this->studentMiddleName" );
+	}
 }

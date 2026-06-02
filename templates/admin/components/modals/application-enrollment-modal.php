@@ -111,7 +111,7 @@ $today = current_time( 'Y-m-d' );
 									<div class="fs-form-group">
 										<label for="enroll-contract-no"><?php esc_html_e( 'Номер договора', 'fs-lms' ); ?></label>
 										<input type="text" id="enroll-contract-no" name="contract_no"
-											value="<?php esc_attr_e( 'б/н', 'fs-lms' ); ?>">
+											placeholder="<?php esc_attr_e( 'б/н', 'fs-lms' ); ?>">
 									</div>
 									<div class="fs-form-group">
 										<label for="enroll-contract-date"><?php esc_html_e( 'Дата договора', 'fs-lms' ); ?></label>
@@ -124,7 +124,7 @@ $today = current_time( 'Y-m-d' );
 									<div class="fs-form-group">
 										<label for="enroll-order-no"><?php esc_html_e( 'Номер приказа', 'fs-lms' ); ?></label>
 										<input type="text" id="enroll-order-no" name="order_no"
-											value="<?php esc_attr_e( 'б/н', 'fs-lms' ); ?>">
+											placeholder="<?php esc_attr_e( 'б/н', 'fs-lms' ); ?>">
 									</div>
 									<div class="fs-form-group">
 										<label for="enroll-order-date"><?php esc_html_e( 'Дата приказа', 'fs-lms' ); ?></label>
