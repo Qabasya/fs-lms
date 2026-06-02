@@ -32,12 +32,15 @@ export const GroupModalManager = {
         GroupModal.setSaveState(true);
 
         $.post(fs_lms_vars.ajaxurl, {
-            action:     fs_lms_vars.ajax_actions.saveStudentGroup,
-            security:   fs_lms_vars.nonces.manager,
-            title:      formData.title,
-            period_id:  formData.period_id,
-            subject_id: formData.subject_id,
-            teacher_id: formData.teacher_id,
+            action:         fs_lms_vars.ajax_actions.saveStudentGroup,
+            security:       fs_lms_vars.nonces.manager,
+            title:          formData.title,
+            period_id:      formData.period_id,
+            subject_id:     formData.subject_id,
+            teacher_id:     formData.teacher_id,
+            schedule_days:  formData.schedule_days,
+            schedule_start: formData.schedule_start,
+            schedule_end:   formData.schedule_end,
         })
             .done((res) => {
                 if (res.success) {

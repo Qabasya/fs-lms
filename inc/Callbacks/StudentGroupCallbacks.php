@@ -6,6 +6,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
+use Inc\Enums\WeekDay;
 use Inc\Repositories\OptionsRepositories\StudentGroupMatrixRepository;
 use Inc\Services\StudentGroupService;
 use Inc\Shared\Traits\Authorizer;
@@ -59,8 +60,19 @@ class StudentGroupCallbacks extends BaseController {
 		$subject_id = $this->requireKey( 'subject_id', error: 'Необходимо указать предмет.' );
 		$teacher_id = $this->requireInt( 'teacher_id', error: 'Необходимо выбрать преподавателя.' );
 
+		$raw_days       = $this->sanitizeKeyArray( 'schedule_days' );
+		$schedule_days  = array_values( array_filter( $raw_days, fn( string $d ) => WeekDay::tryFrom( $d ) !== null ) );
+		$schedule_start = $this->sanitizeText( 'schedule_start' );
+		$schedule_end   = $this->sanitizeText( 'schedule_end' );
+
+		$schedule = ! empty( $schedule_days ) ? array(
+			'days'  => $schedule_days,
+			'start' => $schedule_start,
+			'end'   => $schedule_end,
+		) : array();
+
 		// Вызываем бизнес-логику создания
-		$group_dto = $this->group_service->createGroup( $title, $period_id, $subject_id, $teacher_id );
+		$group_dto = $this->group_service->createGroup( $title, $period_id, $subject_id, $teacher_id, $schedule );
 
 		// Унифицированный ответ через трейт AjaxResponse
 		$this->respond(

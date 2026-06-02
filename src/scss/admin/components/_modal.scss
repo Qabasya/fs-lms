@@ -887,3 +887,73 @@ html.modal-open {
     }
   }
 }
+
+
+/* =================================================================
+   SCHEDULE GROUP (group modal — days + time range)
+   ================================================================= */
+
+.fs-schedule-group {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.fs-schedule-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.fs-schedule-day-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  cursor: pointer;
+  font-size: 13px;
+  color: $color-text-primary;
+  background: $wp-admin-gray-bg-light;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-md;
+  padding: $spacing-xs $spacing-sm;
+  transition: background $transition-fast, border-color $transition-fast;
+  user-select: none;
+
+  input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: $color-primary;
+  }
+
+  &:has(input:checked) {
+    background: $wp-admin-blue-bg-light;
+    border-color: $color-primary;
+    color: $wp-admin-blue-text;
+    font-weight: 600;
+  }
+
+  &:hover {
+    border-color: $color-primary;
+  }
+}
+
+.fs-schedule-times {
+  display: flex;
+  gap: $spacing-lg;
+}
+
+.fs-schedule-time-field {
+  flex: 1;
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: $color-text-secondary;
+    margin-bottom: $spacing-xs;
+  }
+
+  select {
+    @include form-input;
+    height: 35px;
+  }
+}

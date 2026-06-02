@@ -182,7 +182,26 @@ trait Sanitizer {
 		if ( 0 === $value ) {
 			wp_send_json_error( $error );
 		}
-		
+
 		return $value;
+	}
+
+	/**
+	 * Получает и санирует массив ключей/слагов.
+	 *
+	 * @param string $key    Ключ в суперглобальном массиве
+	 * @param string $source Источник данных: 'POST' или 'GET'
+	 *
+	 * @return string[]
+	 */
+	protected function sanitizeKeyArray( string $key, string $source = 'POST' ): array {
+		$data  = 'POST' === $source ? $_POST : $_GET;
+		$value = $data[ $key ] ?? array();
+
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		return array_values( array_filter( array_map( 'sanitize_key', wp_unslash( $value ) ) ) );
 	}
 }
