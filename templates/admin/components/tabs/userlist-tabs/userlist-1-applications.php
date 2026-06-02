@@ -197,7 +197,6 @@ $statusLabels = array_combine(
 				$statusLabel = $statusLabels[ $statusVal ] ?? $statusVal;
 				$statusClass = 'fs-lms-status--' . str_replace( '_', '-', $statusVal );
 
-				$detailUrl = admin_url( 'admin.php?page=fs-lms-application-detail&id=' . $app->id );
 				$canEnroll = in_array( $app->status, [ ApplicationStatus::ReadyForReview, ApplicationStatus::Enrolling ], true );
 				$canTrash  = $app->status->isTrashable();
 			?>
@@ -241,23 +240,56 @@ $statusLabels = array_combine(
 
 						<?php if ( $app->status === ApplicationStatus::Trash ) : ?>
 
+							<span class="view">
+								<a href="#"
+								   class="js-view-application"
+								   data-s-last-name="<?php echo esc_attr( $studentLastName ); ?>"
+								   data-s-first-name="<?php echo esc_attr( $studentFirstName ); ?>"
+								   data-s-middle-name="<?php echo esc_attr( $studentMiddleName ); ?>"
+								   data-s-birth-date="<?php echo esc_attr( $studentBirthDate ); ?>"
+								   data-s-email="<?php echo esc_attr( $studentEmail ); ?>"
+								   data-s-phone="<?php echo esc_attr( $studentPhone ); ?>"
+								   data-s-school="<?php echo esc_attr( $studentSchool ); ?>"
+								   data-s-grade="<?php echo esc_attr( $studentGrade ); ?>"
+								   data-s-doc-type="<?php echo esc_attr( $studentDocType ); ?>"
+								   data-s-doc-number="<?php echo esc_attr( $studentDocNumber ); ?>"
+								   data-s-inn="<?php echo esc_attr( $studentInn ); ?>"
+								   data-p-last-name="<?php echo esc_attr( $parentLastName ); ?>"
+								   data-p-first-name="<?php echo esc_attr( $parentFirstName ); ?>"
+								   data-p-middle-name="<?php echo esc_attr( $parentMiddleName ); ?>"
+								   data-p-birth-date="<?php echo esc_attr( $parentBirthDate ); ?>"
+								   data-p-relation-type="<?php echo esc_attr( $parentRelationType ); ?>"
+								   data-p-email="<?php echo esc_attr( $parentEmail ); ?>"
+								   data-p-phone="<?php echo esc_attr( $parentPhone ); ?>"
+								   data-p-doc-type="<?php echo esc_attr( $parentDocType ); ?>"
+								   data-p-doc-number="<?php echo esc_attr( $parentDocNumber ); ?>"
+								   data-p-doc-issued-by="<?php echo esc_attr( $parentDocIssuedBy ); ?>"
+								   data-p-doc-issued-date="<?php echo esc_attr( $parentDocIssuedDate ); ?>"
+								   data-p-inn="<?php echo esc_attr( $parentInn ); ?>"
+								   data-p-address="<?php echo esc_attr( $parentAddress ); ?>">
+									<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
+								</a>
+							</span>
+
+							|
+
                             <span class="restore">
-				<a href="#"
-                   class="fs-lms-btn-restore"
-                   data-id="<?php echo esc_attr( (string) $app->id ); ?>">
-					<?php esc_html_e( 'Восстановить', 'fs-lms' ); ?>
-				</a>
-			</span>
+								<a href="#"
+								   class="fs-lms-btn-restore"
+								   data-id="<?php echo esc_attr( (string) $app->id ); ?>">
+									<?php esc_html_e( 'Восстановить', 'fs-lms' ); ?>
+								</a>
+							</span>
 
                             |
 
                             <span class="delete">
-				<a href="#"
-                   class="fs-lms-btn-delete"
-                   data-id="<?php echo esc_attr( (string) $app->id ); ?>">
-					<?php esc_html_e( 'Удалить навсегда', 'fs-lms' ); ?>
-				</a>
-			</span>
+								<a href="#"
+								   class="fs-lms-btn-delete"
+								   data-id="<?php echo esc_attr( (string) $app->id ); ?>">
+									<?php esc_html_e( 'Удалить навсегда', 'fs-lms' ); ?>
+								</a>
+							</span>
 
 						<?php else : ?>
 
@@ -315,7 +347,32 @@ $statusLabels = array_combine(
 						<?php esc_html_e( 'Изменить', 'fs-lms' ); ?>
 					</a>
 				<?php else : ?>
-					<a href="<?php echo esc_url( $detailUrl ); ?>">
+					<a href="#"
+					   class="js-view-application"
+					   data-s-last-name="<?php echo esc_attr( $studentLastName ); ?>"
+					   data-s-first-name="<?php echo esc_attr( $studentFirstName ); ?>"
+					   data-s-middle-name="<?php echo esc_attr( $studentMiddleName ); ?>"
+					   data-s-birth-date="<?php echo esc_attr( $studentBirthDate ); ?>"
+					   data-s-email="<?php echo esc_attr( $studentEmail ); ?>"
+					   data-s-phone="<?php echo esc_attr( $studentPhone ); ?>"
+					   data-s-school="<?php echo esc_attr( $studentSchool ); ?>"
+					   data-s-grade="<?php echo esc_attr( $studentGrade ); ?>"
+					   data-s-doc-type="<?php echo esc_attr( $studentDocType ); ?>"
+					   data-s-doc-number="<?php echo esc_attr( $studentDocNumber ); ?>"
+					   data-s-inn="<?php echo esc_attr( $studentInn ); ?>"
+					   data-p-last-name="<?php echo esc_attr( $parentLastName ); ?>"
+					   data-p-first-name="<?php echo esc_attr( $parentFirstName ); ?>"
+					   data-p-middle-name="<?php echo esc_attr( $parentMiddleName ); ?>"
+					   data-p-birth-date="<?php echo esc_attr( $parentBirthDate ); ?>"
+					   data-p-relation-type="<?php echo esc_attr( $parentRelationType ); ?>"
+					   data-p-email="<?php echo esc_attr( $parentEmail ); ?>"
+					   data-p-phone="<?php echo esc_attr( $parentPhone ); ?>"
+					   data-p-doc-type="<?php echo esc_attr( $parentDocType ); ?>"
+					   data-p-doc-number="<?php echo esc_attr( $parentDocNumber ); ?>"
+					   data-p-doc-issued-by="<?php echo esc_attr( $parentDocIssuedBy ); ?>"
+					   data-p-doc-issued-date="<?php echo esc_attr( $parentDocIssuedDate ); ?>"
+					   data-p-inn="<?php echo esc_attr( $parentInn ); ?>"
+					   data-p-address="<?php echo esc_attr( $parentAddress ); ?>">
 						<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 					</a>
 				<?php endif; ?>
@@ -361,3 +418,4 @@ $statusLabels = array_combine(
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-modal.php'; ?>
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-review-modal.php'; ?>
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-enrollment-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-view-modal.php'; ?>

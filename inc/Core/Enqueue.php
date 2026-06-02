@@ -150,6 +150,24 @@ class Enqueue extends BaseController implements ServiceInterface {
 			wp_enqueue_script( 'inline-edit-post' );
 		}
 
+		// === Переменные для карточки person ===
+		if ( 'fs-lms-person-detail' === $page ) {
+			wp_localize_script(
+				$script_handle,
+				'fs_lms_person_vars',
+				array(
+					'nonces' => array(
+						'reveal'               => Nonce::RevealPii->create(),
+						'update'               => Nonce::UpdatePerson->create(),
+						'delete'               => Nonce::RequestPiiDeletion->create(),
+						'export'               => Nonce::ExportPii->create(),
+						'add_representative'   => Nonce::AddRepresentative->create(),
+						'replace_representative' => Nonce::ReplaceRepresentative->create(),
+					),
+				)
+			);
+		}
+
 		// === Переменные для таблицы заявок ===
 		if ( 'fs_lms_userlist' === $page ) {
 			wp_localize_script(
@@ -162,6 +180,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'review'  => Nonce::ReviewApplication->create(),
 						'enroll'  => Nonce::Enroll->create(),
 						'manager' => Nonce::Manager->create(),
+						'reveal'  => Nonce::RevealPii->create(),
 					),
 				)
 			);

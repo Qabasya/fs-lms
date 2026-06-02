@@ -182,7 +182,15 @@ $pages       = (int) ceil( $total / $perPage );
 				<td class="column-actions">
 					<div class="row-actions visible">
 						<span class="view">
-							<a href="#" class="js-view-student">
+							<a href="#"
+							   class="js-view-person"
+							   data-person-id="<?php echo esc_attr( (string) $studentPersonId ); ?>"
+							   data-person-type="student"
+							   data-display-name="<?php echo esc_attr( $studentName ); ?>"
+							   data-email="<?php echo esc_attr( $person?->email ?? '' ); ?>"
+							   data-birth-date="<?php echo esc_attr( $sd['birth_date'] ?? '' ); ?>"
+							   data-school="<?php echo esc_attr( $sd['school'] ?? '' ); ?>"
+							   data-grade="<?php echo esc_attr( isset( $sd['grade'] ) ? (string) $sd['grade'] : '' ); ?>">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>
 						</span>
@@ -212,4 +220,4 @@ $pages       = (int) ceil( $total / $perPage );
 
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/student-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/person-view-modal.php'; ?>

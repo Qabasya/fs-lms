@@ -17,9 +17,12 @@ import { ApplicationsTable } from './services/applications-table.js';
 import { ApplicationModalManager } from './services/application-modal-manager.js';
 import { ApplicationReviewModalManager } from './services/application-review-modal-manager.js';
 import { ApplicationEnrollmentModalManager } from './services/application-enrollment-modal-manager.js';
+import { ApplicationViewModal } from './components/application-view-modal.js';
 import { StudentViewModal } from './components/student-view-modal.js';
 import { ParentViewModal } from './components/parent-view-modal.js';
 import { TeacherViewModal } from './components/teacher-view-modal.js';
+import { PersonViewModal } from './components/person-view-modal.js';
+import { PersonDetail } from './services/person-detail.js';
 
 (function ($) {
     'use strict';
@@ -72,6 +75,7 @@ import { TeacherViewModal } from './components/teacher-view-modal.js';
             ApplicationModalManager.init();
             ApplicationReviewModalManager.init();
             ApplicationEnrollmentModalManager.init();
+            ApplicationViewModal.init();
         }
 
         if ( document.querySelector( '.fs-lms-students' ) ) {
@@ -82,9 +86,15 @@ import { TeacherViewModal } from './components/teacher-view-modal.js';
             ParentViewModal.init();
         }
 
+        if ( document.querySelector( '.fs-lms-students, .fs-lms-parents' ) ) {
+            PersonViewModal.init();
+        }
+
         if ( document.querySelector( '.fs-lms-teachers' ) ) {
             TeacherViewModal.init();
         }
+
+        PersonDetail.init();
 
     });
 

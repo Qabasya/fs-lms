@@ -99,5 +99,14 @@ final class Init {
 				$service->register();
 			}
 		}
+
+		// Синхронизация capabilities администратора при несоответствии версии.
+		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
+		$capsVersion = '1.0';
+		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
+			$roleManager = $container->get( \Inc\Managers\RoleManager::class );
+			$roleManager->syncCapabilities();
+			update_option( 'fs_lms_caps_version', $capsVersion );
+		}
 	}
 }

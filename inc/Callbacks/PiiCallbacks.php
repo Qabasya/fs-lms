@@ -86,8 +86,11 @@ class PiiCallbacks extends BaseController {
 		$field    = $this->sanitizeText( $_POST['field'] ?? '' );
 		$reason   = $this->sanitizeText( $_POST['reason'] ?? 'admin_reveal' );
 
-		// Чтение поля через PersonReader (с логированием доступа)
-		$value = $this->personReader->readField( $personId, $field, $reason );
+		try {
+			$value = $this->personReader->readField( $personId, $field, $reason );
+		} catch ( \RuntimeException $e ) {
+			$this->error( $e->getMessage() );
+		}
 
 		$this->success( array( 'value' => $value ) );
 	}
