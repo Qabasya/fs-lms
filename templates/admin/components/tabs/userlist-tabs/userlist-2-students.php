@@ -10,6 +10,7 @@ use Inc\Enums\Capability;
 use Inc\Enums\DocumentType;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Enums\RelationType;
+use Inc\Enums\WeekDay;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
@@ -93,11 +94,16 @@ $pages       = (int) ceil( $total / $perPage );
 					$studentName = $wpUser ? $wpUser->display_name : '—';
 				}
 
-				// Группа
-				$groupTitle = '—';
-				$group      = $groupRepo->getById( $groupId );
+				// Группа и расписание
+				$groupTitle  = '—';
+				$scheduleStr = '—';
+				$group       = $groupRepo->getById( $groupId );
 				if ( $group ) {
-					$groupTitle = $group->title;
+					$groupTitle  = $group->title;
+					$formatted   = WeekDay::formatSchedule( $group->schedule );
+					if ( $formatted !== '' ) {
+						$scheduleStr = $formatted;
+					}
 				}
 
 				// Направление
@@ -176,7 +182,7 @@ $pages       = (int) ceil( $total / $perPage );
 				</td>
 
 				<td>
-					<span class="fs-table__empty-value">—</span>
+					<?php echo esc_html( $scheduleStr ); ?>
 				</td>
 
 				<td>

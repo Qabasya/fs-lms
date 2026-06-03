@@ -24,6 +24,7 @@
 20. [Роли и матрица прав](#роли-и-матрица-прав)
 21. [Конфигурация wp-config.php](#конфигурация-wp-configphp)
 22. [CsvExportService](#csvexportservice)
+23. [Управление паролями пользователей](#управление-паролями-пользователей)
 
 ---
 
@@ -2533,6 +2534,108 @@ $url = $csvExportService->createDownloadLink( $csv, 'students.csv' );
 
 ---
 
+## Управление паролями пользователей
+
+**Файл:** `inc/Services/PasswordGeneratorService.php`
+
+### Где хранится пароль
+
+Для каждого LMS-пользователя пароль хранится в **двух местах**:
+
+| Место | Назначение |
+|---|---|
+| `wp_users.user_pass` | Хэш пароля — используется WordPress при аутентификации |
+| `wp_usermeta[fs_lms_enc_password]` | Зашифрованный (libsodium) plaintext — используется для отображения пароля администратором через UI |
+
+`user_pass` — стандартное WP-поле, его изменение немедленно меняет реальный пароль. `fs_lms_enc_password` — только для функции «Раскрыть учётные данные»; восстановить plaintext из хэша невозможно, поэтому он хранится отдельно.
+
+### API сервиса
+
+| Метод | Когда использовать |
+|---|---|
+| `storeEncrypted(int $userId, string $password)` | Новый пользователь создан с уже известным паролем через `wp_insert_user()` — только сохранить зашифрованную копию в meta, `user_pass` уже установлен |
+| `setFromPlain(int $userId, string $password)` | Установить конкретный пароль существующему пользователю (вызывает `wp_set_password()` + записывает meta) |
+| `generateAndSet(int $userId)` | Сгенерировать случайный 8-символьный пароль существующему пользователю (вызывает `wp_set_password()` + записывает meta); возвращает plaintext |
+| `getCredentials(int $userId)` | Вернуть `['login' => ..., 'password' => ...]` для показа администратору; `null` если meta отсутствует (пароль был сменён вручную) |
+| `randomize(int $userId)` | Установить случайный 64-символьный пароль и **удалить** meta — используется при блокировке аккаунта после удаления ПД |
+
+### Установка пароля при зачислении
+
+`EnrollmentService::enroll()` создаёт пользователей вне транзакции. Стратегия зависит от того, новый пользователь или уже существующий:
+
+**Новый пользователь** (основной сценарий):
+
+```php
+// Пароль генерируется ДО wp_insert_user()
+$password = $dto->loginPassword !== '' ? $dto->loginPassword : wp_generate_password( 8, false );
+$userId   = $this->userManager->create( array(
+    'user_login' => $login,
+    'user_pass'  => $password,   // → сразу попадает в user_pass
+    ...
+) );
+// Только сохранить зашифрованную копию — wp_set_password() НЕ вызывается
+$this->passwordGenerator->storeEncrypted( $userId, $password );
+```
+
+Это важно: `wp_insert_user()` устанавливает пароль напрямую в БД и **не вызывает** `wp_clear_auth_cookie()`. Если бы мы создавали пользователя с временным паролем и потом вызывали `wp_set_password()` — браузер администратора получил бы `Set-Cookie: expired` и администратор разлогинился бы после зачисления.
+
+**Существующий пользователь** (редкий сценарий — student с тем же email уже зарегистрирован):
+
+```php
+// wp_set_password() вызывается, так как пароль нужно обновить существующему аккаунту
+$this->passwordGenerator->setFromPlain( $userId, $dto->loginPassword );
+// или:
+$password = $this->passwordGenerator->generateAndSet( $userId );
+```
+
+### Ученик и Родитель: различие источников пароля
+
+| Роль | Источник пароля |
+|---|---|
+| `FSStudent` | Логин и пароль — то, что ученик ввёл в форме `/lms/apply` (`StudentDataDTO::username`, `loginPassword`) |
+| `FSParent` | Логин — email из формы `/lms/join`; пароль — генерируется через `wp_generate_password(8, false)` |
+
+### Смена пароля через WP Admin
+
+Когда администратор меняет пароль пользователя через стандартный интерфейс WordPress, вызывается `wp_update_user()` → `wp_set_password()`. Поле `user_pass` обновляется, но `fs_lms_enc_password` остаётся с прежним значением — `getCredentials()` вернул бы старый, уже недействительный пароль.
+
+Чтобы этого не происходило, `UserController` вешает хук:
+
+```php
+add_action( 'profile_update', array( $this->user_manager, 'clearEncryptedPasswordIfChanged' ), 10, 2 );
+```
+
+`UserManager::clearEncryptedPasswordIfChanged()` сравнивает хэши `user_pass` до и после сохранения. Если они различаются — удаляет `fs_lms_enc_password`. После этого `getCredentials()` вернёт `null`.
+
+### Регенерация пароля из UI
+
+Если `getCredentials()` возвращает `null`, AJAX-метод `ajaxRevealUserCredentials()` отвечает ошибкой. В модале карточки родителя JS-код показывает кнопку «Сгенерировать новый пароль». Клик вызывает AJAX `regenerate_user_password`:
+
+```
+AjaxHook::RegenerateUserPassword → ajaxRegenerateUserPassword()
+  → PasswordGeneratorService::generateAndSet(userId)
+     → wp_set_password()           ← устанавливает новый пароль в user_pass
+     → user_repository->updateMeta ← сохраняет зашифрованную копию в meta
+  → success(['password' => $password])
+```
+
+После успешного ответа JS заполняет поле пароля в модале и убирает кнопку.
+
+**Nonce:** `Nonce::RevealPii` — уже передаётся в `fs_lms_applications_vars.nonces.revealPii`.  
+**Capability:** `ManageApplications`.
+
+### Раскрытие учётных данных
+
+`ajaxRevealUserCredentials()` — AJAX `reveal_user_credentials`:
+
+```
+getCredentials(userId)
+  ├─ есть meta → расшифровать → вернуть {login, password} + записать pii_access_log
+  └─ нет meta  → error('Пароль недоступен...') → JS показывает кнопку «Сгенерировать новый»
+```
+
+---
+
 ## Заключение
 
 Данная документация описывает архитектуру плагина FS LMS, включая:
@@ -2552,5 +2655,6 @@ $url = $csvExportService->createDownloadLink( $csv, 'students.csv' );
 - **Роли и матрицу прав** — UserRole, Capability, автосинхронизация при обновлении
 - **Конфигурацию wp-config.php** — обязательные и опциональные константы
 - **CsvExportService** — паттерн Column Projection для экспорта данных
+- **Управление паролями** — двойное хранение (user_pass + зашифрованный meta), стратегии при зачислении, автоочистка meta при ручной смене, регенерация из UI
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.

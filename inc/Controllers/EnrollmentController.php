@@ -87,6 +87,8 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::GetStudentGroups, $this->callbacks ),
 			// Показать логин и пароль пользователя (расшифровать из user meta)
 			array( AjaxHook::RevealUserCredentials, $this->callbacks ),
+			// Сгенерировать новый пароль (если старый был сменён вручную)
+			array( AjaxHook::RegenerateUserPassword, $this->callbacks ),
 		);
 	}
 

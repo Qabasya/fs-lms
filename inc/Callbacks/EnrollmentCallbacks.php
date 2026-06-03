@@ -643,4 +643,19 @@ class EnrollmentCallbacks extends BaseController {
 
 		$this->success( $credentials );
 	}
+
+	/**
+	 * AJAX: генерирует новый пароль для пользователя и сохраняет зашифрованную копию в meta.
+	 * Вызывается когда admin_reveal_credentials вернул null (пароль был сменён вручную).
+	 *
+	 * @return void
+	 */
+	public function ajaxRegenerateUserPassword(): void {
+		$this->authorize( Nonce::RevealPii, Capability::ManageApplications );
+
+		$user_id  = $this->requireInt( 'user_id', error: 'ID пользователя не указан.' );
+		$password = $this->passwordGenerator->generateAndSet( $user_id );
+
+		$this->success( array( 'password' => $password ) );
+	}
 }

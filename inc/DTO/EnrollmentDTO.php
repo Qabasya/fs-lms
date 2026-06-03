@@ -39,7 +39,7 @@ readonly class EnrollmentDTO {
 	 * @param int               $id                  ID зачисления
 	 * @param int               $studentPersonId     ID студента (из persons)
 	 * @param int|null          $sourceApplicationId ID заявки, на основе которой создано зачисление
-	 * @param int|null          $groupId             ID группы (если зачислен в группу)
+	 * @param string|null       $groupId             ID группы (если зачислен в группу)
 	 * @param string            $subjectKey          Ключ предмета
 	 * @param string            $periodKey           Ключ учебного периода
 	 * @param EnrollmentStatus  $status              Статус зачисления
@@ -55,7 +55,7 @@ readonly class EnrollmentDTO {
 		public int $id,
 		public int $studentPersonId,
 		public ?int $sourceApplicationId,
-		public ?int $groupId,
+		public ?string $groupId,
 		public string $subjectKey,
 		public string $periodKey,
 		public EnrollmentStatus $status,
@@ -80,7 +80,7 @@ readonly class EnrollmentDTO {
 			id:                  (int) $row['id'],
 			studentPersonId:     (int) $row['student_person_id'],
 			sourceApplicationId: isset( $row['source_application_id'] ) ? (int) $row['source_application_id'] : null,
-			groupId:             isset( $row['group_id'] ) ? (int) $row['group_id'] : null,
+			groupId:             isset( $row['group_id'] ) && $row['group_id'] !== '' ? (string) $row['group_id'] : null,
 			subjectKey:          (string) $row['subject_key'],
 			periodKey:           (string) $row['period_key'],
 			status:              EnrollmentStatus::from( (string) $row['status'] ),

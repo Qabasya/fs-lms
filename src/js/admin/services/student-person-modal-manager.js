@@ -2,8 +2,8 @@ import { StudentPersonModal } from '../components/student-person-modal.js';
 
 const $ = jQuery;
 
-const NONCES  = () => fs_lms_applications_vars.nonces;
-const ACTIONS = () => fs_lms_vars.ajax_actions;
+const NONCES   = () => fs_lms_applications_vars.nonces;
+const ACTIONS  = () => fs_lms_vars.ajax_actions;
 const AJAX_URL = () => fs_lms_vars.ajaxurl;
 
 export const StudentPersonModalManager = {
@@ -50,6 +50,10 @@ export const StudentPersonModalManager = {
             e.preventDefault();
             this._delete();
         } );
+
+        $( document ).on( 'fs-lms:spm-regenerate-password', ( e, { wpUserId, $btn } ) => {
+            this._regeneratePassword( wpUserId, $btn );
+        } );
     },
 
     _openModal( $btn ) {
@@ -64,6 +68,7 @@ export const StudentPersonModalManager = {
         // Немедленно из данных строки — без ожидания AJAX
         StudentPersonModal.fill( {
             display_name:  $btn.data( 'displayName' )   || '',
+            full_name:     $btn.data( 'displayName' )   || '',
             email:         $btn.data( 'email' )          || '',
             phone:         rowData.student_phone         || '',
             contract_no:   rowData.contract_no           || '',
@@ -78,7 +83,7 @@ export const StudentPersonModalManager = {
         StudentPersonModal.open();
         if ( ! personId ) return;
 
-        // AJAX только для расписания и маскированных PII-полей
+        // AJAX для расписания, маскированных PII-полей и логина
         $.post( AJAX_URL(), {
             action:    ACTIONS().getPersonData,
             person_id: personId,
@@ -91,13 +96,16 @@ export const StudentPersonModalManager = {
                 schedule:   enr.schedule   || '',
                 doc_number: pii.doc_number || '',
                 inn:        pii.inn        || '',
+                login:      res.data.login || '',
             } );
         } );
     },
 
     _revealAll() {
         const personId = StudentPersonModal.getPersonId();
+        const wpUserId = StudentPersonModal.getWpUserId();
         if ( ! personId ) return;
+
         $.post( AJAX_URL(), {
             action:    ACTIONS().revealAllPersonPii,
             person_id: personId,
@@ -106,6 +114,20 @@ export const StudentPersonModalManager = {
         } ).done( ( res ) => {
             if ( res.success ) StudentPersonModal.fillRevealed( res.data );
         } );
+
+        if ( wpUserId ) {
+            $.post( AJAX_URL(), {
+                action:   ACTIONS().revealUserCredentials,
+                user_id:  wpUserId,
+                security: NONCES().revealPii,
+            } ).done( ( res ) => {
+                if ( res.success ) {
+                    StudentPersonModal.fillRevealed( { password: res.data.password || '' } );
+                } else {
+                    StudentPersonModal.showRegenerateButton( wpUserId );
+                }
+            } );
+        }
     },
 
     _save() {
@@ -118,7 +140,10 @@ export const StudentPersonModalManager = {
             security:  NONCES().updatePerson,
             person_id: personId,
         };
-        allowed.forEach( k => { if ( edit[ k ] ) payload[ k ] = edit[ k ]; } );
+        allowed.forEach( k => {
+            // Не отправлять PII-поля, если они ещё в маске
+            if ( edit[ k ] && ! edit[ k ].includes( '•' ) ) payload[ k ] = edit[ k ];
+        } );
         $.post( AJAX_URL(), payload ).done( ( res ) => {
             if ( res.success ) StudentPersonModal.setEditing( false );
         } );
@@ -146,6 +171,22 @@ export const StudentPersonModalManager = {
             security:  NONCES().deletePii,
         } ).done( r => {
             if ( r.success ) StudentPersonModal.close();
+        } );
+    },
+
+    _regeneratePassword( wpUserId, $btn ) {
+        $btn.prop( 'disabled', true );
+        $.post( AJAX_URL(), {
+            action:   ACTIONS().regenerateUserPassword,
+            user_id:  wpUserId,
+            security: NONCES().revealPii,
+        } ).done( ( res ) => {
+            if ( res.success ) {
+                StudentPersonModal.fillRevealed( { password: res.data.password || '' } );
+                $btn.remove();
+            } else {
+                $btn.prop( 'disabled', false );
+            }
         } );
     },
 };

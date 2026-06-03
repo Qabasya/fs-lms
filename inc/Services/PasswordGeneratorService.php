@@ -39,7 +39,7 @@ class PasswordGeneratorService {
 		$encoded = base64_encode( $this->crypto->encrypt( $password ) );
 
 		$this->user_repository->updateMeta(
-			$user->$user_id,
+			$user_id,
 			array(
 				self::META_KEY => $encoded,
 			)
@@ -100,6 +100,23 @@ class PasswordGeneratorService {
 
 		wp_set_password( $password, $user_id );
 		update_user_meta( $user_id, self::META_KEY, base64_encode( $this->crypto->encrypt( $password ) ) );
+
+		$this->audit_service->record(
+			AuditAction::PasswordSet->value,
+			'user',
+			$user_id,
+		);
+	}
+
+	/**
+	 * Сохраняет зашифрованную копию пароля в user meta без вызова wp_set_password().
+	 * Используется когда пароль уже установлен через wp_insert_user().
+	 */
+	public function storeEncrypted( int $user_id, string $password ): void {
+		$this->user_repository->updateMeta(
+			$user_id,
+			array( self::META_KEY => base64_encode( $this->crypto->encrypt( $password ) ) )
+		);
 
 		$this->audit_service->record(
 			AuditAction::PasswordSet->value,

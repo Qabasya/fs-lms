@@ -11,6 +11,7 @@ use Inc\Enums\Nonce;
 use Inc\Enums\PiiField;
 use Inc\Enums\RelationType;
 use Inc\Enums\UserRole;
+use Inc\Enums\WeekDay;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
@@ -299,6 +300,7 @@ class PiiCallbacks extends BaseController {
 			'type'            => $type,
 			'wp_user_id'      => $person->wpUserId ?? 0,
 			'display_name'    => $wpUser ? $wpUser->display_name : '',
+			'login'           => $wpUser ? $wpUser->user_login : '',
 			'email'           => $wpUser ? $wpUser->user_email : '',
 			'masked_pii'      => $this->getMaskedPersonPii( $personId ),
 			'representatives' => $representatives,
@@ -356,9 +358,10 @@ class PiiCallbacks extends BaseController {
 				'doc_number' => $this->maskingService->mask( $dto->pass,    PiiField::Pass ),
 				'inn'        => $this->maskingService->mask( $dto->inn,     PiiField::Inn ),
 				'address'    => $this->maskingService->mask( $dto->address, PiiField::Address ),
+				'password'   => $this->maskingService->mask( '',            PiiField::Password ),
 			);
 		} catch ( \Throwable ) {
-			return array( 'doc_number' => '', 'inn' => '', 'address' => '' );
+			return array( 'doc_number' => '', 'inn' => '', 'address' => '', 'password' => '••••••••' );
 		}
 	}
 
@@ -379,7 +382,7 @@ class PiiCallbacks extends BaseController {
 			return '';
 		}
 
-		return implode( ', ', array_filter( array_map( 'strval', $schedule ) ) );
+		return WeekDay::formatSchedule( $schedule );
 	}
 
 	/**

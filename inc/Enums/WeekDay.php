@@ -56,4 +56,27 @@ enum WeekDay: string {
 
 		return implode( ', ', $labels );
 	}
+
+	/**
+	 * Форматирует массив расписания группы в строку вида "Пн, Вт 13:30-15:00".
+	 *
+	 * @param array<string, mixed> $schedule Массив с ключами 'days', 'start', 'end'
+	 */
+	public static function formatSchedule( array $schedule ): string {
+		$days  = (array) ( $schedule['days']  ?? array() );
+		$start = (string) ( $schedule['start'] ?? '' );
+		$end   = (string) ( $schedule['end']   ?? '' );
+
+		if ( empty( $days ) ) {
+			return '';
+		}
+
+		$daysStr = self::formatDays( $days );
+
+		if ( $start !== '' && $end !== '' ) {
+			return $daysStr . ' ' . $start . '-' . $end;
+		}
+
+		return $start !== '' ? $daysStr . ' ' . $start : $daysStr;
+	}
 }

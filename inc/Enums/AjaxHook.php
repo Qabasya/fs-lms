@@ -84,6 +84,7 @@ enum AjaxHook: string {
 	case GetApplicationData          = 'get_application_data';
 	case GetStudentGroups            = 'get_student_groups';
 	case RevealUserCredentials       = 'reveal_user_credentials';
+	case RegenerateUserPassword      = 'regenerate_user_password';
 	case GetStudentsByGroup          = 'get_students_by_group';
 	case GetPersonData               = 'get_person_data';
 

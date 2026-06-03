@@ -36,6 +36,7 @@ class UserController extends BaseController implements ServiceInterface {
 
 	public function register(): void {
 		add_action( 'admin_init', array( $this->user_manager, 'restrictAdminAccess' ) );
+		add_action( 'profile_update', array( $this->user_manager, 'clearEncryptedPasswordIfChanged' ), 10, 2 );
 
 		add_filter( 'login_redirect', array( $this->user_manager, 'resolveLoginRedirect' ), 10, 3 );
 

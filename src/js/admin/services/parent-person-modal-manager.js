@@ -2,8 +2,8 @@ import { ParentPersonModal } from '../components/parent-person-modal.js';
 
 const $ = jQuery;
 
-const NONCES  = () => fs_lms_applications_vars.nonces;
-const ACTIONS = () => fs_lms_vars.ajax_actions;
+const NONCES   = () => fs_lms_applications_vars.nonces;
+const ACTIONS  = () => fs_lms_vars.ajax_actions;
 const AJAX_URL = () => fs_lms_vars.ajaxurl;
 
 export const ParentPersonModalManager = {
@@ -50,6 +50,10 @@ export const ParentPersonModalManager = {
             e.preventDefault();
             this._delete();
         } );
+
+        $( document ).on( 'fs-lms:regenerate-password', ( e, { wpUserId, $btn } ) => {
+            this._regeneratePassword( wpUserId, $btn );
+        } );
     },
 
     _openModal( $btn ) {
@@ -64,6 +68,7 @@ export const ParentPersonModalManager = {
         // Немедленно из данных строки — без ожидания AJAX
         ParentPersonModal.fill( {
             display_name:     $btn.data( 'displayName' )       || '',
+            full_name:        $btn.data( 'displayName' )       || '',
             email:            $btn.data( 'email' )              || '',
             phone:            rowData.phone                     || '',
             relation_type:    rowData.relation_type             || '',
@@ -89,6 +94,7 @@ export const ParentPersonModalManager = {
                 doc_number: pii.doc_number || '',
                 inn:        pii.inn        || '',
                 address:    pii.address    || '',
+                password:   pii.password   || '',
             } );
         } );
     },
@@ -114,9 +120,11 @@ export const ParentPersonModalManager = {
                 user_id:  wpUserId,
                 security: NONCES().revealPii,
             } ).done( ( res ) => {
-                if ( res.success ) ParentPersonModal.fillRevealed( {
-                    password: res.data.password || '',
-                } );
+                if ( res.success ) {
+                    ParentPersonModal.fillRevealed( { password: res.data.password || '' } );
+                } else {
+                    ParentPersonModal.showRegenerateButton( wpUserId );
+                }
             } );
         }
     },
@@ -131,7 +139,10 @@ export const ParentPersonModalManager = {
             security:  NONCES().updatePerson,
             person_id: personId,
         };
-        allowed.forEach( k => { if ( edit[ k ] ) payload[ k ] = edit[ k ]; } );
+        allowed.forEach( k => {
+            // Не отправлять PII-поля, если они ещё в маске
+            if ( edit[ k ] && ! edit[ k ].includes( '•' ) ) payload[ k ] = edit[ k ];
+        } );
         $.post( AJAX_URL(), payload ).done( ( res ) => {
             if ( res.success ) ParentPersonModal.setEditing( false );
         } );
@@ -159,6 +170,22 @@ export const ParentPersonModalManager = {
             security:  NONCES().deletePii,
         } ).done( r => {
             if ( r.success ) ParentPersonModal.close();
+        } );
+    },
+
+    _regeneratePassword( wpUserId, $btn ) {
+        $btn.prop( 'disabled', true );
+        $.post( AJAX_URL(), {
+            action:   ACTIONS().regenerateUserPassword,
+            user_id:  wpUserId,
+            security: NONCES().revealPii,
+        } ).done( ( res ) => {
+            if ( res.success ) {
+                ParentPersonModal.fillRevealed( { password: res.data.password || '' } );
+                $btn.remove();
+            } else {
+                $btn.prop( 'disabled', false );
+            }
         } );
     },
 };

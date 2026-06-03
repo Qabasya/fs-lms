@@ -8,11 +8,13 @@
 
 use Inc\Enums\Capability;
 use Inc\Enums\DocumentType;
+use Inc\Enums\PiiField;
 use Inc\Enums\RelationType;
 use Inc\Enums\UserRole;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\RelationshipRepository;
+use Inc\Services\Person\PiiMaskingService;
 use Inc\Services\PiiCryptoService;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
@@ -26,6 +28,7 @@ $personRepo       = new PersonRepository();
 $relationshipRepo = new RelationshipRepository();
 $enrollmentRepo   = new EnrollmentRepository();
 $crypto           = new PiiCryptoService();
+$masker           = new PiiMaskingService();
 
 $page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage = 20;
@@ -132,15 +135,15 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 					'email'           => $guardianData['email']           ?? $email,
 					'phone'           => $guardianData['phone']           ?? $phone,
 					'doc_type'        => DocumentType::tryFrom( $guardianData['doc_type'] ?? '' )?->label() ?? ( $guardianData['doc_type'] ?? '' ),
-					'doc_number'      => $guardianData['doc_number']      ?? '',
+					'doc_number'      => $masker->mask( $guardianData['doc_number'] ?? '', PiiField::Pass ),
 					'doc_issued_by'   => $guardianData['doc_issued_by']   ?? '',
 					'doc_issued_date' => $guardianData['doc_issued_date'] ?? '',
-					'inn'             => $guardianData['inn']             ?? '',
-					'address'         => $guardianData['address']         ?? '',
+					'inn'             => $masker->mask( $guardianData['inn']      ?? '', PiiField::Inn ),
+					'address'         => $masker->mask( $guardianData['address']  ?? '', PiiField::Address ),
 					'children'        => $childNamesStr,
-					'child_birth_date'  => $studentData['birth_date']  ?? '',
-					'child_doc_number'  => $studentData['doc_number']  ?? '',
-					'child_inn'         => $studentData['inn']         ?? '',
+					'child_birth_date'  => $studentData['birth_date'] ?? '',
+					'child_doc_number'  => $masker->mask( $studentData['doc_number'] ?? '', PiiField::Pass ),
+					'child_inn'         => $masker->mask( $studentData['inn']        ?? '', PiiField::Inn ),
 				);
 			?>
 			<tr data-parent="<?php echo esc_attr( (string) wp_json_encode( $parentModalData ) ); ?>">

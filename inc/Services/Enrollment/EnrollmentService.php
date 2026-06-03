@@ -171,25 +171,41 @@ readonly class EnrollmentService {
 			if ( null !== $studentPerson && null !== $studentPerson->wpUserId ) {
 				$studentUserId = $studentPerson->wpUserId;
 				$studentLogin  = $this->userManager->find( $studentUserId )?->user_login ?? '';
+				if ( $studentDto->loginPassword !== '' ) {
+					$this->passwordGenerator->setFromPlain( $studentUserId, $studentDto->loginPassword );
+					$studentPassword = $studentDto->loginPassword;
+				} else {
+					$studentPassword = $this->passwordGenerator->generateAndSet( $studentUserId );
+				}
 			} else {
 				$studentEmail = $studentDto->email;
 				$existingUser = $studentEmail !== '' ? $this->userManager->findByEmail( $studentEmail ) : null;
 				if ( null !== $existingUser ) {
 					$studentUserId = $existingUser->ID;
 					$studentLogin  = $existingUser->user_login;
+					if ( $studentDto->loginPassword !== '' ) {
+						$this->passwordGenerator->setFromPlain( $studentUserId, $studentDto->loginPassword );
+						$studentPassword = $studentDto->loginPassword;
+					} else {
+						$studentPassword = $this->passwordGenerator->generateAndSet( $studentUserId );
+					}
 				} else {
-					$studentLogin  = $studentDto->username !== ''
+					$studentLogin    = $studentDto->username !== ''
 						? $studentDto->username
 						: ( $studentEmail !== '' ? $studentEmail : 'student_' . $studentPersonId );
-					$studentUserId = $this->userManager->create( array(
+					$studentPassword = $studentDto->loginPassword !== ''
+						? $studentDto->loginPassword
+						: wp_generate_password( 8, false );
+					$studentUserId   = $this->userManager->create( array(
 						'user_login'   => $studentLogin,
 						'user_email'   => $studentEmail,
-						'user_pass'    => wp_generate_password( 64 ),
+						'user_pass'    => $studentPassword,
 						'display_name' => $studentDto->fullName(),
 						'first_name'   => $studentDto->firstName,
 						'last_name'    => $studentDto->lastName,
 						'role'         => UserRole::FSStudent->value,
 					) );
+					$this->passwordGenerator->storeEncrypted( $studentUserId, $studentPassword );
 				}
 				if ( null !== $studentPerson && null === $studentPerson->wpUserId ) {
 					$this->personRepository->setWpUser( $studentPersonId, $studentUserId );
@@ -203,40 +219,35 @@ readonly class EnrollmentService {
 			// --- Родитель ---
 			$guardianPerson = $this->personRepository->find( $guardianPersonId );
 			if ( null !== $guardianPerson && null !== $guardianPerson->wpUserId ) {
-				$guardianUserId = $guardianPerson->wpUserId;
-				$guardianLogin  = $this->userManager->find( $guardianUserId )?->user_login ?? '';
+				$guardianUserId   = $guardianPerson->wpUserId;
+				$guardianLogin    = $this->userManager->find( $guardianUserId )?->user_login ?? '';
+				$guardianPassword = $this->passwordGenerator->generateAndSet( $guardianUserId );
 			} else {
 				$guardianEmail        = $parentDto->email;
 				$existingGuardianUser = $this->userManager->findByEmail( $guardianEmail );
 				if ( null !== $existingGuardianUser ) {
-					$guardianUserId = $existingGuardianUser->ID;
-					$guardianLogin  = $existingGuardianUser->user_login;
+					$guardianUserId   = $existingGuardianUser->ID;
+					$guardianLogin    = $existingGuardianUser->user_login;
+					$guardianPassword = $this->passwordGenerator->generateAndSet( $guardianUserId );
 				} else {
-					$guardianLogin  = $guardianEmail;
-					$guardianUserId = $this->userManager->create( array(
+					$guardianLogin    = $guardianEmail;
+					$guardianPassword = wp_generate_password( 8, false );
+					$guardianUserId   = $this->userManager->create( array(
 						'user_login'   => $guardianEmail,
 						'user_email'   => $guardianEmail,
-						'user_pass'    => wp_generate_password( 64 ),
+						'user_pass'    => $guardianPassword,
 						'display_name' => $parentDto->fullName(),
 						'first_name'   => $parentDto->firstName,
 						'last_name'    => $parentDto->lastName,
 						'role'         => UserRole::FSParent->value,
 					) );
+					$this->passwordGenerator->storeEncrypted( $guardianUserId, $guardianPassword );
 				}
 				if ( null !== $guardianPerson && null === $guardianPerson->wpUserId ) {
 					$this->personRepository->setWpUser( $guardianPersonId, $guardianUserId );
 					$this->userManager->setPersonId( $guardianUserId, $guardianPersonId );
 				}
 			}
-
-			// Установка паролей: используем пароль из заявки или генерируем случайный
-			if ( $studentDto->loginPassword !== '' ) {
-				$this->passwordGenerator->setFromPlain( $studentUserId, $studentDto->loginPassword );
-				$studentPassword = $studentDto->loginPassword;
-			} else {
-				$studentPassword = $this->passwordGenerator->generateAndSet( $studentUserId );
-			}
-			$guardianPassword = $this->passwordGenerator->generateAndSet( $guardianUserId );
 
 			// Удаление заявки (данные перешли в enrollment и persons)
 			$this->applicationRepository->forceDelete( $app->id );

@@ -35,6 +35,7 @@ export const StudentPersonModal = {
         this.$el.find( '.fs-person-field' ).val( '' );
         this.$el.find( '.fs-lms-modal-title' ).text( '' );
         this.$el.find( '.js-reveal-all' ).text( 'Показать данные' ).prop( 'disabled', false );
+        this.$el.find( '.js-spm-regen-pwd' ).remove();
         this.setEditing( false );
         this.$el.removeData( 'personId' ).removeData( 'wpUserId' );
     },
@@ -61,7 +62,7 @@ export const StudentPersonModal = {
     },
 
     setEditing( editing ) {
-        this.$el.find( '.fs-person-field' ).prop( 'readonly', ! editing );
+        this.$el.find( '.fs-person-field:not([data-no-edit])' ).prop( 'readonly', ! editing );
         this.$el.find( '.js-pmm-edit' ).prop( 'hidden', editing );
         if ( editing ) {
             this.$el.find( '.fs-lms-modal-footer' ).append(
@@ -80,5 +81,13 @@ export const StudentPersonModal = {
             if ( key && el.value.trim() ) data[ key ] = el.value.trim();
         } );
         return data;
+    },
+
+    showRegenerateButton( wpUserId ) {
+        const $btn = $( '<button type="button" class="button js-spm-regen-pwd">Сгенерировать новый пароль</button>' );
+        this.$el.find( '.fs-lms-modal-footer' ).append( $btn );
+        $btn.on( 'click', () => {
+            $( document ).trigger( 'fs-lms:spm-regenerate-password', { wpUserId, $btn } );
+        } );
     },
 };

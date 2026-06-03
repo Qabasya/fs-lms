@@ -22,26 +22,26 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'ФИО', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="display_name" readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="full_name" readonly>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( '№ договора', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="contract_no" readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="contract_no" data-no-edit readonly>
 				</div>
 			</div>
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Предмет', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="subject" readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="subject" data-no-edit readonly>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Группа', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="group" readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="group" data-no-edit readonly>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Расписание', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="schedule" readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="schedule" data-no-edit readonly>
 				</div>
 			</div>
 
@@ -54,12 +54,16 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 					<label><?php esc_html_e( 'Почта', 'fs-lms' ); ?></label>
 					<input type="text" class="fs-person-field regular-text" data-field="email" readonly>
 				</div>
+				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Логин', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="login" data-no-edit readonly>
+				</div>
 			</div>
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'ФИО родителя', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="guardian_name" readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="guardian_name" data-no-edit readonly>
 				</div>
 			</div>
 
@@ -72,11 +76,11 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Школа', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="school" readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="school" data-no-edit readonly>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Класс', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="grade" readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="grade" data-no-edit readonly>
 				</div>
 			</div>
 
@@ -91,7 +95,14 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="birth_date" readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="birth_date" data-no-edit readonly>
+				</div>
+			</div>
+
+			<div class="fs-form-row">
+				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Пароль', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="password" data-no-edit readonly>
 				</div>
 			</div>
 

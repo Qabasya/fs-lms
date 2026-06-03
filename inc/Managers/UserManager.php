@@ -178,6 +178,13 @@ class UserManager {
 		update_user_meta( $userId, 'fs_lms_user_status', $status );
 	}
 
+	public function clearEncryptedPasswordIfChanged( int $userId, \WP_User $oldUser ): void {
+		$newUser = $this->find( $userId );
+		if ( null !== $newUser && $newUser->user_pass !== $oldUser->user_pass ) {
+			delete_user_meta( $userId, 'fs_lms_enc_password' );
+		}
+	}
+
 	/**
 	 * Ограничивает доступ к админ-панели для всех, кроме администраторов и LMS-преподавателей.
 	 * Подключается к хуку 'admin_init'.
