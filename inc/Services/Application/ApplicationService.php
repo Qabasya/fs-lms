@@ -97,15 +97,17 @@ readonly class ApplicationService {
 
 		// Шифрование данных ученика
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array(
-			'last_name'   => $input->lastName,
-			'first_name'  => $input->firstName,
-			'middle_name' => $input->middleName,
-			'full_name'   => $input->fullName(),
-			'email'       => $input->email,
-			'phone'       => $input->phone,
-			'school'      => $input->school,
-			'grade'       => $input->grade,
-			'birth_date'  => $input->birthDate,
+			'last_name'     => $input->lastName,
+			'first_name'    => $input->firstName,
+			'middle_name'   => $input->middleName,
+			'full_name'     => $input->fullName(),
+			'email'         => $input->email,
+			'phone'         => $input->phone,
+			'school'        => $input->school,
+			'grade'         => $input->grade,
+			'birth_date'    => $input->birthDate,
+			'username'       => $input->username,
+			'login_password' => $input->password,
 		) ) );
 
 		// inTransaction() — атомарное выполнение блока операций
@@ -196,17 +198,19 @@ readonly class ApplicationService {
 		}
 
 		$updatedStudentDto = new StudentDataDTO(
-			lastName:   $input->studentLastName,
-			firstName:  $input->studentFirstName,
-			middleName: $input->studentMiddleName,
-			email:      $existingStudentDto->email,
-			phone:      $existingStudentDto->phone,
-			school:     $existingStudentDto->school,
-			grade:      $existingStudentDto->grade,
-			birthDate:  $input->studentBirthDate,
-			docType:    $input->studentDocType,
-			docNumber:  $input->studentDocNumber,
-			inn:        $input->studentInn,
+			lastName:      $input->studentLastName,
+			firstName:     $input->studentFirstName,
+			middleName:    $input->studentMiddleName,
+			email:         $existingStudentDto->email,
+			phone:         $existingStudentDto->phone,
+			school:        $existingStudentDto->school,
+			grade:         $existingStudentDto->grade,
+			birthDate:     $input->studentBirthDate,
+			docType:       $input->studentDocType,
+			docNumber:     $input->studentDocNumber,
+			inn:           $input->studentInn,
+			username:      $existingStudentDto->username,
+			loginPassword: $existingStudentDto->loginPassword,
 		);
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
 

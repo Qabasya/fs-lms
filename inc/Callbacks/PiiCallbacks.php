@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\PersonInputDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
+use Inc\Enums\PiiField;
 use Inc\Enums\RelationType;
 use Inc\Enums\UserRole;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
@@ -18,6 +19,7 @@ use Inc\Services\AuditService;
 use Inc\Services\EmailService;
 use Inc\Services\Person\PersonReader;
 use Inc\Services\Person\PersonService;
+use Inc\Services\Person\PiiMaskingService;
 use Inc\Services\Person\RelationshipService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\RateLimitService;
@@ -58,6 +60,7 @@ class PiiCallbacks extends BaseController {
 	 * @param RateLimitService    $rateLimitService    Сервис ограничения запросов
 	 * @param EmailService        $emailService        Сервис отправки email
 	 * @param AuditService        $auditService        Сервис аудита
+	 * @param PiiMaskingService   $maskingService      Сервис маскирования PII
 	 */
 	public function __construct(
 		private readonly PersonReader           $personReader,
@@ -71,6 +74,7 @@ class PiiCallbacks extends BaseController {
 		private readonly StudentGroupRepository $groupRepository,
 		private readonly SubjectRepository      $subjectRepository,
 		private readonly PiiCryptoService       $crypto,
+		private readonly PiiMaskingService      $maskingService,
 	) {
 		parent::__construct();
 	}
@@ -89,17 +93,16 @@ class PiiCallbacks extends BaseController {
 			$this->error( 'Лимит раскрытий превышен.', 429 );
 		}
 
-		$personId = $this->sanitizeInt( $_POST['person_id'] ?? 0 );
-		$field    = $this->sanitizeText( $_POST['field'] ?? '' );
-		$reason   = $this->sanitizeText( $_POST['reason'] ?? 'admin_reveal' );
+		$personId = $this->sanitizeInt( 'person_id' );
+		$field    = $this->sanitizeText( 'field' );
+		$reason   = $this->sanitizeText( 'reason' );
 
 		try {
 			$value = $this->personReader->readField( $personId, $field, $reason );
+			$this->success( array( 'value' => $value ) );
 		} catch ( \RuntimeException $e ) {
 			$this->error( $e->getMessage() );
 		}
-
-		$this->success( array( 'value' => $value ) );
 	}
 
 	/**
@@ -272,6 +275,7 @@ class PiiCallbacks extends BaseController {
 					'student_name'      => $isParent ? ( $nameMap[ $pid ] ?? "#{$pid}" ) : null,
 					'subject_name'      => $this->subjectRepository->getByKey( $enr->subjectKey )?->name ?? $enr->subjectKey,
 					'group_title'       => $group?->title ?? '—',
+					'schedule'          => $this->formatSchedule( $group ),
 					'period_key'        => $enr->periodKey,
 					'status_label'      => $enr->status->label(),
 					'status_value'      => $enr->status->value,
@@ -294,10 +298,88 @@ class PiiCallbacks extends BaseController {
 		$this->success( array(
 			'type'            => $type,
 			'wp_user_id'      => $person->wpUserId ?? 0,
+			'display_name'    => $wpUser ? $wpUser->display_name : '',
+			'email'           => $wpUser ? $wpUser->user_email : '',
+			'masked_pii'      => $this->getMaskedPersonPii( $personId ),
 			'representatives' => $representatives,
 			'dependents'      => $dependents,
 			'enrollments'     => $enrollments,
 		) );
+	}
+
+	/**
+	 * AJAX: раскрыть все PII-поля лица за одну операцию.
+	 *
+	 * @return void
+	 */
+	public function ajaxRevealAllPersonPii(): void {
+		$this->authorize( Nonce::RevealPii, Capability::ViewPII );
+
+		if ( ! $this->rateLimitService->allowPiiReveal( get_current_user_id() ) ) {
+			$this->error( 'Лимит раскрытий превышен.', 429 );
+		}
+
+		$personId = $this->sanitizeInt( 'person_id' );
+		$reason   = $this->sanitizeText( 'reason' ) ?: 'admin_full_reveal';
+
+		try {
+			$dto = $this->personReader->readForDisplay(
+				$personId,
+				array( 'doc_number', 'inn', 'address', 'phone' ),
+				$reason
+			);
+			$this->success( array(
+				'doc_number' => $dto->pass,
+				'inn'        => $dto->inn,
+				'address'    => $dto->address,
+				'phone'      => $dto->phone,
+			) );
+		} catch ( \RuntimeException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Возвращает маскированные PII-поля лица для отображения в модальном окне.
+	 *
+	 * @param int $personId ID лица
+	 * @return array{doc_number: string, inn: string, address: string}
+	 */
+	private function getMaskedPersonPii( int $personId ): array {
+		try {
+			$dto = $this->personReader->readForDisplay(
+				$personId,
+				array( 'doc_number', 'inn', 'address', 'phone' ),
+				'admin_masked_view'
+			);
+			return array(
+				'doc_number' => $this->maskingService->mask( $dto->pass,    PiiField::Pass ),
+				'inn'        => $this->maskingService->mask( $dto->inn,     PiiField::Inn ),
+				'address'    => $this->maskingService->mask( $dto->address, PiiField::Address ),
+			);
+		} catch ( \Throwable ) {
+			return array( 'doc_number' => '', 'inn' => '', 'address' => '' );
+		}
+	}
+
+	/**
+	 * Конвертирует массив расписания группы в читаемую строку.
+	 *
+	 * @param mixed $group Объект группы или null
+	 * @return string
+	 */
+	private function formatSchedule( mixed $group ): string {
+		if ( null === $group ) {
+			return '';
+		}
+
+		$schedule = $group->schedule ?? null;
+
+		if ( empty( $schedule ) || ! is_array( $schedule ) ) {
+			return '';
+		}
+
+		return implode( ', ', array_filter( array_map( 'strval', $schedule ) ) );
 	}
 
 	/**

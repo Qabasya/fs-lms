@@ -44,7 +44,9 @@ readonly class StudentDataDTO {
 	 * @param string $birthDate  Дата рождения (Y-m-d)
 	 * @param string $docType    Тип документа (pass, birth_certificate)
 	 * @param string $docNumber  Номер документа
-	 * @param string $inn        ИНН ученика (12 цифр)
+	 * @param string $inn          ИНН ученика (12 цифр)
+	 * @param string $username     Логин для входа в личный кабинет
+	 * @param string $loginPassword Пароль для входа (plaintext внутри зашифрованного student_data_enc)
 	 */
 	public function __construct(
 		public string $lastName,
@@ -58,6 +60,8 @@ readonly class StudentDataDTO {
 		public string $docType,
 		public string $docNumber,
 		public string $inn,
+		public string $username = '',
+		public string $loginPassword = '',
 	) {}
 
 	public function fullName(): string {
@@ -79,17 +83,19 @@ readonly class StudentDataDTO {
 		$middleName = (string) ( $data['middle_name'] ?? $parts[2] ?? '' );
 
 		return new static(
-			lastName:   $lastName,
-			firstName:  $firstName,
-			middleName: $middleName,
-			email:      (string) ( $data['email']      ?? '' ),
-			phone:      (string) ( $data['phone']      ?? '' ),
-			school:     (string) ( $data['school']     ?? '' ),
-			grade:      (int)    ( $data['grade']      ?? 0 ),
-			birthDate:  (string) ( $data['birth_date'] ?? '' ),
-			docType:    (string) ( $data['doc_type']   ?? '' ),
-			docNumber:  (string) ( $data['doc_number'] ?? '' ),
-			inn:        (string) ( $data['inn']        ?? '' ),
+			lastName:      $lastName,
+			firstName:     $firstName,
+			middleName:    $middleName,
+			email:         (string) ( $data['email']         ?? '' ),
+			phone:         (string) ( $data['phone']         ?? '' ),
+			school:        (string) ( $data['school']        ?? '' ),
+			grade:         (int)    ( $data['grade']         ?? 0 ),
+			birthDate:     (string) ( $data['birth_date']    ?? '' ),
+			docType:       (string) ( $data['doc_type']      ?? '' ),
+			docNumber:     (string) ( $data['doc_number']    ?? '' ),
+			inn:           (string) ( $data['inn']           ?? '' ),
+			username:      (string) ( $data['username']      ?? '' ),
+			loginPassword:  (string) ( $data['login_password'] ?? '' ),
 		);
 	}
 
@@ -100,18 +106,20 @@ readonly class StudentDataDTO {
 	 */
 	public function toArray(): array {
 		return array(
-			'last_name'   => $this->lastName,
-			'first_name'  => $this->firstName,
-			'middle_name' => $this->middleName,
-			'full_name'   => $this->fullName(),
-			'email'       => $this->email,
-			'phone'       => $this->phone,
-			'school'      => $this->school,
-			'grade'       => $this->grade,
-			'birth_date'  => $this->birthDate,
-			'doc_type'    => $this->docType,
-			'doc_number'  => $this->docNumber,
-			'inn'         => $this->inn,
+			'last_name'     => $this->lastName,
+			'first_name'    => $this->firstName,
+			'middle_name'   => $this->middleName,
+			'full_name'     => $this->fullName(),
+			'email'         => $this->email,
+			'phone'         => $this->phone,
+			'school'        => $this->school,
+			'grade'         => $this->grade,
+			'birth_date'    => $this->birthDate,
+			'doc_type'      => $this->docType,
+			'doc_number'    => $this->docNumber,
+			'inn'           => $this->inn,
+			'username'      => $this->username,
+			'login_password' => $this->loginPassword,
 		);
 	}
 }

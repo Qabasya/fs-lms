@@ -71,6 +71,7 @@ class PiiController extends AjaxController {
 	protected function ajaxActions(): array {
 		return array(
 			array( AjaxHook::RevealPiiField,       $this->callbacks ),
+			array( AjaxHook::RevealAllPersonPii,   $this->callbacks ),
 			array( AjaxHook::RequestPiiDeletion,   $this->callbacks ),
 			array( AjaxHook::AddRepresentative,    $this->callbacks ),
 			array( AjaxHook::ReplaceRepresentative, $this->callbacks ),

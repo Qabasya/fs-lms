@@ -86,6 +86,7 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 				$phone        = '';
 				$childNames   = array();
 				$guardianData = array();
+				$studentData  = array();
 
 				if ( $personId ) {
 					$relationships = $relationshipRepo->findActiveByGuardian( $personId );
@@ -109,6 +110,7 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 										$gd       = $snapshot['guardian'] ?? array();
 										if ( ! empty( $gd ) ) {
 											$guardianData = $gd;
+											$studentData  = $snapshot['student'] ?? array();
 											$phone        = $gd['phone'] ?? '';
 											break;
 										}
@@ -136,6 +138,9 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 					'inn'             => $guardianData['inn']             ?? '',
 					'address'         => $guardianData['address']         ?? '',
 					'children'        => $childNamesStr,
+					'child_birth_date'  => $studentData['birth_date']  ?? '',
+					'child_doc_number'  => $studentData['doc_number']  ?? '',
+					'child_inn'         => $studentData['inn']         ?? '',
 				);
 			?>
 			<tr data-parent="<?php echo esc_attr( (string) wp_json_encode( $parentModalData ) ); ?>">

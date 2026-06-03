@@ -18,11 +18,10 @@ import { ApplicationModalManager } from './services/application-modal-manager.js
 import { ApplicationReviewModalManager } from './services/application-review-modal-manager.js';
 import { ApplicationEnrollmentModalManager } from './services/application-enrollment-modal-manager.js';
 import { ApplicationViewModal } from './components/application-view-modal.js';
-import { StudentViewModal } from './components/student-view-modal.js';
-import { ParentViewModal } from './components/parent-view-modal.js';
 import { TeacherViewModal } from './components/teacher-view-modal.js';
-import { PersonModalManager } from './services/person-modal-manager.js';
-import { PersonDetail } from './services/person-detail.js';
+import { StudentPersonModalManager } from './services/student-person-modal-manager.js';
+import { ParentPersonModalManager } from './services/parent-person-modal-manager.js';
+// import { PersonDetail } from './services/person-detail.js';
 import { ExpelModalManager } from './services/expel-modal-manager.js';
 
 (function ($) {
@@ -80,22 +79,17 @@ import { ExpelModalManager } from './services/expel-modal-manager.js';
         }
 
         if ( document.querySelector( '.fs-lms-students' ) ) {
-            StudentViewModal.init();
+            StudentPersonModalManager.init();
         }
-
         if ( document.querySelector( '.fs-lms-parents' ) ) {
-            ParentViewModal.init();
-        }
-
-        if ( document.querySelector( '.fs-lms-students, .fs-lms-parents' ) ) {
-            PersonModalManager.init();
+            ParentPersonModalManager.init();
         }
 
         if ( document.querySelector( '.fs-lms-teachers' ) ) {
             TeacherViewModal.init();
         }
 
-        PersonDetail.init();
+        // PersonDetail.init();
         ExpelModalManager.init();
 
     });

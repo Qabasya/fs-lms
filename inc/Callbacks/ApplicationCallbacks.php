@@ -198,6 +198,8 @@ class ApplicationCallbacks extends BaseController {
 		$grade      = $this->sanitizeInt( 'grade' );
 		$birthDate  = $this->requireText( 'birth_date' );
 		$otpCode    = $this->requireText( 'otp_code' );
+		$username   = $this->requireText( 'username' );
+		$password   = $this->requireText( 'password' );
 		$ua         = (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' );
 
 		$dto = new ApplicationInputDTO(
@@ -212,6 +214,8 @@ class ApplicationCallbacks extends BaseController {
 			otpCode:         $otpCode,
 			ip:              $ip,
 			userAgent:       $ua,
+			username:        $username,
+			password:        $password,
 		);
 
 		try {

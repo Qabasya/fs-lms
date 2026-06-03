@@ -78,7 +78,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                     <label for="fs_school">Школа:</label>
 					<span class="dashicons dashicons-welcome-learn-more"></span>
 					<input type="text" name="school" id="fs_school"
-						placeholder="<?php esc_attr_e( 'МАОУ СОШ №', 'fs-lms' ); ?>">
+						placeholder="<?php esc_attr_e( 'МАОУ СОШ №', 'fs-lms' ); ?>" required>
 				</div>
 
 				<div class="fs-apply-card__field-group fs-form-group">

@@ -42,6 +42,8 @@ readonly class ApplicationInputDTO {
 	 * @param string $otpCode         6-значный код подтверждения email (шаг B двухэтапной формы)
 	 * @param string $ip              IP-адрес отправителя (для аудита)
 	 * @param string $userAgent       User-Agent браузера (для аудита)
+	 * @param string $username        Желаемый логин для входа в личный кабинет
+	 * @param string $password        Желаемый пароль (plaintext; хэшируется в сервисе)
 	 */
 	public function __construct(
 		public string $lastName,
@@ -55,6 +57,8 @@ readonly class ApplicationInputDTO {
 		public string $otpCode,
 		public string $ip,
 		public string $userAgent,
+		public string $username = '',
+		public string $password = '',
 	) {}
 
 	public function fullName(): string {

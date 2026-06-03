@@ -81,9 +81,9 @@ $pages       = (int) ceil( $total / $perPage );
 
 		<?php else : ?>
 			<?php foreach ( $enrollments as $row ) :
-				$studentPersonId = (int) $row['student_person_id'];
-				$groupId         = (string) $row['group_id'];
-				$subjectKey      = (string) $row['subject_key'];
+				$studentPersonId = $row->studentPersonId;
+				$groupId         = (string) ( $row->groupId ?? '' );
+				$subjectKey      = $row->subjectKey;
 
 				// Имя ученика из WP-пользователя
 				$studentName = '—';
@@ -110,9 +110,9 @@ $pages       = (int) ceil( $total / $perPage );
 				// Расшифровка снапшота
 				$snapshot    = array();
 				$contractNo  = '—';
-				if ( ! empty( $row['snapshot_enc'] ) ) {
+				if ( ! empty( $row->snapshotEnc ) ) {
 					try {
-						$snapshot   = json_decode( $crypto->decrypt( $row['snapshot_enc'] ), true ) ?? array();
+						$snapshot   = json_decode( $crypto->decrypt( $row->snapshotEnc ), true ) ?? array();
 						$contractNo = $snapshot['contract_no'] ?? '—';
 					} catch ( \Throwable $e ) {
 						// snapshot недоступен
@@ -130,7 +130,7 @@ $pages       = (int) ceil( $total / $perPage );
 					'contract_date'            => $snapshot['contract_date'] ?? '',
 					'order_no'                 => $snapshot['order_no']      ?? '',
 					'order_date'               => $snapshot['order_date']    ?? '',
-					'enrolled_at'              => substr( (string) $row['enrolled_at'], 0, 10 ),
+					'enrolled_at'              => substr( $row->enrolledAt, 0, 10 ),
 					'student_full_name'        => $sd['full_name']  ?? $studentName,
 					'student_birth_date'       => $sd['birth_date'] ?? '',
 					'student_email'            => $sd['email']      ?? '',

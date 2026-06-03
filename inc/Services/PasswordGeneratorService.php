@@ -76,6 +76,29 @@ class PasswordGeneratorService {
 	}
 
 	/**
+	 * Устанавливает готовый пароль (без генерации), сохраняет зашифрованным в user meta.
+	 * Используется когда пользователь задал пароль самостоятельно при подаче заявки.
+	 *
+	 * @throws \RuntimeException Если пользователь не найден
+	 */
+	public function setFromPlain( int $user_id, string $password ): void {
+		$user = $this->user_manager->find( $user_id );
+
+		if ( null === $user ) {
+			throw new \RuntimeException( "Пользователь {$user_id} не найден" );
+		}
+
+		wp_set_password( $password, $user_id );
+		update_user_meta( $user_id, self::META_KEY, $this->crypto->encrypt( $password ) );
+
+		$this->audit_service->record(
+			AuditAction::PasswordGenerated->value,
+			'user',
+			$user_id,
+		);
+	}
+
+	/**
 	 * Устанавливает случайный 64-символьный пароль и удаляет сохранённый.
 	 * Используется при блокировке аккаунта после удаления ПД.
 	 */

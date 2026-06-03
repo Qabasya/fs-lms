@@ -178,7 +178,9 @@ readonly class EnrollmentService {
 					$studentUserId = $existingUser->ID;
 					$studentLogin  = $existingUser->user_login;
 				} else {
-					$studentLogin  = $studentEmail !== '' ? $studentEmail : 'student_' . $studentPersonId;
+					$studentLogin  = $studentDto->username !== ''
+						? $studentDto->username
+						: ( $studentEmail !== '' ? $studentEmail : 'student_' . $studentPersonId );
 					$studentUserId = $this->userManager->create( array(
 						'user_login'   => $studentLogin,
 						'user_email'   => $studentEmail,
@@ -227,8 +229,13 @@ readonly class EnrollmentService {
 				}
 			}
 
-			// Генерация и сохранение паролей
-			$studentPassword  = $this->passwordGenerator->generateAndSet( $studentUserId );
+			// Установка паролей: используем пароль из заявки или генерируем случайный
+			if ( $studentDto->loginPassword !== '' ) {
+				$this->passwordGenerator->setFromPlain( $studentUserId, $studentDto->loginPassword );
+				$studentPassword = $studentDto->loginPassword;
+			} else {
+				$studentPassword = $this->passwordGenerator->generateAndSet( $studentUserId );
+			}
 			$guardianPassword = $this->passwordGenerator->generateAndSet( $guardianUserId );
 
 			// Удаление заявки (данные перешли в enrollment и persons)
