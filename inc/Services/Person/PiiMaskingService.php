@@ -34,7 +34,6 @@ class PiiMaskingService {
 			PiiField::Inn      => $this->maskInn( $trimmed ),
 			PiiField::Phone    => $this->maskPhone( $trimmed ),
 			PiiField::Address  => $this->maskAddress( $trimmed ),
-			PiiField::Snils    => $this->maskSnils( $trimmed ),
 		};
 	}
 

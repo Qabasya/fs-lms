@@ -254,6 +254,7 @@ class Migration_1_0_0 implements MigrationInterface {
 		$wpdb->query( "ALTER TABLE `$persons` ADD COLUMN IF NOT EXISTS `doc_type` varchar(30) DEFAULT NULL AFTER `birth_date`" );
 		$wpdb->query( "ALTER TABLE `$applications` ADD COLUMN IF NOT EXISTS `join_code_enc` blob DEFAULT NULL AFTER `join_code_hash`" );
 		$wpdb->query( "ALTER TABLE `$enrollments` MODIFY COLUMN `group_id` varchar(100) DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$persons` DROP COLUMN IF EXISTS `snils_enc`" );
 		// phpcs:enable
 	}
 

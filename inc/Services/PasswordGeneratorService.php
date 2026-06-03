@@ -33,7 +33,9 @@ class PasswordGeneratorService {
 		$password = wp_generate_password( 8, false );
 
 		wp_set_password( $password, $user_id );
-		update_user_meta( $user_id, self::META_KEY, $this->crypto->encrypt( $password ) );
+
+		$encoded = base64_encode( $this->crypto->encrypt( $password ) );
+		update_user_meta( $user_id, self::META_KEY, $encoded );
 
 		$this->audit_service->record(
 			AuditAction::PasswordGenerated->value,
@@ -64,7 +66,7 @@ class PasswordGeneratorService {
 		}
 
 		try {
-			$password = $this->crypto->decrypt( $encrypted );
+			$password = $this->crypto->decrypt( base64_decode( $encrypted, true ) );
 		} catch ( \RuntimeException ) {
 			return null;
 		}
@@ -89,10 +91,10 @@ class PasswordGeneratorService {
 		}
 
 		wp_set_password( $password, $user_id );
-		update_user_meta( $user_id, self::META_KEY, $this->crypto->encrypt( $password ) );
+		update_user_meta( $user_id, self::META_KEY, base64_encode( $this->crypto->encrypt( $password ) ) );
 
 		$this->audit_service->record(
-			AuditAction::PasswordGenerated->value,
+			AuditAction::PasswordSet->value,
 			'user',
 			$user_id,
 		);

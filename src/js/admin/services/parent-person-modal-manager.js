@@ -98,28 +98,27 @@ export const ParentPersonModalManager = {
         const wpUserId = ParentPersonModal.getWpUserId();
         if ( ! personId ) return;
 
-        const piiReq = $.post( AJAX_URL(), {
+        // Два независимых запроса — сбой одного не блокирует другой
+        $.post( AJAX_URL(), {
             action:    ACTIONS().revealAllPersonPii,
             person_id: personId,
             reason:    'admin_userlist_reveal',
             security:  NONCES().revealPii,
+        } ).done( ( res ) => {
+            if ( res.success ) ParentPersonModal.fillRevealed( res.data );
         } );
 
-        const credsReq = wpUserId
-            ? $.post( AJAX_URL(), {
+        if ( wpUserId ) {
+            $.post( AJAX_URL(), {
                 action:   ACTIONS().revealUserCredentials,
                 user_id:  wpUserId,
                 security: NONCES().revealPii,
-            } )
-            : $.Deferred().resolve( { success: false } );
-
-        $.when( piiReq, credsReq ).done( ( piiRes, credsRes ) => {
-            if ( piiRes[0].success ) ParentPersonModal.fillRevealed( piiRes[0].data );
-            if ( credsRes[0].success ) ParentPersonModal.fillRevealed( {
-                login:    credsRes[0].data.login    || '',
-                password: credsRes[0].data.password || '',
+            } ).done( ( res ) => {
+                if ( res.success ) ParentPersonModal.fillRevealed( {
+                    password: res.data.password || '',
+                } );
             } );
-        } );
+        }
     },
 
     _save() {
