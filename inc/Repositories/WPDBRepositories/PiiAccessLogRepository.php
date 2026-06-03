@@ -6,6 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Contracts\RepositoryInterface;
 use Inc\DTO\PiiAccessLogDTO;
+use Inc\DTO\PiiAccessLogInputDTO;
 use Inc\Enums\TableName;
 
 /**
@@ -86,12 +87,12 @@ class PiiAccessLogRepository implements RepositoryInterface {
 	/**
 	 * Создаёт новую запись доступа к персональным данным.
 	 *
-	 * @param array $data Массив полей таблицы (actor_user_id, person_id, fields_accessed, access_reason, actor_ip)
+	 * @param PiiAccessLogInputDTO $input Входные данные записи доступа
 	 *
 	 * @return int ID созданной записи
 	 */
-	public function create( array $data ): int {
-		$this->wpdb->insert( $this->table, $data );
+	public function create( PiiAccessLogInputDTO $input ): int {
+		$this->wpdb->insert( $this->table, $input->toArray() );
 		return (int) $this->wpdb->insert_id;
 	}
 

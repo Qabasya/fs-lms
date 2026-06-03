@@ -18,6 +18,9 @@ use Inc\Services\PiiCryptoService;
 use Inc\Services\Person\PiiMaskingService;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\DTO\EnrollmentInputDTO;
+use Inc\DTO\ParentDataDTO;
+use Inc\DTO\PiiAccessLogInputDTO;
+use Inc\DTO\StudentDataDTO;
 use Inc\DTO\StudentGroupDTO;
 use Inc\Enums\DocumentType;
 use Inc\Enums\RelationType;
@@ -131,27 +134,31 @@ class EnrollmentCallbacks extends BaseController {
 		// Расшифровка данных студента (если есть права ViewPII)
 		if ( ! empty( $app->studentDataEnc ) && current_user_can( Capability::ViewPII->value ) ) {
 			try {
-				$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
+				$studentData = StudentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array()
+				);
 			} catch ( \Throwable $e ) {
 				$studentData = null;
 			}
 
 			// Логирование факта доступа к PII
-			$this->piiAccessLog->create( array(
-				'actor_user_id'   => get_current_user_id(),
-				'actor_role'      => 'admin',
-				'person_id'       => null,
-				'fields_accessed' => 'student_data',
-				'access_reason'   => 'application_review',
-				'actor_ip'        => (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ),
-				'created_at'      => current_time( 'mysql', true ),
+			$this->piiAccessLog->create( new PiiAccessLogInputDTO(
+				actorUserId:    get_current_user_id(),
+				actorRole:      'admin',
+				personId:       null,
+				fieldsAccessed: 'student_data',
+				accessReason:   'application_review',
+				actorIp:        (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ),
+				createdAt:      current_time( 'mysql', true ),
 			) );
 		}
 
 		// Расшифровка данных родителя (если есть права ViewPII)
 		if ( ! empty( $app->parentDataEnc ) && current_user_can( Capability::ViewPII->value ) ) {
 			try {
-				$parentData = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true );
+				$parentData = ParentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array()
+				);
 			} catch ( \Throwable $e ) {
 				$parentData = null;
 			}
@@ -315,36 +322,40 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( 'Заявка не найдена.' );
 		}
 
-		$studentData = array();
+		$existingStudentDto = new StudentDataDTO( '', '', '', '', '', '', 0, '', '', '', '' );
 		if ( ! empty( $app->studentDataEnc ) ) {
 			try {
-				$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+				$existingStudentDto = StudentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array()
+				);
 			} catch ( \Throwable $e ) {
 				$this->error( 'Ошибка расшифровки данных.' );
 			}
 		}
 
-		$lastName   = $this->requireText( 'last_name' );
-		$firstName  = $this->requireText( 'first_name' );
-		$middleName = $this->sanitizeText( 'middle_name' );
+		$email = $this->requireText( 'email' );
 
-		$studentData['last_name']  = $lastName;
-		$studentData['first_name'] = $firstName;
-		$studentData['middle_name'] = $middleName;
-		$studentData['full_name']  = trim( "$lastName $firstName $middleName" );
-		$studentData['email']      = $this->requireText( 'email' );
-		$studentData['phone']      = $this->requireText( 'phone' );
-		$studentData['school']     = $this->sanitizeText( 'school' );
-		$studentData['grade']      = $this->sanitizeInt( 'grade' );
-		$studentData['birth_date'] = $this->requireText( 'birth_date' );
+		$updatedStudentDto = new StudentDataDTO(
+			lastName:   $this->requireText( 'last_name' ),
+			firstName:  $this->requireText( 'first_name' ),
+			middleName: $this->sanitizeText( 'middle_name' ),
+			email:      $email,
+			phone:      $this->requireText( 'phone' ),
+			school:     $this->sanitizeText( 'school' ),
+			grade:      $this->sanitizeInt( 'grade' ),
+			birthDate:  $this->requireText( 'birth_date' ),
+			docType:    $existingStudentDto->docType,
+			docNumber:  $existingStudentDto->docNumber,
+			inn:        $existingStudentDto->inn,
+		);
 
 		try {
-			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
+			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
 		} catch ( \Throwable $e ) {
 			$this->error( 'Ошибка шифрования данных.' );
 		}
 
-		$emailHash = $this->crypto->hash( $studentData['email'] );
+		$emailHash = $this->crypto->hash( $email );
 
 		$this->applicationRepository->update( $id, array(
 			'student_data_enc'   => $newStudentDataEnc,
@@ -377,58 +388,51 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		// Обновление данных ученика
-		$studentData = array();
+		$existingStudentDto = new StudentDataDTO( '', '', '', '', '', '', 0, '', '', '', '' );
 		if ( ! empty( $app->studentDataEnc ) ) {
 			try {
-				$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+				$existingStudentDto = StudentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array()
+				);
 			} catch ( \Throwable $e ) {
 				$this->error( 'Ошибка расшифровки данных ученика.' );
 			}
 		}
 
-		$sLast   = $this->requireText( 'student_last_name' );
-		$sFirst  = $this->requireText( 'student_first_name' );
-		$sMid    = $this->sanitizeText( 'student_middle_name' );
-		$studentData['last_name']   = $sLast;
-		$studentData['first_name']  = $sFirst;
-		$studentData['middle_name'] = $sMid;
-		$studentData['full_name']   = trim( "$sLast $sFirst $sMid" );
-		$studentData['birth_date']  = $this->sanitizeText( 'student_birth_date' );
-		$studentData['doc_type']    = $this->sanitizeText( 'student_doc_type' );
-		$studentData['doc_number']  = $this->sanitizeText( 'student_doc_number' );
-		$studentData['inn']         = $this->sanitizeText( 'student_inn' );
+		$updatedStudentDto = new StudentDataDTO(
+			lastName:   $this->requireText( 'student_last_name' ),
+			firstName:  $this->requireText( 'student_first_name' ),
+			middleName: $this->sanitizeText( 'student_middle_name' ),
+			email:      $existingStudentDto->email,
+			phone:      $existingStudentDto->phone,
+			school:     $existingStudentDto->school,
+			grade:      $existingStudentDto->grade,
+			birthDate:  $this->sanitizeText( 'student_birth_date' ),
+			docType:    $this->sanitizeText( 'student_doc_type' ),
+			docNumber:  $this->sanitizeText( 'student_doc_number' ),
+			inn:        $this->sanitizeText( 'student_inn' ),
+		);
 
 		// Обновление данных родителя
-		$parentData = array();
-		if ( ! empty( $app->parentDataEnc ) ) {
-			try {
-				$parentData = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array();
-			} catch ( \Throwable $e ) {
-				$this->error( 'Ошибка расшифровки данных родителя.' );
-			}
-		}
-
-		$pLast   = $this->requireText( 'parent_last_name' );
-		$pFirst  = $this->requireText( 'parent_first_name' );
-		$pMid    = $this->sanitizeText( 'parent_middle_name' );
-		$parentData['last_name']   = $pLast;
-		$parentData['first_name']  = $pFirst;
-		$parentData['middle_name'] = $pMid;
-		$parentData['full_name']   = trim( "$pLast $pFirst $pMid" );
-		$parentData['birth_date']      = $this->sanitizeText( 'parent_birth_date' );
-		$parentData['relation_type']   = $this->sanitizeText( 'relation_type' );
-		$parentData['email']           = $this->sanitizeText( 'parent_email' );
-		$parentData['phone']           = $this->sanitizeText( 'parent_phone' );
-		$parentData['doc_type']        = $this->sanitizeText( 'parent_doc_type' );
-		$parentData['doc_number']      = $this->sanitizeText( 'parent_doc_number' );
-		$parentData['doc_issued_by']   = $this->sanitizeText( 'parent_doc_issued_by' );
-		$parentData['doc_issued_date'] = $this->sanitizeText( 'parent_doc_issued_date' );
-		$parentData['inn']             = $this->sanitizeText( 'parent_inn' );
-		$parentData['address']         = $this->sanitizeText( 'parent_address' );
+		$updatedParentDto = new ParentDataDTO(
+			lastName:      $this->requireText( 'parent_last_name' ),
+			firstName:     $this->requireText( 'parent_first_name' ),
+			middleName:    $this->sanitizeText( 'parent_middle_name' ),
+			birthDate:     $this->sanitizeText( 'parent_birth_date' ),
+			relationType:  $this->sanitizeText( 'relation_type' ),
+			docType:       $this->sanitizeText( 'parent_doc_type' ),
+			docNumber:     $this->sanitizeText( 'parent_doc_number' ),
+			docIssuedBy:   $this->sanitizeText( 'parent_doc_issued_by' ),
+			docIssuedDate: $this->sanitizeText( 'parent_doc_issued_date' ),
+			inn:           $this->sanitizeText( 'parent_inn' ),
+			address:       $this->sanitizeText( 'parent_address' ),
+			phone:         $this->sanitizeText( 'parent_phone' ),
+			email:         $this->sanitizeText( 'parent_email' ),
+		);
 
 		try {
-			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
-			$newParentDataEnc  = $this->crypto->encrypt( (string) wp_json_encode( $parentData ) );
+			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
+			$newParentDataEnc  = $this->crypto->encrypt( (string) wp_json_encode( $updatedParentDto->toArray() ) );
 		} catch ( \Throwable $e ) {
 			$this->error( 'Ошибка шифрования данных.' );
 		}
@@ -493,21 +497,11 @@ class EnrollmentCallbacks extends BaseController {
 
 		if ( ! empty( $app->studentDataEnc ) ) {
 			try {
-				$sd        = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
-				$sParts    = explode( ' ', $sd['full_name'] ?? '', 3 );
-				$student   = array(
-					'last_name'   => $sd['last_name']   ?? $sParts[0] ?? '',
-					'first_name'  => $sd['first_name']  ?? $sParts[1] ?? '',
-					'middle_name' => $sd['middle_name'] ?? $sParts[2] ?? '',
-					'birth_date'  => $sd['birth_date']  ?? '',
-					'email'       => $sd['email']       ?? '',
-					'phone'       => $sd['phone']       ?? '',
-					'school'      => $sd['school']      ?? '',
-					'grade'       => $sd['grade']       ?? '',
-					'doc_type'    => DocumentType::tryFrom( $sd['doc_type'] ?? '' )?->label() ?? ( $sd['doc_type'] ?? '' ),
-					'doc_number'  => $sd['doc_number']  ?? '',
-					'inn'         => $sd['inn']         ?? '',
+				$studentDto = StudentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array()
 				);
+				$student    = $studentDto->toArray();
+				$student['doc_type'] = DocumentType::tryFrom( $studentDto->docType )?->label() ?? $studentDto->docType;
 			} catch ( \Throwable $e ) {
 				$student = null;
 			}
@@ -515,23 +509,12 @@ class EnrollmentCallbacks extends BaseController {
 
 		if ( ! empty( $app->parentDataEnc ) ) {
 			try {
-				$pd     = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true );
-				$pParts = explode( ' ', $pd['full_name'] ?? '', 3 );
-				$parent = array(
-					'last_name'       => $pd['last_name']   ?? $pParts[0] ?? '',
-					'first_name'      => $pd['first_name']  ?? $pParts[1] ?? '',
-					'middle_name'     => $pd['middle_name'] ?? $pParts[2] ?? '',
-					'birth_date'      => $pd['birth_date']      ?? '',
-					'relation_type'   => RelationType::tryFrom( $pd['relation_type'] ?? '' )?->label() ?? ( $pd['relation_type'] ?? '' ),
-					'email'           => $pd['email']           ?? '',
-					'phone'           => $pd['phone']           ?? '',
-					'doc_type'        => DocumentType::tryFrom( $pd['doc_type'] ?? '' )?->label() ?? ( $pd['doc_type'] ?? '' ),
-					'doc_number'      => $pd['doc_number']      ?? '',
-					'doc_issued_by'   => $pd['doc_issued_by']   ?? '',
-					'doc_issued_date' => $pd['doc_issued_date'] ?? '',
-					'inn'             => $pd['inn']             ?? '',
-					'address'         => $pd['address']         ?? '',
+				$parentDto = ParentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array()
 				);
+				$parent    = $parentDto->toArray();
+				$parent['doc_type']      = DocumentType::tryFrom( $parentDto->docType )?->label() ?? $parentDto->docType;
+				$parent['relation_type'] = RelationType::tryFrom( $parentDto->relationType )?->label() ?? $parentDto->relationType;
 			} catch ( \Throwable $e ) {
 				$parent = null;
 			}
@@ -648,14 +631,14 @@ class EnrollmentCallbacks extends BaseController {
 		$actor_wp  = $actor_id ? get_userdata( $actor_id ) : false;
 		$personId  = (int) get_user_meta( $user_id, 'fs_lms_person_id', true ) ?: null;
 
-		$this->piiAccessLog->create( array(
-			'actor_user_id'   => $actor_id ?: null,
-			'actor_role'      => ( $actor_wp && ! empty( $actor_wp->roles ) ) ? (string) reset( $actor_wp->roles ) : null,
-			'person_id'       => $personId,
-			'fields_accessed' => 'login,password',
-			'access_reason'   => 'admin_reveal_credentials',
-			'actor_ip'        => sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '' ),
-			'created_at'      => current_time( 'mysql', true ),
+		$this->piiAccessLog->create( new PiiAccessLogInputDTO(
+			actorUserId:    $actor_id ?: null,
+			actorRole:      ( $actor_wp && ! empty( $actor_wp->roles ) ) ? (string) reset( $actor_wp->roles ) : null,
+			personId:       $personId,
+			fieldsAccessed: 'login,password',
+			accessReason:   'admin_reveal_credentials',
+			actorIp:        sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '' ),
+			createdAt:      current_time( 'mysql', true ),
 		) );
 
 		$this->success( $credentials );

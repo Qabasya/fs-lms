@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
+use Inc\DTO\PersonInputDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Enums\RelationType;
@@ -129,13 +130,13 @@ class PiiCallbacks extends BaseController {
 		$relationType    = \Inc\Enums\RelationType::from( $this->requireKey( $_POST['relation_type'] ?? '' ) );
 
 		// Поиск или создание опекуна по уникальным полям
-		$guardianPersonId = $this->personService->createOrFindBy( array(
-			'full_name'  => $this->requireText( $_POST['full_name'] ?? '' ),
-			'doc_number' => $this->requireText( $_POST['doc_number'] ?? '' ),
-			'inn'        => $this->sanitizeText( $_POST['inn'] ?? '' ),
-			'address'    => $this->sanitizeText( $_POST['address'] ?? '' ),
-			'phone'      => $this->sanitizeText( $_POST['phone'] ?? '' ),
-			'email'      => $this->sanitizeText( $_POST['email'] ?? '' ),
+		$guardianPersonId = $this->personService->createOrFindBy( new PersonInputDTO(
+			fullName:  $this->requireText( $_POST['full_name'] ?? '' ),
+			docNumber: $this->requireText( $_POST['doc_number'] ?? '' ),
+			inn:       $this->sanitizeText( $_POST['inn'] ?? '' ),
+			address:   $this->sanitizeText( $_POST['address'] ?? '' ),
+			phone:     $this->sanitizeText( $_POST['phone'] ?? '' ),
+			email:     $this->sanitizeText( $_POST['email'] ?? '' ) ?: null,
 		) );
 
 		$this->relationshipService->addRepresentative(
@@ -159,11 +160,11 @@ class PiiCallbacks extends BaseController {
 		$oldRelId = $this->sanitizeInt( $_POST['relationship_id'] ?? 0 );
 		$newType  = \Inc\Enums\RelationType::from( $this->requireKey( $_POST['relation_type'] ?? '' ) );
 
-		$newGuardianId = $this->personService->createOrFindBy( array(
-			'full_name'  => $this->requireText( $_POST['full_name'] ?? '' ),
-			'doc_number' => $this->requireText( $_POST['doc_number'] ?? '' ),
-			'inn'        => $this->sanitizeText( $_POST['inn'] ?? '' ),
-			'email'      => $this->sanitizeText( $_POST['email'] ?? '' ),
+		$newGuardianId = $this->personService->createOrFindBy( new PersonInputDTO(
+			fullName:  $this->requireText( $_POST['full_name'] ?? '' ),
+			docNumber: $this->requireText( $_POST['doc_number'] ?? '' ),
+			inn:       $this->sanitizeText( $_POST['inn'] ?? '' ),
+			email:     $this->sanitizeText( $_POST['email'] ?? '' ) ?: null,
 		) );
 
 		$this->relationshipService->replaceRepresentative( $oldRelId, $newGuardianId, $newType );

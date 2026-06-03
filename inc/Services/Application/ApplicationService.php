@@ -7,7 +7,9 @@ namespace Inc\Services\Application;
 use DomainException;
 use Inc\DTO\ApplicationCreatedDTO;
 use Inc\DTO\ApplicationInputDTO;
+use Inc\DTO\ParentDataDTO;
 use Inc\DTO\ParentSubmissionInputDTO;
+use Inc\DTO\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
 use Inc\Enums\ConsentType;
@@ -164,46 +166,49 @@ readonly class ApplicationService {
 		$ctx = $this->requestContext();
 
 		// Шифрование данных родителя
-		$parentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array(
-			'last_name'       => $input->parentLastName,
-			'first_name'      => $input->parentFirstName,
-			'middle_name'     => $input->parentMiddleName,
-			'full_name'       => $input->parentFullName(),
-			'birth_date'      => $input->parentBirthDate,
-			'relation_type'   => $input->relationType,
-			'doc_type'        => $input->docType,
-			'doc_number'      => $input->docNumber,
-			'doc_issued_by'   => $input->docIssuedBy,
-			'doc_issued_date' => $input->docIssuedDate,
-			'inn'             => $input->inn,
-			'address'         => $input->address,
-			'phone'           => $input->phone,
-			'email'           => $input->email,
-		) ) );
+		$parentDto = new ParentDataDTO(
+			lastName:      $input->parentLastName,
+			firstName:     $input->parentFirstName,
+			middleName:    $input->parentMiddleName,
+			birthDate:     $input->parentBirthDate,
+			relationType:  $input->relationType,
+			docType:       $input->docType,
+			docNumber:     $input->docNumber,
+			docIssuedBy:   $input->docIssuedBy,
+			docIssuedDate: $input->docIssuedDate,
+			inn:           $input->inn,
+			address:       $input->address,
+			phone:         $input->phone,
+			email:         $input->email,
+		);
+		$parentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $parentDto->toArray() ) );
 
 		// Слияние с исходными данными ученика (email, phone, school, grade сохраняются)
-		$existingStudentData = array();
+		$existingStudentDto = new StudentDataDTO( '', '', '', '', '', '', 0, '', '', '', '' );
 		if ( ! empty( $app->studentDataEnc ) ) {
 			try {
-				$existingStudentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+				$existingStudentDto = StudentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array()
+				);
 			} catch ( \Throwable ) {
-				$existingStudentData = array();
+				// Оставляем пустой DTO
 			}
 		}
 
-		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array_merge(
-			$existingStudentData,
-			array(
-				'last_name'   => $input->studentLastName,
-				'first_name'  => $input->studentFirstName,
-				'middle_name' => $input->studentMiddleName,
-				'full_name'   => $input->studentFullName(),
-				'birth_date'  => $input->studentBirthDate,
-				'doc_type'    => $input->studentDocType,
-				'doc_number'  => $input->studentDocNumber,
-				'inn'         => $input->studentInn,
-			)
-		) ) );
+		$updatedStudentDto = new StudentDataDTO(
+			lastName:   $input->studentLastName,
+			firstName:  $input->studentFirstName,
+			middleName: $input->studentMiddleName,
+			email:      $existingStudentDto->email,
+			phone:      $existingStudentDto->phone,
+			school:     $existingStudentDto->school,
+			grade:      $existingStudentDto->grade,
+			birthDate:  $input->studentBirthDate,
+			docType:    $input->studentDocType,
+			docNumber:  $input->studentDocNumber,
+			inn:        $input->studentInn,
+		);
+		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
 
 		$appId = $app->id;
 

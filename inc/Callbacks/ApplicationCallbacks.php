@@ -18,6 +18,7 @@ use Inc\Services\PiiCryptoService;
 use Inc\Services\RateLimitService;
 use Inc\DTO\ApplicationInputDTO;
 use Inc\DTO\ParentSubmissionInputDTO;
+use Inc\DTO\StudentDataDTO;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -81,14 +82,14 @@ class ApplicationCallbacks extends BaseController {
 
 		// Тестовый дебаг-режим: /lms/join/000 → тестовые данные без БД
 		if ( defined( 'FS_LMS_TEST_ENV' ) && '000' === $code ) {
-			set_query_var( 'fs_lms_student_data', array(
+			set_query_var( 'fs_lms_student_data', StudentDataDTO::fromArray( array(
 				'full_name'  => 'Тестов Тест Тестович',
 				'birth_date' => '2010-05-15',
 				'school'     => 'Тестовая школа №1',
 				'grade'      => 7,
 				'email'      => 'test-student@example.com',
 				'phone'      => '+78005553535',
-			) );
+			) ) );
 			set_query_var( 'fs_lms_join_code', $code );
 			set_query_var( 'fs_lms_app_id',    0 );
 			return true;
@@ -114,7 +115,8 @@ class ApplicationCallbacks extends BaseController {
 
 		try {
 			// Расшифровка и декодирование данных ученика
-			$studentData = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
+			$decoded     = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
+			$studentData = StudentDataDTO::fromArray( $decoded ?? array() );
 		} catch ( \Throwable $e ) {
 			return false;
 		}

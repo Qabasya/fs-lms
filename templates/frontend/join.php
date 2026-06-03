@@ -4,11 +4,12 @@
  * TODO: прикрутить стили
  *
  * @package FS LMS
- * @var array  $student_data Расшифрованные данные ученика из заявки
- * @var string $join_code    Уникальный хэш-код из URL
- * @var int    $app_id       ID заявки
+ * @var \Inc\DTO\StudentDataDTO $student_data Расшифрованные данные ученика из заявки
+ * @var string                  $join_code    Уникальный хэш-код из URL
+ * @var int                     $app_id       ID заявки
  */
 
+use Inc\DTO\StudentDataDTO;
 use Inc\Enums\Nonce;
 use Inc\Enums\RelationType;
 use Inc\Services\ThemeCompatService;
@@ -17,7 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$student_data = (array) get_query_var( 'fs_lms_student_data', array() );
+/** @var StudentDataDTO $student_data */
+$student_data = get_query_var( 'fs_lms_student_data' );
 $join_code    = (string) get_query_var( 'fs_lms_join_code', '' );
 $app_id       = (int) get_query_var( 'fs_lms_app_id', 0 );
 
@@ -46,28 +48,28 @@ ThemeCompatService::header();
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-admin-users"></span>
 						<input type="text" name="student_last_name" id="fs_student_last_name"
-								value="<?php echo esc_attr( $student_data['last_name'] ?? '' ); ?>"
+								value="<?php echo esc_attr( $student_data->lastName ?? '' ); ?>"
 								placeholder="<?php esc_attr_e( 'Фамилия ученика', 'fs-lms' ); ?>" required>
 					</div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-admin-users"></span>
 						<input type="text" name="student_first_name" id="fs_student_first_name"
-								value="<?php echo esc_attr( $student_data['first_name'] ?? '' ); ?>"
+								value="<?php echo esc_attr( $student_data->firstName ?? '' ); ?>"
 								placeholder="<?php esc_attr_e( 'Имя ученика', 'fs-lms' ); ?>" required>
 					</div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-admin-users"></span>
 						<input type="text" name="student_middle_name" id="fs_student_middle_name"
-								value="<?php echo esc_attr( $student_data['middle_name'] ?? '' ); ?>"
+								value="<?php echo esc_attr( $student_data->middleName ?? '' ); ?>"
 								placeholder="<?php esc_attr_e( 'Отчество ученика', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-welcome-learn-more"></span>
 						<input type="text" name="school" id="fs_school"
-								value="<?php echo esc_attr( $student_data['school'] ?? '' ); ?>"
+								value="<?php echo esc_attr( $student_data->school ?? '' ); ?>"
 								placeholder="<?php esc_attr_e( 'Школа', 'fs-lms' ); ?>" required>
 					</div>
 
@@ -76,7 +78,7 @@ ThemeCompatService::header();
 						<select name="grade" id="fs_grade" required>
 							<option value=""><?php esc_html_e( 'Класс', 'fs-lms' ); ?></option>
 							<?php
-							$current_grade = (int) ( $student_data['grade'] ?? 0 );
+							$current_grade = $student_data->grade ?? 0;
 							for ( $i = 1; $i <= 11; $i++ ) :
 								?>
 								<option value="<?php echo esc_attr( (string) $i ); ?>" <?php selected( $current_grade, $i ); ?>>
@@ -89,14 +91,14 @@ ThemeCompatService::header();
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-calendar-alt"></span>
 						<input type="date" name="student_birth_date" id="fs_birth_date"
-								value="<?php echo esc_attr( $student_data['birth_date'] ?? '' ); ?>" required
+								value="<?php echo esc_attr( $student_data->birthDate ?? '' ); ?>" required
 								aria-label="<?php esc_attr_e( 'Дата рождения ученика', 'fs-lms' ); ?>">
 					</div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-phone"></span>
 						<input type="tel" name="student_phone" id="fs_phone"
-							value="<?php echo esc_attr( $student_data['phone'] ?? '' ); ?>"
+							value="<?php echo esc_attr( $student_data->phone ?? '' ); ?>"
 							placeholder="<?php esc_attr_e( 'Телефон ученика', 'fs-lms' ); ?>">
 					</div>
 

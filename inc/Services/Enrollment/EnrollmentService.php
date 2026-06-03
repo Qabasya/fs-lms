@@ -7,6 +7,9 @@ namespace Inc\Services\Enrollment;
 use DomainException;
 use Inc\DTO\EnrollmentInputDTO;
 use Inc\DTO\EnrollmentResultDTO;
+use Inc\DTO\ParentDataDTO;
+use Inc\DTO\PersonInputDTO;
+use Inc\DTO\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
 use Inc\Enums\RelationType;
@@ -69,16 +72,20 @@ readonly class EnrollmentService {
 			throw new DomainException( 'Заявка не в статусе enrolling.' );
 		}
 
-		$studentData = json_decode( $this->crypto->decrypt( (string) $app->studentDataEnc ), true );
-		$parentData  = json_decode( $this->crypto->decrypt( (string) $app->parentDataEnc ), true );
+		$studentDto = StudentDataDTO::fromArray(
+			json_decode( $this->crypto->decrypt( (string) $app->studentDataEnc ), true ) ?? array()
+		);
+		$parentDto  = ParentDataDTO::fromArray(
+			json_decode( $this->crypto->decrypt( (string) $app->parentDataEnc ), true ) ?? array()
+		);
 
-		$studentDocHash  = $this->crypto->hash( (string) $studentData['doc_number'] );
-		$guardianDocHash = $this->crypto->hash( (string) $parentData['doc_number'] );
+		$studentDocHash  = $this->crypto->hash( $studentDto->docNumber );
+		$guardianDocHash = $this->crypto->hash( $parentDto->docNumber );
 
 		$existingStudent  = $this->personRepository->findByDocNumberHash( $studentDocHash );
 		$existingGuardian = $this->personRepository->findByDocNumberHash( $guardianDocHash );
 
-		if ( null === $existingGuardian && null !== $this->userManager->findByEmail( (string) $parentData['email'] ) ) {
+		if ( null === $existingGuardian && null !== $this->userManager->findByEmail( $parentDto->email ) ) {
 			throw new DomainException( 'Email родителя уже занят другим пользователем.' );
 		}
 
@@ -87,37 +94,37 @@ readonly class EnrollmentService {
 		}
 
 		// ===== Атомарная транзакция: создание записей в БД =====
-		$result = $this->inTransaction( function () use ( $app, $input, $studentData, $parentData, $existingStudent, $existingGuardian ): array {
+		$result = $this->inTransaction( function () use ( $app, $input, $studentDto, $parentDto, $existingStudent, $existingGuardian ): array {
 			$studentPersonId = $existingStudent !== null
 				? $existingStudent->id
-				: $this->personService->createOrFindBy( array(
-					'full_name'  => $studentData['full_name'],
-					'doc_number' => $studentData['doc_number'],
-					'birth_date' => $studentData['birth_date'] ?? '',
-					'doc_type'   => $studentData['doc_type']   ?? '',
-					'inn'        => $studentData['inn']        ?? '',
-					'email'      => $studentData['email']      ?? null,
+				: $this->personService->createOrFindBy( new PersonInputDTO(
+					fullName:  $studentDto->fullName(),
+					docNumber: $studentDto->docNumber,
+					docType:   $studentDto->docType,
+					birthDate: $studentDto->birthDate,
+					inn:       $studentDto->inn,
+					email:     $studentDto->email !== '' ? $studentDto->email : null,
 				) );
 
 			$guardianPersonId = $existingGuardian !== null
 				? $existingGuardian->id
-				: $this->personService->createOrFindBy( array(
-					'full_name'  => $parentData['full_name'],
-					'doc_number' => $parentData['doc_number'],
-					'birth_date' => $parentData['birth_date'] ?? '',
-					'doc_type'   => $parentData['doc_type']   ?? '',
-					'inn'        => $parentData['inn']        ?? '',
-					'address'    => $parentData['address']    ?? '',
-					'phone'      => $parentData['phone']      ?? '',
-					'email'      => $parentData['email'],
+				: $this->personService->createOrFindBy( new PersonInputDTO(
+					fullName:  $parentDto->fullName(),
+					docNumber: $parentDto->docNumber,
+					docType:   $parentDto->docType,
+					birthDate: $parentDto->birthDate,
+					inn:       $parentDto->inn,
+					address:   $parentDto->address,
+					phone:     $parentDto->phone,
+					email:     $parentDto->email !== '' ? $parentDto->email : null,
 				) );
 
-			$relationType = RelationType::from( (string) $parentData['relation_type'] );
+			$relationType = RelationType::from( $parentDto->relationType );
 			$this->relationshipService->addRepresentative( $guardianPersonId, $studentPersonId, $relationType, true );
 
 			$snapshot    = array(
-				'student'       => $studentData,
-				'guardian'      => $parentData,
+				'student'       => $studentDto->toArray(),
+				'guardian'      => $parentDto->toArray(),
 				'enrolled_at'   => $input->enrolledAt,
 				'contract_no'   => $input->contractNo,
 				'contract_date' => $input->contractDate,
@@ -165,7 +172,7 @@ readonly class EnrollmentService {
 				$studentUserId = $studentPerson->wpUserId;
 				$studentLogin  = $this->userManager->find( $studentUserId )?->user_login ?? '';
 			} else {
-				$studentEmail = (string) ( $studentData['email'] ?? '' );
+				$studentEmail = $studentDto->email;
 				$existingUser = $studentEmail !== '' ? $this->userManager->findByEmail( $studentEmail ) : null;
 				if ( null !== $existingUser ) {
 					$studentUserId = $existingUser->ID;
@@ -176,9 +183,9 @@ readonly class EnrollmentService {
 						'user_login'   => $studentLogin,
 						'user_email'   => $studentEmail,
 						'user_pass'    => wp_generate_password( 64 ),
-						'display_name' => (string) $studentData['full_name'],
-						'first_name'   => (string) ( $studentData['first_name'] ?? '' ),
-						'last_name'    => (string) ( $studentData['last_name']  ?? '' ),
+						'display_name' => $studentDto->fullName(),
+						'first_name'   => $studentDto->firstName,
+						'last_name'    => $studentDto->lastName,
 						'role'         => UserRole::FSStudent->value,
 					) );
 				}
@@ -197,7 +204,7 @@ readonly class EnrollmentService {
 				$guardianUserId = $guardianPerson->wpUserId;
 				$guardianLogin  = $this->userManager->find( $guardianUserId )?->user_login ?? '';
 			} else {
-				$guardianEmail        = (string) $parentData['email'];
+				$guardianEmail        = $parentDto->email;
 				$existingGuardianUser = $this->userManager->findByEmail( $guardianEmail );
 				if ( null !== $existingGuardianUser ) {
 					$guardianUserId = $existingGuardianUser->ID;
@@ -208,9 +215,9 @@ readonly class EnrollmentService {
 						'user_login'   => $guardianEmail,
 						'user_email'   => $guardianEmail,
 						'user_pass'    => wp_generate_password( 64 ),
-						'display_name' => (string) $parentData['full_name'],
-						'first_name'   => (string) ( $parentData['first_name'] ?? '' ),
-						'last_name'    => (string) ( $parentData['last_name']  ?? '' ),
+						'display_name' => $parentDto->fullName(),
+						'first_name'   => $parentDto->firstName,
+						'last_name'    => $parentDto->lastName,
 						'role'         => UserRole::FSParent->value,
 					) );
 				}

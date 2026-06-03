@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Person;
 
+use Inc\DTO\PersonInputDTO;
 use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\AuditService;
@@ -71,29 +72,23 @@ readonly class PersonService {
 	 * Ищет существующего person по хэшу номера документа или создаёт нового.
 	 *
 	 * Идемпотентен: повторный вызов с теми же данными вернёт тот же ID
-	 * без создания дублей. Поиск по doc_number обязателен — без него метод
-	 * выбросит исключение.
+	 * без создания дублей.
 	 *
-	 * @param array $rawData Сырые данные: full_name, doc_number, inn,
-	 *                       address, phone, email, wp_user_id (опционально)
+	 * @param PersonInputDTO $input Входные данные физического лица
 	 *
 	 * @return int ID существующей или созданной записи
 	 *
-	 * @throws RuntimeException Если doc_number отсутствует в rawData
+	 * @throws RuntimeException Если создание записи не удалось
 	 */
-	public function createOrFindBy( array $rawData ): int {
-		if ( empty( $rawData['doc_number'] ) ) {
-			throw new RuntimeException( 'Поле doc_number обязательно для createOrFindBy.' );
-		}
-
-		$docHash  = $this->crypto->hash( (string) $rawData['doc_number'] );
+	public function createOrFindBy( PersonInputDTO $input ): int {
+		$docHash  = $this->crypto->hash( $input->docNumber );
 		$existing = $this->personRepository->findByDocNumberHash( $docHash );
 
 		if ( null !== $existing ) {
 			return $existing->id;
 		}
 
-		$data = $this->buildEncryptedData( $rawData );
+		$data = $this->buildEncryptedData( $input->toRawData() );
 
 		$id = $this->personRepository->create( $data );
 

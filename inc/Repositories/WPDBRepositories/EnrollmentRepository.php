@@ -172,7 +172,7 @@ class EnrollmentRepository implements RepositoryInterface {
 	 * @param int                            $page    Номер страницы (с 1)
 	 * @param int                            $perPage Записей на страницу
 	 *
-	 * @return array<int, array<string, mixed>>
+	 * @return EnrollmentDTO[]
 	 */
 	public function list( array $filters = array(), int $page = 1, int $perPage = 20 ): array {
 		$offset = ( $page - 1 ) * $perPage;
@@ -188,7 +188,7 @@ class EnrollmentRepository implements RepositoryInterface {
 			ARRAY_A
 		);
 
-		return $rows ?: array();
+		return array_map( fn( array $row ) => EnrollmentDTO::fromArray( $row ), $rows ?: array() );
 	}
 
 	/**

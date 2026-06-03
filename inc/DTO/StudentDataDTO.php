@@ -38,6 +38,7 @@ readonly class StudentDataDTO {
 	 * @param string $firstName  Имя ученика
 	 * @param string $middleName Отчество ученика
 	 * @param string $email      Email ученика (для связи и уведомлений)
+	 * @param string $phone      Телефон ученика
 	 * @param string $school     Название школы/учебного заведения
 	 * @param int    $grade      Класс обучения (1-11)
 	 * @param string $birthDate  Дата рождения (Y-m-d)
@@ -50,6 +51,7 @@ readonly class StudentDataDTO {
 		public string $firstName,
 		public string $middleName,
 		public string $email,
+		public string $phone,
 		public string $school,
 		public int    $grade,
 		public string $birthDate,
@@ -81,6 +83,7 @@ readonly class StudentDataDTO {
 			firstName:  $firstName,
 			middleName: $middleName,
 			email:      (string) ( $data['email']      ?? '' ),
+			phone:      (string) ( $data['phone']      ?? '' ),
 			school:     (string) ( $data['school']     ?? '' ),
 			grade:      (int)    ( $data['grade']      ?? 0 ),
 			birthDate:  (string) ( $data['birth_date'] ?? '' ),
@@ -102,6 +105,7 @@ readonly class StudentDataDTO {
 			'middle_name' => $this->middleName,
 			'full_name'   => $this->fullName(),
 			'email'       => $this->email,
+			'phone'       => $this->phone,
 			'school'      => $this->school,
 			'grade'       => $this->grade,
 			'birth_date'  => $this->birthDate,
