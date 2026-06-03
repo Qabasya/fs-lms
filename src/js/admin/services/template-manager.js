@@ -58,7 +58,7 @@ export const TemplateManager = {
 
             const requestData = {
                 action:   fs_lms_vars.ajax_actions.updateTermTemplate,
-                security: fs_lms_vars.subject_nonce,
+                security: fs_lms_vars.nonces.subject,
                 term_id:  $row.data('term-id'),
                 template: $select.val(),
                 key:      $table.data('subject'),

@@ -14,6 +14,8 @@ export const GroupModal = {
     $teacherSelect: null,
     $actionInput: null,
     $groupIdInput: null,
+    $scheduleStart: null,
+    $scheduleEnd: null,
 
     $saveBtn: null,
     $titleEl: null,
@@ -34,6 +36,8 @@ export const GroupModal = {
         this.$periodSelect  = $('#group-period');
         this.$subjectSelect = $('#group-subject');
         this.$teacherSelect = $('#group-teacher');
+        this.$scheduleStart = $('#schedule-start');
+        this.$scheduleEnd   = $('#schedule-end');
 
         this.$actionInput  = this.$modal.find('input[name="action_type"]');
         this.$groupIdInput = this.$modal.find('input[name="id"]');
@@ -84,6 +88,7 @@ export const GroupModal = {
             this.$periodSelect.val(data.period_id ?? '').trigger('change');
             this.$subjectSelect.val(data.subject_id ?? '').trigger('change');
             this.$teacherSelect.val(data.teacher_id ?? '').trigger('change');
+            this._restoreSchedule(data.schedule ?? {});
         } else {
             this._resetForm();
         }
@@ -133,14 +138,34 @@ export const GroupModal = {
         if (this.$actionInput.length) this.$actionInput.val('add');
     },
 
+    _restoreSchedule(schedule) {
+        this.$modal.find('input[name="schedule_days[]"]').prop('checked', false);
+
+        const days = Array.isArray(schedule.days) ? schedule.days : [];
+        days.forEach((day) => {
+            this.$modal.find(`input[name="schedule_days[]"][value="${day}"]`).prop('checked', true);
+        });
+
+        this.$scheduleStart.val(schedule.start ?? '');
+        this.$scheduleEnd.val(schedule.end ?? '');
+    },
+
     _collectFormData() {
+        const scheduleDays = this.$modal
+            .find('input[name="schedule_days[]"]:checked')
+            .map((_, el) => el.value)
+            .get();
+
         return {
-            action_type: this.$actionInput.length ? this.$actionInput.val() : 'add',
-            id:          this.$groupIdInput.length ? this.$groupIdInput.val() : '',
-            title:       this.$titleInput.val().trim(),
-            period_id:   this.$periodSelect.val(),
-            subject_id:  this.$subjectSelect.val(),
-            teacher_id:  this.$teacherSelect.val(),
+            action_type:    this.$actionInput.length ? this.$actionInput.val() : 'add',
+            id:             this.$groupIdInput.length ? this.$groupIdInput.val() : '',
+            title:          this.$titleInput.val().trim(),
+            period_id:      this.$periodSelect.val(),
+            subject_id:     this.$subjectSelect.val(),
+            teacher_id:     this.$teacherSelect.val(),
+            schedule_days:  scheduleDays,
+            schedule_start: this.$scheduleStart.val(),
+            schedule_end:   this.$scheduleEnd.val(),
         };
     },
 };

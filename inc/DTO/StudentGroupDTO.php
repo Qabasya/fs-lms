@@ -36,7 +36,8 @@ readonly class StudentGroupDTO {
 		public string $title,
 		public string $period_id,
 		public string $subject_id,
-		public int $teacher_id,
+		public int    $teacher_id,
+		public array  $schedule = [],
 	) {
 	}
 
@@ -52,6 +53,7 @@ readonly class StudentGroupDTO {
 			'period_id'  => $this->period_id,
 			'subject_id' => $this->subject_id,
 			'teacher_id' => $this->teacher_id,
+			'schedule'   => $this->schedule,
 		);
 	}
 
@@ -69,6 +71,7 @@ readonly class StudentGroupDTO {
 			period_id:  (string) ( $data['period_id'] ?? '' ),
 			subject_id: (string) ( $data['subject_id'] ?? '' ),
 			teacher_id: (int) ( $data['teacher_id'] ?? 0 ),
+			schedule:   (array) ( $data['schedule'] ?? [] ),
 		);
 	}
 }

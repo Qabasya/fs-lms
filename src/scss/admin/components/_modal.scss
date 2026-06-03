@@ -887,3 +887,109 @@ html.modal-open {
     }
   }
 }
+
+
+/* =================================================================
+   SCHEDULE GROUP (group modal — days + time range)
+   ================================================================= */
+
+.fs-schedule-group {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.fs-schedule-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.fs-schedule-day-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  cursor: pointer;
+  font-size: 13px;
+  color: $color-text-primary;
+  background: $wp-admin-gray-bg-light;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-md;
+  padding: $spacing-xs $spacing-sm;
+  transition: background $transition-fast, border-color $transition-fast;
+  user-select: none;
+
+  input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: $color-primary;
+  }
+
+  &:has(input:checked) {
+    background: $wp-admin-blue-bg-light;
+    border-color: $color-primary;
+    color: $wp-admin-blue-text;
+    font-weight: 600;
+  }
+
+  &:hover {
+    border-color: $color-primary;
+  }
+}
+
+.fs-schedule-times {
+  display: flex;
+  gap: $spacing-lg;
+}
+
+.fs-schedule-time-field {
+  flex: 1;
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: $color-text-secondary;
+    margin-bottom: $spacing-xs;
+  }
+
+  select {
+    @include form-input;
+    height: 35px;
+  }
+}
+
+
+/* =================================================================
+   EXPEL MODAL (предупреждение об отчислении)
+   ================================================================= */
+
+.fs-expel-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  background: rgba($color-danger, 0.06);
+  border: 1px solid rgba($color-danger, 0.2);
+  border-left: 4px solid $color-danger;
+  border-radius: 0 $border-radius-md $border-radius-md 0;
+  padding: $spacing-sm $spacing-md;
+  margin-bottom: $spacing-lg;
+  font-size: 13px;
+  color: $wp-admin-red-text;
+
+  .dashicons {
+    color: $color-danger;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
+.fs-expel-student-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: $color-text-primary;
+  margin-bottom: $spacing-lg;
+
+  &:empty {
+    display: none;
+  }
+}

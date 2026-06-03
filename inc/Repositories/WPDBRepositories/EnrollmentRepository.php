@@ -164,4 +164,71 @@ class EnrollmentRepository implements RepositoryInterface {
 			)
 		);
 	}
+
+	/**
+	 * Возвращает список зачислений с пагинацией.
+	 *
+	 * @param array<string, string|string[]> $filters Фильтры (status — строка или массив строк)
+	 * @param int                            $page    Номер страницы (с 1)
+	 * @param int                            $perPage Записей на страницу
+	 *
+	 * @return EnrollmentDTO[]
+	 */
+	public function list( array $filters = array(), int $page = 1, int $perPage = 20 ): array {
+		$offset = ( $page - 1 ) * $perPage;
+		[ $where, $args ] = $this->buildWhereClause( $filters );
+		$args[] = $perPage;
+		$args[] = $offset;
+
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i {$where} ORDER BY enrolled_at DESC LIMIT %d OFFSET %d",
+				...$args
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $row ) => EnrollmentDTO::fromArray( $row ), $rows ?: array() );
+	}
+
+	/**
+	 * Возвращает количество зачислений по фильтрам.
+	 *
+	 * @param array<string, string|string[]> $filters Фильтры (status — строка или массив строк)
+	 *
+	 * @return int
+	 */
+	public function count( array $filters = array() ): int {
+		[ $where, $args ] = $this->buildWhereClause( $filters );
+
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare( "SELECT COUNT(*) FROM %i {$where}", ...$args )
+		);
+	}
+
+	/**
+	 * Строит WHERE-условие и аргументы для prepare().
+	 *
+	 * @param array<string, string|string[]> $filters
+	 *
+	 * @return array{0: string, 1: array<mixed>}
+	 */
+	private function buildWhereClause( array $filters ): array {
+		$where = 'WHERE 1=1';
+		$args  = array( $this->table );
+
+		if ( ! empty( $filters['status'] ) ) {
+			$status = $filters['status'];
+			if ( is_array( $status ) ) {
+				$placeholders = implode( ', ', array_fill( 0, count( $status ), '%s' ) );
+				$where       .= " AND status IN ({$placeholders})";
+				array_push( $args, ...$status );
+			} else {
+				$where  .= ' AND status = %s';
+				$args[] = $status;
+			}
+		}
+
+		return array( $where, $args );
+	}
 }

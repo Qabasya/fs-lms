@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Person;
 
 use Inc\DTO\PersonDecryptedDTO;
+use Inc\DTO\PiiAccessLogInputDTO;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
@@ -179,16 +180,16 @@ readonly class PersonReader {
 		$ctx  = $this->requestContext();
 		$user = $ctx->actorUserId > 0 ? $this->userManager->find( $ctx->actorUserId ) : null;
 
-		$this->piiAccessLogRepository->create( array(
-			'actor_user_id'   => $ctx->actorUserId > 0 ? $ctx->actorUserId : null,
-			'actor_role'      => ( null !== $user && ! empty( $user->roles ) )
+		$this->piiAccessLogRepository->create( new PiiAccessLogInputDTO(
+			actorUserId:    $ctx->actorUserId > 0 ? $ctx->actorUserId : null,
+			actorRole:      ( null !== $user && ! empty( $user->roles ) )
 				? (string) reset( $user->roles )
 				: null,
-			'person_id'       => $personId,
-			'fields_accessed' => implode( ',', $fields ),
-			'access_reason'   => $reason,
-			'actor_ip'        => $ctx->ip,
-			'created_at'      => current_time( 'mysql', true ),
+			personId:       $personId,
+			fieldsAccessed: implode( ',', $fields ),
+			accessReason:   $reason,
+			actorIp:        $ctx->ip,
+			createdAt:      current_time( 'mysql', true ),
 		) );
 	}
 }

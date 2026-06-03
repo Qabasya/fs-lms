@@ -38,7 +38,7 @@ export const RecentContent = {
 
         $.post(fs_lms_vars.ajaxurl, {
             action:      ajaxAction,
-            security:    fs_lms_vars.subject_nonce,
+            security:    fs_lms_vars.nonces.subject,
             subject_key: subjectKey,
         }, (response) => {
             $container.removeClass('is-loading').css('opacity', '1');

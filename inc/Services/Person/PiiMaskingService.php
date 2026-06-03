@@ -23,18 +23,22 @@ class PiiMaskingService {
 	 * @return string Маскированная строка.
 	 */
 	public function mask( string $value, PiiField $type ): string {
+		if ( PiiField::Password === $type ) {
+			return $this->maskPassword();
+		}
+
 		$trimmed = trim( $value );
 		if ( '' === $trimmed ) {
 			return '';
 		}
 
 		return match ( $type ) {
-			PiiField::FullName => $trimmed,
-			PiiField::Pass     => $this->maskPass( $trimmed ),
-			PiiField::Inn      => $this->maskInn( $trimmed ),
-			PiiField::Phone    => $this->maskPhone( $trimmed ),
-			PiiField::Address  => $this->maskAddress( $trimmed ),
-			PiiField::Snils    => $this->maskSnils( $trimmed ),
+			PiiField::FullName  => $trimmed,
+			PiiField::Pass      => $this->maskPass( $trimmed ),
+			PiiField::Inn       => $this->maskInn( $trimmed ),
+			PiiField::Phone     => $this->maskPhone( $trimmed ),
+			PiiField::Address   => $this->maskAddress( $trimmed ),
+			PiiField::Password  => $this->maskPassword(),
 		};
 	}
 
@@ -57,6 +61,24 @@ class PiiMaskingService {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Возвращает статическую маску для пароля независимо от значения.
+	 */
+	public function maskedPasswordPlaceholder(): string {
+		return '••••••••';
+	}
+
+	public function placeholder( PiiField $type ): string {
+		return match ( $type ) {
+			PiiField::Pass     => '•• •• ••••••',
+			PiiField::Inn      => '•••• •••• ••••',
+			PiiField::Phone    => '••• ••• •• ••',
+			PiiField::Address  => 'г. ••••••, ••••••',
+			PiiField::Password => '••••••••',
+			PiiField::FullName => '',
+		};
 	}
 
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
@@ -139,6 +161,10 @@ class PiiMaskingService {
 		}
 
 		return '••• ••• •• ••';
+	}
+
+	private function maskPassword(): string {
+		return '••••••••';
 	}
 
 	/**

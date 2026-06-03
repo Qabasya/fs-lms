@@ -6,6 +6,7 @@ namespace Inc\Services;
 
 use Inc\Enums\AuditAction;
 use Inc\Managers\UserManager;
+use Inc\Repositories\OptionsRepositories\UserRepository;
 
 class PasswordGeneratorService {
     # TODO: как станет больше мета - добавить enum
@@ -15,6 +16,7 @@ class PasswordGeneratorService {
 		private readonly UserManager      $user_manager,
 		private readonly AuditService     $audit_service,
 		private readonly PiiCryptoService $crypto,
+		private readonly UserRepository $user_repository,
 	) {}
 
 	/**
@@ -33,7 +35,15 @@ class PasswordGeneratorService {
 		$password = wp_generate_password( 8, false );
 
 		wp_set_password( $password, $user_id );
-		update_user_meta( $user_id, self::META_KEY, $this->crypto->encrypt( $password ) );
+
+		$encoded = base64_encode( $this->crypto->encrypt( $password ) );
+
+		$this->user_repository->updateMeta(
+			$user_id,
+			array(
+				self::META_KEY => $encoded,
+			)
+		);
 
 		$this->audit_service->record(
 			AuditAction::PasswordGenerated->value,
@@ -64,7 +74,7 @@ class PasswordGeneratorService {
 		}
 
 		try {
-			$password = $this->crypto->decrypt( $encrypted );
+			$password = $this->crypto->decrypt( base64_decode( $encrypted, true ) );
 		} catch ( \RuntimeException ) {
 			return null;
 		}
@@ -72,6 +82,46 @@ class PasswordGeneratorService {
 		return array(
 			'login'    => $user->user_login,
 			'password' => $password,
+		);
+	}
+
+	/**
+	 * Устанавливает готовый пароль (без генерации), сохраняет зашифрованным в user meta.
+	 * Используется когда пользователь задал пароль самостоятельно при подаче заявки.
+	 *
+	 * @throws \RuntimeException Если пользователь не найден
+	 */
+	public function setFromPlain( int $user_id, string $password ): void {
+		$user = $this->user_manager->find( $user_id );
+
+		if ( null === $user ) {
+			throw new \RuntimeException( "Пользователь {$user_id} не найден" );
+		}
+
+		wp_set_password( $password, $user_id );
+		update_user_meta( $user_id, self::META_KEY, base64_encode( $this->crypto->encrypt( $password ) ) );
+
+		$this->audit_service->record(
+			AuditAction::PasswordSet->value,
+			'user',
+			$user_id,
+		);
+	}
+
+	/**
+	 * Сохраняет зашифрованную копию пароля в user meta без вызова wp_set_password().
+	 * Используется когда пароль уже установлен через wp_insert_user().
+	 */
+	public function storeEncrypted( int $user_id, string $password ): void {
+		$this->user_repository->updateMeta(
+			$user_id,
+			array( self::META_KEY => base64_encode( $this->crypto->encrypt( $password ) ) )
+		);
+
+		$this->audit_service->record(
+			AuditAction::PasswordSet->value,
+			'user',
+			$user_id,
 		);
 	}
 

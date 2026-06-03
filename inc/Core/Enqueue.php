@@ -150,6 +150,24 @@ class Enqueue extends BaseController implements ServiceInterface {
 			wp_enqueue_script( 'inline-edit-post' );
 		}
 
+		// === Переменные для карточки person ===
+		if ( 'fs-lms-person-detail' === $page ) {
+			wp_localize_script(
+				$script_handle,
+				'fs_lms_person_vars',
+				array(
+					'nonces' => array(
+						'reveal'               => Nonce::RevealPii->create(),
+						'update'               => Nonce::UpdatePerson->create(),
+						'delete'               => Nonce::RequestPiiDeletion->create(),
+						'export'               => Nonce::ExportPii->create(),
+						'add_representative'   => Nonce::AddRepresentative->create(),
+						'replace_representative' => Nonce::ReplaceRepresentative->create(),
+					),
+				)
+			);
+		}
+
 		// === Переменные для таблицы заявок ===
 		if ( 'fs_lms_userlist' === $page ) {
 			wp_localize_script(
@@ -157,11 +175,15 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'fs_lms_applications_vars',
 				array(
 					'nonces' => array(
-						'trash'   => Nonce::TrashApplication->create(),
-						'edit'    => Nonce::EditApplication->create(),
-						'review'  => Nonce::ReviewApplication->create(),
-						'enroll'  => Nonce::Enroll->create(),
-						'manager' => Nonce::Manager->create(),
+						'trash'        => Nonce::TrashApplication->create(),
+						'edit'         => Nonce::EditApplication->create(),
+						'review'       => Nonce::ReviewApplication->create(),
+						'enroll'       => Nonce::Enroll->create(),
+						'manager'      => Nonce::Manager->create(),
+						'revealPii'    => Nonce::RevealPii->create(),
+						'updatePerson' => Nonce::UpdatePerson->create(),
+						'exportPii'    => Nonce::ExportPii->create(),
+						'deletePii'    => Nonce::RequestPiiDeletion->create(),
 					),
 				)
 			);
@@ -172,10 +194,13 @@ class Enqueue extends BaseController implements ServiceInterface {
 			$script_handle,
 			'fs_lms_vars',
 			array(
-				'ajaxurl'       => admin_url( 'admin-ajax.php' ),
-				'subject_nonce' => Nonce::Subject->create(),
-				'manager_nonce' => Nonce::Manager->create(),
-				'ajax_actions'  => AjaxHook::toJsArray(),
+				'ajaxurl'      => admin_url( 'admin-ajax.php' ),
+				'nonces'       => array(
+					'subject'   => Nonce::Subject->create(),
+					'manager'   => Nonce::Manager->create(),
+					'expulsion' => Nonce::Expulsion->create(),
+				),
+				'ajax_actions' => AjaxHook::toJsArray(),
 			)
 		);
 	}

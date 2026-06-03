@@ -66,6 +66,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			wp_user_id bigint(20) unsigned DEFAULT NULL,
 			email varchar(255) DEFAULT NULL,
+			birth_date date DEFAULT NULL,
+			doc_type varchar(30) DEFAULT NULL,
 			full_name_enc longblob DEFAULT NULL,
 			doc_number_enc longblob DEFAULT NULL,
 			inn_enc longblob DEFAULT NULL,
@@ -94,6 +96,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			period_key varchar(50) NOT NULL,
 			status varchar(50) NOT NULL,
 			join_code_hash varchar(64) DEFAULT NULL,
+			join_code_enc blob DEFAULT NULL,
 			join_code_expires_at datetime DEFAULT NULL,
 			student_email_hash varchar(64) DEFAULT NULL,
 			student_data_enc longblob DEFAULT NULL,
@@ -137,7 +140,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			student_person_id bigint(20) unsigned NOT NULL,
 			source_application_id bigint(20) unsigned DEFAULT NULL,
-			group_id bigint(20) unsigned DEFAULT NULL,
+			group_id varchar(100) DEFAULT NULL,
 			subject_key varchar(50) NOT NULL,
 			period_key varchar(50) NOT NULL,
 			status varchar(50) NOT NULL,
@@ -221,10 +224,37 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
-		// ===== Cleanup: удаление колонок, убранных из схемы =====
-		// Добавлять сюда при удалении любой колонки вместо создания нового файла миграции.
+		// ===== 8. Таблица архива отчисленных (expelled_archive) =====
+		$expelled_archive = TableName::ExpelledArchive->prefixed();
+		dbDelta(
+			"CREATE TABLE $expelled_archive (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			enrollment_id bigint(20) unsigned DEFAULT NULL,
+			student_person_id bigint(20) unsigned DEFAULT NULL,
+			parent_person_id bigint(20) unsigned DEFAULT NULL,
+			data_enc longblob NOT NULL,
+			expelled_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			expelled_by_user_id bigint(20) unsigned DEFAULT NULL,
+			reason text DEFAULT NULL,
+			restored_at datetime DEFAULT NULL,
+			restored_by_user_id bigint(20) unsigned DEFAULT NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY enrollment_id (enrollment_id),
+			KEY student_person_id (student_person_id),
+			KEY expelled_at (expelled_at),
+			KEY restored_at (restored_at)
+		) $cc;"
+		);
+
+		// ===== Cleanup: добавление/удаление колонок без нового файла миграции =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$applications` DROP COLUMN IF EXISTS `rejected_reason`" );
+		$wpdb->query( "ALTER TABLE `$persons` ADD COLUMN IF NOT EXISTS `birth_date` date DEFAULT NULL AFTER `email`" );
+		$wpdb->query( "ALTER TABLE `$persons` ADD COLUMN IF NOT EXISTS `doc_type` varchar(30) DEFAULT NULL AFTER `birth_date`" );
+		$wpdb->query( "ALTER TABLE `$applications` ADD COLUMN IF NOT EXISTS `join_code_enc` blob DEFAULT NULL AFTER `join_code_hash`" );
+		$wpdb->query( "ALTER TABLE `$enrollments` MODIFY COLUMN `group_id` varchar(100) DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$persons` DROP COLUMN IF EXISTS `snils_enc`" );
 		// phpcs:enable
 	}
 
@@ -238,6 +268,7 @@ class Migration_1_0_0 implements MigrationInterface {
 
 		// Таблицы удаляются в обратном порядке (от зависимых к основным)
 		$tables = array(
+			TableName::ExpelledArchive->prefixed(),
 			TableName::PiiAccessLog->prefixed(),
 			TableName::AuditLog->prefixed(),
 			TableName::Consents->prefixed(),

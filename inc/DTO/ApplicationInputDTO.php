@@ -31,7 +31,9 @@ readonly class ApplicationInputDTO {
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param string $fullName        Полное имя ученика (Фамилия Имя Отчество)
+	 * @param string $lastName        Фамилия ученика
+	 * @param string $firstName       Имя ученика
+	 * @param string $middleName      Отчество ученика
 	 * @param string $email           Email ученика (будет использован для связи)
 	 * @param string $phone           Номер телефона ученика
 	 * @param string $school          Школа или учебное заведение
@@ -40,9 +42,13 @@ readonly class ApplicationInputDTO {
 	 * @param string $otpCode         6-значный код подтверждения email (шаг B двухэтапной формы)
 	 * @param string $ip              IP-адрес отправителя (для аудита)
 	 * @param string $userAgent       User-Agent браузера (для аудита)
+	 * @param string $username        Желаемый логин для входа в личный кабинет
+	 * @param string $password        Желаемый пароль (plaintext; хэшируется в сервисе)
 	 */
 	public function __construct(
-		public string $fullName,
+		public string $lastName,
+		public string $firstName,
+		public string $middleName,
 		public string $email,
 		public string $phone,
 		public string $school,
@@ -51,5 +57,11 @@ readonly class ApplicationInputDTO {
 		public string $otpCode,
 		public string $ip,
 		public string $userAgent,
+		public string $username = '',
+		public string $password = '',
 	) {}
+
+	public function fullName(): string {
+		return trim( "$this->lastName $this->firstName $this->middleName" );
+	}
 }

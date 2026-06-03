@@ -94,7 +94,6 @@ $today = current_time( 'Y-m-d' );
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_phone">—</span></div>
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Документ', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_doc">—</span></div>
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'ИНН', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_inn">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'ИНН ученика', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_inn_p">—</span></div>
 									<div class="fs-detail-row fs-detail-row--full"><span class="fs-detail-label"><?php esc_html_e( 'Адрес', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_address">—</span></div>
 								</div>
 							</div>
@@ -112,7 +111,7 @@ $today = current_time( 'Y-m-d' );
 									<div class="fs-form-group">
 										<label for="enroll-contract-no"><?php esc_html_e( 'Номер договора', 'fs-lms' ); ?></label>
 										<input type="text" id="enroll-contract-no" name="contract_no"
-											value="<?php esc_attr_e( 'б/н', 'fs-lms' ); ?>">
+											placeholder="<?php esc_attr_e( 'б/н', 'fs-lms' ); ?>">
 									</div>
 									<div class="fs-form-group">
 										<label for="enroll-contract-date"><?php esc_html_e( 'Дата договора', 'fs-lms' ); ?></label>
@@ -125,7 +124,7 @@ $today = current_time( 'Y-m-d' );
 									<div class="fs-form-group">
 										<label for="enroll-order-no"><?php esc_html_e( 'Номер приказа', 'fs-lms' ); ?></label>
 										<input type="text" id="enroll-order-no" name="order_no"
-											value="<?php esc_attr_e( 'б/н', 'fs-lms' ); ?>">
+											placeholder="<?php esc_attr_e( 'б/н', 'fs-lms' ); ?>">
 									</div>
 									<div class="fs-form-group">
 										<label for="enroll-order-date"><?php esc_html_e( 'Дата приказа', 'fs-lms' ); ?></label>

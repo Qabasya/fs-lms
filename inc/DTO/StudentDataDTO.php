@@ -34,25 +34,39 @@ readonly class StudentDataDTO {
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param string $fullName  Полное имя ученика (Фамилия Имя Отчество)
-	 * @param string $email     Email ученика (для связи и уведомлений)
-	 * @param string $school    Название школы/учебного заведения
-	 * @param int    $grade     Класс обучения (1-11)
-	 * @param string $birthDate Дата рождения (Y-m-d)
-	 * @param string $docType   Тип документа (pass, birth_certificate)
-	 * @param string $docNumber Номер документа
-	 * @param string $inn       ИНН ученика (12 цифр)
+	 * @param string $lastName   Фамилия ученика
+	 * @param string $firstName  Имя ученика
+	 * @param string $middleName Отчество ученика
+	 * @param string $email      Email ученика (для связи и уведомлений)
+	 * @param string $phone      Телефон ученика
+	 * @param string $school     Название школы/учебного заведения
+	 * @param int    $grade      Класс обучения (1-11)
+	 * @param string $birthDate  Дата рождения (Y-m-d)
+	 * @param string $docType    Тип документа (pass, birth_certificate)
+	 * @param string $docNumber  Номер документа
+	 * @param string $inn          ИНН ученика (12 цифр)
+	 * @param string $username     Логин для входа в личный кабинет
+	 * @param string $loginPassword Пароль для входа (plaintext внутри зашифрованного student_data_enc)
 	 */
 	public function __construct(
-		public string $fullName,
+		public string $lastName,
+		public string $firstName,
+		public string $middleName,
 		public string $email,
+		public string $phone,
 		public string $school,
 		public int    $grade,
 		public string $birthDate,
 		public string $docType,
 		public string $docNumber,
 		public string $inn,
+		public string $username = '',
+		public string $loginPassword = '',
 	) {}
+
+	public function fullName(): string {
+		return trim( "$this->lastName $this->firstName $this->middleName" );
+	}
 
 	/**
 	 * Создаёт DTO из массива данных.
@@ -62,15 +76,26 @@ readonly class StudentDataDTO {
 	 * @return static
 	 */
 	public static function fromArray( array $data ): static {
+		// Обратная совместимость: если отдельных полей нет, разбиваем full_name
+		$parts      = explode( ' ', (string) ( $data['full_name'] ?? '' ), 3 );
+		$lastName   = (string) ( $data['last_name']   ?? $parts[0] ?? '' );
+		$firstName  = (string) ( $data['first_name']  ?? $parts[1] ?? '' );
+		$middleName = (string) ( $data['middle_name'] ?? $parts[2] ?? '' );
+
 		return new static(
-			fullName:  (string) ( $data['full_name'] ?? '' ),
-			email:     (string) ( $data['email'] ?? '' ),
-			school:    (string) ( $data['school'] ?? '' ),
-			grade:     (int) ( $data['grade'] ?? 0 ),
-			birthDate: (string) ( $data['birth_date'] ?? '' ),
-			docType:   (string) ( $data['doc_type'] ?? '' ),
-			docNumber: (string) ( $data['doc_number'] ?? '' ),
-			inn:       (string) ( $data['inn'] ?? '' ),
+			lastName:      $lastName,
+			firstName:     $firstName,
+			middleName:    $middleName,
+			email:         (string) ( $data['email']         ?? '' ),
+			phone:         (string) ( $data['phone']         ?? '' ),
+			school:        (string) ( $data['school']        ?? '' ),
+			grade:         (int)    ( $data['grade']         ?? 0 ),
+			birthDate:     (string) ( $data['birth_date']    ?? '' ),
+			docType:       (string) ( $data['doc_type']      ?? '' ),
+			docNumber:     (string) ( $data['doc_number']    ?? '' ),
+			inn:           (string) ( $data['inn']           ?? '' ),
+			username:      (string) ( $data['username']      ?? '' ),
+			loginPassword:  (string) ( $data['login_password'] ?? '' ),
 		);
 	}
 
@@ -81,14 +106,20 @@ readonly class StudentDataDTO {
 	 */
 	public function toArray(): array {
 		return array(
-			'full_name'  => $this->fullName,
-			'email'      => $this->email,
-			'school'     => $this->school,
-			'grade'      => $this->grade,
-			'birth_date' => $this->birthDate,
-			'doc_type'   => $this->docType,
-			'doc_number' => $this->docNumber,
-			'inn'        => $this->inn,
+			'last_name'     => $this->lastName,
+			'first_name'    => $this->firstName,
+			'middle_name'   => $this->middleName,
+			'full_name'     => $this->fullName(),
+			'email'         => $this->email,
+			'phone'         => $this->phone,
+			'school'        => $this->school,
+			'grade'         => $this->grade,
+			'birth_date'    => $this->birthDate,
+			'doc_type'      => $this->docType,
+			'doc_number'    => $this->docNumber,
+			'inn'           => $this->inn,
+			'username'      => $this->username,
+			'login_password' => $this->loginPassword,
 		);
 	}
 }

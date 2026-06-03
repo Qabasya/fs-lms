@@ -122,7 +122,7 @@ export const PostsTable = {
          */
         const data = {
             action: fs_lms_vars.ajax_actions.getPostsTable,
-            security: fs_lms_vars.subject_nonce,
+            security: fs_lms_vars.nonces.subject,
             subject_key: $container.data('subject'),
             tab: $container.data('tab'),
             page_slug: $container.data('page'),

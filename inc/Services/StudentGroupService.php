@@ -67,7 +67,7 @@ readonly class StudentGroupService {
 	 *
 	 * @return StudentGroupDTO|null Возвращает созданный DTO в случае успеха или null
 	 */
-	public function createGroup( string $title, string $period_id, string $subject_id, int $teacher_id ): ?StudentGroupDTO {
+	public function createGroup( string $title, string $period_id, string $subject_id, int $teacher_id, array $schedule = [] ): ?StudentGroupDTO {
 		if ( empty( $title ) || empty( $period_id ) || empty( $subject_id ) || $teacher_id <= 0 ) {
 			return null;
 		}
@@ -95,7 +95,8 @@ readonly class StudentGroupService {
 			title:      $title,
 			period_id:  $period_id,
 			subject_id: $subject_id,
-			teacher_id: $teacher_id
+			teacher_id: $teacher_id,
+			schedule:   $schedule,
 		);
 
 		$is_saved = $this->group_repository->save( $dto );
