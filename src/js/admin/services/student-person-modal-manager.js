@@ -70,10 +70,12 @@ export const StudentPersonModalManager = {
             display_name:  $btn.data( 'displayName' )   || '',
             full_name:     $btn.data( 'displayName' )   || '',
             email:         $btn.data( 'email' )          || '',
+            login:         $btn.data( 'userLogin' )      || '',
             phone:         rowData.student_phone         || '',
             contract_no:   rowData.contract_no           || '',
             subject:       rowData.subject               || '',
             group:         rowData.group                 || '',
+            schedule:      rowData.schedule              || '',
             school:        rowData.student_school        || '',
             grade:         String( rowData.student_grade || '' ),
             birth_date:    rowData.student_birth_date    || '',
@@ -97,6 +99,7 @@ export const StudentPersonModalManager = {
                 doc_number: pii.doc_number || '',
                 inn:        pii.inn        || '',
                 login:      res.data.login || '',
+                password:   res.data.password || '',
             } );
         } );
     },

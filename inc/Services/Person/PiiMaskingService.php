@@ -70,6 +70,17 @@ class PiiMaskingService {
 		return '••••••••';
 	}
 
+	public function placeholder( PiiField $type ): string {
+		return match ( $type ) {
+			PiiField::Pass     => '•• •• ••••••',
+			PiiField::Inn      => '•••• •••• ••••',
+			PiiField::Phone    => '••• ••• •• ••',
+			PiiField::Address  => 'г. ••••••, ••••••',
+			PiiField::Password => '••••••••',
+			PiiField::FullName => '',
+		};
+	}
+
 	// ============================ ПРИВАТНЫЕ МЕТОДЫ ============================ //
 	/**
 	 * Паспорт: оставить первые 2 цифры (серия) и последние 2 цифры (номер).

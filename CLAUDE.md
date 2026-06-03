@@ -4,9 +4,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build Commands
 
-> **Claude не запускает сборку.** Gulp и Docker-команды выполняет пользователь самостоятельно.
-> При необходимости — показать команду в тексте ответа, не вызывать через инструменты.
-
 ```bash
 npx gulp build            # JS + all CSS once
 npx gulp watch            # watch + rebuild

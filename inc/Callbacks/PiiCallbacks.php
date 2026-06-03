@@ -18,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\AuditService;
 use Inc\Services\EmailService;
+use Inc\Services\PasswordGeneratorService;
 use Inc\Services\Person\PersonReader;
 use Inc\Services\Person\PersonService;
 use Inc\Services\Person\PiiMaskingService;
@@ -54,28 +55,30 @@ class PiiCallbacks extends BaseController {
 	/**
 	 * Конструктор коллбеков.
 	 *
-	 * @param PersonReader        $personReader        Сервис безопасного чтения PII
-	 * @param PersonService       $personService       Сервис управления лицами
-	 * @param PersonRepository    $personRepository    Репозиторий лиц
-	 * @param RelationshipService $relationshipService Сервис управления связями
-	 * @param RateLimitService    $rateLimitService    Сервис ограничения запросов
-	 * @param EmailService        $emailService        Сервис отправки email
-	 * @param AuditService        $auditService        Сервис аудита
-	 * @param PiiMaskingService   $maskingService      Сервис маскирования PII
+	 * @param PersonReader             $personReader        Сервис безопасного чтения PII
+	 * @param PersonService            $personService       Сервис управления лицами
+	 * @param PersonRepository         $personRepository    Репозиторий лиц
+	 * @param RelationshipService      $relationshipService Сервис управления связями
+	 * @param RateLimitService         $rateLimitService    Сервис ограничения запросов
+	 * @param EmailService             $emailService        Сервис отправки email
+	 * @param AuditService             $auditService        Сервис аудита
+	 * @param PiiMaskingService        $maskingService      Сервис маскирования PII
+	 * @param PasswordGeneratorService $passwordGenerator   Сервис управления паролями
 	 */
 	public function __construct(
-		private readonly PersonReader           $personReader,
-		private readonly PersonService          $personService,
-		private readonly PersonRepository       $personRepository,
-		private readonly RelationshipService    $relationshipService,
-		private readonly RateLimitService       $rateLimitService,
-		private readonly EmailService           $emailService,
-		private readonly AuditService           $auditService,
-		private readonly EnrollmentRepository   $enrollmentRepository,
-		private readonly StudentGroupRepository $groupRepository,
-		private readonly SubjectRepository      $subjectRepository,
-		private readonly PiiCryptoService       $crypto,
-		private readonly PiiMaskingService      $maskingService,
+		private readonly PersonReader              $personReader,
+		private readonly PersonService             $personService,
+		private readonly PersonRepository          $personRepository,
+		private readonly RelationshipService       $relationshipService,
+		private readonly RateLimitService          $rateLimitService,
+		private readonly EmailService              $emailService,
+		private readonly AuditService              $auditService,
+		private readonly EnrollmentRepository      $enrollmentRepository,
+		private readonly StudentGroupRepository    $groupRepository,
+		private readonly SubjectRepository         $subjectRepository,
+		private readonly PiiCryptoService          $crypto,
+		private readonly PiiMaskingService         $maskingService,
+		private readonly PasswordGeneratorService  $passwordGenerator,
 	) {
 		parent::__construct();
 	}
@@ -114,7 +117,7 @@ class PiiCallbacks extends BaseController {
 	public function ajaxRequestPiiDeletion(): void {
 		$this->authorize( Nonce::RequestPiiDeletion, Capability::ManagePersons );
 
-		$personId = $this->sanitizeInt( $_POST['person_id'] ?? 0 );
+		$personId = $this->sanitizeInt( 'person_id' );
 
 		// Мягкое удаление (заполняется поле deleted_at)
 		$this->personService->softDelete( $personId, get_current_user_id() );
@@ -130,17 +133,17 @@ class PiiCallbacks extends BaseController {
 	public function ajaxAddRepresentative(): void {
 		$this->authorize( Nonce::AddRepresentative, Capability::ManagePersons );
 
-		$studentPersonId = $this->sanitizeInt( $_POST['student_person_id'] ?? 0 );
-		$relationType    = \Inc\Enums\RelationType::from( $this->requireKey( $_POST['relation_type'] ?? '' ) );
+		$studentPersonId = $this->sanitizeInt( 'student_person_id' );
+		$relationType    = \Inc\Enums\RelationType::from( $this->requireKey( 'relation_type' ) );
 
 		// Поиск или создание опекуна по уникальным полям
 		$guardianPersonId = $this->personService->createOrFindBy( new PersonInputDTO(
-			fullName:  $this->requireText( $_POST['full_name'] ?? '' ),
-			docNumber: $this->requireText( $_POST['doc_number'] ?? '' ),
-			inn:       $this->sanitizeText( $_POST['inn'] ?? '' ),
-			address:   $this->sanitizeText( $_POST['address'] ?? '' ),
-			phone:     $this->sanitizeText( $_POST['phone'] ?? '' ),
-			email:     $this->sanitizeText( $_POST['email'] ?? '' ) ?: null,
+			fullName:  $this->requireText( 'full_name' ),
+			docNumber: $this->requireText( 'doc_number' ),
+			inn:       $this->sanitizeText( 'inn' ),
+			address:   $this->sanitizeText( 'address' ),
+			phone:     $this->sanitizeText( 'phone' ),
+			email:     $this->sanitizeText( 'email' ) ?: null,
 		) );
 
 		$this->relationshipService->addRepresentative(
@@ -161,14 +164,14 @@ class PiiCallbacks extends BaseController {
 	public function ajaxReplaceRepresentative(): void {
 		$this->authorize( Nonce::ReplaceRepresentative, Capability::ManagePersons );
 
-		$oldRelId = $this->sanitizeInt( $_POST['relationship_id'] ?? 0 );
-		$newType  = \Inc\Enums\RelationType::from( $this->requireKey( $_POST['relation_type'] ?? '' ) );
+		$oldRelId = $this->sanitizeInt( 'relationship_id' );
+		$newType  = \Inc\Enums\RelationType::from( $this->requireKey( 'relation_type' ) );
 
 		$newGuardianId = $this->personService->createOrFindBy( new PersonInputDTO(
-			fullName:  $this->requireText( $_POST['full_name'] ?? '' ),
-			docNumber: $this->requireText( $_POST['doc_number'] ?? '' ),
-			inn:       $this->sanitizeText( $_POST['inn'] ?? '' ),
-			email:     $this->sanitizeText( $_POST['email'] ?? '' ) ?: null,
+			fullName:  $this->requireText( 'full_name' ),
+			docNumber: $this->requireText( 'doc_number' ),
+			inn:       $this->sanitizeText( 'inn' ),
+			email:     $this->sanitizeText( 'email' ) ?: null,
 		) );
 
 		$this->relationshipService->replaceRepresentative( $oldRelId, $newGuardianId, $newType );
@@ -184,16 +187,16 @@ class PiiCallbacks extends BaseController {
 	public function ajaxUpdatePerson(): void {
 		$this->authorize( Nonce::UpdatePerson, Capability::ManagePersons );
 
-		$personId = $this->sanitizeInt( $_POST['person_id'] ?? 0 );
+		$personId = $this->sanitizeInt( 'person_id' );
 
 		// Сбор изменяемых полей (только непустые)
 		$changes = array_filter( array(
-			'full_name'  => $this->sanitizeText( $_POST['full_name'] ?? '' ),
-			'doc_number' => $this->sanitizeText( $_POST['doc_number'] ?? '' ),
-			'inn'        => $this->sanitizeText( $_POST['inn'] ?? '' ),
-			'address'    => $this->sanitizeText( $_POST['address'] ?? '' ),
-			'phone'      => $this->sanitizeText( $_POST['phone'] ?? '' ),
-			'email'      => $this->sanitizeText( $_POST['email'] ?? '' ),
+			'full_name'  => $this->sanitizeText( 'full_name' ),
+			'doc_number' => $this->sanitizeText( 'doc_number' ),
+			'inn'        => $this->sanitizeText( 'inn' ),
+			'address'    => $this->sanitizeText( 'address' ),
+			'phone'      => $this->sanitizeText( 'phone' ),
+			'email'      => $this->sanitizeText( 'email' ),
 		) );
 
 		$this->personService->update( $personId, $changes, get_current_user_id() );
@@ -209,7 +212,7 @@ class PiiCallbacks extends BaseController {
 	public function ajaxGetPersonData(): void {
 		$this->authorize( Nonce::Manager, Capability::ManagePersons );
 
-		$personId = $this->sanitizeInt( $_POST['person_id'] ?? 0 );
+		$personId = $this->sanitizeInt( 'person_id' );
 		$person   = $this->personRepository->find( $personId );
 
 		if ( null === $person ) {
@@ -296,12 +299,15 @@ class PiiCallbacks extends BaseController {
 			}
 		}
 
+		$credentials = $person->wpUserId ? $this->passwordGenerator->getCredentials( $person->wpUserId ) : null;
+
 		$this->success( array(
 			'type'            => $type,
 			'wp_user_id'      => $person->wpUserId ?? 0,
 			'display_name'    => $wpUser ? $wpUser->display_name : '',
 			'login'           => $wpUser ? $wpUser->user_login : '',
 			'email'           => $wpUser ? $wpUser->user_email : '',
+			'password'        => $credentials['password'] ?? '',
 			'masked_pii'      => $this->getMaskedPersonPii( $personId ),
 			'representatives' => $representatives,
 			'dependents'      => $dependents,
@@ -355,13 +361,18 @@ class PiiCallbacks extends BaseController {
 				'admin_masked_view'
 			);
 			return array(
-				'doc_number' => $this->maskingService->mask( $dto->pass,    PiiField::Pass ),
-				'inn'        => $this->maskingService->mask( $dto->inn,     PiiField::Inn ),
+				'doc_number' => $this->maskingService->mask( $dto->pass,    PiiField::Pass )
+					?: $this->maskingService->placeholder( PiiField::Pass ),
+				'inn'        => $this->maskingService->mask( $dto->inn,     PiiField::Inn )
+					?: $this->maskingService->placeholder( PiiField::Inn ),
 				'address'    => $this->maskingService->mask( $dto->address, PiiField::Address ),
-				'password'   => $this->maskingService->mask( '',            PiiField::Password ),
 			);
 		} catch ( \Throwable ) {
-			return array( 'doc_number' => '', 'inn' => '', 'address' => '', 'password' => '••••••••' );
+			return array(
+				'doc_number' => $this->maskingService->placeholder( PiiField::Pass ),
+				'inn'        => $this->maskingService->placeholder( PiiField::Inn ),
+				'address'    => '',
+			);
 		}
 	}
 

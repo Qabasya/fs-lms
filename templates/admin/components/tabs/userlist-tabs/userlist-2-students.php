@@ -88,6 +88,7 @@ $pages       = (int) ceil( $total / $perPage );
 
 				// Имя ученика из WP-пользователя
 				$studentName = '—';
+				$wpUser      = null;
 				$person      = $personRepo->find( $studentPersonId );
 				if ( $person && $person->wpUserId ) {
 					$wpUser      = get_userdata( $person->wpUserId );
@@ -97,6 +98,7 @@ $pages       = (int) ceil( $total / $perPage );
 				// Группа и расписание
 				$groupTitle  = '—';
 				$scheduleStr = '—';
+				$formatted   = '';
 				$group       = $groupRepo->getById( $groupId );
 				if ( $group ) {
 					$groupTitle  = $group->title;
@@ -132,6 +134,7 @@ $pages       = (int) ceil( $total / $perPage );
 				$enrollmentData = array(
 					'subject'                  => $subjectName,
 					'group'                    => $groupTitle,
+					'schedule'                 => $formatted,
 					'contract_no'              => $snapshot['contract_no']   ?? '',
 					'contract_date'            => $snapshot['contract_date'] ?? '',
 					'order_no'                 => $snapshot['order_no']      ?? '',
@@ -202,7 +205,8 @@ $pages       = (int) ceil( $total / $perPage );
 							   data-wp-user-id="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>"
 							   data-person-type="student"
 							   data-display-name="<?php echo esc_attr( $studentName ); ?>"
-							   data-email="<?php echo esc_attr( $person?->email ?? '' ); ?>">
+							   data-email="<?php echo esc_attr( $person?->email ?? '' ); ?>"
+							   data-user-login="<?php echo esc_attr( $wpUser ? $wpUser->user_login : '' ); ?>">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>
 						</span>
