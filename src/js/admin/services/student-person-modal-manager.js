@@ -28,7 +28,7 @@ export const StudentPersonModalManager = {
 
         $( document ).on( 'click.spmm_edit', '#fs-student-person-modal .js-pmm-edit', ( e ) => {
             e.preventDefault();
-            StudentPersonModal.setEditing( true );
+            this._startEditing();
         } );
 
         $( document ).on( 'click.spmm_cancel', '#fs-student-person-modal .js-pmm-cancel', ( e ) => {
@@ -67,19 +67,21 @@ export const StudentPersonModalManager = {
 
         // Немедленно из данных строки — без ожидания AJAX
         StudentPersonModal.fill( {
-            display_name:  $btn.data( 'displayName' )   || '',
-            full_name:     $btn.data( 'displayName' )   || '',
-            email:         $btn.data( 'email' )          || '',
-            login:         $btn.data( 'userLogin' )      || '',
-            phone:         rowData.student_phone         || '',
-            contract_no:   rowData.contract_no           || '',
-            subject:       rowData.subject               || '',
-            group:         rowData.group                 || '',
-            schedule:      rowData.schedule              || '',
-            school:        rowData.student_school        || '',
-            grade:         String( rowData.student_grade || '' ),
-            birth_date:    rowData.student_birth_date    || '',
-            guardian_name: rowData.guardian_full_name    || '',
+            display_name:  $btn.data( 'displayName' )      || '',
+            last_name:     rowData.student_last_name        || '',
+            first_name:    rowData.student_first_name       || '',
+            middle_name:   rowData.student_middle_name      || '',
+            email:         $btn.data( 'email' )             || '',
+            login:         $btn.data( 'userLogin' )         || '',
+            phone:         rowData.student_phone            || '',
+            contract_no:   rowData.contract_no              || '',
+            subject:       rowData.subject                  || '',
+            group:         rowData.group                    || '',
+            schedule:      rowData.schedule                 || '',
+            school:        rowData.student_school           || '',
+            grade:         String( rowData.student_grade    || '' ),
+            birth_date:    rowData.student_birth_date       || '',
+            guardian_name: rowData.guardian_full_name       || '',
         } );
 
         StudentPersonModal.open();
@@ -95,12 +97,51 @@ export const StudentPersonModalManager = {
             const enr = ( res.data.enrollments || [] )[0] || {};
             const pii = res.data.masked_pii || {};
             StudentPersonModal.fill( {
-                schedule:   enr.schedule   || '',
-                doc_number: pii.doc_number || '',
-                inn:        pii.inn        || '',
-                login:      res.data.login || '',
-                password:   res.data.password || '',
+                last_name:   enr.last_name   || '',
+                first_name:  enr.first_name  || '',
+                middle_name: enr.middle_name || '',
+                schedule:    enr.schedule    || '',
+                birth_date:  enr.birth_date  || '',
+                school:      enr.school      || '',
+                grade:       enr.grade       || '',
+                doc_number:  pii.doc_number  || '',
+                inn:         pii.inn         || '',
+                login:       res.data.login  || '',
+                password:    res.data.password || '',
             } );
+        } );
+    },
+
+    _startEditing() {
+        const personId = StudentPersonModal.getPersonId();
+        const wpUserId = StudentPersonModal.getWpUserId();
+
+        if ( ! personId ) {
+            StudentPersonModal.setEditing( true );
+            return;
+        }
+
+        const piiPromise = $.post( AJAX_URL(), {
+            action:    ACTIONS().revealAllPersonPii,
+            person_id: personId,
+            reason:    'admin_userlist_edit',
+            security:  NONCES().revealPii,
+        } ).done( ( res ) => {
+            if ( res.success ) StudentPersonModal.fillRevealed( res.data );
+        } );
+
+        const credPromise = wpUserId
+            ? $.post( AJAX_URL(), {
+                action:   ACTIONS().revealUserCredentials,
+                user_id:  wpUserId,
+                security: NONCES().revealPii,
+            } ).done( ( res ) => {
+                if ( res.success ) StudentPersonModal.fillRevealed( { password: res.data.password || '' } );
+            } )
+            : $.Deferred().resolve();
+
+        $.when( piiPromise, credPromise ).always( () => {
+            StudentPersonModal.setEditing( true );
         } );
     },
 
@@ -136,7 +177,13 @@ export const StudentPersonModalManager = {
     _save() {
         const personId = StudentPersonModal.getPersonId();
         if ( ! personId ) return;
-        const allowed = [ 'full_name', 'doc_number', 'inn', 'phone', 'email', 'address' ];
+        const allowed = [
+            'last_name', 'first_name', 'middle_name',
+            'phone', 'email', 'birth_date',
+            'login', 'password',
+            'school',
+            'doc_number', 'inn',
+        ];
         const edit = StudentPersonModal.getEditData();
         const payload = {
             action:    ACTIONS().updatePerson,
@@ -144,7 +191,6 @@ export const StudentPersonModalManager = {
             person_id: personId,
         };
         allowed.forEach( k => {
-            // Не отправлять PII-поля, если они ещё в маске
             if ( edit[ k ] && ! edit[ k ].includes( '•' ) ) payload[ k ] = edit[ k ];
         } );
         $.post( AJAX_URL(), payload ).done( ( res ) => {

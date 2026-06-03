@@ -21,8 +21,16 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
-					<label><?php esc_html_e( 'ФИО', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="full_name" readonly>
+					<label><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="last_name" readonly>
+				</div>
+				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Имя', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="first_name" readonly>
+				</div>
+				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="middle_name" readonly>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Роль', 'fs-lms' ); ?></label>
@@ -43,7 +51,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
-					<label><?php esc_html_e( 'ФИО подопечного', 'fs-lms' ); ?></label>
+					<label><?php esc_html_e( 'ФИО ребёнка', 'fs-lms' ); ?></label>
 					<input type="text" class="fs-person-field regular-text" data-field="dependent_name" data-no-edit readonly>
 				</div>
 			</div>
@@ -57,7 +65,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Пароль', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field fs-person-pii regular-text" data-field="password" data-no-edit readonly>
+					<input type="text" class="fs-person-field fs-person-pii regular-text" data-field="password" readonly>
 				</div>
 			</div>
 
@@ -72,22 +80,22 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Дата рождения родителя', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="birth_date" data-no-edit readonly>
+					<input type="date" class="fs-person-field regular-text" data-field="birth_date" readonly>
 				</div>
 			</div>
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Документ ребёнка', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="child_doc_number" data-no-edit readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="child_doc_number" readonly>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'ИНН ребёнка', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="child_inn" data-no-edit readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="child_inn" readonly>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Дата рождения ребёнка', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="child_birth_date" data-no-edit readonly>
+					<input type="date" class="fs-person-field regular-text" data-field="child_birth_date" readonly>
 				</div>
 			</div>
 

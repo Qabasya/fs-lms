@@ -21,8 +21,16 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
-					<label><?php esc_html_e( 'ФИО', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="full_name" readonly>
+					<label><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="last_name" readonly>
+				</div>
+				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Имя', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="first_name" readonly>
+				</div>
+				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="middle_name" readonly>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( '№ договора', 'fs-lms' ); ?></label>
@@ -55,8 +63,19 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 					<input type="text" class="fs-person-field regular-text" data-field="email" readonly>
 				</div>
 				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></label>
+					<input type="date" class="fs-person-field regular-text" data-field="birth_date" readonly>
+				</div>
+			</div>
+
+			<div class="fs-form-row">
+				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Логин', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="login" data-no-edit readonly>
+					<input type="text" class="fs-person-field regular-text" data-field="login" readonly>
+				</div>
+				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Пароль', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="password" readonly>
 				</div>
 			</div>
 
@@ -64,6 +83,17 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'ФИО родителя', 'fs-lms' ); ?></label>
 					<input type="text" class="fs-person-field regular-text" data-field="guardian_name" data-no-edit readonly>
+				</div>
+			</div>
+
+			<div class="fs-form-row">
+				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Школа', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="school" readonly>
+				</div>
+				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Класс', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field regular-text" data-field="grade" data-no-edit readonly>
 				</div>
 			</div>
 
@@ -75,34 +105,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Школа', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="school" data-no-edit readonly>
-				</div>
-				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Класс', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="grade" data-no-edit readonly>
-				</div>
-			</div>
-
-			<div class="fs-form-row">
-				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Документ', 'fs-lms' ); ?></label>
 					<input type="text" class="fs-person-field fs-person-pii regular-text" data-field="doc_number" readonly>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'ИНН', 'fs-lms' ); ?></label>
 					<input type="text" class="fs-person-field fs-person-pii regular-text" data-field="inn" readonly>
-				</div>
-				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="birth_date" data-no-edit readonly>
-				</div>
-			</div>
-
-			<div class="fs-form-row">
-				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Пароль', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="password" data-no-edit readonly>
 				</div>
 			</div>
 

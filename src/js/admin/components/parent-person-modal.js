@@ -37,17 +37,21 @@ export const ParentPersonModal = {
         this.$el.find( '.js-reveal-all' ).text( 'Показать данные' ).prop( 'disabled', false );
         this.$el.find( '.js-pmm-regen-pwd' ).remove();
         this.setEditing( false );
-        this.$el.removeData( 'personId' ).removeData( 'wpUserId' );
+        this.$el.removeData( 'personId' ).removeData( 'wpUserId' ).removeData( 'childPersonId' );
     },
 
     setPersonId( id ) { this.$el.data( 'personId', id ); },
     setWpUserId( id ) { this.$el.data( 'wpUserId', id ); },
     getPersonId() { return parseInt( this.$el.data( 'personId' ), 10 ) || 0; },
     getWpUserId() { return parseInt( this.$el.data( 'wpUserId' ), 10 ) || 0; },
+    getChildPersonId() { return parseInt( this.$el.data( 'childPersonId' ), 10 ) || 0; },
 
     fill( data ) {
         if ( 'display_name' in data ) {
             this.$el.find( '.fs-lms-modal-title' ).text( data.display_name || '' );
+        }
+        if ( 'child_person_id' in data ) {
+            this.$el.data( 'childPersonId', data.child_person_id || 0 );
         }
         Object.entries( data ).forEach( ( [ key, val ] ) => {
             this.$el.find( `[data-field="${ key }"]` ).val( val != null ? String( val ) : '' );

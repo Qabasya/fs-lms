@@ -86,10 +86,11 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 				// Email из таблицы persons (plain text) или fallback на WP user email
 				$email = $person?->email ?? $user->user_email ?? '';
 
-				$phone        = '';
-				$childNames   = array();
-				$guardianData = array();
-				$studentData  = array();
+				$phone         = '';
+				$childPersonId = 0;
+				$childNames    = array();
+				$guardianData  = array();
+				$studentData   = array();
 
 				if ( $personId ) {
 					$relationships = $relationshipRepo->findActiveByGuardian( $personId );
@@ -112,9 +113,10 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 										$snapshot = json_decode( $crypto->decrypt( $enrollment->snapshotEnc ), true );
 										$gd       = $snapshot['guardian'] ?? array();
 										if ( ! empty( $gd ) ) {
-											$guardianData = $gd;
-											$studentData  = $snapshot['student'] ?? array();
-											$phone        = $gd['phone'] ?? '';
+											$guardianData  = $gd;
+											$studentData   = $snapshot['student'] ?? array();
+											$phone         = $gd['phone'] ?? '';
+											$childPersonId = $rel->studentPersonId;
 											break;
 										}
 									} catch ( \Throwable $e ) {
@@ -129,8 +131,11 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 				$childNamesStr = implode( ', ', $childNames ) ?: '—';
 
 				$parentModalData = array(
-					'full_name'       => $user->display_name,
+					'last_name'       => $guardianData['last_name']   ?? '',
+					'first_name'      => $guardianData['first_name']  ?? '',
+					'middle_name'     => $guardianData['middle_name'] ?? '',
 					'relation_type'   => RelationType::tryFrom( $guardianData['relation_type'] ?? '' )?->label() ?? ( $guardianData['relation_type'] ?? '' ),
+					'child_person_id' => $childPersonId,
 					'birth_date'      => $guardianData['birth_date']      ?? '',
 					'email'           => $guardianData['email']           ?? $email,
 					'phone'           => $guardianData['phone']           ?? $phone,

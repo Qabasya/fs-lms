@@ -188,18 +188,106 @@ class PiiCallbacks extends BaseController {
 		$this->authorize( Nonce::UpdatePerson, Capability::ManagePersons );
 
 		$personId = $this->sanitizeInt( 'person_id' );
+		$person   = $this->personRepository->find( $personId );
 
-		// Сбор изменяемых полей (только непустые)
-		$changes = array_filter( array(
-			'full_name'  => $this->sanitizeText( 'full_name' ),
+		if ( null === $person ) {
+			$this->error( 'Person не найден.' );
+		}
+
+		// Поля записи person (шифруются сервисом)
+		$lastName   = $this->sanitizeText( 'last_name' );
+		$firstName  = $this->sanitizeText( 'first_name' );
+		$middleName = $this->sanitizeText( 'middle_name' );
+
+		$personChanges = array_filter( array(
+			'phone'      => $this->sanitizeText( 'phone' ),
+			'email'      => $this->sanitizeText( 'email' ),
+			'birth_date' => $this->sanitizeText( 'birth_date' ),
 			'doc_number' => $this->sanitizeText( 'doc_number' ),
 			'inn'        => $this->sanitizeText( 'inn' ),
 			'address'    => $this->sanitizeText( 'address' ),
-			'phone'      => $this->sanitizeText( 'phone' ),
-			'email'      => $this->sanitizeText( 'email' ),
 		) );
 
-		$this->personService->update( $personId, $changes, get_current_user_id() );
+		if ( $lastName || $firstName || $middleName ) {
+			$personChanges['full_name'] = implode( ' ', array_filter( [ $lastName, $firstName, $middleName ] ) );
+		}
+
+		if ( ! empty( $personChanges ) ) {
+			$this->personService->update( $personId, $personChanges, get_current_user_id() );
+		}
+
+		// WP user: логин, пароль, email, display_name
+		if ( $person->wpUserId ) {
+			$userData = [ 'ID' => $person->wpUserId ];
+
+			$newLogin = $this->sanitizeText( 'login' );
+			if ( $newLogin ) {
+				$userData['user_login'] = $newLogin;
+			}
+
+			if ( isset( $personChanges['email'] ) ) {
+				$userData['user_email'] = $personChanges['email'];
+			}
+
+			if ( isset( $personChanges['full_name'] ) ) {
+				$userData['display_name'] = $personChanges['full_name'];
+				$userData['first_name']   = $firstName;
+				$userData['last_name']    = $lastName;
+			}
+
+			if ( count( $userData ) > 1 ) {
+				wp_update_user( $userData );
+			}
+
+			$newPassword = $this->sanitizeText( 'password' );
+			if ( $newPassword ) {
+				try {
+					$this->passwordGenerator->setFromPlain( $person->wpUserId, $newPassword );
+				} catch ( \RuntimeException ) {
+					// WP-пользователь не найден — пароль не обновлён
+				}
+			}
+		}
+
+		// Школа — обновление снапшота активного зачисления
+		$newSchool = $this->sanitizeText( 'school' );
+		if ( $newSchool ) {
+			foreach ( $this->enrollmentRepository->findByStudent( $personId ) as $enr ) {
+				if ( empty( $enr->snapshotEnc ) ) {
+					continue;
+				}
+				try {
+					$snapshot = json_decode( $this->crypto->decrypt( $enr->snapshotEnc ), true ) ?? array();
+					$snapshot['student']['school'] = $newSchool;
+					$this->enrollmentRepository->update( $enr->id, array(
+						'snapshot_enc' => $this->crypto->encrypt( (string) wp_json_encode( $snapshot ) ),
+						'updated_at'   => current_time( 'mysql', true ),
+					) );
+				} catch ( \Throwable ) {
+					// snapshot недоступен — пропускаем
+				}
+			}
+		}
+
+		// Данные ребёнка — обновление записи первого активного подопечного
+		$childDocNumber = $this->sanitizeText( 'child_doc_number' );
+		$childInn       = $this->sanitizeText( 'child_inn' );
+		$childBirthDate = $this->sanitizeText( 'child_birth_date' );
+
+		if ( $childDocNumber || $childInn || $childBirthDate ) {
+			$dependents = $this->relationshipService->getActiveDependents( $personId );
+			if ( ! empty( $dependents ) ) {
+				$childPersonId = $dependents[0]->studentPersonId;
+				$childChanges  = array_filter( array(
+					'doc_number' => $childDocNumber,
+					'inn'        => $childInn,
+					'birth_date' => $childBirthDate,
+				) );
+				if ( ! empty( $childChanges ) ) {
+					$this->personService->update( $childPersonId, $childChanges, get_current_user_id() );
+				}
+			}
+		}
 
 		$this->success();
 	}
@@ -286,15 +374,18 @@ class PiiCallbacks extends BaseController {
 					'enrolled_at'       => substr( $enr->enrolledAt, 0, 10 ),
 					'terminated_at'     => $enr->terminatedAt ? substr( $enr->terminatedAt, 0, 10 ) : null,
 					'contract_no'         => $snapshot['contract_no']   ?? '',
-					'student_phone'       => $sd['phone']      ?? '',
-					'guardian_phone'      => $gd['phone']      ?? '',
-					'school'              => $sd['school']     ?? '',
+					'last_name'           => $sd['last_name']   ?? '',
+					'first_name'          => $sd['first_name']  ?? '',
+					'middle_name'         => $sd['middle_name'] ?? '',
+					'student_phone'       => $sd['phone']       ?? '',
+					'guardian_phone'      => $gd['phone']       ?? '',
+					'school'              => $sd['school']      ?? '',
 					'grade'               => isset( $sd['grade'] ) ? (string) $sd['grade'] : '',
-					'birth_date'          => $sd['birth_date'] ?? '',
-					'child_doc_number'    => $sd['doc_number'] ?? '',
-					'child_inn'           => $sd['inn']        ?? '',
-					'child_birth_date'    => $sd['birth_date'] ?? '',
-					'guardian_birth_date' => $gd['birth_date'] ?? '',
+					'birth_date'          => $sd['birth_date']  ?? '',
+					'child_doc_number'    => $sd['doc_number']  ?? '',
+					'child_inn'           => $sd['inn']         ?? '',
+					'child_birth_date'    => $sd['birth_date']  ?? '',
+					'guardian_birth_date' => $gd['birth_date']  ?? '',
 				);
 			}
 		}
