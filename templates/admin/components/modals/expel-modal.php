@@ -5,6 +5,8 @@
  *
  * @var string $nonce Nonce для действия отчисления
  */
+
+use Inc\Enums\ExpulsionReasons;
 ?>
 
 <div id="fs-expel-modal" class="fs-lms-modal hidden" aria-modal="true" role="dialog">
@@ -32,10 +34,12 @@
 
                     <select id="expel-reason" name="reason">
                         <option value="">Выберите причину</option>
-                        <option value="Окончание курса">Окончание курса</option>
-                        <option value="Перевод">Перевод</option>
-                        <option value="По собственному желанию">По собственному желанию</option>
-                        <option value="Другое">Другое</option>
+
+                        <?php foreach ( ExpulsionReasons::cases() as $reason ) : ?>
+                            <option value="<?php echo esc_attr( $reason->value ); ?>">
+                                <?php echo esc_html( $reason->value ); ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
 
@@ -45,7 +49,7 @@
                             id="expel-custom-reason"
                             name="custom_reason"
                             rows="3"
-                            placeholder="Укажите причину..."
+                            placeholder="Уточните причину отчисления..."
                     ></textarea>
                 </div>
 			</form>

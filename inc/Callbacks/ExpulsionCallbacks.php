@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\CsvColumn;
 use Inc\Enums\AuditAction;
 use Inc\Enums\Capability;
+use Inc\Enums\ExpulsionReasons;
 use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\ExpelledArchiveRepository;
 use Inc\Services\AuditService;
@@ -39,10 +40,27 @@ class ExpulsionCallbacks extends BaseController {
 		$this->authorize( Nonce::Expulsion, Capability::ManagePersons );
 
 		$studentId = $this->requireInt( 'student_id', error: 'Не указан ID студента.' );
-		$reason    = $this->sanitizeText( 'reason' );
+
+		$reason = $this->sanitizeText( 'reason' );
 
 		if ( '' === $reason ) {
 			$this->error( 'Не указана причина отчисления.' );
+			return;
+		}
+
+		$isOtherReason = str_starts_with(
+			$reason,
+			ExpulsionReasons::Other->value . ':'
+		);
+
+		$isValidReason = in_array(
+			$reason,
+			ExpulsionReasons::values(),
+			true
+		);
+
+		if ( ! $isValidReason && ! $isOtherReason ) {
+			$this->error( 'Недопустимая причина отчисления.' );
 			return;
 		}
 
