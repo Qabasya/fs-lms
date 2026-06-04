@@ -943,6 +943,10 @@ html.modal-open {
   align-items: center;
   gap: $spacing-sm;
 
+  &.hidden {
+    display: none;
+  }
+
   select {
     @include form-input;
     height: 32px;
