@@ -1,4 +1,4 @@
-import { apiError, showNotice } from '../modules/utils.js';
+import { ExpelModal } from '../modals/expel-modal.js';
 
 const $ = jQuery;
 
@@ -43,35 +43,6 @@ export const StudentsTable = {
             name: $( el ).data( 'student-name' ) || '',
         } ) ).get();
 
-        if ( ! confirm( `Отчислить ${ students.length } студент(ов)? Это действие необратимо.` ) ) return;
-
-        let done = 0;
-        const onDone = ( studentId ) => {
-            $( document ).trigger( 'fs:student:expelled', { studentId: parseInt( studentId, 10 ) } );
-            if ( ++done === students.length ) {
-                $( '#js-bulk-action' ).val( '' );
-            }
-        };
-
-        students.forEach( ( { id } ) => {
-            $.post( fs_lms_vars.ajaxurl, {
-                action:     fs_lms_vars.ajax_actions.expelStudent,
-                security:   fs_lms_vars.nonces.expulsion,
-                student_id: id,
-                reason:     'Массовое отчисление',
-            } )
-                .done( ( res ) => {
-                    if ( res.success ) {
-                        onDone( id );
-                    } else {
-                        showNotice( res.data?.message || 'Ошибка отчисления.', 'error', $( '.fs-lms-students' ) );
-                        done++;
-                    }
-                } )
-                .fail( () => {
-                    apiError( 'Bulk expel failed' );
-                    done++;
-                } );
-        } );
+        ExpelModal.openBulk( students );
     },
 };

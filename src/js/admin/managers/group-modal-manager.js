@@ -7,6 +7,7 @@ import {
 } from '../modules/utils.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
 import { GroupModal } from '../modals/group-modal';
+import { ExpelModal } from '../modals/expel-modal.js';
 
 const $ = jQuery;
 
@@ -58,23 +59,54 @@ export const GroupModalManager = {
 
     _handleDelete(e) {
         e.preventDefault();
-        const $btn = $(e.currentTarget);
-        const id = $btn.data('id');
-        const $row = $btn.closest('tr');
-        const name = $row.find('.column-title strong').text().trim();
+        const $btn  = $(e.currentTarget);
+        const id    = $btn.data('id');
+        const $row  = $btn.closest('tr');
+        const name  = $row.find('.column-title strong').text().trim();
+        const safeName = escapeHtml(name);
 
         ConfirmModal.confirm({
-            title: 'Подтвердите удаление',
-            message: `Вы уверены, что хотите удалить группу «${escapeHtml(name)}»?\nЭто действие необратимо.`,
-            confirmText: 'Да, удалить',
-            cancelText: 'Отмена',
-            size: 'sm',
-            isDanger: true
+            title:       'Удалить группу?',
+            message:     `Удаление группы «${safeName}» приведёт к отчислению всех её учеников.\nПосле подтверждения вы выберете причину отчисления.`,
+            confirmText: 'Продолжить',
+            cancelText:  'Отмена',
+            size:        'sm',
+            isDanger:    true,
         })
-            .then(() => {
-                this._doDelete(id, $btn, $row);
-            })
-            .catch(() => {});
+            .then( () => this._fetchStudentsAndExpel( id, $btn, $row ) )
+            .catch( () => {} );
+    },
+
+    _fetchStudentsAndExpel( id, $btn, $row ) {
+        toggleButton( $btn, true, '...' );
+
+        $.post( fs_lms_vars.ajaxurl, {
+            action:   fs_lms_vars.ajax_actions.getStudentsByGroup,
+            group_id: id,
+            security: fs_lms_vars.nonces.manager,
+        } )
+            .done( ( res ) => {
+                toggleButton( $btn, false );
+
+                if ( ! res.success ) {
+                    showNotice( 'Ошибка загрузки списка учеников.', 'error', $row.closest( '.wrap' ) );
+                    return;
+                }
+
+                const students = res.data || [];
+                const doDelete = () => this._doDelete( id, $btn, $row );
+
+                if ( ! students.length ) {
+                    doDelete();
+                    return;
+                }
+
+                ExpelModal.openBulk( students, { afterExpel: doDelete } );
+            } )
+            .fail( () => {
+                toggleButton( $btn, false );
+                apiError( 'Failed to load students for group' );
+            } );
     },
 
     _doDelete(id, $btn, $row) {

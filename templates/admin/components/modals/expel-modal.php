@@ -14,14 +14,14 @@ use Inc\Enums\ExpulsionReasons;
 
 	<div class="fs-lms-modal-content fs-modal-sm">
 		<div class="fs-lms-modal-header">
-			<h2 class="fs-lms-modal-title">Отчислить студента</h2>
+			<h2 class="fs-lms-modal-title">Отчислить ученика</h2>
 			<button type="button" class="fs-lms-modal-close fs-close js-modal-close" aria-label="Закрыть">&times;</button>
 		</div>
 
 		<div class="fs-lms-modal-body">
 			<p class="fs-expel-warning">
 				<span class="dashicons dashicons-warning"></span>
-				Будут удалены профили студента и родителя. Данные сохранятся в архиве.
+				Будут удалены профили ученика и родителя. Данные сохранятся в архиве.
 			</p>
 
 			<p class="fs-expel-student-name"></p>

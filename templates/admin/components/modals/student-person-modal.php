@@ -6,12 +6,17 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+$copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Копировать">'
+	. '<span class="dashicons dashicons-clipboard fs-copy-field__icon"></span>'
+	. '<span class="fs-copy-field__label">Скопировано</span>'
+	. '</button>';
 ?>
 
 <div id="fs-student-person-modal" class="fs-lms-modal hidden" data-person-id="" data-wp-user-id="">
 	<div class="fs-lms-modal-backdrop"></div>
 
-	<div class="fs-lms-modal-content fs-modal-lg">
+	<div class="fs-lms-modal-content fs-modal-xl">
 		<div class="fs-lms-modal-header">
 			<h2 class="fs-lms-modal-title"></h2>
 			<button type="button" class="fs-lms-modal-close fs-close js-modal-close">&times;</button>
@@ -22,15 +27,24 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="last_name" readonly>
+					<div class="fs-pfield fs-pfield--editable">
+						<input type="text" class="fs-person-field" data-field="last_name" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Имя', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="first_name" readonly>
+					<div class="fs-pfield fs-pfield--editable">
+						<input type="text" class="fs-person-field" data-field="first_name" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="middle_name" readonly>
+					<div class="fs-pfield fs-pfield--editable">
+						<input type="text" class="fs-person-field" data-field="middle_name" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( '№ договора', 'fs-lms' ); ?></label>
@@ -56,11 +70,17 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="phone" readonly>
+					<div class="fs-pfield fs-pfield--editable">
+						<input type="text" class="fs-person-field" data-field="phone" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Почта', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="email" readonly>
+					<div class="fs-pfield fs-pfield--editable">
+						<input type="text" class="fs-person-field" data-field="email" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></label>
@@ -71,29 +91,44 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Логин', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="login" readonly>
+					<div class="fs-pfield fs-pfield--editable">
+						<input type="text" class="fs-person-field" data-field="login" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Пароль', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="password" readonly>
+					<div class="fs-pfield fs-pfield--editable">
+						<input type="text" class="fs-person-field" data-field="password" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 			</div>
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'ФИО родителя', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="guardian_name" data-no-edit readonly>
+					<div class="fs-pfield">
+						<input type="text" class="fs-person-field" data-field="guardian_name" data-no-edit readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 			</div>
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Школа', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="school" readonly>
+					<div class="fs-pfield fs-pfield--editable">
+						<input type="text" class="fs-person-field" data-field="school" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Класс', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="grade" data-no-edit readonly>
+					<div class="fs-pfield">
+						<input type="text" class="fs-person-field" data-field="grade" data-no-edit readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 			</div>
 
@@ -106,11 +141,17 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Документ', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field fs-person-pii regular-text" data-field="doc_number" readonly>
+					<div class="fs-pfield fs-pfield--editable fs-pfield--pii">
+						<input type="text" class="fs-person-field fs-person-pii" data-field="doc_number" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'ИНН', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field fs-person-pii regular-text" data-field="inn" readonly>
+					<div class="fs-pfield fs-pfield--editable fs-pfield--pii">
+						<input type="text" class="fs-person-field fs-person-pii" data-field="inn" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 			</div>
 

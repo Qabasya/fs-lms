@@ -1,0 +1,104 @@
+@use '../../admin/variables' as *;
+
+/* =================================================================
+   COPY FIELD — input + кнопка копирования
+   Использование: добавить класс js-copy-target к <input>
+   ================================================================= */
+
+.fs-copy-field {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex: 1;
+  min-width: 0;
+
+  // Инпут выглядит как обычный текст
+  input.js-copy-target {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 2px 0;
+    margin: 0;
+    height: auto;
+    font-size: 13px;
+    font-family: inherit;
+    color: $color-text-primary;
+    cursor: default;
+
+    &:focus {
+      outline: none;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    &::selection {
+      background: rgba($color-primary, 0.15);
+    }
+  }
+}
+
+/* Кнопка: начинается как маленький квадрат с иконкой,
+   при .is-copied плавно расширяется влево */
+.fs-copy-field__btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  overflow: hidden;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-md;
+  cursor: pointer;
+  height: 28px;
+  padding: 0 $spacing-xs;
+  width: 28px;
+  color: $color-text-secondary;
+  transition:
+    width        0.28s ease-out,
+    border-color 0.18s,
+    color        0.18s,
+    background   0.18s;
+
+  &:hover:not(.is-copied) {
+    border-color: $color-primary;
+    color: $color-primary;
+  }
+
+  &:focus {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
+  }
+
+  &.is-copied {
+    width: 148px;
+    border-color: $wp-admin-green;
+    color: $wp-admin-green;
+    background: rgba($wp-admin-green, 0.06);
+  }
+}
+
+.fs-copy-field__icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.fs-copy-field__label {
+  font-size: 13px;
+  line-height: 1;
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  transition:
+    max-width 0.28s ease-out,
+    opacity   0.18s 0.1s;
+
+  .is-copied & {
+    max-width: 110px;
+    opacity: 1;
+  }
+}

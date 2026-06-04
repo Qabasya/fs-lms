@@ -1,6 +1,7 @@
 import { ToggleComponent } from './components/toggle.js';
 import { BadgeComponent } from './components/badge.js';
 import { ToggleSecretComponent } from './components/toggle-secret.js';
+import { CopyButton } from './components/copy-button.js';
 import { initFormValidation } from './validation-manager.js';
 
 function initGlobalFormValidation() {
@@ -28,6 +29,7 @@ function initGlobalFormValidation() {
         ToggleComponent.init();
         BadgeComponent.init();
         ToggleSecretComponent.init();
+        CopyButton.init();
         initGlobalFormValidation();
     });
 

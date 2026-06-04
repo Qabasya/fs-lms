@@ -38,6 +38,7 @@ export const ParentPersonModal = {
         this.$el.find( '.js-pmm-regen-pwd' ).remove();
         this.setEditing( false );
         this.$el.removeData( 'personId' ).removeData( 'wpUserId' ).removeData( 'childPersonId' );
+        this.$el.removeClass( 'is-pii-revealed' );
     },
 
     setPersonId( id ) { this.$el.data( 'personId', id ); },
@@ -63,11 +64,14 @@ export const ParentPersonModal = {
             if ( val ) this.$el.find( `[data-field="${ key }"]` ).val( String( val ) );
         } );
         this.$el.find( '.js-reveal-all' ).text( 'Данные раскрыты' ).prop( 'disabled', true );
+        this.$el.addClass( 'is-pii-revealed' );
     },
 
     setEditing( editing ) {
         this.$el.find( '.fs-person-field:not([data-no-edit])' ).prop( 'readonly', ! editing );
         this.$el.find( '.js-pmm-edit' ).prop( 'hidden', editing );
+        this.$el.toggleClass( 'is-editing', editing );
+        this.$el.find( '.fs-pfield--editable' ).toggleClass( 'fs-pfield--editing', editing );
         if ( editing ) {
             this.$el.find( '.fs-lms-modal-footer' ).append(
                 '<button type="button" class="button button-primary js-pmm-save">Сохранить</button>' +
