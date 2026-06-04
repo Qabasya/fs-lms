@@ -91,6 +91,22 @@ class Activate {
 	}
 
 	/**
+	 * Выводит admin notice с инструкцией по добавлению констант шифрования.
+	 *
+	 * @return void
+	 */
+	public static function showConfigNotice(): void {
+		echo '<div class="notice notice-error"><p>'
+			. '<strong>FS LMS:</strong> Плагин не запущен — добавьте в <code>wp-config.php</code> следующие константы:'
+			. '</p><pre style="margin:4px 0">'
+			. "define('FS_LMS_ENC_KEY', '&lt;base64_ключ_32_байта&gt;');\n"
+			. "define('FS_LMS_HASH_SALT', '&lt;случайная_строка&gt;');"
+			. '</pre><p>'
+			. 'Сгенерировать ключ: <code>php -r "echo base64_encode(sodium_crypto_secretbox_keygen());"</code>'
+			. '</p></div>';
+	}
+
+	/**
 	 * Генерирует служебные страницы плагина, если они не существуют.
 	 *
 	 * @return void
