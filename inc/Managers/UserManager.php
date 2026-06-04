@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Managers;
 
 use Inc\Enums\Capability;
+use Inc\Enums\MetaKeys;
 use Inc\Enums\PageRoutes;
 use Inc\Enums\UserRole;
 
@@ -49,7 +50,7 @@ class UserManager {
 	 * @return int|null null если usermeta не установлена
 	 */
 	public function getPersonId( int $userId ): ?int {
-		$value = get_user_meta( $userId, 'fs_lms_person_id', true );
+		$value = get_user_meta( $userId, MetaKeys::PersonID->value, true );
 
 		return $value !== '' && $value !== false ? (int) $value : null;
 	}
@@ -175,17 +176,17 @@ class UserManager {
 	}
 
 	public function setPersonId( int $userId, int $personId ): void {
-		update_user_meta( $userId, 'fs_lms_person_id', $personId );
+		update_user_meta( $userId, MetaKeys::PersonID->value, $personId );
 	}
 
 	public function setStatus( int $userId, string $status ): void {
-		update_user_meta( $userId, 'fs_lms_user_status', $status );
+		update_user_meta( $userId, MetaKeys::UserStatus->value, $status );
 	}
 
 	public function clearEncryptedPasswordIfChanged( int $userId, \WP_User $oldUser ): void {
 		$newUser = $this->find( $userId );
 		if ( null !== $newUser && $newUser->user_pass !== $oldUser->user_pass ) {
-			delete_user_meta( $userId, 'fs_lms_enc_password' );
+			delete_user_meta( $userId, MetaKeys::EncPassword->value, );
 		}
 	}
 
