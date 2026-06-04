@@ -634,7 +634,7 @@ html.modal-open {
   background: rgba($wp-admin-gray, 0.08);
   border: 1px solid $color-border-input;
   border-radius: $border-radius-l;
-  padding: $spacing-lg;
+  padding: $spacing-md;
   margin: $spacing-md 0;
 
   &__label {
@@ -663,7 +663,7 @@ html.modal-open {
     -moz-user-select: all;
     -webkit-user-select: all;
     -ms-user-select: all;
-    line-height: 1.5;
+    line-height: 1.2;
     cursor: pointer;
   }
 
@@ -893,16 +893,16 @@ html.modal-open {
    SCHEDULE GROUP (group modal — days + time range)
    ================================================================= */
 
-.fs-schedule-group {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-md;
-}
-
 .fs-schedule-days {
   display: flex;
-  flex-wrap: wrap;
-  gap: $spacing-sm;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.fs-schedule-day-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
 }
 
 .fs-schedule-day-label {
@@ -916,6 +916,7 @@ html.modal-open {
   border: 1px solid $color-border-input;
   border-radius: $border-radius-md;
   padding: $spacing-xs $spacing-sm;
+  min-width: 148px;
   transition: background $transition-fast, border-color $transition-fast;
   user-select: none;
 
@@ -937,25 +938,25 @@ html.modal-open {
   }
 }
 
-.fs-schedule-times {
+.fs-schedule-day-times {
   display: flex;
-  gap: $spacing-lg;
-}
+  align-items: center;
+  gap: $spacing-sm;
 
-.fs-schedule-time-field {
-  flex: 1;
-
-  label {
-    display: block;
-    font-size: 12px;
-    color: $color-text-secondary;
-    margin-bottom: $spacing-xs;
+  &.hidden {
+    display: none;
   }
 
   select {
     @include form-input;
-    height: 35px;
+    height: 32px;
+    width: 90px;
   }
+}
+
+.fs-schedule-separator {
+  font-size: 13px;
+  color: $color-text-secondary;
 }
 
 
@@ -991,5 +992,140 @@ html.modal-open {
 
   &:empty {
     display: none;
+  }
+}
+
+.fs-expel-bulk-list {
+  margin: $spacing-xs 0 0 0;
+  padding-left: $spacing-xl;
+  font-weight: 400;
+  font-size: 13px;
+  color: $color-text-primary;
+
+  li {
+    margin-bottom: $spacing-xs;
+    list-style: disc;
+  }
+}
+
+/* =================================================================
+   PERSON FIELD — инпут с кнопкой копирования «внутри»
+   Два состояния: read (plain text) ↔ edit (обычный инпут)
+   ================================================================= */
+
+.fs-pfield {
+  display: flex;
+  align-items: center;
+  min-height: 35px;            // совпадает с высотой form-input
+  border: 1px solid transparent;
+  border-radius: $border-radius-md;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+
+  // Инпут: прозрачный, без рамки — выглядит как текст
+  > input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 2px $spacing-sm !important;
+    margin: 0 !important;
+    font-size: 13px;
+    color: $color-text-primary;
+    cursor: default;
+
+    &:focus   { outline: none !important; box-shadow: none !important; }
+    &[readonly] { cursor: default; }
+  }
+
+  // Кнопка копирования: невидима по умолчанию, появляется при наведении
+  .fs-copy-field__btn {
+    flex-shrink: 0;
+    border-color: transparent !important;
+    background: transparent !important;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity      0.15s,
+      width        0.28s ease-out,
+      color        0.18s,
+      border-color 0.18s,
+      background   0.18s;
+  }
+
+  &:hover .fs-copy-field__btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  // Состояние «Скопировано» — остаётся видимым и зелёным
+  .fs-copy-field__btn.is-copied {
+    opacity: 1;
+    pointer-events: auto;
+    border-color: $wp-admin-green !important;
+    background: rgba($wp-admin-green, 0.06) !important;
+  }
+}
+
+// Режим редактирования: поле выглядит как обычный инпут
+.fs-pfield--editing {
+  background: $color-bg-modal;
+  border-color: $color-border-input;
+
+  &:focus-within {
+    border-color: $color-primary;
+    box-shadow: 0 0 0 1px $color-primary;
+  }
+
+  > input { cursor: text !important; }
+}
+
+// ПДн-поля: кнопка скрыта до нажатия «Показать данные»
+.fs-pfield--pii .fs-copy-field__btn {
+  display: none;
+}
+
+// Режим редактирования: скрываем все кнопки копирования
+.is-editing .fs-pfield .fs-copy-field__btn {
+  display: none !important;
+  pointer-events: none;
+}
+
+// ПДн раскрыты: кнопки становятся hover-видимыми (но не в edit-режиме)
+.is-pii-revealed .fs-pfield--pii .fs-copy-field__btn {
+  display: inline-flex;
+}
+
+// Все readonly-поля карточек ученика и родителя выглядят как текст
+#fs-student-person-modal .fs-person-field[readonly],
+#fs-parent-person-modal .fs-person-field[readonly] {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  cursor: default;
+}
+
+/* =================================================================
+   ALERT MODAL (stacked above regular modals)
+   ================================================================= */
+
+.fs-lms-alert-modal {
+  z-index: $z-modal-alert;
+}
+
+.fs-modal-error {
+  background: rgba($color-danger, 0.06);
+  border: 1px solid rgba($color-danger, 0.2);
+  border-left: 4px solid $color-danger;
+  border-radius: 0 $border-radius-md $border-radius-md 0;
+  padding: $spacing-sm $spacing-md;
+  margin: 0 0 $spacing-lg 0;
+  font-size: 13px;
+  color: $color-danger;
+  display: none;
+
+  &:not(:empty) {
+    display: block;
   }
 }

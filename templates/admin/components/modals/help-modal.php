@@ -31,9 +31,9 @@
 						<div class="fs-lms-redirect-box">
 							<div class="fs-lms-redirect-box__label">Redirect URI</div>
 							<div class="fs-lms-redirect-box__field">
-								<span class="fs-lms-redirect-box__url js-copy-target"><?php echo esc_url( home_url( '/lms-auth/callback?provider=google' ) ); ?></span>
+								<input type="text" readonly class="fs-lms-redirect-box__url js-copy-target" value="<?php echo esc_url( home_url( '/lms-auth/callback?provider=google' ) ); ?>" aria-label="Redirect URI">
 							</div>
-							<div class="fs-lms-redirect-box__subtext">Нажмите текст выше, чтобы быстро скопировать URI.</div>
+							<div class="fs-lms-redirect-box__subtext">Нажмите кнопку, чтобы скопировать адрес.</div>
 						</div>
 					</li>
 					<li>Скопируйте полученные <strong>Client ID</strong> и <strong>Client Secret</strong> и вставьте их в настройки.</li>
@@ -73,9 +73,9 @@
 						<div class="fs-lms-redirect-box">
 							<div class="fs-lms-redirect-box__label">Redirect URI</div>
 							<div class="fs-lms-redirect-box__field">
-								<span class="fs-lms-redirect-box__url js-copy-target"><?php echo esc_url( home_url( '/lms-auth/callback?provider=vk' ) ); ?></span>
+								<input type="text" readonly class="fs-lms-redirect-box__url js-copy-target" value="<?php echo esc_url( home_url( '/lms-auth/callback?provider=vk' ) ); ?>" aria-label="Redirect URI">
 							</div>
-							<div class="fs-lms-redirect-box__subtext">Нажмите текст выше, чтобы быстро скопировать URI.</div>
+							<div class="fs-lms-redirect-box__subtext">Нажмите кнопку, чтобы скопировать адрес.</div>
 						</div>
 					</li>
 					<li>Перейдите в раздел «Настройки» созданного приложения, скопируйте <strong>App ID</strong> и <strong>Защищённый ключ (App Secret)</strong> и вставьте их в поля настроек.</li>
@@ -115,9 +115,9 @@
 						<div class="fs-lms-redirect-box">
 							<div class="fs-lms-redirect-box__label">Redirect URI</div>
 							<div class="fs-lms-redirect-box__field">
-								<span class="fs-lms-redirect-box__url js-copy-target"><?php echo esc_url( home_url( '/lms-auth/callback?provider=github' ) ); ?></span>
+								<input type="text" readonly class="fs-lms-redirect-box__url js-copy-target" value="<?php echo esc_url( home_url( '/lms-auth/callback?provider=github' ) ); ?>" aria-label="Redirect URI">
 							</div>
-							<div class="fs-lms-redirect-box__subtext">Нажмите текст выше, чтобы быстро скопировать URI.</div>
+							<div class="fs-lms-redirect-box__subtext">Нажмите кнопку, чтобы скопировать адрес.</div>
 						</div>
 					</li>
 					<li>Нажмите кнопку <strong>Register application</strong>, после чего скопируйте сгенерированный <strong>Client ID</strong>.</li>

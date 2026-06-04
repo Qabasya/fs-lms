@@ -2,7 +2,8 @@
  * @fileoverview Таблица заявок на вкладке "Заявки" (fs_lms_userlist).
  */
 
-import { ConfirmModal } from '../components/confirm-modal.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
+import { showNotice } from '../modules/utils.js';
 
 const vars = window.fs_lms_vars;
 const appVars = window.fs_lms_applications_vars;
@@ -119,16 +120,16 @@ export const ApplicationsTable = {
                 } else {
                     btn.classList.remove('disabled');
 
-                    alert(
-                        response.data?.message ||
-                        response.data ||
-                        'Произошла ошибка.'
+                    showNotice(
+                        response.data?.message || response.data || 'Произошла ошибка.',
+                        'error',
+                        $( btn ).closest( '.wrap' )
                     );
                 }
             })
             .fail(() => {
                 btn.classList.remove('disabled');
-                alert('Ошибка соединения с сервером.');
+                showNotice( 'Ошибка соединения с сервером.', 'error', $( btn ).closest( '.wrap' ) );
             });
     },
 };

@@ -8,6 +8,7 @@
 
 use Inc\Enums\Capability;
 use Inc\Enums\DocumentType;
+use Inc\Enums\MetaKeys;
 use Inc\Enums\PiiField;
 use Inc\Enums\RelationType;
 use Inc\Enums\UserRole;
@@ -80,7 +81,11 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 			</tr>
 		<?php else : ?>
 			<?php foreach ( $parentUsers as $user ) :
-				$personId = (int) get_user_meta( $user->ID, 'fs_lms_person_id', true );
+                $personId = (int) get_user_meta(
+                        $user->ID,
+                        MetaKeys::PersonID->value,
+                        true
+                );
 				$person   = $personId ? $personRepo->find( $personId ) : null;
 
 				// Email из таблицы persons (plain text) или fallback на WP user email

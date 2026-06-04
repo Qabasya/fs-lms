@@ -1,4 +1,4 @@
-import { ParentPersonModal } from '../components/parent-person-modal.js';
+import { ParentPersonModal } from '../modals/parent-person-modal.js';
 
 const $ = jQuery;
 
@@ -46,9 +46,8 @@ export const ParentPersonModalManager = {
             this._export();
         } );
 
-        $( document ).on( 'click.ppmm_delete', '#fs-parent-person-modal .js-pmm-delete', ( e ) => {
-            e.preventDefault();
-            this._delete();
+        $( document ).on( 'fs:student:expelled', () => {
+            ParentPersonModal.close();
         } );
 
         $( document ).on( 'fs-lms:regenerate-password', ( e, { wpUserId, $btn } ) => {
@@ -98,6 +97,7 @@ export const ParentPersonModalManager = {
                 inn:        pii.inn        || '',
                 address:    pii.address    || '',
                 password:   pii.password   || '',
+                doc_issued: pii.doc_issued || '',
             } );
         } );
     },
@@ -223,19 +223,6 @@ export const ParentPersonModalManager = {
             security:  NONCES().exportPii,
         } ).done( r => {
             if ( r.success && r.data.download_url ) window.location.href = r.data.download_url;
-        } );
-    },
-
-    _delete() {
-        const id = ParentPersonModal.getPersonId();
-        if ( ! id ) return;
-        if ( ! confirm( 'Удалить персональные данные? Физическое удаление через 30 дней.' ) ) return;
-        $.post( AJAX_URL(), {
-            action:    ACTIONS().requestPiiDeletion,
-            person_id: id,
-            security:  NONCES().deletePii,
-        } ).done( r => {
-            if ( r.success ) ParentPersonModal.close();
         } );
     },
 

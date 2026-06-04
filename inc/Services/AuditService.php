@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\AuditLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
@@ -48,6 +49,7 @@ readonly class AuditService {
 	public function __construct(
 		private AuditLogRepository $auditLogRepository,
 		private UserManager        $userManager,
+		private ClockInterface     $clock,
 	) {}
 
 	/**
@@ -81,7 +83,7 @@ readonly class AuditService {
 			'details_json'  => null !== $details ? wp_json_encode( $details ) : null,
 			'actor_ip'      => $ctx->ip,
 			'actor_ua'      => '' !== $ctx->userAgent ? $ctx->userAgent : null,
-			'created_at'    => current_time( 'mysql', true ),
+			'created_at'    => $this->clock->now( 'mysql', true ),
 		) );
 	}
 
@@ -115,7 +117,7 @@ readonly class AuditService {
 			'details_json'  => null !== $details ? wp_json_encode( $details ) : null,
 			'actor_ip'      => $ctx->ip,
 			'actor_ua'      => '' !== $ctx->userAgent ? $ctx->userAgent : null,
-			'created_at'    => current_time( 'mysql', true ),
+			'created_at'    => $this->clock->now( 'mysql', true ),
 		) );
 	}
 

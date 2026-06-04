@@ -17,6 +17,7 @@ use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
 use Inc\Services\EmailOtpService;
+use Inc\Contracts\ClockInterface;
 use Inc\Services\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\TransactionRunner;
@@ -64,6 +65,7 @@ readonly class ApplicationService {
 		private ConsentService        $consentService,
 		private AuditService          $auditService,
 		private EmailOtpService       $emailOtpService,
+		private ClockInterface        $clock,
 	) {}
 
 	/**
@@ -123,8 +125,8 @@ readonly class ApplicationService {
 				'student_email_hash'   => $emailHash,
 				'student_data_enc'     => $studentDataEnc,
 				'parent_submitted_ip'  => $ctx->ip,
-				'created_at'           => current_time( 'mysql', true ),
-				'updated_at'           => current_time( 'mysql', true ),
+				'created_at'           => $this->clock->now( 'mysql', true ),
+				'updated_at'           => $this->clock->now( 'mysql', true ),
 			) );
 
 			// Фиксация согласия на обработку ПД (сам ученик)
@@ -224,7 +226,7 @@ readonly class ApplicationService {
 				'student_data_enc'    => $studentDataEnc,
 				'parent_submitted_ip' => $ctx->ip,
 				'parent_submitted_ua' => $ctx->userAgent,
-				'updated_at'          => current_time( 'mysql', true ),
+				'updated_at'          => $this->clock->now( 'mysql', true ),
 			) );
 
 			// Фиксация согласия родителя на обработку ПД ребёнка

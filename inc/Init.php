@@ -23,8 +23,10 @@ use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
 use Inc\Controllers\TaskPageController;
 use Inc\Controllers\UserController;
+use Inc\Contracts\ClockInterface;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
+use Inc\Services\WpClock;
 
 /**
  * Class Init
@@ -92,6 +94,7 @@ final class Init {
 	 */
 	public static function run(): void {
 		$container = new Container();
+		$container->bind( ClockInterface::class, WpClock::class );
 
 		foreach ( self::getServices() as $class ) {
 			$service = $container->get( $class );

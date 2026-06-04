@@ -25,6 +25,7 @@
 21. [Конфигурация wp-config.php](#конфигурация-wp-configphp)
 22. [CsvExportService](#csvexportservice)
 23. [Управление паролями пользователей](#управление-паролями-пользователей)
+24. [Система уведомлений](#система-уведомлений)
 
 ---
 
@@ -2083,7 +2084,7 @@ src/js/common/
 ├── validators/
 │   ├── BaseValidator.js                 — базовый класс; нативные HTML5-атрибуты (required, minlength, email, pattern)
 │   ├── PhoneValidator.js                — телефон: +7(999)-000-00-00
-│   ├── CyrillicValidator.js             — кириллица, пробелы, дефис
+│   ├── AddressValidator.js             — кириллица, пробелы, дефис
 │   ├── CyrillicNameValidator.js         — кириллица, пробелы, дефис + минимум 2 слова
 │   ├── LatinOnlyValidator.js            — латиница, цифры, подчёркивание
 │   ├── PassportSeriesNumberValidator.js — серия и номер паспорта: XXXX XXXXXX
@@ -2650,6 +2651,161 @@ getCredentials(userId)
 
 ---
 
+## Система уведомлений
+
+Все уведомления в плагине разделены на четыре механизма по типу ошибки и контексту.
+
+### Обзор: что когда использовать
+
+| Ситуация | Механизм |
+|---|---|
+| Ошибка валидации поля формы | Нативная браузерная валидация возле поля (`validation-manager.js`) |
+| Ошибка сохранения / загрузки / экспорта | Toast (`showToast`) |
+| Критическая ошибка внутри открытого модала | Alert-модал (`AlertModal.show`) |
+| Встроенное уведомление внутри UI (не AJAX) | `showNotice` / `showModalError` |
+
+---
+
+### 1. Нативная браузерная валидация
+
+**Файлы:** `src/js/common/validators/`, `src/js/common/validation-manager.js`
+
+Управляется системой валидаторов (подробно описана в разделе [Клиентская валидация форм](#клиентская-валидация-форм)). Ошибка рендерится внутри `.fs-form-group` в виде `<p class="fs-field-error">` — рядом с конкретным полем.
+
+Применяется только для ошибок формата ввода: обязательные поля, формат email, телефон, кириллица и т.п. Для AJAX-ошибок этот механизм не используется.
+
+---
+
+### 2. showNotice — WP-style admin notice
+
+**Файл:** `src/js/admin/modules/utils.js`
+
+```js
+import { showNotice } from '../modules/utils.js';
+
+showNotice( message, type, $container, options );
+```
+
+| Параметр | Тип | Описание |
+|---|---|---|
+| `message` | `string` | Текст уведомления |
+| `type` | `'success' \| 'error' \| 'warning' \| 'info'` | Цветовой вариант |
+| `$container` | `JQuery \| null` | Контейнер вставки; по умолчанию `$('body')` |
+| `options.autoDismiss` | `boolean` | Автозакрытие для `success` (по умолчанию `true`) |
+| `options.autoDismissDelay` | `number` | Задержка в мс (по умолчанию `1000`) |
+| `options.escape` | `boolean` | Экранировать HTML (по умолчанию `true`) |
+
+Рендерит стандартную WordPress-плашку `.notice.is-dismissible` с кнопкой закрытия. Используется для серверных ошибок и успехов, когда нет открытого модала — вставляется в `.wrap` страницы или внутрь `.fs-lms-modal-body`.
+
+**Где применяется:**
+- Ошибки сервера (не network) при наличии открытого модала: внутрь `$modal.find('.fs-lms-modal-body')`
+- Успешные операции вне модалок: внутрь `$row.closest('.wrap')`
+- Статические страницы (настройки, шаблоны писем)
+
+**Не использовать** вместо toast для AJAX-ошибок соединения — для этого есть `showToast`.
+
+---
+
+### 3. showModalError / clearModalError — inline-ошибка в модале
+
+**Файл:** `src/js/admin/modules/utils.js`
+
+```js
+import { showModalError, clearModalError } from '../modules/utils.js';
+
+showModalError( 'Выберите предмет.', this.$modal ); // показать
+clearModalError( this.$modal );                      // скрыть
+```
+
+Вставляет `<p class="fs-modal-error">` в начало `.fs-lms-modal-body`. Стили — в `_modal.scss` (`.fs-modal-error`: красная полоса слева, фон `rgba(danger, 0.06)`).
+
+Применяется для ошибок **валидации на уровне данных** внутри модала — когда сервер вернул `success: false` с конкретной причиной (дубликат, неверный диапазон дат и т.п.). Очищается перед каждым новым сохранением через `clearModalError`.
+
+---
+
+### 4. showToast — всплывающее уведомление
+
+**Файл:** `src/js/admin/modules/toast.js`
+
+```js
+import { showToast } from '../modules/toast.js';
+
+showToast( message, type, duration );
+```
+
+| Параметр | Тип | По умолчанию |
+|---|---|---|
+| `message` | `string` | — |
+| `type` | `'error' \| 'success' \| 'warning' \| 'info'` | `'error'` |
+| `duration` | `number \| null` | `error`/`warning` → 4000 мс; остальные → 2500 мс |
+
+Toast появляется в правом нижнем углу экрана, накапливается вертикально, автоматически скрывается. Закрыть вручную — кнопкой `×`. Удержание курсора приостанавливает таймер.
+
+**Z-index:** 1000100 — выше любых модалов и alert-модала.
+
+**SCSS:** `src/scss/admin/components/_toast.scss`.
+
+**Где применяется:** сетевые ошибки (`$.fail()`), т.е. когда запрос вообще не дошёл до сервера. Используется как fallback в `apiError()` и `apiErrorEnhanced()` из `utils.js`:
+
+```js
+// utils.js — автоматически при отсутствии onNotify
+apiError( 'Failed to save' );           // → showToast('Произошла ошибка при связи с сервером.', 'error')
+apiErrorEnhanced( error );              // → showToast(userMessage, 'error')
+```
+
+---
+
+### 5. AlertModal — критическая ошибка поверх модала
+
+**Файлы:** `src/js/admin/components/alert-modal.js`, `templates/admin/components/modals/alert-modal.php`
+
+```js
+import { AlertModal } from '../components/alert-modal.js';
+
+// Показать — возвращает Promise, резолвится при нажатии ОК или Escape/Enter
+await AlertModal.show( 'Произошла критическая ошибка.', 'Ошибка' );
+```
+
+| Параметр | Тип | По умолчанию |
+|---|---|---|
+| `message` | `string` | — |
+| `title` | `string` | `'Ошибка'` |
+
+Открывается поверх уже открытых модалов. Единственная кнопка — «ОК». Закрывается также по `Escape` и `Enter`. Не трогает класс `html.modal-open` — блокировка скролла уже выставлена родительским модалом.
+
+**Z-index:** 1000050 — выше обычных модалов (999999), ниже toast.
+
+**SCSS:** модификатор `.fs-lms-alert-modal { z-index: $z-modal-alert }` в `_modal.scss`; структура — та же, что у `confirm-modal`.
+
+**Инициализация:** `AlertModal.init()` вызывается в `admin.js` одним из первых, независимо от страницы:
+
+```js
+// admin.js
+AlertModal.init(); // кэширует #fs-lms-alert-modal из DOM
+```
+
+**HTML-шаблон** подключается глобально в `Enqueue::render_confirm_modal()` (хук `admin_footer`) на всех страницах плагина (`fs_*`, `student_*`).
+
+**Когда использовать:**
+- Ошибка состояния, которая блокирует дальнейшие действия и требует осознанного подтверждения пользователем
+- Ситуации, когда `showNotice` / `showModalError` не подходят из-за вложенного модала
+
+**Не использовать** для ошибок сети (`$.fail`) — для этого есть `showToast`.
+
+---
+
+### Z-index стека
+
+```
+$z-modal-root:  999999  — обычные модальные окна
+$z-modal-alert: 1000050 — AlertModal (поверх обычных)
+$z-toast:       1000100 — Toast (поверх всего)
+```
+
+Переменные — в `src/scss/admin/_variables.scss`.
+
+---
+
 ## Заключение
 
 Данная документация описывает архитектуру плагина FS LMS, включая:
@@ -2670,5 +2826,6 @@ getCredentials(userId)
 - **Конфигурацию wp-config.php** — обязательные и опциональные константы
 - **CsvExportService** — паттерн Column Projection для экспорта данных
 - **Управление паролями** — двойное хранение (user_pass + зашифрованный meta), стратегии при зачислении, автоочистка meta при ручной смене, регенерация из UI
+- **Систему уведомлений** — четыре механизма: нативная валидация у поля, `showNotice` / `showModalError` для серверных ошибок в UI, `showToast` для сетевых ошибок, `AlertModal` для критических ошибок поверх открытых модалов
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.

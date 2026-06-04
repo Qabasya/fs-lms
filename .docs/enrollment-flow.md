@@ -1,7 +1,7 @@
 # FS LMS — Спецификация потока зачисления учеников
 
-Версия: 1.0
-Статус: проект для реализации
+Версия: 1.1 (обновлено 2026-06-05)
+Статус: реализован. Остатки: журналы в админке, тесты, документация.
 
 ---
 
@@ -497,7 +497,9 @@ define('FS_LMS_HASH_SALT', 'другая случайная строка');
 php -r "echo base64_encode(sodium_crypto_secretbox_keygen());"
 ```
 
-При активации плагина — проверка наличия и валидности ключа. Если нет — плагин не активируется, в админку выводится инструкция.
+При активации плагина — проверка через `PiiCryptoService::isAvailable()`. Если ключ не определён или невалиден — `wp_die()` с инструкцией (активация прерывается).
+
+При каждой загрузке страницы без ключа — в `fs-lms.php` срабатывает guard: `Activate::showConfigNotice()` вешается на `admin_notices`, `Init::run()` не вызывается. Плагин не крашит.
 
 ### 5.2. API шифрования
 
@@ -881,12 +883,15 @@ foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
 
 ### Этап 0: Инициализация плагина
 
-При активации:
-1. Проверка `FS_LMS_ENC_KEY` и `FS_LMS_HASH_SALT` в `wp-config`. Если нет — `deactivate_plugins()` + admin notice.
+При загрузке плагина (каждый запрос):
+- Guard в `fs-lms.php`: если `!PiiCryptoService::isAvailable()` — `admin_notices` + возврат, `Init::run()` не вызывается.
+
+При активации (`register_activation_hook`):
+1. Проверка `FS_LMS_ENC_KEY` и `FS_LMS_HASH_SALT` через `PiiCryptoService::isAvailable()`. Если нет — `wp_die()` с инструкцией (активация прерывается без `deactivate_plugins()`).
 2. `dbDelta()` создаёт все таблицы (см. раздел 3).
-3. `add_role()` создаёт `lms_student`, `lms_parent`, `lms_teacher`, `lms_office`.
+3. `add_role()` создаёт роли через `RoleManager::registerAll()`: `lms_student`, `lms_parent`, `lms_teacher`, `lms_office`, `lms_student_free`, `lms_teacher_free`.
 4. Регистрируется WP-cron event `fs_lms_recovery_tick` каждые 15 минут.
-5. Регистрируется WP-cron event `fs_lms_expire_applications` ежедневно.
+5. Регистрируются cron events: `fs_lms_expire_applications`, `fs_lms_retention_cleanup` — ежедневно.
 6. Версия схемы записывается в `wp_options.fs_lms_schema_version`.
 
 ### Этап 1: Ученик заполняет заявку
@@ -1578,73 +1583,52 @@ Enrollment snapshot **сохраняется**, но также подлежит
 
 В соответствии с архитектурой CLAUDE.md:
 
-**Repositories (`Inc/Repositories/WPDBRepositories/`):**
-- `ApplicationRepository`
-- `PersonRepository`
-- `RelationshipRepository`
-- `EnrollmentRepository`
-- `ConsentRepository`
-- `AuditLogRepository`
-- `PiiAccessLogRepository`
-
-Каждый — обёртка над `$wpdb` для конкретной таблицы. Работают **только со структурированными массивами / DTO**, никаких прямых SQL-фрагментов наружу.
+**Repositories (`Inc/Repositories/WPDBRepositories/`):** ✅ все реализованы
+- `ApplicationRepository`, `PersonRepository`, `RelationshipRepository`
+- `EnrollmentRepository`, `ConsentRepository`, `AuditLogRepository`
+- `PiiAccessLogRepository`, `ExpelledArchiveRepository`
 
 **Services (`inc/Services/`):**
-- `PiiCryptoService` — шифрование/хеширование.
-- `JoinCodeService` — генерация/валидация JOIN-кодов.
-- `PasswordLinkService` — `get_password_reset_key()` + сборка URL.
-- `UserFactory` — `wp_insert_user` с правильными ролями и привязкой к person.
-- `EnrollmentService` — оркестрация всего потока зачисления (использует все репозитории + крипто + transaction).
-- `PersonReader` — обёртка над `PersonRepository::find()` с автоматическим `pii_access_log`.
+- ✅ `PiiCryptoService` — шифрование/хеширование.
+- ✅ `JoinCodeService` — генерация/валидация JOIN-кодов.
+- ✅ `EnrollmentService` — оркестрация всего потока зачисления.
+- ✅ `PersonReader` — обёртка над `PersonRepository::find()` с автоматическим `pii_access_log`.
+- ✅ `PersonService`, `RelationshipService`, `RetentionService`, `ApplicationService`
+- ✅ `RecoveryService`, `AcademicPeriodService`, `ExpulsionService`
+- `PasswordLinkService` и `UserFactory` из исходного плана **не потребовались**: `EnrollmentService` создаёт WP-юзеров через `UserManager::create()` напрямую, пароли отправляются через `EmailService::sendWelcomeWithCredentials()`.
 
-**DTO (`inc/DTO/`):**
-- `ApplicationDTO`, `PersonDTO`, `EnrollmentDTO`, `RelationshipDTO`, `ConsentDTO` — для передачи между слоями.
-- `EnrollmentInput` — входной DTO для `EnrollmentService::enroll()`.
+**DTO (`inc/DTO/`):** ✅ все реализованы
+- `ApplicationDTO`, `PersonDTO`, `EnrollmentDTO`, `RelationshipDTO`, `ConsentDTO`
+- `EnrollmentInputDTO`, `EnrollmentResultDTO`, `PersonDecryptedDTO`, `PersonInputDTO`, и др.
 
-**Controllers (`inc/Controllers/`):**
-- `ApplicationController` — регистрирует rewrite rules для `/lms/apply` и `/lms/join/{code}`, регистрирует AJAX-хуки.
-- `EnrollmentController` — регистрирует админ-страницу заявок и AJAX-хук `fs_lms_enroll`.
-- `PiiAccessController` — регистрирует `fs_lms_reveal_pii_field`.
-- `RecoveryController` — регистрирует cron events `fs_lms_recovery_tick`, `fs_lms_expire_applications`.
+**Controllers (`inc/Controllers/`):** ✅ все реализованы и зарегистрированы в `Init::getServices()`
+- `ApplicationController` — `/lms/apply`, `/lms/join/{code}`, AJAX-хуки.
+- `EnrollmentController` — список заявок и полный AJAX-цикл зачисления.
+- `PiiController` — AJAX PII, страница `person-detail` (`/lms/person/{id}`). *(в документе ошибочно назывался `PiiAccessController`)*
+- `RecoveryController` — cron events `fs_lms_recovery_tick`, `fs_lms_expire_applications`, `fs_lms_retention_cleanup`.
+- `ExpulsionController` — отчисление, экспорт архива.
+- `ConsentController`, `ProfileController`, `UserController`
 
-**Callbacks (`inc/Callbacks/`):**
-- `ApplicationCallbacks` — `ajaxCreateApplication`, `ajaxSubmitParentData`.
-- `EnrollmentCallbacks` — `ajaxEnrollStudent`, `ajaxRejectApplication`.
-- `PiiCallbacks` — `ajaxRevealPiiField`.
+**Callbacks (`inc/Callbacks/`):** ✅ все реализованы
+- `ApplicationCallbacks` — `ajaxSendOtpCode`, `ajaxCreateApplication`, `ajaxSubmitParentData`.
+- `EnrollmentCallbacks` — полный цикл заявок, зачисление, корзина, редактирование, credentials.
+- `PiiCallbacks` — reveal, bulk-reveal, add/replace representative, update person, export.
+- `RecoveryCallbacks` — все cron-тики.
+- `ExpulsionCallbacks` — `ajaxExpelStudent`, `ajaxExportExpelledRecord`.
 
-**Enums (`inc/Enums/`):**
-- `Nonce::Apply`, `Nonce::ParentSubmit`, `Nonce::Enroll`, `Nonce::Reject`, `Nonce::RevealPii`.
-- `AjaxHook::CreateApplication`, `AjaxHook::SubmitParentData`, `AjaxHook::EnrollStudent`, `AjaxHook::RejectApplication`, `AjaxHook::RevealPiiField`.
-- `Capability::ManageApplications`, `EnrollStudent`, `ViewPII`, `ExportPII`, `ManagePersons`.
-- `OptionName::SchemaVersion` (`fs_lms_schema_version`).
-- `ApplicationStatus` (новый): `PendingParent`, `ReadyForReview`, `Enrolling`, `Converted`, `Rejected`, `Expired`.
-- `EnrollmentStatus` (новый): `Active`, `Finished`, `Expelled`, `Transferred`.
-- `RelationType` (новый): `Mother`, `Father`, `Guardian`, `Grandparent`, `Foster`, `Other`.
-- `ConsentType` (новый): `PdProcessing`, `PdChildProcessing`, `PdTransfer`, `Marketing`.
+**Enums (`inc/Enums/`):** ✅ все реализованы
+- `Nonce` — все нонсы включая `Apply`, `ParentSubmit`, `Enroll`, `RevealPii`, и др.
+- `AjaxHook` — все хуки включая `CreateApplication`, `SubmitParentData`, `EnrollStudent`, `ExpelStudent`, и др.
+- `Capability` — `ManageApplications`, `EnrollStudent`, `ViewPII`, `ExportPII`, `ManagePersons`.
+- `ApplicationStatus`, `EnrollmentStatus`, `RelationType`, `ConsentType`, `ExpulsionReasons`.
 
-**Migrations:**
+**Migrations:** ✅
 - `inc/Migrations/Migration_1_0_0.php` — `dbDelta()` для всех таблиц.
-- `Inc\Init` при активации/обновлении версии сравнивает `OptionName::SchemaVersion` с текущей и прогоняет нужные миграции.
+- `MigrationRunner` сравнивает `fs_lms_schema_version` и прогоняет нужные миграции.
 
-**Shared traits:**
-- использовать существующие `Authorizer`, `Sanitizer`, `AjaxResponse`, `TemplateRenderer`.
-- добавить новый трейт `TransactionRunner`:
-  ```php
-  trait TransactionRunner {
-      protected function inTransaction(callable $fn) {
-          global $wpdb;
-          $wpdb->query('START TRANSACTION');
-          try {
-              $result = $fn();
-              $wpdb->query('COMMIT');
-              return $result;
-          } catch (\Throwable $e) {
-              $wpdb->query('ROLLBACK');
-              throw $e;
-          }
-      }
-  }
-  ```
+**Shared traits:** ✅ существующие + новые
+- `Authorizer`, `Sanitizer`, `AjaxResponse`, `TemplateRenderer`, `NumericSorter`, `TaxonomySeeder`, `ErrorHandler`.
+- `TransactionRunner` — реализован в `EnrollmentService`.
 
 ### 12.2. Регистрация в DI
 
@@ -1667,16 +1651,21 @@ Enrollment snapshot **сохраняется**, но также подлежит
 
 Порядок implementation для команды:
 
-1. [ ] Миграция схемы: создать все таблицы.
-2. [ ] `PiiCryptoService` + конфигурация ключей (`FS_LMS_ENC_KEY`, `FS_LMS_HASH_SALT`, опционально `FS_LMS_OTP_BYPASS_CODE`).
-3. [ ] Все Repositories (CRUD без бизнес-логики), включая `ApplicationRepository::delete()` (только из `trash`).
-4. [ ] DTO и Enums, включая `ApplicationStatus::Trash` и `AuditAction::MoveToTrash/RestoreFromTrash/EmptyTrash`.
-5. [ ] `JoinCodeService`, `PasswordLinkService`, `UserFactory`.
-6. [ ] `EmailOtpService` + шаблон письма `templates/emails/otp-code.php`.
-7. [ ] `PiiAccessLogRepository` + `PersonReader`.
-8. [ ] `ApplicationController` + публичные формы (этапы 1-2) с двухэтапным OTP-потоком.
-9. [ ] Тексты согласий + версионирование.
-10. [ ] Админ-список заявок с фильтром "Корзина" + карточка (этапы 3-4).
+1. [x] Миграция схемы: создать все таблицы.
+2. [x] `PiiCryptoService` + конфигурация ключей (`FS_LMS_ENC_KEY`, `FS_LMS_HASH_SALT`, опционально `FS_LMS_OTP_BYPASS_CODE`). Guard в `fs-lms.php` + `Activate::showConfigNotice()`.
+3. [x] Все Repositories (CRUD без бизнес-логики), включая `ApplicationRepository::delete()`.
+4. [x] DTO и Enums, включая `ApplicationStatus`, `AuditAction`, `ExpulsionReasons`, и др.
+5. [x] `JoinCodeService`. `PasswordLinkService` и `UserFactory` не потребовались — логика встроена в `EnrollmentService` + `UserManager` + `EmailService`.
+6. [x] `EmailOtpService` + шаблоны писем.
+7. [x] `PiiAccessLogRepository` + `PersonReader`.
+8. [x] `ApplicationController` + публичные формы (этапы 1-2) с двухэтапным OTP-потоком.
+9. [x] Тексты согласий + версионирование (`ConsentService`, `ConsentController`).
+10. [x] Админ-список заявок с фильтром "Корзина" + карточка (этапы 3-4).
+11. [x] Карточки пользователей: `student-person-modal`, `parent-person-modal` + JS.
+12. [x] Отчисление: `ExpulsionController`, `ExpulsionService`, `expel-modal` + JS.
+13. [ ] Журналы в админке (AuditLog, PiiAccessLog страницы).
+14. [ ] Тесты (unit + интеграционные).
+15. [ ] Документация (CLAUDE.md секции, INSTALL.md, ADMIN_GUIDE.md).
 11. [ ] AJAX `reveal_pii_field` + маскирование в UI.
 12. [ ] AJAX корзины: `move_to_trash`, `restore_from_trash`, `empty_trash`.
 13. [ ] `EnrollmentService` + транзакционная оркестрация (этап 6).

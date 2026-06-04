@@ -3,7 +3,7 @@
  */
 
 import '../_types.js';
-import { ConfirmModal } from '../components/confirm-modal.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
 import { showNotice, fadeDeleteRow } from '../modules/utils.js';
 
 const $ = jQuery;
@@ -87,7 +87,7 @@ export const Boilerplates = {
             if (response.success) {
                 fadeDeleteRow($el.closest('tr'));
             } else {
-                alert('Ошибка: ' + (response.data?.message || response.data || 'Неизвестная ошибка'));
+                showNotice('Ошибка: ' + (response.data?.message || response.data || 'Неизвестная ошибка'), 'error', $el.closest('.wrap'));
             }
         });
     },

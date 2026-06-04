@@ -2,9 +2,11 @@ import {
     toggleButton,
     apiError,
     escapeHtml,
+    showNotice,
+    showModalError,
 } from '../modules/utils.js';
-import { ConfirmModal } from '../components/confirm-modal.js';
-import { AcademicPeriodModal } from '../components/academic-period-modal';
+import { ConfirmModal } from '../modals/confirm-modal.js';
+import { AcademicPeriodModal } from '../modals/academic-period-modal';
 
 const $ = jQuery;
 
@@ -62,7 +64,7 @@ export const AcademicPeriodModalManager = {
                     AcademicPeriodModal.setIdError(res.data.message);
                     AcademicPeriodModal.setSaveState(false);
                 } else {
-                    alert(res.data?.message || res.data || 'Ошибка сохранения.');
+                    showNotice(res.data?.message || res.data || 'Ошибка сохранения.', 'error', AcademicPeriodModal.$modal.find( '.fs-lms-modal-body' ));
                     AcademicPeriodModal.setSaveState(false);
                 }
             })
@@ -113,7 +115,7 @@ export const AcademicPeriodModalManager = {
                     });
                 } else {
                     toggleButton($btn, false);
-                    alert(res.data?.message || 'Ошибка удаления');
+                    showNotice(res.data?.message || 'Ошибка удаления', 'error', $row.closest('.wrap'));
                 }
             })
             .fail(() => {

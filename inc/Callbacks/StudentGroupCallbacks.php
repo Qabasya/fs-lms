@@ -60,16 +60,26 @@ class StudentGroupCallbacks extends BaseController {
 		$subject_id = $this->requireKey( 'subject_id', error: 'Необходимо указать предмет.' );
 		$teacher_id = $this->requireInt( 'teacher_id', error: 'Необходимо выбрать преподавателя.' );
 
-		$raw_days       = $this->sanitizeKeyArray( 'schedule_days' );
-		$schedule_days  = array_values( array_filter( $raw_days, fn( string $d ) => WeekDay::tryFrom( $d ) !== null ) );
-		$schedule_start = $this->sanitizeText( 'schedule_start' );
-		$schedule_end   = $this->sanitizeText( 'schedule_end' );
+		$schedule_json = $this->sanitizeText( 'schedule_json' );
+		$raw_entries   = is_string( $schedule_json ) ? json_decode( wp_unslash( $schedule_json ), true ) : null;
+		$schedule      = array();
 
-		$schedule = ! empty( $schedule_days ) ? array(
-			'days'  => $schedule_days,
-			'start' => $schedule_start,
-			'end'   => $schedule_end,
-		) : array();
+		if ( is_array( $raw_entries ) ) {
+			foreach ( $raw_entries as $entry ) {
+				if ( ! is_array( $entry ) ) {
+					continue;
+				}
+				$day = WeekDay::tryFrom( sanitize_key( (string) ( $entry['day'] ?? '' ) ) );
+				if ( $day === null ) {
+					continue;
+				}
+				$schedule[] = array(
+					'day'   => $day->value,
+					'start' => sanitize_text_field( (string) ( $entry['start'] ?? '' ) ),
+					'end'   => sanitize_text_field( (string) ( $entry['end']   ?? '' ) ),
+				);
+			}
+		}
 
 		// Вызываем бизнес-логику создания
 		$group_dto = $this->group_service->createGroup( $title, $period_id, $subject_id, $teacher_id, $schedule );

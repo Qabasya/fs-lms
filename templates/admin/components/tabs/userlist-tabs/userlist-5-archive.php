@@ -66,9 +66,6 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				<?php esc_html_e( 'Группа', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
-				<?php esc_html_e( 'Статус', 'fs-lms' ); ?>
-			</th>
-			<th class="column-title">
 				<?php esc_html_e( 'Дата завершения', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
@@ -92,19 +89,45 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 
 		<?php else : ?>
 			<?php foreach ( $enrollments as $row ) :
-				$studentPersonId = (int) $row['student_person_id'];
-				$groupId         = (string) $row['group_id'];
-				$subjectKey      = (string) $row['subject_key'];
-				$status          = EnrollmentStatus::tryFrom( (string) $row['status'] );
-				$terminatedAt    = isset( $row['terminated_at'] ) ? substr( (string) $row['terminated_at'], 0, 10 ) : '';
-				$terminatedReason = (string) ( $row['terminated_reason'] ?? '' );
+				$studentPersonId  = $row->studentPersonId;
+				$groupId          = (string) ( $row->groupId ?? '' );
+				$subjectKey       = $row->subjectKey;
+				$status           = $row->status;
+				$terminatedAt     = $row->terminatedAt ? substr( $row->terminatedAt, 0, 10 ) : '';
+				$terminatedReason = (string) ( $row->terminatedReason ?? '' );
 
-				// Имя ученика из WP-пользователя
+				// Расшифровка снапшота (до имени — оно может быть только здесь после отчисления)
+				$snapshot = array();
+				if ( ! empty( $row->snapshotEnc ) ) {
+					try {
+						$snapshot = json_decode( $crypto->decrypt( $row->snapshotEnc ), true ) ?? array();
+					} catch ( \Throwable $e ) {
+						// snapshot недоступен
+					}
+				}
+
+				$sd = $snapshot['student']  ?? array();
+				$gd = $snapshot['guardian'] ?? array();
+
+				// Имя ученика: WP-пользователь → снапшот (после отчисления пользователь удалён)
 				$studentName = '—';
 				$person      = $personRepo->find( $studentPersonId );
 				if ( $person && $person->wpUserId ) {
 					$wpUser      = get_userdata( $person->wpUserId );
 					$studentName = $wpUser ? $wpUser->display_name : '—';
+				}
+				if ( $studentName === '—' ) {
+					$fromSnapshot = trim( implode( ' ', array_filter( [
+						$sd['last_name']   ?? '',
+						$sd['first_name']  ?? '',
+						$sd['middle_name'] ?? '',
+					] ) ) );
+					if ( $fromSnapshot === '' ) {
+						$fromSnapshot = trim( (string) ( $sd['full_name'] ?? '' ) );
+					}
+					if ( $fromSnapshot !== '' ) {
+						$studentName = $fromSnapshot;
+					}
 				}
 
 				// Группа
@@ -117,19 +140,6 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				// Направление
 				$subjectName = $allSubjects[ $subjectKey ] ?? $subjectKey;
 
-				// Расшифровка снапшота
-				$snapshot = array();
-				if ( ! empty( $row['snapshot_enc'] ) ) {
-					try {
-						$snapshot = json_decode( $crypto->decrypt( $row['snapshot_enc'] ), true ) ?? array();
-					} catch ( \Throwable $e ) {
-						// snapshot недоступен
-					}
-				}
-
-				$sd = $snapshot['student']  ?? array();
-				$gd = $snapshot['guardian'] ?? array();
-
 				// Разбить full_name на части (обратная совместимость)
 				$sParts = explode( ' ', $sd['full_name'] ?? '', 3 );
 				$gParts = explode( ' ', $gd['full_name'] ?? '', 3 );
@@ -137,7 +147,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				$enrollmentData = array(
 					'subject'         => $subjectName,
 					'group'           => $groupTitle,
-					'status_label'    => $status?->label() ?? (string) $row['status'],
+					'status_label'    => $status->label(),
 					'terminated_at'   => $terminatedAt,
 					'terminated_reason' => $terminatedReason,
 					'contract_no'     => $snapshot['contract_no']   ?? '',
@@ -188,15 +198,6 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					<?php echo esc_html( $groupTitle ); ?>
 				</td>
 
-				<td>
-					<?php if ( $status ) : ?>
-						<span class="fs-lms-status fs-lms-status--<?php echo esc_attr( $status->value ); ?>">
-							<?php echo esc_html( $status->label() ); ?>
-						</span>
-					<?php else : ?>
-						<span class="fs-table__empty-value">—</span>
-					<?php endif; ?>
-				</td>
 
 				<td>
 					<?php if ( $terminatedAt ) : ?>

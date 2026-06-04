@@ -83,11 +83,18 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// wp_enqueue_media() — подключает медиа-библиотеку WordPress (для загрузки изображений)
 		wp_enqueue_media();
 
+		wp_enqueue_style(
+			'fs-lms-fontawesome',
+			'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css',
+			array(),
+			null
+		);
+
 		// filemtime() — используется для версионирования (кеш-бастинг)
 		wp_enqueue_style(
 			'fs-lms-common-style',
 			$this->url( 'assets/css/common.min.css' ),
-			array(),
+			array( 'fs-lms-fontawesome' ),
 			filemtime( $this->path( 'assets/css/common.min.css' ) )
 		);
 
@@ -212,9 +219,16 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 */
 	public function enqueue_frontend_assets(): void {
 		wp_enqueue_style(
+			'fs-lms-fontawesome',
+			'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css',
+			array(),
+			null
+		);
+
+		wp_enqueue_style(
 			'fs-lms-common-style',
 			$this->url( 'assets/css/common.min.css' ),
-			array(),
+			array( 'fs-lms-fontawesome' ),
 			$this->plugin_version
 		);
 
@@ -267,11 +281,12 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'fs-lms-frontend-script',
 				'fs_lms_join_vars',
 				array(
-					'ajax_url' => admin_url( 'admin-ajax.php' ),
-					'actions'  => array(
+					'ajax_url'     => admin_url( 'admin-ajax.php' ),
+					'dadata_token' => defined( 'DADATA_API_TOKEN' ) ? DADATA_API_TOKEN : '',
+					'actions'      => array(
 						'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
 					),
-					'nonces'   => array(
+					'nonces'       => array(
 						'parent_submit' => Nonce::ParentSubmit->create(),
 					),
 				)
@@ -316,9 +331,14 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 		$modal_path = $this->path( 'templates/admin/components/modals/confirm-modal.php' );
 
-		// file_exists() — проверяет существование файла перед подключением
 		if ( file_exists( $modal_path ) ) {
 			require_once $modal_path;
+		}
+
+		$alert_modal_path = $this->path( 'templates/admin/components/modals/alert-modal.php' );
+
+		if ( file_exists( $alert_modal_path ) ) {
+			require $alert_modal_path;
 		}
 	}
 }

@@ -52,6 +52,7 @@ declare( strict_types=1 );
 					<th scope="col" class=" column-period">Учебный период</th>
 					<th scope="col" class=" column-subject">Предмет</th>
 					<th scope="col" class=" column-teacher">Преподаватель</th>
+					<th scope="col" class=" column-schedule">Расписание</th>
 					<th scope="col" class=" column-actions">Действия</th>
 				</tr>
 				</thead>
@@ -59,7 +60,7 @@ declare( strict_types=1 );
 				<tbody id="the-list">
 				<?php if ( empty( $groups_view ) ) : ?>
 					<tr class="no-items">
-						<td class="colspanchange" colspan="5">
+						<td class="colspanchange" colspan="6">
 							<?php echo '' === $selected_period_id ? 'Нет учебных периодов.' : 'В выбранном периоде ещё нет групп.'; ?>
 						</td>
 					</tr>
@@ -75,6 +76,7 @@ declare( strict_types=1 );
 							<td><?php echo esc_html( $group['period_name'] ); ?></td>
 							<td><?php echo esc_html( $group['subject_name'] ); ?></td>
 							<td><?php echo esc_html( $group['teacher_name'] ); ?></td>
+							<td><?php echo nl2br( esc_html( $group['schedule'] ) ); ?></td>
 							<td>
 								<span class="trash">
 									<a href="#"
@@ -87,7 +89,7 @@ declare( strict_types=1 );
 						</tr>
 
 						<tr id="students-row-<?php echo esc_attr( $group['id'] ); ?>" class="students-accordion-row hidden">
-							<td colspan="5">
+							<td colspan="6">
 								<div class="students-accordion-content">
 									<p class="description">
 										<span class="dashicons dashicons-groups"></span>

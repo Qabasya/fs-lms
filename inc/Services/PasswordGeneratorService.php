@@ -7,10 +7,9 @@ namespace Inc\Services;
 use Inc\Enums\AuditAction;
 use Inc\Managers\UserManager;
 use Inc\Repositories\OptionsRepositories\UserRepository;
+use Inc\Enums\MetaKeys;
 
 class PasswordGeneratorService {
-    # TODO: как станет больше мета - добавить enum
-	private const META_KEY = 'fs_lms_enc_password';
 
 	public function __construct(
 		private readonly UserManager      $user_manager,
@@ -18,6 +17,14 @@ class PasswordGeneratorService {
 		private readonly PiiCryptoService $crypto,
 		private readonly UserRepository $user_repository,
 	) {}
+
+	/**
+	 * Генерирует пароль в открытом виде без сохранения.
+	 * Используется когда пользователь ещё не создан (ID неизвестен).
+	 */
+	public function generatePlain(): string {
+		return wp_generate_password( 8, false );
+	}
 
 	/**
 	 * Генерирует пароль, устанавливает его пользователю, хранит зашифрованным в user meta.
@@ -41,7 +48,7 @@ class PasswordGeneratorService {
 		$this->user_repository->updateMeta(
 			$user_id,
 			array(
-				self::META_KEY => $encoded,
+				MetaKeys::EncPassword->value => $encoded,
 			)
 		);
 
@@ -67,7 +74,10 @@ class PasswordGeneratorService {
 			return null;
 		}
 
-		$encrypted = get_user_meta( $user_id, self::META_KEY, true );
+		$encrypted = $this->user_repository->getMeta(
+			$user_id,
+			MetaKeys::EncPassword->value
+		);
 
 		if ( empty( $encrypted ) ) {
 			return null;
@@ -99,7 +109,11 @@ class PasswordGeneratorService {
 		}
 
 		wp_set_password( $password, $user_id );
-		update_user_meta( $user_id, self::META_KEY, base64_encode( $this->crypto->encrypt( $password ) ) );
+		$this->user_repository->updateMeta( $user_id, array(
+			MetaKeys::EncPassword->value => base64_encode(
+				$this->crypto->encrypt( $password )
+			)
+		) );
 
 		$this->audit_service->record(
 			AuditAction::PasswordSet->value,
@@ -115,7 +129,11 @@ class PasswordGeneratorService {
 	public function storeEncrypted( int $user_id, string $password ): void {
 		$this->user_repository->updateMeta(
 			$user_id,
-			array( self::META_KEY => base64_encode( $this->crypto->encrypt( $password ) ) )
+			array(
+				MetaKeys::EncPassword->value => base64_encode(
+					$this->crypto->encrypt( $password )
+				)
+			)
 		);
 
 		$this->audit_service->record(
@@ -131,6 +149,9 @@ class PasswordGeneratorService {
 	 */
 	public function randomize( int $user_id ): void {
 		wp_set_password( wp_generate_password( 64, true, true ), $user_id );
-		delete_user_meta( $user_id, self::META_KEY );
+		$this->user_repository->deleteMeta(
+			$user_id,
+			MetaKeys::EncPassword->value
+		);
 	}
 }

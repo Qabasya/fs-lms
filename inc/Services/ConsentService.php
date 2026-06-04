@@ -4,11 +4,13 @@ declare( strict_types=1 );
 
 namespace Inc\Services;
 
+use Inc\Contracts\ClockInterface;
 use Inc\DTO\RequestContextDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\ConsentType;
-use Inc\Enums\OptionName;
 use Inc\Enums\PageRoutes;
+use Inc\Managers\PostManager;
+use Inc\Repositories\OptionsRepositories\ConsentOptionsRepository;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
 use RuntimeException;
 use WP_Post;
@@ -47,8 +49,11 @@ readonly class ConsentService {
 	 * @param AuditService      $auditService      Сервис аудита
 	 */
 	public function __construct(
-		private ConsentRepository $consentRepository,
-		private AuditService      $auditService,
+		private ConsentRepository       $consentRepository,
+		private AuditService            $auditService,
+		private PostManager             $postManager,
+		private ConsentOptionsRepository $consentOptions,
+		private ClockInterface          $clock,
 	) {}
 
 	/**
@@ -77,7 +82,7 @@ readonly class ConsentService {
 	 * @throws RuntimeException Если страница не найдена
 	 */
 	public function getDocumentText( ConsentType $type, string $version ): string {
-		$page = get_page_by_path( PageRoutes::ConsentPage->value );
+		$page = $this->postManager->findByPath( PageRoutes::ConsentPage->value );
 
 		if ( null === $page ) {
 			throw new RuntimeException(
@@ -116,13 +121,10 @@ readonly class ConsentService {
 			return;
 		}
 
-		update_option(
-			OptionName::ConsentPageMeta->value,
-			array(
-				'hash'       => hash( 'sha256', $post->post_content ),
-				'updated_at' => current_time( 'c', true ),
-			)
-		);
+		$this->consentOptions->savePageMeta( array(
+			'hash'       => hash( 'sha256', $post->post_content ),
+			'updated_at' => $this->clock->now( 'c', true ),
+		) );
 	}
 
 	/**
@@ -141,7 +143,7 @@ readonly class ConsentService {
 			'document_hash'        => $version,
 			'ip_address'           => $ctx->ip,
 			'user_agent'           => $ctx->userAgent,
-			'accepted_at'          => current_time( 'mysql', true ),
+			'accepted_at'          => $this->clock->now( 'mysql', true ),
 			'signed_for_person_id' => null,
 		) );
 
@@ -176,7 +178,7 @@ readonly class ConsentService {
 			'document_hash'        => $version,
 			'ip_address'           => $ctx->ip,
 			'user_agent'           => $ctx->userAgent,
-			'accepted_at'          => current_time( 'mysql', true ),
+			'accepted_at'          => $this->clock->now( 'mysql', true ),
 			'signed_for_person_id' => $forPersonId,
 		) );
 
@@ -224,7 +226,7 @@ readonly class ConsentService {
 	}
 
 	private function getStoredHash(): string {
-		$meta = (array) get_option( OptionName::ConsentPageMeta->value, array() );
+		$meta = $this->consentOptions->getPageMeta();
 		return (string) ( $meta['hash'] ?? '' );
 	}
 }

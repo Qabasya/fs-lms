@@ -9,6 +9,7 @@ use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
+use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Services\AuditService;
@@ -70,6 +71,7 @@ class EnrollmentCallbacks extends BaseController {
 		private readonly PiiAccessLogRepository  $piiAccessLog,
 		private readonly StudentGroupRepository  $studentGroupRepository,
 		private readonly PasswordGeneratorService $passwordGenerator,
+		private readonly UserManager             $userManager,
 	) {
 		parent::__construct();
 	}
@@ -86,10 +88,10 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		// Получение и санитизация параметров фильтрации
-		$status   = sanitize_key( $_GET['status'] ?? '' );
-		$dateFrom = sanitize_text_field( $_GET['date_from'] ?? '' );
-		$dateTo   = sanitize_text_field( $_GET['date_to'] ?? '' );
-		$page     = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+		$status   = $this->sanitizeText( 'status', 'GET' );
+		$dateFrom = $this->sanitizeText( 'date_from', 'GET' );
+		$dateTo   = $this->sanitizeText( 'date_to', 'GET' );
+		$page     = max( 1, $this->sanitizeInt( 'paged', 'GET' ) );
 
 		$filters = array_filter( array(
 			'status'    => $status ?: null,
@@ -592,7 +594,7 @@ class EnrollmentCallbacks extends BaseController {
 				$count++;
 			} catch ( \Throwable $e ) {
 				// Логируем, но не останавливаем цикл
-				error_log( '[FS LMS] EmptyTrash: не удалось удалить заявку #' . $app->id . ': ' . $e->getMessage() );
+				trigger_error( '[FS LMS] EmptyTrash: не удалось удалить заявку #' . $app->id . ': ' . $e->getMessage(), E_USER_WARNING );
 			}
 		}
 
@@ -627,13 +629,13 @@ class EnrollmentCallbacks extends BaseController {
 			return;
 		}
 
-		$actor_id  = get_current_user_id();
-		$actor_wp  = $actor_id ? get_userdata( $actor_id ) : false;
-		$personId  = (int) get_user_meta( $user_id, 'fs_lms_person_id', true ) ?: null;
+		$actor_id = get_current_user_id();
+		$actor_wp = $actor_id ? $this->userManager->find( $actor_id ) : null;
+		$personId = $this->userManager->getPersonId( $user_id );
 
 		$this->piiAccessLog->create( new PiiAccessLogInputDTO(
 			actorUserId:    $actor_id ?: null,
-			actorRole:      ( $actor_wp && ! empty( $actor_wp->roles ) ) ? (string) reset( $actor_wp->roles ) : null,
+			actorRole:      ( null !== $actor_wp && ! empty( $actor_wp->roles ) ) ? (string) reset( $actor_wp->roles ) : null,
 			personId:       $personId,
 			fieldsAccessed: 'login,password',
 			accessReason:   'admin_reveal_credentials',

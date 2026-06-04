@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\AcademicPeriodDTO;
 use Inc\DTO\StudentGroupDTO;
 use Inc\Enums\UserRole;
+use Inc\Enums\WeekDay;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
@@ -122,6 +123,7 @@ class AdminCallbacks extends BaseController {
 				'period_name'  => $raw_periods[ $g->period_id ]['name'] ?? $g->period_id,
 				'subject_name' => $subjects[ $g->subject_id ]->name ?? $g->subject_id,
 				'teacher_name' => $teacher_map[ $g->teacher_id ] ?? 'Не назначен',
+				'schedule'     => WeekDay::formatScheduleFull( $g->schedule ),
 			),
 			$groups
 		);

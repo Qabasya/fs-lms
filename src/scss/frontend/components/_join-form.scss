@@ -143,6 +143,43 @@
     margin-top: 8px;
   }
 
+  // ── DaData autocomplete dropdown ────────────────────────────────────────────
+  .fs-dadata-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: $color-white;
+    border: 1px solid $color-border;
+    border-top: none;
+    border-radius: 0 0 $radius $radius;
+    box-shadow: $shadow-hover;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 220px;
+    overflow-y: auto;
+
+    &__item {
+      padding: 9px 12px 9px 38px;
+      font-size: $font-size-sm;
+      color: $color-text;
+      cursor: pointer;
+      line-height: $line-height-tight;
+      border-bottom: 1px solid $color-border-light;
+      transition: background-color $transition, color $transition;
+
+      &:last-child { border-bottom: none; }
+
+      &:hover,
+      &.is-active {
+        background: $color-bg-subtle;
+        color: $color-accent;
+      }
+    }
+  }
+
   &__error {
     font-size: $font-size-xs;
     color: #c0392b;

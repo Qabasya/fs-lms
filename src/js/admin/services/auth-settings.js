@@ -1,7 +1,7 @@
 const $ = jQuery;
 
 import { showNotice } from '../modules/utils.js';
-import { HelpModal } from '../components/help-modal.js';
+import { HelpModal } from '../modals/help-modal.js';
 
 export const AuthSettings = {
 

@@ -9,12 +9,6 @@ export class CyrillicNameValidator extends BaseValidator {
             return 'Разрешены только буквы кириллицы, пробелы и дефис.';
         }
 
-        // Дополнительная бизнес-проверка: имя + фамилия (минимум 2 слова)
-        const words = value.split(/\s+/).filter(word => word.length > 0);
-        if (words.length < 2) {
-            return 'Пожалуйста, укажите полностью Фамилию и Имя.';
-        }
-
         return null;
     }
 }

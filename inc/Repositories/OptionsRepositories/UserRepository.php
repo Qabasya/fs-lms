@@ -180,8 +180,31 @@ class UserRepository {
 	 */
 	public function updateMeta( int $user_id, array $meta ): void {
 		foreach ( $meta as $key => $value ) {
-			// update_user_meta() — обновляет мета-поле пользователя
 			update_user_meta( $user_id, $key, $value );
 		}
+	}
+
+	/**
+	 * Возвращает одно мета-поле пользователя.
+	 *
+	 * @param int    $user_id ID пользователя
+	 * @param string $key     Ключ мета-поля
+	 *
+	 * @return mixed Значение поля или пустая строка если не найдено
+	 */
+	public function getMeta( int $user_id, string $key ): mixed {
+		return get_user_meta( $user_id, $key, true );
+	}
+
+	/**
+	 * Удаляет мета-поле пользователя.
+	 *
+	 * @param int    $user_id ID пользователя
+	 * @param string $key     Ключ мета-поля
+	 *
+	 * @return void
+	 */
+	public function deleteMeta( int $user_id, string $key ): void {
+		delete_user_meta( $user_id, $key );
 	}
 }

@@ -1,4 +1,4 @@
-import { StudentPersonModal } from '../components/student-person-modal.js';
+import { StudentPersonModal } from '../modals/student-person-modal.js';
 
 const $ = jQuery;
 
@@ -46,9 +46,8 @@ export const StudentPersonModalManager = {
             this._export();
         } );
 
-        $( document ).on( 'click.spmm_delete', '#fs-student-person-modal .js-pmm-delete', ( e ) => {
-            e.preventDefault();
-            this._delete();
+        $( document ).on( 'fs:student:expelled', ( e, { studentId } ) => {
+            StudentPersonModal.close();
         } );
 
         $( document ).on( 'fs-lms:spm-regenerate-password', ( e, { wpUserId, $btn } ) => {
@@ -64,6 +63,12 @@ export const StudentPersonModalManager = {
         StudentPersonModal.reset();
         StudentPersonModal.setPersonId( personId );
         StudentPersonModal.setWpUserId( wpUserId );
+        const studentName = $btn.data( 'displayName' ) || '';
+        $( '#fs-student-person-modal .js-expel-student' )
+            .data( 'expel-student-id', wpUserId )
+            .data( 'expel-student-name', studentName )
+            .attr( 'data-expel-student-id', wpUserId )
+            .attr( 'data-expel-student-name', studentName );
 
         // Немедленно из данных строки — без ожидания AJAX
         StudentPersonModal.fill( {
@@ -207,19 +212,6 @@ export const StudentPersonModalManager = {
             security:  NONCES().exportPii,
         } ).done( r => {
             if ( r.success && r.data.download_url ) window.location.href = r.data.download_url;
-        } );
-    },
-
-    _delete() {
-        const id = StudentPersonModal.getPersonId();
-        if ( ! id ) return;
-        if ( ! confirm( 'Удалить персональные данные? Физическое удаление через 30 дней.' ) ) return;
-        $.post( AJAX_URL(), {
-            action:    ACTIONS().requestPiiDeletion,
-            person_id: id,
-            security:  NONCES().deletePii,
-        } ).done( r => {
-            if ( r.success ) StudentPersonModal.close();
         } );
     },
 

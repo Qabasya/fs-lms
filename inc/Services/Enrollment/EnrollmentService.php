@@ -25,6 +25,7 @@ use Inc\Services\EmailService;
 use Inc\Services\PasswordGeneratorService;
 use Inc\Services\Person\PersonService;
 use Inc\Services\Person\RelationshipService;
+use Inc\Contracts\ClockInterface;
 use Inc\Services\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\TransactionRunner;
@@ -48,6 +49,7 @@ readonly class EnrollmentService {
 		private StudentGroupMatrixRepository $groupMatrix,
 		private EmailService               $emailService,
 		private PiiCryptoService           $crypto,
+		private ClockInterface             $clock,
 	) {}
 
 	/**
@@ -140,8 +142,8 @@ readonly class EnrollmentService {
 				'status'                => 'active',
 				'snapshot_enc'          => $this->crypto->encrypt( (string) wp_json_encode( $snapshot ) ),
 				'source_application_id' => $app->id,
-				'created_at'            => current_time( 'mysql', true ),
-				'updated_at'            => current_time( 'mysql', true ),
+				'created_at'            => $this->clock->now( 'mysql', true ),
+				'updated_at'            => $this->clock->now( 'mysql', true ),
 			) );
 
 			$this->consentService->bindToPersons( $app->id, array(
@@ -195,7 +197,7 @@ readonly class EnrollmentService {
 						: ( $studentEmail !== '' ? $studentEmail : 'student_' . $studentPersonId );
 					$studentPassword = $studentDto->loginPassword !== ''
 						? $studentDto->loginPassword
-						: wp_generate_password( 8, false );
+						: $this->passwordGenerator->generatePlain();
 					$studentUserId   = $this->userManager->create( array(
 						'user_login'   => $studentLogin,
 						'user_email'   => $studentEmail,
@@ -231,7 +233,7 @@ readonly class EnrollmentService {
 					$guardianPassword = $this->passwordGenerator->generateAndSet( $guardianUserId );
 				} else {
 					$guardianLogin    = $guardianEmail;
-					$guardianPassword = wp_generate_password( 8, false );
+					$guardianPassword = $this->passwordGenerator->generatePlain();
 					$guardianUserId   = $this->userManager->create( array(
 						'user_login'   => $guardianEmail,
 						'user_email'   => $guardianEmail,
