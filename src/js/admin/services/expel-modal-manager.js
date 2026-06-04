@@ -42,6 +42,11 @@ export const ExpelModalManager = {
     },
 
     _doExpel( formData ) {
+        if ( ! formData.reason ) {
+            alert( 'Выберите причину отчисления.' );
+            return;
+        }
+
         if ( formData.is_other_empty ) {
             alert( 'Уточните конкретнее причину отчисления.' );
             return;

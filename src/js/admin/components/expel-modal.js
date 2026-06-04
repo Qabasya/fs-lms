@@ -64,23 +64,26 @@ export const ExpelModal = {
     },
 
     _collectFormData() {
-        const reason = this.$modal.find( '#expel-reason' ).val();
+        const $select    = this.$modal.find( '#expel-reason' );
+        const otherValue = $select.data( 'other-value' );
+        const reason     = $select.val();
         const customReason = this.$modal.find( '#expel-custom-reason' ).val().trim();
 
-        const finalReason = reason === 'Другое'
-            ? `Другое: ${ customReason }`
+        const finalReason = reason === otherValue
+            ? `${ otherValue }: ${ customReason }`
             : reason;
 
         return {
             student_id: this.$modal.find( 'input[name="student_id"]' ).val(),
             reason: finalReason,
-            is_other_empty: reason === 'Другое' && ! customReason,
+            is_other_empty: reason === otherValue && ! customReason,
         };
     },
 
     _bindReasonEvents() {
         this.$modal.find( '#expel-reason' ).on( 'change', ( e ) => {
-            const isOther = e.target.value === 'Другое';
+            const otherValue = $( e.target ).data( 'other-value' );
+            const isOther = e.target.value === otherValue;
 
             this.$modal
                 .find( '#fs-expel-custom-reason-wrap' )

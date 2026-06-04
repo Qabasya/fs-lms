@@ -32,7 +32,7 @@ use Inc\Enums\ExpulsionReasons;
                 <div class="fs-form-group">
                     <label for="expel-reason">Причина отчисления</label>
 
-                    <select id="expel-reason" name="reason">
+                    <select id="expel-reason" name="reason" data-other-value="<?php echo esc_attr( ExpulsionReasons::Other->value ); ?>">
                         <option value="">Выберите причину</option>
 
                         <?php foreach ( ExpulsionReasons::cases() as $reason ) : ?>
