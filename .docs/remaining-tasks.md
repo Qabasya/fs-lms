@@ -1,7 +1,7 @@
 # FS LMS — Оставшиеся задачи
 
-Версия: 2026-06-02  
-Статус: вся инфраструктура реализована. Остаётся: карточки пользователей, отчисление, CSV-экспорт, настройки, безопасность, тесты, документация.
+Версия: 2026-06-05  
+Статус: инфраструктура, отчисление и карточки пользователей реализованы. Остаётся: CSV-экспорт, настройки, безопасность, журналы, тесты, документация.
 
 ---
 
@@ -11,9 +11,11 @@
 - Все enum-ы, все репозитории, все сервисы, все DTO, все shared traits
 - `UserManager`, `RoleManager`, `CronManager`, `MigrationRunner`, `Migration_1_0_0` (единственная, всё слито)
 - `PiiCryptoService`, `PiiMaskingService`, `PersonReader`, `PersonService`
+- `RelationshipService`, `RetentionService`, `ApplicationService`
 - `EnrollmentService` (включая snapshot с contract_no/contract_date/order_no/order_date)
 - `EmailService` + strategy pattern (`WpOptionsEmailTemplate` / `PhpEmailTemplate`)
 - `CsvExportService` + `CsvColumn` — Column Projection, одноразовые ссылки `/lms/export/{token}`
+- Guard в `fs-lms.php`: при отсутствии `FS_LMS_ENC_KEY` — `admin_notices` + `Init::run()` не вызывается; `Activate::showConfigNotice()`
 
 **Контроллеры** (все зарегистрированы в Init.php):
 - `ApplicationController` — маршруты `/lms/apply`, `/lms/join/{code}`
@@ -21,14 +23,16 @@
 - `PiiController` — AJAX PII, страница карточки person
 - `RecoveryController` — cron-задачи, TTL ссылки пароля (48ч для LMS-ролей)
 - `ConsentController` — маршрут `/lms/consent/{type}/{version}`
+- `ExpulsionController` — весь цикл отчисления
 
 **Callbacks** (все методы реализованы):
 - `ApplicationCallbacks` — ajaxSendOtpCode, ajaxCreateApplication, ajaxSubmitParentData
 - `EnrollmentCallbacks` — весь цикл заявок (список, карточка, зачисление, корзина, редактирование)
 - `PiiCallbacks` — reveal, soft-delete, add/replace representative, update person, renderPersonDetailPage
 - `RecoveryCallbacks` — все cron-тики
+- `ExpulsionCallbacks` — ajaxExpelStudent, ajaxExportExpelledRecord
 
-**Шаблоны — готовы:**
+**Шаблоны и JS — готовы:**
 - `templates/frontend/apply.php` + `src/js/frontend/services/apply-form.js` (300 строк)
 - `templates/frontend/join.php` + `src/js/frontend/services/join-form.js` (147 строк)
 - `templates/admin/components/tabs/userlist-tabs/userlist-1-applications.php` — таблица заявок с фильтрами, пагинацией, модалками
@@ -40,12 +44,16 @@
 - Все модальные окна: enrollment, review, change, student-view, parent-view, teacher-view
 - `application-view-modal` — read-only просмотр заявки для статусов Enrolling/Converted/Expired/Trash
 - Все 6 email-шаблонов
+- `templates/admin/components/modals/student-person-modal.php` + `student-person-modal.js` + `student-person-modal-manager.js`
+- `templates/admin/components/modals/parent-person-modal.php` + `parent-person-modal.js` + `parent-person-modal-manager.js`
+- `templates/admin/components/modals/expel-modal.php` + `expel-modal.js` + `expel-modal-manager.js`
 
 **Модальная логика просмотра заявок (финальная):**
 - `PendingParent` → `.js-edit-application` → `application-modal.php` (редактирование данных ученика)
 - `ReadyForReview` → `.js-review-application` → `application-review-modal.php` (редактирование ученика + родителя)
 - `Enrolling`, `Converted`, `Expired`, `Trash` → `.js-view-application` → `application-view-modal.php` (read-only)
 - Отдельной страницы карточки заявки нет и не нужно.
+
 
 ---
 
@@ -85,48 +93,13 @@
 
 ## 1. Карточки пользователей
 
-### 1.1. Модальные окна с данными ученика и родителя
-Вызываются через нажатие кнопки "Просмотреть" в таблицах Ученики и Родители.
+### 1.1. Модальные окна с данными ученика и родителя — ✅ реализовано
 
-### Вид карточки для ученика:
-* Фамилия Имя Отчество, номер договора
+`student-person-modal.php` + `student-person-modal.js` + `student-person-modal-manager.js`  
+`parent-person-modal.php` + `parent-person-modal.js` + `parent-person-modal-manager.js`
 
-* Предмет, Группа, Расписание
-
-* Телефон, почта
-
-* Логин пароль
-
-* Школа, класс
-
-– маска --
-
-* Данные паспорта, ИНН, дата рождения
-
-
-### Вид карточки для родителя:
-
-* Фамилия Имя Отчество. Роль
-
-* Телефон, почта
-* ФИО подопечного
-
-  – маска --
-
-* Пароль
-
-* Данные паспорта, ИНН (Родителя). Дата рождения родителя
-
-* Данные паспорта, ИНН (ребёнка). Дата рождения ребёнка
-
-* Прописка
-
-Действия (кнопки) в модальном окне:
-* Закрыть модальное окно
-* Редактировать (вход в режим редактирования, все данные становятся инпутами (редактировать можно ВСЕ поля, кроме "Предмет, Группа и Расписание" у ученика и "Пароль" у родителя), логгирование)
-* Показать данные (маски у всех данных убираются, показываются дешифрованные персональные данные)
-* Экпорт (данные в csv, реализуется позже)
-* Удалить (пользователя). Требуется дополнительное окно подтверждения confirm-modal
+Вызываются кнопкой "Просмотреть" в таблицах Ученики и Родители.  
+Реализованы: просмотр (с маскированием PII), reveal, редактирование, удаление.
 
 ---
 
@@ -315,36 +288,14 @@ add_action('admin_init', function() {
 
 ---
 
-## 7. Отчисление ученика
+## 7. Отчисление ученика — ✅ реализовано
 
-Кнопка «Отчислить» в карточке ученика (`person-detail.php`) или в таблице учеников (`userlist-2-students.php`).
+`ExpulsionController` + `ExpulsionService` + `ExpulsionCallbacks`  
+`AjaxHook::ExpelStudent`, `AjaxHook::ExportExpelledRecord`  
+`ExpelledArchiveRepository`, `ExpulsionReasons`  
+`expel-modal.php` + `expel-modal.js` + `expel-modal-manager.js`
 
-### 7.1 Бэкенд
-
-**`AjaxHook`**: добавить `case ExpelStudent = 'expel_student'`.
-
-**`EnrollmentCallbacks::ajaxExpelStudent()`**:
-- `$this->authorize(Nonce::Manager, Capability::ManageApplications)`
-- Принимает: `enrollment_id`, `reason` (текст причины)
-- Вызывает `EnrollmentService::expel(int $enrollmentId, string $reason, int $actorId)`
-
-**`EnrollmentService::expel()`**:
-1. Найти enrollment, проверить что статус `active`
-2. `EnrollmentRepository::update()` — установить `status = expelled`, `terminated_at = now()`, `terminated_reason`, `terminated_by_user_id`
-3. Удалить WP-пользователей ученика и родителя (`wp_delete_user()`), если у родителя нет других активных подопечных
-4. Удалить ученика из матрицы группы (`StudentGroupMatrixRepository::removeStudent()`)
-5. Записать в `AuditService`: `AuditAction::ExpelStudent`
-
-**Регистрация** в `EnrollmentController::ajaxActions()`.
-
-### 7.2 Фронтенд
-
-Модальное окно подтверждения с полем «Причина отчисления» (обязательное).  
-После успеха — строка исчезает из таблицы Ученики, появляется в Архиве.
-
-### 7.3 Данные в архиве
-
-После `expel()` строка enrollment со статусом `expelled` автоматически попадает в `userlist-5-archive.php` — дополнительных действий не требуется. `snapshot_enc` с момента зачисления остаётся неизменным.
+После `expel()` строка автоматически попадает в `userlist-5-archive.php`.
 
 ---
 
@@ -407,13 +358,11 @@ add_action('admin_init', function() {
 ## Приоритет
 
 ```
-1. templates/admin/enrollment/person-detail.php  ← блокирует карточку ученика/родителя
-2. Отчисление ученика (раздел 7)                 ← нужно для наполнения архива
-3. CSV-экспорт (раздел 8)                        ← зависит от person-detail и архива
-4. Политика паролей + HTTPS-предупреждение       ← безопасность
-5. Вкладка «Шаблоны писем» в настройках         ← управление без деплоя
-6. Вкладка «Согласия» в настройках              ← управление без деплоя
-7. Журналы (AuditLog, PiiAccessLog) в админке   ← compliance
-8. Тесты                                         ← стабильность
-9. Документация                                  ← передача знаний
+1. CSV-экспорт (раздел 8)                        ← карточки и архив готовы
+2. Политика паролей + HTTPS-предупреждение       ← безопасность
+3. Вкладка «Шаблоны писем» в настройках         ← управление без деплоя
+4. Вкладка «Согласия» в настройках              ← управление без деплоя
+5. Журналы (AuditLog, PiiAccessLog) в админке   ← compliance
+6. Тесты                                         ← стабильность
+7. Документация                                  ← передача знаний
 ```
