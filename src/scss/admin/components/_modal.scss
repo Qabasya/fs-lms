@@ -990,3 +990,19 @@ html.modal-open {
     display: none;
   }
 }
+
+.fs-modal-error {
+  background: rgba($color-danger, 0.06);
+  border: 1px solid rgba($color-danger, 0.2);
+  border-left: 4px solid $color-danger;
+  border-radius: 0 $border-radius-md $border-radius-md 0;
+  padding: $spacing-sm $spacing-md;
+  margin: 0 0 $spacing-lg 0;
+  font-size: 13px;
+  color: $color-danger;
+  display: none;
+
+  &:not(:empty) {
+    display: block;
+  }
+}

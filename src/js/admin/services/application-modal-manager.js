@@ -1,4 +1,5 @@
 import { ApplicationModal } from '../components/application-modal.js';
+import { showModalError, clearModalError } from '../modules/utils.js';
 
 const $ = jQuery;
 const appVars = window.fs_lms_applications_vars;
@@ -55,12 +56,12 @@ export const ApplicationModalManager = {
                     ApplicationModal.close();
                     location.reload();
                 } else {
-                    alert( res.data?.message || res.data || 'Ошибка сохранения.' );
+                    showModalError( res.data?.message || res.data || 'Ошибка сохранения.', ApplicationModal.$modal );
                     ApplicationModal.setSaveState( false );
                 }
             } )
             .fail( () => {
-                alert( 'Ошибка соединения.' );
+                showModalError( 'Ошибка соединения.', ApplicationModal.$modal );
                 ApplicationModal.setSaveState( false );
             } );
     },

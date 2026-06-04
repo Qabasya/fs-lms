@@ -217,6 +217,31 @@ export function showNotice(message, type = 'info', $container = null, options = 
 }
 
 /**
+ * Показывает сообщение об ошибке внутри модального окна (в .fs-lms-modal-body).
+ * @param {string} message
+ * @param {JQuery} $modal
+ */
+export function showModalError( message, $modal ) {
+    const $body = $modal.find( '.fs-lms-modal-body' );
+    let $err = $body.find( '.fs-modal-error' );
+
+    if ( ! $err.length ) {
+        $err = $( '<p class="fs-modal-error"></p>' );
+        $body.prepend( $err );
+    }
+
+    $err.text( message ).show();
+}
+
+/**
+ * Скрывает сообщение об ошибке внутри модального окна.
+ * @param {JQuery} $modal
+ */
+export function clearModalError( $modal ) {
+    $modal.find( '.fs-modal-error' ).hide().text( '' );
+}
+
+/**
  * Анимирует удаление строки таблицы: подсвечивает красным и скрывает.
  * @param {JQuery} $row - Строка таблицы
  * @param {Function} [onRemoved] - Коллбек после удаления из DOM

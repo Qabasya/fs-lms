@@ -2,6 +2,8 @@ import {
     toggleButton,
     apiError,
     escapeHtml,
+    showNotice,
+    showModalError,
 } from '../modules/utils.js';
 import { ConfirmModal } from '../components/confirm-modal.js';
 import { GroupModal } from '../components/group-modal';
@@ -44,7 +46,7 @@ export const GroupModalManager = {
                 if (res.success) {
                     location.reload();
                 } else {
-                    alert(res.data?.message || res.data || 'Ошибка сохранения группы.');
+                    showNotice(res.data?.message || res.data || 'Ошибка сохранения группы.', 'error', GroupModal.$modal.find( '.fs-lms-modal-body' ));
                     GroupModal.setSaveState(false);
                 }
             })
@@ -93,7 +95,7 @@ export const GroupModalManager = {
                     });
                 } else {
                     toggleButton($btn, false);
-                    alert(res.data?.message || 'Ошибка удаления группы.');
+                    showNotice(res.data?.message || 'Ошибка удаления группы.', 'error', $row.closest('.wrap'));
                 }
             })
             .fail(() => {

@@ -1,7 +1,7 @@
 import '../_types.js';
 import { TaxonomyModal } from '../components/taxonomy-modal.js';
 import { ConfirmModal } from '../components/confirm-modal.js';
-import { showNotice, fadeDeleteRow } from '../modules/utils.js';
+import { showNotice, fadeDeleteRow, showModalError } from '../modules/utils.js';
 
 const $ = jQuery;
 
@@ -51,7 +51,7 @@ export const TaxonomyModalManager = {
 
     _handleSave(data) {
         if (!data.tax_name || (data.action === 'store' && !data.tax_slug)) {
-            alert('Пожалуйста, заполните все поля');
+            showNotice('Пожалуйста, заполните все поля', 'error', TaxonomyModal.$modal.find( '.fs-lms-modal-body' ));
             return;
         }
 
@@ -73,12 +73,12 @@ export const TaxonomyModalManager = {
                     TaxonomyModal.setSlugError(res.data.message);
                     TaxonomyModal.setSaveState(false);
                 } else {
-                    alert('Ошибка: ' + (res.data?.message || res.data));
+                    showNotice('Ошибка: ' + (res.data?.message || res.data), 'error', TaxonomyModal.$modal.find( '.fs-lms-modal-body' ));
                     TaxonomyModal.setSaveState(false);
                 }
             })
             .fail(() => {
-                alert('Системная ошибка сервера');
+                showNotice('Системная ошибка сервера', 'error', TaxonomyModal.$modal.find( '.fs-lms-modal-body' ));
                 TaxonomyModal.setSaveState(false);
             });
     },
@@ -100,11 +100,11 @@ export const TaxonomyModalManager = {
                         location.reload();
                     }
                 } else {
-                    alert('Ошибка при удалении: ' + res.data);
+                    showNotice('Ошибка при удалении: ' + res.data, 'error', $('.js-taxonomy-table'));
                 }
             })
             .fail(() => {
-                alert('Системная ошибка при удалении');
+                showNotice('Системная ошибка при удалении', 'error', $('.js-taxonomy-table'));
             });
     },
 };

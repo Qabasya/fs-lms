@@ -1,4 +1,5 @@
 import { ApplicationEnrollmentModal } from '../components/application-enrollment-modal.js';
+import { showModalError, clearModalError } from '../modules/utils.js';
 
 const $ = jQuery;
 const appVars = window.fs_lms_applications_vars;
@@ -67,12 +68,12 @@ export const ApplicationEnrollmentModalManager = {
                 if ( res.success ) {
                     location.reload();
                 } else {
-                    alert( res.data?.message || res.data || 'Ошибка.' );
+                    showModalError( res.data?.message || res.data || 'Ошибка.', ApplicationEnrollmentModal.$modal );
                     $btn.prop( 'disabled', false );
                 }
             } )
             .fail( () => {
-                alert( 'Ошибка соединения.' );
+                showModalError( 'Ошибка соединения.', ApplicationEnrollmentModal.$modal );
                 $btn.prop( 'disabled', false );
             } );
     },
@@ -90,11 +91,11 @@ export const ApplicationEnrollmentModalManager = {
                 if ( res.success ) {
                     this._handleOpen( appId );
                 } else {
-                    alert( res.data?.message || res.data || 'Ошибка.' );
+                    showModalError( res.data?.message || res.data || 'Ошибка.', ApplicationEnrollmentModal.$modal );
                 }
             } )
             .fail( () => {
-                alert( 'Ошибка соединения.' );
+                showModalError( 'Ошибка соединения.', ApplicationEnrollmentModal.$modal );
                 $btn.prop( 'disabled', false );
             } );
     },
@@ -158,12 +159,12 @@ export const ApplicationEnrollmentModalManager = {
                     ApplicationEnrollmentModal.close();
                     location.reload();
                 } else {
-                    alert( res.data?.message || res.data || 'Ошибка зачисления.' );
+                    showModalError( res.data?.message || res.data || 'Ошибка зачисления.', ApplicationEnrollmentModal.$modal );
                     ApplicationEnrollmentModal.setEnrollState( false );
                 }
             } )
             .fail( () => {
-                alert( 'Ошибка соединения.' );
+                showModalError( 'Ошибка соединения.', ApplicationEnrollmentModal.$modal );
                 ApplicationEnrollmentModal.setEnrollState( false );
             } );
     },

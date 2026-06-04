@@ -1,4 +1,5 @@
 import { ApplicationReviewModal } from '../components/application-review-modal.js';
+import { showModalError, clearModalError } from '../modules/utils.js';
 
 const $ = jQuery;
 const appVars = window.fs_lms_applications_vars;
@@ -79,12 +80,12 @@ export const ApplicationReviewModalManager = {
                     ApplicationReviewModal.close();
                     location.reload();
                 } else {
-                    alert( res.data?.message || res.data || 'Ошибка сохранения.' );
+                    showModalError( res.data?.message || res.data || 'Ошибка сохранения.', ApplicationReviewModal.$modal );
                     ApplicationReviewModal.setSaveState( false );
                 }
             } )
             .fail( () => {
-                alert( 'Ошибка соединения.' );
+                showModalError( 'Ошибка соединения.', ApplicationReviewModal.$modal );
                 ApplicationReviewModal.setSaveState( false );
             } );
     },

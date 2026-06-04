@@ -1,4 +1,5 @@
 import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
+import { showModalError } from '../modules/utils.js';
 
 const $ = jQuery;
 
@@ -192,7 +193,7 @@ export const ApplicationEnrollmentModal = {
             if ( $header.attr( 'aria-expanded' ) !== 'true' ) {
                 $header.trigger( 'click' );
             }
-            alert( 'Выберите период, предмет и группу.' );
+            showModalError( 'Выберите период, предмет и группу.', this.$modal );
             return false;
         }
         return true;

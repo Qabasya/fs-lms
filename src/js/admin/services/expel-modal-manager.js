@@ -1,5 +1,5 @@
 import { ExpelModal } from '../components/expel-modal.js';
-import { apiError } from '../modules/utils.js';
+import { apiError, showModalError, clearModalError } from '../modules/utils.js';
 
 const $ = jQuery;
 
@@ -43,12 +43,12 @@ export const ExpelModalManager = {
 
     _doExpel( formData ) {
         if ( ! formData.reason ) {
-            alert( 'Выберите причину отчисления.' );
+            showModalError( 'Выберите причину отчисления.', ExpelModal.$modal );
             return;
         }
 
         if ( formData.is_other_empty ) {
-            alert( 'Уточните конкретнее причину отчисления.' );
+            showModalError( 'Уточните конкретнее причину отчисления.', ExpelModal.$modal );
             return;
         }
 
@@ -65,7 +65,7 @@ export const ExpelModalManager = {
                     ExpelModal.close();
                     $( document ).trigger( 'fs:student:expelled', { studentId: formData.student_id } );
                 } else {
-                    alert( res.data?.message || res.data || 'Ошибка отчисления.' );
+                    showModalError( res.data?.message || res.data || 'Ошибка отчисления.', ExpelModal.$modal );
                     ExpelModal.setSaving( false );
                 }
             } )

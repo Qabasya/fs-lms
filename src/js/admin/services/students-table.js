@@ -1,4 +1,4 @@
-import { apiError } from '../modules/utils.js';
+import { apiError, showNotice } from '../modules/utils.js';
 
 const $ = jQuery;
 
@@ -64,7 +64,7 @@ export const StudentsTable = {
                     if ( res.success ) {
                         onDone( id );
                     } else {
-                        alert( res.data?.message || 'Ошибка отчисления.' );
+                        showNotice( res.data?.message || 'Ошибка отчисления.', 'error', $( '.fs-lms-students' ) );
                         done++;
                     }
                 } )

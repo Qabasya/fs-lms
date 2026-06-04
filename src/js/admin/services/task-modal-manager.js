@@ -1,6 +1,6 @@
 import '../_types.js';
 import {TaskModal} from '../components/task-modal.js';
-import {showNotice} from '../modules/utils.js';
+import { showNotice, showModalError } from '../modules/utils.js';
 
 const $ = jQuery;
 
@@ -67,12 +67,12 @@ export const TaskModalManager = {
         const subject_key = typeof fs_lms_task_data !== 'undefined' ? fs_lms_task_data.subject_key : '';
 
         if (!data.termId) {
-            showNotice('Номер задания обязателен для заполнения', 'error', TaskModal.$modal);
+            showNotice('Номер задания обязателен для заполнения', 'error', TaskModal.$modal.find( '.fs-lms-modal-body' ));
             return;
         }
 
         if (!subject_key || !data.title) {
-            showNotice('Заполните все обязательные поля', 'error', TaskModal.$modal);
+            showNotice('Заполните все обязательные поля', 'error', TaskModal.$modal.find( '.fs-lms-modal-body' ));
             return;
         }
 
@@ -93,12 +93,12 @@ export const TaskModalManager = {
                     TaskModal.close();
                     TaskModal.setSubmitState(false);
                 } else {
-                    alert(res.data);
+                    showNotice(res.data, 'error', TaskModal.$modal.find( '.fs-lms-modal-body' ));
                     TaskModal.setSubmitState(false);
                 }
             })
             .fail(() => {
-                alert('Ошибка сервера при создании задания');
+                showNotice('Ошибка сервера при создании задания', 'error', TaskModal.$modal.find( '.fs-lms-modal-body' ));
                 TaskModal.setSubmitState(false);
             })
             .always(() => {

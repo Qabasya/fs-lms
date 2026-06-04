@@ -87,7 +87,7 @@ export const Boilerplates = {
             if (response.success) {
                 fadeDeleteRow($el.closest('tr'));
             } else {
-                alert('Ошибка: ' + (response.data?.message || response.data || 'Неизвестная ошибка'));
+                showNotice('Ошибка: ' + (response.data?.message || response.data || 'Неизвестная ошибка'), 'error', $el.closest('.wrap'));
             }
         });
     },
