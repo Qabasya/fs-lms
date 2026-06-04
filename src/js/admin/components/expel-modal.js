@@ -14,6 +14,7 @@ export const ExpelModal = {
         if ( ! this.$modal.length ) return;
 
         this._initialized = true;
+        this._bindReasonEvents();
         this._bindEvents();
     },
 
@@ -39,7 +40,7 @@ export const ExpelModal = {
 
         this.$modal.find( 'input[name="student_id"]' ).val( studentId );
         this.$modal.find( '.fs-expel-student-name' ).text( studentName ? `Студент: ${ studentName }` : '' );
-        this.$modal.find( '#expel-reason' ).val( '' );
+        this._resetForm();
         this._setSaving( false );
 
         openModal( this.$modal );
@@ -47,6 +48,7 @@ export const ExpelModal = {
     },
 
     close() {
+        this._resetForm();
         closeModal( this.$modal );
         unbindEsc( 'expel' );
     },
@@ -62,9 +64,32 @@ export const ExpelModal = {
     },
 
     _collectFormData() {
+        const reason = this.$modal.find( '#expel-reason' ).val();
+        const customReason = this.$modal.find( '#expel-custom-reason' ).val().trim();
+
+        const finalReason = reason === 'Другое'
+            ? `Другое: ${ customReason }`
+            : reason;
+
         return {
             student_id: this.$modal.find( 'input[name="student_id"]' ).val(),
-            reason:     $( '#expel-reason' ).val().trim(),
+            reason: finalReason,
+            is_other_empty: reason === 'Другое' && ! customReason,
         };
+    },
+
+    _bindReasonEvents() {
+        this.$modal.find( '#expel-reason' ).on( 'change', ( e ) => {
+            const isOther = e.target.value === 'Другое';
+
+            this.$modal
+                .find( '#fs-expel-custom-reason-wrap' )
+                .prop( 'hidden', ! isOther );
+        } );
+    },
+    _resetForm() {
+        this.$modal.find( '#expel-reason' ).val( '' );
+        this.$modal.find( '#expel-custom-reason' ).val( '' );
+        this.$modal.find( '#fs-expel-custom-reason-wrap' ).prop( 'hidden', true );
     },
 };

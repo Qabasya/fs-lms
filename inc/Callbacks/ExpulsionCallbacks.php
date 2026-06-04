@@ -41,6 +41,11 @@ class ExpulsionCallbacks extends BaseController {
 		$studentId = $this->requireInt( 'student_id', error: 'Не указан ID студента.' );
 		$reason    = $this->sanitizeText( 'reason' );
 
+		if ( '' === $reason ) {
+			$this->error( 'Не указана причина отчисления.' );
+			return;
+		}
+
 		try {
 			$archive = $this->expulsionService->expel( $studentId, $reason );
 			$this->success( array( 'archive_id' => $archive->id ) );

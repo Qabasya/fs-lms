@@ -42,6 +42,11 @@ export const ExpelModalManager = {
     },
 
     _doExpel( formData ) {
+        if ( formData.is_other_empty ) {
+            alert( 'Уточните конкретнее причину отчисления.' );
+            return;
+        }
+
         ExpelModal.setSaving( true );
 
         $.post( fs_lms_vars.ajaxurl, {

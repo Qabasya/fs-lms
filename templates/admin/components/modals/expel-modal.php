@@ -27,10 +27,27 @@
 			<form id="fs-expel-form" autocomplete="off">
 				<input type="hidden" name="student_id" value="">
 
-				<div class="fs-form-group">
-					<label for="expel-reason">Причина отчисления</label>
-					<textarea id="expel-reason" name="reason" rows="3" placeholder="Укажите причину..."></textarea>
-				</div>
+                <div class="fs-form-group">
+                    <label for="expel-reason">Причина отчисления</label>
+
+                    <select id="expel-reason" name="reason">
+                        <option value="">Выберите причину</option>
+                        <option value="Окончание курса">Окончание курса</option>
+                        <option value="Перевод">Перевод</option>
+                        <option value="По собственному желанию">По собственному желанию</option>
+                        <option value="Другое">Другое</option>
+                    </select>
+                </div>
+
+                <div class="fs-form-group" id="fs-expel-custom-reason-wrap" hidden>
+                    <label for="expel-custom-reason">Уточните причину</label>
+                    <textarea
+                            id="expel-custom-reason"
+                            name="custom_reason"
+                            rows="3"
+                            placeholder="Укажите причину..."
+                    ></textarea>
+                </div>
 			</form>
 		</div>
 
