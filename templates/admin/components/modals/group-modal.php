@@ -67,41 +67,36 @@ use Inc\Enums\WeekDay;
 
 				<div class="fs-form-group">
 					<label>Расписание работы группы</label>
-					<div class="fs-schedule-group">
-						<div class="fs-schedule-days">
-							<?php foreach ( WeekDay::cases() as $day ) : ?>
+					<div class="fs-schedule-days">
+						<?php foreach ( WeekDay::cases() as $day ) : ?>
+							<div class="fs-schedule-day-row" data-day="<?php echo esc_attr( $day->value ); ?>">
 								<label class="fs-schedule-day-label">
-									<input type="checkbox" name="schedule_days[]" value="<?php echo esc_attr( $day->value ); ?>">
-									<span><?php echo esc_html( $day->label() ); ?></span>
+									<input type="checkbox" class="js-schedule-day-cb" value="<?php echo esc_attr( $day->value ); ?>">
+									<span><?php echo esc_html( $day->fullLabel() ); ?></span>
 								</label>
-							<?php endforeach; ?>
-						</div>
-						<div class="fs-schedule-times">
-							<div class="fs-schedule-time-field">
-								<label for="schedule-start">Время начала</label>
-								<select id="schedule-start" name="schedule_start">
-									<option value="">-- ЧЧ:ММ --</option>
-									<?php for ( $h = 6; $h <= 22; $h++ ) : ?>
-										<?php foreach ( [ 0, 30 ] as $m ) : ?>
-											<?php $t = sprintf( '%02d:%02d', $h, $m ); ?>
-											<option value="<?php echo esc_attr( $t ); ?>"><?php echo esc_html( $t ); ?></option>
-										<?php endforeach; ?>
-									<?php endfor; ?>
-								</select>
+								<div class="fs-schedule-day-times hidden">
+									<select class="js-day-start">
+										<option value="">ЧЧ:ММ</option>
+										<?php for ( $h = 6; $h <= 22; $h++ ) : ?>
+											<?php foreach ( [ 0, 30 ] as $m ) : ?>
+												<?php $t = sprintf( '%02d:%02d', $h, $m ); ?>
+												<option value="<?php echo esc_attr( $t ); ?>"><?php echo esc_html( $t ); ?></option>
+											<?php endforeach; ?>
+										<?php endfor; ?>
+									</select>
+									<span class="fs-schedule-separator">—</span>
+									<select class="js-day-end">
+										<option value="">ЧЧ:ММ</option>
+										<?php for ( $h = 6; $h <= 23; $h++ ) : ?>
+											<?php foreach ( [ 0, 30 ] as $m ) : ?>
+												<?php $t = sprintf( '%02d:%02d', $h, $m ); ?>
+												<option value="<?php echo esc_attr( $t ); ?>"><?php echo esc_html( $t ); ?></option>
+											<?php endforeach; ?>
+										<?php endfor; ?>
+									</select>
+								</div>
 							</div>
-							<div class="fs-schedule-time-field">
-								<label for="schedule-end">Время окончания</label>
-								<select id="schedule-end" name="schedule_end">
-									<option value="">-- ЧЧ:ММ --</option>
-									<?php for ( $h = 6; $h <= 23; $h++ ) : ?>
-										<?php foreach ( [ 0, 30 ] as $m ) : ?>
-											<?php $t = sprintf( '%02d:%02d', $h, $m ); ?>
-											<option value="<?php echo esc_attr( $t ); ?>"><?php echo esc_html( $t ); ?></option>
-										<?php endforeach; ?>
-									<?php endfor; ?>
-								</select>
-							</div>
-						</div>
+						<?php endforeach; ?>
 					</div>
 				</div>
 

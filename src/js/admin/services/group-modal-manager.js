@@ -38,9 +38,7 @@ export const GroupModalManager = {
             period_id:      formData.period_id,
             subject_id:     formData.subject_id,
             teacher_id:     formData.teacher_id,
-            schedule_days:  formData.schedule_days,
-            schedule_start: formData.schedule_start,
-            schedule_end:   formData.schedule_end,
+            schedule_json:  formData.schedule_json,
         })
             .done((res) => {
                 if (res.success) {

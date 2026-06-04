@@ -14,8 +14,6 @@ export const GroupModal = {
     $teacherSelect: null,
     $actionInput: null,
     $groupIdInput: null,
-    $scheduleStart: null,
-    $scheduleEnd: null,
 
     $saveBtn: null,
     $titleEl: null,
@@ -36,8 +34,6 @@ export const GroupModal = {
         this.$periodSelect  = $('#group-period');
         this.$subjectSelect = $('#group-subject');
         this.$teacherSelect = $('#group-teacher');
-        this.$scheduleStart = $('#schedule-start');
-        this.$scheduleEnd   = $('#schedule-end');
 
         this.$actionInput  = this.$modal.find('input[name="action_type"]');
         this.$groupIdInput = this.$modal.find('input[name="id"]');
@@ -57,6 +53,12 @@ export const GroupModal = {
             if (/[a-zA-Zа-яёА-ЯЁ\d]/.test(this.$titleInput.val())) {
                 this.$titleInput[0].setCustomValidity('');
             }
+        });
+
+        this.$modal.on('change.fs', '.js-schedule-day-cb', (e) => {
+            const $cb  = $(e.currentTarget);
+            const $row = $cb.closest('.fs-schedule-day-row');
+            $row.find('.fs-schedule-day-times').toggleClass('hidden', !$cb.prop('checked'));
         });
 
         this.$form.on('submit.fs', (e) => {
@@ -88,7 +90,7 @@ export const GroupModal = {
             this.$periodSelect.val(data.period_id ?? '').trigger('change');
             this.$subjectSelect.val(data.subject_id ?? '').trigger('change');
             this.$teacherSelect.val(data.teacher_id ?? '').trigger('change');
-            this._restoreSchedule(data.schedule ?? {});
+            this._restoreSchedule(data.schedule ?? []);
         } else {
             this._resetForm();
         }
@@ -136,36 +138,47 @@ export const GroupModal = {
         this.$titleInput[0].setCustomValidity('');
         if (this.$groupIdInput.length) this.$groupIdInput.val('');
         if (this.$actionInput.length) this.$actionInput.val('add');
+        this.$modal.find('.fs-schedule-day-times').addClass('hidden');
     },
 
     _restoreSchedule(schedule) {
-        this.$modal.find('input[name="schedule_days[]"]').prop('checked', false);
+        this.$modal.find('.js-schedule-day-cb').prop('checked', false);
+        this.$modal.find('.fs-schedule-day-times').addClass('hidden');
 
-        const days = Array.isArray(schedule.days) ? schedule.days : [];
-        days.forEach((day) => {
-            this.$modal.find(`input[name="schedule_days[]"][value="${day}"]`).prop('checked', true);
+        const entries = Array.isArray(schedule) ? schedule : [];
+
+        entries.forEach(({ day, start, end }) => {
+            const $row = this.$modal.find(`.fs-schedule-day-row[data-day="${day}"]`);
+            if (!$row.length) return;
+            $row.find('.js-schedule-day-cb').prop('checked', true);
+            $row.find('.js-day-start').val(start || '');
+            $row.find('.js-day-end').val(end || '');
+            $row.find('.fs-schedule-day-times').removeClass('hidden');
         });
-
-        this.$scheduleStart.val(schedule.start ?? '');
-        this.$scheduleEnd.val(schedule.end ?? '');
     },
 
     _collectFormData() {
-        const scheduleDays = this.$modal
-            .find('input[name="schedule_days[]"]:checked')
-            .map((_, el) => el.value)
-            .get();
+        const schedule = [];
+
+        this.$modal.find('.fs-schedule-day-row').each((_, row) => {
+            const $row = $(row);
+            const $cb  = $row.find('.js-schedule-day-cb');
+            if (!$cb.prop('checked')) return;
+            schedule.push({
+                day:   $cb.val(),
+                start: $row.find('.js-day-start').val() || '',
+                end:   $row.find('.js-day-end').val()   || '',
+            });
+        });
 
         return {
-            action_type:    this.$actionInput.length ? this.$actionInput.val() : 'add',
-            id:             this.$groupIdInput.length ? this.$groupIdInput.val() : '',
-            title:          this.$titleInput.val().trim(),
-            period_id:      this.$periodSelect.val(),
-            subject_id:     this.$subjectSelect.val(),
-            teacher_id:     this.$teacherSelect.val(),
-            schedule_days:  scheduleDays,
-            schedule_start: this.$scheduleStart.val(),
-            schedule_end:   this.$scheduleEnd.val(),
+            action_type:   this.$actionInput.length ? this.$actionInput.val() : 'add',
+            id:            this.$groupIdInput.length ? this.$groupIdInput.val() : '',
+            title:         this.$titleInput.val().trim(),
+            period_id:     this.$periodSelect.val(),
+            subject_id:    this.$subjectSelect.val(),
+            teacher_id:    this.$teacherSelect.val(),
+            schedule_json: JSON.stringify(schedule),
         };
     },
 };
