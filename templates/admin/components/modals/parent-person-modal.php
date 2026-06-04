@@ -86,6 +86,13 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
+					<label><?php esc_html_e( 'Выдан', 'fs-lms' ); ?></label>
+					<input type="text" class="fs-person-field fs-person-pii large-text" data-field="doc_issued" data-no-edit readonly>
+				</div>
+			</div>
+
+			<div class="fs-form-row">
+				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Документ ребёнка', 'fs-lms' ); ?></label>
 					<input type="text" class="fs-person-field regular-text" data-field="child_doc_number" readonly>
 				</div>

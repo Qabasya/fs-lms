@@ -98,6 +98,7 @@ export const ParentPersonModalManager = {
                 inn:        pii.inn        || '',
                 address:    pii.address    || '',
                 password:   pii.password   || '',
+                doc_issued: pii.doc_issued || '',
             } );
         } );
     },

@@ -345,9 +345,10 @@ class PiiCallbacks extends BaseController {
 			}
 		}
 
-		$personIds   = $isStudent ? array( $personId ) : array_column( $dependents, 'student_person_id' );
-		$enrollments = array();
-		$nameMap     = array_column( $dependents, 'name', 'student_person_id' );
+		$personIds     = $isStudent ? array( $personId ) : array_column( $dependents, 'student_person_id' );
+		$enrollments   = array();
+		$nameMap       = array_column( $dependents, 'name', 'student_person_id' );
+		$docIssuedStr  = '';
 
 		foreach ( $personIds as $pid ) {
 			foreach ( $this->enrollmentRepository->findByStudent( $pid ) as $enr ) {
@@ -362,6 +363,14 @@ class PiiCallbacks extends BaseController {
 				}
 				$sd = $snapshot['student']  ?? array();
 				$gd = $snapshot['guardian'] ?? array();
+
+				if ( $isParent && $docIssuedStr === '' ) {
+					$by   = trim( (string) ( $gd['doc_issued_by']   ?? '' ) );
+					$date = trim( (string) ( $gd['doc_issued_date'] ?? '' ) );
+					if ( $by !== '' || $date !== '' ) {
+						$docIssuedStr = $by . ( $date !== '' ? ' ' . $date : '' );
+					}
+				}
 
 				$enrollments[] = array(
 					'student_name'      => $isParent ? ( $nameMap[ $pid ] ?? "#{$pid}" ) : null,
@@ -392,6 +401,11 @@ class PiiCallbacks extends BaseController {
 
 		$credentials = $person->wpUserId ? $this->passwordGenerator->getCredentials( $person->wpUserId ) : null;
 
+		$maskedPii = $this->getMaskedPersonPii( $personId );
+		if ( $isParent ) {
+			$maskedPii['doc_issued'] = $docIssuedStr !== '' ? '•••••• от ••.••.••••' : '';
+		}
+
 		$this->success( array(
 			'type'            => $type,
 			'wp_user_id'      => $person->wpUserId ?? 0,
@@ -399,7 +413,7 @@ class PiiCallbacks extends BaseController {
 			'login'           => $wpUser ? $wpUser->user_login : '',
 			'email'           => $wpUser ? $wpUser->user_email : '',
 			'password'        => $credentials['password'] ?? '',
-			'masked_pii'      => $this->getMaskedPersonPii( $personId ),
+			'masked_pii'      => $maskedPii,
 			'representatives' => $representatives,
 			'dependents'      => $dependents,
 			'enrollments'     => $enrollments,
@@ -427,15 +441,45 @@ class PiiCallbacks extends BaseController {
 				array( 'doc_number', 'inn', 'address', 'phone' ),
 				$reason
 			);
-			$this->success( array(
+
+			$payload = array(
 				'doc_number' => $dto->pass,
 				'inn'        => $dto->inn,
 				'address'    => $dto->address,
 				'phone'      => $dto->phone,
-			) );
+			);
+
+			$docIssued = $this->getDocIssuedFromSnapshot( $personId );
+			if ( $docIssued !== '' ) {
+				$payload['doc_issued'] = $docIssued;
+			}
+
+			$this->success( $payload );
 		} catch ( \RuntimeException $e ) {
 			$this->error( $e->getMessage() );
 		}
+	}
+
+	private function getDocIssuedFromSnapshot( int $personId ): string {
+		foreach ( $this->relationshipService->getActiveDependents( $personId ) as $rel ) {
+			foreach ( $this->enrollmentRepository->findByStudent( $rel->studentPersonId ) as $enr ) {
+				if ( empty( $enr->snapshotEnc ) ) {
+					continue;
+				}
+				try {
+					$snapshot = json_decode( $this->crypto->decrypt( $enr->snapshotEnc ), true ) ?? array();
+				} catch ( \Throwable ) {
+					continue;
+				}
+				$gd   = $snapshot['guardian'] ?? array();
+				$by   = trim( (string) ( $gd['doc_issued_by']   ?? '' ) );
+				$date = trim( (string) ( $gd['doc_issued_date'] ?? '' ) );
+				if ( $by !== '' || $date !== '' ) {
+					return $by . ( $date !== '' ? ' от ' . $date : '' );
+				}
+			}
+		}
+		return '';
 	}
 
 	/**
