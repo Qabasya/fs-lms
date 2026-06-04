@@ -206,7 +206,7 @@ add_action('admin_init', function() {
 
 ## 4. Журналы в админке
 
-### 4.1 Страница «Журнал действий»
+### 4.1 Таб «Журнал действий»
 
 Подменю FS LMS, доступна по `Capability::ManageApplications`.
 
@@ -214,7 +214,7 @@ add_action('admin_init', function() {
 Фильтры: action, target_type, actor, date range.  
 Данные: `AuditLogRepository::listByTarget()` / `listByActor()`.
 
-### 4.2 Страница «Журнал доступа к ПД»
+### 4.2 Таб «Журнал доступа к ПД»
 
 Доступна только по `Capability::ExportPII`.
 

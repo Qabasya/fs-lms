@@ -4,6 +4,7 @@
  * Глобальные переменные: fs_lms_join_vars (локализуются в Enqueue.php)
  */
 import { initFormValidation } from '../../common/validation-manager.js';
+import { initDadataAddress } from './dadata-address.js';
 
 let validateAll = null;
 
@@ -291,6 +292,7 @@ export function initJoinForm() {
     initPhoneMasks();
     initStudentDocType();
     initParentDocType();
+    initDadataAddress( vars.dadata_token ?? '' );
 
     form.addEventListener( 'submit', handleJoinSubmit );
 }

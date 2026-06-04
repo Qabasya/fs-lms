@@ -410,7 +410,6 @@ ThemeCompatService::header();
                         >
                     </div>
 
-                    <!-- TODO: добавить автозаполнение через DaData -->
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_address"><?php esc_html_e( 'Адрес регистрации', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
                         <span class="dashicons dashicons-location" aria-hidden="true"></span>
@@ -421,7 +420,7 @@ ThemeCompatService::header();
                                 placeholder="<?php esc_attr_e( 'Адрес регистрации (по паспорту)', 'fs-lms' ); ?>"
                                 required
                                 aria-required="true"
-                                autocomplete="street-address"
+                                autocomplete="off"
                                 autocapitalize="sentences"
                                 minlength="5"
                                 data-validate="address"

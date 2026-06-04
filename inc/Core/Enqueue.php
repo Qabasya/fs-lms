@@ -267,11 +267,12 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'fs-lms-frontend-script',
 				'fs_lms_join_vars',
 				array(
-					'ajax_url' => admin_url( 'admin-ajax.php' ),
-					'actions'  => array(
+					'ajax_url'     => admin_url( 'admin-ajax.php' ),
+					'dadata_token' => defined( 'DADATA_API_TOKEN' ) ? DADATA_API_TOKEN : '',
+					'actions'      => array(
 						'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
 					),
-					'nonces'   => array(
+					'nonces'       => array(
 						'parent_submit' => Nonce::ParentSubmit->create(),
 					),
 				)
