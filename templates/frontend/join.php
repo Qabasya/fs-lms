@@ -46,6 +46,7 @@ ThemeCompatService::header();
 					<legend class="fs-join-card__section-title"><?php esc_html_e( '1. Данные ученика', 'fs-lms' ); ?></legend>
 
 					<div class="fs-join-card__field-group">
+                        <label for="student_last_name">Фамилия:</label>
 						<span class="dashicons dashicons-admin-users"></span>
 						<input type="text" name="student_last_name" id="fs_student_last_name"
 								value="<?php echo esc_attr( $student_data->lastName ?? '' ); ?>"
@@ -53,6 +54,7 @@ ThemeCompatService::header();
 					</div>
 
 					<div class="fs-join-card__field-group">
+                        <label for="student_first_name">Имя:</label>
 						<span class="dashicons dashicons-admin-users"></span>
 						<input type="text" name="student_first_name" id="fs_student_first_name"
 								value="<?php echo esc_attr( $student_data->firstName ?? '' ); ?>"
@@ -60,6 +62,7 @@ ThemeCompatService::header();
 					</div>
 
 					<div class="fs-join-card__field-group">
+                        <label for="student_middle_name">Отчество:</label>
 						<span class="dashicons dashicons-admin-users"></span>
 						<input type="text" name="student_middle_name" id="fs_student_middle_name"
 								value="<?php echo esc_attr( $student_data->middleName ?? '' ); ?>"
@@ -67,6 +70,7 @@ ThemeCompatService::header();
 					</div>
 
 					<div class="fs-join-card__field-group">
+                        <label for="fs_school">Школа:</label>
 						<span class="dashicons dashicons-welcome-learn-more"></span>
 						<input type="text" name="school" id="fs_school"
 								value="<?php echo esc_attr( $student_data->school ?? '' ); ?>"
@@ -74,6 +78,7 @@ ThemeCompatService::header();
 					</div>
 
 					<div class="fs-join-card__field-group">
+                        <label for="fs_grade">Класс:</label>
 						<span class="dashicons dashicons-list-view"></span>
 						<select name="grade" id="fs_grade" required>
 							<option value=""><?php esc_html_e( 'Класс', 'fs-lms' ); ?></option>
@@ -89,6 +94,7 @@ ThemeCompatService::header();
 					</div>
 
 					<div class="fs-join-card__field-group">
+                        <label for="fs_birth_date">Дата рождения:</label>
 						<span class="dashicons dashicons-calendar-alt"></span>
 						<input type="date" name="student_birth_date" id="fs_birth_date"
 								value="<?php echo esc_attr( $student_data->birthDate ?? '' ); ?>" required
@@ -96,6 +102,7 @@ ThemeCompatService::header();
 					</div>
 
 					<div class="fs-join-card__field-group">
+                        <label for="fs_phone">Номер телефона:</label>
 						<span class="dashicons dashicons-phone"></span>
 						<input type="tel" name="student_phone" id="fs_phone"
 							value="<?php echo esc_attr( $student_data->phone ?? '' ); ?>"
@@ -103,19 +110,30 @@ ThemeCompatService::header();
 					</div>
 
 					<div class="fs-join-card__field-group">
+                        <label for="fs_phone">Тип документа:</label>
 						<span class="dashicons dashicons-media-document"></span>
-						<select name="student_doc_type" id="fs_student_doc_type" required>
-							<option value="" disabled selected><?php esc_html_e( 'Тип документа ученика', 'fs-lms' ); ?></option>
-							<option value="birth_certificate"><?php esc_html_e( 'Свидетельство о рождении', 'fs-lms' ); ?></option>
-							<option value="pass"><?php esc_html_e( 'Паспорт', 'fs-lms' ); ?></option>
-						</select>
+                        <select name="student_doc_type" id="fs_student_doc_type" required>
+                            <option value="passport" selected>Паспорт</option>
+                            <option value="birth_certificate">Свидетельство о рождении</option>
+                        </select>
 					</div>
 
-					<div class="fs-join-card__field-group">
-						<span class="dashicons dashicons-vicious"></span>
-						<input type="text" name="student_doc_number" id="fs_student_doc_number"
-								placeholder="<?php esc_attr_e( 'Серия и номер документа', 'fs-lms' ); ?>" required>
-					</div>
+                    <div class="fs-join-card__field-group">
+                        <label for="fs_student_doc_number" id="fs_student_doc_number_label">
+                            Данные паспорта
+                        </label>
+
+                        <span class="dashicons dashicons-vicious"></span>
+
+                        <input
+                                type="text"
+                                name="student_doc_number"
+                                id="fs_student_doc_number"
+                                placeholder="XXXX-YYYYYY"
+                                data-validate="passportSN"
+                                required
+                        >
+                    </div>
 
 					<div class="fs-join-card__field-group">
 						<span class="dashicons dashicons-awards"></span>

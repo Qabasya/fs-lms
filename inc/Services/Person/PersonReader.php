@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Person;
 
+use Inc\Contracts\ClockInterface;
 use Inc\DTO\PersonDecryptedDTO;
 use Inc\DTO\PiiAccessLogInputDTO;
 use Inc\Managers\UserManager;
@@ -72,6 +73,7 @@ readonly class PersonReader {
 		private PiiCryptoService      $crypto,
 		private PiiAccessLogRepository $piiAccessLogRepository,
 		private UserManager           $userManager,
+		private ClockInterface        $clock,
 	) {}
 
 	/**
@@ -189,7 +191,7 @@ readonly class PersonReader {
 			fieldsAccessed: implode( ',', $fields ),
 			accessReason:   $reason,
 			actorIp:        $ctx->ip,
-			createdAt:      current_time( 'mysql', true ),
+			createdAt:      $this->clock->now( 'mysql', true ),
 		) );
 	}
 }

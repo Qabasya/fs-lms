@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Person;
 
+use Inc\Contracts\ClockInterface;
 use Inc\DTO\PersonInputDTO;
 use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
@@ -66,6 +67,7 @@ readonly class PersonService {
 		private PersonRepository $personRepository,
 		private PiiCryptoService $crypto,
 		private AuditService     $auditService,
+		private ClockInterface   $clock,
 	) {}
 
 	/**
@@ -154,7 +156,7 @@ readonly class PersonService {
 			return;
 		}
 
-		$data['updated_at'] = current_time( 'mysql', true );
+		$data['updated_at'] = $this->clock->now( 'mysql', true );
 
 		$this->personRepository->update( $personId, $data );
 
@@ -248,7 +250,7 @@ readonly class PersonService {
 			$data['wp_user_id'] = (int) $rawData['wp_user_id'];
 		}
 
-		$now               = current_time( 'mysql', true );
+		$now               = $this->clock->now( 'mysql', true );
 		$data['created_at'] = $now;
 		$data['updated_at'] = $now;
 

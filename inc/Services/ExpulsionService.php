@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services;
 
+use Inc\Contracts\ClockInterface;
 use Inc\DTO\ExpelledArchiveDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\EnrollmentStatus;
@@ -39,6 +40,7 @@ readonly class ExpulsionService {
 		private AuditService                $auditService,
 		private PiiCryptoService            $crypto,
 		private UserManager                 $userManager,
+		private ClockInterface              $clock,
 	) {}
 
 	/**
@@ -74,7 +76,7 @@ readonly class ExpulsionService {
 		$dataEnc      = $this->crypto->encrypt( wp_json_encode( $snapshotData ) );
 
 		// 5. Создать архивную запись
-		$now        = current_time( 'mysql', true );
+		$now        = $this->clock->now( 'mysql', true );
 		$actorId    = get_current_user_id() ?: null;
 		$archiveId  = $this->archiveRepository->create( array(
 			'enrollment_id'       => $enrollment?->id,

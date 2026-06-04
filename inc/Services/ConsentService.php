@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services;
 
+use Inc\Contracts\ClockInterface;
 use Inc\DTO\RequestContextDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\ConsentType;
@@ -52,6 +53,7 @@ readonly class ConsentService {
 		private AuditService            $auditService,
 		private PostManager             $postManager,
 		private ConsentOptionsRepository $consentOptions,
+		private ClockInterface          $clock,
 	) {}
 
 	/**
@@ -121,7 +123,7 @@ readonly class ConsentService {
 
 		$this->consentOptions->savePageMeta( array(
 			'hash'       => hash( 'sha256', $post->post_content ),
-			'updated_at' => current_time( 'c', true ),
+			'updated_at' => $this->clock->now( 'c', true ),
 		) );
 	}
 
@@ -141,7 +143,7 @@ readonly class ConsentService {
 			'document_hash'        => $version,
 			'ip_address'           => $ctx->ip,
 			'user_agent'           => $ctx->userAgent,
-			'accepted_at'          => current_time( 'mysql', true ),
+			'accepted_at'          => $this->clock->now( 'mysql', true ),
 			'signed_for_person_id' => null,
 		) );
 
@@ -176,7 +178,7 @@ readonly class ConsentService {
 			'document_hash'        => $version,
 			'ip_address'           => $ctx->ip,
 			'user_agent'           => $ctx->userAgent,
-			'accepted_at'          => current_time( 'mysql', true ),
+			'accepted_at'          => $this->clock->now( 'mysql', true ),
 			'signed_for_person_id' => $forPersonId,
 		) );
 

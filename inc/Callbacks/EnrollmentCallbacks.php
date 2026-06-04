@@ -88,10 +88,10 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		// Получение и санитизация параметров фильтрации
-		$status   = sanitize_key( $_GET['status'] ?? '' );
-		$dateFrom = sanitize_text_field( $_GET['date_from'] ?? '' );
-		$dateTo   = sanitize_text_field( $_GET['date_to'] ?? '' );
-		$page     = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+		$status   = $this->sanitizeText( 'status', 'GET' );
+		$dateFrom = $this->sanitizeText( 'date_from', 'GET' );
+		$dateTo   = $this->sanitizeText( 'date_to', 'GET' );
+		$page     = max( 1, $this->sanitizeInt( 'paged', 'GET' ) );
 
 		$filters = array_filter( array(
 			'status'    => $status ?: null,
@@ -594,7 +594,7 @@ class EnrollmentCallbacks extends BaseController {
 				$count++;
 			} catch ( \Throwable $e ) {
 				// Логируем, но не останавливаем цикл
-				error_log( '[FS LMS] EmptyTrash: не удалось удалить заявку #' . $app->id . ': ' . $e->getMessage() );
+				trigger_error( '[FS LMS] EmptyTrash: не удалось удалить заявку #' . $app->id . ': ' . $e->getMessage(), E_USER_WARNING );
 			}
 		}
 

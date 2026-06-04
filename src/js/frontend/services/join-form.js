@@ -3,6 +3,7 @@
  *
  * Глобальные переменные: fs_lms_join_vars (локализуются в Enqueue.php)
  */
+import { initFormValidation } from '../../common/validation-manager.js';
 
 /** @type {{ ajax_url: string, actions: { submit_parent: string }, nonces: { parent_submit: string } }} */
 const vars = window.fs_lms_join_vars;
@@ -43,6 +44,49 @@ function setLoading( btn, loading ) {
     btn.disabled    = loading;
     btn.textContent = loading ? 'Отправка...' : btn._origText;
 }
+
+function initStudentDocumentType() {
+    const typeField   = document.getElementById('fs_student_doc_type');
+    const numberField = document.getElementById('fs_student_doc_number');
+    const label       = document.getElementById('fs_student_doc_number_label');
+
+    if (!typeField || !numberField || !label) {
+        return;
+    }
+
+    const applyState = () => {
+        if (typeField.value === 'passport') {
+            label.textContent = 'Данные паспорта';
+            numberField.placeholder = 'XXXX-YYYYYY';
+            numberField.dataset.validate = 'passportSN';
+        } else {
+            label.textContent = 'Данные свидетельства о рождении';
+            numberField.placeholder = 'Серия и номер свидетельства';
+            delete numberField.dataset.validate;
+        }
+
+        numberField.value = '';
+    };
+
+    typeField.addEventListener('change', applyState);
+    applyState();
+}
+
+numberField.addEventListener('input', () => {
+    if (typeField.value !== 'passport') {
+        return;
+    }
+
+    let value = numberField.value.replace(/\D/g, '');
+
+    value = value.substring(0, 10);
+
+    if (value.length > 4) {
+        value = value.substring(0, 4) + '-' + value.substring(4);
+    }
+
+    numberField.value = value;
+});
 
 // ── Сбор данных ──────────────────────────────────────────────────────────────
 
@@ -144,9 +188,17 @@ async function handleJoinSubmit( e ) {
 // ── Инициализация ─────────────────────────────────────────────────────────────
 
 export function initJoinForm() {
-    if ( ! window.fs_lms_join_vars ) { return; }
-    if ( ! document.getElementById( 'fs-lms-join-form' ) ) { return; }
+    if (!window.fs_lms_join_vars) {
+        return;
+    }
 
-    document.getElementById( 'fs-lms-join-form' )
-        .addEventListener( 'submit', handleJoinSubmit );
+    if (!document.getElementById('fs-lms-join-form')) {
+        return;
+    }
+
+    initStudentDocumentType();
+
+    document
+        .getElementById('fs-lms-join-form')
+        .addEventListener('submit', handleJoinSubmit);
 }

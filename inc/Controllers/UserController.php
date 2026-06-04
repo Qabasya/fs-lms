@@ -6,7 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Core\BaseController;
 use Inc\Contracts\ServiceInterface;
-use Inc\Managers\UserManager;
+use Inc\Managers\UserBehaviorManager;
 
 /**
  * Class UserController
@@ -29,24 +29,24 @@ use Inc\Managers\UserManager;
 class UserController extends BaseController implements ServiceInterface {
 
 	public function __construct(
-		private readonly UserManager $user_manager,
+		private readonly UserBehaviorManager $user_behavior,
 	) {
 		parent::__construct();
 	}
 
 	public function register(): void {
-		add_action( 'admin_init', array( $this->user_manager, 'restrictAdminAccess' ) );
-		add_action( 'profile_update', array( $this->user_manager, 'clearEncryptedPasswordIfChanged' ), 10, 2 );
+		add_action( 'admin_init', array( $this->user_behavior, 'restrictAdminAccess' ) );
+		add_action( 'profile_update', array( $this->user_behavior, 'clearEncryptedPasswordIfChanged' ), 10, 2 );
 
-		add_filter( 'login_redirect', array( $this->user_manager, 'resolveLoginRedirect' ), 10, 3 );
+		add_filter( 'login_redirect', array( $this->user_behavior, 'resolveLoginRedirect' ), 10, 3 );
 
-		add_filter( 'ajax_query_attachments_args', array( $this->user_manager, 'getMediaFilterArgs' ) );
+		add_filter( 'ajax_query_attachments_args', array( $this->user_behavior, 'getMediaFilterArgs' ) );
 
 		add_filter(
 			'request',
 			function ( $query ) {
 				if ( isset( $query['post_type'] ) && 'attachment' === $query['post_type'] ) {
-					return $this->user_manager->getMediaFilterArgs( $query );
+					return $this->user_behavior->getMediaFilterArgs( $query );
 				}
 				return $query;
 			}

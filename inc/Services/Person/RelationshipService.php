@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Person;
 
+use Inc\Contracts\ClockInterface;
 use Inc\DTO\RelationshipDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\RelationType;
@@ -51,6 +52,7 @@ class RelationshipService {
 		private readonly RelationshipRepository $relationshipRepository,
 		private readonly AuditService           $auditService,
 		private readonly UserManager            $userManager,
+		private readonly ClockInterface         $clock,
 	) {}
 
 	/**
@@ -72,14 +74,14 @@ class RelationshipService {
 		RelationType $type,
 		bool         $isPrimary,
 	): int {
-		$today = current_time( 'Y-m-d' );
+		$today = $this->clock->now( 'Y-m-d' );
 
 		$id = $this->relationshipRepository->createIfNotExists( array(
 			'guardian_person_id' => $guardianPersonId,
 			'student_person_id'  => $studentPersonId,
 			'relation_type'      => $type->value,
 			'valid_from'         => $today,
-			'created_at'         => current_time( 'mysql', true ),
+			'created_at'         => $this->clock->now( 'mysql', true ),
 		) );
 
 		$this->auditService->record(
@@ -123,7 +125,7 @@ class RelationshipService {
 		}
 
 		$studentPersonId = $old->studentPersonId;
-		$today           = current_time( 'Y-m-d' );
+		$today           = $this->clock->now( 'Y-m-d' );
 
 		$newId = $this->inTransaction( function () use ( $oldRelationshipId, $newGuardianPersonId, $newType, $studentPersonId, $today ): int {
 			$this->relationshipRepository->terminate( $oldRelationshipId, $today );
@@ -133,7 +135,7 @@ class RelationshipService {
 				'student_person_id'  => $studentPersonId,
 				'relation_type'      => $newType->value,
 				'valid_from'         => $today,
-				'created_at'         => current_time( 'mysql', true ),
+				'created_at'         => $this->clock->now( 'mysql', true ),
 			) );
 		} );
 

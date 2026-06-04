@@ -33,6 +33,10 @@ class Container {
 	 */
 	private array $instances = [];
 
+	public function bind( string $abstract, string $concrete ): void {
+		$this->instances[ $abstract ] = $this->get( $concrete );
+	}
+
 	/**
 	 * Создаёт экземпляр класса с автоматическим внедрением зависимостей.
 	 *
