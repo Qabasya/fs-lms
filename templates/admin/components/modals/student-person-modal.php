@@ -120,7 +120,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<button type="button" class="button js-pmm-close"><?php esc_html_e( 'Закрыть', 'fs-lms' ); ?></button>
 			<button type="button" class="button js-pmm-edit"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></button>
 			<button type="button" class="button js-pmm-export"><?php esc_html_e( 'Экспорт', 'fs-lms' ); ?></button>
-			<button type="button" class="button button-link-delete js-pmm-delete"><?php esc_html_e( 'Удалить', 'fs-lms' ); ?></button>
+			<button type="button" class="button button-link-delete js-expel-student" data-expel-student-id="" data-expel-student-name=""><?php esc_html_e( 'Отчислить', 'fs-lms' ); ?></button>
 		</div>
 	</div>
 </div>

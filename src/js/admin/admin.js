@@ -23,6 +23,7 @@ import { StudentPersonModalManager } from './services/student-person-modal-manag
 import { ParentPersonModalManager } from './services/parent-person-modal-manager.js';
 // import { PersonDetail } from './services/person-detail.js';
 import { ExpelModalManager } from './services/expel-modal-manager.js';
+import { StudentsTable } from './services/students-table.js';
 
 (function ($) {
     'use strict';
@@ -77,6 +78,8 @@ import { ExpelModalManager } from './services/expel-modal-manager.js';
             ApplicationEnrollmentModalManager.init();
             ApplicationViewModal.init();
         }
+
+        if ( $( '.fs-lms-students' ).length ) { StudentsTable.init(); }
 
         if ( document.querySelector( '.fs-lms-students' ) ) {
             StudentPersonModalManager.init();

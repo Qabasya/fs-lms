@@ -42,10 +42,22 @@ $pages       = (int) ceil( $total / $perPage );
 
 <div class="fs-lms-students">
 
+	<div class="tablenav top fs-students-bulk-bar">
+		<div class="alignleft actions bulkactions">
+			<label for="js-bulk-action" class="screen-reader-text">Выберите действие</label>
+			<select id="js-bulk-action">
+				<option value="">— Массовые действия —</option>
+				<option value="expel">Отчислить</option>
+			</select>
+			<button type="button" id="js-bulk-apply" class="button action">Применить</button>
+		</div>
+	</div>
+
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 
 		<thead>
 		<tr>
+			<th class="column-cb check-column"><input type="checkbox" id="js-select-all-students"></th>
 			<th class="column-title column-primary">
 				<?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?>
 			</th>
@@ -73,7 +85,7 @@ $pages       = (int) ceil( $total / $perPage );
 		<tbody id="the-list">
 		<?php if ( empty( $enrollments ) ) : ?>
 			<tr>
-				<td colspan="7">
+				<td colspan="8">
 					<div class="notice notice-info inline fs-table__no-items">
 						<p><?php esc_html_e( 'Зачисленных учеников пока нет.', 'fs-lms' ); ?></p>
 					</div>
@@ -165,7 +177,9 @@ $pages       = (int) ceil( $total / $perPage );
 					'guardian_address'         => $gd['address']         ?? '',
 				);
 			?>
-			<tr data-enrollment="<?php echo esc_attr( (string) wp_json_encode( $enrollmentData ) ); ?>">
+			<tr data-enrollment="<?php echo esc_attr( (string) wp_json_encode( $enrollmentData ) ); ?>" data-wp-user-id="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>">
+
+				<td class="check-column"><input type="checkbox" class="js-student-cb" value="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>" data-student-name="<?php echo esc_attr( $studentName ); ?>"></td>
 
 				<td class="column-title">
 					<?php echo esc_html( $studentName ); ?>
