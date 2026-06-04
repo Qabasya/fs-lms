@@ -2083,7 +2083,7 @@ src/js/common/
 ├── validators/
 │   ├── BaseValidator.js                 — базовый класс; нативные HTML5-атрибуты (required, minlength, email, pattern)
 │   ├── PhoneValidator.js                — телефон: +7(999)-000-00-00
-│   ├── CyrillicValidator.js             — кириллица, пробелы, дефис
+│   ├── AddressValidator.js             — кириллица, пробелы, дефис
 │   ├── CyrillicNameValidator.js         — кириллица, пробелы, дефис + минимум 2 слова
 │   ├── LatinOnlyValidator.js            — латиница, цифры, подчёркивание
 │   ├── PassportSeriesNumberValidator.js — серия и номер паспорта: XXXX XXXXXX
