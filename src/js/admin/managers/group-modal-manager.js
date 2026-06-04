@@ -5,8 +5,8 @@ import {
     showNotice,
     showModalError,
 } from '../modules/utils.js';
-import { ConfirmModal } from '../components/confirm-modal.js';
-import { GroupModal } from '../components/group-modal';
+import { ConfirmModal } from '../modals/confirm-modal.js';
+import { GroupModal } from '../modals/group-modal';
 
 const $ = jQuery;
 

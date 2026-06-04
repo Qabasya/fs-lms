@@ -1,4 +1,4 @@
-import { HelpModal } from '../components/help-modal.js';
+import { HelpModal } from '../modals/help-modal.js';
 
 const $ = jQuery;
 

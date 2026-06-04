@@ -1,4 +1,4 @@
-import { ApplicationModal } from '../components/application-modal.js';
+import { ApplicationModal } from '../modals/application-modal.js';
 import { showModalError, clearModalError } from '../modules/utils.js';
 
 const $ = jQuery;

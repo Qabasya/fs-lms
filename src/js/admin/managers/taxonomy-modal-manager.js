@@ -1,6 +1,6 @@
 import '../_types.js';
-import { TaxonomyModal } from '../components/taxonomy-modal.js';
-import { ConfirmModal } from '../components/confirm-modal.js';
+import { TaxonomyModal } from '../modals/taxonomy-modal.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
 import { showNotice, fadeDeleteRow, showModalError } from '../modules/utils.js';
 
 const $ = jQuery;

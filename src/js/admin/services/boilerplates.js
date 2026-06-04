@@ -3,7 +3,7 @@
  */
 
 import '../_types.js';
-import { ConfirmModal } from '../components/confirm-modal.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
 import { showNotice, fadeDeleteRow } from '../modules/utils.js';
 
 const $ = jQuery;

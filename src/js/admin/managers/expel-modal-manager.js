@@ -1,4 +1,4 @@
-import { ExpelModal } from '../components/expel-modal.js';
+import { ExpelModal } from '../modals/expel-modal.js';
 import { apiError, showModalError, clearModalError } from '../modules/utils.js';
 
 const $ = jQuery;

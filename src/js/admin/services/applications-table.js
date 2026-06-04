@@ -2,7 +2,7 @@
  * @fileoverview Таблица заявок на вкладке "Заявки" (fs_lms_userlist).
  */
 
-import { ConfirmModal } from '../components/confirm-modal.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
 import { showNotice } from '../modules/utils.js';
 
 const vars = window.fs_lms_vars;

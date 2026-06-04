@@ -1,4 +1,4 @@
-import { StudentPersonModal } from '../components/student-person-modal.js';
+import { StudentPersonModal } from '../modals/student-person-modal.js';
 
 const $ = jQuery;
 

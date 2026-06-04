@@ -991,6 +991,14 @@ html.modal-open {
   }
 }
 
+/* =================================================================
+   ALERT MODAL (stacked above regular modals)
+   ================================================================= */
+
+.fs-lms-alert-modal {
+  z-index: $z-modal-alert;
+}
+
 .fs-modal-error {
   background: rgba($color-danger, 0.06);
   border: 1px solid rgba($color-danger, 0.2);

@@ -1,4 +1,4 @@
-import { ApplicationReviewModal } from '../components/application-review-modal.js';
+import { ApplicationReviewModal } from '../modals/application-review-modal.js';
 import { showModalError, clearModalError } from '../modules/utils.js';
 
 const $ = jQuery;

@@ -1,0 +1,83 @@
+@use '../variables' as *;
+
+/* =================================================================
+   TOAST NOTIFICATIONS
+   ================================================================= */
+
+.fs-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: $z-toast;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  pointer-events: none;
+  max-width: 380px;
+  width: calc(100% - 48px);
+}
+
+.fs-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  padding: $spacing-md $spacing-lg;
+  border-radius: $border-radius-md;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  font-size: $font-size;
+  line-height: 1.5;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(16px);
+  transition: opacity $transition-fast, transform $transition-fast;
+
+  &--visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  &--error {
+    background: $wp-admin-red-bg;
+    border-left: 4px solid $color-danger;
+    color: $wp-admin-red-text;
+  }
+
+  &--success {
+    background: $wp-admin-green-bg;
+    border-left: 4px solid $wp-admin-green;
+    color: $wp-admin-green-text;
+  }
+
+  &--warning {
+    background: $wp-admin-yellow-bg;
+    border-left: 4px solid $wp-admin-yellow;
+    color: $wp-admin-yellow-text;
+  }
+
+  &--info {
+    background: $wp-admin-blue-bg;
+    border-left: 4px solid $wp-admin-blue;
+    color: $wp-admin-blue-text;
+  }
+
+  &__message {
+    flex: 1;
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    color: inherit;
+    opacity: 0.6;
+    flex-shrink: 0;
+    transition: opacity $transition-fast;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}

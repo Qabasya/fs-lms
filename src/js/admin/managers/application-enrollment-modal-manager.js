@@ -1,4 +1,4 @@
-import { ApplicationEnrollmentModal } from '../components/application-enrollment-modal.js';
+import { ApplicationEnrollmentModal } from '../modals/application-enrollment-modal.js';
 import { showModalError, clearModalError } from '../modules/utils.js';
 
 const $ = jQuery;

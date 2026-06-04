@@ -2,6 +2,8 @@
  * Утилиты для плагина FS-LMS.
  * @requires jQuery
  */
+import { showToast } from './toast.js';
+
 const $ = window.jQuery || jQuery;
 
 /**
@@ -60,7 +62,7 @@ export function apiError(error, options = {}) {
         if (typeof onNotify === 'function') {
             onNotify(message, 'error');
         } else {
-            alert(message);
+            showToast(message, 'error');
         }
     }
 }
@@ -140,7 +142,7 @@ export function apiErrorEnhanced(error, options = {}) {
         if (typeof onNotify === 'function') {
             onNotify(userMessage, 'error');
         } else {
-            alert(userMessage);
+            showToast(userMessage, 'error');
         }
     }
 

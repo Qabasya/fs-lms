@@ -1,5 +1,5 @@
 import '../_types.js';
-import {TaskModal} from '../components/task-modal.js';
+import {TaskModal} from '../modals/task-modal.js';
 import { showNotice, showModalError } from '../modules/utils.js';
 
 const $ = jQuery;

@@ -10,7 +10,7 @@ export const UI = {
     init() {
         // require.context: Webpack-specific API для динамического импорта
         // Параметры: (путь, рекурсия, фильтр)
-        const requireComponent = require.context('../components', false, /\.js$/);
+        const requireComponent = require.context('../modals', false, /\.js$/);
 
         requireComponent.keys().forEach(fileName => {
             const componentConfig = requireComponent(fileName);

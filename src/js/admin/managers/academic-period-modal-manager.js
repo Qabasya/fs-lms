@@ -5,8 +5,8 @@ import {
     showNotice,
     showModalError,
 } from '../modules/utils.js';
-import { ConfirmModal } from '../components/confirm-modal.js';
-import { AcademicPeriodModal } from '../components/academic-period-modal';
+import { ConfirmModal } from '../modals/confirm-modal.js';
+import { AcademicPeriodModal } from '../modals/academic-period-modal';
 
 const $ = jQuery;
 

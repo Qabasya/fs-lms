@@ -316,9 +316,14 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 		$modal_path = $this->path( 'templates/admin/components/modals/confirm-modal.php' );
 
-		// file_exists() — проверяет существование файла перед подключением
 		if ( file_exists( $modal_path ) ) {
 			require_once $modal_path;
+		}
+
+		$alert_modal_path = $this->path( 'templates/admin/components/modals/alert-modal.php' );
+
+		if ( file_exists( $alert_modal_path ) ) {
+			require $alert_modal_path;
 		}
 	}
 }

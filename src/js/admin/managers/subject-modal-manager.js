@@ -1,6 +1,6 @@
 import '../_types.js';
-import { SubjectModal } from '../components/subject-modal.js';
-import { ConfirmModal } from '../components/confirm-modal.js';
+import { SubjectModal } from '../modals/subject-modal.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
 import {
     toggleButton,
     apiError,

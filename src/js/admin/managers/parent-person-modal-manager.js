@@ -1,4 +1,4 @@
-import { ParentPersonModal } from '../components/parent-person-modal.js';
+import { ParentPersonModal } from '../modals/parent-person-modal.js';
 
 const $ = jQuery;
 
