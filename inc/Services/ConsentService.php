@@ -7,8 +7,9 @@ namespace Inc\Services;
 use Inc\DTO\RequestContextDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\ConsentType;
-use Inc\Enums\OptionName;
 use Inc\Enums\PageRoutes;
+use Inc\Managers\PostManager;
+use Inc\Repositories\OptionsRepositories\ConsentOptionsRepository;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
 use RuntimeException;
 use WP_Post;
@@ -47,8 +48,10 @@ readonly class ConsentService {
 	 * @param AuditService      $auditService      Сервис аудита
 	 */
 	public function __construct(
-		private ConsentRepository $consentRepository,
-		private AuditService      $auditService,
+		private ConsentRepository       $consentRepository,
+		private AuditService            $auditService,
+		private PostManager             $postManager,
+		private ConsentOptionsRepository $consentOptions,
 	) {}
 
 	/**
@@ -77,7 +80,7 @@ readonly class ConsentService {
 	 * @throws RuntimeException Если страница не найдена
 	 */
 	public function getDocumentText( ConsentType $type, string $version ): string {
-		$page = get_page_by_path( PageRoutes::ConsentPage->value );
+		$page = $this->postManager->findByPath( PageRoutes::ConsentPage->value );
 
 		if ( null === $page ) {
 			throw new RuntimeException(
@@ -116,13 +119,10 @@ readonly class ConsentService {
 			return;
 		}
 
-		update_option(
-			OptionName::ConsentPageMeta->value,
-			array(
-				'hash'       => hash( 'sha256', $post->post_content ),
-				'updated_at' => current_time( 'c', true ),
-			)
-		);
+		$this->consentOptions->savePageMeta( array(
+			'hash'       => hash( 'sha256', $post->post_content ),
+			'updated_at' => current_time( 'c', true ),
+		) );
 	}
 
 	/**
@@ -224,7 +224,7 @@ readonly class ConsentService {
 	}
 
 	private function getStoredHash(): string {
-		$meta = (array) get_option( OptionName::ConsentPageMeta->value, array() );
+		$meta = $this->consentOptions->getPageMeta();
 		return (string) ( $meta['hash'] ?? '' );
 	}
 }

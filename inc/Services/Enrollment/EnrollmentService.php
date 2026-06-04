@@ -195,7 +195,7 @@ readonly class EnrollmentService {
 						: ( $studentEmail !== '' ? $studentEmail : 'student_' . $studentPersonId );
 					$studentPassword = $studentDto->loginPassword !== ''
 						? $studentDto->loginPassword
-						: wp_generate_password( 8, false );
+						: $this->passwordGenerator->generatePlain();
 					$studentUserId   = $this->userManager->create( array(
 						'user_login'   => $studentLogin,
 						'user_email'   => $studentEmail,
@@ -231,7 +231,7 @@ readonly class EnrollmentService {
 					$guardianPassword = $this->passwordGenerator->generateAndSet( $guardianUserId );
 				} else {
 					$guardianLogin    = $guardianEmail;
-					$guardianPassword = wp_generate_password( 8, false );
+					$guardianPassword = $this->passwordGenerator->generatePlain();
 					$guardianUserId   = $this->userManager->create( array(
 						'user_login'   => $guardianEmail,
 						'user_email'   => $guardianEmail,

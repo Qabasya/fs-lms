@@ -166,6 +166,10 @@ class UserManager {
 		}
 	}
 
+	public function delete( int $id ): void {
+		wp_delete_user( $id );
+	}
+
 	public function randomizePassword( int $id ): void {
 		wp_set_password( wp_generate_password( 64, true, true ), $id );
 	}

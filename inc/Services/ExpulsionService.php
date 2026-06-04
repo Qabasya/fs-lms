@@ -7,6 +7,7 @@ namespace Inc\Services;
 use Inc\DTO\ExpelledArchiveDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\EnrollmentStatus;
+use Inc\Managers\UserManager;
 use Inc\Repositories\OptionsRepositories\StudentGroupMatrixRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
@@ -37,6 +38,7 @@ readonly class ExpulsionService {
 		private StudentGroupMatrixRepository $groupMatrix,
 		private AuditService                $auditService,
 		private PiiCryptoService            $crypto,
+		private UserManager                 $userManager,
 	) {}
 
 	/**
@@ -110,9 +112,9 @@ readonly class ExpulsionService {
 
 		// 9. Удалить WP-пользователей
 		if ( $parentPerson?->wpUserId ) {
-			wp_delete_user( $parentPerson->wpUserId );
+			$this->userManager->delete( $parentPerson->wpUserId );
 		}
-		wp_delete_user( $studentWpUserId );
+		$this->userManager->delete( $studentWpUserId );
 
 		// 10. Аудит
 		$this->auditService->record(

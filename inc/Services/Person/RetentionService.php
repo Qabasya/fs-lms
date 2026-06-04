@@ -4,7 +4,6 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Person;
 
-use Inc\Enums\TableName;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\AuditLogRepository;
@@ -14,19 +13,14 @@ use Inc\Services\AuditService;
 
 class RetentionService {
 
-	private \wpdb $wpdb;
-
 	public function __construct(
-		private readonly PersonRepository      $personRepository,
-		private readonly ApplicationRepository $applicationRepository,
-		private readonly AuditLogRepository    $auditLogRepository,
+		private readonly PersonRepository       $personRepository,
+		private readonly ApplicationRepository  $applicationRepository,
+		private readonly AuditLogRepository     $auditLogRepository,
 		private readonly PiiAccessLogRepository $piiAccessLogRepository,
-		private readonly AuditService          $auditService,
-		private readonly UserManager           $userManager,
-		?\wpdb $wpdb = null,
-	) {
-		$this->wpdb = $wpdb ?? $GLOBALS['wpdb'];
-	}
+		private readonly AuditService           $auditService,
+		private readonly UserManager            $userManager,
+	) {}
 
 	public function anonymizeDeletedPersons(): int {
 		$persons = $this->personRepository->findDeletedOlderThan( 30 );
@@ -48,19 +42,7 @@ class RetentionService {
 	}
 
 	public function purgeExpiredApplications(): int {
-		$table        = TableName::Applications->prefixed();
-		$statuses     = array( 'expired', 'trash' );
-		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$this->wpdb->query(
-			$this->wpdb->prepare(
-				"DELETE FROM %i WHERE status IN ($placeholders) AND updated_at < DATE_SUB(NOW(), INTERVAL 6 MONTH)",
-				array_merge( array( $table ), $statuses )
-			)
-		);
-
-		return (int) $this->wpdb->rows_affected;
+		return $this->applicationRepository->purgeExpiredOlderThan( 6, array( 'expired', 'trash' ) );
 	}
 
 	public function purgeOldAuditLogs(): int {

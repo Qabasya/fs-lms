@@ -384,6 +384,28 @@ class ApplicationRepository implements RepositoryInterface {
 	}
 
 	/**
+	 * Физически удаляет заявки в указанных статусах, не обновлявшиеся дольше заданного числа месяцев.
+	 *
+	 * @param int      $months   Порог устаревания в месяцах
+	 * @param string[] $statuses Список статусов для очистки
+	 *
+	 * @return int Количество удалённых строк
+	 */
+	public function purgeExpiredOlderThan( int $months, array $statuses ): int {
+		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$this->wpdb->query(
+			$this->wpdb->prepare(
+				"DELETE FROM %i WHERE status IN ($placeholders) AND updated_at < DATE_SUB(NOW(), INTERVAL %d MONTH)",
+				array_merge( array( $this->table ), $statuses, array( $months ) )
+			)
+		);
+
+		return (int) $this->wpdb->rows_affected;
+	}
+
+	/**
 	 * Находит просроченные заявки на этапе ожидания заполнения родителем.
 	 *
 	 * @return array<int, ApplicationDTO>

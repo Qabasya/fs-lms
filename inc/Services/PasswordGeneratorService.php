@@ -20,6 +20,14 @@ class PasswordGeneratorService {
 	) {}
 
 	/**
+	 * Генерирует пароль в открытом виде без сохранения.
+	 * Используется когда пользователь ещё не создан (ID неизвестен).
+	 */
+	public function generatePlain(): string {
+		return wp_generate_password( 8, false );
+	}
+
+	/**
 	 * Генерирует пароль, устанавливает его пользователю, хранит зашифрованным в user meta.
 	 * Возвращает пароль в открытом виде — для немедленного показа/отправки.
 	 *
@@ -67,7 +75,7 @@ class PasswordGeneratorService {
 			return null;
 		}
 
-		$encrypted = get_user_meta( $user_id, self::META_KEY, true );
+		$encrypted = $this->user_repository->getMeta( $user_id, self::META_KEY );
 
 		if ( empty( $encrypted ) ) {
 			return null;
@@ -99,7 +107,7 @@ class PasswordGeneratorService {
 		}
 
 		wp_set_password( $password, $user_id );
-		update_user_meta( $user_id, self::META_KEY, base64_encode( $this->crypto->encrypt( $password ) ) );
+		$this->user_repository->updateMeta( $user_id, array( self::META_KEY => base64_encode( $this->crypto->encrypt( $password ) ) ) );
 
 		$this->audit_service->record(
 			AuditAction::PasswordSet->value,
@@ -131,6 +139,6 @@ class PasswordGeneratorService {
 	 */
 	public function randomize( int $user_id ): void {
 		wp_set_password( wp_generate_password( 64, true, true ), $user_id );
-		delete_user_meta( $user_id, self::META_KEY );
+		$this->user_repository->deleteMeta( $user_id, self::META_KEY );
 	}
 }

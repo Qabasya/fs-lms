@@ -383,6 +383,19 @@ class PostManager {
 	}
 
 	/**
+	 * Находит страницу по slug (path).
+	 *
+	 * @param string $path      Slug страницы
+	 * @param string $post_type Тип поста (по умолчанию 'page')
+	 *
+	 * @return \WP_Post|null
+	 */
+	public function findByPath( string $path, string $post_type = 'page' ): ?\WP_Post {
+		$page = get_page_by_path( $path, OBJECT, $post_type );
+		return $page instanceof \WP_Post ? $page : null;
+	}
+
+	/**
 	 * Возвращает URL архива типа записи или пустую строку, если архив недоступен.
 	 *
 	 * @param string $post_type Тип записи.
