@@ -83,11 +83,18 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// wp_enqueue_media() — подключает медиа-библиотеку WordPress (для загрузки изображений)
 		wp_enqueue_media();
 
+		wp_enqueue_style(
+			'fs-lms-fontawesome',
+			'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css',
+			array(),
+			null
+		);
+
 		// filemtime() — используется для версионирования (кеш-бастинг)
 		wp_enqueue_style(
 			'fs-lms-common-style',
 			$this->url( 'assets/css/common.min.css' ),
-			array(),
+			array( 'fs-lms-fontawesome' ),
 			filemtime( $this->path( 'assets/css/common.min.css' ) )
 		);
 
@@ -212,9 +219,16 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 */
 	public function enqueue_frontend_assets(): void {
 		wp_enqueue_style(
+			'fs-lms-fontawesome',
+			'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css',
+			array(),
+			null
+		);
+
+		wp_enqueue_style(
 			'fs-lms-common-style',
 			$this->url( 'assets/css/common.min.css' ),
-			array(),
+			array( 'fs-lms-fontawesome' ),
 			$this->plugin_version
 		);
 

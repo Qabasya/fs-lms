@@ -8,7 +8,7 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Копировать">'
-	. '<span class="dashicons dashicons-clipboard fs-copy-field__icon"></span>'
+	. '<i class="fa-regular fa-clone fs-copy-field__icon"></i>'
 	. '<span class="fs-copy-field__label">Скопировано</span>'
 	. '</button>';
 ?>
