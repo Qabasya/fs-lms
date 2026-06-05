@@ -12,11 +12,10 @@ use Inc\DTO\PersonInputDTO;
 use Inc\DTO\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
-use Inc\Enums\RelationType;
 use Inc\Enums\UserRole;
 use Inc\Managers\UserManager;
-use Inc\Repositories\OptionsRepositories\StudentGroupMatrixRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\AuditService;
@@ -24,7 +23,6 @@ use Inc\Services\ConsentService;
 use Inc\Services\EmailService;
 use Inc\Services\PasswordGeneratorService;
 use Inc\Services\Person\PersonService;
-use Inc\Services\Person\RelationshipService;
 use Inc\Contracts\ClockInterface;
 use Inc\Services\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
@@ -37,32 +35,20 @@ readonly class EnrollmentService {
 	use RequestContextProvider;
 
 	public function __construct(
-		private ApplicationRepository      $applicationRepository,
-		private EnrollmentRepository       $enrollmentRepository,
-		private PersonRepository           $personRepository,
-		private PersonService              $personService,
-		private RelationshipService        $relationshipService,
-		private ConsentService             $consentService,
-		private AuditService               $auditService,
-		private UserManager                $userManager,
-		private PasswordGeneratorService   $passwordGenerator,
-		private StudentGroupMatrixRepository $groupMatrix,
-		private EmailService               $emailService,
-		private PiiCryptoService           $crypto,
-		private ClockInterface             $clock,
+		private ApplicationRepository  $applicationRepository,
+		private EnrollmentRepository   $enrollmentRepository,
+		private PersonRepository       $personRepository,
+		private PersonService          $personService,
+		private ArchiveRepository      $archiveRepository,
+		private ConsentService         $consentService,
+		private AuditService           $auditService,
+		private UserManager            $userManager,
+		private PasswordGeneratorService $passwordGenerator,
+		private EmailService           $emailService,
+		private PiiCryptoService       $crypto,
+		private ClockInterface         $clock,
 	) {}
 
-	/**
-	 * Выполняет зачисление студента по заявке.
-	 *
-	 * @param EnrollmentInputDTO $input Данные для зачисления
-	 *
-	 * @throws InvalidArgumentException Если заявка не найдена
-	 * @throws DomainException          Если заявка не в статусе enrolling,
-	 *                                  email родителя уже занят, или ученик уже зачислен
-	 *
-	 * @return EnrollmentResultDTO
-	 */
 	public function enroll( EnrollmentInputDTO $input ): EnrollmentResultDTO {
 		$app = $this->applicationRepository->find( $input->applicationId );
 
@@ -84,24 +70,27 @@ readonly class EnrollmentService {
 		$studentDocHash  = $this->crypto->hash( $studentDto->docNumber );
 		$guardianDocHash = $this->crypto->hash( $parentDto->docNumber );
 
-		$existingStudent  = $this->personRepository->findByDocNumberHash( $studentDocHash );
-		$existingGuardian = $this->personRepository->findByDocNumberHash( $guardianDocHash );
+		$existingStudentId  = $this->personService->findByDocNumberHash( $studentDocHash );
+		$existingGuardianId = $this->personService->findByDocNumberHash( $guardianDocHash );
+
+		$existingStudent  = $existingStudentId  !== null ? $this->personRepository->find( $existingStudentId )  : null;
+		$existingGuardian = $existingGuardianId !== null ? $this->personRepository->find( $existingGuardianId ) : null;
 
 		if ( null === $existingGuardian && null !== $this->userManager->findByEmail( $parentDto->email ) ) {
 			throw new DomainException( 'Email родителя уже занят другим пользователем.' );
 		}
 
-		if ( null !== $existingStudent && $this->enrollmentRepository->existsActive( $existingStudent->id, $input->subjectKey, $input->periodKey ) ) {
-			throw new DomainException( 'Ученик уже зачислен на этот предмет в данный период.' );
+		if ( null !== $existingStudent && $this->enrollmentRepository->existsActive( $existingStudent->id, $input->groupKey ) ) {
+			throw new DomainException( 'Ученик уже зачислен в эту группу.' );
 		}
 
-		// ===== Атомарная транзакция: создание записей в БД =====
 		$result = $this->inTransaction( function () use ( $app, $input, $studentDto, $parentDto, $existingStudent, $existingGuardian ): array {
 			$studentPersonId = $existingStudent !== null
 				? $existingStudent->id
 				: $this->personService->createOrFindBy( new PersonInputDTO(
 					fullName:  $studentDto->fullName(),
 					docNumber: $studentDto->docNumber,
+					role:      'student',
 					docType:   $studentDto->docType,
 					birthDate: $studentDto->birthDate,
 					inn:       $studentDto->inn,
@@ -113,6 +102,7 @@ readonly class EnrollmentService {
 				: $this->personService->createOrFindBy( new PersonInputDTO(
 					fullName:  $parentDto->fullName(),
 					docNumber: $parentDto->docNumber,
+					role:      'parent',
 					docType:   $parentDto->docType,
 					birthDate: $parentDto->birthDate,
 					inn:       $parentDto->inn,
@@ -120,9 +110,6 @@ readonly class EnrollmentService {
 					phone:     $parentDto->phone,
 					email:     $parentDto->email !== '' ? $parentDto->email : null,
 				) );
-
-			$relationType = RelationType::from( $parentDto->relationType );
-			$this->relationshipService->addRepresentative( $guardianPersonId, $studentPersonId, $relationType, true );
 
 			$snapshot    = array(
 				'student'       => $studentDto->toArray(),
@@ -135,15 +122,26 @@ readonly class EnrollmentService {
 			);
 			$enrollmentId = $this->enrollmentRepository->create( array(
 				'student_person_id'     => $studentPersonId,
-				'subject_key'           => $input->subjectKey,
-				'group_id'              => $input->groupId,
-				'period_key'            => $input->periodKey,
+				'group_key'             => $input->groupKey,
 				'enrolled_at'           => $input->enrolledAt,
 				'status'                => 'active',
 				'snapshot_enc'          => $this->crypto->encrypt( (string) wp_json_encode( $snapshot ) ),
 				'source_application_id' => $app->id,
 				'created_at'            => $this->clock->now( 'mysql', true ),
 				'updated_at'            => $this->clock->now( 'mysql', true ),
+			) );
+
+			$this->archiveRepository->create( array(
+				'enrollment_id'     => $enrollmentId,
+				'student_person_id' => $studentPersonId,
+				'parent_person_id'  => $guardianPersonId,
+				'contract_no'       => $input->contractNo ?: null,
+				'contract_date'     => $input->contractDate ?: null,
+				'order_no'          => $input->orderNo ?: null,
+				'order_date'        => $input->orderDate ?: null,
+				'group_key'         => $input->groupKey ?: null,
+				'enrolled_at'       => $input->enrolledAt,
+				'created_at'        => $this->clock->now( 'mysql', true ),
 			) );
 
 			$this->consentService->bindToPersons( $app->id, array(
@@ -157,7 +155,7 @@ readonly class EnrollmentService {
 				$enrollmentId,
 				array(
 					'application_id' => $app->id,
-					'subject_key'    => $input->subjectKey,
+					'group_key'      => $input->groupKey,
 				)
 			);
 
@@ -166,9 +164,7 @@ readonly class EnrollmentService {
 
 		[ $enrollmentId, $studentPersonId, $guardianPersonId ] = $result;
 
-		// ===== Создание пользователей WP, привязка к группе, генерация паролей (вне транзакции) =====
 		try {
-			// --- Ученик ---
 			$studentPerson = $this->personRepository->find( $studentPersonId );
 			if ( null !== $studentPerson && null !== $studentPerson->wpUserId ) {
 				$studentUserId = $studentPerson->wpUserId;
@@ -215,10 +211,6 @@ readonly class EnrollmentService {
 				}
 			}
 
-			// Прикрепить ученика к группе (матрица)
-			$this->groupMatrix->addStudent( $input->groupId, $studentUserId );
-
-			// --- Родитель ---
 			$guardianPerson = $this->personRepository->find( $guardianPersonId );
 			if ( null !== $guardianPerson && null !== $guardianPerson->wpUserId ) {
 				$guardianUserId   = $guardianPerson->wpUserId;
@@ -251,7 +243,6 @@ readonly class EnrollmentService {
 				}
 			}
 
-			// Удаление заявки (данные перешли в enrollment и persons)
 			$this->applicationRepository->forceDelete( $app->id );
 
 			if ( $input->sendEmailAuto ) {

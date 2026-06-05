@@ -10,11 +10,10 @@ use Inc\Enums\Capability;
 use Inc\Enums\DocumentType;
 use Inc\Enums\MetaKeys;
 use Inc\Enums\PiiField;
-use Inc\Enums\RelationType;
 use Inc\Enums\UserRole;
+use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Repositories\WPDBRepositories\RelationshipRepository;
 use Inc\Services\Person\PiiMaskingService;
 use Inc\Services\PiiCryptoService;
 
@@ -25,9 +24,9 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	return;
 }
 
-$personRepo       = new PersonRepository();
-$relationshipRepo = new RelationshipRepository();
-$enrollmentRepo   = new EnrollmentRepository();
+$personRepo     = new PersonRepository();
+$archiveRepo    = new ArchiveRepository();
+$enrollmentRepo = new EnrollmentRepository();
 $crypto           = new PiiCryptoService();
 $masker           = new PiiMaskingService();
 
@@ -88,8 +87,7 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
                 );
 				$person   = $personId ? $personRepo->find( $personId ) : null;
 
-				// Email из таблицы persons (plain text) или fallback на WP user email
-				$email = $person?->email ?? $user->user_email ?? '';
+				$email = $user->user_email ?? '';
 
 				$phone         = '';
 				$childPersonId = 0;
@@ -98,9 +96,9 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 				$studentData   = array();
 
 				if ( $personId ) {
-					$relationships = $relationshipRepo->findActiveByGuardian( $personId );
+					$archiveRecords = $archiveRepo->findActiveByParent( $personId );
 
-					foreach ( $relationships as $rel ) {
+					foreach ( $archiveRecords as $rel ) {
 						$studentPerson = $personRepo->find( $rel->studentPersonId );
 						if ( $studentPerson?->wpUserId ) {
 							$studentUser = get_userdata( $studentPerson->wpUserId );
@@ -139,7 +137,7 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 					'last_name'       => $guardianData['last_name']   ?? '',
 					'first_name'      => $guardianData['first_name']  ?? '',
 					'middle_name'     => $guardianData['middle_name'] ?? '',
-					'relation_type'   => RelationType::tryFrom( $guardianData['relation_type'] ?? '' )?->label() ?? ( $guardianData['relation_type'] ?? '' ),
+					'relation_type'   => $guardianData['relation_type'] ?? '',
 					'child_person_id' => $childPersonId,
 					'birth_date'      => $guardianData['birth_date']      ?? '',
 					'email'           => $guardianData['email']           ?? $email,

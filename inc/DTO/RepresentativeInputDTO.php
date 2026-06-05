@@ -18,8 +18,8 @@ namespace Inc\DTO;
  *
  * ### Архитектурная роль:
  *
- * Используется в RelationshipService::addRepresentative() для добавления
- * нового опекуна и в replaceRepresentative() для замены существующего.
+ * Используется в PiiCallbacks::ajaxAddRepresentative() для добавления
+ * нового представителя и в ajaxReplaceRepresentative() для замены существующего.
  * Все поля уже санитизированы через Sanitizer trait до создания DTO.
  *
  * ### Примечания:

@@ -126,7 +126,7 @@ readonly class AcademicPeriodService {
 				continue;
 			}
 
-			$group_dto  = $this->group_repository->getById( $enrollment->group_id );
+			$group_dto  = $this->group_repository->getById( (string) ( $enrollment->groupKey ?? $enrollment->group_id ?? '' ) );
 			$group_name = $group_dto?->title ?? 'Без группы';
 
 			$result[] = array(

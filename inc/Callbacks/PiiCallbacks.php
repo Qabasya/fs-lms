@@ -9,11 +9,11 @@ use Inc\DTO\PersonInputDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Enums\PiiField;
-use Inc\Enums\RelationType;
 use Inc\Enums\UserRole;
 use Inc\Enums\WeekDay;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\AuditService;
@@ -22,78 +22,38 @@ use Inc\Services\PasswordGeneratorService;
 use Inc\Services\Person\PersonReader;
 use Inc\Services\Person\PersonService;
 use Inc\Services\Person\PiiMaskingService;
-use Inc\Services\Person\RelationshipService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\RateLimitService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
-/**
- * Class PiiCallbacks
- *
- * AJAX-коллбеки и страницы административной панели для работы с персональными данными (PII).
- *
- * @package Inc\Callbacks
- *
- * ### Основные обязанности:
- *
- * 1. **Раскрытие PII-полей** — временное раскрытие зашифрованных данных на 30 секунд.
- * 2. **Управление лицами (Persons)** — создание, обновление, мягкое удаление записей.
- * 3. **Управление представителями** — добавление и замена законных представителей учеников.
- * 4. **Отображение страниц** — рендеринг списков лиц и детальных карточек.
- *
- * ### Архитектурная роль:
- *
- * Делегирует бизнес-логику PersonReader, PersonService, RelationshipService.
- * Управляет отображением страниц и AJAX-операциями в админ-панели.
- */
 class PiiCallbacks extends BaseController {
 
 	use Authorizer;
 	use Sanitizer;
 
-	/**
-	 * Конструктор коллбеков.
-	 *
-	 * @param PersonReader             $personReader        Сервис безопасного чтения PII
-	 * @param PersonService            $personService       Сервис управления лицами
-	 * @param PersonRepository         $personRepository    Репозиторий лиц
-	 * @param RelationshipService      $relationshipService Сервис управления связями
-	 * @param RateLimitService         $rateLimitService    Сервис ограничения запросов
-	 * @param EmailService             $emailService        Сервис отправки email
-	 * @param AuditService             $auditService        Сервис аудита
-	 * @param PiiMaskingService        $maskingService      Сервис маскирования PII
-	 * @param PasswordGeneratorService $passwordGenerator   Сервис управления паролями
-	 */
 	public function __construct(
-		private readonly PersonReader              $personReader,
-		private readonly PersonService             $personService,
-		private readonly PersonRepository          $personRepository,
-		private readonly RelationshipService       $relationshipService,
-		private readonly RateLimitService          $rateLimitService,
-		private readonly EmailService              $emailService,
-		private readonly AuditService              $auditService,
-		private readonly EnrollmentRepository      $enrollmentRepository,
-		private readonly StudentGroupRepository    $groupRepository,
-		private readonly SubjectRepository         $subjectRepository,
-		private readonly PiiCryptoService          $crypto,
-		private readonly PiiMaskingService         $maskingService,
-		private readonly PasswordGeneratorService  $passwordGenerator,
+		private readonly PersonReader             $personReader,
+		private readonly PersonService            $personService,
+		private readonly PersonRepository         $personRepository,
+		private readonly ArchiveRepository        $archiveRepository,
+		private readonly RateLimitService         $rateLimitService,
+		private readonly EmailService             $emailService,
+		private readonly AuditService             $auditService,
+		private readonly EnrollmentRepository     $enrollmentRepository,
+		private readonly StudentGroupRepository   $groupRepository,
+		private readonly SubjectRepository        $subjectRepository,
+		private readonly PiiCryptoService         $crypto,
+		private readonly PiiMaskingService        $maskingService,
+		private readonly PasswordGeneratorService $passwordGenerator,
 	) {
 		parent::__construct();
 	}
 
-	/**
-	 * AJAX: раскрыть одно PII-поле на 30 секунд.
-	 *
-	 * @return void
-	 */
 	public function ajaxRevealPiiField(): void {
 		$this->authorize( Nonce::RevealPii, Capability::ViewPII );
 
-		// Лимит раскрытий на пользователя
 		if ( ! $this->rateLimitService->allowPiiReveal( get_current_user_id() ) ) {
-			// 429 — HTTP-статус "Too Many Requests"
 			$this->error( 'Лимит раскрытий превышен.', 429 );
 		}
 
@@ -109,81 +69,58 @@ class PiiCallbacks extends BaseController {
 		}
 	}
 
-	/**
-	 * AJAX: запросить удаление ПД (soft delete).
-	 *
-	 * @return void
-	 */
 	public function ajaxRequestPiiDeletion(): void {
 		$this->authorize( Nonce::RequestPiiDeletion, Capability::ManagePersons );
 
 		$personId = $this->sanitizeInt( 'person_id' );
 
-		// Мягкое удаление (заполняется поле deleted_at)
 		$this->personService->softDelete( $personId, get_current_user_id() );
 
 		$this->success();
 	}
 
-	/**
-	 * AJAX: добавить нового представителя к ученику.
-	 *
-	 * @return void
-	 */
 	public function ajaxAddRepresentative(): void {
 		$this->authorize( Nonce::AddRepresentative, Capability::ManagePersons );
 
 		$studentPersonId = $this->sanitizeInt( 'student_person_id' );
-		$relationType    = \Inc\Enums\RelationType::from( $this->requireKey( 'relation_type' ) );
 
-		// Поиск или создание опекуна по уникальным полям
 		$guardianPersonId = $this->personService->createOrFindBy( new PersonInputDTO(
 			fullName:  $this->requireText( 'full_name' ),
 			docNumber: $this->requireText( 'doc_number' ),
+			role:      'parent',
 			inn:       $this->sanitizeText( 'inn' ),
 			address:   $this->sanitizeText( 'address' ),
 			phone:     $this->sanitizeText( 'phone' ),
 			email:     $this->sanitizeText( 'email' ) ?: null,
 		) );
 
-		$this->relationshipService->addRepresentative(
-			$guardianPersonId,
-			$studentPersonId,
-			$relationType,
-			$isPrimary
-		);
+		$archiveRecord = $this->archiveRepository->findActiveByStudent( $studentPersonId );
+
+		if ( $archiveRecord !== null ) {
+			$this->archiveRepository->update( $archiveRecord->id, array( 'parent_person_id' => $guardianPersonId ) );
+		}
 
 		$this->success();
 	}
 
-	/**
-	 * AJAX: заменить представителя.
-	 *
-	 * @return void
-	 */
 	public function ajaxReplaceRepresentative(): void {
 		$this->authorize( Nonce::ReplaceRepresentative, Capability::ManagePersons );
 
-		$oldRelId = $this->sanitizeInt( 'relationship_id' );
-		$newType  = \Inc\Enums\RelationType::from( $this->requireKey( 'relation_type' ) );
+		$archiveId = $this->sanitizeInt( 'archive_id' );
 
 		$newGuardianId = $this->personService->createOrFindBy( new PersonInputDTO(
 			fullName:  $this->requireText( 'full_name' ),
 			docNumber: $this->requireText( 'doc_number' ),
+			role:      'parent',
 			inn:       $this->sanitizeText( 'inn' ),
 			email:     $this->sanitizeText( 'email' ) ?: null,
 		) );
 
-		$this->relationshipService->replaceRepresentative( $oldRelId, $newGuardianId, $newType );
+		$this->archiveRepository->update( $archiveId, array( 'parent_person_id' => $newGuardianId ) );
 
 		$this->success();
 	}
 
-	/**
-	 * AJAX: обновить данные лица (person).
-	 *
-	 * @return void
-	 */
 	public function ajaxUpdatePerson(): void {
 		$this->authorize( Nonce::UpdatePerson, Capability::ManagePersons );
 
@@ -194,7 +131,6 @@ class PiiCallbacks extends BaseController {
 			$this->error( 'Person не найден.' );
 		}
 
-		// Поля записи person (шифруются сервисом)
 		$lastName   = $this->sanitizeText( 'last_name' );
 		$firstName  = $this->sanitizeText( 'first_name' );
 		$middleName = $this->sanitizeText( 'middle_name' );
@@ -216,7 +152,6 @@ class PiiCallbacks extends BaseController {
 			$this->personService->update( $personId, $personChanges, get_current_user_id() );
 		}
 
-		// WP user: логин, пароль, email, display_name
 		if ( $person->wpUserId ) {
 			$userData = [ 'ID' => $person->wpUserId ];
 
@@ -243,13 +178,10 @@ class PiiCallbacks extends BaseController {
 			if ( $newPassword ) {
 				try {
 					$this->passwordGenerator->setFromPlain( $person->wpUserId, $newPassword );
-				} catch ( \RuntimeException ) {
-					// WP-пользователь не найден — пароль не обновлён
-				}
+				} catch ( \RuntimeException ) {}
 			}
 		}
 
-		// Школа — обновление снапшота активного зачисления
 		$newSchool = $this->sanitizeText( 'school' );
 		if ( $newSchool ) {
 			foreach ( $this->enrollmentRepository->findByStudent( $personId ) as $enr ) {
@@ -263,19 +195,16 @@ class PiiCallbacks extends BaseController {
 						'snapshot_enc' => $this->crypto->encrypt( (string) wp_json_encode( $snapshot ) ),
 						'updated_at'   => current_time( 'mysql', true ),
 					) );
-				} catch ( \Throwable ) {
-					// snapshot недоступен — пропускаем
-				}
+				} catch ( \Throwable ) {}
 			}
 		}
 
-		// Данные ребёнка — обновление записи первого активного подопечного
 		$childDocNumber = $this->sanitizeText( 'child_doc_number' );
 		$childInn       = $this->sanitizeText( 'child_inn' );
 		$childBirthDate = $this->sanitizeText( 'child_birth_date' );
 
 		if ( $childDocNumber || $childInn || $childBirthDate ) {
-			$dependents = $this->relationshipService->getActiveDependents( $personId );
+			$dependents = $this->archiveRepository->findActiveByParent( $personId );
 			if ( ! empty( $dependents ) ) {
 				$childPersonId = $dependents[0]->studentPersonId;
 				$childChanges  = array_filter( array(
@@ -292,11 +221,6 @@ class PiiCallbacks extends BaseController {
 		$this->success();
 	}
 
-	/**
-	 * AJAX: данные для вкладок модального окна (представители, подопечные, зачисления).
-	 *
-	 * @return void
-	 */
 	public function ajaxGetPersonData(): void {
 		$this->authorize( Nonce::Manager, Capability::ManagePersons );
 
@@ -317,49 +241,49 @@ class PiiCallbacks extends BaseController {
 		$dependents      = array();
 
 		if ( $isStudent ) {
-			foreach ( $this->relationshipService->getActiveRepresentatives( $personId ) as $rel ) {
-				$gPerson = $this->personRepository->find( $rel->guardianPersonId );
+			$archiveRecord = $this->archiveRepository->findActiveByStudent( $personId );
+			if ( $archiveRecord !== null ) {
+				$gPerson = $this->personRepository->find( $archiveRecord->parentPersonId );
 				$gUser   = $gPerson?->wpUserId ? get_userdata( $gPerson->wpUserId ) : null;
 				$representatives[] = array(
-					'id'                => $rel->id,
-					'guardian_person_id' => $rel->guardianPersonId,
-					'name'              => $gUser ? $gUser->display_name : "Person #{$rel->guardianPersonId}",
-					'type_label'        => RelationType::tryFrom( $rel->relationType )?->label() ?? $rel->relationType,
-					'since'             => substr( $rel->validFrom, 0, 10 ),
-					'person_url'        => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $rel->guardianPersonId ),
+					'archive_id'         => $archiveRecord->id,
+					'guardian_person_id' => $archiveRecord->parentPersonId,
+					'name'               => $gUser ? $gUser->display_name : ( $gPerson?->fullName ?: "Person #{$archiveRecord->parentPersonId}" ),
+					'type_label'         => 'Родитель',
+					'since'              => substr( $archiveRecord->enrolledAt, 0, 10 ),
+					'person_url'         => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $archiveRecord->parentPersonId ),
 				);
 			}
 		}
 
 		if ( $isParent ) {
-			foreach ( $this->relationshipService->getActiveDependents( $personId ) as $rel ) {
-				$sPerson = $this->personRepository->find( $rel->studentPersonId );
+			foreach ( $this->archiveRepository->findActiveByParent( $personId ) as $archiveRecord ) {
+				$sPerson = $this->personRepository->find( $archiveRecord->studentPersonId );
 				$sUser   = $sPerson?->wpUserId ? get_userdata( $sPerson->wpUserId ) : null;
 				$dependents[] = array(
-					'student_person_id' => $rel->studentPersonId,
-					'name'              => $sUser ? $sUser->display_name : "Person #{$rel->studentPersonId}",
-					'type_label'        => RelationType::tryFrom( $rel->relationType )?->label() ?? $rel->relationType,
-					'since'             => substr( $rel->validFrom, 0, 10 ),
-					'person_url'        => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $rel->studentPersonId ),
+					'archive_id'        => $archiveRecord->id,
+					'student_person_id' => $archiveRecord->studentPersonId,
+					'name'              => $sUser ? $sUser->display_name : ( $sPerson?->fullName ?: "Person #{$archiveRecord->studentPersonId}" ),
+					'type_label'        => 'Ученик',
+					'since'             => substr( $archiveRecord->enrolledAt, 0, 10 ),
+					'person_url'        => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $archiveRecord->studentPersonId ),
 				);
 			}
 		}
 
-		$personIds     = $isStudent ? array( $personId ) : array_column( $dependents, 'student_person_id' );
-		$enrollments   = array();
-		$nameMap       = array_column( $dependents, 'name', 'student_person_id' );
-		$docIssuedStr  = '';
+		$personIds    = $isStudent ? array( $personId ) : array_column( $dependents, 'student_person_id' );
+		$enrollments  = array();
+		$nameMap      = array_column( $dependents, 'name', 'student_person_id' );
+		$docIssuedStr = '';
 
 		foreach ( $personIds as $pid ) {
 			foreach ( $this->enrollmentRepository->findByStudent( $pid ) as $enr ) {
-				$group    = $this->groupRepository->getById( (string) $enr->groupId );
+				$group    = $this->groupRepository->getById( (string) $enr->groupKey );
 				$snapshot = array();
 				if ( ! empty( $enr->snapshotEnc ) ) {
 					try {
 						$snapshot = json_decode( $this->crypto->decrypt( $enr->snapshotEnc ), true ) ?? array();
-					} catch ( \Throwable $e ) {
-						// snapshot недоступен
-					}
+					} catch ( \Throwable ) {}
 				}
 				$sd = $snapshot['student']  ?? array();
 				$gd = $snapshot['guardian'] ?? array();
@@ -373,15 +297,14 @@ class PiiCallbacks extends BaseController {
 				}
 
 				$enrollments[] = array(
-					'student_name'      => $isParent ? ( $nameMap[ $pid ] ?? "#{$pid}" ) : null,
-					'subject_name'      => $this->subjectRepository->getByKey( $enr->subjectKey )?->name ?? $enr->subjectKey,
-					'group_title'       => $group?->title ?? '—',
-					'schedule'          => $this->formatSchedule( $group ),
-					'period_key'        => $enr->periodKey,
-					'status_label'      => $enr->status->label(),
-					'status_value'      => $enr->status->value,
-					'enrolled_at'       => substr( $enr->enrolledAt, 0, 10 ),
-					'terminated_at'     => $enr->terminatedAt ? substr( $enr->terminatedAt, 0, 10 ) : null,
+					'student_name'        => $isParent ? ( $nameMap[ $pid ] ?? "#{$pid}" ) : null,
+					'group_key'           => $enr->groupKey,
+					'group_title'         => $group?->title ?? '—',
+					'schedule'            => $this->formatSchedule( $group ),
+					'status_label'        => $enr->status->label(),
+					'status_value'        => $enr->status->value,
+					'enrolled_at'         => substr( $enr->enrolledAt, 0, 10 ),
+					'terminated_at'       => $enr->terminatedAt ? substr( $enr->terminatedAt, 0, 10 ) : null,
 					'contract_no'         => $snapshot['contract_no']   ?? '',
 					'last_name'           => $sd['last_name']   ?? '',
 					'first_name'          => $sd['first_name']  ?? '',
@@ -409,7 +332,7 @@ class PiiCallbacks extends BaseController {
 		$this->success( array(
 			'type'            => $type,
 			'wp_user_id'      => $person->wpUserId ?? 0,
-			'display_name'    => $wpUser ? $wpUser->display_name : '',
+			'display_name'    => $wpUser ? $wpUser->display_name : $person->fullName,
 			'login'           => $wpUser ? $wpUser->user_login : '',
 			'email'           => $wpUser ? $wpUser->user_email : '',
 			'password'        => $credentials['password'] ?? '',
@@ -420,11 +343,6 @@ class PiiCallbacks extends BaseController {
 		) );
 	}
 
-	/**
-	 * AJAX: раскрыть все PII-поля лица за одну операцию.
-	 *
-	 * @return void
-	 */
 	public function ajaxRevealAllPersonPii(): void {
 		$this->authorize( Nonce::RevealPii, Capability::ViewPII );
 
@@ -461,8 +379,8 @@ class PiiCallbacks extends BaseController {
 	}
 
 	private function getDocIssuedFromSnapshot( int $personId ): string {
-		foreach ( $this->relationshipService->getActiveDependents( $personId ) as $rel ) {
-			foreach ( $this->enrollmentRepository->findByStudent( $rel->studentPersonId ) as $enr ) {
+		foreach ( $this->archiveRepository->findActiveByParent( $personId ) as $archiveRecord ) {
+			foreach ( $this->enrollmentRepository->findByStudent( $archiveRecord->studentPersonId ) as $enr ) {
 				if ( empty( $enr->snapshotEnc ) ) {
 					continue;
 				}
@@ -482,12 +400,6 @@ class PiiCallbacks extends BaseController {
 		return '';
 	}
 
-	/**
-	 * Возвращает маскированные PII-поля лица для отображения в модальном окне.
-	 *
-	 * @param int $personId ID лица
-	 * @return array{doc_number: string, inn: string, address: string}
-	 */
 	private function getMaskedPersonPii( int $personId ): array {
 		try {
 			$dto = $this->personReader->readForDisplay(
@@ -511,12 +423,6 @@ class PiiCallbacks extends BaseController {
 		}
 	}
 
-	/**
-	 * Конвертирует массив расписания группы в читаемую строку.
-	 *
-	 * @param mixed $group Объект группы или null
-	 * @return string
-	 */
 	private function formatSchedule( mixed $group ): string {
 		if ( null === $group ) {
 			return '';
@@ -531,12 +437,6 @@ class PiiCallbacks extends BaseController {
 		return WeekDay::formatSchedule( $schedule );
 	}
 
-	/**
-	 * Данные для табов "Ученики" и "Родители" страницы "Пользователи".
-	 * Вызывается из AdminCallbacks, не как отдельная страница.
-	 *
-	 * @return void
-	 */
 	public function renderPersonsPage(): void {
 		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
 			wp_die( 'Доступ запрещён.' );
@@ -551,11 +451,6 @@ class PiiCallbacks extends BaseController {
 		}
 	}
 
-	/**
-	 * Страница карточки лица (person): ?page=fs-lms-person-detail&id=N
-	 *
-	 * @return void
-	 */
 	public function renderPersonDetailPage(): void {
 		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
 			wp_die( 'Доступ запрещён.' );
@@ -568,7 +463,6 @@ class PiiCallbacks extends BaseController {
 			wp_die( 'Запись не найдена.' );
 		}
 
-		// Расшифровка PII для отображения (если есть права)
 		$decrypted = current_user_can( Capability::ViewPII->value )
 			? $this->personReader->readForDisplay( $personId, array( 'full_name', 'doc_number', 'inn', 'address', 'phone' ), 'admin_view' )
 			: null;

@@ -7,7 +7,6 @@
  */
 
 use Inc\Enums\DocumentType;
-use Inc\Enums\RelationType;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 ?>
@@ -182,8 +181,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 										</button>
 										<select name="relation_type" hidden>
 											<option value=""><?php esc_html_e( '— Выберите —', 'fs-lms' ); ?></option>
-											<?php foreach ( RelationType::cases() as $rt ) : ?>
-												<option value="<?php echo esc_attr( $rt->value ); ?>"><?php echo esc_html( $rt->label() ); ?></option>
+											<?php foreach ( array( 'mother' => 'Мать', 'father' => 'Отец', 'guardian' => 'Опекун', 'grandparent' => 'Бабушка/Дедушка', 'other' => 'Другое' ) as $val => $label ) : ?>
+												<option value="<?php echo esc_attr( $val ); ?>"><?php echo esc_html( $label ); ?></option>
 											<?php endforeach; ?>
 										</select>
 									</div>

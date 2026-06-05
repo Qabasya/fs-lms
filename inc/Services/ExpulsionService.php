@@ -5,166 +5,112 @@ declare( strict_types=1 );
 namespace Inc\Services;
 
 use Inc\Contracts\ClockInterface;
-use Inc\DTO\ExpelledArchiveDTO;
+use Inc\DTO\ArchiveDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Managers\UserManager;
-use Inc\Repositories\OptionsRepositories\StudentGroupMatrixRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
-use Inc\Repositories\WPDBRepositories\ExpelledArchiveRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Repositories\WPDBRepositories\RelationshipRepository;
 use RuntimeException;
 
-/**
- * Class ExpulsionService
- *
- * Оркестрирует полный цикл отчисления студента:
- * 1. Собирает и шифрует данные в архивную запись.
- * 2. Обновляет статус зачисления.
- * 3. Удаляет студента из всех групп.
- * 4. Мягко удаляет записи persons.
- * 5. Физически удаляет WP-пользователей.
- * 6. Фиксирует событие в audit_log.
- */
 readonly class ExpulsionService {
 
 	public function __construct(
-		private PersonRepository            $personRepository,
-		private RelationshipRepository      $relationshipRepository,
-		private EnrollmentRepository        $enrollmentRepository,
-		private ApplicationRepository       $applicationRepository,
-		private ExpelledArchiveRepository   $archiveRepository,
-		private StudentGroupMatrixRepository $groupMatrix,
-		private AuditService                $auditService,
-		private PiiCryptoService            $crypto,
-		private UserManager                 $userManager,
-		private ClockInterface              $clock,
+		private PersonRepository     $personRepository,
+		private EnrollmentRepository $enrollmentRepository,
+		private ApplicationRepository $applicationRepository,
+		private ArchiveRepository    $archiveRepository,
+		private AuditService         $auditService,
+		private PiiCryptoService     $crypto,
+		private UserManager          $userManager,
+		private ClockInterface       $clock,
 	) {}
 
-	/**
-	 * Отчисляет студента по его WP user ID.
-	 *
-	 * @param int    $studentWpUserId WP ID студента
-	 * @param string $reason          Причина отчисления
-	 *
-	 * @return ExpelledArchiveDTO Созданная архивная запись
-	 *
-	 * @throws RuntimeException Если студент не найден или не имеет активного зачисления
-	 */
-	public function expel( int $studentWpUserId, string $reason ): ExpelledArchiveDTO {
-		// 1. Найти person студента
+	public function expel( int $studentWpUserId, string $reason ): ArchiveDTO {
 		$studentPerson = $this->personRepository->findByWpUserId( $studentWpUserId );
 		if ( null === $studentPerson ) {
 			throw new RuntimeException( 'Студент не найден в системе.' );
 		}
 
-		// 2. Найти активные зачисления
 		$enrollments = $this->enrollmentRepository->findActiveByStudent( $studentPerson->id );
 		$enrollment  = ! empty( $enrollments ) ? $enrollments[0] : null;
 
-		// 3. Найти родителя через отношения
-		$relationships  = $this->relationshipRepository->findActiveByStudent( $studentPerson->id );
-		$parentRelation = ! empty( $relationships ) ? $relationships[0] : null;
-		$parentPerson   = $parentRelation
-			? $this->personRepository->find( $parentRelation->guardianPersonId )
-			: null;
+		$archiveRecord = $enrollment !== null
+			? $this->archiveRepository->findByEnrollmentId( $enrollment->id )
+			: $this->archiveRepository->findActiveByStudent( $studentPerson->id );
 
-		// 4. Собрать и зашифровать данные снимка
-		$snapshotData = $this->buildSnapshotData( $studentPerson->id, $enrollment );
-		$dataEnc      = $this->crypto->encrypt( wp_json_encode( $snapshotData ) );
+		$parentPerson = null;
+		if ( $archiveRecord !== null ) {
+			$parentPerson = $this->personRepository->find( $archiveRecord->parentPersonId );
+		}
 
-		// 5. Создать архивную запись
-		$now        = $this->clock->now( 'mysql', true );
-		$actorId    = get_current_user_id() ?: null;
-		$archiveId  = $this->archiveRepository->create( array(
-			'enrollment_id'       => $enrollment?->id,
-			'student_person_id'   => $studentPerson->id,
-			'parent_person_id'    => $parentPerson?->id,
-			'data_enc'            => $dataEnc,
-			'expelled_at'         => $now,
-			'expelled_by_user_id' => $actorId,
-			'reason'              => $reason ?: null,
-			'created_at'          => $now,
-		) );
+		$now     = $this->clock->now( 'mysql', true );
+		$actorId = get_current_user_id() ?: null;
 
-		// 6. Обновить статус всех активных зачислений
+		if ( $archiveRecord !== null ) {
+			$this->archiveRepository->setExpelled( $archiveRecord->id, $now, $actorId ?? 0, $reason ?: null );
+		}
+
 		foreach ( $enrollments as $e ) {
 			$this->enrollmentRepository->update( $e->id, array(
-				'status'                 => EnrollmentStatus::Expelled->value,
-				'terminated_at'          => $now,
-				'terminated_reason'      => $reason ?: null,
-				'terminated_by_user_id'  => $actorId,
-				'updated_at'             => $now,
+				'status'                => EnrollmentStatus::Expelled->value,
+				'terminated_at'         => $now,
+				'terminated_reason'     => $reason ?: null,
+				'terminated_by_user_id' => $actorId,
+				'updated_at'            => $now,
 			) );
 		}
 
-		// 7. Удалить из всех групп
-		$groups = $this->groupMatrix->getGroupsByStudent( $studentWpUserId );
-		foreach ( $groups as $groupId ) {
-			$this->groupMatrix->removeStudent( $groupId, $studentWpUserId );
-		}
-
-		// 8. Мягко удалить persons
 		if ( $parentPerson ) {
 			$this->personRepository->softDelete( $parentPerson->id );
 		}
 		$this->personRepository->softDelete( $studentPerson->id );
 
-		// 9. Удалить WP-пользователей
 		if ( $parentPerson?->wpUserId ) {
 			$this->userManager->delete( $parentPerson->wpUserId );
 		}
 		$this->userManager->delete( $studentWpUserId );
 
-		// 10. Аудит
 		$this->auditService->record(
 			action:     AuditAction::StudentExpelled->value,
 			targetType: 'person',
 			targetId:   $studentPerson->id,
 			details:    array(
-				'archive_id'       => $archiveId,
+				'archive_id'       => $archiveRecord?->id,
 				'enrollment_count' => count( $enrollments ),
 				'had_parent'       => null !== $parentPerson,
 			),
 		);
 
-		$archive = $this->archiveRepository->find( $archiveId );
-		if ( null === $archive ) {
-			throw new RuntimeException( 'Ошибка создания архивной записи.' );
+		if ( $archiveRecord !== null ) {
+			$updated = $this->archiveRepository->find( $archiveRecord->id );
+			if ( null !== $updated ) {
+				return $updated;
+			}
 		}
 
-		return $archive;
+		throw new RuntimeException( 'Ошибка обновления архивной записи.' );
 	}
 
-	/**
-	 * Собирает данные снимка для архивной записи.
-	 * Приоритет: snapshot из зачисления → данные заявки → пустые поля.
-	 */
 	private function buildSnapshotData( int $studentPersonId, ?object $enrollment ): array {
-		// Приоритет: готовый snapshot из зачисления
 		if ( $enrollment?->snapshotEnc ) {
 			try {
 				$snapshot = json_decode( $this->crypto->decrypt( $enrollment->snapshotEnc ), true );
 				if ( is_array( $snapshot ) ) {
 					$snapshot['enrollment'] = array(
-						'id'          => $enrollment->id,
-						'subject_key' => $enrollment->subjectKey,
-						'period_key'  => $enrollment->periodKey,
-						'group_id'    => $enrollment->groupId,
+						'id'        => $enrollment->id,
+						'group_key' => $enrollment->groupKey,
 						'enrolled_at' => $enrollment->enrolledAt,
 					);
 					$snapshot['application_id'] = $enrollment->sourceApplicationId;
 
 					return $snapshot;
 				}
-			} catch ( \Throwable ) {
-				// Продолжаем к следующему источнику
-			}
+			} catch ( \Throwable ) {}
 		}
 
-		// Запасной вариант: данные из заявки
 		if ( $enrollment?->sourceApplicationId ) {
 			$application = $this->applicationRepository->find( $enrollment->sourceApplicationId );
 			if ( $application?->studentDataEnc ) {
@@ -179,20 +125,15 @@ readonly class ExpulsionService {
 						'guardian'       => $parentData ?? [],
 						'enrollment'     => $enrollment ? array(
 							'id'          => $enrollment->id,
-							'subject_key' => $enrollment->subjectKey,
-							'period_key'  => $enrollment->periodKey,
-							'group_id'    => $enrollment->groupId,
+							'group_key'   => $enrollment->groupKey,
 							'enrolled_at' => $enrollment->enrolledAt,
 						) : [],
 						'application_id' => $enrollment?->sourceApplicationId,
 					);
-				} catch ( \Throwable ) {
-					// Продолжаем к пустому снимку
-				}
+				} catch ( \Throwable ) {}
 			}
 		}
 
-		// Минимальный снимок (ученик без зачисления или заявки)
 		return array(
 			'student'        => array( 'person_id' => $studentPersonId ),
 			'guardian'       => [],

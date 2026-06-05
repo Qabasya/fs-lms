@@ -9,7 +9,6 @@
 use Inc\Enums\Capability;
 use Inc\Enums\DocumentType;
 use Inc\Enums\EnrollmentStatus;
-use Inc\Enums\RelationType;
 use Inc\Enums\WeekDay;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -95,8 +94,7 @@ $pages       = (int) ceil( $total / $perPage );
 		<?php else : ?>
 			<?php foreach ( $enrollments as $row ) :
 				$studentPersonId = $row->studentPersonId;
-				$groupId         = (string) ( $row->groupId ?? '' );
-				$subjectKey      = $row->subjectKey;
+				$groupId         = (string) ( $row->groupKey ?? '' );
 
 				// Имя ученика из WP-пользователя
 				$studentName = '—';
@@ -165,7 +163,7 @@ $pages       = (int) ceil( $total / $perPage );
 					'student_doc_number'       => $sd['doc_number'] ?? '',
 					'student_inn'              => $sd['inn']        ?? '',
 					'guardian_full_name'       => $gd['full_name']      ?? '',
-					'guardian_relation_type'   => RelationType::tryFrom( $gd['relation_type'] ?? '' )?->label() ?? ( $gd['relation_type'] ?? '' ),
+					'guardian_relation_type'   => $gd['relation_type'] ?? '',
 					'guardian_birth_date'      => $gd['birth_date']      ?? '',
 					'guardian_email'           => $gd['email']           ?? '',
 					'guardian_phone'           => $gd['phone']           ?? '',
@@ -222,7 +220,7 @@ $pages       = (int) ceil( $total / $perPage );
 							   data-wp-user-id="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>"
 							   data-person-type="student"
 							   data-display-name="<?php echo esc_attr( $studentName ); ?>"
-							   data-email="<?php echo esc_attr( $person?->email ?? '' ); ?>"
+							   data-email="<?php echo esc_attr( $wpUser?->user_email ?? '' ); ?>"
 							   data-user-login="<?php echo esc_attr( $wpUser ? $wpUser->user_login : '' ); ?>">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>

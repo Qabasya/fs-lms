@@ -9,7 +9,6 @@
 use Inc\Enums\Capability;
 use Inc\Enums\DocumentType;
 use Inc\Enums\EnrollmentStatus;
-use Inc\Enums\RelationType;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
@@ -90,8 +89,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 		<?php else : ?>
 			<?php foreach ( $enrollments as $row ) :
 				$studentPersonId  = $row->studentPersonId;
-				$groupId          = (string) ( $row->groupId ?? '' );
-				$subjectKey       = $row->subjectKey;
+				$groupId          = (string) ( $row->groupKey ?? '' );
 				$status           = $row->status;
 				$terminatedAt     = $row->terminatedAt ? substr( $row->terminatedAt, 0, 10 ) : '';
 				$terminatedReason = (string) ( $row->terminatedReason ?? '' );
@@ -138,7 +136,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				}
 
 				// Направление
-				$subjectName = $allSubjects[ $subjectKey ] ?? $subjectKey;
+				$subjectName = '—';
 
 				// Разбить full_name на части (обратная совместимость)
 				$sParts = explode( ' ', $sd['full_name'] ?? '', 3 );
@@ -172,7 +170,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 						'first_name'      => $gd['first_name']  ?? $gParts[1] ?? '',
 						'middle_name'     => $gd['middle_name'] ?? $gParts[2] ?? '',
 						'birth_date'      => $gd['birth_date']      ?? '',
-						'relation_type'   => RelationType::tryFrom( $gd['relation_type'] ?? '' )?->label() ?? ( $gd['relation_type'] ?? '' ),
+						'relation_type'   => $gd['relation_type'] ?? '',
 						'email'           => $gd['email']           ?? '',
 						'phone'           => $gd['phone']           ?? '',
 						'doc_type'        => DocumentType::tryFrom( $gd['doc_type'] ?? '' )?->label() ?? ( $gd['doc_type'] ?? '' ),

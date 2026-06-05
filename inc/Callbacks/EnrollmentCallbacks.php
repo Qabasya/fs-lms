@@ -24,7 +24,6 @@ use Inc\DTO\PiiAccessLogInputDTO;
 use Inc\DTO\StudentDataDTO;
 use Inc\DTO\StudentGroupDTO;
 use Inc\Enums\DocumentType;
-use Inc\Enums\RelationType;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -193,14 +192,12 @@ class EnrollmentCallbacks extends BaseController {
 
 		$dto = new EnrollmentInputDTO(
 			applicationId: $this->sanitizeInt( 'application_id' ),
-			contractNo:    $this->requireText( 'contract_no' ),
+			contractNo:    $this->sanitizeText( 'contract_no' ),
 			contractDate:  $this->requireText( 'contract_date' ),
 			orderNo:       $this->requireText( 'order_no' ),
 			orderDate:     $this->requireText( 'order_date' ),
 			enrolledAt:    $this->requireText( 'enrolled_at' ),
-			subjectKey:    $this->requireKey( 'subject_key' ),
-			groupId:       $this->requireText( 'group_id' ),
-			periodKey:     $this->requireKey( 'period_key' ),
+			groupKey:      $this->requireKey( 'group_key' ),
 			sendEmailAuto: true,
 		);
 
@@ -515,8 +512,7 @@ class EnrollmentCallbacks extends BaseController {
 					json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array()
 				);
 				$parent    = $parentDto->toArray();
-				$parent['doc_type']      = DocumentType::tryFrom( $parentDto->docType )?->label() ?? $parentDto->docType;
-				$parent['relation_type'] = RelationType::tryFrom( $parentDto->relationType )?->label() ?? $parentDto->relationType;
+				$parent['doc_type'] = DocumentType::tryFrom( $parentDto->docType )?->label() ?? $parentDto->docType;
 			} catch ( \Throwable $e ) {
 				$parent = null;
 			}

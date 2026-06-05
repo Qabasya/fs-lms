@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Enrollment;
 
+use Inc\DTO\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\UserRole;
 use Inc\Managers\UserManager;
@@ -11,6 +12,7 @@ use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\AuditService;
+use Inc\Services\PiiCryptoService;
 
 readonly class RecoveryService {
 
@@ -20,6 +22,7 @@ readonly class RecoveryService {
 		private PersonRepository      $personRepository,
 		private UserManager           $userManager,
 		private AuditService          $auditService,
+		private PiiCryptoService      $crypto,
 	) {}
 
 	public function resolveStuckEnrollments(): int {
@@ -39,7 +42,13 @@ readonly class RecoveryService {
 				$person = $this->personRepository->find( $enrollment->studentPersonId );
 
 				if ( null !== $person && null === $person->wpUserId ) {
-					$email = $person->email ?? '';
+					$email = '';
+					if ( $enrollment->snapshotEnc ) {
+						try {
+							$snapshot = json_decode( $this->crypto->decrypt( $enrollment->snapshotEnc ), true );
+							$email    = $snapshot['student']['email'] ?? '';
+						} catch ( \Throwable ) {}
+					}
 					$existingUser = $email !== '' ? $this->userManager->findByEmail( $email ) : null;
 
 					if ( null !== $existingUser ) {

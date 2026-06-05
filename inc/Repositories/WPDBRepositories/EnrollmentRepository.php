@@ -9,47 +9,16 @@ use Inc\DTO\EnrollmentDTO;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Enums\TableName;
 
-/**
- * Class EnrollmentRepository
- *
- * Репозиторий для фиксации и контроля фактов зачисления учащихся на учебные программы и группы.
- *
- * @package Inc\Repositories\WPDBRepositories
- *
- * ### Основные обязанности:
- *
- * 1. **Создание зачислений** — запись факта зачисления студента на предмет/группу.
- * 2. **Поиск зачислений** — получение зачислений по ID, по студенту.
- * 3. **Управление статусом** — обновление статуса зачисления (active, finished, expelled, transferred).
- *
- * ### Архитектурная роль:
- *
- * Реализует интерфейс RepositoryInterface для единообразия с другими репозиториями.
- * Использует wpdb для прямых SQL-запросов. Работает с DTO EnrollmentDTO
- * для типобезопасной передачи данных о зачислении.
- */
 class EnrollmentRepository implements RepositoryInterface {
 
 	private \wpdb $wpdb;
 	private string $table;
 
-	/**
-	 * Конструктор репозитория.
-	 *
-	 * @param \wpdb|null $wpdb Глобальный объект базы данных WordPress
-	 */
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
 		$this->table = TableName::Enrollments->prefixed();
 	}
 
-	/**
-	 * Находит зачисление по ID.
-	 *
-	 * @param int $id ID зачисления
-	 *
-	 * @return EnrollmentDTO|null
-	 */
 	public function find( int $id ): ?EnrollmentDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare( 'SELECT * FROM %i WHERE id = %d LIMIT 1', $this->table, $id ),
@@ -60,10 +29,6 @@ class EnrollmentRepository implements RepositoryInterface {
 	}
 
 	/**
-	 * Находит все зачисления студента (включая завершённые).
-	 *
-	 * @param int $studentPersonId ID студента из таблицы persons
-	 *
 	 * @return EnrollmentDTO[]
 	 */
 	public function findByStudent( int $studentPersonId ): array {
@@ -80,10 +45,6 @@ class EnrollmentRepository implements RepositoryInterface {
 	}
 
 	/**
-	 * Находит активные зачисления студента (статус active).
-	 *
-	 * @param int $studentPersonId ID студента из таблицы persons
-	 *
 	 * @return EnrollmentDTO[]
 	 */
 	public function findActiveByStudent( int $studentPersonId ): array {
@@ -101,41 +62,35 @@ class EnrollmentRepository implements RepositoryInterface {
 	}
 
 	/**
-	 * Создаёт новую запись зачисления.
-	 *
-	 * @param array $data Массив полей таблицы (student_person_id, subject_key, period_key, status и т.д.)
-	 *
-	 * @return int ID созданной записи
+	 * @return EnrollmentDTO[]
 	 */
+	public function findActiveByGroupKey( string $groupKey ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE group_key = %s AND status = %s ORDER BY enrolled_at DESC',
+				$this->table,
+				$groupKey,
+				EnrollmentStatus::Active->value
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $row ) => EnrollmentDTO::fromArray( $row ), $rows ?: array() );
+	}
+
 	public function create( array $data ): int {
 		$this->wpdb->insert( $this->table, $data );
 		return (int) $this->wpdb->insert_id;
 	}
 
-	/**
-	 * Обновляет существующую запись зачисления.
-	 *
-	 * @param int   $id   ID зачисления
-	 * @param array $data Массив обновляемых полей
-	 *
-	 * @return bool
-	 */
 	public function update( int $id, array $data ): bool {
 		return false !== $this->wpdb->update( $this->table, $data, array( 'id' => $id ) );
 	}
 
-	/**
-	 * Изменяет статус зачисления.
-	 *
-	 * @param int              $id     ID зачисления
-	 * @param EnrollmentStatus $status Новый статус
-	 *
-	 * @return bool
-	 */
 	public function setStatus( int $id, EnrollmentStatus $status ): bool {
 		return $this->update( $id, array(
 			'status'     => $status->value,
-			'updated_at' => current_time( 'mysql' ),  // Автоматическое обновление времени
+			'updated_at' => current_time( 'mysql' ),
 		) );
 	}
 
@@ -152,26 +107,19 @@ class EnrollmentRepository implements RepositoryInterface {
 		return $row ? EnrollmentDTO::fromArray( $row ) : null;
 	}
 
-	public function existsActive( int $personId, string $subjectKey, string $periodKey ): bool {
+	public function existsActive( int $personId, string $groupKey ): bool {
 		return 0 < (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(
-				'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND subject_key = %s AND period_key = %s AND status = %s',
+				'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND group_key = %s AND status = %s',
 				$this->table,
 				$personId,
-				$subjectKey,
-				$periodKey,
+				$groupKey,
 				EnrollmentStatus::Active->value
 			)
 		);
 	}
 
 	/**
-	 * Возвращает список зачислений с пагинацией.
-	 *
-	 * @param array<string, string|string[]> $filters Фильтры (status — строка или массив строк)
-	 * @param int                            $page    Номер страницы (с 1)
-	 * @param int                            $perPage Записей на страницу
-	 *
 	 * @return EnrollmentDTO[]
 	 */
 	public function list( array $filters = array(), int $page = 1, int $perPage = 20 ): array {
@@ -191,13 +139,6 @@ class EnrollmentRepository implements RepositoryInterface {
 		return array_map( fn( array $row ) => EnrollmentDTO::fromArray( $row ), $rows ?: array() );
 	}
 
-	/**
-	 * Возвращает количество зачислений по фильтрам.
-	 *
-	 * @param array<string, string|string[]> $filters Фильтры (status — строка или массив строк)
-	 *
-	 * @return int
-	 */
 	public function count( array $filters = array() ): int {
 		[ $where, $args ] = $this->buildWhereClause( $filters );
 
@@ -206,13 +147,6 @@ class EnrollmentRepository implements RepositoryInterface {
 		);
 	}
 
-	/**
-	 * Строит WHERE-условие и аргументы для prepare().
-	 *
-	 * @param array<string, string|string[]> $filters
-	 *
-	 * @return array{0: string, 1: array<mixed>}
-	 */
 	private function buildWhereClause( array $filters ): array {
 		$where = 'WHERE 1=1';
 		$args  = array( $this->table );

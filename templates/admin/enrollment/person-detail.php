@@ -5,54 +5,52 @@
  *
  * Доступные переменные:
  *   $personId  int                  ID записи person
- *   $person    PersonDTO            Строка таблицы persons (зашифрованные поля)
+ *   $person    PersonDTO            Строка таблицы persons
  *   $decrypted PersonDecryptedDTO|null  Расшифрованные поля (если есть Capability::ViewPII)
  *
  * @package FS LMS
  */
 
 use Inc\Enums\Capability;
-use Inc\Enums\DocumentType;
 use Inc\Enums\PiiField;
-use Inc\Enums\RelationType;
 use Inc\Enums\UserRole;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
-use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
-use Inc\Repositories\WPDBRepositories\RelationshipRepository;
 use Inc\Services\Person\PiiMaskingService;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-// Определяем роль person через WP-пользователя
 $wpUser    = $person->wpUserId ? get_userdata( $person->wpUserId ) : null;
 $userRoles = $wpUser ? (array) $wpUser->roles : array();
 $isStudent = in_array( UserRole::FSStudent->value, $userRoles, true );
 $isParent  = in_array( UserRole::FSParent->value, $userRoles, true );
 
-$displayName = $wpUser ? $wpUser->display_name : ( $decrypted?->fullName ?: "Person #{$personId}" );
+$displayName = $wpUser ? $wpUser->display_name : ( $person->fullName ?: "Person #{$personId}" );
 
-// Репозитории
-$relRepo     = new RelationshipRepository();
+$archiveRepo = new ArchiveRepository();
 $enrollRepo  = new EnrollmentRepository();
 $groupRepo   = new StudentGroupRepository();
-$subjectRepo = new SubjectRepository();
 $masking     = new PiiMaskingService();
 
-// Маскированные значения для отображения
 $maskedPhone   = $decrypted ? $masking->mask( $decrypted->phone,   PiiField::Phone )   : '—';
 $maskedPass    = $decrypted ? $masking->mask( $decrypted->pass,    PiiField::Pass )    : '—';
 $maskedInn     = $decrypted ? $masking->mask( $decrypted->inn,     PiiField::Inn )     : '—';
 $maskedAddress = $decrypted ? $masking->mask( $decrypted->address, PiiField::Address ) : '—';
-$fullName      = $decrypted?->fullName ?: '—';
+$fullName      = $decrypted?->fullName ?: $person->fullName ?: '—';
 
-// Данные по вкладкам
+$archiveActive  = null;
+$representatives = array();
+$dependents      = array();
+
 if ( $isStudent ) {
-	$representatives = $relRepo->findActiveByStudent( $personId );
-	$enrollments     = $enrollRepo->findByStudent( $personId );
+	$archiveActive = $archiveRepo->findActiveByStudent( $personId );
+	if ( $archiveActive !== null ) {
+		$representatives[] = $archiveActive;
+	}
+	$enrollments = $enrollRepo->findByStudent( $personId );
 } elseif ( $isParent ) {
-	$dependents  = $relRepo->findActiveByGuardian( $personId );
-	// Зачисления всех подопечных
+	$dependents  = $archiveRepo->findActiveByParent( $personId );
 	$enrollments = array();
 	foreach ( $dependents as $dep ) {
 		foreach ( $enrollRepo->findActiveByStudent( $dep->studentPersonId ) as $enr ) {
@@ -60,31 +58,21 @@ if ( $isStudent ) {
 		}
 	}
 } else {
-	$representatives = array();
-	$dependents      = array();
-	$enrollments     = array();
+	$enrollments = array();
 }
 
-// Все предметы и группы (один раз)
-$allSubjects = array();
-foreach ( $subjectRepo->readAll() as $dto ) {
-	$allSubjects[ $dto->key ] = $dto->name;
-}
-
-// Вспомогательная функция: имя ученика по person_id
-$getStudentName = function ( int $pid ) use ( &$getStudentName ): string {
+$getPersonName = function ( int $pid ): string {
 	$p = ( new \Inc\Repositories\WPDBRepositories\PersonRepository() )->find( $pid );
-	if ( $p && $p->wpUserId ) {
-		$u = get_userdata( $p->wpUserId );
-		return $u ? $u->display_name : "Person #{$pid}";
+	if ( $p ) {
+		if ( $p->wpUserId ) {
+			$u = get_userdata( $p->wpUserId );
+			if ( $u ) return $u->display_name;
+		}
+		if ( $p->fullName !== '' ) return $p->fullName;
 	}
 	return "Person #{$pid}";
 };
 
-// Вспомогательная функция: имя родителя по person_id
-$getGuardianName = $getStudentName;
-
-// Определяем активную вкладку
 $activeTab = sanitize_key( $_GET['person_tab'] ?? 'data' );
 $tabs = $isStudent
 	? array( 'data' => 'Данные', 'representatives' => 'Представители', 'enrollments' => 'Зачисления' )
@@ -120,7 +108,6 @@ $tabs = $isStudent
 		<?php endif; ?>
 	</div>
 
-	<!-- Навигация по вкладкам -->
 	<h2 class="nav-tab-wrapper" style="margin-top:16px">
 		<?php foreach ( $tabs as $tabId => $tabTitle ) : ?>
 			<a href="#"
@@ -131,7 +118,7 @@ $tabs = $isStudent
 		<?php endforeach; ?>
 	</h2>
 
-	<!-- ═══════════════════════════════ ДАННЫЕ ═══════════════════════════════ -->
+	<!-- ДАННЫЕ -->
 	<div id="fs-person-tab-data" class="fs-tab-panel tab-content"
 		<?php echo $activeTab !== 'data' ? 'style="display:none"' : ''; ?>>
 
@@ -148,11 +135,10 @@ $tabs = $isStudent
 
 					<tr>
 						<th><?php esc_html_e( 'Email', 'fs-lms' ); ?></th>
-						<td><?php echo esc_html( $person->email ?? '—' ); ?></td>
+						<td><?php echo esc_html( $wpUser?->user_email ?? '—' ); ?></td>
 					</tr>
 
 					<?php
-					// Вспомогательный замыкающий тег для PII-поля с кнопкой «Показать»
 					$piiField = function ( string $field, string $maskedValue ) use ( $personId ) : void {
 						?>
 						<div class="fs-pii-field">
@@ -195,15 +181,7 @@ $tabs = $isStudent
 							<th><?php esc_html_e( 'Статус', 'fs-lms' ); ?></th>
 							<td>
 								<span class="fs-lms-status fs-lms-status--trash">
-									<?php
-									echo esc_html(
-										sprintf(
-											/* translators: %s — date */
-											__( 'Удаление запрошено %s', 'fs-lms' ),
-											substr( $person->deletedAt, 0, 10 )
-										)
-									);
-									?>
+									<?php echo esc_html( sprintf( __( 'Удаление запрошено %s', 'fs-lms' ), substr( $person->deletedAt, 0, 10 ) ) ); ?>
 								</span>
 							</td>
 						</tr>
@@ -214,7 +192,7 @@ $tabs = $isStudent
 		<?php endif; ?>
 	</div>
 
-	<!-- ════════════════════════════ ПРЕДСТАВИТЕЛИ (ученик) ══════════════════════ -->
+	<!-- ПРЕДСТАВИТЕЛИ (ученик) -->
 	<?php if ( $isStudent ) : ?>
 	<div id="fs-person-tab-representatives" class="fs-tab-panel tab-content"
 		<?php echo $activeTab !== 'representatives' ? 'style="display:none"' : ''; ?>>
@@ -232,21 +210,19 @@ $tabs = $isStudent
 				<thead>
 					<tr>
 						<th><?php esc_html_e( 'ФИО', 'fs-lms' ); ?></th>
-						<th><?php esc_html_e( 'Роль', 'fs-lms' ); ?></th>
-						<th><?php esc_html_e( 'Дата начала', 'fs-lms' ); ?></th>
+						<th><?php esc_html_e( 'Зачислен', 'fs-lms' ); ?></th>
 						<th><?php esc_html_e( 'Действия', 'fs-lms' ); ?></th>
 					</tr>
 				</thead>
 				<tbody>
-					<?php foreach ( $representatives as $rel ) : ?>
+					<?php foreach ( $representatives as $arc ) : ?>
 						<tr>
-							<td><?php echo esc_html( $getGuardianName( $rel->guardianPersonId ) ); ?></td>
-							<td><?php echo esc_html( RelationType::tryFrom( $rel->relationType )?->label() ?? $rel->relationType ); ?></td>
-							<td><?php echo esc_html( substr( $rel->validFrom, 0, 10 ) ); ?></td>
+							<td><?php echo esc_html( $getPersonName( $arc->parentPersonId ) ); ?></td>
+							<td><?php echo esc_html( substr( $arc->enrolledAt, 0, 10 ) ); ?></td>
 							<td>
 								<a href="#"
 								   class="js-open-replace-representative"
-								   data-rel-id="<?php echo esc_attr( (string) $rel->id ); ?>">
+								   data-archive-id="<?php echo esc_attr( (string) $arc->id ); ?>">
 									<?php esc_html_e( 'Заменить', 'fs-lms' ); ?>
 								</a>
 							</td>
@@ -258,7 +234,7 @@ $tabs = $isStudent
 	</div>
 	<?php endif; ?>
 
-	<!-- ════════════════════════════ ПОДОПЕЧНЫЕ (родитель) ═══════════════════════ -->
+	<!-- ПОДОПЕЧНЫЕ (родитель) -->
 	<?php if ( $isParent ) : ?>
 	<div id="fs-person-tab-dependents" class="fs-tab-panel tab-content"
 		<?php echo $activeTab !== 'dependents' ? 'style="display:none"' : ''; ?>>
@@ -270,19 +246,17 @@ $tabs = $isStudent
 				<thead>
 					<tr>
 						<th><?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?></th>
-						<th><?php esc_html_e( 'Роль', 'fs-lms' ); ?></th>
-						<th><?php esc_html_e( 'С даты', 'fs-lms' ); ?></th>
+						<th><?php esc_html_e( 'Зачислен', 'fs-lms' ); ?></th>
 						<th><?php esc_html_e( 'Карточка', 'fs-lms' ); ?></th>
 					</tr>
 				</thead>
 				<tbody>
-					<?php foreach ( $dependents as $rel ) :
-						$studentDetailUrl = admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $rel->studentPersonId );
+					<?php foreach ( $dependents as $arc ) :
+						$studentDetailUrl = admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $arc->studentPersonId );
 					?>
 						<tr>
-							<td><?php echo esc_html( $getStudentName( $rel->studentPersonId ) ); ?></td>
-							<td><?php echo esc_html( RelationType::tryFrom( $rel->relationType )?->label() ?? $rel->relationType ); ?></td>
-							<td><?php echo esc_html( substr( $rel->validFrom, 0, 10 ) ); ?></td>
+							<td><?php echo esc_html( $getPersonName( $arc->studentPersonId ) ); ?></td>
+							<td><?php echo esc_html( substr( $arc->enrolledAt, 0, 10 ) ); ?></td>
 							<td>
 								<a href="<?php echo esc_url( $studentDetailUrl ); ?>">
 									<?php esc_html_e( 'Открыть', 'fs-lms' ); ?>
@@ -296,7 +270,7 @@ $tabs = $isStudent
 	</div>
 	<?php endif; ?>
 
-	<!-- ════════════════════════════ ЗАЧИСЛЕНИЯ ══════════════════════════════════ -->
+	<!-- ЗАЧИСЛЕНИЯ -->
 	<div id="fs-person-tab-enrollments" class="fs-tab-panel tab-content"
 		<?php echo $activeTab !== 'enrollments' ? 'style="display:none"' : ''; ?>>
 
@@ -309,9 +283,7 @@ $tabs = $isStudent
 						<?php if ( $isParent ) : ?>
 							<th><?php esc_html_e( 'Ученик', 'fs-lms' ); ?></th>
 						<?php endif; ?>
-						<th><?php esc_html_e( 'Направление', 'fs-lms' ); ?></th>
 						<th><?php esc_html_e( 'Группа', 'fs-lms' ); ?></th>
-						<th><?php esc_html_e( 'Период', 'fs-lms' ); ?></th>
 						<th><?php esc_html_e( 'Статус', 'fs-lms' ); ?></th>
 						<th><?php esc_html_e( 'Дата зачисления', 'fs-lms' ); ?></th>
 						<th><?php esc_html_e( 'Дата завершения', 'fs-lms' ); ?></th>
@@ -319,18 +291,14 @@ $tabs = $isStudent
 				</thead>
 				<tbody>
 					<?php foreach ( $enrollments as $enr ) :
-						$groupTitle  = '—';
-						$group       = $groupRepo->getById( (string) $enr->groupId );
-						if ( $group ) { $groupTitle = $group->title; }
-						$subjectName = $allSubjects[ $enr->subjectKey ] ?? $enr->subjectKey;
+						$group      = $groupRepo->getById( (string) $enr->groupKey );
+						$groupTitle = $group ? $group->title : ( $enr->groupKey ?? '—' );
 					?>
 						<tr>
 							<?php if ( $isParent ) : ?>
-								<td><?php echo esc_html( $getStudentName( $enr->studentPersonId ) ); ?></td>
+								<td><?php echo esc_html( $getPersonName( $enr->studentPersonId ) ); ?></td>
 							<?php endif; ?>
-							<td><?php echo esc_html( $subjectName ); ?></td>
 							<td><?php echo esc_html( $groupTitle ); ?></td>
-							<td><?php echo esc_html( $enr->periodKey ); ?></td>
 							<td>
 								<span class="fs-lms-status fs-lms-status--<?php echo esc_attr( str_replace( '_', '-', $enr->status->value ) ); ?>">
 									<?php echo esc_html( $enr->status->label() ); ?>
@@ -347,7 +315,7 @@ $tabs = $isStudent
 
 </div><!-- /.wrap.fs-person-detail -->
 
-<!-- ══════════════════════════════ МОДАЛКИ ═══════════════════════════════════ -->
+<!-- МОДАЛКИ -->
 
 <!-- Редактировать данные -->
 <div id="fs-edit-person-modal" class="fs-lms-modal hidden">
@@ -362,7 +330,7 @@ $tabs = $isStudent
 				<input type="hidden" name="person_id" value="<?php echo esc_attr( (string) $personId ); ?>">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Email', 'fs-lms' ); ?></label>
-					<input type="email" name="email" class="regular-text" value="<?php echo esc_attr( $person->email ?? '' ); ?>">
+					<input type="email" name="email" class="regular-text" value="<?php echo esc_attr( $wpUser?->user_email ?? '' ); ?>">
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></label>
@@ -398,15 +366,6 @@ $tabs = $isStudent
 					<div class="fs-form-group">
 						<label><?php esc_html_e( 'ФИО', 'fs-lms' ); ?> <span class="required">*</span></label>
 						<input type="text" name="full_name" class="regular-text" required>
-					</div>
-					<div class="fs-form-group">
-						<label><?php esc_html_e( 'Роль', 'fs-lms' ); ?> <span class="required">*</span></label>
-						<select name="relation_type" required>
-							<option value=""><?php esc_html_e( '— Выберите —', 'fs-lms' ); ?></option>
-							<?php foreach ( RelationType::cases() as $rt ) : ?>
-								<option value="<?php echo esc_attr( $rt->value ); ?>"><?php echo esc_html( $rt->label() ); ?></option>
-							<?php endforeach; ?>
-						</select>
 					</div>
 				</div>
 				<div class="fs-form-row">
@@ -452,23 +411,14 @@ $tabs = $isStudent
 		</div>
 		<div class="fs-lms-modal-body">
 			<form id="fs-replace-representative-form">
-				<input type="hidden" name="relationship_id" value="">
+				<input type="hidden" name="archive_id" value="">
 				<p class="description" style="margin-bottom:12px">
-					<?php esc_html_e( 'Старая связь будет закрыта сегодняшней датой. Заполните данные нового представителя.', 'fs-lms' ); ?>
+					<?php esc_html_e( 'Заполните данные нового представителя.', 'fs-lms' ); ?>
 				</p>
 				<div class="fs-form-row">
 					<div class="fs-form-group">
 						<label><?php esc_html_e( 'ФИО', 'fs-lms' ); ?> <span class="required">*</span></label>
 						<input type="text" name="full_name" class="regular-text" required>
-					</div>
-					<div class="fs-form-group">
-						<label><?php esc_html_e( 'Роль', 'fs-lms' ); ?> <span class="required">*</span></label>
-						<select name="relation_type" required>
-							<option value=""><?php esc_html_e( '— Выберите —', 'fs-lms' ); ?></option>
-							<?php foreach ( RelationType::cases() as $rt ) : ?>
-								<option value="<?php echo esc_attr( $rt->value ); ?>"><?php echo esc_html( $rt->label() ); ?></option>
-							<?php endforeach; ?>
-						</select>
 					</div>
 				</div>
 				<div class="fs-form-row">

@@ -10,7 +10,6 @@
 
 use Inc\DTO\StudentDataDTO;
 use Inc\Enums\Nonce;
-use Inc\Enums\RelationType;
 use Inc\Services\ThemeCompatService;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -310,17 +309,11 @@ ThemeCompatService::header();
                                 aria-required="true"
                                 autocomplete="off"
                         >
-                            <?php if ( class_exists( 'Inc\Enums\RelationType' ) && method_exists( RelationType::class, 'cases' ) ) : ?>
-                                <?php foreach ( RelationType::cases() as $relation ) : ?>
-                                    <option value="<?php echo esc_attr( $relation->value ); ?>">
-                                        <?php echo esc_html( method_exists( $relation, 'label' ) ? $relation->label() : $relation->name ); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            <?php else : ?>
                                 <option value="mother"><?php esc_html_e( 'Мать', 'fs-lms' ); ?></option>
                                 <option value="father"><?php esc_html_e( 'Отец', 'fs-lms' ); ?></option>
                                 <option value="guardian"><?php esc_html_e( 'Опекун', 'fs-lms' ); ?></option>
-                            <?php endif; ?>
+                                <option value="grandparent"><?php esc_html_e( 'Бабушка/Дедушка', 'fs-lms' ); ?></option>
+                                <option value="other"><?php esc_html_e( 'Другое', 'fs-lms' ); ?></option>
                         </select>
                     </div>
 
