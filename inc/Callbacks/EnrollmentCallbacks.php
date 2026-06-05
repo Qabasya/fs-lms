@@ -656,4 +656,70 @@ class EnrollmentCallbacks extends BaseController {
 
 		$this->success( array( 'password' => $password ) );
 	}
+
+	/**
+	 * AJAX: восстановление ученика из архива — создание новой заявки (события 2A, 4B).
+	 */
+	public function ajaxRestoreFromArchive(): void {
+		$this->authorize( Nonce::RestoreFromArchive, Capability::ManageApplications );
+
+		$archiveId = $this->requireInt( 'archive_id', error: 'Не указан ID архивной записи.' );
+
+		try {
+			$result = $this->enrollmentService->restoreFromArchive( $archiveId );
+			$this->success( $result );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		} catch ( \RuntimeException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * AJAX: назначить существующего родителя к заявке (события 3B, 4B).
+	 */
+	public function ajaxSelectExistingParent(): void {
+		$this->authorize( Nonce::SelectExistingParent, Capability::ManageApplications );
+
+		$applicationId  = $this->requireInt( 'application_id', error: 'Не указан ID заявки.' );
+		$parentPersonId = $this->requireInt( 'parent_person_id', error: 'Не указан ID родителя.' );
+
+		try {
+			$this->enrollmentService->selectExistingParent( $applicationId, $parentPersonId );
+			$this->success();
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		} catch ( \DomainException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * AJAX: поиск существующих родителей (для модалки select-parent-modal).
+	 */
+	public function ajaxSearchParents(): void {
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
+
+		$query = $this->sanitizeText( 'query' );
+
+		$users = get_users( array(
+			'role'   => 'lms_parent',
+			'search' => '*' . $query . '*',
+			'search_columns' => array( 'display_name', 'user_email', 'user_login' ),
+			'number' => 20,
+		) );
+
+		$result = array();
+		foreach ( $users as $user ) {
+			$personId = (int) get_user_meta( $user->ID, 'fs_lms_person_id', true );
+			$result[] = array(
+				'person_id'    => $personId ?: null,
+				'wp_user_id'   => $user->ID,
+				'display_name' => $user->display_name,
+				'email'        => $user->user_email,
+			);
+		}
+
+		$this->success( $result );
+	}
 }

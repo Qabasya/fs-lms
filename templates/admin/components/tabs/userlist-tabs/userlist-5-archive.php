@@ -11,6 +11,7 @@ use Inc\Enums\DocumentType;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\PiiCryptoService;
@@ -23,6 +24,7 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 }
 
 $enrollmentRepo = new EnrollmentRepository();
+$archiveRepo    = new ArchiveRepository();
 $personRepo     = new PersonRepository();
 $groupRepo      = new StudentGroupRepository();
 $subjectRepo    = new SubjectRepository();
@@ -142,7 +144,9 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				$sParts = explode( ' ', $sd['full_name'] ?? '', 3 );
 				$gParts = explode( ' ', $gd['full_name'] ?? '', 3 );
 
+				$archiveRecord  = $archiveRepo->findByEnrollmentId( $row->id );
 				$enrollmentData = array(
+					'archive_id'      => $archiveRecord?->id,
 					'subject'         => $subjectName,
 					'group'           => $groupTitle,
 					'status_label'    => $status->label(),

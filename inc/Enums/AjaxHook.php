@@ -100,6 +100,9 @@ enum AjaxHook: string {
 	case RegenerateUserPassword      = 'regenerate_user_password';
 	case GetStudentsByGroup          = 'get_students_by_group';
 	case GetPersonData               = 'get_person_data';
+	case SelectExistingParent        = 'select_existing_parent';
+	case RestoreFromArchive          = 'restore_from_archive';
+	case SearchParents               = 'search_parents';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

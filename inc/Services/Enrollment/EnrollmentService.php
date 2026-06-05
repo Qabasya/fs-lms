@@ -17,7 +17,10 @@ use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Application\JoinCodeService;
 use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
 use Inc\Services\EmailService;
@@ -28,6 +31,7 @@ use Inc\Services\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\TransactionRunner;
 use InvalidArgumentException;
+use RuntimeException;
 
 readonly class EnrollmentService {
 
@@ -35,18 +39,21 @@ readonly class EnrollmentService {
 	use RequestContextProvider;
 
 	public function __construct(
-		private ApplicationRepository  $applicationRepository,
-		private EnrollmentRepository   $enrollmentRepository,
-		private PersonRepository       $personRepository,
-		private PersonService          $personService,
-		private ArchiveRepository      $archiveRepository,
-		private ConsentService         $consentService,
-		private AuditService           $auditService,
-		private UserManager            $userManager,
-		private PasswordGeneratorService $passwordGenerator,
-		private EmailService           $emailService,
-		private PiiCryptoService       $crypto,
-		private ClockInterface         $clock,
+		private ApplicationRepository     $applicationRepository,
+		private EnrollmentRepository      $enrollmentRepository,
+		private PersonRepository          $personRepository,
+		private PersonDocumentsRepository $personDocumentsRepository,
+		private PersonService             $personService,
+		private ArchiveRepository         $archiveRepository,
+		private GroupsRepository          $groupsRepository,
+		private JoinCodeService           $joinCodeService,
+		private ConsentService            $consentService,
+		private AuditService              $auditService,
+		private UserManager               $userManager,
+		private PasswordGeneratorService  $passwordGenerator,
+		private EmailService              $emailService,
+		private PiiCryptoService          $crypto,
+		private ClockInterface            $clock,
 	) {}
 
 	public function enroll( EnrollmentInputDTO $input ): EnrollmentResultDTO {
@@ -67,14 +74,24 @@ readonly class EnrollmentService {
 			json_decode( $this->crypto->decrypt( (string) $app->parentDataEnc ), true ) ?? array()
 		);
 
-		$studentDocHash  = $this->crypto->hash( $studentDto->docNumber );
-		$guardianDocHash = $this->crypto->hash( $parentDto->docNumber );
+		// Используем pre-linked person_id из заявки, либо ищем по хешу документа
+		$existingStudent = null;
+		if ( $app->studentPersonId !== null ) {
+			$existingStudent = $this->personRepository->find( $app->studentPersonId );
+		} else {
+			$studentDocHash = $this->crypto->hash( $studentDto->docNumber );
+			$studentId      = $this->personService->findByDocNumberHash( $studentDocHash );
+			$existingStudent = $studentId !== null ? $this->personRepository->find( $studentId ) : null;
+		}
 
-		$existingStudentId  = $this->personService->findByDocNumberHash( $studentDocHash );
-		$existingGuardianId = $this->personService->findByDocNumberHash( $guardianDocHash );
-
-		$existingStudent  = $existingStudentId  !== null ? $this->personRepository->find( $existingStudentId )  : null;
-		$existingGuardian = $existingGuardianId !== null ? $this->personRepository->find( $existingGuardianId ) : null;
+		$existingGuardian = null;
+		if ( $app->parentPersonId !== null ) {
+			$existingGuardian = $this->personRepository->find( $app->parentPersonId );
+		} else {
+			$guardianDocHash  = $this->crypto->hash( $parentDto->docNumber );
+			$guardianId       = $this->personService->findByDocNumberHash( $guardianDocHash );
+			$existingGuardian = $guardianId !== null ? $this->personRepository->find( $guardianId ) : null;
+		}
 
 		if ( null === $existingGuardian && null !== $this->userManager->findByEmail( $parentDto->email ) ) {
 			throw new DomainException( 'Email родителя уже занят другим пользователем.' );
@@ -275,5 +292,175 @@ readonly class EnrollmentService {
 
 			return new EnrollmentResultDTO( $enrollmentId, 0, 0, null, null, null, null, true );
 		}
+	}
+
+	/**
+	 * Восстанавливает ученика из архива: создаёт новую заявку на основе archive-записи
+	 * (события 2A и 4B — старый ученик).
+	 *
+	 * @param int $archiveId ID архивной записи
+	 *
+	 * @return array{id: int, join_url: string}
+	 *
+	 * @throws RuntimeException|InvalidArgumentException
+	 */
+	public function restoreFromArchive( int $archiveId ): array {
+		$archive = $this->archiveRepository->find( $archiveId );
+
+		if ( null === $archive ) {
+			throw new InvalidArgumentException( 'Архивная запись не найдена.' );
+		}
+
+		$studentPerson = $this->personRepository->find( $archive->studentPersonId );
+
+		if ( null === $studentPerson ) {
+			throw new RuntimeException( 'Запись ученика не найдена.' );
+		}
+
+		// Берём студенческие данные из snapshot последнего зачисления
+		$studentData = array(
+			'last_name'   => '',
+			'first_name'  => '',
+			'middle_name' => '',
+			'birth_date'  => $studentPerson->birthDate ?? '',
+			'email'       => '',
+		);
+
+		if ( $archive->enrollmentId !== null ) {
+			$enrollment = $this->enrollmentRepository->find( $archive->enrollmentId );
+			if ( $enrollment !== null && $enrollment->snapshotEnc !== null ) {
+				try {
+					$snap = json_decode( $this->crypto->decrypt( $enrollment->snapshotEnc ), true );
+					if ( is_array( $snap['student'] ?? null ) ) {
+						$studentData = array_merge( $studentData, $snap['student'] );
+					}
+				} catch ( \Throwable ) {}
+			}
+		}
+
+		// full_name из persons (plain text) как fallback для имени
+		if ( $studentData['last_name'] === '' && $studentPerson->fullName !== '' ) {
+			$parts = explode( ' ', $studentPerson->fullName, 3 );
+			$studentData['last_name']   = $parts[0] ?? '';
+			$studentData['first_name']  = $parts[1] ?? '';
+			$studentData['middle_name'] = $parts[2] ?? '';
+		}
+
+		// Период берём из группы (если есть)
+		$periodKey = '';
+		if ( $archive->groupKey !== null ) {
+			$group     = $this->groupsRepository->findByKey( $archive->groupKey );
+			$periodKey = $group?->period_key ?? '';
+		}
+
+		// Генерируем новый join-код
+		$joinCode    = $this->joinCodeService->generate();
+		$joinHash    = $this->joinCodeService->hash( $joinCode );
+		$joinEnc     = $this->crypto->encrypt( $joinCode );
+		$expiresAt   = gmdate( 'Y-m-d H:i:s', strtotime( '+48 hours' ) );
+
+		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
+
+		$now   = $this->clock->now( 'mysql', true );
+		$appId = $this->applicationRepository->create( array(
+			'student_person_id'    => $archive->studentPersonId,
+			'period_key'           => $periodKey,
+			'status'               => ApplicationStatus::PendingParent->value,
+			'join_code_hash'       => $joinHash,
+			'join_code_enc'        => $joinEnc,
+			'join_code_expires_at' => $expiresAt,
+			'student_data_enc'     => $studentDataEnc,
+			'created_at'           => $now,
+			'updated_at'           => $now,
+		) );
+
+		if ( 0 === $appId ) {
+			throw new RuntimeException( 'Не удалось создать заявку.' );
+		}
+
+		$this->auditService->record(
+			AuditAction::EnrollStudent->value,
+			'application',
+			$appId,
+			array( 'restored_from_archive_id' => $archiveId )
+		);
+
+		return array(
+			'id'       => $appId,
+			'join_url' => home_url( '/lms/join/' . $joinCode ),
+		);
+	}
+
+	/**
+	 * Привязывает существующего родителя к заявке (путь 3B и 4B).
+	 * Загружает данные родителя из person_documents, шифрует и сохраняет в заявку.
+	 * Переводит заявку в статус ready_for_review.
+	 *
+	 * @param int $applicationId  ID заявки (status = pending_parent)
+	 * @param int $parentPersonId ID существующего родителя
+	 *
+	 * @throws InvalidArgumentException|DomainException
+	 */
+	public function selectExistingParent( int $applicationId, int $parentPersonId ): void {
+		$app = $this->applicationRepository->find( $applicationId );
+
+		if ( null === $app ) {
+			throw new InvalidArgumentException( 'Заявка не найдена.' );
+		}
+
+		if ( ApplicationStatus::PendingParent !== $app->status ) {
+			throw new DomainException( 'Заявка не в статусе pending_parent.' );
+		}
+
+		$parentPerson = $this->personRepository->find( $parentPersonId );
+
+		if ( null === $parentPerson ) {
+			throw new InvalidArgumentException( 'Родитель не найден.' );
+		}
+
+		// Строим parent_data из persons + person_documents
+		$docs = $this->personDocumentsRepository->findByPersonId( $parentPersonId );
+
+		$parentData = array(
+			'last_name'       => '',
+			'first_name'      => '',
+			'middle_name'     => '',
+			'birth_date'      => $parentPerson->birthDate ?? '',
+			'email'           => '',
+			'phone'           => '',
+			'doc_type'        => '',
+			'doc_number'      => '',
+			'doc_issued_by'   => '',
+			'doc_issued_date' => $docs?->docIssuedDate ?? '',
+			'inn'             => '',
+			'address'         => '',
+			'relation_type'   => '',
+		);
+
+		// Раскрываем full_name
+		$parts = explode( ' ', $parentPerson->fullName, 3 );
+		$parentData['last_name']   = $parts[0] ?? '';
+		$parentData['first_name']  = $parts[1] ?? '';
+		$parentData['middle_name'] = $parts[2] ?? '';
+
+		if ( $docs !== null ) {
+			if ( $docs->emailEnc )         { $parentData['email']         = $this->crypto->decrypt( $docs->emailEnc ); }
+			if ( $docs->phoneEnc )         { $parentData['phone']         = $this->crypto->decrypt( $docs->phoneEnc ); }
+			if ( $docs->docNumberEnc )     { $parentData['doc_number']    = $this->crypto->decrypt( $docs->docNumberEnc ); }
+			if ( $docs->docIssuedByEnc )   { $parentData['doc_issued_by'] = $this->crypto->decrypt( $docs->docIssuedByEnc ); }
+			if ( $docs->innEnc )           { $parentData['inn']           = $this->crypto->decrypt( $docs->innEnc ); }
+			if ( $docs->addressEnc )       { $parentData['address']       = $this->crypto->decrypt( $docs->addressEnc ); }
+			$parentData['doc_type'] = $docs->docType ?? '';
+		}
+
+		$parentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $parentData ) );
+
+		$now = $this->clock->now( 'mysql', true );
+		$this->applicationRepository->update( $applicationId, array(
+			'parent_person_id' => $parentPersonId,
+			'parent_data_enc'  => $parentDataEnc,
+			'status'           => ApplicationStatus::ReadyForReview->value,
+			'updated_at'       => $now,
+		) );
 	}
 }

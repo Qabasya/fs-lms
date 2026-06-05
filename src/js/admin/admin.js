@@ -27,6 +27,8 @@ import { ParentPersonModalManager } from './managers/parent-person-modal-manager
 import { ExpelModalManager } from './managers/expel-modal-manager.js';
 
 import { ApplicationViewModal } from './modals/application-view-modal.js';
+import { ArchiveViewModal } from './modals/archive-view-modal.js';
+import { SelectParentModal } from './modals/select-parent-modal.js';
 import { TeacherViewModal } from './modals/teacher-view-modal.js';
 import { AlertModal } from './modals/alert-modal.js';
 
@@ -82,7 +84,10 @@ import { AlertModal } from './modals/alert-modal.js';
             ApplicationReviewModalManager.init();
             ApplicationEnrollmentModalManager.init();
             ApplicationViewModal.init();
+            SelectParentModal.init();
         }
+
+        ArchiveViewModal.init();
 
         if ( $( '.fs-lms-students' ).length ) { StudentsTable.init(); }
 

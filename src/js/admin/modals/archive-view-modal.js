@@ -19,7 +19,8 @@ export const ArchiveViewModal = {
     _bindEvents() {
         $( document ).on( 'click.arc', '.js-view-archive', ( e ) => {
             e.preventDefault();
-            const raw = $( e.currentTarget ).closest( 'tr' ).data( 'enrollment' );
+            const $tr  = $( e.currentTarget ).closest( 'tr' );
+            const raw  = $tr.data( 'enrollment' );
             if ( raw ) { this.open( raw ); }
         } );
 
@@ -32,10 +33,22 @@ export const ArchiveViewModal = {
             e.preventDefault();
             this._toggleAccordion( $( e.currentTarget ) );
         } );
+
+        this.$modal.on( 'click', '.js-restore-from-archive', ( e ) => {
+            e.preventDefault();
+            const archiveId = $( e.currentTarget ).data( 'archive-id' );
+            if ( ! archiveId ) {
+                alert( 'ID архивной записи не найден.' );
+                return;
+            }
+            this._restoreFromArchive( archiveId );
+        } );
     },
 
     open( data ) {
         this._fill( data );
+        const archiveId = data.archive_id ?? null;
+        this.$modal.find( '#avm-restore-btn' ).data( 'archive-id', archiveId ).attr( 'data-archive-id', archiveId ?? '' );
         bindEsc( 'archive_view', () => this.close() );
         openModal( this.$modal );
     },
@@ -43,6 +56,37 @@ export const ArchiveViewModal = {
     close() {
         unbindEsc( 'archive_view' );
         closeModal( this.$modal );
+    },
+
+    _restoreFromArchive( archiveId ) {
+        const vars = window.fs_lms_applications_vars ?? {};
+        $.ajax( {
+            url:    window.ajaxurl,
+            method: 'POST',
+            data:   {
+                action:     'restore_from_archive',
+                archive_id: archiveId,
+                security:   vars.nonces?.restoreFromArchive ?? '',
+            },
+            success: ( res ) => {
+                if ( ! res.success ) {
+                    alert( res.data || 'Ошибка восстановления.' );
+                    return;
+                }
+                const joinUrl = res.data?.join_url ?? '';
+                const appId   = res.data?.id ?? '';
+                this.close();
+                if ( joinUrl ) {
+                    navigator.clipboard?.writeText( joinUrl )
+                        .catch( () => prompt( 'Скопируйте ссылку:', joinUrl ) );
+                    alert( `Заявка #${ appId } создана. Ссылка join скопирована в буфер.` );
+                } else {
+                    alert( `Заявка #${ appId } создана.` );
+                }
+                location.reload();
+            },
+            error: () => alert( 'Сетевая ошибка.' ),
+        } );
     },
 
     _toggleAccordion( $header ) {

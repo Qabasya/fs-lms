@@ -229,6 +229,15 @@ $statusLabels = array_combine(
 					<?php else : ?>
 						<span class="fs-table__empty-value">—</span>
 					<?php endif; ?>
+					<?php if ( $app->status === ApplicationStatus::PendingParent ) : ?>
+						<br>
+						<button type="button"
+							class="button-link js-select-existing-parent"
+							data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
+							style="margin-top: 4px; font-size: 11px;">
+							<?php esc_html_e( '+ Назначить родителя', 'fs-lms' ); ?>
+						</button>
+					<?php endif; ?>
 				</td>
 
 				<td class="column-date">
@@ -419,3 +428,4 @@ $statusLabels = array_combine(
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-review-modal.php'; ?>
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-enrollment-modal.php'; ?>
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/select-parent-modal.php'; ?>

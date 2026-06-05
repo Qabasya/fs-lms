@@ -498,7 +498,7 @@ CREATE TABLE fs_lms_archive (
 
 ---
 
-## 10. Рефакторинг потоков зачисления
+## 10. Рефакторинг потоков зачисления — ✅ реализовано
 
 > Это самый большой блок изменений. Текущий `EnrollmentService` реализует только путь 1А.
 
@@ -622,18 +622,19 @@ EnrollmentService::enrollBothExisting()
 ### 10.5 Что нужно реализовать (чеклист)
 
 **Сервисы:**
-- [ ] `EnrollmentService` — рефакторинг: выделить стратегии по событиям (или параметризовать метод `enroll()` флагами `existingStudent`, `existingParent`)
-- [ ] `ArchiveRepository::restoreAsApplication()` — создаёт заявку на основе записи архива
-- [ ] Убрать `RelationshipService` из `EnrollmentService`
+- [x] `EnrollmentService` — рефакторинг: `enroll()` использует `app.student_person_id`/`app.parent_person_id` (все 4 пути); добавлены `restoreFromArchive()`, `selectExistingParent()`
+- [x] `EnrollmentService::restoreFromArchive()` — создаёт заявку на основе archive-записи (читает snapshot из enrollment)
+- [x] Убрать `RelationshipService` из `EnrollmentService` — сделано в пункте 9
 
 **UI (шаблоны):**
-- [ ] `select-parent-modal.php` — поиск и выбор существующего родителя из `persons WHERE role='parent'`
-- [ ] Кнопка «Назначить родителя» в `userlist-1-applications.php` (рядом с кнопкой отправки join)
-- [ ] Кнопка «Восстановить из архива» в `archive-view-modal.php` (события 2 и 4)
+- [x] `select-parent-modal.php` — поиск и выбор существующего родителя из `persons WHERE role='parent'`
+- [x] Кнопка «Назначить родителя» в `userlist-1-applications.php` (рядом с join-кодом, для статуса PendingParent)
+- [x] Кнопка «Восстановить из архива» в `archive-view-modal.php`
 
 **AJAX:**
-- [ ] `AjaxHook::SelectExistingParent` — привязка parent_person_id к заявке
-- [ ] `AjaxHook::RestoreFromArchive` — создание новой заявки из archive-записи
+- [x] `AjaxHook::SelectExistingParent` — привязка parent_person_id к заявке (`EnrollmentCallbacks::ajaxSelectExistingParent`)
+- [x] `AjaxHook::RestoreFromArchive` — создание новой заявки из archive-записи (`EnrollmentCallbacks::ajaxRestoreFromArchive`)
+- [x] `AjaxHook::SearchParents` — поиск родителей для модалки
 
 ---
 

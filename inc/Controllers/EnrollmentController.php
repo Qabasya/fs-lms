@@ -89,6 +89,12 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::RevealUserCredentials, $this->callbacks ),
 			// Сгенерировать новый пароль (если старый был сменён вручную)
 			array( AjaxHook::RegenerateUserPassword, $this->callbacks ),
+			// Восстановить ученика из архива (событие 2A / 4B)
+			array( AjaxHook::RestoreFromArchive, $this->callbacks ),
+			// Назначить существующего родителя к заявке (событие 3B / 4B)
+			array( AjaxHook::SelectExistingParent, $this->callbacks ),
+			// Поиск родителей для модалки выбора
+			array( AjaxHook::SearchParents, $this->callbacks ),
 		);
 	}
 
