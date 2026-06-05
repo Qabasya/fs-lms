@@ -1904,54 +1904,123 @@ return [
 
 ### Архитектура
 
-Текст согласия хранится непосредственно в содержимом WordPress-страницы с slug `consent` (создаётся при активации). Администратор редактирует его через стандартный редактор — без отдельного пункта в меню плагина.
+Каждый тип согласия — это **отдельная WP-страница**. Набор типов динамический: администратор добавляет их через UI в настройках плагина (вкладка «Согласия»). Определения хранятся в `wp_options`.
 
 | Слой | Файл | Роль |
 |---|---|---|
-| Источник текста | WP-страница slug `consent` (`post_content`) | Редактируемый текст согласия |
-| Мета-хранилище | `wp_options[fs_lms_consent_page_meta]` | Текущий sha256-хэш и дата обновления |
-| Контроллер | `inc/Controllers/ConsentController.php` | Хук `save_post` + rewrite rule |
-| Сервис | `inc/Services/ConsentService.php` | Чтение текста, хранение хэша, фиксация |
+| Определения типов | `wp_options[fs_lms_consent_definitions]` | Ключ → название + page_id |
+| Источник текста | WP-страница, создаётся при добавлении типа | Редактируемый текст согласия |
+| История версий | WP-ревизии WP-страницы | Архив всех версий текста |
+| Репозиторий | `inc/Repositories/OptionsRepositories/ConsentDefinitionsRepository.php` | CRUD определений |
+| Контроллер | `inc/Controllers/ConsentController.php` | Rewrite rule + template_include |
+| Сервис | `inc/Services/ConsentService.php` | Чтение текста, хэширование, фиксация согласий |
 
 ### Структура wp_options
 
 ```php
-fs_lms_consent_page_meta = [
-  'hash'       => 'a3f1...e9d2',   // sha256 от post_content
-  'updated_at' => '2025-01-15T10:30:00+03:00',
+// fs_lms_consent_definitions
+[
+  'pd_processing' => [
+    'name'    => 'Согласие на обработку персональных данных',
+    'page_id' => 42,
+  ],
+  // другие типы, добавленные администратором
 ]
 ```
 
-### Обновление версии
+### Версионирование
 
-При сохранении страницы `consent` в WordPress-редакторе:
+Версия = `sha256(post_content)`, вычисляется на лету — ничего дополнительно в `wp_options` не сохраняется.
 
-1. `ConsentController::handleConsentPageSave(int $postId, WP_Post $post)` срабатывает на хук `save_post`
-2. Делегирует в `ConsentService::onConsentPageSaved(WP_Post $post)`
-3. Сервис проверяет: не автосохранение, тип `page`, статус `publish`, slug `consent`
-4. Вычисляет `sha256(post_content)` и записывает хэш + дату в `ConsentPageMeta`
+| Понятие | Как работает |
+|---|---|
+| Текущая версия | `hash('sha256', $page->post_content)` |
+| История версий | WP-ревизии страницы (`wp_get_post_revisions()`) |
+| Идентификатор версии в БД | sha256-хэш текста на момент подписания |
 
-История текстов сохраняется через **встроенные ревизии WordPress** (`wp_revisions`).
+История версий хранится **в штатных ревизиях WordPress** — новая ревизия создаётся при каждом сохранении страницы в редакторе.
 
 ### ConsentService API
 
-- `getCurrentVersion(ConsentType $type): string` — возвращает sha256-хэш из `ConsentPageMeta` (хэш = идентификатор версии)
-- `getDocumentText(ConsentType $type, string $version): string` — возвращает `post_content` WP-страницы (параметры сигнатуры сохранены для обратной совместимости с `ConsentController`)
-- `getDocumentHash(ConsentType $type, string $version): string` — возвращает sha256 из `ConsentPageMeta`
-- `onConsentPageSaved(WP_Post $post): void` — пересчитывает мету при сохранении страницы
-- `recordSelfConsent(...)` / `recordGuardianConsent(...)` — фиксируют подписание; в поле `version` таблицы `consents` записывается текущий sha256-хэш
+- `getCurrentVersion(string $typeKey): string` — возвращает sha256-хэш текущего `post_content` страницы согласия
+- `getDocumentText(string $typeKey, string $version): string` — возвращает текст по хэшу: сначала проверяет текущую версию, затем перебирает WP-ревизии; выбрасывает `RuntimeException` если не найдено
+- `getDefinitionName(string $typeKey): string` — человекочитаемое название типа
+- `getPageForType(string $typeKey): ?WP_Post` — WP-страница типа (или `null`)
+- `recordSelfConsent(?int $appId, string $typeKey, RequestContextDTO $ctx): int` — фиксирует подписание субъектом; в `consents.version` записывается sha256-хэш актуального текста
+- `recordGuardianConsent(?int $appId, string $typeKey, int $forPersonId, RequestContextDTO $ctx): int` — фиксирует подписание законным представителем
 
-### Версионирование
+Ключ типа — строка (`string`), не `ConsentType` enum. Enum `ConsentType` сохранён только для обратной совместимости с существующими записями в таблице `consents`.
 
-`version` в таблице `consents` = sha256-хэш текста на момент подписания. Это позволяет:
-- Доказать, что конкретная версия текста существовала (хэш не изменить задним числом)
-- Восстановить точный текст через ревизии WordPress по дате подписания
+### Активация
 
-### Публичная страница
+`Activate::createDefaultConsentIfNeeded()` при активации плагина проверяет:
+- Есть ли определение `pd_processing` в `ConsentDefinitionsRepository`
+- Если да — существует ли WP-страница и опубликована ли
 
-Администратор открывает `/consent` — стандартную WP-страницу. Шорткод не нужен: страница содержит `post_content` напрямую.
+Если что-то не так — создаёт (или пересоздаёт) страницу `lms-consent-pd-processing` со статусом `publish` и текстом-рыбой по 152-ФЗ, сохраняет определение. Операция **идемпотентна**.
 
-`ConsentController` также регистрирует маршрут `/lms/consent/{type}/{version}` для отображения текста по ссылке из записей аудита — возвращает актуальный `post_content` страницы.
+### Управление в настройках
+
+Вкладка «Согласия» (`settings-5-consents.php`) в FS LMS → Настройки:
+
+- **Таблица** — все определённые типы согласий
+- **Аккордеон** — история версий (текущая + WP-ревизии) с датой, sha256-хэшем и ссылкой на архивный просмотр
+- **Кнопка «Добавить согласие»** — открывает модальное окно, вводится название и ключ (авто-транслитерация), создаётся черновик WP-страницы + запись в definitions
+- **Удалить** — убирает определение из options; WP-страница остаётся (для сохранности истории)
+
+AJAX-хуки (регистрируются в `SettingsController` → `ConsentSettingsCallbacks`):
+
+| Хук | Метод | Действие |
+|---|---|---|
+| `add_consent_definition` | `ajaxAddConsentDefinition` | Создаёт страницу + определение |
+| `delete_consent_definition` | `ajaxDeleteConsentDefinition` | Удаляет определение |
+| `lookup_consent_by_hash` | `ajaxLookupConsentByHash` | Ищет версию по sha256 среди всех типов |
+
+### Публичные маршруты
+
+#### Текущий текст: WP-страница напрямую
+
+Для ссылки «Прочитать» в форме join используется обычный `get_permalink($pageId)` — стандартная WP-страница `/lms-consent-pd-processing/` со стилями темы.
+
+#### Архивный просмотр: `/lms/consent/{key}/{hash}/`
+
+Маршрут для просмотра конкретной исторической версии. Используется в аккордеоне настроек.
+
+`ConsentController::loadConsentTemplate()`:
+1. Проверяет определение по `$typeKey` через `ConsentService::getPageForType()`
+2. Получает текст нужной версии через `ConsentService::getDocumentText($typeKey, $hash)`
+3. **Устанавливает WP-запрос как обычную страницу** (`$wp_query->is_page = true`, `queried_object = $page`, `status_header(200)`)
+4. Перехватывает `the_content` фильтром → подменяет содержимое версионированным текстом
+5. Возвращает шаблон темы (`get_page_template()`) — тема применяет свои стили
+
+Это обеспечивает корректный рендеринг в любой теме без отдельных стилей плагина.
+
+### Flow подписания согласия (join-форма)
+
+```
+1. ApplicationCallbacks::prepareJoinPage()
+   └── resolveConsentUrl('pd_processing')
+       └── get_permalink($pageId) → '/lms-consent-pd-processing/'
+   └── set_query_var('fs_lms_consent_url', $url)
+
+2. join.php отображает ссылку «Прочитать» (если URL не пустой)
+
+3. Родитель нажимает «Заключить договор»
+   └── ApplicationService::submitParentData()
+       └── ConsentService::recordGuardianConsent($appId, 'pd_processing', ...)
+           └── getCurrentVersion('pd_processing') → sha256(post_content)
+           └── consentRepository->create([..., 'version' => $hash, ...])
+```
+
+Если страница согласия не опубликована или не создана — `recordGuardianConsent` выбрасывает `RuntimeException`, которое перехватывается в `ApplicationService` с `error_log` (заявка не прерывается).
+
+### Инварианты
+
+- Каждый тип согласия — отдельная WP-страница; одна страница — один тип
+- Версия = sha256 без кэша в options; при изменении текста версия меняется автоматически
+- `consents.version` и `consents.document_hash` содержат sha256-хэш текста на момент подписания
+- Ключ типа в коде — строка (`'pd_processing'`), не `ConsentType` enum
+- Для подписания в формах заявки всегда используется ключ `'pd_processing'`
 
 ---
 
