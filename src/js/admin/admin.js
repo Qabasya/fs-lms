@@ -9,6 +9,7 @@ import {AuthSettings} from "./services/auth-settings";
 import { GroupsTable } from "./services/groups-table.js";
 import { ApplicationsTable } from './services/applications-table.js';
 import { StudentsTable } from './services/students-table.js';
+import { LogsTable } from './services/logs-table.js';
 import { EmailTemplateSettings } from './services/email-template-settings.js';
 import { ConsentSettings } from './services/consent-settings.js';
 
@@ -98,6 +99,7 @@ import { AlertModal } from './modals/alert-modal.js';
 
         ExpelModalManager.init();
 
+        LogsTable.init();
         EmailTemplateSettings.init();
         ConsentSettings.init();
 

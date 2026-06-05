@@ -8,11 +8,15 @@ use Inc\Controllers\BoilerplatePageController;
 use Inc\Core\BaseController;
 use Inc\DTO\AcademicPeriodDTO;
 use Inc\DTO\StudentGroupDTO;
+use Inc\Enums\AuditAction;
+use Inc\Enums\Capability;
 use Inc\Enums\UserRole;
 use Inc\Enums\WeekDay;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
+use Inc\Repositories\WPDBRepositories\AuditLogRepository;
+use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Services\StudentGroupService;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -57,6 +61,8 @@ class AdminCallbacks extends BaseController {
 		private readonly BoilerplatePageController $boilerplatePageController,
 		private readonly AcademicPeriodService $period_service,
 		private readonly StudentGroupService $group_service,
+		private readonly AuditLogRepository $audit_log,
+		private readonly PiiAccessLogRepository $pii_log,
 	) {
 		parent::__construct();
 	}
@@ -155,6 +161,54 @@ class AdminCallbacks extends BaseController {
 				'academic_periods' => $this->periods->readAll(),
 			)
 		);
+	}
+
+	/**
+	 * Страница журналов.
+	 *
+	 * @return void
+	 */
+	public function logsPage(): void {
+		if ( ! current_user_can( Capability::Admin->value ) ) {
+			wp_die( 'Недостаточно прав.' );
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'tab-1' ) );
+		$per_page   = 50;
+		$paged      = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+
+		$data = compact( 'active_tab', 'per_page' );
+
+		if ( 'tab-2' === $active_tab ) {
+			$pii_filters = array_filter( array(
+				'actor_user_id' => (int) ( $_GET['actor_id'] ?? 0 ) ?: null,
+				'person_id'     => (int) ( $_GET['person_id'] ?? 0 ) ?: null,
+				'date_from'     => sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) ),
+				'date_to'       => sanitize_text_field( wp_unslash( $_GET['date_to'] ?? '' ) ),
+			) );
+
+			$data['pii_filters'] = $pii_filters;
+			$data['pii_page']    = $paged;
+			$data['pii_total']   = $this->pii_log->countFiltered( $pii_filters );
+			$data['pii_rows']    = $this->pii_log->list( $pii_filters, $paged, $per_page );
+		} else {
+			$audit_filters = array_filter( array(
+				'action'        => sanitize_key( wp_unslash( $_GET['action_filter'] ?? '' ) ),
+				'actor_user_id' => (int) ( $_GET['actor_id'] ?? 0 ) ?: null,
+				'date_from'     => sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) ),
+				'date_to'       => sanitize_text_field( wp_unslash( $_GET['date_to'] ?? '' ) ),
+			) );
+
+			$data['audit_filters']   = $audit_filters;
+			$data['audit_page']      = $paged;
+			$data['audit_total']     = $this->audit_log->countFiltered( $audit_filters );
+			$data['audit_rows']      = $this->audit_log->list( $audit_filters, $paged, $per_page );
+			$data['audit_actions']   = AuditAction::cases();
+		}
+		// phpcs:enable
+
+		$this->render( 'admin/logs', $data );
 	}
 
 	/**

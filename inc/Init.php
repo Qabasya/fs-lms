@@ -22,6 +22,7 @@ use Inc\Controllers\StudentGroupController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
 use Inc\Controllers\TaskPageController;
+use Inc\Controllers\LogsController;
 use Inc\Controllers\SettingsController;
 use Inc\Controllers\UserController;
 use Inc\Contracts\ClockInterface;
@@ -80,6 +81,7 @@ final class Init {
 			RecoveryController::class,
 			ExpulsionController::class,
 			SettingsController::class,
+			LogsController::class,
 		);
 	}
 

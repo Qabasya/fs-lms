@@ -115,6 +115,8 @@ class AdminController extends BaseController implements ServiceInterface {
 
 		// Удаляем дублирующиеся пункты меню, созданные WordPress автоматически
 		$this->removeAutoSubMenuItems();
+
+		$this->registerHttpsNotice();
 	}
 
 	// ============================ ФУНКЦИОНАЛ РЕГИСТРАТОРА ============================ //
@@ -228,12 +230,22 @@ class AdminController extends BaseController implements ServiceInterface {
 
 		// Список пользователей
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::Main->value,        // Привязываем к главному меню FS LMS
-			'page_title'  => 'Список пользователей',        // Заголовок в теге <title>
-			'menu_title'  => 'Пользователи',                     // Название пункта в боковом меню
-			'capability'  => Capability::Admin->value,     // Права доступа
-			'menu_slug'   => 'fs_lms_userlist',              // Уникальный слаг страницы
-			'callback'    => array( $this->callbacks, 'userlistPage' ), // Метод-коллбек для отрисовки
+			'parent_slug' => MenuSlug::Main->value,
+			'page_title'  => 'Список пользователей',
+			'menu_title'  => 'Пользователи',
+			'capability'  => Capability::Admin->value,
+			'menu_slug'   => 'fs_lms_userlist',
+			'callback'    => array( $this->callbacks, 'userlistPage' ),
+		);
+
+		// Журналы
+		$subpages[] = array(
+			'parent_slug' => MenuSlug::Main->value,
+			'page_title'  => 'Журналы',
+			'menu_title'  => 'Журналы',
+			'capability'  => Capability::Admin->value,
+			'menu_slug'   => 'fs_lms_logs',
+			'callback'    => array( $this->callbacks, 'logsPage' ),
 		);
 
 		// Добавляем подстраницы предметов (каждый предмет — отдельная подстраница)
@@ -251,6 +263,22 @@ class AdminController extends BaseController implements ServiceInterface {
 	 *
 	 * @return void
 	 */
+	private function registerHttpsNotice(): void {
+		add_action(
+			'admin_init',
+			function () {
+				if ( ! is_ssl() && ! defined( 'WP_DEBUG' ) ) {
+					add_action(
+						'admin_notices',
+						function () {
+							echo '<div class="notice notice-error"><p>FS LMS: плагин работает без HTTPS. Это недопустимо при обработке персональных данных.</p></div>';
+						}
+					);
+				}
+			}
+		);
+	}
+
 	private function removeAutoSubMenuItems(): void {
 		add_action(
 			'admin_menu',
