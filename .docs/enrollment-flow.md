@@ -1,1686 +1,804 @@
-# FS LMS — Спецификация потока зачисления учеников
+# FS LMS — Поток зачисления
 
-Версия: 1.1 (обновлено 2026-06-05)
-Статус: реализован. Остатки: журналы в админке, тесты, документация.
+Версия: 2.0 (обновлено 2026-06-06)  
+Статус: реализован полностью (пути 1A–4B). Остатки: CSV-экспорт, журналы в UI, тесты, документация.
 
 ---
 
 ## 0. Содержание
 
 1. [Цели и принципы](#1-цели-и-принципы)
-2. [Архитектурные решения и обоснование](#2-архитектурные-решения-и-обоснование)
+2. [Архитектурные решения](#2-архитектурные-решения)
 3. [Модель данных](#3-модель-данных)
 4. [Пользователи WordPress](#4-пользователи-wordpress)
 5. [Шифрование персональных данных](#5-шифрование-персональных-данных)
-6. [Согласия на обработку ПД и аудит](#6-согласия-на-обработку-пд-и-аудит)
-7. [Безопасность приглашений и паролей](#7-безопасность-приглашений-и-паролей)
-8. [Транзакционность и ACID](#8-транзакционность-и-acid)
-9. [Поток зачисления — пошагово](#9-поток-зачисления--пошагово)
-10. [Edge cases и сценарии восстановления](#10-edge-cases-и-сценарии-восстановления)
-11. [Соответствие 152-ФЗ](#11-соответствие-152-фз)
-12. [Маппинг на существующую архитектуру плагина](#12-маппинг-на-существующую-архитектуру-плагина)
+6. [Матрица зачислений — 4 пути](#6-матрица-зачислений--4-пути)
+7. [Поток 1A — новый ученик, новый родитель (join)](#7-поток-1a--новый-ученик-новый-родитель-join)
+8. [Поток 2A — старый ученик, новый родитель (join)](#8-поток-2a--старый-ученик-новый-родитель-join)
+9. [Поток 3B — новый ученик, старый родитель (admin)](#9-поток-3b--новый-ученик-старый-родитель-admin)
+10. [Поток 4B — старый ученик, старый родитель (admin)](#10-поток-4b--старый-ученик-старый-родитель-admin)
+11. [Общая логика зачисления (шаг 6 во всех потоках)](#11-общая-логика-зачисления-шаг-6-во-всех-потоках)
+12. [Отчисление](#12-отчисление)
+13. [Edge cases и восстановление](#13-edge-cases-и-восстановление)
+14. [Соответствие 152-ФЗ](#14-соответствие-152-фз)
+15. [Маппинг на архитектуру плагина](#15-маппинг-на-архитектуру-плагина)
 
 ---
 
 ## 1. Цели и принципы
 
-### Цель документа
-Описать end-to-end процесс зачисления ученика в FS LMS — от заполнения публичной формы заявки до создания учётных записей ученика и его представителя — на уровне, достаточном для реализации без дополнительных решений со стороны разработчика.
-
-### Базовые принципы
-
-- **Identity ≠ Person ≠ Enrollment.** Учётная запись WP (`wp_users`) — только аутентификационная оболочка. Человек как сущность с ПД — отдельная запись в `wp_lms_persons`. Факт обучения — третья сущность в `wp_lms_enrollments`. Эти концепции не сливаются.
-- **Заявка — это intent, не сущность.** Применённая заявка переходит в архив, а не удаляется. Источником правды о действующем зачислении служит `wp_lms_enrollments`.
-- **Связь "представитель ↔ ученик" — many-to-many.** Один родитель может представлять несколько детей, у одного ребёнка может быть несколько представителей, связи могут заменяться во времени.
-- **PII (персонально идентифицируемая информация)(паспорт, ИНН, адрес, телефон) шифруется на уровне приложения.** Не at-rest БД — а application-level: дешифровать может только код плагина с ключом из `wp-config`.
-- **Никто, кроме самого пользователя, не должен знать его пароль.** Установка пароля — через одноразовую ссылку с TTL.
-- **Все операции с PII и зачислением — атомарны или идемпотентны.** Падение между шагами не оставляет систему в противоречивом состоянии.
-- **Любой доступ к ПД логируется.** Это требование 152-ФЗ и хорошая практика.
+- **Identity ≠ Person ≠ Enrollment.** WP-аккаунт (`wp_users`) — аутентификация. Человек с ПД — запись в `persons`. Факт обучения — запись в `enrollments`. Три разных сущности.
+- **Связь родитель→ученик** хранится в таблице `archive` (поля `parent_person_id` + `student_person_id`). Отдельной таблицы relationships нет.
+- **Заявка — это intent.** После конвертации заявка физически удаляется. Источник правды — `enrollments`.
+- **Пользователи не удаляются никогда.** Только soft delete (`deleted_at`). При повторном зачислении существующие записи переиспользуются.
+- **PII шифруется на уровне приложения.** `PiiCryptoService` (XSalsa20-Poly1305). Ключ в `wp-config.php`, не в БД.
+- **full_name — plain text** в `persons.full_name`. Только PII-поля (паспорт, ИНН, телефон, email, адрес) хранятся зашифрованными в `person_documents`.
+- **Запись в archive создаётся при зачислении** (`expelled_at = NULL`) и обновляется при отчислении.
+- **Все операции с PII логируются** через `pii_access_log`.
 
 ---
 
-## 2. Архитектурные решения и обоснование
+## 2. Архитектурные решения
 
-### 2.1. Custom tables vs wp_options vs CPT
+### Custom tables (InnoDB)
 
-| Сущность | Хранилище | Почему |
-|---|---|---|
-| Subjects, настройки auth, boilerplates | `wp_options` | Малый объём, редкие изменения, нужны целиком — текущая архитектура корректна |
-| Applications, Enrollments, Persons, Relationships, Consents, Audit log | **Custom tables (InnoDB)** | Растущий объём, нужны индексы, фильтры, транзакции, FK-семантика |
-| Tasks, Articles | CPT (текущая архитектура) | Контентные сущности, редактируются через стандартный WP UI |
-| Groups | Taxonomy (текущая архитектура) | Иерархическая классификация, готовый UI |
+Все данные зачисления хранятся в 9 custom tables, не в `wp_options` и не в `wp_posts`. Причина: растущий объём, нужны индексы, транзакции (ACID), JOIN-запросы. Групп и студентов хранится в `wp_options` только конфигурационная часть (предметы, настройки) — не данные.
 
-**Почему `wp_options` не подходит для заявок и зачислений:** глобальная key-value таблица не даёт row-level locking, не индексируется, не позволяет атомарные транзакции на уровне отдельных записей, и при autoload загружается целиком в каждый WP-запрос. На объёме 500+ заявок это становится узким местом памяти и DB CPU.
+### Шифрование
 
-Прецедент: WooCommerce в 2022 году ввёл HPOS (High-Performance Order Storage) и увёл заказы из `wp_posts`/`wp_postmeta` в custom tables ровно по этим причинам. То же делают LifterLMS, LearnDash, Tutor LMS для transactional данных.
+- Алгоритм: `sodium_crypto_secretbox` (XSalsa20-Poly1305), PHP 7.2+.
+- Ключ: `define('FS_LMS_ENC_KEY', '<base64>')` в `wp-config.php`.
+- Хэши: `sha256(value + FS_LMS_HASH_SALT)` для поиска без расшифровки.
+- `full_name` — **plain text** (не шифруется), потому что имя нужно для отображения в таблицах без логирования PII-доступа.
 
-### 2.2. Шифрование PII
+### Транзакционность
 
-- **Алгоритм:** XSalsa20-Poly1305 через `sodium_crypto_secretbox` (входит в PHP 7.2+ из коробки).
-- **Ключ:** в `wp-config.php` через `define('FS_LMS_ENC_KEY', '<base64>')`. Не в БД, не в коде плагина.
-- **Дедупликация:** для поиска "есть ли уже такой паспорт" хранится `sha256(value + app_salt)` в отдельной колонке `*_hash`. Хэш позволяет искать по точному совпадению без раскрытия значения.
-- **Маскирование в UI:** по умолчанию документы показываются как `•••• 1234`. Полное значение — только по явному действию админа с записью в audit log.
+Шаги INSERT в custom tables (persons, person_documents, enrollments, archive, consents) выполняются в одной DB-транзакции через `TransactionRunner` trait. Создание WP-пользователей — **вне транзакции**, потому что `wp_insert_user` запускает хуки сторонних плагинов, которые не откатятся.
 
-### 2.3. Транзакционность
+### Recovery
 
-Все custom tables создаются с движком InnoDB. Операция зачисления оборачивается в `START TRANSACTION` / `COMMIT` через `$wpdb->query()`. Создание WP-пользователей выносится **за границу транзакции** (т.к. `wp_insert_user` запускает хуки сторонних плагинов, которые не откатятся) — используется паттерн "сначала commit core data, потом — внешние эффекты, со статусной машиной и recovery job".
-
-### 2.4. Соответствие 152-ФЗ
-
-Закон требует: явное согласие на обработку, локализацию ПД граждан РФ на территории РФ (инфраструктура), защиту от НСД (шифрование + ACL + лог доступа), ограничение срока хранения, право субъекта на доступ/изменение/удаление, уведомление об инцидентах. Технические меры реализуются в этом плагине, организационные (уведомление Роскомнадзора, политика обработки ПД, согласие пользовательской документации) — на уровне юрлица-оператора.
+Если транзакция прошла, но WP-пользователи не были созданы (крэш сервера), application остаётся в статусе `enrolling`. `RecoveryService::resolveStuckEnrollments()` (cron каждые 15 мин) создаёт WP-пользователей и переводит заявку в `converted`.
 
 ---
 
 ## 3. Модель данных
 
-Все таблицы создаются с префиксом `$wpdb->prefix` (по умолчанию `wp_`), движок InnoDB, кодировка utf8mb4. Создание через `dbDelta()` при активации плагина (миграция версии).
+### 3.1. `fs_lms_persons`
 
-### 3.1. `{prefix}fs_lms_applications`
-
-Хранит заявки на зачисление в течение всего их жизненного цикла, включая converted и rejected (для аудита).
+Идентификация физического лица. Только нечувствительные поля — plain text.
 
 ```sql
-CREATE TABLE wp_fs_lms_applications (
-    id                          BIGINT UNSIGNED      NOT NULL AUTO_INCREMENT,
-    status                      VARCHAR(32)          NOT NULL DEFAULT 'pending_parent',
-                                -- pending_parent | ready_for_review | enrolling
-                                -- | converted | rejected | expired
-    join_code_hash              CHAR(64)             NOT NULL,
-                                -- sha256(code + global_salt)
-    join_code_expires_at        DATETIME             NOT NULL,
-
-    student_data_enc            BLOB                 NOT NULL,
-                                -- зашифрованный JSON: ФИО, email, школа, класс,
-                                -- дата рождения, и т.п.
-    parent_data_enc             BLOB                 NULL,
-                                -- зашифрованный JSON, появляется после шага 2
-
-    submitted_by_ip             VARBINARY(16)        NULL,
-    submitted_by_ua             VARCHAR(255)         NULL,
-    parent_submitted_ip         VARBINARY(16)        NULL,
-    parent_submitted_ua         VARCHAR(255)         NULL,
-
-    converted_to_enrollment_id  BIGINT UNSIGNED      NULL,
-    rejected_reason             VARCHAR(500)         NULL,
-    reviewed_by_user_id         BIGINT UNSIGNED      NULL,
-    reviewed_at                 DATETIME             NULL,
-
-    created_at                  DATETIME             NOT NULL,
-    updated_at                  DATETIME             NOT NULL,
-
+CREATE TABLE fs_lms_persons (
+    id         int unsigned             NOT NULL AUTO_INCREMENT,
+    wp_user_id bigint(20) unsigned      DEFAULT NULL,
+    full_name  varchar(255)             NOT NULL DEFAULT '',
+    birth_date date                     DEFAULT NULL,
+    role       enum('student','parent') NOT NULL,
+    deleted_at datetime                 DEFAULT NULL,
+    created_at datetime                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at datetime                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_status (status),
-    KEY idx_join_hash (join_code_hash),
-    KEY idx_expires (join_code_expires_at),
-    KEY idx_status_created (status, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    KEY wp_user_id (wp_user_id),
+    KEY role (role)
+);
 ```
 
-**Замечания по полям:**
-- `student_data_enc` / `parent_data_enc` — JSON, полностью зашифрованный целиком. Это допустимо, т.к. до момента зачисления данные не индексируются — поиск идёт по статусу и хэшу JOIN-кода.
-- `submitted_by_ip` хранится как VARBINARY(16) (`inet_pton`), а не VARCHAR — компактно, поддерживает IPv6.
-- `join_code_hash` — sha256 от кода + соли, сам код в БД не лежит.
+`full_name` — plain text, используется для отображения без PII-логирования.  
+`role` — `student` или `parent`; помогает фильтровать при поиске родителей для модалки.
 
-### 3.2. `{prefix}fs_lms_persons`
+### 3.2. `fs_lms_person_documents`
 
-Источник правды о человеке. PII — здесь, в зашифрованном виде.
+Весь PII — зашифрован. Одна запись на человека (UNIQUE по person_id).
 
 ```sql
-CREATE TABLE wp_fs_lms_persons (
-    id                  BIGINT UNSIGNED      NOT NULL AUTO_INCREMENT,
-    wp_user_id          BIGINT UNSIGNED      NULL,
-                        -- NULL допустим: person может существовать до создания
-                        -- WP-юзера (или у уволенного — после удаления)
-
-    -- ФИО
-    full_name_enc       BLOB                 NOT NULL,
-    full_name_hash      CHAR(64)             NOT NULL,
-                        -- sha256(normalize(name) + salt); normalize: trim,
-                        -- lowercase, схлопывание пробелов
-
-    -- Демография
-    birth_date          DATE                 NULL,
-    gender              CHAR(1)              NULL,  -- 'm' | 'f' | NULL
-
-    -- Документы
-    doc_type            VARCHAR(32)          NULL,
-                        -- pass_rf | birth_certificate | foreign_pass
-    doc_number_enc      BLOB                 NULL,
-    doc_number_hash     CHAR(64)             NULL,  -- для дедупликации
-    doc_issued_by_enc   BLOB                 NULL,
-    doc_issued_date     DATE                 NULL,
-
-    inn_enc             BLOB                 NULL,
-    inn_hash            CHAR(64)             NULL,
-
-    -- Контакты
-    email               VARCHAR(190)         NULL,  -- не шифруется: логин
-    phone_enc           BLOB                 NULL,
-    phone_hash          CHAR(64)             NULL,
-    address_enc         BLOB                 NULL,
-
-    -- Служебное
-    encryption_version  TINYINT UNSIGNED     NOT NULL DEFAULT 1,
-                        -- для ротации ключей в будущем
-    created_at          DATETIME             NOT NULL,
-    updated_at          DATETIME             NOT NULL,
-    deleted_at          DATETIME             NULL,
-                        -- soft delete; физическое удаление — через retention job
-
+CREATE TABLE fs_lms_person_documents (
+    id                int unsigned NOT NULL AUTO_INCREMENT,
+    person_id         int unsigned NOT NULL,
+    email_enc         blob         DEFAULT NULL,
+    email_hash        char(64)     DEFAULT NULL,
+    phone_enc         blob         DEFAULT NULL,
+    phone_hash        char(64)     DEFAULT NULL,
+    doc_type          varchar(30)  DEFAULT NULL,
+    doc_number_enc    blob         DEFAULT NULL,
+    doc_number_hash   char(64)     DEFAULT NULL,
+    doc_issued_by_enc blob         DEFAULT NULL,  -- только родители
+    doc_issued_date   date         DEFAULT NULL,   -- только родители
+    inn_enc           blob         DEFAULT NULL,
+    inn_hash          char(64)     DEFAULT NULL,
+    address_enc       blob         DEFAULT NULL,   -- только родители
     PRIMARY KEY (id),
-    UNIQUE KEY uq_wp_user (wp_user_id),
-    KEY idx_doc_hash (doc_hash),
-    KEY idx_inn_hash (inn_hash),
-    KEY idx_email (email),
-    KEY idx_phone_hash (phone_hash),
-    KEY idx_full_name_hash (full_name_hash),
-    KEY idx_deleted (deleted_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    UNIQUE KEY person_id (person_id),
+    KEY email_hash (email_hash),
+    KEY phone_hash (phone_hash),
+    KEY doc_number_hash (doc_number_hash),
+    KEY inn_hash (inn_hash)
+);
 ```
 
-**Замечания:**
-- `wp_user_id` — UNIQUE, чтобы один WP-юзер не привязывался к двум persons. Но `NULL` повторно допустим (заявители без созданного юзера).
-- `email` хранится открыто — это логин и инструмент поиска. На уровне БД он и так доступен через `wp_users`.
-- `encryption_version` — задел под ротацию мастер-ключа: при смене ключа фоновый job перешифровывает строки и инкрементирует поле.
+Хэши используются для поиска без расшифровки (дедупликация при повторном зачислении).
 
-### 3.3. `{prefix}fs_lms_relationships`
+### 3.3. `fs_lms_groups`
 
-Связь "представитель ↔ ученик". Many-to-many, темпорально валидная.
+Группы — заменяет матрицу из `wp_options`. Группа принадлежит предмету и периоду.
 
 ```sql
-CREATE TABLE wp_fs_lms_relationships (
-    id                  BIGINT UNSIGNED      NOT NULL AUTO_INCREMENT,
-    guardian_person_id  BIGINT UNSIGNED      NOT NULL,
-    student_person_id   BIGINT UNSIGNED      NOT NULL,
-
-    relation_type       VARCHAR(32)          NOT NULL,
-                        -- mother | father | guardian | grandparent | foster | other
-    is_primary_contact  TINYINT(1)           NOT NULL DEFAULT 0,
-    has_legal_authority TINYINT(1)           NOT NULL DEFAULT 1,
-                        -- право подписи документов от имени ребёнка
-
-    valid_from          DATE                 NOT NULL,
-    valid_to            DATE                 NULL,
-                        -- NULL = действует; смена опекуна = установить valid_to
-
-    created_by_user_id  BIGINT UNSIGNED      NULL,
-    created_at          DATETIME             NOT NULL,
-    updated_at          DATETIME             NOT NULL,
-
+CREATE TABLE fs_lms_groups (
+    id          smallint unsigned NOT NULL AUTO_INCREMENT,
+    group_key   varchar(100)      NOT NULL,
+    subject_key varchar(50)       NOT NULL,
+    period_key  varchar(50)       NOT NULL,
+    name        varchar(255)      DEFAULT NULL,
+    schedule    varchar(500)      DEFAULT NULL,
+    created_at  datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_guardian (guardian_person_id, valid_to),
-    KEY idx_student (student_person_id, valid_to),
-    UNIQUE KEY uq_active_pair
-        (guardian_person_id, student_person_id, valid_from)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    UNIQUE KEY group_key (group_key),
+    KEY subject_key (subject_key),
+    KEY period_key (period_key)
+);
 ```
 
-**Поддержка сценариев:**
-- **Один родитель, двое детей:** две строки с одинаковым `guardian_person_id`.
-- **Двое родителей, один ребёнок:** две строки с одинаковым `student_person_id`, один из них `is_primary_contact = 1`.
-- **Смена опекуна:** старой строке проставляется `valid_to`, создаётся новая.
-- **Бабушка вместо родителя:** `relation_type = 'guardian'` или `'grandparent'`.
+Состав группы определяется через `enrollments WHERE group_key = ? AND status = 'active'` — отдельной таблицы "студент в группе" нет.
 
-Получить актуальных представителей ребёнка:
+### 3.4. `fs_lms_applications`
+
+Заявки на зачисление. Жизненный цикл: `pending_parent` → `ready_for_review` → `enrolling` → `converted` (или `expired` / `trash`).
+
 ```sql
-SELECT * FROM wp_fs_lms_relationships
-WHERE student_person_id = ?
-  AND (valid_to IS NULL OR valid_to > CURDATE());
+CREATE TABLE fs_lms_applications (
+    id                         bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    student_person_id          bigint(20) unsigned DEFAULT NULL,  -- заполнен при restore_from_archive
+    parent_person_id           bigint(20) unsigned DEFAULT NULL,  -- заполнен при select_existing_parent
+    period_key                 varchar(50)         NOT NULL,
+    status                     varchar(50)         NOT NULL,
+    join_code_hash             varchar(64)         DEFAULT NULL,
+    join_code_enc              blob                DEFAULT NULL,
+    join_code_expires_at       datetime            DEFAULT NULL,
+    student_email_hash         varchar(64)         DEFAULT NULL,
+    student_data_enc           longblob            DEFAULT NULL,
+    parent_data_enc            longblob            DEFAULT NULL,
+    converted_to_enrollment_id bigint(20) unsigned DEFAULT NULL,
+    parent_submitted_ip        varchar(45)         DEFAULT NULL,
+    parent_submitted_ua        varchar(500)        DEFAULT NULL,
+    reviewed_by_user_id        bigint(20) unsigned DEFAULT NULL,
+    created_at                 datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                 datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    ...
+);
 ```
 
-### 3.4. `{prefix}fs_lms_enrollments`
+Поля `student_person_id` и `parent_person_id` заполняются только в путях 2A, 3B, 4B — когда person уже существует в базе.
 
-Факт зачисления. Иммутабельный snapshot на момент зачисления + актуальный статус.
+### 3.5. `fs_lms_enrollments`
+
+Факт зачисления. Связь: один студент → одна группа (group_key).
 
 ```sql
-CREATE TABLE wp_fs_lms_enrollments (
-    id                  BIGINT UNSIGNED      NOT NULL AUTO_INCREMENT,
-    student_person_id   BIGINT UNSIGNED      NOT NULL,
+CREATE TABLE fs_lms_enrollments (
+    id                    int unsigned NOT NULL AUTO_INCREMENT,
+    student_person_id     int unsigned NOT NULL,
+    source_application_id int unsigned DEFAULT NULL,
+    group_key             varchar(100) DEFAULT NULL,   -- ссылка на fs_lms_groups.group_key
+    status                varchar(50)  NOT NULL,       -- active | expelled | finished | transferred
+    enrolled_at           datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    terminated_at         datetime     DEFAULT NULL,
+    terminated_reason     text         DEFAULT NULL,
+    terminated_by_user_id int unsigned DEFAULT NULL,
+    snapshot_enc          longblob     DEFAULT NULL,   -- JSON с полными данными на момент зачисления
+    created_at            datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    ...
+);
+```
 
-    subject_key         VARCHAR(64)          NOT NULL,
-    group_term_id       BIGINT UNSIGNED      NULL,
-                        -- ID термина из {subject}_{taxonomy}
-    period_key          VARCHAR(32)          NOT NULL,
-                        -- например '2026-spring' или '2026-2027'
+`snapshot_enc` — зашифрованный JSON вида `{student:{...}, guardian:{...}, contract_no, contract_date, order_no, order_date, enrolled_at}`. Это слепок всех данных на момент зачисления, не зависящий от последующих изменений в persons.
 
-    contract_no         VARCHAR(64)          NOT NULL,
-    contract_date       DATE                 NOT NULL,
-    order_no            VARCHAR(64)          NOT NULL,
-                        -- номер приказа
-    order_date          DATE                 NOT NULL,
+### 3.6. `fs_lms_archive`
 
-    enrolled_at         DATETIME             NOT NULL,
-    enrolled_by_user_id BIGINT UNSIGNED      NOT NULL,
+Создаётся при каждом зачислении (`expelled_at = NULL`). При отчислении — обновляется (`expelled_at` заполняется). Хранит связь родитель→ученик.
 
-    status              VARCHAR(32)          NOT NULL DEFAULT 'active',
-                        -- active | finished | expelled | transferred
-    terminated_at       DATETIME             NULL,
-    terminated_reason   VARCHAR(500)         NULL,
-    terminated_by_user_id BIGINT UNSIGNED    NULL,
-
-    snapshot_enc        BLOB                 NOT NULL,
-                        -- зашифрованный JSON: полные данные ученика и
-                        -- представителя на момент зачисления (на случай,
-                        -- если потом данные в persons изменятся, для аудита
-                        -- остаётся слепок)
-
-    source_application_id BIGINT UNSIGNED    NULL,
-
-    created_at          DATETIME             NOT NULL,
-    updated_at          DATETIME             NOT NULL,
-
+```sql
+CREATE TABLE fs_lms_archive (
+    id                  int unsigned        NOT NULL AUTO_INCREMENT,
+    enrollment_id       int unsigned        DEFAULT NULL,
+    student_person_id   int unsigned        NOT NULL,
+    parent_person_id    int unsigned        NOT NULL,
+    contract_no         varchar(50)         DEFAULT NULL,
+    contract_date       date                DEFAULT NULL,
+    order_no            varchar(50)         DEFAULT NULL,
+    order_date          date                DEFAULT NULL,
+    group_key           varchar(100)        DEFAULT NULL,
+    enrolled_at         datetime            NOT NULL,
+    expelled_at         datetime            DEFAULT NULL,
+    expelled_by_user_id bigint(20) unsigned DEFAULT NULL,
+    reason              varchar(500)        DEFAULT NULL,
+    created_at          datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_student (student_person_id),
-    KEY idx_subject_period (subject_key, period_key),
-    KEY idx_group (group_term_id),
-    KEY idx_status (status),
-    UNIQUE KEY uq_active_enrollment
-        (student_person_id, subject_key, period_key)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    KEY enrollment_id (enrollment_id),
+    KEY student_person_id (student_person_id),
+    KEY parent_person_id (parent_person_id),
+    KEY group_key (group_key),
+    KEY expelled_at (expelled_at)
+);
 ```
 
-UNIQUE-индекс `uq_active_enrollment` защищает от двойного зачисления одного ученика на один предмет в один период.
+Активные зачисления: `expelled_at IS NULL`.  
+Архивные (отчисленные/завершённые): `expelled_at IS NOT NULL`.  
+Чтобы найти текущего родителя ученика: `SELECT parent_person_id FROM archive WHERE student_person_id = ? AND expelled_at IS NULL LIMIT 1`.
 
-### 3.5. `{prefix}fs_lms_consents`
+### 3.7. `fs_lms_consents`, `fs_lms_audit_log`, `fs_lms_pii_access_log`
 
-Согласия на обработку ПД с доказательной фиксацией.
+Без изменений. Consents — согласия с фиксацией версии текста, IP, UA. Audit log — бизнес-события. PII access log — каждый decrypt для отображения.
 
-```sql
-CREATE TABLE wp_fs_lms_consents (
-    id                  BIGINT UNSIGNED      NOT NULL AUTO_INCREMENT,
-    person_id           BIGINT UNSIGNED      NULL,
-                        -- может быть NULL пока persons ещё не создан,
-                        -- тогда привязка через application_id
-    application_id      BIGINT UNSIGNED      NULL,
-
-    consent_type        VARCHAR(32)          NOT NULL,
-                        -- pd_processing | pd_transfer | marketing |
-                        -- pd_child_processing (от лица представителя)
-    document_version    VARCHAR(32)          NOT NULL,
-                        -- версия текста, который подписан
-    document_hash       CHAR(64)             NOT NULL,
-                        -- sha256 от полного текста на момент подписи
-
-    signed_by_role      VARCHAR(16)          NOT NULL,
-                        -- self | guardian (родитель за ребёнка)
-    signed_for_person_id BIGINT UNSIGNED     NULL,
-                        -- если signed_by_role=guardian — за кого
-
-    signed_at           DATETIME             NOT NULL,
-    signed_ip           VARBINARY(16)        NOT NULL,
-    signed_ua           VARCHAR(255)         NOT NULL,
-
-    valid_until         DATETIME             NULL,
-    withdrawn_at        DATETIME             NULL,
-    withdrawn_reason    VARCHAR(500)         NULL,
-
-    created_at          DATETIME             NOT NULL,
-
-    PRIMARY KEY (id),
-    KEY idx_person (person_id),
-    KEY idx_application (application_id),
-    KEY idx_type_active (consent_type, withdrawn_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
-
-**Важно:** хранится хэш текста согласия, а не сам текст. Тексты версионируются в файлах плагина (`templates/consents/v1/pd_processing.html`), и `document_hash = sha256(file_contents)`. Это даёт доказательство "что именно человек подписал" без дублирования текста в каждой строке.
-
-### 3.6. `{prefix}fs_lms_audit_log`
-
-Журнал бизнес-действий (создание заявки, зачисление, изменение данных).
-
-```sql
-CREATE TABLE wp_fs_lms_audit_log (
-    id                  BIGINT UNSIGNED      NOT NULL AUTO_INCREMENT,
-    actor_user_id       BIGINT UNSIGNED      NULL,
-                        -- NULL для анонимных действий (создание заявки)
-    actor_role          VARCHAR(32)          NULL,
-
-    action              VARCHAR(64)          NOT NULL,
-                        -- create_application | submit_parent_data |
-                        -- enroll_student | update_person | etc.
-    target_type         VARCHAR(32)          NOT NULL,
-                        -- application | person | enrollment | relationship
-    target_id           BIGINT UNSIGNED      NULL,
-
-    details_json        TEXT                 NULL,
-                        -- что именно поменялось (без значений PII!)
-
-    actor_ip            VARBINARY(16)        NULL,
-    actor_ua            VARCHAR(255)         NULL,
-
-    created_at          DATETIME             NOT NULL,
-
-    PRIMARY KEY (id),
-    KEY idx_actor (actor_user_id, created_at),
-    KEY idx_target (target_type, target_id),
-    KEY idx_action (action, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
-
-### 3.7. `{prefix}fs_lms_pii_access_log`
-
-Отдельный append-only лог именно для **чтения** PII. Разнесён с обычным audit_log потому, что:
-- его объём может быть на порядок больше (каждый просмотр карточки = запись),
-- его retention может отличаться (152-ФЗ может потребовать длительное хранение),
-- к нему может быть отдельный read-access у DPO/комплаенс-офицера.
-
-```sql
-CREATE TABLE wp_fs_lms_pii_access_log (
-    id                  BIGINT UNSIGNED      NOT NULL AUTO_INCREMENT,
-    actor_user_id       BIGINT UNSIGNED      NOT NULL,
-    actor_role          VARCHAR(32)          NOT NULL,
-    person_id           BIGINT UNSIGNED      NOT NULL,
-    fields_accessed     VARCHAR(255)         NOT NULL,
-                        -- comma-separated: 'pass,inn,address'
-    access_reason       VARCHAR(64)          NULL,
-                        -- enrollment_review | data_export | gdpr_request | etc.
-    actor_ip            VARBINARY(16)        NOT NULL,
-    created_at          DATETIME             NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_person_time (person_id, created_at),
-    KEY idx_actor_time (actor_user_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
-
-### 3.8. ER-схема (текстом)
+### 3.8. ER-схема
 
 ```
-applications  ──converted_to──>  enrollments
-     │                                │
-     │ consents.application_id        │
-     ▼                                ▼
-  consents                       enrollments.student_person_id ──> persons
-                                                                      │
-                                                                      ├── wp_user_id ──> wp_users
-                                                                      │
-                                relationships.student_person_id ──────┤
-                                relationships.guardian_person_id ─────┘
+applications
+    │ (converted_to_enrollment_id)
+    ▼
+enrollments ──── student_person_id ──────► persons ──── wp_user_id ──► wp_users
+    │                                          │
+    └──► archive ──── student_person_id ───────┤
+                 └─── parent_person_id  ───────┘
+                              │
+                persons ──────┘
+
+persons ◄─── person_documents  (UNIQUE person_id)
+
+groups  ◄─── enrollments.group_key
 ```
-
-### 3.9. Принципиальная оговорка по FK
-
-WordPress не предписывает использование FOREIGN KEY constraints, и многие плагины их избегают (для совместимости с MySQL/MariaDB конфигами без InnoDB по умолчанию, для совместимости с миграциями). **Рекомендация:** FK на уровне БД **не использовать**, целостность поддерживать на уровне приложения через репозитории. Это согласуется с общим стилем WordPress и упрощает обновления схемы.
 
 ---
 
 ## 4. Пользователи WordPress
 
-### 4.1. Роли
+### Роли
 
-Зарегистрировать через `add_role()` при активации:
+| Slug | Используется для |
+|---|---|
+| `lms_student` | Ученик — доступ к материалам |
+| `lms_parent` | Родитель — доступ к данным своего ребёнка |
+| `lms_teacher` | Преподаватель |
 
-| Slug | Label | Назначение |
-|---|---|---|
-| `lms_student` | Ученик LMS | Доступ к материалам, своим оценкам |
-| `lms_parent` | Представитель ученика | Просмотр данных представляемого |
-| `lms_teacher` | Преподаватель | Управление группами, проверка |
-| `lms_office` | Офис-менеджер | Управление заявками, зачислением |
+### Capabilities (Enum `Capability`)
 
-Базовый admin (`administrator`) сохраняет полный доступ.
+| Capability | Назначение |
+|---|---|
+| `Admin` = `manage_options` | Полный доступ |
+| `ManageApplications` | Работа с заявками, списки учеников |
+| `EnrollStudent` | Кнопка «Зачислить» |
+| `ViewPII` | Просмотр расшифрованных данных |
+| `ExportPII` | CSV-экспорт ПД |
+| `ManagePersons` | Редактирование данных person, смена представителя |
 
-### 4.2. Capabilities
+### Usermeta
 
-Расширить `Inc\Enums\Capability`:
+| Ключ | Значение |
+|---|---|
+| `fs_lms_person_id` | ID записи из `fs_lms_persons` |
 
-```php
-case ManageApplications = 'fs_lms_manage_applications';
-case EnrollStudent      = 'fs_lms_enroll_student';
-case ViewPII            = 'fs_lms_view_pii';
-case ExportPII          = 'fs_lms_export_pii';
-case ManagePersons      = 'fs_lms_manage_persons';
-```
+### Создание пользователей
 
-Маппинг ролям:
-
-| Capability | admin | lms_office | lms_teacher | lms_parent | lms_student |
-|---|---|---|---|---|---|
-| `ManageApplications` | ✓ | ✓ | | | |
-| `EnrollStudent` | ✓ | ✓ | | | |
-| `ViewPII` | ✓ | ✓ | | | |
-| `ExportPII` | ✓ | | | | |
-| `ManagePersons` | ✓ | ✓ | | | |
-
-`ViewPII` — даёт право увидеть **расшифрованные** значения. Без неё в админке показываются маски.
-
-Доступ родителя к данным своего ребёнка и ученика к своим данным — **не WP capability**, а проверка на уровне приложения (через relationship/ownership).
-
-### 4.3. Поля WP_User
-
-**Стандартные (`wp_users`):**
-- `user_login` — для родителя и ученика: их email (если email уникален). Если email конфликтует — сгенерированный логин вида `s_{person_id}`.
-- `user_email` — реальный email человека.
-- `user_pass` — bcrypt-хэш (стандарт WP). Сгенерированный случайный 64-символьный пароль на момент создания (юзер его никогда не узнает — установит свой через reset link).
-- `display_name` — ФИО или Имя Фамилия.
-- `user_registered` — стандартный timestamp.
-
-**Usermeta (минимум):**
-
-| Ключ | Тип | Назначение |
-|---|---|---|
-| `first_name`, `last_name` | string | стандартные WP, ожидаются плагинами |
-| `fs_lms_person_id` | int | FK на `wp_fs_lms_persons.id` — якорь к "большому" профилю |
-| `fs_lms_user_status` | string | `active` \| `suspended` \| `graduated` — для быстрых фильтров без JOIN |
-| `fs_lms_primary_enrollment_id` | int | shortcut для UI ученика (один основной enrollment) |
-
-**Чего в usermeta быть НЕ должно:**
-- паспорт, ИНН, адрес, телефон,
-- массив `child_ids` или `parent_ids`,
-- история зачислений,
-- метаданные родительского/ученического профиля сверх минимума.
-
-Логика: всё, что про **бизнес-домен**, лежит в специализированных таблицах. В usermeta — только то, что нужно WP-инфраструктуре или часто читается без расшифровки PII.
-
-### 4.4. Удаление пользователя
-
-При выпуске или удалении ученика:
-- WP_User помечается inactive (роль снимается или меняется на `lms_alumni`), но **не удаляется** — иначе исчезнут авторства комментариев, прогресса и т.д.
-- `persons.deleted_at` проставляется при запросе на удаление ПД от субъекта.
-- Через retention period фоновый job заменяет зашифрованные поля на NULL, оставляя только обезличенный скелет (id, даты, факт существования).
+Создаётся в post-transaction части `EnrollmentService::enroll()` через `UserManager::create()`. Логин = email (или `student_{person_id}` если email пуст). При повторном зачислении (`persons.wp_user_id` уже заполнен) — новый WP-пользователь не создаётся. Пароль генерируется автоматически и отправляется по email через `EmailService::sendWelcomeWithCredentials()`.
 
 ---
 
 ## 5. Шифрование персональных данных
 
-### 5.1. Конфигурация ключа
-
-В `wp-config.php`:
+### Ключи
 
 ```php
-// 32 байта случайных данных в base64
-define('FS_LMS_ENC_KEY', 'jK9...base64...==');
-define('FS_LMS_HASH_SALT', 'другая случайная строка');
+// wp-config.php
+define('FS_LMS_ENC_KEY',      '<base64-32-bytes>');
+define('FS_LMS_HASH_SALT',    '<random-string>');
+define('FS_LMS_OTP_BYPASS_CODE', 'optional-bypass'); // опционально
 ```
 
-Генерация ключа:
-```bash
-php -r "echo base64_encode(sodium_crypto_secretbox_keygen());"
-```
+Guard в `fs-lms.php`: если `FS_LMS_ENC_KEY` не определён — `Init::run()` не вызывается, показывается `admin_notices`. Плагин не крашит.
 
-При активации плагина — проверка через `PiiCryptoService::isAvailable()`. Если ключ не определён или невалиден — `wp_die()` с инструкцией (активация прерывается).
+### PersonService — разделение записи
 
-При каждой загрузке страницы без ключа — в `fs-lms.php` срабатывает guard: `Activate::showConfigNotice()` вешается на `admin_notices`, `Init::run()` не вызывается. Плагин не крашит.
+При создании person `PersonService::createOrFindBy(PersonInputDTO)`:
 
-### 5.2. API шифрования
+1. Ищет в `person_documents` по `doc_number_hash` (дедупликация).
+2. Если не найден: INSERT в `persons` (full_name, birth_date, role).
+3. INSERT в `person_documents` (все enc/hash-поля).
 
-`Inc\Services\PiiCryptoService`:
+При обновлении `PersonService::update(personId, changes, actorId)`:
+- `full_name`, `birth_date` → UPDATE `persons`
+- email, phone, doc_number, inn, address → UPDATE `person_documents`
 
-```php
-final class PiiCryptoService
-{
-    private string $key;
+### PersonReader — единственная точка чтения PII
 
-    public function __construct()
-    {
-        if (!defined('FS_LMS_ENC_KEY')) {
-            throw new \RuntimeException('FS_LMS_ENC_KEY is not defined');
-        }
-        $this->key = base64_decode(FS_LMS_ENC_KEY, true);
-        if (strlen($this->key) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
-            throw new \RuntimeException('Invalid encryption key length');
-        }
-    }
+`PersonReader::readForDisplay(personId, fields, reason)`:
+1. Загружает `PersonDTO` из `persons` (для `full_name` — plain text, без лога).
+2. Загружает `PersonDocumentsDTO` из `person_documents` (для зашифрованных полей).
+3. Расшифровывает только запрошенные поля.
+4. Пишет запись в `pii_access_log`.
+5. Возвращает `PersonDecryptedDTO`.
 
-    public function encrypt(string $plaintext): string
-    {
-        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-        $cipher = sodium_crypto_secretbox($plaintext, $nonce, $this->key);
-        return $nonce . $cipher; // храним nonce||cipher
-    }
+Прямой вызов `PiiCryptoService::decrypt()` в Callbacks запрещён. Только через PersonReader (или явно через PersonService при копировании данных между слоями).
 
-    public function decrypt(string $blob): string
-    {
-        $nonceLen = SODIUM_CRYPTO_SECRETBOX_NONCEBYTES;
-        if (strlen($blob) < $nonceLen + SODIUM_CRYPTO_SECRETBOX_MACBYTES) {
-            throw new \RuntimeException('Invalid ciphertext');
-        }
-        $nonce = substr($blob, 0, $nonceLen);
-        $cipher = substr($blob, $nonceLen);
-        $plain = sodium_crypto_secretbox_open($cipher, $nonce, $this->key);
-        if ($plain === false) {
-            throw new \RuntimeException('Decryption failed');
-        }
-        return $plain;
-    }
+### Snapshot в enrollments
 
-    public function hash(string $value): string
-    {
-        $normalized = mb_strtolower(trim($value));
-        return hash('sha256', $normalized . FS_LMS_HASH_SALT);
-    }
-}
-```
-
-### 5.3. Дедупликация и поиск
-
-Хэш позволяет проверять "есть ли уже такой паспорт", не расшифровывая существующие записи:
-
-```php
-$hash = $crypto->hash($newPassNumber);
-$existing = $personRepo->findByDocHash($hash);
-```
-
-Для частичного поиска (по фрагменту телефона, например) хэш не подходит. Если нужен такой поиск — либо ограничивать его правом `ViewPII` с массовой расшифровкой в админ-инструменте, либо хранить отдельный bloom-filter-индекс. **На первой итерации частичный поиск по PII не реализуется.**
-
-### 5.4. Маскирование в UI
-
-Helper `Pii::mask(string $value, string $type): string`:
-- `pass`: `4015 •• •••• 1234` (первые 4 + последние 4)
-- `inn`: `•••• •••• 1234`
-- `phone`: `+7 9•• ••• 12 34`
-- `address`: `г. Москва, ••••••`
-
-По умолчанию в любом UI выводится маска. Полное значение — отдельная AJAX-операция `fs_lms_reveal_pii_field`, которая:
-1. Проверяет `current_user_can(Capability::ViewPII->value)`.
-2. Пишет запись в `pii_access_log`.
-3. Возвращает расшифрованное значение.
-4. В UI оно показывается на 30 секунд и скрывается.
-
-### 5.5. Ротация ключа
-
-При компрометации или плановой ротации:
-1. Новый ключ добавляется как `FS_LMS_ENC_KEY_V2`.
-2. Класс `PiiCryptoService` начинает читать `encryption_version` из строки и выбирать ключ.
-3. Фоновый WP-cron job перешифровывает строки пачками по 100, инкрементирует `encryption_version`.
-4. После полного перехода старый ключ удаляется из `wp-config`.
-
-На первой итерации — только `version = 1`, но колонка должна быть с самого начала.
-
----
-
-## 6. Согласия на обработку ПД и аудит
-
-### 6.1. Тексты согласий
-
-Хранятся в файлах плагина:
-```
-templates/consents/
-  v1/
-    pd_processing.html         -- согласие на обработку
-    pd_child_processing.html   -- согласие представителя за ребёнка
-    pd_transfer.html           -- передача третьим лицам (если нужно)
-```
-
-При деплое новой версии текста — новая папка `v2/`, старые версии **остаются** в репозитории навсегда (для возможности воспроизвести "что именно было подписано Ивановым в 2024 году").
-
-Хэш текста (`document_hash` в `consents`) — sha256 от точного содержимого файла на момент подписи.
-
-### 6.2. UI согласия
-
-В форме заявки и в форме родителя:
-- Чекбокс **обязательный** (без него submit невозможен).
-- Рядом — ссылка "Прочитать текст согласия" → модалка с полным текстом из текущей версии.
-- При submit фиксируется: версия, хэш, IP, UA, timestamp.
-
-### 6.3. Audit log — что писать
-
-Минимальный набор событий:
-
-| action | target_type | когда |
-|---|---|---|
-| `create_application` | `application` | при создании заявки учеником |
-| `submit_parent_data` | `application` | когда родитель заполнил |
-| `view_application` | `application` | админ открыл карточку заявки |
-| `reject_application` | `application` | отклонение |
-| `enroll_student` | `enrollment` | завершено зачисление |
-| `terminate_enrollment` | `enrollment` | отчисление |
-| `create_relationship` | `relationship` | новая связь представитель↔ученик |
-| `replace_relationship` | `relationship` | смена опекуна |
-| `update_person` | `person` | изменение данных |
-| `consent_signed` | `consents` | подписание |
-| `consent_withdrawn` | `consents` | отзыв согласия |
-| `password_link_generated` | `wp_user` | сгенерирована ссылка установки пароля |
-| `password_set` | `wp_user` | пароль установлен пользователем |
-
-В `details_json` пишутся только **метаданные изменения** (какие поля изменились, без новых значений PII). Пример:
+`snapshot_enc` — зашифрованный JSON всех данных на момент зачисления:
 ```json
-{"changed_fields": ["phone", "address"], "old_phone_hash": "abc123..."}
-```
-
-### 6.4. PII Access log — что писать
-
-Каждый раз, когда код вызывает `PiiCryptoService::decrypt()` в контексте показа пользователю (не в фоновых job-ах), пишется запись:
-```php
-$piiAccessLog->record(
-    actor: get_current_user_id(),
-    person_id: $personId,
-    fields: ['pass', 'inn'],
-    reason: 'enrollment_review',
-);
-```
-
-Реализовать через wrapper `PersonReader::readForDisplay(int $personId, array $fields, string $reason)`, чтобы случайно не забыть логирование.
-
----
-
-## 7. Безопасность приглашений и паролей
-
-### 7.1. JOIN-код
-
-**Формат:** `JOIN-XXXX-XXXX-XXXX`, где X — символ из алфавита `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (без визуально похожих 0/O/1/I/l). 12 значащих символов → энтропия ≈ 60 бит.
-
-**Генерация:**
-```php
-function generateJoinCode(): string
 {
-    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    $segments = [];
-    for ($s = 0; $s < 3; $s++) {
-        $seg = '';
-        for ($i = 0; $i < 4; $i++) {
-            $seg .= $alphabet[random_int(0, strlen($alphabet) - 1)];
-        }
-        $segments[] = $seg;
-    }
-    return 'JOIN-' . implode('-', $segments);
+  "student": { "last_name":"...", "first_name":"...", "doc_number":"...", ... },
+  "guardian": { "last_name":"...", "phone":"...", ... },
+  "contract_no": "...",
+  "contract_date": "...",
+  "order_no": "...",
+  "order_date": "...",
+  "enrolled_at": "..."
 }
 ```
 
-**Хранение:** в БД лежит только `sha256(code + FS_LMS_HASH_SALT)`. Сам код возвращается клиенту единожды, восстановлению не подлежит. Если родитель потерял ссылку — админ либо генерирует новую (с инвалидацией старой), либо ученик подаёт заявку заново.
-
-**TTL:** 14 дней. Хранится в `join_code_expires_at`. Истекшие заявки переводятся в статус `expired` ночным cron-job.
-
-**Rate limiting:** на endpoint `/lms/join/{code}`:
-- 10 попыток с одного IP в час → 429.
-- 50 попыток на любые коды с одного IP в сутки → блокировка на 24 часа.
-
-Реализация через transient: `fs_lms_join_attempts_{ip_hash}` со списком timestamp-ов.
-
-### 7.2. Установка пароля через одноразовую ссылку
-
-WordPress даёт штатный механизм через `get_password_reset_key()`:
-
-```php
-$user = get_user_by('id', $newUserId);
-$key = get_password_reset_key($user);
-if (is_wp_error($key)) {
-    throw new \RuntimeException('Cannot generate reset key');
-}
-$link = network_site_url(
-    sprintf(
-        'wp-login.php?action=rp&key=%s&login=%s',
-        rawurlencode($key),
-        rawurlencode($user->user_login)
-    ),
-    'login'
-);
-```
-
-**Свойства штатной ссылки:**
-- Срок действия по умолчанию — определяется фильтром `password_reset_expiration` (стандартно 24 часа).
-- После использования — `user_activation_key` обнуляется, ссылка становится недействительной.
-- На странице `wp-login.php?action=rp` родитель видит свой логин (предзаполнен) и поле для нового пароля × 2.
-
-**Кастомизация на стороне плагина:**
-- Заменить шаблон страницы установки пароля на брендированный (фильтр `login_form_rp` или собственная страница).
-- Увеличить TTL до 48-72 часов для первичной активации (фильтр `password_reset_expiration`).
-- Добавить требования к паролю (минимум 12 символов, проверка против `haveibeenpwned` через k-anonymity API — опционально).
-
-**Доставка ссылки родителю:**
-
-- После завершения зачисления админу показывается:
-    - "Зачисление выполнено."
-    - "Логин родителя: parent@example.com"
-    - "**Ссылка для установки пароля:** https://...&key=..."
-    - "Передайте ссылку родителю любым удобным способом. Срок действия: 48 часов."
-
-**Что админу НЕ показывается никогда:** сам пароль.
-
-**Регенерация ссылки:**
-- Кнопка "Сгенерировать новую ссылку" в карточке пользователя.
-- Вызов `get_password_reset_key()` инвалидирует предыдущий key (затирает `user_activation_key`).
-- Каждый вызов пишется в `audit_log: password_link_generated`.
-
-### 7.3. Ссылка для ученика
-
-Здесь просто стандартная форма с сохранением состояния по ключу. Логин и пароль ученик вводит в форме. Эти же данные используются в домене. Для поля email в wordpress добавляется постфикс: `@fs.local` (Пример: логин - `drborov`, почта - `drborov@fs.local`)
-
-### 7.4. Защита самой страницы установки пароля
-
-Стандартный `wp-login.php` от brute-force не защищён сам по себе. Рекомендации:
-- Подключить плагин типа Limit Login Attempts Reloaded или эквивалент.
-- На странице установки пароля включить капчу (фильтр `lostpassword_form` / собственный rp-флоу).
-- Логировать в `audit_log: password_set` для аналитики.
+Snapshot независим от изменений в `persons`/`person_documents` — это "что было на момент зачисления". Используется в archive-view и при отчислении.
 
 ---
 
-## 8. Транзакционность и ACID
+## 6. Матрица зачислений — 4 пути
 
-### 8.1. Что внутри транзакции
+| # | Ученик | Родитель | Как родитель привязывается |
+|---|---|---|---|
+| **1A** | Новый | Новый | Заполняет join-форму самостоятельно |
+| **2A** | Старый (из архива) | Новый | Заполняет join-форму самостоятельно |
+| **3B** | Новый | Старый (уже в системе) | Админ выбирает из существующих |
+| **4B** | Старый (из архива) | Старый (уже в системе) | Администратор выбирает из существующих |
 
-Операция зачисления (шаг 6 потока ниже) включает несколько INSERT/UPDATE по custom tables:
-
-```php
-$wpdb->query('START TRANSACTION');
-try {
-    // 1. Создать или найти student person
-    $studentPersonId = $personRepo->createOrFindBy($studentData);
-
-    // 2. Создать или найти guardian person
-    $guardianPersonId = $personRepo->createOrFindBy($guardianData);
-
-    // 3. Создать relationship (с UNIQUE-защитой от дубликатов)
-    $relationshipRepo->createIfNotExists(
-        $guardianPersonId,
-        $studentPersonId,
-        $relationType
-    );
-
-    // 4. Создать enrollment (UNIQUE на student+subject+period
-    //    защищает от двойного)
-    $enrollmentId = $enrollmentRepo->create([...]);
-
-    // 5. Привязать consents к persons
-    $consentRepo->bindApplicationConsentsToPersons(
-        $applicationId,
-        ['student' => $studentPersonId, 'guardian' => $guardianPersonId]
-    );
-
-    // 6. Audit log
-    $auditLog->record('enroll_student', 'enrollment', $enrollmentId, ...);
-
-    // 7. Application → status 'enrolling'
-    $applicationRepo->setStatus($applicationId, 'enrolling');
-
-    $wpdb->query('COMMIT');
-} catch (\Throwable $e) {
-    $wpdb->query('ROLLBACK');
-    throw $e;
-}
-```
-
-Все таблицы — InnoDB, поэтому транзакция атомарна.
-
-### 8.2. Что вне транзакции (саго)
-
-После commit транзакции выполняются "внешние эффекты":
-
-```php
-// Эти шаги — за пределами транзакции
-try {
-    // 8. Создать WP-юзеров
-    $studentUserId = $userFactory->createForPerson($studentPersonId);
-    $guardianUserId = $userFactory->createForPerson($guardianPersonId);
-
-    // 9. Привязать wp_user_id обратно в persons
-    $personRepo->setWpUser($studentPersonId, $studentUserId);
-    $personRepo->setWpUser($guardianPersonId, $guardianUserId);
-
-    // 10. Application → 'converted'
-    $applicationRepo->markConverted($applicationId, $enrollmentId);
-
-    // 11. Сгенерировать reset-ссылки
-    $studentLink  = $passwordLinkService->generate($studentUserId);
-    $guardianLink = $passwordLinkService->generate($guardianUserId);
-
-    // 12. Отправить email (если выбран авторежим)
-    if ($sendEmailAuto) {
-        $mailer->sendPasswordSetup($guardianUserId, $guardianLink);
-    }
-
-    // 13. Очистить кеш заявок
-    $cache->invalidateApplicationsList();
-} catch (\Throwable $e) {
-    // Не откатываем транзакцию — данные уже зафиксированы.
-    // Application остаётся в статусе 'enrolling'.
-    // Recovery job подберёт.
-    $logger->error('Post-transaction step failed', [...]);
-    throw new EnrollmentPartialFailure($enrollmentId, $e);
-}
-```
-
-### 8.3. Почему `wp_insert_user` вне транзакции
-
-`wp_insert_user` запускает действия `user_register`, `set_user_role` и др., в которых сторонние плагины могут писать в свои таблицы или вызывать внешние API (CRM, мейлеры, аналитика). Эти действия не откатываются `ROLLBACK`. Включать `wp_insert_user` в транзакцию — значит создавать иллюзию атомарности при её фактическом отсутствии.
-
-Решение: внутри транзакции фиксируется **бизнес-факт** (person + enrollment + связи), а WP-юзер — это **инфраструктурная привязка**, которую можно досоздать ретроспективно. Recovery job находит persons без `wp_user_id` и enrollments в применённой application со статусом 'enrolling' — и доделывает.
-
-### 8.4. Recovery cron job
-
-Запускается каждые 15 минут (`wp_schedule_event`):
-
-```php
-foreach ($applicationRepo->findStuckEnrolling(olderThanMinutes: 5) as $app) {
-    try {
-        $enrollment = $enrollmentRepo->findBySourceApplication($app->id);
-        if (!$enrollment) {
-            // Транзакция упала — application можно вернуть в ready_for_review
-            $applicationRepo->setStatus($app->id, 'ready_for_review');
-            continue;
-        }
-        // Транзакция прошла, но post-шаги — нет
-        $persons = $personRepo->findByEnrollment($enrollment->id);
-        foreach ($persons as $person) {
-            if (!$person->wp_user_id) {
-                $userId = $userFactory->createForPerson($person->id);
-                $personRepo->setWpUser($person->id, $userId);
-            }
-        }
-        $applicationRepo->markConverted($app->id, $enrollment->id);
-    } catch (\Throwable $e) {
-        $logger->error('Recovery failed', ['app_id' => $app->id, 'e' => $e]);
-    }
-}
-```
-
-### 8.5. Идемпотентность
-
-Каждый шаг pre-transaction и post-transaction должен быть идемпотентным:
-- `personRepo->createOrFindBy()` — по хэшу документа: если есть — возвращает существующего.
-- `relationshipRepo->createIfNotExists()` — UNIQUE на паре `(guardian, student, valid_from)`.
-- `enrollmentRepo->create()` — UNIQUE на `(student, subject, period)`, ловит дубль и возвращает существующий.
-- `userFactory->createForPerson()` — проверяет `persons.wp_user_id`, если уже есть — возвращает.
-
-Это позволяет recovery job безопасно retry без побочных эффектов.
-
-### 8.6. Изоляция
-
-Уровень изоляции MySQL по умолчанию — REPEATABLE READ. Для текущих операций этого достаточно. Длинных транзакций (более 1-2 секунд) не предполагается; основная масса работы — pre-flight checks и post-transaction effects.
+Во всех путях финальный шаг — вызов `EnrollmentService::enroll()`, который автоматически определяет нужную ветку по полям `application.student_person_id` и `application.parent_person_id`.
 
 ---
 
-## 9. Поток зачисления — пошагово
+## 7. Поток 1A — новый ученик, новый родитель (join)
 
-### Этап 0: Инициализация плагина
+Самый частый случай. Ученик подаёт заявку, родитель заполняет join-форму.
 
-При загрузке плагина (каждый запрос):
-- Guard в `fs-lms.php`: если `!PiiCryptoService::isAvailable()` — `admin_notices` + возврат, `Init::run()` не вызывается.
+### Шаг 1 — Ученик заполняет заявку (`/lms/apply`)
 
-При активации (`register_activation_hook`):
-1. Проверка `FS_LMS_ENC_KEY` и `FS_LMS_HASH_SALT` через `PiiCryptoService::isAvailable()`. Если нет — `wp_die()` с инструкцией (активация прерывается без `deactivate_plugins()`).
-2. `dbDelta()` создаёт все таблицы (см. раздел 3).
-3. `add_role()` создаёт роли через `RoleManager::registerAll()`: `lms_student`, `lms_parent`, `lms_teacher`, `lms_office`, `lms_student_free`, `lms_teacher_free`.
-4. Регистрируется WP-cron event `fs_lms_recovery_tick` каждые 15 минут.
-5. Регистрируются cron events: `fs_lms_expire_applications`, `fs_lms_retention_cleanup` — ежедневно.
-6. Версия схемы записывается в `wp_options.fs_lms_schema_version`.
+**Форма:** ФИО, логин, пароль, email, школа, класс, дата рождения, телефон, согласие на ПД, капча.
 
-### Этап 1: Ученик заполняет заявку
+**Двухэтапный OTP-поток:**
 
-**1.1. Точка входа:**
-Публичная страница `/apply` (короткий код или дочерняя страница). Регистрация маршрута через `rewrite_rule` в `ApplicationController`.
-
-**1.2. Форма:**
-- ФИО (три поля текста)
-- Логин
-- Пароль
-- Email (желательно google/git)
-- Школа (текст)
-- Класс (число)
-- Дата рождения (date)
-- Телефон
-- Чекбокс согласия на ПД с ссылкой на текст
-- Капча
-
-Входить можно по логину или по email + привяжется профиль социальной сети с таким же email.
-
-**1.3. Submit — двухэтапный поток:**
-
-**Шаг A — капча + отправка OTP (`wp_ajax_nopriv_fs_lms_send_otp_code`):**
-
+**Шаг A** — `AJAX nopriv: send_otp_code`
 ```
-1. Authorize: nonce 'fs_lms_apply' (генерируется на GET)
-2. Rate limit: 5 попыток с IP в час → 429
-3. Капча → невалидна → 400
-   [пропускается если FS_LMS_TEST_ENV определена в wp-config.php]
-4. Sanitize email
-5. Cooldown: EmailOtpService::canResend($email) → если false,
-   ответить {"error": "Повторная отправка через N секунд"}
-   [пропускается если FS_LMS_TEST_ENV определена]
-6. EmailOtpService::sendCode($email)
-   [письмо не отправляется если FS_LMS_TEST_ENV определена]
-7. Response: {"success": true, "masked_email": "p****@gmail.com"}
-   → JS показывает экран ввода кода
+1. Nonce::Apply verify
+2. Rate limit: 5 попыток с IP в час
+3. Капча (пропускается при FS_LMS_TEST_ENV)
+4. EmailOtpService::sendCode($email)
+5. → показать экран ввода кода
 ```
 
-**Шаг B — верификация OTP + создание заявки (`wp_ajax_nopriv_fs_lms_create_application`):**
-
+**Шаг B** — `AJAX nopriv: create_application`
 ```
-1. Authorize: nonce 'fs_lms_verify_otp' (генерируется после шага A)
-2. Rate limit: 5 попыток с IP в час → 429
-3. Sanitize всех полей + otp_code
-4. OTP: EmailOtpService::verify($email, $otpCode) → 400 если
-   неверный или истёкший код
-   [если задана FS_LMS_OTP_BYPASS_CODE и otp_code совпадает с ней —
-    верификация проходит без проверки transient]
-5. Валидация:
-   - email уникален среди active applications (status IN
-     pending_parent, ready_for_review) — иначе подсказка
-     "у вас уже есть незавершённая заявка"
-   - дата рождения в разумном диапазоне
-   - согласие отмечено
-6. Транзакция:
-   a. Сгенерировать JOIN-код
-   b. INSERT в applications: status='pending_parent',
-      student_data_enc, join_code_hash, expires=NOW()+14d
-   c. INSERT в consents: type='pd_processing',
-      application_id=<id>, signed_by_role='self',
-      document_version + hash
-   d. INSERT в audit_log: action='create_application'
-   COMMIT
-7. Сформировать URL: https://site/lms/join/{code}
-8. Response:
-   {
-     "success": true,
-     "join_url": "...",
-     "expires_at": "2026-06-05T12:00:00Z",
-     "message": "Передайте эту ссылку родителю..."
-   }
-9. На странице — экран с ссылкой и инструкцией.
+1. Nonce::VerifyOtp verify
+2. EmailOtpService::verify($email, $code)
+   (или FS_LMS_OTP_BYPASS_CODE)
+3. Проверить нет ли уже активной заявки по email
+4. Сгенерировать JOIN-код (JoinCodeService)
+5. INSERT applications: status=pending_parent,
+   student_data_enc=..., join_code_hash=..., expires=+48h
+6. INSERT consents (ученик, от себя)
+7. INSERT audit_log: create_application
+8. → вернуть join_url = /lms/join/{code}
 ```
 
-**Конфигурационные константы для управления OTP, капчей и дебаг-доступом:**
+Данные в `applications.student_data_enc`: JSON `{last_name, first_name, middle_name, email, phone, school, grade, birth_date, doc_type, doc_number, inn, username, login_password}`.
 
-| Константа в `wp-config.php` | Поведение |
-|---|---|
-| `FS_LMS_TEST_ENV` | Тестовое окружение: капча не проверяется, письмо с OTP не отправляется. Ученик вводит `FS_LMS_OTP_BYPASS_CODE`. Открывает дебаг-маршруты (см. ниже). |
-| `FS_LMS_OTP_BYPASS_CODE` | Постоянный bypass-код: принимается вместо кода с почты в **любом** окружении. Используется когда у ученика нет доступа к email. |
-
-Обе константы независимы. Если определена только `FS_LMS_OTP_BYPASS_CODE` (без `FS_LMS_TEST_ENV`) — капча работает в штатном режиме, письмо отправляется, но ученик может ввести bypass-код вместо кода из письма.
-
-**Дебаг-маршрут страницы родителя:**
-
-При наличии `FS_LMS_TEST_ENV` GET-запрос на `/lms/join/000` рендерит `join.php` с тестовыми данными ученика без обращения к БД:
+### Шаг 2 — Родитель открывает join-ссылку (`/lms/join/{code}`)
 
 ```
-full_name  = 'Тестов Тест Тестович'
-birth_date = '2010-05-15'
-school     = 'Тестовая школа №1'
-grade      = 7
-email      = 'test-student@example.com'
-app_id     = 0
+GET:
+1. hash = crypto->hash(code)
+2. SELECT application WHERE join_code_hash=? AND status=pending_parent
+   AND join_code_expires_at > NOW()
+3. Расшифровать student_data_enc → показать форму
+   с предзаполненными данными ученика
+
+POST: submit_parent_data (nopriv)
+1. Nonce::ParentSubmit verify
+2. Санитизация + валидация
+3. UPDATE applications:
+   parent_data_enc = encrypt(parentData),
+   status = ready_for_review
+4. INSERT consents (родитель от себя + за ребёнка)
+5. INSERT audit_log: submit_parent_data
+6. → уведомление админу
 ```
 
-Реализовано в `ApplicationCallbacks::prepareJoinPage()` — перехват происходит до валидации формата и rate limit. В продакшне без `FS_LMS_TEST_ENV` адрес отдаёт 404 (код не проходит формат `JOIN-XXXX-XXXX-XXXX`).
+Данные в `applications.parent_data_enc`: JSON `{last_name, first_name, middle_name, birth_date, relation_type, doc_type, doc_number, doc_issued_by, doc_issued_date, inn, address, phone, email}`.
 
-**Где какие данные:**
-- `applications.student_data_enc` ← JSON `{full_name, email, school, grade, birth_date}` зашифрованный.
-- `applications.join_code_hash` ← sha256(code + salt).
-- `consents` ← одна запись для ученика.
-- Сам JOIN-код существует **только в response** и нигде не сохраняется.
+### Шаг 3 — Администратор просматривает список заявок
 
-### Этап 2: Родитель открывает ссылку
+Страница: `?page=fs_lms_userlist&tab=tab-1` → `userlist-1-applications.php`.  
+Защита: `Capability::ManageApplications`.
 
-**2.1. GET `/join/{code}`:**
+Для статуса `PendingParent` доступны действия:
+- **Изменить** данные ученика (модалка)
+- **Скопировать join-ссылку** (join_code_enc расшифровывается, ссылка в буфер)
+- **+ Назначить родителя** (переход к пути 3B/4B — кнопка рядом с join-кодом)
 
-```
-1. Rate limit на IP: 10 попыток открытия любых кодов в час
-2. hash = sha256(code + salt)
-3. SELECT * FROM applications
-   WHERE join_code_hash = ? AND status = 'pending_parent'
-     AND join_code_expires_at > NOW()
-4. Если не найдено → 404 generic (не раскрывать причину)
-5. Дешифровать student_data_enc
-6. Audit log: action='view_join_link'
-7. Рендер формы с предзаполненными полями ученика
-   (можно редактировать)
-```
+Для статуса `ReadyForReview` доступны:
+- **Изменить** (редактирование данных ученика и родителя, модалка `application-review-modal`)
+- **Зачислить** (переход к шагу 5)
 
-**2.2. Форма родителя:**
-Зависит от введённого возраста ученика. Если 14+ лет:
-- ФИО (три поля текста)
-- Дата рождения
-- Серия/номер паспорта родителя
-- Кем выдан, дата выдачи
-- Серия/номер паспорта ребёнка
-- Кем выдан, дата выдачи
-- ИНН родителя
-- ИНН ребёнка
-- Адрес прописки
-- Телефон
-- Email
+### Шаг 4 — Начало зачисления
 
-Зависит от введённого возраста ученика. Если <14 лет:
-- ФИО (три поля текста)
-- Дата рождения
-- Серия/номер паспорта родителя
-- Кем выдан, дата выдачи
-- Свидетельство о рождении ребёнка
-- ИНН родителя
-- ИНН ребёнка
-- Адрес прописки
-- Телефон
-- Email
+`AJAX: start_enrollment` — переводит заявку в статус `enrolling` (блокировка от параллельного клика).  
+`AJAX: cancel_enrollment` — откат в `ready_for_review`.
 
-Поля для редактирования (унаследованы из заявки ученика):
-- ФИО ученика (можно поправить опечатку)
-- Дата рождения
-- Школа, класс
+### Шаг 5 — Модалка «Зачислить» (`application-enrollment-modal`)
 
-Согласия:
-- Согласие на обработку **своих** ПД (чекбокс)
-- Согласие на обработку ПД **ребёнка** как законный представитель (чекбокс)
+Поля: номер договора, дата договора, номер приказа, дата приказа, дата зачисления, группа (`group_key`).
 
-**2.3. POST (`wp_ajax_nopriv_fs_lms_submit_parent_data`):**
+Submit → `AJAX: enroll_student` → `EnrollmentService::enroll()` (см. раздел 11).
 
-```
-1. Authorize: nonce + JOIN-код в payload, повторная валидация
-2. Sanitize всех полей
-3. Валидация: обязательные поля, формат паспорта/ИНН,
-   согласия отмечены
-4. Транзакция:
-   a. Зашифровать parent_data (включая обновлённые
-      поля ученика и документы)
-   b. Зашифровать обновлённый student_data
-   c. UPDATE applications SET
-        student_data_enc = ?,
-        parent_data_enc = ?,
-        status = 'ready_for_review',
-        updated_at = NOW(),
-        parent_submitted_ip = ?,
-        parent_submitted_ua = ?
-   d. INSERT в consents: 2 записи (свои + от лица ребёнка)
-   e. INSERT в audit_log: action='submit_parent_data'
-   COMMIT
-5. Уведомление админу: email + admin notification
-   (через действие 'fs_lms_application_ready')
-6. Response: "Спасибо, заявка принята к рассмотрению.
-   После проверки администратором вы получите email
-   с инструкцией по доступу в личный кабинет."
-```
-
-**Где какие данные:**
-- `applications.parent_data_enc` ← полный JSON по родителю + документы ребёнка.
-- `applications.student_data_enc` ← обновлён, если родитель что-то поправил.
-- `consents` ← 2 новые записи (`pd_processing` self + `pd_child_processing` guardian).
-
-**Важно:** на этом этапе **никакие persons и WP-юзеры ещё не создаются**. Заявка — это только заявка.
-
-### Этап 3: Админ просматривает список заявок
-
-**3.1. Таб "Заявки" страницы "Пользователи" (`?page=fs_lms_userlist&tab=tab-1`):**
-
-Отдельной страницы `fs-lms-applications` нет — список живёт в табе. Шаблон: `templates/admin/components/tabs/userlist-tabs/userlist-1-applications.php`.
-
-Защита: `current_user_can(Capability::ManageApplications->value)`.
-
-Таблица:
-
-| Дата | ФИО ученика | Школа/класс | Статус | Действия |
-|---|---|---|---|---|
-
-В списке **показываются только имена и нечувствительные поля**. ФИО — через ограниченный decrypt (одно поле).
-
-Фильтры по статусу + переключатель "Корзина". По умолчанию `Trash` скрыт. В режиме корзины: "Восстановить" и кнопка "Очистить корзину" (confirm-диалог, физическое удаление).
-
-**Audit log:** `view_applications_list` — sample 1:50.
-
-### Этап 4: Админ открывает заявку
-
-**4.1. GET `/wp-admin/admin.php?page=fs-lms-application-detail&id=N`** (скрытая страница, открывается из таба):
-
-```
-1. Authorize: ManageApplications + ViewPII
-2. SELECT application by id
-3. Дешифровка student_data + parent_data
-4. PII Access log:
-   actor=current_user, person_id=NULL (нет ещё),
-   fields_accessed='application_data',
-   reason='application_review'
-5. Audit log: action='view_application'
-6. Рендер карточки:
-   - данные ученика и родителя
-   - документы — маскированные, кнопка "Показать"
-   - история заявки (timestamps подачи, изменения)
-   - подписанные согласия с версиями
-   - кнопки: "Зачислить" | "Отклонить"
-```
-
-**4.2. "Показать паспорт":**
-- AJAX `fs_lms_reveal_pii_field` с указанием field
-- Проверка ViewPII
-- INSERT в `pii_access_log`
-- Возврат расшифрованного значения, показ на 30 секунд
-
-**4.3. "Отклонить":**
-- Модалка с причиной (свободный текст, обязательное)
-- UPDATE applications SET status='rejected', rejected_reason=?,
-  reviewed_by_user_id=?, reviewed_at=NOW()
-- Audit log: action='reject_application'
-- (опционально) уведомление родителю email-ом
-
-**4.4. "В корзину":**
-- Доступно для `PendingParent`, `ReadyForReview`, `Rejected`, `Expired`
-- Отличается от "Отклонить": корзина — административный мусор (дубли, тестовые заявки, ошибочные записи), отклонение — бизнес-решение с официальной причиной и уведомлением
-- Без модалки с причиной; confirm-диалог в JS достаточен
-- UPDATE applications SET status='trash'
-- Audit log: action='move_to_trash'
-- Заявка исчезает из основного списка, попадает в раздел "Корзина"
-- Восстановление из корзины: `setStatus($id, PendingParent|ReadyForReview)` в зависимости от заполненности `parent_data_enc`
-
-### Этап 5: Модалка "Зачислить"
-
-Поля:
-- Номер договора
-- Дата договора
-- Номер приказа
-- Дата приказа
-- Дата зачисления
-- Период (dropdown: `2025-2026`, `2026-spring` и т.д. заранее выбран Текущий)
-- Предмет (dropdown из `Subjects`)
-- Группа (dropdown из `StudentGroup`)
-
-
-Submit → AJAX `fs_lms_enroll`.
-
-### Этап 6: Логика зачисления (детально)
-
-**6.1. Pre-flight (вне транзакции, валидация и поиск дубликатов):**
-
-```php
-// Authorize
-$this->authorize(Nonce::Enroll, Capability::EnrollStudent);
-
-// Sanitize всех полей формы
-$input = $this->sanitizeEnrollmentInput($_POST);
-
-// Загрузить и дешифровать application
-$app = $applicationRepo->find($input['application_id']);
-if ($app->status !== 'ready_for_review') {
-    throw new \DomainException('Application is not ready for review');
-}
-$studentData = json_decode($crypto->decrypt($app->student_data_enc), true);
-$parentData  = json_decode($crypto->decrypt($app->parent_data_enc), true);
-
-// PII access log
-$piiLog->record(
-    actor: get_current_user_id(),
-    person_id: null,
-    fields: ['student_data', 'parent_data'],
-    reason: 'enrollment',
-);
-
-// Дедупликация — поиск существующих persons
-$studentDocHash  = $crypto->hash($studentData['doc_number']);
-$existingStudent = $personRepo->findByDocHash($studentDocHash);
-
-$guardianDocHash  = $crypto->hash($parentData['doc_number']);
-$existingGuardian = $personRepo->findByDocHash($guardianDocHash);
-
-// Проверка email-конфликтов в wp_users
-if (!$existingGuardian && get_user_by('email', $parentData['email'])) {
-    throw new \DomainException(
-        'Email родителя уже используется другим пользователем. '
-        . 'Проверьте дубликаты вручную.'
-    );
-}
-
-// Проверка двойного зачисления
-if ($existingStudent && $enrollmentRepo->existsActive(
-    $existingStudent->id, $input['subject_key'], $input['period_key']
-)) {
-    throw new \DomainException(
-        'Этот ученик уже зачислен на этот предмет в этот период.'
-    );
-}
-```
-
-**6.2. Транзакция (custom tables):**
-
-```php
-$wpdb->query('START TRANSACTION');
-try {
-    // 1. Student person
-    if ($existingStudent) {
-        $studentPersonId = $existingStudent->id;
-        // Опционально — обновить устаревшие поля
-    } else {
-        $studentPersonId = $personRepo->create([
-            'full_name_enc'  => $crypto->encrypt($studentData['full_name']),
-            'full_name_hash' => $crypto->hash($studentData['full_name']),
-            'birth_date'     => $studentData['birth_date'],
-            'doc_type'       => $studentData['doc_type'],
-            'doc_number_enc' => $crypto->encrypt($studentData['doc_number']),
-            'doc_number_hash'=> $studentDocHash,
-            'inn_enc'        => $crypto->encrypt($studentData['inn'] ?? ''),
-            'inn_hash'       => $crypto->hash($studentData['inn'] ?? ''),
-            'email'          => $studentData['email'] ?? null,
-            // ... остальные поля
-        ]);
-    }
-
-    // 2. Guardian person
-    if ($existingGuardian) {
-        $guardianPersonId = $existingGuardian->id;
-    } else {
-        $guardianPersonId = $personRepo->create([
-            'full_name_enc'  => $crypto->encrypt($parentData['full_name']),
-            'full_name_hash' => $crypto->hash($parentData['full_name']),
-            // ... все поля родителя
-            'email'          => $parentData['email'],
-        ]);
-    }
-
-    // 3. Relationship
-    $relationshipRepo->createIfNotExists(
-        guardianPersonId: $guardianPersonId,
-        studentPersonId:  $studentPersonId,
-        relationType:     $parentData['relation_type'],
-        isPrimaryContact: true,
-        hasLegalAuthority: true,
-        validFrom: today(),
-        createdByUserId: get_current_user_id(),
-    );
-
-    // 4. Enrollment
-    $snapshot = [
-        'student'  => $studentData,
-        'guardian' => $parentData,
-        'relation' => $parentData['relation_type'],
-        'enrolled_at' => now(),
-    ];
-    $enrollmentId = $enrollmentRepo->create([
-        'student_person_id'   => $studentPersonId,
-        'subject_key'         => $input['subject_key'],
-        'group_term_id'       => $input['group_id'],
-        'period_key'          => $input['period_key'],
-        'contract_no'         => $input['contract_no'],
-        'contract_date'       => $input['contract_date'],
-        'order_no'            => $input['order_no'],
-        'order_date'          => $input['order_date'],
-        'enrolled_at'         => $input['enrolled_at'],
-        'enrolled_by_user_id' => get_current_user_id(),
-        'status'              => 'active',
-        'snapshot_enc'        => $crypto->encrypt(json_encode($snapshot)),
-        'source_application_id' => $app->id,
-    ]);
-
-    // 5. Привязать согласия к persons
-    $consentRepo->bindApplicationConsentsToPersons($app->id, [
-        'self'      => $studentPersonId,    // согласие ученика
-        'guardian'  => $guardianPersonId,   // согласие родителя за себя
-        'for_child' => [
-            'signed_by' => $guardianPersonId,
-            'signed_for' => $studentPersonId,
-        ],
-    ]);
-
-    // 6. Audit
-    $auditLog->record('enroll_student', 'enrollment', $enrollmentId, [
-        'application_id' => $app->id,
-        'subject_key'    => $input['subject_key'],
-        'period_key'     => $input['period_key'],
-    ]);
-
-    // 7. Application → enrolling (промежуточный, защита от
-    //    повторного клика; финальный 'converted' будет после
-    //    post-transaction шагов)
-    $applicationRepo->setStatus($app->id, 'enrolling');
-
-    $wpdb->query('COMMIT');
-} catch (\Throwable $e) {
-    $wpdb->query('ROLLBACK');
-    $auditLog->record('enroll_student_failed', 'application', $app->id, [
-        'error' => $e->getMessage(),
-    ]);
-    throw $e;
-}
-```
-
-**6.3. Post-transaction (внешние эффекты):**
-
-```php
-$results = [];
-
-try {
-    // 8. Создать WP-юзеров
-    if (!$existingStudent || !$existingStudent->wp_user_id) {
-        $studentUserId = $userFactory->createForPerson(
-            personId: $studentPersonId,
-            role:     'lms_student',
-            email:    $studentData['email'] ?? null,
-            displayName: $studentData['full_name'],
-        );
-        $personRepo->setWpUser($studentPersonId, $studentUserId);
-    } else {
-        $studentUserId = $existingStudent->wp_user_id;
-    }
-
-    if (!$existingGuardian || !$existingGuardian->wp_user_id) {
-        $guardianUserId = $userFactory->createForPerson(
-            personId: $guardianPersonId,
-            role:     'lms_parent',
-            email:    $parentData['email'],
-            displayName: $parentData['full_name'],
-        );
-        $personRepo->setWpUser($guardianPersonId, $guardianUserId);
-    } else {
-        $guardianUserId = $existingGuardian->wp_user_id;
-    }
-
-    // 9. Application → converted
-    $applicationRepo->markConverted($app->id, $enrollmentId);
-
-    // 10. Сгенерировать reset-ссылки
-    $guardianLink = $passwordLinkService->generate($guardianUserId);
-    $studentLink  = $studentData['email']
-        ? $passwordLinkService->generate($studentUserId)
-        : null;
-
-    $auditLog->record('password_link_generated', 'wp_user', $guardianUserId);
-
-    // 11. Отправить email или вернуть ссылку админу
-    if ($input['send_email_auto']) {
-        $mailer->sendPasswordSetup($guardianUserId, $guardianLink);
-        if ($studentLink) {
-            $mailer->sendPasswordSetup($studentUserId, $studentLink);
-        }
-    } else {
-        $results['guardian_password_link'] = $guardianLink;
-        $results['student_password_link']  = $studentLink;
-    }
-
-    // 12. Invalidate cache
-    $cache->invalidateApplicationsList();
-
-    return $this->success(array_merge([
-        'enrollment_id' => $enrollmentId,
-        'student_user_id' => $studentUserId,
-        'guardian_user_id' => $guardianUserId,
-        'message' => 'Зачисление выполнено',
-    ], $results));
-} catch (\Throwable $e) {
-    // Транзакция уже зафиксирована, частичная неудача.
-    // Application в статусе 'enrolling' → recovery job подберёт.
-    $auditLog->record('enroll_post_failed', 'enrollment', $enrollmentId, [
-        'error' => $e->getMessage(),
-    ]);
-    return $this->error(
-        'Зачисление выполнено, но возникла ошибка при создании '
-        . 'учётных записей. Система автоматически завершит операцию '
-        . 'в ближайшие 15 минут. Если этого не произойдёт — обратитесь '
-        . 'к разработчику. Enrollment ID: ' . $enrollmentId
-    );
-}
-```
-
-### Этап 7: Родитель устанавливает пароль
-
-
-**7.1. Открытие ссылки:**
-
-URL: `https://site/wp-login.php?action=rp&key=xxx&login=parent@example.com`
-
-Стандартный WP-флоу:
-1. Валидация key через `check_password_reset_key()`.
-2. Если key валиден — форма с двумя полями пароля.
-3. Если key истёк — сообщение об истечении + ссылка "запросить новую".
-4. После submit:
-    - Пароль валидируется (длина ≥ 12, наличие цифр/букв — через фильтр).
-    - `reset_password($user, $newPass)` сохраняет хэш.
-    - `user_activation_key` обнуляется.
-    - Опционально — авто-логин.
-    - Redirect на дашборд родителя.
-5. Audit log: `password_set`.
-
-**7.2. Истёкшая ссылка:**
-
-Кнопка "Запросить новую ссылку" → email-форма → если email есть в системе → отправка нового key. Стандартный WP-механизм восстановления пароля.
-
-Для самой первой активации, если родитель не успел в 48 часов, админ может вручную регенерировать ссылку в карточке родителя в админке.
+После успеха: возвращаются логин/пароль ученика и родителя. Заявка физически удаляется (`forceDelete`).
 
 ---
 
-## 10. Edge cases и сценарии восстановления
+## 8. Поток 2A — старый ученик, новый родитель (join)
 
-### 10.1. Двойная подача заявки
+Сценарий: ученик ранее обучался, был отчислен, семья подаёт документы снова с новым родителем (например, сменился опекун).
 
-Ученик уже подал заявку, она в статусе `pending_parent`, и подаёт снова с тем же email/ФИО+датой рождения.
+### Шаг 1 — Администратор восстанавливает из архива
 
-**Решение:** при создании заявки проверять existing `pending_parent` / `ready_for_review` по этим данным ученика. Если есть — возвращать сообщение "у вас уже есть незавершённая заявка" с возможностью получить ссылку повторно. 
+В модалке архивного зачисления (`archive-view-modal`) нажимает «Восстановить из архива».
 
-**Альтернативное решение:** все заявки попадают во временное хранилище. Модерация происходит по согласованию с преподавателем / актуальной считается последняя заявка по ФИО + дате рождения / email.
+`AJAX: restore_from_archive` → `EnrollmentService::restoreFromArchive(archiveId)`:
+```
+1. Найти ArchiveDTO по archive_id
+2. Найти PersonDTO ученика (archive.student_person_id)
+3. Прочитать snapshot из последнего enrollment
+   (восстановить имя, birth_date, email и др.)
+4. Сгенерировать новый JOIN-код
+5. INSERT applications:
+   student_person_id = archive.student_person_id,  ← pre-linked!
+   student_data_enc = encrypt(studentData),
+   status = pending_parent,
+   join_code_hash = ..., expires = +48h
+6. Вернуть {id: appId, join_url: "/lms/join/{code}"}
+```
 
-### 10.2. JOIN-код украден
+Ключевое отличие от пути 1A: `application.student_person_id` уже заполнен → при зачислении PersonService не создаст дубль.
 
-Кто-то получил ссылку и заполнил поля родителя за фейкового персонажа.
+### Шаг 2 — Родитель заполняет join-форму
 
-**Митигация:**
-- TTL 14 дней (короткое окно атаки).
-- Энтропия 60 бит (перебор практически невозможен).
-- Rate limiting (медленный перебор тоже).
-- Админ при review видит карточку и может отклонить если данные подозрительные.
+Аналогично пути 1A (шаг 2). Форма показывает предзаполненные данные ученика.
 
+### Шаги 3-5
 
-### 10.3. Родитель уже в системе (другой ребёнок)
-
-Кейс: у Иванова уже есть в системе ребёнок (старший), и он подаёт заявку на младшего.
-
-**Поведение:**
-1. На этапе заполнения родитель указывает свой паспорт и email.
-2. На этапе зачисления `personRepo->findByDocHash($guardianDocHash)` находит существующего.
-3. Используется существующий `guardian_person_id`.
-4. Создаётся новый relationship (старший ребёнок — старая связь, младший — новая).
-5. Новый WP-юзер **не создаётся** — используется существующий.
-
-
-### 10.4. Конфликт email
-
-Родитель указал email, который уже принадлежит другому WP-юзеру (например, преподавателю).
-
-**Поведение:**
-- На pre-flight check бросается DomainException.
-- Админу показывается:
-    - "Email parent@example.com уже используется пользователем X (роль: ...)."
-    - "Вариант 1: использовать другой email родителя (попросить уточнить)."
-    - "Вариант 2: если это тот же человек — привязать существующего WP-юзера к новой персоне (требует дополнительной верификации)."
-- На этой итерации **автоматического слияния не делается** — только ручное решение.
-
-### 10.5. Смена опекуна
-
-Через год после зачисления у ребёнка опеку получает другая бабушка.
-
-**Процесс:**
-1. Админ открывает карточку ученика → раздел "Представители".
-2. Действие "Заменить опекуна":
-    - У текущей связи проставляется `valid_to = today()`.
-    - Создаётся новая person для новой бабушки (через ту же форму, что и при заявке).
-    - Создаётся новая relationship с `valid_from = tomorrow()` (или today() если решено мгновенно).
-3. Новой бабушке отправляется reset-ссылка для входа в кабинет.
-4. У старой бабушки WP-юзер **остаётся, но больше не имеет доступа к данным этого ребёнка** (логика доступа смотрит на актуальные relationships).
-
-### 10.6. Два родителя
-
-Мать и отец оба хотят доступ к данным ребёнка.
-
-**Поток:**
-- Первый родитель проходит стандартную заявку → создаётся мать как `is_primary_contact = 1`.
-- Для второго родителя админ в карточке ученика жмёт "Добавить представителя":
-    - Открывается форма (та же, что и в заявке родителя).
-    - После заполнения создаётся person + relationship.
-    - Отправляется reset-ссылка.
-
-### 10.7. Падение между транзакцией и post-effects
-
-Описано в разделе 8.4. Recovery job каждые 15 минут.
-
-### 10.8. Падение внутри транзакции
-
-`ROLLBACK` откатывает всё, application остаётся в `enrolling` или возвращается в `ready_for_review`. Recovery job переводит обратно в `ready_for_review`, админ повторяет операцию.
-
-### 10.9. Истечение заявки
-
-Если родитель не заполнил данные за 14 дней — заявка переводится cron-job-ом в `expired`. Ученик может подать заново.
-
-### 10.10. Запрос на удаление ПД (152-ФЗ)
-
-Пользователь требует удалить свои данные.
-
-**Поток:**
-1. Запрос фиксируется в admin-интерфейсе (или из ЛК пользователя).
-2. Админ проверяет идентичность и нажимает "Удалить ПД".
-3. Транзакция:
-    - `persons.deleted_at = NOW()` (soft delete).
-    - В audit log запись `pii_deletion_requested`.
-4. Через retention period (например, 30 дней — окно для отмены) фоновый job:
-    - Заменяет `*_enc` поля на `NULL`.
-    - Оставляет `id`, `created_at`, `deleted_at`, обезличенный скелет (нужен для целостности связанных enrollments).
-5. Связанные согласия отзываются (`withdrawn_at`).
-6. WP-юзер блокируется (роль снимается, пароль рандомизируется).
-
-Enrollment snapshot **сохраняется**, но также подлежит обезличиванию через retention. Это компромисс между требованием удалить ПД и обязанностью хранить документы об обучении (договоры, приказы) определённый срок (бухучёт, лицензионные требования образовательной деятельности).
-
-### 10.11. Экспорт ПД (право на доступ)
-
-Пользователь запрашивает все свои данные.
-
-Действие "Экспорт ПД" для админа с capability `ExportPII`:
-- Собирает все записи по `person_id`: persons, relationships, enrollments, consents.
-- Дешифрует и формирует JSON / PDF.
-- Запись в `pii_access_log: reason='gdpr_export'`.
-- Файл отдаётся через одноразовую ссылку с TTL 1 час.
+Аналогично 1A. `EnrollmentService::enroll()` видит `app.studentPersonId != null` → пропускает создание студента, переиспользует существующую запись в `persons`.
 
 ---
 
-## 11. Соответствие 152-ФЗ
+## 9. Поток 3B — новый ученик, старый родитель (admin)
 
-### 11.1. Технические меры (реализуются в плагине)
+Сценарий: у родителя уже есть старший ребёнок, теперь он привозит младшего. Ученик — новый, родитель — уже в системе.
+
+### Шаг 1 — Ученик подаёт заявку
+
+Стандартный путь 1A шаг 1. Заявка создаётся со статусом `pending_parent`.
+
+### Шаг 2 — Администратор назначает существующего родителя
+
+В таблице заявок рядом с join-кодом для статуса `PendingParent` есть кнопка «+ Назначить родителя».
+
+Открывается `select-parent-modal`:
+- Поле поиска по имени/email среди `lms_parent`-пользователей
+- `AJAX: search_parents` → `get_users(['role'=>'lms_parent', 'search'=>...])` → список
+
+После выбора:
+
+`AJAX: select_existing_parent` → `EnrollmentService::selectExistingParent(appId, parentPersonId)`:
+```
+1. Найти application (status = pending_parent)
+2. Найти PersonDTO родителя
+3. Найти PersonDocumentsDTO родителя → расшифровать поля
+4. Собрать parentData JSON из persons + person_documents
+5. UPDATE applications:
+   parent_person_id = parentPersonId,   ← pre-linked!
+   parent_data_enc = encrypt(parentData),
+   status = ready_for_review
+```
+
+После этого заявка переходит в `ready_for_review` без участия родителя.
+
+### Шаги 3-5
+
+Аналогично 1A. `EnrollmentService::enroll()` видит `app.parentPersonId != null` → пропускает создание родителя, переиспользует существующую запись.
+
+---
+
+## 10. Поток 4B — старый ученик, старый родитель (admin)
+
+Сценарий: ученик возвращается в систему, его прежний родитель тоже уже есть в базе.
+
+Комбинация путей 2A и 3B: сначала восстановление из архива, затем выбор существующего родителя.
+
+### Шаг 1 — Восстановление из архива
+
+`AJAX: restore_from_archive` → создаётся заявка с `student_person_id` заполненным.
+
+### Шаг 2 — Назначение существующего родителя
+
+`AJAX: select_existing_parent` → заявка получает `parent_person_id` и переходит в `ready_for_review`.
+
+### Шаги 3-5
+
+`EnrollmentService::enroll()` видит оба поля заполненными → не создаёт ни студента, ни родителя, не создаёт новых WP-пользователей. Только создаёт новые `enrollment` и `archive` записи с правильными `student_person_id` и `parent_person_id`.
+
+---
+
+## 11. Общая логика зачисления (шаг 6 во всех потоках)
+
+`EnrollmentService::enroll(EnrollmentInputDTO)` — единственная точка зачисления для всех 4 путей.
+
+```php
+class EnrollmentInputDTO {
+    public int    $applicationId;
+    public string $contractNo;
+    public string $contractDate;
+    public string $orderNo;
+    public string $orderDate;
+    public string $enrolledAt;
+    public string $groupKey;
+    public bool   $sendEmailAuto;
+}
+```
+
+### Pre-flight (вне транзакции)
+
+```
+1. Authorize: Nonce::Enroll + Capability::EnrollStudent
+2. app = applicationRepository->find(applicationId)
+3. Проверить status == Enrolling
+4. Расшифровать student_data_enc + parent_data_enc
+5. Определить existingStudent:
+   - если app.studentPersonId != null → personRepository->find(app.studentPersonId)
+   - иначе → personDocumentsRepository->findByDocNumberHash(hash) → find по ID
+6. Определить existingGuardian — аналогично через app.parentPersonId
+7. Проверить email-конфликт в wp_users
+8. Проверить двойное зачисление: enrollmentRepository->existsActive(student, groupKey)
+```
+
+### Транзакция (custom tables)
+
+```
+1. studentPersonId = existingStudent?.id ?? personService->createOrFindBy(studentInput)
+2. guardianPersonId = existingGuardian?.id ?? personService->createOrFindBy(guardianInput)
+3. enrollmentId = enrollmentRepository->create({
+       student_person_id, group_key, enrolled_at, status='active',
+       snapshot_enc = encrypt({student, guardian, contract_no, ...}),
+       source_application_id
+   })
+4. archiveRepository->create({
+       enrollment_id, student_person_id, parent_person_id = guardianPersonId,
+       contract_no, contract_date, order_no, order_date,
+       group_key, enrolled_at, expelled_at=NULL
+   })
+5. consentService->bindToPersons(appId, {self: studentPersonId, guardian: guardianPersonId})
+6. auditService->record(EnrollStudent, enrollment, enrollmentId)
+COMMIT
+```
+
+### Post-transaction (внешние эффекты)
+
+```
+1. Если student.wpUserId == null → userManager->create() + personRepository->setWpUser()
+2. Если guardian.wpUserId == null → userManager->create() + personRepository->setWpUser()
+3. applicationRepository->forceDelete(appId)
+4. Если sendEmailAuto → emailService->sendWelcomeWithCredentials()
+5. Вернуть EnrollmentResultDTO {enrollmentId, studentLogin, studentPassword, guardianLogin, guardianPassword, partialFailure}
+```
+
+### Recovery при partial failure
+
+Если post-transaction упал (крэш сервера между шагами), enrollment уже создан в БД, но WP-пользователи могут быть не созданы. Application остаётся в статусе `enrolling`.
+
+`RecoveryService::resolveStuckEnrollments()` (cron каждые 15 мин):
+```
+Найти application WHERE status=enrolling AND updated_at < NOW()-5min
+Если enrollment не создан → вернуть в ready_for_review
+Если enrollment создан → создать WP-пользователей для persons без wp_user_id
+                       → applicationRepository->markConverted()
+```
+
+---
+
+## 12. Отчисление
+
+`ExpulsionService::expel(studentWpUserId, reason)`:
+
+```
+1. personRepository->findByWpUserId(studentWpUserId)
+2. enrollmentRepository->findActiveByStudent(studentPersonId)
+3. archiveRepository->findByEnrollmentId(enrollment.id)
+   → найти archiveRecord (с parentPersonId)
+4. archiveRepository->setExpelled(archiveId, now, actorId, reason)
+   → UPDATE archive SET expelled_at = now
+5. enrollmentRepository->update() → status = Expelled, terminated_at, reason
+6. personRepository->softDelete(studentPersonId)
+7. personRepository->softDelete(parentPerson.id)  -- если есть
+8. userManager->delete(studentWpUserId)
+9. userManager->delete(parentWpUserId)            -- если есть
+10. auditService->record(StudentExpelled)
+```
+
+После отчисления:
+- Запись в `archive` теперь имеет `expelled_at != null`.
+- В таб «Архив» (`userlist-5-archive.php`) строка появляется.
+- Кнопка «Восстановить из архива» запускает путь 2A или 4B.
+
+---
+
+## 13. Edge cases и восстановление
+
+### Повторная заявка от того же ученика
+
+При создании заявки (шаг B потока 1A) проверяется `student_email_hash` — нет ли активной заявки от этого email. Если есть → сообщение "у вас уже есть незавершённая заявка".
+
+### Родитель уже в системе (другой ребёнок)
+
+При зачислении `personService->findByDocNumberHash(guardianDocHash)` найдёт существующий `person_id` → новый person не создаётся, новый WP-пользователь не создаётся. Создаётся только новый enrollment и archive с тем же `parent_person_id`.
+
+### Конфликт email
+
+Если email родителя уже занят другим WP-пользователем (не родителем из `persons`) → `DomainException`. Решение вручную: использовать путь 3B/4B и выбрать существующего пользователя.
+
+### JOIN-код истёк
+
+Заявка переходит в `expired` ночным cron. Ученик подаёт заявку заново (путь 1A).
+
+### Замена представителя
+
+Через модалку `person-detail.php` → вкладка «Представители» → кнопка «Заменить»:
+
+`AJAX: replace_representative` → `PiiCallbacks::ajaxReplaceRepresentative()`:
+```
+1. Найти archive WHERE id = archiveId
+2. Создать/найти нового родителя через personService->createOrFindBy()
+3. archiveRepository->update(archiveId, {parent_person_id: newGuardianId})
+```
+
+### Добавление второго представителя
+
+`AJAX: add_representative` → `PiiCallbacks::ajaxAddRepresentative()`:
+```
+1. Найти активную archive-запись для student
+2. Создать/найти родителя
+3. archiveRepository->update(archiveId, {parent_person_id: newGuardianId})
+```
+
+Примечание: архитектура хранит одного родителя на зачисление (`archive.parent_person_id`). Если нужно несколько — создаётся несколько archive-записей.
+
+### Запрос на удаление ПД (152-ФЗ)
+
+`AJAX: request_pii_deletion` → `PersonService::softDelete(personId)` → `persons.deleted_at = now`.  
+Через 30 дней retention job: `PersonService::anonymize(personId)` → обнуляет все enc-поля в `person_documents`.  
+WP-пользователь блокируется: `UserManager::randomizePassword()`.
+
+---
+
+## 14. Соответствие 152-ФЗ
 
 | Требование | Реализация |
 |---|---|
-| Защита от НСД | application-level шифрование PII, ACL по capabilities, маскирование в UI |
-| Локализация ПД на территории РФ | инфраструктурное требование (сервер в РФ) |
-| Согласие на обработку | `consents` с фиксацией версии текста, IP, UA, timestamp |
-| Цель обработки | указывается в тексте согласия (версионируется) |
-| Минимизация | usermeta содержит только необходимое, PII — только в `persons` |
-| Ограничение срока хранения | soft delete + retention job, обезличивание |
-| Право на доступ | функция экспорта ПД |
-| Право на изменение | админ-интерфейс редактирования person |
-| Право на удаление | функция удаления ПД с retention окном |
-| Журналирование доступа | `pii_access_log` на каждое чтение PII |
-| Защита канала | HTTPS (вне плагина, инфраструктура) |
-| Защита от атак | rate limiting, капча, защита логина, audit log |
+| Согласие на обработку | `fs_lms_consents` — версия текста, хеш, IP, UA, timestamp |
+| Защита ПД от НСД | XSalsa20-Poly1305 шифрование, ACL по capabilities, маскирование в UI |
+| Журнал доступа к ПД | `pii_access_log` при каждом вызове `PersonReader::readForDisplay()` |
+| Право на доступ | `ExportPii` — одноразовый CSV по одноразовой ссылке |
+| Право на удаление | Soft delete + retention anonymization через `PersonService::softDelete/anonymize` |
+| Ограничение срока хранения | `RetentionService` cron: удаление заявок, обезличивание persons |
+| Минимизация данных | `persons` — только plain-text идентификация; `person_documents` — все PII |
 
-### 11.2. Организационные меры (вне плагина)
+---
 
-- Регистрация юрлица как оператора ПД в Роскомнадзоре.
-- Назначение ответственного за обработку ПД (DPO).
-- Политика обработки ПД (опубликована на сайте).
-- Положение об обработке ПД (внутренний документ).
-- Согласия в актуальной редакции, опубликованные публично.
-- Обучение сотрудников.
-- Регламент реагирования на инциденты (уведомление РКН в течение 24 часов).
-- Регламент уничтожения носителей ПД.
+## 15. Маппинг на архитектуру плагина
 
-### 11.3. Retention периоды (рекомендация для обсуждения с юристом)
+### Таблицы → Репозитории
 
-| Категория данных | Срок хранения |
+| Таблица | Репозиторий |
 |---|---|
-| Согласие на обработку ПД | пока действует + 3 года после отзыва |
-| Договоры и приказы о зачислении | 5 лет (по образовательной отчётности) |
-| Заявки converted | 1 год после зачисления, затем — обезличивание |
-| Заявки rejected/expired | 6 месяцев |
-| Audit log | 3 года |
-| PII Access log | 5 лет |
-| Активные enrollments | пока действует + 5 лет после finished |
+| `fs_lms_persons` | `PersonRepository` |
+| `fs_lms_person_documents` | `PersonDocumentsRepository` |
+| `fs_lms_groups` | `GroupsRepository` |
+| `fs_lms_applications` | `ApplicationRepository` |
+| `fs_lms_enrollments` | `EnrollmentRepository` |
+| `fs_lms_archive` | `ArchiveRepository` |
+| `fs_lms_consents` | `ConsentRepository` |
+| `fs_lms_audit_log` | `AuditLogRepository` |
+| `fs_lms_pii_access_log` | `PiiAccessLogRepository` |
 
-Эти значения должны быть подтверждены юристом и зафиксированы в политике обработки ПД.
+### Сервисы
 
----
+| Сервис | Назначение |
+|---|---|
+| `PiiCryptoService` | Шифрование/расшифровка/хеширование |
+| `PersonService` | Запись persons + person_documents |
+| `PersonReader` | Чтение PII с автологированием в pii_access_log |
+| `PiiMaskingService` | Маскирование значений для отображения |
+| `JoinCodeService` | Генерация, хеширование, валидация JOIN-кодов |
+| `EnrollmentService` | Оркестрация всех 4 путей зачисления; `enroll()`, `restoreFromArchive()`, `selectExistingParent()` |
+| `ExpulsionService` | Отчисление: обновление archive + enrollment + soft delete |
+| `ApplicationService` | Создание заявки с OTP (путь 1A шаг B) |
+| `ConsentService` | Привязка согласий к persons при зачислении |
+| `AuditService` | Запись в audit_log |
+| `RecoveryService` | Cron: дозачисление WP-пользователей после partial failure |
+| `RetentionService` | Cron: обезличивание persons, purge заявок/логов |
+| `EmailService` | Отправка welcome-письма с логином/паролем |
 
-## 12. Маппинг на существующую архитектуру плагина
+### AJAX-хуки (AjaxHook enum) — зачисление
 
-### 12.1. Слои и классы
+| Хук | Callback | Описание |
+|---|---|---|
+| `send_otp_code` | ApplicationCallbacks | Отправить OTP на email |
+| `create_application` | ApplicationCallbacks | Создать заявку (шаг B OTP) |
+| `submit_parent_data` | ApplicationCallbacks | Родитель заполнил join-форму |
+| `start_enrollment` | EnrollmentCallbacks | Блокировка заявки (→ enrolling) |
+| `cancel_enrollment` | EnrollmentCallbacks | Откат в ready_for_review |
+| `enroll_student` | EnrollmentCallbacks | Финальное зачисление |
+| `restore_from_archive` | EnrollmentCallbacks | Восстановить из архива (пути 2A/4B) |
+| `select_existing_parent` | EnrollmentCallbacks | Назначить существующего родителя (пути 3B/4B) |
+| `search_parents` | EnrollmentCallbacks | Поиск родителей для модалки |
+| `get_application_data` | EnrollmentCallbacks | Данные заявки для карточки |
+| `update_application_data` | EnrollmentCallbacks | Редактирование данных заявки |
+| `update_review_data` | EnrollmentCallbacks | Редактирование данных на проверке |
 
-В соответствии с архитектурой CLAUDE.md:
+### Nonce enum — зачисление
 
-**Repositories (`Inc/Repositories/WPDBRepositories/`):** ✅ все реализованы
-- `ApplicationRepository`, `PersonRepository`, `RelationshipRepository`
-- `EnrollmentRepository`, `ConsentRepository`, `AuditLogRepository`
-- `PiiAccessLogRepository`, `ExpelledArchiveRepository`
+`Apply`, `VerifyOtp`, `ParentSubmit`, `Enroll`, `TrashApplication`, `EditApplication`, `ReviewApplication`, `RestoreFromArchive`, `SelectExistingParent`.
 
-**Services (`inc/Services/`):**
-- ✅ `PiiCryptoService` — шифрование/хеширование.
-- ✅ `JoinCodeService` — генерация/валидация JOIN-кодов.
-- ✅ `EnrollmentService` — оркестрация всего потока зачисления.
-- ✅ `PersonReader` — обёртка над `PersonRepository::find()` с автоматическим `pii_access_log`.
-- ✅ `PersonService`, `RelationshipService`, `RetentionService`, `ApplicationService`
-- ✅ `RecoveryService`, `AcademicPeriodService`, `ExpulsionService`
-- `PasswordLinkService` и `UserFactory` из исходного плана **не потребовались**: `EnrollmentService` создаёт WP-юзеров через `UserManager::create()` напрямую, пароли отправляются через `EmailService::sendWelcomeWithCredentials()`.
+### DTO
 
-**DTO (`inc/DTO/`):** ✅ все реализованы
-- `ApplicationDTO`, `PersonDTO`, `EnrollmentDTO`, `RelationshipDTO`, `ConsentDTO`
-- `EnrollmentInputDTO`, `EnrollmentResultDTO`, `PersonDecryptedDTO`, `PersonInputDTO`, и др.
+| DTO | Для |
+|---|---|
+| `PersonDTO` | Строка `fs_lms_persons` (full_name plain, role) |
+| `PersonDocumentsDTO` | Строка `fs_lms_person_documents` (enc/hash поля) |
+| `PersonInputDTO` | Вход для `PersonService::createOrFindBy()` |
+| `PersonDecryptedDTO` | Выход `PersonReader::readForDisplay()` |
+| `ApplicationDTO` | Строка `fs_lms_applications` |
+| `EnrollmentDTO` | Строка `fs_lms_enrollments` (group_key, snapshot_enc) |
+| `EnrollmentInputDTO` | Вход для `EnrollmentService::enroll()` |
+| `EnrollmentResultDTO` | Выход `EnrollmentService::enroll()` |
+| `ArchiveDTO` | Строка `fs_lms_archive` |
 
-**Controllers (`inc/Controllers/`):** ✅ все реализованы и зарегистрированы в `Init::getServices()`
-- `ApplicationController` — `/lms/apply`, `/lms/join/{code}`, AJAX-хуки.
-- `EnrollmentController` — список заявок и полный AJAX-цикл зачисления.
-- `PiiController` — AJAX PII, страница `person-detail` (`/lms/person/{id}`). *(в документе ошибочно назывался `PiiAccessController`)*
-- `RecoveryController` — cron events `fs_lms_recovery_tick`, `fs_lms_expire_applications`, `fs_lms_retention_cleanup`.
-- `ExpulsionController` — отчисление, экспорт архива.
-- `ConsentController`, `ProfileController`, `UserController`
+### Шаблоны (templates/admin)
 
-**Callbacks (`inc/Callbacks/`):** ✅ все реализованы
-- `ApplicationCallbacks` — `ajaxSendOtpCode`, `ajaxCreateApplication`, `ajaxSubmitParentData`.
-- `EnrollmentCallbacks` — полный цикл заявок, зачисление, корзина, редактирование, credentials.
-- `PiiCallbacks` — reveal, bulk-reveal, add/replace representative, update person, export.
-- `RecoveryCallbacks` — все cron-тики.
-- `ExpulsionCallbacks` — `ajaxExpelStudent`, `ajaxExportExpelledRecord`.
-
-**Enums (`inc/Enums/`):** ✅ все реализованы
-- `Nonce` — все нонсы включая `Apply`, `ParentSubmit`, `Enroll`, `RevealPii`, и др.
-- `AjaxHook` — все хуки включая `CreateApplication`, `SubmitParentData`, `EnrollStudent`, `ExpelStudent`, и др.
-- `Capability` — `ManageApplications`, `EnrollStudent`, `ViewPII`, `ExportPII`, `ManagePersons`.
-- `ApplicationStatus`, `EnrollmentStatus`, `RelationType`, `ConsentType`, `ExpulsionReasons`.
-
-**Migrations:** ✅
-- `inc/Migrations/Migration_1_0_0.php` — `dbDelta()` для всех таблиц.
-- `MigrationRunner` сравнивает `fs_lms_schema_version` и прогоняет нужные миграции.
-
-**Shared traits:** ✅ существующие + новые
-- `Authorizer`, `Sanitizer`, `AjaxResponse`, `TemplateRenderer`, `NumericSorter`, `TaxonomySeeder`, `ErrorHandler`.
-- `TransactionRunner` — реализован в `EnrollmentService`.
-
-### 12.2. Регистрация в DI
-
-В `Init::getServices()` добавить все новые контроллеры. Сервисы и репозитории резолвятся автоматически через autowiring контейнера.
-
-### 12.3. Соответствие правилам CLAUDE.md
-
-- ✅ Все данные через Repositories, прямого `$wpdb` за их пределами нет.
-- ✅ Контроллеры регистрируют только хуки, логика в Callbacks/Services.
-- ✅ `declare(strict_types=1)`, типизированные сигнатуры.
-- ✅ Нонсы через `Nonce` enum, AJAX через `AjaxHook` enum.
-- ✅ Санитизация через `Sanitizer` trait.
-- ✅ Ответы через `AjaxResponse` trait.
-- ⚠️ Новое: custom tables + транзакции — отступление от паттерна "wp_options для всего". Документировать в архитектурном CLAUDE.md.
-- ⚠️ Новое: PII-шифрование, audit log, retention jobs — новые архитектурные элементы. Зафиксировать как стандарт для работы с любыми чувствительными данными в будущем.
+| Шаблон | Назначение |
+|---|---|
+| `userlist-1-applications.php` | Таб «Заявки» — таблица, фильтры, кнопки действий |
+| `application-modal.php` | Редактирование данных ученика (PendingParent) |
+| `application-review-modal.php` | Редактирование данных ученика+родителя (ReadyForReview) |
+| `application-enrollment-modal.php` | Ввод договора/приказа/группы для зачисления |
+| `application-view-modal.php` | Read-only просмотр (Enrolling/Converted/Expired/Trash) |
+| `select-parent-modal.php` | Поиск и выбор существующего родителя (пути 3B/4B) |
+| `userlist-5-archive.php` | Таб «Архив» — отчисленные/завершившие |
+| `archive-view-modal.php` | Просмотр архивного зачисления + кнопка «Восстановить» |
 
 ---
 
-## Приложение A: Контрольный список реализации
+## Приложение A: Чеклист реализации
 
-Порядок implementation для команды:
-
-1. [x] Миграция схемы: создать все таблицы.
-2. [x] `PiiCryptoService` + конфигурация ключей (`FS_LMS_ENC_KEY`, `FS_LMS_HASH_SALT`, опционально `FS_LMS_OTP_BYPASS_CODE`). Guard в `fs-lms.php` + `Activate::showConfigNotice()`.
-3. [x] Все Repositories (CRUD без бизнес-логики), включая `ApplicationRepository::delete()`.
-4. [x] DTO и Enums, включая `ApplicationStatus`, `AuditAction`, `ExpulsionReasons`, и др.
-5. [x] `JoinCodeService`. `PasswordLinkService` и `UserFactory` не потребовались — логика встроена в `EnrollmentService` + `UserManager` + `EmailService`.
-6. [x] `EmailOtpService` + шаблоны писем.
-7. [x] `PiiAccessLogRepository` + `PersonReader`.
-8. [x] `ApplicationController` + публичные формы (этапы 1-2) с двухэтапным OTP-потоком.
-9. [x] Тексты согласий + версионирование (`ConsentService`, `ConsentController`).
-10. [x] Админ-список заявок с фильтром "Корзина" + карточка (этапы 3-4).
-11. [x] Карточки пользователей: `student-person-modal`, `parent-person-modal` + JS.
-12. [x] Отчисление: `ExpulsionController`, `ExpulsionService`, `expel-modal` + JS.
-13. [ ] Журналы в админке (AuditLog, PiiAccessLog страницы).
-14. [ ] Тесты (unit + интеграционные).
-15. [ ] Документация (CLAUDE.md секции, INSTALL.md, ADMIN_GUIDE.md).
-11. [ ] AJAX `reveal_pii_field` + маскирование в UI.
-12. [ ] AJAX корзины: `move_to_trash`, `restore_from_trash`, `empty_trash`.
-13. [ ] `EnrollmentService` + транзакционная оркестрация (этап 6).
-14. [ ] Модалка зачисления + AJAX `enroll_student` (этап 5).
-15. [ ] Recovery cron job.
-16. [ ] Email-шаблоны + интеграция с password reset link.
-17. [ ] Управление представителями (добавить/заменить) — этап 10.5-10.6.
-18. [ ] Функции экспорта и удаления ПД.
-19. [ ] Retention cron jobs.
-20. [ ] Регистрация ролей и capabilities.
-21. [ ] Интеграционные тесты ключевых сценариев (создание заявки → OTP → зачисление → установка пароля).
-
-## Приложение B: Открытые вопросы для уточнения
-
-1. **Период (`period_key`)** — это `wp_options`-справочник или отдельная таблица? Рекомендация: справочник в `wp_options` (их мало), формат `YYYY-YYYY` или `YYYY-season`.
-2. **Доступ родителя к ученику** — реализуется на уровне приложения через relationships (актуальные на сегодня). Нужно ли давать родителю просмотр исторических данных ребёнка (до того, как опека была передана)? Юридический вопрос.
-3. **Бумажные согласия** — поддерживать ли сценарий, когда родитель приходит лично и подписывает на бумаге? Если да — нужна функция "загрузить скан согласия" + флаг `signed_offline`.
-4. **Несколько детей в одной заявке** — допустить ли подачу одной заявкой? Усложняет модель `application = 1 student`. Рекомендация: на MVP — одна заявка = один ученик; "связать с уже зачисленным братом" — отдельный flow.
+- [x] DB-схема (`Migration_1_0_0.php`) — 9 таблиц
+- [x] PiiCryptoService + guard в fs-lms.php
+- [x] Все репозитории: PersonRepository, PersonDocumentsRepository, GroupsRepository, ArchiveRepository, ApplicationRepository, EnrollmentRepository, и др.
+- [x] PersonService (двухтаблична), PersonReader (с PII-логированием)
+- [x] JoinCodeService, EmailOtpService
+- [x] Публичные формы: apply.php, join.php (этапы 1-2)
+- [x] ConsentService + согласия
+- [x] ApplicationCallbacks: ajaxSendOtpCode, ajaxCreateApplication, ajaxSubmitParentData
+- [x] EnrollmentService::enroll() — путь 1A (базовый)
+- [x] Путь 2A: EnrollmentService::restoreFromArchive() + ajaxRestoreFromArchive
+- [x] Путь 3B: EnrollmentService::selectExistingParent() + select-parent-modal + ajaxSelectExistingParent
+- [x] Путь 4B: комбинация 2A+3B (работает автоматически)
+- [x] EnrollmentCallbacks: полный цикл (список, карточка, зачисление, корзина)
+- [x] Карточки пользователей: student-person-modal, parent-person-modal
+- [x] Отчисление: ExpulsionController, ExpulsionService, expel-modal
+- [x] archive-view-modal с кнопкой «Восстановить из архива»
+- [x] RecoveryService (cron, partial failure)
+- [x] RetentionService (cron, anonymize, purge)
+- [x] EmailService + email-шаблоны
+- [ ] CSV-экспорт (раздел 8 remaining-tasks)
+- [ ] Журналы в UI (AuditLog, PiiAccessLog страницы)
+- [ ] Тесты (unit + интеграционные)
