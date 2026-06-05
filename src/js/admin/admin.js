@@ -9,6 +9,8 @@ import {AuthSettings} from "./services/auth-settings";
 import { GroupsTable } from "./services/groups-table.js";
 import { ApplicationsTable } from './services/applications-table.js';
 import { StudentsTable } from './services/students-table.js';
+import { EmailTemplateSettings } from './services/email-template-settings.js';
+import { ConsentSettings } from './services/consent-settings.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/academic-period-modal-manager";
@@ -95,6 +97,9 @@ import { AlertModal } from './modals/alert-modal.js';
         }
 
         ExpelModalManager.init();
+
+        EmailTemplateSettings.init();
+        ConsentSettings.init();
 
     });
 

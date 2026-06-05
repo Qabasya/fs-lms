@@ -22,6 +22,14 @@ $tabs = array(
 		'title' => 'Периоды',
 		'file'  => '/components/tabs/settings-tabs/settings-3-periods.php',
 	),
+	'tab-4' => array(
+		'title' => 'Шаблоны писем',
+		'file'  => '/components/tabs/settings-tabs/settings-4-email-templates.php',
+	),
+	'tab-5' => array(
+		'title' => 'Согласия',
+		'file'  => '/components/tabs/settings-tabs/settings-5-consents.php',
+	),
 );
 ?>
 

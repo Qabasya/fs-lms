@@ -22,6 +22,7 @@ use Inc\Controllers\StudentGroupController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
 use Inc\Controllers\TaskPageController;
+use Inc\Controllers\SettingsController;
 use Inc\Controllers\UserController;
 use Inc\Contracts\ClockInterface;
 use Inc\Core\Container;
@@ -78,6 +79,7 @@ final class Init {
 			PiiController::class,
 			RecoveryController::class,
 			ExpulsionController::class,
+			SettingsController::class,
 		);
 	}
 

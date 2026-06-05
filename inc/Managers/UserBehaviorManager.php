@@ -52,6 +52,19 @@ class UserBehaviorManager {
 		return PageRoutes::UserProfile->url();
 	}
 
+	public function blockPasswordReset( bool $allow, int $userId ): bool {
+		$user = get_userdata( $userId );
+		if ( ! $user ) {
+			return $allow;
+		}
+		foreach ( UserRole::lmsRoles() as $role ) {
+			if ( in_array( $role->value, (array) $user->roles, true ) ) {
+				return false;
+			}
+		}
+		return $allow;
+	}
+
 	public function clearEncryptedPasswordIfChanged( int $userId, \WP_User $oldUser ): void {
 		$newUser = $this->userManager->find( $userId );
 		if ( null !== $newUser && $newUser->user_pass !== $oldUser->user_pass ) {

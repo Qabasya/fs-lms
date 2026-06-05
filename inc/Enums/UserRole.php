@@ -49,6 +49,15 @@ enum UserRole: string {
 	case Teacher = 'lms_teacher_free';
 
 	/**
+	 * Возвращает LMS-роли, для которых сброс пароля через wp-login.php запрещён.
+	 *
+	 * @return list<self>
+	 */
+	public static function lmsRoles(): array {
+		return array( self::FSStudent, self::FSParent, self::FSTeacher );
+	}
+
+	/**
 	 * Возвращает понятное название роли для отображения в админ-панели.
 	 *
 	 * @return string

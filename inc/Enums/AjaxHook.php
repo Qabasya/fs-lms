@@ -56,6 +56,13 @@ enum AjaxHook: string {
 	case SaveStudentGroup   = 'save_student_group';
 	case DeleteStudentGroup = 'delete_student_group';
 
+	// ==================== Настройки: шаблоны писем ====================
+	case SaveEmailTemplate   = 'save_email_template';
+	case ResetEmailTemplate  = 'reset_email_template';
+
+	// ==================== Настройки: согласия ====================
+	case LookupConsentByHash = 'lookup_consent_by_hash';
+
 	// ==================== Отчисление ====================
 	case ExpelStudent         = 'expel_student';
 	case ExportExpelledRecord = 'export_expelled_record';
