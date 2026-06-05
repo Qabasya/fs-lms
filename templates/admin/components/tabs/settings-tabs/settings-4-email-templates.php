@@ -8,56 +8,24 @@ $saved_templates = (array) get_option( 'fs_lms_email_templates', array() );
 
 $types = array(
 	'otp_code'                 => array(
-		'label'           => 'OTP-код подтверждения',
-		'default_subject' => 'Код подтверждения — FS LMS',
+		'label'           => 'OTP-код подтверждения (ученику)',
+		'default_subject' => '[FS LMS] Одноразовый код подтверждения',
 		'placeholders'    => array(
 			'{code}' => 'Одноразовый код (6 цифр)',
 		),
 	),
-	'password_setup'           => array(
-		'label'           => 'Ссылка для установки пароля',
-		'default_subject' => 'Установите пароль для входа в FS LMS',
-		'placeholders'    => array(
-			'{display_name}' => 'Имя пользователя',
-			'{link}'         => 'Ссылка для установки пароля (действует 48 ч)',
-		),
-	),
-	'application_confirmation' => array(
-		'label'           => 'Подтверждение заявки (ученику)',
-		'default_subject' => 'Ваша заявка принята — FS LMS',
-		'placeholders'    => array(
-			'{join_url}'   => 'JOIN-ссылка для родителя',
-			'{expires_at}' => 'Дата истечения ссылки',
-		),
-	),
-	'application_ready'        => array(
-		'label'           => 'Новая заявка (сотруднику)',
-		'default_subject' => 'Новая заявка требует проверки — FS LMS',
-		'placeholders'    => array(),
-	),
-	'rejection'                => array(
-		'label'           => 'Отклонение заявки',
-		'default_subject' => 'Заявка отклонена — FS LMS',
-		'placeholders'    => array(
-			'{reason}' => 'Причина отклонения',
-		),
-	),
-	'new_representative'       => array(
-		'label'           => 'Новый подопечный (родителю)',
-		'default_subject' => 'В вашем профиле появился новый подопечный — FS LMS',
-		'placeholders'    => array(
-			'{display_name}' => 'Имя родителя',
-			'{link}'         => 'Ссылка для входа (если аккаунт новый)',
-		),
-	),
+
 	'welcome_with_credentials' => array(
-		'label'           => 'Данные для входа после зачисления',
-		'default_subject' => 'Добро пожаловать в FS LMS — данные для входа',
+		'label'           => 'Данные для входа после зачисления (родителю)',
+		'default_subject' => '[FS LMS] Данные для входа',
 		'placeholders'    => array(
-			'{display_name}' => 'Имя пользователя',
-			'{login}'        => 'Логин (email)',
-			'{password}'     => 'Пароль',
-			'{login_url}'    => 'URL страницы входа',
+			'{display_name}'       => 'Имя пользователя',
+			'{login}'              => 'Логин (email)',
+			'{password}'           => 'Пароль',
+			'{login_url}'          => 'URL страницы входа',
+			'{student_full_name}'  => 'Фамилия Имя Отчество ученика',
+			'{parent_first_name}'  => 'Имя родителя',
+			'{parent_middle_name}' => 'Отчество родителя',
 		),
 	),
 );

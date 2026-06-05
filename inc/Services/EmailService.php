@@ -85,19 +85,19 @@ readonly class EmailService {
 	 *
 	 * @return bool
 	 */
-	public function sendWelcomeWithCredentials( int $userId, string $password ): bool {
+	public function sendWelcomeWithCredentials( int $userId, string $password, array $extraVars = [] ): bool {
 		$user = $this->userManager->find( $userId );
 
 		if ( null === $user ) {
 			return false;
 		}
 
-		$t = $this->template->get( 'welcome_with_credentials', array(
+		$t = $this->template->get( 'welcome_with_credentials', array_merge( array(
 			'login'        => $user->user_login,
 			'password'     => $password,
 			'display_name' => $user->display_name,
 			'login_url'    => wp_login_url(),
-		) );
+		), $extraVars ) );
 
 		return $this->send( $user->user_email, $t->subject, $t->body );
 	}

@@ -255,8 +255,13 @@ readonly class EnrollmentService {
 			$this->applicationRepository->forceDelete( $app->id );
 
 			if ( $input->sendEmailAuto ) {
-				$this->emailService->sendWelcomeWithCredentials( $studentUserId, $studentPassword );
-				$this->emailService->sendWelcomeWithCredentials( $guardianUserId, $guardianPassword );
+				$sharedVars = array(
+					'student_full_name'  => $studentDto->fullName(),
+					'parent_first_name'  => $parentDto->firstName,
+					'parent_middle_name' => $parentDto->middleName,
+				);
+				$this->emailService->sendWelcomeWithCredentials( $studentUserId, $studentPassword, $sharedVars );
+				$this->emailService->sendWelcomeWithCredentials( $guardianUserId, $guardianPassword, $sharedVars );
 			}
 
 			return new EnrollmentResultDTO(
