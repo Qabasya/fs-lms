@@ -74,4 +74,9 @@ $period_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/mo
 if ( file_exists( $period_modal_path ) ) {
     include $period_modal_path;
 }
+
+$consent_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/consent-definition-modal.php';
+if ( file_exists( $consent_modal_path ) ) {
+    include $consent_modal_path;
+}
 ?>

@@ -19,6 +19,7 @@ use Inc\Services\RateLimitService;
 use Inc\DTO\ApplicationInputDTO;
 use Inc\DTO\ParentSubmissionInputDTO;
 use Inc\DTO\StudentDataDTO;
+use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -57,14 +58,15 @@ class ApplicationCallbacks extends BaseController {
 	 * @param AuditService         $auditService          Сервис аудита
 	 */
 	public function __construct(
-		private readonly ApplicationService  $applicationService,
-		private readonly EmailOtpService     $emailOtpService,
-		private readonly CaptchaService      $captchaService,
-		private readonly RateLimitService    $rateLimitService,
-		private readonly JoinCodeService     $joinCodeService,
-		private readonly ApplicationRepository $applicationRepository,
-		private readonly PiiCryptoService    $crypto,
-		private readonly AuditService        $auditService,
+		private readonly ApplicationService           $applicationService,
+		private readonly EmailOtpService              $emailOtpService,
+		private readonly CaptchaService               $captchaService,
+		private readonly RateLimitService             $rateLimitService,
+		private readonly JoinCodeService              $joinCodeService,
+		private readonly ApplicationRepository        $applicationRepository,
+		private readonly PiiCryptoService             $crypto,
+		private readonly AuditService                 $auditService,
+		private readonly ConsentDefinitionsRepository $consentDefinitions,
 	) {
 		parent::__construct();
 	}
@@ -90,8 +92,9 @@ class ApplicationCallbacks extends BaseController {
 				'email'      => 'test-student@example.com',
 				'phone'      => '+78005553535',
 			) ) );
-			set_query_var( 'fs_lms_join_code', $code );
-			set_query_var( 'fs_lms_app_id',    0 );
+			set_query_var( 'fs_lms_join_code',   $code );
+			set_query_var( 'fs_lms_app_id',     0 );
+			set_query_var( 'fs_lms_consent_url', $this->resolveConsentUrl( 'pd_processing' ) );
 			return true;
 		}
 
@@ -129,11 +132,27 @@ class ApplicationCallbacks extends BaseController {
 		);
 
 		// Передаём данные в шаблон через query vars
-		set_query_var( 'fs_lms_student_data', $studentData );
-		set_query_var( 'fs_lms_join_code',    $code );
-		set_query_var( 'fs_lms_app_id',       $app->id );
+		set_query_var( 'fs_lms_student_data',  $studentData );
+		set_query_var( 'fs_lms_join_code',     $code );
+		set_query_var( 'fs_lms_app_id',        $app->id );
+		set_query_var( 'fs_lms_consent_url',   $this->resolveConsentUrl( 'pd_processing' ) );
 
 		return true;
+	}
+
+	/**
+	 * Возвращает URL текущей версии согласия для отображения в форме.
+	 * Если страница не опубликована — возвращает пустую строку.
+	 */
+	private function resolveConsentUrl( string $typeKey ): string {
+		$def    = $this->consentDefinitions->findByKey( $typeKey );
+		$pageId = (int) ( $def['page_id'] ?? 0 );
+		if ( $pageId <= 0 ) {
+			return '';
+		}
+
+		$url = get_permalink( $pageId );
+		return $url ?: '';
 	}
 
 	/**

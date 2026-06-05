@@ -60,4 +60,7 @@ enum OptionName: string {
 
 	/** Шаблоны email-писем (редактируются в настройках плагина) */
 	case EmailTemplates = 'fs_lms_email_templates';
+
+	/** Определения согласий: [key => ['name' => string, 'page_id' => int]] */
+	case ConsentDefinitions = 'fs_lms_consent_definitions';
 }

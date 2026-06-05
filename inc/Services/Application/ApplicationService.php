@@ -12,7 +12,6 @@ use Inc\DTO\ParentSubmissionInputDTO;
 use Inc\DTO\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
-use Inc\Enums\ConsentType;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
@@ -130,7 +129,12 @@ readonly class ApplicationService {
 			) );
 
 			// Фиксация согласия на обработку ПД (сам ученик)
-			$this->consentService->recordSelfConsent( $id, ConsentType::PdProcessing, $ctx );
+			try {
+				$this->consentService->recordSelfConsent( $id, 'pd_processing', $ctx );
+			} catch ( \RuntimeException $e ) {
+				// Страница согласия ещё не настроена — пропускаем без прерывания потока.
+				error_log( '[FS LMS] Consent skipped (createApplication): ' . $e->getMessage() ); // phpcs:ignore
+			}
 
 			// Логирование события в аудит
 			$this->auditService->recordAnonymous(
@@ -229,8 +233,12 @@ readonly class ApplicationService {
 				'updated_at'          => $this->clock->now( 'mysql', true ),
 			) );
 
-			// Фиксация согласия родителя на обработку ПД ребёнка
-			$this->consentService->recordGuardianConsent( $appId, ConsentType::PdChildProcessing, 0, $ctx );
+			// Фиксация согласия родителя на обработку ПД
+			try {
+				$this->consentService->recordGuardianConsent( $appId, 'pd_processing', 0, $ctx );
+			} catch ( \RuntimeException $e ) {
+				error_log( '[FS LMS] Consent skipped (submitParentData): ' . $e->getMessage() ); // phpcs:ignore
+			}
 
 			// Логирование события
 			$this->auditService->recordAnonymous(

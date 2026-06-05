@@ -65,7 +65,9 @@ enum AjaxHook: string {
 	case ResetEmailTemplate  = 'reset_email_template';
 
 	// ==================== Настройки: согласия ====================
-	case LookupConsentByHash = 'lookup_consent_by_hash';
+	case LookupConsentByHash     = 'lookup_consent_by_hash';
+	case AddConsentDefinition    = 'add_consent_definition';
+	case DeleteConsentDefinition = 'delete_consent_definition';
 
 	// ==================== Отчисление ====================
 	case ExpelStudent         = 'expel_student';

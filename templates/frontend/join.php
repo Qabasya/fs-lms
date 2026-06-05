@@ -470,9 +470,12 @@ ThemeCompatService::header();
                             <input type="checkbox" name="consent_parent" id="fs_consent_parent" value="1" required>
                             <span>
 							<?php esc_html_e( 'Я даю согласие на обработку персональных данных.', 'fs-lms' ); ?>
-							<a href="<?php echo esc_url( site_url( '/lms/consent/pd_processing/v1' ) ); ?>" class="button-link" target="_blank" rel="noopener">
-								<?php esc_html_e( 'Прочитать', 'fs-lms' ); ?>
-							</a>
+							<?php $consent_url = (string) get_query_var( 'fs_lms_consent_url', '' ); ?>
+							<?php if ( $consent_url ) : ?>
+								<a href="<?php echo esc_url( $consent_url ); ?>" class="button-link" target="_blank" rel="noopener">
+									<?php esc_html_e( 'Прочитать', 'fs-lms' ); ?>
+								</a>
+							<?php endif; ?>
 						</span>
                         </label>
                     </div>

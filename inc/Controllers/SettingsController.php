@@ -23,9 +23,11 @@ class SettingsController extends AjaxController {
 
 	protected function ajaxActions(): array {
 		return array(
-			array( AjaxHook::SaveEmailTemplate, $this->emailTemplateCallbacks ),
-			array( AjaxHook::ResetEmailTemplate, $this->emailTemplateCallbacks ),
-			array( AjaxHook::LookupConsentByHash, $this->consentCallbacks ),
+			array( AjaxHook::SaveEmailTemplate,      $this->emailTemplateCallbacks ),
+			array( AjaxHook::ResetEmailTemplate,     $this->emailTemplateCallbacks ),
+			array( AjaxHook::LookupConsentByHash,    $this->consentCallbacks ),
+			array( AjaxHook::AddConsentDefinition,   $this->consentCallbacks ),
+			array( AjaxHook::DeleteConsentDefinition, $this->consentCallbacks ),
 		);
 	}
 }
