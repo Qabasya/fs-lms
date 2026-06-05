@@ -355,14 +355,300 @@ add_action('admin_init', function() {
 
 ---
 
+---
+
+## 9. Рефакторинг схемы БД
+
+> Полное описание новой схемы: `.docs/db-redesign.md`
+
+### 9.1 Миграция (Migration_1_0_0.php)
+
+Добавить новые таблицы, удалить старые. Порядок операций:
+
+**Создать:**
+
+`fs_lms_groups` (заменяет матрицу из `wp_options`):
+```sql
+CREATE TABLE fs_lms_groups (
+    id          smallint unsigned NOT NULL AUTO_INCREMENT,
+    group_key   varchar(100)      NOT NULL,
+    subject_key varchar(50)       NOT NULL,
+    period_key  varchar(50)       NOT NULL,
+    name        varchar(255)      DEFAULT NULL,
+    schedule    varchar(500)      DEFAULT NULL,
+    created_at  datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY group_key (group_key),
+    KEY subject_key (subject_key),
+    KEY period_key (period_key)
+);
+```
+
+`fs_lms_person_documents` (весь PII; студентам address/doc_issued_by/doc_issued_date = NULL):
+```sql
+CREATE TABLE fs_lms_person_documents (
+    id                int unsigned NOT NULL AUTO_INCREMENT,
+    person_id         int unsigned NOT NULL,
+    email_enc         blob         DEFAULT NULL,
+    email_hash        char(64)     DEFAULT NULL,
+    phone_enc         blob         DEFAULT NULL,
+    phone_hash        char(64)     DEFAULT NULL,
+    doc_type          varchar(30)  DEFAULT NULL,
+    doc_number_enc    blob         DEFAULT NULL,
+    doc_number_hash   char(64)     DEFAULT NULL,
+    doc_issued_by_enc blob         DEFAULT NULL,  -- только родители
+    doc_issued_date   date         DEFAULT NULL,   -- только родители
+    inn_enc           blob         DEFAULT NULL,
+    inn_hash          char(64)     DEFAULT NULL,
+    address_enc       blob         DEFAULT NULL,   -- только родители
+    PRIMARY KEY (id),
+    UNIQUE KEY person_id (person_id),
+    KEY email_hash (email_hash),
+    KEY phone_hash (phone_hash),
+    KEY doc_number_hash (doc_number_hash),
+    KEY inn_hash (inn_hash)
+);
+```
+
+`fs_lms_archive` (переименован из `fs_lms_expelled_archive`; без restored_at/restored_by):
+```sql
+CREATE TABLE fs_lms_archive (
+    id                  int unsigned        NOT NULL AUTO_INCREMENT,
+    enrollment_id       int unsigned        DEFAULT NULL,
+    student_person_id   int unsigned        NOT NULL,
+    parent_person_id    int unsigned        NOT NULL,
+    contract_no         varchar(50)         DEFAULT NULL,
+    contract_date       date                DEFAULT NULL,
+    order_no            varchar(50)         DEFAULT NULL,
+    order_date          date                DEFAULT NULL,
+    group_key           varchar(100)        DEFAULT NULL,
+    enrolled_at         datetime            NOT NULL,
+    expelled_at         datetime            DEFAULT NULL,
+    expelled_by_user_id bigint(20) unsigned DEFAULT NULL,
+    reason              varchar(500)        DEFAULT NULL,
+    created_at          datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY enrollment_id (enrollment_id),
+    KEY student_person_id (student_person_id),
+    KEY parent_person_id (parent_person_id),
+    KEY group_key (group_key),
+    KEY expelled_at (expelled_at)
+);
+```
+
+**Удалить:**
+- `fs_lms_relationships`
+- `fs_lms_expelled_archive`
+
+**Изменить `fs_lms_persons`:**
+- Убрать: `email`, `full_name_enc`, `doc_type`, `doc_number_enc`, `doc_number_hash`, `inn_enc`, `inn_hash`, `address_enc`, `phone_enc`
+- Добавить: `full_name varchar(255)` (plain), `role enum('student','parent')`
+- Тип `id`: `bigint(20) unsigned` → `int unsigned`
+
+**Изменить `fs_lms_enrollments`:**
+- `group_id varchar(100)` → `group_key varchar(100)` (ссылка на `fs_lms_groups.group_key`)
+- Убрать `subject_key`, `period_key` — берутся JOIN-ом
+- Тип `id`, `student_person_id`, `source_application_id`, `terminated_by_user_id`: `bigint` → `int unsigned`
+
+**Удалить из `wp_options`:**
+- Ключ матрицы групп (`fs_lms_student_group_matrix`) — данные мигрируют в `fs_lms_groups` + `fs_lms_enrollments`
+
+---
+
+### 9.2 Enums
+
+| Файл | Действие |
+|---|---|
+| `inc/Enums/TableName.php` | Добавить: `Groups`, `PersonDocuments`, `Archive`; удалить: `Relationships`, `ExpelledArchive` |
+| `inc/Enums/RelationType.php` | Удалить файл |
+
+---
+
+### 9.3 DTO
+
+| Файл | Действие |
+|---|---|
+| `inc/DTO/PersonDTO.php` | Убрать enc-поля; добавить `full_name`, `role` |
+| Новый `inc/DTO/PersonDocumentsDTO.php` | `email_enc`, `email_hash`, `phone_enc`, `phone_hash`, `doc_type`, `doc_number_enc`, `doc_number_hash`, `inn_enc`, `inn_hash`, `address_enc` |
+| `inc/DTO/ExpelledArchiveDTO.php` | Переименовать в `ArchiveDTO`; добавить поля `contract_no`, `contract_date`, `order_no`, `order_date`, `group_key`, `enrolled_at` |
+
+---
+
+### 9.4 Репозитории
+
+| Файл | Действие |
+|---|---|
+| `inc/Repositories/WPDBRepositories/PersonRepository.php` | Убрать enc/hash-поля и email; работает только с `persons` (full_name, birth_date, role, wp_user_id) |
+| Новый `inc/Repositories/WPDBRepositories/PersonDocumentsRepository.php` | CRUD для `person_documents`; методы: `findByEmailHash()`, `findByPhoneHash()`, `findByDocNumberHash()`, `findByInnHash()`; при записи для ученика не заполнять `doc_issued_by_enc`, `doc_issued_date`, `address_enc` |
+| Новый `inc/Repositories/WPDBRepositories/GroupsRepository.php` | CRUD для `groups` (group_key, subject_key, period_key, name, schedule); заменяет `StudentGroupMatrixRepository`; список учеников группы — через `EnrollmentRepository`, не через эту таблицу |
+| `inc/Repositories/WPDBRepositories/ExpelledArchiveRepository.php` | Переименовать в `ArchiveRepository`; методы: `createOnEnroll()`, `setExpelled()`; убрать `restored_at`/`restored_by`; убрать `data_enc` |
+| `inc/Repositories/WPDBRepositories/RelationshipRepository.php` | Удалить |
+| `inc/Repositories/OptionsRepositories/StudentGroupMatrixRepository.php` | Удалить; данные мигрируют: группы → `GroupsRepository`, состав групп → `enrollments WHERE status=active` |
+
+---
+
+### 9.5 Сервисы
+
+| Файл | Действие |
+|---|---|
+| `inc/Services/Person/PersonService.php` | Писать в `person_documents` (email, phone, doc, inn, address); убрать enc из persons |
+| `inc/Services/Person/RelationshipService.php` | Удалить |
+| `inc/Services/Enrollment/EnrollmentService.php` | См. раздел 10 — полный рефакторинг потоков зачисления |
+| `inc/Services/ExpulsionService.php` | `UPDATE archive SET expelled_at` вместо INSERT в `expelled_archive` |
+
+---
+
+## 10. Рефакторинг потоков зачисления
+
+> Это самый большой блок изменений. Текущий `EnrollmentService` реализует только путь 1А.
+
+### Принципы
+
+- **Пользователи не удаляются никогда.** `persons`, `wp_users` — только мягкое удаление (`deleted_at`). При повторном зачислении существующая запись переиспользуется.
+- **Запись в archive создаётся при зачислении** (`expelled_at = NULL`), обновляется при отчислении.
+- **Связь родитель→ученик** хранится в `archive` (поля `student_person_id` + `parent_person_id`). Отдельной таблицы нет.
+
+---
+
+### Матрица событий
+
+| # | Ученик | Родитель | Путь A (join) | Путь B (admin выбирает) |
+|---|---|---|---|---|
+| 1 | Новый | Новый | apply → join → зачисление | apply → модальное окно → зачисление |
+| 2 | Старый | Новый | восстановление из archive → join → зачисление | восстановление из archive → модальное окно → зачисление |
+| 3 | Новый | Старый | — (нет смысла: родитель уже есть, но ученик новый — только через путь B) | apply → модальное окно → зачисление |
+| 4 | Старый | Старый | — (оба уже есть — только через путь B) | восстановление из archive → модальное окно → зачисление |
+
+---
+
+### 10.1 Событие 1A — новый ученик, новый родитель (join)
+
+**Текущая реализация, требует адаптации под новую схему БД.**
+
+```
+apply.php  →  [OTP]  →  application (pending_parent)
+    │
+join.php (родитель заполняет)  →  application (ready_for_review)
+    │
+Администратор нажимает «Зачислить»
+    │
+EnrollmentService::enroll()
+    ├─ persons (student) + person_documents
+    ├─ persons (parent) + person_documents
+    ├─ wp_users (student) — создать
+    ├─ wp_users (parent) — создать
+    ├─ enrollments
+    ├─ archive (enrolled_at, contract_no/date, order_no/date, group_key; expelled_at=NULL)
+    └─ applications.forceDelete()
+```
+
+---
+
+### 10.2 Событие 2A — старый ученик, новый родитель (join)
+
+**Новый поток. Нужны: `ArchiveRepository::restoreAsApplication()`, новый метод в `EnrollmentService`.**
+
+```
+Администратор: «Восстановить из архива» (кнопка в archive-view-modal)
+    │
+ArchiveRepository::restoreAsApplication(archiveId)
+    ├─ Читает archive (student_person_id)
+    ├─ Читает persons + person_documents ученика
+    └─ Создаёт новую application (status=pending_parent) с student_data_enc из данных ученика
+       и student_person_id привязан; join_code генерируется заново
+    │
+join.php (новый родитель заполняет)  →  application (ready_for_review)
+    │
+EnrollmentService::enrollWithExistingStudent()
+    ├─ Проверить: persons[student_person_id] существует, wp_user_id не NULL
+    ├─ persons (parent, новый) + person_documents
+    ├─ wp_users (parent) — создать
+    ├─ enrollments (student_person_id = существующий)
+    ├─ archive (новая запись; expelled_at=NULL)
+    └─ applications.forceDelete()
+```
+
+---
+
+### 10.3 Событие 3B — новый ученик, старый родитель (admin выбирает)
+
+**Новый поток. Нужны: модальное окно выбора родителя, новый метод в `EnrollmentService`.**
+
+```
+apply.php → application (pending_parent)
+    │
+Администратор: вместо отправки join — открывает модальное окно «Выбрать родителя»
+    (поиск по ФИО / email среди persons WHERE role='parent')
+    │
+Администратор выбирает существующего родителя → application (ready_for_review)
+    с parent_person_id = выбранный; parent_data_enc = из person_documents родителя
+    │
+EnrollmentService::enrollWithExistingParent()
+    ├─ persons (student, новый) + person_documents
+    ├─ wp_users (student) — создать
+    ├─ Проверить: persons[parent_person_id] существует, wp_user_id не NULL
+    ├─ enrollments
+    ├─ archive (enrolled_at, parent_person_id = выбранный; expelled_at=NULL)
+    └─ applications.forceDelete()
+```
+
+**UI:** в `userlist-1-applications.php` на статусе `PendingParent` добавить кнопку «Назначить родителя» рядом с «Отправить join». Открывает новую модалку `select-parent-modal.php` с поиском по persons.
+
+---
+
+### 10.4 Событие 4B — старый ученик, старый родитель (admin выбирает)
+
+**Новый поток. Комбинация 2 + 3: восстановление из archive + выбор существующего родителя.**
+
+```
+Администратор: «Восстановить из архива»
+    │
+ArchiveRepository::restoreAsApplication(archiveId)
+    └─ application (status=pending_parent), student_person_id = из archive
+    │
+Администратор: «Назначить родителя» → модалка → выбирает существующего
+    │
+EnrollmentService::enrollBothExisting()
+    ├─ Проверить: persons[student_person_id] существует, wp_user_id не NULL
+    ├─ Проверить: persons[parent_person_id] существует, wp_user_id не NULL
+    ├─ Новые WP-пользователи НЕ создаются
+    ├─ enrollments (оба person_id = существующие)
+    ├─ archive (новая запись; expelled_at=NULL)
+    └─ applications.forceDelete()
+```
+
+---
+
+### 10.5 Что нужно реализовать (чеклист)
+
+**Сервисы:**
+- [ ] `EnrollmentService` — рефакторинг: выделить стратегии по событиям (или параметризовать метод `enroll()` флагами `existingStudent`, `existingParent`)
+- [ ] `ArchiveRepository::restoreAsApplication()` — создаёт заявку на основе записи архива
+- [ ] Убрать `RelationshipService` из `EnrollmentService`
+
+**UI (шаблоны):**
+- [ ] `select-parent-modal.php` — поиск и выбор существующего родителя из `persons WHERE role='parent'`
+- [ ] Кнопка «Назначить родителя» в `userlist-1-applications.php` (рядом с кнопкой отправки join)
+- [ ] Кнопка «Восстановить из архива» в `archive-view-modal.php` (события 2 и 4)
+
+**AJAX:**
+- [ ] `AjaxHook::SelectExistingParent` — привязка parent_person_id к заявке
+- [ ] `AjaxHook::RestoreFromArchive` — создание новой заявки из archive-записи
+
+---
+
 ## Приоритет
 
 ```
-1. CSV-экспорт (раздел 8)                        ← карточки и архив готовы
-2. Политика паролей + HTTPS-предупреждение       ← безопасность
-3. Вкладка «Шаблоны писем» в настройках         ← управление без деплоя
-4. Вкладка «Согласия» в настройках              ← управление без деплоя
-5. Журналы (AuditLog, PiiAccessLog) в админке   ← compliance
-6. Тесты                                         ← стабильность
-7. Документация                                  ← передача знаний
+0. Рефакторинг схемы БД (раздел 9)               ← всё остальное зависит от этого
+   └─ 9.1 Миграция → 9.2 Enums → 9.3 DTO → 9.4 Repos → 9.5 Services
+1. Рефакторинг потоков зачисления (раздел 10)    ← строится поверх новой схемы
+   └─ Начинать с 10.1 (адаптация текущего), потом 10.2→10.3→10.4
+2. CSV-экспорт (раздел 8)                        ← карточки и архив готовы
+3. Политика паролей + HTTPS-предупреждение       ← безопасность
+4. Вкладка «Шаблоны писем» в настройках         ← управление без деплоя
+5. Вкладка «Согласия» в настройках              ← управление без деплоя
+6. Журналы (AuditLog, PiiAccessLog) в админке   ← compliance
+7. Тесты                                         ← стабильность
+8. Документация                                  ← передача знаний
 ```

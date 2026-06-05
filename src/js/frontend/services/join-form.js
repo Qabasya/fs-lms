@@ -60,6 +60,8 @@ function formatPhone( input ) {
 function bindPhoneMask( input ) {
     if ( ! input ) { return; }
 
+    if ( input.value ) { formatPhone( input ); }
+
     input.addEventListener( 'focus', ( e ) => {
         if ( ! e.target.value ) { e.target.value = '+7('; }
     } );

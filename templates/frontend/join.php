@@ -189,7 +189,7 @@ ThemeCompatService::header();
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
-                        <label for="fs_student_doc_number">
+                        <label for="fs_student_doc_number" id="fs_student_doc_number_label">
                             <?php esc_html_e( 'Данные паспорта ученика', 'fs-lms' ); ?> <span aria-hidden="true">*</span>
                         </label>
                         <span class="dashicons dashicons-vicious" aria-hidden="true"></span>
@@ -340,7 +340,7 @@ ThemeCompatService::header();
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
-                        <label for="fs_doc_number">
+                        <label for="fs_doc_number" id="fs_doc_number_label">
                             <?php esc_html_e( 'Серия и номер паспорта', 'fs-lms' ); ?> <span aria-hidden="true">*</span>
                         </label>
                         <span class="dashicons dashicons-id-alt" aria-hidden="true"></span>

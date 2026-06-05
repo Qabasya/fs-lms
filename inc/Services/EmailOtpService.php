@@ -57,9 +57,9 @@ readonly class EmailOtpService {
 	 */
 	public function sendCode( string $email ): void {
 		// В тестовом окружении письмо не отправляется — используется FS_LMS_OTP_BYPASS_CODE
-		if ( defined( 'FS_LMS_TEST_ENV' ) ) {
-			return;
-		}
+//		if ( defined( 'FS_LMS_TEST_ENV' ) ) {
+//			return;
+//		}
 
 		// Проверка возможности повторной отправки
 		if ( ! $this->canResend( $email ) ) {
