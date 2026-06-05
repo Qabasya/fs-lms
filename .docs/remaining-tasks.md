@@ -116,7 +116,7 @@
 
 Сейчас в `settings.php` 3 вкладки. Нужно добавить:
 
-### 2.1 Вкладка «Шаблоны писем» (`settings-4-email-templates.php`)
+### 2.1 Вкладка «Шаблоны писем» (`settings-4-email-templates.php`) — ✅ реализовано
 
 Callback: `EmailTemplateSettingsCallbacks` (создать файл).
 
@@ -134,7 +134,7 @@ AJAX-методы:
 
 ---
 
-### 2.2 Вкладка «Согласия» (`settings-5-consents.php`)
+### 2.2 Вкладка «Согласия» (`settings-5-consents.php`) — ✅ реализовано
 
 Тексты согласий хранятся как WordPress-документ (страница `/consent`). `ConsentController` уже обслуживает маршрут `/lms/consent/{type}/{version}` и отдаёт содержимое. Хеш текста согласия на момент подписания уже хранится в таблице `consents.document_hash` — `ConsentService::getDocumentHash()` считает его автоматически.
 
@@ -153,7 +153,7 @@ Callback `ConsentSettingsCallbacks::renderConsentSettingsTab()` — только
 
 Эти хуки нигде не зарегистрированы. Добавить в `UserController` или новый `PasswordController`:
 
-### 3.1 Политика паролей
+### 3.1 Политика паролей — ✅ реализовано
 
 **Модель паролей по ролям:**
 
@@ -188,7 +188,7 @@ public function blockPasswordReset(bool $allow, int $userId): bool {
 
 `UserRole::lmsRoles()` — добавить статический метод, возвращающий `[FSStudent, FSParent, FSTeacher]`.
 
-### 3.3 HTTPS-предупреждение
+### 3.3 HTTPS-предупреждение — ✅ реализовано
 
 Добавить в `AdminController::register()` или `Activate.php`:
 
@@ -206,7 +206,7 @@ add_action('admin_init', function() {
 
 ## 4. Журналы в админке
 
-### 4.1 Таб «Журнал действий»
+### 4.1 Таб «Журнал действий» — ✅ реализовано
 
 Подменю FS LMS, доступна по `Capability::ManageApplications`.
 
@@ -214,7 +214,7 @@ add_action('admin_init', function() {
 Фильтры: action, target_type, actor, date range.  
 Данные: `AuditLogRepository::listByTarget()` / `listByActor()`.
 
-### 4.2 Таб «Журнал доступа к ПД»
+### 4.2 Таб «Журнал доступа к ПД» — ✅ реализовано
 
 Доступна только по `Capability::ExportPII`.
 

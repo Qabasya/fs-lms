@@ -5,7 +5,6 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\ExpelledArchiveDTO;
-use Inc\Enums\TableName;
 
 class ExpelledArchiveRepository {
 
@@ -14,7 +13,7 @@ class ExpelledArchiveRepository {
 
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::ExpelledArchive->prefixed();
+		$this->table = $this->wpdb->prefix . 'fs_lms_expelled_archive';
 	}
 
 	public function find( int $id ): ?ExpelledArchiveDTO {

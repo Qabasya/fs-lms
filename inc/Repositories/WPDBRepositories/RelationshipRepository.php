@@ -6,7 +6,6 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Contracts\RepositoryInterface;
 use Inc\DTO\RelationshipDTO;
-use Inc\Enums\TableName;
 
 /**
  * Class RelationshipRepository
@@ -45,7 +44,7 @@ class RelationshipRepository implements RepositoryInterface {
 	 */
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::Relationships->prefixed();
+		$this->table = $this->wpdb->prefix . 'fs_lms_relationships';
 	}
 
 	/**
