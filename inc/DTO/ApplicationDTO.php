@@ -39,7 +39,7 @@ readonly class ApplicationDTO {
 	 * @param int               $id                        ID заявки
 	 * @param int|null          $studentPersonId           ID студента (из persons)
 	 * @param int|null          $parentPersonId            ID родителя (из persons)
-	 * @param string            $periodKey                 Ключ учебного периода
+	 * @param string            $periodId                  ID учебного периода
 	 * @param ApplicationStatus $status                    Статус заявки
 	 * @param string|null       $joinCodeHash              Хэш кода для присоединения
 	 * @param string|null       $joinCodeExpiresAt         Срок действия кода
@@ -57,7 +57,7 @@ readonly class ApplicationDTO {
 		public int $id,
 		public ?int $studentPersonId,
 		public ?int $parentPersonId,
-		public string $periodKey,
+		public string $periodId,
 		public ApplicationStatus $status,
 		public ?string $joinCodeHash,
 		public ?string $joinCodeEnc,
@@ -85,7 +85,7 @@ readonly class ApplicationDTO {
 			id:                      (int) $row['id'],
 			studentPersonId:         isset( $row['student_person_id'] ) ? (int) $row['student_person_id'] : null,
 			parentPersonId:          isset( $row['parent_person_id'] ) ? (int) $row['parent_person_id'] : null,
-			periodKey:               (string) $row['period_key'],
+			periodId:                (string) $row['period_id'],
 			status:                  ApplicationStatus::from( (string) $row['status'] ),
 			joinCodeHash:            isset( $row['join_code_hash'] ) ? (string) $row['join_code_hash'] : null,
 			joinCodeEnc:             isset( $row['join_code_enc'] ) ? (string) $row['join_code_enc'] : null,
@@ -112,7 +112,7 @@ readonly class ApplicationDTO {
 			'id'                         => $this->id,
 			'student_person_id'          => $this->studentPersonId,
 			'parent_person_id'           => $this->parentPersonId,
-			'period_key'                 => $this->periodKey,
+			'period_id'                  => $this->periodId,
 			'status'                     => $this->status->value,
 			'join_code_hash'             => $this->joinCodeHash,
 			'join_code_enc'              => $this->joinCodeEnc,

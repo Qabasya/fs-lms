@@ -20,7 +20,7 @@ use Inc\Enums\TableName;
  * - **person_documents** — весь PII зашифрован (email, phone, doc, inn, address)
  * - **groups**           — группы; заменяет матрицу из wp_options
  * - **applications**     — заявки на обучение (двухэтапный OTP-флоу)
- * - **enrollments**      — зачисления; group_key → groups.group_key
+ * - **enrollments**      — зачисления; group_id → groups.group_id
  * - **archive**          — запись создаётся при зачислении (expelled_at=NULL); связь родитель→ученик
  * - **consents**         — согласия на обработку ПДн
  * - **audit_log**        — журнал действий
@@ -103,17 +103,18 @@ class Migration_1_0_0 implements MigrationInterface {
 		$groups = TableName::Groups->prefixed();
 		dbDelta(
 			"CREATE TABLE $groups (
-			id          smallint unsigned NOT NULL AUTO_INCREMENT,
-			group_key   varchar(100)      NOT NULL,
-			subject_key varchar(50)       NOT NULL,
-			period_key  varchar(50)       NOT NULL,
-			name        varchar(255)      DEFAULT NULL,
-			schedule    varchar(500)      DEFAULT NULL,
-			created_at  datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			UNIQUE KEY group_key (group_key),
-			KEY subject_key (subject_key),
-			KEY period_key (period_key)
+			group_id    smallint unsigned        NOT NULL AUTO_INCREMENT,
+			subject_id  varchar(50)              NOT NULL,
+			period_id   varchar(50)              NOT NULL,
+			group_name  varchar(255)             DEFAULT NULL,
+			teacher_id  bigint(20) unsigned      DEFAULT NULL,
+			schedule    varchar(500)             DEFAULT NULL,
+			created_at  datetime                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			deleted_at  datetime                 DEFAULT NULL,
+			PRIMARY KEY  (group_id),
+			KEY subject_id (subject_id),
+			KEY period_id (period_id),
+			KEY teacher_id (teacher_id)
 		) $cc;"
 		);
 
@@ -121,10 +122,10 @@ class Migration_1_0_0 implements MigrationInterface {
 		$applications = TableName::Applications->prefixed();
 		dbDelta(
 			"CREATE TABLE $applications (
-			id                         bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			student_person_id          bigint(20) unsigned DEFAULT NULL,
-			parent_person_id           bigint(20) unsigned DEFAULT NULL,
-			period_key                 varchar(50)         NOT NULL,
+			id                         int unsigned        NOT NULL AUTO_INCREMENT,
+			student_person_id          int unsigned        DEFAULT NULL,
+			parent_person_id           int unsigned        DEFAULT NULL,
+			period_id                  varchar(50)         NOT NULL,
 			status                     varchar(50)         NOT NULL,
 			join_code_hash             varchar(64)         DEFAULT NULL,
 			join_code_enc              blob                DEFAULT NULL,
@@ -132,7 +133,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			student_email_hash         varchar(64)         DEFAULT NULL,
 			student_data_enc           longblob            DEFAULT NULL,
 			parent_data_enc            longblob            DEFAULT NULL,
-			converted_to_enrollment_id bigint(20) unsigned DEFAULT NULL,
+			converted_to_enrollment_id int unsigned        DEFAULT NULL,
 			parent_submitted_ip        varchar(45)         DEFAULT NULL,
 			parent_submitted_ua        varchar(500)        DEFAULT NULL,
 			reviewed_by_user_id        bigint(20) unsigned DEFAULT NULL,
@@ -154,7 +155,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			id                    int unsigned NOT NULL AUTO_INCREMENT,
 			student_person_id     int unsigned NOT NULL,
 			source_application_id int unsigned DEFAULT NULL,
-			group_key             varchar(100) DEFAULT NULL,
+			group_id              int unsigned DEFAULT NULL,
 			status                varchar(50)  NOT NULL,
 			enrolled_at           datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			terminated_at         datetime     DEFAULT NULL,
@@ -166,7 +167,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			PRIMARY KEY  (id),
 			KEY student_person_id (student_person_id),
 			KEY source_application_id (source_application_id),
-			KEY group_key (group_key),
+			KEY group_id (group_id),
 			KEY status (status)
 		) $cc;"
 		);
@@ -183,7 +184,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			contract_date       date                DEFAULT NULL,
 			order_no            varchar(50)         DEFAULT NULL,
 			order_date          date                DEFAULT NULL,
-			group_key           varchar(100)        DEFAULT NULL,
+			group_id            int unsigned        DEFAULT NULL,
 			enrolled_at         datetime            NOT NULL,
 			expelled_at         datetime            DEFAULT NULL,
 			expelled_by_user_id bigint(20) unsigned DEFAULT NULL,
@@ -193,7 +194,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			KEY enrollment_id (enrollment_id),
 			KEY student_person_id (student_person_id),
 			KEY parent_person_id (parent_person_id),
-			KEY group_key (group_key),
+			KEY group_id (group_id),
 			KEY expelled_at (expelled_at)
 		) $cc;"
 		);
@@ -202,9 +203,9 @@ class Migration_1_0_0 implements MigrationInterface {
 		$consents = TableName::Consents->prefixed();
 		dbDelta(
 			"CREATE TABLE $consents (
-			id                   bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			application_id       bigint(20) unsigned DEFAULT NULL,
-			person_id            bigint(20) unsigned DEFAULT NULL,
+			id                   int unsigned        NOT NULL AUTO_INCREMENT,
+			application_id       int unsigned        DEFAULT NULL,
+			person_id            int unsigned        DEFAULT NULL,
 			subject_role         varchar(20)         NOT NULL,
 			consent_type         varchar(50)         NOT NULL,
 			version              varchar(20)         NOT NULL,
@@ -215,7 +216,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			valid_until          datetime            DEFAULT NULL,
 			withdrawn_at         datetime            DEFAULT NULL,
 			withdrawn_reason     text                DEFAULT NULL,
-			signed_for_person_id bigint(20) unsigned DEFAULT NULL,
+			signed_for_person_id int unsigned        DEFAULT NULL,
 			PRIMARY KEY  (id),
 			KEY application_id (application_id),
 			KEY person_id (person_id),
@@ -228,12 +229,12 @@ class Migration_1_0_0 implements MigrationInterface {
 		$audit_log = TableName::AuditLog->prefixed();
 		dbDelta(
 			"CREATE TABLE $audit_log (
-			id            bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			id            int unsigned        NOT NULL AUTO_INCREMENT,
 			actor_user_id bigint(20) unsigned DEFAULT NULL,
 			actor_role    varchar(50)         DEFAULT NULL,
 			action        varchar(100)        NOT NULL,
 			target_type   varchar(50)         DEFAULT NULL,
-			target_id     bigint(20) unsigned DEFAULT NULL,
+			target_id     int unsigned        DEFAULT NULL,
 			details_json  longtext            DEFAULT NULL,
 			actor_ip      varchar(45)         NOT NULL,
 			actor_ua      text                DEFAULT NULL,
@@ -249,10 +250,10 @@ class Migration_1_0_0 implements MigrationInterface {
 		$pii_access_log = TableName::PiiAccessLog->prefixed();
 		dbDelta(
 			"CREATE TABLE $pii_access_log (
-			id             bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			id             int unsigned        NOT NULL AUTO_INCREMENT,
 			actor_user_id  bigint(20) unsigned NOT NULL,
 			actor_role     varchar(50)         DEFAULT NULL,
-			person_id      bigint(20) unsigned NOT NULL,
+			person_id      int unsigned        NOT NULL,
 			fields_accessed text               NOT NULL,
 			access_reason  varchar(255)        NOT NULL,
 			actor_ip       varchar(45)         NOT NULL,

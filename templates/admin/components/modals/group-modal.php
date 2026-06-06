@@ -55,8 +55,8 @@ use Inc\Enums\WeekDay;
 
 				<div class="fs-form-group">
 					<label for="group-teacher">Преподаватель</label>
-					<select id="group-teacher" name="teacher_id" required>
-						<option value="">-- Выберите преподавателя --</option>
+					<select id="group-teacher" name="teacher_id">
+						<option value="">— Не назначен —</option>
 						<?php foreach ( $teachers ?? [] as $teacher ) : ?>
 							<option value="<?php echo esc_attr( (string) $teacher->id ); ?>">
 								<?php echo esc_html( $teacher->displayName ); ?>

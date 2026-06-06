@@ -11,7 +11,7 @@ use Inc\Enums\Nonce;
 use Inc\Enums\PiiField;
 use Inc\Enums\UserRole;
 use Inc\Enums\WeekDay;
-use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
@@ -41,7 +41,7 @@ class PiiCallbacks extends BaseController {
 		private readonly EmailService             $emailService,
 		private readonly AuditService             $auditService,
 		private readonly EnrollmentRepository     $enrollmentRepository,
-		private readonly StudentGroupRepository   $groupRepository,
+		private readonly GroupsRepository         $groupRepository,
 		private readonly SubjectRepository        $subjectRepository,
 		private readonly PiiCryptoService         $crypto,
 		private readonly PiiMaskingService        $maskingService,
@@ -278,7 +278,7 @@ class PiiCallbacks extends BaseController {
 
 		foreach ( $personIds as $pid ) {
 			foreach ( $this->enrollmentRepository->findByStudent( $pid ) as $enr ) {
-				$group    = $this->groupRepository->getById( (string) $enr->groupKey );
+				$group    = $enr->groupId ? $this->groupRepository->findById( $enr->groupId ) : null;
 				$snapshot = array();
 				if ( ! empty( $enr->snapshotEnc ) ) {
 					try {
@@ -298,8 +298,8 @@ class PiiCallbacks extends BaseController {
 
 				$enrollments[] = array(
 					'student_name'        => $isParent ? ( $nameMap[ $pid ] ?? "#{$pid}" ) : null,
-					'group_key'           => $enr->groupKey,
-					'group_title'         => $group?->title ?? '—',
+					'group_id'            => $enr->groupId,
+					'group_title'         => $group?->group_name ?? '—',
 					'schedule'            => $this->formatSchedule( $group ),
 					'status_label'        => $enr->status->label(),
 					'status_value'        => $enr->status->value,
@@ -428,9 +428,10 @@ class PiiCallbacks extends BaseController {
 			return '';
 		}
 
-		$schedule = $group->schedule ?? null;
+		$raw      = $group->schedule ?? null;
+		$schedule = is_string( $raw ) ? ( json_decode( $raw, true ) ?: array() ) : ( is_array( $raw ) ? $raw : array() );
 
-		if ( empty( $schedule ) || ! is_array( $schedule ) ) {
+		if ( empty( $schedule ) ) {
 			return '';
 		}
 

@@ -64,12 +64,12 @@ class EnrollmentRepository implements RepositoryInterface {
 	/**
 	 * @return EnrollmentDTO[]
 	 */
-	public function findActiveByGroupKey( string $groupKey ): array {
+	public function findActiveByGroupId( int $groupId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE group_key = %s AND status = %s ORDER BY enrolled_at DESC',
+				'SELECT * FROM %i WHERE group_id = %d AND status = %s ORDER BY enrolled_at DESC',
 				$this->table,
-				$groupKey,
+				$groupId,
 				EnrollmentStatus::Active->value
 			),
 			ARRAY_A
@@ -107,13 +107,13 @@ class EnrollmentRepository implements RepositoryInterface {
 		return $row ? EnrollmentDTO::fromArray( $row ) : null;
 	}
 
-	public function existsActive( int $personId, string $groupKey ): bool {
+	public function existsActive( int $personId, int $groupId ): bool {
 		return 0 < (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(
-				'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND group_key = %s AND status = %s',
+				'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND group_id = %d AND status = %s',
 				$this->table,
 				$personId,
-				$groupKey,
+				$groupId,
 				EnrollmentStatus::Active->value
 			)
 		);

@@ -101,7 +101,7 @@ readonly class ExpulsionService {
 				if ( is_array( $snapshot ) ) {
 					$snapshot['enrollment'] = array(
 						'id'        => $enrollment->id,
-						'group_key' => $enrollment->groupKey,
+						'group_id'  => $enrollment->groupId,
 						'enrolled_at' => $enrollment->enrolledAt,
 					);
 					$snapshot['application_id'] = $enrollment->sourceApplicationId;
@@ -125,7 +125,7 @@ readonly class ExpulsionService {
 						'guardian'       => $parentData ?? [],
 						'enrollment'     => $enrollment ? array(
 							'id'          => $enrollment->id,
-							'group_key'   => $enrollment->groupKey,
+							'group_id'    => $enrollment->groupId,
 							'enrolled_at' => $enrollment->enrolledAt,
 						) : [],
 						'application_id' => $enrollment?->sourceApplicationId,

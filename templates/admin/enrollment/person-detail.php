@@ -14,7 +14,7 @@
 use Inc\Enums\Capability;
 use Inc\Enums\PiiField;
 use Inc\Enums\UserRole;
-use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Services\Person\PiiMaskingService;
@@ -30,7 +30,7 @@ $displayName = $wpUser ? $wpUser->display_name : ( $person->fullName ?: "Person 
 
 $archiveRepo = new ArchiveRepository();
 $enrollRepo  = new EnrollmentRepository();
-$groupRepo   = new StudentGroupRepository();
+$groupRepo   = new GroupsRepository();
 $masking     = new PiiMaskingService();
 
 $maskedPhone   = $decrypted ? $masking->mask( $decrypted->phone,   PiiField::Phone )   : '—';
@@ -291,8 +291,8 @@ $tabs = $isStudent
 				</thead>
 				<tbody>
 					<?php foreach ( $enrollments as $enr ) :
-						$group      = $groupRepo->getById( (string) $enr->groupKey );
-						$groupTitle = $group ? $group->title : ( $enr->groupKey ?? '—' );
+						$group      = $enr->groupId ? $groupRepo->findById( $enr->groupId ) : null;
+						$groupTitle = $group ? $group->group_name : '—';
 					?>
 						<tr>
 							<?php if ( $isParent ) : ?>

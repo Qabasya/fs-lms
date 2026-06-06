@@ -97,7 +97,7 @@ readonly class EnrollmentService {
 			throw new DomainException( 'Email родителя уже занят другим пользователем.' );
 		}
 
-		if ( null !== $existingStudent && $this->enrollmentRepository->existsActive( $existingStudent->id, $input->groupKey ) ) {
+		if ( null !== $existingStudent && $this->enrollmentRepository->existsActive( $existingStudent->id, $input->groupId ) ) {
 			throw new DomainException( 'Ученик уже зачислен в эту группу.' );
 		}
 
@@ -139,7 +139,7 @@ readonly class EnrollmentService {
 			);
 			$enrollmentId = $this->enrollmentRepository->create( array(
 				'student_person_id'     => $studentPersonId,
-				'group_key'             => $input->groupKey,
+				'group_id'              => $input->groupId ?: null,
 				'enrolled_at'           => $input->enrolledAt,
 				'status'                => 'active',
 				'snapshot_enc'          => $this->crypto->encrypt( (string) wp_json_encode( $snapshot ) ),
@@ -156,7 +156,7 @@ readonly class EnrollmentService {
 				'contract_date'     => $input->contractDate ?: null,
 				'order_no'          => $input->orderNo ?: null,
 				'order_date'        => $input->orderDate ?: null,
-				'group_key'         => $input->groupKey ?: null,
+				'group_id'          => $input->groupId ?: null,
 				'enrolled_at'       => $input->enrolledAt,
 				'created_at'        => $this->clock->now( 'mysql', true ),
 			) );
@@ -172,7 +172,7 @@ readonly class EnrollmentService {
 				$enrollmentId,
 				array(
 					'application_id' => $app->id,
-					'group_key'      => $input->groupKey,
+					'group_id'       => $input->groupId,
 				)
 			);
 
@@ -347,10 +347,10 @@ readonly class EnrollmentService {
 		}
 
 		// Период берём из группы (если есть)
-		$periodKey = '';
-		if ( $archive->groupKey !== null ) {
-			$group     = $this->groupsRepository->findByKey( $archive->groupKey );
-			$periodKey = $group?->period_key ?? '';
+		$periodId = '';
+		if ( $archive->groupId !== null ) {
+			$group    = $this->groupsRepository->findById( $archive->groupId );
+			$periodId = $group?->period_id ?? '';
 		}
 
 		// Генерируем новый join-код
@@ -364,7 +364,7 @@ readonly class EnrollmentService {
 		$now   = $this->clock->now( 'mysql', true );
 		$appId = $this->applicationRepository->create( array(
 			'student_person_id'    => $archive->studentPersonId,
-			'period_key'           => $periodKey,
+			'period_id'            => $periodId,
 			'status'               => ApplicationStatus::PendingParent->value,
 			'join_code_hash'       => $joinHash,
 			'join_code_enc'        => $joinEnc,

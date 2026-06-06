@@ -7,7 +7,7 @@ namespace Inc\Services\Enrollment;
 use Inc\DTO\AcademicPeriodDTO;
 use Inc\DTO\StudentEnrollmentDTO;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
-use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\StudentPeriodMatrixRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 
@@ -29,7 +29,7 @@ use Inc\Repositories\OptionsRepositories\UserRepository;
  * Делегирует получение и сохранение данных специализированным репозиториям:
  * - AcademicPeriodRepository — информация об учебных периодах
  * - StudentPeriodMatrixRepository — связи ученик → период + класс
- * - StudentGroupRepository — информация о группах
+ * - GroupsRepository — информация о группах
  * - UserRepository — данные пользователей (учеников)
  *
  * Собирает и "компилирует" данные из разных источников в единый формат.
@@ -42,13 +42,13 @@ readonly class AcademicPeriodService {
 	 * @param AcademicPeriodRepository      $period_repository   Репозиторий учебных периодов
 	 * @param UserRepository                $user_repository     Репозиторий пользователей
 	 * @param StudentPeriodMatrixRepository $matrix_repository   Репозиторий связей ученик-период
-	 * @param StudentGroupRepository        $group_repository    Репозиторий групп учеников
+	 * @param GroupsRepository              $group_repository    Репозиторий групп учеников
 	 */
 	public function __construct(
 		private AcademicPeriodRepository $period_repository,
 		private UserRepository $user_repository,
 		private StudentPeriodMatrixRepository $matrix_repository,
-		private StudentGroupRepository $group_repository,
+		private GroupsRepository $group_repository,
 	) {}
 
 	/**
@@ -126,8 +126,8 @@ readonly class AcademicPeriodService {
 				continue;
 			}
 
-			$group_dto  = $this->group_repository->getById( (string) ( $enrollment->groupKey ?? $enrollment->group_id ?? '' ) );
-			$group_name = $group_dto?->title ?? 'Без группы';
+			$group_dto  = isset( $enrollment->group_id ) ? $this->group_repository->findById( (int) $enrollment->group_id ) : null;
+			$group_name = $group_dto?->group_name ?? 'Без группы';
 
 			$result[] = array(
 				'id'         => $student_dto->id,

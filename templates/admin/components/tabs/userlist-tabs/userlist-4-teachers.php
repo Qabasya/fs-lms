@@ -8,7 +8,7 @@
 
 use Inc\Enums\Capability;
 use Inc\Enums\UserRole;
-use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
@@ -18,7 +18,7 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	return;
 }
 
-$groupRepo   = new StudentGroupRepository();
+$groupRepo   = new GroupsRepository();
 $subjectRepo = new SubjectRepository();
 
 $page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
@@ -35,10 +35,10 @@ $total = (int) ( count_users()['avail_roles'][ UserRole::FSTeacher->value ] ?? 0
 $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 
 // Все группы один раз — группируем по teacher_id
-$allGroups = $groupRepo->readAll();
+$allGroups = $groupRepo->findAll();
 $groupsByTeacher = array();
 foreach ( $allGroups as $group ) {
-	$tid = (int) ( $group['teacher_id'] ?? 0 );
+	$tid = (int) ( $group->teacher_id ?? 0 );
 	if ( $tid > 0 ) {
 		$groupsByTeacher[ $tid ][] = $group;
 	}
@@ -89,13 +89,13 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				// Уникальные предметы
 				$subjectNames = array();
 				foreach ( $groups as $group ) {
-					$key = $group['subject_id'] ?? '';
+					$key = $group->subject_id ?? '';
 					if ( $key && ! isset( $subjectNames[ $key ] ) ) {
 						$subjectNames[ $key ] = $allSubjects[ $key ] ?? $key;
 					}
 				}
 
-				$groupTitles   = array_column( $groups, 'title' );
+				$groupTitles   = array_map( static fn( $g ) => $g->group_name ?? '', $groups );
 				$subjectStr    = implode( ', ', $subjectNames ) ?: '—';
 				$groupStr      = implode( ', ', $groupTitles ) ?: '—';
 

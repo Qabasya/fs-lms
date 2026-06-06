@@ -7,7 +7,6 @@ namespace Inc\Callbacks;
 use Inc\Controllers\BoilerplatePageController;
 use Inc\Core\BaseController;
 use Inc\DTO\AcademicPeriodDTO;
-use Inc\DTO\StudentGroupDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\Capability;
 use Inc\Enums\UserRole;
@@ -18,7 +17,7 @@ use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\AuditLogRepository;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\Services\Enrollment\AcademicPeriodService;
-use Inc\Services\StudentGroupService;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -52,7 +51,7 @@ class AdminCallbacks extends BaseController {
 	 * @param UserRepository            $users                     Репозиторий пользователей
 	 * @param BoilerplatePageController $boilerplatePageController Контроллер страницы boilerplate
 	 * @param AcademicPeriodService     $period_service            Сервис учебных периодов
-	 * @param StudentGroupService       $group_service             Сервис групп учеников
+	 * @param GroupsRepository          $groupsRepository          Репозиторий групп
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -60,7 +59,7 @@ class AdminCallbacks extends BaseController {
 		private readonly UserRepository $users,
 		private readonly BoilerplatePageController $boilerplatePageController,
 		private readonly AcademicPeriodService $period_service,
-		private readonly StudentGroupService $group_service,
+		private readonly GroupsRepository $groupsRepository,
 		private readonly AuditLogRepository $audit_log,
 		private readonly PiiAccessLogRepository $pii_log,
 	) {
@@ -112,24 +111,24 @@ class AdminCallbacks extends BaseController {
 		}
 
 		$groups   = '' !== $selected_period_id
-			? $this->group_service->getGroupsByPeriod( $selected_period_id )
+			? $this->groupsRepository->findByPeriodId( $selected_period_id )
 			: array();
-		$teachers = $this->users->getByRole( UserRole::FSTeacher );
 		$subjects = $this->subjects->readAll();
+		$teachers = $this->users->getByRole( \Inc\Enums\UserRole::FSTeacher );
 
 		$teacher_map = array();
-		foreach ( $teachers as $teacher ) {
-			$teacher_map[ $teacher->id ] = $teacher->displayName;
+		foreach ( $teachers as $t ) {
+			$teacher_map[ $t->id ] = $t->displayName;
 		}
 
 		$groups_view = array_map(
-			fn( StudentGroupDTO $g ) => array(
-				'id'           => $g->id,
-				'title'        => $g->title,
+			fn( object $g ) => array(
+				'id'           => (int) $g->group_id,
+				'title'        => $g->group_name,
 				'period_name'  => $raw_periods[ $g->period_id ]['name'] ?? $g->period_id,
 				'subject_name' => $subjects[ $g->subject_id ]->name ?? $g->subject_id,
-				'teacher_name' => $teacher_map[ $g->teacher_id ] ?? 'Не назначен',
-				'schedule'     => WeekDay::formatScheduleFull( $g->schedule ),
+				'teacher_name' => $g->teacher_id ? ( $teacher_map[ (int) $g->teacher_id ] ?? "#{$g->teacher_id}" ) : '—',
+				'schedule'     => WeekDay::formatScheduleFull( json_decode( $g->schedule ?? '[]', true ) ?: array() ),
 			),
 			$groups
 		);

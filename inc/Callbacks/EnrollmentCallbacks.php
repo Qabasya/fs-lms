@@ -11,7 +11,7 @@ use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
-use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\AuditService;
 use Inc\Services\Enrollment\EnrollmentService;
 use Inc\Services\PasswordGeneratorService;
@@ -22,7 +22,6 @@ use Inc\DTO\EnrollmentInputDTO;
 use Inc\DTO\ParentDataDTO;
 use Inc\DTO\PiiAccessLogInputDTO;
 use Inc\DTO\StudentDataDTO;
-use Inc\DTO\StudentGroupDTO;
 use Inc\Enums\DocumentType;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -68,7 +67,7 @@ class EnrollmentCallbacks extends BaseController {
 		private readonly PiiCryptoService        $crypto,
 		private readonly PiiMaskingService       $piiMasking,
 		private readonly PiiAccessLogRepository  $piiAccessLog,
-		private readonly StudentGroupRepository  $studentGroupRepository,
+		private readonly GroupsRepository        $studentGroupRepository,
 		private readonly PasswordGeneratorService $passwordGenerator,
 		private readonly UserManager             $userManager,
 	) {
@@ -197,7 +196,7 @@ class EnrollmentCallbacks extends BaseController {
 			orderNo:       $this->requireText( 'order_no' ),
 			orderDate:     $this->requireText( 'order_date' ),
 			enrolledAt:    $this->requireText( 'enrolled_at' ),
-			groupKey:      $this->requireKey( 'group_key' ),
+			groupId:       $this->sanitizeInt( 'group_id' ),
 			sendEmailAuto: true,
 		);
 
@@ -556,10 +555,10 @@ class EnrollmentCallbacks extends BaseController {
 		$periodId  = $this->sanitizeText( 'period_id' );
 		$subjectId = $this->sanitizeText( 'subject_id' );
 
-		$groups = $this->studentGroupRepository->getByPeriodAndSubject( $periodId, $subjectId );
+		$groups = $this->studentGroupRepository->findByPeriodAndSubject( $periodId, $subjectId );
 
 		$result = array_values( array_map(
-			static fn( StudentGroupDTO $g ) => array( 'id' => $g->id, 'title' => $g->title ),
+			static fn( object $g ) => array( 'id' => (int) $g->group_id, 'title' => $g->group_name ),
 			$groups
 		) );
 

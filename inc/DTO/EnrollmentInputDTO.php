@@ -13,7 +13,7 @@ readonly class EnrollmentInputDTO {
 		public string $orderNo,
 		public string $orderDate,
 		public string $enrolledAt,
-		public string $groupKey,
+		public int    $groupId,
 		public bool   $sendEmailAuto,
 	) {}
 }

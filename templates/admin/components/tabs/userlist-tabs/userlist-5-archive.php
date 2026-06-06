@@ -9,7 +9,7 @@
 use Inc\Enums\Capability;
 use Inc\Enums\DocumentType;
 use Inc\Enums\EnrollmentStatus;
-use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
@@ -26,7 +26,7 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 $enrollmentRepo = new EnrollmentRepository();
 $archiveRepo    = new ArchiveRepository();
 $personRepo     = new PersonRepository();
-$groupRepo      = new StudentGroupRepository();
+$groupRepo      = new GroupsRepository();
 $subjectRepo    = new SubjectRepository();
 $crypto         = new PiiCryptoService();
 
@@ -91,7 +91,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 		<?php else : ?>
 			<?php foreach ( $enrollments as $row ) :
 				$studentPersonId  = $row->studentPersonId;
-				$groupId          = (string) ( $row->groupKey ?? '' );
+				$groupId          = (int) ( $row->groupId ?? 0 );
 				$status           = $row->status;
 				$terminatedAt     = $row->terminatedAt ? substr( $row->terminatedAt, 0, 10 ) : '';
 				$terminatedReason = (string) ( $row->terminatedReason ?? '' );
@@ -132,9 +132,9 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 
 				// Группа
 				$groupTitle = '—';
-				$group      = $groupRepo->getById( $groupId );
+				$group      = $groupId ? $groupRepo->findById( $groupId ) : null;
 				if ( $group ) {
-					$groupTitle = $group->title;
+					$groupTitle = $group->group_name;
 				}
 
 				// Направление

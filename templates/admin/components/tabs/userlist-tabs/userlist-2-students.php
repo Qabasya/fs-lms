@@ -10,7 +10,7 @@ use Inc\Enums\Capability;
 use Inc\Enums\DocumentType;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Enums\WeekDay;
-use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
@@ -25,7 +25,7 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 
 $enrollmentRepo = new EnrollmentRepository();
 $personRepo     = new PersonRepository();
-$groupRepo      = new StudentGroupRepository();
+$groupRepo      = new GroupsRepository();
 $subjectRepo    = new SubjectRepository();
 $crypto         = new PiiCryptoService();
 
@@ -91,7 +91,7 @@ $pages       = (int) ceil( $total / $perPage );
 		<?php else : ?>
 			<?php foreach ( $enrollments as $row ) :
 				$studentPersonId = $row->studentPersonId;
-				$groupId         = (string) ( $row->groupKey ?? '' );
+				$groupId         = (int) ( $row->groupId ?? 0 );
 
 				// Имя ученика из таблицы persons
 				$studentName = '—';
@@ -108,9 +108,9 @@ $pages       = (int) ceil( $total / $perPage );
 				$groupTitle  = '—';
 				$scheduleStr = '—';
 				$formatted   = '';
-				$group       = $groupRepo->getById( $groupId );
+				$group       = $groupId ? $groupRepo->findById( $groupId ) : null;
 				if ( $group ) {
-					$groupTitle  = $group->title;
+					$groupTitle  = $group->group_name;
 					$formatted   = WeekDay::formatSchedule( $group->schedule );
 					if ( $formatted !== '' ) {
 						$scheduleStr = $formatted;
