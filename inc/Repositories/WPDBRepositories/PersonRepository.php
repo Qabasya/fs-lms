@@ -44,21 +44,6 @@ class PersonRepository implements RepositoryInterface {
 		return $row ? PersonDTO::fromArray( $row ) : null;
 	}
 
-	/**
-	 * @return PersonDTO[]
-	 */
-	public function findByRole( string $role ): array {
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE role = %s AND deleted_at IS NULL ORDER BY full_name ASC',
-				$this->table,
-				$role
-			),
-			ARRAY_A
-		);
-
-		return array_map( fn( array $row ) => PersonDTO::fromArray( $row ), $rows ?: array() );
-	}
 
 	public function create( array $data ): int {
 		$this->wpdb->insert( $this->table, $data );
@@ -79,6 +64,20 @@ class PersonRepository implements RepositoryInterface {
 
 	public function setWpUser( int $id, int $wpUserId ): bool {
 		return $this->update( $id, array( 'wp_user_id' => $wpUserId ) );
+	}
+
+	/** @return PersonDTO[] */
+	public function findByIsStudent( bool $isStudent ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE is_student = %d AND deleted_at IS NULL ORDER BY last_name, first_name',
+				$this->table,
+				$isStudent ? 1 : 0
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $row ) => PersonDTO::fromArray( $row ), $rows ?: array() );
 	}
 
 	public function findDeletedOlderThan( int $days ): array {

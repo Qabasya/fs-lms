@@ -4,33 +4,30 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories\WPDBRepositories;
 
-use Inc\Contracts\RepositoryInterface;
-use Inc\DTO\EnrollmentDTO;
+use Inc\DTO\StudentRecordDTO;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Enums\TableName;
 
-class EnrollmentRepository implements RepositoryInterface {
+class StudentRecordRepository {
 
 	private \wpdb $wpdb;
 	private string $table;
 
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::Enrollments->prefixed();
+		$this->table = TableName::StudentRecords->prefixed();
 	}
 
-	public function find( int $id ): ?EnrollmentDTO {
+	public function find( int $id ): ?StudentRecordDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare( 'SELECT * FROM %i WHERE id = %d LIMIT 1', $this->table, $id ),
 			ARRAY_A
 		);
 
-		return $row ? EnrollmentDTO::fromArray( $row ) : null;
+		return $row ? StudentRecordDTO::fromArray( $row ) : null;
 	}
 
-	/**
-	 * @return EnrollmentDTO[]
-	 */
+	/** @return StudentRecordDTO[] */
 	public function findByStudent( int $studentPersonId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
@@ -41,12 +38,10 @@ class EnrollmentRepository implements RepositoryInterface {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => EnrollmentDTO::fromArray( $row ), $rows ?: array() );
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
 	}
 
-	/**
-	 * @return EnrollmentDTO[]
-	 */
+	/** @return StudentRecordDTO[] */
 	public function findActiveByStudent( int $studentPersonId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
@@ -58,12 +53,24 @@ class EnrollmentRepository implements RepositoryInterface {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => EnrollmentDTO::fromArray( $row ), $rows ?: array() );
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
 	}
 
-	/**
-	 * @return EnrollmentDTO[]
-	 */
+	public function findActiveByStudentFirst( int $studentPersonId ): ?StudentRecordDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE student_person_id = %d AND status = %s ORDER BY enrolled_at DESC LIMIT 1',
+				$this->table,
+				$studentPersonId,
+				EnrollmentStatus::Active->value
+			),
+			ARRAY_A
+		);
+
+		return $row ? StudentRecordDTO::fromArray( $row ) : null;
+	}
+
+	/** @return StudentRecordDTO[] */
 	public function findActiveByGroupId( int $groupId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
@@ -75,7 +82,34 @@ class EnrollmentRepository implements RepositoryInterface {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => EnrollmentDTO::fromArray( $row ), $rows ?: array() );
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
+	}
+
+	/** @return StudentRecordDTO[] */
+	public function findActiveByParent( int $parentPersonId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE parent_person_id = %d AND status = %s ORDER BY enrolled_at DESC',
+				$this->table,
+				$parentPersonId,
+				EnrollmentStatus::Active->value
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
+	}
+
+	public function existsActive( int $studentPersonId, int $groupId ): bool {
+		return 0 < (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND group_id = %d AND status = %s',
+				$this->table,
+				$studentPersonId,
+				$groupId,
+				EnrollmentStatus::Active->value
+			)
+		);
 	}
 
 	public function create( array $data ): int {
@@ -87,43 +121,19 @@ class EnrollmentRepository implements RepositoryInterface {
 		return false !== $this->wpdb->update( $this->table, $data, array( 'id' => $id ) );
 	}
 
-	public function setStatus( int $id, EnrollmentStatus $status ): bool {
+	public function setExpelled( int $id, string $expelledAt, int $userId, ?string $reason ): bool {
 		return $this->update( $id, array(
-			'status'     => $status->value,
-			'updated_at' => current_time( 'mysql' ),
+			'status'              => EnrollmentStatus::Expelled->value,
+			'expelled_at'         => $expelledAt,
+			'expelled_by_user_id' => $userId,
+			'expel_reason'        => $reason,
+			'updated_at'          => current_time( 'mysql', true ),
 		) );
 	}
 
-	public function findBySourceApplication( int $appId ): ?EnrollmentDTO {
-		$row = $this->wpdb->get_row(
-			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE source_application_id = %d LIMIT 1',
-				$this->table,
-				$appId
-			),
-			ARRAY_A
-		);
-
-		return $row ? EnrollmentDTO::fromArray( $row ) : null;
-	}
-
-	public function existsActive( int $personId, int $groupId ): bool {
-		return 0 < (int) $this->wpdb->get_var(
-			$this->wpdb->prepare(
-				'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND group_id = %d AND status = %s',
-				$this->table,
-				$personId,
-				$groupId,
-				EnrollmentStatus::Active->value
-			)
-		);
-	}
-
-	/**
-	 * @return EnrollmentDTO[]
-	 */
+	/** @return StudentRecordDTO[] */
 	public function list( array $filters = array(), int $page = 1, int $perPage = 20 ): array {
-		$offset = ( $page - 1 ) * $perPage;
+		$offset = ( max( 1, $page ) - 1 ) * $perPage;
 		[ $where, $args ] = $this->buildWhereClause( $filters );
 		$args[] = $perPage;
 		$args[] = $offset;
@@ -136,7 +146,7 @@ class EnrollmentRepository implements RepositoryInterface {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => EnrollmentDTO::fromArray( $row ), $rows ?: array() );
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
 	}
 
 	public function count( array $filters = array() ): int {
@@ -161,6 +171,11 @@ class EnrollmentRepository implements RepositoryInterface {
 				$where  .= ' AND status = %s';
 				$args[] = $status;
 			}
+		}
+
+		if ( ! empty( $filters['student_person_id'] ) ) {
+			$where  .= ' AND student_person_id = %d';
+			$args[] = (int) $filters['student_person_id'];
 		}
 
 		return array( $where, $args );

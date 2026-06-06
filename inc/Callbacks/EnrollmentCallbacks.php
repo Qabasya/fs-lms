@@ -417,7 +417,6 @@ class EnrollmentCallbacks extends BaseController {
 			firstName:     $this->requireText( 'parent_first_name' ),
 			middleName:    $this->sanitizeText( 'parent_middle_name' ),
 			birthDate:     $this->sanitizeText( 'parent_birth_date' ),
-			relationType:  $this->sanitizeText( 'relation_type' ),
 			docType:       $this->sanitizeText( 'parent_doc_type' ),
 			docNumber:     $this->sanitizeText( 'parent_doc_number' ),
 			docIssuedBy:   $this->sanitizeText( 'parent_doc_issued_by' ),
@@ -552,13 +551,13 @@ class EnrollmentCallbacks extends BaseController {
 	public function ajaxGetStudentGroups(): void {
 		$this->authorize( Nonce::Manager, Capability::ManageApplications );
 
-		$periodId  = $this->sanitizeText( 'period_id' );
-		$subjectId = $this->sanitizeText( 'subject_id' );
+		$periodId   = $this->sanitizeText( 'period_id' );
+		$subjectKey = $this->sanitizeText( 'subject_id' );
 
-		$groups = $this->studentGroupRepository->findByPeriodAndSubject( $periodId, $subjectId );
+		$groups = $this->studentGroupRepository->findByPeriodAndSubject( $periodId, $subjectKey );
 
 		$result = array_values( array_map(
-			static fn( object $g ) => array( 'id' => (int) $g->group_id, 'title' => $g->group_name ),
+			static fn( object $g ) => array( 'id' => (int) $g->id, 'title' => $g->name ),
 			$groups
 		) );
 

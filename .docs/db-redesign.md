@@ -10,7 +10,7 @@
 |---|---|---|
 | `persons` — всё вместе (ФИО enc + doc enc + inn enc + phone enc + email plain) | `persons` (plain ФИО + DOB + роль) + `person_documents` (всё PII зашифровано) | Чёткая граница: persons — идентификация, person_documents — весь PII |
 | Email хранится открыто в `persons` | Email зашифрован в `person_documents`, hash для поиска | Email — персональные данные наравне с телефоном |
-| `relationships` (guardian → student + relation_type) | Связь родитель→ученик хранится в `archive` (student_person_id + parent_person_id); отдельная таблица не нужна | Archive уже создаётся при зачислении и содержит обоих участников |
+| `relationships` (guardian → student) | Связь родитель→ученик хранится в `archive` (student_person_id + parent_person_id); отдельная таблица не нужна | Archive уже создаётся при зачислении и содержит обоих участников |
 | `expelled_archive` — заполняется только при отчислении | `archive` — заполняется при зачислении, expelled_at = NULL | Архив с первого дня, а не только при выходе |
 | Группы в `wp_options` (матрица group_id → [user_ids]) | `groups` — полноценная таблица; `enrollments` и `archive` ссылаются только на `group_key` | Убрать дублирование subject_key + period_key во всех дочерних таблицах |
 | Нет отдельной таблицы активных учеников | `enrollments WHERE status='active'` — уже содержит всё нужное; таблица `students` не создаётся | Не дублировать данные без причины |

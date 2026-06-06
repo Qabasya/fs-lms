@@ -72,7 +72,6 @@ export const ParentPersonModalManager = {
             middle_name:      rowData.middle_name               || '',
             email:            $btn.data( 'email' )              || '',
             phone:            rowData.phone                     || '',
-            relation_type:    rowData.relation_type             || '',
             dependent_name:   rowData.children                  || '',
             birth_date:       rowData.birth_date                || '',
             child_person_id:  rowData.child_person_id           || 0,

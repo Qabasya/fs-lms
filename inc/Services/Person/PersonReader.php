@@ -51,7 +51,7 @@ readonly class PersonReader {
 		$fullName = '';
 		foreach ( $fields as $field ) {
 			if ( 'full_name' === $field ) {
-				$fullName = $person->fullName;
+				$fullName = $person->fullName();
 				continue;
 			}
 
@@ -84,7 +84,7 @@ readonly class PersonReader {
 
 		if ( 'full_name' === $field ) {
 			$this->logAccess( $personId, array( $field ), $reason );
-			return $person->fullName;
+			return $person->fullName();
 		}
 
 		if ( ! isset( self::DOC_FIELD_MAP[ $field ] ) ) {

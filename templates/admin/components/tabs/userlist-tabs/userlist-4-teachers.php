@@ -89,13 +89,13 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				// Уникальные предметы
 				$subjectNames = array();
 				foreach ( $groups as $group ) {
-					$key = $group->subject_id ?? '';
+					$key = $group->subject_key ?? '';
 					if ( $key && ! isset( $subjectNames[ $key ] ) ) {
 						$subjectNames[ $key ] = $allSubjects[ $key ] ?? $key;
 					}
 				}
 
-				$groupTitles   = array_map( static fn( $g ) => $g->group_name ?? '', $groups );
+				$groupTitles   = array_map( static fn( $g ) => $g->name ?? '', $groups );
 				$subjectStr    = implode( ', ', $subjectNames ) ?: '—';
 				$groupStr      = implode( ', ', $groupTitles ) ?: '—';
 

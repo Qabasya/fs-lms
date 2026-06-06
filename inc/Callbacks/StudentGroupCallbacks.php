@@ -7,9 +7,9 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
 use Inc\Enums\WeekDay;
-use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
@@ -21,9 +21,9 @@ class StudentGroupCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly GroupsRepository     $groupsRepository,
-		private readonly EnrollmentRepository $enrollmentRepository,
-		private readonly PersonRepository     $personRepository,
+		private readonly GroupsRepository       $groupsRepository,
+		private readonly StudentRecordRepository $studentRecordRepository,
+		private readonly PersonRepository       $personRepository,
 	) {
 		parent::__construct();
 	}
@@ -31,10 +31,10 @@ class StudentGroupCallbacks extends BaseController {
 	public function ajaxSaveStudentGroup(): void {
 		$this->authorize( Nonce::Manager );
 
-		$title      = $this->requireText( 'title', error: 'Название группы обязательно для заполнения.' );
-		$period_id  = $this->requireKey( 'period_id', error: 'Необходимо указать учебный период.' );
-		$subject_id = $this->requireKey( 'subject_id', error: 'Необходимо указать предмет.' );
-		$teacher_id = $this->sanitizeInt( 'teacher_id' ) ?: null;
+		$title              = $this->requireText( 'title', error: 'Название группы обязательно для заполнения.' );
+		$academic_period_id = $this->requireKey( 'period_id', error: 'Необходимо указать учебный период.' );
+		$subject_key        = $this->requireKey( 'subject_id', error: 'Необходимо указать предмет.' );
+		$teacher_id         = $this->sanitizeInt( 'teacher_id' ) ?: null;
 
 		$schedule_json = $this->sanitizeText( 'schedule_json' );
 		$raw_entries   = is_string( $schedule_json ) ? json_decode( wp_unslash( $schedule_json ), true ) : null;
@@ -58,11 +58,11 @@ class StudentGroupCallbacks extends BaseController {
 		}
 
 		$id = $this->groupsRepository->create( array(
-			'subject_id' => $subject_id,
-			'period_id'  => $period_id,
-			'group_name' => $title,
-			'teacher_id' => $teacher_id,
-			'schedule'   => (string) wp_json_encode( $schedule ),
+			'subject_key'        => $subject_key,
+			'academic_period_id' => $academic_period_id,
+			'name'               => $title,
+			'teacher_id'         => $teacher_id,
+			'schedule'           => (string) wp_json_encode( $schedule ),
 		) );
 
 		if ( ! $id ) {
@@ -77,15 +77,15 @@ class StudentGroupCallbacks extends BaseController {
 
 		$group_id = $this->sanitizeInt( 'group_id' );
 
-		$enrollments = $this->enrollmentRepository->findActiveByGroupId( $group_id );
+		$records = $this->studentRecordRepository->findActiveByGroupId( $group_id );
 
 		$students = array();
-		foreach ( $enrollments as $enr ) {
-			$person = $this->personRepository->find( $enr->studentPersonId );
+		foreach ( $records as $record ) {
+			$person = $this->personRepository->find( $record->studentPersonId );
 			$wpUser = $person?->wpUserId ? get_userdata( $person->wpUserId ) : null;
 			$students[] = array(
-				'id'   => $enr->studentPersonId,
-				'name' => $wpUser ? $wpUser->display_name : ( $person?->fullName ?: "Person #{$enr->studentPersonId}" ),
+				'id'   => $record->studentPersonId,
+				'name' => $wpUser ? $wpUser->display_name : ( $person?->fullName() ?: "Person #{$record->studentPersonId}" ),
 			);
 		}
 

@@ -126,7 +126,6 @@ export const ArchiveViewModal = {
             g_first_name:       gd.first_name      ?? gd.full_name?.split( ' ' )[ 1 ] ?? '',
             g_middle_name:      gd.middle_name     ?? gd.full_name?.split( ' ' )[ 2 ] ?? '',
             g_birth_date:       gd.birth_date      ?? '',
-            g_relation_type:    gd.relation_type   ?? '',
             g_email:            gd.email           ?? '',
             g_phone:            gd.phone           ?? '',
             g_doc_type:         gd.doc_type        ?? '',

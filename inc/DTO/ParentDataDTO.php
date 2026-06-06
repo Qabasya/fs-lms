@@ -25,7 +25,6 @@ namespace Inc\DTO;
  * ### Примечания:
  *
  * - docType, docNumber, docIssuedBy, docIssuedDate — паспортные данные
- * - relationType — тип родства (мать, отец, опекун)
  * - Поля *_enc в БД хранятся зашифрованными, DTO содержит расшифрованные значения
  */
 readonly class ParentDataDTO {
@@ -37,7 +36,6 @@ readonly class ParentDataDTO {
 	 * @param string $firstName      Имя родителя
 	 * @param string $middleName     Отчество родителя
 	 * @param string $birthDate      Дата рождения (Y-m-d)
-	 * @param string $relationType   Тип родства (mother, father, guardian)
 	 * @param string $docType        Тип документа (pass, birth_certificate)
 	 * @param string $docNumber      Номер документа
 	 * @param string $docIssuedBy    Кем выдан документ
@@ -52,7 +50,6 @@ readonly class ParentDataDTO {
 		public string $firstName,
 		public string $middleName,
 		public string $birthDate,
-		public string $relationType,
 		public string $docType,
 		public string $docNumber,
 		public string $docIssuedBy,
@@ -86,7 +83,6 @@ readonly class ParentDataDTO {
 			firstName:     $firstName,
 			middleName:    $middleName,
 			birthDate:     (string) ( $data['birth_date']      ?? '' ),
-			relationType:  (string) ( $data['relation_type']   ?? '' ),
 			docType:       (string) ( $data['doc_type']        ?? '' ),
 			docNumber:     (string) ( $data['doc_number']      ?? '' ),
 			docIssuedBy:   (string) ( $data['doc_issued_by']   ?? '' ),
@@ -110,7 +106,6 @@ readonly class ParentDataDTO {
 			'middle_name'     => $this->middleName,
 			'full_name'       => $this->fullName(),
 			'birth_date'      => $this->birthDate,
-			'relation_type'   => $this->relationType,
 			'doc_type'        => $this->docType,
 			'doc_number'      => $this->docNumber,
 			'doc_issued_by'   => $this->docIssuedBy,

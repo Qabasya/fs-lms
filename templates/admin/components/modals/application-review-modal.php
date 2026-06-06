@@ -172,21 +172,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 										<input type="date" name="parent_birth_date" hidden>
 									</div>
 								</div>
-								<div class="fs-form-group">
-									<label><?php esc_html_e( 'Роль', 'fs-lms' ); ?></label>
-									<div class="fs-editable-field" data-field="relation_type">
-										<span class="fs-editable-field__display"></span>
-										<button type="button" class="fs-editable-field__btn button-link" aria-label="<?php esc_attr_e( 'Редактировать', 'fs-lms' ); ?>">
-											<span class="dashicons dashicons-edit"></span>
-										</button>
-										<select name="relation_type" hidden>
-											<option value=""><?php esc_html_e( '— Выберите —', 'fs-lms' ); ?></option>
-											<?php foreach ( array( 'mother' => 'Мать', 'father' => 'Отец', 'guardian' => 'Опекун', 'grandparent' => 'Бабушка/Дедушка', 'other' => 'Другое' ) as $val => $label ) : ?>
-												<option value="<?php echo esc_attr( $val ); ?>"><?php echo esc_html( $label ); ?></option>
-											<?php endforeach; ?>
-										</select>
-									</div>
-								</div>
 							</div>
 
 							<div class="fs-form-row">

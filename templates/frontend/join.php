@@ -300,24 +300,6 @@ ThemeCompatService::header();
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
-                        <label for="fs_relation_type"><?php esc_html_e( 'Кем приходитесь ученику?', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
-                        <span class="dashicons dashicons-groups" aria-hidden="true"></span>
-                        <select
-                                name="relation_type"
-                                id="fs_relation_type"
-                                required
-                                aria-required="true"
-                                autocomplete="off"
-                        >
-                                <option value="mother"><?php esc_html_e( 'Мать', 'fs-lms' ); ?></option>
-                                <option value="father"><?php esc_html_e( 'Отец', 'fs-lms' ); ?></option>
-                                <option value="guardian"><?php esc_html_e( 'Опекун', 'fs-lms' ); ?></option>
-                                <option value="grandparent"><?php esc_html_e( 'Бабушка/Дедушка', 'fs-lms' ); ?></option>
-                                <option value="other"><?php esc_html_e( 'Другое', 'fs-lms' ); ?></option>
-                        </select>
-                    </div>
-
-                    <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_doc_type"><?php esc_html_e( 'Тип документа', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
                         <span class="dashicons dashicons-media-document" aria-hidden="true"></span>
                         <select

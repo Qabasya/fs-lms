@@ -78,7 +78,6 @@ export const ApplicationViewModal = {
             p_first_name:     d.pFirstName,
             p_middle_name:    d.pMiddleName,
             p_birth_date:     d.pBirthDate,
-            p_relation_type:  d.pRelationType,
             p_email:          d.pEmail,
             p_phone:          d.pPhone,
             p_doc_type:       d.pDocType,

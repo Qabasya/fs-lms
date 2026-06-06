@@ -123,10 +123,10 @@ class AdminCallbacks extends BaseController {
 
 		$groups_view = array_map(
 			fn( object $g ) => array(
-				'id'           => (int) $g->group_id,
-				'title'        => $g->group_name,
-				'period_name'  => $raw_periods[ $g->period_id ]['name'] ?? $g->period_id,
-				'subject_name' => $subjects[ $g->subject_id ]->name ?? $g->subject_id,
+				'id'           => (int) $g->id,
+				'title'        => $g->name,
+				'period_name'  => $raw_periods[ $g->academic_period_id ]['name'] ?? $g->academic_period_id,
+				'subject_name' => $subjects[ $g->subject_key ]->name ?? $g->subject_key,
 				'teacher_name' => $g->teacher_id ? ( $teacher_map[ (int) $g->teacher_id ] ?? "#{$g->teacher_id}" ) : '—',
 				'schedule'     => WeekDay::formatScheduleFull( json_decode( $g->schedule ?? '[]', true ) ?: array() ),
 			),

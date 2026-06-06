@@ -4,54 +4,14 @@ declare( strict_types=1 );
 
 namespace Inc\DTO;
 
-/**
- * Class RepresentativeInputDTO
- *
- * Входные данные из формы добавления/замены представителя в административной панели.
- *
- * @package Inc\DTO
- *
- * ### Основные обязанности:
- *
- * 1. **Типобезопасная передача** — инкапсулирует данные законного представителя,
- *    добавляемого или заменяемого сотрудником в админ-панели.
- *
- * ### Архитектурная роль:
- *
- * Используется в PiiCallbacks::ajaxAddRepresentative() для добавления
- * нового представителя и в ajaxReplaceRepresentative() для замены существующего.
- * Все поля уже санитизированы через Sanitizer trait до создания DTO.
- *
- * ### Примечания:
- *
- * - studentPersonId — ID ученика, которому добавляется/заменяется представитель
- * - relationType — тип родства (mother, father, guardian, grandparent, other)
- * - Данные представителя могут быть как новыми (создаётся новая запись в persons),
- *   так и существующими (если представитель уже есть в системе)
- */
 readonly class RepresentativeInputDTO {
 
-	/**
-	 * Конструктор DTO.
-	 *
-	 * @param int    $studentPersonId ID ученика (из таблицы persons)
-	 * @param string $fullName        Полное имя представителя (Фамилия Имя Отчество)
-	 * @param string $birthDate       Дата рождения представителя (Y-m-d)
-	 * @param string $relationType    Тип родства (mother, father, guardian)
-	 * @param string $docType         Тип документа (pass, birth_certificate)
-	 * @param string $docNumber       Номер документа представителя
-	 * @param string $docIssuedBy     Кем выдан документ
-	 * @param string $docIssuedDate   Дата выдачи документа (Y-m-d)
-	 * @param string $inn             ИНН представителя
-	 * @param string $address         Адрес представителя
-	 * @param string $phone           Телефон представителя
-	 * @param string $email           Email представителя
-	 */
 	public function __construct(
 		public int    $studentPersonId,
-		public string $fullName,
+		public string $lastName,
+		public string $firstName,
+		public string $middleName,
 		public string $birthDate,
-		public string $relationType,
 		public string $docType,
 		public string $docNumber,
 		public string $docIssuedBy,
@@ -61,4 +21,8 @@ readonly class RepresentativeInputDTO {
 		public string $phone,
 		public string $email,
 	) {}
+
+	public function fullName(): string {
+		return trim( "{$this->lastName} {$this->firstName} {$this->middleName}" );
+	}
 }

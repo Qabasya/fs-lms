@@ -7,14 +7,12 @@
  */
 
 use Inc\Enums\Capability;
-use Inc\Enums\DocumentType;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Enums\WeekDay;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Services\PiiCryptoService;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -23,19 +21,23 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	return;
 }
 
-$enrollmentRepo = new EnrollmentRepository();
-$personRepo     = new PersonRepository();
-$groupRepo      = new GroupsRepository();
-$subjectRepo    = new SubjectRepository();
-$crypto         = new PiiCryptoService();
+$recordRepo  = new StudentRecordRepository();
+$personRepo  = new PersonRepository();
+$groupRepo   = new GroupsRepository();
+$subjectRepo = new SubjectRepository();
 
 $page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage = 20;
 
-$filters     = array( 'status' => EnrollmentStatus::Active->value );
-$enrollments = $enrollmentRepo->list( $filters, $page, $perPage );
-$total       = $enrollmentRepo->count( $filters );
-$pages       = (int) ceil( $total / $perPage );
+$filters = array( 'status' => EnrollmentStatus::Active->value );
+$records = $recordRepo->list( $filters, $page, $perPage );
+$total   = $recordRepo->count( $filters );
+$pages   = (int) ceil( $total / $perPage );
+
+$allSubjects = array();
+foreach ( $subjectRepo->readAll() as $dto ) {
+	$allSubjects[ $dto->key ] = $dto->name;
+}
 
 ?>
 
@@ -79,7 +81,7 @@ $pages       = (int) ceil( $total / $perPage );
 		</thead>
 
 		<tbody id="the-list">
-		<?php if ( empty( $enrollments ) ) : ?>
+		<?php if ( empty( $records ) ) : ?>
 			<tr>
 				<td colspan="7">
 					<div class="notice notice-info inline fs-table__no-items">
@@ -89,88 +91,71 @@ $pages       = (int) ceil( $total / $perPage );
 			</tr>
 
 		<?php else : ?>
-			<?php foreach ( $enrollments as $row ) :
+			<?php foreach ( $records as $row ) :
 				$studentPersonId = $row->studentPersonId;
 				$groupId         = (int) ( $row->groupId ?? 0 );
 
-				// Имя ученика из таблицы persons
+				// Имя ученика
 				$studentName = '—';
 				$wpUser      = null;
 				$person      = $personRepo->find( $studentPersonId );
-				if ( $person ) {
-					$studentName = $person->fullName ?: '—';
+				if ( $person !== null ) {
+					$studentName = $person->fullName() ?: '—';
 					if ( $person->wpUserId ) {
 						$wpUser = get_userdata( $person->wpUserId );
+						if ( $wpUser ) {
+							$studentName = $wpUser->display_name ?: $studentName;
+						}
 					}
 				}
 
-				// Группа и расписание
+				// Группа, расписание и направление
 				$groupTitle  = '—';
 				$scheduleStr = '—';
 				$formatted   = '';
+				$subjectName = '—';
 				$group       = $groupId ? $groupRepo->findById( $groupId ) : null;
-				if ( $group ) {
-					$groupTitle  = $group->group_name;
+				if ( $group !== null ) {
+					$groupTitle  = $group->name;
 					$formatted   = WeekDay::formatSchedule( $group->schedule );
 					if ( $formatted !== '' ) {
 						$scheduleStr = $formatted;
 					}
+					$subjectName = $allSubjects[ $group->subject_key ] ?? $group->subject_key;
 				}
 
-				// Направление
-				$subjectName = $subjectKey;
-				$subject     = $subjectRepo->getByKey( $subjectKey );
-				if ( $subject ) {
-					$subjectName = $subject->name;
-				}
-
-				// Расшифровка снапшота
-				$snapshot    = array();
-				$contractNo  = '—';
-				if ( ! empty( $row->snapshotEnc ) ) {
-					try {
-						$snapshot   = json_decode( $crypto->decrypt( $row->snapshotEnc ), true ) ?? array();
-						$contractNo = $snapshot['contract_no'] ?? '—';
-					} catch ( \Throwable $e ) {
-						// snapshot недоступен
-					}
-				}
-
-				$sd = $snapshot['student']  ?? array();
-				$gd = $snapshot['guardian'] ?? array();
-
+				$contractNo     = $row->contractNo ?? '—';
 				$enrollmentData = array(
 					'subject'                  => $subjectName,
 					'group'                    => $groupTitle,
 					'schedule'                 => $formatted,
-					'contract_no'              => $snapshot['contract_no']   ?? '',
-					'contract_date'            => $snapshot['contract_date'] ?? '',
-					'order_no'                 => $snapshot['order_no']      ?? '',
-					'order_date'               => $snapshot['order_date']    ?? '',
+					'contract_no'              => $row->contractNo   ?? '',
+					'contract_date'            => $row->contractDate ?? '',
+					'order_no'                 => $row->orderNo      ?? '',
+					'order_date'               => $row->orderDate    ?? '',
 					'enrolled_at'              => substr( $row->enrolledAt, 0, 10 ),
-					'student_last_name'        => $sd['last_name']   ?? '',
-					'student_first_name'       => $sd['first_name']  ?? '',
-					'student_middle_name'      => $sd['middle_name'] ?? '',
-					'student_full_name'        => $sd['full_name']   ?? $studentName,
-					'student_birth_date'       => $sd['birth_date']  ?? '',
-					'student_email'            => $sd['email']      ?? '',
-					'student_phone'            => $sd['phone']      ?? '',
-					'student_school'           => $sd['school']     ?? '',
-					'student_grade'            => isset( $sd['grade'] ) ? (string) $sd['grade'] : '',
-					'student_doc_type'         => DocumentType::tryFrom( $sd['doc_type'] ?? '' )?->label() ?? ( $sd['doc_type'] ?? '' ),
-					'student_doc_number'       => $sd['doc_number'] ?? '',
-					'student_inn'              => $sd['inn']        ?? '',
-					'guardian_full_name'       => $gd['full_name']      ?? '',
-					'guardian_relation_type'   => $gd['relation_type'] ?? '',
-					'guardian_birth_date'      => $gd['birth_date']      ?? '',
-					'guardian_email'           => $gd['email']           ?? '',
-					'guardian_phone'           => $gd['phone']           ?? '',
-					'guardian_doc_type'        => DocumentType::tryFrom( $gd['doc_type'] ?? '' )?->label() ?? ( $gd['doc_type'] ?? '' ),
-					'guardian_doc_number'      => $gd['doc_number']      ?? '',
-					'guardian_doc_issued_by'   => $gd['doc_issued_by']   ?? '',
-					'guardian_doc_issued_date' => $gd['doc_issued_date'] ?? '',
-					'guardian_inn'             => $gd['inn']             ?? '',
-					'guardian_address'         => $gd['address']         ?? '',
+					'student_last_name'        => $person?->lastName   ?? '',
+					'student_first_name'       => $person?->firstName  ?? '',
+					'student_middle_name'      => $person?->middleName ?? '',
+					'student_full_name'        => $studentName,
+					'student_birth_date'       => $person?->birthDate  ?? '',
+					'student_email'            => '',
+					'student_phone'            => '',
+					'student_school'           => '',
+					'student_grade'            => '',
+					'student_doc_type'         => '',
+					'student_doc_number'       => '',
+					'student_inn'              => '',
+					'guardian_full_name'       => '',
+					'guardian_birth_date'      => '',
+					'guardian_email'           => '',
+					'guardian_phone'           => '',
+					'guardian_doc_type'        => '',
+					'guardian_doc_number'      => '',
+					'guardian_doc_issued_by'   => '',
+					'guardian_doc_issued_date' => '',
+					'guardian_inn'             => '',
+					'guardian_address'         => '',
 				);
 			?>
 			<tr data-enrollment="<?php echo esc_attr( (string) wp_json_encode( $enrollmentData ) ); ?>" data-wp-user-id="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>">
@@ -194,7 +179,7 @@ $pages       = (int) ceil( $total / $perPage );
 				</td>
 
 				<td>
-					<?php if ( '—' !== $contractNo ) : ?>
+					<?php if ( $contractNo && '—' !== $contractNo ) : ?>
 						<?php echo esc_html( $contractNo ); ?>
 					<?php else : ?>
 						<span class="fs-table__empty-value">—</span>

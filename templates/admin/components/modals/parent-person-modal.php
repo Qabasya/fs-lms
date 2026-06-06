@@ -46,10 +46,6 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 					</div>
 				</div>
-				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Роль', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="relation_type" data-no-edit readonly>
-				</div>
 			</div>
 
 			<div class="fs-form-row">

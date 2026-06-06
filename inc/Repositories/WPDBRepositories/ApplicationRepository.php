@@ -304,13 +304,13 @@ class ApplicationRepository implements RepositoryInterface {
 	 *
 	 * @return bool
 	 */
-	public function markConverted( int $id, int $enrollmentId ): bool {
+	public function markConverted( int $id, int $recordId ): bool {
 		return $this->update(
 			$id,
 			array(
-				'status'                     => ApplicationStatus::Converted->value,
-				'converted_to_enrollment_id' => $enrollmentId,
-				'updated_at'                 => current_time( 'mysql' ),
+				'status'              => ApplicationStatus::Converted->value,
+				'converted_record_id' => $recordId,
+				'updated_at'          => current_time( 'mysql' ),
 			)
 		);
 	}

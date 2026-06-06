@@ -2,6 +2,8 @@
 
 namespace Inc\Enums;
 
+// TODO: добавить человекочитаемые названия для экспорта в csv
+
 enum AuditAction: string {
 	// ===== Заявки (Applications) =====
 
@@ -31,16 +33,16 @@ enum AuditAction: string {
 	/** Прекращение обучения студента */
 	case TerminateEnrollment = 'terminate_enrollment';
 
-	// ===== Связи родитель-студент =====
-
-	/** Создание связи (родитель → студент) */
-	case CreateRelationship = 'create_relationship';
-
-	/** Замена связи (изменение родителя) */
-	case ReplaceRelationship = 'replace_relationship';
-
-	/** Прекращение связи */
-	case TerminateRelationship = 'terminate_relationship';
+//	// ===== Связи родитель-студент =====
+//
+//	/** Создание связи (родитель → студент) */
+//	case CreateRelationship = 'create_relationship';
+//
+//	/** Замена связи (изменение родителя) */
+//	case ReplaceRelationship = 'replace_relationship';
+//
+//	/** Прекращение связи */
+//	case TerminateRelationship = 'terminate_relationship';
 
 	// ===== Личные данные (Person) =====
 

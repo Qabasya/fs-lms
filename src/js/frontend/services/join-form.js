@@ -226,7 +226,6 @@ function collectFormData() {
         parent_first_name:   get( 'parent_first_name' ),
         parent_middle_name:  get( 'parent_middle_name' ),
         parent_birth_date:   get( 'parent_birth_date' ),
-        relation_type:       get( 'relation_type' ),
         doc_type:            get( 'doc_type' ),
         doc_number:          get( 'doc_number' ),
         doc_issued_by:       get( 'doc_issued_by' ),

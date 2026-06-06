@@ -40,14 +40,15 @@ class Migration_1_0_0 implements MigrationInterface {
 		}
 
 		// ===== Сброс старой схемы =====
-		// Таблицы с изменившейся структурой и удалённые таблицы дропаем явно —
-		// dbDelta умеет добавлять колонки, но не удалять и не менять типы.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		foreach ( array(
 			$wpdb->prefix . 'fs_lms_expelled_archive',
 			$wpdb->prefix . 'fs_lms_relationships',
 			$wpdb->prefix . 'fs_lms_enrollments',
+			$wpdb->prefix . 'fs_lms_archive',
+			$wpdb->prefix . 'fs_lms_student_records',
 			$wpdb->prefix . 'fs_lms_persons',
+			$wpdb->prefix . 'fs_lms_groups',
 		) as $t ) {
 			$wpdb->query( "DROP TABLE IF EXISTS `$t`" );
 		}
@@ -58,17 +59,19 @@ class Migration_1_0_0 implements MigrationInterface {
 		$persons = TableName::Persons->prefixed();
 		dbDelta(
 			"CREATE TABLE $persons (
-			id         int unsigned             NOT NULL AUTO_INCREMENT,
-			wp_user_id bigint(20) unsigned      DEFAULT NULL,
-			full_name  varchar(255)             NOT NULL DEFAULT '',
-			birth_date date                     DEFAULT NULL,
-			role       enum('student','parent') NOT NULL,
-			deleted_at datetime                 DEFAULT NULL,
-			created_at datetime                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at datetime                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			id          int unsigned        NOT NULL AUTO_INCREMENT,
+			wp_user_id  bigint(20) unsigned DEFAULT NULL,
+			last_name   varchar(100)        NOT NULL,
+			first_name  varchar(100)        NOT NULL,
+			middle_name varchar(100)        DEFAULT NULL,
+			birth_date  date                DEFAULT NULL,
+			is_student  tinyint(1)          NOT NULL DEFAULT 0,
+			deleted_at  datetime            DEFAULT NULL,
+			created_at  datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at  datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY wp_user_id (wp_user_id),
-			KEY role (role)
+			KEY is_student (is_student)
 		) $cc;"
 		);
 
@@ -103,17 +106,20 @@ class Migration_1_0_0 implements MigrationInterface {
 		$groups = TableName::Groups->prefixed();
 		dbDelta(
 			"CREATE TABLE $groups (
-			group_id    smallint unsigned        NOT NULL AUTO_INCREMENT,
-			subject_id  varchar(50)              NOT NULL,
-			period_id   varchar(50)              NOT NULL,
-			group_name  varchar(255)             DEFAULT NULL,
-			teacher_id  bigint(20) unsigned      DEFAULT NULL,
-			schedule    varchar(500)             DEFAULT NULL,
-			created_at  datetime                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			deleted_at  datetime                 DEFAULT NULL,
-			PRIMARY KEY  (group_id),
-			KEY subject_id (subject_id),
-			KEY period_id (period_id),
+			id                 smallint unsigned NOT NULL AUTO_INCREMENT,
+			group_id           varchar(100)      NOT NULL,
+			subject_key        varchar(50)       NOT NULL,
+			academic_period_id varchar(50)       NOT NULL,
+			name               varchar(255)      NOT NULL,
+			teacher_id         int unsigned      DEFAULT NULL,
+			schedule           text              DEFAULT NULL,
+			created_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			deleted_at         datetime          DEFAULT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY group_id (group_id),
+			KEY subject_key (subject_key),
+			KEY academic_period_id (academic_period_id),
 			KEY teacher_id (teacher_id)
 		) $cc;"
 		);
@@ -122,23 +128,22 @@ class Migration_1_0_0 implements MigrationInterface {
 		$applications = TableName::Applications->prefixed();
 		dbDelta(
 			"CREATE TABLE $applications (
-			id                         int unsigned        NOT NULL AUTO_INCREMENT,
-			student_person_id          int unsigned        DEFAULT NULL,
-			parent_person_id           int unsigned        DEFAULT NULL,
-			period_id                  varchar(50)         NOT NULL,
-			status                     varchar(50)         NOT NULL,
-			join_code_hash             varchar(64)         DEFAULT NULL,
-			join_code_enc              blob                DEFAULT NULL,
-			join_code_expires_at       datetime            DEFAULT NULL,
-			student_email_hash         varchar(64)         DEFAULT NULL,
-			student_data_enc           longblob            DEFAULT NULL,
-			parent_data_enc            longblob            DEFAULT NULL,
-			converted_to_enrollment_id int unsigned        DEFAULT NULL,
-			parent_submitted_ip        varchar(45)         DEFAULT NULL,
-			parent_submitted_ua        varchar(500)        DEFAULT NULL,
-			reviewed_by_user_id        bigint(20) unsigned DEFAULT NULL,
-			created_at                 datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at                 datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			id                   int unsigned                                                              NOT NULL AUTO_INCREMENT,
+			student_person_id    int unsigned                                                              DEFAULT NULL,
+			parent_person_id     int unsigned                                                              DEFAULT NULL,
+			status               enum('pending_parent','ready_for_review','enrolling','converted','expired','trash') NOT NULL,
+			join_code_hash       char(64)                                                                  DEFAULT NULL,
+			join_code_enc        blob                                                                      DEFAULT NULL,
+			join_code_expires_at datetime                                                                  DEFAULT NULL,
+			student_email_hash   char(64)                                                                  DEFAULT NULL,
+			student_data_enc     longblob                                                                  DEFAULT NULL,
+			parent_data_enc      longblob                                                                  DEFAULT NULL,
+			converted_record_id  int unsigned                                                              DEFAULT NULL,
+			parent_submitted_ip  varbinary(16)                                                             DEFAULT NULL,
+			parent_submitted_ua  varchar(500)                                                              DEFAULT NULL,
+			reviewed_by_user_id  bigint(20) unsigned                                                       DEFAULT NULL,
+			created_at           datetime                                                                  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at           datetime                                                                  NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY student_person_id (student_person_id),
 			KEY parent_person_id (parent_person_id),
@@ -148,58 +153,36 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
-		// ===== 5. enrollments — зачисления =====
-		$enrollments = TableName::Enrollments->prefixed();
+		// ===== 5. student_records — факт обучения (зачисление + отчисление + связь родитель→ученик) =====
+		$student_records = TableName::StudentRecords->prefixed();
 		dbDelta(
-			"CREATE TABLE $enrollments (
-			id                    int unsigned NOT NULL AUTO_INCREMENT,
-			student_person_id     int unsigned NOT NULL,
-			source_application_id int unsigned DEFAULT NULL,
-			group_id              int unsigned DEFAULT NULL,
-			status                varchar(50)  NOT NULL,
-			enrolled_at           datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			terminated_at         datetime     DEFAULT NULL,
-			terminated_reason     text         DEFAULT NULL,
-			terminated_by_user_id int unsigned DEFAULT NULL,
-			snapshot_enc          longblob     DEFAULT NULL,
-			created_at            datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at            datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			KEY student_person_id (student_person_id),
-			KEY source_application_id (source_application_id),
-			KEY group_id (group_id),
-			KEY status (status)
-		) $cc;"
-		);
-
-		// ===== 6. archive — зачисления + отчисления + связь родитель→ученик =====
-		$archive = TableName::Archive->prefixed();
-		dbDelta(
-			"CREATE TABLE $archive (
+			"CREATE TABLE $student_records (
 			id                  int unsigned        NOT NULL AUTO_INCREMENT,
-			enrollment_id       int unsigned        DEFAULT NULL,
 			student_person_id   int unsigned        NOT NULL,
 			parent_person_id    int unsigned        NOT NULL,
+			group_id            smallint unsigned   NOT NULL,
 			contract_no         varchar(50)         DEFAULT NULL,
 			contract_date       date                DEFAULT NULL,
 			order_no            varchar(50)         DEFAULT NULL,
 			order_date          date                DEFAULT NULL,
-			group_id            int unsigned        DEFAULT NULL,
+			status              enum('active','finished','expelled','transferred') NOT NULL DEFAULT 'active',
 			enrolled_at         datetime            NOT NULL,
 			expelled_at         datetime            DEFAULT NULL,
 			expelled_by_user_id bigint(20) unsigned DEFAULT NULL,
-			reason              varchar(500)        DEFAULT NULL,
+			expel_reason        varchar(500)        DEFAULT NULL,
 			created_at          datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at          datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
-			KEY enrollment_id (enrollment_id),
 			KEY student_person_id (student_person_id),
 			KEY parent_person_id (parent_person_id),
 			KEY group_id (group_id),
+			KEY status (status),
+			KEY enrolled_at (enrolled_at),
 			KEY expelled_at (expelled_at)
 		) $cc;"
 		);
 
-		// ===== 7. consents — согласия на обработку ПДн =====
+		// ===== 6. consents — согласия на обработку ПДн =====
 		$consents = TableName::Consents->prefixed();
 		dbDelta(
 			"CREATE TABLE $consents (
@@ -269,11 +252,10 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
-			TableName::Archive->prefixed(),
+			TableName::StudentRecords->prefixed(),
 			TableName::PiiAccessLog->prefixed(),
 			TableName::AuditLog->prefixed(),
 			TableName::Consents->prefixed(),
-			TableName::Enrollments->prefixed(),
 			TableName::Applications->prefixed(),
 			TableName::PersonDocuments->prefixed(),
 			TableName::Groups->prefixed(),

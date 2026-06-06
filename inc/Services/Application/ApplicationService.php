@@ -179,7 +179,6 @@ readonly class ApplicationService {
 			firstName:     $input->parentFirstName,
 			middleName:    $input->parentMiddleName,
 			birthDate:     $input->parentBirthDate,
-			relationType:  $input->relationType,
 			docType:       $input->docType,
 			docNumber:     $input->docNumber,
 			docIssuedBy:   $input->docIssuedBy,

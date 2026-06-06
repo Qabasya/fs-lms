@@ -19,7 +19,7 @@ class GroupsRepository {
 	public function findById( int $id ): ?object {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE group_id = %d LIMIT 1',
+				'SELECT * FROM %i WHERE id = %d LIMIT 1',
 				$this->table,
 				$id
 			)
@@ -28,23 +28,35 @@ class GroupsRepository {
 		return $row ?: null;
 	}
 
-	public function findBySubjectId( string $subjectId ): array {
+	public function findByGroupId( string $groupId ): ?object {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE group_id = %s LIMIT 1',
+				$this->table,
+				$groupId
+			)
+		);
+
+		return $row ?: null;
+	}
+
+	public function findBySubjectKey( string $subjectKey ): array {
 		return $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE subject_id = %s ORDER BY group_name ASC',
+				'SELECT * FROM %i WHERE subject_key = %s ORDER BY name ASC',
 				$this->table,
-				$subjectId
+				$subjectKey
 			)
 		) ?: array();
 	}
 
-	public function findByPeriodAndSubject( string $periodId, string $subjectId ): array {
+	public function findByPeriodAndSubject( string $periodId, string $subjectKey ): array {
 		return $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE period_id = %s AND subject_id = %s ORDER BY group_name ASC',
+				'SELECT * FROM %i WHERE academic_period_id = %s AND subject_key = %s ORDER BY name ASC',
 				$this->table,
 				$periodId,
-				$subjectId
+				$subjectKey
 			)
 		) ?: array();
 	}
@@ -52,7 +64,7 @@ class GroupsRepository {
 	public function findByPeriodId( string $periodId ): array {
 		return $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE period_id = %s ORDER BY group_name ASC',
+				'SELECT * FROM %i WHERE academic_period_id = %s ORDER BY name ASC',
 				$this->table,
 				$periodId
 			)
@@ -61,7 +73,7 @@ class GroupsRepository {
 
 	public function findAll(): array {
 		return $this->wpdb->get_results(
-			$this->wpdb->prepare( 'SELECT * FROM %i ORDER BY subject_id, group_name ASC', $this->table )
+			$this->wpdb->prepare( 'SELECT * FROM %i ORDER BY subject_key, name ASC', $this->table )
 		) ?: array();
 	}
 
@@ -71,10 +83,10 @@ class GroupsRepository {
 	}
 
 	public function update( int $id, array $data ): bool {
-		return false !== $this->wpdb->update( $this->table, $data, array( 'group_id' => $id ) );
+		return false !== $this->wpdb->update( $this->table, $data, array( 'id' => $id ) );
 	}
 
 	public function delete( int $id ): bool {
-		return false !== $this->wpdb->delete( $this->table, array( 'group_id' => $id ) );
+		return false !== $this->wpdb->delete( $this->table, array( 'id' => $id ) );
 	}
 }

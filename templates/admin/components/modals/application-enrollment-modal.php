@@ -89,7 +89,6 @@ $today = current_time( 'Y-m-d' );
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Имя', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_first_name">—</span></div>
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_middle_name">—</span></div>
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_birth_date">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Роль', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_relation_type">—</span></div>
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Email', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_email">—</span></div>
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_phone">—</span></div>
 									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Документ', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_doc">—</span></div>

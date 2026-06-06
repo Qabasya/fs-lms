@@ -273,7 +273,6 @@ class ApplicationCallbacks extends BaseController {
 			parentFirstName:    $this->requireText( 'parent_first_name' ),
 			parentMiddleName:   $this->sanitizeText( 'parent_middle_name' ),
 			parentBirthDate:    $this->requireText( 'parent_birth_date' ),
-			relationType:       $this->requireKey( 'relation_type' ),
 			docType:            $this->requireKey( 'doc_type' ),
 			docNumber:          $this->requireText( 'doc_number' ),
 			docIssuedBy:        $this->sanitizeText( 'doc_issued_by' ),

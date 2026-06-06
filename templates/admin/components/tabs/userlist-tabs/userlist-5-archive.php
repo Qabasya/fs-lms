@@ -7,14 +7,11 @@
  */
 
 use Inc\Enums\Capability;
-use Inc\Enums\DocumentType;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Repositories\WPDBRepositories\ArchiveRepository;
-use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Services\PiiCryptoService;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -23,12 +20,10 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	return;
 }
 
-$enrollmentRepo = new EnrollmentRepository();
-$archiveRepo    = new ArchiveRepository();
-$personRepo     = new PersonRepository();
-$groupRepo      = new GroupsRepository();
-$subjectRepo    = new SubjectRepository();
-$crypto         = new PiiCryptoService();
+$recordRepo  = new StudentRecordRepository();
+$personRepo  = new PersonRepository();
+$groupRepo   = new GroupsRepository();
+$subjectRepo = new SubjectRepository();
 
 $page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage = 20;
@@ -39,11 +34,10 @@ $filters = array( 'status' => array(
 	EnrollmentStatus::Transferred->value,
 ) );
 
-$enrollments = $enrollmentRepo->list( $filters, $page, $perPage );
-$total       = $enrollmentRepo->count( $filters );
-$pages       = (int) ceil( $total / $perPage );
+$records = $recordRepo->list( $filters, $page, $perPage );
+$total   = $recordRepo->count( $filters );
+$pages   = (int) ceil( $total / $perPage );
 
-// Все предметы один раз
 $allSubjects = array();
 foreach ( $subjectRepo->readAll() as $dto ) {
 	$allSubjects[ $dto->key ] = $dto->name;
@@ -79,7 +73,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 		</thead>
 
 		<tbody id="the-list">
-		<?php if ( empty( $enrollments ) ) : ?>
+		<?php if ( empty( $records ) ) : ?>
 			<tr>
 				<td colspan="7">
 					<div class="notice notice-info inline fs-table__no-items">
@@ -89,100 +83,72 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 			</tr>
 
 		<?php else : ?>
-			<?php foreach ( $enrollments as $row ) :
-				$studentPersonId  = $row->studentPersonId;
-				$groupId          = (int) ( $row->groupId ?? 0 );
-				$status           = $row->status;
-				$terminatedAt     = $row->terminatedAt ? substr( $row->terminatedAt, 0, 10 ) : '';
-				$terminatedReason = (string) ( $row->terminatedReason ?? '' );
+			<?php foreach ( $records as $row ) :
+				$studentPersonId = $row->studentPersonId;
+				$groupId         = (int) ( $row->groupId ?? 0 );
+				$status          = $row->status;
+				$expelledAt      = $row->expelledAt ? substr( $row->expelledAt, 0, 10 ) : '';
+				$expelReason     = (string) ( $row->expelReason ?? '' );
 
-				// Расшифровка снапшота (до имени — оно может быть только здесь после отчисления)
-				$snapshot = array();
-				if ( ! empty( $row->snapshotEnc ) ) {
-					try {
-						$snapshot = json_decode( $crypto->decrypt( $row->snapshotEnc ), true ) ?? array();
-					} catch ( \Throwable $e ) {
-						// snapshot недоступен
-					}
-				}
-
-				$sd = $snapshot['student']  ?? array();
-				$gd = $snapshot['guardian'] ?? array();
-
-				// Имя ученика: WP-пользователь → снапшот (после отчисления пользователь удалён)
+				// Имя ученика: WP-пользователь → PersonDTO
 				$studentName = '—';
 				$person      = $personRepo->find( $studentPersonId );
-				if ( $person && $person->wpUserId ) {
-					$wpUser      = get_userdata( $person->wpUserId );
-					$studentName = $wpUser ? $wpUser->display_name : '—';
-				}
-				if ( $studentName === '—' ) {
-					$fromSnapshot = trim( implode( ' ', array_filter( [
-						$sd['last_name']   ?? '',
-						$sd['first_name']  ?? '',
-						$sd['middle_name'] ?? '',
-					] ) ) );
-					if ( $fromSnapshot === '' ) {
-						$fromSnapshot = trim( (string) ( $sd['full_name'] ?? '' ) );
-					}
-					if ( $fromSnapshot !== '' ) {
-						$studentName = $fromSnapshot;
+				if ( $person !== null ) {
+					if ( $person->wpUserId ) {
+						$wpUser      = get_userdata( $person->wpUserId );
+						$studentName = $wpUser ? $wpUser->display_name : $person->fullName();
+					} else {
+						$studentName = $person->fullName() ?: "Person #{$studentPersonId}";
 					}
 				}
 
-				// Группа
-				$groupTitle = '—';
-				$group      = $groupId ? $groupRepo->findById( $groupId ) : null;
-				if ( $group ) {
-					$groupTitle = $group->group_name;
-				}
-
-				// Направление
+				// Группа и направление
+				$groupTitle  = '—';
 				$subjectName = '—';
+				$group       = $groupId ? $groupRepo->findById( $groupId ) : null;
+				if ( $group !== null ) {
+					$groupTitle  = $group->name;
+					$subjectName = $allSubjects[ $group->subject_key ] ?? $group->subject_key;
+				}
 
-				// Разбить full_name на части (обратная совместимость)
-				$sParts = explode( ' ', $sd['full_name'] ?? '', 3 );
-				$gParts = explode( ' ', $gd['full_name'] ?? '', 3 );
-
-				$archiveRecord  = $archiveRepo->findByEnrollmentId( $row->id );
+				// Данные для модалки
 				$enrollmentData = array(
-					'archive_id'      => $archiveRecord?->id,
+					'archive_id'      => $row->id,
 					'subject'         => $subjectName,
 					'group'           => $groupTitle,
 					'status_label'    => $status->label(),
-					'terminated_at'   => $terminatedAt,
-					'terminated_reason' => $terminatedReason,
-					'contract_no'     => $snapshot['contract_no']   ?? '',
-					'contract_date'   => $snapshot['contract_date'] ?? '',
-					'order_no'        => $snapshot['order_no']      ?? '',
-					'order_date'      => $snapshot['order_date']    ?? '',
+					'terminated_at'   => $expelledAt,
+					'terminated_reason' => $expelReason,
+					'contract_no'     => $row->contractNo   ?? '',
+					'contract_date'   => $row->contractDate ?? '',
+					'order_no'        => $row->orderNo      ?? '',
+					'order_date'      => $row->orderDate    ?? '',
 					'student'         => array(
-						'last_name'   => $sd['last_name']   ?? $sParts[0] ?? '',
-						'first_name'  => $sd['first_name']  ?? $sParts[1] ?? '',
-						'middle_name' => $sd['middle_name'] ?? $sParts[2] ?? '',
-						'birth_date'  => $sd['birth_date']  ?? '',
-						'email'       => $sd['email']       ?? '',
-						'phone'       => $sd['phone']       ?? '',
-						'school'      => $sd['school']      ?? '',
-						'grade'       => isset( $sd['grade'] ) ? (string) $sd['grade'] : '',
-						'doc_type'    => DocumentType::tryFrom( $sd['doc_type'] ?? '' )?->label() ?? ( $sd['doc_type'] ?? '' ),
-						'doc_number'  => $sd['doc_number']  ?? '',
-						'inn'         => $sd['inn']         ?? '',
+						'last_name'   => $person?->lastName   ?? '',
+						'first_name'  => $person?->firstName  ?? '',
+						'middle_name' => $person?->middleName ?? '',
+						'birth_date'  => $person?->birthDate  ?? '',
+						'email'       => '',
+						'phone'       => '',
+						'school'      => '',
+						'grade'       => '',
+						'doc_type'    => '',
+						'doc_number'  => '',
+						'inn'         => '',
 					),
 					'guardian'        => array(
-						'last_name'       => $gd['last_name']   ?? $gParts[0] ?? '',
-						'first_name'      => $gd['first_name']  ?? $gParts[1] ?? '',
-						'middle_name'     => $gd['middle_name'] ?? $gParts[2] ?? '',
-						'birth_date'      => $gd['birth_date']      ?? '',
-						'relation_type'   => $gd['relation_type'] ?? '',
-						'email'           => $gd['email']           ?? '',
-						'phone'           => $gd['phone']           ?? '',
-						'doc_type'        => DocumentType::tryFrom( $gd['doc_type'] ?? '' )?->label() ?? ( $gd['doc_type'] ?? '' ),
-						'doc_number'      => $gd['doc_number']      ?? '',
-						'doc_issued_by'   => $gd['doc_issued_by']   ?? '',
-						'doc_issued_date' => $gd['doc_issued_date'] ?? '',
-						'inn'             => $gd['inn']             ?? '',
-						'address'         => $gd['address']         ?? '',
+						'last_name'       => '',
+						'first_name'      => '',
+						'middle_name'     => '',
+						'birth_date'      => '',
+						'email'           => '',
+						'phone'           => '',
+						'doc_type'        => '',
+						'doc_number'      => '',
+						'doc_issued_by'   => '',
+						'doc_issued_date' => '',
+						'inn'             => '',
+						'address'         => '',
 					),
 				);
 			?>
@@ -200,18 +166,17 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					<?php echo esc_html( $groupTitle ); ?>
 				</td>
 
-
 				<td>
-					<?php if ( $terminatedAt ) : ?>
-						<?php echo esc_html( $terminatedAt ); ?>
+					<?php if ( $expelledAt ) : ?>
+						<?php echo esc_html( $expelledAt ); ?>
 					<?php else : ?>
 						<span class="fs-table__empty-value">—</span>
 					<?php endif; ?>
 				</td>
 
 				<td>
-					<?php if ( $terminatedReason ) : ?>
-						<?php echo esc_html( $terminatedReason ); ?>
+					<?php if ( $expelReason ) : ?>
+						<?php echo esc_html( $expelReason ); ?>
 					<?php else : ?>
 						<span class="fs-table__empty-value">—</span>
 					<?php endif; ?>

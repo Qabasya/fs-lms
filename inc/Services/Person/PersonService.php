@@ -42,11 +42,13 @@ readonly class PersonService {
 
 		$now      = $this->clock->now( 'mysql', true );
 		$personId = $this->personRepository->create( array(
-			'full_name'  => $input->fullName,
-			'birth_date' => $input->birthDate !== '' ? $input->birthDate : null,
-			'role'       => $input->role,
-			'created_at' => $now,
-			'updated_at' => $now,
+			'last_name'   => $input->lastName,
+			'first_name'  => $input->firstName,
+			'middle_name' => $input->middleName !== '' ? $input->middleName : null,
+			'birth_date'  => $input->birthDate !== '' ? $input->birthDate : null,
+			'is_student'  => $input->isStudent ? 1 : 0,
+			'created_at'  => $now,
+			'updated_at'  => $now,
 		) );
 
 		if ( 0 === $personId ) {
@@ -69,9 +71,11 @@ readonly class PersonService {
 		$docData      = array();
 		$changedFields = array();
 
-		if ( array_key_exists( 'full_name', $changes ) ) {
-			$personData['full_name'] = (string) $changes['full_name'];
-			$changedFields[]        = 'full_name';
+		foreach ( array( 'last_name', 'first_name', 'middle_name' ) as $nameField ) {
+			if ( array_key_exists( $nameField, $changes ) ) {
+				$personData[ $nameField ] = (string) $changes[ $nameField ];
+				$changedFields[]          = $nameField;
+			}
 		}
 
 		if ( array_key_exists( 'birth_date', $changes ) ) {

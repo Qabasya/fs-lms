@@ -13,9 +13,9 @@ use Inc\Enums\UserRole;
 use Inc\Enums\WeekDay;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Repositories\WPDBRepositories\ArchiveRepository;
-use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
+use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\AuditService;
 use Inc\Services\EmailService;
 use Inc\Services\PasswordGeneratorService;
@@ -33,19 +33,19 @@ class PiiCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly PersonReader             $personReader,
-		private readonly PersonService            $personService,
-		private readonly PersonRepository         $personRepository,
-		private readonly ArchiveRepository        $archiveRepository,
-		private readonly RateLimitService         $rateLimitService,
-		private readonly EmailService             $emailService,
-		private readonly AuditService             $auditService,
-		private readonly EnrollmentRepository     $enrollmentRepository,
-		private readonly GroupsRepository         $groupRepository,
-		private readonly SubjectRepository        $subjectRepository,
-		private readonly PiiCryptoService         $crypto,
-		private readonly PiiMaskingService        $maskingService,
-		private readonly PasswordGeneratorService $passwordGenerator,
+		private readonly PersonReader              $personReader,
+		private readonly PersonService             $personService,
+		private readonly PersonRepository          $personRepository,
+		private readonly PersonDocumentsRepository $personDocumentsRepository,
+		private readonly StudentRecordRepository   $studentRecordRepository,
+		private readonly RateLimitService          $rateLimitService,
+		private readonly EmailService              $emailService,
+		private readonly AuditService              $auditService,
+		private readonly GroupsRepository          $groupRepository,
+		private readonly SubjectRepository         $subjectRepository,
+		private readonly PiiCryptoService          $crypto,
+		private readonly PiiMaskingService         $maskingService,
+		private readonly PasswordGeneratorService  $passwordGenerator,
 	) {
 		parent::__construct();
 	}
@@ -85,19 +85,21 @@ class PiiCallbacks extends BaseController {
 		$studentPersonId = $this->sanitizeInt( 'student_person_id' );
 
 		$guardianPersonId = $this->personService->createOrFindBy( new PersonInputDTO(
-			fullName:  $this->requireText( 'full_name' ),
-			docNumber: $this->requireText( 'doc_number' ),
-			role:      'parent',
-			inn:       $this->sanitizeText( 'inn' ),
-			address:   $this->sanitizeText( 'address' ),
-			phone:     $this->sanitizeText( 'phone' ),
-			email:     $this->sanitizeText( 'email' ) ?: null,
+			lastName:   $this->requireText( 'last_name' ),
+			firstName:  $this->requireText( 'first_name' ),
+			docNumber:  $this->requireText( 'doc_number' ),
+			isStudent:  false,
+			middleName: $this->sanitizeText( 'middle_name' ),
+			inn:        $this->sanitizeText( 'inn' ),
+			address:    $this->sanitizeText( 'address' ),
+			phone:      $this->sanitizeText( 'phone' ),
+			email:      $this->sanitizeText( 'email' ) ?: null,
 		) );
 
-		$archiveRecord = $this->archiveRepository->findActiveByStudent( $studentPersonId );
+		$record = $this->studentRecordRepository->findActiveByStudentFirst( $studentPersonId );
 
-		if ( $archiveRecord !== null ) {
-			$this->archiveRepository->update( $archiveRecord->id, array( 'parent_person_id' => $guardianPersonId ) );
+		if ( $record !== null ) {
+			$this->studentRecordRepository->update( $record->id, array( 'parent_person_id' => $guardianPersonId ) );
 		}
 
 		$this->success();
@@ -106,17 +108,19 @@ class PiiCallbacks extends BaseController {
 	public function ajaxReplaceRepresentative(): void {
 		$this->authorize( Nonce::ReplaceRepresentative, Capability::ManagePersons );
 
-		$archiveId = $this->sanitizeInt( 'archive_id' );
+		$recordId = $this->sanitizeInt( 'archive_id' );
 
 		$newGuardianId = $this->personService->createOrFindBy( new PersonInputDTO(
-			fullName:  $this->requireText( 'full_name' ),
-			docNumber: $this->requireText( 'doc_number' ),
-			role:      'parent',
-			inn:       $this->sanitizeText( 'inn' ),
-			email:     $this->sanitizeText( 'email' ) ?: null,
+			lastName:   $this->requireText( 'last_name' ),
+			firstName:  $this->requireText( 'first_name' ),
+			docNumber:  $this->requireText( 'doc_number' ),
+			isStudent:  false,
+			middleName: $this->sanitizeText( 'middle_name' ),
+			inn:        $this->sanitizeText( 'inn' ),
+			email:      $this->sanitizeText( 'email' ) ?: null,
 		) );
 
-		$this->archiveRepository->update( $archiveId, array( 'parent_person_id' => $newGuardianId ) );
+		$this->studentRecordRepository->update( $recordId, array( 'parent_person_id' => $newGuardianId ) );
 
 		$this->success();
 	}
@@ -144,16 +148,16 @@ class PiiCallbacks extends BaseController {
 			'address'    => $this->sanitizeText( 'address' ),
 		) );
 
-		if ( $lastName || $firstName || $middleName ) {
-			$personChanges['full_name'] = implode( ' ', array_filter( [ $lastName, $firstName, $middleName ] ) );
-		}
+		if ( $lastName ) { $personChanges['last_name']   = $lastName; }
+		if ( $firstName ) { $personChanges['first_name'] = $firstName; }
+		if ( $middleName ) { $personChanges['middle_name'] = $middleName; }
 
 		if ( ! empty( $personChanges ) ) {
 			$this->personService->update( $personId, $personChanges, get_current_user_id() );
 		}
 
 		if ( $person->wpUserId ) {
-			$userData = [ 'ID' => $person->wpUserId ];
+			$userData = array( 'ID' => $person->wpUserId );
 
 			$newLogin = $this->sanitizeText( 'login' );
 			if ( $newLogin ) {
@@ -164,8 +168,8 @@ class PiiCallbacks extends BaseController {
 				$userData['user_email'] = $personChanges['email'];
 			}
 
-			if ( isset( $personChanges['full_name'] ) ) {
-				$userData['display_name'] = $personChanges['full_name'];
+			if ( $lastName || $firstName ) {
+				$userData['display_name'] = trim( $lastName . ' ' . $firstName . ' ' . $middleName );
 				$userData['first_name']   = $firstName;
 				$userData['last_name']    = $lastName;
 			}
@@ -182,29 +186,12 @@ class PiiCallbacks extends BaseController {
 			}
 		}
 
-		$newSchool = $this->sanitizeText( 'school' );
-		if ( $newSchool ) {
-			foreach ( $this->enrollmentRepository->findByStudent( $personId ) as $enr ) {
-				if ( empty( $enr->snapshotEnc ) ) {
-					continue;
-				}
-				try {
-					$snapshot = json_decode( $this->crypto->decrypt( $enr->snapshotEnc ), true ) ?? array();
-					$snapshot['student']['school'] = $newSchool;
-					$this->enrollmentRepository->update( $enr->id, array(
-						'snapshot_enc' => $this->crypto->encrypt( (string) wp_json_encode( $snapshot ) ),
-						'updated_at'   => current_time( 'mysql', true ),
-					) );
-				} catch ( \Throwable ) {}
-			}
-		}
-
 		$childDocNumber = $this->sanitizeText( 'child_doc_number' );
 		$childInn       = $this->sanitizeText( 'child_inn' );
 		$childBirthDate = $this->sanitizeText( 'child_birth_date' );
 
 		if ( $childDocNumber || $childInn || $childBirthDate ) {
-			$dependents = $this->archiveRepository->findActiveByParent( $personId );
+			$dependents = $this->studentRecordRepository->findActiveByParent( $personId );
 			if ( ! empty( $dependents ) ) {
 				$childPersonId = $dependents[0]->studentPersonId;
 				$childChanges  = array_filter( array(
@@ -241,83 +228,68 @@ class PiiCallbacks extends BaseController {
 		$dependents      = array();
 
 		if ( $isStudent ) {
-			$archiveRecord = $this->archiveRepository->findActiveByStudent( $personId );
-			if ( $archiveRecord !== null ) {
-				$gPerson = $this->personRepository->find( $archiveRecord->parentPersonId );
+			$activeRecord = $this->studentRecordRepository->findActiveByStudentFirst( $personId );
+			if ( $activeRecord !== null ) {
+				$gPerson = $this->personRepository->find( $activeRecord->parentPersonId );
 				$gUser   = $gPerson?->wpUserId ? get_userdata( $gPerson->wpUserId ) : null;
 				$representatives[] = array(
-					'archive_id'         => $archiveRecord->id,
-					'guardian_person_id' => $archiveRecord->parentPersonId,
-					'name'               => $gUser ? $gUser->display_name : ( $gPerson?->fullName ?: "Person #{$archiveRecord->parentPersonId}" ),
+					'archive_id'         => $activeRecord->id,
+					'guardian_person_id' => $activeRecord->parentPersonId,
+					'name'               => $gUser ? $gUser->display_name : ( $gPerson?->fullName() ?: "Person #{$activeRecord->parentPersonId}" ),
 					'type_label'         => 'Родитель',
-					'since'              => substr( $archiveRecord->enrolledAt, 0, 10 ),
-					'person_url'         => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $archiveRecord->parentPersonId ),
+					'since'              => substr( $activeRecord->enrolledAt, 0, 10 ),
+					'person_url'         => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $activeRecord->parentPersonId ),
 				);
 			}
 		}
 
 		if ( $isParent ) {
-			foreach ( $this->archiveRepository->findActiveByParent( $personId ) as $archiveRecord ) {
-				$sPerson = $this->personRepository->find( $archiveRecord->studentPersonId );
+			foreach ( $this->studentRecordRepository->findActiveByParent( $personId ) as $record ) {
+				$sPerson = $this->personRepository->find( $record->studentPersonId );
 				$sUser   = $sPerson?->wpUserId ? get_userdata( $sPerson->wpUserId ) : null;
 				$dependents[] = array(
-					'archive_id'        => $archiveRecord->id,
-					'student_person_id' => $archiveRecord->studentPersonId,
-					'name'              => $sUser ? $sUser->display_name : ( $sPerson?->fullName ?: "Person #{$archiveRecord->studentPersonId}" ),
+					'archive_id'        => $record->id,
+					'student_person_id' => $record->studentPersonId,
+					'name'              => $sUser ? $sUser->display_name : ( $sPerson?->fullName() ?: "Person #{$record->studentPersonId}" ),
 					'type_label'        => 'Ученик',
-					'since'             => substr( $archiveRecord->enrolledAt, 0, 10 ),
-					'person_url'        => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $archiveRecord->studentPersonId ),
+					'since'             => substr( $record->enrolledAt, 0, 10 ),
+					'person_url'        => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $record->studentPersonId ),
 				);
 			}
 		}
 
-		$personIds    = $isStudent ? array( $personId ) : array_column( $dependents, 'student_person_id' );
-		$enrollments  = array();
-		$nameMap      = array_column( $dependents, 'name', 'student_person_id' );
-		$docIssuedStr = '';
+		$personIds   = $isStudent ? array( $personId ) : array_column( $dependents, 'student_person_id' );
+		$enrollments = array();
+		$nameMap     = array_column( $dependents, 'name', 'student_person_id' );
 
 		foreach ( $personIds as $pid ) {
-			foreach ( $this->enrollmentRepository->findByStudent( $pid ) as $enr ) {
-				$group    = $enr->groupId ? $this->groupRepository->findById( $enr->groupId ) : null;
-				$snapshot = array();
-				if ( ! empty( $enr->snapshotEnc ) ) {
-					try {
-						$snapshot = json_decode( $this->crypto->decrypt( $enr->snapshotEnc ), true ) ?? array();
-					} catch ( \Throwable ) {}
-				}
-				$sd = $snapshot['student']  ?? array();
-				$gd = $snapshot['guardian'] ?? array();
+			$sPerson = $pid === $personId ? $person : $this->personRepository->find( $pid );
 
-				if ( $isParent && $docIssuedStr === '' ) {
-					$by   = trim( (string) ( $gd['doc_issued_by']   ?? '' ) );
-					$date = trim( (string) ( $gd['doc_issued_date'] ?? '' ) );
-					if ( $by !== '' || $date !== '' ) {
-						$docIssuedStr = $by . ( $date !== '' ? ' ' . $date : '' );
-					}
-				}
+			foreach ( $this->studentRecordRepository->findByStudent( $pid ) as $record ) {
+				$group = $record->groupId ? $this->groupRepository->findById( $record->groupId ) : null;
 
 				$enrollments[] = array(
-					'student_name'        => $isParent ? ( $nameMap[ $pid ] ?? "#{$pid}" ) : null,
-					'group_id'            => $enr->groupId,
-					'group_title'         => $group?->group_name ?? '—',
-					'schedule'            => $this->formatSchedule( $group ),
-					'status_label'        => $enr->status->label(),
-					'status_value'        => $enr->status->value,
-					'enrolled_at'         => substr( $enr->enrolledAt, 0, 10 ),
-					'terminated_at'       => $enr->terminatedAt ? substr( $enr->terminatedAt, 0, 10 ) : null,
-					'contract_no'         => $snapshot['contract_no']   ?? '',
-					'last_name'           => $sd['last_name']   ?? '',
-					'first_name'          => $sd['first_name']  ?? '',
-					'middle_name'         => $sd['middle_name'] ?? '',
-					'student_phone'       => $sd['phone']       ?? '',
-					'guardian_phone'      => $gd['phone']       ?? '',
-					'school'              => $sd['school']      ?? '',
-					'grade'               => isset( $sd['grade'] ) ? (string) $sd['grade'] : '',
-					'birth_date'          => $sd['birth_date']  ?? '',
-					'child_doc_number'    => $sd['doc_number']  ?? '',
-					'child_inn'           => $sd['inn']         ?? '',
-					'child_birth_date'    => $sd['birth_date']  ?? '',
-					'guardian_birth_date' => $gd['birth_date']  ?? '',
+					'student_name'  => $isParent ? ( $nameMap[ $pid ] ?? "#{$pid}" ) : null,
+					'group_id'      => $record->groupId,
+					'group_title'   => $group?->name ?? '—',
+					'schedule'      => $this->formatSchedule( $group ),
+					'status_label'  => $record->status->label(),
+					'status_value'  => $record->status->value,
+					'enrolled_at'   => substr( $record->enrolledAt, 0, 10 ),
+					'terminated_at' => $record->expelledAt ? substr( $record->expelledAt, 0, 10 ) : null,
+					'contract_no'   => $record->contractNo ?? '',
+					'last_name'     => $sPerson?->lastName ?? '',
+					'first_name'    => $sPerson?->firstName ?? '',
+					'middle_name'   => $sPerson?->middleName ?? '',
+					'birth_date'    => $sPerson?->birthDate ?? '',
+					'school'        => '',
+					'grade'         => '',
+					'child_doc_number'    => '',
+					'child_inn'           => '',
+					'child_birth_date'    => '',
+					'guardian_birth_date' => '',
+					'student_phone'       => '',
+					'guardian_phone'      => '',
 				);
 			}
 		}
@@ -325,14 +297,18 @@ class PiiCallbacks extends BaseController {
 		$credentials = $person->wpUserId ? $this->passwordGenerator->getCredentials( $person->wpUserId ) : null;
 
 		$maskedPii = $this->getMaskedPersonPii( $personId );
+
 		if ( $isParent ) {
-			$maskedPii['doc_issued'] = $docIssuedStr !== '' ? '•••••• от ••.••.••••' : '';
+			$docs = $this->personDocumentsRepository->findByPersonId( $personId );
+			$maskedPii['doc_issued'] = ( $docs !== null && $docs->docIssuedByEnc !== null )
+				? '•••••• от ••.••.••••'
+				: '';
 		}
 
 		$this->success( array(
 			'type'            => $type,
 			'wp_user_id'      => $person->wpUserId ?? 0,
-			'display_name'    => $wpUser ? $wpUser->display_name : $person->fullName,
+			'display_name'    => $wpUser ? $wpUser->display_name : $person->fullName(),
 			'login'           => $wpUser ? $wpUser->user_login : '',
 			'email'           => $wpUser ? $wpUser->user_email : '',
 			'password'        => $credentials['password'] ?? '',
@@ -367,7 +343,7 @@ class PiiCallbacks extends BaseController {
 				'phone'      => $dto->phone,
 			);
 
-			$docIssued = $this->getDocIssuedFromSnapshot( $personId );
+			$docIssued = $this->getDocIssuedFromPersonDocs( $personId );
 			if ( $docIssued !== '' ) {
 				$payload['doc_issued'] = $docIssued;
 			}
@@ -378,26 +354,26 @@ class PiiCallbacks extends BaseController {
 		}
 	}
 
-	private function getDocIssuedFromSnapshot( int $personId ): string {
-		foreach ( $this->archiveRepository->findActiveByParent( $personId ) as $archiveRecord ) {
-			foreach ( $this->enrollmentRepository->findByStudent( $archiveRecord->studentPersonId ) as $enr ) {
-				if ( empty( $enr->snapshotEnc ) ) {
-					continue;
-				}
-				try {
-					$snapshot = json_decode( $this->crypto->decrypt( $enr->snapshotEnc ), true ) ?? array();
-				} catch ( \Throwable ) {
-					continue;
-				}
-				$gd   = $snapshot['guardian'] ?? array();
-				$by   = trim( (string) ( $gd['doc_issued_by']   ?? '' ) );
-				$date = trim( (string) ( $gd['doc_issued_date'] ?? '' ) );
-				if ( $by !== '' || $date !== '' ) {
-					return $by . ( $date !== '' ? ' от ' . $date : '' );
-				}
-			}
+	private function getDocIssuedFromPersonDocs( int $personId ): string {
+		$docs = $this->personDocumentsRepository->findByPersonId( $personId );
+		if ( null === $docs ) {
+			return '';
 		}
-		return '';
+
+		$by   = '';
+		$date = $docs->docIssuedDate ?? '';
+
+		if ( $docs->docIssuedByEnc !== null ) {
+			try {
+				$by = trim( $this->crypto->decrypt( $docs->docIssuedByEnc ) );
+			} catch ( \Throwable ) {}
+		}
+
+		if ( $by === '' && $date === '' ) {
+			return '';
+		}
+
+		return $by . ( $date !== '' ? ' от ' . $date : '' );
 	}
 
 	private function getMaskedPersonPii( int $personId ): array {

@@ -9,37 +9,47 @@ readonly class PersonDTO {
 	public function __construct(
 		public int     $id,
 		public ?int    $wpUserId,
-		public string  $fullName,
+		public string  $lastName,
+		public string  $firstName,
+		public ?string $middleName,
 		public ?string $birthDate,
-		public string  $role,
+		public bool    $isStudent,
 		public ?string $deletedAt,
 		public string  $createdAt,
 		public string  $updatedAt,
 	) {}
 
+	public function fullName(): string {
+		return trim( "{$this->lastName} {$this->firstName} " . ( $this->middleName ?? '' ) );
+	}
+
 	public static function fromArray( array $row ): static {
 		return new static(
-			id:        (int) $row['id'],
-			wpUserId:  isset( $row['wp_user_id'] ) ? (int) $row['wp_user_id'] : null,
-			fullName:  (string) ( $row['full_name'] ?? '' ),
-			birthDate: isset( $row['birth_date'] ) ? (string) $row['birth_date'] : null,
-			role:      (string) ( $row['role'] ?? 'student' ),
-			deletedAt: isset( $row['deleted_at'] ) ? (string) $row['deleted_at'] : null,
-			createdAt: (string) $row['created_at'],
-			updatedAt: (string) $row['updated_at'],
+			id:         (int) $row['id'],
+			wpUserId:   isset( $row['wp_user_id'] ) ? (int) $row['wp_user_id'] : null,
+			lastName:   (string) ( $row['last_name']  ?? '' ),
+			firstName:  (string) ( $row['first_name'] ?? '' ),
+			middleName: isset( $row['middle_name'] ) && '' !== $row['middle_name'] ? (string) $row['middle_name'] : null,
+			birthDate:  isset( $row['birth_date'] ) ? (string) $row['birth_date'] : null,
+			isStudent:  (bool) ( $row['is_student'] ?? false ),
+			deletedAt:  isset( $row['deleted_at'] ) ? (string) $row['deleted_at'] : null,
+			createdAt:  (string) $row['created_at'],
+			updatedAt:  (string) $row['updated_at'],
 		);
 	}
 
 	public function toArray(): array {
 		return array(
-			'id'         => $this->id,
-			'wp_user_id' => $this->wpUserId,
-			'full_name'  => $this->fullName,
-			'birth_date' => $this->birthDate,
-			'role'       => $this->role,
-			'deleted_at' => $this->deletedAt,
-			'created_at' => $this->createdAt,
-			'updated_at' => $this->updatedAt,
+			'id'          => $this->id,
+			'wp_user_id'  => $this->wpUserId,
+			'last_name'   => $this->lastName,
+			'first_name'  => $this->firstName,
+			'middle_name' => $this->middleName,
+			'birth_date'  => $this->birthDate,
+			'is_student'  => $this->isStudent ? 1 : 0,
+			'deleted_at'  => $this->deletedAt,
+			'created_at'  => $this->createdAt,
+			'updated_at'  => $this->updatedAt,
 		);
 	}
 }

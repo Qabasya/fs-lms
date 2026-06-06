@@ -7,8 +7,8 @@
  */
 
 use Inc\Enums\Capability;
-use Inc\Repositories\WPDBRepositories\ArchiveRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -17,13 +17,13 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	return;
 }
 
-$personRepo  = new PersonRepository();
-$archiveRepo = new ArchiveRepository();
+$personRepo = new PersonRepository();
+$recordRepo = new StudentRecordRepository();
 
 $page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage = 20;
 
-$allParents    = $personRepo->findByRole( 'parent' );
+$allParents    = $personRepo->findByIsStudent( false );
 $total         = count( $allParents );
 $pages         = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
@@ -62,21 +62,22 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 				$childNames    = array();
 				$childPersonId = 0;
 
-				$archiveRecords = $archiveRepo->findActiveByParent( $parentPerson->id );
-				foreach ( $archiveRecords as $rel ) {
-					$studentPerson = $personRepo->find( $rel->studentPersonId );
-					if ( $studentPerson ) {
-						$childNames[]  = $studentPerson->fullName;
-						$childPersonId = $rel->studentPersonId;
+				$activeRecords = $recordRepo->findActiveByParent( $parentPerson->id );
+				foreach ( $activeRecords as $record ) {
+					$studentPerson = $personRepo->find( $record->studentPersonId );
+					if ( $studentPerson !== null ) {
+						$childNames[]  = $studentPerson->fullName();
+						$childPersonId = $record->studentPersonId;
 					}
 				}
 
-				$childNamesStr = implode( ', ', $childNames ) ?: '—';
+				$childNamesStr  = implode( ', ', $childNames ) ?: '—';
+				$parentFullName = $parentPerson->fullName();
 
 				$parentModalData = array(
 					'person_id'       => $parentPerson->id,
 					'wp_user_id'      => $parentPerson->wpUserId ?? 0,
-					'full_name'       => $parentPerson->fullName,
+					'full_name'       => $parentFullName,
 					'children'        => $childNamesStr,
 					'child_person_id' => $childPersonId,
 				);
@@ -84,7 +85,7 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 			<tr data-parent="<?php echo esc_attr( (string) wp_json_encode( $parentModalData ) ); ?>">
 
 				<td class="column-title">
-					<?php echo esc_html( $parentPerson->fullName ); ?>
+					<?php echo esc_html( $parentFullName ); ?>
 				</td>
 
 				<td class="column-title">
@@ -99,7 +100,7 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 							   data-person-id="<?php echo esc_attr( (string) $parentPerson->id ); ?>"
 							   data-wp-user-id="<?php echo esc_attr( (string) ( $parentPerson->wpUserId ?? 0 ) ); ?>"
 							   data-person-type="parent"
-							   data-display-name="<?php echo esc_attr( $parentPerson->fullName ); ?>"
+							   data-display-name="<?php echo esc_attr( $parentFullName ); ?>"
 							   data-email="">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>

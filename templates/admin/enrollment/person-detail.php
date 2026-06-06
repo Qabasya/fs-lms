@@ -15,8 +15,7 @@ use Inc\Enums\Capability;
 use Inc\Enums\PiiField;
 use Inc\Enums\UserRole;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Repositories\WPDBRepositories\ArchiveRepository;
-use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Person\PiiMaskingService;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
@@ -26,35 +25,33 @@ $userRoles = $wpUser ? (array) $wpUser->roles : array();
 $isStudent = in_array( UserRole::FSStudent->value, $userRoles, true );
 $isParent  = in_array( UserRole::FSParent->value, $userRoles, true );
 
-$displayName = $wpUser ? $wpUser->display_name : ( $person->fullName ?: "Person #{$personId}" );
+$displayName = $wpUser ? $wpUser->display_name : ( $person->fullName() ?: "Person #{$personId}" );
 
-$archiveRepo = new ArchiveRepository();
-$enrollRepo  = new EnrollmentRepository();
-$groupRepo   = new GroupsRepository();
-$masking     = new PiiMaskingService();
+$recordRepo = new StudentRecordRepository();
+$groupRepo  = new GroupsRepository();
+$masking    = new PiiMaskingService();
 
 $maskedPhone   = $decrypted ? $masking->mask( $decrypted->phone,   PiiField::Phone )   : '—';
 $maskedPass    = $decrypted ? $masking->mask( $decrypted->pass,    PiiField::Pass )    : '—';
 $maskedInn     = $decrypted ? $masking->mask( $decrypted->inn,     PiiField::Inn )     : '—';
 $maskedAddress = $decrypted ? $masking->mask( $decrypted->address, PiiField::Address ) : '—';
-$fullName      = $decrypted?->fullName ?: $person->fullName ?: '—';
+$fullName      = $decrypted?->fullName ?: $person->fullName() ?: '—';
 
-$archiveActive  = null;
 $representatives = array();
 $dependents      = array();
 
 if ( $isStudent ) {
-	$archiveActive = $archiveRepo->findActiveByStudent( $personId );
-	if ( $archiveActive !== null ) {
-		$representatives[] = $archiveActive;
+	$activeRecord = $recordRepo->findActiveByStudentFirst( $personId );
+	if ( $activeRecord !== null ) {
+		$representatives[] = $activeRecord;
 	}
-	$enrollments = $enrollRepo->findByStudent( $personId );
+	$enrollments = $recordRepo->findByStudent( $personId );
 } elseif ( $isParent ) {
-	$dependents  = $archiveRepo->findActiveByParent( $personId );
+	$dependents  = $recordRepo->findActiveByParent( $personId );
 	$enrollments = array();
 	foreach ( $dependents as $dep ) {
-		foreach ( $enrollRepo->findActiveByStudent( $dep->studentPersonId ) as $enr ) {
-			$enrollments[] = $enr;
+		foreach ( $recordRepo->findActiveByStudent( $dep->studentPersonId ) as $rec ) {
+			$enrollments[] = $rec;
 		}
 	}
 } else {
@@ -68,7 +65,7 @@ $getPersonName = function ( int $pid ): string {
 			$u = get_userdata( $p->wpUserId );
 			if ( $u ) return $u->display_name;
 		}
-		if ( $p->fullName !== '' ) return $p->fullName;
+		if ( $p->fullName() !== '' ) return $p->fullName();
 	}
 	return "Person #{$pid}";
 };
@@ -292,7 +289,7 @@ $tabs = $isStudent
 				<tbody>
 					<?php foreach ( $enrollments as $enr ) :
 						$group      = $enr->groupId ? $groupRepo->findById( $enr->groupId ) : null;
-						$groupTitle = $group ? $group->group_name : '—';
+						$groupTitle = $group ? $group->name : '—';
 					?>
 						<tr>
 							<?php if ( $isParent ) : ?>
@@ -305,7 +302,7 @@ $tabs = $isStudent
 								</span>
 							</td>
 							<td><?php echo esc_html( substr( $enr->enrolledAt, 0, 10 ) ); ?></td>
-							<td><?php echo $enr->terminatedAt ? esc_html( substr( $enr->terminatedAt, 0, 10 ) ) : '—'; ?></td>
+							<td><?php echo $enr->expelledAt ? esc_html( substr( $enr->expelledAt, 0, 10 ) ) : '—'; ?></td>
 						</tr>
 					<?php endforeach; ?>
 				</tbody>

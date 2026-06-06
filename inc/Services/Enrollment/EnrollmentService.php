@@ -15,11 +15,10 @@ use Inc\Enums\AuditAction;
 use Inc\Enums\UserRole;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
-use Inc\Repositories\WPDBRepositories\ArchiveRepository;
-use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
@@ -40,11 +39,10 @@ readonly class EnrollmentService {
 
 	public function __construct(
 		private ApplicationRepository     $applicationRepository,
-		private EnrollmentRepository      $enrollmentRepository,
+		private StudentRecordRepository   $studentRecordRepository,
 		private PersonRepository          $personRepository,
 		private PersonDocumentsRepository $personDocumentsRepository,
 		private PersonService             $personService,
-		private ArchiveRepository         $archiveRepository,
 		private GroupsRepository          $groupsRepository,
 		private JoinCodeService           $joinCodeService,
 		private ConsentService            $consentService,
@@ -74,13 +72,12 @@ readonly class EnrollmentService {
 			json_decode( $this->crypto->decrypt( (string) $app->parentDataEnc ), true ) ?? array()
 		);
 
-		// Используем pre-linked person_id из заявки, либо ищем по хешу документа
 		$existingStudent = null;
 		if ( $app->studentPersonId !== null ) {
 			$existingStudent = $this->personRepository->find( $app->studentPersonId );
 		} else {
-			$studentDocHash = $this->crypto->hash( $studentDto->docNumber );
-			$studentId      = $this->personService->findByDocNumberHash( $studentDocHash );
+			$studentDocHash  = $this->crypto->hash( $studentDto->docNumber );
+			$studentId       = $this->personService->findByDocNumberHash( $studentDocHash );
 			$existingStudent = $studentId !== null ? $this->personRepository->find( $studentId ) : null;
 		}
 
@@ -97,68 +94,55 @@ readonly class EnrollmentService {
 			throw new DomainException( 'Email родителя уже занят другим пользователем.' );
 		}
 
-		if ( null !== $existingStudent && $this->enrollmentRepository->existsActive( $existingStudent->id, $input->groupId ) ) {
+		if ( null !== $existingStudent && $this->studentRecordRepository->existsActive( $existingStudent->id, $input->groupId ) ) {
 			throw new DomainException( 'Ученик уже зачислен в эту группу.' );
 		}
 
 		$result = $this->inTransaction( function () use ( $app, $input, $studentDto, $parentDto, $existingStudent, $existingGuardian ): array {
+			$now = $this->clock->now( 'mysql', true );
+
 			$studentPersonId = $existingStudent !== null
 				? $existingStudent->id
 				: $this->personService->createOrFindBy( new PersonInputDTO(
-					fullName:  $studentDto->fullName(),
-					docNumber: $studentDto->docNumber,
-					role:      'student',
-					docType:   $studentDto->docType,
-					birthDate: $studentDto->birthDate,
-					inn:       $studentDto->inn,
-					email:     $studentDto->email !== '' ? $studentDto->email : null,
+					lastName:   $studentDto->lastName,
+					firstName:  $studentDto->firstName,
+					docNumber:  $studentDto->docNumber,
+					isStudent:  true,
+					middleName: $studentDto->middleName,
+					docType:    $studentDto->docType,
+					birthDate:  $studentDto->birthDate,
+					inn:        $studentDto->inn,
+					email:      $studentDto->email !== '' ? $studentDto->email : null,
 				) );
 
 			$guardianPersonId = $existingGuardian !== null
 				? $existingGuardian->id
 				: $this->personService->createOrFindBy( new PersonInputDTO(
-					fullName:  $parentDto->fullName(),
-					docNumber: $parentDto->docNumber,
-					role:      'parent',
-					docType:   $parentDto->docType,
-					birthDate: $parentDto->birthDate,
-					inn:       $parentDto->inn,
-					address:   $parentDto->address,
-					phone:     $parentDto->phone,
-					email:     $parentDto->email !== '' ? $parentDto->email : null,
+					lastName:   $parentDto->lastName,
+					firstName:  $parentDto->firstName,
+					docNumber:  $parentDto->docNumber,
+					isStudent:  false,
+					middleName: $parentDto->middleName,
+					docType:    $parentDto->docType,
+					birthDate:  $parentDto->birthDate,
+					inn:        $parentDto->inn,
+					address:    $parentDto->address,
+					phone:      $parentDto->phone,
+					email:      $parentDto->email !== '' ? $parentDto->email : null,
 				) );
 
-			$snapshot    = array(
-				'student'       => $studentDto->toArray(),
-				'guardian'      => $parentDto->toArray(),
-				'enrolled_at'   => $input->enrolledAt,
-				'contract_no'   => $input->contractNo,
-				'contract_date' => $input->contractDate,
-				'order_no'      => $input->orderNo,
-				'order_date'    => $input->orderDate,
-			);
-			$enrollmentId = $this->enrollmentRepository->create( array(
-				'student_person_id'     => $studentPersonId,
-				'group_id'              => $input->groupId ?: null,
-				'enrolled_at'           => $input->enrolledAt,
-				'status'                => 'active',
-				'snapshot_enc'          => $this->crypto->encrypt( (string) wp_json_encode( $snapshot ) ),
-				'source_application_id' => $app->id,
-				'created_at'            => $this->clock->now( 'mysql', true ),
-				'updated_at'            => $this->clock->now( 'mysql', true ),
-			) );
-
-			$this->archiveRepository->create( array(
-				'enrollment_id'     => $enrollmentId,
+			$recordId = $this->studentRecordRepository->create( array(
 				'student_person_id' => $studentPersonId,
 				'parent_person_id'  => $guardianPersonId,
+				'group_id'          => $input->groupId ?: null,
 				'contract_no'       => $input->contractNo ?: null,
 				'contract_date'     => $input->contractDate ?: null,
 				'order_no'          => $input->orderNo ?: null,
 				'order_date'        => $input->orderDate ?: null,
-				'group_id'          => $input->groupId ?: null,
+				'status'            => 'active',
 				'enrolled_at'       => $input->enrolledAt,
-				'created_at'        => $this->clock->now( 'mysql', true ),
+				'created_at'        => $now,
+				'updated_at'        => $now,
 			) );
 
 			$this->consentService->bindToPersons( $app->id, array(
@@ -168,18 +152,18 @@ readonly class EnrollmentService {
 
 			$this->auditService->record(
 				AuditAction::EnrollStudent->value,
-				'enrollment',
-				$enrollmentId,
+				'student_record',
+				$recordId,
 				array(
 					'application_id' => $app->id,
 					'group_id'       => $input->groupId,
 				)
 			);
 
-			return array( $enrollmentId, $studentPersonId, $guardianPersonId );
+			return array( $recordId, $studentPersonId, $guardianPersonId );
 		} );
 
-		[ $enrollmentId, $studentPersonId, $guardianPersonId ] = $result;
+		[ $recordId, $studentPersonId, $guardianPersonId ] = $result;
 
 		try {
 			$studentPerson = $this->personRepository->find( $studentPersonId );
@@ -273,7 +257,7 @@ readonly class EnrollmentService {
 			}
 
 			return new EnrollmentResultDTO(
-				$enrollmentId,
+				$recordId,
 				$studentUserId,
 				$guardianUserId,
 				$studentLogin,
@@ -285,86 +269,60 @@ readonly class EnrollmentService {
 		} catch ( \Throwable $e ) {
 			$this->auditService->record(
 				AuditAction::EnrollStudentFailed->value,
-				'enrollment',
-				$enrollmentId,
+				'student_record',
+				$recordId,
 				array( 'error' => $e->getMessage() )
 			);
 
-			return new EnrollmentResultDTO( $enrollmentId, 0, 0, null, null, null, null, true );
+			return new EnrollmentResultDTO( $recordId, 0, 0, null, null, null, null, true );
 		}
 	}
 
 	/**
-	 * Восстанавливает ученика из архива: создаёт новую заявку на основе archive-записи
-	 * (события 2A и 4B — старый ученик).
+	 * Восстанавливает ученика из student_records: создаёт новую заявку.
 	 *
-	 * @param int $archiveId ID архивной записи
+	 * @param int $recordId ID записи student_records
 	 *
 	 * @return array{id: int, join_url: string}
-	 *
-	 * @throws RuntimeException|InvalidArgumentException
 	 */
-	public function restoreFromArchive( int $archiveId ): array {
-		$archive = $this->archiveRepository->find( $archiveId );
+	public function restoreFromArchive( int $recordId ): array {
+		$record = $this->studentRecordRepository->find( $recordId );
 
-		if ( null === $archive ) {
-			throw new InvalidArgumentException( 'Архивная запись не найдена.' );
+		if ( null === $record ) {
+			throw new InvalidArgumentException( 'Запись не найдена.' );
 		}
 
-		$studentPerson = $this->personRepository->find( $archive->studentPersonId );
+		$studentPerson = $this->personRepository->find( $record->studentPersonId );
 
 		if ( null === $studentPerson ) {
 			throw new RuntimeException( 'Запись ученика не найдена.' );
 		}
 
-		// Берём студенческие данные из snapshot последнего зачисления
 		$studentData = array(
-			'last_name'   => '',
-			'first_name'  => '',
-			'middle_name' => '',
+			'last_name'   => $studentPerson->lastName,
+			'first_name'  => $studentPerson->firstName,
+			'middle_name' => $studentPerson->middleName ?? '',
 			'birth_date'  => $studentPerson->birthDate ?? '',
 			'email'       => '',
 		);
 
-		if ( $archive->enrollmentId !== null ) {
-			$enrollment = $this->enrollmentRepository->find( $archive->enrollmentId );
-			if ( $enrollment !== null && $enrollment->snapshotEnc !== null ) {
-				try {
-					$snap = json_decode( $this->crypto->decrypt( $enrollment->snapshotEnc ), true );
-					if ( is_array( $snap['student'] ?? null ) ) {
-						$studentData = array_merge( $studentData, $snap['student'] );
-					}
-				} catch ( \Throwable ) {}
-			}
+		// Берём email из person_documents если есть
+		$docs = $this->personDocumentsRepository->findByPersonId( $record->studentPersonId );
+		if ( $docs?->emailEnc ) {
+			try {
+				$studentData['email'] = $this->crypto->decrypt( $docs->emailEnc );
+			} catch ( \Throwable ) {}
 		}
 
-		// full_name из persons (plain text) как fallback для имени
-		if ( $studentData['last_name'] === '' && $studentPerson->fullName !== '' ) {
-			$parts = explode( ' ', $studentPerson->fullName, 3 );
-			$studentData['last_name']   = $parts[0] ?? '';
-			$studentData['first_name']  = $parts[1] ?? '';
-			$studentData['middle_name'] = $parts[2] ?? '';
-		}
-
-		// Период берём из группы (если есть)
-		$periodId = '';
-		if ( $archive->groupId !== null ) {
-			$group    = $this->groupsRepository->findById( $archive->groupId );
-			$periodId = $group?->period_id ?? '';
-		}
-
-		// Генерируем новый join-код
-		$joinCode    = $this->joinCodeService->generate();
-		$joinHash    = $this->joinCodeService->hash( $joinCode );
-		$joinEnc     = $this->crypto->encrypt( $joinCode );
-		$expiresAt   = gmdate( 'Y-m-d H:i:s', strtotime( '+48 hours' ) );
-
+		$joinCode       = $this->joinCodeService->generate();
+		$joinHash       = $this->joinCodeService->hash( $joinCode );
+		$joinEnc        = $this->crypto->encrypt( $joinCode );
+		$expiresAt      = gmdate( 'Y-m-d H:i:s', strtotime( '+48 hours' ) );
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
 
 		$now   = $this->clock->now( 'mysql', true );
 		$appId = $this->applicationRepository->create( array(
-			'student_person_id'    => $archive->studentPersonId,
-			'period_id'            => $periodId,
+			'student_person_id'    => $record->studentPersonId,
 			'status'               => ApplicationStatus::PendingParent->value,
 			'join_code_hash'       => $joinHash,
 			'join_code_enc'        => $joinEnc,
@@ -382,7 +340,7 @@ readonly class EnrollmentService {
 			AuditAction::EnrollStudent->value,
 			'application',
 			$appId,
-			array( 'restored_from_archive_id' => $archiveId )
+			array( 'restored_from_record_id' => $recordId )
 		);
 
 		return array(
@@ -393,13 +351,9 @@ readonly class EnrollmentService {
 
 	/**
 	 * Привязывает существующего родителя к заявке (путь 3B и 4B).
-	 * Загружает данные родителя из person_documents, шифрует и сохраняет в заявку.
-	 * Переводит заявку в статус ready_for_review.
 	 *
 	 * @param int $applicationId  ID заявки (status = pending_parent)
 	 * @param int $parentPersonId ID существующего родителя
-	 *
-	 * @throws InvalidArgumentException|DomainException
 	 */
 	public function selectExistingParent( int $applicationId, int $parentPersonId ): void {
 		$app = $this->applicationRepository->find( $applicationId );
@@ -418,13 +372,12 @@ readonly class EnrollmentService {
 			throw new InvalidArgumentException( 'Родитель не найден.' );
 		}
 
-		// Строим parent_data из persons + person_documents
 		$docs = $this->personDocumentsRepository->findByPersonId( $parentPersonId );
 
 		$parentData = array(
-			'last_name'       => '',
-			'first_name'      => '',
-			'middle_name'     => '',
+			'last_name'       => $parentPerson->lastName,
+			'first_name'      => $parentPerson->firstName,
+			'middle_name'     => $parentPerson->middleName ?? '',
 			'birth_date'      => $parentPerson->birthDate ?? '',
 			'email'           => '',
 			'phone'           => '',
@@ -434,22 +387,15 @@ readonly class EnrollmentService {
 			'doc_issued_date' => $docs?->docIssuedDate ?? '',
 			'inn'             => '',
 			'address'         => '',
-			'relation_type'   => '',
 		);
 
-		// Раскрываем full_name
-		$parts = explode( ' ', $parentPerson->fullName, 3 );
-		$parentData['last_name']   = $parts[0] ?? '';
-		$parentData['first_name']  = $parts[1] ?? '';
-		$parentData['middle_name'] = $parts[2] ?? '';
-
 		if ( $docs !== null ) {
-			if ( $docs->emailEnc )         { $parentData['email']         = $this->crypto->decrypt( $docs->emailEnc ); }
-			if ( $docs->phoneEnc )         { $parentData['phone']         = $this->crypto->decrypt( $docs->phoneEnc ); }
-			if ( $docs->docNumberEnc )     { $parentData['doc_number']    = $this->crypto->decrypt( $docs->docNumberEnc ); }
-			if ( $docs->docIssuedByEnc )   { $parentData['doc_issued_by'] = $this->crypto->decrypt( $docs->docIssuedByEnc ); }
-			if ( $docs->innEnc )           { $parentData['inn']           = $this->crypto->decrypt( $docs->innEnc ); }
-			if ( $docs->addressEnc )       { $parentData['address']       = $this->crypto->decrypt( $docs->addressEnc ); }
+			if ( $docs->emailEnc )       { $parentData['email']         = $this->crypto->decrypt( $docs->emailEnc ); }
+			if ( $docs->phoneEnc )       { $parentData['phone']         = $this->crypto->decrypt( $docs->phoneEnc ); }
+			if ( $docs->docNumberEnc )   { $parentData['doc_number']    = $this->crypto->decrypt( $docs->docNumberEnc ); }
+			if ( $docs->docIssuedByEnc ) { $parentData['doc_issued_by'] = $this->crypto->decrypt( $docs->docIssuedByEnc ); }
+			if ( $docs->innEnc )         { $parentData['inn']           = $this->crypto->decrypt( $docs->innEnc ); }
+			if ( $docs->addressEnc )     { $parentData['address']       = $this->crypto->decrypt( $docs->addressEnc ); }
 			$parentData['doc_type'] = $docs->docType ?? '';
 		}
 

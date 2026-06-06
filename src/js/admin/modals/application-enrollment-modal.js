@@ -123,7 +123,6 @@ export const ApplicationEnrollmentModal = {
         this._setField( 'p_first_name',    parent.first_name );
         this._setField( 'p_middle_name',   parent.middle_name );
         this._setField( 'p_birth_date',    parent.birth_date );
-        this._setField( 'p_relation_type', parent.relation_type );
         this._setField( 'p_email',         parent.email );
         this._setField( 'p_phone',         parent.phone );
         this._setField( 'p_doc',           [ parent.doc_type, parent.doc_number, parent.doc_issued_by, parent.doc_issued_date ].filter( Boolean ).join( ', ' ) );
