@@ -7,15 +7,8 @@
  */
 
 use Inc\Enums\Capability;
-use Inc\Enums\DocumentType;
-use Inc\Enums\MetaKeys;
-use Inc\Enums\PiiField;
-use Inc\Enums\UserRole;
 use Inc\Repositories\WPDBRepositories\ArchiveRepository;
-use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Services\Person\PiiMaskingService;
-use Inc\Services\PiiCryptoService;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -24,24 +17,16 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	return;
 }
 
-$personRepo     = new PersonRepository();
-$archiveRepo    = new ArchiveRepository();
-$enrollmentRepo = new EnrollmentRepository();
-$crypto           = new PiiCryptoService();
-$masker           = new PiiMaskingService();
+$personRepo  = new PersonRepository();
+$archiveRepo = new ArchiveRepository();
 
 $page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage = 20;
 
-$parentUsers = get_users( array(
-	'role'    => UserRole::FSParent->value,
-	'number'  => $perPage,
-	'offset'  => ( $page - 1 ) * $perPage,
-	'orderby' => 'display_name',
-	'order'   => 'ASC',
-) );
-$total = (int) ( count_users()['avail_roles'][ UserRole::FSParent->value ] ?? 0 );
-$pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
+$allParents    = $personRepo->findByRole( 'parent' );
+$total         = count( $allParents );
+$pages         = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
+$parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 
 ?>
 
@@ -58,126 +43,52 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 				<?php esc_html_e( 'ФИО ребёнка', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
-				<?php esc_html_e( 'Телефон', 'fs-lms' ); ?>
-			</th>
-			<th class="column-title">
-				<?php esc_html_e( 'Email', 'fs-lms' ); ?>
-			</th>
-			<th class="column-title">
 				<?php esc_html_e( 'Действия', 'fs-lms' ); ?>
 			</th>
 		</tr>
 		</thead>
 
 		<tbody id="the-list">
-		<?php if ( empty( $parentUsers ) ) : ?>
+		<?php if ( empty( $parentPersons ) ) : ?>
 			<tr>
-				<td colspan="5">
+				<td colspan="3">
 					<div class="notice notice-info inline fs-table__no-items">
 						<p><?php esc_html_e( 'Родителей пока нет.', 'fs-lms' ); ?></p>
 					</div>
 				</td>
 			</tr>
 		<?php else : ?>
-			<?php foreach ( $parentUsers as $user ) :
-                $personId = (int) get_user_meta(
-                        $user->ID,
-                        MetaKeys::PersonID->value,
-                        true
-                );
-				$person   = $personId ? $personRepo->find( $personId ) : null;
-
-				$email = $user->user_email ?? '';
-
-				$phone         = '';
-				$childPersonId = 0;
+			<?php foreach ( $parentPersons as $parentPerson ) :
 				$childNames    = array();
-				$guardianData  = array();
-				$studentData   = array();
+				$childPersonId = 0;
 
-				if ( $personId ) {
-					$archiveRecords = $archiveRepo->findActiveByParent( $personId );
-
-					foreach ( $archiveRecords as $rel ) {
-						$studentPerson = $personRepo->find( $rel->studentPersonId );
-						if ( $studentPerson?->wpUserId ) {
-							$studentUser = get_userdata( $studentPerson->wpUserId );
-							if ( $studentUser ) {
-								$childNames[] = $studentUser->display_name;
-							}
-						}
-
-						// Снапшот из первого доступного зачисления ребёнка
-						if ( empty( $guardianData ) ) {
-							$enrollments = $enrollmentRepo->findActiveByStudent( $rel->studentPersonId );
-							foreach ( $enrollments as $enrollment ) {
-								if ( ! empty( $enrollment->snapshotEnc ) ) {
-									try {
-										$snapshot = json_decode( $crypto->decrypt( $enrollment->snapshotEnc ), true );
-										$gd       = $snapshot['guardian'] ?? array();
-										if ( ! empty( $gd ) ) {
-											$guardianData  = $gd;
-											$studentData   = $snapshot['student'] ?? array();
-											$phone         = $gd['phone'] ?? '';
-											$childPersonId = $rel->studentPersonId;
-											break;
-										}
-									} catch ( \Throwable $e ) {
-										// snapshot недоступен
-									}
-								}
-							}
-						}
+				$archiveRecords = $archiveRepo->findActiveByParent( $parentPerson->id );
+				foreach ( $archiveRecords as $rel ) {
+					$studentPerson = $personRepo->find( $rel->studentPersonId );
+					if ( $studentPerson ) {
+						$childNames[]  = $studentPerson->fullName;
+						$childPersonId = $rel->studentPersonId;
 					}
 				}
 
 				$childNamesStr = implode( ', ', $childNames ) ?: '—';
 
 				$parentModalData = array(
-					'last_name'       => $guardianData['last_name']   ?? '',
-					'first_name'      => $guardianData['first_name']  ?? '',
-					'middle_name'     => $guardianData['middle_name'] ?? '',
-					'relation_type'   => $guardianData['relation_type'] ?? '',
-					'child_person_id' => $childPersonId,
-					'birth_date'      => $guardianData['birth_date']      ?? '',
-					'email'           => $guardianData['email']           ?? $email,
-					'phone'           => $guardianData['phone']           ?? $phone,
-					'doc_type'        => DocumentType::tryFrom( $guardianData['doc_type'] ?? '' )?->label() ?? ( $guardianData['doc_type'] ?? '' ),
-					'doc_number'      => $masker->mask( $guardianData['doc_number'] ?? '', PiiField::Pass ),
-					'doc_issued_by'   => $guardianData['doc_issued_by']   ?? '',
-					'doc_issued_date' => $guardianData['doc_issued_date'] ?? '',
-					'inn'             => $masker->mask( $guardianData['inn']      ?? '', PiiField::Inn ),
-					'address'         => $masker->mask( $guardianData['address']  ?? '', PiiField::Address ),
+					'person_id'       => $parentPerson->id,
+					'wp_user_id'      => $parentPerson->wpUserId ?? 0,
+					'full_name'       => $parentPerson->fullName,
 					'children'        => $childNamesStr,
-					'child_birth_date'  => $studentData['birth_date'] ?? '',
-					'child_doc_number'  => $masker->mask( $studentData['doc_number'] ?? '', PiiField::Pass ),
-					'child_inn'         => $masker->mask( $studentData['inn']        ?? '', PiiField::Inn ),
+					'child_person_id' => $childPersonId,
 				);
 			?>
 			<tr data-parent="<?php echo esc_attr( (string) wp_json_encode( $parentModalData ) ); ?>">
 
 				<td class="column-title">
-					<?php echo esc_html( $user->display_name ); ?>
+					<?php echo esc_html( $parentPerson->fullName ); ?>
 				</td>
 
 				<td class="column-title">
 					<?php echo esc_html( $childNamesStr ); ?>
-				</td>
-
-				<td>
-					<?php if ( $phone ) : ?>
-						<?php echo esc_html( $phone ); ?>
-					<?php else : ?>
-						<span class="fs-table__empty-value">—</span>
-					<?php endif; ?>
-				</td>
-
-				<td>
-					<?php if ( $email ) : ?>
-						<?php echo esc_html( $email ); ?>
-					<?php else : ?>
-						<span class="fs-table__empty-value">—</span>
-					<?php endif; ?>
 				</td>
 
 				<td class="column-actions">
@@ -185,11 +96,11 @@ $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 						<span class="view">
 							<a href="#"
 							   class="js-view-person"
-							   data-person-id="<?php echo esc_attr( (string) $personId ); ?>"
-							   data-wp-user-id="<?php echo esc_attr( (string) $user->ID ); ?>"
+							   data-person-id="<?php echo esc_attr( (string) $parentPerson->id ); ?>"
+							   data-wp-user-id="<?php echo esc_attr( (string) ( $parentPerson->wpUserId ?? 0 ) ); ?>"
 							   data-person-type="parent"
-							   data-display-name="<?php echo esc_attr( $user->display_name ); ?>"
-							   data-email="<?php echo esc_attr( $email ); ?>">
+							   data-display-name="<?php echo esc_attr( $parentPerson->fullName ); ?>"
+							   data-email="">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>
 						</span>

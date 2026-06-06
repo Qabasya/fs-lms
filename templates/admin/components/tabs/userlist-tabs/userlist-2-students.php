@@ -61,9 +61,6 @@ $pages       = (int) ceil( $total / $perPage );
 				<?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
-				<?php esc_html_e( 'Телефон', 'fs-lms' ); ?>
-			</th>
-			<th class="column-title">
 				<?php esc_html_e( 'Предмет', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
@@ -84,7 +81,7 @@ $pages       = (int) ceil( $total / $perPage );
 		<tbody id="the-list">
 		<?php if ( empty( $enrollments ) ) : ?>
 			<tr>
-				<td colspan="8">
+				<td colspan="7">
 					<div class="notice notice-info inline fs-table__no-items">
 						<p><?php esc_html_e( 'Зачисленных учеников пока нет.', 'fs-lms' ); ?></p>
 					</div>
@@ -96,13 +93,15 @@ $pages       = (int) ceil( $total / $perPage );
 				$studentPersonId = $row->studentPersonId;
 				$groupId         = (string) ( $row->groupKey ?? '' );
 
-				// Имя ученика из WP-пользователя
+				// Имя ученика из таблицы persons
 				$studentName = '—';
 				$wpUser      = null;
 				$person      = $personRepo->find( $studentPersonId );
-				if ( $person && $person->wpUserId ) {
-					$wpUser      = get_userdata( $person->wpUserId );
-					$studentName = $wpUser ? $wpUser->display_name : '—';
+				if ( $person ) {
+					$studentName = $person->fullName ?: '—';
+					if ( $person->wpUserId ) {
+						$wpUser = get_userdata( $person->wpUserId );
+					}
 				}
 
 				// Группа и расписание
@@ -137,9 +136,8 @@ $pages       = (int) ceil( $total / $perPage );
 					}
 				}
 
-				$sd            = $snapshot['student']  ?? array();
-				$gd            = $snapshot['guardian'] ?? array();
-				$studentPhone  = $sd['phone'] ?? '';
+				$sd = $snapshot['student']  ?? array();
+				$gd = $snapshot['guardian'] ?? array();
 
 				$enrollmentData = array(
 					'subject'                  => $subjectName,
@@ -181,14 +179,6 @@ $pages       = (int) ceil( $total / $perPage );
 
 				<td class="column-title">
 					<?php echo esc_html( $studentName ); ?>
-				</td>
-
-				<td>
-					<?php if ( $studentPhone ) : ?>
-						<?php echo esc_html( $studentPhone ); ?>
-					<?php else : ?>
-						<span class="fs-table__empty-value">—</span>
-					<?php endif; ?>
 				</td>
 
 				<td class="column-title">
