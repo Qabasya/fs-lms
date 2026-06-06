@@ -326,7 +326,7 @@ $tabs = $isStudent
 			<button type="button" class="fs-lms-modal-close fs-close js-modal-close">&times;</button>
 		</div>
 		<div class="fs-lms-modal-body">
-			<form>
+			<form id="fs-edit-person-modal-form">
 				<input type="hidden" name="person_id" value="<?php echo esc_attr( (string) $personId ); ?>">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Email', 'fs-lms' ); ?></label>
@@ -345,7 +345,7 @@ $tabs = $isStudent
 		</div>
 		<div class="fs-lms-modal-footer">
 			<button type="button" class="button fs-lms-modal-cancel"><?php esc_html_e( 'Отмена', 'fs-lms' ); ?></button>
-			<button type="submit" class="button button-primary" form=""><?php esc_html_e( 'Сохранить', 'fs-lms' ); ?></button>
+			<button type="submit" class="button button-primary" form="fs-edit-person-modal-form"><?php esc_html_e( 'Сохранить', 'fs-lms' ); ?></button>
 		</div>
 	</div>
 </div>
