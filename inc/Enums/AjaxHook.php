@@ -101,6 +101,7 @@ enum AjaxHook: string {
 	case GetStudentsByGroup          = 'get_students_by_group';
 	case GetPersonData               = 'get_person_data';
 	case SelectExistingParent        = 'select_existing_parent';
+	case RemoveParentAssignment      = 'remove_parent_assignment';
 	case RestoreFromArchive          = 'restore_from_archive';
 	case SearchParents               = 'search_parents';
 

@@ -219,18 +219,25 @@ readonly class ApplicationService {
 		);
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
 
-		$appId = $app->id;
+		$appId        = $app->id;
+		$hasPreParent = null !== $app->parentPersonId;
 
-		$this->inTransaction( function () use ( $appId, $parentDataEnc, $studentDataEnc, $ctx ): void {
-			// Обновление заявки: переход в статус ReadyForReview
-			$this->applicationRepository->update( $appId, array(
+		$this->inTransaction( function () use ( $appId, $parentDataEnc, $studentDataEnc, $ctx, $hasPreParent ): void {
+			$updates = array(
 				'status'              => ApplicationStatus::ReadyForReview->value,
-				'parent_data_enc'     => $parentDataEnc,
 				'student_data_enc'    => $studentDataEnc,
 				'parent_submitted_ip' => $ctx->ip,
 				'parent_submitted_ua' => $ctx->userAgent,
 				'updated_at'          => $this->clock->now( 'mysql', true ),
-			) );
+			);
+
+			// Если родитель уже назначен — не перезаписываем parent_data_enc
+			if ( ! $hasPreParent ) {
+				$updates['parent_data_enc'] = $parentDataEnc;
+			}
+
+			// Обновление заявки: переход в статус ReadyForReview
+			$this->applicationRepository->update( $appId, $updates );
 
 			// Фиксация согласия родителя на обработку ПД
 			try {

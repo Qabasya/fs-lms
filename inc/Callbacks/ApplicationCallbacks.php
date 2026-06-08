@@ -92,9 +92,11 @@ class ApplicationCallbacks extends BaseController {
 				'email'      => 'test-student@example.com',
 				'phone'      => '+78005553535',
 			) ) );
-			set_query_var( 'fs_lms_join_code',   $code );
-			set_query_var( 'fs_lms_app_id',     0 );
-			set_query_var( 'fs_lms_consent_url', $this->resolveConsentUrl( 'pd_processing' ) );
+			set_query_var( 'fs_lms_join_code',     $code );
+			set_query_var( 'fs_lms_app_id',        0 );
+			set_query_var( 'fs_lms_consent_url',   $this->resolveConsentUrl( 'pd_processing' ) );
+			set_query_var( 'fs_lms_parent_data',   null );
+			set_query_var( 'fs_lms_parent_locked', false );
 			return true;
 		}
 
@@ -131,11 +133,25 @@ class ApplicationCallbacks extends BaseController {
 			$app->id
 		);
 
+		// Если родитель уже назначен — расшифровываем его данные для предзаполнения формы
+		$parentData   = null;
+		$parentLocked = false;
+		if ( $app->parentPersonId !== null && ! empty( $app->parentDataEnc ) ) {
+			try {
+				$parentData   = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array();
+				$parentLocked = true;
+			} catch ( \Throwable ) {
+				$parentData = null;
+			}
+		}
+
 		// Передаём данные в шаблон через query vars
 		set_query_var( 'fs_lms_student_data',  $studentData );
 		set_query_var( 'fs_lms_join_code',     $code );
 		set_query_var( 'fs_lms_app_id',        $app->id );
 		set_query_var( 'fs_lms_consent_url',   $this->resolveConsentUrl( 'pd_processing' ) );
+		set_query_var( 'fs_lms_parent_data',   $parentData );
+		set_query_var( 'fs_lms_parent_locked', $parentLocked );
 
 		return true;
 	}
@@ -266,21 +282,29 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
+		// Проверяем, назначен ли родитель заранее (поля родителя тогда не обязательны)
+		$joinCode     = $this->requireText( 'join_code' );
+		$parentLocked = false;
+		$app          = $this->applicationRepository->findByJoinCodeHash( $this->joinCodeService->hash( $joinCode ) );
+		if ( $app !== null && $app->parentPersonId !== null ) {
+			$parentLocked = true;
+		}
+
 		// Сбор данных формы родителя
 		$dto = new ParentSubmissionInputDTO(
-			joinCode:           $this->requireText( 'join_code' ),
-			parentLastName:     $this->requireText( 'parent_last_name' ),
-			parentFirstName:    $this->requireText( 'parent_first_name' ),
+			joinCode:           $joinCode,
+			parentLastName:     $parentLocked ? $this->sanitizeText( 'parent_last_name' ) : $this->requireText( 'parent_last_name' ),
+			parentFirstName:    $parentLocked ? $this->sanitizeText( 'parent_first_name' ) : $this->requireText( 'parent_first_name' ),
 			parentMiddleName:   $this->sanitizeText( 'parent_middle_name' ),
-			parentBirthDate:    $this->requireText( 'parent_birth_date' ),
-			docType:            $this->requireKey( 'doc_type' ),
-			docNumber:          $this->requireText( 'doc_number' ),
+			parentBirthDate:    $parentLocked ? $this->sanitizeText( 'parent_birth_date' ) : $this->requireText( 'parent_birth_date' ),
+			docType:            $parentLocked ? $this->sanitizeKey( 'doc_type' ) : $this->requireKey( 'doc_type' ),
+			docNumber:          $parentLocked ? $this->sanitizeText( 'doc_number' ) : $this->requireText( 'doc_number' ),
 			docIssuedBy:        $this->sanitizeText( 'doc_issued_by' ),
 			docIssuedDate:      $this->sanitizeText( 'doc_issued_date' ),
 			inn:                $this->sanitizeText( 'inn' ),
 			address:            $this->sanitizeText( 'address' ),
 			phone:              $this->sanitizeText( 'phone' ),
-			email:              $this->requireText( 'email' ),
+			email:              $parentLocked ? $this->sanitizeText( 'email' ) : $this->requireText( 'email' ),
 			studentLastName:    $this->requireText( 'student_last_name' ),
 			studentFirstName:   $this->requireText( 'student_first_name' ),
 			studentMiddleName:  $this->sanitizeText( 'student_middle_name' ),

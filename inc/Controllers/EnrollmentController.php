@@ -93,6 +93,8 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::RestoreFromArchive, $this->callbacks ),
 			// Назначить существующего родителя к заявке (событие 3B / 4B)
 			array( AjaxHook::SelectExistingParent, $this->callbacks ),
+			// Снять назначение родителя с заявки
+			array( AjaxHook::RemoveParentAssignment, $this->callbacks ),
 			// Поиск родителей для модалки выбора
 			array( AjaxHook::SearchParents, $this->callbacks ),
 		);

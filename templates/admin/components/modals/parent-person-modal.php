@@ -117,33 +117,16 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Выдан', 'fs-lms' ); ?></label>
-					<div class="fs-pfield fs-pfield--pii">
-						<input type="text" class="fs-person-field fs-person-pii" data-field="doc_issued" data-no-edit readonly>
-						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
-					</div>
-				</div>
-			</div>
-
-			<div class="fs-form-row">
-				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Документ ребёнка', 'fs-lms' ); ?></label>
-					<div class="fs-pfield fs-pfield--editable">
-						<input type="text" class="fs-person-field" data-field="child_doc_number" readonly>
+					<label><?php esc_html_e( 'Кем выдан', 'fs-lms' ); ?></label>
+					<div class="fs-pfield fs-pfield--editable fs-pfield--pii">
+						<input type="text" class="fs-person-field fs-person-pii" data-field="doc_issued_by" readonly>
 						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 					</div>
 				</div>
 				<div class="fs-form-group">
-					<label><?php esc_html_e( 'ИНН ребёнка', 'fs-lms' ); ?></label>
+					<label><?php esc_html_e( 'Дата выдачи', 'fs-lms' ); ?></label>
 					<div class="fs-pfield fs-pfield--editable">
-						<input type="text" class="fs-person-field" data-field="child_inn" readonly>
-						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
-					</div>
-				</div>
-				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Дата рождения ребёнка', 'fs-lms' ); ?></label>
-					<div class="fs-pfield fs-pfield--editable">
-						<input type="date" class="fs-person-field" data-field="child_birth_date" readonly>
+						<input type="date" class="fs-person-field" data-field="doc_issued_date" readonly>
 						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 					</div>
 				</div>

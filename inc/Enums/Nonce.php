@@ -38,6 +38,7 @@ enum Nonce: string {
 	case ReviewApplication        = 'fs_lms_review_application';
 	case Expulsion                = 'fs_lms_expulsion';
 	case SelectExistingParent     = 'fs_lms_select_existing_parent';
+	case RemoveParentAssignment   = 'fs_lms_remove_parent_assignment';
 	case RestoreFromArchive       = 'fs_lms_restore_from_archive';
 
 	/**

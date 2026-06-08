@@ -73,13 +73,22 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 
 				$childNamesStr  = implode( ', ', $childNames ) ?: '—';
 				$parentFullName = $parentPerson->fullName();
+				$parentWpUser   = $parentPerson->wpUserId ? get_userdata( $parentPerson->wpUserId ) : null;
+
+				$childPerson = $childPersonId ? $personRepo->find( $childPersonId ) : null;
 
 				$parentModalData = array(
-					'person_id'       => $parentPerson->id,
-					'wp_user_id'      => $parentPerson->wpUserId ?? 0,
-					'full_name'       => $parentFullName,
-					'children'        => $childNamesStr,
-					'child_person_id' => $childPersonId,
+					'person_id'        => $parentPerson->id,
+					'wp_user_id'       => $parentPerson->wpUserId ?? 0,
+					'full_name'        => $parentFullName,
+					'last_name'        => $parentPerson->lastName,
+					'first_name'       => $parentPerson->firstName,
+					'middle_name'      => $parentPerson->middleName ?? '',
+					'birth_date'       => $parentPerson->birthDate ?? '',
+					'children'         => $childNamesStr,
+					'child_person_id'  => $childPersonId,
+					'child_birth_date' => $childPerson?->birthDate ?? '',
+					'phone'            => '',
 				);
 			?>
 			<tr data-parent="<?php echo esc_attr( (string) wp_json_encode( $parentModalData ) ); ?>">
@@ -101,7 +110,7 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 							   data-wp-user-id="<?php echo esc_attr( (string) ( $parentPerson->wpUserId ?? 0 ) ); ?>"
 							   data-person-type="parent"
 							   data-display-name="<?php echo esc_attr( $parentFullName ); ?>"
-							   data-email="">
+							   data-email="<?php echo esc_attr( $parentWpUser ? $parentWpUser->user_email : '' ); ?>">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>
 						</span>

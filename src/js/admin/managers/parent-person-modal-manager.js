@@ -66,20 +66,15 @@ export const ParentPersonModalManager = {
         ParentPersonModal.setPersonId( personId );
         ParentPersonModal.setWpUserId( wpUserId );
 
-        // Немедленно из данных строки — без ожидания AJAX
         ParentPersonModal.fill( {
-            display_name:     $btn.data( 'displayName' )       || '',
-            last_name:        rowData.last_name                 || '',
-            first_name:       rowData.first_name                || '',
-            middle_name:      rowData.middle_name               || '',
-            email:            $btn.data( 'email' )              || '',
-            phone:            rowData.phone                     || '',
-            dependent_name:   rowData.children                  || '',
-            birth_date:       rowData.birth_date                || '',
-            child_person_id:  rowData.child_person_id           || 0,
-            child_doc_number: rowData.child_doc_number          || '',
-            child_inn:        rowData.child_inn                 || '',
-            child_birth_date: rowData.child_birth_date          || '',
+            display_name:   $btn.data( 'displayName' ) || '',
+            last_name:      rowData.last_name           || '',
+            first_name:     rowData.first_name          || '',
+            middle_name:    rowData.middle_name         || '',
+            email:          $btn.data( 'email' )        || '',
+            phone:          rowData.phone               || '',
+            dependent_name: rowData.children            || '',
+            birth_date:     rowData.birth_date          || '',
         } );
 
         ParentPersonModal.open();
@@ -94,19 +89,19 @@ export const ParentPersonModalManager = {
             if ( ! res.success ) return;
             const pii = res.data.masked_pii || {};
             ParentPersonModal.fill( {
-                doc_number: pii.doc_number || '',
-                inn:        pii.inn        || '',
-                address:    pii.address    || '',
-                password:   pii.password   || '',
-                doc_issued: pii.doc_issued || '',
+                doc_number:     pii.doc_number     || '',
+                inn:            pii.inn            || '',
+                address:        pii.address        || '',
+                password:       pii.password       || '',
+                doc_issued_by:  pii.doc_issued_by  || '',
+                doc_issued_date: pii.doc_issued_date || '',
             } );
         } );
     },
 
     _startEditing() {
-        const personId      = ParentPersonModal.getPersonId();
-        const wpUserId      = ParentPersonModal.getWpUserId();
-        const childPersonId = ParentPersonModal.getChildPersonId();
+        const personId = ParentPersonModal.getPersonId();
+        const wpUserId = ParentPersonModal.getWpUserId();
 
         if ( ! personId ) {
             ParentPersonModal.setEditing( true );
@@ -122,20 +117,6 @@ export const ParentPersonModalManager = {
             if ( res.success ) ParentPersonModal.fillRevealed( res.data );
         } );
 
-        const childPiiPromise = childPersonId
-            ? $.post( AJAX_URL(), {
-                action:    ACTIONS().revealAllPersonPii,
-                person_id: childPersonId,
-                reason:    'admin_userlist_edit',
-                security:  NONCES().revealPii,
-            } ).done( ( res ) => {
-                if ( res.success ) ParentPersonModal.fillRevealed( {
-                    child_doc_number: res.data.doc_number || '',
-                    child_inn:        res.data.inn        || '',
-                } );
-            } )
-            : $.Deferred().resolve();
-
         const credPromise = wpUserId
             ? $.post( AJAX_URL(), {
                 action:   ACTIONS().revealUserCredentials,
@@ -146,15 +127,14 @@ export const ParentPersonModalManager = {
             } )
             : $.Deferred().resolve();
 
-        $.when( piiPromise, childPiiPromise, credPromise ).always( () => {
+        $.when( piiPromise, credPromise ).always( () => {
             ParentPersonModal.setEditing( true );
         } );
     },
 
     _revealAll() {
-        const personId      = ParentPersonModal.getPersonId();
-        const wpUserId      = ParentPersonModal.getWpUserId();
-        const childPersonId = ParentPersonModal.getChildPersonId();
+        const personId = ParentPersonModal.getPersonId();
+        const wpUserId = ParentPersonModal.getWpUserId();
         if ( ! personId ) return;
 
         $.post( AJAX_URL(), {
@@ -165,20 +145,6 @@ export const ParentPersonModalManager = {
         } ).done( ( res ) => {
             if ( res.success ) ParentPersonModal.fillRevealed( res.data );
         } );
-
-        if ( childPersonId ) {
-            $.post( AJAX_URL(), {
-                action:    ACTIONS().revealAllPersonPii,
-                person_id: childPersonId,
-                reason:    'admin_userlist_reveal',
-                security:  NONCES().revealPii,
-            } ).done( ( res ) => {
-                if ( res.success ) ParentPersonModal.fillRevealed( {
-                    child_doc_number: res.data.doc_number || '',
-                    child_inn:        res.data.inn        || '',
-                } );
-            } );
-        }
 
         if ( wpUserId ) {
             $.post( AJAX_URL(), {
@@ -198,7 +164,7 @@ export const ParentPersonModalManager = {
             'last_name', 'first_name', 'middle_name',
             'phone', 'email', 'password',
             'birth_date', 'doc_number', 'inn', 'address',
-            'child_doc_number', 'child_inn', 'child_birth_date',
+            'doc_issued_by', 'doc_issued_date',
         ];
         const edit = ParentPersonModal.getEditData();
         const payload = {
@@ -207,7 +173,6 @@ export const ParentPersonModalManager = {
             person_id: personId,
         };
         allowed.forEach( k => {
-            // Не отправлять PII-поля, если они ещё в маске
             if ( edit[ k ] && ! edit[ k ].includes( '•' ) ) payload[ k ] = edit[ k ];
         } );
         $.post( AJAX_URL(), payload ).done( ( res ) => {

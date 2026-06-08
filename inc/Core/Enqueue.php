@@ -193,6 +193,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'deletePii'             => Nonce::RequestPiiDeletion->create(),
 						'restoreFromArchive'    => Nonce::RestoreFromArchive->create(),
 						'selectExistingParent'  => Nonce::SelectExistingParent->create(),
+						'removeParentAssignment' => Nonce::RemoveParentAssignment->create(),
 					),
 				)
 			);

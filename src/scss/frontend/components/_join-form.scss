@@ -190,6 +190,19 @@
     margin-bottom: 12px;
   }
 
+  &__locked-notice {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: $color-bg-subtle;
+    border-left: 3px solid $color-accent;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    font-size: $font-size-sm;
+    color: $color-muted;
+    border-radius: 0 $radius-sm $radius-sm 0;
+  }
+
   &__success {
     text-align: center;
     padding: 16px 0;

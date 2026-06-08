@@ -688,8 +688,23 @@ class EnrollmentCallbacks extends BaseController {
 		$parentPersonId = $this->requireInt( 'parent_person_id', error: 'Не указан ID родителя.' );
 
 		try {
-			$this->enrollmentService->selectExistingParent( $applicationId, $parentPersonId );
-			$this->success();
+			$result = $this->enrollmentService->selectExistingParent( $applicationId, $parentPersonId );
+			$this->success( $result );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		} catch ( \DomainException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	public function ajaxRemoveParentAssignment(): void {
+		$this->authorize( Nonce::RemoveParentAssignment, Capability::ManageApplications );
+
+		$applicationId = $this->requireInt( 'application_id', error: 'Не указан ID заявки.' );
+
+		try {
+			$result = $this->enrollmentService->removeParentAssignment( $applicationId );
+			$this->success( $result );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 		} catch ( \DomainException $e ) {

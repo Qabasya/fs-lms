@@ -361,12 +361,14 @@ readonly class EnrollmentService {
 	}
 
 	/**
-	 * Привязывает существующего родителя к заявке (путь 3B и 4B).
+	 * Привязывает существующего родителя к заявке и ротирует JOIN-код.
+	 * Статус остаётся pending_parent — родитель подтверждает данные ученика через форму.
 	 *
 	 * @param int $applicationId  ID заявки (status = pending_parent)
 	 * @param int $parentPersonId ID существующего родителя
+	 * @return array{join_url: string, parent_name: string}
 	 */
-	public function selectExistingParent( int $applicationId, int $parentPersonId ): void {
+	public function selectExistingParent( int $applicationId, int $parentPersonId ): array {
 		$app = $this->applicationRepository->find( $applicationId );
 
 		if ( null === $app ) {
@@ -395,7 +397,7 @@ readonly class EnrollmentService {
 			'doc_type'        => '',
 			'doc_number'      => '',
 			'doc_issued_by'   => '',
-			'doc_issued_date' => $docs?->docIssuedDate ?? '',
+			'doc_issued_date' => '',
 			'inn'             => '',
 			'address'         => '',
 		);
@@ -405,19 +407,73 @@ readonly class EnrollmentService {
 			if ( $docs->phoneEnc )       { $parentData['phone']         = $this->crypto->decrypt( $docs->phoneEnc ); }
 			if ( $docs->docNumberEnc )   { $parentData['doc_number']    = $this->crypto->decrypt( $docs->docNumberEnc ); }
 			if ( $docs->docIssuedByEnc ) { $parentData['doc_issued_by'] = $this->crypto->decrypt( $docs->docIssuedByEnc ); }
+			if ( $docs->docIssuedDate )  { $parentData['doc_issued_date'] = $docs->docIssuedDate; }
 			if ( $docs->innEnc )         { $parentData['inn']           = $this->crypto->decrypt( $docs->innEnc ); }
 			if ( $docs->addressEnc )     { $parentData['address']       = $this->crypto->decrypt( $docs->addressEnc ); }
 			$parentData['doc_type'] = $docs->docType ?? '';
 		}
 
+		// Если email не найден в документах — берём из WP-аккаунта родителя
+		if ( '' === $parentData['email'] && $parentPerson->wpUserId ) {
+			$wpUser = get_userdata( $parentPerson->wpUserId );
+			if ( $wpUser ) {
+				$parentData['email'] = $wpUser->user_email;
+			}
+		}
+
 		$parentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $parentData ) );
 
-		$now = $this->clock->now( 'mysql', true );
+		$newCode = $this->joinCodeService->generate();
+		$newHash = $this->joinCodeService->hash( $newCode );
+		$newEnc  = $this->crypto->encrypt( $newCode );
+
 		$this->applicationRepository->update( $applicationId, array(
 			'parent_person_id' => $parentPersonId,
 			'parent_data_enc'  => $parentDataEnc,
-			'status'           => ApplicationStatus::ReadyForReview->value,
-			'updated_at'       => $now,
+			'join_code_hash'   => $newHash,
+			'join_code_enc'    => $newEnc,
+			'updated_at'       => $this->clock->now( 'mysql', true ),
 		) );
+
+		return array(
+			'join_url'    => home_url( '/lms/join/' . $newCode ),
+			'parent_name' => $parentPerson->fullName(),
+		);
+	}
+
+	/**
+	 * Снимает назначение родителя с заявки и ротирует JOIN-код.
+	 *
+	 * @param int $applicationId ID заявки (status = pending_parent, parent_person_id задан)
+	 * @return array{join_url: string}
+	 */
+	public function removeParentAssignment( int $applicationId ): array {
+		$app = $this->applicationRepository->find( $applicationId );
+
+		if ( null === $app ) {
+			throw new InvalidArgumentException( 'Заявка не найдена.' );
+		}
+
+		if ( ApplicationStatus::PendingParent !== $app->status ) {
+			throw new DomainException( 'Заявка не в статусе pending_parent.' );
+		}
+
+		if ( null === $app->parentPersonId ) {
+			throw new DomainException( 'Родитель не назначен.' );
+		}
+
+		$newCode = $this->joinCodeService->generate();
+		$newHash = $this->joinCodeService->hash( $newCode );
+		$newEnc  = $this->crypto->encrypt( $newCode );
+
+		$this->applicationRepository->update( $applicationId, array(
+			'parent_person_id' => null,
+			'parent_data_enc'  => null,
+			'join_code_hash'   => $newHash,
+			'join_code_enc'    => $newEnc,
+			'updated_at'       => $this->clock->now( 'mysql', true ),
+		) );
+
+		return array( 'join_url' => home_url( '/lms/join/' . $newCode ) );
 	}
 }

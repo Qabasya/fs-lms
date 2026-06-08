@@ -23,6 +23,12 @@ export const SelectParentModal = {
             this.open( appId );
         } );
 
+        $( document ).on( 'click.spm', '.js-remove-parent-assignment', ( e ) => {
+            e.preventDefault();
+            const appId = $( e.currentTarget ).data( 'application-id' );
+            this._removeParent( appId );
+        } );
+
         this.$modal.on( 'click', '.fs-lms-modal-backdrop, .fs-lms-modal-cancel, .js-modal-close, .fs-close', ( e ) => {
             e.preventDefault();
             this.close();
@@ -121,9 +127,81 @@ export const SelectParentModal = {
                     return;
                 }
                 this.close();
-                location.reload();
+                this._updateRow( appId, res.data.parent_name ?? '', res.data.join_url ?? '', true );
             },
             error: () => alert( 'Сетевая ошибка.' ),
         } );
+    },
+
+    _removeParent( appId ) {
+        if ( ! confirm( 'Снять назначение родителя? JOIN-ссылка будет обновлена.' ) ) { return; }
+
+        const vars = window.fs_lms_applications_vars ?? {};
+
+        $.ajax( {
+            url:    fs_lms_vars.ajaxurl,
+            method: 'POST',
+            data:   {
+                action:         fs_lms_vars.ajax_actions.removeParentAssignment,
+                application_id: appId,
+                security:       vars.nonces?.removeParentAssignment ?? '',
+            },
+            success: ( res ) => {
+                if ( ! res.success ) {
+                    alert( res.data || 'Ошибка снятия назначения.' );
+                    return;
+                }
+                this._updateRow( appId, '—', res.data.join_url ?? '', false );
+            },
+            error: () => alert( 'Сетевая ошибка.' ),
+        } );
+    },
+
+    _updateRow( appId, parentName, joinUrl, hasParent ) {
+        const $row = $( `tr[data-app-id="${ appId }"]` );
+        if ( ! $row.length ) { return; }
+
+        // Обновляем колонку ФИО родителя
+        $row.find( 'td' ).eq( 1 ).text( parentName );
+
+        // Обновляем JOIN-ссылку и кнопки действий
+        const $joinCell = $row.find( 'td' ).eq( 3 );
+        const $joinBtn  = $joinCell.find( '.fs-lms-join-code' );
+
+        if ( $joinBtn.length ) {
+            const code = joinUrl.split( '/' ).pop();
+            $joinBtn.attr( 'data-url', joinUrl ).text( code );
+        }
+
+        // Кнопка "Назначить родителя"
+        $joinCell.find( '.js-select-existing-parent' ).remove();
+        // Кнопка "Снять назначение"
+        $joinCell.find( '.js-remove-parent-assignment' ).remove();
+
+        if ( hasParent ) {
+            $joinCell.append(
+                `<br><button type="button"
+                    class="button-link js-select-existing-parent"
+                    data-application-id="${ appId }"
+                    style="margin-top: 4px; font-size: 11px;">
+                    ✎ Сменить родителя
+                </button>
+                <button type="button"
+                    class="button-link js-remove-parent-assignment"
+                    data-application-id="${ appId }"
+                    style="margin-top: 4px; font-size: 11px; color:#a00;">
+                    ✕ Снять назначение
+                </button>`
+            );
+        } else {
+            $joinCell.append(
+                `<br><button type="button"
+                    class="button-link js-select-existing-parent"
+                    data-application-id="${ appId }"
+                    style="margin-top: 4px; font-size: 11px;">
+                    + Назначить родителя
+                </button>`
+            );
+        }
     },
 };

@@ -140,12 +140,14 @@ class PiiCallbacks extends BaseController {
 		$middleName = $this->sanitizeText( 'middle_name' );
 
 		$personChanges = array_filter( array(
-			'phone'      => $this->sanitizeText( 'phone' ),
-			'email'      => $this->sanitizeText( 'email' ),
-			'birth_date' => $this->sanitizeText( 'birth_date' ),
-			'doc_number' => $this->sanitizeText( 'doc_number' ),
-			'inn'        => $this->sanitizeText( 'inn' ),
-			'address'    => $this->sanitizeText( 'address' ),
+			'phone'          => $this->sanitizeText( 'phone' ),
+			'email'          => $this->sanitizeText( 'email' ),
+			'birth_date'     => $this->sanitizeText( 'birth_date' ),
+			'doc_number'     => $this->sanitizeText( 'doc_number' ),
+			'inn'            => $this->sanitizeText( 'inn' ),
+			'address'        => $this->sanitizeText( 'address' ),
+			'doc_issued_by'  => $this->sanitizeText( 'doc_issued_by' ),
+			'doc_issued_date' => $this->sanitizeText( 'doc_issued_date' ),
 		) );
 
 		if ( $lastName ) { $personChanges['last_name']   = $lastName; }
@@ -300,9 +302,10 @@ class PiiCallbacks extends BaseController {
 
 		if ( $isParent ) {
 			$docs = $this->personDocumentsRepository->findByPersonId( $personId );
-			$maskedPii['doc_issued'] = ( $docs !== null && $docs->docIssuedByEnc !== null )
-				? '•••••• от ••.••.••••'
+			$maskedPii['doc_issued_by']   = ( $docs !== null && $docs->docIssuedByEnc !== null )
+				? '••••••'
 				: '';
+			$maskedPii['doc_issued_date'] = $docs?->docIssuedDate ?? '';
 		}
 
 		$this->success( array(
@@ -343,10 +346,9 @@ class PiiCallbacks extends BaseController {
 				'phone'      => $dto->phone,
 			);
 
-			$docIssued = $this->getDocIssuedFromPersonDocs( $personId );
-			if ( $docIssued !== '' ) {
-				$payload['doc_issued'] = $docIssued;
-			}
+			$issuedParts = $this->getDocIssuedParts( $personId );
+			$payload['doc_issued_by']   = $issuedParts['by'];
+			$payload['doc_issued_date'] = $issuedParts['date'];
 
 			$this->success( $payload );
 		} catch ( \RuntimeException $e ) {
@@ -354,26 +356,20 @@ class PiiCallbacks extends BaseController {
 		}
 	}
 
-	private function getDocIssuedFromPersonDocs( int $personId ): string {
+	private function getDocIssuedParts( int $personId ): array {
 		$docs = $this->personDocumentsRepository->findByPersonId( $personId );
 		if ( null === $docs ) {
-			return '';
+			return array( 'by' => '', 'date' => '' );
 		}
 
-		$by   = '';
-		$date = $docs->docIssuedDate ?? '';
-
+		$by = '';
 		if ( $docs->docIssuedByEnc !== null ) {
 			try {
 				$by = trim( $this->crypto->decrypt( $docs->docIssuedByEnc ) );
 			} catch ( \Throwable ) {}
 		}
 
-		if ( $by === '' && $date === '' ) {
-			return '';
-		}
-
-		return $by . ( $date !== '' ? ' от ' . $date : '' );
+		return array( 'by' => $by, 'date' => $docs->docIssuedDate ?? '' );
 	}
 
 	private function getMaskedPersonPii( int $personId ): array {
