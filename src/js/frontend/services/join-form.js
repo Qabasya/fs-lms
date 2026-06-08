@@ -123,7 +123,7 @@ function initStudentDocType() {
         numberField.value = '';
         clearFieldError( numberField );
 
-        if ( typeField.value === 'passport' ) {
+        if ( typeField.value === 'pass' ) {
             label.textContent            = 'Данные паспорта ученика:';
             numberField.placeholder      = '1234 567890';
             numberField.dataset.validate = 'passportSN';
@@ -135,7 +135,7 @@ function initStudentDocType() {
     };
 
     numberField.addEventListener( 'input', () => {
-        if ( typeField.value === 'passport' ) {
+        if ( typeField.value === 'pass' ) {
             formatPassportSN( numberField );
         }
     } );

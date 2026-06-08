@@ -17,8 +17,12 @@ readonly class PersonInputDTO {
 		public string  $inn         = '',
 		public string  $address     = '',
 		public string  $phone       = '',
-		public ?string $email       = null,
-		public ?int    $wpUserId    = null,
+		public string  $school       = '',
+		public string  $grade        = '',
+		public string  $docIssuedBy  = '',
+		public string  $docIssuedDate = '',
+		public ?string $email        = null,
+		public ?int    $wpUserId     = null,
 	) {}
 
 	public function fullName(): string {
@@ -38,8 +42,10 @@ readonly class PersonInputDTO {
 		if ( '' !== $this->birthDate ) { $data['birth_date'] = $this->birthDate; }
 		if ( '' !== $this->inn )       { $data['inn']        = $this->inn; }
 		if ( '' !== $this->address )   { $data['address']    = $this->address; }
-		if ( '' !== $this->phone )     { $data['phone']      = $this->phone; }
-		if ( null !== $this->email )   { $data['email']      = $this->email; }
+		if ( '' !== $this->phone )        { $data['phone']         = $this->phone; }
+		if ( '' !== $this->docIssuedBy )  { $data['doc_issued_by']  = $this->docIssuedBy; }
+		if ( '' !== $this->docIssuedDate ) { $data['doc_issued_date'] = $this->docIssuedDate; }
+		if ( null !== $this->email )      { $data['email']           = $this->email; }
 		if ( null !== $this->wpUserId ) { $data['wp_user_id'] = $this->wpUserId; }
 
 		return $data;

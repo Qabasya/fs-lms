@@ -104,17 +104,19 @@ export const StudentPersonModalManager = {
             const enr = ( res.data.enrollments || [] )[0] || {};
             const pii = res.data.masked_pii || {};
             StudentPersonModal.fill( {
-                last_name:   enr.last_name   || '',
-                first_name:  enr.first_name  || '',
-                middle_name: enr.middle_name || '',
-                schedule:    enr.schedule    || '',
-                birth_date:  enr.birth_date  || '',
-                school:      enr.school      || '',
-                grade:       enr.grade       || '',
-                doc_number:  pii.doc_number  || '',
-                inn:         pii.inn         || '',
-                login:       res.data.login  || '',
-                password:    res.data.password || '',
+                last_name:     enr.last_name   || '',
+                first_name:    enr.first_name  || '',
+                middle_name:   enr.middle_name || '',
+                schedule:      enr.schedule    || '',
+                birth_date:    enr.birth_date  || '',
+                school:        enr.school      || '',
+                grade:         enr.grade       || '',
+                doc_number:    pii.doc_number  || '',
+                inn:           pii.inn         || '',
+                phone:         pii.phone       || '',
+                guardian_name: ( res.data.representatives || [] )[0]?.name || '',
+                login:         res.data.login  || '',
+                password:      res.data.password || '',
             } );
         } );
     },

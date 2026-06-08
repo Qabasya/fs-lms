@@ -66,6 +66,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			middle_name varchar(100)        DEFAULT NULL,
 			birth_date  date                DEFAULT NULL,
 			is_student  tinyint(1)          NOT NULL DEFAULT 0,
+			school      varchar(255)        DEFAULT NULL,
+			grade       varchar(10)         DEFAULT NULL,
 			deleted_at  datetime            DEFAULT NULL,
 			created_at  datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at  datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

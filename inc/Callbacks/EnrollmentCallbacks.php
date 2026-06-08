@@ -189,22 +189,27 @@ class EnrollmentCallbacks extends BaseController {
 	public function ajaxEnrollStudent(): void {
 		$this->authorize( Nonce::Enroll, Capability::EnrollStudent );
 
-		$dto = new EnrollmentInputDTO(
-			applicationId: $this->sanitizeInt( 'application_id' ),
-			contractNo:    $this->sanitizeText( 'contract_no' ),
-			contractDate:  $this->requireText( 'contract_date' ),
-			orderNo:       $this->requireText( 'order_no' ),
-			orderDate:     $this->requireText( 'order_date' ),
-			enrolledAt:    $this->requireText( 'enrolled_at' ),
-			groupId:       $this->sanitizeInt( 'group_id' ),
-			sendEmailAuto: true,
-		);
+		$applicationId = $this->sanitizeInt( 'application_id' );
 
 		try {
+			$dto = new EnrollmentInputDTO(
+				applicationId: $applicationId,
+				contractNo:    $this->sanitizeText( 'contract_no' ),
+				contractDate:  $this->requireText( 'contract_date' ),
+				orderNo:       $this->requireText( 'order_no' ),
+				orderDate:     $this->requireText( 'order_date' ),
+				enrolledAt:    $this->requireText( 'enrolled_at' ),
+				groupId:       $this->sanitizeInt( 'group_id' ),
+				sendEmailAuto: true,
+			);
+
 			$result = $this->enrollmentService->enroll( $dto );
-		} catch ( \DomainException $e ) {
-			$this->error( $e->getMessage() );
-		} catch ( \InvalidArgumentException $e ) {
+		} catch ( \Throwable $e ) {
+			// Транзакция откатилась или DTO не собрался — возвращаем заявку в ready_for_review
+			$this->applicationRepository->update( $applicationId, array(
+				'status'     => ApplicationStatus::ReadyForReview->value,
+				'updated_at' => current_time( 'mysql', true ),
+			) );
 			$this->error( $e->getMessage() );
 		}
 

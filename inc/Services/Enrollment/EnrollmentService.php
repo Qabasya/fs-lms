@@ -112,23 +112,28 @@ readonly class EnrollmentService {
 					docType:    $studentDto->docType,
 					birthDate:  $studentDto->birthDate,
 					inn:        $studentDto->inn,
+					phone:      $studentDto->phone,
+					school:     $studentDto->school,
+					grade:      (string) $studentDto->grade,
 					email:      $studentDto->email !== '' ? $studentDto->email : null,
 				) );
 
 			$guardianPersonId = $existingGuardian !== null
 				? $existingGuardian->id
 				: $this->personService->createOrFindBy( new PersonInputDTO(
-					lastName:   $parentDto->lastName,
-					firstName:  $parentDto->firstName,
-					docNumber:  $parentDto->docNumber,
-					isStudent:  false,
-					middleName: $parentDto->middleName,
-					docType:    $parentDto->docType,
-					birthDate:  $parentDto->birthDate,
-					inn:        $parentDto->inn,
-					address:    $parentDto->address,
-					phone:      $parentDto->phone,
-					email:      $parentDto->email !== '' ? $parentDto->email : null,
+					lastName:      $parentDto->lastName,
+					firstName:     $parentDto->firstName,
+					docNumber:     $parentDto->docNumber,
+					isStudent:     false,
+					middleName:    $parentDto->middleName,
+					docType:       $parentDto->docType,
+					birthDate:     $parentDto->birthDate,
+					inn:           $parentDto->inn,
+					address:       $parentDto->address,
+					phone:         $parentDto->phone,
+					docIssuedBy:   $parentDto->docIssuedBy,
+					docIssuedDate: $parentDto->docIssuedDate,
+					email:         $parentDto->email !== '' ? $parentDto->email : null,
 				) );
 
 			$recordId = $this->studentRecordRepository->create( array(
@@ -267,6 +272,12 @@ readonly class EnrollmentService {
 				false
 			);
 		} catch ( \Throwable $e ) {
+			// Транзакция прошла (student_record создан), WP-пользователи не созданы.
+			// Помечаем заявку как converted, чтобы не зависала в статусе enrolling.
+			try {
+				$this->applicationRepository->markConverted( $app->id, $recordId );
+			} catch ( \Throwable ) {}
+
 			$this->auditService->record(
 				AuditAction::EnrollStudentFailed->value,
 				'student_record',

@@ -620,29 +620,6 @@ COMMIT
 
 Заявка переходит в `expired` ночным cron. Ученик подаёт заявку заново (путь 1A).
 
-### Замена представителя
-
-Через страницу `?page=fs-lms-person-detail` → вкладка «Представители» → кнопка «Заменить»:
-
-`AJAX: replace_representative` → `PiiCallbacks::ajaxReplaceRepresentative()`:
-```
-1. Найти student_record WHERE id = recordId
-2. Создать/найти нового родителя через personService->createOrFindBy()
-3. studentRecordRepository->update(recordId, {parent_person_id: newGuardianId})
-```
-
-### Добавление второго представителя
-
-`AJAX: add_representative` → `PiiCallbacks::ajaxAddRepresentative()`:
-```
-1. Найти активную student_record через
-   studentRecordRepository->findActiveByStudentFirst(studentPersonId)
-2. Создать/найти родителя
-3. studentRecordRepository->update(recordId, {parent_person_id: newGuardianId})
-```
-
-Одна `student_records` запись хранит одного родителя (`parent_person_id`). Несколько представителей — несколько активных записей.
-
 ### Запрос на удаление ПД (152-ФЗ)
 
 `AJAX: request_pii_deletion` → `PersonService::softDelete(personId)` → `persons.deleted_at = now`.  

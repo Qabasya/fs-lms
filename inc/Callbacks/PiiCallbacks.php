@@ -282,8 +282,8 @@ class PiiCallbacks extends BaseController {
 					'first_name'    => $sPerson?->firstName ?? '',
 					'middle_name'   => $sPerson?->middleName ?? '',
 					'birth_date'    => $sPerson?->birthDate ?? '',
-					'school'        => '',
-					'grade'         => '',
+					'school'        => $sPerson?->school ?? '',
+					'grade'         => $sPerson?->grade  ?? '',
 					'child_doc_number'    => '',
 					'child_inn'           => '',
 					'child_birth_date'    => '',
@@ -389,6 +389,7 @@ class PiiCallbacks extends BaseController {
 				'inn'        => $this->maskingService->mask( $dto->inn,     PiiField::Inn )
 					?: $this->maskingService->placeholder( PiiField::Inn ),
 				'address'    => $this->maskingService->mask( $dto->address, PiiField::Address ),
+				'phone'      => $this->maskingService->mask( $dto->phone,   PiiField::Phone ),
 			);
 		} catch ( \Throwable ) {
 			return array(

@@ -182,7 +182,7 @@ ThemeCompatService::header();
                                 aria-required="true"
                                 autocomplete="off"
                         >
-                            <option value="passport" selected><?php esc_html_e( 'Паспорт', 'fs-lms' ); ?></option>
+                            <option value="pass" selected><?php esc_html_e( 'Паспорт', 'fs-lms' ); ?></option>
                             <option value="birth_certificate"><?php esc_html_e( 'Свидетельство о рождении', 'fs-lms' ); ?></option>
                         </select>
                     </div>

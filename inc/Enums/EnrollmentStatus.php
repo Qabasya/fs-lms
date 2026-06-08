@@ -25,7 +25,7 @@ enum EnrollmentStatus: string {
 	 */
 	public function label(): string {
 		return match ( $this ) {
-			self::Active      => 'Активное',
+			self::Active      => 'Обучается',
 			self::Finished    => 'Завершено',
 			self::Expelled    => 'Отчислен',
 			self::Transferred => 'Переведён',

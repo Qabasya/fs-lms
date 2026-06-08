@@ -47,6 +47,8 @@ readonly class PersonService {
 			'middle_name' => $input->middleName !== '' ? $input->middleName : null,
 			'birth_date'  => $input->birthDate !== '' ? $input->birthDate : null,
 			'is_student'  => $input->isStudent ? 1 : 0,
+			'school'      => $input->school !== '' ? $input->school : null,
+			'grade'       => $input->grade  !== '' ? $input->grade  : null,
 			'created_at'  => $now,
 			'updated_at'  => $now,
 		) );
@@ -71,7 +73,7 @@ readonly class PersonService {
 		$docData      = array();
 		$changedFields = array();
 
-		foreach ( array( 'last_name', 'first_name', 'middle_name' ) as $nameField ) {
+		foreach ( array( 'last_name', 'first_name', 'middle_name', 'school', 'grade' ) as $nameField ) {
 			if ( array_key_exists( $nameField, $changes ) ) {
 				$personData[ $nameField ] = (string) $changes[ $nameField ];
 				$changedFields[]          = $nameField;

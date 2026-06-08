@@ -99,6 +99,16 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				$studentName = '—';
 				$wpUser      = null;
 				$person      = $personRepo->find( $studentPersonId );
+
+				// Имя родителя
+				$parentName = '';
+				if ( $row->parentPersonId ) {
+					$parentPerson = $personRepo->find( $row->parentPersonId );
+					if ( $parentPerson !== null ) {
+						$parentWpUser = $parentPerson->wpUserId ? get_userdata( $parentPerson->wpUserId ) : null;
+						$parentName   = $parentWpUser ? $parentWpUser->display_name : $parentPerson->fullName();
+					}
+				}
 				if ( $person !== null ) {
 					$studentName = $person->fullName() ?: '—';
 					if ( $person->wpUserId ) {
@@ -116,8 +126,9 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				$subjectName = '—';
 				$group       = $groupId ? $groupRepo->findById( $groupId ) : null;
 				if ( $group !== null ) {
-					$groupTitle  = $group->name;
-					$formatted   = WeekDay::formatSchedule( $group->schedule );
+					$groupTitle    = $group->name;
+					$scheduleArray = is_string( $group->schedule ) ? ( json_decode( $group->schedule, true ) ?? array() ) : array();
+					$formatted     = WeekDay::formatSchedule( $scheduleArray );
 					if ( $formatted !== '' ) {
 						$scheduleStr = $formatted;
 					}
@@ -141,12 +152,12 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					'student_birth_date'       => $person?->birthDate  ?? '',
 					'student_email'            => '',
 					'student_phone'            => '',
-					'student_school'           => '',
-					'student_grade'            => '',
+					'student_school'           => $person?->school ?? '',
+					'student_grade'            => $person?->grade  ?? '',
 					'student_doc_type'         => '',
 					'student_doc_number'       => '',
 					'student_inn'              => '',
-					'guardian_full_name'       => '',
+					'guardian_full_name'       => $parentName,
 					'guardian_birth_date'      => '',
 					'guardian_email'           => '',
 					'guardian_phone'           => '',
