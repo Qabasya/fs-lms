@@ -10,7 +10,9 @@ export const StudentPersonModalManager = {
     _initialized: false,
 
     init() {
-        if ( this._initialized || ! StudentPersonModal._initialized ) return;
+        if ( this._initialized ) return;
+        StudentPersonModal.init();
+        if ( ! StudentPersonModal._initialized ) return;
         this._initialized = true;
         this._bindEvents();
     },

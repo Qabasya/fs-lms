@@ -10,7 +10,9 @@ export const ParentPersonModalManager = {
     _initialized: false,
 
     init() {
-        if ( this._initialized || ! ParentPersonModal._initialized ) return;
+        if ( this._initialized ) return;
+        ParentPersonModal.init();
+        if ( ! ParentPersonModal._initialized ) return;
         this._initialized = true;
         this._bindEvents();
     },

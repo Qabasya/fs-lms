@@ -61,10 +61,10 @@ export const ArchiveViewModal = {
     _restoreFromArchive( archiveId ) {
         const vars = window.fs_lms_applications_vars ?? {};
         $.ajax( {
-            url:    window.ajaxurl,
+            url:    fs_lms_vars.ajaxurl,
             method: 'POST',
             data:   {
-                action:     'restore_from_archive',
+                action:     fs_lms_vars.ajax_actions.restoreFromArchive,
                 archive_id: archiveId,
                 security:   vars.nonces?.restoreFromArchive ?? '',
             },

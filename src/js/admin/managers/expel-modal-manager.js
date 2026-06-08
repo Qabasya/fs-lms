@@ -60,7 +60,6 @@ export const ExpelModalManager = {
     },
 
     _doExpelSingle( formData ) {
-        console.log('Одинарная')
         ExpelModal.setSaving( true );
 
         $.post( fs_lms_vars.ajaxurl, {
@@ -85,7 +84,6 @@ export const ExpelModalManager = {
     },
 
     _doExpelBulk( formData ) {
-        console.log('булк')
         ExpelModal.setSaving( true );
 
         let done   = 0;

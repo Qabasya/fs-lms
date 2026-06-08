@@ -60,10 +60,10 @@ export const SelectParentModal = {
         const vars  = window.fs_lms_applications_vars ?? {};
 
         $.ajax( {
-            url:    window.ajaxurl,
+            url:    fs_lms_vars.ajaxurl,
             method: 'POST',
             data:   {
-                action:   'search_parents',
+                action:   fs_lms_vars.ajax_actions.searchParents,
                 query:    query,
                 security: vars.nonces?.manager ?? '',
             },
@@ -107,10 +107,10 @@ export const SelectParentModal = {
         const vars  = window.fs_lms_applications_vars ?? {};
 
         $.ajax( {
-            url:    window.ajaxurl,
+            url:    fs_lms_vars.ajaxurl,
             method: 'POST',
             data:   {
-                action:           'select_existing_parent',
+                action:           fs_lms_vars.ajax_actions.selectExistingParent,
                 application_id:   appId,
                 parent_person_id: personId,
                 security:         vars.nonces?.selectExistingParent ?? '',

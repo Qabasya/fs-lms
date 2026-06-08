@@ -13,12 +13,14 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
+use Inc\Shared\Traits\SlugGenerator;
 
 class StudentGroupCallbacks extends BaseController {
 
 	use Authorizer;
 	use AjaxResponse;
 	use Sanitizer;
+	use SlugGenerator;
 
 	public function __construct(
 		private readonly GroupsRepository       $groupsRepository,
@@ -57,7 +59,14 @@ class StudentGroupCallbacks extends BaseController {
 			}
 		}
 
+		$group_id = $this->slugify( $title, 'group' ) . '_' . $this->slugify( $academic_period_id );
+
+		if ( null !== $this->groupsRepository->findByGroupId( $group_id ) ) {
+			$this->error( 'Группа с таким названием в этом периоде уже существует.' );
+		}
+
 		$id = $this->groupsRepository->create( array(
+			'group_id'           => $group_id,
 			'subject_key'        => $subject_key,
 			'academic_period_id' => $academic_period_id,
 			'name'               => $title,
