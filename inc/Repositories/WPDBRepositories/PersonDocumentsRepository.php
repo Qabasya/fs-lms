@@ -91,6 +91,10 @@ class PersonDocumentsRepository {
 		return false !== $this->wpdb->update( $this->table, $data, array( 'person_id' => $personId ) );
 	}
 
+	public function hardDeleteByPersonId( int $personId ): bool {
+		return false !== $this->wpdb->delete( $this->table, array( 'person_id' => $personId ) );
+	}
+
 	public function anonymize( int $personId ): bool {
 		return $this->update( $personId, array(
 			'email_enc'         => null,

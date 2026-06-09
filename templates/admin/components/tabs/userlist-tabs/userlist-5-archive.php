@@ -25,14 +25,23 @@ $personRepo  = new PersonRepository();
 $groupRepo   = new GroupsRepository();
 $subjectRepo = new SubjectRepository();
 
-$page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
-$perPage = 20;
+$page         = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+$perPage      = 20;
+$statusFilter = sanitize_key( $_GET['arc_status'] ?? '' );
 
-$filters = array( 'status' => array(
+$terminalStatuses = array(
 	EnrollmentStatus::Expelled->value,
 	EnrollmentStatus::Finished->value,
 	EnrollmentStatus::Transferred->value,
-) );
+);
+
+$allStatuses = array_merge( array( EnrollmentStatus::Active->value ), $terminalStatuses );
+
+if ( '' === $statusFilter || ! in_array( $statusFilter, array_column( EnrollmentStatus::cases(), 'value' ), true ) ) {
+	$filters = array( 'status' => $allStatuses );
+} else {
+	$filters = array( 'status' => array( $statusFilter ) );
+}
 
 $records = $recordRepo->list( $filters, $page, $perPage );
 $total   = $recordRepo->count( $filters );
@@ -43,9 +52,43 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 	$allSubjects[ $dto->key ] = $dto->name;
 }
 
+$baseUrl      = add_query_arg( array( 'page' => 'fs_lms_userlist', 'tab' => 'tab-5' ), admin_url( 'admin.php' ) );
+$statusLabels = array(
+	''                              => 'Все',
+	EnrollmentStatus::Active->value      => 'Обучается',
+	EnrollmentStatus::Finished->value    => 'Завершено',
+	EnrollmentStatus::Transferred->value => 'Переведён',
+	EnrollmentStatus::Expelled->value    => 'Отчислен',
+);
+
 ?>
 
 <div class="fs-lms-archive">
+
+	<!-- Фильтры по статусу -->
+	<ul class="subsubsub">
+		<?php
+		$filterKeys = array_keys( $statusLabels );
+		$lastKey    = end( $filterKeys );
+		foreach ( $statusLabels as $val => $label ) :
+			$url      = '' === $val
+				? $baseUrl
+				: add_query_arg( array( 'arc_status' => $val ), $baseUrl );
+			$isCurrent = $statusFilter === $val;
+			$countFilters = '' === $val
+				? array( 'status' => $allStatuses )
+				: array( 'status' => array( $val ) );
+			$cnt = $recordRepo->count( $countFilters );
+			?>
+			<li>
+				<a href="<?php echo esc_url( $url ); ?>"
+					class="<?php echo $isCurrent ? 'current' : ''; ?>">
+					<?php echo esc_html( $label ); ?>
+					<span class="count">(<?php echo esc_html( (string) $cnt ); ?>)</span>
+				</a><?php echo $val !== $lastKey ? ' |' : ''; ?>
+			</li>
+		<?php endforeach; ?>
+	</ul>
 
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 
@@ -53,6 +96,9 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 		<tr>
 			<th class="column-title column-primary">
 				<?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?>
+			</th>
+			<th class="column-title">
+				<?php esc_html_e( 'Статус', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
 				<?php esc_html_e( 'Направление', 'fs-lms' ); ?>
@@ -77,7 +123,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 			<tr>
 				<td colspan="7">
 					<div class="notice notice-info inline fs-table__no-items">
-						<p><?php esc_html_e( 'Архив пуст.', 'fs-lms' ); ?></p>
+						<p><?php esc_html_e( 'Записей нет.', 'fs-lms' ); ?></p>
 					</div>
 				</td>
 			</tr>
@@ -89,8 +135,8 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				$status          = $row->status;
 				$expelledAt      = $row->expelledAt ? substr( $row->expelledAt, 0, 10 ) : '';
 				$expelReason     = (string) ( $row->expelReason ?? '' );
+				$isTerminal      = $status->isTerminal();
 
-				// Имя ученика: WP-пользователь → PersonDTO
 				$studentName = '—';
 				$person      = $personRepo->find( $studentPersonId );
 				if ( $person !== null ) {
@@ -102,7 +148,6 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					}
 				}
 
-				// Группа и направление
 				$groupTitle  = '—';
 				$subjectName = '—';
 				$group       = $groupId ? $groupRepo->findById( $groupId ) : null;
@@ -111,19 +156,19 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					$subjectName = $allSubjects[ $group->subject_key ] ?? $group->subject_key;
 				}
 
-				// Данные для модалки
 				$enrollmentData = array(
-					'archive_id'      => $row->id,
-					'subject'         => $subjectName,
-					'group'           => $groupTitle,
-					'status_label'    => $status->label(),
-					'terminated_at'   => $expelledAt,
+					'archive_id'        => $row->id,
+					'parent_person_id'  => $row->parentPersonId > 0 ? $row->parentPersonId : null,
+					'subject'           => $subjectName,
+					'group'             => $groupTitle,
+					'status_label'      => $status->label(),
+					'terminated_at'     => $expelledAt,
 					'terminated_reason' => $expelReason,
-					'contract_no'     => $row->contractNo   ?? '',
-					'contract_date'   => $row->contractDate ?? '',
-					'order_no'        => $row->orderNo      ?? '',
-					'order_date'      => $row->orderDate    ?? '',
-					'student'         => array(
+					'contract_no'       => $row->contractNo   ?? '',
+					'contract_date'     => $row->contractDate ?? '',
+					'order_no'          => $row->orderNo      ?? '',
+					'order_date'        => $row->orderDate    ?? '',
+					'student'           => array(
 						'last_name'   => $person?->lastName   ?? '',
 						'first_name'  => $person?->firstName  ?? '',
 						'middle_name' => $person?->middleName ?? '',
@@ -136,7 +181,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 						'doc_number'  => '',
 						'inn'         => '',
 					),
-					'guardian'        => array(
+					'guardian'          => array(
 						'last_name'       => '',
 						'first_name'      => '',
 						'middle_name'     => '',
@@ -158,6 +203,12 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					<?php echo esc_html( $studentName ); ?>
 				</td>
 
+				<td>
+					<span class="fs-status-badge fs-status-badge--<?php echo esc_attr( $status->value ); ?>">
+						<?php echo esc_html( $status->label() ); ?>
+					</span>
+				</td>
+
 				<td class="column-title">
 					<?php echo esc_html( $subjectName ); ?>
 				</td>
@@ -167,19 +218,11 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				</td>
 
 				<td>
-					<?php if ( $expelledAt ) : ?>
-						<?php echo esc_html( $expelledAt ); ?>
-					<?php else : ?>
-						<span class="fs-table__empty-value">—</span>
-					<?php endif; ?>
+					<?php echo $expelledAt ? esc_html( $expelledAt ) : '<span class="fs-table__empty-value">—</span>'; ?>
 				</td>
 
 				<td>
-					<?php if ( $expelReason ) : ?>
-						<?php echo esc_html( $expelReason ); ?>
-					<?php else : ?>
-						<span class="fs-table__empty-value">—</span>
-					<?php endif; ?>
+					<?php echo $expelReason ? esc_html( $expelReason ) : '<span class="fs-table__empty-value">—</span>'; ?>
 				</td>
 
 				<td class="column-actions">
@@ -189,6 +232,16 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>
 						</span>
+						<?php if ( $isTerminal ) : ?>
+							<span class="restore"> |
+								<a href="#"
+									class="js-restore-from-archive"
+									data-archive-id="<?php echo esc_attr( (string) $row->id ); ?>"
+									data-has-parent="<?php echo $row->parentPersonId > 0 ? '1' : '0'; ?>">
+									<?php esc_html_e( 'Вернуть в заявки', 'fs-lms' ); ?>
+								</a>
+							</span>
+						<?php endif; ?>
 					</div>
 				</td>
 
@@ -216,3 +269,4 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 </div>
 
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/archive-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/restore-archive-modal.php'; ?>

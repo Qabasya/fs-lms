@@ -58,6 +58,10 @@ class PersonRepository implements RepositoryInterface {
 		return $this->softDelete( $id );
 	}
 
+	public function hardDelete( int $id ): bool {
+		return false !== $this->wpdb->delete( $this->table, array( 'id' => $id ) );
+	}
+
 	public function softDelete( int $id ): bool {
 		return $this->update( $id, array( 'deleted_at' => current_time( 'mysql', true ) ) );
 	}

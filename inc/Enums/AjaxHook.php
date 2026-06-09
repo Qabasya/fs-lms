@@ -56,6 +56,14 @@ enum AjaxHook: string {
 	case SaveStudentGroup   = 'save_student_group';
 	case DeleteStudentGroup = 'delete_student_group';
 
+	// ==================== Каскадное удаление ====================
+	case CheckGroupDeletion   = 'check_group_deletion';
+	case DeleteGroup          = 'delete_group';
+	case CheckSubjectDeletion = 'check_subject_deletion';
+	case CheckPeriodDeletion  = 'check_period_deletion';
+	case DeletePeriod         = 'delete_period';
+	case HardDeleteStudent    = 'hard_delete_student';
+
 	// ==================== Журналы ====================
 	case ExportAuditLog = 'export_audit_log';
 	case ExportPiiLog   = 'export_pii_log';

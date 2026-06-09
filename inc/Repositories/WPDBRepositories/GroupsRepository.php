@@ -89,4 +89,8 @@ class GroupsRepository {
 	public function delete( int $id ): bool {
 		return false !== $this->wpdb->delete( $this->table, array( 'id' => $id ) );
 	}
+
+	public function hardDelete( int $id ): bool {
+		return $this->delete( $id );
+	}
 }

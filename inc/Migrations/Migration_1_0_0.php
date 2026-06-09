@@ -162,8 +162,13 @@ class Migration_1_0_0 implements MigrationInterface {
 			id                  int unsigned        NOT NULL AUTO_INCREMENT,
 			student_person_id   int unsigned        NOT NULL,
 			parent_person_id    int unsigned        NOT NULL,
-			group_id            smallint unsigned   NOT NULL,
-			contract_no         varchar(50)         DEFAULT NULL,
+			group_id             smallint unsigned   NOT NULL,
+			snapshot_last_name   varchar(100)        NOT NULL DEFAULT '',
+			snapshot_first_name  varchar(100)        NOT NULL DEFAULT '',
+			snapshot_middle_name varchar(100)        DEFAULT NULL,
+			snapshot_school      varchar(255)        DEFAULT NULL,
+			snapshot_grade       varchar(10)         DEFAULT NULL,
+			contract_no          varchar(50)         DEFAULT NULL,
 			contract_date       date                DEFAULT NULL,
 			order_no            varchar(50)         DEFAULT NULL,
 			order_date          date                DEFAULT NULL,
@@ -248,6 +253,16 @@ class Migration_1_0_0 implements MigrationInterface {
 			KEY person_id (person_id)
 		) $cc;"
 		);
+
+		// ===== Cleanup — добавление колонок для уже существующих установок =====
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( "ALTER TABLE `$student_records`
+			ADD COLUMN IF NOT EXISTS `snapshot_last_name`   varchar(100) NOT NULL DEFAULT '',
+			ADD COLUMN IF NOT EXISTS `snapshot_first_name`  varchar(100) NOT NULL DEFAULT '',
+			ADD COLUMN IF NOT EXISTS `snapshot_middle_name` varchar(100) DEFAULT NULL,
+			ADD COLUMN IF NOT EXISTS `snapshot_school`      varchar(255) DEFAULT NULL,
+			ADD COLUMN IF NOT EXISTS `snapshot_grade`       varchar(10)  DEFAULT NULL" );
+		// phpcs:enable
 	}
 
 	public function down(): void {

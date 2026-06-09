@@ -20,7 +20,7 @@ ParentRecordsRemoved  + предикат hasNoRecords(parent)  → DeleteParent
 
 ---
 
-## Фаза 0 — Инфраструктура событий
+## Фаза 0 — Инфраструктура событий  ✅
 
 ---
 
@@ -115,7 +115,7 @@ readonly class DeletionPredicates {
 
 ---
 
-## Фаза 1 — Снимок данных в student_records
+## Фаза 1 — Снимок данных в student_records  ✅
 
 ---
 
@@ -207,7 +207,7 @@ $studentData = [
 
 ---
 
-## Фаза 2 — Репозиторные методы для каскада
+## Фаза 2 — Репозиторные методы для каскада  ✅
 
 ---
 
@@ -336,7 +336,7 @@ public function hardDeleteByParentPersonId( int $personId ): void {
 
 ---
 
-## Фаза 3 — Обработчики событий удаления
+## Фаза 3 — Обработчики событий удаления ✅
 
 ---
 
@@ -556,7 +556,7 @@ readonly class PeriodDeletionCascadeHandler {
 
 ---
 
-## Фаза 4 — Регистрация обработчиков
+## Фаза 4 — Регистрация обработчиков ✅
 
 ---
 
@@ -597,7 +597,7 @@ public function register(): void {
 
 ---
 
-## Фаза 5 — AJAX-хуки для операций удаления
+## Фаза 5 — AJAX-хуки для операций удаления ✅
 
 ---
 
@@ -669,7 +669,7 @@ case HardDeleteStudent
 
 ---
 
-## Фаза 6 — JS: модалки подтверждения
+## Фаза 6 — JS: модалки подтверждения ✅
 
 **Общий принцип для всех операций удаления:**
 1. Клик "Удалить X" → AJAX `checkXDeletion` → получить `student_count`.
@@ -685,7 +685,7 @@ case HardDeleteStudent
 
 ---
 
-## Фаза 7 — Возврат из архива с опцией родителя
+## Фаза 7 — Возврат из архива с опцией родителя ✅
 
 ---
 ### Сделать функционал таба Архив
@@ -764,7 +764,7 @@ case RestoreFromArchive = 'restore_from_archive';
 
 ---
 
-**Заблокировать сброс пароля через WP для LMS-ролей**
+**Заблокировать сброс пароля через WP для LMS-ролей** ✅
 
 Добавить в `UserController::register()` (или новый `PasswordController`):
 

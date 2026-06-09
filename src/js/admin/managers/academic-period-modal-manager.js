@@ -3,7 +3,6 @@ import {
     apiError,
     escapeHtml,
     showNotice,
-    showModalError,
 } from '../modules/utils.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
 import { AcademicPeriodModal } from '../modals/academic-period-modal';
@@ -40,7 +39,7 @@ export const AcademicPeriodModalManager = {
             name:       $link.data('name'),
             start_date: $link.data('start-date'),
             end_date:   $link.data('end-date'),
-            is_current: parseInt($link.data('current'), 10) === 1
+            is_current: parseInt($link.data('current'), 10) === 1,
         });
     },
 
@@ -55,7 +54,7 @@ export const AcademicPeriodModalManager = {
             name:        formData.name,
             start_date:  formData.start_date,
             end_date:    formData.end_date,
-            is_current:  formData.is_current
+            is_current:  formData.is_current,
         })
             .done((res) => {
                 if (res.success) {
@@ -64,7 +63,7 @@ export const AcademicPeriodModalManager = {
                     AcademicPeriodModal.setIdError(res.data.message);
                     AcademicPeriodModal.setSaveState(false);
                 } else {
-                    showNotice(res.data?.message || res.data || 'Ошибка сохранения.', 'error', AcademicPeriodModal.$modal.find( '.fs-lms-modal-body' ));
+                    showNotice(res.data?.message || res.data || 'Ошибка сохранения.', 'error', AcademicPeriodModal.$modal.find('.fs-lms-modal-body'));
                     AcademicPeriodModal.setSaveState(false);
                 }
             })
@@ -76,34 +75,64 @@ export const AcademicPeriodModalManager = {
 
     _handleDelete(e) {
         e.preventDefault();
-        const $btn = $(e.currentTarget);
-        const id = $btn.data('key');
-        const name = $btn.data('name');
-        const $row = $btn.closest('tr');
+        const $btn  = $(e.currentTarget);
+        const id    = $btn.data('key');
+        const name  = $btn.data('name');
+        const $row  = $btn.closest('tr');
 
-        const safeName = escapeHtml(name);
+        toggleButton($btn, true, '...');
 
-        ConfirmModal.confirm({
-            title: 'Подтвердите удаление',
-            message: `Вы уверены, что хотите полностью удалить учебный период «${safeName}»?\nЭто действие необратимо.`,
-            confirmText: 'Да, удалить',
-            cancelText: 'Отмена',
-            size: 'sm',
-            isDanger: true
+        $.post(fs_lms_vars.ajaxurl, {
+            action:    fs_lms_vars.ajax_actions.checkPeriodDeletion,
+            security:  fs_lms_vars.nonces.deletePeriod,
+            period_id: id,
         })
-            .then(() => {
-                this._doDelete(id, $btn, $row);
+            .done((res) => {
+                toggleButton($btn, false);
+
+                if (!res.success) {
+                    showNotice(res.data?.message || 'Ошибка проверки периода.', 'error', $row.closest('.wrap'));
+                    return;
+                }
+
+                const studentCount = res.data?.student_count ?? 0;
+                const groupCount   = res.data?.group_count   ?? 0;
+                const safeName     = escapeHtml(name);
+
+                let message;
+                if (studentCount === 0) {
+                    message = `Вы уверены, что хотите полностью удалить учебный период «${safeName}»?\nЭто действие необратимо.`;
+                } else {
+                    message =
+                        `Период «${safeName}» содержит ${groupCount} гр. и ${studentCount} уч.\n` +
+                        `Ученики без других зачислений будут удалены безвозвратно вместе со всеми данными.\n` +
+                        `Это действие необратимо.`;
+                }
+
+                ConfirmModal.confirm({
+                    title:       'Удалить период?',
+                    message,
+                    confirmText: 'Да, удалить',
+                    cancelText:  'Отмена',
+                    size:        studentCount > 0 ? 'md' : 'sm',
+                    isDanger:    true,
+                })
+                    .then(() => this._doDelete(id, $btn, $row))
+                    .catch(() => {});
             })
-            .catch(() => {});
+            .fail(() => {
+                toggleButton($btn, false);
+                apiError('Failed to check period deletion');
+            });
     },
 
     _doDelete(id, $btn, $row) {
         toggleButton($btn, true, '...');
 
         $.post(fs_lms_vars.ajaxurl, {
-            action:   fs_lms_vars.ajax_actions.deleteAcademicPeriod,
-            security: fs_lms_vars.nonces.manager,
-            id:       id
+            action:    fs_lms_vars.ajax_actions.deletePeriod,
+            security:  fs_lms_vars.nonces.deletePeriod,
+            period_id: id,
         })
             .done((res) => {
                 if (res.success) {
@@ -115,12 +144,12 @@ export const AcademicPeriodModalManager = {
                     });
                 } else {
                     toggleButton($btn, false);
-                    showNotice(res.data?.message || 'Ошибка удаления', 'error', $row.closest('.wrap'));
+                    showNotice(res.data?.message || 'Ошибка удаления периода.', 'error', $row.closest('.wrap'));
                 }
             })
             .fail(() => {
                 toggleButton($btn, false);
-                apiError('Failed to delete academic period');
+                apiError('Failed to delete period');
             });
-    }
+    },
 };

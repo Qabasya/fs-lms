@@ -666,10 +666,11 @@ class EnrollmentCallbacks extends BaseController {
 	public function ajaxRestoreFromArchive(): void {
 		$this->authorize( Nonce::RestoreFromArchive, Capability::ManageApplications );
 
-		$archiveId = $this->requireInt( 'archive_id', error: 'Не указан ID архивной записи.' );
+		$archiveId  = $this->requireInt( 'archive_id', error: 'Не указан ID архивной записи.' );
+		$withParent = (bool) $this->sanitizeInt( 'with_parent' );
 
 		try {
-			$result = $this->enrollmentService->restoreFromArchive( $archiveId );
+			$result = $this->enrollmentService->restoreFromArchive( $archiveId, $withParent );
 			$this->success( $result );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );

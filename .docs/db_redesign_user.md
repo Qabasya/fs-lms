@@ -267,3 +267,24 @@ applications (student_data_enc, parent_data_enc)
 
 Связь ученик - группа хранится в student_records
 Связь родитель(и) - ученик(и) хранится в student_records
+
+
+Сброс бд:
+```shell
+docker exec wp_db mariadb -u root -proot wordpress -e "                                                                                                                                                                                                                                                          
+  SET FOREIGN_KEY_CHECKS=0;                                                                                                                                                                                                                                                                                        
+  DROP TABLE IF EXISTS wp_fs_lms_pii_access_log;                                                                                                                                                                                                                                                                   
+  DROP TABLE IF EXISTS wp_fs_lms_audit_log;                                                                                                                                                                                                                                                                        
+  DROP TABLE IF EXISTS wp_fs_lms_consents;                                                                                                                                                                                                                                                                         
+  DROP TABLE IF EXISTS wp_fs_lms_enrollments;                                                                                                                                                                                                                                                                      
+  DROP TABLE IF EXISTS wp_fs_lms_archive;                                                                                                                                                                                                                                                                          
+  DROP TABLE IF EXISTS wp_fs_lms_student_records;                                                                                                                                                                                                                                                                  
+  DROP TABLE IF EXISTS wp_fs_lms_applications;                                                                                                                                                                                                                                                                     
+  DROP TABLE IF EXISTS wp_fs_lms_person_documents;                                                                                                                                                                                                                                                                 
+  DROP TABLE IF EXISTS wp_fs_lms_persons;                                                                                                                                                                                                                                                                          
+  DROP TABLE IF EXISTS wp_fs_lms_groups;                                                                                                                                                                                                                                                                           
+  SET FOREIGN_KEY_CHECKS=1;
+  UPDATE wp_options SET option_value='0.0.0' WHERE option_name='fs_lms_schema_version';                                                                                                                                                                                                                            
+  "
+
+```

@@ -6,9 +6,11 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\DTO\SubjectDTO;
+use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Services\Subject\SubjectDeletionService;
+use Inc\Services\Deletion\DeleteSubjectEvent;
+use Inc\Services\Deletion\DeletionEventDispatcher;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
@@ -43,7 +45,7 @@ class SubjectCrudCallbacks extends BaseController {
 	 */
 	public function __construct(
 		private readonly SubjectRepository      $subjects,
-		private readonly SubjectDeletionService $deletion_service,
+		private readonly DeletionEventDispatcher $dispatcher,
 	) {
 		parent::__construct();
 	}
@@ -113,27 +115,15 @@ class SubjectCrudCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxDeleteSubject(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::Admin );
 
 		$key = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 
 		$this->requireExists( $key );
 
-		// Каскадное удаление всех связанных данных (таксономии, термины, посты, boilerplate)
-		$this->deletion_service->deleteWithCascade( $key );
+		$this->dispatcher->dispatch( new DeleteSubjectEvent( $key, get_current_user_id() ) );
 
-		// Удаление самого предмета
-		$result = $this->subjects->remove( $key );
-
-		if ( $result ) {
-			flush_rewrite_rules();
-		}
-
-		$this->respond(
-			$result,
-			error_msg: 'Ошибка при удалении предмета',
-			success_msg: 'Предмет удалён'
-		);
+		$this->success( array( 'message' => 'Предмет удалён' ) );
 	}
 
 	/**

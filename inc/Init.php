@@ -24,6 +24,7 @@ use Inc\Controllers\TaskCreationController;
 use Inc\Controllers\TaskPageController;
 use Inc\Controllers\LogsController;
 use Inc\Controllers\SettingsController;
+use Inc\Controllers\DeletionController;
 use Inc\Controllers\UserController;
 use Inc\Contracts\ClockInterface;
 use Inc\Core\Container;
@@ -80,6 +81,7 @@ final class Init {
 			PiiController::class,
 			RecoveryController::class,
 			ExpulsionController::class,
+			DeletionController::class,
 			SettingsController::class,
 			LogsController::class,
 		);

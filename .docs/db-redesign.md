@@ -252,3 +252,4 @@ persons (full_name, birth_date, role)             │
                  enrolled_at, expelled_at)
        ↑ связь родитель→ученик тоже здесь
 ```
+

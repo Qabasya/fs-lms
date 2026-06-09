@@ -104,4 +104,12 @@ enum AuditAction: string {
 
 	/** Экспорт записи архива отчисленных */
 	case ExpelledArchiveExported = 'expelled_archive_exported';
+
+	// ===== Жёсткое удаление =====
+
+	case HardDeletePerson   = 'hard_delete_person';
+	case HardDeleteGroup    = 'hard_delete_group';
+	case HardDeleteSubject  = 'hard_delete_subject';
+	case HardDeletePeriod   = 'hard_delete_period';
+	case RestoreFromArchive = 'restore_from_archive';
 }

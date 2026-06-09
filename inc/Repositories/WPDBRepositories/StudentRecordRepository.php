@@ -100,6 +100,101 @@ class StudentRecordRepository {
 		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
 	}
 
+	public function hasAnyRecord( int $studentPersonId ): bool {
+		return 0 < (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE student_person_id = %d',
+				$this->table,
+				$studentPersonId
+			)
+		);
+	}
+
+	public function hasAnyRecordForParent( int $parentPersonId ): bool {
+		return 0 < (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE parent_person_id = %d',
+				$this->table,
+				$parentPersonId
+			)
+		);
+	}
+
+	/** @return StudentRecordDTO[] — все записи родителя (любой статус) */
+	public function findAllByParent( int $parentPersonId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE parent_person_id = %d ORDER BY enrolled_at DESC',
+				$this->table,
+				$parentPersonId
+			),
+			ARRAY_A
+		);
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
+	}
+
+	/** @return StudentRecordDTO[] — все записи группы (любой статус) */
+	public function findAllByGroup( int $groupId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE group_id = %d ORDER BY enrolled_at DESC',
+				$this->table,
+				$groupId
+			),
+			ARRAY_A
+		);
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
+	}
+
+	/**
+	 * Удаляет все записи группы и возвращает уникальные IDs затронутых учеников и родителей.
+	 *
+	 * @return array{ students: int[], parents: int[] }
+	 */
+	public function deleteAllByGroupAndCollect( int $groupId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT student_person_id, parent_person_id FROM %i WHERE group_id = %d',
+				$this->table,
+				$groupId
+			),
+			ARRAY_A
+		);
+
+		$studentIds = array_values( array_unique( array_column( $rows ?: array(), 'student_person_id' ) ) );
+		$parentIds  = array_values( array_unique( array_column( $rows ?: array(), 'parent_person_id' ) ) );
+
+		if ( ! empty( $rows ) ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			$this->wpdb->query(
+				$this->wpdb->prepare( 'DELETE FROM %i WHERE group_id = %d', $this->table, $groupId )
+			);
+		}
+
+		return array(
+			'students' => array_map( 'intval', $studentIds ),
+			'parents'  => array_map( 'intval', $parentIds ),
+		);
+	}
+
+	/** Удаляет все записи ученика (любой статус, любая группа). Возвращает количество. */
+	public function deleteAllByStudent( int $studentPersonId ): int {
+		return (int) $this->wpdb->query(
+			$this->wpdb->prepare( 'DELETE FROM %i WHERE student_person_id = %d', $this->table, $studentPersonId )
+		);
+	}
+
+	/** Количество уникальных учеников в группе (для UI-предупреждения перед удалением). */
+	public function countUniqueStudentsByGroup( int $groupId ): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(DISTINCT student_person_id) FROM %i WHERE group_id = %d',
+				$this->table,
+				$groupId
+			)
+		);
+	}
+
 	public function existsActive( int $studentPersonId, int $groupId ): bool {
 		return 0 < (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(

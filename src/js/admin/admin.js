@@ -13,6 +13,7 @@ import { LogsTable } from './services/logs-table.js';
 import { EmailTemplateSettings } from './services/email-template-settings.js';
 import { ConsentSettings } from './services/consent-settings.js';
 import { PersonDetail } from './services/person-detail.js';
+import { HardDeleteStudentService } from './services/hard-delete-student-service.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/academic-period-modal-manager";
@@ -112,6 +113,8 @@ import { AlertModal } from './modals/alert-modal.js';
         if ( $( '.fs-person-detail' ).length ) {
             PersonDetail.init();
         }
+
+        HardDeleteStudentService.init();
 
     });
 

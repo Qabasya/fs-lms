@@ -436,4 +436,17 @@ class ApplicationRepository implements RepositoryInterface {
 
 		return $result;
 	}
+
+	/** Safety net: удаляет заявки ученика (зависшие в enrolling после частичного сбоя). */
+	public function hardDeleteByStudentPersonId( int $personId ): void {
+		$this->wpdb->query(
+			$this->wpdb->prepare( 'DELETE FROM %i WHERE student_person_id = %d', $this->table, $personId )
+		);
+	}
+
+	public function hardDeleteByParentPersonId( int $personId ): void {
+		$this->wpdb->query(
+			$this->wpdb->prepare( 'DELETE FROM %i WHERE parent_person_id = %d', $this->table, $personId )
+		);
+	}
 }

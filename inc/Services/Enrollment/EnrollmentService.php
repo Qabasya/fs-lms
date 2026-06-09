@@ -137,17 +137,22 @@ readonly class EnrollmentService {
 				) );
 
 			$recordId = $this->studentRecordRepository->create( array(
-				'student_person_id' => $studentPersonId,
-				'parent_person_id'  => $guardianPersonId,
-				'group_id'          => $input->groupId ?: null,
-				'contract_no'       => $input->contractNo ?: null,
-				'contract_date'     => $input->contractDate ?: null,
-				'order_no'          => $input->orderNo ?: null,
-				'order_date'        => $input->orderDate ?: null,
-				'status'            => 'active',
-				'enrolled_at'       => $input->enrolledAt,
-				'created_at'        => $now,
-				'updated_at'        => $now,
+				'student_person_id'   => $studentPersonId,
+				'parent_person_id'    => $guardianPersonId,
+				'group_id'            => $input->groupId ?: null,
+				'snapshot_last_name'  => $studentDto->lastName,
+				'snapshot_first_name' => $studentDto->firstName,
+				'snapshot_middle_name' => $studentDto->middleName ?: null,
+				'snapshot_school'     => $studentDto->school      ?: null,
+				'snapshot_grade'      => (string) $studentDto->grade ?: null,
+				'contract_no'         => $input->contractNo  ?: null,
+				'contract_date'       => $input->contractDate ?: null,
+				'order_no'            => $input->orderNo     ?: null,
+				'order_date'          => $input->orderDate   ?: null,
+				'status'              => 'active',
+				'enrolled_at'         => $input->enrolledAt,
+				'created_at'          => $now,
+				'updated_at'          => $now,
 			) );
 
 			$this->consentService->bindToPersons( $app->id, array(
@@ -296,7 +301,7 @@ readonly class EnrollmentService {
 	 *
 	 * @return array{id: int, join_url: string}
 	 */
-	public function restoreFromArchive( int $recordId ): array {
+	public function restoreFromArchive( int $recordId, bool $withParent = false ): array {
 		$record = $this->studentRecordRepository->find( $recordId );
 
 		if ( null === $record ) {
@@ -310,10 +315,12 @@ readonly class EnrollmentService {
 		}
 
 		$studentData = array(
-			'last_name'   => $studentPerson->lastName,
-			'first_name'  => $studentPerson->firstName,
-			'middle_name' => $studentPerson->middleName ?? '',
+			'last_name'   => $record->snapshotLastName  !== '' ? $record->snapshotLastName  : $studentPerson->lastName,
+			'first_name'  => $record->snapshotFirstName !== '' ? $record->snapshotFirstName : $studentPerson->firstName,
+			'middle_name' => $record->snapshotMiddleName ?? $studentPerson->middleName ?? '',
 			'birth_date'  => $studentPerson->birthDate ?? '',
+			'school'      => $record->snapshotSchool ?? '',
+			'grade'       => $record->snapshotGrade  ?? '',
 			'email'       => '',
 		);
 
@@ -348,11 +355,21 @@ readonly class EnrollmentService {
 		}
 
 		$this->auditService->record(
-			AuditAction::EnrollStudent->value,
+			AuditAction::RestoreFromArchive->value,
 			'application',
 			$appId,
-			array( 'restored_from_record_id' => $recordId )
+			array( 'restored_from_record_id' => $recordId, 'with_parent' => $withParent )
 		);
+
+		if ( $withParent ) {
+			if ( $record->parentPersonId <= 0 ) {
+				throw new \InvalidArgumentException( 'У этой записи нет привязанного родителя.' );
+			}
+
+			$parentResult = $this->selectExistingParent( $appId, $record->parentPersonId );
+
+			return array_merge( array( 'id' => $appId ), $parentResult );
+		}
 
 		return array(
 			'id'       => $appId,
