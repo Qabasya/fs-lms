@@ -91,6 +91,10 @@ class StudentGroupCallbacks extends BaseController {
 			}
 		}
 
+		if ( $this->groupsRepository->existsByNameAndPeriod( $title, $academic_period_id ) ) {
+			$this->error( 'Группа с таким названием в этом периоде уже существует.' );
+		}
+
 		// Создание группы в БД
 		$id = $this->groupsRepository->create( array(
 			'subject_key'        => $subject_key,
@@ -101,7 +105,7 @@ class StudentGroupCallbacks extends BaseController {
 		) );
 
 		if ( ! $id ) {
-			$this->error( 'Не удалось создать группу. Возможно, группа с таким названием в этом периоде уже существует.' );
+			$this->error( 'Не удалось создать группу.' );
 		}
 
 		$this->success( array( 'id' => $id, 'title' => $title ) );

@@ -14,6 +14,7 @@ use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Shared\PluginLogger;
+use Inc\Managers\UserManager;
 use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
 use Inc\Services\EmailOtpService;
@@ -66,6 +67,7 @@ readonly class ApplicationService {
 		private AuditService          $auditService,
 		private EmailOtpService       $emailOtpService,
 		private ClockInterface        $clock,
+		private UserManager           $userManager,
 	) {}
 
 	/**
@@ -89,6 +91,10 @@ readonly class ApplicationService {
 
 		if ( null !== $this->applicationRepository->findActiveByEmail( $emailHash ) ) {
 			throw new DomainException( 'Незавершённая заявка уже существует.' );
+		}
+
+		if ( '' !== $input->username && null !== $this->userManager->findByLogin( $input->username ) ) {
+			throw new DomainException( 'Этот логин уже занят.' );
 		}
 
 		// Генерация JOIN-кода и срока его действия

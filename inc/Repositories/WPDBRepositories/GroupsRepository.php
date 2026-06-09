@@ -123,6 +123,27 @@ class GroupsRepository {
 	}
 
 	/**
+	 * Проверяет, существует ли группа с таким именем в данном периоде.
+	 *
+	 * @param string $name     Название группы
+	 * @param string $periodId ID учебного периода
+	 *
+	 * @return bool
+	 */
+	public function existsByNameAndPeriod( string $name, string $periodId ): bool {
+		$count = (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE name = %s AND academic_period_id = %s LIMIT 1',
+				$this->table,
+				$name,
+				$periodId
+			)
+		);
+
+		return $count > 0;
+	}
+
+	/**
 	 * Создаёт новую группу.
 	 *
 	 * @param array $data Массив полей таблицы (name, subject_key, academic_period_id, teacher_id, schedule)
