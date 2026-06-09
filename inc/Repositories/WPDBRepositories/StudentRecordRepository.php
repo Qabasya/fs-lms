@@ -408,6 +408,46 @@ class StudentRecordRepository {
 	}
 
 	/**
+	 * Возвращает уникальные student_person_id с пагинацией, упорядоченные по дате последнего зачисления.
+	 *
+	 * @param array $filters  Массив фильтров
+	 * @param int   $page     Номер страницы
+	 * @param int   $perPage  Количество записей на странице
+	 *
+	 * @return int[]
+	 */
+	public function listDistinctStudentIds( array $filters = array(), int $page = 1, int $perPage = 20 ): array {
+		$offset            = ( max( 1, $page ) - 1 ) * $perPage;
+		[ $where, $args ]  = $this->buildWhereClause( $filters );
+		$args[]            = $perPage;
+		$args[]            = $offset;
+
+		$rows = $this->wpdb->get_col(
+			$this->wpdb->prepare(
+				"SELECT student_person_id FROM %i {$where} GROUP BY student_person_id ORDER BY MAX(enrolled_at) DESC LIMIT %d OFFSET %d",
+				...$args
+			)
+		);
+
+		return array_map( 'intval', $rows ?: array() );
+	}
+
+	/**
+	 * Количество уникальных учеников по фильтрам.
+	 *
+	 * @param array $filters Массив фильтров
+	 *
+	 * @return int
+	 */
+	public function countDistinctStudents( array $filters = array() ): int {
+		[ $where, $args ] = $this->buildWhereClause( $filters );
+
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare( "SELECT COUNT(DISTINCT student_person_id) FROM %i {$where}", ...$args )
+		);
+	}
+
+	/**
 	 * Формирует WHERE-условие и массив параметров для prepare.
 	 *
 	 * @param array $filters Массив фильтров

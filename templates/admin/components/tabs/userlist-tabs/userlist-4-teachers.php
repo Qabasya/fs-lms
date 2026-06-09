@@ -35,7 +35,7 @@ $total = (int) ( count_users()['avail_roles'][ UserRole::FSTeacher->value ] ?? 0
 $pages = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
 
 // Все группы один раз — группируем по teacher_id
-$allGroups = $groupRepo->findAll();
+$allGroups       = $groupRepo->findAll();
 $groupsByTeacher = array();
 foreach ( $allGroups as $group ) {
 	$tid = (int) ( $group->teacher_id ?? 0 );
@@ -86,24 +86,44 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 			<?php foreach ( $teacherUsers as $user ) :
 				$groups = $groupsByTeacher[ $user->ID ] ?? array();
 
-				// Уникальные предметы
-				$subjectNames = array();
+				// Группируем группы по предмету, сохраняя порядок первого появления
+				$subjectGroups = array();
 				foreach ( $groups as $group ) {
 					$key = $group->subject_key ?? '';
-					if ( $key && ! isset( $subjectNames[ $key ] ) ) {
-						$subjectNames[ $key ] = $allSubjects[ $key ] ?? $key;
+					if ( $key && ! isset( $subjectGroups[ $key ] ) ) {
+						$subjectGroups[ $key ] = array(
+							'name'   => $allSubjects[ $key ] ?? $key,
+							'groups' => array(),
+						);
+					}
+					if ( $key ) {
+						$subjectGroups[ $key ]['groups'][] = $group->name ?? '';
 					}
 				}
 
-				$groupTitles   = array_map( static fn( $g ) => $g->name ?? '', $groups );
-				$subjectStr    = implode( ', ', $subjectNames ) ?: '—';
-				$groupStr      = implode( ', ', $groupTitles ) ?: '—';
+				// Формируем HTML для ячеек (предметы через <br><br>, группы аналогично)
+				$subjectParts = array();
+				$groupParts   = array();
+				foreach ( $subjectGroups as $data ) {
+					$subjectParts[] = esc_html( $data['name'] );
+					$groupParts[]   = implode( '<br>', array_map( 'esc_html', $data['groups'] ) );
+				}
+				$subjectHtml = implode( '<br><br>', $subjectParts );
+				$groupHtml   = implode( '<br><br>', $groupParts );
+
+				// Структурированные данные для модалки
+				$subjectsGroupsData = array_values( array_map(
+					static fn( array $d ) => array(
+						'subject_name' => $d['name'],
+						'groups'       => $d['groups'],
+					),
+					$subjectGroups
+				) );
 
 				$teacherData = array(
-					'full_name' => $user->display_name,
-					'email'     => $user->user_email,
-					'subjects'  => $subjectStr,
-					'groups'    => $groupStr,
+					'full_name'      => $user->display_name,
+					'email'          => $user->user_email,
+					'subjects_groups' => $subjectsGroupsData,
 				);
 			?>
 			<tr data-teacher="<?php echo esc_attr( (string) wp_json_encode( $teacherData ) ); ?>">
@@ -113,16 +133,16 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				</td>
 
 				<td>
-					<?php if ( $subjectNames ) : ?>
-						<?php echo esc_html( $subjectStr ); ?>
+					<?php if ( ! empty( $subjectGroups ) ) : ?>
+						<?php echo wp_kses( $subjectHtml, array( 'br' => array() ) ); ?>
 					<?php else : ?>
 						<span class="fs-table__empty-value">—</span>
 					<?php endif; ?>
 				</td>
 
 				<td>
-					<?php if ( $groupTitles ) : ?>
-						<?php echo esc_html( $groupStr ); ?>
+					<?php if ( ! empty( $subjectGroups ) ) : ?>
+						<?php echo wp_kses( $groupHtml, array( 'br' => array() ) ); ?>
 					<?php else : ?>
 						<span class="fs-table__empty-value">—</span>
 					<?php endif; ?>

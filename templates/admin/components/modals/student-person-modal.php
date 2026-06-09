@@ -67,6 +67,31 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 				</div>
 			</div>
 
+			<!-- Дополнительные зачисления (добавляются JS для 2+ предметов) -->
+			<div class="js-spm-extra-enrollment-area"></div>
+
+			<!-- Шаблон дополнительного зачисления (скрыт) -->
+			<div class="js-spm-extra-enrollment-template" hidden>
+				<div class="fs-form-row js-spm-extra-enrollment-block">
+					<div class="fs-form-group">
+						<label><?php esc_html_e( '№ договора', 'fs-lms' ); ?></label>
+						<input type="text" class="fs-person-field regular-text" data-enr-field="contract_no" data-no-edit readonly>
+					</div>
+					<div class="fs-form-group">
+						<label><?php esc_html_e( 'Предмет', 'fs-lms' ); ?></label>
+						<input type="text" class="fs-person-field regular-text" data-enr-field="subject" data-no-edit readonly>
+					</div>
+					<div class="fs-form-group">
+						<label><?php esc_html_e( 'Группа', 'fs-lms' ); ?></label>
+						<input type="text" class="fs-person-field regular-text" data-enr-field="group" data-no-edit readonly>
+					</div>
+					<div class="fs-form-group">
+						<label><?php esc_html_e( 'Расписание', 'fs-lms' ); ?></label>
+						<input type="text" class="fs-person-field regular-text" data-enr-field="schedule" data-no-edit readonly>
+					</div>
+				</div>
+			</div>
+
 			<div class="fs-form-row">
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></label>

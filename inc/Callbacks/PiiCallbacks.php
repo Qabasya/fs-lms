@@ -337,6 +337,11 @@ class PiiCallbacks extends BaseController {
 		$enrollments = array();
 		$nameMap     = array_column( $dependents, 'name', 'student_person_id' );
 
+		$allSubjects = array();
+		foreach ( $this->subjectRepository->readAll() as $subjectDto ) {
+			$allSubjects[ $subjectDto->key ] = $subjectDto->name;
+		}
+
 		foreach ( $personIds as $pid ) {
 			$sPerson = $pid === $personId ? $person : $this->personRepository->find( $pid );
 
@@ -347,6 +352,8 @@ class PiiCallbacks extends BaseController {
 					'student_name'  => $isParent ? ( $nameMap[ $pid ] ?? "#{$pid}" ) : null,
 					'group_id'      => $record->groupId,
 					'group_title'   => $group?->name ?? '—',
+					'subject_key'   => $group?->subject_key ?? '',
+					'subject_name'  => $allSubjects[ $group?->subject_key ?? '' ] ?? ( $group?->subject_key ?? '—' ),
 					'schedule'      => $this->formatSchedule( $group ),
 					'status_label'  => $record->status->label(),
 					'status_value'  => $record->status->value,

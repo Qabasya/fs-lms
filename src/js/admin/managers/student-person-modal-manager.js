@@ -101,22 +101,36 @@ export const StudentPersonModalManager = {
             security:  NONCES().manager,
         } ).done( ( res ) => {
             if ( ! res.success ) return;
-            const enr = ( res.data.enrollments || [] )[0] || {};
+            const enrollments = res.data.enrollments || [];
+            const enr = enrollments[0] || {};
             const pii = res.data.masked_pii || {};
             StudentPersonModal.fill( {
-                last_name:     enr.last_name   || '',
-                first_name:    enr.first_name  || '',
-                middle_name:   enr.middle_name || '',
-                schedule:      enr.schedule    || '',
-                birth_date:    enr.birth_date  || '',
-                school:        enr.school      || '',
-                grade:         enr.grade       || '',
-                doc_number:    pii.doc_number  || '',
-                inn:           pii.inn         || '',
-                phone:         pii.phone       || '',
+                last_name:     enr.last_name    || '',
+                first_name:    enr.first_name   || '',
+                middle_name:   enr.middle_name  || '',
+                schedule:      enr.schedule     || '',
+                subject:       enr.subject_name || '',
+                group:         enr.group_title  || '',
+                contract_no:   enr.contract_no  || '',
+                birth_date:    enr.birth_date   || '',
+                school:        enr.school       || '',
+                grade:         enr.grade        || '',
+                doc_number:    pii.doc_number   || '',
+                inn:           pii.inn          || '',
+                phone:         pii.phone        || '',
                 guardian_name: ( res.data.representatives || [] )[0]?.name || '',
-                login:         res.data.login  || '',
+                login:         res.data.login   || '',
                 password:      res.data.password || '',
+            } );
+
+            // Дополнительные зачисления (2+ предметов)
+            enrollments.slice( 1 ).forEach( ( e ) => {
+                StudentPersonModal.addEnrollmentRow( {
+                    contract_no: e.contract_no  || '',
+                    subject:     e.subject_name || '',
+                    group:       e.group_title  || '',
+                    schedule:    e.schedule     || '',
+                } );
             } );
         } );
     },

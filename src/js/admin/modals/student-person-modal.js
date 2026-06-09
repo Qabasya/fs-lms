@@ -32,6 +32,7 @@ export const StudentPersonModal = {
     },
 
     reset() {
+        this.$el.find( '.js-spm-extra-enrollment-area' ).empty();
         this.$el.find( '.fs-person-field' ).val( '' );
         this.$el.find( '.fs-lms-modal-title' ).text( '' );
         this.$el.find( '.js-reveal-all' ).text( 'Показать данные' ).prop( 'disabled', false );
@@ -39,6 +40,14 @@ export const StudentPersonModal = {
         this.setEditing( false );
         this.$el.removeData( 'personId' ).removeData( 'wpUserId' );
         this.$el.removeClass( 'is-pii-revealed' );
+    },
+
+    addEnrollmentRow( data ) {
+        const $tpl = this.$el.find( '.js-spm-extra-enrollment-template .js-spm-extra-enrollment-block' ).clone();
+        Object.entries( data ).forEach( ( [ key, val ] ) => {
+            $tpl.find( `[data-enr-field="${ key }"]` ).val( val != null ? String( val ) : '' );
+        } );
+        this.$el.find( '.js-spm-extra-enrollment-area' ).append( $tpl );
     },
 
     setPersonId( id ) { this.$el.data( 'personId', id ); },

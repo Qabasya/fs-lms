@@ -29,10 +29,10 @@ $subjectRepo = new SubjectRepository();
 $page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage = 20;
 
-$filters = array( 'status' => EnrollmentStatus::Active->value );
-$records = $recordRepo->list( $filters, $page, $perPage );
-$total   = $recordRepo->count( $filters );
-$pages   = (int) ceil( $total / $perPage );
+$filters    = array( 'status' => EnrollmentStatus::Active->value );
+$studentIds = $recordRepo->listDistinctStudentIds( $filters, $page, $perPage );
+$total      = $recordRepo->countDistinctStudents( $filters );
+$pages      = (int) ceil( $total / $perPage );
 
 $allSubjects = array();
 foreach ( $subjectRepo->readAll() as $dto ) {
@@ -81,7 +81,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 		</thead>
 
 		<tbody id="the-list">
-		<?php if ( empty( $records ) ) : ?>
+		<?php if ( empty( $studentIds ) ) : ?>
 			<tr>
 				<td colspan="7">
 					<div class="notice notice-info inline fs-table__no-items">
@@ -91,24 +91,16 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 			</tr>
 
 		<?php else : ?>
-			<?php foreach ( $records as $row ) :
-				$studentPersonId = $row->studentPersonId;
-				$groupId         = (int) ( $row->groupId ?? 0 );
+			<?php foreach ( $studentIds as $studentPersonId ) :
+				$studentRecords = $recordRepo->findActiveByStudent( $studentPersonId );
+				if ( empty( $studentRecords ) ) { continue; }
+
+				$firstRecord = $studentRecords[0];
+				$person      = $personRepo->find( $studentPersonId );
 
 				// Имя ученика
 				$studentName = '—';
 				$wpUser      = null;
-				$person      = $personRepo->find( $studentPersonId );
-
-				// Имя родителя
-				$parentName = '';
-				if ( $row->parentPersonId ) {
-					$parentPerson = $personRepo->find( $row->parentPersonId );
-					if ( $parentPerson !== null ) {
-						$parentWpUser = $parentPerson->wpUserId ? get_userdata( $parentPerson->wpUserId ) : null;
-						$parentName   = $parentWpUser ? $parentWpUser->display_name : $parentPerson->fullName();
-					}
-				}
 				if ( $person !== null ) {
 					$studentName = $person->fullName() ?: '—';
 					if ( $person->wpUserId ) {
@@ -119,32 +111,71 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					}
 				}
 
-				// Группа, расписание и направление
-				$groupTitle  = '—';
-				$scheduleStr = '—';
-				$formatted   = '';
-				$subjectName = '—';
-				$group       = $groupId ? $groupRepo->findById( $groupId ) : null;
-				if ( $group !== null ) {
-					$groupTitle    = $group->name;
-					$scheduleArray = is_string( $group->schedule ) ? ( json_decode( $group->schedule, true ) ?? array() ) : array();
-					$formatted     = WeekDay::formatSchedule( $scheduleArray );
-					if ( $formatted !== '' ) {
-						$scheduleStr = $formatted;
+				// Имя родителя из первой записи
+				$parentName = '';
+				if ( $firstRecord->parentPersonId ) {
+					$parentPerson = $personRepo->find( $firstRecord->parentPersonId );
+					if ( $parentPerson !== null ) {
+						$parentWpUser = $parentPerson->wpUserId ? get_userdata( $parentPerson->wpUserId ) : null;
+						$parentName   = $parentWpUser ? $parentWpUser->display_name : $parentPerson->fullName();
 					}
-					$subjectName = $allSubjects[ $group->subject_key ] ?? $group->subject_key;
 				}
 
-				$contractNo     = $row->contractNo ?? '—';
+				// Данные каждой записи (предмет, группа, расписание, договор)
+				$subjectParts  = array();
+				$groupParts    = array();
+				$scheduleParts = array();
+				$contractParts = array();
+
+				foreach ( $studentRecords as $record ) {
+					$groupId = (int) ( $record->groupId ?? 0 );
+					$group   = $groupId ? $groupRepo->findById( $groupId ) : null;
+
+					$subjectParts[]  = $group !== null
+						? ( $allSubjects[ $group->subject_key ] ?? $group->subject_key )
+						: '—';
+					$groupParts[]    = $group?->name ?? '—';
+
+					if ( $group !== null ) {
+						$scheduleArray = is_string( $group->schedule )
+							? ( json_decode( $group->schedule, true ) ?? array() )
+							: array();
+						$formatted     = WeekDay::formatSchedule( $scheduleArray );
+						$scheduleParts[] = $formatted !== '' ? $formatted : '—';
+					} else {
+						$scheduleParts[] = '—';
+					}
+
+					$contractParts[] = $record->contractNo ?? '—';
+				}
+
+				// HTML-строки для ячеек
+				$subjectHtml  = implode( '<br>', array_map( 'esc_html', $subjectParts ) );
+				$groupHtml    = implode( '<br>', array_map( 'esc_html', $groupParts ) );
+				$scheduleHtml = implode( '<br>', array_map( 'esc_html', $scheduleParts ) );
+				$contractHtml = implode( '<br>', array_map( 'esc_html', $contractParts ) );
+
+				// data-enrollment: данные первой записи (для мгновенного предзаполнения модалки)
+				$firstGroup        = (int) ( $firstRecord->groupId ?? 0 );
+				$firstGroupObj     = $firstGroup ? $groupRepo->findById( $firstGroup ) : null;
+				$firstSubjectName  = $firstGroupObj !== null
+					? ( $allSubjects[ $firstGroupObj->subject_key ] ?? $firstGroupObj->subject_key )
+					: '—';
+				$firstGroupTitle   = $firstGroupObj?->name ?? '—';
+				$firstScheduleArr  = $firstGroupObj !== null && is_string( $firstGroupObj->schedule )
+					? ( json_decode( $firstGroupObj->schedule, true ) ?? array() )
+					: array();
+				$firstScheduleStr  = WeekDay::formatSchedule( $firstScheduleArr );
+
 				$enrollmentData = array(
-					'subject'                  => $subjectName,
-					'group'                    => $groupTitle,
-					'schedule'                 => $formatted,
-					'contract_no'              => $row->contractNo   ?? '',
-					'contract_date'            => $row->contractDate ?? '',
-					'order_no'                 => $row->orderNo      ?? '',
-					'order_date'               => $row->orderDate    ?? '',
-					'enrolled_at'              => substr( $row->enrolledAt, 0, 10 ),
+					'subject'                  => $firstSubjectName,
+					'group'                    => $firstGroupTitle,
+					'schedule'                 => $firstScheduleStr,
+					'contract_no'              => $firstRecord->contractNo   ?? '',
+					'contract_date'            => $firstRecord->contractDate ?? '',
+					'order_no'                 => $firstRecord->orderNo      ?? '',
+					'order_date'               => $firstRecord->orderDate    ?? '',
+					'enrolled_at'              => substr( $firstRecord->enrolledAt, 0, 10 ),
 					'student_last_name'        => $person?->lastName   ?? '',
 					'student_first_name'       => $person?->firstName  ?? '',
 					'student_middle_name'      => $person?->middleName ?? '',
@@ -178,23 +209,19 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				</td>
 
 				<td class="column-title">
-					<?php echo esc_html( $subjectName ); ?>
+					<?php echo wp_kses( $subjectHtml, array( 'br' => array() ) ); ?>
 				</td>
 
 				<td class="column-title">
-					<?php echo esc_html( $groupTitle ); ?>
+					<?php echo wp_kses( $groupHtml, array( 'br' => array() ) ); ?>
 				</td>
 
 				<td>
-					<?php echo esc_html( $scheduleStr ); ?>
+					<?php echo wp_kses( $scheduleHtml, array( 'br' => array() ) ); ?>
 				</td>
 
 				<td>
-					<?php if ( $contractNo && '—' !== $contractNo ) : ?>
-						<?php echo esc_html( $contractNo ); ?>
-					<?php else : ?>
-						<span class="fs-table__empty-value">—</span>
-					<?php endif; ?>
+					<?php echo wp_kses( $contractHtml, array( 'br' => array() ) ); ?>
 				</td>
 
 				<td class="column-actions">
