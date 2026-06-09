@@ -4,10 +4,10 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\PersonUpdateCallbacks;
-use Inc\Callbacks\PersonViewCallbacks;
-use Inc\Callbacks\PiiRevealCallbacks;
-use Inc\Callbacks\RepresentativeCallbacks;
+use Inc\Callbacks\Person\PersonUpdateCallbacks;
+use Inc\Callbacks\Person\PersonViewCallbacks;
+use Inc\Callbacks\Person\PiiRevealCallbacks;
+use Inc\Callbacks\Person\RepresentativeCallbacks;
 use Inc\Enums\AjaxHook;
 use Inc\Enums\Capability;
 

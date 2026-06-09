@@ -4,9 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\AcademicPeriodCallbacks;
-use Inc\Callbacks\ConsentSettingsCallbacks;
-use Inc\Callbacks\EmailTemplateSettingsCallbacks;
+use Inc\Callbacks\Settings\AcademicPeriodCallbacks;
+use Inc\Callbacks\Settings\ConsentSettingsCallbacks;
+use Inc\Callbacks\Settings\EmailTemplateSettingsCallbacks;
 use Inc\Enums\AjaxHook;
 
 /**

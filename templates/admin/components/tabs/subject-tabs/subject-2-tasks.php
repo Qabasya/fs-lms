@@ -1,5 +1,5 @@
 <?php
-/** @var \Inc\DTO\SubjectViewDTO $dto
+/** @var \Inc\DTO\Subject\SubjectViewDTO $dto
  * @var \Inc\Services\PostTypeResolver $service
  * */
 ?>

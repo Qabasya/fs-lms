@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Person;
 
 use Inc\Contracts\ClockInterface;
-use Inc\DTO\PersonInputDTO;
+use Inc\DTO\Person\PersonInputDTO;
 use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Inc\Controllers\Builders;
 
-use Inc\DTO\PostViewDTO;
-use Inc\DTO\SubjectDTO;
-use Inc\DTO\TaskPageDTO;
-use Inc\DTO\TermViewDTO;
+use Inc\DTO\Task\PostViewDTO;
+use Inc\DTO\Subject\SubjectDTO;
+use Inc\DTO\Task\TaskPageDTO;
+use Inc\DTO\Subject\TermViewDTO;
 use Inc\Enums\PostMetaName;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;

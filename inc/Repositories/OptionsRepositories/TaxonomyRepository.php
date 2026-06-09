@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Repositories\OptionsRepositories;
 
-use Inc\DTO\TaxonomyDataDTO;
+use Inc\DTO\Subject\TaxonomyDataDTO;
 use Inc\Enums\OptionName;
 
 /**

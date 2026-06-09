@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Contracts\RepositoryInterface;
 use Inc\Enums\ApplicationStatus;
-use Inc\DTO\ApplicationDTO;
+use Inc\DTO\Application\ApplicationDTO;
 use Inc\Enums\TableName;
 
 /**

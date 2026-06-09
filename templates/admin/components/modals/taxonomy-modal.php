@@ -1,5 +1,5 @@
 <?php
-/** @var \Inc\DTO\SubjectViewDTO $dto */
+/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
 ?>
 <div id="fs-taxonomy-modal" class="fs-lms-modal hidden">
 	<div class="fs-lms-modal-backdrop"></div>

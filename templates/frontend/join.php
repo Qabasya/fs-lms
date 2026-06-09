@@ -3,12 +3,12 @@
  * Шаблон страницы завершения регистрации родителя и ученика (/lms/join/{code})
  *
  * @package FS LMS
- * @var \Inc\DTO\StudentDataDTO $student_data Расшифрованные данные ученика из заявки
+ * @var \Inc\DTO\Enrollment\StudentDataDTO $student_data Расшифрованные данные ученика из заявки
  * @var string                  $join_code    Уникальный хэш-код из URL
  * @var int                     $app_id       ID заявки
  */
 
-use Inc\DTO\StudentDataDTO;
+use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Enums\Nonce;
 use Inc\Services\ThemeCompatService;
 

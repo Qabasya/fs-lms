@@ -13,12 +13,12 @@ use Inc\Services\Application\ApplicationService;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\AuditService;
 use Inc\Services\CaptchaService;
-use Inc\Services\EmailOtpService;
+use Inc\Services\Email\EmailOtpService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\RateLimitService;
-use Inc\DTO\ApplicationInputDTO;
+use Inc\DTO\Application\ApplicationInputDTO;
 use Inc\DTO\ParentSubmissionInputDTO;
-use Inc\DTO\StudentDataDTO;
+use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Shared\Traits\Sanitizer;
 

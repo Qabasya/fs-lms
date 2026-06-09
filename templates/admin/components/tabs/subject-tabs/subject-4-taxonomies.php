@@ -1,5 +1,5 @@
 <?php
-/** @var \Inc\DTO\SubjectViewDTO $dto */
+/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 // 1. Выносим словарь за пределы цикла, чтобы не нагружать память

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Repositories\OptionsRepositories;
 
-use Inc\DTO\SubjectDTO;
+use Inc\DTO\Subject\SubjectDTO;
 use Inc\Enums\OptionName;
 
 /**

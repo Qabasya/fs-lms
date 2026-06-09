@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Services\Task;
 
-use Inc\DTO\TaskTypeDTO;
+use Inc\DTO\Task\TaskTypeDTO;
 use Inc\Enums\TaskTemplate;
 use Inc\Managers\PostManager;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;

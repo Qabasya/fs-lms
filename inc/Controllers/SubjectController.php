@@ -2,12 +2,12 @@
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\SubjectCrudCallbacks;
-use Inc\Callbacks\SubjectDataCallbacks;
-use Inc\Callbacks\SubjectImportExportCallbacks;
-use Inc\Callbacks\SubjectPageCallbacks;
-use Inc\Callbacks\SubjectValidationCallbacks;
-use Inc\Callbacks\TaxonomySettingsCallbacks;
+use Inc\Callbacks\Subject\SubjectCrudCallbacks;
+use Inc\Callbacks\Subject\SubjectDataCallbacks;
+use Inc\Callbacks\Subject\SubjectImportExportCallbacks;
+use Inc\Callbacks\Subject\SubjectPageCallbacks;
+use Inc\Callbacks\Subject\SubjectValidationCallbacks;
+use Inc\Callbacks\Subject\TaxonomySettingsCallbacks;
 use Inc\Callbacks\TemplateCallbacks;
 use Inc\Callbacks\TemplateManagerCallbacks;
 use Inc\Enums\AjaxHook;

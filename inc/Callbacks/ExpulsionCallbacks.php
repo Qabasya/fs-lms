@@ -6,7 +6,7 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\DTO\CsvColumn;
-use Inc\DTO\StudentRecordDTO;
+use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\Capability;
 use Inc\Enums\ExpulsionReasons;

@@ -1,5 +1,5 @@
 <?php
-/** @var \Inc\DTO\SubjectViewDTO $dto */
+/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
 ?>
 
 <div class="task-manager-wrapper">

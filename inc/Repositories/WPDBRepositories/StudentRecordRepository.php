@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories\WPDBRepositories;
 
-use Inc\DTO\StudentRecordDTO;
+use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Enums\TableName;
 

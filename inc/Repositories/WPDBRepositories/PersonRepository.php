@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\DTO\PersonDTO;
+use Inc\DTO\Person\PersonDTO;
 use Inc\Enums\TableName;
 
 /**

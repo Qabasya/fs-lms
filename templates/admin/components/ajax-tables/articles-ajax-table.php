@@ -1,7 +1,7 @@
 <?php
 /**
  * @var array[]                     $rows        Массив строк: title, edit_link, terms[slug => string]
- * @var \Inc\DTO\TaxonomyDataDTO[]  $taxonomies  Видимые таксономии (без "Номер задания")
+ * @var \Inc\DTO\Subject\TaxonomyDataDTO[]  $taxonomies  Видимые таксономии (без "Номер задания")
  */
 ?>
 <table class="wp-list-table widefat fixed striped fs-table  ">

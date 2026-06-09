@@ -2,7 +2,7 @@
 /**
  * Шаблон главной страницы Dashboard.
  *
- * @var \Inc\DTO\SubjectDTO[]            $subjects          Список предметов
+ * @var \Inc\DTO\Subject\SubjectDTO[]            $subjects          Список предметов
  * @var array<string, array<string,mixed>> $academic_periods Список учебных периодов
  */
 

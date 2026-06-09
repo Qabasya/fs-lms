@@ -7,7 +7,7 @@ namespace Inc\Services;
 use Inc\Contracts\ClockInterface;
 use Inc\Enums\AuditAction;
 use Inc\Enums\EnrollmentStatus;
-use Inc\DTO\StudentRecordDTO;
+use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;

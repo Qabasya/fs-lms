@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Contracts\RepositoryInterface;
-use Inc\DTO\PiiAccessLogDTO;
-use Inc\DTO\PiiAccessLogInputDTO;
+use Inc\DTO\Person\PiiAccessLogDTO;
+use Inc\DTO\Person\PiiAccessLogInputDTO;
 use Inc\Enums\TableName;
 
 /**

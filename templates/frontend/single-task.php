@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** @var \Inc\DTO\TaskPageDTO $task_data */
+/** @var \Inc\DTO\Task\TaskPageDTO $task_data */
 $task_data   = get_query_var( 'fs_task_data' );
 $task_post   = $task_data->post;
 $content     = $task_data->content;

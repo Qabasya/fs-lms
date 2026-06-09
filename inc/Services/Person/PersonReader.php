@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Services\Person;
 
 use Inc\Contracts\ClockInterface;
-use Inc\DTO\PersonDecryptedDTO;
-use Inc\DTO\PiiAccessLogInputDTO;
+use Inc\DTO\Person\PersonDecryptedDTO;
+use Inc\DTO\Person\PiiAccessLogInputDTO;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;

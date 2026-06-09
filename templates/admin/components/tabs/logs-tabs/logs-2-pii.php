@@ -5,7 +5,7 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 /**
- * @var \Inc\DTO\PiiAccessLogDTO[] $pii_rows
+ * @var \Inc\DTO\Person\PiiAccessLogDTO[] $pii_rows
  * @var int                        $pii_total
  * @var int                        $pii_page
  * @var array                      $pii_filters

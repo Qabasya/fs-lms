@@ -4,7 +4,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\DTO\TaskMetaDTO;
+use Inc\DTO\Task\TaskMetaDTO;
 use Inc\Enums\Nonce;
 use Inc\Enums\PostMetaName;
 use Inc\Registrars\MetaBoxRegistrar;
