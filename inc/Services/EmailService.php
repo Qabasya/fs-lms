@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services;
 
+use Inc\Enums\EmailTemplateType;
 use Inc\Managers\UserManager;
 use Inc\Services\Email\WpOptionsEmailTemplate;
 
@@ -60,7 +61,7 @@ readonly class EmailService {
 			return false;
 		}
 
-		$t = $this->template->get( 'password_setup', array(
+		$t = $this->template->get( EmailTemplateType::PasswordSetup, array(
 			'link'         => $link,
 			'display_name' => $user->display_name,
 		) );
@@ -92,7 +93,7 @@ readonly class EmailService {
 			return false;
 		}
 
-		$t = $this->template->get( 'welcome_with_credentials', array_merge( array(
+		$t = $this->template->get( EmailTemplateType::WelcomeWithCredentials, array_merge( array(
 			'login'        => $user->user_login,
 			'password'     => $password,
 			'display_name' => $user->display_name,
@@ -103,7 +104,7 @@ readonly class EmailService {
 	}
 
 	public function sendApplicationConfirmation( string $email, string $joinUrl, string $expiresAt ): bool {
-		$t = $this->template->get( 'application_confirmation', array(
+		$t = $this->template->get( EmailTemplateType::ApplicationConfirmation, array(
 			'join_url'   => $joinUrl,
 			'expires_at' => $expiresAt,
 		) );
@@ -119,7 +120,7 @@ readonly class EmailService {
 	 * @return bool
 	 */
 	public function sendApplicationReadyNotification( string $adminEmail ): bool {
-		$t = $this->template->get( 'application_ready' );
+		$t = $this->template->get( EmailTemplateType::ApplicationReady );
 
 		return $this->send( $adminEmail, $t->subject, $t->body );
 	}
@@ -139,7 +140,7 @@ readonly class EmailService {
 			return false;
 		}
 
-		$t = $this->template->get( 'new_representative', array(
+		$t = $this->template->get( EmailTemplateType::NewRepresentative, array(
 			'link'         => $link ?? '',
 			'display_name' => $user->display_name,
 		) );
@@ -156,7 +157,7 @@ readonly class EmailService {
 	 * @return bool
 	 */
 	public function sendOtpCode( string $email, string $code ): bool {
-		$t = $this->template->get( 'otp_code', array( 'code' => $code ) );
+		$t = $this->template->get( EmailTemplateType::OtpCode, array( 'code' => $code ) );
 
 		return $this->send( $email, $t->subject, $t->body );
 	}

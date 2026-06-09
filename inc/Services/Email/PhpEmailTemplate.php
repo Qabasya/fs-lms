@@ -6,6 +6,7 @@ namespace Inc\Services\Email;
 
 use Inc\Contracts\EmailTemplateInterface;
 use Inc\DTO\EmailTemplateData;
+use Inc\Enums\EmailTemplateType;
 use RuntimeException;
 
 /**
@@ -26,11 +27,11 @@ use RuntimeException;
  */
 class PhpEmailTemplate implements EmailTemplateInterface {
 
-	public function get( string $type, array $vars = [] ): EmailTemplateData {
-		$path = FS_LMS_PATH . 'templates/emails/' . $type . '.php';
+	public function get( EmailTemplateType $type, array $vars = [] ): EmailTemplateData {
+		$path = FS_LMS_PATH . 'templates/emails/' . $type->value . '.php';
 
 		if ( ! file_exists( $path ) ) {
-			throw new RuntimeException( "Email template not found: {$type} ({$path})" );
+			throw new RuntimeException( "Email template not found: {$type->value} ({$path})" );
 		}
 
 		// Переменные из $vars попадают в scope файла через extract()
@@ -41,7 +42,7 @@ class PhpEmailTemplate implements EmailTemplateInterface {
 		$data = include $path;
 
 		if ( ! is_array( $data ) || empty( $data['subject'] ) ) {
-			throw new RuntimeException( "Email template '{$type}' must return ['subject' => ..., 'body' => ...]" );
+			throw new RuntimeException( "Email template '{$type->value}' must return ['subject' => ..., 'body' => ...]" );
 		}
 
 		return new EmailTemplateData(

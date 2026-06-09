@@ -6,6 +6,7 @@ namespace Inc\Services\Email;
 
 use Inc\Contracts\EmailTemplateInterface;
 use Inc\DTO\EmailTemplateData;
+use Inc\Enums\EmailTemplateType;
 use Inc\Enums\OptionName;
 
 /**
@@ -32,9 +33,9 @@ class WpOptionsEmailTemplate implements EmailTemplateInterface {
 		private readonly PhpEmailTemplate $fallback,
 	) {}
 
-	public function get( string $type, array $vars = [] ): EmailTemplateData {
+	public function get( EmailTemplateType $type, array $vars = [] ): EmailTemplateData {
 		$all      = (array) get_option( OptionName::EmailTemplates->value, array() );
-		$template = $all[ $type ] ?? null;
+		$template = $all[ $type->value ] ?? null;
 
 		if ( empty( $template['subject'] ) || empty( $template['body'] ) ) {
 			return $this->fallback->get( $type, $vars );
