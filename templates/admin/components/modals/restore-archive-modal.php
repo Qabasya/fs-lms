@@ -25,17 +25,14 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 		<div class="fs-lms-modal-body">
 			<div class="fs-form-group">
-				<label for="ram-mode-select">
-					<?php esc_html_e( 'Режим восстановления', 'fs-lms' ); ?>
+				<label class="fs-radio-label">
+					<input type="radio" name="ram-mode" value="0" checked>
+					<span><?php esc_html_e( 'Только данные ученика — родитель заполнит сам', 'fs-lms' ); ?></span>
 				</label>
-				<select id="ram-mode-select" class="widefat">
-					<option value="0">
-						<?php esc_html_e( 'Только данные ученика — ожидание данных родителя', 'fs-lms' ); ?>
-					</option>
-					<option value="1" id="ram-mode-with-parent">
-						<?php esc_html_e( 'С данными родителя — заявка сразу готова к проверке', 'fs-lms' ); ?>
-					</option>
-				</select>
+				<label class="fs-radio-label" id="ram-with-parent-label">
+					<input type="radio" name="ram-mode" value="1" id="ram-mode-with-parent">
+					<span id="ram-with-parent-text"><?php esc_html_e( 'С данными родителя — заявка сразу готова к проверке', 'fs-lms' ); ?></span>
+				</label>
 			</div>
 		</div>
 

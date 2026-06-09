@@ -214,12 +214,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<button type="button" class="button fs-lms-modal-cancel">
 				<?php esc_html_e( 'Закрыть', 'fs-lms' ); ?>
 			</button>
-			<button type="button"
-				class="button button-primary js-restore-from-archive"
-				id="avm-restore-btn"
-				data-archive-id="">
-				<?php esc_html_e( 'Восстановить из архива', 'fs-lms' ); ?>
-			</button>
 		</div>
 	</div>
 </div>

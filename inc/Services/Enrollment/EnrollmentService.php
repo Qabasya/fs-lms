@@ -310,26 +310,35 @@ readonly class EnrollmentService {
 
 		$studentPerson = $this->personRepository->find( $record->studentPersonId );
 
-		if ( null === $studentPerson ) {
-			throw new RuntimeException( 'Запись ученика не найдена.' );
-		}
+		$sLastName   = $record->snapshotLastName  !== '' ? $record->snapshotLastName  : ( $studentPerson?->lastName  ?? '' );
+		$sFirstName  = $record->snapshotFirstName !== '' ? $record->snapshotFirstName : ( $studentPerson?->firstName ?? '' );
+		$sMiddleName = $record->snapshotMiddleName ?? $studentPerson?->middleName ?? '';
 
 		$studentData = array(
-			'last_name'   => $record->snapshotLastName  !== '' ? $record->snapshotLastName  : $studentPerson->lastName,
-			'first_name'  => $record->snapshotFirstName !== '' ? $record->snapshotFirstName : $studentPerson->firstName,
-			'middle_name' => $record->snapshotMiddleName ?? $studentPerson->middleName ?? '',
-			'birth_date'  => $studentPerson->birthDate ?? '',
+			'last_name'   => $sLastName,
+			'first_name'  => $sFirstName,
+			'middle_name' => $sMiddleName,
+			'full_name'   => trim( "{$sLastName} {$sFirstName} {$sMiddleName}" ),
+			'birth_date'  => $studentPerson?->birthDate ?? '',
 			'school'      => $record->snapshotSchool ?? '',
 			'grade'       => $record->snapshotGrade  ?? '',
 			'email'       => '',
 		);
 
-		// Берём email из person_documents если есть
 		$docs = $this->personDocumentsRepository->findByPersonId( $record->studentPersonId );
-		if ( $docs?->emailEnc ) {
-			try {
-				$studentData['email'] = $this->crypto->decrypt( $docs->emailEnc );
-			} catch ( \Throwable ) {}
+		if ( $docs ) {
+			$studentData['doc_type'] = $docs->docType ?? '';
+			foreach ( array(
+				'email'      => $docs->emailEnc,
+				'phone'      => $docs->phoneEnc,
+				'doc_number' => $docs->docNumberEnc,
+				'inn'        => $docs->innEnc,
+			) as $key => $enc ) {
+				if ( ! $enc ) { continue; }
+				try {
+					$studentData[ $key ] = $this->crypto->decrypt( $enc );
+				} catch ( \Throwable ) {}
+			}
 		}
 
 		$joinCode       = $this->joinCodeService->generate();

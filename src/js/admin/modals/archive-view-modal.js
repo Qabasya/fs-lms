@@ -1,6 +1,4 @@
 import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
-import { RestoreArchiveModal } from './restore-archive-modal.js';
-import { toggleButton, showNotice } from '../modules/utils.js';
 
 const $ = jQuery;
 
@@ -14,8 +12,6 @@ export const ArchiveViewModal = {
         this.$modal = $( '#fs-archive-view-modal' );
         if ( ! this.$modal.length ) { return; }
 
-        RestoreArchiveModal.init();
-
         this._initialized = true;
         this._bindEvents();
     },
@@ -25,23 +21,6 @@ export const ArchiveViewModal = {
             e.preventDefault();
             const raw = $( e.currentTarget ).closest( 'tr' ).data( 'enrollment' );
             if ( raw ) { this.open( raw ); }
-        } );
-
-        // Restore from table row (direct link, modal not open)
-        $( document ).on( 'click.arc-restore', '.js-restore-from-archive', ( e ) => {
-            e.preventDefault();
-            const $btn     = $( e.currentTarget );
-            const archiveId = $btn.data( 'archive-id' );
-            const hasParent = parseInt( $btn.data( 'has-parent' ) ?? '0', 10 ) === 1;
-
-            if ( ! archiveId ) { return; }
-
-            // If triggered from inside the view modal, close it first
-            if ( $btn.closest( '#fs-archive-view-modal' ).length ) {
-                this.close();
-            }
-
-            this._requestRestore( archiveId, hasParent, $btn );
         } );
 
         this.$modal.on( 'click', '.fs-lms-modal-backdrop, .fs-lms-modal-cancel, .js-modal-close, .fs-close', ( e ) => {
@@ -57,16 +36,6 @@ export const ArchiveViewModal = {
 
     open( data ) {
         this._fill( data );
-
-        const archiveId = data.archive_id ?? null;
-        const hasParent = data.parent_person_id ? 1 : 0;
-
-        this.$modal.find( '#avm-restore-btn' )
-            .data( 'archive-id', archiveId )
-            .attr( 'data-archive-id', archiveId ?? '' )
-            .data( 'has-parent', hasParent )
-            .attr( 'data-has-parent', hasParent );
-
         bindEsc( 'archive_view', () => this.close() );
         openModal( this.$modal );
     },
@@ -74,59 +43,6 @@ export const ArchiveViewModal = {
     close() {
         unbindEsc( 'archive_view' );
         closeModal( this.$modal );
-    },
-
-    _requestRestore( archiveId, hasParent, $triggerBtn = null ) {
-        RestoreArchiveModal.choose( hasParent )
-            .then( ( { withParent } ) => {
-                this._doRestore( archiveId, withParent, $triggerBtn );
-            } )
-            .catch( () => {} );
-    },
-
-    _doRestore( archiveId, withParent, $triggerBtn = null ) {
-        if ( $triggerBtn ) { toggleButton( $triggerBtn, true, '...' ); }
-
-        const vars = window.fs_lms_applications_vars ?? {};
-
-        $.ajax( {
-            url:    fs_lms_vars.ajaxurl,
-            method: 'POST',
-            data:   {
-                action:      fs_lms_vars.ajax_actions.restoreFromArchive,
-                archive_id:  archiveId,
-                with_parent: withParent ? 1 : 0,
-                security:    vars.nonces?.restoreFromArchive ?? '',
-            },
-            success: ( res ) => {
-                if ( $triggerBtn ) { toggleButton( $triggerBtn, false ); }
-
-                if ( ! res.success ) {
-                    alert( res.data || 'Ошибка восстановления.' );
-                    return;
-                }
-
-                const appId      = res.data?.id       ?? '';
-                const joinUrl    = res.data?.join_url  ?? '';
-                const parentName = res.data?.parent_name ?? '';
-
-                let msg = `Заявка #${ appId } создана.`;
-                if ( parentName ) {
-                    msg += `\nРодитель: ${ parentName }.`;
-                }
-                if ( joinUrl ) {
-                    msg += `\n\nJoin-ссылка:\n${ joinUrl }`;
-                    navigator.clipboard?.writeText( joinUrl ).catch( () => {} );
-                }
-
-                alert( msg );
-                location.reload();
-            },
-            error: () => {
-                if ( $triggerBtn ) { toggleButton( $triggerBtn, false ); }
-                alert( 'Сетевая ошибка.' );
-            },
-        } );
     },
 
     _toggleAccordion( $header ) {

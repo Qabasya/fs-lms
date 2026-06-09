@@ -184,8 +184,8 @@ ThemeCompatService::header();
                                 aria-required="true"
                                 autocomplete="off"
                         >
-                            <option value="pass" selected><?php esc_html_e( 'Паспорт', 'fs-lms' ); ?></option>
-                            <option value="birth_certificate"><?php esc_html_e( 'Свидетельство о рождении', 'fs-lms' ); ?></option>
+                            <option value="pass" <?php selected( ( $student_data->docType ?? '' ), 'pass' ); ?>><?php esc_html_e( 'Паспорт', 'fs-lms' ); ?></option>
+                            <option value="birth_certificate" <?php selected( ( $student_data->docType ?? '' ), 'birth_certificate' ); ?>><?php esc_html_e( 'Свидетельство о рождении', 'fs-lms' ); ?></option>
                         </select>
                     </div>
 
@@ -199,6 +199,7 @@ ThemeCompatService::header();
                                 name="student_doc_number"
                                 id="fs_student_doc_number"
                                 data-validate="passportSN"
+                                value="<?php echo esc_attr( $student_data->docNumber ?? '' ); ?>"
                                 placeholder="1234 567890"
                                 inputmode="numeric"
                                 autocomplete="off"
@@ -217,6 +218,7 @@ ThemeCompatService::header();
                                 type="text"
                                 name="student_inn"
                                 id="fs_student_inn"
+                                value="<?php echo esc_attr( $student_data->inn ?? '' ); ?>"
                                 placeholder="<?php esc_attr_e( '12 цифр ИНН', 'fs-lms' ); ?>"
                                 data-validate="inn"
                                 inputmode="numeric"

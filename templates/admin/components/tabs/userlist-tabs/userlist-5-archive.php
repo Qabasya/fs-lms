@@ -10,8 +10,10 @@ use Inc\Enums\Capability;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\PiiCryptoService;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -22,8 +24,10 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 
 $recordRepo  = new StudentRecordRepository();
 $personRepo  = new PersonRepository();
+$docsRepo    = new PersonDocumentsRepository();
 $groupRepo   = new GroupsRepository();
 $subjectRepo = new SubjectRepository();
+$crypto      = new PiiCryptoService();
 
 $page         = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage      = 20;
@@ -137,8 +141,9 @@ $statusLabels = array(
 				$expelReason     = (string) ( $row->expelReason ?? '' );
 				$isTerminal      = $status->isTerminal();
 
-				$studentName = '—';
 				$person      = $personRepo->find( $studentPersonId );
+				$sDocs       = $docsRepo->findByPersonId( $studentPersonId );
+
 				if ( $person !== null ) {
 					if ( $person->wpUserId ) {
 						$wpUser      = get_userdata( $person->wpUserId );
@@ -146,6 +151,12 @@ $statusLabels = array(
 					} else {
 						$studentName = $person->fullName() ?: "Person #{$studentPersonId}";
 					}
+				} else {
+					$studentName = trim(
+						$row->snapshotLastName . ' ' .
+						$row->snapshotFirstName . ' ' .
+						( $row->snapshotMiddleName ?? '' )
+					) ?: "Person #{$studentPersonId}";
 				}
 
 				$groupTitle  = '—';
@@ -168,19 +179,33 @@ $statusLabels = array(
 					'contract_date'     => $row->contractDate ?? '',
 					'order_no'          => $row->orderNo      ?? '',
 					'order_date'        => $row->orderDate    ?? '',
-					'student'           => array(
-						'last_name'   => $person?->lastName   ?? '',
-						'first_name'  => $person?->firstName  ?? '',
-						'middle_name' => $person?->middleName ?? '',
-						'birth_date'  => $person?->birthDate  ?? '',
-						'email'       => '',
-						'phone'       => '',
-						'school'      => '',
-						'grade'       => '',
-						'doc_type'    => '',
-						'doc_number'  => '',
-						'inn'         => '',
-					),
+					'student'           => ( function () use ( $person, $row, $sDocs, $crypto ): array {
+						$s = array(
+							'last_name'   => $person?->lastName   ?? $row->snapshotLastName,
+							'first_name'  => $person?->firstName  ?? $row->snapshotFirstName,
+							'middle_name' => $person?->middleName ?? ( $row->snapshotMiddleName ?? '' ),
+							'birth_date'  => $person?->birthDate  ?? '',
+							'email'       => '',
+							'phone'       => '',
+							'school'      => $person?->school ?? ( $row->snapshotSchool ?? '' ),
+							'grade'       => $person?->grade  ?? ( $row->snapshotGrade  ?? '' ),
+							'doc_type'    => $sDocs?->docType ?? '',
+							'doc_number'  => '',
+							'inn'         => '',
+						);
+						if ( $sDocs ) {
+							foreach ( array(
+								'email'      => $sDocs->emailEnc,
+								'phone'      => $sDocs->phoneEnc,
+								'doc_number' => $sDocs->docNumberEnc,
+								'inn'        => $sDocs->innEnc,
+							) as $key => $enc ) {
+								if ( ! $enc ) { continue; }
+								try { $s[ $key ] = $crypto->decrypt( $enc ); } catch ( \Throwable ) {}
+							}
+						}
+						return $s;
+					} )(),
 					'guardian'          => array(
 						'last_name'       => '',
 						'first_name'      => '',
@@ -232,16 +257,14 @@ $statusLabels = array(
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>
 						</span>
-						<?php if ( $isTerminal ) : ?>
-							<span class="restore"> |
-								<a href="#"
-									class="js-restore-from-archive"
-									data-archive-id="<?php echo esc_attr( (string) $row->id ); ?>"
-									data-has-parent="<?php echo $row->parentPersonId > 0 ? '1' : '0'; ?>">
-									<?php esc_html_e( 'Вернуть в заявки', 'fs-lms' ); ?>
-								</a>
-							</span>
-						<?php endif; ?>
+						<span class="restore"> |
+							<a href="#"
+								class="js-restore-from-archive"
+								data-archive-id="<?php echo esc_attr( (string) $row->id ); ?>"
+								data-has-parent="<?php echo $row->parentPersonId > 0 ? '1' : '0'; ?>">
+								<?php esc_html_e( 'Вернуть в заявки', 'fs-lms' ); ?>
+							</a>
+						</span>
 					</div>
 				</td>
 

@@ -400,6 +400,14 @@ html.modal-open {
   &:hover span {
     color: $color-primary;
   }
+
+  &--disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+
+    input[type="radio"] { cursor: not-allowed; }
+    &:hover span { color: $color-text-primary; }
+  }
 }
 
 // ── Сохранение переносов строк в сообщениях
