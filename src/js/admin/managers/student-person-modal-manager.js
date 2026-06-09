@@ -48,7 +48,11 @@ export const StudentPersonModalManager = {
             this._export();
         } );
 
-        $( document ).on( 'fs:student:expelled', ( e, { studentId } ) => {
+        $( document ).on( 'fs:student:expelled', () => {
+            StudentPersonModal.close();
+        } );
+
+        $( document ).on( 'fs:student:expel-partial', () => {
             StudentPersonModal.close();
         } );
 
@@ -70,7 +74,8 @@ export const StudentPersonModalManager = {
             .data( 'expel-student-id', wpUserId )
             .data( 'expel-student-name', studentName )
             .attr( 'data-expel-student-id', wpUserId )
-            .attr( 'data-expel-student-name', studentName );
+            .attr( 'data-expel-student-name', studentName )
+            .removeAttr( 'data-expel-enrollments' );
 
         // Немедленно из данных строки — без ожидания AJAX
         StudentPersonModal.fill( {
@@ -132,6 +137,17 @@ export const StudentPersonModalManager = {
                     schedule:    e.schedule     || '',
                 } );
             } );
+
+            // Передаём активные зачисления кнопке Отчислить для выбора группы
+            const activeEnrollments = enrollments
+                .filter( e => e.status_value === 'active' )
+                .map( e => ( {
+                    record_id:    e.record_id,
+                    subject_name: e.subject_name || '',
+                    group_title:  e.group_title  || '',
+                } ) );
+            $( '#fs-student-person-modal .js-expel-student' )
+                .attr( 'data-expel-enrollments', JSON.stringify( activeEnrollments ) );
         } );
     },
 

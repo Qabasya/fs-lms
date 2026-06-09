@@ -9,8 +9,9 @@ const $ = jQuery;
  * Одиночное: любой элемент .js-expel-student с data-expel-student-id / data-expel-student-name.
  * Массовое:  StudentsTable вызывает ExpelModal.openBulk(students[]) напрямую.
  *
- * После отчисления стреляет событие:
- *   $(document).trigger('fs:student:expelled', { studentId })
+ * После отчисления:
+ *   — если у ученика не осталось групп: $(document).trigger('fs:student:expelled', { studentId })
+ *   — если остались группы:            $(document).trigger('fs:student:expel-partial', { studentId, remaining })
  */
 export const ExpelModalManager = {
     _initialized: false,
@@ -36,7 +37,13 @@ export const ExpelModalManager = {
 
         if ( ! studentId ) return;
 
-        ExpelModal.open( studentId, studentName );
+        let enrollments = [];
+        try {
+            const raw = $el.attr( 'data-expel-enrollments' );
+            if ( raw ) enrollments = JSON.parse( raw );
+        } catch ( _ ) { /* ignore parse errors */ }
+
+        ExpelModal.open( studentId, studentName, enrollments );
     },
 
     _doExpel( formData ) {
@@ -62,16 +69,29 @@ export const ExpelModalManager = {
     _doExpelSingle( formData ) {
         ExpelModal.setSaving( true );
 
-        $.post( fs_lms_vars.ajaxurl, {
+        const payload = {
             action:     fs_lms_vars.ajax_actions.expelStudent,
             security:   fs_lms_vars.nonces.expulsion,
             student_id: formData.student_id,
             reason:     formData.reason,
-        } )
+        };
+        if ( formData.record_id ) {
+            payload.record_id = formData.record_id;
+        }
+
+        $.post( fs_lms_vars.ajaxurl, payload )
             .done( ( res ) => {
                 if ( res.success ) {
                     ExpelModal.close();
-                    $( document ).trigger( 'fs:student:expelled', { studentId: formData.student_id } );
+                    const remaining = res.data?.remaining_enrollments || [];
+                    if ( remaining.length === 0 ) {
+                        $( document ).trigger( 'fs:student:expelled', { studentId: formData.student_id } );
+                    } else {
+                        $( document ).trigger( 'fs:student:expel-partial', {
+                            studentId: formData.student_id,
+                            remaining,
+                        } );
+                    }
                 } else {
                     showModalError( res.data?.message || res.data || 'Ошибка отчисления.', ExpelModal.$modal );
                     ExpelModal.setSaving( false );
@@ -99,7 +119,15 @@ export const ExpelModalManager = {
             } )
                 .done( ( res ) => {
                     if ( res.success ) {
-                        $( document ).trigger( 'fs:student:expelled', { studentId: parseInt( studentId, 10 ) } );
+                        const remaining = res.data?.remaining_enrollments || [];
+                        if ( remaining.length === 0 ) {
+                            $( document ).trigger( 'fs:student:expelled', { studentId: parseInt( studentId, 10 ) } );
+                        } else {
+                            $( document ).trigger( 'fs:student:expel-partial', {
+                                studentId: parseInt( studentId, 10 ),
+                                remaining,
+                            } );
+                        }
                     } else {
                         errors++;
                         showModalError( res.data?.message || 'Ошибка отчисления.', ExpelModal.$modal );

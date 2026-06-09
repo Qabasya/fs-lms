@@ -121,32 +121,46 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					}
 				}
 
-				// Данные каждой записи (предмет, группа, расписание, договор)
-				$subjectParts  = array();
-				$groupParts    = array();
-				$scheduleParts = array();
-				$contractParts = array();
+				// Данные по каждой записи (один проход — без дублирования findById)
+				$subjectParts    = array();
+				$groupParts      = array();
+				$scheduleParts   = array();
+				$contractParts   = array();
+				$enrollmentsList = array();
 
-				foreach ( $studentRecords as $record ) {
+				$firstSubjectName = '—';
+				$firstGroupTitle  = '—';
+				$firstScheduleStr = '';
+
+				foreach ( $studentRecords as $idx => $record ) {
 					$groupId = (int) ( $record->groupId ?? 0 );
 					$group   = $groupId ? $groupRepo->findById( $groupId ) : null;
 
-					$subjectParts[]  = $group !== null
+					$subjectName   = $group !== null
 						? ( $allSubjects[ $group->subject_key ] ?? $group->subject_key )
 						: '—';
-					$groupParts[]    = $group?->name ?? '—';
+					$groupTitle    = $group?->name ?? '—';
+					$scheduleArray = $group !== null && is_string( $group->schedule )
+						? ( json_decode( $group->schedule, true ) ?? array() )
+						: array();
+					$scheduleStr   = WeekDay::formatSchedule( $scheduleArray );
 
-					if ( $group !== null ) {
-						$scheduleArray = is_string( $group->schedule )
-							? ( json_decode( $group->schedule, true ) ?? array() )
-							: array();
-						$formatted     = WeekDay::formatSchedule( $scheduleArray );
-						$scheduleParts[] = $formatted !== '' ? $formatted : '—';
-					} else {
-						$scheduleParts[] = '—';
-					}
-
+					$subjectParts[]  = $subjectName;
+					$groupParts[]    = $groupTitle;
+					$scheduleParts[] = $scheduleStr !== '' ? $scheduleStr : '—';
 					$contractParts[] = $record->contractNo ?? '—';
+
+					$enrollmentsList[] = array(
+						'record_id'    => $record->id,
+						'subject_name' => $subjectName,
+						'group_title'  => $groupTitle,
+					);
+
+					if ( 0 === $idx ) {
+						$firstSubjectName = $subjectName;
+						$firstGroupTitle  = $groupTitle;
+						$firstScheduleStr = $scheduleStr;
+					}
 				}
 
 				// HTML-строки для ячеек
@@ -155,18 +169,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				$scheduleHtml = implode( '<br>', array_map( 'esc_html', $scheduleParts ) );
 				$contractHtml = implode( '<br>', array_map( 'esc_html', $contractParts ) );
 
-				// data-enrollment: данные первой записи (для мгновенного предзаполнения модалки)
-				$firstGroup        = (int) ( $firstRecord->groupId ?? 0 );
-				$firstGroupObj     = $firstGroup ? $groupRepo->findById( $firstGroup ) : null;
-				$firstSubjectName  = $firstGroupObj !== null
-					? ( $allSubjects[ $firstGroupObj->subject_key ] ?? $firstGroupObj->subject_key )
-					: '—';
-				$firstGroupTitle   = $firstGroupObj?->name ?? '—';
-				$firstScheduleArr  = $firstGroupObj !== null && is_string( $firstGroupObj->schedule )
-					? ( json_decode( $firstGroupObj->schedule, true ) ?? array() )
-					: array();
-				$firstScheduleStr  = WeekDay::formatSchedule( $firstScheduleArr );
-
+				// data-enrollment: данные первой записи для мгновенного предзаполнения модалки
 				$enrollmentData = array(
 					'subject'                  => $firstSubjectName,
 					'group'                    => $firstGroupTitle,
@@ -199,10 +202,13 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					'guardian_inn'             => '',
 					'guardian_address'         => '',
 				);
-			?>
-			<tr data-enrollment="<?php echo esc_attr( (string) wp_json_encode( $enrollmentData ) ); ?>" data-wp-user-id="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>">
 
-				<td class="check-column"><input type="checkbox" class="js-student-cb" value="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>" data-student-name="<?php echo esc_attr( $studentName ); ?>"></td>
+				$wpUserId             = $person?->wpUserId ?? 0;
+				$enrollmentsJson      = (string) wp_json_encode( $enrollmentsList );
+			?>
+			<tr data-enrollment="<?php echo esc_attr( (string) wp_json_encode( $enrollmentData ) ); ?>" data-wp-user-id="<?php echo esc_attr( (string) $wpUserId ); ?>">
+
+				<td class="check-column"><input type="checkbox" class="js-student-cb" value="<?php echo esc_attr( (string) $wpUserId ); ?>" data-student-name="<?php echo esc_attr( $studentName ); ?>"></td>
 
 				<td class="column-title">
 					<?php echo esc_html( $studentName ); ?>
@@ -230,12 +236,21 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 							<a href="#"
 							   class="js-view-person"
 							   data-person-id="<?php echo esc_attr( (string) $studentPersonId ); ?>"
-							   data-wp-user-id="<?php echo esc_attr( (string) ( $person?->wpUserId ?? 0 ) ); ?>"
+							   data-wp-user-id="<?php echo esc_attr( (string) $wpUserId ); ?>"
 							   data-person-type="student"
 							   data-display-name="<?php echo esc_attr( $studentName ); ?>"
 							   data-email="<?php echo esc_attr( $wpUser?->user_email ?? '' ); ?>"
 							   data-user-login="<?php echo esc_attr( $wpUser ? $wpUser->user_login : '' ); ?>">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
+							</a>
+						</span>
+						<span class="expel">
+							<a href="#"
+							   class="js-expel-student"
+							   data-expel-student-id="<?php echo esc_attr( (string) $wpUserId ); ?>"
+							   data-expel-student-name="<?php echo esc_attr( $studentName ); ?>"
+							   data-expel-enrollments="<?php echo esc_attr( $enrollmentsJson ); ?>">
+								<?php esc_html_e( 'Отчислить', 'fs-lms' ); ?>
 							</a>
 						</span>
 					</div>

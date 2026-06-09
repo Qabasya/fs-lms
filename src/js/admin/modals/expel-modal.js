@@ -8,6 +8,7 @@ export const ExpelModal = {
     _initialized:     false,
     _bulkStudents:    null,
     _afterExpel:      null,
+    _afterClose:      null,
     _originalTitle:   '',
     _originalWarning: '',
 
@@ -42,14 +43,14 @@ export const ExpelModal = {
         if ( typeof callback === 'function' ) this._confirmCbs.push( callback );
     },
 
-    open( studentId, studentName ) {
-        console.log('одинарная')
+    open( studentId, studentName, enrollments = [] ) {
         if ( ! this._initialized ) return;
 
         this._bulkStudents = null;
         this.$modal.find( 'input[name="student_id"]' ).val( studentId );
         this.$modal.find( '.fs-expel-student-name' ).text( studentName ? `Ученик: ${ studentName }` : '' );
-        this._resetFormFields();
+        this.setEnrollments( enrollments );
+        this._resetFormFields( false );
         this._setSaving( false );
 
         openModal( this.$modal );
@@ -57,7 +58,6 @@ export const ExpelModal = {
     },
 
     openBulk( students, options = {} ) {
-        console.log('Булк')
         if ( ! this._initialized ) return;
 
         this._bulkStudents = students;
@@ -79,21 +79,61 @@ export const ExpelModal = {
             $nameEl.append( $( '<span>Ученики:</span>' ) ).append( $list );
         }
 
+        // В режиме bulk выбор группы скрыт
+        this.$modal.find( '#fs-expel-group-wrap' ).prop( 'hidden', true );
         this.$modal.find( 'input[name="student_id"]' ).val( '' );
-        this._resetFormFields();
+        this._resetFormFields( false );
         this._setSaving( false );
 
         openModal( this.$modal );
         bindEsc( 'expel', () => this.close() );
     },
 
-    close() {
-        closeModal(this.$modal, () => {
-            this._restoreDefaults();
-            this._resetFormFields();
-        });
+    /**
+     * Заполняет select для выбора группы.
+     * Если enrollments.length <= 1 — select скрыт, значение проставляется автоматически.
+     *
+     * @param {Array<{record_id: number, subject_name: string, group_title: string}>} enrollments
+     */
+    setEnrollments( enrollments ) {
+        const $wrap   = this.$modal.find( '#fs-expel-group-wrap' );
+        const $select = this.$modal.find( '#expel-record' );
 
-        unbindEsc('expel');
+        $select.find( 'option:not(:first)' ).remove();
+        $select.val( '' );
+
+        if ( enrollments.length === 1 ) {
+            const e = enrollments[0];
+            $select.append(
+                $( '<option>' ).val( e.record_id ).text( `${ e.subject_name } — ${ e.group_title }` ).prop( 'selected', true )
+            );
+            $wrap.prop( 'hidden', true );
+        } else if ( enrollments.length > 1 ) {
+            enrollments.forEach( e => {
+                $select.append(
+                    $( '<option>' ).val( e.record_id ).text( `${ e.subject_name } — ${ e.group_title }` )
+                );
+            } );
+            $wrap.prop( 'hidden', false );
+        } else {
+            $wrap.prop( 'hidden', true );
+        }
+    },
+
+    setAfterClose( cb ) {
+        this._afterClose = typeof cb === 'function' ? cb : null;
+    },
+
+    close() {
+        closeModal( this.$modal, () => {
+            const cb = this._afterClose;
+            this._afterClose = null;
+            this._restoreDefaults();
+            this._resetFormFields( true );
+            if ( cb ) cb();
+        } );
+
+        unbindEsc( 'expel' );
     },
 
     setSaving( loading ) {
@@ -116,6 +156,8 @@ export const ExpelModal = {
             ? `${ otherValue }: ${ customReason }`
             : reason;
 
+        const recordId = this.$modal.find( '#expel-record' ).val() || null;
+
         return {
             student_id:    this._bulkStudents === null
                 ? this.$modal.find( 'input[name="student_id"]' ).val()
@@ -124,6 +166,7 @@ export const ExpelModal = {
                 ? this._bulkStudents.map( s => s.id )
                 : null,
             reason:         finalReason,
+            record_id:      this._bulkStudents === null ? recordId : null,
             is_other_empty: reason === otherValue && ! customReason,
             afterExpel:     this._afterExpel,
         };
@@ -146,9 +189,13 @@ export const ExpelModal = {
         } );
     },
 
-    _resetFormFields() {
+    _resetFormFields( clearGroup = true ) {
         this.$modal.find( '#expel-reason' ).val( '' );
         this.$modal.find( '#expel-custom-reason' ).val( '' );
         this.$modal.find( '#fs-expel-custom-reason-wrap' ).prop( 'hidden', true );
+        if ( clearGroup ) {
+            this.$modal.find( '#expel-record' ).find( 'option:not(:first)' ).remove().end().val( '' );
+            this.$modal.find( '#fs-expel-group-wrap' ).prop( 'hidden', true );
+        }
     },
 };

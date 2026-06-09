@@ -349,6 +349,7 @@ class PiiCallbacks extends BaseController {
 				$group = $record->groupId ? $this->groupRepository->findById( $record->groupId ) : null;
 
 				$enrollments[] = array(
+					'record_id'     => $record->id,
 					'student_name'  => $isParent ? ( $nameMap[ $pid ] ?? "#{$pid}" ) : null,
 					'group_id'      => $record->groupId,
 					'group_title'   => $group?->name ?? '—',

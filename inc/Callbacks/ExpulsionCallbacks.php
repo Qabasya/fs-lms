@@ -6,10 +6,14 @@ namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
 use Inc\DTO\CsvColumn;
+use Inc\DTO\StudentRecordDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\Capability;
 use Inc\Enums\ExpulsionReasons;
 use Inc\Enums\Nonce;
+use Inc\Enums\WeekDay;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\AuditService;
 use Inc\Services\CsvExportService;
@@ -25,43 +29,26 @@ use RuntimeException;
  * AJAX-обработчики для отчисления студентов и экспорта записей об отчислении.
  *
  * @package Inc\Callbacks
- *
- * ### Основные обязанности:
- *
- * 1. **Отчисление студента** — проверка причины, вызов сервиса отчисления.
- * 2. **Экспорт записи об отчислении** — создание CSV-файла с данными зачисления и отчисления.
- *
- * ### Архитектурная роль:
- *
- * Делегирует бизнес-логику ExpulsionService, CsvExportService и AuditService.
- * Использует репозиторий StudentRecordRepository для чтения записей перед экспортом.
- * Логирует факт экспорта архива отчисления через AuditService.
  */
 class ExpulsionCallbacks extends BaseController {
 
-	use Authorizer;      // Трейт с методами authorize(), requireInt()
-	use AjaxResponse;    // Трейт с методами success(), error()
-	use Sanitizer;       // Трейт с методами sanitizeText()
+	use Authorizer;
+	use AjaxResponse;
+	use Sanitizer;
 
-	/**
-	 * Конструктор коллбеков.
-	 *
-	 * @param ExpulsionService       $expulsionService       Сервис отчисления студентов
-	 * @param StudentRecordRepository $studentRecordRepository Репозиторий записей студентов
-	 * @param CsvExportService       $csvExportService       Сервис экспорта в CSV
-	 * @param AuditService           $auditService           Сервис аудита
-	 */
 	public function __construct(
-		private readonly ExpulsionService       $expulsionService,
+		private readonly ExpulsionService        $expulsionService,
 		private readonly StudentRecordRepository $studentRecordRepository,
-		private readonly CsvExportService       $csvExportService,
-		private readonly AuditService           $auditService,
+		private readonly CsvExportService        $csvExportService,
+		private readonly AuditService            $auditService,
+		private readonly GroupsRepository        $groupsRepository,
+		private readonly SubjectRepository       $subjectRepository,
 	) {
 		parent::__construct();
 	}
 
 	/**
-	 * Отчисляет студента (меняет статус зачисления на Expelled).
+	 * Отчисляет студента из конкретной группы (записи зачисления).
 	 *
 	 * @return void
 	 */
@@ -69,6 +56,7 @@ class ExpulsionCallbacks extends BaseController {
 		$this->authorize( Nonce::Expulsion, Capability::ManagePersons );
 
 		$studentId = $this->requireInt( 'student_id', error: 'Не указан ID студента.' );
+		$recordId  = $this->sanitizeInt( 'record_id' ) ?: null;
 
 		$reason = $this->sanitizeText( 'reason' );
 
@@ -77,13 +65,11 @@ class ExpulsionCallbacks extends BaseController {
 			return;
 		}
 
-		// str_starts_with() — проверяет начало строки (для "other: текст")
 		$isOtherReason = str_starts_with(
 			$reason,
 			ExpulsionReasons::Other->value . ':'
 		);
 
-		// Проверка, что причина входит в список допустимых
 		$isValidReason = in_array(
 			$reason,
 			ExpulsionReasons::values(),
@@ -96,8 +82,12 @@ class ExpulsionCallbacks extends BaseController {
 		}
 
 		try {
-			$record = $this->expulsionService->expel( $studentId, $reason );
-			$this->success( array( 'archive_id' => $record->id ) );
+			$result = $this->expulsionService->expel( $studentId, $reason, $recordId );
+
+			$this->success( array(
+				'archive_id'            => $result['archive_id'],
+				'remaining_enrollments' => $this->mapEnrollments( $result['remaining_active_records'] ),
+			) );
 		} catch ( RuntimeException $e ) {
 			$this->error( $e->getMessage() );
 		}
@@ -105,7 +95,6 @@ class ExpulsionCallbacks extends BaseController {
 
 	/**
 	 * Экспортирует запись об отчислении в CSV-файл.
-	 * Содержит данные о зачислении и отчислении.
 	 *
 	 * @return void
 	 */
@@ -114,14 +103,12 @@ class ExpulsionCallbacks extends BaseController {
 
 		$recordId = $this->requireInt( 'archive_id', error: 'Не указан ID записи.' );
 
-		// Поиск записи студента
 		$record = $this->studentRecordRepository->find( $recordId );
 		if ( null === $record ) {
 			$this->error( 'Запись не найдена.' );
 			return;
 		}
 
-		// Формирование строки данных для CSV TODO: в DTO
 		$row = array(
 			'contract_no'   => $record->contractNo ?? '',
 			'contract_date' => $record->contractDate ?? '',
@@ -133,7 +120,6 @@ class ExpulsionCallbacks extends BaseController {
 			'expel_reason'  => $record->expelReason ?? '',
 		);
 
-		// Определение колонок для CSV
 		$columns = array(
 			new CsvColumn( '№ договора',         fn( $r ) => $r['contract_no'] ),
 			new CsvColumn( 'Дата договора',      fn( $r ) => $r['contract_date'] ),
@@ -145,12 +131,10 @@ class ExpulsionCallbacks extends BaseController {
 			new CsvColumn( 'Причина отчисления', fn( $r ) => $r['expel_reason'] ),
 		);
 
-		// Генерация CSV-файла
 		$csv      = $this->csvExportService->export( array( $row ), $columns );
 		$filename = sprintf( 'expelled_%d_%s.csv', $recordId, date( 'Y-m-d' ) );
 		$url      = $this->csvExportService->createDownloadLink( $csv, $filename );
 
-		// Логирование экспорта в аудит
 		$this->auditService->record(
 			action:     AuditAction::ExpelledArchiveExported->value,
 			targetType: 'student_record',
@@ -158,5 +142,34 @@ class ExpulsionCallbacks extends BaseController {
 		);
 
 		$this->success( array( 'download_url' => $url ) );
+	}
+
+	/**
+	 * Маппит массив StudentRecordDTO в упрощённые данные для JS-ответа.
+	 *
+	 * @param StudentRecordDTO[] $records
+	 *
+	 * @return array[]
+	 */
+	private function mapEnrollments( array $records ): array {
+		$allSubjects = array();
+		foreach ( $this->subjectRepository->readAll() as $dto ) {
+			$allSubjects[ $dto->key ] = $dto->name;
+		}
+
+		return array_map( function ( StudentRecordDTO $record ) use ( $allSubjects ): array {
+			$group         = $record->groupId ? $this->groupsRepository->findById( $record->groupId ) : null;
+			$scheduleArray = is_string( $group?->schedule )
+				? ( json_decode( $group->schedule, true ) ?? array() )
+				: array();
+
+			return array(
+				'record_id'    => $record->id,
+				'subject_name' => $allSubjects[ $group?->subject_key ?? '' ] ?? ( $group?->subject_key ?? '—' ),
+				'group_title'  => $group?->name ?? '—',
+				'schedule'     => WeekDay::formatSchedule( $scheduleArray ),
+				'contract_no'  => $record->contractNo ?? '',
+			);
+		}, $records );
 	}
 }
