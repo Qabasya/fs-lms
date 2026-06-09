@@ -6,7 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Callbacks\AcademicPeriodCallbacks;
 use Inc\Enums\AjaxHook;
-
+// TODO: перенести в SettingsController по аналогии с email, consistent. Причина - схожая логика поведения, наличие на одной странице настроек (отличается от авторизации и предметов)
 /**
  * Class AcademicPeriodController
  *

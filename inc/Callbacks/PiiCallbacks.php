@@ -27,11 +27,47 @@ use Inc\Services\RateLimitService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
+/**
+ * Class PiiCallbacks
+ *
+ * AJAX-коллбеки и страницы административной панели для работы с персональными данными (PII).
+ *
+ * @package Inc\Callbacks
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Раскрытие PII** — временное раскрытие зашифрованных данных (с лимитом).
+ * 2. **Управление лицами** — создание, обновление, мягкое удаление.
+ * 3. **Управление представителями** — добавление и замена законных представителей.
+ * 4. **Просмотр данных** — получение данных лица для отображения в админ-панели.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует бизнес-логику PersonReader, PersonService, StudentRecordRepository.
+ * Использует трейты Authorizer и Sanitizer для авторизации и очистки данных.
+ */
 class PiiCallbacks extends BaseController {
 
-	use Authorizer;
-	use Sanitizer;
+	use Authorizer;  // Трейт с методами authorize(), error(), success()
+	use Sanitizer;   // Трейт с методами sanitizeInt(), sanitizeText(), requireText()
 
+	/**
+	 * Конструктор коллбеков.
+	 *
+	 * @param PersonReader              $personReader          Сервис безопасного чтения PII
+	 * @param PersonService             $personService         Сервис управления лицами
+	 * @param PersonRepository          $personRepository      Репозиторий лиц
+	 * @param PersonDocumentsRepository $personDocumentsRepository Репозиторий документов
+	 * @param StudentRecordRepository   $studentRecordRepository Репозиторий записей студентов
+	 * @param RateLimitService          $rateLimitService      Сервис ограничения запросов
+	 * @param EmailService              $emailService          Сервис отправки email
+	 * @param AuditService              $auditService          Сервис аудита
+	 * @param GroupsRepository          $groupRepository       Репозиторий групп
+	 * @param SubjectRepository         $subjectRepository     Репозиторий предметов
+	 * @param PiiCryptoService          $crypto                Сервис шифрования PII
+	 * @param PiiMaskingService         $maskingService        Сервис маскирования PII
+	 * @param PasswordGeneratorService  $passwordGenerator     Сервис генерации паролей
+	 */
 	public function __construct(
 		private readonly PersonReader              $personReader,
 		private readonly PersonService             $personService,
@@ -50,6 +86,11 @@ class PiiCallbacks extends BaseController {
 		parent::__construct();
 	}
 
+	/**
+	 * Раскрывает одно PII-поле на 30 секунд.
+	 *
+	 * @return void
+	 */
 	public function ajaxRevealPiiField(): void {
 		$this->authorize( Nonce::RevealPii, Capability::ViewPII );
 
@@ -69,6 +110,11 @@ class PiiCallbacks extends BaseController {
 		}
 	}
 
+	/**
+	 * Запрос на удаление ПД (soft delete).
+	 *
+	 * @return void
+	 */
 	public function ajaxRequestPiiDeletion(): void {
 		$this->authorize( Nonce::RequestPiiDeletion, Capability::ManagePersons );
 
@@ -79,6 +125,11 @@ class PiiCallbacks extends BaseController {
 		$this->success();
 	}
 
+	/**
+	 * Добавляет представителя к студенту.
+	 *
+	 * @return void
+	 */
 	public function ajaxAddRepresentative(): void {
 		$this->authorize( Nonce::AddRepresentative, Capability::ManagePersons );
 
@@ -105,6 +156,11 @@ class PiiCallbacks extends BaseController {
 		$this->success();
 	}
 
+	/**
+	 * Заменяет представителя у записи студента.
+	 *
+	 * @return void
+	 */
 	public function ajaxReplaceRepresentative(): void {
 		$this->authorize( Nonce::ReplaceRepresentative, Capability::ManagePersons );
 
@@ -125,6 +181,11 @@ class PiiCallbacks extends BaseController {
 		$this->success();
 	}
 
+	/**
+	 * Обновляет данные лица (person).
+	 *
+	 * @return void
+	 */
 	public function ajaxUpdatePerson(): void {
 		$this->authorize( Nonce::UpdatePerson, Capability::ManagePersons );
 
@@ -158,6 +219,7 @@ class PiiCallbacks extends BaseController {
 			$this->personService->update( $personId, $personChanges, get_current_user_id() );
 		}
 
+		// Обновление пользователя WP, если привязан
 		if ( $person->wpUserId ) {
 			$userData = array( 'ID' => $person->wpUserId );
 
@@ -184,10 +246,13 @@ class PiiCallbacks extends BaseController {
 			if ( $newPassword ) {
 				try {
 					$this->passwordGenerator->setFromPlain( $person->wpUserId, $newPassword );
-				} catch ( \RuntimeException ) {}
+				} catch ( \RuntimeException ) {
+					// Логирование ошибки
+				}
 			}
 		}
 
+		// Обновление данных ребёнка (для родителя)
 		$childDocNumber = $this->sanitizeText( 'child_doc_number' );
 		$childInn       = $this->sanitizeText( 'child_inn' );
 		$childBirthDate = $this->sanitizeText( 'child_birth_date' );
@@ -210,6 +275,11 @@ class PiiCallbacks extends BaseController {
 		$this->success();
 	}
 
+	/**
+	 * Получает данные лица для отображения в админ-панели.
+	 *
+	 * @return void
+	 */
 	public function ajaxGetPersonData(): void {
 		$this->authorize( Nonce::Manager, Capability::ManagePersons );
 
@@ -229,6 +299,7 @@ class PiiCallbacks extends BaseController {
 		$representatives = array();
 		$dependents      = array();
 
+		// Для студента — поиск представителя
 		if ( $isStudent ) {
 			$activeRecord = $this->studentRecordRepository->findActiveByStudentFirst( $personId );
 			if ( $activeRecord !== null ) {
@@ -245,6 +316,7 @@ class PiiCallbacks extends BaseController {
 			}
 		}
 
+		// Для родителя — поиск зависимых учеников
 		if ( $isParent ) {
 			foreach ( $this->studentRecordRepository->findActiveByParent( $personId ) as $record ) {
 				$sPerson = $this->personRepository->find( $record->studentPersonId );
@@ -260,6 +332,7 @@ class PiiCallbacks extends BaseController {
 			}
 		}
 
+		// Сбор данных о зачислениях
 		$personIds   = $isStudent ? array( $personId ) : array_column( $dependents, 'student_person_id' );
 		$enrollments = array();
 		$nameMap     = array_column( $dependents, 'name', 'student_person_id' );
@@ -322,6 +395,11 @@ class PiiCallbacks extends BaseController {
 		) );
 	}
 
+	/**
+	 * Раскрывает все PII-поля лица (для администраторов).
+	 *
+	 * @return void
+	 */
 	public function ajaxRevealAllPersonPii(): void {
 		$this->authorize( Nonce::RevealPii, Capability::ViewPII );
 
@@ -356,6 +434,13 @@ class PiiCallbacks extends BaseController {
 		}
 	}
 
+	/**
+	 * Получает данные о выдаче документа (кем и когда выдан).
+	 *
+	 * @param int $personId ID лица
+	 *
+	 * @return array
+	 */
 	private function getDocIssuedParts( int $personId ): array {
 		$docs = $this->personDocumentsRepository->findByPersonId( $personId );
 		if ( null === $docs ) {
@@ -366,12 +451,21 @@ class PiiCallbacks extends BaseController {
 		if ( $docs->docIssuedByEnc !== null ) {
 			try {
 				$by = trim( $this->crypto->decrypt( $docs->docIssuedByEnc ) );
-			} catch ( \Throwable ) {}
+			} catch ( \Throwable ) {
+				// Не удалось расшифровать
+			}
 		}
 
 		return array( 'by' => $by, 'date' => $docs->docIssuedDate ?? '' );
 	}
 
+	/**
+	 * Возвращает замаскированные PII-поля для отображения в интерфейсе.
+	 *
+	 * @param int $personId ID лица
+	 *
+	 * @return array
+	 */
 	private function getMaskedPersonPii( int $personId ): array {
 		try {
 			$dto = $this->personReader->readForDisplay(
@@ -396,6 +490,13 @@ class PiiCallbacks extends BaseController {
 		}
 	}
 
+	/**
+	 * Форматирует расписание группы для отображения.
+	 *
+	 * @param mixed $group Объект группы
+	 *
+	 * @return string
+	 */
 	private function formatSchedule( mixed $group ): string {
 		if ( null === $group ) {
 			return '';
@@ -411,6 +512,11 @@ class PiiCallbacks extends BaseController {
 		return WeekDay::formatSchedule( $schedule );
 	}
 
+	/**
+	 * Страница списка лиц (Persons).
+	 *
+	 * @return void
+	 */
 	public function renderPersonsPage(): void {
 		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
 			wp_die( 'Доступ запрещён.' );
@@ -425,6 +531,11 @@ class PiiCallbacks extends BaseController {
 		}
 	}
 
+	/**
+	 * Детальная страница лица (Person).
+	 *
+	 * @return void
+	 */
 	public function renderPersonDetailPage(): void {
 		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
 			wp_die( 'Доступ запрещён.' );

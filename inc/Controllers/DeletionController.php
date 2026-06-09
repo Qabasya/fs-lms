@@ -22,8 +22,48 @@ use Inc\Services\Deletion\StudentOrphanCheckHandler;
 use Inc\Services\Deletion\StudentRecordsRemovedFromGroupEvent;
 use Inc\Services\Deletion\SubjectDeletionCascadeHandler;
 
+/**
+ * Class DeletionController
+ *
+ * Контроллер для управления удалением сущностей (студенты, родители, группы, периоды, предметы).
+ *
+ * @package Inc\Controllers
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Регистрация AJAX-обработчиков** — подключение коллбеков для проверки и выполнения удаления.
+ * 2. **Настройка event dispatcher'а** — связывание событий удаления с их обработчиками.
+ *
+ * ### Архитектурная роль:
+ *
+ * Наследует AjaxController для регистрации AJAX-хуков.
+ * Делегирует бизнес-логику DeletionCallbacks и DeletionEventDispatcher.
+ *
+ * ### Используемые события:
+ *
+ * - DeleteStudentEvent → StudentDeletionHandler (удаление студента)
+ * - DeleteParentEvent → ParentDeletionHandler (удаление родителя)
+ * - DeleteGroupEvent → GroupDeletionHandler (удаление группы)
+ * - DeleteSubjectEvent → SubjectDeletionCascadeHandler (каскадное удаление предмета)
+ * - DeletePeriodEvent → PeriodDeletionCascadeHandler (каскадное удаление периода)
+ * - StudentRecordsRemovedFromGroupEvent → StudentOrphanCheckHandler (проверка "осиротевших" студентов - без записей в records)
+ * - ParentRecordsRemovedFromGroupEvent → ParentOrphanCheckHandler (проверка "осиротевших" родителей - без записей в records)
+ */
 class DeletionController extends AjaxController {
 
+	/**
+	 * Конструктор контроллера.
+	 *
+	 * @param DeletionEventDispatcher          $dispatcher          Диспетчер событий удаления
+	 * @param DeletionCallbacks                $callbacks           Коллбеки для AJAX-запросов
+	 * @param StudentDeletionHandler           $studentHandler      Обработчик удаления студента
+	 * @param ParentDeletionHandler            $parentHandler       Обработчик удаления родителя
+	 * @param StudentOrphanCheckHandler        $studentOrphanHandler Проверка студентов без родителей
+	 * @param ParentOrphanCheckHandler         $parentOrphanHandler  Проверка родителей без детей
+	 * @param GroupDeletionHandler             $groupHandler        Обработчик удаления группы
+	 * @param SubjectDeletionCascadeHandler    $subjectHandler      Обработчик каскадного удаления предмета
+	 * @param PeriodDeletionCascadeHandler     $periodHandler       Обработчик каскадного удаления периода
+	 */
 	public function __construct(
 		private readonly DeletionEventDispatcher $dispatcher,
 		private readonly DeletionCallbacks $callbacks,
@@ -38,29 +78,66 @@ class DeletionController extends AjaxController {
 		parent::__construct();
 	}
 
+	/**
+	 * Регистрирует все компоненты контроллера.
+	 *
+	 * @return void
+	 */
 	public function register(): void {
+		// Настройка event dispatcher'а перед регистрацией AJAX-хуков
 		$this->wireDispatcher();
+
+		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
 		parent::register();
 	}
 
+	/**
+	 * Возвращает список AJAX-действий для регистрации.
+	 *
+	 * @return array
+	 */
 	protected function ajaxActions(): array {
 		return array(
-			array( AjaxHook::CheckGroupDeletion,   $this->callbacks ),
-			array( AjaxHook::DeleteGroup,          $this->callbacks ),
+			// Проверка возможности удаления группы (подсчёт студентов)
+			array( AjaxHook::CheckGroupDeletion, $this->callbacks ),
+			// Удаление группы
+			array( AjaxHook::DeleteGroup, $this->callbacks ),
+			// Проверка возможности удаления предмета (подсчёт групп и студентов)
 			array( AjaxHook::CheckSubjectDeletion, $this->callbacks ),
-			array( AjaxHook::CheckPeriodDeletion,  $this->callbacks ),
-			array( AjaxHook::DeletePeriod,         $this->callbacks ),
-			array( AjaxHook::HardDeleteStudent,    $this->callbacks ),
+			// Проверка возможности удаления периода (подсчёт групп и студентов)
+			array( AjaxHook::CheckPeriodDeletion, $this->callbacks ),
+			// Удаление периода
+			array( AjaxHook::DeletePeriod, $this->callbacks ),
+			// Полное (hard) удаление студента
+			array( AjaxHook::HardDeleteStudent, $this->callbacks ),
 		);
 	}
 
+	/**
+	 * Настраивает связи между событиями и их обработчиками.
+	 *
+	 * @return void
+	 */
 	private function wireDispatcher(): void {
-		$this->dispatcher->listen( DeleteStudentEvent::class,                    array( $this->studentHandler,       'handle' ) );
-		$this->dispatcher->listen( DeleteParentEvent::class,                     array( $this->parentHandler,        'handle' ) );
-		$this->dispatcher->listen( StudentRecordsRemovedFromGroupEvent::class,   array( $this->studentOrphanHandler, 'handle' ) );
-		$this->dispatcher->listen( ParentRecordsRemovedFromGroupEvent::class,    array( $this->parentOrphanHandler,  'handle' ) );
-		$this->dispatcher->listen( DeleteGroupEvent::class,                      array( $this->groupHandler,         'handle' ) );
-		$this->dispatcher->listen( DeleteSubjectEvent::class,                    array( $this->subjectHandler,       'handle' ) );
-		$this->dispatcher->listen( DeletePeriodEvent::class,                     array( $this->periodHandler,        'handle' ) );
+		// Событие удаления студента
+		$this->dispatcher->listen( DeleteStudentEvent::class, array( $this->studentHandler, 'handle' ) );
+
+		// Событие удаления родителя
+		$this->dispatcher->listen( DeleteParentEvent::class, array( $this->parentHandler, 'handle' ) );
+
+		// Событие удаления всех записей студента из группы (для проверки на отсутвствие записей в records)
+		$this->dispatcher->listen( StudentRecordsRemovedFromGroupEvent::class, array( $this->studentOrphanHandler, 'handle' ) );
+
+		// Событие удаления всех записей родителя из группы (для проверки на отсутвствие записей в records)
+		$this->dispatcher->listen( ParentRecordsRemovedFromGroupEvent::class, array( $this->parentOrphanHandler, 'handle' ) );
+
+		// Событие удаления группы
+		$this->dispatcher->listen( DeleteGroupEvent::class, array( $this->groupHandler, 'handle' ) );
+
+		// Событие удаления предмета (каскадное)
+		$this->dispatcher->listen( DeleteSubjectEvent::class, array( $this->subjectHandler, 'handle' ) );
+
+		// Событие удаления периода (каскадное)
+		$this->dispatcher->listen( DeletePeriodEvent::class, array( $this->periodHandler, 'handle' ) );
 	}
 }

@@ -20,7 +20,7 @@ use Inc\Enums\TableName;
  * - **person_documents** — весь PII зашифрован (email, phone, doc, inn, address)
  * - **groups**           — группы; заменяет матрицу из wp_options
  * - **applications**     — заявки на обучение (двухэтапный OTP-флоу)
- * - **enrollments**      — зачисления; group_id → groups.group_id
+ * - **enrollments**      — зачисления; group_id → groups.id
  * - **archive**          — запись создаётся при зачислении (expelled_at=NULL); связь родитель→ученик
  * - **consents**         — согласия на обработку ПДн
  * - **audit_log**        — журнал действий
@@ -109,7 +109,6 @@ class Migration_1_0_0 implements MigrationInterface {
 		dbDelta(
 			"CREATE TABLE $groups (
 			id                 smallint unsigned NOT NULL AUTO_INCREMENT,
-			group_id           varchar(100)      NOT NULL,
 			subject_key        varchar(50)       NOT NULL,
 			academic_period_id varchar(50)       NOT NULL,
 			name               varchar(255)      NOT NULL,
@@ -119,7 +118,6 @@ class Migration_1_0_0 implements MigrationInterface {
 			updated_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			deleted_at         datetime          DEFAULT NULL,
 			PRIMARY KEY  (id),
-			UNIQUE KEY group_id (group_id),
 			KEY subject_key (subject_key),
 			KEY academic_period_id (academic_period_id),
 			KEY teacher_id (teacher_id)
@@ -262,6 +260,9 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `snapshot_middle_name` varchar(100) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `snapshot_school`      varchar(255) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `snapshot_grade`       varchar(10)  DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$groups`
+			DROP INDEX IF EXISTS `group_id`,
+			DROP COLUMN IF EXISTS `group_id`" );
 		// phpcs:enable
 	}
 

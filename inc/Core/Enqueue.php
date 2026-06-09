@@ -25,7 +25,7 @@ use Inc\Services\PostTypeResolver;
  * 1. **Подключение стилей** — регистрация и подключение CSS-файлов для админки и фронтенда.
  * 2. **Подключение скриптов** — регистрация JS-файлов с зависимостями.
  * 3. **Локализация данных** — передача PHP-данных (nonce, AJAX-действия, таксономии) в JavaScript.
- * 4. **Рендеринг модалки** — вывод HTML-шаблона модального окна подтверждения в админ-футере.
+ * 4. **Рендеринг модалок** — вывод HTML-шаблонов модальных окон подтверждения и уведомлений.
  *
  * ### Архитектурная роль:
  *
@@ -83,6 +83,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// wp_enqueue_media() — подключает медиа-библиотеку WordPress (для загрузки изображений)
 		wp_enqueue_media();
 
+		// Font Awesome — иконки для интерфейса
 		wp_enqueue_style(
 			'fs-lms-fontawesome',
 			'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css',
@@ -157,18 +158,18 @@ class Enqueue extends BaseController implements ServiceInterface {
 			wp_enqueue_script( 'inline-edit-post' );
 		}
 
-		// === Переменные для карточки person ===
+		// === Переменные для карточки лица (person) ===
 		if ( 'fs-lms-person-detail' === $page ) {
 			wp_localize_script(
 				$script_handle,
 				'fs_lms_person_vars',
 				array(
 					'nonces' => array(
-						'reveal'               => Nonce::RevealPii->create(),
-						'update'               => Nonce::UpdatePerson->create(),
-						'delete'               => Nonce::RequestPiiDeletion->create(),
-						'export'               => Nonce::ExportPii->create(),
-						'add_representative'   => Nonce::AddRepresentative->create(),
+						'reveal'                 => Nonce::RevealPii->create(),
+						'update'                 => Nonce::UpdatePerson->create(),
+						'delete'                 => Nonce::RequestPiiDeletion->create(),
+						'export'                 => Nonce::ExportPii->create(),
+						'add_representative'     => Nonce::AddRepresentative->create(),
 						'replace_representative' => Nonce::ReplaceRepresentative->create(),
 					),
 				)
@@ -182,18 +183,18 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'fs_lms_applications_vars',
 				array(
 					'nonces' => array(
-						'trash'                 => Nonce::TrashApplication->create(),
-						'edit'                  => Nonce::EditApplication->create(),
-						'review'                => Nonce::ReviewApplication->create(),
-						'enroll'                => Nonce::Enroll->create(),
-						'manager'               => Nonce::Manager->create(),
-						'revealPii'             => Nonce::RevealPii->create(),
-						'updatePerson'          => Nonce::UpdatePerson->create(),
-						'exportPii'             => Nonce::ExportPii->create(),
-						'deletePii'             => Nonce::RequestPiiDeletion->create(),
-						'restoreFromArchive'    => Nonce::RestoreFromArchive->create(),
-						'selectExistingParent'  => Nonce::SelectExistingParent->create(),
-						'removeParentAssignment' => Nonce::RemoveParentAssignment->create(),
+						'trash'                   => Nonce::TrashApplication->create(),
+						'edit'                    => Nonce::EditApplication->create(),
+						'review'                  => Nonce::ReviewApplication->create(),
+						'enroll'                  => Nonce::Enroll->create(),
+						'manager'                 => Nonce::Manager->create(),
+						'revealPii'               => Nonce::RevealPii->create(),
+						'updatePerson'            => Nonce::UpdatePerson->create(),
+						'exportPii'               => Nonce::ExportPii->create(),
+						'deletePii'               => Nonce::RequestPiiDeletion->create(),
+						'restoreFromArchive'      => Nonce::RestoreFromArchive->create(),
+						'selectExistingParent'    => Nonce::SelectExistingParent->create(),
+						'removeParentAssignment'  => Nonce::RemoveParentAssignment->create(),
 					),
 				)
 			);
@@ -206,11 +207,11 @@ class Enqueue extends BaseController implements ServiceInterface {
 			array(
 				'ajaxurl'      => admin_url( 'admin-ajax.php' ),
 				'nonces'       => array(
-					'subject'         => Nonce::Subject->create(),
-					'manager'         => Nonce::Manager->create(),
-					'expulsion'       => Nonce::Expulsion->create(),
-					'deleteGroup'     => Nonce::DeleteGroup->create(),
-					'deletePeriod'    => Nonce::DeletePeriod->create(),
+					'subject'           => Nonce::Subject->create(),
+					'manager'           => Nonce::Manager->create(),
+					'expulsion'         => Nonce::Expulsion->create(),
+					'deleteGroup'       => Nonce::DeleteGroup->create(),
+					'deletePeriod'      => Nonce::DeletePeriod->create(),
 					'hardDeleteStudent' => Nonce::HardDeleteStudent->create(),
 				),
 				'ajax_actions' => AjaxHook::toJsArray(),
@@ -261,7 +262,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 			true
 		);
 
-		// === Переменные для формы создания заявки (/apply) ===
+		// === Переменные для формы создания заявки (/lms/apply) ===
+		// PageRoutes::Apply->isCurrent() — проверка, находимся ли на странице создания заявки
 		if ( PageRoutes::Apply->isCurrent() ) {
 			wp_localize_script(
 				'fs-lms-frontend-script',
@@ -323,24 +325,27 @@ class Enqueue extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Глобально рендерит HTML модального окна подтверждения в админке.
+	 * Глобально рендерит HTML модальных окон в админке.
+	 * Вызывается на хуке 'admin_footer'.
 	 *
 	 * @return void
 	 */
 	public function render_confirm_modal(): void {
 		$page = sanitize_text_field( $_GET['page'] ?? '' );
 
-		// Показываем модалку только на страницах нашего плагина
+		// Показываем модалки только на страницах нашего плагина
 		if ( ! str_starts_with( $page, 'fs_' ) && ! str_starts_with( $page, 'student_' ) ) {
 			return;
 		}
 
+		// Модальное окно подтверждения действия (Confirm)
 		$modal_path = $this->path( 'templates/admin/components/modals/confirm-modal.php' );
 
 		if ( file_exists( $modal_path ) ) {
 			require_once $modal_path;
 		}
 
+		// Модальное окно оповещения (Alert)
 		$alert_modal_path = $this->path( 'templates/admin/components/modals/alert-modal.php' );
 
 		if ( file_exists( $alert_modal_path ) ) {

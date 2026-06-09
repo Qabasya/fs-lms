@@ -13,15 +13,38 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
-use Inc\Shared\Traits\SlugGenerator;
 
+/**
+ * Class StudentGroupCallbacks
+ *
+ * AJAX-обработчики для управления группами студентов.
+ *
+ * @package Inc\Callbacks
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Создание группы** — сохранение новой учебной группы (название, период, предмет, расписание).
+ * 2. **Получение студентов группы** — список активных студентов, привязанных к группе.
+ * 3. **Удаление группы** — удаление группы (студенты открепляются, но не удаляются).
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует работу с группами GroupsRepository, а со студентами — StudentRecordRepository.
+ * Использует WeekDay enum для валидации дней недели в расписании.
+ */
 class StudentGroupCallbacks extends BaseController {
 
-	use Authorizer;
-	use AjaxResponse;
-	use Sanitizer;
-	use SlugGenerator;
+	use Authorizer;      // Трейт с методами authorize(), error(), success()
+	use AjaxResponse;    // Трейт с методами success(), error()
+	use Sanitizer;       // Трейт с методами sanitizeInt(), sanitizeText(), requireKey(), requireText()
 
+	/**
+	 * Конструктор коллбеков.
+	 *
+	 * @param GroupsRepository       $groupsRepository       Репозиторий групп
+	 * @param StudentRecordRepository $studentRecordRepository Репозиторий записей студентов
+	 * @param PersonRepository       $personRepository       Репозиторий лиц
+	 */
 	public function __construct(
 		private readonly GroupsRepository       $groupsRepository,
 		private readonly StudentRecordRepository $studentRecordRepository,
@@ -30,15 +53,23 @@ class StudentGroupCallbacks extends BaseController {
 		parent::__construct();
 	}
 
+	/**
+	 * Сохраняет (создаёт) новую группу студентов.
+	 *
+	 * @return void
+	 */
 	public function ajaxSaveStudentGroup(): void {
 		$this->authorize( Nonce::Manager );
 
+		// Валидация обязательных полей
 		$title              = $this->requireText( 'title', error: 'Название группы обязательно для заполнения.' );
 		$academic_period_id = $this->requireKey( 'period_id', error: 'Необходимо указать учебный период.' );
 		$subject_key        = $this->requireKey( 'subject_id', error: 'Необходимо указать предмет.' );
 		$teacher_id         = $this->sanitizeInt( 'teacher_id' ) ?: null;
 
+		// Обработка расписания из JSON
 		$schedule_json = $this->sanitizeText( 'schedule_json' );
+		// wp_unslash() — удаляет экранирование слешей
 		$raw_entries   = is_string( $schedule_json ) ? json_decode( wp_unslash( $schedule_json ), true ) : null;
 		$schedule      = array();
 
@@ -47,6 +78,7 @@ class StudentGroupCallbacks extends BaseController {
 				if ( ! is_array( $entry ) ) {
 					continue;
 				}
+				// WeekDay::tryFrom() — безопасное преобразование в enum (или null)
 				$day = WeekDay::tryFrom( sanitize_key( (string) ( $entry['day'] ?? '' ) ) );
 				if ( $day === null ) {
 					continue;
@@ -59,14 +91,8 @@ class StudentGroupCallbacks extends BaseController {
 			}
 		}
 
-		$group_id = $this->slugify( $title, 'group' ) . '_' . $this->slugify( $academic_period_id );
-
-		if ( null !== $this->groupsRepository->findByGroupId( $group_id ) ) {
-			$this->error( 'Группа с таким названием в этом периоде уже существует.' );
-		}
-
+		// Создание группы в БД
 		$id = $this->groupsRepository->create( array(
-			'group_id'           => $group_id,
 			'subject_key'        => $subject_key,
 			'academic_period_id' => $academic_period_id,
 			'name'               => $title,
@@ -81,11 +107,17 @@ class StudentGroupCallbacks extends BaseController {
 		$this->success( array( 'id' => $id, 'title' => $title ) );
 	}
 
+	/**
+	 * Получает список активных студентов в указанной группе.
+	 *
+	 * @return void
+	 */
 	public function ajaxGetStudentsByGroup(): void {
 		$this->authorize( Nonce::Manager );
 
 		$group_id = $this->sanitizeInt( 'group_id' );
 
+		// findActiveByGroupId() — поиск активных записей студентов в группе
 		$records = $this->studentRecordRepository->findActiveByGroupId( $group_id );
 
 		$students = array();
@@ -101,6 +133,11 @@ class StudentGroupCallbacks extends BaseController {
 		$this->success( $students );
 	}
 
+	/**
+	 * Удаляет группу студентов.
+	 *
+	 * @return void
+	 */
 	public function ajaxDeleteStudentGroup(): void {
 		$this->authorize( Nonce::Manager );
 
