@@ -3,7 +3,6 @@
 namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
-use Inc\Controllers\AcademicPeriodController;
 use Inc\Controllers\ApplicationController;
 use Inc\Controllers\ApplyPageController;
 use Inc\Controllers\ConsentController;
@@ -72,7 +71,6 @@ final class Init {
 			AuthPageController::class,
 			ApplyPageController::class,
 			ProfileController::class,
-			AcademicPeriodController::class,
 			StudentGroupController::class,
 			CronController::class,
 			ConsentController::class,
