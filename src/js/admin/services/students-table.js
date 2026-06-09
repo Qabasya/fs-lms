@@ -2,6 +2,10 @@ import { ExpelModal } from '../modals/expel-modal.js';
 
 const $ = jQuery;
 
+const NONCES   = () => fs_lms_applications_vars.nonces;
+const ACTIONS  = () => fs_lms_vars.ajax_actions;
+const AJAX_URL = () => fs_lms_vars.ajaxurl;
+
 export const StudentsTable = {
     _initialized:       false,
     _multiGroupQueue:   [],
@@ -61,6 +65,7 @@ export const StudentsTable = {
 
     _applyBulk() {
         const action = $( '#js-bulk-action' ).val();
+        if ( action === 'export' ) { this._applyBulkExport(); return; }
         if ( action !== 'expel' ) return;
 
         const $checked = $( '.js-student-cb:checked' );
@@ -96,6 +101,28 @@ export const StudentsTable = {
         } else {
             ExpelModal.openBulk( singleGroup );
         }
+    },
+
+    _applyBulkExport() {
+        $( '.js-student-cb:checked' ).each( ( _, el ) => {
+            const personId = parseInt(
+                $( el ).closest( 'tr' ).find( '.js-export-person' ).data( 'personId' ), 10
+            );
+            if ( ! personId ) return;
+            $.post( AJAX_URL(), {
+                action:    ACTIONS().exportPii,
+                person_id: personId,
+                security:  NONCES().exportPii,
+            } ).done( ( r ) => {
+                if ( r.success && r.data.download_url ) {
+                    const a = document.createElement( 'a' );
+                    a.href = r.data.download_url;
+                    document.body.appendChild( a );
+                    a.click();
+                    document.body.removeChild( a );
+                }
+            } );
+        } );
     },
 
     _processNextMultiGroup() {

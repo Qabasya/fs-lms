@@ -43,9 +43,10 @@ export const StudentPersonModalManager = {
             this._save();
         } );
 
-        $( document ).on( 'click.spmm_export', '#fs-student-person-modal .js-pmm-export', ( e ) => {
+        $( document ).on( 'click.spmm_export', '.js-export-person[data-person-type="student"]', ( e ) => {
             e.preventDefault();
-            this._export();
+            const personId = parseInt( $( e.currentTarget ).data( 'personId' ), 10 );
+            if ( personId ) this._export( personId );
         } );
 
         $( document ).on( 'fs:student:expelled', () => {
@@ -237,12 +238,11 @@ export const StudentPersonModalManager = {
         } );
     },
 
-    _export() {
-        const id = StudentPersonModal.getPersonId();
-        if ( ! id ) return;
+    _export( personId ) {
+        if ( ! personId ) return;
         $.post( AJAX_URL(), {
             action:    ACTIONS().exportPii,
-            person_id: id,
+            person_id: personId,
             security:  NONCES().exportPii,
         } ).done( r => {
             if ( r.success && r.data.download_url ) window.location.href = r.data.download_url;

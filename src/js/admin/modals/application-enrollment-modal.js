@@ -167,11 +167,11 @@ export const ApplicationEnrollmentModal = {
     },
 
     _setField( key, value ) {
-        this.$modal.find( `[data-field="${ key }"]` ).text( value || '—' );
+        this.$modal.find( `[data-field="${ key }"]` ).val( value || '' );
     },
 
     _resetDetailFields() {
-        this.$modal.find( '.fs-detail-value' ).text( '—' );
+        this.$modal.find( '.fs-enr-field' ).val( '' );
     },
 
     _resetAccordion() {

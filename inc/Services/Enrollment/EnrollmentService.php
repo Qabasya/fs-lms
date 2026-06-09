@@ -151,6 +151,7 @@ readonly class EnrollmentService {
 				'order_date'          => $input->orderDate   ?: null,
 				'status'              => 'active',
 				'enrolled_at'         => $input->enrolledAt,
+				'enrolled_by_user_id' => get_current_user_id() ?: null,
 				'created_at'          => $now,
 				'updated_at'          => $now,
 			) );

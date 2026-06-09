@@ -114,6 +114,14 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 							</a>
 						</span>
+						<span class="export">
+							<a href="#"
+							   class="js-export-person"
+							   data-person-id="<?php echo esc_attr( (string) $parentPerson->id ); ?>"
+							   data-person-type="parent">
+								<?php esc_html_e( 'Экспорт', 'fs-lms' ); ?>
+							</a>
+						</span>
 					</div>
 				</td>
 

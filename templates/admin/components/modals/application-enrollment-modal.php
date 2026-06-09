@@ -41,7 +41,7 @@ $today = current_time( 'Y-m-d' );
 	data-current-period="<?php echo esc_attr( $currentPeriodId ); ?>">
 	<div class="fs-lms-modal-backdrop"></div>
 
-	<div class="fs-lms-modal-content fs-modal-lg">
+	<div class="fs-lms-modal-content fs-modal-xl">
 		<div class="fs-lms-modal-header">
 			<h2 class="fs-lms-modal-title"><?php esc_html_e( 'Зачисление', 'fs-lms' ); ?> <span id="enrollment-modal-id"></span></h2>
 			<button type="button" class="fs-lms-modal-close fs-close js-modal-close" aria-label="<?php esc_attr_e( 'Закрыть', 'fs-lms' ); ?>">&times;</button>
@@ -62,17 +62,53 @@ $today = current_time( 'Y-m-d' );
 								<span class="dashicons dashicons-arrow-down-alt2"></span>
 							</button>
 							<div class="fs-modal-accordion__body" id="enroll-acc-student">
-								<div class="fs-detail-grid">
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_last_name">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Имя', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_first_name">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_middle_name">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_birth_date">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Email', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_email">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_phone">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Школа', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_school">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Класс', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_grade">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Документ', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_doc">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'ИНН', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="s_inn">—</span></div>
+								<div class="fs-form-row">
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_last_name" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Имя', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_first_name" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_middle_name" readonly>
+									</div>
+								</div>
+								<div class="fs-form-row">
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_birth_date" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Email', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_email" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_phone" readonly>
+									</div>
+								</div>
+								<div class="fs-form-row">
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Школа', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_school" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Класс', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_grade" readonly>
+									</div>
+								</div>
+								<div class="fs-form-row">
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Документ', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_doc" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'ИНН', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="s_inn" readonly>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -84,16 +120,49 @@ $today = current_time( 'Y-m-d' );
 								<span class="dashicons dashicons-arrow-down-alt2"></span>
 							</button>
 							<div class="fs-modal-accordion__body" id="enroll-acc-parent" hidden>
-								<div class="fs-detail-grid">
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_last_name">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Имя', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_first_name">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_middle_name">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_birth_date">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Email', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_email">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_phone">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'Документ', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_doc">—</span></div>
-									<div class="fs-detail-row"><span class="fs-detail-label"><?php esc_html_e( 'ИНН', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_inn">—</span></div>
-									<div class="fs-detail-row fs-detail-row--full"><span class="fs-detail-label"><?php esc_html_e( 'Адрес', 'fs-lms' ); ?></span><span class="fs-detail-value" data-field="p_address">—</span></div>
+								<div class="fs-form-row">
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="p_last_name" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Имя', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="p_first_name" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="p_middle_name" readonly>
+									</div>
+								</div>
+								<div class="fs-form-row">
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="p_birth_date" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Email', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="p_email" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Телефон', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="p_phone" readonly>
+									</div>
+								</div>
+								<div class="fs-form-row">
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'Документ', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="p_doc" readonly>
+									</div>
+									<div class="fs-form-group">
+										<label><?php esc_html_e( 'ИНН', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="p_inn" readonly>
+									</div>
+								</div>
+								<div class="fs-form-row">
+									<div class="fs-form-group fs-form-group--full">
+										<label><?php esc_html_e( 'Адрес', 'fs-lms' ); ?></label>
+										<input type="text" class="fs-enr-field regular-text" data-field="p_address" readonly>
+									</div>
 								</div>
 							</div>
 						</div>

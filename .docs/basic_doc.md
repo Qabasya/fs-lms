@@ -2158,7 +2158,8 @@ src/js/common/
 │   ├── LatinOnlyValidator.js            — латиница, цифры, подчёркивание
 │   ├── PassportSeriesNumberValidator.js — серия и номер паспорта: XXXX XXXXXX
 │   └── index.js                        — реестр ключей: { phone, cyrillic, cyrillicName, latinOnly, passportSN, default }
-└── validation-manager.js               — привязка событий, рендер ошибок, validateAll
+├── validation-manager.js               — привязка событий, рендер ошибок, validateAll
+└── input-masks.js                      — маски ввода: телефон, паспорт, ИНН
 
 src/scss/common/components/
 └── _validation.scss          — стили ошибок (.fs-form-group.form-invalid, .fs-field-error)
@@ -2355,6 +2356,41 @@ export function initMyForm() {
 | `blur` (потеря фокуса) | Запускает валидатор, рендерит ошибку если есть |
 | `input` (ввод символа) | Убирает ошибку (мягкий сброс, не перепроверяет) |
 | `submit` | Проверяет все поля, показывает все ошибки, фокусирует первый невалидный |
+
+---
+
+### Маски ввода (input-masks.js)
+
+Файл `src/js/common/input-masks.js` содержит функции форматирования ввода (маски). Маски отличаются от валидаторов: маска форматирует значение в процессе набора, валидатор проверяет корректность при blur/submit.
+
+**Экспорты:**
+
+| Функция | Описание |
+|---|---|
+| `formatPhone(input)` | Форматирует значение `<input>` по маске `+7(XXX)-XXX-XX-XX` |
+| `bindPhoneMask(input)` | Навешивает обработчики `focus`, `input`, `keydown` для телефонного поля |
+| `formatPassportSN(input)` | Форматирует значение по маске `XXXX XXXXXX` (серия и номер паспорта) |
+| `bindInnMask(input)` | Разрешает только цифры, ограничивает длину до 12 символов |
+
+**Использование:**
+
+```js
+import { bindPhoneMask, formatPassportSN, bindInnMask } from '../../common/input-masks.js';
+
+bindPhoneMask( document.getElementById( 'fs_phone' ) );
+formatPassportSN( document.getElementById( 'fs_passport' ) );
+bindInnMask( document.getElementById( 'fs_inn' ) );
+```
+
+`bindPhoneMask` вызывает `formatPhone` внутри, отдельный вызов `formatPhone` нужен только для однократного форматирования уже заполненного поля.
+
+**Кто импортирует:**
+- `src/js/frontend/services/apply-form.js` — `bindPhoneMask` для поля телефона на странице `/lms/apply`
+- `src/js/frontend/services/join-form.js` — `bindPhoneMask` + `formatPassportSN` для формы вступления
+
+**Добавить новую маску:**
+1. Добавить экспортируемую функцию в `src/js/common/input-masks.js`
+2. Импортировать её в нужном сервисе
 
 ---
 
@@ -2875,6 +2911,505 @@ $z-toast:       1000100 — Toast (поверх всего)
 ```
 
 Переменные — в `src/scss/admin/_variables.scss`.
+
+---
+
+## Передача данных в таблицы и модалки (Userlist)
+
+### Общая схема
+
+Данные проходят два независимых пути к интерфейсу:
+
+```
+ПУТЬ 1 — Рендеринг таблицы (PHP, при загрузке страницы)
+DB → Repository::findActive...() → PHP-шаблон → HTML-строка таблицы
+                                           └── data-* атрибуты на <tr> и кнопках
+
+ПУТЬ 2 — Заполнение модалки (JS, после клика)
+<tr data-enrollment="...">  →  немедленный pre-fill модалки (без ожидания)
+                ↓
+AJAX getPersonData  →  ajaxGetPersonData()  →  fill() поверх pre-fill
+```
+
+Двухшаговое заполнение нужно для мгновенного отклика (UX): модалка открывается с данными из строки таблицы сразу, а AJAX догружает PII-данные (они не хранятся в HTML из соображений безопасности).
+
+---
+
+### Данные в строке таблицы учеников
+
+`templates/admin/components/tabs/userlist-tabs/userlist-2-students.php` рендерит строку:
+
+```php
+<tr data-enrollment="<?= esc_attr(wp_json_encode($enrollmentData)) ?>"
+    data-wp-user-id="<?= esc_attr($wpUserId) ?>">
+```
+
+**`$enrollmentData`** — массив для немедленного pre-fill модалки:
+
+| Ключ | Источник |
+|---|---|
+| `subject`, `group`, `schedule` | `GroupsRepository::findById()` |
+| `contract_no`, `contract_date`, `order_no`, `order_date`, `enrolled_at` | `StudentRecordDTO` |
+| `student_last_name`, `student_first_name`, `student_middle_name`, `student_birth_date`, `student_school`, `student_grade` | `PersonDTO` |
+| `guardian_full_name` | `PersonDTO` родителя (через `findActiveByParent()`) |
+| `student_email`, `student_phone` | Пустые строки (PII, грузятся AJAX) |
+
+**Кнопка "Отчислить" в row-actions** несёт `data-expel-enrollments` — JSON-массив всех активных зачислений ученика:
+
+```json
+[{ "record_id": 42, "subject_name": "Математика", "group_title": "Мат-1" }, ...]
+```
+
+Если у ученика 1 зачисление — expel-модалка открывается без выбора группы; если 2+ — показывается `<select>` с группами.
+
+---
+
+### Заполнение модалки студента
+
+**Модалка:** `templates/admin/components/modals/student-person-modal.php`  
+**JS-компонент:** `src/js/admin/modals/student-person-modal.js`  
+**Менеджер:** `src/js/admin/managers/student-person-modal-manager.js`
+
+#### Механизм `data-field`
+
+В PHP-шаблоне модалки каждый `<input>` помечен атрибутом `data-field`:
+
+```php
+<input type="text" class="fs-person-field" data-field="last_name" readonly>
+```
+
+JS-метод `StudentPersonModal.fill(data)` ищет элементы по этому атрибуту и устанавливает их значения:
+
+```js
+fill( data ) {
+    Object.entries( data ).forEach( ( [ key, val ] ) => {
+        this.$el.find( `[data-field="${ key }"]` ).val( val ?? '' );
+    } );
+}
+```
+
+Если `data` содержит ключ, для которого нет `data-field` в DOM — поле молча игнорируется.
+
+#### Шаги заполнения при открытии
+
+1. `student-person-modal-manager.js::_openModal($btn)` вызывается при клике `.js-view-person[data-person-type="student"]`
+2. Немедленно: `StudentPersonModal.fill(rowData)` — данные из `$btn.closest('tr').data('enrollment')`
+3. Модалка открывается (данные уже видны)
+4. Фоновый AJAX: `$.post(..., { action: getPersonData, person_id })`
+5. После ответа: `StudentPersonModal.fill(...)` поверх шага 2
+
+#### Поля, которые заполняет AJAX
+
+AJAX-ответ `ajaxGetPersonData()` (`inc/Callbacks/PiiCallbacks.php`):
+
+| JS-ключ в `fill()` | Источник в AJAX-ответе |
+|---|---|
+| `last_name`, `first_name`, `middle_name` | `enrollments[0].last_name` и т.д. (из `PersonDTO`) |
+| `subject`, `group`, `schedule`, `contract_no` | `enrollments[0].subject_name`, `group_title` и т.д. |
+| `birth_date`, `school`, `grade` | `enrollments[0]` (из `PersonDTO`) |
+| `phone` | `masked_pii.phone` |
+| `doc_number` | `masked_pii.doc_number` |
+| `inn` | `masked_pii.inn` |
+| `email` | `res.data.email` (WP user email) |
+| `guardian_name` | `res.data.representatives[0].name` |
+| `login`, `password` | `res.data.login`, `res.data.password` |
+
+**Важно:** бэкенд возвращает только **активные** зачисления (`findActiveByStudent()`). Старые отчисленные записи не попадают в `enrollments`. Это исключает перезапись данных о текущей группе данными из старой.
+
+#### Дополнительные зачисления (2+ предметов)
+
+Для второго и далее активных зачислений JS добавляет строки через `StudentPersonModal.addEnrollmentRow()`. Строки клонируются из скрытого PHP-шаблона `.js-spm-extra-enrollment-template` и используют `data-enr-field` вместо `data-field` (чтобы не пересекаться с основными полями).
+
+---
+
+### Как добавить новое поле в таблицу учеников
+
+1. **Убедиться, что данные есть в DTO.** Если поле нужно из `StudentRecordDTO` или `PersonDTO` — оно там уже есть. Если нужна новая колонка в БД — сначала миграция (см. раздел «Миграции»).
+
+2. **Добавить `<th>` в заголовок** в `userlist-2-students.php`:
+   ```php
+   <th class="column-title"><?php esc_html_e( 'Новое поле', 'fs-lms' ); ?></th>
+   ```
+
+3. **Добавить `<td>` в цикл строк**, извлекая значение из DTO:
+   ```php
+   <td><?php echo esc_html( $record->myNewField ?? '—' ); ?></td>
+   ```
+   Если нужен JOIN с другой таблицей — добавить репозиторный вызов в том же цикле.
+
+4. **Обновить colspan** в пустом состоянии (`colspan="7"` → увеличить на 1).
+
+5. **Если поле должно обновляться при частичном отчислении** — обновить обработчик `fs:student:expel-partial` в `src/js/admin/services/students-table.js`:
+   ```js
+   $row.find( 'td' ).eq( N ).html( remaining.map( r => esc( r.my_field || '—' ) ).join( '<br>' ) );
+   ```
+   Индекс `N` — позиция колонки (0 = чекбокс, 1 = ФИО, 2 = Предмет, ...).
+
+---
+
+### Как добавить новое поле в модалку студента
+
+**A. Если данные есть в PHP при рендере страницы:**
+
+1. Добавить ключ в `$enrollmentData` в PHP-шаблоне таблицы:
+   ```php
+   'my_field' => $record->myField ?? '',
+   ```
+
+2. Добавить `<input data-field="my_field">` в `student-person-modal.php`
+
+3. Добавить ключ в pre-fill в `student-person-modal-manager.js`:
+   ```js
+   StudentPersonModal.fill({
+       ...
+       my_field: rowData.my_field || '',
+   });
+   ```
+
+**B. Если данные нужно получить AJAX (PII или тяжёлые данные):**
+
+1. Добавить поле в массив `$enrollments[]` в `PiiCallbacks::ajaxGetPersonData()`:
+   ```php
+   'my_field' => $record->myField ?? '',
+   ```
+
+2. Добавить `<input data-field="my_field">` в `student-person-modal.php`
+
+3. Добавить в AJAX-fill в менеджере:
+   ```js
+   StudentPersonModal.fill({
+       ...
+       my_field: enr.my_field ?? '',
+   });
+   ```
+
+**Правила:**
+- `data-field="..."` — для полей основного зачисления
+- `data-enr-field="..."` — для полей дополнительных зачислений (строки 2+)
+- PII-поля (маскируемые) поместить в `masked_pii` в PHP и передать через `pii.my_field` в JS
+- Поля, не требующие AJAX, помещать только в `$enrollmentData` (экономия запросов)
+
+---
+
+### Как добавить поле в AJAX-ответ `ajaxGetPersonData`
+
+Это общая точка получения данных о персоне. Структура ответа:
+
+```php
+$this->success([
+    'type'            => 'student' | 'parent' | 'unknown',
+    'wp_user_id'      => int,
+    'display_name'    => string,
+    'login'           => string,
+    'email'           => string,
+    'password'        => string,
+    'masked_pii'      => [ 'doc_number', 'inn', 'phone', 'address' ],
+    'representatives' => [ ['archive_id', 'guardian_person_id', 'name', ...] ],
+    'dependents'      => [ ['archive_id', 'student_person_id', 'name', ...] ],
+    'enrollments'     => [
+        [
+            'record_id', 'group_id', 'group_title',
+            'subject_key', 'subject_name', 'schedule',
+            'status_label', 'status_value',
+            'enrolled_at', 'terminated_at',
+            'contract_no', 'contract_date', 'order_no', 'order_date',
+            'last_name', 'first_name', 'middle_name',
+            'birth_date', 'school', 'grade',
+            'student_name',  // null для студента, имя для родителя
+        ]
+    ],
+]);
+```
+
+Чтобы добавить поле в `enrollments`:
+1. Убедиться, что оно есть в `StudentRecordDTO` или `PersonDTO`
+2. Добавить в блок формирования `$enrollments[]` в `PiiCallbacks.php`:
+   ```php
+   'my_field' => $record->myField ?? '',
+   ```
+3. Использовать в JS через `enr.my_field`
+
+Чтобы добавить поле на корневой уровень ответа (не привязанное к зачислению):
+```php
+$this->success([
+    ...
+    'my_root_field' => $person->myField ?? '',
+]);
+```
+В JS: `res.data.my_root_field`.
+
+---
+
+### Как добавить поле в ответ отчисления (`remaining_enrollments`)
+
+После частичного отчисления возвращается список оставшихся зачислений. Источник — `ExpulsionCallbacks::mapEnrollments()`. Это влияет на обновление строки таблицы.
+
+Текущая структура `remaining_enrollments`:
+```php
+[ 'record_id', 'subject_name', 'group_title', 'schedule', 'contract_no' ]
+```
+
+Чтобы добавить поле:
+1. Добавить в `mapEnrollments()` в `inc/Callbacks/ExpulsionCallbacks.php`
+2. Обновить обработчик `fs:student:expel-partial` в `students-table.js` для обновления соответствующей колонки строки
+
+---
+
+## Валидация в модалках и формах в admin-части
+
+Система валидаторов описана в разделе [Клиентская валидация форм](#клиентская-валидация-форм) — там разобраны все встроенные валидаторы и шаги создания нового. Этот раздел — практическое руководство по подключению валидации в конкретных admin-контекстах: jQuery-модалках и AJAX-формах.
+
+---
+
+### Когда автоматически, когда вручную
+
+| Контекст | Способ | Условие |
+|---|---|---|
+| Публичные фронтенд-формы (apply, join) | Автоматически | `data-fs-validate` на форме |
+| jQuery-модалки в админке | Вручную через `initFormValidation()` | Форма в модалке |
+| Формы в модалках с AJAX-сабмитом | Вручную с `validateAll()` перед AJAX | Любая модалка с кнопкой "Сохранить" |
+
+**Причина ручного подключения в админке:** `common.js` сканирует DOM при `DOMContentLoaded`. Модалки в HTML есть сразу, но `initFormValidation()` нужно вызывать при инициализации модального JS-компонента, а не при загрузке страницы, чтобы события blur/input правильно работали.
+
+---
+
+### Подключение к модалке таксономий (пример)
+
+Допустим, нужно добавить валидацию к форме `#fs-taxonomy-form` внутри модалки.
+
+#### Шаг 1. Разметка в PHP-шаблоне
+
+Каждое поле оборачивается в `.fs-form-group`. Атрибут `data-validate` — опционально, если нужна кастомная логика помимо HTML5:
+
+```php
+<!-- templates/admin/components/modals/taxonomy-modal.php -->
+<form id="fs-taxonomy-form">
+    <div class="fs-form-group">
+        <label><?php esc_html_e( 'Название', 'fs-lms' ); ?></label>
+        <input type="text"
+               name="name"
+               class="regular-text"
+               data-validate="cyrillicName"
+               required>
+    </div>
+
+    <div class="fs-form-group">
+        <label><?php esc_html_e( 'Слаг', 'fs-lms' ); ?></label>
+        <input type="text"
+               name="slug"
+               class="regular-text"
+               data-validate="latinOnly"
+               required
+               minlength="2">
+    </div>
+
+    <div class="fs-form-group">
+        <label><?php esc_html_e( 'Тип', 'fs-lms' ); ?></label>
+        <select name="display_type" required>
+            <option value="">Выберите тип</option>
+            <option value="select">Список</option>
+            <option value="checkboxes">Чекбоксы</option>
+        </select>
+    </div>
+</form>
+```
+
+Без `data-validate` применяется только `BaseValidator` — проверка `required`, `minlength`, `type="email"` через `ValidityState`.
+
+#### Шаг 2. Подключение в JS-компоненте модалки
+
+```js
+// src/js/admin/modals/taxonomy-modal.js
+import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
+import { initFormValidation } from '../../common/validation-manager.js';
+import { clearModalError, showModalError } from '../modules/utils.js';
+
+const $ = jQuery;
+
+export const TaxonomyModal = {
+    $modal:       null,
+    _validateAll: null,  // функция validateAll() от менеджера
+    _confirmCbs:  [],
+    _initialized: false,
+
+    init() {
+        if ( this._initialized ) return;
+        this.$modal = $( '#fs-taxonomy-modal' );
+        if ( ! this.$modal.length ) return;
+        this._initialized = true;
+
+        // Привязываем валидацию к форме внутри модалки
+        const form = this.$modal.find( '#fs-taxonomy-form' )[ 0 ];
+        this._validateAll = initFormValidation( form );
+
+        this._bindEvents();
+    },
+
+    _bindEvents() {
+        // Закрытие
+        this.$modal.on( 'click', '.fs-lms-modal-backdrop, .js-modal-close', ( e ) => {
+            e.preventDefault();
+            this.close();
+        } );
+
+        // Сабмит через кнопку "Сохранить"
+        this.$modal.on( 'click', '.js-taxonomy-save', ( e ) => {
+            e.preventDefault();
+            this._submit();
+        } );
+    },
+
+    _submit() {
+        clearModalError( this.$modal );
+
+        // Запуск всех валидаторов + показ ошибок + фокус на первое невалидное поле
+        if ( ! this._validateAll() ) { return; }
+
+        // Собираем данные только после прохождения валидации
+        const formData = {
+            name:         this.$modal.find( '[name="name"]' ).val().trim(),
+            slug:         this.$modal.find( '[name="slug"]' ).val().trim(),
+            display_type: this.$modal.find( '[name="display_type"]' ).val(),
+        };
+
+        this._confirmCbs.forEach( cb => cb( formData ) );
+    },
+
+    onConfirm( cb ) {
+        if ( typeof cb === 'function' ) this._confirmCbs.push( cb );
+    },
+
+    open() {
+        if ( ! this._initialized ) return;
+        this.$modal.find( '#fs-taxonomy-form' )[ 0 ].reset();
+        openModal( this.$modal );
+        bindEsc( 'taxonomy', () => this.close() );
+    },
+
+    close() {
+        closeModal( this.$modal );
+        unbindEsc( 'taxonomy' );
+    },
+
+    showError( message ) {
+        showModalError( message, this.$modal );
+    },
+};
+```
+
+#### Шаг 3. Реакция на серверные ошибки в менеджере
+
+```js
+// src/js/admin/managers/taxonomy-modal-manager.js
+import { TaxonomyModal } from '../modals/taxonomy-modal.js';
+
+export const TaxonomyModalManager = {
+    init() {
+        TaxonomyModal.init();
+
+        TaxonomyModal.onConfirm( ( formData ) => this._save( formData ) );
+
+        $( document ).on( 'click', '.js-open-taxonomy-modal', () => TaxonomyModal.open() );
+    },
+
+    _save( formData ) {
+        $.post( fs_lms_vars.ajaxurl, {
+            action:   fs_lms_vars.ajax_actions.storeTaxonomy,
+            security: fs_lms_vars.nonces.subject,
+            ...formData,
+        } )
+            .done( ( res ) => {
+                if ( res.success ) {
+                    TaxonomyModal.close();
+                    // обновить таблицу...
+                } else {
+                    // Серверная ошибка — через showModalError
+                    TaxonomyModal.showError( res.data?.message || 'Ошибка сохранения.' );
+                }
+            } )
+            .fail( () => {
+                // Сетевая ошибка — через toast (apiError)
+                apiError( 'Failed to save taxonomy' );
+            } );
+    },
+};
+```
+
+---
+
+### Разграничение: `validateAll()` vs `showModalError`
+
+| Тип ошибки | Механизм | Пример |
+|---|---|---|
+| Поле пустое / неверный формат | `validateAll()` + `data-validate` | "Поле обязательно" у конкретного поля |
+| Логическая ошибка (дубликат, конфликт дат) | `showModalError(msg, $modal)` | "Таксономия с таким слагом уже существует" |
+| Сетевая ошибка ($.fail) | `apiError(msg)` → toast | "Ошибка при связи с сервером" |
+
+Клиентская валидация через `validateAll()` не заменяет серверную. На сервере в Callback-классах используйте `requireText()` / `requireInt()` из трейта `Sanitizer` — они выбрасывают исключение при пустых обязательных полях.
+
+---
+
+### Добавление нового валидатора для admin-модалки
+
+Пример: нужно проверять, что номер группы вида `А-1` (кириллическая буква, дефис, цифры).
+
+**Шаг 1.** `src/js/common/validators/GroupCodeValidator.js`:
+```js
+import { BaseValidator } from './BaseValidator.js';
+
+export class GroupCodeValidator extends BaseValidator {
+    checkCustom( value ) {
+        if ( ! /^[А-ЯЁа-яё]-\d+$/.test( value ) ) {
+            return 'Формат: буква-цифры (например, А-1).';
+        }
+        return null;
+    }
+}
+```
+
+**Шаг 2.** `src/js/common/validators/index.js`:
+```js
+import { GroupCodeValidator } from './GroupCodeValidator.js';
+
+export const FieldValidators = {
+    ...
+    groupCode: new GroupCodeValidator(),
+};
+```
+
+**Шаг 3.** В PHP-шаблоне модалки:
+```php
+<div class="fs-form-group">
+    <input type="text" name="group_code" data-validate="groupCode" required>
+</div>
+```
+
+Валидатор работает одинаково на фронтенде и в admin-модалках — он находится в `common/`, что намеренно.
+
+---
+
+### Требования к разметке формы в модалке
+
+```php
+<!-- Форма в модалке -->
+<form id="my-modal-form">
+    <!-- Обязательно: обёртка .fs-form-group для каждого поля -->
+    <div class="fs-form-group">
+        <label>Название</label>
+        <input type="text" name="name" required data-validate="cyrillicName">
+        <!-- Менеджер добавит сюда <p class="fs-field-error"> при ошибке -->
+    </div>
+
+    <!-- Поле без кастомного валидатора — только required -->
+    <div class="fs-form-group">
+        <select name="type" required>...</select>
+    </div>
+</form>
+```
+
+Ошибка `<p class="fs-field-error">` вставляется внутрь `.fs-form-group`. Стили из `src/scss/common/components/_validation.scss` применяются и в admin-страницах через `common.min.css`.
+
+**Не нужно** добавлять `data-fs-validate` на форму в admin-модалке — там используется ручная привязка через `initFormValidation(form)`. Атрибут `data-fs-validate` актуален только для публичных форм, которые автоматически подхватываются в `common.js`.
 
 ---
 

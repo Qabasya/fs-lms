@@ -172,6 +172,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			order_date          date                DEFAULT NULL,
 			status              enum('active','finished','expelled','transferred') NOT NULL DEFAULT 'active',
 			enrolled_at         datetime            NOT NULL,
+			enrolled_by_user_id bigint(20) unsigned DEFAULT NULL,
 			expelled_at         datetime            DEFAULT NULL,
 			expelled_by_user_id bigint(20) unsigned DEFAULT NULL,
 			expel_reason        varchar(500)        DEFAULT NULL,
@@ -259,7 +260,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `snapshot_first_name`  varchar(100) NOT NULL DEFAULT '',
 			ADD COLUMN IF NOT EXISTS `snapshot_middle_name` varchar(100) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `snapshot_school`      varchar(255) DEFAULT NULL,
-			ADD COLUMN IF NOT EXISTS `snapshot_grade`       varchar(10)  DEFAULT NULL" );
+			ADD COLUMN IF NOT EXISTS `snapshot_grade`       varchar(10)  DEFAULT NULL,
+			ADD COLUMN IF NOT EXISTS `enrolled_by_user_id`  bigint(20) unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$groups`
 			DROP INDEX IF EXISTS `group_id`,
 			DROP COLUMN IF EXISTS `group_id`" );

@@ -49,6 +49,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 			<select id="js-bulk-action">
 				<option value="">— Массовые действия —</option>
 				<option value="expel">Отчислить</option>
+				<option value="export">Экспортировать</option>
 			</select>
 			<button type="button" id="js-bulk-apply" class="button action">Применить</button>
 		</div>
@@ -242,6 +243,14 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 							   data-email="<?php echo esc_attr( $wpUser?->user_email ?? '' ); ?>"
 							   data-user-login="<?php echo esc_attr( $wpUser ? $wpUser->user_login : '' ); ?>">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
+							</a>
+						</span>
+						<span class="export">
+							<a href="#"
+							   class="js-export-person"
+							   data-person-id="<?php echo esc_attr( (string) $studentPersonId ); ?>"
+							   data-person-type="student">
+								<?php esc_html_e( 'Экспорт', 'fs-lms' ); ?>
 							</a>
 						</span>
 						<span class="expel">

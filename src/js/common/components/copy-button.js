@@ -2,8 +2,8 @@ const $ = jQuery;
 
 const BTN_HTML =
     '<button type="button" class="fs-copy-field__btn" aria-label="Копировать">' +
-        '<i class="fa-regular fa-clone fs-copy-field__icon"></i>' +
         '<span class="fs-copy-field__label">Скопировано</span>' +
+        '<i class="fa-regular fa-clone fs-copy-field__icon"></i>' +
     '</button>';
 
 export const CopyButton = {

@@ -43,9 +43,10 @@ export const ParentPersonModalManager = {
             this._save();
         } );
 
-        $( document ).on( 'click.ppmm_export', '#fs-parent-person-modal .js-pmm-export', ( e ) => {
+        $( document ).on( 'click.ppmm_export', '.js-export-person[data-person-type="parent"]', ( e ) => {
             e.preventDefault();
-            this._export();
+            const personId = parseInt( $( e.currentTarget ).data( 'personId' ), 10 );
+            if ( personId ) this._export( personId );
         } );
 
         $( document ).on( 'fs:student:expelled', () => {
@@ -89,10 +90,10 @@ export const ParentPersonModalManager = {
             if ( ! res.success ) return;
             const pii = res.data.masked_pii || {};
             ParentPersonModal.fill( {
+                phone:          pii.phone          || '',
                 doc_number:     pii.doc_number     || '',
                 inn:            pii.inn            || '',
                 address:        pii.address        || '',
-                password:       pii.password       || '',
                 doc_issued_by:  pii.doc_issued_by  || '',
                 doc_issued_date: pii.doc_issued_date || '',
             } );
@@ -180,12 +181,11 @@ export const ParentPersonModalManager = {
         } );
     },
 
-    _export() {
-        const id = ParentPersonModal.getPersonId();
-        if ( ! id ) return;
+    _export( personId ) {
+        if ( ! personId ) return;
         $.post( AJAX_URL(), {
             action:    ACTIONS().exportPii,
-            person_id: id,
+            person_id: personId,
             security:  NONCES().exportPii,
         } ).done( r => {
             if ( r.success && r.data.download_url ) window.location.href = r.data.download_url;
