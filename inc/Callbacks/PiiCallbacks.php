@@ -345,7 +345,7 @@ class PiiCallbacks extends BaseController {
 		foreach ( $personIds as $pid ) {
 			$sPerson = $pid === $personId ? $person : $this->personRepository->find( $pid );
 
-			foreach ( $this->studentRecordRepository->findByStudent( $pid ) as $record ) {
+			foreach ( $this->studentRecordRepository->findActiveByStudent( $pid ) as $record ) {
 				$group = $record->groupId ? $this->groupRepository->findById( $record->groupId ) : null;
 
 				$enrollments[] = array(
@@ -360,19 +360,16 @@ class PiiCallbacks extends BaseController {
 					'status_value'  => $record->status->value,
 					'enrolled_at'   => substr( $record->enrolledAt, 0, 10 ),
 					'terminated_at' => $record->expelledAt ? substr( $record->expelledAt, 0, 10 ) : null,
-					'contract_no'   => $record->contractNo ?? '',
-					'last_name'     => $sPerson?->lastName ?? '',
-					'first_name'    => $sPerson?->firstName ?? '',
+					'contract_no'   => $record->contractNo   ?? '',
+					'contract_date' => $record->contractDate ?? '',
+					'order_no'      => $record->orderNo      ?? '',
+					'order_date'    => $record->orderDate    ?? '',
+					'last_name'     => $sPerson?->lastName   ?? '',
+					'first_name'    => $sPerson?->firstName  ?? '',
 					'middle_name'   => $sPerson?->middleName ?? '',
-					'birth_date'    => $sPerson?->birthDate ?? '',
-					'school'        => $sPerson?->school ?? '',
-					'grade'         => $sPerson?->grade  ?? '',
-					'child_doc_number'    => '',
-					'child_inn'           => '',
-					'child_birth_date'    => '',
-					'guardian_birth_date' => '',
-					'student_phone'       => '',
-					'guardian_phone'      => '',
+					'birth_date'    => $sPerson?->birthDate  ?? '',
+					'school'        => $sPerson?->school     ?? '',
+					'grade'         => $sPerson?->grade      ?? '',
 				);
 			}
 		}

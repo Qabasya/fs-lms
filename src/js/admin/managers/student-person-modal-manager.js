@@ -106,46 +106,46 @@ export const StudentPersonModalManager = {
             security:  NONCES().manager,
         } ).done( ( res ) => {
             if ( ! res.success ) return;
-            const enrollments = res.data.enrollments || [];
-            const enr = enrollments[0] || {};
-            const pii = res.data.masked_pii || {};
+            const enrollments = res.data.enrollments ?? [];
+            const enr = enrollments[ 0 ] ?? {};
+            const pii = res.data.masked_pii ?? {};
+
             StudentPersonModal.fill( {
-                last_name:     enr.last_name    || '',
-                first_name:    enr.first_name   || '',
-                middle_name:   enr.middle_name  || '',
-                schedule:      enr.schedule     || '',
-                subject:       enr.subject_name || '',
-                group:         enr.group_title  || '',
-                contract_no:   enr.contract_no  || '',
-                birth_date:    enr.birth_date   || '',
-                school:        enr.school       || '',
-                grade:         enr.grade        || '',
-                doc_number:    pii.doc_number   || '',
-                inn:           pii.inn          || '',
-                phone:         pii.phone        || '',
-                guardian_name: ( res.data.representatives || [] )[0]?.name || '',
-                login:         res.data.login   || '',
-                password:      res.data.password || '',
+                last_name:     enr.last_name     ?? '',
+                first_name:    enr.first_name    ?? '',
+                middle_name:   enr.middle_name   ?? '',
+                schedule:      enr.schedule      ?? '',
+                subject:       enr.subject_name  ?? '',
+                group:         enr.group_title   ?? '',
+                contract_no:   enr.contract_no   ?? '',
+                birth_date:    enr.birth_date    ?? '',
+                school:        enr.school        ?? '',
+                grade:         enr.grade         ?? '',
+                doc_number:    pii.doc_number    ?? '',
+                inn:           pii.inn           ?? '',
+                phone:         pii.phone         ?? '',
+                email:         res.data.email    ?? '',
+                guardian_name: ( res.data.representatives ?? [] )[ 0 ]?.name ?? '',
+                login:         res.data.login    ?? '',
+                password:      res.data.password ?? '',
             } );
 
-            // Дополнительные зачисления (2+ предметов)
+            // Дополнительные зачисления (2+ предметов) — бэкенд возвращает только активные
             enrollments.slice( 1 ).forEach( ( e ) => {
                 StudentPersonModal.addEnrollmentRow( {
-                    contract_no: e.contract_no  || '',
-                    subject:     e.subject_name || '',
-                    group:       e.group_title  || '',
-                    schedule:    e.schedule     || '',
+                    contract_no: e.contract_no  ?? '',
+                    subject:     e.subject_name ?? '',
+                    group:       e.group_title  ?? '',
+                    schedule:    e.schedule     ?? '',
                 } );
             } );
 
-            // Передаём активные зачисления кнопке Отчислить для выбора группы
-            const activeEnrollments = enrollments
-                .filter( e => e.status_value === 'active' )
-                .map( e => ( {
-                    record_id:    e.record_id,
-                    subject_name: e.subject_name || '',
-                    group_title:  e.group_title  || '',
-                } ) );
+            // Все возвращённые зачисления активны — передаём кнопке Отчислить
+            const activeEnrollments = enrollments.map( ( e ) => ( {
+                record_id:    e.record_id,
+                subject_name: e.subject_name ?? '',
+                group_title:  e.group_title  ?? '',
+            } ) );
             $( '#fs-student-person-modal .js-expel-student' )
                 .attr( 'data-expel-enrollments', JSON.stringify( activeEnrollments ) );
         } );
