@@ -1,7 +1,7 @@
 <?php
 /**
  * Карточка person в административной панели.
- * Рендерится из PiiCallbacks::renderPersonDetailPage().
+ * Рендерится из PersonViewCallbacks::renderPersonDetailPage().
  *
  * Доступные переменные:
  *   $personId  int                  ID записи person

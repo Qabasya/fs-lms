@@ -100,6 +100,22 @@ readonly class PersonReader {
 		return $value;
 	}
 
+	public function readDocIssuedParts( int $personId, string $reason ): array {
+		$docs = $this->personDocumentsRepository->findByPersonId( $personId );
+
+		if ( null === $docs ) {
+			return array( 'by' => '', 'date' => '' );
+		}
+
+		$by = '';
+		if ( $docs->docIssuedByEnc !== null ) {
+			$by = trim( $this->decryptField( $docs->docIssuedByEnc ) );
+			$this->logAccess( $personId, array( 'doc_issued_by' ), $reason );
+		}
+
+		return array( 'by' => $by, 'date' => $docs->docIssuedDate ?? '' );
+	}
+
 	private function decryptField( ?string $enc ): string {
 		if ( null === $enc || '' === $enc ) {
 			return '';
