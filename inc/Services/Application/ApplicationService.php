@@ -13,6 +13,7 @@ use Inc\DTO\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Shared\PluginLogger;
 use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
 use Inc\Services\EmailOtpService;
@@ -133,7 +134,7 @@ readonly class ApplicationService {
 				$this->consentService->recordSelfConsent( $id, 'pd_processing', $ctx );
 			} catch ( \RuntimeException $e ) {
 				// Страница согласия ещё не настроена — пропускаем без прерывания потока.
-				error_log( '[FS LMS] Consent skipped (createApplication): ' . $e->getMessage() ); // phpcs:ignore
+				PluginLogger::warning( 'ConsentSkipped', $e->getMessage(), array( 'operation' => 'createApplication' ) );
 			}
 
 			// Логирование события в аудит
@@ -243,7 +244,7 @@ readonly class ApplicationService {
 			try {
 				$this->consentService->recordGuardianConsent( $appId, 'pd_processing', 0, $ctx );
 			} catch ( \RuntimeException $e ) {
-				error_log( '[FS LMS] Consent skipped (submitParentData): ' . $e->getMessage() ); // phpcs:ignore
+				PluginLogger::warning( 'ConsentSkipped', $e->getMessage(), array( 'operation' => 'submitParentData' ) );
 			}
 
 			// Логирование события

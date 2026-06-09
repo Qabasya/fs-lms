@@ -12,6 +12,7 @@ use Inc\Enums\ShortCode;
 use Inc\Enums\Capability;
 use Inc\Services\AuthService\AuthStrategyRegistry;
 use Inc\Services\AuthService\ProviderResolver;
+use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\ErrorHandler;
 
 /**
@@ -36,7 +37,7 @@ use Inc\Shared\Traits\ErrorHandler;
  */
 class AuthController extends BaseController implements ServiceInterface {
 
-	use ErrorHandler;  // Трейт с методами logException(), sendError()
+	use ErrorHandler;  // sendError() — dual-context dispatch (AJAX / wp_die)
 
 	// Префикс маршрутов для аутентификации (PageRoutes: /lms-auth/{provider})
 	private const string ROUTE_PREFIX = 'lms-auth';
@@ -153,14 +154,7 @@ class AuthController extends BaseController implements ServiceInterface {
 			$this->sendError( 'auth_failed', 'Ошибка авторизации через соцсеть', 401 );
 
 		} catch ( Exception $e ) {
-			// Логирование ошибки
-			$this->logException(
-				$e,
-				array(
-					'provider'  => $provider?->value,
-					'component' => 'auth',
-				)
-			);
+			PluginLogger::exception( 'AuthController', $e, array( 'provider' => $provider?->value ) );
 			$this->sendError( 'auth_error', 'Техническая ошибка при обработке ответа', 500 );
 		}
 	}

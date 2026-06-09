@@ -4,6 +4,7 @@ namespace Inc\Services\AuthService\AuthStrategies;
 
 use Inc\DTO\UserDTO;
 use Inc\Enums\AuthProvider;
+use Inc\Shared\PluginLogger;
 
 /**
  * Class GithubAuthStrategy
@@ -54,9 +55,7 @@ class GithubAuthStrategy extends AbstractHybridAuthStrategy {
 			// Делегирование обработки профиля сервису аутентификации
 			return $this->auth_service->processUserFromSocialProfile( $this->getProvider(), $profile );
 		} catch ( \Exception $e ) {
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( '[FS LMS] GithubAuthStrategy: ' . $e->getMessage() . ' | Context: ' . wp_json_encode( array( 'file' => $e->getFile(), 'line' => $e->getLine() ), JSON_UNESCAPED_UNICODE ) );
-			}
+			PluginLogger::exception( 'GithubAuthStrategy', $e );
 			return null;
 		}
 	}

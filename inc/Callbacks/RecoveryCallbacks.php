@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Services\Application\ApplicationService;
 use Inc\Services\Enrollment\RecoveryService;
 use Inc\Services\Person\RetentionService;
+use Inc\Shared\PluginLogger;
 
 /**
  * Class RecoveryCallbacks
@@ -60,8 +61,7 @@ class RecoveryCallbacks extends BaseController {
 		try {
 			$this->recoveryService->resolveStuckEnrollments();
 		} catch ( \Throwable $e ) {
-			// error_log() — запись ошибки в лог PHP
-			error_log( '[FS LMS] Recovery tick error: ' . $e->getMessage() );
+			PluginLogger::exception( 'RecoveryTick', $e, array(), true );
 		}
 	}
 
@@ -77,7 +77,7 @@ class RecoveryCallbacks extends BaseController {
 		try {
 			$this->applicationService->expireStale();
 		} catch ( \Throwable $e ) {
-			error_log( '[FS LMS] Expire applications error: ' . $e->getMessage() );
+			PluginLogger::exception( 'ExpireApplications', $e, array(), true );
 		}
 	}
 
@@ -102,7 +102,7 @@ class RecoveryCallbacks extends BaseController {
 			// Очистка старых записей доступа к PII
 			$this->retentionService->purgeOldPiiAccessLogs();
 		} catch ( \Throwable $e ) {
-			error_log( '[FS LMS] Retention cleanup error: ' . $e->getMessage() );
+			PluginLogger::exception( 'RetentionCleanup', $e, array(), true );
 		}
 	}
 }
