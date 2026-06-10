@@ -22,7 +22,7 @@
 					<label for="subj_key">Технический ключ (например: inf_ege)</label>
 					<input type="text" id="subj_key" name="key" placeholder="Только латиница и подчеркивания..." required
 							pattern="[a-z0-9_]+">
-					<p class="description">Используется для названия типов записей в базе.</p>
+					<p class="description">Используйте осмысленный ключ. Он будет отображаться в ссылке.</p>
 				</div>
 
 				<div class="fs-form-group">

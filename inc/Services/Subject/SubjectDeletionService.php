@@ -12,15 +12,15 @@ use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\PostTypeResolver;
 
-class SubjectDeletionService {
+readonly class SubjectDeletionService {
 
 	public function __construct(
-		private readonly TaxonomyRepository     $taxonomies,
-		private readonly MetaBoxRepository      $metaboxes,
-		private readonly BoilerplateRepository  $boilerplates,
-		private readonly TermManager            $terms,
-		private readonly PostManager            $posts,
-		private readonly StudentGroupRepository $student_groups,
+		private TaxonomyRepository     $taxonomies,
+		private MetaBoxRepository      $metaboxes,
+		private BoilerplateRepository  $boilerplates,
+		private TermManager            $terms,
+		private PostManager            $posts,
+		private StudentGroupRepository $student_groups,
 	) {}
 
 	public function deleteWithCascade( string $subject_key ): void {

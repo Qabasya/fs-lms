@@ -3,6 +3,8 @@
 declare( strict_types=1 );
 
 namespace Inc\DTO\Subject;
+use Inc\DTO\Task\PostsListTableDTO;
+use Inc\DTO\Task\TaskTypeDTO;
 
 /**
  * Class SubjectViewDTO
