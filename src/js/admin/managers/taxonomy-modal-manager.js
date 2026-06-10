@@ -50,28 +50,28 @@ export const TaxonomyModalManager = {
     },
 
     _handleSave(data) {
-        if (!data.tax_name || (data.action === 'store' && !data.tax_slug)) {
-            showNotice('Пожалуйста, заполните все поля', 'error', TaxonomyModal.$modal.find( '.fs-lms-modal-body' ));
+        if ( ! data.tax_name ) {
+            showNotice('Пожалуйста, заполните название', 'error', TaxonomyModal.$modal.find( '.fs-lms-modal-body' ));
             return;
         }
 
         TaxonomyModal.setSaveState(true);
 
-        $.post(fs_lms_vars.ajaxurl, {
-            action:       data.action === 'store' ? fs_lms_vars.ajax_actions.storeTaxonomy : fs_lms_vars.ajax_actions.updateTaxonomy,
+        const isStore = data.action === 'store';
+        const postData = {
+            action:       isStore ? fs_lms_vars.ajax_actions.storeTaxonomy : fs_lms_vars.ajax_actions.updateTaxonomy,
             security:     fs_lms_vars.nonces.subject,
             subject_key:  data.subject_key,
-            tax_slug:     data.tax_slug,
             tax_name:     data.tax_name,
             display_type: data.display_type,
             is_required:  data.is_required,
-        })
+        };
+        if ( ! isStore ) { postData.tax_slug = data.tax_slug; }
+
+        $.post(fs_lms_vars.ajaxurl, postData)
             .done((res) => {
                 if (res.success) {
                     location.reload();
-                } else if (res.data?.error_code === 'duplicate_slug') {
-                    TaxonomyModal.setSlugError(res.data.message);
-                    TaxonomyModal.setSaveState(false);
                 } else {
                     showNotice('Ошибка: ' + (res.data?.message || res.data), 'error', TaxonomyModal.$modal.find( '.fs-lms-modal-body' ));
                     TaxonomyModal.setSaveState(false);

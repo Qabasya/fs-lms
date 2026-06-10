@@ -22,17 +22,7 @@
 				<input type="text" id="tax-name" placeholder="Введите название...">
 			</div>
 
-			<div class="fs-form-group" id="slug-container">
-				<label for="tax-slug">Ярлык:</label>
-				<div style="display: flex; align-items: stretch;">
-					<span id="tax-slug-prefix" style="background: #f0f0f1; padding: 0 10px; border: 1px solid #8c8f94; border-right: none; border-radius: 4px 0 0 4px; font-family: monospace; line-height: 35px; display: flex; align-items: center; white-space: nowrap;">
-						<?php echo esc_html( $dto->subject_key ); ?>_
-					</span>
-					<input type="text" id="tax-slug" style="border-radius: 0 4px 4px 0; flex: 1;">
-				</div>
-			</div>
-
-			<div class="fs-form-group">
+<div class="fs-form-group">
 				<label>
 					<input type="checkbox" id="tax-is-required" value="1">
 					Сделать обязательной

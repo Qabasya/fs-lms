@@ -21,7 +21,6 @@ $display_labels = array(
 		<thead>
 		<tr>
 			<th class=" column-primary tw-30">Название</th>
-			<th class="" >Ярлык (Slug)</th>
 			<th class="">Тип отображения</th>
 			<th class="">Обязательна</th>
 			<th class="">Действия</th>
@@ -47,10 +46,6 @@ $display_labels = array(
 						<span class="dashicons dashicons-lock" title="Системная таксономия"
 								style="font-size: 16px; color: #8c8f94; vertical-align: text-bottom;"></span>
 					<?php endif; ?>
-				</td>
-
-				<td>
-					<?php render_fs_badge( $tax->slug, 'blue' ); ?>
 				</td>
 
 				<td>
@@ -87,7 +82,7 @@ $display_labels = array(
 
 		<tfoot>
 		<tr class="fs-add-row-tr">
-			<td colspan="5">
+			<td colspan="4">
 				<button type="button" class="button-link scss-add-item js-add-taxonomy" title="Добавить таксономию">
 					<span class="dashicons dashicons-plus"></span>
 				</button>

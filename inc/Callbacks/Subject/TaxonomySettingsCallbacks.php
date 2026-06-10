@@ -13,6 +13,7 @@ use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\PostTypeResolver;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
+use Inc\Shared\Traits\SlugGenerator;
 
 /**
  * Class TaxonomySettingsCallbacks
@@ -33,8 +34,9 @@ use Inc\Shared\Traits\Sanitizer;
  */
 class TaxonomySettingsCallbacks extends BaseController {
 
-	use Authorizer;  // Трейт с методами authorize(), requireKey(), respond() и др.
-	use Sanitizer;   // Трейт с методами sanitizeText(), sanitizeBool() и др.
+	use Authorizer;     // Трейт с методами authorize(), requireKey(), respond() и др.
+	use Sanitizer;      // Трейт с методами sanitizeText(), sanitizeBool() и др.
+	use SlugGenerator;  // Трейт с методом slugify() для генерации слага из названия
 
 	/**
 	 * Конструктор.
@@ -58,21 +60,16 @@ class TaxonomySettingsCallbacks extends BaseController {
 	public function ajaxStoreTaxonomy(): void {
 		$this->authorize( Nonce::Subject );
 
-		// Получение данных из POST
 		$subject_key  = $this->requireKey( 'subject_key' );
-		$tax_suffix   = $this->requireKey( 'tax_slug' );
 		$tax_name     = $this->requireText( 'tax_name', error: 'Название таксономии обязательно' );
 		$display_type = $this->getValidatedDisplayType();
-		$tax_slug     = "{$subject_key}_{$tax_suffix}";
+		$tax_slug     = "{$subject_key}_" . $this->slugify( $tax_name );
 
-		// strlen() — максимальная длина слага таксономии в WordPress — 32 символа
-		if ( strlen( $tax_slug ) > 32 ) {
-			$this->error( 'Ярлык слишком длинный (макс. ' . ( 32 - strlen( $subject_key ) - 1 ) . ' символов)' );
-		}
-
-		// taxonomy_exists() — проверяет, зарегистрирована ли таксономия в WordPress
-		if ( taxonomy_exists( $tax_slug ) ) {
-			$this->error( "Таксономия «{$tax_slug}» уже существует в системе", array( 'error_code' => 'duplicate_slug', 'slug' => $tax_slug ) );
+		$existing = $this->taxonomies->getBySubject( $subject_key );
+		foreach ( $existing as $t ) {
+			if ( mb_strtolower( trim( $t->name ), 'UTF-8' ) === mb_strtolower( trim( $tax_name ), 'UTF-8' ) ) {
+				$this->error( 'Таксономия с таким названием уже существует.', array( 'error_code' => 'duplicate_name' ) );
+			}
 		}
 
 		$dto    = new TaxonomyDataDTO(
