@@ -8,21 +8,19 @@ use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
-use Inc\Repositories\OptionsRepositories\StudentGroupMatrixRepository;
 use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\PostTypeResolver;
 
-class SubjectDeletionService {
+readonly class SubjectDeletionService {
 
 	public function __construct(
-		private readonly TaxonomyRepository          $taxonomies,
-		private readonly MetaBoxRepository           $metaboxes,
-		private readonly BoilerplateRepository       $boilerplates,
-		private readonly TermManager                 $terms,
-		private readonly PostManager                 $posts,
-		private readonly StudentGroupRepository      $student_groups,
-		private readonly StudentGroupMatrixRepository $student_group_matrix,
+		private TaxonomyRepository     $taxonomies,
+		private MetaBoxRepository      $metaboxes,
+		private BoilerplateRepository  $boilerplates,
+		private TermManager            $terms,
+		private PostManager            $posts,
+		private StudentGroupRepository $student_groups,
 	) {}
 
 	public function deleteWithCascade( string $subject_key ): void {
@@ -40,7 +38,6 @@ class SubjectDeletionService {
 		$this->metaboxes->removeBySubject( $subject_key );
 		$this->boilerplates->removeBySubject( $subject_key );
 
-		$removed_group_ids = $this->student_groups->removeBySubject( $subject_key );
-		$this->student_group_matrix->removeGroups( $removed_group_ids );
+		$this->student_groups->removeBySubject( $subject_key );
 	}
 }

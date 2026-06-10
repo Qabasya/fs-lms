@@ -5,31 +5,32 @@ declare( strict_types=1 );
 namespace Inc\Services\Enrollment;
 
 use DomainException;
-use Inc\DTO\EnrollmentInputDTO;
-use Inc\DTO\EnrollmentResultDTO;
+use Inc\DTO\Enrollment\EnrollmentInputDTO;
+use Inc\DTO\Enrollment\EnrollmentResultDTO;
 use Inc\DTO\ParentDataDTO;
-use Inc\DTO\PersonInputDTO;
-use Inc\DTO\StudentDataDTO;
+use Inc\DTO\Person\PersonInputDTO;
+use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
-use Inc\Enums\RelationType;
 use Inc\Enums\UserRole;
 use Inc\Managers\UserManager;
-use Inc\Repositories\OptionsRepositories\StudentGroupMatrixRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
-use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Application\JoinCodeService;
 use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
-use Inc\Services\EmailService;
+use Inc\Services\Email\EmailService;
 use Inc\Services\PasswordGeneratorService;
 use Inc\Services\Person\PersonService;
-use Inc\Services\Person\RelationshipService;
 use Inc\Contracts\ClockInterface;
 use Inc\Services\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\TransactionRunner;
 use InvalidArgumentException;
+use RuntimeException;
 
 readonly class EnrollmentService {
 
@@ -37,32 +38,22 @@ readonly class EnrollmentService {
 	use RequestContextProvider;
 
 	public function __construct(
-		private ApplicationRepository      $applicationRepository,
-		private EnrollmentRepository       $enrollmentRepository,
-		private PersonRepository           $personRepository,
-		private PersonService              $personService,
-		private RelationshipService        $relationshipService,
-		private ConsentService             $consentService,
-		private AuditService               $auditService,
-		private UserManager                $userManager,
-		private PasswordGeneratorService   $passwordGenerator,
-		private StudentGroupMatrixRepository $groupMatrix,
-		private EmailService               $emailService,
-		private PiiCryptoService           $crypto,
-		private ClockInterface             $clock,
+		private ApplicationRepository     $applicationRepository,
+		private StudentRecordRepository   $studentRecordRepository,
+		private PersonRepository          $personRepository,
+		private PersonDocumentsRepository $personDocumentsRepository,
+		private PersonService             $personService,
+		private GroupsRepository          $groupsRepository,
+		private JoinCodeService           $joinCodeService,
+		private ConsentService            $consentService,
+		private AuditService              $auditService,
+		private UserManager               $userManager,
+		private PasswordGeneratorService  $passwordGenerator,
+		private EmailService              $emailService,
+		private PiiCryptoService          $crypto,
+		private ClockInterface            $clock,
 	) {}
 
-	/**
-	 * Выполняет зачисление студента по заявке.
-	 *
-	 * @param EnrollmentInputDTO $input Данные для зачисления
-	 *
-	 * @throws InvalidArgumentException Если заявка не найдена
-	 * @throws DomainException          Если заявка не в статусе enrolling,
-	 *                                  email родителя уже занят, или ученик уже зачислен
-	 *
-	 * @return EnrollmentResultDTO
-	 */
 	public function enroll( EnrollmentInputDTO $input ): EnrollmentResultDTO {
 		$app = $this->applicationRepository->find( $input->applicationId );
 
@@ -81,69 +72,91 @@ readonly class EnrollmentService {
 			json_decode( $this->crypto->decrypt( (string) $app->parentDataEnc ), true ) ?? array()
 		);
 
-		$studentDocHash  = $this->crypto->hash( $studentDto->docNumber );
-		$guardianDocHash = $this->crypto->hash( $parentDto->docNumber );
+		$existingStudent = null;
+		if ( $app->studentPersonId !== null ) {
+			$existingStudent = $this->personRepository->findIncludingDeleted( $app->studentPersonId );
+			if ( $existingStudent !== null && $existingStudent->expelledAt !== null ) {
+				$this->personRepository->update( $existingStudent->id, array( 'expelled_at' => null ) );
+			}
+		} else {
+			$studentDocHash  = $this->crypto->hash( $studentDto->docNumber );
+			$studentId       = $this->personService->findByDocNumberHash( $studentDocHash );
+			$existingStudent = $studentId !== null ? $this->personRepository->find( $studentId ) : null;
+		}
 
-		$existingStudent  = $this->personRepository->findByDocNumberHash( $studentDocHash );
-		$existingGuardian = $this->personRepository->findByDocNumberHash( $guardianDocHash );
+		$existingGuardian = null;
+		if ( $app->parentPersonId !== null ) {
+			$existingGuardian = $this->personRepository->find( $app->parentPersonId );
+		} else {
+			$guardianDocHash  = $this->crypto->hash( $parentDto->docNumber );
+			$guardianId       = $this->personService->findByDocNumberHash( $guardianDocHash );
+			$existingGuardian = $guardianId !== null ? $this->personRepository->find( $guardianId ) : null;
+		}
 
 		if ( null === $existingGuardian && null !== $this->userManager->findByEmail( $parentDto->email ) ) {
 			throw new DomainException( 'Email родителя уже занят другим пользователем.' );
 		}
 
-		if ( null !== $existingStudent && $this->enrollmentRepository->existsActive( $existingStudent->id, $input->subjectKey, $input->periodKey ) ) {
-			throw new DomainException( 'Ученик уже зачислен на этот предмет в данный период.' );
+		if ( null !== $existingStudent && $this->studentRecordRepository->existsActive( $existingStudent->id, $input->groupId ) ) {
+			throw new DomainException( 'Ученик уже зачислен в эту группу.' );
 		}
 
-		// ===== Атомарная транзакция: создание записей в БД =====
 		$result = $this->inTransaction( function () use ( $app, $input, $studentDto, $parentDto, $existingStudent, $existingGuardian ): array {
+			$now = $this->clock->now( 'mysql', true );
+
 			$studentPersonId = $existingStudent !== null
 				? $existingStudent->id
 				: $this->personService->createOrFindBy( new PersonInputDTO(
-					fullName:  $studentDto->fullName(),
-					docNumber: $studentDto->docNumber,
-					docType:   $studentDto->docType,
-					birthDate: $studentDto->birthDate,
-					inn:       $studentDto->inn,
-					email:     $studentDto->email !== '' ? $studentDto->email : null,
+					lastName:   $studentDto->lastName,
+					firstName:  $studentDto->firstName,
+					docNumber:  $studentDto->docNumber,
+					isStudent:  true,
+					middleName: $studentDto->middleName,
+					docType:    $studentDto->docType,
+					birthDate:  $studentDto->birthDate,
+					inn:        $studentDto->inn,
+					phone:      $studentDto->phone,
+					school:     $studentDto->school,
+					grade:      (string) $studentDto->grade,
+					email:      $studentDto->email !== '' ? $studentDto->email : null,
 				) );
 
 			$guardianPersonId = $existingGuardian !== null
 				? $existingGuardian->id
 				: $this->personService->createOrFindBy( new PersonInputDTO(
-					fullName:  $parentDto->fullName(),
-					docNumber: $parentDto->docNumber,
-					docType:   $parentDto->docType,
-					birthDate: $parentDto->birthDate,
-					inn:       $parentDto->inn,
-					address:   $parentDto->address,
-					phone:     $parentDto->phone,
-					email:     $parentDto->email !== '' ? $parentDto->email : null,
+					lastName:      $parentDto->lastName,
+					firstName:     $parentDto->firstName,
+					docNumber:     $parentDto->docNumber,
+					isStudent:     false,
+					middleName:    $parentDto->middleName,
+					docType:       $parentDto->docType,
+					birthDate:     $parentDto->birthDate,
+					inn:           $parentDto->inn,
+					address:       $parentDto->address,
+					phone:         $parentDto->phone,
+					docIssuedBy:   $parentDto->docIssuedBy,
+					docIssuedDate: $parentDto->docIssuedDate,
+					email:         $parentDto->email !== '' ? $parentDto->email : null,
 				) );
 
-			$relationType = RelationType::from( $parentDto->relationType );
-			$this->relationshipService->addRepresentative( $guardianPersonId, $studentPersonId, $relationType, true );
-
-			$snapshot    = array(
-				'student'       => $studentDto->toArray(),
-				'guardian'      => $parentDto->toArray(),
-				'enrolled_at'   => $input->enrolledAt,
-				'contract_no'   => $input->contractNo,
-				'contract_date' => $input->contractDate,
-				'order_no'      => $input->orderNo,
-				'order_date'    => $input->orderDate,
-			);
-			$enrollmentId = $this->enrollmentRepository->create( array(
-				'student_person_id'     => $studentPersonId,
-				'subject_key'           => $input->subjectKey,
-				'group_id'              => $input->groupId,
-				'period_key'            => $input->periodKey,
-				'enrolled_at'           => $input->enrolledAt,
-				'status'                => 'active',
-				'snapshot_enc'          => $this->crypto->encrypt( (string) wp_json_encode( $snapshot ) ),
-				'source_application_id' => $app->id,
-				'created_at'            => $this->clock->now( 'mysql', true ),
-				'updated_at'            => $this->clock->now( 'mysql', true ),
+			$recordId = $this->studentRecordRepository->create( array(
+				'student_person_id'   => $studentPersonId,
+				'parent_person_id'    => $guardianPersonId,
+				'group_id'            => $input->groupId ?: null,
+				'snapshot_last_name'  => $studentDto->lastName,
+				'snapshot_first_name' => $studentDto->firstName,
+				'snapshot_middle_name' => $studentDto->middleName ?: null,
+				'snapshot_school'     => $studentDto->school      ?: null,
+				'snapshot_grade'      => (string) $studentDto->grade ?: null,
+				'contract_no'         => $input->contractNo  ?: null,
+				'contract_date'       => $input->contractDate ?: null,
+				'order_no'            => $input->orderNo     ?: null,
+				'order_date'          => $input->orderDate   ?: null,
+				'status'              => 'active',
+				'enrolled_at'         => $input->enrolledAt,
+				'enrolled_by_user_id' => get_current_user_id() ?: null,
+				'created_at'          => $now,
+				'updated_at'          => $now,
 			) );
 
 			$this->consentService->bindToPersons( $app->id, array(
@@ -153,22 +166,20 @@ readonly class EnrollmentService {
 
 			$this->auditService->record(
 				AuditAction::EnrollStudent->value,
-				'enrollment',
-				$enrollmentId,
+				'student_record',
+				$recordId,
 				array(
 					'application_id' => $app->id,
-					'subject_key'    => $input->subjectKey,
+					'group_id'       => $input->groupId,
 				)
 			);
 
-			return array( $enrollmentId, $studentPersonId, $guardianPersonId );
+			return array( $recordId, $studentPersonId, $guardianPersonId );
 		} );
 
-		[ $enrollmentId, $studentPersonId, $guardianPersonId ] = $result;
+		[ $recordId, $studentPersonId, $guardianPersonId ] = $result;
 
-		// ===== Создание пользователей WP, привязка к группе, генерация паролей (вне транзакции) =====
 		try {
-			// --- Ученик ---
 			$studentPerson = $this->personRepository->find( $studentPersonId );
 			if ( null !== $studentPerson && null !== $studentPerson->wpUserId ) {
 				$studentUserId = $studentPerson->wpUserId;
@@ -215,10 +226,6 @@ readonly class EnrollmentService {
 				}
 			}
 
-			// Прикрепить ученика к группе (матрица)
-			$this->groupMatrix->addStudent( $input->groupId, $studentUserId );
-
-			// --- Родитель ---
 			$guardianPerson = $this->personRepository->find( $guardianPersonId );
 			if ( null !== $guardianPerson && null !== $guardianPerson->wpUserId ) {
 				$guardianUserId   = $guardianPerson->wpUserId;
@@ -251,16 +258,20 @@ readonly class EnrollmentService {
 				}
 			}
 
-			// Удаление заявки (данные перешли в enrollment и persons)
 			$this->applicationRepository->forceDelete( $app->id );
 
 			if ( $input->sendEmailAuto ) {
-				$this->emailService->sendWelcomeWithCredentials( $studentUserId, $studentPassword );
-				$this->emailService->sendWelcomeWithCredentials( $guardianUserId, $guardianPassword );
+				$sharedVars = array(
+					'student_full_name'  => $studentDto->fullName(),
+					'parent_first_name'  => $parentDto->firstName,
+					'parent_middle_name' => $parentDto->middleName,
+				);
+				$this->emailService->sendWelcomeWithCredentials( $studentUserId, $studentPassword, $sharedVars );
+				$this->emailService->sendWelcomeWithCredentials( $guardianUserId, $guardianPassword, $sharedVars );
 			}
 
 			return new EnrollmentResultDTO(
-				$enrollmentId,
+				$recordId,
 				$studentUserId,
 				$guardianUserId,
 				$studentLogin,
@@ -270,14 +281,235 @@ readonly class EnrollmentService {
 				false
 			);
 		} catch ( \Throwable $e ) {
+			// Транзакция прошла (student_record создан), WP-пользователи не созданы.
+			// Помечаем заявку как converted, чтобы не зависала в статусе enrolling.
+			try {
+				$this->applicationRepository->markConverted( $app->id, $recordId );
+			} catch ( \Throwable ) {}
+
 			$this->auditService->record(
 				AuditAction::EnrollStudentFailed->value,
-				'enrollment',
-				$enrollmentId,
+				'student_record',
+				$recordId,
 				array( 'error' => $e->getMessage() )
 			);
 
-			return new EnrollmentResultDTO( $enrollmentId, 0, 0, null, null, null, null, true );
+			return new EnrollmentResultDTO( $recordId, 0, 0, null, null, null, null, true );
 		}
+	}
+
+	/**
+	 * Восстанавливает ученика из student_records: создаёт новую заявку.
+	 *
+	 * @param int $recordId ID записи student_records
+	 *
+	 * @return array{id: int, join_url: string}
+	 */
+	public function restoreFromArchive( int $recordId, bool $withParent = false ): array {
+		$record = $this->studentRecordRepository->find( $recordId );
+
+		if ( null === $record ) {
+			throw new InvalidArgumentException( 'Запись не найдена.' );
+		}
+
+		$studentPerson = $this->personRepository->findIncludingDeleted( $record->studentPersonId );
+
+		$sLastName   = $record->snapshotLastName  !== '' ? $record->snapshotLastName  : ( $studentPerson?->lastName  ?? '' );
+		$sFirstName  = $record->snapshotFirstName !== '' ? $record->snapshotFirstName : ( $studentPerson?->firstName ?? '' );
+		$sMiddleName = $record->snapshotMiddleName ?? $studentPerson?->middleName ?? '';
+
+		$studentData = array(
+			'last_name'   => $sLastName,
+			'first_name'  => $sFirstName,
+			'middle_name' => $sMiddleName,
+			'full_name'   => trim( "{$sLastName} {$sFirstName} {$sMiddleName}" ),
+			'birth_date'  => $studentPerson?->birthDate ?? '',
+			'school'      => $record->snapshotSchool ?? '',
+			'grade'       => $record->snapshotGrade  ?? '',
+			'email'       => '',
+		);
+
+		$docs = $this->personDocumentsRepository->findByPersonId( $record->studentPersonId );
+		if ( $docs ) {
+			$studentData['doc_type'] = $docs->docType ?? '';
+			foreach ( array(
+				'email'      => $docs->emailEnc,
+				'phone'      => $docs->phoneEnc,
+				'doc_number' => $docs->docNumberEnc,
+				'inn'        => $docs->innEnc,
+			) as $key => $enc ) {
+				if ( ! $enc ) { continue; }
+				try {
+					$studentData[ $key ] = $this->crypto->decrypt( $enc );
+				} catch ( \Throwable ) {}
+			}
+		}
+
+		$joinCode       = $this->joinCodeService->generate();
+		$joinHash       = $this->joinCodeService->hash( $joinCode );
+		$joinEnc        = $this->crypto->encrypt( $joinCode );
+		$expiresAt      = gmdate( 'Y-m-d H:i:s', strtotime( '+48 hours' ) );
+		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
+
+		$now   = $this->clock->now( 'mysql', true );
+		$appId = $this->applicationRepository->create( array(
+			'student_person_id'    => $record->studentPersonId,
+			'status'               => ApplicationStatus::PendingParent->value,
+			'join_code_hash'       => $joinHash,
+			'join_code_enc'        => $joinEnc,
+			'join_code_expires_at' => $expiresAt,
+			'student_data_enc'     => $studentDataEnc,
+			'created_at'           => $now,
+			'updated_at'           => $now,
+		) );
+
+		if ( 0 === $appId ) {
+			throw new RuntimeException( 'Не удалось создать заявку.' );
+		}
+
+		$this->auditService->record(
+			AuditAction::RestoreFromArchive->value,
+			'application',
+			$appId,
+			array( 'restored_from_record_id' => $recordId, 'with_parent' => $withParent )
+		);
+
+		if ( $withParent ) {
+			if ( $record->parentPersonId <= 0 ) {
+				throw new \InvalidArgumentException( 'У этой записи нет привязанного родителя.' );
+			}
+
+			$parentResult = $this->selectExistingParent( $appId, $record->parentPersonId );
+
+			$this->applicationRepository->update( $appId, array(
+				'status'     => ApplicationStatus::ReadyForReview->value,
+				'updated_at' => $this->clock->now( 'mysql', true ),
+			) );
+
+			return array_merge( array( 'id' => $appId ), $parentResult );
+		}
+
+		return array(
+			'id'       => $appId,
+			'join_url' => home_url( '/lms/join/' . $joinCode ),
+		);
+	}
+
+	/**
+	 * Привязывает существующего родителя к заявке и ротирует JOIN-код.
+	 * Статус остаётся pending_parent — родитель подтверждает данные ученика через форму.
+	 *
+	 * @param int $applicationId  ID заявки (status = pending_parent)
+	 * @param int $parentPersonId ID существующего родителя
+	 * @return array{join_url: string, parent_name: string}
+	 */
+	public function selectExistingParent( int $applicationId, int $parentPersonId ): array {
+		$app = $this->applicationRepository->find( $applicationId );
+
+		if ( null === $app ) {
+			throw new InvalidArgumentException( 'Заявка не найдена.' );
+		}
+
+		if ( ApplicationStatus::PendingParent !== $app->status ) {
+			throw new DomainException( 'Заявка не в статусе pending_parent.' );
+		}
+
+		$parentPerson = $this->personRepository->find( $parentPersonId );
+
+		if ( null === $parentPerson ) {
+			throw new InvalidArgumentException( 'Родитель не найден.' );
+		}
+
+		$docs = $this->personDocumentsRepository->findByPersonId( $parentPersonId );
+
+		$parentData = array(
+			'last_name'       => $parentPerson->lastName,
+			'first_name'      => $parentPerson->firstName,
+			'middle_name'     => $parentPerson->middleName ?? '',
+			'full_name'       => $parentPerson->fullName(),
+			'birth_date'      => $parentPerson->birthDate ?? '',
+			'email'           => '',
+			'phone'           => '',
+			'doc_type'        => '',
+			'doc_number'      => '',
+			'doc_issued_by'   => '',
+			'doc_issued_date' => '',
+			'inn'             => '',
+			'address'         => '',
+		);
+
+		if ( $docs !== null ) {
+			if ( $docs->emailEnc )       { $parentData['email']         = $this->crypto->decrypt( $docs->emailEnc ); }
+			if ( $docs->phoneEnc )       { $parentData['phone']         = $this->crypto->decrypt( $docs->phoneEnc ); }
+			if ( $docs->docNumberEnc )   { $parentData['doc_number']    = $this->crypto->decrypt( $docs->docNumberEnc ); }
+			if ( $docs->docIssuedByEnc ) { $parentData['doc_issued_by'] = $this->crypto->decrypt( $docs->docIssuedByEnc ); }
+			if ( $docs->docIssuedDate )  { $parentData['doc_issued_date'] = $docs->docIssuedDate; }
+			if ( $docs->innEnc )         { $parentData['inn']           = $this->crypto->decrypt( $docs->innEnc ); }
+			if ( $docs->addressEnc )     { $parentData['address']       = $this->crypto->decrypt( $docs->addressEnc ); }
+			$parentData['doc_type'] = $docs->docType ?? '';
+		}
+
+		// Если email не найден в документах — берём из WP-аккаунта родителя
+		if ( '' === $parentData['email'] && $parentPerson->wpUserId ) {
+			$wpUser = get_userdata( $parentPerson->wpUserId );
+			if ( $wpUser ) {
+				$parentData['email'] = $wpUser->user_email;
+			}
+		}
+
+		$parentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $parentData ) );
+
+		$newCode = $this->joinCodeService->generate();
+		$newHash = $this->joinCodeService->hash( $newCode );
+		$newEnc  = $this->crypto->encrypt( $newCode );
+
+		$this->applicationRepository->update( $applicationId, array(
+			'parent_person_id' => $parentPersonId,
+			'parent_data_enc'  => $parentDataEnc,
+			'join_code_hash'   => $newHash,
+			'join_code_enc'    => $newEnc,
+			'updated_at'       => $this->clock->now( 'mysql', true ),
+		) );
+
+		return array(
+			'join_url'    => home_url( '/lms/join/' . $newCode ),
+			'parent_name' => $parentPerson->fullName(),
+		);
+	}
+
+	/**
+	 * Снимает назначение родителя с заявки и ротирует JOIN-код.
+	 *
+	 * @param int $applicationId ID заявки (status = pending_parent, parent_person_id задан)
+	 * @return array{join_url: string}
+	 */
+	public function removeParentAssignment( int $applicationId ): array {
+		$app = $this->applicationRepository->find( $applicationId );
+
+		if ( null === $app ) {
+			throw new InvalidArgumentException( 'Заявка не найдена.' );
+		}
+
+		if ( ApplicationStatus::PendingParent !== $app->status ) {
+			throw new DomainException( 'Заявка не в статусе pending_parent.' );
+		}
+
+		if ( null === $app->parentPersonId ) {
+			throw new DomainException( 'Родитель не назначен.' );
+		}
+
+		$newCode = $this->joinCodeService->generate();
+		$newHash = $this->joinCodeService->hash( $newCode );
+		$newEnc  = $this->crypto->encrypt( $newCode );
+
+		$this->applicationRepository->update( $applicationId, array(
+			'parent_person_id' => null,
+			'parent_data_enc'  => null,
+			'join_code_hash'   => $newHash,
+			'join_code_enc'    => $newEnc,
+			'updated_at'       => $this->clock->now( 'mysql', true ),
+		) );
+
+		return array( 'join_url' => home_url( '/lms/join/' . $newCode ) );
 	}
 }

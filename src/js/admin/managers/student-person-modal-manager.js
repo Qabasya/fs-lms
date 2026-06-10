@@ -10,7 +10,9 @@ export const StudentPersonModalManager = {
     _initialized: false,
 
     init() {
-        if ( this._initialized || ! StudentPersonModal._initialized ) return;
+        if ( this._initialized ) return;
+        StudentPersonModal.init();
+        if ( ! StudentPersonModal._initialized ) return;
         this._initialized = true;
         this._bindEvents();
     },
@@ -41,12 +43,17 @@ export const StudentPersonModalManager = {
             this._save();
         } );
 
-        $( document ).on( 'click.spmm_export', '#fs-student-person-modal .js-pmm-export', ( e ) => {
+        $( document ).on( 'click.spmm_export', '.js-export-person[data-person-type="student"]', ( e ) => {
             e.preventDefault();
-            this._export();
+            const personId = parseInt( $( e.currentTarget ).data( 'personId' ), 10 );
+            if ( personId ) this._export( personId );
         } );
 
-        $( document ).on( 'fs:student:expelled', ( e, { studentId } ) => {
+        $( document ).on( 'fs:student:expelled', () => {
+            StudentPersonModal.close();
+        } );
+
+        $( document ).on( 'fs:student:expel-partial', () => {
             StudentPersonModal.close();
         } );
 
@@ -68,7 +75,8 @@ export const StudentPersonModalManager = {
             .data( 'expel-student-id', wpUserId )
             .data( 'expel-student-name', studentName )
             .attr( 'data-expel-student-id', wpUserId )
-            .attr( 'data-expel-student-name', studentName );
+            .attr( 'data-expel-student-name', studentName )
+            .removeAttr( 'data-expel-enrollments' );
 
         // Немедленно из данных строки — без ожидания AJAX
         StudentPersonModal.fill( {
@@ -99,21 +107,48 @@ export const StudentPersonModalManager = {
             security:  NONCES().manager,
         } ).done( ( res ) => {
             if ( ! res.success ) return;
-            const enr = ( res.data.enrollments || [] )[0] || {};
-            const pii = res.data.masked_pii || {};
+            const enrollments = res.data.enrollments ?? [];
+            const enr = enrollments[ 0 ] ?? {};
+            const pii = res.data.masked_pii ?? {};
+
             StudentPersonModal.fill( {
-                last_name:   enr.last_name   || '',
-                first_name:  enr.first_name  || '',
-                middle_name: enr.middle_name || '',
-                schedule:    enr.schedule    || '',
-                birth_date:  enr.birth_date  || '',
-                school:      enr.school      || '',
-                grade:       enr.grade       || '',
-                doc_number:  pii.doc_number  || '',
-                inn:         pii.inn         || '',
-                login:       res.data.login  || '',
-                password:    res.data.password || '',
+                last_name:     enr.last_name     ?? '',
+                first_name:    enr.first_name    ?? '',
+                middle_name:   enr.middle_name   ?? '',
+                schedule:      enr.schedule      ?? '',
+                subject:       enr.subject_name  ?? '',
+                group:         enr.group_title   ?? '',
+                contract_no:   enr.contract_no   ?? '',
+                birth_date:    enr.birth_date    ?? '',
+                school:        enr.school        ?? '',
+                grade:         enr.grade         ?? '',
+                doc_number:    pii.doc_number    ?? '',
+                inn:           pii.inn           ?? '',
+                phone:         pii.phone         ?? '',
+                email:         res.data.email    ?? '',
+                guardian_name: ( res.data.representatives ?? [] )[ 0 ]?.name ?? '',
+                login:         res.data.login    ?? '',
+                password:      res.data.password ?? '',
             } );
+
+            // Дополнительные зачисления (2+ предметов) — бэкенд возвращает только активные
+            enrollments.slice( 1 ).forEach( ( e ) => {
+                StudentPersonModal.addEnrollmentRow( {
+                    contract_no: e.contract_no  ?? '',
+                    subject:     e.subject_name ?? '',
+                    group:       e.group_title  ?? '',
+                    schedule:    e.schedule     ?? '',
+                } );
+            } );
+
+            // Все возвращённые зачисления активны — передаём кнопке Отчислить
+            const activeEnrollments = enrollments.map( ( e ) => ( {
+                record_id:    e.record_id,
+                subject_name: e.subject_name ?? '',
+                group_title:  e.group_title  ?? '',
+            } ) );
+            $( '#fs-student-person-modal .js-expel-student' )
+                .attr( 'data-expel-enrollments', JSON.stringify( activeEnrollments ) );
         } );
     },
 
@@ -203,12 +238,11 @@ export const StudentPersonModalManager = {
         } );
     },
 
-    _export() {
-        const id = StudentPersonModal.getPersonId();
-        if ( ! id ) return;
+    _export( personId ) {
+        if ( ! personId ) return;
         $.post( AJAX_URL(), {
             action:    ACTIONS().exportPii,
-            person_id: id,
+            person_id: personId,
             security:  NONCES().exportPii,
         } ).done( r => {
             if ( r.success && r.data.download_url ) window.location.href = r.data.download_url;

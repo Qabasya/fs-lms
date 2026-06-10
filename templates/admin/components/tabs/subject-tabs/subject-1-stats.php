@@ -1,5 +1,5 @@
 <?php
-/** @var \Inc\DTO\SubjectViewDTO $dto */
+/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
 /** @var \Inc\Services\PostTypeResolver $service */
 $service = \Inc\Services\PostTypeResolver::class;
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';

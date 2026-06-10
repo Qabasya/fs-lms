@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Repositories\OptionsRepositories;
 
-use Inc\DTO\TaskTemplateAssignmentDTO;
+use Inc\DTO\Task\TaskTemplateAssignmentDTO;
 use Inc\Enums\OptionName;
 
 /**

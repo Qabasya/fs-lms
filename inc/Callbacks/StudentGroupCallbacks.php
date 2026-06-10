@@ -7,8 +7,9 @@ namespace Inc\Callbacks;
 use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
 use Inc\Enums\WeekDay;
-use Inc\Repositories\OptionsRepositories\StudentGroupMatrixRepository;
-use Inc\Services\StudentGroupService;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
@@ -16,51 +17,59 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class StudentGroupCallbacks
  *
- * Обработчик AJAX-запросов для управления группами учеников.
+ * AJAX-обработчики для управления группами студентов.
  *
  * @package Inc\Callbacks
  *
  * ### Основные обязанности:
  *
- * 1. **Валидация безопасности** — проверка прав пользователя и верификация WordPress Nonce.
- * 2. **Входная санитизация** — безопасный сбор данных через трейт Sanitizer.
- * 3. **Оркестрация действий** — вызов бизнес-логики через StudentGroupService и отправка JSON ответов.
+ * 1. **Создание группы** — сохранение новой учебной группы (название, период, предмет, расписание).
+ * 2. **Получение студентов группы** — список активных студентов, привязанных к группе.
+ * 3. **Удаление группы** — удаление группы (студенты открепляются, но не удаляются).
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует работу с группами GroupsRepository, а со студентами — StudentRecordRepository.
+ * Использует WeekDay enum для валидации дней недели в расписании.
  */
 class StudentGroupCallbacks extends BaseController {
 
-	use Authorizer;
-	use AjaxResponse;
-	use Sanitizer;
+	use Authorizer;      // Трейт с методами authorize(), error(), success()
+	use AjaxResponse;    // Трейт с методами success(), error()
+	use Sanitizer;       // Трейт с методами sanitizeInt(), sanitizeText(), requireKey(), requireText()
 
 	/**
-	 * Конструктор обработчика.
+	 * Конструктор коллбеков.
 	 *
-	 * @param StudentGroupService $group_service Сервис управления группами
+	 * @param GroupsRepository       $groupsRepository       Репозиторий групп
+	 * @param StudentRecordRepository $studentRecordRepository Репозиторий записей студентов
+	 * @param PersonRepository       $personRepository       Репозиторий лиц
 	 */
 	public function __construct(
-		private readonly StudentGroupService         $group_service,
-		private readonly StudentGroupMatrixRepository $matrix_repository,
+		private readonly GroupsRepository       $groupsRepository,
+		private readonly StudentRecordRepository $studentRecordRepository,
+		private readonly PersonRepository       $personRepository,
 	) {
 		parent::__construct();
 	}
 
 	/**
-	 * AJAX-обработчик для создания новой группы.
-	 * Экшен: fs_lms_save_student_group
+	 * Сохраняет (создаёт) новую группу студентов.
 	 *
 	 * @return void
 	 */
 	public function ajaxSaveStudentGroup(): void {
-		// Защита: проверяем права доступа
 		$this->authorize( Nonce::Manager );
 
-		// Безопасный сбор данных с помощью твоего трейта Sanitizer
-		$title      = $this->requireText( 'title', error: 'Название группы обязательно для заполнения.' );
-		$period_id  = $this->requireKey( 'period_id', error: 'Необходимо указать учебный период.' );
-		$subject_id = $this->requireKey( 'subject_id', error: 'Необходимо указать предмет.' );
-		$teacher_id = $this->requireInt( 'teacher_id', error: 'Необходимо выбрать преподавателя.' );
+		// Валидация обязательных полей
+		$title              = $this->requireText( 'title', error: 'Название группы обязательно для заполнения.' );
+		$academic_period_id = $this->requireKey( 'period_id', error: 'Необходимо указать учебный период.' );
+		$subject_key        = $this->requireKey( 'subject_id', error: 'Необходимо указать предмет.' );
+		$teacher_id         = $this->sanitizeInt( 'teacher_id' ) ?: null;
 
+		// Обработка расписания из JSON
 		$schedule_json = $this->sanitizeText( 'schedule_json' );
+		// wp_unslash() — удаляет экранирование слешей
 		$raw_entries   = is_string( $schedule_json ) ? json_decode( wp_unslash( $schedule_json ), true ) : null;
 		$schedule      = array();
 
@@ -69,6 +78,7 @@ class StudentGroupCallbacks extends BaseController {
 				if ( ! is_array( $entry ) ) {
 					continue;
 				}
+				// WeekDay::tryFrom() — безопасное преобразование в enum (или null)
 				$day = WeekDay::tryFrom( sanitize_key( (string) ( $entry['day'] ?? '' ) ) );
 				if ( $day === null ) {
 					continue;
@@ -81,57 +91,72 @@ class StudentGroupCallbacks extends BaseController {
 			}
 		}
 
-		// Вызываем бизнес-логику создания
-		$group_dto = $this->group_service->createGroup( $title, $period_id, $subject_id, $teacher_id, $schedule );
+		if ( $this->groupsRepository->existsByNameAndPeriod( $title, $academic_period_id ) ) {
+			$this->error( 'Группа с таким названием в этом периоде уже существует.' );
+		}
 
-		// Унифицированный ответ через трейт AjaxResponse
-		$this->respond(
-			result: $group_dto ? array( 'group' => $group_dto->toArray() ) : false,
-			error_msg: 'Не удалось создать группу. Возможно, группа с таким названием в этом периоде уже существует.',
-			success_msg: 'Группа успешно создана.'
-		);
+		// Создание группы в БД
+		$id = $this->groupsRepository->create( array(
+			'subject_key'        => $subject_key,
+			'academic_period_id' => $academic_period_id,
+			'name'               => $title,
+			'teacher_id'         => $teacher_id,
+			'schedule'           => (string) wp_json_encode( $schedule ),
+		) );
+
+		if ( ! $id ) {
+			$this->error( 'Не удалось создать группу.' );
+		}
+
+		$this->success( array( 'id' => $id, 'title' => $title ) );
 	}
 
 	/**
-	 * AJAX-обработчик для удаления группы.
-	 * Экшен: fs_lms_delete_student_group
+	 * Получает список активных студентов в указанной группе.
 	 *
 	 * @return void
 	 */
 	public function ajaxGetStudentsByGroup(): void {
 		$this->authorize( Nonce::Manager );
 
-		$group_id  = $this->requireKey( 'group_id', error: 'ID группы не указан.' );
-		$user_ids  = $this->matrix_repository->getStudentsByGroup( $group_id );
+		$group_id = $this->sanitizeInt( 'group_id' );
+
+		// findActiveByGroupId() — поиск активных записей студентов в группе
+		$records = $this->studentRecordRepository->findActiveByGroupId( $group_id );
 
 		$students = array();
-		foreach ( $user_ids as $user_id ) {
-			$user = get_userdata( $user_id );
-			if ( $user ) {
-				$students[] = array(
-					'id'   => $user_id,
-					'name' => $user->display_name,
-				);
-			}
+		foreach ( $records as $record ) {
+			$person = $this->personRepository->find( $record->studentPersonId );
+			$wpUser = $person?->wpUserId ? get_userdata( $person->wpUserId ) : null;
+			$students[] = array(
+				'id'   => $record->studentPersonId,
+				'name' => $wpUser ? $wpUser->display_name : ( $person?->fullName() ?: "Person #{$record->studentPersonId}" ),
+			);
 		}
 
 		$this->success( $students );
 	}
 
+	/**
+	 * Удаляет группу студентов.
+	 *
+	 * @return void
+	 */
 	public function ajaxDeleteStudentGroup(): void {
-		// Защита
 		$this->authorize( Nonce::Manager );
 
-		// Извлекаем уникальный ID (слаг) удаляемой группы
-		$id = $this->requireKey( 'id', error: 'Идентификатор группы не указан.' );
+		$id = $this->sanitizeInt( 'id' );
 
-		$deleted = $this->group_service->deleteGroup( $id );
+		if ( ! $id ) {
+			$this->error( 'Идентификатор группы не указан.' );
+		}
 
-		// Унифицированный ответ через трейт AjaxResponse
-		$this->respond(
-			result: $deleted ? array( 'id' => $id ) : false,
-			error_msg: 'Ошибка удаления. Группа не найдена или уже удалена.',
-			success_msg: 'Группа успешно удалена.'
-		);
+		$deleted = $this->groupsRepository->delete( $id );
+
+		if ( ! $deleted ) {
+			$this->error( 'Ошибка удаления. Группа не найдена или уже удалена.' );
+		}
+
+		$this->success( array( 'id' => $id ) );
 	}
 }

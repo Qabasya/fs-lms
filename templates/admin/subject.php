@@ -5,7 +5,7 @@
  * @var array $args
  */
 
-/** @var \Inc\DTO\SubjectViewDTO $dto */
+/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
 $dto     = $args['data'];
 $subject = $dto->subject_data;
 

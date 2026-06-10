@@ -2,7 +2,7 @@
 /**
  * @var string                               $subject              Ключ предмета
  * @var string                               $term                 Слаг типа задания
- * @var \Inc\DTO\TaskTypeBoilerplateDTO[]     $boilerplates         Список boilerplate
+ * @var \Inc\DTO\Task\TaskTypeBoilerplateDTO[]     $boilerplates         Список boilerplate
  * @var string                               $display_name         Отображаемое имя типа задания
  * @var string                               $subject_display_name Отображаемое имя предмета
  * @var string                               $back_url             PageRoutes кнопки «Назад»

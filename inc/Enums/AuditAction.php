@@ -2,6 +2,7 @@
 
 namespace Inc\Enums;
 
+
 enum AuditAction: string {
 	// ===== Заявки (Applications) =====
 
@@ -11,8 +12,11 @@ enum AuditAction: string {
 	/** Отправка данных родителя */
 	case SubmitParentData = 'submit_parent_data';
 
-	/** Просмотр ссылки на вступление */
-	case ViewJoinLink = 'view_join_link';
+	/** Администратор скопировал ссылку на вступление */
+	case CopyJoinLink = 'copy_join_link';
+
+	/** Администратор назначил родителя ученику */
+	case AddParent = 'add_parent_join_link';
 
 	/** Просмотр заявки */
 	case ViewApplication = 'view_application';
@@ -28,19 +32,8 @@ enum AuditAction: string {
 	/** Ошибка при зачислении студента */
 	case EnrollStudentFailed = 'enroll_student_failed';
 
-	/** Прекращение обучения студента */
-	case TerminateEnrollment = 'terminate_enrollment';
-
-	// ===== Связи родитель-студент =====
-
-	/** Создание связи (родитель → студент) */
-	case CreateRelationship = 'create_relationship';
-
-	/** Замена связи (изменение родителя) */
-	case ReplaceRelationship = 'replace_relationship';
-
-	/** Прекращение связи */
-	case TerminateRelationship = 'terminate_relationship';
+	/** Отчисление студента из группы */
+	case StudentExpelled = 'student_expelled';
 
 	// ===== Личные данные (Person) =====
 
@@ -55,30 +48,6 @@ enum AuditAction: string {
 	/** Отзыв согласия */
 	case ConsentWithdrawn = 'consent_withdrawn';
 
-	// ===== Аутентификация и пароли =====
-
-	/** Генерация ссылки для установки пароля */
-	case PasswordLinkGenerated = 'password_link_generated';
-
-	/** Генерация и установка пароля администратором при зачислении */
-	case PasswordGenerated = 'password_generated';
-
-	/** Установка пароля пользователем */
-	case PasswordSet = 'password_set';
-
-	// ===== PII (Персональные данные) =====
-
-	/** Запрос на удаление персональных данных */
-	case PiiDeletionRequested = 'pii_deletion_requested';
-
-	/** Экспорт персональных данных пользователя */
-	case PiiExported = 'pii_exported';
-
-	// ===== Списки и просмотры =====
-
-	/** Просмотр списка заявок */
-	case ViewApplicationsList = 'view_applications_list';
-
 	// ===== Корзина заявок =====
 
 	/** Перемещение заявки в корзину */
@@ -92,14 +61,64 @@ enum AuditAction: string {
 
 	/** Редактирование данных заявки администратором */
 	case UpdateApplicationData = 'update_application_data';
-	case UpdateReviewData      = 'update_review_data';
+	case CancelEnrollment      = 'cancel_enrollment';
 	case StartEnrollment       = 'start_enrollment';
 
-	// ===== Отчисление =====
-
-	/** Отчисление студента с удалением профилей */
-	case StudentExpelled = 'student_expelled';
 
 	/** Экспорт записи архива отчисленных */
 	case ExpelledArchiveExported = 'expelled_archive_exported';
+	case StudentExported = 'student_exported';
+	case ParentExported = 'parent_exported';
+
+	// ===== Жёсткое удаление =====
+
+	case HardDeletePerson   = 'hard_delete_person';
+	case HardDeleteGroup    = 'hard_delete_group';
+	case HardDeleteSubject  = 'hard_delete_subject';
+	case HardDeletePeriod   = 'hard_delete_period';
+
+
+	/**
+	 * Возвращает человекочитаемое название действия
+	 *
+	 * Используется в логах
+	 *
+	 * @return string Название шаблона
+	 */
+	public function label(): string {
+		return match ( $this ) {
+			self::CreateApplication      => 'Создана заявка',
+			self::SubmitParentData       => 'Подписано родителем',
+			self::CopyJoinLink           => 'Ссылка для родителя скопирована',
+			self::AddParent              => 'Назначен родитель',
+			self::ViewApplication        => 'Просмотр заявки',
+			self::ExpireApplication      => 'Время действие ссылки истекло',
+
+			self::EnrollStudent          => 'Зачислен ученик',
+			self::EnrollStudentFailed    => 'Ошибка зачисления',
+			self::StudentExpelled        => 'Отчислен ученик',
+
+			self::UpdatePerson           => 'Обновлены данные',
+
+			self::ConsentSigned          => 'Согласие подписано',
+			self::ConsentWithdrawn       => 'Согласие отозвано',
+
+			self::MoveToTrash            => 'Перемещение в корзину',
+			self::RestoreFromTrash       => 'Восстановление из корзины',
+			self::EmptyTrash             => 'Очистка корзины',
+
+			self::UpdateApplicationData  => 'Обновление данных заявки',
+			self::CancelEnrollment       => 'Зачисление не завершено',
+			self::StartEnrollment        => 'Начато зачисление',
+
+			self::ExpelledArchiveExported => 'Экспортированы записи архива',
+			self::StudentExported         => 'Экспортированы данные ученика(ов)',
+			self::ParentExported          => 'Экспортированы данные родителя(ей)',
+
+			self::HardDeletePerson       => 'Жёсткое удаление пользователя',
+			self::HardDeleteGroup        => 'Жёсткое удаление группы',
+			self::HardDeleteSubject      => 'Жёсткое удаление предмета',
+			self::HardDeletePeriod       => 'Жёсткое удаление периода',
+		};
+	}
 }

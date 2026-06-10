@@ -53,6 +53,12 @@ class ThemeCompatService {
 	 * Выводит DOCTYPE, <head> и открывающий <body> для блочных тем.
 	 */
 	private static function openHtmlSkeleton(): void {
+		// block_template_part('header') вызывается ПОСЛЕ wp_head(), поэтому блоки,
+		// использующие Interactivity API, регистрируют модуль слишком поздно —
+		// importmap уже выведен. Принудительно ставим в очередь до wp_head().
+		if ( function_exists( 'wp_enqueue_script_module' ) ) {
+			wp_enqueue_script_module( '@wordpress/interactivity' );
+		}
 		?>
 		<!DOCTYPE html>
 		<html <?php language_attributes(); ?>>

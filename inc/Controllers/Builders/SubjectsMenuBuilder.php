@@ -2,7 +2,7 @@
 
 namespace Inc\Controllers\Builders;
 
-use Inc\Callbacks\SubjectPageCallbacks;
+use Inc\Callbacks\Subject\SubjectPageCallbacks;
 use Inc\Contracts\MenuBuilderInterface;
 use Inc\Enums\Capability;
 use Inc\Enums\MenuSlug;
@@ -128,7 +128,7 @@ class SubjectsMenuBuilder implements MenuBuilderInterface {
 	/**
 	 * Возвращает предметы из репозитория, кэшируя результат.
 	 *
-	 * @return \Inc\DTO\SubjectDTO[]
+	 * @return \Inc\DTO\Subject\SubjectDTO[]
 	 */
 	private function getSubjects(): array {
 		if ( null === $this->subjects ) {

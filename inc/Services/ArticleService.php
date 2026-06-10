@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Services;
 
-use Inc\DTO\TermViewDTO;
+use Inc\DTO\Subject\TermViewDTO;
 use Inc\Managers\TermManager;
 use Inc\Repositories\OptionsRepositories\ArticleRepository;
 

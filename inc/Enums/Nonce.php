@@ -34,9 +34,17 @@ enum Nonce: string {
 	case ExportPii             = 'fs_lms_export_pii';
 	case VerifyOtp             = 'fs_lms_verify_otp';
 	case TrashApplication      = 'fs_lms_trash_application';
-	case EditApplication       = 'fs_lms_edit_application';
-	case ReviewApplication     = 'fs_lms_review_application';
-	case Expulsion             = 'fs_lms_expulsion';
+	case EditApplication          = 'fs_lms_edit_application';
+	case ReviewApplication        = 'fs_lms_review_application';
+	case Expulsion                = 'fs_lms_expulsion';
+	case SelectExistingParent     = 'fs_lms_select_existing_parent';
+	case RemoveParentAssignment        = 'fs_lms_remove_parent_assignment';
+	case CheckUsernameAvailable        = 'fs_lms_check_username';
+	case CheckEmailAvailable           = 'fs_lms_check_email';
+	case RestoreFromArchive       = 'fs_lms_restore_from_archive';
+	case DeleteGroup              = 'fs_lms_delete_group';
+	case DeletePeriod             = 'fs_lms_delete_period';
+	case HardDeleteStudent        = 'fs_lms_hard_delete_student';
 
 	/**
 	 * Создает защитный токен.

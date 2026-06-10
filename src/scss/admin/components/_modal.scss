@@ -400,6 +400,14 @@ html.modal-open {
   &:hover span {
     color: $color-primary;
   }
+
+  &--disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+
+    input[type="radio"] { cursor: not-allowed; }
+    &:hover span { color: $color-text-primary; }
+  }
 }
 
 // ── Сохранение переносов строк в сообщениях
@@ -1017,7 +1025,8 @@ html.modal-open {
   display: flex;
   align-items: center;
   min-height: 35px;            // совпадает с высотой form-input
-  border: 1px solid transparent;
+  background: $wp-admin-gray-bg-light;
+  border: 1px solid $color-border-input;
   border-radius: $border-radius-md;
   transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
 
@@ -1042,6 +1051,9 @@ html.modal-open {
   // Кнопка копирования: невидима по умолчанию, появляется при наведении
   .fs-copy-field__btn {
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-color: transparent !important;
     background: transparent !important;
     opacity: 0;
@@ -1052,6 +1064,12 @@ html.modal-open {
       color        0.18s,
       border-color 0.18s,
       background   0.18s;
+
+    .fs-copy-field__icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
   }
 
   &:hover .fs-copy-field__btn {
@@ -1097,11 +1115,11 @@ html.modal-open {
   display: inline-flex;
 }
 
-// Все readonly-поля карточек ученика и родителя выглядят как текст
-#fs-student-person-modal .fs-person-field[readonly],
-#fs-parent-person-modal .fs-person-field[readonly] {
+// Readonly-инпуты внутри fs-pfield не должны перебивать фон обёртки
+#fs-student-person-modal .fs-pfield .fs-person-field[readonly],
+#fs-parent-person-modal .fs-pfield .fs-person-field[readonly] {
   background: transparent !important;
-  border-color: transparent !important;
+  border: none !important;
   box-shadow: none !important;
   cursor: default;
 }

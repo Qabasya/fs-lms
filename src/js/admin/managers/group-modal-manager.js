@@ -3,11 +3,9 @@ import {
     apiError,
     escapeHtml,
     showNotice,
-    showModalError,
 } from '../modules/utils.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
 import { GroupModal } from '../modals/group-modal';
-import { ExpelModal } from '../modals/expel-modal.js';
 
 const $ = jQuery;
 
@@ -47,7 +45,7 @@ export const GroupModalManager = {
                 if (res.success) {
                     location.reload();
                 } else {
-                    showNotice(res.data?.message || res.data || 'Ошибка сохранения группы.', 'error', GroupModal.$modal.find( '.fs-lms-modal-body' ));
+                    showNotice(res.data?.message || res.data || 'Ошибка сохранения группы.', 'error', GroupModal.$modal.find('.fs-lms-modal-body'));
                     GroupModal.setSaveState(false);
                 }
             })
@@ -63,59 +61,86 @@ export const GroupModalManager = {
         const id    = $btn.data('id');
         const $row  = $btn.closest('tr');
         const name  = $row.find('.column-title strong').text().trim();
-        const safeName = escapeHtml(name);
 
-        ConfirmModal.confirm({
-            title:       'Удалить группу?',
-            message:     `Удаление группы «${safeName}» приведёт к отчислению всех её учеников.\nПосле подтверждения вы выберете причину отчисления.`,
-            confirmText: 'Продолжить',
-            cancelText:  'Отмена',
-            size:        'sm',
-            isDanger:    true,
+        toggleButton($btn, true, '...');
+
+        $.post(fs_lms_vars.ajaxurl, {
+            action:   fs_lms_vars.ajax_actions.checkGroupDeletion,
+            security: fs_lms_vars.nonces.deleteGroup,
+            group_id: id,
         })
-            .then( () => this._fetchStudentsAndExpel( id, $btn, $row ) )
-            .catch( () => {} );
+            .done((res) => {
+                toggleButton($btn, false);
+
+                if (!res.success) {
+                    showNotice(res.data?.message || 'Ошибка проверки группы.', 'error', $row.closest('.wrap'));
+                    return;
+                }
+
+                const studentCount = res.data?.student_count ?? 0;
+
+                if (studentCount === 0) {
+                    this._doDelete(id, $btn, $row);
+                    return;
+                }
+
+                this._loadStudentsAndConfirm(id, $btn, $row, name, studentCount);
+            })
+            .fail(() => {
+                toggleButton($btn, false);
+                apiError('Failed to check group deletion');
+            });
     },
 
-    _fetchStudentsAndExpel( id, $btn, $row ) {
-        toggleButton( $btn, true, '...' );
-
-        $.post( fs_lms_vars.ajaxurl, {
+    _loadStudentsAndConfirm(id, $btn, $row, groupName, studentCount) {
+        $.post(fs_lms_vars.ajaxurl, {
             action:   fs_lms_vars.ajax_actions.getStudentsByGroup,
             group_id: id,
             security: fs_lms_vars.nonces.manager,
-        } )
-            .done( ( res ) => {
-                toggleButton( $btn, false );
-
-                if ( ! res.success ) {
-                    showNotice( 'Ошибка загрузки списка учеников.', 'error', $row.closest( '.wrap' ) );
-                    return;
-                }
-
+        })
+            .done((res) => {
                 const students = res.data || [];
-                const doDelete = () => this._doDelete( id, $btn, $row );
+                const studentList = students
+                    .map(s => `• ${escapeHtml(s.name || s.last_name || String(s.id))}`)
+                    .join('\n');
 
-                if ( ! students.length ) {
-                    doDelete();
-                    return;
-                }
+                const safeName = escapeHtml(groupName);
+                const orphanNote = 'Ученики, у которых нет других зачислений, будут удалены безвозвратно вместе со всеми данными.';
+                const message = `В группе «${safeName}» ${studentCount} уч.:\n${studentList}\n\n${orphanNote}`;
 
-                ExpelModal.openBulk( students, { afterExpel: doDelete } );
-            } )
-            .fail( () => {
-                toggleButton( $btn, false );
-                apiError( 'Failed to load students for group' );
-            } );
+                ConfirmModal.confirm({
+                    title:       'Удалить группу?',
+                    message,
+                    confirmText: 'Удалить',
+                    cancelText:  'Отмена',
+                    size:        'sm',
+                    isDanger:    true,
+                })
+                    .then(() => this._doDelete(id, $btn, $row))
+                    .catch(() => {});
+            })
+            .fail(() => {
+                const safeName = escapeHtml(groupName);
+                ConfirmModal.confirm({
+                    title:       'Удалить группу?',
+                    message:     `В группе «${safeName}» ${studentCount} уч. Ученики без других зачислений будут удалены безвозвратно. Продолжить?`,
+                    confirmText: 'Удалить',
+                    cancelText:  'Отмена',
+                    size:        'sm',
+                    isDanger:    true,
+                })
+                    .then(() => this._doDelete(id, $btn, $row))
+                    .catch(() => {});
+            });
     },
 
     _doDelete(id, $btn, $row) {
         toggleButton($btn, true, '...');
 
         $.post(fs_lms_vars.ajaxurl, {
-            action:   fs_lms_vars.ajax_actions.deleteStudentGroup,
-            security: fs_lms_vars.nonces.manager,
-            id:       id
+            action:   fs_lms_vars.ajax_actions.deleteGroup,
+            security: fs_lms_vars.nonces.deleteGroup,
+            group_id: id,
         })
             .done((res) => {
                 if (res.success) {
@@ -132,7 +157,7 @@ export const GroupModalManager = {
             })
             .fail(() => {
                 toggleButton($btn, false);
-                apiError('Failed to delete student group');
+                apiError('Failed to delete group');
             });
-    }
+    },
 };

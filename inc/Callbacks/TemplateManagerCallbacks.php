@@ -3,8 +3,8 @@
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
-use Inc\DTO\TaskTemplateAssignmentDTO;
-use Inc\DTO\TaskTypeBoilerplateDTO;
+use Inc\DTO\Task\TaskTemplateAssignmentDTO;
+use Inc\DTO\Task\TaskTypeBoilerplateDTO;
 use Inc\Enums\Nonce;
 use Inc\Enums\TaskTemplate;
 use Inc\Managers\PostManager;

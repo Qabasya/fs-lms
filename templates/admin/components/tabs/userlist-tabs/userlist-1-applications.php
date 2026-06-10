@@ -167,7 +167,6 @@ $statusLabels = array_combine(
 						$parentFirstName    = $pd['first_name']  ?? $pParts[1] ?? '';
 						$parentMiddleName   = $pd['middle_name'] ?? $pParts[2] ?? '';
 						$parentBirthDate    = $pd['birth_date']      ?? '';
-						$parentRelationType = $pd['relation_type']   ?? '';
 						$parentDocType      = $pd['doc_type']        ?? '';
 						$parentDocNumber    = $pd['doc_number']      ?? '';
 						$parentDocIssuedBy  = $pd['doc_issued_by']   ?? '';
@@ -229,6 +228,30 @@ $statusLabels = array_combine(
 					<?php else : ?>
 						<span class="fs-table__empty-value">—</span>
 					<?php endif; ?>
+					<?php if ( $app->status === ApplicationStatus::PendingParent ) : ?>
+						<br>
+						<?php if ( $app->parentPersonId !== null ) : ?>
+							<button type="button"
+								class="button-link js-select-existing-parent"
+								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
+								style="margin-top: 4px; font-size: 11px;">
+								<?php esc_html_e( '✎ Сменить родителя', 'fs-lms' ); ?>
+							</button>
+							<button type="button"
+								class="button-link js-remove-parent-assignment"
+								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
+								style="margin-top: 4px; font-size: 11px; color:#a00;">
+								<?php esc_html_e( '✕ Снять назначение', 'fs-lms' ); ?>
+							</button>
+						<?php else : ?>
+							<button type="button"
+								class="button-link js-select-existing-parent"
+								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
+								style="margin-top: 4px; font-size: 11px;">
+								<?php esc_html_e( '+ Назначить родителя', 'fs-lms' ); ?>
+							</button>
+						<?php endif; ?>
+					<?php endif; ?>
 				</td>
 
 				<td class="column-date">
@@ -258,7 +281,6 @@ $statusLabels = array_combine(
 								   data-p-first-name="<?php echo esc_attr( $parentFirstName ); ?>"
 								   data-p-middle-name="<?php echo esc_attr( $parentMiddleName ); ?>"
 								   data-p-birth-date="<?php echo esc_attr( $parentBirthDate ); ?>"
-								   data-p-relation-type="<?php echo esc_attr( $parentRelationType ); ?>"
 								   data-p-email="<?php echo esc_attr( $parentEmail ); ?>"
 								   data-p-phone="<?php echo esc_attr( $parentPhone ); ?>"
 								   data-p-doc-type="<?php echo esc_attr( $parentDocType ); ?>"
@@ -335,7 +357,6 @@ $statusLabels = array_combine(
 					   data-p-first-name="<?php echo esc_attr( $parentFirstName ); ?>"
 					   data-p-middle-name="<?php echo esc_attr( $parentMiddleName ); ?>"
 					   data-p-birth-date="<?php echo esc_attr( $parentBirthDate ); ?>"
-					   data-p-relation-type="<?php echo esc_attr( $parentRelationType ); ?>"
 					   data-p-email="<?php echo esc_attr( $parentEmail ); ?>"
 					   data-p-phone="<?php echo esc_attr( $parentPhone ); ?>"
 					   data-p-doc-type="<?php echo esc_attr( $parentDocType ); ?>"
@@ -364,7 +385,6 @@ $statusLabels = array_combine(
 					   data-p-first-name="<?php echo esc_attr( $parentFirstName ); ?>"
 					   data-p-middle-name="<?php echo esc_attr( $parentMiddleName ); ?>"
 					   data-p-birth-date="<?php echo esc_attr( $parentBirthDate ); ?>"
-					   data-p-relation-type="<?php echo esc_attr( $parentRelationType ); ?>"
 					   data-p-email="<?php echo esc_attr( $parentEmail ); ?>"
 					   data-p-phone="<?php echo esc_attr( $parentPhone ); ?>"
 					   data-p-doc-type="<?php echo esc_attr( $parentDocType ); ?>"
@@ -419,3 +439,4 @@ $statusLabels = array_combine(
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-review-modal.php'; ?>
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-enrollment-modal.php'; ?>
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/select-parent-modal.php'; ?>

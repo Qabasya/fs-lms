@@ -1,5 +1,5 @@
 <?php
-/** @var \Inc\DTO\SubjectViewDTO $dto */
+/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 // 1. Выносим словарь за пределы цикла, чтобы не нагружать память
@@ -21,7 +21,6 @@ $display_labels = array(
 		<thead>
 		<tr>
 			<th class=" column-primary tw-30">Название</th>
-			<th class="" >Ярлык (Slug)</th>
 			<th class="">Тип отображения</th>
 			<th class="">Обязательна</th>
 			<th class="">Действия</th>
@@ -33,8 +32,8 @@ $display_labels = array(
 			<?php
 			$is_protected = ( $tax->slug === $dto->protected_tax );
 			$display_type = $tax->display_type ?? 'select';
-			// Получаем красивое название из словаря
 			$display_text = $display_labels[ $display_type ] ?? $display_type;
+			$has_no_terms = $tax->is_required && ( (int) wp_count_terms( array( 'taxonomy' => $tax->slug, 'hide_empty' => false ) ) === 0 );
 			?>
 			<tr data-slug="<?php echo esc_attr( $tax->slug ); ?>"
 				data-name="<?php echo esc_attr( $tax->name ); ?>"
@@ -47,10 +46,10 @@ $display_labels = array(
 						<span class="dashicons dashicons-lock" title="Системная таксономия"
 								style="font-size: 16px; color: #8c8f94; vertical-align: text-bottom;"></span>
 					<?php endif; ?>
-				</td>
-
-				<td>
-					<?php render_fs_badge( $tax->slug, 'blue' ); ?>
+					<?php if ( $has_no_terms ) : ?>
+						<span class="dashicons dashicons-warning" title="Нет термов — задания нельзя публиковать"
+								style="font-size: 16px; color: #d63638; vertical-align: text-bottom;"></span>
+					<?php endif; ?>
 				</td>
 
 				<td>
@@ -87,7 +86,7 @@ $display_labels = array(
 
 		<tfoot>
 		<tr class="fs-add-row-tr">
-			<td colspan="5">
+			<td colspan="4">
 				<button type="button" class="button-link scss-add-item js-add-taxonomy" title="Добавить таксономию">
 					<span class="dashicons dashicons-plus"></span>
 				</button>

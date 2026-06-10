@@ -7,7 +7,8 @@
  * Глобальные переменные: fs_lms_apply_vars (локализуются в Enqueue.php)
  */
 
-import { initFormValidation } from '../../common/validation-manager.js';
+import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
+import { bindPhoneMask } from '../../common/input-masks.js';
 
 /** @type {{ ajax_url: string, captcha_key: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
 const vars = window.fs_lms_apply_vars;
@@ -38,59 +39,6 @@ function collectFormData() {
         school:      document.getElementById( 'fs_school' )?.value.trim()     ?? '',
         grade:       document.getElementById( 'fs_grade' )?.value             ?? '',
     };
-}
-
-// ── Маскирование телефона ───────────────────────────────────────────────────
-
-function handlePhoneInput( e ) {
-    const input = e.target;
-    let value = input.value;
-
-    if ( ! value ) {
-        input.value = '+7(';
-        return;
-    }
-
-    if ( ! value.startsWith( '+7(' ) ) {
-        let digits = value.replace( /\D/g, '' );
-        if ( digits.startsWith( '7' ) || digits.startsWith( '8' ) ) {
-            digits = digits.substring( 1 );
-        }
-        value = '+7(' + digits;
-    }
-
-    const prefix = '+7(';
-    const maxDigitsAfterPrefix = 10;
-    let pureDigits = value.substring( prefix.length ).replace( /\D/g, '' ).substring( 0, maxDigitsAfterPrefix );
-
-    let formatted = prefix;
-
-    if ( pureDigits.length > 0 ) {
-        formatted += pureDigits.substring( 0, 3 );
-    }
-    if ( pureDigits.length >= 3 ) {
-        formatted += ')-';
-    } else if ( e.type === 'blur' && pureDigits.length > 0 ) {
-        formatted += ')';
-    }
-
-    if ( pureDigits.length > 3 ) {
-        formatted += pureDigits.substring( 3, 6 );
-    }
-    if ( pureDigits.length >= 6 ) {
-        formatted += '-';
-    }
-    if ( pureDigits.length > 6 ) {
-        formatted += pureDigits.substring( 6, 8 );
-    }
-    if ( pureDigits.length >= 8 ) {
-        formatted += '-';
-    }
-    if ( pureDigits.length > 8 ) {
-        formatted += pureDigits.substring( 8, 10 );
-    }
-
-    input.value = formatted;
 }
 
 // ── AJAX-утилиты ─────────────────────────────────────────────────────────────
@@ -229,6 +177,29 @@ async function handleResendOtp() {
 
 // ── Инициализация ─────────────────────────────────────────────────────────────
 
+async function checkUsernameAvailable( input ) {
+    const username = input.value.trim();
+    if ( ! username ) { return true; }
+
+    try {
+        const body = new URLSearchParams( {
+            action:   vars.actions.check_username,
+            security: vars.nonces.check_username,
+            username,
+        } );
+        const res  = await fetch( vars.ajax_url, { method: 'POST', body } );
+        const json = await res.json();
+
+        if ( json?.success && json.data?.available === false ) {
+            renderFieldError( input, 'Этот логин уже занят.' );
+            return false;
+        }
+    } catch {}
+
+    clearFieldError( input );
+    return true;
+}
+
 export function initApplyForm() {
     if ( ! window.fs_lms_apply_vars ) { return; }
 
@@ -236,6 +207,11 @@ export function initApplyForm() {
     if ( ! applyForm ) { return; }
 
     const validateAll = initFormValidation( applyForm );
+
+    const usernameInput = document.getElementById( 'fs_username' );
+    if ( usernameInput ) {
+        usernameInput.addEventListener( 'blur', () => checkUsernameAvailable( usernameInput ) );
+    }
 
     applyForm.addEventListener( 'submit', async ( e ) => {
         e.preventDefault();
@@ -246,6 +222,8 @@ export function initApplyForm() {
         clearError( applyForm );
 
         if ( ! validateAll() ) { return; }
+
+        if ( usernameInput && ! await checkUsernameAvailable( usernameInput ) ) { return; }
 
         setLoading( btn, true );
 
@@ -281,21 +259,5 @@ export function initApplyForm() {
     document.getElementById( 'fs-resend-otp-btn' )
         .addEventListener( 'click', handleResendOtp );
 
-    const phoneInput = document.getElementById( 'fs_phone' );
-    if ( phoneInput ) {
-        phoneInput.addEventListener( 'focus', ( e ) => {
-            if ( ! e.target.value ) {
-                e.target.value = '+7(';
-            }
-        } );
-
-        phoneInput.addEventListener( 'input', handlePhoneInput );
-
-        phoneInput.addEventListener( 'keydown', ( e ) => {
-            const value = e.target.value;
-            if ( value === '+7(' && ( e.key === 'Backspace' || e.key === 'Delete' ) ) {
-                e.preventDefault();
-            }
-        } );
-    }
+    bindPhoneMask( document.getElementById( 'fs_phone' ) );
 }

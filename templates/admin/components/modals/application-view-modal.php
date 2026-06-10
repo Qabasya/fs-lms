@@ -110,10 +110,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 								<label><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></label>
 								<p class="fs-view-field" data-avm="p_birth_date"></p>
 							</div>
-							<div class="fs-form-group">
-								<label><?php esc_html_e( 'Роль', 'fs-lms' ); ?></label>
-								<p class="fs-view-field" data-avm="p_relation_type"></p>
-							</div>
 						</div>
 						<div class="fs-form-row">
 							<div class="fs-form-group">

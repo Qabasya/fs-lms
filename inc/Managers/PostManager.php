@@ -148,9 +148,9 @@ class PostManager {
 	 * @param string $page      Значение GET-параметра page
 	 * @param string $tab       Слаг вкладки (например, "tab-2")
 	 *
-	 * @return \Inc\DTO\PostsListTableDTO
+	 * @return \Inc\DTO\Task\PostsListTableDTO
 	 */
-	public function buildListTable( string $post_type, string $page, string $tab ): \Inc\DTO\PostsListTableDTO {
+	public function buildListTable( string $post_type, string $page, string $tab ): \Inc\DTO\Task\PostsListTableDTO {
 		// Подключаем класс WP_Posts_List_Table, если не загружен
 		if ( ! class_exists( 'WP_Posts_List_Table' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/class-wp-posts-list-table.php';
@@ -180,7 +180,7 @@ class PostManager {
 		$_GET['post_type'] = $post_type;
 		$table->prepare_items();
 
-		return new \Inc\DTO\PostsListTableDTO(
+		return new \Inc\DTO\Task\PostsListTableDTO(
 			table           : $table,
 			post_type_object: get_post_type_object( $post_type ),
 			post_type       : $post_type,

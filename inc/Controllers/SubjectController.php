@@ -2,12 +2,12 @@
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\SubjectCrudCallbacks;
-use Inc\Callbacks\SubjectDataCallbacks;
-use Inc\Callbacks\SubjectImportExportCallbacks;
-use Inc\Callbacks\SubjectPageCallbacks;
-use Inc\Callbacks\SubjectValidationCallbacks;
-use Inc\Callbacks\TaxonomySettingsCallbacks;
+use Inc\Callbacks\Subject\SubjectCrudCallbacks;
+use Inc\Callbacks\Subject\SubjectDataCallbacks;
+use Inc\Callbacks\Subject\SubjectImportExportCallbacks;
+use Inc\Callbacks\Subject\SubjectPageCallbacks;
+use Inc\Callbacks\Subject\SubjectValidationCallbacks;
+use Inc\Callbacks\Subject\TaxonomySettingsCallbacks;
 use Inc\Callbacks\TemplateCallbacks;
 use Inc\Callbacks\TemplateManagerCallbacks;
 use Inc\Enums\AjaxHook;
@@ -40,7 +40,7 @@ use Inc\Shared\Traits\NumericSorter;
  * Делегирует регистрацию CPT и таксономий специализированным регистраторам, а AJAX-логику — коллбекам.
  */
 class SubjectController extends AjaxController {
-	use NumericSorter;  // Трейт с методом addNumericSort() для числовой сортировки терминов
+	use NumericSorter;
 
 	/**
 	 * Конструктор.
@@ -96,8 +96,9 @@ class SubjectController extends AjaxController {
 		// Настройка числовой сортировки терминов таксономий
 		$this->setupTermSorting();
 
-		// 'admin_notices' — хук для вывода уведомлений в админ-панели
-		add_action( 'admin_notices', array( $this->page_callbacks, 'showRequiredTaxNotice' ) );
+		add_action( 'admin_notices', array( $this->validation_callbacks, 'showEmptyRequiredTaxNotice' ) );
+
+
 
 		// Очистка кеша при сохранении или удалении поста
 		// 'save_post' — хук сохранения поста (передаёт ID и объект поста)

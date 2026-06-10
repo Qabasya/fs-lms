@@ -9,6 +9,11 @@ import {AuthSettings} from "./services/auth-settings";
 import { GroupsTable } from "./services/groups-table.js";
 import { ApplicationsTable } from './services/applications-table.js';
 import { StudentsTable } from './services/students-table.js';
+import { LogsTable } from './services/logs-table.js';
+import { EmailTemplateSettings } from './services/email-template-settings.js';
+import { ConsentSettings } from './services/consent-settings.js';
+import { PersonDetail } from './services/person-detail.js';
+import { HardDeleteStudentService } from './services/hard-delete-student-service.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/academic-period-modal-manager";
@@ -22,8 +27,10 @@ import { ApplicationEnrollmentModalManager } from './managers/application-enroll
 import { StudentPersonModalManager } from './managers/student-person-modal-manager.js';
 import { ParentPersonModalManager } from './managers/parent-person-modal-manager.js';
 import { ExpelModalManager } from './managers/expel-modal-manager.js';
+import { ArchiveViewModalManager } from './managers/archive-view-modal-manager.js';
 
 import { ApplicationViewModal } from './modals/application-view-modal.js';
+import { SelectParentModal } from './modals/select-parent-modal.js';
 import { TeacherViewModal } from './modals/teacher-view-modal.js';
 import { AlertModal } from './modals/alert-modal.js';
 
@@ -79,7 +86,10 @@ import { AlertModal } from './modals/alert-modal.js';
             ApplicationReviewModalManager.init();
             ApplicationEnrollmentModalManager.init();
             ApplicationViewModal.init();
+            SelectParentModal.init();
         }
+
+        if ( $( '.fs-lms-archive' ).length ) { ArchiveViewModalManager.init(); }
 
         if ( $( '.fs-lms-students' ).length ) { StudentsTable.init(); }
 
@@ -95,6 +105,16 @@ import { AlertModal } from './modals/alert-modal.js';
         }
 
         ExpelModalManager.init();
+
+        LogsTable.init();
+        EmailTemplateSettings.init();
+        ConsentSettings.init();
+
+        if ( $( '.fs-person-detail' ).length ) {
+            PersonDetail.init();
+        }
+
+        HardDeleteStudentService.init();
 
     });
 

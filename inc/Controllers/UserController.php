@@ -40,6 +40,8 @@ class UserController extends BaseController implements ServiceInterface {
 
 		add_filter( 'login_redirect', array( $this->user_behavior, 'resolveLoginRedirect' ), 10, 3 );
 
+		add_filter( 'allow_password_reset', array( $this->user_behavior, 'blockPasswordReset' ), 10, 2 );
+
 		add_filter( 'ajax_query_attachments_args', array( $this->user_behavior, 'getMediaFilterArgs' ) );
 
 		add_filter(

@@ -13,12 +13,14 @@ use Inc\Services\Application\ApplicationService;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\AuditService;
 use Inc\Services\CaptchaService;
-use Inc\Services\EmailOtpService;
+use Inc\Services\Email\EmailOtpService;
 use Inc\Services\PiiCryptoService;
+use Inc\Services\Log\AuthLogWriter;
 use Inc\Services\RateLimitService;
-use Inc\DTO\ApplicationInputDTO;
+use Inc\DTO\Application\ApplicationInputDTO;
 use Inc\DTO\ParentSubmissionInputDTO;
-use Inc\DTO\StudentDataDTO;
+use Inc\DTO\Enrollment\StudentDataDTO;
+use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -57,14 +59,16 @@ class ApplicationCallbacks extends BaseController {
 	 * @param AuditService         $auditService          Сервис аудита
 	 */
 	public function __construct(
-		private readonly ApplicationService  $applicationService,
-		private readonly EmailOtpService     $emailOtpService,
-		private readonly CaptchaService      $captchaService,
-		private readonly RateLimitService    $rateLimitService,
-		private readonly JoinCodeService     $joinCodeService,
-		private readonly ApplicationRepository $applicationRepository,
-		private readonly PiiCryptoService    $crypto,
-		private readonly AuditService        $auditService,
+		private readonly ApplicationService           $applicationService,
+		private readonly EmailOtpService              $emailOtpService,
+		private readonly CaptchaService               $captchaService,
+		private readonly RateLimitService             $rateLimitService,
+		private readonly JoinCodeService              $joinCodeService,
+		private readonly ApplicationRepository        $applicationRepository,
+		private readonly PiiCryptoService             $crypto,
+		private readonly AuditService                 $auditService,
+		private readonly ConsentDefinitionsRepository $consentDefinitions,
+		private readonly AuthLogWriter                $authLog,
 	) {
 		parent::__construct();
 	}
@@ -90,8 +94,11 @@ class ApplicationCallbacks extends BaseController {
 				'email'      => 'test-student@example.com',
 				'phone'      => '+78005553535',
 			) ) );
-			set_query_var( 'fs_lms_join_code', $code );
-			set_query_var( 'fs_lms_app_id',    0 );
+			set_query_var( 'fs_lms_join_code',     $code );
+			set_query_var( 'fs_lms_app_id',        0 );
+			set_query_var( 'fs_lms_consent_url',   $this->resolveConsentUrl( 'pd_processing' ) );
+			set_query_var( 'fs_lms_parent_data',   null );
+			set_query_var( 'fs_lms_parent_locked', false );
 			return true;
 		}
 
@@ -128,12 +135,42 @@ class ApplicationCallbacks extends BaseController {
 			$app->id
 		);
 
+		// Если родитель уже назначен — расшифровываем его данные для предзаполнения формы
+		$parentData   = null;
+		$parentLocked = false;
+		if ( $app->parentPersonId !== null && ! empty( $app->parentDataEnc ) ) {
+			try {
+				$parentData   = json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array();
+				$parentLocked = true;
+			} catch ( \Throwable ) {
+				$parentData = null;
+			}
+		}
+
 		// Передаём данные в шаблон через query vars
-		set_query_var( 'fs_lms_student_data', $studentData );
-		set_query_var( 'fs_lms_join_code',    $code );
-		set_query_var( 'fs_lms_app_id',       $app->id );
+		set_query_var( 'fs_lms_student_data',  $studentData );
+		set_query_var( 'fs_lms_join_code',     $code );
+		set_query_var( 'fs_lms_app_id',        $app->id );
+		set_query_var( 'fs_lms_consent_url',   $this->resolveConsentUrl( 'pd_processing' ) );
+		set_query_var( 'fs_lms_parent_data',   $parentData );
+		set_query_var( 'fs_lms_parent_locked', $parentLocked );
 
 		return true;
+	}
+
+	/**
+	 * Возвращает URL текущей версии согласия для отображения в форме.
+	 * Если страница не опубликована — возвращает пустую строку.
+	 */
+	private function resolveConsentUrl( string $typeKey ): string {
+		$def    = $this->consentDefinitions->findByKey( $typeKey );
+		$pageId = (int) ( $def['page_id'] ?? 0 );
+		if ( $pageId <= 0 ) {
+			return '';
+		}
+
+		$url = get_permalink( $pageId );
+		return $url ?: '';
 	}
 
 	/**
@@ -168,6 +205,7 @@ class ApplicationCallbacks extends BaseController {
 
 		// Отправка OTP-кода
 		$this->emailOtpService->sendCode( $email );
+		$this->authLog->record( $email, 'otp_sent', true );
 
 		// Маскирование email для отображения в интерфейсе
 		$masked = (string) preg_replace( '/(?<=.).(?=[^@]*@)/', '*', $email );
@@ -221,12 +259,12 @@ class ApplicationCallbacks extends BaseController {
 		try {
 			$result = $this->applicationService->createApplication( $dto );
 		} catch ( \DomainException $e ) {
-			// Ошибка валидации бизнес-правил
 			$this->error( $e->getMessage() );
 		} catch ( \RuntimeException $e ) {
 			$this->error( $e->getMessage() );
 		}
 
+		$this->authLog->record( $email, 'otp_verified', true );
 		$this->success( array(
 			'join_url'   => $result->joinUrl,
 			'expires_at' => $result->expiresAt,
@@ -247,22 +285,29 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
+		// Проверяем, назначен ли родитель заранее (поля родителя тогда не обязательны)
+		$joinCode     = $this->requireText( 'join_code' );
+		$parentLocked = false;
+		$app          = $this->applicationRepository->findByJoinCodeHash( $this->joinCodeService->hash( $joinCode ) );
+		if ( $app !== null && $app->parentPersonId !== null ) {
+			$parentLocked = true;
+		}
+
 		// Сбор данных формы родителя
 		$dto = new ParentSubmissionInputDTO(
-			joinCode:           $this->requireText( 'join_code' ),
-			parentLastName:     $this->requireText( 'parent_last_name' ),
-			parentFirstName:    $this->requireText( 'parent_first_name' ),
+			joinCode:           $joinCode,
+			parentLastName:     $parentLocked ? $this->sanitizeText( 'parent_last_name' ) : $this->requireText( 'parent_last_name' ),
+			parentFirstName:    $parentLocked ? $this->sanitizeText( 'parent_first_name' ) : $this->requireText( 'parent_first_name' ),
 			parentMiddleName:   $this->sanitizeText( 'parent_middle_name' ),
-			parentBirthDate:    $this->requireText( 'parent_birth_date' ),
-			relationType:       $this->requireKey( 'relation_type' ),
-			docType:            $this->requireKey( 'doc_type' ),
-			docNumber:          $this->requireText( 'doc_number' ),
+			parentBirthDate:    $parentLocked ? $this->sanitizeText( 'parent_birth_date' ) : $this->requireText( 'parent_birth_date' ),
+			docType:            $parentLocked ? $this->sanitizeKey( 'doc_type' ) : $this->requireKey( 'doc_type' ),
+			docNumber:          $parentLocked ? $this->sanitizeText( 'doc_number' ) : $this->requireText( 'doc_number' ),
 			docIssuedBy:        $this->sanitizeText( 'doc_issued_by' ),
 			docIssuedDate:      $this->sanitizeText( 'doc_issued_date' ),
 			inn:                $this->sanitizeText( 'inn' ),
 			address:            $this->sanitizeText( 'address' ),
 			phone:              $this->sanitizeText( 'phone' ),
-			email:              $this->requireText( 'email' ),
+			email:              $parentLocked ? $this->sanitizeText( 'email' ) : $this->requireText( 'email' ),
 			studentLastName:    $this->requireText( 'student_last_name' ),
 			studentFirstName:   $this->requireText( 'student_first_name' ),
 			studentMiddleName:  $this->sanitizeText( 'student_middle_name' ),
@@ -279,5 +324,29 @@ class ApplicationCallbacks extends BaseController {
 		}
 
 		$this->success( array( 'message' => 'Заявка принята к рассмотрению.' ) );
+	}
+
+	public function ajaxCheckUsernameAvailable(): void {
+		Nonce::CheckUsernameAvailable->verify();
+
+		$username = $this->sanitizeText( 'username' );
+
+		if ( '' === $username ) {
+			$this->error( 'Логин не указан.' );
+		}
+
+		$this->success( array( 'available' => ! username_exists( $username ) ) );
+	}
+
+	public function ajaxCheckEmailAvailable(): void {
+		Nonce::CheckEmailAvailable->verify();
+
+		$email = sanitize_email( $_POST['email'] ?? '' );
+
+		if ( '' === $email ) {
+			$this->error( 'Email не указан.' );
+		}
+
+		$this->success( array( 'available' => ! email_exists( $email ) ) );
 	}
 }

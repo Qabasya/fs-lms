@@ -11,20 +11,18 @@ use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
-use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\AuditService;
 use Inc\Services\Enrollment\EnrollmentService;
 use Inc\Services\PasswordGeneratorService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\Person\PiiMaskingService;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
-use Inc\DTO\EnrollmentInputDTO;
+use Inc\DTO\Enrollment\EnrollmentInputDTO;
 use Inc\DTO\ParentDataDTO;
-use Inc\DTO\PiiAccessLogInputDTO;
-use Inc\DTO\StudentDataDTO;
-use Inc\DTO\StudentGroupDTO;
+use Inc\DTO\Person\PiiAccessLogInputDTO;
+use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Enums\DocumentType;
-use Inc\Enums\RelationType;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -69,7 +67,7 @@ class EnrollmentCallbacks extends BaseController {
 		private readonly PiiCryptoService        $crypto,
 		private readonly PiiMaskingService       $piiMasking,
 		private readonly PiiAccessLogRepository  $piiAccessLog,
-		private readonly StudentGroupRepository  $studentGroupRepository,
+		private readonly GroupsRepository        $studentGroupRepository,
 		private readonly PasswordGeneratorService $passwordGenerator,
 		private readonly UserManager             $userManager,
 	) {
@@ -191,24 +189,27 @@ class EnrollmentCallbacks extends BaseController {
 	public function ajaxEnrollStudent(): void {
 		$this->authorize( Nonce::Enroll, Capability::EnrollStudent );
 
-		$dto = new EnrollmentInputDTO(
-			applicationId: $this->sanitizeInt( 'application_id' ),
-			contractNo:    $this->requireText( 'contract_no' ),
-			contractDate:  $this->requireText( 'contract_date' ),
-			orderNo:       $this->requireText( 'order_no' ),
-			orderDate:     $this->requireText( 'order_date' ),
-			enrolledAt:    $this->requireText( 'enrolled_at' ),
-			subjectKey:    $this->requireKey( 'subject_key' ),
-			groupId:       $this->requireText( 'group_id' ),
-			periodKey:     $this->requireKey( 'period_key' ),
-			sendEmailAuto: true,
-		);
+		$applicationId = $this->sanitizeInt( 'application_id' );
 
 		try {
+			$dto = new EnrollmentInputDTO(
+				applicationId: $applicationId,
+				contractNo:    $this->sanitizeText( 'contract_no' ),
+				contractDate:  $this->requireText( 'contract_date' ),
+				orderNo:       $this->requireText( 'order_no' ),
+				orderDate:     $this->requireText( 'order_date' ),
+				enrolledAt:    $this->requireText( 'enrolled_at' ),
+				groupId:       $this->sanitizeInt( 'group_id' ),
+				sendEmailAuto: true,
+			);
+
 			$result = $this->enrollmentService->enroll( $dto );
-		} catch ( \DomainException $e ) {
-			$this->error( $e->getMessage() );
-		} catch ( \InvalidArgumentException $e ) {
+		} catch ( \Throwable $e ) {
+			// Транзакция откатилась или DTO не собрался — возвращаем заявку в ready_for_review
+			$this->applicationRepository->update( $applicationId, array(
+				'status'     => ApplicationStatus::ReadyForReview->value,
+				'updated_at' => current_time( 'mysql', true ),
+			) );
 			$this->error( $e->getMessage() );
 		}
 
@@ -421,7 +422,6 @@ class EnrollmentCallbacks extends BaseController {
 			firstName:     $this->requireText( 'parent_first_name' ),
 			middleName:    $this->sanitizeText( 'parent_middle_name' ),
 			birthDate:     $this->sanitizeText( 'parent_birth_date' ),
-			relationType:  $this->sanitizeText( 'relation_type' ),
 			docType:       $this->sanitizeText( 'parent_doc_type' ),
 			docNumber:     $this->sanitizeText( 'parent_doc_number' ),
 			docIssuedBy:   $this->sanitizeText( 'parent_doc_issued_by' ),
@@ -515,8 +515,7 @@ class EnrollmentCallbacks extends BaseController {
 					json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array()
 				);
 				$parent    = $parentDto->toArray();
-				$parent['doc_type']      = DocumentType::tryFrom( $parentDto->docType )?->label() ?? $parentDto->docType;
-				$parent['relation_type'] = RelationType::tryFrom( $parentDto->relationType )?->label() ?? $parentDto->relationType;
+				$parent['doc_type'] = DocumentType::tryFrom( $parentDto->docType )?->label() ?? $parentDto->docType;
 			} catch ( \Throwable $e ) {
 				$parent = null;
 			}
@@ -557,13 +556,13 @@ class EnrollmentCallbacks extends BaseController {
 	public function ajaxGetStudentGroups(): void {
 		$this->authorize( Nonce::Manager, Capability::ManageApplications );
 
-		$periodId  = $this->sanitizeText( 'period_id' );
-		$subjectId = $this->sanitizeText( 'subject_id' );
+		$periodId   = $this->sanitizeText( 'period_id' );
+		$subjectKey = $this->sanitizeText( 'subject_id' );
 
-		$groups = $this->studentGroupRepository->getByPeriodAndSubject( $periodId, $subjectId );
+		$groups = $this->studentGroupRepository->findByPeriodAndSubject( $periodId, $subjectKey );
 
 		$result = array_values( array_map(
-			static fn( StudentGroupDTO $g ) => array( 'id' => $g->id, 'title' => $g->title ),
+			static fn( object $g ) => array( 'id' => (int) $g->id, 'title' => $g->name ),
 			$groups
 		) );
 
@@ -659,5 +658,87 @@ class EnrollmentCallbacks extends BaseController {
 		$password = $this->passwordGenerator->generateAndSet( $user_id );
 
 		$this->success( array( 'password' => $password ) );
+	}
+
+	/**
+	 * AJAX: восстановление ученика из архива — создание новой заявки (события 2A, 4B).
+	 */
+	public function ajaxRestoreFromArchive(): void {
+		$this->authorize( Nonce::RestoreFromArchive, Capability::ManageApplications );
+
+		$archiveId  = $this->requireInt( 'archive_id', error: 'Не указан ID архивной записи.' );
+		$withParent = (bool) $this->sanitizeInt( 'with_parent' );
+
+		try {
+			$result = $this->enrollmentService->restoreFromArchive( $archiveId, $withParent );
+			$this->success( $result );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		} catch ( \RuntimeException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * AJAX: назначить существующего родителя к заявке (события 3B, 4B).
+	 */
+	public function ajaxSelectExistingParent(): void {
+		$this->authorize( Nonce::SelectExistingParent, Capability::ManageApplications );
+
+		$applicationId  = $this->requireInt( 'application_id', error: 'Не указан ID заявки.' );
+		$parentPersonId = $this->requireInt( 'parent_person_id', error: 'Не указан ID родителя.' );
+
+		try {
+			$result = $this->enrollmentService->selectExistingParent( $applicationId, $parentPersonId );
+			$this->success( $result );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		} catch ( \DomainException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	public function ajaxRemoveParentAssignment(): void {
+		$this->authorize( Nonce::RemoveParentAssignment, Capability::ManageApplications );
+
+		$applicationId = $this->requireInt( 'application_id', error: 'Не указан ID заявки.' );
+
+		try {
+			$result = $this->enrollmentService->removeParentAssignment( $applicationId );
+			$this->success( $result );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		} catch ( \DomainException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * AJAX: поиск существующих родителей (для модалки select-parent-modal).
+	 */
+	public function ajaxSearchParents(): void {
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
+
+		$query = $this->sanitizeText( 'query' );
+
+		$users = get_users( array(
+			'role'   => 'lms_parent',
+			'search' => '*' . $query . '*',
+			'search_columns' => array( 'display_name', 'user_email', 'user_login' ),
+			'number' => 20,
+		) );
+
+		$result = array();
+		foreach ( $users as $user ) {
+			$personId = (int) get_user_meta( $user->ID, 'fs_lms_person_id', true );
+			$result[] = array(
+				'person_id'    => $personId ?: null,
+				'wp_user_id'   => $user->ID,
+				'display_name' => $user->display_name,
+				'email'        => $user->user_email,
+			);
+		}
+
+		$this->success( $result );
 	}
 }

@@ -8,8 +8,8 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Копировать">'
-	. '<i class="fa-regular fa-clone fs-copy-field__icon"></i>'
 	. '<span class="fs-copy-field__label">Скопировано</span>'
+	. '<span class="dashicons dashicons-clipboard fs-copy-field__icon"></span>'
 	. '</button>';
 ?>
 
@@ -45,10 +45,6 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 						<input type="text" class="fs-person-field" data-field="middle_name" readonly>
 						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 					</div>
-				</div>
-				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Роль', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="relation_type" data-no-edit readonly>
 				</div>
 			</div>
 
@@ -121,33 +117,16 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 
 			<div class="fs-form-row">
 				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Выдан', 'fs-lms' ); ?></label>
-					<div class="fs-pfield fs-pfield--pii">
-						<input type="text" class="fs-person-field fs-person-pii" data-field="doc_issued" data-no-edit readonly>
-						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
-					</div>
-				</div>
-			</div>
-
-			<div class="fs-form-row">
-				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Документ ребёнка', 'fs-lms' ); ?></label>
-					<div class="fs-pfield fs-pfield--editable">
-						<input type="text" class="fs-person-field" data-field="child_doc_number" readonly>
+					<label><?php esc_html_e( 'Кем выдан', 'fs-lms' ); ?></label>
+					<div class="fs-pfield fs-pfield--editable fs-pfield--pii">
+						<input type="text" class="fs-person-field fs-person-pii" data-field="doc_issued_by" readonly>
 						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 					</div>
 				</div>
 				<div class="fs-form-group">
-					<label><?php esc_html_e( 'ИНН ребёнка', 'fs-lms' ); ?></label>
+					<label><?php esc_html_e( 'Дата выдачи', 'fs-lms' ); ?></label>
 					<div class="fs-pfield fs-pfield--editable">
-						<input type="text" class="fs-person-field" data-field="child_inn" readonly>
-						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
-					</div>
-				</div>
-				<div class="fs-form-group">
-					<label><?php esc_html_e( 'Дата рождения ребёнка', 'fs-lms' ); ?></label>
-					<div class="fs-pfield fs-pfield--editable">
-						<input type="date" class="fs-person-field" data-field="child_birth_date" readonly>
+						<input type="date" class="fs-person-field" data-field="doc_issued_date" readonly>
 						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 					</div>
 				</div>
@@ -168,7 +147,6 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 		<div class="fs-lms-modal-footer">
 			<button type="button" class="button js-pmm-close"><?php esc_html_e( 'Закрыть', 'fs-lms' ); ?></button>
 			<button type="button" class="button js-pmm-edit"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></button>
-			<button type="button" class="button js-pmm-export"><?php esc_html_e( 'Экспорт', 'fs-lms' ); ?></button>
 		</div>
 	</div>
 </div>

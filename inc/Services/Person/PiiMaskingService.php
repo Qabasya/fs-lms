@@ -74,7 +74,7 @@ class PiiMaskingService {
 		return match ( $type ) {
 			PiiField::Pass     => '•• •• ••••••',
 			PiiField::Inn      => '•••• •••• ••••',
-			PiiField::Phone    => '••• ••• •• ••',
+			PiiField::Phone    => '••••••••••',
 			PiiField::Address  => 'г. ••••••, ••••••',
 			PiiField::Password => '••••••••',
 			PiiField::FullName => '',
@@ -137,7 +137,7 @@ class PiiMaskingService {
 	}
 	/**
 	 * Телефон: маскирование номера, прилетающего без кода страны.
-	 * Отображает открытыми ТОЛЬКО последние 4 цифры в формате: ••• ••• 12 34
+	 * Отображает открытыми ТОЛЬКО последние 4 цифры в формате: ••••••1234
 	 *
 	 * @param string $value Сырое значение телефона с фронтенда.
 	 * @return string Маскированная строка.
@@ -152,15 +152,15 @@ class PiiMaskingService {
 			$part3 = substr( $digits, -4, 2 ); // предпоследние две цифры
 			$part4 = substr( $digits, -2 );    // последние две цифры
 
-			return '••• ••• ' . $part3 . ' ' . $part4;
+			return '••••••' . $part3  . $part4;
 		}
 
 		// На случай пограничного кейса, если прилетело меньше 4 цифр
 		if ( 0 !== $length ) {
-			return '••• ••• •• ' . $digits;
+			return '•••••••• ' . $digits;
 		}
 
-		return '••• ••• •• ••';
+		return '••••••••••';
 	}
 
 	private function maskPassword(): string {

@@ -3,10 +3,37 @@
  *
  * Глобальные переменные: fs_lms_join_vars (локализуются в Enqueue.php)
  */
-import { initFormValidation } from '../../common/validation-manager.js';
+import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { initDadataAddress } from './dadata-address.js';
+import { bindPhoneMask, formatPassportSN } from '../../common/input-masks.js';
 
-let validateAll = null;
+let validateAll   = null;
+let _emailInput   = null;
+
+async function checkEmailAvailable( input ) {
+    if ( ! input || input.readOnly ) { return true; }
+
+    const email = input.value.trim();
+    if ( ! email ) { return true; }
+
+    try {
+        const body = new URLSearchParams( {
+            action:   vars.actions.check_email,
+            security: vars.nonces.check_email,
+            email,
+        } );
+        const res  = await fetch( vars.ajax_url, { method: 'POST', body } );
+        const json = await res.json();
+
+        if ( json?.success && json.data?.available === false ) {
+            renderFieldError( input, 'Этот email уже зарегистрирован.' );
+            return false;
+        }
+    } catch {}
+
+    clearFieldError( input );
+    return true;
+}
 
 /** @type {{ ajax_url: string, actions: { submit_parent: string }, nonces: { parent_submit: string } }} */
 const vars = window.fs_lms_join_vars;
@@ -26,87 +53,11 @@ async function ajaxPost( action, data ) {
 
 // ── Маска телефона ────────────────────────────────────────────────────────────
 
-function formatPhone( input ) {
-    let value = input.value;
-
-    if ( ! value ) {
-        input.value = '+7(';
-        return;
-    }
-
-    if ( ! value.startsWith( '+7(' ) ) {
-        let digits = value.replace( /\D/g, '' );
-        if ( digits.startsWith( '7' ) || digits.startsWith( '8' ) ) {
-            digits = digits.substring( 1 );
-        }
-        value = '+7(' + digits;
-    }
-
-    const prefix   = '+7(';
-    const digits   = value.substring( prefix.length ).replace( /\D/g, '' ).substring( 0, 10 );
-    let formatted  = prefix;
-
-    if ( digits.length > 0 ) { formatted += digits.substring( 0, 3 ); }
-    if ( digits.length >= 3 ) { formatted += ')-'; }
-    if ( digits.length > 3 )  { formatted += digits.substring( 3, 6 ); }
-    if ( digits.length >= 6 ) { formatted += '-'; }
-    if ( digits.length > 6 )  { formatted += digits.substring( 6, 8 ); }
-    if ( digits.length >= 8 ) { formatted += '-'; }
-    if ( digits.length > 8 )  { formatted += digits.substring( 8, 10 ); }
-
-    input.value = formatted;
-}
-
-function bindPhoneMask( input ) {
-    if ( ! input ) { return; }
-
-    input.addEventListener( 'focus', ( e ) => {
-        if ( ! e.target.value ) { e.target.value = '+7('; }
-    } );
-
-    input.addEventListener( 'input', ( e ) => formatPhone( e.target ) );
-
-    input.addEventListener( 'keydown', ( e ) => {
-        if ( e.target.value === '+7(' && ( e.key === 'Backspace' || e.key === 'Delete' ) ) {
-            e.preventDefault();
-        }
-    } );
-}
-
 function initPhoneMasks() {
     bindPhoneMask( document.getElementById( 'fs_phone' ) );
     bindPhoneMask( document.getElementById( 'fs_parent_phone' ) );
 }
 
-// ── Маска паспорта (серия-номер) ──────────────────────────────────────────────
-
-function formatPassportSN( input ) {
-    let value = input.value.replace( /\D/g, '' ).substring( 0, 10 );
-    if ( value.length > 4 ) {
-        value = value.substring( 0, 4 ) + ' ' + value.substring( 4 );
-    }
-    input.value = value;
-}
-// ── Маска ИНН ──────────────────────────────────────────────
-function initInnMask() {
-    document.querySelectorAll('[data-validate~="inn"]').forEach( input => {
-        input.addEventListener( 'input', () => {
-            input.value = input.value
-                .replace( /\D/g, '' )
-                .substring( 0, 12 );
-        } );
-    } );
-}
-
-// ── Утилита очистки ошибки поля ───────────────────────────────────────────────
-
-function clearFieldError( input ) {
-    const group = input.closest( '.fs-form-group' );
-    if ( ! group ) { return; }
-    group.classList.remove( 'form-invalid' );
-    const error = group.querySelector( '.fs-field-error' );
-    if ( error ) { error.remove(); }
-}
 
 // ── Переключение типа документа ученика ───────────────────────────────────────
 
@@ -121,7 +72,7 @@ function initStudentDocType() {
         numberField.value = '';
         clearFieldError( numberField );
 
-        if ( typeField.value === 'passport' ) {
+        if ( typeField.value === 'pass' ) {
             label.textContent            = 'Данные паспорта ученика:';
             numberField.placeholder      = '1234 567890';
             numberField.dataset.validate = 'passportSN';
@@ -133,7 +84,7 @@ function initStudentDocType() {
     };
 
     numberField.addEventListener( 'input', () => {
-        if ( typeField.value === 'passport' ) {
+        if ( typeField.value === 'pass' ) {
             formatPassportSN( numberField );
         }
     } );
@@ -224,7 +175,6 @@ function collectFormData() {
         parent_first_name:   get( 'parent_first_name' ),
         parent_middle_name:  get( 'parent_middle_name' ),
         parent_birth_date:   get( 'parent_birth_date' ),
-        relation_type:       get( 'relation_type' ),
         doc_type:            get( 'doc_type' ),
         doc_number:          get( 'doc_number' ),
         doc_issued_by:       get( 'doc_issued_by' ),
@@ -251,6 +201,10 @@ async function handleJoinSubmit( e ) {
     e.preventDefault();
 
     if ( validateAll && ! validateAll() ) {
+        return;
+    }
+
+    if ( ! await checkEmailAvailable( _emailInput ) ) {
         return;
     }
 
@@ -288,6 +242,11 @@ export function initJoinForm() {
     if ( ! form ) { return; }
 
     validateAll = initFormValidation( form );
+
+    _emailInput = document.getElementById( 'fs_parent_email' );
+    if ( _emailInput ) {
+        _emailInput.addEventListener( 'blur', () => checkEmailAvailable( _emailInput ) );
+    }
 
     initPhoneMasks();
     initStudentDocType();

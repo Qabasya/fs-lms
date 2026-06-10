@@ -93,13 +93,29 @@ export const SubjectModalManager = {
 
     _handleDelete(e) {
         e.preventDefault();
-        const $btn = $(e.target);
-        const key = $btn.data('key');
-        const $row = $btn.closest('tr');
-        const name = $row.find('strong a').text().trim();
+        const $btn     = $(e.target);
+        const key      = $btn.data('key');
+        const $row     = $btn.closest('tr');
+        const name     = $row.find('strong a').text().trim();
         const security = this._getNonce();
 
-        this._showWarningModal(name, key, security, $btn, $row);
+        toggleButton($btn, true, '...');
+
+        $.post(fs_lms_vars.ajaxurl, {
+            action:      fs_lms_vars.ajax_actions.checkSubjectDeletion,
+            security:    fs_lms_vars.nonces.subject,
+            subject_key: key,
+        })
+            .done((res) => {
+                toggleButton($btn, false);
+                const studentCount = res.data?.student_count ?? 0;
+                const groupCount   = res.data?.group_count   ?? 0;
+                this._showWarningModal(name, key, security, $btn, $row, studentCount, groupCount);
+            })
+            .fail(() => {
+                toggleButton($btn, false);
+                this._showWarningModal(name, key, security, $btn, $row, 0, 0);
+            });
     },
 
     _handleExport(e) {
@@ -161,10 +177,13 @@ export const SubjectModalManager = {
         reader.readAsText(file);
     },
 
-    _showWarningModal(name, key, security, $btn, $row) {
-        const safeName = escapeHtml(name);
+    _showWarningModal(name, key, security, $btn, $row, studentCount = 0, groupCount = 0) {
+        const safeName    = escapeHtml(name);
+        const studentNote = studentCount > 0
+            ? `\nПредмет содержит ${groupCount} гр. и ${studentCount} уч. Ученики без других зачислений будут удалены безвозвратно.\n`
+            : '';
         const message =
-            `Вы собираетесь удалить предмет «${safeName}».\n\n` +
+            `Вы собираетесь удалить предмет «${safeName}».${studentNote}\n` +
             `Будут безвозвратно удалены все связанные таксономии, термины, привязки шаблонов, типовые условия и записи.\n` +
             `Рекомендуем экспортировать данные перед удалением.\n\n` +
             `Для выхода нажмите клавишу Esc или знак Х справа вверху`;

@@ -43,9 +43,6 @@ enum OptionName: string {
 	/** Опция для хранения групп студентов. */
 	case StudentGroups = 'fs_lms_student_groups';
 
-	/** Матрица связей студентов с группами */
-	case StudentGroupMatrix = 'fs_lms_student_group_matrix';
-
 	/** Опция для хранения мета-данных привязки студентов к периодам. */
 	case StudentPeriodMeta = 'fs_lms_student_period_meta';
 
@@ -60,4 +57,7 @@ enum OptionName: string {
 
 	/** Шаблоны email-писем (редактируются в настройках плагина) */
 	case EmailTemplates = 'fs_lms_email_templates';
+
+	/** Определения согласий: [key => ['name' => string, 'page_id' => int]] */
+	case ConsentDefinitions = 'fs_lms_consent_definitions';
 }

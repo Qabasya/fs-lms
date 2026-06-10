@@ -6,7 +6,7 @@ namespace Inc\Callbacks;
 
 use Inc\Controllers\Builders\TaskDataBuilder;
 use Inc\Core\BaseController;
-use Inc\DTO\TaskPageDTO;
+use Inc\DTO\Task\TaskPageDTO;
 use Inc\Services\PostTypeResolver;
 
 /**

@@ -1,0 +1,55 @@
+<?php
+
+declare( strict_types=1 );
+
+namespace Inc\Services\Deletion;
+
+use Inc\Managers\UserManager;
+use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Repositories\WPDBRepositories\ConsentRepository;
+use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Log\DeletionLogWriter;
+use Inc\Shared\Traits\TransactionRunner;
+
+class StudentDeletionHandler {
+
+	use TransactionRunner;
+
+	public function __construct(
+		private readonly PersonRepository $persons,
+		private readonly PersonDocumentsRepository $personDocuments,
+		private readonly StudentRecordRepository $studentRecords,
+		private readonly ConsentRepository $consents,
+		private readonly ApplicationRepository $applications,
+		private readonly UserManager      $userManager,
+		private readonly DeletionLogWriter $deletionLog,
+	) {}
+
+	public function handle( DeleteStudentEvent $event ): void {
+		$personId = $event->studentPersonId;
+		$actorId  = $event->actorId;
+
+		$person = $this->persons->find( $personId );
+		$wpUserId = $person?->wpUserId;
+
+		$this->inTransaction( function () use ( $personId ) {
+			$this->consents->hardDeleteByPersonId( $personId );
+			$this->applications->hardDeleteByStudentPersonId( $personId );
+			$this->personDocuments->hardDeleteByPersonId( $personId );
+			$recordsDeleted = $this->studentRecords->deleteAllByStudent( $personId );
+			$this->persons->hardDelete( $personId );
+
+			$this->deletionLog->record(
+				'person',
+				$personId,
+				'consents, applications, person_documents, student_records:' . $recordsDeleted
+			);
+		} );
+
+		if ( $wpUserId ) {
+			$this->userManager->delete( $wpUserId );
+		}
+	}
+}

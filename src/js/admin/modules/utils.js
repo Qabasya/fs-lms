@@ -244,6 +244,32 @@ export function clearModalError( $modal ) {
 }
 
 /**
+ * Транслитерирует строку (кириллица → латиница) и превращает её в slug.
+ * Удобно для авто-генерации ключей/slug из пользовательского ввода.
+ *
+ * @param {string} str - Исходная строка
+ * @returns {string} slug из строчных латинских букв, цифр и подчёркиваний
+ *
+ * @example
+ * toSlug('Обработка ПД')  // → 'obrabotka_pd'
+ * toSlug('Hello World!')  // → 'hello_world'
+ */
+export function toSlug( str ) {
+    const map = {
+        а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'zh',з:'z',и:'i',
+        й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',
+        у:'u',ф:'f',х:'h',ц:'ts',ч:'ch',ш:'sh',щ:'shch',ъ:'',ы:'y',
+        ь:'',э:'e',ю:'yu',я:'ya',
+    };
+    return String( str )
+        .toLowerCase()
+        .replace( /[а-яё]/g, ( c ) => map[ c ] ?? c )
+        .replace( /[^a-z0-9]+/g, '_' )
+        .replace( /^_+|_+$/g, '' )
+        .slice( 0, 64 );
+}
+
+/**
  * Анимирует удаление строки таблицы: подсвечивает красным и скрывает.
  * @param {JQuery} $row - Строка таблицы
  * @param {Function} [onRemoved] - Коллбек после удаления из DOM

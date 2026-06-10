@@ -1,5 +1,10 @@
 <?php
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Services\PostTypeResolver;
+
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
+
+$groupsRepo = new GroupsRepository();
 ?>
 
 <div id="tab-1" class="tab-pane active">
@@ -35,14 +40,28 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 				<thead>
 				<tr>
-					<th class=" column-title  tw-40" >Название предмета</th>
-					<th class=" column-title column-primary" >ID предмета</th>
-					<th class=" column-title column-primary" >Действия</th>
+					<th class="column-title">Название предмета</th>
+					<th class="column-title column-primary tw-15">ID предмета</th>
+					<th class="column-title tw-10">Заданий</th>
+					<th class="column-title tw-10">Статей</th>
+					<th class="column-title tw-10">Групп</th>
+					<th class="column-title column-primary tw-15">Действия</th>
 				</tr>
 				</thead>
 
 				<tbody id="the-list">
-				<?php foreach ( $subjects as $subject ) : ?>
+				<?php foreach ( $subjects as $subject ) :
+					$tasks_cpt    = PostTypeResolver::tasks( $subject->key );
+					$articles_cpt = PostTypeResolver::articles( $subject->key );
+
+					$tasks_counts    = wp_count_posts( $tasks_cpt );
+					$articles_counts = wp_count_posts( $articles_cpt );
+
+					$tasks_total    = array_sum( (array) $tasks_counts ) - ( $tasks_counts->trash ?? 0 );
+					$articles_total = array_sum( (array) $articles_counts ) - ( $articles_counts->trash ?? 0 );
+
+					$groups_total = count( $groupsRepo->findBySubjectKey( $subject->key ) );
+				?>
 					<tr id="subject-row-<?php echo esc_attr( $subject->key ); ?>">
 						<td class="column-title">
 							<strong>
@@ -55,6 +74,10 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 						<td>
 							<?php render_fs_badge( $subject->key, 'gray' ); ?>
 						</td>
+
+						<td><?php echo esc_html( (string) $tasks_total ); ?></td>
+						<td><?php echo esc_html( (string) $articles_total ); ?></td>
+						<td><?php echo esc_html( (string) $groups_total ); ?></td>
 
 						<td class="column-actions">
 							<div class="row-actions visible">
@@ -88,7 +111,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 				<tfoot>
 				<tr class="fs-add-row-tr">
-					<td colspan="3">
+					<td colspan="6">
 						<button type="button"
 								class="button-link scss-add-item js-add-subject"
 								title="Добавить новый предмет">
@@ -104,7 +127,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 		<table style="display:none;">
 			<tr id="fs-quick-edit-row" class="inline-edit-row">
-				<td colspan="4" class="colspanchange">
+				<td colspan="6" class="colspanchange">
 
 					<form id="fs-quick-edit-form">
 

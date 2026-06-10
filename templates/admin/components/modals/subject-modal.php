@@ -15,14 +15,27 @@
 			<form id="fs-add-subject-form" autocomplete="off">
 				<div class="fs-form-group">
 					<label for="subj_name">Название (например: Информатика ЕГЭ)</label>
-					<input type="text" id="subj_name" name="name" placeholder="Введите название..." required>
+					<input
+                            type="text"
+                            name="name"
+                            id="subj_name"
+                            placeholder="Введите название..."
+                            data-validate="cyrillicDigits"
+                            required
+                    >
 				</div>
 
 				<div class="fs-form-group">
 					<label for="subj_key">Технический ключ (например: inf_ege)</label>
-					<input type="text" id="subj_key" name="key" placeholder="Только латиница и подчеркивания..." required
-							pattern="[a-z0-9_]+">
-					<p class="description">Используется для названия типов записей в базе.</p>
+					<input
+                            type="text"
+                            id="subj_key"
+                            name="key"
+                            placeholder="Только латиница, цифры и символ подчеркивания"
+                            data-validate="latinOnly"
+                            required
+                    >
+					<p class="description">Используйте осмысленный ключ! Он будет отображаться в ссылке.</p>
 				</div>
 
 				<div class="fs-form-group">

@@ -38,7 +38,6 @@ readonly class ParentSubmissionInputDTO {
 	 * @param string $parentFirstName     Имя родителя
 	 * @param string $parentMiddleName    Отчество родителя
 	 * @param string $parentBirthDate     Дата рождения родителя (Y-m-d)
-	 * @param string $relationType        Тип родства (mother, father, guardian)
 	 * @param string $docType             Тип документа родителя (pass, birth_certificate)
 	 * @param string $docNumber           Номер документа родителя
 	 * @param string $docIssuedBy         Кем выдан документ родителя
@@ -64,7 +63,6 @@ readonly class ParentSubmissionInputDTO {
 		public string $parentFirstName,
 		public string $parentMiddleName,
 		public string $parentBirthDate,
-		public string $relationType,
 		public string $docType,
 		public string $docNumber,
 		public string $docIssuedBy,

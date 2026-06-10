@@ -29,6 +29,13 @@ use Inc\Enums\ExpulsionReasons;
 			<form id="fs-expel-form" autocomplete="off">
 				<input type="hidden" name="student_id" value="">
 
+				<div class="fs-form-group" id="fs-expel-group-wrap" hidden>
+					<label for="expel-record">Группа</label>
+					<select id="expel-record" name="record_id">
+						<option value="">Выберите группу</option>
+					</select>
+				</div>
+
                 <div class="fs-form-group">
                     <label for="expel-reason">Причина отчисления</label>
 

@@ -10,6 +10,7 @@ use Inc\Repositories\WPDBRepositories\AuditLogRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\Services\AuditService;
+use Inc\Services\Person\PersonService;
 
 class RetentionService {
 
@@ -20,6 +21,7 @@ class RetentionService {
 		private readonly PiiAccessLogRepository $piiAccessLogRepository,
 		private readonly AuditService           $auditService,
 		private readonly UserManager            $userManager,
+		private readonly PersonService          $personService,
 	) {}
 
 	public function anonymizeDeletedPersons(): int {
@@ -27,7 +29,7 @@ class RetentionService {
 		$count   = 0;
 
 		foreach ( $persons as $person ) {
-			$this->personRepository->anonymize( $person->id );
+			$this->personService->anonymize( $person->id );
 
 			if ( null !== $person->wpUserId ) {
 				$this->userManager->randomizePassword( $person->wpUserId );

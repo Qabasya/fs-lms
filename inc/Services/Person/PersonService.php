@@ -5,160 +5,162 @@ declare( strict_types=1 );
 namespace Inc\Services\Person;
 
 use Inc\Contracts\ClockInterface;
-use Inc\DTO\PersonInputDTO;
+use Inc\DTO\Person\PersonInputDTO;
 use Inc\Enums\AuditAction;
+use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\AuditService;
+use Inc\Services\Log\DataChangeLogWriter;
 use Inc\Services\PiiCryptoService;
 use RuntimeException;
 
-/**
- * Class PersonService
- *
- * Управление записями о физических лицах с шифрованием PII.
- *
- * @package Inc\Services
- *
- * ### Основные обязанности:
- *
- * 1. **Идемпотентное создание** — createOrFindBy() ищет по хэшу документа перед INSERT.
- * 2. **Шифрование при записи** — все PII-поля шифруются через PiiCryptoService перед сохранением.
- * 3. **Аудит изменений** — в журнал пишутся только названия изменённых полей, не их значения.
- * 4. **Soft delete и обезличивание** — делегирует в репозиторий, пишет audit log.
- *
- * ### Поля PII и их DB-колонки:
- *
- * | rawData key  | enc column      | hash column      |
- * |--------------|-----------------|------------------|
- * | full_name    | full_name_enc   | —                |
- * | doc_number   | doc_number_enc  | doc_number_hash  |
- * | inn          | inn_enc         | inn_hash         |
- * | address      | address_enc     | —                |
- * | phone        | phone_enc       | —                |
- *
- * ### Важно:
- *
- * Этот сервис только записывает данные. Чтение PII для отображения —
- * исключительно через PersonReader, который логирует каждый доступ.
- */
 readonly class PersonService {
 
-	private const ENCRYPTED_FIELDS = array(
-		'full_name'  => 'full_name_enc',
-		'doc_number' => 'doc_number_enc',
-		'inn'        => 'inn_enc',
-		'address'    => 'address_enc',
-		'phone'      => 'phone_enc',
+	private const ENCRYPTED_DOC_FIELDS = array(
+		'doc_number'    => array( 'enc' => 'doc_number_enc', 'hash' => 'doc_number_hash' ),
+		'inn'           => array( 'enc' => 'inn_enc',        'hash' => 'inn_hash' ),
+		'email'         => array( 'enc' => 'email_enc',      'hash' => 'email_hash' ),
+		'phone'         => array( 'enc' => 'phone_enc',      'hash' => 'phone_hash' ),
+		'address'       => array( 'enc' => 'address_enc',    'hash' => null ),
+		'doc_issued_by' => array( 'enc' => 'doc_issued_by_enc', 'hash' => null ),
 	);
 
-	private const HASH_FIELDS = array(
-		'doc_number' => 'doc_number_hash',
-		'inn'        => 'inn_hash',
-	);
-
-	/**
-	 * Конструктор сервиса.
-	 *
-	 * @param PersonRepository $personRepository Репозиторий физических лиц
-	 * @param PiiCryptoService $crypto           Сервис шифрования PII
-	 * @param AuditService     $auditService     Сервис аудита
-	 */
 	public function __construct(
-		private PersonRepository $personRepository,
-		private PiiCryptoService $crypto,
-		private AuditService     $auditService,
-		private ClockInterface   $clock,
+		private PersonRepository          $personRepository,
+		private PersonDocumentsRepository $personDocumentsRepository,
+		private PiiCryptoService          $crypto,
+		private AuditService              $auditService,
+		private ClockInterface            $clock,
+		private DataChangeLogWriter       $dataChangeLog,
 	) {}
 
-	/**
-	 * Ищет существующего person по хэшу номера документа или создаёт нового.
-	 *
-	 * Идемпотентен: повторный вызов с теми же данными вернёт тот же ID
-	 * без создания дублей.
-	 *
-	 * @param PersonInputDTO $input Входные данные физического лица
-	 *
-	 * @return int ID существующей или созданной записи
-	 *
-	 * @throws RuntimeException Если создание записи не удалось
-	 */
 	public function createOrFindBy( PersonInputDTO $input ): int {
 		$docHash  = $this->crypto->hash( $input->docNumber );
-		$existing = $this->personRepository->findByDocNumberHash( $docHash );
+		$existing = $this->personDocumentsRepository->findByDocNumberHash( $docHash );
 
 		if ( null !== $existing ) {
-			return $existing->id;
+			$person = $this->personRepository->findIncludingDeleted( $existing->personId );
+			if ( $person !== null && $person->expelledAt !== null ) {
+				$this->personRepository->update( $existing->personId, array( 'expelled_at' => null ) );
+			}
+			return $existing->personId;
 		}
 
-		$data = $this->buildEncryptedData( $input->toRawData() );
+		$now      = $this->clock->now( 'mysql', true );
+		$personId = $this->personRepository->create( array(
+			'last_name'   => $input->lastName,
+			'first_name'  => $input->firstName,
+			'middle_name' => $input->middleName !== '' ? $input->middleName : null,
+			'birth_date'  => $input->birthDate !== '' ? $input->birthDate : null,
+			'is_student'  => $input->isStudent ? 1 : 0,
+			'school'      => $input->school !== '' ? $input->school : null,
+			'grade'       => $input->grade  !== '' ? $input->grade  : null,
+			'created_at'  => $now,
+			'updated_at'  => $now,
+		) );
 
-		$id = $this->personRepository->create( $data );
-
-		if ( 0 === $id ) {
+		if ( 0 === $personId ) {
 			throw new RuntimeException( 'Не удалось создать запись person.' );
 		}
 
-		return $id;
+		$this->personDocumentsRepository->create(
+			$this->buildDocumentData( $personId, $input->toRawData() )
+		);
+
+		return $personId;
 	}
 
-	/**
-	 * Обновляет данные person с шифрованием изменённых PII-полей.
-	 *
-	 * В audit log записываются только названия изменённых полей —
-	 * значения PII никогда не попадают в журнал.
-	 *
-	 * @param int   $personId ID записи person
-	 * @param array $changes  Изменяемые поля в rawData-формате (full_name, phone и т.д.)
-	 * @param int   $actorId  ID пользователя WP, инициировавшего изменение
-	 *
-	 * @return void
-	 *
-	 * @throws RuntimeException Если person не найден
-	 */
 	public function update( int $personId, array $changes, int $actorId ): void {
-		if ( null === $this->personRepository->find( $personId ) ) {
+		$existingPerson = $this->personRepository->find( $personId );
+		if ( null === $existingPerson ) {
 			throw new RuntimeException( "Person с ID {$personId} не найден." );
 		}
 
-		$data          = array();
+		$existingDocs  = $this->personDocumentsRepository->findByPersonId( $personId );
+		$personData    = array();
+		$docData       = array();
 		$changedFields = array();
+		$fieldChanges  = array();
 
-		foreach ( self::ENCRYPTED_FIELDS as $rawKey => $encColumn ) {
+		foreach ( array( 'last_name', 'first_name', 'middle_name', 'school', 'grade' ) as $nameField ) {
+			if ( array_key_exists( $nameField, $changes ) ) {
+				$oldVal                   = (string) ( $existingPerson->$nameField ?? '' );
+				$newVal                   = (string) $changes[ $nameField ];
+				$personData[ $nameField ] = $newVal;
+				$changedFields[]          = $nameField;
+				$fieldChanges[]           = array( 'field' => $nameField, 'old' => $oldVal, 'new' => $newVal );
+			}
+		}
+
+		if ( array_key_exists( 'birth_date', $changes ) ) {
+			$oldVal                    = (string) ( $existingPerson->birthDate ?? '' );
+			$newVal                    = (string) $changes['birth_date'];
+			$personData['birth_date']  = $newVal;
+			$changedFields[]           = 'birth_date';
+			$fieldChanges[]            = array( 'field' => 'birth_date', 'old' => $oldVal, 'new' => $newVal );
+		}
+
+		$encFieldMap = array(
+			'email'         => 'emailEnc',
+			'phone'         => 'phoneEnc',
+			'doc_number'    => 'docNumberEnc',
+			'inn'           => 'innEnc',
+			'address'       => 'addressEnc',
+			'doc_issued_by' => 'docIssuedByEnc',
+		);
+
+		foreach ( self::ENCRYPTED_DOC_FIELDS as $rawKey => $cols ) {
 			if ( ! array_key_exists( $rawKey, $changes ) ) {
 				continue;
 			}
 
-			$value            = (string) $changes[ $rawKey ];
-			$data[ $encColumn ] = $this->crypto->encrypt( $value );
-			$changedFields[]  = $rawKey;
+			$newVal                  = (string) $changes[ $rawKey ];
+			$docData[ $cols['enc'] ] = $this->crypto->encrypt( $newVal );
+			$changedFields[]         = $rawKey;
 
-			if ( isset( self::HASH_FIELDS[ $rawKey ] ) ) {
-				$data[ self::HASH_FIELDS[ $rawKey ] ] = $this->crypto->hash( $value );
+			if ( null !== $cols['hash'] ) {
+				$docData[ $cols['hash'] ] = $this->crypto->hash( $newVal );
+			}
+
+			$encProp = $encFieldMap[ $rawKey ] ?? null;
+			$oldEnc  = $encProp && $existingDocs ? $existingDocs->$encProp : null;
+			$oldVal  = $oldEnc ? $this->crypto->decrypt( $oldEnc ) : '';
+			$fieldChanges[] = array( 'field' => $rawKey, 'old' => $oldVal, 'new' => $newVal );
+		}
+
+		if ( array_key_exists( 'doc_type', $changes ) ) {
+			$oldVal              = (string) ( $existingDocs?->docType ?? '' );
+			$newVal              = (string) $changes['doc_type'];
+			$docData['doc_type'] = $newVal;
+			$changedFields[]     = 'doc_type';
+			$fieldChanges[]      = array( 'field' => 'doc_type', 'old' => $oldVal, 'new' => $newVal );
+		}
+
+		if ( array_key_exists( 'doc_issued_date', $changes ) ) {
+			$oldVal                      = (string) ( $existingDocs?->docIssuedDate ?? '' );
+			$newVal                      = (string) $changes['doc_issued_date'];
+			$docData['doc_issued_date']  = $newVal;
+			$changedFields[]             = 'doc_issued_date';
+			$fieldChanges[]              = array( 'field' => 'doc_issued_date', 'old' => $oldVal, 'new' => $newVal );
+		}
+
+		if ( ! empty( $personData ) ) {
+			$personData['updated_at'] = $this->clock->now( 'mysql', true );
+			$this->personRepository->update( $personId, $personData );
+		}
+
+		if ( ! empty( $docData ) ) {
+			if ( null === $existingDocs ) {
+				$docData['person_id'] = $personId;
+				$this->personDocumentsRepository->create( $docData );
+			} else {
+				$this->personDocumentsRepository->update( $personId, $docData );
 			}
 		}
 
-		if ( isset( $changes['email'] ) ) {
-			$data['email'] = (string) $changes['email'];
-			$changedFields[] = 'email';
-		}
-
-		if ( isset( $changes['birth_date'] ) ) {
-			$data['birth_date'] = (string) $changes['birth_date'];
-			$changedFields[] = 'birth_date';
-		}
-
-		if ( isset( $changes['doc_type'] ) ) {
-			$data['doc_type'] = (string) $changes['doc_type'];
-			$changedFields[] = 'doc_type';
-		}
-
-		if ( empty( $data ) ) {
+		if ( empty( $personData ) && empty( $docData ) ) {
 			return;
 		}
-
-		$data['updated_at'] = $this->clock->now( 'mysql', true );
-
-		$this->personRepository->update( $personId, $data );
 
 		$this->auditService->record(
 			AuditAction::UpdatePerson->value,
@@ -166,21 +168,12 @@ readonly class PersonService {
 			$personId,
 			array( 'changed_fields' => $changedFields ),
 		);
+
+		foreach ( $fieldChanges as $fc ) {
+			$this->dataChangeLog->record( $personId, $fc['field'], $fc['old'], $fc['new'] );
+		}
 	}
 
-	/**
-	 * Помечает person как удалённого (soft delete).
-	 *
-	 * Физические данные остаются в БД; retention job обезличит их
-	 * по истечении срока хранения. Пишет audit log.
-	 *
-	 * @param int $personId ID записи person
-	 * @param int $actorId  ID пользователя WP, инициировавшего удаление
-	 *
-	 * @return void
-	 *
-	 * @throws RuntimeException Если person не найден или удаление не удалось
-	 */
 	public function softDelete( int $personId, int $actorId ): void {
 		if ( null === $this->personRepository->find( $personId ) ) {
 			throw new RuntimeException( "Person с ID {$personId} не найден." );
@@ -199,60 +192,43 @@ readonly class PersonService {
 		);
 	}
 
-	/**
-	 * Обезличивает person: обнуляет все зашифрованные PII-поля.
-	 *
-	 * Вызывается только retention job после истечения срока хранения.
-	 * После вызова расшифровка данных невозможна — операция необратима.
-	 *
-	 * @param int $personId ID записи person
-	 *
-	 * @return void
-	 */
 	public function anonymize( int $personId ): void {
-		$this->personRepository->anonymize( $personId );
+		$this->personDocumentsRepository->anonymize( $personId );
 	}
 
-	/**
-	 * Формирует массив данных для INSERT/UPDATE с зашифрованными PII-полями и хэшами.
-	 *
-	 * @param array $rawData Сырые данные от вызывающего кода
-	 *
-	 * @return array Массив для передачи в PersonRepository::create()
-	 */
-	private function buildEncryptedData( array $rawData ): array {
-		$data = array();
+	public function findByDocNumberHash( string $hash ): ?int {
+		$docs = $this->personDocumentsRepository->findByDocNumberHash( $hash );
+		return $docs?->personId;
+	}
 
-		foreach ( self::ENCRYPTED_FIELDS as $rawKey => $encColumn ) {
-			if ( isset( $rawData[ $rawKey ] ) && '' !== (string) $rawData[ $rawKey ] ) {
-				$value              = (string) $rawData[ $rawKey ];
-				$data[ $encColumn ] = $this->crypto->encrypt( $value );
+	public function findByEmailHash( string $hash ): ?int {
+		$docs = $this->personDocumentsRepository->findByEmailHash( $hash );
+		return $docs?->personId;
+	}
 
-				if ( isset( self::HASH_FIELDS[ $rawKey ] ) ) {
-					$data[ self::HASH_FIELDS[ $rawKey ] ] = $this->crypto->hash( $value );
-				}
+	private function buildDocumentData( int $personId, array $rawData ): array {
+		$data = array( 'person_id' => $personId );
+
+		foreach ( self::ENCRYPTED_DOC_FIELDS as $rawKey => $cols ) {
+			if ( ! isset( $rawData[ $rawKey ] ) || '' === (string) $rawData[ $rawKey ] ) {
+				continue;
 			}
-		}
 
-		if ( isset( $rawData['email'] ) ) {
-			$data['email'] = (string) $rawData['email'];
-		}
+			$value                 = (string) $rawData[ $rawKey ];
+			$data[ $cols['enc'] ] = $this->crypto->encrypt( $value );
 
-		if ( isset( $rawData['birth_date'] ) && '' !== (string) $rawData['birth_date'] ) {
-			$data['birth_date'] = (string) $rawData['birth_date'];
+			if ( null !== $cols['hash'] ) {
+				$data[ $cols['hash'] ] = $this->crypto->hash( $value );
+			}
 		}
 
 		if ( isset( $rawData['doc_type'] ) && '' !== (string) $rawData['doc_type'] ) {
 			$data['doc_type'] = (string) $rawData['doc_type'];
 		}
 
-		if ( isset( $rawData['wp_user_id'] ) ) {
-			$data['wp_user_id'] = (int) $rawData['wp_user_id'];
+		if ( isset( $rawData['doc_issued_date'] ) && '' !== (string) $rawData['doc_issued_date'] ) {
+			$data['doc_issued_date'] = (string) $rawData['doc_issued_date'];
 		}
-
-		$now               = $this->clock->now( 'mysql', true );
-		$data['created_at'] = $now;
-		$data['updated_at'] = $now;
 
 		return $data;
 	}

@@ -1,0 +1,207 @@
+/* =================================================================
+   COMPONENT: Email Templates Settings
+   ================================================================= */
+
+@use '../variables' as *;
+
+.fs-email-templates {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
+  max-width: 860px;
+  margin-top: $spacing-xl;
+}
+
+.fs-email-template-card {
+  background: $color-bg-modal;
+  border: 1px solid $color-border-input;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-xl;
+    background: $wp-admin-gray-bg-light;
+    border-bottom: 1px solid $color-border-input;
+
+    h3 {
+      margin: 0;
+      font-size: $font-size-m;
+      font-weight: $font-bold;
+      color: $color-text-primary;
+    }
+  }
+
+  &__status {
+    font-size: $font-size-sm;
+    font-weight: $font-bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: $border-radius-md;
+
+    &--custom {
+      color: $wp-admin-blue-text;
+      background: $wp-admin-blue-bg-light;
+      border: 1px solid $wp-admin-blue-bg;
+    }
+
+    &--default {
+      color: $wp-admin-gray-text;
+      background: $wp-admin-gray-bg;
+    }
+  }
+
+  &__body {
+    padding: $spacing-xl;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-lg;
+  }
+
+  &__placeholders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    align-items: center;
+
+    .label {
+      font-size: $font-size-sm;
+      color: $color-text-secondary;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: $font-bold;
+      margin-right: $spacing-xs;
+    }
+
+    code {
+      font-size: 12px;
+      padding: 1px 6px;
+      background: $wp-admin-gray-bg;
+      border-radius: $border-radius-sm;
+      color: $color-text-primary;
+      cursor: default;
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+
+    label {
+      font-size: $font-size;
+      font-weight: $font-bold;
+      color: $color-text-primary;
+    }
+
+    input.regular-text,
+    textarea.large-text {
+      width: 100%;
+      box-sizing: border-box;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding-top: $spacing-sm;
+    border-top: 1px solid $color-border-footer;
+  }
+}
+
+.fs-logs-tab {
+  margin-top: $spacing-lg;
+
+  .fs-logs-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-lg;
+    padding: $spacing-md $spacing-lg;
+    background: $wp-admin-gray-bg-light;
+    border: 1px solid $color-border-input;
+    border-radius: 8px;
+
+    input[type="number"],
+    input[type="date"],
+    select {
+      height: 30px;
+      font-size: $font-size;
+    }
+  }
+
+  .fs-logs-summary {
+    color: $color-text-secondary;
+    font-size: $font-size;
+    margin-bottom: $spacing-sm;
+  }
+
+  details summary::-webkit-details-marker { display: none; }
+}
+
+.fs-consent-tab {
+  max-width: 860px;
+  margin-top: $spacing-xl;
+
+  &__meta {
+    display: flex;
+    gap: $spacing-xxl;
+    margin-bottom: $spacing-xl;
+    padding: $spacing-lg $spacing-xl;
+    background: $wp-admin-blue-bg-light;
+    border: 1px solid $wp-admin-blue-bg;
+    border-radius: 8px;
+    font-size: $font-size;
+    color: $color-text-primary;
+
+    dt {
+      font-weight: $font-bold;
+      color: $color-text-secondary;
+      font-size: $font-size-sm;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: $spacing-xs;
+    }
+
+    dd {
+      margin: 0;
+      font-family: monospace;
+      word-break: break-all;
+    }
+  }
+
+  &__lookup {
+    display: flex;
+    gap: $spacing-sm;
+    align-items: flex-start;
+    margin-top: $spacing-xl;
+
+    input {
+      flex: 1;
+      font-family: monospace;
+      font-size: 12px;
+    }
+  }
+
+  &__lookup-result {
+    margin-top: $spacing-lg;
+    padding: $spacing-lg;
+    background: $wp-admin-gray-bg-light;
+    border: 1px solid $color-border-input;
+    border-radius: 8px;
+    font-size: $font-size;
+    line-height: 1.6;
+
+    &--error {
+      background: $wp-admin-red-bg;
+      border-color: $color-danger;
+      color: $wp-admin-red-text;
+    }
+  }
+}

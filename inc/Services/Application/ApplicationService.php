@@ -5,18 +5,19 @@ declare( strict_types=1 );
 namespace Inc\Services\Application;
 
 use DomainException;
-use Inc\DTO\ApplicationCreatedDTO;
-use Inc\DTO\ApplicationInputDTO;
+use Inc\DTO\Application\ApplicationCreatedDTO;
+use Inc\DTO\Application\ApplicationInputDTO;
 use Inc\DTO\ParentDataDTO;
 use Inc\DTO\ParentSubmissionInputDTO;
-use Inc\DTO\StudentDataDTO;
+use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
-use Inc\Enums\ConsentType;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Shared\PluginLogger;
+use Inc\Managers\UserManager;
 use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
-use Inc\Services\EmailOtpService;
+use Inc\Services\Email\EmailOtpService;
 use Inc\Contracts\ClockInterface;
 use Inc\Services\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
@@ -66,6 +67,7 @@ readonly class ApplicationService {
 		private AuditService          $auditService,
 		private EmailOtpService       $emailOtpService,
 		private ClockInterface        $clock,
+		private UserManager           $userManager,
 	) {}
 
 	/**
@@ -89,6 +91,10 @@ readonly class ApplicationService {
 
 		if ( null !== $this->applicationRepository->findActiveByEmail( $emailHash ) ) {
 			throw new DomainException( 'Незавершённая заявка уже существует.' );
+		}
+
+		if ( '' !== $input->username && null !== $this->userManager->findByLogin( $input->username ) ) {
+			throw new DomainException( 'Этот логин уже занят.' );
 		}
 
 		// Генерация JOIN-кода и срока его действия
@@ -130,7 +136,12 @@ readonly class ApplicationService {
 			) );
 
 			// Фиксация согласия на обработку ПД (сам ученик)
-			$this->consentService->recordSelfConsent( $id, ConsentType::PdProcessing, $ctx );
+			try {
+				$this->consentService->recordSelfConsent( $id, 'pd_processing', $ctx );
+			} catch ( \RuntimeException $e ) {
+				// Страница согласия ещё не настроена — пропускаем без прерывания потока.
+				PluginLogger::warning( 'ConsentSkipped', $e->getMessage(), array( 'operation' => 'createApplication' ) );
+			}
 
 			// Логирование события в аудит
 			$this->auditService->recordAnonymous(
@@ -175,7 +186,6 @@ readonly class ApplicationService {
 			firstName:     $input->parentFirstName,
 			middleName:    $input->parentMiddleName,
 			birthDate:     $input->parentBirthDate,
-			relationType:  $input->relationType,
 			docType:       $input->docType,
 			docNumber:     $input->docNumber,
 			docIssuedBy:   $input->docIssuedBy,
@@ -216,21 +226,32 @@ readonly class ApplicationService {
 		);
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
 
-		$appId = $app->id;
+		$appId        = $app->id;
+		$hasPreParent = null !== $app->parentPersonId;
 
-		$this->inTransaction( function () use ( $appId, $parentDataEnc, $studentDataEnc, $ctx ): void {
-			// Обновление заявки: переход в статус ReadyForReview
-			$this->applicationRepository->update( $appId, array(
+		$this->inTransaction( function () use ( $appId, $parentDataEnc, $studentDataEnc, $ctx, $hasPreParent ): void {
+			$updates = array(
 				'status'              => ApplicationStatus::ReadyForReview->value,
-				'parent_data_enc'     => $parentDataEnc,
 				'student_data_enc'    => $studentDataEnc,
 				'parent_submitted_ip' => $ctx->ip,
 				'parent_submitted_ua' => $ctx->userAgent,
 				'updated_at'          => $this->clock->now( 'mysql', true ),
-			) );
+			);
 
-			// Фиксация согласия родителя на обработку ПД ребёнка
-			$this->consentService->recordGuardianConsent( $appId, ConsentType::PdChildProcessing, 0, $ctx );
+			// Если родитель уже назначен — не перезаписываем parent_data_enc
+			if ( ! $hasPreParent ) {
+				$updates['parent_data_enc'] = $parentDataEnc;
+			}
+
+			// Обновление заявки: переход в статус ReadyForReview
+			$this->applicationRepository->update( $appId, $updates );
+
+			// Фиксация согласия родителя на обработку ПД
+			try {
+				$this->consentService->recordGuardianConsent( $appId, 'pd_processing', 0, $ctx );
+			} catch ( \RuntimeException $e ) {
+				PluginLogger::warning( 'ConsentSkipped', $e->getMessage(), array( 'operation' => 'submitParentData' ) );
+			}
 
 			// Логирование события
 			$this->auditService->recordAnonymous(

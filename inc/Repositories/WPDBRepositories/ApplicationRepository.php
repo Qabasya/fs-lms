@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Contracts\RepositoryInterface;
 use Inc\Enums\ApplicationStatus;
-use Inc\DTO\ApplicationDTO;
+use Inc\DTO\Application\ApplicationDTO;
 use Inc\Enums\TableName;
 
 /**
@@ -304,13 +304,13 @@ class ApplicationRepository implements RepositoryInterface {
 	 *
 	 * @return bool
 	 */
-	public function markConverted( int $id, int $enrollmentId ): bool {
+	public function markConverted( int $id, int $recordId ): bool {
 		return $this->update(
 			$id,
 			array(
-				'status'                     => ApplicationStatus::Converted->value,
-				'converted_to_enrollment_id' => $enrollmentId,
-				'updated_at'                 => current_time( 'mysql' ),
+				'status'              => ApplicationStatus::Converted->value,
+				'converted_record_id' => $recordId,
+				'updated_at'          => current_time( 'mysql' ),
 			)
 		);
 	}
@@ -435,5 +435,18 @@ class ApplicationRepository implements RepositoryInterface {
 		}
 
 		return $result;
+	}
+
+	/** Safety net: удаляет заявки ученика (зависшие в enrolling после частичного сбоя). */
+	public function hardDeleteByStudentPersonId( int $personId ): void {
+		$this->wpdb->query(
+			$this->wpdb->prepare( 'DELETE FROM %i WHERE student_person_id = %d', $this->table, $personId )
+		);
+	}
+
+	public function hardDeleteByParentPersonId( int $personId ): void {
+		$this->wpdb->query(
+			$this->wpdb->prepare( 'DELETE FROM %i WHERE parent_person_id = %d', $this->table, $personId )
+		);
 	}
 }

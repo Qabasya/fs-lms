@@ -41,13 +41,18 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 | Builders | `inc/Controllers/Builders/` | Build structured config arrays (menus, etc.) |
 | Registrars | `inc/Registrars/` | Wrap WP registration APIs (menus, settings, CPT, taxonomies, metaboxes) |
 | Managers | `inc/Managers/` | Wrap WP data APIs (CRUD for posts, terms, options, metaboxes) |
-| Callbacks | `inc/Callbacks/` | AJAX handlers only |
+| Callbacks | `inc/Callbacks/` | AJAX handlers only; subdirs: `Subject/`, `Person/`, `Settings/` |
 | Repositories | `inc/Repositories/` | Read/write `wp_options` as structured arrays |
 | MetaBoxes | `inc/MetaBoxes/` | Field and template definitions for metaboxes |
-| DTO | `inc/DTO/` | Data transfer between layers |
+| DTO | `inc/DTO/` | Data transfer between layers; subdirs: `Application/`, `Person/`, `Enrollment/`, `Task/`, `Subject/` |
 | Enums | `inc/Enums/` | Typed constants (slugs, capabilities, option names, AJAX hooks) |
-| Services | `inc/Services/` | Stateless services (auth, caching, template resolution, post type helpers) |
-| Shared | `inc/Shared/Traits/` | Reusable traits (AjaxResponse, Sanitizer, Authorizer, NumericSorter, TemplateRenderer, TaxonomySeeder, ErrorHandler) |
+| Services | `inc/Services/` | Stateless services; subdirs mirror domain groups (auth, email, person, subject, task, etc.) |
+| Shared | `inc/Shared/` | Traits (`inc/Shared/Traits/`) + static utility `PluginLogger` |
+
+**Callbacks subdirectories:**
+- `inc/Callbacks/Subject/` — SubjectCrudCallbacks, SubjectDataCallbacks, SubjectImportExportCallbacks, SubjectPageCallbacks, SubjectValidationCallbacks, TaxonomySettingsCallbacks
+- `inc/Callbacks/Person/` — PersonViewCallbacks, PersonUpdateCallbacks, PiiRevealCallbacks, RepresentativeCallbacks
+- `inc/Callbacks/Settings/` — AcademicPeriodCallbacks, ConsentSettingsCallbacks, EmailTemplateSettingsCallbacks
 
 **BaseController** (`Inc\Core\BaseController`): infrastructure utility only — not a domain or architectural base class. Provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Also declares the `AjaxResponse` trait (inherited by all subclasses). Extend this purely to gain access to plugin path helpers and AJAX transport — not to express any domain relationship. Controllers and Callbacks extending it are unrelated to each other beyond sharing these utilities.
 
@@ -74,6 +79,7 @@ Subjects are stored in `wp_options` (key: `fs_lms_subjects_list`) as `['subject_
 - `Capability` — `Admin` (`manage_options`), `ViewLMSStats`, `ManageLMSAssignments`, `ManageApplications`, `EnrollStudent`, `ViewPII`, `ExportPII`, `ManagePersons`
 - `PostMetaName` — `TemplateType` (`fs_lms_template_type`), `Meta` (`fs_lms_meta`) — use these instead of raw strings when reading/writing post meta
 - `UserRole` — internal roles (`FSTeacher`, `FSStudent`, `FSParent`) and external/free roles (`Student`, `Teacher`); each has a `->label()` method
+- `EmailTemplateType` — `OtpCode`, `PasswordSetup`, `ApplicationConfirmation`, `ApplicationReady`, `Rejection`, `NewRepresentative`, `WelcomeWithCredentials`; use instead of raw strings when calling `EmailService` or `EmailTemplateInterface::get()`
 
 ---
 
@@ -100,10 +106,15 @@ Available nonces: `TaskCreation`, `Subject`, `Manager`, `SaveMeta`, `SaveBoilerp
 **`AjaxResponse`** — `$this->success($data)` / `$this->error($message)` wrap `wp_send_json_*` and log in `WP_DEBUG` mode.
 **Required in all Callback classes. Inherited via `BaseController` — do not re-declare unless the class does not extend `BaseController`.**
 
-**`ErrorHandler`** — `$this->sendError(code, message, status)` auto-detects context (`wp_doing_ajax()`) and responds with either `wp_send_json_error()` or `wp_die()`. `$this->logException(Throwable)` logs exceptions with file/line/trace.
+**`ErrorHandler`** — `$this->sendError(code, message, status)` auto-detects context (`wp_doing_ajax()`) and responds with either `wp_send_json_error()` or `wp_die()`.
 **Allowed only in Controllers that handle both AJAX and standard HTTP flows (currently: `AuthController` only). Do NOT use in Callback classes — they are AJAX-only; `AjaxResponse` is sufficient.**
 
-Log format for both traits: `[FS LMS] CONTEXT: message | Context: {...}` — grep-able with `[FS LMS]`.
+**`PluginLogger`** (`Inc\Shared\PluginLogger`) — static utility class for all plugin logging. Use instead of `error_log()`:
+- `PluginLogger::debug('Context', 'message', $data)` — only when `WP_DEBUG = true`
+- `PluginLogger::warning('Context', 'message', $data)` — always logs (operational warnings)
+- `PluginLogger::exception('Context', $e, $extra, $always)` — convenience wrapper; `$always=true` for cron/production errors
+
+Log format: `[FS LMS] CONTEXT: message | Context: {timestamp, user_id, ip, ...data}` — grep-able with `[FS LMS]`. Never call `error_log()` directly.
 
 **`TemplateRenderer`** — `$this->render('template-name', $dataOrDTO)` loads from `templates/`, extracts variables or accepts a DTO.
 
@@ -152,10 +163,16 @@ Static helpers — use instead of string concatenation:
 
 Transient-based cache for recent tasks/articles. Hooks `save_post` and `delete_post` via `SubjectController` to auto-invalidate.
 
-### TemplateService (`inc/Services/TemplateService/`)
+### TemplateService (`inc/Services/Template/`)
 
 - `TemplateRegistry` — registers available metabox templates
 - `TemplateResolver` — resolves the correct template for a given post/term
+
+### EmailService (`inc/Services/Email/`)
+
+- `EmailService` — sends all plugin emails via `wp_mail()`; accepts `EmailTemplateType` enum
+- `EmailOtpService` — generates, stores, and verifies OTP codes for email confirmation
+- `PhpEmailTemplate` / `WpOptionsEmailTemplate` — template strategies (PHP file fallback → DB overrides)
 
 ### Auth (`inc/Services/AuthService/`)
 

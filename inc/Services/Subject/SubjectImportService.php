@@ -4,10 +4,10 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject;
 
-use Inc\DTO\SubjectDTO;
-use Inc\DTO\TaskTemplateAssignmentDTO;
-use Inc\DTO\TaskTypeBoilerplateDTO;
-use Inc\DTO\TaxonomyDataDTO;
+use Inc\DTO\Subject\SubjectDTO;
+use Inc\DTO\Task\TaskTemplateAssignmentDTO;
+use Inc\DTO\Task\TaskTypeBoilerplateDTO;
+use Inc\DTO\Subject\TaxonomyDataDTO;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;

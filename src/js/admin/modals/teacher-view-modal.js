@@ -42,15 +42,28 @@ export const TeacherViewModal = {
 
     _fill( data ) {
         const empty = '—';
-        const fields = {
-            full_name: data.full_name || empty,
-            email:     data.email     || empty,
-            subjects:  data.subjects  || empty,
-            groups:    data.groups    || empty,
-        };
+        this.$modal.find( '[data-tvm="full_name"]' ).text( data.full_name || empty );
+        this.$modal.find( '[data-tvm="email"]' ).text( data.email || empty );
 
-        Object.entries( fields ).forEach( ( [ key, value ] ) => {
-            this.$modal.find( `[data-tvm="${ key }"]` ).text( value );
+        const esc = ( str ) => $( '<div>' ).text( String( str ) ).html();
+        const subjectsGroups = data.subjects_groups || [];
+
+        if ( ! subjectsGroups.length ) {
+            this.$modal.find( '[data-tvm="subjects"]' ).text( empty );
+            this.$modal.find( '[data-tvm="groups"]' ).text( empty );
+            return;
+        }
+
+        const subjectParts = [];
+        const groupParts   = [];
+
+        subjectsGroups.forEach( ( sg ) => {
+            subjectParts.push( esc( sg.subject_name || '' ) );
+            const groupLines = ( sg.groups || [] ).map( ( g ) => esc( g ) ).join( '<br>' );
+            groupParts.push( groupLines || empty );
         } );
+
+        this.$modal.find( '[data-tvm="subjects"]' ).html( subjectParts.join( '<br><br>' ) );
+        this.$modal.find( '[data-tvm="groups"]' ).html( groupParts.join( '<br><br>' ) );
     },
 };

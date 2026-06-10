@@ -6,12 +6,14 @@ import { LatinOnlyValidator } from './LatinOnlyValidator.js';
 import { PassportSeriesNumberValidator } from './PassportSeriesNumberValidator.js';
 import {SchoolNameValidator} from "./SchoolNameValidator";
 import {InnValidator} from "./InnValidator";
+import {CyrillicDigitsValidator} from "./CyrillicDigitsValidator";
 
 // Экспортируем карту инстансов для быстрого доступа по ключу
 export const FieldValidators = {
     inn: new InnValidator(),
     phone:        new PhoneValidator(),
     cyrillicName: new CyrillicNameValidator(),
+    cyrillicDigits: new CyrillicDigitsValidator(),
     address:     new AddressValidator(),
     schoolName:   new SchoolNameValidator(),
     latinOnly:    new LatinOnlyValidator(),

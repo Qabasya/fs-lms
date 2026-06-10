@@ -56,6 +56,33 @@ enum AjaxHook: string {
 	case SaveStudentGroup   = 'save_student_group';
 	case DeleteStudentGroup = 'delete_student_group';
 
+	// ==================== Каскадное удаление ====================
+	case CheckGroupDeletion   = 'check_group_deletion';
+	case DeleteGroup          = 'delete_group';
+	case CheckSubjectDeletion = 'check_subject_deletion';
+	case CheckPeriodDeletion  = 'check_period_deletion';
+	case DeletePeriod         = 'delete_period';
+	case HardDeleteStudent    = 'hard_delete_student';
+
+	// ==================== Журналы ====================
+	case ExportAuditLog        = 'export_audit_log';
+	case ExportPiiLog          = 'export_pii_log';
+	case ExportExportLog       = 'export_export_log';
+	case ExportDataChangeLog   = 'export_data_change_log';
+	case ExportConsentChangeLog = 'export_consent_change_log';
+	case ExportEmailLog        = 'export_email_log';
+	case ExportDeletionLog     = 'export_deletion_log';
+	case ExportAuthLog         = 'export_auth_log';
+
+	// ==================== Настройки: шаблоны писем ====================
+	case SaveEmailTemplate   = 'save_email_template';
+	case ResetEmailTemplate  = 'reset_email_template';
+
+	// ==================== Настройки: согласия ====================
+	case LookupConsentByHash     = 'lookup_consent_by_hash';
+	case AddConsentDefinition    = 'add_consent_definition';
+	case DeleteConsentDefinition = 'delete_consent_definition';
+
 	// ==================== Отчисление ====================
 	case ExpelStudent         = 'expel_student';
 	case ExportExpelledRecord = 'export_expelled_record';
@@ -87,6 +114,12 @@ enum AjaxHook: string {
 	case RegenerateUserPassword      = 'regenerate_user_password';
 	case GetStudentsByGroup          = 'get_students_by_group';
 	case GetPersonData               = 'get_person_data';
+	case SelectExistingParent        = 'select_existing_parent';
+	case RemoveParentAssignment      = 'remove_parent_assignment';
+	case RestoreFromArchive          = 'restore_from_archive';
+	case SearchParents               = 'search_parents';
+	case CheckUsernameAvailable      = 'check_username_available';
+	case CheckEmailAvailable         = 'check_email_available';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

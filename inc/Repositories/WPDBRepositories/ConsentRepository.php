@@ -149,6 +149,19 @@ class ConsentRepository implements RepositoryInterface {
 	 *
 	 * @return void
 	 */
+	/** Физически удаляет все согласия person (как субъект и как подписант за ребёнка). */
+	public function hardDeleteByPersonId( int $personId ): void {
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$this->wpdb->query(
+			$this->wpdb->prepare(
+				'DELETE FROM %i WHERE person_id = %d OR signed_for_person_id = %d',
+				$this->table,
+				$personId,
+				$personId
+			)
+		);
+	}
+
 	public function bindApplicationConsentsToPersons( int $appId, array $personMap ): void {
 		foreach ( $personMap as $role => $personId ) {
 			$this->wpdb->update(

@@ -7,13 +7,14 @@
  */
 
 use Inc\Enums\Capability;
-use Inc\Enums\DocumentType;
 use Inc\Enums\EnrollmentStatus;
-use Inc\Enums\RelationType;
-use Inc\Repositories\OptionsRepositories\StudentGroupRepository;
+
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Repositories\WPDBRepositories\EnrollmentRepository;
+use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\PiiCryptoService;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
@@ -23,34 +24,77 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	return;
 }
 
-$enrollmentRepo = new EnrollmentRepository();
-$personRepo     = new PersonRepository();
-$groupRepo      = new StudentGroupRepository();
-$subjectRepo    = new SubjectRepository();
-$crypto         = new PiiCryptoService();
+$recordRepo  = new StudentRecordRepository();
+$personRepo  = new PersonRepository();
+$docsRepo    = new PersonDocumentsRepository();
+$groupRepo   = new GroupsRepository();
+$subjectRepo = new SubjectRepository();
+$crypto      = new PiiCryptoService();
 
-$page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
-$perPage = 20;
+$page         = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+$perPage      = 20;
+$statusFilter = sanitize_key( $_GET['arc_status'] ?? '' );
 
-$filters = array( 'status' => array(
+$terminalStatuses = array(
 	EnrollmentStatus::Expelled->value,
 	EnrollmentStatus::Finished->value,
 	EnrollmentStatus::Transferred->value,
-) );
+);
 
-$enrollments = $enrollmentRepo->list( $filters, $page, $perPage );
-$total       = $enrollmentRepo->count( $filters );
-$pages       = (int) ceil( $total / $perPage );
+$allStatuses = array_merge( array( EnrollmentStatus::Active->value ), $terminalStatuses );
 
-// Все предметы один раз
+if ( '' === $statusFilter || ! in_array( $statusFilter, array_column( EnrollmentStatus::cases(), 'value' ), true ) ) {
+	$filters = array( 'status' => $allStatuses );
+} else {
+	$filters = array( 'status' => array( $statusFilter ) );
+}
+
+$records = $recordRepo->list( $filters, $page, $perPage );
+$total   = $recordRepo->count( $filters );
+$pages   = (int) ceil( $total / $perPage );
+
 $allSubjects = array();
 foreach ( $subjectRepo->readAll() as $dto ) {
 	$allSubjects[ $dto->key ] = $dto->name;
 }
 
+$baseUrl      = add_query_arg( array( 'page' => 'fs_lms_userlist', 'tab' => 'tab-5' ), admin_url( 'admin.php' ) );
+$statusLabels = array(
+	''                              => 'Все',
+	EnrollmentStatus::Active->value      => 'Обучается',
+	EnrollmentStatus::Finished->value    => 'Завершено',
+	EnrollmentStatus::Transferred->value => 'Переведён',
+	EnrollmentStatus::Expelled->value    => 'Отчислен',
+);
+
 ?>
 
 <div class="fs-lms-archive">
+
+	<!-- Фильтры по статусу -->
+	<ul class="subsubsub">
+		<?php
+		$filterKeys = array_keys( $statusLabels );
+		$lastKey    = end( $filterKeys );
+		foreach ( $statusLabels as $val => $label ) :
+			$url      = '' === $val
+				? $baseUrl
+				: add_query_arg( array( 'arc_status' => $val ), $baseUrl );
+			$isCurrent = $statusFilter === $val;
+			$countFilters = '' === $val
+				? array( 'status' => $allStatuses )
+				: array( 'status' => array( $val ) );
+			$cnt = $recordRepo->count( $countFilters );
+			?>
+			<li>
+				<a href="<?php echo esc_url( $url ); ?>"
+					class="<?php echo $isCurrent ? 'current' : ''; ?>">
+					<?php echo esc_html( $label ); ?>
+					<span class="count">(<?php echo esc_html( (string) $cnt ); ?>)</span>
+				</a><?php echo $val !== $lastKey ? ' |' : ''; ?>
+			</li>
+		<?php endforeach; ?>
+	</ul>
 
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 
@@ -58,6 +102,9 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 		<tr>
 			<th class="column-title column-primary">
 				<?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?>
+			</th>
+			<th class="column-title">
+				<?php esc_html_e( 'Статус', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
 				<?php esc_html_e( 'Направление', 'fs-lms' ); ?>
@@ -78,109 +125,102 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 		</thead>
 
 		<tbody id="the-list">
-		<?php if ( empty( $enrollments ) ) : ?>
+		<?php if ( empty( $records ) ) : ?>
 			<tr>
 				<td colspan="7">
 					<div class="notice notice-info inline fs-table__no-items">
-						<p><?php esc_html_e( 'Архив пуст.', 'fs-lms' ); ?></p>
+						<p><?php esc_html_e( 'Записей нет.', 'fs-lms' ); ?></p>
 					</div>
 				</td>
 			</tr>
 
 		<?php else : ?>
-			<?php foreach ( $enrollments as $row ) :
-				$studentPersonId  = $row->studentPersonId;
-				$groupId          = (string) ( $row->groupId ?? '' );
-				$subjectKey       = $row->subjectKey;
-				$status           = $row->status;
-				$terminatedAt     = $row->terminatedAt ? substr( $row->terminatedAt, 0, 10 ) : '';
-				$terminatedReason = (string) ( $row->terminatedReason ?? '' );
+			<?php foreach ( $records as $row ) :
+				$studentPersonId = $row->studentPersonId;
+				$groupId         = (int) ( $row->groupId ?? 0 );
+				$status          = $row->status;
+				$expelledAt      = $row->expelledAt ? substr( $row->expelledAt, 0, 10 ) : '';
+				$expelReason     = (string) ( $row->expelReason ?? '' );
+				$isTerminal      = $status->isTerminal();
 
-				// Расшифровка снапшота (до имени — оно может быть только здесь после отчисления)
-				$snapshot = array();
-				if ( ! empty( $row->snapshotEnc ) ) {
-					try {
-						$snapshot = json_decode( $crypto->decrypt( $row->snapshotEnc ), true ) ?? array();
-					} catch ( \Throwable $e ) {
-						// snapshot недоступен
-					}
-				}
-
-				$sd = $snapshot['student']  ?? array();
-				$gd = $snapshot['guardian'] ?? array();
-
-				// Имя ученика: WP-пользователь → снапшот (после отчисления пользователь удалён)
-				$studentName = '—';
 				$person      = $personRepo->find( $studentPersonId );
-				if ( $person && $person->wpUserId ) {
-					$wpUser      = get_userdata( $person->wpUserId );
-					$studentName = $wpUser ? $wpUser->display_name : '—';
-				}
-				if ( $studentName === '—' ) {
-					$fromSnapshot = trim( implode( ' ', array_filter( [
-						$sd['last_name']   ?? '',
-						$sd['first_name']  ?? '',
-						$sd['middle_name'] ?? '',
-					] ) ) );
-					if ( $fromSnapshot === '' ) {
-						$fromSnapshot = trim( (string) ( $sd['full_name'] ?? '' ) );
+				$sDocs       = $docsRepo->findByPersonId( $studentPersonId );
+
+				if ( $person !== null ) {
+					if ( $person->wpUserId ) {
+						$wpUser      = get_userdata( $person->wpUserId );
+						$studentName = $wpUser ? $wpUser->display_name : $person->fullName();
+					} else {
+						$studentName = $person->fullName() ?: "Person #{$studentPersonId}";
 					}
-					if ( $fromSnapshot !== '' ) {
-						$studentName = $fromSnapshot;
-					}
+				} else {
+					$studentName = trim(
+						$row->snapshotLastName . ' ' .
+						$row->snapshotFirstName . ' ' .
+						( $row->snapshotMiddleName ?? '' )
+					) ?: "Person #{$studentPersonId}";
 				}
 
-				// Группа
-				$groupTitle = '—';
-				$group      = $groupRepo->getById( $groupId );
-				if ( $group ) {
-					$groupTitle = $group->title;
+				$groupTitle  = '—';
+				$subjectName = '—';
+				$group       = $groupId ? $groupRepo->findById( $groupId ) : null;
+				if ( $group !== null ) {
+					$groupTitle  = $group->name;
+					$subjectName = $allSubjects[ $group->subject_key ] ?? $group->subject_key;
 				}
-
-				// Направление
-				$subjectName = $allSubjects[ $subjectKey ] ?? $subjectKey;
-
-				// Разбить full_name на части (обратная совместимость)
-				$sParts = explode( ' ', $sd['full_name'] ?? '', 3 );
-				$gParts = explode( ' ', $gd['full_name'] ?? '', 3 );
 
 				$enrollmentData = array(
-					'subject'         => $subjectName,
-					'group'           => $groupTitle,
-					'status_label'    => $status->label(),
-					'terminated_at'   => $terminatedAt,
-					'terminated_reason' => $terminatedReason,
-					'contract_no'     => $snapshot['contract_no']   ?? '',
-					'contract_date'   => $snapshot['contract_date'] ?? '',
-					'order_no'        => $snapshot['order_no']      ?? '',
-					'order_date'      => $snapshot['order_date']    ?? '',
-					'student'         => array(
-						'last_name'   => $sd['last_name']   ?? $sParts[0] ?? '',
-						'first_name'  => $sd['first_name']  ?? $sParts[1] ?? '',
-						'middle_name' => $sd['middle_name'] ?? $sParts[2] ?? '',
-						'birth_date'  => $sd['birth_date']  ?? '',
-						'email'       => $sd['email']       ?? '',
-						'phone'       => $sd['phone']       ?? '',
-						'school'      => $sd['school']      ?? '',
-						'grade'       => isset( $sd['grade'] ) ? (string) $sd['grade'] : '',
-						'doc_type'    => DocumentType::tryFrom( $sd['doc_type'] ?? '' )?->label() ?? ( $sd['doc_type'] ?? '' ),
-						'doc_number'  => $sd['doc_number']  ?? '',
-						'inn'         => $sd['inn']         ?? '',
-					),
-					'guardian'        => array(
-						'last_name'       => $gd['last_name']   ?? $gParts[0] ?? '',
-						'first_name'      => $gd['first_name']  ?? $gParts[1] ?? '',
-						'middle_name'     => $gd['middle_name'] ?? $gParts[2] ?? '',
-						'birth_date'      => $gd['birth_date']      ?? '',
-						'relation_type'   => RelationType::tryFrom( $gd['relation_type'] ?? '' )?->label() ?? ( $gd['relation_type'] ?? '' ),
-						'email'           => $gd['email']           ?? '',
-						'phone'           => $gd['phone']           ?? '',
-						'doc_type'        => DocumentType::tryFrom( $gd['doc_type'] ?? '' )?->label() ?? ( $gd['doc_type'] ?? '' ),
-						'doc_number'      => $gd['doc_number']      ?? '',
-						'doc_issued_by'   => $gd['doc_issued_by']   ?? '',
-						'doc_issued_date' => $gd['doc_issued_date'] ?? '',
-						'inn'             => $gd['inn']             ?? '',
-						'address'         => $gd['address']         ?? '',
+					'archive_id'        => $row->id,
+					'parent_person_id'  => $row->parentPersonId > 0 ? $row->parentPersonId : null,
+					'subject'           => $subjectName,
+					'group'             => $groupTitle,
+					'status_label'      => $status->label(),
+					'terminated_at'     => $expelledAt,
+					'terminated_reason' => $expelReason,
+					'contract_no'       => $row->contractNo   ?? '',
+					'contract_date'     => $row->contractDate ?? '',
+					'order_no'          => $row->orderNo      ?? '',
+					'order_date'        => $row->orderDate    ?? '',
+					'student'           => ( function () use ( $person, $row, $sDocs, $crypto ): array {
+						$s = array(
+							'last_name'   => $person?->lastName   ?? $row->snapshotLastName,
+							'first_name'  => $person?->firstName  ?? $row->snapshotFirstName,
+							'middle_name' => $person?->middleName ?? ( $row->snapshotMiddleName ?? '' ),
+							'birth_date'  => $person?->birthDate  ?? '',
+							'email'       => '',
+							'phone'       => '',
+							'school'      => $person?->school ?? ( $row->snapshotSchool ?? '' ),
+							'grade'       => $person?->grade  ?? ( $row->snapshotGrade  ?? '' ),
+							'doc_type'    => $sDocs?->docType ?? '',
+							'doc_number'  => '',
+							'inn'         => '',
+						);
+						if ( $sDocs ) {
+							foreach ( array(
+								'email'      => $sDocs->emailEnc,
+								'phone'      => $sDocs->phoneEnc,
+								'doc_number' => $sDocs->docNumberEnc,
+								'inn'        => $sDocs->innEnc,
+							) as $key => $enc ) {
+								if ( ! $enc ) { continue; }
+								try { $s[ $key ] = $crypto->decrypt( $enc ); } catch ( \Throwable ) {}
+							}
+						}
+						return $s;
+					} )(),
+					'guardian'          => array(
+						'last_name'       => '',
+						'first_name'      => '',
+						'middle_name'     => '',
+						'birth_date'      => '',
+						'email'           => '',
+						'phone'           => '',
+						'doc_type'        => '',
+						'doc_number'      => '',
+						'doc_issued_by'   => '',
+						'doc_issued_date' => '',
+						'inn'             => '',
+						'address'         => '',
 					),
 				);
 			?>
@@ -188,6 +228,18 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 
 				<td class="column-title">
 					<?php echo esc_html( $studentName ); ?>
+				</td>
+
+				<td>
+					<?php
+					$badgeColor = match ( $status ) {
+						EnrollmentStatus::Active      => 'green',
+						EnrollmentStatus::Finished    => 'blue',
+						EnrollmentStatus::Transferred => 'yellow',
+						EnrollmentStatus::Expelled    => 'red',
+					};
+					render_fs_badge( $status->label(), $badgeColor );
+					?>
 				</td>
 
 				<td class="column-title">
@@ -198,21 +250,12 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					<?php echo esc_html( $groupTitle ); ?>
 				</td>
 
-
 				<td>
-					<?php if ( $terminatedAt ) : ?>
-						<?php echo esc_html( $terminatedAt ); ?>
-					<?php else : ?>
-						<span class="fs-table__empty-value">—</span>
-					<?php endif; ?>
+					<?php echo $expelledAt ? esc_html( $expelledAt ) : '<span class="fs-table__empty-value">—</span>'; ?>
 				</td>
 
 				<td>
-					<?php if ( $terminatedReason ) : ?>
-						<?php echo esc_html( $terminatedReason ); ?>
-					<?php else : ?>
-						<span class="fs-table__empty-value">—</span>
-					<?php endif; ?>
+					<?php echo $expelReason ? esc_html( $expelReason ) : '<span class="fs-table__empty-value">—</span>'; ?>
 				</td>
 
 				<td class="column-actions">
@@ -220,6 +263,14 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 						<span class="view">
 							<a href="#" class="js-view-archive">
 								<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
+							</a>
+						</span>
+						<span class="restore"> |
+							<a href="#"
+								class="js-restore-from-archive"
+								data-archive-id="<?php echo esc_attr( (string) $row->id ); ?>"
+								data-has-parent="<?php echo $row->parentPersonId > 0 ? '1' : '0'; ?>">
+								<?php esc_html_e( 'Вернуть в заявки', 'fs-lms' ); ?>
 							</a>
 						</span>
 					</div>
@@ -249,3 +300,4 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 </div>
 
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/archive-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/restore-archive-modal.php'; ?>
