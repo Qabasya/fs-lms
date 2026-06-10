@@ -4,19 +4,12 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Task;
 
-use Inc\Enums\PostMetaName;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 
-/**
- * Validates that all required fields and taxonomies are filled before a task is published.
- *
- * Returns the first validation error as a string, or null if everything is valid.
- */
 class TaskPublishValidator {
 
-	/** Meta fields that are required whenever present in the active template. */
 	private const REQUIRED_META_FIELDS = array(
 		'task_answer' => 'Правильный ответ',
 		'task_code'   => 'Листинг кода',
@@ -29,22 +22,36 @@ class TaskPublishValidator {
 	) {}
 
 	/**
-	 * @param string $postType  CPT slug (e.g. «math_tasks»)
-	 * @param array  $postMeta  $_POST['fs_lms_meta']
-	 * @param string $templateId $_POST['fs_lms_template_type']
-	 * @param array  $taxInput  $_POST['tax_input']
-	 *
-	 * @return string|null First validation error, or null if valid.
+	 * Blocking check: required taxonomies.
+	 * Distinguishes "no terms exist" from "term not selected".
 	 */
-	public function validate( string $postType, array $postMeta, string $templateId, array $taxInput ): ?string {
-		return $this->validateMetaFields( $postMeta, $templateId )
-			?? $this->validateTaxonomies( $postType, $taxInput );
+	public function getBlockingError( string $postType, array $taxInput ): ?string {
+		$subjectKey = PostTypeResolver::subjectFromTaskPostType( $postType );
+
+		foreach ( $this->taxonomies->getBySubject( $subjectKey ) as $tax ) {
+			if ( ! $tax->is_required ) {
+				continue;
+			}
+
+			$termCount = (int) wp_count_terms( array( 'taxonomy' => $tax->slug, 'hide_empty' => false ) );
+
+			if ( $termCount === 0 ) {
+				return "В таксономии «{$tax->name}» нет термов — добавьте их перед публикацией.";
+			}
+
+			if ( empty( array_filter( (array) ( $taxInput[ $tax->slug ] ?? array() ) ) ) ) {
+				return "Обязательная таксономия «{$tax->name}» не заполнена.";
+			}
+		}
+
+		return null;
 	}
 
-	// ── Private ──────────────────────────────────────────────────────────────────
-
-	private function validateMetaFields( array $postMeta, string $templateId ): ?string {
-		$template = $this->templateRegistry->getTemplate( $templateId );
+	/**
+	 * Soft check: required meta fields.
+	 */
+	public function getSoftError( array $postMeta, string $templateId ): ?string {
+		$template = $this->templateRegistry->get( $templateId );
 
 		if ( null === $template ) {
 			return null;
@@ -62,18 +69,25 @@ class TaskPublishValidator {
 		return null;
 	}
 
-	private function validateTaxonomies( string $postType, array $taxInput ): ?string {
-		$subjectKey = PostTypeResolver::subjectFromTaskPostType( $postType );
+	/**
+	 * Returns required taxonomies that have no terms yet.
+	 * Used to warn the user proactively on the task editor screen.
+	 *
+	 * @return object[] TaxonomyDataDTO[]
+	 */
+	public function findEmptyRequired( string $subjectKey ): array {
+		$empty = array();
 
 		foreach ( $this->taxonomies->getBySubject( $subjectKey ) as $tax ) {
 			if ( ! $tax->is_required ) {
 				continue;
 			}
-			if ( empty( array_filter( (array) ( $taxInput[ $tax->slug ] ?? array() ) ) ) ) {
-				return "Обязательная таксономия «{$tax->name}» не заполнена.";
+			$count = (int) wp_count_terms( array( 'taxonomy' => $tax->slug, 'hide_empty' => false ) );
+			if ( $count === 0 ) {
+				$empty[] = $tax;
 			}
 		}
 
-		return null;
+		return $empty;
 	}
 }

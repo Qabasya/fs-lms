@@ -32,8 +32,8 @@ $display_labels = array(
 			<?php
 			$is_protected = ( $tax->slug === $dto->protected_tax );
 			$display_type = $tax->display_type ?? 'select';
-			// Получаем красивое название из словаря
 			$display_text = $display_labels[ $display_type ] ?? $display_type;
+			$has_no_terms = $tax->is_required && ( (int) wp_count_terms( array( 'taxonomy' => $tax->slug, 'hide_empty' => false ) ) === 0 );
 			?>
 			<tr data-slug="<?php echo esc_attr( $tax->slug ); ?>"
 				data-name="<?php echo esc_attr( $tax->name ); ?>"
@@ -45,6 +45,10 @@ $display_labels = array(
 					<?php if ( $is_protected ) : ?>
 						<span class="dashicons dashicons-lock" title="Системная таксономия"
 								style="font-size: 16px; color: #8c8f94; vertical-align: text-bottom;"></span>
+					<?php endif; ?>
+					<?php if ( $has_no_terms ) : ?>
+						<span class="dashicons dashicons-warning" title="Нет термов — задания нельзя публиковать"
+								style="font-size: 16px; color: #d63638; vertical-align: text-bottom;"></span>
 					<?php endif; ?>
 				</td>
 

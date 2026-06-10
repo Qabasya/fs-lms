@@ -130,29 +130,5 @@ class SubjectPageCallbacks extends BaseController {
 		$this->render( 'admin/subject', $dto );
 	}
 
-	/**
-	 * Отображает уведомление об ошибке обязательной таксономии.
-	 * Вызывается через хук 'admin_notices'.
-	 *
-	 * @return void
-	 */
-	public function showRequiredTaxNotice(): void {
-		$key = 'fs_lms_required_tax_error_' . get_current_user_id();
-		// get_transient() — получает временные данные из кеша
-		$msg = get_transient( $key );
 
-		if ( ! $msg ) {
-			return;
-		}
-
-		// delete_transient() — удаляет временные данные после отображения
-		delete_transient( $key );
-
-		// printf() — выводит отформатированную строку
-		// esc_html() — экранирует HTML-символы для безопасного вывода
-		printf(
-			'<div class="notice notice-error is-dismissible"><p>%s Задание сохранено как черновик.</p></div>',
-			esc_html( $msg )
-		);
-	}
 }

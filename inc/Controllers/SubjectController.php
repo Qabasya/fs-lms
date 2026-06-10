@@ -96,8 +96,9 @@ class SubjectController extends AjaxController {
 		// Настройка числовой сортировки терминов таксономий
 		$this->setupTermSorting();
 
-		// 'admin_notices' — хук для вывода уведомлений в админ-панели
-		add_action( 'admin_notices', array( $this->page_callbacks, 'showRequiredTaxNotice' ) );
+		add_action( 'admin_notices', array( $this->validation_callbacks, 'showEmptyRequiredTaxNotice' ) );
+
+
 
 		// Очистка кеша при сохранении или удалении поста
 		// 'save_post' — хук сохранения поста (передаёт ID и объект поста)
