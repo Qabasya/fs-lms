@@ -2,7 +2,6 @@
 
 namespace Inc\Enums;
 
-// TODO: добавить человекочитаемые названия для экспорта в csv
 
 enum AuditAction: string {
 	// ===== Заявки (Applications) =====
