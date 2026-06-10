@@ -865,7 +865,28 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 
 ## CSV-экспорт
 
-*в процессе написания документации*
+1. Экспорт групп
+
+Экспортировать данные о группах из страницы groups в таком формате:
+
+| ID | Название предмета | Учебный период | Название группы | ФИО преподавателя | Расписание | Создана | Обновлена | Удалена |   |   |   |   |   |   |   |   |   |   |
+|:--:|:-----------------:|:--------------:|:---------------:|:-----------------:|:----------:|:-------:|:---------:|:-------:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+|    |                   |                |                 |                   |            |         |           |         |   |   |   |   |   |   |   |   |   |   |
+
+Название предмета - берём из options-> fs_lms_subjects_list -> "name" по ключу subject_key
+Учебный период - берём из options-> fs_lms_academic_periods -> "name"  по ключу subject_key
+ФИО преподавателя - берём из users->display_name по ключу teacher_id (wp_user_id)
+Остальные из таблицы wp_fs_lms_groups
+
+2. Экспорт заявки/заявок
+
+3. Экспорт Ученика/Учеников
+
+4. Экспорт Родителя/Родителей
+
+5. Экспорт архивной записи/записей
+
+
 
 ---
 
@@ -876,6 +897,83 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 ---
 
 ## Тесты
+
+---
+
+**Unit: `EnrollmentService`**
+
+- `enroll()` бросает `InvalidArgumentException`, если заявка не найдена
+- `enroll()` бросает `DomainException`, если статус заявки ≠ `Enrolling`
+- `enroll()` бросает `DomainException`, если email родителя занят другим WP-пользователем
+- `enroll()` бросает `DomainException`, если ученик уже активен в группе (`existsActive`)
+- повторное зачисление отчисленного: `studentPersonId` задан, `expelledAt !== null` → вызывается `personRepository->update(id, ['expelled_at' => null])`
+- поиск существующего ученика по `doc_number_hash`, когда `studentPersonId === null` → новый person НЕ создаётся
+- новый ученик + новый родитель → `createOrFindBy` вызван дважды с корректными DTO
+- guardian найден по `parentPersonId` → `createOrFindBy` для родителя не вызывается
+
+---
+
+**Unit: `EnrollmentService::restoreFromArchive()`**
+
+- восстановление с родителем (`$withParent = true`) — вызывается `selectExistingParent()`
+- восстановление без родителя (`$withParent = false`) — `selectExistingParent()` не вызывается
+- soft-deleted person ученика → `expelled_at` очищается, дубликат не создаётся
+- `birth_date` и документные поля подтягиваются из `PersonDocumentsRepository`
+- `$record->parentPersonId === null` при `withParent = true` → `InvalidArgumentException`
+
+---
+
+**Unit: `EnrollmentService::selectExistingParent()` / `removeParentAssignment()`**
+
+- статус заявки остаётся `PendingParent`, join-код ротируется
+- привязка к несуществующей заявке / родителю → ошибка
+
+---
+
+**Unit: `PersonService`**
+
+- `createOrFindBy()` возвращает существующий `personId` при совпадении hash
+- найденный person отчислён (`expelledAt !== null`) → `expelled_at` очищается
+- person не найден → создаётся новый + запись в `person_documents`
+
+---
+
+**Unit: `TaskPublishValidator`**
+
+- обязательная таксономия без термов → возвращает строку ошибки из `getBlockingError()`
+- обязательная таксономия с термами, но не выбрана → возвращает строку ошибки
+- обязательная таксономия выбрана → `getBlockingError()` возвращает `null`
+- шаблон с обязательным полем `task_answer`, поле пустое → `getSoftError()` возвращает строку
+- шаблон без поля `task_answer` → `getSoftError()` возвращает `null`
+- неизвестный `templateId` → `getSoftError()` возвращает `null`
+- `findEmptyRequired()` возвращает только обязательные таксономии с 0 термов
+
+---
+
+**Интеграционный: `PersonRepository`**
+
+- `find()` НЕ возвращает person с `expelled_at IS NOT NULL`
+- `findIncludingDeleted()` возвращает отчисленного person
+- `softDelete()` выставляет `expelled_at`
+- `findDeletedOlderThan()` корректно фильтрует по дате
+
+---
+
+**Интеграционный: `StudentRecordRepository`**
+
+- `existsActive()` — активная запись возвращает `true`
+- `existsActive()` — отчисленная запись (`student_records.expelled_at`) возвращает `false`
+- `existsActive()` — другая группа возвращает `false`
+
+---
+
+**Интеграционный: полный цикл зачисления**
+
+1. Заявка → `enroll()` → строки созданы в `persons`, `person_documents`, `student_records`
+2. WP-пользователь создан для ученика и родителя
+3. Consent записан
+4. Откат транзакции при исключении внутри `inTransaction` → ни одной строки в таблицах не осталось
+5. Отчисление → повторное зачисление того же ученика → дубликат person НЕ создан
 
 ---
 
