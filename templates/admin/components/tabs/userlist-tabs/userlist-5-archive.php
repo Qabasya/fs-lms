@@ -8,6 +8,8 @@
 
 use Inc\Enums\Capability;
 use Inc\Enums\EnrollmentStatus;
+
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
@@ -229,9 +231,15 @@ $statusLabels = array(
 				</td>
 
 				<td>
-					<span class="fs-status-badge fs-status-badge--<?php echo esc_attr( $status->value ); ?>">
-						<?php echo esc_html( $status->label() ); ?>
-					</span>
+					<?php
+					$badgeColor = match ( $status ) {
+						EnrollmentStatus::Active      => 'green',
+						EnrollmentStatus::Finished    => 'blue',
+						EnrollmentStatus::Transferred => 'yellow',
+						EnrollmentStatus::Expelled    => 'red',
+					};
+					render_fs_badge( $status->label(), $badgeColor );
+					?>
 				</td>
 
 				<td class="column-title">
