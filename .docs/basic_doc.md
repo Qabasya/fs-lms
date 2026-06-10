@@ -26,6 +26,7 @@
 22. [CsvExportService](#csvexportservice)
 23. [Управление паролями пользователей](#управление-паролями-пользователей)
 24. [Система уведомлений](#система-уведомлений)
+25. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -3413,7 +3414,460 @@ export const FieldValidators = {
 
 ---
 
-## Заключение
+## Troubleshooting
+
+Раздел описывает **пошаговую диагностику** типичных проблем. Каждый шаг — точка проверки; найдя разрыв в цепочке, вы останавливаетесь там и исправляете именно этот узел.
+
+---
+
+### Общая схема: браузер → PHP → БД
+
+```
+[JS в браузере]
+    │  1. обработчик события вызывается?
+    │  2. XHR уходит? (Network → XHR)
+    ▼
+[WordPress AJAX endpoint /wp-admin/admin-ajax.php]
+    │  3. action и nonce переданы корректно?
+    │  4. хук wp_ajax_{action} зарегистрирован?
+    ▼
+[PHP Callback]
+    │  5. authorize() / verify() проходит?
+    │  6. требуемые параметры присутствуют и санитизированы?
+    │  7. бизнес-логика выполняется без исключений?
+    ▼
+[Repository / Service]
+    │  8. SQL выполняется без ошибок? ($wpdb->last_error)
+    │  9. данные реально записаны в таблицу?
+    ▼
+[БД]
+```
+
+---
+
+### Шаг 1 — AJAX-запрос не уходит с клиента
+
+**Симптом:** при нажатии кнопки/сабмите формы ничего не происходит, Network пуст.
+
+**Проверить:**
+
+1. Открыть DevTools → Console, убедиться, что нет JS-ошибок, ломающих выполнение скрипта.
+
+2. Проверить, что обработчик события вообще вызывается:
+```js
+// Временно в начале обработчика (service или modal):
+console.log('[debug] submit triggered', formData);
+```
+
+3. Убедиться, что элемент, на который вешается событие, существует на момент `init()`:
+```js
+// admin-компоненты:
+if ( ! $( '.my-trigger' ).length ) { return; } // guard должен быть!
+
+// frontend-компоненты:
+if ( ! document.getElementById( 'my-form' ) ) { return; }
+```
+
+4. Проверить, что файл собран после изменений:
+```bash
+npx gulp scripts   # пересобрать JS
+```
+
+5. Проверить, что скрипт вообще подключён на нужной странице (вкладка Sources в DevTools → найти `admin.min.js`).
+
+---
+
+### Шаг 2 — XHR уходит, сервер возвращает `0`, `-1` или `400`
+
+**Симптом:** в Network есть POST на `admin-ajax.php`, ответ `0` или `{"success":false}` с message `"Ошибка доступа"` / пустое тело.
+
+| Ответ | Причина |
+|---|---|
+| `0` | хук `wp_ajax_{action}` не зарегистрирован |
+| `-1` | nonce не прошёл проверку |
+| `{"success":false, "data":{"message":"..."}}` | `authorize()` вернул 403 или `$this->error()` был вызван |
+
+**Диагностика:**
+
+**2a. Проверить action:**
+
+В Network → Headers → Form Data: посмотреть поле `action`. Оно должно совпадать с тем, что регистрирует контроллер.
+
+```js
+// В JS-сервисе:
+console.log('[debug] action =', fs_lms_vars.ajax_actions.myAction);
+// Ожидаемый вид: 'my_action' (snake_case от AjaxHook enum)
+```
+
+```php
+// В контроллере должно быть:
+protected function ajaxActions(): array {
+    return [
+        [ AjaxHook::MyAction, $this->myCallbacks ],
+    ];
+}
+```
+
+Если `AjaxHook::MyAction` отсутствует в enum или контроллер не добавлен в `Init::getServices()` — хук не зарегистрируется и WP вернёт `0`.
+
+**2b. Проверить nonce:**
+
+```js
+// Временно в JS перед отправкой:
+console.log('[debug] nonce =', fs_lms_vars.nonces.manager);
+```
+
+```php
+// В callback authorize() принимает два аргумента:
+$this->authorize( Nonce::Manager, Capability::Admin );
+// Nonce::Manager должен совпадать с тем, что передаёт Enqueue.php в fs_lms_vars.nonces
+```
+
+Открыть `inc/Core/Enqueue.php` и проверить, что нужный nonce есть в массиве `nonces`, передаваемом в `wp_localize_script`.
+
+**2c. Проверить, не прилетает ли исключение до ответа:**
+
+Добавить в начало callback-метода:
+```php
+public function ajaxMyAction(): void {
+    $this->authorize( Nonce::Manager, Capability::Admin );
+    wp_die( 'checkpoint reached' ); // убрать после отладки
+    // ...
+}
+```
+
+Если в Network появится текст `checkpoint reached` — контроллер достигается. Если нет — проблема в регистрации хука.
+
+---
+
+### Шаг 3 — PHP callback вызывается, но данные не попадают в БД
+
+**Симптом:** AJAX возвращает `{"success":true}`, но запись не появляется в таблице.
+
+**3a. Убедиться, что метод репозитория вообще вызывается:**
+
+```php
+public function ajaxSaveEntity(): void {
+    $this->authorize( Nonce::Manager, Capability::Admin );
+
+    $name = $this->requireText( 'name' );
+    $id   = $this->sanitizeInt( 'period_id' );
+
+    // Временная точка остановки:
+    $this->success( [ 'debug_name' => $name, 'debug_id' => $id ] );
+    // Если данные пришли — двигаемся дальше
+}
+```
+
+Если в ответе AJAX правильные данные — проблема ниже, в сервисе или репозитории.
+
+**3b. Проверить $wpdb->last_error:**
+
+```php
+// В репозитории или сервисе после insert/update:
+$id = $this->applicationRepository->create( $data );
+if ( ! $id ) {
+    global $wpdb;
+    PluginLogger::debug( 'DebugInsert', 'insert failed', [ 'last_error' => $wpdb->last_error ] );
+}
+```
+
+Лог пишется в `..debug.log` (только если `WP_DEBUG = true`). Читать последние строки:
+```bash
+docker exec wp_app tail -15 /var/www/html/wp-content/debug.log
+```
+
+**3c. Проверить транзакцию:**
+
+Если метод использует `TransactionRunner::inTransaction()` — исключение внутри замыкания откатит транзакцию без видимой ошибки. Обернуть в try/catch:
+
+```php
+try {
+    $id = $this->inTransaction( function () use ( ... ): int {
+        // ...
+    } );
+} catch ( \Throwable $e ) {
+    PluginLogger::exception( 'DebugTransaction', $e, [], true );
+    $this->error( $e->getMessage() );
+    return;
+}
+```
+
+**3d. Проверить статусный конечный автомат:**
+
+Для изменения статуса заявки используется `ApplicationStatus::canTransitionTo()`. Если переход запрещён — метод вернёт `false` без записи в БД:
+
+```php
+// ApplicationRepository или сервис:
+if ( ! $currentStatus->canTransitionTo( $newStatus ) ) {
+    // операция молча пропускается
+}
+```
+
+Проверить текущий статус заявки напрямую в БД:
+```bash
+docker exec wp_db mariadb -u root -proot wordpress \
+  -e "SELECT id, status FROM wp_applications WHERE id = 123;"
+```
+
+---
+
+### Шаг 4 — Данные сохранены, но не отображаются в UI
+
+**Симптом:** в БД запись есть, но страница или AJAX-ответ возвращает старые данные.
+
+**4a. OPcache** — PHP-файл изменён, но старая версия осталась в кэше:
+
+```bash
+docker restart wp_app
+```
+
+**4b. Transient-кэш** — `ContentCacheService` кэширует задания/статьи на 5 минут. Сбросить:
+
+```bash
+docker exec wp_db mariadb -u root -proot wordpress \
+  -e "DELETE FROM wp_options WHERE option_name LIKE '_transient_fs_lms_%';"
+```
+
+**4c. JS-кэш браузера** — пересобрать и сделать hard refresh (Ctrl+Shift+R).
+
+**4d. Проверить, что метод репозитория читает из нужной таблицы:**
+
+```php
+// Временно в callback, вместо основного ответа:
+$raw = $this->applicationRepository->findById( $id );
+$this->success( [ 'debug_raw' => (array) $raw ] );
+```
+
+---
+
+### Шаг 5 — PII-данные не расшифровываются / не подтягиваются
+
+**Симптом:** поле возвращается пустым или `null`, хотя в `*_enc` колонке таблицы есть данные.
+
+**5a. Убедиться, что PersonReader используется, а не прямой запрос:**
+
+Все PII-поля зашифрованы. Читать через `PersonReader::read()`:
+
+```php
+// ПРАВИЛЬНО:
+$dto = $this->personReader->read( $personId, ['full_name', 'phone'], 'admin_card' );
+$fullName = $dto->fullName;
+
+// НЕПРАВИЛЬНО — вернёт зашифрованный blob:
+$row = $this->personRepository->find( $personId );
+$fullName = $row->fullNameEnc; // это base64(encrypted), не читаемо
+```
+
+**5b. Проверить, что `person_id` передаётся корректно:**
+
+ФИО родителя привязано к `parent_person_id` в таблице `applications`, а не к `wp_user_id`. Убедиться, что берётся правильный идентификатор:
+
+```php
+$app = $this->applicationRepository->findById( $appId );
+
+// Родитель:
+$parentPersonId = $app->parentPersonId;   // из таблицы persons
+$parentDto = $this->personReader->read( $parentPersonId, ['full_name'], 'reason' );
+
+// Ученик:
+$studentPersonId = $app->studentPersonId;
+```
+
+**5c. Убедиться, что заявка дошла до нужного статуса:**
+
+`parent_person_id` заполняется только после того, как родитель отправил форму (`submitParentData()`). До этого поле `null`.
+
+```bash
+docker exec wp_db mariadb -u root -proot wordpress \
+  -e "SELECT id, status, parent_person_id, student_person_id FROM wp_applications WHERE id = 123;"
+```
+
+Если `parent_person_id` — NULL, значит родитель ещё не заполнил форму. Это норма для статуса `pending_parent`.
+
+**5d. Проверить ключ шифрования:**
+
+Если `FS_LMS_ENCRYPTION_KEY` не задана в `wp-config.php` или изменилась после записи данных — расшифровка вернёт `false`, `PiiCryptoService` вернёт пустую строку. Проверить константу:
+
+```php
+// wp-config.php:
+define( 'FS_LMS_ENCRYPTION_KEY', 'ваш_ключ_64_символа_hex' );
+```
+
+---
+
+### Разборы реальных кейсов
+
+---
+
+#### Кейс 1: Модалка восстановления из архива не создавала запись в `applications`
+
+**Симптом.** Администратор открывал модалку восстановления заявки, жал «Восстановить», AJAX возвращал `{"success":true}`, но статус заявки в БД не менялся.
+
+**Диагностика по шагам:**
+
+**Шаг 1.** Открыть Network → XHR, найти запрос на `admin-ajax.php`. Посмотреть Form Data — убедиться, что `action` и `app_id` присутствуют.
+
+**Шаг 2.** Проверить `action`. В данном случае действие регистрировалось как `AjaxHook::RestoreApplication`. В JS должно было быть:
+```js
+action: fs_lms_vars.ajax_actions.restoreApplication
+```
+Если бы поле имело другое имя — хук не нашёлся бы, ответ `0`.
+
+**Шаг 3.** В callback добавить точку отладки:
+```php
+public function ajaxRestoreApplication(): void {
+    $this->authorize( Nonce::Manager, Capability::ManageApplications );
+    $appId = $this->requireInt( 'app_id' );
+
+    $app = $this->applicationRepository->findById( $appId );
+    PluginLogger::debug( 'RestoreDebug', 'app found', [
+        'id'     => $appId,
+        'status' => $app?->status?->value ?? 'null',
+    ] );
+    // ...
+}
+```
+
+**Шаг 4 (корень проблемы).** Лог показал `status: "converted"` — заявка была в финальном статусе. `ApplicationStatus::canTransitionTo( ApplicationStatus::ReadyForReview )` вернул `false`. Метод репозитория получил `false` и молча ничего не сделал. Ответ `success: true` уходил потому, что проверка результата update была написана как:
+
+```php
+$result = $this->applicationRepository->updateStatus( $appId, ApplicationStatus::ReadyForReview );
+// Не было: if (!$result) { $this->error(...); }
+$this->success();  // всегда success
+```
+
+**Исправление.** Добавить явную проверку и вернуть ошибку пользователю, если переход запрещён.
+
+---
+
+#### Кейс 2: ФИО родителя не подтягивалось в карточку заявки
+
+**Симптом.** В модалке просмотра заявки поля «Имя родителя», «Отчество», «Телефон» были пустыми. Заявка находилась в статусе `ready_for_review`.
+
+**Диагностика по шагам:**
+
+**Шаг 1.** Открыть Network → найти AJAX-запрос загрузки данных заявки (обычно `getApplicationData` или аналог). Посмотреть ответ — есть ли в нём ключи для родителя.
+
+```json
+{
+  "success": true,
+  "data": {
+    "student": { "full_name": "Иванов Иван" },
+    "parent":  { "full_name": "", "phone": "" }
+  }
+}
+```
+
+Данные приходят пустыми → проблема на сервере, не в JS.
+
+**Шаг 2.** Найти callback, который формирует ответ (например `PersonViewCallbacks::ajaxGetPersonData()`). Добавить отладочный вывод:
+
+```php
+$app = $this->applicationRepository->findById( $appId );
+
+$this->success( [
+    'debug_parent_person_id'  => $app->parentPersonId,
+    'debug_student_person_id' => $app->studentPersonId,
+] );
+```
+
+**Шаг 3 (корень проблемы).** Ответ показал `debug_parent_person_id: null`. Запрос к БД подтвердил:
+
+```bash
+docker exec wp_db mariadb -u root -proot wordpress \
+  -e "SELECT parent_person_id FROM wp_applications WHERE id = 45;"
+# → NULL
+```
+
+`parent_person_id` заполняется в `ApplicationService::submitParentData()`. Проверить аудит-лог:
+
+```bash
+docker exec wp_db mariadb -u root -proot wordpress \
+  -e "SELECT * FROM wp_audit_log WHERE target_id = 45 ORDER BY created_at ASC;"
+```
+
+Лог показал только `create_application`, но не `parent_submitted` — родитель никогда не заполнял форму. Это нормальная ситуация, а не баг: заявку перевели в `ready_for_review` вручную, минуя стандартный flow.
+
+**Вывод.** Причина не в коде, а в данных. Защита: перед попыткой читать PII родителя всегда проверять `$app->parentPersonId !== null`.
+
+```php
+if ( null === $app->parentPersonId ) {
+    return [ 'parent' => null ]; // явный null, не пустой массив
+}
+$parentDto = $this->personReader->read( $app->parentPersonId, $fields, 'admin_view' );
+```
+
+---
+
+### Быстрая шпаргалка
+
+| Ситуация | Куда смотреть |
+|---|---|
+| Кнопка не реагирует | Console → JS-ошибки; добавить `console.log` в обработчик |
+| Network пустой | Проверить, что `init()` вообще вызывается; есть ли guard на DOM-элемент |
+| Ответ `0` | `AjaxHook` не в `ajaxActions()` или контроллер не в `Init::getServices()` |
+| Ответ `-1` | Нonce неверный; сравнить `Enqueue.php` и `authorize()` |
+| `success:false`, 403 | `Capability` не та; проверить `$this->authorize( Nonce::X, Capability::Y )` |
+| `success:true`, но не сохраняется | Проверить `$wpdb->last_error`; статусный автомат; транзакция откатилась |
+| PII возвращается пустым | Читать через `PersonReader::read()`, не из сырого DTO; проверить `FS_LMS_ENCRYPTION_KEY` |
+| После изменения PHP ничего не изменилось | `docker restart wp_app` (OPcache) |
+| Старые данные в кэше | Удалить transients `_transient_fs_lms_%` |
+
+---
+
+### Инструменты
+
+#### Быстрый dump в PHP (только на время отладки)
+
+```php
+// В начале callback-метода, вместо основного кода:
+$this->success( [ 'debug' => [
+    'post'    => $_POST,
+    'user_id' => get_current_user_id(),
+] ] );
+```
+
+Всегда удалять после нахождения проблемы.
+
+#### Логирование через PluginLogger
+
+```php
+use Inc\Shared\PluginLogger;
+
+// debug — только при WP_DEBUG=true:
+PluginLogger::debug( 'MyCallback', 'reached checkpoint A', [ 'id' => $appId ] );
+
+// warning — всегда пишется:
+PluginLogger::warning( 'MyCallback', 'unexpected null', [ 'app_id' => $appId ] );
+```
+
+Лог читать:
+```bash
+docker exec wp_app tail -15 /var/www/html/wp-content/debug.log
+```
+
+Формат: `[FS LMS] MyCallback: reached checkpoint A | Context: {"timestamp":"...","user_id":1,"id":42}`
+
+#### Прямой запрос к БД
+
+```bash
+# Последние 5 заявок:
+docker exec wp_db mariadb -u root -proot wordpress \
+  -e "SELECT id, status, parent_person_id FROM wp_applications ORDER BY id DESC LIMIT 5;"
+
+# Аудит конкретной заявки:
+docker exec wp_db mariadb -u root -proot wordpress \
+  -e "SELECT action, created_at FROM wp_audit_log WHERE target_id = 42 AND target_type = 'application';"
+
+# Последние ошибки репозитория (если включён general_log):
+docker exec wp_db mariadb -u root -proot wordpress \
+  -e "SHOW GLOBAL STATUS LIKE 'Last_query%';"
+```
+
+---
+
+
 
 Данная документация описывает архитектуру плагина FS LMS, включая:
 
@@ -3434,5 +3888,6 @@ export const FieldValidators = {
 - **CsvExportService** — паттерн Column Projection для экспорта данных
 - **Управление паролями** — двойное хранение (user_pass + зашифрованный meta), стратегии при зачислении, автоочистка meta при ручной смене, регенерация из UI
 - **Систему уведомлений** — четыре механизма: нативная валидация у поля, `showNotice` / `showModalError` для серверных ошибок в UI, `showToast` для сетевых ошибок, `AlertModal` для критических ошибок поверх открытых модалов
+- **Troubleshooting** — пошаговая диагностика от браузера до БД, разборы типичных кейсов, шпаргалка по симптомам и инструменты отладки
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.
