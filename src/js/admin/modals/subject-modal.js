@@ -1,4 +1,5 @@
 import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
+import { initFormValidation } from '../../common/validation-manager.js';
 
 const $ = jQuery;
 
@@ -33,6 +34,7 @@ export const SubjectModal = {
         this.$nonceInput     = this.$modal.find('input[name="security"]');
         this.$saveBtn        = this.$modal.find('button[type="submit"]');
         this.$form           = this.$modal.find('form');
+        this._validateAll = initFormValidation(this.$form[0]);
     },
 
     _bindEvents() {
@@ -94,7 +96,7 @@ export const SubjectModal = {
     },
 
     _validate() {
-        return this.$form[0].checkValidity();
+        return this._validateAll();
     },
 
     _resetForm() {

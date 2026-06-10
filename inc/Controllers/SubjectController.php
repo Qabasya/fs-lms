@@ -40,7 +40,7 @@ use Inc\Shared\Traits\NumericSorter;
  * Делегирует регистрацию CPT и таксономий специализированным регистраторам, а AJAX-логику — коллбекам.
  */
 class SubjectController extends AjaxController {
-	use NumericSorter;  // Трейт с методом addNumericSort() для числовой сортировки терминов
+	use NumericSorter;
 
 	/**
 	 * Конструктор.

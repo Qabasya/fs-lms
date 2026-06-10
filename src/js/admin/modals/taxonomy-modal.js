@@ -1,4 +1,5 @@
 import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
+import { initFormValidation } from '../../common/validation-manager.js';
 
 const $ = jQuery;
 
@@ -32,6 +33,8 @@ export const TaxonomyModal = {
         this.$saveBtn           = $('.js-modal-save');
         this.$titleEl           = this.$modal.find('#modal-title');
         this.$isRequiredInput   = $('#tax-is-required');
+        this.$form              = this.$modal.find('form');
+        this._validateAll = initFormValidation(this.$form[0]);
     },
 
     _bindEvents() {
@@ -94,9 +97,7 @@ export const TaxonomyModal = {
     },
 
     _validate() {
-        const valid = !! this.$nameInput.val().trim();
-        if ( ! valid ) { this.$nameInput.addClass('fs-input-error'); }
-        return valid;
+        return this._validateAll();
     },
 
     _resetForm() {

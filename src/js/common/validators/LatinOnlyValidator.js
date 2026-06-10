@@ -6,7 +6,7 @@ export class LatinOnlyValidator extends BaseValidator {
         const latinRegex = /^[A-Za-z0-9_]+$/;
 
         if (!latinRegex.test(value)) {
-            return 'Разрешена только латиница , цифры и символ подчеркивания.';
+            return 'Разрешена только латиница, цифры и символ подчеркивания.';
         }
 
         return null;
