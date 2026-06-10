@@ -151,7 +151,7 @@ class SubjectPageCallbacks extends BaseController {
 		// printf() — выводит отформатированную строку
 		// esc_html() — экранирует HTML-символы для безопасного вывода
 		printf(
-			'<div class="notice notice-error is-dismissible"><p>Обязательная таксономия «%s» не заполнена. Задание сохранено как черновик.</p></div>',
+			'<div class="notice notice-error is-dismissible"><p>%s Задание сохранено как черновик.</p></div>',
 			esc_html( $msg )
 		);
 	}
