@@ -272,12 +272,14 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'ajax_url'    => admin_url( 'admin-ajax.php' ),
 					'captcha_key' => $this->captchaService->getSiteKey(),
 					'actions'     => array(
-						'send_otp' => AjaxHook::SendOtpCode->jsAction(),
-						'create'   => AjaxHook::CreateApplication->jsAction(),
+						'send_otp'          => AjaxHook::SendOtpCode->jsAction(),
+						'create'            => AjaxHook::CreateApplication->jsAction(),
+						'check_username'    => AjaxHook::CheckUsernameAvailable->jsAction(),
 					),
 					'nonces'      => array(
-						'apply'      => Nonce::Apply->create(),
-						'verify_otp' => Nonce::VerifyOtp->create(),
+						'apply'            => Nonce::Apply->create(),
+						'verify_otp'       => Nonce::VerifyOtp->create(),
+						'check_username'   => Nonce::CheckUsernameAvailable->create(),
 					),
 				)
 			);
@@ -293,9 +295,11 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'dadata_token' => defined( 'DADATA_API_TOKEN' ) ? DADATA_API_TOKEN : '',
 					'actions'      => array(
 						'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
+						'check_email'   => AjaxHook::CheckEmailAvailable->jsAction(),
 					),
 					'nonces'       => array(
 						'parent_submit' => Nonce::ParentSubmit->create(),
+						'check_email'   => Nonce::CheckEmailAvailable->create(),
 					),
 				)
 			);

@@ -16,7 +16,7 @@ readonly class PersonDTO {
 		public bool    $isStudent,
 		public ?string $school,
 		public ?string $grade,
-		public ?string $deletedAt,
+		public ?string $expelledAt,
 		public string  $createdAt,
 		public string  $updatedAt,
 	) {}
@@ -36,7 +36,7 @@ readonly class PersonDTO {
 			isStudent:  (bool) ( $row['is_student'] ?? false ),
 			school:     isset( $row['school'] ) && '' !== $row['school'] ? (string) $row['school'] : null,
 			grade:      isset( $row['grade'] )  && '' !== $row['grade']  ? (string) $row['grade']  : null,
-			deletedAt:  isset( $row['deleted_at'] ) ? (string) $row['deleted_at'] : null,
+			expelledAt: isset( $row['expelled_at'] ) ? (string) $row['expelled_at'] : null,
 			createdAt:  (string) $row['created_at'],
 			updatedAt:  (string) $row['updated_at'],
 		);
@@ -53,7 +53,7 @@ readonly class PersonDTO {
 			'is_student'  => $this->isStudent ? 1 : 0,
 			'school'      => $this->school,
 			'grade'       => $this->grade,
-			'deleted_at'  => $this->deletedAt,
+			'expelled_at' => $this->expelledAt,
 			'created_at'  => $this->createdAt,
 			'updated_at'  => $this->updatedAt,
 		);

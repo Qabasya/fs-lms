@@ -18,7 +18,7 @@ use Inc\Enums\TableName;
  * ### Основные обязанности:
  *
  * 1. **CRUD-операции** — создание, чтение, обновление и удаление записей о лицах.
- * 2. **Мягкое удаление** — поддержка deleted_at для сохранения истории.
+ * 2. **Мягкое удаление** — поддержка expelled_at для сохранения истории.
  * 3. **Поиск по различным критериям** — по ID, WP User ID, флагу is_student.
  *
  * ### Архитектурная роль:
@@ -52,7 +52,20 @@ class PersonRepository implements RepositoryInterface {
 	public function find( int $id ): ?PersonDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE id = %d AND deleted_at IS NULL LIMIT 1',
+				'SELECT * FROM %i WHERE id = %d AND expelled_at IS NULL LIMIT 1',
+				$this->table,
+				$id
+			),
+			ARRAY_A
+		);
+
+		return $row ? PersonDTO::fromArray( $row ) : null;
+	}
+
+	public function findIncludingDeleted( int $id ): ?PersonDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE id = %d LIMIT 1',
 				$this->table,
 				$id
 			),
@@ -72,7 +85,7 @@ class PersonRepository implements RepositoryInterface {
 	public function findByWpUserId( int $wpUserId ): ?PersonDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE wp_user_id = %d AND deleted_at IS NULL LIMIT 1',
+				'SELECT * FROM %i WHERE wp_user_id = %d AND expelled_at IS NULL LIMIT 1',
 				$this->table,
 				$wpUserId
 			),
@@ -108,7 +121,7 @@ class PersonRepository implements RepositoryInterface {
 
 	/**
 	 * Мягкое удаление (реализация интерфейса).
-	 * Заполняет поле deleted_at текущей датой.
+	 * Заполняет поле expelled_at текущей датой.
 	 *
 	 * @param int $id ID записи
 	 *
@@ -130,14 +143,14 @@ class PersonRepository implements RepositoryInterface {
 	}
 
 	/**
-	 * Мягкое удаление записи (заполнение deleted_at).
+	 * Мягкое удаление записи (заполнение expelled_at).
 	 *
 	 * @param int $id ID записи
 	 *
 	 * @return bool
 	 */
 	public function softDelete( int $id ): bool {
-		return $this->update( $id, array( 'deleted_at' => current_time( 'mysql', true ) ) );
+		return $this->update( $id, array( 'expelled_at' => current_time( 'mysql', true ) ) );
 	}
 
 	/**
@@ -162,7 +175,7 @@ class PersonRepository implements RepositoryInterface {
 	public function findByIsStudent( bool $isStudent ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE is_student = %d AND deleted_at IS NULL ORDER BY last_name, first_name',
+				'SELECT * FROM %i WHERE is_student = %d AND expelled_at IS NULL ORDER BY last_name, first_name',
 				$this->table,
 				$isStudent ? 1 : 0
 			),
@@ -183,7 +196,7 @@ class PersonRepository implements RepositoryInterface {
 	public function findDeletedOlderThan( int $days ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE deleted_at IS NOT NULL AND deleted_at < DATE_SUB(NOW(), INTERVAL %d DAY)',
+				'SELECT * FROM %i WHERE expelled_at IS NOT NULL AND expelled_at < DATE_SUB(NOW(), INTERVAL %d DAY)',
 				$this->table,
 				$days
 			),

@@ -74,7 +74,10 @@ readonly class EnrollmentService {
 
 		$existingStudent = null;
 		if ( $app->studentPersonId !== null ) {
-			$existingStudent = $this->personRepository->find( $app->studentPersonId );
+			$existingStudent = $this->personRepository->findIncludingDeleted( $app->studentPersonId );
+			if ( $existingStudent !== null && $existingStudent->expelledAt !== null ) {
+				$this->personRepository->update( $existingStudent->id, array( 'expelled_at' => null ) );
+			}
 		} else {
 			$studentDocHash  = $this->crypto->hash( $studentDto->docNumber );
 			$studentId       = $this->personService->findByDocNumberHash( $studentDocHash );
@@ -309,7 +312,7 @@ readonly class EnrollmentService {
 			throw new InvalidArgumentException( 'Запись не найдена.' );
 		}
 
-		$studentPerson = $this->personRepository->find( $record->studentPersonId );
+		$studentPerson = $this->personRepository->findIncludingDeleted( $record->studentPersonId );
 
 		$sLastName   = $record->snapshotLastName  !== '' ? $record->snapshotLastName  : ( $studentPerson?->lastName  ?? '' );
 		$sFirstName  = $record->snapshotFirstName !== '' ? $record->snapshotFirstName : ( $studentPerson?->firstName ?? '' );
@@ -378,6 +381,11 @@ readonly class EnrollmentService {
 
 			$parentResult = $this->selectExistingParent( $appId, $record->parentPersonId );
 
+			$this->applicationRepository->update( $appId, array(
+				'status'     => ApplicationStatus::ReadyForReview->value,
+				'updated_at' => $this->clock->now( 'mysql', true ),
+			) );
+
 			return array_merge( array( 'id' => $appId ), $parentResult );
 		}
 
@@ -418,6 +426,7 @@ readonly class EnrollmentService {
 			'last_name'       => $parentPerson->lastName,
 			'first_name'      => $parentPerson->firstName,
 			'middle_name'     => $parentPerson->middleName ?? '',
+			'full_name'       => $parentPerson->fullName(),
 			'birth_date'      => $parentPerson->birthDate ?? '',
 			'email'           => '',
 			'phone'           => '',

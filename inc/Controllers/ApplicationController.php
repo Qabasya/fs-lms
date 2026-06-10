@@ -74,6 +74,10 @@ class ApplicationController extends AjaxController {
 			array( AjaxHook::CreateApplication, $this->callbacks ),
 			// Отправка данных родителя по JOIN-ссылке
 			array( AjaxHook::SubmitParentData, $this->callbacks ),
+			// Проверка доступности логина (apply-форма)
+			array( AjaxHook::CheckUsernameAvailable, $this->callbacks ),
+			// Проверка доступности email (join-форма)
+			array( AjaxHook::CheckEmailAvailable, $this->callbacks ),
 		);
 	}
 

@@ -62,9 +62,12 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 				$childNames    = array();
 				$childPersonId = 0;
 
-				$activeRecords = $recordRepo->findActiveByParent( $parentPerson->id );
+				$activeRecords   = $recordRepo->findActiveByParent( $parentPerson->id );
+				$seenStudentIds  = array();
 				foreach ( $activeRecords as $record ) {
-					$studentPerson = $personRepo->find( $record->studentPersonId );
+					if ( in_array( $record->studentPersonId, $seenStudentIds, true ) ) { continue; }
+					$seenStudentIds[] = $record->studentPersonId;
+					$studentPerson    = $personRepo->find( $record->studentPersonId );
 					if ( $studentPerson !== null ) {
 						$childNames[]  = $studentPerson->fullName();
 						$childPersonId = $record->studentPersonId;

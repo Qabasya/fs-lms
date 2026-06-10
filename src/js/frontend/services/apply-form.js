@@ -7,7 +7,7 @@
  * Глобальные переменные: fs_lms_apply_vars (локализуются в Enqueue.php)
  */
 
-import { initFormValidation } from '../../common/validation-manager.js';
+import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
 
 /** @type {{ ajax_url: string, captcha_key: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
@@ -177,6 +177,29 @@ async function handleResendOtp() {
 
 // ── Инициализация ─────────────────────────────────────────────────────────────
 
+async function checkUsernameAvailable( input ) {
+    const username = input.value.trim();
+    if ( ! username ) { return true; }
+
+    try {
+        const body = new URLSearchParams( {
+            action:   vars.actions.check_username,
+            security: vars.nonces.check_username,
+            username,
+        } );
+        const res  = await fetch( vars.ajax_url, { method: 'POST', body } );
+        const json = await res.json();
+
+        if ( json?.success && json.data?.available === false ) {
+            renderFieldError( input, 'Этот логин уже занят.' );
+            return false;
+        }
+    } catch {}
+
+    clearFieldError( input );
+    return true;
+}
+
 export function initApplyForm() {
     if ( ! window.fs_lms_apply_vars ) { return; }
 
@@ -184,6 +207,11 @@ export function initApplyForm() {
     if ( ! applyForm ) { return; }
 
     const validateAll = initFormValidation( applyForm );
+
+    const usernameInput = document.getElementById( 'fs_username' );
+    if ( usernameInput ) {
+        usernameInput.addEventListener( 'blur', () => checkUsernameAvailable( usernameInput ) );
+    }
 
     applyForm.addEventListener( 'submit', async ( e ) => {
         e.preventDefault();
@@ -194,6 +222,8 @@ export function initApplyForm() {
         clearError( applyForm );
 
         if ( ! validateAll() ) { return; }
+
+        if ( usernameInput && ! await checkUsernameAvailable( usernameInput ) ) { return; }
 
         setLoading( btn, true );
 

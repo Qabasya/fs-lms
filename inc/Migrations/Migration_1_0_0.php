@@ -68,12 +68,13 @@ class Migration_1_0_0 implements MigrationInterface {
 			is_student  tinyint(1)          NOT NULL DEFAULT 0,
 			school      varchar(255)        DEFAULT NULL,
 			grade       varchar(10)         DEFAULT NULL,
-			deleted_at  datetime            DEFAULT NULL,
+			expelled_at datetime            DEFAULT NULL,
 			created_at  datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at  datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY wp_user_id (wp_user_id),
-			KEY is_student (is_student)
+			KEY is_student (is_student),
+			KEY expelled_at (expelled_at)
 		) $cc;"
 		);
 
@@ -265,6 +266,12 @@ class Migration_1_0_0 implements MigrationInterface {
 		$wpdb->query( "ALTER TABLE `$groups`
 			DROP INDEX IF EXISTS `group_id`,
 			DROP COLUMN IF EXISTS `group_id`" );
+		$persons = TableName::Persons->prefixed();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange
+		if ( $wpdb->get_var( "SHOW COLUMNS FROM `$persons` LIKE 'deleted_at'" ) ) {
+			$wpdb->query( "ALTER TABLE `$persons` CHANGE COLUMN `deleted_at` `expelled_at` datetime DEFAULT NULL" );
+		}
+		$wpdb->query( "ALTER TABLE `$persons` ADD INDEX IF NOT EXISTS `expelled_at` (`expelled_at`)" );
 		// phpcs:enable
 	}
 

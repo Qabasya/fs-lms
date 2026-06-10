@@ -322,4 +322,28 @@ class ApplicationCallbacks extends BaseController {
 
 		$this->success( array( 'message' => 'Заявка принята к рассмотрению.' ) );
 	}
+
+	public function ajaxCheckUsernameAvailable(): void {
+		Nonce::CheckUsernameAvailable->verify();
+
+		$username = $this->sanitizeText( 'username' );
+
+		if ( '' === $username ) {
+			$this->error( 'Логин не указан.' );
+		}
+
+		$this->success( array( 'available' => ! username_exists( $username ) ) );
+	}
+
+	public function ajaxCheckEmailAvailable(): void {
+		Nonce::CheckEmailAvailable->verify();
+
+		$email = sanitize_email( $_POST['email'] ?? '' );
+
+		if ( '' === $email ) {
+			$this->error( 'Email не указан.' );
+		}
+
+		$this->success( array( 'available' => ! email_exists( $email ) ) );
+	}
 }

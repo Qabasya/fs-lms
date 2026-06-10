@@ -47,7 +47,15 @@ if ( $isStudent ) {
 	}
 	$enrollments = $recordRepo->findByStudent( $personId );
 } elseif ( $isParent ) {
-	$dependents  = $recordRepo->findActiveByParent( $personId );
+	$allDepRecords  = $recordRepo->findActiveByParent( $personId );
+	$seenDepIds     = array();
+	$dependents     = array();
+	foreach ( $allDepRecords as $_depRec ) {
+		if ( ! in_array( $_depRec->studentPersonId, $seenDepIds, true ) ) {
+			$seenDepIds[] = $_depRec->studentPersonId;
+			$dependents[] = $_depRec;
+		}
+	}
 	$enrollments = array();
 	foreach ( $dependents as $dep ) {
 		foreach ( $recordRepo->findActiveByStudent( $dep->studentPersonId ) as $rec ) {

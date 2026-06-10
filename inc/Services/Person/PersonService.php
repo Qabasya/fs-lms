@@ -37,6 +37,10 @@ readonly class PersonService {
 		$existing = $this->personDocumentsRepository->findByDocNumberHash( $docHash );
 
 		if ( null !== $existing ) {
+			$person = $this->personRepository->findIncludingDeleted( $existing->personId );
+			if ( $person !== null && $person->expelledAt !== null ) {
+				$this->personRepository->update( $existing->personId, array( 'expelled_at' => null ) );
+			}
 			return $existing->personId;
 		}
 

@@ -3,7 +3,7 @@ const $ = jQuery;
 const BTN_HTML =
     '<button type="button" class="fs-copy-field__btn" aria-label="Копировать">' +
         '<span class="fs-copy-field__label">Скопировано</span>' +
-        '<i class="fa-regular fa-clone fs-copy-field__icon"></i>' +
+        '<span class="dashicons dashicons-clipboard fs-copy-field__icon"></span>' +
     '</button>';
 
 export const CopyButton = {
@@ -41,14 +41,14 @@ export const CopyButton = {
 
         $btn.addClass( 'is-copied' )
             .find( '.fs-copy-field__icon' )
-            .removeClass( 'fa-clone' )
-            .addClass( 'fa-check' );
+            .removeClass( 'dashicons-clipboard' )
+            .addClass( 'dashicons-yes' );
 
         setTimeout( () => {
             $btn.removeClass( 'is-copied' )
                 .find( '.fs-copy-field__icon' )
-                .removeClass( 'fa-check' )
-                .addClass( 'fa-clone' );
+                .removeClass( 'dashicons-yes' )
+                .addClass( 'dashicons-clipboard' );
         }, 2000 );
     },
 };

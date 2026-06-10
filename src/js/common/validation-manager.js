@@ -1,6 +1,6 @@
 import { FieldValidators } from './validators/index.js';
 
-function renderFieldError( input, errorMessage ) {
+export function renderFieldError( input, errorMessage ) {
     const formGroup = input.closest( '.fs-form-group' );
     if ( ! formGroup ) { return; }
 

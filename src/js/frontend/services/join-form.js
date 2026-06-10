@@ -3,11 +3,37 @@
  *
  * Глобальные переменные: fs_lms_join_vars (локализуются в Enqueue.php)
  */
-import { initFormValidation } from '../../common/validation-manager.js';
+import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { initDadataAddress } from './dadata-address.js';
 import { bindPhoneMask, formatPassportSN } from '../../common/input-masks.js';
 
-let validateAll = null;
+let validateAll   = null;
+let _emailInput   = null;
+
+async function checkEmailAvailable( input ) {
+    if ( ! input || input.readOnly ) { return true; }
+
+    const email = input.value.trim();
+    if ( ! email ) { return true; }
+
+    try {
+        const body = new URLSearchParams( {
+            action:   vars.actions.check_email,
+            security: vars.nonces.check_email,
+            email,
+        } );
+        const res  = await fetch( vars.ajax_url, { method: 'POST', body } );
+        const json = await res.json();
+
+        if ( json?.success && json.data?.available === false ) {
+            renderFieldError( input, 'Этот email уже зарегистрирован.' );
+            return false;
+        }
+    } catch {}
+
+    clearFieldError( input );
+    return true;
+}
 
 /** @type {{ ajax_url: string, actions: { submit_parent: string }, nonces: { parent_submit: string } }} */
 const vars = window.fs_lms_join_vars;
@@ -32,15 +58,6 @@ function initPhoneMasks() {
     bindPhoneMask( document.getElementById( 'fs_parent_phone' ) );
 }
 
-// ── Утилита очистки ошибки поля ───────────────────────────────────────────────
-
-function clearFieldError( input ) {
-    const group = input.closest( '.fs-form-group' );
-    if ( ! group ) { return; }
-    group.classList.remove( 'form-invalid' );
-    const error = group.querySelector( '.fs-field-error' );
-    if ( error ) { error.remove(); }
-}
 
 // ── Переключение типа документа ученика ───────────────────────────────────────
 
@@ -187,6 +204,10 @@ async function handleJoinSubmit( e ) {
         return;
     }
 
+    if ( ! await checkEmailAvailable( _emailInput ) ) {
+        return;
+    }
+
     const form = document.getElementById( 'fs-lms-join-form' );
     const btn  = document.getElementById( 'fs-join-submit' );
 
@@ -221,6 +242,11 @@ export function initJoinForm() {
     if ( ! form ) { return; }
 
     validateAll = initFormValidation( form );
+
+    _emailInput = document.getElementById( 'fs_parent_email' );
+    if ( _emailInput ) {
+        _emailInput.addEventListener( 'blur', () => checkEmailAvailable( _emailInput ) );
+    }
 
     initPhoneMasks();
     initStudentDocType();

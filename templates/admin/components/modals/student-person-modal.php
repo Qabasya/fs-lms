@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Копировать">'
 	. '<span class="fs-copy-field__label">Скопировано</span>'
-	. '<i class="fa-regular fa-clone fs-copy-field__icon"></i>'
+	. '<span class="dashicons dashicons-clipboard fs-copy-field__icon"></span>'
 	. '</button>';
 ?>
 
@@ -46,24 +46,37 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 					</div>
 				</div>
-				<div class="fs-form-group">
-					<label><?php esc_html_e( '№ договора', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="contract_no" data-no-edit readonly>
-				</div>
+
 			</div>
 
 			<div class="fs-form-row">
+                <div class="fs-form-group">
+                    <label><?php esc_html_e( '№ договора', 'fs-lms' ); ?></label>
+                    <div class="fs-pfield">
+                        <input type="text" class="fs-person-field" data-field="contract_no" data-no-edit readonly>
+                        <?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+                    </div>
+                </div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Предмет', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="subject" data-no-edit readonly>
+					<div class="fs-pfield">
+						<input type="text" class="fs-person-field" data-field="subject" data-no-edit readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Группа', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="group" data-no-edit readonly>
+					<div class="fs-pfield">
+						<input type="text" class="fs-person-field" data-field="group" data-no-edit readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Расписание', 'fs-lms' ); ?></label>
-					<input type="text" class="fs-person-field regular-text" data-field="schedule" data-no-edit readonly>
+					<div class="fs-pfield">
+						<input type="text" class="fs-person-field" data-field="schedule" data-no-edit readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 			</div>
 
@@ -75,19 +88,31 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 				<div class="fs-form-row js-spm-extra-enrollment-block">
 					<div class="fs-form-group">
 						<label><?php esc_html_e( '№ договора', 'fs-lms' ); ?></label>
-						<input type="text" class="fs-person-field regular-text" data-enr-field="contract_no" data-no-edit readonly>
+						<div class="fs-pfield">
+							<input type="text" class="fs-person-field" data-enr-field="contract_no" data-no-edit readonly>
+							<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+						</div>
 					</div>
 					<div class="fs-form-group">
 						<label><?php esc_html_e( 'Предмет', 'fs-lms' ); ?></label>
-						<input type="text" class="fs-person-field regular-text" data-enr-field="subject" data-no-edit readonly>
+						<div class="fs-pfield">
+							<input type="text" class="fs-person-field" data-enr-field="subject" data-no-edit readonly>
+							<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+						</div>
 					</div>
 					<div class="fs-form-group">
 						<label><?php esc_html_e( 'Группа', 'fs-lms' ); ?></label>
-						<input type="text" class="fs-person-field regular-text" data-enr-field="group" data-no-edit readonly>
+						<div class="fs-pfield">
+							<input type="text" class="fs-person-field" data-enr-field="group" data-no-edit readonly>
+							<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+						</div>
 					</div>
 					<div class="fs-form-group">
 						<label><?php esc_html_e( 'Расписание', 'fs-lms' ); ?></label>
-						<input type="text" class="fs-person-field regular-text" data-enr-field="schedule" data-no-edit readonly>
+						<div class="fs-pfield">
+							<input type="text" class="fs-person-field" data-enr-field="schedule" data-no-edit readonly>
+							<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -109,7 +134,10 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?></label>
-					<input type="date" class="fs-person-field regular-text" data-field="birth_date" readonly>
+					<div class="fs-pfield">
+						<input type="date" class="fs-person-field" data-field="birth_date" readonly>
+						<?php echo $copy_btn; // phpcs:ignore WordPress.Security.EscapeOutput ?>
+					</div>
 				</div>
 			</div>
 

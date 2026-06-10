@@ -112,6 +112,8 @@ enum AjaxHook: string {
 	case RemoveParentAssignment      = 'remove_parent_assignment';
 	case RestoreFromArchive          = 'restore_from_archive';
 	case SearchParents               = 'search_parents';
+	case CheckUsernameAvailable      = 'check_username_available';
+	case CheckEmailAvailable         = 'check_email_available';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
