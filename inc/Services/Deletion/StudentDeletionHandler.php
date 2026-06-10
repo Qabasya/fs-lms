@@ -4,14 +4,13 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Deletion;
 
-use Inc\Enums\AuditAction;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\AuditService;
+use Inc\Services\Log\DeletionLogWriter;
 use Inc\Shared\Traits\TransactionRunner;
 
 class StudentDeletionHandler {
@@ -24,8 +23,8 @@ class StudentDeletionHandler {
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly ConsentRepository $consents,
 		private readonly ApplicationRepository $applications,
-		private readonly UserManager $userManager,
-		private readonly AuditService $audit,
+		private readonly UserManager      $userManager,
+		private readonly DeletionLogWriter $deletionLog,
 	) {}
 
 	public function handle( DeleteStudentEvent $event ): void {
@@ -35,18 +34,17 @@ class StudentDeletionHandler {
 		$person = $this->persons->find( $personId );
 		$wpUserId = $person?->wpUserId;
 
-		$this->inTransaction( function () use ( $personId, $actorId ) {
+		$this->inTransaction( function () use ( $personId ) {
 			$this->consents->hardDeleteByPersonId( $personId );
 			$this->applications->hardDeleteByStudentPersonId( $personId );
 			$this->personDocuments->hardDeleteByPersonId( $personId );
-			$this->studentRecords->deleteAllByStudent( $personId );
+			$recordsDeleted = $this->studentRecords->deleteAllByStudent( $personId );
 			$this->persons->hardDelete( $personId );
 
-			$this->audit->record(
-				AuditAction::HardDeletePerson->value,
-				'student',
+			$this->deletionLog->record(
+				'person',
 				$personId,
-				array( 'actor' => $actorId )
+				'consents, applications, person_documents, student_records:' . $recordsDeleted
 			);
 		} );
 

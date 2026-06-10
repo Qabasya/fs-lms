@@ -20,8 +20,32 @@ $tabs = array(
 		'file'  => '/components/tabs/logs-tabs/logs-1-audit.php',
 	),
 	'tab-2' => array(
-		'title' => 'Журнал доступа к ПД',
+		'title' => 'Доступ к ПД',
 		'file'  => '/components/tabs/logs-tabs/logs-2-pii.php',
+	),
+	'tab-3' => array(
+		'title' => 'Экспорт',
+		'file'  => '/components/tabs/logs-tabs/logs-3-export.php',
+	),
+	'tab-4' => array(
+		'title' => 'Изменения данных',
+		'file'  => '/components/tabs/logs-tabs/logs-4-data-change.php',
+	),
+	'tab-5' => array(
+		'title' => 'Согласия',
+		'file'  => '/components/tabs/logs-tabs/logs-5-consent-change.php',
+	),
+	'tab-6' => array(
+		'title' => 'Письма',
+		'file'  => '/components/tabs/logs-tabs/logs-6-email.php',
+	),
+	'tab-7' => array(
+		'title' => 'Удаления',
+		'file'  => '/components/tabs/logs-tabs/logs-7-deletion.php',
+	),
+	'tab-8' => array(
+		'title' => 'Аутентификация',
+		'file'  => '/components/tabs/logs-tabs/logs-8-auth.php',
 	),
 );
 

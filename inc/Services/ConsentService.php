@@ -9,6 +9,7 @@ use Inc\DTO\RequestContextDTO;
 use Inc\Enums\AuditAction;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
+use Inc\Services\Log\ConsentChangeLogWriter;
 use RuntimeException;
 
 /**
@@ -24,6 +25,7 @@ readonly class ConsentService {
 		private AuditService                 $auditService,
 		private ConsentDefinitionsRepository $consentDefinitions,
 		private ClockInterface               $clock,
+		private ConsentChangeLogWriter       $consentChangeLog,
 	) {}
 
 	/**
@@ -93,6 +95,7 @@ readonly class ConsentService {
 			$id,
 			array( 'consent_type' => $typeKey, 'version' => $version, 'application_id' => $appId, 'subject_role' => 'self' )
 		);
+		$this->consentChangeLog->record( null, $typeKey, null, $version );
 
 		return $id;
 	}
@@ -123,6 +126,7 @@ readonly class ConsentService {
 			$id,
 			array( 'consent_type' => $typeKey, 'version' => $version, 'application_id' => $appId, 'subject_role' => 'guardian' )
 		);
+		$this->consentChangeLog->record( $forPersonId ?: null, $typeKey, null, $version );
 
 		return $id;
 	}
@@ -144,6 +148,7 @@ readonly class ConsentService {
 			throw new RuntimeException( "Согласие с ID {$consentId} не найдено." );
 		}
 
+		$consent = $this->consentRepository->find( $consentId );
 		$this->consentRepository->withdraw( $consentId, $reason );
 
 		$this->auditService->record(
@@ -151,6 +156,12 @@ readonly class ConsentService {
 			'consent',
 			$consentId,
 			array( 'reason' => $reason )
+		);
+		$this->consentChangeLog->record(
+			$consent?->personId,
+			$consent?->consentType ?? '',
+			$consent?->documentHash,
+			null
 		);
 	}
 

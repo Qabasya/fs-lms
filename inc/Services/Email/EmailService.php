@@ -7,6 +7,7 @@ namespace Inc\Services\Email;
 use Inc\Enums\EmailTemplateType;
 use Inc\Managers\UserManager;
 use Inc\Services\Email\WpOptionsEmailTemplate;
+use Inc\Services\Log\EmailLogWriter;
 
 /**
  * Class EmailService
@@ -44,6 +45,7 @@ readonly class EmailService {
 	public function __construct(
 		private UserManager             $userManager,
 		private WpOptionsEmailTemplate  $template,
+		private EmailLogWriter          $emailLog,
 	) {}
 
 	/**
@@ -54,19 +56,20 @@ readonly class EmailService {
 	 *
 	 * @return bool
 	 */
-	public function sendPasswordSetup( int $userId, string $link ): bool {
+	public function sendPasswordSetup( int $userId, string $link, ?int $personId = null ): bool {
 		$user = $this->userManager->find( $userId );
 
 		if ( null === $user ) {
 			return false;
 		}
 
-		$t = $this->template->get( EmailTemplateType::PasswordSetup, array(
+		$t      = $this->template->get( EmailTemplateType::PasswordSetup, array(
 			'link'         => $link,
 			'display_name' => $user->display_name,
 		) );
-
-		return $this->send( $user->user_email, $t->subject, $t->body );
+		$result = $this->send( $user->user_email, $t->subject, $t->body );
+		$this->emailLog->record( EmailTemplateType::PasswordSetup->value, $personId, $result );
+		return $result;
 	}
 
 	/**
@@ -86,30 +89,32 @@ readonly class EmailService {
 	 *
 	 * @return bool
 	 */
-	public function sendWelcomeWithCredentials( int $userId, string $password, array $extraVars = [] ): bool {
+	public function sendWelcomeWithCredentials( int $userId, string $password, array $extraVars = [], ?int $personId = null ): bool {
 		$user = $this->userManager->find( $userId );
 
 		if ( null === $user ) {
 			return false;
 		}
 
-		$t = $this->template->get( EmailTemplateType::WelcomeWithCredentials, array_merge( array(
+		$t      = $this->template->get( EmailTemplateType::WelcomeWithCredentials, array_merge( array(
 			'login'        => $user->user_login,
 			'password'     => $password,
 			'display_name' => $user->display_name,
 			'login_url'    => wp_login_url(),
 		), $extraVars ) );
-
-		return $this->send( $user->user_email, $t->subject, $t->body );
+		$result = $this->send( $user->user_email, $t->subject, $t->body );
+		$this->emailLog->record( EmailTemplateType::WelcomeWithCredentials->value, $personId, $result );
+		return $result;
 	}
 
-	public function sendApplicationConfirmation( string $email, string $joinUrl, string $expiresAt ): bool {
-		$t = $this->template->get( EmailTemplateType::ApplicationConfirmation, array(
+	public function sendApplicationConfirmation( string $email, string $joinUrl, string $expiresAt, ?int $personId = null ): bool {
+		$t      = $this->template->get( EmailTemplateType::ApplicationConfirmation, array(
 			'join_url'   => $joinUrl,
 			'expires_at' => $expiresAt,
 		) );
-
-		return $this->send( $email, $t->subject, $t->body );
+		$result = $this->send( $email, $t->subject, $t->body );
+		$this->emailLog->record( EmailTemplateType::ApplicationConfirmation->value, $personId, $result );
+		return $result;
 	}
 
 	/**
@@ -120,9 +125,10 @@ readonly class EmailService {
 	 * @return bool
 	 */
 	public function sendApplicationReadyNotification( string $adminEmail ): bool {
-		$t = $this->template->get( EmailTemplateType::ApplicationReady );
-
-		return $this->send( $adminEmail, $t->subject, $t->body );
+		$t      = $this->template->get( EmailTemplateType::ApplicationReady );
+		$result = $this->send( $adminEmail, $t->subject, $t->body );
+		$this->emailLog->record( EmailTemplateType::ApplicationReady->value, null, $result );
+		return $result;
 	}
 
 	/**
@@ -133,19 +139,20 @@ readonly class EmailService {
 	 *
 	 * @return bool
 	 */
-	public function sendNewRepresentativeNotification( int $userId, ?string $link ): bool {
+	public function sendNewRepresentativeNotification( int $userId, ?string $link, ?int $personId = null ): bool {
 		$user = $this->userManager->find( $userId );
 
 		if ( null === $user ) {
 			return false;
 		}
 
-		$t = $this->template->get( EmailTemplateType::NewRepresentative, array(
+		$t      = $this->template->get( EmailTemplateType::NewRepresentative, array(
 			'link'         => $link ?? '',
 			'display_name' => $user->display_name,
 		) );
-
-		return $this->send( $user->user_email, $t->subject, $t->body );
+		$result = $this->send( $user->user_email, $t->subject, $t->body );
+		$this->emailLog->record( EmailTemplateType::NewRepresentative->value, $personId, $result );
+		return $result;
 	}
 
 	/**
@@ -156,10 +163,11 @@ readonly class EmailService {
 	 *
 	 * @return bool
 	 */
-	public function sendOtpCode( string $email, string $code ): bool {
-		$t = $this->template->get( EmailTemplateType::OtpCode, array( 'code' => $code ) );
-
-		return $this->send( $email, $t->subject, $t->body );
+	public function sendOtpCode( string $email, string $code, ?int $personId = null ): bool {
+		$t      = $this->template->get( EmailTemplateType::OtpCode, array( 'code' => $code ) );
+		$result = $this->send( $email, $t->subject, $t->body );
+		$this->emailLog->record( EmailTemplateType::OtpCode->value, $personId, $result );
+		return $result;
 	}
 
 	/**

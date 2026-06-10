@@ -23,8 +23,14 @@ use Inc\Enums\TableName;
  * - **enrollments**      — зачисления; group_id → groups.id
  * - **archive**          — запись создаётся при зачислении (expelled_at=NULL); связь родитель→ученик
  * - **consents**         — согласия на обработку ПДн
- * - **audit_log**        — журнал действий
- * - **pii_access_log**   — журнал доступа к PII
+ * - **audit_log**          — журнал действий (зачисление)
+ * - **pii_access_log**     — журнал доступа к PII
+ * - **export_log**         — журнал экспорта CSV
+ * - **data_change_log**    — журнал изменений данных (PII зашифрован)
+ * - **consent_change_log** — журнал изменений согласий
+ * - **email_log**          — журнал отправки писем
+ * - **deletion_log**       — GDPR-журнал жёстких удалений
+ * - **auth_log**           — журнал аутентификации
  */
 class Migration_1_0_0 implements MigrationInterface {
 
@@ -247,10 +253,117 @@ class Migration_1_0_0 implements MigrationInterface {
 			fields_accessed text               NOT NULL,
 			access_reason  varchar(255)        NOT NULL,
 			actor_ip       varchar(45)         NOT NULL,
+			actor_ua       text                DEFAULT NULL,
 			created_at     datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY actor_user_id (actor_user_id),
 			KEY person_id (person_id)
+		) $cc;"
+		);
+
+		// ===== 10. export_log — журнал экспорта CSV =====
+		$export_log = TableName::ExportLog->prefixed();
+		dbDelta(
+			"CREATE TABLE $export_log (
+			id             int unsigned        NOT NULL AUTO_INCREMENT,
+			actor_user_id  bigint(20) unsigned NOT NULL,
+			actor_role     varchar(50)         DEFAULT NULL,
+			data_type      varchar(50)         NOT NULL,
+			action_type    varchar(20)         NOT NULL,
+			target_ids_json text               DEFAULT NULL,
+			created_at     datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY actor_user_id (actor_user_id),
+			KEY data_type (data_type)
+		) $cc;"
+		);
+
+		// ===== 11. data_change_log — журнал изменений данных (PII зашифрован) =====
+		$data_change_log = TableName::DataChangeLog->prefixed();
+		dbDelta(
+			"CREATE TABLE $data_change_log (
+			id               int unsigned        NOT NULL AUTO_INCREMENT,
+			actor_user_id    bigint(20) unsigned NOT NULL,
+			actor_role       varchar(50)         DEFAULT NULL,
+			target_person_id int unsigned        NOT NULL,
+			field_name       varchar(100)        NOT NULL,
+			old_value_enc    blob                DEFAULT NULL,
+			new_value_enc    blob                DEFAULT NULL,
+			created_at       datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY actor_user_id (actor_user_id),
+			KEY target_person_id (target_person_id)
+		) $cc;"
+		);
+
+		// ===== 12. consent_change_log — журнал изменений согласий =====
+		$consent_change_log = TableName::ConsentChangeLog->prefixed();
+		dbDelta(
+			"CREATE TABLE $consent_change_log (
+			id            int unsigned        NOT NULL AUTO_INCREMENT,
+			actor_user_id bigint(20) unsigned DEFAULT NULL,
+			actor_role    varchar(50)         DEFAULT NULL,
+			person_id     int unsigned        DEFAULT NULL,
+			consent_type  varchar(50)         NOT NULL,
+			old_hash      varchar(64)         DEFAULT NULL,
+			new_hash      varchar(64)         DEFAULT NULL,
+			created_at    datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY person_id (person_id),
+			KEY consent_type (consent_type)
+		) $cc;"
+		);
+
+		// ===== 13. email_log — журнал отправки писем =====
+		$email_log = TableName::EmailLog->prefixed();
+		dbDelta(
+			"CREATE TABLE $email_log (
+			id               int unsigned        NOT NULL AUTO_INCREMENT,
+			actor_user_id    bigint(20) unsigned DEFAULT NULL,
+			actor_role       varchar(50)         DEFAULT NULL,
+			email_type       varchar(50)         NOT NULL,
+			target_person_id int unsigned        DEFAULT NULL,
+			status           varchar(10)         NOT NULL,
+			error_message    text                DEFAULT NULL,
+			created_at       datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY email_type (email_type),
+			KEY status (status)
+		) $cc;"
+		);
+
+		// ===== 14. deletion_log — GDPR-журнал жёстких удалений =====
+		$deletion_log = TableName::DeletionLog->prefixed();
+		dbDelta(
+			"CREATE TABLE $deletion_log (
+			id                int unsigned        NOT NULL AUTO_INCREMENT,
+			actor_user_id     bigint(20) unsigned NOT NULL,
+			actor_role        varchar(50)         DEFAULT NULL,
+			entity_type       varchar(50)         NOT NULL,
+			entity_id         int unsigned        NOT NULL,
+			cascaded_summary  text                DEFAULT NULL,
+			actor_ip          varchar(45)         NOT NULL,
+			created_at        datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY actor_user_id (actor_user_id),
+			KEY entity_type (entity_type)
+		) $cc;"
+		);
+
+		// ===== 15. auth_log — журнал аутентификации =====
+		$auth_log = TableName::AuthLog->prefixed();
+		dbDelta(
+			"CREATE TABLE $auth_log (
+			id               int unsigned NOT NULL AUTO_INCREMENT,
+			login_identifier varchar(255) DEFAULT NULL,
+			action           varchar(50)  NOT NULL,
+			result           varchar(10)  NOT NULL,
+			actor_ip         varchar(45)  NOT NULL,
+			actor_ua         text         DEFAULT NULL,
+			created_at       datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY action (action),
+			KEY result (result)
 		) $cc;"
 		);
 
@@ -272,6 +385,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			$wpdb->query( "ALTER TABLE `$persons` CHANGE COLUMN `deleted_at` `expelled_at` datetime DEFAULT NULL" );
 		}
 		$wpdb->query( "ALTER TABLE `$persons` ADD INDEX IF NOT EXISTS `expelled_at` (`expelled_at`)" );
+		$wpdb->query( "ALTER TABLE `$pii_access_log` ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		// phpcs:enable
 	}
 
@@ -279,6 +393,12 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::AuthLog->prefixed(),
+			TableName::DeletionLog->prefixed(),
+			TableName::EmailLog->prefixed(),
+			TableName::ConsentChangeLog->prefixed(),
+			TableName::DataChangeLog->prefixed(),
+			TableName::ExportLog->prefixed(),
 			TableName::StudentRecords->prefixed(),
 			TableName::PiiAccessLog->prefixed(),
 			TableName::AuditLog->prefixed(),

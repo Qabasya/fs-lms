@@ -65,8 +65,14 @@ enum AjaxHook: string {
 	case HardDeleteStudent    = 'hard_delete_student';
 
 	// ==================== Журналы ====================
-	case ExportAuditLog = 'export_audit_log';
-	case ExportPiiLog   = 'export_pii_log';
+	case ExportAuditLog        = 'export_audit_log';
+	case ExportPiiLog          = 'export_pii_log';
+	case ExportExportLog       = 'export_export_log';
+	case ExportDataChangeLog   = 'export_data_change_log';
+	case ExportConsentChangeLog = 'export_consent_change_log';
+	case ExportEmailLog        = 'export_email_log';
+	case ExportDeletionLog     = 'export_deletion_log';
+	case ExportAuthLog         = 'export_auth_log';
 
 	// ==================== Настройки: шаблоны писем ====================
 	case SaveEmailTemplate   = 'save_email_template';

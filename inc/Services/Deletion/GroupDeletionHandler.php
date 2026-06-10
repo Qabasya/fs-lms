@@ -4,10 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Deletion;
 
-use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\AuditService;
+use Inc\Services\Log\DeletionLogWriter;
 use Inc\Shared\Traits\TransactionRunner;
 
 class GroupDeletionHandler {
@@ -18,22 +17,23 @@ class GroupDeletionHandler {
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly GroupsRepository $groups,
 		private readonly DeletionEventDispatcher $dispatcher,
-		private readonly AuditService $audit,
+		private readonly DeletionLogWriter       $deletionLog,
 	) {}
 
 	public function handle( DeleteGroupEvent $event ): void {
 		$groupId = $event->groupId;
 		$actorId = $event->actorId;
 
-		$affected = $this->inTransaction( function () use ( $groupId, $actorId ) {
+		$affected = $this->inTransaction( function () use ( $groupId ) {
 			$ids = $this->studentRecords->deleteAllByGroupAndCollect( $groupId );
 			$this->groups->hardDelete( $groupId );
 
-			$this->audit->record(
-				AuditAction::HardDeleteGroup->value,
+			$studentsCount = count( $ids['students'] ?? array() );
+			$parentsCount  = count( $ids['parents'] ?? array() );
+			$this->deletionLog->record(
 				'group',
 				$groupId,
-				array( 'actor' => $actorId )
+				"students:{$studentsCount}, parents:{$parentsCount}"
 			);
 
 			return $ids;

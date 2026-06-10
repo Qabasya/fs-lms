@@ -10,6 +10,7 @@ use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\AuditService;
+use Inc\Services\Log\DataChangeLogWriter;
 use Inc\Services\PiiCryptoService;
 use RuntimeException;
 
@@ -30,6 +31,7 @@ readonly class PersonService {
 		private PiiCryptoService          $crypto,
 		private AuditService              $auditService,
 		private ClockInterface            $clock,
+		private DataChangeLogWriter       $dataChangeLog,
 	) {}
 
 	public function createOrFindBy( PersonInputDTO $input ): int {
@@ -69,48 +71,77 @@ readonly class PersonService {
 	}
 
 	public function update( int $personId, array $changes, int $actorId ): void {
-		if ( null === $this->personRepository->find( $personId ) ) {
+		$existingPerson = $this->personRepository->find( $personId );
+		if ( null === $existingPerson ) {
 			throw new RuntimeException( "Person с ID {$personId} не найден." );
 		}
 
-		$personData   = array();
-		$docData      = array();
+		$existingDocs  = $this->personDocumentsRepository->findByPersonId( $personId );
+		$personData    = array();
+		$docData       = array();
 		$changedFields = array();
+		$fieldChanges  = array();
 
 		foreach ( array( 'last_name', 'first_name', 'middle_name', 'school', 'grade' ) as $nameField ) {
 			if ( array_key_exists( $nameField, $changes ) ) {
-				$personData[ $nameField ] = (string) $changes[ $nameField ];
+				$oldVal                   = (string) ( $existingPerson->$nameField ?? '' );
+				$newVal                   = (string) $changes[ $nameField ];
+				$personData[ $nameField ] = $newVal;
 				$changedFields[]          = $nameField;
+				$fieldChanges[]           = array( 'field' => $nameField, 'old' => $oldVal, 'new' => $newVal );
 			}
 		}
 
 		if ( array_key_exists( 'birth_date', $changes ) ) {
-			$personData['birth_date'] = (string) $changes['birth_date'];
-			$changedFields[]         = 'birth_date';
+			$oldVal                    = (string) ( $existingPerson->birthDate ?? '' );
+			$newVal                    = (string) $changes['birth_date'];
+			$personData['birth_date']  = $newVal;
+			$changedFields[]           = 'birth_date';
+			$fieldChanges[]            = array( 'field' => 'birth_date', 'old' => $oldVal, 'new' => $newVal );
 		}
+
+		$encFieldMap = array(
+			'email'         => 'emailEnc',
+			'phone'         => 'phoneEnc',
+			'doc_number'    => 'docNumberEnc',
+			'inn'           => 'innEnc',
+			'address'       => 'addressEnc',
+			'doc_issued_by' => 'docIssuedByEnc',
+		);
 
 		foreach ( self::ENCRYPTED_DOC_FIELDS as $rawKey => $cols ) {
 			if ( ! array_key_exists( $rawKey, $changes ) ) {
 				continue;
 			}
 
-			$value                 = (string) $changes[ $rawKey ];
-			$docData[ $cols['enc'] ] = $this->crypto->encrypt( $value );
-			$changedFields[]       = $rawKey;
+			$newVal                  = (string) $changes[ $rawKey ];
+			$docData[ $cols['enc'] ] = $this->crypto->encrypt( $newVal );
+			$changedFields[]         = $rawKey;
 
 			if ( null !== $cols['hash'] ) {
-				$docData[ $cols['hash'] ] = $this->crypto->hash( $value );
+				$docData[ $cols['hash'] ] = $this->crypto->hash( $newVal );
 			}
+
+			$encProp = $encFieldMap[ $rawKey ] ?? null;
+			$oldEnc  = $encProp && $existingDocs ? $existingDocs->$encProp : null;
+			$oldVal  = $oldEnc ? $this->crypto->decrypt( $oldEnc ) : '';
+			$fieldChanges[] = array( 'field' => $rawKey, 'old' => $oldVal, 'new' => $newVal );
 		}
 
 		if ( array_key_exists( 'doc_type', $changes ) ) {
-			$docData['doc_type'] = (string) $changes['doc_type'];
+			$oldVal              = (string) ( $existingDocs?->docType ?? '' );
+			$newVal              = (string) $changes['doc_type'];
+			$docData['doc_type'] = $newVal;
 			$changedFields[]     = 'doc_type';
+			$fieldChanges[]      = array( 'field' => 'doc_type', 'old' => $oldVal, 'new' => $newVal );
 		}
 
 		if ( array_key_exists( 'doc_issued_date', $changes ) ) {
-			$docData['doc_issued_date'] = (string) $changes['doc_issued_date'];
-			$changedFields[]            = 'doc_issued_date';
+			$oldVal                      = (string) ( $existingDocs?->docIssuedDate ?? '' );
+			$newVal                      = (string) $changes['doc_issued_date'];
+			$docData['doc_issued_date']  = $newVal;
+			$changedFields[]             = 'doc_issued_date';
+			$fieldChanges[]              = array( 'field' => 'doc_issued_date', 'old' => $oldVal, 'new' => $newVal );
 		}
 
 		if ( ! empty( $personData ) ) {
@@ -119,7 +150,7 @@ readonly class PersonService {
 		}
 
 		if ( ! empty( $docData ) ) {
-			if ( null === $this->personDocumentsRepository->findByPersonId( $personId ) ) {
+			if ( null === $existingDocs ) {
 				$docData['person_id'] = $personId;
 				$this->personDocumentsRepository->create( $docData );
 			} else {
@@ -137,6 +168,10 @@ readonly class PersonService {
 			$personId,
 			array( 'changed_fields' => $changedFields ),
 		);
+
+		foreach ( $fieldChanges as $fc ) {
+			$this->dataChangeLog->record( $personId, $fc['field'], $fc['old'], $fc['new'] );
+		}
 	}
 
 	public function softDelete( int $personId, int $actorId ): void {

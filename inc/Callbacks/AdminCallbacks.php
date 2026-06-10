@@ -15,6 +15,12 @@ use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\AuditLogRepository;
+use Inc\Repositories\WPDBRepositories\AuthLogRepository;
+use Inc\Repositories\WPDBRepositories\ConsentChangeLogRepository;
+use Inc\Repositories\WPDBRepositories\DataChangeLogRepository;
+use Inc\Repositories\WPDBRepositories\DeletionLogRepository;
+use Inc\Repositories\WPDBRepositories\EmailLogRepository;
+use Inc\Repositories\WPDBRepositories\ExportLogRepository;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -60,8 +66,14 @@ class AdminCallbacks extends BaseController {
 		private readonly BoilerplatePageController $boilerplatePageController,
 		private readonly AcademicPeriodService $period_service,
 		private readonly GroupsRepository $groupsRepository,
-		private readonly AuditLogRepository $audit_log,
-		private readonly PiiAccessLogRepository $pii_log,
+		private readonly AuditLogRepository        $audit_log,
+		private readonly PiiAccessLogRepository    $pii_log,
+		private readonly ExportLogRepository       $export_log,
+		private readonly DataChangeLogRepository   $data_change_log,
+		private readonly ConsentChangeLogRepository $consent_change_log,
+		private readonly EmailLogRepository        $email_log,
+		private readonly DeletionLogRepository     $deletion_log,
+		private readonly AuthLogRepository         $auth_log,
 	) {
 		parent::__construct();
 	}
@@ -179,31 +191,108 @@ class AdminCallbacks extends BaseController {
 
 		$data = compact( 'active_tab', 'per_page' );
 
+		$date_from = sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) );
+		$date_to   = sanitize_text_field( wp_unslash( $_GET['date_to'] ?? '' ) );
+		$actor_id  = (int) ( $_GET['actor_id'] ?? 0 ) ?: null;
+		$person_id = (int) ( $_GET['person_id'] ?? 0 ) ?: null;
+
 		if ( 'tab-2' === $active_tab ) {
 			$pii_filters = array_filter( array(
-				'actor_user_id' => (int) ( $_GET['actor_id'] ?? 0 ) ?: null,
-				'person_id'     => (int) ( $_GET['person_id'] ?? 0 ) ?: null,
-				'date_from'     => sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) ),
-				'date_to'       => sanitize_text_field( wp_unslash( $_GET['date_to'] ?? '' ) ),
+				'actor_user_id' => $actor_id,
+				'person_id'     => $person_id,
+				'date_from'     => $date_from,
+				'date_to'       => $date_to,
 			) );
-
 			$data['pii_filters'] = $pii_filters;
 			$data['pii_page']    = $paged;
 			$data['pii_total']   = $this->pii_log->countFiltered( $pii_filters );
 			$data['pii_rows']    = $this->pii_log->list( $pii_filters, $paged, $per_page );
+
+		} elseif ( 'tab-3' === $active_tab ) {
+			$filters = array_filter( array(
+				'actor_user_id' => $actor_id,
+				'data_type'     => sanitize_key( wp_unslash( $_GET['data_type'] ?? '' ) ),
+				'date_from'     => $date_from,
+				'date_to'       => $date_to,
+			) );
+			$data['export_filters'] = $filters;
+			$data['export_page']    = $paged;
+			$data['export_total']   = $this->export_log->countFiltered( $filters );
+			$data['export_rows']    = $this->export_log->list( $filters, $paged, $per_page );
+
+		} elseif ( 'tab-4' === $active_tab ) {
+			$filters = array_filter( array(
+				'actor_user_id'    => $actor_id,
+				'target_person_id' => $person_id,
+				'date_from'        => $date_from,
+				'date_to'          => $date_to,
+			) );
+			$data['data_change_filters'] = $filters;
+			$data['data_change_page']    = $paged;
+			$data['data_change_total']   = $this->data_change_log->countFiltered( $filters );
+			$data['data_change_rows']    = $this->data_change_log->list( $filters, $paged, $per_page );
+
+		} elseif ( 'tab-5' === $active_tab ) {
+			$filters = array_filter( array(
+				'person_id'    => $person_id,
+				'consent_type' => sanitize_key( wp_unslash( $_GET['consent_type'] ?? '' ) ),
+				'date_from'    => $date_from,
+				'date_to'      => $date_to,
+			) );
+			$data['consent_filters'] = $filters;
+			$data['consent_page']    = $paged;
+			$data['consent_total']   = $this->consent_change_log->countFiltered( $filters );
+			$data['consent_rows']    = $this->consent_change_log->list( $filters, $paged, $per_page );
+
+		} elseif ( 'tab-6' === $active_tab ) {
+			$filters = array_filter( array(
+				'email_type'       => sanitize_key( wp_unslash( $_GET['email_type'] ?? '' ) ),
+				'status'           => sanitize_key( wp_unslash( $_GET['status'] ?? '' ) ),
+				'target_person_id' => $person_id,
+				'date_from'        => $date_from,
+				'date_to'          => $date_to,
+			) );
+			$data['email_filters'] = $filters;
+			$data['email_page']    = $paged;
+			$data['email_total']   = $this->email_log->countFiltered( $filters );
+			$data['email_rows']    = $this->email_log->list( $filters, $paged, $per_page );
+
+		} elseif ( 'tab-7' === $active_tab ) {
+			$filters = array_filter( array(
+				'actor_user_id' => $actor_id,
+				'entity_type'   => sanitize_key( wp_unslash( $_GET['entity_type'] ?? '' ) ),
+				'date_from'     => $date_from,
+				'date_to'       => $date_to,
+			) );
+			$data['deletion_filters'] = $filters;
+			$data['deletion_page']    = $paged;
+			$data['deletion_total']   = $this->deletion_log->countFiltered( $filters );
+			$data['deletion_rows']    = $this->deletion_log->list( $filters, $paged, $per_page );
+
+		} elseif ( 'tab-8' === $active_tab ) {
+			$filters = array_filter( array(
+				'action'    => sanitize_key( wp_unslash( $_GET['action_filter'] ?? '' ) ),
+				'result'    => sanitize_key( wp_unslash( $_GET['result'] ?? '' ) ),
+				'date_from' => $date_from,
+				'date_to'   => $date_to,
+			) );
+			$data['auth_filters'] = $filters;
+			$data['auth_page']    = $paged;
+			$data['auth_total']   = $this->auth_log->countFiltered( $filters );
+			$data['auth_rows']    = $this->auth_log->list( $filters, $paged, $per_page );
+
 		} else {
 			$audit_filters = array_filter( array(
 				'action'        => sanitize_key( wp_unslash( $_GET['action_filter'] ?? '' ) ),
-				'actor_user_id' => (int) ( $_GET['actor_id'] ?? 0 ) ?: null,
-				'date_from'     => sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) ),
-				'date_to'       => sanitize_text_field( wp_unslash( $_GET['date_to'] ?? '' ) ),
+				'actor_user_id' => $actor_id,
+				'date_from'     => $date_from,
+				'date_to'       => $date_to,
 			) );
-
-			$data['audit_filters']   = $audit_filters;
-			$data['audit_page']      = $paged;
-			$data['audit_total']     = $this->audit_log->countFiltered( $audit_filters );
-			$data['audit_rows']      = $this->audit_log->list( $audit_filters, $paged, $per_page );
-			$data['audit_actions']   = AuditAction::cases();
+			$data['audit_filters'] = $audit_filters;
+			$data['audit_page']    = $paged;
+			$data['audit_total']   = $this->audit_log->countFiltered( $audit_filters );
+			$data['audit_rows']    = $this->audit_log->list( $audit_filters, $paged, $per_page );
+			$data['audit_actions'] = AuditAction::cases();
 		}
 		// phpcs:enable
 

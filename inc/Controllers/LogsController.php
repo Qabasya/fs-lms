@@ -60,10 +60,14 @@ class LogsController extends AjaxController {
 	 */
 	protected function ajaxActions(): array {
 		return array(
-			// Экспорт журнала аудита в CSV
-			array( AjaxHook::ExportAuditLog, $this->logsCallbacks ),
-			// Экспорт журнала доступа к PII в CSV
-			array( AjaxHook::ExportPiiLog,   $this->logsCallbacks ),
+			array( AjaxHook::ExportAuditLog,         $this->logsCallbacks ),
+			array( AjaxHook::ExportPiiLog,            $this->logsCallbacks ),
+			array( AjaxHook::ExportExportLog,         $this->logsCallbacks ),
+			array( AjaxHook::ExportDataChangeLog,     $this->logsCallbacks ),
+			array( AjaxHook::ExportConsentChangeLog,  $this->logsCallbacks ),
+			array( AjaxHook::ExportEmailLog,          $this->logsCallbacks ),
+			array( AjaxHook::ExportDeletionLog,       $this->logsCallbacks ),
+			array( AjaxHook::ExportAuthLog,           $this->logsCallbacks ),
 		);
 	}
 }

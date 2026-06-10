@@ -15,6 +15,7 @@ use Inc\Services\AuditService;
 use Inc\Services\CaptchaService;
 use Inc\Services\Email\EmailOtpService;
 use Inc\Services\PiiCryptoService;
+use Inc\Services\Log\AuthLogWriter;
 use Inc\Services\RateLimitService;
 use Inc\DTO\Application\ApplicationInputDTO;
 use Inc\DTO\ParentSubmissionInputDTO;
@@ -67,6 +68,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly PiiCryptoService             $crypto,
 		private readonly AuditService                 $auditService,
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
+		private readonly AuthLogWriter                $authLog,
 	) {
 		parent::__construct();
 	}
@@ -203,6 +205,7 @@ class ApplicationCallbacks extends BaseController {
 
 		// Отправка OTP-кода
 		$this->emailOtpService->sendCode( $email );
+		$this->authLog->record( $email, 'otp_sent', true );
 
 		// Маскирование email для отображения в интерфейсе
 		$masked = (string) preg_replace( '/(?<=.).(?=[^@]*@)/', '*', $email );
@@ -256,12 +259,12 @@ class ApplicationCallbacks extends BaseController {
 		try {
 			$result = $this->applicationService->createApplication( $dto );
 		} catch ( \DomainException $e ) {
-			// Ошибка валидации бизнес-правил
 			$this->error( $e->getMessage() );
 		} catch ( \RuntimeException $e ) {
 			$this->error( $e->getMessage() );
 		}
 
+		$this->authLog->record( $email, 'otp_verified', true );
 		$this->success( array(
 			'join_url'   => $result->joinUrl,
 			'expires_at' => $result->expiresAt,

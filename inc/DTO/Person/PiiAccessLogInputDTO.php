@@ -22,6 +22,7 @@ readonly class PiiAccessLogInputDTO {
 	 * @param string      $fieldsAccessed Список запрошенных полей (через запятую)
 	 * @param string      $accessReason   Причина доступа
 	 * @param string      $actorIp        IP-адрес пользователя
+	 * @param string|null $actorUa        User-Agent устройства
 	 * @param string      $createdAt      Дата и время доступа (mysql UTC)
 	 */
 	public function __construct(
@@ -31,6 +32,7 @@ readonly class PiiAccessLogInputDTO {
 		public string  $fieldsAccessed,
 		public string  $accessReason,
 		public string  $actorIp,
+		public ?string $actorUa,
 		public string  $createdAt,
 	) {}
 
@@ -47,6 +49,7 @@ readonly class PiiAccessLogInputDTO {
 			'fields_accessed' => $this->fieldsAccessed,
 			'access_reason'   => $this->accessReason,
 			'actor_ip'        => $this->actorIp,
+			'actor_ua'        => $this->actorUa,
 			'created_at'      => $this->createdAt,
 		);
 	}

@@ -23,6 +23,7 @@ use Inc\Controllers\TaskCreationController;
 use Inc\Controllers\TaskPageController;
 use Inc\Controllers\LogsController;
 use Inc\Controllers\SettingsController;
+use Inc\Controllers\AuthLogController;
 use Inc\Controllers\DeletionController;
 use Inc\Controllers\UserController;
 use Inc\Contracts\ClockInterface;
@@ -82,6 +83,7 @@ final class Init {
 			DeletionController::class,
 			SettingsController::class,
 			LogsController::class,
+			AuthLogController::class,
 		);
 	}
 

@@ -41,6 +41,7 @@ readonly class PiiAccessLogDTO {
 	 * @param string      $fieldsAccessed  Список запрошенных полей (через запятую)
 	 * @param string      $accessReason    Причина доступа (обязательное поле)
 	 * @param string      $actorIp         IP-адрес пользователя
+	 * @param string|null $actorUa         User-Agent устройства
 	 * @param string      $createdAt       Дата и время доступа
 	 */
 	public function __construct(
@@ -51,6 +52,7 @@ readonly class PiiAccessLogDTO {
 		public string  $fieldsAccessed,
 		public string  $accessReason,
 		public string  $actorIp,
+		public ?string $actorUa,
 		public string  $createdAt,
 	) {}
 
@@ -70,6 +72,7 @@ readonly class PiiAccessLogDTO {
 			fieldsAccessed: (string) $row['fields_accessed'],
 			accessReason:   (string) $row['access_reason'],
 			actorIp:        (string) $row['actor_ip'],
+			actorUa:        isset( $row['actor_ua'] ) ? (string) $row['actor_ua'] : null,
 			createdAt:      (string) $row['created_at'],
 		);
 	}
@@ -88,6 +91,7 @@ readonly class PiiAccessLogDTO {
 			'fields_accessed' => $this->fieldsAccessed,
 			'access_reason'   => $this->accessReason,
 			'actor_ip'        => $this->actorIp,
+			'actor_ua'        => $this->actorUa,
 			'created_at'      => $this->createdAt,
 		);
 	}
