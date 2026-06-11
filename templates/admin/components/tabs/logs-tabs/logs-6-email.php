@@ -32,7 +32,7 @@ $filter_url  = add_query_arg( $email_filters, $base_url );
 			<option value="">Все типы</option>
 			<?php foreach ( EmailTemplateType::cases() as $type ) : ?>
 				<option value="<?php echo esc_attr( $type->value ); ?>" <?php selected( $email_filters['email_type'] ?? '', $type->value ); ?>>
-					<?php echo esc_html( $type->value ); ?>
+					<?php echo esc_html( $type->label() ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -75,6 +75,7 @@ $filter_url  = add_query_arg( $email_filters, $base_url );
 				<th style="width:180px">Актор</th>
 				<th style="width:160px">Тип письма</th>
 				<th style="width:180px">Субъект ПД</th>
+				<th style="width:180px">Email получателя</th>
 				<th style="width:80px">Статус</th>
 				<th>Ошибка</th>
 			</tr>
@@ -89,8 +90,9 @@ $filter_url  = add_query_arg( $email_filters, $base_url );
 					<td><?php echo (int) $row->id; ?></td>
 					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
-					<td><span class="fs-badge badge-secondary"><?php echo esc_html( $row->emailType ); ?></span></td>
+					<td><span class="fs-badge badge-secondary"><?php echo esc_html( EmailTemplateType::tryFrom( $row->emailType )?->label() ?? $row->emailType ); ?></span></td>
 					<td><?php echo esc_html( LogNameResolver::personName( $row->targetPersonId ) ); ?></td>
+					<td><?php echo $row->recipientEmail ? esc_html( $row->recipientEmail ) : '—'; ?></td>
 					<td><?php echo $badge; ?></td>
 					<td><?php echo $row->errorMessage ? esc_html( $row->errorMessage ) : '—'; ?></td>
 				</tr>

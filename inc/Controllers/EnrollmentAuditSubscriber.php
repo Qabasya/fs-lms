@@ -6,6 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Contracts\ServiceInterface;
+use Inc\DTO\Log\Events\ApplicationStatusEvent;
 use Inc\DTO\Log\Events\EnrollmentStatusEvent;
 use Inc\Enums\LogEvent;
 use Inc\Services\Log\EnrollmentAuditLogWriter;
@@ -59,21 +60,27 @@ class EnrollmentAuditSubscriber implements ServiceInterface {
 	 */
 	public function register(): void {
 		$handler = array( $this, 'handle' );
+		$appHandler = array( $this, 'handleApplication' );
 
-		// Подписка на все события, связанные с зачислениями
-		$this->logEvents->subscribe( LogEvent::StudentEnrolled,   $handler );
-		$this->logEvents->subscribe( LogEvent::EnrollmentFailed,  $handler );
-		$this->logEvents->subscribe( LogEvent::StudentExpelled,   $handler );
-		$this->logEvents->subscribe( LogEvent::StudentRestored,   $handler );
-		$this->logEvents->subscribe( LogEvent::EnrollmentStarted, $handler );
+		$this->logEvents->subscribe( LogEvent::StudentEnrolled,    $handler );
+		$this->logEvents->subscribe( LogEvent::EnrollmentFailed,   $handler );
+		$this->logEvents->subscribe( LogEvent::StudentExpelled,    $handler );
+		$this->logEvents->subscribe( LogEvent::StudentRestored,    $handler );
+		$this->logEvents->subscribe( LogEvent::EnrollmentStarted,  $handler );
 		$this->logEvents->subscribe( LogEvent::EnrollmentCanceled, $handler );
+
+		$this->logEvents->subscribe( LogEvent::ApplicationCreated,  $appHandler );
+		$this->logEvents->subscribe( LogEvent::ParentSigned,        $appHandler );
+		$this->logEvents->subscribe( LogEvent::ApplicationExpired,  $appHandler );
+		$this->logEvents->subscribe( LogEvent::ApplicationTrashed,  $appHandler );
+		$this->logEvents->subscribe( LogEvent::ApplicationRestored, $appHandler );
+		$this->logEvents->subscribe( LogEvent::ApplicationViewed,   $appHandler );
 	}
 
 	/**
-	 * Обработчик события, связанного с зачислением.
-	 * Записывает в лог действие, тип цели (student_record), ID записи и контекст.
+	 * Обработчик события изменения статуса зачисления.
 	 *
-	 * @param EnrollmentStatusEvent $event Событие изменения статуса зачисления
+	 * @param EnrollmentStatusEvent $event
 	 *
 	 * @return void
 	 */
@@ -81,11 +88,40 @@ class EnrollmentAuditSubscriber implements ServiceInterface {
 		$this->writer->record(
 			$event->action->value,
 			'student_record',
-			$event->studentRecordId,
+			$event->studentPersonId,
 			array_filter( array(
-				'student_person_id' => $event->studentPersonId,
+				'student_record_id' => $event->studentRecordId,
 				'group_id'          => $event->groupId,
 			) )
 		);
+	}
+
+	/**
+	 * Обработчик события изменения статуса заявки.
+	 *
+	 * @param ApplicationStatusEvent $event
+	 *
+	 * @return void
+	 */
+	public function handleApplication( ApplicationStatusEvent $event ): void {
+		$details = array_filter( array(
+			'student_person_id' => $event->studentPersonId,
+		) );
+
+		if ( $event->actorUserId > 0 ) {
+			$this->writer->record(
+				$event->action->value,
+				'application',
+				$event->applicationId,
+				$details ?: null,
+			);
+		} else {
+			$this->writer->recordAnonymous(
+				$event->action->value,
+				'application',
+				$event->applicationId,
+				$details ?: null,
+			);
+		}
 	}
 }

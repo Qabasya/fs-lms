@@ -2,6 +2,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\ExportActionType;
+use Inc\Enums\ExportDataType;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;
@@ -20,13 +22,6 @@ $total_pages = (int) ceil( $export_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-3' ), admin_url( 'admin.php' ) );
 $filter_url  = add_query_arg( $export_filters, $base_url );
 
-$data_type_labels = array(
-	'groups'   => 'Группы',
-	'students' => 'Ученики',
-	'parents'  => 'Родители',
-	'archive'  => 'Архив',
-	'log'      => 'Журнал',
-);
 ?>
 
 <div class="fs-logs-tab" id="js-export-log-tab">
@@ -41,9 +36,9 @@ $data_type_labels = array(
 
 		<select name="data_type">
 			<option value="">Все типы</option>
-			<?php foreach ( $data_type_labels as $dt => $label ) : ?>
-				<option value="<?php echo esc_attr( $dt ); ?>" <?php selected( $export_filters['data_type'] ?? '', $dt ); ?>>
-					<?php echo esc_html( $label ); ?>
+			<?php foreach ( ExportDataType::cases() as $dt ) : ?>
+				<option value="<?php echo esc_attr( $dt->value ); ?>" <?php selected( $export_filters['data_type'] ?? '', $dt->value ); ?>>
+					<?php echo esc_html( $dt->label() ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -80,6 +75,8 @@ $data_type_labels = array(
 				<th style="width:130px">Тип данных</th>
 				<th style="width:100px">Действие</th>
 				<th>ID целей</th>
+				<th style="width:110px">IP</th>
+				<th>Устройство</th>
 			</tr>
 			</thead>
 			<tbody>
@@ -92,13 +89,23 @@ $data_type_labels = array(
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td>
 						<span class="fs-badge badge-secondary">
-							<?php echo esc_html( $data_type_labels[ $row->dataType ] ?? $row->dataType ); ?>
+							<?php echo esc_html( ExportDataType::tryFrom( $row->dataType )?->label() ?? $row->dataType ); ?>
 						</span>
 					</td>
-					<td><span class="fs-badge badge-primary"><?php echo esc_html( $row->actionType ); ?></span></td>
+					<td><span class="fs-badge badge-primary"><?php echo esc_html( ExportActionType::tryFrom( $row->actionType )?->label() ?? $row->actionType ); ?></span></td>
 					<td>
 						<?php if ( ! empty( $ids ) ) : ?>
 							<code style="font-size:11px;"><?php echo esc_html( implode( ', ', array_slice( $ids, 0, 10 ) ) ); ?><?php echo count( $ids ) > 10 ? ' …' : ''; ?></code>
+						<?php else : ?>
+							—
+						<?php endif; ?>
+					</td>
+					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
+					<td>
+						<?php if ( $row->actorUa ) : ?>
+							<span title="<?php echo esc_attr( $row->actorUa ); ?>" style="cursor:help;">
+								<?php echo esc_html( mb_substr( $row->actorUa, 0, 40 ) ) . ( mb_strlen( $row->actorUa ) > 40 ? '…' : '' ); ?>
+							</span>
 						<?php else : ?>
 							—
 						<?php endif; ?>

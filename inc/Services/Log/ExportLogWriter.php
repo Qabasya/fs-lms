@@ -72,6 +72,8 @@ class ExportLogWriter {
 			dataType:      $dataType,
 			actionType:    $actionType,
 			targetIdsJson: ! empty( $targetIds ) ? wp_json_encode( $targetIds ) : null,
+			actorIp:       $ctx->ip,
+			actorUa:       '' !== $ctx->userAgent ? $ctx->userAgent : null,
 			createdAt:     $this->clock->now( 'mysql', true ),
 		) );
 	}

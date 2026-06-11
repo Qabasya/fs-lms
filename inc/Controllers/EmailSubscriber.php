@@ -70,6 +70,7 @@ class EmailSubscriber implements ServiceInterface {
 		$this->writer->record(
 			$event->emailType->value,
 			$event->targetPersonId,
+			$event->recipientEmail,
 			$event->success,
 			$event->errorMessage ?? '',
 		);

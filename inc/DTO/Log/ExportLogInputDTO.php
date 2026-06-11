@@ -53,6 +53,8 @@ readonly class ExportLogInputDTO {
 		public string  $dataType,
 		public string  $actionType,
 		public ?string $targetIdsJson,
+		public string  $actorIp,
+		public ?string $actorUa,
 		public string  $createdAt,
 	) {}
 
@@ -68,6 +70,8 @@ readonly class ExportLogInputDTO {
 			'data_type'       => $this->dataType,
 			'action_type'     => $this->actionType,
 			'target_ids_json' => $this->targetIdsJson,
+			'actor_ip'        => $this->actorIp,
+			'actor_ua'        => $this->actorUa,
 			'created_at'      => $this->createdAt,
 		);
 	}

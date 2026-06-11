@@ -2,6 +2,7 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\DataFieldType;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;
@@ -75,7 +76,7 @@ $filter_url  = add_query_arg( $data_change_filters, $base_url );
 					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td><?php echo esc_html( LogNameResolver::personName( $row->targetPersonId ) ); ?></td>
-					<td><code><?php echo esc_html( $row->fieldName ); ?></code></td>
+					<td><code><?php echo esc_html( DataFieldType::tryFrom( $row->fieldName )?->label() ?? $row->fieldName ); ?></code></td>
 					<td><?php echo $row->oldValueEnc ? '<span title="Зашифровано">••••••</span>' : '—'; ?></td>
 					<td><?php echo $row->newValueEnc ? '<span title="Зашифровано">••••••</span>' : '—'; ?></td>
 				</tr>

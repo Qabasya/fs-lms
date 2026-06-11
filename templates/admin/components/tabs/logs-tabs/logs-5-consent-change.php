@@ -2,6 +2,7 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\ConsentType;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;
@@ -71,7 +72,7 @@ $filter_url  = add_query_arg( $consent_filters, $base_url );
 					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td><?php echo esc_html( LogNameResolver::personName( $row->personId ) ); ?></td>
-					<td><code><?php echo esc_html( $row->consentType ); ?></code></td>
+					<td><code><?php echo esc_html( ConsentType::tryFrom( $row->consentType )?->label() ?? $row->consentType ); ?></code></td>
 					<td><?php echo $row->oldHash ? '<code style="font-size:10px;">' . esc_html( substr( $row->oldHash, 0, 16 ) ) . '…</code>' : '—'; ?></td>
 					<td><?php echo $row->newHash ? '<code style="font-size:10px;">' . esc_html( substr( $row->newHash, 0, 16 ) ) . '…</code>' : '—'; ?></td>
 				</tr>

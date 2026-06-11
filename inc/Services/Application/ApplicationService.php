@@ -5,17 +5,19 @@ declare( strict_types=1 );
 namespace Inc\Services\Application;
 
 use DomainException;
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Application\ApplicationCreatedDTO;
 use Inc\DTO\Application\ApplicationInputDTO;
+use Inc\DTO\Log\Events\ApplicationStatusEvent;
 use Inc\DTO\ParentDataDTO;
 use Inc\DTO\ParentSubmissionInputDTO;
 use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
+use Inc\Enums\LogEvent;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Shared\PluginLogger;
 use Inc\Managers\UserManager;
-use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
 use Inc\Services\Email\EmailOtpService;
 use Inc\Contracts\ClockInterface;
@@ -40,7 +42,7 @@ use RuntimeException;
  * ### Архитектурная роль:
  *
  * Делегирует работу с БД ApplicationRepository, а вспомогательные операции —
- * JoinCodeService, PiiCryptoService, ConsentService, AuditService, EmailOtpService.
+ * JoinCodeService, PiiCryptoService, ConsentService, LogEventDispatcherInterface, EmailOtpService.
  * Использует трейты TransactionRunner (обёртка над $wpdb->query('START TRANSACTION'))
  * и RequestContextProvider (получение IP, User-Agent, actor ID).
  */
@@ -52,22 +54,22 @@ readonly class ApplicationService {
 	/**
 	 * Конструктор сервиса.
 	 *
-	 * @param ApplicationRepository $applicationRepository Репозиторий заявок
-	 * @param JoinCodeService       $joinCodeService       Сервис JOIN-кодов
-	 * @param PiiCryptoService      $crypto                Сервис шифрования PII
-	 * @param ConsentService        $consentService        Сервис согласий
-	 * @param AuditService          $auditService          Сервис аудита
-	 * @param EmailOtpService       $emailOtpService       Сервис OTP-кодов
+	 * @param ApplicationRepository      $applicationRepository Репозиторий заявок
+	 * @param JoinCodeService            $joinCodeService       Сервис JOIN-кодов
+	 * @param PiiCryptoService           $crypto                Сервис шифрования PII
+	 * @param ConsentService             $consentService        Сервис согласий
+	 * @param LogEventDispatcherInterface $logEvents            Диспетчер событий логирования
+	 * @param EmailOtpService            $emailOtpService       Сервис OTP-кодов
 	 */
 	public function __construct(
-		private ApplicationRepository $applicationRepository,
-		private JoinCodeService       $joinCodeService,
-		private PiiCryptoService      $crypto,
-		private ConsentService        $consentService,
-		private AuditService          $auditService,
-		private EmailOtpService       $emailOtpService,
-		private ClockInterface        $clock,
-		private UserManager           $userManager,
+		private ApplicationRepository       $applicationRepository,
+		private JoinCodeService             $joinCodeService,
+		private PiiCryptoService            $crypto,
+		private ConsentService              $consentService,
+		private LogEventDispatcherInterface $logEvents,
+		private EmailOtpService             $emailOtpService,
+		private ClockInterface              $clock,
+		private UserManager                 $userManager,
 	) {}
 
 	/**
@@ -143,16 +145,13 @@ readonly class ApplicationService {
 				PluginLogger::warning( 'ConsentSkipped', $e->getMessage(), array( 'operation' => 'createApplication' ) );
 			}
 
-			// Логирование события в аудит
-			$this->auditService->recordAnonymous(
-				AuditAction::CreateApplication->value,
-				'application',
-				$id,
-				array( 'email_hash' => $emailHash )
-			);
-
 			return $id;
 		} );
+
+		$this->logEvents->dispatch(
+			LogEvent::ApplicationCreated,
+			new ApplicationStatusEvent( 0, AuditAction::CreateApplication, $appId )
+		);
 
 		// Формирование URL для присоединения родителя
 		$joinUrl = home_url( '/lms/join/' . $joinCode );
@@ -252,14 +251,12 @@ readonly class ApplicationService {
 			} catch ( \RuntimeException $e ) {
 				PluginLogger::warning( 'ConsentSkipped', $e->getMessage(), array( 'operation' => 'submitParentData' ) );
 			}
-
-			// Логирование события
-			$this->auditService->recordAnonymous(
-				AuditAction::SubmitParentData->value,
-				'application',
-				$appId
-			);
 		} );
+
+		$this->logEvents->dispatch(
+			LogEvent::ParentSigned,
+			new ApplicationStatusEvent( 0, AuditAction::SubmitParentData, $appId )
+		);
 
 		// Триггер для внешних действий (например, уведомление администратора)
 		do_action( 'fs_lms_application_ready', $appId );
@@ -277,10 +274,9 @@ readonly class ApplicationService {
 		foreach ( $apps as $app ) {
 			$this->applicationRepository->setStatus( $app->id, ApplicationStatus::Expired );
 
-			$this->auditService->recordAnonymous(
-				AuditAction::ExpireApplication->value,
-				'application',
-				$app->id
+			$this->logEvents->dispatch(
+				LogEvent::ApplicationExpired,
+				new ApplicationStatusEvent( 0, AuditAction::ExpireApplication, $app->id )
 			);
 
 			$count++;

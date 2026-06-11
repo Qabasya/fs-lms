@@ -55,6 +55,8 @@ readonly class ExportLogDTO {
 		public string  $dataType,
 		public string  $actionType,
 		public ?string $targetIdsJson,
+		public string  $actorIp,
+		public ?string $actorUa,
 		public string  $createdAt,
 	) {}
 
@@ -73,6 +75,8 @@ readonly class ExportLogDTO {
 			dataType:      (string) $row['data_type'],
 			actionType:    (string) $row['action_type'],
 			targetIdsJson: isset( $row['target_ids_json'] ) ? (string) $row['target_ids_json'] : null,
+			actorIp:       (string) ( $row['actor_ip'] ?? '' ),
+			actorUa:       isset( $row['actor_ua'] ) ? (string) $row['actor_ua'] : null,
 			createdAt:     (string) $row['created_at'],
 		);
 	}

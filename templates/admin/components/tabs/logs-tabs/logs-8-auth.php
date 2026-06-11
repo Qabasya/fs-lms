@@ -2,6 +2,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\AuthAction;
+use Inc\Enums\AuthResult;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;
@@ -20,13 +22,6 @@ $total_pages = (int) ceil( $auth_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-8' ), admin_url( 'admin.php' ) );
 $filter_url  = add_query_arg( $auth_filters, $base_url );
 
-$action_labels = array(
-	'login'          => 'Вход',
-	'login_failed'   => 'Неудача входа',
-	'otp_sent'       => 'OTP отправлен',
-	'otp_verified'   => 'OTP подтверждён',
-	'password_reset' => 'Сброс пароля',
-);
 ?>
 
 <div class="fs-logs-tab" id="js-auth-log-tab">
@@ -37,9 +32,9 @@ $action_labels = array(
 
 		<select name="action_filter">
 			<option value="">Все действия</option>
-			<?php foreach ( $action_labels as $val => $label ) : ?>
-				<option value="<?php echo esc_attr( $val ); ?>" <?php selected( $auth_filters['action'] ?? '', $val ); ?>>
-					<?php echo esc_html( $label ); ?>
+			<?php foreach ( AuthAction::cases() as $action ) : ?>
+				<option value="<?php echo esc_attr( $action->value ); ?>" <?php selected( $auth_filters['action'] ?? '', $action->value ); ?>>
+					<?php echo esc_html( $action->label() ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -81,15 +76,15 @@ $action_labels = array(
 				<th style="width:180px">Логин</th>
 				<th style="width:150px">Действие</th>
 				<th style="width:80px">Результат</th>
-				<th style="width:100px">IP</th>
-				<th>Устройство</th>
+				<th style="width:110px">IP</th>
 			</tr>
 			</thead>
 			<tbody>
 			<?php foreach ( $auth_rows as $row ) :
-				$badge = 'success' === $row->result
-					? '<span class="fs-badge fs-badge--green">Успех</span>'
-					: '<span class="fs-badge fs-badge--red">Неудача</span>';
+				$authResult = AuthResult::tryFrom( $row->result );
+				$badge      = $authResult
+					? '<span class="fs-badge ' . esc_attr( $authResult->badgeClass() ) . '">' . esc_html( $authResult->label() ) . '</span>'
+					: '<span class="fs-badge">' . esc_html( $row->result ) . '</span>';
 				?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
@@ -97,20 +92,11 @@ $action_labels = array(
 					<td><?php echo $row->loginIdentifier ? esc_html( $row->loginIdentifier ) : '—'; ?></td>
 					<td>
 						<span class="fs-badge badge-secondary">
-							<?php echo esc_html( $action_labels[ $row->action ] ?? $row->action ); ?>
+							<?php echo esc_html( AuthAction::tryFrom( $row->action )?->label() ?? $row->action ); ?>
 						</span>
 					</td>
 					<td><?php echo $badge; ?></td>
 					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
-					<td>
-						<?php if ( $row->actorUa ) : ?>
-							<span title="<?php echo esc_attr( $row->actorUa ); ?>" style="cursor:help;">
-								<?php echo esc_html( mb_substr( $row->actorUa, 0, 40 ) ) . ( mb_strlen( $row->actorUa ) > 40 ? '…' : '' ); ?>
-							</span>
-						<?php else : ?>
-							—
-						<?php endif; ?>
-					</td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

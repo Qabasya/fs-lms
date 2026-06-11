@@ -291,6 +291,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			data_type      varchar(50)         NOT NULL,
 			action_type    varchar(20)         NOT NULL,
 			target_ids_json text               DEFAULT NULL,
+			actor_ip       varchar(45)         NOT NULL DEFAULT '',
+			actor_ua       text                DEFAULT NULL,
 			created_at     datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY actor_user_id (actor_user_id),
@@ -343,6 +345,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			actor_role       varchar(50)         DEFAULT NULL,
 			email_type       varchar(50)         NOT NULL,
 			target_person_id int unsigned        DEFAULT NULL,
+			recipient_email  varchar(255)        DEFAULT NULL,
 			status           varchar(10)         NOT NULL,
 			error_message    text                DEFAULT NULL,
 			created_at       datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -406,6 +409,10 @@ class Migration_1_0_0 implements MigrationInterface {
 		}
 		$wpdb->query( "ALTER TABLE `$persons` ADD INDEX IF NOT EXISTS `expelled_at` (`expelled_at`)" );
 		$wpdb->query( "ALTER TABLE `$pii_access_log` ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$export_log`
+			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) NOT NULL DEFAULT '',
+			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
 		// phpcs:enable
 	}
 

@@ -26,7 +26,6 @@ use Inc\DTO\Log\Events\EnrollmentStatusEvent;
 use Inc\Enums\EntityType;
 use Inc\Enums\LogEvent;
 use Inc\Enums\OperationType;
-use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
 use Inc\Services\Email\EmailService;
 use Inc\Services\PasswordGeneratorService;
@@ -52,7 +51,6 @@ readonly class EnrollmentService {
 		private GroupsRepository             $groupsRepository,
 		private JoinCodeService              $joinCodeService,
 		private ConsentService               $consentService,
-		private AuditService                 $auditService,
 		private UserManager                  $userManager,
 		private PasswordGeneratorService     $passwordGenerator,
 		private EmailService                 $emailService,
@@ -170,16 +168,6 @@ readonly class EnrollmentService {
 				'self'     => $studentPersonId,
 				'guardian' => $guardianPersonId,
 			) );
-
-			$this->auditService->record(
-				AuditAction::EnrollStudent->value,
-				'student_record',
-				$recordId,
-				array(
-					'application_id' => $app->id,
-					'group_id'       => $input->groupId,
-				)
-			);
 
 			return array( $recordId, $studentPersonId, $guardianPersonId );
 		} );
@@ -307,13 +295,6 @@ readonly class EnrollmentService {
 				$this->applicationRepository->markConverted( $app->id, $recordId );
 			} catch ( \Throwable ) {}
 
-			$this->auditService->record(
-				AuditAction::EnrollStudentFailed->value,
-				'student_record',
-				$recordId,
-				array( 'error' => $e->getMessage() )
-			);
-
 			$this->logEvents->dispatch(
 				LogEvent::EnrollmentFailed,
 				new EnrollmentStatusEvent( get_current_user_id(), AuditAction::EnrollStudentFailed, $studentPersonId, $recordId, $input->groupId )
@@ -392,11 +373,9 @@ readonly class EnrollmentService {
 			throw new RuntimeException( 'Не удалось создать заявку.' );
 		}
 
-		$this->auditService->record(
-			AuditAction::RestoreFromArchive->value,
-			'application',
-			$appId,
-			array( 'restored_from_record_id' => $recordId, 'with_parent' => $withParent )
+		$this->logEvents->dispatch(
+			LogEvent::StudentRestored,
+			new EnrollmentStatusEvent( get_current_user_id(), AuditAction::RestoreFromArchive, $record->studentPersonId, $recordId, $record->groupId ?? null )
 		);
 
 		if ( $withParent ) {

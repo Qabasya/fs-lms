@@ -5,9 +5,12 @@ declare( strict_types=1 );
 namespace Inc\Services;
 
 use Inc\Contracts\ClockInterface;
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EnrollmentStatusEvent;
 use Inc\Enums\AuditAction;
 use Inc\Enums\EnrollmentStatus;
 use Inc\DTO\Enrollment\StudentRecordDTO;
+use Inc\Enums\LogEvent;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -45,18 +48,18 @@ readonly class ExpulsionService {
 	/**
 	 * Конструктор сервиса.
 	 *
-	 * @param PersonRepository        $personRepository        Репозиторий лиц
-	 * @param StudentRecordRepository $studentRecordRepository Репозиторий записей студентов
-	 * @param AuditService            $auditService            Сервис аудита
-	 * @param UserManager             $userManager             Менеджер пользователей
-	 * @param ClockInterface          $clock                   Интерфейс часов
+	 * @param PersonRepository            $personRepository        Репозиторий лиц
+	 * @param StudentRecordRepository     $studentRecordRepository Репозиторий записей студентов
+	 * @param LogEventDispatcherInterface $logEvents               Диспетчер событий логирования
+	 * @param UserManager                 $userManager             Менеджер пользователей
+	 * @param ClockInterface              $clock                   Интерфейс часов
 	 */
 	public function __construct(
-		private PersonRepository        $personRepository,
-		private StudentRecordRepository $studentRecordRepository,
-		private AuditService            $auditService,
-		private UserManager             $userManager,
-		private ClockInterface          $clock,
+		private PersonRepository            $personRepository,
+		private StudentRecordRepository     $studentRecordRepository,
+		private LogEventDispatcherInterface $logEvents,
+		private UserManager                 $userManager,
+		private ClockInterface              $clock,
 	) {}
 
 	/**
@@ -134,15 +137,9 @@ readonly class ExpulsionService {
 			}
 		}
 
-		// Логирование события отчисления
-		$this->auditService->record(
-			action:     AuditAction::StudentExpelled->value,
-			targetType: 'person',
-			targetId:   $studentPerson->id,
-			details:    array(
-				'record_id'  => $record->id,
-				'had_parent' => null !== $parentPerson,
-			),
+		$this->logEvents->dispatch(
+			LogEvent::StudentExpelled,
+			new EnrollmentStatusEvent( get_current_user_id(), AuditAction::StudentExpelled, $studentPerson->id, $record->id, $record->groupId ?? null )
 		);
 
 		return array(

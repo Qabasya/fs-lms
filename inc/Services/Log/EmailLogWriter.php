@@ -62,7 +62,7 @@ class EmailLogWriter {
 	 *
 	 * @return void
 	 */
-	public function record( string $emailType, ?int $targetPersonId, bool $success, string $errorMessage = '' ): void {
+	public function record( string $emailType, ?int $targetPersonId, ?string $recipientEmail, bool $success, string $errorMessage = '' ): void {
 		$ctx = $this->requestContext();
 		$role = $this->resolveRole( $ctx->actorUserId );
 
@@ -71,6 +71,7 @@ class EmailLogWriter {
 			actorRole:      $role,
 			emailType:      $emailType,
 			targetPersonId: $targetPersonId,
+			recipientEmail: '' !== (string) $recipientEmail ? $recipientEmail : null,
 			status:         $success ? 'success' : 'failed',
 			errorMessage:   '' !== $errorMessage ? $errorMessage : null,
 			createdAt:      $this->clock->now( 'mysql', true ),

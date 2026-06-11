@@ -2,6 +2,7 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\EntityType;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;
@@ -20,12 +21,6 @@ $total_pages = (int) ceil( $deletion_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-7' ), admin_url( 'admin.php' ) );
 $filter_url  = add_query_arg( $deletion_filters, $base_url );
 
-$entity_type_labels = array(
-	'person'  => 'Персона',
-	'group'   => 'Группа',
-	'subject' => 'Предмет',
-	'period'  => 'Период',
-);
 ?>
 
 <div class="fs-logs-tab" id="js-deletion-log-tab">
@@ -38,9 +33,9 @@ $entity_type_labels = array(
 
 		<select name="entity_type">
 			<option value="">Все типы</option>
-			<?php foreach ( $entity_type_labels as $et => $label ) : ?>
-				<option value="<?php echo esc_attr( $et ); ?>" <?php selected( $deletion_filters['entity_type'] ?? '', $et ); ?>>
-					<?php echo esc_html( $label ); ?>
+			<?php foreach ( EntityType::cases() as $et ) : ?>
+				<option value="<?php echo esc_attr( $et->value ); ?>" <?php selected( $deletion_filters['entity_type'] ?? '', $et->value ); ?>>
+					<?php echo esc_html( $et->label() ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -88,7 +83,7 @@ $entity_type_labels = array(
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td>
 						<span class="fs-badge badge-warning">
-							<?php echo esc_html( $entity_type_labels[ $row->entityType ] ?? $row->entityType ); ?>
+							<?php echo esc_html( EntityType::tryFrom( $row->entityType )?->label() ?? $row->entityType ); ?>
 						</span>
 					</td>
 					<td><code>#<?php echo (int) $row->entityId; ?></code></td>

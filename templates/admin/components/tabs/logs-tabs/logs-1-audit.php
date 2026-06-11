@@ -78,7 +78,8 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 				<th style="width:130px">Дата</th>
 				<th style="width:180px">Пользователь</th>
 				<th>Действие</th>
-				<th style="width:180px">Ученик</th>
+				<th style="width:180px">Субъект</th>
+				<th style="width:150px">Группа</th>
 				<th style="width:90px">IP</th>
 			</tr>
 			</thead>
@@ -86,6 +87,16 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 			<?php foreach ( $audit_rows as $row ) :
 				$auditAction = AuditAction::tryFrom( $row->action );
 				$actionLabel = $auditAction ? $auditAction->label() : $row->action;
+
+				if ( 'application' === $row->targetType ) {
+					$subjectCell = '<span class="fs-badge badge-secondary">Заявка #' . (int) $row->targetId . '</span>';
+				} else {
+					$subjectCell = esc_html( LogNameResolver::personName( $row->targetId ) );
+				}
+
+				$details = $row->detailsJson ? json_decode( $row->detailsJson, true ) : array();
+				$groupId = $details['group_id'] ?? null;
+				$groupCell = $groupId ? LogNameResolver::entityName( (int) $groupId, 'group' ) : '—';
 			?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
@@ -94,7 +105,8 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 					<td>
 						<span class="fs-badge badge-primary"><?php echo esc_html( $actionLabel ); ?></span>
 					</td>
-					<td><?php echo esc_html( LogNameResolver::personName( $row->targetId ) ); ?></td>
+					<td><?php echo $subjectCell; // phpcs:ignore ?></td>
+					<td><?php echo $groupCell; // phpcs:ignore ?></td>
 					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
 				</tr>
 			<?php endforeach; ?>
