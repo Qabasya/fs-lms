@@ -1,34 +1,54 @@
 import './../_types.js';
 const $ = jQuery;
 
+const CHANNEL_ACTIONS = {
+	entity_audit:   'exportEntityAuditLog',
+	enrollment:     'exportEnrollmentLog',
+	pii:            'exportPiiLog',
+	export:         'exportExportLog',
+	data_change:    'exportDataChangeLog',
+	consent_change: 'exportConsentChangeLog',
+	email:          'exportEmailLog',
+	deletion:       'exportDeletionLog',
+	auth:           'exportAuthLog',
+};
+
 export const LogsTable = {
 
 	init() {
-		if ( ! $( '#js-audit-log-tab, #js-pii-log-tab' ).length ) {
+		if ( ! $( '[id^="js-"][id$="-tab"]' ).length ) {
 			return;
 		}
 		this.bindEvents();
 	},
 
 	bindEvents() {
-		$( document ).on( 'click', '.js-export-audit', () => this._exportAudit() );
-		$( document ).on( 'click', '.js-export-pii',   () => this._exportPii() );
+		$( document ).on( 'click', '.js-export-log-csv', ( e ) => {
+			const $btn    = $( e.currentTarget );
+			const channel = $btn.data( 'channel' );
+			const action  = CHANNEL_ACTIONS[ channel ];
+
+			if ( ! action || ! fs_lms_vars.ajax_actions[ action ] ) {
+				// eslint-disable-next-line no-console
+				console.error( '[fs-lms] Unknown export channel:', channel );
+				return;
+			}
+
+			let filters = {};
+			try {
+				const raw = $btn.attr( 'data-filters' );
+				if ( raw ) {
+					filters = JSON.parse( raw );
+				}
+			} catch ( err ) {
+				// ignore malformed JSON
+			}
+
+			this._doExport( fs_lms_vars.ajax_actions[ action ], filters, $btn );
+		} );
 	},
 
-	_exportAudit() {
-		const raw     = document.getElementById( 'js-audit-export-filters' );
-		const filters = raw ? JSON.parse( raw.textContent ) : {};
-		this._doExport( fs_lms_vars.ajax_actions.exportAuditLog, filters, '.js-export-audit' );
-	},
-
-	_exportPii() {
-		const raw     = document.getElementById( 'js-pii-export-filters' );
-		const filters = raw ? JSON.parse( raw.textContent ) : {};
-		this._doExport( fs_lms_vars.ajax_actions.exportPiiLog, filters, '.js-export-pii' );
-	},
-
-	_doExport( action, filters, btnSelector ) {
-		const $btn = $( btnSelector );
+	_doExport( action, filters, $btn ) {
 		$btn.prop( 'disabled', true ).text( 'Подготовка…' );
 
 		$.post( fs_lms_vars.ajaxurl, {
@@ -40,10 +60,12 @@ export const LogsTable = {
 				if ( res.success && res.data.url ) {
 					window.location.href = res.data.url;
 				} else {
+					// eslint-disable-next-line no-alert
 					alert( res.data || 'Ошибка экспорта' );
 				}
 			} )
 			.fail( () => {
+				// eslint-disable-next-line no-alert
 				alert( 'Ошибка сервера при экспорте' );
 			} )
 			.always( () => {

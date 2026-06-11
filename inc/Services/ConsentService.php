@@ -5,11 +5,13 @@ declare( strict_types=1 );
 namespace Inc\Services;
 
 use Inc\Contracts\ClockInterface;
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\ConsentChangedEvent;
 use Inc\DTO\RequestContextDTO;
 use Inc\Enums\AuditAction;
+use Inc\Enums\LogEvent;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
-use Inc\Services\Log\ConsentChangeLogWriter;
 use RuntimeException;
 
 /**
@@ -25,7 +27,7 @@ readonly class ConsentService {
 		private AuditService                 $auditService,
 		private ConsentDefinitionsRepository $consentDefinitions,
 		private ClockInterface               $clock,
-		private ConsentChangeLogWriter       $consentChangeLog,
+		private LogEventDispatcherInterface  $logEvents,
 	) {}
 
 	/**
@@ -95,7 +97,10 @@ readonly class ConsentService {
 			$id,
 			array( 'consent_type' => $typeKey, 'version' => $version, 'application_id' => $appId, 'subject_role' => 'self' )
 		);
-		$this->consentChangeLog->record( null, $typeKey, null, $version );
+		$this->logEvents->dispatch(
+			LogEvent::ConsentChanged,
+			new ConsentChangedEvent( null, null, $typeKey, null, $version )
+		);
 
 		return $id;
 	}
@@ -126,7 +131,10 @@ readonly class ConsentService {
 			$id,
 			array( 'consent_type' => $typeKey, 'version' => $version, 'application_id' => $appId, 'subject_role' => 'guardian' )
 		);
-		$this->consentChangeLog->record( $forPersonId ?: null, $typeKey, null, $version );
+		$this->logEvents->dispatch(
+			LogEvent::ConsentChanged,
+			new ConsentChangedEvent( null, $forPersonId ?: null, $typeKey, null, $version )
+		);
 
 		return $id;
 	}
@@ -157,11 +165,15 @@ readonly class ConsentService {
 			$consentId,
 			array( 'reason' => $reason )
 		);
-		$this->consentChangeLog->record(
-			$consent?->personId,
-			$consent?->consentType ?? '',
-			$consent?->documentHash,
-			null
+		$this->logEvents->dispatch(
+			LogEvent::ConsentChanged,
+			new ConsentChangedEvent(
+				get_current_user_id() ?: null,
+				$consent?->personId,
+				$consent?->consentType ?? '',
+				$consent?->documentHash,
+				null,
+			)
 		);
 	}
 

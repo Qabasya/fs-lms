@@ -4,10 +4,15 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks\Subject;
 
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\DTO\Subject\SubjectDTO;
 use Inc\Enums\Capability;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
+use Inc\Enums\OperationType;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Deletion\DeleteSubjectEvent;
 use Inc\Services\Deletion\DeletionEventDispatcher;
@@ -44,8 +49,9 @@ class SubjectCrudCallbacks extends BaseController {
 	 * @param SubjectDeletionService $deletion_service Сервис каскадного удаления
 	 */
 	public function __construct(
-		private readonly SubjectRepository      $subjects,
-		private readonly DeletionEventDispatcher $dispatcher,
+		private readonly SubjectRepository           $subjects,
+		private readonly DeletionEventDispatcher     $dispatcher,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {
 		parent::__construct();
 	}
@@ -76,6 +82,10 @@ class SubjectCrudCallbacks extends BaseController {
 			$this->seedTaskNumbers( "{$key}_task_number", $count, $key );
 			// flush_rewrite_rules() — перестраивает правила ЧПУ после регистрации новых CPT/таксономий
 			flush_rewrite_rules();
+			$this->logEvents->dispatch(
+				LogEvent::SubjectCreated,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Subject, null )
+			);
 		}
 
 		// Отправка ответа
@@ -100,7 +110,17 @@ class SubjectCrudCallbacks extends BaseController {
 		// Проверка, что предмет существует
 		$this->requireExists( $key );
 
+		$oldSubject = $this->subjects->getByKey( $key );
+		$oldLabel   = $oldSubject?->name;
+
 		$result = $this->subjects->save( new SubjectDTO( $key, $name ) );
+
+		if ( $result ) {
+			$this->logEvents->dispatch(
+				LogEvent::SubjectUpdated,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Update, EntityType::Subject, null, $oldLabel )
+			);
+		}
 
 		$this->respond(
 			$result,

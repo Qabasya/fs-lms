@@ -4,8 +4,13 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks;
 
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
+use Inc\Enums\OperationType;
 use Inc\Enums\WeekDay;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
@@ -46,9 +51,10 @@ class StudentGroupCallbacks extends BaseController {
 	 * @param PersonRepository       $personRepository       Репозиторий лиц
 	 */
 	public function __construct(
-		private readonly GroupsRepository       $groupsRepository,
-		private readonly StudentRecordRepository $studentRecordRepository,
-		private readonly PersonRepository       $personRepository,
+		private readonly GroupsRepository            $groupsRepository,
+		private readonly StudentRecordRepository     $studentRecordRepository,
+		private readonly PersonRepository            $personRepository,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {
 		parent::__construct();
 	}
@@ -108,6 +114,11 @@ class StudentGroupCallbacks extends BaseController {
 			$this->error( 'Не удалось создать группу.' );
 		}
 
+		$this->logEvents->dispatch(
+			LogEvent::GroupCreated,
+			new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Group, $id )
+		);
+
 		$this->success( array( 'id' => $id, 'title' => $title ) );
 	}
 
@@ -151,11 +162,17 @@ class StudentGroupCallbacks extends BaseController {
 			$this->error( 'Идентификатор группы не указан.' );
 		}
 
+		$group   = $this->groupsRepository->findById( $id );
 		$deleted = $this->groupsRepository->delete( $id );
 
 		if ( ! $deleted ) {
 			$this->error( 'Ошибка удаления. Группа не найдена или уже удалена.' );
 		}
+
+		$this->logEvents->dispatch(
+			LogEvent::GroupDeleted,
+			new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Group, $id, $group?->name )
+		);
 
 		$this->success( array( 'id' => $id ) );
 	}

@@ -4,9 +4,11 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Deletion;
 
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EntityHardDeletedEvent;
+use Inc\Enums\LogEvent;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\Log\DeletionLogWriter;
 use Inc\Shared\Traits\TransactionRunner;
 
 class GroupDeletionHandler {
@@ -16,8 +18,8 @@ class GroupDeletionHandler {
 	public function __construct(
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly GroupsRepository $groups,
-		private readonly DeletionEventDispatcher $dispatcher,
-		private readonly DeletionLogWriter       $deletionLog,
+		private readonly DeletionEventDispatcher    $dispatcher,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {}
 
 	public function handle( DeleteGroupEvent $event ): void {
@@ -27,17 +29,15 @@ class GroupDeletionHandler {
 		$affected = $this->inTransaction( function () use ( $groupId ) {
 			$ids = $this->studentRecords->deleteAllByGroupAndCollect( $groupId );
 			$this->groups->hardDelete( $groupId );
-
-			$studentsCount = count( $ids['students'] ?? array() );
-			$parentsCount  = count( $ids['parents'] ?? array() );
-			$this->deletionLog->record(
-				'group',
-				$groupId,
-				"students:{$studentsCount}, parents:{$parentsCount}"
-			);
-
 			return $ids;
 		} );
+
+		$studentsCount = count( $affected['students'] ?? array() );
+		$parentsCount  = count( $affected['parents'] ?? array() );
+		$this->logEvents->dispatch(
+			LogEvent::EntityHardDeleted,
+			new EntityHardDeletedEvent( $actorId, 'group', $groupId, "students:{$studentsCount}, parents:{$parentsCount}" )
+		);
 
 		foreach ( $affected['students'] as $studentPersonId ) {
 			$this->dispatcher->dispatch(

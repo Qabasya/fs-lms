@@ -64,7 +64,15 @@ enum AjaxHook: string {
 	case DeletePeriod         = 'delete_period';
 	case HardDeleteStudent    = 'hard_delete_student';
 
+	// ==================== Экспорт данных ====================
+	case ExportGroups   = 'export_groups';
+	case ExportStudents = 'export_students';
+	case ExportParents  = 'export_parents';
+	case ExportArchive  = 'export_archive';
+
 	// ==================== Журналы ====================
+	case ExportEntityAuditLog  = 'export_entity_audit_log';
+	case ExportEnrollmentLog   = 'export_enrollment_log';
 	case ExportAuditLog        = 'export_audit_log';
 	case ExportPiiLog          = 'export_pii_log';
 	case ExportExportLog       = 'export_export_log';

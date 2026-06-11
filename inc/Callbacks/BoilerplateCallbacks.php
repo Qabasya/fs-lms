@@ -2,9 +2,14 @@
 
 namespace Inc\Callbacks;
 
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\DTO\Task\TaskTypeBoilerplateDTO;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
+use Inc\Enums\OperationType;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -37,7 +42,8 @@ class BoilerplateCallbacks extends BaseController {
 	 * @param BoilerplateRepository $boilerplates Репозиторий типовых условий
 	 */
 	public function __construct(
-		private readonly BoilerplateRepository $boilerplates,
+		private readonly BoilerplateRepository       $boilerplates,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {
 		parent::__construct();
 	}
@@ -78,7 +84,21 @@ class BoilerplateCallbacks extends BaseController {
 		);
 
 		// Сохранение через репозиторий
+		$isNew  = empty( $uid );
 		$result = $this->boilerplates->save( $dto );
+
+		if ( $result ) {
+			$this->logEvents->dispatch(
+				$isNew ? LogEvent::BoilerplateCreated : LogEvent::BoilerplateUpdated,
+				new EntityChangedEvent(
+					get_current_user_id(),
+					$isNew ? OperationType::Create : OperationType::Update,
+					EntityType::Boilerplate,
+					null,
+					$isNew ? null : $title,
+				)
+			);
+		}
 
 		// respond() — метод трейта Authorizer, отправляет JSON-ответ
 		// При успехе — wp_send_json_success(), при ошибке — wp_send_json_error()
@@ -105,8 +125,18 @@ class BoilerplateCallbacks extends BaseController {
 		// requireText() — требует наличия текстового значения
 		$uid = $this->requireText( 'uid', error: 'UID шаблона обязателен' );
 
+		$existing = $this->boilerplates->findBoilerplate( $subject_key, $term_slug, $uid );
+		$oldLabel = $existing?->title;
+
 		// Каскадное удаление через репозиторий
 		$result = $this->boilerplates->remove( $subject_key, $term_slug, $uid );
+
+		if ( $result ) {
+			$this->logEvents->dispatch(
+				LogEvent::BoilerplateDeleted,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Boilerplate, null, $oldLabel )
+			);
+		}
 
 		// Отправка ответа
 		$this->respond(

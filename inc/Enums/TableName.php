@@ -12,6 +12,7 @@ enum TableName: string {
 	case Applications    = 'fs_lms_applications';
 	case StudentRecords  = 'fs_lms_student_records';
 	case Consents        = 'fs_lms_consents';
+	case EntityAuditLog    = 'fs_lms_entity_audit_log';
 	case AuditLog          = 'fs_lms_audit_log';
 	case PiiAccessLog      = 'fs_lms_pii_access_log';
 	case ExportLog         = 'fs_lms_export_log';

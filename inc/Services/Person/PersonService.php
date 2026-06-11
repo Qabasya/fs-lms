@@ -9,8 +9,10 @@ use Inc\DTO\Person\PersonInputDTO;
 use Inc\Enums\AuditAction;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\PersonDataChangedEvent;
+use Inc\Enums\LogEvent;
 use Inc\Services\AuditService;
-use Inc\Services\Log\DataChangeLogWriter;
 use Inc\Services\PiiCryptoService;
 use RuntimeException;
 
@@ -31,7 +33,7 @@ readonly class PersonService {
 		private PiiCryptoService          $crypto,
 		private AuditService              $auditService,
 		private ClockInterface            $clock,
-		private DataChangeLogWriter       $dataChangeLog,
+		private LogEventDispatcherInterface $logEvents,
 	) {}
 
 	public function createOrFindBy( PersonInputDTO $input ): int {
@@ -170,7 +172,10 @@ readonly class PersonService {
 		);
 
 		foreach ( $fieldChanges as $fc ) {
-			$this->dataChangeLog->record( $personId, $fc['field'], $fc['old'], $fc['new'] );
+			$this->logEvents->dispatch(
+				LogEvent::PersonDataChanged,
+				new PersonDataChangedEvent( get_current_user_id(), $personId, $fc['field'], $fc['old'], $fc['new'] )
+			);
 		}
 	}
 

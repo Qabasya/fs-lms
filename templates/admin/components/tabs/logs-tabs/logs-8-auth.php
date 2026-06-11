@@ -51,7 +51,10 @@ $actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-log-csv" data-channel="auth" style="margin-left:auto;">
+		<button type="button" class="button js-export-log-csv"
+			data-channel="auth"
+			data-filters="<?php echo esc_attr( wp_json_encode( $auth_filters ) ); ?>"
+			style="margin-left:auto;">
 			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
 			Экспорт CSV
 		</button>

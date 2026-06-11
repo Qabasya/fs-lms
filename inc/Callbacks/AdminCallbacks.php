@@ -16,6 +16,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\AuditLogRepository;
 use Inc\Repositories\WPDBRepositories\AuthLogRepository;
+use Inc\Repositories\WPDBRepositories\EntityAuditLogRepository;
 use Inc\Repositories\WPDBRepositories\ConsentChangeLogRepository;
 use Inc\Repositories\WPDBRepositories\DataChangeLogRepository;
 use Inc\Repositories\WPDBRepositories\DeletionLogRepository;
@@ -66,6 +67,7 @@ class AdminCallbacks extends BaseController {
 		private readonly BoilerplatePageController $boilerplatePageController,
 		private readonly AcademicPeriodService $period_service,
 		private readonly GroupsRepository $groupsRepository,
+		private readonly EntityAuditLogRepository  $entity_audit_log,
 		private readonly AuditLogRepository        $audit_log,
 		private readonly PiiAccessLogRepository    $pii_log,
 		private readonly ExportLogRepository       $export_log,
@@ -185,7 +187,7 @@ class AdminCallbacks extends BaseController {
 		}
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended
-		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'tab-1' ) );
+		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'tab-0' ) );
 		$per_page   = 50;
 		$paged      = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 
@@ -196,7 +198,20 @@ class AdminCallbacks extends BaseController {
 		$actor_id  = (int) ( $_GET['actor_id'] ?? 0 ) ?: null;
 		$person_id = (int) ( $_GET['person_id'] ?? 0 ) ?: null;
 
-		if ( 'tab-2' === $active_tab ) {
+		if ( 'tab-0' === $active_tab ) {
+			$filters = array_filter( array(
+				'operation'     => sanitize_key( wp_unslash( $_GET['operation'] ?? '' ) ),
+				'entity_type'   => sanitize_key( wp_unslash( $_GET['entity_type'] ?? '' ) ),
+				'actor_user_id' => $actor_id,
+				'date_from'     => $date_from,
+				'date_to'       => $date_to,
+			) );
+			$data['entity_audit_filters'] = $filters;
+			$data['entity_audit_page']    = $paged;
+			$data['entity_audit_total']   = $this->entity_audit_log->countFiltered( $filters );
+			$data['entity_audit_rows']    = $this->entity_audit_log->list( $filters, $paged, $per_page );
+
+		} elseif ( 'tab-2' === $active_tab ) {
 			$pii_filters = array_filter( array(
 				'actor_user_id' => $actor_id,
 				'person_id'     => $person_id,

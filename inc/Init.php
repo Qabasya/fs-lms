@@ -24,11 +24,22 @@ use Inc\Controllers\TaskPageController;
 use Inc\Controllers\LogsController;
 use Inc\Controllers\SettingsController;
 use Inc\Controllers\AuthLogController;
+use Inc\Controllers\EntityAuditSubscriber;
+use Inc\Controllers\PostEntityAuditController;
+use Inc\Controllers\EnrollmentAuditSubscriber;
+use Inc\Controllers\PiiAccessSubscriber;
+use Inc\Controllers\DataChangeSubscriber;
+use Inc\Controllers\ConsentChangeSubscriber;
+use Inc\Controllers\EmailSubscriber;
+use Inc\Controllers\DeletionSubscriber;
 use Inc\Controllers\DeletionController;
 use Inc\Controllers\UserController;
+use Inc\Services\Export\ExportServiceBootstrap;
 use Inc\Contracts\ClockInterface;
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
+use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\WpClock;
 
 /**
@@ -84,6 +95,15 @@ final class Init {
 			SettingsController::class,
 			LogsController::class,
 			AuthLogController::class,
+			EntityAuditSubscriber::class,
+			PostEntityAuditController::class,
+			EnrollmentAuditSubscriber::class,
+			PiiAccessSubscriber::class,
+			DataChangeSubscriber::class,
+			ConsentChangeSubscriber::class,
+			EmailSubscriber::class,
+			DeletionSubscriber::class,
+			ExportServiceBootstrap::class,
 		);
 	}
 
@@ -101,6 +121,7 @@ final class Init {
 	public static function run(): void {
 		$container = new Container();
 		$container->bind( ClockInterface::class, WpClock::class );
+		$container->bind( LogEventDispatcherInterface::class, LogEventDispatcher::class );
 
 		foreach ( self::getServices() as $class ) {
 			$service = $container->get( $class );

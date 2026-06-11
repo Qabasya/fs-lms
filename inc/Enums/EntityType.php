@@ -1,0 +1,51 @@
+<?php
+
+declare( strict_types=1 );
+
+namespace Inc\Enums;
+
+/**
+ * Тип сущности плагина (лог 1 — EntityAudit).
+ *
+ * Используется и для отображения badge в админке, и для резолва
+ * «entityId → человекочитаемое название» в слое отображения.
+ */
+enum EntityType: string {
+
+	case Subject        = 'subject';
+	case Taxonomy       = 'taxonomy';
+	case VisualTemplate = 'visual_template';
+	case Boilerplate    = 'boilerplate';
+	case Task           = 'task';
+	case Article        = 'article';
+	case Group          = 'group';
+	case Period         = 'period';
+	case Student        = 'student';
+	case Parent         = 'parent';
+	case Teacher        = 'teacher';
+
+	public function label(): string {
+		return match ( $this ) {
+			self::Subject        => 'Предмет',
+			self::Taxonomy       => 'Таксономия',
+			self::VisualTemplate => 'Визуальный шаблон',
+			self::Boilerplate    => 'Типовое условие',
+			self::Task           => 'Задание',
+			self::Article        => 'Статья',
+			self::Group          => 'Группа',
+			self::Period         => 'Учебный период',
+			self::Student        => 'Ученик',
+			self::Parent         => 'Родитель',
+			self::Teacher        => 'Преподаватель',
+		};
+	}
+
+	public function badgeClass(): string {
+		return match ( $this ) {
+			self::Subject, self::Taxonomy, self::VisualTemplate, self::Boilerplate => 'badge-primary',
+			self::Task, self::Article                                               => 'badge-info',
+			self::Group, self::Period                                               => 'badge-secondary',
+			self::Student, self::Parent, self::Teacher                             => 'badge-neutral',
+		};
+	}
+}

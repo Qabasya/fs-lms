@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace Inc\Callbacks\Subject;
 
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\DTO\Subject\TaxonomyDataDTO;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
+use Inc\Enums\OperationType;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
@@ -45,9 +50,10 @@ class TaxonomySettingsCallbacks extends BaseController {
 	 * @param TermManager        $terms      Менеджер терминов для удаления
 	 */
 	public function __construct(
-		private readonly TaxonomyRepository $taxonomies,
-		private readonly TermManager        $terms,
-		private readonly PostManager        $posts,
+		private readonly TaxonomyRepository          $taxonomies,
+		private readonly TermManager                 $terms,
+		private readonly PostManager                 $posts,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {
 		parent::__construct();
 	}
@@ -84,6 +90,10 @@ class TaxonomySettingsCallbacks extends BaseController {
 		if ( $result ) {
 			// flush_rewrite_rules() — перестраивает правила ЧПУ после регистрации новой таксономии
 			flush_rewrite_rules();
+			$this->logEvents->dispatch(
+				LogEvent::TaxonomyCreated,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Taxonomy, null )
+			);
 		}
 
 		if ( $dto->is_required ) {
@@ -109,6 +119,9 @@ class TaxonomySettingsCallbacks extends BaseController {
 		$tax_slug    = $this->requireKey( 'tax_slug' );
 		$tax_name    = $this->requireText( 'tax_name', error: 'Название обязательно' );
 
+		$existing = $this->taxonomies->getBySlug( $subject_key, $tax_slug );
+		$oldLabel = $existing?->name;
+
 		$dto    = new TaxonomyDataDTO(
 			slug:         $tax_slug,
 			name:         $tax_name,
@@ -120,6 +133,10 @@ class TaxonomySettingsCallbacks extends BaseController {
 
 		if ( $result ) {
 			flush_rewrite_rules();
+			$this->logEvents->dispatch(
+				LogEvent::TaxonomyUpdated,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Update, EntityType::Taxonomy, null, $oldLabel )
+			);
 		}
 
 		if ( $dto->is_required ) {
@@ -144,6 +161,9 @@ class TaxonomySettingsCallbacks extends BaseController {
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_slug    = $this->requireKey( 'tax_slug' );
 
+		$existing = $this->taxonomies->getBySlug( $subject_key, $tax_slug );
+		$oldLabel = $existing?->name;
+
 		// deleteAll() — удаляет все термины указанной таксономии из таблиц wp_terms
 		$this->terms->deleteAll( $tax_slug );
 
@@ -151,6 +171,10 @@ class TaxonomySettingsCallbacks extends BaseController {
 
 		if ( $result ) {
 			flush_rewrite_rules();
+			$this->logEvents->dispatch(
+				LogEvent::TaxonomyDeleted,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Taxonomy, null, $oldLabel )
+			);
 		}
 
 		$this->respond(

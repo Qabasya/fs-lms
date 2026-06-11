@@ -221,7 +221,27 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
-		// ===== 8. audit_log — журнал действий =====
+		// ===== 7. entity_audit_log — журнал действий с сущностями =====
+		$entity_audit_log = TableName::EntityAuditLog->prefixed();
+		dbDelta(
+			"CREATE TABLE $entity_audit_log (
+			id            int unsigned        NOT NULL AUTO_INCREMENT,
+			actor_user_id bigint(20) unsigned DEFAULT NULL,
+			actor_role    varchar(50)         DEFAULT NULL,
+			operation     varchar(10)         NOT NULL,
+			entity_type   varchar(30)         NOT NULL,
+			entity_id     int unsigned        DEFAULT NULL,
+			old_label     varchar(255)        DEFAULT NULL,
+			actor_ip      varchar(45)         NOT NULL DEFAULT '',
+			created_at    datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY actor_user_id (actor_user_id),
+			KEY operation (operation),
+			KEY entity_combined (entity_type, entity_id)
+		) $cc;"
+		);
+
+		// ===== 8. audit_log — журнал действий зачисления =====
 		$audit_log = TableName::AuditLog->prefixed();
 		dbDelta(
 			"CREATE TABLE $audit_log (
@@ -242,7 +262,7 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
-		// ===== 9. pii_access_log — журнал доступа к PII =====
+		// ===== 9. pii_access_log — журнал доступа к ПДн =====
 		$pii_access_log = TableName::PiiAccessLog->prefixed();
 		dbDelta(
 			"CREATE TABLE $pii_access_log (
@@ -399,6 +419,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			TableName::ConsentChangeLog->prefixed(),
 			TableName::DataChangeLog->prefixed(),
 			TableName::ExportLog->prefixed(),
+			TableName::EntityAuditLog->prefixed(),
 			TableName::StudentRecords->prefixed(),
 			TableName::PiiAccessLog->prefixed(),
 			TableName::AuditLog->prefixed(),

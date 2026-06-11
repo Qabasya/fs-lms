@@ -20,6 +20,12 @@ use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Application\JoinCodeService;
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\DTO\Log\Events\EnrollmentStatusEvent;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
+use Inc\Enums\OperationType;
 use Inc\Services\AuditService;
 use Inc\Services\ConsentService;
 use Inc\Services\Email\EmailService;
@@ -38,20 +44,21 @@ readonly class EnrollmentService {
 	use RequestContextProvider;
 
 	public function __construct(
-		private ApplicationRepository     $applicationRepository,
-		private StudentRecordRepository   $studentRecordRepository,
-		private PersonRepository          $personRepository,
-		private PersonDocumentsRepository $personDocumentsRepository,
-		private PersonService             $personService,
-		private GroupsRepository          $groupsRepository,
-		private JoinCodeService           $joinCodeService,
-		private ConsentService            $consentService,
-		private AuditService              $auditService,
-		private UserManager               $userManager,
-		private PasswordGeneratorService  $passwordGenerator,
-		private EmailService              $emailService,
-		private PiiCryptoService          $crypto,
-		private ClockInterface            $clock,
+		private ApplicationRepository        $applicationRepository,
+		private StudentRecordRepository      $studentRecordRepository,
+		private PersonRepository             $personRepository,
+		private PersonDocumentsRepository    $personDocumentsRepository,
+		private PersonService                $personService,
+		private GroupsRepository             $groupsRepository,
+		private JoinCodeService              $joinCodeService,
+		private ConsentService               $consentService,
+		private AuditService                 $auditService,
+		private UserManager                  $userManager,
+		private PasswordGeneratorService     $passwordGenerator,
+		private EmailService                 $emailService,
+		private PiiCryptoService             $crypto,
+		private ClockInterface               $clock,
+		private LogEventDispatcherInterface  $logEvents,
 	) {}
 
 	public function enroll( EnrollmentInputDTO $input ): EnrollmentResultDTO {
@@ -179,6 +186,11 @@ readonly class EnrollmentService {
 
 		[ $recordId, $studentPersonId, $guardianPersonId ] = $result;
 
+		$this->logEvents->dispatch(
+			LogEvent::StudentEnrolled,
+			new EnrollmentStatusEvent( get_current_user_id(), AuditAction::EnrollStudent, $studentPersonId, $recordId, $input->groupId )
+		);
+
 		try {
 			$studentPerson = $this->personRepository->find( $studentPersonId );
 			if ( null !== $studentPerson && null !== $studentPerson->wpUserId ) {
@@ -219,6 +231,10 @@ readonly class EnrollmentService {
 						'role'         => UserRole::FSStudent->value,
 					) );
 					$this->passwordGenerator->storeEncrypted( $studentUserId, $studentPassword );
+					$this->logEvents->dispatch(
+						LogEvent::UserCreated,
+						new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Student, $studentPersonId )
+					);
 				}
 				if ( null !== $studentPerson && null === $studentPerson->wpUserId ) {
 					$this->personRepository->setWpUser( $studentPersonId, $studentUserId );
@@ -251,6 +267,10 @@ readonly class EnrollmentService {
 						'role'         => UserRole::FSParent->value,
 					) );
 					$this->passwordGenerator->storeEncrypted( $guardianUserId, $guardianPassword );
+					$this->logEvents->dispatch(
+						LogEvent::UserCreated,
+						new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Parent, $guardianPersonId )
+					);
 				}
 				if ( null !== $guardianPerson && null === $guardianPerson->wpUserId ) {
 					$this->personRepository->setWpUser( $guardianPersonId, $guardianUserId );
@@ -292,6 +312,11 @@ readonly class EnrollmentService {
 				'student_record',
 				$recordId,
 				array( 'error' => $e->getMessage() )
+			);
+
+			$this->logEvents->dispatch(
+				LogEvent::EnrollmentFailed,
+				new EnrollmentStatusEvent( get_current_user_id(), AuditAction::EnrollStudentFailed, $studentPersonId, $recordId, $input->groupId )
 			);
 
 			return new EnrollmentResultDTO( $recordId, 0, 0, null, null, null, null, true );

@@ -948,11 +948,11 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 
 #### Общая инфраструктура (делается ПЕРВОЙ, один человек)
 
-- [ ] **`LogEvent` enum** — `inc/Enums/LogEvent.php`. Backed enum, каталог всех доменных событий (`SubjectCreated`, `TaskDeleted`, `PersonDataChanged`, `ParentSigned`, `StudentEnrolled`, `ConsentChanged`, `EmailSent`, `EntityHardDeleted`, …). Единая точка правды для источников и подписчиков.
-- [ ] **`LogEventInterface`** — `inc/Contracts/LogEventInterface.php`. Контракт payload-DTO события (минимум — маркерный интерфейс, чтобы типизировать `dispatch`).
-- [ ] **`LogEventDispatcherInterface`** — `inc/Contracts/LogEventDispatcherInterface.php`. Методы `subscribe(LogEvent $e, callable $listener): void`, `dispatch(LogEvent $e, LogEventInterface $payload): void`.
-- [ ] **`LogEventDispatcher`** — `inc/Services/Log/LogEventDispatcher.php`. Реализация: хранит `[event => listeners[]]`, рассылает synchronously, оборачивает каждый listener в try/catch (`PluginLogger::exception`), наружу не бросает. Регистрируется в DI как singleton.
-- [ ] **DI / bootstrap** — `LogEventDispatcher` как singleton в `Container`; источники инжектят `LogEventDispatcherInterface`. Все `*Subscriber` добавить в `Init::getServices()` (реализуют `ServiceInterface`, в `register()` подписываются на шину).
+- [x] **`LogEvent` enum** — `inc/Enums/LogEvent.php`. Backed enum, каталог всех доменных событий (`SubjectCreated`, `TaskDeleted`, `PersonDataChanged`, `ParentSigned`, `StudentEnrolled`, `ConsentChanged`, `EmailSent`, `EntityHardDeleted`, …). Единая точка правды для источников и подписчиков.
+- [x] **`LogEventInterface`** — `inc/Contracts/LogEventInterface.php`. Контракт payload-DTO события (минимум — маркерный интерфейс, чтобы типизировать `dispatch`).
+- [x] **`LogEventDispatcherInterface`** — `inc/Contracts/LogEventDispatcherInterface.php`. Методы `subscribe(LogEvent $e, callable $listener): void`, `dispatch(LogEvent $e, LogEventInterface $payload): void`.
+- [x] **`LogEventDispatcher`** — `inc/Services/Log/LogEventDispatcher.php`. Реализация: хранит `[event => listeners[]]`, рассылает synchronously, оборачивает каждый listener в try/catch (`PluginLogger::exception`), наружу не бросает. Регистрируется в DI как singleton.
+- [x] **DI / bootstrap** — `LogEventDispatcher` как singleton в `Container`; источники инжектят `LogEventDispatcherInterface`. Все `*Subscriber` добавить в `Init::getServices()` (реализуют `ServiceInterface`, в `register()` подписываются на шину).
 - [ ] **`LogExportProvider` интерфейс + реестр** — `inc/Services/Log/Export/`. `columns(): array`, `rows(filters): iterable`. Реестр маппит `LogChannel → provider`. Контроллер экспорта (`LogsCallbacks`) резолвит провайдер по каналу — добавление лога не правит контроллер (OCP).
 - [ ] **Удалить `AuditService`** — после перевода всех источников на `dispatch`. Снять прямые инъекции writer'ов из ~15 сервисов (`ApplicationService`, `EnrollmentService`, `ConsentService`, `PersonService`, `EmailService`, `*DeletionHandler`, и т.д.).
 - [ ] **Базовый трейт/хелпер резолва имён для админки** — `display_name` по `user_id`, название предмета/группы/периода по ключу, label по enum. Чтобы 8 шаблонов логов не дублировали резолв.
@@ -986,17 +986,17 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 
 **Подзадачи лога 1 — `EntityAudit`** (новый канал, выделяется из `audit_log`):
 
-- [ ] **Таблица** ⬜ — `TableName::EntityAuditLog` = `fs_lms_entity_audit_log`; DDL в `Migration_1_0_0::up()`. Колонки: `id`, `actor_user_id`, `actor_role`, `operation` (create/update/delete), `entity_type`, `entity_id`, `old_label` (только для update — прошлое название сущности; **не PII**), `actor_ip`, `created_at`. Индексы: `actor_user_id`, `(entity_type, entity_id)`, `operation`.
-- [ ] **Enum `OperationType`** ⬜ — `Create`/`Update`/`Delete` + `label()` («Создание»/«Изменение»/«Удаление») + badge-цвет.
-- [ ] **Enum `EntityType`** ⬜ — `Subject`, `Taxonomy`, `VisualTemplate`, `Boilerplate`, `Task`, `Article`, `Group`, `Period`, `Student`, `Parent`, `Teacher` + `label()`. Используется и для резолва «ID сущности → название» в админке.
-- [ ] **Enum `LogChannel`** 🔄 — добавить case `EntityAudit`.
-- [ ] **Enum `AuditAction`** 🔄 — расщепить: оставить в логе 1 только CRUD сущностей, действия зачисления увести в лог 2 (или ввести отдельный `EnrollmentAction`).
-- [ ] **DTO** ⬜ — `EntityAuditLogDTO` (`fromArray`/`toArray`, резолв `entity_id`→название, `entity_type`/`operation`→label) + `EntityAuditLogInputDTO` (`toArray`).
-- [ ] **Payload-событий** ⬜ — `EntityChangedEvent implements LogEventInterface` (actor, operation, entityType, entityId, oldLabel?).
-- [ ] **Repository** ⬜ — `EntityAuditLogRepository` (`create()`, `query(filters)`).
-- [ ] **Writer** ⬜ — `EntityAuditLogWriter` с узким методом (например `record(OperationType, EntityType, int $entityId, ?string $oldLabel)`).
-- [ ] **События** ⬜ — добавить в `LogEvent`: `SubjectCreated/Updated/Deleted`, аналогично Taxonomy/Template/Boilerplate/Task/Article/Group/Period/User. `dispatch(...)` в источниках (после `save_post`, CRUD-колбэках предметов/таксономий/групп/периодов и т.д.).
-- [ ] **Подписчик** ⬜ — `EntityAuditSubscriber implements ServiceInterface`: в `register()` подписывается на все entity-`LogEvent`, зовёт `EntityAuditLogWriter`. Зарегистрировать в `Init::getServices()`.
+- [x] **Таблица** — `TableName::EntityAuditLog` = `fs_lms_entity_audit_log`; DDL в `Migration_1_0_0::up()`.
+- [x] **Enum `OperationType`** — `Create`/`Update`/`Delete` + `label()` + `badgeClass()`.
+- [x] **Enum `EntityType`** — 11 типов + `label()` + `badgeClass()`.
+- [x] **Enum `LogChannel`** — добавлен case `EntityAudit`.
+- [ ] **Enum `AuditAction`** 🔄 — расщепить: оставить только действия зачисления, CRUD сущностей → в `EntityAudit` канал.
+- [x] **DTO** — `EntityAuditLogDTO` + `EntityAuditLogInputDTO`.
+- [x] **Payload-событий** — `EntityChangedEvent implements LogEventInterface`.
+- [x] **Repository** — `EntityAuditLogRepository` (`create()`, `list()`, `countFiltered()`, `listAll()`).
+- [x] **Writer** — `EntityAuditLogWriter::record(actorUserId, OperationType, EntityType, entityId, oldLabel?)`.
+- [ ] **События** ⬜ — `dispatch(...)` в источниках (CRUD-колбэки предметов/таксономий/групп/периодов/пользователей).
+- [x] **Подписчик** — `EntityAuditSubscriber` зарегистрирован в `Init::getServices()`.
 - [ ] **Админка** ⬜ — `templates/admin/.../logs-1-audit.php`: badge операции, badge типа сущности, «ID сущности» → название (через `EntityType`+резолв), колонка «прошлое название» из `old_label`.
 - [ ] **Экспорт** ⬜ — `EntityAuditLogExportProvider`.
 
@@ -1267,6 +1267,7 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 
 ---
 
+TODO: перенести удаления в таблицу 1 (действия с сущностями): логировать удаления предметов, учеников, родителей. Не создавать новую таблицу.
 **Подзадачи канала `Deletion`** (сквозной GDPR-журнал жёстких удалений; не входит в нумерацию 1–8, но обязателен):
 
 - [ ] **Таблица** ✅ — `fs_lms_deletion_log` (`actor_user_id`, `entity_type`, `entity_id`, `cascaded_summary`, `actor_ip`, `created_at`).
@@ -1283,7 +1284,6 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 
 ### Архитектура: единый CSV-экспорт (паттерны Strategy + Registry)
 
-> Раздел рассчитан на параллельную работу. Один человек делает общую инфраструктуру (контракт + реестр + оркестратор) **первой**; затем каждый экспорт (группы/ученики/родители/архив + 8 логов) — независимый провайдер, который можно писать отдельно.
 
 #### Контекст
 
@@ -1327,7 +1327,7 @@ ExportTarget (enum)        CsvExportProviderInterface           Registry        
 - **Сбор в DTO до колонок.** `rows()` сначала агрегирует данные из репозиториев в типизированные `*ExportRowDTO` (резолв предмета/периода/ФИО, расшифровка PII), и только потом `CsvColumn`-экстракторы тянут из DTO. Никаких запросов в БД из экстракторов.
 - **Каждый экспорт логируется** (лог 4) и закрыт `Capability::ExportPII`. PII-экспорты содержат расшифрованные данные — отдавать только через одноразовую ссылку с TTL.
 
-#### ⚠️ Сквозная колонка «Пароль» — хранится в `usermeta`
+#### ⚠️ Сквозная колонка «Пароль» — хранится в `usermeta` (`fs_lms_enc_password`)
 
 WordPress в `users.user_pass` держит **только хеш** — восстановить нельзя. **Решение:** сгенерированный пароль (`PasswordGeneratorService`) сохраняется в `usermeta` (зашифрованным — как `person_documents`) в момент создания аккаунта, и оттуда же берётся в экспорт. Касается учеников и родителей.
 
@@ -1362,11 +1362,6 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 | Кол-во учеников | `COUNT(student_records WHERE group_id = groups.id)` |
 | Создана / Обновлена / Удалена | `groups.created_at / updated_at / deleted_at` |
 
-**⚠️ Анализ колонок:**
-- 🔴 **Ошибка в источнике периода:** учебный период резолвится по `groups.academic_period_id`, **а не по `subject_key`** (в старой формулировке было неверно).
-- ✅ **«Кол-во учеников»** добавлено (`COUNT` активных записей по `group_id`).
-- Лишних колонок нет.
-
 **Подзадачи:**
 - [ ] `GroupExportRowDTO` ⬜ — собрать из `GroupsRepository` + резолв предмета/периода (Options-репозитории) + `display_name` преподавателя + `COUNT` учеников.
 - [ ] `GroupsExportProvider` ⬜ — `columns()` (8 колонок выше) + `rows($ids)` + `filename()`. Исправить ключ резолва периода.
@@ -1374,26 +1369,26 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 2. Экспорт учеников — `StudentsExportProvider` (страница `userlist-2-students`)
 
-| Колонка | Источник |
-|---|---|
-| ID | `persons.id` (ученика) |
-| ФИО ученика | `persons.last_name/first_name/middle_name` |
-| ФИО родителя | через `student_records.parent_person_id` → `persons` |
-| Дата рождения | `persons.birth_date` |
-| Школа / Класс | `persons.school / persons.grade` |
-| Предмет | `student_records.group_id` → `groups.subject_key` → `subjects_list[...].name` (неск. через `;`) |
-| Группа | `groups.name` (неск. через `;`) |
-| Расписание | `groups.schedule` (неск. через `;`) |
-| Номер договора | `student_records.contract_no` (неск. через `;`) |
+| Колонка         | Источник |
+|-----------------|---|
+| ID              | `persons.id` (ученика) |
+| ФИО ученика     | `persons.last_name/first_name/middle_name` |
+| ФИО родителя    | через `student_records.parent_person_id` → `persons` |
+| Дата рождения   | `persons.birth_date` |
+| Школа / Класс   | `persons.school / persons.grade` |
+| Предмет         | `student_records.group_id` → `groups.subject_key` → `subjects_list[...].name` (неск. через `;`) |
+| Группа          | `groups.name` (неск. через `;`) |
+| Расписание      | `groups.schedule` (неск. через `;`) |
+| Номер договора  | `student_records.contract_no` (неск. через `;`) |
 | Телефон / Почта | `person_documents` **ученика** (расшифровка) |
-| Логин | `users.user_login` по `persons.wp_user_id` |
-| Пароль | `usermeta` ученика (расшифровка) |
+| Логин           | `users.user_login` по `persons.wp_user_id` |
+| Пароль          | `usermeta` ученика (расшифровка) |
+| Статус          | `student_records.status` |
 
 **⚠️ Анализ колонок:**
 - ✅ **«Пароль»** — из `usermeta` ученика (см. сквозную колонку «Пароль»).
 - ✅ **Мульти-группа:** одна строка на ученика; предметы/группы/расписания/договоры — в одной ячейке через `;`.
 - ✅ **Телефон/Почта** — собственные данные ученика (`person_documents` ученика), не родителя.
-- 🟡 Возможно добавить **«Статус»** (`student_records.status`) — страница активных, но в экспорт полезно.
 
 **Подзадачи:**
 - [ ] `StudentExportRowDTO` ⬜ — `persons` + JOIN `student_records` (родитель, группы, договоры) + резолв предмета + расшифровка PII ученика + пароль из `usermeta`; агрегация мульти-групп через `;`.
@@ -1416,7 +1411,7 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 **⚠️ Анализ колонок:**
 - ✅ **«Пароль»** — из `usermeta` родителя.
-- ✅ **«Логин» = почта** родителя (`user_login` совпадает с email) — колонка добавлена.
+- ✅ **«Логин» = почта** родителя (`user_login` совпадает с email)
 - ✅ **Телефон/Почта** — собственные данные родителя.
 - Мульти-ребёнок/мульти-группа через `;` — корректно.
 
@@ -1429,24 +1424,17 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 | Колонка | Источник |
 |---|---|
-| ФИО ученика | **`student_records.snapshot_last/first/middle_name`** (исторический снимок!) |
+| ФИО ученика |`student_records.snapshot_last/first/middle_name` |
 | ФИО родителя | `student_records.parent_person_id` → `persons` |
 | Школа / Класс | `student_records.snapshot_school / snapshot_grade` |
 | ID группы | `student_records.group_id` |
 | Предмет / Группа | по `group_id` → `groups` |
 | Номер договора / Дата подписания | `student_records.contract_no / contract_date` |
 | Номер приказа | `student_records.order_no` |
-| Дата приказа | `student_records.enrolled_at` (= дате зачисления) |
 | Дата зачисления | `student_records.enrolled_at` |
 | Статус | `student_records.status` |
 | Дата отчисления | `student_records.expelled_at` |
 | Причина отчисления | `student_records.expel_reason` |
-
-**⚠️ Анализ колонок:**
-- 🔴 **ФИО ученика — из `snapshot_*`, а не из живого `persons`.** Архив исторический: живые `persons` могли измениться/удалиться. Поля `snapshot_last/first/middle_name` для того и существуют. (Старая формулировка «ФИО через person_id» неверна для архива; для школы/класса снапшот был указан верно.)
-- ✅ **Лишняя пустая колонка** (`|   |`) в конце удалена.
-- ✅ **«Дата приказа»** добавлена и равна дате зачисления (`enrolled_at`).
-- ✅ **«ID группы» + «Группа» (название) — оставляем обе.** По `group_id` можно найти группу и её период (в т.ч. удалённую/из прошлого периода); название удобно для быстрого доступа к данным в текущем периоде.
 
 **Подзадачи:**
 - [ ] `ArchiveExportRowDTO` ⬜ — из `student_records` (snapshot-поля!) + резолв предмета/группы + ФИО родителя из `persons`.
