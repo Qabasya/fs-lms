@@ -6,6 +6,8 @@ namespace Inc\Services\Export\Log;
 
 use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\CsvColumn;
+use Inc\Enums\AuthAction;
+use Inc\Enums\AuthResult;
 use Inc\Repositories\WPDBRepositories\AuthLogRepository;
 use Inc\Services\Log\LogNameResolver;
 
@@ -60,12 +62,12 @@ class AuthLogExportProvider implements CsvExportProviderInterface {
 	 */
 	public function columns(): array {
 		return array(
-			new CsvColumn( 'ID',        fn( $r ) => $r->id ),
-			new CsvColumn( 'Дата',      fn( $r ) => LogNameResolver::date( $r->createdAt ) ),
-			new CsvColumn( 'Логин',     fn( $r ) => $r->loginIdentifier ?? '' ),
-			new CsvColumn( 'Действие',  fn( $r ) => $r->action ),
-			new CsvColumn( 'Результат', fn( $r ) => $r->result ),
-			new CsvColumn( 'IP',        fn( $r ) => $r->actorIp ),
+			new CsvColumn( 'ID',         fn( $r ) => $r->id ),
+			new CsvColumn( 'Дата',       fn( $r ) => LogNameResolver::date( $r->createdAt ) ),
+			new CsvColumn( 'Логин',      fn( $r ) => $r->loginIdentifier ?? '' ),
+			new CsvColumn( 'Действие',   fn( $r ) => AuthAction::tryFrom( $r->action )?->label() ?? $r->action ),
+			new CsvColumn( 'Результат',  fn( $r ) => AuthResult::tryFrom( $r->result )?->label() ?? $r->result ),
+			new CsvColumn( 'IP',         fn( $r ) => $r->actorIp ),
 			new CsvColumn( 'Устройство', fn( $r ) => $r->actorUa ?? '' ),
 		);
 	}

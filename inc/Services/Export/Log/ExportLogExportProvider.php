@@ -6,6 +6,8 @@ namespace Inc\Services\Export\Log;
 
 use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\CsvColumn;
+use Inc\Enums\ExportActionType;
+use Inc\Enums\ExportDataType;
 use Inc\Repositories\WPDBRepositories\ExportLogRepository;
 use Inc\Services\Log\LogNameResolver;
 
@@ -65,9 +67,11 @@ class ExportLogExportProvider implements CsvExportProviderInterface {
 			new CsvColumn( 'Дата',         fn( $r ) => LogNameResolver::date( $r->createdAt ) ),
 			new CsvColumn( 'Пользователь', fn( $r ) => LogNameResolver::userName( $r->actorUserId ) ),
 			new CsvColumn( 'Роль',         fn( $r ) => $r->actorRole ?? '' ),
-			new CsvColumn( 'Тип данных',   fn( $r ) => $r->dataType ),
-			new CsvColumn( 'Тип действия', fn( $r ) => $r->actionType ),
+			new CsvColumn( 'Тип данных',   fn( $r ) => ExportDataType::tryFrom( $r->dataType )?->label() ?? $r->dataType ),
+			new CsvColumn( 'Тип действия', fn( $r ) => ExportActionType::tryFrom( $r->actionType )?->label() ?? $r->actionType ),
 			new CsvColumn( 'ID целей',     fn( $r ) => $r->targetIdsJson ?? '' ),
+			new CsvColumn( 'IP',           fn( $r ) => $r->actorIp ),
+			new CsvColumn( 'Устройство',   fn( $r ) => $r->actorUa ?? '' ),
 		);
 	}
 

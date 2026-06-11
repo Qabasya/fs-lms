@@ -6,6 +6,7 @@ namespace Inc\Services\Export\Log;
 
 use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\CsvColumn;
+use Inc\Enums\EmailTemplateType;
 use Inc\Repositories\WPDBRepositories\EmailLogRepository;
 use Inc\Services\Log\LogNameResolver;
 
@@ -61,13 +62,14 @@ class EmailLogExportProvider implements CsvExportProviderInterface {
 	 */
 	public function columns(): array {
 		return array(
-			new CsvColumn( 'ID',           fn( $r ) => $r->id ),
-			new CsvColumn( 'Дата',         fn( $r ) => LogNameResolver::date( $r->createdAt ) ),
-			new CsvColumn( 'Пользователь', fn( $r ) => LogNameResolver::userName( $r->actorUserId ) ),
-			new CsvColumn( 'Тип письма',   fn( $r ) => $r->emailType ),
-			new CsvColumn( 'Получатель',   fn( $r ) => LogNameResolver::personName( $r->targetPersonId ) ),
-			new CsvColumn( 'Статус',       fn( $r ) => $r->status ),
-			new CsvColumn( 'Ошибка',       fn( $r ) => $r->errorMessage ?? '' ),
+			new CsvColumn( 'ID',               fn( $r ) => $r->id ),
+			new CsvColumn( 'Дата',             fn( $r ) => LogNameResolver::date( $r->createdAt ) ),
+			new CsvColumn( 'Пользователь',     fn( $r ) => LogNameResolver::userName( $r->actorUserId ) ),
+			new CsvColumn( 'Тип письма',       fn( $r ) => EmailTemplateType::tryFrom( $r->emailType )?->label() ?? $r->emailType ),
+			new CsvColumn( 'Получатель',       fn( $r ) => LogNameResolver::personName( $r->targetPersonId ) ),
+			new CsvColumn( 'Email получателя', fn( $r ) => $r->recipientEmail ?? '' ),
+			new CsvColumn( 'Статус',           fn( $r ) => $r->status ),
+			new CsvColumn( 'Ошибка',           fn( $r ) => $r->errorMessage ?? '' ),
 		);
 	}
 
