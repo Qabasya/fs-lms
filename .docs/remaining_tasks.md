@@ -953,9 +953,9 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 - [x] **`LogEventDispatcherInterface`** — `inc/Contracts/LogEventDispatcherInterface.php`. Методы `subscribe(LogEvent $e, callable $listener): void`, `dispatch(LogEvent $e, LogEventInterface $payload): void`.
 - [x] **`LogEventDispatcher`** — `inc/Services/Log/LogEventDispatcher.php`. Реализация: хранит `[event => listeners[]]`, рассылает synchronously, оборачивает каждый listener в try/catch (`PluginLogger::exception`), наружу не бросает. Регистрируется в DI как singleton.
 - [x] **DI / bootstrap** — `LogEventDispatcher` как singleton в `Container`; источники инжектят `LogEventDispatcherInterface`. Все `*Subscriber` добавить в `Init::getServices()` (реализуют `ServiceInterface`, в `register()` подписываются на шину).
-- [ ] **`LogExportProvider` интерфейс + реестр** — `inc/Services/Log/Export/`. `columns(): array`, `rows(filters): iterable`. Реестр маппит `LogChannel → provider`. Контроллер экспорта (`LogsCallbacks`) резолвит провайдер по каналу — добавление лога не правит контроллер (OCP).
+- [x] **`LogExportProvider` интерфейс + реестр** — `CsvExportProviderInterface` + `CsvExportProviderRegistry` + `ExportServiceBootstrap`; `ExportService` оркестрирует; `LogsCallbacks` делегирует через `ExportTarget` enum.
 - [ ] **Удалить `AuditService`** — после перевода всех источников на `dispatch`. Снять прямые инъекции writer'ов из ~15 сервисов (`ApplicationService`, `EnrollmentService`, `ConsentService`, `PersonService`, `EmailService`, `*DeletionHandler`, и т.д.).
-- [ ] **Базовый трейт/хелпер резолва имён для админки** — `display_name` по `user_id`, название предмета/группы/периода по ключу, label по enum. Чтобы 8 шаблонов логов не дублировали резолв.
+- [x] **Базовый трейт/хелпер резолва имён для админки** — `LogNameResolver` (`inc/Services/Log/LogNameResolver.php`): `userName`, `userNameWithRole`, `personName`, `entityName`, `date`.
 
 
 
@@ -995,10 +995,10 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 - [x] **Payload-событий** — `EntityChangedEvent implements LogEventInterface`.
 - [x] **Repository** — `EntityAuditLogRepository` (`create()`, `list()`, `countFiltered()`, `listAll()`).
 - [x] **Writer** — `EntityAuditLogWriter::record(actorUserId, OperationType, EntityType, entityId, oldLabel?)`.
-- [ ] **События** ⬜ — `dispatch(...)` в источниках (CRUD-колбэки предметов/таксономий/групп/периодов/пользователей).
+- [x] **События** — `dispatch(...)` в источниках: Subject (SubjectCrudCallbacks + SubjectDeletionCascadeHandler), Taxonomy (TaxonomySettingsCallbacks), Group (StudentGroupCallbacks), Period (AcademicPeriodCallbacks), Task/Article (PostEntityAuditController), Boilerplate (BoilerplateCallbacks), User (EnrollmentService + Student/ParentDeletionHandler).
 - [x] **Подписчик** — `EntityAuditSubscriber` зарегистрирован в `Init::getServices()`.
-- [ ] **Админка** ⬜ — `templates/admin/.../logs-1-audit.php`: badge операции, badge типа сущности, «ID сущности» → название (через `EntityType`+резолв), колонка «прошлое название» из `old_label`.
-- [ ] **Экспорт** ⬜ — `EntityAuditLogExportProvider`.
+- [x] **Админка** — `templates/admin/components/tabs/logs-tabs/logs-0-entity-audit.php`: badge операции, badge типа, `LogNameResolver::entityName`, колонка «Прошлое название», `LogNameResolver::date`.
+- [x] **Экспорт** — `EntityAuditLogExportProvider`.
 
 ---
 
@@ -1028,13 +1028,13 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 - [ ] **Таблица** 🔄 — оставить `fs_lms_audit_log`, но очистить семантику: только путь зачисления. Убрать из неё entity-CRUD (ушли в лог 1) и hard_delete (есть в `deletion_log`). Опционально добавить `student_record_id`, `group_id` (заполняются только для операции зачисления — см. ТЗ «Дополнительно»).
 - [ ] **Enum `AuditAction`** 🔄 — пересмотреть кейсы: оставить только статусы заявки/зачисления (`CreateApplication`, `SubmitParentData`, `StartEnrollment`, `EnrollStudent`, `StudentExpelled`, `CancelEnrollment`, `ExpireApplication`, …). Проверить `label()` на читаемость. Entity- и deletion-кейсы вынести.
 - [ ] **DTO** 🔄 — `AuditLogDTO` (есть) допилить: резолв `target_id`→ФИО ученика, для зачисления — название группы; `action`→label. `AuditLogInputDTO` для записи (сейчас writer пишет массивом — завести Input DTO для типобезопасности).
-- [ ] **Payload-событий** ⬜ — `EnrollmentStatusEvent` (actor, action, studentPersonId, studentRecordId?, groupId?).
-- [ ] **Repository** ✅ — `AuditLogRepository` есть; добавить `query(filters)` для админки/экспорта при отсутствии.
-- [ ] **Writer** ✅ — `EnrollmentAuditLogWriter` есть; сузить под enrollment-only (убрать `recordAnonymous`/generic-использование из entity-контекста).
-- [ ] **События** ⬜ — `LogEvent`: `ApplicationCreated`, `ParentSigned`, `EnrollmentStarted`, `StudentEnrolled`, `StudentExpelled`, `EnrollmentCanceled`, `ApplicationExpired`. `dispatch(...)` в `ApplicationService` / `EnrollmentService` / `ExpulsionService` **после коммита**.
-- [ ] **Подписчик** ⬜ — `EnrollmentAuditSubscriber`. Снять прямые инъекции `EnrollmentAuditLogWriter` из `ApplicationCallbacks`/`EnrollmentService`/`ExpulsionService`.
-- [ ] **Админка** 🔄 — `logs-1-audit.php`(переименовать в enrollment-таб): `display_name`, badge действия, ФИО цели, для зачисления — ФИО+название группы.
-- [ ] **Экспорт** ⬜ — `EnrollmentAuditLogExportProvider`.
+- [x] **Payload-событий** — `EnrollmentStatusEvent` реализован.
+- [x] **Repository** ✅ — `AuditLogRepository` есть.
+- [x] **Writer** ✅ — `EnrollmentAuditLogWriter` есть.
+- [ ] **События** ⬜ — `dispatch(...)` в `ApplicationService` / `EnrollmentService` / `ExpulsionService` **после коммита**. Пока AuditService используется напрямую.
+- [x] **Подписчик** — `EnrollmentAuditSubscriber` зарегистрирован в `Init::getServices()`.
+- [ ] **Админка** 🔄 — `logs-1-audit.php`: `display_name`, badge действия, ФИО цели, для зачисления — ФИО+название группы.
+- [x] **Экспорт** — `EnrollmentAuditLogExportProvider`.
 
 ---
 
@@ -1062,12 +1062,12 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 
 - [ ] **Таблица** ✅ — `fs_lms_pii_access_log` есть (`actor_user_id`, `person_id`, `fields_accessed`, `access_reason`, `actor_ip`, `actor_ua`, `created_at`). Колонка `actor_ua` (Устройство) добавлена.
 - [ ] **DTO** ✅ — `PiiAccessLogDTO` + `PiiAccessLogInputDTO` (с `actorUa`). Проверить резолв `person_id`→ФИО для админки.
-- [ ] **Payload-события** ⬜ — `PiiAccessedEvent` (actor, personId, fieldsAccessed, reason).
-- [ ] **Repository** ✅ — `PiiAccessLogRepository`.
-- [ ] **Writer** ✅ — `PiiAccessLogWriter`.
-- [ ] **Событие + подписчик** ⬜ — `LogEvent::PiiRevealed`; `dispatch` в `PiiRevealCallbacks` (раскрытие данных). `PiiAccessSubscriber` вместо прямой инъекции writer'а.
+- [x] **Payload-события** — `PiiRevealedEvent` реализован.
+- [x] **Repository** ✅ — `PiiAccessLogRepository`.
+- [x] **Writer** ✅ — `PiiAccessLogWriter`.
+- [x] **Событие + подписчик** — `LogEvent::PiiRevealed`; `dispatch` в `PersonReader::logAccess()`; `PiiAccessSubscriber` зарегистрирован.
 - [ ] **Админка** 🔄 — `logs-2-pii.php`: `display_name`, ФИО цели, IP, UserAgent (Устройство). Без слагов/ID.
-- [ ] **Экспорт** ⬜ — `PiiAccessLogExportProvider`.
+- [x] **Экспорт** — `PiiAccessLogExportProvider`.
 
 ---
 
@@ -1103,11 +1103,11 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 - [ ] **Enum `ExportActionType`** ⬜ — `Single`/`Bulk` + `label()` (одна запись / массовое действие).
 - [ ] **DTO** ✅ — `ExportLogDTO` + `ExportLogInputDTO`. Допилить резолв `target_ids_json`→ФИО (для single — имя; для bulk — перечень/кол-во).
 - [ ] **Payload-события** ⬜ — `DataExportedEvent` (actor, dataType, actionType, targetIds[]).
-- [ ] **Repository** ✅ — `ExportLogRepository`.
-- [ ] **Writer** ✅ — `ExportLogWriter`.
-- [ ] **Событие + подписчик** ⬜ — `LogEvent::DataExported`; `dispatch` во всех точках экспорта (группы/ученики/родители/архив/логи — см. раздел «CSV-экспорт»). `ExportSubscriber`. Экспорт логов тоже логируется.
+- [x] **Repository** ✅ — `ExportLogRepository`.
+- [x] **Writer** ✅ — `ExportLogWriter` — вызывается в `ExportService::run()` после каждого экспорта.
+- [ ] **Событие + подписчик** ⬜ — `LogEvent::DataExported`; `ExportSubscriber`. Пока `ExportLogWriter` вызывается прямо из `ExportService`.
 - [ ] **Админка** 🔄 — `logs-3-export.php`: `display_name`, тип данных (label), тип действия (badge), ФИО цели, IP/Устройство.
-- [ ] **Экспорт** ⬜ — `ExportLogExportProvider`.
+- [x] **Экспорт** — `ExportLogExportProvider`.
 
 ---
 
@@ -1141,12 +1141,12 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 - [ ] **Таблица** ✅ — `fs_lms_data_change_log` (`actor_user_id`, `target_person_id`, `field_name`, `old_value_enc` blob, `new_value_enc` blob, `created_at`). Значения зашифрованы (как `person_documents`).
 - [ ] **Enum `DataFieldType`** ⬜ — поля, которые логируем (`School`, `Grade`, `Passport`, `Phone`, `Email`, `LastName`, …) + `label()` для админки.
 - [ ] **DTO** ✅ — `DataChangeLogDTO` + `DataChangeLogInputDTO`. Реализовать в DTO: расшифровку + **маскирование** для админки (`+7 9** *** ** 34`) и расшифровку в открытом виде для CSV-экспорта.
-- [ ] **Payload-события** ⬜ — `PersonDataChangedEvent` (actor, targetPersonId, field, oldValue, newValue) — несёт сырые значения, поэтому **только внутренняя шина**, не `do_action`.
-- [ ] **Repository** ✅ — `DataChangeLogRepository`.
-- [ ] **Writer** ✅ — `DataChangeLogWriter` (шифрует значения).
-- [ ] **Событие + подписчик** ⬜ — `LogEvent::PersonDataChanged`; `dispatch` в `PersonService::updatePerson()` **по каждому изменённому полю** после коммита (diff old/new). `DataChangeSubscriber` вместо прямой инъекции.
+- [x] **Payload-события** — `PersonDataChangedEvent` реализован.
+- [x] **Repository** ✅ — `DataChangeLogRepository`.
+- [x] **Writer** ✅ — `DataChangeLogWriter` (шифрует значения).
+- [x] **Событие + подписчик** — `LogEvent::PersonDataChanged`; `dispatch` в `PersonService::updatePerson()` по каждому полю; `DataChangeSubscriber` зарегистрирован.
 - [ ] **Админка** 🔄 — `logs-4-data-change.php`: `display_name`, ФИО цели, `field_name`→label, старое/новое значение **маской**.
-- [ ] **Экспорт** ⬜ — `DataChangeLogExportProvider` — значения в **расшифрованном** виде.
+- [x] **Экспорт** — `DataChangeLogExportProvider` — значения расшифровываются через `PiiCryptoService`.
 
 ---
 
@@ -1177,12 +1177,12 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 - [ ] **Таблица** ✅ — `fs_lms_consent_change_log` (`actor_user_id`, `person_id` nullable, `consent_type`, `old_hash`, `new_hash`, `created_at`). Хранится хеш согласий.
 - [ ] **Enum `ConsentType`** ✅ — есть; проверить `label()` под админку.
 - [ ] **DTO** ✅ — `ConsentChangeLogDTO` + `ConsentChangeLogInputDTO`. Резолв `person_id`→ФИО.
-- [ ] **Payload-события** ⬜ — `ConsentChangedEvent` (actor, personId, consentType, oldHash, newHash).
-- [ ] **Repository** ✅ — `ConsentChangeLogRepository`.
-- [ ] **Writer** ✅ — `ConsentChangeLogWriter`.
-- [ ] **Событие + подписчик** ⬜ — `LogEvent::ConsentChanged`; `dispatch` в `ConsentService` (подписание/отзыв) после коммита. `ConsentSubscriber` вместо прямой инъекции.
+- [x] **Payload-события** — `ConsentChangedEvent` реализован (`newHash` nullable для отзыва).
+- [x] **Repository** ✅ — `ConsentChangeLogRepository`.
+- [x] **Writer** ✅ — `ConsentChangeLogWriter`.
+- [x] **Событие + подписчик** — `LogEvent::ConsentChanged`; `dispatch` в `ConsentService` (3 точки); `ConsentChangeSubscriber` зарегистрирован.
 - [ ] **Админка** 🔄 — `logs-5-consent-change.php`: `display_name`, ФИО цели, тип согласия (label), старый/новый хеш.
-- [ ] **Экспорт** ⬜ — `ConsentChangeLogExportProvider`.
+- [x] **Экспорт** — `ConsentChangeLogExportProvider`.
 
 ---
 
@@ -1217,12 +1217,12 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 - [ ] **Таблица** ✅ — `fs_lms_email_log` (`actor_user_id`, `email_type`, `target_person_id`, `status`, `error_message`, `created_at`). Нет колонки «Email назначения» из ТЗ — добавить `recipient_email` (varchar) при необходимости.
 - [ ] **Enum `EmailTemplateType`** ✅ — есть (OTP, установка пароля, подтверждение заявки и т.д.); тип письма = case enum + `label()`.
 - [ ] **DTO** ✅ — `EmailLogDTO` + `EmailLogInputDTO`. Резолв `target_person_id`→ФИО получателя.
-- [ ] **Payload-события** ⬜ — `EmailSentEvent` (actor, emailType, targetPersonId, recipientEmail, status, error?).
-- [ ] **Repository** ✅ — `EmailLogRepository`.
-- [ ] **Writer** ✅ — `EmailLogWriter` (уже интегрирован в `EmailService`).
-- [ ] **Событие + подписчик** 🔄 — сейчас writer зовётся напрямую из `EmailService`. Перевести на `LogEvent::EmailSent` + `EmailSubscriber` (DIP/развязка). `dispatch` после `wp_mail()` со статусом sent/error.
+- [x] **Payload-события** — `EmailSentEvent` реализован.
+- [x] **Repository** ✅ — `EmailLogRepository`.
+- [x] **Writer** ✅ — `EmailLogWriter`.
+- [x] **Событие + подписчик** — `LogEvent::EmailSent`; `dispatch` в `EmailService` (6 методов); `EmailSubscriber` зарегистрирован.
 - [ ] **Админка** 🔄 — `logs-6-email.php`: `display_name`, тип письма (label), ФИО получателя, Email назначения, статус (badge sent/error).
-- [ ] **Экспорт** ⬜ — `EmailLogExportProvider`.
+- [x] **Экспорт** — `EmailLogExportProvider`.
 
 ---
 
@@ -1263,7 +1263,7 @@ public function blockPasswordReset( bool $allow, int $userId ): bool {
 - [ ] **Writer** ✅ — `AuthLogWriter`.
 - [ ] **Событие + подписчик** ✅ — `AuthLogController` (эталон): подписан на `wp_login` / `wp_login_failed` / `password_reset`; OTP-события (`otp_sent`/`otp_verified`) пишутся из `ApplicationCallbacks`. При желании унифицировать строковые `action`/`result` через enum выше.
 - [ ] **Админка** 🔄 — `logs-8-auth.php`: логин/ID попытки, действие (label), результат (badge). По ТЗ — без UA в админской таблице.
-- [ ] **Экспорт** ⬜ — `AuthLogExportProvider`.
+- [x] **Экспорт** — `AuthLogExportProvider`.
 
 ---
 
@@ -1273,10 +1273,10 @@ TODO: перенести удаления в таблицу 1 (действия 
 - [ ] **Таблица** ✅ — `fs_lms_deletion_log` (`actor_user_id`, `entity_type`, `entity_id`, `cascaded_summary`, `actor_ip`, `created_at`).
 - [ ] **DTO** ✅ — `DeletionLogDTO` + `DeletionLogInputDTO`.
 - [ ] **Repository / Writer** ✅ — `DeletionLogRepository`, `DeletionLogWriter` (уже интегрирован в `Student/Parent/Group` DeletionHandler'ы).
-- [ ] **Событие + подписчик** 🔄 — сейчас writer зовётся напрямую из хендлеров. Перевести на `LogEvent::EntityHardDeleted` + `DeletionSubscriber`. `dispatch` после фактического удаления + каскада.
-- [ ] **`AuditAction` hard_delete_*** 🔄 — кейсы `HardDeletePerson/Group/Subject/Period` увести из `audit_log` сюда (убрать дубль).
+- [x] **Событие + подписчик** — `LogEvent::EntityHardDeleted`; `dispatch` в Student/Parent/GroupDeletionHandler ПОСЛЕ транзакции; `DeletionSubscriber` зарегистрирован.
+- [ ] **`AuditAction` hard_delete_*** 🔄 — кейсы `HardDeletePerson/Group/Subject/Period` пока остаются в `audit_log`; убрать после полного отказа от `AuditService`.
 - [ ] **Админка** 🔄 — `logs-7-deletion.php`: `display_name`, тип сущности (label), сводка каскада, IP.
-- [ ] **Экспорт** ⬜ — `DeletionLogExportProvider`.
+- [x] **Экспорт** — `DeletionLogExportProvider`.
 
 ---
 
@@ -1289,7 +1289,7 @@ TODO: перенести удаления в таблицу 1 (действия 
 
 `CsvExportService` (паттерн **Column Projection**) уже готов и его **не трогаем**: он принимает `iterable $rows` + `CsvColumn[]` (заголовок + closure-экстрактор), отдаёт BOM-CSV и одноразовую ссылку `createDownloadLink()`. Это «как писать CSV». Варьируется только **«какие данные собрать и в какие колонки разложить»** для конкретного датасета.
 
-«Одиночный / массовый экспорт» — **не отдельная ось и не отдельный паттерн**: одиночный = массив из одного ID, массовый = массив из N. Конвейер один; на вход всегда `int[] $ids`. Разница только в AJAX-параметре кнопки (`id` vs `ids[]` vs «все по фильтру»).
+«Одиночный / массовый экспорт» — **не отдельная ось и не отдельный паттерн**: одиночный = массив из одного ID, массовый = массив из N. Конвейер один; на вход всегда `int[] $ids`. Разница только в AJAX-параметре кнопки (`id` vs `ids[]` vs «все по фильтру»). Все сущности поддерживают экспорт как одной записи, так и нескольких (через массовые действия).
 
 #### Целевой паттерн — Strategy (провайдер на датасет) + Registry (резолв по enum) + тонкий оркестратор (Template Method)
 
@@ -1337,13 +1337,13 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 #### Общая инфраструктура (делается ПЕРВОЙ, один человек)
 
-- [ ] **`ExportTarget` enum** ⬜ — `inc/Enums/ExportTarget.php`: `Groups`, `Students`, `Parents`, `Archive` + по одной цели на лог-канал (или переиспользовать `LogChannel` в реестре) + `label()`.
-- [ ] **`CsvExportProviderInterface`** ⬜ — `columns(): CsvColumn[]`, `rows(array $ids): iterable`, `filename(): string`. Единый с `LogExportProvider`.
-- [ ] **`CsvExportProviderRegistry`** ⬜ — маппинг цель→провайдер; провайдеры регистрируются через DI.
-- [ ] **`ExportService` (оркестратор)** ⬜ — фиксированный конвейер (authorize → resolve → rows → `CsvExportService::export` → лог 4 → `createDownloadLink`). Один на single и bulk.
-- [ ] **AJAX/колбэк** ⬜ — тонкий: принимает `target` + `ids[]`, зовёт `ExportService::run()`. `AjaxHook` + `Nonce` на экспорт. Без бизнес-логики.
-- [ ] **Пароль в `usermeta`** ⬜ — сохранять сгенерированный пароль в `usermeta` (зашифровано) при создании аккаунта; экспорт читает оттуда.
-- [ ] **Хелпер расшифровки PII** ⬜ — переиспользовать сервис шифрования `person_documents` для phone/email/passport в провайдерах.
+- [x] **`ExportTarget` enum** — `inc/Enums/ExportTarget.php`: 13 кейсов (Groups, Students, Parents, Archive + 9 лог-каналов) + `label()`.
+- [x] **`CsvExportProviderInterface`** — `inc/Contracts/CsvExportProviderInterface.php`: `columns()`, `rows(array $context)`, `filename()`.
+- [x] **`CsvExportProviderRegistry`** — `inc/Services/Export/CsvExportProviderRegistry.php`; `ExportServiceBootstrap` регистрирует все 13 провайдеров.
+- [x] **`ExportService` (оркестратор)** — `inc/Services/Export/ExportService.php`: resolve → rows → csv → `ExportLogWriter::record` → link.
+- [x] **AJAX/колбэк** — `LogsCallbacks` делегирует в `ExportService::run()`; 14 новых AJAX-хуков в `AjaxHook`; `LogsController` зарегистрирован.
+- [x] **Пароль в `usermeta`** — `StudentsExportProvider` / `ParentsExportProvider` читают `MetaKeys::EncPassword` → `base64_decode` → `PiiCryptoService::decrypt`.
+- [x] **Хелпер расшифровки PII** — `PiiCryptoService` используется в `StudentsExportProvider`, `ParentsExportProvider`, `DataChangeLogExportProvider`.
 
 Легенда: ✅ готово · 🔄 переделать · ⬜ не начато.
 
@@ -1363,9 +1363,8 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 | Создана / Обновлена / Удалена | `groups.created_at / updated_at / deleted_at` |
 
 **Подзадачи:**
-- [ ] `GroupExportRowDTO` ⬜ — собрать из `GroupsRepository` + резолв предмета/периода (Options-репозитории) + `display_name` преподавателя + `COUNT` учеников.
-- [ ] `GroupsExportProvider` ⬜ — `columns()` (8 колонок выше) + `rows($ids)` + `filename()`. Исправить ключ резолва периода.
-- [ ] Регистрация в реестре ⬜.
+- [x] `GroupsExportProvider` — `inc/Services/Export/GroupsExportProvider.php`; 8 колонок; резолв предмета/периода/преподавателя; `findActiveByGroupId` для счётчика.
+- [x] Регистрация в реестре — `ExportServiceBootstrap`.
 
 2. Экспорт учеников — `StudentsExportProvider` (страница `userlist-2-students`)
 
@@ -1391,9 +1390,8 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 - ✅ **Телефон/Почта** — собственные данные ученика (`person_documents` ученика), не родителя.
 
 **Подзадачи:**
-- [ ] `StudentExportRowDTO` ⬜ — `persons` + JOIN `student_records` (родитель, группы, договоры) + резолв предмета + расшифровка PII ученика + пароль из `usermeta`; агрегация мульти-групп через `;`.
-- [ ] `StudentsExportProvider` ⬜ — `columns()` + `rows($ids)`.
-- [ ] Регистрация в реестре ⬜.
+- [x] `StudentsExportProvider` — `inc/Services/Export/StudentsExportProvider.php`; PII расшифровка; пароль из `MetaKeys::EncPassword`; группы/предметы через `;`.
+- [x] Регистрация в реестре — `ExportServiceBootstrap`.
 
 3. Экспорт родителей — `ParentsExportProvider` (страница `userlist-3-parents`)
 
@@ -1416,9 +1414,8 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 - Мульти-ребёнок/мульти-группа через `;` — корректно.
 
 **Подзадачи:**
-- [ ] `ParentExportRowDTO` ⬜ — `persons` родителя + агрегация детей/групп/предметов через `;` + расшифровка PII родителя + пароль из `usermeta`; логин = email.
-- [ ] `ParentsExportProvider` ⬜ — `columns()` (+ «Логин») + `rows($ids)`.
-- [ ] Регистрация в реестре ⬜.
+- [x] `ParentsExportProvider` — `inc/Services/Export/ParentsExportProvider.php`; дети/группы/предметы через `;`; PII расшифровка; пароль из `MetaKeys::EncPassword`.
+- [x] Регистрация в реестре — `ExportServiceBootstrap`.
 
 4. Экспорт архива — `ArchiveExportProvider` (страница `userlist-4-archive`)
 
@@ -1437,9 +1434,8 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 | Причина отчисления | `student_records.expel_reason` |
 
 **Подзадачи:**
-- [ ] `ArchiveExportRowDTO` ⬜ — из `student_records` (snapshot-поля!) + резолв предмета/группы + ФИО родителя из `persons`.
-- [ ] `ArchiveExportProvider` ⬜ — `columns()` (snapshot ФИО; без пустой колонки; «Дата приказа» = `enrolled_at`; ID группы + название — обе) + `rows($ids)`.
-- [ ] Регистрация в реестре ⬜.
+- [x] `ArchiveExportProvider` — `inc/Services/Export/ArchiveExportProvider.php`; snapshot-поля; резолв группы/предмета/ФИО родителя; пагинированная итерация по `list()`.
+- [x] Регистрация в реестре — `ExportServiceBootstrap`.
 
 5. Экспорт логов — `*LogExportProvider` (страница `logs`)
 
@@ -1448,8 +1444,8 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 **⚠️ Важно:** значения, которые в админке показываются **маской** (лог 5 — изменения данных), в CSV выгружаются в **расшифрованном** виде. Сам экспорт логов тоже пишется в `export_log` (`data_type = Logs`).
 
 **Подзадачи:**
-- [ ] По одному `*LogExportProvider` на канал ⬜ (`columns()` = колонки админ-таблицы канала с резолвом id→имя; `rows($filters)`).
-- [ ] Регистрация всех в реестре по `LogChannel` ⬜.
+- [x] 9 `*LogExportProvider` реализованы в `inc/Services/Export/Log/`: EntityAudit, EnrollmentAudit, PiiAccess, ExportLog, DataChange, ConsentChange, Email, Deletion, Auth.
+- [x] Все зарегистрированы в `ExportServiceBootstrap` по `ExportTarget` кейсу.
 
 
 ---

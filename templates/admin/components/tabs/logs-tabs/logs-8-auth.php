@@ -2,6 +2,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Services\Log\LogNameResolver;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -18,7 +20,13 @@ $total_pages = (int) ceil( $auth_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-8' ), admin_url( 'admin.php' ) );
 $filter_url  = add_query_arg( $auth_filters, $base_url );
 
-$actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password_reset' );
+$action_labels = array(
+	'login'          => 'Вход',
+	'login_failed'   => 'Неудача входа',
+	'otp_sent'       => 'OTP отправлен',
+	'otp_verified'   => 'OTP подтверждён',
+	'password_reset' => 'Сброс пароля',
+);
 ?>
 
 <div class="fs-logs-tab" id="js-auth-log-tab">
@@ -29,9 +37,9 @@ $actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password
 
 		<select name="action_filter">
 			<option value="">Все действия</option>
-			<?php foreach ( $actions as $a ) : ?>
-				<option value="<?php echo esc_attr( $a ); ?>" <?php selected( $auth_filters['action'] ?? '', $a ); ?>>
-					<?php echo esc_html( $a ); ?>
+			<?php foreach ( $action_labels as $val => $label ) : ?>
+				<option value="<?php echo esc_attr( $val ); ?>" <?php selected( $auth_filters['action'] ?? '', $val ); ?>>
+					<?php echo esc_html( $label ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -71,7 +79,7 @@ $actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password
 				<th style="width:50px">ID</th>
 				<th style="width:130px">Дата</th>
 				<th style="width:180px">Логин</th>
-				<th style="width:130px">Действие</th>
+				<th style="width:150px">Действие</th>
 				<th style="width:80px">Результат</th>
 				<th style="width:100px">IP</th>
 				<th>Устройство</th>
@@ -85,9 +93,13 @@ $actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password
 				?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( wp_date( 'd.m.Y H:i:s', strtotime( $row->createdAt ) ) ); ?></code></td>
+					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
 					<td><?php echo $row->loginIdentifier ? esc_html( $row->loginIdentifier ) : '—'; ?></td>
-					<td><code><?php echo esc_html( $row->action ); ?></code></td>
+					<td>
+						<span class="fs-badge badge-secondary">
+							<?php echo esc_html( $action_labels[ $row->action ] ?? $row->action ); ?>
+						</span>
+					</td>
 					<td><?php echo $badge; ?></td>
 					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
 					<td>
@@ -106,7 +118,7 @@ $actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password
 
 		<?php if ( $total_pages > 1 ) : ?>
 			<div class="tablenav bottom"><div class="tablenav-pages">
-				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $auth_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); ?>
+				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $auth_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); // phpcs:ignore ?>
 			</div></div>
 		<?php endif; ?>
 	<?php endif; ?>

@@ -5,13 +5,41 @@ declare( strict_types=1 );
 namespace Inc\Services\Log;
 
 /**
+ * Class LogNameResolver
+ *
  * Резолвит технические идентификаторы в читаемые имена для шаблонов логов.
- * Используется во всех 8 шаблонах логов. Не инжектируется — только статические вызовы.
+ *
+ * @package Inc\Services\Log
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Преобразование ID в имена** — получение человекочитаемых названий из технических ID.
+ * 2. **Форматирование дат** — преобразование MySQL datetime в локальный формат.
+ *
+ * ### Архитектурная роль:
+ *
+ * Используется во всех 8 шаблонах логов (entity_audit, deletion, export и т.д.)
+ * для отображения понятных названий вместо технических ID.
+ * Класс содержит только статические методы — не инжектируется через DI.
+ *
+ * ### Методы:
+ *
+ * - userName() — ID пользователя → отображаемое имя
+ * - userNameWithRole() — ID пользователя → "Имя (роль)"
+ * - personName() — ID лица → ФИО
+ * - postTitle() — ID поста → заголовок
+ * - entityName() — универсальный метод для различных типов сущностей
+ * - date() — форматирование даты
  */
 class LogNameResolver {
 
 	/**
-	 * user_id → display_name; при 0/null → '—'.
+	 * Преобразует ID пользователя в отображаемое имя.
+	 * При 0/null возвращает '—'.
+	 *
+	 * @param int|null $userId ID пользователя WordPress
+	 *
+	 * @return string
 	 */
 	public static function userName( ?int $userId ): string {
 		if ( ! $userId ) {
@@ -22,7 +50,12 @@ class LogNameResolver {
 	}
 
 	/**
-	 * user_id → "Имя (role)".
+	 * Преобразует ID пользователя в строку "Имя (роль)".
+	 *
+	 * @param int|null    $userId ID пользователя WordPress
+	 * @param string|null $role   Роль пользователя (опционально)
+	 *
+	 * @return string
 	 */
 	public static function userNameWithRole( ?int $userId, ?string $role = null ): string {
 		$name = self::userName( $userId );
@@ -33,8 +66,13 @@ class LogNameResolver {
 	}
 
 	/**
-	 * person_id → ФИО через persons таблицу (через WP user meta fs_lms_person_id).
-	 * Если user не найден — возвращает "Person #ID".
+	 * Преобразует ID лица (из persons) в ФИО.
+	 * Ищет через мета-поле fs_lms_person_id пользователя WordPress.
+	 * Если пользователь не найден — падает в таблицу persons.
+	 *
+	 * @param int|null $personId ID лица (из таблицы persons)
+	 *
+	 * @return string
 	 */
 	public static function personName( ?int $personId ): string {
 		if ( ! $personId ) {
@@ -42,6 +80,7 @@ class LogNameResolver {
 		}
 
 		global $wpdb;
+		// Поиск пользователя, связанного с этим лицом
 		$wpUserId = $wpdb->get_var( $wpdb->prepare(
 			"SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'fs_lms_person_id' AND meta_value = %s LIMIT 1",
 			(string) $personId
@@ -54,7 +93,7 @@ class LogNameResolver {
 			}
 		}
 
-		// Fallback: persons table
+		// Fallback: запрос к таблице persons
 		$name = $wpdb->get_var( $wpdb->prepare(
 			"SELECT CONCAT(last_name, ' ', first_name) FROM {$wpdb->prefix}fs_lms_persons WHERE id = %d LIMIT 1",
 			$personId
@@ -64,7 +103,11 @@ class LogNameResolver {
 	}
 
 	/**
-	 * post_id → заголовок поста.
+	 * Преобразует ID поста в заголовок.
+	 *
+	 * @param int|null $postId ID поста WordPress
+	 *
+	 * @return string
 	 */
 	public static function postTitle( ?int $postId ): string {
 		if ( ! $postId ) {
@@ -75,20 +118,25 @@ class LogNameResolver {
 	}
 
 	/**
-	 * entity_id + entity_type → читаемое название сущности.
-	 * Для CPT (task/article) — заголовок поста.
-	 * Для остальных (group) — имя из БД если доступно.
-	 * Для options-based сущностей (subject/taxonomy/boilerplate/period) — old_label.
+	 * Универсальный метод для получения читаемого названия сущности.
+	 *
+	 * @param int|null    $entityId   ID сущности
+	 * @param string      $entityType Тип сущности (task, article, group, student, parent, teacher)
+	 * @param string|null $oldLabel   Старое название (для сущностей на основе опций)
+	 *
+	 * @return string
 	 */
 	public static function entityName( ?int $entityId, string $entityType, ?string $oldLabel = null ): string {
 		if ( ! $entityId ) {
 			return $oldLabel ? esc_html( $oldLabel ) : '—';
 		}
 
+		// CPT: задания и статьи
 		if ( in_array( $entityType, array( 'task', 'article' ), true ) ) {
 			return self::postTitle( $entityId );
 		}
 
+		// Группы
 		if ( 'group' === $entityType ) {
 			global $wpdb;
 			$name = $wpdb->get_var( $wpdb->prepare(
@@ -98,20 +146,27 @@ class LogNameResolver {
 			return $name ? esc_html( $name ) : ( $oldLabel ? esc_html( $oldLabel ) : '#' . $entityId );
 		}
 
+		// Лица: студенты, родители, учителя
 		if ( in_array( $entityType, array( 'student', 'parent', 'teacher' ), true ) ) {
 			return self::personName( $entityId );
 		}
 
+		// Сущности на основе опций (предметы, таксономии, boilerplate, периоды)
 		return $oldLabel ? esc_html( $oldLabel ) : '#' . $entityId;
 	}
 
 	/**
-	 * Форматирует дату из MySQL в локальный формат.
+	 * Форматирует дату из MySQL в локальный формат (день.месяц.год часы:минуты).
+	 *
+	 * @param string|null $mysqlDate Дата в формате MySQL datetime
+	 *
+	 * @return string
 	 */
 	public static function date( ?string $mysqlDate ): string {
 		if ( ! $mysqlDate ) {
 			return '—';
 		}
+		// wp_date() — форматирует дату с учётом timezone WordPress
 		return (string) wp_date( 'd.m.Y H:i', strtotime( $mysqlDate ) );
 	}
 }

@@ -2,6 +2,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Services\Log\LogNameResolver;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -55,23 +57,20 @@ $filter_url  = add_query_arg( $consent_filters, $base_url );
 			<tr>
 				<th style="width:50px">ID</th>
 				<th style="width:130px">Дата</th>
-				<th style="width:120px">Актор</th>
-				<th style="width:90px">Person ID</th>
+				<th style="width:180px">Актор</th>
+				<th style="width:180px">Субъект ПД</th>
 				<th style="width:150px">Тип согласия</th>
 				<th>Старый хеш</th>
 				<th>Новый хеш</th>
 			</tr>
 			</thead>
 			<tbody>
-			<?php foreach ( $consent_rows as $row ) :
-				$actor    = $row->actorUserId ? get_userdata( $row->actorUserId ) : null;
-				$username = $actor ? esc_html( $actor->display_name ) : ( $row->actorUserId ? '#' . $row->actorUserId : '—' );
-				?>
+			<?php foreach ( $consent_rows as $row ) : ?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( wp_date( 'd.m.Y H:i:s', strtotime( $row->createdAt ) ) ); ?></code></td>
-					<td><?php echo $username; ?></td>
-					<td><?php echo $row->personId ? '<code>#' . (int) $row->personId . '</code>' : '—'; ?></td>
+					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
+					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
+					<td><?php echo esc_html( LogNameResolver::personName( $row->personId ) ); ?></td>
 					<td><code><?php echo esc_html( $row->consentType ); ?></code></td>
 					<td><?php echo $row->oldHash ? '<code style="font-size:10px;">' . esc_html( substr( $row->oldHash, 0, 16 ) ) . '…</code>' : '—'; ?></td>
 					<td><?php echo $row->newHash ? '<code style="font-size:10px;">' . esc_html( substr( $row->newHash, 0, 16 ) ) . '…</code>' : '—'; ?></td>
@@ -82,7 +81,7 @@ $filter_url  = add_query_arg( $consent_filters, $base_url );
 
 		<?php if ( $total_pages > 1 ) : ?>
 			<div class="tablenav bottom"><div class="tablenav-pages">
-				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $consent_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); ?>
+				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $consent_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); // phpcs:ignore ?>
 			</div></div>
 		<?php endif; ?>
 	<?php endif; ?>

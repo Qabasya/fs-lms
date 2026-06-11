@@ -21,11 +21,44 @@ use Inc\Services\Person\PiiMaskingService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
+/**
+ * Class PersonViewCallbacks
+ *
+ * AJAX-коллбеки для просмотра данных лиц (Person) и отображения страниц.
+ *
+ * @package Inc\Callbacks\Person
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Просмотр данных лица** — получение полной информации о человеке:
+ *    - личные данные (маскированные PII)
+ *    - связи (родитель-ученик)
+ *    - зачисления (группы, расписание, договоры)
+ * 2. **Рендеринг страниц** — список лиц (Persons) и детальная карточка.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует бизнес-логику PersonReader, PasswordGeneratorService, PiiMaskingService.
+ * Работает с репозиториями PersonRepository, StudentRecordRepository, GroupsRepository.
+ * Использует для отображения маскированные PII-поля (без раскрытия).
+ */
 class PersonViewCallbacks extends BaseController {
 
-	use Authorizer;
-	use Sanitizer;
+	use Authorizer;  // Трейт с методами authorize()
+	use Sanitizer;   // Трейт с методами sanitizeInt()
 
+	/**
+	 * Конструктор коллбеков.
+	 *
+	 * @param PersonReader              $personReader              Сервис безопасного чтения PII
+	 * @param PersonRepository          $personRepository          Репозиторий лиц
+	 * @param StudentRecordRepository   $studentRecordRepository   Репозиторий записей студентов
+	 * @param GroupsRepository          $groupRepository           Репозиторий групп
+	 * @param SubjectRepository         $subjectRepository         Репозиторий предметов
+	 * @param PasswordGeneratorService  $passwordGenerator         Сервис генерации паролей
+	 * @param PiiMaskingService         $maskingService            Сервис маскирования PII
+	 * @param PersonDocumentsRepository $personDocumentsRepository Репозиторий документов
+	 */
 	public function __construct(
 		private readonly PersonReader              $personReader,
 		private readonly PersonRepository          $personRepository,
@@ -39,6 +72,11 @@ class PersonViewCallbacks extends BaseController {
 		parent::__construct();
 	}
 
+	/**
+	 * Получает данные лица для отображения в админ-панели.
+	 *
+	 * @return void
+	 */
 	public function ajaxGetPersonData(): void {
 		$this->authorize( Nonce::Manager, Capability::ManagePersons );
 
@@ -49,6 +87,7 @@ class PersonViewCallbacks extends BaseController {
 			$this->error( 'Person не найден.' );
 		}
 
+		// Определение типа (ученик, родитель, неизвестно)
 		$wpUser    = $person->wpUserId ? get_userdata( $person->wpUserId ) : null;
 		$roles     = $wpUser ? (array) $wpUser->roles : array();
 		$isStudent = in_array( UserRole::FSStudent->value, $roles, true );
@@ -58,6 +97,7 @@ class PersonViewCallbacks extends BaseController {
 		$representatives = array();
 		$dependents      = array();
 
+		// Для студента — поиск представителя
 		if ( $isStudent ) {
 			$activeRecord = $this->studentRecordRepository->findActiveByStudentFirst( $personId );
 			if ( $activeRecord !== null ) {
@@ -74,6 +114,7 @@ class PersonViewCallbacks extends BaseController {
 			}
 		}
 
+		// Для родителя — поиск зависимых учеников
 		if ( $isParent ) {
 			foreach ( $this->studentRecordRepository->findActiveByParent( $personId ) as $record ) {
 				$sPerson = $this->personRepository->find( $record->studentPersonId );
@@ -89,10 +130,12 @@ class PersonViewCallbacks extends BaseController {
 			}
 		}
 
+		// Сбор данных о зачислениях
 		$personIds   = $isStudent ? array( $personId ) : array_column( $dependents, 'student_person_id' );
 		$enrollments = array();
 		$nameMap     = array_column( $dependents, 'name', 'student_person_id' );
 
+		// Получение всех предметов для подстановки названий
 		$allSubjects = array();
 		foreach ( $this->subjectRepository->readAll() as $subjectDto ) {
 			$allSubjects[ $subjectDto->key ] = $subjectDto->name;
@@ -130,6 +173,7 @@ class PersonViewCallbacks extends BaseController {
 			}
 		}
 
+		// Данные для аутентификации
 		$credentials = $person->wpUserId ? $this->passwordGenerator->getCredentials( $person->wpUserId ) : null;
 		$maskedPii   = $this->getMaskedPersonPii( $personId );
 
@@ -155,6 +199,11 @@ class PersonViewCallbacks extends BaseController {
 		) );
 	}
 
+	/**
+	 * Страница списка лиц (Persons) в админ-панели.
+	 *
+	 * @return void
+	 */
 	public function renderPersonsPage(): void {
 		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
 			wp_die( 'Доступ запрещён.' );
@@ -169,6 +218,11 @@ class PersonViewCallbacks extends BaseController {
 		}
 	}
 
+	/**
+	 * Детальная страница лица (Person) в админ-панели.
+	 *
+	 * @return void
+	 */
 	public function renderPersonDetailPage(): void {
 		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
 			wp_die( 'Доступ запрещён.' );
@@ -181,6 +235,7 @@ class PersonViewCallbacks extends BaseController {
 			wp_die( 'Запись не найдена.' );
 		}
 
+		// Расшифровка PII для отображения (только при наличии прав ViewPII)
 		$decrypted = current_user_can( Capability::ViewPII->value )
 			? $this->personReader->readForDisplay( $personId, array( 'full_name', 'doc_number', 'inn', 'address', 'phone' ), 'admin_view' )
 			: null;
@@ -194,6 +249,13 @@ class PersonViewCallbacks extends BaseController {
 		}
 	}
 
+	/**
+	 * Возвращает замаскированные PII-поля для отображения в интерфейсе.
+	 *
+	 * @param int $personId ID лица
+	 *
+	 * @return array
+	 */
 	private function getMaskedPersonPii( int $personId ): array {
 		try {
 			$dto = $this->personReader->readForDisplay(
@@ -218,6 +280,13 @@ class PersonViewCallbacks extends BaseController {
 		}
 	}
 
+	/**
+	 * Форматирует расписание группы для отображения.
+	 *
+	 * @param mixed $group Объект группы
+	 *
+	 * @return string
+	 */
 	private function formatSchedule( mixed $group ): string {
 		if ( null === $group ) {
 			return '';

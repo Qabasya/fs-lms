@@ -2,6 +2,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Services\Log\LogNameResolver;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -59,23 +61,20 @@ $filter_url  = add_query_arg( $data_change_filters, $base_url );
 			<tr>
 				<th style="width:50px">ID</th>
 				<th style="width:130px">Дата</th>
-				<th style="width:150px">Администратор</th>
-				<th style="width:90px">Person ID</th>
+				<th style="width:180px">Администратор</th>
+				<th style="width:180px">Субъект ПД</th>
 				<th style="width:130px">Поле</th>
 				<th>Старое значение</th>
 				<th>Новое значение</th>
 			</tr>
 			</thead>
 			<tbody>
-			<?php foreach ( $data_change_rows as $row ) :
-				$actor    = get_userdata( $row->actorUserId );
-				$username = $actor ? esc_html( $actor->display_name ) : '#' . $row->actorUserId;
-				?>
+			<?php foreach ( $data_change_rows as $row ) : ?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( wp_date( 'd.m.Y H:i:s', strtotime( $row->createdAt ) ) ); ?></code></td>
-					<td><?php echo $username; ?></td>
-					<td><code>#<?php echo (int) $row->targetPersonId; ?></code></td>
+					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
+					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
+					<td><?php echo esc_html( LogNameResolver::personName( $row->targetPersonId ) ); ?></td>
 					<td><code><?php echo esc_html( $row->fieldName ); ?></code></td>
 					<td><?php echo $row->oldValueEnc ? '<span title="Зашифровано">••••••</span>' : '—'; ?></td>
 					<td><?php echo $row->newValueEnc ? '<span title="Зашифровано">••••••</span>' : '—'; ?></td>
@@ -86,7 +85,7 @@ $filter_url  = add_query_arg( $data_change_filters, $base_url );
 
 		<?php if ( $total_pages > 1 ) : ?>
 			<div class="tablenav bottom"><div class="tablenav-pages">
-				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $data_change_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); ?>
+				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $data_change_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); // phpcs:ignore ?>
 			</div></div>
 		<?php endif; ?>
 	<?php endif; ?>

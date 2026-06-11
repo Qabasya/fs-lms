@@ -2,6 +2,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Services\Log\LogNameResolver;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -17,6 +19,13 @@ $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
 $total_pages = (int) ceil( $deletion_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-7' ), admin_url( 'admin.php' ) );
 $filter_url  = add_query_arg( $deletion_filters, $base_url );
+
+$entity_type_labels = array(
+	'person'  => 'Персона',
+	'group'   => 'Группа',
+	'subject' => 'Предмет',
+	'period'  => 'Период',
+);
 ?>
 
 <div class="fs-logs-tab" id="js-deletion-log-tab">
@@ -29,9 +38,9 @@ $filter_url  = add_query_arg( $deletion_filters, $base_url );
 
 		<select name="entity_type">
 			<option value="">Все типы</option>
-			<?php foreach ( array( 'person', 'group', 'subject', 'period' ) as $et ) : ?>
+			<?php foreach ( $entity_type_labels as $et => $label ) : ?>
 				<option value="<?php echo esc_attr( $et ); ?>" <?php selected( $deletion_filters['entity_type'] ?? '', $et ); ?>>
-					<?php echo esc_html( $et ); ?>
+					<?php echo esc_html( $label ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -64,23 +73,24 @@ $filter_url  = add_query_arg( $deletion_filters, $base_url );
 			<tr>
 				<th style="width:50px">ID</th>
 				<th style="width:130px">Дата</th>
-				<th style="width:150px">Пользователь</th>
-				<th style="width:90px">Тип</th>
+				<th style="width:180px">Пользователь</th>
+				<th style="width:120px">Тип</th>
 				<th style="width:80px">ID сущности</th>
 				<th>Каскадно удалено</th>
 				<th style="width:90px">IP</th>
 			</tr>
 			</thead>
 			<tbody>
-			<?php foreach ( $deletion_rows as $row ) :
-				$actor    = get_userdata( $row->actorUserId );
-				$username = $actor ? esc_html( $actor->display_name ) : '#' . $row->actorUserId;
-				?>
+			<?php foreach ( $deletion_rows as $row ) : ?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( wp_date( 'd.m.Y H:i:s', strtotime( $row->createdAt ) ) ); ?></code></td>
-					<td><?php echo $username; ?></td>
-					<td><code><?php echo esc_html( $row->entityType ); ?></code></td>
+					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
+					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
+					<td>
+						<span class="fs-badge badge-warning">
+							<?php echo esc_html( $entity_type_labels[ $row->entityType ] ?? $row->entityType ); ?>
+						</span>
+					</td>
 					<td><code>#<?php echo (int) $row->entityId; ?></code></td>
 					<td><?php echo $row->cascadedSummary ? esc_html( $row->cascadedSummary ) : '—'; ?></td>
 					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
@@ -91,7 +101,7 @@ $filter_url  = add_query_arg( $deletion_filters, $base_url );
 
 		<?php if ( $total_pages > 1 ) : ?>
 			<div class="tablenav bottom"><div class="tablenav-pages">
-				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $deletion_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); ?>
+				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $deletion_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); // phpcs:ignore ?>
 			</div></div>
 		<?php endif; ?>
 	<?php endif; ?>

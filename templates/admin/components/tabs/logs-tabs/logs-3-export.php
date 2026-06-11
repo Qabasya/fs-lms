@@ -2,6 +2,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Services\Log\LogNameResolver;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -17,6 +19,14 @@ $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
 $total_pages = (int) ceil( $export_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-3' ), admin_url( 'admin.php' ) );
 $filter_url  = add_query_arg( $export_filters, $base_url );
+
+$data_type_labels = array(
+	'groups'   => 'Группы',
+	'students' => 'Ученики',
+	'parents'  => 'Родители',
+	'archive'  => 'Архив',
+	'log'      => 'Журнал',
+);
 ?>
 
 <div class="fs-logs-tab" id="js-export-log-tab">
@@ -31,9 +41,9 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 
 		<select name="data_type">
 			<option value="">Все типы</option>
-			<?php foreach ( array( 'groups', 'students', 'parents', 'archive', 'log' ) as $dt ) : ?>
+			<?php foreach ( $data_type_labels as $dt => $label ) : ?>
 				<option value="<?php echo esc_attr( $dt ); ?>" <?php selected( $export_filters['data_type'] ?? '', $dt ); ?>>
-					<?php echo esc_html( $dt ); ?>
+					<?php echo esc_html( $label ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -66,24 +76,26 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 			<tr>
 				<th style="width:50px">ID</th>
 				<th style="width:130px">Дата</th>
-				<th style="width:150px">Пользователь</th>
-				<th style="width:100px">Тип данных</th>
-				<th style="width:80px">Действие</th>
+				<th style="width:180px">Пользователь</th>
+				<th style="width:130px">Тип данных</th>
+				<th style="width:100px">Действие</th>
 				<th>ID целей</th>
 			</tr>
 			</thead>
 			<tbody>
 			<?php foreach ( $export_rows as $row ) :
-				$actor    = get_userdata( $row->actorUserId );
-				$username = $actor ? esc_html( $actor->display_name ) : '#' . $row->actorUserId;
-				$ids      = $row->targetIdsJson ? json_decode( $row->targetIdsJson, true ) : array();
+				$ids = $row->targetIdsJson ? json_decode( $row->targetIdsJson, true ) : array();
 				?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( wp_date( 'd.m.Y H:i:s', strtotime( $row->createdAt ) ) ); ?></code></td>
-					<td><?php echo $username; ?></td>
-					<td><code><?php echo esc_html( $row->dataType ); ?></code></td>
-					<td><?php echo esc_html( $row->actionType ); ?></td>
+					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
+					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
+					<td>
+						<span class="fs-badge badge-secondary">
+							<?php echo esc_html( $data_type_labels[ $row->dataType ] ?? $row->dataType ); ?>
+						</span>
+					</td>
+					<td><span class="fs-badge badge-primary"><?php echo esc_html( $row->actionType ); ?></span></td>
 					<td>
 						<?php if ( ! empty( $ids ) ) : ?>
 							<code style="font-size:11px;"><?php echo esc_html( implode( ', ', array_slice( $ids, 0, 10 ) ) ); ?><?php echo count( $ids ) > 10 ? ' …' : ''; ?></code>
@@ -98,7 +110,7 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 
 		<?php if ( $total_pages > 1 ) : ?>
 			<div class="tablenav bottom"><div class="tablenav-pages">
-				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $export_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); ?>
+				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $export_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); // phpcs:ignore ?>
 			</div></div>
 		<?php endif; ?>
 	<?php endif; ?>

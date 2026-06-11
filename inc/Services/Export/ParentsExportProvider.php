@@ -15,8 +15,51 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\PiiCryptoService;
 
+/**
+ * Class ParentsExportProvider
+ *
+ * Провайдер экспорта родителей (законных представителей) в CSV.
+ *
+ * @package Inc\Services\Export
+ * @implements CsvExportProviderInterface
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Определение колонок** — возврат структуры CSV-файла для родителей.
+ * 2. **Генерация строк** — итеративная выгрузка данных родителей из БД.
+ * 3. **Обогащение данных** — подстановка email, телефона, логина, пароля,
+ *    списка детей, групп и предметов.
+ *
+ * ### Архитектурная роль:
+ *
+ * Реализует интерфейс CsvExportProviderInterface для использования в ExportService.
+ * Поддерживает экспорт всех родителей или только выбранных по ID.
+ *
+ * ### Данные в CSV:
+ *
+ * - Личные данные: ФИО, email, телефон, логин, пароль
+ * - Связанные ученики (дети)
+ * - Группы и предметы, в которых обучаются дети
+ *
+ * ### Примечания:
+ *
+ * - Email и телефон расшифровываются из person_documents (если есть)
+ * - Пароль расшифровывается из мета-поля пользователя (если сохранён)
+ * - Расшифровка выполняется только для администраторов (экспорт)
+ */
 class ParentsExportProvider implements CsvExportProviderInterface {
 
+	/**
+	 * Конструктор провайдера.
+	 *
+	 * @param PersonRepository          $persons         Репозиторий лиц
+	 * @param StudentRecordRepository   $studentRecords  Репозиторий записей студентов
+	 * @param PersonDocumentsRepository $personDocuments Репозиторий документов лиц
+	 * @param GroupsRepository          $groups          Репозиторий групп
+	 * @param SubjectRepository         $subjects        Репозиторий предметов
+	 * @param UserRepository            $userRepository  Репозиторий пользователей WP
+	 * @param PiiCryptoService          $crypto          Сервис шифрования PII
+	 */
 	public function __construct(
 		private readonly PersonRepository          $persons,
 		private readonly StudentRecordRepository   $studentRecords,
@@ -27,6 +70,11 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 		private readonly PiiCryptoService          $crypto,
 	) {}
 
+	/**
+	 * Возвращает структуру колонок CSV-файла.
+	 *
+	 * @return CsvColumn[]
+	 */
 	public function columns(): array {
 		return array(
 			new CsvColumn( 'ID родителя',  fn( $r ) => $r['person_id'] ),
@@ -43,8 +91,18 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 		);
 	}
 
+	/**
+	 * Генерирует строки для CSV-файла.
+	 * Поддерживает экспорт выбранных родителей или всех.
+	 *
+	 * @param array $context Контекст экспорта (ids — массив ID родителей)
+	 *
+	 * @return iterable
+	 */
 	public function rows( array $context ): iterable {
 		$ids = $context['ids'] ?? array();
+
+		// Получение списка родителей (is_student = false)
 		$persons = $ids
 			? array_filter( array_map( fn( int $id ) => $this->persons->find( $id ), $ids ) )
 			: $this->persons->findByIsStudent( false );
@@ -53,7 +111,7 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 			$docs   = $this->personDocuments->findByPersonId( $parent->id );
 			$wpUser = $parent->wpUserId ? get_userdata( $parent->wpUserId ) : null;
 
-			// Собираем детей и их группы из student_records
+			// Сбор данных о детях (учениках) через записи студента
 			$records = $this->studentRecords->findAllByParent( $parent->id );
 
 			$studentNames = array();
@@ -74,13 +132,16 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 				}
 			}
 
+			// Расшифровка пароля (если сохранён в мета-поле)
 			$password = '';
 			if ( $parent->wpUserId ) {
 				$enc = $this->userRepository->getMeta( $parent->wpUserId, MetaKeys::EncPassword->value );
 				if ( $enc ) {
 					try {
 						$password = $this->crypto->decrypt( (string) base64_decode( $enc ) );
-					} catch ( \Throwable ) {}
+					} catch ( \Throwable ) {
+						// Не удалось расшифровать — оставляем пустым
+					}
 				}
 			}
 
@@ -100,10 +161,22 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 		}
 	}
 
+	/**
+	 * Возвращает базовое имя файла (без расширения).
+	 *
+	 * @return string
+	 */
 	public function filename(): string {
 		return 'parents';
 	}
 
+	/**
+	 * Расшифровывает строку из зашифрованного BLOB.
+	 *
+	 * @param string|null $enc Зашифрованные данные
+	 *
+	 * @return string
+	 */
 	private function decrypt( ?string $enc ): string {
 		if ( ! $enc ) {
 			return '';
