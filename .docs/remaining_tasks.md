@@ -1897,6 +1897,7 @@ interface CsvImportProviderInterface {
 - [ ] `templates/admin/components/tabs/logs-tabs/*` — 92 вхождения `style=""` (ширины колонок, отступы фильтров, иконки) → классы в `src/scss/admin/components/_logs.scss` (`.fs-logs-table__col--id { width: 50px }` и т.п.). Тот же подход для остальных табов-шаблонов. Для ширины колонок использовать ТОЛЬКО классы из scss/common/components/_widths.scss. Отступы задавать только через стандартные переменных из scss/admin/_variables.scss. Не плодить лишние стили, пользоваться существующими общими стилями. По возможности использовать готовые классы. Все dashicons привести к единому типу
 
 - Привести все view файлы в папке src/admin/components/tabs к единой структуре.
+- Найти мертвый код (неиспользуемые классы) в JS
 ---
 
 ## Багфикс
