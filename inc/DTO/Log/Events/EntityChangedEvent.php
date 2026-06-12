@@ -20,7 +20,7 @@ readonly class EntityChangedEvent implements LogEventInterface {
 		public int           $actorUserId,
 		public OperationType $operation,
 		public EntityType    $entityType,
-		public int           $entityId,
+		public int           $entityId, // тут не int значение у объектов из wp_options
 		public ?string       $oldLabel = null,
 	) {}
 }
