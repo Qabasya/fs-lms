@@ -4,23 +4,27 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks;
 
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\AuditAction;
+use Inc\DTO\Application\ApplicationInputDTO;
+use Inc\DTO\Enrollment\StudentDataDTO;
+use Inc\DTO\Log\Events\ApplicationStatusEvent;
+use Inc\DTO\ParentSubmissionInputDTO;
 use Inc\Enums\ApplicationStatus;
+use Inc\Enums\AuditAction;
+use Inc\Enums\AuthAction;
+use Inc\Enums\AuthResult;
+use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
+use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\Application\ApplicationService;
 use Inc\Services\Application\JoinCodeService;
-use Inc\Services\AuditService;
 use Inc\Services\CaptchaService;
 use Inc\Services\Email\EmailOtpService;
-use Inc\Services\PiiCryptoService;
 use Inc\Services\Log\AuthLogWriter;
+use Inc\Services\PiiCryptoService;
 use Inc\Services\RateLimitService;
-use Inc\DTO\Application\ApplicationInputDTO;
-use Inc\DTO\ParentSubmissionInputDTO;
-use Inc\DTO\Enrollment\StudentDataDTO;
-use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -56,7 +60,7 @@ class ApplicationCallbacks extends BaseController {
 	 * @param JoinCodeService      $joinCodeService       Сервис JOIN-кодов
 	 * @param ApplicationRepository $applicationRepository Репозиторий заявок
 	 * @param PiiCryptoService     $crypto                Сервис шифрования PII
-	 * @param AuditService         $auditService          Сервис аудита
+	 * @param LogEventDispatcherInterface $logEvents        Диспетчер событий логирования
 	 */
 	public function __construct(
 		private readonly ApplicationService           $applicationService,
@@ -66,7 +70,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly JoinCodeService              $joinCodeService,
 		private readonly ApplicationRepository        $applicationRepository,
 		private readonly PiiCryptoService             $crypto,
-		private readonly AuditService                 $auditService,
+		private readonly LogEventDispatcherInterface  $logEvents,
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
 		private readonly AuthLogWriter                $authLog,
 	) {
@@ -129,10 +133,9 @@ class ApplicationCallbacks extends BaseController {
 		}
 
 		// Логируем факт просмотра ссылки
-		$this->auditService->recordAnonymous(
-			AuditAction::ViewJoinLink->value,
-			'application',
-			$app->id
+		$this->logEvents->dispatch(
+			LogEvent::ApplicationViewed,
+			new ApplicationStatusEvent( 0, AuditAction::ViewJoinLink, $app->id )
 		);
 
 		// Если родитель уже назначен — расшифровываем его данные для предзаполнения формы
@@ -205,7 +208,7 @@ class ApplicationCallbacks extends BaseController {
 
 		// Отправка OTP-кода
 		$this->emailOtpService->sendCode( $email );
-		$this->authLog->record( $email, 'otp_sent', true );
+		$this->authLog->record( $email, AuthAction::OtpSent, AuthResult::Success );
 
 		// Маскирование email для отображения в интерфейсе
 		$masked = (string) preg_replace( '/(?<=.).(?=[^@]*@)/', '*', $email );
@@ -264,7 +267,7 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( $e->getMessage() );
 		}
 
-		$this->authLog->record( $email, 'otp_verified', true );
+		$this->authLog->record( $email, AuthAction::OtpVerified, AuthResult::Success );
 		$this->success( array(
 			'join_url'   => $result->joinUrl,
 			'expires_at' => $result->expiresAt,
@@ -341,7 +344,7 @@ class ApplicationCallbacks extends BaseController {
 	public function ajaxCheckEmailAvailable(): void {
 		Nonce::CheckEmailAvailable->verify();
 
-		$email = sanitize_email( $_POST['email'] ?? '' );
+		$email = $this->sanitizeEmail( 'email' );
 
 		if ( '' === $email ) {
 			$this->error( 'Email не указан.' );

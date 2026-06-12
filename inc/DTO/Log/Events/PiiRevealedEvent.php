@@ -13,7 +13,7 @@ readonly class PiiRevealedEvent implements LogEventInterface {
 
 	public function __construct(
 		public int    $actorUserId,
-		public int    $targetPersonId,
+		public ?int   $targetPersonId,
 		public string $fieldsAccessed,
 		public string $accessReason,
 	) {}

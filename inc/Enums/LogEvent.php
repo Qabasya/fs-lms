@@ -83,6 +83,7 @@ enum LogEvent: string {
 	// ===== Канал: DataChange — изменения данных пользователя =====
 
 	case PersonDataChanged = 'person.data_changed';
+	case PersonSoftDeleted = 'person.soft_deleted';
 
 	// ===== Канал: ConsentChange — изменения согласия =====
 

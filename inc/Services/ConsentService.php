@@ -8,7 +8,6 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\ConsentChangedEvent;
 use Inc\DTO\RequestContextDTO;
-use Inc\Enums\AuditAction;
 use Inc\Enums\LogEvent;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
@@ -31,8 +30,8 @@ use RuntimeException;
  *
  * ### Архитектурная роль:
  *
- * Делегирует хранение согласий ConsentRepository, аудит — AuditService,
- * определения — ConsentDefinitionsRepository, события — LogEventDispatcher.
+ * Делегирует хранение согласий ConsentRepository, определения — ConsentDefinitionsRepository,
+ * события — LogEventDispatcher.
  *
  * ### Примечания:
  *
@@ -47,14 +46,12 @@ readonly class ConsentService {
 	 * Конструктор сервиса.
 	 *
 	 * @param ConsentRepository            $consentRepository    Репозиторий согласий
-	 * @param AuditService                 $auditService         Сервис аудита
 	 * @param ConsentDefinitionsRepository $consentDefinitions   Репозиторий определений согласий
 	 * @param ClockInterface               $clock                Интерфейс часов
 	 * @param LogEventDispatcherInterface  $logEvents            Диспетчер событий логирования
 	 */
 	public function __construct(
 		private ConsentRepository            $consentRepository,
-		private AuditService                 $auditService,
 		private ConsentDefinitionsRepository $consentDefinitions,
 		private ClockInterface               $clock,
 		private LogEventDispatcherInterface  $logEvents,
@@ -143,15 +140,6 @@ readonly class ConsentService {
 			'signed_for_person_id' => null,
 		) );
 
-		// Логирование в аудит
-		$this->auditService->recordAnonymous(
-			AuditAction::ConsentSigned->value,
-			'consent',
-			$id,
-			array( 'consent_type' => $typeKey, 'version' => $version, 'application_id' => $appId, 'subject_role' => 'self' )
-		);
-
-		// Диспетчеризация события
 		$this->logEvents->dispatch(
 			LogEvent::ConsentChanged,
 			new ConsentChangedEvent( null, null, $typeKey, null, $version )
@@ -186,13 +174,6 @@ readonly class ConsentService {
 			'accepted_at'          => $this->clock->now( 'mysql', true ),
 			'signed_for_person_id' => $forPersonId ?: null,
 		) );
-
-		$this->auditService->recordAnonymous(
-			AuditAction::ConsentSigned->value,
-			'consent',
-			$id,
-			array( 'consent_type' => $typeKey, 'version' => $version, 'application_id' => $appId, 'subject_role' => 'guardian' )
-		);
 
 		$this->logEvents->dispatch(
 			LogEvent::ConsentChanged,
@@ -231,13 +212,6 @@ readonly class ConsentService {
 
 		$consent = $this->consentRepository->find( $consentId );
 		$this->consentRepository->withdraw( $consentId, $reason );
-
-		$this->auditService->record(
-			AuditAction::ConsentWithdrawn->value,
-			'consent',
-			$consentId,
-			array( 'reason' => $reason )
-		);
 
 		$this->logEvents->dispatch(
 			LogEvent::ConsentChanged,

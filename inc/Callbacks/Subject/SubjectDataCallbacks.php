@@ -109,8 +109,7 @@ class SubjectDataCallbacks extends BaseController {
 		$this->authorize( Nonce::Subject );
 
 		$subject_key = $this->requireKey( 'subject_key' );
-		// absint() — преобразует значение в абсолютное целое число (без знака)
-		$term_id    = absint( $_POST['term_id'] ?? 0 );
+		$term_id    = $this->sanitizeInt( 'term_id' );
 		$tax_number = "{$subject_key}_task_number";
 
 		if ( ! $term_id ) {

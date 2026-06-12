@@ -63,8 +63,7 @@ class EmailTemplateSettingsCallbacks extends BaseController {
 			$this->error( 'Неизвестный тип шаблона.' );
 		}
 
-		// wp_kses_post() — очистка HTML-контента (разрешает безопасные теги)
-		$body = wp_kses_post( wp_unslash( $_POST['body'] ?? '' ) );
+		$body = $this->sanitizeHtml( 'body' );
 
 		// Сохранение шаблона в репозиторий (wp_options)
 		$this->templates->saveTemplate( $type->value, $subject, $body );

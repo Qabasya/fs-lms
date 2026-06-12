@@ -54,8 +54,9 @@ class DeletionSubscriber implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
-		// subscribe() — подписка на событие EntityHardDeleted
-		$this->logEvents->subscribe( LogEvent::EntityHardDeleted, array( $this, 'handle' ) );
+		$handler = array( $this, 'handle' );
+		$this->logEvents->subscribe( LogEvent::EntityHardDeleted, $handler );
+		$this->logEvents->subscribe( LogEvent::PersonSoftDeleted, $handler );
 	}
 
 	/**

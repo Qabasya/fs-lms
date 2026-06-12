@@ -1,5 +1,7 @@
 import './../_types.js';
 import { toSlug } from '../modules/utils.js';
+import { AlertModal } from '../modals/alert-modal.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
 const $ = jQuery;
 
 export const ConsentSettings = {
@@ -23,12 +25,18 @@ export const ConsentSettings = {
 		} );
 
 		// Удалить согласие
-		$( '#js-consents-table' ).on( 'click', '.js-delete-consent', ( e ) => {
+		$( '#js-consents-table' ).on( 'click', '.js-delete-consent', async ( e ) => {
 			e.preventDefault();
 			const $btn = $( e.currentTarget );
 			const key  = $btn.data( 'key' );
 			const name = $btn.data( 'name' );
-			if ( ! confirm( `Удалить определение «${name}»?\n\nСтраница WP останется для истории.` ) ) return;
+			try {
+				await ConfirmModal.confirm( {
+					message:     `Удалить определение «${name}»?\n\nСтраница WP останется для истории.`,
+					confirmText: 'Удалить',
+					isDanger:    true,
+				} );
+			} catch { return; }
 			this._deleteConsent( key, $btn.closest( 'tr' ) );
 		} );
 
@@ -112,10 +120,10 @@ export const ConsentSettings = {
 					$mainRow.next( '.consent-accordion-row' ).remove();
 					$mainRow.remove();
 				} else {
-					alert( res.data || 'Ошибка удаления.' );
+					AlertModal.show( res.data || 'Ошибка удаления.' );
 				}
 			} )
-			.fail( () => alert( 'Ошибка сервера.' ) );
+			.fail( () => AlertModal.show( 'Ошибка сервера.' ) );
 	},
 
 	_showModalError( msg ) {

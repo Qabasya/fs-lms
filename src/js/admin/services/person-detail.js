@@ -1,4 +1,5 @@
 import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
 
 const $ = jQuery;
 const REVEAL_TIMEOUT_MS = 30000;
@@ -184,9 +185,15 @@ export const PersonDetail = {
     // ── Delete PII ────────────────────────────────────────────────────────
 
     _bindDelete() {
-        $( document ).on( 'click', '.js-delete-pii', ( e ) => {
+        $( document ).on( 'click', '.js-delete-pii', async ( e ) => {
             e.preventDefault();
-            if ( ! confirm( 'Удалить персональные данные? Это действие нельзя отменить немедленно — данные будут обезличены через 30 дней.' ) ) return;
+            try {
+                await ConfirmModal.confirm( {
+                    message:     'Удалить персональные данные? Это действие нельзя отменить немедленно — данные будут обезличены через 30 дней.',
+                    confirmText: 'Удалить',
+                    isDanger:    true,
+                } );
+            } catch { return; }
 
             const personId = $( e.currentTarget ).data( 'person-id' );
             $.post( fs_lms_vars.ajaxurl, {

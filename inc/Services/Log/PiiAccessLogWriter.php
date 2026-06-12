@@ -62,7 +62,7 @@ class PiiAccessLogWriter {
 	 *
 	 * @return void
 	 */
-	public function record( int $personId, string $fieldsAccessed, string $accessReason ): void {
+	public function record( ?int $personId, string $fieldsAccessed, string $accessReason ): void {
 		$ctx = $this->requestContext();
 		$role = $this->resolveRole( $ctx->actorUserId );
 

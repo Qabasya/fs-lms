@@ -37,8 +37,11 @@ use Inc\Services\Log\EnrollmentAuditLogWriter;
  * - EnrollmentFailed — ошибка при зачислении
  * - StudentExpelled — студент отчислен
  * - StudentRestored — студент восстановлен
- * - EnrollmentStarted — процесс зачисления начат
+ * - EnrollmentStarted — процесс зачисления начат (application-level)
  * - EnrollmentCanceled — процесс зачисления отменён
+ * - ApplicationCreated / ApplicationUpdated / ApplicationViewed — действия с заявкой
+ * - ApplicationTrashed / ApplicationRestored — корзина
+ * - ParentSigned / ApplicationExpired — события родителя и истечения
  */
 class EnrollmentAuditSubscriber implements ServiceInterface {
 
@@ -66,15 +69,16 @@ class EnrollmentAuditSubscriber implements ServiceInterface {
 		$this->logEvents->subscribe( LogEvent::EnrollmentFailed,   $handler );
 		$this->logEvents->subscribe( LogEvent::StudentExpelled,    $handler );
 		$this->logEvents->subscribe( LogEvent::StudentRestored,    $handler );
-		$this->logEvents->subscribe( LogEvent::EnrollmentStarted,  $handler );
 		$this->logEvents->subscribe( LogEvent::EnrollmentCanceled, $handler );
 
 		$this->logEvents->subscribe( LogEvent::ApplicationCreated,  $appHandler );
+		$this->logEvents->subscribe( LogEvent::ApplicationUpdated,  $appHandler );
 		$this->logEvents->subscribe( LogEvent::ParentSigned,        $appHandler );
 		$this->logEvents->subscribe( LogEvent::ApplicationExpired,  $appHandler );
 		$this->logEvents->subscribe( LogEvent::ApplicationTrashed,  $appHandler );
 		$this->logEvents->subscribe( LogEvent::ApplicationRestored, $appHandler );
 		$this->logEvents->subscribe( LogEvent::ApplicationViewed,   $appHandler );
+		$this->logEvents->subscribe( LogEvent::EnrollmentStarted,   $appHandler );
 	}
 
 	/**

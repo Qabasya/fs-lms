@@ -60,9 +60,7 @@ class ConsentSettingsCallbacks extends BaseController {
 		$name = $this->requireText( 'name', error: 'Название обязательно.' );
 		$key  = $this->requireKey( 'key', error: 'Ключ обязателен.' );
 
-		// sanitize_key() — очистка ключа (только буквы, цифры, дефисы, подчёркивания)
-		$cleanKey = sanitize_key( $key );
-		if ( $cleanKey !== $key || empty( $cleanKey ) ) {
+		if ( ! preg_match( '/^[a-z0-9_-]+$/', $key ) ) {
 			$this->error( 'Ключ должен содержать только строчные буквы, цифры и дефисы/подчёркивания.' );
 		}
 
@@ -127,8 +125,7 @@ class ConsentSettingsCallbacks extends BaseController {
 	public function ajaxLookupConsentByHash(): void {
 		$this->authorize( Nonce::Manager, Capability::Admin );
 
-		// sanitize_text_field() — очистка текстового поля
-		$hash    = sanitize_text_field( wp_unslash( $_POST['hash'] ?? '' ) );
+		$hash    = $this->sanitizeText( 'hash' );
 		$typeKey = $this->sanitizeKey( 'type_key' );
 
 		if ( empty( $hash ) ) {

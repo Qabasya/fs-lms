@@ -4,25 +4,26 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks;
 
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\Enrollment\EnrollmentInputDTO;
+use Inc\DTO\Enrollment\StudentDataDTO;
+use Inc\DTO\Log\Events\ApplicationStatusEvent;
+use Inc\DTO\Log\Events\PiiRevealedEvent;
+use Inc\DTO\ParentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
 use Inc\Enums\Capability;
+use Inc\Enums\DocumentType;
+use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Services\AuditService;
 use Inc\Services\Enrollment\EnrollmentService;
 use Inc\Services\PasswordGeneratorService;
 use Inc\Services\PiiCryptoService;
 use Inc\Services\Person\PiiMaskingService;
-use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
-use Inc\DTO\Enrollment\EnrollmentInputDTO;
-use Inc\DTO\ParentDataDTO;
-use Inc\DTO\Person\PiiAccessLogInputDTO;
-use Inc\DTO\Enrollment\StudentDataDTO;
-use Inc\Enums\DocumentType;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -53,23 +54,24 @@ class EnrollmentCallbacks extends BaseController {
 	/**
 	 * Конструктор коллбеков.
 	 *
-	 * @param ApplicationRepository   $applicationRepository Репозиторий заявок
-	 * @param EnrollmentService       $enrollmentService     Сервис зачисления
-	 * @param AuditService            $auditService          Сервис аудита
-	 * @param PiiCryptoService        $crypto                Сервис шифрования PII
-	 * @param PiiMaskingService       $piiMasking            Сервис маскирования PII
-	 * @param PiiAccessLogRepository  $piiAccessLog          Репозиторий логов доступа к PII
+	 * @param ApplicationRepository      $applicationRepository Репозиторий заявок
+	 * @param EnrollmentService          $enrollmentService     Сервис зачисления
+	 * @param LogEventDispatcherInterface $logEvents            Диспетчер событий логирования
+	 * @param PiiCryptoService           $crypto                Сервис шифрования PII
+	 * @param PiiMaskingService          $piiMasking            Сервис маскирования PII
+	 * @param GroupsRepository           $studentGroupRepository Репозиторий групп
+	 * @param PasswordGeneratorService   $passwordGenerator     Генератор паролей
+	 * @param UserManager                $userManager           Менеджер пользователей
 	 */
 	public function __construct(
-		private readonly ApplicationRepository   $applicationRepository,
-		private readonly EnrollmentService       $enrollmentService,
-		private readonly AuditService            $auditService,
-		private readonly PiiCryptoService        $crypto,
-		private readonly PiiMaskingService       $piiMasking,
-		private readonly PiiAccessLogRepository  $piiAccessLog,
-		private readonly GroupsRepository        $studentGroupRepository,
-		private readonly PasswordGeneratorService $passwordGenerator,
-		private readonly UserManager             $userManager,
+		private readonly ApplicationRepository        $applicationRepository,
+		private readonly EnrollmentService            $enrollmentService,
+		private readonly LogEventDispatcherInterface  $logEvents,
+		private readonly PiiCryptoService             $crypto,
+		private readonly PiiMaskingService            $piiMasking,
+		private readonly GroupsRepository             $studentGroupRepository,
+		private readonly PasswordGeneratorService     $passwordGenerator,
+		private readonly UserManager                  $userManager,
 	) {
 		parent::__construct();
 	}
@@ -80,10 +82,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function renderApplicationsListPage(): void {
-		// Проверка прав доступа
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			wp_die( 'Доступ запрещён.' );
-		}
+		$this->requireCap( Capability::ManageApplications );
 
 		// Получение и санитизация параметров фильтрации
 		$status   = $this->sanitizeText( 'status', 'GET' );
@@ -117,9 +116,7 @@ class EnrollmentCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function renderApplicationDetailPage(): void {
-		if ( ! current_user_can( Capability::ManageApplications->value ) ) {
-			wp_die( 'Доступ запрещён.' );
-		}
+		$this->requireCap( Capability::ManageApplications );
 
 		$id  = (int) ( $_GET['id'] ?? 0 );
 		$app = $this->applicationRepository->find( $id );
@@ -141,15 +138,11 @@ class EnrollmentCallbacks extends BaseController {
 				$studentData = null;
 			}
 
-			// Логирование факта доступа к PII
-			$this->piiAccessLog->create( new PiiAccessLogInputDTO(
+			$this->logEvents->dispatch( LogEvent::PiiRevealed, new PiiRevealedEvent(
 				actorUserId:    get_current_user_id(),
-				actorRole:      'admin',
-				personId:       null,
+				targetPersonId: null,
 				fieldsAccessed: 'student_data',
 				accessReason:   'application_review',
-				actorIp:        (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ),
-				createdAt:      current_time( 'mysql', true ),
 			) );
 		}
 
@@ -164,12 +157,9 @@ class EnrollmentCallbacks extends BaseController {
 			}
 		}
 
-		// Логирование просмотра заявки
-		$this->auditService->record(
-			AuditAction::ViewApplication->value,
-			'application',
-			$id
-		);
+		$this->logEvents->dispatch( LogEvent::ApplicationViewed, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::ViewApplication, $id
+		) );
 
 		// Подключение шаблона детальной карточки
 		$template = $this->path( 'templates/admin/enrollment/application-detail.php' );
@@ -243,11 +233,9 @@ class EnrollmentCallbacks extends BaseController {
 
 		$this->applicationRepository->setStatus( $id, ApplicationStatus::Trash );
 
-		$this->auditService->record(
-			AuditAction::MoveToTrash->value,
-			'application',
-			$id
-		);
+		$this->logEvents->dispatch( LogEvent::ApplicationTrashed, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::MoveToTrash, $id
+		) );
 
 		$this->success();
 	}
@@ -274,11 +262,9 @@ class EnrollmentCallbacks extends BaseController {
 
 		$this->applicationRepository->setStatus( $id, $target );
 
-		$this->auditService->record(
-			AuditAction::RestoreFromTrash->value,
-			'application',
-			$id
-		);
+		$this->logEvents->dispatch( LogEvent::ApplicationRestored, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::RestoreFromTrash, $id
+		) );
 
 		$this->success();
 	}
@@ -300,12 +286,9 @@ class EnrollmentCallbacks extends BaseController {
 
 		$this->applicationRepository->delete( $id );
 
-		$this->auditService->record(
-			AuditAction::EmptyTrash->value,
-			'application',
-			$id,
-			array( 'deleted_count' => 1 )
-		);
+		$this->logEvents->dispatch( LogEvent::ApplicationTrashed, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::EmptyTrash, $id
+		) );
 
 		$this->success();
 	}
@@ -366,11 +349,9 @@ class EnrollmentCallbacks extends BaseController {
 			'updated_at'         => current_time( 'mysql', true ),
 		) );
 
-		$this->auditService->record(
-			AuditAction::UpdateApplicationData->value,
-			'application',
-			$id
-		);
+		$this->logEvents->dispatch( LogEvent::ApplicationUpdated, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::UpdateApplicationData, $id
+		) );
 
 		$this->success();
 	}
@@ -445,11 +426,9 @@ class EnrollmentCallbacks extends BaseController {
 			'updated_at'       => current_time( 'mysql', true ),
 		) );
 
-		$this->auditService->record(
-			AuditAction::UpdateReviewData->value,
-			'application',
-			$id
-		);
+		$this->logEvents->dispatch( LogEvent::ApplicationUpdated, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::UpdateReviewData, $id
+		) );
 
 		$this->success();
 	}
@@ -474,7 +453,9 @@ class EnrollmentCallbacks extends BaseController {
 			'updated_at' => current_time( 'mysql', true ),
 		) );
 
-		$this->auditService->record( AuditAction::StartEnrollment->value, 'application', $id );
+		$this->logEvents->dispatch( LogEvent::EnrollmentStarted, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::StartEnrollment, $id
+		) );
 
 		$this->success();
 	}
@@ -586,23 +567,21 @@ class EnrollmentCallbacks extends BaseController {
 
 		$count = 0;
 
+		$actor = get_current_user_id();
+
 		foreach ( $trashApps as $app ) {
 			try {
 				// Физическое удаление записи из БД
 				$this->applicationRepository->delete( $app->id );
+				$this->logEvents->dispatch( LogEvent::ApplicationTrashed, new ApplicationStatusEvent(
+					$actor, AuditAction::EmptyTrash, $app->id
+				) );
 				$count++;
 			} catch ( \Throwable $e ) {
 				// Логируем, но не останавливаем цикл
 				trigger_error( '[FS LMS] EmptyTrash: не удалось удалить заявку #' . $app->id . ': ' . $e->getMessage(), E_USER_WARNING );
 			}
 		}
-
-		$this->auditService->record(
-			AuditAction::EmptyTrash->value,
-			'application',
-			null,
-			array( 'deleted_count' => $count )
-		);
 
 		$this->success( array( 'deleted' => $count ) );
 	}
@@ -629,17 +608,13 @@ class EnrollmentCallbacks extends BaseController {
 		}
 
 		$actor_id = get_current_user_id();
-		$actor_wp = $actor_id ? $this->userManager->find( $actor_id ) : null;
 		$personId = $this->userManager->getPersonId( $user_id );
 
-		$this->piiAccessLog->create( new PiiAccessLogInputDTO(
-			actorUserId:    $actor_id ?: null,
-			actorRole:      ( null !== $actor_wp && ! empty( $actor_wp->roles ) ) ? (string) reset( $actor_wp->roles ) : null,
-			personId:       $personId,
+		$this->logEvents->dispatch( LogEvent::PiiRevealed, new PiiRevealedEvent(
+			actorUserId:    $actor_id,
+			targetPersonId: $personId ?: null,
 			fieldsAccessed: 'login,password',
 			accessReason:   'admin_reveal_credentials',
-			actorIp:        sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '' ),
-			createdAt:      current_time( 'mysql', true ),
 		) );
 
 		$this->success( $credentials );

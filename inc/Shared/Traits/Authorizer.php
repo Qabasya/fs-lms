@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Shared\Traits;
 
 use Inc\Enums\Capability;
@@ -48,6 +50,16 @@ trait Authorizer {
 		// 403 — HTTP-статус "Forbidden" (доступ запрещён)
 		if ( ! current_user_can( $capability->value ) ) {
 			wp_send_json_error( 'У вас недостаточно прав', 403 );
+		}
+	}
+
+	/**
+	 * Проверяет право доступа для страниц (не AJAX).
+	 * При отсутствии права вызывает wp_die().
+	 */
+	protected function requireCap( Capability $capability ): void {
+		if ( ! current_user_can( $capability->value ) ) {
+			wp_die( 'Недостаточно прав.', 403 );
 		}
 	}
 }

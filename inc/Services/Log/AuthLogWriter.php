@@ -6,6 +6,8 @@ namespace Inc\Services\Log;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\AuthLogInputDTO;
+use Inc\Enums\AuthAction;
+use Inc\Enums\AuthResult;
 use Inc\Repositories\WPDBRepositories\AuthLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
 
@@ -52,27 +54,16 @@ class AuthLogWriter {
 		private readonly ClockInterface    $clock,
 	) {}
 
-	/**
-	 * Записывает событие аутентификации в журнал.
-	 *
-	 * @param string|null $loginIdentifier Логин/email (только для login_failed — без пароля)
-	 * @param string      $action          Тип действия (login/login_failed/otp_sent/otp_verified/password_reset)
-	 * @param bool        $success         Успешность операции
-	 *
-	 * @return void
-	 */
-	public function record( ?string $loginIdentifier, string $action, bool $success ): void {
-		// Получение контекста запроса (IP, User-Agent)
+	public function record( ?string $loginIdentifier, AuthAction $action, AuthResult $result ): void {
 		$ctx = $this->requestContext();
 
-		// Создание DTO и сохранение через репозиторий
 		$this->repository->create( new AuthLogInputDTO(
 			loginIdentifier: $loginIdentifier,
-			action:          $action,
-			result:          $success ? 'success' : 'failure',
+			action:          $action->value,
+			result:          $result->value,
 			actorIp:         $ctx->ip,
 			actorUa:         '' !== $ctx->userAgent ? $ctx->userAgent : null,
-			createdAt:       $this->clock->now( 'mysql', true ),  // Текущее время в MySQL datetime (UTC)
+			createdAt:       $this->clock->now( 'mysql', true ),
 		) );
 	}
 }

@@ -1,4 +1,5 @@
 import './../_types.js';
+import { AlertModal } from '../modals/alert-modal.js';
 const $ = jQuery;
 
 const CHANNEL_ACTIONS = {
@@ -60,13 +61,11 @@ export const LogsTable = {
 				if ( res.success && res.data.url ) {
 					window.location.href = res.data.url;
 				} else {
-					// eslint-disable-next-line no-alert
-					alert( res.data || 'Ошибка экспорта' );
+					AlertModal.show( res.data || 'Ошибка экспорта' );
 				}
 			} )
 			.fail( () => {
-				// eslint-disable-next-line no-alert
-				alert( 'Ошибка сервера при экспорте' );
+				AlertModal.show( 'Ошибка сервера при экспорте' );
 			} )
 			.always( () => {
 				$btn.prop( 'disabled', false ).html(

@@ -5,6 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\AuthAction;
+use Inc\Enums\AuthResult;
 use Inc\Services\Log\AuthLogWriter;
 
 /**
@@ -61,7 +63,7 @@ class AuthLogController implements ServiceInterface {
 	 * @return void
 	 */
 	public function onLogin( string $userLogin, \WP_User $user ): void {
-		$this->authLog->record( $userLogin, 'login', true );
+		$this->authLog->record( $userLogin, AuthAction::Login, AuthResult::Success );
 	}
 
 	/**
@@ -72,7 +74,7 @@ class AuthLogController implements ServiceInterface {
 	 * @return void
 	 */
 	public function onLoginFailed( string $username ): void {
-		$this->authLog->record( $username, 'login_failed', false );
+		$this->authLog->record( $username, AuthAction::LoginFailed, AuthResult::Failure );
 	}
 
 	/**
@@ -83,6 +85,6 @@ class AuthLogController implements ServiceInterface {
 	 * @return void
 	 */
 	public function onPasswordReset( \WP_User $user ): void {
-		$this->authLog->record( $user->user_login, 'password_reset', true );
+		$this->authLog->record( $user->user_login, AuthAction::PasswordReset, AuthResult::Success );
 	}
 }

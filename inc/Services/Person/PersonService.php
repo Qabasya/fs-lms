@@ -5,14 +5,13 @@ declare( strict_types=1 );
 namespace Inc\Services\Person;
 
 use Inc\Contracts\ClockInterface;
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EntityHardDeletedEvent;
+use Inc\DTO\Log\Events\PersonDataChangedEvent;
 use Inc\DTO\Person\PersonInputDTO;
-use Inc\Enums\AuditAction;
+use Inc\Enums\LogEvent;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Contracts\LogEventDispatcherInterface;
-use Inc\DTO\Log\Events\PersonDataChangedEvent;
-use Inc\Enums\LogEvent;
-use Inc\Services\AuditService;
 use Inc\Services\PiiCryptoService;
 use RuntimeException;
 
@@ -28,11 +27,10 @@ readonly class PersonService {
 	);
 
 	public function __construct(
-		private PersonRepository          $personRepository,
-		private PersonDocumentsRepository $personDocumentsRepository,
-		private PiiCryptoService          $crypto,
-		private AuditService              $auditService,
-		private ClockInterface            $clock,
+		private PersonRepository            $personRepository,
+		private PersonDocumentsRepository   $personDocumentsRepository,
+		private PiiCryptoService            $crypto,
+		private ClockInterface              $clock,
 		private LogEventDispatcherInterface $logEvents,
 	) {}
 
@@ -164,13 +162,6 @@ readonly class PersonService {
 			return;
 		}
 
-		$this->auditService->record(
-			AuditAction::UpdatePerson->value,
-			'person',
-			$personId,
-			array( 'changed_fields' => $changedFields ),
-		);
-
 		foreach ( $fieldChanges as $fc ) {
 			$this->logEvents->dispatch(
 				LogEvent::PersonDataChanged,
@@ -190,10 +181,9 @@ readonly class PersonService {
 			throw new RuntimeException( "Не удалось выполнить soft delete для person ID {$personId}." );
 		}
 
-		$this->auditService->record(
-			AuditAction::PiiDeletionRequested->value,
-			'person',
-			$personId,
+		$this->logEvents->dispatch(
+			LogEvent::PersonSoftDeleted,
+			new EntityHardDeletedEvent( $actorId, 'person', $personId ),
 		);
 	}
 

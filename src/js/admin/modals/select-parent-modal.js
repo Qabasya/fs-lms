@@ -1,4 +1,6 @@
 import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
+import { AlertModal } from './alert-modal.js';
+import { ConfirmModal } from './confirm-modal.js';
 
 const $ = jQuery;
 
@@ -123,18 +125,24 @@ export const SelectParentModal = {
             },
             success: ( res ) => {
                 if ( ! res.success ) {
-                    alert( res.data || 'Ошибка назначения родителя.' );
+                    AlertModal.show( res.data || 'Ошибка назначения родителя.' );
                     return;
                 }
                 this.close();
                 this._updateRow( appId, res.data.parent_name ?? '', res.data.join_url ?? '', true );
             },
-            error: () => alert( 'Сетевая ошибка.' ),
+            error: () => AlertModal.show( 'Сетевая ошибка.' ),
         } );
     },
 
-    _removeParent( appId ) {
-        if ( ! confirm( 'Снять назначение родителя? JOIN-ссылка будет обновлена.' ) ) { return; }
+    async _removeParent( appId ) {
+        try {
+            await ConfirmModal.confirm( {
+                message:     'Снять назначение родителя? JOIN-ссылка будет обновлена.',
+                confirmText: 'Снять',
+                isDanger:    true,
+            } );
+        } catch { return; }
 
         const vars = window.fs_lms_applications_vars ?? {};
 
@@ -148,12 +156,12 @@ export const SelectParentModal = {
             },
             success: ( res ) => {
                 if ( ! res.success ) {
-                    alert( res.data || 'Ошибка снятия назначения.' );
+                    AlertModal.show( res.data || 'Ошибка снятия назначения.' );
                     return;
                 }
                 this._updateRow( appId, '—', res.data.join_url ?? '', false );
             },
-            error: () => alert( 'Сетевая ошибка.' ),
+            error: () => AlertModal.show( 'Сетевая ошибка.' ),
         } );
     },
 

@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\PostMetaName;
 use Inc\Services\PostTypeResolver;
 use Inc\Services\Task\TaskPublishValidator;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class SubjectValidationCallbacks
@@ -30,6 +31,8 @@ use Inc\Services\Task\TaskPublishValidator;
  * и 'admin_notices'.
  */
 class SubjectValidationCallbacks extends BaseController {
+
+	use Sanitizer;
 
 	/**
 	 * Конструктор коллбеков.
@@ -71,7 +74,7 @@ class SubjectValidationCallbacks extends BaseController {
 
 		// Получение данных из запроса
 		$postMeta   = (array) ( $_POST[ PostMetaName::Meta->value ] ?? array() );
-		$templateId = sanitize_key( $_POST[ PostMetaName::TemplateType->value ] ?? '' );
+		$templateId = $this->sanitizeKey( PostMetaName::TemplateType->value );
 		$taxInput   = (array) ( $_POST['tax_input'] ?? array() );
 
 		// Проверка на блокирующие ошибки

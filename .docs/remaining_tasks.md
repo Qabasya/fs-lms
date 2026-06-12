@@ -1798,18 +1798,19 @@ interface CsvImportProviderInterface {
 
 Сырые WP-функции вместо методов трейта:
 
-- [ ] `inc/Callbacks/AdminCallbacks.php` (~15 вызовов `sanitize_key`/`sanitize_text_field` на `$_GET`-фильтрах логов) — в трейт `Sanitizer` добавить методы чтения из `$_GET` (`sanitizeGetKey()`, `sanitizeGetText()`), перевести.
-- [ ] `inc/Callbacks/Subject/SubjectValidationCallbacks.php:74` (`sanitize_key`), `inc/Callbacks/Subject/SubjectDataCallbacks.php:113` (`absint`), `inc/Callbacks/StudentGroupCallbacks.php:88,94,95`, `inc/Callbacks/Settings/EmailTemplateSettingsCallbacks.php:67` (`wp_kses_post`), `inc/Callbacks/Settings/ConsentSettingsCallbacks.php:64,131` — заменить на `sanitizeKey()`/`sanitizeInt()`/`sanitizeText()`/`sanitizeEditorContent()`.
-- [ ] `inc/Callbacks/ApplicationCallbacks.php:344` (`sanitize_email`) — добавить `sanitizeEmail()` в трейт, использовать.
+- [x] `inc/Callbacks/AdminCallbacks.php` (~15 вызовов `sanitize_key`/`sanitize_text_field` на `$_GET`-фильтрах логов) — в трейт `Sanitizer` добавить методы чтения из `$_GET` (`sanitizeGetKey()`, `sanitizeGetText()`), перевести.
+- [x] `inc/Callbacks/Subject/SubjectValidationCallbacks.php:74` (`sanitize_key`), `inc/Callbacks/Subject/SubjectDataCallbacks.php:113` (`absint`), `inc/Callbacks/Settings/EmailTemplateSettingsCallbacks.php:67` (`wp_kses_post`), `inc/Callbacks/Settings/ConsentSettingsCallbacks.php:131` — заменить на `sanitizeKey()`/`sanitizeInt()`/`sanitizeText()`/`sanitizeHtml()`.
+- [ ] `inc/Callbacks/StudentGroupCallbacks.php:88,94,95` — значения из JSON-массива (не суперглобалы), трейт не применим напрямую.
+- [x] `inc/Callbacks/ApplicationCallbacks.php:344` (`sanitize_email`) — добавить `sanitizeEmail()` в трейт, использовать.
 - [ ] `inc/Callbacks/EnrollmentCallbacks.php:641` — `sanitize_text_field($_SERVER['REMOTE_ADDR'])` + `current_time()` вручную → использовать `RequestContextProvider::requestContext()` и `ClockInterface` (см. также п. 4: эта запись в `pii_access_log` идёт мимо writer'а напрямую в репозиторий).
 - [ ] Контроллеры, парсящие `$_GET` сами: `TaskCreationController.php:55`, `BoilerplatePageController.php:56-59,126`, `PiiController.php:160`, `Enqueue.php:72,338` — извлечение и санитизацию переместить в Callbacks/хелпер; контроллер не трогает суперглобалы.
 - [ ] `inc/Services/Subject/SubjectImportService.php` — массовые сырые вызовы при импорте JSON. Либо подключить трейт `Sanitizer`, либо зафиксировать как документированное исключение (импорт — не HTTP-вход).
 
 ### 2. Авторизация — только `Authorizer::authorize()` / `Nonce::verify()`
 
-- [ ] `inc/Callbacks/EnrollmentCallbacks.php:84,120` — `current_user_can()` напрямую в AJAX-методах → `$this->authorize(...)`.
-- [ ] `inc/Callbacks/AdminCallbacks.php:185` — то же.
-- [ ] `inc/Callbacks/Person/PersonViewCallbacks.php:208,227` — то же (239 — условное чтение PII, допустимо, но вынести в `PersonReader`).
+- [x] `inc/Callbacks/EnrollmentCallbacks.php:84,120` — `current_user_can()` → `$this->requireCap(...)` (новый метод Authorizer трейта для страниц).
+- [x] `inc/Callbacks/AdminCallbacks.php:185` — то же.
+- [x] `inc/Callbacks/Person/PersonViewCallbacks.php:208,227` — то же (239 — условное чтение PII, допустимо, но вынести в `PersonReader`).
 - [ ] `inc/Controllers/MetaBoxController.php:152` — `wp_verify_nonce` + `current_user_can('edit_post')` в `save_post` — не AJAX, допустимо, но обернуть в хелпер трейта (например `Authorizer::authorizePostSave()`), чтобы правило «не звать WP напрямую» не имело исключений.
 
 ### 3. Данные — только DTO, не массивы
@@ -1821,9 +1822,9 @@ interface CsvImportProviderInterface {
 
 ### 4. Enum вместо строковых констант
 
-- [ ] `inc/Controllers/AuthLogController.php:64,75,86` — `'login'`, `'login_failed'`, `'password_reset'` → `AuthAction::*->value`; bool `$success` → `AuthResult`.
-- [ ] `inc/Callbacks/ApplicationCallbacks.php:208,267` — `'otp_sent'`, `'otp_verified'` → `AuthAction::*`.
-- [ ] `AuthLogWriter::record()` — сигнатуру перевести на `AuthAction` + `AuthResult` вместо `string`/`bool`.
+- [x] `inc/Controllers/AuthLogController.php:64,75,86` — `'login'`, `'login_failed'`, `'password_reset'` → `AuthAction::*->value`; bool `$success` → `AuthResult`.
+- [x] `inc/Callbacks/ApplicationCallbacks.php:208,267` — `'otp_sent'`, `'otp_verified'` → `AuthAction::*`.
+- [x] `AuthLogWriter::record()` — сигнатуру перевести на `AuthAction` + `AuthResult` вместо `string`/`bool`.
 - [ ] `EnrollmentAuditLogWriter::record(string $action, string $targetType, ...)` — принимать `AuditAction` и enum типа цели (новый `AuditTargetType`: `StudentRecord|Application|Person|User`), строки `'student_record'`/`'application'`/`'user'` разбросаны по подписчикам и сервисам.
 - [ ] Статусы `'success'`/`'failed'` в `EmailLogWriter` → enum `EmailStatus` (+ использовать в `logs-6-email.php` для badge).
 - [ ] `templates/admin/components/tabs/subject-tabs/subject-4-taxonomies.php:6` — `$display_labels` → enum `TaxonomyDisplayType` c `label()`.
@@ -1831,10 +1832,10 @@ interface CsvImportProviderInterface {
 
 ### 5. JS: убрать `alert()`/`confirm()` (см. basic_doc «Система уведомлений»)
 
-- [ ] `src/js/admin/services/logs-table.js:64,69` — `alert` → `showToast` (ошибка экспорта — серверная/сетевая).
-- [ ] `src/js/admin/services/consent-settings.js:31,115,118` — `confirm` → `ConfirmModal.confirm`, `alert` → `showToast`/`showNotice`.
-- [ ] `src/js/admin/modals/select-parent-modal.js:126,132,137,151,156` — `alert`/`confirm` → `showModalError` (внутри открытого модала) + `ConfirmModal`.
-- [ ] `src/js/admin/services/person-detail.js:189` — `confirm` → `ConfirmModal.confirm`.
+- [x] `src/js/admin/services/logs-table.js:64,69` — `alert` → `AlertModal.show`.
+- [x] `src/js/admin/services/consent-settings.js:31,115,118` — `confirm` → `ConfirmModal.confirm`, `alert` → `AlertModal.show`.
+- [x] `src/js/admin/modals/select-parent-modal.js:126,132,137,151,156` — `alert`/`confirm` → `AlertModal.show` / `ConfirmModal.confirm`.
+- [x] `src/js/admin/services/person-detail.js:189` — `confirm` → `ConfirmModal.confirm`.
 - [ ] `src/js/admin/modals/alert-modal.js:19` — нативный `alert` оставить только как fallback при отсутствии шаблона (допустимо, добавить комментарий).
 - [ ] Включить ESLint-правило `no-alert` в error (сейчас глушится `eslint-disable`).
 
@@ -1893,4 +1894,12 @@ interface CsvImportProviderInterface {
 
 **Инлайн-стили (CSS Rules):**
 
-- [ ] `templates/admin/components/tabs/logs-tabs/*` — 92 вхождения `style=""` (ширины колонок, отступы фильтров, иконки) → классы в `src/scss/admin/components/_logs.scss` (`.fs-logs-table__col--id { width: 50px }` и т.п.). Тот же подход для остальных табов-шаблонов.
+- [ ] `templates/admin/components/tabs/logs-tabs/*` — 92 вхождения `style=""` (ширины колонок, отступы фильтров, иконки) → классы в `src/scss/admin/components/_logs.scss` (`.fs-logs-table__col--id { width: 50px }` и т.п.). Тот же подход для остальных табов-шаблонов. Для ширины колонок использовать ТОЛЬКО классы из scss/common/components/_widths.scss. Отступы задавать только через стандартные переменных из scss/admin/_variables.scss. Не плодить лишние стили, пользоваться существующими общими стилями. По возможности использовать готовые классы.
+
+- Привести все view файлы в папке src/admin/components/tabs к единой структуре.
+---
+
+## Багфикс
+1. Избавиться от таблицы Удаление (wp_fs_lms_deletion_log). Перенести удаления сущностей в таблицу изменения (crud) сущностей (wp_fs_lms_audit_log). Поскольку удаление предмета или удаление ученика относится к CRUD операциям с сущностями.
+2. Поправить таблицу Экспорта: должен фиксироваться и уже существующий импорт предмета и добавленный в будущем импорт учеников/родителей/групп/учебных периодов.
+3. 

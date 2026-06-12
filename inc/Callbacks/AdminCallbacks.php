@@ -25,6 +25,8 @@ use Inc\Repositories\WPDBRepositories\ExportLogRepository;
 use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
 use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -48,6 +50,8 @@ use Inc\Shared\Traits\TemplateRenderer;
  */
 class AdminCallbacks extends BaseController {
 
+	use Authorizer;
+	use Sanitizer;
 	use TemplateRenderer;
 
 	/**
@@ -118,8 +122,7 @@ class AdminCallbacks extends BaseController {
 		$current_period = $sorted['current'];
 		$other_periods  = $sorted['other'];
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$selected_period_id = sanitize_key( wp_unslash( $_GET['period_filter'] ?? '' ) );
+		$selected_period_id = $this->sanitizeGetKey( 'period_filter' );
 		if ( '' === $selected_period_id ) {
 			$selected_period_id = $current_period['id'] ?? '';
 		}
@@ -182,26 +185,23 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function logsPage(): void {
-		if ( ! current_user_can( Capability::Admin->value ) ) {
-			wp_die( 'Недостаточно прав.' );
-		}
+		$this->requireCap( Capability::Admin );
 
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended
-		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'tab-0' ) );
+		$active_tab = $this->sanitizeGetKey( 'tab' ) ?: 'tab-0';
 		$per_page   = 50;
-		$paged      = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+		$paged      = max( 1, $this->sanitizeGetInt( 'paged' ) );
 
 		$data = compact( 'active_tab', 'per_page' );
 
-		$date_from = sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) );
-		$date_to   = sanitize_text_field( wp_unslash( $_GET['date_to'] ?? '' ) );
-		$actor_id  = (int) ( $_GET['actor_id'] ?? 0 ) ?: null;
-		$person_id = (int) ( $_GET['person_id'] ?? 0 ) ?: null;
+		$date_from = $this->sanitizeGetText( 'date_from' );
+		$date_to   = $this->sanitizeGetText( 'date_to' );
+		$actor_id  = $this->sanitizeGetInt( 'actor_id' ) ?: null;
+		$person_id = $this->sanitizeGetInt( 'person_id' ) ?: null;
 
 		if ( 'tab-0' === $active_tab ) {
 			$filters = array_filter( array(
-				'operation'     => sanitize_key( wp_unslash( $_GET['operation'] ?? '' ) ),
-				'entity_type'   => sanitize_key( wp_unslash( $_GET['entity_type'] ?? '' ) ),
+				'operation'     => $this->sanitizeGetKey( 'operation' ),
+				'entity_type'   => $this->sanitizeGetKey( 'entity_type' ),
 				'actor_user_id' => $actor_id,
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
@@ -226,7 +226,7 @@ class AdminCallbacks extends BaseController {
 		} elseif ( 'tab-3' === $active_tab ) {
 			$filters = array_filter( array(
 				'actor_user_id' => $actor_id,
-				'data_type'     => sanitize_key( wp_unslash( $_GET['data_type'] ?? '' ) ),
+				'data_type'     => $this->sanitizeGetKey( 'data_type' ),
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
 			) );
@@ -250,7 +250,7 @@ class AdminCallbacks extends BaseController {
 		} elseif ( 'tab-5' === $active_tab ) {
 			$filters = array_filter( array(
 				'person_id'    => $person_id,
-				'consent_type' => sanitize_key( wp_unslash( $_GET['consent_type'] ?? '' ) ),
+				'consent_type' => $this->sanitizeGetKey( 'consent_type' ),
 				'date_from'    => $date_from,
 				'date_to'      => $date_to,
 			) );
@@ -261,8 +261,8 @@ class AdminCallbacks extends BaseController {
 
 		} elseif ( 'tab-6' === $active_tab ) {
 			$filters = array_filter( array(
-				'email_type'       => sanitize_key( wp_unslash( $_GET['email_type'] ?? '' ) ),
-				'status'           => sanitize_key( wp_unslash( $_GET['status'] ?? '' ) ),
+				'email_type'       => $this->sanitizeGetKey( 'email_type' ),
+				'status'           => $this->sanitizeGetKey( 'status' ),
 				'target_person_id' => $person_id,
 				'date_from'        => $date_from,
 				'date_to'          => $date_to,
@@ -275,7 +275,7 @@ class AdminCallbacks extends BaseController {
 		} elseif ( 'tab-7' === $active_tab ) {
 			$filters = array_filter( array(
 				'actor_user_id' => $actor_id,
-				'entity_type'   => sanitize_key( wp_unslash( $_GET['entity_type'] ?? '' ) ),
+				'entity_type'   => $this->sanitizeGetKey( 'entity_type' ),
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
 			) );
@@ -286,8 +286,8 @@ class AdminCallbacks extends BaseController {
 
 		} elseif ( 'tab-8' === $active_tab ) {
 			$filters = array_filter( array(
-				'action'    => sanitize_key( wp_unslash( $_GET['action_filter'] ?? '' ) ),
-				'result'    => sanitize_key( wp_unslash( $_GET['result'] ?? '' ) ),
+				'action'    => $this->sanitizeGetKey( 'action_filter' ),
+				'result'    => $this->sanitizeGetKey( 'result' ),
 				'date_from' => $date_from,
 				'date_to'   => $date_to,
 			) );
@@ -298,7 +298,7 @@ class AdminCallbacks extends BaseController {
 
 		} else {
 			$audit_filters = array_filter( array(
-				'action'        => sanitize_key( wp_unslash( $_GET['action_filter'] ?? '' ) ),
+				'action'        => $this->sanitizeGetKey( 'action_filter' ),
 				'actor_user_id' => $actor_id,
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
@@ -309,7 +309,6 @@ class AdminCallbacks extends BaseController {
 			$data['audit_rows']    = $this->audit_log->list( $audit_filters, $paged, $per_page );
 			$data['audit_actions'] = AuditAction::cases();
 		}
-		// phpcs:enable
 
 		$this->render( 'admin/logs', $data );
 	}

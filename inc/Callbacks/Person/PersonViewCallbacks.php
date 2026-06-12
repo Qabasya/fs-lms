@@ -205,9 +205,7 @@ class PersonViewCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function renderPersonsPage(): void {
-		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
-			wp_die( 'Доступ запрещён.' );
-		}
+		$this->requireCap( Capability::ManagePersons );
 
 		$template = $this->path( 'templates/admin/enrollment/persons-list.php' );
 
@@ -224,11 +222,9 @@ class PersonViewCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function renderPersonDetailPage(): void {
-		if ( ! current_user_can( Capability::ManagePersons->value ) ) {
-			wp_die( 'Доступ запрещён.' );
-		}
+		$this->requireCap( Capability::ManagePersons );
 
-		$personId = (int) ( $_GET['id'] ?? 0 );
+		$personId = $this->sanitizeGetInt( 'id' );
 		$person   = $this->personRepository->find( $personId );
 
 		if ( null === $person ) {
