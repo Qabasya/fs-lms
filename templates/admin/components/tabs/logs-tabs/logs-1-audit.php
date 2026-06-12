@@ -74,13 +74,13 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th style="width:50px">ID</th>
-				<th style="width:130px">Дата</th>
-				<th style="width:180px">Пользователь</th>
-				<th>Действие</th>
-				<th style="width:180px">Субъект</th>
-				<th style="width:150px">Группа</th>
-				<th style="width:90px">IP</th>
+				<th class="tw-3">ID</th>
+				<th class="tw-10">Дата</th>
+				<th class="tw-10">Пользователь</th>
+				<th >Действие</th>
+				<th class="tw-10">Субъект</th>
+				<th class="tw-10">Группа</th>
+				<th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>

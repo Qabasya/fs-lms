@@ -66,13 +66,13 @@ $filter_url  = add_query_arg( $deletion_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th style="width:50px">ID</th>
-				<th style="width:130px">Дата</th>
-				<th style="width:180px">Пользователь</th>
-				<th style="width:120px">Тип</th>
-				<th style="width:80px">ID сущности</th>
+                <th class="tw-3">ID</th>
+                <th class="tw-10">Дата</th>
+                <th class="tw-10">Пользователь</th>
+				<th class="tw-10">Тип</th>
+				<th class="tw-10">ID сущности</th>
 				<th>Каскадно удалено</th>
-				<th style="width:90px">IP</th>
+                <th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>

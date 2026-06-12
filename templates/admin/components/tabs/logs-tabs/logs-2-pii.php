@@ -71,14 +71,13 @@ $filter_url  = add_query_arg( $pii_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th style="width:50px">ID</th>
-				<th style="width:130px">Дата</th>
-				<th style="width:180px">Кто смотрел</th>
-				<th style="width:180px">Субъект ПД</th>
-				<th style="width:180px">Поля</th>
+                <th class="tw-3">ID</th>
+                <th class="tw-10">Дата</th>
+				<th class="tw-10">Кто смотрел</th>
+				<th class="tw-10">Субъект ПД</th>
+				<th>Поля</th>
 				<th>Причина</th>
-				<th style="width:90px">IP</th>
-				<th style="width:140px">Устройство</th>
+				<th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>
@@ -97,7 +96,6 @@ $filter_url  = add_query_arg( $pii_filters, $base_url );
 					</td>
 					<td><?php echo esc_html( $row->accessReason ); ?></td>
 					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
-					<td style="font-size:11px; word-break:break-all;"><?php echo esc_html( $row->actorUa ?? '—' ); ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

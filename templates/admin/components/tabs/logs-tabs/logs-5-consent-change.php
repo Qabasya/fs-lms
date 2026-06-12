@@ -56,11 +56,11 @@ $filter_url  = add_query_arg( $consent_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th style="width:50px">ID</th>
-				<th style="width:130px">Дата</th>
-				<th style="width:180px">Актор</th>
-				<th style="width:180px">Субъект ПД</th>
-				<th style="width:150px">Тип согласия</th>
+                <th class="tw-3">ID</th>
+                <th class="tw-10">Дата</th>
+                <th class="tw-10">Пользователь</th>
+				<th class="tw-10">Субъект ПД</th>
+				<th class="tw-15">Тип согласия</th>
 				<th>Старый хеш</th>
 				<th>Новый хеш</th>
 			</tr>

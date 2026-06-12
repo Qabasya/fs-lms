@@ -71,12 +71,12 @@ $filter_url  = add_query_arg( $auth_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th style="width:50px">ID</th>
-				<th style="width:130px">Дата</th>
-				<th style="width:180px">Логин</th>
-				<th style="width:150px">Действие</th>
-				<th style="width:80px">Результат</th>
-				<th style="width:110px">IP</th>
+                <th class="tw-3">ID</th>
+                <th class="tw-10">Дата</th>
+				<th class="tw-15">Логин</th>
+				<th>Действие</th>
+				<th>Результат</th>
+                <th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>

@@ -70,14 +70,14 @@ $filter_url  = add_query_arg( $email_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th style="width:50px">ID</th>
-				<th style="width:130px">Дата</th>
-				<th style="width:180px">Актор</th>
-				<th style="width:160px">Тип письма</th>
-				<th style="width:180px">Субъект ПД</th>
-				<th style="width:180px">Email получателя</th>
-				<th style="width:80px">Статус</th>
-				<th>Ошибка</th>
+                <th class="tw-3">ID</th>
+                <th class="tw-10">Дата</th>
+                <th class="tw-10">Пользователь</th>
+				<th class="tw-10">Тип письма</th>
+				<th>Субъект ПД</th>
+				<th>Email получателя</th>
+				<th class="tw-15">Статус</th>
+				<th class="tw-10">Ошибка</th>
 			</tr>
 			</thead>
 			<tbody>

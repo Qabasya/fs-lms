@@ -69,14 +69,13 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th style="width:50px">ID</th>
-				<th style="width:130px">Дата</th>
-				<th style="width:180px">Пользователь</th>
-				<th style="width:130px">Тип данных</th>
-				<th style="width:100px">Действие</th>
-				<th>ID целей</th>
-				<th style="width:110px">IP</th>
-				<th>Устройство</th>
+                <th class="tw-3">ID</th>
+                <th class="tw-10">Дата</th>
+                <th class="tw-10">Пользователь</th>
+				<th class="tw-10">Тип данных</th>
+				<th>Действие</th>
+				<th class="tw-10">ID целей</th>
+                <th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>
@@ -101,15 +100,6 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 						<?php endif; ?>
 					</td>
 					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
-					<td>
-						<?php if ( $row->actorUa ) : ?>
-							<span title="<?php echo esc_attr( $row->actorUa ); ?>" style="cursor:help;">
-								<?php echo esc_html( mb_substr( $row->actorUa, 0, 40 ) ) . ( mb_strlen( $row->actorUa ) > 40 ? '…' : '' ); ?>
-							</span>
-						<?php else : ?>
-							—
-						<?php endif; ?>
-					</td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>
