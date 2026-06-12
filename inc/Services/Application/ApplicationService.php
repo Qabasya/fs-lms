@@ -8,6 +8,7 @@ use DomainException;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Application\ApplicationCreatedDTO;
 use Inc\DTO\Application\ApplicationInputDTO;
+use Inc\DTO\Application\ApplicationRecordInputDTO;
 use Inc\DTO\Log\Events\ApplicationStatusEvent;
 use Inc\DTO\Person\ParentDataDTO;
 use Inc\DTO\Person\ParentSubmissionInputDTO;
@@ -125,16 +126,16 @@ readonly class ApplicationService {
 
 		$appId = $this->inTransaction( function () use ( $emailHash, $joinCodeHash, $joinCodeEnc, $expiresAt, $studentDataEnc, $ctx, $input ): int {
 			// Создание записи заявки
-			$id = $this->applicationRepository->create( array(
-				'status'               => ApplicationStatus::PendingParent->value,
-				'join_code_hash'       => $joinCodeHash,
-				'join_code_enc'        => $joinCodeEnc,
-				'join_code_expires_at' => $expiresAt,
-				'student_email_hash'   => $emailHash,
-				'student_data_enc'     => $studentDataEnc,
-				'parent_submitted_ip'  => $ctx->ip,
-				'created_at'           => $this->clock->now( 'mysql', true ),
-				'updated_at'           => $this->clock->now( 'mysql', true ),
+			$id = $this->applicationRepository->create( new ApplicationRecordInputDTO(
+				status:             ApplicationStatus::PendingParent->value,
+				joinCodeHash:       $joinCodeHash,
+				joinCodeEnc:        $joinCodeEnc,
+				joinCodeExpiresAt:  $expiresAt,
+				studentDataEnc:     $studentDataEnc,
+				createdAt:          $this->clock->now( 'mysql', true ),
+				updatedAt:          $this->clock->now( 'mysql', true ),
+				studentEmailHash:   $emailHash,
+				parentSubmittedIp:  $ctx->ip,
 			) );
 
 			// Фиксация согласия на обработку ПД (сам ученик)

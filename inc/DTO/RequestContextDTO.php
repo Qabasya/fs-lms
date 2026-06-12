@@ -17,7 +17,7 @@ namespace Inc\DTO;
  *
  * ### Архитектурная роль:
  *
- * Используется AuditService и PiiAccessLogRepository для фиксации того,
+ * Используется Log Writers для фиксации того,
  * кто (actorUserId), с какого IP и с каким браузером (userAgent) выполнил действие.
  *
  * ### Примечания:

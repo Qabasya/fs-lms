@@ -205,3 +205,13 @@
     }
   }
 }
+
+// Inline-уведомление о результате сохранения/сброса шаблона.
+// Классы is-success / is-error ставит email-template-settings.js.
+.fs-template-notice {
+  margin-left: $spacing-sm;
+  font-size: $font-size;
+
+  &.is-success { color: $wp-admin-green; }
+  &.is-error   { color: $color-danger; }
+}

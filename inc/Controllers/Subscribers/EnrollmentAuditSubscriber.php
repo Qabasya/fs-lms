@@ -8,6 +8,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\DTO\Log\Events\ApplicationStatusEvent;
 use Inc\DTO\Log\Events\EnrollmentStatusEvent;
+use Inc\Enums\AuditTargetType;
 use Inc\Enums\LogEvent;
 use Inc\Services\Log\EnrollmentAuditLogWriter;
 
@@ -90,8 +91,8 @@ class EnrollmentAuditSubscriber implements ServiceInterface {
 	 */
 	public function handle( EnrollmentStatusEvent $event ): void {
 		$this->writer->record(
-			$event->action->value,
-			'student_record',
+			$event->action,
+			AuditTargetType::StudentRecord,
 			$event->studentPersonId,
 			array_filter( array(
 				'student_record_id' => $event->studentRecordId,
@@ -114,15 +115,15 @@ class EnrollmentAuditSubscriber implements ServiceInterface {
 
 		if ( $event->actorUserId > 0 ) {
 			$this->writer->record(
-				$event->action->value,
-				'application',
+				$event->action,
+				AuditTargetType::Application,
 				$event->applicationId,
 				$details ?: null,
 			);
 		} else {
 			$this->writer->recordAnonymous(
-				$event->action->value,
-				'application',
+				$event->action,
+				AuditTargetType::Application,
 				$event->applicationId,
 				$details ?: null,
 			);

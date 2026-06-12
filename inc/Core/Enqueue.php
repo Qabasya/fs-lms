@@ -11,6 +11,7 @@ use Inc\Enums\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\PostTypeResolver;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class Enqueue
@@ -33,6 +34,8 @@ use Inc\Services\PostTypeResolver;
  * а версионирование и пути — родительскому классу BaseController.
  */
 class Enqueue extends BaseController implements ServiceInterface {
+
+	use Sanitizer;
 
 	/**
 	 * Конструктор.
@@ -69,7 +72,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 	public function enqueue_admin_assets(): void {
 		// get_current_screen() — возвращает объект текущего экрана админки
 		$screen = get_current_screen();
-		$page   = sanitize_text_field( $_GET['page'] ?? '' );
+		$page   = $this->sanitizeText( 'page', 'GET' );
 
 		// str_starts_with() — проверяет начало строки (PHP 8.0)
 		$is_plugin_page = str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' );

@@ -54,11 +54,10 @@ $filter_url  = add_query_arg( $auth_filters, $base_url );
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-log-csv"
+		<button type="button" class="button js-export-log-csv fs-logs__export-btn"
 			data-channel="auth"
-			data-filters="<?php echo esc_attr( wp_json_encode( $auth_filters ) ); ?>"
-			style="margin-left:auto;">
-			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
+			data-filters="<?php echo esc_attr( wp_json_encode( $auth_filters ) ); ?>">
+			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
 	</form>

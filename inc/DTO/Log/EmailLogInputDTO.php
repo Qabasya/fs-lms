@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Log;
 
+use Inc\Enums\EmailStatus;
+
 /**
  * Class EmailLogInputDTO
  *
@@ -45,7 +47,7 @@ readonly class EmailLogInputDTO {
 	 * @param string|null $actorRole      Роль пользователя
 	 * @param string      $emailType      Тип письма
 	 * @param int|null    $targetPersonId ID лица (из persons)
-	 * @param string      $status         Статус отправки (success/failed)
+	 * @param EmailStatus $status         Статус отправки
 	 * @param string|null $errorMessage   Сообщение об ошибке
 	 * @param string      $createdAt      Дата и время отправки (MySQL datetime)
 	 */
@@ -55,7 +57,7 @@ readonly class EmailLogInputDTO {
 		public string  $emailType,
 		public ?int    $targetPersonId,
 		public ?string $recipientEmail,
-		public string  $status,
+		public EmailStatus $status,
 		public ?string $errorMessage,
 		public string  $createdAt,
 	) {}
@@ -72,7 +74,7 @@ readonly class EmailLogInputDTO {
 			'email_type'       => $this->emailType,
 			'target_person_id' => $this->targetPersonId,
 			'recipient_email'  => $this->recipientEmail,
-			'status'           => $this->status,
+			'status'           => $this->status->value,
 			'error_message'    => $this->errorMessage,
 			'created_at'       => $this->createdAt,
 		);

@@ -72,7 +72,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 					</td>
 
 					<td>
-						<span class="dashicons dashicons-calendar-alt" style="font-size:16px; vertical-align:middle; margin-right:3px; color:#646970;"></span>
+						<span class="dashicons dashicons-calendar-alt fs-dashicon fs-dashicon--muted"></span>
 						<code><?php echo esc_html( "{$start_display} — {$end_display}" ); ?></code>
 					</td>
 

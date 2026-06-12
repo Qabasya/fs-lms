@@ -32,7 +32,7 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 
 		<input type="number" name="actor_id" placeholder="User ID"
 			value="<?php echo esc_attr( $export_filters['actor_user_id'] ?? '' ); ?>"
-			style="width:90px;">
+			class="input-width-md">
 
 		<select name="data_type">
 			<option value="">Все типы</option>
@@ -52,11 +52,10 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-log-csv"
+		<button type="button" class="button js-export-log-csv fs-logs__export-btn"
 			data-channel="export"
-			data-filters="<?php echo esc_attr( wp_json_encode( $export_filters ) ); ?>"
-			style="margin-left:auto;">
-			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
+			data-filters="<?php echo esc_attr( wp_json_encode( $export_filters ) ); ?>">
+			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
 	</form>
@@ -94,7 +93,7 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 					<td><span class="fs-badge badge-primary"><?php echo esc_html( ExportActionType::tryFrom( $row->actionType )?->label() ?? $row->actionType ); ?></span></td>
 					<td>
 						<?php if ( ! empty( $ids ) ) : ?>
-							<code style="font-size:11px;"><?php echo esc_html( implode( ', ', array_slice( $ids, 0, 10 ) ) ); ?><?php echo count( $ids ) > 10 ? ' …' : ''; ?></code>
+							<code class="fs-code-sm"><?php echo esc_html( implode( ', ', array_slice( $ids, 0, 10 ) ) ); ?><?php echo count( $ids ) > 10 ? ' …' : ''; ?></code>
 						<?php else : ?>
 							—
 						<?php endif; ?>

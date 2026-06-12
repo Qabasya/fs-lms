@@ -1802,33 +1802,33 @@ interface CsvImportProviderInterface {
 - [x] `inc/Callbacks/Subject/SubjectValidationCallbacks.php:74` (`sanitize_key`), `inc/Callbacks/Subject/SubjectDataCallbacks.php:113` (`absint`), `inc/Callbacks/Settings/EmailTemplateSettingsCallbacks.php:67` (`wp_kses_post`), `inc/Callbacks/Settings/ConsentSettingsCallbacks.php:131` — заменить на `sanitizeKey()`/`sanitizeInt()`/`sanitizeText()`/`sanitizeHtml()`.
 - [ ] `inc/Callbacks/StudentGroupCallbacks.php:88,94,95` — значения из JSON-массива (не суперглобалы), трейт не применим напрямую.
 - [x] `inc/Callbacks/ApplicationCallbacks.php:344` (`sanitize_email`) — добавить `sanitizeEmail()` в трейт, использовать.
-- [ ] `inc/Callbacks/EnrollmentCallbacks.php:641` — `sanitize_text_field($_SERVER['REMOTE_ADDR'])` + `current_time()` вручную → использовать `RequestContextProvider::requestContext()` и `ClockInterface` (см. также п. 4: эта запись в `pii_access_log` идёт мимо writer'а напрямую в репозиторий).
-- [ ] Контроллеры, парсящие `$_GET` сами: `TaskCreationController.php:55`, `BoilerplatePageController.php:56-59,126`, `PiiController.php:160`, `Enqueue.php:72,338` — извлечение и санитизацию переместить в Callbacks/хелпер; контроллер не трогает суперглобалы.
-- [ ] `inc/Services/Subject/SubjectImportService.php` — массовые сырые вызовы при импорте JSON. Либо подключить трейт `Sanitizer`, либо зафиксировать как документированное исключение (импорт — не HTTP-вход).
+- [x] `inc/Callbacks/EnrollmentCallbacks.php:641` — `sanitize_text_field($_SERVER['REMOTE_ADDR'])` + `current_time()` вручную → использовать `RequestContextProvider::requestContext()` и `ClockInterface` (см. также п. 4: эта запись в `pii_access_log` идёт мимо writer'а напрямую в репозиторий).
+- [x] Контроллеры, парсящие `$_GET` сами: `TaskCreationController.php:55`, `BoilerplatePageController.php:56-59,126`, `Enqueue.php:72,338` — добавить `use Sanitizer;`, заменить прямые `$_GET` на `sanitizeText('key', 'GET')`. `PiiController.php:160` — использует `get_query_var()`, изменений не требует.
+- [x] `inc/Services/Subject/SubjectImportService.php` — документированное исключение: импорт JSON не является HTTP-входом, сырые вызовы допустимы.
 
 ### 2. Авторизация — только `Authorizer::authorize()` / `Nonce::verify()`
 
 - [x] `inc/Callbacks/EnrollmentCallbacks.php:84,120` — `current_user_can()` → `$this->requireCap(...)` (новый метод Authorizer трейта для страниц).
 - [x] `inc/Callbacks/AdminCallbacks.php:185` — то же.
 - [x] `inc/Callbacks/Person/PersonViewCallbacks.php:208,227` — то же (239 — условное чтение PII, допустимо, но вынести в `PersonReader`).
-- [ ] `inc/Controllers/MetaBoxController.php:152` — `wp_verify_nonce` + `current_user_can('edit_post')` в `save_post` — не AJAX, допустимо, но обернуть в хелпер трейта (например `Authorizer::authorizePostSave()`), чтобы правило «не звать WP напрямую» не имело исключений.
+- [x] `inc/Controllers/MetaBoxController.php:152` — `wp_verify_nonce` + `current_user_can('edit_post')` в `save_post` — не AJAX, допустимо, но обернуть в хелпер трейта (например `Authorizer::authorizePostSave()`), чтобы правило «не звать WP напрямую» не имело исключений.
 
 ### 3. Данные — только DTO, не массивы
 
-- [ ] `AuditLogRepository` / `EnrollmentAuditLogWriter` — писать через `AuditLogInputDTO` (уже заявлено в подзадачах лога 2), убрать `create(array)`.
-- [ ] `ApplicationRepository::create/update(array)`, `StudentRecordRepository::create(array)`, `PersonRepository::create/update(array)`, `ConsentRepository::create(array)` — завести Input-DTO по образцу `inc/DTO/Log/*InputDTO` (`ApplicationInputRowDTO`, `StudentRecordInputDTO`, …). Места вызова: `ApplicationService`, `EnrollmentService`, `PersonService`, `ConsentService`.
-- [ ] `EnrollmentService::restoreFromArchive()/selectExistingParent()/removeParentAssignment()` возвращают анонимные массивы → результирующие DTO (`RestoreResultDTO`, `ParentAssignmentResultDTO`).
-- [ ] `UserManager::create(array)` — принимать `UserInputDTO` (внутри маппить на `wp_insert_user`).
+- [x] `AuditLogRepository` / `EnrollmentAuditLogWriter` — писать через `AuditLogInputDTO`, убрать `create(array)`.
+- [x] `ApplicationRepository::create(array)`, `StudentRecordRepository::create(array)`, `PersonRepository::create(array)`, `ConsentRepository::create(array)` — Input-DTO: `ApplicationRecordInputDTO`, `StudentRecordInputDTO`, `PersonRecordInputDTO`, `ConsentInputDTO`. Места вызова обновлены.
+- [x] `EnrollmentService::restoreFromArchive()/selectExistingParent()/removeParentAssignment()` → `RestoreResultDTO`, `ParentAssignmentResultDTO`, `RemoveParentResultDTO`.
+- [x] `UserManager::create(array)` → `UserInputDTO`.
 
 ### 4. Enum вместо строковых констант
 
 - [x] `inc/Controllers/AuthLogController.php:64,75,86` — `'login'`, `'login_failed'`, `'password_reset'` → `AuthAction::*->value`; bool `$success` → `AuthResult`.
 - [x] `inc/Callbacks/ApplicationCallbacks.php:208,267` — `'otp_sent'`, `'otp_verified'` → `AuthAction::*`.
 - [x] `AuthLogWriter::record()` — сигнатуру перевести на `AuthAction` + `AuthResult` вместо `string`/`bool`.
-- [ ] `EnrollmentAuditLogWriter::record(string $action, string $targetType, ...)` — принимать `AuditAction` и enum типа цели (новый `AuditTargetType`: `StudentRecord|Application|Person|User`), строки `'student_record'`/`'application'`/`'user'` разбросаны по подписчикам и сервисам.
-- [ ] Статусы `'success'`/`'failed'` в `EmailLogWriter` → enum `EmailStatus` (+ использовать в `logs-6-email.php` для badge).
-- [ ] `templates/admin/components/tabs/subject-tabs/subject-4-taxonomies.php:6` — `$display_labels` → enum `TaxonomyDisplayType` c `label()`.
-- [ ] `ajaxRevealUserCredentials` (`EnrollmentCallbacks.php:639-640`) — `'login,password'`, `'admin_reveal_credentials'` → использовать `PiiField` enum / константы причины доступа.
+- [x] `EnrollmentAuditLogWriter::record(string $action, string $targetType, ...)` — принимать `AuditAction` и enum типа цели (новый `AuditTargetType`: `StudentRecord|Application|Person|User`), строки `'student_record'`/`'application'`/`'user'` разбросаны по подписчикам и сервисам.
+- [x] Статусы `'success'`/`'failed'` в `EmailLogWriter` → enum `EmailStatus` (+ использовать в `logs-6-email.php` для badge).
+- [x] `templates/admin/components/tabs/subject-tabs/subject-4-taxonomies.php:6` — `$display_labels` → enum `TaxonomyDisplayType` c `label()`.
+- [x] `ajaxRevealUserCredentials` (`EnrollmentCallbacks.php:639-640`) — `'login,password'`, `'admin_reveal_credentials'` → `PiiField::Login/Password->value`, новый `PiiAccessReason` enum. Также закрыт `'student_data'`/`'application_review'` (строка 144).
 
 ### 5. JS: убрать `alert()`/`confirm()` (см. basic_doc «Система уведомлений»)
 
@@ -1836,22 +1836,22 @@ interface CsvImportProviderInterface {
 - [x] `src/js/admin/services/consent-settings.js:31,115,118` — `confirm` → `ConfirmModal.confirm`, `alert` → `AlertModal.show`.
 - [x] `src/js/admin/modals/select-parent-modal.js:126,132,137,151,156` — `alert`/`confirm` → `AlertModal.show` / `ConfirmModal.confirm`.
 - [x] `src/js/admin/services/person-detail.js:189` — `confirm` → `ConfirmModal.confirm`.
-- [ ] `src/js/admin/modals/alert-modal.js:19` — нативный `alert` оставить только как fallback при отсутствии шаблона (допустимо, добавить комментарий).
-- [ ] Включить ESLint-правило `no-alert` в error (сейчас глушится `eslint-disable`).
+- [x] `src/js/admin/modals/alert-modal.js:19` — нативный `alert` оставить только как fallback при отсутствии шаблона (допустимо, комментарий уже есть).
+- [x] Включить ESLint-правило `no-alert` в error (сейчас глушится `eslint-disable`).
 
 ### 6. Логирование: добить миграцию на шину и удалить `AuditService`
 
 Осталось мигрировать на `LogEvent::dispatch` (после коммита транзакций):
 
-- [ ] `ConsentService` (3 вызова `auditService`) → события `ConsentChanged`/новые.
-- [ ] `PersonService` (2: `UpdatePerson`, `PiiDeletionRequested`).
-- [ ] `PasswordGeneratorService` (2: `PasswordGenerated`, `PasswordSet`) — заодно убрать зависимость от `AuditService` (см. конструктор).
-- [ ] `RetentionService` (1: `anonymize_person` — строка! → case в `AuditAction` или `EntityAudit`).
-- [ ] `RecoveryService` (1: `recovery_completed` — строка! → case).
-- [ ] `SubjectDeletionCascadeHandler`, `PeriodDeletionCascadeHandler` — `AuditAction::HardDelete*` события уйти в `deletion_log`/`EntityAudit`.
-- [ ] Callbacks: `ApplicationCallbacks`, `EnrollmentCallbacks`, `ExpulsionCallbacks` — снять прямые инъекции `AuditService`.
-- [ ] `EnrollmentCallbacks.php:635` — прямой `$this->piiAccessLog->create(...)` (мимо writer'а и шины) → `dispatch(LogEvent::PiiRevealed, ...)`.
-- [ ] После всего — **удалить `inc/Services/AuditService.php`** и почистить стейл-комментарии (`ExpulsionService.php:36` всё ещё упоминает AuditService).
+- [x] `ConsentService` (3 вызова `auditService`) → события `ConsentChanged`/новые.
+- [x] `PersonService` (2: `UpdatePerson`, `PiiDeletionRequested`).
+- [x] `PasswordGeneratorService` (2: `PasswordGenerated`, `PasswordSet`) — убрать зависимость от `AuditService`.
+- [x] `RetentionService` (1: `anonymize_person` — строка! → case в `AuditAction` или `EntityAudit`).
+- [x] `RecoveryService` (1: `recovery_completed` — строка! → case).
+- [x] `SubjectDeletionCascadeHandler`, `PeriodDeletionCascadeHandler` — `AuditAction::HardDelete*` события уйти в `deletion_log`/`EntityAudit`.
+- [x] Callbacks: `ApplicationCallbacks`, `EnrollmentCallbacks`, `ExpulsionCallbacks` — снять прямые инъекции `AuditService`.
+- [x] `EnrollmentCallbacks.php:635` — прямой `$this->piiAccessLog->create(...)` (мимо writer'а и шины) → `dispatch(LogEvent::PiiRevealed, ...)`.
+- [x] **Удалить `inc/Services/AuditService.php`** и почистить стейл-комментарии (`ExpulsionService.php:36`, `RequestContextProvider.php`, `RequestContextDTO.php`).
 
 ### 7. Интерфейсы и структура
 
@@ -1865,7 +1865,7 @@ interface CsvImportProviderInterface {
 **`FieldInterface::sanitize()` — оставить.** Полиморфная санитизация по типу поля (текст/HTML/URL) — корректный Strategy; без неё `MetaBoxController::save()` получит `match` по типам полей (нарушение OCP). Доработать:
 - [x] Типизировать контракт: `declare(strict_types=1)`, `render(\WP_Post $post, ...)`, `sanitize(mixed $value): mixed`.
 - [x] Реализации делегируют в методы трейта `Sanitizer` (единая точка правды), а не зовут `sanitize_text_field`/`wp_kses_post` напрямую (`InputField.php:56`, `ConditionField.php:76`).
-- [ ] `MetaBoxController::save()` — цикл санитизации + `update_post_meta` вынести в `MetaBoxManager`/`TaskManager` (контроллер не содержит логику и не пишет meta напрямую).
+- [x] `MetaBoxController::save()` — цикл санитизации + `update_post_meta` вынесены в `MetaBoxManager::saveFields()`; `MetaBoxManager` инжектирован в `MetaBoxController`.
 
 **Группировка директорий:**
 
@@ -1894,13 +1894,14 @@ interface CsvImportProviderInterface {
 
 **Инлайн-стили (CSS Rules):**
 
-- [ ] `templates/admin/components/tabs/logs-tabs/*` — 92 вхождения `style=""` (ширины колонок, отступы фильтров, иконки) → классы в `src/scss/admin/components/_logs.scss` (`.fs-logs-table__col--id { width: 50px }` и т.п.). Тот же подход для остальных табов-шаблонов. Для ширины колонок использовать ТОЛЬКО классы из scss/common/components/_widths.scss. Отступы задавать только через стандартные переменных из scss/admin/_variables.scss. Не плодить лишние стили, пользоваться существующими общими стилями. По возможности использовать готовые классы. Все dashicons привести к единому типу
-
+- [x] Инлайн-стили убраны из всех `templates/admin/**` (logs-tabs, settings-tabs, subject-tabs, userlist-tabs, модалки, boilerplates, person-detail). Ширины — классы из `_widths.scss` (`tw-*`, `input-width-*`, `max-tw-50`); отступы/текст — утилиты `_utilities.scss` (`fs-mt-*`, `fs-mb-*`, `fs-text-*`, `fs-code-sm`, `fs-flex-row`); dashicons — единый `fs-dashicon` (+`--muted`/`--danger`); компонент согласий — `_consents.scss`. JS-инлайн (`css('transform')`, `css('color')`) переведён на классы `is-open`/`is-success`/`is-error`. Не тронуты: `templates/emails/*` (инлайн обязателен для почтовых клиентов) и 2 success-блока во frontend (`apply.php`, `join.php` — связаны с `style.display` в JS).
 - Привести все view файлы в папке src/admin/components/tabs к единой структуре.
 - Найти мертвый код (неиспользуемые классы) в JS
+- [x] Провести анализ _variables.scss и удалить дубликаты: `$wp-admin-blue`/`$wp-admin-red`/`$wp-admin-gray`/`$dashboard-tabs-bg-inactive`/`$table-row-border`/`$table-row-add-bg`/`$dashboard-tabs-transition` теперь алиасы базовых токенов вместо повторённых hex-значений. Ширины в шаблонах — только классы из `_widths.scss`.
+
 ---
 
 ## Багфикс
 1. Избавиться от таблицы Удаление (wp_fs_lms_deletion_log). Перенести удаления сущностей в таблицу изменения (crud) сущностей (wp_fs_lms_audit_log). Поскольку удаление предмета или удаление ученика относится к CRUD операциям с сущностями.
-2. Поправить таблицу Экспорта: должен фиксироваться и уже существующий импорт предмета и добавленный в будущем импорт учеников/родителей/групп/учебных периодов.
-3. EntityChangedEvent->$entityId принимает целочисленное значение идентификатора сущности. Но у объектов из wp_options (предметы, таксономии и т.д.) нет целочисленного ID, как у сущностей из самостоятельных таблиц. Нужно исправить это для работы как с сущностями таблиц wp_fs_lms_... так и wp_options (например, принимать слаг)
+2. Поправить таблицу логирования Экспорта (в бд и админке): должен фиксироваться и уже существующий импорт предмета и добавленный в будущем импорт учеников/родителей/групп/учебных периодов (можно добавить тип операции: Импорт или Экспорт).
+3. ~~EntityChangedEvent->$entityId принимает целочисленное значение идентификатора сущности. Но у объектов из wp_options (предметы, таксономии и т.д.) нет целочисленного ID, как у сущностей из самостоятельных таблиц. Нужно исправить это для работы как с сущностями таблиц wp_fs_lms_... так и wp_options (например, принимать слаг)~~ ✅ Исправлено: `int|string` в EntityChangedEvent, EntityAuditLogWriter, EntityAuditLogInputDTO, DDL миграции (`varchar(100)`), все callers обновлены.

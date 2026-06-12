@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\ConsentDTO;
+use Inc\DTO\ConsentInputDTO;
 use Inc\Enums\TableName;
 
 /**
@@ -100,12 +101,12 @@ class ConsentRepository {
 	/**
 	 * Создаёт новую запись согласия.
 	 *
-	 * @param array $data Массив полей таблицы (application_id, person_id, consent_type, и т.д.)
+	 * @param ConsentInputDTO $dto DTO с полями для вставки
 	 *
 	 * @return int ID созданной записи
 	 */
-	public function create( array $data ): int {
-		$this->wpdb->insert( $this->table, $data );
+	public function create( ConsentInputDTO $dto ): int {
+		$this->wpdb->insert( $this->table, $dto->toArray() );
 		return (int) $this->wpdb->insert_id;
 	}
 

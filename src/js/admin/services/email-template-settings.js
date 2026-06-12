@@ -233,12 +233,11 @@ export const EmailTemplateSettings = {
 	 * @param {'success'|'error'} type - Тип уведомления (определяет цвет).
 	 */
 	_showNotice( $el, text, type ) {
-		// Выбираем цвет в зависимости от типа: зеленый для успеха, красный для ошибки.
-		// Эти цвета соответствуют стандартной палитре WordPress admin.
-		const color = type === 'success' ? '#00a32a' : '#d63638';
-
-		// Устанавливаем текст, цвет и показываем элемент
-		$el.text( text ).css( 'color', color ).show();
+		// Цвет задаётся CSS-классами is-success / is-error (см. _email-templates.scss).
+		$el.text( text )
+			.removeClass( 'is-success is-error' )
+			.addClass( type === 'success' ? 'is-success' : 'is-error' )
+			.show();
 
 		// АВТОЗАКРЫТИЕ С АНИМАЦИЕЙ:
 		// Через 3 секунды запускаем плавное исчезновение (fadeOut за 400мс).

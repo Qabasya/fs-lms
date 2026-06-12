@@ -29,7 +29,7 @@ $filter_url  = add_query_arg( $deletion_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-7">
 
-		<input type="number" name="actor_id" placeholder="User ID" value="<?php echo esc_attr( $deletion_filters['actor_user_id'] ?? '' ); ?>" style="width:90px;">
+		<input type="number" name="actor_id" placeholder="User ID" value="<?php echo esc_attr( $deletion_filters['actor_user_id'] ?? '' ); ?>" class="input-width-md">
 
 		<select name="entity_type">
 			<option value="">Все типы</option>
@@ -49,11 +49,10 @@ $filter_url  = add_query_arg( $deletion_filters, $base_url );
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-log-csv"
+		<button type="button" class="button js-export-log-csv fs-logs__export-btn"
 			data-channel="deletion"
-			data-filters="<?php echo esc_attr( wp_json_encode( $deletion_filters ) ); ?>"
-			style="margin-left:auto;">
-			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
+			data-filters="<?php echo esc_attr( wp_json_encode( $deletion_filters ) ); ?>">
+			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
 	</form>

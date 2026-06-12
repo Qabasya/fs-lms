@@ -43,7 +43,7 @@ $filter_url  = add_query_arg( $email_filters, $base_url );
 			<option value="failed"  <?php selected( $email_filters['status'] ?? '', 'failed' ); ?>>Ошибка</option>
 		</select>
 
-		<input type="number" name="person_id" placeholder="Person ID" value="<?php echo esc_attr( $email_filters['target_person_id'] ?? '' ); ?>" style="width:90px;">
+		<input type="number" name="person_id" placeholder="Person ID" value="<?php echo esc_attr( $email_filters['target_person_id'] ?? '' ); ?>" class="input-width-md">
 		<input type="date" name="date_from" value="<?php echo esc_attr( $email_filters['date_from'] ?? '' ); ?>">
 		<span>—</span>
 		<input type="date" name="date_to"   value="<?php echo esc_attr( $email_filters['date_to'] ?? '' ); ?>">
@@ -53,11 +53,10 @@ $filter_url  = add_query_arg( $email_filters, $base_url );
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-log-csv"
+		<button type="button" class="button js-export-log-csv fs-logs__export-btn"
 			data-channel="email"
-			data-filters="<?php echo esc_attr( wp_json_encode( $email_filters ) ); ?>"
-			style="margin-left:auto;">
-			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
+			data-filters="<?php echo esc_attr( wp_json_encode( $email_filters ) ); ?>">
+			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
 	</form>

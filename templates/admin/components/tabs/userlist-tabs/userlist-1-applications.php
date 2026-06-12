@@ -232,22 +232,19 @@ $statusLabels = array_combine(
 						<br>
 						<?php if ( $app->parentPersonId !== null ) : ?>
 							<button type="button"
-								class="button-link js-select-existing-parent"
-								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
-								style="margin-top: 4px; font-size: 11px;">
+								class="button-link js-select-existing-parent fs-btn-link-sm"
+								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>">
 								<?php esc_html_e( '✎ Сменить родителя', 'fs-lms' ); ?>
 							</button>
 							<button type="button"
-								class="button-link js-remove-parent-assignment"
-								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
-								style="margin-top: 4px; font-size: 11px; color:#a00;">
+								class="button-link js-remove-parent-assignment fs-btn-link-sm fs-text-danger"
+								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>">
 								<?php esc_html_e( '✕ Снять назначение', 'fs-lms' ); ?>
 							</button>
 						<?php else : ?>
 							<button type="button"
-								class="button-link js-select-existing-parent"
-								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
-								style="margin-top: 4px; font-size: 11px;">
+								class="button-link js-select-existing-parent fs-btn-link-sm"
+								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>">
 								<?php esc_html_e( '+ Назначить родителя', 'fs-lms' ); ?>
 							</button>
 						<?php endif; ?>

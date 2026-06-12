@@ -62,4 +62,20 @@ trait Authorizer {
 			wp_die( 'Недостаточно прав.', 403 );
 		}
 	}
+
+	/**
+	 * Авторизация в хуке save_post (не AJAX).
+	 * Проверяет nonce и право редактировать пост. Возвращает false при неуспехе.
+	 *
+	 * @param Nonce  $nonceEnum  Enum nonce
+	 * @param int    $postId     ID сохраняемого поста
+	 * @param string $nonceField Имя поля nonce в $_POST
+	 */
+	protected function authorizePostSave( Nonce $nonceEnum, int $postId, string $nonceField = 'fs_lms_meta_nonce' ): bool {
+		if ( empty( $_POST[ $nonceField ] ) ) {
+			return false;
+		}
+		return wp_verify_nonce( $_POST[ $nonceField ], $nonceEnum->value ) !== false
+			&& current_user_can( 'edit_post', $postId );
+	}
 }

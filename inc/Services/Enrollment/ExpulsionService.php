@@ -33,7 +33,7 @@ use RuntimeException;
  * ### Архитектурная роль:
  *
  * Делегирует операции с БД репозиториям PersonRepository и StudentRecordRepository.
- * Использует AuditService для логирования события отчисления.
+ * Использует LogEventDispatcherInterface для логирования события отчисления.
  * Использует ClockInterface для получения точного времени отчисления.
  *
  * ### Примечания:

@@ -5,6 +5,9 @@ declare( strict_types=1 );
 namespace Inc\Services\Log;
 
 use Inc\Contracts\ClockInterface;
+use Inc\DTO\Log\AuditLogInputDTO;
+use Inc\Enums\AuditAction;
+use Inc\Enums\AuditTargetType;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
@@ -55,53 +58,53 @@ class EnrollmentAuditLogWriter {
 	/**
 	 * Записывает событие в журнал аудита (авторизованный пользователь).
 	 *
-	 * @param string      $action      Тип действия (из AuditAction)
-	 * @param string      $targetType  Тип цели (application, enrollment)
-	 * @param int|null    $targetId    ID цели
-	 * @param array|null  $details     Дополнительные детали (JSON)
+	 * @param AuditAction     $action      Тип действия
+	 * @param AuditTargetType $targetType  Тип цели
+	 * @param int|null        $targetId    ID цели
+	 * @param array|null      $details     Дополнительные детали (JSON)
 	 *
 	 * @return void
 	 */
-	public function record( string $action, string $targetType, ?int $targetId, ?array $details = null ): void {
-		$ctx = $this->requestContext();
+	public function record( AuditAction $action, AuditTargetType $targetType, ?int $targetId, ?array $details = null ): void {
+		$ctx  = $this->requestContext();
 		$role = $this->resolveRole( $ctx->actorUserId );
 
-		$this->repository->create( array(
-			'actor_user_id' => $ctx->actorUserId > 0 ? $ctx->actorUserId : null,
-			'actor_role'    => $role,
-			'action'        => $action,
-			'target_type'   => $targetType,
-			'target_id'     => $targetId,
-			'details_json'  => null !== $details ? wp_json_encode( $details ) : null,
-			'actor_ip'      => $ctx->ip,
-			'actor_ua'      => '' !== $ctx->userAgent ? $ctx->userAgent : null,
-			'created_at'    => $this->clock->now( 'mysql', true ),
+		$this->repository->create( new AuditLogInputDTO(
+			actorUserId: $ctx->actorUserId > 0 ? $ctx->actorUserId : null,
+			actorRole:   $role,
+			action:      $action->value,
+			targetType:  $targetType->value,
+			targetId:    $targetId,
+			detailsJson: null !== $details ? wp_json_encode( $details ) : null,
+			actorIp:     $ctx->ip,
+			actorUa:     '' !== $ctx->userAgent ? $ctx->userAgent : null,
+			createdAt:   $this->clock->now( 'mysql', true ),
 		) );
 	}
 
 	/**
 	 * Записывает событие в журнал аудита (анонимный/неавторизованный пользователь).
 	 *
-	 * @param string      $action      Тип действия (из AuditAction)
-	 * @param string      $targetType  Тип цели (application, enrollment)
-	 * @param int|null    $targetId    ID цели
-	 * @param array|null  $details     Дополнительные детали (JSON)
+	 * @param AuditAction     $action      Тип действия
+	 * @param AuditTargetType $targetType  Тип цели
+	 * @param int|null        $targetId    ID цели
+	 * @param array|null      $details     Дополнительные детали (JSON)
 	 *
 	 * @return void
 	 */
-	public function recordAnonymous( string $action, string $targetType, ?int $targetId, ?array $details = null ): void {
+	public function recordAnonymous( AuditAction $action, AuditTargetType $targetType, ?int $targetId, ?array $details = null ): void {
 		$ctx = $this->requestContext();
 
-		$this->repository->create( array(
-			'actor_user_id' => null,
-			'actor_role'    => null,
-			'action'        => $action,
-			'target_type'   => $targetType,
-			'target_id'     => $targetId,
-			'details_json'  => null !== $details ? wp_json_encode( $details ) : null,
-			'actor_ip'      => $ctx->ip,
-			'actor_ua'      => '' !== $ctx->userAgent ? $ctx->userAgent : null,
-			'created_at'    => $this->clock->now( 'mysql', true ),
+		$this->repository->create( new AuditLogInputDTO(
+			actorUserId: null,
+			actorRole:   null,
+			action:      $action->value,
+			targetType:  $targetType->value,
+			targetId:    $targetId,
+			detailsJson: null !== $details ? wp_json_encode( $details ) : null,
+			actorIp:     $ctx->ip,
+			actorUa:     '' !== $ctx->userAgent ? $ctx->userAgent : null,
+			createdAt:   $this->clock->now( 'mysql', true ),
 		) );
 	}
 

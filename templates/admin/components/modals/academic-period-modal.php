@@ -24,13 +24,13 @@
                     <p class="description">Используется для названия типов записей в базе.</p>
                 </div>
 
-                <div class="fs-form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-                    <div class="fs-form-group" style="flex: 1; margin-bottom: 0;">
+                <div class="fs-form-row">
+                    <div class="fs-form-group">
                         <label for="period_start_date">Дата начала</label>
                         <input type="date" id="period_start_date" required>
                     </div>
 
-                    <div class="fs-form-group" style="flex: 1; margin-bottom: 0;">
+                    <div class="fs-form-group">
                         <label for="period_end_date">Дата окончания</label>
                         <input type="date" id="period_end_date" required>
                     </div>

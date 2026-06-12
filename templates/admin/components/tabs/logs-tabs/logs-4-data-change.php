@@ -24,7 +24,7 @@ $filter_url  = add_query_arg( $data_change_filters, $base_url );
 
 <div class="fs-logs-tab" id="js-data-change-log-tab">
 
-	<p class="description" style="margin-top:12px;">
+	<p class="description fs-mt-md">
 		Значения хранятся в зашифрованном виде. Полные данные доступны через CSV-экспорт.
 	</p>
 
@@ -32,8 +32,8 @@ $filter_url  = add_query_arg( $data_change_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-4">
 
-		<input type="number" name="actor_id"  placeholder="User ID"   value="<?php echo esc_attr( $data_change_filters['actor_user_id'] ?? '' ); ?>" style="width:90px;">
-		<input type="number" name="person_id" placeholder="Person ID" value="<?php echo esc_attr( $data_change_filters['target_person_id'] ?? '' ); ?>" style="width:90px;">
+		<input type="number" name="actor_id"  placeholder="User ID"   value="<?php echo esc_attr( $data_change_filters['actor_user_id'] ?? '' ); ?>" class="input-width-md">
+		<input type="number" name="person_id" placeholder="Person ID" value="<?php echo esc_attr( $data_change_filters['target_person_id'] ?? '' ); ?>" class="input-width-md">
 		<input type="date" name="date_from" value="<?php echo esc_attr( $data_change_filters['date_from'] ?? '' ); ?>">
 		<span>—</span>
 		<input type="date" name="date_to"   value="<?php echo esc_attr( $data_change_filters['date_to'] ?? '' ); ?>">
@@ -43,11 +43,10 @@ $filter_url  = add_query_arg( $data_change_filters, $base_url );
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-log-csv"
+		<button type="button" class="button js-export-log-csv fs-logs__export-btn"
 			data-channel="data_change"
-			data-filters="<?php echo esc_attr( wp_json_encode( $data_change_filters ) ); ?>"
-			style="margin-left:auto;">
-			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
+			data-filters="<?php echo esc_attr( wp_json_encode( $data_change_filters ) ); ?>">
+			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
 	</form>

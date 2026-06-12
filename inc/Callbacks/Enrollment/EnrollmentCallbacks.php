@@ -17,6 +17,8 @@ use Inc\Enums\Capability;
 use Inc\Enums\DocumentType;
 use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
+use Inc\Enums\PiiAccessReason;
+use Inc\Enums\PiiField;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -141,8 +143,8 @@ class EnrollmentCallbacks extends BaseController {
 			$this->logEvents->dispatch( LogEvent::PiiRevealed, new PiiRevealedEvent(
 				actorUserId:    get_current_user_id(),
 				targetPersonId: null,
-				fieldsAccessed: 'student_data',
-				accessReason:   'application_review',
+				fieldsAccessed: PiiField::StudentData->value,
+				accessReason:   PiiAccessReason::ApplicationReview->value,
 			) );
 		}
 
@@ -613,8 +615,8 @@ class EnrollmentCallbacks extends BaseController {
 		$this->logEvents->dispatch( LogEvent::PiiRevealed, new PiiRevealedEvent(
 			actorUserId:    $actor_id,
 			targetPersonId: $personId ?: null,
-			fieldsAccessed: 'login,password',
-			accessReason:   'admin_reveal_credentials',
+			fieldsAccessed: PiiField::Login->value . ',' . PiiField::Password->value,
+			accessReason:   PiiAccessReason::AdminRevealCredentials->value,
 		) );
 
 		$this->success( $credentials );
@@ -646,7 +648,7 @@ class EnrollmentCallbacks extends BaseController {
 
 		try {
 			$result = $this->enrollmentService->restoreFromArchive( $archiveId, $withParent );
-			$this->success( $result );
+			$this->success( $result->toArray() );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 		} catch ( \RuntimeException $e ) {
@@ -665,7 +667,7 @@ class EnrollmentCallbacks extends BaseController {
 
 		try {
 			$result = $this->enrollmentService->selectExistingParent( $applicationId, $parentPersonId );
-			$this->success( $result );
+			$this->success( $result->toArray() );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 		} catch ( \DomainException $e ) {
@@ -680,7 +682,7 @@ class EnrollmentCallbacks extends BaseController {
 
 		try {
 			$result = $this->enrollmentService->removeParentAssignment( $applicationId );
-			$this->success( $result );
+			$this->success( $result->toArray() );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 		} catch ( \DomainException $e ) {

@@ -6,6 +6,7 @@ namespace Inc\Services;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\ConsentInputDTO;
 use Inc\DTO\Log\Events\ConsentChangedEvent;
 use Inc\DTO\RequestContextDTO;
 use Inc\Enums\LogEvent;
@@ -128,16 +129,16 @@ readonly class ConsentService {
 	public function recordSelfConsent( ?int $appId, string $typeKey, RequestContextDTO $ctx ): int {
 		$version = $this->getCurrentVersion( $typeKey );
 
-		$id = $this->consentRepository->create( array(
-			'application_id'       => $appId,
-			'consent_type'         => $typeKey,
-			'subject_role'         => 'self',
-			'version'              => $version,
-			'document_hash'        => $version,
-			'ip_address'           => $ctx->ip,
-			'user_agent'           => $ctx->userAgent,
-			'accepted_at'          => $this->clock->now( 'mysql', true ),
-			'signed_for_person_id' => null,
+		$id = $this->consentRepository->create( new ConsentInputDTO(
+			applicationId:     $appId,
+			consentType:       $typeKey,
+			subjectRole:       'self',
+			version:           $version,
+			documentHash:      $version,
+			ipAddress:         $ctx->ip,
+			userAgent:         $ctx->userAgent,
+			acceptedAt:        $this->clock->now( 'mysql', true ),
+			signedForPersonId: null,
 		) );
 
 		$this->logEvents->dispatch(
@@ -163,16 +164,16 @@ readonly class ConsentService {
 	public function recordGuardianConsent( ?int $appId, string $typeKey, int $forPersonId, RequestContextDTO $ctx ): int {
 		$version = $this->getCurrentVersion( $typeKey );
 
-		$id = $this->consentRepository->create( array(
-			'application_id'       => $appId,
-			'consent_type'         => $typeKey,
-			'subject_role'         => 'guardian',
-			'version'              => $version,
-			'document_hash'        => $version,
-			'ip_address'           => $ctx->ip,
-			'user_agent'           => $ctx->userAgent,
-			'accepted_at'          => $this->clock->now( 'mysql', true ),
-			'signed_for_person_id' => $forPersonId ?: null,
+		$id = $this->consentRepository->create( new ConsentInputDTO(
+			applicationId:     $appId,
+			consentType:       $typeKey,
+			subjectRole:       'guardian',
+			version:           $version,
+			documentHash:      $version,
+			ipAddress:         $ctx->ip,
+			userAgent:         $ctx->userAgent,
+			acceptedAt:        $this->clock->now( 'mysql', true ),
+			signedForPersonId: $forPersonId ?: null,
 		) );
 
 		$this->logEvents->dispatch(

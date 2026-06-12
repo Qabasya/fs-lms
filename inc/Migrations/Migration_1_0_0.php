@@ -230,7 +230,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			actor_role    varchar(50)         DEFAULT NULL,
 			operation     varchar(10)         NOT NULL,
 			entity_type   varchar(30)         NOT NULL,
-			entity_id     int unsigned        DEFAULT NULL,
+			entity_id     varchar(100)         DEFAULT NULL,
 			old_label     varchar(255)        DEFAULT NULL,
 			actor_ip      varchar(45)         NOT NULL DEFAULT '',
 			created_at    datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -413,6 +413,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) NOT NULL DEFAULT '',
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
+		$entity_audit_log = TableName::EntityAuditLog->prefixed();
+		$wpdb->query( "ALTER TABLE `$entity_audit_log` MODIFY COLUMN `entity_id` varchar(100) DEFAULT NULL" );
 		// phpcs:enable
 	}
 

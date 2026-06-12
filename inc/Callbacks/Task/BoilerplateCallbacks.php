@@ -94,7 +94,7 @@ class BoilerplateCallbacks extends BaseController {
 					get_current_user_id(),
 					$isNew ? OperationType::Create : OperationType::Update,
 					EntityType::Boilerplate,
-					null,
+					$isNew ? null : $uid,
 					$isNew ? null : $title,
 				)
 			);
@@ -134,7 +134,7 @@ class BoilerplateCallbacks extends BaseController {
 		if ( $result ) {
 			$this->logEvents->dispatch(
 				LogEvent::BoilerplateDeleted,
-				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Boilerplate, null, $oldLabel )
+				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Boilerplate, $uid, $oldLabel )
 			);
 		}
 

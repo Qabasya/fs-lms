@@ -64,9 +64,9 @@ export const ConsentSettings = {
 			// Переключаем видимость тела аккордеона
 			$row.toggleClass( 'hidden' );
 
-			// Поворачиваем стрелочку на 90 градусов при раскрытии, возвращаем в исходное при скрытии.
-			// Использование CSS transform вместо смены классов позволяет сделать плавную анимацию через transition.
-			$icon.css( 'transform', $row.hasClass( 'hidden' ) ? '' : 'rotate(90deg)' );
+			// Поворот стрелки задаётся CSS-классом is-open (см. _consents.scss),
+			// анимация — через transition на .accordion-arrow.
+			$icon.toggleClass( 'is-open', ! $row.hasClass( 'hidden' ) );
 		} );
 
 		// ==========================================

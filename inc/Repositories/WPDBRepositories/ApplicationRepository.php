@@ -4,8 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories\WPDBRepositories;
 
-use Inc\Enums\ApplicationStatus;
 use Inc\DTO\Application\ApplicationDTO;
+use Inc\DTO\Application\ApplicationRecordInputDTO;
+use Inc\Enums\ApplicationStatus;
 use Inc\Enums\TableName;
 
 /**
@@ -229,14 +230,12 @@ class ApplicationRepository {
 	/**
 	 * Создаёт новую запись заявки в базе данных.
 	 *
-	 * @param array $data Плоский массив полей таблицы
+	 * @param ApplicationRecordInputDTO $dto DTO с полями для вставки
 	 *
 	 * @return int ID созданной строки
 	 */
-	public function create( array $data ): int {
-		// insert() — вставляет строку в таблицу
-		$this->wpdb->insert( $this->table, $data );
-		// insert_id — последний автоматически сгенерированный ID
+	public function create( ApplicationRecordInputDTO $dto ): int {
+		$this->wpdb->insert( $this->table, $dto->toArray() );
 		return (int) $this->wpdb->insert_id;
 	}
 

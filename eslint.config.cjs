@@ -24,6 +24,7 @@ module.exports = [
         rules: {
             ...wp.configs.recommended.rules,
             "no-console": "off",
+            "no-alert": "error",
         }
     }
 ];

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Enrollment\StudentRecordDTO;
+use Inc\DTO\Enrollment\StudentRecordInputDTO;
 use Inc\Enums\EnrollmentStatus;
 use Inc\Enums\TableName;
 
@@ -325,12 +326,12 @@ class StudentRecordRepository {
 	/**
 	 * Создаёт новую запись студента.
 	 *
-	 * @param array $data Массив полей таблицы
+	 * @param StudentRecordInputDTO $dto DTO с полями для вставки
 	 *
 	 * @return int ID созданной записи
 	 */
-	public function create( array $data ): int {
-		$this->wpdb->insert( $this->table, $data );
+	public function create( StudentRecordInputDTO $dto ): int {
+		$this->wpdb->insert( $this->table, $dto->toArray() );
 		return (int) $this->wpdb->insert_id;
 	}
 

@@ -21,13 +21,13 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 		<div class="fs-lms-modal-body">
 			<input type="hidden" id="spm-application-id" value="">
 
-			<p class="description" style="margin-bottom: 12px">
+			<p class="description fs-mb-md">
 				<?php esc_html_e( 'Найдите существующего родителя по имени или email.', 'fs-lms' ); ?>
 			</p>
 
 			<div class="fs-form-group">
 				<label for="spm-search"><?php esc_html_e( 'Поиск', 'fs-lms' ); ?></label>
-				<div style="display: flex; gap: 8px;">
+				<div class="fs-flex-row">
 					<input type="text"
 						id="spm-search"
 						class="regular-text"
@@ -38,7 +38,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 				</div>
 			</div>
 
-			<div id="spm-results" style="margin-top: 12px; max-height: 320px; overflow-y: auto;">
+			<div id="spm-results" class="fs-mt-md">
 				<table class="wp-list-table widefat fixed striped fs-table" id="spm-table" hidden>
 					<thead>
 						<tr>

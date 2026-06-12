@@ -1,11 +1,14 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Controllers;
 
 use Inc\Callbacks\Task\TaskCreationCallbacks;
 use Inc\Callbacks\Task\TemplateManagerCallbacks;
 use Inc\Enums\AjaxHook;
 use Inc\Services\PostTypeResolver;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class TaskCreationController
@@ -25,6 +28,8 @@ use Inc\Services\PostTypeResolver;
  * Делегирует бизнес-логику TaskCreationCallbacks (создание заданий) и TemplateManagerCallbacks (шаблоны).
  */
 class TaskCreationController extends AjaxController {
+
+	use Sanitizer;
 
 	/**
 	 * Конструктор контроллера.
@@ -52,7 +57,7 @@ class TaskCreationController extends AjaxController {
 			function () {
 				// get_current_screen() — возвращает объект текущего экрана админки
 				$screen = get_current_screen();
-				$page   = sanitize_text_field( $_GET['page'] ?? '' );
+				$page   = $this->sanitizeText( 'page', 'GET' );
 
 				// Проверка, находимся ли мы на странице CPT заданий или на странице предмета
 				$on_tasks_cpt    = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );

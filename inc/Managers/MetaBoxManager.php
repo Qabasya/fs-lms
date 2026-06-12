@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Managers;
 
 /**
@@ -162,6 +164,28 @@ class MetaBoxManager {
 
 		// Сохраняем мета-данные
 		update_post_meta( $post_id, $meta_key, $value );
+	}
+
+	/**
+	 * Санитизирует поля по объектам Field и сохраняет результат как мета-поле поста.
+	 *
+	 * @param int    $post_id  ID поста
+	 * @param string $meta_key Ключ мета-поля
+	 * @param array  $rawData  Сырые значения полей (уже прошедшие wp_unslash)
+	 * @param array  $fields   Конфигурация полей шаблона (с ключом 'object' — FieldInterface)
+	 *
+	 * @return void
+	 */
+	public function saveFields( int $post_id, string $meta_key, array $rawData, array $fields ): void {
+		$sanitized = array();
+
+		foreach ( $fields as $id => $config ) {
+			if ( isset( $rawData[ $id ], $config['object'] ) ) {
+				$sanitized[ $id ] = $config['object']->sanitize( $rawData[ $id ] );
+			}
+		}
+
+		$this->saveMeta( $post_id, $meta_key, $sanitized );
 	}
 
 	/**

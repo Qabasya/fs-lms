@@ -16,7 +16,7 @@ $groupsRepo = new GroupsRepository();
 		<div class="description-actions">
 
 			<a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
-			<input type="file" id="fs-import-file" accept=".json" style="display:none;">
+			<input type="file" id="fs-import-file" accept=".json" class="hidden">
 
 		</div>
 	</div>
@@ -125,7 +125,7 @@ $groupsRepo = new GroupsRepository();
 		<?php endif; ?>
 
 
-		<table style="display:none;">
+		<table class="hidden">
 			<tr id="fs-quick-edit-row" class="inline-edit-row">
 				<td colspan="6" class="colspanchange">
 

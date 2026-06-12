@@ -23,7 +23,7 @@ $filter_url  = add_query_arg( $pii_filters, $base_url );
 
 <div class="fs-logs-tab" id="js-pii-log-tab">
 
-	<p class="description" style="margin-top:12px;">
+	<p class="description fs-mt-md">
 		Каждое обращение к персональным данным через функцию «Показать» фиксируется здесь.
 		Журнал защищён от изменений.
 	</p>
@@ -32,10 +32,10 @@ $filter_url  = add_query_arg( $pii_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-2">
 
-		<input type="number" name="actor_id" placeholder="User ID" style="width:90px;"
+		<input type="number" name="actor_id" placeholder="User ID" class="input-width-md"
 			value="<?php echo esc_attr( $pii_filters['actor_user_id'] ?? '' ); ?>">
 
-		<input type="number" name="person_id" placeholder="Person ID" style="width:90px;"
+		<input type="number" name="person_id" placeholder="Person ID" class="input-width-md"
 			value="<?php echo esc_attr( $pii_filters['person_id'] ?? '' ); ?>">
 
 		<input type="date" name="date_from"
@@ -50,11 +50,10 @@ $filter_url  = add_query_arg( $pii_filters, $base_url );
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-log-csv"
+		<button type="button" class="button js-export-log-csv fs-logs__export-btn"
 			data-channel="pii"
-			data-filters="<?php echo esc_attr( wp_json_encode( $pii_filters ) ); ?>"
-			style="margin-left:auto;">
-			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
+			data-filters="<?php echo esc_attr( wp_json_encode( $pii_filters ) ); ?>">
+			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
 	</form>
@@ -91,7 +90,7 @@ $filter_url  = add_query_arg( $pii_filters, $base_url );
 					<td><?php echo esc_html( LogNameResolver::personName( $row->personId ) ); ?></td>
 					<td>
 						<?php foreach ( $fields as $field ) : ?>
-							<code style="font-size:11px;"><?php echo esc_html( $field ); ?></code>
+							<code class="fs-code-sm"><?php echo esc_html( $field ); ?></code>
 						<?php endforeach; ?>
 					</td>
 					<td><?php echo esc_html( $row->accessReason ); ?></td>

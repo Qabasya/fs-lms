@@ -61,7 +61,7 @@ class EntityAuditLogWriter {
 	 * @param int           $actorUserId ID пользователя, выполнившего действие
 	 * @param OperationType $operation   Тип операции (create, update, delete)
 	 * @param EntityType    $entityType  Тип сущности
-	 * @param int|null      $entityId    ID изменённой сущности
+	 * @param int|string|null $entityId  ID или ключ изменённой сущности
 	 * @param string|null   $oldLabel    Старое название сущности (для операций удаления)
 	 *
 	 * @return void
@@ -70,7 +70,7 @@ class EntityAuditLogWriter {
 		int           $actorUserId,
 		OperationType $operation,
 		EntityType    $entityType,
-		?int          $entityId,
+		int|string|null $entityId,
 		?string       $oldLabel = null
 	): void {
 		$ctx = $this->requestContext();

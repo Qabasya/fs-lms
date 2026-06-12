@@ -9,6 +9,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\EntityHardDeletedEvent;
 use Inc\DTO\Log\Events\PersonDataChangedEvent;
 use Inc\DTO\Person\PersonInputDTO;
+use Inc\DTO\Person\PersonRecordInputDTO;
 use Inc\Enums\LogEvent;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
@@ -47,16 +48,16 @@ readonly class PersonService {
 		}
 
 		$now      = $this->clock->now( 'mysql', true );
-		$personId = $this->personRepository->create( array(
-			'last_name'   => $input->lastName,
-			'first_name'  => $input->firstName,
-			'middle_name' => $input->middleName !== '' ? $input->middleName : null,
-			'birth_date'  => $input->birthDate !== '' ? $input->birthDate : null,
-			'is_student'  => $input->isStudent ? 1 : 0,
-			'school'      => $input->school !== '' ? $input->school : null,
-			'grade'       => $input->grade  !== '' ? $input->grade  : null,
-			'created_at'  => $now,
-			'updated_at'  => $now,
+		$personId = $this->personRepository->create( new PersonRecordInputDTO(
+			lastName:   $input->lastName,
+			firstName:  $input->firstName,
+			isStudent:  $input->isStudent ? 1 : 0,
+			createdAt:  $now,
+			updatedAt:  $now,
+			middleName: $input->middleName !== '' ? $input->middleName : null,
+			birthDate:  $input->birthDate  !== '' ? $input->birthDate  : null,
+			school:     $input->school     !== '' ? $input->school     : null,
+			grade:      $input->grade      !== '' ? $input->grade      : null,
 		) );
 
 		if ( 0 === $personId ) {

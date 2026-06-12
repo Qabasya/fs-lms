@@ -5,10 +5,16 @@ declare( strict_types=1 );
 namespace Inc\Services\Enrollment;
 
 use DomainException;
+use Inc\DTO\Application\ApplicationRecordInputDTO;
 use Inc\DTO\Enrollment\EnrollmentInputDTO;
 use Inc\DTO\Enrollment\EnrollmentResultDTO;
+use Inc\DTO\Enrollment\ParentAssignmentResultDTO;
+use Inc\DTO\Enrollment\RemoveParentResultDTO;
+use Inc\DTO\Enrollment\RestoreResultDTO;
+use Inc\DTO\Enrollment\StudentRecordInputDTO;
 use Inc\DTO\Person\ParentDataDTO;
 use Inc\DTO\Person\PersonInputDTO;
+use Inc\DTO\Person\UserInputDTO;
 use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
@@ -144,24 +150,24 @@ readonly class EnrollmentService {
 					email:         $parentDto->email !== '' ? $parentDto->email : null,
 				) );
 
-			$recordId = $this->studentRecordRepository->create( array(
-				'student_person_id'   => $studentPersonId,
-				'parent_person_id'    => $guardianPersonId,
-				'group_id'            => $input->groupId ?: null,
-				'snapshot_last_name'  => $studentDto->lastName,
-				'snapshot_first_name' => $studentDto->firstName,
-				'snapshot_middle_name' => $studentDto->middleName ?: null,
-				'snapshot_school'     => $studentDto->school      ?: null,
-				'snapshot_grade'      => (string) $studentDto->grade ?: null,
-				'contract_no'         => $input->contractNo  ?: null,
-				'contract_date'       => $input->contractDate ?: null,
-				'order_no'            => $input->orderNo     ?: null,
-				'order_date'          => $input->orderDate   ?: null,
-				'status'              => 'active',
-				'enrolled_at'         => $input->enrolledAt,
-				'enrolled_by_user_id' => get_current_user_id() ?: null,
-				'created_at'          => $now,
-				'updated_at'          => $now,
+			$recordId = $this->studentRecordRepository->create( new StudentRecordInputDTO(
+				studentPersonId:   $studentPersonId,
+				parentPersonId:    $guardianPersonId,
+				status:            'active',
+				enrolledAt:        $input->enrolledAt,
+				createdAt:         $now,
+				updatedAt:         $now,
+				groupId:           $input->groupId ?: null,
+				snapshotLastName:  $studentDto->lastName,
+				snapshotFirstName: $studentDto->firstName,
+				snapshotMiddleName: $studentDto->middleName ?: null,
+				snapshotSchool:    $studentDto->school      ?: null,
+				snapshotGrade:     (string) $studentDto->grade ?: null,
+				contractNo:        $input->contractNo   ?: null,
+				contractDate:      $input->contractDate  ?: null,
+				orderNo:           $input->orderNo      ?: null,
+				orderDate:         $input->orderDate     ?: null,
+				enrolledByUserId:  get_current_user_id() ?: null,
 			) );
 
 			$this->consentService->bindToPersons( $app->id, array(
@@ -209,14 +215,14 @@ readonly class EnrollmentService {
 					$studentPassword = $studentDto->loginPassword !== ''
 						? $studentDto->loginPassword
 						: $this->passwordGenerator->generatePlain();
-					$studentUserId   = $this->userManager->create( array(
-						'user_login'   => $studentLogin,
-						'user_email'   => $studentEmail,
-						'user_pass'    => $studentPassword,
-						'display_name' => $studentDto->fullName(),
-						'first_name'   => $studentDto->firstName,
-						'last_name'    => $studentDto->lastName,
-						'role'         => UserRole::FSStudent->value,
+					$studentUserId   = $this->userManager->create( new UserInputDTO(
+						userLogin:   $studentLogin,
+						userEmail:   $studentEmail,
+						userPass:    $studentPassword,
+						displayName: $studentDto->fullName(),
+						firstName:   $studentDto->firstName,
+						lastName:    $studentDto->lastName,
+						role:        UserRole::FSStudent->value,
 					) );
 					$this->passwordGenerator->storeEncrypted( $studentUserId, $studentPassword );
 					$this->logEvents->dispatch(
@@ -245,14 +251,14 @@ readonly class EnrollmentService {
 				} else {
 					$guardianLogin    = $guardianEmail;
 					$guardianPassword = $this->passwordGenerator->generatePlain();
-					$guardianUserId   = $this->userManager->create( array(
-						'user_login'   => $guardianEmail,
-						'user_email'   => $guardianEmail,
-						'user_pass'    => $guardianPassword,
-						'display_name' => $parentDto->fullName(),
-						'first_name'   => $parentDto->firstName,
-						'last_name'    => $parentDto->lastName,
-						'role'         => UserRole::FSParent->value,
+					$guardianUserId   = $this->userManager->create( new UserInputDTO(
+						userLogin:   $guardianEmail,
+						userEmail:   $guardianEmail,
+						userPass:    $guardianPassword,
+						displayName: $parentDto->fullName(),
+						firstName:   $parentDto->firstName,
+						lastName:    $parentDto->lastName,
+						role:        UserRole::FSParent->value,
 					) );
 					$this->passwordGenerator->storeEncrypted( $guardianUserId, $guardianPassword );
 					$this->logEvents->dispatch(
@@ -304,14 +310,7 @@ readonly class EnrollmentService {
 		}
 	}
 
-	/**
-	 * Восстанавливает ученика из student_records: создаёт новую заявку.
-	 *
-	 * @param int $recordId ID записи student_records
-	 *
-	 * @return array{id: int, join_url: string}
-	 */
-	public function restoreFromArchive( int $recordId, bool $withParent = false ): array {
+	public function restoreFromArchive( int $recordId, bool $withParent = false ): RestoreResultDTO {
 		$record = $this->studentRecordRepository->find( $recordId );
 
 		if ( null === $record ) {
@@ -358,15 +357,15 @@ readonly class EnrollmentService {
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
 
 		$now   = $this->clock->now( 'mysql', true );
-		$appId = $this->applicationRepository->create( array(
-			'student_person_id'    => $record->studentPersonId,
-			'status'               => ApplicationStatus::PendingParent->value,
-			'join_code_hash'       => $joinHash,
-			'join_code_enc'        => $joinEnc,
-			'join_code_expires_at' => $expiresAt,
-			'student_data_enc'     => $studentDataEnc,
-			'created_at'           => $now,
-			'updated_at'           => $now,
+		$appId = $this->applicationRepository->create( new ApplicationRecordInputDTO(
+			status:            ApplicationStatus::PendingParent->value,
+			joinCodeHash:      $joinHash,
+			joinCodeEnc:       $joinEnc,
+			joinCodeExpiresAt: $expiresAt,
+			studentDataEnc:    $studentDataEnc,
+			createdAt:         $now,
+			updatedAt:         $now,
+			studentPersonId:   $record->studentPersonId,
 		) );
 
 		if ( 0 === $appId ) {
@@ -390,24 +389,20 @@ readonly class EnrollmentService {
 				'updated_at' => $this->clock->now( 'mysql', true ),
 			) );
 
-			return array_merge( array( 'id' => $appId ), $parentResult );
+			return new RestoreResultDTO(
+				appId:      $appId,
+				joinUrl:    $parentResult->joinUrl,
+				parentName: $parentResult->parentName,
+			);
 		}
 
-		return array(
-			'id'       => $appId,
-			'join_url' => home_url( '/lms/join/' . $joinCode ),
+		return new RestoreResultDTO(
+			appId:   $appId,
+			joinUrl: home_url( '/lms/join/' . $joinCode ),
 		);
 	}
 
-	/**
-	 * Привязывает существующего родителя к заявке и ротирует JOIN-код.
-	 * Статус остаётся pending_parent — родитель подтверждает данные ученика через форму.
-	 *
-	 * @param int $applicationId  ID заявки (status = pending_parent)
-	 * @param int $parentPersonId ID существующего родителя
-	 * @return array{join_url: string, parent_name: string}
-	 */
-	public function selectExistingParent( int $applicationId, int $parentPersonId ): array {
+	public function selectExistingParent( int $applicationId, int $parentPersonId ): ParentAssignmentResultDTO {
 		$app = $this->applicationRepository->find( $applicationId );
 
 		if ( null === $app ) {
@@ -475,19 +470,13 @@ readonly class EnrollmentService {
 			'updated_at'       => $this->clock->now( 'mysql', true ),
 		) );
 
-		return array(
-			'join_url'    => home_url( '/lms/join/' . $newCode ),
-			'parent_name' => $parentPerson->fullName(),
+		return new ParentAssignmentResultDTO(
+			joinUrl:    home_url( '/lms/join/' . $newCode ),
+			parentName: $parentPerson->fullName(),
 		);
 	}
 
-	/**
-	 * Снимает назначение родителя с заявки и ротирует JOIN-код.
-	 *
-	 * @param int $applicationId ID заявки (status = pending_parent, parent_person_id задан)
-	 * @return array{join_url: string}
-	 */
-	public function removeParentAssignment( int $applicationId ): array {
+	public function removeParentAssignment( int $applicationId ): RemoveParentResultDTO {
 		$app = $this->applicationRepository->find( $applicationId );
 
 		if ( null === $app ) {
@@ -514,6 +503,6 @@ readonly class EnrollmentService {
 			'updated_at'       => $this->clock->now( 'mysql', true ),
 		) );
 
-		return array( 'join_url' => home_url( '/lms/join/' . $newCode ) );
+		return new RemoveParentResultDTO( joinUrl: home_url( '/lms/join/' . $newCode ) );
 	}
 }

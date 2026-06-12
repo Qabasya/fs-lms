@@ -49,7 +49,7 @@ readonly class EntityAuditLogInputDTO {
 	 * @param string|null    $actorRole   Роль пользователя
 	 * @param OperationType  $operation   Тип операции (create, update, delete)
 	 * @param EntityType     $entityType  Тип сущности
-	 * @param int|null       $entityId    ID изменённой сущности
+	 * @param int|string|null $entityId   ID или ключ изменённой сущности
 	 * @param string|null    $oldLabel    Старое название сущности
 	 * @param string         $actorIp     IP-адрес пользователя
 	 * @param string         $createdAt   Дата и время изменения (MySQL datetime)
@@ -59,7 +59,7 @@ readonly class EntityAuditLogInputDTO {
 		public ?string       $actorRole,
 		public OperationType $operation,
 		public EntityType    $entityType,
-		public ?int          $entityId,
+		public int|string|null $entityId,
 		public ?string       $oldLabel,
 		public string        $actorIp,
 		public string        $createdAt,

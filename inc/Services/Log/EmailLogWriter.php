@@ -6,6 +6,7 @@ namespace Inc\Services\Log;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\EmailLogInputDTO;
+use Inc\Enums\EmailStatus;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\EmailLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
@@ -72,7 +73,7 @@ class EmailLogWriter {
 			emailType:      $emailType,
 			targetPersonId: $targetPersonId,
 			recipientEmail: '' !== (string) $recipientEmail ? $recipientEmail : null,
-			status:         $success ? 'success' : 'failed',
+			status:         $success ? EmailStatus::Success : EmailStatus::Failure,
 			errorMessage:   '' !== $errorMessage ? $errorMessage : null,
 			createdAt:      $this->clock->now( 'mysql', true ),
 		) );

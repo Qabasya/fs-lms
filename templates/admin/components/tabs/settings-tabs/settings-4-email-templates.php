@@ -104,7 +104,7 @@ $types = array(
 								Сбросить к умолчанию
 							</button>
 						<?php endif; ?>
-						<span class="js-template-notice" style="display:none; margin-left:8px; font-size:13px;"></span>
+						<span class="fs-template-notice js-template-notice hidden"></span>
 					</div>
 
 				</div>

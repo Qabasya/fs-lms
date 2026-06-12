@@ -22,8 +22,9 @@ class PeriodDeletionCascadeHandler {
 	) {}
 
 	public function handle( DeletePeriodEvent $event ): void {
-		$periodId = $event->periodId;
-		$actorId  = $event->actorId;
+		$periodId   = $event->periodId;
+		$actorId    = $event->actorId;
+		$periodName = $this->periods->getById( $periodId )?->name;
 
 		$dbGroups = $this->groups->findByPeriodId( $periodId );
 		foreach ( $dbGroups as $group ) {
@@ -34,7 +35,7 @@ class PeriodDeletionCascadeHandler {
 
 		$this->logEvents->dispatch(
 			LogEvent::PeriodDeleted,
-			new EntityChangedEvent( $actorId, OperationType::Delete, EntityType::Period, 0, $periodId )
+			new EntityChangedEvent( $actorId, OperationType::Delete, EntityType::Period, $periodId, $periodName )
 		);
 	}
 }

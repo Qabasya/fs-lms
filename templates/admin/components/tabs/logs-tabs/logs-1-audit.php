@@ -38,7 +38,7 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 			<?php endforeach; ?>
 		</select>
 
-		<input type="number" name="actor_id" placeholder="User ID" style="width:90px;"
+		<input type="number" name="actor_id" placeholder="User ID" class="input-width-md"
 			value="<?php echo esc_attr( $audit_filters['actor_user_id'] ?? '' ); ?>">
 
 		<input type="date" name="date_from"
@@ -53,11 +53,10 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-log-csv"
+		<button type="button" class="button js-export-log-csv fs-logs__export-btn"
 			data-channel="enrollment"
-			data-filters="<?php echo esc_attr( wp_json_encode( $audit_filters ) ); ?>"
-			style="margin-left:auto;">
-			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
+			data-filters="<?php echo esc_attr( wp_json_encode( $audit_filters ) ); ?>">
+			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
 	</form>

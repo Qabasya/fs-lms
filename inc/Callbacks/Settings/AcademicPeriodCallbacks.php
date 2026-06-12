@@ -83,7 +83,7 @@ class AcademicPeriodCallbacks extends BaseController {
 					get_current_user_id(),
 					$isNew ? OperationType::Create : OperationType::Update,
 					EntityType::Period,
-					null,
+					$id,
 					$isNew ? null : $oldLabel,
 				)
 			);
@@ -117,7 +117,7 @@ class AcademicPeriodCallbacks extends BaseController {
 		if ( $deleted ) {
 			$this->logEvents->dispatch(
 				LogEvent::PeriodDeleted,
-				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Period, null, $oldLabel )
+				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Period, $id, $oldLabel )
 			);
 		}
 

@@ -39,7 +39,7 @@ class SubjectDeletionCascadeHandler {
 
 		$this->logEvents->dispatch(
 			LogEvent::SubjectDeleted,
-			new EntityChangedEvent( $actorId, OperationType::Delete, EntityType::Subject, null, $subjectName )
+			new EntityChangedEvent( $actorId, OperationType::Delete, EntityType::Subject, $subjectKey, $subjectName )
 		);
 	}
 }

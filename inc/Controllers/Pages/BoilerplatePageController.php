@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -30,6 +31,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  * Делегирует получение данных репозиториям, а отрисовку — трейту TemplateRenderer.
  */
 class BoilerplatePageController extends BaseController implements ServiceInterface {
+	use Sanitizer;
 	use TemplateRenderer;
 
 	public function __construct(
@@ -52,11 +54,9 @@ class BoilerplatePageController extends BaseController implements ServiceInterfa
 	 * @return void
 	 */
 	public function displayPage(): void {
-		// wp_unslash() — удаляет экранирование слешей из суперглобальных массивов
-		// sanitize_text_field() — удаляет все теги и спецсимволы, оставляя безопасный текст
-		$subject_key = sanitize_text_field( wp_unslash( $_GET['subject'] ?? '' ) );
-		$term_slug   = sanitize_text_field( wp_unslash( $_GET['term'] ?? '' ) );
-		$action      = sanitize_text_field( wp_unslash( $_GET['action'] ?? 'list' ) );
+		$subject_key = $this->sanitizeText( 'subject', 'GET' );
+		$term_slug   = $this->sanitizeText( 'term', 'GET' );
+		$action      = $this->sanitizeText( 'action', 'GET' ) ?: 'list';
 
 		// Валидация обязательных параметров
 		if ( empty( $subject_key ) || empty( $term_slug ) ) {
@@ -123,7 +123,7 @@ class BoilerplatePageController extends BaseController implements ServiceInterfa
 	 */
 	private function renderEditor( string $subject_key, string $term_slug ): void {
 		// Получение UID и данных шаблона
-		$uid         = sanitize_text_field( wp_unslash( $_GET['uid'] ?? '' ) );
+		$uid         = $this->sanitizeText( 'uid', 'GET' );
 		$boilerplate = $uid ? $this->boilerplates->findBoilerplate( $subject_key, $term_slug, $uid ) : null;
 		$assignment  = $this->metaboxes->getAssignment( $subject_key, $term_slug );
 

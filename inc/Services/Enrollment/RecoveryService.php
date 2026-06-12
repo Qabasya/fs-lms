@@ -6,6 +6,7 @@ namespace Inc\Services\Enrollment;
 
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\ApplicationStatusEvent;
+use Inc\DTO\Person\UserInputDTO;
 use Inc\Enums\ApplicationStatus;
 use Inc\Enums\AuditAction;
 use Inc\Enums\LogEvent;
@@ -45,12 +46,14 @@ readonly class RecoveryService {
 				$person = $this->personRepository->find( $record->studentPersonId );
 
 				if ( null !== $person && null === $person->wpUserId ) {
-					$userId = $this->userManager->create( array(
-						'user_login'   => 'student_' . $person->id,
-						'user_email'   => '',
-						'user_pass'    => wp_generate_password( 64 ),
-						'display_name' => $person->fullName(),
-						'role'         => UserRole::FSStudent->value,
+					$userId = $this->userManager->create( new UserInputDTO(
+						userLogin:   'student_' . $person->id,
+						userEmail:   '',
+						userPass:    wp_generate_password( 64 ),
+						displayName: $person->fullName(),
+						firstName:   $person->firstName,
+						lastName:    $person->lastName,
+						role:        UserRole::FSStudent->value,
 					) );
 
 					$this->personRepository->setWpUser( $person->id, $userId );

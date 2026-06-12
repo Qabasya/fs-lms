@@ -92,7 +92,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 			flush_rewrite_rules();
 			$this->logEvents->dispatch(
 				LogEvent::TaxonomyCreated,
-				new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Taxonomy, null )
+				new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Taxonomy, $tax_slug )
 			);
 		}
 
@@ -135,7 +135,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 			flush_rewrite_rules();
 			$this->logEvents->dispatch(
 				LogEvent::TaxonomyUpdated,
-				new EntityChangedEvent( get_current_user_id(), OperationType::Update, EntityType::Taxonomy, null, $oldLabel )
+				new EntityChangedEvent( get_current_user_id(), OperationType::Update, EntityType::Taxonomy, $tax_slug, $oldLabel )
 			);
 		}
 
@@ -173,7 +173,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 			flush_rewrite_rules();
 			$this->logEvents->dispatch(
 				LogEvent::TaxonomyDeleted,
-				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Taxonomy, null, $oldLabel )
+				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Taxonomy, $tax_slug, $oldLabel )
 			);
 		}
 
