@@ -15,7 +15,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\PasswordGeneratorService;
+use Inc\Services\Security\PasswordGeneratorService;
 use Inc\Services\Person\PersonReader;
 use Inc\Services\Person\PiiMaskingService;
 use Inc\Shared\Traits\Authorizer;

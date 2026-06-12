@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\MetaBoxes\Fields;
 
 use WP_Post;
@@ -25,7 +27,7 @@ class InputField extends BaseField {
 	 *
 	 * @return void
 	 */
-	public function render( $post, string $id, string $label, $value ): void {
+	public function render( \WP_Post $post, string $id, string $label, mixed $value ): void {
 		?>
 		<div class="fs-lms-field-group">
 			<label class="fs-lms-label" for="<?php echo esc_attr( $id ); ?>">
@@ -52,7 +54,7 @@ class InputField extends BaseField {
 	 *
 	 * @return string Очищенное текстовое значение
 	 */
-	public function sanitize( $value ) {
-		return sanitize_text_field( $value );
+	public function sanitize( mixed $value ): mixed {
+		return $this->sanitizeTextValue( $value );
 	}
 }

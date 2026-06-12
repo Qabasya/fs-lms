@@ -8,7 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Services\Person\PersonReader;
-use Inc\Services\RateLimitService;
+use Inc\Services\Security\RateLimitService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 

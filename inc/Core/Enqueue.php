@@ -9,7 +9,7 @@ use Inc\Enums\AjaxHook;
 use Inc\Enums\Nonce;
 use Inc\Enums\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
-use Inc\Services\CaptchaService;
+use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\PostTypeResolver;
 
 /**

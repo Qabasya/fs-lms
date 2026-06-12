@@ -1,26 +1,12 @@
 <?php
 
-namespace Inc\Contracts;
+declare( strict_types=1 );
 
-/**
- * Интерфейс для всех компонентов полей метабоксов.
- */
+namespace Inc\Contracts;
 
 interface FieldInterface {
 
-	/**
-	 * Отрисовка HTML-поля в админке.
-	 * * @param \WP_Post $post Объект текущего поста (задания)
-	 * @param string $id Уникальный ID поля
-	 * @param string $label Заголовок поля
-	 * @param mixed $value Текущее значение из базы
-	 */
-	public function render( $post, string $id, string $label, $value ): void;
+	public function render( \WP_Post $post, string $id, string $label, mixed $value ): void;
 
-	/**
-	 * Валидация и подготовка данных перед сохранением.
-	 * * @param mixed $value Значение из $_POST
-	 * @return mixed Очищенное значение
-	 */
-	public function sanitize( $value );
+	public function sanitize( mixed $value ): mixed;
 }

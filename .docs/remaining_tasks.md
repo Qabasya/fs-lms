@@ -1857,26 +1857,26 @@ interface CsvImportProviderInterface {
 
 **Удалить:**
 
-- [ ] `RepositoryInterface` — пустой маркер, реализован только в 5 из ~15 репозиториев (непоследовательно), ни одного type-hint на него нет. Удалить + снять `implements` из 5 файлов.
-- [ ] `MenuBuilderInterface` — одна реализация, type-hint можно заменить на класс `SubjectsMenuBuilder`. YAGNI; вернуть интерфейс, когда появится второй билдер. Обновить CLAUDE.md (раздел Contracts).
+- [x] `RepositoryInterface` — пустой маркер, реализован только в 5 из ~15 репозиториев (непоследовательно), ни одного type-hint на него нет. Удалить + снять `implements` из 5 файлов.
+- [x] `MenuBuilderInterface` — одна реализация, type-hint можно заменить на класс `SubjectsMenuBuilder`. YAGNI; вернуть интерфейс, когда появится второй билдер. Обновить CLAUDE.md (раздел Contracts).
 
 **Оставить (осознанно):** `ClockInterface` (тестовый seam, широко используется), `CaptchaProviderInterface` (strategy-seam для будущих провайдеров, Null-объект), `MigrationInterface`, `EmailTemplateInterface` (2 реализации), `LogEventInterface`/`LogEventDispatcherInterface`, `CsvExportProviderInterface`, `AuthStrategyInterface`, `ServiceInterface`, `FieldInterface`.
 
 **`FieldInterface::sanitize()` — оставить.** Полиморфная санитизация по типу поля (текст/HTML/URL) — корректный Strategy; без неё `MetaBoxController::save()` получит `match` по типам полей (нарушение OCP). Доработать:
-- [ ] Типизировать контракт: `declare(strict_types=1)`, `render(\WP_Post $post, ...)`, `sanitize(mixed $value): mixed`.
-- [ ] Реализации делегируют в методы трейта `Sanitizer` (единая точка правды), а не зовут `sanitize_text_field`/`wp_kses_post` напрямую (`InputField.php:56`, `ConditionField.php:76`).
+- [x] Типизировать контракт: `declare(strict_types=1)`, `render(\WP_Post $post, ...)`, `sanitize(mixed $value): mixed`.
+- [x] Реализации делегируют в методы трейта `Sanitizer` (единая точка правды), а не зовут `sanitize_text_field`/`wp_kses_post` напрямую (`InputField.php:56`, `ConditionField.php:76`).
 - [ ] `MetaBoxController::save()` — цикл санитизации + `update_post_meta` вынести в `MetaBoxManager`/`TaskManager` (контроллер не содержит логику и не пишет meta напрямую).
 
 **Группировка директорий:**
 
 Принцип (по сложившейся конвенции проекта): первый уровень — слой, второй — домен или механика; подпапка заводится только когда в папке 10+ файлов с явной общей осью. Папки на 1–2 файла — шум, хуже плоского списка.
 
-- [ ] `inc/Controllers/` (33 файла в корне) → подпапки по **механике**: `Controllers/Subscribers/` (7 `*Subscriber` + `AuthLogController` + `PostEntityAuditController` — все девять суть подписчики лог-каналов с одинаковым устройством), `Controllers/Pages/` (`AuthPageController`, `ApplyPageController`, `BoilerplatePageController`, `TaskPageController` — публичные страницы через `template_include`/rewrite). Оставшиеся ~20 — «один контроллер на домен», доменные подпапки дали бы по одному файлу — оставить в корне.
-- [ ] `inc/Callbacks/` (13 файлов в корне + готовые `Subject/`, `Person/`, `Settings/`) — докатить уже существующую доменную конвенцию: `Callbacks/Enrollment/` (`ApplicationCallbacks`, `EnrollmentCallbacks`, `ExpulsionCallbacks`, `RecoveryCallbacks`, `DeletionCallbacks` — жизненный цикл зачисления), `Callbacks/Task/` (`TaskCreationCallbacks`, `BoilerplateCallbacks`, `TemplateCallbacks`, `TemplateManagerCallbacks`). Остаток (`AuthCallbacks`, `AdminCallbacks`, `LogsCallbacks`, `StudentGroupCallbacks`) — 4 файла, оставить в корне. Обновить раздел «Callbacks subdirectories» в CLAUDE.md.
-- [ ] `inc/DTO/` (10 корневых) → `AuditLogDTO` → `DTO/Log/`; `ParentDataDTO`, `ParentSubmissionInputDTO`, `RepresentativeInputDTO`, `UserDTO` → `DTO/Person/`; `CsvColumn` → `DTO/Export/`; `EmailTemplateData` → `DTO/Email/`; `AcademicPeriodDTO` → `DTO/Settings/`.
-- [ ] `inc/Services/` корень (15 файлов) → `PiiCryptoService`, `PasswordGeneratorService`, `RateLimitService` → `Services/Security/`; `CsvExportService` → `Services/Export/`; `ExpulsionService` → `Services/Enrollment/`; `WpClock` → `Services/Shared/`; `CaptchaService` → `Services/CaptchaProviders/` (переименовать в `Services/Captcha/`).
-- [ ] `inc/Repositories/WPDBRepositories/` (15 файлов) → подпапка `Log/` для 9 `*LogRepository` (`AuditLog`, `AuthLog`, `ConsentChangeLog`, `DataChangeLog`, `DeletionLog`, `EmailLog`, `EntityAuditLog`, `ExportLog`, `PiiAccessLog`) — зеркалит `Services/Log/` и `DTO/Log/`. Первый уровень (`OptionsRepositories` / `WPDBRepositories` — по типу хранилища) корректен, не трогать.
-- [ ] CLAUDE.md, раздел «JS Architecture», устарел: фактическая структура — `admin/{managers,modals,modules,services}`, авто-лоадер `ui.js` грузит `../modals`, а не `components/`. Привести документацию в соответствие (или переименовать `modals` → `components` — решить до правки).
+- [x] `inc/Controllers/` (33 файла в корне) → подпапки по **механике**: `Controllers/Subscribers/` (7 `*Subscriber` + `AuthLogController` + `PostEntityAuditController` — все девять суть подписчики лог-каналов с одинаковым устройством), `Controllers/Pages/` (`AuthPageController`, `ApplyPageController`, `BoilerplatePageController`, `TaskPageController` — публичные страницы через `template_include`/rewrite). Оставшиеся ~20 — «один контроллер на домен», доменные подпапки дали бы по одному файлу — оставить в корне.
+- [x] `inc/Callbacks/` (13 файлов в корне + готовые `Subject/`, `Person/`, `Settings/`) — докатить уже существующую доменную конвенцию: `Callbacks/Enrollment/` (`ApplicationCallbacks`, `EnrollmentCallbacks`, `ExpulsionCallbacks`, `RecoveryCallbacks`, `DeletionCallbacks` — жизненный цикл зачисления), `Callbacks/Task/` (`TaskCreationCallbacks`, `BoilerplateCallbacks`, `TemplateCallbacks`, `TemplateManagerCallbacks`). Остаток (`AuthCallbacks`, `AdminCallbacks`, `LogsCallbacks`, `StudentGroupCallbacks`) — 4 файла, оставить в корне. Обновить раздел «Callbacks subdirectories» в CLAUDE.md.
+- [x] `inc/DTO/` (10 корневых) → `AuditLogDTO` → `DTO/Log/`; `ParentDataDTO`, `ParentSubmissionInputDTO`, `RepresentativeInputDTO`, `UserDTO` → `DTO/Person/`; `CsvColumn` → `DTO/Export/`; `EmailTemplateData` → `DTO/Email/`; `AcademicPeriodDTO` → `DTO/Settings/`.
+- [x] `inc/Services/` корень (15 файлов) → `PiiCryptoService`, `PasswordGeneratorService`, `RateLimitService` → `Services/Security/`; `CsvExportService` → `Services/Export/`; `ExpulsionService` → `Services/Enrollment/`; `WpClock` → `Services/Shared/`; `CaptchaService` → `Services/CaptchaProviders/` (переименовать в `Services/Captcha/`).
+- [x] `inc/Repositories/WPDBRepositories/` (15 файлов) → подпапка `Log/` для 9 `*LogRepository` (`AuditLog`, `AuthLog`, `ConsentChangeLog`, `DataChangeLog`, `DeletionLog`, `EmailLog`, `EntityAuditLog`, `ExportLog`, `PiiAccessLog`) — зеркалит `Services/Log/` и `DTO/Log/`. Первый уровень (`OptionsRepositories` / `WPDBRepositories` — по типу хранилища) корректен, не трогать.
+- [x] CLAUDE.md, раздел «JS Architecture», устарел: фактическая структура — `admin/{managers,modals,modules,services}`, авто-лоадер `ui.js` грузит `../modals`, а не `components/`. Привести документацию в соответствие (или переименовать `modals` → `components` — решить до правки).
 
 **Оставить плоскими (осознанные решения, не возвращаться):**
 

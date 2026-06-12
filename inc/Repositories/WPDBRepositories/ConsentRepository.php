@@ -4,7 +4,6 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories\WPDBRepositories;
 
-use Inc\Contracts\RepositoryInterface;
 use Inc\DTO\ConsentDTO;
 use Inc\Enums\TableName;
 
@@ -27,7 +26,7 @@ use Inc\Enums\TableName;
  * Использует wpdb для прямых SQL-запросов. Хранит информацию о подписанных
  * версиях согласий (тип, версия, IP, User-Agent) для юридической значимости.
  */
-class ConsentRepository implements RepositoryInterface {
+class ConsentRepository {
 
 	private \wpdb $wpdb;
 	private string $table;

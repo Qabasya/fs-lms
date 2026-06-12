@@ -15,7 +15,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 

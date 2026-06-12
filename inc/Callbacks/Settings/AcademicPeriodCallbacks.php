@@ -6,7 +6,7 @@ namespace Inc\Callbacks\Settings;
 
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
-use Inc\DTO\AcademicPeriodDTO;
+use Inc\DTO\Settings\AcademicPeriodDTO;
 use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\Enums\EntityType;
 use Inc\Enums\LogEvent;

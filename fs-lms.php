@@ -14,6 +14,7 @@
 
 use Inc\Core\Activate;
 use Inc\Core\Deactivate;
+use Inc\Services\Security\PiiCryptoService;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -26,7 +27,7 @@ require_once FS_LMS_PATH . 'vendor/autoload.php';
 register_activation_hook( __FILE__, array( Activate::class, 'activate' ) );
 register_deactivation_hook( __FILE__, array( Deactivate::class, 'deactivate' ) );
 
-if ( ! \Inc\Services\PiiCryptoService::isAvailable() ) {
+if ( ! PiiCryptoService::isAvailable() ) {
 	add_action( 'admin_notices', array( Activate::class, 'showConfigNotice' ) );
 	return;
 }

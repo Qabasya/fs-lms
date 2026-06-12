@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Export;
 
 use Inc\Enums\ExportTarget;
-use Inc\Services\CsvExportService;
+use Inc\Services\Export\CsvExportService;
 use Inc\Services\Log\ExportLogWriter;
 
 /**

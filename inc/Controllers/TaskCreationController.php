@@ -2,8 +2,8 @@
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\TaskCreationCallbacks;
-use Inc\Callbacks\TemplateManagerCallbacks;
+use Inc\Callbacks\Task\TaskCreationCallbacks;
+use Inc\Callbacks\Task\TemplateManagerCallbacks;
 use Inc\Enums\AjaxHook;
 use Inc\Services\PostTypeResolver;
 

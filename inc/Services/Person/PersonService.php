@@ -12,7 +12,7 @@ use Inc\DTO\Person\PersonInputDTO;
 use Inc\Enums\LogEvent;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 use RuntimeException;
 
 readonly class PersonService {

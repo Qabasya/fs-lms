@@ -3,7 +3,6 @@
 namespace Inc\Controllers\Builders;
 
 use Inc\Callbacks\Subject\SubjectPageCallbacks;
-use Inc\Contracts\MenuBuilderInterface;
 use Inc\Enums\Capability;
 use Inc\Enums\MenuSlug;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -18,14 +17,12 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
  * собственную подстраницу с уникальным slug.
  *
  * @package Inc\Controllers\Builders
- * @implements MenuBuilderInterface
- *
  * @example
  * $builder = new SubjectsMenuBuilder($repository, $callbacks);
  * $pages = $builder->buildPages();     // Главная страница предметов
  * $subpages = $builder->buildSubPages(); // Подстраницы для каждого предмета
  */
-class SubjectsMenuBuilder implements MenuBuilderInterface {
+class SubjectsMenuBuilder {
 	/**
 	 * Репозиторий для работы с предметами.
 	 *

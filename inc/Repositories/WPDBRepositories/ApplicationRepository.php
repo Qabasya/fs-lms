@@ -4,7 +4,6 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories\WPDBRepositories;
 
-use Inc\Contracts\RepositoryInterface;
 use Inc\Enums\ApplicationStatus;
 use Inc\DTO\Application\ApplicationDTO;
 use Inc\Enums\TableName;
@@ -31,7 +30,7 @@ use Inc\Enums\TableName;
  * Использует wpdb для прямых SQL-запросов (оптимизация и сложные условия).
  * Работает с DTO ApplicationDTO для типобезопасной передачи данных.
  */
-class ApplicationRepository implements RepositoryInterface {
+class ApplicationRepository {
 
 	/**
 	 * Экземпляр класса управления БД WordPress.

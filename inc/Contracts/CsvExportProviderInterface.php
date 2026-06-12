@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Contracts;
 
-use Inc\DTO\CsvColumn;
+use Inc\DTO\Export\CsvColumn;
 
 /**
  * Стратегия CSV-экспорта одного датасета.

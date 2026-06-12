@@ -7,7 +7,7 @@ namespace Inc\Services\Log;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\DeletionLogInputDTO;
 use Inc\Managers\UserManager;
-use Inc\Repositories\WPDBRepositories\DeletionLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\DeletionLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**

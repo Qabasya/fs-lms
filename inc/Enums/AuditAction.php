@@ -96,6 +96,10 @@ enum AuditAction: string {
 	case HardDeleteSubject  = 'hard_delete_subject';
 	case HardDeletePeriod   = 'hard_delete_period';
 
+	// ===== Восстановление =====
+
+	case RecoveryCompleted = 'recovery_completed';
+
 
 	/**
 	 * Возвращает человекочитаемое название действия
@@ -147,6 +151,8 @@ enum AuditAction: string {
 			self::HardDeleteGroup        => 'Жёсткое удаление группы',
 			self::HardDeleteSubject      => 'Жёсткое удаление предмета',
 			self::HardDeletePeriod       => 'Жёсткое удаление периода',
+
+			self::RecoveryCompleted      => 'Восстановление зависшего зачисления',
 		};
 	}
 }

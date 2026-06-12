@@ -6,7 +6,7 @@ namespace Inc\Services\Log;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Managers\UserManager;
-use Inc\Repositories\WPDBRepositories\AuditLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**

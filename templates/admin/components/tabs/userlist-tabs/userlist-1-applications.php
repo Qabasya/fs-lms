@@ -10,7 +10,7 @@ use Inc\Enums\ApplicationStatus;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 

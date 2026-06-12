@@ -5,10 +5,10 @@ declare( strict_types=1 );
 namespace Inc\Services\Export\Log;
 
 use Inc\Contracts\CsvExportProviderInterface;
-use Inc\DTO\CsvColumn;
-use Inc\Repositories\WPDBRepositories\DataChangeLogRepository;
+use Inc\DTO\Export\CsvColumn;
+use Inc\Repositories\WPDBRepositories\Log\DataChangeLogRepository;
 use Inc\Services\Log\LogNameResolver;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 
 /**
  * Class DataChangeLogExportProvider

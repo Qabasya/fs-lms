@@ -23,6 +23,7 @@ enum EntityType: string {
 	case Student        = 'student';
 	case Parent         = 'parent';
 	case Teacher        = 'teacher';
+	case User           = 'user';
 
 	public function label(): string {
 		return match ( $this ) {
@@ -37,6 +38,7 @@ enum EntityType: string {
 			self::Student        => 'Ученик',
 			self::Parent         => 'Родитель',
 			self::Teacher        => 'Преподаватель',
+			self::User           => 'Пользователь',
 		};
 	}
 
@@ -45,7 +47,7 @@ enum EntityType: string {
 			self::Subject, self::Taxonomy, self::VisualTemplate, self::Boilerplate => 'badge-primary',
 			self::Task, self::Article                                               => 'badge-info',
 			self::Group, self::Period                                               => 'badge-secondary',
-			self::Student, self::Parent, self::Teacher                             => 'badge-neutral',
+			self::Student, self::Parent, self::Teacher, self::User                 => 'badge-neutral',
 		};
 	}
 }

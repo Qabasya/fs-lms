@@ -9,7 +9,7 @@ use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\PasswordGeneratorService;
+use Inc\Services\Security\PasswordGeneratorService;
 use Inc\Services\Person\PersonService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;

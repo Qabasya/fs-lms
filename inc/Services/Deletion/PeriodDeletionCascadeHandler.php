@@ -4,18 +4,21 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Deletion;
 
-use Inc\Enums\AuditAction;
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
+use Inc\Enums\OperationType;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Services\AuditService;
 
 class PeriodDeletionCascadeHandler {
 
 	public function __construct(
-		private readonly GroupsRepository $groups,
-		private readonly AcademicPeriodRepository $periods,
-		private readonly DeletionEventDispatcher $dispatcher,
-		private readonly AuditService $audit,
+		private readonly GroupsRepository            $groups,
+		private readonly AcademicPeriodRepository    $periods,
+		private readonly DeletionEventDispatcher     $dispatcher,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {}
 
 	public function handle( DeletePeriodEvent $event ): void {
@@ -29,11 +32,9 @@ class PeriodDeletionCascadeHandler {
 
 		$this->periods->remove( $periodId );
 
-		$this->audit->record(
-			AuditAction::HardDeletePeriod->value,
-			'academic_period',
-			null,
-			array( 'period_id' => $periodId, 'actor' => $actorId )
+		$this->logEvents->dispatch(
+			LogEvent::PeriodDeleted,
+			new EntityChangedEvent( $actorId, OperationType::Delete, EntityType::Period, 0, $periodId )
 		);
 	}
 }

@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\EnrollmentCallbacks;
+use Inc\Callbacks\Enrollment\EnrollmentCallbacks;
 use Inc\Enums\AjaxHook;
 use Inc\Enums\Capability;
 

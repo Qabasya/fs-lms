@@ -7,7 +7,7 @@ namespace Inc\Services\Log;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Person\PiiAccessLogInputDTO;
 use Inc\Managers\UserManager;
-use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**

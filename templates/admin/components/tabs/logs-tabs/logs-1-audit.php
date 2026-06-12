@@ -8,7 +8,7 @@ use Inc\Services\Log\LogNameResolver;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * @var \Inc\DTO\AuditLogDTO[] $audit_rows
+ * @var \Inc\DTO\Log\AuditLogDTO[] $audit_rows
  * @var int                    $audit_total
  * @var int                    $audit_page
  * @var array                  $audit_filters

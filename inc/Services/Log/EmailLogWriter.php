@@ -7,7 +7,7 @@ namespace Inc\Services\Log;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\EmailLogInputDTO;
 use Inc\Managers\UserManager;
-use Inc\Repositories\WPDBRepositories\EmailLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\EmailLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**

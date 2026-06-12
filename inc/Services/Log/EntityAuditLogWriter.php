@@ -9,7 +9,7 @@ use Inc\DTO\Log\EntityAuditLogInputDTO;
 use Inc\Enums\EntityType;
 use Inc\Enums\OperationType;
 use Inc\Managers\UserManager;
-use Inc\Repositories\WPDBRepositories\EntityAuditLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\EntityAuditLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**

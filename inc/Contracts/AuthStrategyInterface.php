@@ -2,7 +2,7 @@
 
 namespace Inc\Contracts;
 
-use Inc\DTO\UserDTO;
+use Inc\DTO\Person\UserDTO;
 use Inc\Enums\AuthProvider;
 
 interface AuthStrategyInterface

@@ -5,10 +5,10 @@ declare( strict_types=1 );
 namespace Inc\Services\Export\Log;
 
 use Inc\Contracts\CsvExportProviderInterface;
-use Inc\DTO\CsvColumn;
+use Inc\DTO\Export\CsvColumn;
 use Inc\Enums\ExportActionType;
 use Inc\Enums\ExportDataType;
-use Inc\Repositories\WPDBRepositories\ExportLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\ExportLogRepository;
 use Inc\Services\Log\LogNameResolver;
 
 /**

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Unit\Services;
 
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 

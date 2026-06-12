@@ -19,7 +19,7 @@ npm run fix:js    # ESLint auto-fix
 JS entry points: `src/js/admin/admin.js`, `src/js/frontend/frontend.js`, `src/js/common/common.js` → `assets/js/*.min.js`
 CSS entry points: `src/scss/admin/admin.scss`, `src/scss/frontend/frontend.scss`, `src/scss/common/common.scss` → `assets/css/*.min.css`
 
-Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.context` in `modules/ui.js` auto-loads all components from `src/js/admin/components/`.
+Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.context` in `modules/ui.js` auto-loads all modals from `src/js/admin/modals/`.
 
 ---
 
@@ -41,18 +41,21 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 | Builders | `inc/Controllers/Builders/` | Build structured config arrays (menus, etc.) |
 | Registrars | `inc/Registrars/` | Wrap WP registration APIs (menus, settings, CPT, taxonomies, metaboxes) |
 | Managers | `inc/Managers/` | Wrap WP data APIs (CRUD for posts, terms, options, metaboxes) |
-| Callbacks | `inc/Callbacks/` | AJAX handlers only; subdirs: `Subject/`, `Person/`, `Settings/` |
-| Repositories | `inc/Repositories/` | Read/write `wp_options` as structured arrays |
+| Controllers | `inc/Controllers/` | Domain controllers in root; `Subscribers/` — 9 log-channel subscribers; `Pages/` — 4 public page controllers |
+| Callbacks | `inc/Callbacks/` | AJAX handlers only; subdirs: `Subject/`, `Person/`, `Settings/`, `Enrollment/`, `Task/` |
+| Repositories | `inc/Repositories/` | Read/write `wp_options` as structured arrays; `WPDBRepositories/Log/` — 9 log repositories |
 | MetaBoxes | `inc/MetaBoxes/` | Field and template definitions for metaboxes |
-| DTO | `inc/DTO/` | Data transfer between layers; subdirs: `Application/`, `Person/`, `Enrollment/`, `Task/`, `Subject/` |
+| DTO | `inc/DTO/` | Data transfer between layers; subdirs: `Application/`, `Person/`, `Enrollment/`, `Task/`, `Subject/`, `Log/`, `Export/`, `Email/`, `Settings/` |
 | Enums | `inc/Enums/` | Typed constants (slugs, capabilities, option names, AJAX hooks) |
-| Services | `inc/Services/` | Stateless services; subdirs mirror domain groups (auth, email, person, subject, task, etc.) |
+| Services | `inc/Services/` | Stateless services; subdirs mirror domain groups; `Security/` — PiiCrypto, PasswordGenerator, RateLimit; `Shared/` — WpClock; `Captcha/` — CaptchaService |
 | Shared | `inc/Shared/` | Traits (`inc/Shared/Traits/`) + static utility `PluginLogger` |
 
 **Callbacks subdirectories:**
 - `inc/Callbacks/Subject/` — SubjectCrudCallbacks, SubjectDataCallbacks, SubjectImportExportCallbacks, SubjectPageCallbacks, SubjectValidationCallbacks, TaxonomySettingsCallbacks
 - `inc/Callbacks/Person/` — PersonViewCallbacks, PersonUpdateCallbacks, PiiRevealCallbacks, RepresentativeCallbacks
 - `inc/Callbacks/Settings/` — AcademicPeriodCallbacks, ConsentSettingsCallbacks, EmailTemplateSettingsCallbacks
+- `inc/Callbacks/Enrollment/` — ApplicationCallbacks, EnrollmentCallbacks, ExpulsionCallbacks, RecoveryCallbacks, DeletionCallbacks
+- `inc/Callbacks/Task/` — TaskCreationCallbacks, BoilerplateCallbacks, TemplateCallbacks, TemplateManagerCallbacks
 
 **BaseController** (`Inc\Core\BaseController`): infrastructure utility only — not a domain or architectural base class. Provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Also declares the `AjaxResponse` trait (inherited by all subclasses). Extend this purely to gain access to plugin path helpers and AJAX transport — not to express any domain relationship. Controllers and Callbacks extending it are unrelated to each other beyond sharing these utilities.
 
@@ -62,7 +65,6 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 - `ServiceInterface` — `register(): void`; required by DI container bootstrap
 - `FieldInterface` — implemented by MetaBox field classes
 - `AuthStrategyInterface` — implemented by each OAuth provider strategy
-- `MenuBuilderInterface` — implemented by Builder classes (single implementation; interface exists for future extension)
 
 ### Data Model
 
@@ -191,8 +193,9 @@ src/js/
 ├── admin/
 │   ├── admin.js          — entry point; jQuery $(document).ready()
 │   ├── _types.js         — JSDoc @typedef for window globals (fs_lms_vars, fs_lms_task_data)
-│   ├── components/       — UI only; NO AJAX (modals, UI widgets)
-│   ├── services/         — AJAX + business logic; orchestrates components
+│   ├── modals/           — UI only; NO AJAX (modal dialogs, UI widgets); auto-loaded by modules/ui.js
+│   ├── managers/         — data managers (form state, field helpers)
+│   ├── services/         — AJAX + business logic; orchestrates modals/managers
 │   └── modules/          — shared utilities (modal-base, utils, ui registry)
 ├── frontend/
 │   ├── frontend.js       — entry point; pure DOMContentLoaded
@@ -205,7 +208,7 @@ src/js/
 
 ### Export conventions
 
-**Admin** (`admin/components/`, `admin/services/`) — jQuery-based, object pattern:
+**Admin** (`admin/modals/`, `admin/managers/`, `admin/services/`) — jQuery-based, object pattern:
 ```js
 export const MyService = {
     init() { ... },
@@ -243,7 +246,7 @@ export function closeModal( $modal ) { ... }
 
 ### Auto-loader
 
-`modules/ui.js` uses `require.context` to auto-load all files from `admin/components/` — no manual import needed for components (the auto-loader calls their `.init()`). Services are imported and initialized manually in `admin.js`.
+`modules/ui.js` uses `require.context` to auto-load all files from `admin/modals/` — no manual import needed for modals (the auto-loader calls their `.init()`). Services and managers are imported and initialized manually in `admin.js`.
 
 ### Globals (window)
 

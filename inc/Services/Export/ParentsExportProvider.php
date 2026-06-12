@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Export;
 
 use Inc\Contracts\CsvExportProviderInterface;
-use Inc\DTO\CsvColumn;
+use Inc\DTO\Export\CsvColumn;
 use Inc\Enums\MetaKeys;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
@@ -13,7 +13,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 
 /**
  * Class ParentsExportProvider

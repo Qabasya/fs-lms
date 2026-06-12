@@ -4,7 +4,6 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories\WPDBRepositories;
 
-use Inc\Contracts\RepositoryInterface;
 use Inc\DTO\Person\PersonDTO;
 use Inc\Enums\TableName;
 
@@ -27,7 +26,7 @@ use Inc\Enums\TableName;
  * Использует DTO PersonDTO для типобезопасной передачи данных.
  * Реализует интерфейс RepositoryInterface для единообразия с другими репозиториями.
  */
-class PersonRepository implements RepositoryInterface {
+class PersonRepository {
 
 	private \wpdb $wpdb;
 	private string $table;

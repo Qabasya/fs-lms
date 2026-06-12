@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\RecoveryCallbacks;
+use Inc\Callbacks\Enrollment\RecoveryCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\CronHook;

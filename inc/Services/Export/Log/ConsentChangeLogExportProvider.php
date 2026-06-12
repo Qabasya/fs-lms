@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Services\Export\Log;
 
 use Inc\Contracts\CsvExportProviderInterface;
-use Inc\DTO\CsvColumn;
-use Inc\Repositories\WPDBRepositories\ConsentChangeLogRepository;
+use Inc\DTO\Export\CsvColumn;
+use Inc\Repositories\WPDBRepositories\Log\ConsentChangeLogRepository;
 use Inc\Services\Log\LogNameResolver;
 
 /**

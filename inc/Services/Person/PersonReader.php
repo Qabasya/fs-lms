@@ -10,7 +10,7 @@ use Inc\DTO\Person\PersonDecryptedDTO;
 use Inc\Enums\LogEvent;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use RuntimeException;
 

@@ -8,7 +8,7 @@
  * @var array<string, string>       $other_periods       Массив остальных периодов ['id' => 'name']
  * @var string                      $selected_period_id  ID выбранного периода фильтра
  * @var array                       $groups_view         Подготовленные данные групп ['id', 'title', 'period_name', 'subject_name', 'teacher_name', 'schedule']
- * @var \Inc\DTO\UserDTO[]           $teachers            Список преподавателей (для модального окна)
+ * @var \Inc\DTO\Person\UserDTO[]     $teachers            Список преподавателей (для модального окна)
  */
 
 declare( strict_types=1 );

@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Export;
 
 use Inc\Contracts\CsvExportProviderInterface;
-use Inc\DTO\CsvColumn;
+use Inc\DTO\Export\CsvColumn;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;

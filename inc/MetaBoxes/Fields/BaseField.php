@@ -1,9 +1,12 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\MetaBoxes\Fields;
 
 use Inc\Contracts\FieldInterface;
 use Inc\Enums\PostMetaName;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class BaseField
@@ -15,6 +18,8 @@ use Inc\Enums\PostMetaName;
  * @implements FieldInterface
  */
 abstract class BaseField implements FieldInterface {
+
+	use Sanitizer;
 	/**
 	 * Хелпер для генерации атрибута name.
 	 *

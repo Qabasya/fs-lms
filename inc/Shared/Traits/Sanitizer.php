@@ -222,4 +222,14 @@ trait Sanitizer {
 	protected function sanitizeGetInt( string $key ): int {
 		return $this->sanitizeInt( $key, 'GET' );
 	}
+
+	// ── Value-based helpers (for FieldInterface::sanitize implementations) ──
+
+	protected function sanitizeTextValue( mixed $value ): string {
+		return sanitize_text_field( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
+	}
+
+	protected function sanitizeHtmlValue( mixed $value ): string {
+		return wp_kses_post( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
+	}
 }

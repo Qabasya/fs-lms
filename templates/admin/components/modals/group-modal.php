@@ -4,7 +4,7 @@
  *
  * @var array                       $subjects          Список предметов (передан из коллбека)
  * @var array                       $academic_periods  Список академических периодов (передан из коллбека)
- * @var \Inc\DTO\UserDTO[]           $teachers          Список преподавателей (передан из коллбека)
+ * @var \Inc\DTO\Person\UserDTO[]     $teachers          Список преподавателей (передан из коллбека)
  */
 
 use Inc\Enums\WeekDay;
