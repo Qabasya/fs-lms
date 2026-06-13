@@ -1,4 +1,6 @@
 <?php
+
+declare( strict_types=1 );
 /**
  * Таб "Ученики" — таблица зачисленных учеников.
  * Рендерится из templates/admin/userlist.php.
@@ -14,7 +16,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
-if ( ! defined( 'ABSPATH' ) ) { exit; }
+defined( 'ABSPATH' ) || exit;
 
 if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	echo '<p>' . esc_html__( 'Доступ запрещён.', 'fs-lms' ) . '</p>';
@@ -250,7 +252,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 							   class="js-export-person"
 							   data-person-id="<?php echo esc_attr( (string) $studentPersonId ); ?>"
 							   data-person-type="student">
-								<?php esc_html_e( 'Экспорт', 'fs-lms' ); ?>
+								<?php esc_html_e( ' | Экспорт', 'fs-lms' ); ?>
 							</a>
 						</span>
 						<span class="expel">
@@ -259,7 +261,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 							   data-expel-student-id="<?php echo esc_attr( (string) $wpUserId ); ?>"
 							   data-expel-student-name="<?php echo esc_attr( $studentName ); ?>"
 							   data-expel-enrollments="<?php echo esc_attr( $enrollmentsJson ); ?>">
-								<?php esc_html_e( 'Отчислить', 'fs-lms' ); ?>
+								<?php esc_html_e( ' | Отчислить', 'fs-lms' ); ?>
 							</a>
 						</span>
 					</div>

@@ -1,4 +1,6 @@
 <?php
+
+declare( strict_types=1 );
 /**
  * Таб "Родители" — таблица зарегистрированных родителей/представителей.
  * Рендерится из templates/admin/userlist.php.
@@ -10,7 +12,7 @@ use Inc\Enums\Capability;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
-if ( ! defined( 'ABSPATH' ) ) { exit; }
+defined( 'ABSPATH' ) || exit;
 
 if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	echo '<p>' . esc_html__( 'Доступ запрещён.', 'fs-lms' ) . '</p>';
@@ -122,7 +124,7 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 							   class="js-export-person"
 							   data-person-id="<?php echo esc_attr( (string) $parentPerson->id ); ?>"
 							   data-person-type="parent">
-								<?php esc_html_e( 'Экспорт', 'fs-lms' ); ?>
+								<?php esc_html_e( ' | Экспорт', 'fs-lms' ); ?>
 							</a>
 						</span>
 					</div>

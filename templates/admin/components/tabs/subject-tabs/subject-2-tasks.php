@@ -1,11 +1,16 @@
 <?php
-/** @var \Inc\DTO\Subject\SubjectViewDTO $dto
- * @var \Inc\Services\PostTypeResolver $service
- * */
-?>
 
-<?php
-$service = \Inc\Services\PostTypeResolver::class;
+declare( strict_types=1 );
+
+use Inc\Services\PostTypeResolver;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * @var \Inc\DTO\Subject\SubjectViewDTO $dto
+ */
+
+$service = PostTypeResolver::class;
 if ( $dto->tasks_table ) :
 	$t               = $dto->tasks_table;
 	$subject_key     = $dto->subject_key;

@@ -1,6 +1,14 @@
 <?php
-/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
+
+declare( strict_types=1 );
+
 use Inc\Enums\TaxonomyDisplayType;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * @var \Inc\DTO\Subject\SubjectViewDTO $dto
+ */
 
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>

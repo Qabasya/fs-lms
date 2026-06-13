@@ -1,4 +1,6 @@
 <?php
+
+declare( strict_types=1 );
 /**
  * Таб "Архив" — ученики с завершёнными/отчисленными зачислениями.
  * Рендерится из templates/admin/userlist.php.
@@ -17,7 +19,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Security\PiiCryptoService;
 
-if ( ! defined( 'ABSPATH' ) ) { exit; }
+defined( 'ABSPATH' ) || exit;
 
 if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	echo '<p>' . esc_html__( 'Доступ запрещён.', 'fs-lms' ) . '</p>';
@@ -208,20 +210,48 @@ $statusLabels = array(
 						}
 						return $s;
 					} )(),
-					'guardian'          => array(
-						'last_name'       => '',
-						'first_name'      => '',
-						'middle_name'     => '',
-						'birth_date'      => '',
-						'email'           => '',
-						'phone'           => '',
-						'doc_type'        => '',
-						'doc_number'      => '',
-						'doc_issued_by'   => '',
-						'doc_issued_date' => '',
-						'inn'             => '',
-						'address'         => '',
-					),
+					'guardian'          => ( function () use ( $row, $personRepo, $docsRepo, $crypto ): array {
+						$parentPersonId = $row->parentPersonId > 0 ? (int) $row->parentPersonId : null;
+						$empty = array(
+							'last_name' => '', 'first_name' => '', 'middle_name' => '',
+							'birth_date' => '', 'email' => '', 'phone' => '',
+							'doc_type' => '', 'doc_number' => '', 'doc_issued_by' => '',
+							'doc_issued_date' => '', 'inn' => '', 'address' => '',
+						);
+						if ( ! $parentPersonId ) {
+							return $empty;
+						}
+						$gPerson = $personRepo->find( $parentPersonId );
+						$gDocs   = $docsRepo->findByPersonId( $parentPersonId );
+						$g = array(
+							'last_name'       => $gPerson?->lastName   ?? '',
+							'first_name'      => $gPerson?->firstName  ?? '',
+							'middle_name'     => $gPerson?->middleName ?? '',
+							'birth_date'      => $gPerson?->birthDate  ?? '',
+							'email'           => '',
+							'phone'           => '',
+							'doc_type'        => $gDocs?->docType       ?? '',
+							'doc_number'      => '',
+							'doc_issued_by'   => '',
+							'doc_issued_date' => $gDocs?->docIssuedDate ?? '',
+							'inn'             => '',
+							'address'         => '',
+						);
+						if ( $gDocs ) {
+							foreach ( array(
+								'email'         => $gDocs->emailEnc,
+								'phone'         => $gDocs->phoneEnc,
+								'doc_number'    => $gDocs->docNumberEnc,
+								'doc_issued_by' => $gDocs->docIssuedByEnc,
+								'inn'           => $gDocs->innEnc,
+								'address'       => $gDocs->addressEnc,
+							) as $key => $enc ) {
+								if ( ! $enc ) { continue; }
+								try { $g[ $key ] = $crypto->decrypt( $enc ); } catch ( \Throwable ) {}
+							}
+						}
+						return $g;
+					} )(),
 				);
 			?>
 			<tr data-enrollment="<?php echo esc_attr( (string) wp_json_encode( $enrollmentData ) ); ?>">

@@ -1895,7 +1895,7 @@ interface CsvImportProviderInterface {
 **Инлайн-стили (CSS Rules):**
 
 - [x] Инлайн-стили убраны из всех `templates/admin/**` (logs-tabs, settings-tabs, subject-tabs, userlist-tabs, модалки, boilerplates, person-detail). Ширины — классы из `_widths.scss` (`tw-*`, `input-width-*`, `max-tw-50`); отступы/текст — утилиты `_utilities.scss` (`fs-mt-*`, `fs-mb-*`, `fs-text-*`, `fs-code-sm`, `fs-flex-row`); dashicons — единый `fs-dashicon` (+`--muted`/`--danger`); компонент согласий — `_consents.scss`. JS-инлайн (`css('transform')`, `css('color')`) переведён на классы `is-open`/`is-success`/`is-error`. Не тронуты: `templates/emails/*` (инлайн обязателен для почтовых клиентов) и 2 success-блока во frontend (`apply.php`, `join.php` — связаны с `style.display` в JS).
-- Привести все view файлы в папке src/admin/components/tabs к единой структуре.
+- [x] Привести все view файлы в папке src/admin/components/tabs к единой структуре.
 - Найти мертвый код (неиспользуемые классы) в JS
 - [x] Провести анализ _variables.scss и удалить дубликаты: `$wp-admin-blue`/`$wp-admin-red`/`$wp-admin-gray`/`$dashboard-tabs-bg-inactive`/`$table-row-border`/`$table-row-add-bg`/`$dashboard-tabs-transition` теперь алиасы базовых токенов вместо повторённых hex-значений. Ширины в шаблонах — только классы из `_widths.scss`.
 
@@ -1905,3 +1905,5 @@ interface CsvImportProviderInterface {
 1. Избавиться от таблицы Удаление (wp_fs_lms_deletion_log). Перенести удаления сущностей в таблицу изменения (crud) сущностей (wp_fs_lms_audit_log). Поскольку удаление предмета или удаление ученика относится к CRUD операциям с сущностями.
 2. Поправить таблицу логирования Экспорта (в бд и админке): должен фиксироваться и уже существующий импорт предмета и добавленный в будущем импорт учеников/родителей/групп/учебных периодов (можно добавить тип операции: Импорт или Экспорт).
 3. ~~EntityChangedEvent->$entityId принимает целочисленное значение идентификатора сущности. Но у объектов из wp_options (предметы, таксономии и т.д.) нет целочисленного ID, как у сущностей из самостоятельных таблиц. Нужно исправить это для работы как с сущностями таблиц wp_fs_lms_... так и wp_options (например, принимать слаг)~~ ✅ Исправлено: `int|string` в EntityChangedEvent, EntityAuditLogWriter, EntityAuditLogInputDTO, DDL миграции (`varchar(100)`), все callers обновлены.
+4. Применить такие же чекбоксы и массовые действия (только экспортировать) как у таблицы Ученики к таблице Родители. Выровнять высоту строки заголовков. Сделать такую же высоту но без массовыех дейсвтий у таблицы Преподаватели.
+5. 

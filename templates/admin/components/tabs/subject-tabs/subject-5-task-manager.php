@@ -1,5 +1,12 @@
 <?php
-/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
+
+declare( strict_types=1 );
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * @var \Inc\DTO\Subject\SubjectViewDTO $dto
+ */
 ?>
 
 <div class="task-manager-wrapper">

@@ -1,4 +1,6 @@
 <?php
+
+declare( strict_types=1 );
 /**
  * Таб "Заявки" — таблица заявок на зачисление.
  * Рендерится из templates/admin/userlist.php.
@@ -12,7 +14,7 @@ use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\Security\PiiCryptoService;
 
-if ( ! defined( 'ABSPATH' ) ) { exit; }
+defined( 'ABSPATH' ) || exit;
 
 if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	echo '<p>' . esc_html__( 'Доступ запрещён.', 'fs-lms' ) . '</p>';

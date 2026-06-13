@@ -2,9 +2,12 @@
 
 declare( strict_types=1 );
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * @var array $academic_periods Массив учебных периодов из репозитория
  */
+
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 

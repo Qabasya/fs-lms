@@ -12,7 +12,6 @@ import { StudentsTable } from './services/students-table.js';
 import { LogsTable } from './services/logs-table.js';
 import { EmailTemplateSettings } from './services/email-template-settings.js';
 import { ConsentSettings } from './services/consent-settings.js';
-import { PersonDetail } from './services/person-detail.js';
 import { HardDeleteStudentService } from './services/hard-delete-student-service.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
@@ -109,10 +108,6 @@ import { AlertModal } from './modals/alert-modal.js';
         LogsTable.init();
         EmailTemplateSettings.init();
         ConsentSettings.init();
-
-        if ( $( '.fs-person-detail' ).length ) {
-            PersonDetail.init();
-        }
 
         HardDeleteStudentService.init();
 

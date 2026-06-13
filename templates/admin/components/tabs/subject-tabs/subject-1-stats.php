@@ -1,7 +1,16 @@
 <?php
-/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
-/** @var \Inc\Services\PostTypeResolver $service */
-$service = \Inc\Services\PostTypeResolver::class;
+
+declare( strict_types=1 );
+
+use Inc\Services\PostTypeResolver;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * @var \Inc\DTO\Subject\SubjectViewDTO $dto
+ */
+
+$service = PostTypeResolver::class;
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 <div class="task-dashboard-wrapper">
