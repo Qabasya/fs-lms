@@ -52,6 +52,8 @@ readonly class ConsentChangeLogDTO {
 		public string  $consentType,
 		public ?string $oldHash,
 		public ?string $newHash,
+		public ?string $actorIp,
+		public ?string $actorUa,
 		public string  $createdAt,
 	) {}
 
@@ -71,6 +73,8 @@ readonly class ConsentChangeLogDTO {
 			consentType: (string) $row['consent_type'],
 			oldHash:     isset( $row['old_hash'] ) ? (string) $row['old_hash'] : null,
 			newHash:     isset( $row['new_hash'] ) ? (string) $row['new_hash'] : null,
+			actorIp:     isset( $row['actor_ip'] ) ? (string) $row['actor_ip'] : null,
+			actorUa:     isset( $row['actor_ua'] ) ? (string) $row['actor_ua'] : null,
 			createdAt:   (string) $row['created_at'],
 		);
 	}

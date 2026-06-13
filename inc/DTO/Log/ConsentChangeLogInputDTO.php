@@ -51,6 +51,8 @@ readonly class ConsentChangeLogInputDTO {
 		public string  $consentType,
 		public ?string $oldHash,
 		public ?string $newHash,
+		public ?string $actorIp,
+		public ?string $actorUa,
 		public string  $createdAt,
 	) {}
 
@@ -67,6 +69,8 @@ readonly class ConsentChangeLogInputDTO {
 			'consent_type'  => $this->consentType,
 			'old_hash'      => $this->oldHash,
 			'new_hash'      => $this->newHash,
+			'actor_ip'      => $this->actorIp,
+			'actor_ua'      => $this->actorUa,
 			'created_at'    => $this->createdAt,
 		);
 	}

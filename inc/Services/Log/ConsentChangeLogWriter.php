@@ -75,6 +75,8 @@ class ConsentChangeLogWriter {
 			consentType: $consentType,
 			oldHash:     $oldHash,
 			newHash:     $newHash,
+			actorIp:     '' !== $ctx->ip ? $ctx->ip : null,
+			actorUa:     '' !== $ctx->userAgent ? $ctx->userAgent : null,
 			createdAt:   $this->clock->now( 'mysql', true ),
 		) );
 	}

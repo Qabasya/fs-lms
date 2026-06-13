@@ -40,6 +40,7 @@ declare( strict_types=1 );
 			</div>
 
 			<button type="button" class="page-title-action js-open-group-modal">Добавить группу</button>
+		<button type="button" class="page-title-action js-export-groups">Экспорт CSV</button>
 		</div>
 
 		<hr class="wp-header-end">

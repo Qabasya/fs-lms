@@ -149,7 +149,7 @@ export const ApplicationModal = {
         // Массив имен полей для итерации.
         // Это реализация DRY-принципа: вместо дублирования кода для каждого из 8 полей,
         // мы описываем логику один раз и применяем её ко всем полям через цикл.
-        const fields = [ 'last_name', 'first_name', 'middle_name', 'birth_date', 'email', 'phone', 'school', 'grade' ];
+        const fields = [ 'last_name', 'first_name', 'middle_name', 'birth_date', 'email', 'phone', 'school', 'grade', 'login', 'password' ];
 
         fields.forEach( field => {
             const $field   = this.$modal.find( `.fs-editable-field[data-field="${ field }"]` );
@@ -204,7 +204,7 @@ export const ApplicationModal = {
         // Используем тот же массив полей, что и в open(), для консистентности.
         // Оператор ?? '' гарантирует, что в объект всегда попадет строка,
         // даже если поле не найдено в DOM (защита от undefined).
-        const fields = [ 'last_name', 'first_name', 'middle_name', 'birth_date', 'email', 'phone', 'school', 'grade' ];
+        const fields = [ 'last_name', 'first_name', 'middle_name', 'birth_date', 'email', 'phone', 'school', 'grade', 'login', 'password' ];
         fields.forEach( field => {
             data[ field ] = this.$form.find( `[name="${ field }"]` ).val() ?? '';
         } );

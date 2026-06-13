@@ -48,8 +48,25 @@ export const GroupsTable = {
         // (например, при AJAX-пагинации или фильтрации).
         $(document).on('click', '.js-toggle-students', (e) => this._handleToggleAccordion(e));
 
+        $( document ).on( 'click', '.js-export-groups', () => this._exportAll() );
+
         // Инициализация фильтра по периоду
         this._bindPeriodFilter();
+    },
+
+    _exportAll() {
+        $.post( fs_lms_vars.ajaxurl, {
+            action:   fs_lms_vars.ajax_actions.exportGroups,
+            security: fs_lms_vars.nonces.manager,
+        } ).done( ( r ) => {
+            if ( r.success && r.data.url ) {
+                const a = document.createElement( 'a' );
+                a.href = r.data.url;
+                document.body.appendChild( a );
+                a.click();
+                document.body.removeChild( a );
+            }
+        } );
     },
 
     /**

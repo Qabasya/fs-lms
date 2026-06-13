@@ -346,39 +346,28 @@ export const StudentsTable = {
      * @returns {void}
      */
     _applyBulkExport() {
-        // Проходим по всем отмеченным студентам
+        const ids = [];
         $( '.js-student-cb:checked' ).each( ( _, el ) => {
-            // Извлекаем ID персоны из data-атрибута кнопки экспорта в строке таблицы
             const personId = parseInt(
                 $( el ).closest( 'tr' ).find( '.js-export-person' ).data( 'personId' ), 10
             );
+            if ( personId ) ids.push( personId );
+        } );
 
-            // Если ID не найден или не является числом — пропускаем этого студента
-            if ( ! personId ) return;
+        if ( ! ids.length ) return;
 
-            // Отправляем AJAX-запрос на генерацию файла экспорта
-            $.post( AJAX_URL(), {
-                action:    ACTIONS().exportPii,
-                person_id: personId,
-                security:  NONCES().exportPii, // Nonce для защиты от CSRF
-            } ).done( ( r ) => {
-                // Если сервер вернул URL для скачивания — инициируем скачивание
-                if ( r.success && r.data.download_url ) {
-                    // Создаем невидимый элемент <a>
-                    const a = document.createElement( 'a' );
-                    a.href = r.data.download_url;
-
-                    // Добавляем элемент в DOM (некоторые браузеры требуют, 
-                    // чтобы элемент был в DOM для программного клика)
-                    document.body.appendChild( a );
-
-                    // Программный клик инициирует скачивание файла
-                    a.click();
-
-                    // Удаляем элемент из DOM после скачивания
-                    document.body.removeChild( a );
-                }
-            } );
+        $.post( AJAX_URL(), {
+            action:   ACTIONS().exportStudents,
+            ids:      ids,
+            security: NONCES().manager,
+        } ).done( ( r ) => {
+            if ( r.success && r.data.url ) {
+                const a = document.createElement( 'a' );
+                a.href = r.data.url;
+                document.body.appendChild( a );
+                a.click();
+                document.body.removeChild( a );
+            }
         } );
     },
 

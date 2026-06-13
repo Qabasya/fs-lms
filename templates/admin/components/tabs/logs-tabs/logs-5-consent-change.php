@@ -14,8 +14,9 @@ defined( 'ABSPATH' ) || exit;
  * @var array                              $consent_filters
  * @var int                                $per_page
  * @var string                             $active_tab
- * @var string              $log_orderby
- * @var string              $log_order
+ * @var string                             $log_orderby
+ * @var string                             $log_order
+ * @var string[]                           $consent_type_options
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
@@ -35,8 +36,17 @@ $sort_url    = add_query_arg( $consent_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-5">
 
-		<input type="number" name="person_id" placeholder="Person ID" value="<?php echo esc_attr( $consent_filters['person_id'] ?? '' ); ?>" class="input-width-md">
-		<input type="text"   name="consent_type" placeholder="Тип согласия" value="<?php echo esc_attr( $consent_filters['consent_type'] ?? '' ); ?>" class="input-width-lg">
+		<select name="consent_type">
+			<option value="">Все типы согласия</option>
+			<?php foreach ( $consent_type_options ?? array() as $ctVal ) :
+				$ct = ConsentType::tryFrom( $ctVal );
+			?>
+				<option value="<?php echo esc_attr( $ctVal ); ?>" <?php selected( $consent_filters['consent_type'] ?? '', $ctVal ); ?>>
+					<?php echo esc_html( $ct ? $ct->label() : $ctVal ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+
 		<input type="date" name="date_from" value="<?php echo esc_attr( $consent_filters['date_from'] ?? '' ); ?>">
 		<span>—</span>
 		<input type="date" name="date_to"   value="<?php echo esc_attr( $consent_filters['date_to'] ?? '' ); ?>">
@@ -64,23 +74,21 @@ $sort_url    = add_query_arg( $consent_filters, $base_url );
 			<tr>
                 <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
                 <th class="tw-7">Дата</th>
-                <th class="tw-10">Пользователь</th>
-				<th class="tw-10">Субъект ПД</th>
 				<th class="tw-15">Тип согласия</th>
-				<th>Старый хеш</th>
-				<th>Новый хеш</th>
+				<th>Хеш согласия</th>
+				<th class="tw-10">IP</th>
+				<th>User-Agent</th>
 			</tr>
 			</thead>
 			<tbody>
 			<?php foreach ( $consent_rows as $row ) : ?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
-					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
-					<td><?php echo esc_html( LogNameResolver::personName( $row->personId ) ); ?></td>
-					<td><?php echo esc_html( ConsentType::tryFrom( $row->consentType )?->label() ?? $row->consentType ); ?></code></td>
-					<td><?php echo $row->oldHash ? esc_html( substr( $row->oldHash, 0, 32 ) ) . '…' : '—'; ?></td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
+					<td><?php echo esc_html( ConsentType::tryFrom( $row->consentType )?->label() ?? $row->consentType ); ?></td>
 					<td><?php echo $row->newHash ? esc_html( substr( $row->newHash, 0, 32 ) ) . '…' : '—'; ?></td>
+					<td><?php echo esc_html( $row->actorIp ?? '—' ); ?></td>
+					<td title="<?php echo esc_attr( $row->actorUa ?? '' ); ?>"><?php echo $row->actorUa ? esc_html( substr( $row->actorUa, 0, 60 ) ) . ( strlen( $row->actorUa ) > 60 ? '…' : '' ) : '—'; ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

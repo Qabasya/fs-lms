@@ -338,7 +338,9 @@ $statusLabels = array_combine(
 					   data-email="<?php echo esc_attr( $studentEmail ); ?>"
 					   data-phone="<?php echo esc_attr( $studentPhone ); ?>"
 					   data-school="<?php echo esc_attr( $studentSchool ); ?>"
-					   data-grade="<?php echo esc_attr( $studentGrade ); ?>">
+					   data-grade="<?php echo esc_attr( $studentGrade ); ?>"
+					   data-login="<?php echo esc_attr( $studentEmail ); ?>"
+					   data-password="<?php echo esc_attr( $sd['login_password'] ?? '' ); ?>">
 						<?php esc_html_e( 'Изменить', 'fs-lms' ); ?>
 					</a>
 				<?php elseif ( $app->status === ApplicationStatus::ReadyForReview ) : ?>

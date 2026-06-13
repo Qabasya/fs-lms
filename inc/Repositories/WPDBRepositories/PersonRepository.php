@@ -62,6 +62,29 @@ class PersonRepository {
 		return $row ? PersonDTO::fromArray( $row ) : null;
 	}
 
+	/**
+	 * @param int[] $ids
+	 * @return PersonDTO[] indexed by id
+	 */
+	public function findByIds( array $ids ): array {
+		if ( empty( $ids ) ) {
+			return array();
+		}
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+		$bindings     = array_merge( array( $this->table ), $ids );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare( "SELECT * FROM %i WHERE id IN ($placeholders)", $bindings ),
+			ARRAY_A
+		) ?: array();
+		$result = array();
+		foreach ( $rows as $row ) {
+			$dto              = PersonDTO::fromArray( $row );
+			$result[ $dto->id ] = $dto;
+		}
+		return $result;
+	}
+
 	public function findIncludingDeleted( int $id ): ?PersonDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(

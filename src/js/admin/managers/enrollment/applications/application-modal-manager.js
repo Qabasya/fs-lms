@@ -79,9 +79,9 @@ export const ApplicationModalManager = {
             email:       $btn.data( 'email' ),
             phone:       $btn.data( 'phone' ),
             school:      $btn.data( 'school' ),
-            // data-атрибуты всегда строки. Явно преобразуем grade в строку,
-            // чтобы избежать проблем с типами при отправке на сервер.
             grade:       String( $btn.data( 'grade' ) ),
+            login:       $btn.data( 'login' ) ?? '',
+            password:    $btn.data( 'password' ) ?? '',
         } );
     },
 

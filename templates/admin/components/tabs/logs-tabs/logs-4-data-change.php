@@ -8,6 +8,11 @@ use Inc\Services\Log\LogNameResolver;
 defined( 'ABSPATH' ) || exit;
 
 /**
+ * @var array<int, string> $data_change_actor_options
+ * @var array<int, string> $data_change_person_options
+ */
+
+/**
  * @var \Inc\DTO\Log\DataChangeLogDTO[] $data_change_rows
  * @var int                             $data_change_total
  * @var int                             $data_change_page
@@ -37,8 +42,22 @@ $sort_url    = add_query_arg( $data_change_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-4">
 
-		<input type="number" name="actor_id"  placeholder="User ID"   value="<?php echo esc_attr( $data_change_filters['actor_user_id'] ?? '' ); ?>" class="input-width-md">
-		<input type="number" name="person_id" placeholder="Person ID" value="<?php echo esc_attr( $data_change_filters['target_person_id'] ?? '' ); ?>" class="input-width-md">
+		<select name="actor_id">
+			<option value="">Все администраторы</option>
+			<?php foreach ( $data_change_actor_options ?? array() as $uid => $name ) : ?>
+				<option value="<?php echo esc_attr( (string) $uid ); ?>" <?php selected( $data_change_filters['actor_user_id'] ?? '', $uid ); ?>>
+					<?php echo esc_html( $name ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+		<select name="person_id">
+			<option value="">Все субъекты ПД</option>
+			<?php foreach ( $data_change_person_options ?? array() as $pid => $name ) : ?>
+				<option value="<?php echo esc_attr( (string) $pid ); ?>" <?php selected( $data_change_filters['target_person_id'] ?? '', $pid ); ?>>
+					<?php echo esc_html( $name ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
 		<input type="date" name="date_from" value="<?php echo esc_attr( $data_change_filters['date_from'] ?? '' ); ?>">
 		<span>—</span>
 		<input type="date" name="date_to"   value="<?php echo esc_attr( $data_change_filters['date_to'] ?? '' ); ?>">

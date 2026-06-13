@@ -98,10 +98,22 @@ $statusLabels = array(
 		<?php endforeach; ?>
 	</ul>
 
+	<div class="tablenav top fs-students-bulk-bar">
+		<div class="alignleft actions bulkactions">
+			<label for="js-archive-bulk-action" class="screen-reader-text">Выберите действие</label>
+			<select id="js-archive-bulk-action">
+				<option value="">— Массовые действия —</option>
+				<option value="export">Экспортировать</option>
+			</select>
+			<button type="button" id="js-archive-bulk-apply" class="button action">Применить</button>
+		</div>
+	</div>
+
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 
 		<thead>
 		<tr>
+			<th class="check-column"><input type="checkbox" id="js-select-all-archive"></th>
 			<th class="column-title column-primary">
 				<?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?>
 			</th>
@@ -255,6 +267,10 @@ $statusLabels = array(
 				);
 			?>
 			<tr data-enrollment="<?php echo esc_attr( (string) wp_json_encode( $enrollmentData ) ); ?>">
+
+				<td class="check-column">
+					<input type="checkbox" class="js-archive-cb" value="<?php echo esc_attr( (string) $row->id ); ?>">
+				</td>
 
 				<td class="column-title">
 					<?php echo esc_html( $studentName ); ?>

@@ -15,6 +15,7 @@ use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\Log\AuthLogRepository;
 use Inc\Repositories\WPDBRepositories\Log\EntityAuditLogRepository;
 use Inc\Repositories\WPDBRepositories\Log\ConsentChangeLogRepository;
@@ -78,6 +79,7 @@ class AdminCallbacks extends BaseController {
 		private readonly ConsentChangeLogRepository $consent_change_log,
 		private readonly EmailLogRepository        $email_log,
 		private readonly AuthLogRepository         $auth_log,
+		private readonly PersonRepository          $person_repo,
 	) {
 		parent::__construct();
 	}
@@ -212,10 +214,13 @@ class AdminCallbacks extends BaseController {
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
 			) );
-			$data['entity_audit_filters'] = $filters;
-			$data['entity_audit_page']    = $paged;
-			$data['entity_audit_total']   = $this->entity_audit_log->countFiltered( $filters );
-			$data['entity_audit_rows']    = $this->entity_audit_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['entity_audit_filters']   = $filters;
+			$data['entity_audit_page']      = $paged;
+			$data['entity_audit_total']     = $this->entity_audit_log->countFiltered( $filters );
+			$data['entity_audit_rows']      = $this->entity_audit_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['entity_audit_operations']  = $this->entity_audit_log->distinctOperations();
+			$data['entity_audit_types']       = $this->entity_audit_log->distinctEntityTypes();
+			$data['entity_audit_actor_options'] = $this->resolveActorOptions( $this->entity_audit_log->distinctActorUserIds() );
 
 		} elseif ( 'tab-2' === $active_tab ) {
 			$pii_filters = array_filter( array(
@@ -236,10 +241,12 @@ class AdminCallbacks extends BaseController {
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
 			) );
-			$data['export_filters'] = $filters;
-			$data['export_page']    = $paged;
-			$data['export_total']   = $this->export_log->countFiltered( $filters );
-			$data['export_rows']    = $this->export_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['export_filters']       = $filters;
+			$data['export_page']          = $paged;
+			$data['export_total']         = $this->export_log->countFiltered( $filters );
+			$data['export_rows']          = $this->export_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['export_data_types']    = $this->export_log->distinctDataTypes();
+			$data['export_actor_options'] = $this->resolveActorOptions( $this->export_log->distinctActorUserIds() );
 
 		} elseif ( 'tab-4' === $active_tab ) {
 			$filters = array_filter( array(
@@ -248,22 +255,24 @@ class AdminCallbacks extends BaseController {
 				'date_from'        => $date_from,
 				'date_to'          => $date_to,
 			) );
-			$data['data_change_filters'] = $filters;
-			$data['data_change_page']    = $paged;
-			$data['data_change_total']   = $this->data_change_log->countFiltered( $filters );
-			$data['data_change_rows']    = $this->data_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['data_change_filters']        = $filters;
+			$data['data_change_page']           = $paged;
+			$data['data_change_total']          = $this->data_change_log->countFiltered( $filters );
+			$data['data_change_rows']           = $this->data_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['data_change_actor_options']  = $this->resolveActorOptions( $this->data_change_log->distinctActorUserIds() );
+			$data['data_change_person_options'] = $this->resolvePersonOptions( $this->data_change_log->distinctPersonIds() );
 
 		} elseif ( 'tab-5' === $active_tab ) {
 			$filters = array_filter( array(
-				'person_id'    => $person_id,
 				'consent_type' => $this->sanitizeGetKey( 'consent_type' ),
 				'date_from'    => $date_from,
 				'date_to'      => $date_to,
 			) );
-			$data['consent_filters'] = $filters;
-			$data['consent_page']    = $paged;
-			$data['consent_total']   = $this->consent_change_log->countFiltered( $filters );
-			$data['consent_rows']    = $this->consent_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['consent_filters']       = $filters;
+			$data['consent_page']          = $paged;
+			$data['consent_total']         = $this->consent_change_log->countFiltered( $filters );
+			$data['consent_rows']          = $this->consent_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['consent_type_options']  = $this->consent_change_log->distinctConsentTypes();
 
 		} elseif ( 'tab-6' === $active_tab ) {
 			$filters = array_filter( array(
@@ -273,10 +282,12 @@ class AdminCallbacks extends BaseController {
 				'date_from'        => $date_from,
 				'date_to'          => $date_to,
 			) );
-			$data['email_filters'] = $filters;
-			$data['email_page']    = $paged;
-			$data['email_total']   = $this->email_log->countFiltered( $filters );
-			$data['email_rows']    = $this->email_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['email_filters']        = $filters;
+			$data['email_page']           = $paged;
+			$data['email_total']          = $this->email_log->countFiltered( $filters );
+			$data['email_rows']           = $this->email_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['email_type_options']   = $this->email_log->distinctEmailTypes();
+			$data['email_person_options'] = $this->resolvePersonOptions( $this->email_log->distinctPersonIds() );
 
 		} elseif ( 'tab-8' === $active_tab ) {
 			$filters = array_filter( array(
@@ -335,5 +346,31 @@ class AdminCallbacks extends BaseController {
 	public function boilerplatePage(): void {
 		// displayPage() — самостоятельно определяет режим (список/редактор) по параметрам PageRoutes
 		$this->boilerplatePageController->displayPage();
+	}
+
+	/** @param int[] $userIds @return array<int, string> id => display_name */
+	private function resolveActorOptions( array $userIds ): array {
+		if ( empty( $userIds ) ) {
+			return array();
+		}
+		$options = array();
+		foreach ( $userIds as $uid ) {
+			$user = get_userdata( $uid );
+			$options[ $uid ] = $user ? $user->display_name : "User #{$uid}";
+		}
+		return $options;
+	}
+
+	/** @param int[] $personIds @return array<int, string> id => full_name */
+	private function resolvePersonOptions( array $personIds ): array {
+		if ( empty( $personIds ) ) {
+			return array();
+		}
+		$persons = $this->person_repo->findByIds( $personIds );
+		$options = array();
+		foreach ( $personIds as $pid ) {
+			$options[ $pid ] = isset( $persons[ $pid ] ) ? $persons[ $pid ]->fullName() : "Person #{$pid}";
+		}
+		return $options;
 	}
 }
