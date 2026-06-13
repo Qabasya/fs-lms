@@ -24,7 +24,7 @@ $color-bg-footer:      #f9f9f9;
 $color-border-input:   #c3c4c7;
 $color-border-footer:  #e0e0e0;
 
-$wp-admin-blue:  #2271b1; // blue 50
+$wp-admin-blue:  $color-primary; // blue 50
 $wp-admin-blue-bg:  #c5d9ed; // blue 5
 $wp-admin-blue-bg-light:  #f0f6fc; // blue 0
 $wp-admin-blue-text:  #0a4b78; // 70
@@ -33,7 +33,7 @@ $wp-admin-green:  #008a20; // green 50
 $wp-admin-green-bg:  #b8e6bf; // green 5
 $wp-admin-green-text:  #005c12; // 70
 
-$wp-admin-gray:  #646970; // gray 50
+$wp-admin-gray:  $color-text-secondary; // gray 50
 $wp-admin-gray-bg:  #dcdcde; // gray 5
 $wp-admin-gray-bg-light:  #f6f7f7; // gray 0
 $wp-admin-gray-text:  #3c434a; // 70
@@ -42,7 +42,7 @@ $wp-admin-yellow:  #996800; // yellow 50
 $wp-admin-yellow-bg:  #f5e6ab; // yellow 5
 $wp-admin-yellow-text:  #614200; // 70
 
-$wp-admin-red:  #d63638; // red 50
+$wp-admin-red:  $color-danger; // red 50
 $wp-admin-red-bg:  #facfd2; // red 5
 $wp-admin-red-text:  #691c1c; // 80
 
@@ -67,6 +67,8 @@ $shadow-modal: 0 2px 20px rgba(0, 0, 0, 0.3);
 $gap-sm: 50px;
 $gap-md: 100px;
 
+$tr-height: 42px;
+
 // ── Шрифты
 $font-bold: 600;
 $font-regular: 450;
@@ -75,6 +77,7 @@ $font-size-sm: 10px;
 $font-size: 14px;
 $font-size-m: 16px;
 $font-size-l: 26px;
+$font-size-code: 11px;
 
 // ── Тайминги
 $transition-fast:    0.2s ease-out;
@@ -98,10 +101,10 @@ $dashboard-tabs-max-width:        95vw;
 $dashboard-tabs-padding:          12px 24px;
 $dashboard-tabs-content-padding:  30px;
 $dashboard-tabs-min-height:       400px;
-$dashboard-tabs-bg-inactive:      #dcdcde;
+$dashboard-tabs-bg-inactive:      $wp-admin-gray-bg;
 $dashboard-tabs-bg-hover:         #f0f0f1;
 $dashboard-tabs-shadow:           0 2px 5px rgba(0, 0, 0, 0.05);
-$dashboard-tabs-transition:       all 0.2s;
+$dashboard-tabs-transition:       $transition-default;
 
 // =================================================================
 // COMPONENT: Subject Table
@@ -116,9 +119,9 @@ $task-select-max-width:   350px;
 // COMPONENT: Tables (shared)
 // =================================================================
 
-$table-row-border:           #f0f0f1;
+$table-row-border:           $dashboard-tabs-bg-hover; // gray 2 (#f0f0f1)
 $table-header-bg:            #f8f9fa;
-$table-row-add-bg:           #f6f7f7;
+$table-row-add-bg:           $wp-admin-gray-bg-light;  // gray 0 (#f6f7f7)
 $table-add-btn-width:        32px;
 $table-add-btn-height:       30px;
 $table-add-icon-size:        22px;

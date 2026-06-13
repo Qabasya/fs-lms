@@ -1,0 +1,49 @@
+@use '../variables' as *;
+
+// =================================================================
+// УТИЛИТАРНЫЕ КЛАССЫ (замена инлайн-стилей в шаблонах)
+// =================================================================
+
+// ── Отступы (только токены из _variables.scss)
+
+.fs-mt-md  { margin-top: $spacing-md !important; }
+.fs-mt-lg  { margin-top: $spacing-lg !important; }
+.fs-mt-xl  { margin-top: $spacing-xl !important; }
+
+.fs-mb-0   { margin-bottom: 0 !important; }
+.fs-mb-md  { margin-bottom: $spacing-md !important; }
+.fs-mb-xl  { margin-bottom: $spacing-xl !important; }
+.fs-mb-xxl { margin-bottom: $spacing-xxl !important; }
+
+// ── Флекс-строка (поиск + кнопка, группы действий)
+
+.fs-flex-row {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+}
+
+// ── Текст
+
+.fs-text-danger { color: $color-danger; }
+.fs-text-muted  { color: $color-text-secondary; }
+.fs-code-sm     { font-size: $font-size-code; }
+
+// ── Единый стиль строчных dashicons (иконка рядом с текстом)
+
+.fs-dashicon {
+  font-size: $font-size-m;
+  width: $font-size-m;
+  height: $font-size-m;
+  vertical-align: text-bottom;
+
+  &--muted  { color: $color-text-secondary; }
+  &--danger { color: $color-danger; }
+}
+
+// ── Мелкая ссылка-действие в ячейке таблицы
+
+.fs-btn-link-sm {
+  margin-top: $spacing-xs;
+  font-size: $font-size-code;
+}

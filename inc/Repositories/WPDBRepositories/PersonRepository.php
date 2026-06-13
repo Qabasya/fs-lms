@@ -4,8 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories\WPDBRepositories;
 
-use Inc\Contracts\RepositoryInterface;
 use Inc\DTO\Person\PersonDTO;
+use Inc\DTO\Person\PersonRecordInputDTO;
 use Inc\Enums\TableName;
 
 /**
@@ -27,7 +27,7 @@ use Inc\Enums\TableName;
  * Использует DTO PersonDTO для типобезопасной передачи данных.
  * Реализует интерфейс RepositoryInterface для единообразия с другими репозиториями.
  */
-class PersonRepository implements RepositoryInterface {
+class PersonRepository {
 
 	private \wpdb $wpdb;
 	private string $table;
@@ -98,12 +98,12 @@ class PersonRepository implements RepositoryInterface {
 	/**
 	 * Создаёт новую запись лица.
 	 *
-	 * @param array $data Массив полей таблицы (first_name, last_name, birth_date и т.д.)
+	 * @param PersonRecordInputDTO $dto DTO с полями для вставки
 	 *
 	 * @return int ID созданной записи
 	 */
-	public function create( array $data ): int {
-		$this->wpdb->insert( $this->table, $data );
+	public function create( PersonRecordInputDTO $dto ): int {
+		$this->wpdb->insert( $this->table, $dto->toArray() );
 		return (int) $this->wpdb->insert_id;
 	}
 

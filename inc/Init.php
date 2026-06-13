@@ -4,12 +4,12 @@ namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\ApplicationController;
-use Inc\Controllers\ApplyPageController;
+use Inc\Controllers\Pages\ApplyPageController;
 use Inc\Controllers\ConsentController;
 use Inc\Controllers\CronController;
 use Inc\Controllers\AdminController;
 use Inc\Controllers\AuthController;
-use Inc\Controllers\AuthPageController;
+use Inc\Controllers\Pages\AuthPageController;
 use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\EnrollmentController;
 use Inc\Controllers\MetaBoxController;
@@ -20,16 +20,27 @@ use Inc\Controllers\RecoveryController;
 use Inc\Controllers\StudentGroupController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
-use Inc\Controllers\TaskPageController;
+use Inc\Controllers\Pages\TaskPageController;
 use Inc\Controllers\LogsController;
 use Inc\Controllers\SettingsController;
-use Inc\Controllers\AuthLogController;
+use Inc\Controllers\Subscribers\AuthLogController;
+use Inc\Controllers\Subscribers\EntityAuditSubscriber;
+use Inc\Controllers\Subscribers\PostEntityAuditController;
+use Inc\Controllers\Subscribers\EnrollmentAuditSubscriber;
+use Inc\Controllers\Subscribers\PiiAccessSubscriber;
+use Inc\Controllers\Subscribers\DataChangeSubscriber;
+use Inc\Controllers\Subscribers\ConsentChangeSubscriber;
+use Inc\Controllers\Subscribers\EmailSubscriber;
+use Inc\Controllers\Subscribers\DeletionSubscriber;
 use Inc\Controllers\DeletionController;
 use Inc\Controllers\UserController;
+use Inc\Services\Export\ExportServiceBootstrap;
 use Inc\Contracts\ClockInterface;
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
-use Inc\Services\WpClock;
+use Inc\Services\Log\LogEventDispatcher;
+use Inc\Services\Shared\WpClock;
 
 /**
  * Class Init
@@ -84,6 +95,15 @@ final class Init {
 			SettingsController::class,
 			LogsController::class,
 			AuthLogController::class,
+			EntityAuditSubscriber::class,
+			PostEntityAuditController::class,
+			EnrollmentAuditSubscriber::class,
+			PiiAccessSubscriber::class,
+			DataChangeSubscriber::class,
+			ConsentChangeSubscriber::class,
+			EmailSubscriber::class,
+			DeletionSubscriber::class,
+			ExportServiceBootstrap::class,
 		);
 	}
 
@@ -101,6 +121,7 @@ final class Init {
 	public static function run(): void {
 		$container = new Container();
 		$container->bind( ClockInterface::class, WpClock::class );
+		$container->bind( LogEventDispatcherInterface::class, LogEventDispatcher::class );
 
 		foreach ( self::getServices() as $class ) {
 			$service = $container->get( $class );

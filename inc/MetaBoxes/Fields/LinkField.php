@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\MetaBoxes\Fields;
 
 /**
@@ -26,7 +28,7 @@ class LinkField extends InputField {
 	 *
 	 * @return void
 	 */
-	public function render( $post, string $id, string $label, $value ): void {
+	public function render( \WP_Post $post, string $id, string $label, mixed $value ): void {
 		?>
 		<div class="fs-lms-field-group fs-lms-file-group">
 			<label class="fs-lms-label" for="<?php echo esc_attr( $id ); ?>">
@@ -65,7 +67,7 @@ class LinkField extends InputField {
 	 *
 	 * @return string Очищенный PageRoutes
 	 */
-	public function sanitize( $value ): string {
-		return esc_url_raw( $value );
+	public function sanitize( mixed $value ): mixed {
+		return esc_url_raw( is_string( $value ) ? $value : (string) $value );
 	}
 }

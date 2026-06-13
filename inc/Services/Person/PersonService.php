@@ -5,13 +5,15 @@ declare( strict_types=1 );
 namespace Inc\Services\Person;
 
 use Inc\Contracts\ClockInterface;
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EntityHardDeletedEvent;
+use Inc\DTO\Log\Events\PersonDataChangedEvent;
 use Inc\DTO\Person\PersonInputDTO;
-use Inc\Enums\AuditAction;
+use Inc\DTO\Person\PersonRecordInputDTO;
+use Inc\Enums\LogEvent;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Services\AuditService;
-use Inc\Services\Log\DataChangeLogWriter;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 use RuntimeException;
 
 readonly class PersonService {
@@ -26,12 +28,11 @@ readonly class PersonService {
 	);
 
 	public function __construct(
-		private PersonRepository          $personRepository,
-		private PersonDocumentsRepository $personDocumentsRepository,
-		private PiiCryptoService          $crypto,
-		private AuditService              $auditService,
-		private ClockInterface            $clock,
-		private DataChangeLogWriter       $dataChangeLog,
+		private PersonRepository            $personRepository,
+		private PersonDocumentsRepository   $personDocumentsRepository,
+		private PiiCryptoService            $crypto,
+		private ClockInterface              $clock,
+		private LogEventDispatcherInterface $logEvents,
 	) {}
 
 	public function createOrFindBy( PersonInputDTO $input ): int {
@@ -47,16 +48,16 @@ readonly class PersonService {
 		}
 
 		$now      = $this->clock->now( 'mysql', true );
-		$personId = $this->personRepository->create( array(
-			'last_name'   => $input->lastName,
-			'first_name'  => $input->firstName,
-			'middle_name' => $input->middleName !== '' ? $input->middleName : null,
-			'birth_date'  => $input->birthDate !== '' ? $input->birthDate : null,
-			'is_student'  => $input->isStudent ? 1 : 0,
-			'school'      => $input->school !== '' ? $input->school : null,
-			'grade'       => $input->grade  !== '' ? $input->grade  : null,
-			'created_at'  => $now,
-			'updated_at'  => $now,
+		$personId = $this->personRepository->create( new PersonRecordInputDTO(
+			lastName:   $input->lastName,
+			firstName:  $input->firstName,
+			isStudent:  $input->isStudent ? 1 : 0,
+			createdAt:  $now,
+			updatedAt:  $now,
+			middleName: $input->middleName !== '' ? $input->middleName : null,
+			birthDate:  $input->birthDate  !== '' ? $input->birthDate  : null,
+			school:     $input->school     !== '' ? $input->school     : null,
+			grade:      $input->grade      !== '' ? $input->grade      : null,
 		) );
 
 		if ( 0 === $personId ) {
@@ -88,7 +89,9 @@ readonly class PersonService {
 				$newVal                   = (string) $changes[ $nameField ];
 				$personData[ $nameField ] = $newVal;
 				$changedFields[]          = $nameField;
-				$fieldChanges[]           = array( 'field' => $nameField, 'old' => $oldVal, 'new' => $newVal );
+				if ( $oldVal !== $newVal ) {
+					$fieldChanges[] = array( 'field' => $nameField, 'old' => $oldVal, 'new' => $newVal );
+				}
 			}
 		}
 
@@ -97,7 +100,9 @@ readonly class PersonService {
 			$newVal                    = (string) $changes['birth_date'];
 			$personData['birth_date']  = $newVal;
 			$changedFields[]           = 'birth_date';
-			$fieldChanges[]            = array( 'field' => 'birth_date', 'old' => $oldVal, 'new' => $newVal );
+			if ( $oldVal !== $newVal ) {
+				$fieldChanges[] = array( 'field' => 'birth_date', 'old' => $oldVal, 'new' => $newVal );
+			}
 		}
 
 		$encFieldMap = array(
@@ -125,7 +130,9 @@ readonly class PersonService {
 			$encProp = $encFieldMap[ $rawKey ] ?? null;
 			$oldEnc  = $encProp && $existingDocs ? $existingDocs->$encProp : null;
 			$oldVal  = $oldEnc ? $this->crypto->decrypt( $oldEnc ) : '';
-			$fieldChanges[] = array( 'field' => $rawKey, 'old' => $oldVal, 'new' => $newVal );
+			if ( $oldVal !== $newVal ) {
+				$fieldChanges[] = array( 'field' => $rawKey, 'old' => $oldVal, 'new' => $newVal );
+			}
 		}
 
 		if ( array_key_exists( 'doc_type', $changes ) ) {
@@ -133,7 +140,9 @@ readonly class PersonService {
 			$newVal              = (string) $changes['doc_type'];
 			$docData['doc_type'] = $newVal;
 			$changedFields[]     = 'doc_type';
-			$fieldChanges[]      = array( 'field' => 'doc_type', 'old' => $oldVal, 'new' => $newVal );
+			if ( $oldVal !== $newVal ) {
+				$fieldChanges[] = array( 'field' => 'doc_type', 'old' => $oldVal, 'new' => $newVal );
+			}
 		}
 
 		if ( array_key_exists( 'doc_issued_date', $changes ) ) {
@@ -141,7 +150,9 @@ readonly class PersonService {
 			$newVal                      = (string) $changes['doc_issued_date'];
 			$docData['doc_issued_date']  = $newVal;
 			$changedFields[]             = 'doc_issued_date';
-			$fieldChanges[]              = array( 'field' => 'doc_issued_date', 'old' => $oldVal, 'new' => $newVal );
+			if ( $oldVal !== $newVal ) {
+				$fieldChanges[] = array( 'field' => 'doc_issued_date', 'old' => $oldVal, 'new' => $newVal );
+			}
 		}
 
 		if ( ! empty( $personData ) ) {
@@ -162,15 +173,11 @@ readonly class PersonService {
 			return;
 		}
 
-		$this->auditService->record(
-			AuditAction::UpdatePerson->value,
-			'person',
-			$personId,
-			array( 'changed_fields' => $changedFields ),
-		);
-
 		foreach ( $fieldChanges as $fc ) {
-			$this->dataChangeLog->record( $personId, $fc['field'], $fc['old'], $fc['new'] );
+			$this->logEvents->dispatch(
+				LogEvent::PersonDataChanged,
+				new PersonDataChangedEvent( get_current_user_id(), $personId, $fc['field'], $fc['old'], $fc['new'] )
+			);
 		}
 	}
 
@@ -185,10 +192,9 @@ readonly class PersonService {
 			throw new RuntimeException( "Не удалось выполнить soft delete для person ID {$personId}." );
 		}
 
-		$this->auditService->record(
-			AuditAction::PiiDeletionRequested->value,
-			'person',
-			$personId,
+		$this->logEvents->dispatch(
+			LogEvent::PersonSoftDeleted,
+			new EntityHardDeletedEvent( $actorId, 'person', $personId ),
 		);
 	}
 

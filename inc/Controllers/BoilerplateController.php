@@ -2,7 +2,7 @@
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\BoilerplateCallbacks;
+use Inc\Callbacks\Task\BoilerplateCallbacks;
 use Inc\Enums\AjaxHook;
 use Inc\Shared\Traits\TemplateRenderer;
 

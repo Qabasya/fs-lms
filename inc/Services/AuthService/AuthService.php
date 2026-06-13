@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\AuthService;
 
 use Hybridauth\Hybridauth;
-use Inc\DTO\UserDTO;
+use Inc\DTO\Person\UserDTO;
 use Inc\Enums\AuthProvider;
 use Inc\Enums\UserRole;
 use Inc\Repositories\OptionsRepositories\UserRepository;

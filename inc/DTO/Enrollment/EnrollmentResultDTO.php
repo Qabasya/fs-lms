@@ -28,5 +28,6 @@ readonly class EnrollmentResultDTO {
 		public ?string $guardianLogin,
 		public ?string $guardianPassword,
 		public bool    $partialFailure = false,
+		public ?string $errorMessage   = null,
 	) {}
 }

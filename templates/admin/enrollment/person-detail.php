@@ -113,7 +113,7 @@ $tabs = $isStudent
 		<?php endif; ?>
 	</div>
 
-	<h2 class="nav-tab-wrapper" style="margin-top:16px">
+	<h2 class="nav-tab-wrapper fs-mt-lg">
 		<?php foreach ( $tabs as $tabId => $tabTitle ) : ?>
 			<a href="#"
 			   class="nav-tab <?php echo $activeTab === $tabId ? 'nav-tab-active' : ''; ?>"
@@ -124,8 +124,7 @@ $tabs = $isStudent
 	</h2>
 
 	<!-- ДАННЫЕ -->
-	<div id="fs-person-tab-data" class="fs-tab-panel tab-content"
-		<?php echo $activeTab !== 'data' ? 'style="display:none"' : ''; ?>>
+	<div id="fs-person-tab-data" class="fs-tab-panel tab-content <?php echo $activeTab !== 'data' ? 'hidden' : ''; ?>">
 
 		<?php if ( null === $decrypted ) : ?>
 			<p><?php esc_html_e( 'Недостаточно прав для просмотра персональных данных.', 'fs-lms' ); ?></p>
@@ -199,8 +198,7 @@ $tabs = $isStudent
 
 	<!-- ПРЕДСТАВИТЕЛИ (ученик) -->
 	<?php if ( $isStudent ) : ?>
-	<div id="fs-person-tab-representatives" class="fs-tab-panel tab-content"
-		<?php echo $activeTab !== 'representatives' ? 'style="display:none"' : ''; ?>>
+	<div id="fs-person-tab-representatives" class="fs-tab-panel tab-content <?php echo $activeTab !== 'representatives' ? 'hidden' : ''; ?>">
 
 		<div class="tablenav top">
 			<button type="button" class="button js-open-add-representative">
@@ -241,8 +239,7 @@ $tabs = $isStudent
 
 	<!-- ПОДОПЕЧНЫЕ (родитель) -->
 	<?php if ( $isParent ) : ?>
-	<div id="fs-person-tab-dependents" class="fs-tab-panel tab-content"
-		<?php echo $activeTab !== 'dependents' ? 'style="display:none"' : ''; ?>>
+	<div id="fs-person-tab-dependents" class="fs-tab-panel tab-content <?php echo $activeTab !== 'dependents' ? 'hidden' : ''; ?>">
 
 		<?php if ( empty( $dependents ) ) : ?>
 			<p><?php esc_html_e( 'Подопечных нет.', 'fs-lms' ); ?></p>
@@ -276,8 +273,7 @@ $tabs = $isStudent
 	<?php endif; ?>
 
 	<!-- ЗАЧИСЛЕНИЯ -->
-	<div id="fs-person-tab-enrollments" class="fs-tab-panel tab-content"
-		<?php echo $activeTab !== 'enrollments' ? 'style="display:none"' : ''; ?>>
+	<div id="fs-person-tab-enrollments" class="fs-tab-panel tab-content <?php echo $activeTab !== 'enrollments' ? 'hidden' : ''; ?>">
 
 		<?php if ( empty( $enrollments ) ) : ?>
 			<p><?php esc_html_e( 'Зачислений нет.', 'fs-lms' ); ?></p>
@@ -395,7 +391,7 @@ $tabs = $isStudent
 				</div>
 				<div class="fs-form-group">
 					<label><?php esc_html_e( 'Адрес', 'fs-lms' ); ?></label>
-					<input type="text" name="address" class="regular-text" style="width:100%">
+					<input type="text" name="address" class="regular-text tw-100">
 				</div>
 			</form>
 		</div>
@@ -417,7 +413,7 @@ $tabs = $isStudent
 		<div class="fs-lms-modal-body">
 			<form id="fs-replace-representative-form">
 				<input type="hidden" name="archive_id" value="">
-				<p class="description" style="margin-bottom:12px">
+				<p class="description fs-mb-md">
 					<?php esc_html_e( 'Заполните данные нового представителя.', 'fs-lms' ); ?>
 				</p>
 				<div class="fs-form-row">

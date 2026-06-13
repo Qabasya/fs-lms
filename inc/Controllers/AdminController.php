@@ -3,14 +3,12 @@
 namespace Inc\Controllers;
 
 use Inc\Callbacks\AdminCallbacks;
-use Inc\Callbacks\SubjectSettingsCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\Builders\SubjectsMenuBuilder;
 use Inc\Core\BaseController;
 use Inc\Enums\Capability;
-use Inc\Enums\MenuSlug;
-use Inc\Enums\MenuTitle;
-use Inc\Enums\PageTitle;
+use Inc\Enums\Menu;
+use Inc\Enums\OptionName;
 use Inc\Registrars\MenuRegistrar;
 use Inc\Registrars\SettingsRegistrar;
 
@@ -103,8 +101,8 @@ class AdminController extends BaseController implements ServiceInterface {
 
 		$auth_settings = array(
 			array(
-				'option_group' => 'fs_lms_auth_group', // Совпадает с settings_fields() в шаблоне
-				'option_name'  => 'fs_lms_auth_settings', // Ключ в таблице wp_options
+				'option_group' => OptionName::AuthGroups->value, // Совпадает с settings_fields() в шаблоне
+				'option_name'  => OptionName::AuthSettings->value, // Ключ в таблице wp_options
 				'callback'     => null, // Здесь можно указать метод для валидации данных
 			),
 		);
@@ -147,14 +145,14 @@ class AdminController extends BaseController implements ServiceInterface {
 	 * }> Конфигурация главных страниц
 	 */
 	private function buildMainPages(): array {
-		// Главная страница плагина
+		// Главная страница плагина Main
 		$pages = array(
 			array(
-				'page_title' => 'FS LMS Dashboard',
-				'menu_title' => 'FS LMS',
+				'page_title' => Menu::Main->page_title(),
+				'menu_title' => Menu::Main->menu_title(),
 				'capability' => Capability::Admin->value,
-				'menu_slug'  => MenuSlug::Main->value,
-				'callback'   => array( $this->callbacks, 'adminDashboard' ),
+				'menu_slug'  => Menu::Main->value,
+				'callback'   => array( $this->callbacks, Menu::Main->callback() ),
 				'icon_url'   => 'dashicons-welcome-learn-more',
 				'position'   => 4,
 			),
@@ -185,67 +183,67 @@ class AdminController extends BaseController implements ServiceInterface {
 	private function buildAllSubPages(): array {
 		$subpages = array();
 
-		// Первая подстраница (дублирует главную, будет скрыта WordPress)
+		// Первая подстраница (дублирует главную, будет скрыта WordPress) Main
 		// WordPress автоматически создаёт её, чтобы у родительского пункта был дочерний
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::Main->value,
-			'page_title'  => PageTitle::First->value,
-			'menu_title'  => MenuTitle::First->value,
+			'parent_slug' => Menu::Main->value,
+			'page_title' => Menu::Main->page_title(),
+			'menu_title' => Menu::Main->menu_title(),
 			'capability'  => Capability::Admin->value,
-			'menu_slug'   => MenuSlug::Main->value,
-			'callback'    => array( $this->callbacks, 'adminDashboard' ),
+			'menu_slug'   => Menu::Main->value,
+			'callback'    => array( $this->callbacks, Menu::Main->callback() ),
 		);
 
-		// Страница настроек плагина
+		// Страница настроек плагина Settings
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::Main->value,
-			'page_title'  => PageTitle::Second->value,
-			'menu_title'  => MenuTitle::Second->value,
+			'parent_slug' => Menu::Main->value,
+			'page_title'  => Menu::Settings->page_title(),
+			'menu_title'  => Menu::Settings->menu_title(),
 			'capability'  => Capability::Admin->value,
-			'menu_slug'   => 'fs_lms_settings',
-			'callback'    => array( $this->callbacks, 'settingsPage' ),
+			'menu_slug'   => Menu::Settings->value,
+			'callback'    => array( $this->callbacks, Menu::Settings->callback() ),
 		);
 
-		// Скрытая страница управления типовыми условиями (не отображается в боковом меню)
+		// Скрытая страница управления типовыми условиями (не отображается в боковом меню) BoilerplateManager
 		// parent_slug' => 'options.php' делает страницу доступной только по прямому PageRoutes
 		$subpages[] = array(
-			'parent_slug' => 'options.php',
-			'page_title'  => 'Управление типовыми условиями',
-			'menu_title'  => 'Boilerplate Manager',
+			'parent_slug' => Menu::_Options->value,
+			'page_title'  => Menu::BoilerplateManager->page_title(),
+			'menu_title'  => Menu::BoilerplateManager->menu_title(),
 			'capability'  => Capability::Admin->value,
-			'menu_slug'   => 'fs_boilerplate_manager',
-			'callback'    => array( $this->callbacks, 'boilerplatePage' ),
+			'menu_slug'   => Menu::BoilerplateManager->value,
+			'callback'    => array( $this->callbacks, Menu::BoilerplateManager->callback() ),
 		);
 
 		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
-		// Группы
+		// Группы Groups
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::Main->value,        // Привязываем к главному меню FS LMS
-			'page_title'  => 'Управление группами',        // Заголовок в теге <title>
-			'menu_title'  => 'Группы',                     // Название пункта в боковом меню
-			'capability'  => Capability::Admin->value,     // Права доступа
-			'menu_slug'   => 'fs_lms_groups',              // Уникальный слаг страницы
-			'callback'    => array( $this->callbacks, 'groupsPage' ), // Метод-коллбек для отрисовки
+			'parent_slug' => Menu::Main->value,
+			'page_title'  => Menu::Groups->page_title(),
+			'menu_title'  => Menu::Groups->menu_title(),
+			'capability'  => Capability::Admin->value,
+			'menu_slug'   => Menu::Groups->value,
+			'callback'    => array( $this->callbacks, Menu::Groups->callback() ),
 		);
 
-		// Список пользователей
+		// Список пользователей UserList
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::Main->value,
-			'page_title'  => 'Список пользователей',
-			'menu_title'  => 'Пользователи',
+			'parent_slug' => Menu::Main->value,
+			'page_title'  => Menu::UserList->page_title(),
+			'menu_title'  => Menu::UserList->menu_title(),
 			'capability'  => Capability::Admin->value,
-			'menu_slug'   => 'fs_lms_userlist',
-			'callback'    => array( $this->callbacks, 'userlistPage' ),
+			'menu_slug'   => Menu::UserList->value,
+			'callback'    => array( $this->callbacks, Menu::UserList->callback() ),
 		);
 
-		// Журналы
+		// Журналы Logs
 		$subpages[] = array(
-			'parent_slug' => MenuSlug::Main->value,
-			'page_title'  => 'Журналы',
-			'menu_title'  => 'Журналы',
+			'parent_slug' => Menu::Main->value,
+			'page_title'  => Menu::Logs->page_title(),
+			'menu_title'  => Menu::Logs->page_title(),
 			'capability'  => Capability::Admin->value,
-			'menu_slug'   => 'fs_lms_logs',
-			'callback'    => array( $this->callbacks, 'logsPage' ),
+			'menu_slug'   => Menu::Logs->value,
+			'callback'    => array( $this->callbacks, Menu::Logs->callback() ),
 		);
 
 		// Добавляем подстраницы предметов (каждый предмет — отдельная подстраница)
@@ -285,8 +283,8 @@ class AdminController extends BaseController implements ServiceInterface {
 			function () {
 				// Удаляем дублирующийся подпункт для страницы списка предметов
 				remove_submenu_page(
-					MenuSlug::Subjects->value,
-					MenuSlug::Subjects->value
+					Menu::Subjects->value,
+					Menu::Subjects->value
 				);
 			},
 			999

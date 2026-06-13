@@ -2,7 +2,7 @@
 
 namespace Inc\Services\AuthService\AuthStrategies;
 
-use Inc\DTO\UserDTO;
+use Inc\DTO\Person\UserDTO;
 use Inc\Enums\AuthProvider;
 use Inc\Shared\PluginLogger;
 

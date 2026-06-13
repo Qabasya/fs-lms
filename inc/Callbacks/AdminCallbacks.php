@@ -4,9 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks;
 
-use Inc\Controllers\BoilerplatePageController;
+use Inc\Controllers\Pages\BoilerplatePageController;
 use Inc\Core\BaseController;
-use Inc\DTO\AcademicPeriodDTO;
+use Inc\DTO\Settings\AcademicPeriodDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\Capability;
 use Inc\Enums\UserRole;
@@ -14,16 +14,18 @@ use Inc\Enums\WeekDay;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
-use Inc\Repositories\WPDBRepositories\AuditLogRepository;
-use Inc\Repositories\WPDBRepositories\AuthLogRepository;
-use Inc\Repositories\WPDBRepositories\ConsentChangeLogRepository;
-use Inc\Repositories\WPDBRepositories\DataChangeLogRepository;
-use Inc\Repositories\WPDBRepositories\DeletionLogRepository;
-use Inc\Repositories\WPDBRepositories\EmailLogRepository;
-use Inc\Repositories\WPDBRepositories\ExportLogRepository;
-use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\AuthLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\EntityAuditLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\ConsentChangeLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\DataChangeLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\EmailLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\ExportLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
 use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -47,6 +49,8 @@ use Inc\Shared\Traits\TemplateRenderer;
  */
 class AdminCallbacks extends BaseController {
 
+	use Authorizer;
+	use Sanitizer;
 	use TemplateRenderer;
 
 	/**
@@ -66,13 +70,13 @@ class AdminCallbacks extends BaseController {
 		private readonly BoilerplatePageController $boilerplatePageController,
 		private readonly AcademicPeriodService $period_service,
 		private readonly GroupsRepository $groupsRepository,
+		private readonly EntityAuditLogRepository  $entity_audit_log,
 		private readonly AuditLogRepository        $audit_log,
 		private readonly PiiAccessLogRepository    $pii_log,
 		private readonly ExportLogRepository       $export_log,
 		private readonly DataChangeLogRepository   $data_change_log,
 		private readonly ConsentChangeLogRepository $consent_change_log,
 		private readonly EmailLogRepository        $email_log,
-		private readonly DeletionLogRepository     $deletion_log,
 		private readonly AuthLogRepository         $auth_log,
 	) {
 		parent::__construct();
@@ -116,8 +120,7 @@ class AdminCallbacks extends BaseController {
 		$current_period = $sorted['current'];
 		$other_periods  = $sorted['other'];
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$selected_period_id = sanitize_key( wp_unslash( $_GET['period_filter'] ?? '' ) );
+		$selected_period_id = $this->sanitizeGetKey( 'period_filter' );
 		if ( '' === $selected_period_id ) {
 			$selected_period_id = $current_period['id'] ?? '';
 		}
@@ -180,23 +183,41 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function logsPage(): void {
-		if ( ! current_user_can( Capability::Admin->value ) ) {
-			wp_die( 'Недостаточно прав.' );
-		}
+		$this->requireCap( Capability::Admin );
 
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended
-		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'tab-1' ) );
+		$active_tab = $this->sanitizeGetKey( 'tab' ) ?: 'tab-0';
 		$per_page   = 50;
-		$paged      = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+		$paged      = max( 1, $this->sanitizeGetInt( 'paged' ) );
 
 		$data = compact( 'active_tab', 'per_page' );
 
-		$date_from = sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) );
-		$date_to   = sanitize_text_field( wp_unslash( $_GET['date_to'] ?? '' ) );
-		$actor_id  = (int) ( $_GET['actor_id'] ?? 0 ) ?: null;
-		$person_id = (int) ( $_GET['person_id'] ?? 0 ) ?: null;
+		$date_from = $this->sanitizeGetText( 'date_from' );
+		$date_to   = $this->sanitizeGetText( 'date_to' );
+		$actor_id  = $this->sanitizeGetInt( 'actor_id' ) ?: null;
+		$person_id = $this->sanitizeGetInt( 'person_id' ) ?: null;
 
-		if ( 'tab-2' === $active_tab ) {
+		$log_orderby_raw = $this->sanitizeGetKey( 'orderby' );
+		$log_orderby     = in_array( $log_orderby_raw, array( 'id', 'created_at' ), true ) ? $log_orderby_raw : 'id';
+		$log_order       = 'asc' === $this->sanitizeGetKey( 'order' ) ? 'ASC' : 'DESC';
+
+		$data['log_orderby'] = $log_orderby;
+		$data['log_order']   = strtolower( $log_order );
+
+
+		if ( 'tab-0' === $active_tab ) {
+			$filters = array_filter( array(
+				'operation'     => $this->sanitizeGetKey( 'operation' ),
+				'entity_type'   => $this->sanitizeGetKey( 'entity_type' ),
+				'actor_user_id' => $actor_id,
+				'date_from'     => $date_from,
+				'date_to'       => $date_to,
+			) );
+			$data['entity_audit_filters'] = $filters;
+			$data['entity_audit_page']    = $paged;
+			$data['entity_audit_total']   = $this->entity_audit_log->countFiltered( $filters );
+			$data['entity_audit_rows']    = $this->entity_audit_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+
+		} elseif ( 'tab-2' === $active_tab ) {
 			$pii_filters = array_filter( array(
 				'actor_user_id' => $actor_id,
 				'person_id'     => $person_id,
@@ -206,19 +227,19 @@ class AdminCallbacks extends BaseController {
 			$data['pii_filters'] = $pii_filters;
 			$data['pii_page']    = $paged;
 			$data['pii_total']   = $this->pii_log->countFiltered( $pii_filters );
-			$data['pii_rows']    = $this->pii_log->list( $pii_filters, $paged, $per_page );
+			$data['pii_rows']    = $this->pii_log->list( $pii_filters, $paged, $per_page, $log_orderby, $log_order );
 
 		} elseif ( 'tab-3' === $active_tab ) {
 			$filters = array_filter( array(
 				'actor_user_id' => $actor_id,
-				'data_type'     => sanitize_key( wp_unslash( $_GET['data_type'] ?? '' ) ),
+				'data_type'     => $this->sanitizeGetKey( 'data_type' ),
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
 			) );
 			$data['export_filters'] = $filters;
 			$data['export_page']    = $paged;
 			$data['export_total']   = $this->export_log->countFiltered( $filters );
-			$data['export_rows']    = $this->export_log->list( $filters, $paged, $per_page );
+			$data['export_rows']    = $this->export_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
 
 		} elseif ( 'tab-4' === $active_tab ) {
 			$filters = array_filter( array(
@@ -230,24 +251,24 @@ class AdminCallbacks extends BaseController {
 			$data['data_change_filters'] = $filters;
 			$data['data_change_page']    = $paged;
 			$data['data_change_total']   = $this->data_change_log->countFiltered( $filters );
-			$data['data_change_rows']    = $this->data_change_log->list( $filters, $paged, $per_page );
+			$data['data_change_rows']    = $this->data_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
 
 		} elseif ( 'tab-5' === $active_tab ) {
 			$filters = array_filter( array(
 				'person_id'    => $person_id,
-				'consent_type' => sanitize_key( wp_unslash( $_GET['consent_type'] ?? '' ) ),
+				'consent_type' => $this->sanitizeGetKey( 'consent_type' ),
 				'date_from'    => $date_from,
 				'date_to'      => $date_to,
 			) );
 			$data['consent_filters'] = $filters;
 			$data['consent_page']    = $paged;
 			$data['consent_total']   = $this->consent_change_log->countFiltered( $filters );
-			$data['consent_rows']    = $this->consent_change_log->list( $filters, $paged, $per_page );
+			$data['consent_rows']    = $this->consent_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
 
 		} elseif ( 'tab-6' === $active_tab ) {
 			$filters = array_filter( array(
-				'email_type'       => sanitize_key( wp_unslash( $_GET['email_type'] ?? '' ) ),
-				'status'           => sanitize_key( wp_unslash( $_GET['status'] ?? '' ) ),
+				'email_type'       => $this->sanitizeGetKey( 'email_type' ),
+				'status'           => $this->sanitizeGetKey( 'status' ),
 				'target_person_id' => $person_id,
 				'date_from'        => $date_from,
 				'date_to'          => $date_to,
@@ -255,46 +276,53 @@ class AdminCallbacks extends BaseController {
 			$data['email_filters'] = $filters;
 			$data['email_page']    = $paged;
 			$data['email_total']   = $this->email_log->countFiltered( $filters );
-			$data['email_rows']    = $this->email_log->list( $filters, $paged, $per_page );
-
-		} elseif ( 'tab-7' === $active_tab ) {
-			$filters = array_filter( array(
-				'actor_user_id' => $actor_id,
-				'entity_type'   => sanitize_key( wp_unslash( $_GET['entity_type'] ?? '' ) ),
-				'date_from'     => $date_from,
-				'date_to'       => $date_to,
-			) );
-			$data['deletion_filters'] = $filters;
-			$data['deletion_page']    = $paged;
-			$data['deletion_total']   = $this->deletion_log->countFiltered( $filters );
-			$data['deletion_rows']    = $this->deletion_log->list( $filters, $paged, $per_page );
+			$data['email_rows']    = $this->email_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
 
 		} elseif ( 'tab-8' === $active_tab ) {
 			$filters = array_filter( array(
-				'action'    => sanitize_key( wp_unslash( $_GET['action_filter'] ?? '' ) ),
-				'result'    => sanitize_key( wp_unslash( $_GET['result'] ?? '' ) ),
+				'action'    => $this->sanitizeGetKey( 'action_filter' ),
+				'result'    => $this->sanitizeGetKey( 'result' ),
 				'date_from' => $date_from,
 				'date_to'   => $date_to,
 			) );
 			$data['auth_filters'] = $filters;
 			$data['auth_page']    = $paged;
 			$data['auth_total']   = $this->auth_log->countFiltered( $filters );
-			$data['auth_rows']    = $this->auth_log->list( $filters, $paged, $per_page );
+			$data['auth_rows']    = $this->auth_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
 
 		} else {
-			$audit_filters = array_filter( array(
-				'action'        => sanitize_key( wp_unslash( $_GET['action_filter'] ?? '' ) ),
-				'actor_user_id' => $actor_id,
+			$actor_name = $this->sanitizeGetText( 'actor_name' );
+			$actor_ids  = null;
+			if ( $actor_name ) {
+				$found = get_users( array(
+					'search'         => '*' . $actor_name . '*',
+					'search_columns' => array( 'display_name', 'user_login' ),
+					'number'         => 200,
+					'fields'         => 'ID',
+				) );
+				$actor_ids = ! empty( $found ) ? array_map( 'intval', $found ) : array( -1 );
+			}
+
+			$audit_url_filters = array_filter( array(
+				'action_filter' => $this->sanitizeGetKey( 'action_filter' ),
+				'actor_name'    => $actor_name,
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
 			) );
-			$data['audit_filters'] = $audit_filters;
-			$data['audit_page']    = $paged;
-			$data['audit_total']   = $this->audit_log->countFiltered( $audit_filters );
-			$data['audit_rows']    = $this->audit_log->list( $audit_filters, $paged, $per_page );
-			$data['audit_actions'] = AuditAction::cases();
+			$audit_db_filters = array_filter( array(
+				'action'    => $this->sanitizeGetKey( 'action_filter' ),
+				'actor_ids' => $actor_ids,
+				'date_from' => $date_from,
+				'date_to'   => $date_to,
+			) );
+
+			$data['audit_filters']    = $audit_url_filters;
+			$data['audit_actor_name'] = $actor_name;
+			$data['audit_page']       = $paged;
+			$data['audit_total']      = $this->audit_log->countFiltered( $audit_db_filters );
+			$data['audit_rows']       = $this->audit_log->list( $audit_db_filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['audit_actions']    = AuditAction::cases();
 		}
-		// phpcs:enable
 
 		$this->render( 'admin/logs', $data );
 	}

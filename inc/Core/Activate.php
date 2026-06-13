@@ -13,7 +13,7 @@ use Inc\Migrations\Migration_1_0_0;
 use Inc\Migrations\MigrationRunner;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Services\PageGeneratorService;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 
 /**
  * Class Activate

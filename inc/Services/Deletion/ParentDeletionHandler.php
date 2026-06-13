@@ -4,12 +4,17 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Deletion;
 
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\DTO\Log\Events\EntityHardDeletedEvent;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
+use Inc\Enums\OperationType;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Services\Log\DeletionLogWriter;
 use Inc\Shared\Traits\TransactionRunner;
 
 class ParentDeletionHandler {
@@ -17,12 +22,12 @@ class ParentDeletionHandler {
 	use TransactionRunner;
 
 	public function __construct(
-		private readonly PersonRepository $persons,
+		private readonly PersonRepository          $persons,
 		private readonly PersonDocumentsRepository $personDocuments,
-		private readonly ConsentRepository $consents,
-		private readonly ApplicationRepository $applications,
-		private readonly UserManager       $userManager,
-		private readonly DeletionLogWriter $deletionLog,
+		private readonly ConsentRepository         $consents,
+		private readonly ApplicationRepository     $applications,
+		private readonly UserManager               $userManager,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {}
 
 	public function handle( DeleteParentEvent $event ): void {
@@ -37,12 +42,20 @@ class ParentDeletionHandler {
 			$this->applications->hardDeleteByParentPersonId( $personId );
 			$this->personDocuments->hardDeleteByPersonId( $personId );
 			$this->persons->hardDelete( $personId );
-
-			$this->deletionLog->record( 'person', $personId, 'consents, applications, person_documents' );
 		} );
+
+		$this->logEvents->dispatch(
+			LogEvent::EntityHardDeleted,
+			new EntityHardDeletedEvent( $actorId, 'person', $personId, 'consents, applications, person_documents' )
+		);
 
 		if ( $wpUserId ) {
 			$this->userManager->delete( $wpUserId );
 		}
+
+		$this->logEvents->dispatch(
+			LogEvent::UserDeleted,
+			new EntityChangedEvent( $actorId, OperationType::Delete, EntityType::Parent, $personId )
+		);
 	}
 }

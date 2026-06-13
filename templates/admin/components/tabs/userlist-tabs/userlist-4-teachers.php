@@ -1,4 +1,6 @@
 <?php
+
+declare( strict_types=1 );
 /**
  * Таб "Преподаватели" — таблица преподавателей с их предметами и группами.
  * Рендерится из templates/admin/userlist.php.
@@ -11,7 +13,7 @@ use Inc\Enums\UserRole;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 
-if ( ! defined( 'ABSPATH' ) ) { exit; }
+defined( 'ABSPATH' ) || exit;
 
 if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	echo '<p>' . esc_html__( 'Доступ запрещён.', 'fs-lms' ) . '</p>';
@@ -53,6 +55,8 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 ?>
 
 <div class="fs-lms-teachers">
+
+	<div class="tablenav top fs-students-bulk-bar"></div>
 
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 
@@ -181,4 +185,4 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/teacher-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/teacher-view-modal.php'; ?>

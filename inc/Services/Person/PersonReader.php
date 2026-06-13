@@ -4,14 +4,13 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Person;
 
-use Inc\Contracts\ClockInterface;
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\PiiRevealedEvent;
 use Inc\DTO\Person\PersonDecryptedDTO;
-use Inc\DTO\Person\PiiAccessLogInputDTO;
-use Inc\Managers\UserManager;
+use Inc\Enums\LogEvent;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use RuntimeException;
 
@@ -29,12 +28,10 @@ readonly class PersonReader {
 	);
 
 	public function __construct(
-		private PersonRepository          $personRepository,
-		private PersonDocumentsRepository $personDocumentsRepository,
-		private PiiCryptoService          $crypto,
-		private PiiAccessLogRepository    $piiAccessLogRepository,
-		private UserManager               $userManager,
-		private ClockInterface            $clock,
+		private PersonRepository             $personRepository,
+		private PersonDocumentsRepository    $personDocumentsRepository,
+		private PiiCryptoService             $crypto,
+		private LogEventDispatcherInterface  $logEvents,
 	) {}
 
 	public function readForDisplay( int $personId, array $fields, string $reason ): PersonDecryptedDTO {
@@ -125,19 +122,9 @@ readonly class PersonReader {
 	}
 
 	private function logAccess( int $personId, array $fields, string $reason ): void {
-		$ctx  = $this->requestContext();
-		$user = $ctx->actorUserId > 0 ? $this->userManager->find( $ctx->actorUserId ) : null;
-
-		$this->piiAccessLogRepository->create( new PiiAccessLogInputDTO(
-			actorUserId:    $ctx->actorUserId > 0 ? $ctx->actorUserId : null,
-			actorRole:      ( null !== $user && ! empty( $user->roles ) )
-				? (string) reset( $user->roles )
-				: null,
-			personId:       $personId,
-			fieldsAccessed: implode( ',', $fields ),
-			accessReason:   $reason,
-			actorIp:        $ctx->ip,
-			createdAt:      $this->clock->now( 'mysql', true ),
-		) );
+		$this->logEvents->dispatch(
+			LogEvent::PiiRevealed,
+			new PiiRevealedEvent( get_current_user_id(), $personId, implode( ',', $fields ), $reason )
+		);
 	}
 }

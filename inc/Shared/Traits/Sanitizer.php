@@ -204,4 +204,32 @@ trait Sanitizer {
 
 		return array_values( array_filter( array_map( 'sanitize_key', wp_unslash( $value ) ) ) );
 	}
+
+	protected function sanitizeEmail( string $key, string $source = 'POST' ): string {
+		$data  = 'POST' === $source ? $_POST : $_GET;
+		$value = $data[ $key ] ?? '';
+		return sanitize_email( wp_unslash( is_string( $value ) ? $value : '' ) );
+	}
+
+	protected function sanitizeGetKey( string $key ): string {
+		return $this->sanitizeKey( $key, 'GET' );
+	}
+
+	protected function sanitizeGetText( string $key ): string {
+		return $this->sanitizeText( $key, 'GET' );
+	}
+
+	protected function sanitizeGetInt( string $key ): int {
+		return $this->sanitizeInt( $key, 'GET' );
+	}
+
+	// ── Value-based helpers (for FieldInterface::sanitize implementations) ──
+
+	protected function sanitizeTextValue( mixed $value ): string {
+		return sanitize_text_field( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
+	}
+
+	protected function sanitizeHtmlValue( mixed $value ): string {
+		return wp_kses_post( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
+	}
 }

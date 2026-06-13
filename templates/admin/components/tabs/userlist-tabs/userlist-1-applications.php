@@ -1,4 +1,6 @@
 <?php
+
+declare( strict_types=1 );
 /**
  * Таб "Заявки" — таблица заявок на зачисление.
  * Рендерится из templates/admin/userlist.php.
@@ -10,9 +12,9 @@ use Inc\Enums\ApplicationStatus;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
-use Inc\Services\PiiCryptoService;
+use Inc\Services\Security\PiiCryptoService;
 
-if ( ! defined( 'ABSPATH' ) ) { exit; }
+defined( 'ABSPATH' ) || exit;
 
 if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 	echo '<p>' . esc_html__( 'Доступ запрещён.', 'fs-lms' ) . '</p>';
@@ -232,22 +234,19 @@ $statusLabels = array_combine(
 						<br>
 						<?php if ( $app->parentPersonId !== null ) : ?>
 							<button type="button"
-								class="button-link js-select-existing-parent"
-								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
-								style="margin-top: 4px; font-size: 11px;">
+								class="button-link js-select-existing-parent fs-btn-link-sm"
+								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>">
 								<?php esc_html_e( '✎ Сменить родителя', 'fs-lms' ); ?>
 							</button>
 							<button type="button"
-								class="button-link js-remove-parent-assignment"
-								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
-								style="margin-top: 4px; font-size: 11px; color:#a00;">
+								class="button-link js-remove-parent-assignment fs-btn-link-sm fs-text-danger"
+								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>">
 								<?php esc_html_e( '✕ Снять назначение', 'fs-lms' ); ?>
 							</button>
 						<?php else : ?>
 							<button type="button"
-								class="button-link js-select-existing-parent"
-								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>"
-								style="margin-top: 4px; font-size: 11px;">
+								class="button-link js-select-existing-parent fs-btn-link-sm"
+								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>">
 								<?php esc_html_e( '+ Назначить родителя', 'fs-lms' ); ?>
 							</button>
 						<?php endif; ?>
@@ -435,8 +434,8 @@ $statusLabels = array_combine(
 	<?php endif; ?>
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-modal.php'; ?>
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-review-modal.php'; ?>
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-enrollment-modal.php'; ?>
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-view-modal.php'; ?>
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/select-parent-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/applications/application-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/applications/application-review-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/applications/application-enrollment-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/applications/application-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/select-parent-modal.php'; ?>

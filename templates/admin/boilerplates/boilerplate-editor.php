@@ -29,7 +29,7 @@ use Inc\Enums\Nonce;
 			<div id="post-body" class="metabox-holder columns-2">
 
 				<div id="post-body-content">
-					<div class="boilerplate-title-section" style="margin-bottom: 20px;">
+					<div class="boilerplate-title-section fs-mb-xl">
 						<label for="bp_title"><strong>Название условия (для списка выбора):</strong></label>
 						<input type="text" name="title" id="bp_title" class="widefat"
 								value="<?php echo esc_attr( $bp_title ); ?>"
@@ -43,7 +43,7 @@ use Inc\Enums\Nonce;
 							</div>
 						<?php else : ?>
 							<?php foreach ( $fields as $id => $config ) : ?>
-								<div class="boilerplate-field-group" style="margin-bottom: 30px;">
+								<div class="boilerplate-field-group fs-mb-xxl">
 									<label><strong><?php echo esc_html( $config['label'] ); ?>:</strong></label>
 									<?php
 									$content   = $content_fields[ $id ] ?? '';
@@ -78,7 +78,7 @@ use Inc\Enums\Nonce;
 									<div id="misc-publishing-actions">
 
 										<div class="misc-pub-section">
-											<span class="dashicons dashicons-layout" style="color: #8c8f94; vertical-align: text-bottom;"></span>
+											<span class="dashicons dashicons-layout fs-dashicon fs-dashicon--muted"></span>
 											<strong>Шаблон:</strong>
 											<code><?php echo esc_html( $template_id ); ?></code>
 										</div>

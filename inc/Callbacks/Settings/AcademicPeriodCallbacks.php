@@ -4,9 +4,14 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks\Settings;
 
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
-use Inc\DTO\AcademicPeriodDTO;
+use Inc\DTO\Settings\AcademicPeriodDTO;
+use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
+use Inc\Enums\OperationType;
 use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -38,7 +43,8 @@ class AcademicPeriodCallbacks extends BaseController {
 	 * @param AcademicPeriodService $period_service Сервис управления учебными периодами
 	 */
 	public function __construct(
-		private readonly AcademicPeriodService $period_service
+		private readonly AcademicPeriodService       $period_service,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {
 		parent::__construct();
 	}
@@ -64,8 +70,24 @@ class AcademicPeriodCallbacks extends BaseController {
 			$this->error( 'Период с таким техническим ID уже существует.', array( 'error_code' => 'duplicate_id' ) );
 		}
 
+		$isNew    = 'add' === $action_type;
+		$oldLabel = $isNew ? null : $this->period_service->getById( $id )?->name;
+
 		$dto   = new AcademicPeriodDTO( $id, $name, $start_date, $end_date, $is_current );
 		$saved = $this->period_service->savePeriod( $dto );
+
+		if ( $saved ) {
+			$this->logEvents->dispatch(
+				$isNew ? LogEvent::PeriodCreated : LogEvent::PeriodUpdated,
+				new EntityChangedEvent(
+					get_current_user_id(),
+					$isNew ? OperationType::Create : OperationType::Update,
+					EntityType::Period,
+					$id,
+					$isNew ? null : $oldLabel,
+				)
+			);
+		}
 
 		$this->respond(
 			$saved,
@@ -89,7 +111,15 @@ class AcademicPeriodCallbacks extends BaseController {
 			$this->error( 'Удаляемый период не найден в системе.' );
 		}
 
-		$deleted = $this->period_service->deletePeriod( $id );
+		$oldLabel = $this->period_service->getById( $id )?->name;
+		$deleted  = $this->period_service->deletePeriod( $id );
+
+		if ( $deleted ) {
+			$this->logEvents->dispatch(
+				LogEvent::PeriodDeleted,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Period, $id, $oldLabel )
+			);
+		}
 
 		$this->respond(
 			$deleted,

@@ -4,8 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories\WPDBRepositories;
 
-use Inc\Contracts\RepositoryInterface;
 use Inc\DTO\ConsentDTO;
+use Inc\DTO\ConsentInputDTO;
 use Inc\Enums\TableName;
 
 /**
@@ -27,7 +27,7 @@ use Inc\Enums\TableName;
  * Использует wpdb для прямых SQL-запросов. Хранит информацию о подписанных
  * версиях согласий (тип, версия, IP, User-Agent) для юридической значимости.
  */
-class ConsentRepository implements RepositoryInterface {
+class ConsentRepository {
 
 	private \wpdb $wpdb;
 	private string $table;
@@ -101,12 +101,12 @@ class ConsentRepository implements RepositoryInterface {
 	/**
 	 * Создаёт новую запись согласия.
 	 *
-	 * @param array $data Массив полей таблицы (application_id, person_id, consent_type, и т.д.)
+	 * @param ConsentInputDTO $dto DTO с полями для вставки
 	 *
 	 * @return int ID созданной записи
 	 */
-	public function create( array $data ): int {
-		$this->wpdb->insert( $this->table, $data );
+	public function create( ConsentInputDTO $dto ): int {
+		$this->wpdb->insert( $this->table, $dto->toArray() );
 		return (int) $this->wpdb->insert_id;
 	}
 

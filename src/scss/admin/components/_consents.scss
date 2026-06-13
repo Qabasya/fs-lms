@@ -1,0 +1,72 @@
+@use '../variables' as *;
+
+// =================================================================
+// Таблица согласий (settings-5-consents)
+// =================================================================
+
+.fs-consents-table {
+
+  // Кликабельная строка-заголовок аккордеона
+  .js-consent-toggle {
+    cursor: pointer;
+  }
+
+  // Стрелка аккордеона; класс is-open ставит JS (consent-settings.js)
+  .accordion-arrow {
+    color: $color-text-secondary;
+    transition: transform $transition-fast;
+
+    &.is-open {
+      transform: rotate(90deg);
+    }
+  }
+
+  // Пометка «(черновик)» у неопубликованного согласия
+  .consent-draft {
+    color: $color-danger;
+    font-size: $font-size-code;
+    margin-left: $spacing-xs;
+  }
+
+  // «Страница пустая» и прочие пояснения курсивом
+  em {
+    color: $color-text-secondary;
+  }
+
+  .row-actions {
+    display: flex;
+    gap: $spacing-sm;
+    align-items: center;
+  }
+
+  // Тело аккордеона: история версий
+  .consent-accordion-row > td {
+    background: $color-bg-footer;
+    padding: 0;
+  }
+
+  .consent-accordion-content {
+    padding: $spacing-md $spacing-lg $spacing-lg ($spacing-lg * 3);
+  }
+
+  .consent-error {
+    color: $color-danger;
+  }
+
+  .consent-history-title {
+    margin: 0 0 $spacing-sm;
+    font-weight: $font-bold;
+    color: $wp-admin-gray-text;
+  }
+
+  // Строка текущей версии в истории
+  .consent-version-current {
+    background: $wp-admin-blue-bg-light;
+  }
+
+  .consent-version-badge {
+    font-size: $font-size-sm;
+    color: $wp-admin-blue;
+    margin-left: $spacing-xs;
+  }
+}

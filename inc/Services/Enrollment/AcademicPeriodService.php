@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Services\Enrollment;
 
-use Inc\DTO\AcademicPeriodDTO;
+use Inc\DTO\Settings\AcademicPeriodDTO;
 use Inc\DTO\Enrollment\StudentEnrollmentDTO;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;

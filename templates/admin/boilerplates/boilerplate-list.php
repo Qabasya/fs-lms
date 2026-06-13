@@ -72,7 +72,7 @@ use Inc\Enums\Nonce;
 
 	</table>
 
-	<p style="margin-top: 20px;">
+	<p class="fs-mt-xl">
 		<a href="<?php echo esc_url( $back_url ); ?>" class="button">
 			&larr; Назад в Менеджер заданий
 		</a>

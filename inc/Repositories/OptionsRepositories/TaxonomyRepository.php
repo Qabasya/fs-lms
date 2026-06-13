@@ -88,6 +88,11 @@ class TaxonomyRepository {
 		return $result;
 	}
 
+	public function getBySlug( string $subject_key, string $slug ): ?TaxonomyDataDTO {
+		$data = $this->getRaw()[ $subject_key ][ $slug ] ?? null;
+		return $data ? TaxonomyDataDTO::fromArray( $slug, $data, $subject_key ) : null;
+	}
+
 	/**
 	 * Сохраняет (создаёт или обновляет) таксономию.
 	 *

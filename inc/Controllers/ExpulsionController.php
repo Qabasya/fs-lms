@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers;
 
-use Inc\Callbacks\ExpulsionCallbacks;
+use Inc\Callbacks\Enrollment\ExpulsionCallbacks;
 use Inc\Core\BaseController;
 use Inc\Enums\AjaxHook;
 

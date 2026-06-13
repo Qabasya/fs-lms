@@ -1,13 +1,16 @@
 <?php
-/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
-require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
-// 1. Выносим словарь за пределы цикла, чтобы не нагружать память
-$display_labels = array(
-	'select'   => 'Выпадающий список',
-	'radio'    => 'Один выбор',
-	'checkbox' => 'Чекбокс',
-);
+declare( strict_types=1 );
+
+use Inc\Enums\TaxonomyDisplayType;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * @var \Inc\DTO\Subject\SubjectViewDTO $dto
+ */
+
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 
 <div class="taxonomy-manager-wrapper">
@@ -32,7 +35,7 @@ $display_labels = array(
 			<?php
 			$is_protected = ( $tax->slug === $dto->protected_tax );
 			$display_type = $tax->display_type ?? 'select';
-			$display_text = $display_labels[ $display_type ] ?? $display_type;
+			$display_text = TaxonomyDisplayType::tryFrom( $display_type )?->label() ?? $display_type;
 			$has_no_terms = $tax->is_required && ( (int) wp_count_terms( array( 'taxonomy' => $tax->slug, 'hide_empty' => false ) ) === 0 );
 			?>
 			<tr data-slug="<?php echo esc_attr( $tax->slug ); ?>"
@@ -43,12 +46,10 @@ $display_labels = array(
 				<td class="column-title">
 					<strong><?php echo esc_html( $tax->name ); ?></strong>
 					<?php if ( $is_protected ) : ?>
-						<span class="dashicons dashicons-lock" title="Системная таксономия"
-								style="font-size: 16px; color: #8c8f94; vertical-align: text-bottom;"></span>
+						<span class="dashicons dashicons-lock fs-dashicon fs-dashicon--muted" title="Системная таксономия"></span>
 					<?php endif; ?>
 					<?php if ( $has_no_terms ) : ?>
-						<span class="dashicons dashicons-warning" title="Нет термов — задания нельзя публиковать"
-								style="font-size: 16px; color: #d63638; vertical-align: text-bottom;"></span>
+						<span class="dashicons dashicons-warning fs-dashicon fs-dashicon--danger" title="Нет термов — задания нельзя публиковать"></span>
 					<?php endif; ?>
 				</td>
 

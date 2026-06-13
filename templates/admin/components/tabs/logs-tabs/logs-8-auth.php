@@ -2,6 +2,11 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\AuthAction;
+use Inc\Enums\AuthResult;
+use Inc\Services\Log\LogNameResolver;
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -11,14 +16,18 @@ defined( 'ABSPATH' ) || exit;
  * @var array                     $auth_filters
  * @var int                       $per_page
  * @var string                    $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
 $total_pages = (int) ceil( $auth_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-8' ), admin_url( 'admin.php' ) );
-$filter_url  = add_query_arg( $auth_filters, $base_url );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $auth_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $auth_filters, $base_url );
 
-$actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password_reset' );
 ?>
 
 <div class="fs-logs-tab" id="js-auth-log-tab">
@@ -29,9 +38,9 @@ $actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password
 
 		<select name="action_filter">
 			<option value="">Все действия</option>
-			<?php foreach ( $actions as $a ) : ?>
-				<option value="<?php echo esc_attr( $a ); ?>" <?php selected( $auth_filters['action'] ?? '', $a ); ?>>
-					<?php echo esc_html( $a ); ?>
+			<?php foreach ( AuthAction::cases() as $action ) : ?>
+				<option value="<?php echo esc_attr( $action->value ); ?>" <?php selected( $auth_filters['action'] ?? '', $action->value ); ?>>
+					<?php echo esc_html( $action->label() ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -51,8 +60,10 @@ $actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-log-csv" data-channel="auth" style="margin-left:auto;">
-			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
+		<button type="button" class="button js-export-log-csv fs-logs__export-btn"
+			data-channel="auth"
+			data-filters="<?php echo esc_attr( wp_json_encode( $auth_filters ) ); ?>">
+			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
 	</form>
@@ -65,37 +76,38 @@ $actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th style="width:50px">ID</th>
-				<th style="width:130px">Дата</th>
-				<th style="width:180px">Логин</th>
-				<th style="width:130px">Действие</th>
-				<th style="width:80px">Результат</th>
-				<th style="width:100px">IP</th>
-				<th>Устройство</th>
+                <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
+				<th class="tw-20">Логин</th>
+				<th>Действие</th>
+				<th class="tw-10" >Результат</th>
+                <th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>
+
+
 			<?php foreach ( $auth_rows as $row ) :
-				$badge = 'success' === $row->result
-					? '<span class="fs-badge fs-badge--green">Успех</span>'
-					: '<span class="fs-badge fs-badge--red">Неудача</span>';
+				$authResult = AuthResult::tryFrom( $row->result )?->value;
+
+                $badge_color = 'success' === $authResult
+                        ? 'green'
+                        : 'red';
+
+                $badge_label = AuthResult::tryFrom( $row->result )?->label();
+
 				?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( wp_date( 'd.m.Y H:i:s', strtotime( $row->createdAt ) ) ); ?></code></td>
-					<td><?php echo $row->loginIdentifier ? esc_html( $row->loginIdentifier ) : '—'; ?></td>
-					<td><code><?php echo esc_html( $row->action ); ?></code></td>
-					<td><?php echo $badge; ?></td>
-					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
-					<td>
-						<?php if ( $row->actorUa ) : ?>
-							<span title="<?php echo esc_attr( $row->actorUa ); ?>" style="cursor:help;">
-								<?php echo esc_html( mb_substr( $row->actorUa, 0, 40 ) ) . ( mb_strlen( $row->actorUa ) > 40 ? '…' : '' ); ?>
-							</span>
-						<?php else : ?>
-							—
-						<?php endif; ?>
-					</td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
+					<td><?php echo LogNameResolver::personNameByLogin( $row->loginIdentifier ); // phpcs:ignore ?></td>
+					<td><?php echo esc_html( AuthAction::tryFrom( $row->action )?->label() ?? $row->action ); ?></td>
+                    <td>
+                        <?php
+                        render_fs_badge( $badge_label, $badge_color );
+                        ?>
+                    </td>
+					<td><?php echo esc_html( $row->actorIp ); ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>
@@ -103,7 +115,7 @@ $actions = array( 'login', 'login_failed', 'otp_sent', 'otp_verified', 'password
 
 		<?php if ( $total_pages > 1 ) : ?>
 			<div class="tablenav bottom"><div class="tablenav-pages">
-				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $auth_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); ?>
+				<?php echo paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', $filter_url ), 'format' => '', 'current' => $auth_page, 'total' => $total_pages, 'prev_text' => '&laquo;', 'next_text' => '&raquo;' ) ); // phpcs:ignore ?>
 			</div></div>
 		<?php endif; ?>
 	<?php endif; ?>

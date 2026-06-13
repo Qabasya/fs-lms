@@ -3,28 +3,36 @@
 declare( strict_types=1 );
 
 use Inc\Enums\AuditAction;
+use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * @var \Inc\DTO\AuditLogDTO[] $audit_rows
+ * @var \Inc\DTO\Log\AuditLogDTO[] $audit_rows
  * @var int                    $audit_total
  * @var int                    $audit_page
  * @var array                  $audit_filters
- * @var AuditAction[]          $audit_actions
  * @var int                    $per_page
- * @var string                 $active_tab
+ * @var string              $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
-$page_slug    = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
-$total_pages  = (int) ceil( $audit_total / $per_page );
-$base_url     = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-1' ), admin_url( 'admin.php' ) );
-$filter_url   = add_query_arg( $audit_filters, $base_url );
+$page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
+$total_pages = (int) ceil( $audit_total / $per_page );
+$base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-1' ), admin_url( 'admin.php' ) );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $audit_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $audit_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-audit-log-tab">
 
-	<!-- Фильтры -->
+    <p class="description fs-mt-md">
+        Каждое действие с учениками фиксируется здесь.
+    </p>
+
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-1">
@@ -33,15 +41,15 @@ $filter_url   = add_query_arg( $audit_filters, $base_url );
 			<option value="">Все действия</option>
 			<?php foreach ( AuditAction::cases() as $action ) : ?>
 				<option value="<?php echo esc_attr( $action->value ); ?>"
-					<?php selected( $audit_filters['action'] ?? '', $action->value ); ?>>
-					<?php echo esc_html( $action->value ); ?>
+					<?php selected( $audit_filters['action_filter'] ?? '', $action->value ); ?>>
+					<?php echo esc_html( $action->label() ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
 
-		<input type="number" name="actor_id" placeholder="User ID"
-			value="<?php echo esc_attr( $audit_filters['actor_user_id'] ?? '' ); ?>"
-			style="width:90px;">
+		<input type="text" name="actor_name" placeholder="Имя пользователя"
+			value="<?php echo esc_attr( $audit_actor_name ?? '' ); ?>"
+			class="input-width-lg">
 
 		<input type="date" name="date_from"
 			value="<?php echo esc_attr( $audit_filters['date_from'] ?? '' ); ?>">
@@ -55,91 +63,74 @@ $filter_url   = add_query_arg( $audit_filters, $base_url );
 			<a href="<?php echo esc_url( $base_url ); ?>" class="button">Сбросить</a>
 		<?php endif; ?>
 
-		<button type="button" class="button js-export-audit" style="margin-left:auto;">
-			<span class="dashicons dashicons-download" style="vertical-align:middle;margin-top:3px;"></span>
+		<button type="button" class="button js-export-log-csv fs-logs__export-btn"
+			data-channel="enrollment"
+			data-filters="<?php echo esc_attr( wp_json_encode( $audit_filters ) ); ?>">
+			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
 	</form>
 
-	<!-- Итог -->
 	<p class="fs-logs-summary">
 		Найдено записей: <strong><?php echo number_format_i18n( $audit_total ); ?></strong>
-		<?php if ( ! empty( $audit_filters ) ) : ?>
-			<em>(с фильтрами)</em>
-		<?php endif; ?>
+		<?php if ( ! empty( $audit_filters ) ) : ?><em>(с фильтрами)</em><?php endif; ?>
 	</p>
 
 	<?php if ( empty( $audit_rows ) ) : ?>
-		<div class="notice notice-info inline fs-table__no-items">
-			<p>Записи не найдены.</p>
-		</div>
+		<div class="notice notice-info inline fs-table__no-items"><p>Записи не найдены.</p></div>
 	<?php else : ?>
 
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th style="width:50px">ID</th>
-				<th style="width:130px">Дата</th>
-				<th style="width:160px">Пользователь</th>
-				<th style="width:90px">Роль</th>
-				<th style="width:200px">Действие</th>
-				<th style="width:110px">Объект</th>
-				<th style="width:90px">IP</th>
-				<th>Детали</th>
+				<th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
+				<th class="tw-10">Пользователь</th>
+				<th >Действие</th>
+				<th class="tw-20">Субъект</th>
+				<th class="tw-20">Группа</th>
+				<th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>
 			<?php foreach ( $audit_rows as $row ) :
-				$actor    = $row->actorUserId ? get_userdata( $row->actorUserId ) : null;
-				$username = $actor ? esc_html( $actor->display_name ) : ( $row->actorUserId ? '#' . $row->actorUserId : '—' );
-				$details  = $row->detailsJson ? json_decode( $row->detailsJson, true ) : array();
-				?>
+				$auditAction = AuditAction::tryFrom( $row->action );
+				$actionLabel = $auditAction ? $auditAction->label() : $row->action;
+
+				if ( 'application' === $row->targetType ) {
+					$subjectCell = 'Заявка №' . (int) $row->targetId;
+				} else {
+					$subjectCell = esc_html( LogNameResolver::personName( $row->targetId ) );
+				}
+
+				$details = $row->detailsJson ? json_decode( $row->detailsJson, true ) : array();
+				$groupId = $details['group_id'] ?? null;
+				$groupCell = $groupId ? LogNameResolver::entityName( (int) $groupId, 'group' ) : '—';
+			?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( wp_date( 'd.m.Y H:i:s', strtotime( $row->createdAt ) ) ); ?></code></td>
-					<td><?php echo $username; ?></td>
-					<td><?php echo $row->actorRole ? '<code>' . esc_html( $row->actorRole ) . '</code>' : '—'; ?></td>
-					<td><code><?php echo esc_html( $row->action ); ?></code></td>
-					<td>
-						<?php if ( $row->targetType ) : ?>
-							<code><?php echo esc_html( $row->targetType ); ?></code>
-							<?php if ( $row->targetId ) : ?>
-								#<?php echo (int) $row->targetId; ?>
-							<?php endif; ?>
-						<?php else : ?>
-							—
-						<?php endif; ?>
-					</td>
-					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
-					<td>
-						<?php if ( ! empty( $details ) ) : ?>
-							<details>
-								<summary style="cursor:pointer; color:#2271b1;">Показать</summary>
-								<pre style="font-size:11px; margin:4px 0; max-height:120px; overflow-y:auto;"><?php echo esc_html( json_encode( $details, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) ); ?></pre>
-							</details>
-						<?php else : ?>
-							—
-						<?php endif; ?>
-					</td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
+					<td><?php echo LogNameResolver::userName( $row->actorUserId); // phpcs:ignore ?></td>
+					<td><?php echo esc_html( $actionLabel ); ?>	</td>
+					<td><?php echo $subjectCell; // phpcs:ignore ?></td>
+					<td><?php echo $groupCell; // phpcs:ignore ?></td>
+					<td><?php echo esc_html( $row->actorIp ); ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>
 		</table>
 
-		<!-- Пагинация -->
 		<?php if ( $total_pages > 1 ) : ?>
 			<div class="tablenav bottom">
 				<div class="tablenav-pages">
-					<?php
-					echo paginate_links( array(
+					<?php echo paginate_links( array(
 						'base'      => add_query_arg( 'paged', '%#%', $filter_url ),
 						'format'    => '',
 						'current'   => $audit_page,
 						'total'     => $total_pages,
 						'prev_text' => '&laquo;',
 						'next_text' => '&raquo;',
-					) );
-					?>
+					) ); // phpcs:ignore ?>
 				</div>
 			</div>
 		<?php endif; ?>
@@ -147,12 +138,3 @@ $filter_url   = add_query_arg( $audit_filters, $base_url );
 	<?php endif; ?>
 
 </div>
-
-<script type="application/json" id="js-audit-export-filters">
-<?php echo wp_json_encode( array(
-	'action_filter' => $audit_filters['action'] ?? '',
-	'actor_id'      => $audit_filters['actor_user_id'] ?? '',
-	'date_from'     => $audit_filters['date_from'] ?? '',
-	'date_to'       => $audit_filters['date_to'] ?? '',
-) ); ?>
-</script>

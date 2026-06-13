@@ -4,8 +4,54 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Person;
 
+/**
+ * Class PersonDTO
+ *
+ * Data Transfer Object для основной информации о физическом лице (Person).
+ *
+ * @package Inc\DTO\Person
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Хранение основных данных лица** — ФИО, дата рождения, статус (ученик/родитель), школа, класс.
+ * 2. **Преобразование массив <-> DTO** — методы fromArray() и toArray().
+ * 3. **Формирование полного имени** — метод fullName().
+ *
+ * ### Архитектурная роль:
+ *
+ * Используется в PersonRepository для передачи базовой информации о лице
+ * (без документов и контактов — они в отдельной таблице person_documents).
+ *
+ * ### Поля:
+ *
+ * - id — ID записи
+ * - wpUserId — ID пользователя WordPress (если привязан)
+ * - lastName, firstName, middleName — ФИО
+ * - birthDate — дата рождения (Y-m-d)
+ * - isStudent — флаг: true — ученик, false — родитель/представитель
+ * - school — школа (для учеников)
+ * - grade — класс (для учеников)
+ * - expelledAt — дата отчисления (для учеников, если применимо)
+ * - createdAt, updatedAt — временные метки
+ */
 readonly class PersonDTO {
 
+	/**
+	 * Конструктор DTO.
+	 *
+	 * @param int         $id          ID записи
+	 * @param int|null    $wpUserId    ID пользователя WP (если привязан)
+	 * @param string      $lastName    Фамилия
+	 * @param string      $firstName   Имя
+	 * @param string|null $middleName  Отчество (может быть null)
+	 * @param string|null $birthDate   Дата рождения (Y-m-d)
+	 * @param bool        $isStudent   Флаг: true — ученик, false — родитель/представитель
+	 * @param string|null $school      Школа (только для учеников)
+	 * @param string|null $grade       Класс (только для учеников)
+	 * @param string|null $expelledAt  Дата отчисления (только для учеников)
+	 * @param string      $createdAt   Дата создания записи
+	 * @param string      $updatedAt   Дата обновления записи
+	 */
 	public function __construct(
 		public int     $id,
 		public ?int    $wpUserId,
@@ -21,10 +67,22 @@ readonly class PersonDTO {
 		public string  $updatedAt,
 	) {}
 
+	/**
+	 * Возвращает полное имя в формате "Фамилия Имя Отчество".
+	 *
+	 * @return string
+	 */
 	public function fullName(): string {
 		return trim( "{$this->lastName} {$this->firstName} " . ( $this->middleName ?? '' ) );
 	}
 
+	/**
+	 * Создаёт DTO из массива данных (например, из результата SQL-запроса).
+	 *
+	 * @param array<string, mixed> $row Ассоциативный массив с полями таблицы
+	 *
+	 * @return static
+	 */
 	public static function fromArray( array $row ): static {
 		return new static(
 			id:         (int) $row['id'],
@@ -42,6 +100,11 @@ readonly class PersonDTO {
 		);
 	}
 
+	/**
+	 * Преобразует DTO в массив для вставки/обновления в БД.
+	 *
+	 * @return array<string, mixed>
+	 */
 	public function toArray(): array {
 		return array(
 			'id'          => $this->id,

@@ -760,9 +760,11 @@ html.modal-open {
 .fs-form-row {
   display: flex;
   gap: $spacing-lg;
+  margin-bottom: $spacing-lg;
 
   .fs-form-group {
     flex: 1;
+    margin-bottom: 0;
   }
 }
 

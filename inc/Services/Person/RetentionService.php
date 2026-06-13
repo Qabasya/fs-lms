@@ -4,24 +4,26 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Person;
 
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EntityHardDeletedEvent;
+use Inc\Enums\LogEvent;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
-use Inc\Repositories\WPDBRepositories\AuditLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Repositories\WPDBRepositories\PiiAccessLogRepository;
-use Inc\Services\AuditService;
+use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
 use Inc\Services\Person\PersonService;
 
 class RetentionService {
 
 	public function __construct(
-		private readonly PersonRepository       $personRepository,
-		private readonly ApplicationRepository  $applicationRepository,
-		private readonly AuditLogRepository     $auditLogRepository,
-		private readonly PiiAccessLogRepository $piiAccessLogRepository,
-		private readonly AuditService           $auditService,
-		private readonly UserManager            $userManager,
-		private readonly PersonService          $personService,
+		private readonly PersonRepository            $personRepository,
+		private readonly ApplicationRepository       $applicationRepository,
+		private readonly AuditLogRepository          $auditLogRepository,
+		private readonly PiiAccessLogRepository      $piiAccessLogRepository,
+		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly UserManager                 $userManager,
+		private readonly PersonService               $personService,
 	) {}
 
 	public function anonymizeDeletedPersons(): int {
@@ -35,7 +37,10 @@ class RetentionService {
 				$this->userManager->randomizePassword( $person->wpUserId );
 			}
 
-			$this->auditService->record( 'anonymize_person', 'person', $person->id );
+			$this->logEvents->dispatch(
+				LogEvent::EntityHardDeleted,
+				new EntityHardDeletedEvent( 0, 'person', $person->id, 'pii_anonymized' )
+			);
 
 			$count++;
 		}

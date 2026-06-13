@@ -1,4 +1,9 @@
 <?php
+
+declare( strict_types=1 );
+
+defined( 'ABSPATH' ) || exit;
+
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 

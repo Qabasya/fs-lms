@@ -4,22 +4,26 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Enrollment;
 
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\ApplicationStatusEvent;
+use Inc\DTO\Person\UserInputDTO;
 use Inc\Enums\ApplicationStatus;
+use Inc\Enums\AuditAction;
+use Inc\Enums\LogEvent;
 use Inc\Enums\UserRole;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\AuditService;
 
 readonly class RecoveryService {
 
 	public function __construct(
-		private ApplicationRepository   $applicationRepository,
-		private StudentRecordRepository $studentRecordRepository,
-		private PersonRepository        $personRepository,
-		private UserManager             $userManager,
-		private AuditService            $auditService,
+		private ApplicationRepository        $applicationRepository,
+		private StudentRecordRepository      $studentRecordRepository,
+		private PersonRepository             $personRepository,
+		private UserManager                  $userManager,
+		private LogEventDispatcherInterface  $logEvents,
 	) {}
 
 	public function resolveStuckEnrollments(): int {
@@ -42,12 +46,14 @@ readonly class RecoveryService {
 				$person = $this->personRepository->find( $record->studentPersonId );
 
 				if ( null !== $person && null === $person->wpUserId ) {
-					$userId = $this->userManager->create( array(
-						'user_login'   => 'student_' . $person->id,
-						'user_email'   => '',
-						'user_pass'    => wp_generate_password( 64 ),
-						'display_name' => $person->fullName(),
-						'role'         => UserRole::FSStudent->value,
+					$userId = $this->userManager->create( new UserInputDTO(
+						userLogin:   'student_' . $person->id,
+						userEmail:   '',
+						userPass:    wp_generate_password( 64 ),
+						displayName: $person->fullName(),
+						firstName:   $person->firstName,
+						lastName:    $person->lastName,
+						role:        UserRole::FSStudent->value,
 					) );
 
 					$this->personRepository->setWpUser( $person->id, $userId );
@@ -55,7 +61,10 @@ readonly class RecoveryService {
 				}
 
 				$this->applicationRepository->markConverted( $app->id, $record->id );
-				$this->auditService->record( 'recovery_completed', 'application', $app->id );
+				$this->logEvents->dispatch(
+						LogEvent::ApplicationUpdated,
+						new ApplicationStatusEvent( 0, AuditAction::RecoveryCompleted, $app->id )
+					);
 				$resolved++;
 			} catch ( \Throwable ) {
 				// Ошибка одной записи не прерывает обработку остальных

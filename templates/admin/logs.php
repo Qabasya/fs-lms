@@ -15,8 +15,12 @@
  */
 
 $tabs = array(
+	'tab-0' => array(
+		'title' => 'Действия',
+		'file'  => '/components/tabs/logs-tabs/logs-0-entity-audit.php',
+	),
 	'tab-1' => array(
-		'title' => 'Журнал действий',
+		'title' => 'Зачисления',
 		'file'  => '/components/tabs/logs-tabs/logs-1-audit.php',
 	),
 	'tab-2' => array(
@@ -38,10 +42,6 @@ $tabs = array(
 	'tab-6' => array(
 		'title' => 'Письма',
 		'file'  => '/components/tabs/logs-tabs/logs-6-email.php',
-	),
-	'tab-7' => array(
-		'title' => 'Удаления',
-		'file'  => '/components/tabs/logs-tabs/logs-7-deletion.php',
 	),
 	'tab-8' => array(
 		'title' => 'Аутентификация',

@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Subject;
 use Inc\Core\BaseController;
 use Inc\Enums\Nonce;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Log\ExportLogWriter;
 use Inc\Services\Subject\SubjectExportService;
 use Inc\Services\Subject\SubjectImportService;
 use Inc\Shared\Traits\Authorizer;
@@ -39,11 +40,13 @@ class SubjectImportExportCallbacks extends BaseController {
 	 * @param SubjectRepository    $subjects       Репозиторий предметов (для проверки существования)
 	 * @param SubjectExportService $export_service Сервис экспорта данных предмета
 	 * @param SubjectImportService $import_service Сервис импорта данных предмета
+	 * @param ExportLogWriter      $exportLog      Писатель журнала экспорта/импорта
 	 */
 	public function __construct(
 		private readonly SubjectRepository   $subjects,
 		private readonly SubjectExportService $export_service,
 		private readonly SubjectImportService $import_service,
+		private readonly ExportLogWriter      $exportLog,
 	) {
 		parent::__construct();
 	}
@@ -103,6 +106,8 @@ class SubjectImportExportCallbacks extends BaseController {
 			// Ошибка выполнения операции (проблемы с БД)
 			$this->error( $e->getMessage() );
 		}
+
+		$this->exportLog->record( 'subject', 'single', array(), 'import' );
 
 		// flush_rewrite_rules() — перестраивает правила ЧПУ после регистрации новых CPT/таксономий
 		flush_rewrite_rules();

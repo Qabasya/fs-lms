@@ -4,10 +4,12 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Email;
 
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EmailSentEvent;
 use Inc\Enums\EmailTemplateType;
+use Inc\Enums\LogEvent;
 use Inc\Managers\UserManager;
 use Inc\Services\Email\WpOptionsEmailTemplate;
-use Inc\Services\Log\EmailLogWriter;
 
 /**
  * Class EmailService
@@ -45,7 +47,7 @@ readonly class EmailService {
 	public function __construct(
 		private UserManager             $userManager,
 		private WpOptionsEmailTemplate  $template,
-		private EmailLogWriter          $emailLog,
+		private LogEventDispatcherInterface $logEvents,
 	) {}
 
 	/**
@@ -68,7 +70,7 @@ readonly class EmailService {
 			'display_name' => $user->display_name,
 		) );
 		$result = $this->send( $user->user_email, $t->subject, $t->body );
-		$this->emailLog->record( EmailTemplateType::PasswordSetup->value, $personId, $result );
+		$this->logEvents->dispatch( LogEvent::EmailSent, new EmailSentEvent( get_current_user_id() ?: null, EmailTemplateType::PasswordSetup, $personId, $user->user_email, $result ) );
 		return $result;
 	}
 
@@ -103,7 +105,7 @@ readonly class EmailService {
 			'login_url'    => wp_login_url(),
 		), $extraVars ) );
 		$result = $this->send( $user->user_email, $t->subject, $t->body );
-		$this->emailLog->record( EmailTemplateType::WelcomeWithCredentials->value, $personId, $result );
+		$this->logEvents->dispatch( LogEvent::EmailSent, new EmailSentEvent( get_current_user_id() ?: null, EmailTemplateType::WelcomeWithCredentials, $personId, $user->user_email, $result ) );
 		return $result;
 	}
 
@@ -113,7 +115,7 @@ readonly class EmailService {
 			'expires_at' => $expiresAt,
 		) );
 		$result = $this->send( $email, $t->subject, $t->body );
-		$this->emailLog->record( EmailTemplateType::ApplicationConfirmation->value, $personId, $result );
+		$this->logEvents->dispatch( LogEvent::EmailSent, new EmailSentEvent( null, EmailTemplateType::ApplicationConfirmation, $personId, $email, $result ) );
 		return $result;
 	}
 
@@ -127,7 +129,7 @@ readonly class EmailService {
 	public function sendApplicationReadyNotification( string $adminEmail ): bool {
 		$t      = $this->template->get( EmailTemplateType::ApplicationReady );
 		$result = $this->send( $adminEmail, $t->subject, $t->body );
-		$this->emailLog->record( EmailTemplateType::ApplicationReady->value, null, $result );
+		$this->logEvents->dispatch( LogEvent::EmailSent, new EmailSentEvent( null, EmailTemplateType::ApplicationReady, null, $adminEmail, $result ) );
 		return $result;
 	}
 
@@ -151,7 +153,7 @@ readonly class EmailService {
 			'display_name' => $user->display_name,
 		) );
 		$result = $this->send( $user->user_email, $t->subject, $t->body );
-		$this->emailLog->record( EmailTemplateType::NewRepresentative->value, $personId, $result );
+		$this->logEvents->dispatch( LogEvent::EmailSent, new EmailSentEvent( get_current_user_id() ?: null, EmailTemplateType::NewRepresentative, $personId, $user->user_email, $result ) );
 		return $result;
 	}
 
@@ -166,7 +168,7 @@ readonly class EmailService {
 	public function sendOtpCode( string $email, string $code, ?int $personId = null ): bool {
 		$t      = $this->template->get( EmailTemplateType::OtpCode, array( 'code' => $code ) );
 		$result = $this->send( $email, $t->subject, $t->body );
-		$this->emailLog->record( EmailTemplateType::OtpCode->value, $personId, $result );
+		$this->logEvents->dispatch( LogEvent::EmailSent, new EmailSentEvent( null, EmailTemplateType::OtpCode, $personId, $email, $result ) );
 		return $result;
 	}
 

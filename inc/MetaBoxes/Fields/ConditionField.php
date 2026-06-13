@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\MetaBoxes\Fields;
 
 /**
@@ -28,7 +30,7 @@ class ConditionField extends BaseField {
 	 *
 	 * @return void
 	 */
-	public function render( $post, string $id, string $label, $value ): void {
+	public function render( \WP_Post $post, string $id, string $label, mixed $value ): void {
 		?>
 		<div class="fs-lms-field-group">
 			<label class="fs-lms-label" for="<?php echo esc_attr( $id ); ?>">
@@ -72,7 +74,7 @@ class ConditionField extends BaseField {
 	 *
 	 * @return string Очищенный HTML-контент
 	 */
-	public function sanitize( $value ) {
-		return wp_kses_post( $value );
+	public function sanitize( mixed $value ): mixed {
+		return $this->sanitizeHtmlValue( $value );
 	}
 }

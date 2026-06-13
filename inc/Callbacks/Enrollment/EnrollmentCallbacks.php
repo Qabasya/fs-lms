@@ -1,0 +1,721 @@
+<?php
+
+declare( strict_types=1 );
+
+namespace Inc\Callbacks\Enrollment;
+
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\Core\BaseController;
+use Inc\DTO\Enrollment\EnrollmentInputDTO;
+use Inc\DTO\Enrollment\StudentDataDTO;
+use Inc\DTO\Log\Events\ApplicationStatusEvent;
+use Inc\DTO\Log\Events\PiiRevealedEvent;
+use Inc\DTO\Person\ParentDataDTO;
+use Inc\Enums\ApplicationStatus;
+use Inc\Enums\AuditAction;
+use Inc\Enums\Capability;
+use Inc\Enums\DocumentType;
+use Inc\Enums\LogEvent;
+use Inc\Enums\Nonce;
+use Inc\Enums\PiiAccessReason;
+use Inc\Enums\PiiField;
+use Inc\Managers\UserManager;
+use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Services\Enrollment\EnrollmentService;
+use Inc\Services\Security\PasswordGeneratorService;
+use Inc\Services\Security\PiiCryptoService;
+use Inc\Services\Person\PiiMaskingService;
+use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
+
+/**
+ * Class EnrollmentCallbacks
+ *
+ * Коллбеки для страниц заявок и операций зачисления в административной панели.
+ *
+ * @package Inc\Callbacks
+ *
+ * ### Основные обязанности:
+ *
+ * 1. **Отображение списка заявок** — рендеринг таблицы с фильтрами и пагинацией.
+ * 2. **Просмотр карточки заявки** — отображение деталей заявки с PII (с логированием доступа).
+ * 3. **Зачисление студента** — обработка AJAX-запроса на создание зачисления.
+ * 4. **Корзина заявок** — перемещение в корзину, восстановление, очистка.
+ *
+ * ### Архитектурная роль:
+ *
+ * Делегирует бизнес-логику ApplicationRepository, EnrollmentService, LogEventDispatcher.
+ * Управляет отображением страниц и AJAX-операциями в админ-панели.
+ */
+class EnrollmentCallbacks extends BaseController {
+
+	use Authorizer;
+	use Sanitizer;
+
+	/**
+	 * Конструктор коллбеков.
+	 *
+	 * @param ApplicationRepository      $applicationRepository Репозиторий заявок
+	 * @param EnrollmentService          $enrollmentService     Сервис зачисления
+	 * @param LogEventDispatcherInterface $logEvents            Диспетчер событий логирования
+	 * @param PiiCryptoService           $crypto                Сервис шифрования PII
+	 * @param PiiMaskingService          $piiMasking            Сервис маскирования PII
+	 * @param GroupsRepository           $studentGroupRepository Репозиторий групп
+	 * @param PasswordGeneratorService   $passwordGenerator     Генератор паролей
+	 * @param UserManager                $userManager           Менеджер пользователей
+	 */
+	public function __construct(
+		private readonly ApplicationRepository        $applicationRepository,
+		private readonly EnrollmentService            $enrollmentService,
+		private readonly LogEventDispatcherInterface  $logEvents,
+		private readonly PiiCryptoService             $crypto,
+		private readonly PiiMaskingService            $piiMasking,
+		private readonly GroupsRepository             $studentGroupRepository,
+		private readonly PasswordGeneratorService     $passwordGenerator,
+		private readonly UserManager                  $userManager,
+	) {
+		parent::__construct();
+	}
+
+	/**
+	 * Таб "Заявки" страницы "Пользователи" (?page=fs_lms_userlist&tab=tab-1)
+	 *
+	 * @return void
+	 */
+	public function renderApplicationsListPage(): void {
+		$this->requireCap( Capability::ManageApplications );
+
+		// Получение и санитизация параметров фильтрации
+		$status   = $this->sanitizeText( 'status', 'GET' );
+		$dateFrom = $this->sanitizeText( 'date_from', 'GET' );
+		$dateTo   = $this->sanitizeText( 'date_to', 'GET' );
+		$page     = max( 1, $this->sanitizeInt( 'paged', 'GET' ) );
+
+		$filters = array_filter( array(
+			'status'    => $status ?: null,
+			'date_from' => $dateFrom ?: null,
+			'date_to'   => $dateTo ?: null,
+		) );
+
+		$perPage = 20;
+		$apps    = $this->applicationRepository->list( $filters, $page, $perPage );
+		$total   = $this->applicationRepository->count( $filters );
+
+		// Подключение шаблона списка заявок
+		$template = $this->path( 'templates/admin/enrollment/applications-list.php' );
+
+		if ( file_exists( $template ) ) {
+			require $template;
+		} else {
+			echo '<div class="wrap"><h1>Заявки</h1><p>Шаблон не найден.</p></div>';
+		}
+	}
+
+	/**
+	 * Страница карточки заявки (?page=fs-lms-application-detail&id=N)
+	 *
+	 * @return void
+	 */
+	public function renderApplicationDetailPage(): void {
+		$this->requireCap( Capability::ManageApplications );
+
+		$id  = (int) ( $_GET['id'] ?? 0 );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app ) {
+			wp_die( 'Заявка не найдена.' );
+		}
+
+		$studentData = null;
+		$parentData  = null;
+
+		// Расшифровка данных студента (если есть права ViewPII)
+		if ( ! empty( $app->studentDataEnc ) && current_user_can( Capability::ViewPII->value ) ) {
+			try {
+				$studentData = StudentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array()
+				);
+			} catch ( \Throwable $e ) {
+				$studentData = null;
+			}
+
+			$this->logEvents->dispatch( LogEvent::PiiRevealed, new PiiRevealedEvent(
+				actorUserId:    get_current_user_id(),
+				targetPersonId: null,
+				fieldsAccessed: PiiField::StudentData->value,
+				accessReason:   PiiAccessReason::ApplicationReview->value,
+			) );
+		}
+
+		// Расшифровка данных родителя (если есть права ViewPII)
+		if ( ! empty( $app->parentDataEnc ) && current_user_can( Capability::ViewPII->value ) ) {
+			try {
+				$parentData = ParentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array()
+				);
+			} catch ( \Throwable $e ) {
+				$parentData = null;
+			}
+		}
+
+		$this->logEvents->dispatch( LogEvent::ApplicationViewed, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::ViewApplication, $id
+		) );
+
+		// Подключение шаблона детальной карточки
+		$template = $this->path( 'templates/admin/enrollment/application-detail.php' );
+
+		if ( file_exists( $template ) ) {
+			require $template;
+		} else {
+			echo '<div class="wrap"><h1>Заявка #' . esc_html( (string) $id ) . '</h1><p>Шаблон не найден.</p></div>';
+		}
+	}
+
+	/**
+	 * AJAX: зачисление студента.
+	 *
+	 * @return void
+	 */
+	public function ajaxEnrollStudent(): void {
+		$this->authorize( Nonce::Enroll, Capability::EnrollStudent );
+
+		$applicationId = $this->sanitizeInt( 'application_id' );
+
+		try {
+			$dto = new EnrollmentInputDTO(
+				applicationId: $applicationId,
+				contractNo:    $this->sanitizeText( 'contract_no' ),
+				contractDate:  $this->requireText( 'contract_date' ),
+				orderNo:       $this->requireText( 'order_no' ),
+				orderDate:     $this->requireText( 'order_date' ),
+				enrolledAt:    $this->requireText( 'enrolled_at' ),
+				groupId:       $this->sanitizeInt( 'group_id' ),
+				sendEmailAuto: true,
+			);
+
+			$result = $this->enrollmentService->enroll( $dto );
+		} catch ( \Throwable $e ) {
+			// Транзакция откатилась или DTO не собрался — возвращаем заявку в ready_for_review
+			$this->applicationRepository->update( $applicationId, array(
+				'status'     => ApplicationStatus::ReadyForReview->value,
+				'updated_at' => current_time( 'mysql', true ),
+			) );
+			$this->error( $e->getMessage() );
+		}
+
+		if ( $result->partialFailure ) {
+			$this->success( array(
+				'partial'       => true,
+				'enrollment_id' => $result->enrollmentId,
+				'message'       => 'Зачисление выполнено, но учётные записи не созданы. Требуется ручное исправление. Причина: ' . ( $result->errorMessage ?? 'неизвестно' ),
+			) );
+		}
+
+		$this->success( array(
+			'enrollment_id'    => $result->enrollmentId,
+			'student_login'    => $result->studentLogin,
+			'student_password' => $result->studentPassword,
+			'guardian_login'   => $result->guardianLogin,
+			'guardian_password' => $result->guardianPassword,
+			'message'          => 'Зачисление выполнено.',
+		) );
+	}
+
+		/**
+	 * AJAX: перемещение заявки в корзину.
+	 *
+	 * @return void
+	 */
+	public function ajaxMoveApplicationToTrash(): void {
+		$this->authorize( Nonce::TrashApplication, Capability::ManageApplications );
+
+		$id = $this->sanitizeInt( 'application_id' );
+
+		$this->applicationRepository->setStatus( $id, ApplicationStatus::Trash );
+
+		$this->logEvents->dispatch( LogEvent::ApplicationTrashed, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::MoveToTrash, $id
+		) );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: восстановление заявки из корзины.
+	 *
+	 * @return void
+	 */
+	public function ajaxRestoreApplicationFromTrash(): void {
+		$this->authorize( Nonce::TrashApplication, Capability::ManageApplications );
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app ) {
+			$this->error( 'Заявка не найдена.' );
+		}
+
+		// Определение целевого статуса: ReadyForReview (заполнена родителем) или PendingParent
+		$target = ! empty( $app->parentDataEnc )
+			? ApplicationStatus::ReadyForReview
+			: ApplicationStatus::PendingParent;
+
+		$this->applicationRepository->setStatus( $id, $target );
+
+		$this->logEvents->dispatch( LogEvent::ApplicationRestored, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::RestoreFromTrash, $id
+		) );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: постоянное удаление одной заявки (только из корзины).
+	 *
+	 * @return void
+	 */
+	public function ajaxDeleteApplication(): void {
+		$this->authorize( Nonce::TrashApplication, Capability::ManageApplications );
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::Trash ) {
+			$this->error( 'Заявка не найдена или не в корзине.' );
+		}
+
+		$this->applicationRepository->delete( $id );
+
+		$this->logEvents->dispatch( LogEvent::ApplicationTrashed, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::EmptyTrash, $id
+		) );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: обновление данных заявки администратором.
+	 *
+	 * @return void
+	 */
+	public function ajaxUpdateApplicationData(): void {
+		$this->authorize( Nonce::EditApplication, Capability::ManageApplications );
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app ) {
+			$this->error( 'Заявка не найдена.' );
+		}
+
+		$existingStudentDto = new StudentDataDTO( '', '', '', '', '', '', 0, '', '', '', '' );
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$existingStudentDto = StudentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array()
+				);
+			} catch ( \Throwable $e ) {
+				$this->error( 'Ошибка расшифровки данных.' );
+			}
+		}
+
+		$email = $this->requireText( 'email' );
+
+		$updatedStudentDto = new StudentDataDTO(
+			lastName:   $this->requireText( 'last_name' ),
+			firstName:  $this->requireText( 'first_name' ),
+			middleName: $this->sanitizeText( 'middle_name' ),
+			email:      $email,
+			phone:      $this->requireText( 'phone' ),
+			school:     $this->sanitizeText( 'school' ),
+			grade:      $this->sanitizeInt( 'grade' ),
+			birthDate:  $this->requireText( 'birth_date' ),
+			docType:    $existingStudentDto->docType,
+			docNumber:  $existingStudentDto->docNumber,
+			inn:        $existingStudentDto->inn,
+		);
+
+		try {
+			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Ошибка шифрования данных.' );
+		}
+
+		$emailHash = $this->crypto->hash( $email );
+
+		$this->applicationRepository->update( $id, array(
+			'student_data_enc'   => $newStudentDataEnc,
+			'student_email_hash' => $emailHash,
+			'updated_at'         => current_time( 'mysql', true ),
+		) );
+
+		$this->logEvents->dispatch( LogEvent::ApplicationUpdated, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::UpdateApplicationData, $id
+		) );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: обновление данных заявки в статусе ReadyForReview (ученик + родитель).
+	 *
+	 * @return void
+	 */
+	public function ajaxUpdateReviewData(): void {
+		$this->authorize( Nonce::ReviewApplication, Capability::ManageApplications );
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::ReadyForReview ) {
+			$this->error( 'Заявка не найдена или недоступна.' );
+		}
+
+		// Обновление данных ученика
+		$existingStudentDto = new StudentDataDTO( '', '', '', '', '', '', 0, '', '', '', '' );
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$existingStudentDto = StudentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array()
+				);
+			} catch ( \Throwable $e ) {
+				$this->error( 'Ошибка расшифровки данных ученика.' );
+			}
+		}
+
+		$updatedStudentDto = new StudentDataDTO(
+			lastName:   $this->requireText( 'student_last_name' ),
+			firstName:  $this->requireText( 'student_first_name' ),
+			middleName: $this->sanitizeText( 'student_middle_name' ),
+			email:      $existingStudentDto->email,
+			phone:      $existingStudentDto->phone,
+			school:     $existingStudentDto->school,
+			grade:      $existingStudentDto->grade,
+			birthDate:  $this->sanitizeText( 'student_birth_date' ),
+			docType:    $this->sanitizeText( 'student_doc_type' ),
+			docNumber:  $this->sanitizeText( 'student_doc_number' ),
+			inn:        $this->sanitizeText( 'student_inn' ),
+		);
+
+		// Обновление данных родителя
+		$updatedParentDto = new ParentDataDTO(
+			lastName:      $this->requireText( 'parent_last_name' ),
+			firstName:     $this->requireText( 'parent_first_name' ),
+			middleName:    $this->sanitizeText( 'parent_middle_name' ),
+			birthDate:     $this->sanitizeText( 'parent_birth_date' ),
+			docType:       $this->sanitizeText( 'parent_doc_type' ),
+			docNumber:     $this->sanitizeText( 'parent_doc_number' ),
+			docIssuedBy:   $this->sanitizeText( 'parent_doc_issued_by' ),
+			docIssuedDate: $this->sanitizeText( 'parent_doc_issued_date' ),
+			inn:           $this->sanitizeText( 'parent_inn' ),
+			address:       $this->sanitizeText( 'parent_address' ),
+			phone:         $this->sanitizeText( 'parent_phone' ),
+			email:         $this->sanitizeText( 'parent_email' ),
+		);
+
+		try {
+			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
+			$newParentDataEnc  = $this->crypto->encrypt( (string) wp_json_encode( $updatedParentDto->toArray() ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Ошибка шифрования данных.' );
+		}
+
+		$this->applicationRepository->update( $id, array(
+			'student_data_enc' => $newStudentDataEnc,
+			'parent_data_enc'  => $newParentDataEnc,
+			'updated_at'       => current_time( 'mysql', true ),
+		) );
+
+		$this->logEvents->dispatch( LogEvent::ApplicationUpdated, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::UpdateReviewData, $id
+		) );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: перевод заявки из ReadyForReview в Enrolling.
+	 *
+	 * @return void
+	 */
+	public function ajaxStartEnrollment(): void {
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::ReadyForReview ) {
+			$this->error( 'Заявка не найдена или не в статусе "Готова к зачислению".' );
+		}
+
+		$this->applicationRepository->update( $id, array(
+			'status'     => ApplicationStatus::Enrolling->value,
+			'updated_at' => current_time( 'mysql', true ),
+		) );
+
+		$this->logEvents->dispatch( LogEvent::EnrollmentStarted, new ApplicationStatusEvent(
+			get_current_user_id(), AuditAction::StartEnrollment, $id
+		) );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: получение расшифрованных данных заявки (ученик + родитель).
+	 *
+	 * @return void
+	 */
+	public function ajaxGetApplicationData(): void {
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app ) {
+			$this->error( 'Заявка не найдена.' );
+		}
+
+		$student = null;
+		$parent  = null;
+
+		if ( ! empty( $app->studentDataEnc ) ) {
+			try {
+				$studentDto = StudentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array()
+				);
+				$student    = $studentDto->toArray();
+				$student['doc_type'] = DocumentType::tryFrom( $studentDto->docType )?->label() ?? $studentDto->docType;
+			} catch ( \Throwable $e ) {
+				$student = null;
+			}
+		}
+
+		if ( ! empty( $app->parentDataEnc ) ) {
+			try {
+				$parentDto = ParentDataDTO::fromArray(
+					json_decode( $this->crypto->decrypt( $app->parentDataEnc ), true ) ?? array()
+				);
+				$parent    = $parentDto->toArray();
+				$parent['doc_type'] = DocumentType::tryFrom( $parentDto->docType )?->label() ?? $parentDto->docType;
+			} catch ( \Throwable $e ) {
+				$parent = null;
+			}
+		}
+
+		$this->success( array( 'student' => $student, 'parent' => $parent ) );
+	}
+
+	/**
+	 * AJAX: отмена зачисления (Enrolling → ReadyForReview).
+	 *
+	 * @return void
+	 */
+	public function ajaxCancelEnrollment(): void {
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
+
+		$id  = $this->sanitizeInt( 'application_id' );
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app || $app->status !== ApplicationStatus::Enrolling ) {
+			$this->success();
+			return;
+		}
+
+		$this->applicationRepository->update( $id, array(
+			'status'     => ApplicationStatus::ReadyForReview->value,
+			'updated_at' => current_time( 'mysql', true ),
+		) );
+
+		$this->success();
+	}
+
+	/**
+	 * AJAX: список групп по периоду и предмету.
+	 *
+	 * @return void
+	 */
+	public function ajaxGetStudentGroups(): void {
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
+
+		$periodId   = $this->sanitizeText( 'period_id' );
+		$subjectKey = $this->sanitizeText( 'subject_id' );
+
+		$groups = $this->studentGroupRepository->findByPeriodAndSubject( $periodId, $subjectKey );
+
+		$result = array_values( array_map(
+			static fn( object $g ) => array( 'id' => (int) $g->id, 'title' => $g->name ),
+			$groups
+		) );
+
+		$this->success( $result );
+	}
+
+	/**
+	 * AJAX: очистка корзины (физическое удаление всех заявок со статусом Trash).
+	 *
+	 * @return void
+	 */
+	public function ajaxEmptyApplicationsTrash(): void {
+		$this->authorize( Nonce::TrashApplication, Capability::ManageApplications );
+
+		// Получение всех заявок в корзине
+		$trashApps = $this->applicationRepository->list(
+			array( 'status' => ApplicationStatus::Trash->value ),
+			1,
+			9999
+		);
+
+		$count = 0;
+
+		$actor = get_current_user_id();
+
+		foreach ( $trashApps as $app ) {
+			try {
+				// Физическое удаление записи из БД
+				$this->applicationRepository->delete( $app->id );
+				$this->logEvents->dispatch( LogEvent::ApplicationTrashed, new ApplicationStatusEvent(
+					$actor, AuditAction::EmptyTrash, $app->id
+				) );
+				$count++;
+			} catch ( \Throwable $e ) {
+				// Логируем, но не останавливаем цикл
+				trigger_error( '[FS LMS] EmptyTrash: не удалось удалить заявку #' . $app->id . ': ' . $e->getMessage(), E_USER_WARNING );
+			}
+		}
+
+		$this->success( array( 'deleted' => $count ) );
+	}
+
+	/**
+	 * AJAX: возвращает логин и расшифрованный пароль пользователя.
+	 * Используется кнопкой "Показать логин+пароль" в карточке заявки/зачисления.
+	 *
+	 * Принимает: user_id (int)
+	 *
+	 * @return void
+	 */
+	public function ajaxRevealUserCredentials(): void {
+		$this->authorize( Nonce::RevealPii, Capability::ManageApplications );
+
+		$user_id = $this->requireInt( 'user_id', error: 'ID пользователя не указан.' );
+
+		$credentials = $this->passwordGenerator->getCredentials( $user_id );
+
+		if ( null === $credentials ) {
+			$this->error( 'Пароль недоступен. Пользователь сменил пароль самостоятельно — воспользуйтесь функцией сброса.' );
+
+			return;
+		}
+
+		$actor_id = get_current_user_id();
+		$personId = $this->userManager->getPersonId( $user_id );
+
+		$this->logEvents->dispatch( LogEvent::PiiRevealed, new PiiRevealedEvent(
+			actorUserId:    $actor_id,
+			targetPersonId: $personId ?: null,
+			fieldsAccessed: PiiField::Login->value . ',' . PiiField::Password->value,
+			accessReason:   PiiAccessReason::AdminRevealCredentials->value,
+		) );
+
+		$this->success( $credentials );
+	}
+
+	/**
+	 * AJAX: генерирует новый пароль для пользователя и сохраняет зашифрованную копию в meta.
+	 * Вызывается когда admin_reveal_credentials вернул null (пароль был сменён вручную).
+	 *
+	 * @return void
+	 */
+	public function ajaxRegenerateUserPassword(): void {
+		$this->authorize( Nonce::RevealPii, Capability::ManageApplications );
+
+		$user_id  = $this->requireInt( 'user_id', error: 'ID пользователя не указан.' );
+		$password = $this->passwordGenerator->generateAndSet( $user_id );
+
+		$this->success( array( 'password' => $password ) );
+	}
+
+	/**
+	 * AJAX: восстановление ученика из архива — создание новой заявки (события 2A, 4B).
+	 */
+	public function ajaxRestoreFromArchive(): void {
+		$this->authorize( Nonce::RestoreFromArchive, Capability::ManageApplications );
+
+		$archiveId  = $this->requireInt( 'archive_id', error: 'Не указан ID архивной записи.' );
+		$withParent = (bool) $this->sanitizeInt( 'with_parent' );
+
+		try {
+			$result = $this->enrollmentService->restoreFromArchive( $archiveId, $withParent );
+			$this->success( $result->toArray() );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		} catch ( \RuntimeException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * AJAX: назначить существующего родителя к заявке (события 3B, 4B).
+	 */
+	public function ajaxSelectExistingParent(): void {
+		$this->authorize( Nonce::SelectExistingParent, Capability::ManageApplications );
+
+		$applicationId  = $this->requireInt( 'application_id', error: 'Не указан ID заявки.' );
+		$parentPersonId = $this->requireInt( 'parent_person_id', error: 'Не указан ID родителя.' );
+
+		try {
+			$result = $this->enrollmentService->selectExistingParent( $applicationId, $parentPersonId );
+			$this->success( $result->toArray() );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		} catch ( \DomainException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	public function ajaxRemoveParentAssignment(): void {
+		$this->authorize( Nonce::RemoveParentAssignment, Capability::ManageApplications );
+
+		$applicationId = $this->requireInt( 'application_id', error: 'Не указан ID заявки.' );
+
+		try {
+			$result = $this->enrollmentService->removeParentAssignment( $applicationId );
+			$this->success( $result->toArray() );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		} catch ( \DomainException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * AJAX: поиск существующих родителей (для модалки select-parent-modal).
+	 */
+	public function ajaxSearchParents(): void {
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
+
+		$query = $this->sanitizeText( 'query' );
+
+		$users = get_users( array(
+			'role'   => 'lms_parent',
+			'search' => '*' . $query . '*',
+			'search_columns' => array( 'display_name', 'user_email', 'user_login' ),
+			'number' => 20,
+		) );
+
+		$result = array();
+		foreach ( $users as $user ) {
+			$personId = (int) get_user_meta( $user->ID, 'fs_lms_person_id', true );
+			$result[] = array(
+				'person_id'    => $personId ?: null,
+				'wp_user_id'   => $user->ID,
+				'display_name' => $user->display_name,
+				'email'        => $user->user_email,
+			);
+		}
+
+		$this->success( $result );
+	}
+}

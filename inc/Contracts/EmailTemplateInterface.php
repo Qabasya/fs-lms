@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Contracts;
 
-use Inc\DTO\EmailTemplateData;
+use Inc\DTO\Email\EmailTemplateData;
 use Inc\Enums\EmailTemplateType;
 
 interface EmailTemplateInterface {

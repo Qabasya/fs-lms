@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
@@ -7,11 +9,13 @@ use Inc\Core\BaseController;
 use Inc\DTO\Task\TaskMetaDTO;
 use Inc\Enums\Nonce;
 use Inc\Enums\PostMetaName;
+use Inc\Managers\MetaBoxManager;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
+use Inc\Shared\Traits\Authorizer;
 
 /**
  * Class MetaBoxController
@@ -35,19 +39,23 @@ use Inc\Services\Template\TemplateResolver;
  */
 class MetaBoxController extends BaseController implements ServiceInterface {
 
+	use Authorizer;
+
 	/**
 	 * Конструктор.
 	 *
-	 * @param SubjectRepository $subjects   Репозиторий предметов
-	 * @param MetaBoxRegistrar  $registrar  Регистратор метабоксов
-	 * @param TemplateRegistry  $registry   Реестр шаблонов
-	 * @param TemplateResolver  $resolver   Определитель шаблона для поста
+	 * @param SubjectRepository $subjects        Репозиторий предметов
+	 * @param MetaBoxRegistrar  $registrar       Регистратор метабоксов
+	 * @param TemplateRegistry  $registry        Реестр шаблонов
+	 * @param TemplateResolver  $resolver        Определитель шаблона для поста
+	 * @param MetaBoxManager    $metaBoxManager  Менеджер мета-данных
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
-		private readonly MetaBoxRegistrar $registrar,
-		private readonly TemplateRegistry $registry,
-		private readonly TemplateResolver $resolver
+		private readonly MetaBoxRegistrar  $registrar,
+		private readonly TemplateRegistry  $registry,
+		private readonly TemplateResolver  $resolver,
+		private readonly MetaBoxManager    $metaBoxManager,
 	) {
 		parent::__construct();
 	}
@@ -136,20 +144,16 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	public function handleMetaSave( int $post_id ): void {
 		// DOING_AUTOSAVE — константа, определяющая, выполняется ли автосохранение
 		// Пропускаем автосохранение и проверяем наличие nonce
-		if ( ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) || ! isset( $_POST['fs_lms_meta_nonce'] ) ) {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
 
-		// get_post() — получает объект поста по ID
-		// PostTypeResolver::isTaskPostType() — проверяет, что запись относится к CPT заданий.
 		$post = get_post( $post_id );
 		if ( ! $post || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
 			return;
 		}
 
-		// wp_verify_nonce() — проверяет валидность nonce (защита от CSRF)
-		// current_user_can() — проверяет, есть ли у пользователя право редактировать пост
-		if ( ! wp_verify_nonce( $_POST['fs_lms_meta_nonce'], Nonce::SaveMeta->value ) || ! current_user_can( 'edit_post', $post_id ) ) {
+		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {
 			return;
 		}
 
@@ -161,23 +165,14 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		// Получение структуры полей шаблона
-		$fields = $template->get_fields();
+		$raw_data = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
 
-		// wp_unslash() — удаляет экранирование слешей (обратная операция для wp_slash)
-		$raw_data  = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
-		$sanitized = array();
-
-		// Санитизация каждого поля через его объект Field
-		foreach ( $fields as $id => $config ) {
-			if ( isset( $raw_data[ $id ], $config['object'] ) ) {
-				$sanitized[ $id ] = $config['object']->sanitize( $raw_data[ $id ] );
-			}
-		}
-
-		// update_post_meta() — обновляет или создаёт мета-поле поста
-		// Сохраняем как ассоциативный массив (автоматически сериализуется)
-		update_post_meta( $post_id, PostMetaName::Meta->value, $sanitized );
+		$this->metaBoxManager->saveFields(
+			$post_id,
+			PostMetaName::Meta->value,
+			is_array( $raw_data ) ? $raw_data : array(),
+			$template->get_fields()
+		);
 	}
 
 	/**

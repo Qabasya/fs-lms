@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Managers;
 
+use Inc\DTO\Person\UserInputDTO;
 use Inc\Enums\MetaKeys;
 
 /**
@@ -97,8 +98,8 @@ class UserManager {
 		}
 	}
 
-	public function create( array $data ): int {
-		$result = wp_insert_user( $data );
+	public function create( UserInputDTO $dto ): int {
+		$result = wp_insert_user( $dto->toArray() );
 
 		if ( is_wp_error( $result ) ) {
 			throw new \RuntimeException( 'Ошибка создания пользователя: ' . $result->get_error_message() );

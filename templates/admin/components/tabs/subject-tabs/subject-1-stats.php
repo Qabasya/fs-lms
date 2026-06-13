@@ -1,7 +1,16 @@
 <?php
-/** @var \Inc\DTO\Subject\SubjectViewDTO $dto */
-/** @var \Inc\Services\PostTypeResolver $service */
-$service = \Inc\Services\PostTypeResolver::class;
+
+declare( strict_types=1 );
+
+use Inc\Services\PostTypeResolver;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * @var \Inc\DTO\Subject\SubjectViewDTO $dto
+ */
+
+$service = PostTypeResolver::class;
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 <div class="task-dashboard-wrapper">
@@ -142,9 +151,9 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 	<!-- Таблица 3 -->
 	<h3 class="wp-heading-inline">Сводка по каждому заданию</h3>
 
-	<div class="filter-section" style="margin-bottom: 20px">
+	<div class="filter-section fs-mb-xl">
 		<label for="fs-task-number-filter"><strong>Выберите номер задания:</strong></label>
-		<select id="fs-task-number-filter" class="postbox" style="margin-bottom: 0">
+		<select id="fs-task-number-filter" class="postbox fs-mb-0">
 			<option value="">— Пусто —</option>
 			<?php
 			$filter_terms = get_terms( array(

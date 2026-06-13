@@ -23,7 +23,7 @@ enum ConsentType: string {
 	public function label(): string {
 		return match ( $this ) {
 			self::PdProcessing      => 'Обработка персональных данных',
-			self::PdChildProcessing => 'Обработка ПД ребёнка (от лица представителя)',
+			self::PdChildProcessing => 'Обработка ПД ребёнка',
 			self::PdTransfer        => 'Передача ПД третьим лицам',
 			self::Marketing         => 'Маркетинговые рассылки',
 		};

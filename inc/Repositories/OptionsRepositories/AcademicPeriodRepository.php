@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Repositories\OptionsRepositories;
 
-use Inc\DTO\AcademicPeriodDTO;
+use Inc\DTO\Settings\AcademicPeriodDTO;
 use Inc\Enums\OptionName;
 
 /**
