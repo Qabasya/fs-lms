@@ -4,7 +4,7 @@ namespace Inc\Controllers\Builders;
 
 use Inc\Callbacks\Subject\SubjectPageCallbacks;
 use Inc\Enums\Capability;
-use Inc\Enums\MenuSlug;
+use Inc\Enums\Menu;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 
 /**
@@ -81,11 +81,11 @@ class SubjectsMenuBuilder {
 		// Это первая страница в Предметы, она удаляется
 		return array(
 			array(
-				'page_title' => 'Управление предметами',
-				'menu_title' => 'Предметы',
+				'page_title' => Menu::Subjects->page_title(),
+				'menu_title' => Menu::Subjects->menu_title(),
 				'capability' => Capability::Admin->value,
-				'menu_slug'  => MenuSlug::Subjects->value,
-				'callback'   => array( $this->callbacks, 'subjectsRoot' ),
+				'menu_slug'  => Menu::Subjects->value,
+				'callback'   => array( $this->callbacks, Menu::Subjects->callback() ),
 				'icon_url'   => 'dashicons-category',
 				'position'   => 3,
 			),
@@ -110,7 +110,7 @@ class SubjectsMenuBuilder {
 
 		foreach ( $this->getSubjects() as $subject ) {
 			$subpages[] = array(
-				'parent_slug' => MenuSlug::Subjects->value,
+				'parent_slug' => Menu::Subjects->value,
 				'page_title'  => $subject->name, // Используем -> вместо ['name']
 				'menu_title'  => $subject->name,
 				'capability'  => Capability::Admin->value,

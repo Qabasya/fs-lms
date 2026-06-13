@@ -44,12 +44,4 @@ enum EntityType: string {
 		};
 	}
 
-	public function badgeClass(): string {
-		return match ( $this ) {
-			self::Subject, self::Taxonomy, self::Term, self::VisualTemplate, self::Boilerplate => 'badge-primary',
-			self::Task, self::Article                                                           => 'badge-info',
-			self::Group, self::Period                                                           => 'badge-secondary',
-			self::Student, self::Parent, self::Teacher, self::User                             => 'badge-neutral',
-		};
-	}
 }

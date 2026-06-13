@@ -15,10 +15,4 @@ enum EmailStatus: string {
 		};
 	}
 
-	public function badgeClass(): string {
-		return match ( $this ) {
-			self::Success => 'fs-badge--green',
-			self::Failure => 'fs-badge--red',
-		};
-	}
 }

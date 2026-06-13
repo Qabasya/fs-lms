@@ -60,4 +60,7 @@ enum OptionName: string {
 
 	/** Определения согласий: [key => ['name' => string, 'page_id' => int]] */
 	case ConsentDefinitions = 'fs_lms_consent_definitions';
+
+	/** Option group */
+	case AuthGroups = 'fs_lms_auth_group';
 }
