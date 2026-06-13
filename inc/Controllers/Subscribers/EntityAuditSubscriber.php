@@ -70,6 +70,10 @@ class EntityAuditSubscriber implements ServiceInterface {
 			LogEvent::TaxonomyCreated,
 			LogEvent::TaxonomyUpdated,
 			LogEvent::TaxonomyDeleted,
+			// Термы
+			LogEvent::TermCreated,
+			LogEvent::TermUpdated,
+			LogEvent::TermDeleted,
 			// Шаблоны
 			LogEvent::TemplateCreated,
 			LogEvent::TemplateUpdated,

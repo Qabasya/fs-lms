@@ -92,7 +92,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 			flush_rewrite_rules();
 			$this->logEvents->dispatch(
 				LogEvent::TaxonomyCreated,
-				new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Taxonomy, $tax_slug )
+				new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Taxonomy, $tax_slug, $tax_name )
 			);
 		}
 

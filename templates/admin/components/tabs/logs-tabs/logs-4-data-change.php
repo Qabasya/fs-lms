@@ -14,18 +14,23 @@ defined( 'ABSPATH' ) || exit;
  * @var array                           $data_change_filters
  * @var int                             $per_page
  * @var string                          $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
 $total_pages = (int) ceil( $data_change_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-4' ), admin_url( 'admin.php' ) );
-$filter_url  = add_query_arg( $data_change_filters, $base_url );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $data_change_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $data_change_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-data-change-log-tab">
 
 	<p class="description fs-mt-md">
-		Значения хранятся в зашифрованном виде. Полные данные доступны через CSV-экспорт.
+		Значения хранятся в маскированном виде. Полные данные доступны через CSV-экспорт.
 	</p>
 
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
@@ -59,11 +64,11 @@ $filter_url  = add_query_arg( $data_change_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-                <th class="tw-3">ID</th>
-                <th class="tw-10">Дата</th>
+                <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
                 <th class="tw-10">Пользователь</th>
-				<th class="tw-10">>Субъект ПД</th>
-				<th class="tw-10">>Поле</th>
+				<th class="tw-15">Субъект ПД</th>
+				<th class="tw-20">Поле</th>
 				<th>Старое значение</th>
 				<th>Новое значение</th>
 			</tr>
@@ -72,10 +77,10 @@ $filter_url  = add_query_arg( $data_change_filters, $base_url );
 			<?php foreach ( $data_change_rows as $row ) : ?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
-					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
+					<td><?php echo LogNameResolver::userName( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td><?php echo esc_html( LogNameResolver::personName( $row->targetPersonId ) ); ?></td>
-					<td><code><?php echo esc_html( DataFieldType::tryFrom( $row->fieldName )?->label() ?? $row->fieldName ); ?></code></td>
+					<td><?php echo esc_html( DataFieldType::tryFrom( $row->fieldName )?->label() ?? $row->fieldName ); ?></td>
 					<td><?php echo $row->oldValueEnc ? '<span title="Зашифровано">••••••</span>' : '—'; ?></td>
 					<td><?php echo $row->newValueEnc ? '<span title="Зашифровано">••••••</span>' : '—'; ?></td>
 				</tr>

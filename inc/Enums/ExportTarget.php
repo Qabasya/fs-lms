@@ -19,7 +19,6 @@ enum ExportTarget: string {
 	case LogDataChange     = 'log_data_change';
 	case LogConsentChange  = 'log_consent_change';
 	case LogEmail          = 'log_email';
-	case LogDeletion       = 'log_deletion';
 	case LogAuth           = 'log_auth';
 
 	public function label(): string {
@@ -35,7 +34,6 @@ enum ExportTarget: string {
 			self::LogDataChange      => 'Лог: изменения данных',
 			self::LogConsentChange   => 'Лог: согласия',
 			self::LogEmail           => 'Лог: письма',
-			self::LogDeletion        => 'Лог: удаления',
 			self::LogAuth            => 'Лог: аутентификация',
 		};
 	}

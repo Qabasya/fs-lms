@@ -55,63 +55,85 @@ class PostEntityAuditController implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
-		// 'save_post' — хук, срабатывающий при сохранении поста
-		add_action( 'save_post', array( $this, 'onSavePost' ), 20, 3 );
-		// 'before_delete_post' — хук, срабатывающий перед удалением поста
-		add_action( 'before_delete_post', array( $this, 'onDeletePost' ), 10, 1 );
+		add_action( 'transition_post_status', array( $this, 'onTransitionPostStatus' ), 20, 3 );
+		// before_delete_post — только для прямого хард-делита (не из корзины)
+		add_action( 'before_delete_post', array( $this, 'onDeletePost' ), 10, 2 );
 	}
 
 	/**
-	 * Обработчик сохранения поста (создание или обновление).
+	 * Обработчик смены статуса поста.
+	 * Логирует: создание (из auto-draft), обновление, перемещение в корзину.
 	 *
-	 * @param int      $postId ID поста
-	 * @param \WP_Post $post   Объект поста
-	 * @param bool     $update true — обновление, false — создание
-	 *
-	 * @return void
-	 */
-	public function onSavePost( int $postId, \WP_Post $post, bool $update ): void {
-		// Пропускаем ревизии и автосохранения
-		if ( wp_is_post_revision( $postId ) || wp_is_post_autosave( $postId ) ) {
-			return;
-		}
-
-		[ $event, $entityType ] = $this->resolvePostContext( $post->post_type, $update );
-		if ( null === $event ) {
-			return;
-		}
-
-		// dispatch() — отправка события в шину логирования
-		$this->logEvents->dispatch(
-			$event,
-			new EntityChangedEvent( get_current_user_id(), $update ? OperationType::Update : OperationType::Create, $entityType, $postId )
-		);
-	}
-
-	/**
-	 * Обработчик удаления поста.
-	 *
-	 * @param int $postId ID поста
+	 * @param string   $newStatus Новый статус
+	 * @param string   $oldStatus Старый статус
+	 * @param \WP_Post $post      Объект поста
 	 *
 	 * @return void
 	 */
-	public function onDeletePost( int $postId ): void {
-		$post = get_post( $postId );
-		if ( ! $post instanceof \WP_Post ) {
+	public function onTransitionPostStatus( string $newStatus, string $oldStatus, \WP_Post $post ): void {
+		if ( $newStatus === 'auto-draft' || $oldStatus === $newStatus ) {
 			return;
 		}
 
-		[ , $entityType ] = $this->resolvePostContext( $post->post_type, true );
+		$entityType = $this->resolveEntityType( $post->post_type );
 		if ( null === $entityType ) {
 			return;
 		}
 
-		// Определение события удаления (TaskDeleted или ArticleDeleted)
+		if ( $newStatus === 'trash' ) {
+			$deleteEvent = PostTypeResolver::isTaskPostType( $post->post_type )
+				? LogEvent::TaskDeleted
+				: LogEvent::ArticleDeleted;
+			$this->logEvents->dispatch(
+				$deleteEvent,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, $entityType, $post->ID, $post->post_title )
+			);
+			return;
+		}
+
+		if ( $oldStatus === 'auto-draft' || $oldStatus === 'new' ) {
+			$createEvent = PostTypeResolver::isTaskPostType( $post->post_type )
+				? LogEvent::TaskCreated
+				: LogEvent::ArticleCreated;
+			$this->logEvents->dispatch(
+				$createEvent,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Create, $entityType, $post->ID )
+			);
+			return;
+		}
+
+		$updateEvent = PostTypeResolver::isTaskPostType( $post->post_type )
+			? LogEvent::TaskUpdated
+			: LogEvent::ArticleUpdated;
+		$this->logEvents->dispatch(
+			$updateEvent,
+			new EntityChangedEvent( get_current_user_id(), OperationType::Update, $entityType, $post->ID )
+		);
+	}
+
+	/**
+	 * Обработчик постоянного удаления поста (хард-делит минуя корзину).
+	 *
+	 * @param int      $postId ID поста
+	 * @param \WP_Post $post   Объект поста
+	 *
+	 * @return void
+	 */
+	public function onDeletePost( int $postId, \WP_Post $post ): void {
+		// Пропускаем посты из корзины — Delete уже залогирован при трэшинге
+		if ( 'trash' === $post->post_status ) {
+			return;
+		}
+
+		$entityType = $this->resolveEntityType( $post->post_type );
+		if ( null === $entityType ) {
+			return;
+		}
+
 		$deleteEvent = PostTypeResolver::isTaskPostType( $post->post_type )
 			? LogEvent::TaskDeleted
 			: LogEvent::ArticleDeleted;
 
-		// Передаём старое название поста (post_title) для аудита
 		$this->logEvents->dispatch(
 			$deleteEvent,
 			new EntityChangedEvent( get_current_user_id(), OperationType::Delete, $entityType, $postId, $post->post_title )
@@ -119,26 +141,19 @@ class PostEntityAuditController implements ServiceInterface {
 	}
 
 	/**
-	 * Определяет событие и тип сущности по типу поста.
+	 * Определяет тип сущности по типу поста.
 	 *
 	 * @param string $postType Тип поста
-	 * @param bool   $update   true — обновление, false — создание
 	 *
-	 * @return array{LogEvent|null, EntityType|null}
+	 * @return EntityType|null
 	 */
-	private function resolvePostContext( string $postType, bool $update ): array {
-		// Задания: post_type вида {key}_tasks
+	private function resolveEntityType( string $postType ): ?EntityType {
 		if ( PostTypeResolver::isTaskPostType( $postType ) ) {
-			$event = $update ? LogEvent::TaskUpdated : LogEvent::TaskCreated;
-			return array( $event, EntityType::Task );
+			return EntityType::Task;
 		}
-
-		// Статьи: post_type вида {key}_articles
 		if ( str_ends_with( $postType, '_articles' ) ) {
-			$event = $update ? LogEvent::ArticleUpdated : LogEvent::ArticleCreated;
-			return array( $event, EntityType::Article );
+			return EntityType::Article;
 		}
-
-		return array( null, null );
+		return null;
 	}
 }

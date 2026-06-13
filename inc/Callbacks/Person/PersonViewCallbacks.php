@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Person;
 use Inc\Core\BaseController;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
+use Inc\Enums\PiiAccessReason;
 use Inc\Enums\PiiField;
 use Inc\Enums\UserRole;
 use Inc\Enums\WeekDay;
@@ -257,7 +258,7 @@ class PersonViewCallbacks extends BaseController {
 			$dto = $this->personReader->readForDisplay(
 				$personId,
 				array( 'doc_number', 'inn', 'address', 'phone' ),
-				'admin_masked_view'
+				PiiAccessReason::AdminMaskedView->value
 			);
 			return array(
 				'doc_number' => $this->maskingService->mask( $dto->pass,    PiiField::Pass )

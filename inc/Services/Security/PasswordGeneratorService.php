@@ -4,12 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Security;
 
-use Inc\Contracts\LogEventDispatcherInterface;
-use Inc\DTO\Log\Events\EntityChangedEvent;
-use Inc\Enums\EntityType;
-use Inc\Enums\LogEvent;
 use Inc\Enums\MetaKeys;
-use Inc\Enums\OperationType;
 use Inc\Managers\UserManager;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 
@@ -45,16 +40,14 @@ class PasswordGeneratorService {
 	/**
 	 * Конструктор сервиса.
 	 *
-	 * @param UserManager                $user_manager    Менеджер пользователей
-	 * @param PiiCryptoService           $crypto          Сервис шифрования PII
-	 * @param UserRepository             $user_repository Репозиторий пользователей WP
-	 * @param LogEventDispatcherInterface $logEvents      Диспетчер событий логирования
+	 * @param UserManager      $user_manager    Менеджер пользователей
+	 * @param PiiCryptoService $crypto          Сервис шифрования PII
+	 * @param UserRepository   $user_repository Репозиторий пользователей WP
 	 */
 	public function __construct(
-		private readonly UserManager                $user_manager,
-		private readonly PiiCryptoService           $crypto,
-		private readonly UserRepository             $user_repository,
-		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly UserManager      $user_manager,
+		private readonly PiiCryptoService $crypto,
+		private readonly UserRepository   $user_repository,
 	) {}
 
 	/**
@@ -99,10 +92,6 @@ class PasswordGeneratorService {
 				MetaKeys::EncPassword->value => $encoded,
 			)
 		);
-
-		$this->logEvents->dispatch( LogEvent::UserUpdated, new EntityChangedEvent(
-			get_current_user_id(), OperationType::Update, EntityType::User, $user_id, 'password_generated'
-		) );
 
 		return $password;
 	}
@@ -173,9 +162,6 @@ class PasswordGeneratorService {
 			)
 		) );
 
-		$this->logEvents->dispatch( LogEvent::UserUpdated, new EntityChangedEvent(
-			get_current_user_id(), OperationType::Update, EntityType::User, $user_id, 'password_set'
-		) );
 	}
 
 	/**
@@ -197,9 +183,6 @@ class PasswordGeneratorService {
 			)
 		);
 
-		$this->logEvents->dispatch( LogEvent::UserUpdated, new EntityChangedEvent(
-			get_current_user_id(), OperationType::Update, EntityType::User, $user_id, 'password_set'
-		) );
 	}
 
 	/**

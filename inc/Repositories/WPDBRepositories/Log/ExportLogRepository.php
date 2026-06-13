@@ -71,7 +71,10 @@ class ExportLogRepository {
 	 *
 	 * @return ExportLogDTO[]
 	 */
-	public function list( array $filters, int $page, int $perPage ): array {
+	public function list( array $filters, int $page, int $perPage, string $orderby = 'id', string $order = 'DESC' ): array {
+		$orderby = in_array( $orderby, array( 'id', 'created_at' ), true ) ? $orderby : 'id';
+		$order   = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
+
 		[ $conditions, $bindings ] = $this->buildConditions( $filters );
 		$where      = implode( ' AND ', $conditions );
 		$bindings[] = $perPage;
@@ -79,7 +82,7 @@ class ExportLogRepository {
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY id DESC LIMIT %d OFFSET %d", $bindings ),
+			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY $orderby $order LIMIT %d OFFSET %d", $bindings ),
 			ARRAY_A
 		);
 

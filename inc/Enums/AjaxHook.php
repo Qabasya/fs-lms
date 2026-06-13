@@ -79,7 +79,6 @@ enum AjaxHook: string {
 	case ExportDataChangeLog   = 'export_data_change_log';
 	case ExportConsentChangeLog = 'export_consent_change_log';
 	case ExportEmailLog        = 'export_email_log';
-	case ExportDeletionLog     = 'export_deletion_log';
 	case ExportAuthLog         = 'export_auth_log';
 
 	// ==================== Настройки: шаблоны писем ====================

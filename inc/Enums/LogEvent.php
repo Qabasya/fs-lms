@@ -32,6 +32,10 @@ enum LogEvent: string {
 	case TaxonomyUpdated  = 'taxonomy.updated';
 	case TaxonomyDeleted  = 'taxonomy.deleted';
 
+	case TermCreated = 'term.created';
+	case TermUpdated = 'term.updated';
+	case TermDeleted = 'term.deleted';
+
 	case TemplateCreated  = 'template.created';
 	case TemplateUpdated  = 'template.updated';
 	case TemplateDeleted  = 'template.deleted';

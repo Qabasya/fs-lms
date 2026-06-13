@@ -38,6 +38,7 @@ use Inc\Services\Security\PasswordGeneratorService;
 use Inc\Services\Person\PersonService;
 use Inc\Contracts\ClockInterface;
 use Inc\Services\Security\PiiCryptoService;
+use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\TransactionRunner;
 use InvalidArgumentException;
@@ -227,7 +228,7 @@ readonly class EnrollmentService {
 					$this->passwordGenerator->storeEncrypted( $studentUserId, $studentPassword );
 					$this->logEvents->dispatch(
 						LogEvent::UserCreated,
-						new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Student, $studentPersonId )
+						new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Student, $studentPersonId, $studentDto->fullName() )
 					);
 				}
 				if ( null !== $studentPerson && null === $studentPerson->wpUserId ) {
@@ -263,7 +264,7 @@ readonly class EnrollmentService {
 					$this->passwordGenerator->storeEncrypted( $guardianUserId, $guardianPassword );
 					$this->logEvents->dispatch(
 						LogEvent::UserCreated,
-						new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Parent, $guardianPersonId )
+						new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Parent, $guardianPersonId, $parentDto->fullName() )
 					);
 				}
 				if ( null !== $guardianPerson && null === $guardianPerson->wpUserId ) {
@@ -296,17 +297,19 @@ readonly class EnrollmentService {
 			);
 		} catch ( \Throwable $e ) {
 			// Транзакция прошла (student_record создан), WP-пользователи не созданы.
-			// Помечаем заявку как converted, чтобы не зависала в статусе enrolling.
+			// Помечаем заявку как converted — RecoveryService (cron) подберёт её и создаст аккаунты.
 			try {
 				$this->applicationRepository->markConverted( $app->id, $recordId );
 			} catch ( \Throwable ) {}
+
+			PluginLogger::warning( 'EnrollmentService', 'WP user creation failed after transaction', array( 'record_id' => $recordId, 'error' => $e->getMessage() ) );
 
 			$this->logEvents->dispatch(
 				LogEvent::EnrollmentFailed,
 				new EnrollmentStatusEvent( get_current_user_id(), AuditAction::EnrollStudentFailed, $studentPersonId, $recordId, $input->groupId )
 			);
 
-			return new EnrollmentResultDTO( $recordId, 0, 0, null, null, null, null, true );
+			return new EnrollmentResultDTO( $recordId, 0, 0, null, null, null, null, true, $e->getMessage() );
 		}
 	}
 
@@ -413,10 +416,14 @@ readonly class EnrollmentService {
 			throw new DomainException( 'Заявка не в статусе pending_parent.' );
 		}
 
-		$parentPerson = $this->personRepository->find( $parentPersonId );
+		$parentPerson = $this->personRepository->findIncludingDeleted( $parentPersonId );
 
 		if ( null === $parentPerson ) {
 			throw new InvalidArgumentException( 'Родитель не найден.' );
+		}
+
+		if ( null !== $parentPerson->expelledAt ) {
+			$this->personRepository->update( $parentPersonId, array( 'expelled_at' => null ) );
 		}
 
 		$docs = $this->personDocumentsRepository->findByPersonId( $parentPersonId );

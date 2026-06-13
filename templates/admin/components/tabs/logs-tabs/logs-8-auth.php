@@ -5,6 +5,7 @@ declare( strict_types=1 );
 use Inc\Enums\AuthAction;
 use Inc\Enums\AuthResult;
 use Inc\Services\Log\LogNameResolver;
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 defined( 'ABSPATH' ) || exit;
 
@@ -15,12 +16,17 @@ defined( 'ABSPATH' ) || exit;
  * @var array                     $auth_filters
  * @var int                       $per_page
  * @var string                    $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
 $total_pages = (int) ceil( $auth_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-8' ), admin_url( 'admin.php' ) );
-$filter_url  = add_query_arg( $auth_filters, $base_url );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $auth_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $auth_filters, $base_url );
 
 ?>
 
@@ -70,32 +76,38 @@ $filter_url  = add_query_arg( $auth_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-                <th class="tw-3">ID</th>
-                <th class="tw-10">Дата</th>
-				<th class="tw-15">Логин</th>
+                <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
+				<th class="tw-20">Логин</th>
 				<th>Действие</th>
-				<th>Результат</th>
+				<th class="tw-10" >Результат</th>
                 <th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>
+
+
 			<?php foreach ( $auth_rows as $row ) :
-				$authResult = AuthResult::tryFrom( $row->result );
-				$badge      = $authResult
-					? '<span class="fs-badge ' . esc_attr( $authResult->badgeClass() ) . '">' . esc_html( $authResult->label() ) . '</span>'
-					: '<span class="fs-badge">' . esc_html( $row->result ) . '</span>';
+				$authResult = AuthResult::tryFrom( $row->result )?->value;
+
+                $badge_color = 'success' === $authResult
+                        ? 'green'
+                        : 'red';
+
+                $badge_label = AuthResult::tryFrom( $row->result )?->label();
+
 				?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
-					<td><?php echo $row->loginIdentifier ? esc_html( $row->loginIdentifier ) : '—'; ?></td>
-					<td>
-						<span class="fs-badge badge-secondary">
-							<?php echo esc_html( AuthAction::tryFrom( $row->action )?->label() ?? $row->action ); ?>
-						</span>
-					</td>
-					<td><?php echo $badge; ?></td>
-					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
+					<td><?php echo LogNameResolver::personNameByLogin( $row->loginIdentifier ); // phpcs:ignore ?></td>
+					<td><?php echo esc_html( AuthAction::tryFrom( $row->action )?->label() ?? $row->action ); ?></td>
+                    <td>
+                        <?php
+                        render_fs_badge( $badge_label, $badge_color );
+                        ?>
+                    </td>
+					<td><?php echo esc_html( $row->actorIp ); ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

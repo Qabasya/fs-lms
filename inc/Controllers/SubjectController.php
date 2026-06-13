@@ -10,7 +10,12 @@ use Inc\Callbacks\Subject\SubjectValidationCallbacks;
 use Inc\Callbacks\Subject\TaxonomySettingsCallbacks;
 use Inc\Callbacks\Task\TemplateCallbacks;
 use Inc\Callbacks\Task\TemplateManagerCallbacks;
+use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\Enums\AjaxHook;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
+use Inc\Enums\OperationType;
 use Inc\Managers\PostManager;
 use Inc\Registrars\SubjectCPTRegistrar;
 use Inc\Registrars\SubjectTaxonomyRegistrar;
@@ -74,7 +79,8 @@ class SubjectController extends AjaxController {
 		private readonly SubjectPageCallbacks $page_callbacks,
 		private readonly SubjectValidationCallbacks $validation_callbacks,
 		private readonly ContentCacheService $cache_service,
-		private readonly TemplateCallbacks $task_page_callbacks
+		private readonly TemplateCallbacks $task_page_callbacks,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {
 		parent::__construct();
 	}
@@ -97,6 +103,7 @@ class SubjectController extends AjaxController {
 		$this->setupTermSorting();
 
 		add_action( 'admin_notices', array( $this->validation_callbacks, 'showEmptyRequiredTaxNotice' ) );
+		add_action( 'created_term', array( $this, 'onTermCreated' ), 10, 3 );
 
 
 
@@ -292,5 +299,53 @@ class SubjectController extends AjaxController {
 		 * @param object $subject Объект предмета
 		 */
 		return apply_filters( 'fs_lms_cpt_args', $args, $type, $subject );
+	}
+
+	/**
+	 * Логирует создание терма в плагинной таксономии.
+	 *
+	 * @param int    $termId   ID созданного терма
+	 * @param int    $ttId     ID term_taxonomy
+	 * @param string $taxonomy Слаг таксономии
+	 *
+	 * @return void
+	 */
+	public function onTermCreated( int $termId, int $ttId, string $taxonomy ): void {
+		$isTaskNumber = str_ends_with( $taxonomy, '_task_number' );
+
+		if ( ! $isTaskNumber ) {
+			$allTaxonomies = $this->taxonomies->readAll();
+			$isPlugin      = false;
+			foreach ( $allTaxonomies as $taxes ) {
+				foreach ( $taxes as $dto ) {
+					if ( $dto->slug === $taxonomy ) {
+						$isPlugin = true;
+						break 2;
+					}
+				}
+			}
+			if ( ! $isPlugin ) {
+				return;
+			}
+		}
+
+		$term = get_term( $termId, $taxonomy );
+		if ( ! $term instanceof \WP_Term ) {
+			return;
+		}
+
+		$taxObj   = get_taxonomy( $taxonomy );
+		$taxLabel = $taxObj ? $taxObj->labels->singular_name : $taxonomy;
+
+		$this->logEvents->dispatch(
+			LogEvent::TermCreated,
+			new EntityChangedEvent(
+				get_current_user_id(),
+				OperationType::Create,
+				EntityType::Term,
+				$termId,
+				"{$taxLabel}→{$term->name}"
+			)
+		);
 	}
 }

@@ -13,16 +13,25 @@ defined( 'ABSPATH' ) || exit;
  * @var int                    $audit_page
  * @var array                  $audit_filters
  * @var int                    $per_page
- * @var string                 $active_tab
+ * @var string              $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
 $total_pages = (int) ceil( $audit_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-1' ), admin_url( 'admin.php' ) );
-$filter_url  = add_query_arg( $audit_filters, $base_url );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $audit_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $audit_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-audit-log-tab">
+
+    <p class="description fs-mt-md">
+        Каждое действие с учениками фиксируется здесь.
+    </p>
 
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
@@ -32,14 +41,15 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 			<option value="">Все действия</option>
 			<?php foreach ( AuditAction::cases() as $action ) : ?>
 				<option value="<?php echo esc_attr( $action->value ); ?>"
-					<?php selected( $audit_filters['action'] ?? '', $action->value ); ?>>
+					<?php selected( $audit_filters['action_filter'] ?? '', $action->value ); ?>>
 					<?php echo esc_html( $action->label() ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
 
-		<input type="number" name="actor_id" placeholder="User ID" class="input-width-md"
-			value="<?php echo esc_attr( $audit_filters['actor_user_id'] ?? '' ); ?>">
+		<input type="text" name="actor_name" placeholder="Имя пользователя"
+			value="<?php echo esc_attr( $audit_actor_name ?? '' ); ?>"
+			class="input-width-lg">
 
 		<input type="date" name="date_from"
 			value="<?php echo esc_attr( $audit_filters['date_from'] ?? '' ); ?>">
@@ -73,12 +83,12 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th class="tw-3">ID</th>
-				<th class="tw-10">Дата</th>
+				<th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
 				<th class="tw-10">Пользователь</th>
 				<th >Действие</th>
-				<th class="tw-10">Субъект</th>
-				<th class="tw-10">Группа</th>
+				<th class="tw-20">Субъект</th>
+				<th class="tw-20">Группа</th>
 				<th class="tw-5">IP</th>
 			</tr>
 			</thead>
@@ -88,7 +98,7 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 				$actionLabel = $auditAction ? $auditAction->label() : $row->action;
 
 				if ( 'application' === $row->targetType ) {
-					$subjectCell = '<span class="fs-badge badge-secondary">Заявка #' . (int) $row->targetId . '</span>';
+					$subjectCell = 'Заявка №' . (int) $row->targetId;
 				} else {
 					$subjectCell = esc_html( LogNameResolver::personName( $row->targetId ) );
 				}
@@ -99,14 +109,12 @@ $filter_url  = add_query_arg( $audit_filters, $base_url );
 			?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
-					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId, $row->actorRole ); // phpcs:ignore ?></td>
-					<td>
-						<span class="fs-badge badge-primary"><?php echo esc_html( $actionLabel ); ?></span>
-					</td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
+					<td><?php echo LogNameResolver::userName( $row->actorUserId); // phpcs:ignore ?></td>
+					<td><?php echo esc_html( $actionLabel ); ?>	</td>
 					<td><?php echo $subjectCell; // phpcs:ignore ?></td>
 					<td><?php echo $groupCell; // phpcs:ignore ?></td>
-					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
+					<td><?php echo esc_html( $row->actorIp ); ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

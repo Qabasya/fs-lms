@@ -81,21 +81,11 @@ class SubjectValidationCallbacks extends BaseController {
 		$error = $this->validator->getBlockingError( $postType, $taxInput )
 		         ?? $this->validator->getSoftError( $postMeta, $templateId );
 
-		// Если есть ошибка — выводим сообщение и завершаем выполнение
 		if ( null !== $error ) {
-			// wp_get_referer() — URL предыдущей страницы
-			$back = wp_get_referer() ?: admin_url();
-
-			// wp_die() — завершает выполнение скрипта с выводом сообщения
-			wp_die(
-				sprintf(
-					'<p>%s</p><p><a href="%s">&larr; Назад</a></p>',
-					esc_html( $error ),
-					esc_url( $back )
-				),
-				esc_html__( 'Невозможно опубликовать задание', 'fs-lms' ),
-				array( 'response' => 400 )
-			);
+			// Откатываем статус обратно в draft, чтобы публикация не прошла
+			$data['post_status'] = 'draft';
+			// Сохраняем сообщение в транзиент, чтобы показать его в admin_notices после редиректа
+			set_transient( 'fs_lms_publish_error_' . get_current_user_id(), $error, 60 );
 		}
 
 		return $data;
@@ -108,8 +98,19 @@ class SubjectValidationCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function showEmptyRequiredTaxNotice(): void {
-		// get_current_screen() — объект текущего экрана админ-панели
 		$screen = get_current_screen();
+
+		// Показываем ошибку валидации публикации, если она была отложена
+		$transientKey = 'fs_lms_publish_error_' . get_current_user_id();
+		$publishError = get_transient( $transientKey );
+		if ( $publishError ) {
+			delete_transient( $transientKey );
+			printf(
+				'<div class="notice notice-error is-dismissible"><p><strong>%s:</strong> %s</p></div>',
+				esc_html__( 'Невозможно опубликовать задание', 'fs-lms' ),
+				esc_html( $publishError )
+			);
+		}
 
 		if ( ! $screen || ! PostTypeResolver::isTaskPostType( $screen->post_type ) ) {
 			return;

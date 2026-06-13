@@ -84,7 +84,7 @@ class SubjectCrudCallbacks extends BaseController {
 			flush_rewrite_rules();
 			$this->logEvents->dispatch(
 				LogEvent::SubjectCreated,
-				new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Subject, $key )
+				new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Subject, $key, $name )
 			);
 		}
 

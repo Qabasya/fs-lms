@@ -4,8 +4,11 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks\Person;
 
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\Log\Events\PersonDataChangedEvent;
 use Inc\Enums\Capability;
+use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -47,10 +50,11 @@ class PersonUpdateCallbacks extends BaseController {
 	 * @param PasswordGeneratorService $passwordGenerator        Сервис генерации паролей
 	 */
 	public function __construct(
-		private readonly PersonService           $personService,
-		private readonly PersonRepository        $personRepository,
-		private readonly StudentRecordRepository $studentRecordRepository,
+		private readonly PersonService            $personService,
+		private readonly PersonRepository         $personRepository,
+		private readonly StudentRecordRepository  $studentRecordRepository,
 		private readonly PasswordGeneratorService $passwordGenerator,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {
 		parent::__construct();
 	}
@@ -101,6 +105,8 @@ class PersonUpdateCallbacks extends BaseController {
 			'address'         => $this->sanitizeText( 'address' ),
 			'doc_issued_by'   => $this->sanitizeText( 'doc_issued_by' ),
 			'doc_issued_date' => $this->sanitizeText( 'doc_issued_date' ),
+			'school'          => $this->sanitizeText( 'school' ),
+			'grade'           => $this->sanitizeText( 'grade' ),
 		) );
 
 		if ( $lastName ) { $personChanges['last_name']   = $lastName; }
@@ -144,8 +150,12 @@ class PersonUpdateCallbacks extends BaseController {
 			if ( $newPassword ) {
 				try {
 					$this->passwordGenerator->setFromPlain( $person->wpUserId, $newPassword );
+					$this->logEvents->dispatch(
+						LogEvent::PersonDataChanged,
+						new PersonDataChangedEvent( get_current_user_id(), $personId, 'password', null, null )
+					);
 				} catch ( \RuntimeException ) {
-					// Логирование ошибки (можно расширить)
+					// ignore: user not found
 				}
 			}
 		}

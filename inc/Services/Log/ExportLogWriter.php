@@ -62,13 +62,14 @@ class ExportLogWriter {
 	 *
 	 * @return void
 	 */
-	public function record( string $dataType, string $actionType, array $targetIds = array() ): void {
+	public function record( string $dataType, string $actionType, array $targetIds = array(), string $operationType = 'export' ): void {
 		$ctx = $this->requestContext();
 		$role = $this->resolveRole( $ctx->actorUserId );
 
 		$this->repository->create( new ExportLogInputDTO(
 			actorUserId:   $ctx->actorUserId > 0 ? $ctx->actorUserId : 0,
 			actorRole:     $role,
+			operationType: $operationType,
 			dataType:      $dataType,
 			actionType:    $actionType,
 			targetIdsJson: ! empty( $targetIds ) ? wp_json_encode( $targetIds ) : null,

@@ -95,7 +95,10 @@ class AuditLogRepository {
 	 *
 	 * @return AuditLogDTO[]
 	 */
-	public function list( array $filters, int $page, int $perPage ): array {
+	public function list( array $filters, int $page, int $perPage, string $orderby = 'id', string $order = 'DESC' ): array {
+		$orderby = in_array( $orderby, array( 'id', 'created_at' ), true ) ? $orderby : 'id';
+		$order   = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
+
 		[ $conditions, $bindings ] = $this->buildConditions( $filters );
 		$where      = implode( ' AND ', $conditions );
 		$bindings[] = $perPage;
@@ -103,7 +106,7 @@ class AuditLogRepository {
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY id DESC LIMIT %d OFFSET %d", $bindings ),
+			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY $orderby $order LIMIT %d OFFSET %d", $bindings ),
 			ARRAY_A
 		);
 
@@ -144,6 +147,18 @@ class AuditLogRepository {
 		if ( ! empty( $filters['actor_user_id'] ) ) {
 			$conditions[] = 'actor_user_id = %d';
 			$bindings[]   = (int) $filters['actor_user_id'];
+		}
+		if ( isset( $filters['actor_ids'] ) && is_array( $filters['actor_ids'] ) ) {
+			if ( empty( $filters['actor_ids'] ) ) {
+				$conditions[] = '1=0';
+			} else {
+				$placeholders = implode( ', ', array_fill( 0, count( $filters['actor_ids'] ), '%d' ) );
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$conditions[] = "actor_user_id IN ($placeholders)";
+				foreach ( $filters['actor_ids'] as $uid ) {
+					$bindings[] = (int) $uid;
+				}
+			}
 		}
 		if ( ! empty( $filters['date_from'] ) ) {
 			$conditions[] = 'created_at >= %s';

@@ -209,7 +209,7 @@ class EnrollmentCallbacks extends BaseController {
 			$this->success( array(
 				'partial'       => true,
 				'enrollment_id' => $result->enrollmentId,
-				'message'       => 'Зачисление выполнено. Учётные записи будут созданы автоматически в течение 15 минут. Enrollment ID: ' . $result->enrollmentId,
+				'message'       => 'Зачисление выполнено, но учётные записи не созданы. Требуется ручное исправление. Причина: ' . ( $result->errorMessage ?? 'неизвестно' ),
 			) );
 		}
 

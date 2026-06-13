@@ -56,6 +56,8 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 
 <div class="fs-lms-teachers">
 
+	<div class="tablenav top fs-students-bulk-bar"></div>
+
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 
 		<thead>
@@ -183,4 +185,4 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/teacher-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/teacher-view-modal.php'; ?>

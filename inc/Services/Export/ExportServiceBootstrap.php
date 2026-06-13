@@ -9,7 +9,6 @@ use Inc\Enums\ExportTarget;
 use Inc\Services\Export\Log\AuthLogExportProvider;
 use Inc\Services\Export\Log\ConsentChangeLogExportProvider;
 use Inc\Services\Export\Log\DataChangeLogExportProvider;
-use Inc\Services\Export\Log\DeletionLogExportProvider;
 use Inc\Services\Export\Log\EmailLogExportProvider;
 use Inc\Services\Export\Log\EnrollmentAuditLogExportProvider;
 use Inc\Services\Export\Log\EntityAuditLogExportProvider;
@@ -64,7 +63,6 @@ class ExportServiceBootstrap implements ServiceInterface {
 	 * @param DataChangeLogExportProvider          $dataChange     Провайдер экспорта изменений данных
 	 * @param ConsentChangeLogExportProvider       $consentChange  Провайдер экспорта изменений согласий
 	 * @param EmailLogExportProvider               $email          Провайдер экспорта отправки email
-	 * @param DeletionLogExportProvider            $deletion       Провайдер экспорта удалений
 	 * @param AuthLogExportProvider                $auth           Провайдер экспорта аутентификации
 	 */
 	public function __construct(
@@ -80,7 +78,6 @@ class ExportServiceBootstrap implements ServiceInterface {
 		private readonly DataChangeLogExportProvider   $dataChange,
 		private readonly ConsentChangeLogExportProvider $consentChange,
 		private readonly EmailLogExportProvider        $email,
-		private readonly DeletionLogExportProvider     $deletion,
 		private readonly AuthLogExportProvider         $auth,
 	) {}
 
@@ -104,7 +101,6 @@ class ExportServiceBootstrap implements ServiceInterface {
 		$this->registry->register( ExportTarget::LogDataChange,   $this->dataChange );
 		$this->registry->register( ExportTarget::LogConsentChange, $this->consentChange );
 		$this->registry->register( ExportTarget::LogEmail,        $this->email );
-		$this->registry->register( ExportTarget::LogDeletion,     $this->deletion );
 		$this->registry->register( ExportTarget::LogAuth,         $this->auth );
 	}
 }

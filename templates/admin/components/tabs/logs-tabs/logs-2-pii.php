@@ -2,6 +2,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\DataFieldType;
+use Inc\Enums\PiiAccessReason;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;
@@ -13,30 +15,28 @@ defined( 'ABSPATH' ) || exit;
  * @var array                             $pii_filters
  * @var int                               $per_page
  * @var string                            $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
 $total_pages = (int) ceil( $pii_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-2' ), admin_url( 'admin.php' ) );
-$filter_url  = add_query_arg( $pii_filters, $base_url );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $pii_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $pii_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-pii-log-tab">
 
 	<p class="description fs-mt-md">
 		Каждое обращение к персональным данным через функцию «Показать» фиксируется здесь.
-		Журнал защищён от изменений.
 	</p>
 
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-2">
-
-		<input type="number" name="actor_id" placeholder="User ID" class="input-width-md"
-			value="<?php echo esc_attr( $pii_filters['actor_user_id'] ?? '' ); ?>">
-
-		<input type="number" name="person_id" placeholder="Person ID" class="input-width-md"
-			value="<?php echo esc_attr( $pii_filters['person_id'] ?? '' ); ?>">
 
 		<input type="date" name="date_from"
 			value="<?php echo esc_attr( $pii_filters['date_from'] ?? '' ); ?>">
@@ -70,12 +70,12 @@ $filter_url  = add_query_arg( $pii_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-                <th class="tw-3">ID</th>
-                <th class="tw-10">Дата</th>
+                <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
 				<th class="tw-10">Кто смотрел</th>
-				<th class="tw-10">Субъект ПД</th>
+				<th class="tw-15">Субъект ПД</th>
 				<th>Поля</th>
-				<th>Причина</th>
+				<th class="tw-20">Причина</th>
 				<th class="tw-5">IP</th>
 			</tr>
 			</thead>
@@ -85,16 +85,20 @@ $filter_url  = add_query_arg( $pii_filters, $base_url );
 			?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
-					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId, $row->actorRole ); // phpcs:ignore ?></td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
+					<td><?php echo LogNameResolver::userName( $row->actorUserId); // phpcs:ignore ?></td>
 					<td><?php echo esc_html( LogNameResolver::personName( $row->personId ) ); ?></td>
 					<td>
-						<?php foreach ( $fields as $field ) : ?>
-							<code class="fs-code-sm"><?php echo esc_html( $field ); ?></code>
-						<?php endforeach; ?>
+                        <?php
+                        $output = [];
+                        foreach ( $fields as $field ) {
+                            $output[] = esc_html( DataFieldType::tryFrom( $field )?->label() ?? $field );
+                        }
+                        echo implode( ', ', $output );
+                        ?>
 					</td>
-					<td><?php echo esc_html( $row->accessReason ); ?></td>
-					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
+					<td><?php echo esc_html( PiiAccessReason::tryFrom( $row->accessReason )?->label() ?? $row->accessReason ); ?></td>
+					<td><?php echo esc_html( $row->actorIp ); ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

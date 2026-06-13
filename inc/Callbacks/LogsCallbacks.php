@@ -173,16 +173,6 @@ class LogsCallbacks extends BaseController {
 	}
 
 	/**
-	 * Экспорт журнала удалений (deletion_log).
-	 */
-	public function ajaxExportDeletionLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
-		$filters = $this->logFilters( array( 'actor_user_id', 'entity_type', 'date_from', 'date_to' ) );
-		$url     = $this->exportService->run( ExportTarget::LogDeletion, $filters );
-		$this->success( array( 'url' => $url ) );
-	}
-
-	/**
 	 * Экспорт журнала аутентификации (auth_log).
 	 */
 	public function ajaxExportAuthLog(): void {

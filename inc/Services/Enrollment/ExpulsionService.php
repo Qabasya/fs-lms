@@ -118,22 +118,18 @@ readonly class ExpulsionService {
 		// Оставшиеся активные записи после отчисления
 		$remainingActive = $this->studentRecordRepository->findActiveByStudent( $studentPerson->id );
 
-		// Если у студента не осталось активных записей — удаляем его
+		// Если у студента не осталось активных записей — soft delete (WP-аккаунт сохраняется)
 		if ( empty( $remainingActive ) ) {
 			$this->personRepository->softDelete( $studentPerson->id );
-			$this->userManager->delete( $studentWpUserId );
 		}
 
-		// Удаление родителя, если у него не осталось активных учеников
+		// Soft delete родителя, если у него не осталось активных учеников
 		if ( $parentPerson !== null ) {
 			$parentHasActive = ! empty(
 			$this->studentRecordRepository->findActiveByParent( $parentPerson->id )
 			);
 			if ( ! $parentHasActive ) {
 				$this->personRepository->softDelete( $parentPerson->id );
-				if ( $parentPerson->wpUserId ) {
-					$this->userManager->delete( $parentPerson->wpUserId );
-				}
 			}
 		}
 

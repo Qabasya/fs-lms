@@ -89,7 +89,9 @@ readonly class PersonService {
 				$newVal                   = (string) $changes[ $nameField ];
 				$personData[ $nameField ] = $newVal;
 				$changedFields[]          = $nameField;
-				$fieldChanges[]           = array( 'field' => $nameField, 'old' => $oldVal, 'new' => $newVal );
+				if ( $oldVal !== $newVal ) {
+					$fieldChanges[] = array( 'field' => $nameField, 'old' => $oldVal, 'new' => $newVal );
+				}
 			}
 		}
 
@@ -98,7 +100,9 @@ readonly class PersonService {
 			$newVal                    = (string) $changes['birth_date'];
 			$personData['birth_date']  = $newVal;
 			$changedFields[]           = 'birth_date';
-			$fieldChanges[]            = array( 'field' => 'birth_date', 'old' => $oldVal, 'new' => $newVal );
+			if ( $oldVal !== $newVal ) {
+				$fieldChanges[] = array( 'field' => 'birth_date', 'old' => $oldVal, 'new' => $newVal );
+			}
 		}
 
 		$encFieldMap = array(
@@ -126,7 +130,9 @@ readonly class PersonService {
 			$encProp = $encFieldMap[ $rawKey ] ?? null;
 			$oldEnc  = $encProp && $existingDocs ? $existingDocs->$encProp : null;
 			$oldVal  = $oldEnc ? $this->crypto->decrypt( $oldEnc ) : '';
-			$fieldChanges[] = array( 'field' => $rawKey, 'old' => $oldVal, 'new' => $newVal );
+			if ( $oldVal !== $newVal ) {
+				$fieldChanges[] = array( 'field' => $rawKey, 'old' => $oldVal, 'new' => $newVal );
+			}
 		}
 
 		if ( array_key_exists( 'doc_type', $changes ) ) {
@@ -134,7 +140,9 @@ readonly class PersonService {
 			$newVal              = (string) $changes['doc_type'];
 			$docData['doc_type'] = $newVal;
 			$changedFields[]     = 'doc_type';
-			$fieldChanges[]      = array( 'field' => 'doc_type', 'old' => $oldVal, 'new' => $newVal );
+			if ( $oldVal !== $newVal ) {
+				$fieldChanges[] = array( 'field' => 'doc_type', 'old' => $oldVal, 'new' => $newVal );
+			}
 		}
 
 		if ( array_key_exists( 'doc_issued_date', $changes ) ) {
@@ -142,7 +150,9 @@ readonly class PersonService {
 			$newVal                      = (string) $changes['doc_issued_date'];
 			$docData['doc_issued_date']  = $newVal;
 			$changedFields[]             = 'doc_issued_date';
-			$fieldChanges[]              = array( 'field' => 'doc_issued_date', 'old' => $oldVal, 'new' => $newVal );
+			if ( $oldVal !== $newVal ) {
+				$fieldChanges[] = array( 'field' => 'doc_issued_date', 'old' => $oldVal, 'new' => $newVal );
+			}
 		}
 
 		if ( ! empty( $personData ) ) {

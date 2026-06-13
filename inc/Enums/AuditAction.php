@@ -137,7 +137,7 @@ enum AuditAction: string {
 
 			self::RestoreFromArchive     => 'Восстановление из архива',
 			self::StudentRestored        => 'Ученик восстановлен',
-			self::ViewJoinLink           => 'Просмотр JOIN-ссылки',
+			self::ViewJoinLink           => 'Открытие JOIN-ссылки',
 
 			self::ExpelledArchiveExported => 'Экспортированы записи архива',
 			self::StudentExported         => 'Экспортированы данные ученика(ов)',

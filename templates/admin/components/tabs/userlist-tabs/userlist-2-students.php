@@ -290,4 +290,4 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/student-person-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/person/student-person-modal.php'; ?>

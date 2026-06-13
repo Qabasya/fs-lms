@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 use Inc\Enums\EmailTemplateType;
 use Inc\Services\Log\LogNameResolver;
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 defined( 'ABSPATH' ) || exit;
 
@@ -14,16 +15,23 @@ defined( 'ABSPATH' ) || exit;
  * @var array                      $email_filters
  * @var int                        $per_page
  * @var string                     $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
 $total_pages = (int) ceil( $email_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-6' ), admin_url( 'admin.php' ) );
-$filter_url  = add_query_arg( $email_filters, $base_url );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $email_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $email_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-email-log-tab">
-
+    <p class="description fs-mt-md">
+        Каждая отправка письма фиксируется здесь.
+    </p>
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-6">
@@ -69,33 +77,40 @@ $filter_url  = add_query_arg( $email_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-                <th class="tw-3">ID</th>
-                <th class="tw-10">Дата</th>
+                <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
                 <th class="tw-10">Пользователь</th>
-				<th class="tw-10">Тип письма</th>
+				<th >Тип письма</th>
 				<th>Субъект ПД</th>
-				<th>Email получателя</th>
-				<th class="tw-15">Статус</th>
-				<th class="tw-10">Ошибка</th>
+				<th class="tw-10">Email получателя</th>
+				<th class="tw-10">Статус</th>
 			</tr>
 			</thead>
 			<tbody>
-			<?php foreach ( $email_rows as $row ) :
-				$badge = 'success' === $row->status
-					? '<span class="fs-badge fs-badge--green">Успешно</span>'
-					: '<span class="fs-badge fs-badge--red">Ошибка</span>';
-				?>
-				<tr>
-					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
-					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
-					<td><span class="fs-badge badge-secondary"><?php echo esc_html( EmailTemplateType::tryFrom( $row->emailType )?->label() ?? $row->emailType ); ?></span></td>
-					<td><?php echo esc_html( LogNameResolver::personName( $row->targetPersonId ) ); ?></td>
-					<td><?php echo $row->recipientEmail ? esc_html( $row->recipientEmail ) : '—'; ?></td>
-					<td><?php echo $badge; ?></td>
-					<td><?php echo $row->errorMessage ? esc_html( $row->errorMessage ) : '—'; ?></td>
-				</tr>
-			<?php endforeach; ?>
+            <?php foreach ( $email_rows as $row ) :
+                $badge_color = 'success' === $row->status
+                        ? 'green'
+                        : 'red';
+
+                $badge_label = 'success' === $row->status
+                        ? __( 'Успешно', 'fs-lms' )
+                        : __( 'Ошибка', 'fs-lms' );
+                ?>
+                <tr>
+                    <td><?php echo (int) $row->id; ?></td>
+                    <td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
+                    <td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
+                    <td><?php echo esc_html( EmailTemplateType::tryFrom( $row->emailType )?->label() ?? $row->emailType ); ?></td>
+                    <td><?php echo esc_html( $row->targetPersonId ? LogNameResolver::personName( $row->targetPersonId ) : LogNameResolver::personNameByEmail( $row->recipientEmail ) ); ?></td>
+                    <td><?php echo $row->recipientEmail ? esc_html( $row->recipientEmail ) : '—'; ?></td>
+                    <td>
+                        <?php
+                        // 3. Рендерим бейдж с помощью render_fs_badge
+                        render_fs_badge( $badge_label, $badge_color );
+                        ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
 			</tbody>
 		</table>
 

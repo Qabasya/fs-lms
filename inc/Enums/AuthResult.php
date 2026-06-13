@@ -14,11 +14,4 @@ enum AuthResult: string {
 			self::Failure => 'Неудача',
 		};
 	}
-
-	public function badgeClass(): string {
-		return match ( $this ) {
-			self::Success => 'fs-badge--green',
-			self::Failure => 'fs-badge--red',
-		};
-	}
 }

@@ -43,10 +43,6 @@ $tabs = array(
 		'title' => 'Письма',
 		'file'  => '/components/tabs/logs-tabs/logs-6-email.php',
 	),
-	'tab-7' => array(
-		'title' => 'Удаления',
-		'file'  => '/components/tabs/logs-tabs/logs-7-deletion.php',
-	),
 	'tab-8' => array(
 		'title' => 'Аутентификация',
 		'file'  => '/components/tabs/logs-tabs/logs-8-auth.php',

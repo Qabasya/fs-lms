@@ -15,17 +15,24 @@ defined( 'ABSPATH' ) || exit;
  * @var array                       $export_filters
  * @var int                         $per_page
  * @var string                      $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
 $total_pages = (int) ceil( $export_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-3' ), admin_url( 'admin.php' ) );
-$filter_url  = add_query_arg( $export_filters, $base_url );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $export_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $export_filters, $base_url );
 
 ?>
 
 <div class="fs-logs-tab" id="js-export-log-tab">
-
+    <p class="description fs-mt-md">
+        Каждый экспорт или импорт данных фиксируется здесь.
+    </p>
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-3">
@@ -68,11 +75,12 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-                <th class="tw-3">ID</th>
-                <th class="tw-10">Дата</th>
+                <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
                 <th class="tw-10">Пользователь</th>
-				<th class="tw-10">Тип данных</th>
+				<th class="tw-20">Тип данных</th>
 				<th>Действие</th>
+				<th>Тип операции</th>
 				<th class="tw-10">ID целей</th>
                 <th class="tw-5">IP</th>
 			</tr>
@@ -83,22 +91,29 @@ $filter_url  = add_query_arg( $export_filters, $base_url );
 				?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
-					<td>
-						<span class="fs-badge badge-secondary">
-							<?php echo esc_html( ExportDataType::tryFrom( $row->dataType )?->label() ?? $row->dataType ); ?>
-						</span>
-					</td>
-					<td><span class="fs-badge badge-primary"><?php echo esc_html( ExportActionType::tryFrom( $row->actionType )?->label() ?? $row->actionType ); ?></span></td>
+					<td><?php echo esc_html( ExportDataType::tryFrom( $row->dataType )?->label() ?? $row->dataType ); ?></td>
+					<td><?php echo esc_html( ExportActionType::tryFrom( $row->actionType )?->label() ?? $row->actionType ); ?></td>
+                    <td>
+                        <?php
+                        echo esc_html(
+                                match ($row->operationType) {
+                                    'export' => 'Экспорт',
+                                    'import' => 'Импорт',
+                                    default => $row->operationType,
+                                }
+                        );
+                        ?>
+                    </td>
 					<td>
 						<?php if ( ! empty( $ids ) ) : ?>
-							<code class="fs-code-sm"><?php echo esc_html( implode( ', ', array_slice( $ids, 0, 10 ) ) ); ?><?php echo count( $ids ) > 10 ? ' …' : ''; ?></code>
+							<?php echo esc_html( implode( ', ', array_slice( $ids, 0, 10 ) ) ); ?><?php echo count( $ids ) > 10 ? ' …' : ''; ?>
 						<?php else : ?>
 							—
 						<?php endif; ?>
 					</td>
-					<td><code><?php echo esc_html( $row->actorIp ); ?></code></td>
+					<td><?php echo esc_html( $row->actorIp ); ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

@@ -12,7 +12,6 @@ enum LogChannel: string {
 	case DataChange      = 'data_change';
 	case ConsentChange   = 'consent_change';
 	case Email           = 'email';
-	case Deletion        = 'deletion';
 	case Auth            = 'auth';
 
 	public function label(): string {
@@ -24,7 +23,6 @@ enum LogChannel: string {
 			self::DataChange      => 'Журнал изменений данных',
 			self::ConsentChange   => 'Журнал согласий',
 			self::Email           => 'Журнал писем',
-			self::Deletion        => 'Журнал удалений',
 			self::Auth            => 'Журнал аутентификации',
 		};
 	}
@@ -38,7 +36,6 @@ enum LogChannel: string {
 			self::DataChange      => TableName::DataChangeLog,
 			self::ConsentChange   => TableName::ConsentChangeLog,
 			self::Email           => TableName::EmailLog,
-			self::Deletion        => TableName::DeletionLog,
 			self::Auth            => TableName::AuthLog,
 		};
 	}

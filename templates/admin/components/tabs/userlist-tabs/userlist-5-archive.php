@@ -329,5 +329,5 @@ $statusLabels = array(
 
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/archive-view-modal.php'; ?>
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/restore-archive-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/archive-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/restore-archive-modal.php'; ?>

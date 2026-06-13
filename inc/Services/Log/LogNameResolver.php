@@ -93,13 +93,13 @@ class LogNameResolver {
 			}
 		}
 
-		// Fallback: запрос к таблице persons
+		// Fallback: запрос к таблице persons (CONCAT_WS пропускает NULL-значения)
 		$name = $wpdb->get_var( $wpdb->prepare(
-			"SELECT CONCAT(last_name, ' ', first_name) FROM {$wpdb->prefix}fs_lms_persons WHERE id = %d LIMIT 1",
+			"SELECT CONCAT_WS(' ', last_name, first_name, middle_name) FROM {$wpdb->prefix}fs_lms_persons WHERE id = %d LIMIT 1",
 			$personId
 		) );
 
-		return $name ? esc_html( $name ) : 'Person #' . $personId;
+		return ( $name && '' !== trim( $name ) ) ? esc_html( trim( $name ) ) : 'Person #' . $personId;
 	}
 
 	/**
@@ -156,6 +156,26 @@ class LogNameResolver {
 	}
 
 	/**
+	 * Генерирует HTML содержимое <th> с сортировочной ссылкой.
+	 * Переключает направление при повторном клике; сбрасывает paged=1.
+	 *
+	 * @param string $label   Текст заголовка
+	 * @param string $column  Поле сортировки ('id' или 'created_at')
+	 * @param string $current Текущее поле сортировки
+	 * @param string $order   Текущее направление ('asc' или 'desc')
+	 * @param string $baseUrl URL с уже примёнёнными фильтрами
+	 *
+	 * @return string
+	 */
+	public static function sortableHeader( string $label, string $column, string $current, string $order, string $baseUrl ): string {
+		$isActive  = $current === $column;
+		$nextOrder = ( $isActive && 'asc' === $order ) ? 'desc' : 'asc';
+		$url       = esc_url( add_query_arg( array( 'orderby' => $column, 'order' => $nextOrder, 'paged' => 1 ), $baseUrl ) );
+		$indicator = $isActive ? ( 'asc' === $order ? ' ▲' : ' ▼' ) : '';
+		return '<a href="' . $url . '">' . esc_html( $label ) . $indicator . '</a>';
+	}
+
+	/**
 	 * Форматирует дату из MySQL в локальный формат (день.месяц.год часы:минуты).
 	 *
 	 * @param string|null $mysqlDate Дата в формате MySQL datetime
@@ -168,5 +188,43 @@ class LogNameResolver {
 		}
 		// wp_date() — форматирует дату с учётом timezone WordPress
 		return (string) wp_date( 'd.m.Y H:i', strtotime( $mysqlDate ) );
+	}
+
+	/**
+	 * Резолвит ФИО по email получателя письма.
+	 * Ищет WP-пользователя по email, затем display_name. Fallback — сам email.
+	 *
+	 * @param string|null $email Email получателя
+	 *
+	 * @return string
+	 */
+	public static function personNameByEmail( ?string $email ): string {
+		if ( ! $email ) {
+			return '—';
+		}
+		$user = get_user_by( 'email', $email );
+		if ( $user ) {
+			return esc_html( $user->display_name );
+		}
+		return esc_html( $email );
+	}
+
+	/**
+	 * Резолвит ФИО по логину или email (для журнала аутентификации).
+	 * Ищет WP-пользователя по login, затем по email. Fallback — исходный идентификатор.
+	 *
+	 * @param string|null $identifier Логин или email
+	 *
+	 * @return string
+	 */
+	public static function personNameByLogin( ?string $identifier ): string {
+		if ( ! $identifier ) {
+			return '—';
+		}
+		$user = get_user_by( 'login', $identifier );
+		if ( ! $user ) {
+			$user = get_user_by( 'email', $identifier );
+		}
+		return $user ? esc_html( $user->display_name ) : esc_html( $identifier );
 	}
 }

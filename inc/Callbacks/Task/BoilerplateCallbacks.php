@@ -83,8 +83,11 @@ class BoilerplateCallbacks extends BaseController {
 			is_default: $is_default,
 		);
 
-		// Сохранение через репозиторий
-		$isNew  = empty( $uid );
+		// Определяем isNew и старый заголовок ДО сохранения
+		$existing = $this->boilerplates->findBoilerplate( $subject_key, $term_slug, $uid );
+		$isNew    = null === $existing;
+		$oldLabel = $isNew ? $title : ( $existing->title ?? $title );
+
 		$result = $this->boilerplates->save( $dto );
 
 		if ( $result ) {
@@ -94,8 +97,8 @@ class BoilerplateCallbacks extends BaseController {
 					get_current_user_id(),
 					$isNew ? OperationType::Create : OperationType::Update,
 					EntityType::Boilerplate,
-					$isNew ? null : $uid,
-					$isNew ? null : $title,
+					$uid,
+					$oldLabel,
 				)
 			);
 		}

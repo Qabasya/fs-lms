@@ -19,7 +19,6 @@ enum TableName: string {
 	case DataChangeLog     = 'fs_lms_data_change_log';
 	case ConsentChangeLog  = 'fs_lms_consent_change_log';
 	case EmailLog          = 'fs_lms_email_log';
-	case DeletionLog       = 'fs_lms_deletion_log';
 	case AuthLog           = 'fs_lms_auth_log';
 
 	public function prefixed(): string {

@@ -434,8 +434,8 @@ $statusLabels = array_combine(
 	<?php endif; ?>
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-modal.php'; ?>
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-review-modal.php'; ?>
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-enrollment-modal.php'; ?>
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/application-view-modal.php'; ?>
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/select-parent-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/applications/application-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/applications/application-review-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/applications/application-enrollment-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/applications/application-view-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/select-parent-modal.php'; ?>

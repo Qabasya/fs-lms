@@ -16,16 +16,23 @@ defined( 'ABSPATH' ) || exit;
  * @var array               $entity_audit_filters
  * @var int                 $per_page
  * @var string              $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
 $total_pages = (int) ceil( $entity_audit_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-0' ), admin_url( 'admin.php' ) );
-$filter_url  = add_query_arg( $entity_audit_filters, $base_url );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $entity_audit_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $entity_audit_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-entity-audit-tab">
-
+    <p class="description fs-mt-md">
+        Каждое действие с сущностью (предмет, таксономия, пользователи и т.д.) фиксируется здесь.
+    </p>
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-0">
@@ -49,9 +56,6 @@ $filter_url  = add_query_arg( $entity_audit_filters, $base_url );
 				</option>
 			<?php endforeach; ?>
 		</select>
-
-		<input type="number" name="actor_id" placeholder="User ID" class="input-width-md"
-			value="<?php echo esc_attr( $entity_audit_filters['actor_user_id'] ?? '' ); ?>">
 
 		<input type="date" name="date_from"
 			value="<?php echo esc_attr( $entity_audit_filters['date_from'] ?? '' ); ?>">
@@ -87,45 +91,45 @@ $filter_url  = add_query_arg( $entity_audit_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-                <th class="tw-5">ID</th>
-                <th class="tw-10">Дата</th>
+                <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
                 <th class="tw-10">Пользователь</th>
-				<th >Операция</th>
+				<th class="tw-10">Операция</th>
 				<th class="tw-10">Тип сущности</th>
-				<th class="tw-10">Сущность</th>
-				<th class="tw-10">Прошлое название</th>
+				<th>Сущность</th>
+				<th>Прошлое название</th>
 				<th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>
 			<?php foreach ( $entity_audit_rows as $row ) :
-				$op = OperationType::tryFrom( $row->operation );
-				$et = EntityType::tryFrom( $row->entityType );
+				$op = $row->operation;
+				$et = $row->entityType;
 			?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
-					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId, $row->actorRole ); // phpcs:ignore ?></td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
+					<td><?php echo LogNameResolver::userName( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td>
 						<?php if ( $op ) : ?>
-							<span class="fs-badge <?php echo esc_attr( $op->badgeClass() ); ?>">
+
 								<?php echo esc_html( $op->label() ); ?>
-							</span>
+
 						<?php else : ?>
-							<code><?php echo esc_html( $row->operation ); ?></code>
+							<?php echo esc_html( $op->value ); ?>
 						<?php endif; ?>
 					</td>
 					<td>
 						<?php if ( $et ) : ?>
-							<span class="fs-badge <?php echo esc_attr( $et->badgeClass() ); ?>">
+
 								<?php echo esc_html( $et->label() ); ?>
-							</span>
+
 						<?php else : ?>
-							<code><?php echo esc_html( $row->entityType ); ?></code>
+							<?php echo esc_html( $et->value ); ?>
 						<?php endif; ?>
 					</td>
 					<td>
-						<?php echo LogNameResolver::entityName( $row->entityId, $row->entityType, $row->oldLabel ); // phpcs:ignore ?>
+						<?php echo LogNameResolver::entityName( $row->entityId, $et->value, $row->oldLabel ); // phpcs:ignore ?>
 						<?php if ( $row->entityId ) : ?>
 							<span class="fs-text-muted fs-code-sm">#<?php echo (int) $row->entityId; ?></span>
 						<?php endif; ?>
@@ -133,7 +137,7 @@ $filter_url  = add_query_arg( $entity_audit_filters, $base_url );
 					<td>
 						<?php echo $row->oldLabel ? esc_html( $row->oldLabel ) : '—'; ?>
 					</td>
-					<td><code><?php echo esc_html( $row->actorIp ?? '—' ); ?></code></td>
+					<td><?php echo esc_html( $row->actorIp ?? '—' ); ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

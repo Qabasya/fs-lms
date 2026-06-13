@@ -14,16 +14,23 @@ defined( 'ABSPATH' ) || exit;
  * @var array                              $consent_filters
  * @var int                                $per_page
  * @var string                             $active_tab
+ * @var string              $log_orderby
+ * @var string              $log_order
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
+$per_page    = max( 1, $per_page );
 $total_pages = (int) ceil( $consent_total / $per_page );
 $base_url    = add_query_arg( array( 'page' => $page_slug, 'tab' => 'tab-5' ), admin_url( 'admin.php' ) );
-$filter_url  = add_query_arg( $consent_filters, $base_url );
+$sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_orderby : null, 'order' => 'desc' !== $log_order ? $log_order : null ) );
+$filter_url  = add_query_arg( array_merge( $consent_filters, $sort_params ), $base_url );
+$sort_url    = add_query_arg( $consent_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-consent-change-log-tab">
-
+    <p class="description fs-mt-md">
+        Каждое подписание согласия на обработку персональных данных фиксируется здесь.
+    </p>
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-5">
@@ -55,8 +62,8 @@ $filter_url  = add_query_arg( $consent_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-                <th class="tw-3">ID</th>
-                <th class="tw-10">Дата</th>
+                <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+                <th class="tw-7">Дата</th>
                 <th class="tw-10">Пользователь</th>
 				<th class="tw-10">Субъект ПД</th>
 				<th class="tw-15">Тип согласия</th>
@@ -68,12 +75,12 @@ $filter_url  = add_query_arg( $consent_filters, $base_url );
 			<?php foreach ( $consent_rows as $row ) : ?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
-					<td><code><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
+					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></code></td>
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td><?php echo esc_html( LogNameResolver::personName( $row->personId ) ); ?></td>
-					<td><code><?php echo esc_html( ConsentType::tryFrom( $row->consentType )?->label() ?? $row->consentType ); ?></code></td>
-					<td><?php echo $row->oldHash ? '<code class="fs-code-sm">' . esc_html( substr( $row->oldHash, 0, 16 ) ) . '…</code>' : '—'; ?></td>
-					<td><?php echo $row->newHash ? '<code class="fs-code-sm">' . esc_html( substr( $row->newHash, 0, 16 ) ) . '…</code>' : '—'; ?></td>
+					<td><?php echo esc_html( ConsentType::tryFrom( $row->consentType )?->label() ?? $row->consentType ); ?></code></td>
+					<td><?php echo $row->oldHash ? esc_html( substr( $row->oldHash, 0, 32 ) ) . '…' : '—'; ?></td>
+					<td><?php echo $row->newHash ? esc_html( substr( $row->newHash, 0, 32 ) ) . '…' : '—'; ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

@@ -34,10 +34,24 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 
 <div class="fs-lms-parents">
 
+	<div class="tablenav top fs-students-bulk-bar">
+		<div class="alignleft actions bulkactions">
+			<label for="js-parents-bulk-action" class="screen-reader-text">Выберите действие</label>
+			<select id="js-parents-bulk-action">
+				<option value="">— Массовые действия —</option>
+				<option value="export">Экспортировать</option>
+			</select>
+			<button type="button" id="js-parents-bulk-apply" class="button action">Применить</button>
+		</div>
+	</div>
+
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 
 		<thead>
 		<tr>
+			<th class="check-column">
+				<input type="checkbox" id="js-select-all-parents">
+			</th>
 			<th class="column-title column-primary">
 				<?php esc_html_e( 'ФИО родителя', 'fs-lms' ); ?>
 			</th>
@@ -53,7 +67,7 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 		<tbody id="the-list">
 		<?php if ( empty( $parentPersons ) ) : ?>
 			<tr>
-				<td colspan="3">
+				<td colspan="4">
 					<div class="notice notice-info inline fs-table__no-items">
 						<p><?php esc_html_e( 'Родителей пока нет.', 'fs-lms' ); ?></p>
 					</div>
@@ -97,6 +111,10 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 				);
 			?>
 			<tr data-parent="<?php echo esc_attr( (string) wp_json_encode( $parentModalData ) ); ?>">
+
+				<td class="check-column">
+					<input type="checkbox" class="js-parent-cb" value="<?php echo esc_attr( (string) $parentPerson->id ); ?>">
+				</td>
 
 				<td class="column-title">
 					<?php echo esc_html( $parentFullName ); ?>
@@ -153,4 +171,4 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 
 </div>
 
-<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/parent-person-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/person/parent-person-modal.php'; ?>

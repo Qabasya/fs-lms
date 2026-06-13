@@ -31,9 +31,14 @@
     border-bottom: 1px solid $table-row-border;
   }
 
+  tbody tr{
+    height: $tr-height;
+  }
+
   tbody tr:last-child td {
     border-bottom: none;
   }
+
 
   .column-title strong {
     display: inline-block;

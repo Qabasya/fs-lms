@@ -285,15 +285,16 @@ class Migration_1_0_0 implements MigrationInterface {
 		$export_log = TableName::ExportLog->prefixed();
 		dbDelta(
 			"CREATE TABLE $export_log (
-			id             int unsigned        NOT NULL AUTO_INCREMENT,
-			actor_user_id  bigint(20) unsigned NOT NULL,
-			actor_role     varchar(50)         DEFAULT NULL,
-			data_type      varchar(50)         NOT NULL,
-			action_type    varchar(20)         NOT NULL,
-			target_ids_json text               DEFAULT NULL,
-			actor_ip       varchar(45)         NOT NULL DEFAULT '',
-			actor_ua       text                DEFAULT NULL,
-			created_at     datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			id              int unsigned        NOT NULL AUTO_INCREMENT,
+			actor_user_id   bigint(20) unsigned NOT NULL,
+			actor_role      varchar(50)         DEFAULT NULL,
+			operation_type  varchar(10)         NOT NULL DEFAULT 'export',
+			data_type       varchar(50)         NOT NULL,
+			action_type     varchar(20)         NOT NULL,
+			target_ids_json text                DEFAULT NULL,
+			actor_ip        varchar(45)         NOT NULL DEFAULT '',
+			actor_ua        text                DEFAULT NULL,
+			created_at      datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY actor_user_id (actor_user_id),
 			KEY data_type (data_type)
@@ -355,25 +356,7 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
-		// ===== 14. deletion_log — GDPR-журнал жёстких удалений =====
-		$deletion_log = TableName::DeletionLog->prefixed();
-		dbDelta(
-			"CREATE TABLE $deletion_log (
-			id                int unsigned        NOT NULL AUTO_INCREMENT,
-			actor_user_id     bigint(20) unsigned NOT NULL,
-			actor_role        varchar(50)         DEFAULT NULL,
-			entity_type       varchar(50)         NOT NULL,
-			entity_id         int unsigned        NOT NULL,
-			cascaded_summary  text                DEFAULT NULL,
-			actor_ip          varchar(45)         NOT NULL,
-			created_at        datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			KEY actor_user_id (actor_user_id),
-			KEY entity_type (entity_type)
-		) $cc;"
-		);
-
-		// ===== 15. auth_log — журнал аутентификации =====
+		// ===== 14. auth_log — журнал аутентификации =====
 		$auth_log = TableName::AuthLog->prefixed();
 		dbDelta(
 			"CREATE TABLE $auth_log (
@@ -410,11 +393,14 @@ class Migration_1_0_0 implements MigrationInterface {
 		$wpdb->query( "ALTER TABLE `$persons` ADD INDEX IF NOT EXISTS `expelled_at` (`expelled_at`)" );
 		$wpdb->query( "ALTER TABLE `$pii_access_log` ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$export_log`
+			ADD COLUMN IF NOT EXISTS `operation_type` varchar(10) NOT NULL DEFAULT 'export',
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) NOT NULL DEFAULT '',
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
 		$entity_audit_log = TableName::EntityAuditLog->prefixed();
 		$wpdb->query( "ALTER TABLE `$entity_audit_log` MODIFY COLUMN `entity_id` varchar(100) DEFAULT NULL" );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( "DROP TABLE IF EXISTS `{$wpdb->prefix}fs_lms_deletion_log`" );
 		// phpcs:enable
 	}
 
@@ -423,7 +409,6 @@ class Migration_1_0_0 implements MigrationInterface {
 
 		$tables = array(
 			TableName::AuthLog->prefixed(),
-			TableName::DeletionLog->prefixed(),
 			TableName::EmailLog->prefixed(),
 			TableName::ConsentChangeLog->prefixed(),
 			TableName::DataChangeLog->prefixed(),

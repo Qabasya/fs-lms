@@ -50,6 +50,7 @@ readonly class ExportLogInputDTO {
 	public function __construct(
 		public int     $actorUserId,
 		public ?string $actorRole,
+		public string  $operationType,
 		public string  $dataType,
 		public string  $actionType,
 		public ?string $targetIdsJson,
@@ -67,6 +68,7 @@ readonly class ExportLogInputDTO {
 		return array(
 			'actor_user_id'   => $this->actorUserId,
 			'actor_role'      => $this->actorRole,
+			'operation_type'  => $this->operationType,
 			'data_type'       => $this->dataType,
 			'action_type'     => $this->actionType,
 			'target_ids_json' => $this->targetIdsJson,
