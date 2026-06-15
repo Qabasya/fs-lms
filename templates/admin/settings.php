@@ -30,6 +30,10 @@ $tabs = array(
 		'title' => 'Согласия',
 		'file'  => '/components/tabs/settings-tabs/settings-5-consents.php',
 	),
+	'tab-6' => array(
+		'title' => 'Импорт',
+		'file'  => '/components/tabs/settings-tabs/settings-6-import.php',
+	),
 );
 ?>
 

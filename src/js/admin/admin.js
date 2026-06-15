@@ -15,6 +15,7 @@ import { EmailTemplateSettings } from './services/settings/email-template-settin
 import { ConsentSettings } from './services/settings/consent-settings.js';
 import { HardDeleteStudentService } from './services/hard-delete-student-service.js';
 import { ArchiveTable } from './services/tables/archive-table.js';
+import { ImportCsv } from './services/import-csv.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/enrollment/academic-period-modal-manager";
@@ -116,6 +117,10 @@ import { AlertModal } from './modals/alert-modal.js';
         ConsentSettings.init();
 
         HardDeleteStudentService.init();
+
+        if ( document.querySelector( '.fs-lms-import' ) ) {
+            ImportCsv.init();
+        }
 
     });
 
