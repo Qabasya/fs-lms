@@ -44,7 +44,7 @@ class CsvParseService {
 		$headers   = null;
 
 		try {
-			while ( false !== ( $cells = fgetcsv( $handle, 0, $delimiter ) ) ) {
+			while ( false !== ( $cells = fgetcsv( $handle, 0, $delimiter, '"', '' ) ) ) {
 				// Пропуск полностью пустых строк
 				if ( array( null ) === $cells || ( 1 === count( $cells ) && null === $cells[0] ) ) {
 					continue;

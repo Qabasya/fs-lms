@@ -1589,11 +1589,17 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 #### Шаг 10 — Тесты
 
-- [ ] `CsvParseService`: BOM; разделители `;`/`,`; cp1251; недостающие заголовки → исключение.
-- [ ] `PersonImportResolver`: порядок doc → email → ФИО+ДР; пустой документ не матчится по doc.
-- [ ] `ExpulsionResolver`: канон при совпадении; свободный текст → `"Другое: …"`; пусто → null; маппинг статусов End/Transfer/Other.
-- [ ] `StudentRowImporter`: повторный импорт → `skipped` по контракту; группа find-or-create; отчисленная строка пишет правильный `status`+`expelled_at`.
-- [ ] `ImportService`: ошибка в строке N не прерывает файл; dry-run не пишет в БД; отчёт содержит номера строк.
+Все тесты в `tests/Unit/Services/Import/` — **31 тест, проходят** (`vendor/bin/phpunit tests/Unit/Services/Import`).
+
+- [x] `CsvParseServiceTest`: BOM; разделители `;`/`,`; cp1251→UTF-8; выравнивание коротких строк; недостающие заголовки → исключение.
+- [x] `PersonImportResolverTest`: порядок doc → email → ФИО+ДР; null когда ничего не совпало.
+- [x] `DocTypeResolverTest`: label/value → значение enum; пусто → ''; неизвестное → как есть.
+- [x] `ExpulsionResolverTest`: канон при совпадении; свободный текст → `"Другое: …"`; пусто → null; маппинг End→finished/Transfer→transferred/Other→expelled.
+- [x] `StudentRowImporterTest`: active-запись; `skipped` по контракту; dry-run не пишет; пустое обязательное → исключение; отчисленная строка пишет `status`+`expelled_at`+`expel_reason`+`expelled_by`.
+- [x] `ImportServiceTest`: счётчики created/skipped; ошибка строки N не прерывает файл; dry-run не диспатчит сводку; не-dry-run диспатчит `CsvImported`; пустой файл → исключение.
+- [x] Побочно исправлено: `CsvParseService::parse()` — явные `enclosure`/`escape` в `fgetcsv` (убран deprecation PHP 8.4+).
+
+> Прочие падения полного набора (`EmailOtpServiceTest`, `TaskPublishValidatorTest`, `PiiMaskingServiceTest`) — предсуществующие, несовместимость старых тестов с PHPUnit 12 (`getMockForAbstractClass()` удалён и т.п.); к импорту не относятся.
 
 #### Порядок реализации
 
