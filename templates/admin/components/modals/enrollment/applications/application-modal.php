@@ -59,6 +59,31 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 				<div class="fs-form-row">
 					<div class="fs-form-group">
+						<label><?php esc_html_e( 'Логин', 'fs-lms' ); ?></label>
+						<div class="fs-editable-field" data-field="login">
+							<span class="fs-editable-field__display"></span>
+							<button type="button" class="fs-editable-field__btn button-link" aria-label="<?php esc_attr_e( 'Редактировать', 'fs-lms' ); ?>">
+								<span class="dashicons dashicons-edit"></span>
+							</button>
+							<input type="text" name="login" hidden>
+						</div>
+					</div>
+
+					<div class="fs-form-group">
+						<label><?php esc_html_e( 'Пароль', 'fs-lms' ); ?></label>
+						<div class="fs-editable-field" data-field="password">
+							<span class="fs-editable-field__display"></span>
+							<button type="button" class="fs-editable-field__btn button-link" aria-label="<?php esc_attr_e( 'Редактировать', 'fs-lms' ); ?>">
+								<span class="dashicons dashicons-edit"></span>
+							</button>
+							<input type="text" name="password" hidden>
+						</div>
+					</div>
+				</div>
+
+
+				<div class="fs-form-row">
+					<div class="fs-form-group">
 						<label><?php esc_html_e( 'Email', 'fs-lms' ); ?></label>
 						<div class="fs-editable-field" data-field="email">
 							<span class="fs-editable-field__display"></span>

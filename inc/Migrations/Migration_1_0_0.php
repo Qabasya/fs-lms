@@ -330,6 +330,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			consent_type  varchar(50)         NOT NULL,
 			old_hash      varchar(64)         DEFAULT NULL,
 			new_hash      varchar(64)         DEFAULT NULL,
+			actor_ip      varchar(45)         DEFAULT NULL,
+			actor_ua      text                DEFAULT NULL,
 			created_at    datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY person_id (person_id),
@@ -397,6 +399,9 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) NOT NULL DEFAULT '',
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$consent_change_log`
+			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
+			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$entity_audit_log = TableName::EntityAuditLog->prefixed();
 		$wpdb->query( "ALTER TABLE `$entity_audit_log` MODIFY COLUMN `entity_id` varchar(100) DEFAULT NULL" );
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared

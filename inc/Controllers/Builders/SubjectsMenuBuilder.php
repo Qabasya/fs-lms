@@ -3,6 +3,7 @@
 namespace Inc\Controllers\Builders;
 
 use Inc\Callbacks\Subject\SubjectPageCallbacks;
+use Inc\DTO\Subject\SubjectDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Menu;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -125,7 +126,7 @@ class SubjectsMenuBuilder {
 	/**
 	 * Возвращает предметы из репозитория, кэшируя результат.
 	 *
-	 * @return \Inc\DTO\Subject\SubjectDTO[]
+	 * @return SubjectDTO[]
 	 */
 	private function getSubjects(): array {
 		if ( null === $this->subjects ) {

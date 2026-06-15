@@ -164,28 +164,19 @@ export const GroupModal = {
 
         const isUpdate = action === 'edit';
 
-        // Настраиваем скрытые поля и тексты в зависимости от режима
         if (this.$actionInput.length) this.$actionInput.val(action);
         this.$titleEl.text(isUpdate ? 'Редактировать группу' : 'Добавить новую группу');
         this.$saveBtn.text(isUpdate ? 'Сохранить изменения' : 'Создать группу');
 
         if (isUpdate) {
-            // Заполняем форму переданными данными. Оператор ?? обеспечивает fallback на пустую строку,
-            // если какое-то поле отсутствует в объекте data.
             if (this.$groupIdInput.length) this.$groupIdInput.val(data.id ?? '');
             this.$titleInput.val(data.title ?? '');
-
-            // Устанавливаем значения dropdowns и триггерим событие change.
-            // .trigger('change') может быть нужен, если другие компоненты подписаны на изменение этих полей
-            // (например, для каскадной загрузки данных).
             this.$periodSelect.val(data.period_id ?? '').trigger('change');
             this.$subjectSelect.val(data.subject_id ?? '').trigger('change');
             this.$teacherSelect.val(data.teacher_id ?? '').trigger('change');
-
-            // Восстанавливаем расписание из массива объектов
             this._restoreSchedule(data.schedule ?? []);
+            this._setEditReadonly(true);
         } else {
-            // В режиме создания сбрасываем форму к исходному состоянию
             this._resetForm();
         }
 
@@ -210,6 +201,7 @@ export const GroupModal = {
     close() {
         closeModal(this.$modal);
         unbindEsc('student_group');
+        this._setEditReadonly(false);
         this._resetForm();
     },
 
@@ -254,6 +246,17 @@ export const GroupModal = {
         // на валидность (required, type, pattern, custom validity и т.д.).
         // Возвращает true, если все поля валидны, иначе false и показывает браузерные подсказки.
         return this.$form[0].checkValidity();
+    },
+
+    /**
+     * Блокирует/разблокирует поля только для чтения в режиме редактирования.
+     * @private
+     * @param {boolean} lock
+     */
+    _setEditReadonly(lock) {
+        this.$modal.find('[data-edit-readonly]').each((_, el) => {
+            $(el).prop('disabled', lock).prop('readonly', lock);
+        });
     },
 
     /**

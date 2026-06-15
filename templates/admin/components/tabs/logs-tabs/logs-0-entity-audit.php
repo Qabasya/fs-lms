@@ -7,6 +7,12 @@ use Inc\Enums\EntityType;
 use Inc\Enums\OperationType;
 use Inc\Services\Log\LogNameResolver;
 
+/**
+ * @var string[] $entity_audit_operations
+ * @var string[] $entity_audit_types
+ * @var array<int, string> $entity_audit_actor_options
+ */
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -37,22 +43,35 @@ $sort_url    = add_query_arg( $entity_audit_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-0">
 
+		<select name="actor_id">
+			<option value="">Все пользователи</option>
+			<?php foreach ( $entity_audit_actor_options ?? array() as $uid => $name ) : ?>
+				<option value="<?php echo esc_attr( (string) $uid ); ?>" <?php selected( $entity_audit_filters['actor_user_id'] ?? '', $uid ); ?>>
+					<?php echo esc_html( $name ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+
 		<select name="operation">
 			<option value="">Все операции</option>
-			<?php foreach ( OperationType::cases() as $op ) : ?>
-				<option value="<?php echo esc_attr( $op->value ); ?>"
-					<?php selected( $entity_audit_filters['operation'] ?? '', $op->value ); ?>>
-					<?php echo esc_html( $op->label() ); ?>
+			<?php foreach ( $entity_audit_operations ?? array() as $opVal ) :
+				$op = OperationType::tryFrom( $opVal );
+			?>
+				<option value="<?php echo esc_attr( $opVal ); ?>"
+					<?php selected( $entity_audit_filters['operation'] ?? '', $opVal ); ?>>
+					<?php echo esc_html( $op ? $op->label() : $opVal ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
 
 		<select name="entity_type">
 			<option value="">Все типы</option>
-			<?php foreach ( EntityType::cases() as $et ) : ?>
-				<option value="<?php echo esc_attr( $et->value ); ?>"
-					<?php selected( $entity_audit_filters['entity_type'] ?? '', $et->value ); ?>>
-					<?php echo esc_html( $et->label() ); ?>
+			<?php foreach ( $entity_audit_types ?? array() as $etVal ) :
+				$et = EntityType::tryFrom( $etVal );
+			?>
+				<option value="<?php echo esc_attr( $etVal ); ?>"
+					<?php selected( $entity_audit_filters['entity_type'] ?? '', $etVal ); ?>>
+					<?php echo esc_html( $et ? $et->label() : $etVal ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -97,7 +116,7 @@ $sort_url    = add_query_arg( $entity_audit_filters, $base_url );
 				<th class="tw-10">Операция</th>
 				<th class="tw-10">Тип сущности</th>
 				<th>Сущность</th>
-				<th>Прошлое название</th>
+				<th>Прошлое значение</th>
 				<th class="tw-5">IP</th>
 			</tr>
 			</thead>
@@ -135,7 +154,7 @@ $sort_url    = add_query_arg( $entity_audit_filters, $base_url );
 						<?php endif; ?>
 					</td>
 					<td>
-						<?php echo $row->oldLabel ? esc_html( $row->oldLabel ) : '—'; ?>
+						<?php echo ( OperationType::Update === $op ) ? esc_html( $row->oldLabel ?? '' ) : ''; ?>
 					</td>
 					<td><?php echo esc_html( $row->actorIp ?? '—' ); ?></td>
 				</tr>

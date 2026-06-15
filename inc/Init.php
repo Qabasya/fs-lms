@@ -22,6 +22,7 @@ use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
 use Inc\Controllers\Pages\TaskPageController;
 use Inc\Controllers\LogsController;
+use Inc\Controllers\ConfigController;
 use Inc\Controllers\SettingsController;
 use Inc\Controllers\Subscribers\AuthLogController;
 use Inc\Controllers\Subscribers\EntityAuditSubscriber;
@@ -33,6 +34,7 @@ use Inc\Controllers\Subscribers\ConsentChangeSubscriber;
 use Inc\Controllers\Subscribers\EmailSubscriber;
 use Inc\Controllers\Subscribers\DeletionSubscriber;
 use Inc\Controllers\DeletionController;
+use Inc\Controllers\ImportController;
 use Inc\Controllers\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
 use Inc\Contracts\ClockInterface;
@@ -92,6 +94,8 @@ final class Init {
 			RecoveryController::class,
 			ExpulsionController::class,
 			DeletionController::class,
+			ImportController::class,   // Импорт учеников из CSV
+			ConfigController::class,
 			SettingsController::class,
 			LogsController::class,
 			AuthLogController::class,

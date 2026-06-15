@@ -102,6 +102,8 @@ class EntityAuditSubscriber implements ServiceInterface {
 			LogEvent::UserCreated,
 			LogEvent::UserUpdated,
 			LogEvent::UserDeleted,
+			// Импорт CSV (сводка файла)
+			LogEvent::CsvImported,
 		);
 
 		// Подписка на каждое событие с одним обработчиком

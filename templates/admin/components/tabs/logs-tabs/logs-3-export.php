@@ -6,6 +6,11 @@ use Inc\Enums\ExportActionType;
 use Inc\Enums\ExportDataType;
 use Inc\Services\Log\LogNameResolver;
 
+/**
+ * @var string[] $export_data_types
+ * @var array<int, string> $export_actor_options
+ */
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -31,21 +36,28 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
 
 <div class="fs-logs-tab" id="js-export-log-tab">
     <p class="description fs-mt-md">
-        Каждый экспорт или импорт данных фиксируется здесь.
+        Каждый экспорт данных фиксируется здесь.
     </p>
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-3">
 
-		<input type="number" name="actor_id" placeholder="User ID"
-			value="<?php echo esc_attr( $export_filters['actor_user_id'] ?? '' ); ?>"
-			class="input-width-md">
+		<select name="actor_id">
+			<option value="">Все пользователи</option>
+			<?php foreach ( $export_actor_options ?? array() as $uid => $name ) : ?>
+				<option value="<?php echo esc_attr( (string) $uid ); ?>" <?php selected( $export_filters['actor_user_id'] ?? '', $uid ); ?>>
+					<?php echo esc_html( $name ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
 
 		<select name="data_type">
 			<option value="">Все типы</option>
-			<?php foreach ( ExportDataType::cases() as $dt ) : ?>
-				<option value="<?php echo esc_attr( $dt->value ); ?>" <?php selected( $export_filters['data_type'] ?? '', $dt->value ); ?>>
-					<?php echo esc_html( $dt->label() ); ?>
+			<?php foreach ( $export_data_types ?? array() as $dtVal ) :
+				$dt = ExportDataType::tryFrom( $dtVal );
+			?>
+				<option value="<?php echo esc_attr( $dtVal ); ?>" <?php selected( $export_filters['data_type'] ?? '', $dtVal ); ?>>
+					<?php echo esc_html( $dt ? $dt->label() : $dtVal ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -80,8 +92,7 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
                 <th class="tw-10">Пользователь</th>
 				<th class="tw-20">Тип данных</th>
 				<th>Действие</th>
-				<th>Тип операции</th>
-				<th class="tw-10">ID целей</th>
+				<th>ID целей</th>
                 <th class="tw-5">IP</th>
 			</tr>
 			</thead>
@@ -95,17 +106,6 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td><?php echo esc_html( ExportDataType::tryFrom( $row->dataType )?->label() ?? $row->dataType ); ?></td>
 					<td><?php echo esc_html( ExportActionType::tryFrom( $row->actionType )?->label() ?? $row->actionType ); ?></td>
-                    <td>
-                        <?php
-                        echo esc_html(
-                                match ($row->operationType) {
-                                    'export' => 'Экспорт',
-                                    'import' => 'Импорт',
-                                    default => $row->operationType,
-                                }
-                        );
-                        ?>
-                    </td>
 					<td>
 						<?php if ( ! empty( $ids ) ) : ?>
 							<?php echo esc_html( implode( ', ', array_slice( $ids, 0, 10 ) ) ); ?><?php echo count( $ids ) > 10 ? ' …' : ''; ?>

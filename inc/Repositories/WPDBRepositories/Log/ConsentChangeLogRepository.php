@@ -132,6 +132,13 @@ class ConsentChangeLogRepository {
 	 *
 	 * @return array{0: string[], 1: array}
 	 */
+	public function distinctConsentTypes(): array {
+		$rows = $this->wpdb->get_col(
+			$this->wpdb->prepare( 'SELECT DISTINCT consent_type FROM %i ORDER BY consent_type', $this->table )
+		);
+		return $rows ?: array();
+	}
+
 	private function buildConditions( array $filters ): array {
 		$conditions = array( '1=1' );
 		$bindings   = array( $this->table );

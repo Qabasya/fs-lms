@@ -62,6 +62,29 @@ class PersonRepository {
 		return $row ? PersonDTO::fromArray( $row ) : null;
 	}
 
+	/**
+	 * @param int[] $ids
+	 * @return PersonDTO[] indexed by id
+	 */
+	public function findByIds( array $ids ): array {
+		if ( empty( $ids ) ) {
+			return array();
+		}
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+		$bindings     = array_merge( array( $this->table ), $ids );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare( "SELECT * FROM %i WHERE id IN ($placeholders)", $bindings ),
+			ARRAY_A
+		) ?: array();
+		$result = array();
+		foreach ( $rows as $row ) {
+			$dto              = PersonDTO::fromArray( $row );
+			$result[ $dto->id ] = $dto;
+		}
+		return $result;
+	}
+
 	public function findIncludingDeleted( int $id ): ?PersonDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
@@ -91,6 +114,51 @@ class PersonRepository {
 			),
 			ARRAY_A
 		);
+
+		return $row ? PersonDTO::fromArray( $row ) : null;
+	}
+
+	/**
+	 * Находит лицо по ФИО (+ дата рождения, если задана) и роли.
+	 *
+	 * Используется при импорте для дедупликации persons, у которых
+	 * нет документа и email. Поиск ведётся по всем записям (включая
+	 * мягко удалённые), чтобы повторный импорт не плодил дубли.
+	 *
+	 * @param string      $lastName   Фамилия
+	 * @param string      $firstName  Имя
+	 * @param string|null $middleName Отчество (null/'' — искать пустое)
+	 * @param string|null $birthDate  Дата рождения Y-m-d (null — не ограничивать)
+	 * @param bool        $isStudent  true — ученик, false — родитель
+	 *
+	 * @return PersonDTO|null
+	 */
+	public function findByNameAndBirthDate(
+		string $lastName,
+		string $firstName,
+		?string $middleName,
+		?string $birthDate,
+		bool $isStudent
+	): ?PersonDTO {
+		$where    = array( 'last_name = %s', 'first_name = %s', 'is_student = %d' );
+		$bindings = array( $this->table, $lastName, $firstName, $isStudent ? 1 : 0 );
+
+		if ( null !== $middleName && '' !== $middleName ) {
+			$where[]    = 'middle_name = %s';
+			$bindings[] = $middleName;
+		} else {
+			$where[] = "( middle_name IS NULL OR middle_name = '' )";
+		}
+
+		if ( null !== $birthDate && '' !== $birthDate ) {
+			$where[]    = 'birth_date = %s';
+			$bindings[] = $birthDate;
+		}
+
+		$sql = 'SELECT * FROM %i WHERE ' . implode( ' AND ', $where ) . ' ORDER BY id LIMIT 1';
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $this->wpdb->get_row( $this->wpdb->prepare( $sql, $bindings ), ARRAY_A );
 
 		return $row ? PersonDTO::fromArray( $row ) : null;
 	}

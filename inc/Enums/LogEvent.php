@@ -64,6 +64,9 @@ enum LogEvent: string {
 	case UserUpdated      = 'user.updated';
 	case UserDeleted      = 'user.deleted';
 
+	// Сводка импорта CSV (отдельная per-entity запись на каждого ученика идёт через StudentEnrolled)
+	case CsvImported      = 'csv.imported';
+
 	// ===== Канал: EnrollmentAudit — путь зачисления =====
 
 	case ApplicationCreated   = 'enrollment.application_created';

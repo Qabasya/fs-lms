@@ -2,13 +2,14 @@
 
 declare( strict_types=1 );
 
+use Inc\DTO\Log\AuditLogDTO;
 use Inc\Enums\AuditAction;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * @var \Inc\DTO\Log\AuditLogDTO[] $audit_rows
+ * @var AuditLogDTO[] $audit_rows
  * @var int                    $audit_total
  * @var int                    $audit_page
  * @var array                  $audit_filters
@@ -37,19 +38,27 @@ $sort_url    = add_query_arg( $audit_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-1">
 
-		<select name="action_filter">
-			<option value="">Все действия</option>
-			<?php foreach ( AuditAction::cases() as $action ) : ?>
-				<option value="<?php echo esc_attr( $action->value ); ?>"
-					<?php selected( $audit_filters['action_filter'] ?? '', $action->value ); ?>>
-					<?php echo esc_html( $action->label() ); ?>
-				</option>
-			<?php endforeach; ?>
-		</select>
+        <select name="action">
+            <option value="">Все действия</option>
 
-		<input type="text" name="actor_name" placeholder="Имя пользователя"
-			value="<?php echo esc_attr( $audit_actor_name ?? '' ); ?>"
-			class="input-width-lg">
+            <?php foreach ( $audit_actions ?? array() as $actionValue ) :
+                $action = AuditAction::tryFrom( $actionValue );
+                ?>
+                <option value="<?php echo esc_attr( $actionValue ); ?>"
+                        <?php selected( $audit_filters['action'] ?? '', $actionValue ); ?>>
+                    <?php echo esc_html( $action?->label() ?? $actionValue ); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+
+        <select name="actor_id">
+            <option value="">Все пользователи</option>
+            <?php foreach ( $audit_actor_options ?? array() as $uid => $name ) : ?>
+                <option value="<?php echo esc_attr( (string) $uid ); ?>" <?php selected( $audit_filters['actor_user_id'] ?? '', $uid ); ?>>
+                    <?php echo esc_html( $name ); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
 
 		<input type="date" name="date_from"
 			value="<?php echo esc_attr( $audit_filters['date_from'] ?? '' ); ?>">

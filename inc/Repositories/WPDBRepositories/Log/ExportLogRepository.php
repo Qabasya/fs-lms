@@ -133,6 +133,21 @@ class ExportLogRepository {
 	 *
 	 * @return array{0: string[], 1: array}
 	 */
+	public function distinctDataTypes(): array {
+		return $this->wpdb->get_col(
+			$this->wpdb->prepare( 'SELECT DISTINCT data_type FROM %i ORDER BY data_type', $this->table )
+		) ?: array();
+	}
+
+	public function distinctActorUserIds(): array {
+		return array_map(
+			'intval',
+			$this->wpdb->get_col(
+				$this->wpdb->prepare( 'SELECT DISTINCT actor_user_id FROM %i WHERE actor_user_id IS NOT NULL ORDER BY actor_user_id', $this->table )
+			) ?: array()
+		);
+	}
+
 	private function buildConditions( array $filters ): array {
 		$conditions = array( '1=1' );
 		$bindings   = array( $this->table );

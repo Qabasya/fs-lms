@@ -149,7 +149,7 @@ class AdminController extends BaseController implements ServiceInterface {
 		$pages = array(
 			array(
 				'page_title' => Menu::Main->page_title(),
-				'menu_title' => Menu::Main->menu_title(),
+				'menu_title' => "FS LMS", // Прописано вручную название пункта в меню
 				'capability' => Capability::Admin->value,
 				'menu_slug'  => Menu::Main->value,
 				'callback'   => array( $this->callbacks, Menu::Main->callback() ),

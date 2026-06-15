@@ -15,6 +15,7 @@ use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\Log\AuthLogRepository;
 use Inc\Repositories\WPDBRepositories\Log\EntityAuditLogRepository;
 use Inc\Repositories\WPDBRepositories\Log\ConsentChangeLogRepository;
@@ -24,6 +25,8 @@ use Inc\Repositories\WPDBRepositories\Log\ExportLogRepository;
 use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
 use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -62,6 +65,7 @@ class AdminCallbacks extends BaseController {
 	 * @param BoilerplatePageController $boilerplatePageController Контроллер страницы boilerplate
 	 * @param AcademicPeriodService     $period_service            Сервис учебных периодов
 	 * @param GroupsRepository          $groupsRepository          Репозиторий групп
+	 * @param StudentRecordRepository   $studentRecordRepository   Репозиторий записей студентов
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -70,6 +74,7 @@ class AdminCallbacks extends BaseController {
 		private readonly BoilerplatePageController $boilerplatePageController,
 		private readonly AcademicPeriodService $period_service,
 		private readonly GroupsRepository $groupsRepository,
+		private readonly StudentRecordRepository $studentRecordRepository,
 		private readonly EntityAuditLogRepository  $entity_audit_log,
 		private readonly AuditLogRepository        $audit_log,
 		private readonly PiiAccessLogRepository    $pii_log,
@@ -78,6 +83,8 @@ class AdminCallbacks extends BaseController {
 		private readonly ConsentChangeLogRepository $consent_change_log,
 		private readonly EmailLogRepository        $email_log,
 		private readonly AuthLogRepository         $auth_log,
+		private readonly PersonRepository          $person_repo,
+		private readonly PluginConfig              $pluginConfig,
 	) {
 		parent::__construct();
 	}
@@ -104,6 +111,7 @@ class AdminCallbacks extends BaseController {
 			array(
 				'subjects'         => $this->subjects->readAll(),
 				'academic_periods' => $this->periods->readAll(),
+				'config'           => $this->pluginConfig->viewState(),
 			)
 		);
 	}
@@ -125,8 +133,16 @@ class AdminCallbacks extends BaseController {
 			$selected_period_id = $current_period['id'] ?? '';
 		}
 
+		$filter_subject_key = $this->sanitizeGetKey( 'subject_key' );
+		$filter_teacher_id  = $this->sanitizeGetInt( 'teacher_id' );
+
+		$groups_filters = array_filter( array(
+			'subject_key' => $filter_subject_key,
+			'teacher_id'  => $filter_teacher_id > 0 ? $filter_teacher_id : '',
+		) );
+
 		$groups   = '' !== $selected_period_id
-			? $this->groupsRepository->findByPeriodId( $selected_period_id )
+			? $this->groupsRepository->findByFilters( $selected_period_id, $filter_subject_key, $filter_teacher_id )
 			: array();
 		$subjects = $this->subjects->readAll();
 		$teachers = $this->users->getByRole( \Inc\Enums\UserRole::FSTeacher );
@@ -142,8 +158,13 @@ class AdminCallbacks extends BaseController {
 				'title'        => $g->name,
 				'period_name'  => $raw_periods[ $g->academic_period_id ]['name'] ?? $g->academic_period_id,
 				'subject_name' => $subjects[ $g->subject_key ]->name ?? $g->subject_key,
+				'teacher_id'   => $g->teacher_id ? (int) $g->teacher_id : null,
 				'teacher_name' => $g->teacher_id ? ( $teacher_map[ (int) $g->teacher_id ] ?? "#{$g->teacher_id}" ) : '—',
 				'schedule'     => WeekDay::formatScheduleFull( json_decode( $g->schedule ?? '[]', true ) ?: array() ),
+				'schedule_raw' => $g->schedule ?? '[]',
+				'period_id'    => $g->academic_period_id,
+				'subject_key'  => $g->subject_key,
+				'active_count' => $this->studentRecordRepository->countActiveByGroup( (int) $g->id ),
 			),
 			$groups
 		);
@@ -156,6 +177,7 @@ class AdminCallbacks extends BaseController {
 				'current_period'     => $current_period,
 				'other_periods'      => $other_periods,
 				'selected_period_id' => $selected_period_id,
+				'groups_filters'     => $groups_filters,
 				'groups_view'        => $groups_view,
 				'teachers'           => $teachers,
 			)
@@ -212,12 +234,39 @@ class AdminCallbacks extends BaseController {
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
 			) );
-			$data['entity_audit_filters'] = $filters;
-			$data['entity_audit_page']    = $paged;
-			$data['entity_audit_total']   = $this->entity_audit_log->countFiltered( $filters );
-			$data['entity_audit_rows']    = $this->entity_audit_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['entity_audit_filters']   = $filters;
+			$data['entity_audit_page']      = $paged;
+			$data['entity_audit_total']     = $this->entity_audit_log->countFiltered( $filters );
+			$data['entity_audit_rows']      = $this->entity_audit_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['entity_audit_operations']  = $this->entity_audit_log->distinctOperations();
+			$data['entity_audit_types']       = $this->entity_audit_log->distinctEntityTypes();
+			$data['entity_audit_actor_options'] = $this->resolveActorOptions( $this->entity_audit_log->distinctActorUserIds() );
 
-		} elseif ( 'tab-2' === $active_tab ) {
+		} elseif ( 'tab-1' === $active_tab ) {
+			$audit_filters = array_filter( array(
+				'action'        => $this->sanitizeGetKey( 'action' ),
+				'actor_user_id' => $actor_id,
+				'date_from'     => $date_from,
+				'date_to'       => $date_to,
+			) );
+
+			$data['audit_filters'] = $audit_filters;
+			$data['audit_page'] = $paged;
+			$data['audit_total'] = $this->audit_log->countFiltered( $audit_filters );
+			$data['audit_rows'] = $this->audit_log->list(
+				$audit_filters,
+				$paged,
+				$per_page,
+				$log_orderby,
+				$log_order
+			);
+
+			$data['audit_actions'] = $this->audit_log->distinctActions();
+			$data['audit_actor_options'] = $this->resolveActorOptions(
+				$this->audit_log->distinctActorUserIds()
+			);
+
+		}elseif ( 'tab-2' === $active_tab ) {
 			$pii_filters = array_filter( array(
 				'actor_user_id' => $actor_id,
 				'person_id'     => $person_id,
@@ -236,10 +285,12 @@ class AdminCallbacks extends BaseController {
 				'date_from'     => $date_from,
 				'date_to'       => $date_to,
 			) );
-			$data['export_filters'] = $filters;
-			$data['export_page']    = $paged;
-			$data['export_total']   = $this->export_log->countFiltered( $filters );
-			$data['export_rows']    = $this->export_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['export_filters']       = $filters;
+			$data['export_page']          = $paged;
+			$data['export_total']         = $this->export_log->countFiltered( $filters );
+			$data['export_rows']          = $this->export_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['export_data_types']    = $this->export_log->distinctDataTypes();
+			$data['export_actor_options'] = $this->resolveActorOptions( $this->export_log->distinctActorUserIds() );
 
 		} elseif ( 'tab-4' === $active_tab ) {
 			$filters = array_filter( array(
@@ -248,22 +299,24 @@ class AdminCallbacks extends BaseController {
 				'date_from'        => $date_from,
 				'date_to'          => $date_to,
 			) );
-			$data['data_change_filters'] = $filters;
-			$data['data_change_page']    = $paged;
-			$data['data_change_total']   = $this->data_change_log->countFiltered( $filters );
-			$data['data_change_rows']    = $this->data_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['data_change_filters']        = $filters;
+			$data['data_change_page']           = $paged;
+			$data['data_change_total']          = $this->data_change_log->countFiltered( $filters );
+			$data['data_change_rows']           = $this->data_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['data_change_actor_options']  = $this->resolveActorOptions( $this->data_change_log->distinctActorUserIds() );
+			$data['data_change_person_options'] = $this->resolvePersonOptions( $this->data_change_log->distinctPersonIds() );
 
 		} elseif ( 'tab-5' === $active_tab ) {
 			$filters = array_filter( array(
-				'person_id'    => $person_id,
 				'consent_type' => $this->sanitizeGetKey( 'consent_type' ),
 				'date_from'    => $date_from,
 				'date_to'      => $date_to,
 			) );
-			$data['consent_filters'] = $filters;
-			$data['consent_page']    = $paged;
-			$data['consent_total']   = $this->consent_change_log->countFiltered( $filters );
-			$data['consent_rows']    = $this->consent_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['consent_filters']       = $filters;
+			$data['consent_page']          = $paged;
+			$data['consent_total']         = $this->consent_change_log->countFiltered( $filters );
+			$data['consent_rows']          = $this->consent_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['consent_type_options']  = $this->consent_change_log->distinctConsentTypes();
 
 		} elseif ( 'tab-6' === $active_tab ) {
 			$filters = array_filter( array(
@@ -273,14 +326,16 @@ class AdminCallbacks extends BaseController {
 				'date_from'        => $date_from,
 				'date_to'          => $date_to,
 			) );
-			$data['email_filters'] = $filters;
-			$data['email_page']    = $paged;
-			$data['email_total']   = $this->email_log->countFiltered( $filters );
-			$data['email_rows']    = $this->email_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['email_filters']        = $filters;
+			$data['email_page']           = $paged;
+			$data['email_total']          = $this->email_log->countFiltered( $filters );
+			$data['email_rows']           = $this->email_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['email_type_options']   = $this->email_log->distinctEmailTypes();
+			$data['email_person_options'] = $this->resolvePersonOptions( $this->email_log->distinctPersonIds() );
 
 		} elseif ( 'tab-8' === $active_tab ) {
 			$filters = array_filter( array(
-				'action'    => $this->sanitizeGetKey( 'action_filter' ),
+				'action'    => $this->sanitizeGetKey( 'action' ),
 				'result'    => $this->sanitizeGetKey( 'result' ),
 				'date_from' => $date_from,
 				'date_to'   => $date_to,
@@ -289,6 +344,7 @@ class AdminCallbacks extends BaseController {
 			$data['auth_page']    = $paged;
 			$data['auth_total']   = $this->auth_log->countFiltered( $filters );
 			$data['auth_rows']    = $this->auth_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['auth_actions'] = $this->auth_log->distinctActions();
 
 		} else {
 			$actor_name = $this->sanitizeGetText( 'actor_name' );
@@ -335,5 +391,31 @@ class AdminCallbacks extends BaseController {
 	public function boilerplatePage(): void {
 		// displayPage() — самостоятельно определяет режим (список/редактор) по параметрам PageRoutes
 		$this->boilerplatePageController->displayPage();
+	}
+
+	/** @param int[] $userIds @return array<int, string> id => display_name */
+	private function resolveActorOptions( array $userIds ): array {
+		if ( empty( $userIds ) ) {
+			return array();
+		}
+		$options = array();
+		foreach ( $userIds as $uid ) {
+			$user = get_userdata( $uid );
+			$options[ $uid ] = $user ? $user->display_name : "User #{$uid}";
+		}
+		return $options;
+	}
+
+	/** @param int[] $personIds @return array<int, string> id => full_name */
+	private function resolvePersonOptions( array $personIds ): array {
+		if ( empty( $personIds ) ) {
+			return array();
+		}
+		$persons = $this->person_repo->findByIds( $personIds );
+		$options = array();
+		foreach ( $personIds as $pid ) {
+			$options[ $pid ] = isset( $persons[ $pid ] ) ? $persons[ $pid ]->fullName() : "Person #{$pid}";
+		}
+		return $options;
 	}
 }

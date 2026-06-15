@@ -7,6 +7,7 @@ namespace Inc\Callbacks;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\Enums\EnrollmentStatus;
 use Inc\Enums\EntityType;
 use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
@@ -173,6 +174,87 @@ class StudentGroupCallbacks extends BaseController {
 			LogEvent::GroupDeleted,
 			new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Group, $id, $group?->name )
 		);
+
+		$this->success( array( 'id' => $id ) );
+	}
+
+	public function ajaxGetGroupStudentsDetail(): void {
+		$this->authorize( Nonce::Manager );
+
+		$group_id = $this->sanitizeInt( 'group_id' );
+		$records  = $this->studentRecordRepository->findAllByGroup( $group_id );
+
+		$parent_ids = array_values( array_unique(
+			array_filter( array_map( fn( $r ) => $r->parentPersonId, $records ) )
+		) );
+		$parent_map = $this->personRepository->findByIds( $parent_ids );
+
+		usort( $records, function ( $a, $b ) {
+			$aOrd = EnrollmentStatus::Active === $a->status ? 0 : 1;
+			$bOrd = EnrollmentStatus::Active === $b->status ? 0 : 1;
+			if ( $aOrd !== $bOrd ) {
+				return $aOrd <=> $bOrd;
+			}
+			return strcmp(
+				$a->snapshotLastName . ' ' . $a->snapshotFirstName,
+				$b->snapshotLastName . ' ' . $b->snapshotFirstName
+			);
+		} );
+
+		$active_count = count( array_filter( $records, fn( $r ) => EnrollmentStatus::Active === $r->status ) );
+
+		$students = array_map( function ( $record ) use ( $parent_map ) {
+			$parent = $parent_map[ $record->parentPersonId ] ?? null;
+			return array(
+				'name'        => trim( $record->snapshotLastName . ' ' . $record->snapshotFirstName . ' ' . ( $record->snapshotMiddleName ?? '' ) ),
+				'parent_name' => $parent ? $parent->fullName() : '—',
+				'status'      => $record->status->label(),
+				'status_key'  => $record->status->value,
+				'contract_no' => $record->contractNo ?? '—',
+			);
+		}, $records );
+
+		$this->success( array( 'active_count' => $active_count, 'students' => $students ) );
+	}
+
+	public function ajaxUpdateStudentGroup(): void {
+		$this->authorize( Nonce::Manager );
+
+		$id = $this->sanitizeInt( 'id' );
+		if ( ! $id ) {
+			$this->error( 'ID группы не указан.' );
+		}
+
+		$teacher_id    = $this->sanitizeInt( 'teacher_id' ) ?: null;
+		$schedule_json = $this->sanitizeText( 'schedule_json' );
+		$raw_entries   = is_string( $schedule_json ) ? json_decode( wp_unslash( $schedule_json ), true ) : null;
+		$schedule      = array();
+
+		if ( is_array( $raw_entries ) ) {
+			foreach ( $raw_entries as $entry ) {
+				if ( ! is_array( $entry ) ) {
+					continue;
+				}
+				$day = WeekDay::tryFrom( sanitize_key( (string) ( $entry['day'] ?? '' ) ) );
+				if ( null === $day ) {
+					continue;
+				}
+				$schedule[] = array(
+					'day'   => $day->value,
+					'start' => sanitize_text_field( (string) ( $entry['start'] ?? '' ) ),
+					'end'   => sanitize_text_field( (string) ( $entry['end']   ?? '' ) ),
+				);
+			}
+		}
+
+		$updated = $this->groupsRepository->update( $id, array(
+			'teacher_id' => $teacher_id,
+			'schedule'   => (string) wp_json_encode( $schedule ),
+		) );
+
+		if ( ! $updated ) {
+			$this->error( 'Ошибка обновления группы.' );
+		}
 
 		$this->success( array( 'id' => $id ) );
 	}

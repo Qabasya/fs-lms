@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Security;
 
+use Inc\Services\Shared\PluginConfig;
+
 /**
  * Class RateLimitService
  *
@@ -38,6 +40,10 @@ namespace Inc\Services\Security;
 readonly class RateLimitService {
 
 	private const WINDOW      = HOUR_IN_SECONDS;
+
+	public function __construct(
+		private PluginConfig $pluginConfig,
+	) {}
 	private const TRANSIENT_TTL = self::WINDOW * 2;
 
 	private const LIMIT_APPLICATION = 5;
@@ -53,7 +59,7 @@ readonly class RateLimitService {
 	 * @return bool false если лимит превышен
 	 */
 	public function allowApplicationCreation( string $ip ): bool {
-		if ( defined( 'FS_LMS_TEST_ENV' ) ) { return true; }
+		if ( $this->pluginConfig->isTestEnv() ) { return true; }
 		return $this->check( $this->ipKey( 'apply', $ip ), self::LIMIT_APPLICATION );
 	}
 
@@ -65,7 +71,7 @@ readonly class RateLimitService {
 	 * @return bool false если лимит превышен
 	 */
 	public function allowJoinAttempt( string $ip ): bool {
-		if ( defined( 'FS_LMS_TEST_ENV' ) ) { return true; }
+		if ( $this->pluginConfig->isTestEnv() ) { return true; }
 		return $this->check( $this->ipKey( 'join', $ip ), self::LIMIT_JOIN );
 	}
 
@@ -77,7 +83,7 @@ readonly class RateLimitService {
 	 * @return bool false если лимит превышен
 	 */
 	public function allowParentSubmit( string $ip ): bool {
-		if ( defined( 'FS_LMS_TEST_ENV' ) ) { return true; }
+		if ( $this->pluginConfig->isTestEnv() ) { return true; }
 		return $this->check( $this->ipKey( 'parent', $ip ), self::LIMIT_PARENT );
 	}
 

@@ -13,7 +13,10 @@ import { ParentsTable } from './services/tables/parents-table.js';
 import { LogsTable } from './services/tables/logs-table.js';
 import { EmailTemplateSettings } from './services/settings/email-template-settings.js';
 import { ConsentSettings } from './services/settings/consent-settings.js';
+import { ConfigSettings } from './services/settings/config-settings.js';
 import { HardDeleteStudentService } from './services/hard-delete-student-service.js';
+import { ArchiveTable } from './services/tables/archive-table.js';
+import { ImportCsv } from './services/import-csv.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/enrollment/academic-period-modal-manager";
@@ -89,7 +92,10 @@ import { AlertModal } from './modals/alert-modal.js';
             SelectParentModal.init();
         }
 
-        if ( $( '.fs-lms-archive' ).length ) { ArchiveViewModalManager.init(); }
+        if ( $( '.fs-lms-archive' ).length ) {
+            ArchiveViewModalManager.init();
+            ArchiveTable.init();
+        }
 
         if ( $( '.fs-lms-students' ).length ) { StudentsTable.init(); }
 
@@ -110,8 +116,13 @@ import { AlertModal } from './modals/alert-modal.js';
         LogsTable.init();
         EmailTemplateSettings.init();
         ConsentSettings.init();
+        ConfigSettings.init();
 
         HardDeleteStudentService.init();
+
+        if ( document.querySelector( '.fs-lms-import' ) ) {
+            ImportCsv.init();
+        }
 
     });
 

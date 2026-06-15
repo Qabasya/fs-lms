@@ -26,12 +26,12 @@ use Inc\Enums\WeekDay;
 
 				<div class="fs-form-group">
 					<label for="group-title">Название группы</label>
-					<input type="text" id="group-title" name="title" placeholder="Например: Робо-1..." required>
+					<input type="text" id="group-title" name="title" placeholder="Например: Робо-1..." required data-edit-readonly>
 				</div>
 
 				<div class="fs-form-group">
 					<label for="group-period">Учебный период</label>
-					<select id="group-period" name="period_id" required>
+					<select id="group-period" name="period_id" required data-edit-readonly>
 						<option value="">-- Выберите период --</option>
 						<?php foreach ( $academic_periods ?? [] as $id => $period ) : ?>
 							<option value="<?php echo esc_attr( (string) $id ); ?>">
@@ -43,7 +43,7 @@ use Inc\Enums\WeekDay;
 
 				<div class="fs-form-group">
 					<label for="group-subject">Предмет</label>
-					<select id="group-subject" name="subject_id" required>
+					<select id="group-subject" name="subject_id" required data-edit-readonly>
 						<option value="">-- Выберите предмет --</option>
 						<?php foreach ( $subjects ?? [] as $id => $subject ) : ?>
 							<option value="<?php echo esc_attr( (string) $id ); ?>">

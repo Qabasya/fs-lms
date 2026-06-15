@@ -134,6 +134,24 @@ class DataChangeLogRepository {
 	 *
 	 * @return array{0: string[], 1: array}
 	 */
+	public function distinctActorUserIds(): array {
+		return array_map(
+			'intval',
+			$this->wpdb->get_col(
+				$this->wpdb->prepare( 'SELECT DISTINCT actor_user_id FROM %i WHERE actor_user_id IS NOT NULL ORDER BY actor_user_id', $this->table )
+			) ?: array()
+		);
+	}
+
+	public function distinctPersonIds(): array {
+		return array_map(
+			'intval',
+			$this->wpdb->get_col(
+				$this->wpdb->prepare( 'SELECT DISTINCT target_person_id FROM %i WHERE target_person_id IS NOT NULL ORDER BY target_person_id', $this->table )
+			) ?: array()
+		);
+	}
+
 	private function buildConditions( array $filters ): array {
 		$conditions = array( '1=1' );
 		$bindings   = array( $this->table );

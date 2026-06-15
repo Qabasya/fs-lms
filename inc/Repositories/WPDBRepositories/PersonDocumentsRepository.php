@@ -187,6 +187,12 @@ class PersonDocumentsRepository {
 	 *
 	 * @return bool
 	 */
+	public function hasAny(): bool {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare( 'SELECT COUNT(*) FROM %i LIMIT 1', $this->table )
+		) > 0;
+	}
+
 	public function anonymize( int $personId ): bool {
 		return $this->update( $personId, array(
 			'email_enc'         => null,

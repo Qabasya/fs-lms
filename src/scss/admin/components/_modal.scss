@@ -346,10 +346,10 @@ html.modal-open {
 // Классы-модификаторы для изменения ширины модалки
 // Использование: <div class="fs-lms-modal-content fs-modal-lg">
 .fs-lms-modal-content {
-  &.fs-modal-sm { max-width: 400px; }
-  &.fs-modal-md { max-width: 600px; }
-  &.fs-modal-lg { max-width: 800px; }
-  &.fs-modal-xl { max-width: 1000px; }
+  &.fs-modal-sm { max-width: 35vw; }
+  &.fs-modal-md { max-width: 50vw; }
+  &.fs-modal-lg { max-width: 65vw; }
+  &.fs-modal-xl { max-width: 80vw; }
 }
 
 
@@ -831,8 +831,8 @@ html.modal-open {
   color: $color-text-primary;
 
   input[type="checkbox"] {
-    width: auto;
-    height: auto;
+    width: 16px;
+    height: 16px;
     margin: 0;
     cursor: pointer;
     accent-color: $color-primary;

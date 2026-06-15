@@ -12,12 +12,14 @@ enum OperationType: string {
 	case Create = 'create';
 	case Update = 'update';
 	case Delete = 'delete';
+	case Import = 'import';
 
 	public function label(): string {
 		return match ( $this ) {
 			self::Create => 'Создание',
 			self::Update => 'Изменение',
 			self::Delete => 'Удаление',
+			self::Import => 'Импорт',
 		};
 	}
 
@@ -27,6 +29,7 @@ enum OperationType: string {
 			self::Create => 'badge-success',
 			self::Update => 'badge-warning',
 			self::Delete => 'badge-danger',
+			self::Import => 'badge-success',
 		};
 	}
 }

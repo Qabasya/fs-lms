@@ -42,7 +42,7 @@ $definitions = (array) get_option( 'fs_lms_consent_definitions', array() );
 				<th>Название</th>
 				<th class="tw-15">Ключ</th>
 				<th class="tw-25">Текущий хеш</th>
-				<th class="tw-15">Действия</th>
+				<th class="tw-20">Действия</th>
 			</tr>
 			</thead>
 			<tbody>
@@ -74,26 +74,25 @@ $definitions = (array) get_option( 'fs_lms_consent_definitions', array() );
 							<em>Страница пустая</em>
 						<?php endif; ?>
 					</td>
-					<td>
+					<td onclick="event.stopPropagation();">
 						<div class="row-actions visible">
-							<?php if ( $pageId ) : ?>
-								<a href="<?php echo esc_url( get_edit_post_link( $pageId ) ); ?>" target="_blank"
-									title="Редактировать текст" onclick="event.stopPropagation();">
-									<span class="dashicons dashicons-edit"></span>
-								</a>
-							<?php endif; ?>
 							<?php if ( $viewUrl ) : ?>
-								<a href="<?php echo esc_url( $viewUrl ); ?>" target="_blank"
-									title="Просмотреть текущую версию" onclick="event.stopPropagation();">
-									<span class="dashicons dashicons-visibility"></span>
-								</a>
+								<span class="view">
+									<a href="<?php echo esc_url( $viewUrl ); ?>" target="_blank">Просмотреть</a>
+								</span>
 							<?php endif; ?>
-							<a href="#" class="js-delete-consent submitdelete"
-								data-key="<?php echo esc_attr( $key ); ?>"
-								data-name="<?php echo esc_attr( $def['name'] ?? $key ); ?>"
-								title="Удалить определение" onclick="event.stopPropagation();">
-								<span class="dashicons dashicons-trash"></span>
-							</a>
+							<?php if ( $pageId ) : ?>
+								<?php if ( $viewUrl ) : ?> | <?php endif; ?>
+								<span class="edit">
+									<a href="<?php echo esc_url( get_edit_post_link( $pageId ) ); ?>" target="_blank">Изменить</a>
+								</span> |
+							<?php endif; ?>
+							<span class="trash">
+								<a href="#"
+									class="js-delete-consent submitdelete"
+									data-key="<?php echo esc_attr( $key ); ?>"
+									data-name="<?php echo esc_attr( $def['name'] ?? $key ); ?>">Удалить</a>
+							</span>
 						</div>
 					</td>
 				</tr>

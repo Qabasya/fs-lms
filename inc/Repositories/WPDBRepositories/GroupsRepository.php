@@ -95,6 +95,29 @@ class GroupsRepository {
 	}
 
 	/**
+	 * Находит группу по названию в рамках предмета и периода (find-or-create при импорте).
+	 *
+	 * @param string $name       Название группы
+	 * @param string $subjectKey Ключ предмета
+	 * @param string $periodId   ID учебного периода
+	 *
+	 * @return object|null Найденная группа или null
+	 */
+	public function findByNameSubjectPeriod( string $name, string $subjectKey, string $periodId ): ?object {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE name = %s AND subject_key = %s AND academic_period_id = %s LIMIT 1',
+				$this->table,
+				$name,
+				$subjectKey,
+				$periodId
+			)
+		);
+
+		return $row ?: null;
+	}
+
+	/**
 	 * Находит все группы по ID периода.
 	 *
 	 * @param string $periodId ID учебного периода
@@ -102,12 +125,28 @@ class GroupsRepository {
 	 * @return array
 	 */
 	public function findByPeriodId( string $periodId ): array {
+		return $this->findByFilters( $periodId );
+	}
+
+	public function findByFilters( string $periodId, string $subjectKey = '', int $teacherId = 0 ): array {
+		$where    = array( 'academic_period_id = %s' );
+		$bindings = array( $this->table, $periodId );
+
+		if ( '' !== $subjectKey ) {
+			$where[]    = 'subject_key = %s';
+			$bindings[] = $subjectKey;
+		}
+
+		if ( $teacherId > 0 ) {
+			$where[]    = 'teacher_id = %d';
+			$bindings[] = $teacherId;
+		}
+
+		$sql = 'SELECT * FROM %i WHERE ' . implode( ' AND ', $where ) . ' ORDER BY name ASC';
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		return $this->wpdb->get_results(
-			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE academic_period_id = %s ORDER BY name ASC',
-				$this->table,
-				$periodId
-			)
+			$this->wpdb->prepare( $sql, $bindings )
 		) ?: array();
 	}
 

@@ -31,25 +31,28 @@ export const ParentsTable = {
     },
 
     _applyBulkExport() {
+        const ids = [];
         $( '.js-parent-cb:checked' ).each( ( _, el ) => {
             const personId = parseInt(
                 $( el ).closest( 'tr' ).find( '.js-export-person' ).data( 'personId' ), 10
             );
-            if ( ! personId ) return;
+            if ( personId ) ids.push( personId );
+        } );
 
-            $.post( AJAX_URL(), {
-                action:    ACTIONS().exportPii,
-                person_id: personId,
-                security:  NONCES().exportPii,
-            } ).done( ( r ) => {
-                if ( r.success && r.data.download_url ) {
-                    const a = document.createElement( 'a' );
-                    a.href = r.data.download_url;
-                    document.body.appendChild( a );
-                    a.click();
-                    document.body.removeChild( a );
-                }
-            } );
+        if ( ! ids.length ) return;
+
+        $.post( AJAX_URL(), {
+            action:   ACTIONS().exportParents,
+            ids:      ids,
+            security: NONCES().manager,
+        } ).done( ( r ) => {
+            if ( r.success && r.data.url ) {
+                const a = document.createElement( 'a' );
+                a.href = r.data.url;
+                document.body.appendChild( a );
+                a.click();
+                document.body.removeChild( a );
+            }
         } );
     },
 };

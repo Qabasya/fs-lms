@@ -1,0 +1,44 @@
+@use '../variables' as *;
+
+// =================================================================
+// Отчёт импорта CSV (settings-6-import)
+// =================================================================
+
+.fs-import-report {
+  margin-top: $spacing-xl;
+  padding: $spacing-lg;
+  background: $wp-admin-gray-bg-light;
+  border: 1px solid $color-border-footer;
+  border-radius: $border-radius-l;
+
+  &__title {
+    margin-top: 0;
+    font-size: 1.1em;
+  }
+
+  &__summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xl;
+    margin: $spacing-md 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__errors {
+    margin: $spacing-md 0 0;
+    padding: $spacing-md;
+    background: $wp-admin-red-bg;
+    color: $wp-admin-red-text;
+    border-radius: $border-radius-md;
+    list-style: none;
+
+    li {
+      margin: 0 0 $spacing-xs;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+}

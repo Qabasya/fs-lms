@@ -133,6 +133,21 @@ class EmailLogRepository {
 	 *
 	 * @return array{0: string[], 1: array}
 	 */
+	public function distinctEmailTypes(): array {
+		return $this->wpdb->get_col(
+			$this->wpdb->prepare( 'SELECT DISTINCT email_type FROM %i ORDER BY email_type', $this->table )
+		) ?: array();
+	}
+
+	public function distinctPersonIds(): array {
+		return array_map(
+			'intval',
+			$this->wpdb->get_col(
+				$this->wpdb->prepare( 'SELECT DISTINCT target_person_id FROM %i WHERE target_person_id IS NOT NULL ORDER BY target_person_id', $this->table )
+			) ?: array()
+		);
+	}
+
 	private function buildConditions( array $filters ): array {
 		$conditions = array( '1=1' );
 		$bindings   = array( $this->table );

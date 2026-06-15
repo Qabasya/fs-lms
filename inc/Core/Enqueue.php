@@ -11,6 +11,7 @@ use Inc\Enums\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\PostTypeResolver;
+use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -46,6 +47,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 	public function __construct(
 		private readonly TaxonomyRepository $taxonomy_repository,
 		private readonly CaptchaService     $captchaService,
+		private readonly PluginConfig       $pluginConfig,
 	) {
 		parent::__construct();
 	}
@@ -198,6 +200,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'deleteGroup'       => Nonce::DeleteGroup->create(),
 					'deletePeriod'      => Nonce::DeletePeriod->create(),
 					'hardDeleteStudent' => Nonce::HardDeleteStudent->create(),
+					'config'            => Nonce::Config->create(),
 				),
 				'ajax_actions' => AjaxHook::toJsArray(),
 			)
@@ -277,7 +280,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'fs_lms_join_vars',
 				array(
 					'ajax_url'     => admin_url( 'admin-ajax.php' ),
-					'dadata_token' => defined( 'DADATA_API_TOKEN' ) ? DADATA_API_TOKEN : '',
+					'dadata_token' => $this->pluginConfig->dadataToken(),
 					'actions'      => array(
 						'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
 						'check_email'   => AjaxHook::CheckEmailAvailable->jsAction(),

@@ -2,6 +2,7 @@
 
 declare( strict_types=1 );
 
+use Inc\DTO\Log\AuthLogDTO;
 use Inc\Enums\AuthAction;
 use Inc\Enums\AuthResult;
 use Inc\Services\Log\LogNameResolver;
@@ -10,7 +11,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 defined( 'ABSPATH' ) || exit;
 
 /**
- * @var \Inc\DTO\Log\AuthLogDTO[] $auth_rows
+ * @var AuthLogDTO[] $auth_rows
  * @var int                       $auth_total
  * @var int                       $auth_page
  * @var array                     $auth_filters
@@ -36,12 +37,16 @@ $sort_url    = add_query_arg( $auth_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-8">
 
-		<select name="action_filter">
+		<select name="action">
 			<option value="">Все действия</option>
-			<?php foreach ( AuthAction::cases() as $action ) : ?>
-				<option value="<?php echo esc_attr( $action->value ); ?>" <?php selected( $auth_filters['action'] ?? '', $action->value ); ?>>
-					<?php echo esc_html( $action->label() ); ?>
-				</option>
+            <?php foreach ( $auth_actions ?? array() as $actionValue ) :
+            $action = AuthAction::tryFrom( $actionValue );
+            ?>
+
+                <option value="<?php echo esc_attr( $actionValue ); ?>"
+                        <?php selected( $auth_filters['action'] ?? '', $actionValue ); ?>>
+                    <?php echo esc_html( $action?->label() ?? $actionValue ); ?>
+                </option>
 			<?php endforeach; ?>
 		</select>
 

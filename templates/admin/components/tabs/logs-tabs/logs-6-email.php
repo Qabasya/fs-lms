@@ -15,8 +15,10 @@ defined( 'ABSPATH' ) || exit;
  * @var array                      $email_filters
  * @var int                        $per_page
  * @var string                     $active_tab
- * @var string              $log_orderby
- * @var string              $log_order
+ * @var string                     $log_orderby
+ * @var string                     $log_order
+ * @var string[]                   $email_type_options
+ * @var array<int, string>         $email_person_options
  */
 
 $page_slug   = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore
@@ -38,9 +40,11 @@ $sort_url    = add_query_arg( $email_filters, $base_url );
 
 		<select name="email_type">
 			<option value="">Все типы</option>
-			<?php foreach ( EmailTemplateType::cases() as $type ) : ?>
-				<option value="<?php echo esc_attr( $type->value ); ?>" <?php selected( $email_filters['email_type'] ?? '', $type->value ); ?>>
-					<?php echo esc_html( $type->label() ); ?>
+			<?php foreach ( $email_type_options ?? array() as $etVal ) :
+				$et = EmailTemplateType::tryFrom( $etVal );
+			?>
+				<option value="<?php echo esc_attr( $etVal ); ?>" <?php selected( $email_filters['email_type'] ?? '', $etVal ); ?>>
+					<?php echo esc_html( $et ? $et->label() : $etVal ); ?>
 				</option>
 			<?php endforeach; ?>
 		</select>
@@ -51,7 +55,14 @@ $sort_url    = add_query_arg( $email_filters, $base_url );
 			<option value="failed"  <?php selected( $email_filters['status'] ?? '', 'failed' ); ?>>Ошибка</option>
 		</select>
 
-		<input type="number" name="person_id" placeholder="Person ID" value="<?php echo esc_attr( $email_filters['target_person_id'] ?? '' ); ?>" class="input-width-md">
+		<select name="person_id">
+			<option value="">Все субъекты ПД</option>
+			<?php foreach ( $email_person_options ?? array() as $pid => $name ) : ?>
+				<option value="<?php echo esc_attr( (string) $pid ); ?>" <?php selected( $email_filters['target_person_id'] ?? '', $pid ); ?>>
+					<?php echo esc_html( $name ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
 		<input type="date" name="date_from" value="<?php echo esc_attr( $email_filters['date_from'] ?? '' ); ?>">
 		<span>—</span>
 		<input type="date" name="date_to"   value="<?php echo esc_attr( $email_filters['date_to'] ?? '' ); ?>">

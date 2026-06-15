@@ -30,6 +30,14 @@ $tabs = array(
 		'title' => 'Согласия',
 		'file'  => '/components/tabs/settings-tabs/settings-5-consents.php',
 	),
+	'tab-6' => array(
+		'title' => 'Импорт',
+		'file'  => '/components/tabs/settings-tabs/settings-6-import.php',
+	),
+	'tab-7' => array(
+		'title' => 'Конфигурация',
+		'file'  => '/components/tabs/settings-tabs/settings-7-config.php',
+	),
 );
 ?>
 
@@ -70,7 +78,7 @@ if ( file_exists( $modal_path ) ) {
     include $modal_path;
 }
 
-$period_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/academic-period-modal.php';
+$period_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/enrollment/academic-period-modal.php';
 if ( file_exists( $period_modal_path ) ) {
     include $period_modal_path;
 }

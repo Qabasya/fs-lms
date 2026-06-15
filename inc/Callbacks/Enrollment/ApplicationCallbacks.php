@@ -25,6 +25,7 @@ use Inc\Services\Email\EmailOtpService;
 use Inc\Services\Log\AuthLogWriter;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Services\Security\RateLimitService;
+use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -73,6 +74,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly LogEventDispatcherInterface  $logEvents,
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
 		private readonly AuthLogWriter                $authLog,
+		private readonly PluginConfig                 $pluginConfig,
 	) {
 		parent::__construct();
 	}
@@ -89,7 +91,7 @@ class ApplicationCallbacks extends BaseController {
 		$code = get_query_var( 'fs_lms_join_code', '' );
 
 		// Тестовый дебаг-режим: /lms/join/000 → тестовые данные без БД
-		if ( defined( 'FS_LMS_TEST_ENV' ) && '000' === $code ) {
+		if ( $this->pluginConfig->isTestEnv() && '000' === $code ) {
 			set_query_var( 'fs_lms_student_data', StudentDataDTO::fromArray( array(
 				'full_name'  => 'Тестов Тест Тестович',
 				'birth_date' => '2010-05-15',
@@ -191,8 +193,8 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
-		// Капча пропускается только в тестовом окружении (FS_LMS_TEST_ENV в wp-config.php)
-		if ( ! defined( 'FS_LMS_TEST_ENV' ) ) {
+		// Капча пропускается только в тестовом окружении
+		if ( ! $this->pluginConfig->isTestEnv() ) {
 			$captchaToken = $this->sanitizeText( 'captcha_token' );
 			if ( ! $this->captchaService->validate( $captchaToken, $ip ) ) {
 				$this->error( 'Проверка капчи не пройдена.' );

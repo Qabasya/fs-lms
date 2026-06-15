@@ -24,6 +24,9 @@ readonly class StudentRecordInputDTO {
 		public ?string $orderNo             = null,
 		public ?string $orderDate           = null,
 		public ?int    $enrolledByUserId    = null,
+		public ?string $expelledAt          = null,
+		public ?string $expelReason         = null,
+		public ?int    $expelledByUserId    = null,
 	) {}
 
 	public function toArray(): array {
@@ -43,6 +46,9 @@ readonly class StudentRecordInputDTO {
 			'status'               => $this->status,
 			'enrolled_at'          => $this->enrolledAt,
 			'enrolled_by_user_id'  => $this->enrolledByUserId,
+			'expelled_at'          => $this->expelledAt,
+			'expel_reason'         => $this->expelReason,
+			'expelled_by_user_id'  => $this->expelledByUserId,
 			'created_at'           => $this->createdAt,
 			'updated_at'           => $this->updatedAt,
 		);

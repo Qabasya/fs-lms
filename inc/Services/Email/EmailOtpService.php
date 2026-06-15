@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Email;
 
+use Inc\Services\Shared\PluginConfig;
 use RuntimeException;
 
 /**
@@ -44,6 +45,7 @@ readonly class EmailOtpService {
 	 */
 	public function __construct(
 		private EmailService $emailService,
+		private PluginConfig $pluginConfig,
 	) {}
 
 	/**
@@ -89,8 +91,9 @@ readonly class EmailOtpService {
 	 * @return bool
 	 */
 	public function verify( string $email, string $code ): bool {
-		// Bypass-код: принимается вместо кода с почты, если константа задана в wp-config.php
-		if ( defined( 'FS_LMS_OTP_BYPASS_CODE' ) && $code === FS_LMS_OTP_BYPASS_CODE ) {
+		// Bypass-код: принимается вместо кода с почты (из wp-config или wp_options)
+		$bypassCode = $this->pluginConfig->otpBypassCode();
+		if ( '' !== $bypassCode && $code === $bypassCode ) {
 			return true;
 		}
 
