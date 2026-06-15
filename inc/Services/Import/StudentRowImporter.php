@@ -45,6 +45,7 @@ readonly class StudentRowImporter {
 	 * @param PersonService               $personService   Создание persons + person_documents
 	 * @param StudentRecordRepository     $studentRecords  Дедуп и создание записей
 	 * @param ExpulsionResolver           $expulsionResolver Причина → статус
+	 * @param DocTypeResolver             $docTypeResolver Тип документа → значение enum
 	 * @param ClockInterface              $clock           Текущее время
 	 * @param LogEventDispatcherInterface $logEvents       Шина событий логирования
 	 */
@@ -54,6 +55,7 @@ readonly class StudentRowImporter {
 		private PersonService               $personService,
 		private StudentRecordRepository     $studentRecords,
 		private ExpulsionResolver           $expulsionResolver,
+		private DocTypeResolver             $docTypeResolver,
 		private ClockInterface              $clock,
 		private LogEventDispatcherInterface $logEvents,
 	) {}
@@ -102,10 +104,12 @@ readonly class StudentRowImporter {
 		$studentInput = new PersonInputDTO(
 			lastName:   $lastName,
 			firstName:  $firstName,
-			docNumber:  '',
+			docNumber:  $get( ImportColumn::DocNumber ),
 			isStudent:  true,
 			middleName: $get( ImportColumn::MiddleName ),
+			docType:    $this->docTypeResolver->resolve( $get( ImportColumn::DocType ) ),
 			birthDate:  $this->toDate( $get( ImportColumn::BirthDate ) ) ?? '',
+			inn:        $get( ImportColumn::Inn ),
 			phone:      $get( ImportColumn::Phone ),
 			school:     $get( ImportColumn::School ),
 			grade:      $get( ImportColumn::Grade ),
@@ -113,13 +117,19 @@ readonly class StudentRowImporter {
 		);
 
 		$parentInput = new PersonInputDTO(
-			lastName:   $pLastName,
-			firstName:  $pFirstName,
-			docNumber:  '',
-			isStudent:  false,
-			middleName: $get( ImportColumn::ParentMiddleName ),
-			phone:      $get( ImportColumn::ParentPhone ),
-			email:      '' !== $parentEmail ? $parentEmail : null,
+			lastName:      $pLastName,
+			firstName:     $pFirstName,
+			docNumber:     $get( ImportColumn::ParentDocNumber ),
+			isStudent:     false,
+			middleName:    $get( ImportColumn::ParentMiddleName ),
+			docType:       $this->docTypeResolver->resolve( $get( ImportColumn::ParentDocType ) ),
+			birthDate:     $this->toDate( $get( ImportColumn::ParentBirthDate ) ) ?? '',
+			inn:           $get( ImportColumn::ParentInn ),
+			address:       $get( ImportColumn::ParentAddress ),
+			phone:         $get( ImportColumn::ParentPhone ),
+			docIssuedBy:   $get( ImportColumn::ParentDocIssuedBy ),
+			docIssuedDate: $this->toDate( $get( ImportColumn::ParentDocIssuedDate ) ) ?? '',
+			email:         '' !== $parentEmail ? $parentEmail : null,
 		);
 
 		// Резолв существующих сущностей (только чтение)
@@ -176,6 +186,8 @@ readonly class StudentRowImporter {
 			snapshotGrade:      $get( ImportColumn::Grade ) ?: null,
 			contractNo:         $contractNo,
 			contractDate:       $this->toDate( $get( ImportColumn::ContractDate ) ),
+			orderNo:            $get( ImportColumn::OrderNo ) ?: null,
+			orderDate:          $this->toDate( $get( ImportColumn::OrderDate ) ),
 			enrolledByUserId:   $ctx->actorId ?: null,
 			expelledAt:         $expelledAt,
 			expelReason:        $reason,

@@ -20,6 +20,9 @@ export const ImportCsv = {
      * Точка входа. Подключается только при наличии формы импорта.
      */
     init() {
+        // Контейнер таба — для уведомлений внутри вкладки.
+        this.$container = $( '.fs-lms-import' );
+
         // Кнопка шаблона доступна всегда (даже без предметов/периодов).
         this.bindTemplate();
 
@@ -54,7 +57,24 @@ export const ImportCsv = {
             return;
         }
 
-        const csv = '﻿' + headers + '\r\n';
+        // data-examples \u2014 JSON-\u043C\u0430\u0441\u0441\u0438\u0432 \u0441\u0442\u0440\u043E\u043A-\u043E\u0431\u0440\u0430\u0437\u0446\u043E\u0432; jQuery \u043C\u043E\u0436\u0435\u0442 \u0432\u0435\u0440\u043D\u0443\u0442\u044C \u0435\u0433\u043E
+        // \u0443\u0436\u0435 \u0440\u0430\u0441\u043F\u0430\u0440\u0441\u0435\u043D\u043D\u044B\u043C (\u043C\u0430\u0441\u0441\u0438\u0432) \u043B\u0438\u0431\u043E \u0441\u0442\u0440\u043E\u043A\u043E\u0439 \u2014 \u043E\u0431\u0440\u0430\u0431\u0430\u0442\u044B\u0432\u0430\u0435\u043C \u043E\u0431\u0430 \u0441\u043B\u0443\u0447\u0430\u044F.
+        let examples = $btn.data( 'examples' ) || [];
+        if ( 'string' === typeof examples ) {
+            try {
+                examples = JSON.parse( examples );
+            } catch {
+                examples = [];
+            }
+        }
+
+        let csv = '\uFEFF' + headers + '\r\n';
+        ( Array.isArray( examples ) ? examples : [] ).forEach( ( rowValues ) => {
+            if ( Array.isArray( rowValues ) ) {
+                csv += rowValues.join( ';' ) + '\r\n';
+            }
+        } );
+
         const blob = new Blob( [ csv ], { type: 'text/csv;charset=utf-8;' } );
         const url = URL.createObjectURL( blob );
         const link = document.createElement( 'a' );
@@ -81,9 +101,9 @@ export const ImportCsv = {
      * Собирает FormData и отправляет запрос импорта.
      */
     submit() {
-        const fileInput = document.getElementById( 'fs-import-file' );
+        const fileInput = document.getElementById( 'fs-import-csv-file' );
         if ( ! fileInput || ! fileInput.files.length ) {
-            showNotice( 'Выберите CSV-файл.', 'error' );
+            showNotice( 'Выберите CSV-файл.', 'error', this.$container );
             return;
         }
 
@@ -109,10 +129,10 @@ export const ImportCsv = {
                 if ( response && response.success ) {
                     this.renderReport( response.data );
                 } else {
-                    showNotice( ( response && response.data ) || 'Ошибка импорта.', 'error' );
+                    showNotice( ( response && response.data ) || 'Ошибка импорта.', 'error', this.$container );
                 }
             } )
-            .fail( () => showNotice( 'Ошибка сети при импорте.', 'error' ) )
+            .fail( () => showNotice( 'Ошибка сети при импорте.', 'error', this.$container ) )
             .always( () => toggleButton( this.$submit, false ) );
     },
 

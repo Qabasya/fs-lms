@@ -2,12 +2,15 @@
 
 declare( strict_types=1 );
 
+use Inc\DTO\Subject\SubjectDTO;
+use Inc\Enums\ImportColumn;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Таб «Импорт» — загрузка учеников прошлых лет из CSV в выбранные предмет и период.
  *
- * @var \Inc\DTO\Subject\SubjectDTO[] $subjects         Список предметов
+ * @var SubjectDTO[] $subjects         Список предметов
  * @var array                         $academic_periods Список учебных периодов
  */
 ?>
@@ -24,8 +27,12 @@ defined( 'ABSPATH' ) || exit;
 		применяются ко всем строкам. Учётные записи WP при импорте не создаются.
 	</p>
 	<p class="description">
-		Колонки: <code><?php echo esc_html( implode( ';', \Inc\Enums\ImportColumn::headers() ) ); ?></code>.
 		Колонки отчисления необязательны: если они заполнены, запись создаётся в архиве.
+        Жёстко заданы следующие значения колонок:
+        <ol>
+        <li>Тип документа: <code>Паспорт</code> или <code>Свидетельство о рождении</code></li>
+        <li>Причина отчисления: <code>Окончание курса</code>, <code>Перевод</code>, <code>По собственному желанию</code>, все остальные добавляются в причину «Другое»</li>
+        </ol>
 	</p>
 
 	<p>
@@ -33,7 +40,10 @@ defined( 'ABSPATH' ) || exit;
 			type="button"
 			class="button"
 			id="fs-import-template"
-			data-headers="<?php echo esc_attr( implode( ';', \Inc\Enums\ImportColumn::headers() ) ); ?>">
+            data-headers="<?php echo esc_attr( implode( ';', ImportColumn::headers() ) ); ?>"
+            data-examples="<?php echo esc_attr( (string) wp_json_encode( ImportColumn::exampleRows(), JSON_UNESCAPED_UNICODE ) ); ?>">
+
+            <span class="dashicons dashicons-download"></span>
 			Скачать шаблон CSV
 		</button>
 	</p>
@@ -54,7 +64,7 @@ defined( 'ABSPATH' ) || exit;
 						<th scope="row"><label for="fs-import-subject">Предмет</label></th>
 						<td>
 							<select id="fs-import-subject" name="subject_key" required>
-								<option value="">— выберите предмет —</option>
+								<option value="">— Выберите предмет —</option>
 								<?php foreach ( $subjects as $subject ) : ?>
 									<option value="<?php echo esc_attr( $subject->key ); ?>">
 										<?php echo esc_html( $subject->name ); ?>
@@ -67,7 +77,7 @@ defined( 'ABSPATH' ) || exit;
 						<th scope="row"><label for="fs-import-period">Учебный период</label></th>
 						<td>
 							<select id="fs-import-period" name="period_id" required>
-								<option value="">— выберите период —</option>
+								<option value="">— Выберите период —</option>
 								<?php foreach ( $academic_periods as $period ) : ?>
 									<option value="<?php echo esc_attr( $period['id'] ); ?>">
 										<?php echo esc_html( $period['name'] ); ?>
@@ -77,9 +87,9 @@ defined( 'ABSPATH' ) || exit;
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="fs-import-file">CSV-файл</label></th>
+						<th scope="row"><label for="fs-import-csv-file">CSV-файл</label></th>
 						<td>
-							<input type="file" id="fs-import-file" name="file" accept=".csv" required>
+							<input type="file" id="fs-import-csv-file" name="file" accept=".csv" required>
 						</td>
 					</tr>
 					<tr>
@@ -95,7 +105,9 @@ defined( 'ABSPATH' ) || exit;
 			</table>
 
 			<p class="submit">
-				<button type="submit" class="button button-primary" id="fs-import-submit">Импортировать</button>
+				<button type="submit" class="button button-primary" id="fs-import-submit">
+
+                    Импортировать</button>
 			</p>
 
 		</form>
