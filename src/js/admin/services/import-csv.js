@@ -20,6 +20,9 @@ export const ImportCsv = {
      * Точка входа. Подключается только при наличии формы импорта.
      */
     init() {
+        // Кнопка шаблона доступна всегда (даже без предметов/периодов).
+        this.bindTemplate();
+
         this.$form = $( '#fs-lms-import-form' );
         if ( ! this.$form.length ) {
             return;
@@ -27,6 +30,41 @@ export const ImportCsv = {
         this.$report = $( '#fs-import-report' );
         this.$submit = $( '#fs-import-submit' );
         this.bindEvents();
+    },
+
+    /**
+     * Привязка скачивания шаблона CSV (генерируется на клиенте из заголовков).
+     */
+    bindTemplate() {
+        const $btn = $( '#fs-import-template' );
+        if ( ! $btn.length ) {
+            return;
+        }
+        $btn.on( 'click', () => this.downloadTemplate( $btn ) );
+    },
+
+    /**
+     * Генерирует и скачивает CSV-шаблон (BOM + строка заголовков, разделитель «;»).
+     *
+     * @param {jQuery} $btn Кнопка с data-headers.
+     */
+    downloadTemplate( $btn ) {
+        const headers = String( $btn.data( 'headers' ) || '' );
+        if ( '' === headers ) {
+            return;
+        }
+
+        const csv = '﻿' + headers + '\r\n';
+        const blob = new Blob( [ csv ], { type: 'text/csv;charset=utf-8;' } );
+        const url = URL.createObjectURL( blob );
+        const link = document.createElement( 'a' );
+
+        link.href = url;
+        link.download = 'fs-lms-import-template.csv';
+        document.body.appendChild( link );
+        link.click();
+        link.remove();
+        URL.revokeObjectURL( url );
     },
 
     /**

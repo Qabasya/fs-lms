@@ -1577,12 +1577,15 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 #### Шаг 9 — UI: таб «Импорт» в Настройках
 
-- [ ] **`settings.php`** (`templates/admin/settings.php`): добавить `'tab-6' => [ 'title' => 'Импорт', 'file' => '/components/tabs/settings-tabs/settings-6-import.php' ]`. Данные уже передаются (`AdminCallbacks::settingsPage()` отдаёт `$subjects` и `$academic_periods`).
-- [ ] **`settings-6-import.php`** — `templates/admin/components/tabs/settings-tabs/settings-6-import.php`: форма с `<select>` предмета (из `$subjects`), `<select>` периода (из `$academic_periods`), `<input type="file" accept=".csv">`, чекбокс «Только проверить (dry-run)», кнопка «Импортировать», контейнер для отчёта. Без инлайн-стилей/JS.
-- [ ] **`import-csv.js`** — `src/js/admin/services/import-csv.js` (jQuery object pattern: `init()`, `bindEvents()`): отправка `FormData` (`processData:false, contentType:false`), action `fs_lms_vars.ajax_actions.importStudentsCsv`, nonce `Manager` (`fs_lms_vars.nonces` / `fs_lms_vars` как у экспорта); рендер отчёта created/skipped + «строка N: сообщение».
-- [ ] Инициализация в `src/js/admin/admin.js` с guard по селектору таба.
-- [ ] Стили — SCSS-компонент с токенами из `_variables.scss`; без инлайна.
-- [ ] Нонс `Manager` уже в `fs_lms_vars` (используется экспортом) — проверить наличие в `inc/Core/Enqueue.php`, при отсутствии добавить.
+- [x] **`settings.php`** — добавлен `'tab-6' => ['title' => 'Импорт', ...]`. Данные (`$subjects`, `$academic_periods`) уже отдаёт `AdminCallbacks::settingsPage()`.
+- [x] **`settings-6-import.php`** — форма: `<select>` предмета (`SubjectDTO->key/name`), `<select>` периода (`['id']/['name']`), `<input type="file" accept=".csv">`, чекбокс dry-run, кнопка, контейнер отчёта `#fs-import-report`. Guard на пустые предметы/периоды. Wrapper `.fs-lms-import`. Без инлайна.
+- [x] **`import-csv.js`** — jQuery object pattern; `FormData` (`processData:false, contentType:false`), action `fs_lms_vars.ajax_actions.importStudentsCsv`, nonce `fs_lms_vars.nonces.manager`; отчёт created/skipped + «Строка N: …» (через `escapeHtml`, `showNotice`, `toggleButton`).
+- [x] Инициализация в `admin.js` с guard `.fs-lms-import`.
+- [x] Стили — `src/scss/admin/components/_import.scss` (токены `_variables.scss`) + `@use` в `admin.scss`. Без инлайна.
+- [x] Нонс `Manager` и `ajax_actions` уже в `fs_lms_vars` (`Enqueue.php:196,202`) — правка не потребовалась.
+- [x] `npx gulp build` — webpack + SCSS собраны без ошибок; ESLint чисто.
+- [x] **Единый источник колонок** — `inc/Enums/ImportColumn.php` (enum: `headers()`/`required()`). `StudentRowImporter` отрефакторен на него (вместо локальных const). Описание формата в шаблоне рендерится из `ImportColumn::headers()`.
+- [x] **Кнопка «Скачать шаблон CSV»** — `#fs-import-template` с `data-headers` (из `ImportColumn::headers()`); `import-csv.js` строит Blob (BOM + заголовки, разделитель `;`) и скачивает на клиенте — без отдельного endpoint/nonce. Доступна даже без предметов/периодов.
 
 #### Шаг 10 — Тесты
 

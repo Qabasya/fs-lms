@@ -14,6 +14,7 @@ use Inc\DTO\Log\Events\EnrollmentStatusEvent;
 use Inc\DTO\Person\PersonInputDTO;
 use Inc\Enums\AuditAction;
 use Inc\Enums\EnrollmentStatus;
+use Inc\Enums\ImportColumn;
 use Inc\Enums\LogEvent;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -37,26 +38,6 @@ use InvalidArgumentException;
  * Предмет и период берутся из {@see ImportContextDTO} (выбор в UI), а не из CSV.
  */
 readonly class StudentRowImporter {
-
-	private const COL_LAST          = 'Фамилия';
-	private const COL_FIRST         = 'Имя';
-	private const COL_MIDDLE        = 'Отчество';
-	private const COL_BIRTH         = 'Дата рожд.';
-	private const COL_GRADE         = 'Класс';
-	private const COL_SCHOOL        = 'Школа';
-	private const COL_EMAIL         = 'Email';
-	private const COL_PHONE         = 'Телефон';
-	private const COL_P_LAST        = 'Родитель: Фамилия';
-	private const COL_P_FIRST       = 'Родитель: Имя';
-	private const COL_P_MIDDLE      = 'Родитель: Отчество';
-	private const COL_P_EMAIL       = 'Родитель: Email';
-	private const COL_P_PHONE       = 'Родитель: Телефон';
-	private const COL_GROUP         = 'Группа';
-	private const COL_CONTRACT_NO   = '№ договора';
-	private const COL_CONTRACT_DATE = 'Дата договора';
-	private const COL_ENROLLED_AT   = 'Дата зачисления';
-	private const COL_EXPELLED_AT   = 'Дата отчисления';
-	private const COL_REASON        = 'Причина отчисления';
 
 	/**
 	 * @param GroupsRepository            $groups          Репозиторий групп (find-or-create)
@@ -83,14 +64,7 @@ readonly class StudentRowImporter {
 	 * @return string[]
 	 */
 	public function requiredHeaders(): array {
-		return array(
-			self::COL_LAST,
-			self::COL_FIRST,
-			self::COL_GROUP,
-			self::COL_CONTRACT_NO,
-			self::COL_P_LAST,
-			self::COL_P_FIRST,
-		);
+		return ImportColumn::required();
 	}
 
 	/**
@@ -104,37 +78,37 @@ readonly class StudentRowImporter {
 	 * @throws InvalidArgumentException При отсутствии обязательных значений
 	 */
 	public function import( array $row, ImportContextDTO $ctx ): ImportRowResultDTO {
-		$get = static fn( string $key ): string => trim( (string) ( $row[ $key ] ?? '' ) );
+		$get = static fn( ImportColumn $col ): string => trim( (string) ( $row[ $col->value ] ?? '' ) );
 
-		$lastName   = $get( self::COL_LAST );
-		$firstName  = $get( self::COL_FIRST );
-		$groupName  = $get( self::COL_GROUP );
-		$contractNo = $get( self::COL_CONTRACT_NO );
-		$pLastName  = $get( self::COL_P_LAST );
-		$pFirstName = $get( self::COL_P_FIRST );
+		$lastName   = $get( ImportColumn::LastName );
+		$firstName  = $get( ImportColumn::FirstName );
+		$groupName  = $get( ImportColumn::Group );
+		$contractNo = $get( ImportColumn::ContractNo );
+		$pLastName  = $get( ImportColumn::ParentLastName );
+		$pFirstName = $get( ImportColumn::ParentFirstName );
 
 		$this->requireValues( array(
-			self::COL_LAST        => $lastName,
-			self::COL_FIRST       => $firstName,
-			self::COL_GROUP       => $groupName,
-			self::COL_CONTRACT_NO => $contractNo,
-			self::COL_P_LAST      => $pLastName,
-			self::COL_P_FIRST     => $pFirstName,
+			ImportColumn::LastName->value        => $lastName,
+			ImportColumn::FirstName->value       => $firstName,
+			ImportColumn::Group->value           => $groupName,
+			ImportColumn::ContractNo->value      => $contractNo,
+			ImportColumn::ParentLastName->value  => $pLastName,
+			ImportColumn::ParentFirstName->value => $pFirstName,
 		) );
 
-		$studentEmail = $get( self::COL_EMAIL );
-		$parentEmail  = $get( self::COL_P_EMAIL );
+		$studentEmail = $get( ImportColumn::Email );
+		$parentEmail  = $get( ImportColumn::ParentEmail );
 
 		$studentInput = new PersonInputDTO(
 			lastName:   $lastName,
 			firstName:  $firstName,
 			docNumber:  '',
 			isStudent:  true,
-			middleName: $get( self::COL_MIDDLE ),
-			birthDate:  $this->toDate( $get( self::COL_BIRTH ) ) ?? '',
-			phone:      $get( self::COL_PHONE ),
-			school:     $get( self::COL_SCHOOL ),
-			grade:      $get( self::COL_GRADE ),
+			middleName: $get( ImportColumn::MiddleName ),
+			birthDate:  $this->toDate( $get( ImportColumn::BirthDate ) ) ?? '',
+			phone:      $get( ImportColumn::Phone ),
+			school:     $get( ImportColumn::School ),
+			grade:      $get( ImportColumn::Grade ),
 			email:      '' !== $studentEmail ? $studentEmail : null,
 		);
 
@@ -143,8 +117,8 @@ readonly class StudentRowImporter {
 			firstName:  $pFirstName,
 			docNumber:  '',
 			isStudent:  false,
-			middleName: $get( self::COL_P_MIDDLE ),
-			phone:      $get( self::COL_P_PHONE ),
+			middleName: $get( ImportColumn::ParentMiddleName ),
+			phone:      $get( ImportColumn::ParentPhone ),
 			email:      '' !== $parentEmail ? $parentEmail : null,
 		);
 
@@ -191,17 +165,17 @@ readonly class StudentRowImporter {
 			studentPersonId:    $studentId,
 			parentPersonId:     $parentId,
 			status:             $status,
-			enrolledAt:         $this->toDateTime( $get( self::COL_ENROLLED_AT ) ) ?? $now,
+			enrolledAt:         $this->toDateTime( $get( ImportColumn::EnrolledAt ) ) ?? $now,
 			createdAt:          $now,
 			updatedAt:          $now,
 			groupId:            $groupId,
 			snapshotLastName:   $lastName,
 			snapshotFirstName:  $firstName,
-			snapshotMiddleName: $get( self::COL_MIDDLE ) ?: null,
-			snapshotSchool:     $get( self::COL_SCHOOL ) ?: null,
-			snapshotGrade:      $get( self::COL_GRADE ) ?: null,
+			snapshotMiddleName: $get( ImportColumn::MiddleName ) ?: null,
+			snapshotSchool:     $get( ImportColumn::School ) ?: null,
+			snapshotGrade:      $get( ImportColumn::Grade ) ?: null,
 			contractNo:         $contractNo,
-			contractDate:       $this->toDate( $get( self::COL_CONTRACT_DATE ) ),
+			contractDate:       $this->toDate( $get( ImportColumn::ContractDate ) ),
 			enrolledByUserId:   $ctx->actorId ?: null,
 			expelledAt:         $expelledAt,
 			expelReason:        $reason,
@@ -228,8 +202,8 @@ readonly class StudentRowImporter {
 	 * @return array{0:string, 1:?string, 2:?string, 3:?int} [status, reason, expelledAt, expelledBy]
 	 */
 	private function resolveLifecycle( callable $get, ImportContextDTO $ctx, string $now ): array {
-		$expulsion = $this->expulsionResolver->resolve( $get( self::COL_REASON ) );
-		$expelDate = $this->toDateTime( $get( self::COL_EXPELLED_AT ) );
+		$expulsion = $this->expulsionResolver->resolve( $get( ImportColumn::ExpelReason ) );
+		$expelDate = $this->toDateTime( $get( ImportColumn::ExpelledAt ) );
 
 		if ( null === $expulsion && null === $expelDate ) {
 			return array( EnrollmentStatus::Active->value, null, null, null );

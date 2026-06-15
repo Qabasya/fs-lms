@@ -24,8 +24,18 @@ defined( 'ABSPATH' ) || exit;
 		применяются ко всем строкам. Учётные записи WP при импорте не создаются.
 	</p>
 	<p class="description">
-		Колонки: <code>Фамилия;Имя;Отчество;Дата рожд.;Класс;Школа;Email;Телефон;Родитель: Фамилия;Родитель: Имя;Родитель: Отчество;Родитель: Email;Родитель: Телефон;Группа;№ договора;Дата договора;Дата зачисления;Дата отчисления;Причина отчисления</code>.
+		Колонки: <code><?php echo esc_html( implode( ';', \Inc\Enums\ImportColumn::headers() ) ); ?></code>.
 		Колонки отчисления необязательны: если они заполнены, запись создаётся в архиве.
+	</p>
+
+	<p>
+		<button
+			type="button"
+			class="button"
+			id="fs-import-template"
+			data-headers="<?php echo esc_attr( implode( ';', \Inc\Enums\ImportColumn::headers() ) ); ?>">
+			Скачать шаблон CSV
+		</button>
 	</p>
 
 	<?php if ( empty( $subjects ) || empty( $academic_periods ) ) : ?>
