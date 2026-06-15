@@ -222,7 +222,31 @@ class AdminCallbacks extends BaseController {
 			$data['entity_audit_types']       = $this->entity_audit_log->distinctEntityTypes();
 			$data['entity_audit_actor_options'] = $this->resolveActorOptions( $this->entity_audit_log->distinctActorUserIds() );
 
-		} elseif ( 'tab-2' === $active_tab ) {
+		} elseif ( 'tab-1' === $active_tab ) {
+			$audit_filters = array_filter( array(
+				'action'        => $this->sanitizeGetKey( 'action' ),
+				'actor_user_id' => $actor_id,
+				'date_from'     => $date_from,
+				'date_to'       => $date_to,
+			) );
+
+			$data['audit_filters'] = $audit_filters;
+			$data['audit_page'] = $paged;
+			$data['audit_total'] = $this->audit_log->countFiltered( $audit_filters );
+			$data['audit_rows'] = $this->audit_log->list(
+				$audit_filters,
+				$paged,
+				$per_page,
+				$log_orderby,
+				$log_order
+			);
+
+			$data['audit_actions'] = $this->audit_log->distinctActions();
+			$data['audit_actor_options'] = $this->resolveActorOptions(
+				$this->audit_log->distinctActorUserIds()
+			);
+
+		}elseif ( 'tab-2' === $active_tab ) {
 			$pii_filters = array_filter( array(
 				'actor_user_id' => $actor_id,
 				'person_id'     => $person_id,

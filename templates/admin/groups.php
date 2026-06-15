@@ -108,7 +108,7 @@ declare( strict_types=1 );
 
 <?php
 // Подключаем модальное окно добавления группы (переданные $teachers, $subjects и $academic_periods прокинутся автоматически)
-$group_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/group-modal.php';
+$group_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/enrollment/group-modal.php';
 
 if ( file_exists( $group_modal_path ) ) {
 	include $group_modal_path;

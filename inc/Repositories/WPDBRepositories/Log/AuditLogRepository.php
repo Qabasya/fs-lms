@@ -225,6 +225,34 @@ class AuditLogRepository {
 		return (int) $this->wpdb->rows_affected;
 	}
 
+	public function distinctActorUserIds(): array {
+		$ids = $this->wpdb->get_col(
+			$this->wpdb->prepare(
+				'SELECT DISTINCT actor_user_id
+			 FROM %i
+			 WHERE actor_user_id IS NOT NULL
+			 ORDER BY actor_user_id',
+				$this->table
+			)
+		);
+
+		return array_map( 'intval', $ids ?: array() );
+	}
+
+	public function distinctActions(): array {
+		$actions = $this->wpdb->get_col(
+			$this->wpdb->prepare(
+				'SELECT DISTINCT action
+			 FROM %i
+			 WHERE action IS NOT NULL
+			 ORDER BY action',
+				$this->table
+			)
+		);
+
+		return $actions ?: array();
+	}
+
 	/**
 	 * Обновление записей аудита запрещено по архитектурным причинам.
 	 *
