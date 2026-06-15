@@ -1564,17 +1564,16 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 #### Шаг 8 — AJAX-хук и колбэк
 
-- [ ] **`AjaxHook::ImportStudentsCsv = 'import_students_csv'`** — `inc/Enums/AjaxHook.php`.
-- [ ] **`ImportCallbacks`** — `inc/Callbacks/ImportCallbacks.php` (extends `BaseController`; `use Authorizer`, `use Sanitizer`). Метод `ajaxImportStudentsCsv()`:
-  1. `$this->authorize( Nonce::Manager, Capability::Admin )` (как у экспорта).
-  2. `$subjectKey = $this->requireKey('subject_key')`, `$periodId = $this->requireKey('period_id')`.
-  3. Валидация `$_FILES['file']`: `UPLOAD_ERR_OK`, расширение `.csv`, лимит размера.
-  4. `$dryRun = $this->sanitizeBool( $_POST['dry_run'] ?? false )`.
-  5. `$report = $this->importService->run( $subjectKey, $periodId, $_FILES['file']['tmp_name'], $dryRun )`.
-  6. `$this->success( $report->toArray() )`; доменные исключения → `$this->error()`.
-  - Зависимость: `ImportService`.
-- [ ] **`ImportController`** — `inc/Controllers/ImportController.php` (implements `ServiceInterface`): в `register()` — `add_action( AjaxHook::ImportStudentsCsv->action(), [ $callbacks, AjaxHook::ImportStudentsCsv->callbackMethod() ] )`.
-- [ ] Зарегистрировать `ImportController` в `Init::getServices()` (`inc/Init.php`).
+- [x] **`AjaxHook::ImportStudentsCsv = 'import_students_csv'`** — `inc/Enums/AjaxHook.php`.
+- [x] **`ImportCallbacks`** — `inc/Callbacks/ImportCallbacks.php` (extends `BaseController`; `use Authorizer`, `use Sanitizer`). Метод `ajaxImportStudentsCsv()`:
+  1. `authorize( Nonce::Manager, Capability::Admin )`.
+  2. `requireKey('subject_key')`, `requireKey('period_id')`.
+  3. `validateUploadedFile()`: `UPLOAD_ERR_OK`, `.csv`, лимит 5 МБ, `is_uploaded_file()`.
+  4. `sanitizeBool('dry_run')`.
+  5. `importService->run(...)`; `InvalidArgumentException`/`DomainException` → `$this->error()`.
+  6. `$this->success( $report->toArray() )`.
+- [x] **`ImportController`** — `inc/Controllers/ImportController.php` (extends `AjaxController` — паттерн проекта вместо raw `add_action`): `ajaxActions()` → `[ ImportStudentsCsv, ImportCallbacks ]`.
+- [x] Зарегистрирован `ImportController` в `Init::getServices()` (`inc/Init.php`) + use.
 
 #### Шаг 9 — UI: таб «Импорт» в Настройках
 

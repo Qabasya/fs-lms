@@ -64,6 +64,9 @@ enum AjaxHook: string {
 	case DeletePeriod         = 'delete_period';
 	case HardDeleteStudent    = 'hard_delete_student';
 
+	// ==================== Импорт данных ====================
+	case ImportStudentsCsv = 'import_students_csv';
+
 	// ==================== Экспорт данных ====================
 	case ExportGroups   = 'export_groups';
 	case ExportStudents = 'export_students';

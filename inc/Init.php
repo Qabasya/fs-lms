@@ -33,6 +33,7 @@ use Inc\Controllers\Subscribers\ConsentChangeSubscriber;
 use Inc\Controllers\Subscribers\EmailSubscriber;
 use Inc\Controllers\Subscribers\DeletionSubscriber;
 use Inc\Controllers\DeletionController;
+use Inc\Controllers\ImportController;
 use Inc\Controllers\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
 use Inc\Contracts\ClockInterface;
@@ -92,6 +93,7 @@ final class Init {
 			RecoveryController::class,
 			ExpulsionController::class,
 			DeletionController::class,
+			ImportController::class,   // Импорт учеников из CSV
 			SettingsController::class,
 			LogsController::class,
 			AuthLogController::class,
