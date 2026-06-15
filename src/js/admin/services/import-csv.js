@@ -107,11 +107,17 @@ export const ImportCsv = {
             return;
         }
 
+        const $subject = $( '#fs-import-subject' );
+        const $period  = $( '#fs-import-period' );
+
+        this._subjectName = $subject.find( 'option:selected' ).text().trim();
+        this._periodName  = $period.find( 'option:selected' ).text().trim();
+
         const data = new FormData();
         data.append( 'action', fs_lms_vars.ajax_actions.importStudentsCsv );
         data.append( 'security', fs_lms_vars.nonces.manager );
-        data.append( 'subject_key', $( '#fs-import-subject' ).val() );
-        data.append( 'period_id', $( '#fs-import-period' ).val() );
+        data.append( 'subject_key', $subject.val() );
+        data.append( 'period_id', $period.val() );
         data.append( 'dry_run', $( '#fs-import-dry-run' ).is( ':checked' ) ? '1' : '0' );
         data.append( 'file', fileInput.files[ 0 ] );
 
@@ -127,7 +133,7 @@ export const ImportCsv = {
         } )
             .done( ( response ) => {
                 if ( response && response.success ) {
-                    this.renderReport( response.data );
+                    this.renderReport( response.data, this._subjectName, this._periodName );
                 } else {
                     showNotice( ( response && response.data ) || 'Ошибка импорта.', 'error', this.$container );
                 }
@@ -139,15 +145,23 @@ export const ImportCsv = {
     /**
      * Рендерит отчёт импорта.
      *
-     * @param {{created:number, skipped:number, errors:Object, dry_run:boolean}} report Отчёт.
+     * @param {{created:number, skipped:number, errors:Object, dry_run:boolean}} report   Отчёт.
+     * @param {string} subjectName Название предмета.
+     * @param {string} periodName  Название периода.
      */
-    renderReport( report ) {
+    renderReport( report, subjectName = '', periodName = '' ) {
         const errors = report.errors || {};
         const rows = Object.keys( errors );
         const mode = report.dry_run ? 'Проверка (dry-run)' : 'Импорт';
 
-        let html = '<h2 class="fs-import-report__title">' + mode + ' завершён</h2>';
+        let html = '<h2 class="fs-import-report__title">' + escapeHtml( mode ) + ' завершён</h2>';
         html += '<ul class="fs-import-report__summary">';
+        if ( subjectName ) {
+            html += '<li>Предмет: <strong>' + escapeHtml( subjectName ) + '</strong></li>';
+        }
+        if ( periodName ) {
+            html += '<li>Период: <strong>' + escapeHtml( periodName ) + '</strong></li>';
+        }
         html += '<li>Создано: <strong>' + ( report.created || 0 ) + '</strong></li>';
         html += '<li>Пропущено: <strong>' + ( report.skipped || 0 ) + '</strong></li>';
         html += '<li>Ошибок: <strong>' + rows.length + '</strong></li>';

@@ -116,7 +116,7 @@ $sort_url    = add_query_arg( $entity_audit_filters, $base_url );
 				<th class="tw-10">Операция</th>
 				<th class="tw-10">Тип сущности</th>
 				<th>Сущность</th>
-				<th>Прошлое название</th>
+				<th>Прошлое значение</th>
 				<th class="tw-5">IP</th>
 			</tr>
 			</thead>
@@ -154,7 +154,7 @@ $sort_url    = add_query_arg( $entity_audit_filters, $base_url );
 						<?php endif; ?>
 					</td>
 					<td>
-						<?php echo $row->oldLabel ? esc_html( $row->oldLabel ) : '—'; ?>
+						<?php echo ( OperationType::Update === $op ) ? esc_html( $row->oldLabel ?? '' ) : ''; ?>
 					</td>
 					<td><?php echo esc_html( $row->actorIp ?? '—' ); ?></td>
 				</tr>

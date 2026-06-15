@@ -2,6 +2,7 @@
 
 declare( strict_types=1 );
 
+use Inc\DTO\Log\AuthLogDTO;
 use Inc\Enums\AuthAction;
 use Inc\Enums\AuthResult;
 use Inc\Services\Log\LogNameResolver;
@@ -10,7 +11,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 defined( 'ABSPATH' ) || exit;
 
 /**
- * @var \Inc\DTO\Log\AuthLogDTO[] $auth_rows
+ * @var AuthLogDTO[] $auth_rows
  * @var int                       $auth_total
  * @var int                       $auth_page
  * @var array                     $auth_filters

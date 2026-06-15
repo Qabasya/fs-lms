@@ -303,6 +303,16 @@ class StudentRecordRepository {
 		);
 	}
 
+	public function countActiveByGroup( int $groupId ): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				"SELECT COUNT(*) FROM %i WHERE group_id = %d AND status = 'active'",
+				$this->table,
+				$groupId
+			)
+		);
+	}
+
 	/**
 	 * Проверяет наличие активной записи студента в группе.
 	 *

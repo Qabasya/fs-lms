@@ -39,59 +39,63 @@ export const GroupModalManager = {
      * @private
      */
     _bindEvents() {
-        // Делегирование событий через $(document).on(...)
-        // Это необходимо, так как кнопки открытия модалки или удаления могут быть 
-        // добавлены в DOM динамически (например, после пагинации или AJAX-обновления таблицы).
         $(document).on('click', '.js-open-group-modal', (e) => this._handleOpenAddModal(e));
+        $(document).on('click', '.js-edit-group', (e) => this._handleOpenEditModal(e));
         $(document).on('click', '.js-delete-group', (e) => this._handleDelete(e));
 
-        // Подписка на событие сохранения внутри модального окна создания/редактирования группы
         GroupModal.onSave((formData) => this._handleSave(formData));
     },
 
-    /**
-     * Обработчик открытия модального окна для добавления новой группы.
-     * @private
-     * @param {jQuery.Event} e - Событие клика.
-     */
     _handleOpenAddModal(e) {
-        e.preventDefault(); // Предотвращает стандартный переход по ссылке, если кнопка является тегом <a>
+        e.preventDefault();
         GroupModal.open('add');
     },
 
-    /**
-     * Обработчик сохранения данных группы (создание или обновление).
-     * @private
-     * @param {Object} formData - Данные, собранные из формы модального окна.
-     */
+    _handleOpenEditModal(e) {
+        e.preventDefault();
+        const $row = $(e.currentTarget).closest('tr');
+        const schedule = (() => {
+            try { return JSON.parse($row.data('schedule') || '[]'); } catch { return []; }
+        })();
+        GroupModal.open('edit', {
+            id:         $row.data('group-id'),
+            title:      $row.data('group-name'),
+            period_id:  $row.data('period-id'),
+            subject_id: $row.data('subject-key'),
+            teacher_id: $row.data('teacher-id') || '',
+            schedule,
+        });
+    },
+
     _handleSave(formData) {
-        // Блокируем кнопку сохранения и показываем индикатор загрузки.
-        // Это защищает от двойного клика и отправки дублирующихся запросов на сервер.
         GroupModal.setSaveState(true);
 
-        $.post(fs_lms_vars.ajaxurl, {
-            action:         fs_lms_vars.ajax_actions.saveStudentGroup,
-            security:       fs_lms_vars.nonces.manager, // CSRF-токен для безопасности
-            title:          formData.title,
-            period_id:      formData.period_id,
-            subject_id:     formData.subject_id,
-            teacher_id:     formData.teacher_id,
-            schedule_json:  formData.schedule_json,
-        })
+        const isEdit = formData.action_type === 'edit';
+        const payload = {
+            action:        isEdit ? fs_lms_vars.ajax_actions.updateStudentGroup : fs_lms_vars.ajax_actions.saveStudentGroup,
+            security:      fs_lms_vars.nonces.manager,
+            teacher_id:    formData.teacher_id,
+            schedule_json: formData.schedule_json,
+        };
+
+        if (isEdit) {
+            payload.id = formData.id;
+        } else {
+            payload.title     = formData.title;
+            payload.period_id = formData.period_id;
+            payload.subject_id = formData.subject_id;
+        }
+
+        $.post(fs_lms_vars.ajaxurl, payload)
             .done((res) => {
                 if (res.success) {
-                    // Простейший способ актуализировать данные на странице после успешного сохранения
                     location.reload();
                 } else {
-                    // Показываем ошибку внутри тела модального окна.
-                    // Цепочка fallback-значений (?.message || res.data || '...') гарантирует, 
-                    // что пользователь увидит осмысленное сообщение даже при нестандартном формате ответа от сервера.
                     showNotice(res.data?.message || res.data || 'Ошибка сохранения группы.', 'error', GroupModal.$modal.find('.fs-lms-modal-body'));
-                    GroupModal.setSaveState(false); // Разблокируем кнопку для повторной попытки
+                    GroupModal.setSaveState(false);
                 }
             })
             .fail(() => {
-                // Обработка сетевых ошибок (потеря соединения, ошибка 500)
                 apiError('Failed to save student group');
                 GroupModal.setSaveState(false);
             });
@@ -112,7 +116,7 @@ export const GroupModalManager = {
 
         // Извлекаем имя группы напрямую из DOM-структуры таблицы.
         // .trim() удаляет случайные пробелы или переносы строк, которые могут быть в HTML.
-        const name  = $row.find('.column-title strong').text().trim();
+        const name  = $row.data('group-name') || $row.find('.column-title strong').text().trim();
 
         toggleButton($btn, true, '...');
 

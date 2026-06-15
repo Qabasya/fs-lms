@@ -25,6 +25,7 @@ use Inc\Repositories\WPDBRepositories\Log\ExportLogRepository;
 use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
 use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -64,6 +65,7 @@ class AdminCallbacks extends BaseController {
 	 * @param BoilerplatePageController $boilerplatePageController Контроллер страницы boilerplate
 	 * @param AcademicPeriodService     $period_service            Сервис учебных периодов
 	 * @param GroupsRepository          $groupsRepository          Репозиторий групп
+	 * @param StudentRecordRepository   $studentRecordRepository   Репозиторий записей студентов
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -72,6 +74,7 @@ class AdminCallbacks extends BaseController {
 		private readonly BoilerplatePageController $boilerplatePageController,
 		private readonly AcademicPeriodService $period_service,
 		private readonly GroupsRepository $groupsRepository,
+		private readonly StudentRecordRepository $studentRecordRepository,
 		private readonly EntityAuditLogRepository  $entity_audit_log,
 		private readonly AuditLogRepository        $audit_log,
 		private readonly PiiAccessLogRepository    $pii_log,
@@ -130,8 +133,16 @@ class AdminCallbacks extends BaseController {
 			$selected_period_id = $current_period['id'] ?? '';
 		}
 
+		$filter_subject_key = $this->sanitizeGetKey( 'subject_key' );
+		$filter_teacher_id  = $this->sanitizeGetInt( 'teacher_id' );
+
+		$groups_filters = array_filter( array(
+			'subject_key' => $filter_subject_key,
+			'teacher_id'  => $filter_teacher_id > 0 ? $filter_teacher_id : '',
+		) );
+
 		$groups   = '' !== $selected_period_id
-			? $this->groupsRepository->findByPeriodId( $selected_period_id )
+			? $this->groupsRepository->findByFilters( $selected_period_id, $filter_subject_key, $filter_teacher_id )
 			: array();
 		$subjects = $this->subjects->readAll();
 		$teachers = $this->users->getByRole( \Inc\Enums\UserRole::FSTeacher );
@@ -147,8 +158,13 @@ class AdminCallbacks extends BaseController {
 				'title'        => $g->name,
 				'period_name'  => $raw_periods[ $g->academic_period_id ]['name'] ?? $g->academic_period_id,
 				'subject_name' => $subjects[ $g->subject_key ]->name ?? $g->subject_key,
+				'teacher_id'   => $g->teacher_id ? (int) $g->teacher_id : null,
 				'teacher_name' => $g->teacher_id ? ( $teacher_map[ (int) $g->teacher_id ] ?? "#{$g->teacher_id}" ) : '—',
 				'schedule'     => WeekDay::formatScheduleFull( json_decode( $g->schedule ?? '[]', true ) ?: array() ),
+				'schedule_raw' => $g->schedule ?? '[]',
+				'period_id'    => $g->academic_period_id,
+				'subject_key'  => $g->subject_key,
+				'active_count' => $this->studentRecordRepository->countActiveByGroup( (int) $g->id ),
 			),
 			$groups
 		);
@@ -161,6 +177,7 @@ class AdminCallbacks extends BaseController {
 				'current_period'     => $current_period,
 				'other_periods'      => $other_periods,
 				'selected_period_id' => $selected_period_id,
+				'groups_filters'     => $groups_filters,
 				'groups_view'        => $groups_view,
 				'teachers'           => $teachers,
 			)

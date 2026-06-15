@@ -125,12 +125,28 @@ class GroupsRepository {
 	 * @return array
 	 */
 	public function findByPeriodId( string $periodId ): array {
+		return $this->findByFilters( $periodId );
+	}
+
+	public function findByFilters( string $periodId, string $subjectKey = '', int $teacherId = 0 ): array {
+		$where    = array( 'academic_period_id = %s' );
+		$bindings = array( $this->table, $periodId );
+
+		if ( '' !== $subjectKey ) {
+			$where[]    = 'subject_key = %s';
+			$bindings[] = $subjectKey;
+		}
+
+		if ( $teacherId > 0 ) {
+			$where[]    = 'teacher_id = %d';
+			$bindings[] = $teacherId;
+		}
+
+		$sql = 'SELECT * FROM %i WHERE ' . implode( ' AND ', $where ) . ' ORDER BY name ASC';
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		return $this->wpdb->get_results(
-			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE academic_period_id = %s ORDER BY name ASC',
-				$this->table,
-				$periodId
-			)
+			$this->wpdb->prepare( $sql, $bindings )
 		) ?: array();
 	}
 
