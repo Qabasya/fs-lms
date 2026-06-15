@@ -324,6 +324,30 @@ class StudentRecordRepository {
 	}
 
 	/**
+	 * Проверяет наличие записи студента в группе с указанным номером договора.
+	 *
+	 * Дедупликация при импорте: повторная загрузка того же файла не должна
+	 * создавать дубль (проверка по любому статусу записи).
+	 *
+	 * @param int    $studentPersonId ID студента
+	 * @param int    $groupId         ID группы
+	 * @param string $contractNo      Номер договора
+	 *
+	 * @return bool
+	 */
+	public function existsByContract( int $studentPersonId, int $groupId, string $contractNo ): bool {
+		return 0 < (int) $this->wpdb->get_var(
+				$this->wpdb->prepare(
+					'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND group_id = %d AND contract_no = %s',
+					$this->table,
+					$studentPersonId,
+					$groupId,
+					$contractNo
+				)
+			);
+	}
+
+	/**
 	 * Создаёт новую запись студента.
 	 *
 	 * @param StudentRecordInputDTO $dto DTO с полями для вставки

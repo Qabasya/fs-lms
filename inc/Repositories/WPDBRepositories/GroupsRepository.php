@@ -95,6 +95,29 @@ class GroupsRepository {
 	}
 
 	/**
+	 * Находит группу по названию в рамках предмета и периода (find-or-create при импорте).
+	 *
+	 * @param string $name       Название группы
+	 * @param string $subjectKey Ключ предмета
+	 * @param string $periodId   ID учебного периода
+	 *
+	 * @return object|null Найденная группа или null
+	 */
+	public function findByNameSubjectPeriod( string $name, string $subjectKey, string $periodId ): ?object {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE name = %s AND subject_key = %s AND academic_period_id = %s LIMIT 1',
+				$this->table,
+				$name,
+				$subjectKey,
+				$periodId
+			)
+		);
+
+		return $row ?: null;
+	}
+
+	/**
 	 * Находит все группы по ID периода.
 	 *
 	 * @param string $periodId ID учебного периода

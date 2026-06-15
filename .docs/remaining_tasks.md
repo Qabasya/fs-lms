@@ -1530,9 +1530,9 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 `StudentRecordRepository::setExpelled()` жёстко ставит `status='expelled'` — не годится для `finished`/`transferred`. Импорт пишет запись одним insert с правильным статусом.
 
-- [ ] **`StudentRecordInputDTO`** — `inc/DTO/Enrollment/StudentRecordInputDTO.php`: добавить поля `?string $expelledAt = null`, `?string $expelReason = null`, `?int $expelledByUserId = null`; включить их в `toArray()` (только когда не null).
-- [ ] **`StudentRecordRepository::existsByContract( int $studentPersonId, int $groupId, string $contractNo ): bool`** — `inc/Repositories/WPDBRepositories/StudentRecordRepository.php`. Дедуп записи (любой статус).
-- [ ] **`GroupsRepository::findByNameSubjectPeriod( string $name, string $subjectKey, string $periodId ): ?object`** — `inc/Repositories/WPDBRepositories/GroupsRepository.php`. Поиск дубля группы.
+- [x] **`StudentRecordInputDTO`** — `inc/DTO/Enrollment/StudentRecordInputDTO.php`: добавлены поля `?string $expelledAt`, `?string $expelReason`, `?int $expelledByUserId` + в `toArray()` (null → NULL в insert, регрессии для `enroll()` нет — колонки nullable).
+- [x] **`StudentRecordRepository::existsByContract( int $studentPersonId, int $groupId, string $contractNo ): bool`** — `inc/Repositories/WPDBRepositories/StudentRecordRepository.php`. Дедуп записи (любой статус).
+- [x] **`GroupsRepository::findByNameSubjectPeriod( string $name, string $subjectKey, string $periodId ): ?object`** — `inc/Repositories/WPDBRepositories/GroupsRepository.php`. Поиск дубля группы.
 
 #### Шаг 5 — Провайдер импорта строки (ядро)
 
