@@ -42,28 +42,6 @@ class Activate {
 	 * @return void
 	 */
 	public static function activate(): void {
-		if ( ! PiiCryptoService::isAvailable() ) {
-			wp_die(
-				'<h1>FS LMS: Ошибка активации</h1>'
-				. '<p>Плагин не может быть активирован без настроенного шифрования персональных данных.</p>'
-				. '<p>Добавьте в файл <code>wp-config.php</code> следующие константы:</p>'
-				. '<pre>'
-				. "define('FS_LMS_ENC_KEY', '&lt;base64_ключ_32_байта&gt;');\n"
-				. "define('FS_LMS_HASH_SALT', '&lt;случайная_строка&gt;');"
-				. '</pre>'
-				. '<p>Для генерации ключа выполните в терминале:</p>'
-				. '<pre>php -r "echo base64_encode(sodium_crypto_secretbox_keygen());"</pre>'
-				. '<p>Для `FS_LMS_HASH_SALT` подойдёт любая уникальная строка.</p>'
-				. '<p>Рекомендуется использовать генератор случайных паролей или выполнить:</p>'
-				. '<pre>php -r "echo bin2hex(random_bytes(32));"</pre>',
-				'FS LMS — Требуется настройка шифрования',
-				array(
-					'response'  => 200,
-					'back_link' => true,
-				)
-			);
-		}
-
 		// Создание экземпляра DI-контейнера
 		$container = new Container();
 
@@ -97,13 +75,10 @@ class Activate {
 	 * @return void
 	 */
 	public static function showConfigNotice(): void {
+		$config_url = admin_url( 'admin.php?page=fs_lms_settings&tab=tab-7' );
 		echo '<div class="notice notice-error"><p>'
-			. '<strong>FS LMS:</strong> Плагин не запущен — добавьте в <code>wp-config.php</code> следующие константы:'
-			. '</p><pre style="margin:4px 0">'
-			. "define('FS_LMS_ENC_KEY', '&lt;base64_ключ_32_байта&gt;');\n"
-			. "define('FS_LMS_HASH_SALT', '&lt;случайная_строка&gt;');"
-			. '</pre><p>'
-			. 'Сгенерировать ключ: <code>php -r "echo base64_encode(sodium_crypto_secretbox_keygen());"</code>'
+			. '<strong>FS LMS:</strong> Ключи шифрования не настроены — плагин работает в ограниченном режиме. '
+			. '<a href="' . esc_url( $config_url ) . '"><strong>Перейти к настройке &rarr;</strong></a>'
 			. '</p></div>';
 	}
 

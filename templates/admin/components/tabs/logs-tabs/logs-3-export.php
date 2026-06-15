@@ -36,7 +36,7 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
 
 <div class="fs-logs-tab" id="js-export-log-tab">
     <p class="description fs-mt-md">
-        Каждый экспорт или импорт данных фиксируется здесь.
+        Каждый экспорт данных фиксируется здесь.
     </p>
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
@@ -92,8 +92,7 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
                 <th class="tw-10">Пользователь</th>
 				<th class="tw-20">Тип данных</th>
 				<th>Действие</th>
-				<th>Тип операции</th>
-				<th class="tw-10">ID целей</th>
+				<th>ID целей</th>
                 <th class="tw-5">IP</th>
 			</tr>
 			</thead>
@@ -107,17 +106,6 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td><?php echo esc_html( ExportDataType::tryFrom( $row->dataType )?->label() ?? $row->dataType ); ?></td>
 					<td><?php echo esc_html( ExportActionType::tryFrom( $row->actionType )?->label() ?? $row->actionType ); ?></td>
-                    <td>
-                        <?php
-                        echo esc_html(
-                                match ($row->operationType) {
-                                    'export' => 'Экспорт',
-                                    'import' => 'Импорт',
-                                    default => $row->operationType,
-                                }
-                        );
-                        ?>
-                    </td>
 					<td>
 						<?php if ( ! empty( $ids ) ) : ?>
 							<?php echo esc_html( implode( ', ', array_slice( $ids, 0, 10 ) ) ); ?><?php echo count( $ids ) > 10 ? ' …' : ''; ?>

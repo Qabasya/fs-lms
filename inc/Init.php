@@ -22,6 +22,7 @@ use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
 use Inc\Controllers\Pages\TaskPageController;
 use Inc\Controllers\LogsController;
+use Inc\Controllers\ConfigController;
 use Inc\Controllers\SettingsController;
 use Inc\Controllers\Subscribers\AuthLogController;
 use Inc\Controllers\Subscribers\EntityAuditSubscriber;
@@ -94,6 +95,7 @@ final class Init {
 			ExpulsionController::class,
 			DeletionController::class,
 			ImportController::class,   // Импорт учеников из CSV
+			ConfigController::class,
 			SettingsController::class,
 			LogsController::class,
 			AuthLogController::class,

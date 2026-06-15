@@ -34,6 +34,10 @@ $tabs = array(
 		'title' => 'Импорт',
 		'file'  => '/components/tabs/settings-tabs/settings-6-import.php',
 	),
+	'tab-7' => array(
+		'title' => 'Конфигурация',
+		'file'  => '/components/tabs/settings-tabs/settings-7-config.php',
+	),
 );
 ?>
 

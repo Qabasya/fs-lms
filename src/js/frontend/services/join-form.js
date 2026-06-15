@@ -5,6 +5,7 @@
  */
 import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { initDadataAddress } from './dadata-address.js';
+import { createDadataSuggest } from './dadata-suggest.js';
 import { bindPhoneMask, formatPassportSN } from '../../common/input-masks.js';
 
 let validateAll   = null;
@@ -233,6 +234,49 @@ async function handleJoinSubmit( e ) {
     showSuccess();
 }
 
+// ── DaData подсказки ──────────────────────────────────────────────────────────
+
+function initDadataSuggests( token ) {
+	if ( ! token ) { return; }
+
+	const fioFields = [
+		{ id: 'fs_student_last_name',   parts: 'SURNAME' },
+		{ id: 'fs_student_first_name',  parts: 'NAME' },
+		{ id: 'fs_student_middle_name', parts: 'PATRONYMIC' },
+		{ id: 'fs_parent_last_name',    parts: 'SURNAME' },
+		{ id: 'fs_parent_first_name',   parts: 'NAME' },
+		{ id: 'fs_parent_middle_name',  parts: 'PATRONYMIC' },
+	];
+
+	fioFields.forEach( ( { id, parts } ) => {
+		const input = document.getElementById( id );
+		if ( ! input ) { return; }
+		createDadataSuggest( input, {
+			endpoint:  'fio',
+			buildBody: ( query ) => ( { query, count: 5, parts: [ parts ] } ),
+			getValue:  ( s ) => s.value,
+		}, token );
+	} );
+
+	const issuedBy = document.getElementById( 'fs_doc_issued_by' );
+	if ( issuedBy ) {
+		createDadataSuggest( issuedBy, {
+			endpoint:  'fms_unit',
+			buildBody: ( query ) => ( { query, count: 5 } ),
+			getValue:  ( s ) => s.value,
+		}, token );
+	}
+
+	const email = document.getElementById( 'fs_parent_email' );
+	if ( email ) {
+		createDadataSuggest( email, {
+			endpoint:  'email',
+			buildBody: ( query ) => ( { query, count: 5 } ),
+			getValue:  ( s ) => s.value,
+		}, token );
+	}
+}
+
 // ── Инициализация ─────────────────────────────────────────────────────────────
 
 export function initJoinForm() {
@@ -251,7 +295,10 @@ export function initJoinForm() {
     initPhoneMasks();
     initStudentDocType();
     initParentDocType();
-    initDadataAddress( vars.dadata_token ?? '' );
+
+    const dadataToken = vars.dadata_token ?? '';
+    initDadataAddress( dadataToken );
+    initDadataSuggests( dadataToken );
 
     form.addEventListener( 'submit', handleJoinSubmit );
 }

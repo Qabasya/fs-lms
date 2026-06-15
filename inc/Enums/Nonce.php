@@ -45,6 +45,7 @@ enum Nonce: string {
 	case DeleteGroup              = 'fs_lms_delete_group';
 	case DeletePeriod             = 'fs_lms_delete_period';
 	case HardDeleteStudent        = 'fs_lms_hard_delete_student';
+	case Config                   = 'fs_lms_config';
 
 	/**
 	 * Создает защитный токен.

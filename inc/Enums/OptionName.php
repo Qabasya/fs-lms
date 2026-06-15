@@ -63,4 +63,7 @@ enum OptionName: string {
 
 	/** Option group */
 	case AuthGroups = 'fs_lms_auth_group';
+
+	/** Конфигурация плагина: DaData-токен, тест-окружение, OTP bypass-код */
+	case PluginConfig = 'fs_lms_plugin_config';
 }

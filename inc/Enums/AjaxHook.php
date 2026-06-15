@@ -67,6 +67,10 @@ enum AjaxHook: string {
 	// ==================== Импорт данных ====================
 	case ImportStudentsCsv = 'import_students_csv';
 
+	// ==================== Настройки: конфигурация ====================
+	case SaveConfig   = 'save_config';
+	case GenerateKey  = 'generate_key';
+
 	// ==================== Экспорт данных ====================
 	case ExportGroups   = 'export_groups';
 	case ExportStudents = 'export_students';

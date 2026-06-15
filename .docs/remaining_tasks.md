@@ -1886,31 +1886,124 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 ---
 
-### 8. Подсказки с помощью Dadata
-В форму join.php
-- Добавить в поля ввода ФИО подсказки по ФИО от сервиса DADATA https://dadata.ru/api/suggest/name/
-- Добавить подсказки в поле "Кем выдан документ" от сервиса DADATA  https://dadata.ru/api/suggest/fms_unit/
-- Добавить подсказки в поле "E-mail" от сервиса DADATA  https://dadata.ru/api/suggest/email/
-- Проверить возможность подставлять ИНН по данному сервису https://gist.github.com/nalgeon/547e95d4f6b7a8b06bcdc9de3c87856a
+### 8. Подсказки с помощью Dadata (форма `join.php`)
+
+**Решения:** email-подсказки — включаем; охват — только `join.php` (компонент пишем переиспользуемым, apply.php — позже при желании); ИНН — только checksum (auto-fill по ФИО через DaData невозможен).
+
+**Уже есть (фундамент):**
+- Адресные подсказки работают: `src/js/frontend/services/dadata-address.js` (debounce, дропдаун, клавиатура ↑↓/Enter/Esc, ARIA), привязан к `#fs_address`. Токен `DADATA_API_TOKEN` → `fs_lms_join_vars.dadata_token` (только страница `join`, `Enqueue.php`). Стили `.fs-dadata-suggestions` в `_join-form.scss`.
+- ИНН checksum (алгоритм из gist) уже реализован в `src/js/common/validators/InnValidator.js`.
+
+**Архитектура:** обобщить адресный сервис в generic-компонент, конфиги — тонкие.
+
+- [ ] **`dadata-suggest.js`** — `src/js/frontend/services/dadata-suggest.js`: вынести из `dadata-address.js` всю UI-логику в reusable `createDadataSuggest( input, { endpoint, buildBody(query), getValue(s) }, token )` (дропдаун, debounce, клавиатура, ARIA, close/select). Без изменения поведения.
+- [ ] **Адрес через generic** — переписать существующую адресную подсказку поверх `createDadataSuggest` (endpoint `.../suggest/address`); `dadata-address.js` оставить тонкой обёрткой или удалить, поправив импорт в `join-form.js`.
+- [ ] **ФИО** (`.../suggest/fio`) — 6 полей, у каждого свой `parts`:
+  - `#fs_student_last_name`, `#fs_parent_last_name` → `parts: ['SURNAME']`
+  - `#fs_student_first_name`, `#fs_parent_first_name` → `parts: ['NAME']`
+  - `#fs_student_middle_name`, `#fs_parent_middle_name` → `parts: ['PATRONYMIC']`
+  - тело `{ query, count: 7, parts }`, значение `suggestion.value`.
+- [ ] **«Кем выдан»** (`.../suggest/fms_unit`) — `#fs_doc_issued_by`; тело `{ query, count: 7 }`, значение `suggestion.value` (поиск по названию или 6-значному коду).
+- [ ] **E-mail** (`.../suggest/email`) — `#fs_parent_email`; тело `{ query, count: 5 }`, значение `suggestion.value`.
+- [ ] **Инициализация** всех конфигов в `join-form.js` под guard `vars.dadata_token` (нет токена → тихо ничего).
+- [ ] **Стили** — обобщить `.fs-dadata-suggestions` (если завязаны на адрес) для всех полей; позиционирование от `input.parentElement` (поля в `.fs-form-group`). Токены `_variables`, без инлайна.
+- [ ] **Сборка** `npx gulp scripts` + `npm run lint:js`; ручная проверка в браузере (фронтенд — чистый JS, unit-харнеса нет; pure-конфиги можно вынести для теста при необходимости).
+- [x] **ИНН checksum** — реализован в `InnValidator.js` (gist). Подстановка ИНН по ФИО через DaData **невозможна** (приватность; нет name→INN). Альтернатива — сервис ФНС «Узнать ИНН» (паспорт+ФИО+ДР, captcha/согласие, серверный прокси) — вне объёма, при необходимости оформить отдельной задачей.
+
+**Оговорки:** suggest-токен read-only и штатно используется на клиенте (как адрес); лимит ~10k запросов/день — при росте перейти на серверный прокси (AJAX); зависит от наличия `DADATA_API_TOKEN` (UI для токена — п.9).
 
 
 ---
 
-### 9. Дополнительная страница 
+### 9. Конфигурация (таб «Настройки → Конфигурация»)
 
-Рассмотреть возможность сделать еще один таб в пункте меню "Настройки" для user-friendly установки констант в wp-config: 
-1. токен DaData (input) Добавить кнопку для ссылки на https://dadata.ru/api/
-2. FS_LMS_ENC_KEY - рассмотреть возможность активации плагина, но с висящим showNotice (ошибка) что необходимо установить ключ шифрования, перед началом работы с плагином. Добавить кнопку для автоматической генерации ключа
-3. FS_LMS_HASH_SALT (input) Добавить кнопку для автоматической генерации ключа
-4. FS_LMS_TEST_ENV - чекбокс - "включить Тестовое окружение" 
-5. FS_LMS_OTP_BYPASS_CODE - при включенном тестовом окружении разблокируется input (с ограничением ввода от 2 до 6 цифр)
+Новый таб в «Настройках» для user-friendly управления константами плагина. Пять констант:
 
-Формат (слева направо для каждого пункта): 
-1. Текст - название константы 
-2. Инпут (или чекбокс для FS_LMS_TEST_ENV)
-3. Кнопка (1 - ссылка, 2-3 генерировать, 4 - подтвердить, 5 - без кнопки)
+1. `DADATA_API_TOKEN` (input) + кнопка-ссылка на https://dadata.ru/api/
+2. `FS_LMS_ENC_KEY` — допустить активацию плагина без ключа, но с висящим error-notice «установите ключ шифрования»; кнопка автогенерации.
+3. `FS_LMS_HASH_SALT` (input) + кнопка автогенерации.
+4. `FS_LMS_TEST_ENV` — чекбокс «включить Тестовое окружение».
+5. `FS_LMS_OTP_BYPASS_CODE` — input (2–6 цифр), разблокируется только при включённом тест-окружении.
 
-Снизу кнопка "Сохранить изменения" - по аналогии с settings-2-auth-manager
+Формат строки (слева направо): название константы · input/чекбокс · кнопка (1 — ссылка, 2–3 — генерировать, 4 — подтвердить, 5 — без кнопки). Снизу — «Сохранить изменения» (вёрстка по образцу `settings-2-auth-manager`).
+
+#### Зафиксированные решения (гибрид по threat-модели)
+
+Константы **не одного класса** — хранение разделено по модели угроз (самый частый вектор утечки — дамп БД).
+
+| Константа | Хранение | Кнопка | Защита |
+|---|---|---|---|
+| `FS_LMS_ENC_KEY` | **только wp-config** (генерация → копипаст; в БД НИКОГДА) | Сгенерировать (на сервере) | блок регенерации, если в БД уже есть зашифрованные данные |
+| `FS_LMS_HASH_SALT` | **только wp-config** (генерация → копипаст) | Сгенерировать (на сервере) | — |
+| `DADATA_API_TOKEN` | `wp_options` + фоллбэк | Ссылка на dadata.ru | константа > опция |
+| `FS_LMS_TEST_ENV` | `wp_options` + фоллбэк | чекбокс | константа > опция |
+| `FS_LMS_OTP_BYPASS_CODE` | `wp_options` + фоллбэк | — (input 2–6 цифр, активен при TEST_ENV) | константа > опция |
+
+**Принцип ключей:** `FS_LMS_ENC_KEY`/`FS_LMS_HASH_SALT` защищают данные-в-покое (`person_documents`, hash-колонки). Положить их в `wp_options` = отдать в том же дампе и шифротекст, и ключ → аннулирует `PiiCryptoService`. Поэтому плагин их **не сохраняет** — только генерирует значение на сервере (`sodium_crypto_secretbox_keygen` / `random_bytes(32)`), показывает в readonly-поле + «Скопировать» + готовую строку `define(...)` для вставки в `wp-config.php`. Чтение остаётся `defined()`-only в `PiiCryptoService` — **не трогаем**. Автозапись в `wp-config.php` не делаем (web-серверу не положен write-доступ к конфигу; риск RCE-переписи и порчи инсталляции).
+
+**Приоритет «константа > опция»:** для мягкой тройки если `defined()` — поле read-only «Задано в wp-config.php», «Сохранить» его не трогает; иначе значение берётся из опции.
+
+> ⚠️ **Security-оговорка по `FS_LMS_TEST_ENV`/`FS_LMS_OTP_BYPASS_CODE`:** они гейтят пропуск капчи, OTP-bypass и rate-limit. Делая их DB-настраиваемыми, мы понижаем гейт с «нужен доступ к ФС (wp-config)» до «галочка в админке под `Capability::Admin`». Для прод-харденинга — задать их константой в wp-config (тогда UI-поле залочено). По умолчанию опция выкл.
+
+#### Архитектура
+
+- **`PluginConfig`** (`inc/Services/Shared/PluginConfig.php`, readonly, DI) — единая точка чтения **мягкой тройки** с фоллбэком «константа > опция»:
+  - `dadataToken(): string`, `isTestEnv(): bool`, `otpBypassCode(): string`.
+  - Статус для UI (только `defined()`-флаги, значений ключей не читает): `isDefinedInConfig(ConfigConstant): bool`, `isEncKeySet(): bool`, `isHashSaltSet(): bool`.
+  - `viewState(): array` — payload для шаблона. **Мягкая тройка**: `value` (текущее значение для префилла инпутов), `defined_in_config`, `editable`. **Ключи**: только `set: bool` — значение НИКОГДА не попадает в payload/HTML. Плюс `has_encrypted_data` (для блока регенерации ENC_KEY).
+  - Запись мягкой тройки — через `PluginConfigRepository` (merge, не перезатирать всю опцию). **ENC_KEY/HASH_SALT через PluginConfig не читаются и не пишутся** — остаются `defined()`-only в `PiiCryptoService`.
+- **`ConfigConstant`** (`inc/Enums/ConfigConstant.php`, backed string enum) — `DadataToken='DADATA_API_TOKEN'`, `EncKey='FS_LMS_ENC_KEY'`, `HashSalt='FS_LMS_HASH_SALT'`, `TestEnv='FS_LMS_TEST_ENV'`, `OtpBypassCode='FS_LMS_OTP_BYPASS_CODE'` + `label()` + `isSecret(): bool` (true для ключей — определяет «копипаст vs опция»).
+- **`PluginConfigRepository`** (`inc/Repositories/OptionsRepositories/PluginConfigRepository.php`) — `get(): array`, `save(array $partial): void` (мерж в `OptionName::PluginConfig`).
+- **`OptionName::PluginConfig = 'fs_lms_plugin_config'`** — новый кейс.
+
+#### Пошаговый план
+
+**Шаг 1 — Ядро чтения + рефактор источников**
+
+- [ ] `OptionName::PluginConfig` + `ConfigConstant` enum + `PluginConfigRepository`.
+- [ ] `PluginConfig` сервис (методы выше).
+- [ ] Перевести чтение **мягкой тройки** на `PluginConfig` (ключи не трогаем):
+  - `Enqueue.php:280` (`DADATA_API_TOKEN`) → `$this->config->dadataToken()` (инжектить `PluginConfig` в `Enqueue`).
+  - `ApplicationCallbacks.php:92,195` (`FS_LMS_TEST_ENV`) → `$this->config->isTestEnv()`.
+  - `RateLimitService.php:56,68,80` (`FS_LMS_TEST_ENV`) → `$this->config->isTestEnv()`.
+  - `EmailOtpService.php:93` (`FS_LMS_OTP_BYPASS_CODE`) → сравнение с `$this->config->otpBypassCode()`.
+  - `HASH_SALT`/`ENC_KEY` (`PiiCryptoService`, `RateLimitService:122`, `EmailOtpService:171`) — **без изменений**.
+
+**Шаг 2 — AJAX: сохранение и генерация**
+
+- [ ] `AjaxHook`: `SaveConfig='save_config'`, `GenerateKey='generate_key'`. `Nonce`: `Config`.
+- [ ] `ConfigCallbacks` (`inc/Callbacks/Settings/ConfigCallbacks.php`; `use Authorizer, Sanitizer`):
+  - `ajaxSaveConfig()`: `authorize(Nonce::Config, Capability::Admin)`; читает `dadata_token` (`sanitizeText`), `test_env` (`sanitizeBool`), `otp_bypass_code` (валидация 2–6 цифр, если непусто); пишет через `PluginConfigRepository::save()`, **пропуская** константы, заданные в wp-config; `success`.
+  - `ajaxGenerateKey()`: `authorize(...)`; параметр `type` = `enc_key|hash_salt`; генерит (`enc_key`→`base64_encode(sodium_crypto_secretbox_keygen())`, `hash_salt`→`bin2hex(random_bytes(32))`); **не сохраняет** — возвращает значение + готовую строку `define(...)`. Для `enc_key`: если `PersonDocumentsRepository::hasAny()` и ключ уже задан → `error` («перегенерация уничтожит данные»), кроме случая `confirm=1`.
+- [ ] `PersonDocumentsRepository::hasAny(): bool` (COUNT > 0) — для блокировки регенерации.
+- [ ] `ConfigController` (extends `AjaxController`): `ajaxActions()` → `[[SaveConfig, ConfigCallbacks],[GenerateKey, ConfigCallbacks]]`. Регистрация в `Init::getServices()`.
+
+**Шаг 3 — UI**
+
+- [ ] `settings.php`: `tab-7 => ['title' => 'Конфигурация', 'file' => 'settings-7-config.php']`.
+- [ ] `AdminCallbacks::settingsPage()`: инжектить `PluginConfig`, передать `'config' => $this->config->viewState()`.
+- [ ] `settings-7-config.php` — строки по формату спеки.
+  - **Мягкая тройка — инпуты префиллятся текущими значениями** (`viewState.value`): DaData — input (текущий токен) + кнопка-ссылка; TEST_ENV — чекбокс в актуальном состоянии + «Подтвердить»; OTP_BYPASS — input (текущий код, 2–6 цифр), `disabled` пока тест-окружение выключено.
+  - **Ключи — значение НЕ выводится никогда**: бейдж статуса «Задан ✓ / Не задан ✗» (из `viewState.set`) + «Сгенерировать» → временное readonly-поле с новым значением + «Скопировать» + строка `define(...)`. Поле результата живёт только в сессии генерации (на перезагрузке исчезает).
+  - Поля с заданной в wp-config константой — read-only «Задано в конфиге». Снизу «Сохранить изменения». Wrapper `.fs-lms-config`. Без инлайна.
+- [ ] `src/js/admin/services/config.js` (jQuery object pattern): save (AJAX `saveConfig`), generate (AJAX `generateKey` → рендер значения + copy), copy-to-clipboard, toggle OTP-инпута по чекбоксу тест-окружения, `ConfirmModal` при регенерации ENC_KEY с данными. Guard `.fs-lms-config`. Нонс `Config` + `ajax_actions` в `fs_lms_vars` (`Enqueue.php`).
+- [ ] `admin.js` — init с guard `.fs-lms-config`.
+- [ ] `src/scss/admin/components/_config.scss` (токены `_variables`) + `@use` в `admin.scss`. Без инлайна.
+
+**Шаг 4 — Безключевой режим (пункт 2)**
+
+Сейчас `fs-lms.php:30-33` при отсутствии ключей делает `return` до `Init::run()` — плагин не грузится вовсе (контейнер не соберёт крипто-зависимые сервисы, `PiiCryptoService` кидает в конструкторе). Чтобы кнопка генерации была доступна без ключа:
+
+- [ ] `Activate::activate()`: убрать `wp_die()` при отсутствии ключей — разрешить активацию.
+- [ ] `fs-lms.php`: вместо «notice + `return`» — при отсутствии ключей грузить **минимальный** бутстрап (`ConfigController` + пункт меню/таб конфигурации + AJAX `GenerateKey`/`SaveConfig`), который не зависит от `PiiCryptoService`. Полный `Init::run()` — только когда `PiiCryptoService::isAvailable()`.
+- [ ] `showConfigNotice()` — оставить висящий error-notice со ссылкой на таб конфигурации (генерация ключа там).
+- [ ] ⚠️ Решение: без `ENC_KEY` любые PII-операции бросают — в безключевом режиме доступен только конфиг-таб; остальной функционал закрыт notice'ом. Генерация лишь даёт значение для ручной вставки в wp-config (в БД ключ не пишем).
+
+#### Что НЕ делаем
+
+- ❌ Хранение `ENC_KEY`/`HASH_SALT` в БД; авто-запись в `wp-config.php`.
+- ❌ Перешифровка данных при смене ключа (отдельная большая задача; здесь только блок регенерации).
+- ❌ Чтение ключей через `PluginConfig` — остаются `defined()`-only в `PiiCryptoService`.
 
 ---
 
@@ -1920,3 +2013,5 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 
 ## Багфикс
+1. При импорте в таблице Действий использовать не слаги а названия предметов и периодов: phys -> Физика и т.д.
+2. На табе согласий settings-5-consents сделать вместо dashicons ссылки row-actions как в остальных таблицах: Просмотреть, Изменить, Удалить

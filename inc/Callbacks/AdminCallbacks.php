@@ -25,6 +25,7 @@ use Inc\Repositories\WPDBRepositories\Log\ExportLogRepository;
 use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
 use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -80,6 +81,7 @@ class AdminCallbacks extends BaseController {
 		private readonly EmailLogRepository        $email_log,
 		private readonly AuthLogRepository         $auth_log,
 		private readonly PersonRepository          $person_repo,
+		private readonly PluginConfig              $pluginConfig,
 	) {
 		parent::__construct();
 	}
@@ -106,6 +108,7 @@ class AdminCallbacks extends BaseController {
 			array(
 				'subjects'         => $this->subjects->readAll(),
 				'academic_periods' => $this->periods->readAll(),
+				'config'           => $this->pluginConfig->viewState(),
 			)
 		);
 	}
