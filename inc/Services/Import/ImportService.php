@@ -8,6 +8,10 @@ use DomainException;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Import\ImportContextDTO;
 use Inc\DTO\Import\ImportReportDTO;
+use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\Enums\EntityType;
+use Inc\Enums\LogEvent;
+use Inc\Enums\OperationType;
 use Inc\Shared\Traits\TransactionRunner;
 use InvalidArgumentException;
 
@@ -87,7 +91,26 @@ readonly class ImportService {
 			$generator->next();
 		}
 
-		// Сводное событие импорта (LogEvent::CsvImported) — подключается на Шаге 7.
+		// Сводное событие импорта (dry-run не логируется)
+		if ( ! $dryRun ) {
+			$this->logEvents->dispatch(
+				LogEvent::CsvImported,
+				new EntityChangedEvent(
+					$ctx->actorId,
+					OperationType::Import,
+					EntityType::Student,
+					$subjectKey,
+					sprintf(
+						'Импорт учеников: создано %d, пропущено %d, ошибок %d (предмет «%s», период «%s»)',
+						$report->created,
+						$report->skipped,
+						count( $report->errors ),
+						$subjectKey,
+						$periodId
+					)
+				)
+			);
+		}
 
 		return $report;
 	}

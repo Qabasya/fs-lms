@@ -1558,8 +1558,9 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 #### Шаг 7 — Логирование импорта
 
-- [ ] **`LogEvent::CsvImported = 'csv.imported'`** — `inc/Enums/LogEvent.php`.
-- [ ] Подписчик канала EntityAudit (`inc/Controllers/Subscribers/EntityAuditSubscriber.php`) обрабатывает `CsvImported`: пишет в `entity_audit_log` (`operation = 'import'`, `entity_type = 'students'`, `old_label` = краткая сводка `created/skipped/errors`, actor). Per-entity события (`StudentEnrolled`) уже идут из `StudentRowImporter`.
+- [x] **`LogEvent::CsvImported = 'csv.imported'`** — `inc/Enums/LogEvent.php` (канал EntityAudit).
+- [x] **`OperationType::Import = 'import'`** — `inc/Enums/OperationType.php` (+ `label()`/`badgeClass()`). `EntityType::Student` уже существует.
+- [x] Диспатч сводки в `ImportService::run()` (не в dry-run): переиспользован `EntityChangedEvent( actorId, OperationType::Import, EntityType::Student, subjectKey, summary )`; `EntityAuditSubscriber` подписан на `CsvImported` (тот же `handle()`) → `entity_audit_log` (`operation='import'`, `entity_type='student'`, `old_label`=сводка). Per-entity `StudentEnrolled` идёт из `StudentRowImporter`.
 
 #### Шаг 8 — AJAX-хук и колбэк
 
