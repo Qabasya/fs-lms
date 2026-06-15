@@ -1521,7 +1521,7 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 #### Шаг 3 — Маппинг причины отчисления → статус
 
-- [ ] **`ExpulsionResolver`** — `inc/Services/Import/ExpulsionResolver.php` (readonly, без зависимостей):
+- [x] **`ExpulsionResolver`** — `inc/Services/Import/ExpulsionResolver.php` (readonly, без зависимостей):
   - `resolve( string $rawReason ): ?array` — возвращает `null` если строка пустая (запись `active`), иначе `[ 'status' => EnrollmentStatus, 'reason' => string ]`.
   - Логика: `trim` + регистронезависимое сравнение с `ExpulsionReasons::values()`. Совпало → канон + статус (`End`→`Finished`, `Transfer`→`Transferred`, `OwnRequest`/`Other`→`Expelled`). Не совпало → `reason = "Другое: <исходный текст>"`, `status = Expelled`.
   - Взаимодействует: `ExpulsionReasons`, `EnrollmentStatus`.
