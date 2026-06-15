@@ -1513,8 +1513,8 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 ⚠️ `PersonService::createOrFindBy()` дедуплицирует **только** по `doc_number_hash` (`inc/Services/Person/PersonService.php:38`). У прошлогодних учеников документов нет → нужен отдельный резолвер.
 
-- [ ] **`PersonRepository::findByNameAndBirthDate( string $lastName, string $firstName, ?string $middleName, ?string $birthDate, bool $isStudent ): ?PersonDTO`** — `inc/Repositories/WPDBRepositories/PersonRepository.php`. Поиск по ФИО (+ дата рождения, если задана) и `is_student`.
-- [ ] **`PersonImportResolver`** — `inc/Services/Import/PersonImportResolver.php` (readonly):
+- [x] **`PersonRepository::findByNameAndBirthDate( string $lastName, string $firstName, ?string $middleName, ?string $birthDate, bool $isStudent ): ?PersonDTO`** — `inc/Repositories/WPDBRepositories/PersonRepository.php`. Поиск по ФИО (+ дата рождения, если задана) и `is_student`; ищет среди всех записей (включая мягко удалённые).
+- [x] **`PersonImportResolver`** — `inc/Services/Import/PersonImportResolver.php` (readonly):
   - `resolve( PersonInputDTO $input ): ?int` — порядок: `doc_number_hash` (если есть документ; через `PersonDocumentsRepository::findByDocNumberHash` + `PiiCryptoService::hash`) → `email_hash` (`PersonService::findByEmailHash`) → `PersonRepository::findByNameAndBirthDate` → `null`.
   - Зависимости: `PersonService`, `PersonRepository`, `PersonDocumentsRepository`, `PiiCryptoService`.
   - Используется провайдером **перед** созданием. Если `null` → `PersonService::createOrFindBy()` (создаст person + person_documents, без WP-юзера).
