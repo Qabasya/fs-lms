@@ -1450,186 +1450,162 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 ---
 
-## CSV-импорт (ученики + родители + группы, минуя заявки)
+## CSV-импорт учеников прошлых лет (один файл → каскад)
 
-### Архитектура: зеркало CSV-экспорта (паттерны Strategy + Registry)
+### Контекст и модель
 
-#### Контекст
+Нужно загрузить учеников **прошлых лет** из собственной CSV-таблицы напрямую в БД, **минуя заявочный флоу** (applications, OTP, join-коды, согласия, письма). Один CSV, **одна строка = ученик + родитель + группа + договор + запись** — каскадом создаются `groups`, `persons` (ученик и родитель), `person_documents` (PII шифруется) и `student_records`. Записи создаются «задним числом»: с датой зачисления и, опционально, датой/причиной отчисления (архив).
 
-Нужно загружать учеников прошлых лет из собственной CSV-таблицы напрямую в БД, **минуя заявочный флоу** (applications, OTP, join-коды). Импорт повторяет «постзаявочную» часть `EnrollmentService::enroll()`: persons + person_documents (PII шифруется) + WP-учётки + groups + student_records. Вертикаль — зеркало экспорта: контракт → провайдер на датасет → реестр → оркестратор → bootstrap → AJAX-колбэк.
+**WP-учётки при импорте НЕ создаются.** Person существует без `wp_user_id`. WP-юзер появляется позже — при восстановлении из архива и зачислении (существующий флоу «Возврат из архива», Фаза 7): админ находит ученика в архиве → восстанавливает заявку (с родителем/без) → при необходимости правит данные → зачисление создаёт WP-юзер.
 
-Ключевое ограничение схемы: `student_records.parent_person_id` и `group_id` — `NOT NULL`. Зачисление без родителя и группы невозможно, поэтому **одна строка CSV учеников = ученик + родитель + группа** (find-or-create родителя и группы инлайн). Отдельные цели `Groups` и `Parents` — для предзагрузки справочников, но необязательны.
+> Это **не** зеркало экспорта и **не** мультитаргетный импорт по таблицам. Один импорт = один файл, идущий в **один выбранный предмет + период**.
 
-#### Целевой паттерн
+#### Зафиксированные решения
 
-```
-ImportTarget (enum)     CsvImportProviderInterface            Registry              ImportService (фикс. скелет)
-  Students ─┐             headers(): string[]                  [target => provider]   1. authorize — в колбэке (Nonce::Manager + Capability::Admin)
-  Parents   │ резолв ─▶   importRow(array $row,            ◀─ резолв по enum ─▶       2. provider = registry->resolve(target)
-  Groups  ──┘  по enum      ImportContextDTO): ImportRowResultDTO                     3. rows = CsvParseService->parse($file)
-                                                                                      4. validateHeaders(provider->headers())
-              ┌── StudentsImportProvider                                              5. foreach row: транзакция → importRow → счётчики/ошибки
-              ├── ParentsImportProvider                                               6. лог импорта (шина событий)
-              └── GroupsImportProvider                                                7. return ImportReportDTO
-```
+| Решение | Итог |
+|---|---|
+| Структура | Один CSV → каскад `groups` + `persons` (ученик+родитель) + `person_documents` + `student_records` |
+| Предмет / период | Выбираются дропдаунами **перед** импортом (существующие). В файле их НЕТ |
+| Группа | find-or-create по `name` + выбранный предмет + период; `teacher_id`/`schedule` = NULL |
+| WP-юзеры при импорте | НЕ создаются (появятся при зачислении из архива) |
+| Статус записи | по строке: есть дата отчисления → отчислена; нет → `active` |
+| Причина отчисления | trim+регистронезависимо: совпало с `ExpulsionReasons` → канон + маппинг статуса; иначе непустое → `"Другое: <текст>"`, статус `expelled`; пусто → `active` |
+| Дедуп person | `doc_number_hash` → `email_hash` → ФИО+дата рождения → создать нового |
+| Дедуп записи | `student_person_id` + `group_id` + `contract_no` уже есть → `skipped` |
+| UI | Настройки → новый таб «Импорт» |
+| Dry-run | Есть («только проверить» — прогон без записи) |
+| Транзакция | На строку; битая строка → в отчёт с номером, файл не падает |
 
-#### Компоненты
+#### Формат CSV (предмет и период — не в файле)
 
-| Компонент | Роль | Где |
-|---|---|---|
-| `ImportTarget` (enum) | Каталог целей импорта (`Students`, `Parents`, `Groups`) + `label()` | `inc/Enums/ImportTarget.php` |
-| `CsvImportProviderInterface` | Контракт стратегии: `headers()`, `importRow()` | `inc/Contracts/CsvImportProviderInterface.php` |
-| `*ImportProvider` | Стратегия датасета: валидация строки + запись через существующие сервисы | `inc/Services/Import/` |
-| `CsvImportProviderRegistry` | Маппинг `ImportTarget → provider`; резолв в оркестраторе | `inc/Services/Import/` |
-| `ImportService` (оркестратор) | Фикс. скелет: resolve → parse → validate → rows → отчёт → лог | `inc/Services/Import/` |
-| `CsvParseService` | Механизм чтения: BOM, кодировка, разделитель, маппинг заголовков | `inc/Services/Import/CsvParseService.php` |
-| `ImportReportDTO` / `ImportRowResultDTO` / `ImportContextDTO` | Типизированный отчёт, результат строки, контекст запуска | `inc/DTO/Import/` |
-
-#### Принципы и правила
-
-- **OCP** — новый импорт = `+1` case в `ImportTarget`, `+1` провайдер, `+1` строка в bootstrap. Оркестратор, парсер и колбэк **не трогаются**.
-- **SRP** — парсер только читает; провайдер валидирует и пишет одну строку; оркестратор держит скелет, транзакции и отчёт.
-- **Переиспользование** — запись только через существующие сервисы/репозитории: `PersonService`, `UserManager`, `PasswordGeneratorService`, `GroupsRepository`, `StudentRecordRepository`. Никаких прямых wpdb-вставок в провайдерах.
-- **Идемпотентность** — повторная загрузка того же файла даёт `skipped`, а не дубли (см. Шаг 2 — дедупликация).
-- **Транзакция на строку** (`TransactionRunner`) + try/catch: одна битая строка не валит файл; ошибка попадает в отчёт со своим номером строки.
-- **Dry-run** — тот же конвейер без записи: провайдер выполняет все резолвы и проверки, но пропускает create. Первая обкатка реальной таблицы — всегда в dry-run.
-- **Минуем заявки осознанно**: записи в `applications` не создаются вовсе; `consents` не создаются (согласия собраны вне плагина; если потребуется строка для отчётности — `consent_type = 'imported'` отдельной подзадачей); welcome-письма не отправляются.
-- **Совместимость с экспортом** — колонки ученика совпадают с `StudentsExportProvider`: прошлогодний экспорт подходит как входной формат (логины/пароли переносятся).
-
----
-
-#### Шаг 1 — Инфраструктура импорта (делается ПЕРВОЙ)
-
-- [ ] **`ImportTarget` enum** — `inc/Enums/ImportTarget.php`: cases `Students = 'students'`, `Parents = 'parents'`, `Groups = 'groups'` + `label()` (зеркало `ExportTarget`).
-- [ ] **`CsvImportProviderInterface`** — `inc/Contracts/CsvImportProviderInterface.php`:
-
-```php
-interface CsvImportProviderInterface {
-	/** @return string[] Обязательные заголовки CSV (валидация файла + образец) */
-	public function headers(): array;
-
-	/** Импортирует одну строку. Бросает InvalidArgumentException с текстом для отчёта. */
-	public function importRow( array $row, ImportContextDTO $ctx ): ImportRowResultDTO;
-}
-```
-
-- [ ] **DTO** — `inc/DTO/Import/`:
-	- `ImportContextDTO` (readonly): `bool $dryRun`, `int $actorId`, `int $rowNumber`;
-	- `ImportRowResultDTO` (readonly): `string $status` (`created` | `skipped`), `?string $note`;
-	- `ImportReportDTO`: `int $created`, `int $skipped`, `array $errors` (`[№ строки => сообщение]`), `bool $dryRun`, метод `toArray()` для AJAX-ответа.
-- [ ] **`CsvParseService`** — `inc/Services/Import/CsvParseService.php`:
-	- `parse( string $filePath ): iterable` — генератор ассоц-массивов «заголовок → значение»: срезает UTF-8 BOM; авто-детект разделителя (`;` или `,` по первой строке); перекодировка cp1251 → UTF-8 (`mb_check_encoding` / `mb_convert_encoding`); потоковый `fgetcsv` без загрузки файла в память;
-	- `validateHeaders( array $expected, array $actual ): void` — бросает `InvalidArgumentException` со списком недостающих колонок.
-- [ ] **`CsvImportProviderRegistry`** — `inc/Services/Import/CsvImportProviderRegistry.php`: `register( ImportTarget, CsvImportProviderInterface )`, `resolve( ImportTarget )`, `has( ImportTarget )` — копия `CsvExportProviderRegistry`.
-- [ ] **`ImportService` (оркестратор)** — `inc/Services/Import/ImportService.php` (readonly, `use TransactionRunner`):
-	- `run( ImportTarget $target, string $filePath, bool $dryRun = false ): ImportReportDTO`;
-	- скелет: `registry->resolve()` → `CsvParseService::parse()` → `validateHeaders()` → foreach строк: `inTransaction( fn() => $provider->importRow( $row, $ctx ) )` в try/catch (`InvalidArgumentException` / `DomainException` → `errors[№]`; иначе счётчики created/skipped) → диспатч сводного лог-события (Шаг 9) → return report.
-- [ ] **`ImportServiceBootstrap`** — `inc/Services/Import/ImportServiceBootstrap.php`, implements `ServiceInterface`: в `register()` регистрирует 3 провайдера в реестре (зеркало `ExportServiceBootstrap`). Добавить в `Init::getServices()`.
-
-#### Шаг 2 — Дедупликация persons (новые методы поиска)
-
-⚠️ `PersonService::createOrFindBy()` дедуплицирует **только по `doc_number_hash`**. В CSV прошлых лет паспортных данных нет, а пустой `doc_number` не хешируется (`buildDocumentData` пропускает пустые значения) — каждый повторный запуск создавал бы дубликаты persons.
-
-- [ ] **`PersonRepository::findByNameAndBirthDate( string $lastName, string $firstName, ?string $middleName, ?string $birthDate, bool $isStudent ): ?PersonDTO`** — `inc/Repositories/WPDBRepositories/PersonRepository.php`: поиск по ФИО (+ дата рождения, если задана) и `is_student`.
-- [ ] **`PersonImportResolver`** — `inc/Services/Import/PersonImportResolver.php` (readonly), метод `resolve( PersonInputDTO $input ): ?int`. Порядок поиска: `doc_number_hash` (если в CSV есть документ) → `email_hash` (`PersonService::findByEmailHash`) → ФИО + дата рождения → `null`. Используется провайдерами Students и Parents **перед** созданием person.
-
-#### Шаг 3 — `PersonAccountService`: выделение создания WP-учёток из `EnrollmentService`
-
-Блок создания WP-пользователя (`EnrollmentService::enroll()`, ~строки 182–267) дублируется для ученика и родителя и целиком нужен импорту. Выделить, чтобы не копипастить:
-
-- [ ] **`AccountResultDTO`** — `inc/DTO/Person/AccountResultDTO.php` (readonly): `int $userId`, `string $login`, `string $password`, `bool $created`.
-- [ ] **`PersonAccountService`** — `inc/Services/Person/PersonAccountService.php` (readonly):
-	- `ensureAccount( int $personId, UserRole $role, string $email, string $login = '', string $plainPassword = '', bool $regeneratePassword = false ): AccountResultDTO`;
-	- логика: у person есть `wpUserId` → вернуть его (пароль трогать только при `$plainPassword` / `$regeneratePassword` — через `setFromPlain()` / `generateAndSet()`) → иначе `UserManager::findByEmail()` → иначе `UserManager::create()` (login: переданный → email → `{role}_{personId}`; пароль: переданный → `PasswordGeneratorService::generatePlain()`), затем `storeEncrypted()`, `PersonRepository::setWpUser()` + `UserManager::setPersonId()`, диспатч `LogEvent::UserCreated` (`EntityChangedEvent`).
-- [ ] **Рефакторинг `EnrollmentService::enroll()`** — заменить оба inline-блока на `ensureAccount()` (ученик: `login/password` из `StudentDataDTO`; родитель: `regeneratePassword = true`). Welcome-письма остаются в `EnrollmentService`. Поведение не меняется.
-
-Для импорта семантика: учётка уже существует → пароль **не** трогаем (`regeneratePassword = false`).
-
-#### Шаг 4 — `GroupsImportProvider`
-
-Формат CSV: `Предмет;Период;Название;Преподаватель (email);Расписание` (преподаватель и расписание — опциональны, `groups.teacher_id` nullable).
-
-- [ ] **`GroupsRepository::findByNameSubjectPeriod( string $name, string $subjectKey, string $periodId ): ?object`** — `inc/Repositories/WPDBRepositories/GroupsRepository.php`: поиск дубля группы.
-- [ ] **`GroupsImportProvider`** — `inc/Services/Import/GroupsImportProvider.php`:
-	- `headers()` — 5 колонок выше;
-	- `importRow()`: резолв предмета (`SubjectRepository::getByKey()`, fallback — по названию из `getAll()`), периода (`AcademicPeriodRepository` — по ID, fallback — по названию), преподавателя (`UserManager::findByEmail()`, опционально); дубль по `findByNameSubjectPeriod()` → `skipped`; иначе `GroupsRepository::create()`.
-- [ ] Регистрация в `ImportServiceBootstrap`.
-
-#### Шаг 5 — `StudentsImportProvider` (основной)
-
-Одна строка = ученик + родитель + группа + договор:
-
-| Колонка CSV | Куда пишется |
+| Колонка | Куда пишется |
 |---|---|
 | Фамилия / Имя / Отчество | `persons` ученика + снапшот в `student_records` |
 | Дата рожд. | `persons.birth_date` |
 | Класс / Школа | `persons.grade / school` + снапшот |
 | Email / Телефон | `person_documents` ученика (`PiiCryptoService`: enc + hash) |
-| Логин / Пароль | WP-учётка ученика (роль `FSStudent`); пусто → генерируются |
 | Родитель: Фамилия / Имя / Отчество | `persons` родителя |
-| Родитель: Email | `person_documents` родителя + логин учётки (роль `FSParent`) |
-| Родитель: Телефон | `person_documents` родителя |
-| Предмет / Группа / Период | резолв или создание `groups` (как Шаг 4) |
+| Родитель: Email / Телефон | `person_documents` родителя |
+| Группа | `groups.name` (find-or-create в выбранных предмет+период) |
 | № договора / Дата договора | `student_records.contract_no / contract_date` |
 | Дата зачисления (опц.) | `student_records.enrolled_at`; пусто → `ClockInterface::now()` |
+| Дата отчисления (опц.) | `student_records.expelled_at`; пусто → запись `active` |
+| Причина отчисления (опц.) | `student_records.expel_reason` + маппинг `status` |
 
-- [ ] **`StudentsImportProvider`** — `inc/Services/Import/StudentsImportProvider.php`. `importRow()` по шагам:
-	1. резолв предмета и периода — не найден → ошибка строки;
-	2. группа: `GroupsRepository::findByNameSubjectPeriod()` → иначе `create()`;
-	3. родитель: `PersonImportResolver::resolve()` → иначе `PersonService::createOrFindBy( PersonInputDTO, isStudent: false )`;
-	4. учётка родителя: `PersonAccountService::ensureAccount( ..., UserRole::FSParent, email родителя )`;
-	5. ученик: `PersonImportResolver::resolve()` → иначе `createOrFindBy( ..., isStudent: true )`;
-	6. учётка ученика: `ensureAccount( ..., UserRole::FSStudent, login/password из CSV )`;
-	7. `StudentRecordRepository::existsActive( $studentId, $groupId )` → `skipped`;
-	8. `StudentRecordRepository::create()`: снапшоты ФИО/школы/класса из CSV, `contract_no/date`, `status = 'active'`, `enrolled_at` из CSV или `now()`, `enrolled_by_user_id = $ctx->actorId`;
-	9. диспатч `LogEvent::StudentEnrolled` (`EnrollmentStatusEvent`, `AuditAction::EnrollStudent`).
-	Welcome-письма не отправляются; `consents` / `applications` не создаются.
-- [ ] Регистрация в `ImportServiceBootstrap`.
+Маппинг причины → `status`: `Окончание курса`→`finished`, `Перевод`→`transferred`, `По собственному желанию`/`Другое`/свободный текст→`expelled`.
 
-#### Шаг 6 — `ParentsImportProvider`
+---
 
-Формат CSV: `Фамилия;Имя;Отчество;Email;Телефон;Логин;Пароль`. Создаёт только person + person_documents + WP-учётку (`FSParent`); связь с учениками появится при импорте учеников (резолвер найдёт родителя по email).
+### Пошаговый план реализации
 
-- [ ] **`ParentsImportProvider`** — `inc/Services/Import/ParentsImportProvider.php`: `headers()` + `importRow()` = шаги 3–4 из Шага 5; дубль по резолверу → `skipped`.
-- [ ] Регистрация в `ImportServiceBootstrap`.
+#### Шаг 1 — Парсер и DTO отчёта
 
-#### Шаг 7 — AJAX-хуки и колбэки
+- [x] **`CsvParseService`** — `inc/Services/Import/CsvParseService.php` (обычный сервис из DI):
+  - `parse( string $filePath ): iterable` — генератор ассоц-массивов «заголовок → значение»: срезает UTF-8 BOM; авто-детект разделителя (`;`/`,` по первой строке); перекодировка cp1251→UTF-8 (`mb_check_encoding`/`mb_convert_encoding`); потоковый `fgetcsv`.
+  - `validateHeaders( array $expected, array $actual ): void` — `InvalidArgumentException` со списком недостающих колонок (фактические заголовки = ключи первой строки `parse()`).
+  - Взаимодействует: только с файловой системой.
+- [x] **DTO** — `inc/DTO/Import/`:
+  - `ImportContextDTO` (readonly): `string $subjectKey`, `string $periodId`, `bool $dryRun`, `int $actorId`, `int $rowNumber`; метод `withRow()`.
+  - `ImportRowResultDTO` (readonly): `string $status` (`created`|`skipped`), `?string $note`; фабрики `created()`/`skipped()`, `isCreated()`.
+  - `ImportReportDTO`: `int $created`, `int $skipped`, `array $errors` (`[№ строки => сообщение]`), `bool $dryRun`; методы `addResult()`, `addError()`, `toArray()`.
 
-- [ ] **`AjaxHook`** — `inc/Enums/AjaxHook.php`: cases `ImportGroups = 'import_groups'`, `ImportStudents = 'import_students'`, `ImportParents = 'import_parents'`.
-- [ ] **`ImportCallbacks`** — `inc/Callbacks/ImportCallbacks.php` (extends `BaseController`, `use Authorizer`, `use Sanitizer`): методы `ajaxImportGroups()`, `ajaxImportStudents()`, `ajaxImportParents()`:
-	1. `$this->authorize( Nonce::Manager, Capability::Admin )` (как у экспорта);
-	2. валидация `$_FILES['file']`: `UPLOAD_ERR_OK`, расширение `.csv`, лимит размера;
-	3. `$dryRun = $this->sanitizeBool( $_POST['dry_run'] ?? false )`;
-	4. `$report = $this->importService->run( ImportTarget::X, $_FILES['file']['tmp_name'], $dryRun )`;
-	5. `$this->success( $report->toArray() )`; доменные исключения → `$this->error()`.
-- [ ] **`ImportController`** — `inc/Controllers/ImportController.php` (implements `ServiceInterface`): в `register()` три `add_action( AjaxHook::ImportX->action(), ... )` → `ImportCallbacks`. Добавить в `Init::getServices()` (вместе с `ImportServiceBootstrap` из Шага 1).
+#### Шаг 2 — Резолв и дедуп persons
 
-#### Шаг 8 — JS и UI
+⚠️ `PersonService::createOrFindBy()` дедуплицирует **только** по `doc_number_hash` (`inc/Services/Person/PersonService.php:38`). У прошлогодних учеников документов нет → нужен отдельный резолвер.
 
-- [ ] **`import-csv.js`** — `src/js/admin/services/import-csv.js` (jQuery object pattern: `init()`, `bindEvents()`): file-input + чекбокс «Только проверить (dry-run)»; отправка `FormData` (`processData: false, contentType: false`); action из `fs_lms_vars.ajax_actions.importStudents` / `importParents` / `importGroups`, nonce `Manager`; рендер отчёта: created/skipped + список ошибок «строка N: сообщение».
-- [ ] **Кнопки «Импорт CSV»** — рядом с кнопками экспорта на табах `groups`, `userlist-2-students`, `userlist-3-parents` (PHP-шаблоны табов).
-- [ ] Инициализация в `admin.js` с guard по селектору.
-- [ ] Стили отчёта — только SCSS-компонент с токенами из `_variables.scss`; без инлайна.
+- [ ] **`PersonRepository::findByNameAndBirthDate( string $lastName, string $firstName, ?string $middleName, ?string $birthDate, bool $isStudent ): ?PersonDTO`** — `inc/Repositories/WPDBRepositories/PersonRepository.php`. Поиск по ФИО (+ дата рождения, если задана) и `is_student`.
+- [ ] **`PersonImportResolver`** — `inc/Services/Import/PersonImportResolver.php` (readonly):
+  - `resolve( PersonInputDTO $input ): ?int` — порядок: `doc_number_hash` (если есть документ; через `PersonDocumentsRepository::findByDocNumberHash` + `PiiCryptoService::hash`) → `email_hash` (`PersonService::findByEmailHash`) → `PersonRepository::findByNameAndBirthDate` → `null`.
+  - Зависимости: `PersonService`, `PersonRepository`, `PersonDocumentsRepository`, `PiiCryptoService`.
+  - Используется провайдером **перед** созданием. Если `null` → `PersonService::createOrFindBy()` (создаст person + person_documents, без WP-юзера).
 
-#### Шаг 9 — Логирование импорта
+#### Шаг 3 — Маппинг причины отчисления → статус
 
-- [ ] Per-entity события уже диспатчатся из сервисов: `LogEvent::UserCreated` (Шаг 3), `LogEvent::StudentEnrolled` (Шаг 5) — каналы EntityAudit / EnrollmentAudit заполняются как при обычном зачислении.
-- [ ] **Сводка файла** — новый case `LogEvent::CsvImported` + диспатч из `ImportService::run()` после цикла (payload: target, created, skipped, кол-во ошибок, actor); подписчик канала EntityAudit пишет в `entity_audit_log` (`operation = 'import'`, `entity_type` = цель импорта, `old_label` = краткая сводка). OCP: шина и остальные каналы не трогаются.
+- [ ] **`ExpulsionResolver`** — `inc/Services/Import/ExpulsionResolver.php` (readonly, без зависимостей):
+  - `resolve( string $rawReason ): ?array` — возвращает `null` если строка пустая (запись `active`), иначе `[ 'status' => EnrollmentStatus, 'reason' => string ]`.
+  - Логика: `trim` + регистронезависимое сравнение с `ExpulsionReasons::values()`. Совпало → канон + статус (`End`→`Finished`, `Transfer`→`Transferred`, `OwnRequest`/`Other`→`Expelled`). Не совпало → `reason = "Другое: <исходный текст>"`, `status = Expelled`.
+  - Взаимодействует: `ExpulsionReasons`, `EnrollmentStatus`.
+
+#### Шаг 4 — Расширение записи отчислением (вместо `setExpelled`)
+
+`StudentRecordRepository::setExpelled()` жёстко ставит `status='expelled'` — не годится для `finished`/`transferred`. Импорт пишет запись одним insert с правильным статусом.
+
+- [ ] **`StudentRecordInputDTO`** — `inc/DTO/Enrollment/StudentRecordInputDTO.php`: добавить поля `?string $expelledAt = null`, `?string $expelReason = null`, `?int $expelledByUserId = null`; включить их в `toArray()` (только когда не null).
+- [ ] **`StudentRecordRepository::existsByContract( int $studentPersonId, int $groupId, string $contractNo ): bool`** — `inc/Repositories/WPDBRepositories/StudentRecordRepository.php`. Дедуп записи (любой статус).
+- [ ] **`GroupsRepository::findByNameSubjectPeriod( string $name, string $subjectKey, string $periodId ): ?object`** — `inc/Repositories/WPDBRepositories/GroupsRepository.php`. Поиск дубля группы.
+
+#### Шаг 5 — Провайдер импорта строки (ядро)
+
+- [ ] **`StudentRowImporter`** — `inc/Services/Import/StudentRowImporter.php` (readonly). Один метод `import( array $row, ImportContextDTO $ctx ): ImportRowResultDTO`. По шагам:
+  1. Группа: `GroupsRepository::findByNameSubjectPeriod( name, ctx->subjectKey, ctx->periodId )` → иначе `GroupsRepository::create([ name, subject_key, academic_period_id, teacher_id=null, schedule=null, created_at, updated_at ])`.
+  2. Родитель: `PersonImportResolver::resolve()` → иначе `PersonService::createOrFindBy( PersonInputDTO( isStudent: false, ФИО/email/phone родителя ) )`.
+  3. Ученик: `PersonImportResolver::resolve()` → иначе `createOrFindBy( PersonInputDTO( isStudent: true, ФИО/ДР/класс/школа/email/phone ) )`.
+  4. Дедуп записи: `StudentRecordRepository::existsByContract( studentId, groupId, contractNo )` → `ImportRowResultDTO('skipped')`.
+  5. Отчисление: `ExpulsionResolver::resolve( raw )` → если не null, заполнить `expelledAt`(дата из CSV), `expelReason`, `expelledByUserId = ctx->actorId`, `status`. Иначе `status = active`.
+  6. `StudentRecordRepository::create( StudentRecordInputDTO( studentPersonId, parentPersonId, status, enrolledAt(CSV|now), createdAt, updatedAt, groupId, snapshot*, contractNo, contractDate, enrolledByUserId=ctx->actorId, expelled* ) )`.
+  7. Диспатч `LogEvent::StudentEnrolled` (`EnrollmentStatusEvent`) — каналы EntityAudit/EnrollmentAudit как при обычном зачислении.
+  8. `ImportRowResultDTO('created')`.
+  - Если `ctx->dryRun` — выполнить все резолвы/проверки, но **пропустить** `create()` групп/persons/записи (вернуть предполагаемый результат).
+  - Зависимости: `GroupsRepository`, `PersonImportResolver`, `PersonService`, `StudentRecordRepository`, `ExpulsionResolver`, `LogEventDispatcherInterface`, `ClockInterface`, `Sanitizer`-логика чтения полей.
+
+#### Шаг 6 — Оркестратор
+
+- [ ] **`ImportService`** — `inc/Services/Import/ImportService.php` (readonly, `use TransactionRunner`):
+  - `run( string $subjectKey, string $periodId, string $filePath, bool $dryRun = false ): ImportReportDTO`.
+  - Скелет: фиксированные `headers()` (массив ожидаемых колонок) → `CsvParseService::validateHeaders()` → foreach строк (`CsvParseService::parse`): `inTransaction( fn() => $importer->import( $row, $ctx ) )` в try/catch (`InvalidArgumentException`/`DomainException` → `errors[№]`; иначе инкремент created/skipped) → после цикла диспатч `LogEvent::CsvImported` (сводка) → return `ImportReportDTO`.
+  - В dry-run транзакция оборачивает прогон, но `StudentRowImporter` сам не пишет (см. Шаг 5); опционально — общий rollback в конце.
+  - Зависимости: `CsvParseService`, `StudentRowImporter`, `LogEventDispatcherInterface`, `TransactionRunner` (trait).
+
+#### Шаг 7 — Логирование импорта
+
+- [ ] **`LogEvent::CsvImported = 'csv.imported'`** — `inc/Enums/LogEvent.php`.
+- [ ] Подписчик канала EntityAudit (`inc/Controllers/Subscribers/EntityAuditSubscriber.php`) обрабатывает `CsvImported`: пишет в `entity_audit_log` (`operation = 'import'`, `entity_type = 'students'`, `old_label` = краткая сводка `created/skipped/errors`, actor). Per-entity события (`StudentEnrolled`) уже идут из `StudentRowImporter`.
+
+#### Шаг 8 — AJAX-хук и колбэк
+
+- [ ] **`AjaxHook::ImportStudentsCsv = 'import_students_csv'`** — `inc/Enums/AjaxHook.php`.
+- [ ] **`ImportCallbacks`** — `inc/Callbacks/ImportCallbacks.php` (extends `BaseController`; `use Authorizer`, `use Sanitizer`). Метод `ajaxImportStudentsCsv()`:
+  1. `$this->authorize( Nonce::Manager, Capability::Admin )` (как у экспорта).
+  2. `$subjectKey = $this->requireKey('subject_key')`, `$periodId = $this->requireKey('period_id')`.
+  3. Валидация `$_FILES['file']`: `UPLOAD_ERR_OK`, расширение `.csv`, лимит размера.
+  4. `$dryRun = $this->sanitizeBool( $_POST['dry_run'] ?? false )`.
+  5. `$report = $this->importService->run( $subjectKey, $periodId, $_FILES['file']['tmp_name'], $dryRun )`.
+  6. `$this->success( $report->toArray() )`; доменные исключения → `$this->error()`.
+  - Зависимость: `ImportService`.
+- [ ] **`ImportController`** — `inc/Controllers/ImportController.php` (implements `ServiceInterface`): в `register()` — `add_action( AjaxHook::ImportStudentsCsv->action(), [ $callbacks, AjaxHook::ImportStudentsCsv->callbackMethod() ] )`.
+- [ ] Зарегистрировать `ImportController` в `Init::getServices()` (`inc/Init.php`).
+
+#### Шаг 9 — UI: таб «Импорт» в Настройках
+
+- [ ] **`settings.php`** (`templates/admin/settings.php`): добавить `'tab-6' => [ 'title' => 'Импорт', 'file' => '/components/tabs/settings-tabs/settings-6-import.php' ]`. Данные уже передаются (`AdminCallbacks::settingsPage()` отдаёт `$subjects` и `$academic_periods`).
+- [ ] **`settings-6-import.php`** — `templates/admin/components/tabs/settings-tabs/settings-6-import.php`: форма с `<select>` предмета (из `$subjects`), `<select>` периода (из `$academic_periods`), `<input type="file" accept=".csv">`, чекбокс «Только проверить (dry-run)», кнопка «Импортировать», контейнер для отчёта. Без инлайн-стилей/JS.
+- [ ] **`import-csv.js`** — `src/js/admin/services/import-csv.js` (jQuery object pattern: `init()`, `bindEvents()`): отправка `FormData` (`processData:false, contentType:false`), action `fs_lms_vars.ajax_actions.importStudentsCsv`, nonce `Manager` (`fs_lms_vars.nonces` / `fs_lms_vars` как у экспорта); рендер отчёта created/skipped + «строка N: сообщение».
+- [ ] Инициализация в `src/js/admin/admin.js` с guard по селектору таба.
+- [ ] Стили — SCSS-компонент с токенами из `_variables.scss`; без инлайна.
+- [ ] Нонс `Manager` уже в `fs_lms_vars` (используется экспортом) — проверить наличие в `inc/Core/Enqueue.php`, при отсутствии добавить.
 
 #### Шаг 10 — Тесты
 
-- [ ] `CsvParseService`: BOM; разделители `;` и `,`; cp1251; недостающие заголовки → исключение.
-- [ ] `PersonImportResolver`: порядок doc → email → ФИО+ДР; пустой документ не матчится.
-- [ ] `StudentsImportProvider`: повторный импорт того же файла → все строки `skipped`; `existsActive` → `skipped`; несуществующий предмет → ошибка строки, остальные строки импортируются.
+- [ ] `CsvParseService`: BOM; разделители `;`/`,`; cp1251; недостающие заголовки → исключение.
+- [ ] `PersonImportResolver`: порядок doc → email → ФИО+ДР; пустой документ не матчится по doc.
+- [ ] `ExpulsionResolver`: канон при совпадении; свободный текст → `"Другое: …"`; пусто → null; маппинг статусов End/Transfer/Other.
+- [ ] `StudentRowImporter`: повторный импорт → `skipped` по контракту; группа find-or-create; отчисленная строка пишет правильный `status`+`expelled_at`.
 - [ ] `ImportService`: ошибка в строке N не прерывает файл; dry-run не пишет в БД; отчёт содержит номера строк.
 
 #### Порядок реализации
 
-1. **Шаг 1** — инфраструктура (enum, контракт, DTO, парсер, реестр, оркестратор, bootstrap)
-2. **Шаг 2–3** — дедупликация + `PersonAccountService` (с рефакторингом `EnrollmentService`)
-3. **Шаг 4 → 5 → 6** — провайдеры: группы → ученики → родители
-4. **Шаг 7–8** — AJAX и JS/UI
-5. **Шаг 9–10** — логирование и тесты (параллельно с 7–8)
+1. **Шаги 1–4** — парсер, DTO, резолверы persons/причины, репо-методы и расширение `StudentRecordInputDTO` (фундамент).
+2. **Шаг 5–6** — `StudentRowImporter` → `ImportService`.
+3. **Шаг 7–8** — лог + AJAX/контроллер.
+4. **Шаг 9** — UI (таб, JS, SCSS).
+5. **Шаг 10** — тесты (параллельно с 7–9).
+
+#### Что НЕ делаем (отклонено против прежней версии плана)
+
+- ❌ Зеркальность с экспортом / round-trip; экспорт **не трогаем**.
+- ❌ Мультитаргет `ImportTarget` (Students/Parents/Groups), `CsvImportProviderInterface`, `CsvImportProviderRegistry`, `ImportServiceBootstrap`, отдельные `Parents/GroupsImportProvider`.
+- ❌ `PersonAccountService` и рефактор `EnrollmentService::enroll()` (WP-юзеры при импорте не создаются).
+- ❌ Колонки логин/пароль; создание `applications`/`consents`; welcome-письма.
 
 ---
 
@@ -1902,7 +1878,7 @@ interface CsvImportProviderInterface {
 ---
 
 ### 8. Подсказки с помощью Dadata
-В формыу join.php
+В форму join.php
 - Добавить в поля ввода ФИО подсказки по ФИО от сервиса DADATA https://dadata.ru/api/suggest/name/
 - Добавить подсказки в поле "Кем выдан документ" от сервиса DADATA  https://dadata.ru/api/suggest/fms_unit/
 - Добавить подсказки в поле "E-mail" от сервиса DADATA  https://dadata.ru/api/suggest/email/
@@ -1911,7 +1887,25 @@ interface CsvImportProviderInterface {
 
 ---
 
-### 9. Импорт 
+### 9. Дополнительная страница 
+
+Рассмотреть возможность сделать еще один таб в пункте меню "Настройки" для user-friendly установки констант в wp-config: 
+1. токен DaData (input) Добавить кнопку для ссылки на https://dadata.ru/api/
+2. FS_LMS_ENC_KEY - рассмотреть возможность активации плагина, но с висящим showNotice (ошибка) что необходимо установить ключ шифрования, перед началом работы с плагином. Добавить кнопку для автоматической генерации ключа
+3. FS_LMS_HASH_SALT (input) Добавить кнопку для автоматической генерации ключа
+4. FS_LMS_TEST_ENV - чекбокс - "включить Тестовое окружение" 
+5. FS_LMS_OTP_BYPASS_CODE - при включенном тестовом окружении разблокируется input (с ограничением ввода от 2 до 6 цифр)
+
+Формат (слева направо для каждого пункта): 
+1. Текст - название константы 
+2. Инпут (или чекбокс для FS_LMS_TEST_ENV)
+3. Кнопка (1 - ссылка, 2-3 генерировать, 4 - подтвердить, 5 - без кнопки)
+
+Снизу кнопка "Сохранить изменения" - по аналогии с settings-2-auth-manager
+
+---
+
+### 10. Импорт 
 Нужно реализовать импорт учеников (с родителями) из собственной таблицы (csv). В таблице заполняются все необходимые поля, ученики зачисляются и отчисляются задним числом (за прошлый год). 
 Продумать логику такого сервиса, куда добавить кнопку импорта, как правильно будет работать импорт сразу с группами, как к ним привязываться (id).
 
