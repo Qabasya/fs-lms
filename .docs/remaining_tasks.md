@@ -1536,7 +1536,7 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 #### Шаг 5 — Провайдер импорта строки (ядро)
 
-- [ ] **`StudentRowImporter`** — `inc/Services/Import/StudentRowImporter.php` (readonly). Один метод `import( array $row, ImportContextDTO $ctx ): ImportRowResultDTO`. По шагам:
+- [x] **`StudentRowImporter`** — `inc/Services/Import/StudentRowImporter.php` (readonly). `import( array $row, ImportContextDTO $ctx ): ImportRowResultDTO` + `requiredHeaders(): array` (для валидации) + helpers `toDate()`/`toDateTime()` (форматы `Y-m-d`/`d.m.Y`/`d/m/Y`/`d-m-Y`). Статус: запись в архиве если задана дата ИЛИ причина отчисления. Названия колонок — в const. По шагам:
   1. Группа: `GroupsRepository::findByNameSubjectPeriod( name, ctx->subjectKey, ctx->periodId )` → иначе `GroupsRepository::create([ name, subject_key, academic_period_id, teacher_id=null, schedule=null, created_at, updated_at ])`.
   2. Родитель: `PersonImportResolver::resolve()` → иначе `PersonService::createOrFindBy( PersonInputDTO( isStudent: false, ФИО/email/phone родителя ) )`.
   3. Ученик: `PersonImportResolver::resolve()` → иначе `createOrFindBy( PersonInputDTO( isStudent: true, ФИО/ДР/класс/школа/email/phone ) )`.

@@ -70,7 +70,7 @@ if ( file_exists( $modal_path ) ) {
     include $modal_path;
 }
 
-$period_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/academic-period-modal.php';
+$period_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/enrollment/academic-period-modal.php';
 if ( file_exists( $period_modal_path ) ) {
     include $period_modal_path;
 }
