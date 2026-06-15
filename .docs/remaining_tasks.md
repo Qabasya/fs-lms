@@ -1550,7 +1550,7 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 #### Шаг 6 — Оркестратор
 
-- [ ] **`ImportService`** — `inc/Services/Import/ImportService.php` (readonly, `use TransactionRunner`):
+- [x] **`ImportService`** — `inc/Services/Import/ImportService.php` (readonly, `use TransactionRunner`):
   - `run( string $subjectKey, string $periodId, string $filePath, bool $dryRun = false ): ImportReportDTO`.
   - Скелет: фиксированные `headers()` (массив ожидаемых колонок) → `CsvParseService::validateHeaders()` → foreach строк (`CsvParseService::parse`): `inTransaction( fn() => $importer->import( $row, $ctx ) )` в try/catch (`InvalidArgumentException`/`DomainException` → `errors[№]`; иначе инкремент created/skipped) → после цикла диспатч `LogEvent::CsvImported` (сводка) → return `ImportReportDTO`.
   - В dry-run транзакция оборачивает прогон, но `StudentRowImporter` сам не пишет (см. Шаг 5); опционально — общий rollback в конце.
