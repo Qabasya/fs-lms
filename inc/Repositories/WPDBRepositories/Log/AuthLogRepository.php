@@ -162,4 +162,18 @@ class AuthLogRepository {
 
 		return array( $conditions, $bindings );
 	}
+
+	public function distinctActions(): array {
+		$actions = $this->wpdb->get_col(
+			$this->wpdb->prepare(
+				'SELECT DISTINCT action
+			 FROM %i
+			 WHERE action IS NOT NULL
+			 ORDER BY action',
+				$this->table
+			)
+		);
+
+		return $actions ?: array();
+	}
 }

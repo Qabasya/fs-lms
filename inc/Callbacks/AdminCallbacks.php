@@ -315,7 +315,7 @@ class AdminCallbacks extends BaseController {
 
 		} elseif ( 'tab-8' === $active_tab ) {
 			$filters = array_filter( array(
-				'action'    => $this->sanitizeGetKey( 'action_filter' ),
+				'action'    => $this->sanitizeGetKey( 'action' ),
 				'result'    => $this->sanitizeGetKey( 'result' ),
 				'date_from' => $date_from,
 				'date_to'   => $date_to,
@@ -324,6 +324,7 @@ class AdminCallbacks extends BaseController {
 			$data['auth_page']    = $paged;
 			$data['auth_total']   = $this->auth_log->countFiltered( $filters );
 			$data['auth_rows']    = $this->auth_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
+			$data['auth_actions'] = $this->auth_log->distinctActions();
 
 		} else {
 			$actor_name = $this->sanitizeGetText( 'actor_name' );

@@ -36,12 +36,16 @@ $sort_url    = add_query_arg( $auth_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-8">
 
-		<select name="action_filter">
+		<select name="action">
 			<option value="">Все действия</option>
-			<?php foreach ( AuthAction::cases() as $action ) : ?>
-				<option value="<?php echo esc_attr( $action->value ); ?>" <?php selected( $auth_filters['action'] ?? '', $action->value ); ?>>
-					<?php echo esc_html( $action->label() ); ?>
-				</option>
+            <?php foreach ( $auth_actions ?? array() as $actionValue ) :
+            $action = AuthAction::tryFrom( $actionValue );
+            ?>
+
+                <option value="<?php echo esc_attr( $actionValue ); ?>"
+                        <?php selected( $auth_filters['action'] ?? '', $actionValue ); ?>>
+                    <?php echo esc_html( $action?->label() ?? $actionValue ); ?>
+                </option>
 			<?php endforeach; ?>
 		</select>
 
