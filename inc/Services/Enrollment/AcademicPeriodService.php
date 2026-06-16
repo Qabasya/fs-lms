@@ -10,6 +10,7 @@ use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\StudentPeriodMatrixRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
+use Inc\Shared\Traits\SlugGenerator;
 
 /**
  * Class AcademicPeriodService
@@ -36,6 +37,8 @@ use Inc\Repositories\OptionsRepositories\UserRepository;
  */
 readonly class AcademicPeriodService {
 
+	use SlugGenerator;  // slugify() — генерация технического ключа из названия
+
 	/**
 	 * Конструктор сервиса.
 	 *
@@ -59,6 +62,31 @@ readonly class AcademicPeriodService {
 	 *
 	 * @return bool
 	 */
+	/**
+	 * Генерирует уникальный технический ключ периода из его названия.
+	 *
+	 * Ключ не виден пользователю и используется только как ключ в wp_options
+	 * и как ссылка `academic_period_id` в группах. При совпадении добавляется
+	 * числовой постфикс (`-2`, `-3`, …). База обрезается до 40 символов —
+	 * запас под постфикс в пределах varchar(50).
+	 *
+	 * @param string $name Название периода
+	 *
+	 * @return string
+	 */
+	public function generateUniqueId( string $name ): string {
+		$base = substr( $this->slugify( $name, 'period' ), 0, 40 );
+		$id   = $base;
+		$i    = 2;
+
+		while ( null !== $this->period_repository->getById( $id ) ) {
+			$id = $base . '-' . $i;
+			$i++;
+		}
+
+		return $id;
+	}
+
 	public function savePeriod( AcademicPeriodDTO $dto ): bool {
 		$start_ts = strtotime( $dto->start_date );
 		$end_ts   = strtotime( $dto->end_date );

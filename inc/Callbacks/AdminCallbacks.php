@@ -106,12 +106,24 @@ class AdminCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function settingsPage(): void {
+		$academic_periods = $this->periods->readAll();
+
+		// Карта «id периода → количество групп» для колонки в табе периодов.
+		$period_group_counts = array();
+		foreach ( $academic_periods as $period ) {
+			$period_id = (string) ( $period['id'] ?? '' );
+			if ( '' !== $period_id ) {
+				$period_group_counts[ $period_id ] = $this->groupsRepository->countByPeriodId( $period_id );
+			}
+		}
+
 		$this->render(
 			'admin/settings',
 			array(
-				'subjects'         => $this->subjects->readAll(),
-				'academic_periods' => $this->periods->readAll(),
-				'config'           => $this->pluginConfig->viewState(),
+				'subjects'            => $this->subjects->readAll(),
+				'academic_periods'    => $academic_periods,
+				'period_group_counts' => $period_group_counts,
+				'config'              => $this->pluginConfig->viewState(),
 			)
 		);
 	}

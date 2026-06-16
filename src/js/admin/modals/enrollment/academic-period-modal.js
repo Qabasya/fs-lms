@@ -38,7 +38,6 @@ export const AcademicPeriodModal = {
     // Кэшированные элементы управления и отображения
     $saveBtn: null,
     $titleEl: null,
-    $idContainer: null,
 
     /**
      * Инициализация компонента.
@@ -71,7 +70,6 @@ export const AcademicPeriodModal = {
 
         this.$saveBtn     = $('#period-submit-btn');
         this.$titleEl     = $('#period-modal-title');
-        this.$idContainer = $('#period-id-group');
         this.$form        = this.$modal.find('form');
     },
 
@@ -103,10 +101,6 @@ export const AcademicPeriodModal = {
         this.$startDateInput.add(this.$endDateInput).on('change.fs', () => {
             this.$endDateInput[0].setCustomValidity('');
         });
-
-        this.$idInput.on('input.fs', () => {
-            this.$idInput[0].setCustomValidity('');
-        });
     },
 
     /**
@@ -133,15 +127,9 @@ export const AcademicPeriodModal = {
         this.$titleEl.text(isUpdate ? 'Редактировать учебный период' : 'Создать учебный период');
         this.$saveBtn.text(isUpdate ? 'Сохранить изменения' : 'Создать период');
 
-        // В режиме редактирования поле ID скрывается и становится доступным только для чтения,
-        // так как изменять первичный ключ существующей записи нельзя.
-        // В режиме создания оно обязательно к заполнению (required).
-        this.$idContainer.toggle(!isUpdate);
-        this.$idInput.prop('readonly', isUpdate).prop('required', !isUpdate);
-
         if (isUpdate) {
-            // Заполняем форму переданными данными. Оператор ?? обеспечивает fallback на пустую строку,
-            // если какое-то поле отсутствует в объекте data.
+            // Технический ключ существующего периода — в скрытом поле (на сервере он не меняется).
+            // Оператор ?? обеспечивает fallback на пустую строку, если поле отсутствует в data.
             this.$idInput.val(data.id ?? '');
             this.$nameInput.val(data.name ?? '');
             this.$startDateInput.val(data.start_date ?? '');
@@ -161,11 +149,7 @@ export const AcademicPeriodModal = {
         // Двойной RAF гарантирует, что фокус будет установлен после завершения перерисовки кадра.
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                if (isUpdate) {
-                    this.$nameInput.trigger('focus');
-                } else {
-                    this.$idInput.trigger('focus');
-                }
+                this.$nameInput.trigger('focus');
             });
         });
     },
@@ -215,22 +199,12 @@ export const AcademicPeriodModal = {
     },
 
     /**
-     * Программная установка ошибки валидации для поля ID (например, при ответе от сервера о дубликате).
-     * @param {string} message - Текст ошибки для отображения.
-     */
-    setIdError(message) {
-        this.$idInput[0].setCustomValidity(message);
-        this.$idInput[0].reportValidity();
-    },
-
-    /**
      * Сброс формы к исходному состоянию.
      * Очищает значения, снимает флажки и сбрасывает состояния пользовательской валидации.
      * @private
      */
     _resetForm() {
-        this.$idInput.val('').prop('readonly', false);
-        this.$idInput[0].setCustomValidity(''); // Сброс ошибки валидации
+        this.$idInput.val('');
         this.$nameInput.val('');
         this.$startDateInput.val('');
         this.$endDateInput.val('');

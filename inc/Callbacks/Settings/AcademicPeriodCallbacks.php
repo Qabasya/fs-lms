@@ -58,19 +58,24 @@ class AcademicPeriodCallbacks extends BaseController {
 		$this->authorize( Nonce::Manager );
 
 		// Валидация входных данных
-		$id          = $this->requireKey( 'id', error: 'Ключ периода обязателен.' );
 		$name        = $this->requireText( 'name', error: 'Название периода обязательно.' );
 		$start_date  = $this->requireText( 'start_date', error: 'Дата начала обязательна.' );
 		$end_date    = $this->requireText( 'end_date', error: 'Дата окончания обязательна.' );
 		$is_current  = $this->sanitizeBool( 'is_current' );
 		$action_type = 'edit' === $this->sanitizeText( 'action_type' ) ? 'edit' : 'add';
+		$isNew       = 'add' === $action_type;
 
-		// Проверка на дубликат ID при создании
-		if ( 'add' === $action_type && null !== $this->period_service->getById( $id ) ) {
-			$this->error( 'Период с таким техническим ID уже существует.', array( 'error_code' => 'duplicate_id' ) );
+		// Технический ключ: при создании генерируется из названия (пользователь его не вводит и не видит);
+		// при редактировании берётся существующий из скрытого поля и не меняется (на него ссылаются группы).
+		if ( $isNew ) {
+			$id = $this->period_service->generateUniqueId( $name );
+		} else {
+			$id = $this->requireKey( 'id', error: 'Не указан идентификатор периода.' );
+			if ( null === $this->period_service->getById( $id ) ) {
+				$this->error( 'Редактируемый период не найден.' );
+			}
 		}
 
-		$isNew    = 'add' === $action_type;
 		$oldLabel = $isNew ? null : $this->period_service->getById( $id )?->name;
 
 		$dto   = new AcademicPeriodDTO( $id, $name, $start_date, $end_date, $is_current );
