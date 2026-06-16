@@ -1,0 +1,31 @@
+<?php
+
+declare( strict_types=1 );
+
+namespace Inc\Controllers;
+
+use Inc\Callbacks\Course\LessonCallbacks;
+use Inc\Enums\AjaxHook;
+
+/**
+ * Class LessonController
+ *
+ * Регистрирует AJAX-хуки конструктора бакетов урока.
+ *
+ * @package Inc\Controllers
+ */
+class LessonController extends AjaxController {
+
+	public function __construct(
+		private readonly LessonCallbacks $callbacks,
+	) {
+		parent::__construct();
+	}
+
+	protected function ajaxActions(): array {
+		return array(
+			array( AjaxHook::GetLessonTaskCandidates, $this->callbacks ),
+			array( AjaxHook::GetLessonArticles,       $this->callbacks ),
+		);
+	}
+}

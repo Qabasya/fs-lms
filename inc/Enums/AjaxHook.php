@@ -137,6 +137,10 @@ enum AjaxHook: string {
 	case CheckUsernameAvailable      = 'check_username_available';
 	case CheckEmailAvailable         = 'check_email_available';
 
+	// ==== Уроки ====
+	case GetLessonTaskCandidates = 'get_lesson_task_candidates'; // params: subject_key, task_type, collection, scope, search
+	case GetLessonArticles       = 'get_lesson_articles';        // params: subject_key
+
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 

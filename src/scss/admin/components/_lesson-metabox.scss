@@ -1,0 +1,108 @@
+@use '../variables' as *;
+
+.fs-lms-lesson-metabox {
+	.fs-lms-bucket-field {
+		border: 1px solid $color-border-input;
+		border-radius: $border-radius-md;
+		padding: $spacing-lg;
+		margin-bottom: $spacing-lg;
+		background: $wp-admin-gray-bg-light;
+	}
+
+	.fs-lms-bucket-label {
+		font-size: $font-size-m;
+		font-weight: $font-bold;
+		margin: 0 0 $spacing-md;
+		color: $color-text-primary;
+	}
+
+	.fs-lms-bucket-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-sm;
+		margin-bottom: $spacing-sm;
+		min-height: 32px;
+	}
+
+	.fs-lms-task-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-xs;
+		background: $color-primary;
+		color: $color-text-inverse;
+		border-radius: $border-radius-l;
+		padding: $spacing-xs $spacing-sm;
+		font-size: $font-size-sm;
+
+		.fs-lms-chip-title {
+			max-width: 240px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.fs-lms-chip-remove {
+			background: none;
+			border: none;
+			color: $color-text-inverse;
+			cursor: pointer;
+			font-size: $font-size;
+			line-height: 1;
+			padding: 0 2px;
+			opacity: 0.8;
+			transition: $transition-default;
+
+			&:hover {
+				opacity: 1;
+			}
+		}
+	}
+
+	.fs-lms-bucket-search-wrap {
+		position: relative;
+		margin-bottom: $spacing-sm;
+
+		.fs-lms-task-search-input {
+			width: 100%;
+		}
+	}
+
+	.fs-lms-search-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		z-index: 100;
+		background: $color-bg-modal;
+		border: 1px solid $color-border-input;
+		border-radius: $border-radius-md;
+		box-shadow: $shadow-modal;
+		max-height: 200px;
+		overflow-y: auto;
+	}
+
+	.fs-lms-dropdown-item {
+		padding: $spacing-sm $spacing-md;
+		cursor: pointer;
+		font-size: $font-size;
+		transition: $transition-default;
+
+		&:hover {
+			background: $wp-admin-gray-bg;
+		}
+	}
+
+	.fs-lms-dropdown-empty {
+		padding: $spacing-sm $spacing-md;
+		color: $color-text-secondary;
+		font-size: $font-size;
+	}
+
+	.fs-lms-bucket-actions {
+		margin-top: $spacing-sm;
+	}
+
+	.fs-lms-bucket-content {
+		margin-bottom: $spacing-sm;
+	}
+}

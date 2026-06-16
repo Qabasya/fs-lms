@@ -24,6 +24,11 @@ class PostTypeResolver {
 	public const string ARTICLES_SUFFIX = '_articles';
 
 	/**
+	 * Суффикс CPT уроков.
+	 */
+	public const string LESSONS_SUFFIX = '_lessons';
+
+	/**
 	 * Суффикс таксономии типов заданий.
 	 */
 	public const string TASK_NUMBER_SUFFIX = '_task_number';
@@ -89,6 +94,43 @@ class PostTypeResolver {
 		}
 
 		return substr( $post_type, 0, -strlen( self::ARTICLES_SUFFIX ) );
+	}
+
+	/**
+	 * Возвращает CPT уроков указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 *
+	 * @return string CPT уроков.
+	 */
+	public static function lessons( string $subject_key ): string {
+		return $subject_key . self::LESSONS_SUFFIX;
+	}
+
+	/**
+	 * Проверяет, является ли post type типом уроков.
+	 *
+	 * @param string $post_type Тип записи WordPress.
+	 *
+	 * @return bool true, если post type оканчивается на суффикс уроков.
+	 */
+	public static function isLessonPostType( string $post_type ): bool {
+		return str_ends_with( $post_type, self::LESSONS_SUFFIX );
+	}
+
+	/**
+	 * Возвращает ключ предмета из CPT уроков.
+	 *
+	 * @param string $post_type CPT уроков.
+	 *
+	 * @return string Ключ предмета или пустая строка.
+	 */
+	public static function subjectFromLessonPostType( string $post_type ): string {
+		if ( ! self::isLessonPostType( $post_type ) ) {
+			return '';
+		}
+
+		return substr( $post_type, 0, -strlen( self::LESSONS_SUFFIX ) );
 	}
 
 	/**

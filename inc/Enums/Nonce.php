@@ -47,6 +47,9 @@ enum Nonce: string {
 	case HardDeleteStudent        = 'fs_lms_hard_delete_student';
 	case Config                   = 'fs_lms_config';
 
+	/** AJAX-запросы конструктора бакетов урока (выбор заданий, статей). */
+	case AuthorLesson = 'fs_lms_author_lesson';
+
 	/**
 	 * Создает защитный токен.
 	 *

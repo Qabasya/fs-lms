@@ -79,7 +79,41 @@ class RoleManager {
 			$admin->add_cap( Capability::ViewPII->value );
 			$admin->add_cap( Capability::ExportPII->value );
 			$admin->add_cap( Capability::ManagePersons->value );
+			foreach ( self::lessonCaps() as $cap ) {
+				$admin->add_cap( $cap );
+			}
 		}
+
+		$teacher = get_role( 'lms_teacher' );
+		if ( null !== $teacher ) {
+			foreach ( self::lessonCaps() as $cap ) {
+				$teacher->add_cap( $cap );
+			}
+		}
+	}
+
+	/**
+	 * Производные capabilities CPT уроков (capability_type = fs_lms_content).
+	 *
+	 * @return string[]
+	 */
+	private static function lessonCaps(): array {
+		return array(
+			'edit_fs_lms_content',
+			'read_fs_lms_content',
+			'delete_fs_lms_content',
+			'edit_fs_lms_contents',
+			'edit_others_fs_lms_contents',
+			'publish_fs_lms_contents',
+			'read_private_fs_lms_contents',
+			'delete_fs_lms_contents',
+			'delete_others_fs_lms_contents',
+			'delete_published_fs_lms_contents',
+			'delete_private_fs_lms_contents',
+			'edit_private_fs_lms_contents',
+			'edit_published_fs_lms_contents',
+			'create_fs_lms_contents',
+		);
 	}
 
 	/**

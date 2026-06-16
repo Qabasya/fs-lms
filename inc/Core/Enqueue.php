@@ -79,11 +79,12 @@ class Enqueue extends BaseController implements ServiceInterface {
 		$page   = $this->sanitizeText( 'page', 'GET' );
 
 		// str_starts_with() — проверяет начало строки (PHP 8.0)
-		$is_plugin_page = str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' );
-		$is_task_cpt    = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
+		$is_plugin_page  = str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' );
+		$is_task_cpt     = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
+		$is_lesson_cpt   = $screen && PostTypeResolver::isLessonPostType( $screen->post_type );
 
 		// Подключаем ресурсы ТОЛЬКО на страницах плагина или наших CPT
-		if ( ! $is_plugin_page && ! $is_task_cpt ) {
+		if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_lesson_cpt ) {
 			return;
 		}
 
@@ -130,6 +131,22 @@ class Enqueue extends BaseController implements ServiceInterface {
 			filemtime( $this->path( 'assets/js/admin.min.js' ) ),
 			true
 		);
+
+		// === Контекстная локализация для страниц CPT уроков ===
+		if ( $is_lesson_cpt ) {
+			$lesson_subject = PostTypeResolver::subjectFromLessonPostType( $screen->post_type );
+			wp_localize_script(
+				$script_handle,
+				'fs_lms_lesson_vars',
+				array(
+					'ajax_url'    => admin_url( 'admin-ajax.php' ),
+					'subject_key' => $lesson_subject,
+					'nonces'      => array(
+						'authorLesson' => Nonce::AuthorLesson->create(),
+					),
+				)
+			);
+		}
 
 		// === Контекстная локализация для страниц CPT заданий ===
 		if ( $is_task_cpt ) {
@@ -203,6 +220,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'deletePeriod'      => Nonce::DeletePeriod->create(),
 					'hardDeleteStudent' => Nonce::HardDeleteStudent->create(),
 					'config'            => Nonce::Config->create(),
+					'authorLesson'      => Nonce::AuthorLesson->create(),
 				),
 				'ajax_actions' => AjaxHook::toJsArray(),
 			)

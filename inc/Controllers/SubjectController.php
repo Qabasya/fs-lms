@@ -219,7 +219,17 @@ class SubjectController extends AjaxController {
 			$article_args['options']
 		);
 
-		// 3. Регистрация фиксированной таксономии "Номера заданий"
+		// 3. Регистрация Уроков (заголовок, редактор, автор, миниатюра)
+		$lesson_cpt  = PostTypeResolver::lessons( $key );
+		$lesson_args = $this->getDefaultCptArgs( 'lessons', $subject );
+		$this->cpt_registrar->addStandardType(
+			$lesson_cpt,
+			'Уроки',
+			$lesson_args['labels'],
+			$lesson_args['options']
+		);
+
+		// 4. Регистрация фиксированной таксономии "Номера заданий"
 		$fixed_tax_slug = "{$key}_task_number";
 		$this->tax_registrar->addFixedTaxonomy(
 			$fixed_tax_slug,
@@ -245,7 +255,7 @@ class SubjectController extends AjaxController {
 			}
 		);
 
-		// 4. Регистрация пользовательских таксономий (только для заданий)
+		// 5. Регистрация пользовательских таксономий (только для заданий)
 		foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
 			$this->tax_registrar->addStandardTaxonomy(
 				$tax_dto->slug,
@@ -256,7 +266,7 @@ class SubjectController extends AjaxController {
 			);
 		}
 
-		// 5. Фильтр для валидации обязательных таксономий при сохранении поста
+		// 6. Фильтр для валидации обязательных таксономий при сохранении поста
 		add_filter( 'wp_insert_post_data', array( $this->validation_callbacks, 'validateRequiredTaxonomies' ), 10, 2 );
 	}
 
@@ -287,6 +297,23 @@ class SubjectController extends AjaxController {
 					'gender' => 'feminine',
 				),
 				'options' => array( 'supports' => array( 'title', 'editor', 'thumbnail' ) ),
+			),
+			'lessons' => array(
+				'labels'  => array(
+					'nom'    => 'Урок',
+					'acc'    => 'урок',
+					'gen'    => 'урока',
+					'gender' => 'masculine',
+				),
+				'options' => array(
+					'supports'            => array( 'title', 'editor', 'author', 'thumbnail' ),
+					'show_in_menu'        => false,
+					'show_in_rest'        => false,
+					'exclude_from_search' => true,
+					'capability_type'     => 'fs_lms_content',
+					'map_meta_cap'        => true,
+					'has_archive'         => false,
+				),
 			),
 			default => array()
 		};

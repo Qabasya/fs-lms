@@ -12,6 +12,8 @@ use Inc\Controllers\AuthController;
 use Inc\Controllers\Pages\AuthPageController;
 use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\EnrollmentController;
+use Inc\Controllers\LessonController;
+use Inc\Controllers\LessonMetaBoxController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\PiiController;
 use Inc\Controllers\ProfileController;
@@ -76,7 +78,9 @@ final class Init {
 			Enqueue::class,           // Подключение скриптов и стилей
 			AdminController::class,   // Административное меню
 			SubjectController::class, // Управление предметами и CPT
-			MetaBoxController::class, // Метабоксы заданий
+			MetaBoxController::class,        // Метабоксы заданий
+			LessonMetaBoxController::class,  // Метабокс урока
+			LessonController::class,         // AJAX конструктора бакетов
 			TaskCreationController::class, // Создание заданий
 			TaskPageController::class,     // Frontend-страница задания
 			BoilerplateController::class,  // Типовые условия (boilerplate)
@@ -138,7 +142,7 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '1.0';
+		$capsVersion = '1.1';
 		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\RoleManager::class );
 			$roleManager->syncCapabilities();
