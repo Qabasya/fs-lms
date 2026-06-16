@@ -80,4 +80,32 @@ class EmailOtpServiceTest extends TestCase {
 	public function test_verify_returns_true_with_bypass_code(): void {
 		self::assertTrue( $this->service->verify( 'student@test.com', FS_LMS_OTP_BYPASS_CODE ) );
 	}
+
+	// ── attempt cap (brute-force) ─────────────────────────────────────────────────
+
+	public function test_code_invalidated_after_max_failed_attempts(): void {
+		$email = 'student@test.com';
+		$this->storeCode( $email, '654321' );
+
+		// 5 неверных попыток (MAX_VERIFY_ATTEMPTS) инвалидируют код.
+		for ( $i = 0; $i < 5; $i++ ) {
+			self::assertFalse( $this->service->verify( $email, '000000' ) );
+		}
+
+		// Даже правильный код теперь не принимается — нужна повторная отправка.
+		self::assertFalse( $this->service->verify( $email, '654321' ) );
+		self::assertFalse( get_transient( $this->otpKey( $email ) ), 'Код должен быть удалён после лимита попыток' );
+	}
+
+	public function test_correct_code_still_works_before_attempt_cap(): void {
+		$email = 'student@test.com';
+		$this->storeCode( $email, '654321' );
+
+		// 4 неверных попытки — ещё не предел.
+		for ( $i = 0; $i < 4; $i++ ) {
+			self::assertFalse( $this->service->verify( $email, '000000' ) );
+		}
+
+		self::assertTrue( $this->service->verify( $email, '654321' ) );
+	}
 }

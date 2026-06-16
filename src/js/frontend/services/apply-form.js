@@ -10,11 +10,20 @@
 import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
 
-/** @type {{ ajax_url: string, captcha_key: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
+/** @type {{ ajax_url: string, captcha_key: string, hp_field: string, form_token: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
 const vars = window.fs_lms_apply_vars;
 
 /** Данные формы этапа 1, сохраняются для передачи на этапе 2 */
 let _formData = null;
+
+/**
+ * Читает значение honeypot-поля (должно быть пустым у людей).
+ * @returns {string}
+ */
+function readHoneypot() {
+    const name = vars.hp_field || 'fs_company';
+    return document.querySelector( `[name="${ name }"]` )?.value ?? '';
+}
 
 // ── Сбор данных ──────────────────────────────────────────────────────────────
 
@@ -163,6 +172,8 @@ async function handleResendOtp() {
             security:      vars.nonces.apply,
             email:         _formData.email,
             captcha_token: captchaToken,
+            form_token:    vars.form_token ?? '',
+            [ vars.hp_field || 'fs_company' ]: readHoneypot(),
         } );
     } catch {
         return;
@@ -235,6 +246,8 @@ export function initApplyForm() {
                 security:      vars.nonces.apply,
                 email:         data.email,
                 captcha_token: captchaToken,
+                form_token:    vars.form_token ?? '',
+                [ vars.hp_field || 'fs_company' ]: readHoneypot(),
             } );
         } catch {
             setLoading( btn, false );

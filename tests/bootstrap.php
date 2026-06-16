@@ -13,6 +13,9 @@ define('FS_LMS_OTP_BYPASS_CODE', 'TEST_BYPASS_000');
 if (!defined('ARRAY_A')) { define('ARRAY_A', 'ARRAY_A'); }
 if (!defined('OBJECT'))  { define('OBJECT',  'OBJECT'); }
 if (!defined('WP_DEBUG')) { define('WP_DEBUG', false); }
+if (!defined('MINUTE_IN_SECONDS')) { define('MINUTE_IN_SECONDS', 60); }
+if (!defined('HOUR_IN_SECONDS'))   { define('HOUR_IN_SECONDS', 3600); }
+if (!defined('DAY_IN_SECONDS'))    { define('DAY_IN_SECONDS', 86400); }
 
 // WP class stubs
 if (!class_exists('wpdb')) {

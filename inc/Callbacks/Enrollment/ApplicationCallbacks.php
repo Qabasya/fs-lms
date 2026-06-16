@@ -23,6 +23,7 @@ use Inc\Services\Application\JoinCodeService;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Email\EmailOtpService;
 use Inc\Services\Log\AuthLogWriter;
+use Inc\Services\Security\FormGuardService;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Services\Security\RateLimitService;
 use Inc\Services\Shared\PluginConfig;
@@ -75,6 +76,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
 		private readonly AuthLogWriter                $authLog,
 		private readonly PluginConfig                 $pluginConfig,
+		private readonly FormGuardService             $formGuard,
 	) {
 		parent::__construct();
 	}
@@ -188,7 +190,14 @@ class ApplicationCallbacks extends BaseController {
 
 		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
 
-		// Ограничение частоты запросов
+		// Дешёвая бот-защита: honeypot + тайминг формы — до траты бюджета на капчу/письма.
+		$honeypot   = $this->sanitizeText( $this->formGuard->honeypotField() );
+		$formToken  = $this->sanitizeText( 'form_token' );
+		if ( ! $this->formGuard->isHuman( $honeypot, $formToken ) ) {
+			$this->error( 'Не удалось подтвердить отправку формы. Обновите страницу и попробуйте снова.' );
+		}
+
+		// Ограничение частоты запросов по IP
 		if ( ! $this->rateLimitService->allowApplicationCreation( $ip ) ) {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
@@ -202,6 +211,11 @@ class ApplicationCallbacks extends BaseController {
 		}
 
 		$email = $this->sanitizeText( 'email' );
+
+		// Ограничение отправок OTP на один адрес (анти-бомбинг, окно — сутки)
+		if ( ! $this->rateLimitService->allowOtpSendForEmail( $email ) ) {
+			$this->error( 'Слишком много отправок кода на эту почту. Попробуйте завтра.' );
+		}
 
 		// Проверка возможности повторной отправки
 		if ( ! $this->emailOtpService->canResend( $email ) ) {
