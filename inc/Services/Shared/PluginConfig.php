@@ -42,6 +42,20 @@ readonly class PluginConfig {
 		return (string) ( $this->repository->get()['otp_bypass_code'] ?? '' );
 	}
 
+	public function captchaSiteKey(): string {
+		if ( defined( 'FS_LMS_CAPTCHA_SITE_KEY' ) ) {
+			return (string) FS_LMS_CAPTCHA_SITE_KEY;
+		}
+		return (string) ( $this->repository->get()['captcha_site_key'] ?? '' );
+	}
+
+	public function captchaServerKey(): string {
+		if ( defined( 'FS_LMS_CAPTCHA_SERVER_KEY' ) ) {
+			return (string) FS_LMS_CAPTCHA_SERVER_KEY;
+		}
+		return (string) ( $this->repository->get()['captcha_server_key'] ?? '' );
+	}
+
 	public function isDefinedInConfig( ConfigConstant $constant ): bool {
 		return defined( $constant->value );
 	}
@@ -59,10 +73,12 @@ readonly class PluginConfig {
 	 * Мягкая тройка — c префиллом значений. Ключи — только set-флаг, значение НЕ включается.
 	 */
 	public function viewState(): array {
-		$data            = $this->repository->get();
-		$dadataInConfig  = defined( 'DADATA_API_TOKEN' );
-		$testEnvInConfig = defined( 'FS_LMS_TEST_ENV' );
-		$otpInConfig     = defined( 'FS_LMS_OTP_BYPASS_CODE' );
+		$data              = $this->repository->get();
+		$dadataInConfig    = defined( 'DADATA_API_TOKEN' );
+		$testEnvInConfig   = defined( 'FS_LMS_TEST_ENV' );
+		$otpInConfig       = defined( 'FS_LMS_OTP_BYPASS_CODE' );
+		$siteKeyInConfig   = defined( 'FS_LMS_CAPTCHA_SITE_KEY' );
+		$serverKeyInConfig = defined( 'FS_LMS_CAPTCHA_SERVER_KEY' );
 
 		return array(
 			'dadata_token'    => array(
@@ -79,6 +95,16 @@ readonly class PluginConfig {
 				'value'             => $otpInConfig ? (string) FS_LMS_OTP_BYPASS_CODE : (string) ( $data['otp_bypass_code'] ?? '' ),
 				'defined_in_config' => $otpInConfig,
 				'editable'          => ! $otpInConfig,
+			),
+			'captcha_site_key' => array(
+				'value'             => $siteKeyInConfig ? (string) FS_LMS_CAPTCHA_SITE_KEY : (string) ( $data['captcha_site_key'] ?? '' ),
+				'defined_in_config' => $siteKeyInConfig,
+				'editable'          => ! $siteKeyInConfig,
+			),
+			'captcha_server_key' => array(
+				'value'             => $serverKeyInConfig ? (string) FS_LMS_CAPTCHA_SERVER_KEY : (string) ( $data['captcha_server_key'] ?? '' ),
+				'defined_in_config' => $serverKeyInConfig,
+				'editable'          => ! $serverKeyInConfig,
 			),
 			'enc_key_set'     => $this->isEncKeySet(),
 			'hash_salt_set'   => $this->isHashSaltSet(),

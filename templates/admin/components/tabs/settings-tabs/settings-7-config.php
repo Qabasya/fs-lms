@@ -15,11 +15,13 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
  *   ['hash_salt_set']   => bool
  */
 
-$dadata   = $config['dadata_token']    ?? array( 'value' => '', 'defined_in_config' => false, 'editable' => true );
-$test_env = $config['test_env']        ?? array( 'value' => false, 'defined_in_config' => false, 'editable' => true );
-$otp      = $config['otp_bypass_code'] ?? array( 'value' => '', 'defined_in_config' => false, 'editable' => true );
-$enc_set  = (bool) ( $config['enc_key_set']  ?? false );
-$salt_set = (bool) ( $config['hash_salt_set'] ?? false );
+$dadata      = $config['dadata_token']       ?? array( 'value' => '', 'defined_in_config' => false, 'editable' => true );
+$test_env    = $config['test_env']           ?? array( 'value' => false, 'defined_in_config' => false, 'editable' => true );
+$otp         = $config['otp_bypass_code']    ?? array( 'value' => '', 'defined_in_config' => false, 'editable' => true );
+$cap_site    = $config['captcha_site_key']   ?? array( 'value' => '', 'defined_in_config' => false, 'editable' => true );
+$cap_server  = $config['captcha_server_key'] ?? array( 'value' => '', 'defined_in_config' => false, 'editable' => true );
+$enc_set     = (bool) ( $config['enc_key_set']  ?? false );
+$salt_set    = (bool) ( $config['hash_salt_set'] ?? false );
 ?>
 
 <div id="tab-config" class="tab-pane active fs-lms-config">
@@ -92,7 +94,45 @@ $salt_set = (bool) ( $config['hash_salt_set'] ?? false );
 				<p class="description">Отключает капчу, rate-limit и отправку email. Включайте только на dev-стенде.</p>
 			</div>
 
-			<?php if ( $dadata['editable'] || $otp['editable'] || $test_env['editable'] ) : ?>
+			<!-- SmartCaptcha: клиентский ключ -->
+			<div class="fs-config-field">
+				<label for="fs-config-captcha-site" class="fs-config-field__label">
+					SmartCaptcha — клиентский ключ
+					<?php if ( $cap_site['defined_in_config'] ) : ?>
+						<?php render_fs_badge( 'wp-config', 'blue' ); ?>
+					<?php endif; ?>
+				</label>
+				<input
+					type="text"
+					id="fs-config-captcha-site"
+					name="captcha_site_key"
+					class="regular-text"
+					value="<?php echo esc_attr( $cap_site['value'] ); ?>"
+					<?php echo $cap_site['editable'] ? '' : 'disabled readonly'; ?>
+				/>
+				<p class="description">Публичный ключ виджета Yandex SmartCaptcha на форме <code>/lms/apply</code>.</p>
+			</div>
+
+			<!-- SmartCaptcha: серверный ключ -->
+			<div class="fs-config-field">
+				<label for="fs-config-captcha-server" class="fs-config-field__label">
+					SmartCaptcha — серверный ключ
+					<?php if ( $cap_server['defined_in_config'] ) : ?>
+						<?php render_fs_badge( 'wp-config', 'blue' ); ?>
+					<?php endif; ?>
+				</label>
+				<input
+					type="text"
+					id="fs-config-captcha-server"
+					name="captcha_server_key"
+					class="regular-text"
+					value="<?php echo esc_attr( $cap_server['value'] ); ?>"
+					<?php echo $cap_server['editable'] ? '' : 'disabled readonly'; ?>
+				/>
+				<p class="description">Секретный ключ для серверной проверки токена. Оба ключа создаются в консоли Yandex Cloud → SmartCaptcha.</p>
+			</div>
+
+			<?php if ( $dadata['editable'] || $otp['editable'] || $test_env['editable'] || $cap_site['editable'] || $cap_server['editable'] ) : ?>
 				<div class="fs-config-actions">
 					<button type="submit" id="fs-config-save" class="button button-primary">
 						Сохранить настройки

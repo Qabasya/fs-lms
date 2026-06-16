@@ -107,6 +107,33 @@ if (!function_exists('wp_generate_password')) {
     }
 }
 
+// HTTP API stubs (Yandex SmartCaptcha validation). Per-test response via $GLOBALS['_test_http_response'].
+if (!class_exists('WP_Error')) {
+    class WP_Error {
+        public function __construct(private string $msg = 'error') {}
+        public function get_error_message(): string { return $this->msg; }
+    }
+}
+if (!function_exists('wp_remote_post')) {
+    function wp_remote_post(string $url, array $args = array()): mixed {
+        $GLOBALS['_test_http_last'] = array('url' => $url, 'args' => $args);
+        return $GLOBALS['_test_http_response'] ?? array('response' => array('code' => 200), 'body' => '{"status":"ok"}');
+    }
+}
+if (!function_exists('is_wp_error')) {
+    function is_wp_error(mixed $thing): bool { return $thing instanceof WP_Error; }
+}
+if (!function_exists('wp_remote_retrieve_response_code')) {
+    function wp_remote_retrieve_response_code(mixed $r): int {
+        return is_array($r) ? (int) ($r['response']['code'] ?? 0) : 0;
+    }
+}
+if (!function_exists('wp_remote_retrieve_body')) {
+    function wp_remote_retrieve_body(mixed $r): string {
+        return is_array($r) ? (string) ($r['body'] ?? '') : '';
+    }
+}
+
 // Программируемый дубль wpdb для интеграционных тестов репозиториев.
 require_once __DIR__ . '/Support/FakeWpdb.php';
 

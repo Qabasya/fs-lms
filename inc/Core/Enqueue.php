@@ -275,6 +275,19 @@ class Enqueue extends BaseController implements ServiceInterface {
 					),
 				)
 			);
+
+			// Скрипт Yandex SmartCaptcha — только если ключ задан.
+			// Зависит от нашего бандла: он первым ставит window.__fsSmartCaptchaReady,
+			// который вызовет onload-колбэк Яндекса для рендера невидимого виджета.
+			if ( '' !== $this->captchaService->getSiteKey() ) {
+				wp_enqueue_script(
+					'fs-lms-smartcaptcha',
+					'https://smartcaptcha.yandexcloud.net/captcha.js?render=onload&onload=__fsSmartCaptchaReady',
+					array( 'fs-lms-frontend-script' ),
+					null,
+					true
+				);
+			}
 		}
 
 		// === Переменные для формы завершения регистрации родителя (/lms/join) ===
