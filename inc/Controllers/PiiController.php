@@ -9,7 +9,6 @@ use Inc\Callbacks\Person\PersonViewCallbacks;
 use Inc\Callbacks\Person\PiiRevealCallbacks;
 use Inc\Callbacks\Person\RepresentativeCallbacks;
 use Inc\Enums\AjaxHook;
-use Inc\Enums\Capability;
 
 /**
  * Class PiiController
@@ -22,8 +21,7 @@ use Inc\Enums\Capability;
  *
  * 1. **Управление PII** — раскрытие полей, запрос на удаление, экспорт данных.
  * 2. **Управление лицами** — просмотр, обновление данных, управление представителями.
- * 3. **Административные страницы** — карточка лица (Person).
- * 4. **Эндпоинт скачивания экспорта** — обработка одноразовой ссылки для скачивания файлов.
+ * 3. **Эндпоинт скачивания экспорта** — обработка одноразовой ссылки для скачивания файлов.
  *
  * ### Архитектурная роль:
  * 
@@ -63,9 +61,6 @@ class PiiController extends AjaxController {
 	 * @return void
 	 */
 	public function register(): void {
-		// Регистрация страницы карточки лица в админ-панели
-		add_action( 'admin_menu', array( $this, 'registerPersonDetailPage' ) );
-
 		// Регистрация эндпоинта для скачивания экспортированных файлов
 		add_action( 'init', array( $this, 'addExportRewriteRule' ) );
 		add_filter( 'query_vars', array( $this, 'addExportQueryVar' ) );
@@ -96,23 +91,6 @@ class PiiController extends AjaxController {
 			array( AjaxHook::UpdatePerson, $this->updateCallbacks ),
 			// Получение данных лица для отображения
 			array( AjaxHook::GetPersonData, $this->viewCallbacks ),
-		);
-	}
-
-	/**
-	 * Регистрирует скрытую страницу карточки лица (Person) в админ-панели.
-	 *
-	 * @return void
-	 */
-	public function registerPersonDetailPage(): void {
-		// add_submenu_page() с parent_slug = null создаёт скрытую страницу
-		add_submenu_page(
-			null,
-			'Карточка',
-			'',
-			Capability::ManagePersons->value,
-			'fs-lms-person-detail',
-			array( $this->viewCallbacks, 'renderPersonDetailPage' )
 		);
 	}
 

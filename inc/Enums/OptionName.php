@@ -52,9 +52,6 @@ enum OptionName: string {
 	/** Справочник учебных периодов */
 	case Periods = 'fs_lms_periods_list';
 
-	/** Мета согласия: текущий sha256-хэш и дата обновления WP-страницы */
-	case ConsentPageMeta = 'fs_lms_consent_page_meta';
-
 	/** Шаблоны email-писем (редактируются в настройках плагина) */
 	case EmailTemplates = 'fs_lms_email_templates';
 

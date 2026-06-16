@@ -29,6 +29,8 @@ WORKDIR /var/www/plugin
 ```
 Содержимое docker-compose:
 ```
+version: '3.8'
+
 services:
 
   db:
@@ -46,6 +48,7 @@ services:
     container_name: wp_app
     depends_on:
       - db
+      - mailpit
     ports:
       - "8080:80"
     restart: always
@@ -56,7 +59,7 @@ services:
       WORDPRESS_DB_NAME: wordpress
       WORDPRESS_DEBUG: 1
     volumes:
-      - ./fs-lms:/var/www/html/wp-content/plugins/fs-lms
+      - ./wordpress:/var/www/html
 
   phpmyadmin:
     image: phpmyadmin:latest
@@ -71,15 +74,13 @@ services:
       PMA_PORT: 3306
       MYSQL_ROOT_PASSWORD: root
 
-  dev:
-    build:
-      context: .
-      dockerfile: docker/dev/Dockerfile
-    container_name: wp_dev
-    working_dir: /var/www/plugin
-    volumes:
-      - ./fs-lms:/var/www/plugin
-    command: tail -f /dev/null
+  mailpit:
+    image: axllent/mailpit
+    container_name: wp_mailpit
+    restart: always
+    ports:
+      - "8025:8025"
+      - "1025:1025"
 
 volumes:
   db_data:
@@ -104,3 +105,6 @@ PhpMyAdmin -> localhost:8081
     server: db
     user: root
     password: root
+
+
+Mailpit -> localhost:8025
