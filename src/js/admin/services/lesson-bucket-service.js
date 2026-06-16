@@ -1,15 +1,13 @@
 import '../_types.js';
 
+/* global jQuery */
+const $ = jQuery;
+
 /**
  * LessonBucketService — управляет бакетами урока (практика / СР / ДЗ).
- *
- * Добавляет/удаляет чипы заданий и синхронизирует скрытые инпуты.
- * Загружает кандидатов через AJAX (GetLessonTaskCandidates).
  */
 export const LessonBucketService = {
 
-	/** @type {jQuery|null} Активный бакет при открытии пикера */
-	_activeBucket: null,
 	_searchTimer: null,
 
 	init() {
@@ -19,6 +17,7 @@ export const LessonBucketService = {
 
 		this._bindChipRemoval();
 		this._bindSearch();
+		this._bindDropdownSelect();
 		this._bindCreateTask();
 	},
 
@@ -39,7 +38,6 @@ export const LessonBucketService = {
 			}, 300 );
 		} );
 
-		// Закрыть дропдаун при клике вне
 		$( document ).on( 'click', ( e ) => {
 			if ( ! $( e.target ).closest( '.fs-lms-bucket-search-wrap' ).length ) {
 				$( '.fs-lms-search-dropdown' ).hide();
@@ -47,28 +45,33 @@ export const LessonBucketService = {
 		} );
 	},
 
+	_bindDropdownSelect() {
+		$( document ).on( 'click', '.fs-lms-dropdown-item', ( e ) => {
+			const $item     = $( e.currentTarget );
+			const $bucket   = $item.closest( '.fs-lms-bucket-field' );
+			const taskId    = parseInt( $item.data( 'task-id' ), 10 );
+			const taskTitle = String( $item.data( 'task-title' ) );
+
+			this._addChip( $bucket, taskId, taskTitle );
+			$bucket.find( '.fs-lms-search-dropdown' ).hide();
+			$bucket.find( '.fs-lms-task-search-input' ).val( '' );
+		} );
+	},
+
 	_bindCreateTask() {
 		$( document ).on( 'click', '.fs-lms-create-task-in-bucket', ( e ) => {
-			const $bucket       = $( e.currentTarget ).closest( '.fs-lms-bucket-field' );
-			this._activeBucket  = $bucket;
+			const $bucket = $( e.currentTarget ).closest( '.fs-lms-bucket-field' );
 
-			// Открываем существующую модалку создания задания с context=lesson
 			if ( window.TaskModal ) {
 				window.TaskModal.openWithContext( {
-					subject_key : $bucket.data( 'subject' ),
-					context     : 'lesson',
-					onCreated   : ( task ) => this._addChip( $bucket, task.id, task.title ),
+					subject_key: $bucket.data( 'subject' ),
+					context    : 'lesson',
+					onCreated  : ( task ) => this._addChip( $bucket, task.id, task.title ),
 				} );
 			}
 		} );
 	},
 
-	/**
-	 * Загружает кандидатов с сервера и показывает дропдаун.
-	 *
-	 * @param {string} search
-	 * @param {jQuery} $bucket
-	 */
 	_fetchCandidates( search, $bucket ) {
 		const vars       = window.fs_lms_vars;
 		const subjectKey = $bucket.data( 'subject' );
@@ -84,43 +87,34 @@ export const LessonBucketService = {
 			security   : vars.nonces.authorLesson,
 			subject_key: subjectKey,
 			scope      : 'subject',
-			search     : search,
-		} )
-		.done( ( res ) => {
+			search,
+		} ).done( ( res ) => {
 			if ( ! res.success || ! res.data.length ) {
 				$dropdown.html( '<div class="fs-lms-dropdown-empty">Ничего не найдено</div>' ).show();
 				return;
 			}
 
-			const html = res.data.map( ( t ) =>
-				`<div class="fs-lms-dropdown-item" data-task-id="${ t.id }" data-task-title="${ $( '<div>' ).text( t.title ).html() }">
-					${ $( '<div>' ).text( t.title ).html() }
-				</div>`
-			).join( '' );
+			const html = res.data.map( ( t ) => {
+				const escaped = $( '<div>' ).text( t.title ).html();
+				return `<div class="fs-lms-dropdown-item" data-task-id="${ t.id }" data-task-title="${ escaped }">${ escaped }</div>`;
+			} ).join( '' );
 
 			$dropdown.html( html ).show();
 		} );
 	},
 
-	/**
-	 * Добавляет задание в бакет как чип.
-	 *
-	 * @param {jQuery} $bucket
-	 * @param {number} taskId
-	 * @param {string} taskTitle
-	 */
 	_addChip( $bucket, taskId, taskTitle ) {
-		const bucketId  = $bucket.data( 'bucket' );
-		const metaBase  = `fs_lms_meta[${ bucketId }][task_ids][]`;
+		const bucketId = $bucket.data( 'bucket' );
+		const metaBase = `fs_lms_meta[${ bucketId }][task_ids][]`;
 
-		// Не добавлять дубликат
 		if ( $bucket.find( `.fs-lms-task-chip[data-task-id="${ taskId }"]` ).length ) {
 			return;
 		}
 
-		const $chip = $( `
+		const escaped = $( '<div>' ).text( taskTitle ).html();
+		const $chip   = $( `
 			<div class="fs-lms-task-chip" data-task-id="${ taskId }">
-				<span class="fs-lms-chip-title">${ $( '<div>' ).text( taskTitle ).html() }</span>
+				<span class="fs-lms-chip-title">${ escaped }</span>
 				<button type="button" class="fs-lms-chip-remove" aria-label="Удалить">×</button>
 				<input type="hidden" name="${ metaBase }" value="${ taskId }">
 			</div>
@@ -129,15 +123,3 @@ export const LessonBucketService = {
 		$bucket.find( '.fs-lms-bucket-chips' ).append( $chip );
 	},
 };
-
-// Перехват клика по дропдаун-элементу (делегирование на document для динамических элементов)
-$( document ).on( 'click', '.fs-lms-dropdown-item', function () {
-	const $item     = $( this );
-	const $bucket   = $item.closest( '.fs-lms-bucket-field' );
-	const taskId    = parseInt( $item.data( 'task-id' ), 10 );
-	const taskTitle = $item.data( 'task-title' );
-
-	LessonBucketService._addChip( $bucket, taskId, taskTitle );
-	$bucket.find( '.fs-lms-search-dropdown' ).hide();
-	$bucket.find( '.fs-lms-task-search-input' ).val( '' );
-} );
