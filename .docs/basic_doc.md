@@ -23,10 +23,14 @@
 19. [Фронтенд-страницы и шорткоды](#фронтенд-страницы-и-шорткоды)
 20. [Роли и матрица прав](#роли-и-матрица-прав)
 21. [Конфигурация wp-config.php](#конфигурация-wp-configphp)
-22. [CsvExportService](#csvexportservice)
-23. [Управление паролями пользователей](#управление-паролями-пользователей)
-24. [Система уведомлений](#система-уведомлений)
-25. [Troubleshooting](#troubleshooting)
+22. [Конфигурация плагина и таб Конфигурация](#конфигурация-плагина-и-таб-конфигурация)
+23. [Бот-защита публичных форм](#бот-защита-публичных-форм)
+24. [Логирование и аудит: добавление лог-канала](#логирование-и-аудит-добавление-лог-канала)
+25. [Кастомная авторизация: ошибки входа](#кастомная-авторизация-ошибки-входа)
+26. [CsvExportService](#csvexportservice)
+27. [Управление паролями пользователей](#управление-паролями-пользователей)
+28. [Система уведомлений](#система-уведомлений)
+29. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -1592,24 +1596,33 @@ public function createIfNotExists(array $data): int {
 - Хранит `['count' => N, 'reset_at' => timestamp]` внутри transient — TTL transient'а устанавливается равным длине окна только при создании
 - Это гарантирует, что окно не сдвигается при каждом инкременте (в отличие от sliding window)
 - IP хэшируется: `hash('sha256', $ip . FS_LMS_HASH_SALT)` — IP в transient-ключах не хранится
+- Email хэшируется аналогично (`emailKey()`), с нормализацией (`strtolower(trim())`) — сырой адрес в ключах не хранится
+- Приватный `check( $key, $limit, $window = HOUR )` принимает длину окна параметром — для суточных лимитов передаётся `DAY_IN_SECONDS`
 
 Лимиты по умолчанию:
 
-| Действие | Лимит | Окно |
-|---|---|---|
-| Подача заявки | 5 | 1 час |
-| Ввод JOIN-кода | 10 | 1 час |
-| Отправка данных родителем | 3 | 1 час |
-| Чтение PII | 100 | 1 час |
+| Действие | Метод | Ключ | Лимит | Окно |
+|---|---|---|---|---|
+| Подача заявки | `allowApplicationCreation($ip)` | IP | 5 | 1 час |
+| Ввод JOIN-кода | `allowJoinAttempt($ip)` | IP | 10 | 1 час |
+| Отправка данных родителем | `allowParentSubmit($ip)` | IP | 3 | 1 час |
+| Чтение PII | `allowPiiReveal($userId)` | user_id | 100 | 1 час |
+| Отправка OTP на email | `allowOtpSendForEmail($email)` | email | 5 | 1 сутки |
+
+Лимит по email (`allowOtpSendForEmail`) дополняет IP-лимит и cooldown: защищает от **email-бомбинга** жертвы при ротации IP и ограничивает число заявок на один адрес. Все `allow*`-методы (кроме `allowPiiReveal`) возвращают `true` без проверки, если включено тестовое окружение (`PluginConfig::isTestEnv()`).
 
 ### EmailOtpService
 
 Генерирует, отправляет и верифицирует одноразовые коды подтверждения email (шаг A/B формы заявки).
 
-- `sendCode(string $email)` — генерирует 6-значный код, сохраняет sha256-хэш в transient (TTL 10 мин), отправляет письмо. Если определена `FS_LMS_TEST_ENV` — сразу возвращает `return`, письмо не отправляется.
-- `verify(string $email, string $code): bool` — сравнивает хэши через `hash_equals()`. Если определена `FS_LMS_OTP_BYPASS_CODE` и `$code === FS_LMS_OTP_BYPASS_CODE` — возвращает `true` без проверки transient (работает в любом окружении).
+- `sendCode(string $email)` — генерирует 6-значный код, сохраняет sha256-хэш в transient (TTL 10 мин), отправляет письмо. При новом коде обнуляет счётчик неудачных попыток.
+- `verify(string $email, string $code): bool` — сравнивает хэши через `hash_equals()`. Bypass-код берётся из `PluginConfig::otpBypassCode()` (константа `FS_LMS_OTP_BYPASS_CODE` или опция) — при совпадении возвращает `true` без проверки transient.
 - `canResend(string $email): bool` — проверяет cooldown (60 сек).
 - `invalidate(string $email)` — удаляет transient кода и cooldown.
+
+**Защита от перебора кода (attempt cap):** каждая неверная попытка увеличивает счётчик в отдельном transient (`fs_lms_otp_att_*`). После `MAX_VERIFY_ATTEMPTS` (5) неверных вводов код инвалидируется — дальнейшие попытки бесполезны до повторной отправки. Так 6-значный код (1 млн комбинаций) нельзя перебрать даже при ротации IP.
+
+> Зависимости конструктора: `EmailService` + `PluginConfig`. Bypass-код больше не читается напрямую из константы — только через `PluginConfig`, что позволяет задать его и через таб «Конфигурация» (см. раздел «Конфигурация плагина»).
 
 **Конфигурационные константы (`wp-config.php`):**
 
@@ -1626,20 +1639,38 @@ public function createIfNotExists(array $data): int {
 
 ### CaptchaService
 
-Тонкий фасад над `CaptchaProviderInterface`. Следует принципу OCP: добавление нового провайдера (reCAPTCHA v3, Turnstile, hCaptcha) не требует изменения сервиса.
+Тонкий фасад над `CaptchaProviderInterface`. Следует принципу OCP: смена провайдера не требует изменения сервиса и вызывающего кода.
 
 ```
 CaptchaService
 └── CaptchaProviderInterface
-    ├── NullCaptchaProvider   (fallback, isConfigured() → false)
-    └── RecaptchaProvider     (пример реализации, подключается в DI)
+    ├── YandexSmartCaptchaProvider  (текущий провайдер по умолчанию)
+    └── NullCaptchaProvider         (оставлен как запасной no-op)
 ```
 
 - `validate(token, remoteIp): bool` — делегирует в провайдер
-- `getSiteKey(): string` — ключ для фронтенда
-- `isConfigured(): bool` — фронтенд показывает виджет только если `true`
+- `getSiteKey(): string` — клиентский ключ для фронтенда (пусто = виджет не рендерится)
+- `isConfigured(): bool` — оба ключа заданы
 
-Проверка капчи в `ApplicationCallbacks::ajaxSendOtpCode()` пропускается если в `wp-config.php` определена константа `FS_LMS_TEST_ENV`.
+**Текущий провайдер — `YandexSmartCaptchaProvider`** (`inc/Services/CaptchaProviders/`). `CaptchaService` тайп-хинтит его напрямую (autowiring), без биндинга интерфейса в контейнере — поэтому работает и в keyless-режиме.
+
+- `validate()` → `POST https://smartcaptcha.yandexcloud.net/validate` (`secret` + `token` + `ip`), успех при `status == ok`.
+- **Не настроен** (нет серверного ключа) → `validate()` возвращает `true` (форму держат OTP + honeypot + rate-limit).
+- **Fail-open**: при сетевой ошибке / не-200 `validate()` возвращает `true` и пишет warning в `PluginLogger` — недоступность Яндекса не блокирует реальных пользователей.
+
+**Ключи** хранятся как `captcha_site_key` / `captcha_server_key` в `PluginConfig` (опция + приоритет констант `FS_LMS_CAPTCHA_SITE_KEY` / `FS_LMS_CAPTCHA_SERVER_KEY`). Вводятся в таб «Конфигурация».
+
+**Фронтенд (невидимый виджет):** `src/js/frontend/services/captcha.js`.
+- `Enqueue` подключает `captcha.js` Яндекса на `/lms/apply` только если задан клиентский ключ; зависит от бандла `fs-lms-frontend-script`, поэтому глобальный колбэк `__fsSmartCaptchaReady` готов к onload.
+- Модуль рендерит невидимый виджет в `#fs-captcha-slot` и выдаёт токен по требованию через `getCaptchaToken()` (промис, `execute()` → callback). После каждой попытки — `resetCaptcha()` (токен одноразовый).
+- `apply-form.js` делает `await getCaptchaToken()` перед отправкой OTP (и на повторной отправке).
+
+Проверка капчи в `ApplicationCallbacks::ajaxSendOtpCode()` пропускается при включённом тестовом окружении (`PluginConfig::isTestEnv()`).
+
+**Как сменить провайдера капчи (на Turnstile/reCAPTCHA/hCaptcha):**
+1. Создать класс в `inc/Services/CaptchaProviders/`, реализующий `CaptchaProviderInterface`.
+2. Поменять тайп-хинт в конструкторе `CaptchaService` на новый класс (либо забиндить интерфейс в `Init::run()`).
+3. Поправить фронтенд-рендер виджета (`captcha.js`) под API нового провайдера; серверный `ajaxSendOtpCode()` и `CaptchaService` остаются без изменений.
 
 ### PersonService
 
@@ -2611,13 +2642,17 @@ define('FS_LMS_HASH_SALT','d807045d9872d8aeaa629e8c67e3f73c06879756fd7af5c4481c3
 
 | Константа | Назначение |
 |---|---|
-| `FS_LMS_TEST_ENV` | Тестовое окружение: капча пропускается, OTP-письмо не отправляется, открывает `/lms/join/000` |
+| `FS_LMS_TEST_ENV` | Тестовое окружение: капча/honeypot/rate-limit пропускаются, OTP-письмо не отправляется, открывает `/lms/join/000` |
 | `FS_LMS_OTP_BYPASS_CODE` | Постоянный bypass-код OTP — принимается вместо кода с почты в любом окружении |
-| `DADATA_API_TOKEN` | API-токен DaData для автодополнения адреса в форме `/lms/join` |
+| `DADATA_API_TOKEN` | API-токен DaData для автодополнения адреса/ФИО в формах `/lms/apply` и `/lms/join` |
+| `FS_LMS_CAPTCHA_SITE_KEY` | Клиентский ключ Yandex SmartCaptcha |
+| `FS_LMS_CAPTCHA_SERVER_KEY` | Серверный ключ Yandex SmartCaptcha (валидация токена) |
 
 Константы независимы. `FS_LMS_OTP_BYPASS_CODE` работает даже без `FS_LMS_TEST_ENV`.
 
-Без `DADATA_API_TOKEN` автодополнение адреса молча отключается — поле работает как обычный текстовый ввод.
+Без `DADATA_API_TOKEN` автодополнение молча отключается. Без ключей капчи виджет не рендерится, а `validate()` пропускает (fail-open).
+
+> **Опциональные значения теперь дублируются в БД.** «Мягкая четвёрка» (`DADATA_API_TOKEN`, `FS_LMS_TEST_ENV`, `FS_LMS_OTP_BYPASS_CODE`, оба ключа капчи) также задаётся через админ-таб «Конфигурация» и хранится в `wp_options`. **Приоритет: константа из `wp-config.php` > значение из БД.** Если константа задана — поле в UI заблокировано (бейдж «wp-config»). Ключи шифрования (`FS_LMS_ENC_KEY`/`FS_LMS_HASH_SALT`) в БД **не** хранятся никогда. Подробнее — раздел «Конфигурация плагина».
 
 Пример:
 
@@ -2625,6 +2660,123 @@ define('FS_LMS_HASH_SALT','d807045d9872d8aeaa629e8c67e3f73c06879756fd7af5c4481c3
 define( 'FS_LMS_TEST_ENV',   true );
 define( 'FS_LMS_OTP_BYPASS_CODE',   '0000' );
 ```
+
+---
+
+## Конфигурация плагина и таб Конфигурация
+
+Помимо констант `wp-config.php`, часть настроек редактируется из админки (**Настройки → Конфигурация**, `tab-7`) и хранится в `wp_options`.
+
+### Компоненты
+
+| Слой | Файл | Роль |
+|---|---|---|
+| Опция | `OptionName::PluginConfig` → `fs_lms_plugin_config` | Один ключ `wp_options` со структурой-массивом |
+| Репозиторий | `PluginConfigRepository` | `get()` (мержит с `DEFAULTS`), `save($partial)` (пишет только известные ключи, autoload=false) |
+| Сервис чтения | `PluginConfig` (`Services/Shared/`) | Типизированные геттеры с приоритетом константы над БД; `viewState()` — payload для шаблона |
+| Enum констант | `ConfigConstant` | Имена констант + `label()` + `isSecret()` |
+| AJAX | `ConfigController` + `ConfigCallbacks` | `ajaxSaveConfig` (`Nonce::Config`, `Capability::Admin`), `ajaxGenerateKey` (генерация ключей шифрования) |
+| View | `settings-7-config.php` | Поля «мягкой четвёрки» + ключи капчи + блок генерации ключей шифрования |
+| JS | `services/settings/config-settings.js` | Сохранение, генерация ключа, copy-to-clipboard |
+
+### Правило приоритета
+
+`PluginConfig::dadataToken()` и аналоги: **если определена константа `wp-config.php` — возвращается она, иначе значение из БД.** В `viewState()` поле помечается `defined_in_config=true` и `editable=false` → в UI заблокировано с бейджем «wp-config». Ключи шифрования (`FS_LMS_ENC_KEY`/`FS_LMS_HASH_SALT`) в БД не хранятся: `viewState()` отдаёт только `*_set` (bool), значение наружу не уходит.
+
+### Keyless-режим
+
+Если `PiiCryptoService::isAvailable()` вернул `false` (нет/битый `FS_LMS_ENC_KEY`), `fs-lms.php` поднимает **минимальный бутстрап**: только `Enqueue` + `AdminController` + `ConfigController`, плюс admin notice. Так администратор может зайти в таб «Конфигурация», сгенерировать ключи и вставить их в `wp-config.php`, не активируя весь плагин.
+
+### Как добавить новое значение конфигурации
+
+1. **`PluginConfigRepository::DEFAULTS`** — добавить ключ со значением по умолчанию.
+2. **`PluginConfig`** — геттер (с override константы, если нужен) + запись в `viewState()`.
+3. **`ConfigConstant`** — case, если у значения будет override через `wp-config.php`.
+4. **`ConfigCallbacks::ajaxSaveConfig()`** — добавить ключ в массив `save()` (через `Sanitizer`).
+5. **`settings-7-config.php`** — поле ввода (бейдж «wp-config» при `defined_in_config`).
+6. **`config-settings.js`** — добавить поле в payload `saveConfig()`.
+
+---
+
+## Бот-защита публичных форм
+
+Форма заявки `/lms/apply` защищена слоями (порядок проверки в `ApplicationCallbacks::ajaxSendOtpCode()`):
+
+1. **Nonce** (`Nonce::Apply`).
+2. **FormGuardService** — honeypot + тайминг (дёшево, до траты бюджета на капчу/письма).
+3. **Rate-limit по IP** (`allowApplicationCreation`).
+4. **Капча** Yandex SmartCaptcha (если не test-env).
+5. **Rate-limit по email** (`allowOtpSendForEmail`) — анти-бомбинг.
+6. **OTP-cooldown** (`canResend`, 60 сек).
+
+Плюс на шаге верификации — **attempt-cap** в `EmailOtpService::verify()` (см. раздел EmailOtpService).
+
+### FormGuardService (`Services/Security/`)
+
+Stateless, без хранения состояния между рендером и сабмитом.
+
+- `honeypotField(): string` — имя скрытого поля-ловушки (`fs_company`). В разметке обёрнуто в `.fs-hp` (скрыто CSS, `aria-hidden`, `tabindex=-1`). Бот заполняет → отказ.
+- `timestampToken(): string` — `"{ts}.{hmac}"`, подпись HMAC на `FS_LMS_HASH_SALT`.
+- `isHuman($honeypot, $token): bool` — honeypot пуст **и** прошло `[MIN_FILL_SECONDS=3 .. MAX_TOKEN_AGE=1ч]`. В test-env всегда `true`.
+
+**Проводка на фронте:** `Enqueue` кладёт `hp_field` и `form_token` в `fs_lms_apply_vars`; honeypot-`<input>` — статически в `apply.php`; `apply-form.js` форвардит оба значения в `send_otp`.
+
+### Как защитить ещё одну публичную форму
+
+1. В шаблон — honeypot-`<input name="<honeypotField()>">` внутри `.fs-hp`.
+2. В локализацию формы — `hp_field` + `form_token` (`FormGuardService` через DI в `Enqueue`).
+3. На сабмите (JS) — форвардить honeypot и `form_token`.
+4. На сервере (callback) — `if ( ! $this->formGuard->isHuman( $hp, $token ) ) { $this->error(...); }`.
+
+---
+
+## Логирование и аудит: добавление лог-канала
+
+Событийная шина: источник `dispatch()` → `LogEventDispatcher` → подписчики `subscribe()` → writer → лог-репозиторий → таблица.
+
+### Компоненты
+
+| Слой | Где | Роль |
+|---|---|---|
+| Каталог событий | `Enums/LogEvent` | Словарь доменных событий (`subject.created`, `student.enrolled`, …) |
+| Каналы | `Enums/LogChannel` | 8 каналов: `label()` + `tableName()` |
+| Шина | `Services/Log/LogEventDispatcher` (`LogEventDispatcherInterface`, singleton) | `subscribe()` / `dispatch()`; изоляция ошибок подписчиков |
+| Event-DTO | `DTO/Log/Events/*` | Полезная нагрузка события |
+| Подписчики | `Controllers/Subscribers/*` (`ServiceInterface`) | В `register()` подписывают события на writer |
+| Writers | `Services/Log/*LogWriter` | Формируют запись и пишут через лог-репозиторий |
+| Лог-репозитории | `Repositories/WPDBRepositories/Log/*` | `insert` + `list/count` с фильтрами |
+| Отображение | `AdminCallbacks::logsPage()` + `logs-N-*.php` | Таб с фильтрами/сортировкой; экспорт — `CsvExportProvider` |
+
+> Канал **Auth** — особый: пишется не через шину, а через WP-хуки (`wp_login`, `wp_login_failed`, …) в `AuthLogController`.
+
+### Как добавить новый канал
+
+1. **Таблица** — в `Migration_1_0_0::up()` и `down()` + case в `Enums/TableName`. Для dev сбросить `fs_lms_schema_version` в `0.0.0` (перезапуск миграций).
+2. **`LogChannel`** — case + `label()` + `tableName()`.
+3. **Лог-репозиторий** в `WPDBRepositories/Log/` — `insert()` и `list()/count()` с фильтрами.
+4. **Writer** в `Services/Log/`.
+5. **События** — case(ы) в `LogEvent` + event-DTO в `DTO/Log/Events/`.
+6. **Подписчик** в `Controllers/Subscribers/` (`ServiceInterface`): в `register()` `subscribe()` события → writer. Зарегистрировать в `Init::getServices()`.
+7. **Источник** — `$this->logEvents->dispatch( LogEvent::X, new XEvent(...) )` строго **после** успешной операции/коммита транзакции.
+8. **UI** (если нужен таб) — шаблон `logs-N-*.php` + ветка в `AdminCallbacks::logsPage()`; для экспорта — `CsvExportProvider`.
+
+### Как поправить существующий канал (добавить поле)
+
+1. Колонка — в `Migration_1_0_0::up()` + строка в секции Cleanup; сбросить версию схемы.
+2. Лог-репозиторий — добавить колонку в `insert()` и в выборку `list()`; обновить DTO.
+3. Writer — пробросить новое значение.
+4. Таб `logs-N-*.php` — колонка в таблице; при необходимости — фильтр и колонка в `CsvExportProvider`.
+
+---
+
+## Кастомная авторизация: ошибки входа
+
+Форма входа (`auth-page.php`) постит на `wp-login.php`. При неверных кредах стандартный WP перерисовывает свою страницу — чтобы пользователь оставался на нашей, ошибки перехватываются.
+
+- **`AuthPageController::redirectFailedLogin()`** на хуке `wp_login_failed` (**приоритет 20** — позже `AuthLogController` на 10, чтобы попытка успела залогироваться до `redirect + exit`).
+- Срабатывает **только** если в POST есть скрытый маркер `fs_lms_login` (наша форма) — прямой вход админа на `wp-login.php` не затрагивается.
+- Редиректит на `sign-in` с `?login=failed&fs_user=<логин>`. Шаблон показывает единое сообщение «Неверный логин или пароль» (без раскрытия, что именно неверно — анти-энумерация) и префилл поля логина.
+- Успешный вход → штатный `redirect_to`.
 
 ---
 
