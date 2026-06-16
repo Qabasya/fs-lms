@@ -38,7 +38,10 @@ class TaskPublishValidatorTest extends TestCase {
 	}
 
 	private function makeTemplate( array $fieldKeys ): BaseTemplate {
-		$template = $this->getMockForAbstractClass( BaseTemplate::class );
+		$template = new class extends BaseTemplate {
+			public function get_id(): string { return 'test_template'; }
+			public function get_name(): string { return 'Test Template'; }
+		};
 		foreach ( $fieldKeys as $key ) {
 			$template->fields[ $key ] = [ 'label' => $key, 'object' => new \stdClass() ];
 		}

@@ -19,6 +19,7 @@ if (!class_exists('wpdb')) {
     class wpdb {
         public int $insert_id = 1;
         public string $last_error = '';
+        public string $prefix = 'wp_';
         public function query(string $sql): bool|int { return 1; }
         public function prepare(string $sql, ...$args): string { return $sql; }
         public function insert(string $table, array $data, ?array $format = null): int|false { return 1; }
@@ -97,6 +98,14 @@ if (!function_exists('get_userdata')) {
         return false;
     }
 }
+if (!function_exists('wp_generate_password')) {
+    function wp_generate_password(int $length = 12, bool $special_chars = true, bool $extra_special_chars = false): string {
+        return substr(str_repeat('aB3$xY7!', 16), 0, max(1, $length));
+    }
+}
+
+// Программируемый дубль wpdb для интеграционных тестов репозиториев.
+require_once __DIR__ . '/Support/FakeWpdb.php';
 
 // Global wpdb instance used by TransactionRunner trait
 $GLOBALS['wpdb'] = new wpdb();

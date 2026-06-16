@@ -1620,6 +1620,15 @@ WordPress в `users.user_pass` держит **только хеш** — восс
 
 ## Тесты
 
+> **Статус (16.06.2026): реализовано — 101 тест, зелёные** (`vendor/bin/phpunit`).
+> Suites: `Unit` (86) + `Integration` (15). Интеграционные тесты репозиториев
+> используют программируемый дубль `tests/Support/FakeWpdb.php`.
+> Покрыто: все группы ниже + E2E зачисления (`tests/Integration/Enrollment/EnrollmentFlowTest.php`):
+> happy path (новый ученик+родитель), повторное зачисление отчисленного без дубля,
+> переиспользование существующих WP-аккаунтов, авто-отправка писем, откат транзакции,
+> частичный сбой → recovery, отклонение повторного активного зачисления.
+> Чинены под PHPUnit 12: `EmailOtpServiceTest`, `TaskPublishValidatorTest`, `PiiMaskingServiceTest`.
+
 ---
 
 **Unit: `EnrollmentService`**

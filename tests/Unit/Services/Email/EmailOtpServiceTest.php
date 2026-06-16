@@ -6,6 +6,7 @@ namespace Unit\Services\Email;
 
 use Inc\Services\Email\EmailOtpService;
 use Inc\Services\Email\EmailService;
+use Inc\Services\Shared\PluginConfig;
 use PHPUnit\Framework\TestCase;
 
 class EmailOtpServiceTest extends TestCase {
@@ -16,8 +17,12 @@ class EmailOtpServiceTest extends TestCase {
 		parent::setUp();
 		$GLOBALS['_test_transients'] = [];
 		$emailService = $this->createMock( EmailService::class );
-		$emailService->method( 'sendOtpCode' )->willReturn( null );
-		$this->service = new EmailOtpService( $emailService );
+		$emailService->method( 'sendOtpCode' )->willReturn( true );
+
+		$pluginConfig = $this->createMock( PluginConfig::class );
+		$pluginConfig->method( 'otpBypassCode' )->willReturn( FS_LMS_OTP_BYPASS_CODE );
+
+		$this->service = new EmailOtpService( $emailService, $pluginConfig );
 	}
 
 	private function otpKey( string $email ): string {
