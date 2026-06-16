@@ -25,7 +25,7 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class PersonViewCallbacks
  *
- * AJAX-коллбеки для просмотра данных лиц (Person) и отображения страниц.
+ * AJAX-коллбеки для просмотра данных лиц (Person).
  *
  * @package Inc\Callbacks\Person
  *
@@ -35,7 +35,6 @@ use Inc\Shared\Traits\Sanitizer;
  *    - личные данные (маскированные PII)
  *    - связи (родитель-ученик)
  *    - зачисления (группы, расписание, договоры)
- * 2. **Рендеринг страниц** — список лиц (Persons) и детальная карточка.
  *
  * ### Архитектурная роль:
  *
@@ -110,7 +109,6 @@ class PersonViewCallbacks extends BaseController {
 					'name'               => $gUser ? $gUser->display_name : ( $gPerson?->fullName() ?: "Person #{$activeRecord->parentPersonId}" ),
 					'type_label'         => 'Родитель',
 					'since'              => substr( $activeRecord->enrolledAt, 0, 10 ),
-					'person_url'         => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $activeRecord->parentPersonId ),
 				);
 			}
 		}
@@ -126,7 +124,6 @@ class PersonViewCallbacks extends BaseController {
 					'name'              => $sUser ? $sUser->display_name : ( $sPerson?->fullName() ?: "Person #{$record->studentPersonId}" ),
 					'type_label'        => 'Ученик',
 					'since'             => substr( $record->enrolledAt, 0, 10 ),
-					'person_url'        => admin_url( 'admin.php?page=fs-lms-person-detail&id=' . $record->studentPersonId ),
 				);
 			}
 		}
@@ -198,52 +195,6 @@ class PersonViewCallbacks extends BaseController {
 			'dependents'      => $dependents,
 			'enrollments'     => $enrollments,
 		) );
-	}
-
-	/**
-	 * Страница списка лиц (Persons) в админ-панели.
-	 *
-	 * @return void
-	 */
-	public function renderPersonsPage(): void {
-		$this->requireCap( Capability::ManagePersons );
-
-		$template = $this->path( 'templates/admin/enrollment/persons-list.php' );
-
-		if ( file_exists( $template ) ) {
-			require $template;
-		} else {
-			echo '<div class="wrap"><h1>Люди</h1><p>Шаблон не найден.</p></div>';
-		}
-	}
-
-	/**
-	 * Детальная страница лица (Person) в админ-панели.
-	 *
-	 * @return void
-	 */
-	public function renderPersonDetailPage(): void {
-		$this->requireCap( Capability::ManagePersons );
-
-		$personId = $this->sanitizeGetInt( 'id' );
-		$person   = $this->personRepository->find( $personId );
-
-		if ( null === $person ) {
-			wp_die( 'Запись не найдена.' );
-		}
-
-		// Расшифровка PII для отображения (только при наличии прав ViewPII)
-		$decrypted = current_user_can( Capability::ViewPII->value )
-			? $this->personReader->readForDisplay( $personId, array( 'full_name', 'doc_number', 'inn', 'address', 'phone' ), 'admin_view' )
-			: null;
-
-		$template = $this->path( 'templates/admin/enrollment/person-detail.php' );
-
-		if ( file_exists( $template ) ) {
-			require $template;
-		} else {
-			echo '<div class="wrap"><h1>Person #' . esc_html( (string) $personId ) . '</h1><p>Шаблон не найден.</p></div>';
-		}
 	}
 
 	/**

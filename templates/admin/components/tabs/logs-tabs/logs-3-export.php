@@ -3,7 +3,7 @@
 declare( strict_types=1 );
 
 use Inc\Enums\ExportActionType;
-use Inc\Enums\ExportDataType;
+use Inc\Enums\ExportTarget;
 use Inc\Services\Log\LogNameResolver;
 
 /**
@@ -54,7 +54,7 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
 		<select name="data_type">
 			<option value="">Все типы</option>
 			<?php foreach ( $export_data_types ?? array() as $dtVal ) :
-				$dt = ExportDataType::tryFrom( $dtVal );
+				$dt = ExportTarget::tryFrom( $dtVal );
 			?>
 				<option value="<?php echo esc_attr( $dtVal ); ?>" <?php selected( $export_filters['data_type'] ?? '', $dtVal ); ?>>
 					<?php echo esc_html( $dt ? $dt->label() : $dtVal ); ?>
@@ -102,7 +102,7 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
 					<td><?php echo (int) $row->id; ?></td>
 					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
-					<td><?php echo esc_html( ExportDataType::tryFrom( $row->dataType )?->label() ?? $row->dataType ); ?></td>
+					<td><?php echo esc_html( ExportTarget::tryFrom( $row->dataType )?->label() ?? $row->dataType ); ?></td>
 					<td><?php echo esc_html( ExportActionType::tryFrom( $row->actionType )?->label() ?? $row->actionType ); ?></td>
 					<td><?php echo esc_html( LogNameResolver::exportTargets( $row->dataType, $row->targetIdsJson, 3 ) ); ?></td>
 					<td><?php echo esc_html( $row->actorIp ); ?></td>
