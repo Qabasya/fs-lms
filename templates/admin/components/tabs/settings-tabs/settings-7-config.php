@@ -48,6 +48,9 @@ $salt_set    = (bool) ( $config['hash_salt_set'] ?? false );
 					<?php if ( $dadata['defined_in_config'] ) : ?>
 						<?php render_fs_badge( 'wp-config', 'blue' ); ?>
 					<?php endif; ?>
+					<a href="#" class="fs-config-help-link js-open-help-modal" data-provider="dadata">
+						Как подключить? <span class="dashicons dashicons-external"></span>
+					</a>
 				</label>
 				<input
 					type="text"
@@ -101,6 +104,9 @@ $salt_set    = (bool) ( $config['hash_salt_set'] ?? false );
 					<?php if ( $cap_site['defined_in_config'] ) : ?>
 						<?php render_fs_badge( 'wp-config', 'blue' ); ?>
 					<?php endif; ?>
+					<a href="#" class="fs-config-help-link js-open-help-modal" data-provider="smartcaptcha">
+						Как подключить? <span class="dashicons dashicons-external"></span>
+					</a>
 				</label>
 				<input
 					type="text"
@@ -191,3 +197,5 @@ $salt_set    = (bool) ( $config['hash_salt_set'] ?? false );
 	</div>
 
 </div>
+
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/help-modal.php'; ?>

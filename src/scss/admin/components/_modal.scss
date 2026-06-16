@@ -485,6 +485,22 @@ html.modal-open {
     &--google { background-image: url('../../img/google.svg'); }
     &--vk     { background-image: url('../../img/vk.svg'); }
     &--github { background-image: url('../../img/github.svg'); }
+
+    // Иконка на основе dashicon (для провайдеров без SVG-ассета).
+    &--generic {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: $wp-admin-blue-bg-light;
+      border-radius: $border-radius-md;
+      color: $wp-admin-blue;
+
+      .dashicons {
+        font-size: $font-size-l;
+        width: $font-size-l;
+        height: $font-size-l;
+      }
+    }
   }
 
   &__title-group {
