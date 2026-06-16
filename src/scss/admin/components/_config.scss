@@ -26,6 +26,28 @@
 		color: $color-text-primary;
 	}
 
+	// Ссылка «Как подключить?» рядом с полем
+	.fs-config-help-link {
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-xs;
+		margin-left: auto;
+		font-size: $font-size;
+		font-weight: $font-regular;
+		text-decoration: none;
+		color: $color-primary;
+
+		&:hover {
+			color: $color-primary-hover;
+		}
+
+		.dashicons {
+			font-size: $font-size;
+			width: $font-size;
+			height: $font-size;
+		}
+	}
+
 	// ── Поля мягкой тройки
 	.fs-config-field {
 		margin-top: $spacing-lg;

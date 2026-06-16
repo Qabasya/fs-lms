@@ -36,15 +36,21 @@ readonly class PersonService {
 	) {}
 
 	public function createOrFindBy( PersonInputDTO $input ): int {
-		$docHash  = $this->crypto->hash( $input->docNumber );
-		$existing = $this->personDocumentsRepository->findByDocNumberHash( $docHash );
+		// Дедуп по номеру документа — только при НЕПУСТОМ номере и в рамках ТОЙ ЖЕ роли.
+		// Иначе пустой или совпавший doc_number_hash мог бы вернуть чужого человека
+		// (например, ученика вместо родителя) и молча привязать его как существующего.
+		if ( '' !== $input->docNumber ) {
+			$existing = $this->personDocumentsRepository->findByDocNumberHash( $this->crypto->hash( $input->docNumber ) );
 
-		if ( null !== $existing ) {
-			$person = $this->personRepository->findIncludingDeleted( $existing->personId );
-			if ( $person !== null && $person->expelledAt !== null ) {
-				$this->personRepository->update( $existing->personId, array( 'expelled_at' => null ) );
+			if ( null !== $existing ) {
+				$person = $this->personRepository->findIncludingDeleted( $existing->personId );
+				if ( $person !== null && $person->isStudent === $input->isStudent ) {
+					if ( $person->expelledAt !== null ) {
+						$this->personRepository->update( $person->id, array( 'expelled_at' => null ) );
+					}
+					return $person->id;
+				}
 			}
-			return $existing->personId;
 		}
 
 		$now      = $this->clock->now( 'mysql', true );

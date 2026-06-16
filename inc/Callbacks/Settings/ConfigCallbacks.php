@@ -28,9 +28,11 @@ class ConfigCallbacks extends BaseController {
 		$this->authorize( Nonce::Config, Capability::Admin );
 
 		$this->configRepository->save( array(
-			'dadata_token'    => $this->sanitizeText( 'dadata_token' ),
-			'test_env'        => $this->sanitizeBool( 'test_env' ),
-			'otp_bypass_code' => $this->sanitizeText( 'otp_bypass_code' ),
+			'dadata_token'       => $this->sanitizeText( 'dadata_token' ),
+			'test_env'           => $this->sanitizeBool( 'test_env' ),
+			'otp_bypass_code'    => $this->sanitizeText( 'otp_bypass_code' ),
+			'captcha_site_key'   => $this->sanitizeText( 'captcha_site_key' ),
+			'captcha_server_key' => $this->sanitizeText( 'captcha_server_key' ),
 		) );
 
 		$this->success( array( 'message' => 'Настройки сохранены.' ) );

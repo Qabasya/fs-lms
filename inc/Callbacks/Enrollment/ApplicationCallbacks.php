@@ -18,11 +18,13 @@ use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Services\Application\ApplicationService;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Email\EmailOtpService;
 use Inc\Services\Log\AuthLogWriter;
+use Inc\Services\Security\FormGuardService;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Services\Security\RateLimitService;
 use Inc\Services\Shared\PluginConfig;
@@ -75,6 +77,8 @@ class ApplicationCallbacks extends BaseController {
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
 		private readonly AuthLogWriter                $authLog,
 		private readonly PluginConfig                 $pluginConfig,
+		private readonly FormGuardService             $formGuard,
+		private readonly PersonDocumentsRepository    $personDocumentsRepository,
 	) {
 		parent::__construct();
 	}
@@ -128,8 +132,16 @@ class ApplicationCallbacks extends BaseController {
 
 		try {
 			// Расшифровка и декодирование данных ученика
-			$decoded     = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
-			$studentData = StudentDataDTO::fromArray( $decoded ?? array() );
+			$decoded = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+
+			// Для восстановленных заявок (привязан существующий ученик) накладываем
+			// актуальные PII из person_documents поверх снапшота: снапшот мог быть
+			// сделан до того, как админ дозаполнил данные (например, паспорт).
+			if ( null !== $app->studentPersonId ) {
+				$decoded = $this->overlayLiveStudentDocs( $app->studentPersonId, $decoded );
+			}
+
+			$studentData = StudentDataDTO::fromArray( $decoded );
 		} catch ( \Throwable $e ) {
 			return false;
 		}
@@ -164,6 +176,48 @@ class ApplicationCallbacks extends BaseController {
 	}
 
 	/**
+	 * Накладывает актуальные PII ученика из person_documents поверх данных снапшота заявки.
+	 *
+	 * Снапшот (studentDataEnc) фиксируется в момент восстановления и может устареть,
+	 * если админ дозаполнил документы позже. Для восстановленных заявок берём живые
+	 * значения; отсутствующие/нерасшифровываемые поля оставляем как в снапшоте.
+	 *
+	 * @param int                  $personId ID ученика
+	 * @param array<string, mixed> $data     Данные из снапшота заявки
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function overlayLiveStudentDocs( int $personId, array $data ): array {
+		$docs = $this->personDocumentsRepository->findByPersonId( $personId );
+		if ( null === $docs ) {
+			return $data;
+		}
+
+		if ( $docs->docType ) {
+			$data['doc_type'] = $docs->docType;
+		}
+
+		foreach ( array(
+			'email'      => $docs->emailEnc,
+			'phone'      => $docs->phoneEnc,
+			'doc_number' => $docs->docNumberEnc,
+			'inn'        => $docs->innEnc,
+		) as $key => $enc ) {
+			if ( ! $enc ) {
+				continue;
+			}
+			try {
+				$data[ $key ] = $this->crypto->decrypt( $enc );
+			} catch ( \Throwable $e ) {
+				// Не молчим: возможная смена ключа шифрования — оставляем значение из снапшота.
+				\Inc\Shared\PluginLogger::warning( 'JoinPrefill', "Не удалось расшифровать поле {$key} ученика #{$personId}", array( 'error' => $e->getMessage() ) );
+			}
+		}
+
+		return $data;
+	}
+
+	/**
 	 * Возвращает URL текущей версии согласия для отображения в форме.
 	 * Если страница не опубликована — возвращает пустую строку.
 	 */
@@ -188,7 +242,14 @@ class ApplicationCallbacks extends BaseController {
 
 		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
 
-		// Ограничение частоты запросов
+		// Дешёвая бот-защита: honeypot + тайминг формы — до траты бюджета на капчу/письма.
+		$honeypot   = $this->sanitizeText( $this->formGuard->honeypotField() );
+		$formToken  = $this->sanitizeText( 'form_token' );
+		if ( ! $this->formGuard->isHuman( $honeypot, $formToken ) ) {
+			$this->error( 'Не удалось подтвердить отправку формы. Обновите страницу и попробуйте снова.' );
+		}
+
+		// Ограничение частоты запросов по IP
 		if ( ! $this->rateLimitService->allowApplicationCreation( $ip ) ) {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
@@ -202,6 +263,11 @@ class ApplicationCallbacks extends BaseController {
 		}
 
 		$email = $this->sanitizeText( 'email' );
+
+		// Ограничение отправок OTP на один адрес (анти-бомбинг, окно — сутки)
+		if ( ! $this->rateLimitService->allowOtpSendForEmail( $email ) ) {
+			$this->error( 'Слишком много отправок кода на эту почту. Попробуйте завтра.' );
+		}
 
 		// Проверка возможности повторной отправки
 		if ( ! $this->emailOtpService->canResend( $email ) ) {

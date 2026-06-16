@@ -37,6 +37,18 @@ class ParentDeletionHandler {
 		$person   = $this->persons->find( $personId );
 		$wpUserId = $person?->wpUserId;
 
+		// Защита от кросс-ролевого удаления: под видом «родителя-сироты» мог прийти
+		// ученик (битая привязка parent_person_id → person с is_student=1). Удалять
+		// ученика через родительский каскад нельзя — иначе теряем реального ученика.
+		if ( null !== $person && $person->isStudent ) {
+			\Inc\Shared\PluginLogger::warning(
+				'ParentDeletion',
+				"Пропущено удаление person #{$personId}: это ученик, а не родитель (битая привязка parent_person_id)",
+				array( 'person_id' => $personId )
+			);
+			return;
+		}
+
 		$this->inTransaction( function () use ( $personId ) {
 			$this->consents->hardDeleteByPersonId( $personId );
 			$this->applications->hardDeleteByParentPersonId( $personId );

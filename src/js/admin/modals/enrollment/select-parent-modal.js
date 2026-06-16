@@ -25,6 +25,26 @@ import { ConfirmModal } from '../confirm-modal.js';
 
 const $ = jQuery;
 
+/** Минимальная длина запроса для живого поиска. */
+const MIN_QUERY = 2;
+
+/** Задержка живого поиска, мс. */
+const SEARCH_DEBOUNCE_MS = 250;
+
+/**
+ * Простой debounce: откладывает вызов fn, пока ввод не «успокоится».
+ * @param {Function} fn
+ * @param {number} ms
+ * @returns {Function}
+ */
+function debounce( fn, ms ) {
+    let timer;
+    return ( ...args ) => {
+        clearTimeout( timer );
+        timer = setTimeout( () => fn( ...args ), ms );
+    };
+}
+
 /**
  * UI-компонент модального окна выбора существующего родителя для заявки.
  * Работает автономно: сам обрабатывает AJAX-запросы и обновление DOM,
@@ -83,12 +103,22 @@ export const SelectParentModal = {
             this.close();
         } );
 
-        // Обработчик кнопки "Найти" — запускает поиск родителей
-        this.$modal.on( 'click', '#spm-search-btn', () => this._search() );
+        // ЖИВОЙ ПОИСК ПО ВВОДУ:
+        // По мере набора (с debounce) запускаем поиск, как только введено >= MIN_QUERY символов.
+        // Пока символов меньше — прячем результаты, чтобы не мигать «Ничего не найдено».
+        const liveSearch = debounce( () => this._search(), SEARCH_DEBOUNCE_MS );
+        this.$modal.on( 'input', '#spm-search', () => {
+            const query = this.$modal.find( '#spm-search' ).val().trim();
+            if ( query.length < MIN_QUERY ) {
+                this.$modal.find( '#spm-table' ).prop( 'hidden', true );
+                this.$modal.find( '#spm-no-results' ).prop( 'hidden', true );
+                return;
+            }
+            liveSearch();
+        } );
 
         // ОБРАБОТКА КЛАВИШИ ENTER В ПОЛЕ ПОИСКА:
-        // Пользователь ожидает, что нажатие Enter в поле поиска запустит поиск,
-        // как в поисковых системах Google или Яндекс. Это стандартный UX-паттерн.
+        // Нажатие Enter запускает поиск немедленно (без ожидания debounce).
         this.$modal.on( 'keydown', '#spm-search', ( e ) => {
             if ( e.key === 'Enter' ) {
                 e.preventDefault(); // Предотвращаем возможную отправку формы

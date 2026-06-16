@@ -7,16 +7,29 @@
  * @var string                                                           $register_url URL страницы регистрации
  * @var string                                                           $lost_pass_url URL страницы восстановления пароля
  */
+
+// Флаг неудачного входа и введённый логин приходят редиректом из wp_login_failed.
+$login_failed  = isset( $_GET['login'] ) && 'failed' === $_GET['login']; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$prefill_login = isset( $_GET['fs_user'] ) ? sanitize_text_field( wp_unslash( $_GET['fs_user'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 ?>
 <div class="fs-auth-card">
 	<h2 class="fs-auth-card__title">Войти в личный кабинет</h2>
 
+	<?php if ( $login_failed ) : ?>
+		<div class="fs-auth-card__error" role="alert">
+			Неверный логин или пароль.
+		</div>
+	<?php endif; ?>
+
 	<!-- Стандартная форма авторизации WordPress -->
 	<form name="loginform" id="loginform" action="<?php echo esc_url( site_url( 'wp-login.php', 'login_post' ) ); ?>" method="post">
 
+		<!-- Маркер: вход инициирован с кастомной страницы (для wp_login_failed) -->
+		<input type="hidden" name="fs_lms_login" value="1">
+
 		<div class="fs-auth-card__field-group">
 			<span class="dashicons dashicons-email"></span>
-			<input type="text" name="log" id="user_login" placeholder="Email или логин" required>
+			<input type="text" name="log" id="user_login" placeholder="Email или логин" value="<?php echo esc_attr( $prefill_login ); ?>" required>
 		</div>
 
 		<div class="fs-auth-card__field-group fs-lms-secret-field">

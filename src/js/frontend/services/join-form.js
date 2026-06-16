@@ -69,10 +69,9 @@ function initStudentDocType() {
 
     if ( ! typeField || ! numberField || ! label ) { return; }
 
-    const applyState = () => {
-        numberField.value = '';
-        clearFieldError( numberField );
-
+    // Метаданные поля (label/placeholder/validator) по текущему типу документа.
+    // НЕ трогает value — иначе затирался бы префилл при восстановлении.
+    const updateMeta = () => {
         if ( typeField.value === 'pass' ) {
             label.textContent            = 'Данные паспорта ученика:';
             numberField.placeholder      = '1234 567890';
@@ -90,8 +89,15 @@ function initStudentDocType() {
         }
     } );
 
-    typeField.addEventListener( 'change', applyState );
-    applyState();
+    // Смена типа пользователем — сбрасываем значение (старый номер уже не подходит).
+    typeField.addEventListener( 'change', () => {
+        numberField.value = '';
+        clearFieldError( numberField );
+        updateMeta();
+    } );
+
+    // На инициализации только настраиваем метаданные, префилл сохраняем.
+    updateMeta();
 }
 
 // ── Переключение типа документа родителя ─────────────────────────────────────
@@ -103,10 +109,8 @@ function initParentDocType() {
 
     if ( ! typeField || ! numberField || ! label ) { return; }
 
-    const applyState = () => {
-        numberField.value = '';
-        clearFieldError( numberField );
-
+    // Метаданные поля по текущему типу документа; value (префилл) не трогаем.
+    const updateMeta = () => {
         if ( typeField.value === 'pass' ) {
             label.textContent            = 'Серия и номер паспорта:';
             numberField.placeholder      = '1234 567890';
@@ -126,8 +130,14 @@ function initParentDocType() {
         }
     } );
 
-    typeField.addEventListener( 'change', applyState );
-    applyState();
+    // Смена типа пользователем — сбрасываем значение; на инициализации сохраняем префилл.
+    typeField.addEventListener( 'change', () => {
+        numberField.value = '';
+        clearFieldError( numberField );
+        updateMeta();
+    } );
+
+    updateMeta();
 }
 
 // ── UI-утилиты ────────────────────────────────────────────────────────────────

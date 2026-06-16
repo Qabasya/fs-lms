@@ -69,7 +69,7 @@ class ExportLogExportProvider implements CsvExportProviderInterface {
 			new CsvColumn( 'Роль',         fn( $r ) => $r->actorRole ?? '' ),
 			new CsvColumn( 'Тип данных',   fn( $r ) => ExportDataType::tryFrom( $r->dataType )?->label() ?? $r->dataType ),
 			new CsvColumn( 'Тип действия', fn( $r ) => ExportActionType::tryFrom( $r->actionType )?->label() ?? $r->actionType ),
-			new CsvColumn( 'ID целей',     fn( $r ) => $r->targetIdsJson ?? '' ),
+			new CsvColumn( 'Цели',         fn( $r ) => LogNameResolver::exportTargets( $r->dataType, $r->targetIdsJson, 0 ) ),
 			new CsvColumn( 'IP',           fn( $r ) => $r->actorIp ),
 			new CsvColumn( 'Устройство',   fn( $r ) => $r->actorUa ?? '' ),
 		);

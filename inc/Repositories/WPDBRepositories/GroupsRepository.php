@@ -162,6 +162,23 @@ class GroupsRepository {
 	}
 
 	/**
+	 * Возвращает количество групп в указанном учебном периоде.
+	 *
+	 * @param string $periodId ID учебного периода
+	 *
+	 * @return int
+	 */
+	public function countByPeriodId( string $periodId ): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE academic_period_id = %s',
+				$this->table,
+				$periodId
+			)
+		);
+	}
+
+	/**
 	 * Проверяет, существует ли группа с таким именем в данном периоде.
 	 *
 	 * @param string $name     Название группы

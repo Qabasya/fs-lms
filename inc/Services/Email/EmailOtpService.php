@@ -38,6 +38,9 @@ use RuntimeException;
  */
 readonly class EmailOtpService {
 
+	/** Максимум неверных попыток ввода кода, после чего код инвалидируется. */
+	private const MAX_VERIFY_ATTEMPTS = 5;
+
 	/**
 	 * Конструктор сервиса.
 	 *
@@ -75,6 +78,9 @@ readonly class EmailOtpService {
 		// set_transient() — сохранение хэша кода на 10 минут
 		set_transient( $this->otpKey( $email ), $hash, 600 );
 
+		// Свежий код — обнуляем счётчик неудачных попыток предыдущего.
+		delete_transient( $this->attemptsKey( $email ) );
+
 		// Отправка email через сервис
 		$this->emailService->sendOtpCode( $email, $code );
 
@@ -106,13 +112,38 @@ readonly class EmailOtpService {
 
 		// hash_equals() — защищённое от timing attack сравнение строк
 		if ( ! hash_equals( (string) $stored, $this->hashCode( $code ) ) ) {
+			$this->registerFailedAttempt( $email );
 			return false;
 		}
 
-		// После успешной верификации удаляем код
+		// После успешной верификации удаляем код и счётчик попыток
 		delete_transient( $this->otpKey( $email ) );
+		delete_transient( $this->attemptsKey( $email ) );
 
 		return true;
+	}
+
+	/**
+	 * Фиксирует неудачную попытку ввода кода и инвалидирует код после лимита.
+	 *
+	 * Защита от перебора 6-значного кода: после MAX_VERIFY_ATTEMPTS неверных
+	 * вводов код удаляется, и дальнейшие попытки бесполезны до повторной отправки.
+	 *
+	 * @param string $email Email пользователя
+	 *
+	 * @return void
+	 */
+	private function registerFailedAttempt( string $email ): void {
+		$attempts = (int) get_transient( $this->attemptsKey( $email ) ) + 1;
+
+		if ( $attempts >= self::MAX_VERIFY_ATTEMPTS ) {
+			$this->invalidate( $email );
+			delete_transient( $this->attemptsKey( $email ) );
+			return;
+		}
+
+		// TTL счётчика совпадает с жизнью кода (10 минут).
+		set_transient( $this->attemptsKey( $email ), $attempts, 600 );
 	}
 
 	/**
@@ -160,6 +191,17 @@ readonly class EmailOtpService {
 	 */
 	private function cooldownKey( string $email ): string {
 		return 'fs_lms_otp_cd_' . hash( 'sha256', $email );
+	}
+
+	/**
+	 * Генерирует ключ для счётчика неудачных попыток ввода кода.
+	 *
+	 * @param string $email Email пользователя
+	 *
+	 * @return string
+	 */
+	private function attemptsKey( string $email ): string {
+		return 'fs_lms_otp_att_' . hash( 'sha256', $email );
 	}
 
 	/**

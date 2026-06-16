@@ -27,15 +27,10 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 			<div class="fs-form-group">
 				<label for="spm-search"><?php esc_html_e( 'Поиск', 'fs-lms' ); ?></label>
-				<div class="fs-flex-row">
-					<input type="text"
-						id="spm-search"
-						class="regular-text"
-						placeholder="<?php esc_attr_e( 'Имя или email…', 'fs-lms' ); ?>">
-					<button type="button" id="spm-search-btn" class="button">
-						<?php esc_html_e( 'Найти', 'fs-lms' ); ?>
-					</button>
-				</div>
+				<input type="text"
+					id="spm-search"
+					class="regular-text"
+					placeholder="<?php esc_attr_e( 'Начните вводить имя для поиска…', 'fs-lms' ); ?>">
 			</div>
 
 			<div id="spm-results" class="fs-mt-md">

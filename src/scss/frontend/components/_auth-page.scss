@@ -20,6 +20,17 @@
     margin: 0 0 24px 0;
   }
 
+  &__error {
+    font-size: $font-size-sm;
+    color: #c0392b;
+    background: #fdf0ef;
+    border: 1px solid #f5c6c3;
+    border-radius: $radius;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
   &__field-group {
     position: relative;
     margin-bottom: 16px;

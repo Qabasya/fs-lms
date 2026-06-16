@@ -77,6 +77,10 @@ class ExpulsionController extends AjaxController {
 	 */
 	public function renderModal(): void {
 		// path() — метод BaseController, возвращает полный путь к файлу
-		include $this->path( 'templates/admin/components/modals/expel-modal.php' );
+		$modal_path = $this->path( 'templates/admin/components/modals/enrollment/expel-modal.php' );
+
+		if ( file_exists( $modal_path ) ) {
+			include $modal_path;
+		}
 	}
 }

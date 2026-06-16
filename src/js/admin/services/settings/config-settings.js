@@ -44,6 +44,8 @@ export const ConfigSettings = {
 			dadata_token:  $form.find( '[name=dadata_token]' ).val(),
 			otp_bypass_code: $form.find( '[name=otp_bypass_code]' ).val(),
 			test_env:      $form.find( '[name=test_env]' ).is( ':checked' ) ? 1 : 0,
+			captcha_site_key:   $form.find( '[name=captcha_site_key]' ).val(),
+			captcha_server_key: $form.find( '[name=captcha_server_key]' ).val(),
 		} )
 			.done( ( res ) => {
 				if ( res.success ) {

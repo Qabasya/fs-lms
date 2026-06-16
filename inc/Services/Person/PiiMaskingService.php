@@ -147,20 +147,18 @@ class PiiMaskingService {
 		$digits = (string) preg_replace( '/\D/', '', $value );
 		$length = strlen( $digits );
 
-		// Если цифр достаточно для выделения последних 4 знаков
-		if ( $length >= 4 ) {
-			$part3 = substr( $digits, -4, 2 ); // предпоследние две цифры
-			$part4 = substr( $digits, -2 );    // последние две цифры
-
-			return '••••••' . $part3  . $part4;
+		if ( 0 === $length ) {
+			return '••• ••• •• ••';
 		}
 
-		// На случай пограничного кейса, если прилетело меньше 4 цифр
-		if ( 0 !== $length ) {
-			return '•••••••• ' . $digits;
-		}
+		// Последние две цифры (с дополнением точками, если их меньше двух).
+		$last2 = str_pad( substr( $digits, -2 ), 2, '•', STR_PAD_LEFT );
 
-		return '••••••••••';
+		// Предпоследние две цифры — только если их хватает.
+		$prev2 = $length >= 4 ? substr( $digits, -4, 2 ) : '••';
+
+		// Единый стиль с maskPass()/maskInn(): группы по две, разделённые пробелом.
+		return '••• ••• ' . $prev2 . ' ' . $last2;
 	}
 
 	private function maskPassword(): string {

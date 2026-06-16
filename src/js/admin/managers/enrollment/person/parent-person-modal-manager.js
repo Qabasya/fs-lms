@@ -288,15 +288,15 @@ export const ParentPersonModalManager = {
     _export( personId ) {
         if ( ! personId ) return;
 
+        // Единичный экспорт через тот же эндпоинт, что и массовый (поддерживает single-режим
+        // при передаче ids). Хук export_pii в плагине не реализован — используем exportParents.
         $.post( AJAX_URL(), {
-            action:    ACTIONS().exportPii,
-            person_id: personId,
-            security:  NONCES().exportPii,
+            action:   ACTIONS().exportParents,
+            ids:      [ personId ],
+            security: NONCES().manager,
         } ).done( r => {
-            // Если сервер вернул URL для скачивания, перенаправляем браузер.
-            // Это стандартный паттерн для скачивания файлов через AJAX: 
-            // сервер генерирует временную ссылку, а клиент инициирует скачивание.
-            if ( r.success && r.data.download_url ) window.location.href = r.data.download_url;
+            // Сервер возвращает временную ссылку на файл — инициируем скачивание редиректом.
+            if ( r.success && r.data.url ) window.location.href = r.data.url;
         } );
     },
 

@@ -26,6 +26,12 @@ $max_birth_date = gmdate( 'Y-m-d' );
 
                 <?php wp_nonce_field( Nonce::Apply->value, 'security' ); ?>
 
+                <?php /* Honeypot-ловушка для ботов (имя поля = FormGuardService::HONEYPOT_FIELD). Скрыто через CSS .fs-hp, люди не заполняют. */ ?>
+                <div class="fs-hp" aria-hidden="true">
+                    <label for="fs_company"><?php esc_html_e( 'Компания', 'fs-lms' ); ?></label>
+                    <input type="text" name="fs_company" id="fs_company" tabindex="-1" autocomplete="off">
+                </div>
+
                 <div class="fs-apply-card__field-group fs-form-group">
                     <label for="fs_last_name"><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
                     <span class="dashicons dashicons-admin-users" aria-hidden="true"></span>

@@ -10,6 +10,7 @@ use Inc\Enums\Nonce;
 use Inc\Enums\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Captcha\CaptchaService;
+use Inc\Services\Security\FormGuardService;
 use Inc\Services\PostTypeResolver;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Sanitizer;
@@ -48,6 +49,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		private readonly TaxonomyRepository $taxonomy_repository,
 		private readonly CaptchaService     $captchaService,
 		private readonly PluginConfig       $pluginConfig,
+		private readonly FormGuardService   $formGuard,
 	) {
 		parent::__construct();
 	}
@@ -259,6 +261,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 				array(
 					'ajax_url'    => admin_url( 'admin-ajax.php' ),
 					'captcha_key' => $this->captchaService->getSiteKey(),
+					'hp_field'    => $this->formGuard->honeypotField(),
+					'form_token'  => $this->formGuard->timestampToken(),
 					'actions'     => array(
 						'send_otp'          => AjaxHook::SendOtpCode->jsAction(),
 						'create'            => AjaxHook::CreateApplication->jsAction(),
@@ -271,6 +275,19 @@ class Enqueue extends BaseController implements ServiceInterface {
 					),
 				)
 			);
+
+			// Скрипт Yandex SmartCaptcha — только если ключ задан.
+			// Зависит от нашего бандла: он первым ставит window.__fsSmartCaptchaReady,
+			// который вызовет onload-колбэк Яндекса для рендера невидимого виджета.
+			if ( '' !== $this->captchaService->getSiteKey() ) {
+				wp_enqueue_script(
+					'fs-lms-smartcaptcha',
+					'https://smartcaptcha.yandexcloud.net/captcha.js?render=onload&onload=__fsSmartCaptchaReady',
+					array( 'fs-lms-frontend-script' ),
+					null,
+					true
+				);
+			}
 		}
 
 		// === Переменные для формы завершения регистрации родителя (/lms/join) ===

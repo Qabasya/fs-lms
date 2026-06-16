@@ -6,6 +6,16 @@
   padding: 40px 16px;
 }
 
+// Honeypot-ловушка: убрана из видимого потока и недоступна для людей,
+// но присутствует в DOM — примитивные боты её автозаполняют.
+.fs-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 .fs-apply-card {
   background: $color-white;
   padding: 32px 30px;

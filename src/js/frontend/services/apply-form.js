@@ -9,12 +9,22 @@
 
 import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
+import { getCaptchaToken, resetCaptcha } from './captcha.js';
 
-/** @type {{ ajax_url: string, captcha_key: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
+/** @type {{ ajax_url: string, captcha_key: string, hp_field: string, form_token: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
 const vars = window.fs_lms_apply_vars;
 
 /** Данные формы этапа 1, сохраняются для передачи на этапе 2 */
 let _formData = null;
+
+/**
+ * Читает значение honeypot-поля (должно быть пустым у людей).
+ * @returns {string}
+ */
+function readHoneypot() {
+    const name = vars.hp_field || 'fs_company';
+    return document.querySelector( `[name="${ name }"]` )?.value ?? '';
+}
 
 // ── Сбор данных ──────────────────────────────────────────────────────────────
 
@@ -155,7 +165,12 @@ async function handleOtpSubmit( e ) {
 async function handleResendOtp() {
     if ( ! _formData ) { return; }
 
-    const captchaToken = vars.captcha_key ? ( window._fsCaptchaToken ?? '' ) : '';
+    let captchaToken = '';
+    try {
+        captchaToken = await getCaptchaToken();
+    } catch {
+        return;
+    }
 
     let res;
     try {
@@ -163,8 +178,11 @@ async function handleResendOtp() {
             security:      vars.nonces.apply,
             email:         _formData.email,
             captcha_token: captchaToken,
+            form_token:    vars.form_token ?? '',
+            [ vars.hp_field || 'fs_company' ]: readHoneypot(),
         } );
     } catch {
+        resetCaptcha();
         return;
     }
 
@@ -172,6 +190,8 @@ async function handleResendOtp() {
         const btn         = document.getElementById( 'fs-resend-otp-btn' );
         const countdownEl = btn.querySelector( '.js-otp-countdown' );
         startCountdown( btn, countdownEl );
+    } else {
+        resetCaptcha();
     }
 }
 
@@ -227,7 +247,14 @@ export function initApplyForm() {
 
         setLoading( btn, true );
 
-        const captchaToken = vars.captcha_key ? ( window._fsCaptchaToken ?? '' ) : '';
+        let captchaToken = '';
+        try {
+            captchaToken = await getCaptchaToken();
+        } catch {
+            setLoading( btn, false );
+            showError( applyForm, 'Проверка капчи не пройдена. Попробуйте ещё раз.' );
+            return;
+        }
 
         let res;
         try {
@@ -235,9 +262,12 @@ export function initApplyForm() {
                 security:      vars.nonces.apply,
                 email:         data.email,
                 captcha_token: captchaToken,
+                form_token:    vars.form_token ?? '',
+                [ vars.hp_field || 'fs_company' ]: readHoneypot(),
             } );
         } catch {
             setLoading( btn, false );
+            resetCaptcha();
             showError( applyForm, 'Ошибка соединения. Попробуйте позже.' );
             return;
         }
@@ -245,6 +275,7 @@ export function initApplyForm() {
         setLoading( btn, false );
 
         if ( ! res?.success ) {
+            resetCaptcha();
             showError( applyForm, extractError( res, 'Ошибка при отправке кода.' ) );
             return;
         }

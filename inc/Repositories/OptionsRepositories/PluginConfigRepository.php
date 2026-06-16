@@ -9,9 +9,11 @@ use Inc\Enums\OptionName;
 readonly class PluginConfigRepository {
 
 	private const DEFAULTS = array(
-		'dadata_token'    => '',
-		'test_env'        => false,
-		'otp_bypass_code' => '',
+		'dadata_token'       => '',
+		'test_env'           => false,
+		'otp_bypass_code'    => '',
+		'captcha_site_key'   => '',
+		'captcha_server_key' => '',
 	);
 
 	public function get(): array {

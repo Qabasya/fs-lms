@@ -80,8 +80,9 @@ readonly class ExportService {
 		$csv = $this->csvService->export( $rows, $columns );
 		$url = $this->csvService->createDownloadLink( $csv, $filename );
 
-		// Логирование факта экспорта в журнал аудита
-		$this->exportLog->record( $target->value, $mode );
+		// Логирование факта экспорта в журнал аудита (с ID экспортированных целей)
+		$targetIds = array_values( array_filter( array_map( 'intval', (array) ( $context['ids'] ?? array() ) ) ) );
+		$this->exportLog->record( $target->value, $mode, $targetIds );
 
 		return $url;
 	}

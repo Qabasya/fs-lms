@@ -39,6 +39,16 @@ class StudentDeletionHandler {
 		$person = $this->persons->find( $personId );
 		$wpUserId = $person?->wpUserId;
 
+		// Защита от кросс-ролевого удаления: не удаляем родителя через ученический каскад.
+		if ( null !== $person && ! $person->isStudent ) {
+			\Inc\Shared\PluginLogger::warning(
+				'StudentDeletion',
+				"Пропущено удаление person #{$personId}: это родитель, а не ученик",
+				array( 'person_id' => $personId )
+			);
+			return;
+		}
+
 		$recordsDeleted = $this->inTransaction( function () use ( $personId ) {
 			$this->consents->hardDeleteByPersonId( $personId );
 			$this->applications->hardDeleteByStudentPersonId( $personId );

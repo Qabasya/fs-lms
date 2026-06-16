@@ -53,6 +53,10 @@ class AuthPageController extends BaseController implements ServiceInterface {
 		// 'init' — хук, срабатывающий после загрузки WordPress
 		add_action( 'init', array( $this, 'redirectToCustomLogin' ) );
 
+		// Неудачный вход с кастомной формы — возврат на свою страницу с ошибкой.
+		// Приоритет 20: позже AuthLogController (10), чтобы попытка успела залогироваться до redirect+exit.
+		add_action( 'wp_login_failed', array( $this, 'redirectFailedLogin' ), 20, 1 );
+
 		// 'template_include' — фильтр для подмены шаблона темы (приоритет 9999 для переопределения)
 		add_filter( 'template_include', array( $this, 'forceCleanAuthLayout' ), 9999 );
 	}
@@ -103,6 +107,36 @@ class AuthPageController extends BaseController implements ServiceInterface {
 			wp_safe_redirect( PageRoutes::SignIn->url() );
 			exit;
 		}
+	}
+
+	/**
+	 * Возвращает пользователя на кастомную страницу входа при неудачной авторизации.
+	 *
+	 * Стандартный wp-login.php на ошибке перерисовывает свою страницу. Чтобы
+	 * пользователь оставался на нашей форме, перехватываем wp_login_failed и
+	 * редиректим на страницу входа с флагом ошибки. Срабатывает только для
+	 * попыток, отправленных с нашей формы (скрытый маркер fs_lms_login).
+	 *
+	 * @param string $username Введённый логин (для префилла поля).
+	 *
+	 * @return void
+	 */
+	public function redirectFailedLogin( string $username ): void {
+		// Только для входов с кастомной формы — не трогаем прямые попытки на wp-login.php.
+		if ( empty( $_POST['fs_lms_login'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			return;
+		}
+
+		$url = add_query_arg(
+			array(
+				'login'   => 'failed',
+				'fs_user' => rawurlencode( $username ),
+			),
+			PageRoutes::SignIn->url()
+		);
+
+		wp_safe_redirect( $url );
+		exit;
 	}
 
 	/**

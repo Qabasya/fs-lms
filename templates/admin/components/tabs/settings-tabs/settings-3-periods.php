@@ -35,7 +35,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 			<thead>
 			<tr>
 				<th class=" column-title tw-30">Название периода</th>
-				<th class=" column-title column-primary">ID (Ключ)</th>
+				<th class=" column-title column-primary">Кол-во групп</th>
 				<th class=" column-title column-primary">Сроки проведения</th>
 				<th class=" column-title column-primary">Статус</th>
 				<th class=" column-title column-primary">Действия</th>
@@ -50,6 +50,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 				$row_name   = esc_attr( $period['name'] );
 				$start_date = ! empty( $period['start_date'] ) ? trim( (string) $period['start_date'] ) : '';
 				$end_date   = ! empty( $period['end_date'] ) ? trim( (string) $period['end_date'] ) : '';
+				$group_count = (int) ( $period_group_counts[ $period['id'] ] ?? 0 );
 
 				// Безопасное форматирование даты через встроенные механизмы WP
 				$start_display = ! empty( $start_date ) && strtotime( $start_date ) ? wp_date( 'd.m.Y', strtotime( $start_date ) ) : '—';
@@ -71,7 +72,8 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 					</td>
 
 					<td>
-						<?php render_fs_badge( $period['id'], 'gray' ); ?>
+						<span class="dashicons dashicons-groups fs-dashicon fs-dashicon--muted"></span>
+						<?php echo esc_html( (string) $group_count ); ?>
 					</td>
 
 					<td>

@@ -13,12 +13,16 @@ define('FS_LMS_OTP_BYPASS_CODE', 'TEST_BYPASS_000');
 if (!defined('ARRAY_A')) { define('ARRAY_A', 'ARRAY_A'); }
 if (!defined('OBJECT'))  { define('OBJECT',  'OBJECT'); }
 if (!defined('WP_DEBUG')) { define('WP_DEBUG', false); }
+if (!defined('MINUTE_IN_SECONDS')) { define('MINUTE_IN_SECONDS', 60); }
+if (!defined('HOUR_IN_SECONDS'))   { define('HOUR_IN_SECONDS', 3600); }
+if (!defined('DAY_IN_SECONDS'))    { define('DAY_IN_SECONDS', 86400); }
 
 // WP class stubs
 if (!class_exists('wpdb')) {
     class wpdb {
         public int $insert_id = 1;
         public string $last_error = '';
+        public string $prefix = 'wp_';
         public function query(string $sql): bool|int { return 1; }
         public function prepare(string $sql, ...$args): string { return $sql; }
         public function insert(string $table, array $data, ?array $format = null): int|false { return 1; }
@@ -97,6 +101,41 @@ if (!function_exists('get_userdata')) {
         return false;
     }
 }
+if (!function_exists('wp_generate_password')) {
+    function wp_generate_password(int $length = 12, bool $special_chars = true, bool $extra_special_chars = false): string {
+        return substr(str_repeat('aB3$xY7!', 16), 0, max(1, $length));
+    }
+}
+
+// HTTP API stubs (Yandex SmartCaptcha validation). Per-test response via $GLOBALS['_test_http_response'].
+if (!class_exists('WP_Error')) {
+    class WP_Error {
+        public function __construct(private string $msg = 'error') {}
+        public function get_error_message(): string { return $this->msg; }
+    }
+}
+if (!function_exists('wp_remote_post')) {
+    function wp_remote_post(string $url, array $args = array()): mixed {
+        $GLOBALS['_test_http_last'] = array('url' => $url, 'args' => $args);
+        return $GLOBALS['_test_http_response'] ?? array('response' => array('code' => 200), 'body' => '{"status":"ok"}');
+    }
+}
+if (!function_exists('is_wp_error')) {
+    function is_wp_error(mixed $thing): bool { return $thing instanceof WP_Error; }
+}
+if (!function_exists('wp_remote_retrieve_response_code')) {
+    function wp_remote_retrieve_response_code(mixed $r): int {
+        return is_array($r) ? (int) ($r['response']['code'] ?? 0) : 0;
+    }
+}
+if (!function_exists('wp_remote_retrieve_body')) {
+    function wp_remote_retrieve_body(mixed $r): string {
+        return is_array($r) ? (string) ($r['body'] ?? '') : '';
+    }
+}
+
+// Программируемый дубль wpdb для интеграционных тестов репозиториев.
+require_once __DIR__ . '/Support/FakeWpdb.php';
 
 // Global wpdb instance used by TransactionRunner trait
 $GLOBALS['wpdb'] = new wpdb();

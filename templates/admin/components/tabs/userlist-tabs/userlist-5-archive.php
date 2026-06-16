@@ -141,7 +141,7 @@ $statusLabels = array(
 		<tbody id="the-list">
 		<?php if ( empty( $records ) ) : ?>
 			<tr>
-				<td colspan="7">
+				<td colspan="8">
 					<div class="notice notice-info inline fs-table__no-items">
 						<p><?php esc_html_e( 'Записей нет.', 'fs-lms' ); ?></p>
 					</div>

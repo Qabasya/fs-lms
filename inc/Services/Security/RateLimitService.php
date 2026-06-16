@@ -50,6 +50,7 @@ readonly class RateLimitService {
 	private const LIMIT_JOIN        = 10;
 	private const LIMIT_PARENT      = 3;
 	private const LIMIT_PII_REVEAL  = 100;
+	private const LIMIT_OTP_EMAIL   = 5;
 
 	/**
 	 * Проверяет и фиксирует попытку создания заявки с данного IP.
@@ -61,6 +62,21 @@ readonly class RateLimitService {
 	public function allowApplicationCreation( string $ip ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
 		return $this->check( $this->ipKey( 'apply', $ip ), self::LIMIT_APPLICATION );
+	}
+
+	/**
+	 * Проверяет и фиксирует попытку отправки OTP-кода на данный email.
+	 *
+	 * Лимит по адресу (не по IP) — защита от email-бомбинга жертвы
+	 * с ротацией IP и от спама заявок на одну почту. Окно — сутки.
+	 *
+	 * @param string $email Email получателя кода
+	 *
+	 * @return bool false если суточный лимит отправок исчерпан
+	 */
+	public function allowOtpSendForEmail( string $email ): bool {
+		if ( $this->pluginConfig->isTestEnv() ) { return true; }
+		return $this->check( $this->emailKey( 'otpmail', $email ), self::LIMIT_OTP_EMAIL, DAY_IN_SECONDS );
 	}
 
 	/**
@@ -144,27 +160,47 @@ readonly class RateLimitService {
 	}
 
 	/**
+	 * Строит transient-ключ для email-based счётчика.
+	 *
+	 * Email нормализуется (trim + lowercase) и хэшируется через SHA-256 с
+	 * солью из FS_LMS_HASH_SALT — сырой адрес не попадает в ключи в БД.
+	 *
+	 * @param string $prefix Префикс действия (otpmail)
+	 * @param string $email  Email клиента
+	 *
+	 * @return string
+	 */
+	public function emailKey( string $prefix, string $email ): string {
+		$salt = defined( 'FS_LMS_HASH_SALT' ) ? FS_LMS_HASH_SALT : '';
+		$hash = hash( 'sha256', strtolower( trim( $email ) ) . $salt );
+
+		return "fs_lms_rl_{$prefix}_{$hash}";
+	}
+
+	/**
 	 * Инкрементирует счётчик и проверяет лимит.
 	 *
 	 * Использует фиксированное окно: reset_at задаётся при первом обращении
 	 * и не сдвигается при последующих — в отличие от скользящего окна.
 	 *
-	 * @param string $key   Ключ transient-а
-	 * @param int    $limit Максимально допустимое количество запросов в окне
+	 * @param string $key    Ключ transient-а
+	 * @param int    $limit  Максимально допустимое количество запросов в окне
+	 * @param int    $window Длина окна в секундах (по умолчанию — 1 час)
 	 *
 	 * @return bool true если запрос разрешён, false если лимит исчерпан
 	 */
-	private function check( string $key, int $limit ): bool {
+	private function check( string $key, int $limit, int $window = self::WINDOW ): bool {
 		$now  = time();
 		$data = get_transient( $key );
+		$ttl  = $window * 2;
 
 		if ( false === $data || ! is_array( $data ) || $now >= $data['reset_at'] ) {
-			set_transient( $key, array( 'count' => 1, 'reset_at' => $now + self::WINDOW ), self::TRANSIENT_TTL );
+			set_transient( $key, array( 'count' => 1, 'reset_at' => $now + $window ), $ttl );
 			return true;
 		}
 
 		$data['count']++;
-		set_transient( $key, $data, self::TRANSIENT_TTL );
+		set_transient( $key, $data, $ttl );
 
 		return $data['count'] <= $limit;
 	}

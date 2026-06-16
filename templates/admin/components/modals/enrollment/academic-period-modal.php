@@ -17,12 +17,9 @@
                     <input type="text" id="period_name" placeholder="Введите название периода..." required>
                 </div>
 
-                <div class="fs-form-group" id="period-id-group">
-                    <label for="period_id">Технический ключ (например: 2026_autumn)</label>
-                    <input type="text" id="period_id" name="key" placeholder="Только латиница и подчеркивания..." required
-                           pattern="[a-z0-9_]+">
-                    <p class="description">Используется для названия типов записей в базе.</p>
-                </div>
+                <!-- Технический ключ генерируется автоматически из названия; пользователю не показывается.
+                     Скрытое поле хранит ключ только при редактировании существующего периода. -->
+                <input type="hidden" id="period_id" value="">
 
                 <div class="fs-form-row">
                     <div class="fs-form-group">

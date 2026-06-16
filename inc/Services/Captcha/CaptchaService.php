@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Captcha;
 
 use Inc\Contracts\CaptchaProviderInterface;
-use Inc\Services\CaptchaProviders\NullCaptchaProvider;
+use Inc\Services\CaptchaProviders\YandexSmartCaptchaProvider;
 
 /**
  * Class CaptchaService
@@ -38,19 +38,20 @@ readonly class CaptchaService {
 	/**
 	 * Конструктор сервиса.
 	 *
-	 * Дефолтный провайдер — NullCaptchaProvider (пропускает все запросы).
-	 * Для подключения реального провайдера заменить тип-хинт на нужную реализацию.
+	 * Провайдер — Yandex SmartCaptcha. Если ключи не заданы, провайдер
+	 * ведёт себя как заглушка (validate() → true, getSiteKey() → '').
+	 * Для смены провайдера заменить тип-хинт на нужную реализацию интерфейса.
 	 *
-	 * @param NullCaptchaProvider $provider Провайдер капчи
+	 * @param YandexSmartCaptchaProvider $provider Провайдер капчи
 	 */
 	public function __construct(
-		private NullCaptchaProvider $provider,
+		private YandexSmartCaptchaProvider $provider,
 	) {}
 
 	/**
 	 * Верифицирует токен капчи.
 	 *
-	 * Делегирует в провайдер. NullCaptchaProvider всегда возвращает true.
+	 * Делегирует в провайдер. Если капча не настроена — провайдер возвращает true.
 	 *
 	 * @param string $token    Токен с фронта
 	 * @param string $remoteIp IP-адрес клиента
@@ -73,7 +74,7 @@ readonly class CaptchaService {
 	/**
 	 * Проверяет, настроен ли реальный провайдер капчи.
 	 *
-	 * @return bool false для NullCaptchaProvider
+	 * @return bool false если ключи капчи не заданы
 	 */
 	public function isConfigured(): bool {
 		return $this->provider->isConfigured();

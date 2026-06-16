@@ -75,6 +75,11 @@ export function createDadataSuggest( input, { endpoint, buildBody, getValue }, t
 		list.innerHTML = '';
 		if ( ! suggestions.length ) { close(); return; }
 
+		// Полное совпадение введённого значения с вариантом — подсказки не нужны.
+		const normalized = query.toLowerCase();
+		const exactMatch = suggestions.some( ( s ) => getValue( s ).trim().toLowerCase() === normalized );
+		if ( exactMatch ) { close(); return; }
+
 		suggestions.forEach( ( s ) => {
 			const value    = getValue( s );
 			const li       = document.createElement( 'li' );

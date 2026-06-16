@@ -121,12 +121,8 @@ export const AcademicPeriodModalManager = {
                     // Самый простой способ обновить данные на странице после успешного сохранения - перезагрузка.
                     // (В более сложных SPA можно было бы обновить DOM вручную без перезагрузки).
                     location.reload();
-                } else if (res.data?.error_code === 'duplicate_id') {
-                    // Специфическая обработка ошибки: если ID уже существует, показываем ошибку прямо в модалке
-                    AcademicPeriodModal.setIdError(res.data.message);
-                    AcademicPeriodModal.setSaveState(false); // Разблокируем кнопку, чтобы пользователь мог исправить ID
                 } else {
-                    // Общая ошибка: показываем уведомление внутри тела модального окна
+                    // Технический ключ генерируется на сервере, поэтому дубликата ID быть не может.
                     showNotice(res.data?.message || res.data || 'Ошибка сохранения.', 'error', AcademicPeriodModal.$modal.find('.fs-lms-modal-body'));
                     AcademicPeriodModal.setSaveState(false);
                 }
