@@ -208,8 +208,9 @@ class ApplicationCallbacks extends BaseController {
 			}
 			try {
 				$data[ $key ] = $this->crypto->decrypt( $enc );
-			} catch ( \Throwable ) {
-				// Поле не расшифровалось — оставляем значение из снапшота.
+			} catch ( \Throwable $e ) {
+				// Не молчим: возможная смена ключа шифрования — оставляем значение из снапшота.
+				\Inc\Shared\PluginLogger::warning( 'JoinPrefill', "Не удалось расшифровать поле {$key} ученика #{$personId}", array( 'error' => $e->getMessage() ) );
 			}
 		}
 
