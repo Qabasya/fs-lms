@@ -92,27 +92,19 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
                 <th class="tw-10">Пользователь</th>
 				<th class="tw-20">Тип данных</th>
 				<th>Действие</th>
-				<th>ID целей</th>
+				<th>Цели</th>
                 <th class="tw-5">IP</th>
 			</tr>
 			</thead>
 			<tbody>
-			<?php foreach ( $export_rows as $row ) :
-				$ids = $row->targetIdsJson ? json_decode( $row->targetIdsJson, true ) : array();
-				?>
+			<?php foreach ( $export_rows as $row ) : ?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
 					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
 					<td><?php echo LogNameResolver::userNameWithRole( $row->actorUserId ); // phpcs:ignore ?></td>
 					<td><?php echo esc_html( ExportDataType::tryFrom( $row->dataType )?->label() ?? $row->dataType ); ?></td>
 					<td><?php echo esc_html( ExportActionType::tryFrom( $row->actionType )?->label() ?? $row->actionType ); ?></td>
-					<td>
-						<?php if ( ! empty( $ids ) ) : ?>
-							<?php echo esc_html( implode( ', ', array_slice( $ids, 0, 10 ) ) ); ?><?php echo count( $ids ) > 10 ? ' …' : ''; ?>
-						<?php else : ?>
-							—
-						<?php endif; ?>
-					</td>
+					<td><?php echo esc_html( LogNameResolver::exportTargets( $row->dataType, $row->targetIdsJson, 3 ) ); ?></td>
 					<td><?php echo esc_html( $row->actorIp ); ?></td>
 				</tr>
 			<?php endforeach; ?>

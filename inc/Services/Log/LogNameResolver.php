@@ -227,4 +227,86 @@ class LogNameResolver {
 		}
 		return $user ? esc_html( $user->display_name ) : esc_html( $identifier );
 	}
+
+	/**
+	 * Резолвит JSON-массив ID целей экспорта в человекочитаемые имена (ФИО / названия групп).
+	 *
+	 * Возвращает СЫРУЮ строку (не экранированную) — для HTML обернуть в esc_html(),
+	 * для CSV использовать как есть.
+	 *
+	 * @param string      $dataType      Тип данных (students, parents, groups, archive, log_*)
+	 * @param string|null $targetIdsJson JSON-массив ID
+	 * @param int         $limit         Сколько имён показать; 0 — все. При превышении добавляется « …»
+	 *
+	 * @return string
+	 */
+	public static function exportTargets( string $dataType, ?string $targetIdsJson, int $limit = 0 ): string {
+		if ( empty( $targetIdsJson ) ) {
+			return '—';
+		}
+
+		$ids = json_decode( $targetIdsJson, true );
+		$ids = is_array( $ids ) ? array_values( array_filter( array_map( 'intval', $ids ) ) ) : array();
+		if ( empty( $ids ) ) {
+			return '—';
+		}
+
+		$names = self::resolveTargetNames( $dataType, $ids );
+		if ( empty( $names ) ) {
+			// Тип без именованных целей (например, экспорт журналов) — показываем сами ID.
+			return implode( ', ', $ids );
+		}
+
+		$total = count( $names );
+		if ( $limit > 0 && $total > $limit ) {
+			return implode( ', ', array_slice( $names, 0, $limit ) ) . ' …';
+		}
+
+		return implode( ', ', $names );
+	}
+
+	/**
+	 * Возвращает имена целей в порядке переданных ID (с fallback «#id»).
+	 *
+	 * @param string $dataType Тип данных
+	 * @param int[]  $ids      ID целей
+	 *
+	 * @return string[] Пустой массив для типов без именованных целей (логи)
+	 */
+	private static function resolveTargetNames( string $dataType, array $ids ): array {
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+		// SQL по типу данных: студенты/родители → persons, архив → снапшот student_records, группы → groups.
+		if ( 'groups' === $dataType ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = $wpdb->get_results( $wpdb->prepare(
+				"SELECT id, name AS nm FROM {$wpdb->prefix}fs_lms_groups WHERE id IN ($placeholders)",
+				$ids
+			), OBJECT_K );
+		} elseif ( 'archive' === $dataType ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = $wpdb->get_results( $wpdb->prepare(
+				"SELECT id, CONCAT_WS(' ', snapshot_last_name, snapshot_first_name, snapshot_middle_name) AS nm FROM {$wpdb->prefix}fs_lms_student_records WHERE id IN ($placeholders)",
+				$ids
+			), OBJECT_K );
+		} elseif ( in_array( $dataType, array( 'students', 'parents' ), true ) ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = $wpdb->get_results( $wpdb->prepare(
+				"SELECT id, CONCAT_WS(' ', last_name, first_name, middle_name) AS nm FROM {$wpdb->prefix}fs_lms_persons WHERE id IN ($placeholders)",
+				$ids
+			), OBJECT_K );
+		} else {
+			return array(); // log_* и прочие типы без именованных целей
+		}
+
+		$names = array();
+		foreach ( $ids as $id ) {
+			$nm        = isset( $rows[ $id ] ) ? trim( (string) $rows[ $id ]->nm ) : '';
+			$names[]   = '' !== $nm ? $nm : '#' . $id;
+		}
+
+		return $names;
+	}
 }

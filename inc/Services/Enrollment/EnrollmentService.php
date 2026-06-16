@@ -91,18 +91,25 @@ readonly class EnrollmentService {
 				$this->personRepository->update( $existingStudent->id, array( 'expelled_at' => null ) );
 			}
 		} else {
-			$studentDocHash  = $this->crypto->hash( $studentDto->docNumber );
-			$studentId       = $this->personService->findByDocNumberHash( $studentDocHash );
-			$existingStudent = $studentId !== null ? $this->personRepository->find( $studentId ) : null;
+			// Поиск только при непустом документе; найденный должен быть учеником (is_student=1).
+			$studentId       = '' !== $studentDto->docNumber
+				? $this->personService->findByDocNumberHash( $this->crypto->hash( $studentDto->docNumber ) )
+				: null;
+			$candidate       = $studentId !== null ? $this->personRepository->find( $studentId ) : null;
+			$existingStudent = ( $candidate !== null && $candidate->isStudent ) ? $candidate : null;
 		}
 
 		$existingGuardian = null;
 		if ( $app->parentPersonId !== null ) {
 			$existingGuardian = $this->personRepository->find( $app->parentPersonId );
 		} else {
-			$guardianDocHash  = $this->crypto->hash( $parentDto->docNumber );
-			$guardianId       = $this->personService->findByDocNumberHash( $guardianDocHash );
-			$existingGuardian = $guardianId !== null ? $this->personRepository->find( $guardianId ) : null;
+			// Поиск только при непустом документе; найденный НЕ должен быть учеником —
+			// защита от коллизии doc_number_hash, из-за которой родителем становился ученик.
+			$guardianId       = '' !== $parentDto->docNumber
+				? $this->personService->findByDocNumberHash( $this->crypto->hash( $parentDto->docNumber ) )
+				: null;
+			$candidate        = $guardianId !== null ? $this->personRepository->find( $guardianId ) : null;
+			$existingGuardian = ( $candidate !== null && ! $candidate->isStudent ) ? $candidate : null;
 		}
 
 		if ( null === $existingGuardian && null !== $this->userManager->findByEmail( $parentDto->email ) ) {
