@@ -18,6 +18,7 @@ use Inc\Enums\LogEvent;
 use Inc\Enums\Nonce;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Services\Application\ApplicationService;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\Captcha\CaptchaService;
@@ -77,6 +78,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly AuthLogWriter                $authLog,
 		private readonly PluginConfig                 $pluginConfig,
 		private readonly FormGuardService             $formGuard,
+		private readonly PersonDocumentsRepository    $personDocumentsRepository,
 	) {
 		parent::__construct();
 	}
@@ -130,8 +132,16 @@ class ApplicationCallbacks extends BaseController {
 
 		try {
 			// Расшифровка и декодирование данных ученика
-			$decoded     = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true );
-			$studentData = StudentDataDTO::fromArray( $decoded ?? array() );
+			$decoded = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+
+			// Для восстановленных заявок (привязан существующий ученик) накладываем
+			// актуальные PII из person_documents поверх снапшота: снапшот мог быть
+			// сделан до того, как админ дозаполнил данные (например, паспорт).
+			if ( null !== $app->studentPersonId ) {
+				$decoded = $this->overlayLiveStudentDocs( $app->studentPersonId, $decoded );
+			}
+
+			$studentData = StudentDataDTO::fromArray( $decoded );
 		} catch ( \Throwable $e ) {
 			return false;
 		}
@@ -163,6 +173,47 @@ class ApplicationCallbacks extends BaseController {
 		set_query_var( 'fs_lms_parent_locked', $parentLocked );
 
 		return true;
+	}
+
+	/**
+	 * Накладывает актуальные PII ученика из person_documents поверх данных снапшота заявки.
+	 *
+	 * Снапшот (studentDataEnc) фиксируется в момент восстановления и может устареть,
+	 * если админ дозаполнил документы позже. Для восстановленных заявок берём живые
+	 * значения; отсутствующие/нерасшифровываемые поля оставляем как в снапшоте.
+	 *
+	 * @param int                  $personId ID ученика
+	 * @param array<string, mixed> $data     Данные из снапшота заявки
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function overlayLiveStudentDocs( int $personId, array $data ): array {
+		$docs = $this->personDocumentsRepository->findByPersonId( $personId );
+		if ( null === $docs ) {
+			return $data;
+		}
+
+		if ( $docs->docType ) {
+			$data['doc_type'] = $docs->docType;
+		}
+
+		foreach ( array(
+			'email'      => $docs->emailEnc,
+			'phone'      => $docs->phoneEnc,
+			'doc_number' => $docs->docNumberEnc,
+			'inn'        => $docs->innEnc,
+		) as $key => $enc ) {
+			if ( ! $enc ) {
+				continue;
+			}
+			try {
+				$data[ $key ] = $this->crypto->decrypt( $enc );
+			} catch ( \Throwable ) {
+				// Поле не расшифровалось — оставляем значение из снапшота.
+			}
+		}
+
+		return $data;
 	}
 
 	/**
