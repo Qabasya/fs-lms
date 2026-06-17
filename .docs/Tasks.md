@@ -511,6 +511,62 @@
 - **Готово:** референсное задание/работу/урок/курс нельзя удалить (только архив); orphan удаляется штатно;
   удаление референсного по прямому URL блокируется фильтром.
 
+##### T1.29 — CPT `fs_lms_problems`: глобальный банк приватных задач
+- **Файл:** `inc/Controllers/ProblemsController.php` + `PostTypeResolver` helpers.
+- **Назначение:** глобальный (не per-subject) банк задач, которые можно добавить в работу любого предмета.
+  Не публикуются на фронте ([`Courses.md` §0 №19](./Courses.md)). Примеры: «Создайте профиль в GitHub»,
+  «Абстрактная задача без привязки к заданию ЕГЭ».
+- **CPT:**
+  - Имя: `fs_lms_problems` (единственный, без per-subject prefix).
+  - `show_in_menu => false`, `exclude_from_search => true`, `show_in_rest => false`.
+  - `capability_type => 'fs_lms_content'`, `map_meta_cap => true`.
+  - `post_title` = формулировка задачи, `post_content` = условие/инструкция.
+- **Таксономия `problem_tag`** — свободная (аналог WP-тегов, не иерархическая). Термы: «Git», «Сортировка»,
+  «Python-базовые» и т.п. Несколько тегов на задачу. Используется как фильтр в селекторе работы (аналог
+  коллекций T1.24). Предмет к задаче не привязывается — он известен из работ-потребителей.
+- **Usage-бейдж:** колонка «Используется в N работах» через `ContentUsageService` — ссылки на работы.
+- **`PostTypeResolver` helpers:**
+  - `PostTypeResolver::problems()` → `'fs_lms_problems'`
+  - `PostTypeResolver::isProblemPostType( string $pt ): bool`
+- **Меню:** добавить пункт «Задачи» в меню «Обучение» (рядом с Заданиями предметов), `LearningMenuController`.
+- **Шаблоны редактора:** зарегистрировать `fs_lms_problems` как поддерживаемый post type в `TemplateRegistry`.
+  Шаблон хранится в `PostMetaName::TemplateType` — та же мета-ключ, что у `{key}_tasks`. Все существующие
+  шаблоны (файл, код, ответ) доступны без изменений. Будущие шаблоны-тесты (чекбоксы/радио) — новый класс
+  в `inc/MetaBoxes/Templates/`, регистрируется в реестре; `fs_lms_problems` подхватывает автоматически.
+  Выбор шаблона — метабокс на экране редактирования (не в `DraftCreatorModal`).
+- **Готово:** CPT зарегистрирован; препод создаёт задачу в «Задачи» с тегами и шаблоном (файл/код/ответ);
+  задача не видна на фронте; usage-бейдж показывает N работ.
+
+##### T1.30 — `WorkDTO.task_ids` → `item_ids`: единый список элементов работы
+- **Файлы:** `WorkDTO`, `WorkManager`, `inc/MetaBoxes/Templates/WorkTemplate.php`, `WorkRefField`,
+  `WorkAuthoringService`, `ContentUsageService`.
+- **Суть:** `task_ids: int[]` → `item_ids: int[]` — упорядоченный список WP post ID; каждый ID может
+  указывать на `{key}_tasks` или `fs_lms_problems` ([`Courses.md` §0 №20](./Courses.md)).
+- **Изменения:**
+  - `WorkDTO`: поле `task_ids` переименовать в `item_ids`; `fromArray()` / `toArray()` обновить.
+  - `WorkManager::create/update`: ключ мета `task_ids` → `item_ids`.
+  - `WorkTemplate` / `WorkRefField`: `data-ref-type` расширить — поле теперь принимает и задания, и задачи
+    (см. T1.31); `input[name]` атрибут обновить с `task_ids[]` → `item_ids[]`.
+  - `ContentUsageService`: при подсчёте usage проверять `get_post_type($id)` — задачи (`fs_lms_problems`)
+    учитывать отдельно от заданий (`{key}_tasks`).
+- **Миграция:** только dev-окружение; сбросить `fs_lms_schema_version` → `0.0.0`, перезагрузить.
+- **Готово:** существующие работы читают `item_ids`; `WorkDTO` не содержит `task_ids`; тесты зелёные.
+
+##### T1.31 — Селектор работы: поддержка задач (`fs_lms_problems`) рядом с заданиями
+- **Файлы:** `inc/Callbacks/Course/WorkCallbacks.php`, `AjaxHook`, `ref-selector.js`.
+- **Суть:** конструктор работы должен позволять добавлять как публичные задания `{key}_tasks`, так и
+  приватные задачи `fs_lms_problems` из единого поля `item_ids` ([`Courses.md` §0 №18, №20](./Courses.md)).
+- **Поиск кандидатов:** новый AJAX-хук `GetWorkItemCandidates` (заменяет/дополняет `GetWorkTaskCandidates`):
+  ищет по `subject_key` в `{key}_tasks` + по всем `fs_lms_problems`, объединяет результат, возвращает
+  `[{id, title, type: 'task'|'problem'}]`. Фильтр «коллекция» (T1.24) применяется только к типу `task`.
+- **JS:** `ref-selector.js` → в `REF_MAP` тип `item` (или объединить с `task`); в дропдауне отображать
+  тип визуально (бейдж «Задание» / «Задача»); `_addChip` записывает `post_type` как data-атрибут чипа
+  (пригодится Этапу 3 для рендера на фронте).
+- **«Создать»:** кнопка «Создать задание» → прежний flow (task-modal); добавить вторую кнопку «Создать задачу»
+  → открывает `DraftCreatorModal` с `refType='problem'` + новый `ajaxCreateProblemDraft`.
+- **Готово:** в конструкторе работы можно добавить и `{key}_tasks`, и `fs_lms_problems`; тип видно
+  по бейджу в чипе; сохранение пишет смешанный `item_ids[]`.
+
 ---
 
 ### Порядок реализации (по зависимостям)
@@ -530,8 +586,12 @@
 9. **T1.19** регистрация сервисов — по мере появления контроллеров.
 10. **T1.26–T1.28** `ContentUsageService` (core) → жизненный цикл (`draft`/`publish`/`archived`) → гейт
     удаления. Usage/бейдж — частично сейчас (банк-меты), полный охват delivery-источников — **после Этапа 2** (T2.25).
+11. **T1.29** CPT `fs_lms_problems` + `PostTypeResolver` helpers + пункт меню «Задачи».
+12. **T1.30** переименование `task_ids` → `item_ids` в WorkDTO/Manager/Template + `ContentUsageService`.
+13. **T1.31** расширение селектора работы: единый поиск заданий + задач, бейдж типа, кнопка «Создать задачу».
 
 > Контрольные точки DoD: после шага 4 работает банк работ; после 7 — уроки из работ; после 8 — курсы из уроков.
+> После шага 13 работа принимает как задания (`{key}_tasks`), так и задачи (`fs_lms_problems`) из единого поля.
 > Меню (шаг 3) делает всё это доступным под предмет препода.
 
 ### Критерии приёмки этапа (проверка вручную)
