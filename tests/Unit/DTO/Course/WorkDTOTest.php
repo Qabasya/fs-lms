@@ -22,14 +22,14 @@ class WorkDTOTest extends TestCase {
 
 		$dto = WorkDTO::fromPost( $post, array(
 			'work_type'    => 'homework',
-			'task_ids'     => array( '3', 0, '5', '' ),
+			'item_ids'     => array( '3', 0, '5', '' ),
 			'instructions' => 'Сделать до пятницы',
 		) );
 
 		self::assertSame( 'inf', $dto->subjectKey );
 		self::assertSame( 'ДЗ: циклы', $dto->title );
 		self::assertSame( WorkType::Homework, $dto->workType );
-		self::assertSame( array( 3, 5 ), $dto->taskIds );
+		self::assertSame( array( 3, 5 ), $dto->itemIds );
 		self::assertSame( 7, $dto->authorId );
 		self::assertFalse( $dto->isEmpty() );
 	}
@@ -46,7 +46,7 @@ class WorkDTOTest extends TestCase {
 			'subject_key'  => 'inf',
 			'title'        => 'СР',
 			'work_type'    => 'independent',
-			'task_ids'     => array( 2, 4 ),
+			'item_ids'     => array( 2, 4 ),
 			'instructions' => 'текст',
 			'author_id'    => 3,
 			'status'       => 'publish',

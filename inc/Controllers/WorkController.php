@@ -25,8 +25,10 @@ class WorkController extends AjaxController {
 	protected function ajaxActions(): array {
 		return array(
 			array( AjaxHook::GetWorkTaskCandidates, $this->callbacks ),
+			array( AjaxHook::GetWorkItemCandidates, $this->callbacks ),
 			array( AjaxHook::GetWorkCollections,    $this->callbacks ),
-			array( AjaxHook::CreateWorkDraft,        $this->callbacks ),
+			array( AjaxHook::CreateWorkDraft,       $this->callbacks ),
+			array( AjaxHook::CreateProblemDraft,    $this->callbacks ),
 		);
 	}
 }

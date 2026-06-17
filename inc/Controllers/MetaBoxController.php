@@ -98,12 +98,18 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			$all_subjects
 		);
 
-		// Метод add() принимает: ID метабокса, заголовок, коллбек отрисовки, типы постов
 		$this->registrar->add(
 			'fs_lms_task_metabox',
 			'Данные задания',
 			array( $this, 'renderMetaboxContent' ),
 			$task_post_types
+		)->register();
+
+		$this->registrar->add(
+			'fs_lms_task_metabox',
+			'Данные задачи',
+			array( $this, 'renderMetaboxContent' ),
+			array( \Inc\Services\PostTypeResolver::problems() )
 		)->register();
 	}
 
@@ -149,7 +155,11 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		}
 
 		$post = get_post( $post_id );
-		if ( ! $post || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
+		if ( ! $post ) {
+			return;
+		}
+		if ( ! PostTypeResolver::isTaskPostType( $post->post_type )
+			&& ! PostTypeResolver::isProblemPostType( $post->post_type ) ) {
 			return;
 		}
 

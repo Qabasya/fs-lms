@@ -56,6 +56,11 @@ enum Nonce: string {
 	/** AJAX-запросы конструктора курса (выбор уроков). */
 	case AuthorCourse = 'fs_lms_author_course';
 
+	// ==== Этап 2 — программа группы ====
+	case AssignCourse         = 'fs_lms_assign_course';
+	case SaveSchedule         = 'fs_lms_save_schedule';
+	case SetLessonVisibility  = 'fs_lms_set_lesson_visibility';
+
 	/**
 	 * Создает защитный токен.
 	 *

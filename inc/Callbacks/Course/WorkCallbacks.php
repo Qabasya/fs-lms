@@ -16,7 +16,7 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class WorkCallbacks
  *
- * Admin-AJAX обработчики конструктора работы (селектор заданий, коллекции, создание черновика).
+ * Admin-AJAX обработчики конструктора работы.
  *
  * @package Inc\Callbacks\Course
  */
@@ -33,8 +33,8 @@ class WorkCallbacks extends BaseController {
 	}
 
 	/**
-	 * Кандидаты-задания для работы.
-	 * Params: subject_key, task_type, collection, scope (mine|subject), search
+	 * Кандидаты-задания для работы (только {key}_tasks текущего предмета).
+	 * Params: subject_key, task_type, collection, scope, search
 	 */
 	public function ajaxGetWorkTaskCandidates(): void {
 		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
@@ -55,7 +55,28 @@ class WorkCallbacks extends BaseController {
 	}
 
 	/**
-	 * Коллекции (пользовательские таксономии) заданий предмета для фильтра.
+	 * Кандидаты-элементы для работы: {key}_tasks + fs_lms_problems (unified).
+	 * Params: subject_key, collection, scope, search
+	 */
+	public function ajaxGetWorkItemCandidates(): void {
+		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$collection  = (int) ( $_POST['collection'] ?? 0 );
+		$scope       = $this->sanitizeKey( $_POST['scope'] ?? 'mine' );
+		$search      = $this->sanitizeText( $_POST['search'] ?? '' );
+
+		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
+			$scope = 'mine';
+		}
+
+		$this->success(
+			$this->authoringService->getItemCandidates( $subject_key, $collection, $scope, $search )
+		);
+	}
+
+	/**
+	 * Коллекции заданий предмета для фильтра.
 	 * Params: subject_key
 	 */
 	public function ajaxGetWorkCollections(): void {
@@ -84,14 +105,14 @@ class WorkCallbacks extends BaseController {
 		$work_type   = $this->sanitizeKey( $_POST['work_type'] ?? '' );
 
 		$dto = WorkDTO::fromArray( array(
-			'id'          => 0,
-			'subject_key' => $subject_key,
-			'title'       => $title,
-			'work_type'   => $work_type,
-			'task_ids'    => array(),
-			'instructions'=> '',
-			'author_id'   => get_current_user_id(),
-			'status'      => 'draft',
+			'id'           => 0,
+			'subject_key'  => $subject_key,
+			'title'        => $title,
+			'work_type'    => $work_type,
+			'item_ids'     => array(),
+			'instructions' => '',
+			'author_id'    => get_current_user_id(),
+			'status'       => 'draft',
 		) );
 
 		try {
@@ -99,6 +120,23 @@ class WorkCallbacks extends BaseController {
 			$this->success( array( 'id' => $work_id, 'title' => $title ) );
 		} catch ( \Throwable $e ) {
 			$this->error( 'Не удалось создать работу: ' . $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Создаёт черновик задачи (fs_lms_problems) из конструктора работы.
+	 * Params: title
+	 */
+	public function ajaxCreateProblemDraft(): void {
+		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+
+		$title = $this->sanitizeText( $_POST['title'] ?? '' ) ?: 'Новая задача';
+
+		try {
+			$id = $this->authoringService->createProblemDraft( $title );
+			$this->success( array( 'id' => $id, 'title' => $title ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Не удалось создать задачу: ' . $e->getMessage() );
 		}
 	}
 }

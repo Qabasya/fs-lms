@@ -35,6 +35,9 @@ enum ShortCode: string {
 	/** Шорткод формы подачи заявки на обучение */
 	case ApplyForm    = 'fs_lms_apply_form';
 
+	/** Шорткод списка видимых уроков ученика */
+	case GroupLessons = 'fs_lms_group_lessons';
+
 	/**
 	 * Возвращает строку шорткода в формате с квадратными скобками.
 	 *

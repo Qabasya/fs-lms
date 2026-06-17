@@ -16,7 +16,7 @@ use Inc\Services\PostTypeResolver;
 class TaskRefField extends RefSelectField {
 
 	protected function refType(): string {
-		return 'task';
+		return 'item';
 	}
 
 	protected function subjectFromPostType( string $post_type ): string {
@@ -25,5 +25,9 @@ class TaskRefField extends RefSelectField {
 
 	protected function createLabel(): string {
 		return 'Создать задание';
+	}
+
+	protected function createProblemLabel(): string {
+		return 'Создать задачу';
 	}
 }

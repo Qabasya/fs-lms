@@ -145,6 +145,19 @@ enum AjaxHook: string {
 	case GetLessonArticles         = 'get_lesson_articles';          // params: subject_key
 	case CreateWorkDraft           = 'create_work_draft';            // params: subject_key, title, work_type
 	case CreateLessonDraft         = 'create_lesson_draft';          // params: subject_key, title
+	case GetWorkItemCandidates     = 'get_work_item_candidates';     // params: subject_key, collection, scope, search
+	case CreateProblemDraft        = 'create_problem_draft';         // params: title
+
+	// ==== Программа группы (Этап 2) ====
+	case AssignCourse            = 'assign_course';
+	case AddLessonToProgram      = 'add_lesson_to_program';
+	case RemoveLessonFromProgram = 'remove_lesson_from_program';
+	case ReorderProgram          = 'reorder_program';
+	case SaveLessonSchedule      = 'save_lesson_schedule';
+	case SetLessonExtraWorks     = 'set_lesson_extra_works';
+	case SetLessonVisibility     = 'set_lesson_visibility';
+	case GetGroupProgram         = 'get_group_program';
+	case GetGroupActivity        = 'get_group_activity';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

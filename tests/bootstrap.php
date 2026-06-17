@@ -101,6 +101,11 @@ if (!function_exists('get_userdata')) {
         return false;
     }
 }
+if (!function_exists('user_can')) {
+    function user_can(int $userId, string $cap): bool {
+        return $GLOBALS['_test_user_can'][$userId][$cap] ?? false;
+    }
+}
 if (!function_exists('wp_generate_password')) {
     function wp_generate_password(int $length = 12, bool $special_chars = true, bool $extra_special_chars = false): string {
         return substr(str_repeat('aB3$xY7!', 16), 0, max(1, $length));

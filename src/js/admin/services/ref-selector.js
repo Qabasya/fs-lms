@@ -7,21 +7,21 @@ const $ = jQuery;
 
 /**
  * Сопоставление типа ссылки с AJAX-экшеном и nonce.
- * task   — задания внутри работы
+ * item   — элементы работы (задания {key}_tasks + задачи fs_lms_problems)
  * work   — работы внутри урока
  * lesson — уроки внутри курса
  */
 const REF_MAP = {
-	task:   { action: 'getWorkTaskCandidates',     nonceKey: 'authorWork' },
+	item:   { action: 'getWorkItemCandidates',     nonceKey: 'authorWork' },
 	work:   { action: 'getLessonWorkCandidates',   nonceKey: 'authorLesson' },
 	lesson: { action: 'getCourseLessonCandidates', nonceKey: 'authorCourse' },
 };
 
 /**
- * RefSelector — единый конструктор-селектор ссылок для банков
- * (работа→задания, урок→работы, курс→уроки). Поиск + чипы + порядок (drag-drop).
- * T1.24: для task-полей загружает фильтр коллекций.
- * T1.23: кнопка «Создать» открывает task-modal (для task) или draft-creator-modal (для work/lesson).
+ * RefSelector — единый конструктор-селектор ссылок для банков.
+ * T1.24: для item-полей загружает фильтр коллекций.
+ * T1.23: кнопка «Создать задание» → task-modal; «Создать задачу» → draft-creator-modal.
+ * T1.31: unified item selector — поиск и по заданиям, и по задачам.
  */
 export const RefSelector = {
 
@@ -69,7 +69,12 @@ export const RefSelector = {
 			const $opt   = $( e.currentTarget );
 			const $field = $opt.closest( '.fs-lms-ref-field' );
 
-			this._addChip( $field, parseInt( $opt.data( 'ref-id' ), 10 ), String( $opt.data( 'ref-title' ) ) );
+			this._addChip(
+				$field,
+				parseInt( $opt.data( 'ref-id' ), 10 ),
+				String( $opt.data( 'ref-title' ) ),
+				String( $opt.data( 'item-type' ) || '' ),
+			);
 
 			$field.find( '.fs-lms-ref-dropdown' ).attr( 'hidden', true ).empty();
 			$field.find( '.fs-lms-ref-search' ).val( '' );
@@ -103,19 +108,17 @@ export const RefSelector = {
 		} );
 	},
 
-	// T1.23 — кнопки «Создать»
+	// T1.23 / T1.31 — кнопки «Создать задание» и «Создать задачу»
 	_bindCreate() {
 		$( document ).on( 'click', '.fs-lms-ref-create', ( e ) => {
-			const $field   = $( e.currentTarget ).closest( '.fs-lms-ref-field' );
-			const refType  = String( $field.data( 'ref-type' ) );
+			const $field  = $( e.currentTarget ).closest( '.fs-lms-ref-field' );
+			const refType = String( $field.data( 'ref-type' ) );
 
-			if ( refType === 'task' ) {
-				// Открываем существующую task-modal в режиме чипа
+			if ( refType === 'item' ) {
 				TaskModalManager.openForChip( ( id, title ) => {
-					this._addChip( $field, id, title );
+					this._addChip( $field, id, title, 'task' );
 				} );
 			} else {
-				// Работа из урока / Урок из курса — лёгкая модалка
 				DraftCreatorModal.open( {
 					refType,
 					$field,
@@ -123,13 +126,22 @@ export const RefSelector = {
 				} );
 			}
 		} );
+
+		$( document ).on( 'click', '.fs-lms-ref-create-problem', ( e ) => {
+			const $field = $( e.currentTarget ).closest( '.fs-lms-ref-field' );
+			DraftCreatorModal.open( {
+				refType: 'problem',
+				$field,
+				onCreated: ( id, title ) => this._addChip( $field, id, title, 'problem' ),
+			} );
+		} );
 	},
 
-	// T1.24 — загрузка коллекций для task ref-полей
+	// T1.24 — загрузка коллекций для item ref-полей
 	_loadCollections() {
-		$( '.fs-lms-ref-field[data-ref-type="task"]' ).each( ( _, el ) => {
-			const $field   = $( el );
-			const subject  = String( $field.data( 'subject' ) );
+		$( '.fs-lms-ref-field[data-ref-type="item"]' ).each( ( _, el ) => {
+			const $field  = $( el );
+			const subject = String( $field.data( 'subject' ) );
 
 			if ( ! subject || ! fs_lms_vars.ajax_actions.getWorkCollections ) {
 				return;
@@ -189,8 +201,8 @@ export const RefSelector = {
 			search,
 		};
 
-		// T1.24: коллекция-фильтр только для task ref
-		if ( refType === 'task' ) {
+		// T1.24: коллекция-фильтр для item ref
+		if ( refType === 'item' ) {
 			const $col = $field.find( '.fs-lms-ref-collection' );
 			if ( $col.length ) {
 				data.collection = parseInt( $col.val(), 10 ) || 0;
@@ -216,10 +228,15 @@ export const RefSelector = {
 			$dropdown.append( $( '<div/>', { class: 'fs-lms-ref-empty', text: 'Ничего не найдено' } ) );
 		} else {
 			available.forEach( ( item ) => {
-				$( '<div/>', {
-					class: 'fs-lms-ref-option',
-					text:  item.title,
-				} ).attr( 'data-ref-id', item.id ).attr( 'data-ref-title', item.title ).appendTo( $dropdown );
+				const label = item.type === 'problem'
+					? `[Задача] ${ item.title }`
+					: item.title;
+
+				$( '<div/>', { class: 'fs-lms-ref-option', text: label } )
+					.attr( 'data-ref-id', item.id )
+					.attr( 'data-ref-title', item.title )
+					.attr( 'data-item-type', item.type || '' )
+					.appendTo( $dropdown );
 			} );
 		}
 
@@ -230,7 +247,7 @@ export const RefSelector = {
 		return $field.find( '.fs-lms-ref-chip' ).map( ( _, el ) => parseInt( $( el ).data( 'ref-id' ), 10 ) ).get();
 	},
 
-	_addChip( $field, refId, title ) {
+	_addChip( $field, refId, title, itemType = '' ) {
 		if ( ! refId || this._selectedIds( $field ).includes( refId ) ) {
 			return;
 		}
@@ -239,8 +256,16 @@ export const RefSelector = {
 		const $chip = $( tpl.content.firstElementChild.cloneNode( true ) );
 
 		$chip.attr( 'data-ref-id', refId );
+		$chip.attr( 'data-item-type', itemType );
 		$chip.find( '.fs-lms-ref-title' ).text( title );
 		$chip.find( 'input[type="hidden"]' ).val( refId );
+
+		const $badge = $chip.find( '.fs-lms-item-type-badge' );
+		if ( itemType === 'problem' ) {
+			$badge.text( 'Задача' ).removeAttr( 'hidden' );
+		} else {
+			$badge.attr( 'hidden', true );
+		}
 
 		$field.find( '.fs-lms-ref-chips' ).append( $chip );
 	},

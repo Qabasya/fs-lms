@@ -63,4 +63,7 @@ enum OptionName: string {
 
 	/** Конфигурация плагина: DaData-токен, тест-окружение, OTP bypass-код */
 	case PluginConfig = 'fs_lms_plugin_config';
+
+	/** Политика доступа после отчисления: 'retain' (default) | 'block' */
+	case ExpulsionRetentionPolicy = 'fs_lms_expulsion_retention_policy';
 }

@@ -20,6 +20,7 @@ use Inc\Controllers\CourseController;
 use Inc\Controllers\CourseMetaBoxController;
 use Inc\Controllers\LearningMenuController;
 use Inc\Controllers\ContentDeletionGuard;
+use Inc\Controllers\ProblemsController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\PiiController;
 use Inc\Controllers\ProfileController;
@@ -41,7 +42,10 @@ use Inc\Controllers\Subscribers\DataChangeSubscriber;
 use Inc\Controllers\Subscribers\ConsentChangeSubscriber;
 use Inc\Controllers\Subscribers\EmailSubscriber;
 use Inc\Controllers\Subscribers\DeletionSubscriber;
+use Inc\Controllers\Subscribers\LearningEventSubscriber;
 use Inc\Controllers\DeletionController;
+use Inc\Controllers\ScheduleController;
+use Inc\Controllers\GroupCockpitController;
 use Inc\Controllers\ImportController;
 use Inc\Controllers\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
@@ -92,6 +96,7 @@ final class Init {
 			WorkController::class,           // AJAX конструктора работы
 			CourseMetaBoxController::class,  // Метабокс курса
 			CourseController::class,         // AJAX конструктора курса
+			ProblemsController::class,       // CPT fs_lms_problems + problem_tag + шаблон
 			ContentDeletionGuard::class,     // Гейт удаления / архивации банков
 			TaskCreationController::class, // Создание заданий
 			TaskPageController::class,     // Frontend-страница задания
@@ -124,6 +129,10 @@ final class Init {
 			EmailSubscriber::class,
 			DeletionSubscriber::class,
 			ExportServiceBootstrap::class,
+			// ==== Этап 2 — программа группы ====
+			ScheduleController::class,        // AJAX программы группы
+			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
+			LearningEventSubscriber::class,   // лента событий обучения
 		);
 	}
 

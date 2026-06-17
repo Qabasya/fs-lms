@@ -47,16 +47,25 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 
 		// Первый сабменю-пункт «Курсы» переиспользует slug top-level (переименование автодубля).
 		// Задания и Статьи живут в разделе «Предметы» (доступен преподавателю), не дублируются здесь.
+		// «Задачи» (fs_lms_problems) — глобальный банк, отдельный пункт в этом же меню.
 		$submenus = array(
-			Menu::LearningCourses->value => Menu::Learning->value,
-			Menu::LearningLessons->value => Menu::LearningLessons->value,
-			Menu::LearningWorks->value   => Menu::LearningWorks->value,
+			Menu::LearningCourses->value  => Menu::Learning->value,
+			Menu::LearningLessons->value  => Menu::LearningLessons->value,
+			Menu::LearningWorks->value    => Menu::LearningWorks->value,
+			Menu::LearningProblems->value => Menu::LearningProblems->value,
+			Menu::LearningTasks->value    => Menu::LearningTasks->value,
+			Menu::LearningArticles->value => Menu::LearningArticles->value,
+
 		);
 
 		$cases = array(
 			Menu::LearningCourses,
 			Menu::LearningLessons,
 			Menu::LearningWorks,
+			Menu::LearningProblems,
+			Menu::LearningTasks,
+			Menu::LearningArticles,
+
 		);
 
 		$subpages = array();
@@ -83,7 +92,11 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 					return;
 				}
 				$pt = $screen->post_type;
-				if ( PostTypeResolver::isLessonPostType( $pt ) || PostTypeResolver::isCoursePostType( $pt ) ) {
+				// draft-creator-modal нужна на страницах работ (создание задачи из конструктора),
+				// уроков (создание работы) и курсов (создание урока).
+				if ( PostTypeResolver::isWorkPostType( $pt )
+					|| PostTypeResolver::isLessonPostType( $pt )
+					|| PostTypeResolver::isCoursePostType( $pt ) ) {
 					include_once $this->plugin_path . 'templates/admin/components/modals/draft-creator-modal.php';
 				}
 			}
@@ -108,6 +121,18 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 
 	public function renderArticles(): void {
 		$this->renderBank( 'articles', Menu::LearningArticles->value );
+	}
+
+	public function renderProblems(): void {
+		echo '<div class="wrap fs-lms-learning">';
+		echo '<h1>' . esc_html__( 'Задачи', 'fs-lms' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Глобальный банк приватных задач. Не привязаны к предмету и не отображаются на сайте.', 'fs-lms' ) . '</p>';
+		echo '<div class="fs-lms-bank-actions">';
+		echo '<a class="button button-primary" href="' . esc_url( admin_url( 'edit.php?post_type=' . PostTypeResolver::problems() ) ) . '">'
+			. esc_html__( 'Все задачи', 'fs-lms' ) . '</a> ';
+		echo '<a class="button" href="' . esc_url( admin_url( 'post-new.php?post_type=' . PostTypeResolver::problems() ) ) . '">'
+			. esc_html__( 'Добавить задачу', 'fs-lms' ) . '</a>';
+		echo '</div></div>';
 	}
 
 	/**
@@ -184,7 +209,7 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 			'lessons'  => PostTypeResolver::lessons( $key ),
 			'courses'  => PostTypeResolver::courses( $key ),
 			'articles' => PostTypeResolver::articles( $key ),
-			default    => '',
+			default    => '', // 'problems' handled separately in renderProblems()
 		};
 	}
 

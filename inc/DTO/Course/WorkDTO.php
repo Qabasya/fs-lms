@@ -10,7 +10,7 @@ use Inc\Services\PostTypeResolver;
 /**
  * Class WorkDTO
  *
- * Данные работы предмета (типизированный пул ссылок на задания).
+ * Данные работы предмета (типизированный пул ссылок на задания и задачи).
  *
  * @package Inc\DTO\Course
  */
@@ -21,7 +21,7 @@ readonly class WorkDTO {
 	 * @param string   $subjectKey
 	 * @param string   $title        = post_title
 	 * @param WorkType $workType
-	 * @param int[]    $taskIds      ссылки на {key}_tasks
+	 * @param int[]    $itemIds      упорядоченные WP post ID ({key}_tasks или fs_lms_problems)
 	 * @param string   $instructions
 	 * @param int      $authorId
 	 * @param string   $status
@@ -31,7 +31,7 @@ readonly class WorkDTO {
 		public string   $subjectKey,
 		public string   $title,
 		public WorkType $workType,
-		public array    $taskIds,
+		public array    $itemIds,
 		public string   $instructions,
 		public int      $authorId,
 		public string   $status,
@@ -43,7 +43,7 @@ readonly class WorkDTO {
 			subjectKey  : PostTypeResolver::subjectFromWorkPostType( $post->post_type ),
 			title       : $post->post_title,
 			workType    : WorkType::fromValueOrDefault( (string) ( $meta['work_type'] ?? '' ) ),
-			taskIds     : self::intIds( $meta['task_ids'] ?? array() ),
+			itemIds     : self::intIds( $meta['item_ids'] ?? array() ),
 			instructions: (string) ( $meta['instructions'] ?? '' ),
 			authorId    : (int) $post->post_author,
 			status      : $post->post_status,
@@ -56,7 +56,7 @@ readonly class WorkDTO {
 			subjectKey  : (string) ( $data['subject_key'] ?? '' ),
 			title       : (string) ( $data['title'] ?? '' ),
 			workType    : WorkType::fromValueOrDefault( (string) ( $data['work_type'] ?? '' ) ),
-			taskIds     : self::intIds( $data['task_ids'] ?? array() ),
+			itemIds     : self::intIds( $data['item_ids'] ?? array() ),
 			instructions: (string) ( $data['instructions'] ?? '' ),
 			authorId    : (int) ( $data['author_id'] ?? 0 ),
 			status      : (string) ( $data['status'] ?? 'draft' ),
@@ -69,7 +69,7 @@ readonly class WorkDTO {
 			'subject_key'  => $this->subjectKey,
 			'title'        => $this->title,
 			'work_type'    => $this->workType->value,
-			'task_ids'     => $this->taskIds,
+			'item_ids'     => $this->itemIds,
 			'instructions' => $this->instructions,
 			'author_id'    => $this->authorId,
 			'status'       => $this->status,
@@ -77,7 +77,7 @@ readonly class WorkDTO {
 	}
 
 	public function isEmpty(): bool {
-		return empty( $this->taskIds );
+		return empty( $this->itemIds );
 	}
 
 	/**

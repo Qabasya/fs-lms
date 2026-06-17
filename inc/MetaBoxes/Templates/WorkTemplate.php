@@ -27,8 +27,8 @@ class WorkTemplate extends BaseTemplate {
 				'label'  => 'Инструкция (опционально)',
 				'object' => new TextareaField(),
 			),
-			'task_ids' => array(
-				'label'  => 'Задания',
+			'item_ids' => array(
+				'label'  => 'Задания и задачи',
 				'object' => new TaskRefField(),
 			),
 		);

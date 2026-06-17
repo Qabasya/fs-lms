@@ -42,15 +42,16 @@ export const DraftCreatorModal = {
 	},
 
 	/**
-	 * @param {{ refType: 'work'|'lesson', $field: jQuery, onCreated: function(int, string): void }} config
+	 * @param {{ refType: 'work'|'lesson'|'problem', $field: jQuery, onCreated: function(int, string): void }} config
 	 */
 	open( config ) {
 		this._config     = config;
 		this._submitting = false;
 
 		const isWork = config.refType === 'work';
+		const titles = { work: 'Создать работу', lesson: 'Создать урок', problem: 'Создать задачу' };
 		this.$modal.find( '.fs-lms-draft-work-type-row' ).prop( 'hidden', ! isWork );
-		this.$modal.find( '#fs-lms-draft-creator-title' ).text( isWork ? 'Создать работу' : 'Создать урок' );
+		this.$modal.find( '#fs-lms-draft-creator-title' ).text( titles[ config.refType ] || 'Создать' );
 		this.$title.val( '' );
 
 		openModal( this.$modal );
@@ -77,13 +78,18 @@ export const DraftCreatorModal = {
 		const { refType, $field, onCreated } = this._config;
 		const subject = String( $field.data( 'subject' ) );
 
-		const action = refType === 'work'
-			? fs_lms_vars.ajax_actions.createWorkDraft
-			: fs_lms_vars.ajax_actions.createLessonDraft;
-
-		const nonce = refType === 'work'
-			? fs_lms_vars.nonces.authorWork
-			: fs_lms_vars.nonces.authorLesson;
+		const actionMap = {
+			work:    fs_lms_vars.ajax_actions.createWorkDraft,
+			lesson:  fs_lms_vars.ajax_actions.createLessonDraft,
+			problem: fs_lms_vars.ajax_actions.createProblemDraft,
+		};
+		const nonceMap = {
+			work:    fs_lms_vars.nonces.authorWork,
+			lesson:  fs_lms_vars.nonces.authorLesson,
+			problem: fs_lms_vars.nonces.authorWork,
+		};
+		const action = actionMap[ refType ];
+		const nonce  = nonceMap[ refType ];
 
 		const data = { action, security: nonce, subject_key: subject, title };
 		if ( refType === 'work' ) {

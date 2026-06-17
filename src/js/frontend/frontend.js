@@ -1,11 +1,13 @@
-import { initTabs }       from './components/task-tabs.js';
-import { initCarousel }   from './components/article-carousel.js';
-import { initApplyForm }  from './services/apply-form.js';
-import { initJoinForm }   from './services/join-form.js';
+import { initTabs }          from './components/task-tabs.js';
+import { initCarousel }      from './components/article-carousel.js';
+import { initApplyForm }     from './services/apply-form.js';
+import { initJoinForm }      from './services/join-form.js';
+import { initGroupCockpit }  from './services/group-cockpit.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initCarousel();
     initApplyForm();
     initJoinForm();
+    initGroupCockpit();
 });

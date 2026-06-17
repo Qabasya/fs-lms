@@ -11,8 +11,7 @@ use Inc\Services\PostTypeResolver;
 /**
  * Class WorkAuthoringService
  *
- * Бизнес-логика авторинга работы: кандидаты-задания для селектора, коллекции, валидация.
- * Доступ к данным — через PostManager/TermManager (без прямых get_posts/get_post).
+ * Бизнес-логика авторинга работы: кандидаты-элементы для селектора, коллекции.
  *
  * @package Inc\Services\Course
  */
@@ -24,7 +23,7 @@ class WorkAuthoringService {
 	) {}
 
 	/**
-	 * Кандидаты-задания для селектора работы (только текущий предмет).
+	 * Кандидаты-задания для селектора работы (только {key}_tasks текущего предмета).
 	 *
 	 * @param string $subjectKey
 	 * @param int    $taskTypeTermId   0 = все типы
@@ -69,7 +68,64 @@ class WorkAuthoringService {
 			'id'     => $post->ID,
 			'title'  => $post->post_title,
 			'author' => (int) $post->post_author,
+			'type'   => 'task',
 		), $posts );
+	}
+
+	/**
+	 * Кандидаты-элементы: {key}_tasks + fs_lms_problems (unified).
+	 *
+	 * @param string $subjectKey
+	 * @param int    $collectionTermId 0 = все коллекции (только для task)
+	 * @param string $scope            'mine' | 'subject'
+	 * @param string $search
+	 * @return array<int, array{id: int, title: string, author: int, type: string}>
+	 */
+	public function getItemCandidates(
+		string $subjectKey,
+		int    $collectionTermId = 0,
+		string $scope            = 'mine',
+		string $search           = ''
+	): array {
+		$tasks    = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search );
+		$problems = $this->getProblemCandidates( $search );
+
+		return array_merge( $tasks, $problems );
+	}
+
+	/**
+	 * Кандидаты из банка задач (fs_lms_problems, глобальный).
+	 *
+	 * @param string $search
+	 * @return array<int, array{id: int, title: string, author: int, type: string}>
+	 */
+	public function getProblemCandidates( string $search = '' ): array {
+		$posts = $this->posts->search( PostTypeResolver::problems(), array(
+			'limit'  => 50,
+			'search' => $search,
+		) );
+
+		return array_map( static fn( \WP_Post $post ): array => array(
+			'id'     => $post->ID,
+			'title'  => $post->post_title,
+			'author' => (int) $post->post_author,
+			'type'   => 'problem',
+		), $posts );
+	}
+
+	/**
+	 * Создаёт черновик задачи (fs_lms_problems).
+	 *
+	 * @param string $title
+	 * @return int  ID новой задачи (>0) или 0 при ошибке.
+	 */
+	public function createProblemDraft( string $title ): int {
+		return $this->posts->insert( array(
+			'post_title'  => $title,
+			'post_type'   => PostTypeResolver::problems(),
+			'post_status' => 'draft',
+			'post_author' => get_current_user_id(),
+		) );
 	}
 
 	/**
@@ -86,18 +142,22 @@ class WorkAuthoringService {
 	}
 
 	/**
-	 * Оставляет только задания нужного предмета.
+	 * Валидирует item_ids: оставляет только {key}_tasks предмета и fs_lms_problems.
 	 *
 	 * @param string $subjectKey
-	 * @param int[]  $taskIds
+	 * @param int[]  $itemIds
 	 * @return int[]
 	 */
-	public function validateTaskIds( string $subjectKey, array $taskIds ): array {
-		$post_type = PostTypeResolver::tasks( $subjectKey );
+	public function validateItemIds( string $subjectKey, array $itemIds ): array {
+		$task_cpt = PostTypeResolver::tasks( $subjectKey );
 
-		return array_values( array_filter( $taskIds, function ( int $id ) use ( $post_type ): bool {
+		return array_values( array_filter( $itemIds, function ( int $id ) use ( $task_cpt ): bool {
 			$post = $this->posts->get( $id );
-			return $post instanceof \WP_Post && $post->post_type === $post_type;
+			if ( ! $post instanceof \WP_Post ) {
+				return false;
+			}
+			return $post->post_type === $task_cpt
+				|| PostTypeResolver::isProblemPostType( $post->post_type );
 		} ) );
 	}
 }

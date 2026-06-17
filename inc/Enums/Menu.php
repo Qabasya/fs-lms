@@ -24,6 +24,7 @@ enum Menu: string
 	case LearningWorks    = 'fs_lms_learning_works';
 	case LearningTasks    = 'fs_lms_learning_tasks';
 	case LearningArticles = 'fs_lms_learning_articles';
+	case LearningProblems = 'fs_lms_learning_problems';
 
 	case _Options = 'options.php';
 
@@ -40,46 +41,49 @@ enum Menu: string
 			self::LearningCourses  => 'Курсы',
 			self::LearningLessons  => 'Уроки',
 			self::LearningWorks    => 'Работы',
-			self::LearningTasks    => 'Задания',
-			self::LearningArticles => 'Статьи',
+			self::LearningTasks    => 'Задания предмета',
+			self::LearningArticles => 'Статьи предмета',
+			self::LearningProblems => 'Банк задач',
 			self::_Options         => '',
 		};
 	}
 	public function menu_title(): string {
 		return match ( $this ) {
-			self::Main      => 'Статистика',
-			self::Subjects => 'Предметы',
-			self::Settings        => 'Настройки',
-			self::BoilerplateManager         => 'Boilerplate Manager',
-			self::Groups         => 'Группы',
-			self::UserList         => 'Пользователи',
-			self::Logs         => 'Журналы',
-			self::Learning         => 'Обучение',
-			self::LearningCourses  => 'Курсы',
-			self::LearningLessons  => 'Уроки',
-			self::LearningWorks    => 'Работы',
-			self::LearningTasks    => 'Задания',
-			self::LearningArticles => 'Статьи',
-			self::_Options         => '',
+			self::Main               => 'Статистика',
+			self::Subjects           => 'Предметы',
+			self::Settings           => 'Настройки',
+			self::BoilerplateManager => 'Boilerplate Manager',
+			self::Groups             => 'Группы',
+			self::UserList           => 'Пользователи',
+			self::Logs               => 'Журналы',
+			self::Learning           => 'Обучение',
+			self::LearningCourses    => 'Курсы',
+			self::LearningLessons    => 'Уроки',
+			self::LearningWorks      => 'Работы',
+			self::LearningTasks      => 'Задания предмета',
+			self::LearningArticles   => 'Статьи предмета',
+			self::LearningProblems   => 'Банк задач',
+			self::_Options           => '',
 		};
 	}
 
 	public function callback(): string {
 		return match ( $this ) {
-			self::Main      => 'adminDashboard',
-			self::Subjects => 'subjectsRoot',
-			self::Settings        => 'settingsPage',
-			self::BoilerplateManager         => 'boilerplatePage',
-			self::Groups         => 'groupsPage',
-			self::UserList         => 'userlistPage',
-			self::Logs         => 'logsPage',
-			self::Learning         => 'renderCourses',
-			self::LearningCourses  => 'renderCourses',
-			self::LearningLessons  => 'renderLessons',
-			self::LearningWorks    => 'renderWorks',
-			self::LearningTasks    => 'renderTasks',
-			self::LearningArticles => 'renderArticles',
-			self::_Options         => '',
+			self::Main               => 'adminDashboard',
+			self::Subjects           => 'subjectsRoot',
+			self::Settings           => 'settingsPage',
+			self::BoilerplateManager => 'boilerplatePage',
+			self::Groups             => 'groupsPage',
+			self::UserList           => 'userlistPage',
+			self::Logs               => 'logsPage',
+			self::Learning           => 'renderCourses',
+			self::LearningCourses    => 'renderCourses',
+			self::LearningLessons    => 'renderLessons',
+			self::LearningWorks      => 'renderWorks',
+			self::LearningTasks      => 'renderTasks',
+			self::LearningArticles   => 'renderArticles',
+			self::LearningProblems   => 'renderProblems',
+			self::_Options           => '',
 		};
 	}
 

@@ -6,6 +6,8 @@ namespace Inc\Services\Course;
 
 use Inc\Enums\PostMetaName;
 use Inc\Managers\PostManager;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\PostTypeResolver;
 
 /**
@@ -15,7 +17,7 @@ use Inc\Services\PostTypeResolver;
  * Питает и бейдж «используется в N», и гейт удаления (ContentDeletionGuard).
  *
  * Источники ссылок (Этап 1):
- *  - задание ← work.task_ids
+ *  - задание / задача ← work.item_ids
  *  - работа  ← lesson.work_ids
  *  - урок    ← course.lesson_ids
  *  - статья  ← lesson.theory_article_id
@@ -33,7 +35,9 @@ class ContentUsageService {
 	private const STATUSES = array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' );
 
 	public function __construct(
-		private readonly PostManager $posts,
+		private readonly PostManager           $posts,
+		private readonly ?GroupLessonRepository $groupLessons = null,
+		private readonly ?GroupsRepository      $groups       = null,
 	) {}
 
 	/**
@@ -44,7 +48,22 @@ class ContentUsageService {
 	 * @return int
 	 */
 	public function usageCount( string $type, int $postId ): int {
-		return count( $this->usageList( $type, $postId ) );
+		return count( $this->usageList( $type, $postId ) ) + $this->deliveryCount( $type, $postId );
+	}
+
+	/** Количество delivery-потребителей из БД-таблиц (group_lessons, groups). */
+	private function deliveryCount( string $type, int $postId ): int {
+		if ( 'lesson' === $type && null !== $this->groupLessons ) {
+			return $this->groupLessons->countUsageByLesson( $postId );
+		}
+		if ( 'course' === $type && null !== $this->groups ) {
+			// Считаем группы, которым назначен этот курс.
+			return (int) count( array_filter(
+				$this->groups->findByFilters( '' ),
+				fn( $g ) => isset( $g->course_id ) && (int) $g->course_id === $postId
+			) );
+		}
+		return 0;
 	}
 
 	/**
@@ -94,6 +113,7 @@ class ContentUsageService {
 			PostTypeResolver::isLessonPostType( $post_type )               => 'lesson',
 			PostTypeResolver::isCoursePostType( $post_type )               => 'course',
 			str_ends_with( $post_type, PostTypeResolver::ARTICLES_SUFFIX ) => 'article',
+			PostTypeResolver::isProblemPostType( $post_type )              => 'problem',
 			PostTypeResolver::isTaskPostType( $post_type )                 => 'task',
 			default                                                        => '',
 		};
@@ -108,7 +128,8 @@ class ContentUsageService {
 	 */
 	private function relationFor( string $type, string $post_type ): array {
 		return match ( $type ) {
-			'task'    => array( PostTypeResolver::works( PostTypeResolver::subjectFromTaskPostType( $post_type ) ), 'task_ids', false ),
+			'task'    => array( PostTypeResolver::works( PostTypeResolver::subjectFromTaskPostType( $post_type ) ), 'item_ids', false ),
+			'problem' => array( '', 'item_ids', false ), // кросс-предметный поиск — TODO Этап 2 (SubjectRepository needed)
 			'work'    => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromWorkPostType( $post_type ) ), 'work_ids', false ),
 			'lesson'  => array( PostTypeResolver::courses( PostTypeResolver::subjectFromLessonPostType( $post_type ) ), 'lesson_ids', false ),
 			'article' => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromArticlePostType( $post_type ) ), 'theory_article_id', true ),

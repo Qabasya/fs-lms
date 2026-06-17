@@ -375,6 +375,55 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 15. group_lessons — программа группы (Этап 2) =====
+		$group_lessons = TableName::GroupLessons->prefixed();
+		dbDelta(
+			"CREATE TABLE $group_lessons (
+			id                 int unsigned        NOT NULL AUTO_INCREMENT,
+			group_id           smallint unsigned   NOT NULL,
+			lesson_id          bigint unsigned     NOT NULL,
+			position           smallint unsigned   NOT NULL DEFAULT 0,
+			work_ids_snapshot  longtext            DEFAULT NULL,
+			extra_work_ids     longtext            DEFAULT NULL,
+			scheduled_at       datetime            DEFAULT NULL,
+			teacher_user_id    bigint(20) unsigned DEFAULT NULL,
+			visibility         enum('hidden','open','archived') NOT NULL DEFAULT 'hidden',
+			opened_at          datetime            DEFAULT NULL,
+			homework_due_at    datetime            DEFAULT NULL,
+			allow_late         tinyint(1)          NOT NULL DEFAULT 1,
+			recording_url      varchar(1000)       DEFAULT NULL,
+			created_by_user_id bigint(20) unsigned DEFAULT NULL,
+			updated_by_user_id bigint(20) unsigned DEFAULT NULL,
+			created_at         datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at         datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY group_id (group_id),
+			KEY lesson_id (lesson_id),
+			KEY group_position (group_id, position)
+		) $cc;"
+		);
+
+		// ===== 16. learning_events — лента доменных событий обучения (Этап 2) =====
+		$learning_events = TableName::LearningEvents->prefixed();
+		dbDelta(
+			"CREATE TABLE $learning_events (
+			id            int unsigned        NOT NULL AUTO_INCREMENT,
+			subject_key   varchar(50)         DEFAULT NULL,
+			group_id      smallint unsigned   DEFAULT NULL,
+			actor_user_id bigint(20) unsigned DEFAULT NULL,
+			actor_role    varchar(50)         DEFAULT NULL,
+			action        varchar(40)         NOT NULL,
+			entity_type   varchar(30)         DEFAULT NULL,
+			entity_id     varchar(100)        DEFAULT NULL,
+			is_public     tinyint(1)          NOT NULL DEFAULT 1,
+			created_at    datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY group_created (group_id, created_at),
+			KEY subject_created (subject_key, created_at),
+			KEY actor_user_id (actor_user_id)
+		) $cc;"
+		);
+
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$student_records`
@@ -399,6 +448,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) NOT NULL DEFAULT '',
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `course_id` bigint(20) unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
@@ -413,6 +463,8 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::LearningEvents->prefixed(),
+			TableName::GroupLessons->prefixed(),
 			TableName::AuthLog->prefixed(),
 			TableName::EmailLog->prefixed(),
 			TableName::ConsentChangeLog->prefixed(),

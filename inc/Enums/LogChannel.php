@@ -13,6 +13,7 @@ enum LogChannel: string {
 	case ConsentChange   = 'consent_change';
 	case Email           = 'email';
 	case Auth            = 'auth';
+	case LearningEvents  = 'learning_events';
 
 	public function label(): string {
 		return match ( $this ) {
@@ -24,6 +25,7 @@ enum LogChannel: string {
 			self::ConsentChange   => 'Журнал согласий',
 			self::Email           => 'Журнал писем',
 			self::Auth            => 'Журнал аутентификации',
+			self::LearningEvents  => 'События обучения',
 		};
 	}
 
@@ -37,6 +39,7 @@ enum LogChannel: string {
 			self::ConsentChange   => TableName::ConsentChangeLog,
 			self::Email           => TableName::EmailLog,
 			self::Auth            => TableName::AuthLog,
+			self::LearningEvents  => TableName::LearningEvents,
 		};
 	}
 }

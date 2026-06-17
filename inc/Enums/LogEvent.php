@@ -103,4 +103,14 @@ enum LogEvent: string {
 	// ===== Канал: Deletion — GDPR hard delete =====
 
 	case EntityHardDeleted = 'entity.hard_deleted';
+
+	// ===== Канал: LearningEvents — программа группы (Этап 2) =====
+
+	case CourseAssigned           = 'learning.course_assigned';
+	case LessonAddedToProgram     = 'learning.lesson_added';
+	case LessonRemovedFromProgram = 'learning.lesson_removed';
+	case ScheduleChanged          = 'learning.schedule_changed';
+	case ExtraWorksChanged        = 'learning.extra_works_changed';
+	case LessonPublished          = 'learning.lesson_published';
+	case LessonHidden             = 'learning.lesson_hidden';
 }

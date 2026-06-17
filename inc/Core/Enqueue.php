@@ -328,6 +328,27 @@ class Enqueue extends BaseController implements ServiceInterface {
 			}
 		}
 
+		// === Кокпит группы преподавателя ===
+		if ( PageRoutes::GroupCockpit->isCurrent() ) {
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_cockpit_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'actions'  => array(
+						'setLessonVisibility'     => AjaxHook::SetLessonVisibility->jsAction(),
+						'removeLessonFromProgram' => AjaxHook::RemoveLessonFromProgram->jsAction(),
+						'getGroupActivity'        => AjaxHook::GetGroupActivity->jsAction(),
+						'reorderProgram'          => AjaxHook::ReorderProgram->jsAction(),
+					),
+					'nonces'   => array(
+						'setLessonVisibility' => Nonce::SetLessonVisibility->create(),
+						'saveSchedule'        => Nonce::SaveSchedule->create(),
+					),
+				)
+			);
+		}
+
 		// === Переменные для формы завершения регистрации родителя (/lms/join) ===
 		if ( 'join' === get_query_var( 'fs_lms_page' ) ) {
 			wp_localize_script(

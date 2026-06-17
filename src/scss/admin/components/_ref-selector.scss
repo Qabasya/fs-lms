@@ -108,16 +108,34 @@
 		font-size: $font-size;
 	}
 
-	// T1.24 — фильтр коллекций (только для task ref-полей)
+	// T1.24 — фильтр коллекций
 	.fs-lms-ref-collection {
 		display: block;
 		width: 100%;
 		margin-bottom: $spacing-sm;
 	}
 
-	// T1.23 — кнопка «Создать новое»
-	.fs-lms-ref-create {
+	// T1.23 / T1.31 — кнопки «Создать»
+	.fs-lms-ref-create,
+	.fs-lms-ref-create-problem {
 		margin-top: $spacing-sm;
+	}
+
+	.fs-lms-ref-create-problem {
+		margin-left: $spacing-xs;
+	}
+
+	// T1.31 — бейдж типа элемента (Задача / Задание)
+	.fs-lms-item-type-badge {
+		display: inline-block;
+		padding: 0 $spacing-xs;
+		border-radius: $border-radius-md;
+		background: rgba(0, 0, 0, 0.25);
+		color: $color-text-inverse;
+		font-size: $font-size-sm;
+		line-height: 1.6;
+		white-space: nowrap;
+		flex-shrink: 0;
 	}
 }
 

@@ -44,6 +44,11 @@ class PostTypeResolver {
 	public const string TASK_NUMBER_SUFFIX = '_task_number';
 
 	/**
+	 * Глобальный CPT приватных задач (не per-subject).
+	 */
+	public const string PROBLEMS_CPT = 'fs_lms_problems';
+
+	/**
 	 * Возвращает CPT заданий указанного предмета.
 	 *
 	 * @param string $subject_key Ключ предмета.
@@ -218,22 +223,6 @@ class PostTypeResolver {
 	}
 
 	/**
-	 * Проверяет, относится ли post type к любому из банков контента
-	 * (задания / работы / уроки / курсы).
-	 *
-	 * @param string $post_type Тип записи WordPress.
-	 *
-	 * @return bool
-	 */
-	public static function isBankPostType( string $post_type ): bool {
-		return self::isTaskPostType( $post_type )
-			|| self::isWorkPostType( $post_type )
-			|| self::isLessonPostType( $post_type )
-			|| self::isCoursePostType( $post_type )
-			|| str_ends_with( $post_type, self::ARTICLES_SUFFIX );
-	}
-
-	/**
 	 * Возвращает слаг таксономии типов заданий для указанного предмета.
 	 *
 	 * @param string $subject_key Ключ предмета.
@@ -242,5 +231,31 @@ class PostTypeResolver {
 	 */
 	public static function getTaskTaxonomy( string $subject_key ): string {
 		return $subject_key . self::TASK_NUMBER_SUFFIX;
+	}
+
+	/**
+	 * Возвращает CPT глобального банка задач.
+	 */
+	public static function problems(): string {
+		return self::PROBLEMS_CPT;
+	}
+
+	/**
+	 * Проверяет, является ли post type глобальным банком задач.
+	 */
+	public static function isProblemPostType( string $post_type ): bool {
+		return self::PROBLEMS_CPT === $post_type;
+	}
+
+	/**
+	 * Проверяет, относится ли post type к любому из банков контента.
+	 */
+	public static function isBankPostType( string $post_type ): bool {
+		return self::isTaskPostType( $post_type )
+			|| self::isWorkPostType( $post_type )
+			|| self::isLessonPostType( $post_type )
+			|| self::isCoursePostType( $post_type )
+			|| self::isProblemPostType( $post_type )
+			|| str_ends_with( $post_type, self::ARTICLES_SUFFIX );
 	}
 }

@@ -91,7 +91,7 @@ class WorkManager {
 	private function saveMeta( int $workId, WorkDTO $dto ): void {
 		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, array(
 			'work_type'    => $dto->workType->value,
-			'task_ids'     => $dto->taskIds,
+			'item_ids'     => $dto->itemIds,
 			'instructions' => $dto->instructions,
 		) );
 	}

@@ -65,7 +65,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxStoreTaxonomy(): void {
-		$this->authorize( Nonce::Subject, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::Subject, Capability::Admin );
 
 		$subject_key  = $this->requireKey( 'subject_key' );
 		$tax_name     = $this->requireText( 'tax_name', error: 'Название таксономии обязательно' );
@@ -114,7 +114,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxUpdateTaxonomy(): void {
-		$this->authorize( Nonce::Subject, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::Subject, Capability::Admin );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_slug    = $this->requireKey( 'tax_slug' );
@@ -157,7 +157,7 @@ class TaxonomySettingsCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxDeleteTaxonomy(): void {
-		$this->authorize( Nonce::Subject, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::Subject, Capability::Admin );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$tax_slug    = $this->requireKey( 'tax_slug' );
