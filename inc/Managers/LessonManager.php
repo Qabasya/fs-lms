@@ -92,10 +92,7 @@ class LessonManager {
 	private function saveMeta( int $lessonId, LessonDTO $dto ): void {
 		$this->posts->updateMeta( $lessonId, PostMetaName::Meta->value, array(
 			'theory_article_id' => $dto->theoryArticleId,
-			'task_type'         => $dto->taskType,
-			'practice'          => $dto->practice,
-			'independent'       => $dto->independent,
-			'homework'          => $dto->homework,
+			'work_ids'          => $dto->workIds,
 		) );
 	}
 }

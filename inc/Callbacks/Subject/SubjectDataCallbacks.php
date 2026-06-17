@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Subject;
 
 use Inc\Core\BaseController;
+use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
@@ -56,7 +57,7 @@ class SubjectDataCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetPostsTable(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageLMSAssignments );
 
 		// Санитизация параметров запроса
 		$subject_key = $this->sanitizeKey( 'subject_key' );
@@ -106,7 +107,7 @@ class SubjectDataCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetTasksByNumber(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageLMSAssignments );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$term_id    = $this->sanitizeInt( 'term_id' );
@@ -141,7 +142,7 @@ class SubjectDataCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetRecentTasks(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageLMSAssignments );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$cache_key   = "fs_lms_recent_tasks_{$subject_key}";
@@ -179,7 +180,7 @@ class SubjectDataCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetRecentArticles(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageLMSAssignments );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$cache_key   = "fs_lms_recent_articles_{$subject_key}";

@@ -84,7 +84,7 @@ class SubjectsMenuBuilder {
 			array(
 				'page_title' => Menu::Subjects->page_title(),
 				'menu_title' => Menu::Subjects->menu_title(),
-				'capability' => Capability::Admin->value,
+				'capability' => Capability::ManageLMSAssignments->value,
 				'menu_slug'  => Menu::Subjects->value,
 				'callback'   => array( $this->callbacks, Menu::Subjects->callback() ),
 				'icon_url'   => 'dashicons-category',
@@ -114,7 +114,7 @@ class SubjectsMenuBuilder {
 				'parent_slug' => Menu::Subjects->value,
 				'page_title'  => $subject->name, // Используем -> вместо ['name']
 				'menu_title'  => $subject->name,
-				'capability'  => Capability::Admin->value,
+				'capability'  => Capability::ManageLMSAssignments->value,
 				'menu_slug'   => 'fs_subject_' . $subject->key, // Используем свойство key
 				'callback'    => array( $this->callbacks, 'subjectPage' ),
 			);

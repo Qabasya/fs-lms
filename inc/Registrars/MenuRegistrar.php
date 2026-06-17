@@ -125,5 +125,11 @@ class MenuRegistrar {
 		}
 
 		$this->manager->register( $this->pages, $this->subpages );
+
+		// Очищаем очередь после регистрации: регистратор — singleton в DI-контейнере,
+		// и повторный вызов register() другим потребителем не должен повторно
+		// регистрировать уже накопленные страницы (иначе меню дублируется).
+		$this->pages    = array();
+		$this->subpages = array();
 	}
 }

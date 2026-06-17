@@ -82,9 +82,11 @@ class Enqueue extends BaseController implements ServiceInterface {
 		$is_plugin_page  = str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' );
 		$is_task_cpt     = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
 		$is_lesson_cpt   = $screen && PostTypeResolver::isLessonPostType( $screen->post_type );
+		$is_work_cpt     = $screen && PostTypeResolver::isWorkPostType( $screen->post_type );
+		$is_course_cpt   = $screen && PostTypeResolver::isCoursePostType( $screen->post_type );
 
 		// Подключаем ресурсы ТОЛЬКО на страницах плагина или наших CPT
-		if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_lesson_cpt ) {
+		if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_lesson_cpt && ! $is_work_cpt && ! $is_course_cpt ) {
 			return;
 		}
 
@@ -221,6 +223,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'hardDeleteStudent' => Nonce::HardDeleteStudent->create(),
 					'config'            => Nonce::Config->create(),
 					'authorLesson'      => Nonce::AuthorLesson->create(),
+					'authorWork'        => Nonce::AuthorWork->create(),
+					'authorCourse'      => Nonce::AuthorCourse->create(),
 				),
 				'ajax_actions' => AjaxHook::toJsArray(),
 			)

@@ -116,6 +116,36 @@ class SubjectController extends AjaxController {
 
 		// 'template_include' — фильтр для подмены шаблона темы
 		add_filter( 'template_include', array( $this->task_page_callbacks, 'loadTaskFrontendTemplate' ) );
+
+		// Кастомный статус «В архиве» для банков контента (жизненный цикл, T1.27).
+		add_action( 'init', array( $this, 'registerArchivedStatus' ) );
+	}
+
+	/**
+	 * Регистрирует кастомный статус публикации `fs_archived` для банков контента.
+	 *
+	 * Архивный контент убран из селекторов для новых ссылок, но существующие
+	 * ссылки на него продолжают резолвиться (пост существует).
+	 *
+	 * @return void
+	 */
+	public function registerArchivedStatus(): void {
+		register_post_status(
+			'fs_archived',
+			array(
+				'label'                     => 'В архиве',
+				'public'                    => false,
+				'internal'                  => false,
+				'protected'                 => true,
+				'exclude_from_search'       => true,
+				'show_in_admin_all_list'    => false,
+				'show_in_admin_status_list' => true,
+				'label_count'               => _n_noop(
+					'В архиве <span class="count">(%s)</span>',
+					'В архиве <span class="count">(%s)</span>'
+				),
+			)
+		);
 	}
 
 	// ============================ AJAX-ДЕЙСТВИЯ ============================ //
@@ -229,6 +259,26 @@ class SubjectController extends AjaxController {
 			$lesson_args['options']
 		);
 
+		// 3.1 Регистрация Работ (заголовок, редактор, автор)
+		$work_cpt  = PostTypeResolver::works( $key );
+		$work_args = $this->getDefaultCptArgs( 'works', $subject );
+		$this->cpt_registrar->addStandardType(
+			$work_cpt,
+			'Работы',
+			$work_args['labels'],
+			$work_args['options']
+		);
+
+		// 3.2 Регистрация Курсов (заголовок, редактор, автор)
+		$course_cpt  = PostTypeResolver::courses( $key );
+		$course_args = $this->getDefaultCptArgs( 'courses', $subject );
+		$this->cpt_registrar->addStandardType(
+			$course_cpt,
+			'Курсы',
+			$course_args['labels'],
+			$course_args['options']
+		);
+
 		// 4. Регистрация фиксированной таксономии "Номера заданий"
 		$fixed_tax_slug = "{$key}_task_number";
 		$this->tax_registrar->addFixedTaxonomy(
@@ -279,6 +329,17 @@ class SubjectController extends AjaxController {
 	 * @return array{labels: array, options: array}
 	 */
 	private function getDefaultCptArgs( string $type, object $subject ): array {
+		// Общий конфиг банка контента: скрыт из top-level (меню «Обучение»),
+		// права через fs_lms_content, без REST/поиска/архива.
+		$bank_options = array(
+			'show_in_menu'        => false,
+			'show_in_rest'        => false,
+			'exclude_from_search' => true,
+			'capability_type'     => 'fs_lms_content',
+			'map_meta_cap'        => true,
+			'has_archive'         => false,
+		);
+
 		$args = match ( $type ) {
 			'tasks' => array(
 				'labels'  => array(
@@ -287,7 +348,13 @@ class SubjectController extends AjaxController {
 					'gen'    => 'задания',
 					'gender' => 'neuter',
 				),
-				'options' => array( 'supports' => array( 'title' ) ),
+				// Задания: заголовок; права fs_lms_content (препод публикует задания); скрыты из top-level.
+				'options' => array(
+					'supports'        => array( 'title' ),
+					'show_in_menu'    => false,
+					'capability_type' => 'fs_lms_content',
+					'map_meta_cap'    => true,
+				),
 			),
 			'articles' => array(
 				'labels'  => array(
@@ -296,7 +363,12 @@ class SubjectController extends AjaxController {
 					'gen'    => 'статьи',
 					'gender' => 'feminine',
 				),
-				'options' => array( 'supports' => array( 'title', 'editor', 'thumbnail' ) ),
+				// Статьи: дефолтные права 'post' — у преподавателя есть edit_posts, но НЕТ
+				// publish_posts, поэтому он создаёт только черновики (публикует админ).
+				'options' => array(
+					'supports'     => array( 'title', 'editor', 'thumbnail' ),
+					'show_in_menu' => false,
+				),
 			),
 			'lessons' => array(
 				'labels'  => array(
@@ -305,14 +377,33 @@ class SubjectController extends AjaxController {
 					'gen'    => 'урока',
 					'gender' => 'masculine',
 				),
-				'options' => array(
-					'supports'            => array( 'title', 'editor', 'author', 'thumbnail' ),
-					'show_in_menu'        => false,
-					'show_in_rest'        => false,
-					'exclude_from_search' => true,
-					'capability_type'     => 'fs_lms_content',
-					'map_meta_cap'        => true,
-					'has_archive'         => false,
+				'options' => array_merge(
+					$bank_options,
+					array( 'supports' => array( 'title', 'editor', 'author', 'thumbnail' ) )
+				),
+			),
+			'works' => array(
+				'labels'  => array(
+					'nom'    => 'Работа',
+					'acc'    => 'работу',
+					'gen'    => 'работы',
+					'gender' => 'feminine',
+				),
+				'options' => array_merge(
+					$bank_options,
+					array( 'supports' => array( 'title', 'editor', 'author' ) )
+				),
+			),
+			'courses' => array(
+				'labels'  => array(
+					'nom'    => 'Курс',
+					'acc'    => 'курс',
+					'gen'    => 'курса',
+					'gender' => 'masculine',
+				),
+				'options' => array_merge(
+					$bank_options,
+					array( 'supports' => array( 'title', 'editor', 'author' ) )
 				),
 			),
 			default => array()

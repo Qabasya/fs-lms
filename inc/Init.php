@@ -14,6 +14,12 @@ use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\EnrollmentController;
 use Inc\Controllers\LessonController;
 use Inc\Controllers\LessonMetaBoxController;
+use Inc\Controllers\WorkController;
+use Inc\Controllers\WorkMetaBoxController;
+use Inc\Controllers\CourseController;
+use Inc\Controllers\CourseMetaBoxController;
+use Inc\Controllers\LearningMenuController;
+use Inc\Controllers\ContentDeletionGuard;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\PiiController;
 use Inc\Controllers\ProfileController;
@@ -79,8 +85,14 @@ final class Init {
 			AdminController::class,   // Административное меню
 			SubjectController::class, // Управление предметами и CPT
 			MetaBoxController::class,        // Метабоксы заданий
+			LearningMenuController::class,   // Меню «Обучение» (банки контента)
 			LessonMetaBoxController::class,  // Метабокс урока
-			LessonController::class,         // AJAX конструктора бакетов
+			LessonController::class,         // AJAX конструктора урока
+			WorkMetaBoxController::class,    // Метабокс работы
+			WorkController::class,           // AJAX конструктора работы
+			CourseMetaBoxController::class,  // Метабокс курса
+			CourseController::class,         // AJAX конструктора курса
+			ContentDeletionGuard::class,     // Гейт удаления / архивации банков
 			TaskCreationController::class, // Создание заданий
 			TaskPageController::class,     // Frontend-страница задания
 			BoilerplateController::class,  // Типовые условия (boilerplate)
@@ -142,7 +154,7 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '1.1';
+		$capsVersion = '1.2';
 		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\RoleManager::class );
 			$roleManager->syncCapabilities();

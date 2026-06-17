@@ -137,9 +137,11 @@ enum AjaxHook: string {
 	case CheckUsernameAvailable      = 'check_username_available';
 	case CheckEmailAvailable         = 'check_email_available';
 
-	// ==== Уроки ====
-	case GetLessonTaskCandidates = 'get_lesson_task_candidates'; // params: subject_key, task_type, collection, scope, search
-	case GetLessonArticles       = 'get_lesson_articles';        // params: subject_key
+	// ==== Банки контента (работы / уроки / курсы) ====
+	case GetWorkTaskCandidates     = 'get_work_task_candidates';     // params: subject_key, task_type, collection, scope, search
+	case GetLessonWorkCandidates   = 'get_lesson_work_candidates';   // params: subject_key, work_type, scope, search
+	case GetCourseLessonCandidates = 'get_course_lesson_candidates'; // params: subject_key, scope, search
+	case GetLessonArticles         = 'get_lesson_articles';          // params: subject_key
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

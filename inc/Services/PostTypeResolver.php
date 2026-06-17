@@ -29,6 +29,16 @@ class PostTypeResolver {
 	public const string LESSONS_SUFFIX = '_lessons';
 
 	/**
+	 * Суффикс CPT работ.
+	 */
+	public const string WORKS_SUFFIX = '_works';
+
+	/**
+	 * Суффикс CPT курсов.
+	 */
+	public const string COURSES_SUFFIX = '_courses';
+
+	/**
 	 * Суффикс таксономии типов заданий.
 	 */
 	public const string TASK_NUMBER_SUFFIX = '_task_number';
@@ -131,6 +141,96 @@ class PostTypeResolver {
 		}
 
 		return substr( $post_type, 0, -strlen( self::LESSONS_SUFFIX ) );
+	}
+
+	/**
+	 * Возвращает CPT работ указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 *
+	 * @return string CPT работ.
+	 */
+	public static function works( string $subject_key ): string {
+		return $subject_key . self::WORKS_SUFFIX;
+	}
+
+	/**
+	 * Проверяет, является ли post type типом работ.
+	 *
+	 * @param string $post_type Тип записи WordPress.
+	 *
+	 * @return bool true, если post type оканчивается на суффикс работ.
+	 */
+	public static function isWorkPostType( string $post_type ): bool {
+		return str_ends_with( $post_type, self::WORKS_SUFFIX );
+	}
+
+	/**
+	 * Возвращает ключ предмета из CPT работ.
+	 *
+	 * @param string $post_type CPT работ.
+	 *
+	 * @return string Ключ предмета или пустая строка.
+	 */
+	public static function subjectFromWorkPostType( string $post_type ): string {
+		if ( ! self::isWorkPostType( $post_type ) ) {
+			return '';
+		}
+
+		return substr( $post_type, 0, -strlen( self::WORKS_SUFFIX ) );
+	}
+
+	/**
+	 * Возвращает CPT курсов указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 *
+	 * @return string CPT курсов.
+	 */
+	public static function courses( string $subject_key ): string {
+		return $subject_key . self::COURSES_SUFFIX;
+	}
+
+	/**
+	 * Проверяет, является ли post type типом курсов.
+	 *
+	 * @param string $post_type Тип записи WordPress.
+	 *
+	 * @return bool true, если post type оканчивается на суффикс курсов.
+	 */
+	public static function isCoursePostType( string $post_type ): bool {
+		return str_ends_with( $post_type, self::COURSES_SUFFIX );
+	}
+
+	/**
+	 * Возвращает ключ предмета из CPT курсов.
+	 *
+	 * @param string $post_type CPT курсов.
+	 *
+	 * @return string Ключ предмета или пустая строка.
+	 */
+	public static function subjectFromCoursePostType( string $post_type ): string {
+		if ( ! self::isCoursePostType( $post_type ) ) {
+			return '';
+		}
+
+		return substr( $post_type, 0, -strlen( self::COURSES_SUFFIX ) );
+	}
+
+	/**
+	 * Проверяет, относится ли post type к любому из банков контента
+	 * (задания / работы / уроки / курсы).
+	 *
+	 * @param string $post_type Тип записи WordPress.
+	 *
+	 * @return bool
+	 */
+	public static function isBankPostType( string $post_type ): bool {
+		return self::isTaskPostType( $post_type )
+			|| self::isWorkPostType( $post_type )
+			|| self::isLessonPostType( $post_type )
+			|| self::isCoursePostType( $post_type )
+			|| str_ends_with( $post_type, self::ARTICLES_SUFFIX );
 	}
 
 	/**

@@ -30,15 +30,14 @@ class LessonCallbacks extends BaseController {
 	}
 
 	/**
-	 * Список кандидатов для бакета.
-	 * Params: subject_key, task_type (int), collection (int), scope (mine|subject), search (string)
+	 * Список кандидатов-работ для селектора урока.
+	 * Params: subject_key, work_type (string), scope (mine|subject), search (string)
 	 */
-	public function ajaxGetLessonTaskCandidates(): void {
+	public function ajaxGetLessonWorkCandidates(): void {
 		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
 
 		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
-		$task_type   = (int) ( $_POST['task_type'] ?? 0 );
-		$collection  = (int) ( $_POST['collection'] ?? 0 );
+		$work_type   = $this->sanitizeKey( $_POST['work_type'] ?? '' );
 		$scope       = $this->sanitizeKey( $_POST['scope'] ?? 'mine' );
 		$search      = $this->sanitizeText( $_POST['search'] ?? '' );
 
@@ -46,15 +45,9 @@ class LessonCallbacks extends BaseController {
 			$scope = 'mine';
 		}
 
-		$candidates = $this->authoringService->getTaskCandidates(
-			$subject_key,
-			$task_type,
-			$collection,
-			$scope,
-			$search
+		$this->success(
+			$this->authoringService->getWorkCandidates( $subject_key, $work_type, $scope, $search )
 		);
-
-		$this->success( $candidates );
 	}
 
 	/**

@@ -32,6 +32,34 @@ class TermManager {
 	 *
 	 * @return int[] Массив ID терминов
 	 */
+	/**
+	 * Термины «коллекций» (всех пользовательских таксономий типа записи,
+	 * кроме исключённой), как карта term_id => name.
+	 *
+	 * @param string $post_type         Тип записи.
+	 * @param string $exclude_taxonomy  Таксономия, которую не включать (напр. фикс. «номера заданий»).
+	 *
+	 * @return array<int, string>
+	 */
+	public function listCollections( string $post_type, string $exclude_taxonomy ): array {
+		$result = array();
+
+		foreach ( get_object_taxonomies( $post_type ) as $tax_slug ) {
+			if ( $tax_slug === $exclude_taxonomy ) {
+				continue;
+			}
+			$terms = get_terms( array( 'taxonomy' => $tax_slug, 'hide_empty' => false ) );
+			if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
+				continue;
+			}
+			foreach ( $terms as $term ) {
+				$result[ $term->term_id ] = $term->name;
+			}
+		}
+
+		return $result;
+	}
+
 	public function getIds( string $taxonomy ): array {
 		// get_terms() — возвращает массив терминов по параметрам
 		// 'hide_empty' => false — включать термины без постов

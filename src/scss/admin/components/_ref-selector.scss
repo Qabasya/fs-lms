@@ -1,31 +1,31 @@
 @use '../variables' as *;
 
-.fs-lms-lesson-metabox {
-	.fs-lms-bucket-field {
-		border: 1px solid $color-border-input;
-		border-radius: $border-radius-md;
-		padding: $spacing-lg;
-		margin-bottom: $spacing-lg;
-		background: $wp-admin-gray-bg-light;
-	}
+// Конструктор-селектор ссылок банков (работа→задания, урок→работы, курс→уроки).
+.fs-lms-ref-field {
+	border: 1px solid $color-border-input;
+	border-radius: $border-radius-md;
+	padding: $spacing-lg;
+	margin-bottom: $spacing-lg;
+	background: $wp-admin-gray-bg-light;
 
-	.fs-lms-bucket-label {
+	.fs-lms-label {
+		display: block;
 		font-size: $font-size-m;
 		font-weight: $font-bold;
 		margin: 0 0 $spacing-md;
 		color: $color-text-primary;
 	}
 
-	.fs-lms-bucket-chips {
+	.fs-lms-ref-chips {
 		display: flex;
-		flex-wrap: wrap;
-		gap: $spacing-sm;
+		flex-direction: column;
+		gap: $spacing-xs;
 		margin-bottom: $spacing-sm;
 		min-height: 32px;
 	}
 
-	.fs-lms-task-chip {
-		display: inline-flex;
+	.fs-lms-ref-chip {
+		display: flex;
 		align-items: center;
 		gap: $spacing-xs;
 		background: $color-primary;
@@ -33,15 +33,26 @@
 		border-radius: $border-radius-l;
 		padding: $spacing-xs $spacing-sm;
 		font-size: $font-size-sm;
+		cursor: grab;
 
-		.fs-lms-chip-title {
-			max-width: 240px;
+		&.is-dragging {
+			opacity: 0.5;
+		}
+
+		.fs-lms-ref-handle {
+			cursor: grab;
+			opacity: 0.7;
+		}
+
+		.fs-lms-ref-title {
+			flex: 1;
+			max-width: 320px;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
 
-		.fs-lms-chip-remove {
+		.fs-lms-ref-remove {
 			background: none;
 			border: none;
 			color: $color-text-inverse;
@@ -58,16 +69,15 @@
 		}
 	}
 
-	.fs-lms-bucket-search-wrap {
+	.fs-lms-ref-search-wrap {
 		position: relative;
-		margin-bottom: $spacing-sm;
 
-		.fs-lms-task-search-input {
+		.fs-lms-ref-search {
 			width: 100%;
 		}
 	}
 
-	.fs-lms-search-dropdown {
+	.fs-lms-ref-dropdown {
 		position: absolute;
 		top: 100%;
 		left: 0;
@@ -77,11 +87,11 @@
 		border: 1px solid $color-border-input;
 		border-radius: $border-radius-md;
 		box-shadow: $shadow-modal;
-		max-height: 200px;
+		max-height: 220px;
 		overflow-y: auto;
 	}
 
-	.fs-lms-dropdown-item {
+	.fs-lms-ref-option {
 		padding: $spacing-sm $spacing-md;
 		cursor: pointer;
 		font-size: $font-size;
@@ -92,17 +102,18 @@
 		}
 	}
 
-	.fs-lms-dropdown-empty {
+	.fs-lms-ref-empty {
 		padding: $spacing-sm $spacing-md;
 		color: $color-text-secondary;
 		font-size: $font-size;
 	}
+}
 
-	.fs-lms-bucket-actions {
-		margin-top: $spacing-sm;
-	}
-
-	.fs-lms-bucket-content {
-		margin-bottom: $spacing-sm;
+// Страница меню «Обучение».
+.fs-lms-learning {
+	.fs-lms-bank-actions {
+		margin-top: $spacing-lg;
+		display: flex;
+		gap: $spacing-sm;
 	}
 }

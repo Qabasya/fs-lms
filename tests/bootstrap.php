@@ -141,3 +141,98 @@ require_once __DIR__ . '/Support/FakeWpdb.php';
 $GLOBALS['wpdb'] = new wpdb();
 $GLOBALS['_test_transients'] = [];
 $GLOBALS['_test_wp_count_terms'] = 0;
+
+// ---- Минимальное in-memory хранилище постов для unit-тестов банков контента ----
+if (!class_exists('WP_Post')) {
+    class WP_Post {
+        public int $ID = 0;
+        public string $post_type = '';
+        public string $post_title = '';
+        public string $post_status = 'publish';
+        public int $post_author = 0;
+        public string $post_content = '';
+        public string $post_name = '';
+        public function __construct(array $data = []) {
+            foreach ($data as $k => $v) {
+                if (property_exists($this, $k)) { $this->$k = $v; }
+            }
+        }
+    }
+}
+
+$GLOBALS['_fs_test_posts'] = [];   // id => WP_Post
+$GLOBALS['_fs_test_meta']  = [];   // id => [key => value]
+
+/** Сбрасывает хранилище постов между тестами. */
+function fs_test_reset_posts(): void {
+    $GLOBALS['_fs_test_posts'] = [];
+    $GLOBALS['_fs_test_meta']  = [];
+}
+
+/** Создаёт пост в хранилище; meta — массив или null. */
+function fs_test_seed_post(array $data, ?array $meta = null): WP_Post {
+    static $auto = 1;
+    if (empty($data['ID'])) { $data['ID'] = $auto++; }
+    $post = new WP_Post($data);
+    $GLOBALS['_fs_test_posts'][$post->ID] = $post;
+    if (null !== $meta) { $GLOBALS['_fs_test_meta'][$post->ID] = $meta; }
+    return $post;
+}
+
+if (!function_exists('get_post')) {
+    function get_post($id = null) {
+        return $GLOBALS['_fs_test_posts'][(int) $id] ?? null;
+    }
+}
+if (!function_exists('get_post_meta')) {
+    function get_post_meta(int $id, string $key = '', bool $single = false): mixed {
+        $meta = $GLOBALS['_fs_test_meta'][$id] ?? [];
+        if ('' === $key) { return $meta; }
+        return $meta[$key] ?? ($single ? '' : []);
+    }
+}
+if (!function_exists('get_posts')) {
+    function get_posts(array $args = []): array {
+        $type     = $args['post_type'] ?? '';
+        $statuses = (array) ($args['post_status'] ?? ['publish']);
+        $out      = [];
+        foreach ($GLOBALS['_fs_test_posts'] as $post) {
+            if ($type && $post->post_type !== $type) { continue; }
+            if (!in_array('any', $statuses, true) && !in_array($post->post_status, $statuses, true)) { continue; }
+            $out[] = $post;
+        }
+        return $out;
+    }
+}
+if (!function_exists('wp_update_post')) {
+    function wp_update_post(array $arr): int {
+        $id = (int) ($arr['ID'] ?? 0);
+        if (!isset($GLOBALS['_fs_test_posts'][$id])) { return 0; }
+        foreach ($arr as $k => $v) {
+            if ('ID' !== $k && property_exists($GLOBALS['_fs_test_posts'][$id], $k)) {
+                $GLOBALS['_fs_test_posts'][$id]->$k = $v;
+            }
+        }
+        return $id;
+    }
+}
+
+// ---- Простые функции санитайзинга (для полей и Sanitizer-трейта) ----
+if (!function_exists('wp_unslash')) {
+    function wp_unslash(mixed $value): mixed { return is_string($value) ? stripslashes($value) : $value; }
+}
+if (!function_exists('sanitize_text_field')) {
+    function sanitize_text_field(string $str): string { return trim(preg_replace('/[\r\n\t ]+/', ' ', strip_tags($str))); }
+}
+if (!function_exists('sanitize_key')) {
+    function sanitize_key(string $key): string { return preg_replace('/[^a-z0-9_\-]/', '', strtolower($key)); }
+}
+if (!function_exists('absint')) {
+    function absint(mixed $n): int { return abs((int) $n); }
+}
+if (!function_exists('wp_kses_post')) {
+    function wp_kses_post(string $content): string { return $content; }
+}
+if (!function_exists('user_can')) {
+    function user_can(int $userId, string $cap): bool { return $GLOBALS['_fs_test_user_caps'][$userId][$cap] ?? false; }
+}
