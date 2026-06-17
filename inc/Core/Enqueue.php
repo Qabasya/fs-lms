@@ -369,6 +369,27 @@ class Enqueue extends BaseController implements ServiceInterface {
 			);
 		}
 
+		// === Страница прохождения контрольной / экзамена ===
+		if ( is_singular() && PostTypeResolver::isAssessmentPostType( (string) get_post_type() ) ) {
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_assessment_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'actions'  => array(
+						'startAttempt'     => AjaxHook::StartAttempt->jsAction(),
+						'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
+						'submitAttempt'    => AjaxHook::SubmitAttempt->jsAction(),
+						'getAttemptResult' => AjaxHook::GetAttemptResult->jsAction(),
+					),
+					'nonces'   => array(
+						'startAttempt'  => Nonce::StartAttempt->create(),
+						'submitAttempt' => Nonce::SubmitAttempt->create(),
+					),
+				)
+			);
+		}
+
 		// === Переменные для формы завершения регистрации родителя (/lms/join) ===
 		if ( 'join' === get_query_var( 'fs_lms_page' ) ) {
 			wp_localize_script(

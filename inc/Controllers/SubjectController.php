@@ -279,6 +279,16 @@ class SubjectController extends AjaxController {
 			$course_args['options']
 		);
 
+		// 3.3 Регистрация Контрольных / экзаменов (заголовок, редактор, автор)
+		$assessment_cpt  = PostTypeResolver::assessments( $key );
+		$assessment_args = $this->getDefaultCptArgs( 'assessments', $subject );
+		$this->cpt_registrar->addStandardType(
+			$assessment_cpt,
+			'Контрольные',
+			$assessment_args['labels'],
+			$assessment_args['options']
+		);
+
 		// 4. Регистрация фиксированной таксономии "Номера заданий"
 		$fixed_tax_slug = "{$key}_task_number";
 		$this->tax_registrar->addFixedTaxonomy(
@@ -400,6 +410,18 @@ class SubjectController extends AjaxController {
 					'acc'    => 'курс',
 					'gen'    => 'курса',
 					'gender' => 'masculine',
+				),
+				'options' => array_merge(
+					$bank_options,
+					array( 'supports' => array( 'title', 'editor', 'author' ) )
+				),
+			),
+			'assessments' => array(
+				'labels'  => array(
+					'nom'    => 'Контрольная',
+					'acc'    => 'контрольную',
+					'gen'    => 'контрольной',
+					'gender' => 'feminine',
 				),
 				'options' => array_merge(
 					$bank_options,

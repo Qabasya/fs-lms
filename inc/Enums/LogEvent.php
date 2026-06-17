@@ -119,4 +119,11 @@ enum LogEvent: string {
 	case SubmissionMade     = 'learning.submission_made';
 	case SubmissionGraded   = 'learning.submission_graded';
 	case SubmissionReturned = 'learning.submission_returned';
+
+	// ===== Канал: LearningEvents — контрольные и экзамены (Этап 4) =====
+
+	case AttemptStarted   = 'learning.attempt_started';
+	case AttemptSubmitted = 'learning.attempt_submitted';
+	case AttemptGraded    = 'learning.attempt_graded';
+	case AttemptExpired   = 'learning.attempt_expired';
 }

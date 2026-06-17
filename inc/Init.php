@@ -18,6 +18,7 @@ use Inc\Controllers\WorkController;
 use Inc\Controllers\WorkMetaBoxController;
 use Inc\Controllers\CourseController;
 use Inc\Controllers\CourseMetaBoxController;
+use Inc\Controllers\AssessmentMetaBoxController;
 use Inc\Controllers\LearningMenuController;
 use Inc\Controllers\ContentDeletionGuard;
 use Inc\Controllers\ProblemsController;
@@ -29,6 +30,7 @@ use Inc\Controllers\RecoveryController;
 use Inc\Controllers\StudentGroupController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
+use Inc\Controllers\Pages\AssessmentPageController;
 use Inc\Controllers\Pages\TaskPageController;
 use Inc\Controllers\LogsController;
 use Inc\Controllers\ConfigController;
@@ -44,6 +46,7 @@ use Inc\Controllers\Subscribers\EmailSubscriber;
 use Inc\Controllers\Subscribers\DeletionSubscriber;
 use Inc\Controllers\Subscribers\LearningEventSubscriber;
 use Inc\Controllers\DeletionController;
+use Inc\Controllers\AssessmentController;
 use Inc\Controllers\ScheduleController;
 use Inc\Controllers\GroupCockpitController;
 use Inc\Controllers\SubmissionController;
@@ -95,12 +98,14 @@ final class Init {
 			LessonController::class,         // AJAX конструктора урока
 			WorkMetaBoxController::class,    // Метабокс работы
 			WorkController::class,           // AJAX конструктора работы
-			CourseMetaBoxController::class,  // Метабокс курса
-			CourseController::class,         // AJAX конструктора курса
+			CourseMetaBoxController::class,      // Метабокс курса
+			CourseController::class,             // AJAX конструктора курса
+			AssessmentMetaBoxController::class,  // Метабокс контрольной / экзамена
 			ProblemsController::class,       // CPT fs_lms_problems + problem_tag + шаблон
 			ContentDeletionGuard::class,     // Гейт удаления / архивации банков
 			TaskCreationController::class, // Создание заданий
-			TaskPageController::class,     // Frontend-страница задания
+			TaskPageController::class,       // Frontend-страница задания
+			AssessmentPageController::class, // Frontend-страница контрольной
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,
 			AuthController::class,
@@ -135,7 +140,8 @@ final class Init {
 			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
 			LearningEventSubscriber::class,   // лента событий обучения
 			// ==== Этап 3 — сдача работ ====
-			SubmissionController::class,      // AJAX сдачи / проверки / журнала
+			SubmissionController::class,       // AJAX сдачи / проверки / журнала
+			AssessmentController::class,       // AJAX попыток контрольных
 		);
 	}
 

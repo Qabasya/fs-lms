@@ -28,6 +28,10 @@ enum TableName: string {
 	// ==== Этап 3 — сдача работ ====
 	case Submissions = 'fs_lms_submissions';
 
+	// ==== Этап 4 — контрольные и экзамены ====
+	case AssessmentAttempts = 'fs_lms_assessment_attempts';
+	case AssessmentAnswers  = 'fs_lms_assessment_answers';
+
 	public function prefixed(): string {
 		global $wpdb;
 		return $wpdb->prefix . $this->value;

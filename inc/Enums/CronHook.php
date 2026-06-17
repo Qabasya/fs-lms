@@ -13,4 +13,7 @@ enum CronHook: string {
 
 	/** Восстановление застрявших зачислений (статус Enrolling без изменений > N минут) */
 	case RecoveryTick = 'fs_lms_recovery_tick';
+
+	/** Просрочка попыток контрольных / экзаменов с истёкшим deadline_at */
+	case ExpireAttempts = 'fs_lms_expire_attempts';
 }

@@ -453,6 +453,51 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 18. assessment_attempts — попытки контрольных / экзаменов (Этап 4) =====
+		$assessment_attempts = TableName::AssessmentAttempts->prefixed();
+		dbDelta(
+			"CREATE TABLE $assessment_attempts (
+			id                  int unsigned         NOT NULL AUTO_INCREMENT,
+			assessment_id       bigint unsigned      NOT NULL,
+			student_person_id   int unsigned         NOT NULL,
+			group_id            smallint unsigned    DEFAULT NULL,
+			attempt_number      smallint unsigned    NOT NULL,
+			started_at          datetime             NOT NULL,
+			deadline_at         datetime             NOT NULL,
+			submitted_at        datetime             DEFAULT NULL,
+			status              enum('in_progress','submitted','graded','expired') NOT NULL DEFAULT 'in_progress',
+			total_score         decimal(6,2)         DEFAULT NULL,
+			max_score           decimal(6,2)         DEFAULT NULL,
+			graded_by_user_id   bigint unsigned      DEFAULT NULL,
+			created_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY attempt (assessment_id, student_person_id, attempt_number),
+			KEY assessment_id (assessment_id),
+			KEY student_person_id (student_person_id),
+			KEY status (status)
+		) $cc;"
+		);
+
+		// ===== 19. assessment_answers — ответы на задания контрольной (Этап 4) =====
+		$assessment_answers = TableName::AssessmentAnswers->prefixed();
+		dbDelta(
+			"CREATE TABLE $assessment_answers (
+			id                  int unsigned    NOT NULL AUTO_INCREMENT,
+			attempt_id          int unsigned    NOT NULL,
+			task_id             bigint unsigned NOT NULL,
+			answer_text         longtext        DEFAULT NULL,
+			is_correct          tinyint(1)      DEFAULT NULL,
+			score               decimal(6,2)    DEFAULT NULL,
+			max_score           decimal(6,2)    DEFAULT NULL,
+			graded_by_user_id   bigint unsigned DEFAULT NULL,
+			graded_at           datetime        DEFAULT NULL,
+			PRIMARY KEY  (id),
+			KEY attempt_id (attempt_id),
+			KEY task_id (task_id)
+		) $cc;"
+		);
+
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$student_records`
@@ -492,6 +537,8 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::AssessmentAnswers->prefixed(),
+			TableName::AssessmentAttempts->prefixed(),
 			TableName::Submissions->prefixed(),
 			TableName::LearningEvents->prefixed(),
 			TableName::GroupLessons->prefixed(),

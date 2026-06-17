@@ -39,6 +39,11 @@ class PostTypeResolver {
 	public const string COURSES_SUFFIX = '_courses';
 
 	/**
+	 * Суффикс CPT контрольных / экзаменов.
+	 */
+	public const string ASSESSMENTS_SUFFIX = '_assessments';
+
+	/**
 	 * Суффикс таксономии типов заданий.
 	 */
 	public const string TASK_NUMBER_SUFFIX = '_task_number';
@@ -256,6 +261,44 @@ class PostTypeResolver {
 			|| self::isLessonPostType( $post_type )
 			|| self::isCoursePostType( $post_type )
 			|| self::isProblemPostType( $post_type )
+			|| self::isAssessmentPostType( $post_type )
 			|| str_ends_with( $post_type, self::ARTICLES_SUFFIX );
+	}
+
+	/**
+	 * Возвращает CPT контрольных / экзаменов указанного предмета.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 *
+	 * @return string CPT контрольных.
+	 */
+	public static function assessments( string $subject_key ): string {
+		return $subject_key . self::ASSESSMENTS_SUFFIX;
+	}
+
+	/**
+	 * Проверяет, является ли post type типом контрольных / экзаменов.
+	 *
+	 * @param string $post_type Тип записи WordPress.
+	 *
+	 * @return bool true, если post type оканчивается на суффикс контрольных.
+	 */
+	public static function isAssessmentPostType( string $post_type ): bool {
+		return str_ends_with( $post_type, self::ASSESSMENTS_SUFFIX );
+	}
+
+	/**
+	 * Возвращает ключ предмета из CPT контрольных.
+	 *
+	 * @param string $post_type CPT контрольных.
+	 *
+	 * @return string Ключ предмета или пустая строка.
+	 */
+	public static function subjectFromAssessmentPostType( string $post_type ): string {
+		if ( ! self::isAssessmentPostType( $post_type ) ) {
+			return '';
+		}
+
+		return substr( $post_type, 0, -strlen( self::ASSESSMENTS_SUFFIX ) );
 	}
 }

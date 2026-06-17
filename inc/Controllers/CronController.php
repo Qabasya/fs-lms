@@ -6,7 +6,9 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\CronHook;
 use Inc\Managers\CronManager;
+use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 
 /**
  * Class CronController
@@ -30,7 +32,8 @@ use Inc\Managers\CronManager;
 class CronController extends BaseController implements ServiceInterface {
 
 	public function __construct(
-		private readonly CronManager $cron_manager,
+		private readonly CronManager                 $cron_manager,
+		private readonly AssessmentAttemptRepository $attemptRepo,
 	) {
 		parent::__construct();
 	}
@@ -39,9 +42,19 @@ class CronController extends BaseController implements ServiceInterface {
 		$this->cron_manager->addCustomInterval( 'every_15_minutes', 900, 'Every 15 minutes' );
 		add_filter( 'cron_schedules', array( $this->cron_manager, 'filterCronSchedules' ) );
 
+		add_action( CronHook::ExpireAttempts->value, array( $this, 'handleExpireAttempts' ) );
+
+		if ( ! wp_next_scheduled( CronHook::ExpireAttempts->value ) ) {
+			wp_schedule_event( time(), 'hourly', CronHook::ExpireAttempts->value );
+		}
+
 		// Callback-хуки будут подключены по мере реализации:
 		// add_action( CronHook::ExpireApplications->value, [ $application_callbacks, 'cronExpireApplications' ] );
 		// add_action( CronHook::RetentionCleanup->value,   [ $retention_callbacks, 'cronRetentionCleanup' ] );
 		// add_action( CronHook::RecoveryTick->value,       [ $recovery_callbacks, 'cronRecoveryTick' ] );
+	}
+
+	public function handleExpireAttempts(): void {
+		$this->attemptRepo->expireOverdue();
 	}
 }

@@ -5,8 +5,8 @@
 **какие методы/сигнатуры** нужны и **критерий готовности**.
 
 Документ ведётся по мере прохождения этапов. Сейчас детализированы **Этап 1 — Банки контента
-(работы, уроки, курсы) + меню «Обучение»**, **Этап 2 — Программа группы** и
-**Этап 3 — Сдача работ и прогресс**.
+(работы, уроки, курсы) + меню «Обучение»**, **Этап 2 — Программа группы**,
+**Этап 3 — Сдача работ и прогресс** и **Этап 4 — Контрольные и экзамены**.
 
 > **Переработка Этапа 1.** Ранняя версия делала урок с инлайн-бакетами `practice/independent/homework`
 > (`task_ids` прямо в мете урока). По решению ([`Courses.md` §0](./Courses.md) №3–5) введён промежуточный
@@ -1559,3 +1559,544 @@ GradebookEntryDTO
    источник `GradeSourceInterface` ([`Courses.md` §2](./Courses.md)).
 5. **Балл по заданию vs по работе.** На Этапе 3 поддержано и то, и другое (`task_id` NULL = за всю
    работу). Политика максимального балла/агрегации в журнале — уточнить при UI журнала (T3.18).
+
+---
+
+## Этап 4 — Контрольные и экзамены (assessment-движок)
+
+### Цель этапа
+
+Ученик проходит контрольную/экзамен с обратным отсчётом, сервер фиксирует ответы и баллы,
+авто-проверяемые задания оцениваются автоматически, остальные — преподавателем; результат
+попадает в gradebook. Таймер и дедлайн — **server-side** (клиентский дрейфует).
+
+Сущности этапа:
+- **`{key}_assessments`** — CPT-определение контрольной: набор `tasks` + конфиг таймера/попыток.
+- **`fs_lms_assessment_attempts`** — факт попытки (start/deadline/status/score).
+- **`fs_lms_assessment_answers`** — ответ на задание внутри попытки.
+- **`AssessmentGradeSource`** — второй источник в `GradebookService` (UNION с `SubmissionGradeSource`).
+
+### Готово, когда (Definition of Done)
+
+- Преподаватель создаёт контрольную (задания + конфиг), прикрепляет к уроку/группе.
+- Ученик открывает контрольную, видит обратный отсчёт от `deadline_at` (server-side).
+- Ответы сохраняются периодически (autosave); по истечении — авто-сабмит + `status = expired`.
+- `AutoGradeService` выставляет баллы по числовым/текстовым полям автоматически; код/файл — ручная проверка.
+- Результат виден в журнале (gradebook) наравне со сдачами работ.
+- Зелёные тесты: `AttemptServiceTest`, `AutoGradeServiceTest`, `AssessmentAttemptRepositoryTest`, `AssessmentAnswerRepositoryTest`.
+
+---
+
+### T4.1 — Enums: TableName, AjaxHook, Nonce, LogEvent, AttemptStatus, ScoringPolicy
+
+**Что создаётся:** расширение перечислений.
+
+**`TableName`:** +`AssessmentAttempts = 'fs_lms_assessment_attempts'`, `AssessmentAnswers = 'fs_lms_assessment_answers'`.
+
+**`AjaxHook`:** +`StartAttempt`, `SaveAttemptAnswer`, `SubmitAttempt`, `GradeAttempt`, `GetAttemptResult`.
+Генерируют `wp_ajax_start_attempt` и т.д. по существующему соглашению `->action()` / `->jsAction()`.
+
+**`Nonce`:** +`StartAttempt = 'fs_lms_start_attempt'`, `SubmitAttempt = 'fs_lms_submit_attempt'`,
+`GradeAttempt = 'fs_lms_grade_attempt'`.
+
+**`LogEvent`:** +`AttemptStarted = 'learning.attempt_started'`, `AttemptSubmitted = 'learning.attempt_submitted'`,
+`AttemptGraded = 'learning.attempt_graded'`, `AttemptExpired = 'learning.attempt_expired'`.
+
+**`AttemptStatus`** (новый backed enum `string`):
+```php
+case InProgress = 'in_progress';
+case Submitted  = 'submitted';
+case Graded     = 'graded';
+case Expired    = 'expired';
+public function isTerminal(): bool { return self::Graded === $this || self::Expired === $this; }
+```
+
+**`ScoringPolicy`** (новый backed enum `string`):
+```php
+case Highest = 'highest';
+case Last    = 'last';
+case First   = 'first';
+```
+
+**`PostTypeResolver`:** +`assessments(string $key): string` → `"{$key}_assessments"`,
+`isAssessmentPostType(string $post_type): bool`.
+
+**Зависит от:** ничего нового.
+**Готово:** все enum-кейсы добавлены; `toJsArray()` экспортирует новые хуки.
+
+---
+
+### T4.2 — Migration: таблицы assessment_attempts и assessment_answers
+
+**Что создаётся:** DDL в `Migration_1_0_0::up()` и `down()`.
+
+```sql
+-- Попытка прохождения контрольной/экзамена
+CREATE TABLE {prefix}fs_lms_assessment_attempts (
+  id                int unsigned        NOT NULL AUTO_INCREMENT,
+  assessment_id     bigint unsigned     NOT NULL,
+  student_person_id int unsigned        NOT NULL,
+  group_id          smallint unsigned   DEFAULT NULL,
+  attempt_number    smallint unsigned   NOT NULL,
+  started_at        datetime            NOT NULL,
+  deadline_at       datetime            NOT NULL,
+  submitted_at      datetime            DEFAULT NULL,
+  status            enum('in_progress','submitted','graded','expired') NOT NULL DEFAULT 'in_progress',
+  total_score       decimal(6,2)        DEFAULT NULL,
+  max_score         decimal(6,2)        DEFAULT NULL,
+  graded_by_user_id bigint unsigned     DEFAULT NULL,
+  created_at        datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY attempt (assessment_id, student_person_id, attempt_number),
+  KEY assessment_id (assessment_id),
+  KEY student_person_id (student_person_id),
+  KEY status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Ответ на задание внутри попытки
+CREATE TABLE {prefix}fs_lms_assessment_answers (
+  id                int unsigned        NOT NULL AUTO_INCREMENT,
+  attempt_id        int unsigned        NOT NULL,
+  task_id           bigint unsigned     NOT NULL,
+  answer_text       longtext            DEFAULT NULL,
+  is_correct        tinyint(1)          DEFAULT NULL,
+  score             decimal(6,2)        DEFAULT NULL,
+  max_score         decimal(6,2)        DEFAULT NULL,
+  graded_by_user_id bigint unsigned     DEFAULT NULL,
+  graded_at         datetime            DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY attempt_id (attempt_id),
+  KEY task_id (task_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+UNIQUE KEY `(assessment_id, student_person_id, attempt_number)` закрывает гонку двойного старта:
+`INSERT ... SET attempt_number = MAX()+1` в одной транзакции; дубль упадёт с `IntegrityConstraintViolationException`.
+
+**`down()`:** DROP обеих таблиц в начале списка (до `group_lessons`).
+
+**Готово:** миграция применяется с нуля без ошибок; обе таблицы присутствуют в БД.
+
+---
+
+### T4.3 — CPT {key}_assessments + AssessmentMetaBoxController
+
+**Что создаётся:** регистрация CPT + метабокс конструктора контрольной.
+
+**CPT** (`SubjectController` / `SubjectCPTRegistrar`):
+```php
+PostTypeResolver::assessments($key) // "{key}_assessments"
+capability_type  => 'fs_lms_content'
+map_meta_cap     => true
+show_in_menu     => false
+show_in_rest     => false
+exclude_from_search => true
+```
+
+**`AssessmentMetaBoxController`** (по образцу `WorkMetaBoxController`):
+- Метабокс `fs_lms_assessment` на CPT `{key}_assessments`.
+- Поля через `FieldInterface`:
+  - `tasks[]` — упорядоченные ID заданий (существующий `RefSelectorField` или аналог)
+  - `time_limit` (int, минуты; 0 = без лимита)
+  - `attempts_allowed` (int; 0 = неограничено)
+  - `pass_score` (decimal)
+  - `shuffle` (bool)
+  - `scoring_policy` (select: highest/last/first)
+
+**`AssessmentTemplate`** (`inc/MetaBoxes/Templates/AssessmentTemplate.php`, extends `BaseTemplate`).
+
+**Зависит от:** T4.1 (`PostTypeResolver::assessments`).
+**Готово:** CPT виден в «Обучение → Контрольные»; метабокс сохраняет/загружает конфиг.
+
+---
+
+### T4.4 — AssessmentManager + DTOs
+
+**Что создаётся:** `inc/Managers/AssessmentManager.php` + DTO-файлы.
+
+**`AssessmentDTO`** (`inc/DTO/Assessment/AssessmentDTO.php`):
+```php
+readonly class AssessmentDTO {
+    public int    $id;
+    public string $subjectKey;
+    public string $title;
+    public array  $taskIds;        // int[]
+    public int    $timeLimit;      // минуты; 0 = без лимита
+    public int    $attemptsAllowed;// 0 = неограничено
+    public float  $passScore;
+    public bool   $shuffle;
+    public ScoringPolicy $scoringPolicy;
+    public string $status;
+    public static function fromPost(\WP_Post $post, array $meta): self;
+}
+```
+
+**`AttemptDTO`** (`inc/DTO/Assessment/AttemptDTO.php`):
+```php
+readonly class AttemptDTO {
+    public int           $id;
+    public int           $assessmentId;
+    public int           $studentPersonId;
+    public ?int          $groupId;
+    public int           $attemptNumber;
+    public string        $startedAt;
+    public string        $deadlineAt;
+    public ?string       $submittedAt;
+    public AttemptStatus $status;
+    public ?float        $totalScore;
+    public ?float        $maxScore;
+    public static function fromArray(array $row): self;
+    public function isExpired(): bool; // deadlineAt < now (lazy)
+}
+```
+
+**`AttemptAnswerDTO`** (`inc/DTO/Assessment/AttemptAnswerDTO.php`):
+```php
+readonly class AttemptAnswerDTO {
+    public int     $id;
+    public int     $attemptId;
+    public int     $taskId;
+    public ?string $answerText;
+    public ?bool   $isCorrect;
+    public ?float  $score;
+    public ?float  $maxScore;
+    public static function fromArray(array $row): self;
+}
+```
+
+**`AttemptInputDTO`** (`inc/DTO/Assessment/AttemptInputDTO.php`) — для `create()`:
+поля `assessment_id`, `student_person_id`, `group_id`, `attempt_number`, `started_at`, `deadline_at`, `status`.
+
+**`AssessmentManager`** (`inc/Managers/AssessmentManager.php`):
+```php
+public function get(int $assessmentId): ?AssessmentDTO;
+public function getBankBySubject(string $subjectKey, array $args = []): array; // AssessmentDTO[]
+```
+
+**Зависит от:** T4.1, T4.3.
+**Готово:** `AssessmentManager::get()` возвращает правильно-заполненный DTO; `getBankBySubject()` фильтрует по CPT.
+
+---
+
+### T4.5 — AssessmentAttemptRepository
+
+**Что создаётся:** `inc/Repositories/WPDBRepositories/AssessmentAttemptRepository.php`.
+
+```php
+public function create(AttemptInputDTO $dto): int;     // INSERT; возвращает insert_id
+public function find(int $id): ?AttemptDTO;
+public function update(int $id, array $data): bool;
+public function findActive(int $studentPersonId, int $assessmentId): ?AttemptDTO;
+  // WHERE status='in_progress' AND deadline_at > NOW() ORDER BY id DESC LIMIT 1
+public function listByStudentAndAssessment(int $studentPersonId, int $assessmentId): array; // AttemptDTO[]
+public function nextAttemptNumber(int $studentPersonId, int $assessmentId): int;
+  // SELECT COALESCE(MAX(attempt_number),0)+1 ... FOR UPDATE (или транзакция на вызывающей стороне)
+public function expireOverdue(): int;
+  // UPDATE ... SET status='expired' WHERE status='in_progress' AND deadline_at < NOW()
+  // возвращает кол-во обновлённых строк
+public function countByAssessmentAndStudent(int $assessmentId, int $studentPersonId): int;
+  // для проверки attempts_allowed
+```
+
+**Зависит от:** T4.1, T4.2, T4.4.
+**Готово:** CRUD без реального wpdb через FakeWpdb (интеграционный тест T4.9).
+
+---
+
+### T4.6 — AssessmentAnswerRepository
+
+**Что создаётся:** `inc/Repositories/WPDBRepositories/AssessmentAnswerRepository.php`.
+
+```php
+public function upsert(int $attemptId, int $taskId, array $data): bool;
+  // UPDATE если есть строка, иначе INSERT
+public function find(int $id): ?AttemptAnswerDTO;
+public function findByAttemptAndTask(int $attemptId, int $taskId): ?AttemptAnswerDTO;
+public function listByAttempt(int $attemptId): array; // AttemptAnswerDTO[]
+public function deleteByAttempt(int $attemptId): bool; // при отмене/сбросе
+```
+
+**Зависит от:** T4.1, T4.2, T4.4.
+**Готово:** `upsert` строит правильный запрос; `listByAttempt` маппит строки в DTO.
+
+---
+
+### T4.7 — AttemptService
+
+**Что создаётся:** `inc/Services/Assessment/AttemptService.php`.
+
+```php
+/**
+ * Старт попытки.
+ * Проверяет attempts_allowed; вычисляет deadline_at = NOW + time_limit.
+ * INSERT через репо; UNIQUE-ключ (assessment_id, student_person_id, attempt_number)
+ * защищает от гонки двойного клика → IntegrityConstraintViolationException пробрасывается.
+ */
+public function start(int $studentPersonId, int $assessmentId, ?int $groupId): AttemptDTO;
+
+/**
+ * Сохранение ответа (autosave).
+ * Проверяет: попытка принадлежит ученику, status='in_progress',
+ * lazy expiry (deadline_at < NOW → expireIfOverdue + throw).
+ */
+public function saveAnswer(int $attemptId, int $taskId, string $answerText, int $studentPersonId): void;
+
+/**
+ * Финальная сдача.
+ * Lazy expiry → если просрочено, статус 'expired' и throw.
+ * Иначе submitted_at = NOW, status = 'submitted' → AutoGradeService::gradeAttempt().
+ * Диспатч AttemptSubmitted.
+ */
+public function submit(int $attemptId, int $studentPersonId): AttemptDTO;
+
+/**
+ * Ленивая проверка и простановка expired.
+ * Вызывается в saveAnswer/submit/getResult; также — cron (T4.8).
+ */
+public function expireIfOverdue(int $attemptId): bool; // true если истёк
+
+/**
+ * Результат для отображения (попытка + ответы).
+ */
+public function getResult(int $attemptId, int $studentPersonId): array;
+// ['attempt' => AttemptDTO, 'answers' => AttemptAnswerDTO[]]
+```
+
+**Зависит от:** T4.5, T4.6, T4.4 (DTOs), `LogEventDispatcherInterface`.
+**Готово:** `start()` корректно вычисляет `deadline_at`; `submit()` вызывает auto-grade; expired блокирует saveAnswer/submit.
+
+---
+
+### T4.8 — AutoGradeService + cron expire
+
+**Что создаётся:** `inc/Services/Assessment/AutoGradeService.php` + cron-хук.
+
+**`AutoGradeService`:**
+```php
+/**
+ * Итерирует ответы попытки; для каждого задания резолвит шаблон через TemplateResolver.
+ * Шаблоны с авто-проверкой (числовой ответ, строгий текст):
+ *   → is_correct, score заполняются автоматически.
+ * Шаблоны без авто-проверки (код, файл, произвольный текст):
+ *   → is_correct = null (ждёт ручной проверки).
+ * После итерации: total_score = SUM(score), max_score = SUM(max_score);
+ * attempt.status = 'graded' если все is_correct != null, иначе 'submitted'.
+ * Диспатч AttemptGraded если graded.
+ */
+public function gradeAttempt(AttemptDTO $attempt): AttemptDTO;
+```
+
+**Cron-хук:**
+- `CronHook::ExpireAttempts` — добавить кейс в `CronController`.
+- Расписание: `hourly` (страховка; основной expiry — lazy на каждом запросе).
+- Хендлер: `AssessmentAttemptRepository::expireOverdue()` + dispatch `AttemptExpired` для каждой истёкшей строки.
+
+**Зависит от:** T4.5, T4.6, T4.7, `TemplateResolver`.
+**Готово:** числовые/текстовые задания оцениваются; код/файл — `is_correct = null`; `total_score` правильный.
+
+---
+
+### T4.9 — AssessmentGradeSource + GradebookService расширение
+
+**Что создаётся:** `inc/Services/Course/AssessmentGradeSource.php` + обновление `GradebookService`.
+
+**`AssessmentGradeSource implements GradeSourceInterface`:**
+```php
+public function entriesForGroup(int $groupId): array;    // GradebookEntryDTO[]
+public function entriesForStudent(int $studentPersonId): array;
+// Читает attempts WHERE status IN ('graded','submitted') AND group_id = $groupId / student_person_id = $studentPersonId
+// title = assessment.post_title; category = 'assessment'; score = total_score
+```
+
+**`GradebookService`** — добавить второй опциональный параметр:
+```php
+public function __construct(
+    private readonly SubmissionGradeSource  $submissionSource,
+    private readonly ?AssessmentGradeSource $assessmentSource = null,
+) {}
+
+public function forGroup(int $groupId): array {
+    $entries = $this->submissionSource->entriesForGroup($groupId);
+    if ($this->assessmentSource) {
+        array_push($entries, ...$this->assessmentSource->entriesForGroup($groupId));
+    }
+    return $entries;
+}
+// аналогично forStudent()
+```
+
+Контейнер разрешает `?AssessmentGradeSource` через дефолт `null` если не bound.
+В `Init::run()` можно явно создать `GradebookService` с обоими источниками через `$container->bind()`.
+
+**Зависит от:** T4.5, T4.4 (`AttemptDTO`), `GradeSourceInterface`.
+**Готово:** `GradebookService::forGroup()` объединяет оценки из submissions + attempts.
+
+---
+
+### T4.10 — AssessmentController + Callbacks
+
+**Что создаётся:** контроллер + два класса коллбеков.
+
+**`AssessmentController`** (`inc/Controllers/AssessmentController.php`, extends `BaseController`, implements `ServiceInterface`):
+- Регистрирует все AJAX-хуки из T4.1: `StartAttempt`, `SaveAttemptAnswer`, `SubmitAttempt`, `GetAttemptResult`
+  → `AttemptCallbacks`.
+- `GradeAttempt` → `GradeAttemptCallbacks`.
+
+**`AttemptCallbacks`** (`inc/Callbacks/Assessment/AttemptCallbacks.php`):
+```php
+// Все через Nonce::StartAttempt->verify() (без capability — ученик)
+public function ajaxStartAttempt(): void;
+  // requireInt($_POST['assessment_id']), sanitizeInt($_POST['group_id'])
+  // personRepo->findByWpUserId() → AttemptService::start()
+public function ajaxSaveAttemptAnswer(): void;
+  // requireInt attempt_id, task_id; sanitizeEditorContent answer_text
+  // AttemptService::saveAnswer()
+public function ajaxSubmitAttempt(): void;
+  // requireInt attempt_id → AttemptService::submit()
+public function ajaxGetAttemptResult(): void;
+  // requireInt attempt_id → AttemptService::getResult()
+```
+
+**`GradeAttemptCallbacks`** (`inc/Callbacks/Assessment/GradeAttemptCallbacks.php`):
+```php
+// authorize(Nonce::GradeAttempt, Capability::ManageLMSAssignments)
+public function ajaxGradeAttempt(): void;
+  // requireInt submission_id, score; sanitizeText feedback
+  // ручная простановка score/is_correct для конкретного answer
+  // если все answers проверены → AutoGradeService::finalize() → status=graded
+```
+
+Добавить `AssessmentController::class` в `Init::getServices()`.
+
+**Зависит от:** T4.1, T4.7, T4.8.
+**Готово:** AJAX-хуки зарегистрированы; nonce/cap проверены по паттерну; `$this->success()`/`$this->error()`.
+
+---
+
+### T4.11 — LearningEventSubscriber: подписки на события попыток
+
+**Что изменяется:** `inc/Controllers/Subscribers/LearningEventSubscriber.php`.
+
+Добавить в `register()`:
+```php
+$this->logEvents->subscribe(LogEvent::AttemptStarted,   $handler);
+$this->logEvents->subscribe(LogEvent::AttemptSubmitted,  $handler);
+$this->logEvents->subscribe(LogEvent::AttemptGraded,     $handler);
+$this->logEvents->subscribe(LogEvent::AttemptExpired,    $handler);
+```
+
+**Зависит от:** T4.1 (`LogEvent`).
+**Готово:** все 4 события попыток записываются в `fs_lms_learning_events`.
+
+---
+
+### T4.12 — Frontend: страница прохождения контрольной
+
+**Что создаётся:** шаблон + JS-сервис + SCSS + Enqueue.
+
+**`AssessmentPageController`** (`inc/Controllers/Pages/AssessmentPageController.php`, по образцу `TaskPageController`):
+- `template_include` при `?fs_lms_assessment=X` или отдельном PageRoute.
+- Получает `AttemptDTO` (или стартует новую попытку) → рендерит шаблон.
+
+**`templates/frontend/assessment/attempt.php`:**
+- Список заданий (задание за заданием или все сразу — по `shuffle`).
+- Per-задание: `<textarea name="answer_text">`, для файловых — `<input type="file">`.
+- Таймер: отображение `deadline_at - now` (JS читает `deadline_at` из `fs_lms_assessment_vars`).
+- Кнопки: «Сохранить ответ» (autosave), «Сдать контрольную».
+- Блок результата (после submit): баллы, `is_correct` per-задание.
+
+**`src/js/frontend/services/assessment.js`** (pure-JS function pattern):
+```js
+export function initAssessment() {
+    if (!document.getElementById('fs-assessment-form')) { return; }
+    // 1. Таймер: countdown от vars.deadline_at (серверное время), каждую секунду
+    // 2. Autosave: debounce 3s после изменения ответа → ajaxSaveAttemptAnswer
+    // 3. Submit: preventDefault → ajaxSubmitAttempt → отобразить результат
+    // 4. При deadline_at < now → авто-submit (или показать "время вышло")
+}
+```
+
+**`src/scss/frontend/components/_assessment.scss`** — таймер, список вопросов, индикаторы is_correct.
+
+**`Enqueue.php`** — `fs_lms_assessment_vars` при `is_singular('{key}_assessments')` или соответствующем PageRoute:
+```php
+[
+    'ajax_url'    => admin_url('admin-ajax.php'),
+    'deadline_at' => $attempt?->deadlineAt,      // ISO или MySQL datetime
+    'attempt_id'  => $attempt?->id,
+    'actions'     => [...],
+    'nonces'      => ['startAttempt' => Nonce::StartAttempt->create(), ...],
+]
+```
+
+**Добавить** `initAssessment()` в `frontend.js`, `_assessment.scss` в `frontend.scss`.
+
+**Зависит от:** T4.7, T4.10.
+**Готово:** ученик видит задания, таймер тикает, autosave работает, submit фиксирует результат.
+
+---
+
+### Тесты Этапа 4
+
+**Unit (`tests/Unit/`):**
+
+- **`AttemptServiceTest`** (`Services/Assessment/`):
+  - `start()` проверяет `attempts_allowed` (бросает при исчерпании).
+  - `deadline_at = started_at + time_limit` (в минутах).
+  - `start()` при `time_limit = 0` ставит `deadline_at = NULL` или очень далёкое время.
+  - `saveAnswer()` бросает `InvalidArgumentException` если попытка не `in_progress`.
+  - `saveAnswer()` вызывает `expireIfOverdue` → бросает если просрочено.
+  - `submit()` вызывает `AutoGradeService::gradeAttempt()`.
+  - `submit()` бросает если попытка `expired`.
+  - Диспатч `AttemptStarted`, `AttemptSubmitted`, `AttemptGraded`.
+
+- **`AutoGradeServiceTest`** (`Services/Assessment/`):
+  - Числовой ответ совпадает → `is_correct = true`, `score = max_score`.
+  - Числовой ответ не совпадает → `is_correct = false`, `score = 0`.
+  - Текстовый (строгое сравнение) — аналогично.
+  - Код/файл-шаблон → `is_correct = null` (пропускается).
+  - `total_score = SUM(score)`, `max_score = SUM(max_score)`.
+  - Все `is_correct != null` → `status = graded`, диспатч `AttemptGraded`.
+  - Есть `null` → `status = submitted` (ждёт ручной проверки).
+
+- **`AttemptDTOTest`** (`DTO/Assessment/`):
+  - `isExpired()` = `deadlineAt < now` (граничные значения, аналогично `SubmissionDTO::isLate()`).
+
+- **`GradebookServiceTest`** (обновить существующий):
+  - `forGroup()` с двумя источниками объединяет записи.
+  - `forGroup()` без `assessmentSource` (`null`) не падает.
+
+**Integration (`tests/Integration/Repositories/`):**
+
+- **`AssessmentAttemptRepositoryTest`**:
+  - `create()` инсертит в правильную таблицу.
+  - `find()` маппит строку в DTO.
+  - `nextAttemptNumber()` возвращает `MAX+1`, при отсутствии строк — `1`.
+  - `findActive()` фильтрует `status='in_progress'` и `deadline_at > NOW()`.
+  - `expireOverdue()` строит UPDATE с правильным предикатом.
+  - `countByAssessmentAndStudent()` возвращает int.
+
+- **`AssessmentAnswerRepositoryTest`**:
+  - `upsert()` при отсутствии строки вызывает INSERT; при наличии — UPDATE.
+  - `findByAttemptAndTask()` строит предикат по двум полям.
+  - `listByAttempt()` маппит массив строк в `AttemptAnswerDTO[]`.
+
+**Готово:** зелёные сьюты; покрыты: server-side deadline, lazy expiry, блокировка submit/saveAnswer после expiry,
+auto-grade авто/ручных шаблонов, gradebook UNION из двух источников.
+
+---
+
+### Открытые вопросы Этапа 4
+
+1. **Shuffle заданий.** Принято: shuffle на старте попытки — `array_shuffle($assessment->taskIds)` и порядок
+   фиксируется... где? Варианты: (а) JSON-поле `task_order` в `attempts`; (б) порядок из `answers` (первый upsert
+   задаёт позицию). Рекомендация: поле `task_order longtext DEFAULT NULL` в `attempts` — снапшот порядка.
+2. **`time_limit = 0` (без лимита).** `deadline_at` = `started_at + 100 лет` (никогда не истекает)
+   или `NULL`? `NULL` чище, но требует null-guard везде. Рекомендация: специальное значение `9999-12-31`.
+3. **Вложения в контрольной.** `{key}_tasks` с шаблоном «с файлом» в контрольной — ученик прикрепляет файл.
+   В `fs_lms_assessment_answers` нет `attachment_id`. Добавить колонку или хранить ссылку в `answer_text`?
+4. **`attempts_allowed = 0` (неограничено) vs `scoring_policy`.** При `scoring_policy = highest` и
+   неограниченном числе попыток ученик может «фармить» баллы. Это осознанное поведение или нужен флаг?
+5. **Ручная проверка ответов в интерфейсе.** `GradeAttemptCallbacks::ajaxGradeAttempt()` проверяет один
+   ответ. Нужен ли UI пакетной проверки (все ответы попытки на одном экране)? Вынести в отдельную задачу.
