@@ -489,6 +489,43 @@ class StudentRecordRepository {
 	 *
 	 * @return array{0: string, 1: array}
 	 */
+	public function countByGroupAndPerson( int $groupId, int $personId ): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE group_id = %d AND student_person_id = %d',
+				$this->table,
+				$groupId,
+				$personId
+			)
+		);
+	}
+
+	public function countByGroupAndParent( int $groupId, int $parentPersonId ): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE group_id = %d AND parent_person_id = %d',
+				$this->table,
+				$groupId,
+				$parentPersonId
+			)
+		);
+	}
+
+	/** @return object[] Все записи ученика в группе (любые статусы). */
+	/** @return \Inc\DTO\Enrollment\StudentRecordDTO[] Все записи ученика в группе (любые статусы). */
+	public function findAllByStudentAndGroup( int $studentPersonId, int $groupId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE student_person_id = %d AND group_id = %d ORDER BY enrolled_at ASC',
+				$this->table,
+				$studentPersonId,
+				$groupId
+			),
+			ARRAY_A
+		);
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
+	}
+
 	private function buildWhereClause( array $filters ): array {
 		$where = 'WHERE 1=1';
 		$args  = array( $this->table );

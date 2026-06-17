@@ -1,0 +1,175 @@
+@use '../variables' as *;
+
+.fs-lms-cockpit-wrap {
+	max-width: 1100px;
+	margin: 0 auto;
+	font-family: $font-family;
+	color: $color-text;
+}
+
+.fs-cockpit-title {
+	font-size: $font-size-title;
+	margin-bottom: 24px;
+}
+
+.fs-cockpit-layout {
+	display: grid;
+	grid-template-columns: 1fr 280px;
+	gap: 24px;
+
+	@media (max-width: 768px) {
+		grid-template-columns: 1fr;
+	}
+}
+
+.fs-cockpit-section {
+	h2 {
+		font-size: $font-size-heading;
+		margin-bottom: 16px;
+		border-bottom: 1px solid $color-border;
+		padding-bottom: 8px;
+	}
+}
+
+// Список групп
+.fs-cockpit-group-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+
+	li {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 0;
+		border-bottom: 1px solid $color-border-light;
+	}
+
+	a {
+		font-size: $font-size-base;
+		color: $color-accent;
+		text-decoration: none;
+
+		&:hover {
+			text-decoration: underline;
+		}
+	}
+}
+
+.fs-cockpit-group-subject {
+	font-size: $font-size-sm;
+	color: $color-muted;
+}
+
+// Программа
+.fs-cockpit-lesson-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.fs-cockpit-lesson-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 12px;
+	border: 1px solid $color-border;
+	border-radius: 4px;
+	margin-bottom: 8px;
+	background: $color-white;
+	cursor: grab;
+
+	&.fs-cockpit-visibility-open {
+		border-left: 3px solid $color-accent;
+	}
+
+	&.fs-cockpit-visibility-archived {
+		opacity: 0.7;
+	}
+}
+
+.fs-cockpit-lesson-topic {
+	flex: 1;
+	font-size: $font-size-base;
+}
+
+.fs-cockpit-lesson-visibility {
+	font-size: $font-size-sm;
+	color: $color-muted;
+	text-transform: uppercase;
+}
+
+.fs-cockpit-lesson-date {
+	font-size: $font-size-sm;
+	color: $color-muted;
+}
+
+.fs-cockpit-lesson-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.fs-cockpit-btn-visibility,
+.fs-cockpit-btn-remove {
+	font-size: $font-size-sm;
+	padding: 4px 10px;
+	border: 1px solid $color-border;
+	border-radius: 3px;
+	background: $color-bg-subtle;
+	cursor: pointer;
+	color: $color-text;
+
+	&:hover {
+		background: $color-border;
+	}
+}
+
+// Ростер
+.fs-cockpit-roster-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+
+	li {
+		padding: 6px 0;
+		border-bottom: 1px solid $color-border-light;
+		font-size: $font-size-sm;
+	}
+}
+
+// Активность
+.fs-cockpit-activity {
+	margin-top: 32px;
+}
+
+.fs-cockpit-activity-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+
+	li {
+		padding: 8px 0;
+		border-bottom: 1px solid $color-border-light;
+		font-size: $font-size-sm;
+		color: $color-text;
+	}
+
+	time {
+		color: $color-muted;
+	}
+}
+
+#fs-cockpit-load-more {
+	margin-top: 16px;
+	padding: 8px 20px;
+	font-size: $font-size-sm;
+	border: 1px solid $color-border;
+	border-radius: 4px;
+	background: $color-bg-subtle;
+	cursor: pointer;
+	color: $color-text;
+
+	&:hover {
+		background: $color-border;
+	}
+}

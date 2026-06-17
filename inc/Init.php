@@ -12,6 +12,16 @@ use Inc\Controllers\AuthController;
 use Inc\Controllers\Pages\AuthPageController;
 use Inc\Controllers\BoilerplateController;
 use Inc\Controllers\EnrollmentController;
+use Inc\Controllers\LessonController;
+use Inc\Controllers\LessonMetaBoxController;
+use Inc\Controllers\WorkController;
+use Inc\Controllers\WorkMetaBoxController;
+use Inc\Controllers\CourseController;
+use Inc\Controllers\CourseMetaBoxController;
+use Inc\Controllers\AssessmentMetaBoxController;
+use Inc\Controllers\LearningMenuController;
+use Inc\Controllers\ContentDeletionGuard;
+use Inc\Controllers\ProblemsController;
 use Inc\Controllers\MetaBoxController;
 use Inc\Controllers\PiiController;
 use Inc\Controllers\ProfileController;
@@ -20,6 +30,7 @@ use Inc\Controllers\RecoveryController;
 use Inc\Controllers\StudentGroupController;
 use Inc\Controllers\SubjectController;
 use Inc\Controllers\TaskCreationController;
+use Inc\Controllers\Pages\AssessmentPageController;
 use Inc\Controllers\Pages\TaskPageController;
 use Inc\Controllers\LogsController;
 use Inc\Controllers\ConfigController;
@@ -33,7 +44,12 @@ use Inc\Controllers\Subscribers\DataChangeSubscriber;
 use Inc\Controllers\Subscribers\ConsentChangeSubscriber;
 use Inc\Controllers\Subscribers\EmailSubscriber;
 use Inc\Controllers\Subscribers\DeletionSubscriber;
+use Inc\Controllers\Subscribers\LearningEventSubscriber;
 use Inc\Controllers\DeletionController;
+use Inc\Controllers\AssessmentController;
+use Inc\Controllers\ScheduleController;
+use Inc\Controllers\GroupCockpitController;
+use Inc\Controllers\SubmissionController;
 use Inc\Controllers\ImportController;
 use Inc\Controllers\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
@@ -76,9 +92,20 @@ final class Init {
 			Enqueue::class,           // Подключение скриптов и стилей
 			AdminController::class,   // Административное меню
 			SubjectController::class, // Управление предметами и CPT
-			MetaBoxController::class, // Метабоксы заданий
+			MetaBoxController::class,        // Метабоксы заданий
+			LearningMenuController::class,   // Меню «Обучение» (банки контента)
+			LessonMetaBoxController::class,  // Метабокс урока
+			LessonController::class,         // AJAX конструктора урока
+			WorkMetaBoxController::class,    // Метабокс работы
+			WorkController::class,           // AJAX конструктора работы
+			CourseMetaBoxController::class,      // Метабокс курса
+			CourseController::class,             // AJAX конструктора курса
+			AssessmentMetaBoxController::class,  // Метабокс контрольной / экзамена
+			ProblemsController::class,       // CPT fs_lms_problems + problem_tag + шаблон
+			ContentDeletionGuard::class,     // Гейт удаления / архивации банков
 			TaskCreationController::class, // Создание заданий
-			TaskPageController::class,     // Frontend-страница задания
+			TaskPageController::class,       // Frontend-страница задания
+			AssessmentPageController::class, // Frontend-страница контрольной
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,
 			AuthController::class,
@@ -108,6 +135,13 @@ final class Init {
 			EmailSubscriber::class,
 			DeletionSubscriber::class,
 			ExportServiceBootstrap::class,
+			// ==== Этап 2 — программа группы ====
+			ScheduleController::class,        // AJAX программы группы
+			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
+			LearningEventSubscriber::class,   // лента событий обучения
+			// ==== Этап 3 — сдача работ ====
+			SubmissionController::class,       // AJAX сдачи / проверки / журнала
+			AssessmentController::class,       // AJAX попыток контрольных
 		);
 	}
 
@@ -138,7 +172,7 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '1.0';
+		$capsVersion = '1.2';
 		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\RoleManager::class );
 			$roleManager->syncCapabilities();

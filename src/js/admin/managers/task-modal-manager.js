@@ -28,19 +28,35 @@ export const TaskModalManager = {
 
     /**
      * Флаг состояния отправки формы.
-     * Используется для защиты от двойного клика по кнопке "Создать".
-     * Даже если UI-кнопка разблокируется по какой-то причине, этот флаг
-     * предотвратит повторную отправку запроса на сервер.
      * @private
      * @type {boolean}
      */
     _submitting: false,
 
     /**
+     * Callback для режима чипа (создание задания из конструктора работы).
+     * Когда задан, AJAX возвращает {id, title} и вызывает этот коллбэк вместо открытия вкладки.
+     * @private
+     * @type {function(number, string): void|null}
+     */
+    _chipCallback: null,
+
+    /**
      * Инициализация менеджера.
      * Точка входа, вызывается при загрузке страницы.
      * Подписывается на ключевые события жизненного цикла модального окна.
      */
+    /**
+     * Открывает модалку в режиме чипа: вместо открытия новой вкладки вызывает onChip(id, title).
+     * Используется из ref-selector.js для создания задания из конструктора работы.
+     *
+     * @param {function(number, string): void} onChip
+     */
+    openForChip( onChip ) {
+        this._chipCallback = onChip;
+        TaskModal.open();
+    },
+
     init() {
         TaskModal.init();
 
@@ -55,8 +71,14 @@ export const TaskModalManager = {
         TaskModal.onTermChange((slug) => this.loadBoilerplates(slug));
 
         // Подписка на событие отправки формы.
-        // Когда пользователь нажимает "Создать", модалка вызывает этот колбэк с данными формы.
         TaskModal.onSubmit((data) => this.createTask(data));
+
+        // Сброс chip-callback при закрытии модалки без сохранения.
+        if (TaskModal.$modal && TaskModal.$modal.length) {
+            TaskModal.$modal.on('click', '.js-modal-close, .fs-lms-modal-backdrop, .fs-lms-modal-cancel', () => {
+                this._chipCallback = null;
+            });
+        }
     },
 
     /**
@@ -176,22 +198,21 @@ export const TaskModalManager = {
             security:        fs_lms_task_data.security,
             subject_key:     subject_key,
             term_id:         data.termId,
-            boilerplate_uid: data.boilerplateUid, // Может быть пустым, если пользователь выбрал "Без шаблона"
+            boilerplate_uid: data.boilerplateUid,
             title:           data.title,
+            context:         this._chipCallback ? 'work' : '',
         })
             .done((res) => {
                 if (res.success) {
-                    // ОТКРЫТИЕ В НОВОЙ ВКЛАДКЕ: После успешного создания задачи 
-                    // открываем её в новой вкладке, чтобы пользователь мог сразу начать работу.
-                    // Текущая страница остается открытой, чтобы администратор мог создать ещё одну задачу.
-                    // Это типичный UX-паттерн для админок: "создал → открыл → готов к следующему".
-                    window.open(res.data.redirect, '_blank');
-
-                    // Закрываем модалку и сбрасываем состояние
+                    if (this._chipCallback) {
+                        this._chipCallback(res.data.id, res.data.title);
+                        this._chipCallback = null;
+                    } else {
+                        window.open(res.data.redirect, '_blank');
+                    }
                     TaskModal.close();
                     TaskModal.setSubmitState(false);
                 } else {
-                    // Показываем ошибку от сервера внутри модалки
                     showNotice(res.data, 'error', TaskModal.$modal.find( '.fs-lms-modal-body' ));
                     TaskModal.setSubmitState(false);
                 }

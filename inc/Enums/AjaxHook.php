@@ -137,6 +137,43 @@ enum AjaxHook: string {
 	case CheckUsernameAvailable      = 'check_username_available';
 	case CheckEmailAvailable         = 'check_email_available';
 
+	// ==== Банки контента (работы / уроки / курсы) ====
+	case GetWorkTaskCandidates     = 'get_work_task_candidates';     // params: subject_key, task_type, collection, scope, search
+	case GetWorkCollections        = 'get_work_collections';         // params: subject_key
+	case GetLessonWorkCandidates   = 'get_lesson_work_candidates';   // params: subject_key, work_type, scope, search
+	case GetCourseLessonCandidates = 'get_course_lesson_candidates'; // params: subject_key, scope, search
+	case GetLessonArticles         = 'get_lesson_articles';          // params: subject_key
+	case CreateWorkDraft           = 'create_work_draft';            // params: subject_key, title, work_type
+	case CreateLessonDraft         = 'create_lesson_draft';          // params: subject_key, title
+	case GetWorkItemCandidates     = 'get_work_item_candidates';     // params: subject_key, collection, scope, search
+	case CreateProblemDraft        = 'create_problem_draft';         // params: title
+
+	// ==== Контрольные и экзамены (Этап 4) ====
+	case StartAttempt      = 'start_attempt';
+	case SaveAttemptAnswer = 'save_attempt_answer';
+	case SubmitAttempt     = 'submit_attempt';
+	case GradeAttempt      = 'grade_attempt';
+	case GetAttemptResult  = 'get_attempt_result';
+
+	// ==== Сдача работ (Этап 3) ====
+	case SubmitWork          = 'submit_work';
+	case SaveGrade           = 'save_grade';
+	case ReturnSubmission    = 'return_submission';
+	case GetGroupSubmissions = 'get_group_submissions';
+	case GetMySubmissions    = 'get_my_submissions';
+	case GetGradebook        = 'get_gradebook';
+
+	// ==== Программа группы (Этап 2) ====
+	case AssignCourse            = 'assign_course';
+	case AddLessonToProgram      = 'add_lesson_to_program';
+	case RemoveLessonFromProgram = 'remove_lesson_from_program';
+	case ReorderProgram          = 'reorder_program';
+	case SaveLessonSchedule      = 'save_lesson_schedule';
+	case SetLessonExtraWorks     = 'set_lesson_extra_works';
+	case SetLessonVisibility     = 'set_lesson_visibility';
+	case GetGroupProgram         = 'get_group_program';
+	case GetGroupActivity        = 'get_group_activity';
+
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 

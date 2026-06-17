@@ -1,0 +1,63 @@
+<?php
+
+declare( strict_types=1 );
+
+namespace Inc\Callbacks\Assessment;
+
+use Inc\Contracts\ClockInterface;
+use Inc\Core\BaseController;
+use Inc\Enums\Capability;
+use Inc\Enums\Nonce;
+use Inc\Services\Assessment\AutoGradeService;
+use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
+use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\AjaxResponse;
+use Inc\Shared\Traits\Sanitizer;
+
+class GradeAttemptCallbacks extends BaseController {
+
+	use Authorizer;
+	use AjaxResponse;
+	use Sanitizer;
+
+	public function __construct(
+		private readonly AssessmentAttemptRepository $attempts,
+		private readonly AssessmentAnswerRepository  $answers,
+		private readonly AutoGradeService            $autoGrade,
+		private readonly ClockInterface              $clock,
+	) {
+		parent::__construct();
+	}
+
+	/** Преподаватель вручную оценивает один ответ попытки. */
+	public function ajaxGradeAttempt(): void {
+		$this->authorize( Nonce::GradeAttempt, Capability::ManageLMSAssignments );
+
+		$attemptId  = $this->requireInt( $_POST['attempt_id'] ?? '' );
+		$taskId     = $this->requireInt( $_POST['task_id'] ?? '' );
+		$score      = (float) $this->sanitizeText( $_POST['score'] ?? '0' );
+		$isCorrect  = (bool) $this->sanitizeInt( $_POST['is_correct'] ?? 0 );
+		$feedback   = $this->sanitizeText( $_POST['feedback'] ?? '' );
+
+		$attempt = $this->attempts->find( $attemptId );
+		if ( ! $attempt ) {
+			$this->error( 'Попытка не найдена.' );
+			return;
+		}
+
+		$this->answers->upsert( $attemptId, $taskId, [
+			'score'             => $score,
+			'is_correct'        => $isCorrect ? 1 : 0,
+			'grader_note'       => $feedback,
+			'graded_by_user_id' => get_current_user_id(),
+			'graded_at'         => $this->clock->now(),
+		] );
+
+		$updated = $this->autoGrade->finalize( $attempt );
+		$this->success( [
+			'attempt_status' => $updated->status->value,
+			'total_score'    => $updated->totalScore,
+		] );
+	}
+}

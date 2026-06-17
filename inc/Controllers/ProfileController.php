@@ -6,8 +6,11 @@ namespace Inc\Controllers;
 
 use Inc\Core\BaseController;
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\OptionName;
 use Inc\Enums\PageRoutes;
 use Inc\Enums\ShortCode;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -33,7 +36,10 @@ class ProfileController extends BaseController implements ServiceInterface {
 
 	use TemplateRenderer;  // Трейт с методом render() для подключения шаблонов
 
-	public function __construct() {
+	public function __construct(
+		private readonly PersonRepository       $personRepository,
+		private readonly StudentRecordRepository $studentRecords,
+	) {
 		parent::__construct();
 	}
 
@@ -68,6 +74,21 @@ class ProfileController extends BaseController implements ServiceInterface {
 		if ( ! is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
 			wp_safe_redirect( PageRoutes::SignIn->url() );
 			exit;
+		}
+
+		// T2.27: Гейт кабинета для полностью отчисленных (политика 'block').
+		if ( is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
+			$policy = get_option( OptionName::ExpulsionRetentionPolicy->value, 'retain' );
+			if ( 'block' === $policy ) {
+				$person = $this->personRepository->findByWpUserId( get_current_user_id() );
+				if ( $person ) {
+					$activeRecords = $this->studentRecords->findActiveByStudent( $person->id );
+					if ( empty( $activeRecords ) ) {
+						wp_safe_redirect( home_url( '/' ) );
+						exit;
+					}
+				}
+			}
 		}
 	}
 

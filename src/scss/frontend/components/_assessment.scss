@@ -1,0 +1,139 @@
+@use 'sass:color';
+@use '../variables' as *;
+
+.fs-assessment-page {
+	max-width: 800px;
+	margin: 0 auto;
+	padding: $spacing-lg 0;
+}
+
+.fs-assessment-title {
+	font-size: 1.75rem;
+	font-weight: 700;
+	color: $color-text;
+	margin-bottom: $spacing-md;
+}
+
+.fs-assessment-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: $spacing-sm;
+	margin-bottom: $spacing-lg;
+}
+
+.fs-assessment-meta-item {
+	background: color.mix($color-white, $color-primary, 88%);
+	color: $color-primary;
+	border-radius: $border-radius-sm;
+	padding: 4px $spacing-sm;
+	font-size: 0.85rem;
+	font-weight: 500;
+}
+
+.fs-assessment-notice {
+	padding: $spacing-md;
+	background: color.mix($color-white, $color-text-muted, 90%);
+	border-radius: $border-radius;
+	color: $color-text-muted;
+}
+
+// Timer
+.fs-assessment-timer {
+	display: inline-flex;
+	align-items: center;
+	gap: $spacing-xs;
+	background: $color-white;
+	border: 1px solid $color-border;
+	border-radius: $border-radius;
+	padding: $spacing-xs $spacing-md;
+	margin-bottom: $spacing-md;
+	font-size: 1.25rem;
+	font-weight: 700;
+	color: $color-text;
+
+	&.fs-timer--warning {
+		color: $color-danger;
+		border-color: $color-danger;
+		background: color.mix($color-white, $color-danger, 92%);
+	}
+
+	&.fs-timer--expired {
+		color: $color-danger;
+		border-color: $color-danger;
+	}
+}
+
+// Questions
+.fs-attempt-question {
+	border: 1px solid $color-border;
+	border-radius: $border-radius;
+	padding: $spacing-md;
+	margin-bottom: $spacing-md;
+	background: $color-white;
+}
+
+.fs-attempt-question-number {
+	font-weight: 700;
+	color: $color-primary;
+	margin-bottom: $spacing-xs;
+}
+
+.fs-attempt-question-content {
+	margin-bottom: $spacing-sm;
+	color: $color-text;
+	line-height: 1.6;
+}
+
+.fs-attempt-answer {
+	width: 100%;
+	resize: vertical;
+	border: 1px solid $color-border;
+	border-radius: $border-radius-sm;
+	padding: $spacing-sm;
+	font-size: 0.95rem;
+	transition: border-color $transition-speed;
+
+	&:focus {
+		outline: none;
+		border-color: $color-primary;
+	}
+}
+
+.fs-save-status {
+	font-size: 0.8rem;
+	color: $color-text-muted;
+	margin-left: $spacing-sm;
+}
+
+// Submit area
+.fs-attempt-actions {
+	margin-top: $spacing-lg;
+	display: flex;
+	gap: $spacing-sm;
+}
+
+// Result block
+#fs-assessment-result {
+	padding: $spacing-lg;
+	background: color.mix($color-white, $color-success, 88%);
+	border: 1px solid color.mix($color-white, $color-success, 50%);
+	border-radius: $border-radius;
+	margin-top: $spacing-lg;
+
+	h2 {
+		font-size: 1.25rem;
+		margin-bottom: $spacing-sm;
+	}
+}
+
+.fs-result-score {
+	font-size: 1rem;
+	font-weight: 600;
+	color: $color-text;
+}
+
+.fs-start-notice {
+	font-size: 0.9rem;
+	color: $color-danger;
+	margin-top: $spacing-sm;
+}

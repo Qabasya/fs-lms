@@ -21,6 +21,17 @@ enum TableName: string {
 	case EmailLog          = 'fs_lms_email_log';
 	case AuthLog           = 'fs_lms_auth_log';
 
+	// ==== Этап 2 — программа группы ====
+	case GroupLessons   = 'fs_lms_group_lessons';
+	case LearningEvents = 'fs_lms_learning_events';
+
+	// ==== Этап 3 — сдача работ ====
+	case Submissions = 'fs_lms_submissions';
+
+	// ==== Этап 4 — контрольные и экзамены ====
+	case AssessmentAttempts = 'fs_lms_assessment_attempts';
+	case AssessmentAnswers  = 'fs_lms_assessment_answers';
+
 	public function prefixed(): string {
 		global $wpdb;
 		return $wpdb->prefix . $this->value;

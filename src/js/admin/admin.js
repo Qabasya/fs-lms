@@ -17,6 +17,7 @@ import { ConfigSettings } from './services/settings/config-settings.js';
 import { HardDeleteStudentService } from './services/hard-delete-student-service.js';
 import { ArchiveTable } from './services/tables/archive-table.js';
 import { ImportCsv } from './services/import-csv.js';
+import { RefSelector } from './services/ref-selector.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/enrollment/academic-period-modal-manager";
@@ -66,6 +67,10 @@ import { AlertModal } from './modals/alert-modal.js';
         }
 
         RequiredTaxGuard.init();
+
+        if ( $( '.fs-lms-ref-field' ).length ) {
+            RefSelector.init();
+        }
 
         if ($('#fs-task-number-filter').length) {
             TaskFilter.init();

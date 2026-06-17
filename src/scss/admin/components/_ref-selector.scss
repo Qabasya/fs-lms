@@ -1,0 +1,154 @@
+@use '../variables' as *;
+
+// Селект выбора шаблона в метабоксе задачи (fs_lms_problems).
+.fs-lms-template-select {
+	width: 100%;
+}
+
+// Конструктор-селектор ссылок банков (работа→задания, урок→работы, курс→уроки).
+.fs-lms-ref-field {
+	border: 1px solid $color-border-input;
+	border-radius: $border-radius-md;
+	padding: $spacing-lg;
+	margin-bottom: $spacing-lg;
+	background: $wp-admin-gray-bg-light;
+
+	.fs-lms-label {
+		display: block;
+		font-size: $font-size-m;
+		font-weight: $font-bold;
+		margin: 0 0 $spacing-md;
+		color: $color-text-primary;
+	}
+
+	.fs-lms-ref-chips {
+		display: flex;
+		flex-direction: column;
+		gap: $spacing-xs;
+		margin-bottom: $spacing-sm;
+		min-height: 32px;
+	}
+
+	.fs-lms-ref-chip {
+		display: flex;
+		align-items: center;
+		gap: $spacing-xs;
+		background: $color-primary;
+		color: $color-text-inverse;
+		border-radius: $border-radius-l;
+		padding: $spacing-xs $spacing-sm;
+		font-size: $font-size-sm;
+		cursor: grab;
+
+		&.is-dragging {
+			opacity: 0.5;
+		}
+
+		.fs-lms-ref-handle {
+			cursor: grab;
+			opacity: 0.7;
+		}
+
+		.fs-lms-ref-title {
+			flex: 1;
+			max-width: 320px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.fs-lms-ref-remove {
+			background: none;
+			border: none;
+			color: $color-text-inverse;
+			cursor: pointer;
+			font-size: $font-size;
+			line-height: 1;
+			padding: 0 2px;
+			opacity: 0.8;
+			transition: $transition-default;
+
+			&:hover {
+				opacity: 1;
+			}
+		}
+	}
+
+	.fs-lms-ref-search-wrap {
+		position: relative;
+
+		.fs-lms-ref-search {
+			width: 100%;
+		}
+	}
+
+	.fs-lms-ref-dropdown {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		z-index: 100;
+		background: $color-bg-modal;
+		border: 1px solid $color-border-input;
+		border-radius: $border-radius-md;
+		box-shadow: $shadow-modal;
+		max-height: 220px;
+		overflow-y: auto;
+	}
+
+	.fs-lms-ref-option {
+		padding: $spacing-sm $spacing-md;
+		cursor: pointer;
+		font-size: $font-size;
+		transition: $transition-default;
+
+		&:hover {
+			background: $wp-admin-gray-bg;
+		}
+	}
+
+	.fs-lms-ref-empty {
+		padding: $spacing-sm $spacing-md;
+		color: $color-text-secondary;
+		font-size: $font-size;
+	}
+
+	// T1.24 — фильтр коллекций
+	.fs-lms-ref-collection {
+		display: block;
+		width: 100%;
+		margin-bottom: $spacing-sm;
+	}
+
+	// T1.23 / T1.31 — кнопки «Создать»
+	.fs-lms-ref-create,
+	.fs-lms-ref-create-problem {
+		margin-top: $spacing-sm;
+	}
+
+	.fs-lms-ref-create-problem {
+		margin-left: $spacing-xs;
+	}
+
+	// T1.31 — бейдж типа элемента (Задача / Задание)
+	.fs-lms-item-type-badge {
+		display: inline-block;
+		padding: 0 $spacing-xs;
+		border-radius: $border-radius-md;
+		background: rgba(0, 0, 0, 0.25);
+		color: $color-text-inverse;
+		font-size: $font-size-sm;
+		line-height: 1.6;
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+}
+
+// Страница меню «Обучение».
+.fs-lms-learning {
+	.fs-lms-bank-actions {
+		margin-top: $spacing-lg;
+		display: flex;
+		gap: $spacing-sm;
+	}
+}

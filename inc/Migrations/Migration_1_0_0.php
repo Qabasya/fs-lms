@@ -375,6 +375,129 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 15. group_lessons — программа группы (Этап 2) =====
+		$group_lessons = TableName::GroupLessons->prefixed();
+		dbDelta(
+			"CREATE TABLE $group_lessons (
+			id                 int unsigned        NOT NULL AUTO_INCREMENT,
+			group_id           smallint unsigned   NOT NULL,
+			lesson_id          bigint unsigned     NOT NULL,
+			position           smallint unsigned   NOT NULL DEFAULT 0,
+			work_ids_snapshot  longtext            DEFAULT NULL,
+			extra_work_ids     longtext            DEFAULT NULL,
+			scheduled_at       datetime            DEFAULT NULL,
+			teacher_user_id    bigint(20) unsigned DEFAULT NULL,
+			visibility         enum('hidden','open','archived') NOT NULL DEFAULT 'hidden',
+			opened_at          datetime            DEFAULT NULL,
+			homework_due_at    datetime            DEFAULT NULL,
+			allow_late         tinyint(1)          NOT NULL DEFAULT 1,
+			recording_url      varchar(1000)       DEFAULT NULL,
+			created_by_user_id bigint(20) unsigned DEFAULT NULL,
+			updated_by_user_id bigint(20) unsigned DEFAULT NULL,
+			created_at         datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at         datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY group_id (group_id),
+			KEY lesson_id (lesson_id),
+			KEY group_position (group_id, position)
+		) $cc;"
+		);
+
+		// ===== 16. learning_events — лента доменных событий обучения (Этап 2) =====
+		$learning_events = TableName::LearningEvents->prefixed();
+		dbDelta(
+			"CREATE TABLE $learning_events (
+			id            int unsigned        NOT NULL AUTO_INCREMENT,
+			subject_key   varchar(50)         DEFAULT NULL,
+			group_id      smallint unsigned   DEFAULT NULL,
+			actor_user_id bigint(20) unsigned DEFAULT NULL,
+			actor_role    varchar(50)         DEFAULT NULL,
+			action        varchar(40)         NOT NULL,
+			entity_type   varchar(30)         DEFAULT NULL,
+			entity_id     varchar(100)        DEFAULT NULL,
+			is_public     tinyint(1)          NOT NULL DEFAULT 1,
+			created_at    datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY group_created (group_id, created_at),
+			KEY subject_created (subject_key, created_at),
+			KEY actor_user_id (actor_user_id)
+		) $cc;"
+		);
+
+		// ===== 17. submissions — сдачи работ (Этап 3) =====
+		$submissions = TableName::Submissions->prefixed();
+		dbDelta(
+			"CREATE TABLE $submissions (
+			id                  int unsigned         NOT NULL AUTO_INCREMENT,
+			student_person_id   int unsigned         NOT NULL,
+			group_lesson_id     int unsigned         NOT NULL,
+			work_id             bigint unsigned      NOT NULL,
+			work_type           enum('practice','independent','homework') NOT NULL,
+			task_id             bigint unsigned      DEFAULT NULL,
+			answer_text         longtext             DEFAULT NULL,
+			attachment_id       bigint unsigned      DEFAULT NULL,
+			due_at              datetime             DEFAULT NULL,
+			status              enum('assigned','submitted','graded','returned') NOT NULL DEFAULT 'assigned',
+			score               decimal(6,2)         DEFAULT NULL,
+			max_score           decimal(6,2)         DEFAULT NULL,
+			feedback            text                 DEFAULT NULL,
+			graded_by_user_id   bigint unsigned      DEFAULT NULL,
+			submitted_at        datetime             DEFAULT NULL,
+			graded_at           datetime             DEFAULT NULL,
+			created_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY student_person_id (student_person_id),
+			KEY group_lesson_id (group_lesson_id),
+			KEY status (status)
+		) $cc;"
+		);
+
+		// ===== 18. assessment_attempts — попытки контрольных / экзаменов (Этап 4) =====
+		$assessment_attempts = TableName::AssessmentAttempts->prefixed();
+		dbDelta(
+			"CREATE TABLE $assessment_attempts (
+			id                  int unsigned         NOT NULL AUTO_INCREMENT,
+			assessment_id       bigint unsigned      NOT NULL,
+			student_person_id   int unsigned         NOT NULL,
+			group_id            smallint unsigned    DEFAULT NULL,
+			attempt_number      smallint unsigned    NOT NULL,
+			started_at          datetime             NOT NULL,
+			deadline_at         datetime             NOT NULL,
+			submitted_at        datetime             DEFAULT NULL,
+			status              enum('in_progress','submitted','graded','expired') NOT NULL DEFAULT 'in_progress',
+			total_score         decimal(6,2)         DEFAULT NULL,
+			max_score           decimal(6,2)         DEFAULT NULL,
+			graded_by_user_id   bigint unsigned      DEFAULT NULL,
+			created_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY attempt (assessment_id, student_person_id, attempt_number),
+			KEY assessment_id (assessment_id),
+			KEY student_person_id (student_person_id),
+			KEY status (status)
+		) $cc;"
+		);
+
+		// ===== 19. assessment_answers — ответы на задания контрольной (Этап 4) =====
+		$assessment_answers = TableName::AssessmentAnswers->prefixed();
+		dbDelta(
+			"CREATE TABLE $assessment_answers (
+			id                  int unsigned    NOT NULL AUTO_INCREMENT,
+			attempt_id          int unsigned    NOT NULL,
+			task_id             bigint unsigned NOT NULL,
+			answer_text         longtext        DEFAULT NULL,
+			is_correct          tinyint(1)      DEFAULT NULL,
+			score               decimal(6,2)    DEFAULT NULL,
+			max_score           decimal(6,2)    DEFAULT NULL,
+			graded_by_user_id   bigint unsigned DEFAULT NULL,
+			graded_at           datetime        DEFAULT NULL,
+			PRIMARY KEY  (id),
+			KEY attempt_id (attempt_id),
+			KEY task_id (task_id)
+		) $cc;"
+		);
+
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$student_records`
@@ -399,6 +522,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) NOT NULL DEFAULT '',
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `course_id` bigint(20) unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
@@ -413,6 +537,11 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::AssessmentAnswers->prefixed(),
+			TableName::AssessmentAttempts->prefixed(),
+			TableName::Submissions->prefixed(),
+			TableName::LearningEvents->prefixed(),
+			TableName::GroupLessons->prefixed(),
 			TableName::AuthLog->prefixed(),
 			TableName::EmailLog->prefixed(),
 			TableName::ConsentChangeLog->prefixed(),

@@ -47,6 +47,29 @@ enum Nonce: string {
 	case HardDeleteStudent        = 'fs_lms_hard_delete_student';
 	case Config                   = 'fs_lms_config';
 
+	/** AJAX-запросы конструктора урока (выбор работ, статей). */
+	case AuthorLesson = 'fs_lms_author_lesson';
+
+	/** AJAX-запросы конструктора работы (выбор заданий). */
+	case AuthorWork = 'fs_lms_author_work';
+
+	/** AJAX-запросы конструктора курса (выбор уроков). */
+	case AuthorCourse = 'fs_lms_author_course';
+
+	// ==== Этап 2 — программа группы ====
+	case AssignCourse         = 'fs_lms_assign_course';
+	case SaveSchedule         = 'fs_lms_save_schedule';
+	case SetLessonVisibility  = 'fs_lms_set_lesson_visibility';
+
+	// ==== Этап 3 — сдача работ ====
+	case SubmitWork = 'fs_lms_submit_work';
+	case GradeWork  = 'fs_lms_grade_work';
+
+	// ==== Этап 4 — контрольные и экзамены ====
+	case StartAttempt  = 'fs_lms_start_attempt';
+	case SubmitAttempt = 'fs_lms_submit_attempt';
+	case GradeAttempt  = 'fs_lms_grade_attempt';
+
 	/**
 	 * Создает защитный токен.
 	 *

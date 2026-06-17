@@ -31,6 +31,7 @@
 27. [Управление паролями пользователей](#управление-паролями-пользователей)
 28. [Система уведомлений](#система-уведомлений)
 29. [Troubleshooting](#troubleshooting)
+30. [Система обучения (Этапы 1–4): контент, программа, сдачи, контрольные](#система-обучения-этапы-14-контент-программа-сдачи-контрольные)
 
 ---
 
@@ -4019,7 +4020,269 @@ docker exec wp_db mariadb -u root -proot wordpress \
 
 ---
 
+## Система обучения (Этапы 1–4): контент, программа, сдачи, контрольные
 
+Этот раздел описывает, что появилось за четыре этапа разработки LMS: где
+что хранится, какие CPT создаются, как это настраивать и как связаны классы.
+
+### Главная идея: два разных хранилища
+
+Всё в этой подсистеме делится на **две сущности**, и они хранятся по-разному:
+
+| Что это | Пример | Где хранится |
+|---|---|---|
+| **Контент** — «что учим» (многоразовый шаблон) | задание, работа, урок, курс, контрольная | **CPT** (пост + `post_meta`) |
+| **Факт обучения** — «что произошло в группе» | сдача ученика, попытка контрольной, расписание, событие ленты | **кастомные таблицы** (`$wpdb`) |
+| **Настройка** | политика доступа отчисленного | **`wp_options`** |
+
+Правило, которое нельзя нарушать: **контент — только в CPT, факты — только в таблицах.**
+Урок не копируется в группу — группа **ссылается** на урок по ID. Поправили урок —
+изменение увидели все, кто на него ссылается.
+
+### Цепочка банков контента
+
+Контент переиспользуется по цепочке (каждое звено ссылается на предыдущее, не копирует):
+
+```
+задания (tasks) ──► работы (works) ──► уроки (lessons) ──► курсы (courses)
+задачи (problems, глобальные) ──┘
+контрольные (assessments) ──► ссылаются на задания
+```
+
+- **Задание** (`{key}_tasks`) — одна задача (условие/ответ). Уже было до Этапа 1.
+- **Работа** (`{key}_works`) — типизированный (`practice`/`independent`/`homework`) упорядоченный
+  набор ссылок на задания **и** глобальные задачи + инструкция.
+- **Урок** (`{key}_lessons`) — тема + теория + упорядоченные ссылки на работы.
+- **Курс** (`{key}_courses`) — упорядоченные ссылки на уроки (шаблон программы).
+- **Контрольная** (`{key}_assessments`) — набор заданий + правила (лимит времени, попытки,
+  проходной балл, перемешивание).
+- **Задача** (`fs_lms_problems`) — глобальный (не привязанный к предмету) банк приватных задач,
+  которые можно добавить в работу любого предмета. Не публикуется на фронте.
+
+---
+
+### Какие CPT создаются и как
+
+**Per-subject CPT.** Для каждого предмета (`$key`, напр. `inf`, `math`) регистрируется набор CPT.
+Имена собираются через `PostTypeResolver` — **никогда не конкатенируйте строки руками**:
+
+| Метод `PostTypeResolver` | Результат | Назначение |
+|---|---|---|
+| `tasks($key)`        | `{key}_tasks`        | задания |
+| `articles($key)`     | `{key}_articles`     | статьи (теория) |
+| `works($key)`        | `{key}_works`        | работы |
+| `lessons($key)`      | `{key}_lessons`      | уроки |
+| `courses($key)`      | `{key}_courses`      | курсы |
+| `assessments($key)`  | `{key}_assessments`  | контрольные |
+| `problems()`         | `fs_lms_problems`    | глобальные задачи (без префикса) |
+
+Обратный разбор: `subjectFromWorkPostType('inf_works') === 'inf'` и аналоги. Проверки типа:
+`isWorkPostType()`, `isLessonPostType()`, `isCoursePostType()`, `isAssessmentPostType()`,
+`isProblemPostType()`, и обобщающий `isBankPostType()` (любой банк контента).
+
+**Где регистрируются.** Все per-subject CPT регистрируются в одном месте —
+`SubjectController::registerForSubject()` (вызывается циклом по всем предметам). Каждый CPT
+добавляется через `SubjectCPTRegistrar::addStandardType()`, а его конфиг берётся из
+`SubjectController::getDefaultCptArgs($type, $subject)`.
+
+В `getDefaultCptArgs()` есть общий блок `$bank_options` — он делает банки «невидимыми» в
+стандартном меню WP и переводит права на кастомный тип:
+
+```php
+$bank_options = array(
+    'show_in_menu'        => false,            // в top-level меню не показываем
+    'show_in_rest'        => false,
+    'exclude_from_search' => true,
+    'capability_type'     => 'fs_lms_content', // права маппятся на manage_lms_assignments
+    'map_meta_cap'        => true,
+    'has_archive'         => false,
+);
+```
+
+`match($type)` задаёт для каждого банка склонения (`nom`/`acc`/`gen`/`gender`) и `supports`
+(работы/уроки/курсы/контрольные — `title, editor, author`; уроки ещё `thumbnail`). Чтобы
+добавить новый банк-CPT, нужно: добавить suffix+helpers в `PostTypeResolver`, ветку в
+`getDefaultCptArgs()`, вызов `addStandardType()` в `registerForSubject()`.
+
+**Глобальная задача** `fs_lms_problems` регистрируется отдельно — в `ProblemsController`
+(она одна на всю систему, не per-subject), вместе со свободной таксономией `problem_tag`.
+
+**Меню «Обучение».** Поскольку банки скрыты из стандартного меню (`show_in_menu => false`),
+единая точка входа — top-level меню «Обучение» (`LearningMenuController`). Вкладки-предметы в нём
+формирует `TeacherSubjectsService` (препод видит свои предметы, админ — все).
+
+**Фильтр расширения:** перед регистрацией каждого CPT прогоняется
+`apply_filters('fs_lms_cpt_args', $args, $type, $subject)`.
+
+---
+
+### Что лежит в `post_meta` банков
+
+Вся мета банка хранится **одним массивом** под ключом `PostMetaName::Meta` (`fs_lms_meta`) —
+как у заданий. `post_title`/`post_content` — нативные поля.
+
+| Банк | `post_title` | `post_content` | Ключи в `fs_lms_meta` |
+|---|---|---|---|
+| Работа   | название | инструкция (опц.) | `work_type`, `item_ids[]` (ссылки на задания/задачи), `instructions` |
+| Урок     | тема     | теория (inline)   | `theory_article_id` (0 = inline), `work_ids[]` |
+| Курс     | название | описание          | `lesson_ids[]` |
+| Контрольная | название | описание | `task_ids[]`, `time_limit_minutes`, `max_attempts`, `pass_score`, `scoring_policy`, `shuffle` |
+
+Все `*_ids` — **упорядоченные массивы ID-ссылок**, не копии.
+
+---
+
+### Кастомные таблицы (факты обучения)
+
+Имена централизованы в enum `TableName` (метод `prefixed()` добавляет `$wpdb->prefix`),
+схема — в `inc/Migrations/Migration_1_0_0.php` (одна монолитная миграция; новые таблицы
+добавляются туда же, см. раздел «Миграции»).
+
+| Таблица (`TableName`) | Этап | Простыми словами |
+|---|---|---|
+| `fs_lms_group_lessons`       | 2 | Программа группы: какие уроки, в каком порядке, когда, кому видно |
+| `fs_lms_learning_events`     | 2 | Append-only лента событий обучения (фид группы, таймлайн ученика) |
+| `fs_lms_submissions`         | 3 | Сдачи работ учениками + оценки |
+| `fs_lms_assessment_attempts` | 4 | Попытки прохождения контрольных |
+| `fs_lms_assessment_answers`  | 4 | Ответы внутри попытки (по заданиям) |
+
+**`fs_lms_group_lessons`** — заменяет старое текстовое `groups.schedule`. Ключевые колонки:
+`group_id`, `lesson_id` (ссылка на CPT-урок), `position`, `work_ids_snapshot` (JSON —
+заморозка `lesson.work_ids` при первой публикации, *copy-on-publish*), `extra_work_ids` (JSON —
+доп. работы только для этой группы), `scheduled_at`, `teacher_user_id`,
+`visibility` (`hidden`/`open`/`archived`), `opened_at`, `homework_due_at`, `allow_late`,
+`recording_url`. Назначенный группе курс хранится в колонке `fs_lms_groups.course_id`.
+
+**`fs_lms_learning_events`** — `subject_key`, `group_id`, `actor_user_id`, `action`
+(`course_assigned`, `lesson_published`, `submission_made`, `attempt_submitted` …),
+`entity_type`/`entity_id`, `is_public` (виден ли срез ученику/родителю).
+
+**`fs_lms_submissions`** — `student_person_id`, `group_lesson_id`, `work_id`, `work_type`,
+`task_id` (опц.), `answer_text`, `attachment_id`, `due_at`,
+`status` (`assigned`/`submitted`/`graded`/`returned`), `score`/`max_score`, `feedback`,
+`graded_by_user_id`, `submitted_at`/`graded_at`.
+
+**`fs_lms_assessment_attempts`** — `assessment_id`, `student_person_id`, `group_id`,
+`attempt_number` (UNIQUE с assessment+student), `started_at`, `deadline_at`, `submitted_at`,
+`status` (`in_progress`/`submitted`/`graded`/`expired`), `total_score`/`max_score`.
+
+**`fs_lms_assessment_answers`** — `attempt_id`, `task_id`, `answer_text`, `is_correct`,
+`score`/`max_score`, `graded_by_user_id`/`graded_at`.
+
+---
+
+### Настройки в `wp_options`
+
+Подсистема почти не использует опции (всё контентное — в CPT, всё фактическое — в таблицах).
+Единственная настройка этих этапов:
+
+| Опция (`OptionName`) | Значения | Репозиторий |
+|---|---|---|
+| `fs_lms_expulsion_retention_policy` | `retain` (по умолч.) / `block` | `ExpulsionPolicyRepository` |
+
+`retain` — отчисленный сохраняет read-only доступ к пройденному; `block` — теряет доступ
+полностью. Читать опцию напрямую через `get_option` нельзя — только через репозиторий.
+
+---
+
+### Связи классов по слоям
+
+Архитектура та же, что во всём плагине: **Controller → Callbacks → Service →
+Manager/Repository → DTO/Enum**. Контроллеры только регистрируют хуки, вся логика — в сервисах,
+данные — через менеджеры (CPT) и репозитории (таблицы/опции).
+
+**Этап 1 — банки контента (CPT).** На каждый банк: `Field` → `Template` → `MetaBoxController`
+(метабокс) + `Manager` (CRUD поста+меты) + `AuthoringService` (кандидаты для селекторов) +
+`Callbacks`/`Controller` (AJAX селекторов) + `DTO`.
+
+```
+WorkMetaBoxController ─► WorkTemplate ─► (WorkTypeField, TaskRefField …)
+WorkController ─► WorkCallbacks ─► WorkAuthoringService ─► WorkManager ─► PostManager ─► WorkDTO
+(аналогично Lesson* и Course*)
+ContentUsageService     — «кто на меня ссылается» (бейдж + гейт удаления)
+ContentLifecycleService — статусы draft/publish/fs_archived
+ContentDeletionGuard    — запрещает удаление контента с usage > 0 (предлагает «В архив»)
+```
+
+**Этап 2 — программа группы (таблицы).**
+
+```
+ScheduleController ─► ProgramCallbacks ─►
+    ├─ CourseAssignmentService   (назначить курс → снапшот уроков в group_lessons)
+    ├─ ScheduleService           (добавить/убрать/упорядочить/расписание урока)
+    ├─ LessonVisibilityService   (hidden/open/archived; copy-on-publish снапшота работ)
+    ├─ EffectiveWorksResolver    (эффективные работы = snapshot|lesson.work_ids + extra_work_ids)
+    └─ GroupAccessGuard          (доступ препода к группе)
+LessonAccessPolicy  ─► AccessLevel (None/Read/ReadSubmit) — что видит ученик
+GroupCockpitController — фронт-страница группы (/group/)
+LearningEventSubscriber + LearningEventWriter + LearningEventRepository — лента событий
+Данные: GroupLessonRepository, LearningEventRepository; DTO: GroupLessonDTO, GroupLessonInputDTO
+```
+
+**Этап 3 — сдача работ и журнал (таблицы).**
+
+```
+SubmissionController ─► SubmissionCallbacks ─► SubmissionService
+    (submit/grade/returnForRework; проверка через LessonAccessPolicy; файлы — MediaManager)
+SubmissionController ─► GradingCallbacks   ─► GradebookService
+GradebookService ─► GradeSourceRegistry ─► [SubmissionGradeSource, AssessmentGradeSource]
+    (источники реализуют GradeSourceInterface — новый источник добавляется в реестр, без правки журнала)
+Данные: SubmissionRepository; DTO: SubmissionDTO, SubmissionInputDTO, GradeDTO, GradebookEntryDTO
+```
+
+**Этап 4 — контрольные и экзамены (CPT + таблицы).**
+
+```
+AssessmentMetaBoxController ─► AssessmentTemplate (настройки контрольной в fs_lms_meta)
+AssessmentController  ─► AttemptCallbacks      ─► AttemptService
+    (start/saveAnswer/submit/expireIfOverdue; жизненный цикл попытки)
+AssessmentController  ─► GradeAttemptCallbacks ─► AutoGradeService
+    (авто-проверка по task_answer там, где шаблон позволяет; иначе — ручная)
+AssessmentPageController — фронт-страница контрольной (template_include по isAssessmentPostType)
+Данные: AssessmentManager (CPT), AssessmentAttemptRepository, AssessmentAnswerRepository
+DTO: AssessmentDTO, AttemptDTO, AttemptInputDTO, AttemptAnswerDTO
+```
+
+**Ключевые enum'ы подсистемы:** `WorkType` (тип работы), `LessonVisibility`
+(hidden/open/archived), `AssignmentPolicy` (append/replace при назначении курса), `AccessLevel`
+(None/Read/ReadSubmit), `SubmissionStatus`, `AttemptStatus`, `ScoringPolicy`.
+
+---
+
+### Важные механики (на что обратить внимание)
+
+- **Ссылки, не копии.** Все `*_ids` — ID-ссылки. Поэтому контент с зависимостями нельзя удалить
+  физически: `ContentDeletionGuard` блокирует удаление при `usageCount > 0` и предлагает «В архив»
+  (`ContentLifecycleService`, статус `fs_archived`). Источник «кто ссылается» — `ContentUsageService`.
+- **Copy-on-publish.** При первой публикации урока в группе (`visibility → open`) текущий список
+  работ урока «замораживается» в `work_ids_snapshot`. Дальше правки эталонного урока не ломают уже
+  открытый группе материал. Эффективный список считает `EffectiveWorksResolver`:
+  `(snapshot, если открыт; иначе живой lesson.work_ids) + extra_work_ids`.
+- **Доступ ученика** считает `LessonAccessPolicy` по матрице «видимость × статус зачисления × даты ×
+  политика ретеншна» и возвращает `AccessLevel`. `hidden` — никому; поздно зашедший видит бэк-каталог,
+  но сдаёт только с даты своего зачисления; отчисленный — по `ExpulsionPolicyRepository`.
+- **Журнал оценок расширяемый.** `GradebookService` не знает о конкретных источниках — берёт их из
+  `GradeSourceRegistry` через интерфейс `GradeSourceInterface`. Добавить источник Этапа 5 = дописать
+  его в конструктор реестра, журнал не трогаем (принцип OCP).
+- **Авто-проверка контрольных.** `AutoGradeService` сравнивает ответ с полем `task_answer`, если
+  шаблон задания это поддерживает; иначе ответ помечается на ручную проверку. Когда все ответы
+  оценены — попытка получает статус `graded`.
+- **Время — через `ClockInterface`.** Сервисы и попытки не зовут `current_time()` напрямую, а
+  получают время из внедрённого `ClockInterface` (биндинг `ClockInterface → WpClock` в `Init`) —
+  это делает логику дедлайнов тестируемой.
+
+---
+
+### Фронтенд-страницы
+
+- **Кокпит группы** — `GroupCockpitController` подменяет шаблон по маршруту `PageRoutes::GroupCockpit`
+  (`/group/`) через `template_include`; без авторизации — редирект на логин.
+- **Страница контрольной** — `AssessmentPageController` подменяет шаблон для одиночной записи CPT
+  `{key}_assessments` (`template_include` + `isAssessmentPostType`).
+
+Обе страницы оборачивают вывод через `ThemeCompatService::header()/footer()` (см. одноимённый раздел).
+
+---
 
 Данная документация описывает архитектуру плагина FS LMS, включая:
 
@@ -4041,5 +4304,6 @@ docker exec wp_db mariadb -u root -proot wordpress \
 - **Управление паролями** — двойное хранение (user_pass + зашифрованный meta), стратегии при зачислении, автоочистка meta при ручной смене, регенерация из UI
 - **Систему уведомлений** — четыре механизма: нативная валидация у поля, `showNotice` / `showModalError` для серверных ошибок в UI, `showToast` для сетевых ошибок, `AlertModal` для критических ошибок поверх открытых модалов
 - **Troubleshooting** — пошаговая диагностика от браузера до БД, разборы типичных кейсов, шпаргалка по симптомам и инструменты отладки
+- **Систему обучения (Этапы 1–4)** — банки контента в CPT (работы/уроки/курсы/контрольные + глобальные задачи), факты обучения в кастомных таблицах (программа группы, сдачи, попытки, лента событий), переиспользование по ссылке, copy-on-publish, матрицу доступа и расширяемый журнал оценок
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.

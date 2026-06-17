@@ -59,18 +59,23 @@ class TaskCreationController extends AjaxController {
 				$screen = get_current_screen();
 				$page   = $this->sanitizeText( 'page', 'GET' );
 
-				// Проверка, находимся ли мы на странице CPT заданий или на странице предмета
+				// Проверка, находимся ли мы на странице CPT заданий, работ или на странице предмета
 				$on_tasks_cpt    = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
+				$on_works_cpt    = $screen && PostTypeResolver::isWorkPostType( $screen->post_type );
 				$on_subject_page = str_starts_with( $page, 'fs_subject_' );
 
-				if ( ! $on_tasks_cpt && ! $on_subject_page ) {
+				if ( ! $on_tasks_cpt && ! $on_works_cpt && ! $on_subject_page ) {
 					return;
 				}
 
 				// Извлечение ключа предмета из URL или из типа поста
-				$subject_key = $on_subject_page
-					? substr( $page, strlen( 'fs_subject_' ) )
-					: PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
+				if ( $on_subject_page ) {
+					$subject_key = substr( $page, strlen( 'fs_subject_' ) );
+				} elseif ( $on_works_cpt ) {
+					$subject_key = PostTypeResolver::subjectFromWorkPostType( $screen->post_type );
+				} else {
+					$subject_key = PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
+				}
 
 				// Подключение шаблона модального окна
 				include_once $this->plugin_path . 'templates/admin/components/modals/task-modal.php';

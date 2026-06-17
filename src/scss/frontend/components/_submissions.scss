@@ -1,0 +1,212 @@
+@use 'sass:color';
+@use '../variables' as *;
+
+// ---- Форма сдачи ----
+
+.fs-submission-form {
+	margin-top: 20px;
+	padding: 16px;
+	border: 1px solid $color-border;
+	border-radius: 6px;
+	background: $color-white;
+}
+
+.fs-submission-form__title {
+	font-size: $font-size-heading;
+	margin-bottom: 12px;
+	color: $color-text;
+}
+
+.fs-submission-form__field {
+	margin-bottom: 14px;
+
+	label {
+		display: block;
+		font-size: $font-size-sm;
+		color: $color-muted;
+		margin-bottom: 4px;
+	}
+
+	textarea {
+		width: 100%;
+		min-height: 100px;
+		padding: 8px 10px;
+		border: 1px solid $color-border;
+		border-radius: 4px;
+		font-family: $font-family;
+		font-size: $font-size-base;
+		resize: vertical;
+		color: $color-text;
+	}
+
+	input[type="file"] {
+		font-size: $font-size-sm;
+	}
+}
+
+.fs-submission-form__submit {
+	padding: 8px 20px;
+	background: $color-accent;
+	color: $color-white;
+	border: none;
+	border-radius: 4px;
+	font-size: $font-size-base;
+	cursor: pointer;
+
+	&:hover {
+		opacity: 0.88;
+	}
+
+	&:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+}
+
+.fs-submission-status {
+	margin-top: 8px;
+	font-size: $font-size-sm;
+	color: $color-muted;
+}
+
+// ---- Результат сдачи ----
+
+.fs-submission-result {
+	margin-top: 12px;
+	padding: 12px 14px;
+	border-radius: 4px;
+	font-size: $font-size-sm;
+
+	&--graded {
+		background: color.mix($color-white, $color-success, 88%);
+		border: 1px solid $color-success;
+		color: $color-text;
+	}
+
+	&--returned {
+		background: color.mix($color-white, $color-danger, 88%);
+		border: 1px solid $color-danger;
+		color: $color-text;
+	}
+
+	&--submitted {
+		background: $color-bg-subtle;
+		border: 1px solid $color-border;
+	}
+}
+
+.fs-submission-result__score {
+	font-size: $font-size-heading;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+.fs-submission-result__feedback {
+	margin-top: 6px;
+	color: $color-muted;
+}
+
+.fs-submission-late {
+	display: inline-block;
+	font-size: $font-size-sm;
+	color: $color-danger;
+	margin-left: 8px;
+}
+
+// ---- Очередь проверки в кокпите ----
+
+.fs-grading-queue {
+	margin-top: 24px;
+}
+
+.fs-grading-queue__item {
+	padding: 14px 16px;
+	border: 1px solid $color-border;
+	border-radius: 6px;
+	margin-bottom: 10px;
+	background: $color-white;
+}
+
+.fs-grading-queue__meta {
+	font-size: $font-size-sm;
+	color: $color-muted;
+	margin-bottom: 8px;
+}
+
+.fs-grading-form {
+	display: flex;
+	gap: 10px;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	margin-top: 10px;
+
+	input[type="number"] {
+		width: 80px;
+		padding: 6px 8px;
+		border: 1px solid $color-border;
+		border-radius: 4px;
+		font-size: $font-size-sm;
+	}
+
+	textarea {
+		flex: 1;
+		min-width: 200px;
+		padding: 6px 8px;
+		border: 1px solid $color-border;
+		border-radius: 4px;
+		font-size: $font-size-sm;
+		min-height: 60px;
+		resize: vertical;
+	}
+
+	button {
+		padding: 6px 16px;
+		border: none;
+		border-radius: 4px;
+		font-size: $font-size-sm;
+		cursor: pointer;
+		background: $color-accent;
+		color: $color-white;
+
+		&.fs-btn-return {
+			background: $color-bg-subtle;
+			color: $color-text;
+			border: 1px solid $color-border;
+		}
+
+		&:hover {
+			opacity: 0.88;
+		}
+	}
+}
+
+// ---- Журнал оценок ----
+
+.fs-gradebook-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: $font-size-sm;
+
+	th {
+		text-align: left;
+		padding: 8px 10px;
+		border-bottom: 2px solid $color-border;
+		color: $color-muted;
+		font-weight: 600;
+	}
+
+	td {
+		padding: 8px 10px;
+		border-bottom: 1px solid $color-border-light;
+		color: $color-text;
+	}
+
+	tr:last-child td {
+		border-bottom: none;
+	}
+}
+
+.fs-gradebook-score {
+	font-weight: 600;
+	color: $color-accent;
+}

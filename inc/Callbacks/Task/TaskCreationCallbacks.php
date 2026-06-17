@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Task;
 
 use Inc\Core\BaseController;
+use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Managers\TaskManager;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
@@ -56,12 +57,14 @@ class TaskCreationCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxCreateTask(): void {
-		$this->authorize( Nonce::TaskCreation );
+		$this->authorize( Nonce::TaskCreation, Capability::ManageLMSAssignments );
 
 		$subject_key     = $this->requireKey( 'subject_key', error: 'Не указан предмет. #TCC134' );
 		$term_id         = $this->requireInt( 'term_id', error: 'Не выбран тип задания. #TCC134' );
 		$title           = $this->sanitizeText( 'title' ) ?: 'Новое задание';
 		$boilerplate_uid = $this->sanitizeText( 'boilerplate_uid' );
+
+		$context = $this->sanitizeKey( $_POST['context'] ?? '' );
 
 		try {
 			$new_id = $this->taskManager->createNewTask(
@@ -70,6 +73,11 @@ class TaskCreationCallbacks extends BaseController {
 				$title,
 				$boilerplate_uid
 			);
+
+			if ( 'work' === $context ) {
+				$this->success( array( 'id' => $new_id, 'title' => $title ) );
+				return;
+			}
 
 			// get_edit_post_link() — возвращает URL для редактирования поста
 			$this->success( array( 'redirect' => get_edit_post_link( $new_id, 'abs' ) ) );
@@ -85,7 +93,7 @@ class TaskCreationCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetTaskTypes(): void {
-		$this->authorize( Nonce::TaskCreation );
+		$this->authorize( Nonce::TaskCreation, Capability::ManageLMSAssignments );
 
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Предмет не указан' );
 
@@ -98,7 +106,7 @@ class TaskCreationCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetTaskBoilerplates(): void {
-		$this->authorize( Nonce::TaskCreation );
+		$this->authorize( Nonce::TaskCreation, Capability::ManageLMSAssignments );
 
 		$subject_key = $this->requireKey( 'subject_key', 'GET' );
 		$term_slug   = $this->requireKey( 'term_slug', 'GET' );

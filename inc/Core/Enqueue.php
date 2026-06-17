@@ -79,11 +79,14 @@ class Enqueue extends BaseController implements ServiceInterface {
 		$page   = $this->sanitizeText( 'page', 'GET' );
 
 		// str_starts_with() — проверяет начало строки (PHP 8.0)
-		$is_plugin_page = str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' );
-		$is_task_cpt    = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
+		$is_plugin_page  = str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' );
+		$is_task_cpt     = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
+		$is_lesson_cpt   = $screen && PostTypeResolver::isLessonPostType( $screen->post_type );
+		$is_work_cpt     = $screen && PostTypeResolver::isWorkPostType( $screen->post_type );
+		$is_course_cpt   = $screen && PostTypeResolver::isCoursePostType( $screen->post_type );
 
 		// Подключаем ресурсы ТОЛЬКО на страницах плагина или наших CPT
-		if ( ! $is_plugin_page && ! $is_task_cpt ) {
+		if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_lesson_cpt && ! $is_work_cpt && ! $is_course_cpt ) {
 			return;
 		}
 
@@ -130,6 +133,38 @@ class Enqueue extends BaseController implements ServiceInterface {
 			filemtime( $this->path( 'assets/js/admin.min.js' ) ),
 			true
 		);
+
+		// === Контекстная локализация для страниц CPT уроков ===
+		if ( $is_lesson_cpt ) {
+			$lesson_subject = PostTypeResolver::subjectFromLessonPostType( $screen->post_type );
+			wp_localize_script(
+				$script_handle,
+				'fs_lms_lesson_vars',
+				array(
+					'ajax_url'    => admin_url( 'admin-ajax.php' ),
+					'subject_key' => $lesson_subject,
+					'nonces'      => array(
+						'authorLesson' => Nonce::AuthorLesson->create(),
+					),
+				)
+			);
+		}
+
+		// === Контекстная локализация для страниц CPT работ (нужен task-modal для создания задания) ===
+		if ( $is_work_cpt ) {
+			$work_subject = PostTypeResolver::subjectFromWorkPostType( $screen->post_type );
+			wp_localize_script(
+				$script_handle,
+				'fs_lms_task_data',
+				array(
+					'ajax_url'            => admin_url( 'admin-ajax.php' ),
+					'security'            => Nonce::TaskCreation->create(),
+					'subject_key'         => $work_subject,
+					'post_type'           => PostTypeResolver::tasks( $work_subject ),
+					'required_taxonomies' => $this->getRequiredTaxonomies( $work_subject ),
+				)
+			);
+		}
 
 		// === Контекстная локализация для страниц CPT заданий ===
 		if ( $is_task_cpt ) {
@@ -203,6 +238,9 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'deletePeriod'      => Nonce::DeletePeriod->create(),
 					'hardDeleteStudent' => Nonce::HardDeleteStudent->create(),
 					'config'            => Nonce::Config->create(),
+					'authorLesson'      => Nonce::AuthorLesson->create(),
+					'authorWork'        => Nonce::AuthorWork->create(),
+					'authorCourse'      => Nonce::AuthorCourse->create(),
 				),
 				'ajax_actions' => AjaxHook::toJsArray(),
 			)
@@ -288,6 +326,68 @@ class Enqueue extends BaseController implements ServiceInterface {
 					true
 				);
 			}
+		}
+
+		// === Кокпит группы преподавателя ===
+		if ( PageRoutes::GroupCockpit->isCurrent() ) {
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_cockpit_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'actions'  => array(
+						'setLessonVisibility'     => AjaxHook::SetLessonVisibility->jsAction(),
+						'removeLessonFromProgram' => AjaxHook::RemoveLessonFromProgram->jsAction(),
+						'getGroupActivity'        => AjaxHook::GetGroupActivity->jsAction(),
+						'reorderProgram'          => AjaxHook::ReorderProgram->jsAction(),
+					),
+					'nonces'   => array(
+						'setLessonVisibility' => Nonce::SetLessonVisibility->create(),
+						'saveSchedule'        => Nonce::SaveSchedule->create(),
+					),
+				)
+			);
+
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_submission_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'actions'  => array(
+						'submitWork'          => AjaxHook::SubmitWork->jsAction(),
+						'getMySubmissions'    => AjaxHook::GetMySubmissions->jsAction(),
+						'saveGrade'           => AjaxHook::SaveGrade->jsAction(),
+						'returnSubmission'    => AjaxHook::ReturnSubmission->jsAction(),
+						'getGroupSubmissions' => AjaxHook::GetGroupSubmissions->jsAction(),
+						'getGradebook'        => AjaxHook::GetGradebook->jsAction(),
+					),
+					'nonces'   => array(
+						'submitWork' => Nonce::SubmitWork->create(),
+						'gradeWork'  => Nonce::GradeWork->create(),
+					),
+				)
+			);
+		}
+
+		// === Страница прохождения контрольной / экзамена ===
+		if ( is_singular() && PostTypeResolver::isAssessmentPostType( (string) get_post_type() ) ) {
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_assessment_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'actions'  => array(
+						'startAttempt'     => AjaxHook::StartAttempt->jsAction(),
+						'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
+						'submitAttempt'    => AjaxHook::SubmitAttempt->jsAction(),
+						'getAttemptResult' => AjaxHook::GetAttemptResult->jsAction(),
+					),
+					'nonces'   => array(
+						'startAttempt'  => Nonce::StartAttempt->create(),
+						'submitAttempt' => Nonce::SubmitAttempt->create(),
+					),
+				)
+			);
 		}
 
 		// === Переменные для формы завершения регистрации родителя (/lms/join) ===

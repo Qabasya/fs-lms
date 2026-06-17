@@ -1,0 +1,142 @@
+<?php
+
+declare( strict_types=1 );
+
+namespace Inc\Callbacks\Course;
+
+use Inc\Core\BaseController;
+use Inc\DTO\Course\WorkDTO;
+use Inc\Enums\Capability;
+use Inc\Enums\Nonce;
+use Inc\Managers\WorkManager;
+use Inc\Services\Course\WorkAuthoringService;
+use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
+
+/**
+ * Class WorkCallbacks
+ *
+ * Admin-AJAX обработчики конструктора работы.
+ *
+ * @package Inc\Callbacks\Course
+ */
+class WorkCallbacks extends BaseController {
+
+	use Authorizer;
+	use Sanitizer;
+
+	public function __construct(
+		private readonly WorkAuthoringService $authoringService,
+		private readonly WorkManager          $workManager,
+	) {
+		parent::__construct();
+	}
+
+	/**
+	 * Кандидаты-задания для работы (только {key}_tasks текущего предмета).
+	 * Params: subject_key, task_type, collection, scope, search
+	 */
+	public function ajaxGetWorkTaskCandidates(): void {
+		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$task_type   = (int) ( $_POST['task_type'] ?? 0 );
+		$collection  = (int) ( $_POST['collection'] ?? 0 );
+		$scope       = $this->sanitizeKey( $_POST['scope'] ?? 'mine' );
+		$search      = $this->sanitizeText( $_POST['search'] ?? '' );
+
+		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
+			$scope = 'mine';
+		}
+
+		$this->success(
+			$this->authoringService->getTaskCandidates( $subject_key, $task_type, $collection, $scope, $search )
+		);
+	}
+
+	/**
+	 * Кандидаты-элементы для работы: {key}_tasks + fs_lms_problems (unified).
+	 * Params: subject_key, collection, scope, search
+	 */
+	public function ajaxGetWorkItemCandidates(): void {
+		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$collection  = (int) ( $_POST['collection'] ?? 0 );
+		$scope       = $this->sanitizeKey( $_POST['scope'] ?? 'mine' );
+		$search      = $this->sanitizeText( $_POST['search'] ?? '' );
+
+		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
+			$scope = 'mine';
+		}
+
+		$this->success(
+			$this->authoringService->getItemCandidates( $subject_key, $collection, $scope, $search )
+		);
+	}
+
+	/**
+	 * Коллекции заданий предмета для фильтра.
+	 * Params: subject_key
+	 */
+	public function ajaxGetWorkCollections(): void {
+		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+
+		$raw    = $this->authoringService->getCollections( $subject_key );
+		$result = array();
+		foreach ( $raw as $id => $name ) {
+			$result[] = array( 'id' => $id, 'name' => $name );
+		}
+
+		$this->success( $result );
+	}
+
+	/**
+	 * Создаёт черновик работы из конструктора урока.
+	 * Params: subject_key, title, work_type
+	 */
+	public function ajaxCreateWorkDraft(): void {
+		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$title       = $this->sanitizeText( $_POST['title'] ?? '' ) ?: 'Новая работа';
+		$work_type   = $this->sanitizeKey( $_POST['work_type'] ?? '' );
+
+		$dto = WorkDTO::fromArray( array(
+			'id'           => 0,
+			'subject_key'  => $subject_key,
+			'title'        => $title,
+			'work_type'    => $work_type,
+			'item_ids'     => array(),
+			'instructions' => '',
+			'author_id'    => get_current_user_id(),
+			'status'       => 'draft',
+		) );
+
+		try {
+			$work_id = $this->workManager->create( $subject_key, $dto );
+			$this->success( array( 'id' => $work_id, 'title' => $title ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Не удалось создать работу: ' . $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Создаёт черновик задачи (fs_lms_problems) из конструктора работы.
+	 * Params: title
+	 */
+	public function ajaxCreateProblemDraft(): void {
+		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+
+		$title = $this->sanitizeText( $_POST['title'] ?? '' ) ?: 'Новая задача';
+
+		try {
+			$id = $this->authoringService->createProblemDraft( $title );
+			$this->success( array( 'id' => $id, 'title' => $title ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Не удалось создать задачу: ' . $e->getMessage() );
+		}
+	}
+}

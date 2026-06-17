@@ -207,6 +207,20 @@ class PostManager {
 	}
 
 	/**
+	 * Обновляет поля поста (post_title, post_content и т.д.).
+	 *
+	 * @param int   $post_id ID поста
+	 * @param array $data    Поля для обновления (без ID — добавляется автоматически)
+	 *
+	 * @return bool true при успехе
+	 */
+	public function update( int $post_id, array $data ): bool {
+		$result = wp_update_post( array_merge( $data, array( 'ID' => $post_id ) ) );
+
+		return ! is_wp_error( $result ) && 0 !== $result;
+	}
+
+	/**
 	 * Возвращает все мета-поля поста в виде ассоциативного массива.
 	 *
 	 * @param int $post_id ID поста
@@ -380,6 +394,62 @@ class PostManager {
 	 */
 	public function getMeta( int $post_id, string $key, bool $single = true ): mixed {
 		return get_post_meta( $post_id, $key, $single );
+	}
+
+	/**
+	 * Гибкая выборка постов типа (для селекторов банков и read-моделей).
+	 *
+	 * @param string $post_type Тип записи.
+	 * @param array{
+	 *     status?: string|array<int, string>,
+	 *     author?: int,
+	 *     search?: string,
+	 *     tax_query?: array,
+	 *     limit?: int,
+	 *     orderby?: string,
+	 *     order?: string
+	 * } $opts Параметры выборки.
+	 *
+	 * @return \WP_Post[]
+	 */
+	public function search( string $post_type, array $opts = array() ): array {
+		$args = array(
+			'post_type'        => $post_type,
+			'post_status'      => $opts['status'] ?? array( 'publish', 'draft' ),
+			'numberposts'      => $opts['limit'] ?? -1,
+			'orderby'          => $opts['orderby'] ?? 'title',
+			'order'            => $opts['order'] ?? 'ASC',
+			'suppress_filters' => false,
+		);
+
+		if ( ! empty( $opts['author'] ) ) {
+			$args['author'] = (int) $opts['author'];
+		}
+		if ( ! empty( $opts['search'] ) ) {
+			$args['s'] = (string) $opts['search'];
+		}
+		if ( ! empty( $opts['tax_query'] ) ) {
+			$args['tax_query'] = $opts['tax_query'];
+		}
+
+		return get_posts( $args );
+	}
+
+	/**
+	 * Меняет статус публикации поста.
+	 *
+	 * @param int    $post_id ID поста.
+	 * @param string $status  Новый статус (publish | draft | fs_archived | ...).
+	 *
+	 * @return bool
+	 */
+	public function updateStatus( int $post_id, string $status ): bool {
+		$result = wp_update_post( array(
+			'ID'          => $post_id,
+			'post_status' => $status,
+		) );
+
+		return ! is_wp_error( $result ) && 0 !== $result;
 	}
 
 	/**
