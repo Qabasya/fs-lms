@@ -5,7 +5,9 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
+use Inc\Enums\AssignmentPolicy;
 use Inc\Enums\Capability;
+use Inc\Enums\LessonVisibility;
 use Inc\Enums\Nonce;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 use Inc\Services\Course\CourseAssignmentService;
@@ -36,7 +38,7 @@ class ProgramCallbacks extends BaseController {
 		$this->authorize( Nonce::AssignCourse, Capability::ManageLMSAssignments );
 		$groupId  = $this->requireInt( $_POST['group_id'] ?? '' );
 		$courseId = $this->requireInt( $_POST['course_id'] ?? '' );
-		$policy   = $this->sanitizeKey( $_POST['policy'] ?? 'append' );
+		$policy   = AssignmentPolicy::fromValueOrDefault( $this->sanitizeKey( $_POST['policy'] ?? '' ) );
 		$userId   = get_current_user_id();
 
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
@@ -111,14 +113,14 @@ class ProgramCallbacks extends BaseController {
 	public function ajaxSetLessonVisibility(): void {
 		$this->authorize( Nonce::SetLessonVisibility, Capability::ManageLMSAssignments );
 		$groupLessonId = $this->requireInt( $_POST['group_lesson_id'] ?? '' );
-		$visibility    = $this->sanitizeKey( $_POST['visibility'] ?? 'hidden' );
+		$visibility    = LessonVisibility::tryFrom( $this->sanitizeKey( $_POST['visibility'] ?? '' ) );
 		$userId        = get_current_user_id();
 
-		if ( ! in_array( $visibility, array( 'hidden', 'open', 'archived' ), true ) ) {
+		if ( null === $visibility ) {
 			$this->error( __( 'Неверное значение видимости.', 'fs-lms' ) );
 		}
 
-		$this->visibilityService->setVisibility( $groupLessonId, $visibility, $userId );
+		$this->visibilityService->setVisibility( $groupLessonId, $visibility->value, $userId );
 		$this->success();
 	}
 

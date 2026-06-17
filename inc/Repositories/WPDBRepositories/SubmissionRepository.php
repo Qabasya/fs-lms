@@ -49,30 +49,20 @@ class SubmissionRepository {
 		int  $workId,
 		?int $taskId = null
 	): ?SubmissionDTO {
-		if ( null === $taskId ) {
-			$row = $this->wpdb->get_row(
-				$this->wpdb->prepare(
-					'SELECT * FROM %i WHERE student_person_id = %d AND group_lesson_id = %d AND work_id = %d AND task_id IS NULL LIMIT 1',
-					$this->table,
-					$studentPersonId,
-					$groupLessonId,
-					$workId
-				),
-				ARRAY_A
-			);
-		} else {
-			$row = $this->wpdb->get_row(
-				$this->wpdb->prepare(
-					'SELECT * FROM %i WHERE student_person_id = %d AND group_lesson_id = %d AND work_id = %d AND task_id = %d LIMIT 1',
-					$this->table,
-					$studentPersonId,
-					$groupLessonId,
-					$workId,
-					$taskId
-				),
-				ARRAY_A
-			);
+		$taskClause = null === $taskId ? 'task_id IS NULL' : 'task_id = %d';
+		$params     = array( $this->table, $studentPersonId, $groupLessonId, $workId );
+		if ( null !== $taskId ) {
+			$params[] = $taskId;
 		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $this->wpdb->prepare(
+			"SELECT * FROM %i WHERE student_person_id = %d AND group_lesson_id = %d AND work_id = %d AND $taskClause LIMIT 1",
+			$params
+		);
+		// phpcs:enable
+		$row = $this->wpdb->get_row( $sql, ARRAY_A );
+
 		return $row ? SubmissionDTO::fromArray( $row ) : null;
 	}
 

@@ -7,6 +7,7 @@ namespace Inc\Services\Course;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
+use Inc\Enums\AssignmentPolicy;
 use Inc\Enums\LogEvent;
 use Inc\Managers\CourseManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -24,10 +25,10 @@ class CourseAssignmentService {
 	/**
 	 * Снапшотит уроки курса в программу группы.
 	 *
-	 * @param string $policy  'append' — дописать; 'replace' — заменить (удаляет текущие строки).
+	 * @param AssignmentPolicy $policy Append — дописать; Replace — заменить (удаляет текущие строки).
 	 * @return int  Число добавленных строк.
 	 */
-	public function assign( int $groupId, int $courseId, int $actorUserId, string $policy = 'append' ): int {
+	public function assign( int $groupId, int $courseId, int $actorUserId, AssignmentPolicy $policy = AssignmentPolicy::Append ): int {
 		$group  = $this->groups->findById( $groupId );
 		$course = $this->courseManager->get( $courseId );
 
@@ -38,19 +39,20 @@ class CourseAssignmentService {
 			throw new \InvalidArgumentException( 'Курс принадлежит другому предмету.' );
 		}
 
-		if ( 'replace' === $policy ) {
+		if ( AssignmentPolicy::Replace === $policy ) {
 			$this->groupLessons->deleteAllByGroup( $groupId );
 		}
 
-		$added = 0;
+		$position = $this->groupLessons->nextPosition( $groupId );
+		$added    = 0;
 		foreach ( $course->lessonIds as $lessonId ) {
-			$position = $this->groupLessons->nextPosition( $groupId );
 			$this->groupLessons->add( new GroupLessonInputDTO(
 				groupId         : $groupId,
 				lessonId        : $lessonId,
 				position        : $position,
 				createdByUserId : $actorUserId,
 			) );
+			$position++;
 			$added++;
 		}
 

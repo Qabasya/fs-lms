@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Course;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
@@ -18,6 +19,7 @@ class LessonVisibilityServiceTest extends TestCase {
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
 	private LessonManager&\PHPUnit\Framework\MockObject\MockObject $lessonManager;
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
+	private ClockInterface&\PHPUnit\Framework\MockObject\MockObject $clock;
 	private LessonVisibilityService $service;
 
 	protected function setUp(): void {
@@ -25,10 +27,13 @@ class LessonVisibilityServiceTest extends TestCase {
 		$this->groupLessons  = $this->createMock( GroupLessonRepository::class );
 		$this->lessonManager = $this->createMock( LessonManager::class );
 		$this->dispatcher    = $this->createMock( LogEventDispatcherInterface::class );
+		$this->clock         = $this->createMock( ClockInterface::class );
+		$this->clock->method( 'now' )->willReturn( '2024-06-01 12:00:00' );
 		$this->service       = new LessonVisibilityService(
 			$this->groupLessons,
 			$this->lessonManager,
 			$this->dispatcher,
+			$this->clock,
 		);
 	}
 

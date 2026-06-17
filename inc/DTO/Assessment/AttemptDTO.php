@@ -25,8 +25,11 @@ readonly class AttemptDTO {
 		public string        $updatedAt,
 	) {}
 
-	public function isExpired(): bool {
-		return $this->deadlineAt < current_time( 'mysql' );
+	/**
+	 * @param string $now Текущее время в формате 'Y-m-d H:i:s' (источник — ClockInterface).
+	 */
+	public function isExpired( string $now ): bool {
+		return $this->deadlineAt < $now;
 	}
 
 	public static function fromArray( array $row ): self {

@@ -11,15 +11,14 @@ use Inc\Services\PostTypeResolver;
 /**
  * Class CourseManager
  *
- * CRUD курсов: пост (PostManager) + meta (MetaBoxManager).
+ * CRUD курсов: пост + meta через PostManager.
  *
  * @package Inc\Managers
  */
 class CourseManager {
 
 	public function __construct(
-		private readonly PostManager    $posts,
-		private readonly MetaBoxManager $metaBoxManager,
+		private readonly PostManager $posts,
 	) {}
 
 	public function create( string $subjectKey, CourseDTO $dto ): int {
@@ -39,13 +38,12 @@ class CourseManager {
 	}
 
 	public function update( int $courseId, CourseDTO $dto ): bool {
-		$result = wp_update_post( array(
-			'ID'           => $courseId,
+		$updated = $this->posts->update( $courseId, array(
 			'post_title'   => $dto->title,
 			'post_content' => $dto->descriptionHtml,
 		) );
 
-		if ( is_wp_error( $result ) || 0 === $result ) {
+		if ( ! $updated ) {
 			return false;
 		}
 
@@ -54,12 +52,12 @@ class CourseManager {
 	}
 
 	public function get( int $courseId ): ?CourseDTO {
-		$post = get_post( $courseId );
-		if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
+		$post = $this->posts->get( $courseId );
+		if ( null === $post || ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
 			return null;
 		}
 
-		$meta = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
+		$meta = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
 		return CourseDTO::fromPost( $post, is_array( $meta ) ? $meta : array() );
 	}
 
@@ -67,26 +65,21 @@ class CourseManager {
 	 * Курсы банка предмета.
 	 *
 	 * @param string $subjectKey
-	 * @param array  $args Дополнительные аргументы get_posts().
+	 * @param array  $args Опции выборки (PostManager::search): status, author, search, orderby, order, limit.
 	 * @return CourseDTO[]
 	 */
 	public function getBankBySubject( string $subjectKey, array $args = array() ): array {
-		$posts = get_posts( array_merge( array(
-			'post_type'   => PostTypeResolver::courses( $subjectKey ),
-			'post_status' => array( 'publish', 'draft' ),
-			'numberposts' => -1,
-			'orderby'     => 'title',
-			'order'       => 'ASC',
-		), $args ) );
+		$posts = $this->posts->search( PostTypeResolver::courses( $subjectKey ), $args );
 
-		return array_map( static function ( \WP_Post $post ): CourseDTO {
-			$meta = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
+		return array_map( function ( \WP_Post $post ): CourseDTO {
+			$meta = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
 			return CourseDTO::fromPost( $post, is_array( $meta ) ? $meta : array() );
 		}, $posts );
 	}
 
 	public function delete( int $courseId ): bool {
-		return (bool) wp_delete_post( $courseId, true );
+		$this->posts->delete( $courseId );
+		return true;
 	}
 
 	private function saveMeta( int $courseId, CourseDTO $dto ): void {

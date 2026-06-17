@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Pages;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Assessment\AttemptDTO;
@@ -26,6 +27,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		private readonly AssessmentManager           $assessments,
 		private readonly AssessmentAttemptRepository $attemptRepo,
 		private readonly PersonRepository            $personRepo,
+		private readonly ClockInterface              $clock,
 	) {
 		parent::__construct();
 	}
@@ -56,6 +58,8 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		if ( $person ) {
 			$activeAttempt = $this->attemptRepo->findActive( $person->id, $assessment->id );
 		}
+
+		$now = $this->clock->now();
 
 		ThemeCompatService::header();
 		include $this->path( 'templates/frontend/assessment/attempt.php' );

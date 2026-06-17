@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Assessment;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Assessment\AttemptInputDTO;
@@ -22,6 +23,7 @@ class AttemptService {
 		private readonly AssessmentManager           $assessments,
 		private readonly AutoGradeService            $autoGrade,
 		private readonly LogEventDispatcherInterface $dispatcher,
+		private readonly ClockInterface              $clock,
 	) {}
 
 	/**
@@ -42,7 +44,7 @@ class AttemptService {
 			}
 		}
 
-		$now          = current_time( 'mysql' );
+		$now          = $this->clock->now();
 		$deadlineAt   = $assessment->timeLimit > 0
 			? date( 'Y-m-d H:i:s', strtotime( $now ) + $assessment->timeLimit * 60 )
 			: date( 'Y-m-d H:i:s', strtotime( $now ) + 100 * YEAR_IN_SECONDS );
@@ -101,7 +103,7 @@ class AttemptService {
 	public function submit( int $attemptId, int $studentPersonId ): AttemptDTO {
 		$attempt = $this->requireActiveAttempt( $attemptId, $studentPersonId );
 
-		$now = current_time( 'mysql' );
+		$now = $this->clock->now();
 		$this->attempts->update( $attempt->id, [
 			'status'       => AttemptStatus::Submitted->value,
 			'submitted_at' => $now,
@@ -136,7 +138,7 @@ class AttemptService {
 			return false;
 		}
 
-		if ( ! $attempt->isExpired() ) {
+		if ( ! $attempt->isExpired( $this->clock->now() ) ) {
 			return false;
 		}
 

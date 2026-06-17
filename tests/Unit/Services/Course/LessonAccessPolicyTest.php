@@ -8,8 +8,8 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Enums\AccessLevel;
 use Inc\Enums\EnrollmentStatus;
+use Inc\Repositories\OptionsRepositories\ExpulsionPolicyRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
-use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\LessonAccessPolicy;
 use PHPUnit\Framework\TestCase;
@@ -18,18 +18,16 @@ class LessonAccessPolicyTest extends TestCase {
 
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $studentRecords;
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
-	private PersonRepository&\PHPUnit\Framework\MockObject\MockObject $personRepository;
 	private LessonAccessPolicy $policy;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->studentRecords   = $this->createMock( StudentRecordRepository::class );
 		$this->groupLessons     = $this->createMock( GroupLessonRepository::class );
-		$this->personRepository = $this->createMock( PersonRepository::class );
 		$this->policy           = new LessonAccessPolicy(
 			$this->studentRecords,
 			$this->groupLessons,
-			$this->personRepository,
+			new ExpulsionPolicyRepository(),
 		);
 		$GLOBALS['_test_options'] = [];
 	}

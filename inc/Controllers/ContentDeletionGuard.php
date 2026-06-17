@@ -10,6 +10,8 @@ use Inc\Enums\Capability;
 use Inc\Services\Course\ContentLifecycleService;
 use Inc\Services\Course\ContentUsageService;
 use Inc\Services\PostTypeResolver;
+use Inc\Shared\Traits\Sanitizer;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class ContentDeletionGuard
@@ -20,6 +22,9 @@ use Inc\Services\PostTypeResolver;
  * @package Inc\Controllers
  */
 class ContentDeletionGuard extends BaseController implements ServiceInterface {
+
+	use Sanitizer;
+	use TemplateRenderer;
 
 	private const ARCHIVE_ACTION   = 'fs_lms_archive_content';
 	private const UNARCHIVE_ACTION = 'fs_lms_unarchive_content';
@@ -74,16 +79,10 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		$kind = ContentUsageService::kindOf( $post->post_type );
-		if ( '' === $kind ) {
-			echo '—';
-			return;
-		}
+		$kind  = ContentUsageService::kindOf( $post->post_type );
+		$count = '' === $kind ? 0 : $this->usage->usageCount( $kind, $post_id );
 
-		$count = $this->usage->usageCount( $kind, $post_id );
-		echo $count > 0
-			? '<strong>' . esc_html( (string) $count ) . '</strong>'
-			: '—';
+		$this->render( 'admin/components/content-usage-badge', array( 'count' => $count ) );
 	}
 
 	/**
@@ -154,16 +153,9 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		$count = (int) $_GET['fs_lms_delete_blocked'];
-		printf(
-			'<div class="notice notice-error"><p>%s</p></div>',
-			esc_html(
-				sprintf(
-					/* translators: %d — число потребителей */
-					__( 'Нельзя удалить: контент используется в %d месте(ах). Используйте «В архив».', 'fs-lms' ),
-					$count
-				)
-			)
+		$this->render(
+			'admin/components/content-delete-blocked-notice',
+			array( 'count' => $this->sanitizeInt( $_GET['fs_lms_delete_blocked'] ) )
 		);
 	}
 
@@ -208,7 +200,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	}
 
 	private function validatedActionPost( string $action ): int {
-		$post_id = (int) ( $_GET['post'] ?? 0 );
+		$post_id = $this->sanitizeInt( $_GET['post'] ?? 0 );
 
 		if ( ! current_user_can( Capability::ManageLMSAssignments->value ) ) {
 			wp_die( esc_html__( 'Недостаточно прав.', 'fs-lms' ) );

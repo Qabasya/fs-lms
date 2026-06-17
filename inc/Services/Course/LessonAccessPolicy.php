@@ -8,17 +8,17 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Enums\AccessLevel;
 use Inc\Enums\EnrollmentStatus;
-use Inc\Enums\OptionName;
+use Inc\Enums\LessonVisibility;
+use Inc\Repositories\OptionsRepositories\ExpulsionPolicyRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
-use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 class LessonAccessPolicy {
 
 	public function __construct(
-		private readonly StudentRecordRepository $studentRecords,
-		private readonly GroupLessonRepository   $groupLessons,
-		private readonly PersonRepository        $personRepository,
+		private readonly StudentRecordRepository   $studentRecords,
+		private readonly GroupLessonRepository     $groupLessons,
+		private readonly ExpulsionPolicyRepository $expulsionPolicy,
 	) {}
 
 	/**
@@ -27,7 +27,7 @@ class LessonAccessPolicy {
 	 */
 	public function resolve( StudentRecordDTO $record, GroupLessonDTO $lesson ): AccessLevel {
 		// hidden — никому.
-		if ( 'hidden' === $lesson->visibility ) {
+		if ( LessonVisibility::Hidden->value === $lesson->visibility ) {
 			return AccessLevel::None;
 		}
 
@@ -41,8 +41,7 @@ class LessonAccessPolicy {
 
 		// Терминальный статус.
 		if ( $record->status->isTerminal() ) {
-			$policy = get_option( OptionName::ExpulsionRetentionPolicy->value, 'retain' );
-			if ( 'block' === $policy ) {
+			if ( ExpulsionPolicyRepository::BLOCK === $this->expulsionPolicy->getRetentionPolicy() ) {
 				return AccessLevel::None;
 			}
 			// retain: видит уроки, опубликованные до даты отчисления.

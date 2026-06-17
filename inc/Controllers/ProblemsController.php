@@ -6,10 +6,13 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\Nonce;
 use Inc\Enums\PostMetaName;
 use Inc\Managers\PostManager;
 use Inc\Services\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
+use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class ProblemsController
@@ -20,6 +23,9 @@ use Inc\Services\Template\TemplateRegistry;
  * @package Inc\Controllers
  */
 class ProblemsController extends BaseController implements ServiceInterface {
+
+	use Authorizer;
+	use Sanitizer;
 
 	public function __construct(
 		private readonly TemplateRegistry $registry,
@@ -84,9 +90,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	public function renderTemplateMetabox( \WP_Post $post ): void {
-		$current = (string) get_post_meta( $post->ID, PostMetaName::TemplateType->value, true );
-		wp_nonce_field( 'fs_lms_problem_template_save', 'fs_lms_problem_template_nonce' );
-		echo '<select name="' . esc_attr( PostMetaName::TemplateType->value ) . '" style="width:100%">';
+		$current = (string) $this->posts->getMeta( $post->ID, PostMetaName::TemplateType->value );
+		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
+		echo '<select name="' . esc_attr( PostMetaName::TemplateType->value ) . '" class="fs-lms-template-select">';
 		foreach ( $this->registry->getAll() as $template ) {
 			$selected = selected( $current, $template->get_id(), false );
 			echo '<option value="' . esc_attr( $template->get_id() ) . '"' . $selected . '>'
@@ -99,11 +105,10 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
-		$nonce = $_POST['fs_lms_problem_template_nonce'] ?? '';
-		if ( ! wp_verify_nonce( $nonce, 'fs_lms_problem_template_save' ) ) {
+		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {
 			return;
 		}
-		$template_id = sanitize_key( $_POST[ PostMetaName::TemplateType->value ] ?? '' );
+		$template_id = $this->sanitizeKey( $_POST[ PostMetaName::TemplateType->value ] ?? '' );
 		if ( '' !== $template_id ) {
 			$this->posts->updateMeta( $post_id, PostMetaName::TemplateType->value, $template_id );
 		}

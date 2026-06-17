@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks\Assessment;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
@@ -24,6 +25,7 @@ class GradeAttemptCallbacks extends BaseController {
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly AssessmentAnswerRepository  $answers,
 		private readonly AutoGradeService            $autoGrade,
+		private readonly ClockInterface              $clock,
 	) {
 		parent::__construct();
 	}
@@ -49,7 +51,7 @@ class GradeAttemptCallbacks extends BaseController {
 			'is_correct'        => $isCorrect ? 1 : 0,
 			'grader_note'       => $feedback,
 			'graded_by_user_id' => get_current_user_id(),
-			'graded_at'         => current_time( 'mysql' ),
+			'graded_at'         => $this->clock->now(),
 		] );
 
 		$updated = $this->autoGrade->finalize( $attempt );

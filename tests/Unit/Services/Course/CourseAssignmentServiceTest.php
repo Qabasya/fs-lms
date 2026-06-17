@@ -6,6 +6,7 @@ namespace Unit\Services\Course;
 
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\CourseDTO;
+use Inc\Enums\AssignmentPolicy;
 use Inc\Enums\LogEvent;
 use Inc\Managers\CourseManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -73,7 +74,7 @@ class CourseAssignmentServiceTest extends TestCase {
 
 		$this->groupLessons->expects( self::never() )->method( 'deleteAllByGroup' );
 
-		$this->service->assign( 1, 5, 99, 'append' );
+		$this->service->assign( 1, 5, 99, AssignmentPolicy::Append );
 	}
 
 	public function test_assign_replace_deletes_existing_first(): void {
@@ -84,7 +85,7 @@ class CourseAssignmentServiceTest extends TestCase {
 			->method( 'deleteAllByGroup' )
 			->with( 1 );
 
-		$this->service->assign( 1, 5, 99, 'replace' );
+		$this->service->assign( 1, 5, 99, AssignmentPolicy::Replace );
 	}
 
 	public function test_assign_rejects_cross_subject_course(): void {

@@ -51,31 +51,7 @@ class AutoGradeService {
 			$totalMax   += $answer->maxScore ?? 0.0;
 		}
 
-		$newStatus = $hasManual ? AttemptStatus::Submitted : AttemptStatus::Graded;
-
-		$this->attempts->update( $attempt->id, [
-			'status'      => $newStatus->value,
-			'total_score' => $totalScore,
-			'max_score'   => $totalMax,
-		] );
-
-		if ( $newStatus === AttemptStatus::Graded ) {
-			$this->dispatcher->dispatch(
-				LogEvent::AttemptGraded,
-				new LearningEvent(
-					event      : LogEvent::AttemptGraded,
-					actorUserId: $attempt->studentPersonId,
-					groupId    : $attempt->groupId,
-					entityType : 'attempt',
-					entityId   : (string) $attempt->id,
-					isPublic   : false,
-				)
-			);
-		}
-
-		$updated = $this->attempts->find( $attempt->id );
-		assert( $updated !== null );
-		return $updated;
+		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );
 	}
 
 	/**
@@ -105,7 +81,7 @@ class AutoGradeService {
 				continue;
 			}
 
-			$meta          = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
+			$meta          = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
 			$correctAnswer = is_array( $meta ) ? trim( (string) ( $meta['task_answer'] ?? '' ) ) : '';
 			$studentAnswer = trim( (string) $answer->answerText );
 
@@ -122,7 +98,15 @@ class AutoGradeService {
 			$totalMax   += 1.0;
 		}
 
-		$newStatus = ( ! $hasManual ) ? AttemptStatus::Graded : AttemptStatus::Submitted;
+		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );
+	}
+
+	/**
+	 * Сохраняет итоговый балл/статус попытки и диспатчит AttemptGraded, если попытка
+	 * полностью авто-оценена. Общий хвост finalize() и gradeAttempt().
+	 */
+	private function persistTotals( AttemptDTO $attempt, float $totalScore, float $totalMax, bool $hasManual ): AttemptDTO {
+		$newStatus = $hasManual ? AttemptStatus::Submitted : AttemptStatus::Graded;
 
 		$this->attempts->update( $attempt->id, [
 			'status'      => $newStatus->value,

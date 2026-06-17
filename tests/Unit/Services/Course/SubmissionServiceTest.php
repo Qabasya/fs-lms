@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Course;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GradeDTO;
 use Inc\DTO\Course\GroupLessonDTO;
@@ -14,10 +15,8 @@ use Inc\Enums\LogEvent;
 use Inc\Enums\SubmissionStatus;
 use Inc\Enums\WorkType;
 use Inc\Managers\MediaManager;
-use Inc\Managers\LessonManager;
 use Inc\Managers\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
-use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\LessonAccessPolicy;
@@ -30,11 +29,10 @@ class SubmissionServiceTest extends TestCase {
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
 	private EffectiveWorksResolver&\PHPUnit\Framework\MockObject\MockObject $resolver;
 	private WorkManager&\PHPUnit\Framework\MockObject\MockObject $workManager;
-	private LessonManager&\PHPUnit\Framework\MockObject\MockObject $lessonManager;
 	private MediaManager&\PHPUnit\Framework\MockObject\MockObject $mediaManager;
-	private PersonRepository&\PHPUnit\Framework\MockObject\MockObject $personRepo;
 	private LessonAccessPolicy&\PHPUnit\Framework\MockObject\MockObject $policy;
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
+	private ClockInterface&\PHPUnit\Framework\MockObject\MockObject $clock;
 	private SubmissionService $service;
 
 	protected function setUp(): void {
@@ -43,22 +41,21 @@ class SubmissionServiceTest extends TestCase {
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
 		$this->resolver     = $this->createMock( EffectiveWorksResolver::class );
 		$this->workManager  = $this->createMock( WorkManager::class );
-		$this->lessonManager= $this->createMock( LessonManager::class );
 		$this->mediaManager = $this->createMock( MediaManager::class );
-		$this->personRepo   = $this->createMock( PersonRepository::class );
 		$this->policy       = $this->createMock( LessonAccessPolicy::class );
 		$this->dispatcher   = $this->createMock( LogEventDispatcherInterface::class );
+		$this->clock        = $this->createMock( ClockInterface::class );
+		$this->clock->method( 'now' )->willReturn( '2024-06-01 12:00:00' );
 
 		$this->service = new SubmissionService(
 			$this->submissions,
 			$this->groupLessons,
 			$this->resolver,
 			$this->workManager,
-			$this->lessonManager,
 			$this->mediaManager,
-			$this->personRepo,
 			$this->policy,
 			$this->dispatcher,
+			$this->clock,
 		);
 	}
 

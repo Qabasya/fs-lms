@@ -11,15 +11,14 @@ use Inc\Services\PostTypeResolver;
 /**
  * Class LessonManager
  *
- * CRUD уроков: пост (PostManager) + meta (MetaBoxManager).
+ * CRUD уроков: пост + meta через PostManager.
  *
  * @package Inc\Managers
  */
 class LessonManager {
 
 	public function __construct(
-		private readonly PostManager    $posts,
-		private readonly MetaBoxManager $metaBoxManager,
+		private readonly PostManager $posts,
 	) {}
 
 	public function create( string $subjectKey, LessonDTO $dto ): int {
@@ -39,13 +38,12 @@ class LessonManager {
 	}
 
 	public function update( int $lessonId, LessonDTO $dto ): bool {
-		$result = wp_update_post( array(
-			'ID'           => $lessonId,
+		$updated = $this->posts->update( $lessonId, array(
 			'post_title'   => $dto->topic,
 			'post_content' => $dto->theoryHtml,
 		) );
 
-		if ( is_wp_error( $result ) || $result === 0 ) {
+		if ( ! $updated ) {
 			return false;
 		}
 
@@ -54,12 +52,12 @@ class LessonManager {
 	}
 
 	public function get( int $lessonId ): ?LessonDTO {
-		$post = get_post( $lessonId );
-		if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isLessonPostType( $post->post_type ) ) {
+		$post = $this->posts->get( $lessonId );
+		if ( null === $post || ! PostTypeResolver::isLessonPostType( $post->post_type ) ) {
 			return null;
 		}
 
-		$meta = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
+		$meta = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
 		return LessonDTO::fromPost( $post, is_array( $meta ) ? $meta : array() );
 	}
 
@@ -67,26 +65,21 @@ class LessonManager {
 	 * Уроки банка предмета (опубликованные + черновики).
 	 *
 	 * @param string $subjectKey
-	 * @param array  $args  Дополнительные аргументы get_posts()
+	 * @param array  $args  Опции выборки (PostManager::search): status, author, search, orderby, order, limit.
 	 * @return LessonDTO[]
 	 */
 	public function getBankBySubject( string $subjectKey, array $args = array() ): array {
-		$posts = get_posts( array_merge( array(
-			'post_type'      => PostTypeResolver::lessons( $subjectKey ),
-			'post_status'    => array( 'publish', 'draft' ),
-			'numberposts'    => -1,
-			'orderby'        => 'title',
-			'order'          => 'ASC',
-		), $args ) );
+		$posts = $this->posts->search( PostTypeResolver::lessons( $subjectKey ), $args );
 
 		return array_map( function ( \WP_Post $post ): LessonDTO {
-			$meta = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
+			$meta = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
 			return LessonDTO::fromPost( $post, is_array( $meta ) ? $meta : array() );
 		}, $posts );
 	}
 
 	public function delete( int $lessonId ): bool {
-		return (bool) wp_delete_post( $lessonId, true );
+		$this->posts->delete( $lessonId );
+		return true;
 	}
 
 	private function saveMeta( int $lessonId, LessonDTO $dto ): void {

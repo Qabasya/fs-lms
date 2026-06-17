@@ -32,7 +32,7 @@ use Inc\Enums\AttemptStatus;
 		<?php if ( ! $person ) : ?>
 			<p class="fs-assessment-notice"><?php echo esc_html( 'Для прохождения контрольной необходимо войти в систему.' ); ?></p>
 
-		<?php elseif ( $activeAttempt && ! $activeAttempt->isExpired() ) : ?>
+		<?php elseif ( $activeAttempt && ! $activeAttempt->isExpired( $now ) ) : ?>
 			<?php /* ===== ФОРМА АКТИВНОЙ ПОПЫТКИ ===== */ ?>
 			<div id="fs-assessment-form"
 				data-attempt-id="<?php echo esc_attr( (string) $activeAttempt->id ); ?>"
@@ -79,7 +79,7 @@ use Inc\Enums\AttemptStatus;
 				</div>
 			</div>
 
-		<?php elseif ( $activeAttempt && $activeAttempt->isExpired() ) : ?>
+		<?php elseif ( $activeAttempt && $activeAttempt->isExpired( $now ) ) : ?>
 			<p class="fs-assessment-notice">Время попытки истекло.</p>
 			<button class="fs-btn fs-btn--primary" id="fs-start-attempt-btn">
 				Начать новую попытку

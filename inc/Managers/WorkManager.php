@@ -11,15 +11,14 @@ use Inc\Services\PostTypeResolver;
 /**
  * Class WorkManager
  *
- * CRUD работ: пост (PostManager) + meta (MetaBoxManager).
+ * CRUD работ: пост + meta через PostManager.
  *
  * @package Inc\Managers
  */
 class WorkManager {
 
 	public function __construct(
-		private readonly PostManager    $posts,
-		private readonly MetaBoxManager $metaBoxManager,
+		private readonly PostManager $posts,
 	) {}
 
 	public function create( string $subjectKey, WorkDTO $dto ): int {
@@ -39,12 +38,11 @@ class WorkManager {
 	}
 
 	public function update( int $workId, WorkDTO $dto ): bool {
-		$result = wp_update_post( array(
-			'ID'         => $workId,
+		$updated = $this->posts->update( $workId, array(
 			'post_title' => $dto->title,
 		) );
 
-		if ( is_wp_error( $result ) || 0 === $result ) {
+		if ( ! $updated ) {
 			return false;
 		}
 
@@ -53,12 +51,12 @@ class WorkManager {
 	}
 
 	public function get( int $workId ): ?WorkDTO {
-		$post = get_post( $workId );
-		if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isWorkPostType( $post->post_type ) ) {
+		$post = $this->posts->get( $workId );
+		if ( null === $post || ! PostTypeResolver::isWorkPostType( $post->post_type ) ) {
 			return null;
 		}
 
-		$meta = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
+		$meta = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
 		return WorkDTO::fromPost( $post, is_array( $meta ) ? $meta : array() );
 	}
 
@@ -66,26 +64,21 @@ class WorkManager {
 	 * Работы банка предмета.
 	 *
 	 * @param string $subjectKey
-	 * @param array  $args Дополнительные аргументы get_posts().
+	 * @param array  $args Опции выборки (PostManager::search): status, author, search, orderby, order, limit.
 	 * @return WorkDTO[]
 	 */
 	public function getBankBySubject( string $subjectKey, array $args = array() ): array {
-		$posts = get_posts( array_merge( array(
-			'post_type'   => PostTypeResolver::works( $subjectKey ),
-			'post_status' => array( 'publish', 'draft' ),
-			'numberposts' => -1,
-			'orderby'     => 'title',
-			'order'       => 'ASC',
-		), $args ) );
+		$posts = $this->posts->search( PostTypeResolver::works( $subjectKey ), $args );
 
-		return array_map( static function ( \WP_Post $post ): WorkDTO {
-			$meta = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
+		return array_map( function ( \WP_Post $post ): WorkDTO {
+			$meta = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
 			return WorkDTO::fromPost( $post, is_array( $meta ) ? $meta : array() );
 		}, $posts );
 	}
 
 	public function delete( int $workId ): bool {
-		return (bool) wp_delete_post( $workId, true );
+		$this->posts->delete( $workId );
+		return true;
 	}
 
 	private function saveMeta( int $workId, WorkDTO $dto ): void {

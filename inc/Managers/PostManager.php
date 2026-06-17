@@ -207,6 +207,20 @@ class PostManager {
 	}
 
 	/**
+	 * Обновляет поля поста (post_title, post_content и т.д.).
+	 *
+	 * @param int   $post_id ID поста
+	 * @param array $data    Поля для обновления (без ID — добавляется автоматически)
+	 *
+	 * @return bool true при успехе
+	 */
+	public function update( int $post_id, array $data ): bool {
+		$result = wp_update_post( array_merge( $data, array( 'ID' => $post_id ) ) );
+
+		return ! is_wp_error( $result ) && 0 !== $result;
+	}
+
+	/**
 	 * Возвращает все мета-поля поста в виде ассоциативного массива.
 	 *
 	 * @param int $post_id ID поста

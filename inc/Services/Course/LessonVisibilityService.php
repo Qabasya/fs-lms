@@ -4,8 +4,10 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\LearningEvent;
+use Inc\Enums\LessonVisibility;
 use Inc\Enums\LogEvent;
 use Inc\Managers\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -16,6 +18,7 @@ class LessonVisibilityService {
 		private readonly GroupLessonRepository       $groupLessons,
 		private readonly LessonManager               $lessonManager,
 		private readonly LogEventDispatcherInterface $dispatcher,
+		private readonly ClockInterface              $clock,
 	) {}
 
 	public function setVisibility( int $groupLessonId, string $visibility, int $actorUserId ): void {
@@ -26,18 +29,18 @@ class LessonVisibilityService {
 
 		$openedAt = null;
 
-		if ( 'open' === $visibility ) {
+		if ( LessonVisibility::Open->value === $visibility ) {
 			// copy-on-publish: заморозить work_ids только при первом открытии.
 			if ( ! $row->isPublished() ) {
 				$lesson = $this->lessonManager->get( $row->lessonId );
 				$this->groupLessons->setWorkIdsSnapshot( $groupLessonId, $lesson?->workIds ?? array() );
-				$openedAt = current_time( 'mysql' );
+				$openedAt = $this->clock->now();
 			}
 		}
 
 		$this->groupLessons->setVisibility( $groupLessonId, $visibility, $openedAt );
 
-		$event = 'open' === $visibility ? LogEvent::LessonPublished : LogEvent::LessonHidden;
+		$event = LessonVisibility::Open->value === $visibility ? LogEvent::LessonPublished : LogEvent::LessonHidden;
 		$this->dispatcher->dispatch(
 			$event,
 			new LearningEvent(

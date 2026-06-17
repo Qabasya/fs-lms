@@ -4,16 +4,15 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GradeDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\LogEvent;
-use Inc\Managers\LessonManager;
 use Inc\Managers\MediaManager;
 use Inc\Managers\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
-use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 
 class SubmissionService {
@@ -23,11 +22,10 @@ class SubmissionService {
 		private readonly GroupLessonRepository       $groupLessons,
 		private readonly EffectiveWorksResolver      $worksResolver,
 		private readonly WorkManager                 $workManager,
-		private readonly LessonManager               $lessonManager,
 		private readonly MediaManager                $mediaManager,
-		private readonly PersonRepository            $personRepository,
 		private readonly LessonAccessPolicy          $accessPolicy,
 		private readonly LogEventDispatcherInterface $dispatcher,
+		private readonly ClockInterface              $clock,
 	) {}
 
 	/**
@@ -73,7 +71,7 @@ class SubmissionService {
 
 		$dueAt = $row->homeworkDueAt;
 		if ( ! $row->allowLate && null !== $dueAt ) {
-			$now = current_time( 'mysql' );
+			$now = $this->clock->now();
 			if ( $now > $dueAt ) {
 				throw new \InvalidArgumentException( 'Срок сдачи истёк, повторная сдача запрещена.' );
 			}
@@ -91,7 +89,7 @@ class SubmissionService {
 				'answer_text'  => $answerText,
 				'attachment_id'=> $attachmentId ?? $existing->attachmentId,
 				'status'       => 'submitted',
-				'submitted_at' => current_time( 'mysql' ),
+				'submitted_at' => $this->clock->now(),
 			) );
 			$submissionId = $existing->id;
 		} else {
@@ -105,7 +103,7 @@ class SubmissionService {
 				attachmentId    : $attachmentId,
 				dueAt           : $dueAt,
 				status          : 'submitted',
-				submittedAt     : current_time( 'mysql' ),
+				submittedAt     : $this->clock->now(),
 			);
 			$submissionId = $this->submissions->create( $dto );
 		}
@@ -138,7 +136,7 @@ class SubmissionService {
 			'max_score'         => $grade->maxScore,
 			'feedback'          => $grade->feedback,
 			'graded_by_user_id' => $teacherUserId,
-			'graded_at'         => current_time( 'mysql' ),
+			'graded_at'         => $this->clock->now(),
 		) );
 
 		$row = $this->groupLessons->find( $sub->groupLessonId );
@@ -171,7 +169,7 @@ class SubmissionService {
 			'status'            => 'returned',
 			'feedback'          => $feedback,
 			'graded_by_user_id' => $teacherUserId,
-			'graded_at'         => current_time( 'mysql' ),
+			'graded_at'         => $this->clock->now(),
 		) );
 
 		$row = $this->groupLessons->find( $sub->groupLessonId );

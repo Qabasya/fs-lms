@@ -6,6 +6,7 @@ namespace Unit\Services\Course;
 
 use Inc\DTO\Course\GradebookEntryDTO;
 use Inc\Services\Course\GradebookService;
+use Inc\Services\Course\GradeSourceRegistry;
 use Inc\Services\Course\SubmissionGradeSource;
 use PHPUnit\Framework\TestCase;
 
@@ -16,8 +17,12 @@ class GradebookServiceTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->source  = $this->createMock( SubmissionGradeSource::class );
-		$this->service = new GradebookService( $this->source );
+		$this->source = $this->createMock( SubmissionGradeSource::class );
+
+		$registry = $this->createMock( GradeSourceRegistry::class );
+		$registry->method( 'all' )->willReturn( [ $this->source ] );
+
+		$this->service = new GradebookService( $registry );
 	}
 
 	private function makeEntry( int $studentId, string $title, float $score ): GradebookEntryDTO {
