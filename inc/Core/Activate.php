@@ -93,7 +93,7 @@ class Activate {
 		$generator->createPageIfNeeded( PageRoutes::SignIn, 'Авторизация', ShortCode::LoginForm->tag() );
 		$generator->createPageIfNeeded( PageRoutes::Apply, 'Подать заявку', ShortCode::ApplyForm->tag() );
 		$generator->createPageIfNeeded( PageRoutes::UserProfile, 'Личный кабинет', ShortCode::Profile->tag() );
-		$generator->createPageIfNeeded( PageRoutes::GroupCockpit, 'Кокпит группы', '' );
+		$generator->createPageIfNeeded( PageRoutes::GroupCockpit, 'Мои группы', '' );
 
 		self::createDefaultConsentIfNeeded();
 	}

@@ -424,6 +424,35 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 17. submissions — сдачи работ (Этап 3) =====
+		$submissions = TableName::Submissions->prefixed();
+		dbDelta(
+			"CREATE TABLE $submissions (
+			id                  int unsigned         NOT NULL AUTO_INCREMENT,
+			student_person_id   int unsigned         NOT NULL,
+			group_lesson_id     int unsigned         NOT NULL,
+			work_id             bigint unsigned      NOT NULL,
+			work_type           enum('practice','independent','homework') NOT NULL,
+			task_id             bigint unsigned      DEFAULT NULL,
+			answer_text         longtext             DEFAULT NULL,
+			attachment_id       bigint unsigned      DEFAULT NULL,
+			due_at              datetime             DEFAULT NULL,
+			status              enum('assigned','submitted','graded','returned') NOT NULL DEFAULT 'assigned',
+			score               decimal(6,2)         DEFAULT NULL,
+			max_score           decimal(6,2)         DEFAULT NULL,
+			feedback            text                 DEFAULT NULL,
+			graded_by_user_id   bigint unsigned      DEFAULT NULL,
+			submitted_at        datetime             DEFAULT NULL,
+			graded_at           datetime             DEFAULT NULL,
+			created_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY student_person_id (student_person_id),
+			KEY group_lesson_id (group_lesson_id),
+			KEY status (status)
+		) $cc;"
+		);
+
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$student_records`
@@ -463,6 +492,7 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::Submissions->prefixed(),
 			TableName::LearningEvents->prefixed(),
 			TableName::GroupLessons->prefixed(),
 			TableName::AuthLog->prefixed(),

@@ -27,6 +27,11 @@ class LearningEventSubscriber implements ServiceInterface {
 		$this->logEvents->subscribe( LogEvent::ExtraWorksChanged,        $handler );
 		$this->logEvents->subscribe( LogEvent::LessonPublished,          $handler );
 		$this->logEvents->subscribe( LogEvent::LessonHidden,             $handler );
+
+		// Этап 3 — сдача работ
+		$this->logEvents->subscribe( LogEvent::SubmissionMade,     $handler );
+		$this->logEvents->subscribe( LogEvent::SubmissionGraded,   $handler );
+		$this->logEvents->subscribe( LogEvent::SubmissionReturned, $handler );
 	}
 
 	public function handle( LearningEvent $event ): void {

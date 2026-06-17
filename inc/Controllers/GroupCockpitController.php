@@ -11,7 +11,10 @@ use Inc\Enums\PageRoutes;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\ScheduleService;
 use Inc\Services\ThemeCompatService;
@@ -25,6 +28,9 @@ class GroupCockpitController extends BaseController implements ServiceInterface 
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly LearningEventRepository $eventRepo,
 		private readonly GroupLessonRepository   $groupLessons,
+		private readonly PersonRepository        $personRepo,
+		private readonly EffectiveWorksResolver  $worksResolver,
+		private readonly SubmissionRepository    $submissionRepo,
 	) {
 		parent::__construct();
 	}
@@ -51,12 +57,18 @@ class GroupCockpitController extends BaseController implements ServiceInterface 
 			exit;
 		}
 
-		if ( ! $this->guard->canManage( $gid, $userId ) ) {
-			wp_redirect( home_url( '/' ) );
+		if ( $this->guard->canManage( $gid, $userId ) ) {
+			$this->renderCockpit( $gid, $userId );
 			exit;
 		}
 
-		$this->renderCockpit( $gid, $userId );
+		$person = $this->personRepo->findByWpUserId( $userId );
+		if ( $person && $this->guard->isMemberEver( $gid, $person->id ) ) {
+			$this->renderStudentCockpit( $gid, $person->id );
+			exit;
+		}
+
+		wp_redirect( home_url( '/' ) );
 		exit;
 
 		return $template; // phpcs:ignore
@@ -82,6 +94,33 @@ class GroupCockpitController extends BaseController implements ServiceInterface 
 
 		ThemeCompatService::header();
 		include $this->path( 'templates/frontend/group-cockpit/cockpit.php' );
+		ThemeCompatService::footer();
+	}
+
+	private function renderStudentCockpit( int $groupId, int $studentPersonId ): void {
+		$group   = $this->groups->findById( $groupId );
+		$program = $this->scheduleService->getProgram( $groupId );
+
+		$lessons = [];
+		foreach ( $program as $item ) {
+			$row = $item['row'];
+			if ( ! in_array( $row->visibility, [ 'open', 'archived' ], true ) ) {
+				continue;
+			}
+
+			$effectiveWorks = $this->worksResolver->resolve( $row );
+			$submissions    = $this->submissionRepo->listByStudentAndGroupLesson( $studentPersonId, $row->id );
+
+			$lessons[] = [
+				'row'         => $row,
+				'topic'       => $item['topic'],
+				'works'       => $effectiveWorks,
+				'submissions' => $submissions,
+			];
+		}
+
+		ThemeCompatService::header();
+		include $this->path( 'templates/frontend/group-cockpit/student-cockpit.php' );
 		ThemeCompatService::footer();
 	}
 }

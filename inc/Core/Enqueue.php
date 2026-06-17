@@ -347,6 +347,26 @@ class Enqueue extends BaseController implements ServiceInterface {
 					),
 				)
 			);
+
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_submission_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'actions'  => array(
+						'submitWork'          => AjaxHook::SubmitWork->jsAction(),
+						'getMySubmissions'    => AjaxHook::GetMySubmissions->jsAction(),
+						'saveGrade'           => AjaxHook::SaveGrade->jsAction(),
+						'returnSubmission'    => AjaxHook::ReturnSubmission->jsAction(),
+						'getGroupSubmissions' => AjaxHook::GetGroupSubmissions->jsAction(),
+						'getGradebook'        => AjaxHook::GetGradebook->jsAction(),
+					),
+					'nonces'   => array(
+						'submitWork' => Nonce::SubmitWork->create(),
+						'gradeWork'  => Nonce::GradeWork->create(),
+					),
+				)
+			);
 		}
 
 		// === Переменные для формы завершения регистрации родителя (/lms/join) ===

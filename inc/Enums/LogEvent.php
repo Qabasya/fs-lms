@@ -113,4 +113,10 @@ enum LogEvent: string {
 	case ExtraWorksChanged        = 'learning.extra_works_changed';
 	case LessonPublished          = 'learning.lesson_published';
 	case LessonHidden             = 'learning.lesson_hidden';
+
+	// ===== Канал: LearningEvents — сдача работ (Этап 3) =====
+
+	case SubmissionMade     = 'learning.submission_made';
+	case SubmissionGraded   = 'learning.submission_graded';
+	case SubmissionReturned = 'learning.submission_returned';
 }

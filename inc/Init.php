@@ -46,6 +46,7 @@ use Inc\Controllers\Subscribers\LearningEventSubscriber;
 use Inc\Controllers\DeletionController;
 use Inc\Controllers\ScheduleController;
 use Inc\Controllers\GroupCockpitController;
+use Inc\Controllers\SubmissionController;
 use Inc\Controllers\ImportController;
 use Inc\Controllers\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
@@ -133,6 +134,8 @@ final class Init {
 			ScheduleController::class,        // AJAX программы группы
 			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
 			LearningEventSubscriber::class,   // лента событий обучения
+			// ==== Этап 3 — сдача работ ====
+			SubmissionController::class,      // AJAX сдачи / проверки / журнала
 		);
 	}
 

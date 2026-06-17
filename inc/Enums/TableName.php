@@ -25,6 +25,9 @@ enum TableName: string {
 	case GroupLessons   = 'fs_lms_group_lessons';
 	case LearningEvents = 'fs_lms_learning_events';
 
+	// ==== Этап 3 — сдача работ ====
+	case Submissions = 'fs_lms_submissions';
+
 	public function prefixed(): string {
 		global $wpdb;
 		return $wpdb->prefix . $this->value;

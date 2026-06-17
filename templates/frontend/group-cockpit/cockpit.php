@@ -102,5 +102,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php endif; ?>
 	</section>
 
+	<!-- Очередь проверки работ -->
+	<section class="fs-cockpit-section fs-grading-queue" id="fs-grading-queue"
+		data-group-id="<?php echo esc_attr( (string) $group->id ); ?>">
+		<h2><?php esc_html_e( 'Проверка работ', 'fs-lms' ); ?></h2>
+		<p class="fs-loading-hint"><?php esc_html_e( 'Загрузка…', 'fs-lms' ); ?></p>
+	</section>
+
+	<!-- Журнал оценок -->
+	<section class="fs-cockpit-section" >
+		<h2><?php esc_html_e( 'Журнал оценок', 'fs-lms' ); ?></h2>
+		<div id="fs-gradebook-container"
+			data-group-id="<?php echo esc_attr( (string) $group->id ); ?>">
+			<p class="fs-loading-hint"><?php esc_html_e( 'Загрузка…', 'fs-lms' ); ?></p>
+		</div>
+	</section>
+
 </div>
 </main>

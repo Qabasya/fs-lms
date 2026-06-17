@@ -61,6 +61,10 @@ enum Nonce: string {
 	case SaveSchedule         = 'fs_lms_save_schedule';
 	case SetLessonVisibility  = 'fs_lms_set_lesson_visibility';
 
+	// ==== Этап 3 — сдача работ ====
+	case SubmitWork = 'fs_lms_submit_work';
+	case GradeWork  = 'fs_lms_grade_work';
+
 	/**
 	 * Создает защитный токен.
 	 *
