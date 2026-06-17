@@ -64,6 +64,8 @@ class TaskCreationCallbacks extends BaseController {
 		$title           = $this->sanitizeText( 'title' ) ?: 'Новое задание';
 		$boilerplate_uid = $this->sanitizeText( 'boilerplate_uid' );
 
+		$context = $this->sanitizeKey( $_POST['context'] ?? '' );
+
 		try {
 			$new_id = $this->taskManager->createNewTask(
 				$subject_key,
@@ -71,6 +73,11 @@ class TaskCreationCallbacks extends BaseController {
 				$title,
 				$boilerplate_uid
 			);
+
+			if ( 'work' === $context ) {
+				$this->success( array( 'id' => $new_id, 'title' => $title ) );
+				return;
+			}
 
 			// get_edit_post_link() — возвращает URL для редактирования поста
 			$this->success( array( 'redirect' => get_edit_post_link( $new_id, 'abs' ) ) );

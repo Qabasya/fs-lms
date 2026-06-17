@@ -107,6 +107,18 @@
 		color: $color-text-secondary;
 		font-size: $font-size;
 	}
+
+	// T1.24 — фильтр коллекций (только для task ref-полей)
+	.fs-lms-ref-collection {
+		display: block;
+		width: 100%;
+		margin-bottom: $spacing-sm;
+	}
+
+	// T1.23 — кнопка «Создать новое»
+	.fs-lms-ref-create {
+		margin-top: $spacing-sm;
+	}
 }
 
 // Страница меню «Обучение».

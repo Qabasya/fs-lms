@@ -22,4 +22,8 @@ class WorkRefField extends RefSelectField {
 	protected function subjectFromPostType( string $post_type ): string {
 		return PostTypeResolver::subjectFromLessonPostType( $post_type );
 	}
+
+	protected function createLabel(): string {
+		return 'Создать работу';
+	}
 }

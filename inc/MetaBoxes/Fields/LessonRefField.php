@@ -22,4 +22,8 @@ class LessonRefField extends RefSelectField {
 	protected function subjectFromPostType( string $post_type ): string {
 		return PostTypeResolver::subjectFromCoursePostType( $post_type );
 	}
+
+	protected function createLabel(): string {
+		return 'Создать урок';
+	}
 }

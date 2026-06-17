@@ -5,8 +5,10 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
+use Inc\DTO\Course\LessonDTO;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
+use Inc\Managers\LessonManager;
 use Inc\Services\Course\LessonAuthoringService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -25,6 +27,7 @@ class LessonCallbacks extends BaseController {
 
 	public function __construct(
 		private readonly LessonAuthoringService $authoringService,
+		private readonly LessonManager          $lessonManager,
 	) {
 		parent::__construct();
 	}
@@ -48,6 +51,35 @@ class LessonCallbacks extends BaseController {
 		$this->success(
 			$this->authoringService->getWorkCandidates( $subject_key, $work_type, $scope, $search )
 		);
+	}
+
+	/**
+	 * Создаёт черновик урока из конструктора курса.
+	 * Params: subject_key, title
+	 */
+	public function ajaxCreateLessonDraft(): void {
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$title       = $this->sanitizeText( $_POST['title'] ?? '' ) ?: 'Новый урок';
+
+		$dto = LessonDTO::fromArray( array(
+			'id'                => 0,
+			'subject_key'       => $subject_key,
+			'topic'             => $title,
+			'theory_html'       => '',
+			'theory_article_id' => 0,
+			'work_ids'          => array(),
+			'author_id'         => get_current_user_id(),
+			'status'            => 'draft',
+		) );
+
+		try {
+			$lesson_id = $this->lessonManager->create( $subject_key, $dto );
+			$this->success( array( 'id' => $lesson_id, 'title' => $title ) );
+		} catch ( \Throwable $e ) {
+			$this->error( 'Не удалось создать урок: ' . $e->getMessage() );
+		}
 	}
 
 	/**

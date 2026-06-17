@@ -35,6 +35,13 @@ abstract class RefSelectField extends BaseField {
 	abstract protected function subjectFromPostType( string $post_type ): string;
 
 	/**
+	 * Подпись кнопки «Создать новое» (пустая строка = кнопка не рендерится).
+	 */
+	protected function createLabel(): string {
+		return '';
+	}
+
+	/**
 	 * @param \WP_Post $post  Пост-контейнер.
 	 * @param string   $id    Ключ поля в meta (task_ids|work_ids|lesson_ids).
 	 * @param string   $label Подпись секции.
@@ -76,6 +83,12 @@ abstract class RefSelectField extends BaseField {
 					autocomplete="off">
 				<div class="fs-lms-ref-dropdown" hidden></div>
 			</div>
+
+			<?php if ( $create_label = $this->createLabel() ) : ?>
+				<button type="button" class="button fs-lms-ref-create">
+					+ <?php echo esc_html( $create_label ); ?>
+				</button>
+			<?php endif; ?>
 
 			<template class="fs-lms-ref-chip-template">
 				<div class="fs-lms-ref-chip" draggable="true" data-ref-id="">

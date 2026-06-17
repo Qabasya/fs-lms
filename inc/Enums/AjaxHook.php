@@ -139,9 +139,12 @@ enum AjaxHook: string {
 
 	// ==== Банки контента (работы / уроки / курсы) ====
 	case GetWorkTaskCandidates     = 'get_work_task_candidates';     // params: subject_key, task_type, collection, scope, search
+	case GetWorkCollections        = 'get_work_collections';         // params: subject_key
 	case GetLessonWorkCandidates   = 'get_lesson_work_candidates';   // params: subject_key, work_type, scope, search
 	case GetCourseLessonCandidates = 'get_course_lesson_candidates'; // params: subject_key, scope, search
 	case GetLessonArticles         = 'get_lesson_articles';          // params: subject_key
+	case CreateWorkDraft           = 'create_work_draft';            // params: subject_key, title, work_type
+	case CreateLessonDraft         = 'create_lesson_draft';          // params: subject_key, title
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

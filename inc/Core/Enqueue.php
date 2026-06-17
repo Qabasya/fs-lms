@@ -150,6 +150,22 @@ class Enqueue extends BaseController implements ServiceInterface {
 			);
 		}
 
+		// === Контекстная локализация для страниц CPT работ (нужен task-modal для создания задания) ===
+		if ( $is_work_cpt ) {
+			$work_subject = PostTypeResolver::subjectFromWorkPostType( $screen->post_type );
+			wp_localize_script(
+				$script_handle,
+				'fs_lms_task_data',
+				array(
+					'ajax_url'            => admin_url( 'admin-ajax.php' ),
+					'security'            => Nonce::TaskCreation->create(),
+					'subject_key'         => $work_subject,
+					'post_type'           => PostTypeResolver::tasks( $work_subject ),
+					'required_taxonomies' => $this->getRequiredTaxonomies( $work_subject ),
+				)
+			);
+		}
+
 		// === Контекстная локализация для страниц CPT заданий ===
 		if ( $is_task_cpt ) {
 			$subject_key = PostTypeResolver::subjectFromTaskPostType( $screen->post_type );

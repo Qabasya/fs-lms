@@ -22,4 +22,8 @@ class TaskRefField extends RefSelectField {
 	protected function subjectFromPostType( string $post_type ): string {
 		return PostTypeResolver::subjectFromWorkPostType( $post_type );
 	}
+
+	protected function createLabel(): string {
+		return 'Создать задание';
+	}
 }

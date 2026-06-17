@@ -72,6 +72,22 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		}
 
 		$this->menu_registrar->addPages( $pages )->addSubPages( $subpages )->register();
+
+		// draft-creator-modal: рендерится на страницах уроков и курсов
+		// (создание работы из урока / урока из курса без перезагрузки).
+		add_action(
+			'admin_footer',
+			function (): void {
+				$screen = get_current_screen();
+				if ( ! $screen ) {
+					return;
+				}
+				$pt = $screen->post_type;
+				if ( PostTypeResolver::isLessonPostType( $pt ) || PostTypeResolver::isCoursePostType( $pt ) ) {
+					include_once $this->plugin_path . 'templates/admin/components/modals/draft-creator-modal.php';
+				}
+			}
+		);
 	}
 
 	public function renderCourses(): void {

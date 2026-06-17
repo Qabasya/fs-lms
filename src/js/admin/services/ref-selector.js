@@ -1,4 +1,6 @@
 import '../_types.js';
+import { TaskModalManager } from '../managers/task-modal-manager.js';
+import { DraftCreatorModal } from '../modals/draft-creator-modal.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -18,6 +20,8 @@ const REF_MAP = {
 /**
  * RefSelector — единый конструктор-селектор ссылок для банков
  * (работа→задания, урок→работы, курс→уроки). Поиск + чипы + порядок (drag-drop).
+ * T1.24: для task-полей загружает фильтр коллекций.
+ * T1.23: кнопка «Создать» открывает task-modal (для task) или draft-creator-modal (для work/lesson).
  */
 export const RefSelector = {
 
@@ -32,6 +36,8 @@ export const RefSelector = {
 		this._bindSearch();
 		this._bindDropdownSelect();
 		this._bindReorder();
+		this._bindCreate();
+		this._loadCollections();
 	},
 
 	_bindRemove() {
@@ -97,6 +103,63 @@ export const RefSelector = {
 		} );
 	},
 
+	// T1.23 — кнопки «Создать»
+	_bindCreate() {
+		$( document ).on( 'click', '.fs-lms-ref-create', ( e ) => {
+			const $field   = $( e.currentTarget ).closest( '.fs-lms-ref-field' );
+			const refType  = String( $field.data( 'ref-type' ) );
+
+			if ( refType === 'task' ) {
+				// Открываем существующую task-modal в режиме чипа
+				TaskModalManager.openForChip( ( id, title ) => {
+					this._addChip( $field, id, title );
+				} );
+			} else {
+				// Работа из урока / Урок из курса — лёгкая модалка
+				DraftCreatorModal.open( {
+					refType,
+					$field,
+					onCreated: ( id, title ) => this._addChip( $field, id, title ),
+				} );
+			}
+		} );
+	},
+
+	// T1.24 — загрузка коллекций для task ref-полей
+	_loadCollections() {
+		$( '.fs-lms-ref-field[data-ref-type="task"]' ).each( ( _, el ) => {
+			const $field   = $( el );
+			const subject  = String( $field.data( 'subject' ) );
+
+			if ( ! subject || ! fs_lms_vars.ajax_actions.getWorkCollections ) {
+				return;
+			}
+
+			$.post( fs_lms_vars.ajaxurl, {
+				action:      fs_lms_vars.ajax_actions.getWorkCollections,
+				security:    fs_lms_vars.nonces.authorWork,
+				subject_key: subject,
+			} ).done( ( resp ) => {
+				if ( ! resp || ! resp.success || ! resp.data.length ) {
+					return;
+				}
+
+				let html = '<option value="0">Все коллекции</option>';
+				resp.data.forEach( ( c ) => {
+					html += `<option value="${ parseInt( c.id, 10 ) }">${ $( '<div>' ).text( c.name ).html() }</option>`;
+				} );
+
+				const $select = $( '<select/>', { class: 'fs-lms-ref-collection postform' } ).html( html );
+				$field.find( '.fs-lms-ref-search-wrap' ).before( $select );
+
+				$select.on( 'change', () => {
+					const $input = $field.find( '.fs-lms-ref-search' );
+					this._fetchCandidates( String( $input.val() ).trim(), $field );
+				} );
+			} );
+		} );
+	},
+
 	_chipAfter( container, y ) {
 		const chips = [ ...container.querySelectorAll( '.fs-lms-ref-chip:not(.is-dragging)' ) ];
 		return chips.reduce( ( closest, child ) => {
@@ -118,13 +181,23 @@ export const RefSelector = {
 			return;
 		}
 
-		$.post( fs_lms_vars.ajaxurl, {
+		const data = {
 			action:      fs_lms_vars.ajax_actions[ map.action ],
 			security:    fs_lms_vars.nonces[ map.nonceKey ],
 			subject_key: subject,
 			scope:       'mine',
 			search,
-		} ).done( ( resp ) => {
+		};
+
+		// T1.24: коллекция-фильтр только для task ref
+		if ( refType === 'task' ) {
+			const $col = $field.find( '.fs-lms-ref-collection' );
+			if ( $col.length ) {
+				data.collection = parseInt( $col.val(), 10 ) || 0;
+			}
+		}
+
+		$.post( fs_lms_vars.ajaxurl, data ).done( ( resp ) => {
 			if ( ! resp || ! resp.success ) {
 				return;
 			}
