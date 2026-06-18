@@ -44,38 +44,47 @@ class MenuManager {
 	 * @return void
 	 */
 	public function register( array $pages, array $subpages ): void {
-		if ( empty( $pages ) ) {
+		if ( empty( $pages ) && empty( $subpages ) ) {
 			return;
 		}
 
-		add_action(
-			'admin_menu',
-			function () use ( $pages, $subpages ) {
-				// Регистрация главных страниц меню
-				foreach ( $pages as $page ) {
-					add_menu_page(
-						$page['page_title'],
-						$page['menu_title'],
-						$page['capability'],
-						$page['menu_slug'],
-						$page['callback'],
-						$page['icon_url'],
-						$page['position']
-					);
-				}
-
-				// Регистрация подстраниц меню
-				foreach ( $subpages as $subpage ) {
-					add_submenu_page(
-						$subpage['parent_slug'],
-						$subpage['page_title'],
-						$subpage['menu_title'],
-						$subpage['capability'],
-						$subpage['menu_slug'],
-						$subpage['callback']
-					);
-				}
+		$callback = function () use ( $pages, $subpages ) {
+			// Регистрация главных страниц меню
+			foreach ( $pages as $page ) {
+				add_menu_page(
+					$page['page_title'],
+					$page['menu_title'],
+					$page['capability'],
+					$page['menu_slug'],
+					$page['callback'],
+					$page['icon_url'],
+					$page['position']
+				);
 			}
-		);
+
+			// Регистрация подстраниц меню
+			foreach ( $subpages as $subpage ) {
+				add_submenu_page(
+					$subpage['parent_slug'],
+					$subpage['page_title'],
+					$subpage['menu_title'],
+					$subpage['capability'],
+					$subpage['menu_slug'],
+					$subpage['callback']
+				);
+			}
+		};
+
+		// Если admin_menu уже выполняется (или выполнен) — регистрируем сразу,
+		// иначе отложенный add_action не сработал бы. Нужно для динамических
+		// пунктов меню, которые сами строятся внутри admin_menu (зависят от
+		// текущего пользователя, недоступного на момент загрузки плагина).
+		if ( doing_action( 'admin_menu' ) || did_action( 'admin_menu' ) ) {
+			$callback();
+
+			return;
+		}
+
+		add_action( 'admin_menu', $callback );
 	}
 }

@@ -1,0 +1,270 @@
+@use '../variables' as *;
+
+// Конструктор шагов (step-builder, T1.5.4). Раскладка-заглушка: мастер-деталь
+// (рельса шагов + редактор). Финальный дизайн — отдельной задачей.
+.fs-lms-step-builder {
+  .fs-sb {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: $spacing-lg;
+    align-items: start;
+  }
+
+  .fs-sb-rail {
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-md;
+    background: $color-bg-footer;
+  }
+
+  .fs-sb-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .fs-sb-item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-md;
+    border-top: 1px solid $color-border-input;
+    cursor: pointer;
+
+    &:first-child {
+      border-top: 0;
+    }
+
+    &.is-active {
+      background: $color-bg-modal;
+      box-shadow: inset 3px 0 0 $color-primary;
+    }
+
+    &.is-dragging {
+      opacity: 0.5;
+    }
+  }
+
+  .fs-sb-grip {
+    cursor: grab;
+    color: $color-text-secondary;
+  }
+
+  .fs-sb-num {
+    width: 18px;
+    color: $color-text-secondary;
+    font-size: $font-size-sm;
+  }
+
+  .fs-sb-title {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .fs-sb-del {
+    border: 0;
+    background: none;
+    color: $color-text-secondary;
+    cursor: pointer;
+
+    &:hover {
+      color: $color-danger;
+    }
+  }
+
+  .fs-sb-addbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    padding: $spacing-sm;
+    border-top: 1px solid $color-border-input;
+  }
+
+  .fs-sb-editor {
+    min-height: 200px;
+    padding: $spacing-md;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-md;
+    background: $color-bg-modal;
+  }
+
+  .fs-sb-ed-head {
+    margin: 0 0 $spacing-md;
+  }
+
+  .fs-sb-field {
+    width: 100%;
+  }
+
+  .fs-sb-cand-drop {
+    margin-top: $spacing-xs;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-sm;
+    max-height: 220px;
+    overflow-y: auto;
+    background: $color-bg-modal;
+  }
+
+  .fs-sb-cand-opt {
+    padding: $spacing-xs $spacing-sm;
+    cursor: pointer;
+
+    &:hover {
+      background: $color-bg-footer;
+    }
+  }
+
+  .fs-sb-cand-empty,
+  .fs-sb-empty,
+  .fs-sb-hint {
+    padding: $spacing-sm;
+    color: $color-text-secondary;
+    font-size: $font-size-sm;
+  }
+
+  .fs-sb-source {
+    margin-bottom: $spacing-sm;
+    display: flex;
+    gap: $spacing-md;
+  }
+
+  .fs-sb-footer {
+    margin-top: $spacing-md;
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+  }
+
+  .fs-sb-status {
+    color: $color-text-secondary;
+    font-size: $font-size-sm;
+  }
+
+  .fs-sb-addbtn {
+    margin: $spacing-sm;
+  }
+
+  .fs-sb-ref-current {
+    margin-bottom: $spacing-sm;
+  }
+}
+
+// Модалка «Добавить шаг» (T1.5.5) — заглушка-стиль.
+.fs-sb-ov {
+  position: fixed;
+  inset: 0;
+  background: $color-bg-backdrop;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+}
+
+.fs-sb-modal {
+  background: $color-bg-modal;
+  border-radius: $border-radius-l;
+  width: 540px;
+  max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+
+  .fs-sb-mhead {
+    display: flex;
+    align-items: center;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $color-border-input;
+
+    h3 {
+      margin: 0;
+      flex: 1;
+    }
+
+    .fs-sb-x {
+      border: 0;
+      background: none;
+      font-size: $font-size-l;
+      color: $color-text-secondary;
+      cursor: pointer;
+    }
+  }
+
+  .fs-sb-mbody {
+    padding: $spacing-lg;
+  }
+
+  .fs-sb-typegrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-sm;
+  }
+
+  .fs-sb-typebtn {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-md;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-md;
+    background: $color-bg-modal;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      border-color: $color-primary;
+      background: $color-bg-footer;
+    }
+
+    small {
+      color: $color-text-secondary;
+    }
+  }
+
+  .fs-sb-msearch {
+    width: 100%;
+  }
+
+  .fs-sb-mresults {
+    margin-top: $spacing-sm;
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-sm;
+  }
+
+  .fs-sb-cand-opt {
+    padding: $spacing-xs $spacing-sm;
+    cursor: pointer;
+
+    &:hover {
+      background: $color-bg-footer;
+    }
+  }
+
+  .fs-sb-cand-empty {
+    padding: $spacing-sm;
+    color: $color-text-secondary;
+  }
+
+  .fs-sb-source {
+    display: flex;
+    gap: $spacing-md;
+    margin-bottom: $spacing-sm;
+  }
+
+  .fs-sb-mfoot {
+    display: flex;
+    gap: $spacing-md;
+    justify-content: flex-end;
+    padding: $spacing-md $spacing-lg;
+    border-top: 1px solid $color-border-input;
+    background: $color-bg-footer;
+
+    .fs-sb-back {
+      margin-right: auto;
+      border: 0;
+      background: none;
+      color: $color-text-secondary;
+      cursor: pointer;
+    }
+  }
+}

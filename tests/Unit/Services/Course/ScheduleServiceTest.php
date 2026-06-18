@@ -150,14 +150,12 @@ class ScheduleServiceTest extends TestCase {
 
 	private function makeLesson( string $subjectKey ): LessonDTO {
 		return new LessonDTO(
-			id              : 10,
-			subjectKey      : $subjectKey,
-			topic           : 'Test lesson',
-			theoryHtml      : '',
-			theoryArticleId : 0,
-			workIds         : [],
-			authorId        : 1,
-			status          : 'publish',
+			id        : 10,
+			subjectKey: $subjectKey,
+			topic     : 'Test lesson',
+			steps     : array(),
+			authorId  : 1,
+			status    : 'publish',
 		);
 	}
 

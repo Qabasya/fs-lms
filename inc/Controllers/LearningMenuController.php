@@ -11,6 +11,7 @@ use Inc\Enums\Menu;
 use Inc\Registrars\MenuRegistrar;
 use Inc\Services\Course\TeacherSubjectsService;
 use Inc\Services\PostTypeResolver;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class LearningMenuController
@@ -23,6 +24,22 @@ use Inc\Services\PostTypeResolver;
  */
 class LearningMenuController extends BaseController implements ServiceInterface {
 
+	use TemplateRenderer;
+
+	/**
+	 * Слаги банков по типу (courses|lessons|works|tasks|articles): нативная таблица
+	 * первого предмета препода или плагин-страница-фолбэк, если предметов в системе нет.
+	 * Нужны для подсветки меню (в т.ч. при переключении на другой предмет).
+	 *
+	 * @var array<string, string>
+	 */
+	private array $bank_slugs = array();
+
+	/**
+	 * Слаг top-level пункта «Обучение» = слаг банка курсов (родитель ведёт на курсы).
+	 */
+	private string $learning_parent_slug = '';
+
 	public function __construct(
 		private readonly MenuRegistrar          $menu_registrar,
 		private readonly TeacherSubjectsService $teacher_subjects,
@@ -31,56 +48,17 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 	}
 
 	public function register(): void {
-		$cap = Capability::ManageLMSAssignments->value;
+		// Всё меню зависит от предметов текущего препода, а пользователь на момент
+		// загрузки плагина ещё не определён — строим меню на admin_menu.
+		add_action( 'admin_menu', array( $this, 'registerLearningMenu' ) );
 
-		$pages = array(
-			array(
-				'page_title' => Menu::Learning->page_title(),
-				'menu_title' => Menu::Learning->menu_title(),
-				'capability' => $cap,
-				'menu_slug'  => Menu::Learning->value,
-				'callback'   => array( $this, Menu::Learning->callback() ),
-				'icon_url'   => 'dashicons-welcome-learn-more',
-				'position'   => 4,
-			),
-		);
+		// Подсветка раздела «Обучение» на нативных экранах банков (CPT скрыты из меню).
+		add_filter( 'parent_file', array( $this, 'highlightLearningParent' ) );
+		add_filter( 'submenu_file', array( $this, 'highlightLearningSubmenu' ) );
 
-		// Первый сабменю-пункт «Курсы» переиспользует slug top-level (переименование автодубля).
-		// Задания и Статьи живут в разделе «Предметы» (доступен преподавателю), не дублируются здесь.
-		// «Задачи» (fs_lms_problems) — глобальный банк, отдельный пункт в этом же меню.
-		$submenus = array(
-			Menu::LearningCourses->value  => Menu::Learning->value,
-			Menu::LearningLessons->value  => Menu::LearningLessons->value,
-			Menu::LearningWorks->value    => Menu::LearningWorks->value,
-			Menu::LearningProblems->value => Menu::LearningProblems->value,
-			Menu::LearningTasks->value    => Menu::LearningTasks->value,
-			Menu::LearningArticles->value => Menu::LearningArticles->value,
-
-		);
-
-		$cases = array(
-			Menu::LearningCourses,
-			Menu::LearningLessons,
-			Menu::LearningWorks,
-			Menu::LearningProblems,
-			Menu::LearningTasks,
-			Menu::LearningArticles,
-
-		);
-
-		$subpages = array();
-		foreach ( $cases as $case ) {
-			$subpages[] = array(
-				'parent_slug' => Menu::Learning->value,
-				'page_title'  => $case->page_title(),
-				'menu_title'  => $case->menu_title(),
-				'capability'  => $cap,
-				'menu_slug'   => $submenus[ $case->value ],
-				'callback'    => array( $this, $case->callback() ),
-			);
-		}
-
-		$this->menu_registrar->addPages( $pages )->addSubPages( $subpages )->register();
+		// Над таблицей банка: описание (всегда) + таб-бар предметов (при 2+ предметах).
+		add_action( 'admin_notices', array( $this, 'renderBankDescription' ) );
+		add_action( 'admin_notices', array( $this, 'renderSubjectBankTabs' ) );
 
 		// draft-creator-modal: рендерится на страницах уроков и курсов
 		// (создание работы из урока / урока из курса без перезагрузки).
@@ -123,16 +101,240 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		$this->renderBank( 'articles', Menu::LearningArticles->value );
 	}
 
-	public function renderProblems(): void {
-		echo '<div class="wrap fs-lms-learning">';
-		echo '<h1>' . esc_html__( 'Задачи', 'fs-lms' ) . '</h1>';
-		echo '<p>' . esc_html__( 'Глобальный банк приватных задач. Не привязаны к предмету и не отображаются на сайте.', 'fs-lms' ) . '</p>';
-		echo '<div class="fs-lms-bank-actions">';
-		echo '<a class="button button-primary" href="' . esc_url( admin_url( 'edit.php?post_type=' . PostTypeResolver::problems() ) ) . '">'
-			. esc_html__( 'Все задачи', 'fs-lms' ) . '</a> ';
-		echo '<a class="button" href="' . esc_url( admin_url( 'post-new.php?post_type=' . PostTypeResolver::problems() ) ) . '">'
-			. esc_html__( 'Добавить задачу', 'fs-lms' ) . '</a>';
-		echo '</div></div>';
+	/**
+	 * Строит меню «Обучение» на хуке admin_menu (когда текущий пользователь известен).
+	 *
+	 * Родитель и все пункты ведут на нативные таблицы первого предмета препода.
+	 * Переключение между предметами — таб-баром над таблицей (renderSubjectBankTabs).
+	 * Если предметов в системе нет — лендинг-фолбэки с предупреждением.
+	 */
+	public function registerLearningMenu(): void {
+		$cap      = Capability::ManageLMSAssignments->value;
+		$subjects = $this->teacher_subjects->subjectsForUser( get_current_user_id() );
+
+		// Слаги банков по типу (прямые edit.php при наличии предметов, иначе лендинг-фолбэк).
+		foreach ( $this->bankMenuMap() as $type => $menu ) {
+			$this->bank_slugs[ $type ] = $this->subjectBankSlug( $type, $subjects, $menu );
+		}
+
+		// Родитель «Обучение» ведёт на таблицу курсов первого предмета.
+		$this->learning_parent_slug = $this->bank_slugs['courses'];
+
+		$pages = array(
+			array(
+				'page_title' => Menu::Learning->page_title(),
+				'menu_title' => Menu::Learning->menu_title(),
+				'capability' => $cap,
+				'menu_slug'  => $this->learning_parent_slug,
+				// Прямой edit.php callback не требует; для пустого случая — лендинг.
+				'callback'   => empty( $subjects ) ? array( $this, 'renderCourses' ) : '',
+				'icon_url'   => 'dashicons-welcome-learn-more',
+				'position'   => 4,
+			),
+		);
+
+		// Порядок: Курсы · Уроки · Работы · Банк задач · Задания · Статьи.
+		// «Курсы» переиспользует слаг родителя (переименование автодубля top-level).
+		$subpages = array(
+			$this->subjectBankSubpage( Menu::LearningCourses, $this->bank_slugs['courses'], $cap ),
+			$this->subjectBankSubpage( Menu::LearningLessons, $this->bank_slugs['lessons'], $cap ),
+			$this->subjectBankSubpage( Menu::LearningWorks, $this->bank_slugs['works'], $cap ),
+			// «Банк задач» (fs_lms_problems) — глобальный, не зависит от предмета.
+			array(
+				'parent_slug' => $this->learning_parent_slug,
+				'page_title'  => Menu::LearningProblems->page_title(),
+				'menu_title'  => Menu::LearningProblems->menu_title(),
+				'capability'  => $cap,
+				'menu_slug'   => 'edit.php?post_type=' . PostTypeResolver::problems(),
+				'callback'    => '',
+			),
+			$this->subjectBankSubpage( Menu::LearningTasks, $this->bank_slugs['tasks'], $cap ),
+			$this->subjectBankSubpage( Menu::LearningArticles, $this->bank_slugs['articles'], $cap ),
+		);
+
+		$this->menu_registrar->addPages( $pages )->addSubPages( $subpages )->register();
+	}
+
+	/**
+	 * Карта тип банка → пункт меню (для построения слагов и фолбэков).
+	 *
+	 * @return array<string, Menu>
+	 */
+	private function bankMenuMap(): array {
+		return array(
+			'courses'  => Menu::LearningCourses,
+			'lessons'  => Menu::LearningLessons,
+			'works'    => Menu::LearningWorks,
+			'tasks'    => Menu::LearningTasks,
+			'articles' => Menu::LearningArticles,
+		);
+	}
+
+	/**
+	 * Строит слаг пункта «Задания/Статьи предмета».
+	 *
+	 * При наличии предметов — прямая ссылка на нативную таблицу первого предмета;
+	 * иначе — слаг плагин-страницы (лендинг-фолбэк с предупреждением «нет предметов»).
+	 *
+	 * @param string                       $type     tasks|articles
+	 * @param array<int, object>           $subjects Предметы препода.
+	 * @param Menu                         $fallback Пункт меню для пустого случая.
+	 */
+	private function subjectBankSlug( string $type, array $subjects, Menu $fallback ): string {
+		$first = $subjects[0] ?? null;
+
+		return null !== $first
+			? 'edit.php?post_type=' . $this->resolveCpt( $type, $first->key )
+			: $fallback->value;
+	}
+
+	/**
+	 * Конфиг сабстраницы банка предмета.
+	 *
+	 * Прямой переход на edit.php callback не требует; лендинг-фолбэк — требует.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function subjectBankSubpage( Menu $case, string $slug, string $cap ): array {
+		$is_direct = str_contains( $slug, 'edit.php' );
+
+		return array(
+			'parent_slug' => $this->learning_parent_slug,
+			'page_title'  => $case->page_title(),
+			'menu_title'  => $case->menu_title(),
+			'capability'  => $cap,
+			'menu_slug'   => $slug,
+			'callback'    => $is_direct ? '' : array( $this, $case->callback() ),
+		);
+	}
+
+	/**
+	 * Делает «Обучение» активным родителем на нативных экранах банков.
+	 */
+	public function highlightLearningParent( string $parent_file ): string {
+		return '' !== $this->learningSubmenuFor( $GLOBALS['typenow'] ?? '' )
+			? $this->learning_parent_slug
+			: $parent_file;
+	}
+
+	/**
+	 * Подсвечивает соответствующий пункт сабменю на нативных экранах банков.
+	 */
+	public function highlightLearningSubmenu( ?string $submenu_file ): ?string {
+		$match = $this->learningSubmenuFor( $GLOBALS['typenow'] ?? '' );
+
+		return '' !== $match ? $match : $submenu_file;
+	}
+
+	/**
+	 * Возвращает слаг пункта сабменю «Обучения» для текущего CPT (или '').
+	 */
+	private function learningSubmenuFor( string $post_type ): string {
+		if ( PostTypeResolver::isProblemPostType( $post_type ) ) {
+			return 'edit.php?post_type=' . PostTypeResolver::problems();
+		}
+
+		$type = $this->bankTypeForPostType( $post_type );
+
+		return '' !== $type ? ( $this->bank_slugs[ $type ] ?? '' ) : '';
+	}
+
+	/**
+	 * Определяет тип банка (courses|lessons|works|tasks|articles) по CPT или '' .
+	 */
+	private function bankTypeForPostType( string $post_type ): string {
+		return match ( true ) {
+			PostTypeResolver::isCoursePostType( $post_type )  => 'courses',
+			PostTypeResolver::isLessonPostType( $post_type )  => 'lessons',
+			PostTypeResolver::isWorkPostType( $post_type )    => 'works',
+			PostTypeResolver::isTaskPostType( $post_type )    => 'tasks',
+			PostTypeResolver::isArticlePostType( $post_type ) => 'articles',
+			default                                           => '',
+		};
+	}
+
+	/**
+	 * Выводит описание-абзац над таблицей банка (как в «Банке задач»).
+	 *
+	 * Хук admin_notices штатно переносится JS под заголовок (перед фильтрами-views).
+	 */
+	public function renderBankDescription(): void {
+		$type = $this->currentBankType();
+		if ( '' === $type ) {
+			return;
+		}
+
+		$this->render( 'admin/components/bank-notice', array( 'text' => $this->bankDescription( $type ) ) );
+	}
+
+	/**
+	 * Выводит таб-бар предметов над таблицей банка (курсы/уроки/работы/задания/статьи).
+	 *
+	 * Показываем только на списках CPT банков и только при 2+ предметах.
+	 */
+	public function renderSubjectBankTabs(): void {
+		$type = $this->currentBankType();
+		if ( '' === $type ) {
+			return;
+		}
+
+		$subjects = $this->teacher_subjects->subjectsForUser( get_current_user_id() );
+		if ( count( $subjects ) < 2 ) {
+			return;
+		}
+
+		$active = $this->subjectKeyFromPostType( $type, get_current_screen()->post_type );
+
+		$tabs = array();
+		foreach ( $subjects as $subject ) {
+			$tabs[] = array(
+				'name'   => $subject->name,
+				'url'    => admin_url( 'edit.php?post_type=' . $this->resolveCpt( $type, $subject->key ) ),
+				'active' => $subject->key === $active,
+			);
+		}
+
+		$this->render( 'admin/components/subject-bank-tabs', array( 'tabs' => $tabs ) );
+	}
+
+	/**
+	 * Тип банка для текущего экрана списка (или '' — не экран банка).
+	 */
+	private function currentBankType(): string {
+		$screen = get_current_screen();
+		if ( ! $screen || 'edit' !== $screen->base ) {
+			return '';
+		}
+
+		return $this->bankTypeForPostType( $screen->post_type );
+	}
+
+	/**
+	 * Текст описания банка по типу.
+	 */
+	private function bankDescription( string $type ): string {
+		return match ( $type ) {
+			'courses'  => __( 'Банк курсов предмета. Курс состоит из уроков и назначается учебным группам.', 'fs-lms' ),
+			'lessons'  => __( 'Банк уроков предмета. Урок состоит из работ и входит в курсы.', 'fs-lms' ),
+			'works'    => __( 'Банк работ предмета. Работа собирается из задач в конструкторе и входит в уроки.', 'fs-lms' ),
+			'tasks'    => __( 'Банк заданий предмета. Задание — отдельная единица контента, из которых собираются работы.', 'fs-lms' ),
+			'articles' => __( 'Банк статей предмета. Справочные материалы для учеников.', 'fs-lms' ),
+			default    => '',
+		};
+	}
+
+	/**
+	 * Извлекает ключ предмета из CPT банка указанного типа.
+	 */
+	private function subjectKeyFromPostType( string $type, string $post_type ): string {
+		return match ( $type ) {
+			'courses'  => PostTypeResolver::subjectFromCoursePostType( $post_type ),
+			'lessons'  => PostTypeResolver::subjectFromLessonPostType( $post_type ),
+			'works'    => PostTypeResolver::subjectFromWorkPostType( $post_type ),
+			'tasks'    => PostTypeResolver::subjectFromTaskPostType( $post_type ),
+			'articles' => PostTypeResolver::subjectFromArticlePostType( $post_type ),
+			default    => '',
+		};
 	}
 
 	/**
@@ -209,7 +411,7 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 			'lessons'  => PostTypeResolver::lessons( $key ),
 			'courses'  => PostTypeResolver::courses( $key ),
 			'articles' => PostTypeResolver::articles( $key ),
-			default    => '', // 'problems' handled separately in renderProblems()
+			default    => '', // 'problems' — прямой пункт меню на edit.php, без банка-обёртки
 		};
 	}
 

@@ -4,7 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\DTO\Course\StepDTO;
 use Inc\Enums\PostMetaName;
+use Inc\Enums\StepType;
 use Inc\Enums\WorkType;
 use Inc\Managers\PostManager;
 use Inc\Services\PostTypeResolver;
@@ -80,6 +82,77 @@ class LessonAuthoringService {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Кандидаты для шага-ссылки (модалка «Добавить шаг», T1.5.5).
+	 *
+	 * @param string $subjectKey
+	 * @param string $kind   work|task|assessment|article
+	 * @param string $source subject|bank — источник задачи (для kind=task)
+	 * @param string $search
+	 *
+	 * @return array<int, array{id: int, title: string}>
+	 */
+	public function getStepCandidates( string $subjectKey, string $kind, string $source = 'subject', string $search = '' ): array {
+		$post_type = match ( $kind ) {
+			'work'       => PostTypeResolver::works( $subjectKey ),
+			'assessment' => PostTypeResolver::assessments( $subjectKey ),
+			'article'    => PostTypeResolver::articles( $subjectKey ),
+			'task'       => 'bank' === $source ? PostTypeResolver::problems() : PostTypeResolver::tasks( $subjectKey ),
+			default      => '',
+		};
+
+		if ( '' === $post_type ) {
+			return array();
+		}
+
+		$result = array();
+		foreach ( $this->posts->search( $post_type, array( 'limit' => 50, 'search' => $search ) ) as $post ) {
+			$result[] = array(
+				'id'    => $post->ID,
+				'title' => $post->post_title,
+			);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Строит StepDTO[] из сырого (уже санитайзнутого коллбеком) ввода билдера:
+	 * валидирует тип, присваивает стабильный `key` (генерирует отсутствующий), сохраняет payload.
+	 * Шаги с неизвестным типом отбрасываются.
+	 *
+	 * @param array<int, mixed> $rawSteps
+	 *
+	 * @return StepDTO[]
+	 */
+	public function buildSteps( array $rawSteps ): array {
+		$steps = array();
+		foreach ( $rawSteps as $raw ) {
+			if ( ! is_array( $raw ) ) {
+				continue;
+			}
+
+			$type = StepType::tryFrom( (string) ( $raw['type'] ?? '' ) );
+			if ( null === $type ) {
+				continue;
+			}
+
+			$key     = (string) ( $raw['key'] ?? '' );
+			$payload = is_array( $raw['payload'] ?? null ) ? $raw['payload'] : array();
+
+			$steps[] = new StepDTO( '' !== $key ? $key : $this->generateStepKey(), $type, $payload );
+		}
+
+		return $steps;
+	}
+
+	/**
+	 * Стабильный идентификатор шага (без WP-зависимостей; переживает реордер).
+	 */
+	private function generateStepKey(): string {
+		return 's_' . bin2hex( random_bytes( 6 ) );
 	}
 
 	/**

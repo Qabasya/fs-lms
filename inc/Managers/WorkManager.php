@@ -82,10 +82,10 @@ class WorkManager {
 	}
 
 	private function saveMeta( int $workId, WorkDTO $dto ): void {
+		// instructions схлопнут в post_content (см. create/update) — в мете не дублируем.
 		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, array(
-			'work_type'    => $dto->workType->value,
-			'item_ids'     => $dto->itemIds,
-			'instructions' => $dto->instructions,
+			'work_type' => $dto->workType->value,
+			'item_ids'  => $dto->itemIds,
 		) );
 	}
 }

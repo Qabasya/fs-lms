@@ -1,13 +1,90 @@
-# Courses (Этапы 1–4): как это устроено — гайд для джуниора
+# ⚡ ТЕКУЩИЙ СТАТУС (2026-06-18) — читать первым
 
-Этот документ объясняет **с нуля**, что происходит в модуле «Курсы» (Courses)
-плагина FS LMS на этапах 1–4. Цель — чтобы человек, который только начинает
-программировать, мог проследить **цепочку классов от клика в браузере до записи
-в базу** и понять, кто за что отвечает.
+> Этот блок — точка входа для следующего разработчика. Ниже по документу — подробное
+> объяснение Этапов 1–4 (оно описывает **раннюю** модель; актуальная — `Courses.md → ★`).
 
-Документ читается сверху вниз. Сначала — общие правила, без которых код выглядит
-как магия. Потом — каждый этап отдельно. В конце — сводка достижений.
+## Где мы сейчас
 
+Этапы **1–4** (банки контента → программа группы → сдачи/прогресс → контрольные) были
+реализованы ранее. Сейчас идёт **переработка MVP-2** (по итогам ревью пути преподавателя):
+курс → **модули** → уроки, урок = **последовательность шагов** (как Stepik), + прогресс/гейтинг/клон.
+
+**Источник правды:**
+- модель — `.docs/Courses.md`, секция **`★ Переработка модели`** (+ `★ Календарь занятий`);
+- задачи — `.docs/Tasks.md`, секция **«Этап 1.5»** (статусы `[x]` готово / `[~]` в работе).
+
+**Докатились до `T1.5.5`.** Прогресс по подзадачам:
+
+| Задача | Статус | Суть |
+|---|---|---|
+| T1.5.1 | ✅ `[x]` | Контракт: `StepType` enum + `StepDTO` + `ModuleDTO` |
+| T1.5.2 | ✅ `[x]` | Урок = `steps[]` (derived `workIds()` для доставки Этапов 2–3) |
+| T1.5.3 | ✅ `[x]` | Курс = `modules[]` (derived `lessonIds()` для назначения группе) |
+| T1.5.4 | ✅ бэкенд + JS | Билдер шагов урока (мастер-деталь B) на экране урока + AJAX save/candidates |
+| T1.5.5 | `[~]` | Модалка «Добавить шаг» (library-pick + «Создать» для work/bank-задачи) |
+| T1.5.6+ | ❌ | Билдеры works/assessments + C-дерево курса; прогресс/гейтинг/плеер/клон/видео |
+
+**Тесты:** PHPUnit **303/303 зелёные**. JS юнит-тестов нет (билдер проверяется в браузере).
+
+## Как это работает сейчас (ключевая механика)
+
+- **Урок** = WP-пост + meta `fs_lms_meta['steps']` — упорядоченный массив типизированных шагов
+  `{ key, type, payload }`. Типы: `text`/`video`/`material` (инлайн) и `task`/`work`/`assessment` (ссылки).
+  На экране урока — метабокс-**билдер** (`src/js/admin/services/step-builder.js`), сохраняет шаги через
+  AJAX `SaveLessonSteps` (НЕ через `save_post`). Старого редактора/метабокса у урока больше нет.
+- **Обратная совместимость доставки:** Этапы 2–3 думают «работами урока». `LessonDTO::workIds()` теперь
+  **производное** — refs work-шагов. Так `EffectiveWorksResolver`/`LessonVisibilityService`/`ContentUsageService`
+  работают без переписывания.
+- **Курс** = пост + meta `modules[]` (`{id,title,lessonIds[]}`). При назначении группе разворачивается в
+  плоский список уроков (`CourseDTO::lessonIds()`), контракт `CourseAssignmentService` не изменился.
+- **Работа/Контрольная**: бывшая мета `work.instructions` **схлопнута в `post_content`** (нативный редактор =
+  «описание перед началом»). У них редактор оставлен; у урока — снят.
+- **Меню «Обучение»**: Курсы / Уроки / Работы / **Банк задач** / Задания предмета / Статьи предмета —
+  ведут на **нативные таблицы** (`edit.php`) с табами-предметами; «Банк задач» — прямой `edit.php?post_type=fs_lms_problems`.
+- **Метабоксы банк-CPT** причёсаны трейтом `TidiesCoreMetaBoxes` (нет «Атрибутов»/«Изображения», «Автор» в сайдбаре) —
+  у урока/работы/курса (контрольная — ещё нет).
+
+## Что НЕ доделано (следующие шаги)
+
+1. **move-step между уроками** — нет (нужен эндпоинт `MoveLessonStep` + сервис + пикер целевого урока).
+2. **Бесшовное создание** subject-задач/контрольных/статей из модалки — пока фолбэк «открыть `post-new.php`».
+3. **T1.5.6** — билдеры для works/assessments (allowedTypes=task), **C-дерево курса** (модуль→урок), удалить старые
+   метабоксы `WorkTemplate`/`CourseTemplate`/`LessonTemplate` (сейчас пишут «мёртвую» мету).
+4. **T1.5.7–T1.5.13** — таблица `fs_lms_lesson_progress`, гейтинг, пошаговый плеер ученика, `ContentCloneService`, video-шаг с заделом под S3.
+5. **Дизайн билдера** — SCSS-заглушка; раскладка B (мастер-деталь) зафиксирована, визуал дорабатывается отдельно.
+
+## Новые файлы (с последнего коммита)
+
+| Файл | Что внутри |
+|---|---|
+| `inc/Enums/StepType.php` | Enum типов шага + `isInline()`/`isRef()`/`allowedTypesFor()`/`label()`/`options()` |
+| `inc/DTO/Course/StepDTO.php` | DTO шага `{key,type,payload}` + `fromList()`/`toList()` (round-trip meta `steps[]`) |
+| `inc/DTO/Course/ModuleDTO.php` | DTO модуля курса `{id,title,lessonIds}` + `fromList()`/`toList()` |
+| `inc/Shared/Traits/TidiesCoreMetaBoxes.php` | Трейт: убирает «Атрибуты»/«Изображение записи», «Автор» → сайдбар |
+| `src/js/admin/services/step-builder.js` | JS-билдер шагов: мастер-деталь, drag-drop, модалка добавления, save/candidates |
+| `src/scss/admin/components/_step-builder.scss` | Стили билдера + модалки (заглушка) |
+| `src/scss/admin/components/_learning-bank.scss` | Стили описаний/таб-баров над нативными таблицами банков |
+| `templates/admin/components/bank-notice.php` | Описание-абзац над таблицей банка (курсы/уроки/…) |
+| `templates/admin/components/problems-bank-notice.php` | Описание над «Банком задач» |
+| `templates/admin/components/subject-bank-tabs.php` | Таб-бар предметов над нативной таблицей |
+| `tests/Unit/Enums/StepTypeTest.php`, `tests/Unit/DTO/Course/StepDTOTest.php`, `…/ModuleDTOTest.php` | Юнит-тесты контракта T1.5.1 |
+| `prototype/` | **Throwaway** UI-прототип билдера урока (`lesson-builder.prototype.html` + `NOTES.md`). Вердикт — раскладка B. Удалить при T1.5.6 |
+
+## Ключевые изменённые файлы (с последнего коммита)
+
+- **Модель:** `LessonDTO`/`LessonManager` → `steps[]`; `CourseDTO`/`CourseManager` → `modules[]`;
+  `WorkDTO`/`WorkManager` → `instructions`→`post_content`; `PostTypeResolver` (+`isArticlePostType`).
+- **Доставка:** `EffectiveWorksResolver`, `LessonVisibilityService`, `ContentUsageService`, `CourseAssignmentService` — переведены на derived-аксессоры/steps/modules.
+- **Авторинг:** `LessonAuthoringService` (+`buildSteps`/`getStepCandidates`); `LessonCallbacks`/`LessonController`/`AjaxHook` (+`SaveLessonSteps`/`GetStepCandidates`).
+- **Метабоксы/CPT:** `LessonMetaBoxController` (монтаж билдера + tidy), `Work`/`CourseMetaBoxController` (tidy), `SubjectController` (урок без `editor`/`thumbnail`).
+- **Меню/экраны:** `LearningMenuController`, `Menu`, `MenuManager`, `MenuRegistrar`, `Enqueue` — меню «Обучение» на нативных таблицах; `ProblemsController` — колонки + описание банка задач; `AuthController` — админ-бар препода/офиса.
+- **Доки:** `Courses.md` (★-секции), `Tasks.md` (Этап 1.5).
+
+---
+
+# Courses (Этапы 1–4): как это устроено
+Этот документ объясняет, что происходит в модуле «Курсы» (Courses)
+плагина FS LMS на этапах 1–4.
 ---
 
 ## 0. Как читать этот документ

@@ -45,7 +45,7 @@ class CourseAssignmentService {
 
 		$position = $this->groupLessons->nextPosition( $groupId );
 		$added    = 0;
-		foreach ( $course->lessonIds as $lessonId ) {
+		foreach ( $course->lessonIds() as $lessonId ) {
 			$this->groupLessons->add( new GroupLessonInputDTO(
 				groupId         : $groupId,
 				lessonId        : $lessonId,

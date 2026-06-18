@@ -18,6 +18,7 @@ import { HardDeleteStudentService } from './services/hard-delete-student-service
 import { ArchiveTable } from './services/tables/archive-table.js';
 import { ImportCsv } from './services/import-csv.js';
 import { RefSelector } from './services/ref-selector.js';
+import { StepBuilder } from './services/step-builder.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/enrollment/academic-period-modal-manager";
@@ -127,6 +128,10 @@ import { AlertModal } from './modals/alert-modal.js';
 
         if ( document.querySelector( '.fs-lms-import' ) ) {
             ImportCsv.init();
+        }
+
+        if ( $( '.fs-lms-step-builder' ).length ) {
+            StepBuilder.init();
         }
 
     });

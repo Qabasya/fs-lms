@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Managers;
 
 use Inc\DTO\Course\LessonDTO;
+use Inc\DTO\Course\StepDTO;
 use Inc\Enums\PostMetaName;
 use Inc\Services\PostTypeResolver;
 
@@ -24,7 +25,7 @@ class LessonManager {
 	public function create( string $subjectKey, LessonDTO $dto ): int {
 		$id = $this->posts->insert( array(
 			'post_title'   => $dto->topic,
-			'post_content' => $dto->theoryHtml,
+			'post_content' => '',
 			'post_type'    => PostTypeResolver::lessons( $subjectKey ),
 			'post_status'  => 'draft',
 			'post_author'  => $dto->authorId ?: get_current_user_id(),
@@ -39,8 +40,7 @@ class LessonManager {
 
 	public function update( int $lessonId, LessonDTO $dto ): bool {
 		$updated = $this->posts->update( $lessonId, array(
-			'post_title'   => $dto->topic,
-			'post_content' => $dto->theoryHtml,
+			'post_title' => $dto->topic,
 		) );
 
 		if ( ! $updated ) {
@@ -84,8 +84,7 @@ class LessonManager {
 
 	private function saveMeta( int $lessonId, LessonDTO $dto ): void {
 		$this->posts->updateMeta( $lessonId, PostMetaName::Meta->value, array(
-			'theory_article_id' => $dto->theoryArticleId,
-			'work_ids'          => $dto->workIds,
+			'steps' => StepDTO::toList( $dto->steps ),
 		) );
 	}
 }

@@ -13,6 +13,7 @@ use Inc\Services\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class ProblemsController
@@ -26,6 +27,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 
 	use Authorizer;
 	use Sanitizer;
+	use TemplateRenderer;
 
 	public function __construct(
 		private readonly TemplateRegistry $registry,
@@ -35,10 +37,33 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	public function register(): void {
+		$cpt = PostTypeResolver::problems();
+
 		add_action( 'init', array( $this, 'registerCpt' ) );
 		add_action( 'init', array( $this, 'registerTaxonomy' ) );
 		add_action( 'add_meta_boxes', array( $this, 'addTemplateMetabox' ) );
-		add_action( 'save_post_' . PostTypeResolver::problems(), array( $this, 'saveTemplateType' ) );
+		add_action( 'save_post_' . $cpt, array( $this, 'saveTemplateType' ) );
+
+		add_filter( "manage_{$cpt}_posts_columns", array( $this, 'addColumns' ) );
+		add_action( "manage_{$cpt}_posts_custom_column", array( $this, 'renderColumn' ), 10, 2 );
+		add_filter( "manage_edit-{$cpt}_sortable_columns", array( $this, 'sortableColumns' ) );
+		add_action( 'pre_get_posts', array( $this, 'applyColumnSort' ) );
+		add_action( 'admin_notices', array( $this, 'renderBankDescription' ) );
+	}
+
+	/**
+	 * Выводит описание над таблицей на экране списка задач.
+	 *
+	 * Хук admin_notices срабатывает на всех экранах — ограничиваем выводом
+	 * только на нативном списке `edit.php?post_type=fs_lms_problems`.
+	 */
+	public function renderBankDescription(): void {
+		$screen = get_current_screen();
+		if ( ! $screen || 'edit-' . PostTypeResolver::problems() !== $screen->id ) {
+			return;
+		}
+
+		$this->render( 'admin/components/problems-bank-notice' );
 	}
 
 	public function registerCpt(): void {
@@ -58,7 +83,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 			'exclude_from_search' => true,
 			'capability_type'     => 'fs_lms_content',
 			'map_meta_cap'        => true,
-			'supports'            => array( 'title', 'editor' ),
+			'supports'            => array( 'title', 'editor', 'author' ),
 			'rewrite'             => false,
 		) );
 	}
@@ -112,5 +137,72 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		if ( '' !== $template_id ) {
 			$this->posts->updateMeta( $post_id, PostMetaName::TemplateType->value, $template_id );
 		}
+	}
+
+	/**
+	 * Добавляет колонку «Тип шаблона» перед колонкой даты.
+	 *
+	 * Колонки «Тематика» (таксономия `problem_tag`) и «Автор» добавляются
+	 * ядром WP автоматически (`show_admin_column` и `supports => author`).
+	 *
+	 * @param array<string, string> $columns
+	 *
+	 * @return array<string, string>
+	 */
+	public function addColumns( array $columns ): array {
+		$result = array();
+		foreach ( $columns as $key => $label ) {
+			if ( 'date' === $key ) {
+				$result['template_type'] = 'Тип шаблона';
+			}
+			$result[ $key ] = $label;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Отрисовывает значение кастомной колонки «Тип шаблона».
+	 */
+	public function renderColumn( string $column, int $post_id ): void {
+		if ( 'template_type' !== $column ) {
+			return;
+		}
+
+		$template_id = (string) $this->posts->getMeta( $post_id, PostMetaName::TemplateType->value );
+		$template    = '' !== $template_id ? $this->registry->get( $template_id ) : null;
+
+		echo esc_html( null !== $template ? $template->get_name() : '—' );
+	}
+
+	/**
+	 * Делает колонку «Тип шаблона» сортируемой.
+	 *
+	 * @param array<string, string> $columns
+	 *
+	 * @return array<string, string>
+	 */
+	public function sortableColumns( array $columns ): array {
+		$columns['template_type'] = 'template_type';
+
+		return $columns;
+	}
+
+	/**
+	 * Применяет сортировку списка задач по типу шаблона (мета-значение).
+	 */
+	public function applyColumnSort( \WP_Query $query ): void {
+		if ( ! is_admin() || ! $query->is_main_query() ) {
+			return;
+		}
+		if ( PostTypeResolver::problems() !== $query->get( 'post_type' ) ) {
+			return;
+		}
+		if ( 'template_type' !== $query->get( 'orderby' ) ) {
+			return;
+		}
+
+		$query->set( 'meta_key', PostMetaName::TemplateType->value );
+		$query->set( 'orderby', 'meta_value' );
 	}
 }

@@ -22,7 +22,7 @@ readonly class WorkDTO {
 	 * @param string   $title        = post_title
 	 * @param WorkType $workType
 	 * @param int[]    $itemIds      упорядоченные WP post ID ({key}_tasks или fs_lms_problems)
-	 * @param string   $instructions
+	 * @param string   $instructions = post_content (описание/инструкция перед началом; ранее жила в мете)
 	 * @param int      $authorId
 	 * @param string   $status
 	 */
@@ -44,7 +44,7 @@ readonly class WorkDTO {
 			title       : $post->post_title,
 			workType    : WorkType::fromValueOrDefault( (string) ( $meta['work_type'] ?? '' ) ),
 			itemIds     : self::intIds( $meta['item_ids'] ?? array() ),
-			instructions: (string) ( $meta['instructions'] ?? '' ),
+			instructions: $post->post_content,
 			authorId    : (int) $post->post_author,
 			status      : $post->post_status,
 		);

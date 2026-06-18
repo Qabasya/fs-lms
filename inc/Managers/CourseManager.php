@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Managers;
 
 use Inc\DTO\Course\CourseDTO;
+use Inc\DTO\Course\ModuleDTO;
 use Inc\Enums\PostMetaName;
 use Inc\Services\PostTypeResolver;
 
@@ -84,7 +85,7 @@ class CourseManager {
 
 	private function saveMeta( int $courseId, CourseDTO $dto ): void {
 		$this->posts->updateMeta( $courseId, PostMetaName::Meta->value, array(
-			'lesson_ids' => $dto->lessonIds,
+			'modules' => ModuleDTO::toList( $dto->modules ),
 		) );
 	}
 }

@@ -33,7 +33,7 @@ class LessonVisibilityService {
 			// copy-on-publish: заморозить work_ids только при первом открытии.
 			if ( ! $row->isPublished() ) {
 				$lesson = $this->lessonManager->get( $row->lessonId );
-				$this->groupLessons->setWorkIdsSnapshot( $groupLessonId, $lesson?->workIds ?? array() );
+				$this->groupLessons->setWorkIdsSnapshot( $groupLessonId, $lesson?->workIds() ?? array() );
 				$openedAt = $this->clock->now();
 			}
 		}
@@ -60,7 +60,7 @@ class LessonVisibilityService {
 		if ( ! $row || ! $lesson ) {
 			throw new \InvalidArgumentException( 'Строка программы или урок не найдены.' );
 		}
-		$this->groupLessons->setWorkIdsSnapshot( $groupLessonId, $lesson->workIds );
+		$this->groupLessons->setWorkIdsSnapshot( $groupLessonId, $lesson->workIds() );
 
 		$this->dispatcher->dispatch(
 			LogEvent::ScheduleChanged,

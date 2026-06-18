@@ -14,7 +14,19 @@
 > а не на задачи. Уже отгруженный код урока (`TaskBucketField`, `TaskTypeField`, `LessonTemplate`,
 > `lesson-bucket-service.js`) идёт в **переработку** — помечено `[rework]` у соответствующих задач.
 
-Легенда статусов: `[ ]` не начато · `[~]` в работе · `[x]` готово.
+> **Переработка MVP-2 (модули · шаги · прогресс · гейтинг · клон).** По итогам ревью пути преподавателя
+> ([`Courses.md` → секция `★`](./Courses.md)) модель контента эволюционировала: **курс → модули → уроки**,
+> **урок = последовательность типизированных шагов** (`text/video/material/task/work/assessment`),
+> работа/контрольная = последовательности task-шагов; добавлены **трекинг прохождения шагов**
+> (`fs_lms_lesson_progress`), **гейтинг по выполнению** (prerequisites/drip) и **клон/форк** контента.
+> Конкретные задачи — в новой секции **«Этап 1.5»** ниже; затронутые T1.15–T1.18 помечены `[supersedes]`.
+>
+> **S3-хранилище отложено** (Этап 5). Но **видео-шаг — сущность первого класса уже в MVP**: payload шага
+> `{ url, provider }` спроектирован так, чтобы авто-запись из S3 (`group_lessons.recording_url`) позже
+> просто **наполняла video-шаг**, без переделки модели урока. При разработке video-шага держать этот путь
+> открытым (не зашивать «только YouTube/внешний url»).
+
+Легенда статусов: `[ ]` не начато · `[~]` в работе · `[x]` готово · `[supersedes]` — заменяет раннюю задачу.
 
 ---
 
@@ -322,8 +334,11 @@
 
 ---
 
-#### Банк уроков (`{key}_lessons`) — `[rework]`
+#### Банк уроков (`{key}_lessons`) — `[rework]` → `[supersedes: T1.5.2]`
 
+> ⚠️ **Перекрыто Этапом 1.5 (MVP-2).** T1.15/T1.16 ниже описывают промежуточную модель «урок = работы».
+> Актуальная — **урок = `steps[]`** (T1.5.2, [`Courses.md` `★`](./Courses.md)). Оставлено как провенанс.
+>
 > Урок реализован в ранней версии Этапа 1 с инлайн-бакетами. Здесь — переработка под ссылки на
 > **работы**: `TaskBucketField`/`TaskTypeField` убираются, появляется селектор работ. `LessonManager`
 > и `LessonMetaBoxController` сохраняются (меняется только форма meta и набор полей).
@@ -359,7 +374,10 @@
 
 ---
 
-#### Банк курсов (`{key}_courses`)
+#### Банк курсов (`{key}_courses`) → `[supersedes: T1.5.3]`
+
+> ⚠️ **Перекрыто Этапом 1.5 (MVP-2).** T1.17/T1.18 описывают плоский `lesson_ids[]`. Актуальная модель —
+> **курс = `modules[] → lessonIds[]`** (T1.5.3). Селектор уроков переезжает в modules-builder. Оставлено как провенанс.
 
 ##### T1.17 — `LessonRefField` + `CourseTemplate` + `CourseMetaBoxController`
 - **Файлы:** `inc/MetaBoxes/Fields/LessonRefField.php`, `inc/MetaBoxes/Templates/CourseTemplate.php`
@@ -668,6 +686,190 @@
    сводный кросс-предметный вид.
 5. **Инструкции/настройки работы.** `instructions` — сейчас; `settings` (`max_score`, дефолтный
    дедлайн-офсет) — задел под Этап 3, наполняется там.
+
+---
+
+## Этап 1.5 — Переработка MVP-2: модули · шаги · прогресс · гейтинг · клон
+
+Источник правды — [`Courses.md` → секция `★`](./Courses.md). Шаги text/video — инлайн (принадлежат уроку);
+task/work/assessment/material — ссылки. «Степ-лист» — один компонент на трёх уровнях (урок / работа / контрольная),
+отличается лишь `allowedTypes`.
+
+### Готово, когда (DoD этапа)
+
+- Курс собирается как **модули → уроки**; урок — как **последовательность шагов** через единый билдер
+  (карточки + drag-drop + модалка добавления + инлайн-разворот ссылочных шагов в их задачи).
+- WP-редактор убран там, где идёт сборка (урок/работа/контрольная); остаётся для контента листа (задача).
+- Ученик проходит урок **пошагово** (один шаг на экран, «Далее»); прохождение пишется в `fs_lms_lesson_progress`.
+- **Гейтинг**: следующий шаг/урок открывается по дате И/ИЛИ по выполнению (prerequisite).
+- Контент **клонируется/форкается** (курс shallow/deep; урок/работа/контрольная — форк), не дёргая оригинал.
+- **Video-шаг** работает на внешнем url **и** оставляет точку для S3-записи (Этап 5) без переделки.
+
+### Слой Enums / DTO
+
+#### T1.5.1 — `StepType` enum + `StepDTO` + `ModuleDTO` · `[x]`
+- **`StepType`** (backed): `Text|Video|Material|Task|Work|Assessment`. Хелперы: `isInline()` (text/video/material),
+  `isRef()` (task/work/assessment/material-article), `allowedFor(string $level)` (`lesson|work|assessment`).
+- **`StepDTO`**: `key`(стабильный slug/uuid), `type`(StepType), `payload`(array). Генерация `key` при добавлении,
+  переживает реордер (к нему привязаны прогресс и гейт).
+- **`ModuleDTO`**: `id`, `title`, `lessonIds[]`. Course-local, не CPT.
+- **Готово:** типы/DTO покрыты юнит-тестами на сериализацию meta.
+- **Сделано (2026-06-18):** `inc/Enums/StepType.php`, `inc/DTO/Course/StepDTO.php`, `inc/DTO/Course/ModuleDTO.php`
+  + тесты (`StepTypeTest`/`StepDTOTest`/`ModuleDTOTest`, 19 тестов). `key`/`id` генерируются в сервисе (не в DTO —
+  без WP-вызовов); `StepDTO`/`ModuleDTO` несут `fromList()/toList()` для round-trip meta `steps[]`/`modules[]`.
+
+### Слой Lesson / Course rework
+
+#### T1.5.2 — `[supersedes T1.15/T1.16]` Урок = `steps[]` · `[x]`
+- `LessonDTO`: `steps[] (StepDTO[])` вместо `theoryHtml/theoryArticleId/workIds[]`; `isEmpty()` = нет шагов.
+- `LessonManager`: meta `steps[]` (валидация/санитайз каждого шага по типу); сигнатуры CRUD без изменений.
+- `LessonAuthoringService`: кандидаты по типу шага — `getWorkCandidates`/`getAssessmentCandidates`/`getTaskCandidates`/`getArticles`.
+- Удалить `TaskBucketField`/`TaskTypeField`/`WorkRefField`-как-форму урока (заменяются билдером T1.5.4).
+- **Готово:** урок хранит упорядоченные типизированные шаги; чтение/запись round-trip стабильны по `key`.
+- **Сделано (2026-06-18):** `LessonDTO` → `steps[]` + derived `workIds()`/`assessmentIds()`/`taskIds()`/`articleIds()`
+  (refs из шагов); `LessonManager.saveMeta` пишет `steps`; `post_content` урока больше не «теория». Потребители
+  доставки переведены на derived: `EffectiveWorksResolver`, `LessonVisibilityService` (copy-on-publish + refresh),
+  `ContentUsageService` (lesson←work/article теперь через `steps:work`/`steps:article`). `LessonCallbacks` (draft) —
+  на новую форму. Тесты: `LessonDTOTest` переписан + хелперы 3 сервис-тестов + 2 сида `ContentUsageServiceTest`.
+  **Полный набор 296/296 зелёный.**
+- **Отложено сознательно:** (а) `getTaskCandidates`/`getAssessmentCandidates` — добавим в T1.5.4/5 (где модалка их
+  потребляет); (б) удаление старого метабокса `LessonTemplate`/`WorkRefField`/`ArticleRefField` — в T1.5.6 (сейчас он
+  пишет «мёртвую» мету, `LessonDTO` её игнорирует; шагов через UI ещё нет, затирания нет). Генерация `key` — в сервисе при добавлении шага (T1.5.4).
+
+#### T1.5.3 — `[supersedes T1.17/T1.18]` Курс = `modules[]` · `[x]`
+- `CourseDTO`: `modules[] (ModuleDTO[])` вместо плоского `lessonIds[]`.
+- `CourseManager`: meta `modules[]`. `getBankBySubject()` (потребитель Этапа 2 — назначение группе) — список уроков
+  курса = плоский разворот `modules[].lessonIds` в порядке модулей (снапшот в `group_lessons` остаётся плоским).
+- **Готово:** курс хранит модули с уроками; Этап 2 получает плоский упорядоченный список уроков без изменений своего контракта.
+- **Сделано (2026-06-18):** `CourseDTO` → `modules[]` + derived `lessonIds()` (плоский разворот по порядку модулей);
+  `descriptionHtml` (post_content) сохранён. `CourseManager.saveMeta` пишет `modules`. `CourseAssignmentService`
+  переведён на `->lessonIds()` (контракт Этапа 2 не изменился — снапшот плоский). `ContentUsageService` (lesson←course)
+  теперь через `modules:lesson`. Тесты: `CourseDTOTest` переписан, хелпер `CourseAssignmentServiceTest`, сид
+  `ContentUsageServiceTest`. **Полный набор 298/298 зелёный.**
+- **Отложено:** снапшот `module_id`/`module_title` в `group_lessons` — в **T2.28/T2.33** (требует миграции таблицы,
+  Этап 2). Удаление старого метабокса `CourseTemplate`/`LessonRefField` — в **T1.5.6** (сейчас пишет «мёртвую» мету `lesson_ids`).
+
+### Слой UI — единый билдер шагов
+
+#### T1.5.4 — JS-компонент `step-builder` (admin) · `[~]`
+> **Сделано (бэкенд-контракт, 2026-06-18):** `AjaxHook::SaveLessonSteps` + `GetStepCandidates`;
+> `LessonAuthoringService::buildSteps()` (валидация типа + генерация `key` `s_…`, без WP) и
+> `getStepCandidates(kind=work|task|assessment|article, source=subject|bank)`; `LessonCallbacks::ajaxSaveLessonSteps`
+> (per-type санитайз шага трейтом Sanitizer) + `ajaxGetStepCandidates`; регистрация в `LessonController`.
+> 5 юнит-тестов, **полный набор 303/303**. `key` генерируется в сервисе (закрыт долг T1.5.1/2).
+> **Сделано (JS-слой, 2026-06-18):** `src/js/admin/services/step-builder.js` — мастер-деталь (рельса шагов +
+> редактор), drag-drop реордер, инлайн text/video, выбор кандидата для task/work/assessment/material
+> (`GetStepCandidates`, переключатель источника subject/bank), удаление, сохранение (`SaveLessonSteps`).
+> Монтаж: `LessonMetaBoxController` рендерит `.fs-lms-step-builder` с инлайн-JSON шагов; **старый метабокс
+> урока (`LessonTemplate`/save) убран** (больше не пишет мёртвую мету — footgun закрыт). SCSS-заглушка
+> `_step-builder.scss`. `admin.js` инициализирует по `.fs-lms-step-builder`. ESLint+gulp+php-lint чисто, тесты 303/303.
+> ⚠️ Рантайм в браузере под Docker **проверяет пользователь** (юнит-тестов на JS нет).
+> **Осталось:** move-step МЕЖДУ уроками (cross-entity, TODO в JS) — в T1.5.5; полная Stepik-модалка добавления — T1.5.5;
+> резолв заголовков ref-шагов при перезагрузке (сейчас «#ref» до выбора) — полиш; курс C-билдер + works/assessments
+> + снятие `supports:editor` — T1.5.6.
+- **Раскладка по прототипу** (`prototype/`, вердикт 2026-06-18): **урок/работа/контрольная → мастер-деталь**
+  (вариант B): рельса шагов слева (drag-drop порядок) + редактор выбранного шага справа. **Курс → структура**
+  (вариант C): дерево модуль→урок→шаги (T1.5.6). Вариант A отклонён.
+- Инлайн-редактор `text` (rich) / `video` (url) в правой панели; инлайн-**разворот** ссылочных шагов
+  (work/assessment → их task-шаги, read-only превью; «редактировать» уводит на B-билдер сущности — drill-down).
+  Конфиг `allowedTypes` под уровень (урок = все типы; работа/контрольная = только `task`).
+- **Move-step между уроками (MVP):** действие «переместить шаг в урок…» — выбрать целевой урок, шаг
+  переносится (cut→append) в его `steps[]`. Нужно для перетасовки контента при форке группы («4→3»,
+  Courses.md §7 №23). Контент не дублируется — переезжает.
+- Сохранение — через `*AuthoringService` (AJAX), не прямой WP-вызов. SCSS — заглушка-классы (дизайн дорабатывается позже).
+- **Готово:** компонент рендерит мастер-деталь билдер урока/работы/контрольной по конфигу; порядок и состав сохраняются; шаг переносится в другой урок.
+
+#### T1.5.5 — Модалка «Добавить шаг» (как Stepik) · `[~]`
+- Выбор типа (text/video/material/task/work/assessment, ограничен `allowedTypes`).
+- Для **task**: источник `subject`/`bank` + тип интеракции из `TemplateRegistry` + «выбрать из библиотеки / создать»
+  (reuse `draft-creator-modal`). Для **work/assessment/material** — селектор из банка / создать.
+- **Готово:** добавление любого типа шага из одной модалки; «создать» даёт реальный CPT + автоссылку.
+- **Сделано (JS, 2026-06-18):** модалка в `step-builder.js` — сетка типов (по `allowedTypes`) → инлайн text/video
+  или пикер ref-шага (источник Мои/Банк для task) + поиск по библиотеке (`GetStepCandidates`) + «Создать».
+  «Заменить» на ref-шаге переоткрывает пикер. SCSS-модалка (заглушка). ESLint+gulp чисто.
+  - **«Создать» бесшовно** (через `DraftCreatorModal`, guard по `#fs-lms-draft-creator-modal`): **work** и **bank-задача**
+    (problem). Для **subject-задачи / контрольной / материала** — фолбэк «открыть `post-new.php` в новой вкладке».
+  - ⚠️ Рантайм проверяет пользователь.
+- **Осталось:** бесшовное создание subject-задачи (нужен `fs_lms_task_data` на экране урока) / контрольной / статьи;
+  **move-step между уроками** (нужен эндпоинт `MoveLessonStep` + сервис + пикер целевого урока) — отдельным слоем;
+  выбор типа интеракции «вперёд» (сейчас тип задаётся внутри `draft-creator`/создания, не в нашей сетке).
+
+#### T1.5.6 — Перенос редакторов на билдер
+> **Архитектура: нативный drill-down, без SPA** (решение «больше нативного wp, меньше кода»). Каждая
+> сущность — свой нативный WP-экран редактирования (метабокс-билдер вместо WP-редактора). Переходы —
+> штатная навигация WP, не единый full-screen конструктор. Банки «Уроки»/«Работы» в меню остаются как
+> **библиотека** (переиспользование/клон/архив/«used in N»), нативные таблицы с табами-предметами — без изменений.
+- **`supports: editor` — по сущностям** (решение 2026-06-18, см. Courses.md ★ «Нативный редактор»):
+  - **Урок** — `editor` **снят** (контент = шаги). ✅ Сделано в `SubjectController` (T1.5.4).
+  - **Работа / Контрольная** — `editor` **оставлен** = «описание перед началом» (`post_content`). Бывшая мета
+    `work.instructions` **схлопнута в `post_content`** ✅ (`WorkDTO`/`WorkManager`, T1.5.4). На экране — нативный
+    редактор (описание) **+** `step-builder` (task-шаги).
+  - **Курс** — `editor` **оставлен** = описание курса (`CourseDTO.descriptionHtml`) **+** C-дерево модулей.
+- **Экран урока** `{key}_lessons` → метабокс `step-builder` **мастер-деталь** (B, allowedTypes=lesson). ✅ Сделано (T1.5.4).
+- **Экран курса** `{key}_courses` → метабокс **структура курса** (вариант C): дерево модуль→урок (drag-drop,
+  добавить модуль/урок), уроки — read-only превью шагов; «редактировать урок» = ссылка на нативный экран урока (drill-down). Раздел «Обучение → Курсы».
+- **Работа/контрольная** `{key}_works`/`{key}_assessments` → метабокс `step-builder` B (allowedTypes=только task).
+  Удалить старый `WorkTemplate` (поле `instructions` теперь дублирует нативный редактор → пишет мёртвую мету).
+- Навигация: из дерева курса — ссылка на `post.php` урока + «← к курсу» на экране урока. **Рельса курса слева
+  на экране урока — опционально, не в MVP** (экономим код).
+- **Готово:** курс собирается C-деревом, урок/работа/контрольная — B-мастер-деталь на нативных экранах; у работ/контрольных/курса остаётся редактор-описание; переходы штатные; нативный редактор контента остаётся у задачи (лист).
+
+### Слой Progress
+
+#### T1.5.7 — `TableName::LessonProgress` + DDL
+- Добавить в `Migration_1_0_0::up()/down()` + строку cleanup (см. CLAUDE.md «Миграции в dev»). Поля — по `★`.
+- **Готово:** таблица создаётся; схема сбрасывается в dev перезагрузкой.
+
+#### T1.5.8 — `LessonProgressRepository`
+- CRUD/upsert по `UNIQUE(student_person_id, group_lesson_id, step_key)`; выборки по уроку/группе.
+
+#### T1.5.9 — `LessonProgressService`
+- `markViewed(stepKey)`/`markCompleted(stepKey)`; завершение **work/assessment**-шага резолвится из
+  `submissions`/`attempts` (не дублируем балл — прогресс хранит только статус); `isLessonCompleted(...)`.
+- **Готово:** статусы шагов читаются для плеера и дашборда; источник «сделано» оцениваемого — fact-таблицы.
+
+### Слой Gating
+
+#### T1.5.10 — `LessonGateResolver`
+- Гейт-конфиг: на шаге `gate: sequential|after:<step_key>|none`; на уроке `unlock: after_prev_lesson|after_work:<id>|date|manual`.
+- Резолвер: дата (`group_lessons.scheduled_at`/`visibility`) + выполнение (`fs_lms_lesson_progress` + fact-таблицы) → `locked|available`.
+- Интегрировать с `LessonAccessPolicy` (доступ к материалам уже гейтится членством — добавляем слой выполнения).
+- **Готово:** недоступный шаг/урок отдаёт `locked`; открывается по выполнению предусловия и/или дате.
+
+### Слой Clone/fork
+
+#### T1.5.11 — `ContentCloneService`
+- `cloneCourse(id, mode=shallow|deep)` — новый `{key}_courses` + копия `modules[]`; shallow = те же ссылки на уроки,
+  deep = рекурсивно форкнуть уроки/работы. `forkLesson/forkWork/forkAssessment` — новый пост + копия `steps[]`
+  (ссылочные шаги остаются ссылками). Право = авторские права контента.
+- **Форк для группы** (Courses.md §7 №23): `forkLessonForGroup/forkModuleForGroup/forkCourseForGroup(groupId, …)` —
+  групповые копии `{key}_lessons` с метой `forked_from` + `forked_for_group`; перецепляют `group_lessons.lesson_id`
+  на форк. Форки **скрыты из общей библиотеки** (фильтр `forked_for_group IS NULL` в `getBankBySubject`/селекторах).
+  Действие в кокпите программы: «форкнуть урок/модуль/курс для этой группы».
+- Row-action «Дублировать» в списках банка + действие в билдере; не путать с copy-on-publish доставки.
+- **Готово:** клон курса/форк урока редактируются независимо от оригинала; групповой форк не виден в общем банке и не трогает другие группы.
+
+### Слой Student-player
+
+#### T1.5.12 — Пошаговый плеер урока (frontend)
+- Один шаг на экран, «Далее»/«Назад», степпер сбоку; запись прогресса (T1.5.9) на завершение; гейт (T1.5.10)
+  блокирует недоступные. Рендер: text/video/material inline; task/work/assessment → прохождение. По образцу
+  `LessonPageController` (`template_include`), `ThemeCompatService` для шапки/подвала.
+- **Готово:** ученик проходит урок по шагам; прогресс и галочки видны; недоступные шаги закрыты.
+
+### Слой Video / S3-readiness (S3 само — Этап 5, отложено)
+
+#### T1.5.13 — Video-шаг с заделом под S3
+- Payload `{ url, provider }`; рендер через oEmbed/iframe (внешний url работает сразу). Заложить «recording slot»
+  урока: точка, куда `S3RecordingService` (Этап 5) подставит url записи занятия — наполняя **тот же** video-шаг,
+  без переделки модели. **Не** зашивать «только внешний провайдер».
+- **Готово:** видео по url работает в MVP; интеграция S3 (Этап 5) сведётся к заполнению url, не к новой сущности.
+
+### Порядок реализации (по зависимостям)
+
+T1.5.1 → T1.5.2/T1.5.3 (модель) → T1.5.4/T1.5.5/T1.5.6 (билдер) → T1.5.7→T1.5.8→T1.5.9 (прогресс) →
+T1.5.10 (гейтинг) → T1.5.12 (плеер) → T1.5.11 (клон, параллелится) → T1.5.13 (video, параллелится).
+Прототип (UI билдера урока) — поверх T1.5.1 контракта, до полной реализации остальных.
 
 ---
 
@@ -1097,7 +1299,9 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 ##### T2.28 — `CourseAssignmentService` (назначение курса группе = снапшот)
 - **Файл:** `inc/Services/Course/CourseAssignmentService.php`.
 - **Назначение:** снапшот курса в программу группы — bulk-инсерт строк `group_lessons` по
-  `course.lesson_ids`; запись `groups.course_id`.
+  `course.modules[].lessonIds` (плоский разворот в порядке модулей); запись `groups.course_id`.
+  **Снапшот модуля:** на каждую строку пишутся `module_id`/`module_title` (Courses.md §7 №23) — группировка
+  программы переживает пер-групповые правки. Урок может быть позже перецеплен на групповой форк (T1.5.11).
 - **Связи:** `CourseManager` (Этап 1: `lesson_ids` курса), `GroupLessonRepository` (T2.8: bulk add +
   `nextPosition`), `GroupsRepository` (`course_id`; проверка `course.subjectKey == group.subject_key`),
   `LogEventDispatcherInterface` (`CourseAssigned` → лента). Гейт — `GroupAccessGuard::canManage`.
@@ -1123,6 +1327,44 @@ CREATE TABLE {prefix}fs_lms_learning_events (
   public function setExtraWorks( int $groupLessonId, array $workIds, int $actorUserId ): void; // валидация предмета + лог ExtraWorksChanged
   ```
 - **Готово:** опубликованный урок группы стабилен (снапшот); неопубликованный — живой; дельта правится точечно.
+
+---
+
+#### Слой Календарь занятий (расписание · слоты · сдвиг) — `[см. Courses.md ★ Календарь]`
+
+> Очный центр: даты занятий вычисляет календарь. **Слот-первичный** (строка `group_lessons` = занятие/дата),
+> **сдвиг** на пропуск (+ пин), нерабочие дни — чекбокс-список на учебном периоде.
+
+##### T2.30 — `groups.meetings[]` (структурное расписание)
+- **Миграция:** `groups.schedule text` → `meetings` (JSON): `[{ weekday 1–7, time, duration_min }]` (см. CLAUDE.md «Миграции в dev»).
+- `GroupDTO`/`GroupsRepository` — чтение/запись `meetings`; UI группы — редактор дней недели + время + длительность.
+- **Готово:** у группы структурированное повторяющееся расписание; старый текст не используется.
+
+##### T2.31 — Нерабочие дни на учебном периоде
+- `AcademicPeriodDTO` + `holidays[]` (список дат с тумблером «нерабочий»). Хранение через `AcademicPeriodService`.
+- **Settings → Учебные периоды:** чекбокс-список дат (добавить дату / отметить нерабочей; часть праздников рабочие).
+- **Готово:** период несёт список нерабочих дат, общий для всех групп периода.
+
+##### T2.32 — `SessionCalendarService` (генератор слотов)
+- **Файл:** `inc/Services/Course/SessionCalendarService.php`.
+- **Назначение:** разворот `group.meetings[]` по `[period.start..period.end]` − `holidays[]` → упорядоченные
+  слоты-занятия (`scheduled_at` + `ends_at = scheduled_at + duration_min`). Учёт `is_pinned` (пины не сдвигаются).
+- **Методы:** `generate(int $groupId): array` (слоты по датам); `reflow(int $groupId): void` (перепривязка
+  уроков к слотам при смене расписания/праздников — **сдвиг** контента, пины на месте; хвост за период → warning).
+- **Готово:** даты занятий считаются из расписания×период−нерабочие; пропуск сдвигает последующие.
+
+##### T2.33 — `group_lessons` слот-первичный + расширение `ScheduleService`
+- **Миграция:** + `ends_at datetime`, + `is_pinned tinyint(1) DEFAULT 0`; `scheduled_at` = снапшот из календаря.
+- `ScheduleService`: привязка `lesson_id` к слоту (nullable — занятие без урока ок), пин/анпин, перегенерация → `reflow`.
+- **Готово:** программа = упорядоченные занятия-слоты с датами из календаря; урок вешается на слот; пин фиксирует дату.
+
+##### T2.34 — Авто-открытие урока по дате (гейт по `scheduled_at`)
+- Расширить `LessonVisibilityService`/гейт (MVP-2 `★`): занятие авто-`open` при `now >= scheduled_at`
+  («после 18:30»); ручная `visibility` — override. Lazy-проверка по времени запроса (как expire попыток Этапа 4).
+- **Готово:** ученик видит урок ровно с даты/времени занятия; ручное скрытие/открытие работает поверх.
+
+> **S3-задел (Этап 5, отложено):** `ends_at` + `duration_min` дают окно матчинга записи к занятию →
+> `group_lessons.recording_url` → video-шаг урока (T1.5.13). Сейчас только хранить точно; матчинг — позже.
 
 ---
 
@@ -2100,3 +2342,6 @@ auto-grade авто/ручных шаблонов, gradebook UNION из двух
    неограниченном числе попыток ученик может «фармить» баллы. Это осознанное поведение или нужен флаг?
 5. **Ручная проверка ответов в интерфейсе.** `GradeAttemptCallbacks::ajaxGradeAttempt()` проверяет один
    ответ. Нужен ли UI пакетной проверки (все ответы попытки на одном экране)? Вынести в отдельную задачу.
+
+## Bugfix
+-

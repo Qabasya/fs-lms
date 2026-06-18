@@ -64,14 +64,12 @@ class LessonCallbacks extends BaseController {
 		$title       = $this->sanitizeText( $_POST['title'] ?? '' ) ?: 'Новый урок';
 
 		$dto = LessonDTO::fromArray( array(
-			'id'                => 0,
-			'subject_key'       => $subject_key,
-			'topic'             => $title,
-			'theory_html'       => '',
-			'theory_article_id' => 0,
-			'work_ids'          => array(),
-			'author_id'         => get_current_user_id(),
-			'status'            => 'draft',
+			'id'          => 0,
+			'subject_key' => $subject_key,
+			'topic'       => $title,
+			'steps'       => array(),
+			'author_id'   => get_current_user_id(),
+			'status'      => 'draft',
 		) );
 
 		try {
@@ -98,5 +96,88 @@ class LessonCallbacks extends BaseController {
 		}
 
 		$this->success( $result );
+	}
+
+	/**
+	 * Кандидаты для шага-ссылки (модалка билдера).
+	 * Params: subject_key, kind (work|task|assessment|article), source (subject|bank), search
+	 */
+	public function ajaxGetStepCandidates(): void {
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$kind        = $this->sanitizeKey( $_POST['kind'] ?? '' );
+		$source      = $this->sanitizeKey( $_POST['source'] ?? 'subject' );
+		$search      = $this->sanitizeText( $_POST['search'] ?? '' );
+
+		$this->success( $this->authoringService->getStepCandidates( $subject_key, $kind, $source, $search ) );
+	}
+
+	/**
+	 * Сохраняет последовательность шагов урока (билдер).
+	 * Params: lesson_id, subject_key, steps[]
+	 */
+	public function ajaxSaveLessonSteps(): void {
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+
+		$lesson_id   = $this->requireInt( $_POST['lesson_id'] ?? 0 );
+		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$raw_steps   = wp_unslash( $_POST['steps'] ?? array() );
+		$raw_steps   = is_array( $raw_steps ) ? $raw_steps : array();
+
+		$lesson = $this->lessonManager->get( $lesson_id );
+		if ( null === $lesson ) {
+			$this->error( 'Урок не найден.' );
+			return;
+		}
+
+		$sanitized = array_map( array( $this, 'sanitizeStep' ), $raw_steps );
+		$steps     = $this->authoringService->buildSteps( $sanitized );
+
+		$dto = new LessonDTO(
+			id        : $lesson_id,
+			subjectKey: $subject_key,
+			topic     : $lesson->topic,
+			steps     : $steps,
+			authorId  : $lesson->authorId,
+			status    : $lesson->status,
+		);
+		$this->lessonManager->update( $lesson_id, $dto );
+
+		$this->success( array( 'count' => count( $steps ) ) );
+	}
+
+	/**
+	 * Санитайз одного сырого шага по типу (поля очищаются trait-методами Sanitizer).
+	 *
+	 * @param mixed $raw
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function sanitizeStep( mixed $raw ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$type        = $this->sanitizeKey( $raw['type'] ?? '' );
+		$key         = $this->sanitizeKey( $raw['key'] ?? '' );
+		$raw_payload = is_array( $raw['payload'] ?? null ) ? $raw['payload'] : array();
+
+		$payload = match ( $type ) {
+			'text'               => array( 'content' => $this->sanitizeHtml( $raw_payload['content'] ?? '' ) ),
+			'video'              => array( 'url' => $this->sanitizeText( $raw_payload['url'] ?? '' ) ),
+			'material'           => array_filter( array(
+				'article_id'    => $this->sanitizeInt( $raw_payload['article_id'] ?? 0 ),
+				'attachment_id' => $this->sanitizeInt( $raw_payload['attachment_id'] ?? 0 ),
+			) ),
+			'task'               => array(
+				'ref'    => $this->sanitizeInt( $raw_payload['ref'] ?? 0 ),
+				'source' => 'bank' === $this->sanitizeKey( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
+			),
+			'work', 'assessment' => array( 'ref' => $this->sanitizeInt( $raw_payload['ref'] ?? 0 ) ),
+			default              => array(),
+		};
+
+		return array( 'key' => $key, 'type' => $type, 'payload' => $payload );
 	}
 }

@@ -32,7 +32,7 @@ class EffectiveWorksResolver {
 	public function resolve( GroupLessonDTO $row ): array {
 		$base = $row->isPublished()
 			? $row->workIdsSnapshot
-			: ( $this->lessonManager->get( $row->lessonId )?->workIds ?? array() );
+			: ( $this->lessonManager->get( $row->lessonId )?->workIds() ?? array() );
 
 		$all     = array_unique( array_merge( $base, $row->extraWorkIds ) );
 		$works   = array();

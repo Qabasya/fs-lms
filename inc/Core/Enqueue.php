@@ -84,9 +84,10 @@ class Enqueue extends BaseController implements ServiceInterface {
 		$is_lesson_cpt   = $screen && PostTypeResolver::isLessonPostType( $screen->post_type );
 		$is_work_cpt     = $screen && PostTypeResolver::isWorkPostType( $screen->post_type );
 		$is_course_cpt   = $screen && PostTypeResolver::isCoursePostType( $screen->post_type );
+		$is_problems_cpt = $screen && PostTypeResolver::problems() === $screen->post_type;
 
 		// Подключаем ресурсы ТОЛЬКО на страницах плагина или наших CPT
-		if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_lesson_cpt && ! $is_work_cpt && ! $is_course_cpt ) {
+		if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_lesson_cpt && ! $is_work_cpt && ! $is_course_cpt && ! $is_problems_cpt ) {
 			return;
 		}
 
