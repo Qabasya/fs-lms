@@ -490,6 +490,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			is_correct          tinyint(1)      DEFAULT NULL,
 			score               decimal(6,2)    DEFAULT NULL,
 			max_score           decimal(6,2)    DEFAULT NULL,
+			grader_note         text            DEFAULT NULL,
 			graded_by_user_id   bigint unsigned DEFAULT NULL,
 			graded_at           datetime        DEFAULT NULL,
 			PRIMARY KEY  (id),
@@ -523,6 +524,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `course_id` bigint(20) unsigned DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `grader_note` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );

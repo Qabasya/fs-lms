@@ -16,6 +16,7 @@ readonly class AttemptAnswerDTO {
 		public ?float  $maxScore,
 		public ?int    $gradedByUserId,
 		public ?string $gradedAt,
+		public ?string $graderNote = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -29,6 +30,7 @@ readonly class AttemptAnswerDTO {
 			maxScore        : isset( $row['max_score'] ) ? (float) $row['max_score'] : null,
 			gradedByUserId  : isset( $row['graded_by_user_id'] ) ? (int) $row['graded_by_user_id'] : null,
 			gradedAt        : $row['graded_at'] ?? null,
+			graderNote      : $row['grader_note'] ?? null,
 		);
 	}
 }
