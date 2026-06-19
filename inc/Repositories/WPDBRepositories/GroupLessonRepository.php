@@ -84,16 +84,49 @@ class GroupLessonRepository {
 		}
 	}
 
-	public function updateSchedule( int $id, ?string $scheduledAt, ?int $teacherUserId ): bool {
+	public function updateSchedule( int $id, ?string $scheduledAt, ?int $teacherUserId, ?string $endsAt = null ): bool {
 		$result = $this->wpdb->update(
 			$this->table,
 			array(
 				'scheduled_at'    => $scheduledAt,
+				'ends_at'         => $endsAt,
 				'teacher_user_id' => $teacherUserId,
 			),
 			array( 'id' => $id )
 		);
 		return false !== $result;
+	}
+
+	public function setPinned( int $id, bool $pinned ): bool {
+		$result = $this->wpdb->update(
+			$this->table,
+			array( 'is_pinned' => (int) $pinned ),
+			array( 'id' => $id )
+		);
+		return false !== $result;
+	}
+
+	/** Bulk-assign slots from SessionCalendarService::generate(); skips pinned rows. */
+	public function applySlots( int $groupId, array $slots ): void {
+		$rows = $this->listByGroup( $groupId );
+		$i    = 0;
+		foreach ( $rows as $row ) {
+			if ( $row->isPinned ) {
+				continue;
+			}
+			if ( ! isset( $slots[ $i ] ) ) {
+				break;
+			}
+			$this->wpdb->update(
+				$this->table,
+				array(
+					'scheduled_at' => $slots[ $i ]['scheduled_at'],
+					'ends_at'      => $slots[ $i ]['ends_at'],
+				),
+				array( 'id' => $row->id )
+			);
+			$i++;
+		}
 	}
 
 	public function setVisibility( int $id, string $visibility, ?string $openedAt ): bool {

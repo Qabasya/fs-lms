@@ -27,18 +27,20 @@ readonly class AcademicPeriodDTO {
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param string $id         Уникальный идентификатор периода (например, '2025_2026')
-	 * @param string $name       Отображаемое название периода (например, '2025-2026 учебный год')
-	 * @param string $start_date Дата начала периода (Y-m-d)
-	 * @param string $end_date   Дата окончания периода (Y-m-d)
-	 * @param bool   $is_current Флаг текущего периода (только один может быть активным)
+	 * @param string   $id         Уникальный идентификатор периода (например, '2025_2026')
+	 * @param string   $name       Отображаемое название периода (например, '2025-2026 учебный год')
+	 * @param string   $start_date Дата начала периода (Y-m-d)
+	 * @param string   $end_date   Дата окончания периода (Y-m-d)
+	 * @param bool     $is_current Флаг текущего периода (только один может быть активным)
+	 * @param string[] $holidays   Список нерабочих дат (Y-m-d), общий для всех групп периода
 	 */
 	public function __construct(
 		public string $id,
 		public string $name,
 		public string $start_date,
 		public string $end_date,
-		public bool $is_current = false,
+		public bool   $is_current = false,
+		public array  $holidays   = array(),
 	) {}
 
 	/**
@@ -49,12 +51,17 @@ readonly class AcademicPeriodDTO {
 	 * @return self
 	 */
 	public static function fromArray( array $data ): self {
+		$holidays = array_values( array_filter(
+			array_map( 'strval', (array) ( $data['holidays'] ?? array() ) ),
+			static fn( string $d ) => (bool) preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d )
+		) );
 		return new self(
 			id:         (string) ( $data['id'] ?? '' ),
 			name:       (string) ( $data['name'] ?? '' ),
 			start_date: (string) ( $data['start_date'] ?? '' ),
 			end_date:   (string) ( $data['end_date'] ?? '' ),
 			is_current: (bool) ( $data['is_current'] ?? false ),
+			holidays:   $holidays,
 		);
 	}
 
@@ -70,6 +77,7 @@ readonly class AcademicPeriodDTO {
 			'start_date' => $this->start_date,
 			'end_date'   => $this->end_date,
 			'is_current' => $this->is_current,
+			'holidays'   => $this->holidays,
 		);
 	}
 }

@@ -14,6 +14,8 @@ readonly class GroupLessonDTO {
 	 * @param int[]|null $workIdsSnapshot  NULL = урок ещё не публиковался (copy-on-publish)
 	 * @param int[]    $extraWorkIds       доп. работы только для этой группы
 	 * @param string|null $scheduledAt
+	 * @param string|null $endsAt
+	 * @param bool     $isPinned           фиксирует дату при reflow
 	 * @param int|null $teacherUserId
 	 * @param string   $visibility         hidden|open|archived
 	 * @param string|null $openedAt
@@ -26,11 +28,13 @@ readonly class GroupLessonDTO {
 	public function __construct(
 		public int     $id,
 		public int     $groupId,
-		public int     $lessonId,
+		public ?int    $lessonId,
 		public int     $position,
 		public ?array  $workIdsSnapshot,
 		public array   $extraWorkIds,
 		public ?string $scheduledAt,
+		public ?string $endsAt,
+		public bool    $isPinned,
 		public ?int    $teacherUserId,
 		public string  $visibility,
 		public ?string $openedAt,
@@ -45,13 +49,15 @@ readonly class GroupLessonDTO {
 		return new self(
 			id              : (int) $row['id'],
 			groupId         : (int) $row['group_id'],
-			lessonId        : (int) $row['lesson_id'],
+			lessonId        : isset( $row['lesson_id'] ) ? (int) $row['lesson_id'] : null,
 			position        : (int) $row['position'],
 			workIdsSnapshot : isset( $row['work_ids_snapshot'] )
 				? self::jsonIds( $row['work_ids_snapshot'] )
 				: null,
 			extraWorkIds    : self::jsonIds( $row['extra_work_ids'] ?? null ),
 			scheduledAt     : $row['scheduled_at'] ?? null,
+			endsAt          : $row['ends_at'] ?? null,
+			isPinned        : (bool) ( $row['is_pinned'] ?? false ),
 			teacherUserId   : isset( $row['teacher_user_id'] ) ? (int) $row['teacher_user_id'] : null,
 			visibility      : (string) ( $row['visibility'] ?? 'hidden' ),
 			openedAt        : $row['opened_at'] ?? null,

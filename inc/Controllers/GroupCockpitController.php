@@ -14,6 +14,7 @@ use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Managers\CourseManager;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\ScheduleService;
@@ -31,6 +32,7 @@ class GroupCockpitController extends BaseController implements ServiceInterface 
 		private readonly PersonRepository        $personRepo,
 		private readonly EffectiveWorksResolver  $worksResolver,
 		private readonly SubmissionRepository    $submissionRepo,
+		private readonly CourseManager           $courseManager,
 	) {
 		parent::__construct();
 	}
@@ -86,11 +88,13 @@ class GroupCockpitController extends BaseController implements ServiceInterface 
 	}
 
 	private function renderCockpit( int $groupId, int $userId ): void {
-		$group    = $this->groups->findById( $groupId );
-		$program  = $this->scheduleService->getProgram( $groupId );
-		$roster   = $this->studentRecords->findActiveByGroupId( $groupId );
-		$events   = $this->eventRepo->listByGroup( $groupId, 1, 20 );
-		$total    = $this->eventRepo->countByGroup( $groupId );
+		$group      = $this->groups->findById( $groupId );
+		$subjectKey = $group->subject_key ?? '';
+		$program    = $this->scheduleService->getProgram( $groupId );
+		$roster     = $this->studentRecords->findActiveByGroupId( $groupId );
+		$events     = $this->eventRepo->listByGroup( $groupId, 1, 20 );
+		$total      = $this->eventRepo->countByGroup( $groupId );
+		$courses    = $this->courseManager->getBankBySubject( $subjectKey );
 
 		ThemeCompatService::header();
 		include $this->path( 'templates/frontend/group-cockpit/cockpit.php' );

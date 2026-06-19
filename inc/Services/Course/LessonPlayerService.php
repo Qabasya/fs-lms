@@ -32,7 +32,7 @@ class LessonPlayerService {
 	 * @return array{group_lesson_id:int, lesson_id:int, topic:string, steps:array<int, array<string,mixed>>}|null
 	 */
 	public function buildView( int $studentPersonId, GroupLessonDTO $groupLesson ): ?array {
-		$lesson = $this->lessons->get( $groupLesson->lessonId );
+		$lesson = $groupLesson->lessonId ? $this->lessons->get( $groupLesson->lessonId ) : null;
 		if ( null === $lesson ) {
 			return null;
 		}

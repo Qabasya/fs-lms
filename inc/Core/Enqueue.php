@@ -337,14 +337,20 @@ class Enqueue extends BaseController implements ServiceInterface {
 				array(
 					'ajax_url' => admin_url( 'admin-ajax.php' ),
 					'actions'  => array(
-						'setLessonVisibility'     => AjaxHook::SetLessonVisibility->jsAction(),
-						'removeLessonFromProgram' => AjaxHook::RemoveLessonFromProgram->jsAction(),
-						'getGroupActivity'        => AjaxHook::GetGroupActivity->jsAction(),
-						'reorderProgram'          => AjaxHook::ReorderProgram->jsAction(),
+						'setLessonVisibility'       => AjaxHook::SetLessonVisibility->jsAction(),
+						'removeLessonFromProgram'   => AjaxHook::RemoveLessonFromProgram->jsAction(),
+						'getGroupActivity'          => AjaxHook::GetGroupActivity->jsAction(),
+						'reorderProgram'            => AjaxHook::ReorderProgram->jsAction(),
+						'assignCourse'              => AjaxHook::AssignCourse->jsAction(),
+						'addLessonToProgram'        => AjaxHook::AddLessonToProgram->jsAction(),
+						'saveLessonSchedule'        => AjaxHook::SaveLessonSchedule->jsAction(),
+						'getCourseLessonCandidates' => AjaxHook::GetCourseLessonCandidates->jsAction(),
 					),
 					'nonces'   => array(
 						'setLessonVisibility' => Nonce::SetLessonVisibility->create(),
 						'saveSchedule'        => Nonce::SaveSchedule->create(),
+						'assignCourse'        => Nonce::AssignCourse->create(),
+						'authorCourse'        => Nonce::AuthorCourse->create(),
 					),
 				)
 			);

@@ -170,6 +170,7 @@ async function gradeSubmit( e, card ) {
 	if ( res.success ) {
 		card.remove();
 	} else {
+		// eslint-disable-next-line no-alert
 		alert( res.data || 'Ошибка оценки.' );
 	}
 }
@@ -180,6 +181,7 @@ async function returnSubmit( card ) {
 	const feedback = form.querySelector( '[name="feedback"]' ).value;
 
 	if ( ! feedback.trim() ) {
+		// eslint-disable-next-line no-alert
 		alert( 'Укажите комментарий для возврата.' );
 		return;
 	}
@@ -192,6 +194,7 @@ async function returnSubmit( card ) {
 	if ( res.success ) {
 		card.remove();
 	} else {
+		// eslint-disable-next-line no-alert
 		alert( res.data || 'Ошибка возврата.' );
 	}
 }

@@ -83,8 +83,16 @@ function createApp( mount ) {
 	const subject  = String( mount.dataset.subject || '' );
 
 	const state = { course: null, activeLessonId: null, activeStepId: null };
-	let saveTimer = null;
+	let saveTimer    = null;
 	let popoverModuleId = null;
+	let _tinyId      = null;
+
+	function destroyTiny() {
+		if ( _tinyId && window.tinymce && window.tinymce.get( _tinyId ) ) {
+			window.tinymce.get( _tinyId ).remove();
+		}
+		_tinyId = null;
+	}
 
 	if ( courseId > 0 ) {
 		mount.innerHTML = '<p class="fs-cb-loading">Загрузка курса…</p>';
@@ -350,6 +358,7 @@ function createApp( mount ) {
 	function selectStep( key ) { state.activeStepId = key; renderEditor(); }
 
 	function renderEditor() {
+		destroyTiny();
 		const pane = mount.querySelector( '[data-editor]' );
 		const f = findLesson( state.activeLessonId );
 		if ( ! f ) {
@@ -481,10 +490,38 @@ function createApp( mount ) {
 
 	function inlineEditor( ed, lesson, step ) {
 		if ( 'text' === step.type ) {
-			ed.innerHTML = '<div class="sb-label">Содержание лекции</div><div class="rte-area" contenteditable="true" data-content></div>';
-			const area = ed.querySelector( '[data-content]' );
-			area.innerHTML = step.payload.content || '';
-			area.addEventListener( 'input', () => { step.payload.content = area.innerHTML; scheduleLessonSteps( lesson ); } );
+			const tid = `fs-cb-rte-${ Date.now() }`;
+			_tinyId = tid;
+			ed.innerHTML = '<div class="sb-label">Содержание лекции</div><textarea id="' + tid + '" class="fs-cb-rte-target"></textarea>';
+			ed.querySelector( '#' + tid ).value = step.payload.content || '';
+
+			if ( window.tinymce ) {
+				window.tinymce.init( {
+					selector    : '#' + tid,
+					toolbar     : 'bold italic underline | bullist numlist | link | removeformat',
+					menubar     : false,
+					statusbar   : false,
+					plugins     : 'link lists',
+					height      : 320,
+					skin_url    : window.tinymce?.baseURL + '/skins/lightgray',
+					setup( editor ) {
+						editor.on( 'NodeChange change', () => {
+							step.payload.content = editor.getContent();
+							scheduleLessonSteps( lesson );
+						} );
+					},
+				} );
+			} else {
+				// Fallback: contenteditable
+				const area = ed.querySelector( '#' + tid );
+				area.setAttribute( 'style', 'display:none' );
+				const div = document.createElement( 'div' );
+				div.className = 'rte-area';
+				div.contentEditable = 'true';
+				div.innerHTML = step.payload.content || '';
+				div.addEventListener( 'input', () => { step.payload.content = div.innerHTML; scheduleLessonSteps( lesson ); } );
+				ed.appendChild( div );
+			}
 		} else if ( 'video' === step.type ) {
 			ed.innerHTML = `
 				<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://youtube.com/watch?v=…"></div>
@@ -496,13 +533,34 @@ function createApp( mount ) {
 			url.addEventListener( 'input', () => { step.payload.url = url.value; scheduleLessonSteps( lesson ); } );
 			desc.addEventListener( 'input', () => { step.payload.description = desc.value; scheduleLessonSteps( lesson ); } );
 		} else { // material
-			const refId = parseInt( step.payload.article_id || 0, 10 );
+			const refId  = parseInt( step.payload.article_id || 0, 10 );
+			const attId  = parseInt( step.payload.attachment_id || 0, 10 );
+			const attUrl = step.payload.attachment_url || '';
+			const label  = step._title || ( attId ? attUrl.split( '/' ).pop() : refId ? `Статья #${ refId }` : 'не выбрано' );
 			ed.innerHTML = `
-				<div class="sb-label">Материал (статья предмета)</div>
-				<div class="fs-cb-ref"><span class="fs-cb-ref-title">${ refId ? `Статья #${ refId }` : 'не выбрано' }</span>
-				<button type="button" class="button" data-pick>Выбрать материал</button></div>`;
-			ed.querySelector( '[data-pick]' ).addEventListener( 'click', ( e ) => openLibraryPicker( e, 'article', ( id, title ) => {
-				step.payload.article_id = id; step.payload.title = step.payload.title || title;
+				<div class="sb-label">Файл / материал</div>
+				<div class="fs-cb-ref" data-ref-area>
+					<span class="fs-cb-ref-title">${ esc( label ) }</span>
+					${ attUrl ? `<a href="${ esc( attUrl ) }" target="_blank" rel="noopener" class="fs-cb-ref-edit">открыть ↗</a>` : '' }
+				</div>
+				<div class="fs-cb-mat-actions">
+					<button type="button" class="button" data-pick-media>Медиатека</button>
+					<button type="button" class="button" data-pick-article>Из библиотеки статей</button>
+				</div>`;
+			ed.querySelector( '[data-pick-media]' ).addEventListener( 'click', () => {
+				openWpMedia( ( id, url, filename ) => {
+					step.payload.attachment_id  = id;
+					step.payload.attachment_url = url;
+					step.payload.article_id     = 0;
+					step._title = filename;
+					renderStepsRow( lesson, step ); renderStepBody( lesson, step ); saveLessonSteps( lesson );
+				} );
+			} );
+			ed.querySelector( '[data-pick-article]' ).addEventListener( 'click', ( e ) => openLibraryPicker( e, 'article', ( id, title ) => {
+				step.payload.article_id     = id;
+				step.payload.attachment_id  = 0;
+				step.payload.attachment_url = '';
+				step._title = title;
 				renderStepsRow( lesson, step ); renderStepBody( lesson, step ); saveLessonSteps( lesson );
 			} ) );
 		}
@@ -511,18 +569,48 @@ function createApp( mount ) {
 	function refEditor( ed, lesson, step ) {
 		const meta  = uiMeta( step.type );
 		const refId = parseInt( step.payload.ref || 0, 10 );
+		const isWork = 'work' === step.type;
 		ed.innerHTML = `
 			<div class="sb-label">${ esc( meta.name ) } из библиотеки</div>
 			<div class="fs-cb-ref">
-				<span class="fs-cb-ref-title">${ refId ? esc( step.title ) : 'не выбрано' }</span>
+				<span class="fs-cb-ref-title">${ refId ? esc( step._title || step.title ) : 'не выбрано' }</span>
 				${ refId ? `<a class="fs-cb-ref-edit" href="post.php?post=${ refId }&action=edit" target="_blank" rel="noopener">редактировать ↗</a>` : '' }
 				<button type="button" class="button" data-pick>${ refId ? 'Заменить' : 'Выбрать из библиотеки' }</button>
 			</div>
-			<p class="fs-cb-hint">Инлайн-создание/редактирование появится в следующей фазе.</p>`;
+			<div class="fs-cb-or-divider"><span>или</span></div>
+			<div class="fs-cb-inline-create">
+				<input type="text" class="field-input" data-new-title placeholder="Название новой ${ esc( meta.name.toLowerCase() ) }">
+				${ isWork ? `<select class="field-input" data-work-type>
+					<option value="homework">Домашнее задание</option>
+					<option value="classwork">Классная работа</option>
+					<option value="project">Проект</option>
+				</select>` : '' }
+				<button type="button" class="button button-primary" data-create>Создать и прикрепить</button>
+			</div>`;
+
 		ed.querySelector( '[data-pick]' ).addEventListener( 'click', ( e ) => openLibraryPicker( e, meta.candKind, ( id, title ) => {
-			step.payload.ref = id; step.title = title;
+			step.payload.ref = id; step._title = title; step.title = title;
 			renderStepsRow( lesson, step ); renderStepBody( lesson, step ); saveLessonSteps( lesson );
 		} ) );
+
+		ed.querySelector( '[data-create]' ).addEventListener( 'click', () => {
+			const title = ed.querySelector( '[data-new-title]' ).value.trim();
+			if ( ! title ) { return; }
+			const btn = ed.querySelector( '[data-create]' );
+			btn.disabled = true;
+			const params = { subject_key: state.course.subject_key, title };
+			if ( isWork ) { params.work_type = ed.querySelector( '[data-work-type]' ).value; }
+			const action = isWork ? acts().createWorkDraft : acts().createAssessmentDraft;
+			ajax( action, params )
+				.then( ( item ) => {
+					step.payload.ref = parseInt( item.id, 10 );
+					step._title      = item.title;
+					step.title       = item.title;
+					renderStepsRow( lesson, step ); renderStepBody( lesson, step ); saveLessonSteps( lesson );
+					showToast( meta.name + ' создан', 'success' );
+				} )
+				.catch( ( msg ) => { showToast( msg, 'error' ); btn.disabled = false; } );
+		} );
 	}
 
 	// ══════════ STEP actions ══════════
@@ -634,6 +722,21 @@ function createApp( mount ) {
 		setTimeout( () => document.addEventListener( 'click', function once( ev ) {
 			if ( ! pop.contains( ev.target ) ) { pop.remove(); } else { document.addEventListener( 'click', once, { once: true } ); }
 		}, { once: true } ), 0 );
+	}
+
+	// ── WP Media picker ──
+	function openWpMedia( onPick ) {
+		if ( ! window.wp || ! window.wp.media ) { return; }
+		const frame = window.wp.media( {
+			title   : 'Выберите файл',
+			button  : { text: 'Выбрать' },
+			multiple: false,
+		} );
+		frame.on( 'select', () => {
+			const att = frame.state().get( 'selection' ).first().toJSON();
+			onPick( att.id, att.url, att.filename || att.title || att.url.split( '/' ).pop() );
+		} );
+		frame.open();
 	}
 
 	// ══════════ PERSISTENCE ══════════

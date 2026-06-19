@@ -120,7 +120,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			academic_period_id varchar(50)       NOT NULL,
 			name               varchar(255)      NOT NULL,
 			teacher_id         int unsigned      DEFAULT NULL,
-			schedule           text              DEFAULT NULL,
+			meetings           json              DEFAULT NULL,
 			created_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			deleted_at         datetime          DEFAULT NULL,
@@ -381,11 +381,13 @@ class Migration_1_0_0 implements MigrationInterface {
 			"CREATE TABLE $group_lessons (
 			id                 int unsigned        NOT NULL AUTO_INCREMENT,
 			group_id           smallint unsigned   NOT NULL,
-			lesson_id          bigint unsigned     NOT NULL,
+			lesson_id          bigint unsigned     DEFAULT NULL,
 			position           smallint unsigned   NOT NULL DEFAULT 0,
 			work_ids_snapshot  longtext            DEFAULT NULL,
 			extra_work_ids     longtext            DEFAULT NULL,
 			scheduled_at       datetime            DEFAULT NULL,
+			ends_at            datetime            DEFAULT NULL,
+			is_pinned          tinyint(1)          NOT NULL DEFAULT 0,
 			teacher_user_id    bigint(20) unsigned DEFAULT NULL,
 			visibility         enum('hidden','open','archived') NOT NULL DEFAULT 'hidden',
 			opened_at          datetime            DEFAULT NULL,
@@ -544,6 +546,15 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `course_id` bigint(20) unsigned DEFAULT NULL" );
+		if ( $wpdb->get_var( "SHOW COLUMNS FROM `$groups` LIKE 'schedule'" ) ) {
+			$wpdb->query( "ALTER TABLE `$groups` CHANGE COLUMN `schedule` `meetings` json DEFAULT NULL" );
+		} else {
+			$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `meetings` json DEFAULT NULL" );
+		}
+		$wpdb->query( "ALTER TABLE `$group_lessons`
+			ADD COLUMN IF NOT EXISTS `ends_at`   datetime   DEFAULT NULL,
+			ADD COLUMN IF NOT EXISTS `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
+			MODIFY COLUMN `lesson_id` bigint unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `grader_note` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,

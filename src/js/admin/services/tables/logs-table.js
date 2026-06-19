@@ -89,7 +89,6 @@ export const LogsTable = {
 			// действительно существует в глобальном объекте fs_lms_vars.ajax_actions.
 			// Это предотвращает отправку запроса с undefined в качестве action.
 			if ( ! action || ! fs_lms_vars.ajax_actions[ action ] ) {
-				// eslint-disable-next-line no-console
 				console.error( '[fs-lms] Unknown export channel:', channel );
 				return;
 			}

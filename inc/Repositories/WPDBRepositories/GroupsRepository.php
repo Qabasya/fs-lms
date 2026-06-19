@@ -244,4 +244,28 @@ class GroupsRepository {
 	public function hardDelete( int $id ): bool {
 		return $this->delete( $id );
 	}
+
+	/** @return array{weekday:int,time:string,duration_min:int}[] */
+	public function getMeetings( int $groupId ): array {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT meetings FROM %i WHERE id = %d LIMIT 1',
+				$this->table,
+				$groupId
+			)
+		);
+		if ( ! $row || ! $row->meetings ) {
+			return array();
+		}
+		$decoded = json_decode( $row->meetings, true );
+		return is_array( $decoded ) ? $decoded : array();
+	}
+
+	public function setMeetings( int $groupId, array $meetings ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'meetings' => wp_json_encode( $meetings ) ),
+			array( 'id' => $groupId )
+		);
+	}
 }

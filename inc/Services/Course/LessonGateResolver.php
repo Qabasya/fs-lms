@@ -55,7 +55,7 @@ class LessonGateResolver {
 			return GateState::Locked;
 		}
 
-		$lesson = $this->lessons->get( $groupLesson->lessonId );
+		$lesson = $groupLesson->lessonId ? $this->lessons->get( $groupLesson->lessonId ) : null;
 		if ( null === $lesson ) {
 			return GateState::Locked;
 		}

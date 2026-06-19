@@ -58,6 +58,9 @@ class LessonProgressService {
 			return;
 		}
 
+		if ( ! $row->lessonId ) {
+			return;
+		}
 		$this->progress->upsert( $studentPersonId, $groupLessonId, $row->lessonId, $stepKey, $status, $completedAt );
 	}
 
@@ -73,7 +76,7 @@ class LessonProgressService {
 			return array();
 		}
 
-		$lesson = $this->lessons->get( $row->lessonId );
+		$lesson = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
 		if ( null === $lesson ) {
 			return array();
 		}
