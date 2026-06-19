@@ -64,7 +64,7 @@ class TaskCreationCallbacks extends BaseController {
 		$title           = $this->sanitizeText( 'title' ) ?: 'Новое задание';
 		$boilerplate_uid = $this->sanitizeText( 'boilerplate_uid' );
 
-		$context = $this->sanitizeKey( $_POST['context'] ?? '' );
+		$context = $this->sanitizeKey( 'context' );
 
 		try {
 			$new_id = $this->taskManager->createNewTask(

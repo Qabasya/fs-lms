@@ -13,23 +13,24 @@ class WorkDTOTest extends TestCase {
 
 	public function test_from_post_reads_meta_and_subject(): void {
 		$post = new WP_Post( array(
-			'ID'          => 10,
-			'post_type'   => 'inf_works',
-			'post_title'  => 'ДЗ: циклы',
-			'post_author' => 7,
-			'post_status' => 'publish',
+			'ID'           => 10,
+			'post_type'    => 'inf_works',
+			'post_title'   => 'ДЗ: циклы',
+			'post_content' => 'Сделать до пятницы',
+			'post_author'  => 7,
+			'post_status'  => 'publish',
 		) );
 
 		$dto = WorkDTO::fromPost( $post, array(
-			'work_type'    => 'homework',
-			'item_ids'     => array( '3', 0, '5', '' ),
-			'instructions' => 'Сделать до пятницы',
+			'work_type' => 'homework',
+			'item_ids'  => array( '3', 0, '5', '' ),
 		) );
 
 		self::assertSame( 'inf', $dto->subjectKey );
 		self::assertSame( 'ДЗ: циклы', $dto->title );
 		self::assertSame( WorkType::Homework, $dto->workType );
 		self::assertSame( array( 3, 5 ), $dto->itemIds );
+		self::assertSame( 'Сделать до пятницы', $dto->instructions );
 		self::assertSame( 7, $dto->authorId );
 		self::assertFalse( $dto->isEmpty() );
 	}

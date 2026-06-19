@@ -36,9 +36,9 @@ class CourseCallbacks extends BaseController {
 	public function ajaxGetCourseLessonCandidates(): void {
 		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
 
-		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
-		$scope       = $this->sanitizeKey( $_POST['scope'] ?? 'mine' );
-		$search      = $this->sanitizeText( $_POST['search'] ?? '' );
+		$subject_key = $this->requireKey( 'subject_key' );
+		$scope       = $this->sanitizeKey( 'scope' );
+		$search      = $this->sanitizeText( 'search' );
 
 		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
 			$scope = 'mine';

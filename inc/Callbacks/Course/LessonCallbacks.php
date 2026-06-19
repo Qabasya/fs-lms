@@ -39,10 +39,10 @@ class LessonCallbacks extends BaseController {
 	public function ajaxGetLessonWorkCandidates(): void {
 		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
 
-		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
-		$work_type   = $this->sanitizeKey( $_POST['work_type'] ?? '' );
-		$scope       = $this->sanitizeKey( $_POST['scope'] ?? 'mine' );
-		$search      = $this->sanitizeText( $_POST['search'] ?? '' );
+		$subject_key = $this->requireKey( 'subject_key' );
+		$work_type   = $this->sanitizeKey( 'work_type' );
+		$scope       = $this->sanitizeKey( 'scope' );
+		$search      = $this->sanitizeText( 'search' );
 
 		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
 			$scope = 'mine';
@@ -60,18 +60,16 @@ class LessonCallbacks extends BaseController {
 	public function ajaxCreateLessonDraft(): void {
 		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
 
-		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
-		$title       = $this->sanitizeText( $_POST['title'] ?? '' ) ?: 'Новый урок';
+		$subject_key = $this->requireKey( 'subject_key' );
+		$title       = $this->sanitizeText( 'title' ) ?: 'Новый урок';
 
 		$dto = LessonDTO::fromArray( array(
-			'id'                => 0,
-			'subject_key'       => $subject_key,
-			'topic'             => $title,
-			'theory_html'       => '',
-			'theory_article_id' => 0,
-			'work_ids'          => array(),
-			'author_id'         => get_current_user_id(),
-			'status'            => 'draft',
+			'id'          => 0,
+			'subject_key' => $subject_key,
+			'topic'       => $title,
+			'steps'       => array(),
+			'author_id'   => get_current_user_id(),
+			'status'      => 'draft',
 		) );
 
 		try {
@@ -89,7 +87,7 @@ class LessonCallbacks extends BaseController {
 	public function ajaxGetLessonArticles(): void {
 		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
 
-		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$subject_key = $this->requireKey( 'subject_key' );
 		$articles    = $this->authoringService->getArticles( $subject_key );
 
 		$result = array();
@@ -98,5 +96,153 @@ class LessonCallbacks extends BaseController {
 		}
 
 		$this->success( $result );
+	}
+
+	/**
+	 * Кандидаты для шага-ссылки (модалка билдера).
+	 * Params: subject_key, kind (work|task|assessment|article), source (subject|bank), search
+	 */
+	public function ajaxGetStepCandidates(): void {
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( 'subject_key' );
+		$kind        = $this->sanitizeKey( 'kind' );
+		$source      = $this->sanitizeKey( 'source' );
+		$search      = $this->sanitizeText( 'search' );
+
+		$this->success( $this->authoringService->getStepCandidates( $subject_key, $kind, $source, $search ) );
+	}
+
+	/**
+	 * Черновик subject-задачи из билдера. Params: subject_key, title
+	 */
+	public function ajaxCreateTaskDraft(): void {
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( 'subject_key' );
+		$title       = $this->sanitizeText( 'title' ) ?: 'Новая задача';
+		$id          = $this->authoringService->createTaskDraft( $subject_key, $title );
+
+		$this->success( array( 'id' => $id, 'title' => $title ) );
+	}
+
+	/**
+	 * Черновик контрольной из билдера. Params: subject_key, title
+	 */
+	public function ajaxCreateAssessmentDraft(): void {
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( 'subject_key' );
+		$title       = $this->sanitizeText( 'title' ) ?: 'Новая контрольная';
+		$id          = $this->authoringService->createAssessmentDraft( $subject_key, $title );
+
+		$this->success( array( 'id' => $id, 'title' => $title ) );
+	}
+
+	/**
+	 * Черновик статьи предмета (материал) из билдера. Params: subject_key, title
+	 */
+	public function ajaxCreateArticleDraft(): void {
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+
+		$subject_key = $this->requireKey( 'subject_key' );
+		$title       = $this->sanitizeText( 'title' ) ?: 'Новый материал';
+		$id          = $this->authoringService->createArticleDraft( $subject_key, $title );
+
+		$this->success( array( 'id' => $id, 'title' => $title ) );
+	}
+
+	/**
+	 * Сохраняет последовательность шагов урока (билдер).
+	 * Params: lesson_id, subject_key, steps[]
+	 */
+	public function ajaxSaveLessonSteps(): void {
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+
+		$lesson_id   = $this->requireInt( 'lesson_id' );
+		$subject_key = $this->requireKey( 'subject_key' );
+		$raw_steps   = wp_unslash( $_POST['steps'] ?? array() );
+		$raw_steps   = is_array( $raw_steps ) ? $raw_steps : array();
+
+		$lesson = $this->lessonManager->get( $lesson_id );
+		if ( null === $lesson ) {
+			$this->error( 'Урок не найден.' );
+			return;
+		}
+
+		$sanitized = array_map( array( $this, 'sanitizeStep' ), $raw_steps );
+		$steps     = $this->authoringService->buildSteps( $sanitized );
+
+		$dto = new LessonDTO(
+			id        : $lesson_id,
+			subjectKey: $subject_key,
+			topic     : $lesson->topic,
+			steps     : $steps,
+			authorId  : $lesson->authorId,
+			status    : $lesson->status,
+		);
+		$this->lessonManager->update( $lesson_id, $dto );
+
+		$this->success( array( 'count' => count( $steps ) ) );
+	}
+
+	/**
+	 * Переносит шаг из одного урока в другой (cut → append). T1.5.5.
+	 * Params: source_lesson_id, target_lesson_id, step_key
+	 */
+	public function ajaxMoveLessonStep(): void {
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+
+		$source_id = $this->requireInt( 'source_lesson_id' );
+		$target_id = $this->requireInt( 'target_lesson_id' );
+		$step_key  = $this->requireKey( 'step_key' );
+
+		if ( $this->authoringService->moveStep( $source_id, $target_id, $step_key ) ) {
+			$this->success( array( 'moved' => true ) );
+		} else {
+			$this->error( 'Не удалось переместить шаг.' );
+		}
+	}
+
+	/**
+	 * Санитайз одного сырого шага по типу (поля очищаются trait-методами Sanitizer).
+	 *
+	 * @param mixed $raw
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function sanitizeStep( mixed $raw ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$type        = $this->sanitizeKeyValue( $raw['type'] ?? '' );
+		$key         = $this->sanitizeKeyValue( $raw['key'] ?? '' );
+		$raw_payload = is_array( $raw['payload'] ?? null ) ? $raw['payload'] : array();
+
+		$payload = match ( $type ) {
+			'text'               => array(
+				'title'   => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
+				'content' => $this->sanitizeHtmlValue( $raw_payload['content'] ?? '' ),
+			),
+			'video'              => array(
+				'title'       => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
+				'url'         => $this->sanitizeTextValue( $raw_payload['url'] ?? '' ),
+				'description' => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
+			),
+			'material'           => array_filter( array(
+				'title'         => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
+				'article_id'    => $this->sanitizeIntValue( $raw_payload['article_id'] ?? 0 ),
+				'attachment_id' => $this->sanitizeIntValue( $raw_payload['attachment_id'] ?? 0 ),
+			) ),
+			'task'               => array(
+				'ref'    => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
+				'source' => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
+			),
+			'work', 'assessment' => array( 'ref' => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ) ),
+			default              => array(),
+		};
+
+		return array( 'key' => $key, 'type' => $type, 'payload' => $payload );
 	}
 }

@@ -7,9 +7,11 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vendor/bin/phpunit",
     "lint:js": "eslint .",
-    "fix:js": "eslint . --fix"
+    "fix:js": "eslint . --fix",
+    "build:check": "gulp styles:check",
+    "ci": "npm run lint:js && npm run build:check && npm test"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

@@ -8,7 +8,9 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
+use Inc\DTO\Course\StepDTO;
 use Inc\Enums\LogEvent;
+use Inc\Enums\StepType;
 use Inc\Managers\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Services\Course\LessonVisibilityService;
@@ -159,6 +161,8 @@ class LessonVisibilityServiceTest extends TestCase {
 			workIdsSnapshot : $workIdsSnapshot,
 			extraWorkIds    : [],
 			scheduledAt     : null,
+			endsAt          : null,
+			isPinned        : false,
 			teacherUserId   : null,
 			visibility      : 'hidden',
 			openedAt        : null,
@@ -171,15 +175,18 @@ class LessonVisibilityServiceTest extends TestCase {
 	}
 
 	private function makeLesson( array $workIds ): LessonDTO {
+		$steps = array_map(
+			static fn( int $id ): StepDTO => new StepDTO( 'w' . $id, StepType::Work, array( 'ref' => $id ) ),
+			$workIds
+		);
+
 		return new LessonDTO(
-			id              : 1,
-			subjectKey      : 'inf',
-			topic           : 'Test',
-			theoryHtml      : '',
-			theoryArticleId : 0,
-			workIds         : $workIds,
-			authorId        : 1,
-			status          : 'publish',
+			id        : 1,
+			subjectKey: 'inf',
+			topic     : 'Test',
+			steps     : $steps,
+			authorId  : 1,
+			status    : 'publish',
 		);
 	}
 }

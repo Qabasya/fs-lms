@@ -126,6 +126,18 @@ function stylesFrontend() {
 
 
 /**
+ * GUARD: строгая проверка сборки всех SCSS-бандлов.
+ * Без plumber/errorHandler — любая ошибка SASS роняет процесс (exit != 0),
+ * чтобы CI/`npm run build:check` ловил поломки стилей (см. историю с _assessment.scss).
+ * Вывод — во временный каталог (.scss-check, в .gitignore), реальные бандлы не трогаются.
+ */
+function stylesCheck() {
+    return gulp.src([paths.scss.admin, paths.scss.frontend, paths.scss.common])
+        .pipe(sass({ includePaths: [paths.scss.common] }))
+        .pipe(gulp.dest('./.scss-check'));
+}
+
+/**
  * ОБРАБОТКА JS (AdminController & Frontend)
  */
 function scripts() {
@@ -154,6 +166,7 @@ const build = gulp.parallel(stylesCommon, stylesAdmin, stylesFrontend, scripts);
 exports['styles:common']   = stylesCommon;
 exports['styles:admin']    = stylesAdmin;
 exports['styles:frontend'] = stylesFrontend;
+exports['styles:check']    = stylesCheck;
 exports['scripts'] = scripts;
 exports.build = build;
 exports.watch = watchFiles;

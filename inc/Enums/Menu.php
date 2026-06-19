@@ -82,7 +82,6 @@ enum Menu: string
 			self::LearningWorks      => 'renderWorks',
 			self::LearningTasks      => 'renderTasks',
 			self::LearningArticles   => 'renderArticles',
-			self::LearningProblems   => 'renderProblems',
 			self::_Options           => '',
 		};
 	}

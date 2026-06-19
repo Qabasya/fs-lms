@@ -30,7 +30,7 @@ class SubmissionGradeSource implements GradeSourceInterface {
 		$entries = array();
 		foreach ( $submissions as $sub ) {
 			$gl     = $this->groupLessons->find( $sub->groupLessonId );
-			$lesson = $gl ? $this->lessonManager->get( $gl->lessonId ) : null;
+			$lesson = ( $gl && $gl->lessonId ) ? $this->lessonManager->get( $gl->lessonId ) : null;
 			$title  = $lesson ? $lesson->topic : "Работа #{$sub->workId}";
 
 			$entries[] = new GradebookEntryDTO(

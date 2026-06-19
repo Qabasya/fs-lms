@@ -389,7 +389,8 @@ class SubjectController extends AjaxController {
 				),
 				'options' => array_merge(
 					$bank_options,
-					array( 'supports' => array( 'title', 'editor', 'author', 'thumbnail' ) )
+					// Без 'editor' (контент = шаги) и без 'thumbnail' (нет «Изображения записи»).
+					array( 'supports' => array( 'title', 'author' ) )
 				),
 			),
 			'works' => array(

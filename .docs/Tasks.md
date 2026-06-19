@@ -14,7 +14,19 @@
 > а не на задачи. Уже отгруженный код урока (`TaskBucketField`, `TaskTypeField`, `LessonTemplate`,
 > `lesson-bucket-service.js`) идёт в **переработку** — помечено `[rework]` у соответствующих задач.
 
-Легенда статусов: `[ ]` не начато · `[~]` в работе · `[x]` готово.
+> **Переработка MVP-2 (модули · шаги · прогресс · гейтинг · клон).** По итогам ревью пути преподавателя
+> ([`Courses.md` → секция `★`](./Courses.md)) модель контента эволюционировала: **курс → модули → уроки**,
+> **урок = последовательность типизированных шагов** (`text/video/material/task/work/assessment`),
+> работа/контрольная = последовательности task-шагов; добавлены **трекинг прохождения шагов**
+> (`fs_lms_lesson_progress`), **гейтинг по выполнению** (prerequisites/drip) и **клон/форк** контента.
+> Конкретные задачи — в новой секции **«Этап 1.5»** ниже; затронутые T1.15–T1.18 помечены `[supersedes]`.
+>
+> **S3-хранилище отложено** (Этап 5). Но **видео-шаг — сущность первого класса уже в MVP**: payload шага
+> `{ url, provider }` спроектирован так, чтобы авто-запись из S3 (`group_lessons.recording_url`) позже
+> просто **наполняла video-шаг**, без переделки модели урока. При разработке video-шага держать этот путь
+> открытым (не зашивать «только YouTube/внешний url»).
+
+Легенда статусов: `[ ]` не начато · `[~]` в работе · `[x]` готово · `[supersedes]` — заменяет раннюю задачу.
 
 ---
 
@@ -322,8 +334,11 @@
 
 ---
 
-#### Банк уроков (`{key}_lessons`) — `[rework]`
+#### Банк уроков (`{key}_lessons`) — `[rework]` → `[supersedes: T1.5.2]`
 
+> ⚠️ **Перекрыто Этапом 1.5 (MVP-2).** T1.15/T1.16 ниже описывают промежуточную модель «урок = работы».
+> Актуальная — **урок = `steps[]`** (T1.5.2, [`Courses.md` `★`](./Courses.md)). Оставлено как провенанс.
+>
 > Урок реализован в ранней версии Этапа 1 с инлайн-бакетами. Здесь — переработка под ссылки на
 > **работы**: `TaskBucketField`/`TaskTypeField` убираются, появляется селектор работ. `LessonManager`
 > и `LessonMetaBoxController` сохраняются (меняется только форма meta и набор полей).
@@ -359,7 +374,10 @@
 
 ---
 
-#### Банк курсов (`{key}_courses`)
+#### Банк курсов (`{key}_courses`) → `[supersedes: T1.5.3]`
+
+> ⚠️ **Перекрыто Этапом 1.5 (MVP-2).** T1.17/T1.18 описывают плоский `lesson_ids[]`. Актуальная модель —
+> **курс = `modules[] → lessonIds[]`** (T1.5.3). Селектор уроков переезжает в modules-builder. Оставлено как провенанс.
 
 ##### T1.17 — `LessonRefField` + `CourseTemplate` + `CourseMetaBoxController`
 - **Файлы:** `inc/MetaBoxes/Fields/LessonRefField.php`, `inc/MetaBoxes/Templates/CourseTemplate.php`
@@ -671,6 +689,245 @@
 
 ---
 
+## Этап 1.5 — Переработка MVP-2: модули · шаги · прогресс · гейтинг · клон
+
+Источник правды — [`Courses.md` → секция `★`](./Courses.md). Шаги text/video — инлайн (принадлежат уроку);
+task/work/assessment/material — ссылки. «Степ-лист» — один компонент на трёх уровнях (урок / работа / контрольная),
+отличается лишь `allowedTypes`.
+
+### Готово, когда (DoD этапа)
+
+- Курс собирается как **модули → уроки**; урок — как **последовательность шагов** через единый билдер
+  (карточки + drag-drop + модалка добавления + инлайн-разворот ссылочных шагов в их задачи).
+- WP-редактор убран там, где идёт сборка (урок/работа/контрольная); остаётся для контента листа (задача).
+- Ученик проходит урок **пошагово** (один шаг на экран, «Далее»); прохождение пишется в `fs_lms_lesson_progress`.
+- **Гейтинг**: следующий шаг/урок открывается по дате И/ИЛИ по выполнению (prerequisite).
+- Контент **клонируется/форкается** (курс shallow/deep; урок/работа/контрольная — форк), не дёргая оригинал.
+- **Video-шаг** работает на внешнем url **и** оставляет точку для S3-записи (Этап 5) без переделки.
+
+### Слой Enums / DTO
+
+#### T1.5.1 — `StepType` enum + `StepDTO` + `ModuleDTO` · `[x]`
+- **`StepType`** (backed): `Text|Video|Material|Task|Work|Assessment`. Хелперы: `isInline()` (text/video/material),
+  `isRef()` (task/work/assessment/material-article), `allowedFor(string $level)` (`lesson|work|assessment`).
+- **`StepDTO`**: `key`(стабильный slug/uuid), `type`(StepType), `payload`(array). Генерация `key` при добавлении,
+  переживает реордер (к нему привязаны прогресс и гейт).
+- **`ModuleDTO`**: `id`, `title`, `lessonIds[]`. Course-local, не CPT.
+- **Готово:** типы/DTO покрыты юнит-тестами на сериализацию meta.
+- **Сделано (2026-06-18):** `inc/Enums/StepType.php`, `inc/DTO/Course/StepDTO.php`, `inc/DTO/Course/ModuleDTO.php`
+  + тесты (`StepTypeTest`/`StepDTOTest`/`ModuleDTOTest`, 19 тестов). `key`/`id` генерируются в сервисе (не в DTO —
+  без WP-вызовов); `StepDTO`/`ModuleDTO` несут `fromList()/toList()` для round-trip meta `steps[]`/`modules[]`.
+
+### Слой Lesson / Course rework
+
+#### T1.5.2 — `[supersedes T1.15/T1.16]` Урок = `steps[]` · `[x]`
+- `LessonDTO`: `steps[] (StepDTO[])` вместо `theoryHtml/theoryArticleId/workIds[]`; `isEmpty()` = нет шагов.
+- `LessonManager`: meta `steps[]` (валидация/санитайз каждого шага по типу); сигнатуры CRUD без изменений.
+- `LessonAuthoringService`: кандидаты по типу шага — `getWorkCandidates`/`getAssessmentCandidates`/`getTaskCandidates`/`getArticles`.
+- Удалить `TaskBucketField`/`TaskTypeField`/`WorkRefField`-как-форму урока (заменяются билдером T1.5.4).
+- **Готово:** урок хранит упорядоченные типизированные шаги; чтение/запись round-trip стабильны по `key`.
+- **Сделано (2026-06-18):** `LessonDTO` → `steps[]` + derived `workIds()`/`assessmentIds()`/`taskIds()`/`articleIds()`
+  (refs из шагов); `LessonManager.saveMeta` пишет `steps`; `post_content` урока больше не «теория». Потребители
+  доставки переведены на derived: `EffectiveWorksResolver`, `LessonVisibilityService` (copy-on-publish + refresh),
+  `ContentUsageService` (lesson←work/article теперь через `steps:work`/`steps:article`). `LessonCallbacks` (draft) —
+  на новую форму. Тесты: `LessonDTOTest` переписан + хелперы 3 сервис-тестов + 2 сида `ContentUsageServiceTest`.
+  **Полный набор 296/296 зелёный.**
+- **Отложено сознательно:** (а) `getTaskCandidates`/`getAssessmentCandidates` — добавим в T1.5.4/5 (где модалка их
+  потребляет); (б) удаление старого метабокса `LessonTemplate`/`WorkRefField`/`ArticleRefField` — в T1.5.6 (сейчас он
+  пишет «мёртвую» мету, `LessonDTO` её игнорирует; шагов через UI ещё нет, затирания нет). Генерация `key` — в сервисе при добавлении шага (T1.5.4).
+
+#### T1.5.3 — `[supersedes T1.17/T1.18]` Курс = `modules[]` · `[x]`
+- `CourseDTO`: `modules[] (ModuleDTO[])` вместо плоского `lessonIds[]`.
+- `CourseManager`: meta `modules[]`. `getBankBySubject()` (потребитель Этапа 2 — назначение группе) — список уроков
+  курса = плоский разворот `modules[].lessonIds` в порядке модулей (снапшот в `group_lessons` остаётся плоским).
+- **Готово:** курс хранит модули с уроками; Этап 2 получает плоский упорядоченный список уроков без изменений своего контракта.
+- **Сделано (2026-06-18):** `CourseDTO` → `modules[]` + derived `lessonIds()` (плоский разворот по порядку модулей);
+  `descriptionHtml` (post_content) сохранён. `CourseManager.saveMeta` пишет `modules`. `CourseAssignmentService`
+  переведён на `->lessonIds()` (контракт Этапа 2 не изменился — снапшот плоский). `ContentUsageService` (lesson←course)
+  теперь через `modules:lesson`. Тесты: `CourseDTOTest` переписан, хелпер `CourseAssignmentServiceTest`, сид
+  `ContentUsageServiceTest`. **Полный набор 298/298 зелёный.**
+- **Отложено:** снапшот `module_id`/`module_title` в `group_lessons` — в **T2.28/T2.33** (требует миграции таблицы,
+  Этап 2). Удаление старого метабокса `CourseTemplate`/`LessonRefField` — в **T1.5.6** (сейчас пишет «мёртвую» мету `lesson_ids`).
+
+### Слой UI — единый билдер шагов
+
+#### T1.5.4 — JS-компонент `step-builder` (admin) · `[x]`
+> **Сделано (бэкенд-контракт, 2026-06-18):** `AjaxHook::SaveLessonSteps` + `GetStepCandidates`;
+> `LessonAuthoringService::buildSteps()` (валидация типа + генерация `key` `s_…`, без WP) и
+> `getStepCandidates(kind=work|task|assessment|article, source=subject|bank)`; `LessonCallbacks::ajaxSaveLessonSteps`
+> (per-type санитайз шага трейтом Sanitizer) + `ajaxGetStepCandidates`; регистрация в `LessonController`.
+> 5 юнит-тестов, **полный набор 303/303**. `key` генерируется в сервисе (закрыт долг T1.5.1/2).
+> **Сделано (JS-слой, 2026-06-18):** `src/js/admin/services/step-builder.js` — мастер-деталь (рельса шагов +
+> редактор), drag-drop реордер, инлайн text/video, выбор кандидата для task/work/assessment/material
+> (`GetStepCandidates`, переключатель источника subject/bank), удаление, сохранение (`SaveLessonSteps`).
+> Монтаж: `LessonMetaBoxController` рендерит `.fs-lms-step-builder` с инлайн-JSON шагов; **старый метабокс
+> урока (`LessonTemplate`/save) убран** (больше не пишет мёртвую мету — footgun закрыт). SCSS-заглушка
+> `_step-builder.scss`. `admin.js` инициализирует по `.fs-lms-step-builder`. ESLint+gulp+php-lint чисто, тесты 303/303.
+> ⚠️ Рантайм в браузере под Docker **проверяет пользователь** (юнит-тестов на JS нет).
+> **Осталось:** move-step МЕЖДУ уроками (cross-entity, TODO в JS) — в T1.5.5; полная Stepik-модалка добавления — T1.5.5;
+> резолв заголовков ref-шагов при перезагрузке (сейчас «#ref» до выбора) — полиш; курс C-билдер + works/assessments
+> + снятие `supports:editor` — T1.5.6.
+- **Раскладка по прототипу** (`prototype/`, вердикт 2026-06-18): **урок/работа/контрольная → мастер-деталь**
+  (вариант B): рельса шагов слева (drag-drop порядок) + редактор выбранного шага справа. **Курс → структура**
+  (вариант C): дерево модуль→урок→шаги (T1.5.6). Вариант A отклонён.
+- Инлайн-редактор `text` (rich) / `video` (url) в правой панели; инлайн-**разворот** ссылочных шагов
+  (work/assessment → их task-шаги, read-only превью; «редактировать» уводит на B-билдер сущности — drill-down).
+  Конфиг `allowedTypes` под уровень (урок = все типы; работа/контрольная = только `task`).
+- **Move-step между уроками (MVP):** действие «переместить шаг в урок…» — выбрать целевой урок, шаг
+  переносится (cut→append) в его `steps[]`. Нужно для перетасовки контента при форке группы («4→3»,
+  Courses.md §7 №23). Контент не дублируется — переезжает.
+- Сохранение — через `*AuthoringService` (AJAX), не прямой WP-вызов. SCSS — заглушка-классы (дизайн дорабатывается позже).
+- **Готово:** компонент рендерит мастер-деталь билдер урока/работы/контрольной по конфигу; порядок и состав сохраняются; шаг переносится в другой урок.
+
+#### T1.5.5 — Модалка «Добавить шаг» (как Stepik) · `[x]`
+- Выбор типа (text/video/material/task/work/assessment, ограничен `allowedTypes`).
+- Для **task**: источник `subject`/`bank` + тип интеракции из `TemplateRegistry` + «выбрать из библиотеки / создать»
+  (reuse `draft-creator-modal`). Для **work/assessment/material** — селектор из банка / создать.
+- **Готово:** добавление любого типа шага из одной модалки; «создать» даёт реальный CPT + автоссылку.
+- **Сделано (JS, 2026-06-18):** модалка в `step-builder.js` — сетка типов (по `allowedTypes`) → инлайн text/video
+  или пикер ref-шага (источник Мои/Банк для task) + поиск по библиотеке (`GetStepCandidates`) + «Создать».
+  «Заменить» на ref-шаге переоткрывает пикер. SCSS-модалка (заглушка). ESLint+gulp чисто.
+  - **«Создать» бесшовно** (через `DraftCreatorModal`, guard по `#fs-lms-draft-creator-modal`): **work** и **bank-задача**
+    (problem). Для **subject-задачи / контрольной / материала** — фолбэк «открыть `post-new.php` в новой вкладке».
+  - ⚠️ Рантайм проверяет пользователь.
+- **Сделано (move-step между уроками, 2026-06-19):** `AjaxHook::MoveLessonStep` → `LessonAuthoringService::moveStep()`
+  (cut→append, неизменяемый `LessonDTO` пересобирается; запрет same-lesson / cross-subject / отсутствующего шага) →
+  `LessonCallbacks::ajaxMoveLessonStep` → регистрация в `LessonController`. JS: действие «Переместить в другой урок →»
+  в детал-панели шага → пикер целевого урока (reuse `GetStepCandidates` c `kind=lesson`, nonce `AuthorLesson`, текущий
+  урок исключён) → `persist()` текущих шагов, затем `MoveLessonStep`, локальное удаление перенесённого. 4 юнит-теста
+  (+ `update_post_meta`-стаб в bootstrap для round-trip `LessonManager`), **полный набор 307/307**.
+- **🔴 Попутный фикс (2026-06-19):** весь AJAX-слой модулей Course+Assessment (65 сайтов в 8 коллбеках) **некорректно
+  вызывал key-based методы `Sanitizer`** значением (`requireKey( $_POST['x'] )`) вместо имени ключа (`requireKey( 'x' )`)
+  → каждый хендлер падал на первой строке (`Недостаточно данных`). Конвертировано в key-name форму; для массивных
+  значений (`sanitizeStep`) добавлены value-хелперы `sanitizeKeyValue`/`sanitizeIntValue`. Тесты не ловили (коллбеки не покрыты).
+- **Сделано (бесшовное создание, 2026-06-19):** «Создать» из модалки даёт черновик **всех** типов через `DraftCreatorModal` —
+  work / **subject-задача** / bank-problem / **контрольная** / **материал(статья)**. Подход — title-only черновик
+  (детали/таксономии заполняются при правке, как у work/problem); `fs_lms_task_data` на экране урока **не нужен**.
+  Бэкенд: `LessonAuthoringService::createTaskDraft/createAssessmentDraft/createArticleDraft` (зеркало `createProblemDraft`)
+  + хуки `CreateTaskDraft/CreateAssessmentDraft/CreateArticleDraft` + методы `LessonCallbacks` + регистрация в `LessonController`.
+  JS: `DraftCreatorModal` (refType task/assessment/material) + `step-builder.js::createNew` (new-tab — только фолбэк).
+  +7 юнит-тестов (сервис + коллбеки). **362/362.**
+- **Осталось (минор):** выбор типа интеракции задачи «вперёд» (из `TemplateRegistry`) прямо в сетке типов — сейчас тип
+  задаётся при правке черновика. Низкий приоритет: основной авторинг переезжает в конструктор курса (T1.5.6-CB).
+
+#### T1.5.6 — Перенос редакторов на билдер
+> **Архитектура: нативный drill-down, без SPA** (решение «больше нативного wp, меньше кода»). Каждая
+> сущность — свой нативный WP-экран редактирования (метабокс-билдер вместо WP-редактора). Переходы —
+> штатная навигация WP, не единый full-screen конструктор. Банки «Уроки»/«Работы» в меню остаются как
+> **библиотека** (переиспользование/клон/архив/«used in N»), нативные таблицы с табами-предметами — без изменений.
+- **`supports: editor` — по сущностям** (решение 2026-06-18, см. Courses.md ★ «Нативный редактор»):
+  - **Урок** — `editor` **снят** (контент = шаги). ✅ Сделано в `SubjectController` (T1.5.4).
+  - **Работа / Контрольная** — `editor` **оставлен** = «описание перед началом» (`post_content`). Бывшая мета
+    `work.instructions` **схлопнута в `post_content`** ✅ (`WorkDTO`/`WorkManager`, T1.5.4). На экране — нативный
+    редактор (описание) **+** `step-builder` (task-шаги).
+  - **Курс** — `editor` **оставлен** = описание курса (`CourseDTO.descriptionHtml`) **+** C-дерево модулей.
+- **Экран урока** `{key}_lessons` → метабокс `step-builder` **мастер-деталь** (B, allowedTypes=lesson). ✅ Сделано (T1.5.4).
+- **Экран курса** `{key}_courses` → метабокс **структура курса** (вариант C): дерево модуль→урок (drag-drop,
+  добавить модуль/урок), уроки — read-only превью шагов; «редактировать урок» = ссылка на нативный экран урока (drill-down). Раздел «Обучение → Курсы».
+- **Работа/контрольная** `{key}_works`/`{key}_assessments` → метабокс `step-builder` B (allowedTypes=только task).
+  Удалить старый `WorkTemplate` (поле `instructions` теперь дублирует нативный редактор → пишет мёртвую мету).
+- Навигация: из дерева курса — ссылка на `post.php` урока + «← к курсу» на экране урока. **Рельса курса слева
+  на экране урока — опционально, не в MVP** (экономим код).
+- **Готово:** курс собирается C-деревом, урок/работа/контрольная — B-мастер-деталь на нативных экранах; у работ/контрольных/курса остаётся редактор-описание; переходы штатные; нативный редактор контента остаётся у задачи (лист).
+- **⚠️ Пересмотр (2026-06-19):** «курсовая» часть (C-дерево-метабокс на нативном экране курса) **отменена** в пользу
+  единого SPA-конструктора — см. **T1.5.6-CB**. Урок (B) и работа/контрольная (B, allowedTypes=task) из T1.5.6 в силе.
+
+#### T1.5.6-CB — Конструктор курса (canonical SPA, Stepik) · `[x]`
+> **Пересматривает** курсовую часть T1.5.6: вместо C-дерева-метабокса — **единый full-screen SPA-конструктор курса**
+> (канон: `design_handoff_course_builder/`, принят пользователем 2026-06-19; память `course-builder-is-canonical-authoring-ui`).
+> Маппинг на `StepType`: Лекция→`text`, Видео→`video`, Файл→`material`, Практика→`work` (ref), Тест→`assessment` (ref);
+> практика/тест — ссылки на библиотечные Work/Assessment (сдачи/журнал Этапов 2–4 продолжают работать).
+
+- **Phase 1 ✅ (2026-06-19):** скрытая страница `fs_lms_course_builder` (`CourseBuilderController` + `templates/admin/course-builder.php`)
+  + vanilla-ES6 приложение `src/js/admin/services/course-builder.js` (дерево модули→уроки, drag-drop уроков/шагов,
+  поповер «Добавить шаг», библ-пикер, дебаунс-автосейв, тосты). Бэкенд: `CourseBuilderService` + `CourseBuilderCallbacks`
+  (5 AJAX: `CreateCourseDraft`/`GetCourseBuilder`/`SaveCourseStructure`/`CreateLessonInModule`/`UpdateLessonMeta`),
+  шаги уроков — reuse `SaveLessonSteps`. SCSS-порт `_course-builder.scss` (+ токены step-accent в `_variables`).
+  Инлайн-редакторы lecture/video/file; practice/quiz — пока «выбрать из библиотеки» (ref). 7 юнит-тестов сервиса +
+  11 тестов коллбеков. ⚠️ Браузер-рантайм проверяет пользователь.
+- **Phase 2 ❌:** редакторы шагов по дизайну — Лекция через `wp_editor`/TinyMCE (RTE-тулбар); **инлайн** создание/правка
+  Work/Assessment за practice/quiz; drag-drop файлы (Media); drag-reorder модулей; адаптив.
+- **Phase 3 ❌ (интеграция):** редирект нативных `post-new.php`/`post.php` курса → конструктор; правка мета курса в билдере
+  (название/описание/публикация — новый `SaveCourseMeta`); удалить `CourseMetaBoxController` (старый C-метабокс → мёртвая
+  мета); связать кнопки/ссылки библиотеки «Курсы» с конструктором. **До этой фазы «Добавить курс» открывает старый
+  WP-редактор — это ожидаемо.**
+
+### Слой Progress
+
+#### T1.5.7 — `TableName::LessonProgress` + DDL · `[x]`
+- Добавить в `Migration_1_0_0::up()/down()` + строку cleanup (см. CLAUDE.md «Миграции в dev»). Поля — по `★`.
+- **Сделано (2026-06-19):** `TableName::LessonProgress` (`fs_lms_lesson_progress`); CREATE TABLE в `up()` по `★`
+  (поля `student_person_id`/`group_lesson_id`/`lesson_id`/`step_key`/`status` enum(locked/available/viewed/completed)/
+  `completed_at`/`created_at`/`updated_at`; `UNIQUE(student_person_id, group_lesson_id, step_key)` + KEY по group_lesson/lesson);
+  добавлено в `down()`. Новой таблице cleanup-ALTER не нужен (dbDelta создаёт целиком).
+  ⚠️ Применяется в dev сбросом `fs_lms_schema_version` → `0.0.0` + перезагрузка (рантайм/БД — на пользователе).
+
+#### T1.5.8 — `LessonProgressRepository` · `[x]`
+- CRUD/upsert по `UNIQUE(student_person_id, group_lesson_id, step_key)`; выборки по уроку/группе.
+- **Сделано (2026-06-19):** `LessonProgressRepository` (`find`/`upsert`/`listForStudent`/`listByGroupLesson`/`deleteByGroupLesson`);
+  `upsert` — find-then-insert/update по UNIQUE-тройке (портируемо, без `ON DUPLICATE KEY`). DTO `LessonProgressDTO` +
+  enum `ProgressStatus` (locked/available/viewed/completed, `isComplete()`/`label()`). 7 интеграционных тестов (FakeWpdb). **369/369.**
+
+#### T1.5.9 — `LessonProgressService` · `[x]`
+- `markViewed(stepKey)`/`markCompleted(stepKey)`; завершение **work/assessment**-шага резолвится из
+  `submissions`/`attempts` (не дублируем балл — прогресс хранит только статус); `isLessonCompleted(...)`.
+- **Сделано (2026-06-19):** `markViewed`/`markCompleted` (upsert статуса, `completed_at` из `ClockInterface`),
+  `getStepStatuses` (карта `stepKey→ProgressStatus` для плеера/дашборда), `isLessonCompleted`. work/assessment
+  «сделано» — **только** из fact-таблиц (`SubmissionRepository::listByStudentAndGroupLesson` → submitted/graded;
+  `AssessmentAttemptRepository::listByStudentAndAssessment` → submitted/graded); сохранённый `Completed` для них
+  игнорируется (`nonComplete`). Зависит от прогресс-репо + `GroupLessonRepository` + `LessonManager` + submission/attempt-репо.
+  9 юнит-тестов (моки). **378/378.**
+
+### Слой Gating
+
+#### T1.5.10 — `LessonGateResolver` · `[x]`
+- Гейт-конфиг: на шаге `gate: sequential|after:<step_key>|none`; на уроке `unlock: after_prev_lesson|after_work:<id>|date|manual`.
+- Резолвер: дата (`group_lessons.scheduled_at`/`visibility`) + выполнение (`fs_lms_lesson_progress` + fact-таблицы) → `locked|available`.
+- Интегрировать с `LessonAccessPolicy` (доступ к материалам уже гейтится членством — добавляем слой выполнения).
+- **Сделано (2026-06-19):** `LessonGateResolver` + enum `GateState` (`locked`/`available`). `resolveLesson` =
+  `LessonAccessPolicy::canRead` (членство/видимость) + дата `group_lessons.scheduled_at`. `resolveStep` = урок доступен +
+  step-гейт из `payload['gate']` (`none` / `sequential` — предыдущий шаг пройден / `after:<key>` — указанный пройден),
+  выполнение через `LessonProgressService::getStepStatuses` (work/assessment — из fact-таблиц). 11 юнит-тестов (моки). **389/389.**
+- **Отложено:** lesson-`unlock` варианты `after_prev_lesson`/`after_work` — требуют хранимого конфига урока + контекста
+  программы (добавятся при авторинге гейт-конфига). Текущий резолвер покрывает доступ + дату + step-гейт по выполнению.
+
+### Слой Clone/fork
+
+#### T1.5.11 — `ContentCloneService` · `[x]`
+- `cloneCourse(id, mode=shallow|deep)` — новый `{key}_courses` + копия `modules[]`; shallow = те же ссылки на уроки,
+  deep = рекурсивно форкнуть уроки/работы. `forkLesson/forkWork/forkAssessment` — новый пост + копия `steps[]`
+  (ссылочные шаги остаются ссылками). Право = авторские права контента.
+- **Форк для группы** (Courses.md §7 №23): `forkLessonForGroup/forkModuleForGroup/forkCourseForGroup(groupId, …)` —
+  групповые копии `{key}_lessons` с метой `forked_from` + `forked_for_group`; перецепляют `group_lessons.lesson_id`
+  на форк. Форки **скрыты из общей библиотеки** (фильтр `forked_for_group IS NULL` в `getBankBySubject`/селекторах).
+  Действие в кокпите программы: «форкнуть урок/модуль/курс для этой группы».
+- Row-action «Дублировать» в списках банка + действие в билдере; не путать с copy-on-publish доставки.
+- **Готово:** клон курса/форк урока редактируются независимо от оригинала; групповой форк не виден в общем банке и не трогает другие группы.
+
+### Слой Student-player
+
+#### T1.5.12 — Пошаговый плеер урока (frontend) · `[x]`
+- Один шаг на экран, «Далее»/«Назад», степпер сбоку; запись прогресса (T1.5.9) на завершение; гейт (T1.5.10)
+  блокирует недоступные. Рендер: text/video/material inline; task/work/assessment → прохождение. По образцу
+  `LessonPageController` (`template_include`), `ThemeCompatService` для шапки/подвала.
+- **Готово:** ученик проходит урок по шагам; прогресс и галочки видны; недоступные шаги закрыты.
+
+### Слой Video / S3-readiness (S3 само — Этап 5, отложено)
+
+#### T1.5.13 — Video-шаг с заделом под S3 · `[x]`
+- Payload `{ url, provider }`; рендер через oEmbed/iframe (внешний url работает сразу). Заложить «recording slot»
+  урока: точка, куда `S3RecordingService` (Этап 5) подставит url записи занятия — наполняя **тот же** video-шаг,
+  без переделки модели. **Не** зашивать «только внешний провайдер».
+- **Готово:** видео по url работает в MVP; интеграция S3 (Этап 5) сведётся к заполнению url, не к новой сущности.
+
+### Порядок реализации (по зависимостям)
+
+T1.5.1 → T1.5.2/T1.5.3 (модель) → T1.5.4/T1.5.5/T1.5.6 (билдер) → T1.5.7→T1.5.8→T1.5.9 (прогресс) →
+T1.5.10 (гейтинг) → T1.5.12 (плеер) → T1.5.11 (клон, параллелится) → T1.5.13 (video, параллелится).
+Прототип (UI билдера урока) — поверх T1.5.1 контракта, до полной реализации остальных.
+
+---
+
 ## Этап 2 — Программа группы: назначение курса, расписание, доставка, кокпит
 
 ### Цель этапа
@@ -801,13 +1058,13 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 
 #### Слой Enums / фундамент
 
-##### T2.1 — `TableName`: +2 таблицы
+##### T2.1 — `TableName`: +2 таблицы · `[x]`
 - **Файл:** `inc/Enums/TableName.php`.
 - **Добавить:** `case GroupLessons = 'fs_lms_group_lessons';`, `case LearningEvents = 'fs_lms_learning_events';`
 - **Связи:** используются репозиториями (T2.8–T2.9), миграцией (T2.6–T2.7), `LogChannel` (T2.5).
 - **Готово:** `TableName::GroupLessons->prefixed()` отдаёт имя с префиксом.
 
-##### T2.2 — `Nonce`: программа + видимость + назначение курса
+##### T2.2 — `Nonce`: программа + видимость + назначение курса · `[x]`
 - **Файл:** `inc/Enums/Nonce.php`.
 - **Добавить:** `case AssignCourse = 'fs_lms_assign_course';`, `case SaveSchedule = 'fs_lms_save_schedule';`
   (add/remove/reorder/дата/extra_work_ids), `case SetLessonVisibility = 'fs_lms_set_lesson_visibility';`
@@ -815,7 +1072,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
   назначение курса — `authorize(Nonce::AssignCourse, …)`. Локализация в `Enqueue` для фронта кокпита.
 - **Готово:** nonces создаются/проверяются.
 
-##### T2.3 — `AjaxHook`: операции программы
+##### T2.3 — `AjaxHook`: операции программы · `[x]`
 - **Файл:** `inc/Enums/AjaxHook.php` (секция `// ==== Программа группы ====`).
 - **Добавить:**
   ```php
@@ -832,7 +1089,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 - **Связи:** регистрируются в `ScheduleController::ajaxActions()` (T2.17); JS читает из `fs_lms_vars`/кокпит-vars.
 - **Готово:** хуки в `AjaxHook::toJsArray()`.
 
-##### T2.4 — `PageRoutes` + `ShortCode`: страница кокпита
+##### T2.4 — `PageRoutes` + `ShortCode`: страница кокпита · `[x]`
 - **Файл:** `inc/Enums/PageRoutes.php` (+ `ShortCode.php`, если контент через шорткод).
 - **Добавить:** `case GroupCockpit = 'group';` Параметр группы — query-arg `?gid=N` (страница одна,
   ресурс параметризован), гейт по `gid` + teacher.
@@ -840,7 +1097,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
   (T2.18) ловит `PageRoutes::GroupCockpit->isCurrent()`.
 - **Готово:** `/group/?gid=5` резолвится; `isCurrent()` true на странице.
 
-##### T2.5 — `LogChannel` + `LogEvent`: канал событий обучения
+##### T2.5 — `LogChannel` + `LogEvent`: канал событий обучения · `[x]`
 - **Файлы:** `inc/Enums/LogChannel.php`, `inc/Enums/LogEvent.php`.
 - **Добавить:**
   - `LogChannel::LearningEvents` → `label()` «События обучения», `tableName()` → `TableName::LearningEvents`.
@@ -853,7 +1110,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 
 #### Слой Migrations
 
-##### T2.6 / T2.7 — Таблицы `group_lessons` и `learning_events`
+##### T2.6 / T2.7 — Таблицы `group_lessons` и `learning_events` · `[x]`
 - **Файл:** `inc/Migrations/Migration_1_0_0.php` — блоки `dbDelta(...)` в `up()` + строки в `down()`
   (по правилу `CLAUDE.md`: **не** отдельный файл миграции).
 - **Назначение:** развернуть DDL из «Доменной модели».
@@ -866,7 +1123,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 
 #### Слой Repositories
 
-##### T2.8 — `GroupLessonRepository`
+##### T2.8 — `GroupLessonRepository` · `[x]`
 - **Файл:** `inc/Repositories/WPDBRepositories/GroupLessonRepository.php` (по образцу `GroupsRepository`).
 - **Назначение:** CRUD строк программы + упорядоченные выборки + перестановка + видимость.
 - **Связи:** `\wpdb` + `TableName::GroupLessons`; принимает/отдаёт `GroupLessonDTO`/`GroupLessonInputDTO` (T2.10).
@@ -886,7 +1143,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
   ```
 - **Готово:** программа группы читается по порядку; reorder/visibility/schedule пишутся точечно.
 
-##### T2.9 — `Log/LearningEventRepository`
+##### T2.9 — `Log/LearningEventRepository` · `[x]`
 - **Файл:** `inc/Repositories/WPDBRepositories/Log/LearningEventRepository.php` (по образцу `Log/AuditLogRepository`).
 - **Назначение:** запись и чтение ленты событий обучения; неизменяемый журнал (`update()` бросает).
 - **Связи:** `TableName::LearningEvents`; `LearningEventDTO`/`InputDTO` (T2.11).
@@ -904,7 +1161,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 
 #### Слой DTO
 
-##### T2.10 — `GroupLessonDTO` + `GroupLessonInputDTO`
+##### T2.10 — `GroupLessonDTO` + `GroupLessonInputDTO` · `[x]`
 - **Файл:** `inc/DTO/Course/GroupLessonDTO.php`, `inc/DTO/Course/GroupLessonInputDTO.php` (`readonly`).
 - **Поля:** `id`, `groupId`, `lessonId`, `position`, `workIdsSnapshot` (`?int[]`, NULL = не опубликован),
   `extraWorkIds[]`, `scheduledAt`, `teacherUserId`, `visibility`, `openedAt`, `homeworkDueAt`, `allowLate`,
@@ -912,7 +1169,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 - **Методы:** `fromArray()`, `toArray()` (Input — только пишущие поля); `work_ids_snapshot`/`extra_work_ids` — JSON ↔ `int[]`.
 - **Готово:** round-trip стабилен; Input даёт массив для `$wpdb->insert`.
 
-##### T2.11 — `LearningEventDTO` + `InputDTO` + `LearningEvent`
+##### T2.11 — `LearningEventDTO` + `InputDTO` + `LearningEvent` · `[x]`
 - **Файлы:** `inc/DTO/Log/LearningEventDTO.php`, `inc/DTO/Log/LearningEventInputDTO.php`,
   `inc/DTO/Log/Events/LearningEvent.php` (реализует `LogEventInterface`, как `EntityChangedEvent`).
 - **Назначение:** read/write записи ленты + payload события для диспетчера.
@@ -923,7 +1180,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 
 #### Слой Services
 
-##### T2.12 — `ScheduleService`
+##### T2.12 — `ScheduleService` · `[x]`
 - **Файл:** `inc/Services/Course/ScheduleService.php`.
 - **Назначение:** бизнес-логика сборки программы: добавить урок из банка, убрать, переставить,
   задать дату/преподавателя занятия. Диспетчеризует `LogEvent` после успешной записи.
@@ -940,7 +1197,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 - **Готово:** программа собирается/правится; каждое мутирующее действие пишет событие в ленту;
   урок чужого предмета в группу не добавляется.
 
-##### T2.13 — `LessonVisibilityService`
+##### T2.13 — `LessonVisibilityService` · `[x]`
 - **Файл:** `inc/Services/Course/LessonVisibilityService.php`.
 - **Назначение:** смена видимости (`hidden`/`open`/`archived`), фиксация `opened_at` **и заморозка
   `work_ids_snapshot`** при первой публикации (copy-on-publish, решение 8); доменный гейт доступа ученика.
@@ -956,13 +1213,13 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 - **Готово:** при публикации набор работ замораживается; правка эталона не меняет уже открытый урок группы;
   `refreshFromLesson` осознанно подтягивает новую версию; доступ ученика резолвит `LessonAccessPolicy` (T2.26).
 
-##### T2.14 — `LearningEventWriter`
+##### T2.14 — `LearningEventWriter` · `[x]`
 - **Файл:** `inc/Services/Log/LearningEventWriter.php` (по образцу существующих `*LogWriter`).
 - **Назначение:** событие → `LearningEventInputDTO` (резолв `actor_role`) → `repo->create()`.
 - **Связи:** `LearningEventRepository`; вызывается из `LearningEventSubscriber`.
 - **Готово:** запись ленты создаётся из события.
 
-##### T2.15 — `GroupAccessGuard`
+##### T2.15 — `GroupAccessGuard` · `[x]`
 - **Файл:** `inc/Services/Course/GroupAccessGuard.php`.
 - **Назначение:** грубый гейт уровня группы: `canManage(groupId, userId)` (`teacher_id == userId || Admin`),
   `isMemberEver(groupId, personId)` (любая запись, не только `active` — для retained-доступа),
@@ -975,19 +1232,19 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 
 #### Слой Subscribers / Controllers / Callbacks
 
-##### T2.16 — `LearningEventSubscriber`
+##### T2.16 — `LearningEventSubscriber` · `[x]`
 - **Файл:** `inc/Controllers/Subscribers/LearningEventSubscriber.php` (по образцу `EnrollmentAuditSubscriber`).
 - **Назначение:** подписать обработчик на `LogEvent::*` программы/видимости → `LearningEventWriter`.
 - **Связи:** `LogEventDispatcherInterface`, `LearningEventWriter`. Реализует `ServiceInterface`.
 - **Готово:** доменные события группы материализуются в ленту.
 
-##### T2.17 — `ScheduleController` (AJAX программы)
+##### T2.17 — `ScheduleController` (AJAX программы) · `[x]`
 - **Файл:** `inc/Controllers/ScheduleController.php` (`extends AjaxController`).
 - **Назначение:** зарегистрировать AJAX-хуки T2.3 (для авторизованных).
 - **Связи:** конструктор — `ProgramCallbacks` (T2.19); `ajaxActions()` → пары `[AjaxHook, $callback]`.
 - **Готово:** `wp_ajax_*` программы зарегистрированы.
 
-##### T2.18 — `GroupCockpitController` (фронт-страница)
+##### T2.18 — `GroupCockpitController` (фронт-страница) · `[x]`
 - **Файл:** `inc/Controllers/GroupCockpitController.php` (`ServiceInterface`, `use TemplateRenderer`).
 - **Назначение:** отрисовать кокпит группы на фронте.
 - **Связи / хуки:**
@@ -999,7 +1256,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
     + `LogNameResolver::personName`), лента (`LearningEventRepository::listByGroup` + `LogNameResolver`).
 - **Готово:** преподаватель открывает свою группу, видит программу/ростер/ленту; чужую — нет.
 
-##### T2.19 — `Callbacks/Course/ProgramCallbacks`
+##### T2.19 — `Callbacks/Course/ProgramCallbacks` · `[x]`
 - **Файл:** `inc/Callbacks/Course/ProgramCallbacks.php` (`use Authorizer; use Sanitizer;`).
 - **Назначение:** AJAX-обработчики операций программы и видимости.
 - **Связи:** делегирует `CourseAssignmentService` (T2.28) / `ScheduleService` / `LessonVisibilityService` /
@@ -1014,13 +1271,13 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 
 #### Слой Templates / JS / SCSS / Student-surface / Init
 
-##### T2.20 — Шаблон кокпита (фронт)
+##### T2.20 — Шаблон кокпита (фронт) · `[x]`
 - **Файлы:** `templates/frontend/group-cockpit/*.php` (program-builder, schedule, roster, activity-feed).
 - **Назначение:** вёрстка кокпита; экранирование вывода (`esc_html`/`esc_attr`).
 - **Связи:** данные из `GroupCockpitController`; никакого inline JS/CSS.
 - **Готово:** панели рендерятся с реальными данными группы.
 
-##### T2.21 — Срез открытых уроков ученику/родителю
+##### T2.21 — Срез открытых уроков ученику/родителю · `[x]`
 - **Файлы:** минимальный read-only вывод (шорткод `[fs_lms_group_lessons]` или вкладка в `profile`).
 - **Назначение:** ученик видит открытые уроки своих групп (тема, теория, материалы),
   родитель — read-only по детям. Срез ленты — `listByGroupPublic`.
@@ -1030,7 +1287,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 - **Готово:** ученик видит видимые уроки своих групп (вкл. бэк-каталог и архив после отчисления по
   политике `retain`); `hidden` недоступен по прямому URL; доступ резолвит `LessonAccessPolicy`.
 
-##### T2.22 — Front JS: конструктор программы + лента
+##### T2.22 — Front JS: конструктор программы + лента · `[x]`
 - **Файлы:** `src/js/frontend/services/group-cockpit.js` (+ components) — **pure-JS function pattern**
   (фронт, не jQuery-объект; правило `CLAUDE.md`).
 - **Назначение:** drag-drop порядок (→ `ReorderProgram`), добавить урок из банка, дата-пикеры
@@ -1038,17 +1295,17 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 - **Связи:** инициализация в `frontend.js` с guard `if (!document.getElementById('fs-group-cockpit')) return;`.
 - **Готово:** все действия кокпита работают без перезагрузки.
 
-##### T2.23 — SCSS кокпита
+##### T2.23 — SCSS кокпита · `[x]`
 - **Файл:** `src/scss/frontend/components/_group-cockpit.scss` (импорт в `frontend.scss`).
 - **Связи:** только токены `src/scss/frontend/_variables.scss`; недостающие — сперва в `_variables`.
 - **Готово:** кокпит свёрстан консистентно; `npx gulp styles:frontend` без ошибок.
 
-##### T2.24 — Регистрация сервисов
+##### T2.24 — Регистрация сервисов · `[x]`
 - **Файл:** `inc/Init.php` (`getServices()`).
 - **Добавить:** `ScheduleController::class`, `GroupCockpitController::class`, `LearningEventSubscriber::class`.
 - **Готово:** `Init::run()` поднимает их без ошибок DI.
 
-##### T2.25 — `ContentUsageService`: +delivery-источники (созревание T1.26/T1.28)
+##### T2.25 — `ContentUsageService`: +delivery-источники (созревание T1.26/T1.28) · `[x]`
 - **Файлы:** новые источники в `ContentUsageService` (Этап 1) + бейдж в списках банков.
 - **Назначение:** добавить delivery-источники теперь, когда есть `group_lessons`: урок ← `lesson_id`,
   работа ← `work_ids_snapshot`/`extra_work_ids`, курс ← `groups.course_id`. Гейт удаления (T1.28) и бейдж
@@ -1058,7 +1315,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 - **Готово:** урок/работа/курс, занятые в живых группах, попадают в usage → их нельзя удалить, пока стоят
   в программе; бейдж показывает охват по группам.
 
-##### T2.26 — `LessonAccessPolicy` + политика `retain_after_expulsion`
+##### T2.26 — `LessonAccessPolicy` + политика `retain_after_expulsion` · `[x]`
 - **Файлы:** `inc/Services/Course/LessonAccessPolicy.php`, `inc/Enums/AccessLevel.php` (`none|read|read_submit`),
   `inc/Enums/OptionName.php` (+ ключ настройки), настройка в админке (Settings).
 - **Назначение:** **единый** резолвер доступа ученика к уроку — **членство, не подписка**. Заменяет
@@ -1082,7 +1339,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 - **Готово:** поздний ученик видит бэк-каталог без просрочек; отчисленный (`retain`) — архив до
   `expelled_at`; `block` закрывает; нигде нет гейта по роли.
 
-##### T2.27 — Гейт кабинета по политике (`retain` vs `block`)
+##### T2.27 — Гейт кабинета по политике (`retain` vs `block`) · `[x]`
 - **Файлы:** `ProfileController` / student-surface — проверка `retain_after_expulsion` на входе в кабинет.
 - **Назначение:** реализовать админ-выбор «оставлять кабинет vs блокировать» для полностью
   терминальных учеников (ни одной активной записи). **По умолчанию — не блокировать** (read-only;
@@ -1094,10 +1351,12 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 
 #### Слой назначения курса / эффективных работ
 
-##### T2.28 — `CourseAssignmentService` (назначение курса группе = снапшот)
+##### T2.28 — `CourseAssignmentService` (назначение курса группе = снапшот) · `[x]`
 - **Файл:** `inc/Services/Course/CourseAssignmentService.php`.
 - **Назначение:** снапшот курса в программу группы — bulk-инсерт строк `group_lessons` по
-  `course.lesson_ids`; запись `groups.course_id`.
+  `course.modules[].lessonIds` (плоский разворот в порядке модулей); запись `groups.course_id`.
+  **Снапшот модуля:** на каждую строку пишутся `module_id`/`module_title` (Courses.md §7 №23) — группировка
+  программы переживает пер-групповые правки. Урок может быть позже перецеплен на групповой форк (T1.5.11).
 - **Связи:** `CourseManager` (Этап 1: `lesson_ids` курса), `GroupLessonRepository` (T2.8: bulk add +
   `nextPosition`), `GroupsRepository` (`course_id`; проверка `course.subjectKey == group.subject_key`),
   `LogEventDispatcherInterface` (`CourseAssigned` → лента). Гейт — `GroupAccessGuard::canManage`.
@@ -1109,7 +1368,7 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 - **Готово:** уроки курса появляются в программе по порядку; `groups.course_id` записан; курс чужого
   предмета не назначается; действие в ленте.
 
-##### T2.29 — `EffectiveWorksResolver` (работы строки = база + дельта)
+##### T2.29 — `EffectiveWorksResolver` (работы строки = база + дельта) · `[x]`
 - **Файл:** `inc/Services/Course/EffectiveWorksResolver.php`.
 - **Назначение:** единая точка вычисления **эффективного** набора работ строки программы —
   **база** = `work_ids_snapshot`, если урок уже опубликован (copy-on-publish, T2.13), иначе живой
@@ -1123,6 +1382,44 @@ CREATE TABLE {prefix}fs_lms_learning_events (
   public function setExtraWorks( int $groupLessonId, array $workIds, int $actorUserId ): void; // валидация предмета + лог ExtraWorksChanged
   ```
 - **Готово:** опубликованный урок группы стабилен (снапшот); неопубликованный — живой; дельта правится точечно.
+
+---
+
+#### Слой Календарь занятий (расписание · слоты · сдвиг) — `[см. Courses.md ★ Календарь]`
+
+> Очный центр: даты занятий вычисляет календарь. **Слот-первичный** (строка `group_lessons` = занятие/дата),
+> **сдвиг** на пропуск (+ пин), нерабочие дни — чекбокс-список на учебном периоде.
+
+##### T2.30 — `groups.meetings[]` (структурное расписание) · `[x]`
+- **Миграция:** `groups.schedule text` → `meetings` (JSON): `[{ weekday 1–7, time, duration_min }]` (см. CLAUDE.md «Миграции в dev»).
+- `GroupDTO`/`GroupsRepository` — чтение/запись `meetings`; UI группы — редактор дней недели + время + длительность.
+- **Готово:** у группы структурированное повторяющееся расписание; старый текст не используется.
+
+##### T2.31 — Нерабочие дни на учебном периоде · `[x]`
+- `AcademicPeriodDTO` + `holidays[]` (список дат с тумблером «нерабочий»). Хранение через `AcademicPeriodService`.
+- **Settings → Учебные периоды:** чекбокс-список дат (добавить дату / отметить нерабочей; часть праздников рабочие).
+- **Готово:** период несёт список нерабочих дат, общий для всех групп периода.
+
+##### T2.32 — `SessionCalendarService` (генератор слотов) · `[x]`
+- **Файл:** `inc/Services/Course/SessionCalendarService.php`.
+- **Назначение:** разворот `group.meetings[]` по `[period.start..period.end]` − `holidays[]` → упорядоченные
+  слоты-занятия (`scheduled_at` + `ends_at = scheduled_at + duration_min`). Учёт `is_pinned` (пины не сдвигаются).
+- **Методы:** `generate(int $groupId): array` (слоты по датам); `reflow(int $groupId): void` (перепривязка
+  уроков к слотам при смене расписания/праздников — **сдвиг** контента, пины на месте; хвост за период → warning).
+- **Готово:** даты занятий считаются из расписания×период−нерабочие; пропуск сдвигает последующие.
+
+##### T2.33 — `group_lessons` слот-первичный + расширение `ScheduleService` · `[x]`
+- **Миграция:** + `ends_at datetime`, + `is_pinned tinyint(1) DEFAULT 0`; `scheduled_at` = снапшот из календаря.
+- `ScheduleService`: привязка `lesson_id` к слоту (nullable — занятие без урока ок), пин/анпин, перегенерация → `reflow`.
+- **Готово:** программа = упорядоченные занятия-слоты с датами из календаря; урок вешается на слот; пин фиксирует дату.
+
+##### T2.34 — Авто-открытие урока по дате (гейт по `scheduled_at`) · `[x]`
+- Расширить `LessonVisibilityService`/гейт (MVP-2 `★`): занятие авто-`open` при `now >= scheduled_at`
+  («после 18:30»); ручная `visibility` — override. Lazy-проверка по времени запроса (как expire попыток Этапа 4).
+- **Готово:** ученик видит урок ровно с даты/времени занятия; ручное скрытие/открытие работает поверх.
+
+> **S3-задел (Этап 5, отложено):** `ends_at` + `duration_min` дают окно матчинга записи к занятию →
+> `group_lessons.recording_url` → video-шаг урока (T1.5.13). Сейчас только хранить точно; матчинг — позже.
 
 ---
 
@@ -1308,31 +1605,31 @@ GradebookEntryDTO
 
 #### Слой Enums / фундамент
 
-##### T3.1 — `TableName::Submissions`
+##### T3.1 — `TableName::Submissions` · `[x]`
 - **Файл:** `inc/Enums/TableName.php`. **Добавить:** `case Submissions = 'fs_lms_submissions';`
 - **Готово:** `TableName::Submissions->prefixed()` доступен.
 
-##### T3.2 — `SubmissionStatus` enum
+##### T3.2 — `SubmissionStatus` enum · `[x]`
 - **Файл:** `inc/Enums/SubmissionStatus.php` (новый, по образцу `EnrollmentStatus`).
 - **Кейсы:** `Assigned='assigned'`, `Submitted='submitted'`, `Graded='graded'`, `Returned='returned'` + `label()`.
 - **Связи:** `SubmissionDTO`, `SubmissionService`, UI-статусы.
 - **Готово:** типобезопасные статусы вместо строк.
 
-##### T3.3 — `WorkType` enum — **уже создан на Этапе 1 (T1.2)**
+##### T3.3 — `WorkType` enum — **уже создан на Этапе 1 (T1.2)** · `[x]`
 - **Файл:** `inc/Enums/WorkType.php` (существует с Этапа 1).
 - **Кейсы:** `Practice='practice'`, `Independent='independent'`, `Homework='homework'` + `label()`.
 - **Связи:** тип живёт на CPT `{key}_works`; `submissions.work_type` — **снапшот** из работы при сдаче
   (не отдельный источник). На Этапе 3 только переиспользуем — нового кода не нужно.
 - **Готово:** сдача берёт `work_type` у своей работы (`work_id`).
 
-##### T3.4 — `Nonce`: сдача + проверка
+##### T3.4 — `Nonce`: сдача + проверка · `[x]`
 - **Файл:** `inc/Enums/Nonce.php`. **Добавить:** `case SubmitWork = 'fs_lms_submit_work';`,
   `case GradeWork = 'fs_lms_grade_work';`
 - **Связи:** студент-сдача — `Nonce::SubmitWork->verify()` (без capability, гейт доменный);
   препод-проверка — `authorize(Nonce::GradeWork, Capability::ManageLMSAssignments)`.
 - **Готово:** nonces работают.
 
-##### T3.5 — `AjaxHook`: операции сдачи/проверки
+##### T3.5 — `AjaxHook`: операции сдачи/проверки · `[x]`
 - **Файл:** `inc/Enums/AjaxHook.php` (секция `// ==== Сдача работ ====`).
 - **Добавить:**
   ```php
@@ -1345,7 +1642,7 @@ GradebookEntryDTO
   ```
 - **Готово:** хуки в `toJsArray()`.
 
-##### T3.6 — `LogEvent`: события сдачи (переиспользуют канал Этапа 2)
+##### T3.6 — `LogEvent`: события сдачи (переиспользуют канал Этапа 2) · `[x]`
 - **Файл:** `inc/Enums/LogEvent.php`. **Добавить:** `SubmissionMade`, `SubmissionGraded`, `SubmissionReturned`.
 - **Связи:** диспетчеризуются из `SubmissionService`; ловит **тот же** `LearningEventSubscriber`
   (Этап 2 T2.16) — расширить его подписки; payload — существующий `LearningEvent` (Этап 2 T2.11),
@@ -1356,12 +1653,12 @@ GradebookEntryDTO
 
 #### Слой Migrations / Repositories / DTO
 
-##### T3.7 — Таблица `fs_lms_submissions`
+##### T3.7 — Таблица `fs_lms_submissions` · `[x]`
 - **Файл:** `inc/Migrations/Migration_1_0_0.php` — `dbDelta()` в `up()` + строка в `down()`.
 - **Внедрение (dev):** сбросить `fs_lms_schema_version` в `0.0.0`, перезагрузить WP.
 - **Готово:** таблица создана с индексами; `down()` дропает.
 
-##### T3.8 — `SubmissionRepository`
+##### T3.8 — `SubmissionRepository` · `[x]`
 - **Файл:** `inc/Repositories/WPDBRepositories/SubmissionRepository.php`.
 - **Назначение:** CRUD сдач + выборки для очереди проверки, кабинета ученика и журнала.
 - **Связи:** `TableName::Submissions`; `SubmissionDTO`/`SubmissionInputDTO`. Часть запросов
@@ -1379,12 +1676,12 @@ GradebookEntryDTO
   ```
 - **Готово:** очередь проверки и журнал собираются запросами; дедуп работает.
 
-##### T3.9 — `SubmissionDTO` + `SubmissionInputDTO`
+##### T3.9 — `SubmissionDTO` + `SubmissionInputDTO` · `[x]`
 - **Файл:** `inc/DTO/Course/SubmissionDTO.php`, `inc/DTO/Course/SubmissionInputDTO.php` (`readonly`).
 - **Поля:** все колонки + вычисляемый геттер `isLate(): bool` (`submitted_at > due_at`).
 - **Готово:** round-trip; `isLate()` корректен.
 
-##### T3.10 — `GradeDTO` + `GradebookEntryDTO`
+##### T3.10 — `GradeDTO` + `GradebookEntryDTO` · `[x]`
 - **Файлы:** `inc/DTO/Course/GradeDTO.php` (вход проверки: `score`, `maxScore`, `feedback`, `status`),
   `inc/DTO/Course/GradebookEntryDTO.php` (строка журнала, см. «Доменную модель»).
 - **Готово:** проверка принимает `GradeDTO`; журнал отдаёт `GradebookEntryDTO[]`.
@@ -1393,7 +1690,7 @@ GradebookEntryDTO
 
 #### Слой Managers / Services
 
-##### T3.11 — `MediaManager`
+##### T3.11 — `MediaManager` · `[x]`
 - **Файл:** `inc/Managers/MediaManager.php` (новый — обёртка над WP Media API, т.к. её нет).
 - **Назначение:** загрузка файла сдачи в Media Library, удаление, получение URL/метаданных.
 - **Связи:** `media_handle_upload()` / `wp_delete_attachment()` / `wp_get_attachment_url()`
@@ -1406,7 +1703,7 @@ GradebookEntryDTO
   ```
 - **Готово:** файл сдачи попадает в Media Library; возвращается `attachment_id`; валидация типа/размера.
 
-##### T3.12 — `SubmissionService`
+##### T3.12 — `SubmissionService` · `[x]`
 - **Файл:** `inc/Services/Course/SubmissionService.php`.
 - **Назначение:** сдача, проверка, возврат — вся бизнес-логика.
 - **Связи:** `SubmissionRepository`, `MediaManager`, `GroupLessonRepository` (дедлайн/`allow_late`),
@@ -1424,7 +1721,7 @@ GradebookEntryDTO
   ```
 - **Готово:** цикл сдача→проверка→возврат работает; дедлайн/late-логика соблюдается; события в ленте.
 
-##### T3.13 — `GradebookService` (read-model)
+##### T3.13 — `GradebookService` (read-model) · `[x]`
 - **Файл:** `inc/Services/Course/GradebookService.php` + `inc/Contracts/GradeSourceInterface.php`
   + `inc/Services/Course/SubmissionGradeSource.php`.
 - **Назначение:** собрать журнал из источников-фактов (без таблицы). На Этапе 3 — один источник.
@@ -1442,13 +1739,13 @@ GradebookEntryDTO
 
 #### Слой Controllers / Callbacks
 
-##### T3.14 — `SubmissionController` (AJAX)
+##### T3.14 — `SubmissionController` (AJAX) · `[x]`
 - **Файл:** `inc/Controllers/SubmissionController.php` (`extends AjaxController`).
 - **Назначение:** регистрация AJAX-хуков T3.5 (все для авторизованных: и студент, и препод залогинены).
 - **Связи:** конструктор — `SubmissionCallbacks` + `GradingCallbacks`; `ajaxActions()`.
 - **Готово:** `wp_ajax_*` сдачи/проверки зарегистрированы.
 
-##### T3.15 — `Callbacks/Course/SubmissionCallbacks` (студент)
+##### T3.15 — `Callbacks/Course/SubmissionCallbacks` (студент) · `[x]`
 - **Файл:** `inc/Callbacks/Course/SubmissionCallbacks.php` (`use Sanitizer;`; **без** `Authorizer` —
   у студента нет capability).
 - **Назначение:** `ajaxSubmitWork`, `ajaxGetMySubmissions`.
@@ -1456,7 +1753,7 @@ GradebookEntryDTO
   делегирует `SubmissionService`; person — `PersonRepository::findByWpUserId(get_current_user_id())`.
 - **Готово:** студент сдаёт только в свои активные группы; чужой `group_lesson_id` → отказ.
 
-##### T3.16 — `Callbacks/Course/GradingCallbacks` (преподаватель)
+##### T3.16 — `Callbacks/Course/GradingCallbacks` (преподаватель) · `[x]`
 - **Файл:** `inc/Callbacks/Course/GradingCallbacks.php` (`use Authorizer; use Sanitizer;`).
 - **Назначение:** `ajaxSaveGrade`, `ajaxReturnSubmission`, `ajaxGetGroupSubmissions`, `ajaxGetGradebook`.
 - **Связи:** `authorize(Nonce::GradeWork, Capability::ManageLMSAssignments)` + `GroupAccessGuard::canManage`
@@ -1467,31 +1764,31 @@ GradebookEntryDTO
 
 #### Слой Templates / JS / SCSS / Init
 
-##### T3.17 — UI сдачи (ученик) — расширение open-lesson view (Этап 2 T2.21)
+##### T3.17 — UI сдачи (ученик) — расширение open-lesson view (Этап 2 T2.21) · `[x]`
 - **Файлы:** `templates/frontend/...` — форма сдачи в открытом уроке: per работа (эффективный набор,
   T2.29) / опц. per задание — textarea ответа + file input + кнопка; отображение статуса/балла/
   комментария после проверки.
 - **Связи:** данные через `GetMySubmissions`; сабмит через `SubmitWork` (FormData с файлом).
 - **Готово:** ученик сдаёт и видит результат; просроченные (`allow_late=0`) — без кнопки сдачи.
 
-##### T3.18 — UI проверки + журнал (преподаватель) в кокпите (Этап 2)
+##### T3.18 — UI проверки + журнал (преподаватель) в кокпите (Этап 2) · `[x]`
 - **Файлы:** панель «Проверка работ» (очередь `status=submitted`) + форма оценки (балл/макс/возврат);
   таблица журнала группы (ученики × работы × баллы).
 - **Связи:** `GetGroupSubmissions`, `SaveGrade`, `ReturnSubmission`, `GetGradebook`; имена — `LogNameResolver`.
 - **Готово:** препод проверяет из очереди; журнал группы отображается из fact-данных.
 
-##### T3.19 — Журнал ученику/родителю
+##### T3.19 — Журнал ученику/родителю · `[x]`
 - **Файлы:** срез журнала: ученик — свои оценки (`GradebookService::forStudent`); родитель — по детям
   (`StudentRecordRepository::findActiveByParent` → дети → их журналы), read-only.
 - **Связи:** минимальный вывод (шорткод/вкладка), как срез Этапа 2.
 - **Готово:** ученик/родитель видят оценки; родитель — только своих детей.
 
-##### T3.20 — Frontend JS + SCSS
+##### T3.20 — Frontend JS + SCSS · `[x]`
 - **Файлы:** `src/js/frontend/services/submission.js` (pure-JS): сабмит с файлом (FormData), действия
   проверки, рендер журнала; валидация через `common/validators`. SCSS — `src/scss/frontend/components/_submissions.scss` (токены).
 - **Готово:** сдача/проверка/журнал работают без перезагрузки; `gulp build` чистый.
 
-##### T3.21 — Регистрация + расширение подписчика
+##### T3.21 — Регистрация + расширение подписчика · `[x]`
 - **Файлы:** `inc/Init.php` (+ `SubmissionController::class`); `LearningEventSubscriber` (Этап 2 T2.16) —
   подписать на `SubmissionMade`/`SubmissionGraded`/`SubmissionReturned`.
 - **Готово:** сервис поднят; события сдачи материализуются в ленту.
@@ -2100,3 +2397,6 @@ auto-grade авто/ручных шаблонов, gradebook UNION из двух
    неограниченном числе попыток ученик может «фармить» баллы. Это осознанное поведение или нужен флаг?
 5. **Ручная проверка ответов в интерфейсе.** `GradeAttemptCallbacks::ajaxGradeAttempt()` проверяет один
    ответ. Нужен ли UI пакетной проверки (все ответы попытки на одном экране)? Вынести в отдельную задачу.
+
+## Bugfix
+-

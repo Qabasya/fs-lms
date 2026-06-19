@@ -221,6 +221,26 @@ if (!function_exists('wp_update_post')) {
         return $id;
     }
 }
+if (!function_exists('update_post_meta')) {
+    function update_post_meta(int $id, string $key, mixed $value): bool {
+        $GLOBALS['_fs_test_meta'][$id][$key] = $value;
+        return true;
+    }
+}
+if (!function_exists('wp_insert_post')) {
+    function wp_insert_post(array $arr): int {
+        static $auto = 9000;
+        $id = (int) ($arr['ID'] ?? 0);
+        if ($id <= 0) { $id = ++$auto; }
+        $post = $GLOBALS['_fs_test_posts'][$id] ?? new WP_Post(['ID' => $id]);
+        foreach ($arr as $k => $v) {
+            if ('ID' !== $k && property_exists($post, $k)) { $post->$k = $v; }
+        }
+        $post->ID = $id;
+        $GLOBALS['_fs_test_posts'][$id] = $post;
+        return $id;
+    }
+}
 
 // ---- Простые функции санитайзинга (для полей и Sanitizer-трейта) ----
 if (!function_exists('wp_unslash')) {
@@ -240,4 +260,92 @@ if (!function_exists('wp_kses_post')) {
 }
 if (!function_exists('user_can')) {
     function user_can(int $userId, string $cap): bool { return $GLOBALS['_fs_test_user_caps'][$userId][$cap] ?? false; }
+}
+if (!function_exists('sanitize_title')) {
+    function sanitize_title(string $title): string {
+        $title = strtolower(trim($title));
+        $title = preg_replace('/[^a-z0-9_\-]+/', '-', $title);
+        return trim($title, '-');
+    }
+}
+
+// ────────────────────────────────────────────────────────────────
+//  AJAX-callback harness — позволяет тестировать *Callbacks::ajax*().
+//  Транспорт (BaseController ctor, authorize, success/error) застаблен;
+//  wp_send_json_* бросает FsTestJsonResponse вместо exit, чтобы тест
+//  перехватил ответ. Управление авторизацией — через глобалы ниже.
+// ────────────────────────────────────────────────────────────────
+if (!function_exists('plugin_dir_path')) { function plugin_dir_path(string $f): string { return rtrim($f, '/\\') . '/'; } }
+if (!function_exists('plugin_dir_url'))  { function plugin_dir_url(string $f): string { return 'http://example.test/'; } }
+if (!function_exists('plugin_basename')) { function plugin_basename(string $f): string { return basename($f); } }
+
+if (!function_exists('current_user_can')) {
+    // Управляется $GLOBALS['_fs_test_can'] (по умолчанию — есть права).
+    function current_user_can(string $cap): bool { return $GLOBALS['_fs_test_can'] ?? true; }
+}
+if (!function_exists('check_ajax_referer')) {
+    // Управляется $GLOBALS['_fs_test_nonce_ok']; при невалидном — поведение WP (json error).
+    function check_ajax_referer($action, $query_arg = false, $die = true) {
+        if (($GLOBALS['_fs_test_nonce_ok'] ?? true) === false) { wp_send_json_error('Неверный nonce'); }
+        return 1;
+    }
+}
+
+/** Ответ AJAX-хендлера, перехваченный вместо wp_send_json_*()+exit. */
+class FsTestJsonResponse extends \Exception {
+    public bool $success;
+    public mixed $payload;
+    public function __construct(bool $success, mixed $payload) {
+        parent::__construct('fs-test-json');
+        $this->success = $success;
+        $this->payload = $payload;
+    }
+}
+// Записываем ПЕРВЫЙ json-ответ в глобал и бросаем (как exit в проде). Если хендлер
+// оборачивает success() в catch(\Throwable) и затем зовёт error(), первый (success)
+// уже зафиксирован и не перезатирается — тест видит реальный ответ.
+if (!function_exists('wp_send_json_success')) {
+    function wp_send_json_success($data = null, $status_code = null): void {
+        if (!isset($GLOBALS['_fs_test_json'])) { $GLOBALS['_fs_test_json'] = new FsTestJsonResponse(true, $data); }
+        throw $GLOBALS['_fs_test_json'];
+    }
+}
+if (!function_exists('wp_send_json_error')) {
+    function wp_send_json_error($data = null, $status_code = null): void {
+        if (!isset($GLOBALS['_fs_test_json'])) { $GLOBALS['_fs_test_json'] = new FsTestJsonResponse(false, $data); }
+        throw $GLOBALS['_fs_test_json'];
+    }
+}
+
+/**
+ * Вызывает AJAX-хендлер и возвращает ПЕРВЫЙ перехваченный JSON-ответ.
+ * Бросает, если хендлер не вызвал success/error.
+ */
+function fs_test_capture_json(callable $fn): FsTestJsonResponse {
+    $GLOBALS['_fs_test_json'] = null;
+    try {
+        $fn();
+    } catch (FsTestJsonResponse $r) {
+        // ответ зафиксирован в глобале
+    }
+    if (!isset($GLOBALS['_fs_test_json'])) {
+        throw new \RuntimeException('AJAX-хендлер не вызвал wp_send_json_success/error');
+    }
+    return $GLOBALS['_fs_test_json'];
+}
+
+// i18n / escaping — заглушки (возвращают вход без изменений).
+if (!function_exists('__'))           { function __($text, $domain = null) { return $text; } }
+if (!function_exists('_e'))           { function _e($text, $domain = null): void { echo $text; } }
+if (!function_exists('esc_html'))     { function esc_html($text) { return $text; } }
+if (!function_exists('esc_attr'))     { function esc_attr($text) { return $text; } }
+if (!function_exists('esc_html__'))   { function esc_html__($text, $domain = null) { return $text; } }
+if (!function_exists('esc_attr__'))   { function esc_attr__($text, $domain = null) { return $text; } }
+
+/** Сбрасывает флаги авторизации харнесса к «всё разрешено» (вызывать в setUp). */
+function fs_test_reset_ajax(): void {
+    $GLOBALS['_fs_test_can']      = true;
+    $GLOBALS['_fs_test_nonce_ok'] = true;
+    $_POST = [];
+    $_GET  = [];
 }

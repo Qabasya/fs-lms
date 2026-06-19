@@ -9,27 +9,29 @@ use Inc\Services\PostTypeResolver;
 /**
  * Class CourseDTO
  *
- * Данные курса-шаблона: упорядоченные ссылки на уроки.
+ * Данные курса-шаблона (Courses.md → ★): упорядоченные МОДУЛИ → уроки.
+ * Модуль — course-local (ModuleDTO). Плоский список уроков курса (для назначения
+ * группе, Этап 2) — производный: разворот модулей по порядку (см. lessonIds()).
  *
  * @package Inc\DTO\Course
  */
 readonly class CourseDTO {
 
 	/**
-	 * @param int    $id
-	 * @param string $subjectKey
-	 * @param string $title           = post_title
-	 * @param string $descriptionHtml = post_content
-	 * @param int[]  $lessonIds       ссылки на {key}_lessons
-	 * @param int    $authorId
-	 * @param string $status
+	 * @param int         $id
+	 * @param string      $subjectKey
+	 * @param string      $title           = post_title
+	 * @param string      $descriptionHtml = post_content
+	 * @param ModuleDTO[] $modules         Упорядоченные модули курса.
+	 * @param int         $authorId
+	 * @param string      $status
 	 */
 	public function __construct(
 		public int    $id,
 		public string $subjectKey,
 		public string $title,
 		public string $descriptionHtml,
-		public array  $lessonIds,
+		public array  $modules,
 		public int    $authorId,
 		public string $status,
 	) {}
@@ -40,7 +42,7 @@ readonly class CourseDTO {
 			subjectKey     : PostTypeResolver::subjectFromCoursePostType( $post->post_type ),
 			title          : $post->post_title,
 			descriptionHtml: $post->post_content,
-			lessonIds      : self::intIds( $meta['lesson_ids'] ?? array() ),
+			modules        : ModuleDTO::fromList( is_array( $meta['modules'] ?? null ) ? $meta['modules'] : array() ),
 			authorId       : (int) $post->post_author,
 			status         : $post->post_status,
 		);
@@ -52,7 +54,7 @@ readonly class CourseDTO {
 			subjectKey     : (string) ( $data['subject_key'] ?? '' ),
 			title          : (string) ( $data['title'] ?? '' ),
 			descriptionHtml: (string) ( $data['description_html'] ?? '' ),
-			lessonIds      : self::intIds( $data['lesson_ids'] ?? array() ),
+			modules        : ModuleDTO::fromList( is_array( $data['modules'] ?? null ) ? $data['modules'] : array() ),
 			authorId       : (int) ( $data['author_id'] ?? 0 ),
 			status         : (string) ( $data['status'] ?? 'draft' ),
 		);
@@ -64,23 +66,30 @@ readonly class CourseDTO {
 			'subject_key'      => $this->subjectKey,
 			'title'            => $this->title,
 			'description_html' => $this->descriptionHtml,
-			'lesson_ids'       => $this->lessonIds,
+			'modules'          => ModuleDTO::toList( $this->modules ),
 			'author_id'        => $this->authorId,
 			'status'           => $this->status,
 		);
 	}
 
 	public function isEmpty(): bool {
-		return empty( $this->lessonIds );
+		return empty( $this->lessonIds() );
 	}
 
 	/**
-	 * @param mixed $raw
+	 * Плоский упорядоченный список уроков курса (разворот модулей по порядку).
+	 * Потребитель — назначение курса группе (Этап 2); снапшот в `group_lessons` остаётся плоским.
+	 *
 	 * @return int[]
 	 */
-	private static function intIds( mixed $raw ): array {
-		return is_array( $raw )
-			? array_values( array_filter( array_map( 'intval', $raw ) ) )
-			: array();
+	public function lessonIds(): array {
+		$ids = array();
+		foreach ( $this->modules as $module ) {
+			foreach ( $module->lessonIds as $lessonId ) {
+				$ids[] = $lessonId;
+			}
+		}
+
+		return $ids;
 	}
 }

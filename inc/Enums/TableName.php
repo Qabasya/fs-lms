@@ -32,6 +32,9 @@ enum TableName: string {
 	case AssessmentAttempts = 'fs_lms_assessment_attempts';
 	case AssessmentAnswers  = 'fs_lms_assessment_answers';
 
+	// ==== Этап 1.5 — прогресс прохождения шагов (★) ====
+	case LessonProgress = 'fs_lms_lesson_progress';
+
 	public function prefixed(): string {
 		global $wpdb;
 		return $wpdb->prefix . $this->value;

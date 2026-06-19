@@ -120,7 +120,7 @@ class MenuRegistrar {
 	 * @return void
 	 */
 	public function register(): void {
-		if ( empty( $this->pages ) ) {
+		if ( empty( $this->pages ) && empty( $this->subpages ) ) {
 			return;
 		}
 

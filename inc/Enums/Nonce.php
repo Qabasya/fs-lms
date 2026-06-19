@@ -70,6 +70,9 @@ enum Nonce: string {
 	case SubmitAttempt = 'fs_lms_submit_attempt';
 	case GradeAttempt  = 'fs_lms_grade_attempt';
 
+	// ==== Этап 1.5 — пошаговый плеер урока ====
+	case MarkStepProgress = 'fs_lms_mark_step_progress';
+
 	/**
 	 * Создает защитный токен.
 	 *

@@ -84,9 +84,11 @@ class Enqueue extends BaseController implements ServiceInterface {
 		$is_lesson_cpt   = $screen && PostTypeResolver::isLessonPostType( $screen->post_type );
 		$is_work_cpt     = $screen && PostTypeResolver::isWorkPostType( $screen->post_type );
 		$is_course_cpt   = $screen && PostTypeResolver::isCoursePostType( $screen->post_type );
+		$is_problems_cpt = $screen && PostTypeResolver::problems() === $screen->post_type;
+		$is_article_cpt  = $screen && PostTypeResolver::isArticlePostType( $screen->post_type );
 
 		// Подключаем ресурсы ТОЛЬКО на страницах плагина или наших CPT
-		if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_lesson_cpt && ! $is_work_cpt && ! $is_course_cpt ) {
+		if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_lesson_cpt && ! $is_work_cpt && ! $is_course_cpt && ! $is_problems_cpt && ! $is_article_cpt ) {
 			return;
 		}
 
@@ -336,14 +338,20 @@ class Enqueue extends BaseController implements ServiceInterface {
 				array(
 					'ajax_url' => admin_url( 'admin-ajax.php' ),
 					'actions'  => array(
-						'setLessonVisibility'     => AjaxHook::SetLessonVisibility->jsAction(),
-						'removeLessonFromProgram' => AjaxHook::RemoveLessonFromProgram->jsAction(),
-						'getGroupActivity'        => AjaxHook::GetGroupActivity->jsAction(),
-						'reorderProgram'          => AjaxHook::ReorderProgram->jsAction(),
+						'setLessonVisibility'       => AjaxHook::SetLessonVisibility->jsAction(),
+						'removeLessonFromProgram'   => AjaxHook::RemoveLessonFromProgram->jsAction(),
+						'getGroupActivity'          => AjaxHook::GetGroupActivity->jsAction(),
+						'reorderProgram'            => AjaxHook::ReorderProgram->jsAction(),
+						'assignCourse'              => AjaxHook::AssignCourse->jsAction(),
+						'addLessonToProgram'        => AjaxHook::AddLessonToProgram->jsAction(),
+						'saveLessonSchedule'        => AjaxHook::SaveLessonSchedule->jsAction(),
+						'getCourseLessonCandidates' => AjaxHook::GetCourseLessonCandidates->jsAction(),
 					),
 					'nonces'   => array(
 						'setLessonVisibility' => Nonce::SetLessonVisibility->create(),
 						'saveSchedule'        => Nonce::SaveSchedule->create(),
+						'assignCourse'        => Nonce::AssignCourse->create(),
+						'authorCourse'        => Nonce::AuthorCourse->create(),
 					),
 				)
 			);
@@ -365,6 +373,17 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'submitWork' => Nonce::SubmitWork->create(),
 						'gradeWork'  => Nonce::GradeWork->create(),
 					),
+				)
+			);
+
+			// Пошаговый плеер урока (?gl=)
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_player_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'action'   => AjaxHook::MarkStepProgress->jsAction(),
+					'nonce'    => Nonce::MarkStepProgress->create(),
 				)
 			);
 		}

@@ -232,4 +232,12 @@ trait Sanitizer {
 	protected function sanitizeHtmlValue( mixed $value ): string {
 		return wp_kses_post( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
 	}
+
+	protected function sanitizeKeyValue( mixed $value ): string {
+		return sanitize_title( $this->sanitizeTextValue( $value ) );
+	}
+
+	protected function sanitizeIntValue( mixed $value ): int {
+		return absint( is_scalar( $value ) ? $value : 0 );
+	}
 }

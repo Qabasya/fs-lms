@@ -6,6 +6,7 @@ namespace Unit\Services\Course;
 
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\CourseDTO;
+use Inc\DTO\Course\ModuleDTO;
 use Inc\Enums\AssignmentPolicy;
 use Inc\Enums\LogEvent;
 use Inc\Managers\CourseManager;
@@ -143,7 +144,7 @@ class CourseAssignmentServiceTest extends TestCase {
 			subjectKey     : $subjectKey,
 			title          : 'Test Course',
 			descriptionHtml: '',
-			lessonIds      : $lessonIds,
+			modules        : array( new ModuleDTO( 'm1', 'Модуль', $lessonIds ) ),
 			authorId       : 1,
 			status         : 'publish',
 		);

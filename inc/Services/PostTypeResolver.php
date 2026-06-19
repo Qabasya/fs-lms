@@ -76,6 +76,17 @@ class PostTypeResolver {
 	}
 
 	/**
+	 * Проверяет, является ли post type типом статей.
+	 *
+	 * @param string $post_type Тип записи WordPress.
+	 *
+	 * @return bool true, если post type оканчивается на суффикс статей.
+	 */
+	public static function isArticlePostType( string $post_type ): bool {
+		return str_ends_with( $post_type, self::ARTICLES_SUFFIX );
+	}
+
+	/**
 	 * Проверяет, является ли post type типом заданий.
 	 *
 	 * @param string $post_type Тип записи WordPress.
@@ -109,7 +120,7 @@ class PostTypeResolver {
 	 * @return string Ключ предмета или пустая строка, если CPT не является статьями.
 	 */
 	public static function subjectFromArticlePostType( string $post_type ): string {
-		if ( ! str_ends_with( $post_type, self::ARTICLES_SUFFIX ) ) {
+		if ( ! self::isArticlePostType( $post_type ) ) {
 			return '';
 		}
 

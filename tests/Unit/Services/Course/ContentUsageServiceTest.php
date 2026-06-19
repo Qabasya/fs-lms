@@ -39,8 +39,8 @@ class ContentUsageServiceTest extends TestCase {
 
 	public function test_work_used_in_lesson_and_lesson_in_course(): void {
 		fs_test_seed_post( array( 'ID' => 10, 'post_type' => 'inf_works' ) );
-		fs_test_seed_post( array( 'ID' => 11, 'post_type' => 'inf_lessons' ), array( 'fs_lms_meta' => array( 'work_ids' => array( 10 ) ) ) );
-		fs_test_seed_post( array( 'ID' => 12, 'post_type' => 'inf_courses' ), array( 'fs_lms_meta' => array( 'lesson_ids' => array( 11 ) ) ) );
+		fs_test_seed_post( array( 'ID' => 11, 'post_type' => 'inf_lessons' ), array( 'fs_lms_meta' => array( 'steps' => array( array( 'key' => 's1', 'type' => 'work', 'payload' => array( 'ref' => 10 ) ) ) ) ) );
+		fs_test_seed_post( array( 'ID' => 12, 'post_type' => 'inf_courses' ), array( 'fs_lms_meta' => array( 'modules' => array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 11 ) ) ) ) ) );
 
 		self::assertSame( 1, $this->usage->usageCount( 'work', 10 ) );
 		self::assertSame( 1, $this->usage->usageCount( 'lesson', 11 ) );
@@ -48,7 +48,7 @@ class ContentUsageServiceTest extends TestCase {
 
 	public function test_article_used_in_lesson_scalar_field(): void {
 		fs_test_seed_post( array( 'ID' => 20, 'post_type' => 'inf_articles' ) );
-		fs_test_seed_post( array( 'ID' => 21, 'post_type' => 'inf_lessons' ), array( 'fs_lms_meta' => array( 'theory_article_id' => 20 ) ) );
+		fs_test_seed_post( array( 'ID' => 21, 'post_type' => 'inf_lessons' ), array( 'fs_lms_meta' => array( 'steps' => array( array( 'key' => 's1', 'type' => 'material', 'payload' => array( 'article_id' => 20 ) ) ) ) ) );
 
 		self::assertSame( 1, $this->usage->usageCount( 'article', 20 ) );
 	}

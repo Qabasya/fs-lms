@@ -31,6 +31,9 @@ build/
 # PHPUnit
 /phpunit.result.cache
 
+# SCSS build guard (styles:check temp output)
+.scss-check/
+
 # Coverage
 coverage/
 

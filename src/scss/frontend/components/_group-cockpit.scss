@@ -137,6 +137,173 @@
 	}
 }
 
+// Назначение курса
+.fs-cockpit-assign-course {
+	display: flex;
+	flex-wrap: wrap;
+	gap: $spacing-sm;
+	margin-bottom: $spacing-lg;
+	align-items: center;
+
+	select {
+		padding: 6px 10px;
+		border: 1px solid $color-border;
+		border-radius: $radius;
+		font-size: $font-size-sm;
+		background: $color-white;
+		color: $color-text;
+	}
+}
+
+.fs-cockpit-btn-primary {
+	padding: 6px 16px;
+	background: $color-accent;
+	color: $color-white;
+	border: none;
+	border-radius: $radius;
+	font-size: $font-size-sm;
+	cursor: pointer;
+
+	&:hover { opacity: 0.85; }
+	&:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.fs-cockpit-btn-secondary {
+	padding: 6px 14px;
+	background: $color-bg-subtle;
+	color: $color-text;
+	border: 1px solid $color-border;
+	border-radius: $radius;
+	font-size: $font-size-sm;
+	cursor: pointer;
+
+	&:hover { background: $color-border; }
+}
+
+// Ручка перетаскивания
+.fs-lesson-grip {
+	font-size: 18px;
+	color: $color-muted;
+	cursor: grab;
+	user-select: none;
+	flex-shrink: 0;
+
+	&:active { cursor: grabbing; }
+}
+
+// Поле даты
+.fs-lesson-date {
+	padding: 4px 6px;
+	border: 1px solid $color-border;
+	border-radius: $radius;
+	font-size: $font-size-sm;
+	color: $color-text;
+	background: $color-white;
+	flex-shrink: 0;
+}
+
+// Бейдж видимости
+.fs-cockpit-visibility-badge {
+	font-size: $font-size-xxs;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+
+	&.fs-vis-open     { color: $color-success; border-color: $color-success; }
+	&.fs-vis-hidden   { color: $color-muted; }
+	&.fs-vis-archived { color: $color-muted; opacity: 0.7; }
+}
+
+// Перетаскиваемый элемент
+.fs-cockpit-lesson-item.fs-dragging {
+	opacity: 0.4;
+}
+
+// Пикер урока
+.fs-lesson-picker {
+	margin-top: $spacing-lg;
+}
+
+.fs-lesson-picker-panel {
+	margin-top: $spacing-sm;
+	border: 1px solid $color-border;
+	border-radius: $radius;
+	background: $color-white;
+	overflow: hidden;
+}
+
+.fs-picker-search {
+	display: flex;
+	flex-wrap: wrap;
+	gap: $spacing-sm;
+	align-items: center;
+	padding: $spacing-md;
+	border-bottom: 1px solid $color-border-light;
+
+	input[type="search"] {
+		flex: 1;
+		padding: 6px 10px;
+		border: 1px solid $color-border;
+		border-radius: $radius;
+		font-size: $font-size-sm;
+	}
+}
+
+.fs-picker-scope {
+	display: flex;
+	gap: $spacing-sm;
+
+	label {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		font-size: $font-size-sm;
+		cursor: pointer;
+	}
+}
+
+.fs-picker-results {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	max-height: 260px;
+	overflow-y: auto;
+}
+
+.fs-picker-result {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px $spacing-md;
+	border-bottom: 1px solid $color-border-light;
+
+	&:last-child { border-bottom: 0; }
+}
+
+.fs-picker-result-title {
+	font-size: $font-size-sm;
+	color: $color-text;
+}
+
+.fs-picker-add-btn {
+	padding: 3px 10px;
+	background: $color-accent;
+	color: $color-white;
+	border: none;
+	border-radius: $radius;
+	font-size: $font-size-sm;
+	cursor: pointer;
+	flex-shrink: 0;
+
+	&:hover { opacity: 0.85; }
+	&:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.fs-picker-empty {
+	padding: 16px $spacing-md;
+	font-size: $font-size-sm;
+	color: $color-muted;
+}
+
 // Активность
 .fs-cockpit-activity {
 	margin-top: 32px;

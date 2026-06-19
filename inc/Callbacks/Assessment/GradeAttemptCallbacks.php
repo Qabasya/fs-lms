@@ -34,11 +34,11 @@ class GradeAttemptCallbacks extends BaseController {
 	public function ajaxGradeAttempt(): void {
 		$this->authorize( Nonce::GradeAttempt, Capability::ManageLMSAssignments );
 
-		$attemptId  = $this->requireInt( $_POST['attempt_id'] ?? '' );
-		$taskId     = $this->requireInt( $_POST['task_id'] ?? '' );
-		$score      = (float) $this->sanitizeText( $_POST['score'] ?? '0' );
-		$isCorrect  = (bool) $this->sanitizeInt( $_POST['is_correct'] ?? 0 );
-		$feedback   = $this->sanitizeText( $_POST['feedback'] ?? '' );
+		$attemptId  = $this->requireInt( 'attempt_id' );
+		$taskId     = $this->requireInt( 'task_id' );
+		$score      = (float) $this->sanitizeText( 'score' );
+		$isCorrect  = (bool) $this->sanitizeInt( 'is_correct' );
+		$feedback   = $this->sanitizeText( 'feedback' );
 
 		$attempt = $this->attempts->find( $attemptId );
 		if ( ! $attempt ) {

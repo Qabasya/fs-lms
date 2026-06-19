@@ -12,6 +12,7 @@ use Inc\Managers\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\ScheduleService;
+use Inc\Services\Course\SessionCalendarService;
 use PHPUnit\Framework\TestCase;
 
 class ScheduleServiceTest extends TestCase {
@@ -20,6 +21,7 @@ class ScheduleServiceTest extends TestCase {
 	private LessonManager&\PHPUnit\Framework\MockObject\MockObject $lessonManager;
 	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
+	private SessionCalendarService&\PHPUnit\Framework\MockObject\MockObject $calendar;
 	private ScheduleService $service;
 
 	protected function setUp(): void {
@@ -28,11 +30,13 @@ class ScheduleServiceTest extends TestCase {
 		$this->lessonManager = $this->createMock( LessonManager::class );
 		$this->groups        = $this->createMock( GroupsRepository::class );
 		$this->dispatcher    = $this->createMock( LogEventDispatcherInterface::class );
+		$this->calendar      = $this->createMock( SessionCalendarService::class );
 		$this->service       = new ScheduleService(
 			$this->groupLessons,
 			$this->lessonManager,
 			$this->groups,
 			$this->dispatcher,
+			$this->calendar,
 		);
 	}
 
@@ -150,14 +154,12 @@ class ScheduleServiceTest extends TestCase {
 
 	private function makeLesson( string $subjectKey ): LessonDTO {
 		return new LessonDTO(
-			id              : 10,
-			subjectKey      : $subjectKey,
-			topic           : 'Test lesson',
-			theoryHtml      : '',
-			theoryArticleId : 0,
-			workIds         : [],
-			authorId        : 1,
-			status          : 'publish',
+			id        : 10,
+			subjectKey: $subjectKey,
+			topic     : 'Test lesson',
+			steps     : array(),
+			authorId  : 1,
+			status    : 'publish',
 		);
 	}
 
@@ -170,6 +172,8 @@ class ScheduleServiceTest extends TestCase {
 			workIdsSnapshot : null,
 			extraWorkIds    : [],
 			scheduledAt     : null,
+			endsAt          : null,
+			isPinned        : false,
 			teacherUserId   : null,
 			visibility      : 'hidden',
 			openedAt        : null,

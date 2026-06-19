@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Managers;
 
 use Inc\DTO\Course\LessonDTO;
+use Inc\DTO\Course\StepDTO;
 use Inc\Enums\PostMetaName;
 use Inc\Services\PostTypeResolver;
 
@@ -24,7 +25,7 @@ class LessonManager {
 	public function create( string $subjectKey, LessonDTO $dto ): int {
 		$id = $this->posts->insert( array(
 			'post_title'   => $dto->topic,
-			'post_content' => $dto->theoryHtml,
+			'post_content' => '',
 			'post_type'    => PostTypeResolver::lessons( $subjectKey ),
 			'post_status'  => 'draft',
 			'post_author'  => $dto->authorId ?: get_current_user_id(),
@@ -39,8 +40,7 @@ class LessonManager {
 
 	public function update( int $lessonId, LessonDTO $dto ): bool {
 		$updated = $this->posts->update( $lessonId, array(
-			'post_title'   => $dto->topic,
-			'post_content' => $dto->theoryHtml,
+			'post_title' => $dto->topic,
 		) );
 
 		if ( ! $updated ) {
@@ -69,6 +69,17 @@ class LessonManager {
 	 * @return LessonDTO[]
 	 */
 	public function getBankBySubject( string $subjectKey, array $args = array() ): array {
+		// Exclude group forks — they belong to a specific group, not the shared library.
+		$args['meta_query'] = array_merge(
+			$args['meta_query'] ?? array(),
+			array(
+				array(
+					'key'     => PostMetaName::ForkedForGroup->value,
+					'compare' => 'NOT EXISTS',
+				),
+			)
+		);
+
 		$posts = $this->posts->search( PostTypeResolver::lessons( $subjectKey ), $args );
 
 		return array_map( function ( \WP_Post $post ): LessonDTO {
@@ -84,8 +95,7 @@ class LessonManager {
 
 	private function saveMeta( int $lessonId, LessonDTO $dto ): void {
 		$this->posts->updateMeta( $lessonId, PostMetaName::Meta->value, array(
-			'theory_article_id' => $dto->theoryArticleId,
-			'work_ids'          => $dto->workIds,
+			'steps' => StepDTO::toList( $dto->steps ),
 		) );
 	}
 }

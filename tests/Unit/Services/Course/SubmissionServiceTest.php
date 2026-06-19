@@ -68,6 +68,8 @@ class SubmissionServiceTest extends TestCase {
 			workIdsSnapshot : null,
 			extraWorkIds    : [],
 			scheduledAt     : null,
+			endsAt          : null,
+			isPinned        : false,
 			teacherUserId   : null,
 			visibility      : 'open',
 			openedAt        : '2024-01-01 00:00:00',

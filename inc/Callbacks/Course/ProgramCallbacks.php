@@ -36,9 +36,9 @@ class ProgramCallbacks extends BaseController {
 
 	public function ajaxAssignCourse(): void {
 		$this->authorize( Nonce::AssignCourse, Capability::ManageLMSAssignments );
-		$groupId  = $this->requireInt( $_POST['group_id'] ?? '' );
-		$courseId = $this->requireInt( $_POST['course_id'] ?? '' );
-		$policy   = AssignmentPolicy::fromValueOrDefault( $this->sanitizeKey( $_POST['policy'] ?? '' ) );
+		$groupId  = $this->requireInt( 'group_id' );
+		$courseId = $this->requireInt( 'course_id' );
+		$policy   = AssignmentPolicy::fromValueOrDefault( $this->sanitizeKey( 'policy' ) );
 		$userId   = get_current_user_id();
 
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
@@ -51,8 +51,8 @@ class ProgramCallbacks extends BaseController {
 
 	public function ajaxAddLessonToProgram(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
-		$groupId  = $this->requireInt( $_POST['group_id'] ?? '' );
-		$lessonId = $this->requireInt( $_POST['lesson_id'] ?? '' );
+		$groupId  = $this->requireInt( 'group_id' );
+		$lessonId = $this->requireInt( 'lesson_id' );
 		$userId   = get_current_user_id();
 
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
@@ -65,7 +65,7 @@ class ProgramCallbacks extends BaseController {
 
 	public function ajaxRemoveLessonFromProgram(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
-		$groupLessonId = $this->requireInt( $_POST['group_lesson_id'] ?? '' );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$userId        = get_current_user_id();
 
 		// Guard проверяется по владению записью внутри ScheduleService (group.teacher_id).
@@ -75,7 +75,7 @@ class ProgramCallbacks extends BaseController {
 
 	public function ajaxReorderProgram(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
-		$groupId    = $this->requireInt( $_POST['group_id'] ?? '' );
+		$groupId    = $this->requireInt( 'group_id' );
 		$orderedIds = array_map( 'intval', (array) ( $_POST['ordered_ids'] ?? array() ) );
 		$userId     = get_current_user_id();
 
@@ -89,10 +89,10 @@ class ProgramCallbacks extends BaseController {
 
 	public function ajaxSaveLessonSchedule(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
-		$groupLessonId  = $this->requireInt( $_POST['group_lesson_id'] ?? '' );
-		$scheduledAt    = $this->sanitizeText( $_POST['scheduled_at'] ?? '' ) ?: null;
+		$groupLessonId  = $this->requireInt( 'group_lesson_id' );
+		$scheduledAt    = $this->sanitizeText( 'scheduled_at' ) ?: null;
 		$teacherUserId  = isset( $_POST['teacher_user_id'] ) && '' !== $_POST['teacher_user_id']
-			? $this->sanitizeInt( $_POST['teacher_user_id'] )
+			? $this->sanitizeInt( 'teacher_user_id' )
 			: null;
 		$userId         = get_current_user_id();
 
@@ -102,7 +102,7 @@ class ProgramCallbacks extends BaseController {
 
 	public function ajaxSetLessonExtraWorks(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
-		$groupLessonId = $this->requireInt( $_POST['group_lesson_id'] ?? '' );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$workIds       = array_map( 'intval', (array) ( $_POST['work_ids'] ?? array() ) );
 		$userId        = get_current_user_id();
 
@@ -112,8 +112,8 @@ class ProgramCallbacks extends BaseController {
 
 	public function ajaxSetLessonVisibility(): void {
 		$this->authorize( Nonce::SetLessonVisibility, Capability::ManageLMSAssignments );
-		$groupLessonId = $this->requireInt( $_POST['group_lesson_id'] ?? '' );
-		$visibility    = LessonVisibility::tryFrom( $this->sanitizeKey( $_POST['visibility'] ?? '' ) );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$visibility    = LessonVisibility::tryFrom( $this->sanitizeKey( 'visibility' ) );
 		$userId        = get_current_user_id();
 
 		if ( null === $visibility ) {
@@ -126,7 +126,7 @@ class ProgramCallbacks extends BaseController {
 
 	public function ajaxGetGroupProgram(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
-		$groupId = $this->requireInt( $_POST['group_id'] ?? '' );
+		$groupId = $this->requireInt( 'group_id' );
 		$userId  = get_current_user_id();
 
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
@@ -138,8 +138,8 @@ class ProgramCallbacks extends BaseController {
 
 	public function ajaxGetGroupActivity(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
-		$groupId = $this->requireInt( $_POST['group_id'] ?? '' );
-		$page    = max( 1, $this->sanitizeInt( $_POST['page'] ?? 1 ) );
+		$groupId = $this->requireInt( 'group_id' );
+		$page    = max( 1, $this->sanitizeInt( 'page' ) );
 		$userId  = get_current_user_id();
 
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {

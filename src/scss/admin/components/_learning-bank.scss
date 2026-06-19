@@ -1,0 +1,20 @@
+@use '../variables' as *;
+
+// Блоки, выводимые над нативной таблицей через admin_notices (описание банка,
+// таб-бар предметов). Класс `notice` нужен только чтобы штатный JS WP перенёс
+// блок под заголовок (перед фильтрами-views) — рамку/фон нотиса гасим.
+.notice.fs-lms-learning-notice {
+  margin: $spacing-sm 0 $spacing-lg;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+// Описание-абзац (банк задач).
+.fs-lms-bank-intro {
+  margin: 0;
+  max-width: 60em;
+  color: $color-text-secondary;
+  font-size: $font-size;
+}

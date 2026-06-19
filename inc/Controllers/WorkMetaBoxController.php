@@ -14,6 +14,7 @@ use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\PostTypeResolver;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
 /**
  * Class WorkMetaBoxController
@@ -25,6 +26,7 @@ use Inc\Shared\Traits\Authorizer;
 class WorkMetaBoxController extends BaseController implements ServiceInterface {
 
 	use Authorizer;
+	use TidiesCoreMetaBoxes;
 
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -37,7 +39,18 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 
 	public function register(): void {
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
+		add_action( 'add_meta_boxes', array( $this, 'tidyWorkMetaBoxes' ), 100 );
 		add_action( 'save_post', array( $this, 'handleWorkSave' ) );
+	}
+
+	/**
+	 * Прибирает экран работы: убирает «Атрибуты»/«Изображение записи», «Автор» → в сайдбар.
+	 * Редактор (описание) и метабокс работы остаются.
+	 */
+	public function tidyWorkMetaBoxes( string $post_type ): void {
+		if ( PostTypeResolver::isWorkPostType( $post_type ) ) {
+			$this->tidyCoreMetaBoxes( $post_type );
+		}
 	}
 
 	public function handleAddMetaBoxes(): void {

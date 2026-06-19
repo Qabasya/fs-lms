@@ -50,6 +50,21 @@ $wp-admin-purple:       #7c3aed;
 $wp-admin-purple-bg:    #ede9fe;
 $wp-admin-purple-text:  #4c1d95;
 
+// ── Step-type accents (Course Builder, canonical design — design_handoff_course_builder/)
+$step-lecture:  $color-primary; // text/лекция
+$step-video:    #8c3bca;        // видео
+$step-practice: #c9540a;        // практика (work)
+$step-quiz:     #00834a;        // тест (assessment)
+$step-file:     #5a6470;        // материал/файл
+
+// ── Course Builder bespoke shades (subtle UI fills from canonical design)
+$cb-bg-tree:    #fbfbfc; // фон рельсы/футера
+$cb-bg-hover:   #f0f0f1; // hover строки дерева
+$cb-bg-active:  #e7f0f8; // активный урок
+$cb-chip-bg:    #f0f1f3; // плитка шага (неактивная)
+$cb-num-bg:     #e0e7ef; // номер модуля
+$cb-badge-bg:   #eceef0; // бейдж числа шагов
+
 // ── Размеры и отступы
 $spacing-xs: 4px;
 $spacing-sm: 8px;

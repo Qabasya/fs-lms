@@ -1,0 +1,176 @@
+@use '../variables' as *;
+
+// ══════════════════════════════════════════════════════════════
+//  Пошаговый плеер урока (★, T1.5.12). Один шаг на экран + степпер.
+// ══════════════════════════════════════════════════════════════
+
+.fs-player {
+	max-width: $max-width;
+	margin: 0 auto;
+	padding: $spacing-lg;
+
+	&__back {
+		display: inline-block;
+		margin-bottom: $spacing-sm;
+		color: $color-muted;
+		font-size: $font-size-sm;
+		text-decoration: none;
+
+		&:hover { color: $color-accent; }
+	}
+
+	&__title {
+		font-size: $font-size-title;
+		font-weight: 700;
+		color: $color-text;
+		margin: 0 0 $spacing-lg;
+	}
+
+	&__body {
+		display: grid;
+		grid-template-columns: 280px 1fr;
+		gap: $spacing-lg;
+		align-items: start;
+	}
+
+	// ── степпер ──
+	&__steplist {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		border: 1px solid $color-border-light;
+		border-radius: $radius-md;
+		overflow: hidden;
+	}
+
+	&__stepnav {
+		display: flex;
+		align-items: center;
+		gap: $spacing-sm;
+		padding: $spacing-sm $spacing-md;
+		border-top: 1px solid $color-border-light;
+		cursor: pointer;
+		transition: background $transition;
+
+		&:first-child { border-top: 0; }
+		&:hover { background: $color-bg-subtle; }
+		&.is-active { background: color-mix(in srgb, $color-accent 12%, #fff); }
+
+		&[data-gate="locked"] {
+			cursor: not-allowed;
+			opacity: 0.5;
+		}
+	}
+
+	&__stepnum {
+		flex-shrink: 0;
+		width: 24px;
+		height: 24px;
+		border-radius: $radius-pill;
+		background: $color-bg-subtle;
+		color: $color-muted;
+		font-size: $font-size-xs;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	&__steptitle {
+		flex: 1;
+		font-size: $font-size-sm;
+		color: $color-text;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	&__stepmark {
+		flex-shrink: 0;
+		width: 18px;
+		text-align: center;
+	}
+
+	&__stepnav[data-status="completed"] {
+		.fs-player__stepnum { background: $color-success; color: #fff; }
+		.fs-player__stepmark::after { content: "✓"; color: $color-success; }
+	}
+	&__stepnav[data-status="viewed"] .fs-player__stepmark::after { content: "•"; color: $color-muted; }
+	&__stepnav[data-gate="locked"]   .fs-player__stepmark::after { content: "🔒"; }
+
+	// ── сцена шага ──
+	&__stage {
+		border: 1px solid $color-border-light;
+		border-radius: $radius-md;
+		background: $color-white;
+		min-height: 420px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	&__panel {
+		padding: $spacing-lg;
+		flex: 1;
+	}
+
+	&__panelhead {
+		display: flex;
+		align-items: center;
+		gap: $spacing-sm;
+		margin-bottom: $spacing-md;
+		padding-bottom: $spacing-sm;
+		border-bottom: 1px solid $color-border-light;
+	}
+
+	&__paneltype {
+		font-size: $font-size-xxs;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: $color-white;
+		background: $color-accent;
+		padding: 2px $spacing-sm;
+		border-radius: $radius;
+	}
+
+	&__panelname {
+		font-size: $font-size-base;
+		font-weight: 600;
+		margin: 0;
+	}
+
+	&__panelbody {
+		line-height: $line-height-base;
+		color: $color-text;
+
+		img { max-width: 100%; height: auto; }
+	}
+
+	&__video iframe { max-width: 100%; }
+	&__videodesc { color: $color-muted; font-size: $font-size-sm; margin-top: $spacing-sm; }
+	&__muted { color: $color-muted; }
+
+	&__complete { margin-top: $spacing-lg; }
+
+	// ── нижняя навигация ──
+	&__nav {
+		display: flex;
+		align-items: center;
+		gap: $spacing-md;
+		padding: $spacing-md $spacing-lg;
+		border-top: 1px solid $color-border-light;
+		background: $color-bg-subtle;
+	}
+
+	&__count {
+		flex: 1;
+		text-align: center;
+		color: $color-muted;
+		font-size: $font-size-sm;
+	}
+
+	&--locked { max-width: 720px; }
+}
+
+@media (max-width: $bp-md) {
+	.fs-player__body { grid-template-columns: 1fr; }
+}

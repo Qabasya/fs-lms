@@ -1,0 +1,616 @@
+/* ══════════════════════════════════════════════════════════════
+   WordPress admin chrome + Course Builder
+   ══════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* WordPress native palette */
+  --wp-menu-bg:      #1d2327;
+  --wp-menu-sub:     #2c3338;
+  --wp-menu-text:    #f0f0f1;
+  --wp-menu-icon:    #a7aaad;
+  --wp-blue:         #2271b1;
+  --wp-blue-dk:      #135e96;
+  --wp-blue-hover:   #2c3338;
+  --wp-current:      #2271b1;
+  --wp-content-bg:   #f0f0f1;
+  --wp-card:         #ffffff;
+  --wp-border:       #c3c4c7;
+  --wp-border-lt:    #dcdcde;
+  --wp-text:         #1d2327;
+  --wp-muted:        #50575e;
+  --wp-muted-lt:     #787c82;
+  --wp-green:        #00a32a;
+  --wp-green-dk:     #008a20;
+
+  /* step type accents */
+  --t-lecture: #2271b1;
+  --t-video:   #8c3bca;
+  --t-practice:#c9540a;
+  --t-quiz:    #00834a;
+  --t-file:    #5a6470;
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--wp-text);
+  background: var(--wp-content-bg);
+  overflow: hidden;
+}
+
+/* ── Layout shell ─────────────────────────────────────────── */
+.wp-shell { display: flex; flex-direction: column; height: 100vh; }
+
+/* Top admin bar */
+.wp-adminbar {
+  height: 32px;
+  background: var(--wp-menu-bg);
+  color: #c3c4c7;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  flex-shrink: 0;
+  z-index: 50;
+}
+.wp-adminbar a { color: #c3c4c7; text-decoration: none; }
+.ab-item {
+  display: flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 10px; cursor: pointer;
+}
+.ab-item:hover { background: #2c3338; color: #72aee6; }
+.ab-item svg { fill: currentColor; }
+.ab-spacer { flex: 1; }
+.ab-badge {
+  background: #d63638; color: #fff; border-radius: 10px;
+  font-size: 11px; line-height: 17px; min-width: 17px; height: 17px;
+  text-align: center; padding: 0 5px;
+}
+.ab-user { gap: 8px; }
+.ab-avatar {
+  width: 20px; height: 20px; border-radius: 3px;
+  background: linear-gradient(135deg,#6b4f2a,#3a2a14); flex-shrink: 0;
+}
+
+.wp-body { display: flex; flex: 1; min-height: 0; }
+
+/* ── Admin menu (left dark) ───────────────────────────────── */
+.wp-adminmenu {
+  width: 160px;
+  background: var(--wp-menu-bg);
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding-bottom: 40px;
+  scrollbar-width: thin;
+  scrollbar-color: #3c434a transparent;
+}
+.wp-adminmenu::-webkit-scrollbar { width: 8px; }
+.wp-adminmenu::-webkit-scrollbar-thumb { background: #3c434a; border-radius: 4px; }
+.menu-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 12px;
+  color: var(--wp-menu-text);
+  font-size: 14px;
+  cursor: pointer;
+  border-left: 4px solid transparent;
+  line-height: 1.3;
+}
+.menu-item svg { fill: var(--wp-menu-icon); flex-shrink: 0; }
+.menu-item:hover { background: var(--wp-blue-hover); color: #72aee6; }
+.menu-item:hover svg { fill: #72aee6; }
+.menu-item.current {
+  background: var(--wp-current);
+  color: #fff;
+  font-weight: 600;
+  border-left-color: #fff;
+}
+.menu-item.current svg { fill: #fff; }
+.menu-sub {
+  background: var(--wp-menu-sub);
+  padding: 6px 0;
+}
+.menu-sub a {
+  display: block;
+  padding: 6px 12px 6px 36px;
+  color: #c3c4c7;
+  font-size: 13px;
+  text-decoration: none;
+}
+.menu-sub a:hover { color: #72aee6; }
+.menu-sub a.current { color: #fff; font-weight: 600; }
+.menu-sep { height: 1px; background: #3c434a; margin: 6px 0; }
+
+/* ── Main content area ────────────────────────────────────── */
+.wp-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  position: relative;
+}
+.wp-content-inner { padding: 10px 20px 40px; }
+
+/* update nag */
+.update-nag {
+  background: #fff;
+  border-left: 4px solid #72aee6;
+  box-shadow: 0 1px 1px rgba(0,0,0,.04);
+  padding: 11px 14px;
+  font-size: 13px;
+  margin: 14px 0 6px;
+  color: var(--wp-text);
+}
+.update-nag a { color: var(--wp-blue); }
+
+.wp-heading-row {
+  display: flex; align-items: center; gap: 12px;
+  margin: 14px 0 4px;
+  flex-wrap: wrap;
+}
+.wp-heading-row h1 {
+  font-size: 23px; font-weight: 400; color: var(--wp-text);
+  line-height: 1.3;
+}
+.page-title-action {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--wp-blue);
+  color: var(--wp-blue);
+  background: #f6f7f7;
+  padding: 4px 11px;
+  border-radius: 3px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.page-title-action:hover { background: #f0f0f1; border-color: var(--wp-blue-dk); color: var(--wp-blue-dk); }
+.wp-subtitle { color: var(--wp-muted); font-size: 13px; margin: 2px 0 16px; }
+
+/* ── Builder metabox (postbox) ────────────────────────────── */
+.postbox {
+  background: var(--wp-card);
+  border: 1px solid var(--wp-border-lt);
+  box-shadow: 0 1px 1px rgba(0,0,0,.04);
+  border-radius: 3px;
+  margin-bottom: 16px;
+}
+.postbox-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--wp-border-lt);
+}
+.postbox-header h2 { font-size: 14px; font-weight: 600; }
+.postbox-header .pb-actions { display: flex; gap: 4px; color: var(--wp-muted-lt); }
+.postbox-header .pb-actions svg { fill: currentColor; cursor: pointer; }
+
+/* ── Course meta strip ────────────────────────────────────── */
+.course-strip {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px;
+  background: var(--wp-card);
+  border: 1px solid var(--wp-border-lt);
+  box-shadow: 0 1px 1px rgba(0,0,0,.04);
+  border-radius: 3px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.course-thumb {
+  width: 46px; height: 46px; border-radius: 6px; flex-shrink: 0;
+  background: linear-gradient(135deg,#2271b1,#135e96);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 19px;
+}
+.course-strip-main { flex: 1; min-width: 180px; }
+.course-strip-main .cs-title { font-size: 15px; font-weight: 600; }
+.course-strip-main .cs-meta { font-size: 12px; color: var(--wp-muted); margin-top: 2px; display: flex; gap: 12px; flex-wrap: wrap; }
+.course-strip-main .cs-meta b { color: var(--wp-text); font-weight: 600; }
+.course-strip-actions { display: flex; gap: 8px; align-items: center; }
+
+/* WP buttons */
+.button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--wp-border);
+  background: #f6f7f7;
+  color: var(--wp-blue);
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: var(--font);
+  cursor: pointer;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.button:hover { background: #f0f0f1; border-color: var(--wp-muted-lt); color: var(--wp-blue-dk); }
+.button svg { fill: currentColor; }
+.button-primary {
+  background: var(--wp-blue); border-color: var(--wp-blue); color: #fff;
+}
+.button-primary:hover { background: var(--wp-blue-dk); border-color: var(--wp-blue-dk); color: #fff; }
+.button-green {
+  background: var(--wp-green); border-color: var(--wp-green-dk); color: #fff;
+}
+.button-green:hover { background: var(--wp-green-dk); color: #fff; }
+.button-sm { padding: 3px 9px; font-size: 12px; }
+
+/* ══════════════════════════════════════════════════════════
+   THE BUILDER  (two-pane)
+   ══════════════════════════════════════════════════════════ */
+.builder {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  background: var(--wp-card);
+  border: 1px solid var(--wp-border-lt);
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 640px;
+}
+
+/* ── Left: course tree ────────────────────────────────────── */
+.tree-pane {
+  border-right: 1px solid var(--wp-border-lt);
+  background: #fbfbfc;
+  display: flex; flex-direction: column;
+  min-height: 0;
+}
+.tree-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--wp-border-lt);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.tree-head .th-title { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--wp-muted); }
+.tree-head .th-count { font-size: 11px; color: var(--wp-muted-lt); }
+.tree-scroll {
+  flex: 1; overflow-y: auto; padding: 8px 8px 4px;
+  scrollbar-width: thin;
+}
+.tree-scroll::-webkit-scrollbar { width: 8px; }
+.tree-scroll::-webkit-scrollbar-thumb { background: #dcdcde; border-radius: 4px; }
+
+/* module */
+.module { margin-bottom: 6px; }
+.module-head {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+}
+.module-head:hover { background: #f0f0f1; }
+.module-head .mod-caret { transition: transform .15s; flex-shrink: 0; color: var(--wp-muted-lt); display: flex; }
+.module.collapsed .mod-caret { transform: rotate(-90deg); }
+.module-head .mod-num {
+  width: 20px; height: 20px; border-radius: 5px;
+  background: #e0e7ef; color: var(--wp-blue-dk);
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.module-head .mod-title {
+  flex: 1; font-size: 13px; font-weight: 600; color: var(--wp-text);
+  line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.module-head .mod-grip { opacity: 0; color: var(--wp-muted-lt); cursor: grab; display: flex; flex-shrink: 0; }
+.module-head:hover .mod-grip { opacity: 1; }
+
+.module-lessons {
+  padding: 2px 0 4px 6px;
+  margin-left: 9px;
+  border-left: 1.5px solid var(--wp-border-lt);
+}
+.module.collapsed .module-lessons { display: none; }
+
+/* lesson item */
+.lesson {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 1px 0;
+  position: relative;
+}
+.lesson:hover { background: #f0f0f1; }
+.lesson.active { background: #e7f0f8; }
+.lesson.active::before {
+  content: ""; position: absolute; left: -7.5px; top: 4px; bottom: 4px;
+  width: 3px; background: var(--wp-blue); border-radius: 2px;
+}
+.lesson .les-grip { opacity: 0; color: var(--wp-muted-lt); cursor: grab; display: flex; flex-shrink: 0; }
+.lesson:hover .les-grip { opacity: 1; }
+.lesson .les-num { font-size: 11px; color: var(--wp-muted-lt); font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 24px; }
+.lesson.active .les-num { color: var(--wp-blue-dk); font-weight: 600; }
+.lesson .les-title {
+  flex: 1; font-size: 13px; color: var(--wp-text); line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lesson.active .les-title { font-weight: 600; color: var(--wp-blue-dk); }
+.lesson .les-steps {
+  font-size: 10px; color: var(--wp-muted-lt);
+  background: #eceef0; border-radius: 9px; padding: 1px 6px; flex-shrink: 0;
+}
+.lesson.active .les-steps { background: #d4e4f2; color: var(--wp-blue-dk); }
+
+/* drag states */
+.dragging { opacity: .4; }
+.drop-before { box-shadow: 0 -2px 0 var(--wp-blue); }
+.drop-after  { box-shadow: 0 2px 0 var(--wp-blue); }
+.drop-into   { background: #d4e4f2 !important; outline: 2px dashed var(--wp-blue); outline-offset: -2px; }
+
+.tree-add {
+  border-top: 1px solid var(--wp-border-lt);
+  padding: 10px;
+  display: flex; gap: 8px;
+}
+.tree-add .button { flex: 1; justify-content: center; }
+
+/* ── Right: lesson editor ─────────────────────────────────── */
+.editor-pane {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0;
+  background: var(--wp-card);
+}
+.editor-top {
+  padding: 16px 22px 0;
+  border-bottom: 1px solid var(--wp-border-lt);
+}
+.editor-breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--wp-muted); margin-bottom: 10px; flex-wrap: wrap;
+}
+.editor-breadcrumb b { color: var(--wp-text); font-weight: 600; }
+.lesson-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.lesson-title-input {
+  flex: 1;
+  font-size: 20px; font-weight: 600; color: var(--wp-text);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 5px 9px;
+  font-family: var(--font);
+  background: transparent;
+}
+.lesson-title-input:hover { border-color: var(--wp-border-lt); }
+.lesson-title-input:focus { outline: none; border-color: var(--wp-blue); box-shadow: 0 0 0 1px var(--wp-blue); background: #fff; }
+.lesson-flag {
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 12px;
+  background: #f0f0f1; color: var(--wp-muted); border: 1px solid var(--wp-border-lt);
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.lesson-flag.published { background: #edfaef; color: var(--wp-green-dk); border-color: #b8e6c2; }
+
+/* steps row (Stepik-like) */
+.steps-label { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--wp-muted); margin-bottom: 8px; }
+.steps-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding-bottom: 16px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.steps-row::-webkit-scrollbar { height: 6px; }
+.steps-row::-webkit-scrollbar-thumb { background: #dcdcde; border-radius: 3px; }
+.step-chip {
+  width: 56px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer;
+}
+.step-chip-box {
+  width: 56px; height: 52px; border-radius: 9px;
+  background: #f0f1f3; border: 1.5px solid transparent;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; transition: transform .12s, box-shadow .12s;
+  color: var(--wp-muted-lt);
+}
+.step-chip:hover .step-chip-box { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,.1); }
+.step-chip-box .sc-num {
+  position: absolute; top: 3px; left: 5px;
+  font-size: 10px; font-weight: 700; color: var(--wp-muted-lt);
+}
+.step-chip-box svg { width: 22px; height: 22px; }
+.step-chip.active .step-chip-box { border-color: currentColor; }
+.step-chip .sc-type { font-size: 10px; color: var(--wp-muted-lt); line-height: 1; }
+.step-chip.active .sc-type { font-weight: 700; }
+
+/* per-type colors applied via data-type */
+.step-chip[data-type="lecture"]  { color: var(--t-lecture); }
+.step-chip[data-type="video"]    { color: var(--t-video); }
+.step-chip[data-type="practice"] { color: var(--t-practice); }
+.step-chip[data-type="quiz"]     { color: var(--t-quiz); }
+.step-chip[data-type="file"]     { color: var(--t-file); }
+.step-chip.active .step-chip-box { background: currentColor; }
+.step-chip.active .step-chip-box svg { fill: #fff; }
+.step-chip.active .step-chip-box .sc-num { color: rgba(255,255,255,.85); }
+.step-chip.active .sc-type { color: currentColor; }
+/* inactive icon tint */
+.step-chip .step-chip-box svg { fill: currentColor; }
+
+.step-add .step-chip-box {
+  background: #fff; border: 1.5px dashed var(--wp-blue); color: var(--wp-blue);
+}
+.step-add:hover .step-chip-box { background: #f0f6fb; }
+
+/* ── Editor body (per step) ───────────────────────────────── */
+.editor-body {
+  flex: 1; overflow-y: auto; padding: 20px 22px 28px;
+  min-height: 0;
+  scrollbar-width: thin;
+}
+.editor-body::-webkit-scrollbar { width: 9px; }
+.editor-body::-webkit-scrollbar-thumb { background: #dcdcde; border-radius: 4px; }
+
+.step-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+}
+.step-head .sh-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 11px; border-radius: 7px; font-size: 12px; font-weight: 600; color: #fff;
+}
+.step-head .sh-badge svg { fill: #fff; width: 14px; height: 14px; }
+.step-head .sh-controls { margin-left: auto; display: flex; gap: 6px; }
+.icon-btn {
+  width: 30px; height: 30px; border: 1px solid var(--wp-border); background: #f6f7f7;
+  border-radius: 5px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--wp-muted);
+}
+.icon-btn:hover { background: #f0f0f1; color: var(--wp-blue); border-color: var(--wp-muted-lt); }
+.icon-btn.danger:hover { color: #d63638; border-color: #d63638; }
+.icon-btn svg { fill: currentColor; }
+
+/* rich text toolbar mock */
+.rte {
+  border: 1px solid var(--wp-border); border-radius: 6px; overflow: hidden;
+}
+.rte-toolbar {
+  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+  padding: 6px 8px; background: #f6f7f7; border-bottom: 1px solid var(--wp-border-lt);
+}
+.rte-btn {
+  min-width: 28px; height: 28px; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  border-radius: 4px; cursor: pointer; color: var(--wp-muted); font-size: 13px;
+  border: 1px solid transparent;
+}
+.rte-btn:hover { background: #e0e0e1; color: var(--wp-text); }
+.rte-btn svg { fill: currentColor; }
+.rte-sep { width: 1px; height: 20px; background: var(--wp-border); margin: 0 4px; }
+.rte-select {
+  height: 28px; border: 1px solid var(--wp-border); border-radius: 4px;
+  background: #fff; font-size: 12px; padding: 0 6px; color: var(--wp-text); font-family: var(--font);
+}
+.rte-area {
+  padding: 18px 20px; min-height: 260px; line-height: 1.7; font-size: 14px; color: var(--wp-text);
+  outline: none; background: #fff;
+}
+.rte-area:focus { box-shadow: inset 0 0 0 2px #e7f0f8; }
+.rte-area h2 { font-size: 22px; margin: 0 0 12px; font-weight: 700; }
+.rte-area h3 { font-size: 17px; margin: 18px 0 8px; font-weight: 700; }
+.rte-area p { margin: 0 0 12px; }
+.rte-area ol, .rte-area ul { margin: 0 0 12px; padding-left: 24px; }
+.rte-area li { margin-bottom: 5px; }
+.rte-area strong { font-weight: 700; }
+
+/* video step */
+.video-embed {
+  border: 2px dashed var(--wp-border); border-radius: 8px;
+  background: #fafbfc; padding: 40px 20px; text-align: center; color: var(--wp-muted);
+  margin-bottom: 16px;
+}
+.video-embed .ve-icon {
+  width: 64px; height: 64px; border-radius: 50%; background: #f3e9fb; color: var(--t-video);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;
+}
+.video-embed .ve-icon svg { fill: currentColor; }
+.video-embed p { font-size: 13px; margin-bottom: 4px; }
+.video-embed .ve-hint { font-size: 12px; color: var(--wp-muted-lt); }
+.field-row { margin-bottom: 14px; }
+.field-row label { display: block; font-size: 12px; font-weight: 600; color: var(--wp-muted); margin-bottom: 5px; }
+.field-input {
+  width: 100%; padding: 8px 11px; border: 1px solid var(--wp-border); border-radius: 5px;
+  font-size: 13px; font-family: var(--font); color: var(--wp-text);
+}
+.field-input:focus { outline: none; border-color: var(--wp-blue); box-shadow: 0 0 0 1px var(--wp-blue); }
+textarea.field-input { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+/* practice / quiz */
+.quiz-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--wp-border-lt); border-radius: 6px; margin-bottom: 8px;
+  background: #fff;
+}
+.quiz-option.correct { border-color: #b8e6c2; background: #f4fbf6; }
+.quiz-option .qo-radio {
+  width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--wp-border); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.quiz-option.correct .qo-radio { border-color: var(--t-quiz); }
+.quiz-option.correct .qo-radio::after { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--t-quiz); }
+.quiz-option .qo-text { flex: 1; font-size: 13px; }
+.quiz-option .qo-tag { font-size: 11px; color: var(--t-quiz); font-weight: 600; }
+.quiz-option .qo-grip { color: var(--wp-muted-lt); cursor: grab; display: flex; }
+
+/* file step */
+.file-drop {
+  border: 2px dashed var(--wp-border); border-radius: 8px;
+  background: #fafbfc; padding: 28px 20px; text-align: center; color: var(--wp-muted);
+  margin-bottom: 14px;
+}
+.file-drop .button { margin-top: 10px; }
+.file-list { display: flex; flex-direction: column; gap: 8px; }
+.file-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border: 1px solid var(--wp-border-lt); border-radius: 7px;
+}
+.file-item .fi-ico {
+  width: 32px; height: 32px; border-radius: 6px; background: #fde8de; color: var(--t-practice);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; font-weight: 800;
+}
+.file-item .fi-ico.pdf { background: #fde8e8; color: #d63638; }
+.file-item .fi-ico.doc { background: #e0ecfb; color: var(--wp-blue); }
+.file-item .fi-main { flex: 1; }
+.file-item .fi-name { font-size: 13px; font-weight: 500; }
+.file-item .fi-size { font-size: 11px; color: var(--wp-muted-lt); margin-top: 1px; }
+
+.section-block { margin-bottom: 22px; }
+.section-block > .sb-label {
+  font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--wp-muted); margin-bottom: 10px;
+}
+
+/* add-step popover */
+.popover-backdrop {
+  position: fixed; inset: 0; z-index: 200; display: none;
+}
+.popover-backdrop.open { display: block; }
+.step-popover {
+  position: absolute; z-index: 201;
+  background: #fff; border: 1px solid var(--wp-border); border-radius: 9px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.2); padding: 8px; width: 220px;
+  display: none;
+}
+.step-popover.open { display: block; }
+.step-popover .sp-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--wp-muted); padding: 6px 8px 8px; }
+.sp-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 8px; border-radius: 6px; cursor: pointer;
+}
+.sp-option:hover { background: #f0f0f1; }
+.sp-option .spo-ico {
+  width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0;
+}
+.sp-option .spo-ico svg { fill: #fff; width: 16px; height: 16px; }
+.sp-option .spo-name { font-size: 13px; font-weight: 600; }
+.sp-option .spo-desc { font-size: 11px; color: var(--wp-muted-lt); }
+
+/* editor footer */
+.editor-footer {
+  border-top: 1px solid var(--wp-border-lt);
+  padding: 12px 22px;
+  display: flex; align-items: center; gap: 10px;
+  background: #fbfbfc;
+}
+.editor-footer .ef-status { font-size: 12px; color: var(--wp-muted-lt); display: flex; align-items: center; gap: 6px; }
+.editor-footer .ef-spacer { flex: 1; }
+.saved-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--wp-green); }
+
+/* empty state */
+.editor-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: var(--wp-muted-lt); text-align: center; padding: 40px; gap: 12px;
+}
+.editor-empty svg { fill: #c3c4c7; }
+
+/* toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #1d2327; color: #fff; padding: 11px 20px; border-radius: 8px; font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: all .25s; z-index: 300;
+  display: flex; align-items: center; gap: 9px;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast svg { fill: var(--wp-green); }
+
+/* responsive */
+@media (max-width: 960px) {
+  .wp-adminmenu { width: 36px; }
+  .menu-item span, .menu-sub { display: none; }
+  .menu-item { justify-content: center; padding: 10px 0; }
+  .builder { grid-template-columns: 1fr; }
+  .tree-pane { border-right: none; border-bottom: 1px solid var(--wp-border-lt); max-height: 280px; }
+}

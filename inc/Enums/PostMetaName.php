@@ -22,4 +22,15 @@ enum PostMetaName: string {
 	 * Основной массив мета-данных задания.
 	 */
 	case Meta = 'fs_lms_meta';
+
+	/**
+	 * ID оригинального поста, из которого создан форк.
+	 */
+	case ForkedFrom = 'fs_lms_forked_from';
+
+	/**
+	 * ID группы, для которой создан форк урока (групповой форк).
+	 * Форки с этим значением скрыты из общей библиотеки предмета.
+	 */
+	case ForkedForGroup = 'fs_lms_forked_for_group';
 }

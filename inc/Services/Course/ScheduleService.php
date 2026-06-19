@@ -19,6 +19,7 @@ class ScheduleService {
 		private readonly LessonManager               $lessonManager,
 		private readonly GroupsRepository            $groups,
 		private readonly LogEventDispatcherInterface $dispatcher,
+		private readonly SessionCalendarService      $calendar,
 	) {}
 
 	public function addLesson( int $groupId, int $lessonId, int $actorUserId ): int {
@@ -112,12 +113,48 @@ class ScheduleService {
 		);
 	}
 
+	public function pin( int $groupLessonId, bool $pinned, int $actorUserId ): void {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row ) {
+			throw new \InvalidArgumentException( 'Строка программы не найдена.' );
+		}
+		$this->groupLessons->setPinned( $groupLessonId, $pinned );
+
+		$this->dispatcher->dispatch(
+			LogEvent::ScheduleChanged,
+			new LearningEvent(
+				event       : LogEvent::ScheduleChanged,
+				actorUserId : $actorUserId,
+				groupId     : $row->groupId,
+				entityType  : 'group_lesson',
+				entityId    : (string) $groupLessonId,
+				isPublic    : false,
+			)
+		);
+	}
+
+	public function reflow( int $groupId, int $actorUserId ): void {
+		$this->calendar->reflow( $groupId );
+
+		$this->dispatcher->dispatch(
+			LogEvent::ScheduleChanged,
+			new LearningEvent(
+				event       : LogEvent::ScheduleChanged,
+				actorUserId : $actorUserId,
+				groupId     : $groupId,
+				entityType  : 'group',
+				entityId    : (string) $groupId,
+				isPublic    : false,
+			)
+		);
+	}
+
 	/** @return array{row: \Inc\DTO\Course\GroupLessonDTO, topic: string}[] */
 	public function getProgram( int $groupId ): array {
 		$rows   = $this->groupLessons->listByGroup( $groupId );
 		$result = array();
 		foreach ( $rows as $row ) {
-			$lesson  = $this->lessonManager->get( $row->lessonId );
+			$lesson   = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
 			$result[] = array(
 				'row'   => $row,
 				'topic' => $lesson?->topic ?? '',

@@ -218,12 +218,19 @@ class AuthController extends BaseController implements ServiceInterface {
 			return false;
 		}
 
-		// Используем ваш Enum Capability::Admin (по умолчанию 'manage_options')
-		// Если у пользователя нет прав администратора, скрываем админ-бар
-		if ( ! current_user_can( Capability::Admin->value ) ) {
-			return false;
+		// Админ-бар показываем администраторам и сотрудникам LMS (преподаватели,
+		// учебный офис) — у них есть доступ в админку. Студентам/родителям скрываем.
+		$staff_caps = array(
+			Capability::Admin->value,
+			Capability::ManageLMSAssignments->value,
+			Capability::ManageApplications->value,
+		);
+		foreach ( $staff_caps as $cap ) {
+			if ( current_user_can( $cap ) ) {
+				return $show;
+			}
 		}
 
-		return $show;
+		return false;
 	}
 }
