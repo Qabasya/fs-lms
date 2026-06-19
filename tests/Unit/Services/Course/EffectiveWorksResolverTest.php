@@ -124,6 +124,8 @@ class EffectiveWorksResolverTest extends TestCase {
 			workIdsSnapshot : $workIdsSnapshot,
 			extraWorkIds    : $extraWorkIds,
 			scheduledAt     : null,
+			endsAt          : null,
+			isPinned        : false,
 			teacherUserId   : null,
 			visibility      : 'hidden',
 			openedAt        : null,

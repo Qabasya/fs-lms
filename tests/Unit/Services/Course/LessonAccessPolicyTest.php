@@ -163,6 +163,8 @@ class LessonAccessPolicyTest extends TestCase {
 			workIdsSnapshot : $workIdsSnapshot,
 			extraWorkIds    : [],
 			scheduledAt     : null,
+			endsAt          : null,
+			isPinned        : false,
 			teacherUserId   : null,
 			visibility      : $visibility,
 			openedAt        : $openedAt,

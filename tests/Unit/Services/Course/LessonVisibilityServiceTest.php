@@ -161,6 +161,8 @@ class LessonVisibilityServiceTest extends TestCase {
 			workIdsSnapshot : $workIdsSnapshot,
 			extraWorkIds    : [],
 			scheduledAt     : null,
+			endsAt          : null,
+			isPinned        : false,
 			teacherUserId   : null,
 			visibility      : 'hidden',
 			openedAt        : null,

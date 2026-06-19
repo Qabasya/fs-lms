@@ -43,6 +43,8 @@ class LessonPlayerServiceTest extends TestCase {
 			workIdsSnapshot  : null,
 			extraWorkIds     : array(),
 			scheduledAt      : null,
+			endsAt           : null,
+			isPinned         : false,
 			teacherUserId    : null,
 			visibility       : 'open',
 			openedAt         : null,
