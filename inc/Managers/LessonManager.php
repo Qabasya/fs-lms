@@ -69,6 +69,17 @@ class LessonManager {
 	 * @return LessonDTO[]
 	 */
 	public function getBankBySubject( string $subjectKey, array $args = array() ): array {
+		// Exclude group forks — they belong to a specific group, not the shared library.
+		$args['meta_query'] = array_merge(
+			$args['meta_query'] ?? array(),
+			array(
+				array(
+					'key'     => PostMetaName::ForkedForGroup->value,
+					'compare' => 'NOT EXISTS',
+				),
+			)
+		);
+
 		$posts = $this->posts->search( PostTypeResolver::lessons( $subjectKey ), $args );
 
 		return array_map( function ( \WP_Post $post ): LessonDTO {

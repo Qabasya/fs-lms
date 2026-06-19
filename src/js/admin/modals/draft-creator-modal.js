@@ -42,14 +42,21 @@ export const DraftCreatorModal = {
 	},
 
 	/**
-	 * @param {{ refType: 'work'|'lesson'|'problem', $field: jQuery, onCreated: function(int, string): void }} config
+	 * @param {{ refType: 'work'|'lesson'|'problem'|'task'|'assessment'|'material', $field: jQuery, onCreated: function(int, string): void }} config
 	 */
 	open( config ) {
 		this._config     = config;
 		this._submitting = false;
 
 		const isWork = config.refType === 'work';
-		const titles = { work: 'Создать работу', lesson: 'Создать урок', problem: 'Создать задачу' };
+		const titles = {
+			work:       'Создать работу',
+			lesson:     'Создать урок',
+			problem:    'Создать задачу',
+			task:       'Создать задачу',
+			assessment: 'Создать контрольную',
+			material:   'Создать материал',
+		};
 		this.$modal.find( '.fs-lms-draft-work-type-row' ).prop( 'hidden', ! isWork );
 		this.$modal.find( '#fs-lms-draft-creator-title' ).text( titles[ config.refType ] || 'Создать' );
 		this.$title.val( '' );
@@ -79,14 +86,20 @@ export const DraftCreatorModal = {
 		const subject = String( $field.data( 'subject' ) );
 
 		const actionMap = {
-			work:    fs_lms_vars.ajax_actions.createWorkDraft,
-			lesson:  fs_lms_vars.ajax_actions.createLessonDraft,
-			problem: fs_lms_vars.ajax_actions.createProblemDraft,
+			work:       fs_lms_vars.ajax_actions.createWorkDraft,
+			lesson:     fs_lms_vars.ajax_actions.createLessonDraft,
+			problem:    fs_lms_vars.ajax_actions.createProblemDraft,
+			task:       fs_lms_vars.ajax_actions.createTaskDraft,
+			assessment: fs_lms_vars.ajax_actions.createAssessmentDraft,
+			material:   fs_lms_vars.ajax_actions.createArticleDraft,
 		};
 		const nonceMap = {
-			work:    fs_lms_vars.nonces.authorWork,
-			lesson:  fs_lms_vars.nonces.authorLesson,
-			problem: fs_lms_vars.nonces.authorWork,
+			work:       fs_lms_vars.nonces.authorWork,
+			lesson:     fs_lms_vars.nonces.authorLesson,
+			problem:    fs_lms_vars.nonces.authorWork,
+			task:       fs_lms_vars.nonces.authorLesson,
+			assessment: fs_lms_vars.nonces.authorLesson,
+			material:   fs_lms_vars.nonces.authorLesson,
 		};
 		const action = actionMap[ refType ];
 		const nonce  = nonceMap[ refType ];

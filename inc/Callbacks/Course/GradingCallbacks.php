@@ -36,10 +36,10 @@ class GradingCallbacks extends BaseController {
 	public function ajaxSaveGrade(): void {
 		$this->authorize( Nonce::GradeWork, Capability::ManageLMSAssignments );
 
-		$submissionId = $this->requireInt( $_POST['submission_id'] ?? '' );
+		$submissionId = $this->requireInt( 'submission_id' );
 		$score        = (float) ( $_POST['score'] ?? 0 );
 		$maxScore     = (float) ( $_POST['max_score'] ?? 100 );
-		$feedback     = $this->sanitizeText( $_POST['feedback'] ?? '' );
+		$feedback     = $this->sanitizeText( 'feedback' );
 
 		$sub = $this->submissionRepo->find( $submissionId );
 		if ( ! $sub ) {
@@ -64,8 +64,8 @@ class GradingCallbacks extends BaseController {
 	public function ajaxReturnSubmission(): void {
 		$this->authorize( Nonce::GradeWork, Capability::ManageLMSAssignments );
 
-		$submissionId = $this->requireInt( $_POST['submission_id'] ?? '' );
-		$feedback     = $this->requireText( $_POST['feedback'] ?? '' );
+		$submissionId = $this->requireInt( 'submission_id' );
+		$feedback     = $this->requireText( 'feedback' );
 
 		$sub = $this->submissionRepo->find( $submissionId );
 		if ( ! $sub ) {
@@ -86,7 +86,7 @@ class GradingCallbacks extends BaseController {
 	public function ajaxGetGroupSubmissions(): void {
 		$this->authorize( Nonce::GradeWork, Capability::ManageLMSAssignments );
 
-		$groupId = $this->requireInt( $_POST['group_id'] ?? '' );
+		$groupId = $this->requireInt( 'group_id' );
 		if ( ! $this->guard->canManage( $groupId, get_current_user_id() ) ) {
 			$this->error( 'Нет доступа к этой группе.' );
 			return;
@@ -108,7 +108,7 @@ class GradingCallbacks extends BaseController {
 	public function ajaxGetGradebook(): void {
 		$this->authorize( Nonce::GradeWork, Capability::ManageLMSAssignments );
 
-		$groupId = $this->sanitizeInt( $_POST['group_id'] ?? 0 );
+		$groupId = $this->sanitizeInt( 'group_id' );
 		if ( $groupId && ! $this->guard->canManage( $groupId, get_current_user_id() ) ) {
 			$this->error( 'Нет доступа к этой группе.' );
 			return;

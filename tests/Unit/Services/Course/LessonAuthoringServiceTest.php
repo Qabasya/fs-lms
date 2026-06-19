@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Services\Course;
 
 use Inc\Enums\StepType;
+use Inc\Managers\LessonManager;
 use Inc\Managers\PostManager;
 use Inc\Services\Course\LessonAuthoringService;
 use PHPUnit\Framework\TestCase;
@@ -12,11 +13,33 @@ use PHPUnit\Framework\TestCase;
 class LessonAuthoringServiceTest extends TestCase {
 
 	private LessonAuthoringService $service;
+	private LessonManager          $lessons;
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_posts();
-		$this->service = new LessonAuthoringService( new PostManager() );
+		$posts         = new PostManager();
+		$this->lessons = new LessonManager( $posts );
+		$this->service = new LessonAuthoringService( $posts, $this->lessons );
+	}
+
+	/**
+	 * @param int $id
+	 * @return string[] ключи шагов урока по порядку
+	 */
+	private function stepKeys( int $id ): array {
+		return array_map( static fn ( $s ): string => $s->key, $this->lessons->get( $id )->steps );
+	}
+
+	private function seedLesson( int $id, string $subject, array $stepKeys ): void {
+		$steps = array_map(
+			static fn ( string $k ): array => array( 'key' => $k, 'type' => 'text', 'payload' => array( 'content' => $k ) ),
+			$stepKeys
+		);
+		fs_test_seed_post(
+			array( 'ID' => $id, 'post_type' => $subject . '_lessons', 'post_title' => 'Урок ' . $id ),
+			array( 'fs_lms_meta' => array( 'steps' => $steps ) )
+		);
 	}
 
 	public function test_work_candidates_expose_work_type_from_meta(): void {
@@ -89,5 +112,57 @@ class LessonAuthoringServiceTest extends TestCase {
 
 	public function test_step_candidates_unknown_kind_is_empty(): void {
 		self::assertSame( array(), $this->service->getStepCandidates( 'inf', 'whatever' ) );
+	}
+
+	public function test_step_candidates_lesson_kind(): void {
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_lessons', 'post_title' => 'Урок 1' ) );
+
+		self::assertSame( array( array( 'id' => 1, 'title' => 'Урок 1' ) ), $this->service->getStepCandidates( 'inf', 'lesson' ) );
+	}
+
+	public function test_move_step_cuts_from_source_and_appends_to_target(): void {
+		$this->seedLesson( 10, 'inf', array( 's_a', 's_b' ) );
+		$this->seedLesson( 20, 'inf', array( 's_c' ) );
+
+		self::assertTrue( $this->service->moveStep( 10, 20, 's_a' ) );
+		self::assertSame( array( 's_b' ), $this->stepKeys( 10 ) );
+		self::assertSame( array( 's_c', 's_a' ), $this->stepKeys( 20 ) );
+	}
+
+	public function test_move_step_rejects_same_lesson_and_missing_step(): void {
+		$this->seedLesson( 10, 'inf', array( 's_a' ) );
+		$this->seedLesson( 20, 'inf', array() );
+
+		self::assertFalse( $this->service->moveStep( 10, 10, 's_a' ) );
+		self::assertFalse( $this->service->moveStep( 10, 20, 's_missing' ) );
+		self::assertSame( array( 's_a' ), $this->stepKeys( 10 ) );
+	}
+
+	public function test_move_step_rejects_cross_subject(): void {
+		$this->seedLesson( 10, 'inf', array( 's_a' ) );
+		$this->seedLesson( 20, 'math', array() );
+
+		self::assertFalse( $this->service->moveStep( 10, 20, 's_a' ) );
+		self::assertSame( array( 's_a' ), $this->stepKeys( 10 ) );
+	}
+
+	public function test_create_task_draft_makes_subject_task_draft(): void {
+		$id   = $this->service->createTaskDraft( 'inf', 'Задача 1' );
+		$post = get_post( $id );
+
+		self::assertGreaterThan( 0, $id );
+		self::assertSame( 'inf_tasks', $post->post_type );
+		self::assertSame( 'draft', $post->post_status );
+		self::assertSame( 'Задача 1', $post->post_title );
+	}
+
+	public function test_create_assessment_draft_uses_assessments_cpt(): void {
+		$id = $this->service->createAssessmentDraft( 'inf', 'КР' );
+		self::assertSame( 'inf_assessments', get_post( $id )->post_type );
+	}
+
+	public function test_create_article_draft_uses_articles_cpt(): void {
+		$id = $this->service->createArticleDraft( 'inf', 'Статья' );
+		self::assertSame( 'inf_articles', get_post( $id )->post_type );
 	}
 }

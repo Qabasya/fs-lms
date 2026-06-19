@@ -384,7 +384,7 @@ Use snake_case for all WP-related identifiers.
 
 ## Docker Environment
 
-> **Claude не выполняет docker-команды.** При необходимости — показать команду в тексте ответа, пользователь запустит её сам.
+> **Claude может выполнять docker-команды напрямую** (перезапуск контейнера, запросы к БД, прогон миграций, проверка рантайма). Сервисы: `wp_app` (WordPress:8080), `wp_db` (MariaDB), `wp_phpmyadmin` (phpMyAdmin:8081).
 
 The plugin runs inside Docker. The plugin directory is mounted as a volume — PHP file changes apply immediately, but OPcache may hold stale bytecode.
 

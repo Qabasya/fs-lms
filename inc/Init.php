@@ -16,8 +16,8 @@ use Inc\Controllers\LessonController;
 use Inc\Controllers\LessonMetaBoxController;
 use Inc\Controllers\WorkController;
 use Inc\Controllers\WorkMetaBoxController;
+use Inc\Controllers\CourseBuilderController;
 use Inc\Controllers\CourseController;
-use Inc\Controllers\CourseMetaBoxController;
 use Inc\Controllers\AssessmentMetaBoxController;
 use Inc\Controllers\LearningMenuController;
 use Inc\Controllers\ContentDeletionGuard;
@@ -49,6 +49,8 @@ use Inc\Controllers\DeletionController;
 use Inc\Controllers\AssessmentController;
 use Inc\Controllers\ScheduleController;
 use Inc\Controllers\GroupCockpitController;
+use Inc\Controllers\LessonPlayerController;
+use Inc\Controllers\LessonProgressController;
 use Inc\Controllers\SubmissionController;
 use Inc\Controllers\ImportController;
 use Inc\Controllers\UserController;
@@ -98,8 +100,8 @@ final class Init {
 			LessonController::class,         // AJAX конструктора урока
 			WorkMetaBoxController::class,    // Метабокс работы
 			WorkController::class,           // AJAX конструктора работы
-			CourseMetaBoxController::class,      // Метабокс курса
 			CourseController::class,             // AJAX конструктора курса
+			CourseBuilderController::class,      // Stepik-конструктор курса (страница + AJAX)
 			AssessmentMetaBoxController::class,  // Метабокс контрольной / экзамена
 			ProblemsController::class,       // CPT fs_lms_problems + problem_tag + шаблон
 			ContentDeletionGuard::class,     // Гейт удаления / архивации банков
@@ -137,7 +139,9 @@ final class Init {
 			ExportServiceBootstrap::class,
 			// ==== Этап 2 — программа группы ====
 			ScheduleController::class,        // AJAX программы группы
+			LessonPlayerController::class,    // пошаговый плеер урока (до кокпита: ?gl=)
 			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
+			LessonProgressController::class,  // AJAX записи прогресса шага
 			LearningEventSubscriber::class,   // лента событий обучения
 			// ==== Этап 3 — сдача работ ====
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала

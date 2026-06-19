@@ -75,6 +75,14 @@ class LessonMetaBoxController extends BaseController implements ServiceInterface
 		$subject = PostTypeResolver::subjectFromLessonPostType( $post->post_type );
 		$steps   = null !== $lesson ? StepDTO::toList( $lesson->steps ) : array();
 
+		foreach ( $steps as &$step ) {
+			$ref_id = (int) ( $step['payload']['ref'] ?? $step['payload']['article_id'] ?? 0 );
+			if ( $ref_id > 0 ) {
+				$step['_title'] = get_the_title( $ref_id );
+			}
+		}
+		unset( $step );
+
 		$json = wp_json_encode(
 			$steps,
 			JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT

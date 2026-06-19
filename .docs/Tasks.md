@@ -779,7 +779,7 @@ task/work/assessment/material — ссылки. «Степ-лист» — оди
 - Сохранение — через `*AuthoringService` (AJAX), не прямой WP-вызов. SCSS — заглушка-классы (дизайн дорабатывается позже).
 - **Готово:** компонент рендерит мастер-деталь билдер урока/работы/контрольной по конфигу; порядок и состав сохраняются; шаг переносится в другой урок.
 
-#### T1.5.5 — Модалка «Добавить шаг» (как Stepik) · `[~]`
+#### T1.5.5 — Модалка «Добавить шаг» (как Stepik) · `[x]`
 - Выбор типа (text/video/material/task/work/assessment, ограничен `allowedTypes`).
 - Для **task**: источник `subject`/`bank` + тип интеракции из `TemplateRegistry` + «выбрать из библиотеки / создать»
   (reuse `draft-creator-modal`). Для **work/assessment/material** — селектор из банка / создать.
@@ -790,9 +790,25 @@ task/work/assessment/material — ссылки. «Степ-лист» — оди
   - **«Создать» бесшовно** (через `DraftCreatorModal`, guard по `#fs-lms-draft-creator-modal`): **work** и **bank-задача**
     (problem). Для **subject-задачи / контрольной / материала** — фолбэк «открыть `post-new.php` в новой вкладке».
   - ⚠️ Рантайм проверяет пользователь.
-- **Осталось:** бесшовное создание subject-задачи (нужен `fs_lms_task_data` на экране урока) / контрольной / статьи;
-  **move-step между уроками** (нужен эндпоинт `MoveLessonStep` + сервис + пикер целевого урока) — отдельным слоем;
-  выбор типа интеракции «вперёд» (сейчас тип задаётся внутри `draft-creator`/создания, не в нашей сетке).
+- **Сделано (move-step между уроками, 2026-06-19):** `AjaxHook::MoveLessonStep` → `LessonAuthoringService::moveStep()`
+  (cut→append, неизменяемый `LessonDTO` пересобирается; запрет same-lesson / cross-subject / отсутствующего шага) →
+  `LessonCallbacks::ajaxMoveLessonStep` → регистрация в `LessonController`. JS: действие «Переместить в другой урок →»
+  в детал-панели шага → пикер целевого урока (reuse `GetStepCandidates` c `kind=lesson`, nonce `AuthorLesson`, текущий
+  урок исключён) → `persist()` текущих шагов, затем `MoveLessonStep`, локальное удаление перенесённого. 4 юнит-теста
+  (+ `update_post_meta`-стаб в bootstrap для round-trip `LessonManager`), **полный набор 307/307**.
+- **🔴 Попутный фикс (2026-06-19):** весь AJAX-слой модулей Course+Assessment (65 сайтов в 8 коллбеках) **некорректно
+  вызывал key-based методы `Sanitizer`** значением (`requireKey( $_POST['x'] )`) вместо имени ключа (`requireKey( 'x' )`)
+  → каждый хендлер падал на первой строке (`Недостаточно данных`). Конвертировано в key-name форму; для массивных
+  значений (`sanitizeStep`) добавлены value-хелперы `sanitizeKeyValue`/`sanitizeIntValue`. Тесты не ловили (коллбеки не покрыты).
+- **Сделано (бесшовное создание, 2026-06-19):** «Создать» из модалки даёт черновик **всех** типов через `DraftCreatorModal` —
+  work / **subject-задача** / bank-problem / **контрольная** / **материал(статья)**. Подход — title-only черновик
+  (детали/таксономии заполняются при правке, как у work/problem); `fs_lms_task_data` на экране урока **не нужен**.
+  Бэкенд: `LessonAuthoringService::createTaskDraft/createAssessmentDraft/createArticleDraft` (зеркало `createProblemDraft`)
+  + хуки `CreateTaskDraft/CreateAssessmentDraft/CreateArticleDraft` + методы `LessonCallbacks` + регистрация в `LessonController`.
+  JS: `DraftCreatorModal` (refType task/assessment/material) + `step-builder.js::createNew` (new-tab — только фолбэк).
+  +7 юнит-тестов (сервис + коллбеки). **362/362.**
+- **Осталось (минор):** выбор типа интеракции задачи «вперёд» (из `TemplateRegistry`) прямо в сетке типов — сейчас тип
+  задаётся при правке черновика. Низкий приоритет: основной авторинг переезжает в конструктор курса (T1.5.6-CB).
 
 #### T1.5.6 — Перенос редакторов на билдер
 > **Архитектура: нативный drill-down, без SPA** (решение «больше нативного wp, меньше кода»). Каждая
@@ -813,32 +829,71 @@ task/work/assessment/material — ссылки. «Степ-лист» — оди
 - Навигация: из дерева курса — ссылка на `post.php` урока + «← к курсу» на экране урока. **Рельса курса слева
   на экране урока — опционально, не в MVP** (экономим код).
 - **Готово:** курс собирается C-деревом, урок/работа/контрольная — B-мастер-деталь на нативных экранах; у работ/контрольных/курса остаётся редактор-описание; переходы штатные; нативный редактор контента остаётся у задачи (лист).
+- **⚠️ Пересмотр (2026-06-19):** «курсовая» часть (C-дерево-метабокс на нативном экране курса) **отменена** в пользу
+  единого SPA-конструктора — см. **T1.5.6-CB**. Урок (B) и работа/контрольная (B, allowedTypes=task) из T1.5.6 в силе.
+
+#### T1.5.6-CB — Конструктор курса (canonical SPA, Stepik) · `[~]`
+> **Пересматривает** курсовую часть T1.5.6: вместо C-дерева-метабокса — **единый full-screen SPA-конструктор курса**
+> (канон: `design_handoff_course_builder/`, принят пользователем 2026-06-19; память `course-builder-is-canonical-authoring-ui`).
+> Маппинг на `StepType`: Лекция→`text`, Видео→`video`, Файл→`material`, Практика→`work` (ref), Тест→`assessment` (ref);
+> практика/тест — ссылки на библиотечные Work/Assessment (сдачи/журнал Этапов 2–4 продолжают работать).
+
+- **Phase 1 ✅ (2026-06-19):** скрытая страница `fs_lms_course_builder` (`CourseBuilderController` + `templates/admin/course-builder.php`)
+  + vanilla-ES6 приложение `src/js/admin/services/course-builder.js` (дерево модули→уроки, drag-drop уроков/шагов,
+  поповер «Добавить шаг», библ-пикер, дебаунс-автосейв, тосты). Бэкенд: `CourseBuilderService` + `CourseBuilderCallbacks`
+  (5 AJAX: `CreateCourseDraft`/`GetCourseBuilder`/`SaveCourseStructure`/`CreateLessonInModule`/`UpdateLessonMeta`),
+  шаги уроков — reuse `SaveLessonSteps`. SCSS-порт `_course-builder.scss` (+ токены step-accent в `_variables`).
+  Инлайн-редакторы lecture/video/file; practice/quiz — пока «выбрать из библиотеки» (ref). 7 юнит-тестов сервиса +
+  11 тестов коллбеков. ⚠️ Браузер-рантайм проверяет пользователь.
+- **Phase 2 ❌:** редакторы шагов по дизайну — Лекция через `wp_editor`/TinyMCE (RTE-тулбар); **инлайн** создание/правка
+  Work/Assessment за practice/quiz; drag-drop файлы (Media); drag-reorder модулей; адаптив.
+- **Phase 3 ❌ (интеграция):** редирект нативных `post-new.php`/`post.php` курса → конструктор; правка мета курса в билдере
+  (название/описание/публикация — новый `SaveCourseMeta`); удалить `CourseMetaBoxController` (старый C-метабокс → мёртвая
+  мета); связать кнопки/ссылки библиотеки «Курсы» с конструктором. **До этой фазы «Добавить курс» открывает старый
+  WP-редактор — это ожидаемо.**
 
 ### Слой Progress
 
-#### T1.5.7 — `TableName::LessonProgress` + DDL
+#### T1.5.7 — `TableName::LessonProgress` + DDL · `[x]`
 - Добавить в `Migration_1_0_0::up()/down()` + строку cleanup (см. CLAUDE.md «Миграции в dev»). Поля — по `★`.
-- **Готово:** таблица создаётся; схема сбрасывается в dev перезагрузкой.
+- **Сделано (2026-06-19):** `TableName::LessonProgress` (`fs_lms_lesson_progress`); CREATE TABLE в `up()` по `★`
+  (поля `student_person_id`/`group_lesson_id`/`lesson_id`/`step_key`/`status` enum(locked/available/viewed/completed)/
+  `completed_at`/`created_at`/`updated_at`; `UNIQUE(student_person_id, group_lesson_id, step_key)` + KEY по group_lesson/lesson);
+  добавлено в `down()`. Новой таблице cleanup-ALTER не нужен (dbDelta создаёт целиком).
+  ⚠️ Применяется в dev сбросом `fs_lms_schema_version` → `0.0.0` + перезагрузка (рантайм/БД — на пользователе).
 
-#### T1.5.8 — `LessonProgressRepository`
+#### T1.5.8 — `LessonProgressRepository` · `[x]`
 - CRUD/upsert по `UNIQUE(student_person_id, group_lesson_id, step_key)`; выборки по уроку/группе.
+- **Сделано (2026-06-19):** `LessonProgressRepository` (`find`/`upsert`/`listForStudent`/`listByGroupLesson`/`deleteByGroupLesson`);
+  `upsert` — find-then-insert/update по UNIQUE-тройке (портируемо, без `ON DUPLICATE KEY`). DTO `LessonProgressDTO` +
+  enum `ProgressStatus` (locked/available/viewed/completed, `isComplete()`/`label()`). 7 интеграционных тестов (FakeWpdb). **369/369.**
 
-#### T1.5.9 — `LessonProgressService`
+#### T1.5.9 — `LessonProgressService` · `[x]`
 - `markViewed(stepKey)`/`markCompleted(stepKey)`; завершение **work/assessment**-шага резолвится из
   `submissions`/`attempts` (не дублируем балл — прогресс хранит только статус); `isLessonCompleted(...)`.
-- **Готово:** статусы шагов читаются для плеера и дашборда; источник «сделано» оцениваемого — fact-таблицы.
+- **Сделано (2026-06-19):** `markViewed`/`markCompleted` (upsert статуса, `completed_at` из `ClockInterface`),
+  `getStepStatuses` (карта `stepKey→ProgressStatus` для плеера/дашборда), `isLessonCompleted`. work/assessment
+  «сделано» — **только** из fact-таблиц (`SubmissionRepository::listByStudentAndGroupLesson` → submitted/graded;
+  `AssessmentAttemptRepository::listByStudentAndAssessment` → submitted/graded); сохранённый `Completed` для них
+  игнорируется (`nonComplete`). Зависит от прогресс-репо + `GroupLessonRepository` + `LessonManager` + submission/attempt-репо.
+  9 юнит-тестов (моки). **378/378.**
 
 ### Слой Gating
 
-#### T1.5.10 — `LessonGateResolver`
+#### T1.5.10 — `LessonGateResolver` · `[x]`
 - Гейт-конфиг: на шаге `gate: sequential|after:<step_key>|none`; на уроке `unlock: after_prev_lesson|after_work:<id>|date|manual`.
 - Резолвер: дата (`group_lessons.scheduled_at`/`visibility`) + выполнение (`fs_lms_lesson_progress` + fact-таблицы) → `locked|available`.
 - Интегрировать с `LessonAccessPolicy` (доступ к материалам уже гейтится членством — добавляем слой выполнения).
-- **Готово:** недоступный шаг/урок отдаёт `locked`; открывается по выполнению предусловия и/или дате.
+- **Сделано (2026-06-19):** `LessonGateResolver` + enum `GateState` (`locked`/`available`). `resolveLesson` =
+  `LessonAccessPolicy::canRead` (членство/видимость) + дата `group_lessons.scheduled_at`. `resolveStep` = урок доступен +
+  step-гейт из `payload['gate']` (`none` / `sequential` — предыдущий шаг пройден / `after:<key>` — указанный пройден),
+  выполнение через `LessonProgressService::getStepStatuses` (work/assessment — из fact-таблиц). 11 юнит-тестов (моки). **389/389.**
+- **Отложено:** lesson-`unlock` варианты `after_prev_lesson`/`after_work` — требуют хранимого конфига урока + контекста
+  программы (добавятся при авторинге гейт-конфига). Текущий резолвер покрывает доступ + дату + step-гейт по выполнению.
 
 ### Слой Clone/fork
 
-#### T1.5.11 — `ContentCloneService`
+#### T1.5.11 — `ContentCloneService` · `[x]`
 - `cloneCourse(id, mode=shallow|deep)` — новый `{key}_courses` + копия `modules[]`; shallow = те же ссылки на уроки,
   deep = рекурсивно форкнуть уроки/работы. `forkLesson/forkWork/forkAssessment` — новый пост + копия `steps[]`
   (ссылочные шаги остаются ссылками). Право = авторские права контента.
@@ -851,7 +906,7 @@ task/work/assessment/material — ссылки. «Степ-лист» — оди
 
 ### Слой Student-player
 
-#### T1.5.12 — Пошаговый плеер урока (frontend)
+#### T1.5.12 — Пошаговый плеер урока (frontend) · `[x]`
 - Один шаг на экран, «Далее»/«Назад», степпер сбоку; запись прогресса (T1.5.9) на завершение; гейт (T1.5.10)
   блокирует недоступные. Рендер: text/video/material inline; task/work/assessment → прохождение. По образцу
   `LessonPageController` (`template_include`), `ThemeCompatService` для шапки/подвала.
@@ -859,7 +914,7 @@ task/work/assessment/material — ссылки. «Степ-лист» — оди
 
 ### Слой Video / S3-readiness (S3 само — Этап 5, отложено)
 
-#### T1.5.13 — Video-шаг с заделом под S3
+#### T1.5.13 — Video-шаг с заделом под S3 · `[x]`
 - Payload `{ url, provider }`; рендер через oEmbed/iframe (внешний url работает сразу). Заложить «recording slot»
   урока: точка, куда `S3RecordingService` (Этап 5) подставит url записи занятия — наполняя **тот же** video-шаг,
   без переделки модели. **Не** зашивать «только внешний провайдер».

@@ -368,6 +368,17 @@ class Enqueue extends BaseController implements ServiceInterface {
 					),
 				)
 			);
+
+			// Пошаговый плеер урока (?gl=)
+			wp_localize_script(
+				'fs-lms-frontend-script',
+				'fs_lms_player_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'action'   => AjaxHook::MarkStepProgress->jsAction(),
+					'nonce'    => Nonce::MarkStepProgress->create(),
+				)
+			);
 		}
 
 		// === Страница прохождения контрольной / экзамена ===

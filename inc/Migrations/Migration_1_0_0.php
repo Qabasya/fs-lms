@@ -499,6 +499,26 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 20. lesson_progress — прохождение шагов урока (Этап 1.5, ★) =====
+		$lesson_progress = TableName::LessonProgress->prefixed();
+		dbDelta(
+			"CREATE TABLE $lesson_progress (
+			id                  int unsigned    NOT NULL AUTO_INCREMENT,
+			student_person_id   int unsigned    NOT NULL,
+			group_lesson_id     int unsigned    NOT NULL,
+			lesson_id           bigint unsigned NOT NULL,
+			step_key            varchar(64)     NOT NULL,
+			status              enum('locked','available','viewed','completed') NOT NULL DEFAULT 'locked',
+			completed_at        datetime        DEFAULT NULL,
+			created_at          datetime        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at          datetime        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY step (student_person_id, group_lesson_id, step_key),
+			KEY group_lesson_id (group_lesson_id),
+			KEY student_lesson (student_person_id, lesson_id)
+		) $cc;"
+		);
+
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$student_records`
@@ -539,6 +559,7 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::LessonProgress->prefixed(),
 			TableName::AssessmentAnswers->prefixed(),
 			TableName::AssessmentAttempts->prefixed(),
 			TableName::Submissions->prefixed(),

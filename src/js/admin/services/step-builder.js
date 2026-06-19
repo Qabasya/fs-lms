@@ -115,6 +115,20 @@ function createBuilder( $mount ) {
 			const $inp = $( '<input type="text" class="fs-sb-field fs-sb-url" placeholder="https://… (или запись из S3 позже)">' ).val( step.payload.url || '' );
 			$inp.on( 'input', () => { step.payload.url = $inp.val(); renderList(); } );
 			$ed.append( $inp );
+
+			const $desc = $( '<textarea class="fs-sb-field" rows="2" placeholder="Описание к видео (необязательно)"></textarea>' ).val( step.payload.description || '' );
+			$desc.on( 'input', () => { step.payload.description = $desc.val(); } );
+			$ed.append( $desc );
+
+			const $prov = $( '<input type="text" class="fs-sb-field" placeholder="Провайдер: youtube, vimeo, s3, …">' ).val( step.payload.provider || '' );
+			$prov.on( 'input', () => { step.payload.provider = $prov.val(); } );
+			$ed.append( $prov );
+
+			const $slotWrap = $( '<label class="fs-sb-check"></label>' );
+			const $slot = $( '<input type="checkbox">' ).prop( 'checked', !! step.payload.recording_slot );
+			$slot.on( 'change', () => { step.payload.recording_slot = $slot.prop( 'checked' ); renderList(); } );
+			$slotWrap.append( $slot ).append( ' Слот записи занятия (S3)' );
+			$ed.append( $slotWrap );
 		} else {
 			const refId = parseInt( step.payload.ref || step.payload.article_id || 0, 10 );
 			const $cur  = $( '<div class="fs-sb-ref-current"></div>' );
@@ -126,6 +140,10 @@ function createBuilder( $mount ) {
 			$repl.on( 'click', () => openAddModal( builder, allowed, subject, step.type, step.key ) );
 			$ed.append( $cur ).append( $repl );
 		}
+
+		const $move = $( '<button type="button" class="button-link fs-sb-move">Переместить в другой урок →</button>' );
+		$move.on( 'click', () => moveCurrentStep( step ) );
+		$ed.append( $( '<div class="fs-sb-ed-actions"></div>' ).append( $move ) );
 	}
 
 	// ---------- добавление ----------
@@ -169,17 +187,21 @@ function createBuilder( $mount ) {
 	}
 
 	// ---------- сохранение ----------
-	function save() {
-		const $btn = $mount.find( '.fs-sb-save' ).prop( 'disabled', true );
-		$mount.find( '.fs-sb-status' ).text( 'Сохранение…' );
-
-		$.post( fs_lms_vars.ajaxurl, {
+	function persist() {
+		return $.post( fs_lms_vars.ajaxurl, {
 			action:      fs_lms_vars.ajax_actions.saveLessonSteps,
 			security:    fs_lms_vars.nonces.authorLesson,
 			lesson_id:   lessonId,
 			subject_key: subject,
 			steps:       steps.map( ( s ) => ( { key: s.key, type: s.type, payload: s.payload } ) ),
-		} ).done( ( resp ) => {
+		} );
+	}
+
+	function save() {
+		const $btn = $mount.find( '.fs-sb-save' ).prop( 'disabled', true );
+		$mount.find( '.fs-sb-status' ).text( 'Сохранение…' );
+
+		persist().done( ( resp ) => {
 			if ( resp && resp.success ) {
 				$mount.find( '.fs-sb-status' ).text( `Сохранено: ${ resp.data.count } шаг(ов)` );
 				showToast( 'Шаги сохранены', 'success' );
@@ -188,6 +210,38 @@ function createBuilder( $mount ) {
 			}
 		} ).fail( () => showToast( 'Ошибка сети', 'error' ) )
 			.always( () => $btn.prop( 'disabled', false ) );
+	}
+
+	// ---------- перенос шага в другой урок (T1.5.5) ----------
+	function moveCurrentStep( step ) {
+		if ( ! lessonId ) {
+			showToast( 'Сначала сохраните урок', 'error' );
+			return;
+		}
+		openMovePicker( subject, lessonId, ( targetId, targetTitle ) => {
+			// Сохраняем текущее состояние, чтобы step.key существовал на сервере, затем переносим.
+			$mount.find( '.fs-sb-status' ).text( 'Перенос…' );
+			persist().done( ( resp ) => {
+				if ( ! resp || ! resp.success ) {
+					showToast( 'Не удалось сохранить перед переносом', 'error' );
+					return;
+				}
+				$.post( fs_lms_vars.ajaxurl, {
+					action:           fs_lms_vars.ajax_actions.moveLessonStep,
+					security:         fs_lms_vars.nonces.authorLesson,
+					source_lesson_id: lessonId,
+					target_lesson_id: targetId,
+					step_key:         step.key,
+				} ).done( ( r ) => {
+					if ( r && r.success ) {
+						removeStep( step.key );
+						showToast( `Шаг перемещён в «${ targetTitle }»`, 'success' );
+					} else {
+						showToast( ( r && r.data ) || 'Не удалось переместить', 'error' );
+					}
+				} ).fail( () => showToast( 'Ошибка сети', 'error' ) );
+			} ).fail( () => showToast( 'Ошибка сети', 'error' ) );
+		} );
 	}
 
 	// ---------- события ----------
@@ -250,6 +304,7 @@ function createBuilder( $mount ) {
 			return c ? c.slice( 0, 48 ) : 'Текст';
 		}
 		if ( step.type === 'video' ) {
+			if ( step.payload.recording_slot ) { return '⏺ Слот записи'; }
 			return step.payload.url ? String( step.payload.url ) : 'Видео';
 		}
 		const ref = step.payload.ref || step.payload.article_id;
@@ -371,16 +426,84 @@ function fetchCandidates( type, subject, src, search, $results, onPick ) {
 	} );
 }
 
+// ======================= Пикер «Переместить в урок» (T1.5.5) =======================
+
 /**
- * «Создать новую»: бесшовно через DraftCreatorModal для work и bank-задачи (problem),
- * иначе — открыть нативный экран добавления в новой вкладке (фолбэк).
+ * Пикер целевого урока для переноса шага. Использует тот же эндпоинт кандидатов
+ * (kind=lesson, nonce authorLesson); текущий урок исключается из списка.
+ *
+ * @param {string}   subject
+ * @param {number}   excludeId текущий урок (исключить)
+ * @param {Function} onPick    (id, title) => void
+ */
+function openMovePicker( subject, excludeId, onPick ) {
+	closeAddModal();
+	const $ov    = $( '<div class="fs-sb-ov"><div class="fs-sb-modal"></div></div>' ).appendTo( 'body' );
+	const $modal = $ov.find( '.fs-sb-modal' );
+	$ov.on( 'click', ( e ) => { if ( e.target === $ov[ 0 ] ) { closeAddModal(); } } );
+
+	$modal.html( `
+		<div class="fs-sb-mhead"><h3>Переместить шаг в урок</h3><button type="button" class="fs-sb-x">×</button></div>
+		<div class="fs-sb-mbody">
+			<input type="text" class="fs-sb-field fs-sb-msearch" placeholder="Поиск урока…">
+			<div class="fs-sb-mresults"></div>
+		</div>
+	` );
+	$modal.find( '.fs-sb-x' ).on( 'click', closeAddModal );
+
+	const run = () => fetchLessons( subject, String( $modal.find( '.fs-sb-msearch' ).val() ).trim(), excludeId, $modal.find( '.fs-sb-mresults' ), ( id, title ) => {
+		onPick( id, title );
+		closeAddModal();
+	} );
+	$modal.find( '.fs-sb-msearch' ).on( 'input focus', () => {
+		clearTimeout( _searchTimer );
+		_searchTimer = setTimeout( run, 300 );
+	} );
+
+	run();
+}
+
+function fetchLessons( subject, search, excludeId, $results, onPick ) {
+	if ( ! subject ) {
+		return;
+	}
+	$.post( fs_lms_vars.ajaxurl, {
+		action:      fs_lms_vars.ajax_actions.getStepCandidates,
+		security:    fs_lms_vars.nonces.authorLesson,
+		subject_key: subject,
+		kind:        'lesson',
+		source:      'subject',
+		search,
+	} ).done( ( resp ) => {
+		$results.empty();
+		const items = ( ( resp && resp.success && resp.data ) || [] ).filter( ( it ) => parseInt( it.id, 10 ) !== excludeId );
+		if ( ! items.length ) {
+			$results.append( '<div class="fs-sb-cand-empty">Нет других уроков</div>' );
+			return;
+		}
+		items.forEach( ( item ) => {
+			$( '<div class="fs-sb-cand-opt"></div>' ).text( item.title )
+				.on( 'click', () => onPick( parseInt( item.id, 10 ), item.title ) )
+				.appendTo( $results );
+		} );
+	} );
+}
+
+/**
+ * «Создать новую»: бесшовно через DraftCreatorModal (черновик title-only) для всех типов —
+ * work / subject-task / bank-problem / assessment / material(article). Детали заполняются
+ * при правке созданного черновика. New-tab `post-new.php` остаётся лишь фолбэком, если модалки нет.
  */
 function createNew( type, subject, src, onCreated ) {
 	let refType = null;
 	if ( type === 'work' ) {
 		refType = 'work';
-	} else if ( type === 'task' && src === 'bank' ) {
-		refType = 'problem';
+	} else if ( type === 'assessment' ) {
+		refType = 'assessment';
+	} else if ( type === 'material' ) {
+		refType = 'material';
+	} else if ( type === 'task' ) {
+		refType = 'bank' === src ? 'problem' : 'task';
 	}
 
 	if ( refType && DraftCreatorModal && $( '#fs-lms-draft-creator-modal' ).length ) {

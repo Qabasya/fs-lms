@@ -431,6 +431,9 @@ class PostManager {
 		if ( ! empty( $opts['tax_query'] ) ) {
 			$args['tax_query'] = $opts['tax_query'];
 		}
+		if ( ! empty( $opts['meta_query'] ) ) {
+			$args['meta_query'] = $opts['meta_query'];
+		}
 
 		return get_posts( $args );
 	}

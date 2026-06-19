@@ -123,6 +123,17 @@ class GroupLessonRepository {
 		return false !== $result;
 	}
 
+	public function setLessonId( int $id, int $lessonId ): bool {
+		$result = $this->wpdb->update(
+			$this->table,
+			array( 'lesson_id' => $lessonId ),
+			array( 'id' => $id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+		return false !== $result;
+	}
+
 	public function remove( int $id ): bool {
 		return (bool) $this->wpdb->delete( $this->table, array( 'id' => $id ) );
 	}

@@ -26,8 +26,8 @@ class AttemptCallbacks extends BaseController {
 	public function ajaxStartAttempt(): void {
 		Nonce::StartAttempt->verify();
 
-		$assessmentId = $this->requireInt( $_POST['assessment_id'] ?? '' );
-		$groupId      = $this->sanitizeInt( $_POST['group_id'] ?? 0 ) ?: null;
+		$assessmentId = $this->requireInt( 'assessment_id' );
+		$groupId      = $this->sanitizeInt( 'group_id' ) ?: null;
 
 		$userId = get_current_user_id();
 		$person = $this->personRepository->findByWpUserId( $userId );
@@ -51,9 +51,9 @@ class AttemptCallbacks extends BaseController {
 	public function ajaxSaveAttemptAnswer(): void {
 		Nonce::StartAttempt->verify();
 
-		$attemptId  = $this->requireInt( $_POST['attempt_id'] ?? '' );
-		$taskId     = $this->requireInt( $_POST['task_id'] ?? '' );
-		$answerText = $this->sanitizeEditorContent( $_POST['answer_text'] ?? '' );
+		$attemptId  = $this->requireInt( 'attempt_id' );
+		$taskId     = $this->requireInt( 'task_id' );
+		$answerText = $this->sanitizeHtml( 'answer_text' );
 
 		$userId = get_current_user_id();
 		$person = $this->personRepository->findByWpUserId( $userId );
@@ -73,7 +73,7 @@ class AttemptCallbacks extends BaseController {
 	public function ajaxSubmitAttempt(): void {
 		Nonce::SubmitAttempt->verify();
 
-		$attemptId = $this->requireInt( $_POST['attempt_id'] ?? '' );
+		$attemptId = $this->requireInt( 'attempt_id' );
 
 		$userId = get_current_user_id();
 		$person = $this->personRepository->findByWpUserId( $userId );
@@ -97,7 +97,7 @@ class AttemptCallbacks extends BaseController {
 	public function ajaxGetAttemptResult(): void {
 		Nonce::StartAttempt->verify();
 
-		$attemptId = $this->requireInt( $_POST['attempt_id'] ?? '' );
+		$attemptId = $this->requireInt( 'attempt_id' );
 
 		$userId = get_current_user_id();
 		$person = $this->personRepository->findByWpUserId( $userId );

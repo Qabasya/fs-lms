@@ -39,11 +39,11 @@ class WorkCallbacks extends BaseController {
 	public function ajaxGetWorkTaskCandidates(): void {
 		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
 
-		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$subject_key = $this->requireKey( 'subject_key' );
 		$task_type   = (int) ( $_POST['task_type'] ?? 0 );
 		$collection  = (int) ( $_POST['collection'] ?? 0 );
-		$scope       = $this->sanitizeKey( $_POST['scope'] ?? 'mine' );
-		$search      = $this->sanitizeText( $_POST['search'] ?? '' );
+		$scope       = $this->sanitizeKey( 'scope' );
+		$search      = $this->sanitizeText( 'search' );
 
 		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
 			$scope = 'mine';
@@ -61,10 +61,10 @@ class WorkCallbacks extends BaseController {
 	public function ajaxGetWorkItemCandidates(): void {
 		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
 
-		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$subject_key = $this->requireKey( 'subject_key' );
 		$collection  = (int) ( $_POST['collection'] ?? 0 );
-		$scope       = $this->sanitizeKey( $_POST['scope'] ?? 'mine' );
-		$search      = $this->sanitizeText( $_POST['search'] ?? '' );
+		$scope       = $this->sanitizeKey( 'scope' );
+		$search      = $this->sanitizeText( 'search' );
 
 		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
 			$scope = 'mine';
@@ -82,7 +82,7 @@ class WorkCallbacks extends BaseController {
 	public function ajaxGetWorkCollections(): void {
 		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
 
-		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
+		$subject_key = $this->requireKey( 'subject_key' );
 
 		$raw    = $this->authoringService->getCollections( $subject_key );
 		$result = array();
@@ -100,9 +100,9 @@ class WorkCallbacks extends BaseController {
 	public function ajaxCreateWorkDraft(): void {
 		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
 
-		$subject_key = $this->requireKey( $_POST['subject_key'] ?? '' );
-		$title       = $this->sanitizeText( $_POST['title'] ?? '' ) ?: 'Новая работа';
-		$work_type   = $this->sanitizeKey( $_POST['work_type'] ?? '' );
+		$subject_key = $this->requireKey( 'subject_key' );
+		$title       = $this->sanitizeText( 'title' ) ?: 'Новая работа';
+		$work_type   = $this->sanitizeKey( 'work_type' );
 
 		$dto = WorkDTO::fromArray( array(
 			'id'           => 0,
@@ -130,7 +130,7 @@ class WorkCallbacks extends BaseController {
 	public function ajaxCreateProblemDraft(): void {
 		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
 
-		$title = $this->sanitizeText( $_POST['title'] ?? '' ) ?: 'Новая задача';
+		$title = $this->sanitizeText( 'title' ) ?: 'Новая задача';
 
 		try {
 			$id = $this->authoringService->createProblemDraft( $title );

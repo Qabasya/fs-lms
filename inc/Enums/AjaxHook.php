@@ -146,9 +146,24 @@ enum AjaxHook: string {
 	case CreateWorkDraft           = 'create_work_draft';            // params: subject_key, title, work_type
 	case CreateLessonDraft         = 'create_lesson_draft';          // params: subject_key, title
 	case SaveLessonSteps           = 'save_lesson_steps';            // params: lesson_id, subject_key, steps[]
-	case GetStepCandidates         = 'get_step_candidates';          // params: subject_key, kind (work|task|assessment|article), source (subject|bank), search
+	case MoveLessonStep            = 'move_lesson_step';             // params: source_lesson_id, target_lesson_id, step_key
+	case GetStepCandidates         = 'get_step_candidates';          // params: subject_key, kind (work|task|assessment|article|lesson), source (subject|bank), search
 	case GetWorkItemCandidates     = 'get_work_item_candidates';     // params: subject_key, collection, scope, search
 	case CreateProblemDraft        = 'create_problem_draft';         // params: title
+	case CreateTaskDraft           = 'create_task_draft';            // params: subject_key, title (черновик subject-задачи из билдера)
+	case CreateAssessmentDraft     = 'create_assessment_draft';      // params: subject_key, title
+	case CreateArticleDraft        = 'create_article_draft';         // params: subject_key, title
+
+	// ==== Конструктор курса (Course Builder) ====
+	case CreateCourseDraft   = 'create_course_draft';   // params: subject_key, title
+	case GetCourseBuilder    = 'get_course_builder';    // params: course_id
+	case SaveCourseStructure = 'save_course_structure'; // params: course_id, modules[] ({id,title,lesson_ids[]})
+	case CreateLessonInModule = 'create_lesson_in_module'; // params: course_id, module_id, title
+	case UpdateLessonMeta    = 'update_lesson_meta';    // params: lesson_id, title, published
+	case SaveCourseMeta      = 'save_course_meta';      // params: course_id, title, published
+
+	// ==== Пошаговый плеер урока (Этап 1.5) ====
+	case MarkStepProgress = 'mark_step_progress'; // params: group_lesson_id, step_key, status (viewed|completed)
 
 	// ==== Контрольные и экзамены (Этап 4) ====
 	case StartAttempt      = 'start_attempt';
@@ -175,6 +190,13 @@ enum AjaxHook: string {
 	case SetLessonVisibility     = 'set_lesson_visibility';
 	case GetGroupProgram         = 'get_group_program';
 	case GetGroupActivity        = 'get_group_activity';
+
+	// ==== Клонирование / форк контента (T1.5.11) ====
+	case CloneLesson         = 'clone_lesson';
+	case CloneWork           = 'clone_work';
+	case CloneAssessment     = 'clone_assessment';
+	case CloneCourse         = 'clone_course';
+	case ForkLessonForGroup  = 'fork_lesson_for_group';
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

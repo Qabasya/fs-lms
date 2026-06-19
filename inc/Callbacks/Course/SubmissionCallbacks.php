@@ -28,10 +28,10 @@ class SubmissionCallbacks extends BaseController {
 	public function ajaxSubmitWork(): void {
 		Nonce::SubmitWork->verify();
 
-		$groupLessonId = $this->requireInt( $_POST['group_lesson_id'] ?? '' );
-		$workId        = $this->requireInt( $_POST['work_id'] ?? '' );
-		$taskId        = isset( $_POST['task_id'] ) ? $this->sanitizeInt( $_POST['task_id'] ) : null;
-		$answerText    = $this->sanitizeEditorContent( $_POST['answer_text'] ?? '' );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$workId        = $this->requireInt( 'work_id' );
+		$taskId        = isset( $_POST['task_id'] ) ? $this->sanitizeInt( 'task_id' ) : null;
+		$answerText    = $this->sanitizeHtml( 'answer_text' );
 		$fileKey       = isset( $_FILES['submission_file'] ) ? 'submission_file' : null;
 
 		$userId = get_current_user_id();
@@ -61,7 +61,7 @@ class SubmissionCallbacks extends BaseController {
 	public function ajaxGetMySubmissions(): void {
 		Nonce::SubmitWork->verify();
 
-		$groupLessonId = $this->requireInt( $_POST['group_lesson_id'] ?? '' );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 
 		$userId = get_current_user_id();
 		$person = $this->personRepository->findByWpUserId( $userId );
