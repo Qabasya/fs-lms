@@ -1,89 +1,111 @@
-# ⚡ ТЕКУЩИЙ СТАТУС (2026-06-18) — читать первым
+# ⚡ ТЕКУЩИЙ СТАТУС (2026-06-19) — читать первым
 
-> Этот блок — точка входа для следующего разработчика. Ниже по документу — подробное
-> объяснение Этапов 1–4 (оно описывает **раннюю** модель; актуальная — `Courses.md → ★`).
+> Точка входа для следующего разработчика. Ниже по документу (раздел
+> `# Courses (Этапы 1–4): как это устроено`) — подробный разбор **базовой модели**
+> Этапов 1–4. Здесь, в шапке, — что реально работает **сейчас**, после перехода на
+> **MVP-2** (курс → модули → уроки → **шаги**, как Stepik).
+>
+> **Источники правды:** модель — `.docs/Courses.md` (секции `★`); задачи — `.docs/Tasks.md`;
+> кейсы ручного тестирования — раздел **«8. Кейсы для ручного тестирования»** в конце файла.
 
-## Где мы сейчас
+## Что сделано (итог Этапов 1–4 + MVP-2)
 
-Этапы **1–4** (банки контента → программа группы → сдачи/прогресс → контрольные) были
-реализованы ранее. Сейчас идёт **переработка MVP-2** (по итогам ревью пути преподавателя):
-курс → **модули** → уроки, урок = **последовательность шагов** (как Stepik), + прогресс/гейтинг/клон.
+Все задачи Этапов **1–4** и переработки **1.5 (MVP-2)** закрыты (`[x]` в `Tasks.md`).
+PHPUnit — **410 тест-методов**.
 
-**Источник правды:**
-- модель — `.docs/Courses.md`, секция **`★ Переработка модели`** (+ `★ Календарь занятий`);
-- задачи — `.docs/Tasks.md`, секция **«Этап 1.5»** (статусы `[x]` готово / `[~]` в работе).
-
-**Докатились до `T1.5.5`.** Прогресс по подзадачам:
-
-| Задача | Статус | Суть |
+| Блок | Статус | Суть |
 |---|---|---|
-| T1.5.1 | ✅ `[x]` | Контракт: `StepType` enum + `StepDTO` + `ModuleDTO` |
-| T1.5.2 | ✅ `[x]` | Урок = `steps[]` (derived `workIds()` для доставки Этапов 2–3) |
-| T1.5.3 | ✅ `[x]` | Курс = `modules[]` (derived `lessonIds()` для назначения группе) |
-| T1.5.4 | ✅ бэкенд + JS | Билдер шагов урока (мастер-деталь B) на экране урока + AJAX save/candidates |
-| T1.5.5 | `[~]` | Модалка «Добавить шаг» (library-pick + «Создать») + **move-step между уроками** ✅ |
-| T1.5.6+ | ❌ | Билдеры works/assessments + C-дерево курса; прогресс/гейтинг/плеер/клон/видео |
+| Этап 1 — банки контента | ✅ | CPT задание→работа→урок→курс + контрольная; меню «Обучение»; связи по ссылке |
+| Этап 2 — программа группы | ✅ | назначение курса (снапшот), расписание, видимость, доступ, кокпит |
+| Этап 3 — сдачи + журнал | ✅ | ученик сдаёт → препод проверяет → журнал оценок (read-model) |
+| Этап 4 — контрольные | ✅ | серверный таймер, попытки, авто-проверка, cron-страховка |
+| MVP-2 — модель шагов | ✅ | урок = `steps[]`; курс = `modules[]`; `StepType`/`StepDTO`/`ModuleDTO` |
+| MVP-2 — конструктор курса | ✅ | **SPA** (Stepik) `admin.php?page=fs_lms_course_builder` — канон авторинга |
+| T1.5.12 — плеер урока | ✅ | пошаговый фронт-плеер `/group/?gid=X&gl=Y` + прогресс/гейтинг |
+| T1.5.11 — клон/форк | ✅ | клон урока/работы/контрольной/курса + форк урока под группу |
+| T2.30–34 — календарь занятий | ⚠️ только бэкенд | `meetings[]`, holidays, генерация слотов, pin/reflow, авто-открытие — **сервисы готовы, AJAX/UI ещё нет** |
 
-**Тесты:** PHPUnit **307/307 зелёные** (+4 за `moveStep`/lesson-kind). JS юнит-тестов нет (билдер проверяется в браузере).
+## Текущая модель (ключевая механика MVP-2)
 
-> **🔴 2026-06-19:** обнаружен и исправлен системный баг — весь AJAX модулей Course+Assessment (65 сайтов в
-> 8 коллбеках) вызывал key-based `Sanitizer`-методы значением (`requireKey( $_POST['x'] )`) вместо имени ключа
-> (`requireKey( 'x' )`) → каждый хендлер падал на первой строке (`Недостаточно данных`). Тесты не ловили (коллбеки
-> не покрыты). **Браузерный рантайм Stage 1–4 требует повторной проверки** — раньше эти пути не могли работать.
+- **Курс** = пост `{key}_courses` + meta `modules[]` (`{id, title, lesson_ids[]}`). Авторинг —
+  только через **конструктор** (`course-builder.js`); нативный редактор курса редиректит в SPA.
+- **Урок** = пост `{key}_lessons` + meta `steps[]` — упорядоченный массив `{key, type, payload}`.
+  Типы шага: `text` (лекция, TinyMCE), `video`, `material` (файл из Медиатеки **или** ссылка на
+  статью), `work` (ссылка/инлайн-создание), `assessment` (ссылка/инлайн-создание), `task`.
+- **Обратная совместимость доставки:** `LessonDTO::workIds()` — **производное** от work-шагов,
+  поэтому сдачи/прогресс Этапов 2–4 работают без переписывания.
+- **Группа ← курс:** назначение делает **снапшот** уроков курса в `fs_lms_group_lessons`
+  (см. «Как привязывается группа» ниже). Дальше группа живёт независимо от шаблона.
 
-## Как это работает сейчас (ключевая механика)
+## Что работает в админке
 
-- **Урок** = WP-пост + meta `fs_lms_meta['steps']` — упорядоченный массив типизированных шагов
-  `{ key, type, payload }`. Типы: `text`/`video`/`material` (инлайн) и `task`/`work`/`assessment` (ссылки).
-  На экране урока — метабокс-**билдер** (`src/js/admin/services/step-builder.js`), сохраняет шаги через
-  AJAX `SaveLessonSteps` (НЕ через `save_post`). Старого редактора/метабокса у урока больше нет.
-- **Обратная совместимость доставки:** Этапы 2–3 думают «работами урока». `LessonDTO::workIds()` теперь
-  **производное** — refs work-шагов. Так `EffectiveWorksResolver`/`LessonVisibilityService`/`ContentUsageService`
-  работают без переписывания.
-- **Курс** = пост + meta `modules[]` (`{id,title,lessonIds[]}`). При назначении группе разворачивается в
-  плоский список уроков (`CourseDTO::lessonIds()`), контракт `CourseAssignmentService` не изменился.
-- **Работа/Контрольная**: бывшая мета `work.instructions` **схлопнута в `post_content`** (нативный редактор =
-  «описание перед началом»). У них редактор оставлен; у урока — снят.
-- **Меню «Обучение»**: Курсы / Уроки / Работы / **Банк задач** / Задания предмета / Статьи предмета —
-  ведут на **нативные таблицы** (`edit.php`) с табами-предметами; «Банк задач» — прямой `edit.php?post_type=fs_lms_problems`.
-- **Метабоксы банк-CPT** причёсаны трейтом `TidiesCoreMetaBoxes` (нет «Атрибутов»/«Изображения», «Автор» в сайдбаре) —
-  у урока/работы/курса (контрольная — ещё нет).
+- **Меню «Обучение»** (`LearningMenuController`): Курсы · Уроки · Работы · Банк задач ·
+  Задания · Статьи — нативные таблицы WP с таб-баром предметов.
+- **Конструктор курса** (SPA): дерево модули→уроки слева + редактор шагов справа;
+  drag-reorder модулей/уроков/шагов; инлайн-создание работ/контрольных; выбор файлов
+  (WP Media) и материалов из библиотеки; TinyMCE для лекций; автосохранение.
+- **Метабоксы** банков: работа (`WorkMetaBoxController`), контрольная
+  (`AssessmentMetaBoxController`) — селекторы-ссылок на задания. Урок собирается
+  через step-builder / конструктор.
+- Предметы, таксономии, бойлерплейты, группы, заявки, зачисление, PII, e-mail-шаблоны.
 
-## Что НЕ доделано (следующие шаги)
+## Что в админке ещё дорабатывается
 
-1. **Бесшовное создание** subject-задач/контрольных/статей из модалки — пока фолбэк «открыть `post-new.php`».
-   (move-step между уроками — ✅ сделано 2026-06-19: `MoveLessonStep` + `LessonAuthoringService::moveStep` + пикер.)
-3. **T1.5.6** — билдеры для works/assessments (allowedTypes=task), **C-дерево курса** (модуль→урок), удалить старые
-   метабоксы `WorkTemplate`/`CourseTemplate`/`LessonTemplate` (сейчас пишут «мёртвую» мету).
-4. **T1.5.7–T1.5.13** — таблица `fs_lms_lesson_progress`, гейтинг, пошаговый плеер ученика, `ContentCloneService`, video-шаг с заделом под S3.
-5. **Дизайн билдера** — SCSS-заглушка; раскладка B (мастер-деталь) зафиксирована, визуал дорабатывается отдельно.
+1. **UI календаря занятий (T2.30–34)** — бэкенд (`SessionCalendarService`, `meetings`,
+   holidays, `pin`/`reflow`, авто-открытие по `scheduled_at`) готов, но **не подключён**
+   к AJAX/экрану. Нужно: редактор `meetings[]` группы, кнопка «сгенерировать слоты»,
+   pin/reflow в кокпите.
+2. **Чистка старых метабоксов** `WorkTemplate`/`CourseTemplate`/`LessonTemplate` —
+   курс/урок переехали в конструктор; часть старых полей может писать «мёртвую» мету.
+3. **Полиш конструктора** — мелкие UX-доработки (валидация, пустые состояния списков).
 
-## Новые файлы (с последнего коммита)
+## Что работает на фронте
 
-| Файл | Что внутри |
+| Страница | Кто видит | Что внутри |
+|---|---|---|
+| `/group/` | препод/ученик | список «Мои группы» |
+| `/group/?gid=N` | **препод** (`canManage`) | кокпит: программа, ростер, активность, **назначение курса**, очередь проверки, журнал |
+| `/group/?gid=N` | **ученик** (`isMemberEver`) | кабинет: его уроки / работы / сдачи |
+| `/group/?gid=N&gl=M` | ученик | **пошаговый плеер урока** (шаги + прогресс + гейтинг) |
+| одиночная контрольная | ученик | прохождение с серверным таймером и автосохранением |
+
+## Как привязывается группа к курсу
+
+1. Преподаватель открывает кокпит `/group/?gid=N`.
+2. В блоке «Назначить курс» выбирает курс + политику (`append` — дописать / `replace` — заменить).
+3. Кнопка → AJAX `assign_course` → `ProgramCallbacks::ajaxAssignCourse` →
+   `CourseAssignmentService::assign()`.
+4. Сервис **копирует** `course->lessonIds()` (разворот `modules[]`) построчно в
+   `fs_lms_group_lessons` (`visibility='hidden'`, снапшот пустой), пишет `groups.course_id`,
+   событие `CourseAssigned` в ленту.
+5. Дальше препод правит программу точечно: добавить/убрать/переставить уроки, дата/препод
+   занятия, видимость (первое открытие = «заморозка» состава работ), доп. работы группы.
+
+## Как создаётся курс
+
+1. «Обучение → Курсы» → **«Добавить»** (нативный `post-new.php` курса) → авто-редирект в
+   **конструктор** (`CourseBuilderController` ловит `load-post-new.php`).
+2. В конструкторе: задать название курса → добавить **модули** → в модуль добавить **уроки**
+   (создать новый или взять из банка) → у урока собрать **шаги**.
+3. Шаг-лекция — текст (TinyMCE); видео — ссылка; материал — файл/статья; практика/тест —
+   ссылка на Work/Assessment из библиотеки **или** инлайн-создание черновика.
+4. Всё сохраняется по AJAX (`save_course_structure`, `save_lesson_steps`,
+   `create_lesson_in_module`, `create_work_draft`, …). Правка существующего курса —
+   тем же конструктором.
+
+## Ключевые узлы MVP-2 (куда смотреть)
+
+| Узел | Роль |
 |---|---|
-| `inc/Enums/StepType.php` | Enum типов шага + `isInline()`/`isRef()`/`allowedTypesFor()`/`label()`/`options()` |
-| `inc/DTO/Course/StepDTO.php` | DTO шага `{key,type,payload}` + `fromList()`/`toList()` (round-trip meta `steps[]`) |
-| `inc/DTO/Course/ModuleDTO.php` | DTO модуля курса `{id,title,lessonIds}` + `fromList()`/`toList()` |
-| `inc/Shared/Traits/TidiesCoreMetaBoxes.php` | Трейт: убирает «Атрибуты»/«Изображение записи», «Автор» → сайдбар |
-| `src/js/admin/services/step-builder.js` | JS-билдер шагов: мастер-деталь, drag-drop, модалка добавления, save/candidates |
-| `src/scss/admin/components/_step-builder.scss` | Стили билдера + модалки (заглушка) |
-| `src/scss/admin/components/_learning-bank.scss` | Стили описаний/таб-баров над нативными таблицами банков |
-| `templates/admin/components/bank-notice.php` | Описание-абзац над таблицей банка (курсы/уроки/…) |
-| `templates/admin/components/problems-bank-notice.php` | Описание над «Банком задач» |
-| `templates/admin/components/subject-bank-tabs.php` | Таб-бар предметов над нативной таблицей |
-| `tests/Unit/Enums/StepTypeTest.php`, `tests/Unit/DTO/Course/StepDTOTest.php`, `…/ModuleDTOTest.php` | Юнит-тесты контракта T1.5.1 |
-| `prototype/` | **Throwaway** UI-прототип билдера урока (`lesson-builder.prototype.html` + `NOTES.md`). Вердикт — раскладка B. Удалить при T1.5.6 |
-
-## Ключевые изменённые файлы (с последнего коммита)
-
-- **Модель:** `LessonDTO`/`LessonManager` → `steps[]`; `CourseDTO`/`CourseManager` → `modules[]`;
-  `WorkDTO`/`WorkManager` → `instructions`→`post_content`; `PostTypeResolver` (+`isArticlePostType`).
-- **Доставка:** `EffectiveWorksResolver`, `LessonVisibilityService`, `ContentUsageService`, `CourseAssignmentService` — переведены на derived-аксессоры/steps/modules.
-- **Авторинг:** `LessonAuthoringService` (+`buildSteps`/`getStepCandidates`); `LessonCallbacks`/`LessonController`/`AjaxHook` (+`SaveLessonSteps`/`GetStepCandidates`).
-- **Метабоксы/CPT:** `LessonMetaBoxController` (монтаж билдера + tidy), `Work`/`CourseMetaBoxController` (tidy), `SubjectController` (урок без `editor`/`thumbnail`).
-- **Меню/экраны:** `LearningMenuController`, `Menu`, `MenuManager`, `MenuRegistrar`, `Enqueue` — меню «Обучение» на нативных таблицах; `ProblemsController` — колонки + описание банка задач; `AuthController` — админ-бар препода/офиса.
-- **Доки:** `Courses.md` (★-секции), `Tasks.md` (Этап 1.5).
+| `inc/Controllers/CourseBuilderController.php` | страница SPA + редиректы нативного редактора курса |
+| `inc/Callbacks/Course/CourseBuilderCallbacks.php` | AJAX конструктора (структура, модули, уроки, мета) |
+| `inc/Services/Course/CourseBuilderService.php` | сборка дерева курса для SPA |
+| `src/js/admin/services/course-builder.js` | сам SPA-конструктор (дерево + редактор шагов) |
+| `inc/Enums/StepType.php`, `inc/DTO/Course/{StepDTO,ModuleDTO}.php` | контракт модели шагов/модулей |
+| `inc/Controllers/LessonPlayerController.php` + `templates/frontend/lesson-player/player.php` | пошаговый плеер ученика |
+| `inc/Services/Course/{LessonProgressService,LessonGateResolver}.php` | прогресс шагов + гейтинг |
+| `inc/Services/Course/ContentCloneService.php` + `inc/Callbacks/Course/CloneCallbacks.php` | клон/форк контента |
+| `inc/Services/Course/SessionCalendarService.php` | генерация/reflow слотов (бэкенд календаря) |
 
 ---
 
@@ -1263,3 +1285,322 @@ capability, расширение — через интерфейсы (новый
 > Где почитать дальше: подробный план и принятые архитектурные решения —
 > в `.docs/Courses.md` (этот документ — его «человеческое» объяснение для
 > новичка).
+
+
+---
+
+## 8. Кейсы для ручного тестирования (поиск багов)
+
+> Прогонять на сайте `http://localhost:8080` под ролями **админ** и **преподаватель**
+> (для управления) и **ученик** (для фронта). После правок PHP — `docker restart wp_app`
+> (OPcache). Логи: `[FS LMS]` в `wp-content/debug.log` (последние 15 строк).
+>
+> **Особое внимание** к AJAX-коллбекам: 2026-06-19 был системный баг — все коллбеки
+> Course/Assessment падали на первой строке (`Недостаточно данных`) из-за неверного вызова
+> `Sanitizer`. Любой сценарий, где «кнопка ничего не делает» или «вечный спиннер», —
+> в первую очередь смотреть Network → ответ AJAX (`success:false, data:"Недостаточно данных"`).
+
+### A. Конструктор курса (авторинг)
+
+| # | Шаги | Ожидаемо | Красные флаги |
+|---|---|---|---|
+| A1 | Обучение → Курсы → «Добавить» | Редирект на `admin.php?page=fs_lms_course_builder&subject=<key>` | Открылся нативный редактор поста вместо SPA |
+| A2 | Ввести название курса → «Создать» | Курс создан, появилось дерево модулей | `Недостаточно данных`; курс не сохранился (проверить `wp_posts`) |
+| A3 | «Добавить модуль» → переименовать | Модуль виден, имя сохраняется (статус «Все изменения сохранены») | Имя слетает после перезагрузки |
+| A4 | В модуль «Добавить урок» (новый) | Урок создан и привязан к модулю | Урок создан, но не попал в модуль (см. `save_course_structure`) |
+| A5 | Перетащить модуль / урок (drag-reorder) | Порядок сохраняется после F5 | Порядок откатывается; ошибка в `save_course_structure` |
+| A6 | Открыть существующий курс из таблицы (Edit) | Редирект в конструктор с деревом курса | Пустое дерево при наличии модулей |
+
+### B. Урок и типы шагов (главное для регрессий)
+
+| # | Шаги | Ожидаемо | Красные флаги |
+|---|---|---|---|
+| B1 | Добавить шаг **Лекция** → набрать текст в TinyMCE | RTE-тулбар работает, текст сохраняется (автосейв) | Нет тулбара (TinyMCE не инициализировался); текст не сохраняется |
+| B2 | Переключиться на другой шаг и обратно | Предыдущий TinyMCE корректно уничтожен, новый — чистый | Дубли редакторов, «прилипший» контент чужого шага |
+| B3 | Добавить шаг **Видео** → вставить ссылку + описание | Поля сохраняются | — |
+| B4 | Шаг **Материал** → «Медиатека» → выбрать файл | Имя файла отображается, `attachment_id` сохранён | Окно медиатеки не открылось (`wp.media` не загружен) |
+| B5 | Шаг **Материал** → «Из библиотеки статей» | Подхватывается статья предмета, заголовок виден | `#ref` вместо заголовка после F5 |
+| B6 | Шаг **Практика (work)** → «Создать и прикрепить» (инлайн) | Создаётся черновик работы, сразу прикреплён | `Недостаточно данных`; кнопка залипла disabled |
+| B7 | Шаг **Тест (assessment)** → инлайн-создание | Создаётся черновик контрольной, прикреплён | то же, что B6 |
+| B8 | Практика/Тест → «Выбрать из библиотеки» → поиск | Поиск находит существующие work/assessment | Пустой список при наличии контента (`get_step_candidates`) |
+| B9 | Перезагрузить урок с ref-шагами | Заголовки work/assessment/article читаются (не «#ref») | «#ref» до клика — баг резолва заголовков |
+| B10 | Переместить шаг между уроками (если доступно в UI) | Шаг переносится, `move_lesson_step` ок | Шаг дублируется/пропадает |
+
+### C. Банки и связи «по ссылке»
+
+| # | Шаги | Ожидаемо | Красные флаги |
+|---|---|---|---|
+| C1 | Создать задание (`{key}_tasks`), затем работу из него | Работа ссылается на задание (selector-чипы) | — |
+| C2 | Изменить задание → открыть работу | Правка видна везде, где задание используется | Контент «закопирован», правка не долетела |
+| C3 | Проверить «используется в N» (ContentUsageService) | Счётчик корректен | Удаление контента, на который ссылаются, без предупреждения |
+| C4 | Архивировать контент (`fs_archived`) | Пропал из селекторов, старые ссылки живы | Старые ссылки сломались |
+
+### D. Назначение группе + программа (кокпит препода)
+
+| # | Шаги | Ожидаемо | Красные флаги |
+|---|---|---|---|
+| D1 | `/group/?gid=N` под преподом группы | Открылся кокпит (программа/ростер/активность) | Редирект на главную (проверить `canManage`) |
+| D2 | Выбрать курс + `append` → «Назначить курс» | Уроки курса появились в программе (снапшот в `fs_lms_group_lessons`) | `Недостаточно данных`; строки не создались |
+| D3 | Назначить другой курс с политикой `replace` | Старые строки заменены новыми | Дубли вместо замены |
+| D4 | Назначить курс **чужого предмета** | Отказ (предмет курса ≠ предмет группы) | Назначился — дыра в проверке |
+| D5 | Добавить отдельный урок из банка / убрать / переставить | Программа меняется, события в ленте | Порядок не сохраняется |
+| D6 | Задать дату/преподавателя занятия | Сохранилось; видно в программе | — |
+
+### E. Доступ и видимость
+
+| # | Шаги | Ожидаемо | Красные флаги |
+|---|---|---|---|
+| E1 | Урок `hidden` → ученик открывает `/group/?gid=N` | Урока не видно | Скрытый урок виден ученику |
+| E2 | Переключить видимость `hidden→open` (первое открытие) | Состав работ **замораживается** в `work_ids_snapshot` | Снапшот пуст; правка шаблона потом меняет выданное |
+| E3 | После открытия изменить урок-шаблон | У группы состав работ НЕ меняется | Сдачи «осиротели» из-за смены состава |
+| E4 | Ученик, зачисленный позже даты урока | Видит как бэк-каталог (`Read`), сдавать нельзя | Может сдать в недоступный урок |
+
+### F. Плеер урока + прогресс/гейтинг
+
+| # | Шаги | Ожидаемо | Красные флаги |
+|---|---|---|---|
+| F1 | Ученик: `/group/?gid=N&gl=M` | Открылся пошаговый плеер | Пустой ответ / 200 без тела (проверить шаблон) |
+| F2 | Пройти шаги по очереди | Прогресс пишется (`mark_step_progress`), статусы меняются | Прогресс не сохраняется |
+| F3 | Шаг с гейтом `sequential` без выполнения предыдущего | Шаг заблокирован | Доступен в обход гейта |
+| F4 | Урок с `scheduled_at` в будущем | Заблокирован до даты | Доступен раньше времени |
+
+### G. Сдача работ + проверка + журнал
+
+| # | Шаги | Ожидаемо | Красные флаги |
+|---|---|---|---|
+| G1 | Ученик сдаёт работу: текст + файл | `submit_work` ок, статус «сдано» | Файл не прикрепился (MIME/размер); `Недостаточно данных` |
+| G2 | Повторная сдача (до проверки) | Перезапись ответа (upsert), не дубль | Создалась вторая строка сдачи |
+| G3 | Сдача после дедлайна при `allow_late=0` | Отказ «поздно» | Приняли просрочку |
+| G4 | Препод: очередь проверки → поставить балл | `save_grade` ок, статус `graded` | Балл не сохранился |
+| G5 | Препод: «вернуть на доработку» с комментарием | `returned`, у ученика снова форма | Возврат без комментария прошёл |
+| G6 | Открыть журнал оценок группы | Сдачи отображаются (read-model) | Пусто при наличии оценок |
+
+### H. Контрольные (таймер/попытки/авто-проверка)
+
+| # | Шаги | Ожидаемо | Красные флаги |
+|---|---|---|---|
+| H1 | Ученик «Начать попытку» | `start_attempt`; дедлайн считает **сервер** | Дедлайн из браузера; двойной клик = 2 попытки |
+| H2 | Отвечать → автосохранение (~3 сек) | `save_attempt_answer` ок | Ответы теряются при сдаче |
+| H3 | Дождаться нуля таймера | Авто-сабмит; сервер перепроверяет время | Можно отвечать после нуля |
+| H4 | Сдать контрольную с простыми заданиями | Авто-проверка (точное сравнение), `graded` | Авто-балл неверный |
+| H5 | Контрольная со «сложными» заданиями | Статус `submitted` (ждёт препода) | Авто-проставила балл ручному заданию |
+| H6 | Превысить лимит попыток | Отказ | Лишняя попытка |
+| H7 | Бросить попытку, подождать час (или дёрнуть cron) | `expired` через cron-страховку | Висит `in_progress` вечно |
+| H8 | Препод оценивает ручной ответ + комментарий | Балл + `grader_note` сохранились | Комментарий теряется (регресс старого бага) |
+
+### I. Клон / форк
+
+| # | Шаги | Ожидаемо | Красные флаги |
+|---|---|---|---|
+| I1 | Клонировать урок/работу/контрольную/курс | Создаётся независимая копия | Копия ссылается на оригинал (общая мета) |
+| I2 | Форк урока под группу | Форк виден группе, скрыт из общей библиотеки | Форк «протёк» в общий банк (`getBankBySubject`) |
+
+### J. Smoke-регрессия по AJAX (после Sanitizer-бага)
+
+Быстрый прогон: для **каждого** действия из таблиц A–I открыть DevTools → Network и убедиться,
+что ответ `success: true`. Любой `success:false` с `"Недостаточно данных"` при заполненной
+форме = коллбек дёргает key-based `Sanitizer`-метод значением вместо имени ключа
+(см. память `sanitizer-trait-is-key-name-based`). Минимальный чек-лист хуков:
+
+- `create_course_draft`, `save_course_structure`, `create_lesson_in_module`,
+  `update_lesson_meta`, `save_course_meta`
+- `save_lesson_steps`, `move_lesson_step`, `get_step_candidates`
+- `create_work_draft`, `create_assessment_draft`, `create_article_draft`, `create_task_draft`
+- `assign_course`, `add_lesson_to_program`, `set_lesson_visibility`, `save_lesson_schedule`
+- `submit_work`, `save_grade`, `return_submission`, `get_gradebook`
+- `start_attempt`, `save_attempt_answer`, `submit_attempt`, `grade_attempt`
+- `clone_lesson`, `clone_work`, `clone_assessment`, `clone_course`, `fork_lesson_for_group`
+
+> Регрессии лучше закрывать PHPUnit-тестами на коллбеки (память `cover-callbacks-with-tests`) —
+> именно непокрытый слой коллбеков скрыл баг на 65 сайтах.
+
+---
+
+## 9. Гайд: как менять страницы-банки (текст, колонки таблицы)
+
+> Речь про экраны `wp-admin/edit.php?post_type={key}_courses|_lessons|_works|_tasks|_articles`
+> и глобальный «Банк задач» `edit.php?post_type=fs_lms_problems`. Это **нативные таблицы
+> записей WordPress** — отдельного «экрана настроек» у них нет, всё меняется в коде.
+
+### 9.0. Карта: что чем управляется
+
+| Элемент страницы | Файл | Что правит |
+|---|---|---|
+| Текст-описание над таблицей (per-subject банки) | `LearningMenuController::bankDescription()` (`match`) | строка описания по типу банка |
+| Текст-описание «Банка задач» (глобальный) | `templates/admin/components/problems-bank-notice.php` | статичный HTML нотиса |
+| Обёртка/вёрстка нотиса | `templates/admin/components/bank-notice.php` | классы `fs-lms-learning-notice` / `fs-lms-bank-intro` |
+| Таб-бар предметов | `templates/admin/components/subject-bank-tabs.php` | вкладки предметов |
+| Стили нотиса/табов | `src/scss/admin/components/_learning-bank.scss` | визуал (после правки — `npx gulp styles:admin`) |
+| Какие CPT считаются «банком» | `LearningMenuController::bankTypeForPostType()` | распознавание экрана |
+| Аргументы CPT (labels, supports, права) | `SubjectController::getDefaultCptArgs()` | поля редактора, метки |
+| **Подключение CSS/JS на экране** | `Enqueue::enqueue_admin_assets()` | ⚠️ см. 9.3 — частый источник «стили не применились» |
+| Колонки таблицы | отдельный Controller с хуками `manage_{cpt}_posts_*` | состав/значения колонок |
+
+### 9.1. Изменить текст над таблицей
+
+**Per-subject банк** (курсы/уроки/работы/задания/статьи) — правится одна строка в
+`inc/Controllers/LearningMenuController.php`, метод `bankDescription()`:
+
+```php
+private function bankDescription( string $type ): string {
+    return match ( $type ) {
+        'articles' => __( 'Банк статей предмета. Справочные материалы для учеников.', 'fs-lms' ),
+        // ← изменить текст здесь
+        ...
+    };
+}
+```
+
+**Глобальный «Банк задач»** — текст лежит прямо в шаблоне
+`templates/admin/components/problems-bank-notice.php` (статичный HTML, без параметра).
+
+Меняешь только вёрстку/классы нотиса — `templates/admin/components/bank-notice.php`;
+визуал — `_learning-bank.scss` (затем `npx gulp styles:admin`).
+
+### 9.2. Изменить состав колонок таблицы
+
+Колонки нативной таблицы настраиваются хуками WordPress. **Регистрировать их можно
+только в Controller** (правило проекта), данные тянуть **через Manager/Service**, не
+прямыми WP-запросами. Эталон — `ProblemsController` (колонка «Тип шаблона»):
+
+```php
+add_filter( "manage_{$cpt}_posts_columns",        [ $this, 'addColumns' ] );
+add_action( "manage_{$cpt}_posts_custom_column",  [ $this, 'renderColumn' ], 10, 2 );
+add_filter( "manage_edit-{$cpt}_sortable_columns",[ $this, 'sortableColumns' ] ); // опц.
+add_action( 'pre_get_posts',                      [ $this, 'applyColumnSort' ] );  // опц.
+```
+
+```php
+public function addColumns( array $columns ): array {
+    $result = array();
+    foreach ( $columns as $key => $label ) {
+        if ( 'date' === $key ) {            // вставляем перед «Дата»
+            $result['my_col'] = 'Моя колонка';
+        }
+        $result[ $key ] = $label;
+    }
+    return $result;
+}
+
+public function renderColumn( string $column, int $post_id ): void {
+    if ( 'my_col' !== $column ) { return; }
+    echo esc_html( /* значение через инжектированный Manager/Service */ );
+}
+```
+
+> ⚠️ **Разница глобального и per-subject CPT.** `fs_lms_problems` — один тип, хук
+> регистрируется один раз (как в `ProblemsController`). Задания/статьи/уроки/работы/курсы —
+> **per-subject** (`{key}_tasks` и т.д.), поэтому хук нужно вешать **на каждый** CPT
+> предмета в цикле по `SubjectRepository::readAll()` (см. пример ниже).
+
+### 9.3. ⚠️ Ловушка: «стили не применились» на новом экране-банке
+
+`Enqueue::enqueue_admin_assets()` подключает `admin.min.css`/`admin.min.js`
+**только** если экран опознан как страница плагина или один из банк-CPT. На `edit.php`
+GET-параметра `page` нет, поэтому экран опознаётся по флагам:
+
+```php
+$is_task_cpt    = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
+$is_article_cpt = $screen && PostTypeResolver::isArticlePostType( $screen->post_type );
+// ... остальные банки
+if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_article_cpt && /* ... */ ) {
+    return; // ← ассеты НЕ подключатся
+}
+```
+
+**Если добавляешь новый экран-банк или CPT** — заведи соответствующий `$is_*_cpt`-флаг
+и включи его в это условие, иначе нотис/таблица будут без наших стилей (стандартный
+белый notice с серой полоской). Так было со статьями (исправлено 2026-06-19) и ранее
+с «Банком задач».
+
+### 9.4. Пример «под ключ»: колонка «Используется в курсе» для банка заданий
+
+Задача: на `edit.php?post_type={key}_tasks` показать, в каком(их) **курсе(ах)**
+используется задание. Связь обратная: `Задание ←(item_ids) Работа ←(work-шаг) Урок
+←(модуль) Курс`. Готовый обходчик — `ContentUsageService::usageList($type, $id)`
+(`task→works`, `work→lessons`, `lesson→courses`; один «прыжок» за вызов).
+
+Новый контроллер `inc/Controllers/TaskUsageColumnController.php`:
+
+```php
+<?php
+declare( strict_types=1 );
+
+namespace Inc\Controllers;
+
+use Inc\Contracts\ServiceInterface;
+use Inc\Core\BaseController;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Course\ContentUsageService;
+use Inc\Services\PostTypeResolver;
+
+class TaskUsageColumnController extends BaseController implements ServiceInterface {
+
+    public function __construct(
+        private readonly SubjectRepository   $subjects,
+        private readonly ContentUsageService $usage,
+    ) {
+        parent::__construct();
+    }
+
+    public function register(): void {
+        // per-subject: вешаем хуки на КАЖДЫЙ {key}_tasks
+        foreach ( $this->subjects->readAll() as $subject ) {
+            $cpt = PostTypeResolver::tasks( $subject->key );
+            add_filter( "manage_{$cpt}_posts_columns",       array( $this, 'addColumns' ) );
+            add_action( "manage_{$cpt}_posts_custom_column", array( $this, 'renderColumn' ), 10, 2 );
+        }
+    }
+
+    public function addColumns( array $columns ): array {
+        $result = array();
+        foreach ( $columns as $key => $label ) {
+            if ( 'date' === $key ) {
+                $result['fs_used_in_course'] = 'Используется в курсе';
+            }
+            $result[ $key ] = $label;
+        }
+        return $result;
+    }
+
+    public function renderColumn( string $column, int $post_id ): void {
+        if ( 'fs_used_in_course' !== $column ) {
+            return;
+        }
+
+        // task → works → lessons → courses (дедуп по id)
+        $courses = array();
+        foreach ( $this->usage->usageList( 'task', $post_id ) as $work ) {
+            foreach ( $this->usage->usageList( 'work', $work['id'] ) as $lesson ) {
+                foreach ( $this->usage->usageList( 'lesson', $lesson['id'] ) as $course ) {
+                    $courses[ $course['id'] ] = $course['title'];
+                }
+            }
+        }
+
+        echo $courses ? esc_html( implode( ', ', $courses ) ) : '—';
+    }
+}
+```
+
+Зарегистрировать в `Init::getServices()` (добавить `TaskUsageColumnController::class`).
+
+**Замечания:**
+- Хочешь показать **работы** (один прыжок, дёшево) вместо курсов — оставь только
+  `usageList( 'task', $post_id )` и выведи `array_column( ..., 'title' )`.
+- Обратный обход идёт по 3 уровням CPT (N×M запросов на строку). Для больших банков
+  кешируй результат (`set_transient`) и сбрасывай на `save_post_{cpt}` / `delete_post`
+  (как `ContentCacheService`), либо ограничь колонку малыми списками.
+- Вычисляемую колонку «используется в» **нельзя** сортировать SQL-ом из коробки
+  (значения нет в БД) — сортировку `pre_get_posts` оставляем только для мета-колонок
+  (пример — `ProblemsController::applyColumnSort()`).
+
+### 9.5. Чек-лист правок
+
+1. Текст нотиса → `LearningMenuController::bankDescription()` (или `problems-bank-notice.php`).
+2. Колонки → отдельный Controller с `manage_{cpt}_posts_*`; per-subject — цикл по `readAll()`.
+3. Данные колонки → через Manager/Service (напр. `ContentUsageService`), не прямой `WP_Query`.
+4. Новый экран/CPT → добавить `$is_*_cpt`-флаг в `Enqueue::enqueue_admin_assets()` (9.3).
+5. Стили → `_learning-bank.scss` → `npx gulp styles:admin`.
+6. Контроллер → зарегистрировать в `Init::getServices()`.
+7. Покрыть логику данных тестом (память `cover-callbacks-with-tests`).

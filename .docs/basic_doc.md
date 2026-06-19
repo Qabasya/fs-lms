@@ -32,6 +32,7 @@
 28. [Система уведомлений](#система-уведомлений)
 29. [Troubleshooting](#troubleshooting)
 30. [Система обучения (Этапы 1–4): контент, программа, сдачи, контрольные](#система-обучения-этапы-14-контент-программа-сдачи-контрольные)
+31. [Система обучения (MVP-2 «Курсы»): шаги, конструктор, плеер, прогресс, клон, календарь](#система-обучения-mvp-2-курсы-шаги-конструктор-плеер-прогресс-клон-календарь)
 
 ---
 
@@ -4025,6 +4026,12 @@ docker exec wp_db mariadb -u root -proot wordpress \
 Этот раздел описывает, что появилось за четыре этапа разработки LMS: где
 что хранится, какие CPT создаются, как это настраивать и как связаны классы.
 
+> ⚠️ **Модель урока и курса переработана в MVP-2** (см. следующий раздел «Система обучения
+> (MVP-2 «Курсы»)»). Здесь описана **базовая** модель Этапов 1–4. Главное отличие: урок теперь
+> хранит `steps[]` (а не `work_ids[]`), курс — `modules[]` (а не `lesson_ids[]`); поля
+> `work_ids`/`lesson_ids` ниже стали **производными** (вычисляются из шагов/модулей). Авторинг
+> урока/курса переехал в SPA-конструктор. Доставка (Этапы 2–4) при этом не менялась.
+
 ### Главная идея: два разных хранилища
 
 Всё в этой подсистеме делится на **две сущности**, и они хранятся по-разному:
@@ -4284,6 +4291,134 @@ DTO: AssessmentDTO, AttemptDTO, AttemptInputDTO, AttemptAnswerDTO
 
 ---
 
+## Система обучения (MVP-2 «Курсы»): шаги, конструктор, плеер, прогресс, клон, календарь
+
+> Надстройка над Этапами 1–4. Переосмысляет авторинг: урок — **последовательность шагов**
+> (как Stepik), курс — **модули → уроки**; плюс пошаговый плеер ученика, прогресс, гейтинг,
+> клон/форк и (бэкенд) календарь занятий. Канон UI — `design_handoff_course_builder/`.
+> «Человеческое» объяснение — в `explain.md` (шапка + разделы 8–9).
+
+### Что изменилось в модели
+
+| Было (Этапы 1–4) | Стало (MVP-2) |
+|---|---|
+| Урок: `fs_lms_meta['work_ids']` | Урок: `fs_lms_meta['steps']` — шаги `{key,type,payload}`; `work_ids` теперь **производное** |
+| Курс: `fs_lms_meta['lesson_ids']` | Курс: `fs_lms_meta['modules']` (`{id,title,lesson_ids[]}`); `lesson_ids` **производное** |
+| Урок правится метабоксом полей | Урок/курс правятся **SPA-конструктором** (`course-builder.js`) |
+
+**Обратная совместимость доставки:** `LessonDTO::workIds()` и `CourseDTO::lessonIds()` стали
+**вычисляемыми** (обходят `steps[]` / `modules[]`). Поэтому код Этапов 2–4
+(`EffectiveWorksResolver`, `CourseAssignmentService`, сдачи, журнал) работает без изменений —
+он по-прежнему спрашивает «работы урока» / «уроки курса», просто теперь это деривация.
+
+**Типы шага** (`StepType`): `text` (лекция), `video`, `material` (файл/статья), `task`,
+`work` (ссылка на работу), `assessment` (ссылка на контрольную). `isInline()` — контент в
+`payload`; `isRef()` — ссылка на CPT-сущность по `payload['ref']`.
+
+### Новые классы и за что отвечают
+
+**Контракт модели**
+
+| Класс | Роль | Где менять |
+|---|---|---|
+| `Enums\StepType` | типы шага + `isInline/isRef/label/options` | новый тип шага — case + хелперы |
+| `DTO\Course\StepDTO` | шаг `{key,type,payload}` + `fromList/toList` (round-trip `steps[]`) | формат шага |
+| `DTO\Course\ModuleDTO` | модуль `{id,title,lessonIds}` + `fromList/toList` | формат модуля |
+
+**Конструктор курса (admin SPA)**
+
+| Класс | Роль |
+|---|---|
+| `Controllers\CourseBuilderController` | скрытая страница `fs_lms_course_builder` + редирект нативного редактора курса в SPA |
+| `Services\Course\CourseBuilderService` | read/write дерева «курс→модули→уроки→шаги» для JS |
+| `Callbacks\Course\CourseBuilderCallbacks` | admin-AJAX конструктора (структура/модули/уроки/мета); регистрируется в `CourseController` |
+| `Services\Course\LessonAuthoringService` | `buildSteps()` (валидация + генерация `key`), `getStepCandidates()`, `moveStep()` |
+| `src/js/admin/services/course-builder.js` | сам SPA: дерево + редактор шагов (TinyMCE / WP Media / инлайн-создание) |
+
+**Плеер, прогресс, гейтинг (фронт ученика)**
+
+| Класс | Роль |
+|---|---|
+| `Controllers\LessonPlayerController` | подмена шаблона на `/group/?gid=X&gl=Y` → пошаговый плеер |
+| `Services\Course\LessonPlayerService` | view-модель плеера: шаги + гейт (доступ) + статус (прогресс) |
+| `Services\Course\LessonProgressService` | прогресс инлайн-шагов (`markViewed/markCompleted`); work/assessment резолвятся из fact-таблиц |
+| `Repositories\…\LessonProgressRepository` | таблица `fs_lms_lesson_progress` (upsert по `UNIQUE(person, group_lesson, step_key)`) |
+| `Controllers\LessonProgressController` + `Callbacks\Course\LessonPlayerCallbacks` | AJAX `mark_step_progress` (без capability — доступ по членству) |
+| `Services\Course\LessonGateResolver` | гейтинг: урок (доступ + дата) + шаг (`payload['gate']`: `none`/`sequential`/`after:<key>`) |
+
+**Клон / форк**
+
+| Класс | Роль |
+|---|---|
+| `Services\Course\ContentCloneService` | `cloneLesson/Work/Assessment`, `cloneCourse(shallow\|deep)`, `forkLessonForGroup` (meta `forked_from`/`forked_for_group`) |
+| `Callbacks\Course\CloneCallbacks` | AJAX клона/форка; регистрируется в `CourseController` |
+
+**Календарь занятий (бэкенд, ещё не подключён к UI)**
+
+| Класс | Роль |
+|---|---|
+| `Services\Course\SessionCalendarService` | `generate()` — слоты из `group.meetings[] × [period] − holidays`; `reflow()` — перераскладка незакреплённых строк |
+| `GroupsRepository::getMeetings/setMeetings` | `groups.meetings` (JSON-расписание) |
+| `GroupLessonRepository::applySlots/setPinned/updateSchedule(+endsAt)` | `group_lessons.ends_at`, `is_pinned`, nullable `lesson_id` |
+| `DTO\Settings\AcademicPeriodDTO` (+`holidays`) | период обучения + праздники-исключения |
+
+> ⚠️ Сервисы календаря **готовы, но не вызываются** ни из одного контроллера/AJAX. Чтобы
+> включить: добавить case(ы) в `AjaxHook`, зарегистрировать в контроллере группы, дёргать
+> `ScheduleService::pin()/reflow()` + `SessionCalendarService::generate()`; в кокпите — UI
+> редактора `meetings[]` и кнопку «сгенерировать слоты».
+
+### Схема (новое поверх Этапов 1–4)
+
+```
+АВТОРИНГ (admin)
+  CourseBuilderController ─(страница + редирект)─► course-builder.js (SPA)
+     │ AJAX (CourseController → CourseBuilderCallbacks): create_course_draft,
+     │      save_course_structure, create_lesson_in_module, update_lesson_meta, save_course_meta
+     └ AJAX (LessonController → LessonCallbacks): save_lesson_steps, move_lesson_step,
+            get_step_candidates, create_{work|task|assessment|article}_draft
+  CourseBuilderService / LessonAuthoringService — сборка дерева / валидация шагов
+
+ДОСТАВКА (front, ученик)
+  LessonPlayerController ─► player.php
+     LessonPlayerService ─► LessonGateResolver (+LessonAccessPolicy) + LessonProgressService
+     AJAX (LessonProgressController → LessonPlayerCallbacks): mark_step_progress
+  Прогресс: LessonProgressRepository (fs_lms_lesson_progress)
+
+КЛОН/ФОРК (admin): CourseController → CloneCallbacks → ContentCloneService
+КАЛЕНДАРЬ (бэкенд): SessionCalendarService ↔ GroupsRepository.meetings / GroupLessonRepository.slots
+```
+
+### Как поддерживать и типичные правки
+
+**Добавить тип шага** (`StepType`):
+1. `StepType` — `case` + поведение в `isInline/isRef/label/options/allowedTypesFor`.
+2. `LessonAuthoringService::buildSteps()` — per-type санитайз `payload` (трейт `Sanitizer`).
+3. Плеер: `LessonPlayerService` (view-модель) + `templates/frontend/lesson-player/player.php` (рендер).
+4. Редактор: `course-builder.js` — ветка в `inlineEditor()` (инлайн) или `refEditor()` (ссылка).
+5. Если ссылочный и влияет на usage — `ContentUsageService::relationFor()/stepRefs()`.
+6. Если это «работа урока» для доставки — учесть в `LessonDTO::workIds()`.
+
+**Добавить AJAX-действие конструктора:** case в `AjaxHook` → метод в `CourseBuilderCallbacks`
+(`authorize(Nonce::X, Capability::ManageLMSAssignments)` + `Sanitizer`) → регистрация пары
+`[AjaxHook::X, $this->builderCallbacks]` в `CourseController::ajaxActions()` → вызов из
+`course-builder.js` через `acts().<camelCase>`.
+
+**Включить календарь занятий:** см. callout выше (хуки + UI кокпита + вызов сервисов).
+
+### Подводные камни (проверять в первую очередь)
+
+- **`Sanitizer` — по имени ключа, не по значению.** `requireKey('subject_key')`, не
+  `requireKey($_POST['subject_key'])` (для значений массива — `*Value`-хелперы). Эта ошибка
+  ранее уронила 65 AJAX-путей Course/Assessment («Недостаточно данных»). Память
+  `sanitizer-trait-is-key-name-based`.
+- **`Enqueue` гейтит ассеты по экрану.** Новый экран/CPT → завести `$is_*_cpt`-флаг в
+  `Enqueue::enqueue_admin_assets()`, иначе нет наших CSS/JS (детали — `explain.md`, раздел 9.3).
+- **`lesson_id` теперь nullable** (слот без урока). Все потребители `GroupLessonDTO->lessonId`
+  обязаны иметь null-guard (`LessonPlayerService`, `EffectiveWorksResolver`, `LessonGateResolver` и др.).
+- **Покрывать коллбеки тестами** — непокрытый слой коллбеков и скрыл Sanitizer-баг (память `cover-callbacks-with-tests`).
+
+---
+
 Данная документация описывает архитектуру плагина FS LMS, включая:
 
 - **DI контейнер** для автоматического внедрения зависимостей
@@ -4305,5 +4440,6 @@ DTO: AssessmentDTO, AttemptDTO, AttemptInputDTO, AttemptAnswerDTO
 - **Систему уведомлений** — четыре механизма: нативная валидация у поля, `showNotice` / `showModalError` для серверных ошибок в UI, `showToast` для сетевых ошибок, `AlertModal` для критических ошибок поверх открытых модалов
 - **Troubleshooting** — пошаговая диагностика от браузера до БД, разборы типичных кейсов, шпаргалка по симптомам и инструменты отладки
 - **Систему обучения (Этапы 1–4)** — банки контента в CPT (работы/уроки/курсы/контрольные + глобальные задачи), факты обучения в кастомных таблицах (программа группы, сдачи, попытки, лента событий), переиспользование по ссылке, copy-on-publish, матрицу доступа и расширяемый журнал оценок
+- **Систему обучения (MVP-2 «Курсы»)** — модель шагов урока (`steps[]`) и модулей курса (`modules[]`), SPA-конструктор курса, пошаговый плеер ученика с прогрессом и гейтингом, клонирование/форк контента и (бэкенд) календарь занятий
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.
