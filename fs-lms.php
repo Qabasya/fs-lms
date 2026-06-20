@@ -14,8 +14,8 @@
 
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
-use Inc\Controllers\AdminController;
-use Inc\Controllers\ConfigController;
+use Inc\Controllers\System\AdminController;
+use Inc\Controllers\Settings\ConfigController;
 use Inc\Core\Activate;
 use Inc\Core\Container;
 use Inc\Core\Deactivate;
