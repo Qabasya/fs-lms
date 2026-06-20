@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 defined( 'ABSPATH' ) || exit;
 

@@ -10,8 +10,8 @@ use Inc\Enums\Auth\AuthProvider;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Wp\ShortCode;
 use Inc\Enums\Access\Capability;
-use Inc\Services\AuthService\AuthStrategyRegistry;
-use Inc\Services\AuthService\ProviderResolver;
+use Inc\Services\Auth\AuthStrategyRegistry;
+use Inc\Services\Auth\ProviderResolver;
 use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\ErrorHandler;
 

@@ -18,7 +18,7 @@ use Inc\Managers\Course\CourseManager;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\ScheduleService;
-use Inc\Services\ThemeCompatService;
+use Inc\Services\Shared\ThemeCompatService;
 
 class GroupCockpitController extends BaseController implements ServiceInterface {
 

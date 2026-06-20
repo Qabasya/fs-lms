@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Inc\Services;
+namespace Inc\Services\Shared;
 
 /**
  * Class ThemeCompatService

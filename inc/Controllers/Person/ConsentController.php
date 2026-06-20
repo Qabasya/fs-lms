@@ -6,7 +6,7 @@ namespace Inc\Controllers\Person;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Services\ConsentService;
+use Inc\Services\Person\ConsentService;
 use RuntimeException;
 
 /**

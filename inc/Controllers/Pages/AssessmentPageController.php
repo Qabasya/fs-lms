@@ -11,8 +11,8 @@ use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Services\PostTypeResolver;
-use Inc\Services\ThemeCompatService;
+use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Shared\ThemeCompatService;
 
 /**
  * Class AssessmentPageController

@@ -17,7 +17,7 @@ $breadcrumbs = $navigation['breadcrumbs'] ?? array();
 $nav_prev    = $navigation['prev'] ?? null;
 $nav_next    = $navigation['next'] ?? null;
 
-\Inc\Services\ThemeCompatService::header();
+\Inc\Services\Shared\ThemeCompatService::header();
 ?>
 
 <div class="fs-page-wrapper">
@@ -252,4 +252,4 @@ $nav_next    = $navigation['next'] ?? null;
 
 </div>
 
-<?php \Inc\Services\ThemeCompatService::footer(); ?>
+<?php \Inc\Services\Shared\ThemeCompatService::footer(); ?>

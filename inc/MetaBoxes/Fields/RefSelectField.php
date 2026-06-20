@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\MetaBoxes\Fields;
 
 use Inc\Enums\Wp\PostMetaName;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class RefSelectField

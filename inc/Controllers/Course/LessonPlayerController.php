@@ -13,7 +13,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonPlayerService;
-use Inc\Services\ThemeCompatService;
+use Inc\Services\Shared\ThemeCompatService;
 
 /**
  * Class LessonPlayerController

@@ -1,20 +1,20 @@
 <?php
 
-namespace Inc\Services\AuthService\AuthStrategies;
+namespace Inc\Services\Auth\AuthStrategies;
 
 use Hybridauth\Exception\InvalidArgumentException;
 use Hybridauth\Exception\UnexpectedValueException;
 use Hybridauth\Hybridauth;
 use Inc\Contracts\AuthStrategyInterface;
-use Inc\Services\AuthService\AuthConfigFactory;
-use Inc\Services\AuthService\AuthService;
+use Inc\Services\Auth\AuthConfigFactory;
+use Inc\Services\Auth\AuthService;
 
 /**
  * Абстрактный класс AbstractHybridAuthStrategy
  *
  * Базовый класс для стратегий аутентификации через Hybridauth (социальные сети).
  *
- * @package Inc\Services\AuthService\AuthStrategies
+ * @package Inc\Services\Auth\AuthStrategies
  *
  * ### Основные обязанности:
  *

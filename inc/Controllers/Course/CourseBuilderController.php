@@ -7,7 +7,7 @@ namespace Inc\Controllers\Course;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**

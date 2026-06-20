@@ -3,7 +3,7 @@
 declare( strict_types=1 );
 
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 defined( 'ABSPATH' ) || exit;
 

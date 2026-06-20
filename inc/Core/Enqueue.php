@@ -12,7 +12,7 @@ use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Application\ApplicationSettingsService;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Security\FormGuardService;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Sanitizer;
 

@@ -13,7 +13,7 @@ use Inc\Enums\Course\StepType;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class CourseBuilderService

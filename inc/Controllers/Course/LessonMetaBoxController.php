@@ -10,7 +10,7 @@ use Inc\DTO\Course\StepDTO;
 use Inc\Managers\Course\LessonManager;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
 /**

@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\DTO\Course;
 
 use Inc\Enums\Course\WorkType;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class WorkDTO

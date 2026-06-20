@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services;
 
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use PHPUnit\Framework\TestCase;
 
 class PostTypeResolverTest extends TestCase {

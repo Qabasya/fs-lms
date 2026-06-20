@@ -12,7 +12,7 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\MetaBoxManager;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 use Inc\Shared\Traits\Authorizer;
@@ -109,7 +109,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			'fs_lms_task_metabox',
 			'Данные задачи',
 			array( $this, 'renderMetaboxContent' ),
-			array( \Inc\Services\PostTypeResolver::problems() )
+			array( \Inc\Services\Subject\PostTypeResolver::problems() )
 		)->register();
 	}
 

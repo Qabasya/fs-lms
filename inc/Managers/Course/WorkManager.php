@@ -8,7 +8,7 @@ use Inc\Managers\Wp\PostManager;
 
 use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Wp\PostMetaName;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class WorkManager

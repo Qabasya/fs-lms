@@ -9,7 +9,7 @@ use Inc\Controllers\System\AjaxController;
 use Inc\Callbacks\Task\TaskCreationCallbacks;
 use Inc\Callbacks\Task\TemplateManagerCallbacks;
 use Inc\Enums\Wp\AjaxHook;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\Sanitizer;
 
 /**

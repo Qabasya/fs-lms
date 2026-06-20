@@ -1,6 +1,6 @@
 <?php
 
-namespace Inc\Services;
+namespace Inc\Services\System;
 
 use Inc\Enums\Wp\PageRoutes;
 

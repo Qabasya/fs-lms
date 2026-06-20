@@ -23,8 +23,8 @@ use Inc\Registrars\SubjectCPTRegistrar;
 use Inc\Registrars\SubjectTaxonomyRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
-use Inc\Services\ContentCacheService;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\ContentCacheService;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\NumericSorter;
 
 /**

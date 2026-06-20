@@ -6,7 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class WorkAuthoringService

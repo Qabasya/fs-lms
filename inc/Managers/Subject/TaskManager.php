@@ -11,7 +11,7 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class TaskManager

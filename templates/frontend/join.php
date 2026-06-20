@@ -10,7 +10,7 @@
 
 use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Enums\Wp\Nonce;
-use Inc\Services\ThemeCompatService;
+use Inc\Services\Shared\ThemeCompatService;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;

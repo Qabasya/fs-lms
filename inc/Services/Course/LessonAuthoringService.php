@@ -11,7 +11,7 @@ use Inc\Enums\Course\StepType;
 use Inc\Enums\Course\WorkType;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class LessonAuthoringService

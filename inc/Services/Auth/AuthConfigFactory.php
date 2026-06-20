@@ -1,6 +1,6 @@
 <?php
 
-namespace Inc\Services\AuthService;
+namespace Inc\Services\Auth;
 
 use Inc\Enums\Auth\AuthProvider;
 use Inc\Repositories\OptionsRepositories\SettingsRepository;

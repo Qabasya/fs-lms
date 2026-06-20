@@ -9,7 +9,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Wp\PostMetaName;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class LessonManager

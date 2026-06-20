@@ -32,7 +32,7 @@ use Inc\DTO\Log\Events\EnrollmentStatusEvent;
 use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
-use Inc\Services\ConsentService;
+use Inc\Services\Person\ConsentService;
 use Inc\Services\Email\EmailService;
 use Inc\Services\Security\PasswordGeneratorService;
 use Inc\Services\Person\PersonService;

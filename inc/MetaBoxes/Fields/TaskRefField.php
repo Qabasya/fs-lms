@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\MetaBoxes\Fields;
 
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class TaskRefField

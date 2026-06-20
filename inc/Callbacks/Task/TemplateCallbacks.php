@@ -7,7 +7,7 @@ namespace Inc\Callbacks\Task;
 use Inc\Controllers\Builders\TaskDataBuilder;
 use Inc\Core\BaseController;
 use Inc\DTO\Task\TaskPageDTO;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class TemplateCallbacks

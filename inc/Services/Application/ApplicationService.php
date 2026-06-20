@@ -19,7 +19,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Shared\PluginLogger;
 use Inc\Managers\Person\UserManager;
-use Inc\Services\ConsentService;
+use Inc\Services\Person\ConsentService;
 use Inc\Services\Email\EmailOtpService;
 use Inc\Contracts\ClockInterface;
 use Inc\Services\Security\PiiCryptoService;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Inc\Services\AuthService\AuthStrategies;
+namespace Inc\Services\Auth\AuthStrategies;
 
 use Inc\DTO\Person\UserDTO;
 use Inc\Enums\Auth\AuthProvider;
@@ -11,7 +11,7 @@ use Inc\Shared\PluginLogger;
  *
  * Стратегия аутентификации через ВКонтакте (VK).
  *
- * @package Inc\Services\AuthService\AuthStrategies
+ * @package Inc\Services\Auth\AuthStrategies
  *
  * ### Основные обязанности:
  *

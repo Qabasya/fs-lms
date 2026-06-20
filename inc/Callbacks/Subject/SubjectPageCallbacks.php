@@ -10,7 +10,7 @@ use Inc\DTO\Subject\TaxonomyDataDTO;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskTypeService;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;

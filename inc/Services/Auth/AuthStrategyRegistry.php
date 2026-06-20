@@ -2,13 +2,13 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services\AuthService;
+namespace Inc\Services\Auth;
 
 use Inc\Contracts\AuthStrategyInterface;
 use Inc\Enums\Auth\AuthProvider;
-use Inc\Services\AuthService\AuthStrategies\GithubAuthStrategy;
-use Inc\Services\AuthService\AuthStrategies\GoogleAuthStrategy;
-use Inc\Services\AuthService\AuthStrategies\VkAuthStrategy;
+use Inc\Services\Auth\AuthStrategies\GithubAuthStrategy;
+use Inc\Services\Auth\AuthStrategies\GoogleAuthStrategy;
+use Inc\Services\Auth\AuthStrategies\VkAuthStrategy;
 
 /**
  * Class AuthStrategyRegistry

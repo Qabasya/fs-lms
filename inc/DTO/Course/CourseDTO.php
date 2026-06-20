@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Course;
 
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class CourseDTO

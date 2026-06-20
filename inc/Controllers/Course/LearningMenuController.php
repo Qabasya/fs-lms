@@ -10,7 +10,7 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Menu;
 use Inc\Registrars\MenuRegistrar;
 use Inc\Services\Course\TeacherSubjectsService;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**

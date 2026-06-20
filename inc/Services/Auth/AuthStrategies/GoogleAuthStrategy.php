@@ -1,6 +1,6 @@
 <?php
 
-namespace Inc\Services\AuthService\AuthStrategies;
+namespace Inc\Services\Auth\AuthStrategies;
 
 use Inc\DTO\Person\UserDTO;
 use Inc\Enums\Auth\AuthProvider;

@@ -19,7 +19,7 @@ use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Application\JoinCodeService;
-use Inc\Services\ConsentService;
+use Inc\Services\Person\ConsentService;
 use Inc\Services\Email\EmailService;
 use Inc\Services\Enrollment\EnrollmentService;
 use Inc\Services\Person\PersonService;

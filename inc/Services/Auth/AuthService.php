@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services\AuthService;
+namespace Inc\Services\Auth;
 
 use Hybridauth\Hybridauth;
 use Inc\DTO\Person\UserDTO;

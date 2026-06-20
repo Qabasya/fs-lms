@@ -11,7 +11,7 @@ use Inc\Enums\Course\StepType;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class ContentUsageService

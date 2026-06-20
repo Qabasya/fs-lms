@@ -10,7 +10,7 @@ use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class PostEntityAuditController
