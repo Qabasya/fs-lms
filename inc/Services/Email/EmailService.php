@@ -8,7 +8,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\EmailSentEvent;
 use Inc\Enums\Email\EmailTemplateType;
 use Inc\Enums\Log\LogEvent;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Services\Email\WpOptionsEmailTemplate;
 
 /**

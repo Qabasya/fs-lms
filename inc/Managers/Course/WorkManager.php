@@ -2,7 +2,9 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Managers;
+namespace Inc\Managers\Course;
+
+use Inc\Managers\Wp\PostManager;
 
 use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Wp\PostMetaName;

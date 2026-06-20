@@ -9,7 +9,7 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
 use Inc\Enums\Course\GateState;
 use Inc\Enums\Course\ProgressStatus;
-use Inc\Managers\LessonManager;
+use Inc\Managers\Course\LessonManager;
 use Inc\Services\Course\LessonAccessPolicy;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonProgressService;

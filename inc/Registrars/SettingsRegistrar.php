@@ -2,7 +2,7 @@
 
 namespace Inc\Registrars;
 
-use Inc\Managers\SettingsManager;
+use Inc\Managers\Settings\SettingsManager;
 
 /**
  * Class SettingsRegistrar

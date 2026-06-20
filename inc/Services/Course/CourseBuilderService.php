@@ -10,9 +10,9 @@ use Inc\DTO\Course\ModuleDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Course\StepType;
-use Inc\Managers\CourseManager;
-use Inc\Managers\LessonManager;
-use Inc\Managers\PostManager;
+use Inc\Managers\Course\CourseManager;
+use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\PostTypeResolver;
 
 /**

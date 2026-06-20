@@ -12,7 +12,7 @@ use Inc\DTO\Enrollment\EnrollmentInputDTO;
 use Inc\DTO\Enrollment\EnrollmentResultDTO;
 use Inc\DTO\Person\PersonDTO;
 use Inc\Enums\Enrollment\ApplicationStatus;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;

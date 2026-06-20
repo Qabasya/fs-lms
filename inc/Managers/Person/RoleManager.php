@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Managers;
+namespace Inc\Managers\Person;
 
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Access\UserRole;

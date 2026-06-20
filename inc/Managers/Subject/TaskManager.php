@@ -2,7 +2,10 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Managers;
+namespace Inc\Managers\Subject;
+
+use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
 
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Subject\TaskTemplate;

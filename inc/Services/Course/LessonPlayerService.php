@@ -7,8 +7,8 @@ namespace Inc\Services\Course;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Course\ProgressStatus;
-use Inc\Managers\LessonManager;
-use Inc\Managers\PostManager;
+use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Wp\PostManager;
 
 /**
  * Class LessonPlayerService

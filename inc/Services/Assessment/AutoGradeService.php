@@ -11,7 +11,7 @@ use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Subject\TaskTemplate;
-use Inc\Managers\PostManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Services\Template\TemplateResolver;

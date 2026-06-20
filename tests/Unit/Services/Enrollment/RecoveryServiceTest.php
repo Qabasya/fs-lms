@@ -10,7 +10,7 @@ use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\DTO\Person\PersonDTO;
 use Inc\Enums\Enrollment\ApplicationStatus;
 use Inc\Enums\Enrollment\EnrollmentStatus;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;

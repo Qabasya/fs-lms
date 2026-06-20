@@ -8,7 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
-use Inc\Managers\PostManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\Traits\Authorizer;

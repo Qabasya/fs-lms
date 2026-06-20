@@ -6,7 +6,7 @@ namespace Inc\Services\Task;
 
 use Inc\DTO\Task\TaskTypeDTO;
 use Inc\Enums\Subject\TaskTemplate;
-use Inc\Managers\PostManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Services\PostTypeResolver;
 

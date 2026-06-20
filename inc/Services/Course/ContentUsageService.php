@@ -8,7 +8,7 @@ use Inc\DTO\Course\ModuleDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Course\StepType;
-use Inc\Managers\PostManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\PostTypeResolver;

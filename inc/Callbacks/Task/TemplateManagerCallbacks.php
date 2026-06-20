@@ -7,7 +7,7 @@ use Inc\DTO\Task\TaskTemplateAssignmentDTO;
 use Inc\DTO\Task\TaskTypeBoilerplateDTO;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Subject\TaskTemplate;
-use Inc\Managers\PostManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;

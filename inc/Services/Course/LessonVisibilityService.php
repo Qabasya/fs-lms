@@ -9,7 +9,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Course\LessonVisibility;
 use Inc\Enums\Log\LogEvent;
-use Inc\Managers\LessonManager;
+use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 
 class LessonVisibilityService {

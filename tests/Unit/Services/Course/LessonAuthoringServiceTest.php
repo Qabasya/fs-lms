@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Unit\Services\Course;
 
 use Inc\Enums\Course\StepType;
-use Inc\Managers\LessonManager;
-use Inc\Managers\PostManager;
+use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\LessonAuthoringService;
 use PHPUnit\Framework\TestCase;
 

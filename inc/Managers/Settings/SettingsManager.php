@@ -1,6 +1,6 @@
 <?php
 
-namespace Inc\Managers;
+namespace Inc\Managers\Settings;
 
 /**
  * Class SettingsManager

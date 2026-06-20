@@ -19,7 +19,7 @@ use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Enums\Enrollment\ApplicationStatus;
 use Inc\Enums\Log\AuditAction;
 use Inc\Enums\Access\UserRole;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;

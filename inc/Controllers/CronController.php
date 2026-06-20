@@ -7,7 +7,7 @@ namespace Inc\Controllers;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\CronHook;
-use Inc\Managers\CronManager;
+use Inc\Managers\Wp\CronManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 
 /**

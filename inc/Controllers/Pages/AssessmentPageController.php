@@ -8,7 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Assessment\AttemptDTO;
-use Inc\Managers\AssessmentManager;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\PostTypeResolver;

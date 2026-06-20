@@ -9,7 +9,7 @@ use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Course\AssignmentPolicy;
 use Inc\Enums\Log\LogEvent;
-use Inc\Managers\CourseManager;
+use Inc\Managers\Course\CourseManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 

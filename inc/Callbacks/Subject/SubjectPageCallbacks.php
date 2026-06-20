@@ -7,7 +7,7 @@ namespace Inc\Callbacks\Subject;
 use Inc\Core\BaseController;
 use Inc\DTO\Subject\SubjectViewDTO;
 use Inc\DTO\Subject\TaxonomyDataDTO;
-use Inc\Managers\PostManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\PostTypeResolver;

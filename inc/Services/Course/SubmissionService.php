@@ -10,8 +10,8 @@ use Inc\DTO\Course\GradeDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Log\LogEvent;
-use Inc\Managers\MediaManager;
-use Inc\Managers\WorkManager;
+use Inc\Managers\Wp\MediaManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 

@@ -6,7 +6,7 @@ namespace Inc\Services\Log;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\DataChangeLogInputDTO;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\DataChangeLogRepository;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;

@@ -14,7 +14,7 @@ use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
-use Inc\Managers\CourseManager;
+use Inc\Managers\Course\CourseManager;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\ScheduleService;

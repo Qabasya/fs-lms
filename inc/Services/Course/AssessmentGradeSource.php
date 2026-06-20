@@ -6,7 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\Contracts\GradeSourceInterface;
 use Inc\DTO\Course\GradebookEntryDTO;
-use Inc\Managers\AssessmentManager;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 
 class AssessmentGradeSource implements GradeSourceInterface {

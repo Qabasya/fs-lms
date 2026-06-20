@@ -8,7 +8,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
-use Inc\Managers\WorkManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Services\Course\WorkAuthoringService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;

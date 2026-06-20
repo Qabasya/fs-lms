@@ -8,7 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
-use Inc\Managers\MetaBoxManager;
+use Inc\Managers\Wp\MetaBoxManager;
 use Inc\MetaBoxes\Templates\CourseTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;

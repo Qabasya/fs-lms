@@ -6,7 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\Contracts\GradeSourceInterface;
 use Inc\DTO\Course\GradebookEntryDTO;
-use Inc\Managers\LessonManager;
+use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 

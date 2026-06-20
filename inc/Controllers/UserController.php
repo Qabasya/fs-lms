@@ -6,7 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Core\BaseController;
 use Inc\Contracts\ServiceInterface;
-use Inc\Managers\UserBehaviorManager;
+use Inc\Managers\Person\UserBehaviorManager;
 
 /**
  * Class UserController

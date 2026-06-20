@@ -11,7 +11,7 @@ use Inc\Enums\Log\AuditAction;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Enums\Log\LogEvent;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use RuntimeException;

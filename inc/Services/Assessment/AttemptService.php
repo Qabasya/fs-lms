@@ -11,7 +11,7 @@ use Inc\DTO\Assessment\AttemptInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Log\LogEvent;
-use Inc\Managers\AssessmentManager;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 

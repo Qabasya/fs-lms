@@ -8,7 +8,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
 use Inc\Enums\Log\LogEvent;
-use Inc\Managers\LessonManager;
+use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\ScheduleService;

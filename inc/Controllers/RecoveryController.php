@@ -9,7 +9,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\CronHook;
 use Inc\Enums\Access\UserRole;
-use Inc\Managers\CronManager;
+use Inc\Managers\Wp\CronManager;
 
 /**
  * Class RecoveryController

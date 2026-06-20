@@ -9,8 +9,8 @@ use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Course\StepType;
 use Inc\Enums\Course\WorkType;
-use Inc\Managers\LessonManager;
-use Inc\Managers\PostManager;
+use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\PostTypeResolver;
 
 /**

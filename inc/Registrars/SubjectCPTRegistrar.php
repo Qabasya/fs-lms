@@ -2,7 +2,7 @@
 
 namespace Inc\Registrars;
 
-use Inc\Managers\CPTManager;
+use Inc\Managers\Wp\CPTManager;
 
 /**
  * Class SubjectCPTRegistrar

@@ -181,7 +181,7 @@ final class Init {
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
 		$capsVersion = '1.2';
 		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
-			$roleManager = $container->get( \Inc\Managers\RoleManager::class );
+			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
 			$roleManager->syncCapabilities();
 			update_option( 'fs_lms_caps_version', $capsVersion );
 		}

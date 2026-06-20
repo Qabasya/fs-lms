@@ -11,7 +11,7 @@ use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Course\StepType;
-use Inc\Managers\LessonManager;
+use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Services\Course\LessonVisibilityService;
 use PHPUnit\Framework\TestCase;

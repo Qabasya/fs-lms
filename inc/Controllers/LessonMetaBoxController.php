@@ -7,7 +7,7 @@ namespace Inc\Controllers;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Course\StepDTO;
-use Inc\Managers\LessonManager;
+use Inc\Managers\Course\LessonManager;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\PostTypeResolver;

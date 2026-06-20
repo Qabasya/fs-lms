@@ -11,7 +11,7 @@ use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\LessonProgressDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\Enums\Course\ProgressStatus;
-use Inc\Managers\LessonManager;
+use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\LessonProgressRepository;

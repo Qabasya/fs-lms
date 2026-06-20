@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
-use Inc\Managers\PostManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\PostTypeResolver;
 
 /**

@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Managers;
+namespace Inc\Managers\Wp;
 
 class MediaManager {
 

@@ -2,7 +2,7 @@
 
 namespace Inc\Registrars;
 
-use Inc\Managers\MetaBoxManager;
+use Inc\Managers\Wp\MetaBoxManager;
 use Inc\MetaBoxes\Templates\BaseTemplate;
 
 /**

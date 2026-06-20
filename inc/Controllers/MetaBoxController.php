@@ -9,7 +9,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\Task\TaskMetaDTO;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
-use Inc\Managers\MetaBoxManager;
+use Inc\Managers\Wp\MetaBoxManager;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\PostTypeResolver;

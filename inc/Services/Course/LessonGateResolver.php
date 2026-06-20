@@ -7,7 +7,7 @@ namespace Inc\Services\Course;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Course\GateState;
-use Inc\Managers\LessonManager;
+use Inc\Managers\Course\LessonManager;
 
 /**
  * Class LessonGateResolver

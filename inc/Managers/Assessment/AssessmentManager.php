@@ -2,7 +2,9 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Managers;
+namespace Inc\Managers\Assessment;
+
+use Inc\Managers\Wp\PostManager;
 
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\Enums\Wp\PostMetaName;

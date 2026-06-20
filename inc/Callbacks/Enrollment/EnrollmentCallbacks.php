@@ -19,7 +19,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Person\PiiAccessReason;
 use Inc\Enums\Person\PiiField;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Enrollment\EnrollmentService;

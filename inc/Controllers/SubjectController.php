@@ -16,7 +16,7 @@ use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
-use Inc\Managers\PostManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Registrars\SubjectCPTRegistrar;
 use Inc\Registrars\SubjectTaxonomyRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
