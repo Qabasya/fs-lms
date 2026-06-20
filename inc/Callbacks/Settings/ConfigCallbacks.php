@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Capability;
 use Inc\Enums\Nonce;
 use Inc\Repositories\OptionsRepositories\PluginConfigRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -20,6 +21,7 @@ class ConfigCallbacks extends BaseController {
 	public function __construct(
 		private readonly PluginConfigRepository    $configRepository,
 		private readonly PersonDocumentsRepository $documentsRepository,
+		private readonly SubjectRepository         $subjectRepository,
 	) {
 		parent::__construct();
 	}
@@ -36,6 +38,50 @@ class ConfigCallbacks extends BaseController {
 		) );
 
 		$this->success( array( 'message' => 'Настройки сохранены.' ) );
+	}
+
+	/**
+	 * Сохраняет настройки заявок (отдельный блок): тумблер привязки + карта кодов направлений.
+	 * Отдельное действие, чтобы сохранение этого блока не затирало настройки сервисов и наоборот.
+	 *
+	 * @return void
+	 */
+	public function ajaxSaveApplicationSettings(): void {
+		$this->authorize( Nonce::Config, Capability::Admin );
+
+		$this->configRepository->save( array(
+			'applications_bind_to_subject' => $this->sanitizeBool( 'applications_bind_to_subject' ),
+			'direction_codes'              => $this->sanitizeDirectionCodes(),
+		) );
+
+		$this->success( array( 'message' => 'Настройки заявок сохранены.' ) );
+	}
+
+	/**
+	 * Санитизирует карту направлений `[subject_key => code]` из формы.
+	 * Оставляет только реальные предметы с непустым кодом.
+	 *
+	 * @return array<string, string>
+	 */
+	private function sanitizeDirectionCodes(): array {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce проверен в authorize() выше.
+		$raw = wp_unslash( $_POST['direction_codes'] ?? array() );
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$validKeys = array_map( static fn( $s ) => $s->key, $this->subjectRepository->readAll() );
+		$result    = array();
+
+		foreach ( $raw as $subjectKey => $code ) {
+			$key  = $this->sanitizeKeyValue( $subjectKey );
+			$code = trim( $this->sanitizeTextValue( $code ) );
+			if ( '' !== $key && '' !== $code && in_array( $key, $validKeys, true ) ) {
+				$result[ $key ] = $code;
+			}
+		}
+
+		return $result;
 	}
 
 	public function ajaxGenerateKey(): void {

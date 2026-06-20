@@ -1390,10 +1390,14 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 > Очный центр: даты занятий вычисляет календарь. **Слот-первичный** (строка `group_lessons` = занятие/дата),
 > **сдвиг** на пропуск (+ пин), нерабочие дни — чекбокс-список на учебном периоде.
 
-##### T2.30 — `groups.meetings[]` (структурное расписание) · `[x]`
+##### T2.30 — `groups.meetings[]` (структурное расписание) · `[x]` ⚠️ частично — см. **T2.35**
 - **Миграция:** `groups.schedule text` → `meetings` (JSON): `[{ weekday 1–7, time, duration_min }]` (см. CLAUDE.md «Миграции в dev»).
 - `GroupDTO`/`GroupsRepository` — чтение/запись `meetings`; UI группы — редактор дней недели + время + длительность.
-- **Готово:** у группы структурированное повторяющееся расписание; старый текст не используется.
+- **Готово:** колонка переименована в `meetings`, миграция применена.
+- **⚠️ НЕ доделано:** UI/CRUD/отображение группы **не переведены** на формат `{weekday,time,duration_min}` —
+  по-прежнему `{day,start,end}` (старый редактор). 2026-06-20 это уронило создание группы (CRUD писал в
+  отсутствующую колонку `schedule`); хотфикс перенацелил CRUD на `meetings`, формат оставлен прежним.
+  Реконсиляция формата вынесена в **T2.35**.
 
 ##### T2.31 — Нерабочие дни на учебном периоде · `[x]`
 - `AcademicPeriodDTO` + `holidays[]` (список дат с тумблером «нерабочий»). Хранение через `AcademicPeriodService`.
@@ -1420,6 +1424,27 @@ CREATE TABLE {prefix}fs_lms_learning_events (
 
 > **S3-задел (Этап 5, отложено):** `ends_at` + `duration_min` дают окно матчинга записи к занятию →
 > `group_lessons.recording_url` → video-шаг урока (T1.5.13). Сейчас только хранить точно; матчинг — позже.
+
+##### T2.35 — Согласование формата `meetings` (follow-up) · `[ ]` отложено
+> **Контекст:** при T2.30 колонку `groups.schedule` переименовали в `meetings`, но UI/CRUD/отображение группы
+> **не перевели** на формат `{weekday,time,duration_min}` — они до сих пор пишут/читают `{day:"mon",start,end}`.
+> Поэтому `SessionCalendarService::generate()` (ждёт `{weekday,time,duration_min}`) пока **не может** прочитать
+> реальные данные. Не выстреливает только потому, что календарь **дормантный** (не подключён к AJAX/UI).
+> Один факт (недельная встреча) сейчас может оказаться в двух несовместимых видах в одной колонке.
+
+- **Делать вместе с подключением календаря** (UI кокпита: редактор `meetings[]` + кнопка «сгенерировать слоты»).
+- Ввести **`MeetingDTO`** — единственный источник правды формата: `fromStorageList()`/`toStorageList()` +
+  аксессоры `weekdayIso()` (1–7), `time()`, `durationMin()`. `GroupsRepository::getMeetings()` → `MeetingDTO[]`.
+- **Хранить ОДИН вид** (не оба — дублирование = рассинхрон, это и была ловушка). Канон-кандидаты:
+  - **`{weekday,time,duration_min}`** (рекомендуется): совпадает с уже написанным `generate()` и контрактом
+    T2.30; цена — переписать редактор расписания группы + `WeekDay::formatSchedule()` через DTO (+ `WeekDay::isoNumber()`).
+  - `{day,start,end}`: меньше правок UI, но придётся править `generate()` + контракт T2.30.
+- Конвертацию делать на границе (в DTO); убрать сырой `json_decode($group->meetings)` из 6 мест:
+  `StudentGroupCallbacks` (create/update), `StudentRowImporter`, `AdminCallbacks`, `PersonViewCallbacks`,
+  `ExpulsionCallbacks`, `userlist-2-students.php`.
+- Покрыть `MeetingDTO` + конвертацию тестами (память `cover-callbacks-with-tests`).
+- **Готово, когда:** один формат в колонке, `generate()` читает реальные данные группы, нет сырых `json_decode`.
+- Память: `groups-meetings-column-two-formats`.
 
 ---
 

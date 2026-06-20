@@ -70,8 +70,9 @@ enum AjaxHook: string {
 	case ImportStudentsCsv = 'import_students_csv';
 
 	// ==================== Настройки: конфигурация ====================
-	case SaveConfig   = 'save_config';
-	case GenerateKey  = 'generate_key';
+	case SaveConfig              = 'save_config';
+	case GenerateKey             = 'generate_key';
+	case SaveApplicationSettings = 'save_application_settings'; // настройки заявок (привязка к направлению)
 
 	// ==================== Экспорт данных ====================
 	case ExportGroups   = 'export_groups';
@@ -136,6 +137,7 @@ enum AjaxHook: string {
 	case SearchParents               = 'search_parents';
 	case CheckUsernameAvailable      = 'check_username_available';
 	case CheckEmailAvailable         = 'check_email_available';
+	case ValidateDirectionCode       = 'validate_direction_code'; // nopriv: проверка кода направления (модалка apply)
 
 	// ==== Банки контента (работы / уроки / курсы) ====
 	case GetWorkTaskCandidates     = 'get_work_task_candidates';     // params: subject_key, task_type, collection, scope, search

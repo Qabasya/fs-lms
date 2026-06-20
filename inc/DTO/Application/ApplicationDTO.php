@@ -25,6 +25,7 @@ readonly class ApplicationDTO {
 		public ?int              $reviewedByUserId,
 		public string            $createdAt,
 		public string            $updatedAt,
+		public ?string           $subjectKey = null,
 	) {}
 
 	public static function fromArray( array $row ): static {
@@ -45,6 +46,7 @@ readonly class ApplicationDTO {
 			reviewedByUserId:  isset( $row['reviewed_by_user_id'] ) ? (int) $row['reviewed_by_user_id'] : null,
 			createdAt:         (string) $row['created_at'],
 			updatedAt:         (string) $row['updated_at'],
+			subjectKey:        isset( $row['subject_key'] ) ? (string) $row['subject_key'] : null,
 		);
 	}
 
@@ -66,6 +68,7 @@ readonly class ApplicationDTO {
 			'reviewed_by_user_id' => $this->reviewedByUserId,
 			'created_at'          => $this->createdAt,
 			'updated_at'          => $this->updatedAt,
+			'subject_key'         => $this->subjectKey,
 		);
 	}
 }

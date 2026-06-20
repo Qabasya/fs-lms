@@ -156,7 +156,7 @@ readonly class StudentRowImporter {
 				'subject_key'        => $ctx->subjectKey,
 				'academic_period_id' => $ctx->periodId,
 				'teacher_id'         => null,
-				'schedule'           => null,
+				'meetings'           => null,
 				'created_at'         => $now,
 				'updated_at'         => $now,
 			) );

@@ -16,6 +16,18 @@ $max_birth_date = gmdate( 'Y-m-d' );
 ?>
 
 <main class="fs-lms-apply-page">
+
+    <?php /* Гейт направления (Этап 0): показывается JS-ом, если включена привязка к направлению. */ ?>
+    <div class="fs-direction-gate" id="fs-direction-gate" hidden>
+        <div class="fs-direction-gate__dialog" role="dialog" aria-modal="true" aria-labelledby="fs-direction-gate-title">
+            <h2 class="fs-direction-gate__title" id="fs-direction-gate-title"><?php esc_html_e( 'Введите код направления', 'fs-lms' ); ?></h2>
+            <p class="fs-direction-gate__hint"><?php esc_html_e( 'Код выдаётся в учебном центре.', 'fs-lms' ); ?></p>
+            <input type="text" id="fs-direction-code-input" class="fs-direction-gate__input" placeholder="<?php esc_attr_e( 'Код направления', 'fs-lms' ); ?>" autocomplete="off">
+            <div class="fs-direction-gate__error" id="fs-direction-gate-error" hidden></div>
+            <button type="button" id="fs-direction-gate-submit" class="fs-direction-gate__btn"><?php esc_html_e( 'Продолжить', 'fs-lms' ); ?></button>
+        </div>
+    </div>
+
     <div class="fs-apply-card">
         <h2 class="fs-apply-card__title"><?php esc_html_e( 'Подать заявку на обучение', 'fs-lms' ); ?></h2>
 
@@ -260,6 +272,11 @@ $max_birth_date = gmdate( 'Y-m-d' );
                 <p class="fs-apply-card__success-title">
                     <?php esc_html_e( 'Заявка успешно отправлена!', 'fs-lms' ); ?>
                 </p>
+                <?php /* Необязательное серверное сообщение + спиннер ожидания (статус создания учётки в домене). */ ?>
+                <div class="fs-apply-card__status js-apply-status" hidden>
+                    <span class="fs-apply-card__spinner js-apply-spinner" aria-hidden="true"></span>
+                    <p class="fs-apply-card__success-notice js-apply-notice"></p>
+                </div>
             </div>
         </div>
     </div>

@@ -154,8 +154,8 @@ class ExpulsionCallbacks extends BaseController {
 
 		return array_map( function ( StudentRecordDTO $record ) use ( $allSubjects ): array {
 			$group         = $record->groupId ? $this->groupsRepository->findById( $record->groupId ) : null;
-			$scheduleArray = is_string( $group?->schedule )
-				? ( json_decode( $group->schedule, true ) ?? array() )
+			$scheduleArray = is_string( $group?->meetings )
+				? ( json_decode( $group->meetings, true ) ?? array() )
 				: array();
 
 			return array(

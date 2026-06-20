@@ -150,6 +150,62 @@ $salt_set    = (bool) ( $config['hash_salt_set'] ?? false );
 		</form>
 	</div>
 
+	<!-- ======== Настройка заявок ======== -->
+	<div class="fs-config-section fs-config-section--applications">
+		<h2 class="fs-config-section__title">Настройка заявок</h2>
+		<p class="description">
+			Привязка заявки к направлению: ученик вводит код на форме записи, заявка привязывается к предмету
+			(он предвыбирается при зачислении).
+		</p>
+
+		<form id="fs-applications-form" class="fs-config-form">
+
+			<div class="fs-config-field fs-config-field--toggle">
+				<span class="fs-config-field__label">Привязать заявку к направлению</span>
+				<?php render_fs_toggle( 'applications_bind_to_subject', (bool) ( $config['applications_bind_to_subject'] ?? false ), array(
+					'id' => 'fs-config-bind-subject',
+				) ); ?>
+				<p class="description">При включении форма <code>/lms/apply</code> требует ввести код направления.</p>
+			</div>
+
+			<div class="fs-config-field fs-direction-codes" id="fs-direction-codes">
+				<span class="fs-config-field__label">Коды направлений</span>
+				<?php if ( empty( $subjects ) ) : ?>
+					<p class="description">Сначала создайте предметы в разделе «Предметы».</p>
+				<?php else : ?>
+					<?php $direction_codes = (array) ( $config['direction_codes'] ?? array() ); ?>
+					<div class="fs-direction-codes__rows">
+						<?php foreach ( $subjects as $subject ) : ?>
+							<div class="fs-direction-codes__row">
+								<label class="fs-direction-codes__name" for="fs-dir-<?php echo esc_attr( $subject->key ); ?>">
+									<?php echo esc_html( $subject->name ); ?>
+								</label>
+								<input
+									type="text"
+									id="fs-dir-<?php echo esc_attr( $subject->key ); ?>"
+									class="regular-text fs-direction-codes__input"
+									data-direction-code
+									data-subject="<?php echo esc_attr( $subject->key ); ?>"
+									value="<?php echo esc_attr( (string) ( $direction_codes[ $subject->key ] ?? '' ) ); ?>"
+									placeholder="напр. 111"
+								/>
+							</div>
+						<?php endforeach; ?>
+					</div>
+					<p class="description">Код, который ученик вводит на форме записи для привязки к направлению.</p>
+				<?php endif; ?>
+			</div>
+
+			<div class="fs-config-actions">
+				<button type="submit" id="fs-applications-save" class="button button-primary">
+					Сохранить настройки заявок
+				</button>
+				<span class="fs-config-status" id="fs-applications-status"></span>
+			</div>
+
+		</form>
+	</div>
+
 	<!-- ======== Ключи шифрования ======== -->
 	<div class="fs-config-section fs-config-section--keys">
 		<h2 class="fs-config-section__title">Ключи шифрования</h2>
@@ -195,6 +251,16 @@ $salt_set    = (bool) ( $config['hash_salt_set'] ?? false );
 		</div>
 
 	</div>
+
+	<?php
+	/**
+	 * Generic-сейм: опциональные модули (напр. AdSync) дорисовывают свои секции конфигурации.
+	 * Без подписчиков — no-op. Ядро о модулях не знает.
+	 *
+	 * @param array $subjects Список предметов (для строк «направление → …»).
+	 */
+	do_action( 'fs_lms_config_sections', $subjects );
+	?>
 
 </div>
 

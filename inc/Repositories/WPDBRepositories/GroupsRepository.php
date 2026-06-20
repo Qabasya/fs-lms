@@ -202,7 +202,7 @@ class GroupsRepository {
 	/**
 	 * Создаёт новую группу.
 	 *
-	 * @param array $data Массив полей таблицы (name, subject_key, academic_period_id, teacher_id, schedule)
+	 * @param array $data Массив полей таблицы (name, subject_key, academic_period_id, teacher_id, meetings)
 	 *
 	 * @return int ID созданной группы
 	 */

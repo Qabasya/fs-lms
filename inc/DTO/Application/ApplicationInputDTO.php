@@ -44,6 +44,7 @@ readonly class ApplicationInputDTO {
 	 * @param string $userAgent       User-Agent браузера (для аудита)
 	 * @param string $username        Желаемый логин для входа в личный кабинет
 	 * @param string $password        Желаемый пароль (plaintext; хэшируется в сервисе)
+	 * @param string $subjectKey      Ключ направления (предмета), привязанного к заявке по коду (опц.)
 	 */
 	public function __construct(
 		public string $lastName,
@@ -59,6 +60,7 @@ readonly class ApplicationInputDTO {
 		public string $userAgent,
 		public string $username = '',
 		public string $password = '',
+		public string $subjectKey = '',
 	) {}
 
 	public function fullName(): string {

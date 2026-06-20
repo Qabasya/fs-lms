@@ -435,6 +435,37 @@ class ApplicationRepository {
 		return $result;
 	}
 
+	/**
+	 * Заявки с указанными статусами (без условия по сроку).
+	 *
+	 * @param string[] $statuses Значения ApplicationStatus.
+	 *
+	 * @return ApplicationDTO[]
+	 */
+	public function findByStatuses( array $statuses ): array {
+		if ( empty( $statuses ) ) {
+			return array();
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE status IN ($placeholders)",
+				array_merge( array( $this->table ), array_values( $statuses ) )
+			),
+			ARRAY_A
+		);
+
+		$result = array();
+		foreach ( (array) $rows as $row ) {
+			$result[] = ApplicationDTO::fromArray( $row );
+		}
+
+		return $result;
+	}
+
 	/** Safety net: удаляет заявки ученика (зависшие в enrolling после частичного сбоя). */
 	public function hardDeleteByStudentPersonId( int $personId ): void {
 		$this->wpdb->query(

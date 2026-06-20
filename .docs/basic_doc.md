@@ -2649,6 +2649,13 @@ define('FS_LMS_HASH_SALT','d807045d9872d8aeaa629e8c67e3f73c06879756fd7af5c4481c3
 | `DADATA_API_TOKEN` | API-токен DaData для автодополнения адреса/ФИО в формах `/lms/apply` и `/lms/join` |
 | `FS_LMS_CAPTCHA_SITE_KEY` | Клиентский ключ Yandex SmartCaptcha |
 | `FS_LMS_CAPTCHA_SERVER_KEY` | Серверный ключ Yandex SmartCaptcha (валидация токена) |
+| `FS_LMS_AD_SYNC` | Модуль AdSync (синхронизация заявок с Active Directory): `true`/`false`. **Перекрывает** тумблер из БД (жёсткое вкл/выкл для стейджа/прод). Если не задана — действует тумблер в табе «Конфигурация → Синхронизация с доменом (AD)». |
+| `FS_LMS_AD_HMAC_SECRET` | Секрет для HMAC-подписи запросов к Python-сервису AD. В БД **не** хранится. См. `.docs/WpToADTasks.md` и `.docs/FS_LMS_API.md`. |
+
+> **Интеграция с Active Directory** (изолируемый модуль `Inc\Modules\AdSync`): доменные учётки создаются по
+> заявкам, Python-сервис из локальной сети опрашивает REST WP (pull). Архитектура и этапы — `.docs/WpToADTasks.md`;
+> REST-контракт эндпоинтов + пример клиента на Python — `.docs/FS_LMS_API.md`. Модуль отключается тумблером/
+> константой и вырезается удалением каталога + одной строки в `Init` (принцип — `.docs/ModularArchitecture.md`).
 
 Константы независимы. `FS_LMS_OTP_BYPASS_CODE` работает даже без `FS_LMS_TEST_ENV`.
 

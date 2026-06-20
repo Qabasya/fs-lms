@@ -19,6 +19,11 @@ export const ConfigSettings = {
 			this.saveConfig();
 		} );
 
+		$( '#fs-applications-form' ).on( 'submit', ( e ) => {
+			e.preventDefault();
+			this.saveApplicationSettings();
+		} );
+
 		$( document ).on( 'click', '.js-generate-key', ( e ) => {
 			const type = $( e.currentTarget ).data( 'type' );
 			this.generateKey( type );
@@ -46,6 +51,44 @@ export const ConfigSettings = {
 			test_env:      $form.find( '[name=test_env]' ).is( ':checked' ) ? 1 : 0,
 			captcha_site_key:   $form.find( '[name=captcha_site_key]' ).val(),
 			captcha_server_key: $form.find( '[name=captcha_server_key]' ).val(),
+		} )
+			.done( ( res ) => {
+				if ( res.success ) {
+					$status.text( 'Сохранено.' ).addClass( 'fs-config-status--ok' );
+				} else {
+					$status.text( res.data || 'Ошибка.' ).addClass( 'fs-config-status--err' );
+				}
+			} )
+			.fail( () => {
+				$status.text( 'Ошибка сети.' ).addClass( 'fs-config-status--err' );
+			} )
+			.always( () => {
+				$btn.prop( 'disabled', false );
+			} );
+	},
+
+	saveApplicationSettings() {
+		const $form   = $( '#fs-applications-form' );
+		const $status = $( '#fs-applications-status' );
+		const $btn    = $( '#fs-applications-save' );
+
+		$btn.prop( 'disabled', true );
+		$status.text( '' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
+
+		// Сбор кодов направлений: { subject_key: code } из строк раздела «Настройка заявок».
+		const directionCodes = {};
+		$form.find( '[data-direction-code]' ).each( function () {
+			const key = this.dataset.subject;
+			if ( key ) {
+				directionCodes[ key ] = this.value;
+			}
+		} );
+
+		$.post( fs_lms_vars.ajaxurl, {
+			action:   fs_lms_vars.ajax_actions.saveApplicationSettings,
+			security: fs_lms_vars.nonces.config,
+			applications_bind_to_subject: $form.find( '[name=applications_bind_to_subject]' ).is( ':checked' ) ? 1 : 0,
+			direction_codes: directionCodes,
 		} )
 			.done( ( res ) => {
 				if ( res.success ) {

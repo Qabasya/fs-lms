@@ -468,6 +468,23 @@ class StudentRecordRepository {
 	}
 
 	/**
+	 * Все уникальные person_id активных зачислений (status=active), без пагинации.
+	 *
+	 * @return int[]
+	 */
+	public function allActiveStudentPersonIds(): array {
+		$rows = $this->wpdb->get_col(
+			$this->wpdb->prepare(
+				'SELECT DISTINCT student_person_id FROM %i WHERE status = %s',
+				$this->table,
+				'active'
+			)
+		);
+
+		return array_map( 'intval', $rows ?: array() );
+	}
+
+	/**
 	 * Количество уникальных учеников по фильтрам.
 	 *
 	 * @param array $filters Массив фильтров

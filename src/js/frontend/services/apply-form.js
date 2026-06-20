@@ -17,6 +17,9 @@ const vars = window.fs_lms_apply_vars;
 /** Данные формы этапа 1, сохраняются для передачи на этапе 2 */
 let _formData = null;
 
+/** Код направления, введённый в модалке-гейте (если включена привязка к направлению) */
+let _directionCode = '';
+
 /**
  * Читает значение honeypot-поля (должно быть пустым у людей).
  * @returns {string}
@@ -116,9 +119,60 @@ function showOtpStep( maskedEmail ) {
     startCountdown( resendBtn, countdownEl );
 }
 
-function showSuccess() {
+function showSuccess( notice ) {
     document.querySelector( '.js-otp-input-block' ).style.display  = 'none';
     document.querySelector( '.js-otp-success-block' ).style.display = '';
+
+    // Необязательное серверное сообщение + спиннер (например, статус создания доменной учётки).
+    if ( notice ) {
+        const statusEl = document.querySelector( '.js-apply-status' );
+        const noticeEl = document.querySelector( '.js-apply-notice' );
+        if ( noticeEl ) { noticeEl.textContent = notice; }
+        if ( statusEl ) { statusEl.hidden = false; }
+    }
+}
+
+/**
+ * Generic-поллинг статуса: если ответ apply содержит `poll`, опрашиваем указанное действие,
+ * обновляя сообщение, пока статус не станет терминальным (done/failed) или не истечёт лимит.
+ * Ядро не знает, что именно создаётся (это инструктирует модуль через ответ).
+ *
+ * @param {{action:string,nonce:string,ref:number,interval?:number,max?:number}} [poll]
+ */
+function startStatusPoll( poll ) {
+    if ( ! poll || ! poll.action ) { return; }
+
+    const noticeEl  = document.querySelector( '.js-apply-notice' );
+    const spinnerEl = document.querySelector( '.js-apply-spinner' );
+    const interval  = poll.interval || 2500;
+    const max       = poll.max || 40;
+    let count = 0;
+
+    const stop = () => {
+        if ( spinnerEl ) { spinnerEl.hidden = true; }
+    };
+
+    const tick = async () => {
+        count++;
+        let res;
+        try {
+            res = await ajaxPost( poll.action, { ref: poll.ref, security: poll.nonce } );
+        } catch {
+            // сетевый сбой — попробуем на следующем тике
+        }
+
+        const state   = res?.data?.state;
+        const message = res?.data?.message;
+        if ( message && noticeEl ) { noticeEl.textContent = message; }
+
+        if ( state === 'done' || state === 'failed' || count >= max ) {
+            stop();
+            return;
+        }
+        window.setTimeout( tick, interval );
+    };
+
+    window.setTimeout( tick, interval );
 }
 
 // ── Обработчики событий ───────────────────────────────────────────────────────
@@ -145,6 +199,7 @@ async function handleOtpSubmit( e ) {
             security: vars.nonces.verify_otp,
             ..._formData,
             otp_code: otpCode,
+            direction_code: _directionCode,
         } );
     } catch {
         setLoading( btn, false );
@@ -159,7 +214,8 @@ async function handleOtpSubmit( e ) {
         return;
     }
 
-    showSuccess();
+    showSuccess( res.data?.notice );
+    startStatusPoll( res.data?.poll );
 }
 
 async function handleResendOtp() {
@@ -220,11 +276,76 @@ async function checkUsernameAvailable( input ) {
     return true;
 }
 
+/**
+ * Модалка-гейт ввода кода направления. Блокирует форму, пока не введён валидный код.
+ * Валидация — через vars.actions.validate_code (сервер резолвит код в subject_key).
+ */
+function initDirectionGate() {
+    const gate = document.getElementById( 'fs-direction-gate' );
+    if ( ! gate ) { return; }
+
+    const input = document.getElementById( 'fs-direction-code-input' );
+    const btn   = document.getElementById( 'fs-direction-gate-submit' );
+    const err   = document.getElementById( 'fs-direction-gate-error' );
+
+    gate.hidden = false;
+
+    const submit = async () => {
+        const code = input.value.trim();
+        err.hidden = true;
+
+        if ( ! code ) {
+            err.textContent = 'Введите код направления.';
+            err.hidden = false;
+            return;
+        }
+
+        btn.disabled = true;
+
+        let res;
+        try {
+            res = await ajaxPost( vars.actions.validate_code, {
+                security:       vars.nonces.apply,
+                direction_code: code,
+            } );
+        } catch {
+            btn.disabled = false;
+            err.textContent = 'Ошибка соединения. Попробуйте позже.';
+            err.hidden = false;
+            return;
+        }
+
+        btn.disabled = false;
+
+        if ( ! res?.success ) {
+            err.textContent = extractError( res, 'Неверный код направления.' );
+            err.hidden = false;
+            return;
+        }
+
+        _directionCode = code;
+        gate.hidden = true;
+    };
+
+    btn.addEventListener( 'click', submit );
+    input.addEventListener( 'keydown', ( e ) => {
+        if ( 'Enter' === e.key ) {
+            e.preventDefault();
+            submit();
+        }
+    } );
+    input.focus();
+}
+
 export function initApplyForm() {
     if ( ! window.fs_lms_apply_vars ) { return; }
 
     const applyForm = document.getElementById( 'fs-lms-apply-form' );
     if ( ! applyForm ) { return; }
+
+    if ( vars.bind_to_subject ) {
+        initDirectionGate();
+    }
 
     const validateAll = initFormValidation( applyForm );
 

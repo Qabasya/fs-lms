@@ -139,6 +139,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			student_person_id    int unsigned                                                              DEFAULT NULL,
 			parent_person_id     int unsigned                                                              DEFAULT NULL,
 			status               enum('pending_parent','ready_for_review','enrolling','converted','expired','trash') NOT NULL,
+			subject_key          varchar(50)                                                               DEFAULT NULL,
 			join_code_hash       char(64)                                                                  DEFAULT NULL,
 			join_code_enc        blob                                                                      DEFAULT NULL,
 			join_code_expires_at datetime                                                                  DEFAULT NULL,
@@ -155,6 +156,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			KEY student_person_id (student_person_id),
 			KEY parent_person_id (parent_person_id),
 			KEY status (status),
+			KEY subject_key (subject_key),
 			KEY join_code_hash (join_code_hash),
 			KEY student_email_hash (student_email_hash)
 		) $cc;"
@@ -545,6 +547,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) NOT NULL DEFAULT '',
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$applications` ADD COLUMN IF NOT EXISTS `subject_key` varchar(50) DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `course_id` bigint(20) unsigned DEFAULT NULL" );
 		if ( $wpdb->get_var( "SHOW COLUMNS FROM `$groups` LIKE 'schedule'" ) ) {
 			$wpdb->query( "ALTER TABLE `$groups` CHANGE COLUMN `schedule` `meetings` json DEFAULT NULL" );

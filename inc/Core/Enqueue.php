@@ -9,6 +9,7 @@ use Inc\Enums\AjaxHook;
 use Inc\Enums\Nonce;
 use Inc\Enums\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\Application\ApplicationSettingsService;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Security\FormGuardService;
 use Inc\Services\PostTypeResolver;
@@ -50,6 +51,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		private readonly CaptchaService     $captchaService,
 		private readonly PluginConfig       $pluginConfig,
 		private readonly FormGuardService   $formGuard,
+		private readonly ApplicationSettingsService $applicationSettings,
 	) {
 		parent::__construct();
 	}
@@ -307,12 +309,14 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'send_otp'          => AjaxHook::SendOtpCode->jsAction(),
 						'create'            => AjaxHook::CreateApplication->jsAction(),
 						'check_username'    => AjaxHook::CheckUsernameAvailable->jsAction(),
+						'validate_code'     => AjaxHook::ValidateDirectionCode->jsAction(),
 					),
 					'nonces'      => array(
 						'apply'            => Nonce::Apply->create(),
 						'verify_otp'       => Nonce::VerifyOtp->create(),
 						'check_username'   => Nonce::CheckUsernameAvailable->create(),
 					),
+					'bind_to_subject' => $this->applicationSettings->isBindToSubject(),
 				)
 			);
 
