@@ -10,7 +10,7 @@ use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\LessonVisibilityService;
-use Inc\Services\Course\ScheduleService;
+use Inc\Services\Group\ScheduleService;
 use PHPUnit\Framework\TestCase;
 
 class ProgramCallbacksTest extends TestCase {

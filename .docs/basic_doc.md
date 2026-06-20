@@ -88,13 +88,13 @@ inc/
 | `Enrollment` | Жизненный цикл заявки: подача, зачисление, отчисление, восстановление | Controllers, Callbacks, Services, DTO, Enums |
 | `Application` | Данные/логика самой заявки (детализация `Enrollment`) | Services, DTO |
 | `Person` | Люди: ПД (PII), согласия, профиль, пользователи | Controllers, Callbacks, Services, DTO, Enums |
-| `Deletion` | Удаление/стирание данных: каскады, гард, обработчики | Controllers, Services |
+| `Deletion` | Удаление/стирание данных: каскады, гард, обработчики | Controllers, Callbacks, Services |
 | `Subject` | Банк предмета: предметы, статьи, кэш/резолв CPT, защита контента | Controllers, Callbacks, Services, Managers, DTO, Enums |
 | `Task` | Типы задач: создание, бойлерплейты, метабоксы-шаблоны | Controllers, Callbacks, Services, DTO |
 | `Course` | Курсы: уроки, работы, сдачи, модули, шаги, прогресс, журнал, расписание | Controllers, Callbacks, Services, Managers, DTO, Enums |
 | `Assessment` | Контрольные: попытки, автопроверка, оценивание | Controllers, Callbacks, Services, Managers, DTO, Enums |
 | `Problems` | Банк задач (problems) | Controllers |
-| `Group` | Учебные группы: CRUD, кокпит, расписание-контроллер | Controllers, Callbacks |
+| `Group` | Учебные группы: CRUD, кокпит, расписание (сервисы + контроллер) | Controllers, Callbacks, Services |
 | `Settings` | Конфигурация плагина | Controllers, Callbacks, Managers, DTO, Enums |
 | `Import` | CSV-импорт учеников/данных | Controllers, Callbacks, Services, DTO, Enums |
 | `Export` | CSV-экспорт (в т.ч. логов) | Services, DTO, Enums |
@@ -121,9 +121,10 @@ inc/
   (классов мало) и лежат в родительском домене (`TaskManager` → `Managers/Subject`).
 - Папка может **отсутствовать** в слое, если у него нет классов этого домена — это нормально,
   имя всё равно закреплено за назначением.
-- **`Group` vs `Course`**: группы (CRUD, кокпит) — это `Group`; но генерация расписания
-  (`ScheduleService`, `SessionCalendarService`) лежит в `Services/Course/`, т.к. жёстко завязана
-  на контент курса. Контроллер `ScheduleController` при этом — в `Controllers/Group/`.
+- **`Group` и расписание**: всё групповое — в `Group` (CRUD, кокпит, контроллер расписания,
+  сервисы расписания `ScheduleService`/`SessionCalendarService`). Но модель назначенных группе
+  уроков `GroupLessonDTO` остаётся в `Course`, т.к. её использует вся логика доступа/видимости/
+  гейтинга уроков; а сущность группы `StudentGroupDTO` — в `Enrollment`.
 
 ---
 

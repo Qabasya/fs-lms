@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Callbacks\Enrollment;
+namespace Inc\Callbacks\Deletion;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
