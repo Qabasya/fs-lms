@@ -8,7 +8,7 @@ use Inc\DTO\Task\PostViewDTO;
 use Inc\DTO\Subject\SubjectDTO;
 use Inc\DTO\Task\TaskPageDTO;
 use Inc\DTO\Subject\TermViewDTO;
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;

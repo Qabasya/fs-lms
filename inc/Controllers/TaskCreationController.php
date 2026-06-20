@@ -6,7 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Callbacks\Task\TaskCreationCallbacks;
 use Inc\Callbacks\Task\TemplateManagerCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 use Inc\Services\PostTypeResolver;
 use Inc\Shared\Traits\Sanitizer;
 

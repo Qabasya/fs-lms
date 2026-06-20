@@ -7,7 +7,7 @@ namespace Inc\Services\Course;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Managers\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;

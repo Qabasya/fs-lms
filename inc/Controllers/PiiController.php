@@ -8,7 +8,7 @@ use Inc\Callbacks\Person\PersonUpdateCallbacks;
 use Inc\Callbacks\Person\PersonViewCallbacks;
 use Inc\Callbacks\Person\PiiRevealCallbacks;
 use Inc\Callbacks\Person\RepresentativeCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 
 /**
  * Class PiiController

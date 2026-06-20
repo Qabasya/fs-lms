@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 class SubmissionRepository {
 

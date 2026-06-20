@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\AuthLogDTO;
 use Inc\DTO\Log\AuthLogInputDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class AuthLogRepository

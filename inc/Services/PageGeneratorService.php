@@ -2,7 +2,7 @@
 
 namespace Inc\Services;
 
-use Inc\Enums\PageRoutes;
+use Inc\Enums\Wp\PageRoutes;
 
 /**
  * Class PageGeneratorService

@@ -6,9 +6,9 @@ namespace Inc\Services\Deletion;
 
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\EntityChangedEvent;
-use Inc\Enums\EntityType;
-use Inc\Enums\LogEvent;
-use Inc\Enums\OperationType;
+use Inc\Enums\Log\EntityType;
+use Inc\Enums\Log\LogEvent;
+use Inc\Enums\Log\OperationType;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Subject\SubjectDeletionService;

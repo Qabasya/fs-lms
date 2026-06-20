@@ -6,7 +6,7 @@ namespace Integration\Repositories\Log;
 
 use FakeWpdb;
 use Inc\DTO\Log\LearningEventInputDTO;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 use PHPUnit\Framework\TestCase;
 

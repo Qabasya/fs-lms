@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Enrollment;
 
-use Inc\Enums\EnrollmentStatus;
+use Inc\Enums\Enrollment\EnrollmentStatus;
 
 readonly class StudentRecordDTO {
 

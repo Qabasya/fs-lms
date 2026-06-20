@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\MetaBoxes\Fields;
 
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Services\PostTypeResolver;
 
 /**

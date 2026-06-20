@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Course\LessonProgressDTO;
-use Inc\Enums\ProgressStatus;
-use Inc\Enums\TableName;
+use Inc\Enums\Course\ProgressStatus;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class LessonProgressRepository

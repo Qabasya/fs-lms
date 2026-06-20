@@ -5,10 +5,10 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
-use Inc\Enums\AssignmentPolicy;
-use Inc\Enums\Capability;
-use Inc\Enums\LessonVisibility;
-use Inc\Enums\Nonce;
+use Inc\Enums\Course\AssignmentPolicy;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Course\LessonVisibility;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\EffectiveWorksResolver;

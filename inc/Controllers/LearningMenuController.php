@@ -6,8 +6,8 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Menu;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Menu;
 use Inc\Registrars\MenuRegistrar;
 use Inc\Services\Course\TeacherSubjectsService;
 use Inc\Services\PostTypeResolver;

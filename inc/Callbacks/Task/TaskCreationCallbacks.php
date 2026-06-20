@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Task;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Managers\TaskManager;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Services\Task\TaskTypeService;

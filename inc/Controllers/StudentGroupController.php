@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Controllers;
 
 use Inc\Callbacks\StudentGroupCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 
 /**
  * Class StudentGroupController

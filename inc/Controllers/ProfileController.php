@@ -6,9 +6,9 @@ namespace Inc\Controllers;
 
 use Inc\Core\BaseController;
 use Inc\Contracts\ServiceInterface;
-use Inc\Enums\OptionName;
-use Inc\Enums\PageRoutes;
-use Inc\Enums\ShortCode;
+use Inc\Enums\Settings\OptionName;
+use Inc\Enums\Wp\PageRoutes;
+use Inc\Enums\Wp\ShortCode;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Shared\Traits\TemplateRenderer;

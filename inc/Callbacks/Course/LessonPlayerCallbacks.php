@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Nonce;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\LessonProgressService;
 use Inc\Shared\Traits\Sanitizer;

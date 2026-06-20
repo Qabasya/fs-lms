@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\OptionsRepositories;
 
 use Inc\DTO\Person\UserDTO;
-use Inc\Enums\UserRole;
+use Inc\Enums\Access\UserRole;
 
 /**
  * Class UserRepository

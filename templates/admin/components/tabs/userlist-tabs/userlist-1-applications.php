@@ -8,9 +8,9 @@ declare( strict_types=1 );
  * @package FS LMS
  */
 
-use Inc\Enums\ApplicationStatus;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Enrollment\ApplicationStatus;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\Security\PiiCryptoService;
 

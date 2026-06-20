@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\DTO\Log\Events;
 
 use Inc\Contracts\LogEventInterface;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 
 readonly class LearningEvent implements LogEventInterface {
 

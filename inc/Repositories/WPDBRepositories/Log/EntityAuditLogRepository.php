@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\EntityAuditLogDTO;
 use Inc\DTO\Log\EntityAuditLogInputDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class EntityAuditLogRepository

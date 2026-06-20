@@ -4,9 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Core;
 
-use Inc\Enums\PageRoutes;
-use Inc\Enums\ShortCode;
-use Inc\Enums\CronHook;
+use Inc\Enums\Wp\PageRoutes;
+use Inc\Enums\Wp\ShortCode;
+use Inc\Enums\Wp\CronHook;
 use Inc\Managers\CronManager;
 use Inc\Managers\RoleManager;
 use Inc\Migrations\Migration_1_0_0;

@@ -6,7 +6,7 @@ namespace Inc\Managers;
 
 use Inc\DTO\Course\CourseDTO;
 use Inc\DTO\Course\ModuleDTO;
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Services\PostTypeResolver;
 
 /**

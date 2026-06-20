@@ -6,8 +6,8 @@ namespace Inc\Services\Email;
 
 use Inc\Contracts\EmailTemplateInterface;
 use Inc\DTO\Email\EmailTemplateData;
-use Inc\Enums\EmailTemplateType;
-use Inc\Enums\OptionName;
+use Inc\Enums\Email\EmailTemplateType;
+use Inc\Enums\Settings\OptionName;
 
 /**
  * Загружает email-шаблон из wp_options; при отсутствии — делегирует в PhpEmailTemplate.

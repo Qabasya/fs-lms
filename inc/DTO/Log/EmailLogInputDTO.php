@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Log;
 
-use Inc\Enums\EmailStatus;
+use Inc\Enums\Email\EmailStatus;
 
 /**
  * Class EmailLogInputDTO

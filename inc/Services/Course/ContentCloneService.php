@@ -8,7 +8,7 @@ use Inc\DTO\Course\CourseDTO;
 use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\ModuleDTO;
 use Inc\DTO\Course\WorkDTO;
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\AssessmentManager;
 use Inc\Managers\CourseManager;
 use Inc\Managers\LessonManager;

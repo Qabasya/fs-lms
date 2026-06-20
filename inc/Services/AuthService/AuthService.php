@@ -6,8 +6,8 @@ namespace Inc\Services\AuthService;
 
 use Hybridauth\Hybridauth;
 use Inc\DTO\Person\UserDTO;
-use Inc\Enums\AuthProvider;
-use Inc\Enums\UserRole;
+use Inc\Enums\Auth\AuthProvider;
+use Inc\Enums\Access\UserRole;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 
 /**

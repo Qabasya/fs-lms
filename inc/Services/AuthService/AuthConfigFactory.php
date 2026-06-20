@@ -2,7 +2,7 @@
 
 namespace Inc\Services\AuthService;
 
-use Inc\Enums\AuthProvider;
+use Inc\Enums\Auth\AuthProvider;
 use Inc\Repositories\OptionsRepositories\SettingsRepository;
 
 /**

@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\PageRoutes::GroupCockpit->url() );
+$cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRoutes::GroupCockpit->url() );
 ?>
 <div class="wrap fs-player fs-player--locked">
 	<div class="notice notice-warning">

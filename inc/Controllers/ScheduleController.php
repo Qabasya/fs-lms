@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Controllers;
 
 use Inc\Callbacks\Course\ProgramCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 
 class ScheduleController extends AjaxController {
 

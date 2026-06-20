@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Repositories\WPDBRepositories;
 
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class GroupsRepository

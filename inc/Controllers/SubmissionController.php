@@ -6,7 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Callbacks\Course\GradingCallbacks;
 use Inc\Callbacks\Course\SubmissionCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 
 class SubmissionController extends AjaxController {
 

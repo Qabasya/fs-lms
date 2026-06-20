@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\EmailLogDTO;
 use Inc\DTO\Log\EmailLogInputDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class EmailLogRepository

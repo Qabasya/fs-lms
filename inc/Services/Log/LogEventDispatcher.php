@@ -6,7 +6,7 @@ namespace Inc\Services\Log;
 
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Contracts\LogEventInterface;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Shared\PluginLogger;
 
 /**

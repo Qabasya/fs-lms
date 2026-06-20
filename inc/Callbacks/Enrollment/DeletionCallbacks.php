@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Enrollment;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Deletion\DeleteGroupEvent;

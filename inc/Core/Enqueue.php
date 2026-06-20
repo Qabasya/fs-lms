@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Inc\Core;
 
 use Inc\Contracts\ServiceInterface;
-use Inc\Enums\AjaxHook;
-use Inc\Enums\Nonce;
-use Inc\Enums\PageRoutes;
+use Inc\Enums\Wp\AjaxHook;
+use Inc\Enums\Wp\Nonce;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Application\ApplicationSettingsService;
 use Inc\Services\Captcha\CaptchaService;

@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Managers;
 
-use Inc\Enums\CronHook;
+use Inc\Enums\Wp\CronHook;
 
 /**
  * Class CronManager

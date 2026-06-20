@@ -6,8 +6,8 @@ namespace Inc\Services\Log;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\AuditLogInputDTO;
-use Inc\Enums\AuditAction;
-use Inc\Enums\AuditTargetType;
+use Inc\Enums\Log\AuditAction;
+use Inc\Enums\Log\AuditTargetType;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;

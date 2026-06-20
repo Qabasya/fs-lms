@@ -6,7 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Callbacks\Assessment\AttemptCallbacks;
 use Inc\Callbacks\Assessment\GradeAttemptCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 
 class AssessmentController extends AjaxController {
 

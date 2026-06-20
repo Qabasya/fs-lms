@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Course;
 
-use Inc\Enums\StepType;
+use Inc\Enums\Course\StepType;
 use Inc\Managers\LessonManager;
 use Inc\Managers\PostManager;
 use Inc\Services\Course\LessonAuthoringService;

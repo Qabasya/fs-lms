@@ -155,7 +155,7 @@ $groupsRepo = new GroupsRepository();
 
 								<?php
 
-								use Inc\Enums\Nonce;
+								use Inc\Enums\Wp\Nonce;
 
 								wp_nonce_field( Nonce::Subject->value, 'security' );
 								?>

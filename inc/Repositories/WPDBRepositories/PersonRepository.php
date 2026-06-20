@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Person\PersonDTO;
 use Inc\DTO\Person\PersonRecordInputDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class PersonRepository

@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Controllers;
 
 use Inc\Callbacks\Enrollment\DeletionCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 use Inc\Services\Deletion\DeleteGroupEvent;
 use Inc\Services\Deletion\DeleteParentEvent;
 use Inc\Services\Deletion\DeletePeriodEvent;

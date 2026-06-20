@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inc\Repositories\OptionsRepositories;
 
 use Inc\DTO\Subject\TaxonomyDataDTO;
-use Inc\Enums\OptionName;
+use Inc\Enums\Settings\OptionName;
 
 /**
  * Class TaxonomyRepository

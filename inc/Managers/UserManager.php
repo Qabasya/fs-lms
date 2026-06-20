@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Managers;
 
 use Inc\DTO\Person\UserInputDTO;
-use Inc\Enums\MetaKeys;
+use Inc\Enums\Wp\MetaKeys;
 
 /**
  * Class UserManager

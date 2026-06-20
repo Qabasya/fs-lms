@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\ConsentChangeLogDTO;
 use Inc\DTO\Log\ConsentChangeLogInputDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class ConsentChangeLogRepository

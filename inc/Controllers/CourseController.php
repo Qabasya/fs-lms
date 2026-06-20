@@ -7,7 +7,7 @@ namespace Inc\Controllers;
 use Inc\Callbacks\Course\CloneCallbacks;
 use Inc\Callbacks\Course\CourseBuilderCallbacks;
 use Inc\Callbacks\Course\CourseCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 
 /**
  * Class CourseController

@@ -6,8 +6,8 @@ namespace Inc\Callbacks;
 
 use DomainException;
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Services\Import\ImportService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;

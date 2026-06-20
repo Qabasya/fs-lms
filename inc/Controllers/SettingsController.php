@@ -7,7 +7,7 @@ namespace Inc\Controllers;
 use Inc\Callbacks\Settings\AcademicPeriodCallbacks;
 use Inc\Callbacks\Settings\ConsentSettingsCallbacks;
 use Inc\Callbacks\Settings\EmailTemplateSettingsCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 
 /**
  * Class SettingsController

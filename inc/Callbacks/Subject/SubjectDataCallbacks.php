@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Subject;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Managers\PostManager;
 use Inc\Managers\TermManager;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;

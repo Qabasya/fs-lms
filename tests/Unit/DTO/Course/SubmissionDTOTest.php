@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Unit\DTO\Course;
 
 use Inc\DTO\Course\SubmissionDTO;
-use Inc\Enums\SubmissionStatus;
-use Inc\Enums\WorkType;
+use Inc\Enums\Course\SubmissionStatus;
+use Inc\Enums\Course\WorkType;
 use PHPUnit\Framework\TestCase;
 
 class SubmissionDTOTest extends TestCase {

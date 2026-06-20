@@ -7,7 +7,7 @@ namespace Inc\Controllers\Subscribers;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\DTO\Log\Events\EmailSentEvent;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Services\Log\EmailLogWriter;
 
 /**

@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Managers;
 
 use Inc\DTO\Assessment\AssessmentDTO;
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Services\PostTypeResolver;
 
 /**

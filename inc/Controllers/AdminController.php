@@ -6,9 +6,9 @@ use Inc\Callbacks\AdminCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\Builders\SubjectsMenuBuilder;
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Menu;
-use Inc\Enums\OptionName;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Menu;
+use Inc\Enums\Settings\OptionName;
 use Inc\Registrars\MenuRegistrar;
 use Inc\Registrars\SettingsRegistrar;
 

@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 class GroupLessonRepository {
 

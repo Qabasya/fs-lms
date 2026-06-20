@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
-use Inc\Enums\Capability;
+use Inc\Enums\Access\Capability;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 

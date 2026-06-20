@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Course;
 
-use Inc\Enums\ProgressStatus;
+use Inc\Enums\Course\ProgressStatus;
 
 /**
  * Прохождение одного шага урока учеником (строка `fs_lms_lesson_progress`, ★).

@@ -6,7 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 
 /**
  * Class AjaxController

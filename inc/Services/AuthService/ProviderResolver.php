@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\AuthService;
 
-use Inc\Enums\AuthProvider;
+use Inc\Enums\Auth\AuthProvider;
 use Inc\Shared\Traits\Sanitizer;
 
 /**

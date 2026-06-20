@@ -6,7 +6,7 @@
  * @package FS LMS
  */
 
-use Inc\Enums\OptionName;
+use Inc\Enums\Settings\OptionName;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }

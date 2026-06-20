@@ -9,7 +9,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GradeDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Managers\MediaManager;
 use Inc\Managers\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;

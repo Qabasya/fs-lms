@@ -10,7 +10,7 @@ use Inc\DTO\Log\Events\EntityHardDeletedEvent;
 use Inc\DTO\Log\Events\PersonDataChangedEvent;
 use Inc\DTO\Person\PersonInputDTO;
 use Inc\DTO\Person\PersonRecordInputDTO;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Security\PiiCryptoService;

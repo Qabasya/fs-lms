@@ -6,8 +6,8 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\Nonce;
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\Nonce;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\PostManager;
 use Inc\Services\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;

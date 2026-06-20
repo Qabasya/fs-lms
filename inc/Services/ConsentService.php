@@ -9,7 +9,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\ConsentInputDTO;
 use Inc\DTO\Log\Events\ConsentChangedEvent;
 use Inc\DTO\RequestContextDTO;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\WPDBRepositories\ConsentRepository;
 use RuntimeException;

@@ -7,7 +7,7 @@ namespace Inc\Services\Person;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\PiiRevealedEvent;
 use Inc\DTO\Person\PersonDecryptedDTO;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Security\PiiCryptoService;

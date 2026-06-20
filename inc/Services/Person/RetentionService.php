@@ -6,7 +6,7 @@ namespace Inc\Services\Person;
 
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\EntityHardDeletedEvent;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;

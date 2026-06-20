@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\MetaBoxes\Fields;
 
 use Inc\Contracts\FieldInterface;
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Shared\Traits\Sanitizer;
 
 /**

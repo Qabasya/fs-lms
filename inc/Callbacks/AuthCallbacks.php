@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
-use Inc\Enums\AuthProvider;
+use Inc\Enums\Auth\AuthProvider;
 use Inc\Repositories\OptionsRepositories\SettingsRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 

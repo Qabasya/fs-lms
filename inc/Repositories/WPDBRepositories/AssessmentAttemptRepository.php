@@ -6,8 +6,8 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Assessment\AttemptInputDTO;
-use Inc\Enums\AttemptStatus;
-use Inc\Enums\TableName;
+use Inc\Enums\Assessment\AttemptStatus;
+use Inc\Enums\Settings\TableName;
 
 class AssessmentAttemptRepository {
 

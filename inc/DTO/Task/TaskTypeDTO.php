@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Task;
 
-use Inc\Enums\TaskTemplate;
+use Inc\Enums\Subject\TaskTemplate;
 
 /**
  * Class TaskTypeDTO

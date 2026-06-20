@@ -6,8 +6,8 @@ namespace Inc\Callbacks\Assessment;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Services\Assessment\AutoGradeService;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;

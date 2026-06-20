@@ -6,7 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
+use Inc\Enums\Access\Capability;
 use Inc\Services\PostTypeResolver;
 use Inc\Shared\Traits\TemplateRenderer;
 

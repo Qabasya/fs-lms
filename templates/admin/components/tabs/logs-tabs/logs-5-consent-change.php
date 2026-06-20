@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-use Inc\Enums\ConsentType;
+use Inc\Enums\Person\ConsentType;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;

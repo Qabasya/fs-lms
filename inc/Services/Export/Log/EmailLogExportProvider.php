@@ -6,7 +6,7 @@ namespace Inc\Services\Export\Log;
 
 use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\Export\CsvColumn;
-use Inc\Enums\EmailTemplateType;
+use Inc\Enums\Email\EmailTemplateType;
 use Inc\Repositories\WPDBRepositories\Log\EmailLogRepository;
 use Inc\Services\Log\LogNameResolver;
 

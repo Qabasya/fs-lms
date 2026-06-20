@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\AuthService;
 
 use Inc\Contracts\AuthStrategyInterface;
-use Inc\Enums\AuthProvider;
+use Inc\Enums\Auth\AuthProvider;
 use Inc\Services\AuthService\AuthStrategies\GithubAuthStrategy;
 use Inc\Services\AuthService\AuthStrategies\GoogleAuthStrategy;
 use Inc\Services\AuthService\AuthStrategies\VkAuthStrategy;

@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Import;
 
-use Inc\Enums\DocumentType;
+use Inc\Enums\Person\DocumentType;
 
 /**
  * Class DocTypeResolver

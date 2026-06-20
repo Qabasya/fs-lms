@@ -7,8 +7,8 @@ namespace Inc\Controllers;
 use Inc\Callbacks\Enrollment\RecoveryCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\CronHook;
-use Inc\Enums\UserRole;
+use Inc\Enums\Wp\CronHook;
+use Inc\Enums\Access\UserRole;
 use Inc\Managers\CronManager;
 
 /**

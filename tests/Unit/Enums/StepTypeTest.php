@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Enums;
 
-use Inc\Enums\StepType;
+use Inc\Enums\Course\StepType;
 use PHPUnit\Framework\TestCase;
 
 class StepTypeTest extends TestCase {

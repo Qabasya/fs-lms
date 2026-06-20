@@ -5,9 +5,9 @@ declare( strict_types=1 );
 namespace Inc\Callbacks;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\ExportTarget;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Export\ExportTarget;
+use Inc\Enums\Wp\Nonce;
 use Inc\Services\Export\ExportService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;

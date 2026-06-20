@@ -6,8 +6,8 @@ namespace Inc\Services\Email;
 
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Log\Events\EmailSentEvent;
-use Inc\Enums\EmailTemplateType;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Email\EmailTemplateType;
+use Inc\Enums\Log\LogEvent;
 use Inc\Managers\UserManager;
 use Inc\Services\Email\WpOptionsEmailTemplate;
 

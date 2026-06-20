@@ -6,8 +6,8 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\GateState;
-use Inc\Enums\PageRoutes;
+use Inc\Enums\Course\GateState;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\GroupAccessGuard;

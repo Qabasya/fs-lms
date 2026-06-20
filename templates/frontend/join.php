@@ -9,7 +9,7 @@
  */
 
 use Inc\DTO\Enrollment\StudentDataDTO;
-use Inc\Enums\Nonce;
+use Inc\Enums\Wp\Nonce;
 use Inc\Services\ThemeCompatService;
 
 if ( ! defined( 'ABSPATH' ) ) {

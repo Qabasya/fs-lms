@@ -2,7 +2,7 @@
 
 namespace Inc\Shared\Traits;
 
-use Inc\Enums\Capability;
+use Inc\Enums\Access\Capability;
 use Inc\Shared\PluginLogger;
 
 /**

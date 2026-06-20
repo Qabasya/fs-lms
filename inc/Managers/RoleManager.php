@@ -4,8 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Managers;
 
-use Inc\Enums\Capability;
-use Inc\Enums\UserRole;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Access\UserRole;
 
 /**
  * Class RoleManager

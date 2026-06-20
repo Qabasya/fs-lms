@@ -9,9 +9,9 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Import\ImportContextDTO;
 use Inc\DTO\Import\ImportReportDTO;
 use Inc\DTO\Log\Events\EntityChangedEvent;
-use Inc\Enums\EntityType;
-use Inc\Enums\LogEvent;
-use Inc\Enums\OperationType;
+use Inc\Enums\Log\EntityType;
+use Inc\Enums\Log\LogEvent;
+use Inc\Enums\Log\OperationType;
 use Inc\Shared\Traits\TransactionRunner;
 use InvalidArgumentException;
 

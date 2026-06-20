@@ -6,7 +6,7 @@
  * @package FS LMS
  */
 
-use Inc\Enums\DocumentType;
+use Inc\Enums\Person\DocumentType;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 ?>

@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Subject;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Nonce;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Log\ExportLogWriter;
 use Inc\Services\Subject\SubjectExportService;

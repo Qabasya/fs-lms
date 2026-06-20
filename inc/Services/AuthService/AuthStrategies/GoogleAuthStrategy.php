@@ -3,7 +3,7 @@
 namespace Inc\Services\AuthService\AuthStrategies;
 
 use Inc\DTO\Person\UserDTO;
-use Inc\Enums\AuthProvider;
+use Inc\Enums\Auth\AuthProvider;
 use Inc\Shared\PluginLogger;
 
 class GoogleAuthStrategy extends AbstractHybridAuthStrategy {

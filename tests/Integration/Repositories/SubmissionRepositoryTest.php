@@ -6,7 +6,7 @@ namespace Integration\Repositories;
 
 use FakeWpdb;
 use Inc\DTO\Course\SubmissionInputDTO;
-use Inc\Enums\SubmissionStatus;
+use Inc\Enums\Course\SubmissionStatus;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use PHPUnit\Framework\TestCase;
 

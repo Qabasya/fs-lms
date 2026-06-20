@@ -4,8 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Course;
 
-use Inc\Enums\SubmissionStatus;
-use Inc\Enums\WorkType;
+use Inc\Enums\Course\SubmissionStatus;
+use Inc\Enums\Course\WorkType;
 
 readonly class SubmissionDTO {
 

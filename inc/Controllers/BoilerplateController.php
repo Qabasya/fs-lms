@@ -3,7 +3,7 @@
 namespace Inc\Controllers;
 
 use Inc\Callbacks\Task\BoilerplateCallbacks;
-use Inc\Enums\AjaxHook;
+use Inc\Enums\Wp\AjaxHook;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**

@@ -6,7 +6,7 @@ namespace Inc\Controllers;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
+use Inc\Enums\Access\Capability;
 use Inc\Services\Course\ContentLifecycleService;
 use Inc\Services\Course\ContentUsageService;
 use Inc\Services\PostTypeResolver;

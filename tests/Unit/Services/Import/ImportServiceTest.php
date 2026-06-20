@@ -7,7 +7,7 @@ namespace Unit\Services\Import;
 use Generator;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Import\ImportRowResultDTO;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 use Inc\Services\Import\CsvParseService;
 use Inc\Services\Import\ImportService;
 use Inc\Services\Import\StudentRowImporter;

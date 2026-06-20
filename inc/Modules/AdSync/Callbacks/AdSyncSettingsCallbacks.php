@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Modules\AdSync\Callbacks;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Services\Application\ApplicationSettingsService;
 use Inc\Shared\Traits\Authorizer;

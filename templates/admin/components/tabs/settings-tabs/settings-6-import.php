@@ -3,7 +3,7 @@
 declare( strict_types=1 );
 
 use Inc\DTO\Subject\SubjectDTO;
-use Inc\Enums\ImportColumn;
+use Inc\Enums\Import\ImportColumn;
 
 defined( 'ABSPATH' ) || exit;
 

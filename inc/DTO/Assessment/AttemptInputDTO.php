@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Assessment;
 
-use Inc\Enums\AttemptStatus;
+use Inc\Enums\Assessment\AttemptStatus;
 
 readonly class AttemptInputDTO {
 

@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Assessment;
 
-use Inc\Enums\ScoringPolicy;
+use Inc\Enums\Assessment\ScoringPolicy;
 use Inc\Services\PostTypeResolver;
 
 readonly class AssessmentDTO {

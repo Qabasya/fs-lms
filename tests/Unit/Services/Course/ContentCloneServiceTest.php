@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Services\Course;
 
 use FakeWpdb;
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\AssessmentManager;
 use Inc\Managers\CourseManager;
 use Inc\Managers\LessonManager;

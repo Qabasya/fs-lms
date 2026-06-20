@@ -8,8 +8,8 @@ use Inc\Callbacks\AuthCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Shared\Traits\TemplateRenderer;
-use Inc\Enums\PageRoutes;
-use Inc\Enums\ShortCode;
+use Inc\Enums\Wp\PageRoutes;
+use Inc\Enums\Wp\ShortCode;
 
 /**
  * Class AuthPageController

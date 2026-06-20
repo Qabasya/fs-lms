@@ -6,8 +6,8 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\DTO\Enrollment\StudentRecordInputDTO;
-use Inc\Enums\EnrollmentStatus;
-use Inc\Enums\TableName;
+use Inc\Enums\Enrollment\EnrollmentStatus;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class StudentRecordRepository

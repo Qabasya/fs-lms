@@ -8,9 +8,9 @@ declare( strict_types=1 );
  * @package FS LMS
  */
 
-use Inc\Enums\Capability;
-use Inc\Enums\EnrollmentStatus;
-use Inc\Enums\WeekDay;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Enrollment\EnrollmentStatus;
+use Inc\Enums\Course\WeekDay;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;

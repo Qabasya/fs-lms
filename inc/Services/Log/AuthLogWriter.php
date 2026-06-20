@@ -6,8 +6,8 @@ namespace Inc\Services\Log;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\AuthLogInputDTO;
-use Inc\Enums\AuthAction;
-use Inc\Enums\AuthResult;
+use Inc\Enums\Auth\AuthAction;
+use Inc\Enums\Auth\AuthResult;
 use Inc\Repositories\WPDBRepositories\Log\AuthLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
 

@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Modules\AdSync\Services;
 
 use Inc\DTO\Application\ApplicationDTO;
-use Inc\Enums\ApplicationStatus;
+use Inc\Enums\Enrollment\ApplicationStatus;
 use Inc\Managers\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;

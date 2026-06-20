@@ -4,8 +4,8 @@ namespace Inc\Controllers\Builders;
 
 use Inc\Callbacks\Subject\SubjectPageCallbacks;
 use Inc\DTO\Subject\SubjectDTO;
-use Inc\Enums\Capability;
-use Inc\Enums\Menu;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Menu;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 
 /**

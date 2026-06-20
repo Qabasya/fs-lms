@@ -15,7 +15,7 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || die( 'Direct access to this file is not allo
 
 require_once __DIR__ . '/vendor/autoload.php';
 
-use Inc\Enums\Capability;
+use Inc\Enums\Access\Capability;
 use Inc\Migrations\Migration_1_0_0;
 
 // 1. Удалить все 7 кастомных таблиц

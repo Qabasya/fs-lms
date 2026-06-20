@@ -4,10 +4,10 @@ declare( strict_types=1 );
 
 namespace Inc\Managers;
 
-use Inc\Enums\Capability;
-use Inc\Enums\MetaKeys;
-use Inc\Enums\PageRoutes;
-use Inc\Enums\UserRole;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\MetaKeys;
+use Inc\Enums\Wp\PageRoutes;
+use Inc\Enums\Access\UserRole;
 
 /**
  * Class UserBehaviorManager

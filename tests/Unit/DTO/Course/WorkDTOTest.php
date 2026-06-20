@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Unit\DTO\Course;
 
 use Inc\DTO\Course\WorkDTO;
-use Inc\Enums\WorkType;
+use Inc\Enums\Course\WorkType;
 use PHPUnit\Framework\TestCase;
 use WP_Post;
 

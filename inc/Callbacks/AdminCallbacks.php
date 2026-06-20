@@ -7,10 +7,10 @@ namespace Inc\Callbacks;
 use Inc\Controllers\Pages\BoilerplatePageController;
 use Inc\Core\BaseController;
 use Inc\DTO\Settings\AcademicPeriodDTO;
-use Inc\Enums\AuditAction;
-use Inc\Enums\Capability;
-use Inc\Enums\UserRole;
-use Inc\Enums\WeekDay;
+use Inc\Enums\Log\AuditAction;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Access\UserRole;
+use Inc\Enums\Course\WeekDay;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
@@ -157,7 +157,7 @@ class AdminCallbacks extends BaseController {
 			? $this->groupsRepository->findByFilters( $selected_period_id, $filter_subject_key, $filter_teacher_id )
 			: array();
 		$subjects = $this->subjects->readAll();
-		$teachers = $this->users->getByRole( \Inc\Enums\UserRole::FSTeacher );
+		$teachers = $this->users->getByRole( \Inc\Enums\Access\UserRole::FSTeacher );
 
 		$teacher_map = array();
 		foreach ( $teachers as $t ) {

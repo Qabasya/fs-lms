@@ -6,8 +6,8 @@ namespace Inc\Callbacks\Person;
 
 use Inc\Core\BaseController;
 use Inc\DTO\Person\PersonInputDTO;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Person\PersonService;
 use Inc\Shared\Traits\Authorizer;
