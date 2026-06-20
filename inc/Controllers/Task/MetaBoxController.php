@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Controllers\Subject;
+namespace Inc\Controllers\Task;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;

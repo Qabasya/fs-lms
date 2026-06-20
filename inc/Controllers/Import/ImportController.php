@@ -2,7 +2,9 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Controllers\System;
+namespace Inc\Controllers\Import;
+
+use Inc\Controllers\System\AjaxController;
 
 use Inc\Callbacks\Import\ImportCallbacks;
 use Inc\Enums\Wp\AjaxHook;

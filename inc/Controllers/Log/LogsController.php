@@ -2,7 +2,9 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Controllers\System;
+namespace Inc\Controllers\Log;
+
+use Inc\Controllers\System\AjaxController;
 
 use Inc\Callbacks\Log\LogsCallbacks;
 use Inc\Enums\Wp\AjaxHook;
