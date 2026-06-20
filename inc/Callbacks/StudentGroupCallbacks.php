@@ -108,7 +108,7 @@ class StudentGroupCallbacks extends BaseController {
 			'academic_period_id' => $academic_period_id,
 			'name'               => $title,
 			'teacher_id'         => $teacher_id,
-			'schedule'           => (string) wp_json_encode( $schedule ),
+			'meetings'           => (string) wp_json_encode( $schedule ),
 		) );
 
 		if ( ! $id ) {
@@ -249,7 +249,7 @@ class StudentGroupCallbacks extends BaseController {
 
 		$updated = $this->groupsRepository->update( $id, array(
 			'teacher_id' => $teacher_id,
-			'schedule'   => (string) wp_json_encode( $schedule ),
+			'meetings'   => (string) wp_json_encode( $schedule ),
 		) );
 
 		if ( ! $updated ) {

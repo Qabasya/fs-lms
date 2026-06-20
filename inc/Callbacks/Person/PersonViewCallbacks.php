@@ -240,7 +240,7 @@ class PersonViewCallbacks extends BaseController {
 			return '';
 		}
 
-		$raw      = $group->schedule ?? null;
+		$raw      = $group->meetings ?? null;
 		$schedule = is_string( $raw ) ? ( json_decode( $raw, true ) ?: array() ) : ( is_array( $raw ) ? $raw : array() );
 
 		if ( empty( $schedule ) ) {

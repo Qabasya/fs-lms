@@ -143,8 +143,8 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 						? ( $allSubjects[ $group->subject_key ] ?? $group->subject_key )
 						: '—';
 					$groupTitle    = $group?->name ?? '—';
-					$scheduleArray = $group !== null && is_string( $group->schedule )
-						? ( json_decode( $group->schedule, true ) ?? array() )
+					$scheduleArray = $group !== null && is_string( $group->meetings )
+						? ( json_decode( $group->meetings, true ) ?? array() )
 						: array();
 					$scheduleStr   = WeekDay::formatSchedule( $scheduleArray );
 
