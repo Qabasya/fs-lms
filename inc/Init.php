@@ -3,6 +3,7 @@
 namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Modules\AdSync\AdSyncModule;
 use Inc\Controllers\ApplicationController;
 use Inc\Controllers\Pages\ApplyPageController;
 use Inc\Controllers\ConsentController;
@@ -146,6 +147,8 @@ final class Init {
 			// ==== Этап 3 — сдача работ ====
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
+			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====
+			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
 		);
 	}
 

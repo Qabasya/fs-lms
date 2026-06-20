@@ -20,6 +20,7 @@ use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Services\Application\ApplicationService;
+use Inc\Services\Application\ApplicationSettingsService;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Email\EmailOtpService;
@@ -79,6 +80,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly PluginConfig                 $pluginConfig,
 		private readonly FormGuardService             $formGuard,
 		private readonly PersonDocumentsRepository    $personDocumentsRepository,
+		private readonly ApplicationSettingsService   $applicationSettings,
 	) {
 		parent::__construct();
 	}
@@ -288,6 +290,26 @@ class ApplicationCallbacks extends BaseController {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Проверка кода направления для модалки-гейта на /lms/apply.
+	 * Возвращает success, если привязка выключена или код валиден; иначе — ошибку.
+	 *
+	 * @return void
+	 */
+	public function ajaxValidateDirectionCode(): void {
+		Nonce::Apply->verify();
+
+		if ( ! $this->applicationSettings->isBindToSubject() ) {
+			$this->success( array( 'valid' => true ) );
+		}
+
+		if ( null === $this->applicationSettings->resolveSubjectByCode( $this->sanitizeText( 'direction_code' ) ) ) {
+			$this->error( 'Неверный код направления.' );
+		}
+
+		$this->success( array( 'valid' => true ) );
+	}
+
 	public function ajaxCreateApplication(): void {
 		Nonce::VerifyOtp->verify();
 
@@ -311,6 +333,15 @@ class ApplicationCallbacks extends BaseController {
 		$password   = $this->requireText( 'password' );
 		$ua         = (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' );
 
+		// Привязка к направлению по коду (если включена в настройках заявок).
+		$subjectKey = '';
+		if ( $this->applicationSettings->isBindToSubject() ) {
+			$subjectKey = (string) $this->applicationSettings->resolveSubjectByCode( $this->sanitizeText( 'direction_code' ) );
+			if ( '' === $subjectKey ) {
+				$this->error( 'Неверный код направления.' );
+			}
+		}
+
 		$dto = new ApplicationInputDTO(
 			lastName:        $lastName,
 			firstName:       $firstName,
@@ -325,6 +356,7 @@ class ApplicationCallbacks extends BaseController {
 			userAgent:       $ua,
 			username:        $username,
 			password:        $password,
+			subjectKey:      $subjectKey,
 		);
 
 		try {
@@ -336,10 +368,27 @@ class ApplicationCallbacks extends BaseController {
 		}
 
 		$this->authLog->record( $email, AuthAction::OtpVerified, AuthResult::Success );
-		$this->success( array(
+
+		/**
+		 * Generic-сейм для опциональных модулей (напр. AdSync): заявка создана.
+		 * Без подписчиков — no-op.
+		 */
+		do_action( 'fs_lms_application_created', $result->applicationId );
+
+		$response = array(
 			'join_url'   => $result->joinUrl,
 			'expires_at' => $result->expiresAt,
-		) );
+		);
+
+		/**
+		 * Generic-сейм: модуль может дописать данные в ответ apply (напр. статус AD-провижна).
+		 *
+		 * @param array $response Ответ AJAX.
+		 * @param int   $applicationId ID созданной заявки.
+		 */
+		$response = (array) apply_filters( 'fs_lms_apply_response', $response, $result->applicationId );
+
+		$this->success( $response );
 	}
 
 	/**

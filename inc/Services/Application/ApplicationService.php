@@ -136,6 +136,7 @@ readonly class ApplicationService {
 				updatedAt:          $this->clock->now( 'mysql', true ),
 				studentEmailHash:   $emailHash,
 				parentSubmittedIp:  $ctx->ip,
+				subjectKey:         '' !== $input->subjectKey ? $input->subjectKey : null,
 			) );
 
 			// Фиксация согласия на обработку ПД (сам ученик)
@@ -279,6 +280,9 @@ readonly class ApplicationService {
 				LogEvent::ApplicationExpired,
 				new ApplicationStatusEvent( 0, AuditAction::ExpireApplication, $app->id )
 			);
+
+			// Generic-сейм для опциональных модулей (напр. AdSync deprovision). Без подписчиков — no-op.
+			do_action( 'fs_lms_application_expired', $app->id );
 
 			$count++;
 		}

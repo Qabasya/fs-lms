@@ -19,6 +19,7 @@ class ConfigController extends AjaxController {
 		return array(
 			array( AjaxHook::SaveConfig, $this->configCallbacks ),
 			array( AjaxHook::GenerateKey, $this->configCallbacks ),
+			array( AjaxHook::SaveApplicationSettings, $this->configCallbacks ),
 		);
 	}
 }

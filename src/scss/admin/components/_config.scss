@@ -136,4 +136,40 @@
 		padding: $spacing-sm;
 		color: $color-text-primary;
 	}
+
+	// Раздел «Настройка заявок»
+	.fs-direction-codes {
+		&__rows {
+			display: flex;
+			flex-direction: column;
+			gap: $spacing-sm;
+			margin: $spacing-sm 0;
+			max-width: 560px;
+		}
+
+		&__row {
+			display: flex;
+			align-items: center;
+			gap: $spacing-md;
+		}
+
+		&__name {
+			flex: 0 0 200px;
+			color: $color-text-primary;
+		}
+
+		&__input {
+			flex: 1;
+		}
+	}
+
+	// Подпись над полем raw-секрета для .env Python (раздел AD).
+	.fs-adsync-env-label {
+		margin-top: $spacing-md;
+	}
+
+	// Предупреждение о зависимости AD от привязки к направлению.
+	.fs-adsync-dep-warning {
+		color: $color-danger;
+	}
 }

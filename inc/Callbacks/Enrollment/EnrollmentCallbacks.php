@@ -239,6 +239,10 @@ class EnrollmentCallbacks extends BaseController {
 			get_current_user_id(), AuditAction::MoveToTrash, $id
 		) );
 
+		// Generic-сейм для опциональных модулей (напр. AdSync deprovision). Без подписчиков — no-op.
+		// Фитим на trash (заявка ещё существует), не на EmptyTrash (там запись удаляется).
+		do_action( 'fs_lms_application_trashed', $id );
+
 		$this->success();
 	}
 
@@ -504,7 +508,11 @@ class EnrollmentCallbacks extends BaseController {
 			}
 		}
 
-		$this->success( array( 'student' => $student, 'parent' => $parent ) );
+		$this->success( array(
+			'student'     => $student,
+			'parent'      => $parent,
+			'subject_key' => $app->subjectKey ?? '',
+		) );
 	}
 
 	/**

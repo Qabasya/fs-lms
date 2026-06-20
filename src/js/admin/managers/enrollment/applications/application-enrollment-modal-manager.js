@@ -209,6 +209,11 @@ export const ApplicationEnrollmentModalManager = {
                     // в разных вкладках/секциях модалки. Это делает код UI-компонента чище.
                     ApplicationEnrollmentModal.populateStudentData( res.data.student );
                     ApplicationEnrollmentModal.populateParentData( res.data.parent );
+
+                    // Предвыбор предмета, если заявка привязана к направлению (Этап 0).
+                    if ( res.data.subject_key ) {
+                        $( '#enroll-subject' ).val( res.data.subject_key ).trigger( 'change' );
+                    }
                 }
             } );
     },
