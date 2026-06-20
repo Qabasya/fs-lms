@@ -11,8 +11,8 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Services\Course\ScheduleService;
-use Inc\Services\Course\SessionCalendarService;
+use Inc\Services\Group\ScheduleService;
+use Inc\Services\Group\SessionCalendarService;
 use PHPUnit\Framework\TestCase;
 
 class ScheduleServiceTest extends TestCase {

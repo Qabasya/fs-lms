@@ -6,7 +6,7 @@ namespace Inc\Controllers\Deletion;
 
 use Inc\Controllers\System\AjaxController;
 
-use Inc\Callbacks\Enrollment\DeletionCallbacks;
+use Inc\Callbacks\Deletion\DeletionCallbacks;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Services\Deletion\DeleteGroupEvent;
 use Inc\Services\Deletion\DeleteParentEvent;

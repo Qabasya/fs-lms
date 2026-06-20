@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services\Course;
+namespace Inc\Services\Group;
 
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
