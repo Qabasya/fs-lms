@@ -2,7 +2,7 @@
 
 namespace Inc\Controllers\System;
 
-use Inc\Callbacks\AdminCallbacks;
+use Inc\Callbacks\System\AdminCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\Builders\SubjectsMenuBuilder;
 use Inc\Core\BaseController;

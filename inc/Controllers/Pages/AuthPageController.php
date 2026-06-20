@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Pages;
 
-use Inc\Callbacks\AuthCallbacks;
+use Inc\Callbacks\Auth\AuthCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Shared\Traits\TemplateRenderer;

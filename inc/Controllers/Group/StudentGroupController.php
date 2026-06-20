@@ -6,7 +6,7 @@ namespace Inc\Controllers\Group;
 
 use Inc\Controllers\System\AjaxController;
 
-use Inc\Callbacks\StudentGroupCallbacks;
+use Inc\Callbacks\Group\StudentGroupCallbacks;
 use Inc\Enums\Wp\AjaxHook;
 
 /**

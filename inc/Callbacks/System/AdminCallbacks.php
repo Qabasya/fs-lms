@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Callbacks;
+namespace Inc\Callbacks\System;
 
 use Inc\Controllers\Pages\BoilerplatePageController;
 use Inc\Core\BaseController;

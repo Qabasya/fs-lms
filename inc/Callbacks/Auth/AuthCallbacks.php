@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Callbacks;
+namespace Inc\Callbacks\Auth;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Auth\AuthProvider;

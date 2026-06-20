@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Callbacks;
+namespace Inc\Callbacks\Log;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;

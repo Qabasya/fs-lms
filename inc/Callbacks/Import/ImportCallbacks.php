@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Callbacks;
+namespace Inc\Callbacks\Import;
 
 use DomainException;
 use Inc\Core\BaseController;

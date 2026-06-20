@@ -3,7 +3,7 @@
 namespace Inc\Controllers\Auth;
 
 use Exception;
-use Inc\Callbacks\AuthCallbacks;
+use Inc\Callbacks\Auth\AuthCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Auth\AuthProvider;
