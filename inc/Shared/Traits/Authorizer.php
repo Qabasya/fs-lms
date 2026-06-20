@@ -4,8 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Shared\Traits;
 
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 
 /**
  * Trait Authorizer

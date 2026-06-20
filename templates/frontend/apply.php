@@ -5,7 +5,7 @@
  * @package FS LMS
  */
 
-use Inc\Enums\Nonce;
+use Inc\Enums\Wp\Nonce;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;

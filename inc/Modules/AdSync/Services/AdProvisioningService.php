@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\AdSync\Services;
 
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
 use Inc\Modules\AdSync\Enums\AdSyncEvent;
 use Inc\Modules\AdSync\Repositories\AdOutboxRepository;

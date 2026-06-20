@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Person;
 
-use Inc\Enums\PiiField;
+use Inc\Enums\Person\PiiField;
 
 /**
  * Class PiiMaskingService

@@ -6,7 +6,7 @@ namespace Inc\Services\Email;
 
 use Inc\Contracts\EmailTemplateInterface;
 use Inc\DTO\Email\EmailTemplateData;
-use Inc\Enums\EmailTemplateType;
+use Inc\Enums\Email\EmailTemplateType;
 use RuntimeException;
 
 /**

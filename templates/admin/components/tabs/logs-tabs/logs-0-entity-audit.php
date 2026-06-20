@@ -3,8 +3,8 @@
 declare( strict_types=1 );
 
 use Inc\DTO\Log\EntityAuditLogDTO;
-use Inc\Enums\EntityType;
-use Inc\Enums\OperationType;
+use Inc\Enums\Log\EntityType;
+use Inc\Enums\Log\OperationType;
 use Inc\Services\Log\LogNameResolver;
 
 /**

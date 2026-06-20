@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Contracts;
 
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\LogEvent;
 
 /**
  * Контракт внутренней шины событий логирования.

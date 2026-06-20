@@ -6,7 +6,7 @@ namespace Unit\DTO\Application;
 
 use Inc\DTO\Application\ApplicationDTO;
 use Inc\DTO\Application\ApplicationRecordInputDTO;
-use Inc\Enums\ApplicationStatus;
+use Inc\Enums\Enrollment\ApplicationStatus;
 use PHPUnit\Framework\TestCase;
 
 /**

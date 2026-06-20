@@ -8,14 +8,14 @@ use Inc\DTO\Course\CourseDTO;
 use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\ModuleDTO;
 use Inc\DTO\Course\WorkDTO;
-use Inc\Enums\PostMetaName;
-use Inc\Managers\AssessmentManager;
-use Inc\Managers\CourseManager;
-use Inc\Managers\LessonManager;
-use Inc\Managers\PostManager;
-use Inc\Managers\WorkManager;
+use Inc\Enums\Wp\PostMetaName;
+use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Managers\Course\CourseManager;
+use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class ContentCloneService

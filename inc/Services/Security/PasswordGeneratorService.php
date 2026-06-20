@@ -4,8 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Security;
 
-use Inc\Enums\MetaKeys;
-use Inc\Managers\UserManager;
+use Inc\Enums\Wp\MetaKeys;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 
 /**

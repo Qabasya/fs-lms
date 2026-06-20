@@ -4,8 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Course;
 
-use Inc\Enums\StepType;
-use Inc\Services\PostTypeResolver;
+use Inc\Enums\Course\StepType;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class LessonDTO

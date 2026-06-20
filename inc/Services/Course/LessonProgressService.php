@@ -6,11 +6,11 @@ namespace Inc\Services\Course;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\StepDTO;
-use Inc\Enums\AttemptStatus;
-use Inc\Enums\ProgressStatus;
-use Inc\Enums\StepType;
-use Inc\Enums\SubmissionStatus;
-use Inc\Managers\LessonManager;
+use Inc\Enums\Assessment\AttemptStatus;
+use Inc\Enums\Course\ProgressStatus;
+use Inc\Enums\Course\StepType;
+use Inc\Enums\Course\SubmissionStatus;
+use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\LessonProgressRepository;

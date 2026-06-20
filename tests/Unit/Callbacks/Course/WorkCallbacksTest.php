@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Callbacks\Course;
 
 use Inc\Callbacks\Course\WorkCallbacks;
-use Inc\Managers\WorkManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Services\Course\WorkAuthoringService;
 use PHPUnit\Framework\TestCase;
 

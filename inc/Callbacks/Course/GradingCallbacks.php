@@ -6,8 +6,8 @@ namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
 use Inc\DTO\Course\GradeDTO;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\GradebookService;

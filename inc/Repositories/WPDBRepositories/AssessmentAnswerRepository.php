@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Assessment\AttemptAnswerDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 class AssessmentAnswerRepository {
 

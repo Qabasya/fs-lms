@@ -6,7 +6,7 @@
  * @var string $nonce Nonce для действия отчисления
  */
 
-use Inc\Enums\ExpulsionReasons;
+use Inc\Enums\Enrollment\ExpulsionReasons;
 ?>
 
 <div id="fs-expel-modal" class="fs-lms-modal hidden" aria-modal="true" role="dialog">

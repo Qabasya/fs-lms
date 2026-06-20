@@ -7,7 +7,7 @@ namespace Inc\MetaBoxes\Templates;
 use Inc\MetaBoxes\Fields\ArticleRefField;
 use Inc\MetaBoxes\Fields\WorkRefField;
 use Inc\Services\Course\LessonAuthoringService;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class LessonTemplate

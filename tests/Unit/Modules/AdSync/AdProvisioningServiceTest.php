@@ -6,7 +6,7 @@ namespace Unit\Modules\AdSync;
 
 use Inc\DTO\Application\ApplicationDTO;
 use Inc\DTO\Person\PersonDTO;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
 use Inc\Modules\AdSync\Repositories\AdOutboxRepository;
 use Inc\Modules\AdSync\Services\AdProvisioningService;

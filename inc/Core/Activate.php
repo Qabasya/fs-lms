@@ -4,15 +4,15 @@ declare( strict_types=1 );
 
 namespace Inc\Core;
 
-use Inc\Enums\PageRoutes;
-use Inc\Enums\ShortCode;
-use Inc\Enums\CronHook;
-use Inc\Managers\CronManager;
-use Inc\Managers\RoleManager;
+use Inc\Enums\Wp\PageRoutes;
+use Inc\Enums\Wp\ShortCode;
+use Inc\Enums\Wp\CronHook;
+use Inc\Managers\Wp\CronManager;
+use Inc\Managers\Person\RoleManager;
 use Inc\Migrations\Migration_1_0_0;
 use Inc\Migrations\MigrationRunner;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
-use Inc\Services\PageGeneratorService;
+use Inc\Services\System\PageGeneratorService;
 use Inc\Services\Security\PiiCryptoService;
 
 /**

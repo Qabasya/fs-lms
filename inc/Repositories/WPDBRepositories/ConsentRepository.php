@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\ConsentDTO;
 use Inc\DTO\ConsentInputDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class ConsentRepository

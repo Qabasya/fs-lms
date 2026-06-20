@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Unit\Callbacks\Course;
 
 use Inc\Callbacks\Course\LessonCallbacks;
-use Inc\Managers\LessonManager;
-use Inc\Managers\PostManager;
+use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\LessonAuthoringService;
 use PHPUnit\Framework\TestCase;
 

@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-use Inc\Services\ThemeCompatService;
+use Inc\Services\Shared\ThemeCompatService;
 
 $consent_text    = get_query_var( 'fs_consent_text', '' );
 $consent_version = get_query_var( 'fs_consent_version', '' );

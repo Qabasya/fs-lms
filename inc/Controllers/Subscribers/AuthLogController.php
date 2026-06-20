@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Controllers\Subscribers;
 
 use Inc\Contracts\ServiceInterface;
-use Inc\Enums\AuthAction;
-use Inc\Enums\AuthResult;
+use Inc\Enums\Auth\AuthAction;
+use Inc\Enums\Auth\AuthResult;
 use Inc\Services\Log\AuthLogWriter;
 
 /**

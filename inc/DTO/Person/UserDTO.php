@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Person;
 
-use Inc\Enums\UserRole;
+use Inc\Enums\Access\UserRole;
 
 /**
  * Class UserDTO

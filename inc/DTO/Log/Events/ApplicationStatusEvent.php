@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\DTO\Log\Events;
 
 use Inc\Contracts\LogEventInterface;
-use Inc\Enums\AuditAction;
+use Inc\Enums\Log\AuditAction;
 
 /**
  * Payload события ApplicationAudit — изменение статуса заявки.

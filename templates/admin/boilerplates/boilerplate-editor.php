@@ -11,7 +11,7 @@
  * @var array<string, array{label: string}>  $fields         Поля условий шаблона
  */
 
-use Inc\Enums\Nonce;
+use Inc\Enums\Wp\Nonce;
 ?>
 
 <div class="wrap">

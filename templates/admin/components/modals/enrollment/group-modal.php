@@ -7,7 +7,7 @@
  * @var \Inc\DTO\Person\UserDTO[]     $teachers          Список преподавателей (передан из коллбека)
  */
 
-use Inc\Enums\WeekDay;
+use Inc\Enums\Course\WeekDay;
 
 
 ?>

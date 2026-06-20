@@ -2,8 +2,8 @@
 
 declare( strict_types=1 );
 
-use Inc\Enums\DataFieldType;
-use Inc\Enums\PiiAccessReason;
+use Inc\Enums\Export\DataFieldType;
+use Inc\Enums\Person\PiiAccessReason;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;

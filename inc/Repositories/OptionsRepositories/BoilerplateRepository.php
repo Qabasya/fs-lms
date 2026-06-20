@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inc\Repositories\OptionsRepositories;
 
 use Inc\DTO\Task\TaskTypeBoilerplateDTO;
-use Inc\Enums\OptionName;
+use Inc\Enums\Settings\OptionName;
 use Inc\Shared\PluginLogger;
 
 /**

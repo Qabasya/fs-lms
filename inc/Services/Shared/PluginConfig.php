@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Shared;
 
-use Inc\Enums\ConfigConstant;
+use Inc\Enums\Settings\ConfigConstant;
 use Inc\Repositories\OptionsRepositories\PluginConfigRepository;
 
 /**

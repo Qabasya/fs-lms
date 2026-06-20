@@ -6,7 +6,7 @@ namespace Inc\Services\Export;
 
 use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\Export\CsvColumn;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;

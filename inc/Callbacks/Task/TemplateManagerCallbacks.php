@@ -5,13 +5,13 @@ namespace Inc\Callbacks\Task;
 use Inc\Core\BaseController;
 use Inc\DTO\Task\TaskTemplateAssignmentDTO;
 use Inc\DTO\Task\TaskTypeBoilerplateDTO;
-use Inc\Enums\Nonce;
-use Inc\Enums\TaskTemplate;
-use Inc\Managers\PostManager;
+use Inc\Enums\Wp\Nonce;
+use Inc\Enums\Subject\TaskTemplate;
+use Inc\Managers\Wp\PostManager;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 

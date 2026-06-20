@@ -8,7 +8,7 @@ declare( strict_types=1 );
  * @package FS LMS
  */
 
-use Inc\Enums\Capability;
+use Inc\Enums\Access\Capability;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 

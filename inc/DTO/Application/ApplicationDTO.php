@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Application;
 
-use Inc\Enums\ApplicationStatus;
+use Inc\Enums\Enrollment\ApplicationStatus;
 
 readonly class ApplicationDTO {
 

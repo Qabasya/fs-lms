@@ -6,7 +6,7 @@ namespace Integration\Repositories;
 
 use FakeWpdb;
 use Inc\DTO\Course\LessonProgressDTO;
-use Inc\Enums\ProgressStatus;
+use Inc\Enums\Course\ProgressStatus;
 use Inc\Repositories\WPDBRepositories\LessonProgressRepository;
 use PHPUnit\Framework\TestCase;
 

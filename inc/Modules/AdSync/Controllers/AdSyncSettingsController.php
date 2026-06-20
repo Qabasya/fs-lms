@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Modules\AdSync\Controllers;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Nonce;
+use Inc\Enums\Wp\Nonce;
 use Inc\Modules\AdSync\Callbacks\AdSyncSettingsCallbacks;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Services\Application\ApplicationSettingsService;

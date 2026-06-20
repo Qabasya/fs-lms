@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Enums;
 
-use Inc\Enums\WorkType;
+use Inc\Enums\Course\WorkType;
 use PHPUnit\Framework\TestCase;
 
 class WorkTypeTest extends TestCase {

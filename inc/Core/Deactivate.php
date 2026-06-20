@@ -2,8 +2,8 @@
 
 namespace Inc\Core;
 
-use Inc\Managers\CronManager;
-use Inc\Managers\RoleManager;
+use Inc\Managers\Wp\CronManager;
+use Inc\Managers\Person\RoleManager;
 
 /**
  * Class Deactivate

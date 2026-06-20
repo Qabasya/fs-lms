@@ -6,9 +6,9 @@ namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
 use Inc\DTO\Course\LessonDTO;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
-use Inc\Managers\LessonManager;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
+use Inc\Managers\Course\LessonManager;
 use Inc\Services\Course\LessonAuthoringService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;

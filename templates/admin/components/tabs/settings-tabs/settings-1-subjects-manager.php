@@ -3,7 +3,7 @@
 declare( strict_types=1 );
 
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -155,7 +155,7 @@ $groupsRepo = new GroupsRepository();
 
 								<?php
 
-								use Inc\Enums\Nonce;
+								use Inc\Enums\Wp\Nonce;
 
 								wp_nonce_field( Nonce::Subject->value, 'security' );
 								?>

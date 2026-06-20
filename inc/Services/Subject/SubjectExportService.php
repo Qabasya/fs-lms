@@ -4,12 +4,12 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject;
 
-use Inc\Managers\PostManager;
-use Inc\Managers\TermManager;
+use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class SubjectExportService

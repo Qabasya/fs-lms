@@ -30,7 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<section class="fs-cockpit-section">
 			<h2><?php echo esc_html( $topic ); ?></h2>
 
-			<a class="fs-cockpit-play" href="<?php echo esc_url( add_query_arg( array( 'gid' => $group->id, 'gl' => $row->id ), \Inc\Enums\PageRoutes::GroupCockpit->url() ) ); ?>">
+			<a class="fs-cockpit-play" href="<?php echo esc_url( add_query_arg( array( 'gid' => $group->id, 'gl' => $row->id ), \Inc\Enums\Wp\PageRoutes::GroupCockpit->url() ) ); ?>">
 				<?php esc_html_e( 'Пройти урок по шагам →', 'fs-lms' ); ?>
 			</a>
 

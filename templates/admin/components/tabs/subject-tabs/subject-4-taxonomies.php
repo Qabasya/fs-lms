@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-use Inc\Enums\TaxonomyDisplayType;
+use Inc\Enums\Subject\TaxonomyDisplayType;
 
 defined( 'ABSPATH' ) || exit;
 

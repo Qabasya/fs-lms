@@ -6,8 +6,8 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Application\ApplicationDTO;
 use Inc\DTO\Application\ApplicationRecordInputDTO;
-use Inc\Enums\ApplicationStatus;
-use Inc\Enums\TableName;
+use Inc\Enums\Enrollment\ApplicationStatus;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class ApplicationRepository

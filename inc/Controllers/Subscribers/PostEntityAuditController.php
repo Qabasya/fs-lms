@@ -7,10 +7,10 @@ namespace Inc\Controllers\Subscribers;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\DTO\Log\Events\EntityChangedEvent;
-use Inc\Enums\EntityType;
-use Inc\Enums\LogEvent;
-use Inc\Enums\OperationType;
-use Inc\Services\PostTypeResolver;
+use Inc\Enums\Log\EntityType;
+use Inc\Enums\Log\LogEvent;
+use Inc\Enums\Log\OperationType;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class PostEntityAuditController

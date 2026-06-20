@@ -3,7 +3,7 @@
 declare( strict_types=1 );
 
 use Inc\DTO\Log\AuditLogDTO;
-use Inc\Enums\AuditAction;
+use Inc\Enums\Log\AuditAction;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;

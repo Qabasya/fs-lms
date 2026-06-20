@@ -8,9 +8,9 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\WorkDTO;
 use Inc\DTO\Log\Events\LearningEvent;
-use Inc\Enums\LogEvent;
-use Inc\Managers\LessonManager;
-use Inc\Managers\WorkManager;
+use Inc\Enums\Log\LogEvent;
+use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 
 class EffectiveWorksResolver {

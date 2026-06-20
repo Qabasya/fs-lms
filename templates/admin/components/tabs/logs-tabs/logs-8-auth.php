@@ -3,8 +3,8 @@
 declare( strict_types=1 );
 
 use Inc\DTO\Log\AuthLogDTO;
-use Inc\Enums\AuthAction;
-use Inc\Enums\AuthResult;
+use Inc\Enums\Auth\AuthAction;
+use Inc\Enums\Auth\AuthResult;
 use Inc\Services\Log\LogNameResolver;
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 

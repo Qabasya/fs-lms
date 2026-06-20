@@ -5,12 +5,12 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Person;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
-use Inc\Enums\PiiAccessReason;
-use Inc\Enums\PiiField;
-use Inc\Enums\UserRole;
-use Inc\Enums\WeekDay;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
+use Inc\Enums\Person\PiiAccessReason;
+use Inc\Enums\Person\PiiField;
+use Inc\Enums\Access\UserRole;
+use Inc\Enums\Course\WeekDay;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;

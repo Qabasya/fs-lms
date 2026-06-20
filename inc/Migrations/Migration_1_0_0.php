@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Migrations;
 
 use Inc\Contracts\MigrationInterface;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 /**
  * Class Migration_1_0_0

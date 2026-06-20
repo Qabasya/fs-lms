@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Task;
 
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 
 class TaskPublishValidator {

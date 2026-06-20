@@ -4,9 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
-use Inc\Managers\PostManager;
-use Inc\Managers\TermManager;
-use Inc\Services\PostTypeResolver;
+use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class WorkAuthoringService

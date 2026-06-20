@@ -5,7 +5,7 @@ namespace Inc\MetaBoxes\Templates;
 use Inc\MetaBoxes\Fields\CodeField;
 use Inc\MetaBoxes\Fields\InputField;
 use Inc\MetaBoxes\Fields\ConditionField;
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\PostMetaName;
 
 /*
  * Это класс для 19-21 заданий ЕГЭ по информатике

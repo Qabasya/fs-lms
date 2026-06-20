@@ -6,9 +6,9 @@ namespace Inc\Services\Course;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Enrollment\StudentRecordDTO;
-use Inc\Enums\AccessLevel;
-use Inc\Enums\EnrollmentStatus;
-use Inc\Enums\LessonVisibility;
+use Inc\Enums\Access\AccessLevel;
+use Inc\Enums\Enrollment\EnrollmentStatus;
+use Inc\Enums\Course\LessonVisibility;
 use Inc\Repositories\OptionsRepositories\ExpulsionPolicyRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;

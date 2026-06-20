@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Import;
 
-use Inc\Enums\DocumentType;
+use Inc\Enums\Person\DocumentType;
 use Inc\Services\Import\DocTypeResolver;
 use PHPUnit\Framework\TestCase;
 

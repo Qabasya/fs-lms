@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Subject;
 
 use Inc\Core\BaseController;
-use Inc\Enums\PostMetaName;
-use Inc\Services\PostTypeResolver;
+use Inc\Enums\Wp\PostMetaName;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishValidator;
 use Inc\Shared\Traits\Sanitizer;
 

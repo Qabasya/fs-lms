@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\AdSync\Controllers;
 
-use Inc\Enums\Nonce;
+use Inc\Enums\Wp\Nonce;
 use Inc\Modules\AdSync\Services\AdProvisioningService;
 
 /**

@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Settings;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Capability;
-use Inc\Enums\Nonce;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\OptionsRepositories\PluginConfigRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;

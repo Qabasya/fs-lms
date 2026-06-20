@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Assessment;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Nonce;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Assessment\AttemptService;
 use Inc\Shared\Traits\AjaxResponse;

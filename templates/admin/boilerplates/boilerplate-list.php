@@ -8,7 +8,7 @@
  * @var string                               $back_url             PageRoutes кнопки «Назад»
  */
 
-use Inc\Enums\Nonce;
+use Inc\Enums\Wp\Nonce;
 ?>
 
 <div class="wrap boilerplate-manager-wrapper">

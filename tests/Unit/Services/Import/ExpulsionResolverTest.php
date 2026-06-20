@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Import;
 
-use Inc\Enums\EnrollmentStatus;
+use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Services\Import\ExpulsionResolver;
 use PHPUnit\Framework\TestCase;
 

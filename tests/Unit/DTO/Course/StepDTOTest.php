@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Unit\DTO\Course;
 
 use Inc\DTO\Course\StepDTO;
-use Inc\Enums\StepType;
+use Inc\Enums\Course\StepType;
 use PHPUnit\Framework\TestCase;
 
 class StepDTOTest extends TestCase {

@@ -4,12 +4,12 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Pages;
 
-use Inc\Callbacks\AuthCallbacks;
+use Inc\Callbacks\Auth\AuthCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Shared\Traits\TemplateRenderer;
-use Inc\Enums\PageRoutes;
-use Inc\Enums\ShortCode;
+use Inc\Enums\Wp\PageRoutes;
+use Inc\Enums\Wp\ShortCode;
 
 /**
  * Class AuthPageController

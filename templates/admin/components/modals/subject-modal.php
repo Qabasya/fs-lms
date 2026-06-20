@@ -1,4 +1,4 @@
-<?php use Inc\Enums\Nonce; ?>
+<?php use Inc\Enums\Wp\Nonce; ?>
 <div id="fs-subject-modal" class="fs-lms-modal hidden">
 	<!-- Затемнение (прозрачное по умолчанию, можно включить при необходимости) -->
 	<div class="fs-lms-modal-backdrop"></div>

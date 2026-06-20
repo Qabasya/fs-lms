@@ -6,7 +6,7 @@ namespace Inc\Services\Log;
 
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\DTO\Log\LearningEventInputDTO;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 
 class LearningEventWriter {

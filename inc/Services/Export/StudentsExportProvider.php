@@ -6,7 +6,7 @@ namespace Inc\Services\Export;
 
 use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\Export\CsvColumn;
-use Inc\Enums\MetaKeys;
+use Inc\Enums\Wp\MetaKeys;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;

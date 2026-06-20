@@ -6,8 +6,8 @@ namespace Inc\Services\Course;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
-use Inc\Enums\GateState;
-use Inc\Managers\LessonManager;
+use Inc\Enums\Course\GateState;
+use Inc\Managers\Course\LessonManager;
 
 /**
  * Class LessonGateResolver
@@ -67,7 +67,7 @@ class LessonGateResolver {
 
 	/**
 	 * @param \Inc\DTO\Course\StepDTO[]          $steps
-	 * @param array<string, \Inc\Enums\ProgressStatus> $statuses
+	 * @param array<string, \Inc\Enums\Course\ProgressStatus> $statuses
 	 */
 	private function resolveStepGate( array $steps, string $stepKey, array $statuses ): GateState {
 		$index = -1;
@@ -98,7 +98,7 @@ class LessonGateResolver {
 	}
 
 	/**
-	 * @param array<string, \Inc\Enums\ProgressStatus> $statuses
+	 * @param array<string, \Inc\Enums\Course\ProgressStatus> $statuses
 	 */
 	private function requireComplete( array $statuses, string $stepKey ): GateState {
 		$status = $statuses[ $stepKey ] ?? null;

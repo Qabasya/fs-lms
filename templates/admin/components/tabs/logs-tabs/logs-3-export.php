@@ -2,8 +2,8 @@
 
 declare( strict_types=1 );
 
-use Inc\Enums\ExportActionType;
-use Inc\Enums\ExportTarget;
+use Inc\Enums\Export\ExportActionType;
+use Inc\Enums\Export\ExportTarget;
 use Inc\Services\Log\LogNameResolver;
 
 /**

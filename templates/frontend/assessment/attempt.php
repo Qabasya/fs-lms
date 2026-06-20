@@ -6,7 +6,7 @@
  */
 declare( strict_types=1 );
 
-use Inc\Enums\AttemptStatus;
+use Inc\Enums\Assessment\AttemptStatus;
 ?>
 <div class="fs-page-wrapper">
 	<div class="fs-assessment-page">

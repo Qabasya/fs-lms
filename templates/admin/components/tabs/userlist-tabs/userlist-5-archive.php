@@ -8,8 +8,8 @@ declare( strict_types=1 );
  * @package FS LMS
  */
 
-use Inc\Enums\Capability;
-use Inc\Enums\EnrollmentStatus;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Enrollment\EnrollmentStatus;
 
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 use Inc\Repositories\WPDBRepositories\GroupsRepository;

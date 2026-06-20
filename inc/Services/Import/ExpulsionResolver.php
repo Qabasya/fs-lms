@@ -4,8 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Import;
 
-use Inc\Enums\EnrollmentStatus;
-use Inc\Enums\ExpulsionReasons;
+use Inc\Enums\Enrollment\EnrollmentStatus;
+use Inc\Enums\Enrollment\ExpulsionReasons;
 
 /**
  * Class ExpulsionResolver

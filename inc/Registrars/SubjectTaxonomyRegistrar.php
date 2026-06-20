@@ -2,7 +2,7 @@
 
 namespace Inc\Registrars;
 
-use Inc\Managers\TaxonomyManager;
+use Inc\Managers\Wp\TaxonomyManager;
 
 /**
  * Class SubjectTaxonomyRegistrar

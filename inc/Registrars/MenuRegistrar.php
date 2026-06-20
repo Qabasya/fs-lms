@@ -2,7 +2,7 @@
 
 namespace Inc\Registrars;
 
-use Inc\Managers\MenuManager;
+use Inc\Managers\Wp\MenuManager;
 
 /**
  * Class MenuRegistrar

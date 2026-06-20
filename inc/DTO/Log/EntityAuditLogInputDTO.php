@@ -4,8 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Log;
 
-use Inc\Enums\EntityType;
-use Inc\Enums\OperationType;
+use Inc\Enums\Log\EntityType;
+use Inc\Enums\Log\OperationType;
 
 /**
  * Class EntityAuditLogInputDTO

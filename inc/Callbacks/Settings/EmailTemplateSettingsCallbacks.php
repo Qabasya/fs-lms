@@ -5,8 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Settings;
 
 use Inc\Core\BaseController;
-use Inc\Enums\EmailTemplateType;
-use Inc\Enums\Nonce;
+use Inc\Enums\Email\EmailTemplateType;
+use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\OptionsRepositories\EmailTemplatesRepository;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;

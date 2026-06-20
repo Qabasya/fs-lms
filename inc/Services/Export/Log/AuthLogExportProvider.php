@@ -6,8 +6,8 @@ namespace Inc\Services\Export\Log;
 
 use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\Export\CsvColumn;
-use Inc\Enums\AuthAction;
-use Inc\Enums\AuthResult;
+use Inc\Enums\Auth\AuthAction;
+use Inc\Enums\Auth\AuthResult;
 use Inc\Repositories\WPDBRepositories\Log\AuthLogRepository;
 use Inc\Services\Log\LogNameResolver;
 

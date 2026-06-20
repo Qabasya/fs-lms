@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inc\Migrations;
 
 use Inc\Contracts\MigrationInterface;
-use Inc\Enums\OptionName;
+use Inc\Enums\Settings\OptionName;
 
 /**
  * Class MigrationRunner

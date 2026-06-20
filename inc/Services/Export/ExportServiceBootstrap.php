@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Export;
 
 use Inc\Contracts\ServiceInterface;
-use Inc\Enums\ExportTarget;
+use Inc\Enums\Export\ExportTarget;
 use Inc\Services\Export\Log\AuthLogExportProvider;
 use Inc\Services\Export\Log\ConsentChangeLogExportProvider;
 use Inc\Services\Export\Log\DataChangeLogExportProvider;

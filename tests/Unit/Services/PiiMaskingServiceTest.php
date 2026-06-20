@@ -4,7 +4,7 @@ namespace Unit\Services;
 
 use PHPUnit\Framework\TestCase;
 use Inc\Services\Person\PiiMaskingService;
-use Inc\Enums\PiiField;
+use Inc\Enums\Person\PiiField;
 
 class PiiMaskingServiceTest extends TestCase {
 	private PiiMaskingService $service;

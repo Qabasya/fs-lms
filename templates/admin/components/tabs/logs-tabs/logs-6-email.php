@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-use Inc\Enums\EmailTemplateType;
+use Inc\Enums\Email\EmailTemplateType;
 use Inc\Services\Log\LogNameResolver;
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 

@@ -2,7 +2,7 @@
 
 namespace Inc\MetaBoxes\Templates;
 
-use Inc\Enums\PostMetaName;
+use Inc\Enums\Wp\PostMetaName;
 
 /**
  * Class BaseTemplate

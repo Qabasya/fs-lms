@@ -6,12 +6,12 @@ namespace Inc\Services\Course;
 
 use Inc\DTO\Course\ModuleDTO;
 use Inc\DTO\Course\StepDTO;
-use Inc\Enums\PostMetaName;
-use Inc\Enums\StepType;
-use Inc\Managers\PostManager;
+use Inc\Enums\Wp\PostMetaName;
+use Inc\Enums\Course\StepType;
+use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class ContentUsageService

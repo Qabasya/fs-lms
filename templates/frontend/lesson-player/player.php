@@ -13,9 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-use Inc\Enums\StepType;
+use Inc\Enums\Course\StepType;
 
-$cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\PageRoutes::GroupCockpit->url() );
+$cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRoutes::GroupCockpit->url() );
 ?>
 <div class="wrap fs-player" data-group-lesson-id="<?php echo esc_attr( (string) $view['group_lesson_id'] ); ?>">
 

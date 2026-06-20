@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\LearningEventDTO;
 use Inc\DTO\Log\LearningEventInputDTO;
-use Inc\Enums\TableName;
+use Inc\Enums\Settings\TableName;
 
 class LearningEventRepository {
 

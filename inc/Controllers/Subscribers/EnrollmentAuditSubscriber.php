@@ -8,8 +8,8 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\DTO\Log\Events\ApplicationStatusEvent;
 use Inc\DTO\Log\Events\EnrollmentStatusEvent;
-use Inc\Enums\AuditTargetType;
-use Inc\Enums\LogEvent;
+use Inc\Enums\Log\AuditTargetType;
+use Inc\Enums\Log\LogEvent;
 use Inc\Services\Log\EnrollmentAuditLogWriter;
 
 /**

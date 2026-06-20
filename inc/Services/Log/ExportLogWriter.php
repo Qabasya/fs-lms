@@ -6,7 +6,7 @@ namespace Inc\Services\Log;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\ExportLogInputDTO;
-use Inc\Managers\UserManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\ExportLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
 

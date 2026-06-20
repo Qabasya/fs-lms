@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\DTO\Log\Events;
 
 use Inc\Contracts\LogEventInterface;
-use Inc\Enums\EmailTemplateType;
+use Inc\Enums\Email\EmailTemplateType;
 
 /**
  * Payload события Email — отправка письма плагином.
