@@ -14,8 +14,10 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Log\OperationType;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Deletion\DeleteSubjectEvent;
 use Inc\Services\Deletion\DeletionEventDispatcher;
+use Inc\Services\Subject\SubjectArchiveGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
@@ -52,6 +54,8 @@ class SubjectCrudCallbacks extends BaseController {
 		private readonly SubjectRepository           $subjects,
 		private readonly DeletionEventDispatcher     $dispatcher,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly GroupsRepository            $groups,
+		private readonly SubjectArchiveGuard         $archiveGuard,
 	) {
 		parent::__construct();
 	}
@@ -141,9 +145,67 @@ class SubjectCrudCallbacks extends BaseController {
 
 		$this->requireExists( $key );
 
+		// Защита от случайного удаления: предмет с группами без явного подтверждения удалять нельзя —
+		// стёрлись бы когорты и история; предлагаем архив. С force=1 (после усиленного подтверждения
+		// в UI) выполняем полный каскад: группы, ученики, контент, таксономии.
+		$groupCount = count( $this->groups->findBySubjectKey( $key ) );
+		$force      = $this->sanitizeBool( 'force' );
+		if ( $groupCount > 0 && ! $force ) {
+			$this->error( sprintf(
+				'Нельзя удалить предмет: к нему привязаны группы (%d). Архивируйте предмет либо подтвердите безвозвратное удаление.',
+				$groupCount
+			) );
+		}
+
 		$this->dispatcher->dispatch( new DeleteSubjectEvent( $key, get_current_user_id() ) );
 
 		$this->success( array( 'message' => 'Предмет удалён' ) );
+	}
+
+	/**
+	 * Архивирует / возвращает предмет из архива (тоггл).
+	 * Архивный предмет скрыт из UI авторинга, но его CPT/данные/группы целы.
+	 *
+	 * @return void
+	 */
+	public function ajaxToggleSubjectArchive(): void {
+		$this->authorize( Nonce::Subject, Capability::Admin );
+
+		$key     = $this->requireKey( 'key', error: 'ID предмета обязателен' );
+		$subject = $this->subjects->getByKey( $key );
+		if ( null === $subject ) {
+			$this->error( 'Предмет не найден в базе данных' );
+		}
+
+		$newState = ! $subject->archived;
+
+		// Архивировать нельзя, пока у предмета есть активные группы (текущий период):
+		// «корзина» предмета не должна прятать идущее обучение. Возврат из архива — без проверки.
+		if ( $newState ) {
+			$activeGroups = $this->archiveGuard->activeGroups( $key );
+			if ( array() !== $activeGroups ) {
+				$names = implode( ', ', array_map( static fn( object $g ): string => (string) $g->name, $activeGroups ) );
+				$this->error( sprintf(
+					'Нельзя архивировать предмет «%s»: есть активные группы в текущем периоде (%s). Завершите текущий период (или сделайте текущим другой), затем архивируйте — либо удалите предмет безвозвратно.',
+					$subject->name,
+					$names
+				) );
+			}
+		}
+
+		if ( ! $this->subjects->setArchived( $key, $newState ) ) {
+			$this->error( 'Не удалось изменить статус предмета' );
+		}
+
+		$this->logEvents->dispatch(
+			LogEvent::SubjectUpdated,
+			new EntityChangedEvent( get_current_user_id(), OperationType::Update, EntityType::Subject, $key, $subject->name )
+		);
+
+		$this->success( array(
+			'archived' => $newState,
+			'message'  => $newState ? "Предмет «{$subject->name}» в архиве" : "Предмет «{$subject->name}» возвращён из архива",
+		) );
 	}
 
 	/**

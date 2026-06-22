@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Services\Course;
 
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Course\CourseAuthoringService;
 use PHPUnit\Framework\TestCase;
 
@@ -15,7 +16,8 @@ class CourseAuthoringServiceTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_posts();
-		$this->service = new CourseAuthoringService( new PostManager() );
+		$GLOBALS['_test_options'] = array();
+		$this->service = new CourseAuthoringService( new PostManager(), new SubjectRepository() );
 	}
 
 	public function test_lesson_candidates_are_scoped_to_subject(): void {
@@ -25,6 +27,20 @@ class CourseAuthoringServiceTest extends TestCase {
 		$ids = array_column( $this->service->getLessonCandidates( 'inf', 'subject' ), 'id' );
 
 		self::assertSame( array( 1 ), $ids );
+	}
+
+	public function test_all_subjects_candidates_span_every_subject(): void {
+		$GLOBALS['_test_options']['fs_lms_subjects_list'] = array(
+			'inf' => array( 'key' => 'inf', 'name' => 'Информатика' ),
+			'rus' => array( 'key' => 'rus', 'name' => 'Русский' ),
+		);
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_lessons', 'post_title' => 'Python #1' ) );
+		fs_test_seed_post( array( 'ID' => 2, 'post_type' => 'rus_lessons', 'post_title' => 'Сочинение' ) );
+
+		$rows = $this->service->getLessonCandidatesAllSubjects( '' );
+
+		self::assertSame( array( 1, 2 ), array_column( $rows, 'id' ) );
+		self::assertSame( array( 'Информатика', 'Русский' ), array_column( $rows, 'subject_name' ) );
 	}
 
 	public function test_validate_lesson_ids_drops_foreign(): void {

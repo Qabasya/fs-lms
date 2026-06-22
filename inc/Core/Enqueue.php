@@ -348,6 +348,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'reorderProgram'            => AjaxHook::ReorderProgram->jsAction(),
 						'assignCourse'              => AjaxHook::AssignCourse->jsAction(),
 						'addLessonToProgram'        => AjaxHook::AddLessonToProgram->jsAction(),
+						'duplicateProgramLesson'    => AjaxHook::DuplicateProgramLesson->jsAction(),
 						'saveLessonSchedule'        => AjaxHook::SaveLessonSchedule->jsAction(),
 						'getCourseLessonCandidates' => AjaxHook::GetCourseLessonCandidates->jsAction(),
 					),

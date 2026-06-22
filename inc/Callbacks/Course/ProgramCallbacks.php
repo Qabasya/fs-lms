@@ -53,13 +53,28 @@ class ProgramCallbacks extends BaseController {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
 		$groupId  = $this->requireInt( 'group_id' );
 		$lessonId = $this->requireInt( 'lesson_id' );
+		$label    = $this->sanitizeText( 'label' ) ?: null;
 		$userId   = get_current_user_id();
 
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
 
-		$id = $this->scheduleService->addLesson( $groupId, $lessonId, $userId );
+		$id = $this->scheduleService->addLesson( $groupId, $lessonId, $userId, $label );
+		$this->success( array( 'group_lesson_id' => $id ) );
+	}
+
+	public function ajaxDuplicateProgramLesson(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$userId        = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$id = $this->scheduleService->duplicateLesson( $groupLessonId, $userId );
 		$this->success( array( 'group_lesson_id' => $id ) );
 	}
 

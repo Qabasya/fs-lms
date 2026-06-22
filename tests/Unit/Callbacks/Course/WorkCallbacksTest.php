@@ -60,4 +60,22 @@ class WorkCallbacksTest extends TestCase {
 		self::assertTrue( $r->success );
 		self::assertSame( 7, $r->payload['id'] );
 	}
+
+	public function test_save_work_items_persists_item_ids(): void {
+		$this->manager->expects( $this->once() )->method( 'setItemIds' )
+			->with( 5, array( 10, 20, 30 ) )->willReturn( true );
+		$_POST = array( 'work_id' => '5', 'item_ids' => array( '10', '20', '30' ) );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 3, $r->payload['count'] );
+	}
+
+	public function test_save_work_items_errors_when_work_missing(): void {
+		$this->manager->method( 'setItemIds' )->willReturn( false );
+		$_POST = array( 'work_id' => '999', 'item_ids' => array( '10' ) );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() )->success );
+	}
 }

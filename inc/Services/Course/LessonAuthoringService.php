@@ -9,9 +9,11 @@ use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Course\StepType;
 use Inc\Enums\Course\WorkType;
+use Inc\Enums\Subject\TemplateCategory;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Template\TemplateRegistry;
 
 /**
  * Class LessonAuthoringService
@@ -24,8 +26,9 @@ use Inc\Services\Subject\PostTypeResolver;
 class LessonAuthoringService {
 
 	public function __construct(
-		private readonly PostManager   $posts,
-		private readonly LessonManager $lessons,
+		private readonly PostManager      $posts,
+		private readonly LessonManager    $lessons,
+		private readonly TemplateRegistry $templates,
 	) {}
 
 	/**
@@ -125,9 +128,22 @@ class LessonAuthoringService {
 	/**
 	 * Черновик subject-задачи из билдера (только заголовок; детали/таксономии — при правке).
 	 * Зеркалит `WorkAuthoringService::createProblemDraft` для bank-задач.
+	 *
+	 * @param TemplateCategory|null $category Если задана — задаче проставляется дефолтный
+	 *                                        шаблон категории (question/code), чтобы при правке
+	 *                                        сразу открылись нужные поля (type-first из шага).
 	 */
-	public function createTaskDraft( string $subjectKey, string $title ): int {
-		return $this->createDraft( PostTypeResolver::tasks( $subjectKey ), $title );
+	public function createTaskDraft( string $subjectKey, string $title, ?TemplateCategory $category = null ): int {
+		$id = $this->createDraft( PostTypeResolver::tasks( $subjectKey ), $title );
+
+		if ( $id > 0 && null !== $category ) {
+			$template = $this->templates->defaultForCategory( $category );
+			if ( null !== $template ) {
+				$this->posts->updateMeta( $id, PostMetaName::TemplateType->value, $template->get_id() );
+			}
+		}
+
+		return $id;
 	}
 
 	/**
@@ -154,68 +170,6 @@ class LessonAuthoringService {
 			'post_status' => 'draft',
 			'post_author' => get_current_user_id(),
 		) );
-	}
-
-	/**
-	 * Переносит один шаг между уроками (cut → append): вырезает из `steps[]` исходного
-	 * урока и добавляет в конец `steps[]` целевого. Контент не дублируется (T1.5.5).
-	 * Перенос между разными предметами запрещён (шаг может ссылаться на контент предмета).
-	 *
-	 * @param int    $sourceLessonId
-	 * @param int    $targetLessonId
-	 * @param string $stepKey
-	 *
-	 * @return bool true — перенесён; false — невалидный ввод / урок или шаг не найден.
-	 */
-	public function moveStep( int $sourceLessonId, int $targetLessonId, string $stepKey ): bool {
-		if ( $sourceLessonId === $targetLessonId || $sourceLessonId <= 0 || $targetLessonId <= 0 || '' === $stepKey ) {
-			return false;
-		}
-
-		$source = $this->lessons->get( $sourceLessonId );
-		$target = $this->lessons->get( $targetLessonId );
-		if ( null === $source || null === $target || $source->subjectKey !== $target->subjectKey ) {
-			return false;
-		}
-
-		$moved     = null;
-		$remaining = array();
-		foreach ( $source->steps as $step ) {
-			if ( null === $moved && $step->key === $stepKey ) {
-				$moved = $step;
-				continue;
-			}
-			$remaining[] = $step;
-		}
-
-		if ( null === $moved ) {
-			return false;
-		}
-
-		// LessonDTO неизменяем (readonly) — пересобираем с новыми steps[].
-		$this->lessons->update( $sourceLessonId, $this->withSteps( $source, $remaining ) );
-		$this->lessons->update( $targetLessonId, $this->withSteps( $target, array_merge( $target->steps, array( $moved ) ) ) );
-
-		return true;
-	}
-
-	/**
-	 * Копия LessonDTO с заменённым списком шагов.
-	 *
-	 * @param LessonDTO $lesson
-	 * @param StepDTO[] $steps
-	 *
-	 * @return LessonDTO
-	 */
-	private function withSteps( LessonDTO $lesson, array $steps ): LessonDTO {
-		return new LessonDTO(
-			id        : $lesson->id,
-			subjectKey: $lesson->subjectKey,
-			topic     : $lesson->topic,
-			steps     : $steps,
-			authorId  : $lesson->authorId,
-			status    : $lesson->status,
-		);
 	}
 
 	/**

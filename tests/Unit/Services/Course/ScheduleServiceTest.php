@@ -62,11 +62,46 @@ class ScheduleServiceTest extends TestCase {
 		$this->service->addLesson( 1, 10, 99 );
 	}
 
-	public function test_add_lesson_rejects_cross_subject(): void {
-		$this->setupGroupAndLesson( groupSubject: 'math', lessonSubject: 'inf' );
+	public function test_add_lesson_allows_cross_subject_and_pins_with_label(): void {
+		// Доп. занятие из другого предмета (Python в ЕГЭ-группу) теперь разрешено.
+		$this->setupGroupAndLesson( groupSubject: 'ege', lessonSubject: 'python' );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 3 );
+		$this->groupLessons->expects( self::once() )
+			->method( 'add' )
+			->with( self::callback(
+				static fn( $dto ) => true === $dto->isPinned
+					&& 'Доп. Python #1' === $dto->label
+					&& 10 === $dto->lessonId
+			) )
+			->willReturn( 8 );
 
-		$this->expectException( \InvalidArgumentException::class );
-		$this->service->addLesson( 1, 10, 99 );
+		self::assertSame( 8, $this->service->addLesson( 1, 10, 99, 'Доп. Python #1' ) );
+	}
+
+	public function test_duplicate_lesson_inserts_pinned_copy_and_dispatches(): void {
+		$row = $this->makeRow();
+		$this->groupLessons->method( 'find' )->with( 42 )->willReturn( $row );
+		$this->groupLessons->method( 'nextPosition' )->with( 5 )->willReturn( 4 );
+		$this->lessonManager->method( 'get' )->willReturn( $this->makeLesson( 'inf' ) );
+
+		$this->groupLessons->expects( self::once() )
+			->method( 'add' )
+			->with( self::callback(
+				static fn( $dto ) => 5 === $dto->groupId && 10 === $dto->lessonId && true === $dto->isPinned
+			) )
+			->willReturn( 12 );
+		$this->dispatcher->expects( self::once() )
+			->method( 'dispatch' )
+			->with( LogEvent::LessonAddedToProgram, self::anything() );
+
+		self::assertSame( 12, $this->service->duplicateLesson( 42, 99 ) );
+	}
+
+	public function test_duplicate_lesson_returns_zero_when_not_found(): void {
+		$this->groupLessons->method( 'find' )->willReturn( null );
+		$this->groupLessons->expects( self::never() )->method( 'add' );
+
+		self::assertSame( 0, $this->service->duplicateLesson( 99, 1 ) );
 	}
 
 	public function test_add_lesson_throws_when_group_not_found(): void {

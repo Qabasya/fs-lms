@@ -39,7 +39,7 @@ class TeacherSubjectsService {
 	public function subjectsForUser( int $userId ): array {
 		// readAll() возвращает массив, индексированный ключом предмета (ассоциативный);
 		// приводим к list, чтобы потребители могли обращаться по [0].
-		$all = array_values( $this->subjects->readAll() );
+		$all = array_values( $this->subjects->readActive() );
 
 		if ( user_can( $userId, Capability::Admin->value ) ) {
 			return $all;

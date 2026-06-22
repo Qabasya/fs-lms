@@ -53,6 +53,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<?php foreach ( $program as $item ) :
 						$row   = $item['row'];
 						$topic = $item['topic'];
+						$label = $row->label;
 						$dateVal = $row->scheduledAt ? substr( $row->scheduledAt, 0, 10 ) : '';
 					?>
 						<li class="fs-cockpit-lesson-item fs-cockpit-visibility-<?php echo esc_attr( $row->visibility ); ?>"
@@ -62,7 +63,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 							<span class="fs-lesson-grip" aria-hidden="true">&#8942;</span>
 
-							<span class="fs-cockpit-lesson-topic"><?php echo esc_html( $topic ); ?></span>
+							<span class="fs-cockpit-lesson-topic">
+								<?php if ( $label ) : ?>
+									<span class="fs-cockpit-lesson-label"><?php echo esc_html( $label ); ?></span>
+								<?php endif; ?>
+								<?php echo esc_html( $topic ); ?>
+							</span>
 
 							<input class="fs-lesson-date" type="date"
 								value="<?php echo esc_attr( $dateVal ); ?>"
@@ -74,6 +80,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 									type="button"
 									data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>">
 									<?php echo esc_html( $row->visibility ); ?>
+								</button>
+								<button class="fs-cockpit-btn-duplicate" type="button"
+									data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>"
+									aria-label="<?php esc_attr_e( 'Дублировать урок', 'fs-lms' ); ?>"
+									title="<?php esc_attr_e( 'Провести ещё раз на другую дату', 'fs-lms' ); ?>">
+									&#10697;
 								</button>
 								<button class="fs-cockpit-btn-remove" type="button"
 									data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>"
@@ -106,7 +118,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 								<input type="radio" name="fs-picker-scope" value="subject">
 								<?php esc_html_e( 'Все предмета', 'fs-lms' ); ?>
 							</label>
+							<label>
+								<input type="radio" name="fs-picker-scope" value="all">
+								<?php esc_html_e( 'Другие предметы', 'fs-lms' ); ?>
+							</label>
 						</div>
+						<input id="fs-picker-label-input" type="text" class="fs-picker-label-input"
+							placeholder="<?php esc_attr_e( 'Ярлык доп. занятия (необязательно)', 'fs-lms' ); ?>">
 					</div>
 					<ul id="fs-picker-results" class="fs-picker-results">
 						<li class="fs-picker-empty"><?php esc_html_e( 'Введите запрос для поиска.', 'fs-lms' ); ?></li>

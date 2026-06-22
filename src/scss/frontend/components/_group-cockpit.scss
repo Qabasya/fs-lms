@@ -110,6 +110,7 @@
 }
 
 .fs-cockpit-btn-visibility,
+.fs-cockpit-btn-duplicate,
 .fs-cockpit-btn-remove {
 	font-size: $font-size-sm;
 	padding: 4px 10px;
@@ -122,6 +123,41 @@
 	&:hover {
 		background: $color-border;
 	}
+
+	&:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// Ярлык доп. занятия (кросс-предметного / разового)
+.fs-cockpit-lesson-label {
+	display: inline-block;
+	margin-right: $spacing-xs;
+	padding: 1px 6px;
+	border-radius: $radius;
+	background: $color-accent;
+	color: $color-white;
+	font-size: $font-size-xxs;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+// Подпись предмета в результатах пикера (кросс-предметный режим)
+.fs-picker-result-subject {
+	margin-left: $spacing-xs;
+	color: $color-muted;
+	font-size: $font-size-xxs;
+	text-transform: uppercase;
+}
+
+// Поле ярлыка в пикере
+.fs-picker-label-input {
+	width: 100%;
+	margin-top: $spacing-xs;
+	padding: 4px 8px;
+	border: 1px solid $color-border;
+	border-radius: $radius;
+	font-size: $font-size-sm;
+	color: $color-text;
+	background: $color-white;
 }
 
 // Ростер

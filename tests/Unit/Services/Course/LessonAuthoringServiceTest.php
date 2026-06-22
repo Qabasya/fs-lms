@@ -20,7 +20,7 @@ class LessonAuthoringServiceTest extends TestCase {
 		fs_test_reset_posts();
 		$posts         = new PostManager();
 		$this->lessons = new LessonManager( $posts );
-		$this->service = new LessonAuthoringService( $posts, $this->lessons );
+		$this->service = new LessonAuthoringService( $posts, $this->lessons, new \Inc\Services\Template\TemplateRegistry() );
 	}
 
 	/**
@@ -118,32 +118,6 @@ class LessonAuthoringServiceTest extends TestCase {
 		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_lessons', 'post_title' => 'Урок 1' ) );
 
 		self::assertSame( array( array( 'id' => 1, 'title' => 'Урок 1' ) ), $this->service->getStepCandidates( 'inf', 'lesson' ) );
-	}
-
-	public function test_move_step_cuts_from_source_and_appends_to_target(): void {
-		$this->seedLesson( 10, 'inf', array( 's_a', 's_b' ) );
-		$this->seedLesson( 20, 'inf', array( 's_c' ) );
-
-		self::assertTrue( $this->service->moveStep( 10, 20, 's_a' ) );
-		self::assertSame( array( 's_b' ), $this->stepKeys( 10 ) );
-		self::assertSame( array( 's_c', 's_a' ), $this->stepKeys( 20 ) );
-	}
-
-	public function test_move_step_rejects_same_lesson_and_missing_step(): void {
-		$this->seedLesson( 10, 'inf', array( 's_a' ) );
-		$this->seedLesson( 20, 'inf', array() );
-
-		self::assertFalse( $this->service->moveStep( 10, 10, 's_a' ) );
-		self::assertFalse( $this->service->moveStep( 10, 20, 's_missing' ) );
-		self::assertSame( array( 's_a' ), $this->stepKeys( 10 ) );
-	}
-
-	public function test_move_step_rejects_cross_subject(): void {
-		$this->seedLesson( 10, 'inf', array( 's_a' ) );
-		$this->seedLesson( 20, 'math', array() );
-
-		self::assertFalse( $this->service->moveStep( 10, 20, 's_a' ) );
-		self::assertSame( array( 's_a' ), $this->stepKeys( 10 ) );
 	}
 
 	public function test_create_task_draft_makes_subject_task_draft(): void {

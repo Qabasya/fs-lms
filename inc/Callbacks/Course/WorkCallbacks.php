@@ -33,6 +33,23 @@ class WorkCallbacks extends BaseController {
 	}
 
 	/**
+	 * AJAX-автосейв степ-листа работы: упорядоченные `item_ids` (задания/задачи).
+	 * Params: work_id, item_ids[]
+	 */
+	public function ajaxSaveWorkItems(): void {
+		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+
+		$work_id  = $this->requireInt( 'work_id' );
+		$item_ids = array_map( 'intval', (array) ( $_POST['item_ids'] ?? array() ) );
+
+		if ( $this->workManager->setItemIds( $work_id, $item_ids ) ) {
+			$this->success( array( 'count' => count( array_filter( $item_ids ) ) ) );
+		} else {
+			$this->error( 'Работа не найдена.' );
+		}
+	}
+
+	/**
 	 * Кандидаты-задания для работы (только {key}_tasks текущего предмета).
 	 * Params: subject_key, task_type, collection, scope, search
 	 */

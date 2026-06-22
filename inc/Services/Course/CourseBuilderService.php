@@ -76,9 +76,10 @@ class CourseBuilderService {
 			}
 
 			$modules[] = array(
-				'id'      => $module->id,
-				'title'   => $module->title,
-				'lessons' => $lessons,
+				'id'          => $module->id,
+				'title'       => $module->title,
+				'description' => $module->description,
+				'lessons'     => $lessons,
 			);
 		}
 
@@ -113,9 +114,10 @@ class CourseBuilderService {
 				continue;
 			}
 			$modules[] = ModuleDTO::fromArray( array(
-				'id'         => (string) ( $raw['id'] ?? '' ) ?: $this->generateId( 'm' ),
-				'title'      => (string) ( $raw['title'] ?? '' ),
-				'lesson_ids' => $this->validateLessonIds( $course->subjectKey, (array) ( $raw['lesson_ids'] ?? array() ) ),
+				'id'          => (string) ( $raw['id'] ?? '' ) ?: $this->generateId( 'm' ),
+				'title'       => (string) ( $raw['title'] ?? '' ),
+				'description' => (string) ( $raw['description'] ?? '' ),
+				'lesson_ids'  => $this->validateLessonIds( $course->subjectKey, (array) ( $raw['lesson_ids'] ?? array() ) ),
 			) );
 		}
 
@@ -160,12 +162,12 @@ class CourseBuilderService {
 				$lessonIds[] = $lessonId;
 				$added       = true;
 			}
-			$modules[] = new ModuleDTO( $module->id, $module->title, $lessonIds );
+			$modules[] = new ModuleDTO( $module->id, $module->title, $lessonIds, $module->description );
 		}
 
 		if ( ! $added && ! empty( $modules ) ) {
 			$last      = $modules[ array_key_last( $modules ) ];
-			$modules[ array_key_last( $modules ) ] = new ModuleDTO( $last->id, $last->title, array_merge( $last->lessonIds, array( $lessonId ) ) );
+			$modules[ array_key_last( $modules ) ] = new ModuleDTO( $last->id, $last->title, array_merge( $last->lessonIds, array( $lessonId ) ), $last->description );
 		}
 
 		$this->courses->update( $courseId, $this->withModules( $course, $modules ) );

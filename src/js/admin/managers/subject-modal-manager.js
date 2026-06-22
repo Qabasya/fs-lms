@@ -58,6 +58,11 @@ export const SubjectModalManager = {
         // Экспорт предмета в JSON-файл
         $(document).on('click', '.js-export-subject', (e) => this._handleExport(e));
 
+        $(document).on('click', '.js-unarchive-subject', (e) => this._handleUnarchive(e));
+
+        // Безвозвратное удаление прямо из «Архива» (минуя предложение архива).
+        $(document).on('click', '.js-force-delete-subject', (e) => this._handleForceDelete(e));
+
         // Импорт предмета: кнопка-триггер открывает стандартный file input
         $('#fs-import-trigger').on('click', () => $('#fs-import-file').trigger('click'));
 
@@ -191,16 +196,50 @@ export const SubjectModalManager = {
         })
             .done((res) => {
                 toggleButton($btn, false);
-                const studentCount = res.data?.student_count ?? 0;
-                const groupCount   = res.data?.group_count   ?? 0;
-                this._showWarningModal(name, key, security, $btn, $row, studentCount, groupCount);
+                const studentCount     = res.data?.student_count     ?? 0;
+                const groupCount       = res.data?.group_count       ?? 0;
+                const activeGroupCount = res.data?.active_group_count ?? 0;
+                this._showWarningModal(name, key, security, $btn, $row, studentCount, groupCount, activeGroupCount);
             })
             .fail(() => {
                 // FALLBACK: Если запрос проверки упал, всё равно показываем предупреждение,
                 // но без информации о количестве учеников (0, 0).
                 // Это предотвращает блокировку действия пользователя из-за временных проблем с сетью.
                 toggleButton($btn, false);
-                this._showWarningModal(name, key, security, $btn, $row, 0, 0);
+                this._showWarningModal(name, key, security, $btn, $row, 0, 0, 0);
+            });
+    },
+
+    /**
+     * Обработчик «Удалить навсегда» для архивных предметов.
+     * Сразу ведёт к усиленному подтверждению force-удаления (архив = корзина).
+     * @private
+     * @param {jQuery.Event} e - Событие клика.
+     */
+    _handleForceDelete(e) {
+        e.preventDefault();
+        const $btn     = $(e.target);
+        const key      = $btn.data('key');
+        const $row     = $btn.closest('tr');
+        const name     = $btn.data('name') || $row.find('strong a').text().trim();
+        const security = this._getNonce();
+
+        toggleButton($btn, true, '...');
+
+        $.post(fs_lms_vars.ajaxurl, {
+            action:      fs_lms_vars.ajax_actions.checkSubjectDeletion,
+            security:    fs_lms_vars.nonces.subject,
+            subject_key: key,
+        })
+            .done((res) => {
+                toggleButton($btn, false);
+                const studentCount = res.data?.student_count ?? 0;
+                const groupCount   = res.data?.group_count   ?? 0;
+                this._forceDeleteConfirm(name, key, security, $btn, $row, groupCount, studentCount);
+            })
+            .fail(() => {
+                toggleButton($btn, false);
+                this._forceDeleteConfirm(name, key, security, $btn, $row, 0, 0);
             });
     },
 
@@ -304,9 +343,47 @@ export const SubjectModalManager = {
      * @param {jQuery} $row - jQuery-объект строки таблицы.
      * @param {number} studentCount - Количество учеников.
      * @param {number} groupCount - Количество групп.
+     * @param {number} activeGroupCount - Количество активных групп (текущий период).
      */
-    _showWarningModal(name, key, security, $btn, $row, studentCount = 0, groupCount = 0) {
+    _showWarningModal(name, key, security, $btn, $row, studentCount = 0, groupCount = 0, activeGroupCount = 0) {
         const safeName    = escapeHtml(name);
+
+        // Активные группы (текущий период): архивировать нельзя, пока идёт обучение.
+        // Группы не переносятся — выход либо завершить период, либо удалить безвозвратно.
+        if (activeGroupCount > 0) {
+            ConfirmModal.confirm({
+                title: 'Архивация недоступна',
+                message: `По предмету «${safeName}» идёт обучение: активные группы в текущем периоде (${activeGroupCount}).\n\nЧтобы архивировать — завершите текущий период (или сделайте текущим другой).\nЛибо удалите предмет безвозвратно вместе с группами и историей.`,
+                size: 'lg',
+                isDanger: true,
+                confirmText: 'Удалить навсегда',
+                cancelText:  'Отмена',
+            })
+                .then(() => this._forceDeleteConfirm(name, key, security, $btn, $row, groupCount, studentCount))
+                .catch(() => {});
+            return;
+        }
+
+        // Предмет с группами прошлых периодов: рекомендуем архив (данные сохранятся),
+        // но даём явный путь к безвозвратному удалению (тестовые предметы).
+        if (groupCount > 0) {
+            const studentTail = studentCount > 0 ? `, учеников: ${studentCount}` : '';
+            ConfirmModal.confirm({
+                title: 'Удаление с группами',
+                message: `К предмету «${safeName}» привязаны группы (${groupCount})${studentTail}. Безвозвратное удаление стёрло бы когорты и историю обучения.\n\nРекомендуем архивировать — данные и группы сохранятся.\nЛибо удалить навсегда.`,
+                size: 'lg',
+                isDanger: false,
+                confirmText: 'Архивировать',
+                cancelText:  'Удалить навсегда',
+            })
+                .then(() => this._archiveSubject(key, security, $btn))
+                .catch((reason) => {
+                    if (reason === 'cancel') {
+                        this._forceDeleteConfirm(name, key, security, $btn, $row, groupCount, studentCount);
+                    }
+                });
+            return;
+        }
 
         // Формируем дополнительное предупреждение, если в предмете есть ученики
         const studentNote = studentCount > 0
@@ -382,6 +459,86 @@ export const SubjectModalManager = {
     },
 
     /**
+     * Усиленное подтверждение БЕЗВОЗВРАТНОГО удаления предмета вместе с группами/учениками.
+     * Это «выход» для тестовых предметов: запускает полный каскад (force=1).
+     * @private
+     * @param {string} name - Название предмета.
+     * @param {string} key - Ключ предмета.
+     * @param {string} security - Nonce-токен.
+     * @param {jQuery} $btn - jQuery-объект кнопки.
+     * @param {jQuery} $row - jQuery-объект строки таблицы.
+     * @param {number} groupCount - Количество групп.
+     * @param {number} studentCount - Количество учеников.
+     */
+    _forceDeleteConfirm(name, key, security, $btn, $row, groupCount = 0, studentCount = 0) {
+        const safeName = escapeHtml(name);
+
+        const lost = [];
+        if (groupCount > 0)   lost.push(`групп: ${groupCount}`);
+        if (studentCount > 0) lost.push(`учеников: ${studentCount} (без других зачислений)`);
+        const lostNote = lost.length
+            ? `\nБудут безвозвратно удалены: ${lost.join(', ')}, вся история, контент и записи.`
+            : '\nБудут безвозвратно удалены весь контент и записи предмета.';
+
+        ConfirmModal.confirm({
+            title: 'Удалить навсегда?',
+            message: `Предмет «${safeName}» и все связанные данные будут стёрты НАВСЕГДА.${lostNote}\n\nДействие необратимо.`,
+            size: 'lg',
+            isDanger: true,
+            confirmText: 'Да, удалить навсегда',
+            cancelText:  'Отмена',
+        })
+            .then(() => this._doDelete(key, security, $btn, $row, true))
+            .catch(() => {});
+    },
+
+    /**
+     * Архивирование / возврат предмета из архива (toggle, server-side флаг `archived`).
+     * @private
+     */
+    _archiveSubject(key, security, $btn) {
+        toggleButton($btn, true, '...');
+
+        $.post(fs_lms_vars.ajaxurl, {
+            action:   fs_lms_vars.ajax_actions.toggleSubjectArchive,
+            key:      key,
+            security: security,
+        })
+            .done((res) => {
+                if (res.success) {
+                    location.reload();
+                } else {
+                    showNotice(res.data || 'Не удалось изменить статус', 'error', $btn.closest('td'));
+                    toggleButton($btn, false);
+                }
+            })
+            .fail(() => {
+                apiError('Failed to toggle subject archive');
+                toggleButton($btn, false);
+            });
+    },
+
+    /**
+     * Обработчик «Вернуть из архива».
+     * @private
+     */
+    _handleUnarchive(e) {
+        e.preventDefault();
+        const $btn = $(e.target);
+        const key  = $btn.data('key');
+        const name = $btn.data('name') || key;
+
+        ConfirmModal.confirm({
+            title: 'Вернуть из архива',
+            message: `Вернуть предмет «${escapeHtml(String(name))}» из архива?`,
+            confirmText: 'Вернуть',
+            cancelText:  'Отмена',
+        })
+            .then(() => this._archiveSubject(key, this._getNonce(), $btn))
+            .catch(() => {});
+    },
+
+    /**
      * Экспорт предмета в JSON-файл на стороне клиента.
      * Использует Blob API для создания файла в браузере без участия сервера в скачивании.
      * @private
@@ -438,13 +595,14 @@ export const SubjectModalManager = {
      * @param {jQuery} $btn - jQuery-объект кнопки удаления.
      * @param {jQuery} $row - jQuery-объект строки таблицы.
      */
-    _doDelete(key, security, $btn, $row) {
+    _doDelete(key, security, $btn, $row, force = false) {
         toggleButton($btn, true, '...');
 
         $.post(fs_lms_vars.ajaxurl, {
             action:   fs_lms_vars.ajax_actions.deleteSubject,
             key:      key,
             security: security,
+            force:    force ? 1 : 0,
         })
             .done((res) => {
                 if (res.success) {

@@ -384,6 +384,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			id                 int unsigned        NOT NULL AUTO_INCREMENT,
 			group_id           smallint unsigned   NOT NULL,
 			lesson_id          bigint unsigned     DEFAULT NULL,
+			label              varchar(150)        DEFAULT NULL,
 			position           smallint unsigned   NOT NULL DEFAULT 0,
 			work_ids_snapshot  longtext            DEFAULT NULL,
 			extra_work_ids     longtext            DEFAULT NULL,
@@ -557,6 +558,7 @@ class Migration_1_0_0 implements MigrationInterface {
 		$wpdb->query( "ALTER TABLE `$group_lessons`
 			ADD COLUMN IF NOT EXISTS `ends_at`   datetime   DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
+			ADD COLUMN IF NOT EXISTS `label`     varchar(150) DEFAULT NULL,
 			MODIFY COLUMN `lesson_id` bigint unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `grader_note` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`

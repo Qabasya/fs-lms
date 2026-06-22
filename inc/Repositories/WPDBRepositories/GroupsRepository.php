@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Enums\Settings\TableName;
+use Inc\Services\Group\MeetingsNormalizer;
 
 /**
  * Class GroupsRepository
@@ -245,7 +246,13 @@ class GroupsRepository {
 		return $this->delete( $id );
 	}
 
-	/** @return array{weekday:int,time:string,duration_min:int}[] */
+	/**
+	 * Расписание группы в каноне для календаря.
+	 * Нормализует на чтении — `weekday/time/duration_min` присутствуют даже у
+	 * легаси-строк формата `{day,start,end}` (миграция backfill — опц. поверх).
+	 *
+	 * @return array<int, array{day:string,start:string,end:string,weekday:int,time:string,duration_min:int}>
+	 */
 	public function getMeetings( int $groupId ): array {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
@@ -258,13 +265,13 @@ class GroupsRepository {
 			return array();
 		}
 		$decoded = json_decode( $row->meetings, true );
-		return is_array( $decoded ) ? $decoded : array();
+		return is_array( $decoded ) ? MeetingsNormalizer::normalizeList( $decoded ) : array();
 	}
 
 	public function setMeetings( int $groupId, array $meetings ): bool {
 		return false !== $this->wpdb->update(
 			$this->table,
-			array( 'meetings' => wp_json_encode( $meetings ) ),
+			array( 'meetings' => wp_json_encode( MeetingsNormalizer::normalizeList( $meetings ) ) ),
 			array( 'id' => $groupId )
 		);
 	}

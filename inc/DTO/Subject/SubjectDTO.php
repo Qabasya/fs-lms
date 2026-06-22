@@ -34,31 +34,34 @@ readonly class SubjectDTO
 	public function __construct(
 		public string $key,
 		public string $name,
+		public bool   $archived = false,
 	) {}
 
 	/**
 	 * Создаёт DTO из массива.
 	 *
-	 * @param array<string, mixed> $data Массив с ключами 'key' и 'name'
+	 * @param array<string, mixed> $data Массив с ключами 'key', 'name', опц. 'archived'
 	 *
 	 * @return self
 	 */
 	public static function fromArray( array $data ): self {
 		return new self(
-			key:  (string) ( $data['key'] ?? '' ),
-			name: (string) ( $data['name'] ?? '' ),
+			key:      (string) ( $data['key'] ?? '' ),
+			name:     (string) ( $data['name'] ?? '' ),
+			archived: (bool) ( $data['archived'] ?? false ),
 		);
 	}
 
 	/**
 	 * Преобразует DTO в массив.
 	 *
-	 * @return array<string, string>
+	 * @return array<string, mixed>
 	 */
 	public function toArray(): array {
 		return array(
-			'key'  => $this->key,
-			'name' => $this->name,
+			'key'      => $this->key,
+			'name'     => $this->name,
+			'archived' => $this->archived,
 		);
 	}
 }

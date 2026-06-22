@@ -21,6 +21,7 @@ class ScheduleController extends AjaxController {
 		return array(
 			array( AjaxHook::AssignCourse,            $this->callbacks ),
 			array( AjaxHook::AddLessonToProgram,      $this->callbacks ),
+			array( AjaxHook::DuplicateProgramLesson,  $this->callbacks ),
 			array( AjaxHook::RemoveLessonFromProgram, $this->callbacks ),
 			array( AjaxHook::ReorderProgram,          $this->callbacks ),
 			array( AjaxHook::SaveLessonSchedule,      $this->callbacks ),

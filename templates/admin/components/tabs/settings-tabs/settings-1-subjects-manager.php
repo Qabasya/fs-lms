@@ -10,33 +10,49 @@ defined( 'ABSPATH' ) || exit;
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 $groupsRepo = new GroupsRepository();
+
+$all_subjects  = $subjects ?? array();
+$active_list   = array_filter( $all_subjects, static fn( $s ) => empty( $s->archived ) );
+$archived_list = array_filter( $all_subjects, static fn( $s ) => ! empty( $s->archived ) );
+$view          = ( isset( $_GET['subject_view'] ) && 'archived' === $_GET['subject_view'] ) ? 'archived' : 'active';
+$rows          = 'archived' === $view ? $archived_list : $active_list;
 ?>
 
 <div id="tab-1" class="tab-pane active">
 
 	<div class="header-row">
-		<h1 class="wp-heading-inline">Активные предметы</h1>
+		<h1 class="wp-heading-inline"><?php echo 'archived' === $view ? 'Архив предметов' : 'Активные предметы'; ?></h1>
 
-
+		<?php if ( 'archived' !== $view ) : ?>
 		<div class="description-actions">
 
 			<a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
 			<input type="file" id="fs-import-file" accept=".json" class="hidden">
 
 		</div>
+		<?php endif; ?>
 	</div>
+
+		<ul class="subsubsub">
+			<li><a href="<?php echo esc_url( remove_query_arg( 'subject_view' ) ); ?>" class="<?php echo 'archived' !== $view ? 'current' : ''; ?>">Активные <span class="count">(<?php echo count( $active_list ); ?>)</span></a> |</li>
+			<li><a href="<?php echo esc_url( add_query_arg( 'subject_view', 'archived' ) ); ?>" class="<?php echo 'archived' === $view ? 'current' : ''; ?>">Архив <span class="count">(<?php echo count( $archived_list ); ?>)</span></a></li>
+		</ul>
 
 		<?php settings_errors(); ?>
 
-		<?php if ( empty( $subjects ) ) : ?>
+		<?php if ( empty( $rows ) ) : ?>
 
 			<div class="notice notice-info inline fs-table__no-items">
-				<p>Вы еще не создали ни одного предмета.</p>
-				<button type="button"
-						class="page-title-action js-add-subject"
-						title="Добавить первый предмет">
-					Добавить первый предмет
-				</button>
+				<?php if ( 'archived' === $view ) : ?>
+					<p>В архиве нет предметов.</p>
+				<?php else : ?>
+					<p>Вы еще не создали ни одного предмета.</p>
+					<button type="button"
+							class="page-title-action js-add-subject"
+							title="Добавить первый предмет">
+						Добавить первый предмет
+					</button>
+				<?php endif; ?>
 			</div>
 
 		<?php else : ?>
@@ -55,7 +71,7 @@ $groupsRepo = new GroupsRepository();
 				</thead>
 
 				<tbody id="the-list">
-				<?php foreach ( $subjects as $subject ) :
+				<?php foreach ( $rows as $subject ) :
 					$tasks_cpt    = PostTypeResolver::tasks( $subject->key );
 					$articles_cpt = PostTypeResolver::articles( $subject->key );
 
@@ -101,13 +117,32 @@ $groupsRepo = new GroupsRepository();
                                         Экспорт
                                     </a>
                                 </span> |
-                                                        <span class="trash">
+                                <?php if ( ! empty( $subject->archived ) ) : ?>
+                                <span class="untrash">
+                                    <a href="#"
+                                        class="js-unarchive-subject"
+                                        data-key="<?php echo esc_attr( $subject->key ); ?>"
+                                        data-name="<?php echo esc_attr( $subject->name ); ?>">
+                                        Вернуть из архива
+                                    </a>
+                                </span> |
+                                <span class="trash">
+                                    <a href="#"
+                                        class="js-force-delete-subject submitdelete"
+                                        data-key="<?php echo esc_attr( $subject->key ); ?>"
+                                        data-name="<?php echo esc_attr( $subject->name ); ?>">
+                                        Удалить навсегда
+                                    </a>
+                                </span>
+                                <?php else : ?>
+                                <span class="trash">
                                     <a href="#"
                                         class="delete-subject"
                                         data-key="<?php echo esc_attr( $subject->key ); ?>">
                                         Удалить
                                     </a>
                                 </span>
+                                <?php endif; ?>
 							</div>
 						</td>
 					</tr>

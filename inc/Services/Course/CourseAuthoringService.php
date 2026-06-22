@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
 
 /**
@@ -18,7 +19,8 @@ use Inc\Services\Subject\PostTypeResolver;
 class CourseAuthoringService {
 
 	public function __construct(
-		private readonly PostManager $posts,
+		private readonly PostManager       $posts,
+		private readonly SubjectRepository $subjects,
 	) {}
 
 	/**
@@ -41,6 +43,34 @@ class CourseAuthoringService {
 			'title'  => $post->post_title,
 			'author' => (int) $post->post_author,
 		), $posts );
+	}
+
+	/**
+	 * Кандидаты-уроки по всем предметам (доп. кросс-предметные занятия).
+	 * Каждый кандидат несёт subject_key/subject_name для подписи в пикере.
+	 *
+	 * @param string $search
+	 * @return array<int, array{id: int, title: string, author: int, subject_key: string, subject_name: string}>
+	 */
+	public function getLessonCandidatesAllSubjects( string $search = '' ): array {
+		$result = array();
+		foreach ( $this->subjects->readActive() as $subject ) {
+			$posts = $this->posts->search( PostTypeResolver::lessons( $subject->key ), array(
+				'limit'  => 25,
+				'search' => $search,
+			) );
+			foreach ( $posts as $post ) {
+				$result[] = array(
+					'id'           => $post->ID,
+					'title'        => $post->post_title,
+					'author'       => (int) $post->post_author,
+					'subject_key'  => $subject->key,
+					'subject_name' => $subject->name,
+				);
+			}
+		}
+
+		return $result;
 	}
 
 	/**

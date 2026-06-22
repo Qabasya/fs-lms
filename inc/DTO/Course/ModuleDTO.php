@@ -17,29 +17,33 @@ namespace Inc\DTO\Course;
 readonly class ModuleDTO {
 
 	/**
-	 * @param string $id        Стабильный course-local идентификатор модуля.
-	 * @param string $title     Заголовок модуля.
-	 * @param int[]  $lessonIds Упорядоченные ссылки на {key}_lessons.
+	 * @param string $id          Стабильный course-local идентификатор модуля.
+	 * @param string $title       Заголовок модуля.
+	 * @param int[]  $lessonIds   Упорядоченные ссылки на {key}_lessons.
+	 * @param string $description Краткое описание модуля (опционально).
 	 */
 	public function __construct(
 		public string $id,
 		public string $title,
 		public array  $lessonIds,
+		public string $description = '',
 	) {}
 
 	public static function fromArray( array $data ): self {
 		return new self(
-			id       : (string) ( $data['id'] ?? '' ),
-			title    : (string) ( $data['title'] ?? '' ),
-			lessonIds: self::intIds( $data['lesson_ids'] ?? array() ),
+			id         : (string) ( $data['id'] ?? '' ),
+			title      : (string) ( $data['title'] ?? '' ),
+			lessonIds  : self::intIds( $data['lesson_ids'] ?? array() ),
+			description: (string) ( $data['description'] ?? '' ),
 		);
 	}
 
 	public function toArray(): array {
 		return array(
-			'id'         => $this->id,
-			'title'      => $this->title,
-			'lesson_ids' => $this->lessonIds,
+			'id'          => $this->id,
+			'title'       => $this->title,
+			'lesson_ids'  => $this->lessonIds,
+			'description' => $this->description,
 		);
 	}
 

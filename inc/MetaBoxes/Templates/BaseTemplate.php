@@ -2,6 +2,7 @@
 
 namespace Inc\MetaBoxes\Templates;
 
+use Inc\Enums\Subject\TemplateCategory;
 use Inc\Enums\Wp\PostMetaName;
 
 /**
@@ -51,6 +52,15 @@ abstract class BaseTemplate {
 	 * @return string Название шаблона (например, 'Стандартное задание')
 	 */
 	abstract public function get_name(): string;
+
+	/**
+	 * Категория шаблона — крупное деление по типу взаимодействия (question|code).
+	 * По умолчанию «Вопрос» (вписать ответ); code-шаблоны переопределяют.
+	 * Type-first меню добавления шага фильтрует шаблоны/кандидатов по категории.
+	 */
+	public function get_category(): TemplateCategory {
+		return TemplateCategory::Question;
+	}
 
 	/**
 	 * Отрисовывает все поля шаблона.

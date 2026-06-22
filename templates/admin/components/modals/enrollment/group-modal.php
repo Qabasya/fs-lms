@@ -45,7 +45,7 @@ use Inc\Enums\Course\WeekDay;
 					<label for="group-subject">Предмет</label>
 					<select id="group-subject" name="subject_id" required data-edit-readonly>
 						<option value="">-- Выберите предмет --</option>
-						<?php foreach ( $subjects ?? [] as $id => $subject ) : ?>
+						<?php foreach ( $active_subjects ?? $subjects ?? [] as $id => $subject ) : ?>
 							<option value="<?php echo esc_attr( (string) $id ); ?>">
 								<?php echo esc_html( $subject->name ?? $id ); ?>
 							</option>

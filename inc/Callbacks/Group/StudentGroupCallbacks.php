@@ -12,7 +12,7 @@ use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Log\OperationType;
-use Inc\Enums\Course\WeekDay;
+use Inc\Services\Group\MeetingsNormalizer;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -81,21 +81,7 @@ class StudentGroupCallbacks extends BaseController {
 		$schedule      = array();
 
 		if ( is_array( $raw_entries ) ) {
-			foreach ( $raw_entries as $entry ) {
-				if ( ! is_array( $entry ) ) {
-					continue;
-				}
-				// WeekDay::tryFrom() — безопасное преобразование в enum (или null)
-				$day = WeekDay::tryFrom( sanitize_key( (string) ( $entry['day'] ?? '' ) ) );
-				if ( $day === null ) {
-					continue;
-				}
-				$schedule[] = array(
-					'day'   => $day->value,
-					'start' => sanitize_text_field( (string) ( $entry['start'] ?? '' ) ),
-					'end'   => sanitize_text_field( (string) ( $entry['end']   ?? '' ) ),
-				);
-			}
+			$schedule = MeetingsNormalizer::normalizeList( $this->sanitizeScheduleEntries( $raw_entries ) );
 		}
 
 		if ( $this->groupsRepository->existsByNameAndPeriod( $title, $academic_period_id ) ) {
@@ -231,20 +217,7 @@ class StudentGroupCallbacks extends BaseController {
 		$schedule      = array();
 
 		if ( is_array( $raw_entries ) ) {
-			foreach ( $raw_entries as $entry ) {
-				if ( ! is_array( $entry ) ) {
-					continue;
-				}
-				$day = WeekDay::tryFrom( sanitize_key( (string) ( $entry['day'] ?? '' ) ) );
-				if ( null === $day ) {
-					continue;
-				}
-				$schedule[] = array(
-					'day'   => $day->value,
-					'start' => sanitize_text_field( (string) ( $entry['start'] ?? '' ) ),
-					'end'   => sanitize_text_field( (string) ( $entry['end']   ?? '' ) ),
-				);
-			}
+			$schedule = MeetingsNormalizer::normalizeList( $this->sanitizeScheduleEntries( $raw_entries ) );
 		}
 
 		$updated = $this->groupsRepository->update( $id, array(
@@ -257,5 +230,28 @@ class StudentGroupCallbacks extends BaseController {
 		}
 
 		$this->success( array( 'id' => $id ) );
+	}
+
+	/**
+	 * Санитизирует сырые записи расписания формы к `{day,start,end}`.
+	 * Канонизацию (weekday/time/duration_min) и отброс невалидных дней делает MeetingsNormalizer.
+	 *
+	 * @param array<mixed> $rawEntries
+	 * @return array<int, array{day:string,start:string,end:string}>
+	 */
+	private function sanitizeScheduleEntries( array $rawEntries ): array {
+		$sanitized = array();
+		foreach ( $rawEntries as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+			$sanitized[] = array(
+				'day'   => sanitize_key( (string) ( $entry['day'] ?? '' ) ),
+				'start' => sanitize_text_field( (string) ( $entry['start'] ?? '' ) ),
+				'end'   => sanitize_text_field( (string) ( $entry['end'] ?? '' ) ),
+			);
+		}
+
+		return $sanitized;
 	}
 }

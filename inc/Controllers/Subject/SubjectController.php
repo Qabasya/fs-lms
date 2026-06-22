@@ -163,6 +163,7 @@ class SubjectController extends AjaxController {
 			array( AjaxHook::StoreSubject, $this->crud_callbacks ),
 			array( AjaxHook::UpdateSubject, $this->crud_callbacks ),
 			array( AjaxHook::DeleteSubject, $this->crud_callbacks ),
+			array( AjaxHook::ToggleSubjectArchive, $this->crud_callbacks ),
 			// Получение данных (таблицы, списки)
 			array( AjaxHook::GetPostsTable, $this->data_callbacks ),
 			array( AjaxHook::GetTasksByNumber, $this->data_callbacks ),
