@@ -105,9 +105,14 @@ enum TaskTemplate: string {
 	 */
 	public function label(): string {
 		return match ( $this ) {
-			self::Standard => 'Стандартное задание',
-			self::Triple => 'Три в одном (ЕГЭ 19-21)',
-			self::Common => 'Общее условие',
+			self::Standard     => 'Стандартное задание',
+			self::Triple       => 'Три в одном (ЕГЭ 19-21)',
+			self::Common       => 'Общее условие',
+			self::Code         => 'Задание с кодом',
+			self::FileCode     => 'Задание с файлом и кодом',
+			self::File         => 'Задание с файлом',
+			self::TwoFile      => 'Задание с двумя файлами и кодом',
+			self::TextSolution => 'Задание с решением',
 		};
 	}
 }

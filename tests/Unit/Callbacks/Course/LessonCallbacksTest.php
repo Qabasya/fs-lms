@@ -24,7 +24,7 @@ class LessonCallbacksTest extends TestCase {
 		fs_test_reset_ajax();
 		$posts           = new PostManager();
 		$this->lessons   = new LessonManager( $posts );
-		$this->callbacks = new LessonCallbacks( new LessonAuthoringService( $posts, $this->lessons ), $this->lessons );
+		$this->callbacks = new LessonCallbacks( new LessonAuthoringService( $posts, $this->lessons, new \Inc\Services\Template\TemplateRegistry() ), $this->lessons );
 	}
 
 	private function seedLesson( int $id, string $subject, array $stepKeys ): void {
@@ -40,39 +40,6 @@ class LessonCallbacksTest extends TestCase {
 
 	private function stepKeys( int $id ): array {
 		return array_map( static fn ( $s ): string => $s->key, $this->lessons->get( $id )->steps );
-	}
-
-	public function test_move_step_success_moves_between_lessons(): void {
-		$this->seedLesson( 10, 'inf', array( 's_a', 's_b' ) );
-		$this->seedLesson( 20, 'inf', array( 's_c' ) );
-		$_POST = array( 'source_lesson_id' => '10', 'target_lesson_id' => '20', 'step_key' => 's_a' );
-
-		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxMoveLessonStep() );
-
-		self::assertTrue( $r->success );
-		self::assertTrue( $r->payload['moved'] );
-		self::assertSame( array( 's_b' ), $this->stepKeys( 10 ) );
-		self::assertSame( array( 's_c', 's_a' ), $this->stepKeys( 20 ) );
-	}
-
-	public function test_move_step_missing_step_errors(): void {
-		$this->seedLesson( 10, 'inf', array( 's_a' ) );
-		$this->seedLesson( 20, 'inf', array() );
-		$_POST = array( 'source_lesson_id' => '10', 'target_lesson_id' => '20', 'step_key' => 's_missing' );
-
-		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxMoveLessonStep() );
-
-		self::assertFalse( $r->success );
-		self::assertSame( array( 's_a' ), $this->stepKeys( 10 ) );
-	}
-
-	public function test_move_step_missing_param_errors(): void {
-		// Регрессия-гард: без source_lesson_id requireInt должен отдать error.
-		$_POST = array( 'target_lesson_id' => '20', 'step_key' => 's_a' );
-
-		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxMoveLessonStep() );
-
-		self::assertFalse( $r->success );
 	}
 
 	public function test_create_task_draft_returns_id_and_creates_subject_task(): void {

@@ -15,7 +15,7 @@ use Inc\Shared\Traits\Sanitizer;
  * Class CourseBuilderCallbacks
  *
  * Admin-AJAX обработчики Stepik-style конструктора курса.
- * Шаги уроков сохраняются через существующие LessonCallbacks (SaveLessonSteps/MoveLessonStep).
+ * Шаги уроков сохраняются через существующие LessonCallbacks (SaveLessonSteps).
  *
  * @package Inc\Callbacks\Course
  */
@@ -160,9 +160,10 @@ class CourseBuilderCallbacks extends BaseController {
 			}
 
 			$modules[] = array(
-				'id'         => $this->sanitizeKeyValue( $module['id'] ?? '' ),
-				'title'      => $this->sanitizeTextValue( $module['title'] ?? '' ),
-				'lesson_ids' => $lesson_ids,
+				'id'          => $this->sanitizeKeyValue( $module['id'] ?? '' ),
+				'title'       => $this->sanitizeTextValue( $module['title'] ?? '' ),
+				'description' => $this->sanitizeTextValue( $module['description'] ?? '' ),
+				'lesson_ids'  => $lesson_ids,
 			);
 		}
 

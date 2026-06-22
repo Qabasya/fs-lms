@@ -136,16 +136,35 @@ export function initGroupCockpit() {
         const btnPick = e.target.closest( '.fs-picker-add-btn' );
         if ( btnPick ) {
             btnPick.disabled = true;
+            const label = document.getElementById( 'fs-picker-label-input' )?.value || '';
             const res = await apiPost( ajaxUrl, {
                 action    : actions.addLessonToProgram,
                 security  : nonces.saveSchedule,
                 group_id  : groupId,
                 lesson_id : btnPick.dataset.lessonId,
+                label,
             } );
             if ( res?.success ) {
                 window.location.reload();
             } else {
                 btnPick.disabled = false;
+            }
+            return;
+        }
+
+        // Duplicate lesson — провести ещё раз на другую дату
+        const btnDup = e.target.closest( '.fs-cockpit-btn-duplicate' );
+        if ( btnDup ) {
+            btnDup.disabled = true;
+            const res = await apiPost( ajaxUrl, {
+                action          : actions.duplicateProgramLesson,
+                security        : nonces.saveSchedule,
+                group_lesson_id : btnDup.dataset.groupLessonId,
+            } );
+            if ( res?.success ) {
+                window.location.reload();
+            } else {
+                btnDup.disabled = false;
             }
             return;
         }
@@ -201,7 +220,10 @@ export function initGroupCockpit() {
         lessons.forEach( lesson => {
             const li  = document.createElement( 'li' );
             li.className = 'fs-picker-result';
-            li.innerHTML = `<span class="fs-picker-result-title">${ escHtml( lesson.title ) }</span>
+            const subjectTag = lesson.subject_name
+                ? `<span class="fs-picker-result-subject">${ escHtml( lesson.subject_name ) }</span>`
+                : '';
+            li.innerHTML = `<span class="fs-picker-result-title">${ escHtml( lesson.title ) }</span>${ subjectTag }
 <button class="fs-picker-add-btn" type="button" data-lesson-id="${ lesson.id }">+</button>`;
             results.appendChild( li );
         } );

@@ -13,6 +13,7 @@ use Inc\Services\Deletion\DeleteGroupEvent;
 use Inc\Services\Deletion\DeletePeriodEvent;
 use Inc\Services\Deletion\DeleteStudentEvent;
 use Inc\Services\Deletion\DeletionEventDispatcher;
+use Inc\Services\Subject\SubjectArchiveGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -57,6 +58,7 @@ class DeletionCallbacks extends BaseController {
 		private readonly DeletionEventDispatcher $dispatcher,
 		private readonly GroupsRepository $groups,
 		private readonly StudentRecordRepository $studentRecords,
+		private readonly SubjectArchiveGuard $archiveGuard,
 	) {
 		parent::__construct();
 	}
@@ -113,8 +115,10 @@ class DeletionCallbacks extends BaseController {
 		}
 
 		$this->success( array(
-			'student_count' => $studentCount,
-			'group_count'   => $groupCount,
+			'student_count'      => $studentCount,
+			'group_count'        => $groupCount,
+			// Группы в текущем периоде блокируют и удаление, и архивацию.
+			'active_group_count' => count( $this->archiveGuard->activeGroups( $subjectKey ) ),
 		) );
 	}
 

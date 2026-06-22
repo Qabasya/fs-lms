@@ -96,4 +96,29 @@ class TemplateRegistry {
 	public function getAll(): array {
 		return $this->templates;
 	}
+
+	/**
+	 * Шаблоны указанной категории (question|code) — для type-first меню/фильтра.
+	 *
+	 * @param \Inc\Enums\Subject\TemplateCategory $category
+	 *
+	 * @return BaseTemplate[]
+	 */
+	public function getByCategory( \Inc\Enums\Subject\TemplateCategory $category ): array {
+		return array_values( array_filter(
+			$this->templates,
+			static fn( BaseTemplate $t ): bool => $t->get_category() === $category
+		) );
+	}
+
+	/**
+	 * Дефолтный (первый) шаблон категории — чем создаётся новая задача из шага.
+	 *
+	 * @param \Inc\Enums\Subject\TemplateCategory $category
+	 *
+	 * @return BaseTemplate|null
+	 */
+	public function defaultForCategory( \Inc\Enums\Subject\TemplateCategory $category ): ?BaseTemplate {
+		return $this->getByCategory( $category )[0] ?? null;
+	}
 }

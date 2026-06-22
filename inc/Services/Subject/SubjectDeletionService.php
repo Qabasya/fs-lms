@@ -30,8 +30,24 @@ readonly class SubjectDeletionService {
 
 		$this->terms->deleteAll( "{$subject_key}_task_number" );
 
-		foreach ( array( PostTypeResolver::tasks( $subject_key ), PostTypeResolver::articles( $subject_key ) ) as $post_type ) {
-			$this->posts->deleteAll( $post_type );
+		// Полный снос всех банков предмета. Удаление вызывается только для предмета БЕЗ групп
+		// (гард в SubjectCrudCallbacks), поэтому референс-гард удаления здесь намеренно обходим —
+		// иначе кросс-ссылки внутри предмета (курс→урок→работа→задача) блокировали бы снос.
+		$bypass = static fn( $check ) => null;
+		add_filter( 'pre_delete_post', $bypass, 99 );
+		try {
+			foreach ( array(
+				PostTypeResolver::courses( $subject_key ),
+				PostTypeResolver::lessons( $subject_key ),
+				PostTypeResolver::works( $subject_key ),
+				PostTypeResolver::assessments( $subject_key ),
+				PostTypeResolver::tasks( $subject_key ),
+				PostTypeResolver::articles( $subject_key ),
+			) as $post_type ) {
+				$this->posts->deleteAll( $post_type );
+			}
+		} finally {
+			remove_filter( 'pre_delete_post', $bypass, 99 );
 		}
 
 		$this->taxonomies->removeBySubject( $subject_key );

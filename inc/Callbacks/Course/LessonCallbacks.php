@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Course;
 use Inc\Core\BaseController;
 use Inc\DTO\Course\LessonDTO;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Subject\TemplateCategory;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\LessonManager;
 use Inc\Services\Course\LessonAuthoringService;
@@ -114,14 +115,16 @@ class LessonCallbacks extends BaseController {
 	}
 
 	/**
-	 * Черновик subject-задачи из билдера. Params: subject_key, title
+	 * Черновик subject-задачи из билдера. Params: subject_key, title, category (question|code)
 	 */
 	public function ajaxCreateTaskDraft(): void {
 		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$title       = $this->sanitizeText( 'title' ) ?: 'Новая задача';
-		$id          = $this->authoringService->createTaskDraft( $subject_key, $title );
+		$categoryRaw = $this->sanitizeKey( 'category' );
+		$category    = '' !== $categoryRaw ? TemplateCategory::fromValueOrDefault( $categoryRaw ) : null;
+		$id          = $this->authoringService->createTaskDraft( $subject_key, $title, $category );
 
 		$this->success( array( 'id' => $id, 'title' => $title ) );
 	}
@@ -184,24 +187,6 @@ class LessonCallbacks extends BaseController {
 		$this->lessonManager->update( $lesson_id, $dto );
 
 		$this->success( array( 'count' => count( $steps ) ) );
-	}
-
-	/**
-	 * Переносит шаг из одного урока в другой (cut → append). T1.5.5.
-	 * Params: source_lesson_id, target_lesson_id, step_key
-	 */
-	public function ajaxMoveLessonStep(): void {
-		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
-
-		$source_id = $this->requireInt( 'source_lesson_id' );
-		$target_id = $this->requireInt( 'target_lesson_id' );
-		$step_key  = $this->requireKey( 'step_key' );
-
-		if ( $this->authoringService->moveStep( $source_id, $target_id, $step_key ) ) {
-			$this->success( array( 'moved' => true ) );
-		} else {
-			$this->error( 'Не удалось переместить шаг.' );
-		}
 	}
 
 	/**

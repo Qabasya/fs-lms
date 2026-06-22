@@ -18,8 +18,10 @@ import { HardDeleteStudentService } from './services/hard-delete-student-service
 import { ArchiveTable } from './services/tables/archive-table.js';
 import { ImportCsv } from './services/import-csv.js';
 import { RefSelector } from './services/ref-selector.js';
-import { StepBuilder } from './services/step-builder.js';
+import { LessonStepEditor } from './services/lesson-step-editor.js';
+import { WorkStepEditor } from './services/work-step-editor.js';
 import { CourseBuilder } from './services/course-builder.js';
+import { TaskTemplateType } from './services/task-template-type.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/enrollment/academic-period-modal-manager";
@@ -132,12 +134,18 @@ import { AlertModal } from './modals/alert-modal.js';
         }
 
         if ( $( '.fs-lms-step-builder' ).length ) {
-            StepBuilder.init();
+            LessonStepEditor.init();
+        }
+
+        if ( $( '.fs-lms-work-builder' ).length ) {
+            WorkStepEditor.init();
         }
 
         if ( document.getElementById( 'fs-lms-course-builder' ) ) {
             CourseBuilder.init();
         }
+
+        TaskTemplateType.init();
 
     });
 

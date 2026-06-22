@@ -18,6 +18,7 @@ enum AjaxHook: string {
 	case StoreSubject  = 'store_subject';
 	case UpdateSubject = 'update_subject';
 	case DeleteSubject = 'delete_subject';
+	case ToggleSubjectArchive = 'toggle_subject_archive';
 	case ExportSubject = 'export_subject';
 	case ImportSubject = 'import_subject';
 
@@ -47,6 +48,7 @@ enum AjaxHook: string {
 	case GetTaskBoilerplate     = 'get_boilerplate';
 	case UpdateTermTemplate     = 'update_term_template';
 	case SaveTemplateAssignment = 'save_template_assignment';
+	case SetTaskTemplateType    = 'set_task_template_type'; // params: post_id, template_type
 
 	// ==================== AcademicPeriod (Учебные периоды) ====================
 	case SaveAcademicPeriod   = 'save_academic_period';
@@ -148,9 +150,9 @@ enum AjaxHook: string {
 	case CreateWorkDraft           = 'create_work_draft';            // params: subject_key, title, work_type
 	case CreateLessonDraft         = 'create_lesson_draft';          // params: subject_key, title
 	case SaveLessonSteps           = 'save_lesson_steps';            // params: lesson_id, subject_key, steps[]
-	case MoveLessonStep            = 'move_lesson_step';             // params: source_lesson_id, target_lesson_id, step_key
 	case GetStepCandidates         = 'get_step_candidates';          // params: subject_key, kind (work|task|assessment|article|lesson), source (subject|bank), search
 	case GetWorkItemCandidates     = 'get_work_item_candidates';     // params: subject_key, collection, scope, search
+	case SaveWorkItems             = 'save_work_items';              // params: work_id, item_ids[] (степ-лист работы)
 	case CreateProblemDraft        = 'create_problem_draft';         // params: title
 	case CreateTaskDraft           = 'create_task_draft';            // params: subject_key, title (черновик subject-задачи из билдера)
 	case CreateAssessmentDraft     = 'create_assessment_draft';      // params: subject_key, title
@@ -185,6 +187,7 @@ enum AjaxHook: string {
 	// ==== Программа группы (Этап 2) ====
 	case AssignCourse            = 'assign_course';
 	case AddLessonToProgram      = 'add_lesson_to_program';
+	case DuplicateProgramLesson  = 'duplicate_program_lesson';
 	case RemoveLessonFromProgram = 'remove_lesson_from_program';
 	case ReorderProgram          = 'reorder_program';
 	case SaveLessonSchedule      = 'save_lesson_schedule';

@@ -14,6 +14,22 @@ enum WeekDay: string {
 	case Saturday  = 'sat';
 	case Sunday    = 'sun';
 
+	/**
+	 * ISO-номер дня недели (1=Пн … 7=Вс) — совпадает с PHP-форматом 'N'.
+	 * Канонический формат meetings для SessionCalendarService.
+	 */
+	public function isoNumber(): int {
+		return match ( $this ) {
+			self::Monday    => 1,
+			self::Tuesday   => 2,
+			self::Wednesday => 3,
+			self::Thursday  => 4,
+			self::Friday    => 5,
+			self::Saturday  => 6,
+			self::Sunday    => 7,
+		};
+	}
+
 	public function label(): string {
 		return match ( $this ) {
 			self::Monday    => 'Пн',

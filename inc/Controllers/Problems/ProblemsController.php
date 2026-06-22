@@ -6,6 +6,8 @@ namespace Inc\Controllers\Problems;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
@@ -42,7 +44,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		add_action( 'init', array( $this, 'registerCpt' ) );
 		add_action( 'init', array( $this, 'registerTaxonomy' ) );
 		add_action( 'add_meta_boxes', array( $this, 'addTemplateMetabox' ) );
+		add_action( 'add_meta_boxes_' . $cpt, array( $this, 'moveAuthorMetaboxToSide' ), 20 );
 		add_action( 'save_post_' . $cpt, array( $this, 'saveTemplateType' ) );
+		add_action( AjaxHook::SetTaskTemplateType->action(), array( $this, 'ajaxSetTemplateType' ) );
 
 		add_filter( "manage_{$cpt}_posts_columns", array( $this, 'addColumns' ) );
 		add_action( "manage_{$cpt}_posts_custom_column", array( $this, 'renderColumn' ), 10, 2 );
@@ -83,7 +87,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 			'exclude_from_search' => true,
 			'capability_type'     => 'fs_lms_content',
 			'map_meta_cap'        => true,
-			'supports'            => array( 'title', 'editor', 'author' ),
+			'supports'            => array( 'title', 'author' ),
 			'rewrite'             => false,
 		) );
 	}
@@ -133,10 +137,47 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {
 			return;
 		}
-		$template_id = $this->sanitizeKey( $_POST[ PostMetaName::TemplateType->value ] ?? '' );
+		$template_id = $this->sanitizeKey( PostMetaName::TemplateType->value );
 		if ( '' !== $template_id ) {
 			$this->posts->updateMeta( $post_id, PostMetaName::TemplateType->value, $template_id );
 		}
+	}
+
+	/**
+	 * Переносит метабокс «Автор» в правый сайдбар (контекст `side`).
+	 *
+	 * Нельзя пере-добавлять под тем же id `authordiv`: `remove_meta_box` ставит
+	 * маркер `false`, и `add_meta_box` с тем же id наследует исходный контекст/приоритет
+	 * (бокс пропадает). Поэтому снимаем core-`authordiv` и регистрируем СВОЙ бокс с
+	 * другим id, переиспользуя нативный рендер `post_author_meta_box` (поле
+	 * `post_author_override` ядро сохраняет само).
+	 */
+	public function moveAuthorMetaboxToSide(): void {
+		$cpt = PostTypeResolver::problems();
+		remove_meta_box( 'authordiv', $cpt, 'normal' );
+		add_meta_box( 'fs_lms_problem_author', 'Автор', 'post_author_meta_box', $cpt, 'side' );
+	}
+
+	/**
+	 * AJAX: авто-сохранение типа шаблона при смене в селекторе.
+	 * JS после успеха перезагружает экран редактирования — метабокс полей
+	 * перерисовывается под новый тип (`MetaBoxController` через `TemplateResolver`).
+	 */
+	public function ajaxSetTemplateType(): void {
+		$this->authorize( Nonce::SaveMeta, Capability::ManageLMSAssignments );
+
+		$post_id     = $this->requireInt( 'post_id' );
+		$template_id = $this->sanitizeKey( 'template_type' );
+
+		if ( '' === $template_id || null === $this->registry->get( $template_id ) ) {
+			$this->error( 'Неизвестный тип шаблона.' );
+		}
+		if ( ! get_post( $post_id ) ) {
+			$this->error( 'Пост не найден.' );
+		}
+
+		$this->posts->updateMeta( $post_id, PostMetaName::TemplateType->value, $template_id );
+		$this->success();
 	}
 
 	/**

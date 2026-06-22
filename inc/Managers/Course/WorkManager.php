@@ -83,6 +83,27 @@ class WorkManager {
 		return true;
 	}
 
+	/**
+	 * Частичное обновление списка элементов работы (степ-лист «только задачи»).
+	 * `work_type` и прочая мета сохраняются (merge).
+	 *
+	 * @param int   $workId
+	 * @param int[] $itemIds Упорядоченные ID заданий/задач.
+	 */
+	public function setItemIds( int $workId, array $itemIds ): bool {
+		$post = $this->posts->get( $workId );
+		if ( null === $post || ! PostTypeResolver::isWorkPostType( $post->post_type ) ) {
+			return false;
+		}
+
+		$meta = $this->posts->getMeta( $workId, PostMetaName::Meta->value );
+		$meta = is_array( $meta ) ? $meta : array();
+		$meta['item_ids'] = array_values( array_filter( array_map( 'intval', $itemIds ) ) );
+
+		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, $meta );
+		return true;
+	}
+
 	private function saveMeta( int $workId, WorkDTO $dto ): void {
 		// instructions схлопнут в post_content (см. create/update) — в мете не дублируем.
 		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, array(

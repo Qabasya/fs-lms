@@ -22,6 +22,7 @@ readonly class GroupLessonInputDTO {
 		public bool    $allowLate        = true,
 		public ?string $recordingUrl     = null,
 		public ?int    $createdByUserId  = null,
+		public ?string $label            = null,
 	) {}
 
 	public function toArray(): array {
@@ -43,6 +44,7 @@ readonly class GroupLessonInputDTO {
 			'allow_late'        => (int) $this->allowLate,
 			'recording_url'     => $this->recordingUrl,
 			'created_by_user_id' => $this->createdByUserId,
+			'label'             => $this->label,
 		);
 	}
 }

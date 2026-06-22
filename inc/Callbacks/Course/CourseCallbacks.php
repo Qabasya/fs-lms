@@ -40,6 +40,10 @@ class CourseCallbacks extends BaseController {
 		$scope       = $this->sanitizeKey( 'scope' );
 		$search      = $this->sanitizeText( 'search' );
 
+		if ( 'all' === $scope ) {
+			$this->success( $this->authoringService->getLessonCandidatesAllSubjects( $search ) );
+		}
+
 		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
 			$scope = 'mine';
 		}

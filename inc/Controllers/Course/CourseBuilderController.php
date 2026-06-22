@@ -34,6 +34,12 @@ class CourseBuilderController extends BaseController implements ServiceInterface
 	}
 
 	public function redirectCourseEditToBuilder(): void {
+		// Только экран правки (action=edit или без action). trash/delete/untrash и пр.
+		// должны проходить штатно — иначе «Удалить» уносит в конструктор.
+		$action = sanitize_key( wp_unslash( $_GET['action'] ?? 'edit' ) );
+		if ( 'edit' !== $action ) {
+			return;
+		}
 		$post_id = absint( wp_unslash( $_GET['post'] ?? 0 ) );
 		if ( $post_id <= 0 ) {
 			return;

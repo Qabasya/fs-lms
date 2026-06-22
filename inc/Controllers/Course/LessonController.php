@@ -31,7 +31,6 @@ class LessonController extends AjaxController {
 			array( AjaxHook::CreateLessonDraft,        $this->callbacks ),
 			array( AjaxHook::GetStepCandidates,        $this->callbacks ),
 			array( AjaxHook::SaveLessonSteps,          $this->callbacks ),
-			array( AjaxHook::MoveLessonStep,           $this->callbacks ),
 			array( AjaxHook::CreateTaskDraft,          $this->callbacks ),
 			array( AjaxHook::CreateAssessmentDraft,    $this->callbacks ),
 			array( AjaxHook::CreateArticleDraft,       $this->callbacks ),

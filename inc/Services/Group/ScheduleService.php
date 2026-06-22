@@ -22,15 +22,21 @@ class ScheduleService {
 		private readonly SessionCalendarService      $calendar,
 	) {}
 
-	public function addLesson( int $groupId, int $lessonId, int $actorUserId ): int {
+	/**
+	 * Добавляет урок в программу группы вручную.
+	 *
+	 * Кросс-предметно: урок может принадлежать любому предмету (доп. занятие).
+	 * Ручное добавление по умолчанию пиннуется — рукотворная дата не сдвигается reflow.
+	 *
+	 * @param string|null $label  Необязательный ярлык строки (напр. «Доп. Python #1»).
+	 * @param bool        $pinned Зафиксировать строку (по умолчанию true для ручного добавления).
+	 */
+	public function addLesson( int $groupId, int $lessonId, int $actorUserId, ?string $label = null, bool $pinned = true ): int {
 		$group  = $this->groups->findById( $groupId );
 		$lesson = $this->lessonManager->get( $lessonId );
 
 		if ( ! $group || ! $lesson ) {
 			throw new \InvalidArgumentException( 'Группа или урок не найдены.' );
-		}
-		if ( $lesson->subjectKey !== $group->subject_key ) {
-			throw new \InvalidArgumentException( 'Урок принадлежит другому предмету.' );
 		}
 
 		$position = $this->groupLessons->nextPosition( $groupId );
@@ -38,7 +44,9 @@ class ScheduleService {
 			groupId         : $groupId,
 			lessonId        : $lessonId,
 			position        : $position,
+			isPinned        : $pinned,
 			createdByUserId : $actorUserId,
+			label           : $label,
 		) );
 
 		$this->dispatcher->dispatch(
@@ -54,6 +62,46 @@ class ScheduleService {
 		);
 
 		return $id;
+	}
+
+	/**
+	 * Дублирует строку программы: тот же урок ещё раз, новой строкой со своей датой.
+	 * Кейс «провести один урок дважды на две даты». Дата сбрасывается — ставится заново.
+	 *
+	 * @return int ID новой строки или 0, если исходная не найдена.
+	 */
+	public function duplicateLesson( int $groupLessonId, int $actorUserId ): int {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row ) {
+			return 0;
+		}
+
+		$position = $this->groupLessons->nextPosition( $row->groupId );
+		$newId    = $this->groupLessons->add( new GroupLessonInputDTO(
+			groupId         : $row->groupId,
+			lessonId        : $row->lessonId,
+			position        : $position,
+			extraWorkIds    : $row->extraWorkIds,
+			isPinned        : true,
+			teacherUserId   : $row->teacherUserId,
+			createdByUserId : $actorUserId,
+			label           : $row->label,
+		) );
+
+		$lesson = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
+		$this->dispatcher->dispatch(
+			LogEvent::LessonAddedToProgram,
+			new LearningEvent(
+				event       : LogEvent::LessonAddedToProgram,
+				actorUserId : $actorUserId,
+				subjectKey  : $lesson?->subjectKey,
+				groupId     : $row->groupId,
+				entityType  : 'lesson',
+				entityId    : (string) $row->lessonId,
+			)
+		);
+
+		return $newId;
 	}
 
 	public function removeLesson( int $groupLessonId, int $actorUserId ): void {
@@ -149,15 +197,20 @@ class ScheduleService {
 		);
 	}
 
-	/** @return array{row: \Inc\DTO\Course\GroupLessonDTO, topic: string}[] */
+	public function getProgramRow( int $groupLessonId ): ?\Inc\DTO\Course\GroupLessonDTO {
+		return $this->groupLessons->find( $groupLessonId );
+	}
+
+	/** @return array{row: \Inc\DTO\Course\GroupLessonDTO, topic: string, subject: string}[] */
 	public function getProgram( int $groupId ): array {
 		$rows   = $this->groupLessons->listByGroup( $groupId );
 		$result = array();
 		foreach ( $rows as $row ) {
 			$lesson   = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
 			$result[] = array(
-				'row'   => $row,
-				'topic' => $lesson?->topic ?? '',
+				'row'     => $row,
+				'topic'   => $lesson?->topic ?? '',
+				'subject' => $lesson?->subjectKey ?? '',
 			);
 		}
 		return $result;

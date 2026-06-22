@@ -43,6 +43,7 @@ readonly class GroupLessonDTO {
 		public ?string $recordingUrl,
 		public ?int    $createdByUserId,
 		public ?int    $updatedByUserId,
+		public ?string $label = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -66,6 +67,7 @@ readonly class GroupLessonDTO {
 			recordingUrl    : $row['recording_url'] ?? null,
 			createdByUserId : isset( $row['created_by_user_id'] ) ? (int) $row['created_by_user_id'] : null,
 			updatedByUserId : isset( $row['updated_by_user_id'] ) ? (int) $row['updated_by_user_id'] : null,
+			label           : isset( $row['label'] ) && '' !== $row['label'] ? (string) $row['label'] : null,
 		);
 	}
 

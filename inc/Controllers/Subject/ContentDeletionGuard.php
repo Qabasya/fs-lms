@@ -155,7 +155,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 
 		$this->render(
 			'admin/components/content-delete-blocked-notice',
-			array( 'count' => $this->sanitizeInt( $_GET['fs_lms_delete_blocked'] ) )
+			array( 'count' => $this->sanitizeGetInt( 'fs_lms_delete_blocked' ) )
 		);
 	}
 
@@ -200,7 +200,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	}
 
 	private function validatedActionPost( string $action ): int {
-		$post_id = $this->sanitizeInt( $_GET['post'] ?? 0 );
+		$post_id = $this->sanitizeGetInt( 'post' );
 
 		if ( ! current_user_can( Capability::ManageLMSAssignments->value ) ) {
 			wp_die( esc_html__( 'Недостаточно прав.', 'fs-lms' ) );

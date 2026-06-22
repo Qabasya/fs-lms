@@ -130,7 +130,7 @@ class SubjectsMenuBuilder {
 	 */
 	private function getSubjects(): array {
 		if ( null === $this->subjects ) {
-			$this->subjects = $this->subject_repository->readAll();
+			$this->subjects = $this->subject_repository->readActive();
 		}
 
 		return $this->subjects;

@@ -8,6 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
+use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\MetaBoxManager;
 use Inc\MetaBoxes\Templates\WorkTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
@@ -33,6 +34,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		private readonly MetaBoxRegistrar  $registrar,
 		private readonly MetaBoxManager    $metaBoxManager,
 		private readonly WorkTemplate      $template,
+		private readonly WorkManager       $works,
 	) {
 		parent::__construct();
 	}
@@ -75,8 +77,34 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 	public function renderMetaboxContent( \WP_Post $post ): void {
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
 
+		$subject = PostTypeResolver::subjectFromWorkPostType( $post->post_type );
+		$work    = $this->works->get( $post->ID );
+		$itemIds = null !== $work ? $work->itemIds : array();
+
+		// item_ids → task-шаги для единого степ-редактора (level=work, только задачи).
+		$steps = array();
+		foreach ( $itemIds as $id ) {
+			$id = (int) $id;
+			if ( $id <= 0 ) {
+				continue;
+			}
+			$steps[] = array(
+				'key'     => 'item_' . $id,
+				'type'    => 'task',
+				'payload' => array( 'ref' => $id ),
+				'_title'  => get_the_title( $id ),
+			);
+		}
+		$json = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+
 		echo '<div class="fs-lms-metabox-wrapper fs-lms-work-metabox">';
-		$this->template->render( $post );
+		$this->template->render( $post ); // только «Тип работы»
+		echo '<div class="fs-lms-work-builder" '
+			. 'data-work-id="' . esc_attr( (string) $post->ID ) . '" '
+			. 'data-subject="' . esc_attr( $subject ) . '" '
+			. 'data-level="work">';
+		echo '<script type="application/json" class="fs-sb-data">' . ( $json ?: '[]' ) . '</script>';
+		echo '</div>';
 		echo '</div>';
 	}
 
@@ -96,7 +124,8 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 
 		$raw_data = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
 
-		$this->metaBoxManager->saveFields(
+		// Мерж: сохраняем только work_type, item_ids (степ-лист, AJAX) не затираем.
+		$this->metaBoxManager->saveFieldsMerge(
 			$post_id,
 			PostMetaName::Meta->value,
 			is_array( $raw_data ) ? $raw_data : array(),

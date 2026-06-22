@@ -156,8 +156,16 @@ class AdminCallbacks extends BaseController {
 		$groups   = '' !== $selected_period_id
 			? $this->groupsRepository->findByFilters( $selected_period_id, $filter_subject_key, $filter_teacher_id )
 			: array();
-		$subjects = $this->subjects->readAll();
-		$teachers = $this->users->getByRole( \Inc\Enums\Access\UserRole::FSTeacher );
+		$subjects        = $this->subjects->readAll();    // карта имён для подписи существующих групп
+		$active_subjects = $this->subjects->readActive(); // без архивных — для фильтра и скрытия групп
+		$teachers        = $this->users->getByRole( \Inc\Enums\Access\UserRole::FSTeacher );
+
+		// Группы архивных предметов не показываем в активном списке (предмет «в корзине» целиком).
+		// Данные не удаляются — вернутся при разархивации предмета.
+		$groups = array_filter(
+			$groups,
+			static fn( object $g ): bool => isset( $active_subjects[ $g->subject_key ] )
+		);
 
 		$teacher_map = array();
 		foreach ( $teachers as $t ) {
@@ -184,7 +192,8 @@ class AdminCallbacks extends BaseController {
 		$this->render(
 			'admin/groups',
 			array(
-				'subjects'           => $subjects,
+				'subjects'           => $active_subjects, // фильтр-дропдаун — без архивных
+				'active_subjects'    => $active_subjects, // дропдаун создания группы — без архивных
 				'academic_periods'   => $raw_periods,
 				'current_period'     => $current_period,
 				'other_periods'      => $other_periods,

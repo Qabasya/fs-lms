@@ -189,6 +189,30 @@ class MetaBoxManager {
 	}
 
 	/**
+	 * Как saveFields(), но МЕРЖИТ в существующую мету (не затирает остальные ключи).
+	 * Нужно, когда часть меты управляется отдельно (напр. `item_ids` работы — через AJAX).
+	 *
+	 * @param int    $post_id
+	 * @param string $meta_key
+	 * @param array  $rawData
+	 * @param array  $fields
+	 *
+	 * @return void
+	 */
+	public function saveFieldsMerge( int $post_id, string $meta_key, array $rawData, array $fields ): void {
+		$existing = get_post_meta( $post_id, $meta_key, true );
+		$existing = is_array( $existing ) ? $existing : array();
+
+		foreach ( $fields as $id => $config ) {
+			if ( isset( $rawData[ $id ], $config['object'] ) ) {
+				$existing[ $id ] = $config['object']->sanitize( $rawData[ $id ] );
+			}
+		}
+
+		$this->saveMeta( $post_id, $meta_key, $existing );
+	}
+
+	/**
 	 * Удаляет мета-данные поста.
 	 *
 	 * @param int    $post_id  ID поста

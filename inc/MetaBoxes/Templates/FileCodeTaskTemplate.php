@@ -2,6 +2,7 @@
 
 namespace Inc\MetaBoxes\Templates;
 
+use Inc\Enums\Subject\TemplateCategory;
 use Inc\MetaBoxes\Fields\CodeField;
 use Inc\MetaBoxes\Fields\InputField;
 use Inc\MetaBoxes\Fields\LinkField;
@@ -63,5 +64,9 @@ class FileCodeTaskTemplate extends BaseTemplate {
 	 */
 	public function get_name(): string {
 		return 'Задание с файлом и кодом';
+	}
+
+	public function get_category(): TemplateCategory {
+		return TemplateCategory::Code;
 	}
 }

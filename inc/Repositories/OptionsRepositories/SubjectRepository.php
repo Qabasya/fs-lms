@@ -62,6 +62,34 @@ class SubjectRepository {
 	}
 
 	/**
+	 * Возвращает только неархивные предметы (для UI/меню/создания групп).
+	 * Архивные остаются в readAll() — их CPT регистрируются, группы работают.
+	 *
+	 * @return SubjectDTO[]
+	 */
+	public function readActive(): array {
+		return array_filter( $this->readAll(), static fn( SubjectDTO $s ): bool => ! $s->archived );
+	}
+
+	/**
+	 * Помечает предмет архивным / возвращает из архива.
+	 *
+	 * @param string $key
+	 * @param bool   $archived
+	 *
+	 * @return bool
+	 */
+	public function setArchived( string $key, bool $archived ): bool {
+		$subjects = $this->getRaw();
+		if ( ! isset( $subjects[ $key ] ) ) {
+			return false;
+		}
+		$subjects[ $key ]['archived'] = $archived;
+
+		return update_option( $this->option_name, $subjects );
+	}
+
+	/**
 	 * Получает предмет по ключу.
 	 *
 	 * @param string $key Ключ предмета (например, 'math')
