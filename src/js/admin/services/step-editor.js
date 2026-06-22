@@ -60,12 +60,12 @@ const stepMeta = ( step ) => ( step && 'task' === step.type && step.payload && T
 const iconForStep = ( step ) => ICON[ stepMeta( step ).ui ] || ICON.lecture;
 
 let _idc = 5000;
-const tmpKey = ( p ) => `${ p }_tmp_${ Date.now() }_${ ++_idc }`;
+export const tmpKey = ( p ) => `${ p }_tmp_${ Date.now() }_${ ++_idc }`;
 export const esc = ( s ) => String( s == null ? '' : s )
 	.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' ).replace( /"/g, '&quot;' );
 
 // ── AJAX (нонс по экшену; оба нонса в fs_lms_vars глобально) ────
-function nonceFor( action ) {
+export function nonceFor( action ) {
 	const a = acts();
 	const lessonScoped = [ a.saveLessonSteps, a.getStepCandidates ];
 	return lessonScoped.includes( action )
@@ -432,34 +432,11 @@ export function createStepEditor( opts ) {
 	function openLibraryPicker( e, kind, onPick ) {
 		e.stopPropagation();
 		closePopover();
-		const pop = document.createElement( 'div' );
-		pop.className = 'fs-cb-popover fs-cb-picker';
-		pop.innerHTML = '<input type="text" class="field-input" data-search placeholder="Поиск в библиотеке…"><div class="fs-cb-pick-results" data-results></div>';
-		document.body.appendChild( pop );
-		const r = e.currentTarget.getBoundingClientRect();
-		pop.style.top  = `${ window.scrollY + r.bottom + 6 }px`;
-		pop.style.left = `${ Math.min( r.left, window.innerWidth - 320 ) }px`;
-		const results = pop.querySelector( '[data-results]' );
-		const search  = pop.querySelector( '[data-search]' );
-		let t = null;
-		const run = () => ajax( acts().getStepCandidates, { subject_key: subjectKey, kind, source: 'subject', search: search.value.trim() } )
-			.then( ( items ) => {
-				results.innerHTML = '';
-				if ( ! items.length ) { results.innerHTML = '<div class="fs-cb-pick-empty">Ничего не найдено</div>'; return; }
-				items.forEach( ( it ) => {
-					const opt = document.createElement( 'div' );
-					opt.className = 'fs-cb-pick-opt';
-					opt.textContent = it.title;
-					opt.addEventListener( 'click', () => { onPick( parseInt( it.id, 10 ), it.title ); pop.remove(); } );
-					results.appendChild( opt );
-				} );
-			} )
-			.catch( () => { results.innerHTML = '<div class="fs-cb-pick-empty">Ошибка</div>'; } );
-		search.addEventListener( 'input', () => { clearTimeout( t ); t = setTimeout( run, 300 ); } );
-		run();
-		setTimeout( () => document.addEventListener( 'click', function once( ev ) {
-			if ( ! pop.contains( ev.target ) ) { pop.remove(); } else { document.addEventListener( 'click', once, { once: true } ); }
-		}, { once: true } ), 0 );
+		openPicker( e.currentTarget, {
+			placeholder: 'Поиск в библиотеке…',
+			fetchFn:     ( search ) => ajax( acts().getStepCandidates, { subject_key: subjectKey, kind, source: 'subject', search } ),
+			onPick,
+		} );
 	}
 
 	// ── WP Media picker ──
@@ -491,5 +468,72 @@ export function createStepEditor( opts ) {
 		setStatus( 'Изменения…' );
 		clearTimeout( saveTimer );
 		saveTimer = setTimeout( saveSteps, 800 );
+	}
+}
+
+/**
+ * Открывает универсальный попап-пикер (поиск + список элементов).
+ *
+ * @param {HTMLElement} anchor      Элемент-якорь для позиционирования.
+ * @param {Object}      opts
+ * @param {string}     [opts.placeholder='Поиск…']
+ * @param {string}     [opts.emptyText='Ничего не найдено']
+ * @param {Function}    opts.fetchFn   (search: string) => Promise<{id, title}[]>
+ * @param {Function}    opts.onPick    (id: number, title: string) => void
+ */
+export function openPicker( anchor, { placeholder = 'Поиск…', emptyText = 'Ничего не найдено', fetchFn, onPick } ) {
+	const pop = document.createElement( 'div' );
+	pop.className = 'fs-cb-popover fs-cb-picker';
+	pop.innerHTML = `<input type="text" class="field-input" data-search placeholder="${ esc( placeholder ) }"><div class="fs-cb-pick-results" data-results></div>`;
+	document.body.appendChild( pop );
+	const r = anchor.getBoundingClientRect();
+	pop.style.top  = `${ window.scrollY + r.bottom + 6 }px`;
+	pop.style.left = `${ Math.min( r.left, window.innerWidth - 320 ) }px`;
+	const results = pop.querySelector( '[data-results]' );
+	const search  = pop.querySelector( '[data-search]' );
+	let t = null;
+	const run = () => Promise.resolve( fetchFn( search.value.trim() ) )
+		.then( ( items ) => {
+			results.innerHTML = '';
+			if ( ! items.length ) { results.innerHTML = `<div class="fs-cb-pick-empty">${ esc( emptyText ) }</div>`; return; }
+			items.forEach( ( it ) => {
+				const opt = document.createElement( 'div' );
+				opt.className = 'fs-cb-pick-opt';
+				opt.textContent = it.title;
+				opt.addEventListener( 'click', () => { onPick( parseInt( it.id, 10 ), it.title ); pop.remove(); } );
+				results.appendChild( opt );
+			} );
+		} )
+		.catch( () => { results.innerHTML = '<div class="fs-cb-pick-empty">Ошибка</div>'; } );
+	search.addEventListener( 'input', () => { clearTimeout( t ); t = setTimeout( run, 300 ); } );
+	run();
+	setTimeout( () => document.addEventListener( 'click', function once( ev ) {
+		if ( ! pop.contains( ev.target ) ) { pop.remove(); } else { document.addEventListener( 'click', once, { once: true } ); }
+	}, { once: true } ), 0 );
+}
+
+/**
+ * Читает сериализованные шаги из скрытого `.fs-sb-data` внутри `el`.
+ *
+ * @param {HTMLElement} el
+ * @returns {Array<{key:string,type:string,payload:object,title:string,_title:string}>}
+ */
+export function readSteps( el ) {
+	const node = el.querySelector( '.fs-sb-data' );
+	const raw  = node ? node.textContent : '';
+	if ( ! raw ) { return []; }
+	try {
+		const parsed = JSON.parse( raw );
+		return Array.isArray( parsed )
+			? parsed.map( ( s ) => ( {
+				key:     String( s.key || '' ),
+				type:    String( s.type || '' ),
+				payload: ( s.payload && typeof s.payload === 'object' ) ? s.payload : {},
+				title:   s.title || '',
+				_title:  s._title || '',
+			} ) ).filter( ( s ) => TYPE_UI[ s.type ] )
+			: [];
+	} catch ( e ) {
+		return [];
 	}
 }

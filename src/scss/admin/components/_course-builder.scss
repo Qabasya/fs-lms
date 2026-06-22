@@ -31,7 +31,7 @@
 		padding: $spacing-md $spacing-lg;
 		background: $color-bg-modal;
 		border: 1px solid $wp-admin-gray-bg;
-		box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+		box-shadow: $shadow-cb-strip;
 		border-radius: $border-radius-sm;
 		margin-bottom: $spacing-md;
 		flex-wrap: wrap;
@@ -67,7 +67,7 @@
 		grid-template-columns: 320px 1fr;
 		background: $color-bg-modal;
 		border: 1px solid $wp-admin-gray-bg;
-		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+		box-shadow: $shadow-cb-builder;
 		border-radius: $border-radius-l;
 		overflow: hidden;
 		min-height: 640px;
@@ -134,7 +134,7 @@
 
 	// RIGHT: editor
 	.editor-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: $color-bg-modal; }
-	.editor-top { padding: $spacing-lg 22px 0; border-bottom: 1px solid $wp-admin-gray-bg; }
+	.editor-top { padding: $spacing-lg $cb-pane-px 0; border-bottom: 1px solid $wp-admin-gray-bg; }
 	.editor-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: $color-text-secondary; margin-bottom: $spacing-sm + 2px; flex-wrap: wrap;
 		b { color: $color-text-primary; font-weight: 600; } }
 	.lesson-title-row { display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px; }
@@ -149,92 +149,16 @@
 		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg;
 		display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer;
 		&.published { background: $wp-admin-green-bg; color: $wp-admin-green-text; border-color: $wp-admin-green-bg; }
-		&.danger { background: transparent; color: $color-danger; border-color: rgba($color-danger, 0.4);
-			&:hover { background: rgba($color-danger, 0.1); } }
+		&.danger { background: transparent; color: $color-danger; border-color: $cb-danger-border-color;
+			&:hover { background: $cb-danger-hover-bg; } }
 	}
 
-	// steps row
-	.steps-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; margin-bottom: $spacing-sm; }
-	.steps-row { display: flex; align-items: flex-start; gap: $spacing-sm; padding-bottom: $spacing-lg; overflow-x: auto; }
-	.step-chip {
-		width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: $spacing-xs; cursor: pointer;
-		color: $color-secondary-hover;
+	// editor body (контейнер правой панели; шаги — внутри .fs-se)
+	.editor-body { flex: 1; overflow-y: auto; padding: $spacing-xl $cb-pane-px $spacing-xxl; min-height: 0; }
 
-		.step-chip-box {
-			width: 56px; height: 52px; border-radius: 9px; background: $cb-chip-bg; border: 1.5px solid transparent;
-			display: flex; align-items: center; justify-content: center; position: relative;
-			transition: transform 0.12s, box-shadow 0.12s; color: inherit;
-			svg { width: 22px; height: 22px; fill: currentColor; }
-			.sc-num { position: absolute; top: 3px; left: 5px; font-size: 10px; font-weight: 700; color: $color-secondary-hover; }
-		}
-		.sc-type { font-size: 10px; color: $color-secondary-hover; line-height: 1; }
-		&:hover .step-chip-box { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); }
-
-		&[data-type="lecture"]  { color: $step-lecture; }
-		&[data-type="video"]    { color: $step-video; }
-		&[data-type="practice"] { color: $step-practice; }
-		&[data-type="quiz"]     { color: $step-quiz; }
-		&[data-type="file"]     { color: $step-file; }
-
-		&.active {
-			.step-chip-box { border-color: currentColor; background: currentColor;
-				svg { fill: $color-text-inverse; }
-				.sc-num { color: rgba(255, 255, 255, 0.85); } }
-			.sc-type { font-weight: 700; color: currentColor; }
-		}
-	}
-	.step-add .step-chip-box { background: $color-bg-modal; border: 1.5px dashed $color-primary; color: $color-primary; }
-	.step-add:hover .step-chip-box { background: $wp-admin-blue-bg-light; }
-
-	// editor body
-	.editor-body { flex: 1; overflow-y: auto; padding: $spacing-xl 22px $spacing-xxl; min-height: 0; }
-	.step-head {
-		display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px;
-		.sh-badge { display: inline-flex; align-items: center; gap: 6px; padding: $spacing-xs 11px; border-radius: 7px; font-size: 12px; font-weight: 600; color: $color-text-inverse;
-			svg { fill: $color-text-inverse; width: 14px; height: 14px; } }
-		.sh-controls { margin-left: auto; display: flex; gap: 6px; }
-
-		&[data-type="lecture"]  .sh-badge { background: $step-lecture; }
-		&[data-type="video"]    .sh-badge { background: $step-video; }
-		&[data-type="practice"] .sh-badge { background: $step-practice; }
-		&[data-type="quiz"]     .sh-badge { background: $step-quiz; }
-		&[data-type="file"]     .sh-badge { background: $step-file; }
-	}
-	.field-input--title { max-width: 280px; }
-	.icon-btn {
-		width: 30px; height: 30px; border: 1px solid $color-border-input; background: $wp-admin-gray-bg-light;
-		border-radius: 5px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: $color-text-secondary;
-		&:hover { background: $cb-bg-hover; color: $color-primary; border-color: $color-secondary-hover; }
-		&.danger:hover { color: $color-danger; border-color: $color-danger; }
-	}
-
-	// fields
-	.sb-label { font-size: 12px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: $color-text-secondary; margin-bottom: $spacing-sm + 2px; }
-	.field-row { margin-bottom: 14px;
-		label { display: block; font-size: 12px; font-weight: 600; color: $color-text-secondary; margin-bottom: 5px; } }
-	.field-input {
-		width: 100%; padding: $spacing-sm 11px; border: 1px solid $color-border-input; border-radius: 5px; font-size: 13px; color: $color-text-primary;
-		&:focus { outline: none; border-color: $color-primary; box-shadow: 0 0 0 1px $color-primary; }
-	}
-	textarea.field-input { resize: vertical; min-height: 90px; line-height: 1.6; }
-	.rte-area {
-		padding: $spacing-lg $spacing-xl; min-height: 260px; line-height: 1.7; font-size: 14px; color: $color-text-primary;
-		outline: none; background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: $border-radius-l;
-		&:focus { box-shadow: inset 0 0 0 2px $cb-bg-active; }
-		h2 { font-size: 22px; margin: 0 0 $spacing-md; font-weight: 700; }
-		h3 { font-size: 17px; margin: $spacing-lg + 2px 0 $spacing-sm; font-weight: 700; }
-		p { margin: 0 0 $spacing-md; }
-		ol, ul { margin: 0 0 $spacing-md; padding-left: 24px; }
-		li { margin-bottom: 5px; }
-	}
-
-	// ref / library attach
-	.fs-cb-ref { display: flex; align-items: center; gap: $spacing-md; flex-wrap: wrap;
-		.fs-cb-ref-title { font-weight: 600; color: $color-text-primary; }
-		.fs-cb-ref-edit { font-size: 12px; } }
 	// footer
 	.editor-footer {
-		border-top: 1px solid $wp-admin-gray-bg; padding: $spacing-md 22px;
+		border-top: 1px solid $wp-admin-gray-bg; padding: $spacing-md $cb-pane-px;
 		display: flex; align-items: center; gap: $spacing-sm + 2px; background: $cb-bg-tree;
 		.ef-status { font-size: 12px; color: $color-secondary-hover; display: flex; align-items: center; gap: 6px; }
 		.ef-spacer { flex: 1; }
@@ -251,7 +175,7 @@
 .fs-cb-popover {
 	position: absolute; z-index: 100001;
 	background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: 9px;
-	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2); padding: $spacing-sm; width: 240px;
+	box-shadow: $shadow-cb-popover; padding: $spacing-sm; width: 240px;
 
 	.sp-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: $color-text-secondary; padding: 6px $spacing-sm $spacing-sm; }
 	.sp-option {
@@ -279,34 +203,10 @@
 	}
 }
 
-// ── TinyMCE RTE area (lecture step) + страница модуля ──
+// ── страница модуля (имя + описание, без шагов) ──
 .fs-lms-cb-wrap {
-	.fs-cb-rte-target { display: none; } // replaced by TinyMCE iframe; hidden on fallback path too
-
-	// страница модуля (имя + описание, без шагов)
 	.module-page { padding-top: $spacing-sm; }
-	.module-desc {
-		width: 100%; resize: vertical; min-height: 96px;
-		padding: $spacing-sm 11px; border: 1px solid $color-border-input; border-radius: $border-radius-md;
-		font-size: 13px; line-height: 1.5;
-	}
-
-	// material step actions
-	.fs-cb-mat-actions { display: flex; gap: $spacing-sm; margin-top: $spacing-sm; }
-
-	// "or" divider between library picker and inline create
-	.fs-cb-or-divider {
-		display: flex; align-items: center; gap: $spacing-sm; margin: $spacing-md 0;
-		color: $color-text-secondary; font-size: 12px;
-		&::before, &::after { content: ''; flex: 1; height: 1px; background: $color-border-input; }
-	}
-
-	// inline create (work / assessment)
-	.fs-cb-inline-create {
-		display: flex; flex-wrap: wrap; gap: $spacing-sm; align-items: center;
-		.field-input { flex: 1; min-width: 160px; }
-		select.field-input { flex: 0 0 auto; min-width: 160px; }
-	}
+	.module-desc { width: 100%; resize: vertical; min-height: 96px; }
 }
 
 // ── Responsive — narrow admin screens (<= 960 px) ──

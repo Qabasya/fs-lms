@@ -65,6 +65,16 @@ $cb-chip-bg:    #f0f1f3; // плитка шага (неактивная)
 $cb-num-bg:     #e0e7ef; // номер модуля
 $cb-badge-bg:   #eceef0; // бейдж числа шагов
 
+// ── Course Builder shadows & computed colours
+$shadow-cb-strip:      0 1px 1px rgba(0, 0, 0, 0.04);
+$shadow-cb-builder:    0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-cb-chip-hover: 0 4px 10px rgba(0, 0, 0, 0.1);
+$shadow-cb-popover:    0 12px 40px rgba(0, 0, 0, 0.2);
+$cb-danger-border-color: rgba($color-danger, 0.4);
+$cb-danger-hover-bg:     rgba($color-danger, 0.1);
+$cb-chip-num-active-color: rgba(255, 255, 255, 0.85);
+$cb-pane-px: 22px; // горизонтальный padding правой панели редактора
+
 // ── Размеры и отступы
 $spacing-xs: 4px;
 $spacing-sm: 8px;

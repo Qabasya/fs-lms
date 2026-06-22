@@ -1,6 +1,7 @@
 import '../_types.js';
 import { showToast } from '../modules/toast.js';
-import { createStepEditor } from './step-editor.js';
+import { createStepEditor, esc, ajax, tmpKey, openPicker } from './step-editor.js';
+import { createPersistence } from './course-persistence.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -19,10 +20,7 @@ const $ = jQuery;
 // `step-editor.js` — единый источник UI для курс-билдера и метабокса урока.
 const acts = () => fs_lms_vars.ajax_actions;
 
-let _idc = 1000;
-const tmpKey = ( p ) => `${ p }_tmp_${ Date.now() }_${ ++_idc }`;
-const esc = ( s ) => String( s == null ? '' : s )
-	.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' ).replace( /"/g, '&quot;' );
+const GRIP_SVG = '<svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M4 2.5h1v1H4zm3 0h1v1H7zM4 5.5h1v1H4zm3 0h1v1H7zM4 8.5h1v1H4zm3 0h1v1H7z"/></svg>';
 
 export const CourseBuilder = {
 	init() {
@@ -33,31 +31,14 @@ export const CourseBuilder = {
 	},
 };
 
-// ── AJAX ───────────────────────────────────────────────────────
-function nonceFor( action ) {
-	const a = acts();
-	const lessonScoped = [ a.saveLessonSteps, a.getStepCandidates ];
-	return lessonScoped.includes( action )
-		? fs_lms_vars.nonces.authorLesson
-		: fs_lms_vars.nonces.authorCourse;
-}
-
-function ajax( action, data ) {
-	return new Promise( ( resolve, reject ) => {
-		$.post( fs_lms_vars.ajaxurl, Object.assign( { action, security: nonceFor( action ) }, data ) )
-			.done( ( resp ) => ( resp && resp.success ) ? resolve( resp.data ) : reject( ( resp && resp.data ) || 'Ошибка' ) )
-			.fail( () => reject( 'Ошибка сети' ) );
-	} );
-}
-
 // ══════════════════════════════════════════════════════════════
 function createApp( mount ) {
 	const courseId = parseInt( mount.dataset.courseId, 10 ) || 0;
 	const subject  = String( mount.dataset.subject || '' );
 
 	const state = { course: null, activeLessonId: null, activeModuleId: null };
-	let saveTimer  = null;
 	let stepEditor = null; // активный экземпляр createStepEditor() для выбранного урока
+	const persist  = createPersistence( { courseId, mount, state, onPublishToggle: () => renderEditor() } );
 
 	if ( courseId > 0 ) {
 		mount.innerHTML = '<p class="fs-cb-loading">Загрузка курса…</p>';
@@ -143,14 +124,14 @@ function createApp( mount ) {
 		titleInput.addEventListener( 'input', () => {
 			c.title = titleInput.value;
 			thumb.textContent = ( c.title || '?' ).slice( 0, 2 );
-			scheduleCourseMeta();
+			persist.scheduleCourseMeta();
 		} );
 		mount.querySelector( '[data-toggle-course]' ).addEventListener( 'click', function() {
 			c.status = 'publish' === c.status ? 'draft' : 'publish';
 			const pub = 'publish' === c.status;
 			this.textContent = pub ? 'Опубликован' : 'Черновик';
 			this.classList.toggle( 'published', pub );
-			saveCourseMeta();
+			persist.saveCourseMeta();
 		} );
 	}
 
@@ -185,7 +166,7 @@ function createApp( mount ) {
 			const head = document.createElement( 'div' );
 			head.className = 'module-head';
 			head.innerHTML = `
-				<span class="mod-grip"><svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M4 2.5h1v1H4zm3 0h1v1H7zM4 5.5h1v1H4zm3 0h1v1H7zM4 8.5h1v1H4zm3 0h1v1H7z"/></svg></span>
+				<span class="mod-grip">${ GRIP_SVG }</span>
 				<span class="mod-caret"><svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M3 4.5 6 8l3-3.5z"/></svg></span>
 				<span class="mod-num">${ mi + 1 }</span>
 				<span class="mod-main"><span class="mod-title"></span><span class="mod-desc"></span></span>`;
@@ -205,7 +186,7 @@ function createApp( mount ) {
 				el.className = 'lesson' + ( les.id === state.activeLessonId ? ' active' : '' );
 				el.draggable = true;
 				el.innerHTML = `
-					<span class="les-grip"><svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M4 2.5h1v1H4zm3 0h1v1H7zM4 5.5h1v1H4zm3 0h1v1H7zM4 8.5h1v1H4zm3 0h1v1H7z"/></svg></span>
+					<span class="les-grip">${ GRIP_SVG }</span>
 					<span class="les-num">${ mi + 1 }.${ mod.lessons.indexOf( les ) + 1 }</span>
 					<span class="les-title"></span>
 					<span class="les-steps">${ les.steps.length }</span>`;
@@ -222,52 +203,24 @@ function createApp( mount ) {
 			`${ state.course.modules.length } модулей · ${ totalLessons() } уроков`;
 	}
 
-	// ── drag&drop уроков ──
+	// ── drag&drop ──
 	let dragLessonId = null;
 	let dragModuleId = null;
-	function attachLessonDrag( el, les, mod ) {
-		el.addEventListener( 'dragstart', ( e ) => {
-			dragLessonId = les.id; dragModuleId = null;
-			el.classList.add( 'dragging' );
-			e.dataTransfer.effectAllowed = 'move';
-			e.stopPropagation();
-		} );
-		el.addEventListener( 'dragend', () => {
-			dragLessonId = null; el.classList.remove( 'dragging' );
-			mount.querySelectorAll( '.drop-before,.drop-after' ).forEach( ( n ) => n.classList.remove( 'drop-before', 'drop-after' ) );
-		} );
-		el.addEventListener( 'dragover', ( e ) => {
-			if ( dragModuleId || dragLessonId === les.id ) { return; }
-			e.preventDefault(); e.stopPropagation();
-			const r = el.getBoundingClientRect();
-			const after = ( e.clientY - r.top ) > r.height / 2;
-			el.classList.toggle( 'drop-after', after );
-			el.classList.toggle( 'drop-before', ! after );
-		} );
-		el.addEventListener( 'dragleave', () => el.classList.remove( 'drop-before', 'drop-after' ) );
-		el.addEventListener( 'drop', ( e ) => {
-			if ( dragModuleId ) { return; }
-			e.preventDefault(); e.stopPropagation();
-			const r = el.getBoundingClientRect();
-			const after = ( e.clientY - r.top ) > r.height / 2;
-			el.classList.remove( 'drop-before', 'drop-after' );
-			moveLesson( dragLessonId, mod.id, les.id, after );
-		} );
-	}
 
-	function attachModuleDrag( el, mod ) {
+	function attachDnD( el, { onStart, onEnd, isValidTarget, onDrop, containsCheck = false } ) {
 		el.addEventListener( 'dragstart', ( e ) => {
-			dragModuleId = mod.id; dragLessonId = null;
+			onStart();
 			el.classList.add( 'dragging' );
 			e.dataTransfer.effectAllowed = 'move';
 			e.stopPropagation();
 		} );
 		el.addEventListener( 'dragend', () => {
-			dragModuleId = null; el.classList.remove( 'dragging' );
+			if ( onEnd ) { onEnd(); }
+			el.classList.remove( 'dragging' );
 			mount.querySelectorAll( '.drop-before,.drop-after' ).forEach( ( n ) => n.classList.remove( 'drop-before', 'drop-after' ) );
 		} );
 		el.addEventListener( 'dragover', ( e ) => {
-			if ( ! dragModuleId || dragModuleId === mod.id ) { return; }
+			if ( ! isValidTarget() ) { return; }
 			e.preventDefault(); e.stopPropagation();
 			const r = el.getBoundingClientRect();
 			const after = ( e.clientY - r.top ) > r.height / 2;
@@ -275,17 +228,35 @@ function createApp( mount ) {
 			el.classList.toggle( 'drop-before', ! after );
 		} );
 		el.addEventListener( 'dragleave', ( ev ) => {
-			if ( ! el.contains( ev.relatedTarget ) ) {
-				el.classList.remove( 'drop-before', 'drop-after' );
-			}
+			if ( containsCheck && el.contains( ev.relatedTarget ) ) { return; }
+			el.classList.remove( 'drop-before', 'drop-after' );
 		} );
 		el.addEventListener( 'drop', ( e ) => {
-			if ( ! dragModuleId ) { return; }
+			if ( ! isValidTarget() ) { return; }
 			e.preventDefault(); e.stopPropagation();
 			const r = el.getBoundingClientRect();
 			const after = ( e.clientY - r.top ) > r.height / 2;
 			el.classList.remove( 'drop-before', 'drop-after' );
-			moveModule( dragModuleId, mod.id, after );
+			onDrop( after );
+		} );
+	}
+
+	function attachLessonDrag( el, les, mod ) {
+		attachDnD( el, {
+			onStart:       () => { dragLessonId = les.id; dragModuleId = null; },
+			onEnd:         () => { dragLessonId = null; },
+			isValidTarget: () => ! dragModuleId && dragLessonId !== les.id,
+			onDrop:        ( after ) => moveLesson( dragLessonId, mod.id, les.id, after ),
+		} );
+	}
+
+	function attachModuleDrag( el, mod ) {
+		attachDnD( el, {
+			onStart:       () => { dragModuleId = mod.id; dragLessonId = null; },
+			onEnd:         () => { dragModuleId = null; },
+			isValidTarget: () => !! dragModuleId && dragModuleId !== mod.id,
+			onDrop:        ( after ) => moveModule( dragModuleId, mod.id, after ),
+			containsCheck: true,
 		} );
 	}
 
@@ -297,7 +268,7 @@ function createApp( mount ) {
 		const toIdx = state.course.modules.findIndex( ( m ) => m.id === toId );
 		state.course.modules.splice( toIdx >= 0 && after ? toIdx + 1 : Math.max( 0, toIdx ), 0, moved );
 		renderTree();
-		saveStructure( 'Модуль перемещён' );
+		persist.saveStructure( 'Модуль перемещён' );
 	}
 
 	function moveLesson( lessonId, targetModuleId, targetLessonId, after ) {
@@ -313,7 +284,7 @@ function createApp( mount ) {
 		if ( ti < 0 ) { ti = tm.lessons.length - 1; }
 		tm.lessons.splice( after ? ti + 1 : ti, 0, moved );
 		renderTree();
-		saveStructure( 'Урок перемещён' );
+		persist.saveStructure( 'Урок перемещён' );
 	}
 
 	// ══════════ EDITOR ══════════
@@ -372,16 +343,16 @@ function createApp( mount ) {
 		titleInput.addEventListener( 'input', () => {
 			lesson.title = titleInput.value;
 			mount.querySelectorAll( '.lesson.active .les-title' ).forEach( ( n ) => { n.textContent = lesson.title; } );
-			scheduleLessonMeta( lesson );
+			persist.scheduleLessonMeta( lesson );
 		} );
-		pane.querySelector( '[data-toggle-publish]' ).addEventListener( 'click', () => togglePublish( lesson ) );
+		pane.querySelector( '[data-toggle-publish]' ).addEventListener( 'click', () => persist.togglePublish( lesson ) );
 
 		// Единый редактор шагов (общий модуль). Статус автосейва — в подвал курс-билдера.
 		stepEditor = createStepEditor( {
 			mount:      pane.querySelector( '[data-step-mount]' ),
 			lesson,
 			subjectKey: state.course.subject_key,
-			setStatus,
+			setStatus:  persist.setStatus,
 		} );
 	}
 
@@ -414,12 +385,12 @@ function createApp( mount ) {
 		titleInput.addEventListener( 'input', () => {
 			mod.title = titleInput.value;
 			mount.querySelectorAll( '.module.active .mod-title' ).forEach( ( n ) => { n.textContent = mod.title; } );
-			scheduleStructure();
+			persist.scheduleStructure();
 		} );
 		const descInput = pane.querySelector( '[data-mod-desc]' );
 		descInput.addEventListener( 'input', () => {
 			mod.description = descInput.value;
-			scheduleStructure();
+			persist.scheduleStructure();
 		} );
 		pane.querySelector( '[data-mod-del]' ).addEventListener( 'click', () => deleteModule( mod ) );
 	}
@@ -442,7 +413,7 @@ function createApp( mount ) {
 		const mod = { id: tmpKey( 'm' ), title: 'Новый модуль', description: '', collapsed: false, lessons: [] };
 		state.course.modules.push( mod );
 		selectModule( mod.id ); // открыть страницу модуля — задать имя/описание
-		saveStructure( 'Модуль добавлен' );
+		persist.saveStructure( 'Модуль добавлен' );
 	}
 
 	function deleteModule( mod ) {
@@ -463,7 +434,7 @@ function createApp( mount ) {
 		}
 		renderTree();
 		renderEditor();
-		saveStructure( 'Модуль удалён' );
+		persist.saveStructure( 'Модуль удалён' );
 	}
 
 	// ── импорт готового урока из библиотеки ──
@@ -482,7 +453,7 @@ function createApp( mount ) {
 		mod.lessons.push( { id: lessonId, title: '…', published: false, steps: [] } );
 		mod.collapsed = false;
 		renderTree();
-		ajax( acts().saveCourseStructure, { course_id: courseId, modules: structurePayload() } )
+		ajax( acts().saveCourseStructure, { course_id: courseId, modules: persist.structurePayload() } )
 			.then( () => reloadTree( lessonId ) )
 			.then( () => showToast( 'Урок добавлен в курс', 'success' ) )
 			.catch( ( msg ) => showToast( msg, 'error' ) );
@@ -504,102 +475,18 @@ function createApp( mount ) {
 
 	// ── пикер готового урока (reuse GetStepCandidates kind=lesson) ──
 	function openLessonPicker( anchor, onPick ) {
-		const pop = document.createElement( 'div' );
-		pop.className = 'fs-cb-popover fs-cb-picker';
-		pop.innerHTML = '<input type="text" class="field-input" data-search placeholder="Поиск урока в библиотеке…"><div class="fs-cb-pick-results" data-results></div>';
-		document.body.appendChild( pop );
-		const r = anchor.getBoundingClientRect();
-		pop.style.top  = `${ window.scrollY + r.bottom + 6 }px`;
-		pop.style.left = `${ Math.min( r.left, window.innerWidth - 320 ) }px`;
-		const results = pop.querySelector( '[data-results]' );
-		const search  = pop.querySelector( '[data-search]' );
-		let t = null;
-		const run = () => ajax( acts().getStepCandidates, { subject_key: state.course.subject_key, kind: 'lesson', source: 'subject', search: search.value.trim() } )
-			.then( ( items ) => {
-				results.innerHTML = '';
-				const inCourse = new Set();
-				state.course.modules.forEach( ( m ) => m.lessons.forEach( ( l ) => inCourse.add( l.id ) ) );
-				const list = items.filter( ( it ) => ! inCourse.has( parseInt( it.id, 10 ) ) );
-				if ( ! list.length ) { results.innerHTML = '<div class="fs-cb-pick-empty">Нет доступных уроков</div>'; return; }
-				list.forEach( ( it ) => {
-					const opt = document.createElement( 'div' );
-					opt.className = 'fs-cb-pick-opt';
-					opt.textContent = it.title;
-					opt.addEventListener( 'click', () => { onPick( parseInt( it.id, 10 ) ); pop.remove(); } );
-					results.appendChild( opt );
-				} );
-			} )
-			.catch( () => { results.innerHTML = '<div class="fs-cb-pick-empty">Ошибка</div>'; } );
-		search.addEventListener( 'input', () => { clearTimeout( t ); t = setTimeout( run, 300 ); } );
-		run();
-		setTimeout( () => document.addEventListener( 'click', function once( ev ) {
-			if ( ! pop.contains( ev.target ) ) { pop.remove(); } else { document.addEventListener( 'click', once, { once: true } ); }
-		}, { once: true } ), 0 );
+		const inCourseIds = () => {
+			const s = new Set();
+			state.course.modules.forEach( ( m ) => m.lessons.forEach( ( l ) => s.add( l.id ) ) );
+			return s;
+		};
+		openPicker( anchor, {
+			placeholder: 'Поиск урока в библиотеке…',
+			emptyText:   'Нет доступных уроков',
+			fetchFn:     ( search ) => ajax( acts().getStepCandidates, { subject_key: state.course.subject_key, kind: 'lesson', source: 'subject', search } )
+				.then( ( items ) => items.filter( ( it ) => ! inCourseIds().has( parseInt( it.id, 10 ) ) ) ),
+			onPick:      ( id ) => onPick( id ),
+		} );
 	}
 
-	// ══════════ PERSISTENCE ══════════
-	function setStatus( text ) {
-		const s = mount.querySelector( '[data-status]' );
-		if ( s ) { s.innerHTML = `<span class="saved-dot"></span> ${ esc( text ) }`; }
-	}
-
-	function scheduleLessonMeta( lesson ) {
-		setStatus( 'Изменения…' );
-		clearTimeout( saveTimer );
-		saveTimer = setTimeout( () => {
-			ajax( acts().updateLessonMeta, { lesson_id: lesson.id, title: lesson.title, published: lesson.published ? '1' : '' } )
-				.then( () => setStatus( 'Все изменения сохранены' ) )
-				.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg, 'error' ); } );
-		}, 800 );
-	}
-	function togglePublish( lesson ) {
-		lesson.published = ! lesson.published;
-		renderEditor();
-		ajax( acts().updateLessonMeta, { lesson_id: lesson.id, title: lesson.title, published: lesson.published ? '1' : '' } )
-			.then( () => showToast( lesson.published ? 'Урок опубликован' : 'Урок снят с публикации', 'success' ) )
-			.catch( ( msg ) => showToast( msg, 'error' ) );
-	}
-
-	function structurePayload() {
-		return state.course.modules.map( ( m ) => ( {
-			id:          m.id,
-			title:       m.title,
-			description: m.description || '',
-			lesson_ids:  m.lessons.map( ( l ) => l.id ),
-		} ) );
-	}
-	function saveStructure( okMsg ) {
-		ajax( acts().saveCourseStructure, { course_id: courseId, modules: structurePayload() } )
-			.then( () => {
-				if ( okMsg ) { showToast( okMsg, 'success' ); }
-				const mc = mount.querySelector( '[data-module-count]' );
-				const lc = mount.querySelector( '[data-lesson-count]' );
-				if ( mc ) { mc.textContent = state.course.modules.length; }
-				if ( lc ) { lc.textContent = totalLessons(); }
-			} )
-			.catch( ( msg ) => showToast( msg, 'error' ) );
-	}
-
-	// Дебаунс-автосейв структуры (правка имени/описания модуля на его странице).
-	function scheduleStructure() {
-		setStatus( 'Изменения…' );
-		clearTimeout( saveTimer );
-		saveTimer = setTimeout( () => {
-			ajax( acts().saveCourseStructure, { course_id: courseId, modules: structurePayload() } )
-				.then( () => setStatus( 'Все изменения сохранены' ) )
-				.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg, 'error' ); } );
-		}, 800 );
-	}
-
-	function saveCourseMeta() {
-		const pub = 'publish' === state.course.status;
-		ajax( acts().saveCourseMeta, { course_id: courseId, title: state.course.title, published: pub ? '1' : '' } )
-			.then( () => setStatus( 'Все изменения сохранены' ) )
-			.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg, 'error' ); } );
-	}
-	function scheduleCourseMeta() {
-		setStatus( 'Изменения…' );
-		clearTimeout( saveTimer );
-		saveTimer = setTimeout( saveCourseMeta, 800 );
-	}
 }

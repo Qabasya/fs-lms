@@ -1,5 +1,5 @@
 import '../_types.js';
-import { createStepEditor, TYPE_UI } from './step-editor.js';
+import { createStepEditor, readSteps } from './step-editor.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -22,10 +22,9 @@ function mountOne( el ) {
 	const $el     = $( el );
 	const workId  = parseInt( $el.data( 'work-id' ), 10 ) || 0;
 	const subject = String( $el.data( 'subject' ) || '' );
-	const steps   = readSteps( $el );
+	const steps   = readSteps( el );
 
 	el.innerHTML = '';
-	el.classList.add( 'fs-lms-cb-wrap' ); // те же стили степ-редактора (хак, как в метабоксе урока)
 
 	createStepEditor( {
 		mount:        el,
@@ -52,26 +51,4 @@ function saveWorkItems( workId, steps ) {
 			.done( ( resp ) => ( resp && resp.success ) ? resolve() : reject( ( resp && resp.data ) || 'Ошибка' ) )
 			.fail( () => reject( 'Ошибка сети' ) );
 	} );
-}
-
-/** @return {Array<{key:string,type:string,payload:object,title:string,_title:string}>} */
-function readSteps( $el ) {
-	const raw = $el.find( '.fs-sb-data' ).first().text();
-	if ( ! raw ) {
-		return [];
-	}
-	try {
-		const parsed = JSON.parse( raw );
-		return Array.isArray( parsed )
-			? parsed.map( ( s ) => ( {
-				key:     String( s.key || '' ),
-				type:    String( s.type || '' ),
-				payload: ( s.payload && typeof s.payload === 'object' ) ? s.payload : {},
-				title:   s.title || '',
-				_title:  s._title || '',
-			} ) ).filter( ( s ) => TYPE_UI[ s.type ] )
-			: [];
-	} catch ( e ) {
-		return [];
-	}
 }
