@@ -513,7 +513,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			group_lesson_id     int unsigned    NOT NULL,
 			lesson_id           bigint unsigned NOT NULL,
 			step_key            varchar(64)     NOT NULL,
-			status              enum('locked','available','viewed','completed') NOT NULL DEFAULT 'locked',
+			status              enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked',
 			completed_at        datetime        DEFAULT NULL,
 			created_at          datetime        NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at          datetime        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -521,6 +521,28 @@ class Migration_1_0_0 implements MigrationInterface {
 			UNIQUE KEY step (student_person_id, group_lesson_id, step_key),
 			KEY group_lesson_id (group_lesson_id),
 			KEY student_lesson (student_person_id, lesson_id)
+		) $cc;"
+		);
+
+		// ===== 21. task_attempts — история попыток задания (Этап 6) =====
+		$task_attempts = TableName::TaskAttempts->prefixed();
+		dbDelta(
+			"CREATE TABLE $task_attempts (
+			id                int unsigned     NOT NULL AUTO_INCREMENT,
+			student_person_id int unsigned     NOT NULL,
+			group_lesson_id   int unsigned     NOT NULL,
+			step_key          varchar(64)      NOT NULL,
+			task_id           bigint unsigned  NOT NULL,
+			attempt_number    tinyint unsigned NOT NULL DEFAULT 1,
+			answer            json             DEFAULT NULL,
+			is_correct        tinyint(1)       DEFAULT NULL,
+			score             decimal(5,2)     DEFAULT NULL,
+			max_score         decimal(5,2)     DEFAULT NULL,
+			item_feedback     json             DEFAULT NULL,
+			created_at        datetime         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY student_step (student_person_id, group_lesson_id, step_key),
+			KEY task_id (task_id)
 		) $cc;"
 		);
 
@@ -561,6 +583,9 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `label`     varchar(150) DEFAULT NULL,
 			MODIFY COLUMN `lesson_id` bigint unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `grader_note` text DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$lesson_progress` MODIFY COLUMN `status` enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked'" );
+		$group_lessons = TableName::GroupLessons->prefixed();
+		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `step_settings_overrides` json DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
@@ -575,6 +600,7 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::TaskAttempts->prefixed(),
 			TableName::LessonProgress->prefixed(),
 			TableName::AssessmentAnswers->prefixed(),
 			TableName::AssessmentAttempts->prefixed(),

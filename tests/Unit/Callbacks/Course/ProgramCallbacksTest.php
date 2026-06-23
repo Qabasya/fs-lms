@@ -5,6 +5,8 @@ declare( strict_types=1 );
 namespace Unit\Callbacks\Course;
 
 use Inc\Callbacks\Course\ProgramCallbacks;
+use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\EffectiveWorksResolver;
@@ -21,19 +23,24 @@ class ProgramCallbacksTest extends TestCase {
 	private EffectiveWorksResolver  $works;
 	private GroupAccessGuard        $guard;
 	private LearningEventRepository $events;
+	private GroupLessonRepository   $groupLessons;
+	private PostManager             $posts;
 	private ProgramCallbacks        $cb;
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_ajax();
-		$this->schedule   = $this->createMock( ScheduleService::class );
-		$this->visibility = $this->createMock( LessonVisibilityService::class );
-		$this->assignment = $this->createMock( CourseAssignmentService::class );
-		$this->works      = $this->createMock( EffectiveWorksResolver::class );
-		$this->guard      = $this->createMock( GroupAccessGuard::class );
-		$this->events     = $this->createMock( LearningEventRepository::class );
-		$this->cb         = new ProgramCallbacks(
-			$this->schedule, $this->visibility, $this->assignment, $this->works, $this->guard, $this->events
+		$this->schedule     = $this->createMock( ScheduleService::class );
+		$this->visibility   = $this->createMock( LessonVisibilityService::class );
+		$this->assignment   = $this->createMock( CourseAssignmentService::class );
+		$this->works        = $this->createMock( EffectiveWorksResolver::class );
+		$this->guard        = $this->createMock( GroupAccessGuard::class );
+		$this->events       = $this->createMock( LearningEventRepository::class );
+		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
+		$this->posts        = $this->createMock( PostManager::class );
+		$this->cb           = new ProgramCallbacks(
+			$this->schedule, $this->visibility, $this->assignment, $this->works,
+			$this->guard, $this->events, $this->groupLessons, $this->posts,
 		);
 	}
 

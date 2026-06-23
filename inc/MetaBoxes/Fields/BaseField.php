@@ -37,4 +37,12 @@ abstract class BaseField implements FieldInterface {
 	protected function get_field_name( string $id ): string {
 		return PostMetaName::Meta->value . "[$id]";
 	}
+
+	public function editorType(): string {
+		return 'text';
+	}
+
+	public function editorConfig(): array {
+		return [];
+	}
 }

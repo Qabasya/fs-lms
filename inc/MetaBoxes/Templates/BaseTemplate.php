@@ -4,6 +4,7 @@ namespace Inc\MetaBoxes\Templates;
 
 use Inc\Enums\Subject\TemplateCategory;
 use Inc\Enums\Wp\PostMetaName;
+use Inc\MetaBoxes\Fields\HintField;
 
 /**
  * Class BaseTemplate
@@ -63,36 +64,24 @@ abstract class BaseTemplate {
 	}
 
 	/**
-	 * Отрисовывает все поля шаблона.
-	 *
-	 * Загружает сохранённые значения мета-полей поста,
-	 * проходит по всем зарегистрированным полям и вызывает
-	 * метод render() каждого поля.
+	 * Отрисовывает все поля шаблона, включая подсказку.
 	 *
 	 * @param \WP_Post $post Объект текущего поста
 	 *
 	 * @return void
 	 */
 	public function render( \WP_Post $post ): void {
-		// 1. Достаём единый массив данных из мета-поля
 		$values = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
-
-		// Если данных ещё нет, инициализируем пустым массивом
 		if ( ! is_array( $values ) ) {
 			$values = array();
 		}
 
-		// 2. Открываем обёртку для шаблона
 		echo '<div class="fs-lms-template-wrapper" id="template-' . esc_attr( $this->get_id() ) . '">';
 
-		// 3. Проходим по всем зарегистрированным полям
-		foreach ( $this->fields as $field_id => $config ) {
-			$label = $config['label'];                 // Текст метки поля
-			$field = $config['object'];                // Экземпляр класса поля
-			$value = $values[ $field_id ] ?? '';       // Текущее значение поля
-
-			// 4. Делегируем рендеринг самому полю
-			$field->render( $post, $field_id, $label, $value );
+		foreach ( $this->get_fields() as $field_id => $config ) {
+			$field = $config['object'];
+			$value = $values[ $field_id ] ?? '';
+			$field->render( $post, $field_id, $config['label'], $value );
 		}
 
 		echo '</div>';
@@ -100,13 +89,49 @@ abstract class BaseTemplate {
 
 	/**
 	 * Возвращает конфигурацию полей для процесса сохранения.
-	 *
-	 * Используется в обработчике сохранения для определения,
-	 * какие поля нужно санитизировать и сохранить.
+	 * Всегда включает поле подсказки (task_hint) в конце.
 	 *
 	 * @return array<string, array{label: string, object: object}> Список полей
 	 */
 	public function get_fields(): array {
-		return $this->fields;
+		return array_merge( $this->fields, $this->hintFieldConfig() );
+	}
+
+	/**
+	 * Возвращает схему полей шаблона для JS-редактора задач.
+	 *
+	 * @return array{id: string, label: string, category: string, fields: list<array{key: string, label: string, type: string, config: array}>}
+	 */
+	public function getEditorSchema(): array {
+		$fields = [];
+		foreach ( $this->get_fields() as $key => $config ) {
+			$fields[] = [
+				'key'    => $key,
+				'label'  => $config['label'],
+				'type'   => $config['object']->editorType(),
+				'config' => $config['object']->editorConfig(),
+			];
+		}
+
+		return [
+			'id'       => $this->get_id(),
+			'label'    => $this->get_name(),
+			'category' => $this->get_category()->value,
+			'fields'   => $fields,
+		];
+	}
+
+	/**
+	 * Конфигурация поля подсказки — общего для всех типов заданий.
+	 *
+	 * @return array<string, array{label: string, object: HintField}>
+	 */
+	private function hintFieldConfig(): array {
+		return array(
+			'task_hint' => array(
+				'label'  => 'Подсказка',
+				'object' => new HintField(),
+			),
+		);
 	}
 }

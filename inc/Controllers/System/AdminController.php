@@ -8,9 +8,7 @@ use Inc\Controllers\Builders\SubjectsMenuBuilder;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Menu;
-use Inc\Enums\Settings\OptionName;
 use Inc\Registrars\MenuRegistrar;
-use Inc\Registrars\SettingsRegistrar;
 
 /**
  * Class AdminController
@@ -66,7 +64,6 @@ class AdminController extends BaseController implements ServiceInterface {
 	 */
 	public function __construct(
 		private readonly MenuRegistrar $menu_registrar,
-		private readonly SettingsRegistrar $settings_registrar,
 		private readonly AdminCallbacks $callbacks,
 		private readonly SubjectsMenuBuilder $subjects_menu_builder
 	) {
@@ -98,18 +95,6 @@ class AdminController extends BaseController implements ServiceInterface {
 		$this->menu_registrar->addPages( $pages )
 							->addSubPages( $subpages )
 							->register();
-
-		$auth_settings = array(
-			array(
-				'option_group' => OptionName::AuthGroups->value, // Совпадает с settings_fields() в шаблоне
-				'option_name'  => OptionName::AuthSettings->value, // Ключ в таблице wp_options
-				'callback'     => null, // Здесь можно указать метод для валидации данных
-			),
-		);
-
-		$this->settings_registrar
-			->addSettings( $auth_settings )
-			->register();
 
 		// Удаляем дублирующиеся пункты меню, созданные WordPress автоматически
 		$this->removeAutoSubMenuItems();

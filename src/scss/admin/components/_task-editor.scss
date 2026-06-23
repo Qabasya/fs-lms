@@ -1,0 +1,281 @@
+@use '../variables' as *;
+
+// ── Оверлей ────────────────────────────────────────────────────────────────
+
+.fs-te-overlay {
+	position:   fixed;
+	inset:      0;
+	z-index:    100000;
+	background: $color-bg-backdrop;
+	display:    flex;
+	align-items:     center;
+	justify-content: center;
+	padding:    $spacing-lg;
+}
+
+// ── Модальное окно ─────────────────────────────────────────────────────────
+
+.fs-te-modal {
+	background:    $color-bg-modal;
+	border-radius: $border-radius-l;
+	box-shadow:    $shadow-modal;
+	width:         100%;
+	max-width:     680px;
+	max-height:    90vh;
+	display:       flex;
+	flex-direction: column;
+	overflow:      hidden;
+}
+
+// ── Заголовок ─────────────────────────────────────────────────────────────
+
+.fs-te-header {
+	display:         flex;
+	align-items:     center;
+	justify-content: space-between;
+	padding:         $spacing-lg $spacing-xl;
+	border-bottom:   1px solid $color-border-footer;
+	flex-shrink:     0;
+}
+
+.fs-te-heading {
+	margin:      0;
+	font-size:   16px;
+	font-weight: $font-bold;
+	color:       $color-text-primary;
+}
+
+.fs-te-close {
+	background:  none;
+	border:      none;
+	cursor:      pointer;
+	font-size:   22px;
+	line-height: 1;
+	color:       $color-text-secondary;
+	padding:     2px 6px;
+	border-radius: $border-radius-sm;
+
+	&:hover { color: $color-text-primary; background: $wp-admin-gray-bg; }
+}
+
+// ── Тело ──────────────────────────────────────────────────────────────────
+
+.fs-te-body {
+	flex:       1;
+	overflow-y: auto;
+	padding:    $spacing-xl;
+	display:    flex;
+	flex-direction: column;
+	gap:        $spacing-lg;
+}
+
+// ── Строка поля ───────────────────────────────────────────────────────────
+
+.fs-te-row {
+	display:        flex;
+	flex-direction: column;
+	gap:            $spacing-xs;
+}
+
+.fs-te-label {
+	font-size:   13px;
+	font-weight: $font-bold;
+	color:       $color-text-primary;
+}
+
+// ── Базовые элементы ──────────────────────────────────────────────────────
+
+.fs-te-input,
+.fs-te-select {
+	width:         100%;
+	padding:       $spacing-sm $spacing-md;
+	border:        1px solid $color-border-input;
+	border-radius: $border-radius-md;
+	font-size:     13px;
+	color:         $color-text-primary;
+	background:    #fff;
+	box-sizing:    border-box;
+	transition:    border-color 0.15s;
+
+	&:focus {
+		outline:       none;
+		border-color:  $color-primary;
+		box-shadow:    0 0 0 1px $color-primary;
+	}
+
+	&--error { border-color: $color-danger !important; }
+}
+
+.fs-te-textarea {
+	@extend .fs-te-input;
+	resize: vertical;
+	min-height: 80px;
+}
+
+.fs-te-add-btn {
+	align-self: flex-start;
+	margin-top: $spacing-sm;
+}
+
+.fs-te-del-btn {
+	background:  none;
+	border:      none;
+	cursor:      pointer;
+	color:       $color-text-secondary;
+	font-size:   16px;
+	line-height: 1;
+	padding:     2px 6px;
+	border-radius: $border-radius-sm;
+	flex-shrink: 0;
+
+	&:hover { color: $color-danger; background: $wp-admin-red-bg; }
+}
+
+// ── Варианты ответа (options) ─────────────────────────────────────────────
+
+.fs-te-options__mode {
+	display:     flex;
+	align-items: center;
+	gap:         $spacing-sm;
+	font-size:   13px;
+	margin-bottom: $spacing-sm;
+}
+
+.fs-te-options__list {
+	list-style: none;
+	margin:     0;
+	padding:    0;
+	display:    flex;
+	flex-direction: column;
+	gap:        $spacing-sm;
+}
+
+.fs-te-options__item {
+	display:     flex;
+	align-items: center;
+	gap:         $spacing-sm;
+
+	input[type="checkbox"],
+	input[type="radio"] { flex-shrink: 0; cursor: pointer; }
+
+	.fs-te-input { flex: 1; }
+}
+
+// ── Пары (pairs) ─────────────────────────────────────────────────────────
+
+.fs-te-pairs__list {
+	list-style: none;
+	margin:     0;
+	padding:    0;
+	display:    flex;
+	flex-direction: column;
+	gap:        $spacing-sm;
+}
+
+.fs-te-pairs__item {
+	display:     flex;
+	align-items: center;
+	gap:         $spacing-sm;
+
+	.fs-te-input { flex: 1; }
+}
+
+.fs-te-arrow {
+	color:       $color-text-secondary;
+	font-size:   14px;
+	flex-shrink: 0;
+}
+
+// ── Порядок элементов (order_items) ───────────────────────────────────────
+
+.fs-te-order__list {
+	list-style: none;
+	margin:     0;
+	padding:    0;
+	display:    flex;
+	flex-direction: column;
+	gap:        $spacing-sm;
+}
+
+.fs-te-order__item {
+	display:     flex;
+	align-items: center;
+	gap:         $spacing-sm;
+
+	.fs-te-input { flex: 1; }
+}
+
+.fs-te-grip {
+	color:       $color-text-secondary;
+	font-size:   13px;
+	flex-shrink: 0;
+	cursor:      grab;
+}
+
+// ── Аудио ─────────────────────────────────────────────────────────────────
+
+.fs-te-audio {
+	display:     flex;
+	align-items: center;
+	gap:         $spacing-md;
+	flex-wrap:   wrap;
+
+	&__name {
+		font-size: 13px;
+		color:     $color-text-secondary;
+	}
+}
+
+// ── Подвал ────────────────────────────────────────────────────────────────
+
+.fs-te-footer {
+	display:         flex;
+	align-items:     center;
+	gap:             $spacing-md;
+	padding:         $spacing-md $spacing-xl;
+	border-top:      1px solid $color-border-footer;
+	background:      $color-bg-footer;
+	flex-shrink:     0;
+}
+
+// ── Настройки шага (step-editor) ──────────────────────────────────────────
+
+.fs-cb-step-settings {
+	padding:       $spacing-lg $cb-pane-px;
+	border-top:    1px solid $color-border-footer;
+	margin-top:    $spacing-lg;
+	background:    $wp-admin-gray-bg-light;
+}
+
+.fs-cb-ss-title {
+	margin:      0 0 $spacing-md;
+	font-size:   13px;
+	font-weight: $font-bold;
+	color:       $color-text-secondary;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.fs-cb-ss-row {
+	display:  flex;
+	flex-wrap: wrap;
+	gap:      $spacing-xl;
+}
+
+.fs-cb-ss-label {
+	display:     flex;
+	align-items: center;
+	gap:         $spacing-sm;
+	font-size:   13px;
+	color:       $color-text-primary;
+	cursor:      pointer;
+}
+
+.fs-cb-ss-num {
+	width:   70px;
+	padding: $spacing-xs $spacing-sm;
+	border:  1px solid $color-border-input;
+	border-radius: $border-radius-sm;
+	font-size: 13px;
+	text-align: center;
+}

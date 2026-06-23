@@ -1,5 +1,6 @@
 import '../_types.js';
 import { showToast } from '../modules/toast.js';
+import { TaskEditor } from './task-editor.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -60,12 +61,12 @@ const stepMeta = ( step ) => ( step && 'task' === step.type && step.payload && T
 const iconForStep = ( step ) => ICON[ stepMeta( step ).ui ] || ICON.lecture;
 
 let _idc = 5000;
-const tmpKey = ( p ) => `${ p }_tmp_${ Date.now() }_${ ++_idc }`;
+export const tmpKey = ( p ) => `${ p }_tmp_${ Date.now() }_${ ++_idc }`;
 export const esc = ( s ) => String( s == null ? '' : s )
 	.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' ).replace( /"/g, '&quot;' );
 
 // ── AJAX (нонс по экшену; оба нонса в fs_lms_vars глобально) ────
-function nonceFor( action ) {
+export function nonceFor( action ) {
 	const a = acts();
 	const lessonScoped = [ a.saveLessonSteps, a.getStepCandidates ];
 	return lessonScoped.includes( action )
@@ -120,10 +121,14 @@ export function createStepEditor( opts ) {
 	}
 
 	function destroyTiny() {
-		if ( tinyId && window.tinymce && window.tinymce.get( tinyId ) ) {
-			window.tinymce.get( tinyId ).remove();
+		if ( tinyId ) {
+			if ( window.wp?.editor ) {
+				window.wp.editor.remove( tinyId );
+			} else if ( window.tinymce?.get( tinyId ) ) {
+				window.tinymce.get( tinyId ).remove();
+			}
+			tinyId = null;
 		}
-		tinyId = null;
 	}
 
 	function current() {
@@ -225,6 +230,9 @@ export function createStepEditor( opts ) {
 			inlineEditor( ed, step );
 		} else {
 			refEditor( ed, step );
+			if ( 'task' === step.type ) {
+				renderStepSettings( body, step );
+			}
 		}
 	}
 
@@ -232,24 +240,65 @@ export function createStepEditor( opts ) {
 		if ( 'text' === step.type ) {
 			const tid = `fs-se-rte-${ Date.now() }`;
 			tinyId = tid;
-			ed.innerHTML = '<div class="sb-label">Содержание лекции</div><textarea id="' + tid + '" class="fs-cb-rte-target"></textarea>';
+			ed.innerHTML =
+				'<div class="sb-label">Содержание лекции</div>' +
+				'<textarea id="' + tid + '" class="fs-cb-rte-target"></textarea>';
 			ed.querySelector( '#' + tid ).value = step.payload.content || '';
 
-			if ( window.tinymce ) {
+			function onEditorChange() {
+				const mc = window.tinymce?.get( tid );
+				step.payload.content = mc ? mc.getContent() : ( ed.querySelector( '#' + tid )?.value ?? '' );
+				scheduleSave();
+			}
+
+			// Добавляет кнопки LaTeX в тулбар TinyMCE 4.
+			// Кнопки оборачивают выделение (или вставляют placeholder) в \(...\) / \[...\].
+			function setupLatexButtons( editor ) {
+				editor.addButton( 'latex_inline', {
+					text    : '\\(…\\)',
+					tooltip : 'Инлайн-формула LaTeX',
+					onclick() {
+						const sel = editor.selection.getContent( { format: 'text' } ).trim();
+						editor.selection.setContent( '\\(' + ( sel || '  ' ) + '\\)' );
+					},
+				} );
+				editor.addButton( 'latex_block', {
+					text    : '\\[…\\]',
+					tooltip : 'Блочная формула LaTeX',
+					onclick() {
+						const sel = editor.selection.getContent( { format: 'text' } ).trim();
+						editor.selection.setContent( '\\[' + ( sel || '  ' ) + '\\]' );
+					},
+				} );
+				editor.on( 'NodeChange change', onEditorChange );
+			}
+
+			if ( window.wp?.editor ) {
+				// wp.editor.initialize() — стандартный WP API.
+				// WP Bakery (если установлен) перехватывает этот вызов и добавляет
+				// свою кнопку «Backend Editor» автоматически.
+				window.wp.editor.initialize( tid, {
+					tinymce: {
+						wpautop  : true,
+						plugins  : 'charmap colorpicker hr lists paste tabfocus textcolor wordpress wpautoresize wpeditimage wplink wptextpattern',
+						toolbar1 : 'bold italic underline strikethrough | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | removeformat | undo redo',
+						toolbar2 : 'charmap | latex_inline latex_block',
+						height   : 400,
+						setup    : setupLatexButtons,
+					},
+					quicktags   : { buttons: 'strong,em,link,ul,ol,li,code,close' },
+					mediaButtons: true,
+				} );
+			} else if ( window.tinymce ) {
 				window.tinymce.init( {
 					selector  : '#' + tid,
-					toolbar   : 'bold italic underline | bullist numlist | link | removeformat',
+					toolbar   : 'bold italic underline strikethrough | formatselect | bullist numlist | blockquote hr | alignleft aligncenter alignright | link | charmap | removeformat | undo redo | latex_inline latex_block',
 					menubar   : false,
 					statusbar : false,
-					plugins   : 'link lists',
-					height    : 320,
+					plugins   : 'link lists hr charmap',
+					height    : 400,
 					skin_url  : window.tinymce?.baseURL + '/skins/lightgray',
-					setup( editor ) {
-						editor.on( 'NodeChange change', () => {
-							step.payload.content = editor.getContent();
-							scheduleSave();
-						} );
-					},
+					setup     : setupLatexButtons,
 				} );
 			} else {
 				const area = ed.querySelector( '#' + tid );
@@ -309,7 +358,19 @@ export function createStepEditor( opts ) {
 		const meta     = stepMeta( step );
 		const candKind = meta.candKind; // task | work | assessment
 		const refId    = parseInt( step.payload.ref || 0, 10 );
+		const isTask   = 'task' === candKind;
 		const isWork   = 'work' === candKind;
+
+		const createHtml = isTask
+			? `<button type="button" class="button button-primary" data-create>Создать задачу…</button>`
+			: `<input type="text" class="field-input" data-new-title placeholder="Название новой ${ esc( meta.name.toLowerCase() ) }">
+				${ isWork ? `<select class="field-input" data-work-type>
+					<option value="homework">Домашнее задание</option>
+					<option value="classwork">Классная работа</option>
+					<option value="project">Проект</option>
+				</select>` : '' }
+				<button type="button" class="button button-primary" data-create>Создать и прикрепить</button>`;
+
 		ed.innerHTML = `
 			<div class="sb-label">${ esc( meta.name ) } из библиотеки</div>
 			<div class="fs-cb-ref">
@@ -318,15 +379,7 @@ export function createStepEditor( opts ) {
 				<button type="button" class="button" data-pick>${ refId ? 'Заменить' : 'Выбрать из библиотеки' }</button>
 			</div>
 			<div class="fs-cb-or-divider"><span>или</span></div>
-			<div class="fs-cb-inline-create">
-				<input type="text" class="field-input" data-new-title placeholder="Название новой ${ esc( meta.name.toLowerCase() ) }">
-				${ isWork ? `<select class="field-input" data-work-type>
-					<option value="homework">Домашнее задание</option>
-					<option value="classwork">Классная работа</option>
-					<option value="project">Проект</option>
-				</select>` : '' }
-				<button type="button" class="button button-primary" data-create>Создать и прикрепить</button>
-			</div>`;
+			<div class="fs-cb-inline-create">${ createHtml }</div>`;
 
 		ed.querySelector( '[data-pick]' ).addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title ) => {
 			step.payload.ref = id; step._title = title; step.title = title;
@@ -334,21 +387,32 @@ export function createStepEditor( opts ) {
 		} ) );
 
 		ed.querySelector( '[data-create]' ).addEventListener( 'click', () => {
-			const title = ed.querySelector( '[data-new-title]' ).value.trim();
+			if ( isTask ) {
+				// Открываем полноэкранный редактор задачи (Phase F)
+				TaskEditor.openModal( {
+					subjectKey,
+					onSave: ( id, title ) => {
+						step.payload.ref = id;
+						step._title      = title;
+						step.title       = title;
+						renderStepsRow(); renderStepBody(); saveSteps();
+						showToast( 'Задание создано', 'success' );
+					},
+				} );
+				return;
+			}
+
+			const title = ed.querySelector( '[data-new-title]' )?.value.trim();
 			if ( ! title ) { return; }
-			const btn = ed.querySelector( '[data-create]' );
-			btn.disabled = true;
-			const params = { subject_key: subjectKey, title };
+			const btn        = ed.querySelector( '[data-create]' );
+			btn.disabled     = true;
+			const params     = { subject_key: subjectKey, title };
 			let action;
-			if ( 'work' === candKind ) {
-				action = acts().createWorkDraft;
+			if ( isWork ) {
+				action          = acts().createWorkDraft;
 				params.work_type = ed.querySelector( '[data-work-type]' ).value;
-			} else if ( 'assessment' === candKind ) {
-				action = acts().createAssessmentDraft;
 			} else {
-				// task: Вопрос / Задание с кодом — создаём задачу с шаблоном категории
-				action = acts().createTaskDraft;
-				params.category = ( step.payload && step.payload.category ) || 'question';
+				action = acts().createAssessmentDraft;
 			}
 			ajax( action, params )
 				.then( ( item ) => {
@@ -359,6 +423,42 @@ export function createStepEditor( opts ) {
 					showToast( meta.name + ' создан', 'success' );
 				} )
 				.catch( ( msg ) => { showToast( msg, 'error' ); btn.disabled = false; } );
+		} );
+	}
+
+	function renderStepSettings( body, step ) {
+		const settings = step.payload.settings || {};
+		const $ss      = document.createElement( 'div' );
+		$ss.className  = 'fs-cb-step-settings';
+		$ss.innerHTML  = `
+			<h4 class="fs-cb-ss-title">Настройки шага</h4>
+			<div class="fs-cb-ss-row">
+				<label class="fs-cb-ss-label">Попыток (0 = ∞)
+					<input type="number" min="0" class="field-input fs-cb-ss-num" data-ss="max_attempts"
+						value="${ parseInt( settings.max_attempts ?? 0, 10 ) }">
+				</label>
+				<label class="fs-cb-ss-label">
+					<input type="checkbox" data-ss="shuffle" ${ settings.shuffle ? 'checked' : '' }>
+					Перемешать варианты
+				</label>
+				<label class="fs-cb-ss-label">Подсказка через N ошибок (0 = сразу)
+					<input type="number" min="0" class="field-input fs-cb-ss-num" data-ss="hint_after_errors"
+						value="${ parseInt( settings.hint_after_errors ?? 0, 10 ) }">
+				</label>
+			</div>`;
+
+		body.appendChild( $ss );
+
+		$ss.querySelectorAll( '[data-ss]' ).forEach( ( el ) => {
+			el.addEventListener( 'change', () => {
+				step.payload.settings = step.payload.settings || {};
+				if ( 'checkbox' === el.type ) {
+					step.payload.settings[ el.dataset.ss ] = el.checked;
+				} else {
+					step.payload.settings[ el.dataset.ss ] = parseInt( el.value, 10 ) || 0;
+				}
+				scheduleSave();
+			} );
 		} );
 	}
 
@@ -432,34 +532,11 @@ export function createStepEditor( opts ) {
 	function openLibraryPicker( e, kind, onPick ) {
 		e.stopPropagation();
 		closePopover();
-		const pop = document.createElement( 'div' );
-		pop.className = 'fs-cb-popover fs-cb-picker';
-		pop.innerHTML = '<input type="text" class="field-input" data-search placeholder="Поиск в библиотеке…"><div class="fs-cb-pick-results" data-results></div>';
-		document.body.appendChild( pop );
-		const r = e.currentTarget.getBoundingClientRect();
-		pop.style.top  = `${ window.scrollY + r.bottom + 6 }px`;
-		pop.style.left = `${ Math.min( r.left, window.innerWidth - 320 ) }px`;
-		const results = pop.querySelector( '[data-results]' );
-		const search  = pop.querySelector( '[data-search]' );
-		let t = null;
-		const run = () => ajax( acts().getStepCandidates, { subject_key: subjectKey, kind, source: 'subject', search: search.value.trim() } )
-			.then( ( items ) => {
-				results.innerHTML = '';
-				if ( ! items.length ) { results.innerHTML = '<div class="fs-cb-pick-empty">Ничего не найдено</div>'; return; }
-				items.forEach( ( it ) => {
-					const opt = document.createElement( 'div' );
-					opt.className = 'fs-cb-pick-opt';
-					opt.textContent = it.title;
-					opt.addEventListener( 'click', () => { onPick( parseInt( it.id, 10 ), it.title ); pop.remove(); } );
-					results.appendChild( opt );
-				} );
-			} )
-			.catch( () => { results.innerHTML = '<div class="fs-cb-pick-empty">Ошибка</div>'; } );
-		search.addEventListener( 'input', () => { clearTimeout( t ); t = setTimeout( run, 300 ); } );
-		run();
-		setTimeout( () => document.addEventListener( 'click', function once( ev ) {
-			if ( ! pop.contains( ev.target ) ) { pop.remove(); } else { document.addEventListener( 'click', once, { once: true } ); }
-		}, { once: true } ), 0 );
+		openPicker( e.currentTarget, {
+			placeholder: 'Поиск в библиотеке…',
+			fetchFn:     ( search ) => ajax( acts().getStepCandidates, { subject_key: subjectKey, kind, source: 'subject', search } ),
+			onPick,
+		} );
 	}
 
 	// ── WP Media picker ──
@@ -491,5 +568,72 @@ export function createStepEditor( opts ) {
 		setStatus( 'Изменения…' );
 		clearTimeout( saveTimer );
 		saveTimer = setTimeout( saveSteps, 800 );
+	}
+}
+
+/**
+ * Открывает универсальный попап-пикер (поиск + список элементов).
+ *
+ * @param {HTMLElement} anchor      Элемент-якорь для позиционирования.
+ * @param {Object}      opts
+ * @param {string}     [opts.placeholder='Поиск…']
+ * @param {string}     [opts.emptyText='Ничего не найдено']
+ * @param {Function}    opts.fetchFn   (search: string) => Promise<{id, title}[]>
+ * @param {Function}    opts.onPick    (id: number, title: string) => void
+ */
+export function openPicker( anchor, { placeholder = 'Поиск…', emptyText = 'Ничего не найдено', fetchFn, onPick } ) {
+	const pop = document.createElement( 'div' );
+	pop.className = 'fs-cb-popover fs-cb-picker';
+	pop.innerHTML = `<input type="text" class="field-input" data-search placeholder="${ esc( placeholder ) }"><div class="fs-cb-pick-results" data-results></div>`;
+	document.body.appendChild( pop );
+	const r = anchor.getBoundingClientRect();
+	pop.style.top  = `${ window.scrollY + r.bottom + 6 }px`;
+	pop.style.left = `${ Math.min( r.left, window.innerWidth - 320 ) }px`;
+	const results = pop.querySelector( '[data-results]' );
+	const search  = pop.querySelector( '[data-search]' );
+	let t = null;
+	const run = () => Promise.resolve( fetchFn( search.value.trim() ) )
+		.then( ( items ) => {
+			results.innerHTML = '';
+			if ( ! items.length ) { results.innerHTML = `<div class="fs-cb-pick-empty">${ esc( emptyText ) }</div>`; return; }
+			items.forEach( ( it ) => {
+				const opt = document.createElement( 'div' );
+				opt.className = 'fs-cb-pick-opt';
+				opt.textContent = it.title;
+				opt.addEventListener( 'click', () => { onPick( parseInt( it.id, 10 ), it.title ); pop.remove(); } );
+				results.appendChild( opt );
+			} );
+		} )
+		.catch( () => { results.innerHTML = '<div class="fs-cb-pick-empty">Ошибка</div>'; } );
+	search.addEventListener( 'input', () => { clearTimeout( t ); t = setTimeout( run, 300 ); } );
+	run();
+	setTimeout( () => document.addEventListener( 'click', function once( ev ) {
+		if ( ! pop.contains( ev.target ) ) { pop.remove(); } else { document.addEventListener( 'click', once, { once: true } ); }
+	}, { once: true } ), 0 );
+}
+
+/**
+ * Читает сериализованные шаги из скрытого `.fs-sb-data` внутри `el`.
+ *
+ * @param {HTMLElement} el
+ * @returns {Array<{key:string,type:string,payload:object,title:string,_title:string}>}
+ */
+export function readSteps( el ) {
+	const node = el.querySelector( '.fs-sb-data' );
+	const raw  = node ? node.textContent : '';
+	if ( ! raw ) { return []; }
+	try {
+		const parsed = JSON.parse( raw );
+		return Array.isArray( parsed )
+			? parsed.map( ( s ) => ( {
+				key:     String( s.key || '' ),
+				type:    String( s.type || '' ),
+				payload: ( s.payload && typeof s.payload === 'object' ) ? s.payload : {},
+				title:   s.title || '',
+				_title:  s._title || '',
+			} ) ).filter( ( s ) => TYPE_UI[ s.type ] )
+			: [];
+	} catch ( e ) {
+		return [];
 	}
 }

@@ -1,0 +1,271 @@
+@use '../variables' as *;
+
+// ── Условие задания ────────────────────────────────────────────────────────
+
+.fs-task-condition {
+	margin-bottom: $spacing-lg;
+	line-height:   $line-height-base;
+}
+
+.fs-task-subpart {
+	margin-bottom: $spacing-xl;
+
+	&__label {
+		font-size:     $font-size-base;
+		font-weight:   600;
+		margin-bottom: $spacing-sm;
+	}
+
+	&__body { line-height: $line-height-base; }
+}
+
+// ── Виджеты ───────────────────────────────────────────────────────────────
+
+.fs-task-widget {
+	margin-bottom: $spacing-lg;
+}
+
+// Textarea (Standard / Common / Audio)
+.fs-widget-text {
+	width:       100%;
+	max-width:   560px;
+	padding:     $spacing-sm $spacing-md;
+	border:      1px solid $color-border;
+	border-radius: $radius-md;
+	font-size:   $font-size-base;
+	font-family: $font-family;
+	resize:      vertical;
+	transition:  border-color $transition;
+
+	&:focus {
+		outline:       none;
+		border-color:  $color-accent;
+	}
+
+	&:disabled {
+		background: $color-bg-subtle;
+		color:      $color-muted;
+		cursor:     default;
+	}
+}
+
+// Audio player
+.fs-widget-audio {
+	display:       block;
+	width:         100%;
+	max-width:     480px;
+	margin-bottom: $spacing-md;
+}
+
+// Triple
+.fs-widget-triple-group {
+	margin-bottom: $spacing-md;
+}
+
+.fs-widget-triple-input {
+	width:         100%;
+	max-width:     400px;
+	padding:       $spacing-sm $spacing-md;
+	border:        1px solid $color-border;
+	border-radius: $radius-md;
+	font-size:     $font-size-base;
+	transition:    border-color $transition;
+
+	&:focus {
+		outline:      none;
+		border-color: $color-accent;
+	}
+
+	&:disabled {
+		background: $color-bg-subtle;
+		color:      $color-muted;
+	}
+}
+
+// Choice
+.fs-widget-choice-list {
+	list-style: none;
+	margin:     0;
+	padding:    0;
+	display:    flex;
+	flex-direction: column;
+	gap:        $spacing-sm;
+}
+
+.fs-widget-choice-item {
+	display:     flex;
+	align-items: center;
+	gap:         $spacing-sm;
+}
+
+.fs-widget-choice-input { cursor: pointer; }
+
+.fs-widget-choice-label {
+	cursor:    pointer;
+	font-size: $font-size-base;
+}
+
+// Matching
+.fs-widget-matching {
+	display:        flex;
+	flex-direction: column;
+	gap:            $spacing-sm;
+}
+
+.fs-widget-matching-row {
+	display:     flex;
+	align-items: center;
+	gap:         $spacing-md;
+}
+
+.fs-widget-matching-left {
+	min-width:   160px;
+	flex:        0 0 auto;
+	font-size:   $font-size-base;
+	font-weight: 500;
+}
+
+.fs-widget-matching-select {
+	padding:       $spacing-xs $spacing-sm;
+	border:        1px solid $color-border;
+	border-radius: $radius-md;
+	font-size:     $font-size-base;
+	background:    $color-white;
+	cursor:        pointer;
+	transition:    border-color $transition;
+
+	&:focus {
+		outline:      none;
+		border-color: $color-accent;
+	}
+
+	&:disabled {
+		background: $color-bg-subtle;
+		color:      $color-muted;
+	}
+}
+
+// Ordering (drag-and-drop)
+.fs-widget-ordering {
+	list-style: none;
+	margin:     0;
+	padding:    0;
+	display:    flex;
+	flex-direction: column;
+	gap:        $spacing-xs;
+	max-width:  480px;
+}
+
+.fs-widget-ordering-item {
+	display:       flex;
+	align-items:   center;
+	gap:           $spacing-sm;
+	padding:       $spacing-sm $spacing-md;
+	background:    $color-white;
+	border:        1px solid $color-border;
+	border-radius: $radius-md;
+	user-select:   none;
+	transition:    box-shadow $transition, opacity $transition;
+
+	&[draggable="true"] { cursor: grab; }
+	&[draggable="true"]:active { cursor: grabbing; }
+
+	&.fs-dragging {
+		opacity:    0.4;
+		box-shadow: none;
+	}
+}
+
+.fs-widget-ordering-grip {
+	font-size: $font-size-sm;
+	color:     $color-muted;
+	flex:      0 0 auto;
+}
+
+.fs-widget-ordering-text { font-size: $font-size-base; }
+
+// Fill (inline gaps)
+.fs-widget-fill {
+	line-height: 2;
+	font-size:   $font-size-base;
+}
+
+.fs-widget-fill-text { white-space: pre-wrap; }
+
+.fs-widget-fill-gap {
+	display:       inline-block;
+	padding:       2px $spacing-sm;
+	margin:        0 $spacing-xs;
+	border:        none;
+	border-bottom: 2px solid $color-accent;
+	border-radius: 0;
+	font-size:     $font-size-base;
+	font-family:   $font-family;
+	vertical-align: baseline;
+	background:    transparent;
+	outline:       none;
+	transition:    border-color $transition;
+
+	&:focus { border-color: $color-text; }
+
+	&:disabled {
+		border-color: $color-border;
+		color:        $color-muted;
+	}
+}
+
+// ── Счётчик попыток ────────────────────────────────────────────────────────
+
+.fs-attempt-indicator {
+	font-size:     $font-size-sm;
+	color:         $color-muted;
+	margin-bottom: $spacing-sm;
+
+	&[data-used]:not([data-used="0"])[data-max] {
+		// когда попытки начали использоваться — чуть ярче
+		color: $color-text;
+	}
+}
+
+// ── Кнопка и результат ────────────────────────────────────────────────────
+
+.fs-task-footer {
+	display:     flex;
+	align-items: center;
+	gap:         $spacing-md;
+	margin-top:  $spacing-md;
+	flex-wrap:   wrap;
+}
+
+.fs-task-result {
+	font-size:   $font-size-sm;
+	font-weight: 500;
+
+	&[data-correct="1"] { color: $color-success; }
+	&[data-correct="0"] { color: $color-danger; }
+}
+
+// ── Подсказка (accordion) ─────────────────────────────────────────────────
+
+.fs-hint {
+	margin-top:    $spacing-lg;
+	border:        1px solid $color-border-light;
+	border-radius: $radius-md;
+	background:    $color-bg-subtle;
+
+	&__toggle {
+		padding:     $spacing-sm $spacing-md;
+		font-size:   $font-size-sm;
+		font-weight: 600;
+		cursor:      pointer;
+		user-select: none;
+
+		&::marker { color: $color-accent; }
+	}
+
+	&__body {
+		padding:     $spacing-sm $spacing-md $spacing-md;
+		font-size:   $font-size-sm;
+		line-height: $line-height-base;
+	}
+}

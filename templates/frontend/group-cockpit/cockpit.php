@@ -76,6 +76,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 								aria-label="<?php esc_attr_e( 'Дата занятия', 'fs-lms' ); ?>">
 
 							<div class="fs-cockpit-lesson-actions">
+								<button class="fs-cockpit-btn-step-settings" type="button"
+									data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>"
+									aria-label="<?php esc_attr_e( 'Настройки заданий', 'fs-lms' ); ?>"
+									title="<?php esc_attr_e( 'Настройки заданий', 'fs-lms' ); ?>">
+									&#9881;
+								</button>
+								<button class="fs-cockpit-btn-answers" type="button"
+									data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>"
+									aria-label="<?php esc_attr_e( 'Ответы учеников', 'fs-lms' ); ?>"
+									title="<?php esc_attr_e( 'Ответы учеников', 'fs-lms' ); ?>">
+									&#128203;
+								</button>
 								<button class="fs-cockpit-btn-visibility fs-cockpit-visibility-badge fs-vis-<?php echo esc_attr( $row->visibility ); ?>"
 									type="button"
 									data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>">

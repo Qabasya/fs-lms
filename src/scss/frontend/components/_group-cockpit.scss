@@ -109,6 +109,7 @@
 	gap: 8px;
 }
 
+.fs-cockpit-btn-answers,
 .fs-cockpit-btn-visibility,
 .fs-cockpit-btn-duplicate,
 .fs-cockpit-btn-remove {
@@ -374,5 +375,74 @@
 
 	&:hover {
 		background: $color-border;
+	}
+}
+
+// Answers panel (teacher view: per-step student attempts)
+.fs-answers-panel {
+	margin-top: $spacing-md;
+	border-top: 1px solid $color-border-light;
+	padding-top: $spacing-md;
+}
+
+.fs-answers-empty,
+.fs-answers-none {
+	font-size: $font-size-sm;
+	color: #888;
+	margin: 0;
+}
+
+.fs-answers-step {
+	margin-bottom: $spacing-lg;
+}
+
+.fs-answers-step-label {
+	display: block;
+	font-size: $font-size-sm;
+	font-weight: 600;
+	margin-bottom: $spacing-sm;
+}
+
+.fs-answers-load-btn {
+	font-size: $font-size-xs;
+	margin-bottom: $spacing-sm;
+}
+
+.fs-answers-list {
+	margin-left: $spacing-md;
+}
+
+.fs-answers-student {
+	margin-bottom: $spacing-md;
+}
+
+.fs-answers-student-name {
+	font-size: $font-size-sm;
+	font-weight: 600;
+}
+
+.fs-answers-attempts {
+	list-style: none;
+	margin: $spacing-xs 0 0 0;
+	padding: 0;
+}
+
+.fs-answers-attempt {
+	font-size: $font-size-xs;
+	padding: $spacing-xs $spacing-sm;
+	border-left: 3px solid $color-border;
+	margin-bottom: $spacing-xs;
+
+	small {
+		opacity: 0.6;
+		margin-left: $spacing-sm;
+	}
+
+	&.fs-answers-correct {
+		border-left-color: $color-success;
+	}
+
+	&.fs-answers-wrong {
+		border-left-color: $color-danger;
 	}
 }

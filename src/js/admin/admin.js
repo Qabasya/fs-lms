@@ -22,6 +22,9 @@ import { LessonStepEditor } from './services/lesson-step-editor.js';
 import { WorkStepEditor } from './services/work-step-editor.js';
 import { CourseBuilder } from './services/course-builder.js';
 import { TaskTemplateType } from './services/task-template-type.js';
+import { ModuleToggle } from './services/module-toggle.js';
+import { TaskFields } from './services/task-fields.js';
+import { TaskEditor } from './services/task-editor.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/enrollment/academic-period-modal-manager";
@@ -146,6 +149,12 @@ import { AlertModal } from './modals/alert-modal.js';
         }
 
         TaskTemplateType.init();
+        TaskFields.init();
+        TaskEditor.init();
+
+        if ( $( '.js-module-toggle' ).length ) {
+            ModuleToggle.init();
+        }
 
     });
 

@@ -18,6 +18,7 @@ enum ProgressStatus: string {
 	case Available = 'available';
 	case Viewed    = 'viewed';
 	case Completed = 'completed';
+	case Failed    = 'failed';
 
 	/** Пройден ли шаг (зачитывается в «урок завершён»). */
 	public function isComplete(): bool {
@@ -31,6 +32,7 @@ enum ProgressStatus: string {
 			self::Available => 'Доступен',
 			self::Viewed    => 'Просмотрен',
 			self::Completed => 'Пройден',
+			self::Failed    => 'Провален',
 		};
 	}
 

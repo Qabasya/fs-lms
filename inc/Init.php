@@ -4,13 +4,13 @@ namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Modules\AdSync\AdSyncModule;
+use Inc\Modules\SocialAuth\SocialAuthModule;
 use Inc\Controllers\Enrollment\ApplicationController;
 use Inc\Controllers\Pages\ApplyPageController;
 use Inc\Controllers\Person\ConsentController;
 use Inc\Controllers\System\CronController;
 use Inc\Controllers\System\AdminController;
-use Inc\Controllers\Auth\AuthController;
-use Inc\Controllers\Pages\AuthPageController;
+use Inc\Controllers\System\ModulesDashboardController;
 use Inc\Controllers\Task\BoilerplateController;
 use Inc\Controllers\Enrollment\EnrollmentController;
 use Inc\Controllers\Course\LessonController;
@@ -36,7 +36,7 @@ use Inc\Controllers\Pages\TaskPageController;
 use Inc\Controllers\Log\LogsController;
 use Inc\Controllers\Settings\ConfigController;
 use Inc\Controllers\Settings\SettingsController;
-use Inc\Controllers\Subscribers\AuthLogController;
+use Inc\Controllers\Subscribers\AuthLogController; // логирует общие WP-события (wp_login, wp_login_failed)
 use Inc\Controllers\Subscribers\EntityAuditSubscriber;
 use Inc\Controllers\Subscribers\PostEntityAuditController;
 use Inc\Controllers\Subscribers\EnrollmentAuditSubscriber;
@@ -92,8 +92,9 @@ final class Init {
 	 */
 	public static function getServices(): array {
 		return array(
-			Enqueue::class,           // Подключение скриптов и стилей
-			AdminController::class,   // Административное меню
+			Enqueue::class,                   // Подключение скриптов и стилей
+			AdminController::class,           // Административное меню
+			ModulesDashboardController::class, // AJAX и локализация для Dashboard-модулей
 			SubjectController::class, // Управление предметами и CPT
 			MetaBoxController::class,        // Метабоксы заданий
 			LearningMenuController::class,   // Меню «Обучение» (банки контента)
@@ -111,8 +112,6 @@ final class Init {
 			AssessmentPageController::class, // Frontend-страница контрольной
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,
-			AuthController::class,
-			AuthPageController::class,
 			ApplyPageController::class,
 			ProfileController::class,
 			StudentGroupController::class,
@@ -148,6 +147,7 @@ final class Init {
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
 			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====
+			SocialAuthModule::class,          // Inc\Modules\SocialAuth — OAuth через соцсети (флаг-гейт, по умолчанию вкл.)
 			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
 		);
 	}

@@ -96,7 +96,10 @@ class AdminCallbacks extends BaseController {
 	 */
 	public function adminDashboard(): void {
 		$this->render(
-			'admin/dashboard'
+			'admin/dashboard',
+			array(
+				'modules' => apply_filters( 'fs_lms_dashboard_modules', array() ),
+			)
 		);
 	}
 

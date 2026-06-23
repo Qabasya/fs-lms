@@ -14,6 +14,7 @@ use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Security\FormGuardService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Shared\PluginConfig;
+use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -52,6 +53,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		private readonly PluginConfig       $pluginConfig,
 		private readonly FormGuardService   $formGuard,
 		private readonly ApplicationSettingsService $applicationSettings,
+		private readonly TemplateRegistry   $templateRegistry,
 	) {
 		parent::__construct();
 	}
@@ -96,6 +98,12 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 		// wp_enqueue_media() — подключает медиа-библиотеку WordPress (для загрузки изображений)
 		wp_enqueue_media();
+
+		// На страницах CPT уроков и курсов нужен полный стек TinyMCE для wp.editor.initialize()
+		// в редакторе шагов. wp_enqueue_editor() гарантирует загрузку tinymce + wp-tinymce.
+		if ( $is_lesson_cpt || $is_course_cpt ) {
+			wp_enqueue_editor();
+		}
 
 		// Font Awesome — иконки для интерфейса
 		wp_enqueue_style(
@@ -202,6 +210,26 @@ class Enqueue extends BaseController implements ServiceInterface {
 			);
 			// inline-edit-post — скрипт для быстрого редактирования постов в админке
 			wp_enqueue_script( 'inline-edit-post' );
+		}
+
+		// === Переменные для inline-редактора задач (Phase F, Этап 6) ===
+		$needs_task_editor = $is_task_cpt || $is_lesson_cpt || $is_work_cpt || $is_course_cpt
+			|| str_starts_with( $page, 'fs_subject_' );
+		if ( $needs_task_editor ) {
+			wp_localize_script(
+				$script_handle,
+				'fs_lms_task_editor_vars',
+				array(
+					'ajax_url' => admin_url( 'admin-ajax.php' ),
+					'schema'   => $this->templateRegistry->allEditorSchemas(),
+					'nonces'   => array(
+						'taskContent' => Nonce::TaskContent->create(),
+					),
+					'actions'  => array(
+						'saveTaskContent' => AjaxHook::SaveTaskContent->jsAction(),
+					),
+				)
+			);
 		}
 
 		// === Переменные для таблицы заявок ===
@@ -351,12 +379,16 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'duplicateProgramLesson'    => AjaxHook::DuplicateProgramLesson->jsAction(),
 						'saveLessonSchedule'        => AjaxHook::SaveLessonSchedule->jsAction(),
 						'getCourseLessonCandidates' => AjaxHook::GetCourseLessonCandidates->jsAction(),
+						'getStepSettings'           => AjaxHook::GetStepSettings->jsAction(),
+						'saveStepSettings'          => AjaxHook::SaveStepSettings->jsAction(),
+						'getTaskAttempts'           => AjaxHook::GetTaskAttempts->jsAction(),
 					),
 					'nonces'   => array(
 						'setLessonVisibility' => Nonce::SetLessonVisibility->create(),
 						'saveSchedule'        => Nonce::SaveSchedule->create(),
 						'assignCourse'        => Nonce::AssignCourse->create(),
 						'authorCourse'        => Nonce::AuthorCourse->create(),
+						'stepSettings'        => Nonce::StepSettings->create(),
 					),
 				)
 			);
@@ -386,10 +418,27 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'fs-lms-frontend-script',
 				'fs_lms_player_vars',
 				array(
-					'ajax_url' => admin_url( 'admin-ajax.php' ),
-					'action'   => AjaxHook::MarkStepProgress->jsAction(),
-					'nonce'    => Nonce::MarkStepProgress->create(),
+					'ajax_url'           => admin_url( 'admin-ajax.php' ),
+					'action'             => AjaxHook::MarkStepProgress->jsAction(),
+					'nonce'              => Nonce::MarkStepProgress->create(),
+					'submit_task_action' => AjaxHook::SubmitTaskAnswer->jsAction(),
+					'submit_task_nonce'  => Nonce::SubmitTaskAnswer->create(),
 				)
+			);
+
+			// MathJax v3 — рендеринг LaTeX-формул \(...\) и \[...\] в тексте шагов урока.
+			// Конфиг должен быть до загрузки скрипта, поэтому 'before'.
+			wp_enqueue_script(
+				'fs-lms-mathjax',
+				'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
+				array(),
+				null,
+				true
+			);
+			wp_add_inline_script(
+				'fs-lms-mathjax',
+				'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
+				'before'
 			);
 		}
 
