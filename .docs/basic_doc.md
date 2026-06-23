@@ -35,6 +35,7 @@
 31. [Troubleshooting](#troubleshooting)
 32. [Система обучения (Этапы 1–4): контент, программа, сдачи, контрольные](#система-обучения-этапы-14-контент-программа-сдачи-контрольные)
 33. [Система обучения (MVP-2 «Курсы»): шаги, конструктор, плеер, прогресс, клон, календарь](#система-обучения-mvp-2-курсы-шаги-конструктор-плеер-прогресс-клон-календарь)
+34. [Типы задач (Этап 6): интерактивные задания, редактор, проверка, попытки](#типы-задач-этап-6-интерактивные-задания-редактор-проверка-попытки)
 
 ---
 
@@ -4772,6 +4773,263 @@ DTO: AssessmentDTO, AttemptDTO, AttemptInputDTO, AttemptAnswerDTO
 
 ---
 
+## Типы задач (Этап 6): интерактивные задания, редактор, проверка, попытки
+
+Раздел описывает систему, появившуюся в Этапе 6: новые типы заданий с автопроверкой,
+data-driven редактор в конструкторе урока, поток сдачи ответа учеником, двухуровневые
+настройки шага и историю попыток для преподавателя.
+
+---
+
+### Каталог типов задач (`TaskTemplate`)
+
+Все типы — кейсы enum `Inc\Enums\Subject\TaskTemplate`. Значение кейса — суффикс
+`template_type` в `post_meta` (`PostMetaName::TemplateType`).
+
+| `TaskTemplate` | `value` | Проверка | Ключевые поля мета |
+|---|---|---|---|
+| `Standard`     | `standard_task`       | авто (текст) | `task_condition`, `task_hint` |
+| `Triple`       | `triple_task`         | авто (3 поля) | `task_ans_1..3`, `task_hint` |
+| `Common`       | `common_standard_task`| авто (текст) | `task_condition`, `task_hint` |
+| `Code`         | `code_task`           | ручная | `task_condition`, `task_hint` |
+| `FileCode`     | `file_code_task`      | ручная | — |
+| `File`         | `file_task`           | ручная | — |
+| `TwoFile`      | `two_file_code_task`  | ручная | — |
+| `TextSolution` | `text_task`           | ручная | — |
+| `Choice`       | `choice_task`         | авто | `task_condition`, `task_options` (`{multiple, options[{id,text,correct}]}`), `task_hint` |
+| `Matching`     | `matching_task`       | авто | `task_condition`, `task_pairs` (`{pairs[{left,right}]}`), `task_hint` |
+| `Ordering`     | `ordering_task`       | авто | `task_condition`, `task_order_items` (`{items[]}`), `task_hint` |
+| `Fill`         | `fill_task`           | авто | `task_condition`, `task_gap_text` (`{text}` — пропуски `[[ответ|синоним]]`), `task_hint` |
+| `Audio`        | `audio_task`          | авто (текст) | `task_condition`, `task_audio`, `task_hint` |
+
+**Определить тип шаблона у задания** (по `post_id`):
+```php
+$type = TaskTemplate::from(
+    get_post_meta( $postId, PostMetaName::TemplateType->value, true )
+);
+```
+
+---
+
+### Как устроены поля шаблона
+
+Каждый шаблон (`inc/MetaBoxes/Templates/`) наследует `BaseTemplate` и объявляет поля через
+`get_fields()`. Поле — объект, реализующий `FieldInterface`. Базовые классы полей:
+
+| Класс поля | `editorType()` | Что хранит |
+|---|---|---|
+| `InputField`      | `text`        | короткая строка |
+| `ConditionField`  | `rich_text`   | TinyMCE-условие задачи |
+| `OptionsField`    | `options`     | массив вариантов выбора |
+| `PairsField`      | `pairs`       | массив пар «левое→правое» |
+| `OrderItemsField` | `order_items` | упорядоченный список элементов |
+| `GapTextField`    | `gap_text`    | текст с пропусками `[[ответ\|синоним]]` |
+| `AudioField`      | `audio`       | URL аудиофайла |
+| `HintField`       | `hint`        | текст подсказки |
+
+`BaseTemplate::getEditorSchema()` экспортирует схему шаблона в JS-совместимый массив:
+```php
+[
+    'id'       => 'choice_task',
+    'label'    => 'Выбор ответа',
+    'category' => 'interactive',
+    'fields'   => [
+        [ 'key' => 'task_condition', 'label' => 'Условие', 'type' => 'rich_text', 'config' => [] ],
+        [ 'key' => 'task_options',   'label' => 'Варианты', 'type' => 'options', 'config' => [] ],
+        [ 'key' => 'task_hint',      'label' => 'Подсказка', 'type' => 'hint',  'config' => [] ],
+    ],
+]
+```
+
+`TemplateRegistry::allEditorSchemas()` возвращает схемы всех 13 шаблонов одним массивом,
+ключованным по `value`. Этот массив локализуется в JS через `wp_localize_script` под именем
+`fs_lms_task_editor_vars.schema`.
+
+---
+
+### Редактирование задач: два режима
+
+#### 1. Admin metabox (CPT task bank)
+
+На экране редактирования CPT `{subject}_tasks` рендерится стандартный WP metabox.
+`MetaBoxController` регистрирует его через `MetaBoxRegistrar`. Поля рендерит шаблон (`BaseTemplate`).
+Сохранение — через `save_post` хук → `MetaBoxManager::saveFields()`.
+
+#### 2. Inline editor (конструктор урока / step-editor)
+
+При добавлении шага типа «задание» (`StepType::Task`) в конструкторе курса открывается
+`TaskEditor` (`src/js/admin/services/task-editor.js`) — модальный JS-компонент:
+
+1. Читает `fs_lms_task_editor_vars.schema` — все шаблоны из PHP уже переданы в JS.
+2. Показывает список шаблонов → пользователь выбирает тип.
+3. Рендерит поля нужного типа через `_renderFields()` (switch по `field.type`).
+4. При сохранении отправляет AJAX `AjaxHook::SaveTaskContent` (`save_task_content`):
+   ```js
+   { subject_key, template, title, data: JSON, post_id: 0 }
+   ```
+5. Callback `TaskContentCallbacks::ajaxSaveTaskContent()` создаёт/обновляет CPT-пост
+   и вызывает `MetaBoxManager::saveFields()`.
+6. Колбэк `onSave(id, title)` обновляет `step.payload.ref` в конструкторе урока.
+
+**Когда локализуется `fs_lms_task_editor_vars`:**
+```php
+// Enqueue.php
+$needs_task_editor = $is_task_cpt || $is_lesson_cpt || $is_work_cpt
+                   || $is_course_cpt || str_starts_with( $page, 'fs_subject_' );
+```
+
+**Настройки шага** (`step.payload.settings`) правятся в той же панели редактора:
+`max_attempts`, `shuffle`, `hint_after_errors`. Хранятся в `step_settings_overrides`
+колонке `fs_lms_group_lessons` (двухуровневая система: дефолты в шаге урока → override в
+конкретном групповом занятии). Сервис `EffectiveStepSettingsService` мёрджит оба уровня.
+
+---
+
+### Как добавить новый тип задачи
+
+> Чеклист: 6 шагов + при необходимости шаг 7 (автопроверка).
+
+**Шаг 1. Enum** — добавить кейс в `TaskTemplate`:
+```php
+case MyNew = 'my_new_task';
+```
+
+**Шаг 2. Поля** — при необходимости создать `inc/MetaBoxes/Fields/MyNewField.php`:
+```php
+class MyNewField extends BaseField {
+    public function editorType(): string { return 'my_new'; }
+    // Реализовать render(), sanitize(), validate()
+}
+```
+
+**Шаг 3. Шаблон** — создать `inc/MetaBoxes/Templates/MyNewTaskTemplate.php`:
+```php
+class MyNewTaskTemplate extends BaseTemplate {
+    public function get_id(): string   { return TaskTemplate::MyNew->value; }
+    public function get_name(): string { return 'Мой новый тип'; }
+    public function get_category(): TemplateCategory { return TemplateCategory::Interactive; }
+    public function get_fields(): array {
+        return [
+            'task_condition' => [ 'label' => 'Условие', 'object' => new ConditionField() ],
+            'my_new_data'    => [ 'label' => 'Данные',  'object' => new MyNewField() ],
+            'task_hint'      => [ 'label' => 'Подсказка', 'object' => new HintField() ],
+        ];
+    }
+}
+```
+
+**Шаг 4. Регистрация** — `TemplateRegistry` обнаруживает шаблоны через `TaskTemplate` enum
+автоматически (рефлексия: ищет класс `{PascalCase(value)}Template` в `inc/MetaBoxes/Templates/`).
+Новый файл сразу виден в `allEditorSchemas()`.
+
+**Шаг 5. JS-рендер полей в `TaskEditor`** — если тип поля новый, добавить ветку в
+`_renderFields()` и `_collectFields()` в `src/js/admin/services/task-editor.js`.
+
+**Шаг 6. Виджет в плеере** — добавить ветку в `LessonPlayerService::renderTaskStep()` (PHP
+view-модель) и HTML в `templates/frontend/lesson-player/player.php` + JS-логику сборки ответа
+в `src/js/frontend/components/task-widgets.js`.
+
+**Шаг 7 (опц.) Автопроверка** — создать `inc/Services/Task/Checkers/MyNewChecker.php`
+(реализует `TaskCheckerInterface::check(array $content, mixed $answer): CheckResultDTO`),
+зарегистрировать в конструкторе `TaskCheckerRegistry`:
+```php
+$this->map = [
+    ...
+    TaskTemplate::MyNew->value => $myNew,
+];
+```
+
+---
+
+### Поток сдачи ответа учеником
+
+```
+Ученик нажимает «Проверить»
+  → JS собирает ответ по виджету типа задачи
+  → AJAX: AjaxHook::SubmitTaskAnswer  (submit_task_answer)
+      { nonce, group_lesson_id, step_key, task_id, answer: JSON }
+  → SubmitTaskAnswerCallbacks::ajaxSubmitTaskAnswer()
+      Nonce::SubmitTask->verify()
+      1. TaskAttemptRepository::countByStep() — проверить лимит попыток
+         (с учётом EffectiveStepSettingsService для данной группы)
+      2. TaskAttemptRepository::create() — сохранить попытку
+      3. TaskCheckerRegistry::has($template) ?
+           CheckResultDTO = TaskCheckerRegistry::get($template)->check($content, $answer)
+         : null (ручная проверка)
+      4. TaskAttemptRepository::update() — записать вердикт + score
+      5. AutoGradeService — обновить submission/score если нужно
+      6. $this->success([ 'is_correct', 'score', 'max_score', 'item_feedback', ... ])
+  → JS: обновляет виджет (зелёный/красный, подсветка по элементам через item_feedback)
+```
+
+**`TaskAttemptDTO`** — единица хранения попытки:
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `studentPersonId` | int | ID person-поста ученика |
+| `groupLessonId`   | int | ID строки `fs_lms_group_lessons` |
+| `stepKey`         | string | UUID шага в `lesson.steps[]` |
+| `taskId`          | int | ID CPT-задачи |
+| `attemptNumber`   | int | Номер попытки (1, 2, …) |
+| `answer`          | mixed | JSON-декодированный ответ |
+| `isCorrect`       | bool\|null | null = ещё не проверено / ручная |
+| `score`/`maxScore`| float\|null | Начисленные/возможные баллы |
+| `itemFeedback`    | array\|null | Детализация по элементам (пары, позиции, пропуски) |
+| `createdAt`       | string | Время попытки |
+
+---
+
+### Двухуровневые настройки шага
+
+Настройки `max_attempts`, `shuffle`, `hint_after_errors` хранятся в двух местах и мёрджатся:
+
+| Уровень | Где хранится | Редактируется |
+|---|---|---|
+| Шаг урока (дефолт) | `lesson.steps[].payload.settings` (JSON в CPT-мета) | Конструктор курса (`renderStepSettings()` в `step-editor.js`) |
+| Групповой урок (override) | `fs_lms_group_lessons.step_settings_overrides` (JSON) | Кнопка ⚙️ в кокпите группы (`ajaxSaveStepSettings`) |
+
+`EffectiveStepSettingsService::resolve(GroupLessonDTO $gl, string $stepKey): StepSettingsDTO`
+— мёрджит оба уровня (override побеждает). Только этот метод следует использовать при чтении
+настроек шага в `SubmitTaskAnswerCallbacks` и `LessonPlayerService`.
+
+---
+
+### История ответов у преподавателя
+
+В кокпите группы рядом с кнопкой ⚙️ «Настройки» есть кнопка 📋 «Ответы»:
+
+1. Клик → `toggleAnswersPanel()` → список шагов (из того же `GetStepSettings`).
+2. По каждому шагу кнопка «Загрузить ответы» → AJAX `AjaxHook::GetTaskAttempts`
+   (`get_task_attempts`, `{ group_lesson_id, step_key }`).
+3. `TaskAttemptCallbacks::ajaxGetTaskAttempts()` → `TaskAttemptRepository::listByGroupAndStep()`
+   → группировка по `studentPersonId` → имя из `get_the_title($sid)`.
+4. Ответ: `[{ student_id, student_name, attempts: [{attempt_number, is_correct, score, max_score, created_at}] }]`.
+5. JS рендерит список: зелёная/красная полоска слева, попытка#N, счёт, время.
+
+**Права:** `Nonce::StepSettings` + `Capability::ManageLMSAssignments` (тот же нонс, что у настроек шагов).
+
+---
+
+### Автопроверщики: архитектура
+
+`TaskCheckerRegistry` — единственная точка входа. Инжектируется в `SubmitTaskAnswerCallbacks`.
+
+| Чекер | За что отвечает | Алгоритм |
+|---|---|---|
+| `ChoiceChecker`   | `choice_task`   | Сравнивает sorted IDs правильных вариантов со submitted |
+| `MatchingChecker` | `matching_task` | Case-insensitive сравнение карты `left→right`; `itemFeedback` по паре |
+| `OrderingChecker` | `ordering_task` | Позиция-за-позицией case-insensitive; `itemFeedback[i]` = bool |
+| `FillChecker`     | `fill_task`     | `FillTextParser::checkGap()` per gap; синонимы через `\|`; `itemFeedback[i]` = bool |
+| `TextAnswerChecker` | `standard_task`, `common_standard_task`, `audio_task` | Normalize + сравнение строк |
+| `TripleAnswerChecker` | `triple_task` | Три поля `task_ans_1..3` — каждое normalize + сравнение |
+
+`CheckResultDTO`: `isCorrect: bool`, `score: float`, `maxScore: float`, `itemFeedback: ?array`.
+
+`TaskCheckerRegistry::has(TaskTemplate)` → `bool` — проверить, есть ли автопроверщик.
+`TaskCheckerRegistry::get(TaskTemplate)` → `?TaskCheckerInterface` — получить (null = ручная).
+
+---
+
 Данная документация описывает архитектуру плагина FS LMS, включая:
 
 - **DI контейнер** для автоматического внедрения зависимостей
@@ -4794,5 +5052,6 @@ DTO: AssessmentDTO, AttemptDTO, AttemptInputDTO, AttemptAnswerDTO
 - **Troubleshooting** — пошаговая диагностика от браузера до БД, разборы типичных кейсов, шпаргалка по симптомам и инструменты отладки
 - **Систему обучения (Этапы 1–4)** — банки контента в CPT (работы/уроки/курсы/контрольные + глобальные задачи), факты обучения в кастомных таблицах (программа группы, сдачи, попытки, лента событий), переиспользование по ссылке, copy-on-publish, матрицу доступа и расширяемый журнал оценок
 - **Систему обучения (MVP-2 «Курсы»)** — модель шагов урока (`steps[]`) и модулей курса (`modules[]`), SPA-конструктор курса, пошаговый плеер ученика с прогрессом и гейтингом, клонирование/форк контента и (бэкенд) календарь занятий
+- **Типы задач (Этап 6)** — 13 типов заданий (`TaskTemplate`), data-driven inline-редактор в конструкторе курса (`TaskEditor`), автопроверщики per-type (`TaskCheckerRegistry`, `CheckResultDTO`), двухуровневые настройки шага (`EffectiveStepSettingsService`), история попыток для преподавателя в кокпите группы
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.

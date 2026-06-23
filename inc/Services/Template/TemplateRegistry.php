@@ -121,4 +121,14 @@ class TemplateRegistry {
 	public function defaultForCategory( \Inc\Enums\Subject\TemplateCategory $category ): ?BaseTemplate {
 		return $this->getByCategory( $category )[0] ?? null;
 	}
+
+	/** @return array<string, array> */
+	public function allEditorSchemas(): array {
+		$schemas = [];
+		foreach ( $this->templates as $id => $template ) {
+			$schemas[ $id ] = $template->getEditorSchema();
+		}
+
+		return $schemas;
+	}
 }

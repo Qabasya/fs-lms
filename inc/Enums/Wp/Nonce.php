@@ -73,6 +73,11 @@ enum Nonce: string {
 	// ==== Этап 1.5 — пошаговый плеер урока ====
 	case MarkStepProgress = 'fs_lms_mark_step_progress';
 
+	// ==== Этап 6 — интерактивные задания ====
+	case SubmitTaskAnswer = 'fs_lms_submit_task_answer';
+	case StepSettings     = 'fs_lms_step_settings';
+	case TaskContent      = 'fs_lms_task_content';
+
 	/**
 	 * Создает защитный токен.
 	 *

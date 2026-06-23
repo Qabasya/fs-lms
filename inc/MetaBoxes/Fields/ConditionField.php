@@ -77,4 +77,8 @@ class ConditionField extends BaseField {
 	public function sanitize( mixed $value ): mixed {
 		return $this->sanitizeHtmlValue( $value );
 	}
+
+	public function editorType(): string {
+		return 'rich_text';
+	}
 }

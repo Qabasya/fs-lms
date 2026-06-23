@@ -10,26 +10,20 @@ use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\PostMetaName;
-use Inc\Enums\Subject\TaskTemplate;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
 
 class AutoGradeService {
-
-	/** Шаблоны, которые поддерживают авто-проверку по полю task_answer. */
-	private const AUTO_GRADE_TEMPLATES = [
-		TaskTemplate::Standard,
-		TaskTemplate::Triple,
-		TaskTemplate::Common,
-	];
 
 	public function __construct(
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly AssessmentAnswerRepository  $answers,
 		private readonly PostManager                 $posts,
-		private readonly TemplateResolver            $templateResolver,
+		private readonly TemplateResolver            $resolver,
+		private readonly TaskCheckerRegistry         $checkers,
 		private readonly LogEventDispatcherInterface $dispatcher,
 	) {}
 
@@ -59,10 +53,10 @@ class AutoGradeService {
 	 * После итерации обновляет статус попытки и диспатчит событие.
 	 */
 	public function gradeAttempt( AttemptDTO $attempt ): AttemptDTO {
-		$answerList  = $this->answers->listByAttempt( $attempt->id );
-		$totalScore  = 0.0;
-		$totalMax    = 0.0;
-		$hasManual   = false;
+		$answerList = $this->answers->listByAttempt( $attempt->id );
+		$totalScore = 0.0;
+		$totalMax   = 0.0;
+		$hasManual  = false;
 
 		foreach ( $answerList as $answer ) {
 			$post = $this->posts->get( $answer->taskId );
@@ -71,31 +65,30 @@ class AutoGradeService {
 				continue;
 			}
 
-			$template    = $this->templateResolver->resolveEnum( $post );
-			$canAutoGrade = in_array( $template, self::AUTO_GRADE_TEMPLATES, true );
+			$template = $this->resolver->resolveEnum( $post );
+			$checker  = $this->checkers->get( $template );
 
-			if ( ! $canAutoGrade ) {
+			if ( null === $checker ) {
 				$hasManual = true;
-				$this->answers->upsert( $attempt->id, $answer->taskId, [ 'max_score' => 1 ] );
+				$this->answers->upsert( $attempt->id, $answer->taskId, array( 'max_score' => 1 ) );
 				$totalMax += 1.0;
 				continue;
 			}
 
-			$meta          = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
-			$correctAnswer = is_array( $meta ) ? trim( (string) ( $meta['task_answer'] ?? '' ) ) : '';
-			$studentAnswer = trim( (string) $answer->answerText );
+			$meta   = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
+			$result = $checker->check(
+				is_array( $meta ) ? $meta : array(),
+				$answer->answerText
+			);
 
-			$isCorrect = $correctAnswer !== '' && strtolower( $studentAnswer ) === strtolower( $correctAnswer );
-			$score     = $isCorrect ? 1.0 : 0.0;
+			$this->answers->upsert( $attempt->id, $answer->taskId, array(
+				'is_correct' => $result->isCorrect ? 1 : 0,
+				'score'      => $result->score,
+				'max_score'  => $result->maxScore,
+			) );
 
-			$this->answers->upsert( $attempt->id, $answer->taskId, [
-				'is_correct' => $isCorrect ? 1 : 0,
-				'score'      => $score,
-				'max_score'  => 1,
-			] );
-
-			$totalScore += $score;
-			$totalMax   += 1.0;
+			$totalScore += $result->score;
+			$totalMax   += $result->maxScore;
 		}
 
 		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );

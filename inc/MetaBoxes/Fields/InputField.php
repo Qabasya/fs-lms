@@ -57,4 +57,8 @@ class InputField extends BaseField {
 	public function sanitize( mixed $value ): mixed {
 		return $this->sanitizeTextValue( $value );
 	}
+
+	public function editorType(): string {
+		return 'text';
+	}
 }

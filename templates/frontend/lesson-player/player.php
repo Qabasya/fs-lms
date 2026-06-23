@@ -85,7 +85,7 @@ $cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRout
 								break;
 
 							case 'material':
-								$ref = (int) ( $render['ref'] ?? 0 );
+								$ref  = (int) ( $render['ref'] ?? 0 );
 								$link = $ref ? get_permalink( $ref ) : '';
 								echo $link
 									? '<a class="button fs-player__material" href="' . esc_url( $link ) . '" target="_blank" rel="noopener">' . esc_html__( 'Открыть материал', 'fs-lms' ) . '</a>'
@@ -93,6 +93,75 @@ $cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRout
 								break;
 
 							case 'task':
+								if ( ! empty( $render['auto_grade'] ) ) :
+									$tmpl    = (string) ( $render['template'] ?? '' );
+									$is_done = in_array( $step['status'], array( 'completed', 'failed' ), true );
+									?>
+
+									<?php
+									// Condition(s)
+									if ( 'triple_task' === $tmpl && is_array( $render['condition_html'] ) ) :
+										foreach ( $render['condition_html'] as $num => $cond ) :
+											echo '<div class="fs-task-subpart"><h3 class="fs-task-subpart__label">'
+												. esc_html__( 'Задание №', 'fs-lms' ) . esc_html( (string) $num )
+												. '</h3><div class="fs-task-subpart__body">'
+												. wp_kses_post( (string) $cond )
+												. '</div></div>';
+										endforeach;
+									elseif ( 'fill_task' !== $tmpl && ! empty( $render['condition_html'] ) ) :
+										echo '<div class="fs-task-condition">' . wp_kses_post( (string) $render['condition_html'] ) . '</div>';
+									endif;
+									?>
+
+									<div class="fs-task-widget"
+										data-template="<?php echo esc_attr( $tmpl ); ?>"
+										data-widget='<?php echo esc_attr( (string) wp_json_encode( $render['widget_data'] ?? array() ) ); ?>'
+										<?php echo $is_done ? 'data-done="1"' : ''; ?>></div>
+
+									<?php
+									$max_att  = (int) ( $render['settings']['max_attempts'] ?? 0 );
+									$used_att = (int) ( $render['attempts_used'] ?? 0 );
+									if ( $max_att > 0 ) :
+									?>
+									<div class="fs-attempt-indicator"
+										data-used="<?php echo esc_attr( (string) $used_att ); ?>"
+										data-max="<?php echo esc_attr( (string) $max_att ); ?>">
+										<?php printf(
+											/* translators: 1: attempts used, 2: max attempts */
+											esc_html__( 'Попыток использовано: %1$d из %2$d', 'fs-lms' ),
+											$used_att,
+											$max_att
+										); ?>
+									</div>
+									<?php endif; ?>
+
+									<div class="fs-task-footer">
+										<button type="button"
+											class="button button-primary fs-task-submit"
+											data-step="<?php echo esc_attr( $step['key'] ); ?>"
+											<?php echo $is_done ? 'disabled' : ''; ?>>
+											<?php esc_html_e( 'Проверить', 'fs-lms' ); ?>
+										</button>
+										<div class="fs-task-result" aria-live="polite"></div>
+									</div>
+
+									<?php if ( ! empty( $render['hint_html'] ) ) : ?>
+									<details class="fs-hint"<?php echo ! empty( $render['reveal_hint'] ) ? ' open' : ''; ?>>
+										<summary class="fs-hint__toggle"><?php esc_html_e( 'Подсказка', 'fs-lms' ); ?></summary>
+										<div class="fs-hint__body"><?php echo wp_kses_post( (string) $render['hint_html'] ); ?></div>
+									</details>
+									<?php endif; ?>
+
+									<?php
+								else :
+									// Manual task (Code, File, TextSolution) — no auto-checking
+									echo '<p class="fs-player__muted">'
+										. esc_html__( 'Это задание проверяется вручную. Выполните задание и сдайте в кабинете.', 'fs-lms' )
+										. '</p>';
+									echo '<a class="button fs-player__tocockpit" href="' . esc_url( $cockpit_url ) . '">' . esc_html__( 'Перейти в кабинет', 'fs-lms' ) . '</a>';
+								endif;
+								break;
+
 							case 'work':
 							case 'assessment':
 								echo '<p class="fs-player__muted">'
@@ -104,7 +173,13 @@ $cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRout
 						?>
 					</div>
 
-					<?php if ( in_array( $step['type'], array( 'text', 'video', 'material', 'task' ), true ) ) : ?>
+					<?php
+					// "Отметить пройденным" for non-interactive steps + manual tasks.
+					$is_auto_grade_task = 'task' === $step['type'] && ! empty( $step['render']['auto_grade'] );
+					$show_complete = in_array( $step['type'], array( 'text', 'video', 'material' ), true )
+						|| ( 'task' === $step['type'] && ! $is_auto_grade_task );
+					if ( $show_complete ) :
+					?>
 						<button type="button" class="button button-primary fs-player__complete" data-step="<?php echo esc_attr( $step['key'] ); ?>">
 							<?php esc_html_e( 'Отметить пройденным', 'fs-lms' ); ?>
 						</button>

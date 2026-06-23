@@ -169,6 +169,13 @@ enum AjaxHook: string {
 	// ==== Пошаговый плеер урока (Этап 1.5) ====
 	case MarkStepProgress = 'mark_step_progress'; // params: group_lesson_id, step_key, status (viewed|completed)
 
+	// ==== Интерактивные задания (Этап 6) ====
+	case SubmitTaskAnswer  = 'submit_task_answer';  // params: group_lesson_id, step_key, answer (JSON)
+	case GetStepSettings   = 'get_step_settings';   // params: group_lesson_id
+	case SaveStepSettings  = 'save_step_settings';  // params: group_lesson_id, overrides (JSON)
+	case SaveTaskContent   = 'save_task_content';   // params: subject_key, template, title, data (JSON), post_id? (0=create)
+	case GetTaskAttempts   = 'get_task_attempts';   // params: group_lesson_id, step_key → список попыток всех студентов
+
 	// ==== Контрольные и экзамены (Этап 4) ====
 	case StartAttempt      = 'start_attempt';
 	case SaveAttemptAnswer = 'save_attempt_answer';

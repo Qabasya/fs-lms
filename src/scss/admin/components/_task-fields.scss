@@ -1,0 +1,175 @@
+// =============================================================================
+// Task complex fields — OptionsField, PairsField, OrderItemsField, AudioField
+// =============================================================================
+
+@use '../_variables' as v;
+
+// ── Общие ────────────────────────────────────────────────────────────────────
+
+.fs-lms-hint-field {
+	border-top: 1px solid v.$color-border-input;
+	margin-top: v.$spacing-xl;
+	padding-top: v.$spacing-lg;
+
+	.description {
+		margin-bottom: v.$spacing-sm;
+		color: v.$color-text-secondary;
+	}
+}
+
+// ── Варианты ответа ───────────────────────────────────────────────────────────
+
+.fs-task-options-field {
+	.fs-task-options__mode {
+		margin-bottom: v.$spacing-md;
+	}
+
+	.fs-task-options__list {
+		margin: 0 0 v.$spacing-md;
+		padding: 0;
+		list-style: none;
+	}
+
+	.fs-task-options__item {
+		margin-bottom: v.$spacing-sm;
+	}
+
+	.fs-task-options__row {
+		display: flex;
+		align-items: center;
+		gap: v.$spacing-sm;
+
+		input[type='checkbox'],
+		input[type='radio'] {
+			flex-shrink: 0;
+		}
+
+		input[type='text'] {
+			flex: 1;
+		}
+
+		.js-options-remove {
+			color: v.$color-danger;
+			cursor: pointer;
+			flex-shrink: 0;
+		}
+	}
+}
+
+// ── Сопоставление ─────────────────────────────────────────────────────────────
+
+.fs-task-pairs-field {
+	.fs-task-pairs__header {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: v.$spacing-sm;
+		font-weight: 600;
+		margin-bottom: v.$spacing-xs;
+		padding-left: v.$spacing-xl; // align under inputs
+
+		@media (max-width: 782px) {
+			display: none;
+		}
+	}
+
+	.fs-task-pairs__list {
+		margin: 0 0 v.$spacing-md;
+		padding: 0;
+		list-style: none;
+	}
+
+	.fs-task-pairs__item {
+		margin-bottom: v.$spacing-sm;
+	}
+
+	.fs-task-pairs__row {
+		display: flex;
+		align-items: center;
+		gap: v.$spacing-sm;
+
+		input[type='text'] {
+			flex: 1;
+		}
+
+		.fs-task-pairs__sep {
+			color: v.$color-text-secondary;
+			flex-shrink: 0;
+		}
+
+		.js-pairs-remove {
+			color: v.$color-danger;
+			cursor: pointer;
+			flex-shrink: 0;
+		}
+	}
+}
+
+// ── Сортировка ────────────────────────────────────────────────────────────────
+
+.fs-task-order-field {
+	.fs-task-order__list {
+		margin: 0 0 v.$spacing-md;
+		padding: 0;
+		list-style: none;
+	}
+
+	.fs-task-order__item {
+		margin-bottom: v.$spacing-sm;
+	}
+
+	.fs-task-order__row {
+		display: flex;
+		align-items: center;
+		gap: v.$spacing-sm;
+
+		.fs-task-order__handle {
+			color: v.$color-text-secondary;
+			cursor: grab;
+			flex-shrink: 0;
+		}
+
+		input[type='text'] {
+			flex: 1;
+		}
+
+		.js-order-remove {
+			color: v.$color-danger;
+			cursor: pointer;
+			flex-shrink: 0;
+		}
+	}
+}
+
+// ── Аудио ────────────────────────────────────────────────────────────────────
+
+.fs-task-audio-field {
+	.fs-task-audio__preview {
+		display: flex;
+		align-items: center;
+		gap: v.$spacing-md;
+		margin-bottom: v.$spacing-md;
+		padding: v.$spacing-sm v.$spacing-md;
+		background: v.$wp-admin-gray-bg-light;
+		border: 1px solid v.$color-border-input;
+		border-radius: v.$border-radius-md;
+
+		audio {
+			max-width: 280px;
+		}
+
+		.js-audio-title {
+			color: v.$color-text-secondary;
+			font-size: v.$font-size-sm;
+		}
+	}
+
+	.fs-task-audio__actions {
+		display: flex;
+		align-items: center;
+		gap: v.$spacing-sm;
+
+		.js-audio-remove {
+			color: v.$color-danger;
+		}
+	}
+}

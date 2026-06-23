@@ -52,6 +52,13 @@ class LessonProgressService {
 		$this->mark( $studentPersonId, $groupLessonId, $stepKey, ProgressStatus::Completed, $this->clock->now() );
 	}
 
+	/**
+	 * Отметить шаг проваленным — все попытки задания исчерпаны без верного ответа (Этап 6).
+	 */
+	public function markFailed( int $studentPersonId, int $groupLessonId, string $stepKey ): void {
+		$this->mark( $studentPersonId, $groupLessonId, $stepKey, ProgressStatus::Failed, null );
+	}
+
 	private function mark( int $studentPersonId, int $groupLessonId, string $stepKey, ProgressStatus $status, ?string $completedAt ): void {
 		$row = $this->groupLessons->find( $groupLessonId );
 		if ( null === $row ) {

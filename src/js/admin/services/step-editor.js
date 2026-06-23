@@ -1,5 +1,6 @@
 import '../_types.js';
 import { showToast } from '../modules/toast.js';
+import { TaskEditor } from './task-editor.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -229,6 +230,9 @@ export function createStepEditor( opts ) {
 			inlineEditor( ed, step );
 		} else {
 			refEditor( ed, step );
+			if ( 'task' === step.type ) {
+				renderStepSettings( body, step );
+			}
 		}
 	}
 
@@ -354,7 +358,19 @@ export function createStepEditor( opts ) {
 		const meta     = stepMeta( step );
 		const candKind = meta.candKind; // task | work | assessment
 		const refId    = parseInt( step.payload.ref || 0, 10 );
+		const isTask   = 'task' === candKind;
 		const isWork   = 'work' === candKind;
+
+		const createHtml = isTask
+			? `<button type="button" class="button button-primary" data-create>Создать задачу…</button>`
+			: `<input type="text" class="field-input" data-new-title placeholder="Название новой ${ esc( meta.name.toLowerCase() ) }">
+				${ isWork ? `<select class="field-input" data-work-type>
+					<option value="homework">Домашнее задание</option>
+					<option value="classwork">Классная работа</option>
+					<option value="project">Проект</option>
+				</select>` : '' }
+				<button type="button" class="button button-primary" data-create>Создать и прикрепить</button>`;
+
 		ed.innerHTML = `
 			<div class="sb-label">${ esc( meta.name ) } из библиотеки</div>
 			<div class="fs-cb-ref">
@@ -363,15 +379,7 @@ export function createStepEditor( opts ) {
 				<button type="button" class="button" data-pick>${ refId ? 'Заменить' : 'Выбрать из библиотеки' }</button>
 			</div>
 			<div class="fs-cb-or-divider"><span>или</span></div>
-			<div class="fs-cb-inline-create">
-				<input type="text" class="field-input" data-new-title placeholder="Название новой ${ esc( meta.name.toLowerCase() ) }">
-				${ isWork ? `<select class="field-input" data-work-type>
-					<option value="homework">Домашнее задание</option>
-					<option value="classwork">Классная работа</option>
-					<option value="project">Проект</option>
-				</select>` : '' }
-				<button type="button" class="button button-primary" data-create>Создать и прикрепить</button>
-			</div>`;
+			<div class="fs-cb-inline-create">${ createHtml }</div>`;
 
 		ed.querySelector( '[data-pick]' ).addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title ) => {
 			step.payload.ref = id; step._title = title; step.title = title;
@@ -379,21 +387,32 @@ export function createStepEditor( opts ) {
 		} ) );
 
 		ed.querySelector( '[data-create]' ).addEventListener( 'click', () => {
-			const title = ed.querySelector( '[data-new-title]' ).value.trim();
+			if ( isTask ) {
+				// Открываем полноэкранный редактор задачи (Phase F)
+				TaskEditor.openModal( {
+					subjectKey,
+					onSave: ( id, title ) => {
+						step.payload.ref = id;
+						step._title      = title;
+						step.title       = title;
+						renderStepsRow(); renderStepBody(); saveSteps();
+						showToast( 'Задание создано', 'success' );
+					},
+				} );
+				return;
+			}
+
+			const title = ed.querySelector( '[data-new-title]' )?.value.trim();
 			if ( ! title ) { return; }
-			const btn = ed.querySelector( '[data-create]' );
-			btn.disabled = true;
-			const params = { subject_key: subjectKey, title };
+			const btn        = ed.querySelector( '[data-create]' );
+			btn.disabled     = true;
+			const params     = { subject_key: subjectKey, title };
 			let action;
-			if ( 'work' === candKind ) {
-				action = acts().createWorkDraft;
+			if ( isWork ) {
+				action          = acts().createWorkDraft;
 				params.work_type = ed.querySelector( '[data-work-type]' ).value;
-			} else if ( 'assessment' === candKind ) {
-				action = acts().createAssessmentDraft;
 			} else {
-				// task: Вопрос / Задание с кодом — создаём задачу с шаблоном категории
-				action = acts().createTaskDraft;
-				params.category = ( step.payload && step.payload.category ) || 'question';
+				action = acts().createAssessmentDraft;
 			}
 			ajax( action, params )
 				.then( ( item ) => {
@@ -404,6 +423,42 @@ export function createStepEditor( opts ) {
 					showToast( meta.name + ' создан', 'success' );
 				} )
 				.catch( ( msg ) => { showToast( msg, 'error' ); btn.disabled = false; } );
+		} );
+	}
+
+	function renderStepSettings( body, step ) {
+		const settings = step.payload.settings || {};
+		const $ss      = document.createElement( 'div' );
+		$ss.className  = 'fs-cb-step-settings';
+		$ss.innerHTML  = `
+			<h4 class="fs-cb-ss-title">Настройки шага</h4>
+			<div class="fs-cb-ss-row">
+				<label class="fs-cb-ss-label">Попыток (0 = ∞)
+					<input type="number" min="0" class="field-input fs-cb-ss-num" data-ss="max_attempts"
+						value="${ parseInt( settings.max_attempts ?? 0, 10 ) }">
+				</label>
+				<label class="fs-cb-ss-label">
+					<input type="checkbox" data-ss="shuffle" ${ settings.shuffle ? 'checked' : '' }>
+					Перемешать варианты
+				</label>
+				<label class="fs-cb-ss-label">Подсказка через N ошибок (0 = сразу)
+					<input type="number" min="0" class="field-input fs-cb-ss-num" data-ss="hint_after_errors"
+						value="${ parseInt( settings.hint_after_errors ?? 0, 10 ) }">
+				</label>
+			</div>`;
+
+		body.appendChild( $ss );
+
+		$ss.querySelectorAll( '[data-ss]' ).forEach( ( el ) => {
+			el.addEventListener( 'change', () => {
+				step.payload.settings = step.payload.settings || {};
+				if ( 'checkbox' === el.type ) {
+					step.payload.settings[ el.dataset.ss ] = el.checked;
+				} else {
+					step.payload.settings[ el.dataset.ss ] = parseInt( el.value, 10 ) || 0;
+				}
+				scheduleSave();
+			} );
 		} );
 	}
 

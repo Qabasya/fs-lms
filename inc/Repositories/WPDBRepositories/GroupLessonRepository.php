@@ -156,6 +156,15 @@ class GroupLessonRepository {
 		return false !== $result;
 	}
 
+	public function setStepSettingsOverrides( int $id, array $overrides ): bool {
+		$result = $this->wpdb->update(
+			$this->table,
+			array( 'step_settings_overrides' => wp_json_encode( $overrides ) ),
+			array( 'id' => $id )
+		);
+		return false !== $result;
+	}
+
 	public function setLessonId( int $id, int $lessonId ): bool {
 		$result = $this->wpdb->update(
 			$this->table,

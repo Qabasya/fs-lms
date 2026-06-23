@@ -6,6 +6,8 @@ namespace Inc\Controllers\Task;
 
 use Inc\Controllers\System\AjaxController;
 
+use Inc\Callbacks\Task\TaskAttemptCallbacks;
+use Inc\Callbacks\Task\TaskContentCallbacks;
 use Inc\Callbacks\Task\TaskCreationCallbacks;
 use Inc\Callbacks\Task\TemplateManagerCallbacks;
 use Inc\Enums\Wp\AjaxHook;
@@ -42,6 +44,8 @@ class TaskCreationController extends AjaxController {
 	public function __construct(
 		private readonly TaskCreationCallbacks    $task_creation_callbacks,
 		private readonly TemplateManagerCallbacks $template_manager_callbacks,
+		private readonly TaskContentCallbacks     $task_content_callbacks,
+		private readonly TaskAttemptCallbacks     $task_attempt_callbacks,
 	) {
 		parent::__construct();
 	}
@@ -107,6 +111,10 @@ class TaskCreationController extends AjaxController {
 			array( AjaxHook::SaveTaskBoilerplate, $this->template_manager_callbacks ),
 			// Получение типового условия для редактора
 			array( AjaxHook::GetTaskBoilerplate, $this->template_manager_callbacks ),
+			// Создание/обновление задачи из inline-редактора (Phase F)
+			array( AjaxHook::SaveTaskContent, $this->task_content_callbacks ),
+			// История попыток студентов по шагу (Phase G)
+			array( AjaxHook::GetTaskAttempts, $this->task_attempt_callbacks ),
 		);
 	}
 }

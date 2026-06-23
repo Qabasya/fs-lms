@@ -152,7 +152,31 @@ export function initGroupCockpit() {
             return;
         }
 
-        // Duplicate lesson — провести ещё раз на другую дату
+        // Step settings panel
+        const btnStepSettings = e.target.closest( '.fs-cockpit-btn-step-settings' );
+        if ( btnStepSettings ) {
+            const item = btnStepSettings.closest( '.fs-cockpit-lesson-item' );
+            await toggleStepSettingsPanel( item, item.dataset.groupLessonId );
+            return;
+        }
+
+        // Save step settings
+        const btnSaveSettings = e.target.closest( '.fs-step-settings-save' );
+        if ( btnSaveSettings ) {
+            const panel = btnSaveSettings.closest( '.fs-step-settings-panel' );
+            await saveStepSettings( panel, panel.dataset.groupLessonId );
+            return;
+        }
+
+        // Ответы учеников по шагам
+        const btnAnswers = e.target.closest( '.fs-cockpit-btn-answers' );
+        if ( btnAnswers ) {
+            const item = btnAnswers.closest( '.fs-cockpit-lesson-item' );
+            await toggleAnswersPanel( item, item.dataset.groupLessonId );
+            return;
+        }
+
+        // Дублировать lesson — провести ещё раз на другую дату
         const btnDup = e.target.closest( '.fs-cockpit-btn-duplicate' );
         if ( btnDup ) {
             btnDup.disabled = true;
@@ -252,6 +276,151 @@ export function initGroupCockpit() {
             }
         } );
     }
+}
+
+async function toggleStepSettingsPanel( item, glId ) {
+    let panel = item.querySelector( '.fs-step-settings-panel' );
+    if ( panel ) {
+        panel.hidden = ! panel.hidden;
+        return;
+    }
+    const res = await apiPost( ajaxUrl, {
+        action          : actions.getStepSettings,
+        security        : nonces.stepSettings,
+        group_lesson_id : glId,
+    } );
+    if ( ! res?.success ) { return; }
+    panel = renderStepSettingsPanel( glId, res.data?.steps ?? [] );
+    item.appendChild( panel );
+}
+
+function renderStepSettingsPanel( glId, steps ) {
+    const panel = document.createElement( 'div' );
+    panel.className = 'fs-step-settings-panel';
+    panel.dataset.groupLessonId = glId;
+
+    if ( ! steps.length ) {
+        panel.innerHTML = '<p class="fs-step-settings-empty">В этом уроке нет заданий.</p>';
+        return panel;
+    }
+
+    steps.forEach( step => {
+        const eff = step.override ?? step.settings;
+        const row = document.createElement( 'div' );
+        row.className = 'fs-step-settings-row';
+        row.dataset.stepKey = step.key;
+        row.innerHTML = `
+<strong class="fs-step-settings-label">${ escHtml( step.label ) }</strong>
+<label class="fs-step-settings-field">
+    <span>Попыток <small>(0 = ∞)</small></span>
+    <input type="number" class="fs-ss-attempts" min="0" value="${ eff.max_attempts ?? 0 }">
+</label>
+<label class="fs-step-settings-field">
+    <span>Перемешать варианты</span>
+    <input type="checkbox" class="fs-ss-shuffle"${ eff.shuffle ? ' checked' : '' }>
+</label>
+<label class="fs-step-settings-field">
+    <span>Подсказка после N ошибок <small>(0 = сразу)</small></span>
+    <input type="number" class="fs-ss-hint-after" min="0" value="${ eff.hint_after_errors ?? 0 }">
+</label>`;
+        panel.appendChild( row );
+    } );
+
+    const footer = document.createElement( 'div' );
+    footer.className = 'fs-step-settings-footer';
+    footer.innerHTML = '<button type="button" class="fs-step-settings-save fs-cockpit-btn-primary">Сохранить</button>'
+        + '<span class="fs-step-settings-status" aria-live="polite"></span>';
+    panel.appendChild( footer );
+
+    return panel;
+}
+
+async function saveStepSettings( panel, glId ) {
+    const overrides = {};
+    panel.querySelectorAll( '.fs-step-settings-row' ).forEach( row => {
+        overrides[ row.dataset.stepKey ] = {
+            max_attempts      : parseInt( row.querySelector( '.fs-ss-attempts' ).value, 10 ) || 0,
+            shuffle           : row.querySelector( '.fs-ss-shuffle' ).checked,
+            hint_after_errors : parseInt( row.querySelector( '.fs-ss-hint-after' ).value, 10 ) || 0,
+        };
+    } );
+
+    const btn    = panel.querySelector( '.fs-step-settings-save' );
+    const status = panel.querySelector( '.fs-step-settings-status' );
+    if ( btn ) { btn.disabled = true; }
+
+    const res = await apiPost( ajaxUrl, {
+        action          : actions.saveStepSettings,
+        security        : nonces.stepSettings,
+        group_lesson_id : glId,
+        overrides       : JSON.stringify( overrides ),
+    } );
+
+    if ( btn ) { btn.disabled = false; }
+    if ( status ) { status.textContent = res?.success ? 'Сохранено ✓' : 'Ошибка при сохранении'; }
+}
+
+async function toggleAnswersPanel( item, glId ) {
+    let panel = item.querySelector( '.fs-answers-panel' );
+    if ( panel ) {
+        panel.hidden = ! panel.hidden;
+        return;
+    }
+    const res = await apiPost( ajaxUrl, {
+        action          : actions.getStepSettings,
+        security        : nonces.stepSettings,
+        group_lesson_id : glId,
+    } );
+    const steps = res?.data?.steps ?? [];
+
+    panel = document.createElement( 'div' );
+    panel.className = 'fs-answers-panel';
+    panel.dataset.groupLessonId = glId;
+
+    if ( ! steps.length ) {
+        panel.innerHTML = '<p class="fs-answers-empty">В этом уроке нет заданий.</p>';
+        item.appendChild( panel );
+        return;
+    }
+
+    steps.forEach( step => {
+        const section = document.createElement( 'div' );
+        section.className = 'fs-answers-step';
+        section.innerHTML = `<strong class="fs-answers-step-label">${ escHtml( step.label ) }</strong>
+            <button type="button" class="fs-answers-load-btn fs-cockpit-btn-secondary"
+                data-step-key="${ escHtml( step.key ) }">Загрузить ответы</button>
+            <div class="fs-answers-list"></div>`;
+        section.querySelector( '.fs-answers-load-btn' ).addEventListener( 'click', async function () {
+            this.disabled = true;
+            const r = await apiPost( ajaxUrl, {
+                action          : actions.getTaskAttempts,
+                security        : nonces.stepSettings,
+                group_lesson_id : glId,
+                step_key        : step.key,
+            } );
+            const list = section.querySelector( '.fs-answers-list' );
+            if ( ! r?.success || ! r.data.length ) {
+                list.innerHTML = '<p class="fs-answers-none">Ответов нет.</p>';
+                return;
+            }
+            list.innerHTML = r.data.map( student => `
+                <div class="fs-answers-student">
+                    <span class="fs-answers-student-name">${ escHtml( student.student_name ) }</span>
+                    <ul class="fs-answers-attempts">
+                        ${ student.attempts.map( ( a, i ) => `
+                            <li class="fs-answers-attempt${ a.is_correct ? ' fs-answers-correct' : ( null === a.is_correct ? '' : ' fs-answers-wrong' ) }">
+                                #${ a.attempt_number } — ${ null === a.is_correct ? 'На проверке' : ( a.is_correct ? '✓' : '✗' ) }
+                                ${ null !== a.score ? `(${ a.score }/${ a.max_score })` : '' }
+                                <small>${ escHtml( a.created_at ) }</small>
+                            </li>`
+                        ).join( '' ) }
+                    </ul>
+                </div>` ).join( '' );
+        } );
+        panel.appendChild( section );
+    } );
+
+    item.appendChild( panel );
 }
 
 function escHtml( str ) {

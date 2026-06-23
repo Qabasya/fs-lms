@@ -44,6 +44,8 @@ readonly class GroupLessonDTO {
 		public ?int    $createdByUserId,
 		public ?int    $updatedByUserId,
 		public ?string $label = null,
+		/** @var array<string, array{max_attempts:int,shuffle:bool,hint_after_errors:int}>|null */
+		public ?array  $stepSettingsOverrides = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -67,7 +69,10 @@ readonly class GroupLessonDTO {
 			recordingUrl    : $row['recording_url'] ?? null,
 			createdByUserId : isset( $row['created_by_user_id'] ) ? (int) $row['created_by_user_id'] : null,
 			updatedByUserId : isset( $row['updated_by_user_id'] ) ? (int) $row['updated_by_user_id'] : null,
-			label           : isset( $row['label'] ) && '' !== $row['label'] ? (string) $row['label'] : null,
+			label                : isset( $row['label'] ) && '' !== $row['label'] ? (string) $row['label'] : null,
+			stepSettingsOverrides: isset( $row['step_settings_overrides'] )
+				? json_decode( (string) $row['step_settings_overrides'], true )
+				: null,
 		);
 	}
 

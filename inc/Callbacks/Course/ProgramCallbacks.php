@@ -5,10 +5,15 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Course\AssignmentPolicy;
+use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Course\AssignmentPolicy;
 use Inc\Enums\Course\LessonVisibility;
+use Inc\Enums\Course\StepType;
 use Inc\Enums\Wp\Nonce;
+use Inc\Enums\Wp\PostMetaName;
+use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\EffectiveWorksResolver;
@@ -30,6 +35,8 @@ class ProgramCallbacks extends BaseController {
 		private readonly EffectiveWorksResolver  $worksResolver,
 		private readonly GroupAccessGuard        $guard,
 		private readonly LearningEventRepository $eventRepo,
+		private readonly GroupLessonRepository   $groupLessons,
+		private readonly PostManager             $posts,
 	) {
 		parent::__construct();
 	}
@@ -149,6 +156,83 @@ class ProgramCallbacks extends BaseController {
 		}
 
 		$this->success( $this->scheduleService->getProgram( $groupId ) );
+	}
+
+	/**
+	 * Возвращает список task-шагов урока с базовыми настройками и переопределениями группы.
+	 * Используется в панели настроек шагов кокпита (Этап 6, Фаза D).
+	 * Params: group_lesson_id
+	 */
+	public function ajaxGetStepSettings(): void {
+		$this->authorize( Nonce::StepSettings, Capability::ManageLMSAssignments );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+
+		$groupLesson = $this->groupLessons->find( $groupLessonId );
+		if ( ! $groupLesson || ! $groupLesson->lessonId ) {
+			$this->error( 'Занятие не найдено.' );
+			return;
+		}
+
+		$meta   = $this->posts->getMeta( $groupLesson->lessonId, PostMetaName::Meta->value );
+		$steps  = StepDTO::fromList( is_array( $meta ) ? ( $meta['steps'] ?? array() ) : array() );
+		$overrides = $groupLesson->stepSettingsOverrides ?? array();
+
+		$result = array();
+		foreach ( $steps as $step ) {
+			if ( StepType::Task !== $step->type ) {
+				continue;
+			}
+
+			$taskId  = (int) ( $step->payload['ref'] ?? 0 );
+			$label   = $taskId ? ( $this->posts->get( $taskId )?->post_title ?? '' ) : '';
+			$base    = array(
+				'max_attempts'      => (int) ( $step->payload['settings']['max_attempts'] ?? 0 ),
+				'shuffle'           => (bool) ( $step->payload['settings']['shuffle'] ?? false ),
+				'hint_after_errors' => (int) ( $step->payload['settings']['hint_after_errors'] ?? 0 ),
+			);
+			$override = is_array( $overrides[ $step->key ] ?? null ) ? $overrides[ $step->key ] : null;
+
+			$result[] = array(
+				'key'      => $step->key,
+				'label'    => $label ?: $step->key,
+				'task_id'  => $taskId,
+				'settings' => $base,
+				'override' => $override,
+			);
+		}
+
+		$this->success( array( 'steps' => $result ) );
+	}
+
+	/**
+	 * Сохраняет переопределения настроек шагов для группового занятия.
+	 * Params: group_lesson_id, overrides (JSON: {step_key: {max_attempts, shuffle, hint_after_errors}})
+	 */
+	public function ajaxSaveStepSettings(): void {
+		$this->authorize( Nonce::StepSettings, Capability::ManageLMSAssignments );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$rawOverrides  = $this->sanitizeText( 'overrides' );
+
+		$decoded = json_decode( $rawOverrides, true );
+		if ( ! is_array( $decoded ) ) {
+			$this->error( 'Неверный формат данных.' );
+			return;
+		}
+
+		$sanitized = array();
+		foreach ( $decoded as $stepKey => $values ) {
+			if ( ! is_string( $stepKey ) || ! is_array( $values ) ) {
+				continue;
+			}
+			$sanitized[ sanitize_key( $stepKey ) ] = array(
+				'max_attempts'      => max( 0, (int) ( $values['max_attempts'] ?? 0 ) ),
+				'shuffle'           => (bool) ( $values['shuffle'] ?? false ),
+				'hint_after_errors' => max( 0, (int) ( $values['hint_after_errors'] ?? 0 ) ),
+			);
+		}
+
+		$this->groupLessons->setStepSettingsOverrides( $groupLessonId, $sanitized );
+		$this->success( array( 'saved' => true ) );
 	}
 
 	public function ajaxGetGroupActivity(): void {

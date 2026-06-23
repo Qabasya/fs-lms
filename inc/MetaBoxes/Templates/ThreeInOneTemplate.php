@@ -2,10 +2,10 @@
 
 namespace Inc\MetaBoxes\Templates;
 
-use Inc\MetaBoxes\Fields\CodeField;
-use Inc\MetaBoxes\Fields\InputField;
-use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\Enums\Wp\PostMetaName;
+use Inc\MetaBoxes\Fields\CodeField;
+use Inc\MetaBoxes\Fields\ConditionField;
+use Inc\MetaBoxes\Fields\InputField;
 
 /*
  * Это класс для 19-21 заданий ЕГЭ по информатике
@@ -108,6 +108,12 @@ class ThreeInOneTemplate extends BaseTemplate {
 		// --- КОД ---
 		echo '<h3>Программное решение</h3>';
 		$this->render_single_field( 'task_code', $post, $values );
+
+		// --- ПОДСКАЗКА (общая для всех шаблонов) ---
+		$hintConfig = $this->get_fields()['task_hint'] ?? null;
+		if ( $hintConfig ) {
+			$hintConfig['object']->render( $post, 'task_hint', $hintConfig['label'], $values['task_hint'] ?? '' );
+		}
 
 		echo '</div>';
 	}
