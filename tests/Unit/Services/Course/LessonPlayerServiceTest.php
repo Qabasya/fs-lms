@@ -12,26 +12,47 @@ use Inc\Enums\Course\ProgressStatus;
 use Inc\Enums\Course\StepType;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Services\Course\EffectiveStepSettingsResolver;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonPlayerService;
 use Inc\Services\Course\LessonProgressService;
+use Inc\Services\Task\TaskCheckerRegistry;
+use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
 
 class LessonPlayerServiceTest extends TestCase {
 
-	private LessonManager         $lessons;
-	private LessonGateResolver    $gate;
-	private LessonProgressService $progress;
-	private PostManager           $posts;
-	private LessonPlayerService   $service;
+	private LessonManager                 $lessons;
+	private LessonGateResolver            $gate;
+	private LessonProgressService         $progress;
+	private PostManager                   $posts;
+	private TaskAttemptRepository         $taskAttempts;
+	private EffectiveStepSettingsResolver $settingsResolver;
+	private TemplateResolver              $templateResolver;
+	private TaskCheckerRegistry           $checkerRegistry;
+	private LessonPlayerService           $service;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->lessons  = $this->createMock( LessonManager::class );
-		$this->gate     = $this->createMock( LessonGateResolver::class );
-		$this->progress = $this->createMock( LessonProgressService::class );
-		$this->posts    = $this->createMock( PostManager::class );
-		$this->service  = new LessonPlayerService( $this->lessons, $this->gate, $this->progress, $this->posts );
+		$this->lessons          = $this->createMock( LessonManager::class );
+		$this->gate             = $this->createMock( LessonGateResolver::class );
+		$this->progress         = $this->createMock( LessonProgressService::class );
+		$this->posts            = $this->createMock( PostManager::class );
+		$this->taskAttempts     = $this->createMock( TaskAttemptRepository::class );
+		$this->settingsResolver = $this->createMock( EffectiveStepSettingsResolver::class );
+		$this->templateResolver = $this->createMock( TemplateResolver::class );
+		$this->checkerRegistry  = $this->createMock( TaskCheckerRegistry::class );
+		$this->service          = new LessonPlayerService(
+			$this->lessons,
+			$this->gate,
+			$this->progress,
+			$this->posts,
+			$this->taskAttempts,
+			$this->settingsResolver,
+			$this->templateResolver,
+			$this->checkerRegistry,
+		);
 	}
 
 	private function makeGroupLesson( int $id = 1, int $lessonId = 10, ?string $recordingUrl = null ): GroupLessonDTO {
