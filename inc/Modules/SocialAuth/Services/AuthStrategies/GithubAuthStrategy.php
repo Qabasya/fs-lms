@@ -1,16 +1,17 @@
 <?php
 
-namespace Inc\Services\Auth\AuthStrategies;
+declare( strict_types=1 );
+
+namespace Inc\Modules\SocialAuth\Services\AuthStrategies;
 
 use Inc\DTO\Person\UserDTO;
-use Inc\Enums\Auth\AuthProvider;
+use Inc\Modules\SocialAuth\Enums\AuthProvider;
 use Inc\Shared\PluginLogger;
 
-class GoogleAuthStrategy extends AbstractHybridAuthStrategy {
-
+class GithubAuthStrategy extends AbstractHybridAuthStrategy {
 
 	public function getProvider(): AuthProvider {
-		return AuthProvider::Google;
+		return AuthProvider::Github;
 	}
 
 	public function authenticate(): ?UserDTO {
@@ -20,10 +21,9 @@ class GoogleAuthStrategy extends AbstractHybridAuthStrategy {
 			$profile = $adapter->getUserProfile();
 			$adapter->disconnect();
 
-			// Передаем профиль в сервис для обработки логики WP
 			return $this->auth_service->processUserFromSocialProfile( $this->getProvider(), $profile );
 		} catch ( \Exception $e ) {
-			PluginLogger::exception( 'GoogleAuthStrategy', $e );
+			PluginLogger::exception( 'GithubAuthStrategy', $e );
 			return null;
 		}
 	}

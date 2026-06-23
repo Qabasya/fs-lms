@@ -21,19 +21,20 @@
 17. [Согласия на обработку ПД](#согласия-на-обработку-пд)
 18. [Клиентская валидация форм](#клиентская-валидация-форм)
 19. [Добавление нового контроллера](#добавление-нового-контроллера)
-20. [Фронтенд-страницы и шорткоды](#фронтенд-страницы-и-шорткоды)
-21. [Роли и матрица прав](#роли-и-матрица-прав)
-22. [Конфигурация wp-config.php](#конфигурация-wp-configphp)
-23. [Конфигурация плагина и таб Конфигурация](#конфигурация-плагина-и-таб-конфигурация)
-24. [Бот-защита публичных форм](#бот-защита-публичных-форм)
-25. [Логирование и аудит: добавление лог-канала](#логирование-и-аудит-добавление-лог-канала)
-26. [Кастомная авторизация: ошибки входа](#кастомная-авторизация-ошибки-входа)
-27. [CsvExportService](#csvexportservice)
-28. [Управление паролями пользователей](#управление-паролями-пользователей)
-29. [Система уведомлений](#система-уведомлений)
-30. [Troubleshooting](#troubleshooting)
-31. [Система обучения (Этапы 1–4): контент, программа, сдачи, контрольные](#система-обучения-этапы-14-контент-программа-сдачи-контрольные)
-32. [Система обучения (MVP-2 «Курсы»): шаги, конструктор, плеер, прогресс, клон, календарь](#система-обучения-mvp-2-курсы-шаги-конструктор-плеер-прогресс-клон-календарь)
+20. [Модульная архитектура](#модульная-архитектура)
+21. [Фронтенд-страницы и шорткоды](#фронтенд-страницы-и-шорткоды)
+22. [Роли и матрица прав](#роли-и-матрица-прав)
+23. [Конфигурация wp-config.php](#конфигурация-wp-configphp)
+24. [Конфигурация плагина и таб Конфигурация](#конфигурация-плагина-и-таб-конфигурация)
+25. [Бот-защита публичных форм](#бот-защита-публичных-форм)
+26. [Логирование и аудит: добавление лог-канала](#логирование-и-аудит-добавление-лог-канала)
+27. [Кастомная авторизация: ошибки входа](#кастомная-авторизация-ошибки-входа)
+28. [CsvExportService](#csvexportservice)
+29. [Управление паролями пользователей](#управление-паролями-пользователей)
+30. [Система уведомлений](#система-уведомлений)
+31. [Troubleshooting](#troubleshooting)
+32. [Система обучения (Этапы 1–4): контент, программа, сдачи, контрольные](#система-обучения-этапы-14-контент-программа-сдачи-контрольные)
+33. [Система обучения (MVP-2 «Курсы»): шаги, конструктор, плеер, прогресс, клон, календарь](#система-обучения-mvp-2-курсы-шаги-конструктор-плеер-прогресс-клон-календарь)
 
 ---
 
@@ -61,7 +62,7 @@ inc/
 ├── Managers/           # Менеджеры WP-API — по доменным папкам* (+ Wp)
 ├── MetaBoxes/          # Конфигурации метабоксов (Fields, Templates)
 ├── Migrations/         # Миграции БД
-├── Modules/            # Изолируемые отключаемые модули (AdSync)
+├── Modules/            # Изолируемые отключаемые модули (AdSync, SocialAuth)
 ├── Registrars/         # Регистраторы (фасады для менеджеров)
 ├── Repositories/       # Репозитории (OptionsRepositories, WPDBRepositories)
 ├── Services/           # Бизнес-логика — по доменным папкам*
@@ -2580,6 +2581,291 @@ class MyCallbacks extends BaseController {
 
 ---
 
+## Модульная архитектура
+
+Модули — **изолируемые листовые подсистемы**, которые можно выключить (тумблером / константой) или полностью вырезать (удалением каталога + одной строки в `Init`), не ломая ядро.
+
+Когда фичу нужно оформить как модуль:
+- её можно безопасно отключить и ядро продолжит работать;
+- она имеет собственные настройки в UI (таб или секцию);
+- в будущем её может не быть в некоторых инсталляциях.
+
+Обычная фича в ядре (`inc/Controllers/`, `inc/Services/` и т.д.) — если она всегда нужна.
+
+### Структура модуля
+
+```
+inc/Modules/MyModule/
+├── MyModule.php                    # Bootstrap; единственный класс, известный ядру
+├── Config/
+│   └── MyModuleConfig.php          # isEnabled() + toggle() + константы опции
+├── Controllers/
+│   ├── MyModuleController.php      # Рантайм-логика (хуки, маршруты); регистр. только если включён
+│   └── MyModuleSettingsController.php  # Настройки UI; регистрируется ВСЕГДА
+├── Callbacks/
+│   └── MyModuleCallbacks.php       # AJAX-обработчики
+├── Services/
+│   └── ...                         # Сервисы модуля (namespace Inc\Modules\MyModule\Services)
+├── Repositories/
+│   └── ...                         # Репозитории модуля (если нужны)
+├── Enums/
+│   └── ...
+├── templates/
+│   └── settings-tab.php            # или settings-section.php
+└── assets/                         # self-contained скрипты/стили модуля (не в core-бандле)
+    └── admin.js
+```
+
+### Bootstrap-класс
+
+```php
+// inc/Modules/MyModule/MyModule.php
+namespace Inc\Modules\MyModule;
+
+use Inc\Contracts\ServiceInterface;
+use Inc\Modules\MyModule\Config\MyModuleConfig;
+use Inc\Modules\MyModule\Controllers\MyModuleController;
+use Inc\Modules\MyModule\Controllers\MyModuleSettingsController;
+
+class MyModule implements ServiceInterface {
+
+    public function __construct(
+        private readonly MyModuleSettingsController $settings,
+        private readonly MyModuleController         $runtime,
+    ) {}
+
+    public function register(): void {
+        $this->settings->register(); // ВСЕГДА — чтобы Dashboard знал о модуле и toggle работал в обе стороны
+
+        if ( ! MyModuleConfig::isEnabled() ) {
+            return;             // рантайм-контроллер молча не подключается
+        }
+
+        $this->runtime->register();
+    }
+}
+```
+
+Добавить в `Init::getServices()` в секцию опциональных модулей:
+
+```php
+// inc/Init.php — секция «Опциональные модули»
+MyModule::class,
+```
+
+### Feature-флаги — три уровня выключения
+
+| Уровень | Способ | Когда |
+|---|---|---|
+| **1. Жёсткий** | Константа в `wp-config.php`: `define('FS_LMS_MY_MODULE', false)` | Стейдж/прод, нельзя включить из UI |
+| **2. Тумблер** | Опция в БД через Dashboard | Обычное вкл/выкл администратором |
+| **3. Вырезание** | Удалить каталог `inc/Modules/MyModule/` + строку `MyModule::class` в `Init` | Релиз без фичи |
+
+```php
+// inc/Modules/MyModule/Config/MyModuleConfig.php
+class MyModuleConfig {
+
+    public const OPTION = 'fs_lms_my_module';
+
+    private const DEFAULTS = [ 'enabled' => false ];
+
+    public static function isEnabled(): bool {
+        if ( defined( 'FS_LMS_MY_MODULE' ) ) {
+            return (bool) constant( 'FS_LMS_MY_MODULE' );
+        }
+        $stored = get_option( self::OPTION, [] );
+        return (bool) ( $stored['enabled'] ?? false );
+    }
+
+    public static function toggle( bool $enabled ): void {
+        $current            = get_option( self::OPTION, self::DEFAULTS );
+        $current['enabled'] = $enabled;
+        update_option( self::OPTION, $current );
+    }
+}
+```
+
+### Правило изоляции
+
+**Ядро никогда не импортирует классы модуля.** Единственная точка связи — строка `MyModule::class` в `Init::getServices()`. Всё остальное общение через WP-хуки:
+
+```
+ядро                                 модуль
+─────────────────────────────────────────────────────────────
+apply_filters('fs_lms_settings_tabs', $tabs)  ←──  addSettingsTab()
+apply_filters('fs_lms_dashboard_modules', []) ←──  registerDashboardModule()
+do_action('fs_lms_config_sections', $subj)   ←──  renderSection()
+do_action('fs_lms_module_toggle_{id}', $on)  ←──  onToggle()
+```
+
+Модуль может использовать **публичные** классы ядра (`Nonce`, `Capability`, `BaseController` и т.д.) — это нормально. Ядро — нет.
+
+### Settings-контроллер (всегда активен)
+
+`MyModuleSettingsController` регистрируется независимо от `isEnabled()`. Минимальный набор хуков:
+
+```php
+public function register(): void {
+    add_filter( 'fs_lms_dashboard_modules', [ $this, 'registerDashboardModule' ] );
+    add_action( 'fs_lms_module_toggle_my_module', [ $this, 'onToggle' ] );
+
+    // Опционально: таб в Настройках или секция в Конфигурации
+    add_filter( 'fs_lms_settings_tabs', [ $this, 'addSettingsTab' ] );  // если нужен таб
+    add_action( 'fs_lms_config_sections', [ $this, 'renderSection' ] ); // если нужна секция
+}
+
+public function registerDashboardModule( array $modules ): array {
+    $modules[] = [
+        'id'           => 'my_module',
+        'title'        => 'Мой модуль',
+        'description'  => 'Краткое описание, что даёт модуль и что исчезнет при отключении.',
+        'enabled'      => MyModuleConfig::isEnabled(),
+        'const_locked' => defined( 'FS_LMS_MY_MODULE' ),
+        'const_key'    => 'FS_LMS_MY_MODULE',
+    ];
+    return $modules;
+}
+
+public function onToggle( bool $enabled ): void {
+    MyModuleConfig::toggle( $enabled );
+}
+
+// Вкладка показывается только когда модуль включён
+public function addSettingsTab( array $tabs ): array {
+    if ( ! MyModuleConfig::isEnabled() ) {
+        return $tabs;
+    }
+    $tabs['tab-X'] = [
+        'title' => 'Мой модуль',
+        'path'  => FS_LMS_PATH . 'inc/Modules/MyModule/templates/settings-tab.php',
+    ];
+    return $tabs;
+}
+
+// Секция в Конфигурации показывается только когда модуль включён
+public function renderSection( array $subjects ): void {
+    if ( ! MyModuleConfig::isEnabled() ) {
+        return;
+    }
+    require FS_LMS_PATH . 'inc/Modules/MyModule/templates/settings-section.php';
+}
+```
+
+### Dashboard: регистрация карточки модуля
+
+Страница **FS LMS → Статистика** (Dashboard) показывает карточки всех модулей. Карточка появляется автоматически при регистрации через `fs_lms_dashboard_modules`.
+
+Поля массива карточки:
+
+| Ключ | Тип | Назначение |
+|---|---|---|
+| `id` | `string` | Уникальный slug (snake_case); используется в `data-module` и хуке `fs_lms_module_toggle_{id}` |
+| `title` | `string` | Заголовок карточки |
+| `description` | `string` | Что даёт модуль и что исчезнет при отключении |
+| `enabled` | `bool` | Текущее состояние тумблера |
+| `const_locked` | `bool` | `true` — тумблер заблокирован, состояние задано константой |
+| `const_key` | `string` | Имя константы (`FS_LMS_MY_MODULE`) — отображается в UI |
+
+AJAX-сохранение тумблера — `ModulesDashboardController` (`wp_ajax_fs_lms_toggle_module`). Он вызывает `do_action("fs_lms_module_toggle_{id}", $enabled)` — модуль сохраняет себя сам через `onToggle()`.
+
+### Скрипты модуля
+
+Два варианта в зависимости от контекста.
+
+#### Вариант A — self-contained (рекомендуется для модуля)
+
+Скрипт живёт в `inc/Modules/MyModule/assets/admin.js` (вне `src/js/`, вне Webpack/Gulp-бандла) и подключается только на нужной странице:
+
+```php
+// MyModuleSettingsController::register()
+add_action( 'admin_enqueue_scripts', [ $this, 'enqueueAssets' ] );
+
+public function enqueueAssets( string $hook ): void {
+    // Только на нужной странице, например таба Настройки
+    if ( 'fs_lms_page_fs_lms_settings' !== $hook ) {
+        return;
+    }
+    $rel = 'inc/Modules/MyModule/assets/admin.js';
+    wp_enqueue_script(
+        'fs-lms-my-module',
+        $this->url( $rel ),
+        [ 'jquery' ],
+        (string) filemtime( $this->path( $rel ) ),
+        true
+    );
+    wp_localize_script( 'fs-lms-my-module', 'fsLmsMyModule', [
+        'ajaxurl' => admin_url( 'admin-ajax.php' ),
+        'nonce'   => Nonce::Config->create(),
+    ] );
+}
+```
+
+`assets/admin.js` — обычный IIFE-скрипт, jQuery берётся из `window.jQuery`:
+
+```js
+( function ( $ ) {
+    $( function () {
+        // логика модуля
+    } );
+}( jQuery ) );
+```
+
+#### Вариант B — добавить в core-бандл
+
+Используется если UI-компонент нужен на многих страницах или уже есть похожий паттерн в `src/js/admin/services/`. Добавить файл в `src/js/admin/services/my-module.js` и импортировать в `admin.js`:
+
+```js
+// src/js/admin/services/my-module.js
+const $ = jQuery; // обязательно — $ не в скоупе ES6-модуля
+
+export const MyModuleService = {
+    init() { /* ... */ },
+};
+```
+
+```js
+// src/js/admin/admin.js
+import { MyModuleService } from './services/my-module.js';
+// ...
+if ( $( '.js-my-module-trigger' ).length ) {
+    MyModuleService.init();
+}
+```
+
+После добавления запустить сборку: `npx gulp scripts`.
+
+**Правило:** если скрипт нужен только на одной странице модуля — Вариант A. Если пересекается с core-UI (формы, модалки, общие компоненты) — Вариант B.
+
+### Стили модуля
+
+Аналогично скриптам:
+
+| Вариант | Когда | Как |
+|---|---|---|
+| **SCSS в core-бандле** | Стили нужны на страницах ядра (Dashboard, Settings) или используют core-переменные | Создать `src/scss/admin/components/_my-module.scss`, добавить `@use 'components/my-module';` в `admin.scss`, запустить `npx gulp styles:admin` |
+| **Standalone CSS** | Стили нужны только на одной специфичной странице модуля | `inc/Modules/MyModule/assets/admin.css`, подключить через `wp_enqueue_style` рядом со скриптом |
+
+В `_my-module.scss` **обязательно** использовать токены из `src/scss/admin/_variables.scss`:
+
+```scss
+@use '../variables' as *;
+
+.fs-my-module-card {
+    padding: $spacing-xl;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-l;
+}
+```
+
+### Существующие модули
+
+| Модуль | Bootstrap | Опция | Константа | Что исчезает при отключении |
+|---|---|---|---|---|
+| `Inc\Modules\SocialAuth` | `SocialAuthModule` | `fs_lms_plugin_config['social_auth_enabled']` | `FS_LMS_SOCIAL_AUTH` | Вкладка «Авторизация» в Настройках; OAuth-маршруты `/lms-auth/*` |
+| `Inc\Modules\AdSync` | `AdSyncModule` | `fs_lms_ad_sync['enabled']` | `FS_LMS_AD_SYNC` | Секция «Синхронизация с доменом (AD)» в Конфигурации; REST-эндпоинты `/ad/jobs`, `/ad/ack` |
+
+---
+
 ## Фронтенд-страницы и шорткоды
 
 При активации плагина `PageGeneratorService` автоматически создаёт страницы WordPress (если они ещё не существуют).
@@ -2709,13 +2995,13 @@ define('FS_LMS_HASH_SALT','d807045d9872d8aeaa629e8c67e3f73c06879756fd7af5c4481c3
 | `DADATA_API_TOKEN` | API-токен DaData для автодополнения адреса/ФИО в формах `/lms/apply` и `/lms/join` |
 | `FS_LMS_CAPTCHA_SITE_KEY` | Клиентский ключ Yandex SmartCaptcha |
 | `FS_LMS_CAPTCHA_SERVER_KEY` | Серверный ключ Yandex SmartCaptcha (валидация токена) |
-| `FS_LMS_AD_SYNC` | Модуль AdSync (синхронизация заявок с Active Directory): `true`/`false`. **Перекрывает** тумблер из БД (жёсткое вкл/выкл для стейджа/прод). Если не задана — действует тумблер в табе «Конфигурация → Синхронизация с доменом (AD)». |
+| `FS_LMS_SOCIAL_AUTH` | Модуль SocialAuth (OAuth через Google/VK/GitHub): `true`/`false`. Перекрывает тумблер из БД. По умолчанию (если не задана) — модуль **включён** (backward-compat). |
+| `FS_LMS_AD_SYNC` | Модуль AdSync (синхронизация заявок с Active Directory): `true`/`false`. **Перекрывает** тумблер из БД (жёсткое вкл/выкл для стейджа/прод). Если не задана — действует тумблер на Dashboard. |
 | `FS_LMS_AD_HMAC_SECRET` | Секрет для HMAC-подписи запросов к Python-сервису AD. В БД **не** хранится. См. `.docs/WpToADTasks.md` и `.docs/FS_LMS_API.md`. |
 
-> **Интеграция с Active Directory** (изолируемый модуль `Inc\Modules\AdSync`): доменные учётки создаются по
-> заявкам, Python-сервис из локальной сети опрашивает REST WP (pull). Архитектура и этапы — `.docs/WpToADTasks.md`;
-> REST-контракт эндпоинтов + пример клиента на Python — `.docs/FS_LMS_API.md`. Модуль отключается тумблером/
-> константой и вырезается удалением каталога + одной строки в `Init` (принцип — `.docs/ModularArchitecture.md`).
+> **Модульные флаги** задаются на Dashboard (FS LMS → Статистика → Модули) или через константы выше.
+> Тумблер из UI сохраняется в БД; константа в `wp-config.php` перекрывает его.
+> Подробная архитектура — раздел [Модульная архитектура](#модульная-архитектура) и `.docs/ModularArchitecture.md`.
 
 Константы независимы. `FS_LMS_OTP_BYPASS_CODE` работает даже без `FS_LMS_TEST_ENV`.
 

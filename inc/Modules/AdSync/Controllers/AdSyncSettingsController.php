@@ -15,7 +15,11 @@ use Inc\Services\Application\ApplicationSettingsService;
  *
  * Admin-настройки модуля AdSync: рендер своей секции в табе «Конфигурация» через
  * generic-хук ядра `fs_lms_config_sections` (ядро о модуле не знает), AJAX-сохранение,
+ * регистрация в Dashboard через `fs_lms_dashboard_modules`,
  * и собственный admin-JS (модуль self-contained, не лезет в core-бандл).
+ *
+ * Секция в Конфигурации показывается только когда модуль включён.
+ * Enable-тумблер живёт на Dashboard — здесь только детальные настройки (HMAC).
  *
  * @package Inc\Modules\AdSync\Controllers
  */
@@ -36,17 +40,47 @@ class AdSyncSettingsController extends BaseController {
 		add_action( 'wp_ajax_' . self::SAVE_ACTION, array( $this->callbacks, 'ajaxSaveSettings' ) );
 		add_action( 'fs_lms_config_sections', array( $this, 'renderSection' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueueAssets' ) );
+		add_filter( 'fs_lms_dashboard_modules', array( $this, 'registerDashboardModule' ) );
+		add_action( 'fs_lms_module_toggle_ad_sync', array( $this, 'onToggle' ) );
 	}
 
 	/**
-	 * Рендерит секцию настроек AD. Вызывается из generic-хука ядра (передаёт список предметов).
+	 * Рендерит секцию настроек AD. Вызывается из generic-хука ядра.
+	 * Показывается только когда модуль включён — enable-тумблер на Dashboard.
 	 *
 	 * @param array $subjects Список предметов (из шаблона таба конфигурации).
 	 */
 	public function renderSection( array $subjects = array() ): void {
-		$config           = $this->config;                              // используется в шаблоне
-		$bind_to_subject  = $this->applicationSettings->isBindToSubject(); // зависимость AD ← привязка к направлению
+		if ( ! $this->config->isEnabled() ) {
+			return;
+		}
+
+		$config           = $this->config;
+		$bind_to_subject  = $this->applicationSettings->isBindToSubject();
 		require $this->path( 'inc/Modules/AdSync/templates/settings-section.php' );
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $modules
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function registerDashboardModule( array $modules ): array {
+		$const_defined = defined( 'FS_LMS_AD_SYNC' );
+
+		$modules[] = array(
+			'id'           => 'ad_sync',
+			'title'        => 'Синхронизация с доменом (AD)',
+			'description'  => 'Создание учётных записей в Active Directory по заявкам. Python-сервис забирает задания с сайта (pull). При отключении исчезает секция «Синхронизация с доменом» в Конфигурации.',
+			'enabled'      => $this->config->isEnabled(),
+			'const_locked' => $const_defined,
+			'const_key'    => 'FS_LMS_AD_SYNC',
+		);
+
+		return $modules;
+	}
+
+	public function onToggle( bool $enabled ): void {
+		$this->config->save( array( 'enabled' => $enabled ) );
 	}
 
 	public function enqueueAssets( string $hook ): void {

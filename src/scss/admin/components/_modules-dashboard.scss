@@ -1,0 +1,76 @@
+@use '../variables' as *;
+
+.fs-modules-section {
+	margin-top: $spacing-xxl;
+
+	&__title {
+		margin: 0 0 $spacing-lg;
+		font-size: $font-size-m;
+		font-weight: $font-bold;
+		color: $color-text-primary;
+	}
+}
+
+.fs-module-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: $spacing-xl;
+	max-width: 720px;
+}
+
+.fs-module-card {
+	display: flex;
+	flex-direction: column;
+	background: #fff;
+	border: 1px solid $color-border-input;
+	border-radius: $border-radius-l;
+	padding: $spacing-xl;
+	transition: $transition-default;
+
+	&__header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: $spacing-sm;
+		margin-bottom: $spacing-sm;
+	}
+
+	&__title {
+		margin: 0;
+		font-size: $font-size-m;
+		font-weight: $font-bold;
+		color: $color-text-primary;
+	}
+
+	&__description {
+		flex: 1;
+		margin: 0 0 $spacing-xl;
+		font-size: $font-size;
+		color: $color-text-secondary;
+		line-height: 1.5;
+	}
+
+	&__footer {
+		margin-top: auto;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding-top: $spacing-lg;
+		border-top: 1px solid $color-border-footer;
+	}
+
+	&__status {
+		font-size: $font-size-sm;
+		color: $color-text-secondary;
+		font-style: italic;
+		transition: $transition-default;
+
+		&--success {
+			color: #008a00;
+		}
+	}
+
+	&--locked {
+		background: #fafafa;
+	}
+}

@@ -120,10 +120,14 @@ export function createStepEditor( opts ) {
 	}
 
 	function destroyTiny() {
-		if ( tinyId && window.tinymce && window.tinymce.get( tinyId ) ) {
-			window.tinymce.get( tinyId ).remove();
+		if ( tinyId ) {
+			if ( window.wp?.editor ) {
+				window.wp.editor.remove( tinyId );
+			} else if ( window.tinymce?.get( tinyId ) ) {
+				window.tinymce.get( tinyId ).remove();
+			}
+			tinyId = null;
 		}
-		tinyId = null;
 	}
 
 	function current() {
@@ -232,24 +236,65 @@ export function createStepEditor( opts ) {
 		if ( 'text' === step.type ) {
 			const tid = `fs-se-rte-${ Date.now() }`;
 			tinyId = tid;
-			ed.innerHTML = '<div class="sb-label">Содержание лекции</div><textarea id="' + tid + '" class="fs-cb-rte-target"></textarea>';
+			ed.innerHTML =
+				'<div class="sb-label">Содержание лекции</div>' +
+				'<textarea id="' + tid + '" class="fs-cb-rte-target"></textarea>';
 			ed.querySelector( '#' + tid ).value = step.payload.content || '';
 
-			if ( window.tinymce ) {
+			function onEditorChange() {
+				const mc = window.tinymce?.get( tid );
+				step.payload.content = mc ? mc.getContent() : ( ed.querySelector( '#' + tid )?.value ?? '' );
+				scheduleSave();
+			}
+
+			// Добавляет кнопки LaTeX в тулбар TinyMCE 4.
+			// Кнопки оборачивают выделение (или вставляют placeholder) в \(...\) / \[...\].
+			function setupLatexButtons( editor ) {
+				editor.addButton( 'latex_inline', {
+					text    : '\\(…\\)',
+					tooltip : 'Инлайн-формула LaTeX',
+					onclick() {
+						const sel = editor.selection.getContent( { format: 'text' } ).trim();
+						editor.selection.setContent( '\\(' + ( sel || '  ' ) + '\\)' );
+					},
+				} );
+				editor.addButton( 'latex_block', {
+					text    : '\\[…\\]',
+					tooltip : 'Блочная формула LaTeX',
+					onclick() {
+						const sel = editor.selection.getContent( { format: 'text' } ).trim();
+						editor.selection.setContent( '\\[' + ( sel || '  ' ) + '\\]' );
+					},
+				} );
+				editor.on( 'NodeChange change', onEditorChange );
+			}
+
+			if ( window.wp?.editor ) {
+				// wp.editor.initialize() — стандартный WP API.
+				// WP Bakery (если установлен) перехватывает этот вызов и добавляет
+				// свою кнопку «Backend Editor» автоматически.
+				window.wp.editor.initialize( tid, {
+					tinymce: {
+						wpautop  : true,
+						plugins  : 'charmap colorpicker hr lists paste tabfocus textcolor wordpress wpautoresize wpeditimage wplink wptextpattern',
+						toolbar1 : 'bold italic underline strikethrough | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | removeformat | undo redo',
+						toolbar2 : 'charmap | latex_inline latex_block',
+						height   : 400,
+						setup    : setupLatexButtons,
+					},
+					quicktags   : { buttons: 'strong,em,link,ul,ol,li,code,close' },
+					mediaButtons: true,
+				} );
+			} else if ( window.tinymce ) {
 				window.tinymce.init( {
 					selector  : '#' + tid,
-					toolbar   : 'bold italic underline | bullist numlist | link | removeformat',
+					toolbar   : 'bold italic underline strikethrough | formatselect | bullist numlist | blockquote hr | alignleft aligncenter alignright | link | charmap | removeformat | undo redo | latex_inline latex_block',
 					menubar   : false,
 					statusbar : false,
-					plugins   : 'link lists',
-					height    : 320,
+					plugins   : 'link lists hr charmap',
+					height    : 400,
 					skin_url  : window.tinymce?.baseURL + '/skins/lightgray',
-					setup( editor ) {
-						editor.on( 'NodeChange change', () => {
-							step.payload.content = editor.getContent();
-							scheduleSave();
-						} );
-					},
+					setup     : setupLatexButtons,
 				} );
 			} else {
 				const area = ed.querySelector( '#' + tid );

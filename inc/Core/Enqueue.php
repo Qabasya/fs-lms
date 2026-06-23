@@ -97,6 +97,12 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// wp_enqueue_media() — подключает медиа-библиотеку WordPress (для загрузки изображений)
 		wp_enqueue_media();
 
+		// На страницах CPT уроков и курсов нужен полный стек TinyMCE для wp.editor.initialize()
+		// в редакторе шагов. wp_enqueue_editor() гарантирует загрузку tinymce + wp-tinymce.
+		if ( $is_lesson_cpt || $is_course_cpt ) {
+			wp_enqueue_editor();
+		}
+
 		// Font Awesome — иконки для интерфейса
 		wp_enqueue_style(
 			'fs-lms-fontawesome',
