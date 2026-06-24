@@ -164,10 +164,11 @@ class LessonAuthoringService {
 	 * Создаёт черновик-пост указанного CPT с одним заголовком.
 	 */
 	/**
-	 * Приватная задача для контрольной (не видна студентам, живёт в банке задач предмета).
+	 * Черновик задачи в глобальном банке задач (fs_lms_problems) для контрольной.
+	 * Не привязан к предмету, не появляется в «Задания предмета».
 	 */
 	public function createPrivateTaskDraft( string $subjectKey, string $title ): int {
-		return $this->createDraft( PostTypeResolver::tasks( $subjectKey ), $title, 'private' );
+		return $this->createDraft( PostTypeResolver::problems(), $title, 'draft' );
 	}
 
 	private function createDraft( string $postType, string $title, string $status = 'draft' ): int {

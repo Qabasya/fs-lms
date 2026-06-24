@@ -7,12 +7,10 @@ import { ConfirmModal } from '../modals/confirm-modal.js';
 const $ = jQuery;
 
 /**
- * AssessmentBuilder — двухпанельный конструктор контрольной.
+ * AssessmentBuilder — конструктор контрольной в стиле Course Builder.
  *
- * Слева — нумерованный список слотов-задач, справа — превью выбранной задачи
- * с кнопками «Выбрать из банка» и «Создать задачу».
- * При смене kind на ЕГЭ/ЕГЭ-компьютер автоматически создаются N пустых слотов.
- * Менять kind нельзя, если в контрольной есть хоть одна задача.
+ * Слева — нумерованный список слотов-задач (.lesson/.les-num/.les-title).
+ * Справа — полное тело задачи: условие, ответ, файлы, баллы (ЕГЭ).
  */
 export const AssessmentBuilder = {
 	init() {
@@ -21,9 +19,9 @@ export const AssessmentBuilder = {
 };
 
 function mountBuilder( el ) {
-	const assessmentId = parseInt( el.dataset.assessmentId, 10 ) || 0;
-	const subject      = String( el.dataset.subject || '' );
-	const egeSlots     = parseInt( el.dataset.egeSlots, 10 ) || 0;
+	const assessmentId  = parseInt( el.dataset.assessmentId, 10 ) || 0;
+	const subject       = String( el.dataset.subject || '' );
+	const egeSlots      = parseInt( el.dataset.egeSlots, 10 ) || 0;
 	const taskPointsMap = JSON.parse( el.dataset.taskPoints || '{}' );
 
 	const initialSteps = readSteps( el );
@@ -41,22 +39,30 @@ function mountBuilder( el ) {
 	} );
 	let activeIndex = slots.length ? 0 : -1;
 
-	// ── Layout ────────────────────────────────────────────────────────────────
-	const wrap = document.createElement( 'div' );
-	wrap.className = 'fs-ab';
-	el.appendChild( wrap );
+	// ── Layout (course-builder DOM) ───────────────────────────────────────────
+	el.innerHTML = `
+		<div class="builder">
+			<div class="tree-pane">
+				<div class="tree-head">
+					<span class="th-title">Структура контрольной</span>
+					<span class="th-count" data-slot-count></span>
+				</div>
+				<div class="tree-scroll" data-slot-list></div>
+				<div class="tree-add">
+					<button type="button" class="button" data-add-slot>+ Задача</button>
+				</div>
+			</div>
+			<div class="editor-pane" data-editor></div>
+		</div>
+		<div class="fs-ab-save-status" data-status></div>
+	`;
 
-	const leftPanel   = document.createElement( 'div' );
-	leftPanel.className = 'fs-ab-left';
-	wrap.appendChild( leftPanel );
+	const treeScroll = el.querySelector( '[data-slot-list]' );
+	const editorPane = el.querySelector( '[data-editor]' );
+	const countEl   = el.querySelector( '[data-slot-count]' );
+	const statusEl  = el.querySelector( '[data-status]' );
 
-	const centerPanel = document.createElement( 'div' );
-	centerPanel.className = 'fs-ab-center';
-	wrap.appendChild( centerPanel );
-
-	const footer = document.createElement( 'div' );
-	footer.className = 'fs-ab-footer';
-	el.appendChild( footer );
+	el.querySelector( '[data-add-slot]' ).addEventListener( 'click', addSlot );
 
 	// ── Kind-change watcher ───────────────────────────────────────────────────
 	const kindSelect = document.querySelector( '.fs-lms-assessment-kind-select' );
@@ -101,10 +107,7 @@ function mountBuilder( el ) {
 	// ── Slot operations ───────────────────────────────────────────────────────
 	function autoFillSlots( count ) {
 		slots = Array.from( { length: count }, ( _, i ) => ( {
-			key:    'slot_' + i,
-			taskId: 0,
-			title:  '',
-			points: 0,
+			key: 'slot_' + i, taskId: 0, title: '', points: 0,
 		} ) );
 		activeIndex = 0;
 		render();
@@ -150,134 +153,142 @@ function mountBuilder( el ) {
 	function render() {
 		renderLeft();
 		renderCenter();
-		setStatus( 'saved' );
 	}
 
 	function renderLeft() {
-		leftPanel.innerHTML = '';
+		treeScroll.innerHTML = '';
+		countEl.textContent  = slots.length ? slots.length + ' зад.' : '';
 
-		if ( slots.length ) {
-			const list = document.createElement( 'div' );
-			list.className = 'fs-ab-slot-list';
-
-			slots.forEach( ( slot, i ) => {
-				const item = document.createElement( 'div' );
-				item.className = 'fs-ab-slot-item'
-					+ ( i === activeIndex ? ' active' : '' )
-					+ ( ! slot.taskId ? ' empty' : '' );
-				item.innerHTML = `<span class="fs-ab-slot-num">${ i + 1 }</span>`
-					+ `<span class="fs-ab-slot-title">${ esc( slot.title || '(Пусто)' ) }</span>`;
-				item.addEventListener( 'click', () => {
-					activeIndex = i;
-					leftPanel.querySelectorAll( '.fs-ab-slot-item' )
-						.forEach( ( el, j ) => el.classList.toggle( 'active', j === i ) );
-					renderCenter();
-				} );
-				list.appendChild( item );
+		slots.forEach( ( slot, i ) => {
+			const item = document.createElement( 'div' );
+			item.className = 'lesson'
+				+ ( i === activeIndex ? ' active' : '' )
+				+ ( ! slot.taskId ? ' empty' : '' );
+			item.innerHTML = `<span class="les-num">${ i + 1 }</span>`
+				+ `<span class="les-title">${ esc( slot.title || '(Пусто)' ) }</span>`;
+			item.addEventListener( 'click', () => {
+				activeIndex = i;
+				treeScroll.querySelectorAll( '.lesson' )
+					.forEach( ( n, j ) => n.classList.toggle( 'active', j === i ) );
+				renderCenter();
 			} );
-
-			leftPanel.appendChild( list );
-		}
-
-		const addBtn = document.createElement( 'button' );
-		addBtn.type        = 'button';
-		addBtn.className   = 'button fs-ab-add-slot';
-		addBtn.textContent = '+ Добавить слот';
-		addBtn.addEventListener( 'click', addSlot );
-		leftPanel.appendChild( addBtn );
+			treeScroll.appendChild( item );
+		} );
 	}
 
 	function renderCenter() {
-		centerPanel.innerHTML = '';
+		editorPane.innerHTML = '';
 
 		if ( ! slots.length || activeIndex < 0 ) {
-			centerPanel.innerHTML = '<div class="fs-ab-empty">Нет слотов — нажмите «Добавить слот».</div>';
+			editorPane.innerHTML = '<div class="editor-empty">Нет слотов — нажмите «+ Задача».</div>';
 			return;
 		}
 
 		const slot = slots[ activeIndex ];
 		const idx  = activeIndex;
 
-		const header = document.createElement( 'div' );
-		header.className = 'fs-ab-task-header';
-		header.innerHTML = `<span class="fs-ab-slot-badge">Задание ${ activeIndex + 1 }</span>`;
-
-		const removeBtn = document.createElement( 'button' );
-		removeBtn.type        = 'button';
-		removeBtn.className   = 'button button-small fs-ab-remove-slot';
-		removeBtn.textContent = 'Удалить слот';
-		removeBtn.addEventListener( 'click', () => removeSlot( idx ) );
-		header.appendChild( removeBtn );
-		centerPanel.appendChild( header );
-
-		const taskArea = document.createElement( 'div' );
-		taskArea.className = 'fs-ab-task-area';
-		centerPanel.appendChild( taskArea );
-
 		if ( slot.taskId > 0 ) {
-			taskArea.innerHTML = '<div class="fs-ab-loading">Загрузка…</div>';
+			editorPane.innerHTML = '<div class="editor-empty"><p>Загрузка…</p></div>';
 			fetchPreview( slot.taskId )
 				.then( ( data ) => {
-					taskArea.innerHTML = '';
-					renderTaskContent( taskArea, data, slot, idx );
+					editorPane.innerHTML = '';
+					renderTaskContent( editorPane, data, slot, idx );
 				} )
 				.catch( () => {
-					taskArea.innerHTML = '';
-					const fallback = document.createElement( 'p' );
-					fallback.className   = 'fs-ab-task-title';
-					fallback.textContent = slot.title || 'Задача #' + slot.taskId;
-					taskArea.appendChild( fallback );
-					renderActions( taskArea, slot, idx );
+					editorPane.innerHTML = '';
+					renderEmptySlot( editorPane, slot, idx );
 				} );
 		} else {
-			const empty = document.createElement( 'div' );
-			empty.className   = 'fs-ab-empty-slot';
-			empty.textContent = 'Задача не выбрана';
-			taskArea.appendChild( empty );
-			renderScore( taskArea, slot, idx );
-			renderActions( taskArea, slot, idx );
+			renderEmptySlot( editorPane, slot, idx );
 		}
 	}
 
-	function renderTaskContent( container, data, slot, index ) {
-		const preview = document.createElement( 'div' );
-		preview.className = 'fs-ab-task-preview';
+	function renderEditorTop( container, titleText, slot, index, editUrl = '', isDraft = false ) {
+		const top = document.createElement( 'div' );
+		top.className = 'editor-top';
 
 		const titleRow = document.createElement( 'div' );
-		titleRow.className = 'fs-ab-task-title-row';
-		titleRow.innerHTML = `<strong class="fs-ab-task-title">${ esc( data.title ) }</strong>`;
+		titleRow.className = 'lesson-title-row';
 
-		if ( data.edit_url ) {
+		const h3 = document.createElement( 'h3' );
+		h3.className   = 'fs-ab-task-heading';
+		h3.textContent = titleText;
+		titleRow.appendChild( h3 );
+
+		if ( editUrl ) {
 			const link = document.createElement( 'a' );
-			link.href        = data.edit_url;
+			link.href        = editUrl;
 			link.target      = '_blank';
-			link.className   = 'button button-small';
+			link.className   = 'lesson-flag';
 			link.textContent = 'Редактировать ↗';
 			titleRow.appendChild( link );
 		}
-		preview.appendChild( titleRow );
 
-		if ( data.status === 'draft' ) {
+		if ( isDraft ) {
 			const badge = document.createElement( 'span' );
-			badge.className   = 'fs-lms-draft-badge';
+			badge.className   = 'lesson-flag';
 			badge.textContent = 'Незавершённая';
-			preview.appendChild( badge );
+			titleRow.appendChild( badge );
 		}
 
-		if ( data.task_text ) {
-			const text = document.createElement( 'div' );
-			text.className   = 'fs-ab-task-text';
-			const raw        = data.task_text;
-			text.textContent = raw.length > 600 ? raw.slice( 0, 600 ) + '…' : raw;
-			preview.appendChild( text );
+		const removeBtn = document.createElement( 'button' );
+		removeBtn.type        = 'button';
+		removeBtn.className   = 'lesson-flag danger';
+		removeBtn.textContent = 'Удалить слот';
+		removeBtn.addEventListener( 'click', () => removeSlot( index ) );
+		titleRow.appendChild( removeBtn );
+
+		top.appendChild( titleRow );
+		container.appendChild( top );
+	}
+
+	function renderTaskContent( container, data, slot, index ) {
+		renderEditorTop( container, data.title, slot, index, data.edit_url, data.status === 'draft' );
+
+		const body = document.createElement( 'div' );
+		body.className = 'editor-body';
+
+		if ( data.condition_html ) {
+			const sec = document.createElement( 'div' );
+			sec.className = 'fs-ab-task-section';
+			sec.innerHTML = `<p class="fs-ab-section-label">Условие</p>${ data.condition_html }`;
+			body.appendChild( sec );
 		}
 
-		container.appendChild( preview );
-		renderScore( container, slot, index );
-		renderActions( container, slot, index );
+		if ( data.answer_html ) {
+			const sec = document.createElement( 'div' );
+			sec.className = 'fs-ab-task-section fs-ab-task-answer';
+			sec.innerHTML = `<p class="fs-ab-section-label">Ответ</p>${ data.answer_html }`;
+			body.appendChild( sec );
+		}
+
+		if ( data.audio_url ) {
+			const audio = document.createElement( 'audio' );
+			audio.controls = true;
+			audio.src      = data.audio_url;
+			audio.className = 'fs-ab-task-audio';
+			body.appendChild( audio );
+		}
+
+		renderScore( body, slot, index );
+		renderActions( body, slot, index );
+		container.appendChild( body );
+	}
+
+	function renderEmptySlot( container, slot, index ) {
+		renderEditorTop( container, 'Задача не выбрана', slot, index );
+
+		const body = document.createElement( 'div' );
+		body.className = 'editor-body';
+
+		renderScore( body, slot, index );
+		renderActions( body, slot, index );
+		container.appendChild( body );
 	}
 
 	function renderScore( container, slot, index ) {
+		if ( ! isEgeKind( prevKind ) ) { return; }
+
 		const wrap = document.createElement( 'div' );
 		wrap.className = 'fs-ab-task-score';
 
@@ -363,15 +374,12 @@ function mountBuilder( el ) {
 		cancelBtn.type        = 'button';
 		cancelBtn.className   = 'button';
 		cancelBtn.textContent = 'Отмена';
-		cancelBtn.addEventListener( 'click', () => {
-			activeIndex = index;
-			renderCenter();
-		} );
+		cancelBtn.addEventListener( 'click', () => renderCenter() );
 
 		const doCreate = () => {
 			const title = input.value.trim();
 			if ( ! title ) { input.focus(); return; }
-			confirmBtn.disabled   = true;
+			confirmBtn.disabled    = true;
 			confirmBtn.textContent = 'Создание…';
 			post( fs_lms_vars.ajax_actions.createAssessmentTaskDraft, {
 				subject_key: subject,
@@ -396,9 +404,13 @@ function mountBuilder( el ) {
 
 	// ── AJAX ──────────────────────────────────────────────────────────────────
 	function setStatus( state ) {
-		footer.innerHTML = state === 'saving'
-			? '<span class="fs-ab-status saving">Сохранение…</span>'
-			: '<span class="fs-ab-status"><span class="saved-dot"></span> Все изменения сохранены</span>';
+		if ( state === 'saving' ) {
+			statusEl.className   = 'fs-ab-save-status saving';
+			statusEl.textContent = 'Сохранение…';
+		} else {
+			statusEl.className = 'fs-ab-save-status';
+			statusEl.innerHTML = '<span class="saved-dot"></span> Все изменения сохранены';
+		}
 	}
 
 	function post( action, data ) {
@@ -459,8 +471,7 @@ function mountBuilder( el ) {
 	// ── Init ──────────────────────────────────────────────────────────────────
 	render();
 
-	// Авто-заполнение при первоначальной загрузке страницы с ЕГЭ-видом и без слотов
-	if ( egeSlots > 0 && slots.length === 0 && ( prevKind === 'ege' || prevKind === 'ege_computer' ) ) {
+	if ( egeSlots > 0 && slots.length === 0 && isEgeKind( prevKind ) ) {
 		autoFillSlots( egeSlots );
 	}
 }

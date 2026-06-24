@@ -1,210 +1,91 @@
 @use '../variables' as *;
 
 // ══════════════════════════════════════════════════════════════
-//  Assessment Builder — двухпанельный конструктор контрольной.
-//  Левая панель: нумерованный список слотов.
-//  Центральная: превью задачи + кнопки действий.
+//  Assessment Builder — использует классы Course Builder
+//  (.builder / .tree-pane / .editor-pane / .lesson / .les-*)
+//  Здесь только специфика контрольной поверх общего слоя.
 // ══════════════════════════════════════════════════════════════
 
-.fs-ab {
-	display: grid;
-	grid-template-columns: 240px 1fr;
-	min-height: 400px;
-	border: 1px solid $color-border-input;
-	border-radius: $border-radius-l;
-	overflow: hidden;
-	background: $color-bg-modal;
-}
+// ── Настройки контрольной (над конструктором) ─────────────────
+.fs-lms-assessment-settings {
+	padding: $spacing-lg $spacing-xl;
 
-// ── Левая панель (слоты) ──────────────────────────────────────
-.fs-ab-left {
-	border-right: 1px solid $color-border-input;
-	display: flex;
-	flex-direction: column;
-	background: $color-bg-footer;
-}
+	.fs-lms-template-wrapper {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: $spacing-md $spacing-xl;
 
-.fs-ab-slot-list {
-	overflow-y: auto;
-	flex: 1;
-	padding: $spacing-sm 0;
-	max-height: 560px;
-}
-
-.fs-ab-slot-item {
-	display: flex;
-	align-items: center;
-	gap: $spacing-sm;
-	padding: $spacing-sm $spacing-md;
-	cursor: pointer;
-	transition: background 0.15s;
-	border-left: 3px solid transparent;
-
-	&:hover {
-		background: #f0f0f1;
-	}
-
-	&.active {
-		background: $color-bg-modal;
-		border-left-color: $color-primary;
-	}
-
-	&.empty .fs-ab-slot-title {
-		color: $color-text-secondary;
-		font-style: italic;
+		// score_map — всегда последний, занимает всю ширину
+		.fs-lms-field-group:last-child {
+			grid-column: 1 / -1;
+		}
 	}
 }
 
-.fs-ab-slot-num {
-	flex-shrink: 0;
-	width: 24px;
-	height: 24px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: $color-border-input;
-	border-radius: 50%;
-	font-size: 11px;
+// ── Пустые слоты в дереве ─────────────────────────────────────
+.fs-lms-cb-wrap .lesson.empty .les-title {
+	color: $color-text-secondary;
+	font-style: italic;
+}
+
+// ── Тело задачи (правая панель) ───────────────────────────────
+.fs-ab-task-heading {
+	font-size: 16px;
 	font-weight: 600;
-	color: $color-text-primary;
-
-	.active & {
-		background: $color-primary;
-		color: $color-text-inverse;
-	}
-}
-
-.fs-ab-slot-title {
-	font-size: 12px;
-	color: $color-text-primary;
+	margin: 0;
+	flex: 1;
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.fs-ab-add-slot {
-	margin: $spacing-sm $spacing-md $spacing-md;
-	align-self: flex-start;
-}
-
-// ── Центральная панель (превью) ───────────────────────────────
-.fs-ab-center {
-	display: flex;
-	flex-direction: column;
-}
-
-.fs-ab-empty {
-	padding: $spacing-xxl $spacing-xl;
-	color: $color-text-secondary;
-	font-style: italic;
-}
-
-.fs-ab-task-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: $spacing-md $spacing-lg;
-	border-bottom: 1px solid $color-border-input;
-	background: $color-bg-footer;
-}
-
-.fs-ab-slot-badge {
+.fs-ab-task-section {
+	margin-bottom: $spacing-lg;
 	font-size: 13px;
-	font-weight: 600;
+	line-height: 1.6;
 	color: $color-text-primary;
+
+	p, ul, ol { margin: 0 0 $spacing-sm; }
+	img { max-width: 100%; height: auto; border-radius: $border-radius-sm; }
 }
 
-.fs-ab-remove-slot {
-	color: $color-danger !important;
-	border-color: $color-danger !important;
-
-	&:hover {
-		background: $cb-danger-hover-bg !important;
-	}
-}
-
-.fs-ab-task-area {
-	padding: $spacing-lg;
-	flex: 1;
-}
-
-.fs-ab-loading {
+.fs-ab-section-label {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
 	color: $color-text-secondary;
-	font-style: italic;
-	padding: $spacing-md 0;
+	margin: 0 0 $spacing-sm;
+}
+
+.fs-ab-task-answer {
+	padding: $spacing-md;
+	background: $cb-bg-tree;
+	border: 1px solid $wp-admin-gray-bg;
+	border-radius: $border-radius-md;
+}
+
+.fs-ab-task-audio {
+	display: block;
+	width: 100%;
+	margin-bottom: $spacing-md;
 }
 
 .fs-ab-empty-slot {
 	color: $color-text-secondary;
 	font-style: italic;
-	margin-bottom: $spacing-lg;
+	margin-bottom: $spacing-md;
 }
 
-.fs-ab-task-preview {
-	margin-bottom: $spacing-lg;
-	padding: $spacing-lg;
-	border: 1px solid $color-border-input;
-	border-radius: $border-radius-l;
-	background: $color-bg-footer;
-}
-
-.fs-ab-task-title-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: $spacing-md;
-	margin-bottom: $spacing-sm;
-}
-
-.fs-ab-task-title {
-	font-size: 14px;
-	color: $color-text-primary;
-}
-
-.fs-lms-draft-badge {
-	display: inline-block;
-	font-size: 11px;
-	padding: 2px $spacing-sm;
-	border-radius: $border-radius-sm;
-	background: rgba($color-danger, 0.1);
-	color: $color-danger;
-	margin-bottom: $spacing-sm;
-}
-
-.fs-ab-task-text {
-	font-size: 13px;
-	color: $color-text-secondary;
-	line-height: 1.5;
-	white-space: pre-wrap;
-	word-break: break-word;
-	max-height: 240px;
-	overflow-y: auto;
-}
-
-.fs-ab-task-actions {
-	display: flex;
-	gap: $spacing-sm;
-	flex-wrap: wrap;
-
-	.fs-ab-clear {
-		margin-left: auto;
-		color: $color-danger !important;
-	}
-}
-
-.fs-lms-score-map-field {
-	font-family: monospace;
-	font-size: 12px;
-}
-
-// ── Task score (points per slot) ──────────────────────────────
+// ── Баллы за задание (ЕГЭ) ────────────────────────────────────
 .fs-ab-task-score {
 	display: flex;
 	align-items: center;
 	gap: $spacing-sm;
-	margin-top: $spacing-md;
-	padding-top: $spacing-md;
-	border-top: 1px solid $color-border-input;
+	margin-bottom: $spacing-md;
+	padding: $spacing-md 0;
+	border-top: 1px solid $wp-admin-gray-bg;
 
 	label {
 		font-size: 13px;
@@ -212,22 +93,29 @@
 		white-space: nowrap;
 	}
 
-	input[type="number"] {
-		width: 80px;
-	}
+	input[type="number"] { width: 80px; }
 }
 
-// ── Inline create form ────────────────────────────────────────
+// ── Кнопки действий (выбрать / заменить / очистить) ───────────
+.fs-ab-task-actions {
+	display: flex;
+	gap: $spacing-sm;
+	flex-wrap: wrap;
+	padding-top: $spacing-md;
+	border-top: 1px solid $wp-admin-gray-bg;
+
+	.fs-ab-clear { color: $color-danger !important; }
+}
+
+// ── Форма создания задачи inline ──────────────────────────────
 .fs-ab-create-form {
 	border: 1px dashed $color-border-input;
 	border-radius: $border-radius-l;
 	padding: $spacing-md;
 	margin-top: $spacing-sm;
+	width: 100%;
 
-	.fs-ab-create-input {
-		width: 100%;
-		margin-bottom: $spacing-sm;
-	}
+	.fs-ab-create-input { width: 100%; margin-bottom: $spacing-sm; }
 }
 
 .fs-ab-create-btn-row {
@@ -235,28 +123,28 @@
 	gap: $spacing-sm;
 }
 
-// ── Footer (статус сохранения) ────────────────────────────────
-.fs-ab-footer {
-	padding: $spacing-sm $spacing-lg;
-	border-top: 1px solid $color-border-footer;
-	background: $color-bg-footer;
-}
-
-.fs-ab-status {
+// ── Статус сохранения ─────────────────────────────────────────
+.fs-ab-save-status {
 	display: flex;
 	align-items: center;
-	gap: $spacing-sm;
+	gap: $spacing-xs;
+	padding: $spacing-xs $spacing-md $spacing-sm;
 	font-size: 12px;
 	color: $color-text-secondary;
 
 	.saved-dot {
-		width: 8px;
-		height: 8px;
+		width: 7px;
+		height: 7px;
 		border-radius: 50%;
 		background: #46b450;
+		flex-shrink: 0;
 	}
 
-	&.saving {
-		font-style: italic;
-	}
+	&.saving { font-style: italic; }
+}
+
+// ── score_map textarea ────────────────────────────────────────
+.fs-lms-score-map-field {
+	font-family: monospace;
+	font-size: 12px;
 }

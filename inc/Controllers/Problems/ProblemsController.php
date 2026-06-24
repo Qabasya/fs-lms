@@ -12,6 +12,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskPublishValidator;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -32,8 +33,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	use TemplateRenderer;
 
 	public function __construct(
-		private readonly TemplateRegistry $registry,
-		private readonly PostManager      $posts,
+		private readonly TemplateRegistry      $registry,
+		private readonly PostManager           $posts,
+		private readonly TaskPublishValidator  $validator,
 	) {
 		parent::__construct();
 	}
@@ -53,6 +55,8 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		add_filter( "manage_edit-{$cpt}_sortable_columns", array( $this, 'sortableColumns' ) );
 		add_action( 'pre_get_posts', array( $this, 'applyColumnSort' ) );
 		add_action( 'admin_notices', array( $this, 'renderBankDescription' ) );
+		add_filter( 'wp_insert_post_data', array( $this, 'validateBeforePublish' ), 10, 2 );
+		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
 	}
 
 	/**
@@ -245,5 +249,66 @@ class ProblemsController extends BaseController implements ServiceInterface {
 
 		$query->set( 'meta_key', PostMetaName::TemplateType->value );
 		$query->set( 'orderby', 'meta_value' );
+	}
+
+	/**
+	 * Хук wp_insert_post_data: блокирует публикацию задачи из банка,
+	 * если не заполнены название, условие или ответ.
+	 *
+	 * @param array $data    Очищенные данные поста
+	 * @param array $postarr Неочищенные данные из $_POST
+	 *
+	 * @return array
+	 */
+	public function validateBeforePublish( array $data, array $postarr ): array {
+		if ( PostTypeResolver::problems() !== ( $data['post_type'] ?? '' ) ) {
+			return $data;
+		}
+		if ( ! in_array( $data['post_status'], array( 'publish', 'future' ), true ) ) {
+			return $data;
+		}
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return $data;
+		}
+
+		if ( '' === trim( $data['post_title'] ) ) {
+			$data['post_status'] = 'draft';
+			set_transient( 'fs_lms_problem_publish_error_' . get_current_user_id(), 'Название задачи обязательно для заполнения.', 60 );
+			return $data;
+		}
+
+		$postMeta   = (array) ( $_POST[ PostMetaName::Meta->value ] ?? array() );
+		$templateId = $this->sanitizeKey( PostMetaName::TemplateType->value );
+
+		$error = $this->validator->getSoftError( $postMeta, $templateId );
+		if ( null !== $error ) {
+			$data['post_status'] = 'draft';
+			set_transient( 'fs_lms_problem_publish_error_' . get_current_user_id(), $error, 60 );
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Хук admin_notices: показывает ошибку валидации после неудачной публикации.
+	 */
+	public function showPublishError(): void {
+		$screen = get_current_screen();
+		if ( ! $screen || PostTypeResolver::problems() !== $screen->post_type ) {
+			return;
+		}
+
+		$transientKey = 'fs_lms_problem_publish_error_' . get_current_user_id();
+		$error        = get_transient( $transientKey );
+		if ( ! $error ) {
+			return;
+		}
+
+		delete_transient( $transientKey );
+		printf(
+			'<div class="notice notice-error is-dismissible"><p><strong>%s:</strong> %s</p></div>',
+			esc_html__( 'Невозможно опубликовать задачу', 'fs-lms' ),
+			esc_html( (string) $error )
+		);
 	}
 }

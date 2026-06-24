@@ -149,13 +149,21 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	}
 
 	public function maybeRenderBlockedNotice(): void {
-		if ( empty( $_GET['fs_lms_delete_blocked'] ) ) {
+		$transientKey = 'fs_lms_delete_blocked_' . get_current_user_id();
+		$blocked      = get_transient( $transientKey );
+
+		if ( ! is_array( $blocked ) ) {
 			return;
 		}
 
+		delete_transient( $transientKey );
+
 		$this->render(
 			'admin/components/content-delete-blocked-notice',
-			array( 'count' => $this->sanitizeGetInt( 'fs_lms_delete_blocked' ) )
+			array(
+				'title'     => (string) ( $blocked['title'] ?? '' ),
+				'consumers' => (array) ( $blocked['consumers'] ?? array() ),
+			)
 		);
 	}
 
@@ -170,9 +178,13 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 			return false;
 		}
 
+		$kind = ContentUsageService::kindOf( $post->post_type );
 		set_transient(
 			'fs_lms_delete_blocked_' . get_current_user_id(),
-			$this->usage->usageCount( ContentUsageService::kindOf( $post->post_type ), $post->ID ),
+			array(
+				'title'     => $post->post_title,
+				'consumers' => $this->usage->usageList( $kind, $post->ID ),
+			),
 			30
 		);
 

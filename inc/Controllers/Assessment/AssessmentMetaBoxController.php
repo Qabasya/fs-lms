@@ -58,9 +58,16 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		);
 
 		$this->registrar->add(
-			'fs_lms_assessment_metabox',
-			'Параметры контрольной',
-			array( $this, 'renderMetaboxContent' ),
+			'fs_lms_assessment_settings',
+			'Настройки контрольной',
+			array( $this, 'renderSettingsContent' ),
+			$assessment_post_types
+		)->register();
+
+		$this->registrar->add(
+			'fs_lms_assessment_builder',
+			'Конструктор контрольной',
+			array( $this, 'renderBuilderContent' ),
 			$assessment_post_types
 		)->register();
 	}
@@ -72,15 +79,19 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		}
 	}
 
-	public function renderMetaboxContent( \WP_Post $post ): void {
+	public function renderSettingsContent( \WP_Post $post ): void {
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
+		echo '<div class="fs-lms-assessment-settings">';
+		$this->template->render( $post );
+		echo '</div>';
+	}
 
-		$subject    = PostTypeResolver::subjectFromAssessmentPostType( $post->post_type );
-		$assessment = $this->assessmentManager->get( $post->ID );
-		$task_ids   = null !== $assessment ? $assessment->taskIds : array();
+	public function renderBuilderContent( \WP_Post $post ): void {
+		$subject     = PostTypeResolver::subjectFromAssessmentPostType( $post->post_type );
+		$assessment  = $this->assessmentManager->get( $post->ID );
+		$task_ids    = null !== $assessment ? $assessment->taskIds : array();
 		$task_points = null !== $assessment ? $assessment->taskPoints : array();
 
-		// Строим степ-шаги из task_ids (включая дубликаты для ThreeInOne).
 		$steps = array();
 		foreach ( $task_ids as $i => $id ) {
 			$id      = (int) $id;
@@ -94,14 +105,12 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		$json        = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 		$points_json = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 
-		// Количество термов {key}_task_number — для кнопки авто-заполнения ЕГЭ.
 		$ege_slots = (int) wp_count_terms( array(
 			'taxonomy'   => $subject . '_task_number',
 			'hide_empty' => false,
 		) );
 
-		echo '<div class="fs-lms-metabox-wrapper fs-lms-assessment-metabox">';
-		$this->template->render( $post );
+		echo '<div class="fs-lms-cb-wrap">';
 		echo '<div class="fs-lms-assessment-builder" '
 			. 'data-assessment-id="' . esc_attr( (string) $post->ID ) . '" '
 			. 'data-subject="' . esc_attr( $subject ) . '" '
@@ -130,7 +139,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 		$data = is_array( $raw_data ) ? $raw_data : array();
 
-		$this->metaBoxManager->saveFields(
+		$this->metaBoxManager->saveFieldsMerge(
 			$post_id,
 			PostMetaName::Meta->value,
 			$data,

@@ -70,7 +70,9 @@ class AssessmentAuthorCallbacks extends BaseController {
 		$task_id = $this->requireInt( 'task_id' );
 		$post    = get_post( $task_id );
 
-		if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
+		$is_valid = $post instanceof \WP_Post
+			&& ( PostTypeResolver::isTaskPostType( $post->post_type ) || PostTypeResolver::isProblemPostType( $post->post_type ) );
+		if ( ! $is_valid ) {
 			$this->error( 'Задача не найдена.' );
 			return;
 		}
@@ -79,21 +81,39 @@ class AssessmentAuthorCallbacks extends BaseController {
 		$meta          = is_array( $meta ) ? $meta : array();
 		$template_type = (string) ( get_post_meta( $task_id, PostMetaName::TemplateType->value, true ) ?: '' );
 
-		$task_text = '';
-		foreach ( array( 'task_text', 'problem_text', 'question_text', 'content' ) as $key ) {
+		$condition_html = '';
+		foreach ( array( 'task_condition', 'task_text', 'problem_text', 'question_text', 'content' ) as $key ) {
 			if ( ! empty( $meta[ $key ] ) && is_string( $meta[ $key ] ) ) {
-				$task_text = wp_strip_all_tags( $meta[ $key ] );
+				$condition_html = wp_kses_post( $meta[ $key ] );
 				break;
 			}
 		}
 
+		$answer_html = '';
+		foreach ( array( 'task_answer', 'answer', 'answer_text', 'correct_answer' ) as $key ) {
+			if ( ! empty( $meta[ $key ] ) && is_string( $meta[ $key ] ) ) {
+				$answer_html = wp_kses_post( $meta[ $key ] );
+				break;
+			}
+		}
+
+		$audio_url = '';
+		if ( isset( $meta['task_audio']['attachment_id'] ) ) {
+			$url = wp_get_attachment_url( (int) $meta['task_audio']['attachment_id'] );
+			if ( $url ) {
+				$audio_url = $url;
+			}
+		}
+
 		$this->success( array(
-			'id'            => (int) $task_id,
-			'title'         => get_the_title( $post ),
-			'edit_url'      => admin_url( 'post.php?post=' . $task_id . '&action=edit' ),
-			'status'        => $post->post_status,
-			'template_type' => $template_type,
-			'task_text'     => $task_text,
+			'id'             => (int) $task_id,
+			'title'          => get_the_title( $post ),
+			'edit_url'       => admin_url( 'post.php?post=' . $task_id . '&action=edit' ),
+			'status'         => $post->post_status,
+			'template_type'  => $template_type,
+			'condition_html' => $condition_html,
+			'answer_html'    => $answer_html,
+			'audio_url'      => $audio_url,
 		) );
 	}
 

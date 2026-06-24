@@ -11,9 +11,10 @@ use Inc\Services\Template\TemplateRegistry;
 class TaskPublishValidator {
 
 	private const REQUIRED_META_FIELDS = array(
-		'task_answer' => 'Правильный ответ',
-		'task_code'   => 'Листинг кода',
-		'file'        => 'Файл задания',
+		'task_condition' => 'Условие задания',
+		'task_answer'    => 'Правильный ответ',
+		'task_code'      => 'Листинг кода',
+		'file'           => 'Файл задания',
 	);
 
 	public function __construct(
