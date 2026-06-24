@@ -4,7 +4,6 @@ namespace Inc\MetaBoxes\Templates;
 
 use Inc\Enums\Subject\TemplateCategory;
 use Inc\Enums\Wp\PostMetaName;
-use Inc\MetaBoxes\Fields\HintField;
 
 /**
  * Class BaseTemplate
@@ -99,13 +98,13 @@ abstract class BaseTemplate {
 	}
 
 	/**
-	 * Возвращает конфигурацию полей для процесса сохранения.
-	 * Всегда включает поле подсказки (task_hint) в конце.
+	 * Возвращает поля шаблона без подсказки (для рендеринга основного метабокса и схемы редактора).
+	 * Подсказка вынесена в отдельный метабокс — сохраняется через MetaBoxController.
 	 *
 	 * @return array<string, array{label: string, object: object}> Список полей
 	 */
 	public function get_fields(): array {
-		return array_merge( $this->fields, $this->hintFieldConfig() );
+		return $this->fields;
 	}
 
 	/**
@@ -132,17 +131,5 @@ abstract class BaseTemplate {
 		];
 	}
 
-	/**
-	 * Конфигурация поля подсказки — общего для всех типов заданий.
-	 *
-	 * @return array<string, array{label: string, object: HintField}>
-	 */
-	private function hintFieldConfig(): array {
-		return array(
-			'task_hint' => array(
-				'label'  => 'Подсказка',
-				'object' => new HintField(),
-			),
-		);
-	}
+
 }
