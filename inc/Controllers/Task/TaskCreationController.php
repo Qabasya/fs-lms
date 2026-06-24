@@ -113,6 +113,8 @@ class TaskCreationController extends AjaxController {
 			array( AjaxHook::GetTaskBoilerplate, $this->template_manager_callbacks ),
 			// Создание/обновление задачи из inline-редактора (Phase F)
 			array( AjaxHook::SaveTaskContent, $this->task_content_callbacks ),
+			// HTML полей шаблона для inline-редактора (Phase F, путь A — источник истины PHP Fields/*)
+			array( AjaxHook::GetTaskEditorForm, $this->task_content_callbacks ),
 			// История попыток студентов по шагу (Phase G)
 			array( AjaxHook::GetTaskAttempts, $this->task_attempt_callbacks ),
 		);

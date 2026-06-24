@@ -10,13 +10,6 @@ use Inc\Services\Template\TemplateRegistry;
 
 class TaskPublishValidator {
 
-	private const REQUIRED_META_FIELDS = array(
-		'task_condition' => 'Условие задания',
-		'task_answer'    => 'Правильный ответ',
-		'task_code'      => 'Листинг кода',
-		'file'           => 'Файл задания',
-	);
-
 	public function __construct(
 		private readonly TaxonomyRepository $taxonomies,
 		private readonly TemplateRegistry   $templateRegistry,
@@ -49,25 +42,77 @@ class TaskPublishValidator {
 	}
 
 	/**
-	 * Soft check: required meta fields.
+	 * Validates all meta fields for the given template.
+	 * Returns the first error string found, or null if valid.
 	 */
 	public function getSoftError( array $postMeta, string $templateId ): ?string {
 		$template = $this->templateRegistry->get( $templateId );
-
 		if ( null === $template ) {
 			return null;
 		}
 
-		foreach ( self::REQUIRED_META_FIELDS as $fieldKey => $label ) {
-			if ( ! array_key_exists( $fieldKey, $template->fields ) ) {
-				continue;
-			}
-			if ( '' === trim( (string) ( $postMeta[ $fieldKey ] ?? '' ) ) ) {
-				return "Поле «{$label}» обязательно для заполнения.";
+		foreach ( $template->get_fields() as $fieldKey => $config ) {
+			$editorType = $config['object']->editorType();
+			$label      = $config['label'];
+			$value      = $postMeta[ $fieldKey ] ?? null;
+
+			$error = match ( $editorType ) {
+				'rich_text'   => trim( strip_tags( (string) $value ) ) === ''
+					? "Заполните «{$label}»." : null,
+				'text', 'code', 'link' => trim( (string) $value ) === ''
+					? "Заполните «{$label}»." : null,
+				'options'     => $this->checkOptions( $value ),
+				'pairs'       => $this->checkPairs( $value ),
+				'order_items' => $this->checkOrderItems( $value ),
+				'gap_text'    => $this->checkGapText( $value ),
+				'audio'       => $this->checkAudio( $value ),
+				default       => null,
+			};
+
+			if ( null !== $error ) {
+				return $error;
 			}
 		}
 
 		return null;
+	}
+
+	private function checkOptions( mixed $value ): ?string {
+		$opts = is_array( $value['options'] ?? null ) ? $value['options'] : array();
+		if ( count( $opts ) < 2 ) {
+			return 'Добавьте не менее двух вариантов ответа.';
+		}
+		foreach ( $opts as $opt ) {
+			if ( ! empty( $opt['correct'] ) ) {
+				return null;
+			}
+		}
+		return 'Отметьте хотя бы один правильный вариант ответа.';
+	}
+
+	private function checkPairs( mixed $value ): ?string {
+		$pairs = is_array( $value['pairs'] ?? null ) ? $value['pairs'] : array();
+		return count( $pairs ) < 2 ? 'Добавьте не менее двух пар для сопоставления.' : null;
+	}
+
+	private function checkOrderItems( mixed $value ): ?string {
+		$items = is_array( $value['items'] ?? null ) ? $value['items'] : array();
+		return count( $items ) < 2 ? 'Добавьте не менее двух элементов для сортировки.' : null;
+	}
+
+	private function checkGapText( mixed $value ): ?string {
+		$text = (string) ( $value['text'] ?? '' );
+		if ( trim( $text ) === '' ) {
+			return 'Введите текст задания с пропусками.';
+		}
+		if ( ! preg_match( '/\[\[.+?\]\]/', $text ) ) {
+			return 'Добавьте хотя бы один пропуск [[...]] в тексте.';
+		}
+		return null;
+	}
+
+	private function checkAudio( mixed $value ): ?string {
+		return (int) ( $value['attachment_id'] ?? 0 ) === 0 ? 'Прикрепите аудиофайл.' : null;
 	}
 
 	/**

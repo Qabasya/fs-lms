@@ -45,10 +45,6 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		add_action( 'save_post', array( $this, 'handleWorkSave' ) );
 	}
 
-	/**
-	 * Прибирает экран работы: убирает «Атрибуты»/«Изображение записи», «Автор» → в сайдбар.
-	 * Редактор (описание) и метабокс работы остаются.
-	 */
 	public function tidyWorkMetaBoxes( string $post_type ): void {
 		if ( PostTypeResolver::isWorkPostType( $post_type ) ) {
 			$this->tidyCoreMetaBoxes( $post_type );
@@ -67,21 +63,32 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		);
 
 		$this->registrar->add(
-			'fs_lms_work_metabox',
-			'Данные работы',
-			array( $this, 'renderMetaboxContent' ),
+			'fs_lms_work_settings',
+			'Настройки работы',
+			array( $this, 'renderSettingsContent' ),
+			$work_post_types
+		)->register();
+
+		$this->registrar->add(
+			'fs_lms_work_builder',
+			'Конструктор работы',
+			array( $this, 'renderBuilderContent' ),
 			$work_post_types
 		)->register();
 	}
 
-	public function renderMetaboxContent( \WP_Post $post ): void {
+	public function renderSettingsContent( \WP_Post $post ): void {
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
+		echo '<div class="fs-lms-work-settings">';
+		$this->template->render( $post );
+		echo '</div>';
+	}
 
+	public function renderBuilderContent( \WP_Post $post ): void {
 		$subject = PostTypeResolver::subjectFromWorkPostType( $post->post_type );
 		$work    = $this->works->get( $post->ID );
 		$itemIds = null !== $work ? $work->itemIds : array();
 
-		// item_ids → task-шаги для единого степ-редактора (level=work, только задачи).
 		$steps = array();
 		foreach ( $itemIds as $id ) {
 			$id = (int) $id;
@@ -97,8 +104,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		}
 		$json = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 
-		echo '<div class="fs-lms-metabox-wrapper fs-lms-work-metabox">';
-		$this->template->render( $post ); // только «Тип работы»
+		echo '<div class="fs-sb-wrap">';
 		echo '<div class="fs-lms-work-builder" '
 			. 'data-work-id="' . esc_attr( (string) $post->ID ) . '" '
 			. 'data-subject="' . esc_attr( $subject ) . '" '

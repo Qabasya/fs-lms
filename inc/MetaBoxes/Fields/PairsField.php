@@ -52,17 +52,21 @@ class PairsField extends BaseField {
 		$right = esc_attr( (string) ( $pair['right'] ?? '' ) );
 		?>
 		<div class="fs-task-pairs__row">
-			<input type="text"
-				name="<?php echo $base; ?>[pairs][<?php echo $i; ?>][left]"
-				value="<?php echo $left; ?>"
-				class="regular-text"
-				placeholder="Левая плашка">
+			<div class="fs-form-group">
+				<input type="text"
+					name="<?php echo $base; ?>[pairs][<?php echo $i; ?>][left]"
+					value="<?php echo $left; ?>"
+					class="regular-text js-pair-left"
+					placeholder="Левая плашка">
+			</div>
 			<span class="fs-task-pairs__sep">↔</span>
-			<input type="text"
-				name="<?php echo $base; ?>[pairs][<?php echo $i; ?>][right]"
-				value="<?php echo $right; ?>"
-				class="regular-text"
-				placeholder="Правая плашка">
+			<div class="fs-form-group">
+				<input type="text"
+					name="<?php echo $base; ?>[pairs][<?php echo $i; ?>][right]"
+					value="<?php echo $right; ?>"
+					class="regular-text js-pair-right"
+					placeholder="Правая плашка">
+			</div>
 			<button type="button" class="button-link js-pairs-remove">✕</button>
 		</div>
 		<?php

@@ -176,7 +176,8 @@ enum AjaxHook: string {
 	case SubmitTaskAnswer  = 'submit_task_answer';  // params: group_lesson_id, step_key, answer (JSON)
 	case GetStepSettings   = 'get_step_settings';   // params: group_lesson_id
 	case SaveStepSettings  = 'save_step_settings';  // params: group_lesson_id, overrides (JSON)
-	case SaveTaskContent   = 'save_task_content';   // params: subject_key, template, title, data (JSON), post_id? (0=create)
+	case SaveTaskContent   = 'save_task_content';   // params: subject_key, template, title, post_id? (0=create), fs_lms_meta[...] (поля)
+	case GetTaskEditorForm = 'get_task_editor_form'; // params: subject_key, template, post_id? → HTML полей шаблона
 	case GetTaskAttempts   = 'get_task_attempts';   // params: group_lesson_id, step_key → список попыток всех студентов
 
 	// ==== Контрольные и экзамены (Этап 4) ====

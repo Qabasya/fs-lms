@@ -102,8 +102,9 @@ export function createStepEditor( opts ) {
 	const subjectKey = String( opts.subjectKey || '' );
 	const onChange   = typeof opts.onChange === 'function' ? opts.onChange : () => {};
 	const setStatusE = typeof opts.setStatus === 'function' ? opts.setStatus : null;
-	const allowed    = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
-	const persist    = typeof opts.persist === 'function' ? opts.persist : null;
+	const allowed         = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
+	const persist         = typeof opts.persist === 'function' ? opts.persist : null;
+	const showStepSettings = opts.showStepSettings !== false;
 
 	let activeKey = lesson.steps.length ? lesson.steps[ 0 ].key : null;
 	let saveTimer = null;
@@ -231,7 +232,7 @@ export function createStepEditor( opts ) {
 			inlineEditor( ed, step );
 		} else {
 			refEditor( ed, step );
-			if ( 'task' === step.type ) {
+			if ( showStepSettings && 'task' === step.type ) {
 				renderStepSettings( body, step );
 			}
 		}
@@ -441,10 +442,6 @@ export function createStepEditor( opts ) {
 				<label class="fs-cb-ss-label">
 					<input type="checkbox" data-ss="shuffle" ${ settings.shuffle ? 'checked' : '' }>
 					Перемешать варианты
-				</label>
-				<label class="fs-cb-ss-label">Подсказка через N ошибок (0 = сразу)
-					<input type="number" min="0" class="field-input fs-cb-ss-num" data-ss="hint_after_errors"
-						value="${ parseInt( settings.hint_after_errors ?? 0, 10 ) }">
 				</label>
 			</div>`;
 

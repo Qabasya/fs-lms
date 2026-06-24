@@ -6,6 +6,7 @@ namespace Inc\Controllers\Assessment;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
@@ -110,11 +111,14 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			'hide_empty' => false,
 		) );
 
-		echo '<div class="fs-lms-cb-wrap">';
+		$ege_kinds_json = wp_json_encode( AssessmentKind::weightedScoreValues() );
+
+		echo '<div class="fs-sb-wrap">';
 		echo '<div class="fs-lms-assessment-builder" '
 			. 'data-assessment-id="' . esc_attr( (string) $post->ID ) . '" '
 			. 'data-subject="' . esc_attr( $subject ) . '" '
 			. 'data-ege-slots="' . esc_attr( (string) $ege_slots ) . '" '
+			. 'data-ege-kinds="' . esc_attr( $ege_kinds_json ?: '[]' ) . '" '
 			. 'data-task-points="' . esc_attr( $points_json ?: '{}' ) . '">';
 		echo '<script type="application/json" class="fs-sb-data">' . ( $json ?: '[]' ) . '</script>';
 		echo '</div>';

@@ -12,6 +12,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\Traits\Authorizer;
@@ -36,6 +37,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		private readonly TemplateRegistry      $registry,
 		private readonly PostManager           $posts,
 		private readonly TaskPublishValidator  $validator,
+		private readonly TaskPublishGuard      $guard,
 	) {
 		parent::__construct();
 	}
@@ -264,29 +266,18 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		if ( PostTypeResolver::problems() !== ( $data['post_type'] ?? '' ) ) {
 			return $data;
 		}
-		if ( ! in_array( $data['post_status'], array( 'publish', 'future' ), true ) ) {
-			return $data;
-		}
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return $data;
-		}
 
-		if ( '' === trim( $data['post_title'] ) ) {
-			$data['post_status'] = 'draft';
-			set_transient( 'fs_lms_problem_publish_error_' . get_current_user_id(), 'Название задачи обязательно для заполнения.', 60 );
-			return $data;
-		}
+		return $this->guard->enforce(
+			$data,
+			'fs_lms_problem_publish_error_',
+			'Название задачи обязательно для заполнения.',
+			function () {
+				$postMeta   = (array) ( $_POST[ PostMetaName::Meta->value ] ?? array() );
+				$templateId = $this->sanitizeKey( PostMetaName::TemplateType->value );
 
-		$postMeta   = (array) ( $_POST[ PostMetaName::Meta->value ] ?? array() );
-		$templateId = $this->sanitizeKey( PostMetaName::TemplateType->value );
-
-		$error = $this->validator->getSoftError( $postMeta, $templateId );
-		if ( null !== $error ) {
-			$data['post_status'] = 'draft';
-			set_transient( 'fs_lms_problem_publish_error_' . get_current_user_id(), $error, 60 );
-		}
-
-		return $data;
+				return $this->validator->getSoftError( $postMeta, $templateId );
+			}
+		);
 	}
 
 	/**
@@ -298,17 +289,6 @@ class ProblemsController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		$transientKey = 'fs_lms_problem_publish_error_' . get_current_user_id();
-		$error        = get_transient( $transientKey );
-		if ( ! $error ) {
-			return;
-		}
-
-		delete_transient( $transientKey );
-		printf(
-			'<div class="notice notice-error is-dismissible"><p><strong>%s:</strong> %s</p></div>',
-			esc_html__( 'Невозможно опубликовать задачу', 'fs-lms' ),
-			esc_html( (string) $error )
-		);
+		$this->guard->renderDeferredError( 'fs_lms_problem_publish_error_', __( 'Невозможно опубликовать задачу', 'fs-lms' ) );
 	}
 }

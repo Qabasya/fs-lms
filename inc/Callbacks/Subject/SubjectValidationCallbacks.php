@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Subject;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -38,9 +39,11 @@ class SubjectValidationCallbacks extends BaseController {
 	 * Конструктор коллбеков.
 	 *
 	 * @param TaskPublishValidator $validator Валидатор заданий перед публикацией
+	 * @param TaskPublishGuard     $guard     Общий протокол блокировки публикации
 	 */
 	public function __construct(
 		private readonly TaskPublishValidator $validator,
+		private readonly TaskPublishGuard     $guard,
 	) {
 		parent::__construct();
 	}
@@ -62,33 +65,19 @@ class SubjectValidationCallbacks extends BaseController {
 			return $data;
 		}
 
-		// Проверяем только при попытке публикации
-		if ( ! in_array( $data['post_status'], array( 'publish', 'future' ), true ) ) {
-			return $data;
-		}
+		return $this->guard->enforce(
+			$data,
+			'fs_lms_publish_error_',
+			'Укажите название задания.',
+			function () use ( $postType ) {
+				$taxInput   = (array) ( $_POST['tax_input'] ?? array() );
+				$postMeta   = (array) ( $_POST[ PostMetaName::Meta->value ] ?? array() );
+				$templateId = $this->sanitizeKey( PostMetaName::TemplateType->value );
 
-		// Пропускаем автосохранение
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return $data;
-		}
-
-		// Получение данных из запроса
-		$postMeta   = (array) ( $_POST[ PostMetaName::Meta->value ] ?? array() );
-		$templateId = $this->sanitizeKey( PostMetaName::TemplateType->value );
-		$taxInput   = (array) ( $_POST['tax_input'] ?? array() );
-
-		// Проверка на блокирующие ошибки
-		$error = $this->validator->getBlockingError( $postType, $taxInput )
-		         ?? $this->validator->getSoftError( $postMeta, $templateId );
-
-		if ( null !== $error ) {
-			// Откатываем статус обратно в draft, чтобы публикация не прошла
-			$data['post_status'] = 'draft';
-			// Сохраняем сообщение в транзиент, чтобы показать его в admin_notices после редиректа
-			set_transient( 'fs_lms_publish_error_' . get_current_user_id(), $error, 60 );
-		}
-
-		return $data;
+				return $this->validator->getBlockingError( $postType, $taxInput )
+					?? $this->validator->getSoftError( $postMeta, $templateId );
+			}
+		);
 	}
 
 	/**
@@ -101,16 +90,7 @@ class SubjectValidationCallbacks extends BaseController {
 		$screen = get_current_screen();
 
 		// Показываем ошибку валидации публикации, если она была отложена
-		$transientKey = 'fs_lms_publish_error_' . get_current_user_id();
-		$publishError = get_transient( $transientKey );
-		if ( $publishError ) {
-			delete_transient( $transientKey );
-			printf(
-				'<div class="notice notice-error is-dismissible"><p><strong>%s:</strong> %s</p></div>',
-				esc_html__( 'Невозможно опубликовать задание', 'fs-lms' ),
-				esc_html( $publishError )
-			);
-		}
+		$this->guard->renderDeferredError( 'fs_lms_publish_error_', __( 'Невозможно опубликовать задание', 'fs-lms' ) );
 
 		if ( ! $screen || ! PostTypeResolver::isTaskPostType( $screen->post_type ) ) {
 			return;

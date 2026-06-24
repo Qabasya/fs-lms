@@ -47,11 +47,13 @@ class OrderItemsField extends BaseField {
 		?>
 		<div class="fs-task-order__row">
 			<span class="fs-task-order__handle dashicons dashicons-menu"></span>
-			<input type="text"
-				name="<?php echo $base; ?>[items][]"
-				value="<?php echo esc_attr( $value ); ?>"
-				class="regular-text"
-				placeholder="Элемент">
+			<div class="fs-form-group">
+				<input type="text"
+					name="<?php echo $base; ?>[items][]"
+					value="<?php echo esc_attr( $value ); ?>"
+					class="regular-text js-order-text"
+					placeholder="Элемент">
+			</div>
 			<button type="button" class="button-link js-order-remove">✕</button>
 		</div>
 		<?php

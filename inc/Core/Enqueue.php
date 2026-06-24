@@ -227,7 +227,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'taskContent' => Nonce::TaskContent->create(),
 					),
 					'actions'  => array(
-						'saveTaskContent' => AjaxHook::SaveTaskContent->jsAction(),
+						'saveTaskContent'   => AjaxHook::SaveTaskContent->jsAction(),
+						'getTaskEditorForm' => AjaxHook::GetTaskEditorForm->jsAction(),
 					),
 				)
 			);

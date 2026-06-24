@@ -1,9 +1,8 @@
 @use '../variables' as *;
 
 // ══════════════════════════════════════════════════════════════
-//  Assessment Builder — использует классы Course Builder
-//  (.builder / .tree-pane / .editor-pane / .lesson / .les-*)
-//  Здесь только специфика контрольной поверх общего слоя.
+//  Assessment — настройки контрольной (метабокс настроек).
+//  Конструктор задач вынесен в общий _slot-builder.scss (fs-sb-*).
 // ══════════════════════════════════════════════════════════════
 
 // ── Настройки контрольной (над конструктором) ─────────────────
@@ -20,127 +19,6 @@
 			grid-column: 1 / -1;
 		}
 	}
-}
-
-// ── Пустые слоты в дереве ─────────────────────────────────────
-.fs-lms-cb-wrap .lesson.empty .les-title {
-	color: $color-text-secondary;
-	font-style: italic;
-}
-
-// ── Тело задачи (правая панель) ───────────────────────────────
-.fs-ab-task-heading {
-	font-size: 16px;
-	font-weight: 600;
-	margin: 0;
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.fs-ab-task-section {
-	margin-bottom: $spacing-lg;
-	font-size: 13px;
-	line-height: 1.6;
-	color: $color-text-primary;
-
-	p, ul, ol { margin: 0 0 $spacing-sm; }
-	img { max-width: 100%; height: auto; border-radius: $border-radius-sm; }
-}
-
-.fs-ab-section-label {
-	font-size: 11px;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: $color-text-secondary;
-	margin: 0 0 $spacing-sm;
-}
-
-.fs-ab-task-answer {
-	padding: $spacing-md;
-	background: $cb-bg-tree;
-	border: 1px solid $wp-admin-gray-bg;
-	border-radius: $border-radius-md;
-}
-
-.fs-ab-task-audio {
-	display: block;
-	width: 100%;
-	margin-bottom: $spacing-md;
-}
-
-.fs-ab-empty-slot {
-	color: $color-text-secondary;
-	font-style: italic;
-	margin-bottom: $spacing-md;
-}
-
-// ── Баллы за задание (ЕГЭ) ────────────────────────────────────
-.fs-ab-task-score {
-	display: flex;
-	align-items: center;
-	gap: $spacing-sm;
-	margin-bottom: $spacing-md;
-	padding: $spacing-md 0;
-	border-top: 1px solid $wp-admin-gray-bg;
-
-	label {
-		font-size: 13px;
-		color: $color-text-secondary;
-		white-space: nowrap;
-	}
-
-	input[type="number"] { width: 80px; }
-}
-
-// ── Кнопки действий (выбрать / заменить / очистить) ───────────
-.fs-ab-task-actions {
-	display: flex;
-	gap: $spacing-sm;
-	flex-wrap: wrap;
-	padding-top: $spacing-md;
-	border-top: 1px solid $wp-admin-gray-bg;
-
-	.fs-ab-clear { color: $color-danger !important; }
-}
-
-// ── Форма создания задачи inline ──────────────────────────────
-.fs-ab-create-form {
-	border: 1px dashed $color-border-input;
-	border-radius: $border-radius-l;
-	padding: $spacing-md;
-	margin-top: $spacing-sm;
-	width: 100%;
-
-	.fs-ab-create-input { width: 100%; margin-bottom: $spacing-sm; }
-}
-
-.fs-ab-create-btn-row {
-	display: flex;
-	gap: $spacing-sm;
-}
-
-// ── Статус сохранения ─────────────────────────────────────────
-.fs-ab-save-status {
-	display: flex;
-	align-items: center;
-	gap: $spacing-xs;
-	padding: $spacing-xs $spacing-md $spacing-sm;
-	font-size: 12px;
-	color: $color-text-secondary;
-
-	.saved-dot {
-		width: 7px;
-		height: 7px;
-		border-radius: 50%;
-		background: #46b450;
-		flex-shrink: 0;
-	}
-
-	&.saving { font-style: italic; }
 }
 
 // ── score_map textarea ────────────────────────────────────────

@@ -15,8 +15,12 @@ use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
- * AJAX-обработчики для создания и сохранения содержимого задач из редактора.
- * Обслуживает хук SaveTaskContent (Phase F, Этап 6).
+ * AJAX-обработчики inline-редактора задач (Phase F, Этап 6).
+ *
+ * Источник истины полей — PHP `Fields/*` (путь A): модалка запрашивает готовую
+ * HTML-разметку полей шаблона ({@see ajaxGetTaskEditorForm}) и отправляет её
+ * как `fs_lms_meta[...]` — тот же формат, что и нативный метабокс. Сохранение
+ * идёт общим путём {@see MetaBoxManager::saveFields()}. JS поля не строит.
  */
 class TaskContentCallbacks extends BaseController {
 
@@ -29,23 +33,15 @@ class TaskContentCallbacks extends BaseController {
 	) {}
 
 	/**
-	 * Создаёт новую задачу или обновляет существующую со всеми полями.
-	 * POST: subject_key, template, title, data (JSON), post_id? (0 = создать новую).
+	 * Возвращает HTML полей выбранного шаблона для модалки-редактора.
+	 * POST: subject_key, template, post_id? (0 = новая задача → пустые поля).
 	 */
-	public function ajaxSaveTaskContent(): void {
+	public function ajaxGetTaskEditorForm(): void {
 		$this->authorize( Nonce::TaskContent, Capability::ManageLMSAssignments );
 
 		$subjectKey = $this->requireKey( 'subject_key' );
 		$templateId = $this->requireKey( 'template' );
-		$title      = $this->requireText( 'title' );
 		$postId     = (int) ( $_POST['post_id'] ?? 0 );
-		$rawData    = $this->sanitizeText( 'data' );
-
-		$data = json_decode( $rawData, true );
-		if ( ! is_array( $data ) ) {
-			$this->error( 'Неверный формат данных' );
-			return;
-		}
 
 		$template = $this->templateRegistry->get( $templateId );
 		if ( ! $template ) {
@@ -56,13 +52,52 @@ class TaskContentCallbacks extends BaseController {
 		$postType = PostTypeResolver::tasks( $subjectKey );
 
 		if ( $postId > 0 ) {
-			wp_update_post( [ 'ID' => $postId, 'post_title' => $title ] );
+			$post = get_post( $postId );
+			if ( ! $post ) {
+				$this->error( 'Задание не найдено' );
+				return;
+			}
 		} else {
-			$result = wp_insert_post( [
+			// Поля task-шаблонов не используют $post — отдаём пустую болванку.
+			$post = new \WP_Post( (object) array( 'ID' => 0, 'post_type' => $postType ) );
+		}
+
+		ob_start();
+		$template->render( $post );
+		$html = (string) ob_get_clean();
+
+		$this->success( array( 'html' => $html ) );
+	}
+
+	/**
+	 * Создаёт новую задачу или обновляет существующую со всеми полями.
+	 * POST: subject_key, template, title, post_id? (0 = создать), fs_lms_meta[...] (поля шаблона).
+	 */
+	public function ajaxSaveTaskContent(): void {
+		$this->authorize( Nonce::TaskContent, Capability::ManageLMSAssignments );
+
+		$subjectKey = $this->requireKey( 'subject_key' );
+		$templateId = $this->requireKey( 'template' );
+		$title      = $this->requireText( 'title' );
+		$postId     = (int) ( $_POST['post_id'] ?? 0 );
+		$rawMeta    = (array) wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
+
+		$template = $this->templateRegistry->get( $templateId );
+		if ( ! $template ) {
+			$this->error( 'Неизвестный шаблон задания' );
+			return;
+		}
+
+		$postType = PostTypeResolver::tasks( $subjectKey );
+
+		if ( $postId > 0 ) {
+			wp_update_post( array( 'ID' => $postId, 'post_title' => $title ) );
+		} else {
+			$result = wp_insert_post( array(
 				'post_type'   => $postType,
 				'post_title'  => $title,
 				'post_status' => 'publish',
-			] );
+			) );
 
 			if ( is_wp_error( $result ) || ! $result ) {
 				$this->error( 'Не удалось создать задание' );
@@ -76,15 +111,15 @@ class TaskContentCallbacks extends BaseController {
 		$this->metaBoxManager->saveFields(
 			$postId,
 			PostMetaName::Meta->value,
-			$data,
+			$rawMeta,
 			$template->get_fields()
 		);
 
-		$this->success( [
+		$this->success( array(
 			'id'       => $postId,
 			'title'    => get_the_title( $postId ),
 			'template' => $templateId,
 			'edit_url' => get_edit_post_link( $postId, '' ),
-		] );
+		) );
 	}
 }

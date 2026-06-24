@@ -42,8 +42,13 @@
 			flex-shrink: 0;
 		}
 
-		input[type='text'] {
+		.fs-form-group {
 			flex: 1;
+			min-width: 0;
+
+			input[type='text'] {
+				width: 100%;
+			}
 		}
 
 		.js-options-remove {
@@ -85,8 +90,13 @@
 		align-items: center;
 		gap: v.$spacing-sm;
 
-		input[type='text'] {
+		.fs-form-group {
 			flex: 1;
+			min-width: 0;
+
+			input[type='text'] {
+				width: 100%;
+			}
 		}
 
 		.fs-task-pairs__sep {
@@ -113,6 +123,10 @@
 
 	.fs-task-order__item {
 		margin-bottom: v.$spacing-sm;
+
+		&.fs-dragging {
+			opacity: 0.4;
+		}
 	}
 
 	.fs-task-order__row {
@@ -126,8 +140,13 @@
 			flex-shrink: 0;
 		}
 
-		input[type='text'] {
+		.fs-form-group {
 			flex: 1;
+			min-width: 0;
+
+			input[type='text'] {
+				width: 100%;
+			}
 		}
 
 		.js-order-remove {

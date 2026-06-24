@@ -270,6 +270,8 @@ All `wp_localize_script` calls live in `Enqueue.php` only — never in templates
 - `inc/MetaBoxes/Fields/` — individual field types (extend `BaseField`, implement `FieldInterface`)
 - `inc/MetaBoxes/Templates/` — task metabox templates (extend `BaseTemplate`)
 
+**Источник истины полей задания = PHP `Fields/*`.** И нативный метабокс, и inline-модалка (`task-editor.js`) рендерят одну и ту же разметку: метабокс — напрямую через `BaseTemplate::render()`, модалка — забирая тот же HTML по AJAX (`AjaxHook::GetTaskEditorForm`) и навешивая поведение из `task-fields.js` (`TaskFields.init(root)`). Сохранение в обоих случаях — `fs_lms_meta[...]` → `MetaBoxManager::saveFields()`. **Не строить поля задания в JS** — добавлять/менять поля только в PHP `Fields/*` (опц. `editorType()`/`editorConfig()` для схемы `<select>`).
+
 ---
 
 ## Code Style
