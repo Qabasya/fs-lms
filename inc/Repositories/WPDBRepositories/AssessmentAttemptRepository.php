@@ -153,4 +153,25 @@ class AssessmentAttemptRepository {
 		);
 		return (int) $count;
 	}
+
+	/**
+	 * Находит любую активную (in_progress, не просроченную) попытку ученика.
+	 * Используется ExamLockService для блокировки контента на время экзамена.
+	 */
+	public function findAnyActive( int $studentPersonId ): ?AttemptDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i
+				WHERE student_person_id = %d
+				  AND status = 'in_progress'
+				  AND deadline_at > NOW()
+				ORDER BY id DESC
+				LIMIT 1",
+				$this->table,
+				$studentPersonId
+			),
+			ARRAY_A
+		);
+		return $row ? AttemptDTO::fromArray( $row ) : null;
+	}
 }

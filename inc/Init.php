@@ -4,6 +4,7 @@ namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Modules\AdSync\AdSyncModule;
+use Inc\Modules\EgeComputer\EgeComputerModule;
 use Inc\Modules\SocialAuth\SocialAuthModule;
 use Inc\Controllers\Enrollment\ApplicationController;
 use Inc\Controllers\Pages\ApplyPageController;
@@ -149,6 +150,7 @@ final class Init {
 			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====
 			SocialAuthModule::class,          // Inc\Modules\SocialAuth — OAuth через соцсети (флаг-гейт, по умолчанию вкл.)
 			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
+			EgeComputerModule::class,         // Inc\Modules\EgeComputer — плеер ЕГЭ (Компьютер) (флаг-гейт, T7.20)
 		);
 	}
 

@@ -11,6 +11,7 @@ use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Assessment\ExamPayloadFilter;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Shared\ThemeCompatService;
 
@@ -23,10 +24,18 @@ use Inc\Services\Shared\ThemeCompatService;
  */
 class AssessmentPageController extends BaseController implements ServiceInterface {
 
+	/**
+	 * WP filter: выбор шаблона-рендерера плеера экзамена (T7.19).
+	 * Модули регистрируют свой скин через:
+	 *   add_filter('fs_lms_assessment_renderer', fn($tpl, $kind, $subject) => 'путь/к/скину.php', 10, 3)
+	 */
+	public const RENDERER_FILTER = 'fs_lms_assessment_renderer';
+
 	public function __construct(
 		private readonly AssessmentManager           $assessments,
 		private readonly AssessmentAttemptRepository $attemptRepo,
 		private readonly PersonRepository            $personRepo,
+		private readonly ExamPayloadFilter           $payloadFilter,
 		private readonly ClockInterface              $clock,
 	) {
 		parent::__construct();
@@ -61,8 +70,22 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 
 		$now = $this->clock->now();
 
+		$defaultTemplate = $this->path( 'templates/frontend/assessment/attempt.php' );
+
+		// T7.19: модули могут зарегистрировать собственный рендерер через этот фильтр.
+		$template = (string) apply_filters(
+			self::RENDERER_FILTER,
+			$defaultTemplate,
+			$assessment->kind->value,
+			$assessment->subjectKey
+		);
+
+		if ( ! file_exists( $template ) ) {
+			$template = $defaultTemplate;
+		}
+
 		ThemeCompatService::header();
-		include $this->path( 'templates/frontend/assessment/attempt.php' );
+		include $template;
 		ThemeCompatService::footer();
 		exit;
 	}

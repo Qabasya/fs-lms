@@ -64,6 +64,17 @@ abstract class BaseTemplate {
 	}
 
 	/**
+	 * Разворачивает составной шаблон в список отдельно оцениваемых элементов для экзамена (T7.12).
+	 * Дефолт — пустой массив: шаблон не разворачивается (один элемент = сам шаблон).
+	 * ThreeInOneTemplate переопределяет и возвращает три суб-задания (19 / 20 / 21).
+	 *
+	 * @return array{key: string, condition_field: string, answer_field: string}[]
+	 */
+	public function expandsForExam(): array {
+		return [];
+	}
+
+	/**
 	 * Отрисовывает все поля шаблона, включая подсказку.
 	 *
 	 * @param \WP_Post $post Объект текущего поста

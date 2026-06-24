@@ -11,7 +11,10 @@ export const ModuleToggle = {
 	},
 
 	bindEvents() {
-		$( document ).on( 'change', '.js-module-toggle', ( e ) => {
+		// Кастомный класс из render_fs_toggle вешается на обёртку .fs-toggle,
+		// а чекбокс — внутри. Делегируем на сам input, чтобы e.currentTarget был
+		// чекбоксом и .prop('checked'/'disabled') читались/писались корректно.
+		$( document ).on( 'change', '.js-module-toggle input[type="checkbox"]', ( e ) => {
 			this.handleToggle( e.currentTarget );
 		} );
 	},

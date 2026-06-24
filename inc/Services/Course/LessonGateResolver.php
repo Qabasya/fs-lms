@@ -8,6 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Course\GateState;
 use Inc\Managers\Course\LessonManager;
+use Inc\Services\Assessment\ExamLockService;
 
 /**
  * Class LessonGateResolver
@@ -29,13 +30,19 @@ class LessonGateResolver {
 		private readonly LessonProgressService $progress,
 		private readonly LessonManager         $lessons,
 		private readonly LessonAccessPolicy    $accessPolicy,
+		private readonly ExamLockService       $examLock,
 		private readonly ClockInterface        $clock,
 	) {}
 
 	/**
 	 * Доступен ли урок программы ученику: членство/видимость (`canRead`) + дата занятия.
+	 * Верхний приоритет: активная попытка запирающего экзамена блокирует всё (T7.11).
 	 */
 	public function resolveLesson( int $studentPersonId, GroupLessonDTO $groupLesson ): GateState {
+		if ( $this->examLock->isLocked( $studentPersonId ) ) {
+			return GateState::Locked;
+		}
+
 		if ( ! $this->accessPolicy->canRead( $studentPersonId, $groupLesson->id ) ) {
 			return GateState::Locked;
 		}

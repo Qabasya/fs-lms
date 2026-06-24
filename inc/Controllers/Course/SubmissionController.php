@@ -6,6 +6,7 @@ namespace Inc\Controllers\Course;
 
 use Inc\Controllers\System\AjaxController;
 
+use Inc\Callbacks\Course\BatchSubmissionCallbacks;
 use Inc\Callbacks\Course\GradingCallbacks;
 use Inc\Callbacks\Course\SubmissionCallbacks;
 use Inc\Enums\Wp\AjaxHook;
@@ -13,8 +14,9 @@ use Inc\Enums\Wp\AjaxHook;
 class SubmissionController extends AjaxController {
 
 	public function __construct(
-		private readonly SubmissionCallbacks $submissionCallbacks,
-		private readonly GradingCallbacks    $gradingCallbacks,
+		private readonly SubmissionCallbacks      $submissionCallbacks,
+		private readonly GradingCallbacks         $gradingCallbacks,
+		private readonly BatchSubmissionCallbacks $batchCallbacks,
 	) {
 		parent::__construct();
 	}
@@ -27,6 +29,8 @@ class SubmissionController extends AjaxController {
 			array( AjaxHook::ReturnSubmission,    $this->gradingCallbacks ),
 			array( AjaxHook::GetGroupSubmissions, $this->gradingCallbacks ),
 			array( AjaxHook::GetGradebook,        $this->gradingCallbacks ),
+			array( AjaxHook::SubmitBatchWork,     $this->batchCallbacks ),
+			array( AjaxHook::GradeBatchTask,      $this->batchCallbacks ),
 		);
 	}
 }

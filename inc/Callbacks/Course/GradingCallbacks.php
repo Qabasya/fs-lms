@@ -128,6 +128,8 @@ class GradingCallbacks extends BaseController {
 			'score'             => $e->score,
 			'max_score'         => $e->maxScore,
 			'graded_at'         => $e->gradedAt,
+			'display_type'      => $e->displayType,
+			'display_value'     => $e->displayValue(),
 		), $entries ) );
 	}
 }
