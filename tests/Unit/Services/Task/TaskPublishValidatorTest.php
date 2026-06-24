@@ -38,13 +38,29 @@ class TaskPublishValidatorTest extends TestCase {
 	}
 
 	private function makeTemplate( array $fieldKeys ): BaseTemplate {
+		// getSoftError() валидирует поля по editorType(); поля описываем типом + меткой.
+		// 'task_answer' → rich_text с меткой «Правильный ответ»; прочие — невалидируемый тип.
+		$specs = [
+			'task_answer' => [ 'type' => 'rich_text', 'label' => 'Правильный ответ' ],
+		];
+
 		$template = new class extends BaseTemplate {
 			public function get_id(): string { return 'test_template'; }
 			public function get_name(): string { return 'Test Template'; }
 		};
+
 		foreach ( $fieldKeys as $key ) {
-			$template->fields[ $key ] = [ 'label' => $key, 'object' => new \stdClass() ];
+			$type  = $specs[ $key ]['type']  ?? 'unknown';
+			$label = $specs[ $key ]['label'] ?? $key;
+			$template->fields[ $key ] = [
+				'label'  => $label,
+				'object' => new class( $type ) {
+					public function __construct( private string $type ) {}
+					public function editorType(): string { return $this->type; }
+				},
+			];
 		}
+
 		return $template;
 	}
 
