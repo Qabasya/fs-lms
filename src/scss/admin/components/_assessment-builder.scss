@@ -1,0 +1,262 @@
+@use '../variables' as *;
+
+// ══════════════════════════════════════════════════════════════
+//  Assessment Builder — двухпанельный конструктор контрольной.
+//  Левая панель: нумерованный список слотов.
+//  Центральная: превью задачи + кнопки действий.
+// ══════════════════════════════════════════════════════════════
+
+.fs-ab {
+	display: grid;
+	grid-template-columns: 240px 1fr;
+	min-height: 400px;
+	border: 1px solid $color-border-input;
+	border-radius: $border-radius-l;
+	overflow: hidden;
+	background: $color-bg-modal;
+}
+
+// ── Левая панель (слоты) ──────────────────────────────────────
+.fs-ab-left {
+	border-right: 1px solid $color-border-input;
+	display: flex;
+	flex-direction: column;
+	background: $color-bg-footer;
+}
+
+.fs-ab-slot-list {
+	overflow-y: auto;
+	flex: 1;
+	padding: $spacing-sm 0;
+	max-height: 560px;
+}
+
+.fs-ab-slot-item {
+	display: flex;
+	align-items: center;
+	gap: $spacing-sm;
+	padding: $spacing-sm $spacing-md;
+	cursor: pointer;
+	transition: background 0.15s;
+	border-left: 3px solid transparent;
+
+	&:hover {
+		background: #f0f0f1;
+	}
+
+	&.active {
+		background: $color-bg-modal;
+		border-left-color: $color-primary;
+	}
+
+	&.empty .fs-ab-slot-title {
+		color: $color-text-secondary;
+		font-style: italic;
+	}
+}
+
+.fs-ab-slot-num {
+	flex-shrink: 0;
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: $color-border-input;
+	border-radius: 50%;
+	font-size: 11px;
+	font-weight: 600;
+	color: $color-text-primary;
+
+	.active & {
+		background: $color-primary;
+		color: $color-text-inverse;
+	}
+}
+
+.fs-ab-slot-title {
+	font-size: 12px;
+	color: $color-text-primary;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.fs-ab-add-slot {
+	margin: $spacing-sm $spacing-md $spacing-md;
+	align-self: flex-start;
+}
+
+// ── Центральная панель (превью) ───────────────────────────────
+.fs-ab-center {
+	display: flex;
+	flex-direction: column;
+}
+
+.fs-ab-empty {
+	padding: $spacing-xxl $spacing-xl;
+	color: $color-text-secondary;
+	font-style: italic;
+}
+
+.fs-ab-task-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: $spacing-md $spacing-lg;
+	border-bottom: 1px solid $color-border-input;
+	background: $color-bg-footer;
+}
+
+.fs-ab-slot-badge {
+	font-size: 13px;
+	font-weight: 600;
+	color: $color-text-primary;
+}
+
+.fs-ab-remove-slot {
+	color: $color-danger !important;
+	border-color: $color-danger !important;
+
+	&:hover {
+		background: $cb-danger-hover-bg !important;
+	}
+}
+
+.fs-ab-task-area {
+	padding: $spacing-lg;
+	flex: 1;
+}
+
+.fs-ab-loading {
+	color: $color-text-secondary;
+	font-style: italic;
+	padding: $spacing-md 0;
+}
+
+.fs-ab-empty-slot {
+	color: $color-text-secondary;
+	font-style: italic;
+	margin-bottom: $spacing-lg;
+}
+
+.fs-ab-task-preview {
+	margin-bottom: $spacing-lg;
+	padding: $spacing-lg;
+	border: 1px solid $color-border-input;
+	border-radius: $border-radius-l;
+	background: $color-bg-footer;
+}
+
+.fs-ab-task-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: $spacing-md;
+	margin-bottom: $spacing-sm;
+}
+
+.fs-ab-task-title {
+	font-size: 14px;
+	color: $color-text-primary;
+}
+
+.fs-lms-draft-badge {
+	display: inline-block;
+	font-size: 11px;
+	padding: 2px $spacing-sm;
+	border-radius: $border-radius-sm;
+	background: rgba($color-danger, 0.1);
+	color: $color-danger;
+	margin-bottom: $spacing-sm;
+}
+
+.fs-ab-task-text {
+	font-size: 13px;
+	color: $color-text-secondary;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+	max-height: 240px;
+	overflow-y: auto;
+}
+
+.fs-ab-task-actions {
+	display: flex;
+	gap: $spacing-sm;
+	flex-wrap: wrap;
+
+	.fs-ab-clear {
+		margin-left: auto;
+		color: $color-danger !important;
+	}
+}
+
+.fs-lms-score-map-field {
+	font-family: monospace;
+	font-size: 12px;
+}
+
+// ── Task score (points per slot) ──────────────────────────────
+.fs-ab-task-score {
+	display: flex;
+	align-items: center;
+	gap: $spacing-sm;
+	margin-top: $spacing-md;
+	padding-top: $spacing-md;
+	border-top: 1px solid $color-border-input;
+
+	label {
+		font-size: 13px;
+		color: $color-text-secondary;
+		white-space: nowrap;
+	}
+
+	input[type="number"] {
+		width: 80px;
+	}
+}
+
+// ── Inline create form ────────────────────────────────────────
+.fs-ab-create-form {
+	border: 1px dashed $color-border-input;
+	border-radius: $border-radius-l;
+	padding: $spacing-md;
+	margin-top: $spacing-sm;
+
+	.fs-ab-create-input {
+		width: 100%;
+		margin-bottom: $spacing-sm;
+	}
+}
+
+.fs-ab-create-btn-row {
+	display: flex;
+	gap: $spacing-sm;
+}
+
+// ── Footer (статус сохранения) ────────────────────────────────
+.fs-ab-footer {
+	padding: $spacing-sm $spacing-lg;
+	border-top: 1px solid $color-border-footer;
+	background: $color-bg-footer;
+}
+
+.fs-ab-status {
+	display: flex;
+	align-items: center;
+	gap: $spacing-sm;
+	font-size: 12px;
+	color: $color-text-secondary;
+
+	.saved-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #46b450;
+	}
+
+	&.saving {
+		font-style: italic;
+	}
+}

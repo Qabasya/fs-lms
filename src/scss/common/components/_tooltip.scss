@@ -1,0 +1,68 @@
+@use '../../admin/variables' as *;
+
+.fs-lms-label-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-xs;
+}
+
+.fs-lms-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+
+  &:hover .fs-lms-tooltip-body,
+  &:focus .fs-lms-tooltip-body {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.fs-lms-tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: $color-text-secondary;
+  color: $color-text-inverse;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.fs-lms-tooltip-body {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: 280px;
+  padding: $spacing-sm $spacing-md;
+  background: $color-text-primary;
+  color: $color-text-inverse;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: $border-radius-l;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 9999;
+  pointer-events: none;
+  white-space: normal;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: $color-text-primary;
+  }
+}

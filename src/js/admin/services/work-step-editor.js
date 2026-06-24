@@ -8,7 +8,7 @@ const $ = jQuery;
  * WorkStepEditor — конструктор работы как степ-лист «только задачи».
  *
  * Тот же единый редактор шагов (`step-editor.js`), что у урока и курс-билдера, но:
- * меню ограничено `['question','code']` (Вопрос / Задание с кодом), а сохранение —
+ * меню ограничено `['task']` (любая задача из банка), а сохранение —
  * `item_ids` работы (AJAX `SaveWorkItems`), а не `steps[]` урока.
  */
 export const WorkStepEditor = {
@@ -30,7 +30,7 @@ function mountOne( el ) {
 		mount:        el,
 		lesson:       { id: workId, steps },
 		subjectKey:   subject,
-		allowedTypes: [ 'question', 'code' ],
+		allowedTypes: [ 'task' ],
 		persist:      ( s ) => saveWorkItems( workId, s ),
 	} );
 }

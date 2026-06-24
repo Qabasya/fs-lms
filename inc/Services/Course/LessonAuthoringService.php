@@ -163,11 +163,18 @@ class LessonAuthoringService {
 	/**
 	 * Создаёт черновик-пост указанного CPT с одним заголовком.
 	 */
-	private function createDraft( string $postType, string $title ): int {
+	/**
+	 * Приватная задача для контрольной (не видна студентам, живёт в банке задач предмета).
+	 */
+	public function createPrivateTaskDraft( string $subjectKey, string $title ): int {
+		return $this->createDraft( PostTypeResolver::tasks( $subjectKey ), $title, 'private' );
+	}
+
+	private function createDraft( string $postType, string $title, string $status = 'draft' ): int {
 		return $this->posts->insert( array(
 			'post_title'  => '' !== $title ? $title : 'Черновик',
 			'post_type'   => $postType,
-			'post_status' => 'draft',
+			'post_status' => $status,
 			'post_author' => get_current_user_id(),
 		) );
 	}

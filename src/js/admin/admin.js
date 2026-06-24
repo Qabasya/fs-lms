@@ -20,6 +20,7 @@ import { ImportCsv } from './services/import-csv.js';
 import { RefSelector } from './services/ref-selector.js';
 import { LessonStepEditor } from './services/lesson-step-editor.js';
 import { WorkStepEditor } from './services/work-step-editor.js';
+import { AssessmentBuilder } from './services/assessment-builder.js';
 import { CourseBuilder } from './services/course-builder.js';
 import { TaskTemplateType } from './services/task-template-type.js';
 import { ModuleToggle } from './services/module-toggle.js';
@@ -142,6 +143,10 @@ import { AlertModal } from './modals/alert-modal.js';
 
         if ( $( '.fs-lms-work-builder' ).length ) {
             WorkStepEditor.init();
+        }
+
+        if ( $( '.fs-lms-assessment-builder' ).length ) {
+            AssessmentBuilder.init();
         }
 
         if ( document.getElementById( 'fs-lms-course-builder' ) ) {

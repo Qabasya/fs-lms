@@ -8,6 +8,8 @@
  * opts: { subjectKey, postId?, templateId?, data?, title?, onSave(id, title) }
  */
 
+import { showToast } from '../modules/toast.js';
+
 /* global jQuery, wp, fs_lms_task_editor_vars */
 const $ = jQuery;
 
@@ -402,14 +404,12 @@ export const TaskEditor = {
 					}
 				} else {
 					$btn.prop( 'disabled', false ).text( 'Сохранить' );
-					// eslint-disable-next-line no-alert
-					alert( res?.data?.message || 'Ошибка сохранения' );
+					showToast( res?.data?.message || 'Ошибка сохранения', 'error' );
 				}
 			} )
 			.fail( () => {
 				$btn.prop( 'disabled', false ).text( 'Сохранить' );
-				// eslint-disable-next-line no-alert
-				alert( 'Ошибка сети. Попробуйте ещё раз.' );
+				showToast( 'Ошибка сети. Попробуйте ещё раз.', 'error' );
 			} );
 	},
 };

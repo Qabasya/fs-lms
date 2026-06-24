@@ -44,6 +44,7 @@ export const TYPE_UI = {
 const ADD_TYPES = [
 	{ type: 'text',       desc: 'Текст, формулы, картинки' },
 	{ type: 'video',      desc: 'YouTube, Vimeo, файл' },
+	{ type: 'task',       desc: 'Любая задача из банка заданий' },
 	{ type: 'question',   desc: 'Вписать ответ / выбрать вариант' },
 	{ type: 'code',       desc: 'Редактор кода, интерпретатор' },
 	{ type: 'work',       desc: 'Практика: набор задач (из библиотеки)' },
@@ -140,7 +141,7 @@ export function createStepEditor( opts ) {
 		destroyTiny();
 		mount.innerHTML = `
 			<div class="fs-se">
-				<div class="steps-label">Шаги урока</div>
+				<div class="steps-label">Шаги</div>
 				<div class="steps-row" data-steps></div>
 				<div class="step-editor-body" data-body></div>
 				<div class="se-footer"><span class="ef-status" data-status><span class="saved-dot"></span> Все изменения сохранены</span></div>

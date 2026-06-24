@@ -33,4 +33,10 @@ enum PostMetaName: string {
 	 * Форки с этим значением скрыты из общей библиотеки предмета.
 	 */
 	case ForkedForGroup = 'fs_lms_forked_for_group';
+
+	/** Плоский ключ типа работы — дублирует fs_lms_meta['work_type'] для фильтрации в list table. */
+	case WorkType = 'fs_lms_work_type';
+
+	/** Плоский ключ вида контрольной — дублирует fs_lms_meta['kind'] для фильтрации в list table. */
+	case AssessmentKind = 'fs_lms_assessment_kind';
 }

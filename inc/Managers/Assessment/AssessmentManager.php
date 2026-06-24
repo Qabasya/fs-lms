@@ -34,6 +34,31 @@ class AssessmentManager {
 	}
 
 	/**
+	 * Сохраняет упорядоченный список task_ids степ-листа контрольной (мерж мета).
+	 *
+	 * @param int   $assessmentId
+	 * @param int[] $itemIds
+	 */
+	/**
+	 * @param int[]   $itemIds
+	 * @param float[] $taskPoints taskId => points
+	 */
+	public function setItemIds( int $assessmentId, array $itemIds, array $taskPoints = [] ): bool {
+		$post = get_post( $assessmentId );
+		if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isAssessmentPostType( $post->post_type ) ) {
+			return false;
+		}
+
+		$meta               = $this->posts->getMeta( $assessmentId, PostMetaName::Meta->value, true );
+		$meta               = is_array( $meta ) ? $meta : array();
+		$meta['task_ids']   = array_values( array_map( 'intval', $itemIds ) );
+		$meta['task_points'] = $taskPoints;
+
+		$this->posts->updateMeta( $assessmentId, PostMetaName::Meta->value, $meta );
+		return true;
+	}
+
+	/**
 	 * @param string $subjectKey
 	 * @param array  $args Дополнительные аргументы get_posts().
 	 * @return AssessmentDTO[]

@@ -153,6 +153,9 @@ enum AjaxHook: string {
 	case GetStepCandidates         = 'get_step_candidates';          // params: subject_key, kind (work|task|assessment|article|lesson), source (subject|bank), search
 	case GetWorkItemCandidates     = 'get_work_item_candidates';     // params: subject_key, collection, scope, search
 	case SaveWorkItems             = 'save_work_items';              // params: work_id, item_ids[] (степ-лист работы)
+	case SaveAssessmentItems       = 'save_assessment_items';        // params: assessment_id, item_ids[] (степ-лист контрольной)
+	case GetTaskPreview            = 'get_task_preview';             // params: task_id, subject_key
+	case CreateAssessmentTaskDraft = 'create_assessment_task_draft'; // params: subject_key, title
 	case CreateProblemDraft        = 'create_problem_draft';         // params: title
 	case CreateTaskDraft           = 'create_task_draft';            // params: subject_key, title (черновик subject-задачи из билдера)
 	case CreateAssessmentDraft     = 'create_assessment_draft';      // params: subject_key, title

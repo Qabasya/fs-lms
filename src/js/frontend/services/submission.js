@@ -3,6 +3,8 @@
  * Pure-JS function pattern; guard on element presence at the top.
  */
 
+import { showToast } from '../../common/components/toast.js';
+
 const vars = window.fs_lms_submission_vars;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -170,8 +172,7 @@ async function gradeSubmit( e, card ) {
 	if ( res.success ) {
 		card.remove();
 	} else {
-		// eslint-disable-next-line no-alert
-		alert( res.data || 'Ошибка оценки.' );
+		showToast( res.data || 'Ошибка оценки.', 'error' );
 	}
 }
 
@@ -181,8 +182,7 @@ async function returnSubmit( card ) {
 	const feedback = form.querySelector( '[name="feedback"]' ).value;
 
 	if ( ! feedback.trim() ) {
-		// eslint-disable-next-line no-alert
-		alert( 'Укажите комментарий для возврата.' );
+		showToast( 'Укажите комментарий для возврата.', 'warning' );
 		return;
 	}
 
@@ -194,8 +194,7 @@ async function returnSubmit( card ) {
 	if ( res.success ) {
 		card.remove();
 	} else {
-		// eslint-disable-next-line no-alert
-		alert( res.data || 'Ошибка возврата.' );
+		showToast( res.data || 'Ошибка возврата.', 'error' );
 	}
 }
 

@@ -110,5 +110,7 @@ class WorkManager {
 			'work_type' => $dto->workType->value,
 			'item_ids'  => $dto->itemIds,
 		) );
+		// Плоский ключ для фильтрации в list table (meta_query не умеет в сериализованные массивы).
+		$this->posts->updateMeta( $workId, PostMetaName::WorkType->value, $dto->workType->value );
 	}
 }
