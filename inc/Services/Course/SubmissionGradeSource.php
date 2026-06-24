@@ -33,6 +33,11 @@ class SubmissionGradeSource implements GradeSourceInterface {
 			$lesson = ( $gl && $gl->lessonId ) ? $this->lessonManager->get( $gl->lessonId ) : null;
 			$title  = $lesson ? $lesson->topic : "Работа #{$sub->workId}";
 
+			// Агрегатная строка пакетной сдачи: score=correct, max_score=total → дробь.
+			// Per-task строки (task_id != null) не попадают в журнал отдельными строками.
+			$isBatchAggregate = null === $sub->taskId;
+			$displayType      = $isBatchAggregate ? 'fraction' : 'score';
+
 			$entries[] = new GradebookEntryDTO(
 				studentPersonId : $sub->studentPersonId,
 				groupId         : $gl ? $gl->groupId : 0,
@@ -43,6 +48,7 @@ class SubmissionGradeSource implements GradeSourceInterface {
 				score           : $sub->score,
 				maxScore        : $sub->maxScore,
 				gradedAt        : $sub->gradedAt,
+				displayType     : $displayType,
 			);
 		}
 		return $entries;

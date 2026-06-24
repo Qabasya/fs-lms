@@ -4,26 +4,51 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Assessment;
 
+use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\ScoringPolicy;
 use Inc\Services\Subject\PostTypeResolver;
 
 readonly class AssessmentDTO {
 
 	public function __construct(
-		public int           $id,
-		public string        $subjectKey,
-		public string        $title,
-		public array         $taskIds,
-		public int           $timeLimit,
-		public int           $attemptsAllowed,
-		public float         $passScore,
-		public bool          $shuffle,
-		public ScoringPolicy $scoringPolicy,
-		public string        $status,
+		public int            $id,
+		public string         $subjectKey,
+		public string         $title,
+		public array          $taskIds,
+		public int            $timeLimit,
+		public int            $attemptsAllowed,
+		public float          $passScore,
+		public ScoringPolicy  $scoringPolicy,
+		public string         $status,
+		public AssessmentKind $kind,
+		/** @var array<int, float> task_id => points (empty = all tasks weight 1) */
+		public array          $taskPoints,
+		/** @var array<int, int> primary_score => secondary_score */
+		public array          $scoreMap,
 	) {}
 
 	public static function fromPost( \WP_Post $post, array $meta ): self {
 		$policy = ScoringPolicy::tryFrom( (string) ( $meta['scoring_policy'] ?? '' ) ) ?? ScoringPolicy::Highest;
+		$kind   = AssessmentKind::fromValueOrDefault( (string) ( $meta['kind'] ?? '' ) );
+
+		$taskPoints = [];
+		if ( ! empty( $meta['task_points'] ) && is_array( $meta['task_points'] ) ) {
+			foreach ( $meta['task_points'] as $taskId => $points ) {
+				$taskPoints[ (int) $taskId ] = (float) $points;
+			}
+		}
+
+		$rawScoreMap = $meta['score_map'] ?? [];
+		if ( is_string( $rawScoreMap ) && $rawScoreMap !== '' ) {
+			$decoded     = json_decode( $rawScoreMap, true );
+			$rawScoreMap = is_array( $decoded ) ? $decoded : [];
+		}
+		$scoreMap = [];
+		if ( is_array( $rawScoreMap ) ) {
+			foreach ( $rawScoreMap as $primary => $secondary ) {
+				$scoreMap[ (int) $primary ] = (int) $secondary;
+			}
+		}
 
 		return new self(
 			id              : $post->ID,
@@ -33,9 +58,23 @@ readonly class AssessmentDTO {
 			timeLimit       : (int) ( $meta['time_limit_minutes'] ?? 0 ),
 			attemptsAllowed : (int) ( $meta['max_attempts'] ?? 0 ),
 			passScore       : (float) ( $meta['pass_score'] ?? 0 ),
-			shuffle         : (bool) ( $meta['shuffle'] ?? false ),
 			scoringPolicy   : $policy,
 			status          : $post->post_status,
+			kind            : $kind,
+			taskPoints      : $taskPoints,
+			scoreMap        : $scoreMap,
 		);
+	}
+
+	/**
+	 * Максимальный первичный балл с учётом весов заданий.
+	 * Для Control (вес = 1 на задание) = count(taskIds).
+	 */
+	public function maxPrimary(): float {
+		if ( ! $this->kind->usesWeightedScore() || empty( $this->taskPoints ) ) {
+			return (float) count( $this->taskIds );
+		}
+
+		return array_sum( $this->taskPoints );
 	}
 }

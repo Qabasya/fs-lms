@@ -18,6 +18,7 @@ use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Services\Course\BatchCheckService;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\LessonAccessPolicy;
 use Inc\Services\Course\SubmissionService;
@@ -32,6 +33,7 @@ class SubmissionServiceTest extends TestCase {
 	private MediaManager&\PHPUnit\Framework\MockObject\MockObject $mediaManager;
 	private LessonAccessPolicy&\PHPUnit\Framework\MockObject\MockObject $policy;
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
+	private BatchCheckService&\PHPUnit\Framework\MockObject\MockObject $batchChecker;
 	private ClockInterface&\PHPUnit\Framework\MockObject\MockObject $clock;
 	private SubmissionService $service;
 
@@ -43,6 +45,7 @@ class SubmissionServiceTest extends TestCase {
 		$this->workManager  = $this->createMock( WorkManager::class );
 		$this->mediaManager = $this->createMock( MediaManager::class );
 		$this->policy       = $this->createMock( LessonAccessPolicy::class );
+		$this->batchChecker = $this->createMock( BatchCheckService::class );
 		$this->dispatcher   = $this->createMock( LogEventDispatcherInterface::class );
 		$this->clock        = $this->createMock( ClockInterface::class );
 		$this->clock->method( 'now' )->willReturn( '2024-06-01 12:00:00' );
@@ -54,6 +57,7 @@ class SubmissionServiceTest extends TestCase {
 			$this->workManager,
 			$this->mediaManager,
 			$this->policy,
+			$this->batchChecker,
 			$this->dispatcher,
 			$this->clock,
 		);

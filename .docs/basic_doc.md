@@ -5030,6 +5030,175 @@ $this->map = [
 
 ---
 
+## Типы работ и контрольных (Этап 7): WorkType, AssessmentKind, пакетная сдача, грейдбук
+
+Этот раздел описывает механику пакетной сдачи работ, типы контрольных с их ограничениями и способы настройки.
+
+### WorkType — тип работы
+
+Enum `Inc\Enums\Course\WorkType` определяет характер работы. Тип задаётся на самой работе (`{key}_works`, мета `work_type`) и снапшотируется в `submissions.work_type` при сдаче.
+
+```php
+enum WorkType: string {
+    case Practice    = 'practice';    // Практика
+    case Independent = 'independent'; // Самостоятельная работа
+    case Homework    = 'homework';    // Домашнее задание
+}
+```
+
+**Как установить тип:** в `AssessmentTemplate` (метабокс работы в WP-админке) есть select-поле `work_type`. Значение читается через `WorkType::fromValueOrDefault()` при построении `WorkDTO`. Тип влияет на то, как журнал оценок категоризирует сдачи и влияет ли дедлайн из `group_lessons.homework_due_at`.
+
+---
+
+### AssessmentKind — тип контрольной
+
+Enum `Inc\Enums\Assessment\AssessmentKind` определяет режим контрольной. Задаётся в метабоксе контрольной через `AssessmentKindField` (select `kind`).
+
+```php
+enum AssessmentKind: string {
+    case Control     = 'control';       // Контрольная (по умолчанию)
+    case Ege         = 'ege';           // ЕГЭ-вариант
+    case EgeComputer = 'ege_computer';  // Компьютерный ЕГЭ
+}
+```
+
+**Предикаты (методы enum) и что они включают:**
+
+| Метод | Control | Ege | EgeComputer | Что происходит |
+|---|---|---|---|---|
+| `locksContent()` | ✓ | ✓ | ✓ | `ExamLockService` блокирует весь контент ученика через `LessonGateResolver` |
+| `hidesAnswers()` | ✓ | ✓ | ✓ | `ExamPayloadFilter` вырезает правильные ответы из payload плеера |
+| `answersOnly()` | ✓ | ✓ | ✓ | Убираются `task_code`, `solution_text`, `explanation` |
+| `usesWeightedScore()` | — | ✓ | ✓ | Каждое задание имеет `task_points[id]` баллов |
+| `needsSecondaryScore()` | — | ✓ | ✓ | В журнале показывается вторичный балл из `score_map` |
+| `expandsComposites()` | — | ✓ | ✓ | `ThreeInOne` → три отдельных под-задания `19`/`20`/`21` |
+| `needsCompletenessCheck()` | — | ✓ | ✓ | `EgeCompletenessChecker` предупреждает о не покрытых номерах заданий |
+
+Использование в коде — всегда через предикат, не через `match`:
+```php
+if ( $kind->usesWeightedScore() ) { /* взвешенные баллы */ }
+if ( $kind->needsSecondaryScore() ) { $secondary = $scoreMapSvc->translate(...); }
+```
+
+---
+
+### Пакетная сдача работы
+
+`SubmissionService::submitBatch($studentPersonId, $groupLessonId, $workId, $answers, $taskPoints)`:
+
+1. Проверяет доступ ученика через `LessonAccessPolicy`.
+2. Загружает работу (`WorkDTO`) — берёт `work_type`, `item_ids`.
+3. Вызывает `BatchCheckService::check($answers, $taskPoints, $kind)`:
+   - Для каждого задания получает `WP_Post` → `TemplateResolver::resolveEnum()` → нужный `TaskCheckerInterface`.
+   - Если `kind->expandsComposites()` и шаблон реализует `expandsForExam()` → разворачивает `ThreeInOne` в три под-ключа `"taskId:19"`.
+   - Задания без регистрированного чекера (Code, File) → `hasManual = true`, вердикт `pending`.
+4. Создаёт `task_id IS NOT NULL` строки в `submissions` — по одной на задание.
+5. Создаёт/обновляет агрегат (`task_id IS NULL`): `score = correctCount`, `max_score = totalCount`.
+6. Статус агрегата: `pending_review` если `hasManual`, иначе `submitted`.
+
+**Ручная оценка задания** (`GradeBatchTask`):
+
+```
+POST ajax: action=grade_batch_task
+  submission_id, score, feedback, security
+```
+
+`BatchSubmissionCallbacks::ajaxGradeBatchTask()` → `SubmissionService::gradeBatchTask()`:
+- Обновляет пер-тасковую строку в `graded`.
+- Пересчитывает агрегат: если все пер-тасковые `graded` → агрегат переходит в `graded`.
+
+---
+
+### Таблица перевода баллов ЕГЭ (score_map)
+
+Только для `kind->needsSecondaryScore() === true` (Ege, EgeComputer).
+
+**Как настроить score_map в UI:**
+
+1. Скопировать таблицу перевода из ФИПИ или Excel (любой разделитель: таб, `;`, `,` или двойной пробел).
+2. Вставить в поле `score_map` на странице редактирования контрольной.
+3. Нажать «Разобрать» → AJAX `parse_score_map` → `ScoreMapParser::parse()` вернёт массив `{primary: secondary}`.
+4. Или нажать «Скопировать из другой работы» → AJAX `copy_score_map` → `ScoreMapCallbacks::ajaxCopyScoreMap()` скопирует таблицу из выбранной ЕГЭ-работы.
+
+**`ScoreMapParser::parse($text)`** — принимает двухколоночный текст:
+- Строки разделены `\n` или `\r\n`.
+- Пары — таб, `;`, `,` или два и более пробела.
+- Нечисловые строки-заголовки игнорируются.
+- Возвращает `array<int, int>` primary → secondary, отсортированный по ключу.
+
+**`SecondaryScoreService::translate($primary, $scoreMap)`:**
+- `floor($primary)` → ищет точный ключ.
+- Нет точного → ближайший меньший ключ.
+- Нет покрытия (балл ниже минимума таблицы) → `null`.
+
+---
+
+### Блокировка контента во время экзамена
+
+`ExamLockService` (`Inc\Services\Assessment\ExamLockService`):
+
+```php
+$svc->isLocked($studentPersonId);              // bool
+$svc->getActiveLockingAttempt($studentPersonId); // ?AttemptDTO
+```
+
+Работает так:
+1. `AssessmentAttemptRepository::findAnyActive($personId)` — ищет любую `in_progress` и не просроченную попытку.
+2. Загружает `AssessmentDTO` для этой попытки.
+3. Если `$assessment->kind->locksContent() === true` → ученик заблокирован.
+
+`LessonGateResolver::resolveLesson()` вызывает `ExamLockService` **первым** (до проверки даты и прогресса). Пока блокировка активна → любой урок возвращает `GateState::Locked`.
+
+---
+
+### Журнал оценок: displayType
+
+`GradebookEntryDTO` (возвращается из `ajaxGetGradebook`) содержит поле `display_type` и готовое значение `display_value`:
+
+| `display_type` | Когда | `display_value` |
+|---|---|---|
+| `fraction` | Агрегат пакетной сдачи работы | `"5/8"` (correct/total) |
+| `score` | Экзамен с выставленной оценкой; для ЕГЭ — вторичный балл | `"72"` |
+| `pending` | Попытка сдана, ждёт ручной проверки | `"На проверке"` |
+
+В JS нет смысла самостоятельно форматировать — использовать `display_value` напрямую.
+
+---
+
+### Как добавить собственный плеер для типа контрольной
+
+Используется фильтр `AssessmentPageController::RENDERER_FILTER` = `'fs_lms_assessment_renderer'`.
+
+```php
+// В своём ServiceInterface::register():
+add_filter( 'fs_lms_assessment_renderer', [ $this, 'resolveRenderer' ], 10, 3 );
+
+public function resolveRenderer( string $default, string $kind, string $subjectKey ): string {
+    if ( $kind !== 'my_kind' ) { return $default; }
+    return plugin_dir_path( __FILE__ ) . 'templates/my-player.php';
+}
+```
+
+Шаблон получает те же переменные, что и `attempt.php`:
+- `$assessment` — `AssessmentDTO`
+- `$activeAttempt` — `AttemptDTO|null`
+- `$person` — `PersonDTO|null`
+
+Если возвращённый файл не существует — автоматически откат к `attempt.php`.
+
+Эталон реализации — `Inc\Modules\EgeComputer\EgeComputerModule` (флаг `FS_LMS_EGE_COMPUTER`).
+
+---
+
+### Как добавить новый тип контрольной (расширение AssessmentKind)
+
+1. Добавить case в `AssessmentKind` с нужными предикатами.
+2. Добавить `label()` и `options()` подхватят автоматически.
+3. Если нужен отдельный плеер — создать модуль в `Inc\Modules\`, зарегистрировать его в `Init::getServices()`, внутри `register()` подписаться на `fs_lms_assessment_renderer`.
+4. Если нужна отдельная проверка — реализовать логику в `BatchCheckService::check()` через предикаты нового вида.
+
+---
+
 Данная документация описывает архитектуру плагина FS LMS, включая:
 
 - **DI контейнер** для автоматического внедрения зависимостей
@@ -5053,5 +5222,6 @@ $this->map = [
 - **Систему обучения (Этапы 1–4)** — банки контента в CPT (работы/уроки/курсы/контрольные + глобальные задачи), факты обучения в кастомных таблицах (программа группы, сдачи, попытки, лента событий), переиспользование по ссылке, copy-on-publish, матрицу доступа и расширяемый журнал оценок
 - **Систему обучения (MVP-2 «Курсы»)** — модель шагов урока (`steps[]`) и модулей курса (`modules[]`), SPA-конструктор курса, пошаговый плеер ученика с прогрессом и гейтингом, клонирование/форк контента и (бэкенд) календарь занятий
 - **Типы задач (Этап 6)** — 13 типов заданий (`TaskTemplate`), data-driven inline-редактор в конструкторе курса (`TaskEditor`), автопроверщики per-type (`TaskCheckerRegistry`, `CheckResultDTO`), двухуровневые настройки шага (`EffectiveStepSettingsService`), история попыток для преподавателя в кокпите группы
+- **Типы работ и контрольных (Этап 7)** — `WorkType` (practice/independent/homework) и их статусы сдачи; `AssessmentKind` (control/ege/ege_computer) с поведенческими предикатами (`locksContent`, `hidesAnswers`, `usesWeightedScore`, `needsSecondaryScore`, `expandsComposites`); пакетная сдача (`BatchCheckService`, агрегатные и пер-тасковые строки); таблица перевода первичный→вторичный (`ScoreMapParser`, `SecondaryScoreService`); блокировка контента во время экзамена (`ExamLockService`, `LessonGateResolver`); журнал оценок с `displayType` (fraction/score/pending); подключение кастомного плеера через фильтр `fs_lms_assessment_renderer`
 
 Все компоненты следуют принципам **SOLID** и используют паттерны проектирования для обеспечения поддерживаемости и расширяемости кода.

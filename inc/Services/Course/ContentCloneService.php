@@ -109,12 +109,14 @@ class ContentCloneService {
 
 		if ( $newId > 0 ) {
 			$this->posts->updateMeta( $newId, PostMetaName::Meta->value, array(
-				'task_ids'            => $assessment->taskIds,
-				'time_limit_minutes'  => $assessment->timeLimit,
-				'max_attempts'        => $assessment->attemptsAllowed,
-				'pass_score'          => $assessment->passScore,
-				'shuffle'             => $assessment->shuffle,
-				'scoring_policy'      => $assessment->scoringPolicy->value,
+				'kind'               => $assessment->kind->value,
+				'task_ids'           => $assessment->taskIds,
+				'time_limit_minutes' => $assessment->timeLimit,
+				'max_attempts'       => $assessment->attemptsAllowed,
+				'pass_score'         => $assessment->passScore,
+				'scoring_policy'     => $assessment->scoringPolicy->value,
+				'task_points'        => $assessment->taskPoints,
+				'score_map'          => $assessment->scoreMap,
 			) );
 		}
 

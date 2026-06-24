@@ -191,6 +191,14 @@ enum AjaxHook: string {
 	case GetMySubmissions    = 'get_my_submissions';
 	case GetGradebook        = 'get_gradebook';
 
+	// ==== Пакетная сдача / ручная оценка (Этап 7) ====
+	case SubmitBatchWork = 'submit_batch_work'; // params: group_lesson_id, work_id, answers (JSON)
+	case GradeBatchTask  = 'grade_batch_task';  // params: submission_id, score, feedback
+
+	// ==== Таблица перевода ЕГЭ (Этап 7, T7.16) ====
+	case ParseScoreMap  = 'parse_score_map';   // params: text (сырой текст из Excel/Word)
+	case CopyScoreMap   = 'copy_score_map';    // params: source_assessment_id, target_assessment_id
+
 	// ==== Программа группы (Этап 2) ====
 	case AssignCourse            = 'assign_course';
 	case AddLessonToProgram      = 'add_lesson_to_program';

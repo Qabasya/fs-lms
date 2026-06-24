@@ -67,6 +67,21 @@ class ThreeInOneTemplate extends BaseTemplate {
 	}
 
 	/**
+	 * В режиме ЕГЭ-экзамена разворачивается в три отдельно оцениваемых задания (T7.12).
+	 * Каждое задание — условие + поле ответа + собственный балл из task_points.
+	 * task_code в экзамене не отображается (ExamPayloadFilter убирает его ранее).
+	 *
+	 * @return array{key: string, condition_field: string, answer_field: string}[]
+	 */
+	public function expandsForExam(): array {
+		return [
+			[ 'key' => '19', 'condition_field' => 'task_19_condition', 'answer_field' => 'task_19_answer' ],
+			[ 'key' => '20', 'condition_field' => 'task_20_condition', 'answer_field' => 'task_20_answer' ],
+			[ 'key' => '21', 'condition_field' => 'task_21_condition', 'answer_field' => 'task_21_answer' ],
+		];
+	}
+
+	/**
 	 * Переопределяем родительский render, сохраняя логику получения данных
 	 * TODO: вынести отсюда html и стили
 	 */

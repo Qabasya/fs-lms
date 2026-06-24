@@ -10,6 +10,7 @@ use Inc\DTO\Course\LessonDTO;
 use Inc\Enums\Course\GateState;
 use Inc\Enums\Course\ProgressStatus;
 use Inc\Managers\Course\LessonManager;
+use Inc\Services\Assessment\ExamLockService;
 use Inc\Services\Course\LessonAccessPolicy;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonProgressService;
@@ -20,16 +21,19 @@ class LessonGateResolverTest extends TestCase {
 	private LessonProgressService $progress;
 	private LessonManager         $lessons;
 	private LessonAccessPolicy    $access;
+	private ExamLockService       $examLock;
 	private ClockInterface        $clock;
 	private LessonGateResolver    $resolver;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->progress = $this->createMock( LessonProgressService::class );
-		$this->lessons  = $this->createMock( LessonManager::class );
-		$this->access   = $this->createMock( LessonAccessPolicy::class );
-		$this->clock    = $this->createMock( ClockInterface::class );
-		$this->resolver = new LessonGateResolver( $this->progress, $this->lessons, $this->access, $this->clock );
+		$this->progress  = $this->createMock( LessonProgressService::class );
+		$this->lessons   = $this->createMock( LessonManager::class );
+		$this->access    = $this->createMock( LessonAccessPolicy::class );
+		$this->examLock  = $this->createMock( ExamLockService::class );
+		$this->clock     = $this->createMock( ClockInterface::class );
+		$this->examLock->method( 'isLocked' )->willReturn( false );
+		$this->resolver  = new LessonGateResolver( $this->progress, $this->lessons, $this->access, $this->examLock, $this->clock );
 		$this->clock->method( 'now' )->willReturn( '2024-06-01 00:00:00' );
 	}
 

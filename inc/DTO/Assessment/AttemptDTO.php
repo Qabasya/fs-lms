@@ -32,6 +32,14 @@ readonly class AttemptDTO {
 		return $this->deadlineAt < $now;
 	}
 
+	/** Фактическое время решения в секундах (null — пока не сдана). */
+	public function actualDurationSeconds(): ?int {
+		if ( null === $this->submittedAt ) {
+			return null;
+		}
+		return (int) ( strtotime( $this->submittedAt ) - strtotime( $this->startedAt ) );
+	}
+
 	public static function fromArray( array $row ): self {
 		return new self(
 			id              : (int) $row['id'],

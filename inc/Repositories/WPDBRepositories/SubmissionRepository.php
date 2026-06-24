@@ -133,4 +133,34 @@ class SubmissionRepository {
 		);
 		return array_map( [ SubmissionDTO::class, 'fromArray' ], $rows ?: array() );
 	}
+
+	/** @return SubmissionDTO[] Per-task строки пакетной сдачи (task_id IS NOT NULL). */
+	public function listPerTaskByStudentWorkLesson( int $studentPersonId, int $groupLessonId, int $workId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE student_person_id = %d AND group_lesson_id = %d AND work_id = %d AND task_id IS NOT NULL',
+				$this->table,
+				$studentPersonId,
+				$groupLessonId,
+				$workId
+			),
+			ARRAY_A
+		);
+		return array_map( [ SubmissionDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
+	/** Агрегатная строка пакетной сдачи (task_id IS NULL). */
+	public function findAggregate( int $studentPersonId, int $groupLessonId, int $workId ): ?SubmissionDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE student_person_id = %d AND group_lesson_id = %d AND work_id = %d AND task_id IS NULL LIMIT 1',
+				$this->table,
+				$studentPersonId,
+				$groupLessonId,
+				$workId
+			),
+			ARRAY_A
+		);
+		return $row ? SubmissionDTO::fromArray( $row ) : null;
+	}
 }
