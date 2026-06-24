@@ -3,28 +3,39 @@
  * OptionsField, PairsField, OrderItemsField, AudioField.
  */
 
+import { renderFieldError } from '../../common/validation-manager.js';
+
 export const TaskFields = {
 
-	init() {
-		if ( ! document.querySelector( '.fs-task-options-field, .fs-task-pairs-field, .fs-task-order-field, .fs-task-audio-field' ) ) {
+	/**
+	 * @param {ParentNode} [root=document] Контейнер для привязки — метабокс (document)
+	 *                                     или контейнер модалки-редактора задач.
+	 */
+	init( root = document ) {
+		if ( ! root.querySelector( '.fs-task-options-field, .fs-task-pairs-field, .fs-task-order-field, .fs-task-audio-field' ) ) {
 			return;
 		}
-		this.bindOptions();
-		this.bindPairs();
-		this.bindOrder();
-		this.bindAudio();
+		this.bindOptions( root );
+		this.bindPairs( root );
+		this.bindOrder( root );
+		this.bindAudio( root );
 	},
 
 	// ── Варианты ответа ──────────────────────────────────────────────────────
 
-	bindOptions() {
-		document.querySelectorAll( '.fs-task-options-field' ).forEach( ( wrap ) => {
+	bindOptions( root = document ) {
+		root.querySelectorAll( '.fs-task-options-field' ).forEach( ( wrap ) => {
 			const list = wrap.querySelector( '.fs-task-options__list' );
 			const tpl  = wrap.querySelector( '.js-options-tpl' );
 			const add  = wrap.querySelector( '.js-options-add' );
 			const mode = wrap.querySelector( '.js-options-multiple' );
 
 			if ( ! list || ! tpl || ! add ) return;
+
+			const checkDup = () => this.checkDuplicates(
+				list.querySelectorAll( '.js-option-text' ),
+				'Вариант повторяется'
+			);
 
 			add.addEventListener( 'click', () => {
 				const idx  = list.querySelectorAll( '.fs-task-options__item' ).length;
@@ -38,7 +49,12 @@ export const TaskFields = {
 				if ( e.target.closest( '.js-options-remove' ) ) {
 					e.target.closest( '.fs-task-options__item' ).remove();
 					this.reindexList( list, '.fs-task-options__item', '[name]', 'options' );
+					checkDup();
 				}
+			} );
+
+			list.addEventListener( 'input', ( e ) => {
+				if ( e.target.classList.contains( 'js-option-text' ) ) { checkDup(); }
 			} );
 
 			if ( mode ) {
@@ -49,18 +65,32 @@ export const TaskFields = {
 					} );
 				} );
 			}
+
+			list.addEventListener( 'change', ( e ) => {
+				const input = e.target;
+				if ( input.classList.contains( 'js-option-correct' ) && input.type === 'radio' ) {
+					list.querySelectorAll( '.js-option-correct' ).forEach( ( el ) => {
+						if ( el !== input ) { el.checked = false; }
+					} );
+				}
+			} );
 		} );
 	},
 
 	// ── Пары ─────────────────────────────────────────────────────────────────
 
-	bindPairs() {
-		document.querySelectorAll( '.fs-task-pairs-field' ).forEach( ( wrap ) => {
+	bindPairs( root = document ) {
+		root.querySelectorAll( '.fs-task-pairs-field' ).forEach( ( wrap ) => {
 			const list = wrap.querySelector( '.fs-task-pairs__list' );
 			const tpl  = wrap.querySelector( '.js-pairs-tpl' );
 			const add  = wrap.querySelector( '.js-pairs-add' );
 
 			if ( ! list || ! tpl || ! add ) return;
+
+			const checkDup = () => {
+				this.checkDuplicates( list.querySelectorAll( '.js-pair-left' ), 'Левая плашка повторяется' );
+				this.checkDuplicates( list.querySelectorAll( '.js-pair-right' ), 'Правая плашка повторяется' );
+			};
 
 			add.addEventListener( 'click', () => {
 				const idx = list.querySelectorAll( '.fs-task-pairs__item' ).length;
@@ -74,40 +104,92 @@ export const TaskFields = {
 				if ( e.target.closest( '.js-pairs-remove' ) ) {
 					e.target.closest( '.fs-task-pairs__item' ).remove();
 					this.reindexList( list, '.fs-task-pairs__item', '[name]', 'pairs' );
+					checkDup();
 				}
+			} );
+
+			list.addEventListener( 'input', ( e ) => {
+				if ( e.target.classList.contains( 'js-pair-left' )
+					|| e.target.classList.contains( 'js-pair-right' ) ) { checkDup(); }
 			} );
 		} );
 	},
 
 	// ── Сортировка ───────────────────────────────────────────────────────────
 
-	bindOrder() {
-		document.querySelectorAll( '.fs-task-order-field' ).forEach( ( wrap ) => {
+	bindOrder( root = document ) {
+		root.querySelectorAll( '.fs-task-order-field' ).forEach( ( wrap ) => {
 			const list = wrap.querySelector( '.fs-task-order__list' );
 			const tpl  = wrap.querySelector( '.js-order-tpl' );
 			const add  = wrap.querySelector( '.js-order-add' );
 
 			if ( ! list || ! tpl || ! add ) return;
 
+			const checkDup = () => this.checkDuplicates(
+				list.querySelectorAll( '.js-order-text' ),
+				'Элемент повторяется'
+			);
+
+			let dragging = null;
+
+			const initItem = ( li ) => {
+				const handle = li.querySelector( '.fs-task-order__handle' );
+				if ( handle ) {
+					handle.addEventListener( 'mousedown', () => { li.draggable = true; } );
+					handle.addEventListener( 'mouseup',   () => { li.draggable = false; } );
+				}
+				li.addEventListener( 'dragstart', ( e ) => {
+					dragging = li;
+					e.dataTransfer.effectAllowed = 'move';
+					requestAnimationFrame( () => li.classList.add( 'fs-dragging' ) );
+				} );
+				li.addEventListener( 'dragend', () => {
+					li.draggable = false;
+					li.classList.remove( 'fs-dragging' );
+					dragging = null;
+				} );
+			};
+
+			list.addEventListener( 'dragover', ( e ) => {
+				e.preventDefault();
+				if ( ! dragging ) return;
+				const target = e.target.closest( '.fs-task-order__item' );
+				if ( ! target || target === dragging ) return;
+				const rect = target.getBoundingClientRect();
+				if ( e.clientY < rect.top + rect.height / 2 ) {
+					list.insertBefore( dragging, target );
+				} else {
+					list.insertBefore( dragging, target.nextSibling );
+				}
+			} );
+
+			list.querySelectorAll( '.fs-task-order__item' ).forEach( initItem );
+
 			add.addEventListener( 'click', () => {
 				const li = document.createElement( 'li' );
 				li.className = 'fs-task-order__item';
 				li.innerHTML = tpl.innerHTML;
 				list.appendChild( li );
+				initItem( li );
 			} );
 
 			list.addEventListener( 'click', ( e ) => {
 				if ( e.target.closest( '.js-order-remove' ) ) {
 					e.target.closest( '.fs-task-order__item' ).remove();
+					checkDup();
 				}
+			} );
+
+			list.addEventListener( 'input', ( e ) => {
+				if ( e.target.classList.contains( 'js-order-text' ) ) { checkDup(); }
 			} );
 		} );
 	},
 
 	// ── Аудио (WP media) ─────────────────────────────────────────────────────
 
-	bindAudio() {
-		document.querySelectorAll( '.fs-task-audio-field' ).forEach( ( wrap ) => {
+	bindAudio( root = document ) {
+		root.querySelectorAll( '.fs-task-audio-field' ).forEach( ( wrap ) => {
 			const idInput  = wrap.querySelector( '.js-audio-attachment-id' );
 			const preview  = wrap.querySelector( '.fs-task-audio__preview' );
 			const player   = wrap.querySelector( '.js-audio-player' );
@@ -148,6 +230,28 @@ export const TaskFields = {
 					removeBtn.style.display = 'none';
 				} );
 			}
+		} );
+	},
+
+	// ── Предупреждение о повторяющихся значениях ──────────────────────────────
+
+	checkDuplicates( inputs, message ) {
+		const seen  = new Map();
+		const dupes = new Set();
+
+		inputs.forEach( ( input ) => {
+			const value = input.value.trim().toLowerCase();
+			if ( ! value ) { return; }
+			if ( seen.has( value ) ) {
+				dupes.add( input );
+				dupes.add( seen.get( value ) );
+			} else {
+				seen.set( value, input );
+			}
+		} );
+
+		inputs.forEach( ( input ) => {
+			renderFieldError( input, dupes.has( input ) ? message : null );
 		} );
 	},
 

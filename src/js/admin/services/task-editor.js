@@ -1,14 +1,22 @@
 /**
- * task-editor.js — Unified inline task editor (Этап 6, Phase F).
- * jQuery object pattern. Schema from window.fs_lms_task_editor_vars.
+ * task-editor.js — Unified inline task editor (Этап 6, Phase F · путь A).
+ * jQuery object pattern.
  *
- * TaskEditor.init()        — вызвать один раз из admin.js
- * TaskEditor.openModal(opts) — открыть оверлей-редактор
+ * Источник истины полей — PHP `Fields/*`. Модалка НЕ строит поля в JS:
+ * она запрашивает готовый HTML шаблона (GetTaskEditorForm), навешивает на него
+ * общее поведение из {@link TaskFields} и отправляет поля как `fs_lms_meta[...]`
+ * — тем же путём, что и нативный метабокс.
  *
- * opts: { subjectKey, postId?, templateId?, data?, title?, onSave(id, title) }
+ * TaskEditor.init()           — вызвать один раз из admin.js
+ * TaskEditor.openModal(opts)  — открыть оверлей-редактор
+ *
+ * opts: { subjectKey, postId?, templateId?, title?, onSave(id, title) }
  */
 
-/* global jQuery, wp, fs_lms_task_editor_vars */
+import { showToast } from '../modules/toast.js';
+import { TaskFields } from './task-fields.js';
+
+/* global jQuery, fs_lms_task_editor_vars */
 const $ = jQuery;
 
 export const TaskEditor = {
@@ -27,7 +35,6 @@ export const TaskEditor = {
 			subjectKey,
 			postId     = 0,
 			templateId = null,
-			data       = {},
 			title      = '',
 			onSave,
 		} = opts;
@@ -67,14 +74,14 @@ export const TaskEditor = {
 		} );
 		$typeWrap.append( $select );
 
-		// — Поля
+		// — Поля (рендерятся PHP, грузятся по AJAX)
 		const $fieldsWrap = $( '<div class="fs-te-fields">' );
 
 		$body.append( $titleWrap, $typeWrap, $fieldsWrap );
 
 		// Footer
-		const $footer  = $( '<div class="fs-te-footer">' );
-		const $saveBtn = $( '<button type="button" class="button button-primary fs-te-save">Сохранить</button>' );
+		const $footer    = $( '<div class="fs-te-footer">' );
+		const $saveBtn   = $( '<button type="button" class="button button-primary fs-te-save">Сохранить</button>' );
 		const $cancelBtn = $( '<button type="button" class="button fs-te-cancel">Отмена</button>' );
 		$footer.append( $saveBtn, $cancelBtn );
 
@@ -83,14 +90,10 @@ export const TaskEditor = {
 		$( 'body' ).append( $overlay );
 		this._$overlay = $overlay;
 
-		// Render fields
-		const renderFields = () => {
-			const id     = $select.val();
-			const schema = schemas[ id ] || null;
-			this._renderFields( $fieldsWrap, schema, data );
-		};
-		renderFields();
-		$select.on( 'change', renderFields );
+		// Load fields for current template
+		const loadFields = () => this._loadFields( $fieldsWrap, $select.val(), subjectKey, postId );
+		loadFields();
+		$select.on( 'change', loadFields );
 
 		// Close handlers
 		const closeHandler = () => this._close();
@@ -107,10 +110,11 @@ export const TaskEditor = {
 				return;
 			}
 			$titleInput.removeClass( 'fs-te-input--error' );
-			const tId   = $select.val();
-			const fData = this._collectFields( $fieldsWrap, schemas[ tId ] );
+
+			// Поля сериализуются как fs_lms_meta[...] — тот же формат, что у метабокса.
+			const fieldParams = $fieldsWrap.find( 'input, select, textarea' ).serialize();
 			this._save(
-				{ subjectKey, postId, template: tId, title: t, data: fData },
+				{ subjectKey, postId, template: $select.val(), title: t, fieldParams },
 				onSave,
 				$saveBtn
 			);
@@ -127,273 +131,48 @@ export const TaskEditor = {
 		$( document ).off( 'keydown.fste' );
 	},
 
-	_renderFields( $wrap, schema, existingData ) {
-		$wrap.empty();
-		if ( ! schema ) { return; }
-		schema.fields.forEach( ( field ) => {
-			const $row = $( '<div class="fs-te-row">' ).append(
-				$( '<label class="fs-te-label">' ).text( field.label )
-			);
-			const val = existingData[ field.key ] ?? null;
+	/**
+	 * Грузит HTML полей шаблона из PHP и навешивает общее поведение TaskFields.
+	 */
+	_loadFields( $wrap, templateId, subjectKey, postId ) {
+		if ( ! this._vars ) { return; }
+		$wrap.html( '<div class="fs-te-loading">Загрузка…</div>' );
 
-			switch ( field.type ) {
-				case 'rich_text':
-				case 'text':
-					$row.append( this._fieldText( field, val ) );
-					break;
-				case 'options':
-					$row.append( this._fieldOptions( field, val ) );
-					break;
-				case 'pairs':
-					$row.append( this._fieldPairs( field, val ) );
-					break;
-				case 'order_items':
-					$row.append( this._fieldOrderItems( field, val ) );
-					break;
-				case 'gap_text':
-					$row.append( this._fieldGapText( field, val ) );
-					break;
-				case 'audio':
-					$row.append( this._fieldAudio( field, val ) );
-					break;
-				case 'hint':
-					$row.append( this._fieldHint( field, val ) );
-					break;
-				default:
-					$row.append( this._fieldText( field, val ) );
-			}
-			$wrap.append( $row );
-		} );
-	},
-
-	_fieldText( field, val ) {
-		const text = typeof val === 'string' ? val : '';
-		if ( 'rich_text' === field.type ) {
-			return $( '<textarea class="fs-te-textarea" rows="6">' )
-				.attr( 'data-field', field.key )
-				.val( text );
-		}
-		return $( '<input type="text" class="fs-te-input">' )
-			.attr( 'data-field', field.key )
-			.val( text );
-	},
-
-	_fieldOptions( field, val ) {
-		const parsed  = ( val && typeof val === 'object' ) ? val : {};
-		const multi   = !! parsed.multiple;
-		const options = Array.isArray( parsed.options ) ? parsed.options : [];
-
-		const uid   = `fste-${ field.key }-${ Date.now() }`;
-		const $wrap = $( '<div class="fs-te-options">' ).attr( 'data-field', field.key );
-		const $mode = $( '<div class="fs-te-options__mode">' );
-		const $chk  = $( '<input type="checkbox">' ).prop( 'id', uid ).prop( 'checked', multi );
-		$mode.append( $chk, $( '<label>' ).prop( 'for', uid ).text( 'Множественный выбор' ) );
-		$wrap.append( $mode );
-
-		const $list = $( '<ul class="fs-te-options__list">' );
-		options.forEach( ( opt, i ) => this._appendOptionRow( $list, field.key, opt, i, multi ) );
-		$wrap.append( $list );
-
-		const $add = $( '<button type="button" class="button fs-te-add-btn">+ Вариант</button>' );
-		$add.on( 'click', () => {
-			const idx = $list.children().length;
-			this._appendOptionRow( $list, field.key, {}, idx, $chk.prop( 'checked' ) );
-		} );
-		$wrap.append( $add );
-
-		$chk.on( 'change', () => {
-			const isMulti = $chk.prop( 'checked' );
-			$list.find( '.js-opt-correct' ).each( ( _, el ) => { el.type = isMulti ? 'checkbox' : 'radio'; } );
-		} );
-
-		return $wrap;
-	},
-
-	_appendOptionRow( $list, fieldKey, opt, idx, multi ) {
-		const $li  = $( '<li class="fs-te-options__item">' );
-		const $inp = $( `<input type="${ multi ? 'checkbox' : 'radio' }" class="js-opt-correct">` )
-			.attr( 'name', `fste-correct-${ fieldKey }` )
-			.prop( 'checked', !! opt.correct );
-		const $txt = $( '<input type="text" class="fs-te-input js-opt-text">' )
-			.val( opt.text || '' )
-			.attr( 'placeholder', 'Вариант ответа…' );
-		const $del = $( '<button type="button" class="fs-te-del-btn" aria-label="Удалить">&times;</button>' );
-		$del.on( 'click', () => $li.remove() );
-		$li.append( $inp, $txt, $del );
-		$list.append( $li );
-	},
-
-	_fieldPairs( field, val ) {
-		const parsed = ( val && typeof val === 'object' ) ? val : {};
-		const pairs  = Array.isArray( parsed.pairs ) ? parsed.pairs : [];
-
-		const $wrap = $( '<div class="fs-te-pairs">' ).attr( 'data-field', field.key );
-		const $list = $( '<ul class="fs-te-pairs__list">' );
-		pairs.forEach( ( p ) => this._appendPairRow( $list, p ) );
-		$wrap.append( $list );
-
-		const $add = $( '<button type="button" class="button fs-te-add-btn">+ Пара</button>' );
-		$add.on( 'click', () => this._appendPairRow( $list, {} ) );
-		$wrap.append( $add );
-		return $wrap;
-	},
-
-	_appendPairRow( $list, pair ) {
-		const $li = $( '<li class="fs-te-pairs__item">' );
-		$li.append(
-			$( '<input type="text" class="fs-te-input js-pair-left">' ).val( pair.left || '' ).attr( 'placeholder', 'Левая часть…' ),
-			$( '<span class="fs-te-arrow">→</span>' ),
-			$( '<input type="text" class="fs-te-input js-pair-right">' ).val( pair.right || '' ).attr( 'placeholder', 'Правая часть…' )
-		);
-		const $del = $( '<button type="button" class="fs-te-del-btn" aria-label="Удалить">&times;</button>' );
-		$del.on( 'click', () => $li.remove() );
-		$li.append( $del );
-		$list.append( $li );
-	},
-
-	_fieldOrderItems( field, val ) {
-		const parsed = ( val && typeof val === 'object' ) ? val : {};
-		const items  = Array.isArray( parsed.items ) ? parsed.items : [];
-
-		const $wrap = $( '<div class="fs-te-order">' ).attr( 'data-field', field.key );
-		const $list = $( '<ul class="fs-te-order__list">' );
-		items.forEach( ( text ) => this._appendOrderRow( $list, text ) );
-		$wrap.append( $list );
-
-		const $add = $( '<button type="button" class="button fs-te-add-btn">+ Элемент</button>' );
-		$add.on( 'click', () => this._appendOrderRow( $list, '' ) );
-		$wrap.append( $add );
-		return $wrap;
-	},
-
-	_appendOrderRow( $list, text ) {
-		const $li = $( '<li class="fs-te-order__item">' );
-		$li.append(
-			$( '<span class="fs-te-grip" aria-hidden="true">⠿</span>' ),
-			$( '<input type="text" class="fs-te-input js-order-text">' ).val( text ).attr( 'placeholder', 'Элемент…' )
-		);
-		const $del = $( '<button type="button" class="fs-te-del-btn" aria-label="Удалить">&times;</button>' );
-		$del.on( 'click', () => $li.remove() );
-		$li.append( $del );
-		$list.append( $li );
-	},
-
-	_fieldGapText( field, val ) {
-		const parsed = ( val && typeof val === 'object' ) ? val : {};
-		const text   = parsed.text || '';
-		const $wrap  = $( '<div>' ).attr( 'data-field', field.key );
-		$wrap.append(
-			$( '<textarea class="fs-te-textarea" rows="4">' )
-				.attr( 'placeholder', 'Текст с [[правильный ответ]] или [[a|b]] для пропусков…' )
-				.val( text ),
-			$( '<p class="description">' ).text( 'Пропуски: [[ответ]] или [[a|b]] для нескольких вариантов.' )
-		);
-		return $wrap;
-	},
-
-	_fieldAudio( field, val ) {
-		const parsed = ( val && typeof val === 'object' ) ? val : {};
-		const attId  = parseInt( parsed.attachment_id, 10 ) || 0;
-		const $wrap  = $( '<div class="fs-te-audio">' ).attr( 'data-field', field.key );
-		const $id    = $( '<input type="hidden" class="js-audio-id">' ).val( attId );
-		const $name  = $( '<span class="fs-te-audio__name">' ).text( attId ? `Файл ID: ${ attId }` : 'Не выбран' );
-		const $pick  = $( '<button type="button" class="button">Выбрать аудио</button>' );
-		$pick.on( 'click', () => {
-			if ( ! wp || ! wp.media ) { return; }
-			const frame = wp.media( {
-				title:   'Выбрать аудио',
-				button:  { text: 'Выбрать' },
-				library: { type: 'audio' },
-				multiple: false,
+		$.post( this._vars.ajax_url, {
+			action:      this._vars.actions.getTaskEditorForm,
+			security:    this._vars.nonces.taskContent,
+			subject_key: subjectKey,
+			template:    templateId,
+			post_id:     postId || 0,
+		} )
+			.done( ( res ) => {
+				if ( res && res.success ) {
+					$wrap.html( res.data.html );
+					TaskFields.init( $wrap[ 0 ] );
+				} else {
+					$wrap.html( '<div class="fs-te-loading">Не удалось загрузить поля.</div>' );
+				}
+			} )
+			.fail( () => {
+				$wrap.html( '<div class="fs-te-loading">Ошибка сети.</div>' );
 			} );
-			frame.on( 'select', () => {
-				const att = frame.state().get( 'selection' ).first().toJSON();
-				$id.val( att.id );
-				$name.text( att.filename || att.title || `Файл ID: ${ att.id }` );
-			} );
-			frame.open();
-		} );
-		$wrap.append( $id, $name, $pick );
-		return $wrap;
 	},
 
-	_fieldHint( field, val ) {
-		const text = typeof val === 'string' ? val : '';
-		return $( '<textarea class="fs-te-textarea" rows="3">' )
-			.attr( 'data-field', field.key )
-			.attr( 'placeholder', 'Подсказка для ученика (необязательно)…' )
-			.val( text );
-	},
-
-	_collectFields( $wrap, schema ) {
-		const result = {};
-		if ( ! schema ) { return result; }
-
-		schema.fields.forEach( ( field ) => {
-			switch ( field.type ) {
-				case 'options': {
-					const $f      = $wrap.find( `[data-field="${ field.key }"]` );
-					const multi   = $f.find( 'input[type="checkbox"][id^="fste-"]' ).prop( 'checked' );
-					const options = [];
-					$f.find( '.fs-te-options__item' ).each( ( i, li ) => {
-						const $li = $( li );
-						options.push( {
-							id:      i,
-							text:    $li.find( '.js-opt-text' ).val().trim(),
-							correct: $li.find( '.js-opt-correct' ).prop( 'checked' ),
-						} );
-					} );
-					result[ field.key ] = { multiple: !! multi, options };
-					break;
-				}
-				case 'pairs': {
-					const pairs = [];
-					$wrap.find( `[data-field="${ field.key }"] .fs-te-pairs__item` ).each( ( _, li ) => {
-						const $li = $( li );
-						pairs.push( { left: $li.find( '.js-pair-left' ).val().trim(), right: $li.find( '.js-pair-right' ).val().trim() } );
-					} );
-					result[ field.key ] = { pairs };
-					break;
-				}
-				case 'order_items': {
-					const items = [];
-					$wrap.find( `[data-field="${ field.key }"] .js-order-text` ).each( ( _, el ) => {
-						const v = $( el ).val().trim();
-						if ( v ) { items.push( v ); }
-					} );
-					result[ field.key ] = { items };
-					break;
-				}
-				case 'gap_text': {
-					result[ field.key ] = { text: $wrap.find( `[data-field="${ field.key }"] textarea` ).val() };
-					break;
-				}
-				case 'audio': {
-					result[ field.key ] = { attachment_id: parseInt( $wrap.find( `[data-field="${ field.key }"] .js-audio-id` ).val(), 10 ) || 0 };
-					break;
-				}
-				default: {
-					result[ field.key ] = $wrap.find( `[data-field="${ field.key }"]` ).val() || '';
-					break;
-				}
-			}
-		} );
-		return result;
-	},
-
-	_save( { subjectKey, postId, template, title, data }, onSave, $btn ) {
+	_save( { subjectKey, postId, template, title, fieldParams }, onSave, $btn ) {
 		if ( ! this._vars ) { return; }
 		$btn.prop( 'disabled', true ).text( 'Сохранение…' );
 
-		$.post( this._vars.ajax_url, {
+		const scalars = $.param( {
 			action:      this._vars.actions.saveTaskContent,
 			security:    this._vars.nonces.taskContent,
 			subject_key: subjectKey,
 			template,
 			title,
 			post_id:     postId || 0,
-			data:        JSON.stringify( data ),
-		} )
+		} );
+		const body = fieldParams ? `${ scalars }&${ fieldParams }` : scalars;
+
+		$.post( this._vars.ajax_url, body )
 			.done( ( res ) => {
 				if ( res && res.success ) {
 					this._close();
@@ -402,14 +181,12 @@ export const TaskEditor = {
 					}
 				} else {
 					$btn.prop( 'disabled', false ).text( 'Сохранить' );
-					// eslint-disable-next-line no-alert
-					alert( res?.data?.message || 'Ошибка сохранения' );
+					showToast( res?.data?.message || 'Ошибка сохранения', 'error' );
 				}
 			} )
 			.fail( () => {
 				$btn.prop( 'disabled', false ).text( 'Сохранить' );
-				// eslint-disable-next-line no-alert
-				alert( 'Ошибка сети. Попробуйте ещё раз.' );
+				showToast( 'Ошибка сети. Попробуйте ещё раз.', 'error' );
 			} );
 	},
 };

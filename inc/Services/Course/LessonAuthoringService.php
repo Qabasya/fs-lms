@@ -163,11 +163,19 @@ class LessonAuthoringService {
 	/**
 	 * Создаёт черновик-пост указанного CPT с одним заголовком.
 	 */
-	private function createDraft( string $postType, string $title ): int {
+	/**
+	 * Черновик задачи в глобальном банке задач (fs_lms_problems) для контрольной.
+	 * Не привязан к предмету, не появляется в «Задания предмета».
+	 */
+	public function createPrivateTaskDraft( string $subjectKey, string $title ): int {
+		return $this->createDraft( PostTypeResolver::problems(), $title, 'draft' );
+	}
+
+	private function createDraft( string $postType, string $title, string $status = 'draft' ): int {
 		return $this->posts->insert( array(
 			'post_title'  => '' !== $title ? $title : 'Черновик',
 			'post_type'   => $postType,
-			'post_status' => 'draft',
+			'post_status' => $status,
 			'post_author' => get_current_user_id(),
 		) );
 	}

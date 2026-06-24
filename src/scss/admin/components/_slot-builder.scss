@@ -1,0 +1,153 @@
+@use '../variables' as *;
+
+// ══════════════════════════════════════════════════════════════
+//  Slot Builder — общий конструктор «список слотов-задач».
+//  Поверхности: метабокс работы (.fs-lms-work-builder) и
+//  контрольной (.fs-lms-assessment-builder), обёрнутые в .fs-sb-wrap.
+//  Собственный неймспейс fs-sb-* — независим от course/assessment CSS.
+//  Геометрия унаследована от course-builder (тот же визуальный язык);
+//  цвета/отступы — токены _variables.
+// ══════════════════════════════════════════════════════════════
+
+.fs-sb-wrap {
+
+	// ── two-pane builder ──
+	.fs-sb-builder {
+		display: grid;
+		grid-template-columns: 320px 1fr;
+		background: $color-bg-modal;
+		border: 1px solid $wp-admin-gray-bg;
+		box-shadow: $shadow-cb-builder;
+		border-radius: $border-radius-l;
+		overflow: hidden;
+		min-height: 640px;
+	}
+
+	// ── LEFT: список слотов ──
+	.fs-sb-tree {
+		border-right: 1px solid $wp-admin-gray-bg;
+		background: $cb-bg-tree;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+	.fs-sb-tree-head {
+		padding: $spacing-md 14px;
+		border-bottom: 1px solid $wp-admin-gray-bg;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+
+		.fs-sb-th-title { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; }
+		.fs-sb-th-count { font-size: 11px; color: $color-secondary-hover; }
+	}
+	.fs-sb-tree-scroll { flex: 1; overflow-y: auto; padding: $spacing-sm $spacing-sm $spacing-xs; }
+	.fs-sb-tree-add {
+		border-top: 1px solid $wp-admin-gray-bg;
+		padding: $spacing-sm $spacing-sm + 2px;
+		display: flex;
+		gap: $spacing-sm;
+		.button { flex: 1; justify-content: center; }
+	}
+
+	// slot row
+	.fs-sb-slot {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		padding: 6px $spacing-sm;
+		border-radius: 5px;
+		cursor: pointer;
+		margin: 1px 0;
+		position: relative;
+
+		&:hover { background: $cb-bg-hover; }
+		&.active {
+			background: $cb-bg-active;
+			&::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: $color-primary; border-radius: 2px; }
+			.fs-sb-slot-num, .fs-sb-slot-title { color: $color-primary-hover; font-weight: 600; }
+		}
+		&.empty .fs-sb-slot-title { color: $color-text-secondary; font-style: italic; }
+
+		.fs-sb-slot-num { font-size: 11px; color: $color-secondary-hover; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 24px; }
+		.fs-sb-slot-title { flex: 1; font-size: 13px; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	}
+
+	// ── RIGHT: тело слота ──
+	.fs-sb-editor { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: $color-bg-modal; }
+	.fs-sb-editor-top { padding: $spacing-lg $cb-pane-px 0; border-bottom: 1px solid $wp-admin-gray-bg; }
+	.fs-sb-title-row { display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px; }
+	.fs-sb-flag {
+		font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 12px;
+		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg;
+		display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer;
+		&.danger {
+			background: transparent; color: $color-danger; border-color: $cb-danger-border-color;
+			&:hover { background: $cb-danger-hover-bg; }
+		}
+	}
+	.fs-sb-body { flex: 1; overflow-y: auto; padding: $spacing-xl $cb-pane-px $spacing-xxl; min-height: 0; }
+	.fs-sb-empty {
+		flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+		color: $color-secondary-hover; text-align: center; padding: 40px; gap: $spacing-md; min-height: 320px;
+	}
+
+	// ── Тело задачи (условие / ответ / аудио) ──
+	.fs-sb-task-heading {
+		font-size: 16px; font-weight: 600; margin: 0; flex: 1; min-width: 0;
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+	.fs-sb-task-section {
+		margin-bottom: $spacing-lg; font-size: 13px; line-height: 1.6; color: $color-text-primary;
+		p, ul, ol { margin: 0 0 $spacing-sm; }
+		img { max-width: 100%; height: auto; border-radius: $border-radius-sm; }
+	}
+	.fs-sb-section-label {
+		font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+		color: $color-text-secondary; margin: 0 0 $spacing-sm;
+	}
+	.fs-sb-task-answer { padding: $spacing-md; background: $cb-bg-tree; border: 1px solid $wp-admin-gray-bg; border-radius: $border-radius-md; }
+	.fs-sb-task-audio { display: block; width: 100%; margin-bottom: $spacing-md; }
+
+	// ── Баллы за задание (ЕГЭ) ──
+	.fs-sb-task-score {
+		display: flex; align-items: center; gap: $spacing-sm; margin-bottom: $spacing-md;
+		padding: $spacing-md 0; border-top: 1px solid $wp-admin-gray-bg;
+		label { font-size: 13px; color: $color-text-secondary; white-space: nowrap; }
+		input[type="number"] { width: 80px; }
+	}
+
+	// ── Действия (выбрать / создать / очистить) ──
+	.fs-sb-task-actions {
+		display: flex; gap: $spacing-sm; flex-wrap: wrap; padding-top: $spacing-md; border-top: 1px solid $wp-admin-gray-bg;
+		.fs-sb-clear { color: $color-danger !important; }
+	}
+
+	// ── Inline-форма создания задачи ──
+	.fs-sb-create-form {
+		border: 1px dashed $color-border-input; border-radius: $border-radius-l; padding: $spacing-md; margin-top: $spacing-sm; width: 100%;
+		.fs-sb-create-input { width: 100%; margin-bottom: $spacing-sm; }
+	}
+	.fs-sb-create-btn-row { display: flex; gap: $spacing-sm; }
+
+	// ── Статус сохранения ──
+	.fs-sb-status {
+		display: flex; align-items: center; gap: $spacing-xs;
+		padding: $spacing-xs $spacing-md $spacing-sm; font-size: 12px; color: $color-text-secondary;
+		.fs-sb-dot { width: 7px; height: 7px; border-radius: 50%; background: $wp-admin-green; flex-shrink: 0; }
+		&.saving { font-style: italic; }
+	}
+}
+
+// ── Responsive — narrow admin screens (<= 960 px) ──
+@media (max-width: 960px) {
+	.fs-sb-wrap {
+		.fs-sb-builder { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+		.fs-sb-tree {
+			border-right: none;
+			border-bottom: 1px solid $wp-admin-gray-bg;
+			max-height: 40vh;
+			overflow-y: auto;
+		}
+	}
+}

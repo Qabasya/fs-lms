@@ -5,9 +5,8 @@ declare( strict_types=1 );
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\AssessmentKindField;
-use Inc\MetaBoxes\Fields\AssessmentTaskRefField;
 use Inc\MetaBoxes\Fields\InputField;
-use Inc\MetaBoxes\Fields\TextareaField;
+use Inc\MetaBoxes\Fields\ScoreMapField;
 
 /**
  * Class AssessmentTemplate
@@ -36,19 +35,15 @@ class AssessmentTemplate extends BaseTemplate {
 				'label'  => 'Проходной балл (0 = без порога)',
 				'object' => new InputField(),
 			),
-			'scoring_policy'     => array(
-				'label'  => 'Политика оценивания (highest / last / first)',
-				'object' => new InputField(),
-			),
-			'task_ids'           => array(
-				'label'  => 'Задания контрольной',
-				'object' => new AssessmentTaskRefField(),
-			),
 			'score_map'          => array(
-				'label'  => 'Таблица перевода первичный→вторичный (JSON, только для ЕГЭ; удобный ввод — T7.16)',
-				'object' => new TextareaField(),
+				'label'  => 'Таблица перевода баллов',
+				'object' => new ScoreMapField(),
 			),
 		);
+	}
+
+	public function get_fields(): array {
+		return $this->fields;
 	}
 
 	public function get_id(): string {

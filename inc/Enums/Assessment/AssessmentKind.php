@@ -69,6 +69,14 @@ enum AssessmentKind: string {
 		return self::tryFrom( $value ) ?? self::Control;
 	}
 
+	/** @return array<int, string> Значения видов с повзадачным баллом (ЕГЭ). */
+	public static function weightedScoreValues(): array {
+		return array_values( array_map(
+			static fn( self $case ) => $case->value,
+			array_filter( self::cases(), static fn( self $case ) => $case->usesWeightedScore() )
+		) );
+	}
+
 	/** @return array<int, array{value: string, label: string}> */
 	public static function options(): array {
 		return array_map(

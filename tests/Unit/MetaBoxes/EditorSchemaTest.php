@@ -23,7 +23,6 @@ class EditorSchemaTest extends TestCase {
 		$types = array_column( $schema['fields'], 'type' );
 		self::assertContains( 'rich_text', $types );
 		self::assertContains( 'options',   $types );
-		self::assertContains( 'hint',      $types );
 	}
 
 	public function test_matching_template_schema_has_pairs(): void {
@@ -54,17 +53,7 @@ class EditorSchemaTest extends TestCase {
 		}
 	}
 
-	public function test_all_templates_include_hint_field(): void {
-		$templates = [
-			new ChoiceTaskTemplate(),
-			new MatchingTaskTemplate(),
-			new OrderingTaskTemplate(),
-			new FillTaskTemplate(),
-			new StandardTaskTemplate(),
-		];
-		foreach ( $templates as $tpl ) {
-			$keys = array_column( $tpl->getEditorSchema()['fields'], 'key' );
-			self::assertContains( 'task_hint', $keys, get_class( $tpl ) . ' must have task_hint' );
-		}
-	}
+	// Подсказка (task_hint) вынесена в отдельный метабокс и в схему редактора не входит —
+	// см. MetaBoxController::… (метабокс fs_lms_task_hint). Отдельного теста на её
+	// присутствие в схеме больше нет.
 }

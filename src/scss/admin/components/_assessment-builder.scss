@@ -1,0 +1,28 @@
+@use '../variables' as *;
+
+// ══════════════════════════════════════════════════════════════
+//  Assessment — настройки контрольной (метабокс настроек).
+//  Конструктор задач вынесен в общий _slot-builder.scss (fs-sb-*).
+// ══════════════════════════════════════════════════════════════
+
+// ── Настройки контрольной (над конструктором) ─────────────────
+.fs-lms-assessment-settings {
+	padding: $spacing-lg $spacing-xl;
+
+	.fs-lms-template-wrapper {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: $spacing-md $spacing-xl;
+
+		// score_map — всегда последний, занимает всю ширину
+		.fs-lms-field-group:last-child {
+			grid-column: 1 / -1;
+		}
+	}
+}
+
+// ── score_map textarea ────────────────────────────────────────
+.fs-lms-score-map-field {
+	font-family: monospace;
+	font-size: 12px;
+}

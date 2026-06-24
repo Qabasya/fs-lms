@@ -38,6 +38,21 @@ abstract class BaseField implements FieldInterface {
 		return PostMetaName::Meta->value . "[$id]";
 	}
 
+	/**
+	 * Renders a reusable tooltip icon with a hover/focus popup.
+	 *
+	 * Usage in field render():
+	 *   echo self::tooltip( 'Подсказка…' );
+	 *
+	 * @param string $text Plain text shown in the popup.
+	 */
+	protected static function tooltip( string $text ): string {
+		return '<span class="fs-lms-tooltip-wrap" tabindex="0" aria-expanded="false">'
+			. '<span class="fs-lms-tooltip-icon" aria-hidden="true">?</span>'
+			. '<span class="fs-lms-tooltip-body" role="tooltip">' . esc_html( $text ) . '</span>'
+			. '</span>';
+	}
+
 	public function editorType(): string {
 		return 'text';
 	}

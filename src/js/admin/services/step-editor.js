@@ -44,6 +44,7 @@ export const TYPE_UI = {
 const ADD_TYPES = [
 	{ type: 'text',       desc: 'Текст, формулы, картинки' },
 	{ type: 'video',      desc: 'YouTube, Vimeo, файл' },
+	{ type: 'task',       desc: 'Любая задача из банка заданий' },
 	{ type: 'question',   desc: 'Вписать ответ / выбрать вариант' },
 	{ type: 'code',       desc: 'Редактор кода, интерпретатор' },
 	{ type: 'work',       desc: 'Практика: набор задач (из библиотеки)' },
@@ -101,8 +102,9 @@ export function createStepEditor( opts ) {
 	const subjectKey = String( opts.subjectKey || '' );
 	const onChange   = typeof opts.onChange === 'function' ? opts.onChange : () => {};
 	const setStatusE = typeof opts.setStatus === 'function' ? opts.setStatus : null;
-	const allowed    = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
-	const persist    = typeof opts.persist === 'function' ? opts.persist : null;
+	const allowed         = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
+	const persist         = typeof opts.persist === 'function' ? opts.persist : null;
+	const showStepSettings = opts.showStepSettings !== false;
 
 	let activeKey = lesson.steps.length ? lesson.steps[ 0 ].key : null;
 	let saveTimer = null;
@@ -140,7 +142,7 @@ export function createStepEditor( opts ) {
 		destroyTiny();
 		mount.innerHTML = `
 			<div class="fs-se">
-				<div class="steps-label">Шаги урока</div>
+				<div class="steps-label">Шаги</div>
 				<div class="steps-row" data-steps></div>
 				<div class="step-editor-body" data-body></div>
 				<div class="se-footer"><span class="ef-status" data-status><span class="saved-dot"></span> Все изменения сохранены</span></div>
@@ -230,7 +232,7 @@ export function createStepEditor( opts ) {
 			inlineEditor( ed, step );
 		} else {
 			refEditor( ed, step );
-			if ( 'task' === step.type ) {
+			if ( showStepSettings && 'task' === step.type ) {
 				renderStepSettings( body, step );
 			}
 		}
@@ -440,10 +442,6 @@ export function createStepEditor( opts ) {
 				<label class="fs-cb-ss-label">
 					<input type="checkbox" data-ss="shuffle" ${ settings.shuffle ? 'checked' : '' }>
 					Перемешать варианты
-				</label>
-				<label class="fs-cb-ss-label">Подсказка через N ошибок (0 = сразу)
-					<input type="number" min="0" class="field-input fs-cb-ss-num" data-ss="hint_after_errors"
-						value="${ parseInt( settings.hint_after_errors ?? 0, 10 ) }">
 				</label>
 			</div>`;
 

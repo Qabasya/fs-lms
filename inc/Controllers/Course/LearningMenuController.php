@@ -7,8 +7,11 @@ namespace Inc\Controllers\Course;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Course\BankType;
+use Inc\Enums\Course\WorkType;
 use Inc\Enums\Wp\Menu;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Registrars\MenuRegistrar;
 use Inc\Services\Course\TeacherSubjectsService;
 use Inc\Services\Subject\PostTypeResolver;
@@ -61,6 +64,13 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		add_action( 'admin_notices', array( $this, 'renderBankDescription' ) );
 		add_action( 'admin_notices', array( $this, 'renderSubjectBankTabs' ) );
 
+		// Фильтры по типу работы / виду контрольной в list table.
+		add_action( 'restrict_manage_posts', array( $this, 'renderTypeFilter' ) );
+		add_action( 'pre_get_posts', array( $this, 'applyTypeFilter' ) );
+
+		// «Незавершённая» вместо стандартного «Черновик» для задач банка.
+		add_filter( 'display_post_states', array( $this, 'filterTaskDraftState' ), 10, 2 );
+
 		// draft-creator-modal: рендерится на страницах уроков и курсов
 		// (создание работы из урока / урока из курса без перезагрузки).
 		add_action( 'admin_footer', array( $this, 'renderDraftCreatorModal' ) );
@@ -75,7 +85,8 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		$pt = $screen->post_type;
 		if ( PostTypeResolver::isWorkPostType( $pt )
 			|| PostTypeResolver::isLessonPostType( $pt )
-			|| PostTypeResolver::isCoursePostType( $pt ) ) {
+			|| PostTypeResolver::isCoursePostType( $pt )
+			|| PostTypeResolver::isAssessmentPostType( $pt ) ) {
 			include_once $this->plugin_path . 'templates/admin/components/modals/draft-creator-modal.php';
 		}
 	}
@@ -98,6 +109,80 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 
 	public function renderArticles(): void {
 		$this->renderBank( BankType::Articles );
+	}
+
+	public function renderAssessments(): void {
+		$this->renderBank( BankType::Assessments );
+	}
+
+	public function renderTypeFilter( string $post_type ): void {
+		if ( PostTypeResolver::isWorkPostType( $post_type ) ) {
+			$current = sanitize_key( $_GET['fs_work_type'] ?? '' );
+			echo '<select name="fs_work_type">';
+			echo '<option value="">' . esc_html__( 'Все типы', 'fs-lms' ) . '</option>';
+			foreach ( WorkType::options() as $val => $label ) {
+				printf(
+					'<option value="%s"%s>%s</option>',
+					esc_attr( $val ),
+					selected( $current, $val, false ),
+					esc_html( $label )
+				);
+			}
+			echo '</select>';
+			return;
+		}
+
+		if ( PostTypeResolver::isAssessmentPostType( $post_type ) ) {
+			$current = sanitize_key( $_GET['fs_assessment_kind'] ?? '' );
+			echo '<select name="fs_assessment_kind">';
+			echo '<option value="">' . esc_html__( 'Все виды', 'fs-lms' ) . '</option>';
+			foreach ( AssessmentKind::options() as $option ) {
+				printf(
+					'<option value="%s"%s>%s</option>',
+					esc_attr( $option['value'] ),
+					selected( $current, $option['value'], false ),
+					esc_html( $option['label'] )
+				);
+			}
+			echo '</select>';
+		}
+	}
+
+	/**
+	 * @param array<string,string> $states
+	 */
+	public function filterTaskDraftState( array $states, \WP_Post $post ): array {
+		if ( PostTypeResolver::isTaskPostType( $post->post_type ) && isset( $states['draft'] ) ) {
+			$states['draft'] = __( 'Незавершённая', 'fs-lms' );
+		}
+		return $states;
+	}
+
+	public function applyTypeFilter( \WP_Query $query ): void {
+		if ( ! is_admin() || ! $query->is_main_query() ) {
+			return;
+		}
+
+		$post_type = $query->get( 'post_type' );
+
+		if ( PostTypeResolver::isWorkPostType( $post_type ) ) {
+			$type = sanitize_key( $_GET['fs_work_type'] ?? '' );
+			if ( '' !== $type ) {
+				$query->set( 'meta_query', array(
+					array( 'key' => PostMetaName::WorkType->value, 'value' => $type ),
+				) );
+			}
+			return;
+		}
+
+		if ( PostTypeResolver::isAssessmentPostType( $post_type ) ) {
+			$kind = sanitize_key( $_GET['fs_assessment_kind'] ?? '' );
+			if ( '' !== $kind ) {
+				$query->set( 'meta_query', array(
+					array( 'key' => PostMetaName::AssessmentKind->value, 'value' => $kind ),
+				) );
+			}
+		}
 	}
 
 	/**
@@ -131,12 +216,13 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 			),
 		);
 
-		// Порядок: Курсы · Уроки · Работы · Банк задач · Задания · Статьи.
+		// Порядок: Курсы · Уроки · Работы · Контрольные · Банк задач · Задания · Статьи.
 		// «Курсы» переиспользует слаг родителя (переименование автодубля top-level).
 		$subpages = array(
 			$this->subjectBankSubpage( Menu::LearningCourses, $this->bank_slugs[ BankType::Courses->value ], $cap ),
 			$this->subjectBankSubpage( Menu::LearningLessons, $this->bank_slugs[ BankType::Lessons->value ], $cap ),
 			$this->subjectBankSubpage( Menu::LearningWorks, $this->bank_slugs[ BankType::Works->value ], $cap ),
+			$this->subjectBankSubpage( Menu::LearningAssessments, $this->bank_slugs[ BankType::Assessments->value ], $cap ),
 			// «Банк задач» (fs_lms_problems) — глобальный, не зависит от предмета.
 			array(
 				'parent_slug' => $this->learning_parent_slug,

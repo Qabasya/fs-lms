@@ -70,11 +70,13 @@ class OptionsField extends BaseField {
 				value="1"
 				class="js-option-correct"
 				<?php checked( $correct ); ?>>
-			<input type="text"
-				name="<?php echo $base; ?>[options][<?php echo $i; ?>][text]"
-				value="<?php echo $text; ?>"
-				class="regular-text"
-				placeholder="Текст варианта">
+			<div class="fs-form-group">
+				<input type="text"
+					name="<?php echo $base; ?>[options][<?php echo $i; ?>][text]"
+					value="<?php echo $text; ?>"
+					class="regular-text js-option-text"
+					placeholder="Текст варианта">
+			</div>
 			<button type="button" class="button-link js-options-remove">✕</button>
 		</div>
 		<?php

@@ -9,7 +9,6 @@
 @use 'components/auth-manager';
 @use 'components/groups-table';
 @use 'components/application-status';
-@use 'components/toast';
 @use 'components/email-templates';
 @use 'components/logs';
 @use 'components/icons';
@@ -21,6 +20,8 @@
 @use 'components/learning-bank';
 @use 'components/step-editor';
 @use 'components/course-builder';
+@use 'components/assessment-builder';
+@use 'components/slot-builder';
 @use 'components/modules-dashboard';
 @use 'components/task-fields';
 @use 'components/task-editor';

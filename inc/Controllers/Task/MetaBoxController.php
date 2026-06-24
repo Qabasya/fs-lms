@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\Task\TaskMetaDTO;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
+use Inc\MetaBoxes\Fields\HintField;
 use Inc\Managers\Wp\MetaBoxManager;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -71,13 +72,9 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		// add_action() — регистрирует функцию-обработчик на указанное событие WordPress
 		// 'add_meta_boxes' — хук, срабатывающий перед добавлением метабоксов
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
-
-		// 'save_post' — хук, срабатывающий при сохранении поста
 		add_action( 'save_post', array( $this, 'handleMetaSave' ) );
-
-		// add_filter() — регистрирует функцию для фильтрации данных
-		// 'fs_lms_get_templates' — кастомный фильтр для получения списка шаблонов
 		add_filter( 'fs_lms_get_templates', array( $this, 'getTemplatesList' ) );
+		add_filter( 'default_hidden_meta_boxes', array( $this, 'defaultHiddenMetaboxes' ), 10, 2 );
 	}
 
 	/**
@@ -109,7 +106,15 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			'fs_lms_task_metabox',
 			'Данные задачи',
 			array( $this, 'renderMetaboxContent' ),
-			array( \Inc\Services\Subject\PostTypeResolver::problems() )
+			array( PostTypeResolver::problems() )
+		)->register();
+
+		$this->registrar->add(
+			'fs_lms_task_hint',
+			'Подсказка',
+			array( $this, 'renderHintMetabox' ),
+			array_merge( $task_post_types, array( PostTypeResolver::problems() ) ),
+			array( 'priority' => 'low' )
 		)->register();
 	}
 
@@ -138,6 +143,34 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		// Делегирование отрисовки полей конкретному шаблону
 		$template->render( $post );
 		echo '</div>';
+	}
+
+	/**
+	 * Отрисовка метабокса «Подсказка» (вынесен отдельно от основного шаблона).
+	 *
+	 * @param \WP_Post $post
+	 */
+	public function renderHintMetabox( \WP_Post $post ): void {
+		$meta   = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
+		$values = is_array( $meta ) ? $meta : array();
+
+		( new HintField() )->render( $post, 'task_hint', 'Подсказка', $values['task_hint'] ?? '' );
+	}
+
+	/**
+	 * Скрывает метабокс «Подсказка» по умолчанию (пользователь может включить через Screen Options).
+	 *
+	 * @param string[]   $hidden
+	 * @param \WP_Screen $screen
+	 * @return string[]
+	 */
+	public function defaultHiddenMetaboxes( array $hidden, \WP_Screen $screen ): array {
+		if ( PostTypeResolver::isTaskPostType( $screen->post_type )
+			|| PostTypeResolver::isProblemPostType( $screen->post_type ) ) {
+			$hidden[] = 'fs_lms_task_hint';
+		}
+
+		return $hidden;
 	}
 
 	/**
@@ -176,12 +209,20 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		}
 
 		$raw_data = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
+		$data     = is_array( $raw_data ) ? $raw_data : array();
 
-		$this->metaBoxManager->saveFields(
+		// Мержим (не заменяем) — hint сохраняется отдельным метабоксом и должен
+		// оставаться нетронутым, если его метабокс скрыт через Screen Options.
+		$all_fields = array_merge(
+			$template->get_fields(),
+			array( 'task_hint' => array( 'label' => 'Подсказка', 'object' => new HintField() ) )
+		);
+
+		$this->metaBoxManager->saveFieldsMerge(
 			$post_id,
 			PostMetaName::Meta->value,
-			is_array( $raw_data ) ? $raw_data : array(),
-			$template->get_fields()
+			$data,
+			$all_fields
 		);
 	}
 

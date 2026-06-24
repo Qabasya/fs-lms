@@ -22,6 +22,7 @@ enum Menu: string
 	case LearningCourses  = 'fs_lms_learning_courses';
 	case LearningLessons  = 'fs_lms_learning_lessons';
 	case LearningWorks    = 'fs_lms_learning_works';
+	case LearningAssessments = 'fs_lms_learning_assessments';
 	case LearningTasks    = 'fs_lms_learning_tasks';
 	case LearningArticles = 'fs_lms_learning_articles';
 	case LearningProblems = 'fs_lms_learning_problems';
@@ -40,11 +41,12 @@ enum Menu: string
 			self::Learning         => 'Обучение',
 			self::LearningCourses  => 'Курсы',
 			self::LearningLessons  => 'Уроки',
-			self::LearningWorks    => 'Работы',
-			self::LearningTasks    => 'Задания предмета',
-			self::LearningArticles => 'Статьи предмета',
-			self::LearningProblems => 'Банк задач',
-			self::_Options         => '',
+			self::LearningWorks       => 'Работы',
+			self::LearningAssessments => 'Контрольные',
+			self::LearningTasks       => 'Задания предмета',
+			self::LearningArticles    => 'Статьи предмета',
+			self::LearningProblems    => 'Банк задач',
+			self::_Options            => '',
 		};
 	}
 	public function menu_title(): string {
@@ -59,11 +61,12 @@ enum Menu: string
 			self::Learning           => 'Обучение',
 			self::LearningCourses    => 'Курсы',
 			self::LearningLessons    => 'Уроки',
-			self::LearningWorks      => 'Работы',
-			self::LearningTasks      => 'Задания предмета',
-			self::LearningArticles   => 'Статьи предмета',
-			self::LearningProblems   => 'Банк задач',
-			self::_Options           => '',
+			self::LearningWorks       => 'Работы',
+			self::LearningAssessments => 'Контрольные',
+			self::LearningTasks       => 'Задания предмета',
+			self::LearningArticles    => 'Статьи предмета',
+			self::LearningProblems    => 'Банк задач',
+			self::_Options            => '',
 		};
 	}
 
@@ -79,10 +82,11 @@ enum Menu: string
 			self::Learning           => 'renderCourses',
 			self::LearningCourses    => 'renderCourses',
 			self::LearningLessons    => 'renderLessons',
-			self::LearningWorks      => 'renderWorks',
-			self::LearningTasks      => 'renderTasks',
-			self::LearningArticles   => 'renderArticles',
-			self::_Options           => '',
+			self::LearningWorks       => 'renderWorks',
+			self::LearningAssessments => 'renderAssessments',
+			self::LearningTasks       => 'renderTasks',
+			self::LearningArticles    => 'renderArticles',
+			self::_Options            => '',
 		};
 	}
 

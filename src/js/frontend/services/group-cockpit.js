@@ -3,6 +3,8 @@
  * Pure-JS function pattern (правило CLAUDE.md для frontend).
  */
 
+import { confirmDialog } from '../../common/components/confirm-dialog.js';
+
 export function initGroupCockpit() {
     const cockpit = document.getElementById( 'fs-group-cockpit' );
     if ( ! cockpit ) { return; }
@@ -86,8 +88,7 @@ export function initGroupCockpit() {
         // Remove lesson
         const btnRemove = e.target.closest( '.fs-cockpit-btn-remove' );
         if ( btnRemove ) {
-            // eslint-disable-next-line no-alert
-            if ( ! confirm( 'Удалить урок из программы?' ) ) { return; }
+            if ( ! await confirmDialog( 'Удалить урок из программы?' ) ) { return; }
             const glId = btnRemove.dataset.groupLessonId;
             const res  = await apiPost( ajaxUrl, {
                 action          : actions.removeLessonFromProgram,

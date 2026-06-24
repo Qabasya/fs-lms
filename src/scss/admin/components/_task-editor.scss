@@ -106,124 +106,21 @@
 	&--error { border-color: $color-danger !important; }
 }
 
-.fs-te-textarea {
-	@extend .fs-te-input;
-	resize: vertical;
-	min-height: 80px;
-}
+// ── Поля шаблона ──────────────────────────────────────────────────────────
+// Рендерятся PHP `Fields/*` (путь A) и стилизуются через _task-fields.scss;
+// поведение навешивает TaskFields. Здесь — только контейнер и индикатор загрузки.
 
-.fs-te-add-btn {
-	align-self: flex-start;
-	margin-top: $spacing-sm;
-}
-
-.fs-te-del-btn {
-	background:  none;
-	border:      none;
-	cursor:      pointer;
-	color:       $color-text-secondary;
-	font-size:   16px;
-	line-height: 1;
-	padding:     2px 6px;
-	border-radius: $border-radius-sm;
-	flex-shrink: 0;
-
-	&:hover { color: $color-danger; background: $wp-admin-red-bg; }
-}
-
-// ── Варианты ответа (options) ─────────────────────────────────────────────
-
-.fs-te-options__mode {
-	display:     flex;
-	align-items: center;
-	gap:         $spacing-sm;
-	font-size:   13px;
-	margin-bottom: $spacing-sm;
-}
-
-.fs-te-options__list {
-	list-style: none;
-	margin:     0;
-	padding:    0;
-	display:    flex;
+.fs-te-fields {
+	display:        flex;
 	flex-direction: column;
-	gap:        $spacing-sm;
+	gap:            $spacing-lg;
 }
 
-.fs-te-options__item {
-	display:     flex;
-	align-items: center;
-	gap:         $spacing-sm;
-
-	input[type="checkbox"],
-	input[type="radio"] { flex-shrink: 0; cursor: pointer; }
-
-	.fs-te-input { flex: 1; }
-}
-
-// ── Пары (pairs) ─────────────────────────────────────────────────────────
-
-.fs-te-pairs__list {
-	list-style: none;
-	margin:     0;
-	padding:    0;
-	display:    flex;
-	flex-direction: column;
-	gap:        $spacing-sm;
-}
-
-.fs-te-pairs__item {
-	display:     flex;
-	align-items: center;
-	gap:         $spacing-sm;
-
-	.fs-te-input { flex: 1; }
-}
-
-.fs-te-arrow {
-	color:       $color-text-secondary;
-	font-size:   14px;
-	flex-shrink: 0;
-}
-
-// ── Порядок элементов (order_items) ───────────────────────────────────────
-
-.fs-te-order__list {
-	list-style: none;
-	margin:     0;
-	padding:    0;
-	display:    flex;
-	flex-direction: column;
-	gap:        $spacing-sm;
-}
-
-.fs-te-order__item {
-	display:     flex;
-	align-items: center;
-	gap:         $spacing-sm;
-
-	.fs-te-input { flex: 1; }
-}
-
-.fs-te-grip {
-	color:       $color-text-secondary;
-	font-size:   13px;
-	flex-shrink: 0;
-	cursor:      grab;
-}
-
-// ── Аудио ─────────────────────────────────────────────────────────────────
-
-.fs-te-audio {
-	display:     flex;
-	align-items: center;
-	gap:         $spacing-md;
-	flex-wrap:   wrap;
-
-	&__name {
-		font-size: 13px;
-		color:     $color-text-secondary;
-	}
+.fs-te-loading {
+	padding:    $spacing-xl;
+	text-align: center;
+	color:      $color-text-secondary;
+	font-size:  13px;
 }
 
 // ── Подвал ────────────────────────────────────────────────────────────────

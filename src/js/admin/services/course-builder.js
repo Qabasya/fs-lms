@@ -2,6 +2,7 @@ import '../_types.js';
 import { showToast } from '../modules/toast.js';
 import { createStepEditor, esc, ajax, tmpKey, openPicker } from './step-editor.js';
 import { createPersistence } from './course-persistence.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -416,12 +417,15 @@ function createApp( mount ) {
 		persist.saveStructure( 'Модуль добавлен' );
 	}
 
-	function deleteModule( mod ) {
+	async function deleteModule( mod ) {
 		const note = mod.lessons.length
 			? `Удалить модуль «${ mod.title }»? Уроки останутся в библиотеке, но будут убраны из курса.`
 			: `Удалить модуль «${ mod.title }»?`;
-		// eslint-disable-next-line no-alert
-		if ( ! window.confirm( note ) ) { return; }
+		try {
+			await ConfirmModal.confirm( { title: note, isDanger: true, confirmText: 'Удалить' } );
+		} catch {
+			return;
+		}
 
 		const idx = state.course.modules.findIndex( ( m ) => m.id === mod.id );
 		if ( idx < 0 ) { return; }

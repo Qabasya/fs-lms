@@ -124,12 +124,6 @@ class ThreeInOneTemplate extends BaseTemplate {
 		echo '<h3>Программное решение</h3>';
 		$this->render_single_field( 'task_code', $post, $values );
 
-		// --- ПОДСКАЗКА (общая для всех шаблонов) ---
-		$hintConfig = $this->get_fields()['task_hint'] ?? null;
-		if ( $hintConfig ) {
-			$hintConfig['object']->render( $post, 'task_hint', $hintConfig['label'], $values['task_hint'] ?? '' );
-		}
-
 		echo '</div>';
 	}
 
