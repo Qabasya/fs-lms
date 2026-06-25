@@ -9,7 +9,7 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\MetaBoxManager;
-use Inc\Services\PostTypeResolver;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;

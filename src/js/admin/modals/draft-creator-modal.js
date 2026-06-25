@@ -42,7 +42,7 @@ export const DraftCreatorModal = {
 	},
 
 	/**
-	 * @param {{ refType: 'work'|'lesson'|'problem'|'task'|'assessment'|'material', $field: jQuery, onCreated: function(int, string): void }} config
+	 * @param {{ refType: 'work'|'lesson'|'problem'|'task'|'assessment', $field: jQuery, onCreated: function(int, string): void }} config
 	 */
 	open( config ) {
 		this._config     = config;
@@ -55,7 +55,6 @@ export const DraftCreatorModal = {
 			problem:    'Создать задачу',
 			task:       'Создать задачу',
 			assessment: 'Создать контрольную',
-			material:   'Создать материал',
 		};
 		this.$modal.find( '.fs-lms-draft-work-type-row' ).prop( 'hidden', ! isWork );
 		this.$modal.find( '#fs-lms-draft-creator-title' ).text( titles[ config.refType ] || 'Создать' );
@@ -91,7 +90,6 @@ export const DraftCreatorModal = {
 			problem:    fs_lms_vars.ajax_actions.createProblemDraft,
 			task:       fs_lms_vars.ajax_actions.createTaskDraft,
 			assessment: fs_lms_vars.ajax_actions.createAssessmentDraft,
-			material:   fs_lms_vars.ajax_actions.createArticleDraft,
 		};
 		const nonceMap = {
 			work:       fs_lms_vars.nonces.authorWork,
@@ -99,7 +97,6 @@ export const DraftCreatorModal = {
 			problem:    fs_lms_vars.nonces.authorWork,
 			task:       fs_lms_vars.nonces.authorLesson,
 			assessment: fs_lms_vars.nonces.authorLesson,
-			material:   fs_lms_vars.nonces.authorLesson,
 		};
 		const action = actionMap[ refType ];
 		const nonce  = nonceMap[ refType ];

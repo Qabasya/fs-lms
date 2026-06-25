@@ -1,6 +1,7 @@
 import '../_types.js';
 import { showToast } from '../modules/toast.js';
 import { TaskEditor } from './task-editor.js';
+import { ConfirmModal } from '../modals/confirm-modal.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -24,41 +25,36 @@ const ICON = {
 	video:    '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm6 3.2v7.6l6-3.8-6-3.8z"/></svg>',
 	practice: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>',
 	quiz:     '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h7v2H4V5zm0 6h7v2H4v-2zm0 6h7v2H4v-2zm14.3-9.3 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6zm0 6 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6z"/></svg>',
-	file:     '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M16.5 6.5 9.6 13.4a2 2 0 1 0 2.8 2.8l6.9-6.9a4 4 0 1 0-5.6-5.6L6.7 10.6a6 6 0 0 0 8.5 8.5L21 13.3l-1.4-1.4-5.8 5.8a4 4 0 0 1-5.7-5.7l7-7a2 2 0 0 1 2.8 2.8l-6.9 6.9-.7-.7 6.9-6.9-1.6-1.6z"/></svg>',
 };
 
-/** Наш StepType → UI-метаданные. */
+/**
+ * Наш StepType → UI-метаданные. Пять типов шага урока: Текст, Видео,
+ * Задача (один ссылочный тип — подстраивается под любую задачу: вопрос с
+ * выбором, ЕГЭ с сайта, приватная задача с интерпретатором), Работа, Контрольная.
+ */
 export const TYPE_UI = {
-	text:       { ui: 'lecture',  name: 'Текст',            inline: true },
-	video:      { ui: 'video',    name: 'Видео',            inline: true },
-	material:   { ui: 'file',     name: 'Файл',             inline: true },   // только рендер legacy-шагов
-	// Вопрос/Задание-с-кодом — это task-шаг с категорией шаблона (payload.category).
-	question:   { ui: 'quiz',     name: 'Вопрос',           inline: false, candKind: 'task', category: 'question' },
-	code:       { ui: 'practice', name: 'Задание с кодом',  inline: false, candKind: 'task', category: 'code' },
-	work:       { ui: 'practice', name: 'Практика',         inline: false, candKind: 'work' },
-	assessment: { ui: 'quiz',     name: 'Тест',             inline: false, candKind: 'assessment' },
-	task:       { ui: 'practice', name: 'Задача',           inline: false, candKind: 'task' },   // fallback
+	text:       { ui: 'lecture',  name: 'Текст',       inline: true },
+	video:      { ui: 'video',    name: 'Видео',       inline: true },
+	task:       { ui: 'practice', name: 'Задача',      inline: false, candKind: 'task' },
+	work:       { ui: 'practice', name: 'Работа',      inline: false, candKind: 'work' },
+	assessment: { ui: 'quiz',     name: 'Контрольная', inline: false, candKind: 'assessment' },
 };
 
 /** Опции поповера «Добавить шаг» (плоский type-first). */
 const ADD_TYPES = [
 	{ type: 'text',       desc: 'Текст, формулы, картинки' },
 	{ type: 'video',      desc: 'YouTube, Vimeo, файл' },
-	{ type: 'task',       desc: 'Любая задача из банка заданий' },
-	{ type: 'question',   desc: 'Вписать ответ / выбрать вариант' },
-	{ type: 'code',       desc: 'Редактор кода, интерпретатор' },
-	{ type: 'work',       desc: 'Практика: набор задач (из библиотеки)' },
-	{ type: 'assessment', desc: 'Тест/контрольная (из библиотеки)' },
+	{ type: 'task',       desc: 'Задача из предмета или банка — любого типа' },
+	{ type: 'work',       desc: 'Работа из библиотеки' },
+	{ type: 'assessment', desc: 'Контрольная из библиотеки' },
 ];
 
 export const uiMeta = ( ourType ) => TYPE_UI[ ourType ] || TYPE_UI.text;
 export const icon   = ( ourType ) => ICON[ uiMeta( ourType ).ui ] || ICON.lecture;
 const acts          = () => fs_lms_vars.ajax_actions;
 
-/** UI-меты шага с учётом категории task-шага (Вопрос / Задание с кодом). */
-const stepMeta = ( step ) => ( step && 'task' === step.type && step.payload && TYPE_UI[ step.payload.category ] )
-	? TYPE_UI[ step.payload.category ]
-	: uiMeta( step ? step.type : 'text' );
+/** UI-меты шага по его типу (Задача сама подстраивается под любую задачу). */
+const stepMeta = ( step ) => uiMeta( step ? step.type : 'text' );
 const iconForStep = ( step ) => ICON[ stepMeta( step ).ui ] || ICON.lecture;
 
 let _idc = 5000;
@@ -92,7 +88,7 @@ export function ajax( action, data ) {
  * @param {string}      opts.subjectKey
  * @param {Function}   [opts.onChange]     () => void — после любой правки шагов (хост обновляет дерево/счётчики)
  * @param {Function}   [opts.setStatus]    (text) => void — внешний индикатор; иначе модуль рисует свой
- * @param {string[]}   [opts.allowedTypes] фильтр пунктов меню «Добавить шаг» (напр. ['question','code'] для работы)
+ * @param {string[]}   [opts.allowedTypes] фильтр пунктов меню «Добавить шаг» (напр. ['task'] — только задачи)
  * @param {Function}   [opts.persist]      (steps) => Promise — своё сохранение; иначе дефолтный saveLessonSteps
  * @returns {{ destroy: Function }}
  */
@@ -246,6 +242,7 @@ export function createStepEditor( opts ) {
 				'<div class="sb-label">Содержание лекции</div>' +
 				'<textarea id="' + tid + '" class="fs-cb-rte-target"></textarea>';
 			ed.querySelector( '#' + tid ).value = step.payload.content || '';
+			ed.classList.add( 'fs-rte-loading' ); // анти-флэш: снимется по событию init редактора
 
 			function onEditorChange() {
 				const mc = window.tinymce?.get( tid );
@@ -273,6 +270,8 @@ export function createStepEditor( opts ) {
 					},
 				} );
 				editor.on( 'NodeChange change', onEditorChange );
+				// Редактор готов и сам управляет видимостью textarea (Визуально/Код) — снимаем анти-флэш.
+				editor.on( 'init', () => ed.classList.remove( 'fs-rte-loading' ) );
 			}
 
 			if ( window.wp?.editor ) {
@@ -322,37 +321,6 @@ export function createStepEditor( opts ) {
 			desc.value = step.payload.description || '';
 			url.addEventListener( 'input', () => { step.payload.url = url.value; scheduleSave(); } );
 			desc.addEventListener( 'input', () => { step.payload.description = desc.value; scheduleSave(); } );
-		} else { // material
-			const refId  = parseInt( step.payload.article_id || 0, 10 );
-			const attId  = parseInt( step.payload.attachment_id || 0, 10 );
-			const attUrl = step.payload.attachment_url || '';
-			const label  = step._title || ( attId ? attUrl.split( '/' ).pop() : refId ? `Статья #${ refId }` : 'не выбрано' );
-			ed.innerHTML = `
-				<div class="sb-label">Файл / материал</div>
-				<div class="fs-cb-ref" data-ref-area>
-					<span class="fs-cb-ref-title">${ esc( label ) }</span>
-					${ attUrl ? `<a href="${ esc( attUrl ) }" target="_blank" rel="noopener" class="fs-cb-ref-edit">открыть ↗</a>` : '' }
-				</div>
-				<div class="fs-cb-mat-actions">
-					<button type="button" class="button" data-pick-media>Медиатека</button>
-					<button type="button" class="button" data-pick-article>Из библиотеки статей</button>
-				</div>`;
-			ed.querySelector( '[data-pick-media]' ).addEventListener( 'click', () => {
-				openWpMedia( ( id, url, filename ) => {
-					step.payload.attachment_id  = id;
-					step.payload.attachment_url = url;
-					step.payload.article_id     = 0;
-					step._title = filename;
-					renderStepsRow(); renderStepBody(); saveSteps();
-				} );
-			} );
-			ed.querySelector( '[data-pick-article]' ).addEventListener( 'click', ( e ) => openLibraryPicker( e, 'article', ( id, title ) => {
-				step.payload.article_id     = id;
-				step.payload.attachment_id  = 0;
-				step.payload.attachment_url = '';
-				step._title = title;
-				renderStepsRow(); renderStepBody(); saveSteps();
-			} ) );
 		}
 	}
 
@@ -383,8 +351,9 @@ export function createStepEditor( opts ) {
 			<div class="fs-cb-or-divider"><span>или</span></div>
 			<div class="fs-cb-inline-create">${ createHtml }</div>`;
 
-		ed.querySelector( '[data-pick]' ).addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title ) => {
+		ed.querySelector( '[data-pick]' ).addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title, source ) => {
 			step.payload.ref = id; step._title = title; step.title = title;
+			if ( isTask ) { step.payload.source = 'bank' === source ? 'bank' : 'subject'; }
 			renderStepsRow(); renderStepBody(); saveSteps();
 		} ) );
 
@@ -472,9 +441,28 @@ export function createStepEditor( opts ) {
 		showToast( 'Шаг дублирован', 'success' );
 	}
 
+	// Есть ли в шаге содержимое (для подтверждения удаления).
+	function stepHasContent( step ) {
+		const p = step.payload || {};
+		if ( 'text' === step.type ) { return !! String( p.content || '' ).trim(); }
+		if ( 'video' === step.type ) { return !! String( p.url || '' ).trim(); }
+		return parseInt( p.ref || 0, 10 ) > 0; // task / work / assessment — прикреплена сущность
+	}
+
 	function delStep( step ) {
 		if ( lesson.steps.length <= 1 ) { showToast( 'Нельзя удалить единственный шаг', 'error' ); return; }
+		if ( ! stepHasContent( step ) ) { removeStep( step ); return; }
+		ConfirmModal.confirm( {
+			title:       'Удалить шаг?',
+			message:     'В шаге есть содержимое. Удалить его?',
+			confirmText: 'Удалить',
+			isDanger:    true,
+		} ).then( () => removeStep( step ) ).catch( () => {} );
+	}
+
+	function removeStep( step ) {
 		const i = lesson.steps.indexOf( step );
+		if ( i < 0 ) { return; }
 		lesson.steps.splice( i, 1 );
 		activeKey = lesson.steps[ Math.max( 0, i - 1 ) ].key;
 		renderStepsRow(); renderStepBody(); onChange();
@@ -484,15 +472,9 @@ export function createStepEditor( opts ) {
 
 	function addStep( menuType ) {
 		const meta = uiMeta( menuType );
-		let step;
-		if ( 'question' === menuType || 'code' === menuType ) {
-			// Атом-задача: один ref-шаг `task` с категорией шаблона.
-			step = { key: tmpKey( 's' ), type: 'task', title: meta.name, payload: { ref: 0, category: menuType } };
-		} else if ( meta.inline ) {
-			step = { key: tmpKey( 's' ), type: menuType, title: meta.name, payload: { title: '' } };
-		} else {
-			step = { key: tmpKey( 's' ), type: menuType, title: meta.name, payload: { ref: 0 } };
-		}
+		const step = meta.inline
+			? { key: tmpKey( 's' ), type: menuType, title: meta.name, payload: { title: '' } }
+			: { key: tmpKey( 's' ), type: menuType, title: meta.name, payload: { ref: 0 } };
 		lesson.steps.push( step );
 		activeKey = step.key;
 		renderStepsRow(); renderStepBody(); onChange();
@@ -530,22 +512,13 @@ export function createStepEditor( opts ) {
 	function openLibraryPicker( e, kind, onPick ) {
 		e.stopPropagation();
 		closePopover();
+		// Задача тянется сразу из предмета и банка (вариант А); остальные виды — из предмета.
+		const source = 'task' === kind ? 'all' : 'subject';
 		openPicker( e.currentTarget, {
 			placeholder: 'Поиск в библиотеке…',
-			fetchFn:     ( search ) => ajax( acts().getStepCandidates, { subject_key: subjectKey, kind, source: 'subject', search } ),
+			fetchFn:     ( search ) => ajax( acts().getStepCandidates, { subject_key: subjectKey, kind, source, search } ),
 			onPick,
 		} );
-	}
-
-	// ── WP Media picker ──
-	function openWpMedia( onPick ) {
-		if ( ! window.wp || ! window.wp.media ) { return; }
-		const frame = window.wp.media( { title: 'Выберите файл', button: { text: 'Выбрать' }, multiple: false } );
-		frame.on( 'select', () => {
-			const att = frame.state().get( 'selection' ).first().toJSON();
-			onPick( att.id, att.url, att.filename || att.title || att.url.split( '/' ).pop() );
-		} );
-		frame.open();
 	}
 
 	// ══════════ PERSISTENCE ══════════
@@ -597,8 +570,17 @@ export function openPicker( anchor, { placeholder = 'Поиск…', emptyText =
 			items.forEach( ( it ) => {
 				const opt = document.createElement( 'div' );
 				opt.className = 'fs-cb-pick-opt';
-				opt.textContent = it.title;
-				opt.addEventListener( 'click', () => { onPick( parseInt( it.id, 10 ), it.title ); pop.remove(); } );
+				const titleSpan = document.createElement( 'span' );
+				titleSpan.className = 'fs-cb-pick-title';
+				titleSpan.textContent = it.title;
+				opt.appendChild( titleSpan );
+				if ( it.source ) {
+					const badge = document.createElement( 'span' );
+					badge.className = 'fs-cb-pick-origin';
+					badge.textContent = 'bank' === it.source ? 'Банк' : 'Предмет';
+					opt.appendChild( badge );
+				}
+				opt.addEventListener( 'click', () => { onPick( parseInt( it.id, 10 ), it.title, it.source || '' ); pop.remove(); } );
 				results.appendChild( opt );
 			} );
 		} )

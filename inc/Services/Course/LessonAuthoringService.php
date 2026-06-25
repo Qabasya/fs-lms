@@ -95,12 +95,20 @@ class LessonAuthoringService {
 	 *
 	 * @param string $subjectKey
 	 * @param string $kind   work|task|assessment|article|lesson
-	 * @param string $source subject|bank — источник задачи (для kind=task)
+	 * @param string $source subject|bank|all — источник задачи (для kind=task; all = предмет + банк)
 	 * @param string $search
 	 *
-	 * @return array<int, array{id: int, title: string}>
+	 * @return array<int, array{id: int, title: string, source?: string}>
 	 */
 	public function getStepCandidates( string $subjectKey, string $kind, string $source = 'subject', string $search = '' ): array {
+		// Задача-шаг тянется из обоих источников сразу (предмет + банк) — вариант А.
+		if ( 'task' === $kind && 'all' === $source ) {
+			return array_merge(
+				$this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject' ),
+				$this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank' )
+			);
+		}
+
 		$post_type = match ( $kind ) {
 			'work'       => PostTypeResolver::works( $subjectKey ),
 			'assessment' => PostTypeResolver::assessments( $subjectKey ),
@@ -114,12 +122,28 @@ class LessonAuthoringService {
 			return array();
 		}
 
+		$origin = 'task' === $kind ? ( 'bank' === $source ? 'bank' : 'subject' ) : '';
+
+		return $this->candidatesFrom( $post_type, $search, $origin );
+	}
+
+	/**
+	 * Кандидаты одного CPT в формате пикера. `$source` (если задан) проставляет
+	 * происхождение задачи (subject|bank) — нужно для payload.source шага.
+	 *
+	 * @return array<int, array{id: int, title: string, source?: string}>
+	 */
+	private function candidatesFrom( string $post_type, string $search, string $source = '' ): array {
 		$result = array();
 		foreach ( $this->posts->search( $post_type, array( 'limit' => 50, 'search' => $search ) ) as $post ) {
-			$result[] = array(
+			$item = array(
 				'id'    => $post->ID,
 				'title' => $post->post_title,
 			);
+			if ( '' !== $source ) {
+				$item['source'] = $source;
+			}
+			$result[] = $item;
 		}
 
 		return $result;

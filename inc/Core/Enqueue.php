@@ -510,16 +510,36 @@ class Enqueue extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Глобально рендерит HTML модальных окон в админке.
-	 * Вызывается на хуке 'admin_footer'.
-	 *
-	 * @return void
+	 * Плагинный экран админки: меню-страница (fs_/student_) или один из наших CPT.
+	 * Должно совпадать с условием подключения ассетов в enqueue_admin_assets(),
+	 * иначе модалки Confirm/Alert не отрисуются там, где их JS уже работает
+	 * (баг: модалка удаления шага не открывалась на экране правки урока).
 	 */
-	public function render_confirm_modal(): void {
-		$page = sanitize_text_field( $_GET['page'] ?? '' );
+	private function isPluginAdminScreen(): bool {
+		$page = $this->sanitizeText( 'page', 'GET' );
+		if ( str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' ) ) {
+			return true;
+		}
 
-		// Показываем модалки только на страницах нашего плагина
-		if ( ! str_starts_with( $page, 'fs_' ) && ! str_starts_with( $page, 'student_' ) ) {
+		$screen = get_current_screen();
+		if ( ! $screen ) {
+			return false;
+		}
+
+		$pt = $screen->post_type;
+
+		return PostTypeResolver::isTaskPostType( $pt )
+			|| PostTypeResolver::isLessonPostType( $pt )
+			|| PostTypeResolver::isWorkPostType( $pt )
+			|| PostTypeResolver::isAssessmentPostType( $pt )
+			|| PostTypeResolver::isCoursePostType( $pt )
+			|| PostTypeResolver::isArticlePostType( $pt )
+			|| PostTypeResolver::problems() === $pt;
+	}
+
+	public function render_confirm_modal(): void {
+		// Рендерим модалки везде, где работает наш админ-JS (меню-страницы + наши CPT).
+		if ( ! $this->isPluginAdminScreen() ) {
 			return;
 		}
 

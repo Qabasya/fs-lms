@@ -87,8 +87,13 @@
 		.fs-cb-ref-title { font-weight: 600; color: $color-text-primary; }
 		.fs-cb-ref-edit { font-size: 12px; } }
 
-	// TinyMCE textarea (заменяется iframe при инициализации)
-	.fs-cb-rte-target { display: none; }
+	// TinyMCE textarea: прячем только ДО готовности редактора (анти-флэш). После
+	// видимостью управляет сам wp.editor — в «Визуально» textarea скрыта инлайн-стилем
+	// TinyMCE, в «Код» показывается. Постоянный display:none ломал режим «Код».
+	.fs-rte-loading .fs-cb-rte-target { display: none; }
+	// В режиме «Код» textarea показывается — без явных размеров падает на дефолт
+	// cols=20 (~172px) и rows=2. Тянем на весь контейнер с рабочей высотой.
+	.fs-cb-rte-target { width: 100%; box-sizing: border-box; min-height: 300px; resize: vertical; }
 
 	// material step actions
 	.fs-cb-mat-actions { display: flex; gap: $spacing-sm; margin-top: $spacing-sm; }

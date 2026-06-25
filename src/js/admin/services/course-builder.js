@@ -13,8 +13,7 @@ const $ = jQuery;
  * Монтируется на #fs-lms-course-builder. Сохранение — AJAX (см. CourseBuilderCallbacks
  * + reuse SaveLessonSteps). Контент шага хранится в нашей модели LessonDTO.steps[].
  *
- * Маппинг типов шага (дизайн → наш StepType): Лекция→text, Видео→video, Файл→material,
- * Практика→work (ссылка), Тест→assessment (ссылка).
+ * Типы шага (наш StepType): text, video, task (ссылка), work (ссылка), assessment (ссылка).
  */
 
 // Редактор шагов (лента чипов + редактор шага + автосейв) вынесен в общий

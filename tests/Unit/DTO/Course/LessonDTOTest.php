@@ -21,7 +21,6 @@ class LessonDTOTest extends TestCase {
 			array( 'key' => 's3', 'type' => 'work', 'payload' => array( 'ref' => 12 ) ),
 			array( 'key' => 's4', 'type' => 'assessment', 'payload' => array( 'ref' => 30 ) ),
 			array( 'key' => 's5', 'type' => 'task', 'payload' => array( 'ref' => 40, 'source' => 'bank' ) ),
-			array( 'key' => 's6', 'type' => 'material', 'payload' => array( 'article_id' => 8 ) ),
 		);
 	}
 
@@ -36,7 +35,7 @@ class LessonDTOTest extends TestCase {
 
 		self::assertSame( 'inf', $dto->subjectKey );
 		self::assertSame( 'Урок 5', $dto->topic );
-		self::assertCount( 6, $dto->steps );
+		self::assertCount( 5, $dto->steps );
 		self::assertContainsOnlyInstancesOf( StepDTO::class, $dto->steps );
 		self::assertFalse( $dto->isEmpty() );
 	}
@@ -47,7 +46,6 @@ class LessonDTOTest extends TestCase {
 		self::assertSame( array( 11, 12 ), $dto->workIds() );
 		self::assertSame( array( 30 ), $dto->assessmentIds() );
 		self::assertSame( array( 40 ), $dto->taskIds() );
-		self::assertSame( array( 8 ), $dto->articleIds() );
 	}
 
 	public function test_lesson_without_steps_is_empty(): void {

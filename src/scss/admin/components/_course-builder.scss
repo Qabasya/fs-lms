@@ -197,8 +197,9 @@
 	&.fs-cb-picker { width: 320px;
 		.field-input { width: 100%; padding: 6px $spacing-sm; border: 1px solid $color-border-input; border-radius: $border-radius-md; font-size: 13px; }
 		.fs-cb-pick-results { margin-top: 6px; max-height: 260px; overflow-y: auto; }
-		.fs-cb-pick-opt { padding: 6px $spacing-sm; border-radius: $border-radius-md; cursor: pointer;
+		.fs-cb-pick-opt { display: flex; align-items: center; justify-content: space-between; gap: $spacing-sm; padding: 6px $spacing-sm; border-radius: $border-radius-md; cursor: pointer;
 			&:hover { background: $cb-bg-hover; } }
+		.fs-cb-pick-origin { flex: 0 0 auto; font-size: 11px; color: $color-secondary-hover; background: $cb-bg-hover; padding: 1px 7px; border-radius: $border-radius-md; }
 		.fs-cb-pick-empty { padding: $spacing-sm; color: $color-secondary-hover; font-size: 12px; }
 	}
 }

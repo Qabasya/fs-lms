@@ -46,13 +46,6 @@ class ContentUsageServiceTest extends TestCase {
 		self::assertSame( 1, $this->usage->usageCount( 'lesson', 11 ) );
 	}
 
-	public function test_article_used_in_lesson_scalar_field(): void {
-		fs_test_seed_post( array( 'ID' => 20, 'post_type' => 'inf_articles' ) );
-		fs_test_seed_post( array( 'ID' => 21, 'post_type' => 'inf_lessons' ), array( 'fs_lms_meta' => array( 'steps' => array( array( 'key' => 's1', 'type' => 'material', 'payload' => array( 'article_id' => 20 ) ) ) ) ) );
-
-		self::assertSame( 1, $this->usage->usageCount( 'article', 20 ) );
-	}
-
 	public function test_orphan_has_zero_usage(): void {
 		fs_test_seed_post( array( 'ID' => 30, 'post_type' => 'inf_tasks' ) );
 		fs_test_seed_post( array( 'ID' => 31, 'post_type' => 'inf_works' ), array( 'fs_lms_meta' => array( 'item_ids' => array( 999 ) ) ) );

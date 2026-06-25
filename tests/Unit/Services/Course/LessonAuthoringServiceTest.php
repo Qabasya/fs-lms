@@ -110,6 +110,16 @@ class LessonAuthoringServiceTest extends TestCase {
 		self::assertSame( array( 2 ), array_column( $this->service->getStepCandidates( 'inf', 'task', 'bank' ), 'id' ) );
 	}
 
+	public function test_step_candidates_task_all_merges_subject_and_bank(): void {
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_title' => 'Задача предмета' ) );
+		fs_test_seed_post( array( 'ID' => 2, 'post_type' => 'fs_lms_problems', 'post_title' => 'Задача банка' ) );
+
+		$all = $this->service->getStepCandidates( 'inf', 'task', 'all' );
+
+		self::assertSame( array( 1, 2 ), array_column( $all, 'id' ) );
+		self::assertSame( array( 'subject', 'bank' ), array_column( $all, 'source' ) );
+	}
+
 	public function test_step_candidates_unknown_kind_is_empty(): void {
 		self::assertSame( array(), $this->service->getStepCandidates( 'inf', 'whatever' ) );
 	}

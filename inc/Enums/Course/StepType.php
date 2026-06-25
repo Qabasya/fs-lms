@@ -8,7 +8,7 @@ namespace Inc\Enums\Course;
  * Тип шага в последовательности (урок / работа / контрольная).
  *
  * «Шаг» — рекурсивный паттерн (Courses.md → ★): урок собирается из шагов всех типов,
- * работа и контрольная — только из task-шагов. Текст/видео/материал — инлайновые
+ * работа и контрольная — только из task-шагов. Текст/видео — инлайновые
  * (принадлежат уроку), задача/работа/контрольная — ссылочные (на сущность банка).
  *
  * @package Inc\Enums
@@ -20,9 +20,6 @@ enum StepType: string {
 
 	/** Видео (url/embed; позже — запись из S3). */
 	case Video = 'video';
-
-	/** Материал: вложение или ссылка на статью. */
-	case Material = 'material';
 
 	/** Одна задача (ссылка): самопроверка, без записи сдачи. */
 	case Task = 'task';
@@ -49,7 +46,6 @@ enum StepType: string {
 		return match ( $this ) {
 			self::Text       => 'Текст',
 			self::Video      => 'Видео',
-			self::Material   => 'Материал',
 			self::Task       => 'Задача',
 			self::Work       => 'Работа',
 			self::Assessment => 'Контрольная',
@@ -62,7 +58,7 @@ enum StepType: string {
 	 */
 	public function isInline(): bool {
 		return match ( $this ) {
-			self::Text, self::Video, self::Material => true,
+			self::Text, self::Video => true,
 			default                                 => false,
 		};
 	}

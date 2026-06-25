@@ -200,6 +200,28 @@ if (!function_exists('get_post_meta')) {
         return $meta[$key] ?? ($single ? '' : []);
     }
 }
+if (!function_exists('get_the_title')) {
+    function get_the_title($id = 0): string {
+        $p = get_post(is_object($id) ? $id->ID : (int) $id);
+        return $p instanceof WP_Post ? $p->post_title : '';
+    }
+}
+if (!function_exists('get_edit_post_link')) {
+    function get_edit_post_link($id = 0, $context = 'display'): string {
+        return 'post.php?post=' . (int) (is_object($id) ? $id->ID : $id) . '&action=edit';
+    }
+}
+if (!function_exists('wp_is_post_revision')) {
+    function wp_is_post_revision($post): bool { return false; }
+}
+if (!function_exists('wp_is_post_autosave')) {
+    function wp_is_post_autosave($post): bool { return false; }
+}
+if (!function_exists('wp_editor')) {
+    function wp_editor(string $content, string $editor_id, array $settings = []): void {
+        echo '<textarea id="' . $editor_id . '">' . $content . '</textarea>';
+    }
+}
 if (!function_exists('get_posts')) {
     function get_posts(array $args = []): array {
         $type     = $args['post_type'] ?? '';

@@ -72,7 +72,7 @@ function mount( el ) {
 		search: ( q ) => post( acts.getStepCandidates, nonces.authorLesson, {
 			subject_key: subject,
 			kind:        'task',
-			source:      'bank',
+			source:      'all', // и банк, и задачи предмета (как в Работах) — с бейджем источника
 			search:      q,
 		} ),
 

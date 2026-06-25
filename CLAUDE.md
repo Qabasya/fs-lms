@@ -153,7 +153,7 @@ To add a new AJAX action: add a case to `AjaxHook`, register it in the relevant 
 
 ## Key Services
 
-### PostTypeResolver (`inc/Services/PostTypeResolver.php`)
+### PostTypeResolver (`inc/Services/Subject/PostTypeResolver.php`)
 
 Static helpers — use instead of string concatenation:
 - `PostTypeResolver::tasks($key)` → `"{$key}_tasks"`
@@ -161,7 +161,7 @@ Static helpers — use instead of string concatenation:
 - `PostTypeResolver::isTaskPostType($post_type)` → bool
 - `PostTypeResolver::subjectFromTaskPostType($post_type)` → subject key
 
-### ContentCacheService (`inc/Services/ContentCacheService.php`)
+### ContentCacheService (`inc/Services/Subject/ContentCacheService.php`)
 
 Transient-based cache for recent tasks/articles. Hooks `save_post` and `delete_post` via `SubjectController` to auto-invalidate.
 
@@ -176,9 +176,9 @@ Transient-based cache for recent tasks/articles. Hooks `save_post` and `delete_p
 - `EmailOtpService` — generates, stores, and verifies OTP codes for email confirmation
 - `PhpEmailTemplate` / `WpOptionsEmailTemplate` — template strategies (PHP file fallback → DB overrides)
 
-### Auth (`inc/Services/AuthService/`)
+### Auth (`inc/Modules/SocialAuth/Services/`)
 
-OAuth via Hybridauth. `AuthService` orchestrates the full flow: find user by social ID → find by email (account linking) → register new → WP login. Provider strategies in `AuthStrategies/` (Google, VK, GitHub) implement `AuthStrategyInterface`. Auth settings (client IDs, secrets) stored in `OptionName::AUTH_SETTINGS`. Social user meta keys follow the pattern `fs_social_{provider}_id`.
+OAuth via Hybridauth, extracted into the disable-able `SocialAuth` module (`inc/Modules/SocialAuth/`). `AuthService` orchestrates the full flow: find user by social ID → find by email (account linking) → register new → WP login. Provider strategies in `Services/AuthStrategies/` (Google, VK, GitHub) implement `AuthStrategyInterface`. Auth settings (client IDs, secrets) stored in `OptionName::AUTH_SETTINGS`. Social user meta keys follow the pattern `fs_social_{provider}_id`.
 
 **Filter hook for CPT args:** `apply_filters('fs_lms_cpt_args', $args, $type, $subject)` — fired in `SubjectController` before registering each CPT; allows external modification of labels and options.
 

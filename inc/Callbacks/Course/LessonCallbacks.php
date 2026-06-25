@@ -215,11 +215,6 @@ class LessonCallbacks extends BaseController {
 				'url'         => $this->sanitizeTextValue( $raw_payload['url'] ?? '' ),
 				'description' => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
 			),
-			'material'           => array_filter( array(
-				'title'         => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
-				'article_id'    => $this->sanitizeIntValue( $raw_payload['article_id'] ?? 0 ),
-				'attachment_id' => $this->sanitizeIntValue( $raw_payload['attachment_id'] ?? 0 ),
-			) ),
 			'task'               => array(
 				'ref'    => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
 				'source' => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',

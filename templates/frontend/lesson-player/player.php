@@ -17,7 +17,7 @@ use Inc\Enums\Course\StepType;
 
 $cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRoutes::GroupCockpit->url() );
 ?>
-<div class="wrap fs-player" data-group-lesson-id="<?php echo esc_attr( (string) $view['group_lesson_id'] ); ?>">
+<div class="wrap fs-player" data-group-lesson-id="<?php echo esc_attr( (string) $view['group_lesson_id'] ); ?>" data-active-step="<?php echo esc_attr( $active_step ?? '' ); ?>">
 
 	<a class="fs-player__back" href="<?php echo esc_url( $cockpit_url ); ?>">← <?php esc_html_e( 'К программе группы', 'fs-lms' ); ?></a>
 	<h1 class="fs-player__title"><?php echo esc_html( $view['topic'] ); ?></h1>
@@ -58,6 +58,7 @@ $cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRout
 							<?php echo esc_html( StepType::fromValueOrDefault( $step['type'] )->label() ); ?>
 						</span>
 						<h2 class="fs-player__panelname"><?php echo esc_html( $step['title'] ); ?></h2>
+						<button type="button" class="fs-player__copylink" data-step="<?php echo esc_attr( $step['key'] ); ?>" aria-label="<?php esc_attr_e( 'Скопировать ссылку на шаг', 'fs-lms' ); ?>" title="<?php esc_attr_e( 'Скопировать ссылку на шаг', 'fs-lms' ); ?>">🔗</button>
 					</header>
 
 					<div class="fs-player__panelbody">
@@ -82,14 +83,6 @@ $cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRout
 								} elseif ( $is_slot ) {
 									echo '<p class="fs-player__muted">' . esc_html__( 'Запись занятия ещё не доступна.', 'fs-lms' ) . '</p>';
 								}
-								break;
-
-							case 'material':
-								$ref  = (int) ( $render['ref'] ?? 0 );
-								$link = $ref ? get_permalink( $ref ) : '';
-								echo $link
-									? '<a class="button fs-player__material" href="' . esc_url( $link ) . '" target="_blank" rel="noopener">' . esc_html__( 'Открыть материал', 'fs-lms' ) . '</a>'
-									: '<p class="fs-player__muted">' . esc_html__( 'Материал не выбран.', 'fs-lms' ) . '</p>';
 								break;
 
 							case 'task':
@@ -176,7 +169,7 @@ $cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRout
 					<?php
 					// "Отметить пройденным" for non-interactive steps + manual tasks.
 					$is_auto_grade_task = 'task' === $step['type'] && ! empty( $step['render']['auto_grade'] );
-					$show_complete = in_array( $step['type'], array( 'text', 'video', 'material' ), true )
+					$show_complete = in_array( $step['type'], array( 'text', 'video' ), true )
 						|| ( 'task' === $step['type'] && ! $is_auto_grade_task );
 					if ( $show_complete ) :
 					?>
