@@ -24,6 +24,7 @@ class AttemptService {
 		private readonly AutoGradeService            $autoGrade,
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly ClockInterface              $clock,
+		private readonly AssessmentAccessPolicy      $access,
 	) {}
 
 	/**
@@ -35,6 +36,10 @@ class AttemptService {
 		$assessment = $this->assessments->get( $assessmentId );
 		if ( ! $assessment ) {
 			throw new \InvalidArgumentException( "Контрольная {$assessmentId} не найдена." );
+		}
+
+		if ( ! $this->access->canAccess( $studentPersonId, $assessmentId ) ) {
+			throw new \RuntimeException( 'Нет доступа к этой контрольной.' );
 		}
 
 		if ( $assessment->attemptsAllowed > 0 ) {

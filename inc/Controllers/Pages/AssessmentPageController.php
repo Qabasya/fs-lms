@@ -11,6 +11,7 @@ use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Assessment\AssessmentAccessPolicy;
 use Inc\Services\Assessment\ExamPayloadFilter;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Shared\ThemeCompatService;
@@ -37,6 +38,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		private readonly PersonRepository            $personRepo,
 		private readonly ExamPayloadFilter           $payloadFilter,
 		private readonly ClockInterface              $clock,
+		private readonly AssessmentAccessPolicy      $access,
 	) {
 		parent::__construct();
 	}
@@ -60,13 +62,29 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 			return $template;
 		}
 
+		// Гард доступа: контрольная остаётся publicly_queryable ради плеера, поэтому
+		// доступ закрываем здесь. Гость → логин с возвратом на эту же ссылку;
+		// аутентифицированный, но не имеющий доступа → 404 (не раскрываем наличие).
 		$userId = get_current_user_id();
-		$person = $userId ? $this->personRepo->findByWpUserId( $userId ) : null;
-
-		$activeAttempt = null;
-		if ( $person ) {
-			$activeAttempt = $this->attemptRepo->findActive( $person->id, $assessment->id );
+		if ( ! $userId ) {
+			// Логин-URL внутренний и доверенный — редиректим как в LessonPlayerController.
+			wp_redirect( wp_login_url( get_permalink( $post->ID ) ?: home_url( '/' ) ) );
+			exit;
 		}
+
+		$person = $this->personRepo->findByWpUserId( $userId );
+		if ( null === $person || ! $this->access->canAccess( $person->id, $assessment->id ) ) {
+			global $wp_query;
+			$wp_query->set_404();
+			status_header( 404 );
+			nocache_headers();
+			return get_404_template();
+		}
+
+		// Остаётся открытой по пермалинку — запрещаем индексацию.
+		header( 'X-Robots-Tag: noindex, nofollow', true );
+
+		$activeAttempt = $this->attemptRepo->findActive( $person->id, $assessment->id );
 
 		$now = $this->clock->now();
 

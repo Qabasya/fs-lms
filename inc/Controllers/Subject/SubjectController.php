@@ -345,6 +345,13 @@ class SubjectController extends AjaxController {
 		// Общий конфиг банка контента: скрыт из top-level (меню «Обучение»),
 		// права через fs_lms_content, без REST/поиска/архива.
 		$bank_options = array(
+			// Контент урока/работы/курса не имеет публичного фронта — отдаётся только
+			// через гейтнутый плеер кокпита. Закрываем прямой пермалинк поста,
+			// сохраняя admin-редактирование (show_ui). Контрольные переопределяют
+			// publicly_queryable ниже (их плеер живёт на singular-пермалинке).
+			'public'              => false,
+			'publicly_queryable'  => false,
+			'show_ui'             => true,
 			'show_in_menu'        => false,
 			'show_in_rest'        => false,
 			'exclude_from_search' => true,
@@ -427,9 +434,11 @@ class SubjectController extends AjaxController {
 					'gen'    => 'контрольной',
 					'gender' => 'feminine',
 				),
+				// Плеер экзамена отдаётся по singular-пермалинку (AssessmentPageController),
+				// поэтому остаётся publicly_queryable; доступ закрывает гард-404 в контроллере.
 				'options' => array_merge(
 					$bank_options,
-					array( 'supports' => array( 'title', 'author' ) )
+					array( 'supports' => array( 'title', 'author' ), 'publicly_queryable' => true )
 				),
 			),
 			default => array()

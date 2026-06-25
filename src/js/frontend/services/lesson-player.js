@@ -9,7 +9,7 @@ import { initTaskWidget } from '../components/task-widget.js';
 
 const vars  = window.fs_lms_player_vars;
 // 'task' намеренно исключён: авто-грейд task-шагов происходит через submit, не viewed.
-const INLINE = [ 'text', 'video', 'material' ];
+const INLINE = [ 'text', 'video' ];
 
 export function initLessonPlayer() {
 	const root = document.querySelector( '.fs-player[data-group-lesson-id]' );
@@ -102,6 +102,19 @@ export function initLessonPlayer() {
 		} );
 	} );
 
+	// Копировать ссылку на шаг — каждый шаг адресуется как атомарный объект курса (?gl=&step=).
+	root.addEventListener( 'click', ( e ) => {
+		const btn = e.target.closest( '.fs-player__copylink' );
+		if ( ! btn ) { return; }
+		const url = `${ location.origin }${ location.pathname }?gl=${ encodeURIComponent( groupLessonId ) }&step=${ encodeURIComponent( btn.dataset.step ) }`;
+		if ( ! navigator.clipboard?.writeText ) { return; }
+		navigator.clipboard.writeText( url ).then( () => {
+			const prev = btn.textContent;
+			btn.textContent = '✓';
+			setTimeout( () => { btn.textContent = prev; }, 1200 );
+		} ).catch( () => {} );
+	} );
+
 	// Проверка интерактивного задания (делегированный обработчик).
 	root.addEventListener( 'click', async ( e ) => {
 		const btn = e.target.closest( '.fs-task-submit' );
@@ -172,9 +185,14 @@ export function initLessonPlayer() {
 		}
 	} );
 
-	// init — показать первый доступный шаг
+	// init — показать первый доступный шаг (или шаг из deep-link ?step=, если он доступен)
 	panels.forEach( ( p ) => { p.hidden = true; } );
-	const start = panels.findIndex( ( _, i ) => isAvailable( i ) );
+	let start = panels.findIndex( ( _, i ) => isAvailable( i ) );
+	const deepStep = root.dataset.activeStep || '';
+	if ( deepStep ) {
+		const di = panels.findIndex( ( p ) => p.dataset.step === deepStep );
+		if ( di >= 0 && isAvailable( di ) ) { start = di; }
+	}
 	active = start >= 0 ? start : 0;
 	panels[ active ].hidden = false;
 	if ( navs[ active ] ) { navs[ active ].classList.add( 'is-active' ); }

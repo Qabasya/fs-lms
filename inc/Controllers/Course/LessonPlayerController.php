@@ -48,19 +48,32 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 
 		$userId = get_current_user_id();
 		if ( ! $userId ) {
-			wp_redirect( wp_login_url( PageRoutes::GroupCockpit->url() ) );
+			// Глубокая ссылка на шаг могла прийти из соцсетей — после логина
+			// возвращаем ученика ровно на этот урок/шаг.
+			wp_redirect( wp_login_url( $this->currentDeepLink() ) );
 			exit;
 		}
 
-		$person = $this->persons->findByWpUserId( $userId );
-		$row    = $this->groupLessons->find( (int) $_GET['gl'] );
-		if ( null === $person || null === $row || ! $this->guard->isMemberEver( $row->groupId, $person->id ) ) {
-			return $template; // не ученик этого урока — пусть кокпит решает (редирект)
+		$row = $this->groupLessons->find( (int) $_GET['gl'] );
+		if ( null === $row ) {
+			return $this->notFound();
 		}
 
-		$lessonGate = $this->gate->resolveLesson( $person->id, $row );
-		$view       = $this->player->buildView( $person->id, $row );
-		$groupId    = $row->groupId;
+		$person    = $this->persons->findByWpUserId( $userId );
+		$isStudent = null !== $person && $this->guard->isMemberEver( $row->groupId, $person->id );
+		if ( ! $isStudent ) {
+			// Преподаватель группы — пусть кокпит отрисует свой обзор;
+			// постороннему не раскрываем наличие урока (404).
+			if ( $this->guard->canManage( $row->groupId, $userId ) ) {
+				return $template;
+			}
+			return $this->notFound();
+		}
+
+		$lessonGate  = $this->gate->resolveLesson( $person->id, $row );
+		$view        = $this->player->buildView( $person->id, $row );
+		$groupId     = $row->groupId;
+		$active_step = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( $_GET['step'] ) ) : '';
 
 		ThemeCompatService::header();
 		if ( GateState::Locked === $lessonGate || null === $view ) {
@@ -70,5 +83,25 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		}
 		ThemeCompatService::footer();
 		exit;
+	}
+
+	/** Текущая глубокая ссылка на урок/шаг (для возврата после логина). */
+	private function currentDeepLink(): string {
+		$args = array( 'gl' => (int) ( $_GET['gl'] ?? 0 ) );
+		if ( isset( $_GET['step'] ) ) {
+			$args['step'] = sanitize_key( wp_unslash( $_GET['step'] ) );
+		}
+
+		return add_query_arg( $args, PageRoutes::GroupCockpit->url() );
+	}
+
+	/** Отдаёт 404-шаблон (наличие урока постороннему не раскрываем). */
+	private function notFound(): string {
+		global $wp_query;
+		$wp_query->set_404();
+		status_header( 404 );
+		nocache_headers();
+
+		return get_404_template();
 	}
 }

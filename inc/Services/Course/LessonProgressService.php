@@ -19,7 +19,7 @@ use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 /**
  * Class LessonProgressService
  *
- * Прогресс прохождения шагов урока (★). Инлайн-шаги (text/video/material/task) ученик
+ * Прогресс прохождения шагов урока (★). Инлайн-шаги (text/video/task) ученик
  * отмечает явно (плеер → markViewed/markCompleted) — статус хранится в `fs_lms_lesson_progress`.
  * Завершение оцениваемых шагов (work/assessment) **не дублируется**: резолвится на чтение из
  * fact-таблиц (`submissions`/`attempts`). `isLessonCompleted` — все шаги урока пройдены.
@@ -136,7 +136,7 @@ class LessonProgressService {
 			return $this->hasPassedAttempt( $studentPersonId, $assessmentId ) ? ProgressStatus::Completed : $this->nonComplete( $stored );
 		}
 
-		// text / video / material / task — статус ставит ученик (плеер).
+		// text / video / task — статус ставит ученик (плеер).
 		return $stored ?? ProgressStatus::Available;
 	}
 

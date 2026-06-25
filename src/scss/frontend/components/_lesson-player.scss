@@ -138,6 +138,19 @@
 		margin: 0;
 	}
 
+	&__copylink {
+		margin-left: auto;
+		flex: 0 0 auto;
+		border: 1px solid $color-border-light;
+		background: transparent;
+		border-radius: $radius;
+		padding: 2px $spacing-sm;
+		font-size: $font-size-xxs;
+		cursor: pointer;
+
+		&:hover { border-color: $color-accent; }
+	}
+
 	&__panelbody {
 		line-height: $line-height-base;
 		color: $color-text;

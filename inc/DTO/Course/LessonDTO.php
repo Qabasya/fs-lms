@@ -11,8 +11,8 @@ use Inc\Services\Subject\PostTypeResolver;
  * Class LessonDTO
  *
  * Данные урока предмета. Урок = упорядоченная последовательность ШАГОВ (Courses.md → ★):
- * text/video/material (инлайн) + task/work/assessment (ссылки). Ссылки на работы/контрольные/
- * статьи — производные от соответствующих шагов (см. workIds()/assessmentIds()/articleIds()).
+ * text/video (инлайн) + task/work/assessment (ссылки). Ссылки на работы/контрольные —
+ * производные от соответствующих шагов (см. workIds()/assessmentIds()/taskIds()).
  *
  * @package Inc\DTO\Course
  */
@@ -97,25 +97,6 @@ readonly class LessonDTO {
 	 */
 	public function taskIds(): array {
 		return $this->refsOf( StepType::Task );
-	}
-
-	/**
-	 * Ссылки на статьи урока (article_id материал-шагов).
-	 *
-	 * @return int[]
-	 */
-	public function articleIds(): array {
-		$ids = array();
-		foreach ( $this->steps as $step ) {
-			if ( StepType::Material === $step->type ) {
-				$id = (int) ( $step->payload['article_id'] ?? 0 );
-				if ( $id > 0 ) {
-					$ids[] = $id;
-				}
-			}
-		}
-
-		return $ids;
 	}
 
 	/**

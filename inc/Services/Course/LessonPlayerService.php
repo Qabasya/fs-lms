@@ -104,7 +104,6 @@ class LessonPlayerService {
 				'provider'       => (string) ( $step->payload['provider'] ?? '' ),
 				'recording_slot' => (bool) ( $step->payload['recording_slot'] ?? false ),
 			),
-			'material' => array( 'ref' => (int) ( $step->payload['article_id'] ?? 0 ) ),
 			'task'     => $this->renderTaskData( $step, $groupLesson, $studentPersonId ),
 			default    => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
 		};
