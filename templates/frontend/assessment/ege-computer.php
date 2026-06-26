@@ -1,6 +1,6 @@
 <?php
 /**
- * Шаблон плеера ЕГЭ (Компьютер) — Inc\Modules\EgeComputer.
+ * Шаблон плеера КЕГЭ — Inc\Modules\EgeComputer.
  * Переменные идентичны attempt.php (T7.19 — тот же контроллер).
  *
  * @var \Inc\DTO\Assessment\AssessmentDTO      $assessment
