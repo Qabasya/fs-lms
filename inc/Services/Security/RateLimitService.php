@@ -51,6 +51,7 @@ readonly class RateLimitService {
 	private const LIMIT_PARENT      = 3;
 	private const LIMIT_PII_REVEAL  = 100;
 	private const LIMIT_OTP_EMAIL   = 5;
+	private const LIMIT_DIRECTION_CODE = 10;
 
 	/**
 	 * Проверяет и фиксирует попытку создания заявки с данного IP.
@@ -62,6 +63,22 @@ readonly class RateLimitService {
 	public function allowApplicationCreation( string $ip ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
 		return $this->check( $this->ipKey( 'apply', $ip ), self::LIMIT_APPLICATION );
+	}
+
+	/**
+	 * Проверяет и фиксирует попытку ввода кода направления (гейт формы /lms/apply).
+	 *
+	 * Вызывать ТОЛЬКО на неверный код: верный код общий для направления и не должен
+	 * жечь лимит на общих IP (школьные/гостевые компьютеры). Так перебор кодов душится,
+	 * а легитимные ученики с правильным кодом не блокируются.
+	 *
+	 * @param string $ip IP-адрес клиента
+	 *
+	 * @return bool false если лимит неверных попыток исчерпан
+	 */
+	public function allowDirectionCode( string $ip ): bool {
+		if ( $this->pluginConfig->isTestEnv() ) { return true; }
+		return $this->check( $this->ipKey( 'dircode', $ip ), self::LIMIT_DIRECTION_CODE );
 	}
 
 	/**

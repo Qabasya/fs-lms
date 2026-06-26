@@ -199,48 +199,16 @@
     margin-bottom: 12px;
   }
 }
-// ── Гейт направления (модалка-оверлей на /lms/apply, Этап 0) ──
-.fs-direction-gate {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: $spacing-lg;
-  background: rgba(0, 0, 0, .5);
-
-  &[hidden] { display: none; }
-
-  &__dialog {
-    width: 100%;
-    max-width: 360px;
-    padding: $spacing-lg * 1.5;
-    text-align: center;
-    background: $color-white;
-    border-radius: $radius-lg;
-    box-shadow: $shadow-card;
-  }
-
-  &__title {
-    margin: 0 0 $spacing-sm;
-    font-size: $font-size-heading;
-    color: $color-text;
-  }
+// ── Гейт кода направления (серверный, инлайн-блок карточки /lms/apply, Этап 0) ──
+// Не оверлей-модалка: форма приходит по AJAX только после верного кода, поэтому гейт —
+// обычный контент карточки. Поле и кнопка переиспользуют стили .fs-apply-card__*.
+.fs-apply-gate {
+  text-align: center;
 
   &__hint {
     margin: 0 0 $spacing-lg;
     font-size: $font-size-sm;
     color: $color-muted;
-  }
-
-  &__input {
-    width: 100%;
-    margin-bottom: $spacing-md;
-    padding: $spacing-md;
-    font-size: $font-size-base;
-    border: 1px solid $color-border;
-    border-radius: $radius-md;
   }
 
   &__error {
@@ -249,19 +217,6 @@
     color: $color-danger;
 
     &[hidden] { display: none; }
-  }
-
-  &__btn {
-    width: 100%;
-    padding: $spacing-md;
-    font-size: $font-size-base;
-    color: $color-white;
-    background: $color-accent;
-    border: 0;
-    border-radius: $radius-pill;
-    cursor: pointer;
-
-    &:disabled { opacity: .6; cursor: default; }
   }
 }
 

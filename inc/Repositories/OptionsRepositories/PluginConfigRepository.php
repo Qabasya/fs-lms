@@ -9,11 +9,8 @@ use Inc\Enums\Settings\OptionName;
 readonly class PluginConfigRepository {
 
 	private const DEFAULTS = array(
-		'dadata_token'                 => '',
 		'test_env'                     => false,
 		'otp_bypass_code'              => '',
-		'captcha_site_key'             => '',
-		'captcha_server_key'           => '',
 		// Привязка заявки к направлению (Этап 0 / WpToADTasks).
 		'applications_bind_to_subject' => false,
 		'direction_codes'              => array(), // [ subject_key => code ]

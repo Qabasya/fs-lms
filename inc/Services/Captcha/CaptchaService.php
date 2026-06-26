@@ -5,7 +5,6 @@ declare( strict_types=1 );
 namespace Inc\Services\Captcha;
 
 use Inc\Contracts\CaptchaProviderInterface;
-use Inc\Services\CaptchaProviders\YandexSmartCaptchaProvider;
 
 /**
  * Class CaptchaService
@@ -38,14 +37,13 @@ readonly class CaptchaService {
 	/**
 	 * Конструктор сервиса.
 	 *
-	 * Провайдер — Yandex SmartCaptcha. Если ключи не заданы, провайдер
-	 * ведёт себя как заглушка (validate() → true, getSiteKey() → '').
-	 * Для смены провайдера заменить тип-хинт на нужную реализацию интерфейса.
+	 * Провайдер резолвится фабрикой через фильтр `fs_lms_captcha_provider`: по умолчанию
+	 * заглушка (капча выключена), опциональный модуль SmartCaptcha подменяет на Yandex.
 	 *
-	 * @param YandexSmartCaptchaProvider $provider Провайдер капчи
+	 * @param CaptchaProviderFactory $factory Фабрика провайдера капчи
 	 */
 	public function __construct(
-		private YandexSmartCaptchaProvider $provider,
+		private CaptchaProviderFactory $factory,
 	) {}
 
 	/**
@@ -59,7 +57,7 @@ readonly class CaptchaService {
 	 * @return bool
 	 */
 	public function validate( string $token, string $remoteIp ): bool {
-		return $this->provider->validate( $token, $remoteIp );
+		return $this->factory->make()->validate( $token, $remoteIp );
 	}
 
 	/**
@@ -68,7 +66,7 @@ readonly class CaptchaService {
 	 * @return string Пустая строка если провайдер не сконфигурирован
 	 */
 	public function getSiteKey(): string {
-		return $this->provider->getSiteKey();
+		return $this->factory->make()->getSiteKey();
 	}
 
 	/**
@@ -77,6 +75,6 @@ readonly class CaptchaService {
 	 * @return bool false если ключи капчи не заданы
 	 */
 	public function isConfigured(): bool {
-		return $this->provider->isConfigured();
+		return $this->factory->make()->isConfigured();
 	}
 }

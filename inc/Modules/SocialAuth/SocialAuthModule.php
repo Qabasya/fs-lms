@@ -17,7 +17,7 @@ use Inc\Modules\SocialAuth\Controllers\SocialAuthSettingsController;
  *
  * Уровни выключения:
  *  1) константа FS_LMS_SOCIAL_AUTH=false в wp-config.php (жёсткий оффлайн);
- *  2) fs_lms_plugin_config['social_auth_enabled'] = false (тумблер);
+ *  2) опция fs_lms_social_auth['enabled'] = false (тумблер на «Статистике»);
  *  3) удаление каталога inc/Modules/SocialAuth/ + строки SocialAuthModule::class в Init.
  */
 class SocialAuthModule implements ServiceInterface {
@@ -26,13 +26,17 @@ class SocialAuthModule implements ServiceInterface {
 		private readonly SocialAuthSettingsController $settings,
 		private readonly SocialAuthController         $runtime,
 		private readonly SocialAuthPageController     $page,
+		private readonly SocialAuthConfig             $config,
 	) {}
 
 	public function register(): void {
+		// Разовый перенос флага из легаси core-конфига в свою опцию (back-compat).
+		$this->config->maybeMigrateFromCore();
+
 		// Настройки (вкладка + register_setting) — всегда: чтобы можно было настроить провайдеров.
 		$this->settings->register();
 
-		if ( ! SocialAuthConfig::isEnabled() ) {
+		if ( ! $this->config->isEnabled() ) {
 			return;
 		}
 

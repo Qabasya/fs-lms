@@ -30,11 +30,8 @@ class ConfigCallbacks extends BaseController {
 		$this->authorize( Nonce::Config, Capability::Admin );
 
 		$this->configRepository->save( array(
-			'dadata_token'       => $this->sanitizeText( 'dadata_token' ),
 			'test_env'           => $this->sanitizeBool( 'test_env' ),
 			'otp_bypass_code'    => $this->sanitizeText( 'otp_bypass_code' ),
-			'captcha_site_key'   => $this->sanitizeText( 'captcha_site_key' ),
-			'captcha_server_key' => $this->sanitizeText( 'captcha_server_key' ),
 		) );
 
 		$this->success( array( 'message' => 'Настройки сохранены.' ) );
@@ -49,9 +46,18 @@ class ConfigCallbacks extends BaseController {
 	public function ajaxSaveApplicationSettings(): void {
 		$this->authorize( Nonce::Config, Capability::Admin );
 
+		$bind  = $this->sanitizeBool( 'applications_bind_to_subject' );
+		$codes = $this->sanitizeDirectionCodes();
+
+		// Инвариант: привязка включена ⟹ нужен хотя бы один код направления, иначе гейт
+		// на /lms/apply никого не пропустит и форму заявки будет невозможно открыть.
+		if ( $bind && empty( $codes ) ) {
+			$this->error( 'Чтобы включить привязку, задайте хотя бы один код направления — иначе форму заявки нельзя будет открыть.' );
+		}
+
 		$this->configRepository->save( array(
-			'applications_bind_to_subject' => $this->sanitizeBool( 'applications_bind_to_subject' ),
-			'direction_codes'              => $this->sanitizeDirectionCodes(),
+			'applications_bind_to_subject' => $bind,
+			'direction_codes'              => $codes,
 		) );
 
 		$this->success( array( 'message' => 'Настройки заявок сохранены.' ) );

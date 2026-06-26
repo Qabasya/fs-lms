@@ -30,6 +30,7 @@ use Inc\Services\Security\PiiCryptoService;
 use Inc\Services\Security\RateLimitService;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Sanitizer;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class ApplicationCallbacks
@@ -53,6 +54,7 @@ use Inc\Shared\Traits\Sanitizer;
 class ApplicationCallbacks extends BaseController {
 
 	use Sanitizer;
+	use TemplateRenderer;
 
 	/**
 	 * Конструктор коллбеков.
@@ -299,15 +301,28 @@ class ApplicationCallbacks extends BaseController {
 	public function ajaxValidateDirectionCode(): void {
 		Nonce::Apply->verify();
 
+		// Привязка выключена — форма отрендерена инлайн, гейта нет.
 		if ( ! $this->applicationSettings->isBindToSubject() ) {
 			$this->success( array( 'valid' => true ) );
 		}
 
+		// Неверный код: фиксируем попытку и душим перебор. Лимит считается только на
+		// промахи — верный код общий для направления и не должен жечь лимит на общих IP.
 		if ( null === $this->applicationSettings->resolveSubjectByCode( $this->sanitizeText( 'direction_code' ) ) ) {
+			$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+			if ( ! $this->rateLimitService->allowDirectionCode( $ip ) ) {
+				$this->error( 'Слишком много попыток. Попробуйте позже.' );
+			}
 			$this->error( 'Неверный код направления.' );
 		}
 
-		$this->success( array( 'valid' => true ) );
+		// Код верный — рендерим форму на сервере и отдаём её HTML. До этого момента
+		// разметки формы в браузере нет: гейт нельзя снять через DevTools/adblock.
+		ob_start();
+		$this->render( 'frontend/apply-fields', array() );
+		$formHtml = (string) ob_get_clean();
+
+		$this->success( array( 'valid' => true, 'form_html' => $formHtml ) );
 	}
 
 	public function ajaxCreateApplication(): void {

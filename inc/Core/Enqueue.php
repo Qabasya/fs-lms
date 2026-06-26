@@ -10,7 +10,6 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Application\ApplicationSettingsService;
-use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Security\FormGuardService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Shared\PluginConfig;
@@ -45,11 +44,9 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * Конструктор.
 	 *
 	 * @param TaxonomyRepository $taxonomy_repository Репозиторий таксономий
-	 * @param CaptchaService     $captchaService      Сервис капчи (для получения site key)
 	 */
 	public function __construct(
 		private readonly TaxonomyRepository $taxonomy_repository,
-		private readonly CaptchaService     $captchaService,
 		private readonly PluginConfig       $pluginConfig,
 		private readonly FormGuardService   $formGuard,
 		private readonly ApplicationSettingsService $applicationSettings,
@@ -328,41 +325,29 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// === Переменные для формы создания заявки (/lms/apply) ===
 		// PageRoutes::Apply->isCurrent() — проверка, находимся ли на странице создания заявки
 		if ( PageRoutes::Apply->isCurrent() ) {
-			wp_localize_script(
-				'fs-lms-frontend-script',
-				'fs_lms_apply_vars',
-				array(
-					'ajax_url'    => admin_url( 'admin-ajax.php' ),
-					'captcha_key' => $this->captchaService->getSiteKey(),
-					'hp_field'    => $this->formGuard->honeypotField(),
-					'form_token'  => $this->formGuard->timestampToken(),
-					'actions'     => array(
-						'send_otp'          => AjaxHook::SendOtpCode->jsAction(),
-						'create'            => AjaxHook::CreateApplication->jsAction(),
-						'check_username'    => AjaxHook::CheckUsernameAvailable->jsAction(),
-						'validate_code'     => AjaxHook::ValidateDirectionCode->jsAction(),
-					),
-					'nonces'      => array(
-						'apply'            => Nonce::Apply->create(),
-						'verify_otp'       => Nonce::VerifyOtp->create(),
-						'check_username'   => Nonce::CheckUsernameAvailable->create(),
-					),
-					'bind_to_subject' => $this->applicationSettings->isBindToSubject(),
-				)
+			$apply_vars = array(
+				'ajax_url'   => admin_url( 'admin-ajax.php' ),
+				'hp_field'   => $this->formGuard->honeypotField(),
+				'form_token' => $this->formGuard->timestampToken(),
+				'actions'    => array(
+					'send_otp'       => AjaxHook::SendOtpCode->jsAction(),
+					'create'         => AjaxHook::CreateApplication->jsAction(),
+					'check_username' => AjaxHook::CheckUsernameAvailable->jsAction(),
+					'validate_code'  => AjaxHook::ValidateDirectionCode->jsAction(),
+				),
+				'nonces'     => array(
+					'apply'          => Nonce::Apply->create(),
+					'verify_otp'     => Nonce::VerifyOtp->create(),
+					'check_username' => Nonce::CheckUsernameAvailable->create(),
+				),
+				'bind_to_subject' => $this->applicationSettings->isBindToSubject(),
 			);
 
-			// Скрипт Yandex SmartCaptcha — только если ключ задан.
-			// Зависит от нашего бандла: он первым ставит window.__fsSmartCaptchaReady,
-			// который вызовет onload-колбэк Яндекса для рендера невидимого виджета.
-			if ( '' !== $this->captchaService->getSiteKey() ) {
-				wp_enqueue_script(
-					'fs-lms-smartcaptcha',
-					'https://smartcaptcha.yandexcloud.net/captcha.js?render=onload&onload=__fsSmartCaptchaReady',
-					array( 'fs-lms-frontend-script' ),
-					null,
-					true
-				);
-			}
+			// Опциональные модули (напр. SmartCaptcha) дописывают свои переменные (captcha_key)
+			// и сами грузят свои внешние скрипты. Ядро о них не знает.
+			$apply_vars = apply_filters( 'fs_lms_apply_vars', $apply_vars );
+
+			wp_localize_script( 'fs-lms-frontend-script', 'fs_lms_apply_vars', $apply_vars );
 		}
 
 		// === Кокпит группы преподавателя ===
@@ -468,22 +453,22 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 		// === Переменные для формы завершения регистрации родителя (/lms/join) ===
 		if ( 'join' === get_query_var( 'fs_lms_page' ) ) {
-			wp_localize_script(
-				'fs-lms-frontend-script',
-				'fs_lms_join_vars',
-				array(
-					'ajax_url'     => admin_url( 'admin-ajax.php' ),
-					'dadata_token' => $this->pluginConfig->dadataToken(),
-					'actions'      => array(
-						'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
-						'check_email'   => AjaxHook::CheckEmailAvailable->jsAction(),
-					),
-					'nonces'       => array(
-						'parent_submit' => Nonce::ParentSubmit->create(),
-						'check_email'   => Nonce::CheckEmailAvailable->create(),
-					),
-				)
+			$join_vars = array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'actions'  => array(
+					'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
+					'check_email'   => AjaxHook::CheckEmailAvailable->jsAction(),
+				),
+				'nonces'   => array(
+					'parent_submit' => Nonce::ParentSubmit->create(),
+					'check_email'   => Nonce::CheckEmailAvailable->create(),
+				),
 			);
+
+			// Опциональные модули (напр. DaData) дописывают свои переменные. Ядро о них не знает.
+			$join_vars = apply_filters( 'fs_lms_join_vars', $join_vars );
+
+			wp_localize_script( 'fs-lms-frontend-script', 'fs_lms_join_vars', $join_vars );
 		}
 	}
 

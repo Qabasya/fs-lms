@@ -24,6 +24,7 @@ class SocialAuthSettingsController implements ServiceInterface {
 
 	public function __construct(
 		private readonly PageGeneratorService $pages,
+		private readonly SocialAuthConfig     $config,
 	) {}
 
 	public function register(): void {
@@ -39,7 +40,7 @@ class SocialAuthSettingsController implements ServiceInterface {
 
 	public function addSettingsTab( array $tabs ): array {
 		// Вкладка скрыта когда модуль выключен
-		if ( ! SocialAuthConfig::isEnabled() ) {
+		if ( ! $this->config->isEnabled() ) {
 			return $tabs;
 		}
 
@@ -73,7 +74,7 @@ class SocialAuthSettingsController implements ServiceInterface {
 			'id'           => 'social_auth',
 			'title'        => 'Авторизация через соцсети',
 			'description'  => 'OAuth-вход через Google, VK и GitHub. При отключении исчезает вкладка «Авторизация» в Настройках и прекращается регистрация OAuth-маршрутов.',
-			'enabled'      => SocialAuthConfig::isEnabled(),
+			'enabled'      => $this->config->isEnabled(),
 			'const_locked' => $const_defined,
 			'const_key'    => 'FS_LMS_SOCIAL_AUTH',
 		);
@@ -82,7 +83,7 @@ class SocialAuthSettingsController implements ServiceInterface {
 	}
 
 	public function onToggle( bool $enabled ): void {
-		SocialAuthConfig::toggle( $enabled );
+		$this->config->save( array( 'enabled' => $enabled ) );
 
 		// При включении модуля гарантируем наличие опубликованной страницы входа:
 		// её полностью рендерит этот модуль (шорткод [fs_lms_login_form]), а запись

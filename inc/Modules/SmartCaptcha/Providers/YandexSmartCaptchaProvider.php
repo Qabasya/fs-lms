@@ -2,31 +2,30 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services\CaptchaProviders;
+namespace Inc\Modules\SmartCaptcha\Providers;
 
 use Inc\Contracts\CaptchaProviderInterface;
-use Inc\Services\Shared\PluginConfig;
+use Inc\Modules\SmartCaptcha\Config\SmartCaptchaConfig;
 use Inc\Shared\PluginLogger;
 
 /**
  * Class YandexSmartCaptchaProvider
  *
- * Провайдер капчи на базе Yandex SmartCaptcha.
+ * Провайдер капчи на базе Yandex SmartCaptcha (модуль SmartCaptcha).
+ * Ключи берёт из опции модуля (`SmartCaptchaConfig`), не из core-конфига.
  *
- * @package Inc\Services\CaptchaProviders
+ * @package Inc\Modules\SmartCaptcha\Providers
  *
  * ### Поведение:
  *
- * - Не настроен (нет серверного ключа) → validate() возвращает true,
- *   getSiteKey() пуст, isConfigured() false. Форма не блокируется —
- *   защита держится на OTP + honeypot + rate-limit.
+ * - Не настроен (нет серверного ключа) → validate() возвращает true, getSiteKey() пуст,
+ *   isConfigured() false. Форма не блокируется — защита держится на OTP + honeypot + rate-limit.
  * - Настроен → серверная валидация токена через API SmartCaptcha.
  *
  * ### Fail-open:
  *
- * При сетевой ошибке или некорректном ответе сервиса validate() возвращает
- * true (не блокируем легитимных пользователей при недоступности Яндекса).
- * Это осознанный компромисс: за капчей стоят OTP и прочие контроли.
+ * При сетевой ошибке или некорректном ответе validate() возвращает true (не блокируем
+ * легитимных пользователей при недоступности Яндекса) — за капчей стоят OTP и прочие контроли.
  *
  * @see https://yandex.cloud/ru/docs/smartcaptcha/
  */
@@ -36,11 +35,11 @@ readonly class YandexSmartCaptchaProvider implements CaptchaProviderInterface {
 	private const VALIDATE_URL = 'https://smartcaptcha.yandexcloud.net/validate';
 
 	public function __construct(
-		private PluginConfig $config,
+		private SmartCaptchaConfig $config,
 	) {}
 
 	public function validate( string $token, string $remoteIp ): bool {
-		$serverKey = $this->config->captchaServerKey();
+		$serverKey = $this->config->serverKey();
 
 		// Капча не настроена — пропускаем (поведение NullCaptchaProvider).
 		if ( '' === $serverKey ) {
@@ -78,10 +77,10 @@ readonly class YandexSmartCaptchaProvider implements CaptchaProviderInterface {
 	}
 
 	public function getSiteKey(): string {
-		return $this->config->captchaSiteKey();
+		return $this->config->siteKey();
 	}
 
 	public function isConfigured(): bool {
-		return '' !== $this->config->captchaSiteKey() && '' !== $this->config->captchaServerKey();
+		return '' !== $this->config->siteKey() && '' !== $this->config->serverKey();
 	}
 }

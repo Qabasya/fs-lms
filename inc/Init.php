@@ -4,7 +4,9 @@ namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Modules\AdSync\AdSyncModule;
+use Inc\Modules\DaData\DaDataModule;
 use Inc\Modules\EgeComputer\EgeComputerModule;
+use Inc\Modules\SmartCaptcha\SmartCaptchaModule;
 use Inc\Modules\SocialAuth\SocialAuthModule;
 use Inc\Controllers\Enrollment\ApplicationController;
 use Inc\Controllers\Pages\ApplyPageController;
@@ -151,6 +153,8 @@ final class Init {
 			SocialAuthModule::class,          // Inc\Modules\SocialAuth — OAuth через соцсети (флаг-гейт, по умолчанию вкл.)
 			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
 			EgeComputerModule::class,         // Inc\Modules\EgeComputer — плеер ЕГЭ (Компьютер) (флаг-гейт, T7.20)
+			DaDataModule::class,              // Inc\Modules\DaData — автодополнение DaData на /lms/join (флаг-гейт)
+			SmartCaptchaModule::class,        // Inc\Modules\SmartCaptcha — капча Yandex на /lms/apply (флаг-гейт)
 		);
 	}
 
