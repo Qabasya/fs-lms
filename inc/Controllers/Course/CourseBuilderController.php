@@ -7,7 +7,6 @@ namespace Inc\Controllers\Course;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
-use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -29,37 +28,6 @@ class CourseBuilderController extends BaseController implements ServiceInterface
 
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'registerPage' ) );
-		add_action( 'load-post.php', array( $this, 'redirectCourseEditToBuilder' ) );
-		add_action( 'load-post-new.php', array( $this, 'redirectCourseNewToBuilder' ) );
-	}
-
-	public function redirectCourseEditToBuilder(): void {
-		// Только экран правки (action=edit или без action). trash/delete/untrash и пр.
-		// должны проходить штатно — иначе «Удалить» уносит в конструктор.
-		$action = sanitize_key( wp_unslash( $_GET['action'] ?? 'edit' ) );
-		if ( 'edit' !== $action ) {
-			return;
-		}
-		$post_id = absint( wp_unslash( $_GET['post'] ?? 0 ) );
-		if ( $post_id <= 0 ) {
-			return;
-		}
-		$post = get_post( $post_id );
-		if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
-			return;
-		}
-		wp_safe_redirect( admin_url( 'admin.php?page=' . self::PAGE_SLUG . '&course=' . $post_id ) );
-		exit;
-	}
-
-	public function redirectCourseNewToBuilder(): void {
-		$post_type = sanitize_key( wp_unslash( $_GET['post_type'] ?? '' ) );
-		if ( ! PostTypeResolver::isCoursePostType( $post_type ) ) {
-			return;
-		}
-		$subject = PostTypeResolver::subjectFromCoursePostType( $post_type );
-		wp_safe_redirect( admin_url( 'admin.php?page=' . self::PAGE_SLUG . '&subject=' . rawurlencode( $subject ) ) );
-		exit;
 	}
 
 	/**
@@ -81,9 +49,18 @@ class CourseBuilderController extends BaseController implements ServiceInterface
 	 * Рендерит контейнер-маунт приложения.
 	 */
 	public function renderPage(): void {
+		$course_id = absint( wp_unslash( $_GET['course'] ?? 0 ) );
+		$subject   = sanitize_key( wp_unslash( $_GET['subject'] ?? '' ) );
+		$post      = $course_id > 0 ? get_post( $course_id ) : null;
+
 		$this->render( 'admin/course-builder', array(
-			'course_id' => absint( wp_unslash( $_GET['course'] ?? 0 ) ),
-			'subject'   => sanitize_key( wp_unslash( $_GET['subject'] ?? '' ) ),
+			'course_id'    => $course_id,
+			'subject'      => $subject,
+			'post'         => $post,
+			'is_published' => $post && 'publish' === get_post_status( $post ),
+			'preview_url'  => $post ? get_preview_post_link( $post ) : '',
+			'trash_url'    => $post ? get_delete_post_link( $post->ID, '', true ) : '',
+			'author_id'    => $post ? (int) $post->post_author : 0,
 		) );
 	}
 }

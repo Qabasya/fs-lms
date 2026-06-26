@@ -38,8 +38,8 @@
 		align-items: center;
 		justify-content: space-between;
 
-		.fs-sb-th-title { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; }
-		.fs-sb-th-count { font-size: 11px; color: $color-secondary-hover; }
+		.fs-sb-th-title { font-size: $font-size-xs; font-weight: $font-heavy; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; }
+		.fs-sb-th-count { font-size: $font-size-code; color: $color-secondary-hover; }
 	}
 	.fs-sb-tree-scroll { flex: 1; overflow-y: auto; padding: $spacing-sm $spacing-sm $spacing-xs; }
 	.fs-sb-tree-add {
@@ -47,6 +47,7 @@
 		padding: $spacing-sm $spacing-sm + 2px;
 		display: flex;
 		gap: $spacing-sm;
+		flex-wrap: wrap;
 		.button { flex: 1; justify-content: center; }
 	}
 
@@ -65,12 +66,12 @@
 		&.active {
 			background: $cb-bg-active;
 			&::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: $color-primary; border-radius: 2px; }
-			.fs-sb-slot-num, .fs-sb-slot-title { color: $color-primary-hover; font-weight: 600; }
+			.fs-sb-slot-num, .fs-sb-slot-title { color: $color-primary-hover; font-weight: $font-bold; }
 		}
 		&.empty .fs-sb-slot-title { color: $color-text-secondary; font-style: italic; }
 
-		.fs-sb-slot-num { font-size: 11px; color: $color-secondary-hover; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 24px; }
-		.fs-sb-slot-title { flex: 1; font-size: 13px; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.fs-sb-slot-num { font-size: $font-size-code; color: $color-secondary-hover; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 24px; }
+		.fs-sb-slot-title { flex: 1; font-size: $font-size-wp; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	}
 
 	// ── RIGHT: тело слота ──
@@ -78,7 +79,7 @@
 	.fs-sb-editor-top { padding: $spacing-lg $cb-pane-px 0; border-bottom: 1px solid $wp-admin-gray-bg; }
 	.fs-sb-title-row { display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px; }
 	.fs-sb-flag {
-		font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 12px;
+		font-size: $font-size-code; font-weight: $font-bold; padding: 3px 9px; border-radius: $border-radius-pill;
 		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg;
 		display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer;
 		&.danger {
@@ -94,16 +95,16 @@
 
 	// ── Тело задачи (условие / ответ / аудио) ──
 	.fs-sb-task-heading {
-		font-size: 16px; font-weight: 600; margin: 0; flex: 1; min-width: 0;
+		font-size: $font-size-m; font-weight: $font-bold; margin: 0; flex: 1; min-width: 0;
 		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 	}
 	.fs-sb-task-section {
-		margin-bottom: $spacing-lg; font-size: 13px; line-height: 1.6; color: $color-text-primary;
+		margin-bottom: $spacing-lg; font-size: $font-size-wp; line-height: 1.6; color: $color-text-primary;
 		p, ul, ol { margin: 0 0 $spacing-sm; }
 		img { max-width: 100%; height: auto; border-radius: $border-radius-sm; }
 	}
 	.fs-sb-section-label {
-		font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+		font-size: $font-size-code; font-weight: $font-heavy; text-transform: uppercase; letter-spacing: 0.04em;
 		color: $color-text-secondary; margin: 0 0 $spacing-sm;
 	}
 	.fs-sb-task-answer { padding: $spacing-md; background: $cb-bg-tree; border: 1px solid $wp-admin-gray-bg; border-radius: $border-radius-md; }
@@ -113,7 +114,7 @@
 	.fs-sb-task-score {
 		display: flex; align-items: center; gap: $spacing-sm; margin-bottom: $spacing-md;
 		padding: $spacing-md 0; border-top: 1px solid $wp-admin-gray-bg;
-		label { font-size: 13px; color: $color-text-secondary; white-space: nowrap; }
+		label { font-size: $font-size-wp; color: $color-text-secondary; white-space: nowrap; }
 		input[type="number"] { width: 80px; }
 	}
 
@@ -133,7 +134,7 @@
 	// ── Статус сохранения ──
 	.fs-sb-status {
 		display: flex; align-items: center; gap: $spacing-xs;
-		padding: $spacing-xs $spacing-md $spacing-sm; font-size: 12px; color: $color-text-secondary;
+		padding: $spacing-xs $spacing-md $spacing-sm; font-size: $font-size-xs; color: $color-text-secondary;
 		.fs-sb-dot { width: 7px; height: 7px; border-radius: 50%; background: $wp-admin-green; flex-shrink: 0; }
 		&.saving { font-style: italic; }
 	}

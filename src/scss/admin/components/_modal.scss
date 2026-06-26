@@ -336,6 +336,8 @@ html.modal-open {
       display: block;
     }
   }
+
+  &--full { flex: 0 0 100%; }
 }
 
 
@@ -785,58 +787,6 @@ html.modal-open {
 }
 
 
-/* =================================================================
-   DETAIL GRID (read-only data display in enrollment/review modals)
-   ================================================================= */
-
-.fs-detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  border: 1px solid $color-border-input;
-  border-radius: $border-radius-md;
-  overflow: hidden;
-}
-
-.fs-detail-row {
-  display: contents;
-
-  .fs-detail-label,
-  .fs-detail-value {
-    padding: $spacing-sm $spacing-md;
-    font-size: 13px;
-    border-bottom: 1px solid $color-border-input;
-    line-height: 1.4;
-  }
-
-  .fs-detail-label {
-    background: rgba($wp-admin-gray, 0.06);
-    font-weight: 600;
-    color: $color-text-secondary;
-    white-space: nowrap;
-  }
-
-  .fs-detail-value {
-    color: $color-text-primary;
-    word-break: break-word;
-  }
-
-  &:last-child .fs-detail-label,
-  &:last-child .fs-detail-value {
-    border-bottom: none;
-  }
-
-  &--full {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-
-    .fs-detail-label,
-    .fs-detail-value {
-      border-bottom: none;
-    }
-  }
-}
 
 .fs-checkbox-label {
   display: flex;

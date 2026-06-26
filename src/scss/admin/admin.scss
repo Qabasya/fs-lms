@@ -1,5 +1,14 @@
 @use 'variables' as *;
 @use 'mixins' as m;
+
+// ── Примитивы дизайн-системы (Фаза 1)
+@use 'components/card';
+@use 'components/field';
+@use 'components/empty';
+@use 'components/page-header';
+@use 'components/filter-bar';
+
+// ── Компоненты
 @use 'components/tables';
 @use 'components/modal';
 @use 'components/subject-tabs';

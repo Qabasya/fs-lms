@@ -7,6 +7,7 @@
 
 import { escapeHtml, apiError } from '../../modules/utils.js';
 import { openModal, closeModal, bindEsc, unbindEsc } from '../../modules/modal-base.js';
+import { fsBadge } from '../../modules/ui-helpers.js';
 
 const $ = jQuery;
 
@@ -95,7 +96,7 @@ export const GroupsTable = {
             rows += `<tr>
                 <td>${ escapeHtml(s.name) }</td>
                 <td>${ escapeHtml(s.parent_name) }</td>
-                <td><span class="fs-badge is-${ badgeColor(s.status_key) }">${ escapeHtml(s.status) }</span></td>
+                <td>${ fsBadge( escapeHtml(s.status), badgeColor(s.status_key) ) }</td>
                 <td>${ escapeHtml(s.contract_no) }</td>
             </tr>`;
         });

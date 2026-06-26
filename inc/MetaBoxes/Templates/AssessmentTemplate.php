@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\AssessmentKindField;
-use Inc\MetaBoxes\Fields\InputField;
+use Inc\MetaBoxes\Fields\NumberInputField;
 use Inc\MetaBoxes\Fields\ScoreMapField;
 
 /**
@@ -25,15 +25,15 @@ class AssessmentTemplate extends BaseTemplate {
 			),
 			'time_limit_minutes' => array(
 				'label'  => 'Ограничение времени (минут, 0 = без лимита)',
-				'object' => new InputField(),
+				'object' => new NumberInputField(),
 			),
 			'max_attempts'       => array(
 				'label'  => 'Максимум попыток (0 = без ограничений)',
-				'object' => new InputField(),
+				'object' => new NumberInputField(),
 			),
 			'pass_score'         => array(
 				'label'  => 'Проходной балл (0 = без порога)',
-				'object' => new InputField(),
+				'object' => new NumberInputField(),
 			),
 			'score_map'          => array(
 				'label'  => 'Таблица перевода баллов',

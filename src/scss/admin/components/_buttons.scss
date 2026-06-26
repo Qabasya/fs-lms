@@ -1,5 +1,108 @@
 @use '../variables' as *;
 
+/* =================================================================
+   PRIMITIVE: .fs-btn — унифицированная кнопка плагина
+   Варианты: --primary, --secondary, --danger, --ghost, --link, --link-sm
+   Не заменяет WP .button — используется для кастомных кнопок плагина
+   ================================================================= */
+
+.fs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-xs;
+  height: $input-height;
+  padding: 0 $spacing-lg;
+  border-radius: $border-radius-md;
+  font-size: $font-size;
+  font-weight: $font-bold;
+  cursor: pointer;
+  text-decoration: none;
+  transition: $transition-default;
+  border: 1px solid transparent;
+  line-height: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+
+  .dashicons {
+    font-size: $font-size;
+    width: $font-size;
+    height: $font-size;
+  }
+
+  &--primary {
+    background: $color-primary;
+    color: $color-text-inverse;
+    border-color: $color-primary;
+
+    &:hover, &:focus {
+      background: $color-primary-hover;
+      border-color: $color-primary-hover;
+      color: $color-text-inverse;
+    }
+  }
+
+  &--secondary {
+    background: transparent;
+    color: $color-primary;
+    border-color: $color-border-input;
+
+    &:hover, &:focus {
+      background: $wp-admin-gray-bg-light;
+      border-color: $color-primary;
+      color: $color-primary;
+    }
+  }
+
+  &--danger {
+    background: $color-danger;
+    color: $color-text-inverse;
+    border-color: $color-danger;
+
+    &:hover, &:focus {
+      background: $color-danger-hover;
+      border-color: $color-danger-hover;
+      color: $color-text-inverse;
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: $color-text-primary;
+    border-color: $color-border-input;
+
+    &:hover, &:focus {
+      background: $wp-admin-gray-bg-light;
+      border-color: $color-secondary;
+    }
+  }
+
+  &--link {
+    height: auto;
+    padding: 0;
+    background: none;
+    color: $color-primary;
+    border: none;
+    font-weight: $font-regular;
+
+    &:hover, &:focus { color: $color-primary-hover; text-decoration: underline; }
+  }
+
+  // Мелкая текстовая ссылка (бывший .fs-btn-link-sm)
+  &--link-sm {
+    height: auto;
+    padding: 0;
+    background: none;
+    color: $color-primary;
+    border: none;
+    font-size: $font-size-code;
+    font-weight: $font-regular;
+
+    &:hover, &:focus { color: $color-primary-hover; text-decoration: underline; }
+  }
+}
+
+// ── Легаси: WP-кнопка с заливкой (осталась для совместимости)
 .btn-filled {
   background-color: $color-primary !important;
   color: $color-text-inverse !important;

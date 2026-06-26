@@ -7,21 +7,12 @@
 // ── Отступы (только токены из _variables.scss)
 
 .fs-mt-md  { margin-top: $spacing-md !important; }
-.fs-mt-lg  { margin-top: $spacing-lg !important; }
 .fs-mt-xl  { margin-top: $spacing-xl !important; }
 
 .fs-mb-0   { margin-bottom: 0 !important; }
 .fs-mb-md  { margin-bottom: $spacing-md !important; }
 .fs-mb-xl  { margin-bottom: $spacing-xl !important; }
 .fs-mb-xxl { margin-bottom: $spacing-xxl !important; }
-
-// ── Флекс-строка (поиск + кнопка, группы действий)
-
-.fs-flex-row {
-  display: flex;
-  gap: $spacing-sm;
-  align-items: center;
-}
 
 // ── Текст
 

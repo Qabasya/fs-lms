@@ -79,19 +79,19 @@ export const ApplicationsTable = {
         });
 
         // Перемещение заявки в корзину (с подтверждением)
-        $('body').on('click', '.fs-lms-btn-trash', (e) => {
+        $('body').on('click', '.trash .fs-btn', (e) => {
             e.preventDefault();
             this.confirmTrash(e.currentTarget);
         });
 
         // Восстановление заявки из корзины (без подтверждения — действие обратимо)
-        $('body').on('click', '.fs-lms-btn-restore', (e) => {
+        $('body').on('click', '.restore .fs-btn', (e) => {
             e.preventDefault();
             this.restore(e.currentTarget);
         });
 
         // Полное удаление заявки (с подтверждением — действие необратимо)
-        $('body').on('click', '.fs-lms-btn-delete', (e) => {
+        $('body').on('click', '.delete .fs-btn', (e) => {
             e.preventDefault();
             this.confirmDelete(e.currentTarget);
         });

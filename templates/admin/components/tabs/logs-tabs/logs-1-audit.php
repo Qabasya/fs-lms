@@ -30,7 +30,7 @@ $sort_url    = add_query_arg( $audit_filters, $base_url );
 
 <div class="fs-logs-tab" id="js-audit-log-tab">
 
-    <p class="description fs-mt-md">
+    <p class="description">
         Каждое действие с учениками фиксируется здесь.
     </p>
 

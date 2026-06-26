@@ -17,17 +17,17 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 ?>
 
 <div class="wrap">
-    <div class="header-row">
-        <h1 class="wp-heading-inline">Управление группами</h1>
-    </div>
-
-
-	<div class="groups-header-actions">
-		<button type="button" class="page-title-action js-open-group-modal">Добавить группу</button>
-		<button type="button" class="page-title-action js-export-groups">
-            <span class="dashicons dashicons-download"></span>
-            Экспорт CSV
-        </button>
+	<div class="fs-page-header">
+		<div class="fs-page-header__content">
+			<h1 class="fs-page-header__title">Управление группами</h1>
+			<div class="fs-page-header__actions">
+				<button type="button" class="page-title-action js-open-group-modal">Добавить группу</button>
+				<button type="button" class="page-title-action js-export-groups">
+					<span class="dashicons dashicons-download"></span>
+					Экспорт CSV
+				</button>
+			</div>
+		</div>
 	</div>
 
 	<hr class="wp-header-end">

@@ -89,6 +89,7 @@ class CourseBuilderService {
 			'subject_key' => $course->subjectKey,
 			'status'      => $course->status,
 			'author_id'   => $course->authorId,
+			'thumbnail'   => get_the_post_thumbnail_url( $course->id, 'medium' ) ?: '',
 			'modules'     => $modules,
 		);
 	}
@@ -204,14 +205,25 @@ class CourseBuilderService {
 	 *
 	 * @return bool
 	 */
-	public function updateCourseMeta( int $courseId, string $title, bool $published ): bool {
+	public function updateCourseMeta( int $courseId, string $title, string $status, int $authorId = 0, int $thumbnailId = 0 ): bool {
 		$post = $this->posts->get( $courseId );
 		if ( null === $post || ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
 			return false;
 		}
 
+		$allowed_statuses = array( 'draft', 'publish', 'private' );
+		$safe_status      = in_array( $status, $allowed_statuses, true ) ? $status : 'draft';
+
 		$this->posts->update( $courseId, array( 'post_title' => '' !== $title ? $title : 'Без названия' ) );
-		$this->posts->updateStatus( $courseId, $published ? 'publish' : 'draft' );
+		$this->posts->updateStatus( $courseId, $safe_status );
+
+		if ( $authorId > 0 ) {
+			$this->posts->update( $courseId, array( 'post_author' => $authorId ) );
+		}
+
+		if ( $thumbnailId > 0 ) {
+			set_post_thumbnail( $courseId, $thumbnailId );
+		}
 
 		return true;
 	}

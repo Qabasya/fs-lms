@@ -1,0 +1,34 @@
+/* =================================================================
+   PRIMITIVE: Filter Bar
+   Строка поиска/фильтров над таблицей; flex-wrap для адаптива
+   Элементы: __search, __selects, __actions
+   ================================================================= */
+
+@use '../variables' as *;
+
+.fs-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+  margin-bottom: $spacing-lg;
+
+  &__search {
+    flex: 0 1 260px;
+    min-width: 160px;
+  }
+
+  &__selects {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+  }
+
+  &__actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+}

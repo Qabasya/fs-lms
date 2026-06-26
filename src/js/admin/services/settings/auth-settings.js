@@ -239,8 +239,8 @@ export const AuthSettings = {
      */
     _syncAllRequired() {
         // Проходим по всем телам карточек провайдеров.
-        // Каждая карточка (.fs-lms-auth-card__body) содержит поля credentials одного провайдера.
-        $('.fs-lms-auth-card__body').each((_, body) => {
+        // Каждая карточка (auth-fields-*) содержит поля credentials одного провайдера.
+        $('.fs-lms-auth-providers .fs-card__body').each((_, body) => {
             const $body = $(body);
 
             // Определяем состояние провайдера по наличию класса hidden.

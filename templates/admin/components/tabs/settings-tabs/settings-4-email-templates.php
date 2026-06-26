@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
+require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
+
 $saved_templates = (array) get_option( 'fs_lms_email_templates', array() );
 
 $types = array(
@@ -33,38 +35,39 @@ $types = array(
 
 <div id="tab-email-templates" class="tab-pane active">
 
-	<div class="header-row">
-		<h1 class="wp-heading-inline">Шаблоны писем</h1>
+	<div class="fs-page-header">
+		<div class="fs-page-header__content">
+			<h1 class="fs-page-header__title">Шаблоны писем</h1>
+		</div>
+		<p class="fs-page-header__desc">
+			Переопределите текст и тему письма. Если поля пусты — используется PHP-шаблон по умолчанию.<br>
+			В теме и теле поддерживается HTML. Плейсхолдеры подставляются при отправке.
+		</p>
 	</div>
-
-	<p class="description">
-		Переопределите текст и тему письма. Если поля пусты — используется PHP-шаблон по умолчанию.<br>
-		В теме и теле поддерживается HTML. Плейсхолдеры подставляются при отправке.
-	</p>
 
 	<div class="fs-email-templates" id="js-email-templates">
 
 		<?php foreach ( $types as $type_key => $type_cfg ) :
-			$stored  = $saved_templates[ $type_key ] ?? null;
-			$subject = (string) ( $stored['subject'] ?? '' );
-			$body    = (string) ( $stored['body'] ?? '' );
+			$stored    = $saved_templates[ $type_key ] ?? null;
+			$subject   = (string) ( $stored['subject'] ?? '' );
+			$body      = (string) ( $stored['body'] ?? '' );
 			$is_custom = ! empty( $stored['subject'] ) || ! empty( $stored['body'] );
 			?>
 
-			<div class="fs-email-template-card" data-type="<?php echo esc_attr( $type_key ); ?>">
+			<div class="fs-card" data-type="<?php echo esc_attr( $type_key ); ?>">
 
-				<div class="fs-email-template-card__header">
-					<h3><?php echo esc_html( $type_cfg['label'] ); ?></h3>
-					<span class="fs-email-template-card__status <?php echo $is_custom ? 'fs-email-template-card__status--custom' : 'fs-email-template-card__status--default'; ?>"
+				<div class="fs-card__header">
+					<h3 class="fs-card__title"><?php echo esc_html( $type_cfg['label'] ); ?></h3>
+					<span class="fs-email-status <?php echo $is_custom ? 'fs-email-status--custom' : 'fs-email-status--default'; ?>"
 						data-status-label>
 						<?php echo $is_custom ? 'Переопределён' : 'По умолчанию'; ?>
 					</span>
 				</div>
 
-				<div class="fs-email-template-card__body">
+				<div class="fs-card__body">
 
 					<?php if ( ! empty( $type_cfg['placeholders'] ) ) : ?>
-						<div class="fs-email-template-card__placeholders">
+						<div class="fs-email-placeholders">
 							<span class="label">Плейсхолдеры:</span>
 							<?php foreach ( $type_cfg['placeholders'] as $placeholder => $desc ) : ?>
 								<code title="<?php echo esc_attr( $desc ); ?>"><?php echo esc_html( $placeholder ); ?></code>
@@ -72,42 +75,47 @@ $types = array(
 						</div>
 					<?php endif; ?>
 
-					<div class="fs-email-template-card__field">
-						<label>Тема письма</label>
-						<input
-							type="text"
-							class="regular-text js-email-subject"
-							placeholder="<?php echo esc_attr( $type_cfg['default_subject'] ); ?>"
-							value="<?php echo esc_attr( $subject ); ?>"
-						>
+					<div class="fs-field">
+						<label class="fs-field__label">Тема письма</label>
+						<div class="fs-field__control">
+							<input
+								type="text"
+								class="regular-text js-email-subject"
+								placeholder="<?php echo esc_attr( $type_cfg['default_subject'] ); ?>"
+								value="<?php echo esc_attr( $subject ); ?>"
+							>
+						</div>
 					</div>
 
-					<div class="fs-email-template-card__field">
-						<label>Текст письма (HTML)</label>
-						<textarea
-							class="large-text js-email-body"
-							rows="8"
-							placeholder="Оставьте пустым, чтобы использовать PHP-шаблон по умолчанию"
-						><?php echo esc_textarea( $body ); ?></textarea>
-					</div>
-
-					<div class="fs-email-template-card__actions">
-						<button type="button" class="button button-primary js-save-email-template">
-							Сохранить
-						</button>
-						<?php if ( $is_custom ) : ?>
-							<button type="button" class="button js-reset-email-template">
-								Сбросить к умолчанию
-							</button>
-						<?php else : ?>
-							<button type="button" class="button js-reset-email-template" disabled>
-								Сбросить к умолчанию
-							</button>
-						<?php endif; ?>
-						<span class="fs-template-notice js-template-notice hidden"></span>
+					<div class="fs-field">
+						<label class="fs-field__label">Текст письма (HTML)</label>
+						<div class="fs-field__control">
+							<textarea
+								class="large-text js-email-body"
+								rows="8"
+								placeholder="Оставьте пустым, чтобы использовать PHP-шаблон по умолчанию"
+							><?php echo esc_textarea( $body ); ?></textarea>
+						</div>
 					</div>
 
 				</div>
+
+				<div class="fs-card__footer">
+					<button type="button" class="button button-primary js-save-email-template">
+						Сохранить
+					</button>
+					<?php if ( $is_custom ) : ?>
+						<button type="button" class="button js-reset-email-template">
+							Сбросить к умолчанию
+						</button>
+					<?php else : ?>
+						<button type="button" class="button js-reset-email-template" disabled>
+							Сбросить к умолчанию
+						</button>
+					<?php endif; ?>
+					<span class="fs-template-notice js-template-notice hidden"></span>
+				</div>
+
 			</div>
 
 		<?php endforeach; ?>

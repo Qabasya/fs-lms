@@ -11,13 +11,30 @@
 .fs-table {
   @include m.table-base();
 
+  thead tr {
+    height: $tr-height;
+  }
+
   thead th {
     padding: $spacing-sm $spacing-md;
     font-weight: $font-bold;
     text-align: left;
     font-size: $font-size;
     color: $color-text-primary;
-    //border-bottom: 2px solid $color-border-input;
+    vertical-align: middle;
+
+    // Чекбокс массового выбора — line-height = высота строки центрирует инлайн-элемент надёжнее чем vertical-align
+    &.check-column {
+      padding: 0 $spacing-sm;
+      width: 2em;
+      line-height: $tr-height;
+      text-align: center;
+
+      input[type="checkbox"] {
+        vertical-align: middle;
+        margin: 0;
+      }
+    }
 
     a {
       color: inherit;
@@ -29,9 +46,20 @@
   tbody td {
     padding: $spacing-sm $spacing-md;
     border-bottom: 1px solid $table-row-border;
+    vertical-align: middle;
+
+    &.check-column {
+      padding: 0 $spacing-sm;
+      line-height: $tr-height;
+
+      input[type="checkbox"] {
+        vertical-align: middle;
+        margin: 0;
+      }
+    }
   }
 
-  tbody tr{
+  tbody tr {
     height: $tr-height;
   }
 

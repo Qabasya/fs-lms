@@ -83,11 +83,19 @@ $spacing-lg: 16px;
 $spacing-xl: 20px;
 $spacing-xxl: 28px;
 
-$border-radius-sm: 3px;
-$border-radius-md: 4px;
-$border-radius-l: 6px;
+$border-radius-sm:   3px;
+$border-radius-md:   4px;
+$border-radius-l:    6px;
+$border-radius-lg:   8px;
+$border-radius-pill: 12px;
 
+$shadow-card:  0 1px 3px rgba(0, 0, 0, 0.04);
+$shadow-toast: 0 2px 12px rgba(0, 0, 0, 0.18);
 $shadow-modal: 0 2px 20px rgba(0, 0, 0, 0.3);
+
+$input-height:    40px;
+$field-max-width:    320px;
+$settings-max-width: 860px; // единая ширина для страниц настроек
 
 $gap-sm: 50px;
 $gap-md: 100px;
@@ -95,14 +103,17 @@ $gap-md: 100px;
 $tr-height: 42px;
 
 // ── Шрифты
-$font-bold: 600;
+$font-bold:    600;
+$font-heavy:   700;
 $font-regular: 450;
 
-$font-size-sm: 10px;
-$font-size: 14px;
-$font-size-m: 16px;
-$font-size-l: 26px;
+$font-size-sm:   10px;
 $font-size-code: 11px;
+$font-size-xs:   12px;
+$font-size-wp:   13px;
+$font-size:      14px;
+$font-size-m:    16px;
+$font-size-l:    26px;
 
 // ── Тайминги
 $transition-fast:    0.2s ease-out;

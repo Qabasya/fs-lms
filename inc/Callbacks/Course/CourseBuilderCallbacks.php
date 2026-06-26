@@ -117,16 +117,18 @@ class CourseBuilderCallbacks extends BaseController {
 	}
 
 	/**
-	 * Обновляет заголовок/публикацию курса. Params: course_id, title, published
+	 * Обновляет мету курса. Params: course_id, title, status, author_id?, thumbnail_id?
 	 */
 	public function ajaxSaveCourseMeta(): void {
 		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
 
-		$course_id = $this->requireInt( 'course_id' );
-		$title     = $this->sanitizeText( 'title' );
-		$published = $this->sanitizeBool( 'published' );
+		$course_id    = $this->requireInt( 'course_id' );
+		$title        = $this->sanitizeText( 'title' );
+		$status       = $this->sanitizeKey( 'status' );
+		$author_id    = $this->sanitizeInt( 'author_id' );
+		$thumbnail_id = $this->sanitizeInt( 'thumbnail_id' );
 
-		if ( $this->builder->updateCourseMeta( $course_id, $title, $published ) ) {
+		if ( $this->builder->updateCourseMeta( $course_id, $title, $status, $author_id, $thumbnail_id ) ) {
 			$this->success( array( 'saved' => true ) );
 		} else {
 			$this->error( 'Курс не найден.' );

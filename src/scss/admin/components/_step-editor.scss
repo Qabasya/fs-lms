@@ -9,8 +9,8 @@
 
 .fs-se {
 	// steps row
-	.steps-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; margin-bottom: $spacing-sm; }
-	.steps-row { display: flex; align-items: flex-start; gap: $spacing-sm; padding-bottom: $spacing-lg; overflow-x: auto; }
+	.steps-label { font-size: $font-size-code; font-weight: $font-heavy; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; margin-bottom: $spacing-sm; }
+	.steps-row { display: flex; align-items: flex-start; gap: $spacing-sm; padding-top: $spacing-xs; padding-bottom: $spacing-lg; overflow-x: auto; }
 	.step-chip {
 		width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: $spacing-xs; cursor: pointer;
 		color: $color-secondary-hover;
@@ -20,9 +20,9 @@
 			display: flex; align-items: center; justify-content: center; position: relative;
 			transition: transform 0.12s, box-shadow 0.12s; color: inherit;
 			svg { width: 22px; height: 22px; fill: currentColor; }
-			.sc-num { position: absolute; top: 3px; left: 5px; font-size: 10px; font-weight: 700; color: $color-secondary-hover; }
+			.sc-num { position: absolute; top: 3px; left: 5px; font-size: $font-size-sm; font-weight: $font-heavy; color: $color-secondary-hover; }
 		}
-		.sc-type { font-size: 10px; color: $color-secondary-hover; line-height: 1; }
+		.sc-type { font-size: $font-size-sm; color: $color-secondary-hover; line-height: 1; }
 		&:hover .step-chip-box { transform: translateY(-2px); box-shadow: $shadow-cb-chip-hover; }
 
 		&[data-type="lecture"]  { color: $step-lecture; }
@@ -35,7 +35,7 @@
 			.step-chip-box { border-color: currentColor; background: currentColor;
 				svg { fill: $color-text-inverse; }
 				.sc-num { color: $cb-chip-num-active-color; } }
-			.sc-type { font-weight: 700; color: currentColor; }
+			.sc-type { font-weight: $font-heavy; color: currentColor; }
 		}
 	}
 	.step-add .step-chip-box { background: $color-bg-modal; border: 1.5px dashed $color-primary; color: $color-primary; }
@@ -44,7 +44,7 @@
 	// step head
 	.step-head {
 		display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px;
-		.sh-badge { display: inline-flex; align-items: center; gap: 6px; padding: $spacing-xs 11px; border-radius: 7px; font-size: 12px; font-weight: 600; color: $color-text-inverse;
+		.sh-badge { display: inline-flex; align-items: center; gap: 6px; padding: $spacing-xs 11px; border-radius: 7px; font-size: $font-size-xs; font-weight: $font-bold; color: $color-text-inverse;
 			svg { fill: $color-text-inverse; width: 14px; height: 14px; } }
 		.sh-controls { margin-left: auto; display: flex; gap: 6px; }
 
@@ -63,20 +63,20 @@
 	}
 
 	// fields
-	.sb-label { font-size: 12px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: $color-text-secondary; margin-bottom: $spacing-sm + 2px; }
+	.sb-label { font-size: $font-size-xs; font-weight: $font-heavy; letter-spacing: 0.03em; text-transform: uppercase; color: $color-text-secondary; margin-bottom: $spacing-sm + 2px; }
 	.field-row { margin-bottom: 14px;
-		label { display: block; font-size: 12px; font-weight: 600; color: $color-text-secondary; margin-bottom: 5px; } }
+		label { display: block; font-size: $font-size-xs; font-weight: $font-bold; color: $color-text-secondary; margin-bottom: 5px; } }
 	.field-input {
-		width: 100%; padding: $spacing-sm 11px; border: 1px solid $color-border-input; border-radius: 5px; font-size: 13px; color: $color-text-primary;
+		width: 100%; padding: $spacing-sm 11px; border: 1px solid $color-border-input; border-radius: 5px; font-size: $font-size-wp; color: $color-text-primary;
 		&:focus { outline: none; border-color: $color-primary; box-shadow: 0 0 0 1px $color-primary; }
 	}
 	textarea.field-input { resize: vertical; min-height: 90px; line-height: 1.6; }
 	.rte-area {
-		padding: $spacing-lg $spacing-xl; min-height: 260px; line-height: 1.7; font-size: 14px; color: $color-text-primary;
+		padding: $spacing-lg $spacing-xl; min-height: 260px; line-height: 1.7; font-size: $font-size; color: $color-text-primary;
 		outline: none; background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: $border-radius-l;
 		&:focus { box-shadow: inset 0 0 0 2px $cb-bg-active; }
-		h2 { font-size: 22px; margin: 0 0 $spacing-md; font-weight: 700; }
-		h3 { font-size: 17px; margin: $spacing-lg + 2px 0 $spacing-sm; font-weight: 700; }
+		h2 { font-size: 22px; margin: 0 0 $spacing-md; font-weight: $font-heavy; }
+		h3 { font-size: 17px; margin: $spacing-lg + 2px 0 $spacing-sm; font-weight: $font-heavy; }
 		p { margin: 0 0 $spacing-md; }
 		ol, ul { margin: 0 0 $spacing-md; padding-left: 24px; }
 		li { margin-bottom: 5px; }
@@ -84,8 +84,8 @@
 
 	// ref / library attach
 	.fs-cb-ref { display: flex; align-items: center; gap: $spacing-md; flex-wrap: wrap;
-		.fs-cb-ref-title { font-weight: 600; color: $color-text-primary; }
-		.fs-cb-ref-edit { font-size: 12px; } }
+		.fs-cb-ref-title { font-weight: $font-bold; color: $color-text-primary; }
+		.fs-cb-ref-edit { font-size: $font-size-xs; } }
 
 	// TinyMCE textarea: прячем только ДО готовности редактора (анти-флэш). После
 	// видимостью управляет сам wp.editor — в «Визуально» textarea скрыта инлайн-стилем
@@ -95,13 +95,10 @@
 	// cols=20 (~172px) и rows=2. Тянем на весь контейнер с рабочей высотой.
 	.fs-cb-rte-target { width: 100%; box-sizing: border-box; min-height: 300px; resize: vertical; }
 
-	// material step actions
-	.fs-cb-mat-actions { display: flex; gap: $spacing-sm; margin-top: $spacing-sm; }
-
 	// "или" разделитель между пикером библиотеки и inline-созданием
 	.fs-cb-or-divider {
 		display: flex; align-items: center; gap: $spacing-sm; margin: $spacing-md 0;
-		color: $color-text-secondary; font-size: 12px;
+		color: $color-text-secondary; font-size: $font-size-xs;
 		&::before, &::after { content: ''; flex: 1; height: 1px; background: $color-border-input; }
 	}
 
@@ -122,7 +119,7 @@
 	.se-footer {
 		border-top: 1px solid $wp-admin-gray-bg; padding: $spacing-md $spacing-lg;
 		display: flex; align-items: center; gap: $spacing-sm + 2px;
-		.ef-status { font-size: 12px; color: $color-secondary-hover; display: flex; align-items: center; gap: 6px; }
+		.ef-status { font-size: $font-size-xs; color: $color-secondary-hover; display: flex; align-items: center; gap: 6px; }
 		.saved-dot { width: 7px; height: 7px; border-radius: 50%; background: $wp-admin-green; }
 	}
 }

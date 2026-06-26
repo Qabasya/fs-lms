@@ -91,7 +91,12 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	 * @return bool|null false блокирует; null — штатный путь.
 	 */
 	public function guardTrash( ?bool $check, \WP_Post $post ): ?bool {
-		return $this->isBlocked( $post ) ? false : $check;
+		if ( ! $this->isBlocked( $post ) ) {
+			return $check;
+		}
+		$back = wp_get_referer() ?: admin_url( 'edit.php?post_type=' . $post->post_type );
+		wp_safe_redirect( $back );
+		exit;
 	}
 
 	/**

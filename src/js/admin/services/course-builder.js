@@ -1,5 +1,4 @@
 import '../_types.js';
-import { showToast } from '../modules/toast.js';
 import { createStepEditor, esc, ajax, tmpKey, openPicker } from './step-editor.js';
 import { createPersistence } from './course-persistence.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
@@ -82,57 +81,26 @@ function createApp( mount ) {
 	}
 
 	function renderShell() {
-		const c = state.course;
 		mount.innerHTML = `
-			<div class="course-strip">
-				<div class="course-thumb" data-thumb>${ esc( ( c.title || '?' ).slice( 0, 2 ) ) }</div>
-				<div class="course-strip-main">
-					<input class="cs-title-input" value="${ esc( c.title ) }" placeholder="Название курса">
-					<div class="cs-meta">
-						<span><b data-module-count>${ c.modules.length }</b> модулей</span>
-						<span><b data-lesson-count>${ totalLessons() }</b> уроков</span>
-						<button type="button" class="course-flag${ 'publish' === c.status ? ' published' : '' }" data-toggle-course>
-							${ 'publish' === c.status ? 'Опубликован' : 'Черновик' }
-						</button>
+			<div class="builder">
+				<div class="tree-pane">
+					<div class="tree-head">
+						<span class="th-title">Структура курса</span>
+						<span class="th-count" data-tree-count></span>
+					</div>
+					<div class="tree-scroll" data-tree></div>
+					<div class="tree-add">
+						<button type="button" class="button" data-add-lesson>+ Урок</button>
+						<button type="button" class="button" data-import-lesson>Импорт урока</button>
+						<button type="button" class="button" data-add-module>+ Модуль</button>
 					</div>
 				</div>
-			</div>
-			<div class="postbox fs-cb-postbox">
-				<div class="postbox-header"><h2>Конструктор курса</h2></div>
-				<div class="builder">
-					<div class="tree-pane">
-						<div class="tree-head">
-							<span class="th-title">Структура курса</span>
-							<span class="th-count" data-tree-count></span>
-						</div>
-						<div class="tree-scroll" data-tree></div>
-						<div class="tree-add">
-							<button type="button" class="button" data-add-lesson>+ Урок</button>
-							<button type="button" class="button" data-import-lesson>Импорт урока</button>
-							<button type="button" class="button" data-add-module>+ Модуль</button>
-						</div>
-					</div>
-					<div class="editor-pane" data-editor></div>
-				</div>
+				<div class="editor-pane" data-editor></div>
 			</div>`;
+
 		mount.querySelector( '[data-add-lesson]' ).addEventListener( 'click', addLesson );
 		mount.querySelector( '[data-import-lesson]' ).addEventListener( 'click', importLessonFlow );
 		mount.querySelector( '[data-add-module]' ).addEventListener( 'click', addModule );
-
-		const titleInput = mount.querySelector( '.cs-title-input' );
-		const thumb      = mount.querySelector( '[data-thumb]' );
-		titleInput.addEventListener( 'input', () => {
-			c.title = titleInput.value;
-			thumb.textContent = ( c.title || '?' ).slice( 0, 2 );
-			persist.scheduleCourseMeta();
-		} );
-		mount.querySelector( '[data-toggle-course]' ).addEventListener( 'click', function() {
-			c.status = 'publish' === c.status ? 'draft' : 'publish';
-			const pub = 'publish' === c.status;
-			this.textContent = pub ? 'Опубликован' : 'Черновик';
-			this.classList.toggle( 'published', pub );
-			persist.saveCourseMeta();
-		} );
 	}
 
 	// ── helpers ──
@@ -332,6 +300,7 @@ function createApp( mount ) {
 					<button type="button" class="lesson-flag ${ lesson.published ? 'published' : '' }" data-toggle-publish>
 						${ lesson.published ? 'Опубликован' : 'Черновик' }
 					</button>
+					<button type="button" class="lesson-flag danger" data-les-del>Убрать урок</button>
 				</div>
 			</div>
 			<div class="editor-body" data-step-mount></div>
@@ -346,6 +315,7 @@ function createApp( mount ) {
 			persist.scheduleLessonMeta( lesson );
 		} );
 		pane.querySelector( '[data-toggle-publish]' ).addEventListener( 'click', () => persist.togglePublish( lesson ) );
+		pane.querySelector( '[data-les-del]' ).addEventListener( 'click', () => removeLesson( lesson, module ) );
 
 		// Единый редактор шагов (общий модуль). Статус автосейва — в подвал курс-билдера.
 		stepEditor = createStepEditor( {
@@ -414,6 +384,26 @@ function createApp( mount ) {
 		state.course.modules.push( mod );
 		selectModule( mod.id ); // открыть страницу модуля — задать имя/описание
 		persist.saveStructure( 'Модуль добавлен' );
+	}
+
+	async function removeLesson( lesson, module ) {
+		try {
+			await ConfirmModal.confirm( {
+				title:       `Убрать урок «${ lesson.title }» из курса?`,
+				message:     'Урок останется в библиотеке.',
+				isDanger:    true,
+				confirmText: 'Убрать',
+			} );
+		} catch { return; }
+
+		module.lessons = module.lessons.filter( ( l ) => l.id !== lesson.id );
+		if ( state.activeLessonId === lesson.id ) {
+			const fl = firstLesson();
+			state.activeLessonId = fl ? fl.id : null;
+		}
+		renderTree();
+		renderEditor();
+		persist.saveStructure( 'Урок убран из курса' );
 	}
 
 	async function deleteModule( mod ) {

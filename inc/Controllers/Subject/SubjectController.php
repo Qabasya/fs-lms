@@ -424,7 +424,7 @@ class SubjectController extends AjaxController {
 				),
 				'options' => array_merge(
 					$bank_options,
-					array( 'supports' => array( 'title', 'editor', 'author' ) )
+					array( 'supports' => array( 'title', 'author', 'thumbnail' ) )
 				),
 			),
 			'assessments' => array(

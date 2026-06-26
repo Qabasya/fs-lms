@@ -234,18 +234,18 @@ $statusLabels = array_combine(
 						<br>
 						<?php if ( $app->parentPersonId !== null ) : ?>
 							<button type="button"
-								class="button-link js-select-existing-parent fs-btn-link-sm"
+								class="button-link js-select-existing-parent fs-btn fs-btn--link-sm"
 								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>">
 								<?php esc_html_e( '✎ Сменить родителя', 'fs-lms' ); ?>
 							</button>
 							<button type="button"
-								class="button-link js-remove-parent-assignment fs-btn-link-sm fs-text-danger"
+								class="button-link js-remove-parent-assignment fs-btn fs-btn--link-sm fs-text-danger"
 								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>">
 								<?php esc_html_e( '✕ Снять назначение', 'fs-lms' ); ?>
 							</button>
 						<?php else : ?>
 							<button type="button"
-								class="button-link js-select-existing-parent fs-btn-link-sm"
+								class="button-link js-select-existing-parent fs-btn fs-btn--link-sm"
 								data-application-id="<?php echo esc_attr( (string) $app->id ); ?>">
 								<?php esc_html_e( '+ Назначить родителя', 'fs-lms' ); ?>
 							</button>
@@ -296,7 +296,7 @@ $statusLabels = array_combine(
 
                             <span class="restore">
 								<a href="#"
-								   class="fs-lms-btn-restore"
+								   class="fs-btn fs-btn--secondary"
 								   data-id="<?php echo esc_attr( (string) $app->id ); ?>">
 									<?php esc_html_e( 'Восстановить', 'fs-lms' ); ?>
 								</a>
@@ -306,7 +306,7 @@ $statusLabels = array_combine(
 
                             <span class="delete">
 								<a href="#"
-								   class="fs-lms-btn-delete"
+								   class="fs-btn fs-btn--danger"
 								   data-id="<?php echo esc_attr( (string) $app->id ); ?>">
 									<?php esc_html_e( 'Удалить навсегда', 'fs-lms' ); ?>
 								</a>
@@ -403,7 +403,7 @@ $statusLabels = array_combine(
                                 |
                                 <span class="trash">
 					<a href="#"
-                       class="fs-lms-btn-trash"
+                       class="fs-btn fs-btn--ghost"
                        data-id="<?php echo esc_attr( (string) $app->id ); ?>">
 						<?php esc_html_e( 'В корзину', 'fs-lms' ); ?>
 					</a>

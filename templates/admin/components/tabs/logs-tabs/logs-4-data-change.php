@@ -34,7 +34,7 @@ $sort_url    = add_query_arg( $data_change_filters, $base_url );
 
 <div class="fs-logs-tab" id="js-data-change-log-tab">
 
-	<p class="description fs-mt-md">
+	<p class="description">
 		Значения хранятся в маскированном виде. Полные данные доступны через CSV-экспорт.
 	</p>
 

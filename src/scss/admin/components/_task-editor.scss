@@ -40,7 +40,7 @@
 
 .fs-te-heading {
 	margin:      0;
-	font-size:   16px;
+	font-size:   $font-size-m;
 	font-weight: $font-bold;
 	color:       $color-text-primary;
 }
@@ -78,7 +78,7 @@
 }
 
 .fs-te-label {
-	font-size:   13px;
+	font-size:   $font-size-wp;
 	font-weight: $font-bold;
 	color:       $color-text-primary;
 }
@@ -91,9 +91,9 @@
 	padding:       $spacing-sm $spacing-md;
 	border:        1px solid $color-border-input;
 	border-radius: $border-radius-md;
-	font-size:     13px;
+	font-size:     $font-size-wp;
 	color:         $color-text-primary;
-	background:    #fff;
+	background:    $color-bg-modal;
 	box-sizing:    border-box;
 	transition:    border-color 0.15s;
 
@@ -120,7 +120,7 @@
 	padding:    $spacing-xl;
 	text-align: center;
 	color:      $color-text-secondary;
-	font-size:  13px;
+	font-size:  $font-size-wp;
 }
 
 // ── Подвал ────────────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@
 
 .fs-cb-ss-title {
 	margin:      0 0 $spacing-md;
-	font-size:   13px;
+	font-size:   $font-size-wp;
 	font-weight: $font-bold;
 	color:       $color-text-secondary;
 	text-transform: uppercase;
@@ -163,7 +163,7 @@
 	display:     flex;
 	align-items: center;
 	gap:         $spacing-sm;
-	font-size:   13px;
+	font-size:   $font-size-wp;
 	color:       $color-text-primary;
 	cursor:      pointer;
 }
@@ -173,6 +173,6 @@
 	padding: $spacing-xs $spacing-sm;
 	border:  1px solid $color-border-input;
 	border-radius: $border-radius-sm;
-	font-size: 13px;
+	font-size: $font-size-wp;
 	text-align: center;
 }

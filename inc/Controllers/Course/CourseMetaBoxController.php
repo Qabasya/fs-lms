@@ -6,15 +6,9 @@ namespace Inc\Controllers\Course;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\Wp\Nonce;
-use Inc\Enums\Wp\PostMetaName;
-use Inc\Managers\Wp\MetaBoxManager;
-use Inc\MetaBoxes\Templates\CourseTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
-use Inc\Shared\Traits\Authorizer;
-use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
 /**
  * Class CourseMetaBoxController
@@ -25,32 +19,16 @@ use Inc\Shared\Traits\TidiesCoreMetaBoxes;
  */
 class CourseMetaBoxController extends BaseController implements ServiceInterface {
 
-	use Authorizer;
-	use TidiesCoreMetaBoxes;
-
 	public function __construct(
 		private readonly SubjectRepository $subjects,
 		private readonly MetaBoxRegistrar  $registrar,
-		private readonly MetaBoxManager    $metaBoxManager,
-		private readonly CourseTemplate    $template,
 	) {
 		parent::__construct();
 	}
 
 	public function register(): void {
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
-		add_action( 'add_meta_boxes', array( $this, 'tidyCourseMetaBoxes' ), 100 );
-		add_action( 'save_post', array( $this, 'handleCourseSave' ) );
-	}
-
-	/**
-	 * Прибирает экран курса: убирает «Атрибуты»/«Изображение записи», «Автор» → в сайдбар.
-	 * Редактор (описание курса) и метабокс курса остаются.
-	 */
-	public function tidyCourseMetaBoxes( string $post_type ): void {
-		if ( PostTypeResolver::isCoursePostType( $post_type ) ) {
-			$this->tidyCoreMetaBoxes( $post_type );
-		}
+		add_action( 'add_meta_boxes', array( $this, 'moveAuthorToSidebar' ), 100 );
 	}
 
 	public function handleAddMetaBoxes(): void {
@@ -66,41 +44,25 @@ class CourseMetaBoxController extends BaseController implements ServiceInterface
 
 		$this->registrar->add(
 			'fs_lms_course_metabox',
-			'Программа курса',
+			'Конструктор курса',
 			array( $this, 'renderMetaboxContent' ),
 			$course_post_types
 		)->register();
 	}
 
-	public function renderMetaboxContent( \WP_Post $post ): void {
-		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
-
-		echo '<div class="fs-lms-metabox-wrapper fs-lms-course-metabox">';
-		$this->template->render( $post );
-		echo '</div>';
+	public function moveAuthorToSidebar( string $post_type ): void {
+		if ( ! PostTypeResolver::isCoursePostType( $post_type ) ) {
+			return;
+		}
+		remove_meta_box( 'authordiv', $post_type, 'normal' );
+		add_meta_box( 'fs_lms_course_authordiv', __( 'Автор' ), 'post_author_meta_box', $post_type, 'side', 'core' );
 	}
 
-	public function handleCourseSave( int $post_id ): void {
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return;
-		}
-
-		$post = get_post( $post_id );
-		if ( ! $post || ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
-			return;
-		}
-
-		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {
-			return;
-		}
-
-		$raw_data = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
-
-		$this->metaBoxManager->saveFields(
-			$post_id,
-			PostMetaName::Meta->value,
-			is_array( $raw_data ) ? $raw_data : array(),
-			$this->template->get_fields()
-		);
+	public function renderMetaboxContent( \WP_Post $post ): void {
+		$subject = PostTypeResolver::subjectFromCoursePostType( $post->post_type );
+		echo '<div id="fs-lms-course-builder" class="fs-lms-cb-wrap"'
+			. ' data-course-id="' . esc_attr( (string) $post->ID ) . '"'
+			. ' data-subject="' . esc_attr( $subject ) . '"'
+			. '></div>';
 	}
 }

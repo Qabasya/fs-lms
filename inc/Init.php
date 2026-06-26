@@ -22,6 +22,7 @@ use Inc\Controllers\Course\WorkController;
 use Inc\Controllers\Course\WorkMetaBoxController;
 use Inc\Controllers\Course\CourseBuilderController;
 use Inc\Controllers\Course\CourseController;
+use Inc\Controllers\Course\CourseMetaBoxController;
 use Inc\Controllers\Assessment\AssessmentMetaBoxController;
 use Inc\Controllers\Course\LearningMenuController;
 use Inc\Controllers\Subject\ContentDeletionGuard;
@@ -107,6 +108,7 @@ final class Init {
 			WorkController::class,           // AJAX конструктора работы
 			CourseController::class,             // AJAX конструктора курса
 			CourseBuilderController::class,      // Stepik-конструктор курса (страница + AJAX)
+			CourseMetaBoxController::class,      // Метабоксы страницы редактирования курса
 			AssessmentMetaBoxController::class,  // Метабокс контрольной / экзамена
 			ProblemsController::class,       // CPT fs_lms_problems + problem_tag + шаблон
 			ContentDeletionGuard::class,     // Гейт удаления / архивации банков

@@ -31,7 +31,7 @@ $sort_url    = add_query_arg( $email_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-email-log-tab">
-    <p class="description fs-mt-md">
+    <p class="description">
         Каждая отправка письма фиксируется здесь.
     </p>
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">

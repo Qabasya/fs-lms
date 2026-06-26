@@ -53,10 +53,16 @@ export function createPersistence( { courseId, mount, state, onPublishToggle } )
 	}
 
 	function saveCourseMeta() {
-		const pub = 'publish' === state.course.status;
-		ajax( acts().saveCourseMeta, { course_id: courseId, title: state.course.title, published: pub ? '1' : '' } )
+		const payload = {
+			course_id: courseId,
+			title:     state.course.title,
+			status:    state.course.status || 'draft',
+		};
+		if ( state.course.author_id )    { payload.author_id    = state.course.author_id; }
+		if ( state.course.thumbnail_id ) { payload.thumbnail_id = state.course.thumbnail_id; }
+		return ajax( acts().saveCourseMeta, payload )
 			.then( () => setStatus( 'Все изменения сохранены' ) )
-			.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg, 'error' ); } );
+			.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg, 'error' ); throw msg; } );
 	}
 
 	function scheduleCourseMeta() {

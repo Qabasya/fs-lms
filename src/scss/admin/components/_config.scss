@@ -1,175 +1,122 @@
 @use '../variables' as *;
 
+// Flex column wrapper — ставит gap между дочерними form/div секциями
 .fs-lms-config {
-
-	.fs-config-section {
-		max-width: 760px;
-		margin-top: $spacing-xxl;
-		padding: $spacing-xl;
-		background: #fff;
-		border: 1px solid $color-border-input;
-		border-radius: $border-radius-l;
-
-		& + & {
-			margin-top: $spacing-xl;
-		}
-
-		&--keys {
-			margin-top: $spacing-xl;
-		}
-	}
-
-	.fs-config-section__title {
-		margin: 0 0 $spacing-sm;
-		font-size: $font-size-m;
-		font-weight: $font-bold;
-		color: $color-text-primary;
-	}
-
-	// Ссылка «Как подключить?» рядом с полем
-	.fs-config-help-link {
-		display: inline-flex;
-		align-items: center;
-		gap: $spacing-xs;
-		margin-left: auto;
-		font-size: $font-size;
-		font-weight: $font-regular;
-		text-decoration: none;
-		color: $color-primary;
-
-		&:hover {
-			color: $color-primary-hover;
-		}
-
-		.dashicons {
-			font-size: $font-size;
-			width: $font-size;
-			height: $font-size;
-		}
-	}
-
-	// ── Поля мягкой тройки
-	.fs-config-field {
-		margin-top: $spacing-lg;
-
-		&__label {
-			display: flex;
-			align-items: center;
-			gap: $spacing-sm;
-			margin-bottom: $spacing-xs;
-			font-weight: $font-bold;
-			color: $color-text-primary;
-		}
-
-		input[type="text"] {
-			width: 100%;
-			max-width: 480px;
-		}
-
-		&--checkbox {
-			.fs-config-field__label {
-				margin-bottom: $spacing-xs;
-			}
-		}
-	}
-
-	.fs-config-actions {
-		display: flex;
-		align-items: center;
-		gap: $spacing-md;
-		margin-top: $spacing-xl;
-	}
-
-	.fs-config-status {
-		font-size: $font-size;
-
-		&--ok  { color: $wp-admin-green; }
-		&--err { color: $color-danger; }
-	}
-
-	// ── Строки ключей шифрования
-	.fs-config-key-row {
-		padding: $spacing-lg 0;
-		border-bottom: 1px solid $color-border-footer;
-
-		&:last-child {
-			border-bottom: none;
-			padding-bottom: 0;
-		}
-
-		&__header {
-			display: flex;
-			align-items: center;
-			gap: $spacing-sm;
-			margin-bottom: $spacing-xs;
-		}
-
-		&__name {
-			font-family: monospace;
-			font-size: $font-size;
-			font-weight: $font-bold;
-			color: $color-text-primary;
-		}
-
-		&__actions {
-			margin-top: $spacing-sm;
-		}
-
-		&__output {
-			margin-top: $spacing-md;
-			display: flex;
-			align-items: flex-start;
-			gap: $spacing-sm;
-			flex-wrap: wrap;
-		}
-	}
-
-	.fs-config-key-output {
-		width: 100%;
-		max-width: 560px;
-		font-family: monospace;
-		font-size: $font-size-code;
-		resize: none;
-		background: $wp-admin-gray-bg-light;
-		border: 1px solid $color-border-input;
-		border-radius: $border-radius-sm;
-		padding: $spacing-sm;
-		color: $color-text-primary;
-	}
-
-	// Раздел «Настройка заявок»
-	.fs-direction-codes {
-		&__rows {
-			display: flex;
-			flex-direction: column;
-			gap: $spacing-sm;
-			margin: $spacing-sm 0;
-			max-width: 560px;
-		}
-
-		&__row {
-			display: flex;
-			align-items: center;
-			gap: $spacing-md;
-		}
-
-		&__name {
-			flex: 0 0 200px;
-			color: $color-text-primary;
-		}
-
-		&__input {
-			flex: 1;
-		}
-	}
-
-	// Подпись над полем raw-секрета для .env Python (раздел AD).
-	.fs-adsync-env-label {
-		margin-top: $spacing-md;
-	}
-
-	// Предупреждение о зависимости AD от привязки к направлению.
-	.fs-adsync-dep-warning {
-		color: $color-danger;
-	}
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
+  max-width: $settings-max-width;
+  margin-top: $spacing-lg;
 }
+
+.fs-lms-import {
+  max-width: $settings-max-width;
+  margin-top: $spacing-lg;
+}
+
+// Широкие поля в config-секциях (больше field-max-width по умолчанию)
+.fs-lms-config .fs-field__control input[type='text'] {
+  max-width: 480px;
+}
+
+// Ссылка «Как подключить?» в заголовке карточки (auth + config + модули)
+.fs-config-help-link {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  font-size: $font-size;
+  font-weight: $font-regular;
+  text-decoration: none;
+  color: $color-primary;
+
+  &:hover { color: $color-primary-hover; }
+
+  .dashicons {
+    font-size: $font-size;
+    width: $font-size;
+    height: $font-size;
+  }
+}
+
+// Inline статус результата операции (сохранить/сгенерировать)
+.fs-config-status {
+  font-size: $font-size;
+
+  &--ok  { color: $wp-admin-green; }
+  &--err { color: $color-danger; }
+}
+
+// ── Строки ключей шифрования
+.fs-config-key-row {
+  padding: $spacing-lg 0;
+  border-bottom: 1px solid $color-border-footer;
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-xs;
+  }
+
+  &__name {
+    font-family: monospace;
+    font-size: $font-size;
+    font-weight: $font-bold;
+    color: $color-text-primary;
+  }
+
+  &__actions { margin-top: $spacing-sm; }
+
+  &__output {
+    margin-top: $spacing-md;
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+  }
+}
+
+.fs-config-key-output {
+  width: 100%;
+  max-width: 560px;
+  font-family: monospace;
+  font-size: $font-size-code;
+  resize: none;
+  background: $wp-admin-gray-bg-light;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-sm;
+  padding: $spacing-sm;
+  color: $color-text-primary;
+}
+
+// Раздел «Настройка заявок»
+.fs-direction-codes {
+  &__rows {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    margin: $spacing-sm 0;
+    max-width: 560px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+  }
+
+  &__name {
+    flex: 0 0 200px;
+    color: $color-text-primary;
+  }
+
+  &__input { flex: 1; }
+}
+
+// Подпись над полем raw-секрета для .env Python (раздел AD).
+.fs-adsync-env-label { margin-top: $spacing-md; }
