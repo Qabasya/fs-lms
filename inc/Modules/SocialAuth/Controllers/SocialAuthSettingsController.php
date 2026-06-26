@@ -5,7 +5,10 @@ declare( strict_types=1 );
 namespace Inc\Modules\SocialAuth\Controllers;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\Wp\PageRoutes;
+use Inc\Enums\Wp\ShortCode;
 use Inc\Modules\SocialAuth\Config\SocialAuthConfig;
+use Inc\Services\System\PageGeneratorService;
 
 /**
  * Контроллер настроек SocialAuth.
@@ -18,6 +21,10 @@ use Inc\Modules\SocialAuth\Config\SocialAuthConfig;
  * Вкладка «Авторизация» в Настройках показывается только когда модуль включён.
  */
 class SocialAuthSettingsController implements ServiceInterface {
+
+	public function __construct(
+		private readonly PageGeneratorService $pages,
+	) {}
 
 	public function register(): void {
 		add_action( 'admin_init', array( $this, 'registerSettings' ) );
@@ -76,5 +83,16 @@ class SocialAuthSettingsController implements ServiceInterface {
 
 	public function onToggle( bool $enabled ): void {
 		SocialAuthConfig::toggle( $enabled );
+
+		// При включении модуля гарантируем наличие опубликованной страницы входа:
+		// её полностью рендерит этот модуль (шорткод [fs_lms_login_form]), а запись
+		// могла быть удалена, отправлена в корзину или в черновик при выключенном модуле.
+		if ( $enabled ) {
+			$this->pages->ensurePublished(
+				PageRoutes::SignIn,
+				'Авторизация',
+				ShortCode::LoginForm->tag()
+			);
+		}
 	}
 }
