@@ -3,12 +3,17 @@
    ================================================================= */
 
 @use '../variables' as *;
+@use '../mixins' as *;
+
+// ── Микро-лейбл: капс + трекинг + полужирный (статус шаблона, подпись плейсхолдеров)
+@mixin micro-label {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: $font-bold;
+}
 
 .fs-email-templates {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-xl;
-  max-width: $settings-max-width;
+  @include settings-stack;
   margin-top: $spacing-xl;
 }
 
@@ -26,22 +31,17 @@
 }
 
 .fs-email-status {
+  @include micro-label;
   font-size: $font-size-sm;
-  font-weight: $font-bold;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 2px 8px;
+  padding: 2px $spacing-sm;
   border-radius: $border-radius-md;
 
   &--custom {
-    color: $wp-admin-blue-text;
-    background: $wp-admin-blue-bg-light;
-    border: 1px solid $wp-admin-blue-bg;
+    @include badge-colors($wp-admin-blue-bg-light, $wp-admin-blue-text, $wp-admin-blue-bg);
   }
 
   &--default {
-    color: $wp-admin-gray-text;
-    background: $wp-admin-gray-bg;
+    @include badge-colors($wp-admin-gray-bg, $wp-admin-gray-text);
   }
 }
 
@@ -52,16 +52,14 @@
   align-items: center;
 
   .label {
+    @include micro-label;
     font-size: $font-size-sm;
     color: $color-text-secondary;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: $font-bold;
     margin-right: $spacing-xs;
   }
 
   code {
-    font-size: 12px;
+    font-size: $font-size-xs;
     padding: 1px 6px;
     background: $wp-admin-gray-bg;
     border-radius: $border-radius-sm;

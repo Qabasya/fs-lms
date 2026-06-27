@@ -1,0 +1,19 @@
+@use '../admin/variables' as *;
+
+// Общие миксины для common-компонентов (тост, тултип, бейдж и т.д.).
+// common-компоненты используют токены админки (см. @use выше).
+
+// ── Тёмный плавающий «пузырь»: тост и тело тултипа
+@mixin dark-bubble {
+  background: $color-text-primary;
+  color: $color-text-inverse;
+  border-radius: $border-radius-l;
+  line-height: $line-height-base;
+}
+
+// ── Центрирование по обеим осям (flex)
+@mixin center-flex($display: inline-flex) {
+  display: $display;
+  align-items: center;
+  justify-content: center;
+}

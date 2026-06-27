@@ -1,9 +1,8 @@
 @use '../../admin/variables' as *;
+@use '../mixins' as m;
 
 .fs-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @include m.center-flex;
   height: 26px;
   padding: 0 $spacing-sm;
   border-radius: $border-radius-md;

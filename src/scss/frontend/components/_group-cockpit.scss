@@ -1,4 +1,5 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 .fs-lms-cockpit-wrap {
 	max-width: 1100px;
@@ -9,13 +10,13 @@
 
 .fs-cockpit-title {
 	font-size: $font-size-title;
-	margin-bottom: 24px;
+	margin-bottom: $spacing-xl;
 }
 
 .fs-cockpit-layout {
 	display: grid;
 	grid-template-columns: 1fr 280px;
-	gap: 24px;
+	gap: $spacing-xl;
 
 	@media (max-width: 768px) {
 		grid-template-columns: 1fr;
@@ -25,23 +26,21 @@
 .fs-cockpit-section {
 	h2 {
 		font-size: $font-size-heading;
-		margin-bottom: 16px;
+		margin-bottom: $spacing-lg;
 		border-bottom: 1px solid $color-border;
-		padding-bottom: 8px;
+		padding-bottom: $spacing-sm;
 	}
 }
 
 // Список групп
 .fs-cockpit-group-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
+	@include fs-list-reset;
 
 	li {
 		display: flex;
 		align-items: center;
-		gap: 12px;
-		padding: 12px 0;
+		gap: $spacing-md;
+		padding: $spacing-md 0;
 		border-bottom: 1px solid $color-border-light;
 	}
 
@@ -63,19 +62,17 @@
 
 // Программа
 .fs-cockpit-lesson-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
+	@include fs-list-reset;
 }
 
 .fs-cockpit-lesson-item {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: $spacing-md;
 	padding: 10px 12px;
 	border: 1px solid $color-border;
-	border-radius: 4px;
-	margin-bottom: 8px;
+	border-radius: $radius;
+	margin-bottom: $spacing-sm;
 	background: $color-white;
 	cursor: grab;
 
@@ -106,7 +103,7 @@
 
 .fs-cockpit-lesson-actions {
 	display: flex;
-	gap: 8px;
+	gap: $spacing-sm;
 }
 
 .fs-cockpit-btn-answers,
@@ -115,17 +112,11 @@
 .fs-cockpit-btn-remove {
 	font-size: $font-size-sm;
 	padding: 4px 10px;
-	border: 1px solid $color-border;
 	border-radius: 3px;
-	background: $color-bg-subtle;
 	cursor: pointer;
-	color: $color-text;
+	@include fs-btn-secondary;
 
-	&:hover {
-		background: $color-border;
-	}
-
-	&:disabled { opacity: 0.5; cursor: not-allowed; }
+	&:disabled { @include fs-disabled; }
 }
 
 // Ярлык доп. занятия (кросс-предметного / разового)
@@ -153,7 +144,7 @@
 .fs-picker-label-input {
 	width: 100%;
 	margin-top: $spacing-xs;
-	padding: 4px 8px;
+	padding: $spacing-xs $spacing-sm;
 	border: 1px solid $color-border;
 	border-radius: $radius;
 	font-size: $font-size-sm;
@@ -163,9 +154,7 @@
 
 // Ростер
 .fs-cockpit-roster-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
+	@include fs-list-reset;
 
 	li {
 		padding: 6px 0;
@@ -194,27 +183,18 @@
 
 .fs-cockpit-btn-primary {
 	padding: 6px 16px;
-	background: $color-accent;
-	color: $color-white;
-	border: none;
-	border-radius: $radius;
 	font-size: $font-size-sm;
-	cursor: pointer;
+	@include fs-btn-primary(0.85);
 
-	&:hover { opacity: 0.85; }
-	&:disabled { opacity: 0.5; cursor: not-allowed; }
+	&:disabled { @include fs-disabled; }
 }
 
 .fs-cockpit-btn-secondary {
 	padding: 6px 14px;
-	background: $color-bg-subtle;
-	color: $color-text;
-	border: 1px solid $color-border;
 	border-radius: $radius;
 	font-size: $font-size-sm;
 	cursor: pointer;
-
-	&:hover { background: $color-border; }
+	@include fs-btn-secondary;
 }
 
 // Ручка перетаскивания
@@ -292,16 +272,14 @@
 	label {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: $spacing-xs;
 		font-size: $font-size-sm;
 		cursor: pointer;
 	}
 }
 
 .fs-picker-results {
-	list-style: none;
-	margin: 0;
-	padding: 0;
+	@include fs-list-reset;
 	max-height: 260px;
 	overflow-y: auto;
 }
@@ -310,7 +288,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 8px $spacing-md;
+	padding: $spacing-sm $spacing-md;
 	border-bottom: 1px solid $color-border-light;
 
 	&:last-child { border-bottom: 0; }
@@ -323,36 +301,29 @@
 
 .fs-picker-add-btn {
 	padding: 3px 10px;
-	background: $color-accent;
-	color: $color-white;
-	border: none;
-	border-radius: $radius;
 	font-size: $font-size-sm;
-	cursor: pointer;
 	flex-shrink: 0;
+	@include fs-btn-primary(0.85);
 
-	&:hover { opacity: 0.85; }
-	&:disabled { opacity: 0.5; cursor: not-allowed; }
+	&:disabled { @include fs-disabled; }
 }
 
 .fs-picker-empty {
-	padding: 16px $spacing-md;
+	padding: $spacing-lg $spacing-md;
 	font-size: $font-size-sm;
 	color: $color-muted;
 }
 
 // Активность
 .fs-cockpit-activity {
-	margin-top: 32px;
+	margin-top: $spacing-2xl;
 }
 
 .fs-cockpit-activity-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
+	@include fs-list-reset;
 
 	li {
-		padding: 8px 0;
+		padding: $spacing-sm 0;
 		border-bottom: 1px solid $color-border-light;
 		font-size: $font-size-sm;
 		color: $color-text;
@@ -364,18 +335,12 @@
 }
 
 #fs-cockpit-load-more {
-	margin-top: 16px;
+	margin-top: $spacing-lg;
 	padding: 8px 20px;
 	font-size: $font-size-sm;
-	border: 1px solid $color-border;
-	border-radius: 4px;
-	background: $color-bg-subtle;
+	border-radius: $radius;
 	cursor: pointer;
-	color: $color-text;
-
-	&:hover {
-		background: $color-border;
-	}
+	@include fs-btn-secondary;
 }
 
 // Answers panel (teacher view: per-step student attempts)
@@ -388,7 +353,7 @@
 .fs-answers-empty,
 .fs-answers-none {
 	font-size: $font-size-sm;
-	color: #888;
+	color: $color-muted;
 	margin: 0;
 }
 
@@ -399,7 +364,7 @@
 .fs-answers-step-label {
 	display: block;
 	font-size: $font-size-sm;
-	font-weight: 600;
+	font-weight: $font-semibold;
 	margin-bottom: $spacing-sm;
 }
 
@@ -418,7 +383,7 @@
 
 .fs-answers-student-name {
 	font-size: $font-size-sm;
-	font-weight: 600;
+	font-weight: $font-semibold;
 }
 
 .fs-answers-attempts {

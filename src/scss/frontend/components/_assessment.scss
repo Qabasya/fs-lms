@@ -9,7 +9,7 @@
 
 .fs-assessment-title {
 	font-size: 1.75rem;
-	font-weight: 700;
+	font-weight: $font-bold;
 	color: $color-text;
 	margin-bottom: $spacing-md;
 }
@@ -25,7 +25,7 @@
 	background: color.mix($color-white, $color-accent, 88%);
 	color: $color-accent;
 	border-radius: $radius-sm;
-	padding: 4px $spacing-sm;
+	padding: $spacing-xs $spacing-sm;
 	font-size: 0.85rem;
 	font-weight: 500;
 }
@@ -48,7 +48,7 @@
 	padding: $spacing-xs $spacing-md;
 	margin-bottom: $spacing-md;
 	font-size: 1.25rem;
-	font-weight: 700;
+	font-weight: $font-bold;
 	color: $color-text;
 
 	&.fs-timer--warning {
@@ -73,7 +73,7 @@
 }
 
 .fs-attempt-question-number {
-	font-weight: 700;
+	font-weight: $font-bold;
 	color: $color-accent;
 	margin-bottom: $spacing-xs;
 }
@@ -81,7 +81,7 @@
 .fs-attempt-question-content {
 	margin-bottom: $spacing-sm;
 	color: $color-text;
-	line-height: 1.6;
+	line-height: $line-height-base;
 }
 
 .fs-attempt-answer {
@@ -128,7 +128,7 @@
 
 .fs-result-score {
 	font-size: 1rem;
-	font-weight: 600;
+	font-weight: $font-semibold;
 	color: $color-text;
 }
 

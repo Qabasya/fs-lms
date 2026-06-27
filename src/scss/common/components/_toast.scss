@@ -1,4 +1,5 @@
 @use '../../admin/variables' as *;
+@use '../mixins' as m;
 
 .fs-toast-container {
   position: fixed;
@@ -18,16 +19,13 @@
   align-items: flex-start;
   gap: $spacing-sm;
   padding: 10px $spacing-lg;
-  border-radius: $border-radius-l;
+  @include m.dark-bubble;
   box-shadow: $shadow-toast;
   font-size: $font-size-wp;
-  line-height: 1.5;
   pointer-events: auto;
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.25s ease, transform 0.25s ease;
-  background: $color-text-primary;
-  color: $color-text-inverse;
 
   &--visible {
     opacity: 1;

@@ -1,11 +1,9 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 // Flex column wrapper — ставит gap между дочерними form/div секциями
 .fs-lms-config {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-xl;
-  max-width: $settings-max-width;
+  @include settings-stack;
   margin-top: $spacing-lg;
 }
 

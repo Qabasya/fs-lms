@@ -12,7 +12,7 @@
 
 .fs-carousel-title {
   font-size: $font-size-xxs;
-  font-weight: 600;
+  font-weight: $font-semibold;
   text-transform: uppercase;
   letter-spacing: .08em;
   color: $color-separator;
@@ -37,7 +37,7 @@
 
 .fs-carousel-item {
   flex: 0 0 calc(100% / 3);
-  padding: 0 8px;
+  padding: 0 $spacing-sm;
 
   a {
     display: flex;
@@ -58,7 +58,7 @@
     strong {
       display: block;
       font-size: $font-size-base;
-      font-weight: 700;
+      font-weight: $font-bold;
       line-height: $line-height-tight;
       color: $color-text;
     }
@@ -106,7 +106,7 @@
   justify-content: center;
   align-items: center;
   gap: 6px;
-  margin-top: 16px;
+  margin-top: $spacing-lg;
 }
 
 .fs-task-carousel .fs-carousel-dot {

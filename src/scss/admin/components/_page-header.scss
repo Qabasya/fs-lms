@@ -32,7 +32,7 @@
     margin: 0;
     font-size: $font-size;
     color: $color-text-secondary;
-    line-height: 1.5;
+    line-height: $line-height-base;
   }
 
   &__actions {

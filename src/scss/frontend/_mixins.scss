@@ -33,3 +33,163 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+// ── Оболочка карточки-формы (apply / join / auth)
+@mixin fs-card-shell($max-width, $padding, $radius: $radius-md, $margin: 0 auto) {
+  background: $color-white;
+  padding: $padding;
+  border: 1px solid $color-border-light;
+  border-radius: $radius;
+  max-width: $max-width;
+  margin: $margin;
+  box-shadow: $shadow-card;
+  font-family: $font-family;
+}
+
+// ── Заголовок карточки-формы (margin задаётся на месте)
+@mixin fs-card-title {
+  font-size: $font-size-heading;
+  font-weight: $font-bold;
+  line-height: $line-height-tight;
+  text-align: center;
+  color: $color-text;
+}
+
+// ── Иконка-дэшиконка внутри поля формы (left:12px — намеренный инсет)
+@mixin fs-field-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: $color-muted;
+  font-size: $font-size-base;
+}
+
+// ── Поле ввода карточки-формы; $important — вариант auth (!important + без font-family/placeholder)
+@mixin fs-field-input($important: false) {
+  @if $important {
+    width: 100% !important;
+  } @else {
+    width: 100%;
+  }
+  box-sizing: border-box;
+  @if $important {
+    padding: 10px 12px 10px 38px !important;
+  } @else {
+    padding: 10px 12px 10px 38px;
+  }
+  font-size: $font-size-sm;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  background-color: $color-bg-subtle;
+  color: $color-text;
+  transition: border-color $transition, background-color $transition;
+  @if not $important {
+    font-family: $font-family;
+  }
+
+  &:focus {
+    border-color: $color-accent;
+    background-color: $color-white;
+    outline: none;
+  }
+
+  @if not $important {
+    &::placeholder {
+      color: $color-muted;
+    }
+  }
+}
+
+// ── Кнопка показать/скрыть пароль (right:12px — намеренный инсет)
+@mixin fs-toggle-secret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: $color-muted;
+  display: flex;
+  align-items: center;
+
+  &:hover { color: $color-text; }
+
+  .dashicons {
+    position: static;
+    transform: none;
+  }
+}
+
+// ── Блок ошибки формы (цвета — отдельные error-токены)
+@mixin fs-form-error($font-size, $margin-bottom) {
+  font-size: $font-size;
+  color: $color-error-text;
+  background: $color-error-bg;
+  border: 1px solid $color-error-border;
+  border-radius: $radius;
+  padding: $spacing-sm $spacing-md;
+  margin-bottom: $margin-bottom;
+}
+
+// ── Блок успеха формы
+@mixin fs-form-success {
+  text-align: center;
+  padding: $spacing-lg 0;
+}
+
+@mixin fs-form-success-icon {
+  font-size: 48px;
+  color: $color-accent;
+  display: block;
+  margin-bottom: $spacing-md;
+}
+
+// ── Кнопка отправки карточки-формы (!important сохранён); box-sizing/margin задаются на месте
+@mixin fs-form-submit($padding) {
+  width: 100% !important;
+  padding: $padding !important;
+  height: auto !important;
+  font-size: $font-size-sm !important;
+  font-weight: $font-bold;
+}
+
+// ── Первичная кнопка (accent); hover-opacity отличается (.85/.88) → параметр
+@mixin fs-btn-primary($hover-opacity) {
+  background: $color-accent;
+  color: $color-white;
+  border: none;
+  border-radius: $radius;
+  cursor: pointer;
+
+  &:hover { opacity: $hover-opacity; }
+}
+
+// ── Вторичная кнопка (нейтральная)
+@mixin fs-btn-secondary {
+  background: $color-bg-subtle;
+  border: 1px solid $color-border;
+  color: $color-text;
+
+  &:hover { background: $color-border; }
+}
+
+// ── Сброс списка
+@mixin fs-list-reset {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+// ── Состояние disabled
+@mixin fs-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+// ── Базовый паддинг страницы-обёртки
+@mixin fs-page-pad {
+  padding: 44px $spacing-2xl 96px;
+}

@@ -37,11 +37,9 @@
 
     textarea {
       @include wp-input;
-      height: auto;
-      min-height: 100px;
+      @include textarea-base;
       max-width: $field-max-width;
       padding: $spacing-sm $spacing-md;
-      resize: vertical;
       box-sizing: border-box;
     }
 
@@ -50,12 +48,7 @@
       height: $input-height;
       max-width: $field-max-width;
       box-sizing: border-box;
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23646970' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right $spacing-md center;
-      padding-right: 35px;
+      @include select-arrow;
     }
   }
 

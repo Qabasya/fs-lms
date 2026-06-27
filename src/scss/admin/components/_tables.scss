@@ -98,9 +98,7 @@
       max-width: $task-select-max-width;
       box-sizing: border-box;
       &:focus {
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 1px var(--color-primary);
-        outline: none;
+        @include m.focus-ring();
       }
     }
   }
@@ -228,7 +226,7 @@
   }
 
   .fs-lms-join-code {
-    font-family: Consolas, Monaco, monospace;
+    font-family: $font-mono;
     font-size: $font-size;
     color: var(--color-primary);
     text-decoration: underline;
@@ -273,9 +271,9 @@
     transform: translateX(-50%);
     background: $color-text-primary;
     color: $color-text-inverse;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $border-radius-md;
+    font-size: $font-size-code;
     white-space: nowrap;
     pointer-events: none;
     opacity: 0;

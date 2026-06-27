@@ -13,7 +13,7 @@
     padding: $spacing-md $spacing-lg;
     background: $wp-admin-gray-bg-light;
     border: 1px solid $color-border-input;
-    border-radius: 8px;
+    border-radius: $border-radius-lg;
 
     input[type="number"],
     input[type="date"],

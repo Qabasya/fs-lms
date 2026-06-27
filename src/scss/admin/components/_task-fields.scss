@@ -4,6 +4,35 @@
 
 @use '../_variables' as v;
 
+// ── Общие плейсхолдеры строк-полей (options/pairs/order) ──────────────────────
+
+%task-list-reset {
+	margin: 0 0 v.$spacing-md;
+	padding: 0;
+	list-style: none;
+}
+
+%task-field-row {
+	display: flex;
+	align-items: center;
+	gap: v.$spacing-sm;
+
+	.fs-form-group {
+		flex: 1;
+		min-width: 0;
+
+		input[type='text'] {
+			width: 100%;
+		}
+	}
+}
+
+%task-row-remove {
+	color: v.$color-danger;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
 // ── Общие ────────────────────────────────────────────────────────────────────
 
 .fs-lms-hint-field {
@@ -23,9 +52,7 @@
 	}
 
 	.fs-task-options__list {
-		margin: 0 0 v.$spacing-md;
-		padding: 0;
-		list-style: none;
+		@extend %task-list-reset;
 	}
 
 	.fs-task-options__item {
@@ -33,28 +60,15 @@
 	}
 
 	.fs-task-options__row {
-		display: flex;
-		align-items: center;
-		gap: v.$spacing-sm;
+		@extend %task-field-row;
 
 		input[type='checkbox'],
 		input[type='radio'] {
 			flex-shrink: 0;
 		}
 
-		.fs-form-group {
-			flex: 1;
-			min-width: 0;
-
-			input[type='text'] {
-				width: 100%;
-			}
-		}
-
 		.js-options-remove {
-			color: v.$color-danger;
-			cursor: pointer;
-			flex-shrink: 0;
+			@extend %task-row-remove;
 		}
 	}
 }
@@ -66,7 +80,7 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: v.$spacing-sm;
-		font-weight: 600;
+		font-weight: v.$font-bold;
 		margin-bottom: v.$spacing-xs;
 		padding-left: v.$spacing-xl; // align under inputs
 
@@ -76,9 +90,7 @@
 	}
 
 	.fs-task-pairs__list {
-		margin: 0 0 v.$spacing-md;
-		padding: 0;
-		list-style: none;
+		@extend %task-list-reset;
 	}
 
 	.fs-task-pairs__item {
@@ -86,18 +98,7 @@
 	}
 
 	.fs-task-pairs__row {
-		display: flex;
-		align-items: center;
-		gap: v.$spacing-sm;
-
-		.fs-form-group {
-			flex: 1;
-			min-width: 0;
-
-			input[type='text'] {
-				width: 100%;
-			}
-		}
+		@extend %task-field-row;
 
 		.fs-task-pairs__sep {
 			color: v.$color-text-secondary;
@@ -105,9 +106,7 @@
 		}
 
 		.js-pairs-remove {
-			color: v.$color-danger;
-			cursor: pointer;
-			flex-shrink: 0;
+			@extend %task-row-remove;
 		}
 	}
 }
@@ -116,9 +115,7 @@
 
 .fs-task-order-field {
 	.fs-task-order__list {
-		margin: 0 0 v.$spacing-md;
-		padding: 0;
-		list-style: none;
+		@extend %task-list-reset;
 	}
 
 	.fs-task-order__item {
@@ -130,9 +127,7 @@
 	}
 
 	.fs-task-order__row {
-		display: flex;
-		align-items: center;
-		gap: v.$spacing-sm;
+		@extend %task-field-row;
 
 		.fs-task-order__handle {
 			color: v.$color-text-secondary;
@@ -140,19 +135,8 @@
 			flex-shrink: 0;
 		}
 
-		.fs-form-group {
-			flex: 1;
-			min-width: 0;
-
-			input[type='text'] {
-				width: 100%;
-			}
-		}
-
 		.js-order-remove {
-			color: v.$color-danger;
-			cursor: pointer;
-			flex-shrink: 0;
+			@extend %task-row-remove;
 		}
 	}
 }

@@ -21,7 +21,7 @@
 .fs-module-card {
 	display: flex;
 	flex-direction: column;
-	background: #fff;
+	background: $color-bg-modal;
 	border: 1px solid $color-border-input;
 	border-radius: $border-radius-l;
 	padding: $spacing-xl;
@@ -47,7 +47,7 @@
 		margin: 0 0 $spacing-xl;
 		font-size: $font-size;
 		color: $color-text-secondary;
-		line-height: 1.5;
+		line-height: $line-height-base;
 	}
 
 	&__footer {

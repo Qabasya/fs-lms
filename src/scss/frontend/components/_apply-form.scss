@@ -17,22 +17,11 @@
 }
 
 .fs-apply-card {
-  background: $color-white;
-  padding: 32px 30px;
-  border: 1px solid $color-border-light;
-  border-radius: $radius-md;
-  max-width: 480px;
-  margin: 0 auto;
-  box-shadow: $shadow-card;
-  font-family: $font-family;
+  @include fs-card-shell(480px, $spacing-2xl 30px);
 
   &__title {
-    font-size: $font-size-heading;
-    font-weight: 700;
-    line-height: $line-height-tight;
-    text-align: center;
-    color: $color-text;
-    margin: 0 0 24px;
+    @include fs-card-title;
+    margin: 0 0 $spacing-xl;
   }
 
   &__step {
@@ -48,12 +37,7 @@
     margin-bottom: 14px;
 
     .dashicons {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: $color-muted;
-      font-size: $font-size-base;
+      @include fs-field-icon;
       pointer-events: none;
     }
 
@@ -63,26 +47,7 @@
     input[type="tel"],
     input[type="date"],
     select {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px 12px 10px 38px;
-      font-size: $font-size-sm;
-      border: 1px solid $color-border;
-      border-radius: $radius;
-      background-color: $color-bg-subtle;
-      color: $color-text;
-      transition: border-color $transition, background-color $transition;
-      font-family: $font-family;
-
-      &:focus {
-        border-color: $color-accent;
-        background-color: $color-white;
-        outline: none;
-      }
-
-      &::placeholder {
-        color: $color-muted;
-      }
+      @include fs-field-input;
     }
 
     select {
@@ -91,24 +56,7 @@
     }
 
     .js-toggle-secret {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      padding: 0;
-      cursor: pointer;
-      color: $color-muted;
-      display: flex;
-      align-items: center;
-
-      &:hover { color: $color-text; }
-
-      .dashicons {
-        position: static;
-        transform: none;
-      }
+      @include fs-toggle-secret;
     }
 
     &--otp input {
@@ -123,18 +71,14 @@
   }
 
   &__submit {
-    width: 100% !important;
+    @include fs-form-submit(10px 16px);
     box-sizing: border-box;
-    padding: 10px 16px !important;
-    height: auto !important;
-    font-size: $font-size-sm !important;
-    font-weight: 700;
   }
 
   &__description {
     font-size: $font-size-sm;
     color: $color-muted;
-    margin: 0 0 16px;
+    margin: 0 0 $spacing-lg;
     text-align: center;
 
     strong {
@@ -165,38 +109,28 @@
       }
 
       .js-otp-countdown {
-        margin-left: 4px;
+        margin-left: $spacing-xs;
       }
     }
   }
 
   &__success {
-    text-align: center;
-    padding: 16px 0;
+    @include fs-form-success;
   }
 
   &__success-icon {
-    font-size: 48px;
-    color: $color-accent;
-    display: block;
-    margin-bottom: 12px;
+    @include fs-form-success-icon;
   }
 
   &__success-title {
     font-size: $font-size-base;
-    font-weight: 700;
+    font-weight: $font-bold;
     color: $color-text;
     margin: 0;
   }
 
   &__error {
-    font-size: $font-size-xs;
-    color: #c0392b;
-    background: #fdf0ef;
-    border: 1px solid #f5c6c3;
-    border-radius: $radius;
-    padding: 8px 12px;
-    margin-bottom: 12px;
+    @include fs-form-error($font-size-xs, $spacing-md);
   }
 }
 // ── Гейт кода направления (серверный, инлайн-блок карточки /lms/apply, Этап 0) ──

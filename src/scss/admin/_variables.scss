@@ -65,6 +65,17 @@ $step-video:      #8c3bca;        // видео
 $step-practice:   #c9540a;        // практика (work)
 $step-quiz:       #00834a;        // тест (assessment)
 
+// ── Step-type → accent colour map (D11: drives [data-type] colour rules
+//    in course-builder/.spo-ico, step-editor/.step-chip + .sh-badge)
+$step-type-colors: (
+	lecture:    $step-lecture,
+	video:      $step-video,
+	practice:   $step-practice,
+	quiz:       $step-quiz,
+	task:       $wp-admin-green,
+	assessment: $color-danger,
+);
+
 // ── Course Builder bespoke shades (subtle UI fills from canonical design)
 $cb-bg-tree:    #fbfbfc; // фон рельсы/футера
 $cb-bg-hover:   #f0f0f1; // hover строки дерева
@@ -102,8 +113,11 @@ $shadow-toast: 0 2px 12px rgba(0, 0, 0, 0.18);
 $shadow-modal: 0 2px 20px rgba(0, 0, 0, 0.3);
 
 $input-height:    40px;
+$input-height-sm: 35px;  // компактная высота полей: модальный form-input, editable-field, fs-pfield
 $field-max-width:    320px;
 $settings-max-width: 860px; // единая ширина для страниц настроек
+
+$size-icon-xl: 48px; // крупная иконка-заглушка: empty-state, modal redirect-box провайдер
 
 $gap-sm: 50px;
 $gap-md: 100px;
@@ -123,12 +137,17 @@ $font-size:      14px;
 $font-size-m:    16px;
 $font-size-l:    24px;
 
+$line-height-base: 1.5; // базовая высота строки для текстовых блоков (тост, тултип, диалоги)
+
+$font-mono: Consolas, Monaco, monospace; // моноширинный стек (код, join-коды)
+
 // ── Тайминги
 $transition-fast:    0.2s ease-out;
 $transition-default: all $transition-fast;
 
 // ── Брейкпоинты
 $breakpoint-mobile: 768px;
+$breakpoint-builder: 960px; // course/slot builder two-pane → single-column collapse
 
 // ── Z-index
 $z-modal-backdrop: 1;

@@ -17,7 +17,7 @@
 
 .fs-task-page .fs-task-title {
   font-size: $font-size-title;
-  font-weight: 700;
+  font-weight: $font-bold;
   line-height: 1.2;
   letter-spacing: -.02em;
   margin-bottom: 28px;
@@ -26,7 +26,7 @@
 .fs-task-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: $spacing-sm;
   margin: 28px 0;
 }
 
@@ -35,7 +35,7 @@
   align-items: center;
   gap: 6px;
   height: 26px;
-  padding: 0 12px;
+  padding: 0 $spacing-md;
   background: $color-white;
   border: 1px solid $color-border;
   border-radius: $radius-pill;
@@ -70,7 +70,7 @@
 }
 
 .fs-task-card__body {
-  padding: 32px 36px 28px;
+  padding: $spacing-2xl 36px 28px;
 }
 
 .fs-task-condition {
@@ -80,17 +80,17 @@
 
   * { color: $color-text; }
   img    { max-width: 100%; height: auto; display: block; }
-  table  { border-collapse: collapse; margin: 12px 0; }
+  table  { border-collapse: collapse; margin: $spacing-md 0; }
   td, th { border: 1px solid $color-border; padding: 5px 10px; font-size: $font-size-sm; }
 }
 
 .fs-task-files {
-  margin-top: 16px;
+  margin-top: $spacing-lg;
 
   strong {
     display: block;
     @include section-label;
-    margin-bottom: 8px;
+    margin-bottom: $spacing-sm;
   }
 }
 

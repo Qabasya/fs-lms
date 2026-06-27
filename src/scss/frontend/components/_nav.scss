@@ -66,7 +66,7 @@
 
   &__title {
     font-size: $font-size-sm;
-    font-weight: 600;
+    font-weight: $font-semibold;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -77,7 +77,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: $spacing-xs;
     flex-shrink: 0;
   }
 
