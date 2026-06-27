@@ -20,8 +20,8 @@
 }
 
 /// Миксин для полей ввода с состоянием фокуса
-/// @param {Color} $focus-color [$color-primary] - цвет обводки при фокусе
-@mixin form-input($focus-color: $color-primary) {
+/// @param {Color} $focus-color [var(--color-primary)] - цвет обводки при фокусе
+@mixin form-input($focus-color: var(--color-primary)) {
   width: 100%;
   height: 35px;
   padding: 0 $spacing-md;
@@ -140,7 +140,7 @@ html.modal-open {
 
   /* ── HEADER: заголовок + кнопка закрытия */
   .fs-lms-modal-header {
-    background: $color-primary;
+    background: var(--color-primary);
     color: $color-text-inverse;
     padding: $spacing-lg $spacing-xl;
     border-radius: $border-radius-sm $border-radius-sm 0 0;
@@ -246,7 +246,7 @@ html.modal-open {
       // 🔵 Primary кнопка (Подтвердить/Сохранить)
       &.fs-lms-modal-confirm,
       &.button-primary {
-        @include modal-button($color-primary, $color-primary-hover);
+        @include modal-button(var(--color-primary), var(--color-primary-hover));
       }
 
       // 🔴 Деструктивная кнопка (Удалить)
@@ -256,7 +256,7 @@ html.modal-open {
 
       // Accessibility: фокус для клавиатурной навигации
       &:focus {
-        outline: 2px solid $color-primary;
+        outline: 2px solid var(--color-primary);
         outline-offset: 2px;
       }
     }
@@ -396,11 +396,11 @@ html.modal-open {
   input[type="radio"] {
     margin: 0;
     cursor: pointer;
-    accent-color: $color-primary; // Нативная окраска (современные браузеры)
+    accent-color: var(--color-primary); // Нативная окраска (современные браузеры)
   }
 
   &:hover span {
-    color: $color-primary;
+    color: var(--color-primary);
   }
 
   &--disabled {
@@ -759,7 +759,7 @@ html.modal-open {
     transition: color $transition-fast;
 
     &:hover {
-      color: $color-primary;
+      color: var(--color-primary);
     }
 
     .dashicons {
@@ -801,7 +801,7 @@ html.modal-open {
     height: 16px;
     margin: 0;
     cursor: pointer;
-    accent-color: $color-primary;
+    accent-color: var(--color-primary);
   }
 }
 
@@ -899,18 +899,18 @@ html.modal-open {
   input[type="checkbox"] {
     margin: 0;
     cursor: pointer;
-    accent-color: $color-primary;
+    accent-color: var(--color-primary);
   }
 
   &:has(input:checked) {
     background: $wp-admin-blue-bg-light;
-    border-color: $color-primary;
+    border-color: var(--color-primary);
     color: $wp-admin-blue-text;
     font-weight: 600;
   }
 
   &:hover {
-    border-color: $color-primary;
+    border-color: var(--color-primary);
   }
 }
 
@@ -1060,8 +1060,8 @@ html.modal-open {
   border-color: $color-border-input;
 
   &:focus-within {
-    border-color: $color-primary;
-    box-shadow: 0 0 0 1px $color-primary;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-primary);
   }
 
   > input { cursor: text !important; }

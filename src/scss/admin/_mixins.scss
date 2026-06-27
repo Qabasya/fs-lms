@@ -12,7 +12,7 @@
 }
 
 // ── Поля ввода с фокус-стилем (стиль WP)
-@mixin wp-input($focus-color: $color-primary) {
+@mixin wp-input($focus-color: var(--color-primary)) {
   width: 100%;
   padding: 0 $spacing-md;
   border: 1px solid $color-border-input;
@@ -44,11 +44,11 @@
 }
 
 // ── Ссылки действий в таблицах (редактировать/удалить)
-@mixin row-action-links($hover-color: $color-primary, $danger-color: $color-danger) {
+@mixin row-action-links($hover-color: var(--color-primary), $danger-color: $color-danger) {
   a,
   button.button-link {
     text-decoration: none;
-    color: $color-primary;
+    color: var(--color-primary);
     transition: color 0.15s ease-in-out;
     background: none;
     border: none;

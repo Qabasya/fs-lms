@@ -134,6 +134,39 @@ function render_fs_page_header( array $args = [] ): void {
 }
 
 /**
+ * Render a filter <select> for WP admin list-table filter bars (restrict_manage_posts).
+ *
+ * @param array{
+ *   name:       string,
+ *   options:    array<string|int, string>,
+ *   selected?:  string|int,
+ *   all_label?: string,
+ * } $args
+ */
+function render_fs_select( array $args ): void {
+	$a = array_merge( [
+		'name'      => '',
+		'options'   => [],
+		'selected'  => '',
+		'all_label' => '',
+	], $args );
+
+	printf( '<select name="%s">', esc_attr( $a['name'] ) );
+	if ( '' !== (string) $a['all_label'] ) {
+		echo '<option value="">' . esc_html( $a['all_label'] ) . '</option>';
+	}
+	foreach ( $a['options'] as $value => $label ) {
+		printf(
+			'<option value="%s"%s>%s</option>',
+			esc_attr( (string) $value ),
+			selected( (string) $a['selected'], (string) $value, false ),
+			esc_html( $label )
+		);
+	}
+	echo '</select>';
+}
+
+/**
  * Render an empty-state primitive.
  *
  * @param array{

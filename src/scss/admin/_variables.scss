@@ -9,6 +9,7 @@ $color-primary-hover:  #135e96; // blue 60
 
 $color-danger:         #d63638; // red 50
 $color-danger-hover:   #8a2424; // red 70
+$color-warning:        #e08a00; // orange — предупреждение (toast)
 
 $color-secondary:      #a7aaad; // gray 20
 $color-secondary-hover:#787c82; // gray 40
@@ -29,9 +30,17 @@ $wp-admin-blue-bg:  #c5d9ed; // blue 5
 $wp-admin-blue-bg-light:  #f0f6fc; // blue 0
 $wp-admin-blue-text:  #0a4b78; // 70
 
-$wp-admin-green:  #008a20; // green 50
+// CSS custom property bridge — follows WP admin color scheme automatically
+:root {
+    --color-primary:       var(--wp-admin-theme-color, #{$color-primary});
+    --color-primary-hover: var(--wp-admin-theme-color-darker-10, #{$color-primary-hover});
+    --color-primary-dark:  var(--wp-admin-theme-color-darker-20, #{$wp-admin-blue-text});
+}
+
+$wp-admin-green:     #008a20; // green 50
+$wp-admin-green-dk:  #006b18; // green 60
 $wp-admin-green-bg:  #b8e6bf; // green 5
-$wp-admin-green-text:  #005c12; // 70
+$wp-admin-green-text: #005c12; // 70
 
 $wp-admin-gray:  $color-text-secondary; // gray 50
 $wp-admin-gray-bg:  #dcdcde; // gray 5

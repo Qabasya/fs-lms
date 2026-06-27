@@ -83,12 +83,16 @@ class CourseBuilderService {
 			);
 		}
 
+		$author      = get_user_by( 'id', $course->authorId );
+		$author_name = $author instanceof \WP_User ? $author->display_name : '';
+
 		return array(
 			'id'          => $course->id,
 			'title'       => $course->title,
 			'subject_key' => $course->subjectKey,
 			'status'      => $course->status,
 			'author_id'   => $course->authorId,
+			'author_name' => $author_name,
 			'thumbnail'   => get_the_post_thumbnail_url( $course->id, 'medium' ) ?: '',
 			'modules'     => $modules,
 		);
@@ -225,7 +229,30 @@ class CourseBuilderService {
 			set_post_thumbnail( $courseId, $thumbnailId );
 		}
 
+		if ( 'publish' === $safe_status ) {
+			$this->publishCourseLessons( $courseId );
+		}
+
 		return true;
+	}
+
+	/**
+	 * Публикует все уроки курса при переходе курса в статус publish.
+	 */
+	public function publishCourseLessons( int $courseId ): void {
+		$course = $this->courses->get( $courseId );
+		if ( null === $course ) {
+			return;
+		}
+
+		foreach ( $course->modules as $module ) {
+			foreach ( $module->lessonIds as $lessonId ) {
+				$post = $this->posts->get( $lessonId );
+				if ( null !== $post && 'publish' !== $post->post_status ) {
+					$this->posts->updateStatus( $lessonId, 'publish' );
+				}
+			}
+		}
 	}
 
 	/**

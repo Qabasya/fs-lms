@@ -65,8 +65,8 @@
 		&:hover { background: $cb-bg-hover; }
 		&.active {
 			background: $cb-bg-active;
-			&::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: $color-primary; border-radius: 2px; }
-			.fs-sb-slot-num, .fs-sb-slot-title { color: $color-primary-hover; font-weight: $font-bold; }
+			&::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: var(--color-primary); border-radius: 2px; }
+			.fs-sb-slot-num, .fs-sb-slot-title { color: var(--color-primary-hover); font-weight: $font-bold; }
 		}
 		&.empty .fs-sb-slot-title { color: $color-text-secondary; font-style: italic; }
 

@@ -99,8 +99,8 @@
 
 	&:focus {
 		outline:       none;
-		border-color:  $color-primary;
-		box-shadow:    0 0 0 1px $color-primary;
+		border-color:  var(--color-primary);
+		box-shadow:    0 0 0 1px var(--color-primary);
 	}
 
 	&--error { border-color: $color-danger !important; }

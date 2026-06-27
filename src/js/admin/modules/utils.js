@@ -356,7 +356,7 @@ export function showNotice(message, type = 'info', $container = null, options = 
     // style="margin: 10px 0;" добавляет отступы, так как уведомления обычно вставляются
     // в контейнеры без стандартных margin WordPress.
     const $notice = $(`
-        <div class="notice notice-${type} is-dismissible fs-notice" style="margin: 10px 0;">
+        <div class="notice notice-${type} is-dismissible fs-notice" style="margin: 10px;">
             <p><strong>${title}</strong> ${safeMessage}</p>
             <button type="button" class="notice-dismiss">
                 <span class="screen-reader-text">Закрыть</span>

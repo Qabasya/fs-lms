@@ -12,6 +12,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
 use Inc\Services\Template\TemplateRegistry;
@@ -38,6 +39,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		private readonly PostManager           $posts,
 		private readonly TaskPublishValidator  $validator,
 		private readonly TaskPublishGuard      $guard,
+		private readonly SubjectRepository     $subjects,
 	) {
 		parent::__construct();
 	}
@@ -56,6 +58,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		add_action( "manage_{$cpt}_posts_custom_column", array( $this, 'renderColumn' ), 10, 2 );
 		add_filter( "manage_edit-{$cpt}_sortable_columns", array( $this, 'sortableColumns' ) );
 		add_action( 'pre_get_posts', array( $this, 'applyColumnSort' ) );
+		add_action( 'restrict_manage_posts', array( $this, 'renderProblemsFilters' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'renderBankDescription' ) );
 		add_filter( 'wp_insert_post_data', array( $this, 'validateBeforePublish' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
@@ -236,7 +239,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Применяет сортировку списка задач по типу шаблона (мета-значение).
+	 * Применяет сортировку и фильтры списка задач.
 	 */
 	public function applyColumnSort( \WP_Query $query ): void {
 		if ( ! is_admin() || ! $query->is_main_query() ) {
@@ -245,12 +248,112 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		if ( PostTypeResolver::problems() !== $query->get( 'post_type' ) ) {
 			return;
 		}
-		if ( 'template_type' !== $query->get( 'orderby' ) ) {
+
+		if ( 'template_type' === $query->get( 'orderby' ) ) {
+			$query->set( 'meta_key', PostMetaName::TemplateType->value );
+			$query->set( 'orderby', 'meta_value' );
+		}
+
+		$usage = sanitize_key( $_GET['fs_problem_usage'] ?? '' );
+		if ( '' !== $usage ) {
+			$index    = $this->workProblemIndex();
+			$all_used = [];
+			$by_work  = [];
+			foreach ( $index as [ $id, , $ids ] ) {
+				$by_work[ $id ] = $ids;
+				foreach ( $ids as $rid ) {
+					$all_used[] = $rid;
+				}
+			}
+
+			if ( 'orphan' === $usage ) {
+				$query->set( 'post__not_in', array_values( array_unique( $all_used ) ) );
+			} elseif ( is_numeric( $usage ) ) {
+				$ids = $by_work[ (int) $usage ] ?? [];
+				$query->set( 'post__in', empty( $ids ) ? [ 0 ] : array_values( array_unique( $ids ) ) );
+			}
+		}
+	}
+
+	public function renderProblemsFilters( string $post_type, string $which = 'top' ): void {
+		if ( PostTypeResolver::problems() !== $post_type || 'top' !== $which ) {
 			return;
 		}
 
-		$query->set( 'meta_key', PostMetaName::TemplateType->value );
-		$query->set( 'orderby', 'meta_value' );
+		require_once $this->plugin_path . 'templates/admin/components/UI/ui_renderers.php';
+
+		// Фильтр по тематике (taxonomy problem_tag, обрабатывается WP нативно).
+		$tags = get_terms( [ 'taxonomy' => 'problem_tag', 'hide_empty' => false ] );
+		if ( ! is_wp_error( $tags ) && ! empty( $tags ) ) {
+			$tag_options = [];
+			foreach ( $tags as $tag ) {
+				$tag_options[ $tag->slug ] = $tag->name;
+			}
+			render_fs_select( [
+				'name'      => 'problem_tag',
+				'options'   => $tag_options,
+				'selected'  => sanitize_key( $_GET['problem_tag'] ?? '' ),
+				'all_label' => 'Вся тематика',
+			] );
+		}
+
+		// Фильтр по использованию.
+		$index   = $this->workProblemIndex();
+		$options = [ 'orphan' => 'Не используется' ];
+		foreach ( $index as [ $id, $title, $ids ] ) {
+			if ( ! empty( $ids ) ) {
+				$options[ $id ] = $title;
+			}
+		}
+		render_fs_select( [
+			'name'      => 'fs_problem_usage',
+			'options'   => $options,
+			'selected'  => sanitize_key( $_GET['fs_problem_usage'] ?? '' ),
+			'all_label' => 'Все задачи',
+		] );
+
+		// Фильтр по автору.
+		$problems   = $this->posts->search( PostTypeResolver::problems(), [
+			'status' => array( 'publish', 'draft', 'pending', 'private', 'fs_archived' ),
+		] );
+		$author_ids = array_unique( array_map( static fn( $p ) => (int) $p->post_author, $problems ) );
+		if ( count( $author_ids ) >= 2 ) {
+			$author_options = [];
+			foreach ( $author_ids as $uid ) {
+				$user = get_user_by( 'id', $uid );
+				if ( false !== $user ) {
+					$author_options[ $uid ] = $user->display_name;
+				}
+			}
+			render_fs_select( [
+				'name'      => 'author',
+				'options'   => $author_options,
+				'selected'  => (string) (int) ( $_GET['author'] ?? 0 ),
+				'all_label' => 'Все авторы',
+			] );
+		}
+	}
+
+	/**
+	 * Строит кросс-предметный индекс работ → [work_id, work_title, problem_ids[]].
+	 *
+	 * @return array<int, array{int, string, int[]}>
+	 */
+	private function workProblemIndex(): array {
+		$result = [];
+		foreach ( $this->subjects->readAll() as $subject ) {
+			$works = $this->posts->search( PostTypeResolver::works( $subject->key ), [
+				'status'  => array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' ),
+				'orderby' => 'title',
+			] );
+			foreach ( $works as $work ) {
+				$meta     = $this->posts->getMeta( $work->ID, PostMetaName::Meta->value );
+				$meta     = is_array( $meta ) ? $meta : [];
+				$item_ids = array_values( array_filter( array_map( 'intval', is_array( $meta['item_ids'] ?? null ) ? $meta['item_ids'] : [] ) ) );
+				$result[] = [ $work->ID, $work->post_title, $item_ids ];
+			}
+		}
+		return $result;
 	}
 
 	/**

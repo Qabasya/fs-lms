@@ -27,9 +27,9 @@
   font-size: $font-size;
   font-weight: $font-regular;
   text-decoration: none;
-  color: $color-primary;
+  color: var(--color-primary);
 
-  &:hover { color: $color-primary-hover; }
+  &:hover { color: var(--color-primary-hover); }
 
   .dashicons {
     font-size: $font-size;

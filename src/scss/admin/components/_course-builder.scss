@@ -12,6 +12,52 @@
 	.fs-cb-subtitle { color: $color-text-secondary; font-size: $font-size-wp; margin: 2px 0 $spacing-lg; }
 	.fs-cb-loading  { color: $color-text-secondary; padding: $spacing-xl; }
 
+	// Зона для WP admin notices: min-height резервирует место,
+	// notices JS-ом перемещаются сюда — форма не смещается.
+	// ── Course meta strip ─────────────────────────────────────
+	.course-strip {
+		display: flex; align-items: center; gap: 14px;
+		padding: 12px 16px;
+		background: $color-bg-modal;
+		border: 1px solid $wp-admin-gray-bg;
+		box-shadow: $shadow-cb-strip;
+		border-radius: $border-radius-sm;
+		margin: 14px 0;
+		flex-wrap: wrap;
+	}
+	.course-thumb {
+		width: 46px; height: 46px; border-radius: $border-radius-l;
+		flex-shrink: 0; overflow: hidden;
+		display: flex; align-items: center; justify-content: center;
+	}
+	.course-thumb-img    { width: 100%; height: 100%; object-fit: cover; display: block; }
+	.course-thumb-initials {
+		width: 100%; height: 100%;
+		background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+		display: flex; align-items: center; justify-content: center;
+		color: $color-text-inverse; font-weight: $font-heavy; font-size: 19px;
+	}
+	.course-strip-main   { flex: 1; min-width: 180px; }
+	.cs-title {
+		font-size: $font-size-m; font-weight: $font-bold;
+		cursor: pointer; border-radius: $border-radius-md; padding: 1px 4px; margin: -1px -4px;
+		&:hover { color: var(--color-primary); }
+	}
+	.cs-title-input {
+		font-size: $font-size-m; font-weight: $font-bold; color: $color-text-primary;
+		border: 1px solid var(--color-primary); border-radius: $border-radius-md;
+		box-shadow: 0 0 0 1px var(--color-primary); padding: 1px 6px;
+		background: $color-bg-modal; outline: none;
+		min-width: 240px; max-width: 100%;
+		font-family: inherit;
+	}
+	.cs-meta {
+		font-size: $font-size-xs; color: $color-text-secondary; margin-top: 2px;
+		display: flex; gap: 12px; flex-wrap: wrap;
+		b { color: $color-text-primary; font-weight: $font-bold; }
+	}
+	.course-strip-actions { display: flex; gap: $spacing-sm; align-items: center; }
+
 	// создание курса
 	.fs-cb-create {
 		max-width: 460px;
@@ -48,8 +94,40 @@
 		.th-count { font-size: $font-size-code; color: $color-secondary-hover; }
 	}
 	.tree-scroll { flex: 1; overflow-y: auto; padding: $spacing-sm $spacing-sm $spacing-xs; }
-	.tree-add { border-top: 1px solid $wp-admin-gray-bg; padding: $spacing-sm $spacing-sm + 2px; display: flex; gap: $spacing-sm; flex-wrap: wrap;
-		.button { flex: 1; justify-content: center; } }
+	.tree-add {
+		border-top: 1px solid $wp-admin-gray-bg;
+		padding: $spacing-sm $spacing-sm + 2px;
+		display: flex; flex-direction: column; gap: $spacing-sm;
+
+		.tree-add-main { width: 100%; justify-content: center; }
+
+		.tree-add-row { display: flex; gap: $spacing-sm; }
+
+		.import-wrap { position: relative; flex: 1;
+			> .button { width: 100%; justify-content: center; }
+		}
+		.import-caret { margin-left: auto; }
+		.import-dropdown {
+			position: absolute;
+			bottom: calc(100% + 4px);
+			left: 0; right: 0;
+			background: $color-bg-modal;
+			border: 1px solid $color-border-input;
+			border-radius: $border-radius-l;
+			box-shadow: $shadow-cb-popover;
+			overflow: hidden;
+			z-index: 100;
+		}
+		.import-opt {
+			display: flex; align-items: center; gap: $spacing-sm;
+			padding: 8px $spacing-sm; width: 100%;
+			background: none; border: none; cursor: pointer;
+			font-size: $font-size-wp; color: $color-text-primary; text-align: left;
+			&:hover { background: $cb-bg-hover; }
+		}
+
+		[data-add-module] { flex: 1; justify-content: center; }
+	}
 
 	// module
 	.module { margin-bottom: $spacing-xs + 2px; }
@@ -61,14 +139,14 @@
 			&:hover { opacity: 1; } }
 		.mod-caret { transition: transform 0.15s; flex-shrink: 0; color: $color-secondary-hover; display: flex; }
 		.mod-num {
-			width: 20px; height: 20px; border-radius: 5px; background: $cb-num-bg; color: $color-primary-hover;
+			width: 20px; height: 20px; border-radius: 5px; background: $cb-num-bg; color: var(--color-primary-hover);
 			font-size: $font-size-code; font-weight: $font-heavy; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 		}
 		.mod-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 		.mod-title { font-size: $font-size-wp; font-weight: $font-bold; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.mod-desc { font-size: $font-size-code; color: $color-text-secondary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	}
-	.module.active > .module-head { background: $cb-bg-hover; box-shadow: inset 2px 0 0 $color-primary; }
+	.module.active > .module-head { background: $cb-bg-hover; box-shadow: inset 2px 0 0 var(--color-primary); }
 	.module.collapsed {
 		.mod-caret { transform: rotate(-90deg); }
 		.module-lessons { display: none; }
@@ -82,9 +160,9 @@
 		&:hover { background: $cb-bg-hover; }
 		&.active {
 			background: $cb-bg-active;
-			&::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: $color-primary; border-radius: 2px; }
-			.les-num, .les-title { color: $color-primary-hover; font-weight: $font-bold; }
-			.les-steps { background: $wp-admin-blue-bg; color: $color-primary-hover; }
+			&::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: var(--color-primary); border-radius: 2px; }
+			.les-num, .les-title { color: var(--color-primary-hover); font-weight: $font-bold; }
+			.les-steps { background: $wp-admin-blue-bg; color: var(--color-primary-hover); }
 		}
 		.les-grip { opacity: 0; color: $color-secondary-hover; cursor: grab; display: flex; flex-shrink: 0; }
 		&:hover .les-grip { opacity: 1; }
@@ -95,8 +173,8 @@
 
 	// drag states
 	.dragging { opacity: 0.4; }
-	.drop-before { box-shadow: 0 -2px 0 $color-primary; }
-	.drop-after { box-shadow: 0 2px 0 $color-primary; }
+	.drop-before { box-shadow: 0 -2px 0 var(--color-primary); }
+	.drop-after { box-shadow: 0 2px 0 var(--color-primary); }
 
 	// RIGHT: editor
 	.editor-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: $color-bg-modal; }
@@ -108,7 +186,7 @@
 		flex: 1; font-size: 20px; font-weight: $font-bold; color: $color-text-primary;
 		border: 1px solid transparent; border-radius: 5px; padding: 5px 9px; background: transparent;
 		&:hover { border-color: $wp-admin-gray-bg; }
-		&:focus { outline: none; border-color: $color-primary; box-shadow: 0 0 0 1px $color-primary; background: $color-bg-modal; }
+		&:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); background: $color-bg-modal; }
 	}
 	.lesson-flag {
 		font-size: $font-size-code; font-weight: $font-bold; padding: 3px 9px; border-radius: $border-radius-pill;
@@ -122,13 +200,10 @@
 	// editor body (контейнер правой панели; шаги — внутри .fs-se)
 	.editor-body { flex: 1; overflow-y: auto; padding: $spacing-xl $cb-pane-px $spacing-xxl; min-height: 0; }
 
-	// footer
-	.editor-footer {
-		border-top: 1px solid $wp-admin-gray-bg; padding: $spacing-md $cb-pane-px;
-		display: flex; align-items: center; gap: $spacing-sm + 2px; background: $cb-bg-tree;
-		.ef-status { font-size: $font-size-xs; color: $color-secondary-hover; display: flex; align-items: center; gap: 6px; }
-		.ef-spacer { flex: 1; }
-		.saved-dot { width: 7px; height: 7px; border-radius: 50%; background: $wp-admin-green; }
+	.button-green {
+		background: $wp-admin-green; border-color: $wp-admin-green; color: $color-text-inverse;
+		&:hover { background: $wp-admin-green-dk; border-color: $wp-admin-green-dk; color: $color-text-inverse; }
+		svg { fill: $color-text-inverse; }
 	}
 
 	.editor-empty {

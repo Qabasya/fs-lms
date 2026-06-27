@@ -38,7 +38,7 @@
 			.sc-type { font-weight: $font-heavy; color: currentColor; }
 		}
 	}
-	.step-add .step-chip-box { background: $color-bg-modal; border: 1.5px dashed $color-primary; color: $color-primary; }
+	.step-add .step-chip-box { background: $color-bg-modal; border: 1.5px dashed var(--color-primary); color: var(--color-primary); }
 	.step-add:hover .step-chip-box { background: $wp-admin-blue-bg-light; }
 
 	// step head
@@ -58,17 +58,17 @@
 	.icon-btn {
 		width: 30px; height: 30px; border: 1px solid $color-border-input; background: $wp-admin-gray-bg-light;
 		border-radius: 5px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: $color-text-secondary;
-		&:hover { background: $cb-bg-hover; color: $color-primary; border-color: $color-secondary-hover; }
+		&:hover { background: $cb-bg-hover; color: var(--color-primary); border-color: $color-secondary-hover; }
 		&.danger:hover { color: $color-danger; border-color: $color-danger; }
 	}
 
 	// fields
-	.sb-label { font-size: $font-size-xs; font-weight: $font-heavy; letter-spacing: 0.03em; text-transform: uppercase; color: $color-text-secondary; margin-bottom: $spacing-sm + 2px; }
+	.sb-label { font-size: $font-size-xs; font-weight: $font-heavy; letter-spacing: 0.03em; text-transform: uppercase; color: $color-text-secondary; }
 	.field-row { margin-bottom: 14px;
 		label { display: block; font-size: $font-size-xs; font-weight: $font-bold; color: $color-text-secondary; margin-bottom: 5px; } }
 	.field-input {
 		width: 100%; padding: $spacing-sm 11px; border: 1px solid $color-border-input; border-radius: 5px; font-size: $font-size-wp; color: $color-text-primary;
-		&:focus { outline: none; border-color: $color-primary; box-shadow: 0 0 0 1px $color-primary; }
+		&:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
 	}
 	textarea.field-input { resize: vertical; min-height: 90px; line-height: 1.6; }
 	.rte-area {
@@ -87,12 +87,7 @@
 		.fs-cb-ref-title { font-weight: $font-bold; color: $color-text-primary; }
 		.fs-cb-ref-edit { font-size: $font-size-xs; } }
 
-	// TinyMCE textarea: прячем только ДО готовности редактора (анти-флэш). После
-	// видимостью управляет сам wp.editor — в «Визуально» textarea скрыта инлайн-стилем
-	// TinyMCE, в «Код» показывается. Постоянный display:none ломал режим «Код».
 	.fs-rte-loading .fs-cb-rte-target { display: none; }
-	// В режиме «Код» textarea показывается — без явных размеров падает на дефолт
-	// cols=20 (~172px) и rows=2. Тянем на весь контейнер с рабочей высотой.
 	.fs-cb-rte-target { width: 100%; box-sizing: border-box; min-height: 300px; resize: vertical; }
 
 	// "или" разделитель между пикером библиотеки и inline-созданием

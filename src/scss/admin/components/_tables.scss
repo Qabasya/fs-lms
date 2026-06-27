@@ -98,8 +98,8 @@
       max-width: $task-select-max-width;
       box-sizing: border-box;
       &:focus {
-        border-color: $color-primary;
-        box-shadow: 0 0 0 1px $color-primary;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 1px var(--color-primary);
         outline: none;
       }
     }
@@ -127,12 +127,12 @@
     &.sort-asc::after {
       content: '\f142';
       opacity: 1;
-      color: $color-primary;
+      color: var(--color-primary);
     }
     &.sort-desc::after {
       content: '\f140';
       opacity: 1;
-      color: $color-primary;
+      color: var(--color-primary);
     }
   }
 }
@@ -195,10 +195,10 @@
     padding: 0;
     transition: background 0.15s ease-in-out;
 
-    &:hover { background: $color-primary; }
+    &:hover { background: var(--color-primary); }
 
     &:focus {
-      outline: 2px solid $color-primary;
+      outline: 2px solid var(--color-primary);
       outline-offset: 2px;
     }
 
@@ -230,7 +230,7 @@
   .fs-lms-join-code {
     font-family: Consolas, Monaco, monospace;
     font-size: $font-size;
-    color: $color-primary;
+    color: var(--color-primary);
     text-decoration: underline;
   }
 

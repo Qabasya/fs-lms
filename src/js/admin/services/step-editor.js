@@ -141,7 +141,7 @@ export function createStepEditor( opts ) {
 				<div class="steps-label">Шаги</div>
 				<div class="steps-row" data-steps></div>
 				<div class="step-editor-body" data-body></div>
-				<div class="se-footer"><span class="ef-status" data-status><span class="saved-dot"></span> Все изменения сохранены</span></div>
+				${ setStatusE ? '' : '<div class="se-footer"><span class="ef-status" data-status><span class="saved-dot"></span> Все изменения сохранены</span></div>' }
 			</div>`;
 		renderStepsRow();
 		renderStepBody();
@@ -269,26 +269,29 @@ export function createStepEditor( opts ) {
 						editor.selection.setContent( '\\[' + ( sel || '  ' ) + '\\]' );
 					},
 				} );
+				editor.addButton( 'fs_media', {
+					icon   : 'image',
+					tooltip: 'Добавить медиафайл',
+					onclick() {
+						window.wp?.media?.editor?.open( editor.id );
+					},
+				} );
 				editor.on( 'NodeChange change', onEditorChange );
-				// Редактор готов и сам управляет видимостью textarea (Визуально/Код) — снимаем анти-флэш.
 				editor.on( 'init', () => ed.classList.remove( 'fs-rte-loading' ) );
 			}
 
 			if ( window.wp?.editor ) {
-				// wp.editor.initialize() — стандартный WP API.
-				// WP Bakery (если установлен) перехватывает этот вызов и добавляет
-				// свою кнопку «Backend Editor» автоматически.
 				window.wp.editor.initialize( tid, {
 					tinymce: {
 						wpautop  : true,
 						plugins  : 'charmap colorpicker hr lists paste tabfocus textcolor wordpress wpautoresize wpeditimage wplink wptextpattern',
-						toolbar1 : 'bold italic underline strikethrough | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | removeformat | undo redo',
+						toolbar1 : 'bold italic underline strikethrough | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | fs_media | removeformat | undo redo',
 						toolbar2 : 'charmap | latex_inline latex_block',
 						height   : 400,
 						setup    : setupLatexButtons,
 					},
 					quicktags   : { buttons: 'strong,em,link,ul,ol,li,code,close' },
-					mediaButtons: true,
+					mediaButtons: false,
 				} );
 			} else if ( window.tinymce ) {
 				window.tinymce.init( {
@@ -552,13 +555,18 @@ export function createStepEditor( opts ) {
  * @param {Function}    opts.fetchFn   (search: string) => Promise<{id, title}[]>
  * @param {Function}    opts.onPick    (id: number, title: string) => void
  */
-export function openPicker( anchor, { placeholder = 'Поиск…', emptyText = 'Ничего не найдено', fetchFn, onPick } ) {
+export function openPicker( anchor, { placeholder = 'Поиск…', emptyText = 'Ничего не найдено', fetchFn, onPick, placement = 'below' } ) {
 	const pop = document.createElement( 'div' );
 	pop.className = 'fs-cb-popover fs-cb-picker';
 	pop.innerHTML = `<input type="text" class="field-input" data-search placeholder="${ esc( placeholder ) }"><div class="fs-cb-pick-results" data-results></div>`;
 	document.body.appendChild( pop );
 	const r = anchor.getBoundingClientRect();
-	pop.style.top  = `${ window.scrollY + r.bottom + 6 }px`;
+	if ( 'above' === placement ) {
+		pop.style.top       = `${ window.scrollY + r.top }px`;
+		pop.style.transform = 'translateY(calc(-100% - 6px))';
+	} else {
+		pop.style.top = `${ window.scrollY + r.bottom + 6 }px`;
+	}
 	pop.style.left = `${ Math.min( r.left, window.innerWidth - 320 ) }px`;
 	const results = pop.querySelector( '[data-results]' );
 	const search  = pop.querySelector( '[data-search]' );
