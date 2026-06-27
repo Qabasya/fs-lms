@@ -352,7 +352,7 @@ function renderStepBody(lesson, step) {
       <input class="field-input" style="max-width:280px" value="${esc(step.title)}" placeholder="Название шага"
         oninput="updateStepTitle('${step.id}', this.value)">
       <div class="sh-controls">
-        <button class="icon-btn" title="Дублировать" onclick="dupStep('${step.id}')"><svg width="15" height="15" viewBox="0 0 20 20"><path d="M7 3h9a1 1 0 0 1 1 1v9h-2V5H7V3zM4 6h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1 2v7h7V8H5z"/></svg></button>
+        <button class="icon-btn" title="Дублировать шаг" onclick="dupStep('${step.id}')"><svg width="15" height="15" viewBox="0 0 20 20"><path d="M7 3h9a1 1 0 0 1 1 1v9h-2V5H7V3zM4 6h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1 2v7h7V8H5z"/></svg></button>
         <button class="icon-btn danger" title="Удалить шаг" onclick="delStep('${step.id}')"><svg width="15" height="15" viewBox="0 0 20 20"><path d="M7 2h6l1 2h3v2H3V4h3l1-2zM5 7h10l-1 11H6L5 7z"/></svg></button>
       </div>
     </div>

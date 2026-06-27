@@ -155,6 +155,7 @@ enum AjaxHook: string {
 	case SaveWorkItems             = 'save_work_items';              // params: work_id, item_ids[] (степ-лист работы)
 	case SaveAssessmentItems       = 'save_assessment_items';        // params: assessment_id, item_ids[] (степ-лист контрольной)
 	case GetTaskPreview            = 'get_task_preview';             // params: task_id, subject_key
+	case GetRefPreview             = 'get_ref_preview';              // params: ref_id, ref_type (work|assessment) → title + tasks[]
 	case CreateAssessmentTaskDraft = 'create_assessment_task_draft'; // params: subject_key, title
 	case CreateProblemDraft        = 'create_problem_draft';         // params: title
 	case CreateTaskDraft           = 'create_task_draft';            // params: subject_key, title (черновик subject-задачи из билдера)

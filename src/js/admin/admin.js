@@ -50,6 +50,13 @@ import { AlertModal } from './modals/alert-modal.js';
     'use strict';
 
     $(document).ready(function () {
+        setTimeout(() => {
+            $('.notice-success, .notice-warning, .notice-info').not('.notice-error').each(function () {
+                const $n = $(this);
+                $n.fadeTo(100, 0, () => $n.slideUp(100, () => $n.remove()));
+            });
+        }, 5000);
+
         UI.init();
         AlertModal.init();
 

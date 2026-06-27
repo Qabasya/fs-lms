@@ -82,10 +82,7 @@
 		font-size: $font-size-code; font-weight: $font-bold; padding: 3px 9px; border-radius: $border-radius-pill;
 		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg;
 		display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer;
-		&.danger {
-			background: transparent; color: $color-danger; border-color: $cb-danger-border-color;
-			&:hover { background: $cb-danger-hover-bg; }
-		}
+		text-decoration: none;
 	}
 	.fs-sb-body { flex: 1; overflow-y: auto; padding: $spacing-xl $cb-pane-px $spacing-xxl; min-height: 0; }
 	.fs-sb-empty {
@@ -108,7 +105,27 @@
 		color: $color-text-secondary; margin: 0 0 $spacing-sm;
 	}
 	.fs-sb-task-answer { padding: $spacing-md; background: $cb-bg-tree; border: 1px solid $wp-admin-gray-bg; border-radius: $border-radius-md; }
+	.fs-sb-task-options { display: flex; flex-direction: column; gap: 4px; }
+	.fs-sb-task-option {
+		display: flex; align-items: baseline; gap: $spacing-sm;
+		font-size: $font-size-wp; color: $color-text-secondary;
+		.fs-sb-opt-mark { width: 14px; text-align: center; flex-shrink: 0; }
+		&.is-correct { color: $color-text-primary; font-weight: $font-bold;
+			.fs-sb-opt-mark { color: $wp-admin-green; } }
+	}
 	.fs-sb-task-audio { display: block; width: 100%; margin-bottom: $spacing-md; }
+	.fs-sb-task-pairs { display: flex; flex-direction: column; gap: 4px; margin-bottom: $spacing-sm; }
+	.fs-sb-task-pair { display: flex; align-items: baseline; gap: $spacing-sm; font-size: $font-size-wp;
+		.fs-sb-pair-l, .fs-sb-pair-r { flex: 1; color: $color-text-primary; }
+		.fs-sb-pair-arrow { flex-shrink: 0; color: $color-text-secondary; font-size: $font-size-xs; } }
+	.fs-sb-task-order { margin: 0 0 $spacing-sm; padding-left: $spacing-xl; font-size: $font-size-wp; color: $color-text-primary; line-height: 1.8; }
+	.fs-sb-task-gap { font-size: $font-size-wp; line-height: 1.8; color: $color-text-primary; margin-bottom: $spacing-sm; }
+	.fs-sb-gap-fill { display: inline-block; min-width: 50px; padding: 0 4px; border-bottom: 2px solid var(--color-primary); border-radius: 2px; background: $wp-admin-blue-bg-light; color: var(--color-primary); font-weight: $font-bold; }
+	.fs-sb-subtasks { display: flex; flex-direction: column; gap: $spacing-md; margin-bottom: $spacing-sm; }
+	.fs-sb-subtask { font-size: $font-size-wp; }
+	.fs-sb-subtask-num { font-weight: $font-bold; color: $color-text-secondary; font-size: $font-size-xs; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+	.fs-sb-subtask-cond { color: $color-text-primary; }
+	.fs-sb-subtask-ans { color: $wp-admin-green; font-weight: $font-bold; margin-top: 2px; }
 
 	// ── Баллы за задание (ЕГЭ) ──
 	.fs-sb-task-score {
@@ -120,8 +137,7 @@
 
 	// ── Действия (выбрать / создать / очистить) ──
 	.fs-sb-task-actions {
-		display: flex; gap: $spacing-sm; flex-wrap: wrap; padding-top: $spacing-md; border-top: 1px solid $wp-admin-gray-bg;
-		.fs-sb-clear { color: $color-danger !important; }
+		display: flex; gap: $spacing-sm; flex-wrap: wrap; align-items: center; padding-top: $spacing-md; border-top: 1px solid $wp-admin-gray-bg;
 	}
 
 	// ── Inline-форма создания задачи ──
@@ -138,7 +154,30 @@
 		.fs-sb-dot { width: 7px; height: 7px; border-radius: 50%; background: $wp-admin-green; flex-shrink: 0; }
 		&.saving { font-style: italic; }
 	}
+
+	// ── Кнопки-пилюли в редакторе слота (аналог .fs-cb-ref) ──
+	.fs-sb-editor {
+		.button:not(.button-primary) {
+			@include cb-chip;
+			border: 1px solid $wp-admin-gray-bg; background: transparent;
+			color: $color-text-secondary; line-height: 1; text-decoration: none;
+			&:hover { background: $cb-bg-hover; }
+		}
+		.button.fs-sb-btn-danger { border-color: $color-danger; color: $color-danger;
+			&:hover { background: $cb-danger-hover-bg; }
+		}
+	}
 }
+
+// ── Глобальный модификатор опасного действия для кнопок WP ──
+.fs-sb-btn-danger {
+	color: $color-danger; border-color: $color-danger; background: transparent;
+	&:hover { background: $cb-danger-hover-bg; border-color: $color-danger; color: $color-danger; }
+	svg { vertical-align: middle; }
+}
+
+// ── Вертикальное выравнивание SVG-иконок внутри кнопок ──
+.button svg { vertical-align: middle; }
 
 // ── Responsive — narrow admin screens (<= 960 px) ──
 @media (max-width: 960px) {

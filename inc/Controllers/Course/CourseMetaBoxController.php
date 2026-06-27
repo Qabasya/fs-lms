@@ -56,7 +56,7 @@ class CourseMetaBoxController extends BaseController implements ServiceInterface
 
 	public function hideTitleOnCourseScreen(): void {
 		$screen = get_current_screen();
-		if ( null === $screen || ! PostTypeResolver::isCoursePostType( $screen->post_type ?? '' ) ) {
+		if ( null === $screen || 'post' !== $screen->base || ! PostTypeResolver::isCoursePostType( $screen->post_type ?? '' ) ) {
 			return;
 		}
 		echo '<style>

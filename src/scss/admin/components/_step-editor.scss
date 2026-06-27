@@ -10,26 +10,27 @@
 .fs-se {
 	// steps row
 	.steps-label { font-size: $font-size-code; font-weight: $font-heavy; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; margin-bottom: $spacing-sm; }
-	.steps-row { display: flex; align-items: flex-start; gap: $spacing-sm; padding-top: $spacing-xs; padding-bottom: $spacing-lg; overflow-x: auto; }
+	.steps-row { display: flex; align-items: flex-start; gap: $spacing-md; padding-top: $spacing-xs; padding-bottom: $spacing-lg; overflow-x: auto; }
 	.step-chip {
-		width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: $spacing-xs; cursor: pointer;
+		width: 60px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: $spacing-xs; cursor: pointer;
 		color: $color-secondary-hover;
 
 		.step-chip-box {
-			width: 56px; height: 52px; border-radius: 9px; background: $cb-chip-bg; border: 1.5px solid transparent;
+			width: 60px; height: 52px; border-radius: 9px; background: $cb-chip-bg; border: 1.5px solid transparent;
 			display: flex; align-items: center; justify-content: center; position: relative;
 			transition: transform 0.12s, box-shadow 0.12s; color: inherit;
-			svg { width: 22px; height: 22px; fill: currentColor; }
+			svg { width: 30px; height: 30px; fill: currentColor; }
 			.sc-num { position: absolute; top: 3px; left: 5px; font-size: $font-size-sm; font-weight: $font-heavy; color: $color-secondary-hover; }
 		}
 		.sc-type { font-size: $font-size-sm; color: $color-secondary-hover; line-height: 1; }
 		&:hover .step-chip-box { transform: translateY(-2px); box-shadow: $shadow-cb-chip-hover; }
 
-		&[data-type="lecture"]  { color: $step-lecture; }
-		&[data-type="video"]    { color: $step-video; }
-		&[data-type="practice"] { color: $step-practice; }
-		&[data-type="quiz"]     { color: $step-quiz; }
-		&[data-type="file"]     { color: $step-file; }
+		&[data-type="lecture"]    { color: $step-lecture; }
+		&[data-type="video"]      { color: $step-video; }
+		&[data-type="practice"]   { color: $step-practice; }
+		&[data-type="quiz"]       { color: $step-quiz; }
+&[data-type="task"]       { color: $wp-admin-green; }
+		&[data-type="assessment"] { color: $color-danger; }
 
 		&.active {
 			.step-chip-box { border-color: currentColor; background: currentColor;
@@ -44,17 +45,29 @@
 	// step head
 	.step-head {
 		display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px;
-		.sh-badge { display: inline-flex; align-items: center; gap: 6px; padding: $spacing-xs 11px; border-radius: 7px; font-size: $font-size-xs; font-weight: $font-bold; color: $color-text-inverse;
-			svg { fill: $color-text-inverse; width: 14px; height: 14px; } }
-		.sh-controls { margin-left: auto; display: flex; gap: 6px; }
 
-		&[data-type="lecture"]  .sh-badge { background: $step-lecture; }
-		&[data-type="video"]    .sh-badge { background: $step-video; }
-		&[data-type="practice"] .sh-badge { background: $step-practice; }
-		&[data-type="quiz"]     .sh-badge { background: $step-quiz; }
-		&[data-type="file"]     .sh-badge { background: $step-file; }
+		.sh-badge {
+			@include cb-chip;
+			border: none; color: $color-text-inverse;
+		}
+		.sh-controls { margin-left: auto; display: flex; gap: 6px;
+			.sh-btn {
+				@include cb-chip;
+				border: 1.5px solid currentColor; background: transparent; cursor: pointer; transition: background 0.12s;
+				&:hover { background: rgba(0, 0, 0, 0.05); }
+			}
+			.sh-btn-dup { color: var(--color-primary); }
+			.sh-btn-del { color: $color-danger; }
+		}
+
+		&[data-type="lecture"]    { .sh-badge { background: $step-lecture; } }
+		&[data-type="video"]      { .sh-badge { background: $step-video; } }
+		&[data-type="practice"]   { .sh-badge { background: $step-practice; } }
+		&[data-type="quiz"]       { .sh-badge { background: $step-quiz; } }
+		&[data-type="task"]       { .sh-badge { background: $wp-admin-green; } }
+		&[data-type="assessment"] { .sh-badge { background: $color-danger; } }
 	}
-	.field-input--title { max-width: 280px; }
+	.field-input--title { max-width: 280px; height: 32px; padding: 0 11px; box-sizing: border-box; }
 	.icon-btn {
 		width: 30px; height: 30px; border: 1px solid $color-border-input; background: $wp-admin-gray-bg-light;
 		border-radius: 5px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: $color-text-secondary;
@@ -83,9 +96,17 @@
 	}
 
 	// ref / library attach
-	.fs-cb-ref { display: flex; align-items: center; gap: $spacing-md; flex-wrap: wrap;
-		.fs-cb-ref-title { font-weight: $font-bold; color: $color-text-primary; }
-		.fs-cb-ref-edit { font-size: $font-size-xs; } }
+	.fs-cb-ref { display: flex; align-items: flex-start; gap: $spacing-sm; flex-wrap: wrap; padding: $spacing-xs 0;
+		.fs-cb-ref-title { font-size: $font-size-l; font-weight: $font-bold; color: $color-text-primary; flex: 1; min-width: 0; line-height: 1.4; }
+		.button {
+			@include cb-chip;
+			border: 1px solid $wp-admin-gray-bg; background: transparent;
+			color: $color-text-secondary; line-height: 1; text-decoration: none;
+		}
+		.button.fs-sb-btn-danger { border-color: $color-danger; color: $color-danger; }
+	}
+
+	.fs-cb-ref-tasks { margin-top: $spacing-lg; }
 
 	.fs-rte-loading .fs-cb-rte-target { display: none; }
 	.fs-cb-rte-target { width: 100%; box-sizing: border-box; min-height: 300px; resize: vertical; }
@@ -109,6 +130,61 @@
 		display: flex; flex-direction: column; align-items: center; justify-content: center;
 		color: $color-secondary-hover; text-align: center; padding: 40px; gap: $spacing-md; min-height: 200px;
 	}
+
+	// пустой UI задачи (нет ref) — только 2 кнопки
+	.fs-cb-task-pick {
+		display: flex; gap: $spacing-md; padding: $spacing-lg 0;
+	}
+
+	// попытки под превью задачи
+	.fs-cb-step-attempts {
+		padding: $spacing-md 0 0;
+		border-top: 1px solid $color-border-input;
+		margin-top: $spacing-md;
+	}
+
+	// превью задачи внутри шага (условие / варианты / ответ / решение)
+	.fs-cb-task-preview {
+		margin-top: $spacing-md;
+		border: 1px solid $color-border-input;
+		border-radius: $border-radius-l;
+		overflow: hidden;
+	}
+	.fs-cb-tp-section {
+		padding: $spacing-sm $spacing-md;
+		border-bottom: 1px solid $color-border-input;
+		&:last-child { border-bottom: none; }
+	}
+	.fs-cb-tp-label {
+		font-size: $font-size-xs; font-weight: $font-heavy; text-transform: uppercase;
+		letter-spacing: 0.04em; color: $color-text-secondary; margin-bottom: $spacing-xs;
+	}
+	.fs-cb-tp-body {
+		font-size: $font-size-wp; color: $color-text-primary; line-height: 1.6;
+		p { margin: 0 0 $spacing-xs; &:last-child { margin-bottom: 0; } }
+	}
+	.fs-cb-tp-options { display: flex; flex-direction: column; gap: 4px; }
+	.fs-cb-tp-option {
+		display: flex; align-items: baseline; gap: $spacing-sm;
+		font-size: $font-size-wp; color: $color-text-secondary;
+		.fs-cb-tp-opt-mark { width: 14px; text-align: center; flex-shrink: 0; }
+		&.is-correct { color: $color-text-primary; font-weight: $font-bold;
+			.fs-cb-tp-opt-mark { color: $wp-admin-green; } }
+	}
+	.fs-cb-tp-audio { width: 100%; height: 36px; display: block; }
+	.fs-cb-tp-pairs { display: flex; flex-direction: column; gap: 4px; }
+	.fs-cb-tp-pair { display: flex; align-items: baseline; gap: $spacing-sm; font-size: $font-size-wp;
+		.fs-cb-tp-pair-l, .fs-cb-tp-pair-r { flex: 1; color: $color-text-primary; }
+		.fs-cb-tp-pair-arrow { flex-shrink: 0; color: $color-text-secondary; font-size: $font-size-xs; } }
+	.fs-cb-tp-order { margin: 0; padding-left: $spacing-xl; font-size: $font-size-wp; color: $color-text-primary; line-height: 1.8; }
+	.fs-cb-tp-gap { font-size: $font-size-wp; line-height: 1.8; color: $color-text-primary; }
+	.fs-cb-tp-gap-fill { display: inline-block; min-width: 50px; padding: 0 4px; border-bottom: 2px solid var(--color-primary); border-radius: 2px; background: $wp-admin-blue-bg-light; color: var(--color-primary); font-weight: $font-bold; }
+	.fs-cb-tp-subtasks { display: flex; flex-direction: column; gap: $spacing-md; }
+	.fs-cb-tp-subtask { font-size: $font-size-wp; }
+	.fs-cb-tp-subtask-num { font-weight: $font-bold; color: $color-text-secondary; font-size: $font-size-xs; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+	.fs-cb-tp-subtask-cond { color: $color-text-primary; }
+	.fs-cb-tp-subtask-ans { color: $wp-admin-green; font-weight: $font-bold; margin-top: 2px; }
+	.fs-cb-tp-loading { color: $color-text-secondary; font-size: $font-size-xs; padding: $spacing-xs 0; }
 
 	// статус-строка метабокса (в курс-билдере setStatus передаётся снаружи)
 	.se-footer {

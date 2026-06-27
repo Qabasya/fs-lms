@@ -1,16 +1,27 @@
 <?php
 /**
- * Бейдж «используется в N» в колонке списка банка контента.
+ * Колонка «Используется» в списке банка контента.
  *
- * @var int $count Число потребителей (0 = orphan).
+ * @var array<int, array{id: int, title: string, type: string}> $consumers
+ * @var string $post_type    post_type текущей записи (для URL фильтра)
+ * @var string $filter_param GET-параметр фильтра (fs_lesson_usage / fs_work_usage / fs_assessment_usage)
  */
 
 declare( strict_types=1 );
 
-if ( $count > 0 ) :
-	?>
-	<strong><?php echo esc_html( (string) $count ); ?></strong>
-	<?php
-else :
+if ( empty( $consumers ) ) {
 	echo '&mdash;';
-endif;
+	return;
+}
+
+$parts = array();
+foreach ( $consumers as $consumer ) {
+	if ( '' !== $filter_param ) {
+		$url     = admin_url( 'edit.php?post_type=' . rawurlencode( $post_type ) . '&' . $filter_param . '=' . (int) $consumer['id'] );
+		$parts[] = '<a href="' . esc_url( $url ) . '">' . esc_html( $consumer['title'] ) . '</a>';
+	} else {
+		$parts[] = esc_html( $consumer['title'] );
+	}
+}
+
+echo implode( ', ', $parts );

@@ -314,7 +314,7 @@ export function apiErrorEnhanced(error, options = {}) {
  * @returns {jQuery} Созданный элемент уведомления (можно использовать для отслеживания событий)
  */
 export function showNotice(message, type = 'info', $container = null, options = {}) {
-    const { autoDismiss = true, autoDismissDelay = 1000, escape = true } = options;
+    const { autoDismiss = true, autoDismissDelay = 5000, escape = true } = options;
 
     // НОРМАЛИЗАЦИЯ КОНТЕЙНЕРА:
     // Пользователь может передать null, строку-селектор, DOM-элемент или jQuery-объект.
@@ -389,7 +389,7 @@ export function showNotice(message, type = 'info', $container = null, options = 
     // поэтому автоматически закрываем их через autoDismissDelay мс.
     // Для error/warning автозакрытие отключено по умолчанию — пользователь должен
     // сам закрыть их, чтобы убедиться, что он прочитал сообщение.
-    if (type === 'success' && autoDismiss) {
+    if (type !== 'error' && autoDismiss) {
         setTimeout(() => {
             // Проверяем, что уведомление всё ещё видимо (пользователь мог закрыть его вручную).
             if ($notice.is(':visible')) {

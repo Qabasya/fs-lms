@@ -43,6 +43,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
 		add_action( 'add_meta_boxes', array( $this, 'tidyWorkMetaBoxes' ), 100 );
 		add_action( 'save_post', array( $this, 'handleWorkSave' ) );
+		add_action( 'transition_post_status', array( $this, 'handleWorkPublish' ), 10, 3 );
 	}
 
 	public function tidyWorkMetaBoxes( string $post_type ): void {
@@ -112,6 +113,25 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		echo '<script type="application/json" class="fs-sb-data">' . ( $json ?: '[]' ) . '</script>';
 		echo '</div>';
 		echo '</div>';
+	}
+
+	public function handleWorkPublish( string $new_status, string $old_status, \WP_Post $post ): void {
+		if ( 'publish' !== $new_status || $old_status === $new_status ) {
+			return;
+		}
+		if ( ! PostTypeResolver::isWorkPostType( $post->post_type ) ) {
+			return;
+		}
+		$work = $this->works->get( $post->ID );
+		if ( null === $work || empty( $work->itemIds ) ) {
+			return;
+		}
+		foreach ( $work->itemIds as $item_id ) {
+			$item = get_post( $item_id );
+			if ( $item instanceof \WP_Post && in_array( $item->post_status, array( 'draft', 'auto-draft', 'pending' ), true ) ) {
+				wp_publish_post( $item_id );
+			}
+		}
 	}
 
 	public function handleWorkSave( int $post_id ): void {

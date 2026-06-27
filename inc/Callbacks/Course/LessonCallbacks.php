@@ -216,8 +216,11 @@ class LessonCallbacks extends BaseController {
 				'description' => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
 			),
 			'task'               => array(
-				'ref'    => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
-				'source' => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
+				'ref'      => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
+				'source'   => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
+				'settings' => array(
+					'max_attempts' => max( 0, (int) ( $raw_payload['settings']['max_attempts'] ?? 0 ) ),
+				),
 			),
 			'work', 'assessment' => array( 'ref' => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ) ),
 			default              => array(),

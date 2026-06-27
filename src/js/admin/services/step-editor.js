@@ -21,10 +21,13 @@ const $ = jQuery;
 
 // ── SVG-иконки типов (keyed by UI-тип) ─────────────────────────
 const ICON = {
-	lecture:  '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1.5V8h3.5L14 4.5zM8 12h8v1.6H8V12zm0 3.4h8V17H8v-1.6zM8 8.6h4v1.6H8V8.6z"/></svg>',
-	video:    '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm6 3.2v7.6l6-3.8-6-3.8z"/></svg>',
-	practice: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>',
-	quiz:     '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h7v2H4V5zm0 6h7v2H4v-2zm0 6h7v2H4v-2zm14.3-9.3 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6zm0 6 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6z"/></svg>',
+	lecture:    '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1.5V8h3.5L14 4.5zM8 12h8v1.6H8V12zm0 3.4h8V17H8v-1.6zM8 8.6h4v1.6H8V8.6z"/></svg>',
+	video:      '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm6 3.2v7.6l6-3.8-6-3.8z"/></svg>',
+	practice:   '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>',
+	quiz:       '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h7v2H4V5zm0 6h7v2H4v-2zm0 6h7v2H4v-2zm14.3-9.3 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6zm0 6 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6z"/></svg>',
+	question:   '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>',
+	task:       '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>',
+	assessment: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h7v2H4V5zm0 6h7v2H4v-2zm0 6h7v2H4v-2zm14.3-9.3 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6zm0 6 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6z"/></svg>',
 };
 
 /**
@@ -35,9 +38,9 @@ const ICON = {
 export const TYPE_UI = {
 	text:       { ui: 'lecture',  name: 'Текст',       inline: true },
 	video:      { ui: 'video',    name: 'Видео',       inline: true },
-	task:       { ui: 'practice', name: 'Задача',      inline: false, candKind: 'task' },
-	work:       { ui: 'practice', name: 'Работа',      inline: false, candKind: 'work' },
-	assessment: { ui: 'quiz',     name: 'Контрольная', inline: false, candKind: 'assessment' },
+	task:       { ui: 'task',       name: 'Задача',      inline: false, candKind: 'task' },
+	work:       { ui: 'practice',  name: 'Работа',      inline: false, candKind: 'work' },
+	assessment: { ui: 'assessment', name: 'Контрольная', inline: false, candKind: 'assessment' },
 };
 
 /** Опции поповера «Добавить шаг» (плоский type-first). */
@@ -65,10 +68,11 @@ export const esc = ( s ) => String( s == null ? '' : s )
 // ── AJAX (нонс по экшену; оба нонса в fs_lms_vars глобально) ────
 export function nonceFor( action ) {
 	const a = acts();
-	const lessonScoped = [ a.saveLessonSteps, a.getStepCandidates ];
-	return lessonScoped.includes( action )
-		? fs_lms_vars.nonces.authorLesson
-		: fs_lms_vars.nonces.authorCourse;
+	const lessonScoped     = [ a.saveLessonSteps, a.getStepCandidates ];
+	const assessmentScoped = [ a.getTaskPreview, a.getRefPreview ];
+	if ( lessonScoped.includes( action ) )     { return fs_lms_vars.nonces.authorLesson; }
+	if ( assessmentScoped.includes( action ) ) { return fs_lms_vars.nonces.authorAssessment; }
+	return fs_lms_vars.nonces.authorCourse;
 }
 
 export function ajax( action, data ) {
@@ -77,6 +81,146 @@ export function ajax( action, data ) {
 			.done( ( resp ) => ( resp && resp.success ) ? resolve( resp.data ) : reject( ( resp && resp.data ) || 'Ошибка' ) )
 			.fail( () => reject( 'Ошибка сети' ) );
 	} );
+}
+
+function buildAnswerSection( data ) {
+	const lbl = ( t ) => '<div class="fs-cb-tp-label">' + t + '</div>';
+
+	if ( data.options && Array.isArray( data.options.options ) && data.options.options.length ) {
+		const html = data.options.options.map( ( o ) =>
+			'<div class="fs-cb-tp-option' + ( o.correct ? ' is-correct' : '' ) + '">' +
+			'<span class="fs-cb-tp-opt-mark">' + ( o.correct ? '✓' : '·' ) + '</span>' +
+			'<span>' + esc( String( o.text || '' ) ) + '</span>' +
+			'</div>'
+		).join( '' );
+		return lbl( 'Варианты ответа' ) + '<div class="fs-cb-tp-options">' + html + '</div>';
+	}
+
+	if ( data.pairs && Array.isArray( data.pairs.pairs ) && data.pairs.pairs.length ) {
+		const html = data.pairs.pairs.map( ( p ) =>
+			'<div class="fs-cb-tp-pair">' +
+			'<span class="fs-cb-tp-pair-l">' + esc( String( p.left || '' ) ) + '</span>' +
+			'<span class="fs-cb-tp-pair-arrow">→</span>' +
+			'<span class="fs-cb-tp-pair-r">' + esc( String( p.right || '' ) ) + '</span>' +
+			'</div>'
+		).join( '' );
+		return lbl( 'Сопоставление' ) + '<div class="fs-cb-tp-pairs">' + html + '</div>';
+	}
+
+	if ( data.order_items && Array.isArray( data.order_items.items ) && data.order_items.items.length ) {
+		const html = data.order_items.items.map( ( item ) => '<li>' + esc( String( item ) ) + '</li>' ).join( '' );
+		return lbl( 'Порядок элементов' ) + '<ol class="fs-cb-tp-order">' + html + '</ol>';
+	}
+
+	if ( data.gap_text ) {
+		const processed = esc( data.gap_text ).replace( /\[\[([^\]]+)\]\]/g, '<span class="fs-cb-tp-gap-fill">$1</span>' );
+		return lbl( 'Текст с пропусками' ) + '<div class="fs-cb-tp-gap">' + processed + '</div>';
+	}
+
+	if ( Array.isArray( data.three_in_one ) && data.three_in_one.length ) {
+		const html = data.three_in_one.map( ( sub, i ) =>
+			'<div class="fs-cb-tp-subtask">' +
+			'<div class="fs-cb-tp-subtask-num">Подзадание ' + ( i + 1 ) + '</div>' +
+			( sub.condition ? '<div class="fs-cb-tp-subtask-cond">' + sub.condition + '</div>' : '' ) +
+			( sub.answer ? '<div class="fs-cb-tp-subtask-ans">' + esc( sub.answer ) + '</div>' : '' ) +
+			'</div>'
+		).join( '' );
+		return lbl( 'Подзадания' ) + '<div class="fs-cb-tp-subtasks">' + html + '</div>';
+	}
+
+	if ( data.answer_html ) {
+		return lbl( 'Ответ' ) + '<div class="fs-cb-tp-body">' + data.answer_html + '</div>';
+	}
+
+	return '';
+}
+
+function buildRefTaskBody( task ) {
+	let html = '';
+	if ( task.condition_html ) {
+		html += '<div class="fs-cb-tp-section"><div class="fs-cb-tp-label">Условие</div><div class="fs-cb-tp-body">' + task.condition_html + '</div></div>';
+	}
+	const ans = buildAnswerSection( task );
+	if ( ans ) { html += '<div class="fs-cb-tp-section">' + ans + '</div>'; }
+	return html || '<div class="fs-cb-tp-section"><div class="fs-cb-tp-loading">Нет содержимого</div></div>';
+}
+
+function loadRefPreview( container, refId, type ) {
+	container.innerHTML = '<div class="fs-cb-tp-loading">Загрузка задач…</div>';
+	ajax( acts().getRefPreview, { ref_id: refId, ref_type: type } )
+		.then( ( data ) => {
+			if ( ! data.tasks || ! data.tasks.length ) {
+				container.innerHTML = '<div class="fs-cb-tp-loading">Задачи не добавлены</div>';
+				return;
+			}
+			let html = '<div class="fs-modal-accordion">';
+			data.tasks.forEach( ( task, i ) => {
+				html +=
+					'<div class="fs-modal-accordion__item">' +
+					'<button type="button" class="fs-modal-accordion__header" aria-expanded="false">' +
+					'<h3>' + ( i + 1 ) + '. ' + esc( task.title ) + '</h3>' +
+					'<span class="dashicons dashicons-arrow-down-alt2"></span>' +
+					'</button>' +
+					'<div class="fs-modal-accordion__body" hidden>' + buildRefTaskBody( task ) + '</div>' +
+					'</div>';
+			} );
+			html += '</div>';
+			container.innerHTML = html;
+			container.querySelectorAll( '.fs-modal-accordion__header' ).forEach( ( btn ) => {
+				btn.addEventListener( 'click', () => {
+					const expanded = btn.getAttribute( 'aria-expanded' ) === 'true';
+					btn.setAttribute( 'aria-expanded', String( ! expanded ) );
+					btn.nextElementSibling.hidden = expanded;
+				} );
+			} );
+		} )
+		.catch( () => {
+			container.innerHTML = '<div class="fs-cb-tp-loading">Ошибка загрузки</div>';
+		} );
+}
+
+function loadTaskPreview( container, taskId ) {
+	const box = container.querySelector( '[data-task-preview]' );
+	if ( ! box ) { return; }
+	box.innerHTML = '<div class="fs-cb-tp-loading">…</div>';
+	ajax( acts().getTaskPreview, { task_id: taskId } )
+		.then( ( data ) => renderTaskPreview( box, data ) )
+		.catch( () => { box.innerHTML = ''; } );
+}
+
+function renderTaskPreview( box, data ) {
+	const parts = [];
+
+	if ( data.condition_html ) {
+		parts.push(
+			'<div class="fs-cb-tp-section">' +
+			'<div class="fs-cb-tp-label">Условие</div>' +
+			'<div class="fs-cb-tp-body">' + data.condition_html + '</div>' +
+			'</div>'
+		);
+	}
+
+	if ( data.audio_url ) {
+		parts.push(
+			'<div class="fs-cb-tp-section">' +
+			'<audio controls class="fs-cb-tp-audio" src="' + esc( data.audio_url ) + '"></audio>' +
+			'</div>'
+		);
+	}
+
+	const answerSec = buildAnswerSection( data );
+	if ( answerSec ) { parts.push( '<div class="fs-cb-tp-section">' + answerSec + '</div>' ); }
+
+	if ( data.solution_html ) {
+		parts.push(
+			'<div class="fs-cb-tp-section">' +
+			'<div class="fs-cb-tp-label">Решение</div>' +
+			'<div class="fs-cb-tp-body">' + data.solution_html + '</div>' +
+			'</div>'
+		);
+	}
+
+	box.innerHTML = parts.join( '' );
 }
 
 /**
@@ -204,10 +348,10 @@ export function createStepEditor( opts ) {
 		body.innerHTML = `
 			<div class="step-head" data-type="${ meta.ui }">
 				<span class="sh-badge">${ iconForStep( step ) } Шаг ${ index }: ${ esc( meta.name ) }</span>
-				<input class="field-input field-input--title" data-step-title value="${ esc( step.payload.title || step.title || '' ) }" placeholder="Название шага"${ meta.inline ? '' : ' disabled' }>
+				${ meta.inline ? `<input class="field-input field-input--title" data-step-title value="${ esc( step.payload.title || step.title || '' ) }" placeholder="Название шага">` : '' }
 				<div class="sh-controls">
-					<button type="button" class="icon-btn" title="Дублировать" data-dup>⧉</button>
-					<button type="button" class="icon-btn danger" title="Удалить шаг" data-del>✕</button>
+					<button type="button" class="sh-btn sh-btn-dup" data-dup><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> Дублировать шаг</button>
+					<button type="button" class="sh-btn sh-btn-del" data-del><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> Удалить шаг</button>
 				</div>
 			</div>
 			<div class="step-editor" data-step-editor></div>`;
@@ -228,9 +372,6 @@ export function createStepEditor( opts ) {
 			inlineEditor( ed, step );
 		} else {
 			refEditor( ed, step );
-			if ( showStepSettings && 'task' === step.type ) {
-				renderStepSettings( body, step );
-			}
 		}
 	}
 
@@ -238,9 +379,7 @@ export function createStepEditor( opts ) {
 		if ( 'text' === step.type ) {
 			const tid = `fs-se-rte-${ Date.now() }`;
 			tinyId = tid;
-			ed.innerHTML =
-				'<div class="sb-label">Содержание лекции</div>' +
-				'<textarea id="' + tid + '" class="fs-cb-rte-target"></textarea>';
+			ed.innerHTML ='<textarea id="' + tid + '" class="fs-cb-rte-target"></textarea>';
 			ed.querySelector( '#' + tid ).value = step.payload.content || '';
 			ed.classList.add( 'fs-rte-loading' ); // анти-флэш: снимется по событию init редактора
 
@@ -334,70 +473,146 @@ export function createStepEditor( opts ) {
 		const isTask   = 'task' === candKind;
 		const isWork   = 'work' === candKind;
 
-		const createHtml = isTask
-			? `<button type="button" class="button button-primary" data-create>Создать задачу…</button>`
-			: `<input type="text" class="field-input" data-new-title placeholder="Название новой ${ esc( meta.name.toLowerCase() ) }">
-				${ isWork ? `<select class="field-input" data-work-type>
-					<option value="homework">Домашнее задание</option>
-					<option value="classwork">Классная работа</option>
-					<option value="project">Проект</option>
-				</select>` : '' }
-				<button type="button" class="button button-primary" data-create>Создать и прикрепить</button>`;
-
-		ed.innerHTML = `
-			<div class="sb-label">${ esc( meta.name ) } из библиотеки</div>
-			<div class="fs-cb-ref">
-				<span class="fs-cb-ref-title">${ refId ? esc( step._title || step.title ) : 'не выбрано' }</span>
-				${ refId ? `<a class="fs-cb-ref-edit" href="post.php?post=${ refId }&action=edit" target="_blank" rel="noopener">редактировать ↗</a>` : '' }
-				<button type="button" class="button" data-pick>${ refId ? 'Заменить' : 'Выбрать из библиотеки' }</button>
-			</div>
-			<div class="fs-cb-or-divider"><span>или</span></div>
-			<div class="fs-cb-inline-create">${ createHtml }</div>`;
-
-		ed.querySelector( '[data-pick]' ).addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title, source ) => {
-			step.payload.ref = id; step._title = title; step.title = title;
-			if ( isTask ) { step.payload.source = 'bank' === source ? 'bank' : 'subject'; }
-			renderStepsRow(); renderStepBody(); saveSteps();
-		} ) );
-
-		ed.querySelector( '[data-create]' ).addEventListener( 'click', () => {
-			if ( isTask ) {
-				// Открываем полноэкранный редактор задачи (Phase F)
-				TaskEditor.openModal( {
-					subjectKey,
-					onSave: ( id, title ) => {
-						step.payload.ref = id;
-						step._title      = title;
-						step.title       = title;
-						renderStepsRow(); renderStepBody(); saveSteps();
-						showToast( 'Задание создано', 'success' );
-					},
-				} );
-				return;
-			}
-
-			const title = ed.querySelector( '[data-new-title]' )?.value.trim();
-			if ( ! title ) { return; }
-			const btn        = ed.querySelector( '[data-create]' );
-			btn.disabled     = true;
-			const params     = { subject_key: subjectKey, title };
-			let action;
-			if ( isWork ) {
-				action          = acts().createWorkDraft;
-				params.work_type = ed.querySelector( '[data-work-type]' ).value;
+		// ── Задача: отдельный UI ──────────────────────────────────────
+		if ( isTask ) {
+			if ( ! refId ) {
+				ed.innerHTML =
+					'<div class="fs-cb-task-pick">' +
+					'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
+					'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
+					'</div>';
 			} else {
-				action = acts().createAssessmentDraft;
+				const attVal = parseInt( ( step.payload.settings || {} ).max_attempts ?? 0, 10 );
+				ed.innerHTML =
+					'<div class="fs-cb-ref">' +
+					'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
+					'<a class="button" href="post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
+					'<button type="button" class="button fs-sb-btn-danger" data-pick><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></svg> Заменить</button>' +
+					'</div>' +
+					'<div class="fs-cb-task-preview" data-task-preview></div>' +
+					'<div class="fs-cb-step-attempts">' +
+					'<label class="fs-cb-ss-label">Попыток (0 = ∞)' +
+					'<input type="number" min="0" class="fs-cb-ss-num" data-attempts value="' + attVal + '">' +
+					'</label>' +
+					'</div>';
+
+				const attInput = ed.querySelector( '[data-attempts]' );
+				attInput.addEventListener( 'change', () => {
+					step.payload.settings                = step.payload.settings || {};
+					step.payload.settings.max_attempts   = parseInt( attInput.value, 10 ) || 0;
+					scheduleSave();
+				} );
+
+				loadTaskPreview( ed, refId );
 			}
-			ajax( action, params )
-				.then( ( item ) => {
-					step.payload.ref = parseInt( item.id, 10 );
-					step._title      = item.title;
-					step.title       = item.title;
+
+			const pickBtn = ed.querySelector( '[data-pick]' );
+			if ( pickBtn ) {
+				pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title, source ) => {
+					step.payload.ref    = id;
+					step._title         = title;
+					step.title          = title;
+					step.payload.source = 'bank' === source ? 'bank' : 'subject';
 					renderStepsRow(); renderStepBody(); saveSteps();
-					showToast( meta.name + ' создан', 'success' );
-				} )
-				.catch( ( msg ) => { showToast( msg, 'error' ); btn.disabled = false; } );
-		} );
+				} ) );
+			}
+
+			const createBtn = ed.querySelector( '[data-create]' );
+			if ( createBtn ) {
+				createBtn.addEventListener( 'click', () => {
+					const adminBase = fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' );
+					const newWin    = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
+					let lastHref    = '';
+					const poll = setInterval( () => {
+						if ( newWin && ! newWin.closed ) {
+							try { lastHref = newWin.location.href; } catch ( e ) { /* навигация — ждём */ }
+						}
+						const urlSearch = lastHref.includes( '?' ) ? lastHref.split( '?' )[ 1 ] : '';
+						const params    = new URLSearchParams( urlSearch );
+						const postId    = params.get( 'post' );
+						if ( postId && params.get( 'action' ) === 'edit' ) {
+							clearInterval( poll );
+							ajax( acts().getTaskPreview, { task_id: postId } )
+								.then( ( data ) => {
+									step.payload.ref    = parseInt( postId, 10 );
+									step.payload.source = 'bank';
+									step._title         = data.title || ( 'Задача #' + postId );
+									step.title          = data.title || ( 'Задача #' + postId );
+									renderStepsRow(); renderStepBody(); saveSteps();
+									showToast( 'Задача добавлена в шаг', 'success' );
+								} )
+								.catch( () => {
+									step.payload.ref    = parseInt( postId, 10 );
+									step.payload.source = 'bank';
+									step._title         = 'Задача #' + postId;
+									step.title          = 'Задача #' + postId;
+									renderStepsRow(); renderStepBody(); saveSteps();
+									showToast( 'Задача добавлена в шаг', 'success' );
+								} );
+							return;
+						}
+						if ( newWin && newWin.closed ) { clearInterval( poll ); }
+					}, 800 );
+				} );
+			}
+			return;
+		}
+
+		// ── Работа / Контрольная: 2-кнопочный UI (аналог Задачи) ────
+		if ( ! refId ) {
+			ed.innerHTML =
+				'<div class="fs-cb-task-pick">' +
+				'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
+				'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
+				'</div>';
+		} else {
+			ed.innerHTML =
+				'<div class="fs-cb-ref">' +
+				'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
+				'<a class="button" href="post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
+				'<button type="button" class="button fs-sb-btn-danger" data-pick><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></svg> Заменить</button>' +
+				'</div>' +
+				'<div class="fs-cb-ref-tasks"></div>';
+			loadRefPreview( ed.querySelector( '.fs-cb-ref-tasks' ), refId, isWork ? 'work' : 'assessment' );
+		}
+
+		const pickBtn = ed.querySelector( '[data-pick]' );
+		if ( pickBtn ) {
+			pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title ) => {
+				step.payload.ref = id; step._title = title; step.title = title;
+				renderStepsRow(); renderStepBody(); saveSteps();
+			} ) );
+		}
+
+		const createBtn = ed.querySelector( '[data-create]' );
+		if ( createBtn ) {
+			createBtn.addEventListener( 'click', () => {
+				const adminBase = fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' );
+				const postType  = isWork
+					? subjectKey + '_works'
+					: subjectKey + '_assessments';
+				const newWin = window.open( adminBase + 'post-new.php?post_type=' + encodeURIComponent( postType ), '_blank' );
+				let lastHref = '';
+				const poll = setInterval( () => {
+					if ( newWin && ! newWin.closed ) {
+						try { lastHref = newWin.location.href; } catch ( e ) { /* навигация — ждём */ }
+					}
+					const urlSearch = lastHref.includes( '?' ) ? lastHref.split( '?' )[ 1 ] : '';
+					const params    = new URLSearchParams( urlSearch );
+					const postId    = params.get( 'post' );
+					if ( postId && params.get( 'action' ) === 'edit' ) {
+						clearInterval( poll );
+						step.payload.ref = parseInt( postId, 10 );
+						step._title      = meta.name + ' #' + postId;
+						step.title       = step._title;
+						renderStepsRow(); renderStepBody(); saveSteps();
+						showToast( meta.name + ' добавлена в шаг', 'success' );
+						return;
+					}
+					if ( newWin && newWin.closed ) { clearInterval( poll ); }
+				}, 800 );
+			} );
+		}
 	}
 
 	function renderStepSettings( body, step ) {

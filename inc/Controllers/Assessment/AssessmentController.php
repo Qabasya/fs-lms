@@ -27,6 +27,7 @@ class AssessmentController extends AjaxController {
 		return [
 			[ AjaxHook::SaveAssessmentItems, $this->authorCallbacks ],
 			[ AjaxHook::GetTaskPreview,            $this->authorCallbacks ],
+			[ AjaxHook::GetRefPreview,             $this->authorCallbacks ],
 			[ AjaxHook::CreateAssessmentTaskDraft, $this->authorCallbacks ],
 			[ AjaxHook::StartAttempt,        $this->attemptCallbacks ],
 			[ AjaxHook::SaveAttemptAnswer,  $this->attemptCallbacks ],

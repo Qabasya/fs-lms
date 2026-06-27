@@ -60,11 +60,10 @@ $wp-admin-purple-bg:    #ede9fe;
 $wp-admin-purple-text:  #4c1d95;
 
 // ── Step-type accents (Course Builder, canonical design — design_handoff_course_builder/)
-$step-lecture:  $color-primary; // text/лекция
-$step-video:    #8c3bca;        // видео
-$step-practice: #c9540a;        // практика (work)
-$step-quiz:     #00834a;        // тест (assessment)
-$step-file:     #5a6470;        // материал/файл
+$step-lecture:    $color-primary; // text/лекция
+$step-video:      #8c3bca;        // видео
+$step-practice:   #c9540a;        // практика (work)
+$step-quiz:       #00834a;        // тест (assessment)
 
 // ── Course Builder bespoke shades (subtle UI fills from canonical design)
 $cb-bg-tree:    #fbfbfc; // фон рельсы/футера
@@ -122,7 +121,7 @@ $font-size-xs:   12px;
 $font-size-wp:   13px;
 $font-size:      14px;
 $font-size-m:    16px;
-$font-size-l:    26px;
+$font-size-l:    24px;
 
 // ── Тайминги
 $transition-fast:    0.2s ease-out;
@@ -171,3 +170,16 @@ $table-add-btn-width:        32px;
 $table-add-btn-height:       30px;
 $table-add-icon-size:        22px;
 $table-add-container-height: 48px;
+
+// =================================================================
+// MIXIN: cb-chip — общий стиль чип/бейдж/кнопка (lesson-flag,
+// sh-badge, sh-btn, fs-cb-ref .button, fs-cb-ref-title)
+// =================================================================
+
+@mixin cb-chip {
+	height: 32px; min-height: 0; padding: 0 11px; box-sizing: border-box; appearance: none;
+	display: inline-flex; align-items: center; gap: 5px;
+	font-size: $font-size-wp; font-weight: $font-bold; white-space: nowrap;
+	border-radius: $border-radius-pill;
+	svg { fill: currentColor; width: 14px; height: 14px; flex-shrink: 0; }
+}

@@ -183,15 +183,14 @@
 		b { color: $color-text-primary; font-weight: $font-bold; } }
 	.lesson-title-row { display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px; }
 	.lesson-title-input {
-		flex: 1; font-size: 20px; font-weight: $font-bold; color: $color-text-primary;
+		flex: 1; font-size: $font-size-l; font-weight: $font-bold; color: $color-text-primary;
 		border: 1px solid transparent; border-radius: 5px; padding: 5px 9px; background: transparent;
 		&:hover { border-color: $wp-admin-gray-bg; }
 		&:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); background: $color-bg-modal; }
 	}
 	.lesson-flag {
-		font-size: $font-size-code; font-weight: $font-bold; padding: 3px 9px; border-radius: $border-radius-pill;
-		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg;
-		display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer;
+		@include cb-chip;
+		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg; cursor: pointer;
 		&.published { background: $wp-admin-green-bg; color: $wp-admin-green-text; border-color: $wp-admin-green-bg; }
 		&.danger { background: transparent; color: $color-danger; border-color: $cb-danger-border-color;
 			&:hover { background: $cb-danger-hover-bg; } }
@@ -225,11 +224,12 @@
 		.spo-ico {
 			width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: $color-text-inverse; flex-shrink: 0;
 			svg { fill: $color-text-inverse; width: 16px; height: 16px; }
-			&[data-type="lecture"]  { background: $step-lecture; }
-			&[data-type="video"]    { background: $step-video; }
-			&[data-type="practice"] { background: $step-practice; }
-			&[data-type="quiz"]     { background: $step-quiz; }
-			&[data-type="file"]     { background: $step-file; }
+			&[data-type="lecture"]    { background: $step-lecture; }
+			&[data-type="video"]      { background: $step-video; }
+			&[data-type="practice"]   { background: $step-practice; }
+			&[data-type="quiz"]       { background: $step-quiz; }
+&[data-type="task"]       { background: $wp-admin-green; }
+			&[data-type="assessment"] { background: $color-danger; }
 		}
 		.spo-name { font-size: $font-size-wp; font-weight: $font-bold; }
 		.spo-desc { font-size: $font-size-code; color: $color-secondary-hover; }

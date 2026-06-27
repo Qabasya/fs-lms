@@ -243,6 +243,8 @@
 // ──────────────────────────────────────────────────────────────
 
 .fs-table__no-items {
+  clear: both;
+  margin-top: $spacing-xl;
   text-align: center;
   padding: $spacing-xl $spacing-md;
   color: $color-text-secondary;

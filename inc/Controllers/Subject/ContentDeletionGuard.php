@@ -79,10 +79,22 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		$kind  = ContentUsageService::kindOf( $post->post_type );
-		$count = '' === $kind ? 0 : $this->usage->usageCount( $kind, $post_id );
+		$kind = ContentUsageService::kindOf( $post->post_type );
 
-		$this->render( 'admin/components/content-usage-badge', array( 'count' => $count ) );
+		$filter_param = match ( $kind ) {
+			'lesson'     => 'fs_lesson_usage',
+			'work'       => 'fs_work_usage',
+			'assessment' => 'fs_assessment_usage',
+			default      => '',
+		};
+
+		$consumers = '' === $kind ? array() : $this->usage->usageList( $kind, $post_id );
+
+		$this->render( 'admin/components/content-usage-badge', array(
+			'consumers'    => $consumers,
+			'post_type'    => $post->post_type,
+			'filter_param' => $filter_param,
+		) );
 	}
 
 	/**
