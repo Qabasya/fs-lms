@@ -145,6 +145,7 @@
 		.mod-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 		.mod-title { font-size: $font-size-wp; font-weight: $font-bold; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.mod-desc { font-size: $font-size-code; color: $color-text-secondary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.mod-lessons { font-size: $font-size-sm; color: $color-secondary-hover; background: $cb-badge-bg; border-radius: 9px; padding: 1px 6px; flex-shrink: 0; }
 	}
 	.module.active > .module-head { background: $cb-bg-hover; box-shadow: inset 2px 0 0 var(--color-primary); }
 	.module.collapsed {

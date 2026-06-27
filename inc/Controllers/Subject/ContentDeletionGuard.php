@@ -55,11 +55,23 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	 * @return array<string, string>
 	 */
 	public function addUsageColumn( array $columns, string $post_type ): array {
-		if ( PostTypeResolver::isBankPostType( $post_type ) ) {
-			$columns['fs_lms_usage'] = __( 'Используется', 'fs-lms' );
+		if ( ! PostTypeResolver::isBankPostType( $post_type ) || PostTypeResolver::isCoursePostType( $post_type ) ) {
+			return $columns;
 		}
 
-		return $columns;
+		$result = array();
+		foreach ( $columns as $key => $label ) {
+			if ( 'date' === $key ) {
+				$result['fs_lms_usage'] = __( 'Используется', 'fs-lms' );
+			}
+			$result[ $key ] = $label;
+		}
+
+		if ( ! isset( $result['fs_lms_usage'] ) ) {
+			$result['fs_lms_usage'] = __( 'Используется', 'fs-lms' );
+		}
+
+		return $result;
 	}
 
 	/**
@@ -81,20 +93,27 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 
 		$kind = ContentUsageService::kindOf( $post->post_type );
 
-		$filter_param = match ( $kind ) {
-			'lesson'     => 'fs_lesson_usage',
-			'work'       => 'fs_work_usage',
-			'assessment' => 'fs_assessment_usage',
-			default      => '',
-		};
+		if ( 'task' === $kind || 'problem' === $kind ) {
+			$this->render( 'admin/components/content-usage-badge', array(
+				'paths'        => $this->usage->usagePathList( $kind, $post_id ),
+				'consumers'    => array(),
+				'post_type'    => $post->post_type,
+				'filter_param' => '',
+			) );
+			return;
+		}
 
-		$consumers = '' === $kind ? array() : $this->usage->usageList( $kind, $post_id );
+		if ( in_array( $kind, array( 'lesson', 'work', 'assessment' ), true ) ) {
+			$this->render( 'admin/components/content-usage-badge', array(
+				'paths'     => $this->usage->courseLinksFor( $kind, $post_id ),
+				'consumers' => array(),
+			) );
+			return;
+		}
 
-		$this->render( 'admin/components/content-usage-badge', array(
-			'consumers'    => $consumers,
-			'post_type'    => $post->post_type,
-			'filter_param' => $filter_param,
-		) );
+		if ( '' === $kind ) {
+			return;
+		}
 	}
 
 	/**

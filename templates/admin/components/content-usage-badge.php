@@ -2,12 +2,38 @@
 /**
  * Колонка «Используется» в списке банка контента.
  *
+ * Режим путей (задачи/задания): plain text + CSS-тултип хлебных крошек.
+ * @var array<int, array{display: string, tooltip: string}> $paths
+ *
+ * Режим потребителей (работы/уроки): ссылки с фильтром.
  * @var array<int, array{id: int, title: string, type: string}> $consumers
- * @var string $post_type    post_type текущей записи (для URL фильтра)
- * @var string $filter_param GET-параметр фильтра (fs_lesson_usage / fs_work_usage / fs_assessment_usage)
+ * @var string $post_type
+ * @var string $filter_param
  */
 
 declare( strict_types=1 );
+
+if ( ! empty( $paths ) ) {
+	$parts = array();
+	foreach ( $paths as $path ) {
+		$has_tip = $path['display'] !== $path['tooltip'];
+		$url     = $path['url'] ?? '';
+		$label   = esc_html( $path['display'] );
+
+		if ( '' !== $url ) {
+			$tip_attrs = $has_tip
+				? ' class="fs-tip" data-tooltip="' . esc_attr( $path['tooltip'] ) . '"'
+				: '';
+			$parts[] = '<a href="' . esc_url( $url ) . '"' . $tip_attrs . '>' . $label . '</a>';
+		} elseif ( $has_tip ) {
+			$parts[] = '<span class="fs-tip" data-tooltip="' . esc_attr( $path['tooltip'] ) . '">' . $label . '</span>';
+		} else {
+			$parts[] = $label;
+		}
+	}
+	echo implode( ', ', $parts );
+	return;
+}
 
 if ( empty( $consumers ) ) {
 	echo '&mdash;';

@@ -250,6 +250,42 @@
   color: $color-text-secondary;
 }
 
+// ── USAGE TIP: plain-text тултип в колонке «Используется»
+// ──────────────────────────────────────────────────────────────
+
+.fs-tip {
+  position: relative;
+
+  // Только для не-ссылок: пунктирное подчёркивание как визуальный сигнал тултипа
+  &:not(a) {
+    cursor: default;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+    text-decoration-color: $color-secondary;
+  }
+
+  &[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: $color-text-primary;
+    color: $color-text-inverse;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 9999;
+  }
+
+  &[data-tooltip]:hover::after { opacity: 1; }
+}
+
 // ── INLINE EDIT ROW: Быстрое редактирование
 // ──────────────────────────────────────────────────────────────
 

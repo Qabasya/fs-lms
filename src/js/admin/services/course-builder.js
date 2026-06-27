@@ -37,7 +37,8 @@ function createApp( mount ) {
 	const subject  = String( mount.dataset.subject || '' );
 
 	const state = { course: null, activeLessonId: null, activeModuleId: null };
-	let stepEditor = null; // активный экземпляр createStepEditor() для выбранного урока
+	let stepEditor    = null; // активный экземпляр createStepEditor() для выбранного урока
+	let initialStepRef = 0;  // step_ref из URL — используется однократно при первом renderLessonEditor
 	const persist  = createPersistence( { courseId, mount, state, onPublishToggle: () => renderEditor() } );
 
 	if ( courseId > 0 ) {
@@ -74,12 +75,22 @@ function createApp( mount ) {
 
 	// ── каркас приложения ──
 	function bootstrap() {
+		const params       = new URLSearchParams( window.location.search );
+		const lessonParam  = parseInt( params.get( 'lesson' ), 10 ) || 0;
+		initialStepRef     = parseInt( params.get( 'step_ref' ), 10 ) || 0;
+
 		const first = firstLesson();
-		state.activeLessonId = first ? first.id : null;
+		state.activeLessonId = lessonParam > 0 ? lessonParam : ( first ? first.id : null );
+
 		renderShell();
 		renderTree();
 		renderEditor();
 		autoHideNotices();
+
+		// Прокручиваем дерево к активному уроку при навигации из внешней ссылки.
+		if ( lessonParam > 0 ) {
+			mount.querySelector( '.lesson.active' )?.scrollIntoView( { block: 'center', behavior: 'smooth' } );
+		}
 	}
 
 	function autoHideNotices() {
@@ -279,7 +290,8 @@ function createApp( mount ) {
 				<span class="mod-grip">${ GRIP_SVG }</span>
 				<span class="mod-caret"><svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M3 4.5 6 8l3-3.5z"/></svg></span>
 				<span class="mod-num">${ mi + 1 }</span>
-				<span class="mod-main"><span class="mod-title"></span><span class="mod-desc"></span></span>`;
+				<span class="mod-main"><span class="mod-title"></span><span class="mod-desc"></span></span>
+				<span class="mod-lessons">${ mod.lessons.length }</span>`;
 			head.querySelector( '.mod-title' ).textContent = mod.title;
 			const descEl = head.querySelector( '.mod-desc' );
 			if ( mod.description ) { descEl.textContent = mod.description; } else { descEl.remove(); }
@@ -457,11 +469,15 @@ function createApp( mount ) {
 		pane.querySelector( '[data-les-del]' ).addEventListener( 'click', () => removeLesson( lesson, module ) );
 
 		// Единый редактор шагов (общий модуль). Статус автосейва — в подвал курс-билдера.
+		const stepRef  = initialStepRef;
+		initialStepRef = 0; // однократное потребление
+
 		stepEditor = createStepEditor( {
-			mount:      pane.querySelector( '[data-step-mount]' ),
+			mount:          pane.querySelector( '[data-step-mount]' ),
 			lesson,
-			subjectKey: state.course.subject_key,
-			setStatus:  persist.setStatus,
+			subjectKey:     state.course.subject_key,
+			setStatus:      persist.setStatus,
+			initialStepRef: stepRef || undefined,
 		} );
 	}
 

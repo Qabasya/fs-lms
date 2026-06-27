@@ -9,6 +9,7 @@ use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Course\StepType;
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Subject\PostTypeResolver;
@@ -37,7 +38,8 @@ class ContentUsageService {
 	private const STATUSES = array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' );
 
 	public function __construct(
-		private readonly PostManager           $posts,
+		private readonly PostManager            $posts,
+		private readonly SubjectRepository      $subjects,
 		private readonly ?GroupLessonRepository $groupLessons = null,
 		private readonly ?GroupsRepository      $groups       = null,
 	) {}
@@ -101,6 +103,207 @@ class ContentUsageService {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Возвращает список хлебных крошек использования для задач и задач из банка.
+	 *
+	 * Цепочка: задача → работа → урок → курс.
+	 * Каждый элемент: display = название верхнего уровня (курса), tooltip = полный путь.
+	 *
+	 * @param string $type task|problem
+	 * @param int    $postId
+	 * @return array<int, array{display: string, tooltip: string}>
+	 */
+	public function usagePathList( string $type, int $postId ): array {
+		$works = 'problem' === $type
+			? $this->problemWorkers( $postId )
+			: $this->usageList( $type, $postId );
+
+		[ $courses, $fallbacks ] = $this->coursesFromWorks( $works );
+
+		// Прямые шаги типа task в уроках (без промежуточной работы).
+		foreach ( $this->directLessonConsumers( $postId, $type ) as $lesson ) {
+			foreach ( $this->usageList( 'lesson', $lesson['id'] ) as $course ) {
+				$key = (string) $course['id'];
+				if ( ! isset( $courses[ $key ] ) ) {
+					$courses[ $key ] = array(
+						'display' => $course['title'],
+						'tooltip' => $course['title'] . ' / ' . $lesson['title'],
+						'url'     => admin_url( 'admin.php?page=fs_lms_course_builder&course=' . $course['id'] . '&lesson=' . $lesson['id'] . '&step_ref=' . $postId ),
+					);
+				}
+			}
+		}
+
+		return array_values( ! empty( $courses ) ? $courses : $fallbacks );
+	}
+
+	/**
+	 * Возвращает ссылки на курсы для уроков, работ и контрольных (без тултипов).
+	 *
+	 * lesson     → курсы, содержащие урок; ссылка на course builder с lesson=ID.
+	 * work|assessment → уроки → курсы; ссылка с lesson=ID&step_ref=postId.
+	 *
+	 * @param string $type lesson|work|assessment
+	 * @param int    $postId
+	 * @return array<int, array{display: string, tooltip: string, url: string}>
+	 */
+	public function courseLinksFor( string $type, int $postId ): array {
+		if ( 'lesson' === $type ) {
+			$links = array();
+			foreach ( $this->usageList( 'lesson', $postId ) as $course ) {
+				$links[] = array(
+					'display' => $course['title'],
+					'tooltip' => $course['title'],
+					'url'     => admin_url( 'admin.php?page=fs_lms_course_builder&course=' . $course['id'] . '&lesson=' . $postId ),
+				);
+			}
+			return $links;
+		}
+
+		if ( 'work' === $type || 'assessment' === $type ) {
+			$courses = array();
+			foreach ( $this->usageList( $type, $postId ) as $lesson ) {
+				foreach ( $this->usageList( 'lesson', $lesson['id'] ) as $course ) {
+					$key = (string) $course['id'];
+					if ( ! isset( $courses[ $key ] ) ) {
+						$courses[ $key ] = array(
+							'display' => $course['title'],
+							'tooltip' => $course['title'],
+							'url'     => admin_url( 'admin.php?page=fs_lms_course_builder&course=' . $course['id'] . '&lesson=' . $lesson['id'] . '&step_ref=' . $postId ),
+						);
+					}
+				}
+			}
+			return array_values( $courses );
+		}
+
+		return array();
+	}
+
+	/**
+	 * Находит уроки, которые ссылаются на задачу через прямой шаг (StepType::Task).
+	 *
+	 * @param int    $postId
+	 * @param string $type task|problem
+	 * @return array<int, array{id: int, title: string, type: string}>
+	 */
+	private function directLessonConsumers( int $postId, string $type ): array {
+		if ( 'task' === $type ) {
+			$post = $this->posts->get( $postId );
+			if ( ! $post instanceof \WP_Post ) {
+				return array();
+			}
+			$subject = PostTypeResolver::subjectFromTaskPostType( $post->post_type );
+			return $this->lessonsWithTaskStep( $postId, PostTypeResolver::lessons( $subject ) );
+		}
+
+		// problem — кросс-предметный поиск.
+		$result = array();
+		foreach ( $this->subjects->readAll() as $s ) {
+			$result = array_merge( $result, $this->lessonsWithTaskStep( $postId, PostTypeResolver::lessons( $s->key ) ) );
+		}
+		return $result;
+	}
+
+	/**
+	 * Возвращает уроки из указанного CPT, у которых есть шаг типа task с ref=taskId.
+	 *
+	 * @param int    $taskId
+	 * @param string $lessons_cpt
+	 * @return array<int, array{id: int, title: string, type: string}>
+	 */
+	private function lessonsWithTaskStep( int $taskId, string $lessons_cpt ): array {
+		$result = array();
+		foreach ( $this->consumers( $lessons_cpt ) as $lesson ) {
+			$meta  = $this->posts->getMeta( $lesson->ID, PostMetaName::Meta->value );
+			$meta  = is_array( $meta ) ? $meta : array();
+			$steps = StepDTO::fromList( is_array( $meta['steps'] ?? null ) ? $meta['steps'] : array() );
+			foreach ( $steps as $step ) {
+				if ( StepType::Task === $step->type && (int) ( $step->payload['ref'] ?? 0 ) === $taskId ) {
+					$result[] = array(
+						'id'    => $lesson->ID,
+						'title' => $lesson->post_title,
+						'type'  => $lesson->post_type,
+					);
+					break;
+				}
+			}
+		}
+		return $result;
+	}
+
+	/**
+	 * Кросс-предметный поиск работ, ссылающихся на задачу из банка.
+	 *
+	 * @param int $problemId
+	 * @return array<int, array{id: int, title: string, type: string}>
+	 */
+	private function problemWorkers( int $problemId ): array {
+		$result = array();
+		foreach ( $this->subjects->readAll() as $subject ) {
+			foreach ( $this->consumers( PostTypeResolver::works( $subject->key ) ) as $work ) {
+				$meta    = $this->posts->getMeta( $work->ID, PostMetaName::Meta->value );
+				$meta    = is_array( $meta ) ? $meta : array();
+				$ids     = array_map( 'intval', is_array( $meta['item_ids'] ?? null ) ? $meta['item_ids'] : array() );
+				if ( in_array( $problemId, $ids, true ) ) {
+					$result[] = array(
+						'id'    => $work->ID,
+						'title' => $work->post_title,
+						'type'  => $work->post_type,
+					);
+				}
+			}
+		}
+		return $result;
+	}
+
+	/**
+	 * Строит хлебные крошки по списку работ: работа → урок → курс.
+	 * Возвращает [$courses, $fallbacks], оба keyed — дедупликация по ID.
+	 *
+	 * @param array<int, array{id: int, title: string, type: string}> $works
+	 * @return array{array<string, array{display: string, tooltip: string}>, array<string, array{display: string, tooltip: string}>}
+	 */
+	private function coursesFromWorks( array $works ): array {
+		$courses   = array();
+		$fallbacks = array();
+
+		foreach ( $works as $work ) {
+			$lessons = $this->usageList( 'work', $work['id'] );
+			if ( empty( $lessons ) ) {
+				$fallbacks[ 'w' . $work['id'] ] = array(
+					'display' => $work['title'],
+					'tooltip' => $work['title'],
+					'url'     => admin_url( 'post.php?post=' . $work['id'] . '&action=edit' ),
+				);
+				continue;
+			}
+			foreach ( $lessons as $lesson ) {
+				$lesson_courses = $this->usageList( 'lesson', $lesson['id'] );
+				if ( empty( $lesson_courses ) ) {
+					$fallbacks[ 'l' . $lesson['id'] ] = array(
+						'display' => $lesson['title'],
+						'tooltip' => $lesson['title'] . ' / ' . $work['title'],
+						'url'     => admin_url( 'post.php?post=' . $lesson['id'] . '&action=edit' ),
+					);
+					continue;
+				}
+				foreach ( $lesson_courses as $course ) {
+					$key = (string) $course['id'];
+					if ( ! isset( $courses[ $key ] ) ) {
+						$courses[ $key ] = array(
+							'display' => $course['title'],
+							'tooltip' => $course['title'] . ' / ' . $lesson['title'] . ' / ' . $work['title'],
+							'url'     => admin_url( 'admin.php?page=fs_lms_course_builder&course=' . $course['id'] . '&lesson=' . $lesson['id'] . '&step_ref=' . $work['id'] ),
+						);
+					}
+				}
+			}
+		}
+
+		return array( $courses, $fallbacks );
 	}
 
 	/**

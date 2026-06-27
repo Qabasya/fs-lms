@@ -251,6 +251,11 @@ export function createStepEditor( opts ) {
 	let tinyId    = null;
 	let dragKey   = null;
 
+	if ( opts.initialStepRef ) {
+		const refStep = lesson.steps.find( ( s ) => Number( s.payload?.ref ) === Number( opts.initialStepRef ) );
+		if ( refStep ) { activeKey = refStep.key; }
+	}
+
 	render();
 
 	return { destroy: destroyTiny };
@@ -392,6 +397,21 @@ export function createStepEditor( opts ) {
 			// Добавляет кнопки LaTeX в тулбар TinyMCE 4.
 			// Кнопки оборачивают выделение (или вставляют placeholder) в \(...\) / \[...\].
 			function setupLatexButtons( editor ) {
+				editor.addButton( 'code_inline', {
+					text   : '</>',
+					tooltip: 'Инлайн-код',
+					onclick() {
+						editor.formatter.toggle( 'code_inline' );
+					},
+					onPostRender() {
+						const btn = this;
+						editor.on( 'NodeChange', () => btn.active( editor.formatter.match( 'code_inline' ) ) );
+					},
+				} );
+				editor.on( 'init', () => {
+					editor.formatter.register( 'code_inline', { inline: 'code' } );
+					ed.classList.remove( 'fs-rte-loading' );
+				} );
 				editor.addButton( 'latex_inline', {
 					text    : '\\(…\\)',
 					tooltip : 'Инлайн-формула LaTeX',
@@ -416,32 +436,40 @@ export function createStepEditor( opts ) {
 					},
 				} );
 				editor.on( 'NodeChange change', onEditorChange );
-				editor.on( 'init', () => ed.classList.remove( 'fs-rte-loading' ) );
 			}
+
+			const cdnBase = 'https://cdn.jsdelivr.net/npm/tinymce@4.9.11/plugins';
+			const externalPlugins = {
+				table        : cdnBase + '/table/plugin.min.js',
+				searchreplace: cdnBase + '/searchreplace/plugin.min.js',
+				anchor       : cdnBase + '/anchor/plugin.min.js',
+			};
 
 			if ( window.wp?.editor ) {
 				window.wp.editor.initialize( tid, {
 					tinymce: {
-						wpautop  : true,
-						plugins  : 'charmap colorpicker hr lists paste tabfocus textcolor wordpress wpautoresize wpeditimage wplink wptextpattern',
-						toolbar1 : 'bold italic underline strikethrough | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | fs_media | removeformat | undo redo',
-						toolbar2 : 'charmap | latex_inline latex_block',
-						height   : 400,
-						setup    : setupLatexButtons,
+						wpautop          : true,
+						plugins          : 'charmap colorpicker fullscreen hr lists paste tabfocus textcolor wordpress wpautoresize wpeditimage wplink wptextpattern',
+						external_plugins : externalPlugins,
+						toolbar1         : 'bold italic underline strikethrough code_inline | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | fs_media | table | removeformat | undo redo | fullscreen',
+						toolbar2         : 'charmap | anchor searchreplace | latex_inline latex_block',
+						height           : 400,
+						setup            : setupLatexButtons,
 					},
 					quicktags   : { buttons: 'strong,em,link,ul,ol,li,code,close' },
 					mediaButtons: false,
 				} );
 			} else if ( window.tinymce ) {
 				window.tinymce.init( {
-					selector  : '#' + tid,
-					toolbar   : 'bold italic underline strikethrough | formatselect | bullist numlist | blockquote hr | alignleft aligncenter alignright | link | charmap | removeformat | undo redo | latex_inline latex_block',
-					menubar   : false,
-					statusbar : false,
-					plugins   : 'link lists hr charmap',
-					height    : 400,
-					skin_url  : window.tinymce?.baseURL + '/skins/lightgray',
-					setup     : setupLatexButtons,
+					selector         : '#' + tid,
+					external_plugins : externalPlugins,
+					toolbar          : 'bold italic underline strikethrough code_inline | formatselect | bullist numlist | blockquote hr | alignleft aligncenter alignright | link | charmap | table | anchor searchreplace | removeformat | undo redo | fullscreen | latex_inline latex_block',
+					menubar          : false,
+					statusbar        : false,
+					plugins          : 'link lists hr charmap fullscreen',
+					height           : 400,
+					skin_url         : window.tinymce?.baseURL + '/skins/lightgray',
+					setup            : setupLatexButtons,
 				} );
 			} else {
 				const area = ed.querySelector( '#' + tid );
