@@ -172,3 +172,224 @@
   gap: $spacing-xl;
   max-width: $settings-max-width;
 }
+
+// =================================================================
+//  BUILDER MIXINS — Course / Slot / Step constructors
+//  Цель: вынести общие ДЕКЛАРАЦИИ повторяющихся блоков (геометрия
+//  пиксель-в-пиксель) в одно место. Имена классов остаются в каждом
+//  файле (рендерятся из JS) — миксины переносят только декларации.
+//  ВАЖНО (порядок): миксины с вложенными правилами (&:hover/&::before/
+//  child{}/svg{}) подключать ПОСЛЕ всех plain-деклараций потребителя.
+// =================================================================
+
+// ── D11: акцентные цвета шага по [data-type] (map-driven).
+//    $prop — свойство (background/color). $child — опц. потомок (.sh-badge)
+@mixin step-type-colors($prop, $child: null) {
+  @each $name, $colour in $step-type-colors {
+    @if $child == null {
+      &[data-type="#{$name}"] { #{$prop}: $colour; }
+    } @else {
+      &[data-type="#{$name}"] { #{$child} { #{$prop}: $colour; } }
+    }
+  }
+}
+
+// ── D7: eyebrow/overline-метка (uppercase, tracking, secondary).
+//    font-size/вес/letter-spacing различаются по сайтам → параметры.
+@mixin cb-eyebrow($font-size: $font-size-xs, $weight: $font-heavy, $letter-spacing: 0.04em) {
+  font-size: $font-size;
+  font-weight: $weight;
+  text-transform: uppercase;
+  letter-spacing: $letter-spacing;
+  color: $color-text-secondary;
+}
+
+// ── D1: каркас two-pane конструктора (.builder ≡ .fs-sb-builder)
+@mixin cb-builder-shell {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  background: $color-bg-modal;
+  border: 1px solid $wp-admin-gray-bg;
+  box-shadow: $shadow-cb-builder;
+  border-radius: $border-radius-l;
+  overflow: hidden;
+  min-height: 640px;
+}
+
+// ── D2: левая панель-рельса (.tree-pane ≡ .fs-sb-tree)
+@mixin cb-tree-pane {
+  border-right: 1px solid $wp-admin-gray-bg;
+  background: $cb-bg-tree;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+// ── D3: шапка рельсы (.tree-head ≡ .fs-sb-tree-head) — только plain-декларации
+@mixin cb-tree-head {
+  padding: $spacing-md 14px;
+  border-bottom: 1px solid $wp-admin-gray-bg;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// ── D4: скролл-область рельсы (.tree-scroll ≡ .fs-sb-tree-scroll)
+@mixin cb-tree-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-sm $spacing-sm $spacing-xs;
+}
+
+// ── D5: строка дерева (.lesson ≡ .fs-sb-slot): hover + активный акцент.
+//    Имя-специфичные потомки (.les-*/.fs-sb-slot-*) остаются в файле.
+@mixin cb-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px $spacing-sm;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 1px 0;
+  position: relative;
+
+  &:hover { background: $cb-bg-hover; }
+  &.active {
+    background: $cb-bg-active;
+    &::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: var(--color-primary); border-radius: 2px; }
+  }
+}
+
+// ── D6: правая панель-редактор (.editor-pane ≡ .fs-sb-editor)
+@mixin cb-editor-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: $color-bg-modal;
+}
+
+// ── шапка редактора (.editor-top ≡ .fs-sb-editor-top)
+@mixin cb-editor-top {
+  padding: $spacing-lg $cb-pane-px 0;
+  border-bottom: 1px solid $wp-admin-gray-bg;
+}
+
+// ── тело-скролл редактора (.editor-body ≡ .fs-sb-body)
+@mixin cb-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-xl $cb-pane-px $spacing-xxl;
+  min-height: 0;
+}
+
+// ── строка заголовка (.lesson-title-row ≡ .fs-sb-title-row ≡ .step-head)
+@mixin cb-title-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm + 2px;
+  margin-bottom: 14px;
+}
+
+// ── пустое состояние (.editor-empty / .fs-sb-empty).
+//    $flex:false — вариант step-editor (без flex:1); $min-height разный.
+@mixin cb-empty($min-height, $flex: true) {
+  @if $flex { flex: 1; }
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: $color-secondary-hover;
+  text-align: center;
+  padding: 40px;
+  gap: $spacing-md;
+  min-height: $min-height;
+}
+
+// ── D10: вторичная pill-кнопка (.fs-cb-ref .button ≡
+//    .fs-sb-editor .button:not(.button-primary)). Сохраняет точный
+//    split cb-chip→svg→plain. :hover добавляется в файле при необходимости.
+@mixin cb-ghost-button {
+  @include cb-chip;
+  border: 1px solid $wp-admin-gray-bg;
+  background: transparent;
+  color: $color-text-secondary;
+  line-height: 1;
+  text-decoration: none;
+}
+
+// ── D12: точка статуса сохранения (.saved-dot ≡ .fs-sb-dot)
+@mixin cb-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: $wp-admin-green;
+}
+
+// ── D13: семейство превью задачи (fs-cb-tp-* ≡ fs-sb-task-*/fs-sb-*).
+//    Имена потомков различаются по файлам → передаются селекторами.
+
+// flex-колонка контейнера (options / pairs / subtasks)
+@mixin cb-qa-stack($gap) {
+  display: flex;
+  flex-direction: column;
+  gap: $gap;
+}
+
+// строка варианта + состояние правильности
+@mixin cb-qa-option($mark) {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-sm;
+  font-size: $font-size-wp;
+  color: $color-text-secondary;
+  #{$mark} { width: 14px; text-align: center; flex-shrink: 0; }
+  &.is-correct {
+    color: $color-text-primary;
+    font-weight: $font-bold;
+    #{$mark} { color: $wp-admin-green; }
+  }
+}
+
+// строка пары на сопоставление (l/r колонки + стрелка)
+@mixin cb-qa-pair($columns, $arrow) {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-sm;
+  font-size: $font-size-wp;
+  #{$columns} { flex: 1; color: $color-text-primary; }
+  #{$arrow} { flex-shrink: 0; color: $color-text-secondary; font-size: $font-size-xs; }
+}
+
+// упорядоченный список ($margin: 0 vs 0 0 $spacing-sm)
+@mixin cb-qa-order($margin) {
+  margin: $margin;
+  padding-left: $spacing-xl;
+  font-size: $font-size-wp;
+  color: $color-text-primary;
+  line-height: 1.8;
+}
+
+// проза с пропусками + подсвеченный bланк
+@mixin cb-qa-gap {
+  font-size: $font-size-wp;
+  line-height: 1.8;
+  color: $color-text-primary;
+}
+@mixin cb-qa-gap-fill {
+  display: inline-block;
+  min-width: 50px;
+  padding: 0 4px;
+  border-bottom: 2px solid var(--color-primary);
+  border-radius: 2px;
+  background: $wp-admin-blue-bg-light;
+  color: var(--color-primary);
+  font-weight: $font-bold;
+}
+
+// строка ответа подзадачи
+@mixin cb-qa-subtask-ans {
+  color: $wp-admin-green;
+  font-weight: $font-bold;
+  margin-top: 2px;
+}

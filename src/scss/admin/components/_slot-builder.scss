@@ -1,4 +1,5 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 // ══════════════════════════════════════════════════════════════
 //  Slot Builder — общий конструктор «список слотов-задач».
@@ -13,35 +14,20 @@
 
 	// ── two-pane builder ──
 	.fs-sb-builder {
-		display: grid;
-		grid-template-columns: 320px 1fr;
-		background: $color-bg-modal;
-		border: 1px solid $wp-admin-gray-bg;
-		box-shadow: $shadow-cb-builder;
-		border-radius: $border-radius-l;
-		overflow: hidden;
-		min-height: 640px;
+		@include cb-builder-shell;
 	}
 
 	// ── LEFT: список слотов ──
 	.fs-sb-tree {
-		border-right: 1px solid $wp-admin-gray-bg;
-		background: $cb-bg-tree;
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
+		@include cb-tree-pane;
 	}
 	.fs-sb-tree-head {
-		padding: $spacing-md 14px;
-		border-bottom: 1px solid $wp-admin-gray-bg;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
+		@include cb-tree-head;
 
-		.fs-sb-th-title { font-size: $font-size-xs; font-weight: $font-heavy; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; }
+		.fs-sb-th-title { @include cb-eyebrow; }
 		.fs-sb-th-count { font-size: $font-size-code; color: $color-secondary-hover; }
 	}
-	.fs-sb-tree-scroll { flex: 1; overflow-y: auto; padding: $spacing-sm $spacing-sm $spacing-xs; }
+	.fs-sb-tree-scroll { @include cb-tree-scroll; }
 	.fs-sb-tree-add {
 		border-top: 1px solid $wp-admin-gray-bg;
 		padding: $spacing-sm $spacing-sm + 2px;
@@ -53,19 +39,9 @@
 
 	// slot row
 	.fs-sb-slot {
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		padding: 6px $spacing-sm;
-		border-radius: 5px;
-		cursor: pointer;
-		margin: 1px 0;
-		position: relative;
+		@include cb-tree-row;
 
-		&:hover { background: $cb-bg-hover; }
 		&.active {
-			background: $cb-bg-active;
-			&::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: var(--color-primary); border-radius: 2px; }
 			.fs-sb-slot-num, .fs-sb-slot-title { color: var(--color-primary-hover); font-weight: $font-bold; }
 		}
 		&.empty .fs-sb-slot-title { color: $color-text-secondary; font-style: italic; }
@@ -75,19 +51,18 @@
 	}
 
 	// ── RIGHT: тело слота ──
-	.fs-sb-editor { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: $color-bg-modal; }
-	.fs-sb-editor-top { padding: $spacing-lg $cb-pane-px 0; border-bottom: 1px solid $wp-admin-gray-bg; }
-	.fs-sb-title-row { display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px; }
+	.fs-sb-editor { @include cb-editor-pane; }
+	.fs-sb-editor-top { @include cb-editor-top; }
+	.fs-sb-title-row { @include cb-title-row; }
 	.fs-sb-flag {
 		font-size: $font-size-code; font-weight: $font-bold; padding: 3px 9px; border-radius: $border-radius-pill;
 		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg;
 		display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer;
 		text-decoration: none;
 	}
-	.fs-sb-body { flex: 1; overflow-y: auto; padding: $spacing-xl $cb-pane-px $spacing-xxl; min-height: 0; }
+	.fs-sb-body { @include cb-editor-body; }
 	.fs-sb-empty {
-		flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-		color: $color-secondary-hover; text-align: center; padding: 40px; gap: $spacing-md; min-height: 320px;
+		@include cb-empty(320px);
 	}
 
 	// ── Тело задачи (условие / ответ / аудио) ──
@@ -101,31 +76,25 @@
 		img { max-width: 100%; height: auto; border-radius: $border-radius-sm; }
 	}
 	.fs-sb-section-label {
-		font-size: $font-size-code; font-weight: $font-heavy; text-transform: uppercase; letter-spacing: 0.04em;
-		color: $color-text-secondary; margin: 0 0 $spacing-sm;
+		@include cb-eyebrow($font-size-code);
+		margin: 0 0 $spacing-sm;
 	}
 	.fs-sb-task-answer { padding: $spacing-md; background: $cb-bg-tree; border: 1px solid $wp-admin-gray-bg; border-radius: $border-radius-md; }
-	.fs-sb-task-options { display: flex; flex-direction: column; gap: 4px; }
+	.fs-sb-task-options { @include cb-qa-stack(4px); }
 	.fs-sb-task-option {
-		display: flex; align-items: baseline; gap: $spacing-sm;
-		font-size: $font-size-wp; color: $color-text-secondary;
-		.fs-sb-opt-mark { width: 14px; text-align: center; flex-shrink: 0; }
-		&.is-correct { color: $color-text-primary; font-weight: $font-bold;
-			.fs-sb-opt-mark { color: $wp-admin-green; } }
+		@include cb-qa-option('.fs-sb-opt-mark');
 	}
 	.fs-sb-task-audio { display: block; width: 100%; margin-bottom: $spacing-md; }
-	.fs-sb-task-pairs { display: flex; flex-direction: column; gap: 4px; margin-bottom: $spacing-sm; }
-	.fs-sb-task-pair { display: flex; align-items: baseline; gap: $spacing-sm; font-size: $font-size-wp;
-		.fs-sb-pair-l, .fs-sb-pair-r { flex: 1; color: $color-text-primary; }
-		.fs-sb-pair-arrow { flex-shrink: 0; color: $color-text-secondary; font-size: $font-size-xs; } }
-	.fs-sb-task-order { margin: 0 0 $spacing-sm; padding-left: $spacing-xl; font-size: $font-size-wp; color: $color-text-primary; line-height: 1.8; }
-	.fs-sb-task-gap { font-size: $font-size-wp; line-height: 1.8; color: $color-text-primary; margin-bottom: $spacing-sm; }
-	.fs-sb-gap-fill { display: inline-block; min-width: 50px; padding: 0 4px; border-bottom: 2px solid var(--color-primary); border-radius: 2px; background: $wp-admin-blue-bg-light; color: var(--color-primary); font-weight: $font-bold; }
-	.fs-sb-subtasks { display: flex; flex-direction: column; gap: $spacing-md; margin-bottom: $spacing-sm; }
+	.fs-sb-task-pairs { @include cb-qa-stack(4px); margin-bottom: $spacing-sm; }
+	.fs-sb-task-pair { @include cb-qa-pair('.fs-sb-pair-l, .fs-sb-pair-r', '.fs-sb-pair-arrow'); }
+	.fs-sb-task-order { @include cb-qa-order(0 0 $spacing-sm); }
+	.fs-sb-task-gap { @include cb-qa-gap; margin-bottom: $spacing-sm; }
+	.fs-sb-gap-fill { @include cb-qa-gap-fill; }
+	.fs-sb-subtasks { @include cb-qa-stack($spacing-md); margin-bottom: $spacing-sm; }
 	.fs-sb-subtask { font-size: $font-size-wp; }
-	.fs-sb-subtask-num { font-weight: $font-bold; color: $color-text-secondary; font-size: $font-size-xs; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+	.fs-sb-subtask-num { @include cb-eyebrow($weight: $font-bold); margin-bottom: 2px; }
 	.fs-sb-subtask-cond { color: $color-text-primary; }
-	.fs-sb-subtask-ans { color: $wp-admin-green; font-weight: $font-bold; margin-top: 2px; }
+	.fs-sb-subtask-ans { @include cb-qa-subtask-ans; }
 
 	// ── Баллы за задание (ЕГЭ) ──
 	.fs-sb-task-score {
@@ -151,16 +120,14 @@
 	.fs-sb-status {
 		display: flex; align-items: center; gap: $spacing-xs;
 		padding: $spacing-xs $spacing-md $spacing-sm; font-size: $font-size-xs; color: $color-text-secondary;
-		.fs-sb-dot { width: 7px; height: 7px; border-radius: 50%; background: $wp-admin-green; flex-shrink: 0; }
+		.fs-sb-dot { @include cb-status-dot; flex-shrink: 0; }
 		&.saving { font-style: italic; }
 	}
 
 	// ── Кнопки-пилюли в редакторе слота (аналог .fs-cb-ref) ──
 	.fs-sb-editor {
 		.button:not(.button-primary) {
-			@include cb-chip;
-			border: 1px solid $wp-admin-gray-bg; background: transparent;
-			color: $color-text-secondary; line-height: 1; text-decoration: none;
+			@include cb-ghost-button;
 			&:hover { background: $cb-bg-hover; }
 		}
 		.button.fs-sb-btn-danger { border-color: $color-danger; color: $color-danger;
@@ -180,7 +147,7 @@
 .button svg { vertical-align: middle; }
 
 // ── Responsive — narrow admin screens (<= 960 px) ──
-@media (max-width: 960px) {
+@media (max-width: $breakpoint-builder) {
 	.fs-sb-wrap {
 		.fs-sb-builder { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
 		.fs-sb-tree {

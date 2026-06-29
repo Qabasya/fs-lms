@@ -1,4 +1,5 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 // ══════════════════════════════════════════════════════════════
 //  Course Builder — Stepik-style конструктор курса.
@@ -75,25 +76,17 @@
 
 	// ── two-pane builder ──
 	.builder {
-		display: grid;
-		grid-template-columns: 320px 1fr;
-		background: $color-bg-modal;
-		border: 1px solid $wp-admin-gray-bg;
-		box-shadow: $shadow-cb-builder;
-		border-radius: $border-radius-l;
-		overflow: hidden;
-		min-height: 640px;
+		@include cb-builder-shell;
 	}
 
 	// LEFT: tree
-	.tree-pane { border-right: 1px solid $wp-admin-gray-bg; background: $cb-bg-tree; display: flex; flex-direction: column; min-height: 0; }
+	.tree-pane { @include cb-tree-pane; }
 	.tree-head {
-		padding: $spacing-md 14px; border-bottom: 1px solid $wp-admin-gray-bg;
-		display: flex; align-items: center; justify-content: space-between;
-		.th-title { font-size: $font-size-xs; font-weight: $font-heavy; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; }
+		@include cb-tree-head;
+		.th-title { @include cb-eyebrow; }
 		.th-count { font-size: $font-size-code; color: $color-secondary-hover; }
 	}
-	.tree-scroll { flex: 1; overflow-y: auto; padding: $spacing-sm $spacing-sm $spacing-xs; }
+	.tree-scroll { @include cb-tree-scroll; }
 	.tree-add {
 		border-top: 1px solid $wp-admin-gray-bg;
 		padding: $spacing-sm $spacing-sm + 2px;
@@ -156,12 +149,8 @@
 
 	// lesson
 	.lesson {
-		display: flex; align-items: center; gap: 7px; padding: 6px $spacing-sm;
-		border-radius: 5px; cursor: pointer; margin: 1px 0; position: relative;
-		&:hover { background: $cb-bg-hover; }
+		@include cb-tree-row;
 		&.active {
-			background: $cb-bg-active;
-			&::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: var(--color-primary); border-radius: 2px; }
 			.les-num, .les-title { color: var(--color-primary-hover); font-weight: $font-bold; }
 			.les-steps { background: $wp-admin-blue-bg; color: var(--color-primary-hover); }
 		}
@@ -178,11 +167,11 @@
 	.drop-after { box-shadow: 0 2px 0 var(--color-primary); }
 
 	// RIGHT: editor
-	.editor-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: $color-bg-modal; }
-	.editor-top { padding: $spacing-lg $cb-pane-px 0; border-bottom: 1px solid $wp-admin-gray-bg; }
+	.editor-pane { @include cb-editor-pane; }
+	.editor-top { @include cb-editor-top; }
 	.editor-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: $font-size-xs; color: $color-text-secondary; margin-bottom: $spacing-sm + 2px; flex-wrap: wrap;
 		b { color: $color-text-primary; font-weight: $font-bold; } }
-	.lesson-title-row { display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px; }
+	.lesson-title-row { @include cb-title-row; }
 	.lesson-title-input {
 		flex: 1; font-size: $font-size-l; font-weight: $font-bold; color: $color-text-primary;
 		border: 1px solid transparent; border-radius: 5px; padding: 5px 9px; background: transparent;
@@ -198,7 +187,7 @@
 	}
 
 	// editor body (контейнер правой панели; шаги — внутри .fs-se)
-	.editor-body { flex: 1; overflow-y: auto; padding: $spacing-xl $cb-pane-px $spacing-xxl; min-height: 0; }
+	.editor-body { @include cb-editor-body; }
 
 	.button-green {
 		background: $wp-admin-green; border-color: $wp-admin-green; color: $color-text-inverse;
@@ -207,8 +196,7 @@
 	}
 
 	.editor-empty {
-		flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-		color: $color-secondary-hover; text-align: center; padding: 40px; gap: $spacing-md; min-height: 320px;
+		@include cb-empty(320px);
 	}
 }
 
@@ -218,19 +206,14 @@
 	background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: 9px;
 	box-shadow: $shadow-cb-popover; padding: $spacing-sm; width: 240px;
 
-	.sp-title { font-size: $font-size-code; font-weight: $font-heavy; text-transform: uppercase; letter-spacing: 0.04em; color: $color-text-secondary; padding: 6px $spacing-sm $spacing-sm; }
+	.sp-title { @include cb-eyebrow($font-size-code); padding: 6px $spacing-sm $spacing-sm; }
 	.sp-option {
 		display: flex; align-items: center; gap: $spacing-sm + 2px; padding: 9px $spacing-sm; border-radius: 6px; cursor: pointer;
 		&:hover { background: $cb-bg-hover; }
 		.spo-ico {
 			width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: $color-text-inverse; flex-shrink: 0;
 			svg { fill: $color-text-inverse; width: 16px; height: 16px; }
-			&[data-type="lecture"]    { background: $step-lecture; }
-			&[data-type="video"]      { background: $step-video; }
-			&[data-type="practice"]   { background: $step-practice; }
-			&[data-type="quiz"]       { background: $step-quiz; }
-&[data-type="task"]       { background: $wp-admin-green; }
-			&[data-type="assessment"] { background: $color-danger; }
+			@include step-type-colors(background);
 		}
 		.spo-name { font-size: $font-size-wp; font-weight: $font-bold; }
 		.spo-desc { font-size: $font-size-code; color: $color-secondary-hover; }
@@ -253,7 +236,7 @@
 }
 
 // ── Responsive — narrow admin screens (<= 960 px) ──
-@media (max-width: 960px) {
+@media (max-width: $breakpoint-builder) {
 	.fs-lms-cb-wrap {
 		.builder {
 			grid-template-columns: 1fr;
