@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\ExportLogDTO;
 use Inc\DTO\Log\ExportLogInputDTO;
-use Inc\Enums\Settings\TableName;
+use Inc\Enums\Log\LogChannel;
 
 /**
  * Class ExportLogRepository
@@ -47,7 +47,7 @@ class ExportLogRepository {
 	 */
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::ExportLog->prefixed();
+		$this->table = LogChannel::Export->tableName()->prefixed();
 	}
 
 	/**

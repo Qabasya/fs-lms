@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\EmailLogDTO;
 use Inc\DTO\Log\EmailLogInputDTO;
-use Inc\Enums\Settings\TableName;
+use Inc\Enums\Log\LogChannel;
 
 /**
  * Class EmailLogRepository
@@ -47,7 +47,7 @@ class EmailLogRepository {
 	 */
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::EmailLog->prefixed();
+		$this->table = LogChannel::Email->tableName()->prefixed();
 	}
 
 	/**

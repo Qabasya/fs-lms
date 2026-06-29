@@ -51,9 +51,6 @@ class EnrollmentController extends AjaxController {
 	 * @return void
 	 */
 	public function register(): void {
-		// 'admin_menu' — хук для регистрации страниц админ-панели
-		add_action( 'admin_menu', array( $this, 'registerAdminPages' ) );
-
 		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
 		parent::register();
 	}
@@ -102,22 +99,4 @@ class EnrollmentController extends AjaxController {
 		);
 	}
 
-	/**
-	 * Регистрирует административные страницы.
-	 *
-	 * @return void
-	 */
-	public function registerAdminPages(): void {
-		// add_submenu_page() — добавляет подстраницу в меню WordPress
-		// Параметры: parent_slug, page_title, menu_title, capability, menu_slug, callback
-		// parent_slug = null — страница не отображается в боковом меню (скрытая)
-		add_submenu_page(
-			null,                                   // Не показывать в меню
-			'Заявка',                               // Заголовок страницы (<title>)
-			'',                                     // Название пункта меню (пустое — не отображается)
-			Capability::ManageApplications->value,  // Необходимое право доступа
-			'fs-lms-application-detail',            // Уникальный идентификатор (slug)
-			array( $this->callbacks, 'renderApplicationDetailPage' )  // Коллбек отрисовки
-		);
-	}
 }

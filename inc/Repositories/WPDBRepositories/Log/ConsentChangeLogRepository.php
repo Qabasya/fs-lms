@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\ConsentChangeLogDTO;
 use Inc\DTO\Log\ConsentChangeLogInputDTO;
-use Inc\Enums\Settings\TableName;
+use Inc\Enums\Log\LogChannel;
 
 /**
  * Class ConsentChangeLogRepository
@@ -46,7 +46,7 @@ class ConsentChangeLogRepository {
 	 */
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::ConsentChangeLog->prefixed();
+		$this->table = LogChannel::ConsentChange->tableName()->prefixed();
 	}
 
 	/**

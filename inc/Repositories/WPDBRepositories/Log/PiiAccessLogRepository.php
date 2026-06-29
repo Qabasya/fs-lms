@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Person\PiiAccessLogDTO;
 use Inc\DTO\Person\PiiAccessLogInputDTO;
-use Inc\Enums\Settings\TableName;
+use Inc\Enums\Log\LogChannel;
 
 /**
  * Class PiiAccessLogRepository
@@ -44,7 +44,7 @@ class PiiAccessLogRepository {
 	 */
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::PiiAccessLog->prefixed();
+		$this->table = LogChannel::PiiAccess->tableName()->prefixed();
 	}
 
 	/**

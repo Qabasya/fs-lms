@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\AuthLogDTO;
 use Inc\DTO\Log\AuthLogInputDTO;
-use Inc\Enums\Settings\TableName;
+use Inc\Enums\Log\LogChannel;
 
 /**
  * Class AuthLogRepository
@@ -46,7 +46,7 @@ class AuthLogRepository {
 	 */
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::AuthLog->prefixed();
+		$this->table = LogChannel::Auth->tableName()->prefixed();
 	}
 
 	/**

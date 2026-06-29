@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\EntityAuditLogDTO;
 use Inc\DTO\Log\EntityAuditLogInputDTO;
-use Inc\Enums\Settings\TableName;
+use Inc\Enums\Log\LogChannel;
 
 /**
  * Class EntityAuditLogRepository
@@ -49,7 +49,7 @@ class EntityAuditLogRepository {
 	 */
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::EntityAuditLog->prefixed();
+		$this->table = LogChannel::EntityAudit->tableName()->prefixed();
 	}
 
 	/**

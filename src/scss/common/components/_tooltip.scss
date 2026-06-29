@@ -48,7 +48,7 @@
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.15s, transform 0.15s;
-  z-index: 9999; // TODO: ниже шкалы $z-modal-root (999999) — тултип в модалке перекрывается
+  z-index: $z-tooltip;
   pointer-events: none;
   white-space: normal;
 

@@ -59,12 +59,12 @@ export const EmailTemplateSettings = {
 			// Это позволяет работать только с элементами ВНУТРИ этой конкретной карточки,
 			// не затрагивая другие карточки на странице.
 			// Такой подход критически важен, когда на странице несколько одинаковых блоков.
-			this._handleSave( $( e.currentTarget ).closest( '.fs-email-template-card' ) );
+			this._handleSave( $( e.currentTarget ).closest( '.fs-card' ) );
 		} );
 
 		// Обработчик сброса шаблона к значениям по умолчанию
 		$( '#js-email-templates' ).on( 'click', '.js-reset-email-template', ( e ) => {
-			this._handleReset( $( e.currentTarget ).closest( '.fs-email-template-card' ) );
+			this._handleReset( $( e.currentTarget ).closest( '.fs-card' ) );
 		} );
 	},
 
@@ -208,10 +208,10 @@ export const EmailTemplateSettings = {
 		// 3. .addClass() — добавляем нужный класс в зависимости от состояния
 		$label
 			.text( isCustom ? 'Переопределён' : 'По умолчанию' )
-			.removeClass( 'fs-email-template-card__status--custom fs-email-template-card__status--default' )
+			.removeClass( 'fs-email-status--custom fs-email-status--default' )
 			.addClass( isCustom
-				? 'fs-email-template-card__status--custom'
-				: 'fs-email-template-card__status--default'
+				? 'fs-email-status--custom'
+				: 'fs-email-status--default'
 			);
 	},
 

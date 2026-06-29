@@ -14,40 +14,22 @@
  * @var array           $pii_filters
  */
 
-$tabs = array(
-	'tab-0' => array(
-		'title' => 'Действия',
-		'file'  => '/components/tabs/logs-tabs/logs-0-entity-audit.php',
-	),
-	'tab-1' => array(
-		'title' => 'Зачисления',
-		'file'  => '/components/tabs/logs-tabs/logs-1-audit.php',
-	),
-	'tab-2' => array(
-		'title' => 'Доступ к ПД',
-		'file'  => '/components/tabs/logs-tabs/logs-2-pii.php',
-	),
-	'tab-3' => array(
-		'title' => 'Экспорт',
-		'file'  => '/components/tabs/logs-tabs/logs-3-export.php',
-	),
-	'tab-4' => array(
-		'title' => 'Изменения данных',
-		'file'  => '/components/tabs/logs-tabs/logs-4-data-change.php',
-	),
-	'tab-5' => array(
-		'title' => 'Согласия',
-		'file'  => '/components/tabs/logs-tabs/logs-5-consent-change.php',
-	),
-	'tab-6' => array(
-		'title' => 'Письма',
-		'file'  => '/components/tabs/logs-tabs/logs-6-email.php',
-	),
-	'tab-8' => array(
-		'title' => 'Аутентификация',
-		'file'  => '/components/tabs/logs-tabs/logs-8-auth.php',
-	),
-);
+use Inc\Enums\Log\LogChannel;
+
+// Вкладки строятся циклом из единого реестра каналов: показываются каналы с
+// inAdminLogs() === true; id вкладки, партиал и заголовок (label) берутся из LogChannel.
+// Добавить вкладку = добавить case в LogChannel + строку в adminTab().
+$tabs = array();
+foreach ( LogChannel::cases() as $channel ) {
+	if ( ! $channel->inAdminLogs() ) {
+		continue;
+	}
+	$tab = $channel->adminTab();
+	$tabs[ $tab['id'] ] = array(
+		'channel' => $channel,
+		'file'    => '/components/tabs/logs-tabs/' . $tab['partial'] . '.php',
+	);
+}
 
 $page_slug = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 ?>
@@ -59,7 +41,7 @@ $page_slug = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore Wor
 		<?php foreach ( $tabs as $tab_id => $tab ) : ?>
 			<a href="?page=<?php echo esc_attr( $page_slug ); ?>&tab=<?php echo esc_attr( $tab_id ); ?>"
 				class="nav-tab <?php echo $active_tab === $tab_id ? 'nav-tab-active' : ''; ?>">
-				<?php echo esc_html( $tab['title'] ); ?>
+				<?php echo esc_html( $tab['channel']->label() ); ?>
 			</a>
 		<?php endforeach; ?>
 	</h2>
