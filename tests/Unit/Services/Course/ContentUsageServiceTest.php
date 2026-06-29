@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Services\Course;
 
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Course\ContentUsageService;
 use PHPUnit\Framework\TestCase;
 
@@ -15,7 +16,7 @@ class ContentUsageServiceTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_posts();
-		$this->usage = new ContentUsageService( new PostManager() );
+		$this->usage = new ContentUsageService( new PostManager(), new SubjectRepository() );
 	}
 
 	public function test_kind_of_detects_bank_types(): void {
