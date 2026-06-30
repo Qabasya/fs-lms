@@ -85,7 +85,7 @@ class BatchSubmissionCallbacks extends BaseController {
 	 * POST: submission_id, score, feedback, security
 	 */
 	public function ajaxGradeBatchTask(): void {
-		$this->authorize( Nonce::GradeBatch, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::GradeBatch, Capability::ManageLmsTeaching );
 
 		$submissionId = $this->requireInt( 'submission_id' );
 		$score        = (float) ( $_POST['score'] ?? 0 );

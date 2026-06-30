@@ -44,7 +44,7 @@ class ScoreMapCallbacks extends BaseController {
 	 * Возвращает: ['map' => [primary => secondary, ...]]
 	 */
 	public function ajaxParseScoreMap(): void {
-		$this->authorize( Nonce::ScoreMap, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::ScoreMap, Capability::AuthorLmsCourses );
 
 		$text = sanitize_textarea_field( (string) ( $_POST['text'] ?? '' ) );
 		if ( '' === $text ) {
@@ -62,7 +62,7 @@ class ScoreMapCallbacks extends BaseController {
 	 * POST: source_assessment_id, target_assessment_id, security
 	 */
 	public function ajaxCopyScoreMap(): void {
-		$this->authorize( Nonce::ScoreMap, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::ScoreMap, Capability::AuthorLmsCourses );
 
 		$sourceId = $this->requireInt( 'source_assessment_id' );
 		$targetId = $this->requireInt( 'target_assessment_id' );

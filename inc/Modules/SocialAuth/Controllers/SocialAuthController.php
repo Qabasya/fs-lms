@@ -140,7 +140,7 @@ class SocialAuthController extends BaseController implements ServiceInterface {
 
 		$staff_caps = array(
 			Capability::Admin->value,
-			Capability::ManageLMSAssignments->value,
+			Capability::ManageLmsPlatform->value,
 			Capability::ManageApplications->value,
 		);
 

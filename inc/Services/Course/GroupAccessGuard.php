@@ -17,7 +17,10 @@ class GroupAccessGuard {
 
 	/** Может ли пользователь управлять группой (teacher_id || Admin). */
 	public function canManage( int $groupId, int $userId ): bool {
-		if ( user_can( $userId, Capability::Admin->value ) ) {
+		if (
+			user_can( $userId, Capability::Admin->value ) ||
+			user_can( $userId, Capability::ManageLmsPlatform->value )
+		) {
 			return true;
 		}
 		$group = $this->groups->findById( $groupId );

@@ -187,10 +187,10 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '1.2';
+		$capsVersion = '5.0';
 		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
-			$roleManager->syncCapabilities();
+			$roleManager->registerAll();
 			update_option( 'fs_lms_caps_version', $capsVersion );
 		}
 	}

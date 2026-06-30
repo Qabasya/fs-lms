@@ -32,7 +32,7 @@ class GradeAttemptCallbacks extends BaseController {
 
 	/** Преподаватель вручную оценивает один ответ попытки. */
 	public function ajaxGradeAttempt(): void {
-		$this->authorize( Nonce::GradeAttempt, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::GradeAttempt, Capability::ManageLmsTeaching );
 
 		$attemptId  = $this->requireInt( 'attempt_id' );
 		$taskId     = $this->requireInt( 'task_id' );

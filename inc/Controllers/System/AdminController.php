@@ -135,7 +135,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			array(
 				'page_title' => Menu::Main->page_title(),
 				'menu_title' => "FS LMS", // Прописано вручную название пункта в меню
-				'capability' => Capability::Admin->value,
+				'capability' => Capability::ManageLmsPlatform->value,
 				'menu_slug'  => Menu::Main->value,
 				'callback'   => array( $this->callbacks, Menu::Main->callback() ),
 				'icon_url'   => 'dashicons-welcome-learn-more',
@@ -174,7 +174,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'parent_slug' => Menu::Main->value,
 			'page_title' => Menu::Main->page_title(),
 			'menu_title' => Menu::Main->menu_title(),
-			'capability'  => Capability::Admin->value,
+			'capability'  => Capability::ManageLmsPlatform->value,
 			'menu_slug'   => Menu::Main->value,
 			'callback'    => array( $this->callbacks, Menu::Main->callback() ),
 		);
@@ -184,7 +184,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'parent_slug' => Menu::Main->value,
 			'page_title'  => Menu::Settings->page_title(),
 			'menu_title'  => Menu::Settings->menu_title(),
-			'capability'  => Capability::Admin->value,
+			'capability'  => Capability::ManageLmsPlatform->value,
 			'menu_slug'   => Menu::Settings->value,
 			'callback'    => array( $this->callbacks, Menu::Settings->callback() ),
 		);
@@ -195,7 +195,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'parent_slug' => Menu::_Options->value,
 			'page_title'  => Menu::BoilerplateManager->page_title(),
 			'menu_title'  => Menu::BoilerplateManager->menu_title(),
-			'capability'  => Capability::Admin->value,
+			'capability'  => Capability::ManageLmsPlatform->value,
 			'menu_slug'   => Menu::BoilerplateManager->value,
 			'callback'    => array( $this->callbacks, Menu::BoilerplateManager->callback() ),
 		);
@@ -206,7 +206,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'parent_slug' => Menu::Main->value,
 			'page_title'  => Menu::Groups->page_title(),
 			'menu_title'  => Menu::Groups->menu_title(),
-			'capability'  => Capability::Admin->value,
+			'capability'  => Capability::ManageLmsPlatform->value,
 			'menu_slug'   => Menu::Groups->value,
 			'callback'    => array( $this->callbacks, Menu::Groups->callback() ),
 		);
@@ -216,7 +216,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'parent_slug' => Menu::Main->value,
 			'page_title'  => Menu::UserList->page_title(),
 			'menu_title'  => Menu::UserList->menu_title(),
-			'capability'  => Capability::Admin->value,
+			'capability'  => Capability::ManageLmsPlatform->value,
 			'menu_slug'   => Menu::UserList->value,
 			'callback'    => array( $this->callbacks, Menu::UserList->callback() ),
 		);
@@ -226,7 +226,7 @@ class AdminController extends BaseController implements ServiceInterface {
 			'parent_slug' => Menu::Main->value,
 			'page_title'  => Menu::Logs->page_title(),
 			'menu_title'  => Menu::Logs->page_title(),
-			'capability'  => Capability::Admin->value,
+			'capability'  => Capability::ManageLmsPlatform->value,
 			'menu_slug'   => Menu::Logs->value,
 			'callback'    => array( $this->callbacks, Menu::Logs->callback() ),
 		);

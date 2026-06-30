@@ -10,6 +10,7 @@ use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\OperationType;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\EntityAuditLogRepository;
+use Inc\Enums\Access\UserRole;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**
@@ -103,7 +104,6 @@ class EntityAuditLogWriter {
 		if ( null === $user || empty( $user->roles ) ) {
 			return null;
 		}
-		// reset() — возвращает первый элемент массива (первую роль пользователя)
-		return (string) reset( $user->roles );
+		return UserRole::primarySlug( (array) $user->roles );
 	}
 }

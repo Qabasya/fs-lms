@@ -176,7 +176,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	 * перерисовывается под новый тип (`MetaBoxController` через `TemplateResolver`).
 	 */
 	public function ajaxSetTemplateType(): void {
-		$this->authorize( Nonce::SaveMeta, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SaveMeta, Capability::AuthorLmsCourses );
 
 		$post_id     = $this->requireInt( 'post_id' );
 		$template_id = $this->sanitizeKey( 'template_type' );

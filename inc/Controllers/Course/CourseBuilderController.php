@@ -39,7 +39,7 @@ class CourseBuilderController extends BaseController implements ServiceInterface
 			'',
 			__( 'Конструктор курса', 'fs-lms' ),
 			__( 'Конструктор курса', 'fs-lms' ),
-			Capability::ManageLMSAssignments->value,
+			Capability::AuthorLmsCourses->value,
 			self::PAGE_SLUG,
 			array( $this, 'renderPage' )
 		);

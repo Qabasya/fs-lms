@@ -9,6 +9,8 @@ use Inc\Controllers\System\AjaxController;
 use Inc\Callbacks\Settings\AcademicPeriodCallbacks;
 use Inc\Callbacks\Settings\ConsentSettingsCallbacks;
 use Inc\Callbacks\Settings\EmailTemplateSettingsCallbacks;
+use Inc\Callbacks\Settings\RolesSettingsCallbacks;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\AjaxHook;
 
 /**
@@ -49,6 +51,7 @@ class SettingsController extends AjaxController {
 		private readonly EmailTemplateSettingsCallbacks $emailTemplateCallbacks,
 		private readonly ConsentSettingsCallbacks       $consentCallbacks,
 		private readonly AcademicPeriodCallbacks        $academicPeriodCallbacks,
+		private readonly RolesSettingsCallbacks         $rolesCallbacks,
 	) {
 		parent::__construct();
 	}
@@ -59,8 +62,18 @@ class SettingsController extends AjaxController {
 	 * @return void
 	 */
 	public function register(): void {
-		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
 		parent::register();
+
+		// Вкладка «Роли» видна только носителям Capability::ManageLmsRoles (administrator).
+		add_filter( 'fs_lms_settings_tabs', function ( array $tabs ): array {
+			if ( current_user_can( Capability::ManageLmsRoles->value ) ) {
+				$tabs['tab-8'] = array(
+					'title' => 'Роли',
+					'file'  => '/components/tabs/settings-tabs/settings-8-roles.php',
+				);
+			}
+			return $tabs;
+		} );
 	}
 
 	/**
@@ -84,6 +97,8 @@ class SettingsController extends AjaxController {
 			array( AjaxHook::SaveAcademicPeriod, $this->academicPeriodCallbacks ),
 			// Удаление учебного периода
 			array( AjaxHook::DeleteAcademicPeriod, $this->academicPeriodCallbacks ),
+			// Сохранение LMS-ролей пользователя
+			array( AjaxHook::SaveUserRoles, $this->rolesCallbacks ),
 		);
 	}
 }

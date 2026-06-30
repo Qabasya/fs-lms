@@ -383,11 +383,14 @@ class SubjectController extends AjaxController {
 					'gen'    => 'статьи',
 					'gender' => 'feminine',
 				),
-				// Статьи: дефолтные права 'post' — у преподавателя есть edit_posts, но НЕТ
-				// publish_posts, поэтому он создаёт только черновики (публикует админ).
+				// Статьи: отдельный capability_type 'fs_lms_article' — изолирует права статей
+				// от fs_lms_content (методист): маркетолог (manage_lms_articles) получает
+				// articleCaps в RoleManager, методист — нет.
 				'options' => array(
-					'supports'     => array( 'title', 'editor', 'thumbnail' ),
-					'show_in_menu' => false,
+					'supports'        => array( 'title', 'editor', 'thumbnail' ),
+					'show_in_menu'    => false,
+					'capability_type' => 'fs_lms_article',
+					'map_meta_cap'    => true,
 				),
 			),
 			'lessons' => array(

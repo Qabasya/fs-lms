@@ -102,6 +102,9 @@ enum AjaxHook: string {
 	case AddConsentDefinition    = 'add_consent_definition';
 	case DeleteConsentDefinition = 'delete_consent_definition';
 
+	// ==================== Настройки: роли (RBAC) ====================
+	case SaveUserRoles = 'save_user_roles';
+
 	// ==================== Отчисление ====================
 	case ExpelStudent         = 'expel_student';
 	case ExportExpelledRecord = 'export_expelled_record';

@@ -250,7 +250,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	private function validatedActionPost( string $action ): int {
 		$post_id = $this->sanitizeGetInt( 'post' );
 
-		if ( ! current_user_can( Capability::ManageLMSAssignments->value ) ) {
+		if ( ! current_user_can( Capability::AuthorLmsCourses->value ) ) {
 			wp_die( esc_html__( 'Недостаточно прав.', 'fs-lms' ) );
 		}
 		check_admin_referer( $action . '_' . $post_id );

@@ -7,6 +7,7 @@ namespace Inc\Services\Log;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\DTO\Log\LearningEventInputDTO;
 use Inc\Managers\Person\UserManager;
+use Inc\Enums\Access\UserRole;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 
 class LearningEventWriter {
@@ -40,6 +41,6 @@ class LearningEventWriter {
 			return null;
 		}
 		$roles = (array) ( $user->roles ?? array() );
-		return $roles[0] ?? null;
+		return empty( $roles ) ? null : UserRole::primarySlug( $roles );
 	}
 }

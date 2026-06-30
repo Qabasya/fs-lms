@@ -224,7 +224,7 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 	 * Если предметов в системе нет — лендинг-фолбэки с предупреждением.
 	 */
 	public function registerLearningMenu(): void {
-		$cap      = Capability::ManageLMSAssignments->value;
+		$cap      = Capability::AuthorLmsCourses->value;
 		$subjects = $this->teacher_subjects->subjectsForUser( get_current_user_id() );
 
 		foreach ( BankType::cases() as $bankType ) {
@@ -264,7 +264,7 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 				'callback'    => '',
 			),
 			$this->subjectBankSubpage( Menu::LearningTasks, $this->bank_slugs[ BankType::Tasks->value ], $cap ),
-			$this->subjectBankSubpage( Menu::LearningArticles, $this->bank_slugs[ BankType::Articles->value ], $cap ),
+			$this->subjectBankSubpage( Menu::LearningArticles, $this->bank_slugs[ BankType::Articles->value ], Capability::ManageLmsArticles->value ),
 		);
 
 		$this->menu_registrar->addPages( $pages )->addSubPages( $subpages )->register();

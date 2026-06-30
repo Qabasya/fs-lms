@@ -77,7 +77,7 @@ class GroupCockpitController extends BaseController implements ServiceInterface 
 	}
 
 	private function renderGroupList( int $userId ): void {
-		$isAdmin = user_can( $userId, Capability::Admin->value );
+		$isAdmin = user_can( $userId, Capability::Admin->value ) || user_can( $userId, Capability::ManageLmsPlatform->value );
 		$groups  = $isAdmin
 			? $this->groups->findByFilters( '' )
 			: $this->groups->findByFilters( '', '', $userId );

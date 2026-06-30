@@ -40,7 +40,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 	 * Params: assessment_id, item_ids[]
 	 */
 	public function ajaxSaveAssessmentItems(): void {
-		$this->authorize( Nonce::AuthorAssessment, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorAssessment, Capability::AuthorLmsCourses );
 
 		$assessment_id = $this->requireInt( 'assessment_id' );
 		$item_ids      = array_map( 'intval', (array) ( $_POST['item_ids'] ?? array() ) );
@@ -67,7 +67,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 	 * Params: task_id, subject_key
 	 */
 	public function ajaxGetTaskPreview(): void {
-		$this->authorize( Nonce::AuthorAssessment, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorAssessment, Capability::AuthorLmsCourses );
 
 		$task_id = $this->requireInt( 'task_id' );
 		$post    = get_post( $task_id );
@@ -87,7 +87,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 	 * Params: ref_id, ref_type (work|assessment)
 	 */
 	public function ajaxGetRefPreview(): void {
-		$this->authorize( Nonce::AuthorAssessment, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorAssessment, Capability::AuthorLmsCourses );
 
 		$ref_id   = $this->requireInt( 'ref_id' );
 		$ref_type = $this->sanitizeKey( 'ref_type' );
@@ -217,7 +217,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 	 * Params: subject_key, title
 	 */
 	public function ajaxCreateAssessmentTaskDraft(): void {
-		$this->authorize( Nonce::AuthorAssessment, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorAssessment, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$title       = $this->sanitizeText( 'title' ) ?: 'Новая задача';

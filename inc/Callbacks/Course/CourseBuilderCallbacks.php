@@ -34,7 +34,7 @@ class CourseBuilderCallbacks extends BaseController {
 	 * Создаёт черновик курса. Params: subject_key, title
 	 */
 	public function ajaxCreateCourseDraft(): void {
-		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$title       = $this->sanitizeText( 'title' );
@@ -51,7 +51,7 @@ class CourseBuilderCallbacks extends BaseController {
 	 * Полное дерево курса для приложения. Params: course_id
 	 */
 	public function ajaxGetCourseBuilder(): void {
-		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
 		$course_id = $this->requireInt( 'course_id' );
 		$tree      = $this->builder->buildTree( $course_id );
@@ -68,7 +68,7 @@ class CourseBuilderCallbacks extends BaseController {
 	 * Сохраняет структуру курса. Params: course_id, modules[] ({id,title,lesson_ids[]})
 	 */
 	public function ajaxSaveCourseStructure(): void {
-		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
 		$course_id = $this->requireInt( 'course_id' );
 		$modules   = $this->sanitizeModules( wp_unslash( $_POST['modules'] ?? array() ) );
@@ -84,7 +84,7 @@ class CourseBuilderCallbacks extends BaseController {
 	 * Создаёт урок в модуле. Params: course_id, module_id, title
 	 */
 	public function ajaxCreateLessonInModule(): void {
-		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
 		$course_id = $this->requireInt( 'course_id' );
 		$module_id = $this->requireKey( 'module_id' );
@@ -103,7 +103,7 @@ class CourseBuilderCallbacks extends BaseController {
 	 * Дублирует урок в модуле. Params: course_id, module_id, lesson_id
 	 */
 	public function ajaxDuplicateLessonInModule(): void {
-		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
 		$course_id = $this->requireInt( 'course_id' );
 		$module_id = $this->requireKey( 'module_id' );
@@ -122,7 +122,7 @@ class CourseBuilderCallbacks extends BaseController {
 	 * Обновляет заголовок/публикацию урока. Params: lesson_id, title, published
 	 */
 	public function ajaxUpdateLessonMeta(): void {
-		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
 		$lesson_id = $this->requireInt( 'lesson_id' );
 		$title     = $this->sanitizeText( 'title' );
@@ -139,7 +139,7 @@ class CourseBuilderCallbacks extends BaseController {
 	 * Обновляет мету курса. Params: course_id, title, status, author_id?, thumbnail_id?
 	 */
 	public function ajaxSaveCourseMeta(): void {
-		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
 		$course_id    = $this->requireInt( 'course_id' );
 		$title        = $this->sanitizeText( 'title' );

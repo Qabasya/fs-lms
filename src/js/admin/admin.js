@@ -45,6 +45,7 @@ import { ApplicationViewModal } from './modals/enrollment/applications/applicati
 import { SelectParentModal } from './modals/enrollment/select-parent-modal.js';
 import { TeacherViewModal } from './modals/enrollment/teacher-view-modal.js';
 import { AlertModal } from './modals/alert-modal.js';
+import { RolesSettings } from './services/roles-settings.js';
 
 (function ($) {
     'use strict';
@@ -167,6 +168,8 @@ import { AlertModal } from './modals/alert-modal.js';
         if ( $( '.js-module-toggle' ).length ) {
             ModuleToggle.init();
         }
+
+        RolesSettings.init();
 
     });
 

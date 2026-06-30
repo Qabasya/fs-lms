@@ -37,8 +37,14 @@ enum UserRole: string {
 	/** Родитель ученика (просмотр прогресса и управление детьми) */
 	case FSParent = 'lms_parent';
 
-	/** Администратор LMS (работа с заявками, зачисление, PII) */
+	/** Администратор LMS (работа с заявками, зачисление, PII, все разделы плагина) */
 	case FSOffice = 'lms_office';
+
+	/** Методист: авторинг курсов, уроков, работ, контрольных, задач */
+	case FSMethodist = 'lms_methodist';
+
+	/** Маркетолог: статьи, статистика */
+	case FSMarket = 'lms_market';
 
 	// === Роли внешних пользователей (авторизация через провайдеров, без подписки) ===
 
@@ -47,6 +53,37 @@ enum UserRole: string {
 
 	/** Свободный преподаватель (базовый доступ без прав на PII) */
 	case Teacher = 'lms_teacher_free';
+
+	/**
+	 * Возвращает «основную» роль из набора слагов по приоритету.
+	 * Приоритет убывает: FSOffice → FSMethodist → FSMarket → FSTeacher → FSStudent → FSParent → Teacher → Student.
+	 * Если ни один слаг не совпал — возвращает Student.
+	 *
+	 * @param string[] $slugs Список слагов из $user->roles
+	 */
+	public static function primary( array $slugs ): self {
+		foreach ( array( self::FSOffice, self::FSMethodist, self::FSMarket, self::FSTeacher,
+						 self::FSStudent, self::FSParent, self::Teacher, self::Student ) as $role ) {
+			if ( in_array( $role->value, $slugs, true ) ) {
+				return $role;
+			}
+		}
+		return self::Student;
+	}
+
+	/**
+	 * То же, что primary(), но возвращает строку-слаг.
+	 * Для пользователей без LMS-роли (например, administrator) — возвращает первый сырой слаг.
+	 *
+	 * @param string[] $slugs
+	 */
+	public static function primarySlug( array $slugs ): string {
+		$hasKnown = array_filter( $slugs, static fn( $s ) => self::tryFrom( (string) $s ) !== null );
+		if ( ! empty( $hasKnown ) ) {
+			return self::primary( $slugs )->value;
+		}
+		return (string) ( reset( $slugs ) ?: '' );
+	}
 
 	/**
 	 * Возвращает LMS-роли, для которых сброс пароля через wp-login.php запрещён.
@@ -64,12 +101,14 @@ enum UserRole: string {
 	 */
 	public function label(): string {
 		return match ( $this ) {
-			self::FSTeacher => '🎓 LMS: Преподаватель',
-			self::FSStudent  => '🎓 LMS: Ученик',
-			self::FSParent  => '🎓 LMS: Родитель',
-			self::FSOffice  => '🎓 LMS: Администратор',
-			self::Student   => '🌐 LMS: Пользователь',
-			self::Teacher   => '🌐 LMS: Учитель',
+			self::FSTeacher   => '🎓 LMS: Преподаватель',
+			self::FSStudent   => '🎓 LMS: Ученик',
+			self::FSParent    => '🎓 LMS: Родитель',
+			self::FSOffice    => '🎓 LMS: Администратор платформы',
+			self::FSMethodist => '🎓 LMS: Методист',
+			self::FSMarket    => '🎓 LMS: Маркетолог',
+			self::Student     => '🌐 LMS: Пользователь',
+			self::Teacher     => '🌐 LMS: Учитель',
 		};
 	}
 
@@ -80,7 +119,9 @@ enum UserRole: string {
 	 */
 	public function baseCapabilities(): array {
 		return match ( $this ) {
-			self::FSTeacher => array( 'read' => true, 'edit_posts' => true, 'upload_files' => true ),
+			self::FSTeacher,
+			self::FSMethodist,
+			self::FSMarket  => array( 'read' => true, 'edit_posts' => true, 'upload_files' => true ),
 			self::FSStudent => array( 'read' => true, 'upload_files' => true ),
 			self::FSParent  => array( 'read' => true ),
 			self::FSOffice  => array( 'read' => true ),
@@ -98,14 +139,27 @@ enum UserRole: string {
 	public function capabilities(): array {
 		return match ( $this ) {
 			self::FSOffice => array(
-				Capability::ManageApplications->value => true,
-				Capability::EnrollStudent->value      => true,
-				Capability::ViewPII->value            => true,
-				Capability::ManagePersons->value      => true,
+				Capability::ManageLmsPlatform->value    => true,
+				Capability::ViewLMSStats->value         => true,
+				Capability::ExportPII->value            => true,
+				Capability::AuthorLmsCourses->value     => true,
+				Capability::ManageLmsArticles->value    => true,
+				Capability::ManageLmsTeaching->value    => true,
+				Capability::ManageApplications->value   => true,
+				Capability::EnrollStudent->value        => true,
+				Capability::ViewPII->value              => true,
+				Capability::ManagePersons->value        => true,
+			),
+			self::FSMethodist => array(
+				Capability::AuthorLmsCourses->value => true,
+			),
+			self::FSMarket => array(
+				Capability::ManageLmsArticles->value => true,
+				Capability::ViewLMSStats->value      => true,
 			),
 			self::FSTeacher => array(
-				Capability::ViewLMSStats->value        => true,
-				Capability::ManageLMSAssignments->value => true,
+				Capability::ViewLMSStats->value      => true,
+				Capability::ManageLmsTeaching->value => true,
 			),
 			self::FSStudent, self::FSParent,
 			self::Student, self::Teacher => array(),
