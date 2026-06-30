@@ -352,7 +352,7 @@ function renderStepBody(lesson, step) {
       <input class="field-input" style="max-width:280px" value="${esc(step.title)}" placeholder="Название шага"
         oninput="updateStepTitle('${step.id}', this.value)">
       <div class="sh-controls">
-        <button class="icon-btn" title="Дублировать шаг" onclick="dupStep('${step.id}')"><svg width="15" height="15" viewBox="0 0 20 20"><path d="M7 3h9a1 1 0 0 1 1 1v9h-2V5H7V3zM4 6h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1 2v7h7V8H5z"/></svg></button>
+        <button class="icon-btn" title="Дублировать" onclick="dupStep('${step.id}')"><svg width="15" height="15" viewBox="0 0 20 20"><path d="M7 3h9a1 1 0 0 1 1 1v9h-2V5H7V3zM4 6h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1 2v7h7V8H5z"/></svg></button>
         <button class="icon-btn danger" title="Удалить шаг" onclick="delStep('${step.id}')"><svg width="15" height="15" viewBox="0 0 20 20"><path d="M7 2h6l1 2h3v2H3V4h3l1-2zM5 7h10l-1 11H6L5 7z"/></svg></button>
       </div>
     </div>
@@ -578,12 +578,150 @@ function buildPopover() {
       </div>`).join('');
 }
 
+// ══════════════════════════════════════════════════════════════
+//  IMPORT lessons (drop-up panel)
+// ══════════════════════════════════════════════════════════════
+const IMPORT_DATA = {
+  course: {
+    sub: 'Уроки из других ваших курсов',
+    items: [
+      { id: 'ic1', type: 'lecture',  title: 'Списки и кортежи',        meta: 'Python ООП · 3 шага',  steps: [['lecture','Теория'],['practice','Задача'],['quiz','Тест']] },
+      { id: 'ic2', type: 'video',    title: 'Словари и множества',      meta: 'Python ООП · 2 шага',  steps: [['video','Видео'],['lecture','Конспект']] },
+      { id: 'ic3', type: 'practice', title: 'Работа с файлами',         meta: 'Python ООП · 4 шага',  steps: [['lecture','Теория'],['video','Демо'],['practice','Практика'],['file','Материалы']] },
+      { id: 'ic4', type: 'lecture',  title: 'Обработка исключений',      meta: 'Python Pro · 2 шага',  steps: [['lecture','try/except'],['quiz','Проверка']] },
+      { id: 'ic5', type: 'quiz',     title: 'Итоговый тест по ООП',      meta: 'Python ООП · 1 шаг',   steps: [['quiz','Тест']] },
+    ]
+  },
+  bank: {
+    sub: 'Готовые уроки из общей библиотеки',
+    items: [
+      { id: 'ib1', type: 'lecture',  title: 'Что такое алгоритм',       meta: 'Банк · Информатика',  steps: [['lecture','Теория'],['quiz','Тест']] },
+      { id: 'ib2', type: 'video',    title: 'Системы счисления',        meta: 'Банк · Информатика',  steps: [['video','Видео'],['practice','Перевод чисел']] },
+      { id: 'ib3', type: 'practice', title: 'Логические операции',       meta: 'Банк · Информатика',  steps: [['lecture','Теория'],['practice','Задача']] },
+      { id: 'ib4', type: 'lecture',  title: 'Кодирование информации',    meta: 'Банк · Информатика',  steps: [['lecture','Теория']] },
+    ]
+  }
+};
+
+let importSource = 'course';
+let importSelected = new Set();
+let importQuery = '';
+
+function openImportPanel() {
+  const wrap = document.getElementById('importWrap');
+  const btn = document.getElementById('importBtn');
+  const panel = document.getElementById('importPanel');
+  const bd = document.getElementById('importBackdrop');
+  importSelected = new Set();
+  importQuery = '';
+  renderImportPanel();
+  panel.classList.add('open');
+  bd.classList.add('open');
+  wrap.classList.add('open');
+  // position: drop UP from the button so it never overflows the bottom
+  const r = btn.getBoundingClientRect();
+  panel.style.left = Math.max(12, Math.min(r.left, window.innerWidth - 342)) + 'px';
+  panel.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+  setTimeout(() => { const s = panel.querySelector('.im-search input'); if (s) s.focus(); }, 60);
+}
+function closeImportPanel() {
+  document.getElementById('importPanel').classList.remove('open');
+  document.getElementById('importBackdrop').classList.remove('open');
+  document.getElementById('importWrap').classList.remove('open');
+}
+function setImportSource(src) { importSource = src; importSelected = new Set(); renderImportPanel(); }
+function toggleImportItem(id) {
+  if (importSelected.has(id)) importSelected.delete(id); else importSelected.add(id);
+  renderImportPanel();
+}
+function doImport() {
+  if (!importSelected.size) return;
+  const f = findLesson(activeLessonId);
+  const mod = f ? f.module : course.modules[0];
+  const all = [...IMPORT_DATA.course.items, ...IMPORT_DATA.bank.items];
+  let last = null;
+  importSelected.forEach(id => {
+    const src = all.find(x => x.id === id);
+    if (!src) return;
+    const les = { id: uid('l'), title: src.title, published: false,
+      steps: src.steps.map(([type, title]) => ({ id: uid('s'), type, title })) };
+    mod.lessons.push(les); last = les;
+  });
+  mod.collapsed = false;
+  const n = importSelected.size;
+  closeImportPanel();
+  if (last) selectLesson(last.id); else { renderTree(); }
+  toast(n === 1 ? 'Урок импортирован' : `Импортировано уроков: ${n}`);
+}
+
+function renderImportPanel() {
+  const panel = document.getElementById('importPanel');
+  const data = IMPORT_DATA[importSource];
+  const tab = (src, label) => `<button class="im-tab ${importSource===src?'active':''}" onclick="setImportSource('${src}')">${label}</button>`;
+
+  let listHtml;
+  if (importSource === 'file') {
+    listHtml = `<div class="im-file">
+      <svg width="32" height="32" viewBox="0 0 24 24"><path d="M12 3 7 8h3v6h4V8h3l-5-5zM5 18h14v2H5z"/></svg>
+      <p>Перетащите файл экспорта<br>(.json или .zip) сюда</p>
+      <button class="button button-sm" onclick="toast('Выбор файла')">Выбрать файл</button>
+    </div>`;
+  } else {
+    const items = data.items.filter(it => it.title.toLowerCase().includes(importQuery.toLowerCase()));
+    listHtml = items.length ? items.map(it => {
+      const sel = importSelected.has(it.id);
+      return `<div class="im-item ${sel?'sel':''}" onclick="toggleImportItem('${it.id}')">
+        <span class="im-check"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M5 8.2 2.8 6l-.9.9L5 10l5-5-.9-.9z"/></svg></span>
+        <span class="im-ico" style="background:${STEP_TYPES[it.type].color}">${ICON[it.type].replace('width="22" height="22"','width="16" height="16"')}</span>
+        <span class="im-main"><span class="im-title">${esc(it.title)}</span><span class="im-meta">${it.meta}</span></span>
+      </div>`;
+    }).join('') : `<div class="im-empty">Ничего не найдено</div>`;
+  }
+
+  const showFoot = importSource !== 'file';
+  panel.innerHTML = `
+    <div class="im-head">
+      <div><div class="im-h-title">Импорт уроков</div><div class="im-h-sub">${data ? data.sub : 'Загрузка из файла'}</div></div>
+      <button class="im-close" onclick="closeImportPanel()"><svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M15 6.4 13.6 5 10 8.6 6.4 5 5 6.4 8.6 10 5 13.6 6.4 15 10 11.4 13.6 15 15 13.6 11.4 10z"/></svg></button>
+    </div>
+    <div class="im-tabs">${tab('course','Из курса')}${tab('bank','Банк уроков')}${tab('file','Файл')}</div>
+    ${importSource!=='file' ? `<div class="im-search"><div class="im-search-box">
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M7 2a5 5 0 1 0 3 9l3 3 1-1-3-3a5 5 0 0 0-4-8zm0 1.6a3.4 3.4 0 1 1 0 6.8 3.4 3.4 0 0 1 0-6.8z"/></svg>
+      <input placeholder="Поиск уроков…" value="${esc(importQuery)}" oninput="importQuery=this.value;renderImportList()">
+    </div></div>` : ''}
+    <div class="im-list" id="imList">${listHtml}</div>
+    ${showFoot ? `<div class="im-foot">
+      <span class="im-count">Выбрано: <b>${importSelected.size}</b></span>
+      <button class="button" onclick="closeImportPanel()">Отмена</button>
+      <button class="button button-primary" ${importSelected.size?'':'disabled'} onclick="doImport()">Импортировать</button>
+    </div>` : ''}
+  `;
+}
+// lighter re-render that keeps search focus
+function renderImportList() {
+  const data = IMPORT_DATA[importSource];
+  const items = data.items.filter(it => it.title.toLowerCase().includes(importQuery.toLowerCase()));
+  const list = document.getElementById('imList');
+  if (!list) return;
+  list.innerHTML = items.length ? items.map(it => {
+    const sel = importSelected.has(it.id);
+    return `<div class="im-item ${sel?'sel':''}" onclick="toggleImportItem('${it.id}')">
+      <span class="im-check"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M5 8.2 2.8 6l-.9.9L5 10l5-5-.9-.9z"/></svg></span>
+      <span class="im-ico" style="background:${STEP_TYPES[it.type].color}">${ICON[it.type].replace('width="22" height="22"','width="16" height="16"')}</span>
+      <span class="im-main"><span class="im-title">${esc(it.title)}</span><span class="im-meta">${it.meta}</span></span>
+    </div>`;
+  }).join('') : `<div class="im-empty">Ничего не найдено</div>`;
+}
+
 // ── init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   buildPopover();
   document.getElementById('popoverBackdrop').addEventListener('click', closePopover);
   document.getElementById('addLessonBtn').addEventListener('click', addLesson);
   document.getElementById('addModuleBtn').addEventListener('click', addModule);
+  document.getElementById('importBtn').addEventListener('click', (e) => { e.stopPropagation(); openImportPanel(); });
+  document.getElementById('importBackdrop').addEventListener('click', closeImportPanel);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopover(); closeImportPanel(); } });
   renderTree();
   renderEditor();
 });

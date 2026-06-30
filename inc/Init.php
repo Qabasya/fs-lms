@@ -53,6 +53,7 @@ use Inc\Controllers\Subscribers\LearningEventSubscriber;
 use Inc\Controllers\Deletion\DeletionController;
 use Inc\Controllers\Assessment\AssessmentController;
 use Inc\Controllers\Group\ScheduleController;
+use Inc\Controllers\Group\JournalController;
 use Inc\Controllers\Group\GroupCockpitController;
 use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
@@ -144,6 +145,7 @@ final class Init {
 			ExportServiceBootstrap::class,
 			// ==== Этап 2 — программа группы ====
 			ScheduleController::class,        // AJAX программы группы
+			JournalController::class,         // AJAX журнала и посещаемости (Эпик 2)
 			LessonPlayerController::class,    // пошаговый плеер урока (до кокпита: ?gl=)
 			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
 			LessonProgressController::class,  // AJAX записи прогресса шага

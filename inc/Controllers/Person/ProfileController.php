@@ -6,78 +6,81 @@ namespace Inc\Controllers\Person;
 
 use Inc\Core\BaseController;
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\Access\UserRole;
 use Inc\Enums\Settings\OptionName;
 use Inc\Enums\Wp\PageRoutes;
-use Inc\Enums\Wp\ShortCode;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Shared\Traits\TemplateRenderer;
+use Inc\Services\Profile\ProfileViewResolver;
 
 /**
  * Class ProfileController
  *
- * Контроллер для управления личным кабинетом пользователя.
+ * Контроллер личного кабинета (`/profile/`) — единая точка входа для всех ролей.
  *
  * @package Inc\Controllers
  * @implements ServiceInterface
  *
  * ### Основные обязанности:
  *
- * 1. **Маршрутизация профиля** — редирект незалогиненных пользователей со страницы профиля на вход.
- * 2. **Редирект со страницы входа** — перенаправление залогиненных пользователей со страницы входа в профиль.
- * 3. **Рендеринг профиля** — отображение личного кабинета через шорткод.
+ * 1. **Маршрутизация и приватность** — редиректы вход↔профиль; гейт отчисленных;
+ *    офисные роли (FSOffice/FSMethodist/FSMarket) → в админку WP (фронт-кабинета у них нет).
+ * 2. **Полноэкранный SPA** — перехват template_include и рендер каркаса кабинета.
+ *    Состав по роли (сайдбар/экраны/режим) собирает ProfileViewResolver → window.fsProfile
+ *    (локализация в Enqueue), сами экраны рисует фронтовый бандл profile.min.js.
  *
  * ### Архитектурная роль:
  *
- * Использует PageRoutes для работы с URL (проверка текущей страницы, получение URL).
- * Делегирует рендеринг шаблонов трейту TemplateRenderer.
+ * Кабинет — часть ядра (не отключаемый модуль). Глубокие экраны (журнал/КТП/проверка)
+ * живут здесь же в SPA; доменные операции идут через AJAX-хуки ядра (Lms).
  */
 class ProfileController extends BaseController implements ServiceInterface {
 
-	use TemplateRenderer;  // Трейт с методом render() для подключения шаблонов
-
 	public function __construct(
-		private readonly PersonRepository       $personRepository,
+		private readonly PersonRepository        $personRepository,
 		private readonly StudentRecordRepository $studentRecords,
+		private readonly ProfileViewResolver     $resolver,
 	) {
 		parent::__construct();
 	}
 
-	/**
-	 * Регистрирует все хуки и шорткоды контроллера.
-	 *
-	 * @return void
-	 */
 	public function register(): void {
-		// 'template_redirect' — хук, срабатывающий перед загрузкой шаблона темы
+		// 'template_redirect' — редиректы/гейты до загрузки шаблона.
 		add_action( 'template_redirect', array( $this, 'handleRoutingAndPrivacy' ) );
 
-		// Шорткод для вставки профиля на любую страницу
-		add_shortcode( ShortCode::Profile->value, array( $this, 'renderProfileShortcode' ) );
+		// 'template_include' — полная подмена шаблона страницы профиля каркасом SPA.
+		add_filter( 'template_include', array( $this, 'loadProfileTemplate' ) );
 	}
 
 	/**
-	 * Обрабатывает маршрутизацию и проверку доступа к страницам.
+	 * Редиректы и проверки доступа к странице профиля.
 	 *
 	 * @return void
 	 */
 	public function handleRoutingAndPrivacy(): void {
-		// Если пользователь залогинен и находится на странице входа — редирект в профиль
-		// is_user_logged_in() — проверяет авторизацию
-		// isCurrent() — метод enum PageRoutes, проверяет соответствие текущей страницы
+		// Залогинен и на странице входа → в профиль.
 		if ( is_user_logged_in() && PageRoutes::SignIn->isCurrent() ) {
 			wp_safe_redirect( PageRoutes::UserProfile->url() );
 			exit;
 		}
 
-		// Если пользователь не залогинен и находится на странице профиля — редирект на вход
+		// Не залогинен и на профиле → на вход.
 		if ( ! is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
 			wp_safe_redirect( PageRoutes::SignIn->url() );
 			exit;
 		}
 
-		// T2.27: Гейт кабинета для полностью отчисленных (политика 'block').
 		if ( is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
+			$user = wp_get_current_user();
+
+			// Роли без фронт-витрины (методист/маркетолог) работают в админке WP.
+			// FSOffice/FSTeacher/учащиеся имеют витрину → остаются на /profile/.
+			if ( null === $this->resolver->viewFor( UserRole::primary( (array) $user->roles ) ) ) {
+				wp_safe_redirect( admin_url() );
+				exit;
+			}
+
+			// Гейт кабинета для полностью отчисленных (политика 'block').
 			$policy = get_option( OptionName::ExpulsionRetentionPolicy->value, 'retain' );
 			if ( 'block' === $policy ) {
 				$person = $this->personRepository->findByWpUserId( get_current_user_id() );
@@ -93,30 +96,16 @@ class ProfileController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Рендерит личный кабинет пользователя через шорткод.
+	 * Подменяет шаблон страницы профиля полноэкранным каркасом SPA.
 	 *
-	 * @return string HTML-контент профиля
+	 * @param string $template Путь к шаблону темы.
+	 *
+	 * @return string
 	 */
-	public function renderProfileShortcode(): string {
-		// Проверка авторизации
-		if ( ! is_user_logged_in() ) {
-			return '<p>Доступ ограничен. Пожалуйста, авторизуйтесь.</p>';
+	public function loadProfileTemplate( string $template ): string {
+		if ( ! PageRoutes::UserProfile->isCurrent() ) {
+			return $template;
 		}
-
-		// wp_get_current_user() — возвращает объект текущего пользователя
-		$current_user = wp_get_current_user();
-
-		// Буферизация вывода (трейт render() выводит напрямую, а шорткод должен возвращать строку)
-		ob_start();
-
-		$this->render(
-			'frontend/profile',
-			array(
-				'user' => $current_user,
-			)
-		);
-
-		// ob_get_clean() — получаем содержимое буфера и очищаем его
-		return (string) ob_get_clean();
+		return $this->path( 'templates/frontend/profile.php' );
 	}
 }

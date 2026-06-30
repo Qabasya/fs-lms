@@ -220,6 +220,16 @@ enum AjaxHook: string {
 	case GetGroupProgram         = 'get_group_program';
 	case GetGroupActivity        = 'get_group_activity';
 
+	// ==== КТП / расписание (ЛК преподавателя, Эпик 1) ====
+	case ReflowSchedule          = 'reflow_schedule';    // params: group_id — авто-распределение тем по слотам периода
+	case PinLesson               = 'pin_lesson';         // params: group_lesson_id, scheduled_at — закрепить тему на дату
+	case GetGroupCalendar        = 'get_group_calendar'; // params: group_id — слоты периода + выходные + размещённые темы
+
+	// ==== Журнал / посещаемость (ЛК преподавателя, Эпик 2) ====
+	case GetGroupJournal         = 'get_group_journal';  // params: group_id — ростер × (занятия+работы)
+	case SaveAttendance          = 'save_attendance';    // params: group_lesson_id, student_person_id, is_present
+	case BulkAttendance          = 'bulk_attendance';    // params: group_lesson_id, is_present — всем в занятии
+
 	// ==== Клонирование / форк контента (T1.5.11) ====
 	case CloneLesson         = 'clone_lesson';
 	case CloneWork           = 'clone_work';

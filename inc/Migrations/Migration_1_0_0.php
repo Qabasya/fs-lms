@@ -546,6 +546,22 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 22. attendance — посещаемость занятий (ЛК преподавателя, Эпик 2) =====
+		$attendance = TableName::Attendance->prefixed();
+		dbDelta(
+			"CREATE TABLE $attendance (
+			id                bigint unsigned     NOT NULL AUTO_INCREMENT,
+			group_lesson_id   int unsigned        NOT NULL,
+			student_person_id bigint unsigned     NOT NULL,
+			is_present        tinyint(1)          NOT NULL DEFAULT 1,
+			marked_by         bigint(20) unsigned DEFAULT NULL,
+			marked_at         datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			UNIQUE KEY uq_lesson_student (group_lesson_id, student_person_id),
+			KEY student_person_id (student_person_id)
+		) $cc;"
+		);
+
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$student_records`
@@ -600,6 +616,7 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::Attendance->prefixed(),
 			TableName::TaskAttempts->prefixed(),
 			TableName::LessonProgress->prefixed(),
 			TableName::AssessmentAnswers->prefixed(),

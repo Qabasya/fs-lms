@@ -109,4 +109,31 @@ class SessionCalendarService {
 
 		$this->groupLessons->applySlots( $groupId, $slots );
 	}
+
+	/**
+	 * Метаданные периода для рендера календаря КТП: границы периода, выходные
+	 * и уникальные даты занятий (из сгенерированных слотов).
+	 *
+	 * @return array{period:?array{start_date:string,end_date:string}, holidays:string[], lessonDays:string[]}
+	 */
+	public function periodMeta( int $groupId ): array {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			return array( 'period' => null, 'holidays' => array(), 'lessonDays' => array() );
+		}
+
+		$period     = $this->periods->getById( (string) $group->academic_period_id );
+		$lessonDays = array_values( array_unique( array_map(
+			static fn( array $slot ): string => substr( $slot['scheduled_at'], 0, 10 ),
+			$this->generate( $groupId )
+		) ) );
+
+		return array(
+			'period'     => $period && $period->start_date && $period->end_date
+				? array( 'start_date' => $period->start_date, 'end_date' => $period->end_date )
+				: null,
+			'holidays'   => $period ? array_values( $period->holidays ) : array(),
+			'lessonDays' => $lessonDays,
+		);
+	}
 }

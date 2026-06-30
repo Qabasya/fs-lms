@@ -159,6 +159,61 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	/**
+	 * Авто-распределение тем по слотам периода (кнопка «Распределить» в КТП).
+	 * Params: group_id
+	 */
+	public function ajaxReflowSchedule(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->scheduleService->reflow( $groupId, $userId );
+		$this->success();
+	}
+
+	/**
+	 * Закрепляет тему на дату (drag-drop темы на день календаря).
+	 * Params: group_lesson_id, scheduled_at
+	 */
+	public function ajaxPinLesson(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$scheduledAt   = $this->sanitizeText( 'scheduled_at' );
+		$userId        = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+		if ( '' === $scheduledAt ) {
+			$this->error( __( 'Не указана дата.', 'fs-lms' ) );
+		}
+
+		$this->scheduleService->pinToDate( $groupLessonId, $scheduledAt, $userId );
+		$this->success();
+	}
+
+	/**
+	 * Календарь КТП группы: слоты периода, выходные и размещённые темы.
+	 * Params: group_id
+	 */
+	public function ajaxGetGroupCalendar(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->success( $this->scheduleService->getCalendar( $groupId ) );
+	}
+
+	/**
 	 * Возвращает список task-шагов урока с базовыми настройками и переопределениями группы.
 	 * Используется в панели настроек шагов кокпита (Этап 6, Фаза D).
 	 * Params: group_lesson_id

@@ -197,6 +197,67 @@ class ScheduleService {
 		);
 	}
 
+	/**
+	 * Закрепляет тему на конкретную дату (drag-drop в КТП): дата + pin, затем
+	 * остальные (непиннутые) темы переразливаются вокруг закреплённой.
+	 *
+	 * @param string $scheduledAt Дата/датавремя слота ('Y-m-d' или 'Y-m-d H:i:s').
+	 */
+	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId ): void {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row ) {
+			throw new \InvalidArgumentException( 'Строка программы не найдена.' );
+		}
+
+		$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId );
+		$this->groupLessons->setPinned( $groupLessonId, true );
+		$this->calendar->reflow( $row->groupId );
+
+		$this->dispatcher->dispatch(
+			LogEvent::ScheduleChanged,
+			new LearningEvent(
+				event       : LogEvent::ScheduleChanged,
+				actorUserId : $actorUserId,
+				groupId     : $row->groupId,
+				entityType  : 'group_lesson',
+				entityId    : (string) $groupLessonId,
+				isPublic    : false,
+			)
+		);
+	}
+
+	/**
+	 * Календарь КТП группы: метаданные периода (даты занятий, выходные) + темы
+	 * программы с их размещением. Если курс группе не назначен — assigned=false.
+	 *
+	 * @return array{assigned:bool, period:?array, holidays:string[], lessonDays:string[], themes:array<int,array<string,mixed>>}
+	 */
+	public function getCalendar( int $groupId ): array {
+		$group = $this->groups->findById( $groupId );
+		$meta  = $this->calendar->periodMeta( $groupId );
+
+		$themes = array();
+		foreach ( $this->getProgram( $groupId ) as $i => $entry ) {
+			$row      = $entry['row'];
+			$themes[] = array(
+				'group_lesson_id' => $row->id,
+				'lesson_id'       => $row->lessonId,
+				'n'               => $i + 1,
+				'topic'           => $entry['topic'],
+				'scheduled_at'    => $row->scheduledAt,
+				'is_pinned'       => $row->isPinned,
+			);
+		}
+
+		return array(
+			'assigned'   => $group ? ! empty( $group->course_id ) : false,
+			'period'     => $meta['period'],
+			'holidays'   => $meta['holidays'],
+			'lessonDays' => $meta['lessonDays'],
+			'themes'     => $themes,
+		);
+	}
+
 	public function getProgramRow( int $groupLessonId ): ?\Inc\DTO\Course\GroupLessonDTO {
 		return $this->groupLessons->find( $groupLessonId );
 	}

@@ -12,6 +12,7 @@ use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Application\ApplicationSettingsService;
 use Inc\Services\Security\FormGuardService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\Traits\Sanitizer;
@@ -51,6 +52,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		private readonly FormGuardService   $formGuard,
 		private readonly ApplicationSettingsService $applicationSettings,
 		private readonly TemplateRegistry   $templateRegistry,
+		private readonly ProfileViewResolver $profileResolver,
 	) {
 		parent::__construct();
 	}
@@ -280,11 +282,49 @@ class Enqueue extends BaseController implements ServiceInterface {
 	}
 
 	/**
+	 * Подключение изолированного бандла личного кабинета (/profile/).
+	 *
+	 * Грузит только profile.min.css/js и локализует window.fsProfile
+	 * (роль → состав кабинета + режим доступа) через ProfileViewResolver.
+	 *
+	 * @return void
+	 */
+	private function enqueue_profile_assets(): void {
+		wp_enqueue_style(
+			'fs-lms-profile-style',
+			$this->url( 'assets/css/profile.min.css' ),
+			array(),
+			filemtime( $this->path( 'assets/css/profile.min.css' ) )
+		);
+
+		wp_enqueue_script(
+			'fs-lms-profile-script',
+			$this->url( 'assets/js/profile.min.js' ),
+			array(),
+			filemtime( $this->path( 'assets/js/profile.min.js' ) ),
+			true
+		);
+
+		wp_localize_script(
+			'fs-lms-profile-script',
+			'fsProfile',
+			$this->profileResolver->jsConfig( get_current_user_id() )
+		);
+	}
+
+	/**
 	 * Подключение ресурсов на фронтенде (публичная часть сайта).
 	 *
 	 * @return void
 	 */
 	public function enqueue_frontend_assets(): void {
+		// Личный кабинет — изолированный полноэкранный SPA: грузим только его бандл,
+		// без общего frontend/theme-стека, чтобы не мешать вёрстке кабинета.
+		if ( is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
+			$this->enqueue_profile_assets();
+			return;
+		}
+
 		wp_enqueue_style(
 			'fs-lms-fontawesome',
 			'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css',

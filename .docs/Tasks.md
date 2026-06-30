@@ -1,186 +1,227 @@
-# План внедрения RBAC (этапы)
+# Задачи: Личный кабинет преподавателя
 
-> **Источник:** [[Roles.md]] §7 (миграция прав). **Статус:** не начато.
-> **Дата:** 2026-06-30.
-
-Пошаговый план перехода от текущих двух широких прав (`manage_lms_assignments`, `manage_options`) к дробной модели из `Roles.md`. Каждый этап самодостаточен и безопасен.
-
-## Принципы безопасной миграции
-
-1. **Administrator никогда не теряет доступ** — на каждом шаге сначала выдаём новое право, потом перевешиваем гейты, и только в конце снимаем старое.
-2. **Не снимаем старый доступ, пока не работает замена.** `manage_lms_assignments` живёт до конца этапа 8.
-3. **Не назначаем новые роли пользователям до конца этапа 3** — до этого гейты ещё на старом праве, роли инертны.
-4. **Каждый этап → прогон PHPUnit** (`./vendor/bin/phpunit`) + ручная проверка по матрице ролей.
+> Декомпозиция работ по реализации ЛК преподавателя на основе [`Courses.md`](./Courses.md).
+> Учитывает уже реализованный фундамент (Этап 2 «программа группы») и **SPA-оболочку профиля `/profile/`**, собранную из дизайн-хэндоффа `lms-front/project/Teacher Cabinet.html` и встроенную в ядро (per-role).
+>
+> **Легенда статуса:** ✅ готово · 🟡 частично (есть данные/логика, нет UI/связки) · 🔴 не начато · 🔶 развилка (нужно решение).
+> **Слой:** `Lms` — домен (миграции, сервисы, AJAX) · `Profile` — личный кабинет `/profile/`, **часть ядра** (не отключаемый): SPA-оболочка + per-role витрины + презентация. Глубокие экраны (журнал/КТП/проверка) живут в SPA профиля; доменные операции — через AJAX-хуки `Lms`. Кокпит `/group/` упраздняется.
 
 ---
 
-## Этап 1 — Реестр capabilities и ролей (фундамент)
+## A. Текущее состояние
 
-Добавляем новые права и роли, раздаём их в `RoleManager`. Гейты пока не трогаем — поведение не меняется, новые роли инертны.
+### A.1. Фундамент (готов, переиспользуем — НЕ переписывать)
 
-**Задача 1.1. Новые capabilities.**
-`inc/Enums/Access/Capability.php` — добавить кейсы: `ManageLmsPlatform = 'manage_lms_platform'`, `AuthorLmsCourses = 'author_lms_courses'`, `ManageLmsArticles = 'manage_lms_articles'`, `ManageLmsTeaching = 'manage_lms_teaching'`, `ManageLmsRoles = 'manage_lms_roles'`. (`EditLmsCoursePresentation` — отложено, см. Roles.md §8.)
-
-**Задача 1.2. Новые роли.**
-`inc/Enums/Access/UserRole.php` — добавить кейсы `FSMethodist = 'lms_methodist'`, `FSMarket = 'lms_market'`; их `label()` (🎓 LMS: Методист / Маркетолог); расширить `capabilities()` (L98-113):
-- `FSMethodist` → `author_lms_courses`
-- `FSMarket` → `manage_lms_articles`, `view_lms_stats`
-- `FSOffice` → дополнить до полного набора: `manage_lms_platform`, `view_lms_stats`, `export_pii`, `author_lms_courses`, `manage_lms_articles`, `manage_lms_teaching` (плюс уже имеющиеся applications/enroll/persons/view_pii)
-- `FSTeacher` → **добавить** `manage_lms_teaching` (старое `manage_lms_assignments` пока оставить)
-
-**Задача 1.3. Раздача прав и CPT-мета-каповов в RoleManager.**
-`inc/Managers/Person/RoleManager.php`:
-- В блоке грантов администратору (L75-87) добавить все новые `manage_lms_*` / `author_lms_courses`.
-- `lessonCaps()` (L102-119, `capability_type = fs_lms_content`) — выдать эти 14 мета-каповов **методисту** (`lms_methodist`) и **FSOffice**, а не только `lms_teacher` (L89-94). Это нужно, чтобы методист мог редактировать курсы/уроки/работы/контрольные/задачи в wp-admin.
-- Обновить doc-таблицу матрицы в шапке (L24-33).
-
-**Задача 1.4. Переустановка ролей на апгрейде.**
-`RoleManager::registerAll()` сейчас выполняется при активации. Добавить версионирование (`fs_lms_roles_version` в `wp_options`, по аналогии с `fs_lms_schema_version`) и пере-вызов `registerAll()` при росте версии — чтобы существующие установки получили новые роли/права без деактивации.
-
-**Проверка:** новые роли видны в WP (Пользователи → роль), `wp_roles` содержит новые caps; старое поведение не изменилось.
-
----
-
-## Этап 2 — Плагин-админ зоны: `manage_options` → `manage_lms_platform`
-
-Перевешиваем внутренние админ-страницы с native-WP-права на плагинное, чтобы их получил FSOffice.
-
-**Задача 2.1. Меню админки.**
-- `inc/Controllers/System/AdminController.php` (L138,177,187,198,209,219,229) — `Capability::Admin` → `Capability::ManageLmsPlatform` для: Settings, UserList (Пользователи), Logs, Groups, BoilerplateManager, Main-дашборд. **Исключение:** страницу/дашборд **Статистики** гейтить `Capability::ViewLmsStats` (чтобы её видел и маркетолог).
-- `inc/Controllers/Builders/SubjectsMenuBuilder.php` (L87, L117) — `Capability::Admin` → `Capability::ManageLmsPlatform` (Предметы).
-- `inc/Controllers/Log/LogsController.php` (L33, экспорт логов) — `Capability::Admin` → `Capability::ManageLmsPlatform`.
-
-**Задача 2.2. Админ-байпас на фронте групп.**
-- `inc/Services/Course/GroupAccessGuard.php` (`canManage()`, L19-25) — байпасить не только `Capability::Admin`, но и `Capability::ManageLmsPlatform` (FSOffice курирует любую группу).
-- `inc/Controllers/Group/GroupCockpitController.php` (L80, `$isAdmin`) — то же.
-
-**Проверка:** FSOffice заходит в Предметы/Настройки/Пользователи/Логи; маркетолог видит Статистику; администратор не потерял ничего.
-
----
-
-## Этап 3 — Раскол `manage_lms_assignments` в гейтах (авторинг / проведение / статьи)
-
-Перевешиваем все `authorize(..., ManageLMSAssignments)` и cap'ы меню. Роли уже несут новые права (этап 1), поэтому переключение безопасно.
-
-**Задача 3.1. Авторинг → `AuthorLmsCourses`.**
-Заменить `Capability::ManageLMSAssignments` на `Capability::AuthorLmsCourses` в:
-- `inc/Callbacks/Course/CourseBuilderCallbacks.php` (37,54,71,87,106,125,142)
-- `inc/Callbacks/Course/CourseCallbacks.php` (37)
-- `inc/Callbacks/Course/LessonCallbacks.php` (41,62,89,107,121,136,163) — **кроме** `ajaxCreateArticleDraft` (см. 3.3)
-- `inc/Callbacks/Course/WorkCallbacks.php` (40,57,79,100,118,148)
-- `inc/Callbacks/Course/CloneCallbacks.php` (89)
-- `inc/Callbacks/Assessment/AssessmentAuthorCallbacks.php` (43,70,90,220)
-- `inc/Callbacks/Assessment/ScoreMapCallbacks.php` (47,65)
-- `inc/Callbacks/Task/TaskContentCallbacks.php` (40,77)
-- `inc/Callbacks/Task/TaskCreationCallbacks.php` (60,96,109)
-- `inc/Controllers/Problems/ProblemsController.php` (179)
-- `inc/Controllers/Subject/ContentDeletionGuard.php` (253)
-- `inc/Controllers/Course/CourseBuilderController.php` (42, cap страницы билдера)
-- `inc/Controllers/Course/LearningMenuController.php` (227, `$cap` для банков Курсы/Уроки/Работы/Контрольные/Банк задач/Задания) — **кроме** банка Статьи (3.3)
-
-**Задача 3.2. Проведение → `ManageLmsTeaching`.**
-- `inc/Callbacks/Course/GradingCallbacks.php` (37,65,87,109)
-- `inc/Callbacks/Course/BatchSubmissionCallbacks.php` (88)
-- `inc/Callbacks/Assessment/GradeAttemptCallbacks.php` (35)
-- `inc/Callbacks/Task/TaskAttemptCallbacks.php` (32)
-- `inc/Callbacks/Course/ProgramCallbacks.php` (45,60,75,89,99,113,126,136,150,167,212,239) — программа/расписание/видимость группы.
-  **Решить:** «назначить курс группе» (`AssignCourse`, L45) — это проведение (преподаватель) или операции (FSOffice)? По умолчанию — `ManageLmsTeaching` (FSOffice его тоже имеет). Если хотим, чтобы курсы группе цеплял только офис — вынести `AssignCourse` в `ManageLmsPlatform`.
-
-**Задача 3.3. Статьи → `ManageLmsArticles`.**
-- `inc/Callbacks/Course/LessonCallbacks.php` — `ajaxCreateArticleDraft` (~L149): `ManageLMSAssignments` → `ManageLmsArticles`.
-- `inc/Controllers/Course/LearningMenuController.php` (L267) — банк **Статьи**: отдельный cap `ManageLmsArticles` вместо общего `$cap`.
-- Аудит read-эндпоинтов статей (`ajaxGetLessonArticles` L89, `getStepCandidates` для kind=article) — оставить на `AuthorLmsCourses` (методисту нужно *ссылаться* на статьи в уроках, не создавая их).
-
-**Задача 3.4. Прочие точки.**
-- `inc/Modules/SocialAuth/Controllers/SocialAuthController.php` (143) — `ManageLMSAssignments` здесь выглядит чужеродно (контекст настроек модуля); проверить и, скорее всего, перевести на `ManageLmsPlatform`.
-
-**Проверка:** методист (только `author_lms_courses`) авторит, но не оценивает и не видит статистику; преподаватель (только `manage_lms_teaching`) оценивает, но не видит конструктор; администратор/офис — всё.
-
----
-
-## Этап 4 — Раздельный `capability_type` для статей (CPT-уровень)
-
-Сейчас все контент-CPT (`{key}_tasks/articles/lessons/works/assessments/courses`, `problems`) используют общий `capability_type = fs_lms_content` (SubjectController:358-376, ProblemsController:100). На уровне WP это делает «редактировать статью» неотличимым от «редактировать курс». Чтобы методист реально не мог редактировать статьи в wp-admin, статьям нужен свой тип.
-
-**Задача 4.1. Отдельный capability_type статей.**
-- `inc/Controllers/Subject/SubjectController.php` (~L375-376, аргументы CPT статей; либо фильтр `fs_lms_cpt_args`) — для `{key}_articles` задать `capability_type => 'fs_lms_article'`, `map_meta_cap => true`.
-
-**Задача 4.2. Гранты новых мета-каповов.**
-- `inc/Managers/Person/RoleManager.php` — добавить метод `articleCaps()` (аналог `lessonCaps()`, 14 каповов на `fs_lms_article`) и выдать их **FSMarket**, **FSOffice**, **administrator** — но **не** методисту.
-
-**Задача 4.3. UX-блок статей у методиста.** НЕ СДЕЛАНО
-- В конструкторе/банках — кнопку «создать статью» для методиста скрыть или показывать с предупреждением (как просил заказчик). Серверный cap-чек уже стоит (3.3) — UX это не замена, а дополнение.
-
-**Проверка:** методист не открывает редактор статьи (403/нет пункта); маркетолог создаёт/правит/публикует статьи; курсы/уроки методисту по-прежнему доступны.
-
----
-
-## Этап 5 — Ужесточение FSTeacher (только фронт)
-
-**Задача 5.1.** `inc/Enums/Access/UserRole.php` (`capabilities()`) — у `FSTeacher` убрать `manage_lms_assignments`, оставить только `manage_lms_teaching`.
-**Задача 5.2.** `inc/Managers/Person/RoleManager.php` — снять у `lms_teacher` 14 `fs_lms_content`-каповов (L89-94), т.к. преподаватель ничего не авторит. Предусмотреть миграцию `remove_cap` для уже существующих установок (через версию ролей из 1.4).
-
-**Проверка:** преподаватель не видит меню «Обучение», не открывает CPT-редакторы; кокпит своей группы и оценивание работают.
-
----
-
-## Этап 6 — Вкладка «Роли» в Настройках
-
-**Задача 6.1. Право и доступ.**
-`ManageLmsRoles` (этап 1) — выдать **только** administrator (в `RoleManager`, не в одной из плагинных ролей).
-
-**Задача 6.2. UI вкладки.**
-- Новый партиал `templates/admin/components/tabs/settings-tabs/settings-8-roles.php` (список персонала + чекбоксы ролей; строка администратора — отмечена и заблокирована).
-- Зарегистрировать вкладку в рендере страницы настроек: `inc/Callbacks/System/AdminCallbacks.php` (`settingsPage()`, L112) + навигация вкладок (там же, где подключаются `settings-1..7`).
-
-**Задача 6.3. Сохранение ролей (AJAX).**
-- Новый класс `inc/Callbacks/Settings/RolesSettingsCallbacks.php` (по образцу прочих `Settings/*Callbacks`): хэндлер назначения ролей через существующие `UserManager::addRole()` / `removeRole()` (`inc/Managers/Person/UserManager.php` L141-154).
-- Новый `Nonce` кейс (`inc/Enums/Wp/Nonce.php`) и `AjaxHook` (`inc/Enums/Wp/AjaxHook.php`); зарегистрировать в подходящем контроллере (`inc/Controllers/System/…`).
-- Авторизация: `$this->authorize(Nonce::SaveRoles, Capability::ManageLmsRoles)`.
-
-**Задача 6.4. Защита.**
-- Запрет самоэскалации (нельзя выдать право, которого нет у действующего), запрет снятия последнего administrator и самоблокировки.
-- Аудит изменения ролей в лог (через существующие log-writer'ы).
-- JS — только разметка/чекбоксы в `src/js/admin/...` (по конвенциям проекта), сборка gulp.
-
-**Проверка:** только администратор видит вкладку; назначение двух ролей одному пользователю даёт объединённые права; нельзя разлогинить/разжаловать себя.
-
----
-
-## Этап 7 — Косметика мультироли
-
-При легальной мультироли «первая роль» начинает врать в отображении и логах.
-
-**Задача 7.1.** Ввести понятие «основная роль» (например, user-meta `fs_lms_primary_role` или приоритет по enum) и использовать его в `inc/DTO/Person/UserDTO.php` (`fromWPUser()`, L83-93 — сейчас берёт первую совпавшую).
-**Задача 7.2.** Поправить log-writer'ы, берущие `roles[0]` / `reset($user->roles)`:
-- `inc/Services/Log/LearningEventWriter.php` (43), `EntityAuditLogWriter.php` (107), `ExportLogWriter.php` (98), `EmailLogWriter.php` (98), `DataChangeLogWriter.php` (103), `PiiAccessLogWriter.php` (97), `EnrollmentAuditLogWriter.php` (127), `ConsentChangeLogWriter.php` (100).
-
-**Проверка:** совместитель (методист+маркетолог) отображается корректно; в логах — осмысленная роль актора.
-
----
-
-## Этап 8 — Ретайр `manage_lms_assignments` и финальная чистка
-
-**Задача 8.1.** Убедиться, что не осталось ссылок на `Capability::ManageLMSAssignments` (grep). Снять его со всех ролей; удалить кейс из `Capability.php` или пометить deprecated.
-**Задача 8.2.** Обновить doc-таблицу в `RoleManager.php` и при необходимости `.docs/basic_doc.md` (матрица ролей).
-**Задача 8.3.** Финальный прогон тестов + ручная QA по матрице.
-
----
-
-## Тесты
-
-- На каждом этапе обновлять/добавлять PHPUnit для затронутых `*Callbacks` (память проекта: «покрывать коллбеки тестами»). Моки уже умеют подменять `current_user_can` через `$GLOBALS['_fs_test_can']` — добавить проверки, что требуется именно нужный cap, а не «любой залогиненный».
-- Отдельный тест на `RoleManager`: матрица «роль → ожидаемые caps».
-- Тест на защиту вкладки «Роли»: самоэскалация/самоблокировка отклоняются.
-
-## Матрица приёмки (ручная QA)
-
-Прогнать по каждой роли: что **видит** (меню), что **может** (создать/опубликовать/оценить), что **запрещено** (403/нет пункта). Эталон — §4 и §5 в `Roles.md`.
-
-| Роль | Должен мочь | Должно быть запрещено |
+| Кусок | Где | Статус |
 |---|---|---|
-| FSOffice | Предметы, Настройки, Пользователи, Логи, Статистика, заявки/зачисление/ПДн, (как override) авторинг/статьи/проведение | site-admin вне плагина; вкладка «Роли» |
-| FSMethodist | «Обучение»: курсы/уроки/работы/контрольные/задачи + публикация | статьи (создание/правка), Предметы/Настройки/Статистика, фронт-кокпит |
-| FSMarket | статьи (CRUD+публикация), Статистика | авторинг курсов, структура курса, Предметы/Настройки/ПДн |
-| FSTeacher | свои группы на фронте: журнал/посещаемость/оценивание/расписание, статистика по своим группам | админ-конструктор, создание любого контента, чужие группы, глобальная статистика |
-| Administrator | всё, включая вкладку «Роли» | — |
+| Группы + `course_id` | `fs_lms_groups`, `CourseAssignmentService` (запись), `ContentUsageService` (чтение) | ✅ |
+| Учебные периоды (start/end/holidays/is_current) | `fs_lms_academic_periods` | ✅ |
+| Членство учеников | `fs_lms_student_records`, `StudentRecordRepository` (`findActiveByGroupId`, `findActiveByParent`, …) | ✅ |
+| Люди / PII | `fs_lms_persons` + `fs_lms_person_documents` (libsodium) | ✅ |
+| Программа группы («занятия») | `fs_lms_group_lessons`, `GroupLessonDTO`, `GroupLessonRepository` | ✅ |
+| Прогресс по шагам | `fs_lms_lesson_progress`, `LessonProgressService::getStepStatuses()` | ✅ |
+| Сдачи работ | `fs_lms_submissions`, `SubmissionRepository::listQueueByGroup()` / `listForGradebookBy*()` | ✅ |
+| Проверка + оценка | `SubmissionService::grade()/gradeBatchTask()/returnForRework()`; хуки `SaveGrade`, `GradeBatchTask`, `ReturnSubmission` | ✅ |
+| Контрольные/ЕГЭ | `fs_lms_assessment_attempts` + `_answers`, `ExamResultService::buildForStudent()` | ✅ |
+| Интерактивные задачи | `fs_lms_task_attempts` | ✅ |
+| Сводка результатов | `GradebookService::forGroup()/forStudent()`, `GradebookEntryDTO` (score/maxScore/fraction — **сырые баллы, не 5-балльные оценки**), `GradeSourceRegistry` | 🟡 (конкатенация; среднего нет и не нужно — см. D4) |
+| Календарь занятий | `SessionCalendarService::generate()/reflow()`, `ScheduleService::reflow()/pin()`, `MeetingsNormalizer` | 🟡 (есть сервисы, **нет AJAX/UI**) |
+| Кокпит группы `/group/?gid=N` | `GroupCockpitController` — программа (assign course, add/remove/reorder/duplicate lesson, schedule, visibility, extra works), ростер, лента событий, очередь проверки + дневник | ✅ |
+| Доступ к группе | `GroupAccessGuard::canManage()/isMemberEver()/isParentOf()` | 🟡 (плоская проверка `teacher_id`+admin, без time-bound/замен) |
+
+**Готовые хуки программы:** `AssignCourse`, `AddLessonToProgram`, `RemoveLessonFromProgram`, `ReorderProgram`, `DuplicateProgramLesson`, `SaveLessonSchedule`, `SetLessonExtraWorks`, `SetLessonVisibility`, `GetGroupProgram`, `GetGroupActivity`.
+**Готовые хуки проверки/дневника:** `SaveGrade`, `GradeBatchTask`, `ReturnSubmission`, `GetGroupSubmissions`, `GetGradebook`.
+
+### A.2. Профиль `/profile/` — SPA в ядре + per-role резолвер (собрано, данные демо)
+
+> Решения D1/D2 (см. §B) уже реализованы: кабинет — **часть ядра**, маршрут — **`/profile/`**, имя — **«профиль»**, состав — **per-role** через резолвер. Модуль `TeacherCabinet` и маршрут `/cabinet/` удалены.
+
+| Кусок | Где | Статус |
+|---|---|---|
+| Маршрут + рендер | `ProfileController` (ядро): `template_redirect` (гейты) + `template_include` (полный SPA на `/profile/`); офисные роли → редирект в админку | ✅ |
+| Per-role резолвер | `ProfileViewResolver` → `ProfileContext` (роль, `subjectPersonId`, `readOnly`, дети) + `window.fsProfile` (локализация в `Enqueue`) | ✅ скелет |
+| Витрины (паттерн «2 формы / 3 роли») | `ProfileViewInterface`; `TeacherProfileView` (Главная/Журнал/КТП); `LearnerProfileView` — ученик **и** родитель (родитель = данные ребёнка + read-only) | ✅ скелет |
+| Шаблон-холст | `templates/frontend/profile.php` (статичный каркас; сайдбар/сцену наполняет JS из `fsProfile`) | ✅ |
+| Ассеты | `src/scss/profile/*` → `profile.min.css`; `src/js/profile/*` → `profile.min.js`; gulp-задача `styles:profile` | ✅ |
+| Экраны препода | `dashboard.js` (стат-плитки, расписание, ворклист, группы), `journal.js` (сетка, поповеры, 5 вариантов), `ktp.js` (банк тем, календарь, drag-drop) | 🟡 **демо-данные** |
+| Экраны учащегося | `learner.js` — заглушки (Главная/Курсы/Оценки/Посещаемость) | 🔴 заглушки |
+
+> Экраны препода работают на захардкоженных демо-данных (`src/js/profile/data.js`). ⚠️ Демо-журнал рисует 5-балльные оценки + «средний балл» — **это не наша модель** (см. D4): нужны +/− и сырые баллы. Доменная часть ниже — **замена демо-слоя реальными данными `Lms`** + новые куски (посещаемость, замены, индивидуальные занятия) + наполнение экранов учащегося (Эпик 7).
+
+### A.3. Доменные пробелы (полностью отсутствуют)
+
+`fs_lms_attendance` (бинарная +/−) 🔴 · колонки-эволюция `group_lessons` (`status`, `teacher_id_override`, `kind`, `student_person_id`) 🔴 · `fs_lms_substitutions` + `EffectiveTeacherResolver` + `Capability::ManageSchedule` 🔴 · индивидуальные занятия 🔴 · вывод `reflow` в AJAX 🔴 · time-bound доступ в `GroupAccessGuard` 🔴.
+
+---
+
+## B. Решения до старта (развилки)
+
+> D1/D2 — **зафиксированы и реализованы**. D3–D7 — **зафиксированы** (2026-06-30), реализуются в соответствующих эпиках.
+
+- **D1 — Граница UI и отключаемость. ✅ РЕШЕНО.** Кабинеты **не отключаемы** — это ядро. Кокпит `/group/` **упраздняется**; всё под рукой в одном месте — SPA профиля. Глубокие экраны (журнал/КТП/проверка) живут в SPA; доменные операции идут через AJAX-хуки/сервисы `Lms` (чистая слоистость: контроллеры тонкие, логика в сервисах — не ради отключаемости). Инвариант §4.1 «выключили Cabinet» **снят** (отменяет прежнюю формулировку §6 спеки).
+- **D2 — Имя, маршрут, охват. ✅ РЕШЕНО.** Имя — **«профиль»**, маршрут — **`/profile/`** (модуль `TeacherCabinet` и `/cabinet/` удалены, логика — в ядровом `ProfileController`). Паттерн — **per-role витрина, 2 формы на 3 роли**: `TeacherProfileView` (инструменты препода) и `LearnerProfileView` (ученик **и** родитель). Роль выбирает форму; контекст (`ProfileContext`) — охват данных и режим: ученик пишет свои данные, **родитель = тот же экран + данные ребёнка + read-only** (замок — на сервере: нет прав записи + не владелец). Офисные роли (`FSOffice/FSMethodist/FSMarket`) фронт-кабинета не имеют → редирект в админку.
+- **D3 — «Занятие». ✅ РЕШЕНО.** Эволюционируем `group_lessons` (не отдельная `session_instance`). **Отработок нет** — всё, что не групповое занятие, это `individual`. Колонки: `status`, `teacher_id_override`, `kind ENUM(group, individual)`, `student_person_id`. **Без `makeup`/`makeup_of_id`.** Индивидуальные не входят в программу группы (`position`) и в `reflow` (привязаны к дате, не к последовательности) → `reflow`/`GetGroupProgram` фильтруют `kind='group'`.
+- **D4 — Посещаемость и оценивание. ✅ РЕШЕНО.** Посещаемость **бинарная: присутствовал (+) / отсутствовал (−)** — без late/excused, без баллов и весов. **Оценок (5-балльных) и среднего балла НЕТ.** В журнале — сырые величины: **количество решённых задач** (`task_attempts`) и **баллы за экзамен** (`assessment_attempts`). Расходится с дизайн-моком (там 5-балльные оценки + «средний балл») — у нас не так.
+- **D5 — Замена. ✅ РЕШЕНО.** override (разовая, `teacher_id_override`) + grant на период (`substitutions`); резолв на чтении (`EffectiveTeacherResolver`: override › активная замена › `groups.teacher_id`). `groups.teacher_id` не перезаписывать. `GroupAccessGuard::canManage` пускает при активном grant, гаснет по `valid_to`. Назначает `FSOffice` **в админке** (не в `/profile/`); профиль препода лишь отображает «замена до [дата]». Capability — **новая `ManageSchedule` (только офис)**: `ManageLmsTeaching` не годится (её имеет и `FSTeacher`).
+- **D6 — Источник тем КТП. ✅ РЕШЕНО.** КТП группы = уроки назначенного курса по порядку (`course_id` → `CourseDTO::lessonIds()`), не «все курсы предмета». **Один курс на группу** (скалярный `course_id`).
+- **D7 — lock КТП (§4.2), рубрики (§4.4). ✅ РЕШЕНО: позже (post-v1).** Взвешивание оценок (§3.5) **снято с повестки** — оценок/среднего нет (см. D4), взвешивать нечего.
+
+---
+
+## C. Эпик 1 — Курс↔группа + КТП (вывести `reflow` в AJAX и связать с UI)
+
+> Движок (`SessionCalendarService`) и связка `course_id` есть. Нужны AJAX-обёртки и замена клиентского демо-reflow в `ktp.js` реальными данными.
+
+| ID | Задача | Слой | Статус | Зависит | Затрагивает |
+|---|---|---|---|---|---|
+| T1.1 | Хук `AjaxHook::ReflowSchedule` → `ProgramCallbacks::ajaxReflowSchedule` → `ScheduleService::reflow(groupId, actorUserId)` (nonce `SaveSchedule` + cap `ManageLmsTeaching` + `canManage`) | Lms | ✅ | — | `AjaxHook`, `ScheduleController`, `ProgramCallbacks` |
+| T1.2 | Хук `AjaxHook::PinLesson` → `ScheduleService::pinToDate()` (set `scheduled_at` + `is_pinned` + reflow остального вокруг пина) | Lms | ✅ | — | `ProgramCallbacks`, `ScheduleService::pinToDate()` |
+| T1.3 | Перенос даты — покрыт существующим `SaveLessonSchedule` → `ScheduleService::schedule()`; отдельный `MoveLesson` не нужен | Lms | ✅ | — | — |
+| T1.4 | Хук `AjaxHook::GetGroupCalendar` → `ScheduleService::getCalendar()` (период, выходные, lessonDays, темы с размещением) + `SessionCalendarService::periodMeta()` | Lms | ✅ | — | `ProgramCallbacks`, `ScheduleService`, `SessionCalendarService` |
+| T1.5 | КТП группы = уроки назначенного курса; `getCalendar` отдаёт `assigned` (по `groups.course_id`) для пустого состояния. Наполнение программы из курса — существующий `assign`/`AssignCourse` | Lms | ✅ | D6 | `CourseAssignmentService`, `getCalendar` |
+| T1.6 | `ktp.js` переписан на реальные данные: `get_group_calendar` → банк + календарь (мульти-месяц периода); drag → `pin_lesson`; «Распределить» → `reflow_schedule`; демо-`reflow` убран. `fsProfile` несёт nonce `SaveSchedule` + действия + группы препода (`ProfileViewResolver`) | Profile | ✅ | T1.1–T1.5 | `src/js/profile/ktp.js`, `ProfileViewResolver`, `GroupsRepository::findByTeacherId` |
+| T1.7 | Переключение группы в КТП (пикер из `fsProfile.groups`) — готово. Назначение курса из КТП — **отложено** (нет endpoint списка курсов; пустое состояние ведёт в админку) | Profile | 🟡 | T1.6 | `ktp.js` |
+| T1.8 | (опц. 🔶 D7) Lock КТП после публикации | Lms | 🔴 | — | флаг на `group_lessons`/группе |
+
+> **Эпик 1 готов (кроме T1.7-курс/T1.8).** Бэкенд (T1.1–T1.5): 3 хука зарегистрированы + проверены (`has_action`). Фронт (T1.6): `ktp.js` AJAX-driven, бандл собран без ошибок. `fsProfile` для препода #54 отдаёт группы + nonce + действия (проверено). Сид-данные: группа #1 «Тест-группа 9А» (предмет `test`, курс 16628, 6 тем разложены `reflow` по периоду 2026-03-01…07-12), препод **demoteacher / teacher123** (#54, чистый `lms_teacher`).
+> ⚠️ Мульти-ролевой юзер (teacher+methodist) резолвится как staff (`primary()` → methodist) → редирект в админку, а не в кабинет препода. Edge для RBAC: возможно, фронт-кабинет должен предпочитать роль препода. См. [[rbac-role-redesign]].
+> ⏳ T1.7 курс-пикер требует endpoint «список курсов предмета» (нет в ядре) — отдельная мелкая задача.
+
+**Acceptance:** препод открывает КТП реальной группы → видит слоты периода с каникулами; «Распределить» раскидывает уроки курса по слотам; перетаскивание закрепляет тему (пин), хвост переразливается; перезагрузка сохраняет результат (данные в БД, не в JS). ✅ путь данных проверен (`getCalendar` → 6 тем размещены); визуально — вход `demoteacher`/`/profile/` → КТП.
+
+---
+
+## D. Эпик 2 — Посещаемость + журнал-сетка
+
+> Журнал-сетка нарисована (демо). Нужна таблица посещаемости и связка ячеек с реальными `attendance` + `gradebook`.
+
+### D.1. Домен посещаемости (`Lms`)
+
+| ID | Задача | Статус | Затрагивает |
+|---|---|---|---|
+| T2.1 | Таблица `fs_lms_attendance` (uq `group_lesson_id`+`student_person_id`, `is_present`, `marked_by`, `marked_at`) — бинарно +/− | ✅ | `Migration_1_0_0`, `TableName::Attendance` |
+| T2.2 | `AttendanceDTO` | ✅ | `inc/DTO/Course/AttendanceDTO.php` |
+| T2.3 | `AttendanceRepository` (upsert ON DUPLICATE KEY, listByGroupLesson/Group/Student) | ✅ | `inc/Repositories/WPDBRepositories/AttendanceRepository.php` |
+| T2.4 | `AttendanceService` — `mark` / `markAll` («всем present») / `matrixForGroup` | ✅ | `inc/Services/Course/AttendanceService.php` |
+| T2.5 | Хуки `SaveAttendance` + `BulkAttendance` → `AttendanceService` (`JournalCallbacks`/`JournalController`) | ✅ | `AjaxHook`, `JournalController`, `JournalCallbacks` |
+| T2.6 | Хук `GetGroupJournal` → `JournalService::forGroup` (ростер × занятия(+/−) × работы(сырые баллы), **без оценок/среднего**) | ✅ | `JournalService`, `GradebookService`, `AttendanceService` |
+
+> **Бэкенд Эпика 2 готов** (T2.1–T2.6): таблица создана (через `dbDelta` точечно — ⚠️ `Migration::up()` дропает `groups`/`persons`/`student_records`, поэтому полный reset схемы НЕ запускал, чтобы не снести сид; версия возвращена в `1.0.0`). 3 хука зарегистрированы (`has_action`), `JournalService::forGroup(1)` → 6 занятий. `fsProfile` несёт блок `journal` (nonce+действия) для препода **и офиса**.
+> **FSOffice получил фронт-профиль (решение пользователя, расширяет D2):** `ProfileViewResolver::viewFor` отдаёт FSOffice витрину препода, но со **всеми** группами (`findAll`); доступ к любой группе уже даёт `canManage` по `ManageLmsPlatform` — `teacher_id` НЕ переписывается. Редирект-гейт в `ProfileController` теперь = «нет витрины у роли» (методист/маркетолог → админка), `UserRole::isStaff()` удалён. Замены (Эпик 5) делаются в профиле офиса. Проверено: office #55 видит группу #1 (чужую) — путь `findAll` работает.
+
+### D.2. Связка журнала (`Profile`)
+
+| ID | Задача | Статус | Затрагивает |
+|---|---|---|---|
+| T2.7 | `journal.js` переписан на `GetGroupJournal`: реальный ростер, столбцы занятий (+/−) и работ (сырые баллы); 5-балльные оценки и колонка среднего убраны; группа — из сайдбара (`setJournalGroup`) | ✅ | `src/js/profile/journal.js`, `app.js` |
+| T2.8 | Поповер ячейки (Был/Н) → `SaveAttendance`; меню заголовка занятия (Все присутствуют/отсутствуют) → `BulkAttendance`; локальное обновление ячеек | ✅ | `journal.js` |
+| T2.9 | «работы/контрольные» — отдельное семейство столбцов из `GradebookService` ✅. Помесячная пагинация — **не делал** (все занятия в одной сетке с гориз. скроллом и липкими колонками); опционально позже | 🟡 | `journal.js` |
+
+**Acceptance:** ✅ журнал реальной группы #1 показывает 6 учеников × 6 занятий; клик по ячейке ставит присутствие (+/−, пишется в `fs_lms_attendance`); меню колонки — массовая отметка; работы — сырые баллы (`GradebookService`); среднего/5-балльных оценок нет. Проверено: `JournalService::forGroup(1)` → 6 students / 6 lessons / 12 attendance marks. Визуально — вход `demoteacher` или `demooffice` → «Журнал».
+
+> **Эпик 2 завершён** (T2.1–T2.8 ✅, T2.9 🟡 без помесячной пагинации). Сид: 6 учеников в группе #1 + посещаемость на 2 занятиях. `works=0` пока нет сдач — заполнится в Эпике 3.
+
+---
+
+## E. Эпик 3 — Проверка работ (связать готовый бэкенд)
+
+> Бэкенд проверки готов (хуки `SaveGrade`/`GradeBatchTask`/`ReturnSubmission`, репозиторий очереди). В профиле нужен экран очереди + связка ворклиста.
+
+| ID | Задача | Слой | Статус | Затрагивает |
+|---|---|---|---|---|
+| T3.1 | Экран/панель «Проверка» в профиле: очередь `GetGroupSubmissions` (статус `submitted`) по всем группам препода | Profile | 🔴 | новый экран в SPA профиля |
+| T3.2 | Действие оценки + фидбек → `SaveGrade` / `GradeBatchTask`; возврат на доработку → `ReturnSubmission` | Profile | 🟡 | хуки готовы, нужен UI |
+| T3.3 | Ворклист «Главной» (Эпик 6) ведёт в очередь конкретной работы | Profile | 🔴 | T3.1, T6.x |
+| T3.4 | (опц. 🔶 D7) Рубрики/критерии, аннотирование PDF, пир-ревью | Lms | 🔴 | — |
+
+**Acceptance:** препод видит реальную очередь «на проверку», ставит оценку с фидбеком (через `SaveGrade`), работа уходит из очереди; авто-оценивание объективных уже работает (`AutoGradeService`/контрольные).
+
+---
+
+## F. Эпик 4 — Индивидуальные занятия (эволюция `group_lessons`)
+
+> Отработок нет (D3). Всё, что не групповое занятие — `kind='individual'` с одним учеником.
+
+| ID | Задача | Слой | Статус | Затрагивает |
+|---|---|---|---|---|
+| T4.1 | Колонки `group_lessons`: `status ENUM(scheduled/held/cancelled/moved)`, `teacher_id_override`, `kind ENUM(group/individual)`, `student_person_id` (+ ключи) в `Migration_1_0_0` (up/down/Cleanup) | Lms | 🔴 | `Migration_1_0_0` |
+| T4.2 | Расширить `GroupLessonDTO` новыми полями + `fromArray()` | Lms | 🔴 | `GroupLessonDTO` |
+| T4.3 | `status='held'` — фиксация «занятие проведено» (план/факт); `cancelled`/`moved` сдвигают нерассказанный хвост в `reflow` (а `kind='individual'` исключён из раскладки) | Lms | 🔴 | `SessionCalendarService::reflow()` (учесть status+kind) |
+| T4.4 | Хук `AjaxHook::CreateIndividualLesson` (`kind=individual`, `student_person_id`) | Lms | 🔴 | `AjaxHook`, callbacks |
+| T4.5 | UI: создать индивидуальное занятие; быстрое создание из absent-ячейки журнала / карточки ученика | Profile | 🟡 | `journal.js` (демо-кнопка в поповере → переназначить на «индивидуальное») |
+
+**Acceptance:** препод создаёт индивидуальное занятие на одного ученика (`kind='individual'`, `student_person_id`); оно не входит в программу группы и не двигает `reflow`.
+
+---
+
+## G. Эпик 5 — Замена преподавателя (`substitutions` + резолвер + доступ)
+
+| ID | Задача | Слой | Статус | Затрагивает |
+|---|---|---|---|---|
+| T5.1 | Таблица `fs_lms_substitutions` (group_id, original/substitute_teacher_id, valid_from/to, reason, approved_by) в `Migration_1_0_0` | Lms | 🔴 | `Migration_1_0_0`, `TableName::Substitutions` |
+| T5.2 | `SubstitutionDTO` + `SubstitutionRepository` (активные на дату, по substitute) | Lms | 🔴 | DTO/Repo |
+| T5.3 | `EffectiveTeacherResolver`: `teacher_id_override` › активная `substitutions` (`valid_from≤D≤valid_to`) › `groups.teacher_id` | Lms | 🔴 | новый сервис |
+| T5.4 | Расширить `GroupAccessGuard::canManage()` — time-bound grant (юзер, группа, сегодня); по `valid_to` доступ гаснет сам | Lms | 🔴 | `GroupAccessGuard` |
+| T5.5 | `Capability::ManageSchedule` (или офисная) + хук `AjaxHook::AssignSubstitute`; назначает завуч/`FSOffice` (интерфейс в офисе, не в кабинете препода) | Lms | 🔴 🔶 D5 | `Capability`, `RoleManager`, `AjaxHook` |
+| T5.6 | «Главная» замещающего: чужие группы на срок grant с маркером «замена до [дата]»; печать списка замен | Profile | 🔴 | dashboard-агрегация |
+| T5.7 | Оригинальный препод видит свою группу «замена до [дата]» (read-only в период замены) 🔶 | Profile | 🔴 | dashboard |
+
+**Acceptance:** завуч создаёт замену на период → замещающий видит группу в «Главной» и пускается в журнал; по истечении `valid_to` доступ исчезает без ручной правки; `groups.teacher_id` не перезаписывается.
+
+---
+
+## H. Эпик 6 — «Главная» кабинета (агрегация по всем группам)
+
+> Оболочка и `dashboard.js` нарисованы (демо). Нужна кросс-групповая агрегация реальных данных.
+
+| ID | Задача | Слой | Статус | Затрагивает |
+|---|---|---|---|---|
+| T6.1 | D1/D2 зафиксированы и реализованы (профиль в ядре, `/profile/`, per-role резолвер) | — | ✅ | — |
+| T6.2 | Хук `AjaxHook::GetProfileDashboard` — занятия сегодня/неделя по всем группам препода (effective-teacher), агрегированный ворклист | Profile→Lms | 🔴 | `EffectiveTeacherResolver` (T5.3), `group_lessons`, `SessionCalendarService` |
+| T6.3 | Ворклист «заполнить»: незаполненная посещаемость прошедших занятий | Lms | 🔴 | `AttendanceService` (T2.4) |
+| T6.4 | Ворклист «проверить»: `SubmissionRepository::listQueueByGroup()` по всем группам | Lms | 🟡 | готовый репозиторий |
+| T6.5 | `dashboard.js`: рендер из `GetProfileDashboard`; сайдбар-группы из реальных групп препода; убрать демо | Profile | 🔴 | `src/js/profile/dashboard.js`, `data.js` |
+| T6.6 | Стат-плитки из реальных агрегатов (занятий сегодня, на проверке, не заполнено) | Profile | 🔴 | T6.2 |
+| T6.7 | Карточка ученика (§4.5): срез по `student_person_id` — посещаемость, задачи, работы, контрольные, прогресс; **без PII** (`ViewPII` только офис) | Profile | 🔴 | gradebook/attendance/progress по ученику |
+
+**Acceptance:** «Главная» показывает реальное расписание препода на сегодня/неделю по всем группам (включая замены); ворклист считает реальные незаполненные журналы и работы на проверке; навигация ведёт в журнал/проверку нужной группы.
+
+---
+
+## I. Эпик 7 — Профиль ученика/родителя (зеркальный, после препода)
+
+> Многое готово (student-cockpit, lesson-player, `ExamResultService`). Профиль в основном собирает. Каркас per-role уже есть: `LearnerProfileView` + `ProfileContext` (ученик self / родитель child+read-only); экраны — заглушки `learner.js`, ждут наполнения.
+
+| ID | Задача | Статус | Источник |
+|---|---|---|---|
+| T7.1 | Per-role рендер `/profile/` для учащегося — каркас (`LearnerProfileView`, `ProfileContext`, заглушки) | 🟡 | `ProfileViewResolver` (готов) |
+| T7.2 | «Главная» ученика: расписание, дедлайны, новые оценки, ДЗ | 🔴 | `group_lessons`, `submissions.due_at`, `assessment_attempts` |
+| T7.3 | «Мои оценки» (дневник ученика) | 🟡 | `GradebookService::forStudent()` |
+| T7.4 | «Посещаемость» ученика и % | 🔴 | `fs_lms_attendance` (после T2.x) |
+| T7.5 | Родитель: те же данные по ребёнку, read-only | 🔴 | + фильтр `parent_person_id` (`findActiveByParent`) |
+| T7.6 | 🔶 Модель ДЗ (на `submissions` или поле занятия) | 🔴 | — |
+
+---
+
+## J. Эпик 8 — Сквозное (оценки, качество, доступ)
+
+| ID | Задача | Статус | Примечание |
+|---|---|---|---|
+| T8.1 | ~~Взвешивание оценок~~ **снято** (оценок и среднего нет — см. D4). Из D7 остаётся post-v1: lock КТП, рубрики | ⛔ N/A | заменено сырыми баллами |
+| T8.2 | PHPUnit на новые `*Callbacks` (посещаемость, reflow, замены, индивидуальные) | 🔴 | политика «cover callbacks with tests» |
+| T8.3 | Приёмка per-role доступа: препод видит свои группы/инструменты; ученик — только свои данные (read-write); родитель — данные ребёнка (read-only, замок на сервере); офисные роли → редирект в админку | 🔴 | приёмочный чек |
+| T8.4 | `npx gulp build` + `styles:check` зелёные; ассеты `profile.min.*` собираются | ✅ (для оболочки) | поддерживать |
+
+---
+
+## K. Порядок (рекомендуемый)
+
+1. **B (решения).** D1/D2 ✅ зафиксированы и реализованы (профиль в ядре, `/profile/`, per-role). Осталось решить D3–D7 перед соответствующими эпиками.
+2. **Эпик 1 (КТП + reflow→AJAX)** — самый дешёвый, движок уже есть.
+3. **Эпик 2 (посещаемость + журнал)** — ядро ценности препода.
+4. **Эпик 3 (проверка)** — бэкенд готов, нужен экран/связка.
+5. **Эпик 6 («Главная» агрегация)** — после того как есть что агрегировать.
+6. **Эпик 4 (индивидуальные занятия)** → **Эпик 5 (замены)** — доменные расширения.
+7. **Эпик 7 (ученик/родитель)**, **Эпик 8 (тесты, доступ, post-v1)**.
+
+> Маппинг на под-этапы `Courses.md` §7: 1→Эпик1, 2→Эпик2, 3→Эпик3, 4→Эпик4, 5→Эпик5, 6→Эпик6+7, 7→Эпик8.
