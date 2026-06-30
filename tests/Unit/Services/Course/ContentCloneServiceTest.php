@@ -90,6 +90,20 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertSame( 's2', $cloned->steps[1]->key );
 	}
 
+	public function test_clone_lesson_marks_steps_for_review(): void {
+		fs_test_seed_post(
+			array( 'ID' => 3, 'post_type' => 'inf_lessons', 'post_title' => 'Урок', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'steps' => array(
+				array( 'key' => 's1', 'type' => 'text', 'payload' => array( 'content' => 'Hello' ) ),
+			) ) )
+		);
+
+		$cloned = $this->lessons->get( $this->service->cloneLesson( 3 ) );
+
+		// Каждый шаг копии помечен «изменить контент» (payload.needs_review).
+		self::assertTrue( $cloned->steps[0]->payload['needs_review'] );
+	}
+
 	// ── cloneWork ───────────────────────────────────────────────────────────
 
 	public function test_clone_work_returns_zero_for_missing(): void {

@@ -27,9 +27,10 @@ use Inc\Services\Subject\PostTypeResolver;
 class CourseBuilderService {
 
 	public function __construct(
-		private readonly CourseManager $courses,
-		private readonly LessonManager $lessons,
-		private readonly PostManager   $posts,
+		private readonly CourseManager        $courses,
+		private readonly LessonManager        $lessons,
+		private readonly PostManager          $posts,
+		private readonly ContentCloneService  $cloneService,
 	) {}
 
 	/**
@@ -178,6 +179,55 @@ class CourseBuilderService {
 		$this->courses->update( $courseId, $this->withModules( $course, $modules ) );
 
 		$created = $this->lessons->get( $lessonId );
+		return null !== $created ? $this->lessonNode( $created ) : null;
+	}
+
+	/**
+	 * Дублирует урок: клонирует пост (steps + « (копия)») и вставляет копию
+	 * сразу после оригинала в том же модуле.
+	 *
+	 * @param int    $courseId
+	 * @param string $moduleId
+	 * @param int    $lessonId Оригинальный урок для дублирования.
+	 *
+	 * @return array<string, mixed>|null Нода нового урока для дерева, либо null.
+	 */
+	public function duplicateLessonInModule( int $courseId, string $moduleId, int $lessonId ): ?array {
+		$course = $this->courses->get( $courseId );
+		if ( null === $course ) {
+			return null;
+		}
+
+		// Проверяем модуль и наличие оригинала в нём ДО клонирования — чтобы не плодить сирот.
+		$target = null;
+		foreach ( $course->modules as $module ) {
+			if ( $module->id === $moduleId ) {
+				$target = $module;
+				break;
+			}
+		}
+		if ( null === $target || ! in_array( $lessonId, $target->lessonIds, true ) ) {
+			return null;
+		}
+
+		$newId = $this->cloneService->cloneLesson( $lessonId );
+		if ( $newId <= 0 ) {
+			return null;
+		}
+
+		$modules = array();
+		foreach ( $course->modules as $module ) {
+			$lessonIds = $module->lessonIds;
+			if ( $module->id === $moduleId ) {
+				$pos = (int) array_search( $lessonId, $lessonIds, true );
+				array_splice( $lessonIds, $pos + 1, 0, array( $newId ) );
+			}
+			$modules[] = new ModuleDTO( $module->id, $module->title, $lessonIds, $module->description );
+		}
+
+		$this->courses->update( $courseId, $this->withModules( $course, $modules ) );
+
+		$created = $this->lessons->get( $newId );
 		return null !== $created ? $this->lessonNode( $created ) : null;
 	}
 

@@ -100,6 +100,25 @@ class CourseBuilderCallbacks extends BaseController {
 	}
 
 	/**
+	 * Дублирует урок в модуле. Params: course_id, module_id, lesson_id
+	 */
+	public function ajaxDuplicateLessonInModule(): void {
+		$this->authorize( Nonce::AuthorCourse, Capability::ManageLMSAssignments );
+
+		$course_id = $this->requireInt( 'course_id' );
+		$module_id = $this->requireKey( 'module_id' );
+		$lesson_id = $this->requireInt( 'lesson_id' );
+
+		$node = $this->builder->duplicateLessonInModule( $course_id, $module_id, $lesson_id );
+		if ( null === $node ) {
+			$this->error( 'Не удалось дублировать урок.' );
+			return;
+		}
+
+		$this->success( $node );
+	}
+
+	/**
 	 * Обновляет заголовок/публикацию урока. Params: lesson_id, title, published
 	 */
 	public function ajaxUpdateLessonMeta(): void {

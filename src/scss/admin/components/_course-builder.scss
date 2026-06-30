@@ -184,6 +184,8 @@
 		&.published { background: $wp-admin-green-bg; color: $wp-admin-green-text; border-color: $wp-admin-green-bg; }
 		&.danger { background: transparent; color: $color-danger; border-color: $cb-danger-border-color;
 			&:hover { background: $cb-danger-hover-bg; } }
+			&--dup { background: transparent; color: var(--color-primary); border-color: currentColor;
+				&:hover { background: $wp-admin-blue-bg-light; } }
 	}
 
 	// editor body (контейнер правой панели; шаги — внутри .fs-se)

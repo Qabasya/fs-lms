@@ -8,6 +8,7 @@ use Inc\Callbacks\Course\CourseBuilderCallbacks;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Services\Course\ContentCloneService;
 use Inc\Services\Course\CourseBuilderService;
 use PHPUnit\Framework\TestCase;
 
@@ -20,16 +21,18 @@ class CourseBuilderCallbacksTest extends TestCase {
 	private CourseBuilderCallbacks $callbacks;
 	private CourseManager          $courses;
 	private LessonManager          $lessons;
+	private ContentCloneService    $cloneService;
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_posts();
 		fs_test_reset_ajax();
-		$posts           = new PostManager();
-		$this->courses   = new CourseManager( $posts );
-		$this->lessons   = new LessonManager( $posts );
-		$this->callbacks = new CourseBuilderCallbacks(
-			new CourseBuilderService( $this->courses, $this->lessons, $posts )
+		$posts              = new PostManager();
+		$this->courses      = new CourseManager( $posts );
+		$this->lessons      = new LessonManager( $posts );
+		$this->cloneService = $this->createMock( ContentCloneService::class );
+		$this->callbacks    = new CourseBuilderCallbacks(
+			new CourseBuilderService( $this->courses, $this->lessons, $posts, $this->cloneService )
 		);
 	}
 
@@ -128,6 +131,20 @@ class CourseBuilderCallbacksTest extends TestCase {
 		$lesson = $this->lessons->get( 10 );
 		self::assertSame( 'Новое', $lesson->topic );
 		self::assertSame( 'publish', $lesson->status );
+	}
+
+	public function test_duplicate_lesson_in_module_returns_node_and_links(): void {
+		$this->seedLesson( 10, 'inf', 'publish', 'Урок 1' );
+		$this->seedLesson( 11, 'inf', 'draft', 'Урок 1 (копия)' ); // «копия» от замоканного cloneService
+		$this->seedCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ) ) );
+		$this->cloneService->method( 'cloneLesson' )->with( 10 )->willReturn( 11 );
+		$_POST = array( 'course_id' => '1', 'module_id' => 'm1', 'lesson_id' => '10' );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxDuplicateLessonInModule() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 11, $r->payload['id'] );
+		self::assertSame( array( 10, 11 ), $this->courses->get( 1 )->modules[0]->lessonIds );
 	}
 
 	public function test_denies_without_capability(): void {

@@ -454,6 +454,7 @@ function createApp( mount ) {
 					<button type="button" class="lesson-flag ${ lesson.published ? 'published' : '' }" data-toggle-publish>
 						${ lesson.published ? 'Опубликован' : 'Черновик' }
 					</button>
+					<button type="button" class="lesson-flag lesson-flag--dup" data-les-dup><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> Дублировать урок</button>
 					<button type="button" class="lesson-flag danger" data-les-del>Убрать урок</button>
 				</div>
 			</div>
@@ -466,6 +467,7 @@ function createApp( mount ) {
 			persist.scheduleLessonMeta( lesson );
 		} );
 		pane.querySelector( '[data-toggle-publish]' ).addEventListener( 'click', () => persist.togglePublish( lesson ) );
+		pane.querySelector( '[data-les-dup]' ).addEventListener( 'click', () => duplicateLesson( lesson, module ) );
 		pane.querySelector( '[data-les-del]' ).addEventListener( 'click', () => removeLesson( lesson, module ) );
 
 		// Единый редактор шагов (общий модуль). Статус автосейва — в подвал курс-билдера.
@@ -528,6 +530,17 @@ function createApp( mount ) {
 				mod.collapsed = false;
 				selectLesson( node.id );
 				showToast( 'Урок добавлен', 'success' );
+			} )
+			.catch( ( msg ) => showToast( msg, 'error' ) );
+	}
+	function duplicateLesson( lesson, module ) {
+		ajax( acts().duplicateLessonInModule, { course_id: courseId, module_id: module.id, lesson_id: lesson.id } )
+			.then( ( node ) => {
+				const i = module.lessons.indexOf( lesson );
+				module.lessons.splice( i + 1, 0, node );
+				module.collapsed = false;
+				selectLesson( node.id );
+				showToast( 'Урок дублирован', 'success' );
 			} )
 			.catch( ( msg ) => showToast( msg, 'error' ) );
 	}

@@ -226,6 +226,11 @@ class LessonCallbacks extends BaseController {
 			default              => array(),
 		};
 
+		// Метка «дубликат — контент не изменён»: переживает сохранение (напоминание преподавателю).
+		if ( filter_var( $raw_payload['needs_review'] ?? false, FILTER_VALIDATE_BOOLEAN ) ) {
+			$payload['needs_review'] = true;
+		}
+
 		return array( 'key' => $key, 'type' => $type, 'payload' => $payload );
 	}
 }

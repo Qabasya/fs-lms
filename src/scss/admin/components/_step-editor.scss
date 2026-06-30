@@ -22,6 +22,7 @@
 			transition: transform 0.12s, box-shadow 0.12s; color: inherit;
 			svg { width: 30px; height: 30px; fill: currentColor; }
 			.sc-num { position: absolute; top: 3px; left: 5px; font-size: $font-size-sm; font-weight: $font-heavy; color: $color-secondary-hover; }
+			.sc-warn { position: absolute; top: 1px; right: 2px; margin: 0; line-height: 1; text-shadow: 0 0 2px $color-bg-modal; }
 		}
 		.sc-type { font-size: $font-size-sm; color: $color-secondary-hover; line-height: 1; }
 		&:hover .step-chip-box { transform: translateY(-2px); box-shadow: $shadow-cb-chip-hover; }
@@ -31,7 +32,8 @@
 		&.active {
 			.step-chip-box { border-color: currentColor; background: currentColor;
 				svg { fill: $color-text-inverse; }
-				.sc-num { color: $cb-chip-num-active-color; } }
+				.sc-num { color: $cb-chip-num-active-color; }
+				.sc-warn { color: $color-text-inverse; text-shadow: none; } }
 			.sc-type { font-weight: $font-heavy; color: currentColor; }
 		}
 	}

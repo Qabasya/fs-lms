@@ -167,6 +167,7 @@ enum AjaxHook: string {
 	case GetCourseBuilder    = 'get_course_builder';    // params: course_id
 	case SaveCourseStructure = 'save_course_structure'; // params: course_id, modules[] ({id,title,lesson_ids[]})
 	case CreateLessonInModule = 'create_lesson_in_module'; // params: course_id, module_id, title
+	case DuplicateLessonInModule = 'duplicate_lesson_in_module'; // params: course_id, module_id, lesson_id
 	case UpdateLessonMeta    = 'update_lesson_meta';    // params: lesson_id, title, published
 	case SaveCourseMeta      = 'save_course_meta';      // params: course_id, title, published
 

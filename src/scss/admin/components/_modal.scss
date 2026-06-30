@@ -319,10 +319,10 @@ html.modal-open {
 // Классы-модификаторы для изменения ширины модалки
 // Использование: <div class="fs-lms-modal-content fs-modal-lg">
 .fs-lms-modal-content {
-  &.fs-modal-sm { max-width: 35vw; }
-  &.fs-modal-md { max-width: 50vw; }
-  &.fs-modal-lg { max-width: 65vw; }
-  &.fs-modal-xl { max-width: 80vw; }
+  &.fs-modal-sm { max-width: 15vw; }
+  &.fs-modal-md { max-width: 30vw; }
+  &.fs-modal-lg { max-width: 45vw; }
+  &.fs-modal-xl { max-width: 65vw; }
 }
 
 

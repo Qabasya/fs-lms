@@ -306,7 +306,7 @@ export function createStepEditor( opts ) {
 			chip.dataset.type = stepMeta( s ).ui;
 			chip.draggable = true;
 			chip.innerHTML = `
-				<div class="step-chip-box"><span class="sc-num">${ i + 1 }</span>${ iconForStep( s ) }</div>
+				<div class="step-chip-box"><span class="sc-num">${ i + 1 }</span>${ iconForStep( s ) }${ s.payload && s.payload.needs_review ? '<span class="dashicons dashicons-warning fs-dashicon fs-dashicon--danger sc-warn" title="Дублированный шаг — измените контент"></span>' : '' }</div>
 				<span class="sc-type">${ esc( stepMeta( s ).name ) }</span>`;
 			chip.addEventListener( 'click', () => { activeKey = s.key; renderStepsRow(); renderStepBody(); } );
 			attachStepDrag( chip, s );
@@ -364,7 +364,7 @@ export function createStepEditor( opts ) {
 		const titleInput = body.querySelector( '[data-step-title]' );
 		if ( meta.inline ) {
 			titleInput.addEventListener( 'input', () => {
-				step.payload.title = titleInput.value;
+				step.payload.title = titleInput.value; clearReviewFlag( step );
 				renderStepsRow();
 				scheduleSave();
 			} );
@@ -436,6 +436,7 @@ export function createStepEditor( opts ) {
 					},
 				} );
 				editor.on( 'NodeChange change', onEditorChange );
+				editor.on( 'keyup paste cut', () => clearReviewFlag( step ) );
 			}
 
 			const cdnBase = 'https://cdn.jsdelivr.net/npm/tinymce@4.9.11/plugins';
@@ -478,7 +479,7 @@ export function createStepEditor( opts ) {
 				div.className = 'rte-area';
 				div.contentEditable = 'true';
 				div.innerHTML = step.payload.content || '';
-				div.addEventListener( 'input', () => { step.payload.content = div.innerHTML; scheduleSave(); } );
+				div.addEventListener( 'input', () => { step.payload.content = div.innerHTML; clearReviewFlag( step ); scheduleSave(); } );
 				ed.appendChild( div );
 			}
 		} else if ( 'video' === step.type ) {
@@ -489,8 +490,8 @@ export function createStepEditor( opts ) {
 			const desc = ed.querySelector( '[data-desc]' );
 			url.value  = step.payload.url || '';
 			desc.value = step.payload.description || '';
-			url.addEventListener( 'input', () => { step.payload.url = url.value; scheduleSave(); } );
-			desc.addEventListener( 'input', () => { step.payload.description = desc.value; scheduleSave(); } );
+			url.addEventListener( 'input', () => { step.payload.url = url.value; clearReviewFlag( step ); scheduleSave(); } );
+			desc.addEventListener( 'input', () => { step.payload.description = desc.value; clearReviewFlag( step ); scheduleSave(); } );
 		}
 	}
 
@@ -541,6 +542,7 @@ export function createStepEditor( opts ) {
 					step._title         = title;
 					step.title          = title;
 					step.payload.source = 'bank' === source ? 'bank' : 'subject';
+					delete step.payload.needs_review;
 					renderStepsRow(); renderStepBody(); saveSteps();
 				} ) );
 			}
@@ -607,7 +609,7 @@ export function createStepEditor( opts ) {
 		const pickBtn = ed.querySelector( '[data-pick]' );
 		if ( pickBtn ) {
 			pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title ) => {
-				step.payload.ref = id; step._title = title; step.title = title;
+				step.payload.ref = id; step._title = title; step.title = title; delete step.payload.needs_review;
 				renderStepsRow(); renderStepBody(); saveSteps();
 			} ) );
 		}
@@ -676,10 +678,20 @@ export function createStepEditor( opts ) {
 	}
 
 	// ══════════ STEP actions ══════════
+	// Снимает метку «дубликат — не изменён» при правке контента шага и убирает значок-напоминание.
+	// Вызывать ТОЛЬКО из обработчиков реального пользовательского ввода (keyup/input/paste), НЕ из
+	// scheduleSave: TinyMCE дёргает NodeChange на init, и автосейв снял бы значок у первого шага при открытии.
+	function clearReviewFlag( step ) {
+		if ( step && step.payload && step.payload.needs_review ) {
+			delete step.payload.needs_review;
+			renderStepsRow();
+		}
+	}
 	function dupStep( step ) {
 		const i = lesson.steps.indexOf( step );
 		const copy = { key: tmpKey( 's' ), type: step.type, title: step.title, payload: Object.assign( {}, step.payload ) };
 		if ( copy.payload.title ) { copy.payload.title += ' (копия)'; }
+		copy.payload.needs_review = true;
 		lesson.steps.splice( i + 1, 0, copy );
 		activeKey = copy.key;
 		renderStepsRow(); renderStepBody(); onChange();
