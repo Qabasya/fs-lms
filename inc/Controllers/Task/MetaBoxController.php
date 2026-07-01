@@ -95,6 +95,10 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			$all_subjects
 		);
 
+		foreach ( $task_post_types as $post_type ) {
+			remove_meta_box( 'pageparentdiv', $post_type, 'side' );
+		}
+
 		$this->registrar->add(
 			'fs_lms_task_metabox',
 			'Данные задания',

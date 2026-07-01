@@ -27,6 +27,58 @@ export function post( action, nonce, data ) {
 	} );
 }
 
+function buildSlotAnswerHtml( data ) {
+	const lbl = ( t ) => `<p class="fs-sb-section-label">${ t }</p>`;
+
+	if ( data.options && Array.isArray( data.options.options ) && data.options.options.length ) {
+		const html = data.options.options.map( ( o ) =>
+			'<div class="fs-sb-task-option' + ( o.correct ? ' is-correct' : '' ) + '">' +
+			'<span class="fs-sb-opt-mark">' + ( o.correct ? '✓' : '·' ) + '</span>' +
+			'<span>' + esc( String( o.text || '' ) ) + '</span>' +
+			'</div>'
+		).join( '' );
+		return lbl( 'Варианты ответа' ) + '<div class="fs-sb-task-options">' + html + '</div>';
+	}
+
+	if ( data.pairs && Array.isArray( data.pairs.pairs ) && data.pairs.pairs.length ) {
+		const html = data.pairs.pairs.map( ( p ) =>
+			'<div class="fs-sb-task-pair">' +
+			'<span class="fs-sb-pair-l">' + esc( String( p.left || '' ) ) + '</span>' +
+			'<span class="fs-sb-pair-arrow">→</span>' +
+			'<span class="fs-sb-pair-r">' + esc( String( p.right || '' ) ) + '</span>' +
+			'</div>'
+		).join( '' );
+		return lbl( 'Сопоставление' ) + '<div class="fs-sb-task-pairs">' + html + '</div>';
+	}
+
+	if ( data.order_items && Array.isArray( data.order_items.items ) && data.order_items.items.length ) {
+		const html = data.order_items.items.map( ( item ) => '<li>' + esc( String( item ) ) + '</li>' ).join( '' );
+		return lbl( 'Порядок элементов' ) + '<ol class="fs-sb-task-order">' + html + '</ol>';
+	}
+
+	if ( data.gap_text ) {
+		const processed = esc( data.gap_text ).replace( /\[\[([^\]]+)\]\]/g, '<span class="fs-sb-gap-fill">$1</span>' );
+		return lbl( 'Текст с пропусками' ) + '<div class="fs-sb-task-gap">' + processed + '</div>';
+	}
+
+	if ( Array.isArray( data.three_in_one ) && data.three_in_one.length ) {
+		const html = data.three_in_one.map( ( sub, i ) =>
+			'<div class="fs-sb-subtask">' +
+			'<div class="fs-sb-subtask-num">Подзадание ' + ( i + 1 ) + '</div>' +
+			( sub.condition ? '<div class="fs-sb-subtask-cond">' + sub.condition + '</div>' : '' ) +
+			( sub.answer ? '<div class="fs-sb-subtask-ans">' + esc( sub.answer ) + '</div>' : '' ) +
+			'</div>'
+		).join( '' );
+		return lbl( 'Подзадания' ) + '<div class="fs-sb-subtasks">' + html + '</div>';
+	}
+
+	if ( data.answer_html ) {
+		return lbl( 'Ответ' ) + data.answer_html;
+	}
+
+	return '';
+}
+
 const defaultMapSlot = ( s, i ) => ( {
 	key:    s.key || 'slot_' + i,
 	taskId: parseInt( s.payload?.ref, 10 ) || 0,
@@ -74,7 +126,7 @@ export function createSlotBuilder( el, config ) {
 				</div>
 				<div class="fs-sb-tree-scroll" data-slot-list></div>
 				<div class="fs-sb-tree-add">
-					<button type="button" class="button" data-add-slot>+ Задача</button>
+					<button type="button" class="button button-primary" data-add-slot><svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 4v6H4v2h6v6h2v-6h6v-2h-6V4z"/></svg> Добавить задачу</button>
 				</div>
 			</div>
 			<div class="fs-sb-editor" data-editor></div>
@@ -114,10 +166,12 @@ export function createSlotBuilder( el, config ) {
 	}
 
 	async function removeSlot( index ) {
-		try {
-			await ConfirmModal.confirm( { title: 'Удалить этот слот?', isDanger: true, confirmText: 'Удалить' } );
-		} catch {
-			return;
+		if ( slots[ index ]?.taskId > 0 ) {
+			try {
+				await ConfirmModal.confirm( { title: 'Удалить этот слот?', message: 'Вы уверены в удалении выбранной задачи?', isDanger: true, confirmText: 'Удалить' } );
+			} catch {
+				return;
+			}
 		}
 		slots.splice( index, 1 );
 		if ( activeIndex >= slots.length ) {
@@ -206,7 +260,7 @@ export function createSlotBuilder( el, config ) {
 			const link = document.createElement( 'a' );
 			link.href        = editUrl;
 			link.target      = '_blank';
-			link.className   = 'fs-sb-flag';
+			link.className   = 'button';
 			link.textContent = 'Редактировать ↗';
 			titleRow.appendChild( link );
 		}
@@ -219,9 +273,9 @@ export function createSlotBuilder( el, config ) {
 		}
 
 		const removeBtn = document.createElement( 'button' );
-		removeBtn.type        = 'button';
-		removeBtn.className   = 'fs-sb-flag danger';
-		removeBtn.textContent = 'Удалить слот';
+		removeBtn.type      = 'button';
+		removeBtn.className = 'button fs-sb-btn-danger';
+		removeBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> Удалить слот';
 		removeBtn.addEventListener( 'click', () => removeSlot( index ) );
 		titleRow.appendChild( removeBtn );
 
@@ -242,10 +296,11 @@ export function createSlotBuilder( el, config ) {
 			body.appendChild( sec );
 		}
 
-		if ( data.answer_html ) {
+		const ansInner = buildSlotAnswerHtml( data );
+		if ( ansInner ) {
 			const sec = document.createElement( 'div' );
-			sec.className = 'fs-sb-task-section fs-sb-task-answer';
-			sec.innerHTML = `<p class="fs-sb-section-label">Ответ</p>${ data.answer_html }`;
+			sec.className = 'fs-sb-task-section';
+			sec.innerHTML = ansInner;
 			body.appendChild( sec );
 		}
 
@@ -281,9 +336,11 @@ export function createSlotBuilder( el, config ) {
 		actions.className = 'fs-sb-task-actions';
 
 		const pickBtn = document.createElement( 'button' );
-		pickBtn.type        = 'button';
-		pickBtn.className   = 'button';
-		pickBtn.textContent = slot.taskId ? 'Заменить задачу' : 'Выбрать из банка';
+		pickBtn.type      = 'button';
+		pickBtn.className = 'button';
+		pickBtn.innerHTML = slot.taskId
+			? '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></svg> Заменить задачу'
+			: '<svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2 5 7h3v5h4V7h3l-5-5zM3 14h14v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3z"/></svg> Выбрать из банка <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor"><path d="M3 4.5 6 8l3-3.5z"/></svg>';
 		pickBtn.addEventListener( 'click', () => {
 			openPicker( pickBtn, {
 				placeholder: 'Поиск задачи…',
@@ -294,21 +351,43 @@ export function createSlotBuilder( el, config ) {
 		} );
 		actions.appendChild( pickBtn );
 
-		if ( ! slot.taskId && typeof config.createTask === 'function' ) {
+		if ( ! slot.taskId ) {
 			const createBtn = document.createElement( 'button' );
 			createBtn.type        = 'button';
-			createBtn.className   = 'button';
+			createBtn.className   = 'button button-primary';
 			createBtn.textContent = 'Создать задачу';
-			createBtn.addEventListener( 'click', () => openCreateForm( actions, index ) );
+			createBtn.addEventListener( 'click', () => {
+				const adminBase = fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' );
+				const newWin    = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
+				let lastHref    = '';
+				const poll = setInterval( () => {
+					if ( newWin && ! newWin.closed ) {
+						try { lastHref = newWin.location.href; } catch ( _e ) { /* навигация */ }
+					}
+					const search = lastHref.includes( '?' ) ? lastHref.split( '?' )[ 1 ] : '';
+					const params = new URLSearchParams( search );
+					const postId = params.get( 'post' );
+					if ( postId && params.get( 'action' ) === 'edit' ) {
+						clearInterval( poll );
+						const acts   = fs_lms_vars.ajax_actions;
+						const nonce  = fs_lms_vars.nonces.authorAssessment;
+						post( acts.getTaskPreview, nonce, { task_id: postId } )
+							.then( ( data ) => assignTask( index, parseInt( postId, 10 ), data.title || ( 'Задача #' + postId ) ) )
+							.catch( () => assignTask( index, parseInt( postId, 10 ), 'Задача #' + postId ) );
+						return;
+					}
+					if ( newWin && newWin.closed ) { clearInterval( poll ); }
+				}, 800 );
+			} );
 			actions.appendChild( createBtn );
 		}
 
 		if ( slot.taskId > 0 ) {
 			const clearBtn = document.createElement( 'button' );
-			clearBtn.type        = 'button';
-			clearBtn.className   = 'button button-link-delete fs-sb-clear';
-			clearBtn.textContent = 'Очистить';
-			clearBtn.addEventListener( 'click', () => assignTask( index, 0, '' ) );
+			clearBtn.type      = 'button';
+			clearBtn.className = 'button fs-sb-btn-danger';
+			clearBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> Очистить';
+			clearBtn.addEventListener( 'click', () => { assignTask( index, 0, '' ); showToast( 'Задача удалена', 'success' ); } );
 			actions.appendChild( clearBtn );
 		}
 

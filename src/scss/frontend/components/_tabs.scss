@@ -34,7 +34,7 @@
   &.is-active {
     background: $color-bg-subtle;
     color: $color-text;
-    font-weight: 600;
+    font-weight: $font-semibold;
     cursor: default;
   }
 }

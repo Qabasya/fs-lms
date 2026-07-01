@@ -8,6 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Person\PiiAccessLogInputDTO;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
+use Inc\Enums\Access\UserRole;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**
@@ -93,7 +94,6 @@ class PiiAccessLogWriter {
 		if ( null === $user || empty( $user->roles ) ) {
 			return null;
 		}
-		// reset() — возвращает первый элемент массива (первую роль пользователя)
-		return (string) reset( $user->roles );
+		return UserRole::primarySlug( (array) $user->roles );
 	}
 }

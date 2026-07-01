@@ -7,6 +7,7 @@ namespace Inc\Services\Course;
 use Inc\DTO\Course\CourseDTO;
 use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\ModuleDTO;
+use Inc\DTO\Course\StepDTO;
 use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
@@ -56,10 +57,30 @@ class ContentCloneService {
 				id        : 0,
 				subjectKey: $lesson->subjectKey,
 				topic     : $lesson->topic . ' (копия)',
-				steps     : $lesson->steps,
+				steps     : $this->markStepsForReview( $lesson->steps ),
 				authorId  : get_current_user_id(),
 				status    : 'draft',
 			)
+		);
+	}
+
+	/**
+	 * Помечает каждый шаг копии как «дубликат — контент не изменён» (payload.needs_review),
+	 * чтобы конструктор показал преподавателю напоминание изменить контент.
+	 * StepDTO неизменяем — пересобираем с дополненным payload.
+	 *
+	 * @param StepDTO[] $steps
+	 *
+	 * @return StepDTO[]
+	 */
+	private function markStepsForReview( array $steps ): array {
+		return array_map(
+			static fn( StepDTO $step ): StepDTO => new StepDTO(
+				$step->key,
+				$step->type,
+				array_merge( $step->payload, array( 'needs_review' => true ) )
+			),
+			$steps
 		);
 	}
 

@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\DataChangeLogDTO;
 use Inc\DTO\Log\DataChangeLogInputDTO;
-use Inc\Enums\Settings\TableName;
+use Inc\Enums\Log\LogChannel;
 
 /**
  * Class DataChangeLogRepository
@@ -48,7 +48,7 @@ class DataChangeLogRepository {
 	 */
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::DataChangeLog->prefixed();
+		$this->table = LogChannel::DataChange->tableName()->prefixed();
 	}
 
 	/**

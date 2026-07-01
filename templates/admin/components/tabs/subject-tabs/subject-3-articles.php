@@ -20,30 +20,26 @@ if ( $dto->articles_table ) :
 
 <div class="articles-wrapper">
 
-	<div class="header-row">
-		<h1 class="wp-heading-inline">Статьи</h1>
-
-
-		<div class="description-actions">
-
-			<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=' . $t->post_type ) ); ?>"
-               target="_blank"
-				class="page-title-action btn-filled">
-				<?php echo esc_html( $t->post_type_object->labels->add_new ); ?>
-			</a>
-
-			<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=' . $articles_cpt ) ); ?>"
-				class="page-title-action"
-				target="_blank">
-				<?php esc_html_e( 'Перейти к статьям', 'fs-lms' ); ?>
-			</a>
-
+	<div class="fs-page-header">
+		<div class="fs-page-header__content">
+			<h1 class="fs-page-header__title">Статьи</h1>
+			<div class="fs-page-header__actions">
+				<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=' . $t->post_type ) ); ?>"
+					target="_blank"
+					class="page-title-action btn-filled">
+					<?php echo esc_html( $t->post_type_object->labels->add_new ); ?>
+				</a>
+				<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=' . $articles_cpt ) ); ?>"
+					class="page-title-action"
+					target="_blank">
+					<?php esc_html_e( 'Перейти к статьям', 'fs-lms' ); ?>
+				</a>
+			</div>
 		</div>
-
+		<p class="fs-page-header__desc">Здесь отображаются последние 10 статей по предмету.
+			<br>Для отображения всех статей и применения массовых действий нажмите на кнопку «Перейти к статьям».
+		</p>
 	</div>
-	<p class="description">Здесь отображаются последние 10 статей по предмету.
-		<br>Для отображения всех статей и применения массовых действий нажмите на кнопку «Перейти к статьям».
-	</p>
 
 	<div id="fs-recent-articles-container"
 		class="fs-recent-container"

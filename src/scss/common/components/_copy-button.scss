@@ -22,7 +22,7 @@
     padding: 2px 0;
     margin: 0;
     height: auto;
-    font-size: 13px;
+    font-size: $font-size-wp;
     font-family: inherit;
     color: $color-text-primary;
     cursor: default;
@@ -34,7 +34,7 @@
     }
 
     &::selection {
-      background: rgba($color-primary, 0.15);
+      background: color-mix(in srgb, var(--color-primary) 15%, transparent);
     }
   }
 }
@@ -63,12 +63,12 @@
     background   0.18s;
 
   &:hover:not(.is-copied) {
-    border-color: $color-primary;
-    color: $color-primary;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
   }
 
   &:focus {
-    outline: 2px solid $color-primary;
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
@@ -81,14 +81,14 @@
 }
 
 .fs-copy-field__icon {
-  font-size: 16px;
+  font-size: $font-size-m;
   width: 16px;
   height: 16px;
   flex-shrink: 0;
 }
 
 .fs-copy-field__label {
-  font-size: 13px;
+  font-size: $font-size-wp;
   line-height: 1;
   overflow: hidden;
   max-width: 0;

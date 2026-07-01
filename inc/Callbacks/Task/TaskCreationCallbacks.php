@@ -57,7 +57,7 @@ class TaskCreationCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxCreateTask(): void {
-		$this->authorize( Nonce::TaskCreation, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::TaskCreation, Capability::AuthorLmsCourses );
 
 		$subject_key     = $this->requireKey( 'subject_key', error: 'Не указан предмет. #TCC134' );
 		$term_id         = $this->requireInt( 'term_id', error: 'Не выбран тип задания. #TCC134' );
@@ -93,7 +93,7 @@ class TaskCreationCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetTaskTypes(): void {
-		$this->authorize( Nonce::TaskCreation, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::TaskCreation, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Предмет не указан' );
 
@@ -106,7 +106,7 @@ class TaskCreationCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetTaskBoilerplates(): void {
-		$this->authorize( Nonce::TaskCreation, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::TaskCreation, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key', 'GET' );
 		$term_slug   = $this->requireKey( 'term_slug', 'GET' );

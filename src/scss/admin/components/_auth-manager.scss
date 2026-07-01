@@ -6,157 +6,59 @@
 @use '../mixins' as *;
 
 .fs-lms-auth-providers {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-lg;
-  max-width: $dashboard-tabs-max-width;
-  margin-bottom: $spacing-lg;
+  max-width: $settings-max-width;
   margin-top: $spacing-lg;
 }
 
-.fs-lms-auth-card {
-  background: $color-bg-modal;
-  border: 1px solid $color-border-input;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-  transition: border-color 0.2s ease;
-
-  &__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: $spacing-lg;
-    background: $color-bg-modal;
-  }
-
-  &__info {
-    display: flex;
-    align-items: center;
-    gap: $spacing-lg;
-  }
-
-  &__icon {
-    width: 36px;
-    height: 36px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-
-    &--google {
-      background-image: url('../../img/google.svg');
-    }
-
-    &--vk {
-      background-image: url('../../img/vk.svg');
-    }
-
-    &--github {
-      background-image: url('../../img/github.svg');
-    }
-  }
-
-  &__title-group {
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-xs;
-  }
-
-  &__title {
-    font-size: $font-size-m;
-    font-weight: $font-bold;
-    margin: 0;
-    color: $color-text-primary;
-  }
-
-  &__desc {
-    font-size: $font-size;
-    font-weight: $font-regular;
-    color: $color-text-secondary;
-    margin: 0;
-  }
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: $spacing-xl;
-  }
-
-  &__link {
-    display: inline-flex;
-    align-items: center;
-    gap: $spacing-xs;
-    text-decoration: none;
-    font-size: $font-size;
-    color: $color-primary;
-
-    &:hover {
-      color: $color-primary-hover;
-    }
-
-    .dashicons {
-      font-size: $font-size;
-      width: $font-size;
-      height: $font-size;
-    }
-  }
-
-  &__body {
-    padding: $spacing-xl;
-    background: $color-bg-modal;
-    border-top: 1px solid $color-border-footer;
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-lg;
-
-    &.hidden {
-      display: none;
-    }
-  }
-}
-
-/* Элементы форм */
-.fs-lms-form-group {
+.fs-lms-auth-cards {
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
-  width: 100%;
-
-  label {
-    font-weight: $font-bold;
-    font-size: $font-size;
-    color: $color-text-primary;
-  }
-
-  input[type="text"],
-  input[type="password"] {
-    width: 100% !important;
-    max-width: 100%;
-    height: 40px;
-    padding: 0 $spacing-md;
-    border: 1px solid $color-border-input;
-    border-radius: 6px;
-    background: #fff;
-    box-shadow: none;
-    box-sizing: border-box;
-
-    &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 1px $color-primary;
-      outline: none;
-    }
-  }
+  gap: $spacing-lg;
+  margin-top: $spacing-lg;
 }
-  /* Нижняя панель с кнопкой сохранения */
-  .fs-lms-auth-footer {
-    display: flex;
-    align-items: center;
-    gap: $spacing-lg;
-    margin-top: $spacing-md;
 
+.fs-lms-auth-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 
-    &__notice {
-      font-size: $font-size;
-      color: $color-text-secondary;
-    }
+  &--google { background-image: url('../../img/google.svg'); }
+  &--vk     { background-image: url('../../img/vk.svg'); }
+  &--github { background-image: url('../../img/github.svg'); }
+}
+
+.fs-lms-secret-field {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  max-width: $field-max-width;
+
+  input { flex: 1; min-width: 0; }
+}
+
+.fs-lms-toggle-secret {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: $color-text-secondary;
+
+  &:hover { color: $color-text-primary; }
+}
+
+.fs-lms-auth-footer {
+  display: flex;
+  align-items: center;
+  gap: $spacing-lg;
+  margin-top: $spacing-md;
+
+  &__notice {
+    font-size: $font-size;
+    color: $color-text-secondary;
+  }
 }

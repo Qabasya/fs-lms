@@ -13,9 +13,10 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 <div id="tab-academic-periods" class="tab-pane active">
 
-	<div class="header-row">
-		<h1 class="wp-heading-inline">Учебные периоды</h1>
-		<!-- Кнопка из шапки удалена по стандарту Subjects -->
+	<div class="fs-page-header">
+		<div class="fs-page-header__content">
+			<h1 class="fs-page-header__title">Учебные периоды</h1>
+		</div>
 	</div>
 
 	<?php settings_errors(); ?>

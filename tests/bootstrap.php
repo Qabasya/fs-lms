@@ -368,6 +368,16 @@ if (!function_exists('esc_attr'))     { function esc_attr($text) { return $text;
 if (!function_exists('esc_html__'))   { function esc_html__($text, $domain = null) { return $text; } }
 if (!function_exists('esc_attr__'))   { function esc_attr__($text, $domain = null) { return $text; } }
 
+/** Возвращает false — в unit-тестах WP-пользователи не нужны. */
+function get_user_by( string $field, mixed $value ): false {
+    return false;
+}
+
+/** Возвращает пустую строку — миниатюры не нужны в unit-тестах. */
+function get_the_post_thumbnail_url( int $post_id, string $size = 'post-thumbnail' ): string {
+    return '';
+}
+
 /** Сбрасывает флаги авторизации харнесса к «всё разрешено» (вызывать в setUp). */
 function fs_test_reset_ajax(): void {
     $GLOBALS['_fs_test_can']      = true;

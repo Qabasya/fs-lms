@@ -35,7 +35,7 @@
     display: none;
 
     &:checked + .fs-toggle-switch {
-      background-color: $color-primary;
+      background-color: var(--color-primary);
       opacity: 1 !important;
 
       &::after {

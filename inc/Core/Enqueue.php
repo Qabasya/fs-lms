@@ -10,9 +10,9 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Application\ApplicationSettingsService;
-use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Security\FormGuardService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\Traits\Sanitizer;
@@ -45,15 +45,14 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * Конструктор.
 	 *
 	 * @param TaxonomyRepository $taxonomy_repository Репозиторий таксономий
-	 * @param CaptchaService     $captchaService      Сервис капчи (для получения site key)
 	 */
 	public function __construct(
 		private readonly TaxonomyRepository $taxonomy_repository,
-		private readonly CaptchaService     $captchaService,
 		private readonly PluginConfig       $pluginConfig,
 		private readonly FormGuardService   $formGuard,
 		private readonly ApplicationSettingsService $applicationSettings,
 		private readonly TemplateRegistry   $templateRegistry,
+		private readonly ProfileViewResolver $profileResolver,
 	) {
 		parent::__construct();
 	}
@@ -283,11 +282,49 @@ class Enqueue extends BaseController implements ServiceInterface {
 	}
 
 	/**
+	 * Подключение изолированного бандла личного кабинета (/profile/).
+	 *
+	 * Грузит только profile.min.css/js и локализует window.fsProfile
+	 * (роль → состав кабинета + режим доступа) через ProfileViewResolver.
+	 *
+	 * @return void
+	 */
+	private function enqueue_profile_assets(): void {
+		wp_enqueue_style(
+			'fs-lms-profile-style',
+			$this->url( 'assets/css/profile.min.css' ),
+			array(),
+			filemtime( $this->path( 'assets/css/profile.min.css' ) )
+		);
+
+		wp_enqueue_script(
+			'fs-lms-profile-script',
+			$this->url( 'assets/js/profile.min.js' ),
+			array(),
+			filemtime( $this->path( 'assets/js/profile.min.js' ) ),
+			true
+		);
+
+		wp_localize_script(
+			'fs-lms-profile-script',
+			'fsProfile',
+			$this->profileResolver->jsConfig( get_current_user_id() )
+		);
+	}
+
+	/**
 	 * Подключение ресурсов на фронтенде (публичная часть сайта).
 	 *
 	 * @return void
 	 */
 	public function enqueue_frontend_assets(): void {
+		// Личный кабинет — изолированный полноэкранный SPA: грузим только его бандл,
+		// без общего frontend/theme-стека, чтобы не мешать вёрстке кабинета.
+		if ( is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
+			$this->enqueue_profile_assets();
+			return;
+		}
+
 		wp_enqueue_style(
 			'fs-lms-fontawesome',
 			'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css',
@@ -328,41 +365,29 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// === Переменные для формы создания заявки (/lms/apply) ===
 		// PageRoutes::Apply->isCurrent() — проверка, находимся ли на странице создания заявки
 		if ( PageRoutes::Apply->isCurrent() ) {
-			wp_localize_script(
-				'fs-lms-frontend-script',
-				'fs_lms_apply_vars',
-				array(
-					'ajax_url'    => admin_url( 'admin-ajax.php' ),
-					'captcha_key' => $this->captchaService->getSiteKey(),
-					'hp_field'    => $this->formGuard->honeypotField(),
-					'form_token'  => $this->formGuard->timestampToken(),
-					'actions'     => array(
-						'send_otp'          => AjaxHook::SendOtpCode->jsAction(),
-						'create'            => AjaxHook::CreateApplication->jsAction(),
-						'check_username'    => AjaxHook::CheckUsernameAvailable->jsAction(),
-						'validate_code'     => AjaxHook::ValidateDirectionCode->jsAction(),
-					),
-					'nonces'      => array(
-						'apply'            => Nonce::Apply->create(),
-						'verify_otp'       => Nonce::VerifyOtp->create(),
-						'check_username'   => Nonce::CheckUsernameAvailable->create(),
-					),
-					'bind_to_subject' => $this->applicationSettings->isBindToSubject(),
-				)
+			$apply_vars = array(
+				'ajax_url'   => admin_url( 'admin-ajax.php' ),
+				'hp_field'   => $this->formGuard->honeypotField(),
+				'form_token' => $this->formGuard->timestampToken(),
+				'actions'    => array(
+					'send_otp'       => AjaxHook::SendOtpCode->jsAction(),
+					'create'         => AjaxHook::CreateApplication->jsAction(),
+					'check_username' => AjaxHook::CheckUsernameAvailable->jsAction(),
+					'validate_code'  => AjaxHook::ValidateDirectionCode->jsAction(),
+				),
+				'nonces'     => array(
+					'apply'          => Nonce::Apply->create(),
+					'verify_otp'     => Nonce::VerifyOtp->create(),
+					'check_username' => Nonce::CheckUsernameAvailable->create(),
+				),
+				'bind_to_subject' => $this->applicationSettings->isBindToSubject(),
 			);
 
-			// Скрипт Yandex SmartCaptcha — только если ключ задан.
-			// Зависит от нашего бандла: он первым ставит window.__fsSmartCaptchaReady,
-			// который вызовет onload-колбэк Яндекса для рендера невидимого виджета.
-			if ( '' !== $this->captchaService->getSiteKey() ) {
-				wp_enqueue_script(
-					'fs-lms-smartcaptcha',
-					'https://smartcaptcha.yandexcloud.net/captcha.js?render=onload&onload=__fsSmartCaptchaReady',
-					array( 'fs-lms-frontend-script' ),
-					null,
-					true
-				);
-			}
+			// Опциональные модули (напр. SmartCaptcha) дописывают свои переменные (captcha_key)
+			// и сами грузят свои внешние скрипты. Ядро о них не знает.
+			$apply_vars = apply_filters( 'fs_lms_apply_vars', $apply_vars );
+
+			wp_localize_script( 'fs-lms-frontend-script', 'fs_lms_apply_vars', $apply_vars );
 		}
 
 		// === Кокпит группы преподавателя ===
@@ -468,22 +493,22 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 		// === Переменные для формы завершения регистрации родителя (/lms/join) ===
 		if ( 'join' === get_query_var( 'fs_lms_page' ) ) {
-			wp_localize_script(
-				'fs-lms-frontend-script',
-				'fs_lms_join_vars',
-				array(
-					'ajax_url'     => admin_url( 'admin-ajax.php' ),
-					'dadata_token' => $this->pluginConfig->dadataToken(),
-					'actions'      => array(
-						'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
-						'check_email'   => AjaxHook::CheckEmailAvailable->jsAction(),
-					),
-					'nonces'       => array(
-						'parent_submit' => Nonce::ParentSubmit->create(),
-						'check_email'   => Nonce::CheckEmailAvailable->create(),
-					),
-				)
+			$join_vars = array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'actions'  => array(
+					'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
+					'check_email'   => AjaxHook::CheckEmailAvailable->jsAction(),
+				),
+				'nonces'   => array(
+					'parent_submit' => Nonce::ParentSubmit->create(),
+					'check_email'   => Nonce::CheckEmailAvailable->create(),
+				),
 			);
+
+			// Опциональные модули (напр. DaData) дописывают свои переменные. Ядро о них не знает.
+			$join_vars = apply_filters( 'fs_lms_join_vars', $join_vars );
+
+			wp_localize_script( 'fs-lms-frontend-script', 'fs_lms_join_vars', $join_vars );
 		}
 	}
 

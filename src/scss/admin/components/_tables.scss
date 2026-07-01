@@ -11,13 +11,30 @@
 .fs-table {
   @include m.table-base();
 
+  thead tr {
+    height: $tr-height;
+  }
+
   thead th {
     padding: $spacing-sm $spacing-md;
     font-weight: $font-bold;
     text-align: left;
     font-size: $font-size;
     color: $color-text-primary;
-    //border-bottom: 2px solid $color-border-input;
+    vertical-align: middle;
+
+    // Чекбокс массового выбора — line-height = высота строки центрирует инлайн-элемент надёжнее чем vertical-align
+    &.check-column {
+      padding: 0 $spacing-sm;
+      width: 2em;
+      line-height: $tr-height;
+      text-align: center;
+
+      input[type="checkbox"] {
+        vertical-align: middle;
+        margin: 0;
+      }
+    }
 
     a {
       color: inherit;
@@ -29,9 +46,20 @@
   tbody td {
     padding: $spacing-sm $spacing-md;
     border-bottom: 1px solid $table-row-border;
+    vertical-align: middle;
+
+    &.check-column {
+      padding: 0 $spacing-sm;
+      line-height: $tr-height;
+
+      input[type="checkbox"] {
+        vertical-align: middle;
+        margin: 0;
+      }
+    }
   }
 
-  tbody tr{
+  tbody tr {
     height: $tr-height;
   }
 
@@ -70,9 +98,7 @@
       max-width: $task-select-max-width;
       box-sizing: border-box;
       &:focus {
-        border-color: $color-primary;
-        box-shadow: 0 0 0 1px $color-primary;
-        outline: none;
+        @include m.focus-ring();
       }
     }
   }
@@ -99,12 +125,12 @@
     &.sort-asc::after {
       content: '\f142';
       opacity: 1;
-      color: $color-primary;
+      color: var(--color-primary);
     }
     &.sort-desc::after {
       content: '\f140';
       opacity: 1;
-      color: $color-primary;
+      color: var(--color-primary);
     }
   }
 }
@@ -167,10 +193,10 @@
     padding: 0;
     transition: background 0.15s ease-in-out;
 
-    &:hover { background: $color-primary; }
+    &:hover { background: var(--color-primary); }
 
     &:focus {
-      outline: 2px solid $color-primary;
+      outline: 2px solid var(--color-primary);
       outline-offset: 2px;
     }
 
@@ -200,9 +226,9 @@
   }
 
   .fs-lms-join-code {
-    font-family: Consolas, Monaco, monospace;
+    font-family: $font-mono;
     font-size: $font-size;
-    color: $color-primary;
+    color: var(--color-primary);
     text-decoration: underline;
   }
 
@@ -215,9 +241,47 @@
 // ──────────────────────────────────────────────────────────────
 
 .fs-table__no-items {
+  clear: both;
+  margin-top: $spacing-xl;
   text-align: center;
   padding: $spacing-xl $spacing-md;
   color: $color-text-secondary;
+}
+
+// ── USAGE TIP: plain-text тултип в колонке «Используется»
+// ──────────────────────────────────────────────────────────────
+
+.fs-tip {
+  position: relative;
+
+  // Только для не-ссылок: пунктирное подчёркивание как визуальный сигнал тултипа
+  &:not(a) {
+    cursor: default;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+    text-decoration-color: $color-secondary;
+  }
+
+  &[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: $color-text-primary;
+    color: $color-text-inverse;
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $border-radius-md;
+    font-size: $font-size-code;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 9999;
+  }
+
+  &[data-tooltip]:hover::after { opacity: 1; }
 }
 
 // ── INLINE EDIT ROW: Быстрое редактирование

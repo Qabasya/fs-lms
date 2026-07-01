@@ -15,13 +15,27 @@ enum Capability: string {
 	/** Базовое право администратора WordPress для доступа к настройкам */
 	case Admin = 'manage_options';
 
-	// ===== Преподавательские права =====
+	/** Право управления платформой LMS (административные страницы плагина) */
+	case ManageLmsPlatform = 'manage_lms_platform';
+
+	/** Право назначения LMS-ролей пользователям (только administrator) */
+	case ManageLmsRoles = 'manage_lms_roles';
+
+	// ===== Авторинг и проведение =====
+
+	/** Право авторинга: создание/редактирование курсов, уроков, работ, контрольных, задач */
+	case AuthorLmsCourses = 'author_lms_courses';
+
+	/** Право управления статьями LMS */
+	case ManageLmsArticles = 'manage_lms_articles';
+
+	/** Право проведения обучения (оценивание, журнал, расписание) */
+	case ManageLmsTeaching = 'manage_lms_teaching';
+
+	// ===== Статистика =====
 
 	/** Право просмотра статистики LMS */
 	case ViewLMSStats = 'view_lms_stats';
-
-	/** Право управления заданиями (создание, редактирование, удаление) */
-	case ManageLMSAssignments = 'manage_lms_assignments';
 
 	// ===== Управление заявками =====
 

@@ -102,6 +102,9 @@ enum AjaxHook: string {
 	case AddConsentDefinition    = 'add_consent_definition';
 	case DeleteConsentDefinition = 'delete_consent_definition';
 
+	// ==================== Настройки: роли (RBAC) ====================
+	case SaveUserRoles = 'save_user_roles';
+
 	// ==================== Отчисление ====================
 	case ExpelStudent         = 'expel_student';
 	case ExportExpelledRecord = 'export_expelled_record';
@@ -155,6 +158,7 @@ enum AjaxHook: string {
 	case SaveWorkItems             = 'save_work_items';              // params: work_id, item_ids[] (степ-лист работы)
 	case SaveAssessmentItems       = 'save_assessment_items';        // params: assessment_id, item_ids[] (степ-лист контрольной)
 	case GetTaskPreview            = 'get_task_preview';             // params: task_id, subject_key
+	case GetRefPreview             = 'get_ref_preview';              // params: ref_id, ref_type (work|assessment) → title + tasks[]
 	case CreateAssessmentTaskDraft = 'create_assessment_task_draft'; // params: subject_key, title
 	case CreateProblemDraft        = 'create_problem_draft';         // params: title
 	case CreateTaskDraft           = 'create_task_draft';            // params: subject_key, title (черновик subject-задачи из билдера)
@@ -166,6 +170,7 @@ enum AjaxHook: string {
 	case GetCourseBuilder    = 'get_course_builder';    // params: course_id
 	case SaveCourseStructure = 'save_course_structure'; // params: course_id, modules[] ({id,title,lesson_ids[]})
 	case CreateLessonInModule = 'create_lesson_in_module'; // params: course_id, module_id, title
+	case DuplicateLessonInModule = 'duplicate_lesson_in_module'; // params: course_id, module_id, lesson_id
 	case UpdateLessonMeta    = 'update_lesson_meta';    // params: lesson_id, title, published
 	case SaveCourseMeta      = 'save_course_meta';      // params: course_id, title, published
 
@@ -214,6 +219,16 @@ enum AjaxHook: string {
 	case SetLessonVisibility     = 'set_lesson_visibility';
 	case GetGroupProgram         = 'get_group_program';
 	case GetGroupActivity        = 'get_group_activity';
+
+	// ==== КТП / расписание (ЛК преподавателя, Эпик 1) ====
+	case ReflowSchedule          = 'reflow_schedule';    // params: group_id — авто-распределение тем по слотам периода
+	case PinLesson               = 'pin_lesson';         // params: group_lesson_id, scheduled_at — закрепить тему на дату
+	case GetGroupCalendar        = 'get_group_calendar'; // params: group_id — слоты периода + выходные + размещённые темы
+
+	// ==== Журнал / посещаемость (ЛК преподавателя, Эпик 2) ====
+	case GetGroupJournal         = 'get_group_journal';  // params: group_id — ростер × (занятия+работы)
+	case SaveAttendance          = 'save_attendance';    // params: group_lesson_id, student_person_id, is_present
+	case BulkAttendance          = 'bulk_attendance';    // params: group_lesson_id, is_present — всем в занятии
 
 	// ==== Клонирование / форк контента (T1.5.11) ====
 	case CloneLesson         = 'clone_lesson';

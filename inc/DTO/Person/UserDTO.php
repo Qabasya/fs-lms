@@ -81,16 +81,7 @@ readonly class UserDTO {
 	}
 
 	public static function fromWPUser( \WP_User $user ): self {
-		// Получаем роль из нашего enum (берём первую совпадающую)
-		$userRole = UserRole::Student; // Значение по умолчанию
-
-		foreach ( UserRole::cases() as $role ) {
-			// in_array() — проверяет, есть ли роль пользователя в списке
-			if ( in_array( $role->value, $user->roles ) ) {
-				$userRole = $role;
-				break;
-			}
-		}
+		$userRole = UserRole::primary( (array) $user->roles );
 
 		return new self(
 			id         : $user->ID,

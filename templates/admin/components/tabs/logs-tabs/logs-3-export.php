@@ -35,7 +35,7 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-export-log-tab">
-    <p class="description fs-mt-md">
+    <p class="description">
         Каждый экспорт данных фиксируется здесь.
     </p>
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">

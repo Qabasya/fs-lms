@@ -8,7 +8,6 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\AdSync\Callbacks\AdSyncSettingsCallbacks;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
-use Inc\Services\Application\ApplicationSettingsService;
 
 /**
  * Class AdSyncSettingsController
@@ -31,7 +30,6 @@ class AdSyncSettingsController extends BaseController {
 	public function __construct(
 		private readonly AdSyncSettingsCallbacks    $callbacks,
 		private readonly AdSyncConfig               $config,
-		private readonly ApplicationSettingsService $applicationSettings,
 	) {
 		parent::__construct();
 	}
@@ -55,8 +53,7 @@ class AdSyncSettingsController extends BaseController {
 			return;
 		}
 
-		$config           = $this->config;
-		$bind_to_subject  = $this->applicationSettings->isBindToSubject();
+		$config = $this->config;
 		require $this->path( 'inc/Modules/AdSync/templates/settings-section.php' );
 	}
 

@@ -28,7 +28,7 @@ use Inc\Shared\Traits\Sanitizer;
  *
  * Делегирует генерацию файлов ExportService.
  * Использует enum ExportTarget для указания типа экспорта.
- * Все методы доступны только администраторам (Capability::Admin).
+ * Все методы доступны только администраторам (Capability::ManageLmsPlatform).
  */
 class LogsCallbacks extends BaseController {
 
@@ -52,7 +52,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт групп (CSV).
 	 */
 	public function ajaxExportGroups(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
 		$url = $this->exportService->run( ExportTarget::Groups, $ids ? array( 'ids' => $ids ) : array() );
 		$this->success( array( 'url' => $url ) );
@@ -62,7 +62,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт студентов (CSV). Поддерживает единичный и массовый режим.
 	 */
 	public function ajaxExportStudents(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
 		$mode = $ids ? 'single' : 'bulk';
 		$url  = $this->exportService->run( ExportTarget::Students, $ids ? array( 'ids' => $ids ) : array(), $mode );
@@ -73,7 +73,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт родителей (CSV). Поддерживает единичный и массовый режим.
 	 */
 	public function ajaxExportParents(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
 		$mode = $ids ? 'single' : 'bulk';
 		$url  = $this->exportService->run( ExportTarget::Parents, $ids ? array( 'ids' => $ids ) : array(), $mode );
@@ -84,7 +84,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт архивных записей (отчисленные студенты, CSV).
 	 */
 	public function ajaxExportArchive(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
 		$url = $this->exportService->run( ExportTarget::Archive, $ids ? array( 'ids' => $ids ) : array() );
 		$this->success( array( 'url' => $url ) );
@@ -96,7 +96,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт журнала аудита изменений сущностей (entity_audit).
 	 */
 	public function ajaxExportEntityAuditLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'operation', 'entity_type', 'actor_user_id', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogEntityAudit, $filters );
 		$this->success( array( 'url' => $url ) );
@@ -106,7 +106,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт журнала зачислений (enrollment_log).
 	 */
 	public function ajaxExportEnrollmentLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'action_filter', 'actor_user_id', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogEnrollment, $filters );
 		$this->success( array( 'url' => $url ) );
@@ -116,7 +116,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт общего журнала аудита (audit_log).
 	 */
 	public function ajaxExportAuditLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'action_filter', 'actor_user_id', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogEnrollment, $filters );
 		$this->success( array( 'url' => $url ) );
@@ -126,7 +126,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт журнала доступа к персональным данным (pii_access_log).
 	 */
 	public function ajaxExportPiiLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'actor_user_id', 'person_id', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogPiiAccess, $filters );
 		$this->success( array( 'url' => $url ) );
@@ -136,7 +136,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт журнала экспорта данных (export_log).
 	 */
 	public function ajaxExportExportLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'actor_user_id', 'data_type', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogExport, $filters );
 		$this->success( array( 'url' => $url ) );
@@ -146,7 +146,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт журнала изменений данных (data_change_log).
 	 */
 	public function ajaxExportDataChangeLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'actor_user_id', 'person_id', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogDataChange, $filters );
 		$this->success( array( 'url' => $url ) );
@@ -156,7 +156,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт журнала изменений согласий (consent_change_log).
 	 */
 	public function ajaxExportConsentChangeLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'person_id', 'consent_type', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogConsentChange, $filters );
 		$this->success( array( 'url' => $url ) );
@@ -166,7 +166,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт журнала отправки email (email_log).
 	 */
 	public function ajaxExportEmailLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'email_type', 'status', 'person_id', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogEmail, $filters );
 		$this->success( array( 'url' => $url ) );
@@ -176,7 +176,7 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт журнала аутентификации (auth_log).
 	 */
 	public function ajaxExportAuthLog(): void {
-		$this->authorize( Nonce::Manager, Capability::Admin );
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'action_filter', 'result', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogAuth, $filters );
 		$this->success( array( 'url' => $url ) );

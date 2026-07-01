@@ -1,0 +1,41 @@
+/* =================================================================
+   PRIMITIVE: Empty State
+   Элементы: __icon, __title, __desc, __action
+   ================================================================= */
+
+@use '../variables' as *;
+
+.fs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xxl $spacing-xl;
+  text-align: center;
+
+  &__icon {
+    font-size: $size-icon-xl;
+    width: $size-icon-xl;
+    height: $size-icon-xl;
+    color: $color-text-secondary;
+    opacity: 0.35;
+    margin-bottom: $spacing-lg;
+  }
+
+  &__title {
+    margin: 0 0 $spacing-sm;
+    font-size: $font-size-m;
+    font-weight: $font-bold;
+    color: $color-text-primary;
+  }
+
+  &__desc {
+    margin: 0 0 $spacing-xl;
+    font-size: $font-size;
+    color: $color-text-secondary;
+    line-height: $line-height-base;
+    max-width: 360px;
+  }
+
+  &__action { margin-top: $spacing-xs; }
+}

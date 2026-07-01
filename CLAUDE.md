@@ -397,6 +397,10 @@ docker restart wp_app
 # Query the database directly:
 docker exec wp_db mariadb -u root -proot wordpress -e "SELECT ..."
 
+# WP-CLI — отдельный сервис wpcli (профиль cli, со стеком не поднимается, --allow-root не нужен).
+# Из каталога со стеком (где docker-compose.yml); из другого места добавь -f <путь>/docker-compose.yml:
+docker compose run --rm wpcli wp <command>   # напр.: wp plugin list | wp option get home | wp post list --post_type=page
+
 # Services: wp_app (WordPress:8080), wp_db (MariaDB), wp_phpmyadmin (phpMyAdmin:8081)
 ```
 

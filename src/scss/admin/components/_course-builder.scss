@@ -1,4 +1,5 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 // ══════════════════════════════════════════════════════════════
 //  Course Builder — Stepik-style конструктор курса.
@@ -9,8 +10,54 @@
 // ══════════════════════════════════════════════════════════════
 
 .fs-lms-cb-wrap {
-	.fs-cb-subtitle { color: $color-text-secondary; font-size: 13px; margin: 2px 0 $spacing-lg; }
+	.fs-cb-subtitle { color: $color-text-secondary; font-size: $font-size-wp; margin: 2px 0 $spacing-lg; }
 	.fs-cb-loading  { color: $color-text-secondary; padding: $spacing-xl; }
+
+	// Зона для WP admin notices: min-height резервирует место,
+	// notices JS-ом перемещаются сюда — форма не смещается.
+	// ── Course meta strip ─────────────────────────────────────
+	.course-strip {
+		display: flex; align-items: center; gap: 14px;
+		padding: 12px 16px;
+		background: $color-bg-modal;
+		border: 1px solid $wp-admin-gray-bg;
+		box-shadow: $shadow-cb-strip;
+		border-radius: $border-radius-sm;
+		margin: 14px 0;
+		flex-wrap: wrap;
+	}
+	.course-thumb {
+		width: 46px; height: 46px; border-radius: $border-radius-l;
+		flex-shrink: 0; overflow: hidden;
+		display: flex; align-items: center; justify-content: center;
+	}
+	.course-thumb-img    { width: 100%; height: 100%; object-fit: cover; display: block; }
+	.course-thumb-initials {
+		width: 100%; height: 100%;
+		background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+		display: flex; align-items: center; justify-content: center;
+		color: $color-text-inverse; font-weight: $font-heavy; font-size: 19px;
+	}
+	.course-strip-main   { flex: 1; min-width: 180px; }
+	.cs-title {
+		font-size: $font-size-m; font-weight: $font-bold;
+		cursor: pointer; border-radius: $border-radius-md; padding: 1px 4px; margin: -1px -4px;
+		&:hover { color: var(--color-primary); }
+	}
+	.cs-title-input {
+		font-size: $font-size-m; font-weight: $font-bold; color: $color-text-primary;
+		border: 1px solid var(--color-primary); border-radius: $border-radius-md;
+		box-shadow: 0 0 0 1px var(--color-primary); padding: 1px 6px;
+		background: $color-bg-modal; outline: none;
+		min-width: 240px; max-width: 100%;
+		font-family: inherit;
+	}
+	.cs-meta {
+		font-size: $font-size-xs; color: $color-text-secondary; margin-top: 2px;
+		display: flex; gap: 12px; flex-wrap: wrap;
+		b { color: $color-text-primary; font-weight: $font-bold; }
+	}
+	.course-strip-actions { display: flex; gap: $spacing-sm; align-items: center; }
 
 	// создание курса
 	.fs-cb-create {
@@ -22,68 +69,58 @@
 		border-radius: $border-radius-l;
 
 		h2 { margin: 0 0 $spacing-md; }
-		.fs-cb-create-title { width: 100%; margin-bottom: $spacing-md; padding: $spacing-sm 11px; border: 1px solid $color-border-input; border-radius: $border-radius-md; font-size: 13px; }
-	}
-
-	// course meta strip
-	.course-strip {
-		display: flex; align-items: center; gap: $spacing-lg;
-		padding: $spacing-md $spacing-lg;
-		background: $color-bg-modal;
-		border: 1px solid $wp-admin-gray-bg;
-		box-shadow: $shadow-cb-strip;
-		border-radius: $border-radius-sm;
-		margin-bottom: $spacing-md;
-		flex-wrap: wrap;
-	}
-	.course-thumb {
-		width: 46px; height: 46px; border-radius: $border-radius-l; flex-shrink: 0;
-		background: linear-gradient(135deg, $color-primary, $color-primary-hover);
-		display: flex; align-items: center; justify-content: center;
-		color: $color-text-inverse; font-weight: 700; font-size: 19px; text-transform: uppercase;
-	}
-	.course-strip-main { flex: 1; min-width: 180px; }
-	.cs-title-input {
-		font-size: 15px; font-weight: 600; border: 1px solid transparent;
-		background: transparent; padding: 2px $spacing-xs; border-radius: $border-radius-sm;
-		width: 100%; color: $color-text-primary;
-		&:hover { border-color: $color-border-input; }
-		&:focus { border-color: $color-primary; background: $color-bg-modal; outline: none; }
-	}
-	.cs-meta { font-size: 12px; color: $color-text-secondary; margin-top: 2px; display: flex; gap: $spacing-md; align-items: center; flex-wrap: wrap;
-		b { color: $color-text-primary; font-weight: 600; } }
-	.course-flag {
-		border: 1px solid $color-border-input; background: $color-bg-footer; color: $color-text-secondary;
-		padding: 1px $spacing-sm; border-radius: $border-radius-sm; font-size: 11px; cursor: pointer;
-		&:hover { border-color: $color-primary; color: $color-primary; }
-		&.published { background: $wp-admin-green-bg; border-color: $wp-admin-green-bg; color: $wp-admin-green-text; }
+		.fs-cb-create-title { width: 100%; margin-bottom: $spacing-md; padding: $spacing-sm 11px; border: 1px solid $color-border-input; border-radius: $border-radius-md; font-size: $font-size-wp; }
 	}
 
 	.fs-cb-postbox { margin-bottom: $spacing-lg; }
 
 	// ── two-pane builder ──
 	.builder {
-		display: grid;
-		grid-template-columns: 320px 1fr;
-		background: $color-bg-modal;
-		border: 1px solid $wp-admin-gray-bg;
-		box-shadow: $shadow-cb-builder;
-		border-radius: $border-radius-l;
-		overflow: hidden;
-		min-height: 640px;
+		@include cb-builder-shell;
 	}
 
 	// LEFT: tree
-	.tree-pane { border-right: 1px solid $wp-admin-gray-bg; background: $cb-bg-tree; display: flex; flex-direction: column; min-height: 0; }
+	.tree-pane { @include cb-tree-pane; }
 	.tree-head {
-		padding: $spacing-md 14px; border-bottom: 1px solid $wp-admin-gray-bg;
-		display: flex; align-items: center; justify-content: space-between;
-		.th-title { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: $color-text-secondary; }
-		.th-count { font-size: 11px; color: $color-secondary-hover; }
+		@include cb-tree-head;
+		.th-title { @include cb-eyebrow; }
+		.th-count { font-size: $font-size-code; color: $color-secondary-hover; }
 	}
-	.tree-scroll { flex: 1; overflow-y: auto; padding: $spacing-sm $spacing-sm $spacing-xs; }
-	.tree-add { border-top: 1px solid $wp-admin-gray-bg; padding: $spacing-sm $spacing-sm + 2px; display: flex; gap: $spacing-sm;
-		.button { flex: 1; justify-content: center; } }
+	.tree-scroll { @include cb-tree-scroll; }
+	.tree-add {
+		border-top: 1px solid $wp-admin-gray-bg;
+		padding: $spacing-sm $spacing-sm + 2px;
+		display: flex; flex-direction: column; gap: $spacing-sm;
+
+		.tree-add-main { width: 100%; justify-content: center; }
+
+		.tree-add-row { display: flex; gap: $spacing-sm; }
+
+		.import-wrap { position: relative; flex: 1;
+			> .button { width: 100%; justify-content: center; }
+		}
+		.import-caret { margin-left: auto; }
+		.import-dropdown {
+			position: absolute;
+			bottom: calc(100% + 4px);
+			left: 0; right: 0;
+			background: $color-bg-modal;
+			border: 1px solid $color-border-input;
+			border-radius: $border-radius-l;
+			box-shadow: $shadow-cb-popover;
+			overflow: hidden;
+			z-index: 100;
+		}
+		.import-opt {
+			display: flex; align-items: center; gap: $spacing-sm;
+			padding: 8px $spacing-sm; width: 100%;
+			background: none; border: none; cursor: pointer;
+			font-size: $font-size-wp; color: $color-text-primary; text-align: left;
+			&:hover { background: $cb-bg-hover; }
+		}
+
+		[data-add-module] { flex: 1; justify-content: center; }
+	}
 
 	// module
 	.module { margin-bottom: $spacing-xs + 2px; }
@@ -95,14 +132,15 @@
 			&:hover { opacity: 1; } }
 		.mod-caret { transition: transform 0.15s; flex-shrink: 0; color: $color-secondary-hover; display: flex; }
 		.mod-num {
-			width: 20px; height: 20px; border-radius: 5px; background: $cb-num-bg; color: $color-primary-hover;
-			font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+			width: 20px; height: 20px; border-radius: 5px; background: $cb-num-bg; color: var(--color-primary-hover);
+			font-size: $font-size-code; font-weight: $font-heavy; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 		}
 		.mod-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-		.mod-title { font-size: 13px; font-weight: 600; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-		.mod-desc { font-size: 11px; color: $color-text-secondary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.mod-title { font-size: $font-size-wp; font-weight: $font-bold; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.mod-desc { font-size: $font-size-code; color: $color-text-secondary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.mod-lessons { font-size: $font-size-sm; color: $color-secondary-hover; background: $cb-badge-bg; border-radius: 9px; padding: 1px 6px; flex-shrink: 0; }
 	}
-	.module.active > .module-head { background: $cb-bg-hover; box-shadow: inset 2px 0 0 $color-primary; }
+	.module.active > .module-head { background: $cb-bg-hover; box-shadow: inset 2px 0 0 var(--color-primary); }
 	.module.collapsed {
 		.mod-caret { transform: rotate(-90deg); }
 		.module-lessons { display: none; }
@@ -111,63 +149,56 @@
 
 	// lesson
 	.lesson {
-		display: flex; align-items: center; gap: 7px; padding: 6px $spacing-sm;
-		border-radius: 5px; cursor: pointer; margin: 1px 0; position: relative;
-		&:hover { background: $cb-bg-hover; }
+		@include cb-tree-row;
 		&.active {
-			background: $cb-bg-active;
-			&::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: $color-primary; border-radius: 2px; }
-			.les-num, .les-title { color: $color-primary-hover; font-weight: 600; }
-			.les-steps { background: $wp-admin-blue-bg; color: $color-primary-hover; }
+			.les-num, .les-title { color: var(--color-primary-hover); font-weight: $font-bold; }
+			.les-steps { background: $wp-admin-blue-bg; color: var(--color-primary-hover); }
 		}
 		.les-grip { opacity: 0; color: $color-secondary-hover; cursor: grab; display: flex; flex-shrink: 0; }
 		&:hover .les-grip { opacity: 1; }
-		.les-num { font-size: 11px; color: $color-secondary-hover; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 24px; }
-		.les-title { flex: 1; font-size: 13px; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-		.les-steps { font-size: 10px; color: $color-secondary-hover; background: $cb-badge-bg; border-radius: 9px; padding: 1px 6px; flex-shrink: 0; }
+		.les-num { font-size: $font-size-code; color: $color-secondary-hover; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 24px; }
+		.les-title { flex: 1; font-size: $font-size-wp; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.les-steps { font-size: $font-size-sm; color: $color-secondary-hover; background: $cb-badge-bg; border-radius: 9px; padding: 1px 6px; flex-shrink: 0; }
 	}
 
 	// drag states
 	.dragging { opacity: 0.4; }
-	.drop-before { box-shadow: 0 -2px 0 $color-primary; }
-	.drop-after { box-shadow: 0 2px 0 $color-primary; }
+	.drop-before { box-shadow: 0 -2px 0 var(--color-primary); }
+	.drop-after { box-shadow: 0 2px 0 var(--color-primary); }
 
 	// RIGHT: editor
-	.editor-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: $color-bg-modal; }
-	.editor-top { padding: $spacing-lg $cb-pane-px 0; border-bottom: 1px solid $wp-admin-gray-bg; }
-	.editor-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: $color-text-secondary; margin-bottom: $spacing-sm + 2px; flex-wrap: wrap;
-		b { color: $color-text-primary; font-weight: 600; } }
-	.lesson-title-row { display: flex; align-items: center; gap: $spacing-sm + 2px; margin-bottom: 14px; }
+	.editor-pane { @include cb-editor-pane; }
+	.editor-top { @include cb-editor-top; }
+	.editor-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: $font-size-xs; color: $color-text-secondary; margin-bottom: $spacing-sm + 2px; flex-wrap: wrap;
+		b { color: $color-text-primary; font-weight: $font-bold; } }
+	.lesson-title-row { @include cb-title-row; }
 	.lesson-title-input {
-		flex: 1; font-size: 20px; font-weight: 600; color: $color-text-primary;
+		flex: 1; font-size: $font-size-l; font-weight: $font-bold; color: $color-text-primary;
 		border: 1px solid transparent; border-radius: 5px; padding: 5px 9px; background: transparent;
 		&:hover { border-color: $wp-admin-gray-bg; }
-		&:focus { outline: none; border-color: $color-primary; box-shadow: 0 0 0 1px $color-primary; background: $color-bg-modal; }
+		&:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); background: $color-bg-modal; }
 	}
 	.lesson-flag {
-		font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 12px;
-		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg;
-		display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer;
+		@include cb-chip;
+		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg; cursor: pointer;
 		&.published { background: $wp-admin-green-bg; color: $wp-admin-green-text; border-color: $wp-admin-green-bg; }
 		&.danger { background: transparent; color: $color-danger; border-color: $cb-danger-border-color;
 			&:hover { background: $cb-danger-hover-bg; } }
+			&--dup { background: transparent; color: var(--color-primary); border-color: currentColor;
+				&:hover { background: $wp-admin-blue-bg-light; } }
 	}
 
 	// editor body (контейнер правой панели; шаги — внутри .fs-se)
-	.editor-body { flex: 1; overflow-y: auto; padding: $spacing-xl $cb-pane-px $spacing-xxl; min-height: 0; }
+	.editor-body { @include cb-editor-body; }
 
-	// footer
-	.editor-footer {
-		border-top: 1px solid $wp-admin-gray-bg; padding: $spacing-md $cb-pane-px;
-		display: flex; align-items: center; gap: $spacing-sm + 2px; background: $cb-bg-tree;
-		.ef-status { font-size: 12px; color: $color-secondary-hover; display: flex; align-items: center; gap: 6px; }
-		.ef-spacer { flex: 1; }
-		.saved-dot { width: 7px; height: 7px; border-radius: 50%; background: $wp-admin-green; }
+	.button-green {
+		background: $wp-admin-green; border-color: $wp-admin-green; color: $color-text-inverse;
+		&:hover { background: $wp-admin-green-dk; border-color: $wp-admin-green-dk; color: $color-text-inverse; }
+		svg { fill: $color-text-inverse; }
 	}
 
 	.editor-empty {
-		flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-		color: $color-secondary-hover; text-align: center; padding: 40px; gap: $spacing-md; min-height: 320px;
+		@include cb-empty(320px);
 	}
 }
 
@@ -177,30 +208,26 @@
 	background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: 9px;
 	box-shadow: $shadow-cb-popover; padding: $spacing-sm; width: 240px;
 
-	.sp-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: $color-text-secondary; padding: 6px $spacing-sm $spacing-sm; }
+	.sp-title { @include cb-eyebrow($font-size-code); padding: 6px $spacing-sm $spacing-sm; }
 	.sp-option {
 		display: flex; align-items: center; gap: $spacing-sm + 2px; padding: 9px $spacing-sm; border-radius: 6px; cursor: pointer;
 		&:hover { background: $cb-bg-hover; }
 		.spo-ico {
 			width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: $color-text-inverse; flex-shrink: 0;
 			svg { fill: $color-text-inverse; width: 16px; height: 16px; }
-			&[data-type="lecture"]  { background: $step-lecture; }
-			&[data-type="video"]    { background: $step-video; }
-			&[data-type="practice"] { background: $step-practice; }
-			&[data-type="quiz"]     { background: $step-quiz; }
-			&[data-type="file"]     { background: $step-file; }
+			@include step-type-colors(background);
 		}
-		.spo-name { font-size: 13px; font-weight: 600; }
-		.spo-desc { font-size: 11px; color: $color-secondary-hover; }
+		.spo-name { font-size: $font-size-wp; font-weight: $font-bold; }
+		.spo-desc { font-size: $font-size-code; color: $color-secondary-hover; }
 	}
 
 	&.fs-cb-picker { width: 320px;
-		.field-input { width: 100%; padding: 6px $spacing-sm; border: 1px solid $color-border-input; border-radius: $border-radius-md; font-size: 13px; }
+		.field-input { width: 100%; padding: 6px $spacing-sm; border: 1px solid $color-border-input; border-radius: $border-radius-md; font-size: $font-size-wp; }
 		.fs-cb-pick-results { margin-top: 6px; max-height: 260px; overflow-y: auto; }
 		.fs-cb-pick-opt { display: flex; align-items: center; justify-content: space-between; gap: $spacing-sm; padding: 6px $spacing-sm; border-radius: $border-radius-md; cursor: pointer;
 			&:hover { background: $cb-bg-hover; } }
-		.fs-cb-pick-origin { flex: 0 0 auto; font-size: 11px; color: $color-secondary-hover; background: $cb-bg-hover; padding: 1px 7px; border-radius: $border-radius-md; }
-		.fs-cb-pick-empty { padding: $spacing-sm; color: $color-secondary-hover; font-size: 12px; }
+		.fs-cb-pick-origin { flex: 0 0 auto; font-size: $font-size-code; color: $color-secondary-hover; background: $cb-bg-hover; padding: 1px 7px; border-radius: $border-radius-md; }
+		.fs-cb-pick-empty { padding: $spacing-sm; color: $color-secondary-hover; font-size: $font-size-xs; }
 	}
 }
 
@@ -211,7 +238,7 @@
 }
 
 // ── Responsive — narrow admin screens (<= 960 px) ──
-@media (max-width: 960px) {
+@media (max-width: $breakpoint-builder) {
 	.fs-lms-cb-wrap {
 		.builder {
 			grid-template-columns: 1fr;
@@ -225,4 +252,3 @@
 		}
 	}
 }
-

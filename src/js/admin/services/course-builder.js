@@ -1,7 +1,7 @@
 import '../_types.js';
-import { showToast } from '../modules/toast.js';
 import { createStepEditor, esc, ajax, tmpKey, openPicker } from './step-editor.js';
 import { createPersistence } from './course-persistence.js';
+import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
 
 /* global jQuery, fs_lms_vars */
@@ -37,7 +37,8 @@ function createApp( mount ) {
 	const subject  = String( mount.dataset.subject || '' );
 
 	const state = { course: null, activeLessonId: null, activeModuleId: null };
-	let stepEditor = null; // активный экземпляр createStepEditor() для выбранного урока
+	let stepEditor    = null; // активный экземпляр createStepEditor() для выбранного урока
+	let initialStepRef = 0;  // step_ref из URL — используется однократно при первом renderLessonEditor
 	const persist  = createPersistence( { courseId, mount, state, onPublishToggle: () => renderEditor() } );
 
 	if ( courseId > 0 ) {
@@ -74,65 +75,185 @@ function createApp( mount ) {
 
 	// ── каркас приложения ──
 	function bootstrap() {
+		const params       = new URLSearchParams( window.location.search );
+		const lessonParam  = parseInt( params.get( 'lesson' ), 10 ) || 0;
+		initialStepRef     = parseInt( params.get( 'step_ref' ), 10 ) || 0;
+
 		const first = firstLesson();
-		state.activeLessonId = first ? first.id : null;
+		state.activeLessonId = lessonParam > 0 ? lessonParam : ( first ? first.id : null );
+
 		renderShell();
 		renderTree();
 		renderEditor();
+		autoHideNotices();
+
+		// Прокручиваем дерево к активному уроку при навигации из внешней ссылки.
+		if ( lessonParam > 0 ) {
+			mount.querySelector( '.lesson.active' )?.scrollIntoView( { block: 'center', behavior: 'smooth' } );
+		}
+	}
+
+	function autoHideNotices() {
+		document.querySelectorAll( '.wrap > .notice, .wrap > .updated, .wrap > .error, .wrap > #message' )
+			.forEach( ( n ) => {
+				const isSave = n.id === 'message'
+					|| n.classList.contains( 'notice-success' )
+					|| n.classList.contains( 'notice-error' );
+
+				if ( isSave ) {
+					const type = n.classList.contains( 'notice-error' ) || n.classList.contains( 'error' )
+						? 'error' : 'success';
+					const text = ( n.querySelector( 'p' )?.textContent ?? n.textContent ).trim();
+					if ( text ) { showToast( text, type ); }
+				}
+
+				n.remove();
+			} );
 	}
 
 	function renderShell() {
-		const c = state.course;
 		mount.innerHTML = `
-			<div class="course-strip">
-				<div class="course-thumb" data-thumb>${ esc( ( c.title || '?' ).slice( 0, 2 ) ) }</div>
-				<div class="course-strip-main">
-					<input class="cs-title-input" value="${ esc( c.title ) }" placeholder="Название курса">
-					<div class="cs-meta">
-						<span><b data-module-count>${ c.modules.length }</b> модулей</span>
-						<span><b data-lesson-count>${ totalLessons() }</b> уроков</span>
-						<button type="button" class="course-flag${ 'publish' === c.status ? ' published' : '' }" data-toggle-course>
-							${ 'publish' === c.status ? 'Опубликован' : 'Черновик' }
+			${ renderCourseStrip() }
+			<div class="builder">
+				<div class="tree-pane">
+					<div class="tree-head">
+						<span class="th-title">Структура курса</span>
+						<span class="th-count" data-tree-count></span>
+					</div>
+					<div class="tree-scroll" data-tree></div>
+					<div class="tree-add">
+						<button type="button" class="button button-primary tree-add-main" data-add-lesson>
+							<svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 4v6H4v2h6v6h2v-6h6v-2h-6V4z"/></svg>
+							Добавить урок
 						</button>
-					</div>
-				</div>
-			</div>
-			<div class="postbox fs-cb-postbox">
-				<div class="postbox-header"><h2>Конструктор курса</h2></div>
-				<div class="builder">
-					<div class="tree-pane">
-						<div class="tree-head">
-							<span class="th-title">Структура курса</span>
-							<span class="th-count" data-tree-count></span>
-						</div>
-						<div class="tree-scroll" data-tree></div>
-						<div class="tree-add">
-							<button type="button" class="button" data-add-lesson>+ Урок</button>
-							<button type="button" class="button" data-import-lesson>Импорт урока</button>
-							<button type="button" class="button" data-add-module>+ Модуль</button>
+						<div class="tree-add-row">
+							<div class="import-wrap">
+								<button type="button" class="button" data-import-toggle>
+									<svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2 5 7h3v5h4V7h3l-5-5zM3 14h14v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3z"/></svg>
+									Импорт
+									<svg class="import-caret" width="10" height="10" viewBox="0 0 12 12" fill="currentColor"><path d="M3 4.5 6 8l3-3.5z"/></svg>
+								</button>
+							</div>
+							<button type="button" class="button" data-add-module>
+								<svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h6v6H3V3zm8 0h6v6h-6V3zM3 11h6v6H3v-6zm8 4h6v2h-6v-2zm2-2h2v-2h-2v2z"/></svg>
+								Модуль
+							</button>
 						</div>
 					</div>
-					<div class="editor-pane" data-editor></div>
 				</div>
+				<div class="editor-pane" data-editor></div>
 			</div>`;
+
 		mount.querySelector( '[data-add-lesson]' ).addEventListener( 'click', addLesson );
-		mount.querySelector( '[data-import-lesson]' ).addEventListener( 'click', importLessonFlow );
 		mount.querySelector( '[data-add-module]' ).addEventListener( 'click', addModule );
 
-		const titleInput = mount.querySelector( '.cs-title-input' );
-		const thumb      = mount.querySelector( '[data-thumb]' );
-		titleInput.addEventListener( 'input', () => {
-			c.title = titleInput.value;
-			thumb.textContent = ( c.title || '?' ).slice( 0, 2 );
-			persist.scheduleCourseMeta();
+		mount.querySelector( '[data-import-toggle]' ).addEventListener( 'click', ( e ) => {
+			importLessonFlow( e.currentTarget );
 		} );
-		mount.querySelector( '[data-toggle-course]' ).addEventListener( 'click', function() {
-			c.status = 'publish' === c.status ? 'draft' : 'publish';
-			const pub = 'publish' === c.status;
-			this.textContent = pub ? 'Опубликован' : 'Черновик';
-			this.classList.toggle( 'published', pub );
-			persist.saveCourseMeta();
+
+		// Блокируем нативный submit формы — сохранение только через AJAX
+		document.getElementById( 'post' )?.addEventListener( 'submit', ( e ) => e.preventDefault() );
+
+		// Strip: просмотр курса на фронте
+		mount.querySelector( '[data-strip-preview]' )?.addEventListener( 'click', ( e ) => {
+			const id = e.currentTarget.dataset.courseId;
+			window.open( `?p=${ id }&preview=true`, '_blank' );
 		} );
+
+		// Strip: "Опубликовать / Сохранить курс" → AJAX, без перезагрузки
+		mount.querySelector( '[data-strip-publish]' )?.addEventListener( 'click', () => {
+			const wasPublished = state.course.status === 'publish';
+			state.course.status = 'publish';
+			persist.saveCourseMeta().then( () => {
+				const msg = wasPublished ? 'Курс сохранён' : 'Курс опубликован';
+				showToast( msg, 'success' );
+				const btn = mount.querySelector( '[data-strip-publish]' );
+				if ( btn ) { btn.textContent = 'Сохранить курс'; }
+			} );
+		} );
+
+		// Strip title: click-to-edit inline
+		bindStripTitleEdit();
+	}
+
+	function bindStripTitleEdit() {
+		const el = mount.querySelector( '[data-strip-title]' );
+		if ( ! el ) { return; }
+		el.addEventListener( 'click', startTitleEdit );
+	}
+
+	function startTitleEdit() {
+		const el = mount.querySelector( '[data-strip-title]' );
+		if ( ! el ) { return; }
+
+		const prev  = state.course.title;
+		const input = document.createElement( 'input' );
+		input.type      = 'text';
+		input.className = 'cs-title-input';
+		input.value     = prev;
+		el.replaceWith( input );
+		input.focus();
+		input.select();
+
+		function commit() {
+			const val = input.value.trim() || prev;
+			state.course.title = val;
+
+			// Keep WP native title field in sync (for form-save fallback)
+			const wpTitle = document.getElementById( 'title' );
+			if ( wpTitle ) { wpTitle.value = val; }
+
+			// Restore text node
+			const next = document.createElement( 'div' );
+			next.className        = 'cs-title';
+			next.dataset.stripTitle = '';
+			next.textContent      = val;
+			input.replaceWith( next );
+			next.addEventListener( 'click', startTitleEdit );
+
+			if ( val !== prev ) { persist.saveCourseMeta(); }
+		}
+
+		input.addEventListener( 'blur', commit );
+		input.addEventListener( 'keydown', ( e ) => {
+			if ( e.key === 'Enter' )  { e.preventDefault(); input.blur(); }
+			if ( e.key === 'Escape' ) { input.value = prev; input.blur(); }
+		} );
+	}
+
+	function renderCourseStrip() {
+		const c         = state.course;
+		const modCount  = c.modules.length;
+		const lesCount  = totalLessons();
+		const statusMap = { publish: 'Опубликован', draft: 'Черновик', private: 'Приватный' };
+		const statusLabel = statusMap[ c.status ] || 'Черновик';
+
+		// Thumbnail: img if available, otherwise 2-char initials badge
+		const thumbHtml = c.thumbnail
+			? `<img class="course-thumb-img" src="${ esc( c.thumbnail ) }" alt="">`
+			: `<div class="course-thumb-initials">${ esc( c.title.slice( 0, 2 ).toUpperCase() ) }</div>`;
+
+		return `
+			<div class="course-strip">
+				<div class="course-thumb">${ thumbHtml }</div>
+				<div class="course-strip-main">
+					<div class="cs-title" data-strip-title>${ esc( c.title ) }</div>
+					<div class="cs-meta">
+						<span><b data-module-count>${ modCount }</b> ${ modCount === 1 ? 'модуль' : 'модуля' }</span>
+						<span><b data-lesson-count>${ lesCount }</b> ${ lesCount === 1 ? 'урок' : 'уроков' }</span>
+						<span>Статус: <b>${ esc( statusLabel ) }</b></span>
+						${ c.author_name ? `<span>Автор: <b>${ esc( c.author_name ) }</b></span>` : '' }
+					</div>
+				</div>
+				<div class="course-strip-actions">
+					<button type="button" class="button" data-strip-preview data-course-id="${ c.id }">
+						<svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-2px;margin-right:4px"><path d="M10 4C5.5 4 2 10 2 10s3.5 6 8 6 8-6 8-6-3.5-6-8-6zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" fill="currentColor"/></svg>Просмотр
+					</button>
+					<button type="button" class="button button-green" data-strip-publish>
+						${ 'publish' === c.status ? 'Сохранить курс' : 'Опубликовать курс' }
+					</button>
+				</div>
+			</div>`;
 	}
 
 	// ── helpers ──
@@ -169,7 +290,8 @@ function createApp( mount ) {
 				<span class="mod-grip">${ GRIP_SVG }</span>
 				<span class="mod-caret"><svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M3 4.5 6 8l3-3.5z"/></svg></span>
 				<span class="mod-num">${ mi + 1 }</span>
-				<span class="mod-main"><span class="mod-title"></span><span class="mod-desc"></span></span>`;
+				<span class="mod-main"><span class="mod-title"></span><span class="mod-desc"></span></span>
+				<span class="mod-lessons">${ mod.lessons.length }</span>`;
 			head.querySelector( '.mod-title' ).textContent = mod.title;
 			const descEl = head.querySelector( '.mod-desc' );
 			if ( mod.description ) { descEl.textContent = mod.description; } else { descEl.remove(); }
@@ -332,12 +454,11 @@ function createApp( mount ) {
 					<button type="button" class="lesson-flag ${ lesson.published ? 'published' : '' }" data-toggle-publish>
 						${ lesson.published ? 'Опубликован' : 'Черновик' }
 					</button>
+					<button type="button" class="lesson-flag lesson-flag--dup" data-les-dup><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> Дублировать урок</button>
+					<button type="button" class="lesson-flag danger" data-les-del>Убрать урок</button>
 				</div>
 			</div>
-			<div class="editor-body" data-step-mount></div>
-			<div class="editor-footer">
-				<span class="ef-status" data-status><span class="saved-dot"></span> Все изменения сохранены</span>
-			</div>`;
+			<div class="editor-body" data-step-mount></div>`;
 
 		const titleInput = pane.querySelector( '[data-lesson-title]' );
 		titleInput.addEventListener( 'input', () => {
@@ -346,13 +467,19 @@ function createApp( mount ) {
 			persist.scheduleLessonMeta( lesson );
 		} );
 		pane.querySelector( '[data-toggle-publish]' ).addEventListener( 'click', () => persist.togglePublish( lesson ) );
+		pane.querySelector( '[data-les-dup]' ).addEventListener( 'click', () => duplicateLesson( lesson, module ) );
+		pane.querySelector( '[data-les-del]' ).addEventListener( 'click', () => removeLesson( lesson, module ) );
 
 		// Единый редактор шагов (общий модуль). Статус автосейва — в подвал курс-билдера.
+		const stepRef  = initialStepRef;
+		initialStepRef = 0; // однократное потребление
+
 		stepEditor = createStepEditor( {
-			mount:      pane.querySelector( '[data-step-mount]' ),
+			mount:          pane.querySelector( '[data-step-mount]' ),
 			lesson,
-			subjectKey: state.course.subject_key,
-			setStatus:  persist.setStatus,
+			subjectKey:     state.course.subject_key,
+			setStatus:      persist.setStatus,
+			initialStepRef: stepRef || undefined,
 		} );
 	}
 
@@ -376,9 +503,6 @@ function createApp( mount ) {
 					<div class="sb-label">Описание модуля (необязательно)</div>
 					<textarea class="field-input module-desc" data-mod-desc rows="5" placeholder="Кратко о модуле…">${ esc( mod.description || '' ) }</textarea>
 				</div>
-			</div>
-			<div class="editor-footer">
-				<span class="ef-status" data-status><span class="saved-dot"></span> Все изменения сохранены</span>
 			</div>`;
 
 		const titleInput = pane.querySelector( '[data-mod-title]' );
@@ -409,11 +533,42 @@ function createApp( mount ) {
 			} )
 			.catch( ( msg ) => showToast( msg, 'error' ) );
 	}
+	function duplicateLesson( lesson, module ) {
+		ajax( acts().duplicateLessonInModule, { course_id: courseId, module_id: module.id, lesson_id: lesson.id } )
+			.then( ( node ) => {
+				const i = module.lessons.indexOf( lesson );
+				module.lessons.splice( i + 1, 0, node );
+				module.collapsed = false;
+				selectLesson( node.id );
+				showToast( 'Урок дублирован', 'success' );
+			} )
+			.catch( ( msg ) => showToast( msg, 'error' ) );
+	}
 	function addModule() {
 		const mod = { id: tmpKey( 'm' ), title: 'Новый модуль', description: '', collapsed: false, lessons: [] };
 		state.course.modules.push( mod );
 		selectModule( mod.id ); // открыть страницу модуля — задать имя/описание
 		persist.saveStructure( 'Модуль добавлен' );
+	}
+
+	async function removeLesson( lesson, module ) {
+		try {
+			await ConfirmModal.confirm( {
+				title:       `Убрать урок «${ lesson.title }» из курса?`,
+				message:     'Урок останется в библиотеке.',
+				isDanger:    true,
+				confirmText: 'Убрать',
+			} );
+		} catch { return; }
+
+		module.lessons = module.lessons.filter( ( l ) => l.id !== lesson.id );
+		if ( state.activeLessonId === lesson.id ) {
+			const fl = firstLesson();
+			state.activeLessonId = fl ? fl.id : null;
+		}
+		renderTree();
+		renderEditor();
+		persist.saveStructure( 'Урок убран из курса' );
 	}
 
 	async function deleteModule( mod ) {
@@ -441,11 +596,11 @@ function createApp( mount ) {
 	}
 
 	// ── импорт готового урока из библиотеки ──
-	function importLessonFlow( e ) {
+	function importLessonFlow( anchor ) {
 		const f   = findLesson( state.activeLessonId );
 		const mod = f ? f.module : state.course.modules[ 0 ];
 		if ( ! mod ) { showToast( 'Сначала добавьте модуль', 'error' ); return; }
-		openLessonPicker( e.currentTarget, ( lessonId ) => importLesson( mod, lessonId ) );
+		openLessonPicker( anchor, ( lessonId ) => importLesson( mod, lessonId ) );
 	}
 
 	function importLesson( mod, lessonId ) {
@@ -486,6 +641,7 @@ function createApp( mount ) {
 		openPicker( anchor, {
 			placeholder: 'Поиск урока в библиотеке…',
 			emptyText:   'Нет доступных уроков',
+			placement:   'above',
 			fetchFn:     ( search ) => ajax( acts().getStepCandidates, { subject_key: state.course.subject_key, kind: 'lesson', source: 'subject', search } )
 				.then( ( items ) => items.filter( ( it ) => ! inCourseIds().has( parseInt( it.id, 10 ) ) ) ),
 			onPick:      ( id ) => onPick( id ),

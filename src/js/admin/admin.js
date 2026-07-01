@@ -45,11 +45,19 @@ import { ApplicationViewModal } from './modals/enrollment/applications/applicati
 import { SelectParentModal } from './modals/enrollment/select-parent-modal.js';
 import { TeacherViewModal } from './modals/enrollment/teacher-view-modal.js';
 import { AlertModal } from './modals/alert-modal.js';
+import { RolesSettings } from './services/roles-settings.js';
 
 (function ($) {
     'use strict';
 
     $(document).ready(function () {
+        setTimeout(() => {
+            $('.notice-success, .notice-warning, .notice-info').not('.notice-error').each(function () {
+                const $n = $(this);
+                $n.fadeTo(100, 0, () => $n.slideUp(100, () => $n.remove()));
+            });
+        }, 5000);
+
         UI.init();
         AlertModal.init();
 
@@ -160,6 +168,8 @@ import { AlertModal } from './modals/alert-modal.js';
         if ( $( '.js-module-toggle' ).length ) {
             ModuleToggle.init();
         }
+
+        RolesSettings.init();
 
     });
 

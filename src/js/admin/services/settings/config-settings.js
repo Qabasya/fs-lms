@@ -46,11 +46,8 @@ export const ConfigSettings = {
 		$.post( fs_lms_vars.ajaxurl, {
 			action:        fs_lms_vars.ajax_actions.saveConfig,
 			security:      fs_lms_vars.nonces.config,
-			dadata_token:  $form.find( '[name=dadata_token]' ).val(),
 			otp_bypass_code: $form.find( '[name=otp_bypass_code]' ).val(),
 			test_env:      $form.find( '[name=test_env]' ).is( ':checked' ) ? 1 : 0,
-			captcha_site_key:   $form.find( '[name=captcha_site_key]' ).val(),
-			captcha_server_key: $form.find( '[name=captcha_server_key]' ).val(),
 		} )
 			.done( ( res ) => {
 				if ( res.success ) {
@@ -72,8 +69,7 @@ export const ConfigSettings = {
 		const $status = $( '#fs-applications-status' );
 		const $btn    = $( '#fs-applications-save' );
 
-		$btn.prop( 'disabled', true );
-		$status.text( '' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
+		const bind = $form.find( '[name=applications_bind_to_subject]' ).is( ':checked' );
 
 		// Сбор кодов направлений: { subject_key: code } из строк раздела «Настройка заявок».
 		const directionCodes = {};
@@ -84,10 +80,23 @@ export const ConfigSettings = {
 			}
 		} );
 
+		// Инвариант: привязка включена ⟹ нужен хотя бы один код направления, иначе форму
+		// заявки нельзя будет открыть. Блокируем сохранение до ввода кода.
+		const hasCode = Object.values( directionCodes ).some( ( c ) => c.trim() !== '' );
+		if ( bind && ! hasCode ) {
+			$status.text( 'Введите хотя бы один код направления — иначе форму заявки нельзя будет открыть.' )
+				.removeClass( 'fs-config-status--ok' )
+				.addClass( 'fs-config-status--err' );
+			return;
+		}
+
+		$btn.prop( 'disabled', true );
+		$status.text( '' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
+
 		$.post( fs_lms_vars.ajaxurl, {
 			action:   fs_lms_vars.ajax_actions.saveApplicationSettings,
 			security: fs_lms_vars.nonces.config,
-			applications_bind_to_subject: $form.find( '[name=applications_bind_to_subject]' ).is( ':checked' ) ? 1 : 0,
+			applications_bind_to_subject: bind ? 1 : 0,
 			direction_codes: directionCodes,
 		} )
 			.done( ( res ) => {

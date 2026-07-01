@@ -27,9 +27,10 @@ use Inc\Services\Subject\PostTypeResolver;
 class CourseBuilderService {
 
 	public function __construct(
-		private readonly CourseManager $courses,
-		private readonly LessonManager $lessons,
-		private readonly PostManager   $posts,
+		private readonly CourseManager        $courses,
+		private readonly LessonManager        $lessons,
+		private readonly PostManager          $posts,
+		private readonly ContentCloneService  $cloneService,
 	) {}
 
 	/**
@@ -83,12 +84,17 @@ class CourseBuilderService {
 			);
 		}
 
+		$author      = get_user_by( 'id', $course->authorId );
+		$author_name = $author instanceof \WP_User ? $author->display_name : '';
+
 		return array(
 			'id'          => $course->id,
 			'title'       => $course->title,
 			'subject_key' => $course->subjectKey,
 			'status'      => $course->status,
 			'author_id'   => $course->authorId,
+			'author_name' => $author_name,
+			'thumbnail'   => get_the_post_thumbnail_url( $course->id, 'medium' ) ?: '',
 			'modules'     => $modules,
 		);
 	}
@@ -177,6 +183,55 @@ class CourseBuilderService {
 	}
 
 	/**
+	 * Дублирует урок: клонирует пост (steps + « (копия)») и вставляет копию
+	 * сразу после оригинала в том же модуле.
+	 *
+	 * @param int    $courseId
+	 * @param string $moduleId
+	 * @param int    $lessonId Оригинальный урок для дублирования.
+	 *
+	 * @return array<string, mixed>|null Нода нового урока для дерева, либо null.
+	 */
+	public function duplicateLessonInModule( int $courseId, string $moduleId, int $lessonId ): ?array {
+		$course = $this->courses->get( $courseId );
+		if ( null === $course ) {
+			return null;
+		}
+
+		// Проверяем модуль и наличие оригинала в нём ДО клонирования — чтобы не плодить сирот.
+		$target = null;
+		foreach ( $course->modules as $module ) {
+			if ( $module->id === $moduleId ) {
+				$target = $module;
+				break;
+			}
+		}
+		if ( null === $target || ! in_array( $lessonId, $target->lessonIds, true ) ) {
+			return null;
+		}
+
+		$newId = $this->cloneService->cloneLesson( $lessonId );
+		if ( $newId <= 0 ) {
+			return null;
+		}
+
+		$modules = array();
+		foreach ( $course->modules as $module ) {
+			$lessonIds = $module->lessonIds;
+			if ( $module->id === $moduleId ) {
+				$pos = (int) array_search( $lessonId, $lessonIds, true );
+				array_splice( $lessonIds, $pos + 1, 0, array( $newId ) );
+			}
+			$modules[] = new ModuleDTO( $module->id, $module->title, $lessonIds, $module->description );
+		}
+
+		$this->courses->update( $courseId, $this->withModules( $course, $modules ) );
+
+		$created = $this->lessons->get( $newId );
+		return null !== $created ? $this->lessonNode( $created ) : null;
+	}
+
+	/**
 	 * Обновляет заголовок и статус публикации урока (без перезаписи шагов).
 	 *
 	 * @param int    $lessonId
@@ -204,16 +259,50 @@ class CourseBuilderService {
 	 *
 	 * @return bool
 	 */
-	public function updateCourseMeta( int $courseId, string $title, bool $published ): bool {
+	public function updateCourseMeta( int $courseId, string $title, string $status, int $authorId = 0, int $thumbnailId = 0 ): bool {
 		$post = $this->posts->get( $courseId );
 		if ( null === $post || ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
 			return false;
 		}
 
+		$allowed_statuses = array( 'draft', 'publish', 'private' );
+		$safe_status      = in_array( $status, $allowed_statuses, true ) ? $status : 'draft';
+
 		$this->posts->update( $courseId, array( 'post_title' => '' !== $title ? $title : 'Без названия' ) );
-		$this->posts->updateStatus( $courseId, $published ? 'publish' : 'draft' );
+		$this->posts->updateStatus( $courseId, $safe_status );
+
+		if ( $authorId > 0 ) {
+			$this->posts->update( $courseId, array( 'post_author' => $authorId ) );
+		}
+
+		if ( $thumbnailId > 0 ) {
+			set_post_thumbnail( $courseId, $thumbnailId );
+		}
+
+		if ( 'publish' === $safe_status ) {
+			$this->publishCourseLessons( $courseId );
+		}
 
 		return true;
+	}
+
+	/**
+	 * Публикует все уроки курса при переходе курса в статус publish.
+	 */
+	public function publishCourseLessons( int $courseId ): void {
+		$course = $this->courses->get( $courseId );
+		if ( null === $course ) {
+			return;
+		}
+
+		foreach ( $course->modules as $module ) {
+			foreach ( $module->lessonIds as $lessonId ) {
+				$post = $this->posts->get( $lessonId );
+				if ( null !== $post && 'publish' !== $post->post_status ) {
+					$this->posts->updateStatus( $lessonId, 'publish' );
+				}
+			}
+		}
 	}
 
 	/**

@@ -42,7 +42,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxAssignCourse(): void {
-		$this->authorize( Nonce::AssignCourse, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AssignCourse, Capability::ManageLmsTeaching );
 		$groupId  = $this->requireInt( 'group_id' );
 		$courseId = $this->requireInt( 'course_id' );
 		$policy   = AssignmentPolicy::fromValueOrDefault( $this->sanitizeKey( 'policy' ) );
@@ -57,7 +57,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxAddLessonToProgram(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId  = $this->requireInt( 'group_id' );
 		$lessonId = $this->requireInt( 'lesson_id' );
 		$label    = $this->sanitizeText( 'label' ) ?: null;
@@ -72,7 +72,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxDuplicateProgramLesson(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$userId        = get_current_user_id();
 
@@ -86,7 +86,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxRemoveLessonFromProgram(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$userId        = get_current_user_id();
 
@@ -96,7 +96,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxReorderProgram(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId    = $this->requireInt( 'group_id' );
 		$orderedIds = array_map( 'intval', (array) ( $_POST['ordered_ids'] ?? array() ) );
 		$userId     = get_current_user_id();
@@ -110,7 +110,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxSaveLessonSchedule(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId  = $this->requireInt( 'group_lesson_id' );
 		$scheduledAt    = $this->sanitizeText( 'scheduled_at' ) ?: null;
 		$teacherUserId  = isset( $_POST['teacher_user_id'] ) && '' !== $_POST['teacher_user_id']
@@ -123,7 +123,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxSetLessonExtraWorks(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$workIds       = array_map( 'intval', (array) ( $_POST['work_ids'] ?? array() ) );
 		$userId        = get_current_user_id();
@@ -133,7 +133,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxSetLessonVisibility(): void {
-		$this->authorize( Nonce::SetLessonVisibility, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SetLessonVisibility, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$visibility    = LessonVisibility::tryFrom( $this->sanitizeKey( 'visibility' ) );
 		$userId        = get_current_user_id();
@@ -147,7 +147,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxGetGroupProgram(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId = $this->requireInt( 'group_id' );
 		$userId  = get_current_user_id();
 
@@ -159,12 +159,67 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	/**
+	 * Авто-распределение тем по слотам периода (кнопка «Распределить» в КТП).
+	 * Params: group_id
+	 */
+	public function ajaxReflowSchedule(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->scheduleService->reflow( $groupId, $userId );
+		$this->success();
+	}
+
+	/**
+	 * Закрепляет тему на дату (drag-drop темы на день календаря).
+	 * Params: group_lesson_id, scheduled_at
+	 */
+	public function ajaxPinLesson(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$scheduledAt   = $this->sanitizeText( 'scheduled_at' );
+		$userId        = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+		if ( '' === $scheduledAt ) {
+			$this->error( __( 'Не указана дата.', 'fs-lms' ) );
+		}
+
+		$this->scheduleService->pinToDate( $groupLessonId, $scheduledAt, $userId );
+		$this->success();
+	}
+
+	/**
+	 * Календарь КТП группы: слоты периода, выходные и размещённые темы.
+	 * Params: group_id
+	 */
+	public function ajaxGetGroupCalendar(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->success( $this->scheduleService->getCalendar( $groupId ) );
+	}
+
+	/**
 	 * Возвращает список task-шагов урока с базовыми настройками и переопределениями группы.
 	 * Используется в панели настроек шагов кокпита (Этап 6, Фаза D).
 	 * Params: group_lesson_id
 	 */
 	public function ajaxGetStepSettings(): void {
-		$this->authorize( Nonce::StepSettings, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::StepSettings, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 
 		$groupLesson = $this->groupLessons->find( $groupLessonId );
@@ -209,7 +264,7 @@ class ProgramCallbacks extends BaseController {
 	 * Params: group_lesson_id, overrides (JSON: {step_key: {max_attempts, shuffle, hint_after_errors}})
 	 */
 	public function ajaxSaveStepSettings(): void {
-		$this->authorize( Nonce::StepSettings, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::StepSettings, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$rawOverrides  = $this->sanitizeText( 'overrides' );
 
@@ -236,7 +291,7 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	public function ajaxGetGroupActivity(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId = $this->requireInt( 'group_id' );
 		$page    = max( 1, $this->sanitizeInt( 'page' ) );
 		$userId  = get_current_user_id();

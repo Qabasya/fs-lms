@@ -34,7 +34,7 @@ class GradingCallbacks extends BaseController {
 	}
 
 	public function ajaxSaveGrade(): void {
-		$this->authorize( Nonce::GradeWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
 
 		$submissionId = $this->requireInt( 'submission_id' );
 		$score        = (float) ( $_POST['score'] ?? 0 );
@@ -62,7 +62,7 @@ class GradingCallbacks extends BaseController {
 	}
 
 	public function ajaxReturnSubmission(): void {
-		$this->authorize( Nonce::GradeWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
 
 		$submissionId = $this->requireInt( 'submission_id' );
 		$feedback     = $this->requireText( 'feedback' );
@@ -84,7 +84,7 @@ class GradingCallbacks extends BaseController {
 	}
 
 	public function ajaxGetGroupSubmissions(): void {
-		$this->authorize( Nonce::GradeWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
 
 		$groupId = $this->requireInt( 'group_id' );
 		if ( ! $this->guard->canManage( $groupId, get_current_user_id() ) ) {
@@ -106,7 +106,7 @@ class GradingCallbacks extends BaseController {
 	}
 
 	public function ajaxGetGradebook(): void {
-		$this->authorize( Nonce::GradeWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
 
 		$groupId = $this->sanitizeInt( 'group_id' );
 		if ( $groupId && ! $this->guard->canManage( $groupId, get_current_user_id() ) ) {

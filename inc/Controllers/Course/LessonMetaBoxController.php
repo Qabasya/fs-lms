@@ -38,6 +38,20 @@ class LessonMetaBoxController extends BaseController implements ServiceInterface
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
 		// Приоритет 100 — после регистрации ядром коробок «Автор»/«Изображение»/«Атрибуты».
 		add_action( 'add_meta_boxes', array( $this, 'tidyLessonMetaBoxes' ), 100 );
+		// Регистрируем CPT уроков в WP Bakery, чтобы он загружал свои скрипты
+		// (включая Backend Editor) на страницах редактирования уроков.
+		add_filter( 'vc_is_valid_backend_editor_enabled', array( $this, 'enableVcOnLessonScreens' ) );
+	}
+
+	/**
+	 * Разрешает Backend Editor WP Bakery на страницах уроков.
+	 */
+	public function enableVcOnLessonScreens( bool $enabled ): bool {
+		if ( $enabled ) {
+			return true;
+		}
+		$screen = get_current_screen();
+		return null !== $screen && PostTypeResolver::isLessonPostType( $screen->post_type ?? '' );
 	}
 
 	/**

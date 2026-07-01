@@ -152,6 +152,23 @@ class GroupsRepository {
 	}
 
 	/**
+	 * Возвращает все группы преподавателя (по teacher_id), отсортированные по названию.
+	 *
+	 * @param int $teacherId WP-идентификатор преподавателя
+	 *
+	 * @return array
+	 */
+	public function findByTeacherId( int $teacherId ): array {
+		return $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE teacher_id = %d ORDER BY name ASC',
+				$this->table,
+				$teacherId
+			)
+		) ?: array();
+	}
+
+	/**
 	 * Возвращает все группы, отсортированные по предмету и названию.
 	 *
 	 * @return array

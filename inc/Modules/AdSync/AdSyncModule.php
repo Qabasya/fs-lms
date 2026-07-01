@@ -10,7 +10,6 @@ use Inc\Modules\AdSync\Controllers\AdSyncController;
 use Inc\Modules\AdSync\Controllers\AdSyncRestController;
 use Inc\Modules\AdSync\Controllers\AdSyncSettingsController;
 use Inc\Modules\AdSync\Schema\AdSchema;
-use Inc\Services\Application\ApplicationSettingsService;
 
 /**
  * Class AdSyncModule
@@ -34,16 +33,16 @@ class AdSyncModule implements ServiceInterface {
 		private readonly AdSyncRestController       $rest,
 		private readonly AdSchema                   $schema,
 		private readonly AdSyncConfig               $config,
-		private readonly ApplicationSettingsService $applicationSettings,
 	) {}
 
 	public function register(): void {
 		// Admin-настройки (UI + сохранение) — всегда: чтобы можно было настроить и включить модуль.
 		$this->settings->register();
 
-		// Рантайм только при включённом флаге И включённой привязке заявки к направлению:
-		// без `subject_key` Python не сможет выбрать AD-группу, поэтому AD-провижн без привязки — инертен.
-		if ( ! $this->config->isEnabled() || ! $this->applicationSettings->isBindToSubject() ) {
+		// Рантайм только при включённом флаге модуля. Привязка к направлению независима:
+		// включение модуля само по себе провижнит учётки; без привязки subject_key пустой —
+		// Python создаёт учётку без группы направления.
+		if ( ! $this->config->isEnabled() ) {
 			return;
 		}
 

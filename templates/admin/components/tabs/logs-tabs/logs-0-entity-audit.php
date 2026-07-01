@@ -36,7 +36,7 @@ $sort_url    = add_query_arg( $entity_audit_filters, $base_url );
 ?>
 
 <div class="fs-logs-tab" id="js-entity-audit-tab">
-    <p class="description fs-mt-md">
+    <p class="description">
         Каждое действие с сущностью (предмет, таксономия, пользователи и т.д.) фиксируется здесь.
     </p>
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">

@@ -75,4 +75,23 @@ class LessonCallbacksTest extends TestCase {
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->callbacks->ajaxCreateTaskDraft() )->success );
 	}
+
+	public function test_save_lesson_steps_preserves_needs_review_flag(): void {
+		$this->seedLesson( 5, 'inf', array( 's1' ) );
+		$_POST = array(
+			'lesson_id'   => '5',
+			'subject_key' => 'inf',
+			'steps'       => array(
+				array( 'key' => 's1', 'type' => 'text', 'payload' => array( 'title' => 'A', 'content' => 'B', 'needs_review' => '1' ) ),
+				array( 'key' => 's2', 'type' => 'text', 'payload' => array( 'title' => 'C', 'content' => 'D' ) ),
+			),
+		);
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveLessonSteps() );
+
+		self::assertTrue( $r->success );
+		$steps = $this->lessons->get( 5 )->steps;
+		self::assertTrue( $steps[0]->payload['needs_review'] );            // флаг переживает sanitizeStep
+		self::assertArrayNotHasKey( 'needs_review', $steps[1]->payload );  // без флага ключ не добавляется
+	}
 }

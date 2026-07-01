@@ -6,101 +6,76 @@ namespace Inc\Controllers\Course;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\Wp\Nonce;
-use Inc\Enums\Wp\PostMetaName;
-use Inc\Managers\Wp\MetaBoxManager;
-use Inc\MetaBoxes\Templates\CourseTemplate;
-use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Course\CourseBuilderService;
 use Inc\Services\Subject\PostTypeResolver;
-use Inc\Shared\Traits\Authorizer;
-use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
 /**
  * Class CourseMetaBoxController
  *
- * Регистрирует, рендерит и сохраняет метабокс курса для всех CPT {key}_courses.
+ * Рендерит конструктор курса непосредственно на post.php через edit_form_after_title
+ * (без обёртки .postbox). Также убирает лишние нативные WP-элементы на экране курса.
  *
  * @package Inc\Controllers
  */
 class CourseMetaBoxController extends BaseController implements ServiceInterface {
 
-	use Authorizer;
-	use TidiesCoreMetaBoxes;
-
 	public function __construct(
-		private readonly SubjectRepository $subjects,
-		private readonly MetaBoxRegistrar  $registrar,
-		private readonly MetaBoxManager    $metaBoxManager,
-		private readonly CourseTemplate    $template,
+		private readonly SubjectRepository    $subjects,
+		private readonly CourseBuilderService $builder,
 	) {
 		parent::__construct();
 	}
 
 	public function register(): void {
-		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
-		add_action( 'add_meta_boxes', array( $this, 'tidyCourseMetaBoxes' ), 100 );
-		add_action( 'save_post', array( $this, 'handleCourseSave' ) );
+		add_action( 'edit_form_after_title', array( $this, 'renderCourseBuilder' ) );
+		add_action( 'add_meta_boxes', array( $this, 'tidyCourseScreen' ), 100 );
+		add_action( 'admin_head', array( $this, 'hideTitleOnCourseScreen' ) );
+		add_action( 'transition_post_status', array( $this, 'onCoursePublished' ), 10, 3 );
 	}
 
-	/**
-	 * Прибирает экран курса: убирает «Атрибуты»/«Изображение записи», «Автор» → в сайдбар.
-	 * Редактор (описание курса) и метабокс курса остаются.
-	 */
-	public function tidyCourseMetaBoxes( string $post_type ): void {
-		if ( PostTypeResolver::isCoursePostType( $post_type ) ) {
-			$this->tidyCoreMetaBoxes( $post_type );
+	public function renderCourseBuilder( \WP_Post $post ): void {
+		if ( ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
+			return;
 		}
+		$subject = PostTypeResolver::subjectFromCoursePostType( $post->post_type );
+		echo '<div id="fs-lms-course-builder" class="fs-lms-cb-wrap"'
+			. ' data-course-id="' . esc_attr( (string) $post->ID ) . '"'
+			. ' data-subject="' . esc_attr( $subject ) . '"'
+			. '></div>';
 	}
 
-	public function handleAddMetaBoxes(): void {
-		$all_subjects = $this->subjects->readAll();
-		if ( empty( $all_subjects ) ) {
+	public function tidyCourseScreen( string $post_type ): void {
+		if ( ! PostTypeResolver::isCoursePostType( $post_type ) ) {
 			return;
 		}
-
-		$course_post_types = array_map(
-			static fn( $subject ) => PostTypeResolver::courses( $subject->key ),
-			$all_subjects
-		);
-
-		$this->registrar->add(
-			'fs_lms_course_metabox',
-			'Программа курса',
-			array( $this, 'renderMetaboxContent' ),
-			$course_post_types
-		)->register();
+		remove_meta_box( 'pageparentdiv', $post_type, 'side' );
+		remove_meta_box( 'postimagediv', $post_type, 'side' );
+		remove_meta_box( 'authordiv', $post_type, 'normal' );
 	}
 
-	public function renderMetaboxContent( \WP_Post $post ): void {
-		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
-
-		echo '<div class="fs-lms-metabox-wrapper fs-lms-course-metabox">';
-		$this->template->render( $post );
-		echo '</div>';
+	public function hideTitleOnCourseScreen(): void {
+		$screen = get_current_screen();
+		if ( null === $screen || 'post' !== $screen->base || ! PostTypeResolver::isCoursePostType( $screen->post_type ?? '' ) ) {
+			return;
+		}
+		echo '<style>
+			#titlediv, #submitdiv, #authordiv, #minor-publishing,
+			#normal-sortables, #postbox-container-1,
+			h1.wp-heading-inline, .page-title-action, .wp-header-end { display: none !important; }
+			#post-body.columns-2 { margin-right: 0 !important; }
+			#postbox-container-2 { width: 100% !important; }
+			#poststuff { padding-top: 0 !important; }
+		</style>';
 	}
 
-	public function handleCourseSave( int $post_id ): void {
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+	public function onCoursePublished( string $new_status, string $old_status, \WP_Post $post ): void {
+		if ( 'publish' !== $new_status || $old_status === $new_status ) {
 			return;
 		}
-
-		$post = get_post( $post_id );
-		if ( ! $post || ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
+		if ( ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
 			return;
 		}
-
-		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {
-			return;
-		}
-
-		$raw_data = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
-
-		$this->metaBoxManager->saveFields(
-			$post_id,
-			PostMetaName::Meta->value,
-			is_array( $raw_data ) ? $raw_data : array(),
-			$this->template->get_fields()
-		);
+		$this->builder->publishCourseLessons( $post->ID );
 	}
 }

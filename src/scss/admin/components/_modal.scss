@@ -1,4 +1,5 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 
 /* =================================================================
@@ -16,29 +17,6 @@
 
   &:hover {
     background: $hover-color;
-  }
-}
-
-/// Миксин для полей ввода с состоянием фокуса
-/// @param {Color} $focus-color [$color-primary] - цвет обводки при фокусе
-@mixin form-input($focus-color: $color-primary) {
-  width: 100%;
-  height: 35px;
-  padding: 0 $spacing-md;
-  border: 1px solid $color-border-input;
-  border-radius: $border-radius-md;
-  box-sizing: border-box;
-  font-size: 13px;
-  transition: $transition-default;
-
-  &:focus {
-    border-color: $focus-color;
-    box-shadow: 0 0 0 1px $focus-color;
-    outline: none;
-  }
-
-  &::placeholder {
-    color: $color-text-secondary;
   }
 }
 
@@ -140,7 +118,7 @@ html.modal-open {
 
   /* ── HEADER: заголовок + кнопка закрытия */
   .fs-lms-modal-header {
-    background: $color-primary;
+    background: var(--color-primary);
     color: $color-text-inverse;
     padding: $spacing-lg $spacing-xl;
     border-radius: $border-radius-sm $border-radius-sm 0 0;
@@ -196,7 +174,7 @@ html.modal-open {
     // Базовые стили для параграфов
     p {
       margin: 0 0 $spacing-xl 0;
-      line-height: 1.5;
+      line-height: $line-height-base;
       color: $color-text-primary;
 
       &:last-child {
@@ -231,7 +209,7 @@ html.modal-open {
     .button {
       padding: $spacing-sm $spacing-xl;
       font-size: $font-size;
-      line-height: 1.5;
+      line-height: $line-height-base;
       border: none;
       border-radius: $border-radius-sm;
       cursor: pointer;
@@ -246,7 +224,7 @@ html.modal-open {
       // 🔵 Primary кнопка (Подтвердить/Сохранить)
       &.fs-lms-modal-confirm,
       &.button-primary {
-        @include modal-button($color-primary, $color-primary-hover);
+        @include modal-button(var(--color-primary), var(--color-primary-hover));
       }
 
       // 🔴 Деструктивная кнопка (Удалить)
@@ -256,7 +234,7 @@ html.modal-open {
 
       // Accessibility: фокус для клавиатурной навигации
       &:focus {
-        outline: 2px solid $color-primary;
+        outline: 2px solid var(--color-primary);
         outline-offset: 2px;
       }
     }
@@ -278,42 +256,35 @@ html.modal-open {
   // Подпись к полю
   label {
     display: block;
-    font-weight: 600;
+    font-weight: $font-bold;
     margin-bottom: $spacing-sm;
     color: $color-text-primary;
-    font-size: 13px;
+    font-size: $font-size-wp;
   }
 
   // Поля ввода: text, email, password и т.д.
   $input-types: text, number, email, url, password;
   @each $type in $input-types {
     input[type="#{$type}"] {
-      @include form-input;
+      @include wp-input($height: $input-height-sm, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
     }
   }
 
   // Select и textarea
   select,
   textarea {
-    @include form-input;
+    @include wp-input($height: $input-height-sm, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
   }
 
   // Особые стили для textarea
   textarea {
-    height: auto;
-    min-height: 100px;
+    @include textarea-base;
     padding: $spacing-md $spacing-md;
-    resize: vertical; // Разрешить изменение высоты
   }
 
   // Кастомный select со стрелочкой (SVG inline)
   select {
-    cursor: pointer;
-    appearance: none; // Сброс нативного стиля
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23646970' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right $spacing-md center;
-    padding-right: 35px; // Место под иконку
+    @include select-arrow;
   }
 
   // Подсказка под полем
@@ -336,6 +307,8 @@ html.modal-open {
       display: block;
     }
   }
+
+  &--full { flex: 0 0 100%; }
 }
 
 
@@ -346,10 +319,10 @@ html.modal-open {
 // Классы-модификаторы для изменения ширины модалки
 // Использование: <div class="fs-lms-modal-content fs-modal-lg">
 .fs-lms-modal-content {
-  &.fs-modal-sm { max-width: 35vw; }
-  &.fs-modal-md { max-width: 50vw; }
-  &.fs-modal-lg { max-width: 65vw; }
-  &.fs-modal-xl { max-width: 80vw; }
+  &.fs-modal-sm { max-width: 15vw; }
+  &.fs-modal-md { max-width: 30vw; }
+  &.fs-modal-lg { max-width: 45vw; }
+  &.fs-modal-xl { max-width: 65vw; }
 }
 
 
@@ -388,17 +361,17 @@ html.modal-open {
   align-items: center;
   gap: $spacing-sm;
   cursor: pointer;
-  font-size: 13px;
+  font-size: $font-size-wp;
   color: $color-text-primary;
 
   input[type="radio"] {
     margin: 0;
     cursor: pointer;
-    accent-color: $color-primary; // Нативная окраска (современные браузеры)
+    accent-color: var(--color-primary); // Нативная окраска (современные браузеры)
   }
 
   &:hover span {
-    color: $color-primary;
+    color: var(--color-primary);
   }
 
   &--disabled {
@@ -414,7 +387,7 @@ html.modal-open {
 .fs-lms-modal-message {
   white-space: pre-wrap;
   margin: 0;
-  line-height: 1.5;
+  line-height: $line-height-base;
 }
 
 
@@ -475,8 +448,8 @@ html.modal-open {
   }
 
   &__icon {
-    width: 48px;
-    height: 48px;
+    width: $size-icon-xl;
+    height: $size-icon-xl;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
@@ -522,7 +495,7 @@ html.modal-open {
     display: inline-flex;
     align-items: center;
     gap: $spacing-xs;
-    background: #fff;
+    background: $color-bg-modal;
     border: 1px solid $wp-admin-blue;
     color: $wp-admin-blue !important;
     padding: $spacing-sm $spacing-lg;
@@ -561,7 +534,7 @@ html.modal-open {
       position: relative;
       padding-left: 45px !important;
       margin: 0 !important;
-      font-size: 14px !important;
+      font-size: $font-size !important;
       line-height: 1.6 !important;
       color: $color-text-primary;
 
@@ -572,17 +545,9 @@ html.modal-open {
         position: absolute;
         left: 0;
         top: 2px;
-        width: 26px;
-        height: 26px;
-        background: rgba($wp-admin-blue, 0.08);
-        border: 2px solid $wp-admin-blue;
-        color: $wp-admin-blue;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 12px;
+        @include badge-circle(26px, $wp-admin-blue);
+        font-weight: $font-bold;
+        font-size: $font-size-xs;
         z-index: 2;
       }
 
@@ -601,7 +566,7 @@ html.modal-open {
       // Стилизация внутренних тегов списка
       strong { color: $color-text-primary; }
       a { color: $wp-admin-blue; text-decoration: none; &:hover { text-decoration: underline; } }
-      code { background: #f0f0f1; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+      code { background: #f0f0f1; padding: 2px 6px; border-radius: $border-radius-md; font-size: $font-size-wp; } // #f0f0f1: нет чистого семантического токена
     }
   }
 
@@ -619,28 +584,20 @@ html.modal-open {
   align-items: flex-start;
 
   &__badge {
-    width: 28px;
-    height: 28px;
-    background: rgba($wp-admin-green, 0.08);
-    border: 2px solid $wp-admin-green;
-    color: $wp-admin-green;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @include badge-circle(28px, $wp-admin-green);
     flex-shrink: 0;
 
     .dashicons {
       font-size: 18px;
       width: 18px;
       height: 18px;
-      font-weight: bold;
+      font-weight: $font-heavy;
     }
   }
 
   &__text {
     h4 {
-      margin: 0 0 4px 0 !important;
+      margin: 0 0 $spacing-xs 0 !important;
       font-size: $font-size-m!important;
       font-weight: $font-bold !important;
       color: $color-text-primary !important;
@@ -679,7 +636,7 @@ html.modal-open {
 
   // Моноширинная текстовая ссылка
   &__url {
-    font-family: Consolas, Monaco, monospace;
+    font-family: $font-mono;
     font-size: $font-size;
     color: $color-text-primary;
     word-break: break-all;
@@ -702,11 +659,7 @@ html.modal-open {
 
   // Информационная плашка (Иконка "i" и текст в одну строку)
   &__info {
-    background: rgba($wp-admin-blue, 0.08);
-    border: 1px solid rgba($wp-admin-blue, 0.2);
-    border-left: 4px solid $wp-admin-blue;
-    padding: $spacing-sm $spacing-md;
-    border-radius: 0 $border-radius-md $border-radius-md 0;
+    @include callout($wp-admin-blue, 0.08);
     display: flex;
     align-items: flex-start;
     gap: $spacing-sm;
@@ -741,9 +694,9 @@ html.modal-open {
 
   &__display {
     flex: 1;
-    min-height: 35px;
-    line-height: 35px;
-    font-size: 13px;
+    min-height: $input-height-sm;
+    line-height: $input-height-sm;
+    font-size: $font-size-wp;
     color: $color-text-primary;
     padding: 0 $spacing-sm;
   }
@@ -757,13 +710,13 @@ html.modal-open {
     transition: color $transition-fast;
 
     &:hover {
-      color: $color-primary;
+      color: var(--color-primary);
     }
 
     .dashicons {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
+      font-size: $font-size-m;
+      width: $font-size-m;
+      height: $font-size-m;
     }
   }
 
@@ -785,73 +738,21 @@ html.modal-open {
 }
 
 
-/* =================================================================
-   DETAIL GRID (read-only data display in enrollment/review modals)
-   ================================================================= */
-
-.fs-detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  border: 1px solid $color-border-input;
-  border-radius: $border-radius-md;
-  overflow: hidden;
-}
-
-.fs-detail-row {
-  display: contents;
-
-  .fs-detail-label,
-  .fs-detail-value {
-    padding: $spacing-sm $spacing-md;
-    font-size: 13px;
-    border-bottom: 1px solid $color-border-input;
-    line-height: 1.4;
-  }
-
-  .fs-detail-label {
-    background: rgba($wp-admin-gray, 0.06);
-    font-weight: 600;
-    color: $color-text-secondary;
-    white-space: nowrap;
-  }
-
-  .fs-detail-value {
-    color: $color-text-primary;
-    word-break: break-word;
-  }
-
-  &:last-child .fs-detail-label,
-  &:last-child .fs-detail-value {
-    border-bottom: none;
-  }
-
-  &--full {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-
-    .fs-detail-label,
-    .fs-detail-value {
-      border-bottom: none;
-    }
-  }
-}
 
 .fs-checkbox-label {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
   cursor: pointer;
-  font-size: 13px;
+  font-size: $font-size-wp;
   color: $color-text-primary;
 
   input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
+    width: $font-size-m;
+    height: $font-size-m;
     margin: 0;
     cursor: pointer;
-    accent-color: $color-primary;
+    accent-color: var(--color-primary);
   }
 }
 
@@ -889,8 +790,8 @@ html.modal-open {
 
     h3 {
       margin: 0;
-      font-size: 13px;
-      font-weight: 600;
+      font-size: $font-size-wp;
+      font-weight: $font-bold;
       color: $color-text-primary;
     }
 
@@ -936,7 +837,7 @@ html.modal-open {
   align-items: center;
   gap: $spacing-xs;
   cursor: pointer;
-  font-size: 13px;
+  font-size: $font-size-wp;
   color: $color-text-primary;
   background: $wp-admin-gray-bg-light;
   border: 1px solid $color-border-input;
@@ -949,18 +850,18 @@ html.modal-open {
   input[type="checkbox"] {
     margin: 0;
     cursor: pointer;
-    accent-color: $color-primary;
+    accent-color: var(--color-primary);
   }
 
   &:has(input:checked) {
     background: $wp-admin-blue-bg-light;
-    border-color: $color-primary;
+    border-color: var(--color-primary);
     color: $wp-admin-blue-text;
-    font-weight: 600;
+    font-weight: $font-bold;
   }
 
   &:hover {
-    border-color: $color-primary;
+    border-color: var(--color-primary);
   }
 }
 
@@ -974,14 +875,14 @@ html.modal-open {
   }
 
   select {
-    @include form-input;
+    @include wp-input($height: $input-height-sm, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
     height: 32px;
     width: 90px;
   }
 }
 
 .fs-schedule-separator {
-  font-size: 13px;
+  font-size: $font-size-wp;
   color: $color-text-secondary;
 }
 
@@ -991,17 +892,12 @@ html.modal-open {
    ================================================================= */
 
 .fs-expel-warning {
+  @include callout($color-danger, 0.06, $wp-admin-red-text);
   display: flex;
   align-items: flex-start;
   gap: $spacing-sm;
-  background: rgba($color-danger, 0.06);
-  border: 1px solid rgba($color-danger, 0.2);
-  border-left: 4px solid $color-danger;
-  border-radius: 0 $border-radius-md $border-radius-md 0;
-  padding: $spacing-sm $spacing-md;
   margin-bottom: $spacing-lg;
-  font-size: 13px;
-  color: $wp-admin-red-text;
+  font-size: $font-size-wp;
 
   .dashicons {
     color: $color-danger;
@@ -1011,8 +907,8 @@ html.modal-open {
 }
 
 .fs-expel-student-name {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: $font-bold;
+  font-size: $font-size-wp;
   color: $color-text-primary;
   margin-bottom: $spacing-lg;
 
@@ -1025,7 +921,7 @@ html.modal-open {
   margin: $spacing-xs 0 0 0;
   padding-left: $spacing-xl;
   font-weight: 400;
-  font-size: 13px;
+  font-size: $font-size-wp;
   color: $color-text-primary;
 
   li {
@@ -1042,7 +938,7 @@ html.modal-open {
 .fs-pfield {
   display: flex;
   align-items: center;
-  min-height: 35px;            // совпадает с высотой form-input
+  min-height: $input-height-sm;            // совпадает с высотой form-input
   background: $wp-admin-gray-bg-light;
   border: 1px solid $color-border-input;
   border-radius: $border-radius-md;
@@ -1058,7 +954,7 @@ html.modal-open {
     box-shadow: none !important;
     padding: 2px $spacing-sm !important;
     margin: 0 !important;
-    font-size: 13px;
+    font-size: $font-size-wp;
     color: $color-text-primary;
     cursor: default;
 
@@ -1084,9 +980,9 @@ html.modal-open {
       background   0.18s;
 
     .fs-copy-field__icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
+      font-size: $font-size-m;
+      width: $font-size-m;
+      height: $font-size-m;
     }
   }
 
@@ -1110,8 +1006,7 @@ html.modal-open {
   border-color: $color-border-input;
 
   &:focus-within {
-    border-color: $color-primary;
-    box-shadow: 0 0 0 1px $color-primary;
+    @include focus-ring($outline: false);
   }
 
   > input { cursor: text !important; }
@@ -1151,14 +1046,9 @@ html.modal-open {
 }
 
 .fs-modal-error {
-  background: rgba($color-danger, 0.06);
-  border: 1px solid rgba($color-danger, 0.2);
-  border-left: 4px solid $color-danger;
-  border-radius: 0 $border-radius-md $border-radius-md 0;
-  padding: $spacing-sm $spacing-md;
+  @include callout($color-danger, 0.06, $color-danger);
   margin: 0 0 $spacing-lg 0;
-  font-size: 13px;
-  color: $color-danger;
+  font-size: $font-size-wp;
   display: none;
 
   &:not(:empty) {

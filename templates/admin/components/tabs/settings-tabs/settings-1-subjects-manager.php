@@ -20,17 +20,16 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 
 <div id="tab-1" class="tab-pane active">
 
-	<div class="header-row">
-		<h1 class="wp-heading-inline"><?php echo 'archived' === $view ? 'Архив предметов' : 'Активные предметы'; ?></h1>
-
-		<?php if ( 'archived' !== $view ) : ?>
-		<div class="description-actions">
-
-			<a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
-			<input type="file" id="fs-import-file" accept=".json" class="hidden">
-
+	<div class="fs-page-header">
+		<div class="fs-page-header__content">
+			<h1 class="fs-page-header__title"><?php echo 'archived' === $view ? 'Архив предметов' : 'Активные предметы'; ?></h1>
+			<?php if ( 'archived' !== $view ) : ?>
+			<div class="fs-page-header__actions">
+				<a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
+				<input type="file" id="fs-import-file" accept=".json" class="hidden">
+			</div>
+			<?php endif; ?>
 		</div>
-		<?php endif; ?>
 	</div>
 
 		<ul class="subsubsub">

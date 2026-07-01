@@ -100,6 +100,9 @@ enum Nonce: string {
 	/** Страница «Все задания» и AJAX-фильтрация. */
 	case AllTasks = 'fs_lms_all_tasks_nonce';
 
+	// ==== RBAC — управление ролями (Этап 6) ====
+	case SaveRoles = 'fs_lms_save_roles';
+
 	/**
 	 * Проверяет входящий запрос.
 	 *

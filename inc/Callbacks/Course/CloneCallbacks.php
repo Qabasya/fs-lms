@@ -86,7 +86,7 @@ class CloneCallbacks extends BaseController {
 	}
 
 	public function ajaxForkLessonForGroup(): void {
-		$this->authorize( Nonce::Manager, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::Manager, Capability::AuthorLmsCourses );
 
 		$groupId       = $this->requireInt( 'group_id' );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );

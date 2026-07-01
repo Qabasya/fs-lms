@@ -22,15 +22,21 @@ use Inc\Enums\Access\UserRole;
  *
  * ### Матрица capabilities:
  *
- * | Capability          | admin | lms_office | lms_teacher |
- * |---------------------|-------|------------|-------------|
- * | ManageApplications  |   ✓   |     ✓      |             |
- * | EnrollStudent       |   ✓   |     ✓      |             |
- * | ViewPII             |   ✓   |     ✓      |             |
- * | ExportPII           |   ✓   |            |             |
- * | ManagePersons       |   ✓   |     ✓      |             |
- * | ViewLMSStats        |       |            |      ✓      |
- * | ManageLMSAssignments|       |            |      ✓      |
+ * | Capability            | admin | lms_office | lms_methodist | lms_market | lms_teacher |
+ * |-----------------------|-------|------------|---------------|------------|-------------|
+ * | ManageLmsPlatform     |   ✓   |     ✓      |               |            |             |
+ * | ManageLmsRoles        |   ✓   |            |               |            |             |
+ * | AuthorLmsCourses      |   ✓   |     ✓      |       ✓       |            |             |
+ * | ManageLmsArticles     |   ✓   |     ✓      |               |     ✓      |             |
+ * | ManageLmsTeaching     |   ✓   |     ✓      |               |            |      ✓      |
+ * | ManageApplications    |   ✓   |     ✓      |               |            |             |
+ * | EnrollStudent         |   ✓   |     ✓      |               |            |             |
+ * | ViewPII               |   ✓   |     ✓      |               |            |             |
+ * | ExportPII             |   ✓   |     ✓      |               |            |             |
+ * | ManagePersons         |   ✓   |     ✓      |               |            |             |
+ * | ViewLMSStats          |   ✓   |     ✓      |               |     ✓      |      ✓      |
+ * | fs_lms_content caps   |   ✓   |     ✓      |       ✓       |            |      ✓      |
+ * | fs_lms_article caps   |   ✓   |     ✓      |               |     ✓      |             |
  *
  * ### Lifecycle:
  *
@@ -74,24 +80,81 @@ class RoleManager {
 
 		$admin = get_role( 'administrator' );
 		if ( null !== $admin ) {
+			$admin->add_cap( Capability::ManageLmsPlatform->value );
+			$admin->add_cap( Capability::ManageLmsRoles->value );
+			$admin->add_cap( Capability::AuthorLmsCourses->value );
+			$admin->add_cap( Capability::ManageLmsArticles->value );
+			$admin->add_cap( Capability::ManageLmsTeaching->value );
 			$admin->add_cap( Capability::ManageApplications->value );
 			$admin->add_cap( Capability::EnrollStudent->value );
 			$admin->add_cap( Capability::ViewPII->value );
 			$admin->add_cap( Capability::ExportPII->value );
 			$admin->add_cap( Capability::ManagePersons->value );
 			$admin->add_cap( Capability::ViewLMSStats->value );
-			$admin->add_cap( Capability::ManageLMSAssignments->value );
 			foreach ( self::lessonCaps() as $cap ) {
+				$admin->add_cap( $cap );
+			}
+			foreach ( self::articleCaps() as $cap ) {
 				$admin->add_cap( $cap );
 			}
 		}
 
+		foreach ( array( 'lms_methodist', 'lms_office' ) as $slug ) {
+			$role = get_role( $slug );
+			if ( null !== $role ) {
+				foreach ( self::lessonCaps() as $cap ) {
+					$role->add_cap( $cap );
+				}
+			}
+		}
+
+		// Этап 5+8: снять caps авторинга с teacher; убрать retire-cap со всех ролей.
 		$teacher = get_role( 'lms_teacher' );
 		if ( null !== $teacher ) {
 			foreach ( self::lessonCaps() as $cap ) {
-				$teacher->add_cap( $cap );
+				$teacher->remove_cap( $cap );
 			}
 		}
+		foreach ( array( 'administrator', 'lms_office', 'lms_methodist', 'lms_market', 'lms_teacher' ) as $slug ) {
+			$r = get_role( $slug );
+			if ( null !== $r ) {
+				$r->remove_cap( 'manage_lms_assignments' );
+			}
+		}
+
+		foreach ( array( 'lms_office', 'lms_market' ) as $slug ) {
+			$role = get_role( $slug );
+			if ( null !== $role ) {
+				foreach ( self::articleCaps() as $cap ) {
+					$role->add_cap( $cap );
+				}
+			}
+		}
+	}
+
+	/**
+	 * Производные capabilities CPT статей (capability_type = fs_lms_article).
+	 * Выдаются administrator, lms_office, lms_market — но НЕ lms_methodist.
+	 *
+	 * @return string[]
+	 */
+	private static function articleCaps(): array {
+		return array(
+			'edit_fs_lms_article',
+			'read_fs_lms_article',
+			'delete_fs_lms_article',
+			'edit_fs_lms_articles',
+			'edit_others_fs_lms_articles',
+			'publish_fs_lms_articles',
+			'read_private_fs_lms_articles',
+			'delete_fs_lms_articles',
+			'delete_others_fs_lms_articles',
+			'delete_published_fs_lms_articles',
+			'delete_private_fs_lms_articles',
+			'edit_private_fs_lms_articles',
+			'edit_published_fs_lms_articles',
+			'create_fs_lms_articles',
+		);
 	}
 
 	/**

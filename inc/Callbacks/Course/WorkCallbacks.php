@@ -37,7 +37,7 @@ class WorkCallbacks extends BaseController {
 	 * Params: work_id, item_ids[]
 	 */
 	public function ajaxSaveWorkItems(): void {
-		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
 
 		$work_id  = $this->requireInt( 'work_id' );
 		$item_ids = array_map( 'intval', (array) ( $_POST['item_ids'] ?? array() ) );
@@ -54,7 +54,7 @@ class WorkCallbacks extends BaseController {
 	 * Params: subject_key, task_type, collection, scope, search
 	 */
 	public function ajaxGetWorkTaskCandidates(): void {
-		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$task_type   = (int) ( $_POST['task_type'] ?? 0 );
@@ -76,7 +76,7 @@ class WorkCallbacks extends BaseController {
 	 * Params: subject_key, collection, scope, search
 	 */
 	public function ajaxGetWorkItemCandidates(): void {
-		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$collection  = (int) ( $_POST['collection'] ?? 0 );
@@ -97,7 +97,7 @@ class WorkCallbacks extends BaseController {
 	 * Params: subject_key
 	 */
 	public function ajaxGetWorkCollections(): void {
-		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 
@@ -115,7 +115,7 @@ class WorkCallbacks extends BaseController {
 	 * Params: subject_key, title, work_type
 	 */
 	public function ajaxCreateWorkDraft(): void {
-		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$title       = $this->sanitizeText( 'title' ) ?: 'Новая работа';
@@ -145,7 +145,7 @@ class WorkCallbacks extends BaseController {
 	 * Params: title
 	 */
 	public function ajaxCreateProblemDraft(): void {
-		$this->authorize( Nonce::AuthorWork, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
 
 		$title = $this->sanitizeText( 'title' ) ?: 'Новая задача';
 

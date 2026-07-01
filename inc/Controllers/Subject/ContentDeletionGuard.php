@@ -55,11 +55,23 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	 * @return array<string, string>
 	 */
 	public function addUsageColumn( array $columns, string $post_type ): array {
-		if ( PostTypeResolver::isBankPostType( $post_type ) ) {
-			$columns['fs_lms_usage'] = __( 'Используется', 'fs-lms' );
+		if ( ! PostTypeResolver::isBankPostType( $post_type ) || PostTypeResolver::isCoursePostType( $post_type ) ) {
+			return $columns;
 		}
 
-		return $columns;
+		$result = array();
+		foreach ( $columns as $key => $label ) {
+			if ( 'date' === $key ) {
+				$result['fs_lms_usage'] = __( 'Используется', 'fs-lms' );
+			}
+			$result[ $key ] = $label;
+		}
+
+		if ( ! isset( $result['fs_lms_usage'] ) ) {
+			$result['fs_lms_usage'] = __( 'Используется', 'fs-lms' );
+		}
+
+		return $result;
 	}
 
 	/**
@@ -79,10 +91,29 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		$kind  = ContentUsageService::kindOf( $post->post_type );
-		$count = '' === $kind ? 0 : $this->usage->usageCount( $kind, $post_id );
+		$kind = ContentUsageService::kindOf( $post->post_type );
 
-		$this->render( 'admin/components/content-usage-badge', array( 'count' => $count ) );
+		if ( 'task' === $kind || 'problem' === $kind ) {
+			$this->render( 'admin/components/content-usage-badge', array(
+				'paths'        => $this->usage->usagePathList( $kind, $post_id ),
+				'consumers'    => array(),
+				'post_type'    => $post->post_type,
+				'filter_param' => '',
+			) );
+			return;
+		}
+
+		if ( in_array( $kind, array( 'lesson', 'work', 'assessment' ), true ) ) {
+			$this->render( 'admin/components/content-usage-badge', array(
+				'paths'     => $this->usage->courseLinksFor( $kind, $post_id ),
+				'consumers' => array(),
+			) );
+			return;
+		}
+
+		if ( '' === $kind ) {
+			return;
+		}
 	}
 
 	/**
@@ -91,7 +122,12 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	 * @return bool|null false блокирует; null — штатный путь.
 	 */
 	public function guardTrash( ?bool $check, \WP_Post $post ): ?bool {
-		return $this->isBlocked( $post ) ? false : $check;
+		if ( ! $this->isBlocked( $post ) ) {
+			return $check;
+		}
+		$back = wp_get_referer() ?: admin_url( 'edit.php?post_type=' . $post->post_type );
+		wp_safe_redirect( $back );
+		exit;
 	}
 
 	/**
@@ -214,7 +250,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	private function validatedActionPost( string $action ): int {
 		$post_id = $this->sanitizeGetInt( 'post' );
 
-		if ( ! current_user_can( Capability::ManageLMSAssignments->value ) ) {
+		if ( ! current_user_can( Capability::AuthorLmsCourses->value ) ) {
 			wp_die( esc_html__( 'Недостаточно прав.', 'fs-lms' ) );
 		}
 		check_admin_referer( $action . '_' . $post_id );

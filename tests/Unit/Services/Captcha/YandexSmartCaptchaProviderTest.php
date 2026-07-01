@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Unit\Services\Captcha;
 
-use Inc\Services\CaptchaProviders\YandexSmartCaptchaProvider;
-use Inc\Services\Shared\PluginConfig;
+use Inc\Modules\SmartCaptcha\Config\SmartCaptchaConfig;
+use Inc\Modules\SmartCaptcha\Providers\YandexSmartCaptchaProvider;
 use PHPUnit\Framework\TestCase;
 use WP_Error;
 
@@ -17,9 +17,9 @@ class YandexSmartCaptchaProviderTest extends TestCase {
 	}
 
 	private function makeProvider( string $siteKey, string $serverKey ): YandexSmartCaptchaProvider {
-		$config = $this->createMock( PluginConfig::class );
-		$config->method( 'captchaSiteKey' )->willReturn( $siteKey );
-		$config->method( 'captchaServerKey' )->willReturn( $serverKey );
+		$config = $this->createMock( SmartCaptchaConfig::class );
+		$config->method( 'siteKey' )->willReturn( $siteKey );
+		$config->method( 'serverKey' )->willReturn( $serverKey );
 		return new YandexSmartCaptchaProvider( $config );
 	}
 

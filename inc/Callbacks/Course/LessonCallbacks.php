@@ -38,7 +38,7 @@ class LessonCallbacks extends BaseController {
 	 * Params: subject_key, work_type (string), scope (mine|subject), search (string)
 	 */
 	public function ajaxGetLessonWorkCandidates(): void {
-		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorLesson, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$work_type   = $this->sanitizeKey( 'work_type' );
@@ -59,7 +59,7 @@ class LessonCallbacks extends BaseController {
 	 * Params: subject_key, title
 	 */
 	public function ajaxCreateLessonDraft(): void {
-		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorLesson, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$title       = $this->sanitizeText( 'title' ) ?: 'Новый урок';
@@ -86,7 +86,7 @@ class LessonCallbacks extends BaseController {
 	 * Params: subject_key
 	 */
 	public function ajaxGetLessonArticles(): void {
-		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorLesson, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$articles    = $this->authoringService->getArticles( $subject_key );
@@ -104,7 +104,7 @@ class LessonCallbacks extends BaseController {
 	 * Params: subject_key, kind (work|task|assessment|article), source (subject|bank), search
 	 */
 	public function ajaxGetStepCandidates(): void {
-		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorLesson, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$kind        = $this->sanitizeKey( 'kind' );
@@ -118,7 +118,7 @@ class LessonCallbacks extends BaseController {
 	 * Черновик subject-задачи из билдера. Params: subject_key, title, category (question|code)
 	 */
 	public function ajaxCreateTaskDraft(): void {
-		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorLesson, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$title       = $this->sanitizeText( 'title' ) ?: 'Новая задача';
@@ -133,7 +133,7 @@ class LessonCallbacks extends BaseController {
 	 * Черновик контрольной из билдера. Params: subject_key, title
 	 */
 	public function ajaxCreateAssessmentDraft(): void {
-		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorLesson, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$title       = $this->sanitizeText( 'title' ) ?: 'Новая контрольная';
@@ -146,7 +146,7 @@ class LessonCallbacks extends BaseController {
 	 * Черновик статьи предмета (материал) из билдера. Params: subject_key, title
 	 */
 	public function ajaxCreateArticleDraft(): void {
-		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorLesson, Capability::ManageLmsArticles );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$title       = $this->sanitizeText( 'title' ) ?: 'Новый материал';
@@ -160,7 +160,7 @@ class LessonCallbacks extends BaseController {
 	 * Params: lesson_id, subject_key, steps[]
 	 */
 	public function ajaxSaveLessonSteps(): void {
-		$this->authorize( Nonce::AuthorLesson, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::AuthorLesson, Capability::AuthorLmsCourses );
 
 		$lesson_id   = $this->requireInt( 'lesson_id' );
 		$subject_key = $this->requireKey( 'subject_key' );
@@ -216,12 +216,20 @@ class LessonCallbacks extends BaseController {
 				'description' => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
 			),
 			'task'               => array(
-				'ref'    => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
-				'source' => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
+				'ref'      => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
+				'source'   => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
+				'settings' => array(
+					'max_attempts' => max( 0, (int) ( $raw_payload['settings']['max_attempts'] ?? 0 ) ),
+				),
 			),
 			'work', 'assessment' => array( 'ref' => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ) ),
 			default              => array(),
 		};
+
+		// Метка «дубликат — контент не изменён»: переживает сохранение (напоминание преподавателю).
+		if ( filter_var( $raw_payload['needs_review'] ?? false, FILTER_VALIDATE_BOOLEAN ) ) {
+			$payload['needs_review'] = true;
+		}
 
 		return array( 'key' => $key, 'type' => $type, 'payload' => $payload );
 	}

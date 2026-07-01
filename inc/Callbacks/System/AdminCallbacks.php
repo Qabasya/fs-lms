@@ -8,6 +8,7 @@ use Inc\Controllers\Pages\BoilerplatePageController;
 use Inc\Core\BaseController;
 use Inc\DTO\Settings\AcademicPeriodDTO;
 use Inc\Enums\Log\AuditAction;
+use Inc\Enums\Log\LogChannel;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Access\UserRole;
 use Inc\Enums\Course\WeekDay;
@@ -232,6 +233,7 @@ class AdminCallbacks extends BaseController {
 		$this->requireCap( Capability::Admin );
 
 		$active_tab = $this->sanitizeGetKey( 'tab' ) ?: 'tab-0';
+		$channel    = LogChannel::fromAdminTabId( $active_tab ); // null — неизвестная вкладка → ветка else
 		$per_page   = 50;
 		$paged      = max( 1, $this->sanitizeGetInt( 'paged' ) );
 
@@ -250,7 +252,7 @@ class AdminCallbacks extends BaseController {
 		$data['log_order']   = strtolower( $log_order );
 
 
-		if ( 'tab-0' === $active_tab ) {
+		if ( LogChannel::EntityAudit === $channel ) {
 			$filters = array_filter( array(
 				'operation'     => $this->sanitizeGetKey( 'operation' ),
 				'entity_type'   => $this->sanitizeGetKey( 'entity_type' ),
@@ -266,7 +268,7 @@ class AdminCallbacks extends BaseController {
 			$data['entity_audit_types']       = $this->entity_audit_log->distinctEntityTypes();
 			$data['entity_audit_actor_options'] = $this->resolveActorOptions( $this->entity_audit_log->distinctActorUserIds() );
 
-		} elseif ( 'tab-1' === $active_tab ) {
+		} elseif ( LogChannel::EnrollmentAudit === $channel ) {
 			$audit_filters = array_filter( array(
 				'action'        => $this->sanitizeGetKey( 'action' ),
 				'actor_user_id' => $actor_id,
@@ -290,7 +292,7 @@ class AdminCallbacks extends BaseController {
 				$this->audit_log->distinctActorUserIds()
 			);
 
-		}elseif ( 'tab-2' === $active_tab ) {
+		}elseif ( LogChannel::PiiAccess === $channel ) {
 			$pii_filters = array_filter( array(
 				'actor_user_id' => $actor_id,
 				'person_id'     => $person_id,
@@ -302,7 +304,7 @@ class AdminCallbacks extends BaseController {
 			$data['pii_total']   = $this->pii_log->countFiltered( $pii_filters );
 			$data['pii_rows']    = $this->pii_log->list( $pii_filters, $paged, $per_page, $log_orderby, $log_order );
 
-		} elseif ( 'tab-3' === $active_tab ) {
+		} elseif ( LogChannel::Export === $channel ) {
 			$filters = array_filter( array(
 				'actor_user_id' => $actor_id,
 				'data_type'     => $this->sanitizeGetKey( 'data_type' ),
@@ -316,7 +318,7 @@ class AdminCallbacks extends BaseController {
 			$data['export_data_types']    = $this->export_log->distinctDataTypes();
 			$data['export_actor_options'] = $this->resolveActorOptions( $this->export_log->distinctActorUserIds() );
 
-		} elseif ( 'tab-4' === $active_tab ) {
+		} elseif ( LogChannel::DataChange === $channel ) {
 			$filters = array_filter( array(
 				'actor_user_id'    => $actor_id,
 				'target_person_id' => $person_id,
@@ -330,7 +332,7 @@ class AdminCallbacks extends BaseController {
 			$data['data_change_actor_options']  = $this->resolveActorOptions( $this->data_change_log->distinctActorUserIds() );
 			$data['data_change_person_options'] = $this->resolvePersonOptions( $this->data_change_log->distinctPersonIds() );
 
-		} elseif ( 'tab-5' === $active_tab ) {
+		} elseif ( LogChannel::ConsentChange === $channel ) {
 			$filters = array_filter( array(
 				'consent_type' => $this->sanitizeGetKey( 'consent_type' ),
 				'date_from'    => $date_from,
@@ -342,7 +344,7 @@ class AdminCallbacks extends BaseController {
 			$data['consent_rows']          = $this->consent_change_log->list( $filters, $paged, $per_page, $log_orderby, $log_order );
 			$data['consent_type_options']  = $this->consent_change_log->distinctConsentTypes();
 
-		} elseif ( 'tab-6' === $active_tab ) {
+		} elseif ( LogChannel::Email === $channel ) {
 			$filters = array_filter( array(
 				'email_type'       => $this->sanitizeGetKey( 'email_type' ),
 				'status'           => $this->sanitizeGetKey( 'status' ),
@@ -357,7 +359,7 @@ class AdminCallbacks extends BaseController {
 			$data['email_type_options']   = $this->email_log->distinctEmailTypes();
 			$data['email_person_options'] = $this->resolvePersonOptions( $this->email_log->distinctPersonIds() );
 
-		} elseif ( 'tab-8' === $active_tab ) {
+		} elseif ( LogChannel::Auth === $channel ) {
 			$filters = array_filter( array(
 				'action'    => $this->sanitizeGetKey( 'action' ),
 				'result'    => $this->sanitizeGetKey( 'result' ),

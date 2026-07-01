@@ -18,7 +18,7 @@
 
 .fs-sidebar-title {
   font-size: $font-size-xxs;
-  font-weight: 600;
+  font-weight: $font-semibold;
   text-transform: uppercase;
   letter-spacing: .08em;
   color: $color-separator;
@@ -28,7 +28,7 @@
 .fs-sidebar-stub {
   font-size: $font-size-xs;
   color: $color-muted;
-  margin-bottom: 8px;
+  margin-bottom: $spacing-sm;
 }
 
 .fs-sidebar-more {
@@ -47,7 +47,7 @@
   margin: 0 0 14px;
 
   li {
-    padding: 12px 0;
+    padding: $spacing-md 0;
     border-bottom: 1px solid $color-border-light;
 
     &:first-child { padding-top: 0; }

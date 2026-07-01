@@ -37,7 +37,7 @@ class TaskContentCallbacks extends BaseController {
 	 * POST: subject_key, template, post_id? (0 = новая задача → пустые поля).
 	 */
 	public function ajaxGetTaskEditorForm(): void {
-		$this->authorize( Nonce::TaskContent, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::TaskContent, Capability::AuthorLmsCourses );
 
 		$subjectKey = $this->requireKey( 'subject_key' );
 		$templateId = $this->requireKey( 'template' );
@@ -74,7 +74,7 @@ class TaskContentCallbacks extends BaseController {
 	 * POST: subject_key, template, title, post_id? (0 = создать), fs_lms_meta[...] (поля шаблона).
 	 */
 	public function ajaxSaveTaskContent(): void {
-		$this->authorize( Nonce::TaskContent, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::TaskContent, Capability::AuthorLmsCourses );
 
 		$subjectKey = $this->requireKey( 'subject_key' );
 		$templateId = $this->requireKey( 'template' );

@@ -29,7 +29,7 @@ class TaskAttemptCallbacks extends BaseController {
 	 * POST: group_lesson_id, step_key.
 	 */
 	public function ajaxGetTaskAttempts(): void {
-		$this->authorize( Nonce::StepSettings, Capability::ManageLMSAssignments );
+		$this->authorize( Nonce::StepSettings, Capability::ManageLmsTeaching );
 
 		$groupLessonId = (int) $this->requireInt( 'group_lesson_id' );
 		$stepKey       = $this->requireKey( 'step_key' );

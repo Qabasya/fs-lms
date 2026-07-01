@@ -1,19 +1,20 @@
 @use 'sass:color';
 @use '../variables' as *;
+@use '../mixins' as *;
 
 // ---- Форма сдачи ----
 
 .fs-submission-form {
 	margin-top: 20px;
-	padding: 16px;
+	padding: $spacing-lg;
 	border: 1px solid $color-border;
-	border-radius: 6px;
+	border-radius: $radius-sm;
 	background: $color-white;
 }
 
 .fs-submission-form__title {
 	font-size: $font-size-heading;
-	margin-bottom: 12px;
+	margin-bottom: $spacing-md;
 	color: $color-text;
 }
 
@@ -24,7 +25,7 @@
 		display: block;
 		font-size: $font-size-sm;
 		color: $color-muted;
-		margin-bottom: 4px;
+		margin-bottom: $spacing-xs;
 	}
 
 	textarea {
@@ -32,7 +33,7 @@
 		min-height: 100px;
 		padding: 8px 10px;
 		border: 1px solid $color-border;
-		border-radius: 4px;
+		border-radius: $radius;
 		font-family: $font-family;
 		font-size: $font-size-base;
 		resize: vertical;
@@ -46,25 +47,14 @@
 
 .fs-submission-form__submit {
 	padding: 8px 20px;
-	background: $color-accent;
-	color: $color-white;
-	border: none;
-	border-radius: 4px;
 	font-size: $font-size-base;
-	cursor: pointer;
+	@include fs-btn-primary(0.88);
 
-	&:hover {
-		opacity: 0.88;
-	}
-
-	&:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
+	&:disabled { @include fs-disabled; }
 }
 
 .fs-submission-status {
-	margin-top: 8px;
+	margin-top: $spacing-sm;
 	font-size: $font-size-sm;
 	color: $color-muted;
 }
@@ -72,9 +62,9 @@
 // ---- Результат сдачи ----
 
 .fs-submission-result {
-	margin-top: 12px;
+	margin-top: $spacing-md;
 	padding: 12px 14px;
-	border-radius: 4px;
+	border-radius: $radius;
 	font-size: $font-size-sm;
 
 	&--graded {
@@ -97,8 +87,8 @@
 
 .fs-submission-result__score {
 	font-size: $font-size-heading;
-	font-weight: 600;
-	margin-bottom: 4px;
+	font-weight: $font-semibold;
+	margin-bottom: $spacing-xs;
 }
 
 .fs-submission-result__feedback {
@@ -110,19 +100,19 @@
 	display: inline-block;
 	font-size: $font-size-sm;
 	color: $color-danger;
-	margin-left: 8px;
+	margin-left: $spacing-sm;
 }
 
 // ---- Очередь проверки в кокпите ----
 
 .fs-grading-queue {
-	margin-top: 24px;
+	margin-top: $spacing-xl;
 }
 
 .fs-grading-queue__item {
 	padding: 14px 16px;
 	border: 1px solid $color-border;
-	border-radius: 6px;
+	border-radius: $radius-sm;
 	margin-bottom: 10px;
 	background: $color-white;
 }
@@ -130,7 +120,7 @@
 .fs-grading-queue__meta {
 	font-size: $font-size-sm;
 	color: $color-muted;
-	margin-bottom: 8px;
+	margin-bottom: $spacing-sm;
 }
 
 .fs-grading-form {
@@ -144,7 +134,7 @@
 		width: 80px;
 		padding: 6px 8px;
 		border: 1px solid $color-border;
-		border-radius: 4px;
+		border-radius: $radius;
 		font-size: $font-size-sm;
 	}
 
@@ -153,7 +143,7 @@
 		min-width: 200px;
 		padding: 6px 8px;
 		border: 1px solid $color-border;
-		border-radius: 4px;
+		border-radius: $radius;
 		font-size: $font-size-sm;
 		min-height: 60px;
 		resize: vertical;
@@ -161,21 +151,13 @@
 
 	button {
 		padding: 6px 16px;
-		border: none;
-		border-radius: 4px;
 		font-size: $font-size-sm;
-		cursor: pointer;
-		background: $color-accent;
-		color: $color-white;
+		@include fs-btn-primary(0.88);
 
 		&.fs-btn-return {
 			background: $color-bg-subtle;
 			color: $color-text;
 			border: 1px solid $color-border;
-		}
-
-		&:hover {
-			opacity: 0.88;
 		}
 	}
 }
@@ -192,7 +174,7 @@
 		padding: 8px 10px;
 		border-bottom: 2px solid $color-border;
 		color: $color-muted;
-		font-weight: 600;
+		font-weight: $font-semibold;
 	}
 
 	td {
@@ -207,6 +189,6 @@
 }
 
 .fs-gradebook-score {
-	font-weight: 600;
+	font-weight: $font-semibold;
 	color: $color-accent;
 }

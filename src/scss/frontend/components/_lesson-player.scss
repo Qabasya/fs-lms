@@ -21,7 +21,7 @@
 
 	&__title {
 		font-size: $font-size-title;
-		font-weight: 700;
+		font-weight: $font-bold;
 		color: $color-text;
 		margin: 0 0 $spacing-lg;
 	}
@@ -91,7 +91,7 @@
 	}
 
 	&__stepnav[data-status="completed"] {
-		.fs-player__stepnum { background: $color-success; color: #fff; }
+		.fs-player__stepnum { background: $color-success; color: $color-white; }
 		.fs-player__stepmark::after { content: "✓"; color: $color-success; }
 	}
 	&__stepnav[data-status="viewed"] .fs-player__stepmark::after { content: "•"; color: $color-muted; }
@@ -123,7 +123,7 @@
 
 	&__paneltype {
 		font-size: $font-size-xxs;
-		font-weight: 700;
+		font-weight: $font-bold;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		color: $color-white;
@@ -134,7 +134,7 @@
 
 	&__panelname {
 		font-size: $font-size-base;
-		font-weight: 600;
+		font-weight: $font-semibold;
 		margin: 0;
 	}
 

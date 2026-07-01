@@ -1,0 +1,86 @@
+/* =================================================================
+   PRIMITIVE: Card
+   Варианты: --flat (без тени, конфиг-секция), --compact (меньше паддинг)
+   Элементы: __header, __title, __desc, __actions, __body, __footer
+   ================================================================= */
+
+@use '../variables' as *;
+
+.fs-card {
+  background: $color-bg-modal;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-card;
+  overflow: hidden;
+
+  & + & { margin-top: $spacing-xl; }
+
+  // Без тени (конфиг-секции, inline-блоки)
+  &--flat {
+    box-shadow: none;
+    border-radius: $border-radius-l;
+  }
+
+  // Уменьшенные паддинги
+  &--compact {
+    .fs-card__header { padding: $spacing-md $spacing-lg; }
+    .fs-card__body   { padding: $spacing-lg; }
+    .fs-card__footer { padding: $spacing-sm $spacing-lg; }
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-lg $spacing-xl;
+    background: $wp-admin-gray-bg-light;
+    border-bottom: 1px solid $color-border-footer;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: $font-size-m;
+    font-weight: $font-bold;
+    color: $color-text-primary;
+    line-height: 1.3;
+  }
+
+  &__desc {
+    margin: 0 0 $spacing-lg;
+    font-size: $font-size;
+    color: $color-text-secondary;
+    line-height: $line-height-base;
+  }
+
+  &__info {
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-shrink: 0;
+  }
+
+  &__body {
+    padding: $spacing-xl;
+
+    &.hidden { display: none; }
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    flex-wrap: wrap;
+    padding: $spacing-lg $spacing-xl;
+    border-top: 1px solid $color-border-footer;
+    background: $color-bg-footer;
+  }
+}

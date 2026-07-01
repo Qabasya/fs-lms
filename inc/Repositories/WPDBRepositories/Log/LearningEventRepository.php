@@ -6,7 +6,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 
 use Inc\DTO\Log\LearningEventDTO;
 use Inc\DTO\Log\LearningEventInputDTO;
-use Inc\Enums\Settings\TableName;
+use Inc\Enums\Log\LogChannel;
 
 class LearningEventRepository {
 
@@ -15,7 +15,7 @@ class LearningEventRepository {
 
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = TableName::LearningEvents->prefixed();
+		$this->table = LogChannel::LearningEvents->tableName()->prefixed();
 	}
 
 	public function create( LearningEventInputDTO $dto ): int {

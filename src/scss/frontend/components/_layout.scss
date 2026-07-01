@@ -1,8 +1,9 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 .fs-page-wrapper {
   background: $color-bg-subtle;
-  padding: 44px 32px 96px;
+  @include fs-page-pad;
 }
 
 .fs-page-shell {
@@ -29,7 +30,7 @@
     order: 2;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: $spacing-md;
   }
 
   .fs-task-main { order: 1; }

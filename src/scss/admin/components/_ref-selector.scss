@@ -33,7 +33,7 @@
 		display: flex;
 		align-items: center;
 		gap: $spacing-xs;
-		background: $color-primary;
+		background: var(--color-primary);
 		color: $color-text-inverse;
 		border-radius: $border-radius-l;
 		padding: $spacing-xs $spacing-sm;
@@ -51,7 +51,7 @@
 
 		.fs-lms-ref-title {
 			flex: 1;
-			max-width: 320px;
+			max-width: $field-max-width;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;

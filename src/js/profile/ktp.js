@@ -1,0 +1,339 @@
+/* ══════════════════════════════════════════════════════════════════════
+   КТП / Расписание — реальные данные через AJAX (Эпик 1).
+   Источник: window.fsProfile.{groups, schedule:{nonce,actions}, ajax.url}.
+   getCalendar → банк тем + календарь; drag → pin_lesson; «Распределить» → reflow.
+   ══════════════════════════════════════════════════════════════════════ */
+
+import { esc, toast, openCtxMenu } from './utils.js';
+
+const MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DOW_RU = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const GROUP_COLORS = ['#3b5bdb','#0ca678','#7048e8','#f08c00','#e8590c','#1c7ed6','#e64980','#2f9e44'];
+
+let root = null;
+let state = null;
+
+export function renderKTP(r) {
+    root = r;
+    const p = window.fsProfile || {};
+    state = {
+        groups:  Array.isArray(p.groups) ? p.groups : [],
+        sched:   p.schedule || null,
+        ajaxUrl: p.ajax?.url || (typeof window.ajaxurl === 'string' ? window.ajaxurl : '/wp-admin/admin-ajax.php'),
+        groupId: null,
+        data:    null,
+        months:  [],
+        cursor:  0,
+        dragGlid: null,
+    };
+
+    if (!state.groups.length || !state.sched) {
+        root.innerHTML = noGroupsHtml();
+        return;
+    }
+
+    state.groupId = state.groups[0].id;
+    loadCalendar();
+}
+
+function groupColor(id) {
+    const idx = state.groups.findIndex(g => g.id === id);
+    return GROUP_COLORS[(idx < 0 ? 0 : idx) % GROUP_COLORS.length];
+}
+function currentGroup() {
+    return state.groups.find(g => g.id === state.groupId) || state.groups[0];
+}
+
+/* ── AJAX ─────────────────────────────────────────────────────────────── */
+async function api(actionKey, params) {
+    const action = state.sched.actions[actionKey];
+    const body = new URLSearchParams(Object.assign(
+        { action, security: state.sched.nonce },
+        params || {}
+    ));
+    const res = await fetch(state.ajaxUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+    });
+    const json = await res.json().catch(() => ({ success: false }));
+    if (!json || !json.success) {
+        throw new Error(json?.data?.message || 'Ошибка запроса');
+    }
+    return json.data;
+}
+
+async function loadCalendar() {
+    try {
+        state.data = await api('getCalendar', { group_id: state.groupId });
+    } catch (e) {
+        root.innerHTML = errorHtml(e.message);
+        return;
+    }
+    state.months = computeMonths(state.data.period);
+    state.cursor = initialCursor();
+    render();
+}
+
+function computeMonths(period) {
+    const months = [];
+    if (!period || !period.start_date || !period.end_date) return months;
+    const [sy, sm] = period.start_date.split('-').map(Number);
+    const [ey, em] = period.end_date.split('-').map(Number);
+    let y = sy, m = sm - 1;
+    while (y < ey || (y === ey && m <= em - 1)) {
+        months.push({ y, m });
+        m++; if (m > 11) { m = 0; y++; }
+    }
+    return months;
+}
+
+function initialCursor() {
+    const placed = (state.data.themes || []).filter(t => t.scheduled_at).map(t => t.scheduled_at.slice(0, 7));
+    if (!placed.length || !state.months.length) return 0;
+    placed.sort();
+    const [y, m] = placed[0].split('-').map(Number);
+    const idx = state.months.findIndex(mm => mm.y === y && mm.m === m - 1);
+    return idx < 0 ? 0 : idx;
+}
+
+/* ── Render ───────────────────────────────────────────────────────────── */
+function render() {
+    const g = currentGroup();
+    const assigned = state.data.assigned;
+
+    root.innerHTML = `
+    <div class="prof-ktp">
+        <div class="prof-ktp-head">
+            <div class="prof-ktp-pickers">
+                <div class="prof-ktp-pick">
+                    <span class="kp-label">Группа</span>
+                    <button class="kp-btn" id="ktpGroupBtn">
+                        <span class="kp-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
+                        <span class="kp-txt">${esc(g.name)} · ${esc(g.subject)}</span>
+                        <svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>
+                    </button>
+                </div>
+            </div>
+            <span style="flex:1"></span>
+            ${assigned ? `
+                <div class="prof-ktp-legend">
+                    <span class="kl"><span class="prof-dot" style="background:var(--accent)"></span>Тема по плану</span>
+                    <span class="kl"><span class="prof-dot" style="background:var(--t-zachet)"></span>Закреплено</span>
+                    <span class="kl"><span class="prof-dot" style="background:var(--absent)"></span>Выходной</span>
+                </div>
+                <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
+                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 7h9m0 0-3-3m3 3-3 3M16 13H7m0 0 3-3m-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Распределить
+                </button>` : ''}
+        </div>
+
+        ${assigned ? `
+        <div class="prof-ktp-grid">
+            <div class="prof-theme-bank">
+                <div class="tb-head"><h3>Темы курса</h3><span class="tbh-count" id="ktpBankCount"></span></div>
+                <div class="prof-theme-list" id="ktpBank"></div>
+            </div>
+            <div class="prof-kal">
+                <div class="kal-head">
+                    <button class="prof-icon-ghost" id="ktpPrev"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <div class="kal-month" id="ktpMonth"></div>
+                    <button class="prof-icon-ghost" id="ktpNext"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <span style="flex:1"></span>
+                    <span id="ktpHint" style="font-size:12px;color:var(--muted)">Перетащите тему на дату, чтобы закрепить</span>
+                </div>
+                <div class="kal-grid-wrap">
+                    <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
+                    <div class="kal-grid" id="ktpGrid"></div>
+                </div>
+            </div>
+        </div>` : emptyStateHtml(g)}
+    </div>`;
+
+    document.getElementById('ktpGroupBtn').onclick = openGroupMenu;
+
+    if (assigned) {
+        document.getElementById('ktpReflow').onclick = doReflow;
+        document.getElementById('ktpPrev').onclick = () => shiftMonth(-1);
+        document.getElementById('ktpNext').onclick = () => shiftMonth(1);
+        renderBank();
+        renderCalendar();
+    }
+}
+
+function renderBank() {
+    const bank = document.getElementById('ktpBank');
+    if (!bank) return;
+    const unplaced = state.data.themes.filter(t => !t.scheduled_at);
+    bank.innerHTML = unplaced.length
+        ? unplaced.map(themeCardHtml).join('')
+        : `<div style="padding:18px;color:var(--muted-2);font-size:13px">Все темы распределены по датам.</div>`;
+    const count = document.getElementById('ktpBankCount');
+    if (count) {
+        const placed = state.data.themes.length - unplaced.length;
+        count.textContent = `${placed} / ${state.data.themes.length} распределено`;
+    }
+    bank.querySelectorAll('.prof-theme-card').forEach(attachDrag);
+}
+
+function renderCalendar() {
+    if (!state.months.length) return;
+    const { y, m } = state.months[state.cursor];
+    document.getElementById('ktpMonth').textContent = `${MONTHS_RU[m]} ${y}`;
+    document.getElementById('ktpPrev').disabled = state.cursor <= 0;
+    document.getElementById('ktpNext').disabled = state.cursor >= state.months.length - 1;
+
+    const holidays = new Set(state.data.holidays || []);
+    const lessonDays = new Set(state.data.lessonDays || []);
+    const byDate = {};
+    state.data.themes.forEach(t => { if (t.scheduled_at) byDate[t.scheduled_at.slice(0, 10)] = t; });
+
+    const first = new Date(y, m, 1);
+    const offset = (first.getDay() + 6) % 7;
+    const last = new Date(y, m + 1, 0).getDate();
+
+    let cells = '';
+    for (let i = 0; i < offset; i++) cells += `<div class="kal-cell empty"></div>`;
+    for (let d = 1; d <= last; d++) {
+        const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isHol = holidays.has(ds);
+        const isLesson = lessonDays.has(ds);
+        const th = byDate[ds];
+
+        let cls = 'kal-cell';
+        if (isHol) cls += ' holiday';
+        else if (!isLesson) cls += ' no-lesson';
+
+        cells += `<div class="${cls}" data-day="${ds}" data-lesson="${isLesson && !isHol ? 1 : 0}">
+            <div class="kal-date">
+                <span class="kd-num">${d}</span>
+                ${isHol ? `<span class="kd-tag hol">вых</span>` : ''}
+                ${isLesson && !isHol ? `<span class="kd-lesson">урок</span>` : ''}
+            </div>
+            ${th ? placedThemeHtml(th) : ''}
+        </div>`;
+    }
+
+    const grid = document.getElementById('ktpGrid');
+    grid.innerHTML = cells;
+    grid.querySelectorAll('.kal-cell[data-lesson="1"]').forEach(attachDrop);
+    grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
+}
+
+function themeCardHtml(t) {
+    return `<div class="prof-theme-card" draggable="true" data-glid="${t.group_lesson_id}">
+        <span class="tc-num">${t.n}</span>
+        <div class="tc-body">
+            <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
+            <div class="tc-meta">${t.is_pinned ? '<span style="color:var(--t-zachet);font-weight:600">закреплено</span>' : ''}</div>
+        </div>
+        <span class="tc-grip"><svg width="14" height="14" viewBox="0 0 14 14"><path fill="currentColor" d="M5 3h1v1H5zm3 0h1v1H8zM5 6.5h1v1H5zm3 0h1v1H8zM5 10h1v1H5zm3 0h1v1H8z"/></svg></span>
+    </div>`;
+}
+
+function placedThemeHtml(t) {
+    const pinned = t.is_pinned ? ' pinned' : '';
+    return `<div class="placed-theme${pinned}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}">
+        <span class="pt-pin"><svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><path d="M9.5 1.5 12.5 4.5 10 7l.5 3-3-2-3.5 3.5L4.5 8 2 7.5 4.5 5 7 4z"/></svg></span>
+        <span class="pt-num">№${t.n}</span>
+        <span class="pt-title">${esc(t.topic || 'Без названия')}</span>
+    </div>`;
+}
+
+function shortName(name) {
+    return String(name).replace(/[«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 4);
+}
+
+/* ── Interactions ─────────────────────────────────────────────────────── */
+function shiftMonth(d) {
+    state.cursor = Math.max(0, Math.min(state.months.length - 1, state.cursor + d));
+    renderCalendar();
+}
+
+function openGroupMenu() {
+    openCtxMenu(
+        document.getElementById('ktpGroupBtn'),
+        state.groups.map(g => ({
+            v: String(g.id),
+            label: `${g.name} · ${g.subject}`,
+            active: g.id === state.groupId,
+            swatch: groupColor(g.id),
+            chip: shortName(g.name),
+        })),
+        v => {
+            const id = parseInt(v, 10);
+            if (id !== state.groupId) { state.groupId = id; loadCalendar(); }
+        }
+    );
+}
+
+async function doReflow() {
+    try {
+        await api('reflow', { group_id: state.groupId });
+        toast('Темы распределены автоматически');
+        await loadCalendar();
+    } catch (e) {
+        toast(e.message);
+    }
+}
+
+function attachDrag(el) {
+    el.addEventListener('dragstart', e => {
+        state.dragGlid = el.dataset.glid;
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', state.dragGlid);
+    });
+    el.addEventListener('dragend', () => {
+        state.dragGlid = null;
+        el.classList.remove('dragging');
+        document.querySelectorAll('.drop-ok').forEach(n => n.classList.remove('drop-ok'));
+    });
+}
+
+function attachDrop(cell) {
+    cell.addEventListener('dragover', e => { e.preventDefault(); cell.classList.add('drop-ok'); });
+    cell.addEventListener('dragleave', () => cell.classList.remove('drop-ok'));
+    cell.addEventListener('drop', async e => {
+        e.preventDefault();
+        cell.classList.remove('drop-ok');
+        if (!state.dragGlid) return;
+        const glid = state.dragGlid;
+        const day = cell.dataset.day;
+        try {
+            await api('pin', { group_lesson_id: glid, scheduled_at: `${day} 09:00:00` });
+            toast(`Тема закреплена на ${day}`);
+            await loadCalendar();
+        } catch (err) {
+            toast(err.message);
+        }
+    });
+}
+
+/* ── States ───────────────────────────────────────────────────────────── */
+function emptyStateHtml(g) {
+    return `<div class="prof-ktp-empty">
+        <div class="ke-ico">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M8 2.5v4M16 2.5v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Для группы ${esc(g.name)} не назначен курс</h3>
+        <p>Назначьте курс группе в админке LMS —<br>появятся темы и календарь для распределения.</p>
+    </div>`;
+}
+
+function noGroupsHtml() {
+    return `<div class="prof-ktp"><div class="prof-ktp-empty">
+        <div class="ke-ico"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.6"/></svg></div>
+        <h3>Нет групп</h3>
+        <p>За вами пока не закреплены группы.</p>
+    </div></div>`;
+}
+
+function errorHtml(msg) {
+    return `<div class="prof-ktp"><div class="prof-ktp-empty">
+        <div class="ke-ico" style="background:var(--absent-bg);color:var(--absent)"><svg width="30" height="30" viewBox="0 0 20 20" fill="none"><path d="M10 4v7M10 14.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        <h3>Не удалось загрузить КТП</h3>
+        <p>${esc(msg || '')}</p>
+    </div></div>`;
+}

@@ -9,6 +9,10 @@ $color-white:         #fff;
 $color-bg-subtle:     #f4f4f4;
 $color-success:       #2e7d32;
 $color-danger:        #d63638;
+// Поверхность ошибки в формах (apply/join/auth) — намеренно иной красный, чем $color-danger
+$color-error-text:    #c0392b;
+$color-error-bg:      #fdf0ef;
+$color-error-border:  #f5c6c3;
 
 // ── Типографика
 $font-family:         'Ubuntu', Arial, Helvetica, sans-serif;
@@ -21,6 +25,8 @@ $font-size-xs:        13px;
 $font-size-xxs:       12px;
 $line-height-base:    1.6;
 $line-height-tight:   1.4;
+$font-semibold:       600;
+$font-bold:           700;
 
 // ── Компоновка
 $max-width:           1160px;
@@ -33,6 +39,7 @@ $spacing-sm:          8px;
 $spacing-md:          12px;
 $spacing-lg:          16px;
 $spacing-xl:          24px;
+$spacing-2xl:         32px;
 
 // ── Форма
 $radius:              4px;

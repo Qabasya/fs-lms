@@ -30,7 +30,7 @@ $sort_url    = add_query_arg( $pii_filters, $base_url );
 
 <div class="fs-logs-tab" id="js-pii-log-tab">
 
-	<p class="description fs-mt-md">
+	<p class="description">
 		Каждое обращение к персональным данным через функцию «Показать» фиксируется здесь.
 	</p>
 

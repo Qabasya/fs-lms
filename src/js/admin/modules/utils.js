@@ -314,7 +314,7 @@ export function apiErrorEnhanced(error, options = {}) {
  * @returns {jQuery} Созданный элемент уведомления (можно использовать для отслеживания событий)
  */
 export function showNotice(message, type = 'info', $container = null, options = {}) {
-    const { autoDismiss = true, autoDismissDelay = 1000, escape = true } = options;
+    const { autoDismiss = true, autoDismissDelay = 5000, escape = true } = options;
 
     // НОРМАЛИЗАЦИЯ КОНТЕЙНЕРА:
     // Пользователь может передать null, строку-селектор, DOM-элемент или jQuery-объект.
@@ -356,7 +356,7 @@ export function showNotice(message, type = 'info', $container = null, options = 
     // style="margin: 10px 0;" добавляет отступы, так как уведомления обычно вставляются
     // в контейнеры без стандартных margin WordPress.
     const $notice = $(`
-        <div class="notice notice-${type} is-dismissible fs-notice" style="margin: 10px 0;">
+        <div class="notice notice-${type} is-dismissible fs-notice" style="margin: 10px;">
             <p><strong>${title}</strong> ${safeMessage}</p>
             <button type="button" class="notice-dismiss">
                 <span class="screen-reader-text">Закрыть</span>
@@ -389,7 +389,7 @@ export function showNotice(message, type = 'info', $container = null, options = 
     // поэтому автоматически закрываем их через autoDismissDelay мс.
     // Для error/warning автозакрытие отключено по умолчанию — пользователь должен
     // сам закрыть их, чтобы убедиться, что он прочитал сообщение.
-    if (type === 'success' && autoDismiss) {
+    if (type !== 'error' && autoDismiss) {
         setTimeout(() => {
             // Проверяем, что уведомление всё ещё видимо (пользователь мог закрыть его вручную).
             if ($notice.is(':visible')) {

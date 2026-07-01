@@ -9,20 +9,21 @@ $definitions = (array) get_option( 'fs_lms_consent_definitions', array() );
 
 <div id="tab-consents" class="tab-pane active">
 
-	<div class="header-row">
-		<h1 class="wp-heading-inline">Согласия</h1>
-		<div class="description-actions">
-			<button type="button" class="page-title-action js-open-consent-modal">
-				Добавить согласие
-			</button>
+	<div class="fs-page-header">
+		<div class="fs-page-header__content">
+			<h1 class="fs-page-header__title">Согласия</h1>
+			<div class="fs-page-header__actions">
+				<button type="button" class="page-title-action js-open-consent-modal">
+					Добавить согласие
+				</button>
+			</div>
 		</div>
+		<p class="fs-page-header__desc">
+			Каждое согласие — отдельная страница WordPress. Текст редактируется через стандартный редактор.
+			История версий хранится в ревизиях страницы; каждая версия идентифицируется по sha256-хешу.
+			Перед использованием в формах заявок создайте согласие с ключом <code>pd_processing</code> и опубликуйте его.
+		</p>
 	</div>
-
-	<p class="description">
-		Каждое согласие — отдельная страница WordPress. Текст редактируется через стандартный редактор.
-		История версий хранится в ревизиях страницы; каждая версия идентифицируется по sha256-хешу.
-		Перед использованием в формах заявок создайте согласие с ключом <code>pd_processing</code> и опубликуйте его.
-	</p>
 
 	<?php if ( empty( $definitions ) ) : ?>
 

@@ -4,7 +4,9 @@ namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Modules\AdSync\AdSyncModule;
+use Inc\Modules\DaData\DaDataModule;
 use Inc\Modules\EgeComputer\EgeComputerModule;
+use Inc\Modules\SmartCaptcha\SmartCaptchaModule;
 use Inc\Modules\SocialAuth\SocialAuthModule;
 use Inc\Controllers\Enrollment\ApplicationController;
 use Inc\Controllers\Pages\ApplyPageController;
@@ -20,6 +22,7 @@ use Inc\Controllers\Course\WorkController;
 use Inc\Controllers\Course\WorkMetaBoxController;
 use Inc\Controllers\Course\CourseBuilderController;
 use Inc\Controllers\Course\CourseController;
+use Inc\Controllers\Course\CourseMetaBoxController;
 use Inc\Controllers\Assessment\AssessmentMetaBoxController;
 use Inc\Controllers\Course\LearningMenuController;
 use Inc\Controllers\Subject\ContentDeletionGuard;
@@ -50,6 +53,7 @@ use Inc\Controllers\Subscribers\LearningEventSubscriber;
 use Inc\Controllers\Deletion\DeletionController;
 use Inc\Controllers\Assessment\AssessmentController;
 use Inc\Controllers\Group\ScheduleController;
+use Inc\Controllers\Group\JournalController;
 use Inc\Controllers\Group\GroupCockpitController;
 use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
@@ -105,6 +109,7 @@ final class Init {
 			WorkController::class,           // AJAX конструктора работы
 			CourseController::class,             // AJAX конструктора курса
 			CourseBuilderController::class,      // Stepik-конструктор курса (страница + AJAX)
+			CourseMetaBoxController::class,      // Метабоксы страницы редактирования курса
 			AssessmentMetaBoxController::class,  // Метабокс контрольной / экзамена
 			ProblemsController::class,       // CPT fs_lms_problems + problem_tag + шаблон
 			ContentDeletionGuard::class,     // Гейт удаления / архивации банков
@@ -140,6 +145,7 @@ final class Init {
 			ExportServiceBootstrap::class,
 			// ==== Этап 2 — программа группы ====
 			ScheduleController::class,        // AJAX программы группы
+			JournalController::class,         // AJAX журнала и посещаемости (Эпик 2)
 			LessonPlayerController::class,    // пошаговый плеер урока (до кокпита: ?gl=)
 			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
 			LessonProgressController::class,  // AJAX записи прогресса шага
@@ -151,6 +157,8 @@ final class Init {
 			SocialAuthModule::class,          // Inc\Modules\SocialAuth — OAuth через соцсети (флаг-гейт, по умолчанию вкл.)
 			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
 			EgeComputerModule::class,         // Inc\Modules\EgeComputer — плеер ЕГЭ (Компьютер) (флаг-гейт, T7.20)
+			DaDataModule::class,              // Inc\Modules\DaData — автодополнение DaData на /lms/join (флаг-гейт)
+			SmartCaptchaModule::class,        // Inc\Modules\SmartCaptcha — капча Yandex на /lms/apply (флаг-гейт)
 		);
 	}
 
@@ -181,10 +189,10 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '1.2';
+		$capsVersion = '5.0';
 		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
-			$roleManager->syncCapabilities();
+			$roleManager->registerAll();
 			update_option( 'fs_lms_caps_version', $capsVersion );
 		}
 	}
