@@ -5,6 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, openCtxMenu } from './utils.js';
+import { createApi } from './api.js';
 
 const MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DOW_RU = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
@@ -12,6 +13,7 @@ const GROUP_COLORS = ['#3b5bdb','#0ca678','#7048e8','#f08c00','#e8590c','#1c7ed6
 
 let root = null;
 let state = null;
+let api = null;
 
 export function renderKTP(r) {
     root = r;
@@ -19,13 +21,13 @@ export function renderKTP(r) {
     state = {
         groups:  Array.isArray(p.groups) ? p.groups : [],
         sched:   p.schedule || null,
-        ajaxUrl: p.ajax?.url || (typeof window.ajaxurl === 'string' ? window.ajaxurl : '/wp-admin/admin-ajax.php'),
         groupId: null,
         data:    null,
         months:  [],
         cursor:  0,
         dragGlid: null,
     };
+    api = createApi(state.sched);
 
     if (!state.groups.length || !state.sched) {
         root.innerHTML = noGroupsHtml();
@@ -45,25 +47,6 @@ function currentGroup() {
 }
 
 /* ── AJAX ─────────────────────────────────────────────────────────────── */
-async function api(actionKey, params) {
-    const action = state.sched.actions[actionKey];
-    const body = new URLSearchParams(Object.assign(
-        { action, security: state.sched.nonce },
-        params || {}
-    ));
-    const res = await fetch(state.ajaxUrl, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body,
-    });
-    const json = await res.json().catch(() => ({ success: false }));
-    if (!json || !json.success) {
-        throw new Error(json?.data?.message || 'Ошибка запроса');
-    }
-    return json.data;
-}
-
 async function loadCalendar() {
     try {
         state.data = await api('getCalendar', { group_id: state.groupId });
@@ -119,8 +102,8 @@ function render() {
             <span style="flex:1"></span>
             ${assigned ? `
                 <div class="prof-ktp-legend">
-                    <span class="kl"><span class="prof-dot" style="background:var(--accent)"></span>Тема по плану</span>
-                    <span class="kl"><span class="prof-dot" style="background:var(--t-zachet)"></span>Закреплено</span>
+                    <span class="kl"><span class="prof-dot" style="background:var(--g-good)"></span>Тема по плану</span>
+                    <span class="kl"><span class="prof-dot" style="background:var(--accent)"></span>Закреплено</span>
                     <span class="kl"><span class="prof-dot" style="background:var(--absent)"></span>Выходной</span>
                 </div>
                 <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
@@ -226,7 +209,7 @@ function themeCardHtml(t) {
         <span class="tc-num">${t.n}</span>
         <div class="tc-body">
             <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
-            <div class="tc-meta">${t.is_pinned ? '<span style="color:var(--t-zachet);font-weight:600">закреплено</span>' : ''}</div>
+            <div class="tc-meta">${t.is_pinned ? '<span style="color:var(--accent);font-weight:600">закреплено</span>' : ''}</div>
         </div>
         <span class="tc-grip"><svg width="14" height="14" viewBox="0 0 14 14"><path fill="currentColor" d="M5 3h1v1H5zm3 0h1v1H8zM5 6.5h1v1H5zm3 0h1v1H8zM5 10h1v1H5zm3 0h1v1H8z"/></svg></span>
     </div>`;

@@ -46,7 +46,7 @@ export function openCtxMenu(anchor, items, onPick) {
     ctxOnClose = null;
 }
 
-export function openCtxMenuRaw(html, anchor, onClose) {
+export function openCtxMenuRaw(html, anchor, onClose, opts = {}) {
     const menu = document.getElementById('profCtxMenu');
     const backdrop = document.getElementById('profCtxBackdrop');
     if (!menu || !backdrop) return;
@@ -55,7 +55,10 @@ export function openCtxMenuRaw(html, anchor, onClose) {
     menu.classList.add('open');
     let left = Math.min(r.left, window.innerWidth - 220);
     menu.style.left = Math.max(10, left) + 'px';
-    menu.style.top = (r.bottom + 4) + 'px';
+    // opts.up — раскрыть вверх (для нижних якорей, напр. шестерёнка профиля).
+    menu.style.top = opts.up
+        ? Math.max(10, r.top - menu.offsetHeight - 6) + 'px'
+        : (r.bottom + 4) + 'px';
     backdrop.classList.add('open');
     ctxOnClose = onClose || null;
 }

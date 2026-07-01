@@ -1,0 +1,123 @@
+/* ══════════════════════════════════════════════════════════════════════
+   «Сводка по ученику» (Эпик 10 T10.8) — карточки занятий ученика.
+   Палитра полос D12: 🟢 посещён · 🟣 индивидуальное · 🔴 пропуск · серый — не отмечено.
+   Токены из _core.scss.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.prof-summary {
+  padding: 22px 26px 40px;
+}
+
+.sum-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.sum-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sum-select {
+  min-width: 220px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.sum-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sum-select:disabled { color: var(--muted-2); cursor: default; }
+
+.sum-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sum-card {
+  display: flex;
+  align-items: stretch;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color .12s, box-shadow .12s;
+}
+.sum-card:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+
+// Цветная полоса состояния занятия (D12)
+.sum-strip { flex: none; width: 5px; background: var(--line-2); }
+.sum-strip-present    { background: var(--g-good); }
+.sum-strip-absent     { background: var(--absent); }
+.sum-strip-individual { background: var(--t-zachet); }
+.sum-strip-none       { background: var(--line-2); }
+
+.sum-card-body { flex: 1 1 auto; min-width: 0; padding: 12px 16px; }
+
+.sum-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sum-date { font-size: 14px; font-weight: 700; color: var(--ink); }
+
+.sum-kind {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.sum-kind-individual { background: var(--surface-2); color: var(--t-zachet); }
+
+.sum-att {
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-left: auto;
+}
+.sum-att-present { color: var(--g-good); }
+.sum-att-absent  { color: var(--absent); }
+.sum-att-none    { color: var(--muted-2); }
+
+.sum-topic { font-size: 13.5px; color: var(--ink-2); margin-top: 4px; }
+
+.sum-works {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sum-works-empty { font-size: 12px; color: var(--muted-2); }
+
+.sum-work {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.sum-work b { color: var(--accent); font-weight: 700; }
+.sum-work.pending { color: var(--muted); font-style: italic; }
+
+@media (max-width: 720px) {
+  .prof-summary { padding: 16px 14px 32px; }
+  .sum-select { min-width: 0; width: 100%; }
+  .sum-pick { flex: 1 1 100%; }
+}

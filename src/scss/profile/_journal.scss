@@ -165,3 +165,34 @@ table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; 
 
 body.prof-density-cozy .jgrid tbody tr { height: 42px; }
 body.prof-density-cozy .var-c .jgrid tbody tr { height: 44px; }
+
+/* D11: занятия в будущем — недоступны для отметки (визуальный замок) */
+.jgrid .hd-col.future { opacity: .5; }
+.jgrid .gc.att.future {
+  cursor: default;
+  background: repeating-linear-gradient(45deg, transparent, transparent 4px, var(--surface-2) 4px, var(--surface-2) 8px);
+}
+
+/* T10.5: ячейка = посещаемость + результаты работ по типам + фильтры */
+.jgrid .gc.att { vertical-align: middle; }
+.jgrid .gc.att.has-works { vertical-align: top; padding-top: 4px; }
+.cell-att { text-align: center; }
+.cell-works {
+  display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 3px;
+}
+.cell-works .cw {
+  font-size: 9px; line-height: 1.3; padding: 0 3px; border-radius: 3px;
+  background: var(--surface-2); color: var(--ink-2); white-space: nowrap;
+}
+.cell-works .cw b { color: var(--accent); font-weight: 700; }
+.cell-works .cw.pending b { color: var(--muted-2); }
+
+.j-filters { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.jf-label { font-size: 11px; color: var(--muted); }
+.jf-chip {
+  display: inline-flex; align-items: center; font-size: 11px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--muted); cursor: pointer; user-select: none;
+}
+.jf-chip.on { background: var(--accent-soft); border-color: var(--accent-soft-2); color: var(--accent-700); }
+.jf-chip input { display: none; }

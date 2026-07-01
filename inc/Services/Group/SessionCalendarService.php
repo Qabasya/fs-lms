@@ -27,7 +27,7 @@ class SessionCalendarService {
 	 * Генерирует слоты занятий для группы.
 	 *
 	 * @param int $groupId
-	 * @return array{scheduled_at:string,ends_at:string}[]  — UTC datetime строки
+	 * @return array{scheduled_at:string,ends_at:string,room:int}[]  — UTC datetime строки + кабинет дня
 	 */
 	public function generate( int $groupId ): array {
 		$group = $this->groups->findById( $groupId );
@@ -56,6 +56,7 @@ class SessionCalendarService {
 			$weekday     = (int) ( $meeting['weekday'] ?? 0 );
 			$time        = (string) ( $meeting['time'] ?? '09:00' );
 			$durationMin = (int) ( $meeting['duration_min'] ?? 60 );
+			$roomId      = (int) ( $meeting['room'] ?? 0 );
 
 			if ( $weekday < 1 || $weekday > 7 ) {
 				continue;
@@ -73,6 +74,7 @@ class SessionCalendarService {
 						$slots[] = array(
 							'scheduled_at' => $scheduledAt,
 							'ends_at'      => $endsAt,
+							'room'         => $roomId,
 						);
 					}
 				}
@@ -96,7 +98,8 @@ class SessionCalendarService {
 		$slots = $this->generate( $groupId );
 		$rows  = $this->groupLessons->listByGroup( $groupId );
 
-		$unpinned = array_filter( $rows, static fn( $r ) => ! $r->isPinned );
+		// Индивидуальные (kind='individual') не входят в раскладку — только групповые непиннутые.
+		$unpinned = array_filter( $rows, static fn( $r ) => ! $r->isPinned && 'individual' !== $r->kind );
 		$unpinned = array_values( $unpinned );
 
 		if ( count( $unpinned ) > count( $slots ) ) {

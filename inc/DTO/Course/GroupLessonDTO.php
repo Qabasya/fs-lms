@@ -46,6 +46,14 @@ readonly class GroupLessonDTO {
 		public ?string $label = null,
 		/** @var array<string, array{max_attempts:int,shuffle:bool,hint_after_errors:int}>|null */
 		public ?array  $stepSettingsOverrides = null,
+		/** group|individual — тип занятия (D3). */
+		public string  $kind = 'group',
+		/** scheduled|held|cancelled|moved — план/факт (D3). */
+		public string  $status = 'scheduled',
+		/** Ученик индивидуального занятия (NULL для групповых). */
+		public ?int    $studentPersonId = null,
+		/** Кабинет занятия (override дефолта группы); NULL = кабинет группы. */
+		public ?int    $roomId = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -73,6 +81,10 @@ readonly class GroupLessonDTO {
 			stepSettingsOverrides: isset( $row['step_settings_overrides'] )
 				? json_decode( (string) $row['step_settings_overrides'], true )
 				: null,
+			kind            : (string) ( $row['kind'] ?? 'group' ),
+			status          : (string) ( $row['status'] ?? 'scheduled' ),
+			studentPersonId : isset( $row['student_person_id'] ) ? (int) $row['student_person_id'] : null,
+			roomId          : isset( $row['room_id'] ) && '' !== $row['room_id'] ? (int) $row['room_id'] : null,
 		);
 	}
 

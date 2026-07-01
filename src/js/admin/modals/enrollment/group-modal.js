@@ -44,6 +44,8 @@ export const GroupModal = {
     $subjectSelect: null,
     /** @type {jQuery} Dropdown выбора преподавателя */
     $teacherSelect: null,
+    /** @type {jQuery} Dropdown выбора кабинета (дефолт группы на год) */
+    $roomSelect: null,
     /** @type {jQuery} Скрытое поле типа действия (add/edit) */
     $actionInput: null,
     /** @type {jQuery} Скрытое поле ID группы (для режима редактирования) */
@@ -294,15 +296,16 @@ export const GroupModal = {
         const entries = Array.isArray(schedule) ? schedule : [];
 
         // Проходим по каждому элементу расписания и восстанавливаем состояние
-        entries.forEach(({ day, start, end }) => {
+        entries.forEach(({ day, start, end, room }) => {
             // Ищем строку расписания по data-атрибуту data-day
             const $row = this.$modal.find(`.fs-schedule-day-row[data-day="${day}"]`);
             if (!$row.length) return; // Если строка не найдена, пропускаем
 
-            // Устанавливаем галочку, заполняем время и показываем временной слот
+            // Устанавливаем галочку, заполняем время/кабинет и показываем слот
             $row.find('.js-schedule-day-cb').prop('checked', true);
             $row.find('.js-day-start').val(start || '');
             $row.find('.js-day-end').val(end || '');
+            $row.find('.js-day-room').val(room ? String(room) : '');
             $row.find('.fs-schedule-day-times').removeClass('hidden');
         });
     },
@@ -329,6 +332,7 @@ export const GroupModal = {
                 day:   $cb.val(),
                 start: $row.find('.js-day-start').val() || '',
                 end:   $row.find('.js-day-end').val()   || '',
+                room:  $row.find('.js-day-room').val()  || '',
             });
         });
 

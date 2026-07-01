@@ -24,49 +24,51 @@ use Inc\Enums\Course\WeekDay;
 		<div class="fs-lms-modal-body">
 			<form id="fs-lms-add-group-form" autocomplete="off">
 
-				<div class="fs-form-group">
-					<label for="group-title">Название группы</label>
-					<input type="text" id="group-title" name="title" placeholder="Например: Робо-1..." required data-edit-readonly>
+				<div class="fs-group-meta">
+					<div class="fs-form-group">
+						<label for="group-title">Название группы</label>
+						<input type="text" id="group-title" name="title" placeholder="Например: Робо-1..." required data-edit-readonly>
+					</div>
+
+					<div class="fs-form-group">
+						<label for="group-period">Учебный период</label>
+						<select id="group-period" name="period_id" required data-edit-readonly>
+							<option value="">-- Выберите период --</option>
+							<?php foreach ( $academic_periods ?? [] as $id => $period ) : ?>
+								<option value="<?php echo esc_attr( (string) $id ); ?>">
+									<?php echo esc_html( $period['name'] ?? $id ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+
+					<div class="fs-form-group">
+						<label for="group-subject">Предмет</label>
+						<select id="group-subject" name="subject_id" required data-edit-readonly>
+							<option value="">-- Выберите предмет --</option>
+							<?php foreach ( $active_subjects ?? $subjects ?? [] as $id => $subject ) : ?>
+								<option value="<?php echo esc_attr( (string) $id ); ?>">
+									<?php echo esc_html( $subject->name ?? $id ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+
+					<div class="fs-form-group">
+						<label for="group-teacher">Преподаватель</label>
+						<select id="group-teacher" name="teacher_id">
+							<option value="">— Не назначен —</option>
+							<?php foreach ( $teachers ?? [] as $teacher ) : ?>
+								<option value="<?php echo esc_attr( (string) $teacher->id ); ?>">
+									<?php echo esc_html( $teacher->displayName ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</div>
 				</div>
 
-				<div class="fs-form-group">
-					<label for="group-period">Учебный период</label>
-					<select id="group-period" name="period_id" required data-edit-readonly>
-						<option value="">-- Выберите период --</option>
-						<?php foreach ( $academic_periods ?? [] as $id => $period ) : ?>
-							<option value="<?php echo esc_attr( (string) $id ); ?>">
-								<?php echo esc_html( $period['name'] ?? $id ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-				</div>
-
-				<div class="fs-form-group">
-					<label for="group-subject">Предмет</label>
-					<select id="group-subject" name="subject_id" required data-edit-readonly>
-						<option value="">-- Выберите предмет --</option>
-						<?php foreach ( $active_subjects ?? $subjects ?? [] as $id => $subject ) : ?>
-							<option value="<?php echo esc_attr( (string) $id ); ?>">
-								<?php echo esc_html( $subject->name ?? $id ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-				</div>
-
-				<div class="fs-form-group">
-					<label for="group-teacher">Преподаватель</label>
-					<select id="group-teacher" name="teacher_id">
-						<option value="">— Не назначен —</option>
-						<?php foreach ( $teachers ?? [] as $teacher ) : ?>
-							<option value="<?php echo esc_attr( (string) $teacher->id ); ?>">
-								<?php echo esc_html( $teacher->displayName ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-				</div>
-
-				<div class="fs-form-group">
-					<label>Расписание работы группы</label>
+				<div class="fs-form-group fs-schedule-group">
+					<label class="fs-schedule-title">Расписание работы группы</label>
 					<div class="fs-schedule-days">
 						<?php foreach ( WeekDay::cases() as $day ) : ?>
 							<div class="fs-schedule-day-row" data-day="<?php echo esc_attr( $day->value ); ?>">
@@ -94,19 +96,26 @@ use Inc\Enums\Course\WeekDay;
 											<?php endforeach; ?>
 										<?php endfor; ?>
 									</select>
+									<span class="fs-schedule-room-lbl">ауд.</span>
+									<select class="js-day-room" title="Кабинет">
+										<option value="">Кабинет</option>
+										<?php foreach ( $rooms ?? [] as $room ) : ?>
+											<option value="<?php echo esc_attr( (string) $room->id ); ?>"><?php echo esc_html( $room->name ); ?></option>
+										<?php endforeach; ?>
+									</select>
 								</div>
 							</div>
 						<?php endforeach; ?>
 					</div>
 				</div>
 
-                <input type="hidden" name="action_type" value="add">
-                <input type="hidden" name="id" value="">
+				<input type="hidden" name="action_type" value="add">
+				<input type="hidden" name="id" value="">
 
-                <div class="fs-lms-modal-footer">
-                    <button type="button" class="button fs-lms-modal-cancel js-modal-close">Отмена</button>
-                    <button type="submit" class="button button-primary">Создать группу</button>
-                </div>
+				<div class="fs-lms-modal-footer">
+					<button type="button" class="button fs-lms-modal-cancel js-modal-close">Отмена</button>
+					<button type="submit" class="button button-primary">Создать группу</button>
+				</div>
 
 			</form>
 		</div>

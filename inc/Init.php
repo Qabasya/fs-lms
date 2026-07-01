@@ -53,6 +53,10 @@ use Inc\Controllers\Subscribers\LearningEventSubscriber;
 use Inc\Controllers\Deletion\DeletionController;
 use Inc\Controllers\Assessment\AssessmentController;
 use Inc\Controllers\Group\ScheduleController;
+use Inc\Controllers\Group\SubstitutionController;
+use Inc\Controllers\Group\RoomController;
+use Inc\Controllers\Profile\ProfileDashboardController;
+use Inc\Controllers\Profile\LearnerProfileController;
 use Inc\Controllers\Group\JournalController;
 use Inc\Controllers\Group\GroupCockpitController;
 use Inc\Controllers\Course\LessonPlayerController;
@@ -145,6 +149,10 @@ final class Init {
 			ExportServiceBootstrap::class,
 			// ==== Этап 2 — программа группы ====
 			ScheduleController::class,        // AJAX программы группы
+			SubstitutionController::class,    // AJAX замен преподавателя (Эпик 5)
+			RoomController::class,            // AJAX справочника кабинетов (Эпик 9)
+			ProfileDashboardController::class,// AJAX «Главной» кабинета (Эпик 6)
+			LearnerProfileController::class,  // AJAX профиля учащегося/родителя (Эпик 7)
 			JournalController::class,         // AJAX журнала и посещаемости (Эпик 2)
 			LessonPlayerController::class,    // пошаговый плеер урока (до кокпита: ?gl=)
 			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
@@ -189,7 +197,7 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '5.0';
+		$capsVersion = '5.1';
 		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
 			$roleManager->registerAll();

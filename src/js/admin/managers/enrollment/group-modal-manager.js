@@ -54,8 +54,10 @@ export const GroupModalManager = {
     _handleOpenEditModal(e) {
         e.preventDefault();
         const $row = $(e.currentTarget).closest('tr');
+        // .attr() (сырая строка), НЕ .data() — jQuery авто-парсит JSON-атрибут в массив,
+        // и повторный JSON.parse на массиве падал → расписание не восстанавливалось.
         const schedule = (() => {
-            try { return JSON.parse($row.data('schedule') || '[]'); } catch { return []; }
+            try { return JSON.parse($row.attr('data-schedule') || '[]'); } catch { return []; }
         })();
         GroupModal.open('edit', {
             id:         $row.data('group-id'),

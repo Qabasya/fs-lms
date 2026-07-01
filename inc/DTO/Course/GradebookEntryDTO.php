@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Course;
 
+use Inc\Enums\Course\GradeBadge;
+
 /**
  * Class GradebookEntryDTO
  *
@@ -12,6 +14,9 @@ namespace Inc\DTO\Course;
  *   'fraction' — работа: «5/8» (correctCount/totalCount)
  *   'score'    — экзамен: числовой балл (для ЕГЭ — вторичный)
  *   'pending'  — ожидает ручной проверки
+ *
+ * `groupLessonId`/`badge` (Эпик 10, T10.0b) — привязка к занятию + короткая метка
+ * типа (СР/ПР/ДЗ/КР/ЭКЗ) для inline-результатов в ячейке журнала.
  *
  * @package Inc\DTO\Course
  */
@@ -29,6 +34,8 @@ readonly class GradebookEntryDTO {
 		public ?string $gradedAt,
 		/** 'fraction' | 'score' | 'pending' */
 		public string  $displayType = 'score',
+		public ?int    $groupLessonId = null,
+		public ?GradeBadge $badge = null,
 	) {}
 
 	/** Форматированное значение для отображения в журнале. */

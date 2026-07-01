@@ -1,0 +1,63 @@
+<?php
+
+declare( strict_types=1 );
+
+namespace Inc\Callbacks\Profile;
+
+use Inc\Core\BaseController;
+use Inc\Enums\Wp\Nonce;
+use Inc\Services\Profile\LearnerService;
+use Inc\Services\Profile\ProfileViewResolver;
+use Inc\Shared\Traits\AjaxResponse;
+use Inc\Shared\Traits\Sanitizer;
+
+/**
+ * AJAX профиля учащегося/родителя (Эпик 7).
+ *
+ * Без capability (у ученика/родителя нет LMS-прав) — доступ гейтится нонсом +
+ * авторизацией на данные: ученик видит ТОЛЬКО себя, родитель — только своих детей
+ * ({@see ProfileContext}). Клиентский `student_person_id` не доверяем: для ученика
+ * игнорируется, для родителя проверяется против списка детей.
+ *
+ * @package Inc\Callbacks\Profile
+ */
+class LearnerCallbacks extends BaseController {
+
+	use AjaxResponse;
+	use Sanitizer;
+
+	public function __construct(
+		private readonly LearnerService      $service,
+		private readonly ProfileViewResolver $resolver,
+	) {
+		parent::__construct();
+	}
+
+	public function ajaxGetLearnerProfile(): void {
+		Nonce::LearnerProfile->verify();
+
+		if ( ! is_user_logged_in() ) {
+			$this->error( __( 'Требуется вход.', 'fs-lms' ) );
+			return;
+		}
+
+		$ctx       = $this->resolver->context( get_current_user_id() );
+		$requested = $this->sanitizeInt( 'student_person_id' );
+		$personId  = $ctx->subjectPersonId;
+
+		// Родитель (read-only) может смотреть только своих детей.
+		if ( $ctx->readOnly && $requested > 0 ) {
+			$allowed = array_map( static fn( $c ) => (int) $c['personId'], $ctx->children );
+			if ( in_array( $requested, $allowed, true ) ) {
+				$personId = $requested;
+			}
+		}
+
+		if ( ! $personId ) {
+			$this->error( __( 'Профиль учащегося не найден.', 'fs-lms' ) );
+			return;
+		}
+
+		$this->success( $this->service->build( $personId ) );
+	}
+}

@@ -111,7 +111,8 @@ class GroupLessonRepository {
 		$rows = $this->listByGroup( $groupId );
 		$i    = 0;
 		foreach ( $rows as $row ) {
-			if ( $row->isPinned ) {
+			// Индивидуальные привязаны к дате, а не к последовательности — не двигаем.
+			if ( $row->isPinned || 'individual' === $row->kind ) {
 				continue;
 			}
 			if ( ! isset( $slots[ $i ] ) ) {
@@ -122,6 +123,8 @@ class GroupLessonRepository {
 				array(
 					'scheduled_at' => $slots[ $i ]['scheduled_at'],
 					'ends_at'      => $slots[ $i ]['ends_at'],
+					// Кабинет дня недели (Эпик 10): переносится из расписания в занятие.
+					'room_id'      => ! empty( $slots[ $i ]['room'] ) ? (int) $slots[ $i ]['room'] : null,
 				),
 				array( 'id' => $row->id )
 			);
@@ -163,6 +166,14 @@ class GroupLessonRepository {
 			array( 'id' => $id )
 		);
 		return false !== $result;
+	}
+
+	public function setRoom( int $id, ?int $roomId ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'room_id' => $roomId ),
+			array( 'id' => $id )
+		);
 	}
 
 	public function setLessonId( int $id, int $lessonId ): bool {

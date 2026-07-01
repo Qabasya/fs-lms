@@ -9,6 +9,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\GroupAccessGuard;
+use Inc\Services\Course\ReviewQueueService;
 use Inc\Services\Course\SubmissionService;
 use PHPUnit\Framework\TestCase;
 
@@ -19,6 +20,7 @@ class GradingCallbacksTest extends TestCase {
 	private GroupAccessGuard      $guard;
 	private SubmissionRepository  $submissions;
 	private GroupLessonRepository $groupLessons;
+	private ReviewQueueService    $reviewQueue;
 	private GradingCallbacks      $cb;
 
 	protected function setUp(): void {
@@ -29,8 +31,9 @@ class GradingCallbacksTest extends TestCase {
 		$this->guard        = $this->createMock( GroupAccessGuard::class );
 		$this->submissions  = $this->createMock( SubmissionRepository::class );
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
+		$this->reviewQueue  = $this->createMock( ReviewQueueService::class );
 		$this->cb           = new GradingCallbacks(
-			$this->service, $this->gradebook, $this->guard, $this->submissions, $this->groupLessons
+			$this->service, $this->gradebook, $this->guard, $this->submissions, $this->groupLessons, $this->reviewQueue
 		);
 	}
 
@@ -51,7 +54,7 @@ class GradingCallbacksTest extends TestCase {
 
 	public function test_get_group_submissions_returns_queue(): void {
 		$this->guard->method( 'canManage' )->willReturn( true );
-		$this->submissions->method( 'listQueueByGroup' )->willReturn( array() );
+		$this->reviewQueue->method( 'forGroup' )->willReturn( array() );
 		$_POST = array( 'group_id' => '5' );
 
 		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetGroupSubmissions() );

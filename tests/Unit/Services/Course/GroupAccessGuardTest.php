@@ -6,6 +6,7 @@ namespace Unit\Services\Course;
 
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use PHPUnit\Framework\TestCase;
 
@@ -13,14 +14,25 @@ class GroupAccessGuardTest extends TestCase {
 
 	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $studentRecords;
+	private SubstitutionRepository&\PHPUnit\Framework\MockObject\MockObject $substitutions;
 	private GroupAccessGuard $guard;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->groups         = $this->createMock( GroupsRepository::class );
 		$this->studentRecords = $this->createMock( StudentRecordRepository::class );
-		$this->guard          = new GroupAccessGuard( $this->groups, $this->studentRecords );
+		$this->substitutions  = $this->createMock( SubstitutionRepository::class );
+		$this->guard          = new GroupAccessGuard( $this->groups, $this->studentRecords, $this->substitutions );
 		$GLOBALS['_test_user_can'] = [];
+	}
+
+	public function test_can_manage_active_substitute_grant(): void {
+		$group             = new \stdClass();
+		$group->teacher_id = 42;
+		$this->groups->method( 'findById' )->willReturn( $group );
+		$this->substitutions->method( 'hasActiveGrant' )->with( 99, 7 )->willReturn( true );
+
+		self::assertTrue( $this->guard->canManage( 7, 99 ) );
 	}
 
 	public function test_can_manage_admin_bypasses_group_check(): void {

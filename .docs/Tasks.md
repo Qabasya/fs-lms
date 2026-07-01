@@ -129,12 +129,17 @@
 
 | ID | Задача | Слой | Статус | Затрагивает |
 |---|---|---|---|---|
-| T3.1 | Экран/панель «Проверка» в профиле: очередь `GetGroupSubmissions` (статус `submitted`) по всем группам препода | Profile | 🔴 | новый экран в SPA профиля |
-| T3.2 | Действие оценки + фидбек → `SaveGrade` / `GradeBatchTask`; возврат на доработку → `ReturnSubmission` | Profile | 🟡 | хуки готовы, нужен UI |
-| T3.3 | Ворклист «Главной» (Эпик 6) ведёт в очередь конкретной работы | Profile | 🔴 | T3.1, T6.x |
-| T3.4 | (опц. 🔶 D7) Рубрики/критерии, аннотирование PDF, пир-ревью | Lms | 🔴 | — |
+| T3.1 | Экран/панель «Проверка» в профиле: очередь `GetGroupSubmissions` (статус `submitted`) по всем группам препода | Profile | ✅ | `src/js/profile/review.js`, `app.js`, `_review.scss` |
+| T3.2 | Действие оценки + фидбек → `SaveGrade`; возврат на доработку → `ReturnSubmission` | Profile | ✅ | `review.js` (форма балл/из/коммент + кнопки Оценить/Вернуть) |
+| T3.3 | ~~Ворклист «Главной» ведёт в очередь конкретной работы~~ → **переосмыслено в Эпике 10 (D8)**: экран «Проверка работ» заменяется «Сводкой по ученику» (T10.8); вход — ворклист «Главной» ✅ | Profile | ➡️ Эпик 10 | T10.8 |
+| T3.4 | (опц. 🔶 D7) Рубрики/критерии, аннотирование PDF, пир-ревью → **Эпик 11 (T11.7)** | Lms | ➡️ Эпик 11 | — |
 
-**Acceptance:** препод видит реальную очередь «на проверку», ставит оценку с фидбеком (через `SaveGrade`), работа уходит из очереди; авто-оценивание объективных уже работает (`AutoGradeService`/контрольные).
+> **Эпик 3 готов (кроме T3.3-навигация из «Главной» и опц. T3.4).**
+> - **Бэкенд:** хуки `GetGroupSubmissions`/`SaveGrade`/`ReturnSubmission` уже были; payload очереди обогащён read-моделью **`ReviewQueueService::forGroup()`** — добавлены `student_name` (снимок ростера, **PII-safe** — как в журнале), `work_type_label`, `lesson_topic`, `max_score`. `GradingCallbacks::ajaxGetGroupSubmissions` теперь делегирует сервису (тонкий callback). Обратная совместимость с legacy `submission.js` сохранена (поля только добавлены).
+> - **Фронт:** новый экран **«Проверка работ»** в SPA (`review.js`) — агрегирует очередь по **всем** группам препода (параллельные `get_group_submissions` на `fsProfile.groups`), группирует по группам, карточка = ученик + тип+тема + текст ответа + форма (балл/из/коммент) + Оценить (`save_grade`) / Вернуть (`return_submission`, коммент обязателен). После действия карточка убирается, счётчики пересчитываются. `fsProfile.review = {nonce: GradeWork, actions}` добавлен в `ProfileViewResolver::jsConfig`; nav/screen `review` — в `TeacherProfileView`.
+> - **Проверено E2E** (`ReviewQueueService::forGroup(1)`): засеяны 3 сдачи в группу #1 → очередь показывает имена/типы/темы; `grade()`+`returnForRework()` убирают работы (3→1). В очереди осталась 1 сдача (#3, ДЗ) для визуального теста: вход `demoteacher` → «Проверка работ».
+
+**Acceptance:** ✅ препод видит реальную очередь «на проверку» по всем группам, ставит оценку с фидбеком (через `SaveGrade`) или возвращает на доработку (`ReturnSubmission`), работа уходит из очереди; авто-оценивание объективных уже работает (`AutoGradeService`/контрольные).
 
 ---
 
@@ -144,13 +149,18 @@
 
 | ID | Задача | Слой | Статус | Затрагивает |
 |---|---|---|---|---|
-| T4.1 | Колонки `group_lessons`: `status ENUM(scheduled/held/cancelled/moved)`, `teacher_id_override`, `kind ENUM(group/individual)`, `student_person_id` (+ ключи) в `Migration_1_0_0` (up/down/Cleanup) | Lms | 🔴 | `Migration_1_0_0` |
-| T4.2 | Расширить `GroupLessonDTO` новыми полями + `fromArray()` | Lms | 🔴 | `GroupLessonDTO` |
-| T4.3 | `status='held'` — фиксация «занятие проведено» (план/факт); `cancelled`/`moved` сдвигают нерассказанный хвост в `reflow` (а `kind='individual'` исключён из раскладки) | Lms | 🔴 | `SessionCalendarService::reflow()` (учесть status+kind) |
-| T4.4 | Хук `AjaxHook::CreateIndividualLesson` (`kind=individual`, `student_person_id`) | Lms | 🔴 | `AjaxHook`, callbacks |
-| T4.5 | UI: создать индивидуальное занятие; быстрое создание из absent-ячейки журнала / карточки ученика | Profile | 🟡 | `journal.js` (демо-кнопка в поповере → переназначить на «индивидуальное») |
+| T4.1 | Колонки `group_lessons`: `kind ENUM(group/individual)`, `status ENUM(scheduled/held/cancelled/moved)`, `student_person_id` (+ ключ `kind_student`) в `Migration_1_0_0` (CREATE + Cleanup). **`teacher_id_override` НЕ добавлял** — эту роль уже играет существующий `teacher_user_id` | Lms | ✅ | `Migration_1_0_0` |
+| T4.2 | `GroupLessonDTO`/`GroupLessonInputDTO` + `fromArray()`/`toArray()` (kind/status/studentPersonId); enum-ы `LessonKind`, `LessonStatus` | Lms | ✅ | `GroupLessonDTO`, `GroupLessonInputDTO`, `Enums/Course/LessonKind`, `LessonStatus` |
+| T4.3 | `kind='individual'` исключён из раскладки: `reflow()` (счёт), `applySlots()` (skip), `getProgram()` (КТП), `JournalService` (столбцы). `status` (held/cancelled/moved) — колонка+enum есть; логика сдвига хвоста по статусу — post-v1 | Lms | 🟡 | `SessionCalendarService`, `GroupLessonRepository`, `ScheduleService`, `JournalService` |
+| T4.4 | Хук `AjaxHook::CreateIndividualLesson` → `ProgramCallbacks::ajaxCreateIndividualLesson` → `ScheduleService::createIndividualLesson()` (валидация членства ученика; `is_pinned`) | Lms | ✅ | `AjaxHook`, `ScheduleController`, `ProgramCallbacks`, `ScheduleService` |
+| T4.5 | UI: создание инд. занятия из поповера ячейки журнала («＋ Индивидуальное занятие» → мини-форма дата/время → `create_individual_lesson`) | Profile | ✅ | `journal.js`, `ProfileViewResolver`, `_core.scss` |
 
-**Acceptance:** препод создаёт индивидуальное занятие на одного ученика (`kind='individual'`, `student_person_id`); оно не входит в программу группы и не двигает `reflow`.
+> **Эпик 4 готов** (T4.1/T4.2/T4.4/T4.5 ✅, T4.3 🟡 — раскладка исключает `individual`; логика сдвига хвоста по `status` отложена post-v1).
+> - **Уточнение по D3:** `teacher_id_override` из спеки = существующая колонка `teacher_user_id` (per-lesson преподаватель); дубль не заводил. Замены (Эпик 5) используют `teacher_user_id` для разового override + таблицу `substitutions` для grant.
+> - **Схема:** 3 колонки в CREATE + Cleanup (`ADD COLUMN IF NOT EXISTS`); в dev-БД применены точечным `ALTER` (без reset — сид цел).
+> - **E2E проверено:** инд. занятие (`kind=individual`, `student_person_id`, `is_pinned=1`) НЕ входит в программу (6→6) и журнал (6→6), `reflow` не двигает дату; guard членства отклоняет чужого ученика. PHPUnit: `ScheduleServiceTest`+`ProgramCallbacksTest` расширены, вся сюита 529 зелёная.
+
+**Acceptance:** ✅ препод создаёт индивидуальное занятие на одного ученика (`kind='individual'`, `student_person_id`); оно не входит в программу группы и не двигает `reflow`. Визуально — вход `demoteacher` → «Журнал» → клик по ячейке ученика → «＋ Индивидуальное занятие».
 
 ---
 
@@ -158,15 +168,21 @@
 
 | ID | Задача | Слой | Статус | Затрагивает |
 |---|---|---|---|---|
-| T5.1 | Таблица `fs_lms_substitutions` (group_id, original/substitute_teacher_id, valid_from/to, reason, approved_by) в `Migration_1_0_0` | Lms | 🔴 | `Migration_1_0_0`, `TableName::Substitutions` |
-| T5.2 | `SubstitutionDTO` + `SubstitutionRepository` (активные на дату, по substitute) | Lms | 🔴 | DTO/Repo |
-| T5.3 | `EffectiveTeacherResolver`: `teacher_id_override` › активная `substitutions` (`valid_from≤D≤valid_to`) › `groups.teacher_id` | Lms | 🔴 | новый сервис |
-| T5.4 | Расширить `GroupAccessGuard::canManage()` — time-bound grant (юзер, группа, сегодня); по `valid_to` доступ гаснет сам | Lms | 🔴 | `GroupAccessGuard` |
-| T5.5 | `Capability::ManageSchedule` (или офисная) + хук `AjaxHook::AssignSubstitute`; назначает завуч/`FSOffice` (интерфейс в офисе, не в кабинете препода) | Lms | 🔴 🔶 D5 | `Capability`, `RoleManager`, `AjaxHook` |
-| T5.6 | «Главная» замещающего: чужие группы на срок grant с маркером «замена до [дата]»; печать списка замен | Profile | 🔴 | dashboard-агрегация |
-| T5.7 | Оригинальный препод видит свою группу «замена до [дата]» (read-only в период замены) 🔶 | Profile | 🔴 | dashboard |
+| T5.1 | Таблица `fs_lms_substitutions` (group_id, original/substitute_teacher_id, valid_from/to, reason, approved_by) в `Migration_1_0_0` (CREATE + down) | Lms | ✅ | `Migration_1_0_0`, `TableName::Substitutions` |
+| T5.2 | `SubstitutionDTO` + `SubstitutionRepository` (`findActiveForGroup`/`findActiveBySubstitute`/`hasActiveGrant`/`listByGroup`/`create`/`delete`) | Lms | ✅ | DTO/Repo |
+| T5.3 | `EffectiveTeacherResolver`: `teacher_user_id` (разовый override) › активная `substitutions` (`valid_from≤D≤valid_to`) › `groups.teacher_id` — `forGroup(date)`/`forLesson()` | Lms | ✅ | новый сервис |
+| T5.4 | `GroupAccessGuard::canManage()` пускает при активном grant (`hasActiveGrant` по `CURDATE()`); по `valid_to` доступ гаснет сам | Lms | ✅ | `GroupAccessGuard` |
+| T5.5 | `Capability::ManageSchedule` (только офис+админ, caps→5.1) + `SubstitutionService` + хуки (`SubstitutionCallbacks`/`Controller`, nonce `Substitution`). **Офисная форма назначения — построена в экране «Замены» (T9.18 ✅)** | Lms | ✅ | `Capability`, `UserRole`, `RoleManager`, `AjaxHook`, `Nonce`, `Init`, `substitutions.js` |
+| T5.6 | «Главная» замещающего: чужие группы на срок grant с баннером «вы замещаете … до [дата]» + маркер на карточке группы | Profile | ✅ | сделано в Эпике 6 (`DashboardService.covering` + `covering_until`); печать списка — отложено |
+| T5.7 | Оригинальный препод видит свою группу «замена до [дата]» (маркер `covered_until` на карточке). Принудительный read-only журнала в период замены 🔶 — отложено | Profile | 🟡 | маркер сделан в Эпике 6; серверный read-only-гейт не добавлен |
 
-**Acceptance:** завуч создаёт замену на период → замещающий видит группу в «Главной» и пускается в журнал; по истечении `valid_to` доступ исчезает без ручной правки; `groups.teacher_id` не перезаписывается.
+> **Эпик 5 (домен) готов** (T5.1–T5.4 ✅, T5.5 🟡 — AJAX-слой готов, офисная админ-форма pending; T5.6/T5.7 🔴 — ждут dashboard Эпика 6).
+> - **По D5:** резолв на чтении, `groups.teacher_id` НЕ перезаписывается; `teacher_id_override` = существующая `teacher_user_id` (см. Эпик 4). `ManageSchedule` — новая cap только у `FSOffice`+admin (не у `FSTeacher`), caps-версия → `5.1`.
+> - **Схема:** таблица в CREATE + down(); в dev-БД создана точечным `CREATE TABLE IF NOT EXISTS` (без reset — сид цел). Caps синхронизированы (`syncCapabilities`).
+> - **E2E проверено:** назначил замену substitute=90001 на группу #1 → `EffectiveTeacherResolver::forGroup` = 90001, `canManage(1,90001)=true`; после `valid_to<today` → resolver вернулся к `groups.teacher_id=54`, `canManage=false`; `groups.teacher_id` не тронут. Хуки зарегистрированы (`has_action`). PHPUnit: `EffectiveTeacherResolverTest`/`SubstitutionServiceTest`/`SubstitutionCallbacksTest` + обновлён `GroupAccessGuardTest`; вся сюита 541 зелёная.
+> - **Осталось:** офисная UI-форма назначения замен (админ-страница/секция, дергает `assign_substitute`) + dashboard-маркеры «замена до [дата]» (T5.6/T5.7, вместе с Эпиком 6).
+
+**Acceptance:** ✅ (домен) завуч создаёт замену на период → по `EffectiveTeacherResolver`/`canManage` замещающий получает доступ к группе; по истечении `valid_to` доступ исчезает без ручной правки; `groups.teacher_id` не перезаписывается. ⏳ визуальная часть (назначение в офисе + «Главная» замещающего) — с UI-формой и Эпиком 6.
 
 ---
 
@@ -177,14 +193,19 @@
 | ID | Задача | Слой | Статус | Затрагивает |
 |---|---|---|---|---|
 | T6.1 | D1/D2 зафиксированы и реализованы (профиль в ядре, `/profile/`, per-role резолвер) | — | ✅ | — |
-| T6.2 | Хук `AjaxHook::GetProfileDashboard` — занятия сегодня/неделя по всем группам препода (effective-teacher), агрегированный ворклист | Profile→Lms | 🔴 | `EffectiveTeacherResolver` (T5.3), `group_lessons`, `SessionCalendarService` |
-| T6.3 | Ворклист «заполнить»: незаполненная посещаемость прошедших занятий | Lms | 🔴 | `AttendanceService` (T2.4) |
-| T6.4 | Ворклист «проверить»: `SubmissionRepository::listQueueByGroup()` по всем группам | Lms | 🟡 | готовый репозиторий |
-| T6.5 | `dashboard.js`: рендер из `GetProfileDashboard`; сайдбар-группы из реальных групп препода; убрать демо | Profile | 🔴 | `src/js/profile/dashboard.js`, `data.js` |
-| T6.6 | Стат-плитки из реальных агрегатов (занятий сегодня, на проверке, не заполнено) | Profile | 🔴 | T6.2 |
-| T6.7 | Карточка ученика (§4.5): срез по `student_person_id` — посещаемость, задачи, работы, контрольные, прогресс; **без PII** (`ViewPII` только офис) | Profile | 🔴 | gradebook/attendance/progress по ученику |
+| T6.2 | Хук `AjaxHook::GetProfileDashboard` → `DashboardService::build()` — занятия сегодня/неделя по всем группам (свои + замены, где юзер замещающий; офис — все), агрегированный ворклист | Profile→Lms | ✅ | `DashboardService`, `DashboardCallbacks`, `ProfileDashboardController` |
+| T6.3 | Ворклист «заполнить»: прошедшие групповые занятия без единой отметки посещаемости | Lms | ✅ | `AttendanceService::matrixForGroup` |
+| T6.4 | Ворклист «проверить»: `SubmissionRepository::listQueueByGroup()` по всем группам (счётчик на группу) | Lms | ✅ | готовый репозиторий |
+| T6.5 | `dashboard.js` переписан на `GetProfileDashboard`; демо (`data.js`) убран; навигация: занятие/группа → журнал, «проверить» → экран «Проверка работ» | Profile | ✅ | `src/js/profile/dashboard.js`, `app.js` |
+| T6.6 | Стат-плитки из реальных агрегатов (занятий сегодня, на проверке, не заполнено, групп) | Profile | ✅ | `DashboardService::build().stats` |
+| T6.7 | Карточка ученика (§4.5): срез по `student_person_id` — посещаемость, задачи, работы, контрольные; **без PII** → **поглощено Эпиком 10 (T10.8 «Сводка по ученику»)** | Profile | ➡️ Эпик 10 | T10.8 |
 
-**Acceptance:** «Главная» показывает реальное расписание препода на сегодня/неделю по всем группам (включая замены); ворклист считает реальные незаполненные журналы и работы на проверке; навигация ведёт в журнал/проверку нужной группы.
+> **Эпик 6 готов** (T6.1–T6.6 ✅, T6.7 🔴 — карточка ученика отложена как отдельная фича).
+> - **Агрегат:** `DashboardService::build(userId, isOffice)` собирает по набору групп (свои `findByTeacherId` + группы активных замен `findActiveBySubstitute`; офис → `findAll`): расписание сегодня/неделя (state now/soon/done по часам), ворклист «заполнить» (прошедшие занятия без отметок, топ-12) и «проверить» (очередь сдач по группам), стат-плитки, маркеры замен (Эпик 5).
+> - **Закрывает Эпик 5 T5.6/T5.7:** payload несёт `covering` (баннер «вы замещаете …») + `covered_until`/`covering_until` на карточках групп («замена до [дата]»).
+> - **E2E проверено:** `build(54)` по группе #1 → to_review=1, to_fill=4, groups=1; маркеры: владелец видит `covered_until`, замещающий (90001) — `covering` + чужую группу в списке. Хук зарегистрирован. PHPUnit: `DashboardServiceTest`/`DashboardCallbacksTest`; вся сюита 544 зелёная.
+
+**Acceptance:** ✅ «Главная» показывает реальное расписание на сегодня/неделю по всем группам (включая замены); ворклист считает незаполненные журналы и работы на проверке; клик ведёт в журнал/«Проверку». Визуально — вход `demoteacher` → «Главная».
 
 ---
 
@@ -194,12 +215,19 @@
 
 | ID | Задача | Статус | Источник |
 |---|---|---|---|
-| T7.1 | Per-role рендер `/profile/` для учащегося — каркас (`LearnerProfileView`, `ProfileContext`, заглушки) | 🟡 | `ProfileViewResolver` (готов) |
-| T7.2 | «Главная» ученика: расписание, дедлайны, новые оценки, ДЗ | 🔴 | `group_lessons`, `submissions.due_at`, `assessment_attempts` |
-| T7.3 | «Мои оценки» (дневник ученика) | 🟡 | `GradebookService::forStudent()` |
-| T7.4 | «Посещаемость» ученика и % | 🔴 | `fs_lms_attendance` (после T2.x) |
-| T7.5 | Родитель: те же данные по ребёнку, read-only | 🔴 | + фильтр `parent_person_id` (`findActiveByParent`) |
-| T7.6 | 🔶 Модель ДЗ (на `submissions` или поле занятия) | 🔴 | — |
+| T7.1 | Per-role рендер `/profile/` учащегося на реальных данных: один endpoint `GetLearnerProfile` → `LearnerService::build(personId)`; `learner.js` переписан (демо-заглушки убраны) | ✅ | `LearnerService`, `LearnerCallbacks`, `LearnerProfileController`, `learner.js` |
+| T7.2 | «Главная» ученика: ближайшие занятия, дедлайны (`homework_due_at`), новые оценки | ✅ | `group_lessons`, `GradebookService` |
+| T7.3 | «Мои оценки» (дневник): `GradebookService::forStudent()` — сырые баллы (D4), без 5-балльных | ✅ | `GradebookService::forStudent()` |
+| T7.4 | «Посещаемость» ученика + % (бинарно) | ✅ | `AttendanceRepository::listByStudent` |
+| T7.5 | Родитель: те же экраны по ребёнку, read-only + переключатель детей; серверная проверка «свой ребёнок» (клиентский `student_person_id` не доверяем) | ✅ | `ProfileContext.children`, `LearnerCallbacks` |
+| T7.6 | 🔶 Модель ДЗ — пока дедлайны берутся из `group_lessons.homework_due_at`; отдельной сущности ДЗ нет | 🟡 | — |
+
+> **Эпик 7 готов** (T7.1–T7.5 ✅, T7.6 🟡 — дедлайны из `homework_due_at`, отдельная ДЗ-модель отложена).
+> - **Бэкенд:** `LearnerService::build(personId)` (read-only) — группы, расписание/дедлайны, дневник (сырые баллы), посещаемость+%. Хук `GetLearnerProfile` **без capability** (у ученика/родителя нет LMS-прав): гейт = нонс `LearnerProfile` + `is_user_logged_in` + авторизация на данные через `ProfileContext` (ученик → только `subjectPersonId`; родитель → `student_person_id` проверяется против списка детей). `fsProfile.learner={nonce,actions}` для ролей `FSStudent/FSParent/Student`.
+> - **Фронт:** `learner.js` переписан — 4 экрана (Главная/Мои курсы/Мои оценки/Посещаемость) из одного `getProfile`; у родителя — `prof-child-bar` с `<select>` детей (смена → reload + rerender всех экранов). `ProfileViewResolver` расмокался (снят `final`) для теста колбэка.
+> - **E2E проверено:** `LearnerService::build(9001)` (группа #1) → 1 группа, 6 занятий, 1 оценка `8/10`, посещаемость 2/2=100%. Хук зарегистрирован. PHPUnit: `LearnerServiceTest`/`LearnerCallbacksTest` (+`is_user_logged_in` стаб в bootstrap); вся сюита 549 зелёная.
+
+**Acceptance:** ✅ ученик видит свои группы/расписание/оценки/посещаемость (read-only); родитель — те же данные по выбранному ребёнку с серверным замком «только свой ребёнок». Визуально — вход ученика/родителя → `/profile/`.
 
 ---
 
@@ -208,20 +236,190 @@
 | ID | Задача | Статус | Примечание |
 |---|---|---|---|
 | T8.1 | ~~Взвешивание оценок~~ **снято** (оценок и среднего нет — см. D4). Из D7 остаётся post-v1: lock КТП, рубрики | ⛔ N/A | заменено сырыми баллами |
-| T8.2 | PHPUnit на новые `*Callbacks` (посещаемость, reflow, замены, индивидуальные) | 🔴 | политика «cover callbacks with tests» |
-| T8.3 | Приёмка per-role доступа: препод видит свои группы/инструменты; ученик — только свои данные (read-write); родитель — данные ребёнка (read-only, замок на сервере); офисные роли → редирект в админку | 🔴 | приёмочный чек |
-| T8.4 | `npx gulp build` + `styles:check` зелёные; ассеты `profile.min.*` собираются | ✅ (для оболочки) | поддерживать |
+| T8.2 | PHPUnit на новые `*Callbacks`: посещаемость (`JournalCallbacksTest`), reflow/pin (`ProgramCallbacksTest`), индивидуальные (`ProgramCallbacksTest`), замены (`SubstitutionCallbacksTest`), + Grading/Dashboard/Learner из эпиков 3–7 | ✅ | политика «cover callbacks with tests» |
+| T8.3 | Приёмка per-role доступа: `ProfileViewResolverTest` (роль→витрина: препод/офис→препод, ученик/родитель→учащийся, методист/маркетолог→null=редирект в админку); авторизация на данные ученика/родителя — `LearnerCallbacksTest` (замок «только свой ребёнок») | ✅ | приёмочный чек |
+| T8.4 | `npx gulp build` + `styles:check` + `lint:js` зелёные; ассеты `profile.min.*` собираются | ✅ | поддерживать |
+
+> **Эпик 8 готов** (T8.1 ⛔ N/A, T8.2–T8.4 ✅).
+> - **T8.2 покрытие callback-слоя:** `JournalCallbacksTest` (getJournal/saveAttendance/bulkAttendance + отказы по `canManage`), `ProgramCallbacksTest` расширен (reflow/pin + createIndividual), `SubstitutionCallbacksTest`, `GradingCallbacksTest`, `DashboardCallbacksTest`, `LearnerCallbacksTest`. Сервисы: `ReviewQueueService`/`ScheduleService`/`EffectiveTeacherResolver`/`SubstitutionService`/`DashboardService`/`LearnerService`Test.
+> - **T8.3 приёмка доступа:** `ProfileViewResolverTest` фиксирует роль→витрину (офисные back-office роли → null → `ProfileController` редиректит в админку); `LearnerCallbacksTest` проверяет серверный замок (ученик только себя; родитель — только своих детей; клиентский `student_person_id` не доверяем).
+> - **Итог:** вся сюита **561 тест зелёная**; `gulp build` + `styles:check` + `npm run lint:js` — чисто.
+> - **Осталось post-v1/отдельно:** T6.7 (карточка ученика), T5.7 read-only-гейт журнала в период замены 🔶, T7.6 ДЗ-модель 🔶, D7 (lock КТП, рубрики), офисная UI-форма назначения замен, курс-пикер КТП (T1.7).
+
+---
+
+## L. Эпик 9 — Кабинеты (аудитории): справочник + бронирование по времени
+
+> **Будущее — после ЛК преподавателя (Эпики 1–7).** Физические кабинеты как справочник, управляемый
+> **FSOffice в админке**, с контролем занятости по времени. Кабинет привязывается к занятиям (обычно
+> **1 раз на учебный год**, при необходимости меняется); индивидуальное занятие препод ставит в **свободный**
+> кабинет. Слот кабинета в UI уже нарисован (`dashboard.js` рендерит `lesson.room` — сейчас мок «каб. 305»).
+
+### L.0. Опорные факты (что уже есть — переиспользовать)
+
+- `group_lessons` несёт окно занятия **`scheduled_at` + `ends_at`** → конфликт кабинетов считается на уровне
+  материализованных занятий: `A.scheduled_at < B.ends_at AND B.scheduled_at < A.ends_at`. Отдельная таблица
+  броней НЕ нужна — достаточно колонки `room_id` на `group_lessons`.
+- Меню/CRUD зеркалим у Групп: `Menu::Main` + `Capability::ManageLmsPlatform`; трио
+  `GroupsRepository`(WPDB, raw-объекты) + `StudentGroupCallbacks` + `StudentGroupController`; `Nonce::Manager`;
+  регистрация контроллера в `Init.php $services`.
+- ⚠️ **Предусловие:** `ScheduleService::schedule()` при ручном переносе **не пишет `ends_at`** (его заполняет
+  только `SessionCalendarService::generate()/applySlots()`). Для надёжной проверки занятости `ends_at` надо
+  писать всегда (или выводить `end = start + duration_min` из `groups.meetings`).
+
+### L.1. Развилки — ✅ ЗАФИКСИРОВАНЫ (2026-07-01)
+
+- **R1 — Модель привязки. ✅ (б):** `groups.room_id` (кабинет-по-умолчанию на год) + `group_lessons.room_id`
+  (override/индивидуальные, `NULL` = дефолт группы); эффективный кабинет = `lesson.room_id ?? group.room_id`.
+- **R2 — Жёсткость конфликта. ✅:** конфликт по времени — **hard-block** (`RoomAssignmentService::assignToLesson`
+  бросает исключение); нехватка мест (`seats`) — **мягкое предупреждение** (возвращается, не блокирует).
+- **R3 — Область справочника. ✅:** кабинеты **глобальны** (не привязаны к периоду); занятость per-occurrence
+  через `group_lessons` по эффективному кабинету (`COALESCE(gl.room_id, g.room_id)`).
+- **UI-развилка (решение пользователя):** «Кабинеты» — **таб на странице «Настройки»** (между «Периоды» и
+  «Шаблоны писем»), в стиле таба «Учебные периоды» (серверная таблица + «+» → модалка), **НЕ отдельная
+  меню-страница**. Меню-подстраница `Menu::Rooms`/`roomsPage` откачена.
+
+### L.2. Домен (`Lms`)
+
+| ID | Задача | Статус | Затрагивает |
+|---|---|---|---|
+| T9.1 | Таблица `fs_lms_rooms` (`name`, `seats`, `allowed_subjects` json — пусто=любой, `is_active`, `deleted_at`) + `TableName::Rooms` | ✅ | `Migration_1_0_0`, `TableName` |
+| T9.2 | Колонки `room_id` на `group_lessons` + `groups.room_id` (CREATE + Cleanup `ADD COLUMN IF NOT EXISTS`); `roomId` в `GroupLessonDTO`/`InputDTO` | ✅ | `Migration_1_0_0`, DTO |
+| T9.3 | `RoomDTO` + `RoomRepository` (WPDB): CRUD (soft-delete) + `isBusy()` (occupancy через `COALESCE(gl.room_id,g.room_id)`) | ✅ | `RoomDTO`, `RoomRepository` |
+| T9.4 | `RoomAvailabilityService`: `isFree()`, `listFreeRooms(start,end,subjectKey)` (фильтр по `allowed_subjects`) | ✅ | `RoomAvailabilityService` |
+| T9.5 | `ends_at` — решено через COALESCE-fallback (`ends_at` ?? `scheduled_at + 60 мин`) в `isBusy`/`assignToLesson`; правку `schedule()` не требует | ✅ | `RoomRepository::isBusy` |
+| T9.6 | `RoomAssignmentService`: `assignToGroup` (дефолт группы + валидация предмета + предупреждение вместимости) / `assignToLesson` (hard-block конфликта) | ✅ | `RoomAssignmentService` |
+
+### L.3. UI FSOffice — **таб на странице «Настройки»** (решение пользователя)
+
+| ID | Задача | Статус | Затрагивает |
+|---|---|---|---|
+| T9.7 | Таб «Кабинеты» в `settings.php` (между «Периоды» и «Шаблоны писем»); данные из `AdminCallbacks::settingsPage()` (`rooms` + карта «кабинет→группы с расписанием») | ✅ | `settings.php`, `AdminCallbacks` |
+| T9.8 | Партиал `settings-9-rooms.php` (таблица Название/Группы/Действия + «+» → модалка) + `room-modal.php` (имя + чекбоксы предметов) — близнец «Учебных периодов»; тултип расписания группы (`.fs-tip`, `WeekDay::formatSchedule`) | ✅ | шаблоны, `_modal.scss` |
+| T9.9 | `RoomController` + `RoomCallbacks` (`SaveRoom`/`DeleteRoom`/`GetRooms`/`AssignGroupRoom`, `Nonce::Room`, cap `ManageLmsPlatform`) в `Init`; JS `RoomModal`+`RoomModalManager` (близнецы периодов) | ✅ | `AjaxHook`, `RoomController`, `RoomCallbacks`, `Init`, admin JS |
+| T9.10 | Привязка кабинета к группе на год — ✅ через селектор в **модалке группы** (T9.15). Endpoint `AssignGroupRoom` тоже готов (для таба). Осталось только временное (per-lesson) — T9.16 | ✅ | модалка группы (T9.15) |
+
+### L.4. Интеграция с планировщиком и профилем (`Profile`/`Lms`)
+
+| ID | Задача | Статус | Затрагивает |
+|---|---|---|---|
+| T9.11 | Hard-block конфликта при назначении кабинета занятию (`assignToLesson`) ✅. Проверка при `reflow`/`pin` (перенос дат) — **остаток** (reflow не трогает `room_id`) | 🟡 | `RoomAssignmentService` ✅; `ScheduleService`/reflow — TODO |
+| T9.12 | Индивидуальное занятие (Эпик 4) — пикер **свободных** кабинетов (`listFreeRooms`); сервис готов, UI-пикер в поповере журнала — **остаток** | 🔴 | `RoomAvailabilityService` ✅; `journal.js` — TODO |
+| T9.13 | Профиль: `dashboard.js` показывает реальный кабинет (`DashboardService` отдаёт `room` = эфф. кабинет). Журнал/КТП — **остаток** | 🟡 | `DashboardService` ✅, `dashboard.js` ✅; `journal.js`/`ktp.js` — TODO |
+| T9.14 | PHPUnit: `RoomAvailabilityServiceTest`, `RoomAssignmentServiceTest`, `RoomCallbacksTest` (конфликт окон, `allowed_subjects`, вместимость, CRUD) | ✅ | тесты |
+
+> **Эпик 9 — домен + офисный таб готовы** (L.2 ✅, L.3 ✅ кроме T9.10-UI-назначения, L.4 частично).
+> - **UI:** «Кабинеты» — таб «Настроек» (близнец «Учебных периодов»): серверная таблица **Название / Группы / Действия** + «+» → модалка (имя + чекбоксы предметов). Колонка «Группы» показывает группы кабинета; при наведении — тултип расписания (`Вт 09:25-10:10, Пт 11:35-12:20`, `WeekDay::formatSchedule`). CRUD через `RoomModalManager` → `save_room`/`delete_room` → reload.
+> - **Домен:** таблица `fs_lms_rooms` + `room_id` на `groups`/`group_lessons`; занятость по `COALESCE(gl.room_id,g.room_id)` с окном `ends_at ?? +60мин`; hard-block конфликта, мягкое предупреждение вместимости, фильтр по `allowed_subjects`.
+> - **E2E проверено:** создан кабинет, назначен группе #1 → таб-данные `{name:"Тест-группа 9А", schedule:"Вт 09:25-10:10, Пт 11:35-12:20"}`; `isBusy` = занят в день занятия группы, свободен иначе; хуки `save_room`/`delete_room` зарегистрированы. PHPUnit: вся сюита **574 зелёная**; `gulp build`+`styles:check`+`lint:js` чисто.
+> - **Осталово:** UI-назначение кабинета из модалки группы (endpoint `AssignGroupRoom` готов), проверка конфликта при `reflow`/`pin`, пикер свободных кабинетов в инд.занятии (журнал), кабинет в журнале/КТП. Поле `seats` в модалке скрыто по просьбе (в БД остаётся, предупреждение вместимости дремлет).
+
+**Acceptance (домен+таб):** ✅ офис в «Настройки → Кабинеты» заводит кабинет (имя + предметы); таблица показывает группы кабинета с тултипом расписания; редактирование/удаление работают; система (на уровне сервисов) не даёт посадить два занятия в один кабинет в пересекающееся время и предупреждает о нехватке мест; в «Главной» профиля у занятия отображается реальный кабинет.
+
+### L.5. Временные замены «через фронт» — кабинет + педагог (единая модель)
+
+> Ментальная модель (зафиксировано 2026-07-01): **постоянное (на год)** — в модалке группы (`groups.teacher_id` + `groups.room_id`);
+> **временное (override на занятие/период)** — «замены». Педагог уже сделан (Эпик 5); кабинет — симметрично.
+>
+> | Что | Постоянное (год) | Разовое (одно занятие) | На период (диапазон дат) |
+> |---|---|---|---|
+> | **Педагог** | `groups.teacher_id` (модалка группы) | `group_lessons.teacher_user_id` | `fs_lms_substitutions` (грант) — Эпик 5 ✅ |
+> | **Кабинет** | `groups.room_id` (модалка группы) | `group_lessons.room_id` ✅ (`assignToLesson`) | bulk-override `room_id` по занятиям диапазона (TODO) |
+>
+> Резолв на чтении: педагог — `EffectiveTeacherResolver` (override › замена › `groups.teacher_id`); кабинет — `lesson.room_id ?? group.room_id`.
+
+| ID | Задача | Статус | Затрагивает |
+|---|---|---|---|
+| T9.15 | Селектор «Кабинет» в модалке группы (рядом с «Преподаватель») → `groups.room_id`; валидация предмета (`RoomDTO::allowsSubject`) в `StudentGroupCallbacks` create+update; список кабинетов из `AdminCallbacks::groupsPage` (`rooms`), `data-room-id` на строке | ✅ | `group-modal.php`, `groups.php`, `group-modal.js`, `group-modal-manager.js`, `StudentGroupCallbacks`, `AdminCallbacks` |
+| T9.16 | Замена **кабинета** на период (ремонт): `RoomAssignmentService::overrideForRange(groupId, roomId|null, from, to)` — bulk `group_lessons.room_id` по датам, конфликтные пропускаются в warnings; хук `SetRoomOverride` | ✅ | `RoomAssignmentService`, `SubstitutionCallbacks`, `AjaxHook` |
+| T9.17 | Замена **педагога** (болезнь) — форма назначения `substitutions` в экране «Замены» (закрывает отложенный T5.5-UI) | ✅ | `AssignSubstitute`/`RevokeSubstitute` (готовы), `substitutions.js` |
+| T9.18 | **Единый экран «Замены»** (офис): `substitutions.js` в SPA профиля — две карточки (педагог + кабинет) на группу; nav/screen только для `FSOffice` (`TeacherProfileView`); данные `GetSubstitutionsData` (замены+преподаватели+кабинеты) | ✅ | `substitutions.js`, `app.js`, `ProfileViewResolver`, `TeacherProfileView`, `SubstitutionController` |
+
+> **Экран «Замены» (T9.16–T9.18) готов** (2026-07-01). Офисный инструмент в SPA профиля.
+> - **Бэкенд:** `SubstitutionCallbacks` расширен — `GetSubstitutionsData` (замены + преподаватели `getByRole(FSTeacher)` + активные кабинеты), `SetRoomOverride` → `RoomAssignmentService::overrideForRange` (bulk по датам, hard-block конфликта → skip+warn). Всё под `Nonce::Substitution` + `Capability::ManageSchedule` (офис). Хуки в `SubstitutionController`.
+> - **Фронт:** экран `substitutions.js` — пикер группы + карточка «Замена преподавателя» (список активных + форма назначить/снять) + карточка «Замена кабинета» (форма период+кабинет → Заменить/Снять). nav/screen `substitutions` — **только `FSOffice`** (`TeacherProfileView` ветвит по роли; `fsProfile.substitutions` — только офис).
+> - **E2E:** office #55 → экран есть (`screens` содержит `substitutions`, actions отдаются); teacher #54 — нет (гейт по роли). `overrideForRange(1, room, 2026-03-01..04-01)` → 6 занятий получили кабинет, `null` — вернул все 6. Хуки зарегистрированы. Тесты: `SubstitutionCallbacksTest`+`RoomAssignmentServiceTest` расширены; сюита **577 зелёная**.
+
+**Acceptance (замены):** ✅ офис из фронта (профиль → «Замены») временно меняет кабинет занятий (ремонт, период) и/или назначает замещающего педагога (болезнь, период); резолв на чтении (`EffectiveTeacherResolver` + эфф. кабинет `lesson.room_id ?? group.room_id`) отдаёт актуальные значения; по `valid_to`/снятию — возврат к дефолтам группы без правки `groups.*`; конфликты кабинета не проходят (пропускаются с предупреждением).
 
 ---
 
 ## K. Порядок (рекомендуемый)
 
-1. **B (решения).** D1/D2 ✅ зафиксированы и реализованы (профиль в ядре, `/profile/`, per-role). Осталось решить D3–D7 перед соответствующими эпиками.
-2. **Эпик 1 (КТП + reflow→AJAX)** — самый дешёвый, движок уже есть.
-3. **Эпик 2 (посещаемость + журнал)** — ядро ценности препода.
-4. **Эпик 3 (проверка)** — бэкенд готов, нужен экран/связка.
-5. **Эпик 6 («Главная» агрегация)** — после того как есть что агрегировать.
-6. **Эпик 4 (индивидуальные занятия)** → **Эпик 5 (замены)** — доменные расширения.
-7. **Эпик 7 (ученик/родитель)**, **Эпик 8 (тесты, доступ, post-v1)**.
+> **Статус (2026-07-01): Эпики 1–8 — core готов.** B (D1–D7) ✅. Осталось: T6.7 (карточка ученика), офисная UI-форма замен, курс-пикер КТП (T1.7), 🔶 post-v1 (lock КТП/рубрики, ДЗ-модель, read-only-гейт замены) и **Эпик 9 (кабинеты)** — будущее.
+
+1. **B (решения).** D1–D7 ✅ зафиксированы и реализованы.
+2. **Эпик 1 (КТП + reflow→AJAX)** ✅ — движок + AJAX.
+3. **Эпик 2 (посещаемость + журнал)** ✅ — ядро ценности препода.
+4. **Эпик 3 (проверка)** ✅ — экран очереди + связка.
+5. **Эпик 6 («Главная» агрегация)** ✅ — кросс-групповая сводка.
+6. **Эпик 4 (индивидуальные занятия)** ✅ → **Эпик 5 (замены)** ✅ (домен; офисная UI-форма — остаток).
+7. **Эпик 7 (ученик/родитель)** ✅, **Эпик 8 (тесты, доступ)** ✅.
+8. **Эпик 9 (кабинеты/аудитории)** 🔴 — будущее; справочник+админка самодостаточны, пикер свободных кабинетов ждёт Эпик 4 (готов).
 
 > Маппинг на под-этапы `Courses.md` §7: 1→Эпик1, 2→Эпик2, 3→Эпик3, 4→Эпик4, 5→Эпик5, 6→Эпик6+7, 7→Эпик8.
+
+---
+
+## M. Эпик 10 — Bugfix / UX-доводка профиля
+
+> Пул правок из ревью живого профиля. Развилки решены (2026-07-01, см. ниже). Бэкенд-фундамент из
+> Эпиков 1–9 переиспользуется; в основном это доводка UI + расширение read-моделей журнала/сводки.
+
+### Развилки — ✅ РЕШЕНО (2026-07-01)
+
+- **D8 — Проверка per-ученик.** «Проверка работ» **заменяется** на «Сводка по ученику»: проверка/оценивание
+  идут у каждого ученика отдельно (карточки занятий → деталь работы, где ставится оценка `SaveGrade`).
+  Вход «что ждёт проверки» остаётся ворклистом «Главной». Очередь `GetGroupSubmissions` не показывается отдельным экраном.
+- **D9 — Сокращения типов работ.** Закреплены в enum **`GradeBadge`** ✅ (`inc/Enums/Course/GradeBadge.php`):
+  СР/ПР/ДЗ/КР/ЭКЗ; маппинг practice→ПР, independent→СР, homework→ДЗ, control→КР, ege(+computer)→ЭКЗ.
+- **D10 — Навигация групп.** Клик по группе в сайдбаре («Мои группы») открывает **ростер** (новый экран «Группы»),
+  а не журнал. Журнал — отдельный пункт nav.
+- **D11 — Защита журнала.** Редактировать посещаемость можно только у занятий с датой **≤ сегодня** (сегодня и ранее).
+- **D12 — Новая палитра расписания/КТП.** Тема по плану — **зелёный**, закреплено — **синий**,
+  выходной (пропуск по расписанию) — **красный**, индивидуальное занятие — **фиолетовый**.
+
+### Пререк (общий для T10.5 / T10.8)
+
+| ID | Задача | Статус | Затрагивает |
+|---|---|---|---|
+| T10.0a | Enum `GradeBadge` (СР/ПР/ДЗ/КР/ЭКЗ) + мапперы из `WorkType`/`AssessmentKind` | ✅ | `inc/Enums/Course/GradeBadge.php` |
+| T10.0b | Привязка работ к занятию в read-модели: `?int $groupLessonId` + `?GradeBadge $badge` в `GradebookEntryDTO`; `AttemptDTO` расширен `groupLessonId` (+`fromArray`); заполнено в `SubmissionGradeSource` (`fromWorkType`) и `AssessmentGradeSource` (`fromAssessmentKind`) | ✅ | `GradebookEntryDTO`, `AttemptDTO`, `*GradeSource` |
+
+### Задачи
+
+| ID | Задача | Слой | Статус | Затрагивает |
+|---|---|---|---|---|
+| T10.1 | Кнопка «Выход»: клик по шестерёнке (`#profUserGear`) → dropdown вверх (`openCtxMenuRaw {up:true}`), пункт «Выход» → `fsProfile.logoutUrl` | Profile | ✅ | `ProfileViewResolver` (`logoutUrl`), `app.js` (`openUserMenu`), `utils.js` (`up`) |
+| T10.2 | Кнопка «Вернуться на главную» справа от notifications в топбаре → `home_url` (серверный `<a>`) | Profile | ✅ | `profile.php`, `ProfileViewResolver` (`homeUrl`) |
+| T10.3 | Палитра «Расписание/КТП» (D12): план 🟢, закреплено 🔵, выходной 🔴 | Profile | ✅ | `ktp.js` (легенда), `_core.scss` (`.placed-theme`) |
+| T10.4 | Индивидуальные занятия в расписании — фиолетовым (D12) | Profile | ✅ | `dashboard.js` (`schedRow`/week-card, `kind='individual'`→`--t-zachet`) |
+| T10.5 | Журнал: «+Индивидуальное занятие» убрано; `JournalService` отдаёт `cell_works[glid][pid]=[{badge,value}]` + `types`; в ячейке — посещаемость (+/Н) + inline-работы по типам (`ПР 8/10`, `ДЗ 5/5`); чекбоксы-фильтры типов; столбцы-работы убраны | Profile+Lms | ✅ | `JournalService`, `journal.js`, `_journal.scss` |
+| T10.6 | Защита журнала (D11): нельзя ставить присутствие на занятиях с датой > сегодня — гейт `JournalCallbacks::guardNotFuture` + фронт (`isFutureLesson`, поповер не открывается, колонка-замок) | Lms+Profile | ✅ | `JournalCallbacks`, `journal.js`, `_journal.scss` |
+| T10.7 | Экран «Группы» (D10): ростер активных учеников (snapshot-имена) + их индивидуальные занятия; создание инд.занятий здесь (поповер дата/время/тема → `createIndividual`); клик по группе в сайдбаре → `openGroupsFor` (ростер, не журнал). Новый `GetGroupRoster`→`GroupRosterService`; конфиг-блок `roster` | Profile+Lms | ✅ | `groups.js`, `app.js`, `_roster.scss`, `GroupRosterService`, `ProgramCallbacks`, `TeacherProfileView`, `ProfileViewResolver` |
+| T10.8 | «Проверка работ» → «Сводка по ученику» (D8): выбор ученика → карточки занятий (дата, баллы), цветная полоса (🟢 посещён / 🟣 индивидуальное / 🔴 пропуск); поглощает T6.7 (карточка ученика) | Profile+Lms | 🔴 | заменяет `review.js`; новый read-model per-student (attendance+gradebook с `group_lesson_id`+`kind`) |
+| T10.9 | Деталь работы из карточки сводки: условия заданий, ответы ученика, правильные ответы, итоги; здесь же оценивание (`SaveGrade`/`ReturnSubmission`) | Profile | 🔴 | `ExamResultService::buildForStudent()`, `attempt.php`, `submissions.answer_text` — переиспользовать |
+
+**Acceptance:** профиль имеет выход/возврат-на-главную; расписание в новой палитре с фиолетовыми индивидуальными;
+журнал показывает результаты работ в ячейках по типам с фильтрами и не даёт отмечать будущие занятия; «Мои группы» —
+ростер + создание индивидуальных; «Сводка по ученику» вместо очереди проверки, с деталью работы и оцениванием.
+
+---
+
+## N. Эпик 11 — Backlog / доводка (после Bugfix)
+
+> Собранные незакрытые хвосты Эпиков 1–9, пересобранные с учётом решений Эпика 10.
+> **Поглощены Эпиком 10:** T6.7 (карточка ученика) → T10.8; T3.3 (ворклист→очередь) → вход через ворклист «Главной» + T10.8.
+
+| ID | Было | Задача | Статус |
+|---|---|---|---|
+| T11.1 | T1.7 | Курс-пикер в КТП (назначение курса из пустого состояния) — нужен endpoint «список курсов предмета» | 🔴 |
+| T11.2 | T9.13 | Показать эффективный кабинет в журнале/КТП (в «Главной» уже есть) — увязать с переработкой журнала T10.5 | 🔴 |
+| T11.3 | T9.12 | Пикер **свободных** кабинетов при создании индивидуального занятия (`listFreeRooms` готов) — в новом экране «Группы» (T10.7) | 🔴 |
+| T11.4 | T9.11 | Проверка конфликта кабинета при `reflow`/`pin` (перенос дат группы) | 🔴 |
+| T11.5 | T2.9 | Помесячная пагинация журнала — пересмотреть после переработки журнала (T10.5); сейчас гориз. скролл | 🟡 |
+| T11.6 | T4.3 | Сдвиг нерассказанного хвоста по `status` (held/cancelled/moved) в `reflow` | 🟡 |
+| T11.7 | T1.8, T3.4, T5.7, T7.6 | **post-v1 (🔶 D7):** lock КТП после публикации; рубрики/аннотирование PDF/пир-ревью; серверный read-only-гейт журнала оригинала в период замены; отдельная модель ДЗ | 🔴 🔶 |
+
+**Порядок Эпика 10:** сначала быстрые (T10.1–T10.4, T10.6) → пререк T10.0b → журнал T10.5 → группы T10.7 → сводка+деталь T10.8/T10.9.
+

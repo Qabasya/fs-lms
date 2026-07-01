@@ -23,6 +23,7 @@ readonly class AttemptDTO {
 		public ?int          $gradedByUserId,
 		public string        $createdAt,
 		public string        $updatedAt,
+		public ?int          $groupLessonId = null,
 	) {}
 
 	/**
@@ -56,6 +57,7 @@ readonly class AttemptDTO {
 			gradedByUserId  : isset( $row['graded_by_user_id'] ) ? (int) $row['graded_by_user_id'] : null,
 			createdAt       : (string) ( $row['created_at'] ?? '' ),
 			updatedAt       : (string) ( $row['updated_at'] ?? '' ),
+			groupLessonId   : isset( $row['group_lesson_id'] ) ? (int) $row['group_lesson_id'] : null,
 		);
 	}
 }

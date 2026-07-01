@@ -1,0 +1,80 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Экран «Группы» — ростер группы (Эпик 10 T10.7).
+   Токены из _core.scss; поповер создания инд.занятия — общий (gp-*).
+   ══════════════════════════════════════════════════════════════════════ */
+
+.prof-roster {
+  padding: 22px 26px 40px;
+}
+
+.pr-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.pr-title { font-size: 18px; font-weight: 700; color: var(--ink); }
+.pr-sub   { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.pr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pr-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color .12s, box-shadow .12s;
+}
+.pr-row:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+
+.pr-ava {
+  flex: none;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  color: #fff; font-size: 13px; font-weight: 700;
+}
+
+.pr-info { flex: 1 1 auto; min-width: 0; }
+.pr-name { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+
+.pr-indis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.pr-indis-empty { font-size: 12px; color: var(--muted-2); }
+
+.pr-indi {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.pr-indi-date { font-weight: 700; }
+
+// Статусы индивидуальных занятий (палитра D12: индивидуальное — фиолетовый)
+.pr-indi-scheduled { border-color: var(--accent-soft-2); background: var(--accent-soft); color: var(--accent-700); }
+.pr-indi-done      { border-color: transparent; background: var(--surface-2); color: var(--muted); }
+.pr-indi-cancelled { text-decoration: line-through; color: var(--muted-2); }
+
+@media (max-width: 720px) {
+  .prof-roster { padding: 16px 14px 32px; }
+  .pr-row { flex-wrap: wrap; }
+}

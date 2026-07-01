@@ -11,6 +11,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 class ScheduleService {
 
@@ -20,7 +21,77 @@ class ScheduleService {
 		private readonly GroupsRepository            $groups,
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly SessionCalendarService      $calendar,
+		private readonly StudentRecordRepository     $records,
 	) {}
+
+	/**
+	 * Создаёт индивидуальное занятие на одного ученика (D3): `kind='individual'`,
+	 * привязано к дате (`is_pinned`), НЕ входит в программу группы и НЕ участвует
+	 * в раскладке `reflow`.
+	 *
+	 * @param string      $scheduledAt   'Y-m-d H:i:s'.
+	 * @param string|null $endsAt        'Y-m-d H:i:s' (опц.).
+	 * @param int|null    $lessonId      привязка к банку урока (опц.).
+	 * @param string|null $label         ярлык строки (опц.).
+	 * @param int|null    $teacherUserId явный преподаватель (опц., иначе — препод группы).
+	 *
+	 * @throws \InvalidArgumentException если группа не найдена или ученик не в группе.
+	 */
+	public function createIndividualLesson(
+		int     $groupId,
+		int     $studentPersonId,
+		string  $scheduledAt,
+		?string $endsAt,
+		?int    $lessonId,
+		?string $label,
+		?int    $teacherUserId,
+		int     $actorUserId
+	): int {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			throw new \InvalidArgumentException( 'Группа не найдена.' );
+		}
+
+		$isMember = false;
+		foreach ( $this->records->findActiveByGroupId( $groupId ) as $rec ) {
+			if ( $rec->studentPersonId === $studentPersonId ) {
+				$isMember = true;
+				break;
+			}
+		}
+		if ( ! $isMember ) {
+			throw new \InvalidArgumentException( 'Ученик не состоит в этой группе.' );
+		}
+
+		$id = $this->groupLessons->add( new GroupLessonInputDTO(
+			groupId         : $groupId,
+			lessonId        : $lessonId,
+			position        : 0,
+			scheduledAt     : $scheduledAt,
+			endsAt          : $endsAt,
+			isPinned        : true,
+			teacherUserId   : $teacherUserId,
+			createdByUserId : $actorUserId,
+			label           : $label,
+			kind            : 'individual',
+			status          : 'scheduled',
+			studentPersonId : $studentPersonId,
+		) );
+
+		$this->dispatcher->dispatch(
+			LogEvent::ScheduleChanged,
+			new LearningEvent(
+				event       : LogEvent::ScheduleChanged,
+				actorUserId : $actorUserId,
+				groupId     : $groupId,
+				entityType  : 'group_lesson',
+				entityId    : (string) $id,
+				isPublic    : false,
+			)
+		);
+
+		return $id;
+	}
 
 	/**
 	 * Добавляет урок в программу группы вручную.
@@ -267,6 +338,10 @@ class ScheduleService {
 		$rows   = $this->groupLessons->listByGroup( $groupId );
 		$result = array();
 		foreach ( $rows as $row ) {
+			// Индивидуальные не входят в программу группы (D3).
+			if ( 'individual' === $row->kind ) {
+				continue;
+			}
 			$lesson   = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
 			$result[] = array(
 				'row'     => $row,

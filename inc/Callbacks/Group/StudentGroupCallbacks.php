@@ -61,6 +61,22 @@ class StudentGroupCallbacks extends BaseController {
 	}
 
 	/**
+	 * «Основной» кабинет группы = кабинет первого занятия расписания, где он задан
+	 * (Эпик 10). Кабинет теперь привязан к строке расписания (`meetings[].room`),
+	 * `groups.room_id` хранит основной для колонки/фильтра/фолбэка.
+	 *
+	 * @param array<int,array<string,mixed>> $schedule нормализованные meetings
+	 */
+	private function primaryRoom( array $schedule ): ?int {
+		foreach ( $schedule as $meeting ) {
+			if ( ! empty( $meeting['room'] ) ) {
+				return (int) $meeting['room'];
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Сохраняет (создаёт) новую группу студентов.
 	 *
 	 * @return void
@@ -83,6 +99,7 @@ class StudentGroupCallbacks extends BaseController {
 		if ( is_array( $raw_entries ) ) {
 			$schedule = MeetingsNormalizer::normalizeList( $this->sanitizeScheduleEntries( $raw_entries ) );
 		}
+		$room_id = $this->primaryRoom( $schedule );
 
 		if ( $this->groupsRepository->existsByNameAndPeriod( $title, $academic_period_id ) ) {
 			$this->error( 'Группа с таким названием в этом периоде уже существует.' );
@@ -94,6 +111,7 @@ class StudentGroupCallbacks extends BaseController {
 			'academic_period_id' => $academic_period_id,
 			'name'               => $title,
 			'teacher_id'         => $teacher_id,
+			'room_id'            => $room_id,
 			'meetings'           => (string) wp_json_encode( $schedule ),
 		) );
 
@@ -219,9 +237,11 @@ class StudentGroupCallbacks extends BaseController {
 		if ( is_array( $raw_entries ) ) {
 			$schedule = MeetingsNormalizer::normalizeList( $this->sanitizeScheduleEntries( $raw_entries ) );
 		}
+		$room_id = $this->primaryRoom( $schedule );
 
 		$updated = $this->groupsRepository->update( $id, array(
 			'teacher_id' => $teacher_id,
+			'room_id'    => $room_id,
 			'meetings'   => (string) wp_json_encode( $schedule ),
 		) );
 
@@ -249,6 +269,7 @@ class StudentGroupCallbacks extends BaseController {
 				'day'   => sanitize_key( (string) ( $entry['day'] ?? '' ) ),
 				'start' => sanitize_text_field( (string) ( $entry['start'] ?? '' ) ),
 				'end'   => sanitize_text_field( (string) ( $entry['end'] ?? '' ) ),
+				'room'  => (int) ( $entry['room'] ?? 0 ),
 			);
 		}
 

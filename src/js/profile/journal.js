@@ -1,17 +1,20 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Журнал группы — реальные данные через AJAX (Эпик 2).
-   Источник: window.fsProfile.{groups, journal:{nonce,actions}, ajax.url}.
-   Модель D4: ячейки занятий — посещаемость (+/−), столбцы работ — СЫРЫЕ баллы.
-   НЕТ 5-балльных оценок и среднего балла.
+   Журнал группы — реальные данные через AJAX (Эпик 2 + Эпик 10 T10.5).
+   Ячейка (ученик×занятие) = посещаемость (+/Н) + результаты работ ЭТОГО занятия
+   по типам (СР/ПР/ДЗ/КР/ЭКЗ, `GradeBadge`), с фильтрами. Отдельных столбцов-работ нет.
+   D11: занятия с датой > сегодня недоступны для отметки. Создание индивидуальных
+   занятий перенесено в экран «Группы» (T10.7).
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
+import { createApi } from './api.js';
 
 const DOW_JS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 const AVA_COLORS = ['#5c7cfa','#7048e8','#1c7ed6','#0ca678','#f08c00','#e8590c','#e64980','#9c36b5','#2f9e44','#4263eb'];
 
 let root = null;
 let state = null;
+let api = null;
 
 export function renderJournal(r) {
     root = r;
@@ -19,10 +22,11 @@ export function renderJournal(r) {
     state = {
         groups:  Array.isArray(p.groups) ? p.groups : [],
         cfg:     p.journal || null,
-        ajaxUrl: p.ajax?.url || (typeof window.ajaxurl === 'string' ? window.ajaxurl : '/wp-admin/admin-ajax.php'),
         groupId: (p.groups && p.groups[0]) ? p.groups[0].id : null,
         data:    null,
+        filters: null,
     };
+    api = createApi(state.cfg);
     if (!state.groups.length || !state.cfg) { root.innerHTML = emptyHtml('Нет групп', 'За вами не закреплены группы.'); return; }
     load();
 }
@@ -34,18 +38,6 @@ export function setJournalGroup(gid) {
     load();
 }
 
-async function api(actionKey, params) {
-    const action = state.cfg.actions[actionKey];
-    const body = new URLSearchParams(Object.assign({ action, security: state.cfg.nonce }, params || {}));
-    const res = await fetch(state.ajaxUrl, {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body,
-    });
-    const json = await res.json().catch(() => ({ success: false }));
-    if (!json || !json.success) throw new Error(json?.data?.message || 'Ошибка запроса');
-    return json.data;
-}
-
 async function load() {
     if (!state.groupId) { root.innerHTML = emptyHtml('Нет группы', ''); return; }
     try {
@@ -54,6 +46,8 @@ async function load() {
         root.innerHTML = emptyHtml('Не удалось загрузить журнал', e.message);
         return;
     }
+    // По умолчанию показываем все присутствующие типы работ.
+    state.filters = new Set(state.data.types || []);
     render();
 }
 
@@ -75,7 +69,6 @@ function render() {
                 <th class="col-idx"><div class="hd-idx">#</div></th>
                 <th class="col-name"><div class="hd-name">Ученик</div></th>
                 ${d.lessons.map(lessonHead).join('')}
-                ${d.works.map(workHead).join('')}
             </tr>
         </thead>`;
 
@@ -89,20 +82,25 @@ function render() {
                 </div>
             </td>
             ${d.lessons.map(l => attCell(s.person_id, l)).join('')}
-            ${d.works.map(w => workCell(s.person_id, w)).join('')}
         </tr>`).join('')}</tbody>`;
 
     root.innerHTML = wrap(g, `<div class="j-scroll" id="jScroll"><table class="jgrid">${head}${body}</table></div>`);
     root.querySelector('.jgrid').addEventListener('click', onGridClick);
+    root.querySelectorAll('.j-filters input[data-type]').forEach(cb =>
+        cb.addEventListener('change', () => {
+            if (cb.checked) state.filters.add(cb.dataset.type); else state.filters.delete(cb.dataset.type);
+            render();
+        }));
 }
 
 function wrap(g, inner) {
-    const d = state.data || { students: [], lessons: [] };
+    const d = state.data || { students: [], lessons: [], types: [] };
     return `
     <div class="prof-journal">
         <div class="j-monthnav">
             <div class="jm-label">${esc(g.name)} · ${esc(g.subject)}</div>
             <span class="jm-count">${d.students.length} уч. · ${d.lessons.length} занятий</span>
+            ${filterBar()}
         </div>
         <div class="prof-journal-wrap var-a">${inner}</div>
         <div class="j-legend-bottom">
@@ -110,23 +108,27 @@ function wrap(g, inner) {
             <span class="jl"><span class="jl-sw" style="background:var(--g-good)"></span>Присутствовал</span>
             <span class="jl"><span class="jl-sw" style="background:var(--absent)"></span>Отсутствовал</span>
             <span class="jlb-label" style="margin-left:8px">Работы:</span>
-            <span class="jl">количество решённых задач / баллы экзамена</span>
+            <span class="jl">СР/ПР/ДЗ/КР/ЭКЗ — сырые баллы за занятие</span>
         </div>
     </div>`;
 }
 
-function lessonHead(l) {
-    const [y, m, dd] = l.date.split('-');
-    const dow = DOW_JS[new Date(l.date).getDay()];
-    return `<th class="hd-col" data-glid="${l.group_lesson_id}" title="${esc(l.topic)} · ${l.date}">
-        <div class="hd-date">${dd}.${m}</div>
-        <div class="hd-dow">${dow}</div>
-    </th>`;
+function filterBar() {
+    const types = (state.data && state.data.types) || [];
+    if (!types.length || !state.filters) return '';
+    return `<div class="j-filters">
+        <span class="jf-label">Показывать:</span>
+        ${types.map(t => `<label class="jf-chip ${state.filters.has(t) ? 'on' : ''}"><input type="checkbox" data-type="${esc(t)}" ${state.filters.has(t) ? 'checked' : ''}>${esc(t)}</label>`).join('')}
+    </div>`;
 }
 
-function workHead(w) {
-    return `<th class="hd-col work" style="--wt:var(--accent)" title="${esc(w.label)}">
-        <div class="hd-work">${esc(truncate(w.label, 22))}</div>
+function lessonHead(l) {
+    const [, m, dd] = l.date.split('-');
+    const dow = DOW_JS[new Date(l.date).getDay()];
+    const future = isFutureDate(l.date);
+    return `<th class="hd-col${future ? ' future' : ''}" data-glid="${l.group_lesson_id}" title="${esc(l.topic)} · ${l.date}${future ? ' · ещё не прошло' : ''}">
+        <div class="hd-date">${dd}.${m}</div>
+        <div class="hd-dow">${dow}</div>
     </th>`;
 }
 
@@ -136,30 +138,53 @@ function attState(glid, pid) {
     return row[pid] ? 'present' : 'absent';
 }
 
-function attCell(pid, l) {
-    const st = attState(l.group_lesson_id, pid);
-    const cls = ['gc', 'att'];
-    let inner = '';
-    if (st === 'present') { cls.push('present'); inner = '<span class="g-val" style="color:var(--g-good);font-weight:700">+</span>'; }
-    else if (st === 'absent') { cls.push('absent'); inner = '<span class="g-val att-n">Н</span>'; }
-    return `<td class="${cls.join(' ')}" data-glid="${l.group_lesson_id}" data-pid="${pid}">${inner}</td>`;
+/* D11: занятия с датой > сегодня недоступны для отметки посещаемости. */
+function todayIso() { return new Date().toISOString().slice(0, 10); }
+function isFutureDate(date) { return !!date && date > todayIso(); }
+function isFutureLesson(glid) {
+    const l = state.data.lessons.find(x => x.group_lesson_id === glid);
+    return !!(l && isFutureDate(l.date));
 }
 
-function workCell(pid, w) {
-    const cell = state.data.grades[w.key]?.[pid];
-    const val = cell ? cell.value : '—';
-    const pending = cell && cell.display === 'pending';
-    return `<td class="gc work" style="--wt:var(--accent)">
-        <span class="g-val" ${pending ? 'style="font-size:10px;color:var(--muted)"' : ''}>${esc(val)}</span>
-    </td>`;
+/** Результаты работ ячейки (ученик×занятие), отфильтрованные по активным типам. */
+function worksFor(glid, pid) {
+    const byLesson = state.data.cell_works && state.data.cell_works[glid];
+    const all = (byLesson && byLesson[pid]) || [];
+    return all.filter(w => state.filters.has(w.badge));
+}
+
+function attCell(pid, l) {
+    const glid = l.group_lesson_id;
+    const st = attState(glid, pid);
+    const cls = ['gc', 'att'];
+    if (isFutureDate(l.date)) cls.push('future');
+    let att = '';
+    if (st === 'present') { cls.push('present'); att = '<span class="g-val" style="color:var(--g-good);font-weight:700">+</span>'; }
+    else if (st === 'absent') { cls.push('absent'); att = '<span class="g-val att-n">Н</span>'; }
+
+    const works = worksFor(glid, pid);
+    if (works.length) cls.push('has-works');
+    const worksHtml = works.length
+        ? `<div class="cell-works">${works.map(w =>
+            `<span class="cw${w.display === 'pending' ? ' pending' : ''}"><b>${esc(w.badge)}</b>${w.display === 'pending' ? '' : ' ' + esc(w.value)}</span>`).join('')}</div>`
+        : '';
+
+    return `<td class="${cls.join(' ')}" data-glid="${glid}" data-pid="${pid}"><div class="cell-att">${att}</div>${worksHtml}</td>`;
 }
 
 /* ── Interactions ─────────────────────────────────────────────────────── */
 function onGridClick(e) {
     const td = e.target.closest('td.gc.att');
-    if (td) { openAttPopover(+td.dataset.glid, +td.dataset.pid, td); return; }
+    if (td) {
+        if (isFutureLesson(+td.dataset.glid)) { toast('Занятие ещё не прошло'); return; }
+        openAttPopover(+td.dataset.glid, +td.dataset.pid, td);
+        return;
+    }
     const th = e.target.closest('th.hd-col[data-glid]');
-    if (th) { openColumnMenu(+th.dataset.glid, th); }
+    if (th) {
+        if (isFutureLesson(+th.dataset.glid)) { toast('Занятие ещё не прошло'); return; }
+        openColumnMenu(+th.dataset.glid, th);
+    }
 }
 
 function openAttPopover(glid, pid, td) {
@@ -227,7 +252,6 @@ function refreshAttCell(glid, pid) {
 function initials(name) {
     return name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
 }
-function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 
 function emptyHtml(title, text) {
     return `<div class="prof-journal"><div class="prof-ktp-empty">

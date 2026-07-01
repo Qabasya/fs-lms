@@ -29,6 +29,7 @@ import { TaskEditor } from './services/task-editor.js';
 
 import {TaxonomyModalManager} from './managers/taxonomy-modal-manager.js';
 import {AcademicPeriodModalManager} from "./managers/enrollment/academic-period-modal-manager";
+import {RoomModalManager} from "./managers/enrollment/room-modal-manager.js";
 import {GroupModalManager} from "./managers/enrollment/group-modal-manager.js";
 import {SubjectModalManager} from "./managers/subject-modal-manager";
 import {TaskModalManager} from "./managers/task-modal-manager";
@@ -67,6 +68,10 @@ import { RolesSettings } from './services/roles-settings.js';
 
         if ($('.js-add-period').length || $('.js-edit-period').length) {
             AcademicPeriodModalManager.init();
+        }
+
+        if ($('#fs-room-modal').length) {
+            RoomModalManager.init();
         }
 
         GroupModalManager.init();

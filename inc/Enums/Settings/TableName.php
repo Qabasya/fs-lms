@@ -41,6 +41,12 @@ enum TableName: string {
 	// ==== ЛК преподавателя — посещаемость (Эпик 2) ====
 	case Attendance = 'fs_lms_attendance';
 
+	// ==== ЛК преподавателя — замены преподавателя (Эпик 5) ====
+	case Substitutions = 'fs_lms_substitutions';
+
+	// ==== Кабинеты / аудитории (Эпик 9) ====
+	case Rooms = 'fs_lms_rooms';
+
 	public function prefixed(): string {
 		global $wpdb;
 		return $wpdb->prefix . $this->value;

@@ -149,6 +149,7 @@ enum UserRole: string {
 				Capability::EnrollStudent->value        => true,
 				Capability::ViewPII->value              => true,
 				Capability::ManagePersons->value        => true,
+				Capability::ManageSchedule->value       => true,
 			),
 			self::FSMethodist => array(
 				Capability::AuthorLmsCourses->value => true,

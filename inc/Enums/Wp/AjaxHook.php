@@ -225,6 +225,36 @@ enum AjaxHook: string {
 	case PinLesson               = 'pin_lesson';         // params: group_lesson_id, scheduled_at — закрепить тему на дату
 	case GetGroupCalendar        = 'get_group_calendar'; // params: group_id — слоты периода + выходные + размещённые темы
 
+	// ==== Индивидуальные занятия (ЛК преподавателя, Эпик 4) ====
+	case CreateIndividualLesson  = 'create_individual_lesson'; // params: group_id, student_person_id, scheduled_at[, ends_at, lesson_id, label, teacher_user_id]
+
+	// ==== Экран «Группы» / ростер (ЛК преподавателя, Эпик 10 T10.7) ====
+	case GetGroupRoster          = 'get_group_roster'; // params: group_id — активные ученики + их индивидуальные занятия
+
+	// ==== «Сводка по ученику» (ЛК преподавателя, Эпик 10 T10.8) ====
+	case GetStudentSummary       = 'get_student_summary'; // params: group_id, student_person_id — занятия ученика (посещаемость + работы)
+
+	// ==== Замены преподавателя (офис, Эпик 5) ====
+	case AssignSubstitute        = 'assign_substitute';        // params: group_id, substitute_teacher_id, valid_from, valid_to[, reason]
+	case RevokeSubstitute        = 'revoke_substitute';        // params: substitution_id
+	case GetGroupSubstitutions   = 'get_group_substitutions';  // params: group_id
+
+	// ==== Единый экран «Замены» (офис, Эпик 9) ====
+	case GetSubstitutionsData    = 'get_substitutions_data';   // params: group_id — замены + преподаватели + кабинеты
+	case SetRoomOverride         = 'set_room_override';        // params: group_id, room_id|'', valid_from, valid_to — замена кабинета на период
+
+	// ==== «Главная» кабинета (ЛК преподавателя, Эпик 6) ====
+	case GetProfileDashboard     = 'get_profile_dashboard';    // без params — агрегат по всем группам текущего пользователя
+
+	// ==== ЛК учащегося/родителя (Эпик 7) ====
+	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит
+
+	// ==== Кабинеты / аудитории (офис, Эпик 9) ====
+	case GetRooms                = 'get_rooms';                // список кабинетов + группы (для назначения)
+	case SaveRoom                = 'save_room';                // [room_id], name, seats, allowed_subjects[], is_active
+	case DeleteRoom              = 'delete_room';              // room_id
+	case AssignGroupRoom         = 'assign_group_room';        // group_id, room_id|'' — кабинет-по-умолчанию группы
+
 	// ==== Журнал / посещаемость (ЛК преподавателя, Эпик 2) ====
 	case GetGroupJournal         = 'get_group_journal';  // params: group_id — ростер × (занятия+работы)
 	case SaveAttendance          = 'save_attendance';    // params: group_lesson_id, student_person_id, is_present

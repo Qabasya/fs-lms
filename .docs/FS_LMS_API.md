@@ -230,3 +230,75 @@ if __name__ == "__main__":
    и AD-синхронизацию включить нельзя. Затем в **«Синхронизация с доменом (AD)»** включить тумблер.
    (Карта `предмет → группа` и срок жизни учёток в WP не задаются — это на стороне Python/reconcile.)
 3. Python-сервис в локалке настроить на `BASE` (адрес сайта) + секрет и запустить поллер.
+
+---
+
+## 7. Клиентский шов `FS_LMS_API` (браузерный кабинет `/profile/`)
+
+> Отдельная сущность от AdSync-REST выше. Это **единственная точка**, через которую SPA личного кабинета
+> общается с бэкендом. Держим её изолированной, чтобы кабинет можно было перенести в Telegram Web App
+> или мобильное приложение, не переписывая экраны. Подробный гайд по выносу — `basic_doc.md` →
+> «Личный кабинет /profile/: вынос в приложение».
+
+**Где:** `src/js/profile/api.js` (собирается в `assets/js/profile.min.js`). Экспортирует объект `FS_LMS_API`
+и хелпер `createApi`; при загрузке кладёт себя в `window.FS_LMS_API`.
+
+**Контракт транспорта (сейчас — admin-ajax):**
+
+| Что | Значение |
+|---|---|
+| Метод | `POST` `admin-ajax.php` (`fsProfile.ajax.url`) |
+| Тело | `application/x-www-form-urlencoded`: `action` (snake_case) + `security` (nonce) + params |
+| Куки | `credentials: 'same-origin'` (WP-сессия) |
+| Успех | `{ success: true, data }` → `createApi` возвращает `data` |
+| Ошибка | `{ success: false, data }` → бросает `Error(data.message ?? data)` |
+
+**Конфиг приходит из PHP** через `window.fsProfile` (собирается в `ProfileViewResolver::jsConfig()`,
+локализуется в `Enqueue`). Каждому экрану — свой блок `{ nonce, actions }`:
+
+```js
+window.fsProfile = {
+  ajax:     { url: '…/admin-ajax.php' },
+  groups:   [ { id, name, subject }, … ],
+  schedule: { nonce, actions: { getCalendar, reflow, pin, getProgram, assignCourse } }, // КТП
+  journal:  { nonce, actions: { getJournal, saveAttendance, bulkAttendance } },         // Журнал
+  review:   { nonce, actions: { getSubmissions, saveGrade, returnSubmission } },        // Проверка работ
+};
+```
+
+**Использование в экране** (журнал/КТП/проверка — одинаково):
+
+```js
+import { createApi } from './api.js';
+const api = createApi(window.fsProfile.journal);   // блок конфига экрана
+const data = await api('getJournal', { group_id: 1 });   // actionKey → actions[...] + nonce
+```
+
+**Точка переопределения без пересборки.** Экраны вызывают транспорт через объект
+(`FS_LMS_API.request(...)`), поэтому внешний код может подменить его целиком:
+
+```js
+// Пример: мост Telegram Web App шлёт initData вместо WP-nonce на REST-фасад.
+window.FS_LMS_API.request = async (action, _nonce, params) => {
+  const res = await fetch(`/wp-json/fs-lms/v1/profile/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Fs-Tg-Init': window.Telegram.WebApp.initData },
+    body: JSON.stringify(params || {}),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Ошибка запроса');
+  return json.data;
+};
+```
+
+**Путь к внешним клиентам (Telegram / мобилка).** Чтобы кабинет заработал вне WP-куки, нужны три вещи;
+логику (Services/Repositories) **не трогаем** — только фасад транспорта и авторизации:
+
+1. **Auth-мост** вместо nonce+куки: Telegram `initData` (HMAC от токена бота) или токен
+   (Application Passwords / JWT) → маппинг на WP-пользователя. Строится **отдельным модулем**
+   `Inc\Modules\…` (по образцу SocialAuth/AdSync), ядро на него не ссылается.
+2. **REST-фасад**, зеркалящий те же `actions`, делегируя в **те же Callbacks/Services** (тонкие контроллеры).
+3. **Bootstrap-эндпоинт**, отдающий `ProfileViewResolver::jsConfig()` как JSON (сейчас payload
+   инъектится в HTML) — чтобы не-WP-клиент получил `fsProfile` запросом.
+
+На клиенте меняется ровно одно — `FS_LMS_API.request`. Экраны остаются как есть.

@@ -7,15 +7,17 @@ namespace Inc\Services\Course;
 use Inc\Enums\Access\Capability;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
 
 class GroupAccessGuard {
 
 	public function __construct(
-		private readonly GroupsRepository       $groups,
+		private readonly GroupsRepository        $groups,
 		private readonly StudentRecordRepository $studentRecords,
+		private readonly SubstitutionRepository  $substitutions,
 	) {}
 
-	/** Может ли пользователь управлять группой (teacher_id || Admin). */
+	/** Может ли пользователь управлять группой (teacher_id || Admin || активная замена). */
 	public function canManage( int $groupId, int $userId ): bool {
 		if (
 			user_can( $userId, Capability::Admin->value ) ||
@@ -24,7 +26,11 @@ class GroupAccessGuard {
 			return true;
 		}
 		$group = $this->groups->findById( $groupId );
-		return $group && (int) $group->teacher_id === $userId;
+		if ( $group && (int) $group->teacher_id === $userId ) {
+			return true;
+		}
+		// Замещающий получает доступ на срок grant; гаснет по valid_to (D5).
+		return $this->substitutions->hasActiveGrant( $userId, $groupId );
 	}
 
 	/** Есть ли у person хоть одна запись в группе (включая архивированные). */

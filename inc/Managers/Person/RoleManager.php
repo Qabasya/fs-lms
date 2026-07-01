@@ -29,6 +29,7 @@ use Inc\Enums\Access\UserRole;
  * | AuthorLmsCourses      |   ✓   |     ✓      |       ✓       |            |             |
  * | ManageLmsArticles     |   ✓   |     ✓      |               |     ✓      |             |
  * | ManageLmsTeaching     |   ✓   |     ✓      |               |            |      ✓      |
+ * | ManageSchedule        |   ✓   |     ✓      |               |            |             |
  * | ManageApplications    |   ✓   |     ✓      |               |            |             |
  * | EnrollStudent         |   ✓   |     ✓      |               |            |             |
  * | ViewPII               |   ✓   |     ✓      |               |            |             |
@@ -85,6 +86,7 @@ class RoleManager {
 			$admin->add_cap( Capability::AuthorLmsCourses->value );
 			$admin->add_cap( Capability::ManageLmsArticles->value );
 			$admin->add_cap( Capability::ManageLmsTeaching->value );
+			$admin->add_cap( Capability::ManageSchedule->value );
 			$admin->add_cap( Capability::ManageApplications->value );
 			$admin->add_cap( Capability::EnrollStudent->value );
 			$admin->add_cap( Capability::ViewPII->value );

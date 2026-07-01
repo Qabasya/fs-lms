@@ -30,12 +30,15 @@ class JournalService {
 	) {}
 
 	/**
+	 * Модель журнала (T10.5): в ячейке (ученик×занятие) — посещаемость + результаты
+	 * работ ЭТОГО занятия по типам (`GradeBadge`). Отдельных столбцов-работ нет.
+	 *
 	 * @return array{
 	 *   students: array<int,array{person_id:int,name:string}>,
 	 *   lessons: array<int,array{group_lesson_id:int,date:string,topic:string}>,
 	 *   attendance: array<int,array<int,bool>>,
-	 *   works: array<int,array{key:string,label:string,type:string}>,
-	 *   grades: array<string,array<int,array{value:string,display:string}>>
+	 *   cell_works: array<int,array<int,array<int,array{badge:string,value:string,display:string}>>>,
+	 *   types: string[]
 	 * }
 	 */
 	public function forGroup( int $groupId ): array {
@@ -51,7 +54,8 @@ class JournalService {
 		// Столбцы-занятия (только датированные).
 		$lessons = array();
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
-			if ( ! $row->scheduledAt ) {
+			// Индивидуальные (на одного ученика) не образуют столбец группового журнала.
+			if ( ! $row->scheduledAt || 'individual' === $row->kind ) {
 				continue;
 			}
 			$lesson    = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
@@ -65,32 +69,32 @@ class JournalService {
 		// Посещаемость (+/−).
 		$attendance = $this->attendance->matrixForGroup( $groupId );
 
-		// Столбцы-работы + сырые результаты (без оценок/среднего).
-		$works  = array();
-		$grades = array();
-		$seen   = array();
+		// Результаты работ, разложенные по занятию (T10.5): cell_works[glid][pid] = [{badge,value}].
+		$cellWorks = array();
+		$typesSet  = array();
 		foreach ( $this->gradebook->forGroup( $groupId ) as $entry ) {
-			$key = $entry->sourceType . ':' . $entry->sourceId;
-			if ( ! isset( $seen[ $key ] ) ) {
-				$seen[ $key ] = true;
-				$works[]      = array(
-					'key'   => $key,
-					'label' => $entry->title,
-					'type'  => $entry->category,
-				);
+			if ( null === $entry->groupLessonId || null === $entry->badge ) {
+				continue;
 			}
-			$grades[ $key ][ $entry->studentPersonId ] = array(
+			$badge = $entry->badge->badge();
+			$cellWorks[ $entry->groupLessonId ][ $entry->studentPersonId ][] = array(
+				'badge'   => $badge,
 				'value'   => $entry->displayValue(),
 				'display' => $entry->displayType,
 			);
+			$typesSet[ $badge ] = true;
 		}
+
+		// Порядок типов для фильтров: только присутствующие в группе.
+		$order = array( 'СР', 'ПР', 'ДЗ', 'КР', 'ЭКЗ' );
+		$types = array_values( array_filter( $order, static fn( $b ) => isset( $typesSet[ $b ] ) ) );
 
 		return array(
 			'students'   => $students,
 			'lessons'    => $lessons,
 			'attendance' => $attendance,
-			'works'      => $works,
-			'grades'     => $grades,
+			'cell_works' => (object) $cellWorks,
+			'types'      => $types,
 		);
 	}
 }

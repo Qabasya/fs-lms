@@ -32,6 +32,9 @@ enum Capability: string {
 	/** Право проведения обучения (оценивание, журнал, расписание) */
 	case ManageLmsTeaching = 'manage_lms_teaching';
 
+	/** Право управления расписанием/заменами преподавателей (только офис, Эпик 5) */
+	case ManageSchedule = 'manage_lms_schedule';
+
 	// ===== Статистика =====
 
 	/** Право просмотра статистики LMS */

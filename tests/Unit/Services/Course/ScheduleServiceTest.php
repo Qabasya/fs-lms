@@ -11,6 +11,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Group\ScheduleService;
 use Inc\Services\Group\SessionCalendarService;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,7 @@ class ScheduleServiceTest extends TestCase {
 	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
 	private SessionCalendarService&\PHPUnit\Framework\MockObject\MockObject $calendar;
+	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $records;
 	private ScheduleService $service;
 
 	protected function setUp(): void {
@@ -31,13 +33,59 @@ class ScheduleServiceTest extends TestCase {
 		$this->groups        = $this->createMock( GroupsRepository::class );
 		$this->dispatcher    = $this->createMock( LogEventDispatcherInterface::class );
 		$this->calendar      = $this->createMock( SessionCalendarService::class );
+		$this->records       = $this->createMock( StudentRecordRepository::class );
 		$this->service       = new ScheduleService(
 			$this->groupLessons,
 			$this->lessonManager,
 			$this->groups,
 			$this->dispatcher,
 			$this->calendar,
+			$this->records,
 		);
+	}
+
+	public function test_create_individual_lesson_inserts_individual_pinned_row(): void {
+		$group = new \stdClass();
+		$this->groups->method( 'findById' )->with( 1 )->willReturn( $group );
+		$this->records->method( 'findActiveByGroupId' )->with( 1 )
+			->willReturn( array( (object) array( 'studentPersonId' => 9001 ) ) );
+
+		$this->groupLessons->expects( self::once() )
+			->method( 'add' )
+			->with( self::callback(
+				static fn( $dto ) => 'individual' === $dto->kind
+					&& 9001 === $dto->studentPersonId
+					&& true === $dto->isPinned
+					&& '2026-05-20 15:00:00' === $dto->scheduledAt
+			) )
+			->willReturn( 15 );
+		$this->dispatcher->expects( self::once() )
+			->method( 'dispatch' )
+			->with( LogEvent::ScheduleChanged, self::anything() );
+
+		$id = $this->service->createIndividualLesson( 1, 9001, '2026-05-20 15:00:00', null, null, null, null, 99 );
+		self::assertSame( 15, $id );
+	}
+
+	public function test_create_individual_lesson_rejects_non_member(): void {
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array() );
+		$this->groupLessons->expects( self::never() )->method( 'add' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->createIndividualLesson( 1, 9001, '2026-05-20 15:00:00', null, null, null, null, 99 );
+	}
+
+	public function test_get_program_excludes_individual_lessons(): void {
+		$group      = $this->makeRow( 42, 'group' );
+		$individual = $this->makeRow( 43, 'individual' );
+		$this->groupLessons->method( 'listByGroup' )->with( 5 )->willReturn( array( $group, $individual ) );
+		$this->lessonManager->method( 'get' )->willReturn( $this->makeLesson( 'inf' ) );
+
+		$program = $this->service->getProgram( 5 );
+
+		self::assertCount( 1, $program );
+		self::assertSame( 42, $program[0]['row']->id );
 	}
 
 	public function test_add_lesson_inserts_row_and_returns_id(): void {
@@ -198,9 +246,9 @@ class ScheduleServiceTest extends TestCase {
 		);
 	}
 
-	private function makeRow(): GroupLessonDTO {
+	private function makeRow( int $id = 42, string $kind = 'group' ): GroupLessonDTO {
 		return new GroupLessonDTO(
-			id              : 42,
+			id              : $id,
 			groupId         : 5,
 			lessonId        : 10,
 			position        : 0,
@@ -217,6 +265,7 @@ class ScheduleServiceTest extends TestCase {
 			recordingUrl    : null,
 			createdByUserId : null,
 			updatedByUserId : null,
+			kind            : $kind,
 		);
 	}
 }

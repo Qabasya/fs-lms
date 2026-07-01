@@ -129,7 +129,7 @@ class GroupsRepository {
 		return $this->findByFilters( $periodId );
 	}
 
-	public function findByFilters( string $periodId, string $subjectKey = '', int $teacherId = 0 ): array {
+	public function findByFilters( string $periodId, string $subjectKey = '', int $teacherId = 0, int $roomId = 0 ): array {
 		$where    = array( 'academic_period_id = %s' );
 		$bindings = array( $this->table, $periodId );
 
@@ -141,6 +141,11 @@ class GroupsRepository {
 		if ( $teacherId > 0 ) {
 			$where[]    = 'teacher_id = %d';
 			$bindings[] = $teacherId;
+		}
+
+		if ( $roomId > 0 ) {
+			$where[]    = 'room_id = %d';
+			$bindings[] = $roomId;
 		}
 
 		$sql = 'SELECT * FROM %i WHERE ' . implode( ' AND ', $where ) . ' ORDER BY name ASC';

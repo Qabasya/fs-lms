@@ -22,6 +22,10 @@ $tabs = apply_filters(
 			'title' => 'Периоды',
 			'file'  => '/components/tabs/settings-tabs/settings-3-periods.php',
 		),
+		'tab-rooms' => array(
+			'title' => 'Кабинеты',
+			'file'  => '/components/tabs/settings-tabs/settings-9-rooms.php',
+		),
 		'tab-4' => array(
 			'title' => 'Шаблоны писем',
 			'file'  => '/components/tabs/settings-tabs/settings-4-email-templates.php',
@@ -88,5 +92,10 @@ if ( file_exists( $period_modal_path ) ) {
 $consent_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/consent-definition-modal.php';
 if ( file_exists( $consent_modal_path ) ) {
 	include $consent_modal_path;
+}
+
+$room_modal_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . '/components/modals/enrollment/room-modal.php';
+if ( file_exists( $room_modal_path ) ) {
+	include $room_modal_path;
 }
 ?>

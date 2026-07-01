@@ -19,6 +19,8 @@ use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\LessonVisibilityService;
+use Inc\Services\Course\StudentSummaryService;
+use Inc\Services\Group\GroupRosterService;
 use Inc\Services\Group\ScheduleService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -37,6 +39,8 @@ class ProgramCallbacks extends BaseController {
 		private readonly LearningEventRepository $eventRepo,
 		private readonly GroupLessonRepository   $groupLessons,
 		private readonly PostManager             $posts,
+		private readonly GroupRosterService      $roster,
+		private readonly StudentSummaryService   $summary,
 	) {
 		parent::__construct();
 	}
@@ -195,6 +199,77 @@ class ProgramCallbacks extends BaseController {
 
 		$this->scheduleService->pinToDate( $groupLessonId, $scheduledAt, $userId );
 		$this->success();
+	}
+
+	/**
+	 * Создаёт индивидуальное занятие на одного ученика (Эпик 4).
+	 * Params: group_id, student_person_id, scheduled_at [, ends_at, lesson_id, label, teacher_user_id]
+	 */
+	public function ajaxCreateIndividualLesson(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId         = $this->requireInt( 'group_id' );
+		$studentPersonId = $this->requireInt( 'student_person_id' );
+		$scheduledAt     = $this->sanitizeText( 'scheduled_at' );
+		$endsAt          = $this->sanitizeText( 'ends_at' ) ?: null;
+		$lessonId        = isset( $_POST['lesson_id'] ) && '' !== $_POST['lesson_id']
+			? $this->sanitizeInt( 'lesson_id' )
+			: null;
+		$label           = $this->sanitizeText( 'label' ) ?: null;
+		$teacherUserId   = isset( $_POST['teacher_user_id'] ) && '' !== $_POST['teacher_user_id']
+			? $this->sanitizeInt( 'teacher_user_id' )
+			: null;
+		$userId          = get_current_user_id();
+
+		if ( '' === $scheduledAt ) {
+			$this->error( __( 'Не указана дата занятия.', 'fs-lms' ) );
+		}
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		try {
+			$id = $this->scheduleService->createIndividualLesson(
+				$groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $userId
+			);
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success( array( 'group_lesson_id' => $id ) );
+	}
+
+	/**
+	 * Ростер группы для экрана «Группы» (Эпик 10 T10.7): активные ученики + их
+	 * индивидуальные занятия. Params: group_id.
+	 */
+	public function ajaxGetGroupRoster(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->success( $this->roster->forGroup( $groupId ) );
+	}
+
+	/**
+	 * Сводка по ученику (Эпик 10 T10.8, D8): занятия ученика с посещаемостью и
+	 * результатами работ. Params: group_id, student_person_id.
+	 */
+	public function ajaxGetStudentSummary(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId  = $this->requireInt( 'group_id' );
+		$personId = $this->requireInt( 'student_person_id' );
+		$userId   = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->success( $this->summary->forStudent( $groupId, $personId ) );
 	}
 
 	/**

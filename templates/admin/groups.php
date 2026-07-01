@@ -73,6 +73,15 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 			<?php endforeach; ?>
 		</select>
 
+		<select name="room_id">
+			<option value="">Все кабинеты</option>
+			<?php foreach ( $rooms ?? [] as $room ) : ?>
+				<option value="<?php echo esc_attr( (string) $room->id ); ?>" <?php selected( (string) ( $groups_filters['room_id'] ?? '' ), (string) $room->id ); ?>>
+					<?php echo esc_html( $room->name ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+
 		<button type="submit" class="button">Применить</button>
 
 		<?php if ( ! empty( $groups_filters ) ) : ?>
@@ -88,10 +97,10 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 			<th scope="col" class="column-title column-primary tw-10">Название группы</th>
 			<th scope="col" class="column-period tw-10">Учебный период</th>
 			<th scope="col" class="column-subject tw-10">Предмет</th>
-			<th scope="col" class="column-teacher tw-20">Преподаватель</th>
-			<th scope="col" class="column-schedule tw-20">Расписание</th>
+			<th scope="col" class="column-teacher tw-15">Преподаватель</th>
+			<th scope="col" class="column-schedule ">Расписание</th>
 			<th scope="col" class="column-count tw-5">Активных</th>
-			<th scope="col" class="column-actions">Действия</th>
+			<th scope="col" class="column-actions tw-15">Действия</th>
 		</tr>
 		</thead>
 

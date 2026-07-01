@@ -275,6 +275,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'authorWork'        => Nonce::AuthorWork->create(),
 					'authorAssessment'  => Nonce::AuthorAssessment->create(),
 					'authorCourse'      => Nonce::AuthorCourse->create(),
+					'room'              => Nonce::Room->create(),
 				),
 				'ajax_actions' => AjaxHook::toJsArray(),
 			)

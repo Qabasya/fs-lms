@@ -65,6 +65,7 @@ class JournalCallbacks extends BaseController {
 		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->guardNotFuture( $row );
 
 		$this->attendance->mark( $groupLessonId, $personId, $present, $userId );
 		$this->success();
@@ -83,8 +84,19 @@ class JournalCallbacks extends BaseController {
 		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->guardNotFuture( $row );
 
 		$this->attendance->markAll( $groupLessonId, $present, $userId );
 		$this->success();
+	}
+
+	/**
+	 * Защита журнала (D11): нельзя отмечать посещаемость на ещё не прошедшем занятии
+	 * (дата > сегодня). Редактируемы только занятия с датой ≤ текущей.
+	 */
+	private function guardNotFuture( \Inc\DTO\Course\GroupLessonDTO $row ): void {
+		if ( $row->scheduledAt && substr( $row->scheduledAt, 0, 10 ) > current_time( 'Y-m-d' ) ) {
+			$this->error( __( 'Занятие ещё не прошло — отметить посещаемость нельзя.', 'fs-lms' ) );
+		}
 	}
 }
