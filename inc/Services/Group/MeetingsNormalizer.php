@@ -66,6 +66,8 @@ class MeetingsNormalizer {
 			'weekday'      => $day->isoNumber(),
 			'time'         => $start,
 			'duration_min' => self::durationMinutes( $start, $end ),
+			// Кабинет занятия этого дня недели (Эпик 10): 0 = кабинет не задан.
+			'room'         => isset( $entry['room'] ) && '' !== $entry['room'] ? (int) $entry['room'] : 0,
 		);
 	}
 

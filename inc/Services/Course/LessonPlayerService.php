@@ -216,6 +216,11 @@ class LessonPlayerService {
 			TaskTemplate::Fill =>
 				$this->buildFillData( $meta ),
 
+			// Эпик 13 (D16): FileAnswer здесь намеренно НЕ обрабатывается — шаговые
+			// задания урока (task_attempts) требуют авто-проверки (SubmitTaskAnswerCallbacks
+			// жёстко отклоняет шаблоны без чекера в TaskCheckerRegistry) и не имеют
+			// поверхности ручной проверки для учителя. FileAnswer живёт только в
+			// экзаменах/контрольных (AssessmentPageController, T13.5).
 			default => array( 'type' => 'text_answer' ),
 		};
 	}

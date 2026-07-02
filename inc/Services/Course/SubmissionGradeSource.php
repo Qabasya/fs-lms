@@ -6,6 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\Contracts\GradeSourceInterface;
 use Inc\DTO\Course\GradebookEntryDTO;
+use Inc\Enums\Course\GradeBadge;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
@@ -49,6 +50,10 @@ class SubmissionGradeSource implements GradeSourceInterface {
 				maxScore        : $sub->maxScore,
 				gradedAt        : $sub->gradedAt,
 				displayType     : $displayType,
+				groupLessonId   : $sub->groupLessonId,
+				badge           : GradeBadge::fromWorkType( $sub->workType ),
+				// T12.2 (D13): постоянная метка — сдано после дедлайна работы, зафиксированного на момент сдачи.
+				isLate          : $sub->isLate(),
 			);
 		}
 		return $entries;

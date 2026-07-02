@@ -186,4 +186,70 @@ class GroupLessonRepositoryTest extends TestCase {
 		self::assertFalse( $dto->isPublished() );
 		self::assertSame( [], $dto->extraWorkIds );
 	}
+
+	/* ── applySlots (T11.6: раскладка по status) ─────────────────────────── */
+
+	/** Пиннутые и индивидуальные не двигаются и слот не тратят. */
+	public function test_apply_slots_skips_pinned_and_individual(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0, [ 'is_pinned' => 1 ] ),
+			$this->slotRow( 2, 1, [ 'kind' => 'individual' ] ),
+			$this->slotRow( 3, 2 ),
+		] );
+
+		$this->repo->applySlots( 5, [ $this->slot( '2026-09-01 10:00:00' ), $this->slot( '2026-09-03 10:00:00' ) ] );
+
+		self::assertCount( 1, $this->wpdb->updates );
+		self::assertSame( 3, $this->wpdb->updates[0]['where']['id'] );
+		self::assertSame( '2026-09-01 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
+	}
+
+	/** held фиксирует свою дату (не переписывается), но занимает слот последовательности. */
+	public function test_apply_slots_held_keeps_date_and_consumes_slot(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0, [ 'status' => 'held', 'scheduled_at' => '2026-09-01 10:00:00' ] ),
+			$this->slotRow( 2, 1 ), // scheduled
+		] );
+
+		$this->repo->applySlots( 5, [ $this->slot( '2026-09-01 10:00:00' ), $this->slot( '2026-09-03 10:00:00' ) ] );
+
+		// held-строка не обновляется; scheduled-строка получает ВТОРОЙ слот (хвост после проведённого).
+		self::assertCount( 1, $this->wpdb->updates );
+		self::assertSame( 2, $this->wpdb->updates[0]['where']['id'] );
+		self::assertSame( '2026-09-03 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
+	}
+
+	/** cancelled/moved освобождают слот — хвост сдвигается вперёд (слот не тратится). */
+	public function test_apply_slots_freed_status_shifts_tail_forward(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0, [ 'status' => 'cancelled' ] ),
+			$this->slotRow( 2, 1 ), // scheduled
+		] );
+
+		$this->repo->applySlots( 5, [ $this->slot( '2026-09-01 10:00:00' ), $this->slot( '2026-09-03 10:00:00' ) ] );
+
+		// cancelled не обновляется; scheduled получает ПЕРВЫЙ слот (хвост сдвинулся вперёд).
+		self::assertCount( 1, $this->wpdb->updates );
+		self::assertSame( 2, $this->wpdb->updates[0]['where']['id'] );
+		self::assertSame( '2026-09-01 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
+	}
+
+	/** @param array<string,mixed> $over */
+	private function slotRow( int $id, int $position, array $over = [] ): array {
+		return array_merge( [
+			'id'           => $id,
+			'group_id'     => 5,
+			'lesson_id'    => 10,
+			'position'     => $position,
+			'scheduled_at' => null,
+			'is_pinned'    => 0,
+			'kind'         => 'group',
+			'status'       => 'scheduled',
+		], $over );
+	}
+
+	/** @return array{scheduled_at:string,ends_at:string,room:int} */
+	private function slot( string $scheduledAt ): array {
+		return [ 'scheduled_at' => $scheduledAt, 'ends_at' => $scheduledAt, 'room' => 0 ];
+	}
 }

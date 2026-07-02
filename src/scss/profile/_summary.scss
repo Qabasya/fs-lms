@@ -1,0 +1,198 @@
+/* ══════════════════════════════════════════════════════════════════════
+   «Сводка по ученику» (Эпик 10 T10.8) — карточки занятий ученика.
+   Палитра полос D12: 🟢 посещён · 🟣 индивидуальное · 🔴 пропуск · серый — не отмечено.
+   Токены из _core.scss.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.prof-summary {
+  padding: 22px 26px 40px;
+}
+
+/* T12.8: пикеры группы/ученика переиспользуют .prof-ktp-pick/.kp-btn/… из _core.scss (КТП). */
+.sum-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.sum-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sum-card {
+  display: flex;
+  align-items: stretch;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color .12s, box-shadow .12s;
+}
+.sum-card:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+
+// Цветная полоса состояния занятия (D12)
+.sum-strip { flex: none; width: 5px; background: var(--line-2); }
+.sum-strip-present    { background: var(--g-good); }
+.sum-strip-absent     { background: var(--absent); }
+.sum-strip-individual { background: var(--t-zachet); }
+.sum-strip-none       { background: var(--line-2); }
+
+.sum-card-body { flex: 1 1 auto; min-width: 0; padding: 12px 16px; }
+
+.sum-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sum-date { font-size: 14px; font-weight: 700; color: var(--ink); }
+
+.sum-kind {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.sum-kind-individual { background: var(--surface-2); color: var(--t-zachet); }
+
+.sum-att {
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-left: auto;
+}
+.sum-att-present { color: var(--g-good); }
+.sum-att-absent  { color: var(--absent); }
+.sum-att-none    { color: var(--muted-2); }
+
+.sum-topic { font-size: 13.5px; color: var(--ink-2); margin-top: 4px; }
+
+.sum-works {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sum-works-empty { font-size: 12px; color: var(--muted-2); }
+
+.sum-work {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.sum-work b { color: var(--accent); font-weight: 700; }
+.sum-work.pending { color: var(--muted); font-style: italic; }
+/* T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы. */
+.sum-work.overdue { background: var(--absent-bg); border-color: var(--absent); }
+.sum-work-late { color: var(--absent); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: .02em; }
+
+@media (max-width: 720px) {
+  .prof-summary { padding: 16px 14px 32px; }
+  .sum-head .kp-btn { max-width: none; width: 100%; }
+  .sum-head .prof-ktp-pick { flex: 1 1 100%; }
+}
+
+/* Чипы работ — кликабельны (открывают деталь, T10.9) */
+.sum-work[role="button"] { cursor: pointer; }
+.sum-work[role="button"]:hover { border-color: var(--accent); color: var(--accent-700); }
+
+/* ── Модалка детали работы (T10.9) ── */
+.sum-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.sum-modal-backdrop { position: absolute; inset: 0; background: rgba(20, 24, 33, .5); }
+.sum-modal-box {
+  position: relative;
+  width: 100%; max-width: 720px; max-height: calc(100vh - 60px);
+  display: flex; flex-direction: column;
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.sum-modal-head {
+  flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 16px 20px; border-bottom: 1px solid var(--line);
+}
+.smh-title { font-size: 16px; font-weight: 700; color: var(--ink); }
+.smh-meta  { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.smh-late  { color: var(--absent); font-weight: 700; }
+.sum-modal-x { border: 0; background: transparent; font-size: 24px; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 4px; }
+.sum-modal-x:hover { color: var(--ink); }
+.sum-modal-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+.sum-task { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; }
+.sum-task-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.st-n { font-size: 13px; font-weight: 700; color: var(--ink); }
+.st-score { margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.sum-verdict { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
+.sv-correct   { background: var(--g-good); color: #fff; }
+.sv-incorrect { background: var(--absent); color: #fff; }
+.sv-pending   { background: var(--surface-2); color: var(--muted); }
+.sum-task-cond { font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+.sum-task-cond :is(p, ul, ol) { margin: 0 0 6px; }
+.sum-task-ans { margin-top: 8px; font-size: 13px; }
+.sta-label { color: var(--muted); }
+.sta-val { color: var(--ink); font-weight: 600; white-space: pre-wrap; }
+.sum-fb { font-size: 13px; color: var(--ink-2); background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 12px; }
+.sum-detail-empty { color: var(--muted-2); font-size: 14px; text-align: center; padding: 30px; }
+
+/* T13.1: вложение ученика (фото/файл решения) в детали работы */
+.sum-attachment { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; }
+.sum-attachment-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); margin-bottom: 8px; }
+.sum-attachment-img { display: block; max-width: 100%; max-height: 360px; border-radius: var(--radius-xs); border: 1px solid var(--line); }
+.sum-attachment-link {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+  color: var(--accent-700); text-decoration: none;
+}
+.sum-attachment-link:hover { text-decoration: underline; }
+
+.sum-modal-foot { flex: none; border-top: 1px solid var(--line); padding: 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+.smf-fields { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.smf-fields label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.smf-fields input[type="number"] { width: 72px; height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.smf-fb { flex: 1 1 200px; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.smf-fields input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.smf-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 640px) {
+  .sum-modal { padding: 0; }
+  .sum-modal-box { max-width: 100%; max-height: 100vh; border-radius: 0; }
+}
+
+/* T11.8: правильный ответ в детали работы */
+.sum-task-correct { margin-top: 4px; }
+.sum-task-correct .sta-val { color: var(--g-good); }
+
+/* T11.9: пооответное оценивание экзамена в детали */
+.sum-task-grade { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.stg-score { width: 70px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.stg-of { font-size: 12px; color: var(--muted); }
+.stg-ok { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.stg-fb { flex: 1 1 160px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.sum-task-grade input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Эпик 13 (D16): файлы ученика в ответе «Развёрнутый ответ» */
+.sum-task-files { margin-top: 8px; font-size: 13px; }
+.sum-task-files__list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.sum-task-files__img { display: block; max-width: 160px; max-height: 160px; border-radius: var(--radius-xs); border: 1px solid var(--line); }
+.sum-task-files__link {
+  display: inline-flex; align-items: center; height: 32px; padding: 0 10px; font-size: 12.5px; font-weight: 600;
+  color: var(--accent-700); text-decoration: none; border: 1px solid var(--line); border-radius: var(--radius-xs);
+}
+.sum-task-files__link:hover { text-decoration: underline; }
+
+/* Эпик 13 (D17): покритерийное оценивание — балл задачи = сумма по критериям */
+.sum-task-grade--criteria { flex-direction: column; align-items: stretch; gap: 6px; }
+.stg-criterion { display: flex; align-items: center; gap: 8px; }
+.stgc-label { flex: 1 1 auto; font-size: 12.5px; color: var(--ink-2); }
+.stgc-points { width: 60px; height: 30px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.stgc-of { font-size: 12px; color: var(--muted); width: 32px; }
+.sum-task-grade--criteria .stg-fb { margin-top: 4px; }

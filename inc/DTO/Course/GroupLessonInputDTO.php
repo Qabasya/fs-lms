@@ -23,6 +23,12 @@ readonly class GroupLessonInputDTO {
 		public ?string $recordingUrl     = null,
 		public ?int    $createdByUserId  = null,
 		public ?string $label            = null,
+		public string  $kind             = 'group',
+		public string  $status           = 'scheduled',
+		public ?int    $studentPersonId  = null,
+		public ?int    $roomId           = null,
+		/** Продолжение темы (T12.6, D14): id исходной строки, либо null для «родной». */
+		public ?int    $continuedFromId  = null,
 	) {}
 
 	public function toArray(): array {
@@ -45,6 +51,11 @@ readonly class GroupLessonInputDTO {
 			'recording_url'     => $this->recordingUrl,
 			'created_by_user_id' => $this->createdByUserId,
 			'label'             => $this->label,
+			'kind'              => $this->kind,
+			'status'            => $this->status,
+			'student_person_id' => $this->studentPersonId,
+			'room_id'           => $this->roomId,
+			'continued_from_id' => $this->continuedFromId,
 		);
 	}
 }

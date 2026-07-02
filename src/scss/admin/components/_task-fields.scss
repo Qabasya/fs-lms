@@ -174,3 +174,44 @@
 		}
 	}
 }
+
+// ── Материалы задания (Эпик 13, D16) ──────────────────────────────────────────
+
+.fs-task-materials-field {
+	.fs-task-materials__list {
+		@extend %task-list-reset;
+	}
+
+	.fs-task-materials__item {
+		@extend %task-field-row;
+		margin-bottom: v.$spacing-xs;
+
+		.js-materials-remove {
+			@extend %task-row-remove;
+		}
+	}
+}
+
+// ── Критерии оценивания (Эпик 13, D17) ────────────────────────────────────────
+
+.fs-task-criteria-field {
+	.fs-task-criteria__list {
+		@extend %task-list-reset;
+	}
+
+	.fs-task-criteria__item {
+		margin-bottom: v.$spacing-sm;
+	}
+
+	.fs-task-criteria__row {
+		@extend %task-field-row;
+
+		.js-criterion-points {
+			flex-shrink: 0;
+		}
+
+		.js-criteria-remove {
+			@extend %task-row-remove;
+		}
+	}
+}

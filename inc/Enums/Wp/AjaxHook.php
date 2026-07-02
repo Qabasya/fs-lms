@@ -184,6 +184,7 @@ enum AjaxHook: string {
 	case SaveTaskContent   = 'save_task_content';   // params: subject_key, template, title, post_id? (0=create), fs_lms_meta[...] (поля)
 	case GetTaskEditorForm = 'get_task_editor_form'; // params: subject_key, template, post_id? → HTML полей шаблона
 	case GetTaskAttempts   = 'get_task_attempts';   // params: group_lesson_id, step_key → список попыток всех студентов
+	case UploadAnswerFile  = 'upload_answer_file';  // params: attempt_id + $_FILES[answer_file] → attachment_id (Эпик 13, D16: двухшаговая загрузка файла ответа для «Развёрнутого ответа» в контрольных)
 
 	// ==== Контрольные и экзамены (Этап 4) ====
 	case StartAttempt      = 'start_attempt';
@@ -212,6 +213,7 @@ enum AjaxHook: string {
 	case AssignCourse            = 'assign_course';
 	case AddLessonToProgram      = 'add_lesson_to_program';
 	case DuplicateProgramLesson  = 'duplicate_program_lesson';
+	case ContinueProgramLesson   = 'continue_program_lesson'; // params: group_lesson_id — продолжить тему на вторую дату (T12.6, D14)
 	case RemoveLessonFromProgram = 'remove_lesson_from_program';
 	case ReorderProgram          = 'reorder_program';
 	case SaveLessonSchedule      = 'save_lesson_schedule';
@@ -219,11 +221,52 @@ enum AjaxHook: string {
 	case SetLessonVisibility     = 'set_lesson_visibility';
 	case GetGroupProgram         = 'get_group_program';
 	case GetGroupActivity        = 'get_group_activity';
+	case PublishProgram          = 'publish_program';   // params: group_id — опубликовать (заблокировать) КТП (T1.8)
+	case UnpublishProgram        = 'unpublish_program'; // params: group_id — снять публикацию КТП (T1.8)
 
 	// ==== КТП / расписание (ЛК преподавателя, Эпик 1) ====
 	case ReflowSchedule          = 'reflow_schedule';    // params: group_id — авто-распределение тем по слотам периода
 	case PinLesson               = 'pin_lesson';         // params: group_lesson_id, scheduled_at — закрепить тему на дату
 	case GetGroupCalendar        = 'get_group_calendar'; // params: group_id — слоты периода + выходные + размещённые темы
+	case GetWorkDeadlines        = 'get_work_deadlines';  // params: group_lesson_id — работы занятия + текущие per-work дедлайны (T12.3, D13)
+	case SaveWorkDeadlines       = 'save_work_deadlines'; // params: group_lesson_id, deadlines (JSON {work_id:'Y-m-d H:i:s'|''}) — не блокируется lock КТП (T12.3, D13)
+
+	// ==== Индивидуальные занятия (ЛК преподавателя, Эпик 4) ====
+	case CreateIndividualLesson  = 'create_individual_lesson'; // params: group_id, student_person_id, scheduled_at[, ends_at, lesson_id, label, teacher_user_id, room_id]
+	case GetFreeRooms            = 'get_free_rooms'; // params: group_id, scheduled_at[, ends_at] — свободные кабинеты по предмету+времени (Эпик 11 T11.3)
+
+	// ==== Экран «Группы» / ростер (ЛК преподавателя, Эпик 10 T10.7) ====
+	case GetGroupRoster          = 'get_group_roster'; // params: group_id — активные ученики + их индивидуальные занятия
+
+	// ==== «Сводка по ученику» (ЛК преподавателя, Эпик 10 T10.8) ====
+	case GetStudentSummary       = 'get_student_summary'; // params: group_id, student_person_id — занятия ученика (посещаемость + работы)
+
+	// ==== Деталь работы из сводки (ЛК преподавателя, Эпик 10 T10.9) ====
+	case GetWorkDetail           = 'get_work_detail'; // params: source_type (submission|attempt), source_id — условия/ответы/вердикты
+
+	// ==== Курс-пикер КТП (ЛК преподавателя, Эпик 11 T11.1) ====
+	case GetSubjectCourses       = 'get_subject_courses'; // params: group_id — курсы предмета группы для назначения
+
+	// ==== Замены преподавателя (офис, Эпик 5) ====
+	case AssignSubstitute        = 'assign_substitute';        // params: group_id, substitute_teacher_id, valid_from, valid_to[, reason]
+	case RevokeSubstitute        = 'revoke_substitute';        // params: substitution_id
+	case GetGroupSubstitutions   = 'get_group_substitutions';  // params: group_id
+
+	// ==== Единый экран «Замены» (офис, Эпик 9) ====
+	case GetSubstitutionsData    = 'get_substitutions_data';   // params: group_id — замены + преподаватели + кабинеты
+	case SetRoomOverride         = 'set_room_override';        // params: group_id, room_id|'', valid_from, valid_to — замена кабинета на период
+
+	// ==== «Главная» кабинета (ЛК преподавателя, Эпик 6) ====
+	case GetProfileDashboard     = 'get_profile_dashboard';    // без params — агрегат по всем группам текущего пользователя
+
+	// ==== ЛК учащегося/родителя (Эпик 7) ====
+	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит
+
+	// ==== Кабинеты / аудитории (офис, Эпик 9) ====
+	case GetRooms                = 'get_rooms';                // список кабинетов + группы (для назначения)
+	case SaveRoom                = 'save_room';                // [room_id], name, seats, allowed_subjects[], is_active
+	case DeleteRoom              = 'delete_room';              // room_id
+	case AssignGroupRoom         = 'assign_group_room';        // group_id, room_id|'' — кабинет-по-умолчанию группы
 
 	// ==== Журнал / посещаемость (ЛК преподавателя, Эпик 2) ====
 	case GetGroupJournal         = 'get_group_journal';  // params: group_id — ростер × (занятия+работы)

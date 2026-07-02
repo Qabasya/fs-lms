@@ -1,0 +1,117 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Замены (офис) — единый экран: педагог + кабинет. Токены из _core.scss.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.prof-subs {
+  padding: 22px 26px 40px;
+  max-width: 1040px;
+}
+
+.subs-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.subs-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.subs-group-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.subs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .subs-grid { grid-template-columns: 1fr; }
+}
+
+.subs-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── Список активных замен ─────────────────────────────────────────────── */
+.subs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.subs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-xs);
+}
+
+.subs-row-main { flex: 1 1 auto; min-width: 0; }
+.subs-row-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+.subs-row-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+/* ── Форма ─────────────────────────────────────────────────────────────── */
+.subs-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-2);
+}
+
+.subs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.subs-field--grow { flex: 1 1 160px; }
+
+.subs-field select,
+.subs-field input,
+.subs-reason {
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.subs-reason {
+  flex: 1 1 100%;
+}
+
+.subs-field select:focus,
+.subs-field input:focus,
+.subs-reason:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.subs-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}

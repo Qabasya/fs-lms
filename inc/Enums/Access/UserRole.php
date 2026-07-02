@@ -72,6 +72,23 @@ enum UserRole: string {
 	}
 
 	/**
+	 * Основная роль для личного кабинета (T12.1, D-суперсет): чистый WP-администратор
+	 * (нет ни одной LMS-роли в $slugs) получает {@see self::FSOffice} — суперсет доступа,
+	 * офисная витрина со всеми группами (см. `ProfileViewResolver::jsConfig`). Дуал-роль
+	 * admin+LMS (напр. admin+FSTeacher) резолвится обычным приоритетом {@see self::primary()}
+	 * без изменений — эта ветка только для случая, когда LMS-ролей нет вообще.
+	 *
+	 * @param string[] $slugs
+	 */
+	public static function primaryForCabinet( array $slugs ): self {
+		$hasLmsRole = array_filter( $slugs, static fn( string $s ): bool => null !== self::tryFrom( $s ) );
+		if ( empty( $hasLmsRole ) && in_array( 'administrator', $slugs, true ) ) {
+			return self::FSOffice;
+		}
+		return self::primary( $slugs );
+	}
+
+	/**
 	 * То же, что primary(), но возвращает строку-слаг.
 	 * Для пользователей без LMS-роли (например, administrator) — возвращает первый сырой слаг.
 	 *
@@ -149,6 +166,7 @@ enum UserRole: string {
 				Capability::EnrollStudent->value        => true,
 				Capability::ViewPII->value              => true,
 				Capability::ManagePersons->value        => true,
+				Capability::ManageSchedule->value       => true,
 			),
 			self::FSMethodist => array(
 				Capability::AuthorLmsCourses->value => true,

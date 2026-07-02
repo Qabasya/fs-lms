@@ -27,6 +27,7 @@ use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
 use Inc\Services\Enrollment\AcademicPeriodService;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -86,6 +87,7 @@ class AdminCallbacks extends BaseController {
 		private readonly AuthLogRepository         $auth_log,
 		private readonly PersonRepository          $person_repo,
 		private readonly PluginConfig              $pluginConfig,
+		private readonly RoomRepository            $rooms,
 	) {
 		parent::__construct();
 	}
@@ -121,15 +123,70 @@ class AdminCallbacks extends BaseController {
 			}
 		}
 
+		// Кабинеты (Эпик 9/10): карта «id кабинета → группы» — по строкам расписания.
+		// Кабинет привязан к дню (meetings[].room), поэтому группа попадает к КАЖДОМУ
+		// своему кабинету, и каждый показывает ТОЛЬКО свои дни.
+		$rooms        = $this->rooms->findAll();
+		$rooms_groups = array();
+		foreach ( $this->groupsRepository->findAll() as $g ) {
+			$meetings   = json_decode( $g->meetings ?? '[]', true ) ?: array();
+			$by_room    = array(); // room_id => занятия только этого кабинета
+			foreach ( $meetings as $mt ) {
+				if ( ! is_array( $mt ) ) {
+					continue;
+				}
+				$room_id = (int) ( $mt['room'] ?? 0 );
+				if ( $room_id > 0 ) {
+					$by_room[ $room_id ][] = $mt;
+				}
+			}
+			foreach ( $by_room as $room_id => $room_meetings ) {
+				$rooms_groups[ $room_id ][] = array(
+					'name'     => $g->name,
+					'schedule' => WeekDay::formatSchedule( $room_meetings ),
+				);
+			}
+		}
+
 		$this->render(
 			'admin/settings',
 			array(
 				'subjects'            => $this->subjects->readAll(),
+				'active_subjects'     => $this->subjects->readActive(),
 				'academic_periods'    => $academic_periods,
 				'period_group_counts' => $period_group_counts,
+				'rooms'               => $rooms,
+				'rooms_groups'        => $rooms_groups,
 				'config'              => $this->pluginConfig->viewState(),
 			)
 		);
+	}
+
+	/**
+	 * Форматирует расписание группы построчно с кабинетом каждого дня (Эпик 10):
+	 * «Вторник 09:25 - 10:10 · Каб. 315». Порядок строк — как в `meetings`.
+	 *
+	 * @param array<int,mixed>  $meetings
+	 * @param array<int,string> $roomNames id кабинета → название
+	 */
+	private function formatScheduleWithRooms( array $meetings, array $roomNames ): string {
+		$lines = array();
+		foreach ( $meetings as $mt ) {
+			if ( ! is_array( $mt ) ) {
+				continue;
+			}
+			$day = WeekDay::tryFrom( (string) ( $mt['day'] ?? '' ) );
+			if ( null === $day ) {
+				continue;
+			}
+			$start  = (string) ( $mt['start'] ?? '' );
+			$end    = (string) ( $mt['end'] ?? '' );
+			$time   = ( '' !== $start && '' !== $end ) ? " {$start} - {$end}" : '';
+			$roomId = (int) ( $mt['room'] ?? 0 );
+			$room   = $roomId && isset( $roomNames[ $roomId ] ) ? ' · ' . $roomNames[ $roomId ] : '';
+			$lines[] = $day->fullLabel() . $time . $room;
+		}
+		return implode( "\n", $lines );
 	}
 
 	/**
@@ -151,14 +208,16 @@ class AdminCallbacks extends BaseController {
 
 		$filter_subject_key = $this->sanitizeGetKey( 'subject_key' );
 		$filter_teacher_id  = $this->sanitizeGetInt( 'teacher_id' );
+		$filter_room_id     = $this->sanitizeGetInt( 'room_id' );
 
 		$groups_filters = array_filter( array(
 			'subject_key' => $filter_subject_key,
 			'teacher_id'  => $filter_teacher_id > 0 ? $filter_teacher_id : '',
+			'room_id'     => $filter_room_id > 0 ? $filter_room_id : '',
 		) );
 
 		$groups   = '' !== $selected_period_id
-			? $this->groupsRepository->findByFilters( $selected_period_id, $filter_subject_key, $filter_teacher_id )
+			? $this->groupsRepository->findByFilters( $selected_period_id, $filter_subject_key, $filter_teacher_id, $filter_room_id )
 			: array();
 		$subjects        = $this->subjects->readAll();    // карта имён для подписи существующих групп
 		$active_subjects = $this->subjects->readActive(); // без архивных — для фильтра и скрытия групп
@@ -176,6 +235,12 @@ class AdminCallbacks extends BaseController {
 			$teacher_map[ $t->id ] = $t->displayName;
 		}
 
+		// Карта «id кабинета → название» для колонки «Кабинет» (Эпик 9).
+		$room_names = array();
+		foreach ( $this->rooms->findAll() as $room ) {
+			$room_names[ $room->id ] = $room->name;
+		}
+
 		$groups_view = array_map(
 			fn( object $g ) => array(
 				'id'           => (int) $g->id,
@@ -184,7 +249,9 @@ class AdminCallbacks extends BaseController {
 				'subject_name' => $subjects[ $g->subject_key ]->name ?? $g->subject_key,
 				'teacher_id'   => $g->teacher_id ? (int) $g->teacher_id : null,
 				'teacher_name' => $g->teacher_id ? ( $teacher_map[ (int) $g->teacher_id ] ?? "#{$g->teacher_id}" ) : '—',
-				'schedule'     => WeekDay::formatScheduleFull( json_decode( $g->meetings ?? '[]', true ) ?: array() ),
+				'room_id'      => isset( $g->room_id ) && $g->room_id ? (int) $g->room_id : null,
+				'room_name'    => isset( $g->room_id ) && $g->room_id ? ( $room_names[ (int) $g->room_id ] ?? '' ) : '',
+				'schedule'     => $this->formatScheduleWithRooms( json_decode( $g->meetings ?? '[]', true ) ?: array(), $room_names ),
 				'schedule_raw' => $g->meetings ?? '[]',
 				'period_id'    => $g->academic_period_id,
 				'subject_key'  => $g->subject_key,
@@ -205,6 +272,7 @@ class AdminCallbacks extends BaseController {
 				'groups_filters'     => $groups_filters,
 				'groups_view'        => $groups_view,
 				'teachers'           => $teachers,
+				'rooms'              => $this->rooms->findAll( true ),
 			)
 		);
 	}

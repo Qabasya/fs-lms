@@ -6,7 +6,6 @@ namespace Inc\Controllers\Person;
 
 use Inc\Core\BaseController;
 use Inc\Contracts\ServiceInterface;
-use Inc\Enums\Access\UserRole;
 use Inc\Enums\Settings\OptionName;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
@@ -74,8 +73,9 @@ class ProfileController extends BaseController implements ServiceInterface {
 			$user = wp_get_current_user();
 
 			// Роли без фронт-витрины (методист/маркетолог) работают в админке WP.
-			// FSOffice/FSTeacher/учащиеся имеют витрину → остаются на /profile/.
-			if ( null === $this->resolver->viewFor( UserRole::primary( (array) $user->roles ) ) ) {
+			// FSOffice/FSTeacher/учащиеся/чистый администратор (T12.1) имеют витрину → остаются на /profile/.
+			// Роль берём из resolver->context() — единственный источник истины (в т.ч. для admin-суперсета).
+			if ( null === $this->resolver->viewFor( $this->resolver->context( $user->ID )->role ) ) {
 				wp_safe_redirect( admin_url() );
 				exit;
 			}

@@ -129,7 +129,7 @@ class GroupsRepository {
 		return $this->findByFilters( $periodId );
 	}
 
-	public function findByFilters( string $periodId, string $subjectKey = '', int $teacherId = 0 ): array {
+	public function findByFilters( string $periodId, string $subjectKey = '', int $teacherId = 0, int $roomId = 0 ): array {
 		$where    = array( 'academic_period_id = %s' );
 		$bindings = array( $this->table, $periodId );
 
@@ -141,6 +141,11 @@ class GroupsRepository {
 		if ( $teacherId > 0 ) {
 			$where[]    = 'teacher_id = %d';
 			$bindings[] = $teacherId;
+		}
+
+		if ( $roomId > 0 ) {
+			$where[]    = 'room_id = %d';
+			$bindings[] = $roomId;
 		}
 
 		$sql = 'SELECT * FROM %i WHERE ' . implode( ' AND ', $where ) . ' ORDER BY name ASC';
@@ -289,6 +294,19 @@ class GroupsRepository {
 		return false !== $this->wpdb->update(
 			$this->table,
 			array( 'meetings' => wp_json_encode( MeetingsNormalizer::normalizeList( $meetings ) ) ),
+			array( 'id' => $groupId )
+		);
+	}
+
+	/**
+	 * Публикация/распубликация КТП (T1.8): дата блокировки или NULL.
+	 *
+	 * @param string|null $lockedAt 'Y-m-d H:i:s' при публикации, null при снятии.
+	 */
+	public function setProgramLocked( int $groupId, ?string $lockedAt ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'program_locked_at' => $lockedAt ),
 			array( 'id' => $groupId )
 		);
 	}

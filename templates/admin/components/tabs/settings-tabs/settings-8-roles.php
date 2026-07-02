@@ -62,7 +62,9 @@ $ajax_action = AjaxHook::SaveUserRoles->jsAction();
 						<span class="description"><?php echo esc_html( $user->user_email ); ?></span>
 					</td>
 					<?php foreach ( $assignable as $slug => $label ) :
-						$checked  = in_array( $slug, $user_roles, true );
+						// T12.1: администратор — суперсет ролей, все чекбоксы отмечены визуально
+						// (в БД роли не пишем; изменения строки заблокированы на бэкенде).
+						$checked = $is_admin || in_array( $slug, $user_roles, true );
 					?>
 					<td>
 						<label>

@@ -10,13 +10,19 @@ class MediaManager {
 		'image/jpeg',
 		'image/png',
 		'image/gif',
+		// T13.2 (Эпик 13): фото с телефонов + материалы ЕГЭ/ОГЭ (презентация, программа).
+		'image/webp',
+		'image/heic',
+		'image/heif',
 		'application/pdf',
 		'application/msword',
 		'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 		'text/plain',
+		'text/x-python',
 	);
 
-	private const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+	private const MAX_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB (T13.2: фото решений с телефона)
 
 	/**
 	 * Загружает файл из формы в Media Library.
@@ -37,7 +43,7 @@ class MediaManager {
 		}
 
 		if ( $file['size'] > self::MAX_SIZE_BYTES ) {
-			throw new \RuntimeException( 'Файл превышает допустимый размер 10 МБ.' );
+			throw new \RuntimeException( 'Файл превышает допустимый размер 20 МБ.' );
 		}
 
 		$type = mime_content_type( $file['tmp_name'] );
@@ -49,7 +55,21 @@ class MediaManager {
 		require_once ABSPATH . 'wp-admin/includes/image.php';
 		require_once ABSPATH . 'wp-admin/includes/media.php';
 
-		$attachmentId = media_handle_upload( $fileKey, $postParent );
+		// T13.2: точечно расширяем WP-whitelist ТОЛЬКО на время нашей (уже
+		// провалидированной finfo-проверкой выше) загрузки: .py/.heic нет в
+		// дефолтном wp_check_filetype, глобально загрузки не ослабляем.
+		$extraMimes = static function ( array $mimes ): array {
+			$mimes['py']   = 'text/x-python';
+			$mimes['heic'] = 'image/heic';
+			$mimes['heif'] = 'image/heif';
+			return $mimes;
+		};
+		add_filter( 'upload_mimes', $extraMimes );
+		try {
+			$attachmentId = media_handle_upload( $fileKey, $postParent );
+		} finally {
+			remove_filter( 'upload_mimes', $extraMimes );
+		}
 
 		if ( is_wp_error( $attachmentId ) ) {
 			throw new \RuntimeException( $attachmentId->get_error_message() );

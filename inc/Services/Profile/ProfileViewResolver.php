@@ -27,7 +27,7 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
  *
  * @package Inc\Services\Profile
  */
-final class ProfileViewResolver {
+class ProfileViewResolver {
 
 	public function __construct(
 		private readonly PersonRepository        $persons,
@@ -42,7 +42,7 @@ final class ProfileViewResolver {
 	 */
 	public function context( int $wpUserId ): ProfileContext {
 		$user = get_userdata( $wpUserId );
-		$role = UserRole::primary( $user ? (array) $user->roles : array() );
+		$role = UserRole::primaryForCabinet( $user ? (array) $user->roles : array() );
 
 		$person   = $this->persons->findByWpUserId( $wpUserId );
 		$personId = $person?->id;
@@ -104,6 +104,8 @@ final class ProfileViewResolver {
 			'nav'             => $built['nav'],
 			'screens'         => $built['screens'],
 			'ajax'            => array( 'url' => admin_url( 'admin-ajax.php' ) ),
+			'homeUrl'         => home_url( '/' ),
+			'logoutUrl'       => wp_logout_url( home_url( '/' ) ),
 		);
 
 		// Препод и офис работают с группами (КТП/журнал). Препод — свои группы;
@@ -124,19 +126,94 @@ final class ProfileViewResolver {
 			$config['schedule'] = array(
 				'nonce'   => Nonce::SaveSchedule->create(),
 				'actions' => array(
-					'getCalendar'  => AjaxHook::GetGroupCalendar->jsAction(),
-					'reflow'       => AjaxHook::ReflowSchedule->jsAction(),
-					'pin'          => AjaxHook::PinLesson->jsAction(),
-					'getProgram'   => AjaxHook::GetGroupProgram->jsAction(),
+					'getCalendar'   => AjaxHook::GetGroupCalendar->jsAction(),
+					'reflow'        => AjaxHook::ReflowSchedule->jsAction(),
+					'pin'           => AjaxHook::PinLesson->jsAction(),
+					'getProgram'    => AjaxHook::GetGroupProgram->jsAction(),
+					'publish'       => AjaxHook::PublishProgram->jsAction(),
+					'unpublish'     => AjaxHook::UnpublishProgram->jsAction(),
+					'getDeadlines'  => AjaxHook::GetWorkDeadlines->jsAction(),
+					'saveDeadlines' => AjaxHook::SaveWorkDeadlines->jsAction(),
+					'continue'      => AjaxHook::ContinueProgramLesson->jsAction(),
+				),
+			);
+			// Курс-пикер КТП (T11.1) — отдельный блок: `assign_course` требует Nonce::AssignCourse.
+			$config['courses'] = array(
+				'nonce'   => Nonce::AssignCourse->create(),
+				'actions' => array(
+					'getCourses'   => AjaxHook::GetSubjectCourses->jsAction(),
 					'assignCourse' => AjaxHook::AssignCourse->jsAction(),
 				),
 			);
 			$config['journal'] = array(
 				'nonce'   => Nonce::SaveSchedule->create(),
 				'actions' => array(
-					'getJournal'     => AjaxHook::GetGroupJournal->jsAction(),
-					'saveAttendance' => AjaxHook::SaveAttendance->jsAction(),
-					'bulkAttendance' => AjaxHook::BulkAttendance->jsAction(),
+					'getJournal'       => AjaxHook::GetGroupJournal->jsAction(),
+					'saveAttendance'   => AjaxHook::SaveAttendance->jsAction(),
+					'bulkAttendance'   => AjaxHook::BulkAttendance->jsAction(),
+				),
+			);
+			// Экран «Группы» (ростер + создание индивидуальных занятий, T10.7).
+			// Блок назван `roster`, т.к. ключ `groups` занят списком групп сайдбара.
+			$config['roster'] = array(
+				'nonce'   => Nonce::SaveSchedule->create(),
+				'actions' => array(
+					'getRoster'        => AjaxHook::GetGroupRoster->jsAction(),
+					'createIndividual' => AjaxHook::CreateIndividualLesson->jsAction(),
+					'getFreeRooms'     => AjaxHook::GetFreeRooms->jsAction(),
+				),
+			);
+			// «Сводка по ученику» (T10.8, D8) — ростер для выбора + занятия ученика.
+			$config['summary'] = array(
+				'nonce'   => Nonce::SaveSchedule->create(),
+				'actions' => array(
+					'getRoster'  => AjaxHook::GetGroupRoster->jsAction(),
+					'getSummary' => AjaxHook::GetStudentSummary->jsAction(),
+				),
+			);
+			// Деталь работы + оценивание (нонс GradeWork) для «Сводки по ученику» (T10.9).
+			$config['review'] = array(
+				'nonce'   => Nonce::GradeWork->create(),
+				'actions' => array(
+					'getDetail'        => AjaxHook::GetWorkDetail->jsAction(),
+					'saveGrade'        => AjaxHook::SaveGrade->jsAction(),
+					'returnSubmission' => AjaxHook::ReturnSubmission->jsAction(),
+				),
+			);
+			// Пооответное оценивание попытки экзамена (T11.9) — отдельный нонс GradeAttempt.
+			$config['attemptGrade'] = array(
+				'nonce'   => Nonce::GradeAttempt->create(),
+				'actions' => array(
+					'gradeAttempt' => AjaxHook::GradeAttempt->jsAction(),
+				),
+			);
+			$config['dashboard'] = array(
+				'nonce'   => Nonce::SaveSchedule->create(),
+				'actions' => array(
+					'getDashboard' => AjaxHook::GetProfileDashboard->jsAction(),
+				),
+			);
+
+			// Экран «Замены» — только офис (кабинет + педагог).
+			if ( UserRole::FSOffice === $ctx->role ) {
+				$config['substitutions'] = array(
+					'nonce'   => Nonce::Substitution->create(),
+					'actions' => array(
+						'getData' => AjaxHook::GetSubstitutionsData->jsAction(),
+						'assign'  => AjaxHook::AssignSubstitute->jsAction(),
+						'revoke'  => AjaxHook::RevokeSubstitute->jsAction(),
+						'setRoom' => AjaxHook::SetRoomOverride->jsAction(),
+					),
+				);
+			}
+		}
+
+		// Учащийся/родитель (Эпик 7): один endpoint профиля (read-only).
+		if ( in_array( $ctx->role, array( UserRole::FSStudent, UserRole::FSParent, UserRole::Student ), true ) ) {
+			$config['learner'] = array(
+				'nonce'   => Nonce::LearnerProfile->create(),
+				'actions' => array(
+					'getProfile' => AjaxHook::GetLearnerProfile->jsAction(),
 				),
 			);
 		}

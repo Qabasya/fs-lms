@@ -12,7 +12,9 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\GroupAccessGuard;
+use Inc\Services\Course\ReviewQueueService;
 use Inc\Services\Course\SubmissionService;
+use Inc\Services\Course\WorkDetailService;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -29,8 +31,34 @@ class GradingCallbacks extends BaseController {
 		private readonly GroupAccessGuard      $guard,
 		private readonly SubmissionRepository  $submissionRepo,
 		private readonly GroupLessonRepository $groupLessons,
+		private readonly ReviewQueueService    $reviewQueue,
+		private readonly WorkDetailService     $workDetail,
 	) {
 		parent::__construct();
+	}
+
+	/**
+	 * Деталь работы для «Сводки по ученику» (Эпик 10 T10.9): условия задач,
+	 * ответы ученика, вердикты и баллы. Params: source_type, source_id.
+	 */
+	public function ajaxGetWorkDetail(): void {
+		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
+
+		$sourceType = $this->sanitizeText( 'source_type' );
+		$sourceId   = $this->requireInt( 'source_id' );
+
+		$detail = $this->workDetail->forWork( $sourceType, $sourceId );
+		if ( null === $detail ) {
+			$this->error( 'Работа не найдена.' );
+			return;
+		}
+		if ( ! $this->guard->canManage( (int) $detail['group_id'], get_current_user_id() ) ) {
+			$this->error( 'Нет доступа к этой группе.' );
+			return;
+		}
+		unset( $detail['group_id'] );
+
+		$this->success( $detail );
 	}
 
 	public function ajaxSaveGrade(): void {
@@ -48,7 +76,7 @@ class GradingCallbacks extends BaseController {
 		}
 
 		$gl = $this->groupLessons->find( $sub->groupLessonId );
-		if ( ! $gl || ! $this->guard->canManage( $gl->groupId, get_current_user_id() ) ) {
+		if ( ! $gl || ! $this->guard->canWriteJournal( $gl->groupId, get_current_user_id() ) ) {
 			$this->error( 'Нет доступа к этой группе.' );
 			return;
 		}
@@ -74,7 +102,7 @@ class GradingCallbacks extends BaseController {
 		}
 
 		$gl = $this->groupLessons->find( $sub->groupLessonId );
-		if ( ! $gl || ! $this->guard->canManage( $gl->groupId, get_current_user_id() ) ) {
+		if ( ! $gl || ! $this->guard->canWriteJournal( $gl->groupId, get_current_user_id() ) ) {
 			$this->error( 'Нет доступа к этой группе.' );
 			return;
 		}
@@ -92,17 +120,7 @@ class GradingCallbacks extends BaseController {
 			return;
 		}
 
-		$queue = $this->submissionRepo->listQueueByGroup( $groupId );
-		$this->success( array_map( fn( $s ) => array(
-			'id'               => $s->id,
-			'work_id'          => $s->workId,
-			'work_type'        => $s->workType->value,
-			'status'           => $s->status->value,
-			'answer_text'      => $s->answerText,
-			'attachment_id'    => $s->attachmentId,
-			'submitted_at'     => $s->submittedAt,
-			'is_late'          => $s->isLate(),
-		), $queue ) );
+		$this->success( $this->reviewQueue->forGroup( $groupId ) );
 	}
 
 	public function ajaxGetGradebook(): void {

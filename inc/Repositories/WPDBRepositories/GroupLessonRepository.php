@@ -6,6 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
+use Inc\Enums\Course\LessonStatus;
 use Inc\Enums\Settings\TableName;
 
 class GroupLessonRepository {
@@ -111,7 +112,20 @@ class GroupLessonRepository {
 		$rows = $this->listByGroup( $groupId );
 		$i    = 0;
 		foreach ( $rows as $row ) {
-			if ( $row->isPinned ) {
+			// Индивидуальные и пиннутые привязаны к своей дате, а не к последовательности — не двигаем.
+			if ( $row->isPinned || 'individual' === $row->kind ) {
+				continue;
+			}
+			$status = LessonStatus::fromValueOrDefault( $row->status );
+			// T11.6: проведённое занятие фиксирует свою дату (факт), но ЗАНИМАЕТ слот
+			// в последовательности — нерассказанный хвост раскладывается после него.
+			if ( LessonStatus::Held === $status ) {
+				++$i;
+				continue;
+			}
+			// T11.6: отменённое/перенесённое ОСВОБОЖДАЕТ слот — хвост сдвигается вперёд
+			// (слот не тратится, дата не переписывается).
+			if ( $status->freesSlot() ) {
 				continue;
 			}
 			if ( ! isset( $slots[ $i ] ) ) {
@@ -122,6 +136,8 @@ class GroupLessonRepository {
 				array(
 					'scheduled_at' => $slots[ $i ]['scheduled_at'],
 					'ends_at'      => $slots[ $i ]['ends_at'],
+					// Кабинет дня недели (Эпик 10): переносится из расписания в занятие.
+					'room_id'      => ! empty( $slots[ $i ]['room'] ) ? (int) $slots[ $i ]['room'] : null,
 				),
 				array( 'id' => $row->id )
 			);
@@ -163,6 +179,28 @@ class GroupLessonRepository {
 			array( 'id' => $id )
 		);
 		return false !== $result;
+	}
+
+	/**
+	 * Дедлайны работ занятия (T12.2, D13): work_id => 'Y-m-d H:i:s'.
+	 *
+	 * @param array<int,string> $deadlines
+	 */
+	public function setWorkDeadlines( int $id, array $deadlines ): bool {
+		$result = $this->wpdb->update(
+			$this->table,
+			array( 'work_deadlines' => wp_json_encode( $deadlines ) ),
+			array( 'id' => $id )
+		);
+		return false !== $result;
+	}
+
+	public function setRoom( int $id, ?int $roomId ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'room_id' => $roomId ),
+			array( 'id' => $id )
+		);
 	}
 
 	public function setLessonId( int $id, int $lessonId ): bool {

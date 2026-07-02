@@ -6,6 +6,7 @@ use Inc\MetaBoxes\Templates\AudioTaskTemplate;
 use Inc\MetaBoxes\Templates\ChoiceTaskTemplate;
 use Inc\MetaBoxes\Templates\CodeTaskTemplate;
 use Inc\MetaBoxes\Templates\CommonConditionTemplate;
+use Inc\MetaBoxes\Templates\FileAnswerTaskTemplate;
 use Inc\MetaBoxes\Templates\FileCodeTaskTemplate;
 use Inc\MetaBoxes\Templates\FileTaskTemplate;
 use Inc\MetaBoxes\Templates\FillTaskTemplate;
@@ -67,6 +68,13 @@ enum TaskTemplate: string {
 	case Audio    = 'audio_task';
 
 	/**
+	 * Развёрнутый ответ (Эпик 13, D16): ученик прикладывает файлы (фото/pdf/pptx/py)
+	 * и/или пишет текст; проверка ТОЛЬКО ручная (чекер не регистрируется).
+	 * Кейсы: ЕГЭ математика ч.2, ОГЭ информатика №13/№15.
+	 */
+	case FileAnswer = 'file_answer_task';
+
+	/**
 	 * Умный конструктор Enum с фолбеком на Standard.
 	 *
 	 * Если в БД сохранён ID шаблона, которого нет в списке
@@ -118,6 +126,7 @@ enum TaskTemplate: string {
 			self::Ordering => OrderingTaskTemplate::class,
 			self::Fill     => FillTaskTemplate::class,
 			self::Audio    => AudioTaskTemplate::class,
+			self::FileAnswer => FileAnswerTaskTemplate::class,
 		};
 	}
 
@@ -143,6 +152,7 @@ enum TaskTemplate: string {
 			self::Ordering     => 'Сортировка',
 			self::Fill         => 'Пропуски в тексте',
 			self::Audio        => 'Задание с аудио',
+			self::FileAnswer   => 'Развёрнутый ответ (файл, ручная проверка)',
 		};
 	}
 }

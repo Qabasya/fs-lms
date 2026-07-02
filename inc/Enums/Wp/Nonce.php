@@ -64,6 +64,15 @@ enum Nonce: string {
 	case SaveSchedule         = 'fs_lms_save_schedule';
 	case SetLessonVisibility  = 'fs_lms_set_lesson_visibility';
 
+	// ==== ЛК преподавателя — замены (Эпик 5) ====
+	case Substitution         = 'fs_lms_substitution';
+
+	// ==== ЛК учащегося/родителя (Эпик 7) ====
+	case LearnerProfile       = 'fs_lms_learner_profile';
+
+	// ==== Кабинеты / аудитории (Эпик 9) ====
+	case Room                 = 'fs_lms_room';
+
 	// ==== Этап 3 — сдача работ ====
 	case SubmitWork = 'fs_lms_submit_work';
 	case GradeWork  = 'fs_lms_grade_work';
@@ -85,6 +94,7 @@ enum Nonce: string {
 
 	// ==== Этап 6 — интерактивные задания ====
 	case SubmitTaskAnswer = 'fs_lms_submit_task_answer';
+	case UploadAnswerFile = 'fs_lms_upload_answer_file';
 	case StepSettings     = 'fs_lms_step_settings';
 	case TaskContent      = 'fs_lms_task_content';
 

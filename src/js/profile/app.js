@@ -1,6 +1,9 @@
-import { esc, toast, closeGradePop, closeCtxMenu } from './utils.js';
+import { esc, toast, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
+import { renderGroups, setGroupsGroup } from './groups.js';
+import { renderSummary } from './summary.js';
+import { renderSubstitutions } from './substitutions.js';
 import { renderKTP } from './ktp.js';
 import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
 
@@ -9,8 +12,11 @@ function shortName(name) { return String(name).replace(/[«»]/g, '').replace(/\
 
 /* ── Screen registry: key → renderer ─────────────────────────────────── */
 const SCREENS = {
-    dashboard:            (root) => renderDashboard(root, { openJournalFor }),
+    dashboard:            (root) => renderDashboard(root, { openJournalFor, openReview: () => go('summary') }),
+    groups:               (root) => renderGroups(root, { openJournal: openJournalFor }),
     journal:              (root) => renderJournal(root),
+    summary:              (root) => renderSummary(root),
+    substitutions:        (root) => renderSubstitutions(root),
     ktp:                  (root) => renderKTP(root),
     'learner-home':       renderLearnerHome,
     'learner-lessons':    renderLearnerLessons,
@@ -20,7 +26,10 @@ const SCREENS = {
 
 const TOPBAR = {
     dashboard:            { crumb: 'Личный кабинет',   title: 'Главная' },
+    groups:               { crumb: 'Группы',           title: 'Группы' },
     journal:              { crumb: 'Журнал',           title: 'Журнал' },
+    summary:              { crumb: 'Успеваемость',      title: 'Сводка по ученику' },
+    substitutions:        { crumb: 'Офис',             title: 'Замены' },
     ktp:                  { crumb: 'Планирование',     title: 'КТП и расписание' },
     'learner-home':       { crumb: 'Личный кабинет',   title: 'Главная' },
     'learner-lessons':    { crumb: 'Обучение',         title: 'Мои курсы' },
@@ -30,7 +39,10 @@ const TOPBAR = {
 
 const NAV_ICONS = {
     dashboard:            '<path d="M3 9.5 10 4l7 5.5M5 8.5V16h10V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+    groups:               '<circle cx="7.5" cy="7" r="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 16c0-2.5 2-4.5 4.5-4.5S12 13.5 12 16M13 5.2a2.5 2.5 0 0 1 0 4.6M17 16c0-2-1.2-3.7-3-4.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
     journal:              '<rect x="3" y="3.5" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 7.5h14M8 7.5v9" stroke="currentColor" stroke-width="1.6"/>',
+    summary:              '<path d="M5 3h8l3 3v11H5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M7.5 10l2 2 4-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+    substitutions:        '<path d="M4 7h9m0 0-3-3m3 3-3 3M16 13H7m0 0 3-3m-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
     ktp:                  '<rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h14M7 2.5v3M13 2.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
     'learner-home':       '<path d="M3 9.5 10 4l7 5.5M5 8.5V16h10V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
     'learner-lessons':    '<path d="M4 4h7v12H4zM11 4h5v12h-5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
@@ -77,6 +89,17 @@ function openJournalFor(gid) {
     if (g) setJournalGroup(g.id);
 }
 
+/* D10: клик по группе в сайдбаре открывает экран «Группы» (ростер), не журнал. */
+function openGroupsFor(gid) {
+    const groups = cfg.groups || [];
+    const g = groups.find(x => String(x.id) === String(gid)) || groups[0];
+    document.querySelectorAll('.prof-group-item').forEach(el =>
+        el.classList.toggle('active', String(el.dataset.grp) === String(gid)));
+    go('groups');
+    setTopbar('groups', { crumb: 'Группы', title: g ? `${g.name} · ${g.subject}` : 'Группы' });
+    if (g) setGroupsGroup(g.id);
+}
+
 /* ── Sidebar (built from role config) ────────────────────────────────── */
 function buildSidebar() {
     const nav = document.getElementById('profNav');
@@ -111,7 +134,7 @@ function buildSidebar() {
                 <div class="su-name">${esc(u.name)}</div>
                 <div class="su-role">${esc(roleLabel)}</div>
             </div>
-            <button class="prof-icon-ghost" title="Настройки">
+            <button class="prof-icon-ghost" id="profUserGear" title="Настройки">
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="2.4" stroke="currentColor" stroke-width="1.5"/><path d="M10 3v2M10 15v2M3 10h2M15 10h2M5 5l1.4 1.4M13.6 13.6 15 15M15 5l-1.4 1.4M6.4 13.6 5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
             </button>`;
     }
@@ -133,12 +156,33 @@ function mountScreens() {
     });
 }
 
+/* ── Меню пользователя (шестерёнка) — dropdown вверх с «Выход» ────────── */
+function openUserMenu(anchor) {
+    const html = `
+        <div class="ctx-item danger" data-user-act="logout">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M8 5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-1M11 10H3m0 0 3-3m-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Выход
+        </div>`;
+    openCtxMenuRaw(html, anchor, null, { up: true });
+    const menu = document.getElementById('profCtxMenu');
+    if (!menu) return;
+    const item = menu.querySelector('[data-user-act="logout"]');
+    if (item) item.addEventListener('click', () => {
+        closeCtxMenu();
+        const url = cfg.logoutUrl || (window.fsProfile && window.fsProfile.logoutUrl);
+        if (url) window.location.href = url;
+    });
+}
+
 /* ── Wiring ──────────────────────────────────────────────────────────── */
 function wire() {
     document.querySelectorAll('.prof-nav-item[data-go]').forEach(n =>
         n.addEventListener('click', () => go(n.dataset.go)));
     document.querySelectorAll('.prof-group-item').forEach(el =>
-        el.addEventListener('click', () => openJournalFor(el.dataset.grp)));
+        el.addEventListener('click', () => openGroupsFor(el.dataset.grp)));
+
+    const gear = document.getElementById('profUserGear');
+    if (gear) gear.addEventListener('click', () => openUserMenu(gear));
 
     const backdrop = document.getElementById('profCtxBackdrop');
     if (backdrop) backdrop.addEventListener('click', () => { closeGradePop(); closeCtxMenu(); });

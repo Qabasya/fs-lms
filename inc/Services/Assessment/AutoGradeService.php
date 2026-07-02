@@ -67,19 +67,25 @@ class AutoGradeService {
 
 			$template = $this->resolver->resolveEnum( $post );
 			$checker  = $this->checkers->get( $template );
+			$meta     = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
+			$metaArr  = is_array( $meta ) ? $meta : array();
 
 			if ( null === $checker ) {
 				$hasManual = true;
-				$this->answers->upsert( $attempt->id, $answer->taskId, array( 'max_score' => 1 ) );
-				$totalMax += 1.0;
+				// Эпик 13 (D17): если у задачи заданы критерии — начальный max_score
+				// сразу равен их сумме (сырых баллов), а не заглушке «1».
+				$criteriaDefs = is_array( $metaArr['task_criteria']['criteria'] ?? null )
+					? $metaArr['task_criteria']['criteria']
+					: array();
+				$defaultMax   = ! empty( $criteriaDefs )
+					? array_sum( array_map( static fn( $d ) => (float) ( $d['max_points'] ?? 0 ), $criteriaDefs ) )
+					: 1.0;
+				$this->answers->upsert( $attempt->id, $answer->taskId, array( 'max_score' => $defaultMax ) );
+				$totalMax += $defaultMax;
 				continue;
 			}
 
-			$meta   = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
-			$result = $checker->check(
-				is_array( $meta ) ? $meta : array(),
-				$answer->answerText
-			);
+			$result = $checker->check( $metaArr, $answer->answerText );
 
 			$this->answers->upsert( $attempt->id, $answer->taskId, array(
 				'is_correct' => $result->isCorrect ? 1 : 0,

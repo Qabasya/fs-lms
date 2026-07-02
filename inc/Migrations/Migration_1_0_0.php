@@ -121,6 +121,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			name               varchar(255)      NOT NULL,
 			teacher_id         int unsigned      DEFAULT NULL,
 			meetings           json              DEFAULT NULL,
+			program_locked_at  datetime          DEFAULT NULL,
 			created_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			deleted_at         datetime          DEFAULT NULL,
@@ -392,10 +393,16 @@ class Migration_1_0_0 implements MigrationInterface {
 			ends_at            datetime            DEFAULT NULL,
 			is_pinned          tinyint(1)          NOT NULL DEFAULT 0,
 			teacher_user_id    bigint(20) unsigned DEFAULT NULL,
+			kind               enum('group','individual') NOT NULL DEFAULT 'group',
+			status             enum('scheduled','held','cancelled','moved') NOT NULL DEFAULT 'scheduled',
+			student_person_id  int unsigned        DEFAULT NULL,
+			room_id            int unsigned        DEFAULT NULL,
+			continued_from_id  int unsigned        DEFAULT NULL,
 			visibility         enum('hidden','open','archived') NOT NULL DEFAULT 'hidden',
 			opened_at          datetime            DEFAULT NULL,
 			homework_due_at    datetime            DEFAULT NULL,
 			allow_late         tinyint(1)          NOT NULL DEFAULT 1,
+			work_deadlines     json                DEFAULT NULL,
 			recording_url      varchar(1000)       DEFAULT NULL,
 			created_by_user_id bigint(20) unsigned DEFAULT NULL,
 			updated_by_user_id bigint(20) unsigned DEFAULT NULL,
@@ -404,7 +411,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			PRIMARY KEY (id),
 			KEY group_id (group_id),
 			KEY lesson_id (lesson_id),
-			KEY group_position (group_id, position)
+			KEY group_position (group_id, position),
+			KEY kind_student (kind, student_person_id)
 		) $cc;"
 		);
 
@@ -498,6 +506,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			grader_note         text            DEFAULT NULL,
 			graded_by_user_id   bigint unsigned DEFAULT NULL,
 			graded_at           datetime        DEFAULT NULL,
+			criteria_scores     json            DEFAULT NULL,
 			PRIMARY KEY  (id),
 			KEY attempt_id (attempt_id),
 			KEY task_id (task_id)
@@ -562,6 +571,43 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 23. substitutions — замены преподавателя (ЛК преподавателя, Эпик 5) =====
+		$substitutions = TableName::Substitutions->prefixed();
+		dbDelta(
+			"CREATE TABLE $substitutions (
+			id                    int unsigned        NOT NULL AUTO_INCREMENT,
+			group_id              smallint unsigned   NOT NULL,
+			original_teacher_id   bigint(20) unsigned DEFAULT NULL,
+			substitute_teacher_id bigint(20) unsigned NOT NULL,
+			valid_from            date                NOT NULL,
+			valid_to              date                NOT NULL,
+			reason                varchar(500)        DEFAULT NULL,
+			approved_by           bigint(20) unsigned DEFAULT NULL,
+			created_at            datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY group_id (group_id),
+			KEY substitute_teacher_id (substitute_teacher_id),
+			KEY validity (group_id, valid_from, valid_to)
+		) $cc;"
+		);
+
+		// ===== 24. rooms — кабинеты/аудитории (ЛК преподавателя, Эпик 9) =====
+		$rooms = TableName::Rooms->prefixed();
+		dbDelta(
+			"CREATE TABLE $rooms (
+			id               int unsigned NOT NULL AUTO_INCREMENT,
+			name             varchar(150) NOT NULL,
+			seats            smallint unsigned NOT NULL DEFAULT 0,
+			allowed_subjects longtext     DEFAULT NULL,
+			is_active        tinyint(1)   NOT NULL DEFAULT 1,
+			created_at       datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at       datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			deleted_at       datetime     DEFAULT NULL,
+			PRIMARY KEY (id),
+			KEY is_active (is_active)
+		) $cc;"
+		);
+
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$student_records`
@@ -599,9 +645,24 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `label`     varchar(150) DEFAULT NULL,
 			MODIFY COLUMN `lesson_id` bigint unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `grader_note` text DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `criteria_scores` json DEFAULT NULL" ); // Эпик 13 (D17)
 		$wpdb->query( "ALTER TABLE `$lesson_progress` MODIFY COLUMN `status` enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked'" );
 		$group_lessons = TableName::GroupLessons->prefixed();
 		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `step_settings_overrides` json DEFAULT NULL" );
+		// Эпик 4 — индивидуальные занятия (эволюция group_lessons).
+		$wpdb->query( "ALTER TABLE `$group_lessons`
+			ADD COLUMN IF NOT EXISTS `kind`              enum('group','individual') NOT NULL DEFAULT 'group',
+			ADD COLUMN IF NOT EXISTS `status`            enum('scheduled','held','cancelled','moved') NOT NULL DEFAULT 'scheduled',
+			ADD COLUMN IF NOT EXISTS `student_person_id` int unsigned DEFAULT NULL" );
+		// Эпик 9 — кабинеты: room_id на группе (дефолт года) и на занятии (override/индивидуальные).
+		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `room_id` int unsigned DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `room_id` int unsigned DEFAULT NULL" );
+		// T1.8 — lock КТП: публикация программы фиксирует дату блокировки (NULL = редактируемо).
+		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `program_locked_at` datetime DEFAULT NULL" );
+		// T12.2 (D13) — дедлайны работ занятия: {work_id: 'Y-m-d H:i:s'}, per-work; legacy homework_due_at — фолбэк.
+		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `work_deadlines` json DEFAULT NULL" );
+		// T12.6 (D14) — продолжение темы на вторую дату: связь на исходную строку (не мультидаты, не независимый дубль).
+		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `continued_from_id` int unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
@@ -616,6 +677,8 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::Rooms->prefixed(),
+			TableName::Substitutions->prefixed(),
 			TableName::Attendance->prefixed(),
 			TableName::TaskAttempts->prefixed(),
 			TableName::LessonProgress->prefixed(),

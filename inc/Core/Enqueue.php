@@ -275,6 +275,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'authorWork'        => Nonce::AuthorWork->create(),
 					'authorAssessment'  => Nonce::AuthorAssessment->create(),
 					'authorCourse'      => Nonce::AuthorCourse->create(),
+					'room'              => Nonce::Room->create(),
 				),
 				'ajax_actions' => AjaxHook::toJsArray(),
 			)
@@ -482,10 +483,13 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
 						'submitAttempt'    => AjaxHook::SubmitAttempt->jsAction(),
 						'getAttemptResult' => AjaxHook::GetAttemptResult->jsAction(),
+						// Эпик 13 (D16): двухшаговая загрузка файла ответа («Развёрнутый ответ»).
+						'uploadAnswerFile' => AjaxHook::UploadAnswerFile->jsAction(),
 					),
 					'nonces'   => array(
-						'startAttempt'  => Nonce::StartAttempt->create(),
-						'submitAttempt' => Nonce::SubmitAttempt->create(),
+						'startAttempt'     => Nonce::StartAttempt->create(),
+						'submitAttempt'    => Nonce::SubmitAttempt->create(),
+						'uploadAnswerFile' => Nonce::UploadAnswerFile->create(),
 					),
 				)
 			);

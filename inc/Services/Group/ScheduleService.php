@@ -9,8 +9,11 @@ use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\LessonManager;
+use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\RoomRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 class ScheduleService {
 
@@ -20,7 +23,102 @@ class ScheduleService {
 		private readonly GroupsRepository            $groups,
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly SessionCalendarService      $calendar,
+		private readonly StudentRecordRepository     $records,
+		private readonly RoomRepository              $rooms,
+		private readonly RoomAvailabilityService     $roomAvailability,
 	) {}
+
+	/**
+	 * Свободные кабинеты для группы в окне занятия (T11.3): фильтр по предмету группы
+	 * + отсутствие конфликта времени. Конец окна — `$end` или +60 мин от начала.
+	 *
+	 * @return array<int, array{id:int, name:string}>
+	 */
+	public function freeRoomsForGroup( int $groupId, string $start, ?string $end = null ): array {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			return array();
+		}
+		$endWindow = ( $end && '' !== $end )
+			? $end
+			: ( new \DateTimeImmutable( $start ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
+
+		return array_map(
+			static fn( $room ): array => array( 'id' => $room->id, 'name' => $room->name ),
+			$this->roomAvailability->listFreeRooms( $start, $endWindow, (string) $group->subject_key )
+		);
+	}
+
+	/**
+	 * Создаёт индивидуальное занятие на одного ученика (D3): `kind='individual'`,
+	 * привязано к дате (`is_pinned`), НЕ входит в программу группы и НЕ участвует
+	 * в раскладке `reflow`.
+	 *
+	 * @param string      $scheduledAt   'Y-m-d H:i:s'.
+	 * @param string|null $endsAt        'Y-m-d H:i:s' (опц.).
+	 * @param int|null    $lessonId      привязка к банку урока (опц.).
+	 * @param string|null $label         ярлык строки (опц.).
+	 * @param int|null    $teacherUserId явный преподаватель (опц., иначе — препод группы).
+	 *
+	 * @throws \InvalidArgumentException если группа не найдена или ученик не в группе.
+	 */
+	public function createIndividualLesson(
+		int     $groupId,
+		int     $studentPersonId,
+		string  $scheduledAt,
+		?string $endsAt,
+		?int    $lessonId,
+		?string $label,
+		?int    $teacherUserId,
+		int     $actorUserId,
+		?int    $roomId = null
+	): int {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			throw new \InvalidArgumentException( 'Группа не найдена.' );
+		}
+
+		$isMember = false;
+		foreach ( $this->records->findActiveByGroupId( $groupId ) as $rec ) {
+			if ( $rec->studentPersonId === $studentPersonId ) {
+				$isMember = true;
+				break;
+			}
+		}
+		if ( ! $isMember ) {
+			throw new \InvalidArgumentException( 'Ученик не состоит в этой группе.' );
+		}
+
+		$id = $this->groupLessons->add( new GroupLessonInputDTO(
+			groupId         : $groupId,
+			lessonId        : $lessonId,
+			position        : 0,
+			scheduledAt     : $scheduledAt,
+			endsAt          : $endsAt,
+			isPinned        : true,
+			teacherUserId   : $teacherUserId,
+			createdByUserId : $actorUserId,
+			label           : $label,
+			kind            : 'individual',
+			status          : 'scheduled',
+			studentPersonId : $studentPersonId,
+			roomId          : $roomId,
+		) );
+
+		$this->dispatcher->dispatch(
+			LogEvent::ScheduleChanged,
+			new LearningEvent(
+				event       : LogEvent::ScheduleChanged,
+				actorUserId : $actorUserId,
+				groupId     : $groupId,
+				entityType  : 'group_lesson',
+				entityId    : (string) $id,
+				isPublic    : false,
+			)
+		);
+
+		return $id;
+	}
 
 	/**
 	 * Добавляет урок в программу группы вручную.
@@ -86,6 +184,51 @@ class ScheduleService {
 			teacherUserId   : $row->teacherUserId,
 			createdByUserId : $actorUserId,
 			label           : $row->label,
+		) );
+
+		$lesson = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
+		$this->dispatcher->dispatch(
+			LogEvent::LessonAddedToProgram,
+			new LearningEvent(
+				event       : LogEvent::LessonAddedToProgram,
+				actorUserId : $actorUserId,
+				subjectKey  : $lesson?->subjectKey,
+				groupId     : $row->groupId,
+				entityType  : 'lesson',
+				entityId    : (string) $row->lessonId,
+			)
+		);
+
+		return $newId;
+	}
+
+	/**
+	 * Продолжает тему на вторую дату (T12.6, D14): новая ПИННУТАЯ непристроенная
+	 * строка (дата — заново, вручную через drag) со связью `continuedFromId` →
+	 * исходная. В отличие от {@see self::duplicateLesson()} (независимая копия —
+	 * отдельная тема) связь сохраняется: КТП считает обе строки ОДНОЙ темой
+	 * (общий номер, части «1/2 · 2/2»), журнал получает второй столбец с меткой.
+	 * Разрешено только для «родных» строк — цепочки из 3+ дат не поддерживаются.
+	 *
+	 * @return int ID новой строки или 0, если исходная не найдена / сама уже продолжение.
+	 */
+	public function continueLesson( int $groupLessonId, int $actorUserId ): int {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row || null !== $row->continuedFromId ) {
+			return 0;
+		}
+
+		$position = $this->groupLessons->nextPosition( $row->groupId );
+		$newId    = $this->groupLessons->add( new GroupLessonInputDTO(
+			groupId         : $row->groupId,
+			lessonId        : $row->lessonId,
+			position        : $position,
+			extraWorkIds    : $row->extraWorkIds,
+			isPinned        : true,
+			teacherUserId   : $row->teacherUserId,
+			createdByUserId : $actorUserId,
+			label           : $row->label,
+			continuedFromId : $row->id,
 		) );
 
 		$lesson = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
@@ -181,8 +324,8 @@ class ScheduleService {
 		);
 	}
 
-	public function reflow( int $groupId, int $actorUserId ): void {
-		$this->calendar->reflow( $groupId );
+	public function reflow( int $groupId, int $actorUserId ): int {
+		$conflicts = $this->calendar->reflow( $groupId );
 
 		$this->dispatcher->dispatch(
 			LogEvent::ScheduleChanged,
@@ -195,6 +338,8 @@ class ScheduleService {
 				isPublic    : false,
 			)
 		);
+
+		return $conflicts;
 	}
 
 	/**
@@ -207,6 +352,22 @@ class ScheduleService {
 		$row = $this->groupLessons->find( $groupLessonId );
 		if ( ! $row ) {
 			throw new \InvalidArgumentException( 'Строка программы не найдена.' );
+		}
+
+		// Конфликт кабинета (T11.4): эффективный кабинет занятия ?? основной кабинет
+		// группы; hard-block, если он занят ДРУГОЙ группой в это время. Занятия своей
+		// группы (T12.5: две темы на один день) конфликтом не считаются — аналогично reflow.
+		$group  = $this->groups->findById( $row->groupId );
+		$roomId = ! empty( $row->roomId )
+			? (int) $row->roomId
+			: ( ( $group && ! empty( $group->room_id ) ) ? (int) $group->room_id : 0 );
+		if ( $roomId > 0 ) {
+			$end = ( $row->endsAt && '' !== $row->endsAt )
+				? $row->endsAt
+				: ( new \DateTimeImmutable( $scheduledAt ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
+			if ( ! $this->roomAvailability->isFree( $roomId, $scheduledAt, $end, $groupLessonId, $row->groupId ) ) {
+				throw new \InvalidArgumentException( 'Кабинет занят в это время другим занятием.' );
+			}
 		}
 
 		$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId );
@@ -230,31 +391,89 @@ class ScheduleService {
 	 * Календарь КТП группы: метаданные периода (даты занятий, выходные) + темы
 	 * программы с их размещением. Если курс группе не назначен — assigned=false.
 	 *
-	 * @return array{assigned:bool, period:?array, holidays:string[], lessonDays:string[], themes:array<int,array<string,mixed>>}
+	 * @return array{assigned:bool, period:?array, holidays:string[], lessonDays:string[], lessonTimes:array<string,string>, themes:array<int,array<string,mixed>>}
 	 */
 	public function getCalendar( int $groupId ): array {
 		$group = $this->groups->findById( $groupId );
 		$meta  = $this->calendar->periodMeta( $groupId );
 
+		// Эффективный кабинет темы (T11.2): кабинет занятия ?? основной кабинет группы.
+		$groupRoomId = ( $group && ! empty( $group->room_id ) ) ? (int) $group->room_id : 0;
+		$roomNames   = array();
+		foreach ( $this->rooms->findAll() as $r ) {
+			$roomNames[ $r->id ] = $r->name;
+		}
+
 		$themes = array();
-		foreach ( $this->getProgram( $groupId ) as $i => $entry ) {
-			$row      = $entry['row'];
-			$themes[] = array(
+		foreach ( $this->numberThemes( $this->getProgram( $groupId ) ) as $entry ) {
+			$row       = $entry['row'];
+			$effRoomId = ! empty( $row->roomId ) ? (int) $row->roomId : $groupRoomId;
+			$themes[]  = array(
 				'group_lesson_id' => $row->id,
 				'lesson_id'       => $row->lessonId,
-				'n'               => $i + 1,
+				'n'               => $entry['n'],
+				// T12.6 (D14): часть темы (1/2, 2/2) — origin+continuation считаются одной темой.
+				'part'            => $entry['part'],
+				'total_parts'     => $entry['totalParts'],
 				'topic'           => $entry['topic'],
 				'scheduled_at'    => $row->scheduledAt,
 				'is_pinned'       => $row->isPinned,
+				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
 			);
 		}
 
 		return array(
-			'assigned'   => $group ? ! empty( $group->course_id ) : false,
-			'period'     => $meta['period'],
-			'holidays'   => $meta['holidays'],
-			'lessonDays' => $meta['lessonDays'],
-			'themes'     => $themes,
+			'assigned'    => $group ? ! empty( $group->course_id ) : false,
+			'period'      => $meta['period'],
+			'holidays'    => $meta['holidays'],
+			'lessonDays'  => $meta['lessonDays'],
+			// T12.4: время занятия по дате ('16:00–17:30') для ячейки календаря КТП.
+			'lessonTimes' => $meta['lessonTimes'],
+			'themes'      => $themes,
+			// T1.8: заблокирована ли КТП (опубликована) — фронт скрывает правки.
+			'locked'      => $group ? ! empty( $group->program_locked_at ) : false,
+			'locked_at'   => $group && ! empty( $group->program_locked_at ) ? (string) $group->program_locked_at : null,
+		);
+	}
+
+	/**
+	 * Опубликована ли (заблокирована) КТП группы (T1.8): после публикации
+	 * структура и расписание программы недоступны для правок.
+	 */
+	public function isProgramLocked( int $groupId ): bool {
+		$group = $this->groups->findById( $groupId );
+		return (bool) ( $group && ! empty( $group->program_locked_at ) );
+	}
+
+	/** Дата публикации КТП или null. */
+	public function programLockedAt( int $groupId ): ?string {
+		$group = $this->groups->findById( $groupId );
+		return $group && ! empty( $group->program_locked_at ) ? (string) $group->program_locked_at : null;
+	}
+
+	/** Публикует КТП: фиксирует дату блокировки и логирует (T1.8). */
+	public function publishProgram( int $groupId, int $actorUserId ): void {
+		$this->groups->setProgramLocked( $groupId, current_time( 'mysql' ) );
+		$this->dispatchScheduleChanged( $groupId, $actorUserId );
+	}
+
+	/** Снимает публикацию КТП: возвращает возможность правок (T1.8). */
+	public function unpublishProgram( int $groupId, int $actorUserId ): void {
+		$this->groups->setProgramLocked( $groupId, null );
+		$this->dispatchScheduleChanged( $groupId, $actorUserId );
+	}
+
+	private function dispatchScheduleChanged( int $groupId, int $actorUserId ): void {
+		$this->dispatcher->dispatch(
+			LogEvent::ScheduleChanged,
+			new LearningEvent(
+				event       : LogEvent::ScheduleChanged,
+				actorUserId : $actorUserId,
+				groupId     : $groupId,
+				entityType  : 'group',
+				entityId    : (string) $groupId,
+				isPublic    : false,
+			)
 		);
 	}
 
@@ -267,6 +486,10 @@ class ScheduleService {
 		$rows   = $this->groupLessons->listByGroup( $groupId );
 		$result = array();
 		foreach ( $rows as $row ) {
+			// Индивидуальные не входят в программу группы (D3).
+			if ( 'individual' === $row->kind ) {
+				continue;
+			}
 			$lesson   = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
 			$result[] = array(
 				'row'     => $row,
@@ -275,5 +498,60 @@ class ScheduleService {
 			);
 		}
 		return $result;
+	}
+
+	/**
+	 * Аннотирует темы номером/частью с учётом продолжений (T12.6, D14): пара
+	 * origin+continuation получает ОБЩИЙ `n` и части «1/2 · 2/2» — КТП считает
+	 * их одной темой. Порядок исходного списка (по `position`) сохраняется.
+	 * Продолжение с отсутствующим (удалённым) оригиналом трактуется как
+	 * самостоятельная тема (без падения) — цепочки из 3+ дат не поддерживаются.
+	 *
+	 * @param array<int,array{row: \Inc\DTO\Course\GroupLessonDTO, topic: string, subject: string}> $entries
+	 * @return array<int,array{row: \Inc\DTO\Course\GroupLessonDTO, topic: string, subject: string, n:int, part:int, totalParts:int}>
+	 */
+	private function numberThemes( array $entries ): array {
+		$existingIds = array();
+		foreach ( $entries as $entry ) {
+			$existingIds[ $entry['row']->id ] = true;
+		}
+		$continuationByOriginId = array();
+		foreach ( $entries as $entry ) {
+			$parentId = $entry['row']->continuedFromId;
+			if ( null !== $parentId && isset( $existingIds[ $parentId ] ) ) {
+				$continuationByOriginId[ $parentId ] = $entry;
+			}
+		}
+
+		$numbered = array(); // row id => annotated entry
+		$n        = 0;
+		foreach ( $entries as $entry ) {
+			$parentId = $entry['row']->continuedFromId;
+			// Продолжение с существующим оригиналом — аннотируется вместе с ним ниже.
+			if ( null !== $parentId && isset( $existingIds[ $parentId ] ) ) {
+				continue;
+			}
+			++$n;
+			$continuation = $continuationByOriginId[ $entry['row']->id ] ?? null;
+			$total        = $continuation ? 2 : 1;
+
+			$entry['n']               = $n;
+			$entry['part']            = 1;
+			$entry['totalParts']      = $total;
+			$numbered[ $entry['row']->id ] = $entry;
+
+			if ( $continuation ) {
+				$continuation['n']          = $n;
+				$continuation['part']       = 2;
+				$continuation['totalParts'] = $total;
+				$numbered[ $continuation['row']->id ] = $continuation;
+			}
+		}
+
+		$ordered = array();
+		foreach ( $entries as $entry ) {
+			$ordered[] = $numbered[ $entry['row']->id ];
+		}
+		return $ordered;
 	}
 }

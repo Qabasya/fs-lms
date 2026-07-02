@@ -18,7 +18,9 @@ use Inc\Shared\Traits\Sanitizer;
  * Class JournalCallbacks
  *
  * AJAX журнала группы (ЛК преподавателя/офиса, Эпик 2): чтение журнала + посещаемость.
- * Доступ — `canManage` (препод по своей группе; офис/админ — по `ManageLmsPlatform`).
+ * Чтение — `canManage` (препод по своей группе; офис/админ — по `ManageLmsPlatform`).
+ * Запись посещаемости — `canWriteJournal`: в период активной замены постоянный
+ * препод переходит в read-only, отмечает только замещающий (T5.7).
  *
  * @package Inc\Callbacks\Course
  */
@@ -62,9 +64,10 @@ class JournalCallbacks extends BaseController {
 		$userId        = get_current_user_id();
 
 		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+		if ( ! $row || ! $this->guard->canWriteJournal( $row->groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->guardNotFuture( $row );
 
 		$this->attendance->mark( $groupLessonId, $personId, $present, $userId );
 		$this->success();
@@ -80,11 +83,22 @@ class JournalCallbacks extends BaseController {
 		$userId        = get_current_user_id();
 
 		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+		if ( ! $row || ! $this->guard->canWriteJournal( $row->groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->guardNotFuture( $row );
 
 		$this->attendance->markAll( $groupLessonId, $present, $userId );
 		$this->success();
+	}
+
+	/**
+	 * Защита журнала (D11): нельзя отмечать посещаемость на ещё не прошедшем занятии
+	 * (дата > сегодня). Редактируемы только занятия с датой ≤ текущей.
+	 */
+	private function guardNotFuture( \Inc\DTO\Course\GroupLessonDTO $row ): void {
+		if ( $row->scheduledAt && substr( $row->scheduledAt, 0, 10 ) > current_time( 'Y-m-d' ) ) {
+			$this->error( __( 'Занятие ещё не прошло — отметить посещаемость нельзя.', 'fs-lms' ) );
+		}
 	}
 }

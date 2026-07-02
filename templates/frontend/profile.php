@@ -31,11 +31,12 @@ if ( ! is_user_logged_in() ) {
 
 	<aside class="prof-sidebar">
 		<div class="prof-brand">
-			<div class="prof-brand-mark">
+<!--        TDOO: заменить на логотип в меню настройки стилей-->
+            <div class="prof-brand-mark">
 				<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 5.5 10 2l7 3.5L10 9 3 5.5z" fill="#fff"/><path d="M6 8v3.5c0 1.2 1.8 2.2 4 2.2s4-1 4-2.2V8" stroke="#fff" stroke-width="1.4" fill="none"/></svg>
 			</div>
 			<div>
-				<div class="prof-brand-name">Класс<span>Журнал</span></div>
+				<div class="prof-brand-name"><span>Шаг в будущее</span></div>
 				<div class="prof-brand-sub">Личный кабинет</div>
 			</div>
 		</div>
@@ -57,6 +58,9 @@ if ( ! is_user_logged_in() ) {
 			<button class="prof-icon-ghost" title="Уведомлений нет">
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3a4 4 0 0 0-4 4c0 4-1.5 5-1.5 5h11S14 11 14 7a4 4 0 0 0-4-4zM8.5 15a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
 			</button>
+			<a class="prof-icon-ghost prof-home-btn" href="<?php echo esc_url( home_url( '/' ) ); ?>" title="Вернуться на главную">
+				<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 9.5 10 4l7 5.5M5 8.5V16h10V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+			</a>
 		</header>
 
 		<!-- Экраны создаёт JS из window.fsProfile.screens -->

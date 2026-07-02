@@ -63,6 +63,20 @@ async function saveAnswer( attemptId, taskId, answerText, statusEl ) {
 	}
 }
 
+/**
+ * Значение ответа блока: для «Развёрнутого ответа» (Эпик 13, D16) — JSON
+ * {"text","files":[attachment_ids]}, для остальных — как раньше, текст.
+ */
+function answerValue( block, textarea ) {
+	if ( 'file_answer' !== block.dataset.template ) {
+		return textarea.value;
+	}
+	const files = Array.from( block.querySelectorAll( '.fs-attempt-files__chip' ) )
+		.map( ( chip ) => parseInt( chip.dataset.id, 10 ) )
+		.filter( ( id ) => id > 0 );
+	return JSON.stringify( { text: textarea.value.trim(), files } );
+}
+
 /** Bind autosave handlers to all answer textareas. */
 function bindAutosave( form, attemptId ) {
 	form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
@@ -73,14 +87,89 @@ function bindAutosave( form, attemptId ) {
 		if ( ! textarea || ! statusEl ) { return; }
 
 		const debouncedSave = debounce(
-			() => saveAnswer( attemptId, taskId, textarea.value, statusEl ),
+			() => saveAnswer( attemptId, taskId, answerValue( block, textarea ), statusEl ),
 			3000
 		);
 
 		textarea.addEventListener( 'input', debouncedSave );
 		if ( btn ) {
-			btn.addEventListener( 'click', () => saveAnswer( attemptId, taskId, textarea.value, statusEl ) );
+			btn.addEventListener( 'click', () => saveAnswer( attemptId, taskId, answerValue( block, textarea ), statusEl ) );
 		}
+	} );
+}
+
+/**
+ * Загрузка файлов ответа для задач «Развёрнутый ответ» (Эпик 13, D16):
+ * двухшаговая — файл уходит на upload_answer_file (доступ по СВОЕЙ попытке),
+ * attachment_id ложится чипом, ответ сохраняется как JSON через save_attempt_answer.
+ */
+function bindFileAnswers( form, attemptId ) {
+	form.querySelectorAll( '.fs-attempt-question[data-template="file_answer"]' ).forEach( ( block ) => {
+		const taskId   = block.dataset.taskId;
+		const textarea = block.querySelector( '.fs-attempt-answer' );
+		const saveEl   = block.querySelector( '.fs-save-status' );
+		const chips    = block.querySelector( '.fs-attempt-files__chips' );
+		const input    = block.querySelector( '.fs-attempt-files__input' );
+		const addBtn   = block.querySelector( '.fs-attempt-files__add' );
+		const statusEl = block.querySelector( '.fs-attempt-files__status' );
+		if ( ! chips || ! input || ! addBtn || ! textarea ) { return; }
+
+		const persist = () => saveAnswer( attemptId, taskId, answerValue( block, textarea ), saveEl );
+
+		const addChip = ( id, name ) => {
+			const chip      = document.createElement( 'span' );
+			chip.className  = 'fs-attempt-files__chip';
+			chip.dataset.id = String( id );
+
+			const nameEl       = document.createElement( 'span' );
+			nameEl.textContent = name;
+
+			const rm       = document.createElement( 'button' );
+			rm.type        = 'button';
+			rm.className   = 'fs-attempt-files__chip-remove';
+			rm.textContent = '✕';
+			rm.setAttribute( 'aria-label', 'Убрать файл' );
+			rm.addEventListener( 'click', () => { chip.remove(); persist(); } );
+
+			chip.append( nameEl, rm );
+			chips.appendChild( chip );
+		};
+
+		const uploadOne = async ( file ) => {
+			const fd = new FormData();
+			fd.append( 'action',      vars.actions.uploadAnswerFile );
+			fd.append( 'security',    vars.nonces.uploadAnswerFile );
+			fd.append( 'attempt_id',  String( attemptId ) );
+			fd.append( 'answer_file', file );
+			const res  = await fetch( vars.ajax_url, { method: 'POST', body: fd } );
+			const json = await res.json();
+			if ( ! json?.success ) {
+				throw new Error( json?.data?.message || json?.data || 'Не удалось загрузить файл' );
+			}
+			return json.data; // { attachment_id, name, … }
+		};
+
+		addBtn.addEventListener( 'click', () => input.click() );
+		input.addEventListener( 'change', async () => {
+			if ( ! vars?.actions?.uploadAnswerFile ) {
+				statusEl.textContent = 'Загрузка файлов недоступна.';
+				return;
+			}
+			addBtn.disabled = true;
+			for ( const file of Array.from( input.files || [] ) ) {
+				statusEl.textContent = `Загрузка: ${ file.name }…`;
+				try {
+					const up = await uploadOne( file );
+					addChip( up.attachment_id, up.name || file.name );
+					statusEl.textContent = '';
+				} catch ( e ) {
+					statusEl.textContent = `${ file.name }: ${ e.message }`;
+				}
+			}
+			input.value     = '';
+			addBtn.disabled = false;
+			persist();
+		} );
 	} );
 }
 
@@ -127,6 +216,7 @@ function initRunningAttempt() {
 	const timerInterval = initTimer( form, deadlineAt );
 
 	bindAutosave( form, attemptId );
+	bindFileAnswers( form, attemptId );
 
 	form.addEventListener( 'submit', ( e ) => {
 		e.preventDefault();

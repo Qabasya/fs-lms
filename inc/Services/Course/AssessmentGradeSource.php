@@ -7,6 +7,7 @@ namespace Inc\Services\Course;
 use Inc\Contracts\GradeSourceInterface;
 use Inc\DTO\Course\GradebookEntryDTO;
 use Inc\Enums\Assessment\AttemptStatus;
+use Inc\Enums\Course\GradeBadge;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Services\Assessment\SecondaryScoreService;
@@ -57,6 +58,8 @@ class AssessmentGradeSource implements GradeSourceInterface {
 				maxScore        : $attempt->maxScore,
 				gradedAt        : $attempt->submittedAt,
 				displayType     : $displayType,
+				groupLessonId   : $attempt->groupLessonId,
+				badge           : $assessment ? GradeBadge::fromAssessmentKind( $assessment->kind ) : null,
 			);
 		}
 		return $entries;

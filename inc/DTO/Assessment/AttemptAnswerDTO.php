@@ -17,9 +17,20 @@ readonly class AttemptAnswerDTO {
 		public ?int    $gradedByUserId,
 		public ?string $gradedAt,
 		public ?string $graderNote = null,
+		/** Эпик 13 (D17): {индекс критерия => начисленные баллы}; null — критериев нет / не оценивалось по ним. */
+		public ?array  $criteriaScores = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
+		$criteriaRaw = $row['criteria_scores'] ?? null;
+		$criteria    = null;
+		if ( is_string( $criteriaRaw ) && '' !== $criteriaRaw ) {
+			$decoded  = json_decode( $criteriaRaw, true );
+			$criteria = is_array( $decoded ) ? $decoded : null;
+		} elseif ( is_array( $criteriaRaw ) ) {
+			$criteria = $criteriaRaw;
+		}
+
 		return new self(
 			id              : (int) $row['id'],
 			attemptId       : (int) $row['attempt_id'],
@@ -31,6 +42,7 @@ readonly class AttemptAnswerDTO {
 			gradedByUserId  : isset( $row['graded_by_user_id'] ) ? (int) $row['graded_by_user_id'] : null,
 			gradedAt        : $row['graded_at'] ?? null,
 			graderNote      : $row['grader_note'] ?? null,
+			criteriaScores  : $criteria,
 		);
 	}
 }
