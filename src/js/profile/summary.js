@@ -245,6 +245,7 @@ function renderDetailModal(d) {
             </div>
             <div class="sum-modal-body">
                 ${tasks}
+                ${d.attachment_url ? attachmentBlock(d) : ''}
                 ${d.feedback ? `<div class="sum-fb"><b>Комментарий:</b> ${esc(d.feedback)}</div>` : ''}
             </div>
             ${grading}
@@ -257,6 +258,19 @@ function renderDetailModal(d) {
 
     if (d.gradable) wireGrading(modal, d.submission_id);
     if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) wireAttemptGrading(modal, d);
+}
+
+/* T13.1: вложение ученика (фото/файл решения) — форма одиночной сдачи уже
+   принимает файл, деталь работы теперь его отдаёт. Картинка — превью, иначе
+   ссылка «Открыть файл». */
+function attachmentBlock(d) {
+    const isImage = d.attachment_mime && d.attachment_mime.indexOf('image/') === 0;
+    return `<div class="sum-attachment">
+        <div class="sum-attachment-label">Вложение ученика</div>
+        ${isImage
+            ? `<a href="${esc(d.attachment_url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(d.attachment_url)}" class="sum-attachment-img" alt="Вложение ученика"></a>`
+            : `<a href="${esc(d.attachment_url)}" target="_blank" rel="noopener noreferrer" class="sum-attachment-link">Открыть файл</a>`}
+    </div>`;
 }
 
 function taskBlock(t, d) {

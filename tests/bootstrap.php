@@ -287,6 +287,11 @@ if (!function_exists('absint')) {
 if (!function_exists('wp_kses_post')) {
     function wp_kses_post(string $content): string { return $content; }
 }
+if (!function_exists('get_post_mime_type')) {
+    function get_post_mime_type(int $postId): string|false {
+        return $GLOBALS['_fs_test_post_mime_types'][$postId] ?? false;
+    }
+}
 if (!function_exists('user_can')) {
     function user_can(int $userId, string $cap): bool { return $GLOBALS['_fs_test_user_caps'][$userId][$cap] ?? false; }
 }

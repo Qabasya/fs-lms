@@ -144,6 +144,16 @@
 .sum-fb { font-size: 13px; color: var(--ink-2); background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 12px; }
 .sum-detail-empty { color: var(--muted-2); font-size: 14px; text-align: center; padding: 30px; }
 
+/* T13.1: вложение ученика (фото/файл решения) в детали работы */
+.sum-attachment { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; }
+.sum-attachment-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); margin-bottom: 8px; }
+.sum-attachment-img { display: block; max-width: 100%; max-height: 360px; border-radius: var(--radius-xs); border: 1px solid var(--line); }
+.sum-attachment-link {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+  color: var(--accent-700); text-decoration: none;
+}
+.sum-attachment-link:hover { text-decoration: underline; }
+
 .sum-modal-foot { flex: none; border-top: 1px solid var(--line); padding: 14px 20px; display: flex; flex-direction: column; gap: 10px; }
 .smf-fields { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .smf-fields label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }

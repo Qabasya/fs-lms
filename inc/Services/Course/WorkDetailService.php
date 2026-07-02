@@ -6,6 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\WorkManager;
+use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
@@ -38,6 +39,7 @@ class WorkDetailService {
 		private readonly AssessmentAnswerRepository  $answers,
 		private readonly AssessmentManager           $assessments,
 		private readonly CorrectAnswerResolver       $correctAnswers,
+		private readonly MediaManager                $media,
 	) {}
 
 	/**
@@ -97,20 +99,32 @@ class WorkDetailService {
 			);
 		}
 
+		// T13.1: вложение ученика (фото/файл решения) — форма одиночной сдачи уже
+		// принимает файл (SubmissionService::submit → MediaManager::uploadFromRequest),
+		// но деталь работы его раньше не отдавала — учитель не мог его увидеть.
+		$attachmentUrl  = null;
+		$attachmentMime = null;
+		if ( $sub->attachmentId ) {
+			$attachmentUrl  = $this->media->url( $sub->attachmentId );
+			$attachmentMime = get_post_mime_type( $sub->attachmentId ) ?: null;
+		}
+
 		return array(
-			'kind'          => 'work',
-			'title'         => $work?->title ?? 'Работа',
-			'status'        => $sub->status->value,
-			'score'         => $sub->score,
-			'max_score'     => $sub->maxScore,
-			'feedback'      => $sub->feedback,
-			'gradable'      => true,
-			'submission_id' => $sub->id,
-			'tasks'         => $tasks,
+			'kind'            => 'work',
+			'title'           => $work?->title ?? 'Работа',
+			'status'          => $sub->status->value,
+			'score'           => $sub->score,
+			'max_score'       => $sub->maxScore,
+			'feedback'        => $sub->feedback,
+			'gradable'        => true,
+			'submission_id'   => $sub->id,
+			'tasks'           => $tasks,
 			// T12.2 (D13): дедлайн работы (снимок на момент сдачи) + постоянная метка «Просрочено».
-			'due_at'        => $sub->dueAt,
-			'is_late'       => $sub->isLate(),
-			'group_id'      => $this->groupLessons->find( $sub->groupLessonId )?->groupId ?? 0,
+			'due_at'          => $sub->dueAt,
+			'is_late'         => $sub->isLate(),
+			'attachment_url'  => $attachmentUrl,
+			'attachment_mime' => $attachmentMime,
+			'group_id'        => $this->groupLessons->find( $sub->groupLessonId )?->groupId ?? 0,
 		);
 	}
 
