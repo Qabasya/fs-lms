@@ -24,6 +24,7 @@ class SubmissionController extends AjaxController {
 	protected function ajaxActions(): array {
 		return array(
 			array( AjaxHook::SubmitWork,          $this->submissionCallbacks ),
+			array( AjaxHook::UploadAnswerFile,    $this->submissionCallbacks ),
 			array( AjaxHook::GetMySubmissions,    $this->submissionCallbacks ),
 			array( AjaxHook::SaveGrade,           $this->gradingCallbacks ),
 			array( AjaxHook::ReturnSubmission,    $this->gradingCallbacks ),

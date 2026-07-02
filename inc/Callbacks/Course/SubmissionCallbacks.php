@@ -6,6 +6,8 @@ namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
+use Inc\Managers\Wp\MediaManager;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\SubmissionService;
@@ -18,11 +20,51 @@ class SubmissionCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly SubmissionService $submissionService,
-		private readonly PersonRepository  $personRepository,
-		private readonly GroupAccessGuard  $guard,
+		private readonly SubmissionService     $submissionService,
+		private readonly PersonRepository      $personRepository,
+		private readonly GroupAccessGuard      $guard,
+		private readonly GroupLessonRepository $groupLessons,
+		private readonly MediaManager          $media,
 	) {
 		parent::__construct();
+	}
+
+	/**
+	 * Двухшаговая загрузка файла ответа (Эпик 13, D16): ученик загружает файл
+	 * ЗАРАНЕЕ, получает attachment_id и кладёт его в JSON-ответ задачи
+	 * (`{"text":…,"files":[id]}`) — эндпоинты ответов остаются JSON, без multipart.
+	 * Доступ: залогинен + член группы занятия. Params: group_lesson_id + $_FILES['answer_file'].
+	 */
+	public function ajaxUploadAnswerFile(): void {
+		Nonce::UploadAnswerFile->verify();
+
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+
+		$person = $this->personRepository->findByWpUserId( get_current_user_id() );
+		if ( ! $person ) {
+			$this->error( 'Профиль не найден.' );
+			return;
+		}
+
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row || ! $this->guard->isMemberEver( $row->groupId, $person->id ) ) {
+			$this->error( 'Нет доступа к занятию.' );
+			return;
+		}
+
+		try {
+			$attachmentId = $this->media->uploadFromRequest( 'answer_file' );
+		} catch ( \RuntimeException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success( array(
+			'attachment_id' => $attachmentId,
+			'url'           => $this->media->url( $attachmentId ),
+			'name'          => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
+			'mime'          => get_post_mime_type( $attachmentId ) ?: '',
+		) );
 	}
 
 	public function ajaxSubmitWork(): void {

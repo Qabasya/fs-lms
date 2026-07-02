@@ -269,3 +269,70 @@
 		line-height: $line-height-base;
 	}
 }
+
+// ── Развёрнутый ответ: файлы и/или текст (Эпик 13, D16) ────────────────────
+
+.fs-widget-materials {
+	margin-bottom: $spacing-md;
+	padding:       $spacing-sm $spacing-md;
+	border:        1px solid $color-border;
+	border-radius: $radius-sm;
+
+	&__title {
+		font-weight:   $font-semibold;
+		margin-bottom: $spacing-xs;
+	}
+
+	&__link {
+		display: block;
+		margin-bottom: $spacing-xs;
+		word-break: break-all;
+	}
+}
+
+.fs-widget-files {
+	margin-top: $spacing-sm;
+
+	&__chips {
+		display:   flex;
+		flex-wrap: wrap;
+		gap:       $spacing-xs;
+	}
+
+	&__chip {
+		display:       inline-flex;
+		align-items:   center;
+		gap:           $spacing-xs;
+		padding:       2px $spacing-sm;
+		border:        1px solid $color-border;
+		border-radius: $radius-md;
+		font-size:     $font-size-sm;
+	}
+
+	&__chip-remove {
+		border:     none;
+		background: transparent;
+		color:      $color-danger;
+		cursor:     pointer;
+		padding:    0;
+		line-height: 1;
+	}
+
+	&__controls {
+		display:     flex;
+		align-items: center;
+		gap:         $spacing-sm;
+		margin-top:  $spacing-sm;
+	}
+
+	&__status {
+		font-size: $font-size-sm;
+		color:     $color-danger;
+	}
+}
+
+.fs-widget-files__hint {
+	margin-top: $spacing-sm;
+	font-size:  $font-size-sm;
+	color:      $color-muted;
+}
