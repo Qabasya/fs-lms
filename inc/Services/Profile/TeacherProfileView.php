@@ -20,9 +20,10 @@ use Inc\Enums\Access\UserRole;
 final class TeacherProfileView implements ProfileViewInterface {
 
 	public function build( ProfileContext $context ): array {
+		// T12.7: пункт «Группы» убран из меню — экран остаётся в $screens (маршрут жив),
+		// вход теперь только кликом по группе в сайдбарном блоке «Мои группы» (D10, openGroupsFor).
 		$nav = array(
 			array( 'key' => 'dashboard', 'label' => 'Главная' ),
-			array( 'key' => 'groups',    'label' => 'Группы' ),
 			array( 'key' => 'journal',   'label' => 'Журнал' ),
 			array( 'key' => 'summary',   'label' => 'Сводка по ученику' ),
 			array( 'key' => 'ktp',       'label' => 'КТП и расписание' ),
