@@ -5,6 +5,9 @@ declare( strict_types=1 );
 namespace Unit\Callbacks\Course;
 
 use Inc\Callbacks\Course\ProgramCallbacks;
+use Inc\DTO\Course\GroupLessonDTO;
+use Inc\DTO\Course\WorkDTO;
+use Inc\Enums\Course\WorkType;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
@@ -308,5 +311,103 @@ class ProgramCallbacksTest extends TestCase {
 		$_POST = array( 'group_id' => '5', 'lesson_id' => '10' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxAddLessonToProgram() )->success );
+	}
+
+	/* ── Дедлайны работ (T12.3, D13) ─────────────────────────────────────── */
+
+	private function rowWithDeadlines( array $workDeadlines = array() ): GroupLessonDTO {
+		return new GroupLessonDTO(
+			id: 42, groupId: 5, lessonId: 1, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: null, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'open',
+			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null, workDeadlines: $workDeadlines,
+		);
+	}
+
+	private function work( int $id, string $title ): WorkDTO {
+		return new WorkDTO(
+			id: $id, subjectKey: 'inf', title: $title, workType: WorkType::Practice,
+			itemIds: array(), instructions: '', authorId: 1, status: 'publish',
+		);
+	}
+
+	public function test_get_work_deadlines_returns_effective_works_with_current_deadlines(): void {
+		$row = $this->rowWithDeadlines( array( 501 => '2026-08-01 12:00:00' ) );
+		$this->schedule->method( 'getProgramRow' )->with( 42 )->willReturn( $row );
+		$this->guard->method( 'canManage' )->with( 5, $this->anything() )->willReturn( true );
+		$this->works->method( 'resolve' )->with( $row )->willReturn( array(
+			$this->work( 501, 'Практика №1' ),
+			$this->work( 502, 'Практика №2' ),
+		) );
+		$_POST = array( 'group_lesson_id' => '42' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetWorkDeadlines() );
+
+		self::assertTrue( $r->success );
+		self::assertCount( 2, $r->payload['works'] );
+		self::assertSame( '2026-08-01 12:00:00', $r->payload['works'][0]['deadline'] );
+		self::assertNull( $r->payload['works'][1]['deadline'] );
+	}
+
+	public function test_get_work_deadlines_denied_when_not_manager(): void {
+		$this->schedule->method( 'getProgramRow' )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->works->expects( $this->never() )->method( 'resolve' );
+		$_POST = array( 'group_lesson_id' => '42' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkDeadlines() )->success );
+	}
+
+	public function test_get_work_deadlines_denied_when_row_missing(): void {
+		$this->schedule->method( 'getProgramRow' )->willReturn( null );
+		$_POST = array( 'group_lesson_id' => '999' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkDeadlines() )->success );
+	}
+
+	public function test_save_work_deadlines_delegates_sanitized_map(): void {
+		$row = $this->rowWithDeadlines();
+		$this->schedule->method( 'getProgramRow' )->with( 42 )->willReturn( $row );
+		$this->guard->method( 'canManage' )->with( 5, $this->anything() )->willReturn( true );
+		$this->groupLessons->expects( $this->once() )->method( 'setWorkDeadlines' )
+			->with( 42, array( 501 => '2026-08-01 12:00:00' ) );
+		$_POST = array(
+			'group_lesson_id' => '42',
+			'deadlines'       => json_encode( array( '501' => '2026-08-01 12:00:00', '502' => '' ) ),
+		);
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkDeadlines() );
+
+		self::assertTrue( $r->success );
+	}
+
+	public function test_save_work_deadlines_denied_when_not_manager(): void {
+		$this->schedule->method( 'getProgramRow' )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->groupLessons->expects( $this->never() )->method( 'setWorkDeadlines' );
+		$_POST = array( 'group_lesson_id' => '42', 'deadlines' => '{}' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkDeadlines() )->success );
+	}
+
+	public function test_save_work_deadlines_rejects_malformed_json(): void {
+		$this->schedule->method( 'getProgramRow' )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->groupLessons->expects( $this->never() )->method( 'setWorkDeadlines' );
+		$_POST = array( 'group_lesson_id' => '42', 'deadlines' => 'not-json' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkDeadlines() )->success );
+	}
+
+	/** T1.8: дедлайны — delivery, не структура/расписание — работают даже при lock КТП. */
+	public function test_save_work_deadlines_not_blocked_when_program_locked(): void {
+		$row = $this->rowWithDeadlines();
+		$this->schedule->method( 'getProgramRow' )->willReturn( $row );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->method( 'isProgramLocked' )->willReturn( true );
+		$this->groupLessons->expects( $this->once() )->method( 'setWorkDeadlines' );
+		$_POST = array( 'group_lesson_id' => '42', 'deadlines' => json_encode( array( '501' => '2026-08-01 12:00:00' ) ) );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkDeadlines() )->success );
 	}
 }

@@ -4,7 +4,7 @@
    getCalendar → банк тем + календарь; drag → pin_lesson; «Распределить» → reflow.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, openCtxMenu } from './utils.js';
+import { esc, toast, openCtxMenu, openCtxMenuRaw, closeCtxMenu } from './utils.js';
 import { createApi } from './api.js';
 
 const MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -249,6 +249,8 @@ function renderCalendar() {
 
     const grid = document.getElementById('ktpGrid');
     grid.innerHTML = cells;
+    // T12.3: дедлайны — delivery, не структура/расписание — доступны даже при lock КТП (T1.8).
+    grid.querySelectorAll('.placed-theme').forEach(attachDeadlinesClick);
     if (!isLocked()) {
         grid.querySelectorAll('.kal-cell[data-lesson="1"]').forEach(attachDrop);
         grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
@@ -326,12 +328,57 @@ async function doPublish() {
     } catch (e) { toast(e.message); }
 }
 
-async function doUnpublish() {
+/* ── Дедлайны работ занятия (T12.3, D13) ─────────────────────────────────
+   Клик по размещённой теме → поповер со списком эффективных работ занятия +
+   datetime-local на каждую (по умолчанию пусто = дедлайна нет). Доступно
+   даже при lock КТП — дедлайны это delivery, не структура/расписание. */
+function attachDeadlinesClick(el) {
+    el.addEventListener('click', () => openDeadlinesPopover(el.dataset.glid, el));
+}
+
+async function openDeadlinesPopover(glid, anchorEl) {
+    let works;
     try {
-        await api('unpublish', { group_id: state.groupId });
-        toast('Публикация снята — редактирование доступно');
-        await loadCalendar();
-    } catch (e) { toast(e.message); }
+        const res = await api('getDeadlines', { group_lesson_id: glid });
+        works = res.works || [];
+    } catch (e) { toast(e.message); return; }
+
+    const html = `
+        <div class="wd-pop">
+            <div class="ctx-title">Дедлайны работ</div>
+            ${works.length ? works.map(w => `
+                <div class="wd-row" data-work-id="${w.id}">
+                    <span class="wd-title" title="${esc(w.title)}">${esc(w.title)}</span>
+                    <input type="datetime-local" class="wd-input" value="${w.deadline ? toLocalInputValue(w.deadline) : ''}">
+                </div>`).join('') : '<div class="wd-empty">На этом занятии нет работ.</div>'}
+            ${works.length ? '<button type="button" class="prof-btn prof-btn-sm prof-btn-primary wd-save">Сохранить</button>' : ''}
+        </div>`;
+    openCtxMenuRaw(html, anchorEl);
+    const menu = document.getElementById('profCtxMenu');
+    const saveBtn = menu?.querySelector('.wd-save');
+    if (!saveBtn) return;
+    saveBtn.addEventListener('click', async () => {
+        const deadlines = {};
+        menu.querySelectorAll('.wd-row').forEach(row => {
+            const val = row.querySelector('.wd-input').value;
+            deadlines[row.dataset.workId] = val ? fromLocalInputValue(val) : '';
+        });
+        saveBtn.disabled = true;
+        try {
+            await api('saveDeadlines', { group_lesson_id: glid, deadlines: JSON.stringify(deadlines) });
+            toast('Дедлайны сохранены');
+            closeCtxMenu();
+        } catch (e) { toast(e.message); saveBtn.disabled = false; }
+    });
+}
+
+/** '2026-08-01 12:00:00' → '2026-08-01T12:00' (значение <input type="datetime-local">). */
+function toLocalInputValue(mysqlDateTime) {
+    return mysqlDateTime.slice(0, 16).replace(' ', 'T');
+}
+/** '2026-08-01T12:00' → '2026-08-01 12:00:00'. */
+function fromLocalInputValue(inputValue) {
+    return inputValue.replace('T', ' ') + ':00';
 }
 
 function attachDrag(el) {

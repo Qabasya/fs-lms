@@ -495,6 +495,18 @@ button { font-family: inherit; }
 .ctx-sep { height: 1px; background: var(--line-2); margin: 5px 4px; }
 .ctx-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); padding: 6px 10px 4px; }
 
+/* T12.3 (D13): поповер дедлайнов работ занятия — клик по размещённой теме в КТП. */
+.wd-pop { width: 260px; padding: 2px 0; }
+.wd-row { display: flex; flex-direction: column; gap: 4px; padding: 6px 10px; }
+.wd-title { font-size: 12.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-input {
+  height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs);
+  font: inherit; font-size: 12.5px; color: var(--ink); background: var(--surface); width: 100%;
+}
+.wd-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.wd-empty { padding: 10px; font-size: 12.5px; color: var(--muted-2); }
+.wd-pop .wd-save { width: calc(100% - 20px); margin: 8px 10px 4px; }
+
 .prof-grade-pop {
   position: fixed; z-index: 301; background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); padding: 10px; width: 188px; display: none;

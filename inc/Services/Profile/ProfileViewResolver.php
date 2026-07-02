@@ -126,12 +126,14 @@ class ProfileViewResolver {
 			$config['schedule'] = array(
 				'nonce'   => Nonce::SaveSchedule->create(),
 				'actions' => array(
-					'getCalendar'  => AjaxHook::GetGroupCalendar->jsAction(),
-					'reflow'       => AjaxHook::ReflowSchedule->jsAction(),
-					'pin'          => AjaxHook::PinLesson->jsAction(),
-					'getProgram'   => AjaxHook::GetGroupProgram->jsAction(),
-					'publish'      => AjaxHook::PublishProgram->jsAction(),
-					'unpublish'    => AjaxHook::UnpublishProgram->jsAction(),
+					'getCalendar'   => AjaxHook::GetGroupCalendar->jsAction(),
+					'reflow'        => AjaxHook::ReflowSchedule->jsAction(),
+					'pin'           => AjaxHook::PinLesson->jsAction(),
+					'getProgram'    => AjaxHook::GetGroupProgram->jsAction(),
+					'publish'       => AjaxHook::PublishProgram->jsAction(),
+					'unpublish'     => AjaxHook::UnpublishProgram->jsAction(),
+					'getDeadlines'  => AjaxHook::GetWorkDeadlines->jsAction(),
+					'saveDeadlines' => AjaxHook::SaveWorkDeadlines->jsAction(),
 				),
 			);
 			// Курс-пикер КТП (T11.1) — отдельный блок: `assign_course` требует Nonce::AssignCourse.

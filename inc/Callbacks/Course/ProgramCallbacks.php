@@ -393,6 +393,70 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	/**
+	 * Дедлайны работ занятия для поповера в КТП (T12.3, D13): эффективный набор
+	 * работ занятия + текущий per-work дедлайн (только явный override — legacy
+	 * `homeworkDueAt`-фолбэк здесь НЕ показываем, редактируется только per-work).
+	 * Params: group_lesson_id.
+	 */
+	public function ajaxGetWorkDeadlines(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$userId        = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+			return;
+		}
+
+		$works = array();
+		foreach ( $this->worksResolver->resolve( $row ) as $work ) {
+			$works[] = array(
+				'id'       => $work->id,
+				'title'    => $work->title,
+				'deadline' => $row->workDeadlines[ $work->id ] ?? null,
+			);
+		}
+
+		$this->success( array( 'works' => $works ) );
+	}
+
+	/**
+	 * Сохраняет per-work дедлайны занятия (T12.3, D13). Delivery, не структура —
+	 * НЕ блокируется публикацией КТП (см. T1.8 `denyIfProgramLocked`).
+	 * Params: group_lesson_id, deadlines (JSON {work_id:'Y-m-d H:i:s'|''}) — пустая
+	 * строка снимает per-work override (эффективный дедлайн падает на legacy-фолбэк).
+	 */
+	public function ajaxSaveWorkDeadlines(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$rawDeadlines  = $this->sanitizeText( 'deadlines' );
+		$userId        = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+			return;
+		}
+
+		$decoded = json_decode( $rawDeadlines, true );
+		if ( ! is_array( $decoded ) ) {
+			$this->error( 'Неверный формат данных.' );
+			return;
+		}
+
+		$sanitized = array();
+		foreach ( $decoded as $workId => $deadline ) {
+			if ( is_string( $deadline ) && '' !== $deadline ) {
+				$sanitized[ (int) $workId ] = $deadline;
+			}
+		}
+
+		$this->groupLessons->setWorkDeadlines( $groupLessonId, $sanitized );
+		$this->success( array( 'saved' => true ) );
+	}
+
+	/**
 	 * Возвращает список task-шагов урока с базовыми настройками и переопределениями группы.
 	 * Используется в панели настроек шагов кокпита (Этап 6, Фаза D).
 	 * Params: group_lesson_id
