@@ -452,9 +452,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'nonce'              => Nonce::MarkStepProgress->create(),
 					'submit_task_action' => AjaxHook::SubmitTaskAnswer->jsAction(),
 					'submit_task_nonce'  => Nonce::SubmitTaskAnswer->create(),
-					// Эпик 13 (D16): двухшаговая загрузка файла ответа для типа «Развёрнутый ответ».
-					'upload_action'      => AjaxHook::UploadAnswerFile->jsAction(),
-					'upload_nonce'       => Nonce::UploadAnswerFile->create(),
 				)
 			);
 

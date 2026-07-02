@@ -216,40 +216,13 @@ class LessonPlayerService {
 			TaskTemplate::Fill =>
 				$this->buildFillData( $meta ),
 
-			// Эпик 13 (D16): развёрнутый ответ — файлы и/или текст, ручная проверка.
-			TaskTemplate::FileAnswer =>
-				array(
-					'type'      => 'file_answer',
-					'materials' => $this->buildMaterialsData( $meta ),
-				),
-
+			// Эпик 13 (D16): FileAnswer здесь намеренно НЕ обрабатывается — шаговые
+			// задания урока (task_attempts) требуют авто-проверки (SubmitTaskAnswerCallbacks
+			// жёстко отклоняет шаблоны без чекера в TaskCheckerRegistry) и не имеют
+			// поверхности ручной проверки для учителя. FileAnswer живёт только в
+			// экзаменах/контрольных (AssessmentPageController, T13.5).
 			default => array( 'type' => 'text_answer' ),
 		};
-	}
-
-	/**
-	 * Материалы задания (Эпик 13): файлы-исходники для ученика (ссылки на скачивание).
-	 *
-	 * @return array<int, array{url: string, name: string}>
-	 */
-	private function buildMaterialsData( array $meta ): array {
-		$ids = $meta['task_materials']['attachment_ids'] ?? array();
-		if ( ! is_array( $ids ) ) {
-			return array();
-		}
-		$materials = array();
-		foreach ( $ids as $attachmentId ) {
-			$attachmentId = (int) $attachmentId;
-			$url          = $attachmentId ? wp_get_attachment_url( $attachmentId ) : '';
-			if ( ! $url ) {
-				continue;
-			}
-			$materials[] = array(
-				'url'  => $url,
-				'name' => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
-			);
-		}
-		return $materials;
 	}
 
 	private function buildChoiceData( array $meta, bool $shuffle ): array {

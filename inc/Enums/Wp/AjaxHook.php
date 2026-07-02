@@ -184,7 +184,7 @@ enum AjaxHook: string {
 	case SaveTaskContent   = 'save_task_content';   // params: subject_key, template, title, post_id? (0=create), fs_lms_meta[...] (поля)
 	case GetTaskEditorForm = 'get_task_editor_form'; // params: subject_key, template, post_id? → HTML полей шаблона
 	case GetTaskAttempts   = 'get_task_attempts';   // params: group_lesson_id, step_key → список попыток всех студентов
-	case UploadAnswerFile  = 'upload_answer_file';  // params: group_lesson_id + $_FILES[answer_file] → attachment_id (Эпик 13, D16: двухшаговая загрузка файла ответа)
+	case UploadAnswerFile  = 'upload_answer_file';  // params: attempt_id + $_FILES[answer_file] → attachment_id (Эпик 13, D16: двухшаговая загрузка файла ответа для «Развёрнутого ответа» в контрольных)
 
 	// ==== Контрольные и экзамены (Этап 4) ====
 	case StartAttempt      = 'start_attempt';

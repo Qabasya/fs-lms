@@ -25,7 +25,6 @@ export function initTaskWidget( panel ) {
 		case 'matching':    return buildMatchingWidget( container, widgetData, isDone );
 		case 'ordering':    return buildOrderingWidget( container, widgetData, isDone );
 		case 'fill':        return buildFillWidget( container, widgetData, isDone );
-		case 'file_answer': return buildFileAnswerWidget( container, widgetData, isDone );
 		default:            return null;
 	}
 }
@@ -275,129 +274,6 @@ function buildFillWidget( container, data, isDone ) {
 			} );
 			return JSON.stringify( answers );
 		},
-	};
-}
-
-// ── Развёрнутый ответ: файлы и/или текст, ручная проверка (Эпик 13, D16) ───
-
-function buildFileAnswerWidget( container, data, isDone ) {
-	// Материалы задания (файлы-исходники от преподавателя) — ссылки на скачивание.
-	if ( Array.isArray( data.materials ) && data.materials.length ) {
-		const box   = make( 'div', 'fs-widget-materials' );
-		const title = make( 'div', 'fs-widget-materials__title' );
-		title.textContent = 'Материалы задания:';
-		box.appendChild( title );
-		data.materials.forEach( ( m ) => {
-			const link = make( 'a', 'fs-widget-materials__link' );
-			link.href        = m.url;
-			link.target      = '_blank';
-			link.rel         = 'noopener noreferrer';
-			link.textContent = m.name || m.url;
-			box.appendChild( link );
-		} );
-		container.appendChild( box );
-	}
-
-	const textarea       = make( 'textarea', 'fs-widget-text' );
-	textarea.rows        = 5;
-	textarea.placeholder = 'Текст решения (необязательно, если прикладываете файл)…';
-	if ( isDone ) { textarea.disabled = true; }
-	container.appendChild( textarea );
-
-	// Загрузка файлов ответа: двухшаговая (upload → attachment_id → id в JSON-ответ).
-	const files = []; // { id, name }
-
-	const fileBox  = make( 'div', 'fs-widget-files' );
-	const chips    = make( 'div', 'fs-widget-files__chips' );
-	const controls = make( 'div', 'fs-widget-files__controls' );
-
-	const input    = make( 'input', 'fs-widget-files__input' );
-	input.type     = 'file';
-	input.multiple = true;
-	input.accept   = '.jpg,.jpeg,.png,.gif,.webp,.heic,.pdf,.doc,.docx,.pptx,.txt,.py';
-	input.hidden   = true;
-
-	const addBtn       = make( 'button', 'fs-btn fs-btn--secondary fs-widget-files__add' );
-	addBtn.type        = 'button';
-	addBtn.textContent = '📎 Прикрепить файлы';
-
-	const status = make( 'span', 'fs-widget-files__status' );
-	status.setAttribute( 'aria-live', 'polite' );
-
-	if ( isDone ) { addBtn.disabled = true; }
-
-	const vars = window.fs_lms_player_vars || window.fs_lms_assessment_vars;
-	const glid = container.closest( '.fs-player' )?.dataset.groupLessonId
-		|| container.dataset.groupLessonId;
-
-	function renderChips() {
-		chips.textContent = '';
-		files.forEach( ( f, i ) => {
-			const chip = make( 'span', 'fs-widget-files__chip' );
-			const name = make( 'span', 'fs-widget-files__chip-name' );
-			name.textContent = f.name;
-			chip.appendChild( name );
-			if ( ! isDone ) {
-				const rm = make( 'button', 'fs-widget-files__chip-remove' );
-				rm.type        = 'button';
-				rm.textContent = '✕';
-				rm.setAttribute( 'aria-label', 'Убрать файл' );
-				rm.addEventListener( 'click', () => { files.splice( i, 1 ); renderChips(); } );
-				chip.appendChild( rm );
-			}
-			chips.appendChild( chip );
-		} );
-	}
-
-	async function uploadOne( file ) {
-		const fd = new FormData();
-		fd.append( 'action',          vars.upload_action );
-		fd.append( 'security',        vars.upload_nonce );
-		fd.append( 'group_lesson_id', glid || '' );
-		fd.append( 'answer_file',     file );
-		const res  = await fetch( vars.ajax_url, { method: 'POST', body: fd } );
-		const json = await res.json();
-		if ( ! json?.success ) {
-			throw new Error( json?.data?.message || json?.data || 'Не удалось загрузить файл' );
-		}
-		return json.data; // { attachment_id, url, name, mime }
-	}
-
-	addBtn.addEventListener( 'click', () => input.click() );
-	input.addEventListener( 'change', async () => {
-		if ( ! vars || ! vars.upload_action ) {
-			status.textContent = 'Загрузка файлов недоступна.';
-			return;
-		}
-		addBtn.disabled    = true;
-		for ( const file of Array.from( input.files || [] ) ) {
-			status.textContent = `Загрузка: ${ file.name }…`;
-			try {
-				const up = await uploadOne( file );
-				files.push( { id: up.attachment_id, name: up.name || file.name } );
-				renderChips();
-				status.textContent = '';
-			} catch ( e ) {
-				status.textContent = `${ file.name }: ${ e.message }`;
-			}
-		}
-		input.value     = '';
-		addBtn.disabled = !! isDone;
-	} );
-
-	controls.append( addBtn, status );
-	fileBox.append( chips, controls, input );
-	container.appendChild( fileBox );
-
-	const hint = make( 'p', 'fs-widget-files__hint' );
-	hint.textContent = 'Проверяется преподавателем вручную. Фото/PDF/документ/презентация/.py, до 20 МБ.';
-	container.appendChild( hint );
-
-	return {
-		collectAnswer: () => JSON.stringify( {
-			text:  textarea.value.trim(),
-			files: files.map( ( f ) => f.id ),
-		} ),
 	};
 }
 

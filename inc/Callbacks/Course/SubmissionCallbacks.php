@@ -8,7 +8,6 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
-use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\SubmissionService;
@@ -24,7 +23,6 @@ class SubmissionCallbacks extends BaseController {
 		private readonly SubmissionService           $submissionService,
 		private readonly PersonRepository            $personRepository,
 		private readonly GroupAccessGuard            $guard,
-		private readonly GroupLessonRepository       $groupLessons,
 		private readonly MediaManager                $media,
 		private readonly AssessmentAttemptRepository $attempts,
 	) {
@@ -32,14 +30,13 @@ class SubmissionCallbacks extends BaseController {
 	}
 
 	/**
-	 * Двухшаговая загрузка файла ответа (Эпик 13, D16): ученик загружает файл
-	 * ЗАРАНЕЕ, получает attachment_id и кладёт его в JSON-ответ задачи
-	 * (`{"text":…,"files":[id]}`) — эндпоинты ответов остаются JSON, без multipart.
+	 * Двухшаговая загрузка файла ответа для «Развёрнутого ответа» в контрольных
+	 * (Эпик 13, D16): ученик загружает файл ЗАРАНЕЕ, получает attachment_id и
+	 * кладёт его в JSON-ответ задачи (`{"text":…,"files":[id]}`) —
+	 * save_attempt_answer остаётся JSON-эндпоинтом, без multipart.
 	 *
-	 * Два контекста доступа (взаимоисключающие параметры):
-	 *  - урок:    group_lesson_id → член группы занятия (`isMemberEver`);
-	 *  - экзамен: attempt_id      → СВОЯ попытка (у попытки нет group_lesson_id).
-	 * Params: group_lesson_id | attempt_id, $_FILES['answer_file'].
+	 * Доступ: СВОЯ попытка (attempt.studentPersonId === person.id).
+	 * Params: attempt_id, $_FILES['answer_file'].
 	 */
 	public function ajaxUploadAnswerFile(): void {
 		Nonce::UploadAnswerFile->verify();
@@ -50,20 +47,11 @@ class SubmissionCallbacks extends BaseController {
 			return;
 		}
 
-		$attemptId = isset( $_POST['attempt_id'] ) ? $this->sanitizeInt( 'attempt_id' ) : 0;
-		if ( $attemptId > 0 ) {
-			$attempt = $this->attempts->find( $attemptId );
-			if ( ! $attempt || $attempt->studentPersonId !== $person->id ) {
-				$this->error( 'Нет доступа к попытке.' );
-				return;
-			}
-		} else {
-			$groupLessonId = $this->requireInt( 'group_lesson_id' );
-			$row           = $this->groupLessons->find( $groupLessonId );
-			if ( ! $row || ! $this->guard->isMemberEver( $row->groupId, $person->id ) ) {
-				$this->error( 'Нет доступа к занятию.' );
-				return;
-			}
+		$attemptId = $this->requireInt( 'attempt_id' );
+		$attempt   = $this->attempts->find( $attemptId );
+		if ( ! $attempt || $attempt->studentPersonId !== $person->id ) {
+			$this->error( 'Нет доступа к попытке.' );
+			return;
 		}
 
 		try {
