@@ -8,6 +8,7 @@ use Inc\Callbacks\Course\SubmissionCallbacks;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Person\PersonDTO;
 use Inc\Managers\Wp\MediaManager;
+use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\GroupAccessGuard;
@@ -21,6 +22,7 @@ class SubmissionCallbacksTest extends TestCase {
 	private GroupAccessGuard      $guard;
 	private GroupLessonRepository $groupLessons;
 	private MediaManager          $media;
+	private AssessmentAttemptRepository $attempts;
 	private SubmissionCallbacks   $cb;
 
 	protected function setUp(): void {
@@ -31,8 +33,9 @@ class SubmissionCallbacksTest extends TestCase {
 		$this->guard        = $this->createMock( GroupAccessGuard::class );
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
 		$this->media        = $this->createMock( MediaManager::class );
+		$this->attempts     = $this->createMock( AssessmentAttemptRepository::class );
 		$this->cb           = new SubmissionCallbacks(
-			$this->service, $this->persons, $this->guard, $this->groupLessons, $this->media
+			$this->service, $this->persons, $this->guard, $this->groupLessons, $this->media, $this->attempts
 		);
 	}
 
@@ -144,6 +147,42 @@ class SubmissionCallbacksTest extends TestCase {
 		$this->media->method( 'uploadFromRequest' )
 			->willThrowException( new \RuntimeException( 'Файл превышает допустимый размер 20 МБ.' ) );
 		$_POST = array( 'group_lesson_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxUploadAnswerFile() )->success );
+	}
+
+	private function attempt( int $id, int $studentPersonId ): \Inc\DTO\Assessment\AttemptDTO {
+		return \Inc\DTO\Assessment\AttemptDTO::fromArray( array(
+			'id'                => $id,
+			'assessment_id'     => 1,
+			'student_person_id' => $studentPersonId,
+			'group_id'          => null,
+			'attempt_number'    => 1,
+			'started_at'        => '2026-01-01 00:00:00',
+			'deadline_at'       => '2026-01-01 01:00:00',
+			'status'            => 'in_progress',
+		) );
+	}
+
+	/** Экзаменный контекст (T13.5): доступ по СВОЕЙ попытке, group_lesson_id не нужен. */
+	public function test_upload_answer_file_allows_own_attempt(): void {
+		$this->persons->method( 'findByWpUserId' )->willReturn( $this->person( 99 ) );
+		$this->attempts->method( 'find' )->with( 7 )->willReturn( $this->attempt( 7, 99 ) );
+		$this->media->method( 'uploadFromRequest' )->willReturn( 502 );
+		$this->media->method( 'url' )->willReturn( 'https://example.test/solution.py' );
+		$_POST = array( 'attempt_id' => '7' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxUploadAnswerFile() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 502, $r->payload['attachment_id'] );
+	}
+
+	public function test_upload_answer_file_denied_for_foreign_attempt(): void {
+		$this->persons->method( 'findByWpUserId' )->willReturn( $this->person( 99 ) );
+		$this->attempts->method( 'find' )->willReturn( $this->attempt( 7, 12345 ) ); // чужая попытка
+		$this->media->expects( $this->never() )->method( 'uploadFromRequest' );
+		$_POST = array( 'attempt_id' => '7' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxUploadAnswerFile() )->success );
 	}

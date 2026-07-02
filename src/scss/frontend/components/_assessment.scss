@@ -137,3 +137,70 @@
 	color: $color-danger;
 	margin-top: $spacing-sm;
 }
+
+// ── Развёрнутый ответ: файлы + материалы (Эпик 13, D16) ────────────────────
+
+.fs-attempt-materials {
+	margin-bottom: $spacing-md;
+	padding:       $spacing-sm $spacing-md;
+	border:        1px solid $color-border;
+	border-radius: $radius-sm;
+
+	&__title {
+		font-weight:   $font-semibold;
+		margin-bottom: $spacing-xs;
+	}
+
+	&__link {
+		display:       block;
+		margin-bottom: $spacing-xs;
+		word-break:    break-all;
+	}
+}
+
+.fs-attempt-files {
+	margin: $spacing-sm 0;
+
+	&__chips {
+		display:   flex;
+		flex-wrap: wrap;
+		gap:       $spacing-xs;
+	}
+
+	&__chip {
+		display:       inline-flex;
+		align-items:   center;
+		gap:           $spacing-xs;
+		padding:       2px $spacing-sm;
+		border:        1px solid $color-border;
+		border-radius: $radius-md;
+		font-size:     $font-size-sm;
+	}
+
+	&__chip-remove {
+		border:      none;
+		background:  transparent;
+		color:       $color-danger;
+		cursor:      pointer;
+		padding:     0;
+		line-height: 1;
+	}
+
+	&__controls {
+		display:     flex;
+		align-items: center;
+		gap:         $spacing-sm;
+		margin-top:  $spacing-sm;
+	}
+
+	&__status {
+		font-size: $font-size-sm;
+		color:     $color-danger;
+	}
+
+	&__hint {
+		margin-top: $spacing-xs;
+		font-size:  $font-size-sm;
+		color:      $color-muted;
+	}
+}

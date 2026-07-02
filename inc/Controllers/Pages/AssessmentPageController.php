@@ -8,7 +8,10 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\Enums\Subject\TaskTemplate;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Assessment\AssessmentAccessPolicy;
@@ -39,6 +42,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		private readonly ExamPayloadFilter           $payloadFilter,
 		private readonly ClockInterface              $clock,
 		private readonly AssessmentAccessPolicy      $access,
+		private readonly PostManager                 $posts,
 	) {
 		parent::__construct();
 	}
@@ -88,6 +92,10 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 
 		$now = $this->clock->now();
 
+		// T13.5 (Эпик 13, D16): per-task view-данные для шаблона — тип шаблона задачи
+		// и материалы (для «Развёрнутый ответ»: файловый блок + ссылки на исходники).
+		$taskViews = $this->buildTaskViews( $assessment->taskIds );
+
 		$defaultTemplate = $this->path( 'templates/frontend/assessment/attempt.php' );
 
 		// T7.19: модули могут зарегистрировать собственный рендерер через этот фильтр.
@@ -106,5 +114,45 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		include $template;
 		ThemeCompatService::footer();
 		exit;
+	}
+
+	/**
+	 * Per-task view-данные (T13.5): тип шаблона + материалы для «Развёрнутый ответ».
+	 * Эталонные решения/критерии сюда НЕ попадают — на страницу ученика не отдаются.
+	 *
+	 * @param int[] $taskIds
+	 * @return array<int, array{template: string, materials: array<int, array{url: string, name: string}>}>
+	 */
+	private function buildTaskViews( array $taskIds ): array {
+		$views = array();
+		foreach ( $taskIds as $taskId ) {
+			$taskId   = (int) $taskId;
+			$template = TaskTemplate::fromDatabase(
+				(string) $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value )
+			);
+
+			$materials = array();
+			if ( TaskTemplate::FileAnswer === $template ) {
+				$meta = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
+				$ids  = is_array( $meta ) ? ( $meta['task_materials']['attachment_ids'] ?? array() ) : array();
+				foreach ( (array) $ids as $attachmentId ) {
+					$attachmentId = (int) $attachmentId;
+					$url          = $attachmentId ? wp_get_attachment_url( $attachmentId ) : '';
+					if ( ! $url ) {
+						continue;
+					}
+					$materials[] = array(
+						'url'  => $url,
+						'name' => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
+					);
+				}
+			}
+
+			$views[ $taskId ] = array(
+				'template'  => $template->value,
+				'materials' => $materials,
+			);
+		}
+		return $views;
 	}
 }
