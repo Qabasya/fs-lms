@@ -25,6 +25,15 @@ class RoomAvailabilityServiceTest extends TestCase {
 		self::assertTrue( $this->service->isFree( 1, '2026-05-20 09:00:00', '2026-05-20 10:00:00' ) );
 	}
 
+	/** T12.5: excludeGroupId пробрасывается в RoomRepository::isBusy() как есть. */
+	public function test_is_free_passes_exclude_group_id_through(): void {
+		$this->rooms->expects( $this->once() )->method( 'isBusy' )
+			->with( 1, '2026-05-20 09:00:00', '2026-05-20 10:00:00', 42, 5 )
+			->willReturn( false );
+
+		$this->service->isFree( 1, '2026-05-20 09:00:00', '2026-05-20 10:00:00', 42, 5 );
+	}
+
 	public function test_list_free_rooms_filters_by_subject_and_busy(): void {
 		$this->rooms->method( 'findAll' )->with( true )->willReturn( array(
 			new RoomDTO( 1, 'Инф-1', 20, array( 'inf' ), true ),

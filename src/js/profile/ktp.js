@@ -218,8 +218,13 @@ function renderCalendar() {
     const holidays = new Set(state.data.holidays || []);
     const lessonDays = new Set(state.data.lessonDays || []);
     const lessonTimes = state.data.lessonTimes || {};
+    // T12.5: на один день может быть две (и более) темы одной группы — стек, не перезапись.
     const byDate = {};
-    state.data.themes.forEach(t => { if (t.scheduled_at) byDate[t.scheduled_at.slice(0, 10)] = t; });
+    state.data.themes.forEach(t => {
+        if (!t.scheduled_at) return;
+        const ds = t.scheduled_at.slice(0, 10);
+        (byDate[ds] = byDate[ds] || []).push(t);
+    });
 
     const first = new Date(y, m, 1);
     const offset = (first.getDay() + 6) % 7;
@@ -231,7 +236,7 @@ function renderCalendar() {
         const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const isHol = holidays.has(ds);
         const isLesson = lessonDays.has(ds);
-        const th = byDate[ds];
+        const dayThemes = byDate[ds] || [];
 
         let cls = 'kal-cell';
         if (isHol) cls += ' holiday';
@@ -243,7 +248,7 @@ function renderCalendar() {
                 ${isHol ? `<span class="kd-tag hol">вых</span>` : ''}
                 ${isLesson && !isHol ? `<span class="kd-lesson">${lessonTimes[ds] ? esc(lessonTimes[ds]) : 'урок'}</span>` : ''}
             </div>
-            ${th ? placedThemeHtml(th) : ''}
+            ${dayThemes.map(placedThemeHtml).join('')}
         </div>`;
     }
 

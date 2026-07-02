@@ -296,4 +296,16 @@ class ScheduleServiceTest extends TestCase {
 
 		$this->service->pinToDate( 42, '2026-05-20 15:00:00', 1 );
 	}
+
+	/** T12.5: room-check исключает занятия СВОЕЙ группы — две темы в один день/кабинет не конфликт. */
+	public function test_pin_to_date_excludes_own_group_from_room_conflict_check(): void {
+		$row = $this->makeRow( 42, 'group', 7 ); // groupId: 5 (см. makeRow())
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->roomAvailability->expects( $this->once() )->method( 'isFree' )
+			->with( 7, '2026-05-20 15:00:00', $this->anything(), 42, $row->groupId )
+			->willReturn( true );
+
+		$this->service->pinToDate( 42, '2026-05-20 15:00:00', 1 );
+	}
 }

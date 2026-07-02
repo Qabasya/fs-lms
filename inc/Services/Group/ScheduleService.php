@@ -310,7 +310,8 @@ class ScheduleService {
 		}
 
 		// Конфликт кабинета (T11.4): эффективный кабинет занятия ?? основной кабинет
-		// группы; hard-block, если он занят другим занятием в это время.
+		// группы; hard-block, если он занят ДРУГОЙ группой в это время. Занятия своей
+		// группы (T12.5: две темы на один день) конфликтом не считаются — аналогично reflow.
 		$group  = $this->groups->findById( $row->groupId );
 		$roomId = ! empty( $row->roomId )
 			? (int) $row->roomId
@@ -319,7 +320,7 @@ class ScheduleService {
 			$end = ( $row->endsAt && '' !== $row->endsAt )
 				? $row->endsAt
 				: ( new \DateTimeImmutable( $scheduledAt ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
-			if ( ! $this->roomAvailability->isFree( $roomId, $scheduledAt, $end, $groupLessonId ) ) {
+			if ( ! $this->roomAvailability->isFree( $roomId, $scheduledAt, $end, $groupLessonId, $row->groupId ) ) {
 				throw new \InvalidArgumentException( 'Кабинет занят в это время другим занятием.' );
 			}
 		}

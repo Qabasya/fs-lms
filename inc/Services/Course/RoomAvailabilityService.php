@@ -20,9 +20,16 @@ class RoomAvailabilityService {
 		private readonly RoomRepository $rooms,
 	) {}
 
-	/** Свободен ли кабинет в окне [$start,$end) (кроме самого занятия $excludeGroupLessonId). */
-	public function isFree( int $roomId, string $start, string $end, int $excludeGroupLessonId = 0 ): bool {
-		return ! $this->rooms->isBusy( $roomId, $start, $end, $excludeGroupLessonId );
+	/**
+	 * Свободен ли кабинет в окне [$start,$end).
+	 *
+	 * @param int $excludeGroupLessonId исключить само занятие (напр. при его переносе).
+	 * @param int $excludeGroupId       исключить ВСЕ занятия этой группы (T12.5: своя
+	 *                                  группа не конфликтует сама с собой — две темы
+	 *                                  одной группы в один кабинет/день/время — не конфликт).
+	 */
+	public function isFree( int $roomId, string $start, string $end, int $excludeGroupLessonId = 0, int $excludeGroupId = 0 ): bool {
+		return ! $this->rooms->isBusy( $roomId, $start, $end, $excludeGroupLessonId, $excludeGroupId );
 	}
 
 	/**
