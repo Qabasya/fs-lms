@@ -70,6 +70,66 @@ class GroupAccessGuardTest extends TestCase {
 		self::assertTrue( $this->guard->isMemberEver( 5, 3 ) );
 	}
 
+	/* ── canWriteJournal (T5.7: read-only оригинала в период замены) ─────── */
+
+	public function test_can_write_journal_admin_bypasses_group_check(): void {
+		$GLOBALS['_test_user_can'][1]['manage_options'] = true;
+		$this->groups->expects( self::never() )->method( 'findById' );
+
+		self::assertTrue( $this->guard->canWriteJournal( 5, 1 ) );
+	}
+
+	public function test_can_write_journal_substitute_during_grant(): void {
+		$this->substitutions->method( 'hasActiveGrant' )->with( 99, 7 )->willReturn( true );
+		$this->groups->expects( self::never() )->method( 'findById' );
+
+		self::assertTrue( $this->guard->canWriteJournal( 7, 99 ) );
+	}
+
+	public function test_can_write_journal_permanent_teacher_blocked_during_substitution(): void {
+		$group             = new \stdClass();
+		$group->teacher_id = 42;
+		$this->groups->method( 'findById' )->with( 7 )->willReturn( $group );
+		$this->substitutions->method( 'hasActiveGrant' )->willReturn( false );
+		$this->substitutions->method( 'findActiveForGroup' )->willReturn( $this->makeSubstitution() );
+
+		// В период активной замены постоянный препод не может писать в журнал.
+		self::assertFalse( $this->guard->canWriteJournal( 7, 42 ) );
+	}
+
+	public function test_can_write_journal_permanent_teacher_allowed_without_substitution(): void {
+		$group             = new \stdClass();
+		$group->teacher_id = 42;
+		$this->groups->method( 'findById' )->with( 7 )->willReturn( $group );
+		$this->substitutions->method( 'hasActiveGrant' )->willReturn( false );
+		$this->substitutions->method( 'findActiveForGroup' )->willReturn( null );
+
+		self::assertTrue( $this->guard->canWriteJournal( 7, 42 ) );
+	}
+
+	public function test_can_write_journal_returns_false_for_stranger(): void {
+		$group             = new \stdClass();
+		$group->teacher_id = 42;
+		$this->groups->method( 'findById' )->willReturn( $group );
+		$this->substitutions->method( 'hasActiveGrant' )->willReturn( false );
+
+		self::assertFalse( $this->guard->canWriteJournal( 7, 99 ) );
+	}
+
+	private function makeSubstitution(): \Inc\DTO\Course\SubstitutionDTO {
+		return new \Inc\DTO\Course\SubstitutionDTO(
+			id                  : 1,
+			groupId             : 7,
+			originalTeacherId   : 42,
+			substituteTeacherId : 99,
+			validFrom           : '2026-01-01',
+			validTo             : '2030-12-31',
+			reason              : null,
+			approvedBy          : null,
+			createdAt           : '2026-01-01 00:00:00',
+		);
+	}
+
 	public function test_is_member_ever_returns_false_when_no_record(): void {
 		$this->studentRecords->method( 'countByGroupAndPerson' )->willReturn( 0 );
 

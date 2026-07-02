@@ -55,9 +55,68 @@ class ProgramCallbacks extends BaseController {
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->denyIfProgramLocked( $groupId );
 
 		$added = $this->assignmentService->assign( $groupId, $courseId, $userId, $policy );
 		$this->success( array( 'added' => $added ) );
+	}
+
+	/**
+	 * Курсы предмета группы для пикера назначения в КТП (Эпик 11 T11.1).
+	 * Params: group_id.
+	 */
+	public function ajaxGetSubjectCourses(): void {
+		$this->authorize( Nonce::AssignCourse, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+
+		if ( ! $this->guard->canManage( $groupId, get_current_user_id() ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->success( array( 'courses' => $this->assignmentService->coursesForGroup( $groupId ) ) );
+	}
+
+	/**
+	 * Публикует КТП группы (T1.8): фиксирует структуру и расписание — дальнейшие
+	 * правки программы блокируются до снятия публикации. Params: group_id.
+	 */
+	public function ajaxPublishProgram(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->scheduleService->publishProgram( $groupId, $userId );
+		$this->success( array( 'locked' => true, 'locked_at' => $this->scheduleService->programLockedAt( $groupId ) ) );
+	}
+
+	/**
+	 * Снимает публикацию КТП (T1.8): возвращает возможность редактирования
+	 * структуры и расписания программы. Params: group_id.
+	 */
+	public function ajaxUnpublishProgram(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->scheduleService->unpublishProgram( $groupId, $userId );
+		$this->success( array( 'locked' => false, 'locked_at' => null ) );
+	}
+
+	/**
+	 * T1.8: блокирует правку опубликованной (locked) КТП. Прерывает ответ JSON-ошибкой.
+	 */
+	private function denyIfProgramLocked( int $groupId ): void {
+		if ( $this->scheduleService->isProgramLocked( $groupId ) ) {
+			$this->error( __( 'КТП опубликована и заблокирована для изменений. Снимите публикацию, чтобы редактировать.', 'fs-lms' ) );
+		}
 	}
 
 	public function ajaxAddLessonToProgram(): void {
@@ -70,6 +129,7 @@ class ProgramCallbacks extends BaseController {
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->denyIfProgramLocked( $groupId );
 
 		$id = $this->scheduleService->addLesson( $groupId, $lessonId, $userId, $label );
 		$this->success( array( 'group_lesson_id' => $id ) );
@@ -84,6 +144,7 @@ class ProgramCallbacks extends BaseController {
 		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->denyIfProgramLocked( $row->groupId );
 
 		$id = $this->scheduleService->duplicateLesson( $groupLessonId, $userId );
 		$this->success( array( 'group_lesson_id' => $id ) );
@@ -94,7 +155,12 @@ class ProgramCallbacks extends BaseController {
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$userId        = get_current_user_id();
 
-		// Guard проверяется по владению записью внутри ScheduleService (group.teacher_id).
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+		$this->denyIfProgramLocked( $row->groupId );
+
 		$this->scheduleService->removeLesson( $groupLessonId, $userId );
 		$this->success();
 	}
@@ -108,6 +174,7 @@ class ProgramCallbacks extends BaseController {
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->denyIfProgramLocked( $groupId );
 
 		$this->scheduleService->reorder( $groupId, $orderedIds, $userId );
 		$this->success();
@@ -121,6 +188,12 @@ class ProgramCallbacks extends BaseController {
 			? $this->sanitizeInt( 'teacher_user_id' )
 			: null;
 		$userId         = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+		$this->denyIfProgramLocked( $row->groupId );
 
 		$this->scheduleService->schedule( $groupLessonId, $scheduledAt, $teacherUserId, $userId );
 		$this->success();
@@ -174,9 +247,10 @@ class ProgramCallbacks extends BaseController {
 		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->denyIfProgramLocked( $groupId );
 
-		$this->scheduleService->reflow( $groupId, $userId );
-		$this->success();
+		$conflicts = $this->scheduleService->reflow( $groupId, $userId );
+		$this->success( array( 'room_conflicts' => $conflicts ) );
 	}
 
 	/**
@@ -193,11 +267,17 @@ class ProgramCallbacks extends BaseController {
 		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+		$this->denyIfProgramLocked( $row->groupId );
 		if ( '' === $scheduledAt ) {
 			$this->error( __( 'Не указана дата.', 'fs-lms' ) );
 		}
 
-		$this->scheduleService->pinToDate( $groupLessonId, $scheduledAt, $userId );
+		try {
+			$this->scheduleService->pinToDate( $groupLessonId, $scheduledAt, $userId );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
 		$this->success();
 	}
 
@@ -218,6 +298,9 @@ class ProgramCallbacks extends BaseController {
 		$teacherUserId   = isset( $_POST['teacher_user_id'] ) && '' !== $_POST['teacher_user_id']
 			? $this->sanitizeInt( 'teacher_user_id' )
 			: null;
+		$roomId          = isset( $_POST['room_id'] ) && '' !== $_POST['room_id']
+			? $this->sanitizeInt( 'room_id' )
+			: null;
 		$userId          = get_current_user_id();
 
 		if ( '' === $scheduledAt ) {
@@ -229,7 +312,7 @@ class ProgramCallbacks extends BaseController {
 
 		try {
 			$id = $this->scheduleService->createIndividualLesson(
-				$groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $userId
+				$groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $userId, $roomId
 			);
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
@@ -270,6 +353,27 @@ class ProgramCallbacks extends BaseController {
 		}
 
 		$this->success( $this->summary->forStudent( $groupId, $personId ) );
+	}
+
+	/**
+	 * Свободные кабинеты для индивидуального занятия (Эпик 11 T11.3): по предмету
+	 * группы + окну времени. Params: group_id, scheduled_at [, ends_at].
+	 */
+	public function ajaxGetFreeRooms(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId     = $this->requireInt( 'group_id' );
+		$scheduledAt = $this->sanitizeText( 'scheduled_at' );
+		$endsAt      = $this->sanitizeText( 'ends_at' ) ?: null;
+		$userId      = get_current_user_id();
+
+		if ( '' === $scheduledAt ) {
+			$this->error( __( 'Не указана дата занятия.', 'fs-lms' ) );
+		}
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->success( array( 'rooms' => $this->scheduleService->freeRoomsForGroup( $groupId, $scheduledAt, $endsAt ) ) );
 	}
 
 	/**

@@ -219,6 +219,8 @@ enum AjaxHook: string {
 	case SetLessonVisibility     = 'set_lesson_visibility';
 	case GetGroupProgram         = 'get_group_program';
 	case GetGroupActivity        = 'get_group_activity';
+	case PublishProgram          = 'publish_program';   // params: group_id — опубликовать (заблокировать) КТП (T1.8)
+	case UnpublishProgram        = 'unpublish_program'; // params: group_id — снять публикацию КТП (T1.8)
 
 	// ==== КТП / расписание (ЛК преподавателя, Эпик 1) ====
 	case ReflowSchedule          = 'reflow_schedule';    // params: group_id — авто-распределение тем по слотам периода
@@ -226,13 +228,20 @@ enum AjaxHook: string {
 	case GetGroupCalendar        = 'get_group_calendar'; // params: group_id — слоты периода + выходные + размещённые темы
 
 	// ==== Индивидуальные занятия (ЛК преподавателя, Эпик 4) ====
-	case CreateIndividualLesson  = 'create_individual_lesson'; // params: group_id, student_person_id, scheduled_at[, ends_at, lesson_id, label, teacher_user_id]
+	case CreateIndividualLesson  = 'create_individual_lesson'; // params: group_id, student_person_id, scheduled_at[, ends_at, lesson_id, label, teacher_user_id, room_id]
+	case GetFreeRooms            = 'get_free_rooms'; // params: group_id, scheduled_at[, ends_at] — свободные кабинеты по предмету+времени (Эпик 11 T11.3)
 
 	// ==== Экран «Группы» / ростер (ЛК преподавателя, Эпик 10 T10.7) ====
 	case GetGroupRoster          = 'get_group_roster'; // params: group_id — активные ученики + их индивидуальные занятия
 
 	// ==== «Сводка по ученику» (ЛК преподавателя, Эпик 10 T10.8) ====
 	case GetStudentSummary       = 'get_student_summary'; // params: group_id, student_person_id — занятия ученика (посещаемость + работы)
+
+	// ==== Деталь работы из сводки (ЛК преподавателя, Эпик 10 T10.9) ====
+	case GetWorkDetail           = 'get_work_detail'; // params: source_type (submission|attempt), source_id — условия/ответы/вердикты
+
+	// ==== Курс-пикер КТП (ЛК преподавателя, Эпик 11 T11.1) ====
+	case GetSubjectCourses       = 'get_subject_courses'; // params: group_id — курсы предмета группы для назначения
 
 	// ==== Замены преподавателя (офис, Эпик 5) ====
 	case AssignSubstitute        = 'assign_substitute';        // params: group_id, substitute_teacher_id, valid_from, valid_to[, reason]

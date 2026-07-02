@@ -10,6 +10,7 @@ use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\ReviewQueueService;
+use Inc\Services\Course\WorkDetailService;
 use Inc\Services\Course\SubmissionService;
 use PHPUnit\Framework\TestCase;
 
@@ -21,6 +22,7 @@ class GradingCallbacksTest extends TestCase {
 	private SubmissionRepository  $submissions;
 	private GroupLessonRepository $groupLessons;
 	private ReviewQueueService    $reviewQueue;
+	private WorkDetailService     $workDetail;
 	private GradingCallbacks      $cb;
 
 	protected function setUp(): void {
@@ -32,8 +34,9 @@ class GradingCallbacksTest extends TestCase {
 		$this->submissions  = $this->createMock( SubmissionRepository::class );
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
 		$this->reviewQueue  = $this->createMock( ReviewQueueService::class );
+		$this->workDetail   = $this->createMock( WorkDetailService::class );
 		$this->cb           = new GradingCallbacks(
-			$this->service, $this->gradebook, $this->guard, $this->submissions, $this->groupLessons, $this->reviewQueue
+			$this->service, $this->gradebook, $this->guard, $this->submissions, $this->groupLessons, $this->reviewQueue, $this->workDetail
 		);
 	}
 
@@ -50,6 +53,36 @@ class GradingCallbacksTest extends TestCase {
 		$_POST = array();
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveGrade() )->success );
+	}
+
+	public function test_get_work_detail_returns_detail(): void {
+		$this->workDetail->expects( $this->once() )
+			->method( 'forWork' )
+			->with( 'submission', 5 )
+			->willReturn( array( 'kind' => 'work', 'title' => 'Работа', 'tasks' => array(), 'group_id' => 1 ) );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$_POST = array( 'source_type' => 'submission', 'source_id' => '5' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetWorkDetail() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 'work', $r->payload['kind'] );
+		self::assertArrayNotHasKey( 'group_id', $r->payload ); // не утекает клиенту
+	}
+
+	public function test_get_work_detail_not_found_errors(): void {
+		$this->workDetail->method( 'forWork' )->willReturn( null );
+		$_POST = array( 'source_type' => 'submission', 'source_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkDetail() )->success );
+	}
+
+	public function test_get_work_detail_denied_when_not_manager(): void {
+		$this->workDetail->method( 'forWork' )->willReturn( array( 'kind' => 'work', 'group_id' => 9 ) );
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$_POST = array( 'source_type' => 'submission', 'source_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkDetail() )->success );
 	}
 
 	public function test_get_group_submissions_returns_queue(): void {

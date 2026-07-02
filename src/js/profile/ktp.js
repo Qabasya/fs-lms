@@ -14,6 +14,7 @@ const GROUP_COLORS = ['#3b5bdb','#0ca678','#7048e8','#f08c00','#e8590c','#1c7ed6
 let root = null;
 let state = null;
 let api = null;
+let coursesApi = null;
 
 export function renderKTP(r) {
     root = r;
@@ -28,6 +29,7 @@ export function renderKTP(r) {
         dragGlid: null,
     };
     api = createApi(state.sched);
+    coursesApi = p.courses ? createApi(p.courses) : null;
 
     if (!state.groups.length || !state.sched) {
         root.innerHTML = noGroupsHtml();
@@ -45,6 +47,8 @@ function groupColor(id) {
 function currentGroup() {
     return state.groups.find(g => g.id === state.groupId) || state.groups[0];
 }
+/* T1.8: КТП опубликована (заблокирована) — правки структуры/расписания недоступны. */
+function isLocked() { return !!(state.data && state.data.locked); }
 
 /* ── AJAX ─────────────────────────────────────────────────────────────── */
 async function loadCalendar() {
@@ -85,6 +89,7 @@ function initialCursor() {
 function render() {
     const g = currentGroup();
     const assigned = state.data.assigned;
+    const locked = isLocked();
 
     root.innerHTML = `
     <div class="prof-ktp">
@@ -106,10 +111,17 @@ function render() {
                     <span class="kl"><span class="prof-dot" style="background:var(--accent)"></span>Закреплено</span>
                     <span class="kl"><span class="prof-dot" style="background:var(--absent)"></span>Выходной</span>
                 </div>
+                ${locked ? `
+                <span class="ktp-lock-badge" title="Опубликовано${state.data.locked_at ? ' ' + esc(state.data.locked_at) : ''}">
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3.5 6V4.5a3.5 3.5 0 0 1 7 0V6M2.75 6h8.5v6h-8.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                    Опубликовано
+                </span>
+                <button class="prof-btn prof-btn-sm" id="ktpUnpublish">Снять публикацию</button>` : `
                 <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
                     <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 7h9m0 0-3-3m3 3-3 3M16 13H7m0 0 3-3m-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Распределить
-                </button>` : ''}
+                </button>
+                <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
         </div>
 
         ${assigned ? `
@@ -124,7 +136,7 @@ function render() {
                     <div class="kal-month" id="ktpMonth"></div>
                     <button class="prof-icon-ghost" id="ktpNext"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                     <span style="flex:1"></span>
-                    <span id="ktpHint" style="font-size:12px;color:var(--muted)">Перетащите тему на дату, чтобы закрепить</span>
+                    <span id="ktpHint" style="font-size:12px;color:var(--muted)">${locked ? 'КТП опубликована — редактирование заблокировано' : 'Перетащите тему на дату, чтобы закрепить'}</span>
                 </div>
                 <div class="kal-grid-wrap">
                     <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
@@ -137,12 +149,48 @@ function render() {
     document.getElementById('ktpGroupBtn').onclick = openGroupMenu;
 
     if (assigned) {
-        document.getElementById('ktpReflow').onclick = doReflow;
+        if (locked) {
+            document.getElementById('ktpUnpublish').onclick = doUnpublish;
+        } else {
+            document.getElementById('ktpReflow').onclick = doReflow;
+            document.getElementById('ktpPublish').onclick = doPublish;
+        }
         document.getElementById('ktpPrev').onclick = () => shiftMonth(-1);
         document.getElementById('ktpNext').onclick = () => shiftMonth(1);
         renderBank();
         renderCalendar();
+    } else {
+        wireCoursePicker();
     }
+}
+
+/* Курс-пикер в пустом состоянии (T11.1): список курсов предмета → назначить. */
+async function wireCoursePicker() {
+    const sel = document.getElementById('ktpCourseSel');
+    const btn = document.getElementById('ktpAssignBtn');
+    if (!sel || !btn || !coursesApi) { return; }
+
+    try {
+        const d = await coursesApi('getCourses', { group_id: state.groupId });
+        const courses = (d && d.courses) || [];
+        sel.innerHTML = courses.length
+            ? '<option value="">— выберите курс —</option>' + courses.map(c => `<option value="${c.id}">${esc(c.title)}</option>`).join('')
+            : '<option value="">Нет курсов по этому предмету</option>';
+    } catch (e) {
+        sel.innerHTML = '<option value="">Не удалось загрузить курсы</option>';
+        toast(e.message);
+    }
+
+    sel.addEventListener('change', () => { btn.disabled = !sel.value; });
+    btn.addEventListener('click', async () => {
+        if (!sel.value) { return; }
+        btn.disabled = true;
+        try {
+            await coursesApi('assignCourse', { group_id: state.groupId, course_id: sel.value });
+            toast('Курс назначен');
+            await loadCalendar();
+        } catch (e) { toast(e.message); btn.disabled = false; }
+    });
 }
 
 function renderBank() {
@@ -157,7 +205,7 @@ function renderBank() {
         const placed = state.data.themes.length - unplaced.length;
         count.textContent = `${placed} / ${state.data.themes.length} распределено`;
     }
-    bank.querySelectorAll('.prof-theme-card').forEach(attachDrag);
+    if (!isLocked()) bank.querySelectorAll('.prof-theme-card').forEach(attachDrag);
 }
 
 function renderCalendar() {
@@ -200,8 +248,10 @@ function renderCalendar() {
 
     const grid = document.getElementById('ktpGrid');
     grid.innerHTML = cells;
-    grid.querySelectorAll('.kal-cell[data-lesson="1"]').forEach(attachDrop);
-    grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
+    if (!isLocked()) {
+        grid.querySelectorAll('.kal-cell[data-lesson="1"]').forEach(attachDrop);
+        grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
+    }
 }
 
 function themeCardHtml(t) {
@@ -217,10 +267,12 @@ function themeCardHtml(t) {
 
 function placedThemeHtml(t) {
     const pinned = t.is_pinned ? ' pinned' : '';
-    return `<div class="placed-theme${pinned}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}">
+    const roomTip = t.room ? ` · ауд. ${t.room}` : '';
+    return `<div class="placed-theme${pinned}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
         <span class="pt-pin"><svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><path d="M9.5 1.5 12.5 4.5 10 7l.5 3-3-2-3.5 3.5L4.5 8 2 7.5 4.5 5 7 4z"/></svg></span>
         <span class="pt-num">№${t.n}</span>
         <span class="pt-title">${esc(t.topic || 'Без названия')}</span>
+        ${t.room ? `<span class="pt-room">ауд. ${esc(t.room)}</span>` : ''}
     </div>`;
 }
 
@@ -253,12 +305,32 @@ function openGroupMenu() {
 
 async function doReflow() {
     try {
-        await api('reflow', { group_id: state.groupId });
-        toast('Темы распределены автоматически');
+        const res = await api('reflow', { group_id: state.groupId });
+        const conflicts = res && res.room_conflicts ? +res.room_conflicts : 0;
+        toast(conflicts > 0
+            ? `Темы распределены · кабинет снят с ${conflicts} занятий (был занят)`
+            : 'Темы распределены автоматически');
         await loadCalendar();
     } catch (e) {
         toast(e.message);
     }
+}
+
+/* T1.8: публикация/снятие публикации КТП. */
+async function doPublish() {
+    try {
+        await api('publish', { group_id: state.groupId });
+        toast('КТП опубликована — редактирование заблокировано');
+        await loadCalendar();
+    } catch (e) { toast(e.message); }
+}
+
+async function doUnpublish() {
+    try {
+        await api('unpublish', { group_id: state.groupId });
+        toast('Публикация снята — редактирование доступно');
+        await loadCalendar();
+    } catch (e) { toast(e.message); }
 }
 
 function attachDrag(el) {
@@ -301,7 +373,11 @@ function emptyStateHtml(g) {
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M8 2.5v4M16 2.5v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         </div>
         <h3>Для группы ${esc(g.name)} не назначен курс</h3>
-        <p>Назначьте курс группе в админке LMS —<br>появятся темы и календарь для распределения.</p>
+        <p>Выберите курс предмета — появятся темы и календарь для распределения.</p>
+        <div class="ke-assign">
+            <select id="ktpCourseSel" class="ke-course-sel"><option value="">— загрузка курсов… —</option></select>
+            <button class="prof-btn prof-btn-primary" id="ktpAssignBtn" disabled>Назначить курс</button>
+        </div>
     </div>`;
 }
 

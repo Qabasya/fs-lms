@@ -10,6 +10,7 @@ import { esc, toast, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, close
 import { createApi } from './api.js';
 
 const DOW_JS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+const MONTHS_RU = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const AVA_COLORS = ['#5c7cfa','#7048e8','#1c7ed6','#0ca678','#f08c00','#e8590c','#e64980','#9c36b5','#2f9e44','#4263eb'];
 
 let root = null;
@@ -25,6 +26,8 @@ export function renderJournal(r) {
         groupId: (p.groups && p.groups[0]) ? p.groups[0].id : null,
         data:    null,
         filters: null,
+        months:  [],   // T11.5: список месяцев 'YYYY-MM', отсортированный
+        monthIdx: 0,   // T11.5: индекс активного месяца в months
     };
     api = createApi(state.cfg);
     if (!state.groups.length || !state.cfg) { root.innerHTML = emptyHtml('Нет групп', 'За вами не закреплены группы.'); return; }
@@ -48,6 +51,47 @@ async function load() {
     }
     // По умолчанию показываем все присутствующие типы работ.
     state.filters = new Set(state.data.types || []);
+    computeMonths();
+    render();
+}
+
+/* ── Помесячная пагинация (T11.5) ─────────────────────────────────────── */
+/** Собирает отсортированный список месяцев из занятий и выбирает активный. */
+function computeMonths() {
+    const set = new Set((state.data.lessons || []).map(l => l.date.slice(0, 7)));
+    state.months = [...set].sort();
+    // По умолчанию — текущий месяц, иначе последний прошедший, иначе первый.
+    const cur = todayIso().slice(0, 7);
+    let idx = state.months.indexOf(cur);
+    if (idx < 0) {
+        idx = 0;
+        for (let i = 0; i < state.months.length; i++) {
+            if (state.months[i] <= cur) idx = i;
+        }
+    }
+    state.monthIdx = state.months.length ? Math.max(0, idx) : 0;
+}
+
+/** Занятия активного месяца. */
+function lessonsForMonth() {
+    if (!state.data) return [];
+    const m = state.months[state.monthIdx];
+    if (!m) return state.data.lessons || [];
+    return (state.data.lessons || []).filter(l => l.date.slice(0, 7) === m);
+}
+
+/** Человекочитаемая метка активного месяца, напр. «Июль 2026». */
+function monthLabel() {
+    const m = state.months[state.monthIdx];
+    if (!m) return '';
+    const [y, mm] = m.split('-');
+    return `${MONTHS_RU[+mm - 1]} ${y}`;
+}
+
+function changeMonth(delta) {
+    const next = state.monthIdx + delta;
+    if (next < 0 || next >= state.months.length) return;
+    state.monthIdx = next;
     render();
 }
 
@@ -60,6 +104,14 @@ function render() {
 
     if (!d.students.length) {
         root.innerHTML = wrap(g, emptyInline('В группе нет активных учеников.'));
+        bindChrome();
+        return;
+    }
+
+    const lessons = lessonsForMonth();
+    if (!lessons.length) {
+        root.innerHTML = wrap(g, emptyInline('В этом месяце нет занятий.'));
+        bindChrome();
         return;
     }
 
@@ -68,7 +120,7 @@ function render() {
             <tr>
                 <th class="col-idx"><div class="hd-idx">#</div></th>
                 <th class="col-name"><div class="hd-name">Ученик</div></th>
-                ${d.lessons.map(lessonHead).join('')}
+                ${lessons.map(lessonHead).join('')}
             </tr>
         </thead>`;
 
@@ -81,11 +133,18 @@ function render() {
                     <span class="cn-name">${esc(s.name)}</span>
                 </div>
             </td>
-            ${d.lessons.map(l => attCell(s.person_id, l)).join('')}
+            ${lessons.map(l => attCell(s.person_id, l)).join('')}
         </tr>`).join('')}</tbody>`;
 
     root.innerHTML = wrap(g, `<div class="j-scroll" id="jScroll"><table class="jgrid">${head}${body}</table></div>`);
     root.querySelector('.jgrid').addEventListener('click', onGridClick);
+    bindChrome();
+}
+
+/** Навешивает обработчики на общие элементы шапки (пагинация месяцев + фильтры). */
+function bindChrome() {
+    root.querySelectorAll('.jm-arrow[data-mnav]').forEach(btn =>
+        btn.addEventListener('click', () => changeMonth(+btn.dataset.mnav)));
     root.querySelectorAll('.j-filters input[data-type]').forEach(cb =>
         cb.addEventListener('change', () => {
             if (cb.checked) state.filters.add(cb.dataset.type); else state.filters.delete(cb.dataset.type);
@@ -95,11 +154,19 @@ function render() {
 
 function wrap(g, inner) {
     const d = state.data || { students: [], lessons: [], types: [] };
+    const monthLessons = lessonsForMonth();
+    const hasNav = state.months.length > 0;
+    const atFirst = state.monthIdx <= 0;
+    const atLast = state.monthIdx >= state.months.length - 1;
     return `
     <div class="prof-journal">
         <div class="j-monthnav">
-            <div class="jm-label">${esc(g.name)} · ${esc(g.subject)}</div>
-            <span class="jm-count">${d.students.length} уч. · ${d.lessons.length} занятий</span>
+            <div class="jm-group">${esc(g.name)} · ${esc(g.subject)}</div>
+            ${hasNav ? `
+            <button type="button" class="jm-arrow" data-mnav="-1" ${atFirst ? 'disabled' : ''} aria-label="Предыдущий месяц">‹</button>
+            <div class="jm-label">${esc(monthLabel())}</div>
+            <button type="button" class="jm-arrow" data-mnav="1" ${atLast ? 'disabled' : ''} aria-label="Следующий месяц">›</button>` : ''}
+            <span class="jm-count">${d.students.length} уч. · ${monthLessons.length} занятий</span>
             ${filterBar()}
         </div>
         <div class="prof-journal-wrap var-a">${inner}</div>
@@ -126,9 +193,11 @@ function lessonHead(l) {
     const [, m, dd] = l.date.split('-');
     const dow = DOW_JS[new Date(l.date).getDay()];
     const future = isFutureDate(l.date);
-    return `<th class="hd-col${future ? ' future' : ''}" data-glid="${l.group_lesson_id}" title="${esc(l.topic)} · ${l.date}${future ? ' · ещё не прошло' : ''}">
+    const roomTip = l.room ? ` · ауд. ${l.room}` : '';
+    return `<th class="hd-col${future ? ' future' : ''}" data-glid="${l.group_lesson_id}" title="${esc(l.topic)} · ${l.date}${roomTip}${future ? ' · ещё не прошло' : ''}">
         <div class="hd-date">${dd}.${m}</div>
         <div class="hd-dow">${dow}</div>
+        ${l.room ? `<div class="hd-room" title="ауд. ${esc(l.room)}">${esc(l.room)}</div>` : ''}
     </th>`;
 }
 

@@ -23,6 +23,22 @@ class CourseAssignmentService {
 	) {}
 
 	/**
+	 * Курсы предмета группы для пикера назначения в КТП (Эпик 11 T11.1).
+	 *
+	 * @return array<int, array{id:int, title:string}>
+	 */
+	public function coursesForGroup( int $groupId ): array {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			return array();
+		}
+		return array_map(
+			static fn( $course ): array => array( 'id' => $course->id, 'title' => $course->title ),
+			$this->courseManager->getBankBySubject( (string) $group->subject_key )
+		);
+	}
+
+	/**
 	 * Снапшотит уроки курса в программу группы.
 	 *
 	 * @param AssignmentPolicy $policy Append — дописать; Replace — заменить (удаляет текущие строки).

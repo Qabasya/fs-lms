@@ -18,7 +18,9 @@ use Inc\Shared\Traits\Sanitizer;
  * Class JournalCallbacks
  *
  * AJAX журнала группы (ЛК преподавателя/офиса, Эпик 2): чтение журнала + посещаемость.
- * Доступ — `canManage` (препод по своей группе; офис/админ — по `ManageLmsPlatform`).
+ * Чтение — `canManage` (препод по своей группе; офис/админ — по `ManageLmsPlatform`).
+ * Запись посещаемости — `canWriteJournal`: в период активной замены постоянный
+ * препод переходит в read-only, отмечает только замещающий (T5.7).
  *
  * @package Inc\Callbacks\Course
  */
@@ -62,7 +64,7 @@ class JournalCallbacks extends BaseController {
 		$userId        = get_current_user_id();
 
 		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+		if ( ! $row || ! $this->guard->canWriteJournal( $row->groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
 		$this->guardNotFuture( $row );
@@ -81,7 +83,7 @@ class JournalCallbacks extends BaseController {
 		$userId        = get_current_user_id();
 
 		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+		if ( ! $row || ! $this->guard->canWriteJournal( $row->groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
 		$this->guardNotFuture( $row );

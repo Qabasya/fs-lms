@@ -51,7 +51,7 @@ class JournalCallbacksTest extends TestCase {
 
 	public function test_save_attendance_marks_when_allowed(): void {
 		$this->groupLessons->method( 'find' )->with( 10 )->willReturn( $this->row( 10, 5 ) );
-		$this->guard->method( 'canManage' )->with( 5, $this->anything() )->willReturn( true );
+		$this->guard->method( 'canWriteJournal' )->with( 5, $this->anything() )->willReturn( true );
 		$this->attendance->expects( $this->once() )->method( 'mark' )->with( 10, 900, true, $this->anything() );
 		$_POST = array( 'group_lesson_id' => '10', 'student_person_id' => '900', 'is_present' => '1' );
 
@@ -74,7 +74,7 @@ class JournalCallbacksTest extends TestCase {
 			createdByUserId: null, updatedByUserId: null,
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $future );
-		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
 		$this->attendance->expects( $this->never() )->method( 'mark' );
 		$_POST = array( 'group_lesson_id' => '10', 'student_person_id' => '900', 'is_present' => '1' );
 
@@ -83,7 +83,7 @@ class JournalCallbacksTest extends TestCase {
 
 	public function test_bulk_attendance_marks_all_when_allowed(): void {
 		$this->groupLessons->method( 'find' )->with( 10 )->willReturn( $this->row( 10, 5 ) );
-		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
 		$this->attendance->expects( $this->once() )->method( 'markAll' )->with( 10, false, $this->anything() );
 		$_POST = array( 'group_lesson_id' => '10', 'is_present' => '0' );
 

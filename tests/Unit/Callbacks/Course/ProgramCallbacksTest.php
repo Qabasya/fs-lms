@@ -98,7 +98,7 @@ class ProgramCallbacksTest extends TestCase {
 		$this->guard->method( 'canManage' )->willReturn( true );
 		$this->schedule->expects( $this->once() )
 			->method( 'createIndividualLesson' )
-			->with( 1, 9001, '2026-05-20 15:00:00', null, null, null, null, $this->anything() )
+			->with( 1, 9001, '2026-05-20 15:00:00', null, null, null, null, $this->anything(), null )
 			->willReturn( 15 );
 		$_POST = array( 'group_id' => '1', 'student_person_id' => '9001', 'scheduled_at' => '2026-05-20 15:00:00' );
 
@@ -161,6 +161,50 @@ class ProgramCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetStudentSummary() )->success );
 	}
 
+	public function test_get_free_rooms_returns_rooms(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->expects( $this->once() )
+			->method( 'freeRoomsForGroup' )
+			->with( 1, '2026-05-20 15:00:00', null )
+			->willReturn( array( array( 'id' => 3, 'name' => '315' ) ) );
+		$_POST = array( 'group_id' => '1', 'scheduled_at' => '2026-05-20 15:00:00' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetFreeRooms() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( '315', $r->payload['rooms'][0]['name'] );
+	}
+
+	public function test_get_free_rooms_denied_when_not_manager(): void {
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->schedule->expects( $this->never() )->method( 'freeRoomsForGroup' );
+		$_POST = array( 'group_id' => '1', 'scheduled_at' => '2026-05-20 15:00:00' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetFreeRooms() )->success );
+	}
+
+	public function test_get_subject_courses_returns_courses(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->assignment->expects( $this->once() )
+			->method( 'coursesForGroup' )
+			->with( 1 )
+			->willReturn( array( array( 'id' => 7, 'title' => 'Python' ) ) );
+		$_POST = array( 'group_id' => '1' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetSubjectCourses() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 'Python', $r->payload['courses'][0]['title'] );
+	}
+
+	public function test_get_subject_courses_denied_when_not_manager(): void {
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->assignment->expects( $this->never() )->method( 'coursesForGroup' );
+		$_POST = array( 'group_id' => '1' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetSubjectCourses() )->success );
+	}
+
 	public function test_create_individual_lesson_surfaces_service_error(): void {
 		$this->guard->method( 'canManage' )->willReturn( true );
 		$this->schedule->method( 'createIndividualLesson' )
@@ -221,5 +265,48 @@ class ProgramCallbacksTest extends TestCase {
 		self::assertSame( array(), $r->payload['events'] );
 		self::assertSame( 0, $r->payload['total'] );
 		self::assertSame( 1, $r->payload['page'] );
+	}
+
+	/* ── Lock КТП (T1.8) ─────────────────────────────────────────────────── */
+
+	public function test_publish_program_delegates_and_returns_locked(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->expects( $this->once() )->method( 'publishProgram' )->with( 5, $this->anything() );
+		$this->schedule->method( 'programLockedAt' )->willReturn( '2026-07-02 10:00:00' );
+		$_POST = array( 'group_id' => '5' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxPublishProgram() );
+
+		self::assertTrue( $r->success );
+		self::assertTrue( $r->payload['locked'] );
+	}
+
+	public function test_unpublish_program_delegates(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->expects( $this->once() )->method( 'unpublishProgram' )->with( 5, $this->anything() );
+		$_POST = array( 'group_id' => '5' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxUnpublishProgram() );
+
+		self::assertTrue( $r->success );
+		self::assertFalse( $r->payload['locked'] );
+	}
+
+	public function test_reflow_blocked_when_program_locked(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->method( 'isProgramLocked' )->with( 5 )->willReturn( true );
+		$this->schedule->expects( $this->never() )->method( 'reflow' );
+		$_POST = array( 'group_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxReflowSchedule() )->success );
+	}
+
+	public function test_add_lesson_blocked_when_program_locked(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->method( 'isProgramLocked' )->with( 5 )->willReturn( true );
+		$this->schedule->expects( $this->never() )->method( 'addLesson' );
+		$_POST = array( 'group_id' => '5', 'lesson_id' => '10' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxAddLessonToProgram() )->success );
 	}
 }

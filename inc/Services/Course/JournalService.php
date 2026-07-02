@@ -6,6 +6,8 @@ namespace Inc\Services\Course;
 
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 /**
@@ -27,6 +29,8 @@ class JournalService {
 		private readonly LessonManager           $lessons,
 		private readonly AttendanceService       $attendance,
 		private readonly GradebookService        $gradebook,
+		private readonly RoomRepository          $rooms,
+		private readonly GroupsRepository        $groups,
 	) {}
 
 	/**
@@ -35,7 +39,7 @@ class JournalService {
 	 *
 	 * @return array{
 	 *   students: array<int,array{person_id:int,name:string}>,
-	 *   lessons: array<int,array{group_lesson_id:int,date:string,topic:string}>,
+	 *   lessons: array<int,array{group_lesson_id:int,date:string,topic:string,room:string}>,
 	 *   attendance: array<int,array<int,bool>>,
 	 *   cell_works: array<int,array<int,array<int,array{badge:string,value:string,display:string}>>>,
 	 *   types: string[]
@@ -51,6 +55,14 @@ class JournalService {
 			);
 		}
 
+		// Эффективный кабинет (T11.2): кабинет занятия ?? основной кабинет группы.
+		$group       = $this->groups->findById( $groupId );
+		$groupRoomId = ( $group && ! empty( $group->room_id ) ) ? (int) $group->room_id : 0;
+		$roomNames   = array();
+		foreach ( $this->rooms->findAll() as $r ) {
+			$roomNames[ $r->id ] = $r->name;
+		}
+
 		// Столбцы-занятия (только датированные).
 		$lessons = array();
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
@@ -59,10 +71,12 @@ class JournalService {
 				continue;
 			}
 			$lesson    = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
+			$effRoomId = ! empty( $row->roomId ) ? (int) $row->roomId : $groupRoomId;
 			$lessons[] = array(
 				'group_lesson_id' => $row->id,
 				'date'            => substr( $row->scheduledAt, 0, 10 ),
 				'topic'           => $lesson?->topic ?? ( $row->label ?? '' ),
+				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
 			);
 		}
 

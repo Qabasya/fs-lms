@@ -11,7 +11,9 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Services\Group\ScheduleService;
 use Inc\Services\Group\SessionCalendarService;
 use PHPUnit\Framework\TestCase;
@@ -24,6 +26,8 @@ class ScheduleServiceTest extends TestCase {
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
 	private SessionCalendarService&\PHPUnit\Framework\MockObject\MockObject $calendar;
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $records;
+	private RoomRepository&\PHPUnit\Framework\MockObject\MockObject $rooms;
+	private RoomAvailabilityService&\PHPUnit\Framework\MockObject\MockObject $roomAvailability;
 	private ScheduleService $service;
 
 	protected function setUp(): void {
@@ -34,6 +38,8 @@ class ScheduleServiceTest extends TestCase {
 		$this->dispatcher    = $this->createMock( LogEventDispatcherInterface::class );
 		$this->calendar      = $this->createMock( SessionCalendarService::class );
 		$this->records       = $this->createMock( StudentRecordRepository::class );
+		$this->rooms         = $this->createMock( RoomRepository::class );
+		$this->roomAvailability = $this->createMock( RoomAvailabilityService::class );
 		$this->service       = new ScheduleService(
 			$this->groupLessons,
 			$this->lessonManager,
@@ -41,6 +47,8 @@ class ScheduleServiceTest extends TestCase {
 			$this->dispatcher,
 			$this->calendar,
 			$this->records,
+			$this->rooms,
+			$this->roomAvailability,
 		);
 	}
 
@@ -246,7 +254,7 @@ class ScheduleServiceTest extends TestCase {
 		);
 	}
 
-	private function makeRow( int $id = 42, string $kind = 'group' ): GroupLessonDTO {
+	private function makeRow( int $id = 42, string $kind = 'group', ?int $roomId = null ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id              : $id,
 			groupId         : 5,
@@ -266,6 +274,26 @@ class ScheduleServiceTest extends TestCase {
 			createdByUserId : null,
 			updatedByUserId : null,
 			kind            : $kind,
+			roomId          : $roomId,
 		);
+	}
+
+	public function test_pin_to_date_blocks_on_room_conflict(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group', 7 ) );
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->roomAvailability->method( 'isFree' )->willReturn( false ); // кабинет занят
+		$this->groupLessons->expects( $this->never() )->method( 'updateSchedule' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->pinToDate( 42, '2026-05-20 15:00:00', 1 );
+	}
+
+	public function test_pin_to_date_proceeds_when_room_free(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group', 7 ) );
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->roomAvailability->method( 'isFree' )->willReturn( true );
+		$this->groupLessons->expects( $this->once() )->method( 'updateSchedule' );
+
+		$this->service->pinToDate( 42, '2026-05-20 15:00:00', 1 );
 	}
 }

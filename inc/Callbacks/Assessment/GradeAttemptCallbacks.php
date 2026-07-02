@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Services\Assessment\AutoGradeService;
+use Inc\Services\Course\GroupAccessGuard;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Shared\Traits\Authorizer;
@@ -26,6 +27,7 @@ class GradeAttemptCallbacks extends BaseController {
 		private readonly AssessmentAnswerRepository  $answers,
 		private readonly AutoGradeService            $autoGrade,
 		private readonly ClockInterface              $clock,
+		private readonly GroupAccessGuard            $guard,
 	) {
 		parent::__construct();
 	}
@@ -43,6 +45,13 @@ class GradeAttemptCallbacks extends BaseController {
 		$attempt = $this->attempts->find( $attemptId );
 		if ( ! $attempt ) {
 			$this->error( 'Попытка не найдена.' );
+			return;
+		}
+
+		// Per-group scoping: попытка, привязанная к группе, — только для её ФАКТИЧЕСКОГО
+		// преподавателя (T11.9); в период замены оригинал — read-only (T5.7).
+		if ( $attempt->groupId && ! $this->guard->canWriteJournal( (int) $attempt->groupId, get_current_user_id() ) ) {
+			$this->error( 'Нет доступа к этой группе.' );
 			return;
 		}
 

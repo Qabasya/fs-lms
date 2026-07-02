@@ -110,11 +110,30 @@ function openIndiForm(pid, anchor) {
         <div class="gp-title">Инд. занятие · ${esc(s ? firstWord(s.name) : '')}</div>
         <label class="gp-field"><span>Дата</span><input type="date" id="giDate" value="${today}"></label>
         <label class="gp-field"><span>Время</span><input type="time" id="giTime" value="15:00"></label>
+        <label class="gp-field"><span>Кабинет</span><select id="giRoom"><option value="">Без кабинета</option></select></label>
         <label class="gp-field"><span>Тема (необязательно)</span><input type="text" id="giLabel" placeholder="Напр. Разбор ошибок"></label>
         <div class="gp-row">
             <button class="prof-btn prof-btn-sm prof-btn-primary" data-gi="create">Создать</button>
             <button class="prof-btn prof-btn-sm" data-gi="cancel">Отмена</button>
         </div>`;
+
+    const roomSel = pop.querySelector('#giRoom');
+    // Свободные кабинеты (T11.3): по предмету группы + выбранному окну времени.
+    const loadFreeRooms = async () => {
+        const date = pop.querySelector('#giDate').value;
+        const time = pop.querySelector('#giTime').value || '15:00';
+        if (!date) { roomSel.innerHTML = '<option value="">Без кабинета</option>'; return; }
+        roomSel.innerHTML = '<option value="">— загрузка… —</option>';
+        try {
+            const d = await api('getFreeRooms', { group_id: state.groupId, scheduled_at: `${date} ${time}:00` });
+            const rooms = (d && d.rooms) || [];
+            roomSel.innerHTML = '<option value="">Без кабинета</option>' +
+                rooms.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+        } catch { roomSel.innerHTML = '<option value="">Без кабинета</option>'; }
+    };
+    pop.querySelector('#giDate').addEventListener('change', loadFreeRooms);
+    pop.querySelector('#giTime').addEventListener('change', loadFreeRooms);
+    loadFreeRooms();
 
     pop.querySelector('[data-gi="cancel"]').addEventListener('click', closeGradePop);
     pop.querySelector('[data-gi="create"]').addEventListener('click', async () => {
@@ -129,6 +148,7 @@ function openIndiForm(pid, anchor) {
                 student_person_id: pid,
                 scheduled_at: `${date} ${time}:00`,
                 label,
+                room_id: roomSel.value || '',
             });
             toast('Индивидуальное занятие создано');
             load();

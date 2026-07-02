@@ -297,4 +297,17 @@ class GroupsRepository {
 			array( 'id' => $groupId )
 		);
 	}
+
+	/**
+	 * Публикация/распубликация КТП (T1.8): дата блокировки или NULL.
+	 *
+	 * @param string|null $lockedAt 'Y-m-d H:i:s' при публикации, null при снятии.
+	 */
+	public function setProgramLocked( int $groupId, ?string $lockedAt ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'program_locked_at' => $lockedAt ),
+			array( 'id' => $groupId )
+		);
+	}
 }

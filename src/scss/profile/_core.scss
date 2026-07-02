@@ -355,6 +355,14 @@ button { font-family: inherit; }
 .prof-ktp-legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .prof-ktp-legend .kl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 
+/* T1.8: бейдж «опубликовано» (КТП заблокирована) */
+.ktp-lock-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent-700); border: 1px solid var(--accent-soft-2);
+}
+.ktp-lock-badge svg { stroke: currentColor; flex-shrink: 0; }
+
 .prof-ktp-pickers { display: flex; align-items: flex-end; gap: 12px; }
 .prof-ktp-pick { display: flex; flex-direction: column; gap: 5px; }
 .kp-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); padding-left: 2px; }
@@ -516,3 +524,11 @@ body.prof-density-cozy .prof-grp-card { padding-top: 15px; padding-bottom: 15px;
    (dashboard/substitutions/learner). Перенесены сюда после удаления _review.scss. */
 .rev-loading { color: var(--muted);   font-size: 14px; padding: 40px 20px; text-align: center; }
 .rev-empty   { color: var(--muted-2); font-size: 14px; padding: 40px 20px; text-align: center; }
+
+/* T11.2: кабинет на карточке темы КТП */
+.placed-theme .pt-room { display: block; font-size: 9px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* T11.1: курс-пикер в пустом состоянии КТП */
+.ke-assign { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+.ke-course-sel { min-width: 220px; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer; }
+.ke-course-sel:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }

@@ -6,6 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
+use Inc\Enums\Course\LessonStatus;
 use Inc\Enums\Settings\TableName;
 
 class GroupLessonRepository {
@@ -111,8 +112,20 @@ class GroupLessonRepository {
 		$rows = $this->listByGroup( $groupId );
 		$i    = 0;
 		foreach ( $rows as $row ) {
-			// Индивидуальные привязаны к дате, а не к последовательности — не двигаем.
+			// Индивидуальные и пиннутые привязаны к своей дате, а не к последовательности — не двигаем.
 			if ( $row->isPinned || 'individual' === $row->kind ) {
+				continue;
+			}
+			$status = LessonStatus::fromValueOrDefault( $row->status );
+			// T11.6: проведённое занятие фиксирует свою дату (факт), но ЗАНИМАЕТ слот
+			// в последовательности — нерассказанный хвост раскладывается после него.
+			if ( LessonStatus::Held === $status ) {
+				++$i;
+				continue;
+			}
+			// T11.6: отменённое/перенесённое ОСВОБОЖДАЕТ слот — хвост сдвигается вперёд
+			// (слот не тратится, дата не переписывается).
+			if ( $status->freesSlot() ) {
 				continue;
 			}
 			if ( ! isset( $slots[ $i ] ) ) {

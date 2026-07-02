@@ -87,18 +87,24 @@ class RoomRepository {
 	 * @param string   $start 'Y-m-d H:i:s'.
 	 * @param string   $end   'Y-m-d H:i:s'.
 	 */
-	public function isBusy( int $roomId, string $start, string $end, int $excludeGroupLessonId = 0 ): bool {
+	/**
+	 * @param int $excludeGroupLessonId одно занятие исключить (0 = никого).
+	 * @param int $excludeGroupId       исключить ВСЕ занятия группы (для bulk-reflow, T11.4;
+	 *                                  0 = не исключать, т.к. id групп всегда > 0).
+	 */
+	public function isBusy( int $roomId, string $start, string $end, int $excludeGroupLessonId = 0, int $excludeGroupId = 0 ): bool {
 		$sql = "SELECT 1 FROM {$this->glTable} gl
 				LEFT JOIN {$this->groupsTable} g ON g.id = gl.group_id
 				WHERE COALESCE(gl.room_id, g.room_id) = %d
 				  AND gl.id <> %d
+				  AND gl.group_id <> %d
 				  AND gl.scheduled_at IS NOT NULL
 				  AND gl.scheduled_at < %s
 				  AND COALESCE(gl.ends_at, gl.scheduled_at + INTERVAL 60 MINUTE) > %s
 				LIMIT 1";
 		return (bool) $this->wpdb->get_var(
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$this->wpdb->prepare( $sql, $roomId, $excludeGroupLessonId, $end, $start )
+			$this->wpdb->prepare( $sql, $roomId, $excludeGroupLessonId, $excludeGroupId, $end, $start )
 		);
 	}
 }

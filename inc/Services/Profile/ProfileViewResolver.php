@@ -130,6 +130,15 @@ class ProfileViewResolver {
 					'reflow'       => AjaxHook::ReflowSchedule->jsAction(),
 					'pin'          => AjaxHook::PinLesson->jsAction(),
 					'getProgram'   => AjaxHook::GetGroupProgram->jsAction(),
+					'publish'      => AjaxHook::PublishProgram->jsAction(),
+					'unpublish'    => AjaxHook::UnpublishProgram->jsAction(),
+				),
+			);
+			// Курс-пикер КТП (T11.1) — отдельный блок: `assign_course` требует Nonce::AssignCourse.
+			$config['courses'] = array(
+				'nonce'   => Nonce::AssignCourse->create(),
+				'actions' => array(
+					'getCourses'   => AjaxHook::GetSubjectCourses->jsAction(),
 					'assignCourse' => AjaxHook::AssignCourse->jsAction(),
 				),
 			);
@@ -148,6 +157,7 @@ class ProfileViewResolver {
 				'actions' => array(
 					'getRoster'        => AjaxHook::GetGroupRoster->jsAction(),
 					'createIndividual' => AjaxHook::CreateIndividualLesson->jsAction(),
+					'getFreeRooms'     => AjaxHook::GetFreeRooms->jsAction(),
 				),
 			);
 			// «Сводка по ученику» (T10.8, D8) — ростер для выбора + занятия ученика.
@@ -158,12 +168,20 @@ class ProfileViewResolver {
 					'getSummary' => AjaxHook::GetStudentSummary->jsAction(),
 				),
 			);
-			// Оценивание (нонс GradeWork) — используется деталью работы (T10.9).
+			// Деталь работы + оценивание (нонс GradeWork) для «Сводки по ученику» (T10.9).
 			$config['review'] = array(
 				'nonce'   => Nonce::GradeWork->create(),
 				'actions' => array(
+					'getDetail'        => AjaxHook::GetWorkDetail->jsAction(),
 					'saveGrade'        => AjaxHook::SaveGrade->jsAction(),
 					'returnSubmission' => AjaxHook::ReturnSubmission->jsAction(),
+				),
+			);
+			// Пооответное оценивание попытки экзамена (T11.9) — отдельный нонс GradeAttempt.
+			$config['attemptGrade'] = array(
+				'nonce'   => Nonce::GradeAttempt->create(),
+				'actions' => array(
+					'gradeAttempt' => AjaxHook::GradeAttempt->jsAction(),
 				),
 			);
 			$config['dashboard'] = array(

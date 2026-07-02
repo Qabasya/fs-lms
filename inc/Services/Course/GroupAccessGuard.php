@@ -33,6 +33,33 @@ class GroupAccessGuard {
 		return $this->substitutions->hasActiveGrant( $userId, $groupId );
 	}
 
+	/**
+	 * Может ли пользователь ВЕСТИ журнал (посещаемость/оценки) СЕЙЧАС (T5.7).
+	 *
+	 * В отличие от {@see canManage} (чтение/КТП — доступны и постоянному преподу),
+	 * запись в журнал в период активной замены закреплена за ФАКТИЧЕСКИМ преподом:
+	 * постоянный препод (`groups.teacher_id`) переходит в read-only, писать может
+	 * только замещающий (активный grant) + админ. По истечении замены — снова препод.
+	 */
+	public function canWriteJournal( int $groupId, int $userId ): bool {
+		if (
+			user_can( $userId, Capability::Admin->value ) ||
+			user_can( $userId, Capability::ManageLmsPlatform->value )
+		) {
+			return true;
+		}
+		// Замещающий на срок grant — пишет.
+		if ( $this->substitutions->hasActiveGrant( $userId, $groupId ) ) {
+			return true;
+		}
+		// Постоянный препод пишет, ТОЛЬКО если сейчас нет активной замены по группе.
+		$group = $this->groups->findById( $groupId );
+		if ( $group && (int) $group->teacher_id === $userId ) {
+			return null === $this->substitutions->findActiveForGroup( $groupId, current_time( 'Y-m-d' ) );
+		}
+		return false;
+	}
+
 	/** Есть ли у person хоть одна запись в группе (включая архивированные). */
 	public function isMemberEver( int $groupId, int $personId ): bool {
 		return (bool) $this->studentRecords->countByGroupAndPerson( $groupId, $personId );

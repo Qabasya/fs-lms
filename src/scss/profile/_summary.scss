@@ -121,3 +121,68 @@
   .sum-select { min-width: 0; width: 100%; }
   .sum-pick { flex: 1 1 100%; }
 }
+
+/* Чипы работ — кликабельны (открывают деталь, T10.9) */
+.sum-work[role="button"] { cursor: pointer; }
+.sum-work[role="button"]:hover { border-color: var(--accent); color: var(--accent-700); }
+
+/* ── Модалка детали работы (T10.9) ── */
+.sum-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.sum-modal-backdrop { position: absolute; inset: 0; background: rgba(20, 24, 33, .5); }
+.sum-modal-box {
+  position: relative;
+  width: 100%; max-width: 720px; max-height: calc(100vh - 60px);
+  display: flex; flex-direction: column;
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.sum-modal-head {
+  flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 16px 20px; border-bottom: 1px solid var(--line);
+}
+.smh-title { font-size: 16px; font-weight: 700; color: var(--ink); }
+.smh-meta  { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.sum-modal-x { border: 0; background: transparent; font-size: 24px; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 4px; }
+.sum-modal-x:hover { color: var(--ink); }
+.sum-modal-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+.sum-task { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; }
+.sum-task-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.st-n { font-size: 13px; font-weight: 700; color: var(--ink); }
+.st-score { margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.sum-verdict { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
+.sv-correct   { background: var(--g-good); color: #fff; }
+.sv-incorrect { background: var(--absent); color: #fff; }
+.sv-pending   { background: var(--surface-2); color: var(--muted); }
+.sum-task-cond { font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+.sum-task-cond :is(p, ul, ol) { margin: 0 0 6px; }
+.sum-task-ans { margin-top: 8px; font-size: 13px; }
+.sta-label { color: var(--muted); }
+.sta-val { color: var(--ink); font-weight: 600; white-space: pre-wrap; }
+.sum-fb { font-size: 13px; color: var(--ink-2); background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 12px; }
+.sum-detail-empty { color: var(--muted-2); font-size: 14px; text-align: center; padding: 30px; }
+
+.sum-modal-foot { flex: none; border-top: 1px solid var(--line); padding: 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+.smf-fields { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.smf-fields label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.smf-fields input[type="number"] { width: 72px; height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.smf-fb { flex: 1 1 200px; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.smf-fields input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.smf-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 640px) {
+  .sum-modal { padding: 0; }
+  .sum-modal-box { max-width: 100%; max-height: 100vh; border-radius: 0; }
+}
+
+/* T11.8: правильный ответ в детали работы */
+.sum-task-correct { margin-top: 4px; }
+.sum-task-correct .sta-val { color: var(--g-good); }
+
+/* T11.9: пооответное оценивание экзамена в детали */
+.sum-task-grade { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.stg-score { width: 70px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.stg-of { font-size: 12px; color: var(--muted); }
+.stg-ok { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.stg-fb { flex: 1 1 160px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.sum-task-grade input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }

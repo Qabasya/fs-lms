@@ -121,6 +121,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			name               varchar(255)      NOT NULL,
 			teacher_id         int unsigned      DEFAULT NULL,
 			meetings           json              DEFAULT NULL,
+			program_locked_at  datetime          DEFAULT NULL,
 			created_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			deleted_at         datetime          DEFAULT NULL,
@@ -652,6 +653,8 @@ class Migration_1_0_0 implements MigrationInterface {
 		// Эпик 9 — кабинеты: room_id на группе (дефолт года) и на занятии (override/индивидуальные).
 		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `room_id` int unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `room_id` int unsigned DEFAULT NULL" );
+		// T1.8 — lock КТП: публикация программы фиксирует дату блокировки (NULL = редактируемо).
+		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `program_locked_at` datetime DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );

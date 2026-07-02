@@ -9,8 +9,10 @@ use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\LessonManager;
+use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 class ScheduleService {
@@ -22,7 +24,30 @@ class ScheduleService {
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly SessionCalendarService      $calendar,
 		private readonly StudentRecordRepository     $records,
+		private readonly RoomRepository              $rooms,
+		private readonly RoomAvailabilityService     $roomAvailability,
 	) {}
+
+	/**
+	 * Свободные кабинеты для группы в окне занятия (T11.3): фильтр по предмету группы
+	 * + отсутствие конфликта времени. Конец окна — `$end` или +60 мин от начала.
+	 *
+	 * @return array<int, array{id:int, name:string}>
+	 */
+	public function freeRoomsForGroup( int $groupId, string $start, ?string $end = null ): array {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			return array();
+		}
+		$endWindow = ( $end && '' !== $end )
+			? $end
+			: ( new \DateTimeImmutable( $start ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
+
+		return array_map(
+			static fn( $room ): array => array( 'id' => $room->id, 'name' => $room->name ),
+			$this->roomAvailability->listFreeRooms( $start, $endWindow, (string) $group->subject_key )
+		);
+	}
 
 	/**
 	 * Создаёт индивидуальное занятие на одного ученика (D3): `kind='individual'`,
@@ -45,7 +70,8 @@ class ScheduleService {
 		?int    $lessonId,
 		?string $label,
 		?int    $teacherUserId,
-		int     $actorUserId
+		int     $actorUserId,
+		?int    $roomId = null
 	): int {
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
@@ -76,6 +102,7 @@ class ScheduleService {
 			kind            : 'individual',
 			status          : 'scheduled',
 			studentPersonId : $studentPersonId,
+			roomId          : $roomId,
 		) );
 
 		$this->dispatcher->dispatch(
@@ -252,8 +279,8 @@ class ScheduleService {
 		);
 	}
 
-	public function reflow( int $groupId, int $actorUserId ): void {
-		$this->calendar->reflow( $groupId );
+	public function reflow( int $groupId, int $actorUserId ): int {
+		$conflicts = $this->calendar->reflow( $groupId );
 
 		$this->dispatcher->dispatch(
 			LogEvent::ScheduleChanged,
@@ -266,6 +293,8 @@ class ScheduleService {
 				isPublic    : false,
 			)
 		);
+
+		return $conflicts;
 	}
 
 	/**
@@ -278,6 +307,21 @@ class ScheduleService {
 		$row = $this->groupLessons->find( $groupLessonId );
 		if ( ! $row ) {
 			throw new \InvalidArgumentException( 'Строка программы не найдена.' );
+		}
+
+		// Конфликт кабинета (T11.4): эффективный кабинет занятия ?? основной кабинет
+		// группы; hard-block, если он занят другим занятием в это время.
+		$group  = $this->groups->findById( $row->groupId );
+		$roomId = ! empty( $row->roomId )
+			? (int) $row->roomId
+			: ( ( $group && ! empty( $group->room_id ) ) ? (int) $group->room_id : 0 );
+		if ( $roomId > 0 ) {
+			$end = ( $row->endsAt && '' !== $row->endsAt )
+				? $row->endsAt
+				: ( new \DateTimeImmutable( $scheduledAt ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
+			if ( ! $this->roomAvailability->isFree( $roomId, $scheduledAt, $end, $groupLessonId ) ) {
+				throw new \InvalidArgumentException( 'Кабинет занят в это время другим занятием.' );
+			}
 		}
 
 		$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId );
@@ -307,16 +351,25 @@ class ScheduleService {
 		$group = $this->groups->findById( $groupId );
 		$meta  = $this->calendar->periodMeta( $groupId );
 
+		// Эффективный кабинет темы (T11.2): кабинет занятия ?? основной кабинет группы.
+		$groupRoomId = ( $group && ! empty( $group->room_id ) ) ? (int) $group->room_id : 0;
+		$roomNames   = array();
+		foreach ( $this->rooms->findAll() as $r ) {
+			$roomNames[ $r->id ] = $r->name;
+		}
+
 		$themes = array();
 		foreach ( $this->getProgram( $groupId ) as $i => $entry ) {
-			$row      = $entry['row'];
-			$themes[] = array(
+			$row       = $entry['row'];
+			$effRoomId = ! empty( $row->roomId ) ? (int) $row->roomId : $groupRoomId;
+			$themes[]  = array(
 				'group_lesson_id' => $row->id,
 				'lesson_id'       => $row->lessonId,
 				'n'               => $i + 1,
 				'topic'           => $entry['topic'],
 				'scheduled_at'    => $row->scheduledAt,
 				'is_pinned'       => $row->isPinned,
+				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
 			);
 		}
 
@@ -326,6 +379,50 @@ class ScheduleService {
 			'holidays'   => $meta['holidays'],
 			'lessonDays' => $meta['lessonDays'],
 			'themes'     => $themes,
+			// T1.8: заблокирована ли КТП (опубликована) — фронт скрывает правки.
+			'locked'     => $group ? ! empty( $group->program_locked_at ) : false,
+			'locked_at'  => $group && ! empty( $group->program_locked_at ) ? (string) $group->program_locked_at : null,
+		);
+	}
+
+	/**
+	 * Опубликована ли (заблокирована) КТП группы (T1.8): после публикации
+	 * структура и расписание программы недоступны для правок.
+	 */
+	public function isProgramLocked( int $groupId ): bool {
+		$group = $this->groups->findById( $groupId );
+		return (bool) ( $group && ! empty( $group->program_locked_at ) );
+	}
+
+	/** Дата публикации КТП или null. */
+	public function programLockedAt( int $groupId ): ?string {
+		$group = $this->groups->findById( $groupId );
+		return $group && ! empty( $group->program_locked_at ) ? (string) $group->program_locked_at : null;
+	}
+
+	/** Публикует КТП: фиксирует дату блокировки и логирует (T1.8). */
+	public function publishProgram( int $groupId, int $actorUserId ): void {
+		$this->groups->setProgramLocked( $groupId, current_time( 'mysql' ) );
+		$this->dispatchScheduleChanged( $groupId, $actorUserId );
+	}
+
+	/** Снимает публикацию КТП: возвращает возможность правок (T1.8). */
+	public function unpublishProgram( int $groupId, int $actorUserId ): void {
+		$this->groups->setProgramLocked( $groupId, null );
+		$this->dispatchScheduleChanged( $groupId, $actorUserId );
+	}
+
+	private function dispatchScheduleChanged( int $groupId, int $actorUserId ): void {
+		$this->dispatcher->dispatch(
+			LogEvent::ScheduleChanged,
+			new LearningEvent(
+				event       : LogEvent::ScheduleChanged,
+				actorUserId : $actorUserId,
+				groupId     : $groupId,
+				entityType  : 'group',
+				entityId    : (string) $groupId,
+				isPublic    : false,
+			)
 		);
 	}
 

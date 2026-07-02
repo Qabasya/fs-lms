@@ -4,9 +4,11 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Group;
 
+use Inc\Enums\Course\LessonStatus;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Shared\PluginLogger;
 
 /**
@@ -21,6 +23,7 @@ class SessionCalendarService {
 		private readonly GroupsRepository        $groups,
 		private readonly GroupLessonRepository   $groupLessons,
 		private readonly AcademicPeriodRepository $periods,
+		private readonly RoomRepository          $rooms,
 	) {}
 
 	/**
@@ -94,23 +97,51 @@ class SessionCalendarService {
 	 *
 	 * @param int $groupId
 	 */
-	public function reflow( int $groupId ): void {
+	public function reflow( int $groupId ): int {
 		$slots = $this->generate( $groupId );
 		$rows  = $this->groupLessons->listByGroup( $groupId );
 
-		// Индивидуальные (kind='individual') не входят в раскладку — только групповые непиннутые.
-		$unpinned = array_filter( $rows, static fn( $r ) => ! $r->isPinned && 'individual' !== $r->kind );
-		$unpinned = array_values( $unpinned );
+		// Слот последовательности потребляют только групповые непиннутые занятия,
+		// НЕ освобождающие слот (scheduled + held); отменённые/перенесённые и индивидуальные — нет (T11.6).
+		$consuming = array_filter(
+			$rows,
+			static fn( $r ) => ! $r->isPinned
+				&& 'individual' !== $r->kind
+				&& ! LessonStatus::fromValueOrDefault( $r->status )->freesSlot()
+		);
 
-		if ( count( $unpinned ) > count( $slots ) ) {
+		if ( count( $consuming ) > count( $slots ) ) {
 			PluginLogger::warning(
 				'SessionCalendarService',
 				'Слотов меньше, чем уроков в программе — хвост останется без даты.',
-				array( 'group_id' => $groupId, 'lessons' => count( $unpinned ), 'slots' => count( $slots ) )
+				array( 'group_id' => $groupId, 'lessons' => count( $consuming ), 'slots' => count( $slots ) )
+			);
+		}
+
+		// T11.4: если кабинет слота занят ДРУГОЙ группой в это время — снимаем его
+		// (исключаем свою группу, чтобы не считать собственные переносимые занятия).
+		$conflicts = 0;
+		foreach ( $slots as $i => $slot ) {
+			$roomId = (int) ( $slot['room'] ?? 0 );
+			if ( $roomId <= 0 ) {
+				continue;
+			}
+			if ( $this->rooms->isBusy( $roomId, $slot['scheduled_at'], $slot['ends_at'], 0, $groupId ) ) {
+				$slots[ $i ]['room'] = 0;
+				++$conflicts;
+			}
+		}
+		if ( $conflicts > 0 ) {
+			PluginLogger::warning(
+				'SessionCalendarService',
+				'Кабинет занят другой группой — снят с занятия при раскладке.',
+				array( 'group_id' => $groupId, 'conflicts' => $conflicts )
 			);
 		}
 
 		$this->groupLessons->applySlots( $groupId, $slots );
+
+		return $conflicts;
 	}
 
 	/**

@@ -29,14 +29,18 @@ class ScheduleController extends AjaxController {
 			array( AjaxHook::SetLessonVisibility,     $this->callbacks ),
 			array( AjaxHook::GetGroupProgram,         $this->callbacks ),
 			array( AjaxHook::GetGroupActivity,        $this->callbacks ),
+			array( AjaxHook::PublishProgram,          $this->callbacks ),
+			array( AjaxHook::UnpublishProgram,        $this->callbacks ),
 			array( AjaxHook::GetStepSettings,         $this->callbacks ),
 			array( AjaxHook::SaveStepSettings,        $this->callbacks ),
 			array( AjaxHook::ReflowSchedule,          $this->callbacks ),
 			array( AjaxHook::PinLesson,               $this->callbacks ),
 			array( AjaxHook::GetGroupCalendar,        $this->callbacks ),
 			array( AjaxHook::CreateIndividualLesson,  $this->callbacks ),
+			array( AjaxHook::GetFreeRooms,            $this->callbacks ),
 			array( AjaxHook::GetGroupRoster,          $this->callbacks ),
 			array( AjaxHook::GetStudentSummary,       $this->callbacks ),
+			array( AjaxHook::GetSubjectCourses,       $this->callbacks ),
 		);
 	}
 }
