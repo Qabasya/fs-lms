@@ -6,12 +6,14 @@
    занятий перенесено в экран «Группы» (T10.7).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
+import { esc, toast, openCtxMenu, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
 import { createApi } from './api.js';
 
 const DOW_JS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 const MONTHS_RU = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const AVA_COLORS = ['#5c7cfa','#7048e8','#1c7ed6','#0ca678','#f08c00','#e8590c','#e64980','#9c36b5','#2f9e44','#4263eb'];
+// T12.8: та же палитра/пикер группы, что в КТП (ktp.js) — для визуальной согласованности.
+const GROUP_COLORS = ['#3b5bdb','#0ca678','#7048e8','#f08c00','#e8590c','#1c7ed6','#e64980','#2f9e44'];
 
 let root = null;
 let state = null;
@@ -97,6 +99,33 @@ function changeMonth(delta) {
 
 function group() { return state.groups.find(g => g.id === state.groupId) || state.groups[0]; }
 
+/* T12.8: дропдаун выбора группы в шапке — тот же паттерн, что в КТП (ktp.js). */
+function groupColor(id) {
+    const idx = state.groups.findIndex(g => g.id === id);
+    return GROUP_COLORS[(idx < 0 ? 0 : idx) % GROUP_COLORS.length];
+}
+function shortName(name) {
+    return String(name).replace(/[«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 4);
+}
+function openGroupMenu() {
+    const btn = document.getElementById('jGroupBtn');
+    if (!btn) return;
+    openCtxMenu(
+        btn,
+        state.groups.map(g => ({
+            v: String(g.id),
+            label: `${g.name} · ${g.subject}`,
+            active: g.id === state.groupId,
+            swatch: groupColor(g.id),
+            chip: shortName(g.name),
+        })),
+        v => {
+            const id = parseInt(v, 10);
+            if (id !== state.groupId) setJournalGroup(id);
+        }
+    );
+}
+
 /* ── Render ───────────────────────────────────────────────────────────── */
 function render() {
     const d = state.data;
@@ -141,8 +170,10 @@ function render() {
     bindChrome();
 }
 
-/** Навешивает обработчики на общие элементы шапки (пагинация месяцев + фильтры). */
+/** Навешивает обработчики на общие элементы шапки (группа + пагинация месяцев + фильтры). */
 function bindChrome() {
+    const gBtn = root.querySelector('#jGroupBtn');
+    if (gBtn) gBtn.addEventListener('click', openGroupMenu);
     root.querySelectorAll('.jm-arrow[data-mnav]').forEach(btn =>
         btn.addEventListener('click', () => changeMonth(+btn.dataset.mnav)));
     root.querySelectorAll('.j-filters input[data-type]').forEach(cb =>
@@ -161,7 +192,11 @@ function wrap(g, inner) {
     return `
     <div class="prof-journal">
         <div class="j-monthnav">
-            <div class="jm-group">${esc(g.name)} · ${esc(g.subject)}</div>
+            <button type="button" class="kp-btn" id="jGroupBtn">
+                <span class="kp-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
+                <span class="kp-txt">${esc(g.name)} · ${esc(g.subject)}</span>
+                <svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>
+            </button>
             ${hasNav ? `
             <button type="button" class="jm-arrow" data-mnav="-1" ${atFirst ? 'disabled' : ''} aria-label="Предыдущий месяц">‹</button>
             <div class="jm-label">${esc(monthLabel())}</div>

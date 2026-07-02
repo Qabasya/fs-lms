@@ -8,35 +8,13 @@
   padding: 22px 26px 40px;
 }
 
+/* T12.8: пикеры группы/ученика переиспользуют .prof-ktp-pick/.kp-btn/… из _core.scss (КТП). */
 .sum-head {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 18px;
 }
-
-.sum-pick {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.sum-select {
-  min-width: 220px;
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13.5px;
-  cursor: pointer;
-}
-.sum-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.sum-select:disabled { color: var(--muted-2); cursor: default; }
 
 .sum-cards {
   display: flex;
@@ -118,8 +96,8 @@
 
 @media (max-width: 720px) {
   .prof-summary { padding: 16px 14px 32px; }
-  .sum-select { min-width: 0; width: 100%; }
-  .sum-pick { flex: 1 1 100%; }
+  .sum-head .kp-btn { max-width: none; width: 100%; }
+  .sum-head .prof-ktp-pick { flex: 1 1 100%; }
 }
 
 /* Чипы работ — кликабельны (открывают деталь, T10.9) */

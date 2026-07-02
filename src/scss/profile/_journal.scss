@@ -5,7 +5,8 @@
 .prof-journal { padding: 18px 24px 24px; height: 100%; display: flex; flex-direction: column; min-height: 0; }
 
 .j-monthnav { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; flex-shrink: 0; }
-.jm-group { font-size: 15px; font-weight: 700; letter-spacing: -.01em; margin-right: 8px; }
+/* T12.8: дропдаун группы в шапке — переиспользует .kp-btn/.kp-chip/.kp-txt/.kp-caret из _core.scss (КТП). */
+.j-monthnav .kp-btn { margin-right: 4px; }
 .j-monthnav .jm-arrow {
   width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
