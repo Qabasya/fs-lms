@@ -506,6 +506,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			grader_note         text            DEFAULT NULL,
 			graded_by_user_id   bigint unsigned DEFAULT NULL,
 			graded_at           datetime        DEFAULT NULL,
+			criteria_scores     json            DEFAULT NULL,
 			PRIMARY KEY  (id),
 			KEY attempt_id (attempt_id),
 			KEY task_id (task_id)
@@ -644,6 +645,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `label`     varchar(150) DEFAULT NULL,
 			MODIFY COLUMN `lesson_id` bigint unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `grader_note` text DEFAULT NULL" );
+		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `criteria_scores` json DEFAULT NULL" ); // Эпик 13 (D17)
 		$wpdb->query( "ALTER TABLE `$lesson_progress` MODIFY COLUMN `status` enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked'" );
 		$group_lessons = TableName::GroupLessons->prefixed();
 		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `step_settings_overrides` json DEFAULT NULL" );

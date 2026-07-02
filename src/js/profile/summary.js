@@ -276,8 +276,12 @@ function attachmentBlock(d) {
 function taskBlock(t, d) {
     const score = (t.score !== null && t.score !== undefined)
         ? `<span class="st-score">${fmtNum(t.score)}${t.max_score != null ? '/' + fmtNum(t.max_score) : ''}</span>` : '';
-    // Пооответное оценивание экзамена (T11.9): контрол на каждую задачу попытки.
-    const grade = (d.kind === 'exam' && t.task_id && attemptGradeApi) ? `
+    const canGrade = d.kind === 'exam' && t.task_id && attemptGradeApi;
+    const hasCriteria = canGrade && Array.isArray(t.criteria) && t.criteria.length;
+    // Пооответное оценивание экзамена (T11.9). Эпик 13 (D17): если у задачи есть
+    // критерии — оценивание покритерийное (сумма сырых баллов, без весов);
+    // иначе — прежний контрол «балл + верно».
+    const grade = hasCriteria ? criteriaGradeBlock(t) : canGrade ? `
             <div class="sum-task-grade" data-task-id="${t.task_id}" data-max="${t.max_score ?? ''}">
                 <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл">
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
@@ -294,32 +298,74 @@ function taskBlock(t, d) {
             </div>
             <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
             <div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>
+            ${t.files && t.files.length ? taskFilesBlock(t.files) : ''}
             ${t.correct ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
             ${grade}
         </div>`;
 }
 
-/* Пооответное оценивание попытки экзамена (T11.9). */
+/* Эпик 13 (D16): файлы ученика в ответе «Развёрнутый ответ» — превью изображения
+   или ссылка «Открыть файл» для остального. */
+function taskFilesBlock(files) {
+    const items = files.map((f) => {
+        const isImage = f.mime && f.mime.indexOf('image/') === 0;
+        return isImage
+            ? `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(f.url)}" class="sum-task-files__img" alt="${esc(f.name)}"></a>`
+            : `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer" class="sum-task-files__link">${esc(f.name)}</a>`;
+    }).join('');
+    return `<div class="sum-task-files"><span class="sta-label">Файлы ученика:</span><div class="sum-task-files__list">${items}</div></div>`;
+}
+
+/* Эпик 13 (D17): покритерийное оценивание — строка на критерий, балл задачи = сумма. */
+function criteriaGradeBlock(t) {
+    const rows = t.criteria.map((c, i) => `
+            <div class="stg-criterion" data-idx="${i}" data-max="${c.max_points}">
+                <span class="stgc-label">${esc(c.label)}</span>
+                <input type="number" class="stgc-points" min="0" max="${c.max_points}" step="0.5" value="${c.awarded ?? 0}">
+                <span class="stgc-of">/ ${fmtNum(c.max_points)}</span>
+            </div>`).join('');
+    return `
+            <div class="sum-task-grade sum-task-grade--criteria" data-task-id="${t.task_id}">
+                ${rows}
+                <input type="text" class="stg-fb" placeholder="комментарий">
+                <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
+            </div>`;
+}
+
+/* Пооответное оценивание попытки экзамена (T11.9). Эпик 13 (D17): критериальные
+   задачи шлют criteria_scores (JSON {индекс: баллы}) вместо score/is_correct. */
 function wireAttemptGrading(modal, d) {
     const meta = modal.querySelector('#smhMeta');
     modal.querySelectorAll('.sum-task-grade').forEach(box => {
         const btn = box.querySelector('.stg-save');
+        const isCriteria = box.classList.contains('sum-task-grade--criteria');
         btn.addEventListener('click', async () => {
             const taskId = +box.dataset.taskId;
-            const score = box.querySelector('.stg-score').value || '0';
-            const isCorrect = box.querySelector('.stg-ok-cb').checked ? '1' : '0';
             const feedback = box.querySelector('.stg-fb').value.trim();
+            const payload = { attempt_id: d.attempt_id, task_id: taskId, feedback };
+
+            let verdict;
+            if (isCriteria) {
+                const scores = {};
+                let sum = 0, max = 0;
+                box.querySelectorAll('.stg-criterion').forEach(row => {
+                    const v = +(row.querySelector('.stgc-points').value || 0);
+                    scores[row.dataset.idx] = v;
+                    sum += v;
+                    max += +row.dataset.max;
+                });
+                payload.criteria_scores = JSON.stringify(scores);
+                verdict = sum >= max ? 'correct' : 'incorrect';
+            } else {
+                payload.score = box.querySelector('.stg-score').value || '0';
+                payload.is_correct = box.querySelector('.stg-ok-cb').checked ? '1' : '0';
+                verdict = box.querySelector('.stg-ok-cb').checked ? 'correct' : 'incorrect';
+            }
+
             btn.disabled = true;
             try {
-                const res = await attemptGradeApi('gradeAttempt', {
-                    attempt_id: d.attempt_id,
-                    task_id: taskId,
-                    score,
-                    is_correct: isCorrect,
-                    feedback,
-                });
+                const res = await attemptGradeApi('gradeAttempt', payload);
                 // Обновляем вердикт задачи + шапку (пересчитанный total/status с сервера).
-                const verdict = box.querySelector('.stg-ok-cb').checked ? 'correct' : 'incorrect';
                 const badge = box.closest('.sum-task').querySelector('.sum-verdict');
                 if (badge) { badge.className = `sum-verdict sv-${verdict}`; badge.textContent = VERDICT_LABEL[verdict]; }
                 if (meta && res) {

@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Enums\Subject\TaskTemplate;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\MediaManager;
@@ -139,15 +141,32 @@ class WorkDetailService {
 		$n     = 0;
 		foreach ( $this->answers->listByAttempt( $attemptId ) as $ans ) {
 			$verdict = null === $ans->isCorrect ? 'pending' : ( $ans->isCorrect ? 'correct' : 'incorrect' );
+
+			// Эпик 13 (D16/D17): «Развёрнутый ответ» — ответ закодирован как JSON
+			// {"text","files":[attachment_ids]}; плюс опциональные критерии оценивания.
+			$template = TaskTemplate::fromDatabase(
+				(string) $this->posts->getMeta( $ans->taskId, PostMetaName::TemplateType->value )
+			);
+			if ( TaskTemplate::FileAnswer === $template ) {
+				$parsed     = $this->parseFileAnswer( $ans->answerText );
+				$answerText = $parsed['text'];
+				$files      = $parsed['files'];
+			} else {
+				$answerText = (string) ( $ans->answerText ?? '' );
+				$files      = array();
+			}
+
 			$tasks[] = array(
 				'n'         => ++$n,
 				'task_id'   => $ans->taskId,
 				'condition' => $this->condition( $ans->taskId ),
-				'answer'    => (string) ( $ans->answerText ?? '' ),
+				'answer'    => $answerText,
+				'files'     => $files,
 				'correct'   => $this->correctAnswers->resolve( $ans->taskId ),
 				'verdict'   => $verdict,
 				'score'     => $ans->score,
 				'max_score' => $ans->maxScore,
+				'criteria'  => $this->criteriaFor( $ans->taskId, $ans->criteriaScores ),
 			);
 		}
 
@@ -169,6 +188,63 @@ class WorkDetailService {
 	private function condition( int $taskId ): string {
 		$post = $this->posts->get( $taskId );
 		return $post ? wp_kses_post( $post->post_content ) : '';
+	}
+
+	/**
+	 * Разбор ответа «Развёрнутый ответ» (Эпик 13): JSON {"text","files":[ids]} →
+	 * текст + резолвленные файлы (url/name/mime). Не-JSON (или пустой) ответ —
+	 * весь текст как есть, без файлов.
+	 *
+	 * @return array{text: string, files: array<int, array{url: string, name: string, mime: string}>}
+	 */
+	private function parseFileAnswer( ?string $answerText ): array {
+		$decoded = is_string( $answerText ) && '' !== $answerText ? json_decode( $answerText, true ) : null;
+		if ( ! is_array( $decoded ) ) {
+			return array( 'text' => (string) $answerText, 'files' => array() );
+		}
+
+		$ids   = is_array( $decoded['files'] ?? null ) ? $decoded['files'] : array();
+		$files = array();
+		foreach ( $ids as $attachmentId ) {
+			$attachmentId = (int) $attachmentId;
+			$url          = $attachmentId ? $this->media->url( $attachmentId ) : null;
+			if ( ! $url ) {
+				continue;
+			}
+			$files[] = array(
+				'url'  => $url,
+				'name' => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
+				'mime' => get_post_mime_type( $attachmentId ) ?: '',
+			);
+		}
+
+		return array( 'text' => (string) ( $decoded['text'] ?? '' ), 'files' => $files );
+	}
+
+	/**
+	 * Критерии оценивания задачи (Эпик 13, D17) + уже начисленные баллы (если
+	 * оценено). Пустой список — у задачи нет критериев (обычный один балл).
+	 *
+	 * @return array<int, array{label: string, max_points: float, awarded: float|null}>
+	 */
+	private function criteriaFor( int $taskId, ?array $criteriaScores ): array {
+		$meta = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
+		$defs = is_array( $meta ) && is_array( $meta['task_criteria']['criteria'] ?? null )
+			? $meta['task_criteria']['criteria']
+			: array();
+		if ( empty( $defs ) ) {
+			return array();
+		}
+
+		$out = array();
+		foreach ( $defs as $i => $def ) {
+			$out[] = array(
+				'label'      => (string) ( $def['label'] ?? '' ),
+				'max_points' => (float) ( $def['max_points'] ?? 0 ),
+				'awarded'    => isset( $criteriaScores[ $i ] ) ? (float) $criteriaScores[ $i ] : null,
+			);
+		}
+		return $out;
 	}
 
 	/** @return array<int|string,mixed> */
