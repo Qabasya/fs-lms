@@ -217,6 +217,7 @@ function renderCalendar() {
 
     const holidays = new Set(state.data.holidays || []);
     const lessonDays = new Set(state.data.lessonDays || []);
+    const lessonTimes = state.data.lessonTimes || {};
     const byDate = {};
     state.data.themes.forEach(t => { if (t.scheduled_at) byDate[t.scheduled_at.slice(0, 10)] = t; });
 
@@ -240,7 +241,7 @@ function renderCalendar() {
             <div class="kal-date">
                 <span class="kd-num">${d}</span>
                 ${isHol ? `<span class="kd-tag hol">вых</span>` : ''}
-                ${isLesson && !isHol ? `<span class="kd-lesson">урок</span>` : ''}
+                ${isLesson && !isHol ? `<span class="kd-lesson">${lessonTimes[ds] ? esc(lessonTimes[ds]) : 'урок'}</span>` : ''}
             </div>
             ${th ? placedThemeHtml(th) : ''}
         </div>`;

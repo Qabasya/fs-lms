@@ -443,7 +443,10 @@ button { font-family: inherit; }
 .kal-date .kd-tag { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; letter-spacing: .02em; }
 .kd-tag.hol { background: #ffe3e3; color: var(--absent); }
 .kal-cell.holiday .kd-num { color: var(--absent); }
-.kal-date .kd-lesson { font-size: 9.5px; color: var(--muted-2); margin-left: auto; }
+.kal-date .kd-lesson {
+  font-size: 9.5px; color: var(--muted-2); margin-left: auto; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
+}
 // Палитра расписания/КТП (D12): тема по плану — зелёный, закреплено — синий, выходной — красный.
 .placed-theme {
   background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--g-good);

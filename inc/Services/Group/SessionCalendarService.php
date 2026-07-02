@@ -148,26 +148,36 @@ class SessionCalendarService {
 	 * Метаданные периода для рендера календаря КТП: границы периода, выходные
 	 * и уникальные даты занятий (из сгенерированных слотов).
 	 *
-	 * @return array{period:?array{start_date:string,end_date:string}, holidays:string[], lessonDays:string[]}
+	 * @return array{period:?array{start_date:string,end_date:string}, holidays:string[], lessonDays:string[], lessonTimes:array<string,string>}
 	 */
 	public function periodMeta( int $groupId ): array {
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
-			return array( 'period' => null, 'holidays' => array(), 'lessonDays' => array() );
+			return array( 'period' => null, 'holidays' => array(), 'lessonDays' => array(), 'lessonTimes' => array() );
 		}
 
-		$period     = $this->periods->getById( (string) $group->academic_period_id );
-		$lessonDays = array_values( array_unique( array_map(
-			static fn( array $slot ): string => substr( $slot['scheduled_at'], 0, 10 ),
-			$this->generate( $groupId )
-		) ) );
+		$period = $this->periods->getById( (string) $group->academic_period_id );
+		$slots  = $this->generate( $groupId );
+
+		$lessonDays = array();
+		// T12.4: время занятия по дате ('16:00–17:30') для ячейки календаря КТП.
+		// Если у группы 2 слота в один день — берём время первого (редкий случай).
+		$lessonTimes = array();
+		foreach ( $slots as $slot ) {
+			$date               = substr( $slot['scheduled_at'], 0, 10 );
+			$lessonDays[ $date ] = true;
+			if ( ! isset( $lessonTimes[ $date ] ) ) {
+				$lessonTimes[ $date ] = substr( $slot['scheduled_at'], 11, 5 ) . '–' . substr( $slot['ends_at'], 11, 5 );
+			}
+		}
 
 		return array(
 			'period'     => $period && $period->start_date && $period->end_date
 				? array( 'start_date' => $period->start_date, 'end_date' => $period->end_date )
 				: null,
-			'holidays'   => $period ? array_values( $period->holidays ) : array(),
-			'lessonDays' => $lessonDays,
+			'holidays'    => $period ? array_values( $period->holidays ) : array(),
+			'lessonDays'  => array_keys( $lessonDays ),
+			'lessonTimes' => $lessonTimes,
 		);
 	}
 }

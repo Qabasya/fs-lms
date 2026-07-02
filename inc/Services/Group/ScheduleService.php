@@ -345,7 +345,7 @@ class ScheduleService {
 	 * Календарь КТП группы: метаданные периода (даты занятий, выходные) + темы
 	 * программы с их размещением. Если курс группе не назначен — assigned=false.
 	 *
-	 * @return array{assigned:bool, period:?array, holidays:string[], lessonDays:string[], themes:array<int,array<string,mixed>>}
+	 * @return array{assigned:bool, period:?array, holidays:string[], lessonDays:string[], lessonTimes:array<string,string>, themes:array<int,array<string,mixed>>}
 	 */
 	public function getCalendar( int $groupId ): array {
 		$group = $this->groups->findById( $groupId );
@@ -374,14 +374,16 @@ class ScheduleService {
 		}
 
 		return array(
-			'assigned'   => $group ? ! empty( $group->course_id ) : false,
-			'period'     => $meta['period'],
-			'holidays'   => $meta['holidays'],
-			'lessonDays' => $meta['lessonDays'],
-			'themes'     => $themes,
+			'assigned'    => $group ? ! empty( $group->course_id ) : false,
+			'period'      => $meta['period'],
+			'holidays'    => $meta['holidays'],
+			'lessonDays'  => $meta['lessonDays'],
+			// T12.4: время занятия по дате ('16:00–17:30') для ячейки календаря КТП.
+			'lessonTimes' => $meta['lessonTimes'],
+			'themes'      => $themes,
 			// T1.8: заблокирована ли КТП (опубликована) — фронт скрывает правки.
-			'locked'     => $group ? ! empty( $group->program_locked_at ) : false,
-			'locked_at'  => $group && ! empty( $group->program_locked_at ) ? (string) $group->program_locked_at : null,
+			'locked'      => $group ? ! empty( $group->program_locked_at ) : false,
+			'locked_at'   => $group && ! empty( $group->program_locked_at ) ? (string) $group->program_locked_at : null,
 		);
 	}
 
