@@ -325,6 +325,8 @@ button { font-family: inherit; }
 .prof-work-main { flex: 1; min-width: 0; }
 .prof-work-title { font-size: 13px; font-weight: 600; }
 .prof-work-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+/* T12.2 (D13): дедлайн прошёл, но решать всё ещё можно — просто отмечаем. */
+.prof-dl-overdue { color: var(--absent); font-weight: 700; }
 .prof-work-count {
   font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);

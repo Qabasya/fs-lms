@@ -270,7 +270,7 @@ function attCell(pid, l) {
     if (works.length) cls.push('has-works');
     const worksHtml = works.length
         ? `<div class="cell-works">${works.map(w =>
-            `<span class="cw${w.display === 'pending' ? ' pending' : ''}"><b>${esc(w.badge)}</b>${w.display === 'pending' ? '' : ' ' + esc(w.value)}</span>`).join('')}</div>`
+            `<span class="cw${w.display === 'pending' ? ' pending' : ''}${w.overdue ? ' overdue' : ''}"${w.overdue ? ' title="Сдано после дедлайна"' : ''}><b>${esc(w.badge)}</b>${w.display === 'pending' ? '' : ' ' + esc(w.value)}</span>`).join('')}</div>`
         : '';
 
     return `<td class="${cls.join(' ')}" data-glid="${glid}" data-pid="${pid}"><div class="cell-att">${att}</div>${worksHtml}</td>`;

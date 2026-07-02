@@ -193,6 +193,8 @@ body.prof-density-cozy .var-c .jgrid tbody tr { height: 44px; }
 }
 .cell-works .cw b { color: var(--accent); font-weight: 700; }
 .cell-works .cw.pending b { color: var(--muted-2); }
+/* T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы. */
+.cell-works .cw.overdue { background: var(--absent-bg); box-shadow: inset 2px 0 0 var(--absent); padding-left: 4px; }
 
 .j-filters { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
 .jf-label { font-size: 11px; color: var(--muted); }

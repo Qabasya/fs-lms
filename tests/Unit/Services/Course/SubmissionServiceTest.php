@@ -63,7 +63,7 @@ class SubmissionServiceTest extends TestCase {
 		);
 	}
 
-	private function makeRow( int $workId = 3, bool $allowLate = true, ?string $dueAt = null ): GroupLessonDTO {
+	private function makeRow( int $workId = 3, bool $allowLate = true, ?string $dueAt = null, array $workDeadlines = [] ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id              : 5,
 			groupId         : 1,
@@ -82,6 +82,7 @@ class SubmissionServiceTest extends TestCase {
 			recordingUrl    : null,
 			createdByUserId : null,
 			updatedByUserId : null,
+			workDeadlines   : $workDeadlines,
 		);
 	}
 
@@ -182,6 +183,35 @@ class SubmissionServiceTest extends TestCase {
 		$dueAt = '2000-01-01 00:00:00';
 		$this->policy->method( 'canSubmit' )->willReturn( true );
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 3, true, $dueAt ) );
+		$this->resolver->method( 'resolve' )->willReturn( [ $this->makeWork( 3 ) ] );
+		$this->workManager->method( 'get' )->willReturn( $this->makeWork( 3 ) );
+		$this->submissions->method( 'findForWork' )->willReturn( null );
+		$this->submissions->method( 'create' )->willReturn( 1 );
+
+		$this->expectNotToPerformAssertions();
+		$this->service->submit( 10, 5, 3, null, 'text' );
+	}
+
+	/** T12.2 (D13): per-work дедлайн (work_deadlines) переопределяет legacy homeworkDueAt. */
+	public function test_submit_uses_per_work_deadline_over_legacy_homework_due_at(): void {
+		$row = $this->makeRow( 3, true, '2000-01-01 00:00:00', [ 3 => '2099-01-01 00:00:00' ] );
+		$this->policy->method( 'canSubmit' )->willReturn( true );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->resolver->method( 'resolve' )->willReturn( [ $this->makeWork( 3 ) ] );
+		$this->workManager->method( 'get' )->willReturn( $this->makeWork( 3 ) );
+		$this->submissions->method( 'findForWork' )->willReturn( null );
+		$this->submissions->expects( $this->once() )->method( 'create' )
+			->with( $this->callback( fn( $dto ) => '2099-01-01 00:00:00' === $dto->dueAt ) )
+			->willReturn( 1 );
+
+		$this->service->submit( 10, 5, 3, null, 'text' );
+	}
+
+	/** allowLate=false блокирует по PER-WORK дедлайну, даже когда он в будущем, а legacy — в прошлом. */
+	public function test_submit_per_work_deadline_in_future_bypasses_expired_legacy_block(): void {
+		$row = $this->makeRow( 3, false, '2000-01-01 00:00:00', [ 3 => '2099-01-01 00:00:00' ] );
+		$this->policy->method( 'canSubmit' )->willReturn( true );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
 		$this->resolver->method( 'resolve' )->willReturn( [ $this->makeWork( 3 ) ] );
 		$this->workManager->method( 'get' )->willReturn( $this->makeWork( 3 ) );
 		$this->submissions->method( 'findForWork' )->willReturn( null );

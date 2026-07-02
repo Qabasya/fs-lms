@@ -36,6 +36,8 @@ readonly class GradebookEntryDTO {
 		public string  $displayType = 'score',
 		public ?int    $groupLessonId = null,
 		public ?GradeBadge $badge = null,
+		/** Сдано после дедлайна работы (T12.2, D13) — постоянная метка, не пересчитывается. */
+		public bool    $isLate = false,
 	) {}
 
 	/** Форматированное значение для отображения в журнале. */

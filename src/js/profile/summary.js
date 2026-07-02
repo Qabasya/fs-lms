@@ -170,9 +170,9 @@ function lessonCard(l) {
     const st = strip(l);
     const works = l.works.length
         ? `<div class="sum-works">${l.works.map(w => `
-            <span class="sum-work${w.display === 'pending' ? ' pending' : ''}" role="button" tabindex="0"
-                data-src-type="${esc(w.source_type)}" data-src-id="${w.source_id}" title="${esc(w.title)} — открыть">
-                ${w.badge ? `<b>${esc(w.badge)}</b> ` : ''}${w.display === 'pending' ? 'на проверке' : esc(w.value)}
+            <span class="sum-work${w.display === 'pending' ? ' pending' : ''}${w.overdue ? ' overdue' : ''}" role="button" tabindex="0"
+                data-src-type="${esc(w.source_type)}" data-src-id="${w.source_id}" title="${esc(w.title)}${w.overdue ? ' — сдано после дедлайна' : ''} — открыть">
+                ${w.badge ? `<b>${esc(w.badge)}</b> ` : ''}${w.display === 'pending' ? 'на проверке' : esc(w.value)}${w.overdue ? ' <span class="sum-work-late">просрочено</span>' : ''}
             </span>`).join('')}</div>`
         : '<div class="sum-works sum-works-empty">Работ нет</div>';
 
@@ -239,7 +239,7 @@ function renderDetailModal(d) {
             <div class="sum-modal-head">
                 <div>
                     <div class="smh-title">${esc(d.title)}</div>
-                    <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}</div>
+                    <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}${d.is_late ? ' · <span class="smh-late">Просрочено</span>' : ''}</div>
                 </div>
                 <button class="sum-modal-x" aria-label="Закрыть">&times;</button>
             </div>

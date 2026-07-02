@@ -30,7 +30,7 @@ class StudentSummaryService {
 	 * @return array{lessons: array<int, array{
 	 *   group_lesson_id:int, date:string, topic:string, kind:string,
 	 *   attendance:string,
-	 *   works: array<int, array{badge:?string, value:string, display:string, title:string, source_type:string, source_id:int}>
+	 *   works: array<int, array{badge:?string, value:string, display:string, title:string, source_type:string, source_id:int, overdue:bool}>
 	 * }>}
 	 */
 	public function forStudent( int $groupId, int $personId ): array {
@@ -79,6 +79,8 @@ class StudentSummaryService {
 				'title'       => $entry->title,
 				'source_type' => $entry->sourceType,
 				'source_id'   => $entry->sourceId,
+				// T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы.
+				'overdue'     => $entry->isLate,
 			);
 		}
 

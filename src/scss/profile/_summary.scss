@@ -93,6 +93,9 @@
 }
 .sum-work b { color: var(--accent); font-weight: 700; }
 .sum-work.pending { color: var(--muted); font-style: italic; }
+/* T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы. */
+.sum-work.overdue { background: var(--absent-bg); border-color: var(--absent); }
+.sum-work-late { color: var(--absent); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: .02em; }
 
 @media (max-width: 720px) {
   .prof-summary { padding: 16px 14px 32px; }
@@ -120,6 +123,7 @@
 }
 .smh-title { font-size: 16px; font-weight: 700; color: var(--ink); }
 .smh-meta  { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.smh-late  { color: var(--absent); font-weight: 700; }
 .sum-modal-x { border: 0; background: transparent; font-size: 24px; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 4px; }
 .sum-modal-x:hover { color: var(--ink); }
 .sum-modal-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }

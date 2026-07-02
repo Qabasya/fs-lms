@@ -52,6 +52,8 @@ class SubmissionGradeSource implements GradeSourceInterface {
 				displayType     : $displayType,
 				groupLessonId   : $sub->groupLessonId,
 				badge           : GradeBadge::fromWorkType( $sub->workType ),
+				// T12.2 (D13): постоянная метка — сдано после дедлайна работы, зафиксированного на момент сдачи.
+				isLate          : $sub->isLate(),
 			);
 		}
 		return $entries;

@@ -181,6 +181,20 @@ class GroupLessonRepository {
 		return false !== $result;
 	}
 
+	/**
+	 * Дедлайны работ занятия (T12.2, D13): work_id => 'Y-m-d H:i:s'.
+	 *
+	 * @param array<int,string> $deadlines
+	 */
+	public function setWorkDeadlines( int $id, array $deadlines ): bool {
+		$result = $this->wpdb->update(
+			$this->table,
+			array( 'work_deadlines' => wp_json_encode( $deadlines ) ),
+			array( 'id' => $id )
+		);
+		return false !== $result;
+	}
+
 	public function setRoom( int $id, ?int $roomId ): bool {
 		return false !== $this->wpdb->update(
 			$this->table,

@@ -73,7 +73,8 @@ class SubmissionService {
 			throw new \InvalidArgumentException( 'Работа не найдена.' );
 		}
 
-		$dueAt = $row->homeworkDueAt;
+		// T12.2 (D13): дедлайн per-work, иначе legacy homeworkDueAt занятия.
+		$dueAt = $row->deadlineForWork( $workId );
 		if ( ! $row->allowLate && null !== $dueAt ) {
 			$now = $this->clock->now();
 			if ( $now > $dueAt ) {
@@ -197,7 +198,8 @@ class SubmissionService {
 			throw new \InvalidArgumentException( 'Работа не найдена.' );
 		}
 
-		$dueAt = $row->homeworkDueAt;
+		// T12.2 (D13): дедлайн per-work, иначе legacy homeworkDueAt занятия.
+		$dueAt = $row->deadlineForWork( $workId );
 		if ( ! $row->allowLate && null !== $dueAt && $this->clock->now() > $dueAt ) {
 			throw new \InvalidArgumentException( 'Срок сдачи истёк.' );
 		}

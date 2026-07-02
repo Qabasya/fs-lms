@@ -54,6 +54,13 @@ readonly class GroupLessonDTO {
 		public ?int    $studentPersonId = null,
 		/** Кабинет занятия (override дефолта группы); NULL = кабинет группы. */
 		public ?int    $roomId = null,
+		/**
+		 * Дедлайны работ занятия (T12.2, D13): work_id => 'Y-m-d H:i:s'. Per-work,
+		 * приоритетнее legacy `$homeworkDueAt` (см. {@see self::deadlineForWork()}).
+		 *
+		 * @var array<int,string>
+		 */
+		public array   $workDeadlines = array(),
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -85,11 +92,38 @@ readonly class GroupLessonDTO {
 			status          : (string) ( $row['status'] ?? 'scheduled' ),
 			studentPersonId : isset( $row['student_person_id'] ) ? (int) $row['student_person_id'] : null,
 			roomId          : isset( $row['room_id'] ) && '' !== $row['room_id'] ? (int) $row['room_id'] : null,
+			workDeadlines   : self::jsonDeadlines( $row['work_deadlines'] ?? null ),
 		);
 	}
 
 	public function isPublished(): bool {
 		return $this->workIdsSnapshot !== null;
+	}
+
+	/**
+	 * Эффективный дедлайн работы (T12.2, D13): per-work дедлайн, иначе legacy
+	 * `homeworkDueAt` занятия (фолбэк), иначе null (дедлайна нет).
+	 */
+	public function deadlineForWork( int $workId ): ?string {
+		return $this->workDeadlines[ $workId ] ?? $this->homeworkDueAt;
+	}
+
+	/** @return array<int,string> */
+	private static function jsonDeadlines( mixed $raw ): array {
+		if ( null === $raw || '' === $raw ) {
+			return array();
+		}
+		$decoded = json_decode( (string) $raw, true );
+		if ( ! is_array( $decoded ) ) {
+			return array();
+		}
+		$out = array();
+		foreach ( $decoded as $workId => $deadline ) {
+			if ( is_string( $deadline ) && '' !== $deadline ) {
+				$out[ (int) $workId ] = $deadline;
+			}
+		}
+		return $out;
 	}
 
 	private static function jsonIds( mixed $raw ): array {

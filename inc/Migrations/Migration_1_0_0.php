@@ -401,6 +401,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			opened_at          datetime            DEFAULT NULL,
 			homework_due_at    datetime            DEFAULT NULL,
 			allow_late         tinyint(1)          NOT NULL DEFAULT 1,
+			work_deadlines     json                DEFAULT NULL,
 			recording_url      varchar(1000)       DEFAULT NULL,
 			created_by_user_id bigint(20) unsigned DEFAULT NULL,
 			updated_by_user_id bigint(20) unsigned DEFAULT NULL,
@@ -655,6 +656,8 @@ class Migration_1_0_0 implements MigrationInterface {
 		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `room_id` int unsigned DEFAULT NULL" );
 		// T1.8 — lock КТП: публикация программы фиксирует дату блокировки (NULL = редактируемо).
 		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `program_locked_at` datetime DEFAULT NULL" );
+		// T12.2 (D13) — дедлайны работ занятия: {work_id: 'Y-m-d H:i:s'}, per-work; legacy homework_due_at — фолбэк.
+		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `work_deadlines` json DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );

@@ -107,6 +107,9 @@ class WorkDetailService {
 			'gradable'      => true,
 			'submission_id' => $sub->id,
 			'tasks'         => $tasks,
+			// T12.2 (D13): дедлайн работы (снимок на момент сдачи) + постоянная метка «Просрочено».
+			'due_at'        => $sub->dueAt,
+			'is_late'       => $sub->isLate(),
 			'group_id'      => $this->groupLessons->find( $sub->groupLessonId )?->groupId ?? 0,
 		);
 	}

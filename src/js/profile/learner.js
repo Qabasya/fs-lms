@@ -169,9 +169,13 @@ function schedRow(l) {
 }
 
 function dlRow(d) {
-    return `<div class="prof-work-item">
+    // T12.2 (D13): прошедший дедлайн не скрываем — решать можно, помечаем «Просрочено».
+    const sub = d.overdue
+        ? `${esc(d.group_name)} · <span class="prof-dl-overdue">Просрочено</span> ${fmtDateTime(d.due_at)}`
+        : `${esc(d.group_name)} · до ${fmtDateTime(d.due_at)}`;
+    return `<div class="prof-work-item${d.overdue ? ' overdue' : ''}">
         <div class="prof-work-ico att"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 5v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/></svg></div>
-        <div class="prof-work-main"><div class="prof-work-title">${esc(d.topic || 'Домашнее задание')}</div><div class="prof-work-sub">${esc(d.group_name)} · до ${fmtDateTime(d.due_at)}</div></div>
+        <div class="prof-work-main"><div class="prof-work-title">${esc(d.topic || 'Домашнее задание')}</div><div class="prof-work-sub">${sub}</div></div>
     </div>`;
 }
 

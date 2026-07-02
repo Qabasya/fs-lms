@@ -41,7 +41,7 @@ class JournalService {
 	 *   students: array<int,array{person_id:int,name:string}>,
 	 *   lessons: array<int,array{group_lesson_id:int,date:string,topic:string,room:string}>,
 	 *   attendance: array<int,array<int,bool>>,
-	 *   cell_works: array<int,array<int,array<int,array{badge:string,value:string,display:string}>>>,
+	 *   cell_works: array<int,array<int,array<int,array{badge:string,value:string,display:string,overdue:bool}>>>,
 	 *   types: string[]
 	 * }
 	 */
@@ -95,6 +95,8 @@ class JournalService {
 				'badge'   => $badge,
 				'value'   => $entry->displayValue(),
 				'display' => $entry->displayType,
+				// T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы.
+				'overdue' => $entry->isLate,
 			);
 			$typesSet[ $badge ] = true;
 		}

@@ -10,6 +10,8 @@ use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GradebookService;
 
 /**
@@ -29,6 +31,8 @@ class LearnerService {
 		private readonly GradebookService        $gradebook,
 		private readonly AttendanceRepository    $attendance,
 		private readonly ClockInterface          $clock,
+		private readonly SubmissionRepository    $submissions,
+		private readonly EffectiveWorksResolver  $worksResolver,
 	) {}
 
 	/** @return array<string, mixed> */
@@ -52,6 +56,7 @@ class LearnerService {
 		// Карта занятий групп ученика (+ его индивидуальные).
 		$lessonMap = array();
 		$allLessons = array();
+		$rawRows    = array(); // T12.2: сырые строки — нужны для per-work дедлайнов ниже.
 		foreach ( $groupIds as $gid ) {
 			$gname = $groups[ $gid ]['name'];
 			foreach ( $this->groupLessons->listByGroup( $gid ) as $row ) {
@@ -73,27 +78,46 @@ class LearnerService {
 				);
 				$lessonMap[ $row->id ] = $item;
 				$allLessons[]          = $item;
+				$rawRows[ $row->id ]   = $row;
 			}
 		}
 
-		// Расписание (ближайшие) и дедлайны.
-		$upcoming  = array();
-		$deadlines = array();
+		// Расписание (ближайшие).
+		$upcoming = array();
 		foreach ( $allLessons as $l ) {
 			if ( $l['scheduled_at'] && $l['scheduled_at'] >= $now ) {
 				$upcoming[] = $l;
 			}
-			if ( $l['homework_due_at'] && $l['homework_due_at'] >= $now ) {
+		}
+		usort( $upcoming, static fn( $a, $b ) => strcmp( (string) $a['scheduled_at'], (string) $b['scheduled_at'] ) );
+		usort( $allLessons, static fn( $a, $b ) => strcmp( (string) $b['scheduled_at'], (string) $a['scheduled_at'] ) );
+
+		// Дедлайны работ (T12.2, D13): per-work дедлайн (иначе legacy homeworkDueAt занятия).
+		// Прошедшие НЕ скрываем — помечаем overdue (решать всё равно можно, hard cutoff нет).
+		// Уже сданные работы — не напоминаем.
+		$deadlines = array();
+		foreach ( $rawRows as $glid => $row ) {
+			$submittedWorkIds = array();
+			foreach ( $this->submissions->listByStudentAndGroupLesson( $personId, $glid ) as $sub ) {
+				$submittedWorkIds[ $sub->workId ] = true;
+			}
+			foreach ( $this->worksResolver->resolve( $row ) as $work ) {
+				if ( isset( $submittedWorkIds[ $work->id ] ) ) {
+					continue;
+				}
+				$due = $row->deadlineForWork( $work->id );
+				if ( null === $due ) {
+					continue;
+				}
 				$deadlines[] = array(
-					'due_at'     => $l['homework_due_at'],
-					'topic'      => $l['topic'],
-					'group_name' => $l['group_name'],
+					'due_at'     => $due,
+					'topic'      => $work->title,
+					'group_name' => $lessonMap[ $glid ]['group_name'],
+					'overdue'    => $due < $now,
 				);
 			}
 		}
-		usort( $upcoming, static fn( $a, $b ) => strcmp( (string) $a['scheduled_at'], (string) $b['scheduled_at'] ) );
 		usort( $deadlines, static fn( $a, $b ) => strcmp( $a['due_at'], $b['due_at'] ) );
-		usort( $allLessons, static fn( $a, $b ) => strcmp( (string) $b['scheduled_at'], (string) $a['scheduled_at'] ) );
 
 		// Дневник (сырые баллы).
 		$grades = array();
