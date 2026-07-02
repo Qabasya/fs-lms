@@ -410,4 +410,46 @@ class ProgramCallbacksTest extends TestCase {
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkDeadlines() )->success );
 	}
+
+	/* ── Продолжение темы (T12.6, D14) ───────────────────────────────────── */
+
+	public function test_continue_program_lesson_delegates(): void {
+		$this->schedule->method( 'getProgramRow' )->with( 42 )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->with( 5, $this->anything() )->willReturn( true );
+		$this->schedule->expects( $this->once() )->method( 'continueLesson' )->with( 42, $this->anything() )->willReturn( 43 );
+		$_POST = array( 'group_lesson_id' => '42' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxContinueProgramLesson() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 43, $r->payload['group_lesson_id'] );
+	}
+
+	public function test_continue_program_lesson_denied_when_not_manager(): void {
+		$this->schedule->method( 'getProgramRow' )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->schedule->expects( $this->never() )->method( 'continueLesson' );
+		$_POST = array( 'group_lesson_id' => '42' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxContinueProgramLesson() )->success );
+	}
+
+	public function test_continue_program_lesson_blocked_when_program_locked(): void {
+		$this->schedule->method( 'getProgramRow' )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->method( 'isProgramLocked' )->willReturn( true );
+		$this->schedule->expects( $this->never() )->method( 'continueLesson' );
+		$_POST = array( 'group_lesson_id' => '42' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxContinueProgramLesson() )->success );
+	}
+
+	public function test_continue_program_lesson_errors_when_service_returns_zero(): void {
+		$this->schedule->method( 'getProgramRow' )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->method( 'continueLesson' )->willReturn( 0 );
+		$_POST = array( 'group_lesson_id' => '42' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxContinueProgramLesson() )->success );
+	}
 }

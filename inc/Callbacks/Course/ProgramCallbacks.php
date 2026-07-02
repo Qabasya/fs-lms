@@ -150,6 +150,31 @@ class ProgramCallbacks extends BaseController {
 		$this->success( array( 'group_lesson_id' => $id ) );
 	}
 
+	/**
+	 * Продолжает тему на вторую дату (T12.6, D14): новая связанная строка в банке
+	 * тем (непристроена, пиннута) — пользователь перетаскивает её на целевую дату
+	 * тем же drag-flow, что и обычную тему. Params: group_lesson_id.
+	 */
+	public function ajaxContinueProgramLesson(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$userId        = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+			return;
+		}
+		$this->denyIfProgramLocked( $row->groupId );
+
+		$id = $this->scheduleService->continueLesson( $groupLessonId, $userId );
+		if ( 0 === $id ) {
+			$this->error( __( 'Нельзя продолжить: тема не найдена или уже является продолжением.', 'fs-lms' ) );
+			return;
+		}
+		$this->success( array( 'group_lesson_id' => $id ) );
+	}
+
 	public function ajaxRemoveLessonFromProgram(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );

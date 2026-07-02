@@ -212,6 +212,7 @@ enum AjaxHook: string {
 	case AssignCourse            = 'assign_course';
 	case AddLessonToProgram      = 'add_lesson_to_program';
 	case DuplicateProgramLesson  = 'duplicate_program_lesson';
+	case ContinueProgramLesson   = 'continue_program_lesson'; // params: group_lesson_id — продолжить тему на вторую дату (T12.6, D14)
 	case RemoveLessonFromProgram = 'remove_lesson_from_program';
 	case ReorderProgram          = 'reorder_program';
 	case SaveLessonSchedule      = 'save_lesson_schedule';

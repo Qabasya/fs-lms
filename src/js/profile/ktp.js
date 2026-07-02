@@ -202,8 +202,13 @@ function renderBank() {
         : `<div style="padding:18px;color:var(--muted-2);font-size:13px">Все темы распределены по датам.</div>`;
     const count = document.getElementById('ktpBankCount');
     if (count) {
-        const placed = state.data.themes.length - unplaced.length;
-        count.textContent = `${placed} / ${state.data.themes.length} распределено`;
+        // T12.6: считаем по уникальным темам (n), не по строкам — origin+continuation = 1 тема,
+        // «распределена», только когда размещены ВСЕ её части.
+        const byN = {};
+        state.data.themes.forEach(t => (byN[t.n] = byN[t.n] || []).push(t));
+        const groups = Object.values(byN);
+        const placed = groups.filter(g => g.every(t => t.scheduled_at)).length;
+        count.textContent = `${placed} / ${groups.length} распределено`;
     }
     if (!isLocked()) bank.querySelectorAll('.prof-theme-card').forEach(attachDrag);
 }
@@ -259,12 +264,19 @@ function renderCalendar() {
     if (!isLocked()) {
         grid.querySelectorAll('.kal-cell[data-lesson="1"]').forEach(attachDrop);
         grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
+        // T12.6: «Продолжить на другую дату» — структурное изменение, блокируется lock КТП.
+        grid.querySelectorAll('.pt-more').forEach(attachThemeActionsClick);
     }
+}
+
+/* T12.6 (D14): «1/2 · 2/2» — origin+continuation считаются одной темой. */
+function partLabel(t) {
+    return (t.total_parts && t.total_parts > 1) ? ` · ${t.part}/${t.total_parts}` : '';
 }
 
 function themeCardHtml(t) {
     return `<div class="prof-theme-card" draggable="true" data-glid="${t.group_lesson_id}">
-        <span class="tc-num">${t.n}</span>
+        <span class="tc-num">${t.n}${partLabel(t)}</span>
         <div class="tc-body">
             <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
             <div class="tc-meta">${t.is_pinned ? '<span style="color:var(--accent);font-weight:600">закреплено</span>' : ''}</div>
@@ -276,11 +288,14 @@ function themeCardHtml(t) {
 function placedThemeHtml(t) {
     const pinned = t.is_pinned ? ' pinned' : '';
     const roomTip = t.room ? ` · ауд. ${t.room}` : '';
+    // T12.6: «Продолжить» доступно только для «родных» строк (part 1) — не для уже-продолжений.
+    const canContinue = 1 === t.part;
     return `<div class="placed-theme${pinned}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
         <span class="pt-pin"><svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><path d="M9.5 1.5 12.5 4.5 10 7l.5 3-3-2-3.5 3.5L4.5 8 2 7.5 4.5 5 7 4z"/></svg></span>
-        <span class="pt-num">№${t.n}</span>
+        <span class="pt-num">№${t.n}${partLabel(t)}</span>
         <span class="pt-title">${esc(t.topic || 'Без названия')}</span>
         ${t.room ? `<span class="pt-room">ауд. ${esc(t.room)}</span>` : ''}
+        ${canContinue ? `<button type="button" class="pt-more" data-glid="${t.group_lesson_id}" aria-label="Действия">⋮</button>` : ''}
     </div>`;
 }
 
@@ -384,6 +399,37 @@ function toLocalInputValue(mysqlDateTime) {
 /** '2026-08-01T12:00' → '2026-08-01 12:00:00'. */
 function fromLocalInputValue(inputValue) {
     return inputValue.replace('T', ' ') + ':00';
+}
+
+/* ── Продолжение темы на вторую дату (T12.6, D14) ─────────────────────────
+   «⋮» на размещённой теме → «Продолжить на другую дату» → в банке появляется
+   связанная непристроенная копия — перетащите её на целевую дату тем же
+   drag-flow, что и обычную тему. */
+function attachThemeActionsClick(btn) {
+    btn.addEventListener('click', e => {
+        e.stopPropagation(); // не открывать поповер дедлайнов родительской темы
+        openThemeActionsMenu(btn.dataset.glid, btn);
+    });
+}
+
+function openThemeActionsMenu(glid, anchorEl) {
+    const html = `
+        <div class="ctx-item" data-act="continue">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10h9m0 0-3-3m3 3-3 3M16 10h.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Продолжить на другую дату
+        </div>`;
+    openCtxMenuRaw(html, anchorEl);
+    const menu = document.getElementById('profCtxMenu');
+    const item = menu?.querySelector('[data-act="continue"]');
+    if (!item) return;
+    item.addEventListener('click', async () => {
+        closeCtxMenu();
+        try {
+            await api('continue', { group_lesson_id: glid });
+            toast('Тема продолжена — перетащите копию из банка тем на вторую дату');
+            await loadCalendar();
+        } catch (e) { toast(e.message); }
+    });
 }
 
 function attachDrag(el) {

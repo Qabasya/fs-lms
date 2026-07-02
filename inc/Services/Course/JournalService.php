@@ -39,7 +39,7 @@ class JournalService {
 	 *
 	 * @return array{
 	 *   students: array<int,array{person_id:int,name:string}>,
-	 *   lessons: array<int,array{group_lesson_id:int,date:string,topic:string,room:string}>,
+	 *   lessons: array<int,array{group_lesson_id:int,date:string,topic:string,room:string,is_continuation:bool}>,
 	 *   attendance: array<int,array<int,bool>>,
 	 *   cell_works: array<int,array<int,array<int,array{badge:string,value:string,display:string,overdue:bool}>>>,
 	 *   types: string[]
@@ -77,6 +77,8 @@ class JournalService {
 				'date'            => substr( $row->scheduledAt, 0, 10 ),
 				'topic'           => $lesson?->topic ?? ( $row->label ?? '' ),
 				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
+				// T12.6 (D14): продолжение темы — второй столбец той же темы, помечается «(прод.)».
+				'is_continuation' => null !== $row->continuedFromId,
 			);
 		}
 

@@ -27,6 +27,8 @@ readonly class GroupLessonInputDTO {
 		public string  $status           = 'scheduled',
 		public ?int    $studentPersonId  = null,
 		public ?int    $roomId           = null,
+		/** Продолжение темы (T12.6, D14): id исходной строки, либо null для «родной». */
+		public ?int    $continuedFromId  = null,
 	) {}
 
 	public function toArray(): array {
@@ -53,6 +55,7 @@ readonly class GroupLessonInputDTO {
 			'status'            => $this->status,
 			'student_person_id' => $this->studentPersonId,
 			'room_id'           => $this->roomId,
+			'continued_from_id' => $this->continuedFromId,
 		);
 	}
 }

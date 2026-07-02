@@ -229,9 +229,12 @@ function lessonHead(l) {
     const dow = DOW_JS[new Date(l.date).getDay()];
     const future = isFutureDate(l.date);
     const roomTip = l.room ? ` · ауд. ${l.room}` : '';
-    return `<th class="hd-col${future ? ' future' : ''}" data-glid="${l.group_lesson_id}" title="${esc(l.topic)} · ${l.date}${roomTip}${future ? ' · ещё не прошло' : ''}">
+    // T12.6 (D14): продолжение темы — второй столбец той же темы, помечается «(прод.)».
+    const contTag = l.is_continuation ? ' (прод.)' : '';
+    return `<th class="hd-col${future ? ' future' : ''}" data-glid="${l.group_lesson_id}" title="${esc(l.topic)}${esc(contTag)} · ${l.date}${roomTip}${future ? ' · ещё не прошло' : ''}">
         <div class="hd-date">${dd}.${m}</div>
         <div class="hd-dow">${dow}</div>
+        ${l.is_continuation ? '<div class="hd-cont">прод.</div>' : ''}
         ${l.room ? `<div class="hd-room" title="ауд. ${esc(l.room)}">${esc(l.room)}</div>` : ''}
     </th>`;
 }

@@ -397,6 +397,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			status             enum('scheduled','held','cancelled','moved') NOT NULL DEFAULT 'scheduled',
 			student_person_id  int unsigned        DEFAULT NULL,
 			room_id            int unsigned        DEFAULT NULL,
+			continued_from_id  int unsigned        DEFAULT NULL,
 			visibility         enum('hidden','open','archived') NOT NULL DEFAULT 'hidden',
 			opened_at          datetime            DEFAULT NULL,
 			homework_due_at    datetime            DEFAULT NULL,
@@ -658,6 +659,8 @@ class Migration_1_0_0 implements MigrationInterface {
 		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `program_locked_at` datetime DEFAULT NULL" );
 		// T12.2 (D13) — дедлайны работ занятия: {work_id: 'Y-m-d H:i:s'}, per-work; legacy homework_due_at — фолбэк.
 		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `work_deadlines` json DEFAULT NULL" );
+		// T12.6 (D14) — продолжение темы на вторую дату: связь на исходную строку (не мультидаты, не независимый дубль).
+		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `continued_from_id` int unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$consent_change_log`
 			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
 			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );

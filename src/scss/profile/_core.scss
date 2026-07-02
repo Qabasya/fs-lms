@@ -463,6 +463,14 @@ button { font-family: inherit; }
 .placed-theme .pt-pin { position: absolute; top: 3px; right: 4px; color: var(--accent); display: none; }
 .placed-theme.pinned .pt-pin { display: block; }
 .placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; color: var(--ink-2); }
+/* T12.6 (D14): «⋮» действия темы (продолжить на другую дату) — видно при наведении */
+.placed-theme .pt-more {
+  position: absolute; bottom: 2px; right: 3px; width: 16px; height: 16px; line-height: 14px;
+  border: none; background: transparent; color: var(--muted-2); font-size: 12px; font-weight: 700;
+  cursor: pointer; opacity: 0; transition: opacity .12s, color .12s; border-radius: 3px;
+}
+.placed-theme:hover .pt-more { opacity: 1; }
+.placed-theme .pt-more:hover { color: var(--accent-700); background: var(--accent-soft); }
 
 /* ── Toast & popover ────────────────────────────────────────────────── */
 .prof-toast {

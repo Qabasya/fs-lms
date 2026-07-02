@@ -61,6 +61,8 @@ readonly class GroupLessonDTO {
 		 * @var array<int,string>
 		 */
 		public array   $workDeadlines = array(),
+		/** Продолжение темы (T12.6, D14): id исходной строки, либо null для «родной». */
+		public ?int    $continuedFromId = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -93,6 +95,7 @@ readonly class GroupLessonDTO {
 			studentPersonId : isset( $row['student_person_id'] ) ? (int) $row['student_person_id'] : null,
 			roomId          : isset( $row['room_id'] ) && '' !== $row['room_id'] ? (int) $row['room_id'] : null,
 			workDeadlines   : self::jsonDeadlines( $row['work_deadlines'] ?? null ),
+			continuedFromId : isset( $row['continued_from_id'] ) && '' !== $row['continued_from_id'] ? (int) $row['continued_from_id'] : null,
 		);
 	}
 

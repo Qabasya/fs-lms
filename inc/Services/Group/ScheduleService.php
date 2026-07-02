@@ -202,6 +202,51 @@ class ScheduleService {
 		return $newId;
 	}
 
+	/**
+	 * Продолжает тему на вторую дату (T12.6, D14): новая ПИННУТАЯ непристроенная
+	 * строка (дата — заново, вручную через drag) со связью `continuedFromId` →
+	 * исходная. В отличие от {@see self::duplicateLesson()} (независимая копия —
+	 * отдельная тема) связь сохраняется: КТП считает обе строки ОДНОЙ темой
+	 * (общий номер, части «1/2 · 2/2»), журнал получает второй столбец с меткой.
+	 * Разрешено только для «родных» строк — цепочки из 3+ дат не поддерживаются.
+	 *
+	 * @return int ID новой строки или 0, если исходная не найдена / сама уже продолжение.
+	 */
+	public function continueLesson( int $groupLessonId, int $actorUserId ): int {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row || null !== $row->continuedFromId ) {
+			return 0;
+		}
+
+		$position = $this->groupLessons->nextPosition( $row->groupId );
+		$newId    = $this->groupLessons->add( new GroupLessonInputDTO(
+			groupId         : $row->groupId,
+			lessonId        : $row->lessonId,
+			position        : $position,
+			extraWorkIds    : $row->extraWorkIds,
+			isPinned        : true,
+			teacherUserId   : $row->teacherUserId,
+			createdByUserId : $actorUserId,
+			label           : $row->label,
+			continuedFromId : $row->id,
+		) );
+
+		$lesson = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
+		$this->dispatcher->dispatch(
+			LogEvent::LessonAddedToProgram,
+			new LearningEvent(
+				event       : LogEvent::LessonAddedToProgram,
+				actorUserId : $actorUserId,
+				subjectKey  : $lesson?->subjectKey,
+				groupId     : $row->groupId,
+				entityType  : 'lesson',
+				entityId    : (string) $row->lessonId,
+			)
+		);
+
+		return $newId;
+	}
+
 	public function removeLesson( int $groupLessonId, int $actorUserId ): void {
 		$row = $this->groupLessons->find( $groupLessonId );
 		if ( ! $row ) {
@@ -360,13 +405,16 @@ class ScheduleService {
 		}
 
 		$themes = array();
-		foreach ( $this->getProgram( $groupId ) as $i => $entry ) {
+		foreach ( $this->numberThemes( $this->getProgram( $groupId ) ) as $entry ) {
 			$row       = $entry['row'];
 			$effRoomId = ! empty( $row->roomId ) ? (int) $row->roomId : $groupRoomId;
 			$themes[]  = array(
 				'group_lesson_id' => $row->id,
 				'lesson_id'       => $row->lessonId,
-				'n'               => $i + 1,
+				'n'               => $entry['n'],
+				// T12.6 (D14): часть темы (1/2, 2/2) — origin+continuation считаются одной темой.
+				'part'            => $entry['part'],
+				'total_parts'     => $entry['totalParts'],
 				'topic'           => $entry['topic'],
 				'scheduled_at'    => $row->scheduledAt,
 				'is_pinned'       => $row->isPinned,
@@ -450,5 +498,60 @@ class ScheduleService {
 			);
 		}
 		return $result;
+	}
+
+	/**
+	 * Аннотирует темы номером/частью с учётом продолжений (T12.6, D14): пара
+	 * origin+continuation получает ОБЩИЙ `n` и части «1/2 · 2/2» — КТП считает
+	 * их одной темой. Порядок исходного списка (по `position`) сохраняется.
+	 * Продолжение с отсутствующим (удалённым) оригиналом трактуется как
+	 * самостоятельная тема (без падения) — цепочки из 3+ дат не поддерживаются.
+	 *
+	 * @param array<int,array{row: \Inc\DTO\Course\GroupLessonDTO, topic: string, subject: string}> $entries
+	 * @return array<int,array{row: \Inc\DTO\Course\GroupLessonDTO, topic: string, subject: string, n:int, part:int, totalParts:int}>
+	 */
+	private function numberThemes( array $entries ): array {
+		$existingIds = array();
+		foreach ( $entries as $entry ) {
+			$existingIds[ $entry['row']->id ] = true;
+		}
+		$continuationByOriginId = array();
+		foreach ( $entries as $entry ) {
+			$parentId = $entry['row']->continuedFromId;
+			if ( null !== $parentId && isset( $existingIds[ $parentId ] ) ) {
+				$continuationByOriginId[ $parentId ] = $entry;
+			}
+		}
+
+		$numbered = array(); // row id => annotated entry
+		$n        = 0;
+		foreach ( $entries as $entry ) {
+			$parentId = $entry['row']->continuedFromId;
+			// Продолжение с существующим оригиналом — аннотируется вместе с ним ниже.
+			if ( null !== $parentId && isset( $existingIds[ $parentId ] ) ) {
+				continue;
+			}
+			++$n;
+			$continuation = $continuationByOriginId[ $entry['row']->id ] ?? null;
+			$total        = $continuation ? 2 : 1;
+
+			$entry['n']               = $n;
+			$entry['part']            = 1;
+			$entry['totalParts']      = $total;
+			$numbered[ $entry['row']->id ] = $entry;
+
+			if ( $continuation ) {
+				$continuation['n']          = $n;
+				$continuation['part']       = 2;
+				$continuation['totalParts'] = $total;
+				$numbered[ $continuation['row']->id ] = $continuation;
+			}
+		}
+
+		$ordered = array();
+		foreach ( $entries as $entry ) {
+			$ordered[] = $numbered[ $entry['row']->id ];
+		}
+		return $ordered;
 	}
 }

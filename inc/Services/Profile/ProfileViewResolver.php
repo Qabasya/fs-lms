@@ -134,6 +134,7 @@ class ProfileViewResolver {
 					'unpublish'     => AjaxHook::UnpublishProgram->jsAction(),
 					'getDeadlines'  => AjaxHook::GetWorkDeadlines->jsAction(),
 					'saveDeadlines' => AjaxHook::SaveWorkDeadlines->jsAction(),
+					'continue'      => AjaxHook::ContinueProgramLesson->jsAction(),
 				),
 			);
 			// Курс-пикер КТП (T11.1) — отдельный блок: `assign_course` требует Nonce::AssignCourse.
