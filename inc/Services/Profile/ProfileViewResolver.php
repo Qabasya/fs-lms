@@ -42,7 +42,7 @@ class ProfileViewResolver {
 	 */
 	public function context( int $wpUserId ): ProfileContext {
 		$user = get_userdata( $wpUserId );
-		$role = UserRole::primary( $user ? (array) $user->roles : array() );
+		$role = UserRole::primaryForCabinet( $user ? (array) $user->roles : array() );
 
 		$person   = $this->persons->findByWpUserId( $wpUserId );
 		$personId = $person?->id;
