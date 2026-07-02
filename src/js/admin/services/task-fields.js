@@ -12,13 +12,15 @@ export const TaskFields = {
 	 *                                     или контейнер модалки-редактора задач.
 	 */
 	init( root = document ) {
-		if ( ! root.querySelector( '.fs-task-options-field, .fs-task-pairs-field, .fs-task-order-field, .fs-task-audio-field' ) ) {
+		if ( ! root.querySelector( '.fs-task-options-field, .fs-task-pairs-field, .fs-task-order-field, .fs-task-audio-field, .fs-task-materials-field, .fs-task-criteria-field' ) ) {
 			return;
 		}
 		this.bindOptions( root );
 		this.bindPairs( root );
 		this.bindOrder( root );
 		this.bindAudio( root );
+		this.bindMaterials( root );
+		this.bindCriteria( root );
 	},
 
 	// ── Варианты ответа ──────────────────────────────────────────────────────
@@ -252,6 +254,88 @@ export const TaskFields = {
 
 		inputs.forEach( ( input ) => {
 			renderFieldError( input, dupes.has( input ) ? message : null );
+		} );
+	},
+
+	// ── Материалы задания (Эпик 13, D16): мульти-выбор файлов из медиабиблиотеки ──
+
+	bindMaterials( root = document ) {
+		root.querySelectorAll( '.fs-task-materials-field' ).forEach( ( wrap ) => {
+			const list   = wrap.querySelector( '.fs-task-materials__list' );
+			const addBtn = wrap.querySelector( '.js-materials-add' );
+			const base   = wrap.dataset.base;
+
+			if ( ! list || ! addBtn || ! base ) return;
+
+			addBtn.addEventListener( 'click', () => {
+				const frame = wp.media( {
+					title:    'Материалы задания',
+					button:   { text: 'Добавить' },
+					multiple: true,
+				} );
+
+				frame.on( 'select', () => {
+					frame.state().get( 'selection' ).toJSON().forEach( ( att ) => {
+						if ( list.querySelector( `input[value="${ att.id }"]` ) ) { return; } // без дублей
+						const li = document.createElement( 'li' );
+						li.className = 'fs-task-materials__item';
+
+						const input = document.createElement( 'input' );
+						input.type  = 'hidden';
+						input.name  = `${ base }[attachment_ids][]`;
+						input.value = String( att.id );
+
+						const link = document.createElement( 'a' );
+						link.href   = att.url;
+						link.target = '_blank';
+						link.rel    = 'noopener noreferrer';
+						link.textContent = att.title || att.filename || `Файл #${ att.id }`;
+
+						const removeBtn = document.createElement( 'button' );
+						removeBtn.type = 'button';
+						removeBtn.className = 'button-link js-materials-remove';
+						removeBtn.textContent = '✕';
+
+						li.append( input, ' ', link, ' ', removeBtn );
+						list.appendChild( li );
+					} );
+				} );
+
+				frame.open();
+			} );
+
+			list.addEventListener( 'click', ( e ) => {
+				if ( e.target.closest( '.js-materials-remove' ) ) {
+					e.target.closest( '.fs-task-materials__item' ).remove();
+				}
+			} );
+		} );
+	},
+
+	// ── Критерии оценивания (Эпик 13, D17): повторяемые строки label+баллы ──
+
+	bindCriteria( root = document ) {
+		root.querySelectorAll( '.fs-task-criteria-field' ).forEach( ( wrap ) => {
+			const list = wrap.querySelector( '.fs-task-criteria__list' );
+			const tpl  = wrap.querySelector( '.js-criteria-tpl' );
+			const add  = wrap.querySelector( '.js-criteria-add' );
+
+			if ( ! list || ! tpl || ! add ) return;
+
+			add.addEventListener( 'click', () => {
+				const idx = list.querySelectorAll( '.fs-task-criteria__item' ).length;
+				const li  = document.createElement( 'li' );
+				li.className = 'fs-task-criteria__item';
+				li.innerHTML = tpl.innerHTML.replace( /__IDX__/g, idx );
+				list.appendChild( li );
+			} );
+
+			list.addEventListener( 'click', ( e ) => {
+				if ( e.target.closest( '.js-criteria-remove' ) ) {
+					e.target.closest( '.fs-task-criteria__item' ).remove();
+					this.reindexList( list, '.fs-task-criteria__item', '[name]', 'criteria' );
+				}
+			} );
 		} );
 	},
 

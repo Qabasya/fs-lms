@@ -37,7 +37,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 	<div class="fs-submission-form__field">
 		<label><?php esc_html_e( 'Прикрепить файл (необязательно)', 'fs-lms' ); ?></label>
-		<input type="file" name="submission_file" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt" />
+		<input type="file" name="submission_file" accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.pdf,.doc,.docx,.pptx,.txt,.py" />
 	</div>
 
 	<button type="submit" class="fs-submission-form__submit">
