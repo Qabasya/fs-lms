@@ -14,6 +14,7 @@ use Inc\MetaBoxes\Templates\WorkTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
@@ -35,6 +36,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		private readonly MetaBoxManager    $metaBoxManager,
 		private readonly WorkTemplate      $template,
 		private readonly WorkManager       $works,
+		private readonly TaskPublishGuard  $guard,
 	) {
 		parent::__construct();
 	}
@@ -44,6 +46,39 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		add_action( 'add_meta_boxes', array( $this, 'tidyWorkMetaBoxes' ), 100 );
 		add_action( 'save_post', array( $this, 'handleWorkSave' ) );
 		add_action( 'transition_post_status', array( $this, 'handleWorkPublish' ), 10, 3 );
+		// #10: не даём опубликовать работу без названия (откат в draft + notice).
+		add_filter( 'wp_insert_post_data', array( $this, 'validateWorkTitle' ), 10, 2 );
+		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
+	}
+
+	/**
+	 * Блокирует публикацию работы без названия (`wp_insert_post_data`).
+	 *
+	 * @param array<string, mixed> $data
+	 * @param array<string, mixed> $postarr
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function validateWorkTitle( array $data, array $postarr ): array {
+		if ( ! PostTypeResolver::isWorkPostType( $data['post_type'] ?? '' ) ) {
+			return $data;
+		}
+
+		return $this->guard->enforce(
+			$data,
+			'fs_lms_work_publish_error_',
+			'Укажите название работы.',
+			static fn(): ?string => null
+		);
+	}
+
+	/** Выводит отложенную ошибку публикации работы на экране редактирования. */
+	public function showPublishError(): void {
+		$screen = get_current_screen();
+		if ( ! $screen || ! PostTypeResolver::isWorkPostType( $screen->post_type ) ) {
+			return;
+		}
+		$this->guard->renderDeferredError( 'fs_lms_work_publish_error_', __( 'Невозможно опубликовать работу', 'fs-lms' ) );
 	}
 
 	public function tidyWorkMetaBoxes( string $post_type ): void {

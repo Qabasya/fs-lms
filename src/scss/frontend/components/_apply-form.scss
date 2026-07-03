@@ -36,6 +36,14 @@
     position: relative;
     margin-bottom: 14px;
 
+    // #7: иконка/toggle позиционируются относительно .fs-field-control (тесная
+    // обёртка вокруг инпута), поэтому центрируются по инпуту, а не по всей группе
+    // (label сверху + ошибка снизу). Высота обёртки = высоте инпута (иконка/toggle
+    // абсолютны и в поток не входят).
+    .fs-field-control {
+      position: relative;
+    }
+
     .dashicons {
       @include fs-field-icon;
       pointer-events: none;

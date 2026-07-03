@@ -18,3 +18,46 @@
   color: $color-text-secondary;
   font-size: $font-size;
 }
+
+// Таб-бар предметов (#8): внутри прозрачной .notice-обёртки WP-дефолтный вид
+// вкладок гаснет, и табы читаются как ссылки. Восстанавливаем вид «вкладок»
+// (как в пункте «FS LMS») явно — без подчёркивания, плашками на нижней границе.
+.fs-lms-subject-tabs.nav-tab-wrapper {
+  border-bottom: 1px solid $color-border-input;
+  padding-bottom: 0;
+  margin: 0;
+  line-height: inherit;
+
+  .nav-tab {
+    float: left;
+    margin-left: 0.5em;
+    margin-bottom: -1px;                 // садим вкладку на нижнюю границу бара
+    padding: $spacing-xs 12px;
+    border: 1px solid $color-border-input;
+    border-radius: 3px 3px 0 0;
+    background: $wp-admin-gray-bg-light;
+    color: $color-text-secondary;
+    font-size: $font-size;
+    font-weight: $font-bold;
+    line-height: 1.7;
+    text-decoration: none;
+    box-shadow: none;
+
+    &:hover {
+      background: $color-bg-modal;
+      color: $color-text-primary;
+    }
+
+    &:focus {
+      box-shadow: none;
+      outline: none;
+    }
+  }
+
+  .nav-tab-active,
+  .nav-tab-active:hover {
+    background: $color-bg-modal;
+    border-bottom-color: $color-bg-modal; // «сливаем» активную вкладку с контентом
+    color: $color-text-primary;
+  }
+}

@@ -8,6 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\LessonManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -39,6 +40,7 @@ class LearnerService {
 		private readonly EffectiveWorksResolver  $worksResolver,
 		private readonly LessonGateResolver      $gate,
 		private readonly LessonProgressService   $progress,
+		private readonly SubjectRepository       $subjects,
 	) {}
 
 	/** @return array<string, mixed> */
@@ -54,7 +56,14 @@ class LearnerService {
 			}
 			$g = $this->groups->findById( $rec->groupId );
 			if ( $g ) {
-				$groups[ $rec->groupId ] = array( 'id' => (int) $g->id, 'name' => $g->name, 'subject' => $g->subject_key );
+				// #12: человекочитаемое название предмета вместо слага (fallback — слаг).
+				$subjectName             = $this->subjects->getByKey( $g->subject_key )?->name ?? $g->subject_key;
+				$groups[ $rec->groupId ] = array(
+					'id'          => (int) $g->id,
+					'name'        => $g->name,
+					'subject'     => $subjectName,
+					'subject_key' => $g->subject_key,
+				);
 				$groupIds[]              = (int) $g->id;
 			}
 		}

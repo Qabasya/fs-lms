@@ -52,6 +52,12 @@ class TaskPublishValidator {
 		}
 
 		foreach ( $template->get_fields() as $fieldKey => $config ) {
+			// Поля с флагом 'optional' не требуются для публикации (напр. эталон
+			// решения в «Развёрнутом ответе», #9) — заполняются по желанию.
+			if ( ! empty( $config['optional'] ) ) {
+				continue;
+			}
+
 			$editorType = $config['object']->editorType();
 			$label      = $config['label'];
 			$value      = $postMeta[ $fieldKey ] ?? null;

@@ -227,6 +227,12 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		$cap      = Capability::AuthorLmsCourses->value;
 		$subjects = $this->teacher_subjects->subjectsForUser( get_current_user_id() );
 
+		// Нет ни одного предмета — пункт «Обучение» не регистрируем вовсе
+		// (как «Предметы», см. SubjectsMenuBuilder::buildPages()). Лендинг-заглушка не нужна.
+		if ( empty( $subjects ) ) {
+			return;
+		}
+
 		foreach ( BankType::cases() as $bankType ) {
 			$this->bank_slugs[ $bankType->value ] = $this->subjectBankSlug( $bankType, $subjects );
 		}
@@ -240,8 +246,9 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 				'menu_title' => Menu::Learning->menu_title(),
 				'capability' => $cap,
 				'menu_slug'  => $this->learning_parent_slug,
-				// Прямой edit.php callback не требует; для пустого случая — лендинг.
-				'callback'   => empty( $subjects ) ? array( $this, 'renderCourses' ) : '',
+				// Предметы гарантированно есть (пустой случай отсеян выше) — слаг ведёт
+				// на нативную таблицу курсов первого предмета, свой callback не нужен.
+				'callback'   => '',
 				'icon_url'   => 'dashicons-welcome-learn-more',
 				'position'   => 4,
 			),

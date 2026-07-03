@@ -49,17 +49,23 @@ class UserBehaviorManager {
 	 * @return void
 	 */
 	public function restrictAdminAccess(): void {
-		// is_admin() — проверка, что мы в админ-панели
-		// DOING_AJAX — пропускаем AJAX-запросы
-		if ( is_admin() && ! ( defined( 'DOING_AJAX' ) && DOING_AJAX ) ) {
-			if ( is_user_logged_in() &&
-			     ! current_user_can( Capability::Admin->value ) &&
-			     ! current_user_can( UserRole::FSTeacher->value )
-			) {
-				// Редирект на страницу профиля
-				wp_safe_redirect( home_url( '/profile/' ) );
-				exit;
-			}
+		// Только фронт wp-admin (не AJAX и не залогиненный интерим-логин).
+		if ( ! is_admin() || wp_doing_ajax() || ! is_user_logged_in() ) {
+			return;
+		}
+
+		// Администратор (в т.ч. дуал-роль admin+LMS) проходит всегда.
+		if ( current_user_can( Capability::Admin->value ) ) {
+			return;
+		}
+
+		// Денилист вместо вайтлиста: в админку не пускаем только фронт-кабинетные роли
+		// (преподаватель/ученик/родитель/своб. ученик). Офисные роли (FSOffice/методист/
+		// маркетолог) — работают в wp-admin, поэтому их НЕ блокируем.
+		$frontRoles = array_map( static fn( UserRole $r ): string => $r->value, UserRole::frontCabinetRoles() );
+		if ( array_intersect( $frontRoles, (array) wp_get_current_user()->roles ) ) {
+			wp_safe_redirect( home_url( '/profile/' ) );
+			exit;
 		}
 	}
 

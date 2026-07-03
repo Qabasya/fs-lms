@@ -2,6 +2,9 @@
 /**
  * Шаблон страницы завершения регистрации родителя и ученика (/lms/join/{code})
  *
+ * Разметка поля: label → .fs-field-control (иконка + инпут) → ошибка.
+ * Иконка центрируется по инпуту (обёртка — тесный positioning-контекст), #7.
+ *
  * @package FS LMS
  * @var \Inc\DTO\Enrollment\StudentDataDTO $student_data Расшифрованные данные ученика из заявки
  * @var string                  $join_code    Уникальный хэш-код из URL
@@ -51,186 +54,206 @@ ThemeCompatService::header();
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_student_last_name"><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
-                        <span class="dashicons dashicons-admin-users" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="student_last_name"
-                                id="fs_student_last_name"
-                                value="<?php echo esc_attr( $student_data->lastName ?? '' ); ?>"
-                                placeholder="<?php esc_attr_e( 'Фамилия ученика', 'fs-lms' ); ?>"
-                                required
-                                aria-required="true"
-                                autocomplete="family-name"
-                                autocapitalize="words"
-                                autocorrect="off"
-                                data-validate="cyrillicName"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-admin-users" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="student_last_name"
+                                    id="fs_student_last_name"
+                                    value="<?php echo esc_attr( $student_data->lastName ?? '' ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Фамилия ученика', 'fs-lms' ); ?>"
+                                    required
+                                    aria-required="true"
+                                    autocomplete="family-name"
+                                    autocapitalize="words"
+                                    autocorrect="off"
+                                    data-validate="cyrillicName"
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_student_first_name"><?php esc_html_e( 'Имя', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
-                        <span class="dashicons dashicons-admin-users" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="student_first_name"
-                                id="fs_student_first_name"
-                                value="<?php echo esc_attr( $student_data->firstName ?? '' ); ?>"
-                                placeholder="<?php esc_attr_e( 'Имя ученика', 'fs-lms' ); ?>"
-                                required
-                                aria-required="true"
-                                autocomplete="given-name"
-                                autocapitalize="words"
-                                autocorrect="off"
-                                data-validate="cyrillicName"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-admin-users" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="student_first_name"
+                                    id="fs_student_first_name"
+                                    value="<?php echo esc_attr( $student_data->firstName ?? '' ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Имя ученика', 'fs-lms' ); ?>"
+                                    required
+                                    aria-required="true"
+                                    autocomplete="given-name"
+                                    autocapitalize="words"
+                                    autocorrect="off"
+                                    data-validate="cyrillicName"
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_student_middle_name"><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></label>
-                        <span class="dashicons dashicons-admin-users" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="student_middle_name"
-                                id="fs_student_middle_name"
-                                value="<?php echo esc_attr( $student_data->middleName ?? '' ); ?>"
-                                placeholder="<?php esc_attr_e( 'Отчество ученика', 'fs-lms' ); ?>"
-                                autocomplete="additional-name"
-                                autocapitalize="words"
-                                autocorrect="off"
-                                data-validate="cyrillicName"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-admin-users" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="student_middle_name"
+                                    id="fs_student_middle_name"
+                                    value="<?php echo esc_attr( $student_data->middleName ?? '' ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Отчество ученика', 'fs-lms' ); ?>"
+                                    autocomplete="additional-name"
+                                    autocapitalize="words"
+                                    autocorrect="off"
+                                    data-validate="cyrillicName"
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_school"><?php esc_html_e( 'Школа', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
-                        <span class="dashicons dashicons-welcome-learn-more" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="school"
-                                id="fs_school"
-                                value="<?php echo esc_attr( $student_data->school ?? '' ); ?>"
-                                placeholder="<?php esc_attr_e( 'Школа', 'fs-lms' ); ?>"
-                                required
-                                aria-required="true"
-                                autocomplete="organization"
-                                autocapitalize="words"
-                                data-validate="schoolName"
-                                minlength="3"
-                                maxlength="100"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-welcome-learn-more" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="school"
+                                    id="fs_school"
+                                    value="<?php echo esc_attr( $student_data->school ?? '' ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Школа', 'fs-lms' ); ?>"
+                                    required
+                                    aria-required="true"
+                                    autocomplete="organization"
+                                    autocapitalize="words"
+                                    data-validate="schoolName"
+                                    minlength="3"
+                                    maxlength="100"
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_grade"><?php esc_html_e( 'Класс', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
-                        <span class="dashicons dashicons-list-view" aria-hidden="true"></span>
-                        <select
-                                name="grade"
-                                id="fs_grade"
-                                required
-                                aria-required="true"
-                                autocomplete="off"
-                        >
-                            <option value="" disabled <?php selected( empty( $student_data->grade ) ); ?>><?php esc_html_e( 'Выберите класс', 'fs-lms' ); ?></option>
-                            <?php
-                            $current_grade = $student_data->grade ?? 0;
-                            for ( $i = 1; $i <= 11; $i++ ) :
-                                ?>
-                                <option value="<?php echo esc_attr( (string) $i ); ?>" <?php selected( $current_grade, $i ); ?>>
-                                    <?php echo esc_html( $i . ' класс' ); ?>
-                                </option>
-                            <?php endfor; ?>
-                        </select>
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-list-view" aria-hidden="true"></span>
+                            <select
+                                    name="grade"
+                                    id="fs_grade"
+                                    required
+                                    aria-required="true"
+                                    autocomplete="off"
+                            >
+                                <option value="" disabled <?php selected( empty( $student_data->grade ) ); ?>><?php esc_html_e( 'Выберите класс', 'fs-lms' ); ?></option>
+                                <?php
+                                $current_grade = $student_data->grade ?? 0;
+                                for ( $i = 1; $i <= 11; $i++ ) :
+                                    ?>
+                                    <option value="<?php echo esc_attr( (string) $i ); ?>" <?php selected( $current_grade, $i ); ?>>
+                                        <?php echo esc_html( $i . ' класс' ); ?>
+                                    </option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_birth_date"><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
-                        <span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
-                        <input
-                                type="date"
-                                name="student_birth_date"
-                                id="fs_birth_date"
-                                value="<?php echo esc_attr( $student_data->birthDate ?? '' ); ?>"
-                                required
-                                aria-required="true"
-                                autocomplete="bday"
-                                max="<?php echo esc_attr( $max_date ); ?>"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
+                            <input
+                                    type="date"
+                                    name="student_birth_date"
+                                    id="fs_birth_date"
+                                    value="<?php echo esc_attr( $student_data->birthDate ?? '' ); ?>"
+                                    required
+                                    aria-required="true"
+                                    autocomplete="bday"
+                                    max="<?php echo esc_attr( $max_date ); ?>"
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_phone"><?php esc_html_e( 'Номер телефона', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
-                        <span class="dashicons dashicons-phone" aria-hidden="true"></span>
-                        <input
-                                type="tel"
-                                name="student_phone"
-                                id="fs_phone"
-                                value="<?php echo esc_attr( $student_data->phone ?? '' ); ?>"
-                                placeholder="<?php esc_attr_e( '+7 (999) 000-00-00', 'fs-lms' ); ?>"
-                                required
-                                aria-required="true"
-                                autocomplete="tel"
-                                inputmode="tel"
-                                data-validate="phone"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-phone" aria-hidden="true"></span>
+                            <input
+                                    type="tel"
+                                    name="student_phone"
+                                    id="fs_phone"
+                                    value="<?php echo esc_attr( $student_data->phone ?? '' ); ?>"
+                                    placeholder="<?php esc_attr_e( '+7 (999) 000-00-00', 'fs-lms' ); ?>"
+                                    required
+                                    aria-required="true"
+                                    autocomplete="tel"
+                                    inputmode="tel"
+                                    data-validate="phone"
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_student_doc_type"><?php esc_html_e( 'Тип документа', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
-                        <span class="dashicons dashicons-media-document" aria-hidden="true"></span>
-                        <select
-                                name="student_doc_type"
-                                id="fs_student_doc_type"
-                                required
-                                aria-required="true"
-                                autocomplete="off"
-                        >
-                            <option value="pass" <?php selected( ( $student_data->docType ?? '' ), 'pass' ); ?>><?php esc_html_e( 'Паспорт', 'fs-lms' ); ?></option>
-                            <option value="birth_certificate" <?php selected( ( $student_data->docType ?? '' ), 'birth_certificate' ); ?>><?php esc_html_e( 'Свидетельство о рождении', 'fs-lms' ); ?></option>
-                        </select>
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-media-document" aria-hidden="true"></span>
+                            <select
+                                    name="student_doc_type"
+                                    id="fs_student_doc_type"
+                                    required
+                                    aria-required="true"
+                                    autocomplete="off"
+                            >
+                                <option value="pass" <?php selected( ( $student_data->docType ?? '' ), 'pass' ); ?>><?php esc_html_e( 'Паспорт', 'fs-lms' ); ?></option>
+                                <option value="birth_certificate" <?php selected( ( $student_data->docType ?? '' ), 'birth_certificate' ); ?>><?php esc_html_e( 'Свидетельство о рождении', 'fs-lms' ); ?></option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_student_doc_number" id="fs_student_doc_number_label">
                             <?php esc_html_e( 'Данные паспорта ученика', 'fs-lms' ); ?> <span aria-hidden="true">*</span>
                         </label>
-                        <span class="dashicons dashicons-vicious" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="student_doc_number"
-                                id="fs_student_doc_number"
-                                data-validate="passportSN"
-                                value="<?php echo esc_attr( $student_data->docNumber ?? '' ); ?>"
-                                placeholder="1234 567890"
-                                inputmode="numeric"
-                                autocomplete="off"
-                                autocapitalize="none"
-                                autocorrect="off"
-                                spellcheck="false"
-                                required
-                                aria-required="true"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-vicious" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="student_doc_number"
+                                    id="fs_student_doc_number"
+                                    data-validate="passportSN"
+                                    value="<?php echo esc_attr( $student_data->docNumber ?? '' ); ?>"
+                                    placeholder="1234 567890"
+                                    inputmode="numeric"
+                                    autocomplete="off"
+                                    autocapitalize="none"
+                                    autocorrect="off"
+                                    spellcheck="false"
+                                    required
+                                    aria-required="true"
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_student_inn"><?php esc_html_e( 'ИНН ученика', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
-                        <span class="dashicons dashicons-awards" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="student_inn"
-                                id="fs_student_inn"
-                                value="<?php echo esc_attr( $student_data->inn ?? '' ); ?>"
-                                placeholder="<?php esc_attr_e( '12 цифр ИНН', 'fs-lms' ); ?>"
-                                data-validate="inn"
-                                inputmode="numeric"
-                                autocomplete="off"
-                                autocapitalize="none"
-                                autocorrect="off"
-                                spellcheck="false"
-                                required
-                                aria-required="true"
-                                minlength="12"
-                                maxlength="12"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-awards" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="student_inn"
+                                    id="fs_student_inn"
+                                    value="<?php echo esc_attr( $student_data->inn ?? '' ); ?>"
+                                    placeholder="<?php esc_attr_e( '12 цифр ИНН', 'fs-lms' ); ?>"
+                                    data-validate="inn"
+                                    inputmode="numeric"
+                                    autocomplete="off"
+                                    autocapitalize="none"
+                                    autocorrect="off"
+                                    spellcheck="false"
+                                    required
+                                    aria-required="true"
+                                    minlength="12"
+                                    maxlength="12"
+                            >
+                        </div>
                     </div>
                 </fieldset>
 
@@ -265,210 +288,234 @@ ThemeCompatService::header();
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_parent_last_name"><?php esc_html_e( 'Фамилия', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
-                        <span class="dashicons dashicons-businessperson" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="parent_last_name"
-                                id="fs_parent_last_name"
-                                value="<?php echo esc_attr( $p_last_name ); ?>"
-                                placeholder="<?php esc_attr_e( 'Фамилия родителя / представителя', 'fs-lms' ); ?>"
-                                <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                                autocomplete="family-name"
-                                autocapitalize="words"
-                                autocorrect="off"
-                                <?php if ( ! $p_locked ) : ?>data-validate="cyrillicName"<?php endif; ?>
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-businessperson" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="parent_last_name"
+                                    id="fs_parent_last_name"
+                                    value="<?php echo esc_attr( $p_last_name ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Фамилия родителя / представителя', 'fs-lms' ); ?>"
+                                    <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                                    autocomplete="family-name"
+                                    autocapitalize="words"
+                                    autocorrect="off"
+                                    <?php if ( ! $p_locked ) : ?>data-validate="cyrillicName"<?php endif; ?>
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_parent_first_name"><?php esc_html_e( 'Имя', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
-                        <span class="dashicons dashicons-businessperson" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="parent_first_name"
-                                id="fs_parent_first_name"
-                                value="<?php echo esc_attr( $p_first_name ); ?>"
-                                placeholder="<?php esc_attr_e( 'Имя родителя / представителя', 'fs-lms' ); ?>"
-                                <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                                autocomplete="given-name"
-                                autocapitalize="words"
-                                autocorrect="off"
-                                <?php if ( ! $p_locked ) : ?>data-validate="cyrillicName"<?php endif; ?>
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-businessperson" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="parent_first_name"
+                                    id="fs_parent_first_name"
+                                    value="<?php echo esc_attr( $p_first_name ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Имя родителя / представителя', 'fs-lms' ); ?>"
+                                    <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                                    autocomplete="given-name"
+                                    autocapitalize="words"
+                                    autocorrect="off"
+                                    <?php if ( ! $p_locked ) : ?>data-validate="cyrillicName"<?php endif; ?>
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_parent_middle_name"><?php esc_html_e( 'Отчество', 'fs-lms' ); ?></label>
-                        <span class="dashicons dashicons-businessperson" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="parent_middle_name"
-                                id="fs_parent_middle_name"
-                                value="<?php echo esc_attr( $p_middle_name ); ?>"
-                                placeholder="<?php esc_attr_e( 'Отчество родителя / представителя', 'fs-lms' ); ?>"
-                                autocomplete="additional-name"
-                                autocapitalize="words"
-                                autocorrect="off"
-                                <?php if ( $p_locked ) : ?>readonly<?php else : ?>data-validate="cyrillicName"<?php endif; ?>
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-businessperson" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="parent_middle_name"
+                                    id="fs_parent_middle_name"
+                                    value="<?php echo esc_attr( $p_middle_name ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Отчество родителя / представителя', 'fs-lms' ); ?>"
+                                    autocomplete="additional-name"
+                                    autocapitalize="words"
+                                    autocorrect="off"
+                                    <?php if ( $p_locked ) : ?>readonly<?php else : ?>data-validate="cyrillicName"<?php endif; ?>
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_parent_birth_date"><?php esc_html_e( 'Дата рождения', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
-                        <span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
-                        <input
-                                type="date"
-                                name="parent_birth_date"
-                                id="fs_parent_birth_date"
-                                value="<?php echo esc_attr( $p_birth_date ); ?>"
-                                <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                                autocomplete="bday"
-                                max="<?php echo esc_attr( $max_date ); ?>"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
+                            <input
+                                    type="date"
+                                    name="parent_birth_date"
+                                    id="fs_parent_birth_date"
+                                    value="<?php echo esc_attr( $p_birth_date ); ?>"
+                                    <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                                    autocomplete="bday"
+                                    max="<?php echo esc_attr( $max_date ); ?>"
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_doc_type"><?php esc_html_e( 'Тип документа', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
-                        <span class="dashicons dashicons-media-document" aria-hidden="true"></span>
-                        <?php if ( $p_locked ) : ?>
-                            <input type="hidden" name="doc_type" value="<?php echo esc_attr( $p_doc_type ); ?>">
-                            <input type="text" id="fs_doc_type" readonly
-                                   value="<?php echo 'foreign_pass' === $p_doc_type ? esc_attr__( 'Иностранный паспорт', 'fs-lms' ) : esc_attr__( 'Паспорт РФ', 'fs-lms' ); ?>">
-                        <?php else : ?>
-                            <select
-                                    name="doc_type"
-                                    id="fs_doc_type"
-                                    required
-                                    aria-required="true"
-                                    autocomplete="off"
-                            >
-                                <option value="pass" selected><?php esc_html_e( 'Паспорт РФ', 'fs-lms' ); ?></option>
-                                <option value="foreign_pass"><?php esc_html_e( 'Иностранный паспорт', 'fs-lms' ); ?></option>
-                            </select>
-                        <?php endif; ?>
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-media-document" aria-hidden="true"></span>
+                            <?php if ( $p_locked ) : ?>
+                                <input type="hidden" name="doc_type" value="<?php echo esc_attr( $p_doc_type ); ?>">
+                                <input type="text" id="fs_doc_type" readonly
+                                       value="<?php echo 'foreign_pass' === $p_doc_type ? esc_attr__( 'Иностранный паспорт', 'fs-lms' ) : esc_attr__( 'Паспорт РФ', 'fs-lms' ); ?>">
+                            <?php else : ?>
+                                <select
+                                        name="doc_type"
+                                        id="fs_doc_type"
+                                        required
+                                        aria-required="true"
+                                        autocomplete="off"
+                                >
+                                    <option value="pass" selected><?php esc_html_e( 'Паспорт РФ', 'fs-lms' ); ?></option>
+                                    <option value="foreign_pass"><?php esc_html_e( 'Иностранный паспорт', 'fs-lms' ); ?></option>
+                                </select>
+                            <?php endif; ?>
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_doc_number" id="fs_doc_number_label">
                             <?php esc_html_e( 'Серия и номер паспорта', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?>
                         </label>
-                        <span class="dashicons dashicons-id-alt" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="doc_number"
-                                id="fs_doc_number"
-                                value="<?php echo esc_attr( $p_doc_number ); ?>"
-                                placeholder="1234 567890"
-                                <?php if ( ! $p_locked ) : ?>data-validate="passportSN"<?php endif; ?>
-                                inputmode="numeric"
-                                autocomplete="off"
-                                autocapitalize="none"
-                                autocorrect="off"
-                                spellcheck="false"
-                                <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-id-alt" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="doc_number"
+                                    id="fs_doc_number"
+                                    value="<?php echo esc_attr( $p_doc_number ); ?>"
+                                    placeholder="1234 567890"
+                                    <?php if ( ! $p_locked ) : ?>data-validate="passportSN"<?php endif; ?>
+                                    inputmode="numeric"
+                                    autocomplete="off"
+                                    autocapitalize="none"
+                                    autocorrect="off"
+                                    spellcheck="false"
+                                    <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_doc_issued_by"><?php esc_html_e( 'Кем выдан документ', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
-                        <span class="dashicons dashicons-building" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="doc_issued_by"
-                                id="fs_doc_issued_by"
-                                value="<?php echo esc_attr( $p_issued_by ); ?>"
-                                placeholder="<?php esc_attr_e( 'Паспорт выдан', 'fs-lms' ); ?>"
-                                <?php if ( ! $p_locked ) : ?>required aria-required="true" data-validate="address" minlength="4"<?php endif; ?>
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                                autocomplete="off"
-                                autocapitalize="sentences"
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-building" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="doc_issued_by"
+                                    id="fs_doc_issued_by"
+                                    value="<?php echo esc_attr( $p_issued_by ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Паспорт выдан', 'fs-lms' ); ?>"
+                                    <?php if ( ! $p_locked ) : ?>required aria-required="true" data-validate="address" minlength="4"<?php endif; ?>
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                                    autocomplete="off"
+                                    autocapitalize="sentences"
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_doc_issued_date"><?php esc_html_e( 'Дата выдачи документа', 'fs-lms' ); ?></label>
-                        <span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
-                        <input
-                                type="date"
-                                name="doc_issued_date"
-                                id="fs_doc_issued_date"
-                                value="<?php echo esc_attr( $p_issued_date ); ?>"
-                                autocomplete="off"
-                                max="<?php echo esc_attr( $max_date ); ?>"
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
+                            <input
+                                    type="date"
+                                    name="doc_issued_date"
+                                    id="fs_doc_issued_date"
+                                    value="<?php echo esc_attr( $p_issued_date ); ?>"
+                                    autocomplete="off"
+                                    max="<?php echo esc_attr( $max_date ); ?>"
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_inn"><?php esc_html_e( 'ИНН', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
-                        <span class="dashicons dashicons-awards" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="inn"
-                                id="fs_inn"
-                                value="<?php echo esc_attr( $p_inn ); ?>"
-                                placeholder="<?php esc_attr_e( '12 цифр ИНН', 'fs-lms' ); ?>"
-                                <?php if ( ! $p_locked ) : ?>data-validate="inn" required aria-required="true" minlength="12"<?php endif; ?>
-                                inputmode="numeric"
-                                autocomplete="off"
-                                autocapitalize="none"
-                                autocorrect="off"
-                                spellcheck="false"
-                                maxlength="12"
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-awards" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="inn"
+                                    id="fs_inn"
+                                    value="<?php echo esc_attr( $p_inn ); ?>"
+                                    placeholder="<?php esc_attr_e( '12 цифр ИНН', 'fs-lms' ); ?>"
+                                    <?php if ( ! $p_locked ) : ?>data-validate="inn" required aria-required="true" minlength="12"<?php endif; ?>
+                                    inputmode="numeric"
+                                    autocomplete="off"
+                                    autocapitalize="none"
+                                    autocorrect="off"
+                                    spellcheck="false"
+                                    maxlength="12"
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_address"><?php esc_html_e( 'Адрес регистрации', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
-                        <span class="dashicons dashicons-location" aria-hidden="true"></span>
-                        <input
-                                type="text"
-                                name="address"
-                                id="fs_address"
-                                value="<?php echo esc_attr( $p_address ); ?>"
-                                placeholder="<?php esc_attr_e( 'Адрес регистрации (по паспорту)', 'fs-lms' ); ?>"
-                                <?php if ( ! $p_locked ) : ?>required aria-required="true" minlength="5" data-validate="address"<?php endif; ?>
-                                autocomplete="off"
-                                autocapitalize="sentences"
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-location" aria-hidden="true"></span>
+                            <input
+                                    type="text"
+                                    name="address"
+                                    id="fs_address"
+                                    value="<?php echo esc_attr( $p_address ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Адрес регистрации (по паспорту)', 'fs-lms' ); ?>"
+                                    <?php if ( ! $p_locked ) : ?>required aria-required="true" minlength="5" data-validate="address"<?php endif; ?>
+                                    autocomplete="off"
+                                    autocapitalize="sentences"
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_parent_phone"><?php esc_html_e( 'Контактный телефон', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
-                        <span class="dashicons dashicons-phone" aria-hidden="true"></span>
-                        <input
-                                type="tel"
-                                name="phone"
-                                id="fs_parent_phone"
-                                value="<?php echo esc_attr( $p_phone ); ?>"
-                                placeholder="+7 (999) 000-00-00"
-                                <?php if ( ! $p_locked ) : ?>required aria-required="true" data-validate="phone"<?php endif; ?>
-                                autocomplete="tel"
-                                inputmode="tel"
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-phone" aria-hidden="true"></span>
+                            <input
+                                    type="tel"
+                                    name="phone"
+                                    id="fs_parent_phone"
+                                    value="<?php echo esc_attr( $p_phone ); ?>"
+                                    placeholder="+7 (999) 000-00-00"
+                                    <?php if ( ! $p_locked ) : ?>required aria-required="true" data-validate="phone"<?php endif; ?>
+                                    autocomplete="tel"
+                                    inputmode="tel"
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                            >
+                        </div>
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
                         <label for="fs_parent_email"><?php esc_html_e( 'Электронная почта', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
-                        <span class="dashicons dashicons-email" aria-hidden="true"></span>
-                        <input
-                                type="email"
-                                name="email"
-                                id="fs_parent_email"
-                                value="<?php echo esc_attr( $p_email ); ?>"
-                                placeholder="<?php esc_attr_e( 'Email для уведомлений', 'fs-lms' ); ?>"
-                                <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
-                                autocomplete="email"
-                                inputmode="email"
-                                <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
-                        >
+                        <div class="fs-field-control">
+                            <span class="dashicons dashicons-email" aria-hidden="true"></span>
+                            <input
+                                    type="email"
+                                    name="email"
+                                    id="fs_parent_email"
+                                    value="<?php echo esc_attr( $p_email ); ?>"
+                                    placeholder="<?php esc_attr_e( 'Email для уведомлений', 'fs-lms' ); ?>"
+                                    <?php if ( ! $p_locked ) : ?>required aria-required="true"<?php endif; ?>
+                                    autocomplete="email"
+                                    inputmode="email"
+                                    <?php if ( $p_locked ) : ?>readonly<?php endif; ?>
+                            >
+                        </div>
                     </div>
                 </fieldset>
 
@@ -512,5 +559,3 @@ ThemeCompatService::header();
     </main>
 
 <?php ThemeCompatService::footer(); ?>
-
-

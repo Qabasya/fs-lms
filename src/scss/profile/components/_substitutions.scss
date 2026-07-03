@@ -37,6 +37,19 @@
   .subs-grid { grid-template-columns: 1fr; }
 }
 
+/* #16: контент карточки замен (список/заметка/форма) прижат к краям — сама
+   .prof-card паддингов не имеет, только шапка. Отбиваем тело от краёв по
+   горизонтали (18px — как у .prof-card-head) и добавляем нижний отступ. */
+.prof-subs .prof-card {
+  padding-bottom: 16px;
+}
+.prof-subs .prof-card > .subs-list,
+.prof-subs .prof-card > .subs-note,
+.prof-subs .prof-card > .subs-form {
+  margin-left: 18px;
+  margin-right: 18px;
+}
+
 .subs-note {
   margin: 0 0 12px;
   font-size: 12px;

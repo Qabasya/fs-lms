@@ -50,6 +50,12 @@
     position: relative;
     margin-bottom: $spacing-md;
 
+    // #7: иконка центрируется по инпуту (обёртка .fs-field-control — тесный
+    // positioning-контекст), а не по всей группе с label сверху и ошибкой снизу.
+    .fs-field-control {
+      position: relative;
+    }
+
     .dashicons {
       @include fs-field-icon;
       pointer-events: none;

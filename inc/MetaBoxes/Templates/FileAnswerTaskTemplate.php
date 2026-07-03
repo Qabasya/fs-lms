@@ -37,12 +37,14 @@ class FileAnswerTaskTemplate extends BaseTemplate {
 				'object' => new FileAttachmentsField(),  // Файлы-исходники: данные, картинки, шаблоны
 			),
 			'solution_text'  => array(
-				'label'  => 'Решение для проверяющего (текст, ученику не видно)',
-				'object' => new ConditionField(),
+				'label'    => 'Решение для проверяющего (текст, ученику не видно)',
+				'object'   => new ConditionField(),
+				'optional' => true,                       // #9: эталон заполняется по желанию
 			),
 			'task_code'      => array(
-				'label'  => 'Решение для проверяющего (код, ученику не видно)',
-				'object' => new CodeField(),
+				'label'    => 'Решение для проверяющего (код, ученику не видно)',
+				'object'   => new CodeField(),
+				'optional' => true,                       // #9: эталон заполняется по желанию
 			),
 			'task_criteria'  => array(
 				'label'  => 'Критерии оценивания (опционально)',

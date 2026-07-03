@@ -10,6 +10,18 @@
   height: 100vh;
 }
 
+/* #20: при видимой WP admin-bar тело сдвинуто вниз (html margin-top), а .prof-app
+   в 100vh уезжает за нижний край и «съедает» prof-side-user. Вычитаем высоту бара
+   (32px / 46px на узких экранах — стандартные значения WP). */
+body.admin-bar .prof-app {
+  height: calc(100vh - 32px);
+}
+@media screen and (max-width: 782px) {
+  body.admin-bar .prof-app {
+    height: calc(100vh - 46px);
+  }
+}
+
 /* ══ SIDEBAR ══════════════════════════════════════════════════════════ */
 .prof-sidebar {
   background: var(--surface);

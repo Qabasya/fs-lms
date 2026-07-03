@@ -12,6 +12,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
@@ -34,6 +35,7 @@ class LearnerServiceTest extends TestCase {
 	private $worksResolver;
 	private $gate;
 	private $progress;
+	private $subjects;
 	private LearnerService $service;
 
 	protected function setUp(): void {
@@ -52,11 +54,13 @@ class LearnerServiceTest extends TestCase {
 		$this->worksResolver = $this->createMock( EffectiveWorksResolver::class );
 		$this->gate          = $this->createMock( LessonGateResolver::class );
 		$this->progress      = $this->createMock( LessonProgressService::class );
+		$this->subjects      = $this->createMock( SubjectRepository::class );
 		$this->gate->method( 'resolveLesson' )->willReturn( \Inc\Enums\Course\GateState::Available );
 		$this->service = new LearnerService(
 			$this->records, $this->groups, $this->groupLessons, $this->lessons,
 			$this->gradebook, $this->attendance, $this->clock,
 			$this->submissions, $this->worksResolver, $this->gate, $this->progress,
+			$this->subjects,
 		);
 	}
 

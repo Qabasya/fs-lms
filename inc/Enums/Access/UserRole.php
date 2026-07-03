@@ -112,6 +112,20 @@ enum UserRole: string {
 	}
 
 	/**
+	 * Роли, чей дом — фронт-кабинет `/profile/` (или публичная часть), а не wp-admin:
+	 * преподаватель, ученик, родитель и свободный ученик. Именно их
+	 * {@see \Inc\Managers\Person\UserBehaviorManager::restrictAdminAccess()} не пускает
+	 * в админку. У всех есть витрина ({@see \Inc\Services\Profile\ProfileViewResolver::viewFor()}),
+	 * поэтому редирект на `/profile/` не создаёт петлю. Офисные роли
+	 * (FSOffice/FSMethodist/FSMarket) в этот список НЕ входят — им админка доступна.
+	 *
+	 * @return list<self>
+	 */
+	public static function frontCabinetRoles(): array {
+		return array( self::FSTeacher, self::FSStudent, self::FSParent, self::Student );
+	}
+
+	/**
 	 * Возвращает понятное название роли для отображения в админ-панели.
 	 *
 	 * @return string
