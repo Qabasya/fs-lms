@@ -35,7 +35,12 @@ $page_slug = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore Wor
 ?>
 
 <div class="wrap">
-	<h1>Журналы</h1>
+    <div class="fs-page-header">
+        <div class="fs-page-header__content">
+            <h1 class="fs-page-header__title">Журналы</h1>
+
+        </div>
+    </div>
 
 	<h2 class="nav-tab-wrapper">
 		<?php foreach ( $tabs as $tab_id => $tab ) : ?>

@@ -38,7 +38,12 @@ $tabs = array(
 ?>
 
 	<div class="wrap fs-lms-dashboard">
-		<h1><?php echo esc_html( $subject->name ?? 'Без названия' ); ?></h1>
+        <div class="fs-page-header">
+            <div class="fs-page-header__content">
+                <h1 class="fs-page-header__title"><?php echo esc_html( $subject->name ?? 'Без названия' ); ?></h1>
+
+            </div>
+        </div>
 
         <!-- Навигация по вкладкам -->
 		<h2 class="nav-tab-wrapper">
