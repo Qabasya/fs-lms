@@ -45,26 +45,9 @@ class DashboardService {
 		$today   = substr( $now, 0, 10 );
 		$weekEnd = ( new \DateTimeImmutable( $today ) )->modify( '+6 days' )->format( 'Y-m-d' );
 
-		// Набор групп: свои (или все для офиса) + группы, которые пользователь замещает.
-		$groups = array();
-		foreach ( $allGroups ? $this->groups->findAll() : $this->groups->findByTeacherId( $userId ) as $g ) {
-			$groups[ (int) $g->id ] = $g;
-		}
-		$roomNames = array();
-		foreach ( $this->rooms->findAll() as $r ) {
-			$roomNames[ $r->id ] = $r->name;
-		}
+		[ $groups, $covering ] = $this->collectGroups( $userId, $allGroups, $today );
 
-		$covering = array();
-		foreach ( $this->substitutions->findActiveBySubstitute( $userId, $today ) as $sub ) {
-			$covering[ $sub->groupId ] = $sub->validTo;
-			if ( ! isset( $groups[ $sub->groupId ] ) ) {
-				$g = $this->groups->findById( $sub->groupId );
-				if ( $g ) {
-					$groups[ $sub->groupId ] = $g;
-				}
-			}
-		}
+		$roomNames = $this->roomNames();
 
 		$todayItems  = array();
 		$weekItems   = array();
@@ -77,36 +60,16 @@ class DashboardService {
 		foreach ( $groups as $gid => $g ) {
 			$isCovering = isset( $covering[ $gid ] );
 
-			// T5.7: своя группа под замену другим — маркер «замена до [дата]».
-			$coveredUntil = null;
-			if ( ! $isCovering ) {
-				$active = $this->substitutions->findActiveForGroup( $gid, $today );
-				if ( $active && $active->substituteTeacherId !== $userId ) {
-					$coveredUntil = $active->validTo;
-				}
-			}
-
-			$matrix      = $this->attendance->matrixForGroup( $gid );
-			$activeCount = $this->records->countActiveByGroup( $gid );
+			$coveredUntil = $this->coveredUntil( $gid, $today, $userId, $isCovering );
+			$matrix       = $this->attendance->matrixForGroup( $gid );
+			$activeCount  = $this->records->countActiveByGroup( $gid );
 
 			foreach ( $this->groupLessons->listByGroup( $gid ) as $row ) {
 				if ( ! $row->scheduledAt ) {
 					continue;
 				}
 				$date = substr( $row->scheduledAt, 0, 10 );
-				$item = array(
-					'group_lesson_id' => $row->id,
-					'group_id'        => $gid,
-					'group_name'      => $g->name,
-					'subject'         => $g->subject_key,
-					'topic'           => $this->topicOf( $row ),
-					'date'            => $date,
-					'start'           => substr( (string) $row->scheduledAt, 11, 5 ),
-					'end'             => $row->endsAt ? substr( $row->endsAt, 11, 5 ) : '',
-					'kind'            => $row->kind,
-					'is_substitute'   => $isCovering,
-					'room'            => $this->roomName( $row, $g, $roomNames ),
-				);
+				$item = $this->lessonItem( $row, $gid, $g, $isCovering, $roomNames );
 
 				if ( $date === $today ) {
 					$item['state'] = $this->stateOf( (string) $row->scheduledAt, $row->endsAt, $now );
@@ -174,6 +137,74 @@ class DashboardService {
 				),
 				array_keys( $covering )
 			),
+		);
+	}
+
+	/**
+	 * Набор групп пользователя: свои (или все для офиса) + группы, которые он
+	 * замещает (Эпик 5, T5.6), и карта замещений group_id → valid_to.
+	 *
+	 * @return array{0: array<int, object>, 1: array<int, string>} [groups, covering]
+	 */
+	private function collectGroups( int $userId, bool $allGroups, string $today ): array {
+		$groups = array();
+		foreach ( $allGroups ? $this->groups->findAll() : $this->groups->findByTeacherId( $userId ) as $g ) {
+			$groups[ (int) $g->id ] = $g;
+		}
+
+		$covering = array();
+		foreach ( $this->substitutions->findActiveBySubstitute( $userId, $today ) as $sub ) {
+			$covering[ $sub->groupId ] = $sub->validTo;
+			if ( ! isset( $groups[ $sub->groupId ] ) ) {
+				$g = $this->groups->findById( $sub->groupId );
+				if ( $g ) {
+					$groups[ $sub->groupId ] = $g;
+				}
+			}
+		}
+
+		return array( $groups, $covering );
+	}
+
+	/** @return array<int, string> id кабинета → название */
+	private function roomNames(): array {
+		$names = array();
+		foreach ( $this->rooms->findAll() as $r ) {
+			$names[ $r->id ] = $r->name;
+		}
+		return $names;
+	}
+
+	/**
+	 * T5.7: своя группа под замену другим — маркер «замена до [дата]».
+	 */
+	private function coveredUntil( int $gid, string $today, int $userId, bool $isCovering ): ?string {
+		if ( $isCovering ) {
+			return null;
+		}
+		$active = $this->substitutions->findActiveForGroup( $gid, $today );
+		return ( $active && $active->substituteTeacherId !== $userId ) ? $active->validTo : null;
+	}
+
+	/**
+	 * Элемент расписания (сегодня/неделя) по строке занятия.
+	 *
+	 * @param array<int,string> $roomNames
+	 * @return array<string, mixed>
+	 */
+	private function lessonItem( \Inc\DTO\Course\GroupLessonDTO $row, int $gid, object $g, bool $isCovering, array $roomNames ): array {
+		return array(
+			'group_lesson_id' => $row->id,
+			'group_id'        => $gid,
+			'group_name'      => $g->name,
+			'subject'         => $g->subject_key,
+			'topic'           => $this->topicOf( $row ),
+			'date'            => substr( (string) $row->scheduledAt, 0, 10 ),
+			'start'           => substr( (string) $row->scheduledAt, 11, 5 ),
+			'end'             => $row->endsAt ? substr( $row->endsAt, 11, 5 ) : '',
+			'kind'            => $row->kind,
+			'is_substitute'   => $isCovering,
+			'room'            => $this->roomName( $row, $g, $roomNames ),
 		);
 	}
 

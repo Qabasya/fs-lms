@@ -1,14 +1,14 @@
 /* ══════════════════════════════════════════════════════════════════════
    «Сводка по ученику» (Эпик 10 T10.8) — карточки занятий ученика.
    Палитра полос D12: 🟢 посещён · 🟣 индивидуальное · 🔴 пропуск · серый — не отмечено.
-   Токены из _core.scss.
    ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
 
 .prof-summary {
   padding: 22px 26px 40px;
 }
 
-/* T12.8: пикеры группы/ученика переиспользуют .prof-ktp-pick/.kp-btn/… из _core.scss (КТП). */
+/* T12.8: пикеры группы/ученика переиспользуют .prof-ktp-pick/.kp-btn/… из _ktp.scss. */
 .sum-head {
   display: flex;
   flex-wrap: wrap;
@@ -29,7 +29,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
-  transition: border-color .12s, box-shadow .12s;
+  transition: border-color $tr, box-shadow $tr;
 }
 .sum-card:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
 
@@ -97,7 +97,7 @@
 .sum-work.overdue { background: var(--absent-bg); border-color: var(--absent); }
 .sum-work-late { color: var(--absent); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: .02em; }
 
-@media (max-width: 720px) {
+@media (max-width: $breakpoint-mobile) {
   .prof-summary { padding: 16px 14px 32px; }
   .sum-head .kp-btn { max-width: none; width: 100%; }
   .sum-head .prof-ktp-pick { flex: 1 1 100%; }
@@ -108,8 +108,8 @@
 .sum-work[role="button"]:hover { border-color: var(--accent); color: var(--accent-700); }
 
 /* ── Модалка детали работы (T10.9) ── */
-.sum-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.sum-modal-backdrop { position: absolute; inset: 0; background: rgba(20, 24, 33, .5); }
+.sum-modal { position: fixed; inset: 0; z-index: $z-modal; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.sum-modal-backdrop { position: absolute; inset: 0; background: var(--backdrop); }
 .sum-modal-box {
   position: relative;
   width: 100%; max-width: 720px; max-height: calc(100vh - 60px);
@@ -133,8 +133,8 @@
 .st-n { font-size: 13px; font-weight: 700; color: var(--ink); }
 .st-score { margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
 .sum-verdict { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
-.sv-correct   { background: var(--g-good); color: #fff; }
-.sv-incorrect { background: var(--absent); color: #fff; }
+.sv-correct   { background: var(--g-good); color: var(--ink-inverse); }
+.sv-incorrect { background: var(--absent); color: var(--ink-inverse); }
 .sv-pending   { background: var(--surface-2); color: var(--muted); }
 .sum-task-cond { font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
 .sum-task-cond :is(p, ul, ol) { margin: 0 0 6px; }
@@ -162,7 +162,7 @@
 .smf-fields input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .smf-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-@media (max-width: 640px) {
+@media (max-width: $breakpoint-narrow) {
   .sum-modal { padding: 0; }
   .sum-modal-box { max-width: 100%; max-height: 100vh; border-radius: 0; }
 }

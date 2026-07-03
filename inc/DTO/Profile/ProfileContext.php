@@ -36,4 +36,28 @@ final readonly class ProfileContext {
 		public bool $readOnly,
 		public array $children = array(),
 	) {}
+
+	/**
+	 * Person-id, чьи данные показывать, с учётом клиентского запроса.
+	 *
+	 * Правило доступа «родитель видит только своих детей» живёт здесь,
+	 * а не в AJAX-слое: ученик всегда получает свои данные (клиентский
+	 * параметр игнорируется), родитель (read-only) может запросить только
+	 * ребёнка из $children — иначе остаётся ребёнок по умолчанию.
+	 *
+	 * @param int $requested Клиентский `student_person_id` (0 — не передан).
+	 */
+	public function resolveSubjectPersonId( int $requested ): ?int {
+		if ( ! $this->readOnly || $requested <= 0 ) {
+			return $this->subjectPersonId;
+		}
+
+		foreach ( $this->children as $child ) {
+			if ( (int) $child['personId'] === $requested ) {
+				return $requested;
+			}
+		}
+
+		return $this->subjectPersonId;
+	}
 }

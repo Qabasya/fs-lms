@@ -6,17 +6,15 @@
    работ по типам (badge + сырой балл). Оценивание — в детали работы (T10.9).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, openCtxMenu } from './utils.js';
+import { esc, toast, fmtNum, emptyState } from './utils.js';
 import { createApi } from './api.js';
+import { DOW_JS } from './constants.js';
+import { groupPickerBtnHtml, studentPickerBtnHtml, openGroupPicker, openStudentPicker } from './picker.js';
 
 const KIND_LABEL = { group: 'Групповое', individual: 'Индивидуальное' };
 const ATT_LABEL  = { present: 'Присутствовал', absent: 'Отсутствовал', none: 'Не отмечено' };
 const VERDICT_LABEL = { correct: 'Верно', incorrect: 'Неверно', pending: 'На проверке' };
 const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
-const DOW = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-// T12.8: та же палитра/пикер группы, что в КТП (ktp.js) и журнале (journal.js).
-const GROUP_COLORS = ['#3b5bdb','#0ca678','#7048e8','#f08c00','#e8590c','#1c7ed6','#e64980','#2f9e44'];
-const AVA_COLORS = ['#5c7cfa','#7048e8','#1c7ed6','#0ca678','#f08c00','#e8590c','#e64980','#9c36b5','#2f9e44','#4263eb'];
 
 let root = null;
 let state = null;
@@ -80,19 +78,11 @@ function render() {
         <div class="sum-head">
             <div class="prof-ktp-pick">
                 <span class="kp-label">Группа</span>
-                <button type="button" class="kp-btn" id="sumGroupBtn">
-                    <span class="kp-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
-                    <span class="kp-txt">${esc(g.name)} · ${esc(g.subject)}</span>
-                    <svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>
-                </button>
+                ${groupPickerBtnHtml(g, 'sumGroupBtn')}
             </div>
             <div class="prof-ktp-pick">
                 <span class="kp-label">Ученик</span>
-                <button type="button" class="kp-btn" id="sumStudentBtn" ${state.roster.length ? '' : 'disabled'}>
-                    ${student ? `<span class="kp-chip" style="background:${avaColor(student.person_id)}">${initials(student.name)}</span>` : ''}
-                    <span class="kp-txt">${student ? esc(student.name) : '— нет активных учеников —'}</span>
-                    ${state.roster.length ? `<svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>` : ''}
-                </button>
+                ${studentPickerBtnHtml(student, state.roster, 'sumStudentBtn')}
             </div>
         </div>
         <div class="sum-cards">${cards}</div>
@@ -107,58 +97,19 @@ function render() {
         el.addEventListener('click', () => openWorkDetail(el.dataset.srcType, +el.dataset.srcId)));
 }
 
-/* T12.8: дропдауны группы/ученика — тот же паттерн, что в КТП (ktp.js). */
-function groupColor(id) {
-    const idx = state.groups.findIndex(g => g.id === id);
-    return GROUP_COLORS[(idx < 0 ? 0 : idx) % GROUP_COLORS.length];
-}
-function shortName(name) {
-    return String(name).replace(/[«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 4);
-}
-function avaColor(personId) {
-    const idx = state.roster.findIndex(s => s.person_id === personId);
-    return AVA_COLORS[(idx < 0 ? 0 : idx) % AVA_COLORS.length];
-}
-function initials(name) {
-    return String(name).split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-}
-
+/* T12.8: дропдауны группы/ученика — общий пикер (picker.js). */
 function openGroupMenu() {
-    const btn = document.getElementById('sumGroupBtn');
-    if (!btn) return;
-    openCtxMenu(
-        btn,
-        state.groups.map(g => ({
-            v: String(g.id),
-            label: `${g.name} · ${g.subject}`,
-            active: g.id === state.groupId,
-            swatch: groupColor(g.id),
-            chip: shortName(g.name),
-        })),
-        v => {
-            const id = parseInt(v, 10);
-            if (id !== state.groupId) { state.groupId = id; loadRoster(); }
-        }
-    );
+    openGroupPicker(document.getElementById('sumGroupBtn'), state.groups, state.groupId, id => {
+        state.groupId = id;
+        loadRoster();
+    });
 }
 
 function openStudentMenu() {
-    const btn = document.getElementById('sumStudentBtn');
-    if (!btn || !state.roster.length) return;
-    openCtxMenu(
-        btn,
-        state.roster.map(s => ({
-            v: String(s.person_id),
-            label: s.name,
-            active: s.person_id === state.personId,
-            swatch: avaColor(s.person_id),
-            chip: initials(s.name),
-        })),
-        v => {
-            const id = parseInt(v, 10);
-            if (id !== state.personId) { state.personId = id; loadSummary(); }
-        }
-    );
+    openStudentPicker(document.getElementById('sumStudentBtn'), state.roster, state.personId, id => {
+        state.personId = id;
+        loadSummary();
+    });
 }
 
 function strip(l) {
@@ -411,19 +362,16 @@ function wireGrading(modal, submissionId) {
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-function fmtNum(n) { return String(Math.round(Number(n) * 100) / 100); }
-
 function fmtDate(iso) {
     const parts = String(iso).split('-');
     if (parts.length !== 3) return iso;
     const [y, m, d] = parts;
-    const dow = DOW[new Date(`${y}-${m}-${d}T00:00:00`).getDay()];
+    const dow = DOW_JS[new Date(`${y}-${m}-${d}T00:00:00`).getDay()];
     return `${d}.${m} · ${dow}`;
 }
 
+const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 3h9l5 5v13H5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3v5h5M8 13l2 2 4-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function empty(title, text) {
-    return `<div class="prof-summary"><div class="prof-ktp-empty">
-        <div class="ke-ico"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 3h9l5 5v13H5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3v5h5M8 13l2 2 4-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3>${esc(title)}</h3><p>${esc(text || '')}</p>
-    </div></div>`;
+    return emptyState('prof-summary', EMPTY_ICON, title, text);
 }

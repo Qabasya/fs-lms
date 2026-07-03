@@ -1,4 +1,6 @@
-/* Shared utilities: toast, HTML escaping, context menu state */
+/* Shared utilities: toast, HTML escaping, formatting, context menu state */
+
+import { GROUP_COLORS, AVA_COLORS } from './constants.js';
 
 let toastTimer;
 
@@ -17,6 +19,88 @@ export function esc(s) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+/* ── Formatting (shared across screens) ────────────────────────── */
+
+/** Короткое имя группы для чипа: «10 «А»» → «10 А» → первые 4 символа. */
+export function shortName(name) {
+    return String(name).replace(/[«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 4);
+}
+
+/** Инициалы из ФИО: «Иванова Софья» → «ИС». */
+export function initials(name) {
+    return String(name).split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+/** Первое слово ФИО (фамилия). */
+export function firstWord(name) {
+    return String(name).split(' ').filter(Boolean)[0] || '';
+}
+
+/** Русская плюрализация: plural(3, 'занятие', 'занятия', 'занятий'). */
+export function plural(n, one, few, many) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+    return many;
+}
+
+/** Число с точностью до сотых, без хвостовых нулей. */
+export function fmtNum(n) {
+    return String(Math.round(Number(n) * 100) / 100);
+}
+
+/** 'YYYY-MM-DD…' → 'DD.MM'. */
+export function fmtDayMonth(s) {
+    if (!s) return '';
+    const p = String(s).slice(0, 10).split('-');
+    return p.length === 3 ? `${p[2]}.${p[1]}` : s;
+}
+
+/** Сегодняшняя дата 'YYYY-MM-DD'. */
+export function todayIso() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+/* ── Colors (shared) ───────────────────────────────────────────── */
+
+/**
+ * Цвет группы: индекс в fsProfile.groups → GROUP_COLORS (согласован между
+ * сайдбаром, пикерами и дашбордом); для группы вне списка — стабильный хэш id.
+ */
+export function groupColor(gid) {
+    const groups = (window.fsProfile && window.fsProfile.groups) || [];
+    const idx = groups.findIndex(g => String(g.id) === String(gid));
+    if (idx >= 0) return GROUP_COLORS[idx % GROUP_COLORS.length];
+    let h = 0;
+    const s = String(gid);
+    for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+    return GROUP_COLORS[Math.abs(h) % GROUP_COLORS.length];
+}
+
+/** Цвет аватара ученика по индексу в переданном списке ({person_id}). */
+export function avaColor(list, personId) {
+    const idx = (list || []).findIndex(s => s.person_id === personId);
+    return AVA_COLORS[(idx < 0 ? 0 : idx) % AVA_COLORS.length];
+}
+
+/* ── Empty state (shared markup) ───────────────────────────────── */
+
+/**
+ * Полноэкранное пустое состояние экрана.
+ *
+ * @param {string} wrapClass Класс обёртки экрана (prof-dash / prof-journal / …).
+ * @param {string} iconSvg   SVG-иконка (готовая разметка).
+ * @param {string} title
+ * @param {string} [text]
+ * @param {boolean} [danger] Красная иконка (состояние ошибки).
+ */
+export function emptyState(wrapClass, iconSvg, title, text, danger) {
+    return `<div class="${wrapClass}"><div class="prof-ktp-empty">
+        <div class="ke-ico${danger ? ' ke-ico--danger' : ''}">${iconSvg}</div>
+        <h3>${esc(title)}</h3><p>${esc(text || '')}</p>
+    </div></div>`;
 }
 
 /* ── Context menu (shared) ─────────────────────────────────────── */

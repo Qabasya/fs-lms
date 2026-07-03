@@ -4,12 +4,10 @@
    getCalendar → банк тем + календарь; drag → pin_lesson; «Распределить» → reflow.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, openCtxMenu, openCtxMenuRaw, closeCtxMenu } from './utils.js';
+import { esc, toast, emptyState, openCtxMenuRaw, closeCtxMenu } from './utils.js';
 import { createApi } from './api.js';
-
-const MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const DOW_RU = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-const GROUP_COLORS = ['#3b5bdb','#0ca678','#7048e8','#f08c00','#e8590c','#1c7ed6','#e64980','#2f9e44'];
+import { DOW_RU, MONTHS_RU } from './constants.js';
+import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
 
 let root = null;
 let state = null;
@@ -40,10 +38,6 @@ export function renderKTP(r) {
     loadCalendar();
 }
 
-function groupColor(id) {
-    const idx = state.groups.findIndex(g => g.id === id);
-    return GROUP_COLORS[(idx < 0 ? 0 : idx) % GROUP_COLORS.length];
-}
 function currentGroup() {
     return state.groups.find(g => g.id === state.groupId) || state.groups[0];
 }
@@ -97,19 +91,15 @@ function render() {
             <div class="prof-ktp-pickers">
                 <div class="prof-ktp-pick">
                     <span class="kp-label">Группа</span>
-                    <button class="kp-btn" id="ktpGroupBtn">
-                        <span class="kp-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
-                        <span class="kp-txt">${esc(g.name)} · ${esc(g.subject)}</span>
-                        <svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>
-                    </button>
+                    ${groupPickerBtnHtml(g, 'ktpGroupBtn')}
                 </div>
             </div>
-            <span style="flex:1"></span>
+            <span class="prof-spacer"></span>
             ${assigned ? `
                 <div class="prof-ktp-legend">
-                    <span class="kl"><span class="prof-dot" style="background:var(--g-good)"></span>Тема по плану</span>
-                    <span class="kl"><span class="prof-dot" style="background:var(--accent)"></span>Закреплено</span>
-                    <span class="kl"><span class="prof-dot" style="background:var(--absent)"></span>Выходной</span>
+                    <span class="kl"><span class="prof-dot prof-dot-good"></span>Тема по плану</span>
+                    <span class="kl"><span class="prof-dot prof-dot-accent"></span>Закреплено</span>
+                    <span class="kl"><span class="prof-dot prof-dot-absent"></span>Выходной</span>
                 </div>
                 ${locked ? `
                 <span class="ktp-lock-badge" title="Опубликовано${state.data.locked_at ? ' ' + esc(state.data.locked_at) : ''}">
@@ -135,8 +125,8 @@ function render() {
                     <button class="prof-icon-ghost" id="ktpPrev"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                     <div class="kal-month" id="ktpMonth"></div>
                     <button class="prof-icon-ghost" id="ktpNext"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                    <span style="flex:1"></span>
-                    <span id="ktpHint" style="font-size:12px;color:var(--muted)">${locked ? 'КТП опубликована — редактирование заблокировано' : 'Перетащите тему на дату, чтобы закрепить'}</span>
+                    <span class="prof-spacer"></span>
+                    <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : 'Перетащите тему на дату, чтобы закрепить'}</span>
                 </div>
                 <div class="kal-grid-wrap">
                     <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
@@ -199,7 +189,7 @@ function renderBank() {
     const unplaced = state.data.themes.filter(t => !t.scheduled_at);
     bank.innerHTML = unplaced.length
         ? unplaced.map(themeCardHtml).join('')
-        : `<div style="padding:18px;color:var(--muted-2);font-size:13px">Все темы распределены по датам.</div>`;
+        : `<div class="tb-empty">Все темы распределены по датам.</div>`;
     const count = document.getElementById('ktpBankCount');
     if (count) {
         // T12.6: считаем по уникальным темам (n), не по строкам — origin+continuation = 1 тема,
@@ -279,7 +269,7 @@ function themeCardHtml(t) {
         <span class="tc-num">${t.n}${partLabel(t)}</span>
         <div class="tc-body">
             <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
-            <div class="tc-meta">${t.is_pinned ? '<span style="color:var(--accent);font-weight:600">закреплено</span>' : ''}</div>
+            <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}</div>
         </div>
         <span class="tc-grip"><svg width="14" height="14" viewBox="0 0 14 14"><path fill="currentColor" d="M5 3h1v1H5zm3 0h1v1H8zM5 6.5h1v1H5zm3 0h1v1H8zM5 10h1v1H5zm3 0h1v1H8z"/></svg></span>
     </div>`;
@@ -299,10 +289,6 @@ function placedThemeHtml(t) {
     </div>`;
 }
 
-function shortName(name) {
-    return String(name).replace(/[«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 4);
-}
-
 /* ── Interactions ─────────────────────────────────────────────────────── */
 function shiftMonth(d) {
     state.cursor = Math.max(0, Math.min(state.months.length - 1, state.cursor + d));
@@ -310,20 +296,10 @@ function shiftMonth(d) {
 }
 
 function openGroupMenu() {
-    openCtxMenu(
-        document.getElementById('ktpGroupBtn'),
-        state.groups.map(g => ({
-            v: String(g.id),
-            label: `${g.name} · ${g.subject}`,
-            active: g.id === state.groupId,
-            swatch: groupColor(g.id),
-            chip: shortName(g.name),
-        })),
-        v => {
-            const id = parseInt(v, 10);
-            if (id !== state.groupId) { state.groupId = id; loadCalendar(); }
-        }
-    );
+    openGroupPicker(document.getElementById('ktpGroupBtn'), state.groups, state.groupId, id => {
+        state.groupId = id;
+        loadCalendar();
+    });
 }
 
 async function doReflow() {
@@ -344,6 +320,14 @@ async function doPublish() {
     try {
         await api('publish', { group_id: state.groupId });
         toast('КТП опубликована — редактирование заблокировано');
+        await loadCalendar();
+    } catch (e) { toast(e.message); }
+}
+
+async function doUnpublish() {
+    try {
+        await api('unpublish', { group_id: state.groupId });
+        toast('Публикация снята — редактирование доступно');
         await loadCalendar();
     } catch (e) { toast(e.message); }
 }
@@ -481,17 +465,11 @@ function emptyStateHtml(g) {
 }
 
 function noGroupsHtml() {
-    return `<div class="prof-ktp"><div class="prof-ktp-empty">
-        <div class="ke-ico"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.6"/></svg></div>
-        <h3>Нет групп</h3>
-        <p>За вами пока не закреплены группы.</p>
-    </div></div>`;
+    const icon = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.6"/></svg>';
+    return emptyState('prof-ktp', icon, 'Нет групп', 'За вами пока не закреплены группы.');
 }
 
 function errorHtml(msg) {
-    return `<div class="prof-ktp"><div class="prof-ktp-empty">
-        <div class="ke-ico" style="background:var(--absent-bg);color:var(--absent)"><svg width="30" height="30" viewBox="0 0 20 20" fill="none"><path d="M10 4v7M10 14.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
-        <h3>Не удалось загрузить КТП</h3>
-        <p>${esc(msg || '')}</p>
-    </div></div>`;
+    const icon = '<svg width="30" height="30" viewBox="0 0 20 20" fill="none"><path d="M10 4v7M10 14.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+    return emptyState('prof-ktp', icon, 'Не удалось загрузить КТП', msg || '', true);
 }

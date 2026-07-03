@@ -6,10 +6,9 @@
    Клик по группе в сайдбаре открывает этот экран (см. app.js openGroupsFor).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, openGradePopPositioned, closeGradePop } from './utils.js';
+import { esc, toast, initials, firstWord, avaColor, todayIso, emptyState, openGradePopPositioned, closeGradePop } from './utils.js';
 import { createApi } from './api.js';
 
-const AVA = ['#5c7cfa','#7048e8','#1c7ed6','#0ca678','#f08c00','#e8590c','#e64980','#9c36b5','#2f9e44','#4263eb'];
 const STATUS_LABEL = { scheduled: 'запланировано', done: 'проведено', cancelled: 'отменено' };
 
 let root = null;
@@ -56,7 +55,7 @@ function render() {
     const g = group();
     const d = state.data;
     const rows = d.students.length
-        ? d.students.map((s, i) => studentRow(s, i)).join('')
+        ? d.students.map(studentRow).join('')
         : '<div class="j-empty">В группе нет активных учеников.</div>';
 
     root.innerHTML = `
@@ -80,7 +79,7 @@ function render() {
         b.addEventListener('click', () => openIndiForm(+b.dataset.pid, b)));
 }
 
-function studentRow(s, i) {
+function studentRow(s) {
     const indis = s.individual.length
         ? `<div class="pr-indis">${s.individual.map(x => `
             <span class="pr-indi pr-indi-${esc(x.status)}" title="${esc(STATUS_LABEL[x.status] || x.status)}">
@@ -90,7 +89,7 @@ function studentRow(s, i) {
 
     return `
     <div class="pr-row" data-pid="${s.person_id}">
-        <span class="pr-ava" style="background:${AVA[i % AVA.length]}">${initials(s.name)}</span>
+        <span class="pr-ava" style="background:${avaColor(state.data.students, s.person_id)}">${initials(s.name)}</span>
         <div class="pr-info">
             <div class="pr-name">${esc(s.name)}</div>
             ${indis}
@@ -104,7 +103,7 @@ function openIndiForm(pid, anchor) {
     const pop = document.getElementById('profGradePop');
     if (!pop) return;
     const s = state.data.students.find(x => x.person_id === pid);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIso();
 
     pop.innerHTML = `
         <div class="gp-title">Инд. занятие · ${esc(s ? firstWord(s.name) : '')}</div>
@@ -159,10 +158,6 @@ function openIndiForm(pid, anchor) {
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-function initials(name) {
-    return name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-}
-function firstWord(name) { return name.split(' ').filter(Boolean)[0] || ''; }
 function fmtDate(iso) {
     // iso "YYYY-MM-DD HH:MM" → "DD.MM HH:MM"
     const [d, t] = String(iso).split(' ');
@@ -171,9 +166,8 @@ function fmtDate(iso) {
     return `${dd}.${m}${t ? ' ' + t : ''}`;
 }
 
+const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6M21 20c0-2.5-1.5-4.6-3.6-5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+
 function empty(title, text) {
-    return `<div class="prof-roster"><div class="prof-ktp-empty">
-        <div class="ke-ico"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6M21 20c0-2.5-1.5-4.6-3.6-5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
-        <h3>${esc(title)}</h3><p>${esc(text || '')}</p>
-    </div></div>`;
+    return emptyState('prof-roster', EMPTY_ICON, title, text);
 }

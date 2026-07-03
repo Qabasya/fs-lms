@@ -1,0 +1,23 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Базовые стили кабинета: reset, body, общие состояния загрузки/пустоты
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button { font-family: inherit; }
+::selection { background: var(--accent-soft-2); }
+
+/* Общие состояния загрузки/пустоты — используются в нескольких экранах
+   (dashboard/substitutions/learner). */
+.rev-loading { color: var(--muted);   font-size: 14px; padding: 40px 20px; text-align: center; }
+.rev-empty   { color: var(--muted-2); font-size: 14px; padding: 40px 20px; text-align: center; }

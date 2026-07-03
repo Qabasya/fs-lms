@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Assessment;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Assessment\AttemptResultService;
 use Inc\Services\Assessment\AttemptService;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
@@ -17,8 +18,9 @@ class AttemptCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly AttemptService  $attemptService,
-		private readonly PersonRepository $personRepository,
+		private readonly AttemptService       $attemptService,
+		private readonly PersonRepository     $personRepository,
+		private readonly AttemptResultService $resultService,
 	) {
 		parent::__construct();
 	}
@@ -84,11 +86,13 @@ class AttemptCallbacks extends BaseController {
 
 		try {
 			$attempt = $this->attemptService->submit( $attemptId, $person->id );
-			$this->success( [
+			$perTask = $this->resultService->studentPerTask( $attempt->id, $person->id );
+			$this->success( array(
 				'status'      => $attempt->status->value,
 				'total_score' => $attempt->totalScore,
 				'max_score'   => $attempt->maxScore,
-			] );
+				'per_task'    => $perTask,
+			) );
 		} catch ( \RuntimeException | \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 		}

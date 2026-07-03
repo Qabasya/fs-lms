@@ -158,6 +158,98 @@
 	}
 }
 
+// ── T13.7: результат попытки — раскладка по критериям и файлы ученика ────────
+
+.fs-assessment-result-page {
+	padding:       $spacing-lg;
+	background:    color.mix($color-white, $color-success, 88%);
+	border:        1px solid color.mix($color-white, $color-success, 50%);
+	border-radius: $radius;
+	margin-top:    $spacing-lg;
+
+	h2 {
+		font-size:     1.25rem;
+		margin-bottom: $spacing-sm;
+	}
+}
+
+.fs-result-tasks {
+	margin-top: $spacing-md;
+}
+
+.fs-result-task {
+	display:       flex;
+	gap:           $spacing-sm;
+	padding:       $spacing-sm 0;
+	border-bottom: 1px solid $color-border-light;
+
+	&:last-child { border-bottom: none; }
+
+	&__n {
+		font-weight:  $font-semibold;
+		color:        $color-accent;
+		min-width:    24px;
+		flex-shrink:  0;
+	}
+
+	&__body {
+		flex: 1;
+		min-width: 0;
+	}
+
+	&__score,
+	&__verdict {
+		display:   block;
+		font-size: $font-size-sm;
+		color:     $color-muted;
+	}
+}
+
+.fs-result-criteria {
+	list-style: none;
+	margin:     0;
+	padding:    0;
+
+	li {
+		font-size:     $font-size-sm;
+		color:         $color-text;
+		margin-bottom: $spacing-xs;
+
+		&::before {
+			content: '•';
+			color:   $color-accent;
+			margin-right: $spacing-xs;
+		}
+	}
+}
+
+.fs-result-files {
+	margin-top: $spacing-sm;
+
+	&__title {
+		font-size:     $font-size-sm;
+		font-weight:   $font-semibold;
+		margin-bottom: $spacing-xs;
+	}
+
+	&__preview {
+		display:       block;
+		max-width:     240px;
+		border-radius: $radius-sm;
+		border:        1px solid $color-border;
+		margin-bottom: $spacing-xs;
+	}
+
+	&__link {
+		display:       block;
+		font-size:     $font-size-sm;
+		margin-bottom: $spacing-xs;
+		word-break:    break-all;
+	}
+}
+
+// ── Развёрнутый ответ: файлы + материалы (Эпик 13, D16) ────────────────────
+
 .fs-attempt-files {
 	margin: $spacing-sm 0;
 

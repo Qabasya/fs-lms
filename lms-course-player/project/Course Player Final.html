@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Плеер курса — итоговый прототип</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="course-player/cp-base.css">
+<link rel="stylesheet" href="course-player/cp-screens.css">
+<link rel="stylesheet" href="course-player/final.css">
+<style>
+  /* видео: состояние воспроизведения */
+  .vp .vp-cover, .vp .vp-ep, .vp .vp-wm { transition: opacity .35s; }
+  .vp.playing .vp-cover { opacity: .3; }
+  .vp.playing .vp-ep, .vp.playing .vp-wm { opacity: 0; }
+  .vp-play { transition: opacity .2s, transform .2s; }
+  .vp-play.hid { opacity: 0; pointer-events: none; transform: translate(-50%, -50%) scale(.9); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ══ Сайдбар кабинета ученика (сворачивается в кнопку-стрелку) ══ -->
+  <aside class="s-side">
+    <div class="s-inner">
+      <div class="s-brand">
+        <div class="s-mark" id="brandMark"></div>
+        <div>
+          <div class="s-name">Шаг в будущее</div>
+          <div class="s-bsub">Личный кабинет</div>
+        </div>
+        <button class="s-collapse" id="sCollapse" title="Свернуть меню">
+          <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" stroke="currentColor" stroke-width="1.5"></rect><path d="M7.5 3.5v13" stroke="currentColor" stroke-width="1.5"></path><path d="M13.8 8 11.8 10l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        </button>
+      </div>
+      <nav class="s-nav">
+        <div class="s-navlabel">Меню</div>
+        <div class="s-item" data-toast="Раздел «Главная» — вне прототипа" id="niHome">Главная</div>
+        <div class="s-item on" id="niCourses">Мои курсы</div>
+        <div class="s-item" data-toast="Раздел «Расписание» — вне прототипа" id="niSched">Расписание</div>
+        <div class="s-item" data-toast="Раздел «Оценки» — вне прототипа" id="niGrades">Оценки</div>
+        <div class="s-now">
+          <div class="sn-lbl">Сейчас проходите</div>
+          <div class="sn-course">Информатика. Python с нуля</div>
+          <div class="sn-bar"><span style="width:46%"></span></div>
+          <div class="sn-pct">Пройдено 46% · Модуль 2</div>
+        </div>
+      </nav>
+      <div class="s-foot">
+        <div class="s-ava">ИМ</div>
+        <div>
+          <div class="s-uname">Иван Морозов</div>
+          <div class="s-urole">Ученик · 10 «А»</div>
+        </div>
+        <span class="s-gear" id="gearIco"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ Основная область ══ -->
+  <div class="s-main">
+    <header class="s-top">
+      <button class="mtoggle" id="mtoggle" title="Развернуть меню">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" stroke="currentColor" stroke-width="1.5"></rect><path d="M7.5 3.5v13" stroke="currentColor" stroke-width="1.5"></path><path d="M11.6 8l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </button>
+      <div style="min-width:0">
+        <div class="s-crumb">Мои курсы · <b>Информатика. Python с нуля</b> · Модуль 2 · Ветвления и циклы</div>
+        <div class="s-title">Урок 12. Цикл for и функция range()</div>
+      </div>
+      <div class="s-right">
+        <div class="s-prog"><span class="sp-txt" id="spTxt">Урок · 0 из 5</span><span class="sp-bar"><span id="spBar" style="width:0%"></span></span></div>
+        <span class="s-ibtn" data-toast="Уведомлений нет" id="ibBell"></span>
+        <span class="s-ibtn" data-toast="К списку курсов — вне прототипа" id="ibHome"></span>
+      </div>
+    </header>
+
+    <!-- плеер: рейка дерева + контент -->
+    <div class="player">
+      <div class="railwrap"><div class="rail" id="rail"></div></div>
+      <div class="content">
+        <div class="cscroll">
+          <div class="col">
+            <div class="strip" id="strip"></div>
+            <div class="steproot" id="stepRoot"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+  <span>Готово</span>
+</div>
+
+<script src="course-player/cp-data.js"></script>
+<script src="course-player/final-core.js"></script>
+<script src="course-player/final-steps.js"></script>
+<script>
+  // иконки статической оболочки (из общего набора)
+  document.getElementById("brandMark").innerHTML = ICO.rocket(21);
+  document.getElementById("gearIco").innerHTML = ICO.gear(18);
+  document.getElementById("ibBell").innerHTML = ICO.bell(20);
+  document.getElementById("ibHome").innerHTML = ICO.home(20);
+  [["niHome", ICO.home(19)], ["niCourses", ICO.book(19)], ["niSched", ICO.cal(19)], ["niGrades", ICO.star(19)]].forEach(function (p) {
+    document.getElementById(p[0]).insertAdjacentHTML("afterbegin", p[1]);
+  });
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#3b5bdb"/>
+    <rect x="24" y="28" width="52" height="44" rx="6" fill="#fff"/>
+    <rect x="30" y="34" width="11" height="11" rx="3" fill="#1c7ed6"/>
+    <rect x="44" y="34" width="11" height="11" rx="3" fill="#7048e8"/>
+    <rect x="58" y="34" width="11" height="11" rx="3" fill="#e8590c"/>
+    <rect x="30" y="52" width="40" height="4.5" rx="2.2" fill="#e7e9ef"/>
+    <rect x="30" y="61" width="28" height="4.5" rx="2.2" fill="#e7e9ef"/>
+  </svg>
+</template>
+
+</body>
+</html>

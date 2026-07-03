@@ -5,11 +5,9 @@
    маркеры замен (Эпик 5). Демо-слой (data.js) убран.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast } from './utils.js';
+import { esc, plural, fmtDayMonth, groupColor, shortName, emptyState } from './utils.js';
 import { createApi } from './api.js';
-
-const DOW_JS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-const COLORS = ['#3b5bdb', '#0ca678', '#7048e8', '#f08c00', '#e8590c', '#1c7ed6', '#e64980', '#2f9e44'];
+import { DOW_JS } from './constants.js';
 
 let root = null;
 let state = null;
@@ -37,9 +35,6 @@ async function load() {
     render();
 }
 
-function colorFor(gid) { return COLORS[Math.abs(hash(String(gid))) % COLORS.length]; }
-function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; } return h; }
-
 /* ── Render ───────────────────────────────────────────────────────────── */
 function render() {
     const d = state.data;
@@ -65,7 +60,7 @@ function render() {
         <div class="prof-card prof-sched-card">
             <div class="prof-card-head">
                 <h3>Расписание</h3>
-                <div class="prof-seg" id="profSchedToggle" style="margin-left:auto">
+                <div class="prof-seg ch-act" id="profSchedToggle">
                     <button class="on" data-mode="today">Сегодня</button>
                     <button data-mode="week">Неделя</button>
                 </div>
@@ -122,7 +117,7 @@ function renderSched(mode) {
             ? `<div class="prof-week-grid">${dates.map(date => `
                 <div class="prof-week-col">
                     <div class="prof-week-dow">${DOW_JS[new Date(date).getDay()]} ${date.slice(8, 10)}.${date.slice(5, 7)}</div>
-                    ${byDate[date].map(it => `<div class="prof-week-card" style="border-left-color:${it.kind === 'individual' ? 'var(--t-zachet)' : colorFor(it.group_id)}" data-grp="${it.group_id}">
+                    ${byDate[date].map(it => `<div class="prof-week-card" style="border-left-color:${it.kind === 'individual' ? 'var(--t-zachet)' : groupColor(it.group_id)}" data-grp="${it.group_id}">
                         <div class="wc-time">${esc(it.start)}</div>
                         <div class="wc-grp">${esc(it.group_name)}${it.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}</div>
                         <div class="wc-topic">${esc(it.topic || '—')}</div>
@@ -148,7 +143,7 @@ function statTile(label, val, delta, color, ico) {
             ${esc(label)}
         </div>
         <div class="st-val">${esc(val)}</div>
-        <div class="st-delta prof-st-delta">${esc(delta)}</div>
+        <div class="st-delta">${esc(delta)}</div>
     </div>`;
 }
 
@@ -163,7 +158,7 @@ function schedRow(l) {
             <div class="lt-start">${esc(l.start)}</div>
             <div class="lt-end">${esc(l.end || '')}</div>
         </div>
-        <div class="prof-lesson-bar" style="background:${l.kind === 'individual' ? 'var(--t-zachet)' : colorFor(l.group_id)}"></div>
+        <div class="prof-lesson-bar" style="background:${l.kind === 'individual' ? 'var(--t-zachet)' : groupColor(l.group_id)}"></div>
         <div class="prof-lesson-body">
             <div class="prof-lesson-grp">${esc(l.group_name)}${l.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}${l.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
             <div class="prof-lesson-topic">${esc(l.topic || '—')}</div>
@@ -174,11 +169,11 @@ function schedRow(l) {
 }
 
 function fillRow(w) {
-    return `<div class="prof-work-item" data-grp="${w.group_id}" style="cursor:pointer">
+    return `<div class="prof-work-item is-clickable" data-grp="${w.group_id}">
         <div class="prof-work-ico att"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M4 6h12v10H4zM4 9h12M7 4v3M13 4v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
         <div class="prof-work-main">
             <div class="prof-work-title">Заполнить посещаемость · ${esc(w.group_name)}</div>
-            <div class="prof-work-sub">${esc(w.topic || '—')} · ${fmtDate(w.date)}</div>
+            <div class="prof-work-sub">${esc(w.topic || '—')} · ${fmtDayMonth(w.date)}</div>
         </div>
         <span class="prof-work-count">${w.missing}</span>
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M7 5l5 5-5 5" stroke="var(--muted-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -186,8 +181,8 @@ function fillRow(w) {
 }
 
 function reviewRow(w) {
-    return `<div class="prof-work-item" data-review="1" style="cursor:pointer">
-        <div class="prof-work-ico rev" style="background:#7048e81a;color:#7048e8">
+    return `<div class="prof-work-item is-clickable" data-review="1">
+        <div class="prof-work-ico grade">
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 4h10v12l-5-2.5L5 16z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
         </div>
         <div class="prof-work-main">
@@ -201,10 +196,10 @@ function reviewRow(w) {
 
 function grpCard(g) {
     const badge = g.covering_until
-        ? `<span class="prof-sub-tag">замещаете до ${fmtDate(g.covering_until)}</span>`
-        : ( g.covered_until ? `<span class="prof-sub-tag warn">замена до ${fmtDate(g.covered_until)}</span>` : '' );
+        ? `<span class="prof-sub-tag">замещаете до ${fmtDayMonth(g.covering_until)}</span>`
+        : ( g.covered_until ? `<span class="prof-sub-tag warn">замена до ${fmtDayMonth(g.covered_until)}</span>` : '' );
     return `<div class="prof-grp-card" data-grp="${g.id}">
-        <span class="prof-group-chip" style="background:${colorFor(g.id)}">${esc(String(g.name).replace(/[«»\s]/g, '').slice(0, 4))}</span>
+        <span class="prof-group-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
         <div class="prof-group-meta">
             <div class="prof-group-name">${esc(g.name)} · ${esc(g.subject)}</div>
             <div class="prof-group-sub">${g.students} ${plural(g.students, 'ученик', 'ученика', 'учеников')} ${badge}</div>
@@ -216,27 +211,13 @@ function grpCard(g) {
 function coveringBanner(covering) {
     return `<div class="prof-cover-banner">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 2l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-        <span>Вы замещаете: ${covering.map(c => `${esc(c.group_name)} <b>до ${fmtDate(c.valid_to)}</b>`).join(', ')}</span>
+        <span>Вы замещаете: ${covering.map(c => `${esc(c.group_name)} <b>до ${fmtDayMonth(c.valid_to)}</b>`).join(', ')}</span>
     </div>`;
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-function fmtDate(s) {
-    if (!s) return '';
-    const p = String(s).slice(0, 10).split('-');
-    return p.length === 3 ? `${p[2]}.${p[1]}` : s;
-}
-
-function plural(n, one, few, many) {
-    const m10 = n % 10, m100 = n % 100;
-    if (m10 === 1 && m100 !== 11) return one;
-    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
-    return many;
-}
+const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M3 9.5 12 3l9 6.5M6 8.5V20h12V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function emptyHtml(title, text) {
-    return `<div class="prof-dash"><div class="prof-ktp-empty">
-        <div class="ke-ico"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M3 9.5 12 3l9 6.5M6 8.5V20h12V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3>${esc(title)}</h3><p>${esc(text || '')}</p>
-    </div></div>`;
+    return emptyState('prof-dash', EMPTY_ICON, title, text);
 }

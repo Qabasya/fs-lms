@@ -31,7 +31,7 @@ if ( ! is_user_logged_in() ) {
 
 	<aside class="prof-sidebar">
 		<div class="prof-brand">
-<!--        TDOO: заменить на логотип в меню настройки стилей-->
+<!--        TODO: заменить на логотип в меню настройки стилей-->
             <div class="prof-brand-mark">
 				<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 5.5 10 2l7 3.5L10 9 3 5.5z" fill="#fff"/><path d="M6 8v3.5c0 1.2 1.8 2.2 4 2.2s4-1 4-2.2V8" stroke="#fff" stroke-width="1.4" fill="none"/></svg>
 			</div>

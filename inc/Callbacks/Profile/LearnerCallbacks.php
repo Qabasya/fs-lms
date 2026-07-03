@@ -41,17 +41,9 @@ class LearnerCallbacks extends BaseController {
 			return;
 		}
 
-		$ctx       = $this->resolver->context( get_current_user_id() );
-		$requested = $this->sanitizeInt( 'student_person_id' );
-		$personId  = $ctx->subjectPersonId;
-
-		// Родитель (read-only) может смотреть только своих детей.
-		if ( $ctx->readOnly && $requested > 0 ) {
-			$allowed = array_map( static fn( $c ) => (int) $c['personId'], $ctx->children );
-			if ( in_array( $requested, $allowed, true ) ) {
-				$personId = $requested;
-			}
-		}
+		// Правило «родитель видит только своих детей» — в ProfileContext.
+		$ctx      = $this->resolver->context( get_current_user_id() );
+		$personId = $ctx->resolveSubjectPersonId( $this->sanitizeInt( 'student_person_id' ) );
 
 		if ( ! $personId ) {
 			$this->error( __( 'Профиль учащегося не найден.', 'fs-lms' ) );

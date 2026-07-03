@@ -7,21 +7,24 @@ namespace Unit\Callbacks\Assessment;
 use Inc\Callbacks\Assessment\AttemptCallbacks;
 use Inc\DTO\Person\PersonDTO;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Assessment\AttemptResultService;
 use Inc\Services\Assessment\AttemptService;
 use PHPUnit\Framework\TestCase;
 
 class AttemptCallbacksTest extends TestCase {
 
-	private AttemptService   $service;
-	private PersonRepository $persons;
-	private AttemptCallbacks $cb;
+	private AttemptService       $service;
+	private PersonRepository     $persons;
+	private AttemptResultService $resultService;
+	private AttemptCallbacks     $cb;
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_ajax();
-		$this->service = $this->createMock( AttemptService::class );
-		$this->persons = $this->createMock( PersonRepository::class );
-		$this->cb      = new AttemptCallbacks( $this->service, $this->persons );
+		$this->service       = $this->createMock( AttemptService::class );
+		$this->persons       = $this->createMock( PersonRepository::class );
+		$this->resultService = $this->createMock( AttemptResultService::class );
+		$this->cb            = new AttemptCallbacks( $this->service, $this->persons, $this->resultService );
 	}
 
 	private function person( int $id ): PersonDTO {
