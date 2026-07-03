@@ -195,11 +195,25 @@ function gradeFullRow(g) {
 }
 
 function lessonRow(l) {
-    const open = l.visibility === 'open';
-    return `<div class="prof-work-item">
+    // T14.13: занятие с контентом ведёт в плеер курса (?gid&gl) со статусом
+    // прохождения; занятие без контента — прежний род-онли ряд по видимости.
+    const status = l.status || '';
+    const inner = `
         <div class="prof-work-main"><div class="prof-work-title">${esc(l.topic || '—')}</div><div class="prof-work-sub">${l.date ? fmtDayMonth(l.date) : 'без даты'}</div></div>
-        <span class="prof-chip ${open ? 'ok' : ''}">${open ? 'открыт' : 'скоро'}</span>
-    </div>`;
+        ${lessonChip(l, status)}`;
+
+    if (l.player_url && ('done' === status || 'available' === status)) {
+        return `<a class="prof-work-item prof-lesson-go" href="${esc(l.player_url)}">${inner}</a>`;
+    }
+    return `<div class="prof-work-item">${inner}</div>`;
+}
+
+function lessonChip(l, status) {
+    if ('done' === status)      { return '<span class="prof-chip ok">пройден</span>'; }
+    if ('available' === status) { return '<span class="prof-chip go">доступен</span>'; }
+    if ('locked' === status)    { return '<span class="prof-chip">🔒 закрыт</span>'; }
+    const open = l.visibility === 'open';
+    return `<span class="prof-chip ${open ? 'ok' : ''}">${open ? 'открыт' : 'скоро'}</span>`;
 }
 
 function attRow(r) {

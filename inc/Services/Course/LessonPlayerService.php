@@ -10,6 +10,7 @@ use Inc\DTO\Course\SubmissionDTO;
 use Inc\Enums\Course\ProgressStatus;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
@@ -42,6 +43,7 @@ class LessonPlayerService {
 		private readonly CorrectAnswerResolver        $correctAnswers,
 		private readonly WorkManager                  $works,
 		private readonly SubmissionService            $submissionService,
+		private readonly AssessmentManager            $assessments,
 	) {}
 
 	/**
@@ -105,10 +107,40 @@ class LessonPlayerService {
 		return match ( $step->type->value ) {
 			'text'  => array( 'content' => (string) ( $step->payload['content'] ?? '' ) ),
 			'video' => $this->renderVideoData( $step, $groupLesson ),
-			'task'     => $this->renderTaskData( $step, $groupLesson, $studentPersonId ),
-			'work'     => $this->renderWorkData( $step, $groupLesson, $studentPersonId ),
-			default    => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
+			'task'       => $this->renderTaskData( $step, $groupLesson, $studentPersonId ),
+			'work'       => $this->renderWorkData( $step, $groupLesson, $studentPersonId ),
+			'assessment' => $this->renderAssessmentData( $step ),
+			default      => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
 		};
+	}
+
+	/**
+	 * Данные контрольной-шага (T14.14): мета для карточки (название, лимит,
+	 * попытки) + ссылка на страницу прохождения (attempt-флоу, отдельный UI).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function renderAssessmentData( StepDTO $step ): array {
+		$assessmentId = (int) ( $step->payload['ref'] ?? 0 );
+		$empty        = array( 'ref' => $assessmentId, 'url' => '' );
+
+		if ( ! $assessmentId ) {
+			return $empty;
+		}
+
+		$assessment = $this->assessments->get( $assessmentId );
+		if ( null === $assessment || 'publish' !== $assessment->status ) {
+			return $empty;
+		}
+
+		return array(
+			'ref'            => $assessmentId,
+			'title'          => $assessment->title,
+			'url'            => (string) get_permalink( $assessmentId ),
+			'time_limit_min' => $assessment->timeLimit,
+			'max_attempts'   => $assessment->attemptsAllowed,
+			'task_count'     => count( $assessment->taskIds ),
+		);
 	}
 
 	/**

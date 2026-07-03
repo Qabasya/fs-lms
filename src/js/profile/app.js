@@ -211,5 +211,8 @@ export function initProfile() {
     buildStage();
     mountScreens();
     wire();
-    go(cfg.screens[0]);
+
+    // Deep-link на экран: /profile/?screen=learner-lessons (ссылки из плеера курса, T14.13).
+    const wanted = new URLSearchParams(window.location.search).get('screen');
+    go(wanted && cfg.screens.includes(wanted) ? wanted : cfg.screens[0]);
 }

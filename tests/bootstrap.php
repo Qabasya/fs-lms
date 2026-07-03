@@ -390,6 +390,21 @@ function get_the_post_thumbnail_url( int $post_id, string $size = 'post-thumbnai
 if (!function_exists('wp_parse_url')) {
     function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
 }
+if (!function_exists('esc_url')) {
+    function esc_url(string $url): string { return $url; }
+}
+if (!function_exists('add_query_arg')) {
+    function add_query_arg(array $args, string $url): string {
+        $sep = str_contains($url, '?') ? '&' : '?';
+        return $url . $sep . http_build_query($args);
+    }
+}
+if (!function_exists('get_permalink')) {
+    function get_permalink(int|object $post = 0): string|false {
+        $id = is_object($post) ? $post->ID : $post;
+        return get_post($id) instanceof WP_Post ? "http://example.com/?p={$id}" : false;
+    }
+}
 if (!function_exists('wp_get_attachment_url')) {
     // Управляется $GLOBALS['_fs_test_attachment_urls'][id] (нет записи — false, как в WP).
     function wp_get_attachment_url(int $id): string|false { return $GLOBALS['_fs_test_attachment_urls'][$id] ?? false; }

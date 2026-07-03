@@ -79,6 +79,9 @@
 }
 .prof-work-item:last-child { border-bottom: none; }
 .prof-work-item:hover { background: var(--surface-2); }
+
+/* занятие-ссылка в плеер курса (T14.13) */
+a.prof-lesson-go { text-decoration: none; color: inherit; cursor: pointer; }
 .prof-work-item.is-clickable { cursor: pointer; }
 .prof-work-ico {
   width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;

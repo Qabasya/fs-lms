@@ -10,6 +10,7 @@ use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Course\GateState;
 use Inc\Enums\Course\ProgressStatus;
 use Inc\Enums\Course\StepType;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
@@ -37,6 +38,7 @@ class LessonPlayerServiceTest extends TestCase {
 	private CorrectAnswerResolver         $correctAnswers;
 	private WorkManager                   $works;
 	private SubmissionService             $submissionService;
+	private AssessmentManager             $assessments;
 	private LessonPlayerService           $service;
 
 	protected function setUp(): void {
@@ -52,6 +54,7 @@ class LessonPlayerServiceTest extends TestCase {
 		$this->correctAnswers   = $this->createMock( CorrectAnswerResolver::class );
 		$this->works            = $this->createMock( WorkManager::class );
 		$this->submissionService = $this->createMock( SubmissionService::class );
+		$this->assessments      = $this->createMock( AssessmentManager::class );
 		$this->service          = new LessonPlayerService(
 			$this->lessons,
 			$this->gate,
@@ -64,6 +67,7 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->correctAnswers,
 			$this->works,
 			$this->submissionService,
+			$this->assessments,
 		);
 	}
 
@@ -245,6 +249,51 @@ class LessonPlayerServiceTest extends TestCase {
 		$render = $view['steps'][0]['render'];
 
 		self::assertSame( 'vimeo', $render['provider'] );
+	}
+
+	// ── Контрольная-шаг (T14.14): мета карточки + ссылка на attempt-флоу ────
+
+	public function test_assessment_render_returns_meta_and_url(): void {
+		$step   = new StepDTO( 'a1', StepType::Assessment, array( 'ref' => 88 ) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+		$this->stubGateAndProgress( $step );
+
+		fs_test_seed_post( array( 'ID' => 88, 'post_type' => 'inf_assessments', 'post_title' => 'КР по циклам' ), array() );
+		$this->assessments->method( 'get' )->with( 88 )->willReturn( new \Inc\DTO\Assessment\AssessmentDTO(
+			id             : 88,
+			subjectKey     : 'inf',
+			title          : 'КР по циклам',
+			taskIds        : array( 1, 2, 3 ),
+			timeLimit      : 45,
+			attemptsAllowed: 2,
+			passScore      : 0.0,
+			scoringPolicy  : \Inc\Enums\Assessment\ScoringPolicy::Highest,
+			status         : 'publish',
+			kind           : \Inc\Enums\Assessment\AssessmentKind::Control,
+			taskPoints     : array(),
+			scoreMap       : array(),
+		) );
+
+		$render = $this->service->buildView( 1, $this->makeGroupLesson( lessonId: 10 ) )['steps'][0]['render'];
+
+		self::assertSame( 'КР по циклам', $render['title'] );
+		self::assertSame( 45, $render['time_limit_min'] );
+		self::assertSame( 2, $render['max_attempts'] );
+		self::assertSame( 3, $render['task_count'] );
+		self::assertNotSame( '', $render['url'] );
+	}
+
+	public function test_assessment_render_hides_unpublished(): void {
+		$step   = new StepDTO( 'a1', StepType::Assessment, array( 'ref' => 88 ) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+		$this->stubGateAndProgress( $step );
+		$this->assessments->method( 'get' )->willReturn( null );
+
+		$render = $this->service->buildView( 1, $this->makeGroupLesson( lessonId: 10 ) )['steps'][0]['render'];
+
+		self::assertSame( '', $render['url'] );
 	}
 
 	// ── Work-шаг (D19, T14.9): задачи работы + мета + текущая сдача ─────────
