@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Services\Course\CourseBuilderService;
+use Inc\Services\Course\CoursePublishValidator;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -25,7 +26,8 @@ class CourseBuilderCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly CourseBuilderService $builder,
+		private readonly CourseBuilderService   $builder,
+		private readonly CoursePublishValidator $publishValidator,
 	) {
 		parent::__construct();
 	}
@@ -146,6 +148,16 @@ class CourseBuilderCallbacks extends BaseController {
 		$status       = $this->sanitizeKey( 'status' );
 		$author_id    = $this->sanitizeInt( 'author_id' );
 		$thumbnail_id = $this->sanitizeInt( 'thumbnail_id' );
+
+		// #11: нельзя опубликовать курс с пустым шагом. Проверяем только при публикации;
+		// сохранение черновика пустые шаги не блокирует.
+		if ( 'publish' === $status ) {
+			$emptyStepError = $this->publishValidator->firstEmptyStepError( $course_id );
+			if ( null !== $emptyStepError ) {
+				$this->error( $emptyStepError );
+				return;
+			}
+		}
 
 		if ( $this->builder->updateCourseMeta( $course_id, $title, $status, $author_id, $thumbnail_id ) ) {
 			$this->success( array( 'saved' => true ) );
