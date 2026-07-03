@@ -173,6 +173,76 @@ function bindFileAnswers( form, attemptId ) {
 	} );
 }
 
+/**
+ * Рендер одной строки per-task результата (T13.7): критерии + файлы.
+ * @param {Object} task
+ * @returns {HTMLElement}
+ */
+function renderResultTask( task ) {
+	const div  = document.createElement( 'div' );
+	div.className = 'fs-result-task';
+
+	const nEl = document.createElement( 'div' );
+	nEl.className   = 'fs-result-task__n';
+	nEl.textContent = `${ task.n }.`;
+	div.appendChild( nEl );
+
+	const body = document.createElement( 'div' );
+	body.className = 'fs-result-task__body';
+
+	if ( task.criteria && task.criteria.length ) {
+		const ul = document.createElement( 'ul' );
+		ul.className = 'fs-result-criteria';
+		for ( const c of task.criteria ) {
+			const li   = document.createElement( 'li' );
+			const val  = null !== c.awarded && undefined !== c.awarded ? c.awarded : '—';
+			li.textContent = `${ c.label }: ${ val } / ${ c.max_points }`;
+			ul.appendChild( li );
+		}
+		body.appendChild( ul );
+	} else if ( null !== task.score && undefined !== task.score ) {
+		const span = document.createElement( 'span' );
+		span.className   = 'fs-result-task__score';
+		span.textContent = `Баллов: ${ task.score } / ${ task.max_score ?? '?' }`;
+		body.appendChild( span );
+	}
+
+	if ( task.files && task.files.length ) {
+		const filesDiv = document.createElement( 'div' );
+		filesDiv.className = 'fs-result-files';
+		const title = document.createElement( 'div' );
+		title.className   = 'fs-result-files__title';
+		title.textContent = 'Ваши файлы:';
+		filesDiv.appendChild( title );
+		for ( const f of task.files ) {
+			if ( f.mime && f.mime.startsWith( 'image/' ) ) {
+				const a   = document.createElement( 'a' );
+				a.href    = f.url;
+				a.target  = '_blank';
+				a.rel     = 'noopener noreferrer';
+				const img = document.createElement( 'img' );
+				img.className = 'fs-result-files__preview';
+				img.src       = f.url;
+				img.alt       = f.name;
+				a.appendChild( img );
+				filesDiv.appendChild( a );
+			} else {
+				const a         = document.createElement( 'a' );
+				a.className     = 'fs-result-files__link';
+				a.href          = f.url;
+				a.target        = '_blank';
+				a.rel           = 'noopener noreferrer';
+				a.textContent   = f.name;
+				filesDiv.appendChild( a );
+			}
+		}
+		body.appendChild( filesDiv );
+	}
+
+	div.appendChild( body );
+	return div;
+}
+
 /** Submit the whole attempt. */
 async function submitAttempt( attemptId, form, resultEl, timerInterval ) {
 	if ( ! vars ) { return; }
@@ -193,6 +263,15 @@ async function submitAttempt( attemptId, form, resultEl, timerInterval ) {
 			const d = json.data;
 			resultEl.querySelector( '.fs-result-score' ).textContent =
 				`Баллов: ${ d.total_score ?? '—' } / ${ d.max_score ?? '—' } • Статус: ${ escHtml( d.status ) }`;
+
+			if ( d.per_task && d.per_task.length ) {
+				const tasksEl = document.createElement( 'div' );
+				tasksEl.className = 'fs-result-tasks';
+				for ( const task of d.per_task ) {
+					tasksEl.appendChild( renderResultTask( task ) );
+				}
+				resultEl.appendChild( tasksEl );
+			}
 		} else {
 			resultEl.querySelector( '.fs-result-score' ).textContent = json.data || 'Ошибка при сдаче.';
 		}

@@ -15,6 +15,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Assessment\AssessmentAccessPolicy;
+use Inc\Services\Assessment\AttemptResultService;
 use Inc\Services\Assessment\ExamPayloadFilter;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Shared\ThemeCompatService;
@@ -43,6 +44,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		private readonly ClockInterface              $clock,
 		private readonly AssessmentAccessPolicy      $access,
 		private readonly PostManager                 $posts,
+		private readonly AttemptResultService        $resultService,
 	) {
 		parent::__construct();
 	}
@@ -92,9 +94,18 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 
 		$now = $this->clock->now();
 
-		// T13.5 (Эпик 13, D16): per-task view-данные для шаблона — тип шаблона задачи
-		// и материалы (для «Развёрнутый ответ»: файловый блок + ссылки на исходники).
+		// T13.5 (Эпик 13, D16): per-task view-данные для шаблона.
 		$taskViews = $this->buildTaskViews( $assessment->taskIds );
+
+		// T13.7: если нет активной попытки — ищем последнюю завершённую для показа результата.
+		$lastAttempt   = null;
+		$resultPerTask = array();
+		if ( ! $activeAttempt ) {
+			$lastAttempt = $this->attemptRepo->findLastSubmitted( $person->id, $assessment->id );
+			if ( $lastAttempt ) {
+				$resultPerTask = $this->resultService->studentPerTask( $lastAttempt->id, $person->id );
+			}
+		}
 
 		$defaultTemplate = $this->path( 'templates/frontend/assessment/attempt.php' );
 

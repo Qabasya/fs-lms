@@ -69,6 +69,25 @@ class AssessmentAttemptRepository {
 		return $row ? AttemptDTO::fromArray( $row ) : null;
 	}
 
+	/** Последняя завершённая (submitted/graded) попытка студента (T13.7). */
+	public function findLastSubmitted( int $studentPersonId, int $assessmentId ): ?AttemptDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i
+				WHERE student_person_id = %d
+				  AND assessment_id = %d
+				  AND status IN ('submitted', 'graded')
+				ORDER BY id DESC
+				LIMIT 1",
+				$this->table,
+				$studentPersonId,
+				$assessmentId
+			),
+			ARRAY_A
+		);
+		return $row ? AttemptDTO::fromArray( $row ) : null;
+	}
+
 	/** @return AttemptDTO[] */
 	public function listByStudentAndAssessment( int $studentPersonId, int $assessmentId ): array {
 		$rows = $this->wpdb->get_results(

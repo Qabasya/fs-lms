@@ -1,5 +1,17 @@
-@forward 'core';
-@forward 'journal';
-@forward 'roster';
-@forward 'summary';
-@forward 'substitutions';
+// Личный кабинет — сборка бандла profile.min.css.
+// Токены — в _variables.scss (по аналогии с admin/_variables.scss),
+// компоненты — в components/. Порядок подключения сохраняет каскад
+// исходной монолитной _core.scss: base → оболочка → примитивы → экраны.
+@use 'variables';
+
+@use 'components/base';
+@use 'components/layout';
+@use 'components/buttons';
+@use 'components/card';
+@use 'components/dashboard';
+@use 'components/ktp';
+@use 'components/overlays';
+@use 'components/journal';
+@use 'components/roster';
+@use 'components/summary';
+@use 'components/substitutions';

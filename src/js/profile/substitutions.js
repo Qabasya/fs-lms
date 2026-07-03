@@ -4,8 +4,9 @@
    Источник: window.fsProfile.substitutions:{nonce,actions} + groups.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, openCtxMenu } from './utils.js';
+import { esc, toast, emptyState } from './utils.js';
 import { createApi } from './api.js';
+import { openGroupPicker } from './picker.js';
 
 let root = null;
 let state = null;
@@ -140,11 +141,10 @@ function wire() {
 }
 
 function openGroupMenu() {
-    openCtxMenu(
-        root.querySelector('#subsGroupBtn'),
-        state.groups.map(g => ({ v: String(g.id), label: `${g.name} · ${g.subject}`, active: g.id === state.groupId })),
-        v => { const id = parseInt(v, 10); if (id !== state.groupId) { state.groupId = id; load(); } }
-    );
+    openGroupPicker(root.querySelector('#subsGroupBtn'), state.groups, state.groupId, id => {
+        state.groupId = id;
+        load();
+    });
 }
 
 async function assignTeacher(e) {
@@ -188,9 +188,8 @@ async function setRoom(form, clear) {
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 function fmt(s) { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : s; }
 
+const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M4 7h11m0 0-3-3m3 3-3 3M20 17H9m0 0 3-3m-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function emptyHtml(title, text) {
-    return `<div class="prof-subs"><div class="prof-ktp-empty">
-        <div class="ke-ico"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M4 7h11m0 0-3-3m3 3-3 3M20 17H9m0 0 3-3m-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3>${esc(title)}</h3><p>${esc(text || '')}</p>
-    </div></div>`;
+    return emptyState('prof-subs', EMPTY_ICON, title, text);
 }

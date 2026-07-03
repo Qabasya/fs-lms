@@ -6,14 +6,10 @@
    занятий перенесено в экран «Группы» (T10.7).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, openCtxMenu, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
+import { esc, toast, initials, avaColor, todayIso, emptyState, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
 import { createApi } from './api.js';
-
-const DOW_JS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-const MONTHS_RU = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-const AVA_COLORS = ['#5c7cfa','#7048e8','#1c7ed6','#0ca678','#f08c00','#e8590c','#e64980','#9c36b5','#2f9e44','#4263eb'];
-// T12.8: та же палитра/пикер группы, что в КТП (ktp.js) — для визуальной согласованности.
-const GROUP_COLORS = ['#3b5bdb','#0ca678','#7048e8','#f08c00','#e8590c','#1c7ed6','#e64980','#2f9e44'];
+import { DOW_JS, MONTHS_RU } from './constants.js';
+import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
 
 let root = null;
 let state = null;
@@ -99,31 +95,9 @@ function changeMonth(delta) {
 
 function group() { return state.groups.find(g => g.id === state.groupId) || state.groups[0]; }
 
-/* T12.8: дропдаун выбора группы в шапке — тот же паттерн, что в КТП (ktp.js). */
-function groupColor(id) {
-    const idx = state.groups.findIndex(g => g.id === id);
-    return GROUP_COLORS[(idx < 0 ? 0 : idx) % GROUP_COLORS.length];
-}
-function shortName(name) {
-    return String(name).replace(/[«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 4);
-}
+/* T12.8: дропдаун выбора группы в шапке — общий пикер (picker.js). */
 function openGroupMenu() {
-    const btn = document.getElementById('jGroupBtn');
-    if (!btn) return;
-    openCtxMenu(
-        btn,
-        state.groups.map(g => ({
-            v: String(g.id),
-            label: `${g.name} · ${g.subject}`,
-            active: g.id === state.groupId,
-            swatch: groupColor(g.id),
-            chip: shortName(g.name),
-        })),
-        v => {
-            const id = parseInt(v, 10);
-            if (id !== state.groupId) setJournalGroup(id);
-        }
-    );
+    openGroupPicker(document.getElementById('jGroupBtn'), state.groups, state.groupId, setJournalGroup);
 }
 
 /* ── Render ───────────────────────────────────────────────────────────── */
@@ -158,7 +132,7 @@ function render() {
             <td class="col-idx cell-idx">${i + 1}</td>
             <td class="col-name cell-name">
                 <div class="cn-wrap">
-                    <span class="cn-ava" style="background:${AVA_COLORS[i % AVA_COLORS.length]}">${initials(s.name)}</span>
+                    <span class="cn-ava" style="background:${avaColor(d.students, s.person_id)}">${initials(s.name)}</span>
                     <span class="cn-name">${esc(s.name)}</span>
                 </div>
             </td>
@@ -192,11 +166,7 @@ function wrap(g, inner) {
     return `
     <div class="prof-journal">
         <div class="j-monthnav">
-            <button type="button" class="kp-btn" id="jGroupBtn">
-                <span class="kp-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
-                <span class="kp-txt">${esc(g.name)} · ${esc(g.subject)}</span>
-                <svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>
-            </button>
+            ${groupPickerBtnHtml(g, 'jGroupBtn')}
             ${hasNav ? `
             <button type="button" class="jm-arrow" data-mnav="-1" ${atFirst ? 'disabled' : ''} aria-label="Предыдущий месяц">‹</button>
             <div class="jm-label">${esc(monthLabel())}</div>
@@ -204,12 +174,12 @@ function wrap(g, inner) {
             <span class="jm-count">${d.students.length} уч. · ${monthLessons.length} занятий</span>
             ${filterBar()}
         </div>
-        <div class="prof-journal-wrap var-a">${inner}</div>
+        <div class="prof-journal-wrap">${inner}</div>
         <div class="j-legend-bottom">
             <span class="jlb-label">Посещаемость:</span>
-            <span class="jl"><span class="jl-sw" style="background:var(--g-good)"></span>Присутствовал</span>
-            <span class="jl"><span class="jl-sw" style="background:var(--absent)"></span>Отсутствовал</span>
-            <span class="jlb-label" style="margin-left:8px">Работы:</span>
+            <span class="jl"><span class="jl-sw jl-sw--present"></span>Присутствовал</span>
+            <span class="jl"><span class="jl-sw jl-sw--absent"></span>Отсутствовал</span>
+            <span class="jlb-label">Работы:</span>
             <span class="jl">СР/ПР/ДЗ/КР/ЭКЗ — сырые баллы за занятие</span>
         </div>
     </div>`;
@@ -246,7 +216,6 @@ function attState(glid, pid) {
 }
 
 /* D11: занятия с датой > сегодня недоступны для отметки посещаемости. */
-function todayIso() { return new Date().toISOString().slice(0, 10); }
 function isFutureDate(date) { return !!date && date > todayIso(); }
 function isFutureLesson(glid) {
     const l = state.data.lessons.find(x => x.group_lesson_id === glid);
@@ -266,7 +235,7 @@ function attCell(pid, l) {
     const cls = ['gc', 'att'];
     if (isFutureDate(l.date)) cls.push('future');
     let att = '';
-    if (st === 'present') { cls.push('present'); att = '<span class="g-val" style="color:var(--g-good);font-weight:700">+</span>'; }
+    if (st === 'present') { cls.push('present'); att = '<span class="g-val att-y">+</span>'; }
     else if (st === 'absent') { cls.push('absent'); att = '<span class="g-val att-n">Н</span>'; }
 
     const works = worksFor(glid, pid);
@@ -305,8 +274,7 @@ function openAttPopover(glid, pid, td) {
         <div class="gp-title">${esc(first)}</div>
         <div class="gp-row">
             <button class="prof-btn prof-btn-sm ${st === 'present' ? 'prof-btn-primary' : ''}" data-att="1">Был</button>
-            <button class="prof-btn prof-btn-sm ${st === 'absent' ? 'prof-btn-primary' : ''}" data-att="0"
-                ${st === 'absent' ? 'style="background:var(--absent);border-color:var(--absent);color:#fff"' : ''}>Н</button>
+            <button class="prof-btn prof-btn-sm ${st === 'absent' ? 'prof-btn-danger' : ''}" data-att="0">Н</button>
         </div>`;
 
     pop.querySelectorAll('[data-att]').forEach(b => b.addEventListener('click', async () => {
@@ -356,15 +324,10 @@ function refreshAttCell(glid, pid) {
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-function initials(name) {
-    return name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-}
+const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="3.5" width="18" height="17" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h18M9 8v12" stroke="currentColor" stroke-width="1.6"/></svg>';
 
 function emptyHtml(title, text) {
-    return `<div class="prof-journal"><div class="prof-ktp-empty">
-        <div class="ke-ico"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="3.5" width="18" height="17" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h18M9 8v12" stroke="currentColor" stroke-width="1.6"/></svg></div>
-        <h3>${esc(title)}</h3><p>${esc(text || '')}</p>
-    </div></div>`;
+    return emptyState('prof-journal', EMPTY_ICON, title, text);
 }
 function emptyInline(text) {
     return `<div class="j-empty">${esc(text)}</div>`;

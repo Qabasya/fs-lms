@@ -1,4 +1,4 @@
-import { esc, toast, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
+import { esc, shortName, groupColor, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
@@ -6,9 +6,6 @@ import { renderSummary } from './summary.js';
 import { renderSubstitutions } from './substitutions.js';
 import { renderKTP } from './ktp.js';
 import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
-
-const GROUP_COLORS = ['#3b5bdb','#0ca678','#7048e8','#f08c00','#e8590c','#1c7ed6','#e64980','#2f9e44'];
-function shortName(name) { return String(name).replace(/[«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 4); }
 
 /* ── Screen registry: key → renderer ─────────────────────────────────── */
 const SCREENS = {
@@ -113,9 +110,9 @@ function buildSidebar() {
 
     if (cfg.groups && cfg.groups.length) {
         html += '<div class="prof-nav-label">Мои группы</div>';
-        html += cfg.groups.map((g, i) => `
+        html += cfg.groups.map(g => `
             <div class="prof-group-item" data-grp="${g.id}">
-                <span class="prof-group-chip" style="background:${GROUP_COLORS[i % GROUP_COLORS.length]}">${esc(shortName(g.name))}</span>
+                <span class="prof-group-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
                 <div class="prof-group-meta">
                     <div class="prof-group-name">${esc(g.name)}</div>
                     <div class="prof-group-sub">${esc(g.subject)}</div>

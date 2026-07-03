@@ -1,0 +1,19 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Универсальная карточка кабинета
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.prof-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+}
+.prof-card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 18px; border-bottom: 1px solid var(--line-2);
+}
+.prof-card-head h3 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.prof-card-head .ch-sub { font-size: 12px; color: var(--muted); }
+.prof-card-head .ch-act { margin-left: auto; }
+
+/* Пустое состояние внутри карточки (learner: «Нет активных групп»). */
+.prof-card-empty { padding: 18px; color: var(--muted); }

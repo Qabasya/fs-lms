@@ -2,6 +2,8 @@
 /**
  * @var \Inc\DTO\Assessment\AssessmentDTO      $assessment
  * @var \Inc\DTO\Assessment\AttemptDTO|null    $activeAttempt
+ * @var \Inc\DTO\Assessment\AttemptDTO|null    $lastAttempt    T13.7: последняя завершённая попытка
+ * @var array<int, mixed>                      $resultPerTask  T13.7: per-task результат для ученика
  * @var \Inc\DTO\Person\PersonDTO|null         $person
  * @var array<int, array{template: string, materials: array}> $taskViews  T13.5: per-task тип шаблона + материалы
  */
@@ -124,6 +126,69 @@ use Inc\Enums\Assessment\AttemptStatus;
 			<button class="fs-btn fs-btn--primary" id="fs-start-attempt-btn">
 				Начать новую попытку
 			</button>
+
+		<?php elseif ( $lastAttempt ) : ?>
+			<?php /* ===== T13.7: РЕЗУЛЬТАТ ЗАВЕРШЁННОЙ ПОПЫТКИ ===== */ ?>
+			<div class="fs-assessment-result-page">
+				<h2>Результат</h2>
+				<p class="fs-result-score">
+					Баллов: <?php echo esc_html( null !== $lastAttempt->totalScore ? (string) $lastAttempt->totalScore : '—' ); ?>
+					/ <?php echo esc_html( null !== $lastAttempt->maxScore ? (string) $lastAttempt->maxScore : '—' ); ?>
+					&bull; Статус: <?php echo esc_html( $lastAttempt->status->value ); ?>
+				</p>
+				<?php if ( ! empty( $resultPerTask ) ) : ?>
+					<div class="fs-result-tasks">
+						<?php foreach ( $resultPerTask as $task ) : ?>
+							<div class="fs-result-task">
+								<div class="fs-result-task__n"><?php echo esc_html( (string) $task['n'] ); ?>.</div>
+								<div class="fs-result-task__body">
+									<?php if ( ! empty( $task['criteria'] ) ) : ?>
+										<ul class="fs-result-criteria">
+											<?php foreach ( $task['criteria'] as $c ) : ?>
+												<li>
+													<?php echo esc_html( $c['label'] ); ?>:
+													<?php echo null !== $c['awarded'] ? esc_html( rtrim( rtrim( number_format( $c['awarded'], 2, '.', '' ), '0' ), '.' ) ) : '—'; ?>
+													/ <?php echo esc_html( rtrim( rtrim( number_format( $c['max_points'], 2, '.', '' ), '0' ), '.' ) ); ?>
+												</li>
+											<?php endforeach; ?>
+										</ul>
+									<?php elseif ( $task['score'] !== null ) : ?>
+										<span class="fs-result-task__score">
+											Баллов: <?php echo esc_html( (string) $task['score'] ); ?>
+											/ <?php echo esc_html( null !== $task['max_score'] ? (string) $task['max_score'] : '?' ); ?>
+										</span>
+									<?php else : ?>
+										<span class="fs-result-task__verdict">
+											<?php echo esc_html( $task['verdict'] ); ?>
+										</span>
+									<?php endif; ?>
+									<?php if ( ! empty( $task['files'] ) ) : ?>
+										<div class="fs-result-files">
+											<div class="fs-result-files__title">Ваши файлы:</div>
+											<?php foreach ( $task['files'] as $file ) : ?>
+												<?php if ( str_starts_with( $file['mime'], 'image/' ) ) : ?>
+													<a href="<?php echo esc_url( $file['url'] ); ?>" target="_blank" rel="noopener noreferrer">
+														<img class="fs-result-files__preview" src="<?php echo esc_url( $file['url'] ); ?>" alt="<?php echo esc_attr( $file['name'] ); ?>">
+													</a>
+												<?php else : ?>
+													<a class="fs-result-files__link" href="<?php echo esc_url( $file['url'] ); ?>" target="_blank" rel="noopener noreferrer">
+														<?php echo esc_html( $file['name'] ); ?>
+													</a>
+												<?php endif; ?>
+											<?php endforeach; ?>
+										</div>
+									<?php endif; ?>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
+			</div>
+			<button class="fs-btn fs-btn--secondary" id="fs-start-attempt-btn"
+				data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>">
+				Пройти ещё раз
+			</button>
+			<p class="fs-start-notice" id="fs-start-notice" aria-live="polite"></p>
 
 		<?php else : ?>
 			<?php /* ===== СТАРТОВАЯ СТРАНИЦА ===== */ ?>

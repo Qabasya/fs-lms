@@ -4,10 +4,9 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast } from './utils.js';
+import { esc, fmtDayMonth, emptyState } from './utils.js';
 import { createApi } from './api.js';
 
-const DOW_JS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 const RENDERERS = {
     'learner-home': renderHome,
     'learner-lessons': renderLessons,
@@ -159,8 +158,8 @@ function renderAttendance(root, d) {
 /* ── Rows ─────────────────────────────────────────────────────────────── */
 function schedRow(l) {
     return `<div class="prof-lesson-row">
-        <div class="prof-lesson-time"><div class="lt-start">${esc(l.start || '')}</div><div class="lt-end">${fmtDate(l.date)}</div></div>
-        <div class="prof-lesson-bar" style="background:var(--accent)"></div>
+        <div class="prof-lesson-time"><div class="lt-start">${esc(l.start || '')}</div><div class="lt-end">${fmtDayMonth(l.date)}</div></div>
+        <div class="prof-lesson-bar"></div>
         <div class="prof-lesson-body">
             <div class="prof-lesson-grp">${esc(l.group_name)}${l.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
             <div class="prof-lesson-topic">${esc(l.topic || '—')}</div>
@@ -181,8 +180,8 @@ function dlRow(d) {
 
 function gradeRow(g) {
     return `<div class="prof-work-item">
-        <div class="prof-work-ico rev" style="background:#7048e81a;color:#7048e8"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 3l2 4 4.5.6-3.3 3.2.8 4.5L10 13.2 6 15.5l.8-4.5L3.5 7.6 8 7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
-        <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${esc(g.group_name)} · ${fmtDate(g.graded_at)}</div></div>
+        <div class="prof-work-ico grade"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 3l2 4 4.5.6-3.3 3.2.8 4.5L10 13.2 6 15.5l.8-4.5L3.5 7.6 8 7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
+        <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${esc(g.group_name)} · ${fmtDayMonth(g.graded_at)}</div></div>
         <span class="prof-work-count">${esc(g.value)}</span>
     </div>`;
 }
@@ -190,22 +189,22 @@ function gradeRow(g) {
 function gradeFullRow(g) {
     const pending = g.display === 'pending';
     return `<div class="prof-work-item">
-        <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${esc(g.group_name)}${g.graded_at ? ' · ' + fmtDate(g.graded_at) : ''}</div></div>
-        <span class="prof-work-count" ${pending ? 'style="font-size:10px;color:var(--muted)"' : ''}>${esc(g.value)}</span>
+        <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${esc(g.group_name)}${g.graded_at ? ' · ' + fmtDayMonth(g.graded_at) : ''}</div></div>
+        <span class="prof-work-count${pending ? ' prof-work-count--pending' : ''}">${esc(g.value)}</span>
     </div>`;
 }
 
 function lessonRow(l) {
     const open = l.visibility === 'open';
     return `<div class="prof-work-item">
-        <div class="prof-work-main"><div class="prof-work-title">${esc(l.topic || '—')}</div><div class="prof-work-sub">${l.date ? fmtDate(l.date) : 'без даты'}</div></div>
+        <div class="prof-work-main"><div class="prof-work-title">${esc(l.topic || '—')}</div><div class="prof-work-sub">${l.date ? fmtDayMonth(l.date) : 'без даты'}</div></div>
         <span class="prof-chip ${open ? 'ok' : ''}">${open ? 'открыт' : 'скоро'}</span>
     </div>`;
 }
 
 function attRow(r) {
     return `<div class="prof-work-item">
-        <div class="prof-work-main"><div class="prof-work-title">${esc(r.topic || '—')}</div><div class="prof-work-sub">${fmtDate(r.date)}</div></div>
+        <div class="prof-work-main"><div class="prof-work-title">${esc(r.topic || '—')}</div><div class="prof-work-sub">${fmtDayMonth(r.date)}</div></div>
         <span class="prof-att-mark ${r.present ? 'p' : 'a'}">${r.present ? 'Был' : 'Н'}</span>
     </div>`;
 }
@@ -229,12 +228,12 @@ function childName() {
     const c = children.find(x => String(x.personId) === String(cur));
     return c ? c.name : '';
 }
-function fmtDate(s) { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}` : s; }
-function fmtDateTime(s) { if (!s) return ''; return fmtDate(s) + ' ' + String(s).slice(11, 16); }
+function fmtDateTime(s) { if (!s) return ''; return fmtDayMonth(s) + ' ' + String(s).slice(11, 16); }
 function empty(t) { return `<div class="rev-empty">${esc(t)}</div>`; }
-function emptyCard(t) { return `<div class="prof-card"><div style="padding:18px;color:var(--muted)">${esc(t)}</div></div>`; }
+function emptyCard(t) { return `<div class="prof-card"><div class="prof-card-empty">${esc(t)}</div></div>`; }
+
+const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M3 9.5 12 3l9 6.5M6 8.5V20h12V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function emptyHtml(title, text) {
-    return `<div class="prof-dash"><div class="prof-ktp-empty">
-        <div class="ke-ico"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M3 9.5 12 3l9 6.5M6 8.5V20h12V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3>${esc(title)}</h3><p>${esc(text || '')}</p></div></div>`;
+    return emptyState('prof-dash', EMPTY_ICON, title, text);
 }
