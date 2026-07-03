@@ -31,7 +31,7 @@
 
 ---
 
-## Фаза 1 — быстрые баги (S, высокая отдача, низкий риск)
+## Фаза 1 — быстрые баги (S, высокая отдача, низкий риск) ✅ Выполнена
 
 ### #19 — FSOffice не пускает в wp-admin
 - **First cause:** `UserBehaviorManager::restrictAdminAccess()` (`inc/Managers/Person/UserBehaviorManager.php:51-64`, хук `admin_init`) пускает только по вайтлисту капы (`manage_options` ИЛИ `lms_teacher`). У FSOffice нет ни того, ни другого → редирект на `/profile/`. Логика инвертирована; даёт петлю редиректов для methodist/market.
@@ -73,7 +73,7 @@
 
 ---
 
-## Фаза 2 — профиль ученика и расписание
+## Фаза 2 — профиль ученика и расписание ✅ Выполнена
 
 ### #13 — урок «Закрыт» при прошедшей дате (D1)
 - **First cause:** `effectiveVisibility()` (`LessonVisibilityService.php:66-75`: hidden + дата ≤ now → open) — мёртвый код; `LessonAccessPolicy::resolve():30` читает сырой `visibility` и запирает до проверки даты.
@@ -97,7 +97,7 @@
 
 ---
 
-## Фаза 3 — валидация публикации курса
+## Фаза 3 — валидация публикации курса   ✅ Выполнена
 
 ### #11 — нельзя опубликовать курс с пустым шагом
 - **First cause:** `CourseBuilderService::updateCourseMeta` (`:262-272`) валидирует только допустимость статуса.
