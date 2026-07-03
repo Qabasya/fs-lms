@@ -333,11 +333,14 @@ class ContentUsageService {
 	 */
 	private function relationFor( string $type, string $post_type ): array {
 		return match ( $type ) {
-			'task'    => array( PostTypeResolver::works( PostTypeResolver::subjectFromTaskPostType( $post_type ) ), 'item_ids', false ),
-			'problem' => array( '', 'item_ids', false ), // кросс-предметный поиск — TODO Этап 2 (SubjectRepository needed)
-			'work'    => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromWorkPostType( $post_type ) ), 'steps:work', false ),
-			'lesson'  => array( PostTypeResolver::courses( PostTypeResolver::subjectFromLessonPostType( $post_type ) ), 'modules:lesson', false ),
-			default   => array( '', '', false ), // course → groups (Этап 2)
+			'task'       => array( PostTypeResolver::works( PostTypeResolver::subjectFromTaskPostType( $post_type ) ), 'item_ids', false ),
+			'problem'    => array( '', 'item_ids', false ), // кросс-предметный поиск — TODO Этап 2 (SubjectRepository needed)
+			'work'       => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromWorkPostType( $post_type ) ), 'steps:work', false ),
+			// Контрольная используется как шаг урока (StepType::Assessment) — как и работа.
+			// Без этой ветки usageList('assessment') был пуст: «использование в курсе» не подтягивалось.
+			'assessment' => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromAssessmentPostType( $post_type ) ), 'steps:assessment', false ),
+			'lesson'     => array( PostTypeResolver::courses( PostTypeResolver::subjectFromLessonPostType( $post_type ) ), 'modules:lesson', false ),
+			default      => array( '', '', false ), // course → groups (Этап 2)
 		};
 	}
 

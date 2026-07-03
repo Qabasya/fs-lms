@@ -47,6 +47,22 @@ class ContentUsageServiceTest extends TestCase {
 		self::assertSame( 1, $this->usage->usageCount( 'lesson', 11 ) );
 	}
 
+	public function test_assessment_used_in_lesson_and_lesson_in_course(): void {
+		// Регрессия: контрольная (шаг StepType::Assessment урока) не подтягивала
+		// использование в курсе — relationFor() не имел ветки 'assessment'.
+		fs_test_seed_post( array( 'ID' => 20, 'post_type' => 'inf_assessments' ) );
+		fs_test_seed_post( array( 'ID' => 21, 'post_type' => 'inf_lessons' ), array( 'fs_lms_meta' => array( 'steps' => array( array( 'key' => 's1', 'type' => 'assessment', 'payload' => array( 'ref' => 20 ) ) ) ) ) );
+		fs_test_seed_post( array( 'ID' => 22, 'post_type' => 'inf_courses' ), array( 'fs_lms_meta' => array( 'modules' => array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 21 ) ) ) ) ) );
+
+		self::assertSame( 1, $this->usage->usageCount( 'assessment', 20 ) );
+		self::assertSame( 21, $this->usage->usageList( 'assessment', 20 )[0]['id'] );
+
+		$links = $this->usage->courseLinksFor( 'assessment', 20 );
+		self::assertCount( 1, $links );
+		self::assertStringContainsString( 'course=22', $links[0]['url'] );
+		self::assertStringContainsString( 'step_ref=20', $links[0]['url'] );
+	}
+
 	public function test_orphan_has_zero_usage(): void {
 		fs_test_seed_post( array( 'ID' => 30, 'post_type' => 'inf_tasks' ) );
 		fs_test_seed_post( array( 'ID' => 31, 'post_type' => 'inf_works' ), array( 'fs_lms_meta' => array( 'item_ids' => array( 999 ) ) ) );
