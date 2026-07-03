@@ -63,6 +63,27 @@ class ContentUsageServiceTest extends TestCase {
 		self::assertStringContainsString( 'step_ref=20', $links[0]['url'] );
 	}
 
+	public function test_task_used_as_assessment_question_traces_to_course(): void {
+		// Регрессия: задача — вопрос контрольной (task_ids). Цепочка
+		// задача → контрольная → урок → курс не подтягивалась (usagePathList не
+		// проходил через контрольные), и задача считалась неиспользуемой.
+		// Поиск контрольных идёт по всем предметам (assessmentsUsingTask → readAll).
+		$GLOBALS['_test_options']['fs_lms_subjects_list'] = array(
+			'inf' => array( 'key' => 'inf', 'name' => 'Информатика' ),
+		);
+		fs_test_seed_post( array( 'ID' => 40, 'post_type' => 'inf_tasks' ) );
+		fs_test_seed_post( array( 'ID' => 41, 'post_type' => 'inf_assessments' ), array( 'fs_lms_meta' => array( 'task_ids' => array( 40 ) ) ) );
+		fs_test_seed_post( array( 'ID' => 42, 'post_type' => 'inf_lessons' ), array( 'fs_lms_meta' => array( 'steps' => array( array( 'key' => 's1', 'type' => 'assessment', 'payload' => array( 'ref' => 41 ) ) ) ) ) );
+		fs_test_seed_post( array( 'ID' => 43, 'post_type' => 'inf_courses' ), array( 'fs_lms_meta' => array( 'modules' => array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 42 ) ) ) ) ) );
+
+		self::assertSame( 1, $this->usage->usageCount( 'task', 40 ) );
+
+		$paths = $this->usage->usagePathList( 'task', 40 );
+		self::assertCount( 1, $paths );
+		self::assertStringContainsString( 'course=43', $paths[0]['url'] );
+		self::assertStringContainsString( 'step_ref=41', $paths[0]['url'] ); // ссылка на шаг контрольной
+	}
+
 	public function test_orphan_has_zero_usage(): void {
 		fs_test_seed_post( array( 'ID' => 30, 'post_type' => 'inf_tasks' ) );
 		fs_test_seed_post( array( 'ID' => 31, 'post_type' => 'inf_works' ), array( 'fs_lms_meta' => array( 'item_ids' => array( 999 ) ) ) );
