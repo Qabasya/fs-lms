@@ -130,3 +130,51 @@
 .ke-assign { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
 .ke-course-sel { min-width: 220px; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer; }
 .ke-course-sel:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ── НБ-9: режим «Индивидуальные занятия» ──────────────────────────────── */
+.prof-indi-list {
+  flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+  padding-right: 2px; scrollbar-width: thin;
+}
+.prof-indi-list::-webkit-scrollbar { width: 8px; }
+.prof-indi-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.prof-indi-empty { padding: 40px; text-align: center; color: var(--muted-2); font-size: 14px; }
+
+.prof-indi-slot {
+  display: flex; align-items: stretch; gap: 12px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm); padding: 12px 14px 12px 0;
+}
+.prof-indi-slot .pis-stripe { width: 4px; flex-shrink: 0; background: var(--t-zachet); border-radius: 0 3px 3px 0; }
+.pis-when { width: 56px; flex-shrink: 0; text-align: center; padding-left: 6px; }
+.pis-when .pis-date { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pis-when .pis-time { font-size: 12px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.prof-indi-slot .pis-body { flex: 1; min-width: 0; }
+.pis-student { font-size: 14px; font-weight: 600; }
+.pis-topic { font-size: 13px; color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pis-topic.empty { color: var(--muted-2); font-style: italic; }
+.pis-meta { font-size: 12px; color: var(--muted-2); margin-top: 4px; }
+.prof-indi-slot .pis-action { align-self: center; flex-shrink: 0; }
+
+/* Пикер урока для инд. занятия (поповер поверх #profCtxMenu) */
+.pil-pop { width: 300px; max-width: 92vw; padding: 2px 0; }
+.pil-pop .pil-search {
+  width: calc(100% - 20px); margin: 6px 10px 8px; height: 34px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; font-size: 13px;
+  color: var(--ink); background: var(--surface);
+}
+.pil-pop .pil-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pil-list { max-height: 320px; overflow-y: auto; padding: 0 6px 6px; scrollbar-width: thin; }
+.pil-list::-webkit-scrollbar { width: 8px; }
+.pil-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.pil-divider {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted-2); padding: 8px 8px 4px;
+}
+.pil-item {
+  padding: 7px 9px; border-radius: var(--radius-xs); font-size: 13px; color: var(--ink-2);
+  cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pil-item:hover { background: var(--surface-2); }
+.pil-item.current { color: var(--accent-700); font-weight: 600; background: var(--accent-soft); }
+.pil-empty { padding: 14px; font-size: 12.5px; color: var(--muted-2); text-align: center; }

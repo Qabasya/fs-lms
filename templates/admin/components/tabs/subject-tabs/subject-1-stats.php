@@ -38,9 +38,12 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 		foreach ( $post_types as $cpt_name => $label ) :
 			$counts   = wp_count_posts( $cpt_name );
 
-			$total     = array_sum( (array) $counts ) - ( $counts->trash ?? 0 );
-			$published = $counts->publish ?? 0;
-			$drafts    = $counts->draft ?? 0;
+			// Считаем только реальные статусы контента — array_sum(all)-trash ошибочно
+			// включает auto-draft (черновики автосохранения), раздувая счётчик.
+			$real_statuses = array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' );
+			$total         = array_sum( array_intersect_key( (array) $counts, array_flip( $real_statuses ) ) );
+			$published     = $counts->publish ?? 0;
+			$drafts        = $counts->draft ?? 0;
 			?>
 			<tr>
 				<td class="column-primary">

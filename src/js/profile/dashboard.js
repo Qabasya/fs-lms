@@ -18,7 +18,7 @@ export function renderDashboard(r, handlers) {
     root = r;
     nav = Object.assign(nav, handlers || {});
     const p = window.fsProfile || {};
-    state = { cfg: p.dashboard || null, data: null };
+    state = { cfg: p.dashboard || null, data: null, weekOffset: 0 };
     if (!state.cfg) { root.innerHTML = emptyHtml('Главная недоступна', 'Нет данных кабинета.'); return; }
     api = createApi(state.cfg);
     load();
@@ -52,7 +52,7 @@ function render() {
         ${d.covering.length ? coveringBanner(d.covering) : ''}
 
         <div class="prof-stat-tiles">
-            ${statTile('Занятий сегодня', String(s.lessons_today), `${s.groups} ${plural(s.groups, 'группа', 'группы', 'групп')}`, '#3b5bdb', 'cal')}
+            ${statTile('Занятий сегодня', String(s.lessons_today), `${s.groups} ${plural(s.groups, 'группа', 'группы', 'групп')}${s.individual ? ` · ${s.individual} инд.` : ''}`, '#3b5bdb', 'cal')}
             ${statTile('На проверке', String(s.to_review), 'работ ждут оценки', '#7048e8', 'check')}
             ${statTile('Не заполнено', String(s.to_fill), 'журналов посещаемости', '#e03131', 'alert')}
         </div>
@@ -95,10 +95,19 @@ function render() {
     toggle.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
         toggle.querySelectorAll('button').forEach(x => x.classList.remove('on'));
         b.classList.add('on');
+        state.weekOffset = 0; // каждый вход в режим — текущая неделя
         renderSched(b.dataset.mode);
     }));
 
-    root.querySelectorAll('[data-grp]').forEach(el =>
+    // НБ-11: расписание перерисовывается (смена режима, пагинация недель) —
+    // делегируем клик на контейнере, чтобы переходы в журнал переживали ре-рендер.
+    const schedBody = root.querySelector('#profSchedBody');
+    if (schedBody) schedBody.addEventListener('click', e => {
+        const el = e.target.closest('[data-grp]');
+        if (el) nav.openJournalFor(el.dataset.grp);
+    });
+
+    root.querySelectorAll('.prof-grp-card[data-grp], .prof-work-item[data-grp]').forEach(el =>
         el.addEventListener('click', () => nav.openJournalFor(el.dataset.grp)));
     root.querySelectorAll('[data-review]').forEach(el =>
         el.addEventListener('click', () => nav.openReview()));
@@ -113,14 +122,13 @@ function renderSched(mode) {
         const byDate = {};
         d.week.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
 
-        // #18: выводим ВСЕ 7 дней недели (Пн–Вс), даже пустые. Понедельник берём
-        // от первого занятия (все в одной неделе) либо от сегодня. Формат дат —
+        // #18 + НБ-11: 7 дней недели (Пн–Вс), даже пустые. Опорный понедельник —
+        // текущая неделя со сдвигом state.weekOffset (пагинация ‹ ›). Формат дат
         // локальный (без сдвига часового пояса, как у toISOString).
         const fmtIso = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-        const anchorStr = Object.keys(byDate).sort()[0];
-        const monday = anchorStr ? new Date(anchorStr + 'T00:00:00') : new Date();
+        const monday = new Date();
         monday.setHours(0, 0, 0, 0);
-        monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7)); // к понедельнику
+        monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + state.weekOffset * 7);
 
         const weekDates = [];
         for (let i = 0; i < 7; i++) {
@@ -129,12 +137,12 @@ function renderSched(mode) {
             weekDates.push(fmtIso(dt));
         }
 
-        body.innerHTML = `<div class="prof-week-grid">${weekDates.map(date => {
+        const grid = `<div class="prof-week-grid">${weekDates.map(date => {
             const items = byDate[date] || [];
             const cards = items.length
                 ? items.map(it => `<div class="prof-week-card" style="border-left-color:${it.kind === 'individual' ? 'var(--t-zachet)' : groupColor(it.group_id)}" data-grp="${it.group_id}">
                         <div class="wc-time">${esc(it.start)}</div>
-                        <div class="wc-grp">${esc(it.group_name)}${it.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}</div>
+                        <div class="wc-grp">${esc(it.kind === 'individual' && it.student_name ? it.student_name : it.group_name)}${it.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}${it.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
                         <div class="wc-topic">${esc(it.topic || '—')}</div>
                     </div>`).join('')
                 : `<div class="prof-week-empty">Занятий нет</div>`;
@@ -143,11 +151,24 @@ function renderSched(mode) {
                     ${cards}
                 </div>`;
         }).join('')}</div>`;
+
+        body.innerHTML = weekNav(weekDates[0], weekDates[6]) + grid;
+        body.querySelectorAll('.pwn-arrow[data-wnav]').forEach(btn =>
+            btn.addEventListener('click', () => { state.weekOffset += +btn.dataset.wnav; renderSched('week'); }));
     } else {
         body.innerHTML = d.today.length
             ? d.today.map(schedRow).join('')
             : `<div class="rev-empty">Сегодня занятий нет.</div>`;
     }
+}
+
+/** НБ-11: пагинатор недели (‹ диапазон ›) над сеткой расписания. */
+function weekNav(fromIso, toIso) {
+    return `<div class="prof-week-nav">
+        <button type="button" class="pwn-arrow" data-wnav="-1" aria-label="Предыдущая неделя">‹</button>
+        <div class="pwn-label">${esc(fmtDayMonth(fromIso))} – ${esc(fmtDayMonth(toIso))}</div>
+        <button type="button" class="pwn-arrow" data-wnav="1" aria-label="Следующая неделя">›</button>
+    </div>`;
 }
 
 function statTile(label, val, delta, color, ico) {
@@ -179,7 +200,7 @@ function schedRow(l) {
         </div>
         <div class="prof-lesson-bar" style="background:${l.kind === 'individual' ? 'var(--t-zachet)' : groupColor(l.group_id)}"></div>
         <div class="prof-lesson-body">
-            <div class="prof-lesson-grp">${esc(l.group_name)}${l.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}${l.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
+            <div class="prof-lesson-grp">${esc(l.kind === 'individual' && l.student_name ? l.student_name : l.group_name)}${l.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}${l.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
             <div class="prof-lesson-topic">${esc(l.topic || '—')}</div>
             <div class="prof-lesson-meta"><span class="lm">${esc(l.subject)}</span>${l.room ? `<span class="lm"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2C5.5 2 4 3.8 4 6c0 3 4 8 4 8s4-5 4-8c0-2.2-1.5-4-4-4z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="6" r="1.4" fill="currentColor"/></svg>${esc(l.room)}</span>` : ''}</div>
         </div>

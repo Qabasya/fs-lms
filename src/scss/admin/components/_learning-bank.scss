@@ -18,3 +18,9 @@
   color: $color-text-secondary;
   font-size: $font-size;
 }
+
+// НБ-1: таб-бар предметов внутри того же нотиса — отделяем от описания сверху.
+// Нотис прозрачный (см. выше), поэтому nav-tab-wrapper сохраняет нативный вид WP.
+.fs-lms-learning-notice .fs-lms-subject-tabs {
+  margin-top: $spacing-md;
+}

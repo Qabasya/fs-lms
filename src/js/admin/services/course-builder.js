@@ -39,6 +39,7 @@ function createApp( mount ) {
 	const state = { course: null, activeLessonId: null, activeModuleId: null };
 	let stepEditor    = null; // активный экземпляр createStepEditor() для выбранного урока
 	let initialStepRef = 0;  // step_ref из URL — используется однократно при первом renderLessonEditor
+	let initialStepKey = ''; // step_key из URL (#15-E, deep-link на text/video-шаг без ref)
 	const persist  = createPersistence( { courseId, mount, state, onPublishToggle: () => renderEditor() } );
 
 	if ( courseId > 0 ) {
@@ -78,6 +79,7 @@ function createApp( mount ) {
 		const params       = new URLSearchParams( window.location.search );
 		const lessonParam  = parseInt( params.get( 'lesson' ), 10 ) || 0;
 		initialStepRef     = parseInt( params.get( 'step_ref' ), 10 ) || 0;
+		initialStepKey     = String( params.get( 'step_key' ) || '' );
 
 		const first = firstLesson();
 		state.activeLessonId = lessonParam > 0 ? lessonParam : ( first ? first.id : null );
@@ -154,10 +156,13 @@ function createApp( mount ) {
 		// Блокируем нативный submit формы — сохранение только через AJAX
 		document.getElementById( 'post' )?.addEventListener( 'submit', ( e ) => e.preventDefault() );
 
-		// Strip: просмотр курса на фронте
+		// Strip: просмотр курса в preview-плеере (Фаза 5, D3/D4) — свой маршрут,
+		// не зависит от статуса поста (черновик открывается так же, как публикация).
 		mount.querySelector( '[data-strip-preview]' )?.addEventListener( 'click', ( e ) => {
-			const id = e.currentTarget.dataset.courseId;
-			window.open( `?p=${ id }&preview=true`, '_blank' );
+			const id  = e.currentTarget.dataset.courseId;
+			const url = new URL( fs_lms_vars.coursePreviewUrl );
+			url.searchParams.set( 'course', id );
+			window.open( url.toString(), '_blank' );
 		} );
 
 		// Strip: "Опубликовать / Сохранить курс" → AJAX, без перезагрузки
@@ -472,7 +477,9 @@ function createApp( mount ) {
 
 		// Единый редактор шагов (общий модуль). Статус автосейва — в подвал курс-билдера.
 		const stepRef  = initialStepRef;
-		initialStepRef = 0; // однократное потребление
+		const stepKey  = initialStepKey;
+		initialStepRef = 0;  // однократное потребление
+		initialStepKey = ''; // однократное потребление
 
 		stepEditor = createStepEditor( {
 			mount:          pane.querySelector( '[data-step-mount]' ),
@@ -480,6 +487,7 @@ function createApp( mount ) {
 			subjectKey:     state.course.subject_key,
 			setStatus:      persist.setStatus,
 			initialStepRef: stepRef || undefined,
+			initialStepKey: stepKey || undefined,
 		} );
 	}
 

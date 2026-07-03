@@ -59,6 +59,7 @@ use Inc\Controllers\Profile\ProfileDashboardController;
 use Inc\Controllers\Profile\LearnerProfileController;
 use Inc\Controllers\Group\JournalController;
 use Inc\Controllers\Group\GroupCockpitController;
+use Inc\Controllers\Course\CoursePreviewController;
 use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
@@ -155,6 +156,7 @@ final class Init {
 			LearnerProfileController::class,  // AJAX профиля учащегося/родителя (Эпик 7)
 			JournalController::class,         // AJAX журнала и посещаемости (Эпик 2)
 			LessonPlayerController::class,    // пошаговый плеер урока (до кокпита: ?gl=)
+			CoursePreviewController::class,   // preview-плеер курса (Фаза 5, D3/D4): /course-preview/?course=
 			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
 			LessonProgressController::class,  // AJAX записи прогресса шага
 			LearningEventSubscriber::class,   // лента событий обучения

@@ -1,4 +1,4 @@
-import { esc, shortName, groupColor, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
+import { esc, shortName, groupColor, courseColor, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
@@ -57,6 +57,11 @@ const ROLE_LABELS = {
 
 let cfg;
 
+/* #15-C: свёрнутость секций сайдбара + фильтр «Мои курсы» (module-level, как
+   mod.collapsed в course-builder.js — флаг переживает re-render buildSidebar()). */
+const sidebarState = { groupsCollapsed: false, coursesCollapsed: false, courseFilter: '' };
+const COURSE_SEARCH_THRESHOLD = 6;
+
 /* ── Routing ─────────────────────────────────────────────────────────── */
 function go(screen) {
     document.querySelectorAll('.prof-screen').forEach(s =>
@@ -97,6 +102,50 @@ function openGroupsFor(gid) {
     if (g) setGroupsGroup(g.id);
 }
 
+function wireCourseItems() {
+    document.querySelectorAll('.prof-course-item').forEach(el =>
+        el.addEventListener('click', () => openCoursePreview(el.dataset.course, el.dataset.lesson)));
+}
+
+/* #15-B: клик по курсу в сайдбаре открывает preview-плеер курса (первый урок). */
+function openCoursePreview(courseId, lessonId) {
+    if (!cfg.coursePreviewUrl) return;
+    const url = new URL(cfg.coursePreviewUrl, window.location.origin);
+    url.searchParams.set('course', courseId);
+    if (lessonId && Number(lessonId) > 0) { url.searchParams.set('lesson', lessonId); }
+    window.location.href = url.toString();
+}
+
+/* #15-C: заголовок секции сайдбара со стрелкой сворачивания. */
+function sectionHeader(label, stateKey) {
+    const collapsed = sidebarState[stateKey];
+    return `<div class="prof-nav-label prof-nav-label--toggle" data-toggle-section="${stateKey}">
+        ${esc(label)}
+        <span class="pnl-caret${collapsed ? ' collapsed' : ''}">
+            <svg width="10" height="10" viewBox="0 0 12 12"><path fill="currentColor" d="M3 4.5 6 8l3-3.5z"/></svg>
+        </span>
+    </div>`;
+}
+
+function filteredCourses() {
+    const q = sidebarState.courseFilter.trim().toLowerCase();
+    const list = cfg.coursesTaught || [];
+    if (!q) { return list; }
+    return list.filter(c => c.title.toLowerCase().includes(q));
+}
+
+function courseItemsHtml() {
+    const list = filteredCourses();
+    if (!list.length) { return '<div class="prof-side-empty">Ничего не найдено.</div>'; }
+    return list.map(c => `
+        <div class="prof-course-item" data-course="${c.id}" data-lesson="${c.first_lesson_id || ''}">
+            <span class="prof-group-chip" style="background:${courseColor(c.subject_key)}">${esc(shortName(c.title))}</span>
+            <div class="prof-group-meta">
+                <div class="prof-group-name">${esc(c.title)}</div>
+            </div>
+        </div>`).join('');
+}
+
 /* ── Sidebar (built from role config) ────────────────────────────────── */
 function buildSidebar() {
     const nav = document.getElementById('profNav');
@@ -109,15 +158,29 @@ function buildSidebar() {
         </div>`).join('');
 
     if (cfg.groups && cfg.groups.length) {
-        html += '<div class="prof-nav-label">Мои группы</div>';
-        html += cfg.groups.map(g => `
-            <div class="prof-group-item" data-grp="${g.id}">
-                <span class="prof-group-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
-                <div class="prof-group-meta">
-                    <div class="prof-group-name">${esc(g.name)}</div>
-                    <div class="prof-group-sub">${esc(g.subject)}</div>
-                </div>
-            </div>`).join('');
+        html += sectionHeader('Мои группы', 'groupsCollapsed');
+        if (!sidebarState.groupsCollapsed) {
+            html += cfg.groups.map(g => `
+                <div class="prof-group-item" data-grp="${g.id}">
+                    <span class="prof-group-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
+                    <div class="prof-group-meta">
+                        <div class="prof-group-name">${esc(g.name)}</div>
+                        <div class="prof-group-sub">${esc(g.subject)}</div>
+                    </div>
+                </div>`).join('');
+        }
+    }
+
+    if (cfg.coursesTaught && cfg.coursesTaught.length) {
+        html += sectionHeader('Мои курсы', 'coursesCollapsed');
+        if (!sidebarState.coursesCollapsed) {
+            if (cfg.coursesTaught.length > COURSE_SEARCH_THRESHOLD) {
+                html += `<div class="prof-side-search">
+                    <input type="text" id="profCourseFilter" placeholder="Поиск курса…" value="${esc(sidebarState.courseFilter)}">
+                </div>`;
+            }
+            html += `<div id="profCoursesList">${courseItemsHtml()}</div>`;
+        }
     }
     if (nav) nav.innerHTML = html;
 
@@ -177,6 +240,24 @@ function wire() {
         n.addEventListener('click', () => go(n.dataset.go)));
     document.querySelectorAll('.prof-group-item').forEach(el =>
         el.addEventListener('click', () => openGroupsFor(el.dataset.grp)));
+    wireCourseItems();
+
+    document.querySelectorAll('[data-toggle-section]').forEach(el =>
+        el.addEventListener('click', () => {
+            sidebarState[el.dataset.toggleSection] = !sidebarState[el.dataset.toggleSection];
+            buildSidebar();
+            wire();
+        }));
+
+    const courseFilter = document.getElementById('profCourseFilter');
+    if (courseFilter) {
+        courseFilter.addEventListener('input', () => {
+            sidebarState.courseFilter = courseFilter.value;
+            // Обновляем только список курсов — иначе поиск теряет фокус на каждый символ.
+            const list = document.getElementById('profCoursesList');
+            if (list) { list.innerHTML = courseItemsHtml(); wireCourseItems(); }
+        });
+    }
 
     const gear = document.getElementById('profUserGear');
     if (gear) gear.addEventListener('click', () => openUserMenu(gear));

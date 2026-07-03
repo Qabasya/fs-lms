@@ -137,4 +137,13 @@ class RoomAssignmentService {
 		}
 		return array( 'applied' => $applied, 'skipped' => count( $skipped ), 'warnings' => $warnings );
 	}
+
+	/**
+	 * Снимает ссылки на кабинет со всех групп и занятий (перед hard-delete кабинета,
+	 * т.к. реальных FK в схеме нет — иначе `room_id` повис бы на несуществующей строке).
+	 */
+	public function unassignFromAll( int $roomId ): void {
+		$this->groups->clearRoomId( $roomId );
+		$this->groupLessons->clearRoomId( $roomId );
+	}
 }

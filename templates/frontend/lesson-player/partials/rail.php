@@ -7,6 +7,8 @@
  *
  * @var array $view    {tree, shell, steps, …}
  * @var int   $groupId
+ * @var bool  $is_preview Признак preview-плеера курса (Фаза 5) — переключает
+ *                        ссылки рейки с `?gid=&gl=` на `?course=&lesson=`.
  *
  * @package FS LMS
  */
@@ -32,13 +34,23 @@ foreach ( $rail_modules as $rail_module ) {
 	}
 }
 
-$rail_lesson_url = static fn( int $gl ): string => add_query_arg(
-	array(
-		'gid' => $groupId,
-		'gl'  => $gl,
-	),
-	PageRoutes::GroupCockpit->url()
-);
+// Preview (Фаза 5): узлы дерева хранят lesson_id в поле group_lesson_id
+// (см. CoursePreviewService::tree()) — ссылки ведут на preview-маршрут курса.
+$rail_lesson_url = ! empty( $is_preview )
+	? static fn( int $lessonId ): string => add_query_arg(
+		array(
+			'course' => (int) ( $view['course_id'] ?? 0 ),
+			'lesson' => $lessonId,
+		),
+		PageRoutes::CoursePreview->url()
+	)
+	: static fn( int $gl ): string => add_query_arg(
+		array(
+			'gid' => $groupId,
+			'gl'  => $gl,
+		),
+		PageRoutes::GroupCockpit->url()
+	);
 
 $rail_check = '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 $rail_lock  = '<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><rect x="4.5" y="8.5" width="11" height="8" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 8.5V6.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.5"/></svg>';

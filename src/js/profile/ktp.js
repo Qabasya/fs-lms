@@ -14,6 +14,9 @@ let state = null;
 let api = null;
 let coursesApi = null;
 
+/* НБ-9: sentinel-id псевдо-«группы» = режим «Индивидуальные занятия». */
+const INDI_ID = -1;
+
 export function renderKTP(r) {
     root = r;
     const p = window.fsProfile || {};
@@ -25,6 +28,7 @@ export function renderKTP(r) {
         months:  [],
         cursor:  0,
         dragGlid: null,
+        individual: [], // НБ-9: инд. занятия всех групп в режиме «Индивидуальные занятия»
     };
     api = createApi(state.sched);
     coursesApi = p.courses ? createApi(p.courses) : null;
@@ -298,8 +302,115 @@ function shiftMonth(d) {
 function openGroupMenu() {
     openGroupPicker(document.getElementById('ktpGroupBtn'), state.groups, state.groupId, id => {
         state.groupId = id;
-        loadCalendar();
-    });
+        if (INDI_ID === id) { loadIndividual(); } else { loadCalendar(); }
+    }, [{ v: String(INDI_ID), label: 'Индивидуальные занятия', swatch: 'var(--t-zachet)', chip: 'Инд' }]);
+}
+
+/* ── Режим «Индивидуальные занятия» (НБ-9) ────────────────────────────────
+   Псевдо-пункт пикера групп → плоский список инд. занятий всех групп препода;
+   к каждому слоту привязывается урок из банка предмета (курс-первыми) с поиском. */
+async function loadIndividual() {
+    state.groupId = INDI_ID;
+    root.innerHTML = `<div class="prof-ktp"><div class="rev-loading">Загрузка…</div></div>`;
+    try {
+        const perGroup = await Promise.all(state.groups.map(g =>
+            api('getIndividual', { group_id: g.id }).then(d => (d && d.items) || []).catch(() => [])));
+        state.individual = perGroup.flat().sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+    } catch (e) {
+        root.innerHTML = errorHtml(e.message);
+        return;
+    }
+    renderIndividual();
+}
+
+function renderIndividual() {
+    const items = state.individual || [];
+    root.innerHTML = `
+    <div class="prof-ktp prof-ktp-indi">
+        <div class="prof-ktp-head">
+            <div class="prof-ktp-pickers">
+                <div class="prof-ktp-pick">
+                    <span class="kp-label">Группа</span>
+                    <button type="button" class="kp-btn" id="ktpGroupBtn">
+                        <span class="kp-chip" style="background:var(--t-zachet)">Инд</span>
+                        <span class="kp-txt">Индивидуальные занятия</span>
+                        <svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="prof-indi-list">
+            ${items.length ? items.map(indiSlotHtml).join('') : `<div class="prof-indi-empty">Индивидуальных занятий нет. Создайте их на экране «Группы».</div>`}
+        </div>
+    </div>`;
+
+    document.getElementById('ktpGroupBtn').onclick = openGroupMenu;
+    root.querySelectorAll('.pis-action').forEach(btn => btn.addEventListener('click', () => {
+        const item = items.find(x => String(x.group_lesson_id) === btn.dataset.glid);
+        if (item) openLessonPicker(item, btn);
+    }));
+}
+
+function indiSlotHtml(it) {
+    const [d, t] = String(it.scheduled_at || '').split(' ');
+    const date = d ? `${d.slice(8, 10)}.${d.slice(5, 7)}` : '—';
+    const time = t ? t.slice(0, 5) : '';
+    const hasLesson = !!it.lesson_id;
+    return `<div class="prof-indi-slot" data-glid="${it.group_lesson_id}">
+        <div class="pis-stripe"></div>
+        <div class="pis-when"><div class="pis-date">${esc(date)}</div><div class="pis-time">${esc(time)}</div></div>
+        <div class="pis-body">
+            <div class="pis-student">${esc(it.student_name || '—')}</div>
+            <div class="pis-topic${hasLesson ? '' : ' empty'}">${hasLesson ? esc(it.topic || 'Без названия') : 'Урок не назначен'}</div>
+            <div class="pis-meta">${esc(it.group_name || '')}${it.room ? ` · ауд. ${esc(it.room)}` : ''}</div>
+        </div>
+        <button type="button" class="pis-action prof-btn prof-btn-sm ${hasLesson ? '' : 'prof-btn-primary'}" data-glid="${it.group_lesson_id}">${hasLesson ? 'Изменить урок' : 'Назначить урок'}</button>
+    </div>`;
+}
+
+async function openLessonPicker(item, anchorEl) {
+    const html = `
+        <div class="pil-pop">
+            <div class="ctx-title">Урок для ${esc(item.student_name || 'занятия')}</div>
+            <input type="text" class="pil-search" placeholder="Поиск урока…">
+            <div class="pil-list" id="pilList"><div class="pil-empty">Загрузка…</div></div>
+        </div>`;
+    openCtxMenuRaw(html, anchorEl);
+    const menu = document.getElementById('profCtxMenu');
+    if (!menu) return;
+    const search = menu.querySelector('.pil-search');
+    const list = menu.querySelector('#pilList');
+
+    const pick = async (lid) => {
+        try {
+            await api('assignLesson', { group_lesson_id: item.group_lesson_id, lesson_id: lid });
+            toast('Урок назначен');
+            closeCtxMenu();
+            loadIndividual();
+        } catch (e) { toast(e.message); }
+    };
+
+    const load = async (q) => {
+        try {
+            const d = await api('lessonCandidates', { group_id: item.group_id, search: q || '' });
+            list.innerHTML = renderLessonCandidates((d && d.lessons) || [], item.lesson_id);
+            list.querySelectorAll('.pil-item').forEach(el => el.addEventListener('click', () => pick(el.dataset.lid)));
+        } catch (e) { list.innerHTML = `<div class="pil-empty">${esc(e.message)}</div>`; }
+    };
+
+    let deb;
+    search.addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(() => load(search.value.trim()), 250); });
+    load('');
+    search.focus();
+}
+
+function renderLessonCandidates(lessons, currentId) {
+    if (!lessons.length) return '<div class="pil-empty">Уроки не найдены.</div>';
+    const section = (title, list) => list.length
+        ? `<div class="pil-divider">${esc(title)}</div>` + list.map(l =>
+            `<div class="pil-item${String(l.id) === String(currentId) ? ' current' : ''}" data-lid="${l.id}">${esc(l.title || 'Без названия')}</div>`).join('')
+        : '';
+    return section('Уроки курса', lessons.filter(l => l.in_course)) + section('Все уроки предмета', lessons.filter(l => !l.in_course));
 }
 
 async function doReflow() {

@@ -26,6 +26,17 @@
 .prof-dash-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
 .prof-sched-card { margin-bottom: 18px; }
 
+/* НБ-11: пагинатор недели (‹ диапазон ›) над сеткой расписания. */
+.prof-week-nav { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 0 14px; }
+.prof-week-nav .pwn-arrow {
+  width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+  color: var(--ink-2); font-size: 18px; line-height: 1; cursor: pointer;
+  transition: background $tr, border-color $tr;
+}
+.prof-week-nav .pwn-arrow:hover { background: var(--surface-2); border-color: var(--line-3); }
+.prof-week-nav .pwn-label { font-size: 14px; font-weight: 700; letter-spacing: -.01em; min-width: 120px; text-align: center; font-variant-numeric: tabular-nums; }
+
 .prof-week-grid {
   display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
   background: var(--line-2); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden;

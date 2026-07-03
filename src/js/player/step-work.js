@@ -5,7 +5,7 @@
  * вердиктами (без эталонов — D19), «Пройти заново», «К следующему уроку».
  */
 import { initTaskWidget } from '../frontend/components/task-widget.js';
-import { getCore, onPanelShow } from './core.js';
+import { getCore, onPanelShow, isPreview } from './core.js';
 import { esc, ICO } from './icons.js';
 import { toast } from './shell.js';
 
@@ -117,6 +117,9 @@ function mountWork( panel, root ) {
 
 	// ── Сдача одной кнопкой (SubmitBatchWork) ─────────────────────────────
 	async function submit() {
+		// Preview (Фаза 5): кнопка «Завершить работу» отрисована сервером disabled —
+		// защита на случай программного вызова submit() в обход клика по кнопке.
+		if ( isPreview() ) { return; }
 		const answers = {};
 		widgets.forEach( ( widget, taskId ) => {
 			answers[ taskId ] = parseAnswer( widget.collectAnswer() ) ?? '';

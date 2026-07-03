@@ -31,19 +31,6 @@ if ( $post ) {
 ?>
 <div class="wrap fs-lms-cb-wrap">
 
-
-	<?php if ( $post ) : ?>
-	<div id="titlediv">
-		<div id="titlewrap">
-			<label class="screen-reader-text" for="fs-course-title"><?php esc_html_e( 'Название курса', 'fs-lms' ); ?></label>
-			<input type="text" id="fs-course-title"
-				   value="<?php echo esc_attr( $post->post_title ); ?>"
-				   placeholder="<?php esc_attr_e( 'Название курса...', 'fs-lms' ); ?>"
-				   autocomplete="off">
-		</div>
-	</div>
-	<?php endif; ?>
-
 	<div
 		id="fs-lms-course-builder"
 		data-course-id="<?php echo esc_attr( (string) $course_id ); ?>"

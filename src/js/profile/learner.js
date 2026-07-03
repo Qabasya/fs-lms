@@ -107,16 +107,28 @@ function renderHome(root, d) {
 }
 
 /* ── Lessons (курсы = программа групп) ────────────────────────────────── */
+function nextLessonFor(d, groupId) {
+    return d.lessons
+        .filter(l => l.group_id === groupId && l.player_url)
+        .find(l => l.status === 'available');
+}
+
 function renderLessons(root, d) {
     root.innerHTML = `
     <div class="prof-dash">
         ${childBar()}
         <div class="prof-dash-hello"><h1>Мои курсы</h1></div>
-        ${d.groups.map(g => `
+        ${d.groups.map(g => {
+            const next = nextLessonFor(d, g.id);
+            return `
             <div class="prof-card">
-                <div class="prof-card-head"><h3>${esc(g.name)} · ${esc(g.subject)}</h3></div>
+                <div class="prof-card-head">
+                    <h3>${esc(g.name)} · ${esc(g.subject)}</h3>
+                    ${next ? `<a class="prof-btn prof-btn-sm prof-btn-primary ch-act" href="${esc(next.player_url)}">Перейти к курсу</a>` : ''}
+                </div>
                 <div>${d.lessons.filter(l => l.group_id === g.id).map(lessonRow).join('') || empty('Занятий пока нет.')}</div>
-            </div>`).join('') || emptyCard('Нет активных групп.')}
+            </div>`;
+        }).join('') || emptyCard('Нет активных групп.')}
     </div>`;
     wireChild(root);
 }

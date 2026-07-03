@@ -22,7 +22,7 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 
 	<div class="fs-page-header">
 		<div class="fs-page-header__content">
-			<h1 class="fs-page-header__title"><?php echo 'archived' === $view ? 'Архив предметов' : 'Активные предметы'; ?></h1>
+			<h2 class="fs-page-header__title"><?php echo 'archived' === $view ? 'Архив предметов' : 'Активные предметы'; ?></h2>
 			<?php if ( 'archived' !== $view ) : ?>
 			<div class="fs-page-header__actions">
 				<a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
@@ -77,8 +77,11 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 					$tasks_counts    = wp_count_posts( $tasks_cpt );
 					$articles_counts = wp_count_posts( $articles_cpt );
 
-					$tasks_total    = array_sum( (array) $tasks_counts ) - ( $tasks_counts->trash ?? 0 );
-					$articles_total = array_sum( (array) $articles_counts ) - ( $articles_counts->trash ?? 0 );
+					// Считаем только реальные статусы контента — array_sum(all)-trash ошибочно
+					// включает auto-draft (черновики автосохранения), раздувая счётчик.
+					$real_statuses  = array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' );
+					$tasks_total    = array_sum( array_intersect_key( (array) $tasks_counts, array_flip( $real_statuses ) ) );
+					$articles_total = array_sum( array_intersect_key( (array) $articles_counts, array_flip( $real_statuses ) ) );
 
 					$groups_total = count( $groupsRepo->findBySubjectKey( $subject->key ) );
 				?>

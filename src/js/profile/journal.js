@@ -8,7 +8,7 @@
 
 import { esc, toast, initials, avaColor, todayIso, emptyState, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
 import { createApi } from './api.js';
-import { DOW_JS, MONTHS_RU } from './constants.js';
+import { MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
 
 let root = null;
@@ -196,16 +196,15 @@ function filterBar() {
 
 function lessonHead(l) {
     const [, m, dd] = l.date.split('-');
-    const dow = DOW_JS[new Date(l.date).getDay()];
     const future = isFutureDate(l.date);
+    // НБ-3: в шапке столбца — только дата; день недели и кабинет убраны из
+    // видимой шапки (кабинет остаётся во всплывающей подсказке title).
     const roomTip = l.room ? ` · ауд. ${l.room}` : '';
     // T12.6 (D14): продолжение темы — второй столбец той же темы, помечается «(прод.)».
     const contTag = l.is_continuation ? ' (прод.)' : '';
     return `<th class="hd-col${future ? ' future' : ''}" data-glid="${l.group_lesson_id}" title="${esc(l.topic)}${esc(contTag)} · ${l.date}${roomTip}${future ? ' · ещё не прошло' : ''}">
         <div class="hd-date">${dd}.${m}</div>
-        <div class="hd-dow">${dow}</div>
         ${l.is_continuation ? '<div class="hd-cont">прод.</div>' : ''}
-        ${l.room ? `<div class="hd-room" title="ауд. ${esc(l.room)}">${esc(l.room)}</div>` : ''}
     </th>`;
 }
 
@@ -252,13 +251,13 @@ function attCell(pid, l) {
 function onGridClick(e) {
     const td = e.target.closest('td.gc.att');
     if (td) {
-        if (isFutureLesson(+td.dataset.glid)) { toast('Занятие ещё не прошло'); return; }
+        if (isFutureLesson(+td.dataset.glid)) { toast('Занятие ещё не прошло', 'error'); return; }
         openAttPopover(+td.dataset.glid, +td.dataset.pid, td);
         return;
     }
     const th = e.target.closest('th.hd-col[data-glid]');
     if (th) {
-        if (isFutureLesson(+th.dataset.glid)) { toast('Занятие ещё не прошло'); return; }
+        if (isFutureLesson(+th.dataset.glid)) { toast('Занятие ещё не прошло', 'error'); return; }
         openColumnMenu(+th.dataset.glid, th);
     }
 }

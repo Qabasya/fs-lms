@@ -4,9 +4,16 @@ import { GROUP_COLORS, AVA_COLORS } from './constants.js';
 
 let toastTimer;
 
-export function toast(msg) {
+/**
+ * Показывает тост. type='ok' (по умолчанию) — зелёная галка; type='error' —
+ * красный крестик (НБ-4). Иконка/цвет переключаются на общем элементе #profToast.
+ */
+export function toast(msg, type = 'ok') {
     const t = document.getElementById('profToast');
     if (!t) return;
+    t.classList.toggle('error', type === 'error');
+    const path = t.querySelector('svg path');
+    if (path) { path.setAttribute('d', type === 'error' ? 'M6 6l8 8M14 6l-8 8' : 'M4 10.5 8 14l8-8.5'); }
     t.querySelector('span').textContent = msg;
     t.classList.add('show');
     clearTimeout(toastTimer);
@@ -66,28 +73,47 @@ export function todayIso() {
 /* ── Colors (shared) ───────────────────────────────────────────── */
 
 /**
- * Цвет группы — по ПРЕДМЕТУ (#17): все группы одного предмета красятся одинаково.
- * Индекс предмета в порядке появления в fsProfile.groups → GROUP_COLORS;
- * для группы/предмета вне списка — стабильный хэш ключа. Согласован между
- * сайдбаром, пикерами и дашбордом.
+ * Цвет по ключу предмета — общий движок для groupColor()/courseColor() (#17, #15-B):
+ * индекс предмета в порядке появления в allSubjectKeys → GROUP_COLORS; для ключа
+ * вне списка — стабильный хэш.
  */
-export function groupColor(gid) {
-    const groups = (window.fsProfile && window.fsProfile.groups) || [];
-    const g = groups.find(x => String(x.id) === String(gid));
-    const key = (g && (g.subject || g.subject_key)) || String(gid);
+export function colorForSubject(subjectKey, allSubjectKeys) {
+    const idx = allSubjectKeys.indexOf(subjectKey);
+    if (idx >= 0) { return GROUP_COLORS[idx % GROUP_COLORS.length]; }
 
-    // Различные предметы в порядке появления → стабильный индекс цвета.
+    let h = 0;
+    for (let i = 0; i < subjectKey.length; i++) { h = (h * 31 + subjectKey.charCodeAt(i)) | 0; }
+    return GROUP_COLORS[Math.abs(h) % GROUP_COLORS.length];
+}
+
+/** Различные предметы групп сайдбара, в порядке появления (для colorForSubject). */
+function sidebarSubjects() {
+    const groups = (window.fsProfile && window.fsProfile.groups) || [];
     const subjects = [];
     for (const x of groups) {
         const s = x.subject || x.subject_key;
         if (s && !subjects.includes(s)) { subjects.push(s); }
     }
-    const idx = subjects.indexOf(key);
-    if (idx >= 0) { return GROUP_COLORS[idx % GROUP_COLORS.length]; }
+    return subjects;
+}
 
-    let h = 0;
-    for (let i = 0; i < key.length; i++) { h = (h * 31 + key.charCodeAt(i)) | 0; }
-    return GROUP_COLORS[Math.abs(h) % GROUP_COLORS.length];
+/**
+ * Цвет группы — по ПРЕДМЕТУ (#17): все группы одного предмета красятся одинаково.
+ * Согласован между сайдбаром, пикерами и дашбордом.
+ */
+export function groupColor(gid) {
+    const groups = (window.fsProfile && window.fsProfile.groups) || [];
+    const g = groups.find(x => String(x.id) === String(gid));
+    const key = (g && (g.subject || g.subject_key)) || String(gid);
+    return colorForSubject(key, sidebarSubjects());
+}
+
+/**
+ * Цвет курса в сайдбаре «Мои курсы» (#15-B) — тем же ключом предмета, что и
+ * groupColor(), поэтому курс красится в цвет своих групп того же предмета.
+ */
+export function courseColor(subjectKey) {
+    return colorForSubject(subjectKey, sidebarSubjects());
 }
 
 /** Цвет аватара ученика по индексу в переданном списке ({person_id}). */
@@ -178,6 +204,10 @@ export function openGradePopPositioned(pop, anchor) {
     left = Math.max(10, Math.min(left, window.innerWidth - pw - 10));
     let top = r.bottom + 6;
     if (top + ph > window.innerHeight - 10) top = r.top - ph - 6;
+    // НБ-8: верх/низ-clamp — высокий поповер (форма инд. занятия) у нижних/верхних
+    // якорей не должен уходить за вьюпорт; при нехватке высоты прижимаем к верху
+    // (переполнение гасит max-height/overflow на .prof-grade-pop).
+    top = Math.max(10, Math.min(top, window.innerHeight - ph - 10));
     pop.style.left = left + 'px';
     pop.style.top = top + 'px';
     const backdrop = document.getElementById('profCtxBackdrop');

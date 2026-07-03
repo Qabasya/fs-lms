@@ -234,6 +234,8 @@ function renderTaskPreview( box, data ) {
  * @param {Function}   [opts.setStatus]    (text) => void — внешний индикатор; иначе модуль рисует свой
  * @param {string[]}   [opts.allowedTypes] фильтр пунктов меню «Добавить шаг» (напр. ['task'] — только задачи)
  * @param {Function}   [opts.persist]      (steps) => Promise — своё сохранение; иначе дефолтный saveLessonSteps
+ * @param {number}     [opts.initialStepRef] deep-link на ссылочный шаг (task/work/assessment) по ref (post id)
+ * @param {string}     [opts.initialStepKey] deep-link на text/video-шаг по стабильному step.key (#15-E)
  * @returns {{ destroy: Function }}
  */
 export function createStepEditor( opts ) {
@@ -254,6 +256,12 @@ export function createStepEditor( opts ) {
 	if ( opts.initialStepRef ) {
 		const refStep = lesson.steps.find( ( s ) => Number( s.payload?.ref ) === Number( opts.initialStepRef ) );
 		if ( refStep ) { activeKey = refStep.key; }
+	}
+
+	// #15-E: deep-link на text/video-шаг (нет payload.ref — адресуем по стабильному step.key).
+	if ( opts.initialStepKey ) {
+		const keyStep = lesson.steps.find( ( s ) => s.key === opts.initialStepKey );
+		if ( keyStep ) { activeKey = keyStep.key; }
 	}
 
 	render();

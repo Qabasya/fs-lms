@@ -25,7 +25,7 @@ $salt_set = (bool) ( $config['hash_salt_set'] ?? false );
 
 	<div class="fs-page-header">
 		<div class="fs-page-header__content">
-			<h1 class="fs-page-header__title">Конфигурация плагина</h1>
+			<h2 class="fs-page-header__title">Конфигурация плагина</h2>
 		</div>
 	</div>
 

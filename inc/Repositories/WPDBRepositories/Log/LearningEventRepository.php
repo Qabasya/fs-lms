@@ -87,4 +87,13 @@ class LearningEventRepository {
 	public function update(): never {
 		throw new \LogicException( 'LearningEventRepository: записи ленты не изменяются.' );
 	}
+
+	/**
+	 * Каскадная очистка при удалении группы (GroupDeletionHandler). Единственное
+	 * легитимное исключение из «журнал неизменяем» — группа больше не существует,
+	 * события о ней бессмысленны и осиротели бы (group_id без реальных FK).
+	 */
+	public function deleteAllByGroup( int $groupId ): int {
+		return (int) $this->wpdb->delete( $this->table, array( 'group_id' => $groupId ) );
+	}
 }

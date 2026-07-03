@@ -9,6 +9,8 @@ use Inc\DTO\Profile\ProfileContext;
 use Inc\Enums\Access\UserRole;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
+use Inc\Enums\Wp\PageRoutes;
+use Inc\Managers\Course\CourseManager;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -35,6 +37,7 @@ class ProfileViewResolver {
 		private readonly GroupsRepository        $groups,
 		private readonly TeacherProfileView      $teacherView,
 		private readonly LearnerProfileView      $learnerView,
+		private readonly CourseManager           $courses,
 	) {}
 
 	/**
@@ -158,6 +161,10 @@ class ProfileViewResolver {
 				),
 				$rows
 			),
+			// «Мои курсы» (#15-B): курсы, назначенные хотя бы одной из групп выше —
+			// дедуп по course_id, т.к. несколько групп могут вести один курс.
+			'coursesTaught'    => $this->coursesTaught( $rows ),
+			'coursePreviewUrl' => PageRoutes::CoursePreview->url(),
 			'schedule' => array(
 				'nonce'   => Nonce::SaveSchedule->create(),
 				'actions' => array(
@@ -170,6 +177,9 @@ class ProfileViewResolver {
 					'getDeadlines'  => AjaxHook::GetWorkDeadlines->jsAction(),
 					'saveDeadlines' => AjaxHook::SaveWorkDeadlines->jsAction(),
 					'continue'      => AjaxHook::ContinueProgramLesson->jsAction(),
+					'getIndividual'    => AjaxHook::GetIndividualSlots->jsAction(),
+					'lessonCandidates' => AjaxHook::GetLessonCandidates->jsAction(),
+					'assignLesson'     => AjaxHook::AssignIndividualLesson->jsAction(),
 				),
 			),
 			// Курс-пикер КТП (T11.1) — отдельный блок: `assign_course` требует Nonce::AssignCourse.
@@ -244,6 +254,39 @@ class ProfileViewResolver {
 		}
 
 		return $config;
+	}
+
+	/**
+	 * Дедуп курсов по `course_id` из сырых строк групп (#15-B): несколько групп
+	 * могут вести один курс — в сайдбаре он должен быть одной строкой.
+	 *
+	 * @param object[] $rows Строки групп (raw stdClass, `GroupsRepository`).
+	 * @return array<int, array{id:int, title:string, subject_key:string, group_ids:int[], first_lesson_id:int}>
+	 */
+	private function coursesTaught( array $rows ): array {
+		$courses = array();
+		foreach ( $rows as $g ) {
+			$courseId = (int) ( $g->course_id ?? 0 );
+			if ( $courseId <= 0 ) {
+				continue;
+			}
+			if ( ! isset( $courses[ $courseId ] ) ) {
+				$course = $this->courses->get( $courseId );
+				if ( null === $course ) {
+					continue;
+				}
+				$courses[ $courseId ] = array(
+					'id'              => $courseId,
+					'title'           => $course->title,
+					'subject_key'     => (string) $g->subject_key,
+					'group_ids'       => array(),
+					'first_lesson_id' => $course->lessonIds()[0] ?? 0,
+				);
+			}
+			$courses[ $courseId ]['group_ids'][] = (int) $g->id;
+		}
+
+		return array_values( $courses );
 	}
 
 	private function initials( string $name ): string {

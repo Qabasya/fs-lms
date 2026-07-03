@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
 
 	<div class="fs-page-header">
 		<div class="fs-page-header__content">
-			<h1 class="fs-page-header__title">Импорт учеников из CSV</h1>
+			<h2 class="fs-page-header__title">Импорт учеников из CSV</h2>
 			<div class="fs-page-header__actions">
 				<button
 					type="button"

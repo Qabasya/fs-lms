@@ -33,6 +33,11 @@ export function getCore() {
 	return core;
 }
 
+/** Preview-плеер курса (Фаза 5, D3/D4): без сохранения/проверки/прогресса. */
+export function isPreview() {
+	return '1' === document.getElementById( 'fsPlayerApp' )?.dataset.preview;
+}
+
 export function initCore() {
 	const app = document.getElementById( 'fsPlayerApp' );
 	if ( ! app || ! vars ) { return; }
@@ -53,6 +58,7 @@ export function initCore() {
 	const isInlineLike = ( p ) => INLINE.includes( p.dataset.stepType ) || '1' === p.dataset.manual;
 
 	function mark( stepKey, status ) {
+		if ( isPreview() ) { return Promise.resolve( null ); }
 		const fd = new FormData();
 		fd.append( 'action', vars.actions.markStep );
 		fd.append( 'security', vars.nonces.markStep );

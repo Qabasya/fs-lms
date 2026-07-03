@@ -7,8 +7,10 @@ namespace Inc\Callbacks\Course;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
+use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\CourseBuilderService;
 use Inc\Services\Course\CoursePublishValidator;
+use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -26,10 +28,23 @@ class CourseBuilderCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly CourseBuilderService   $builder,
-		private readonly CoursePublishValidator $publishValidator,
+		private readonly CourseBuilderService    $builder,
+		private readonly CoursePublishValidator  $publishValidator,
+		private readonly CourseAssignmentService $assignment,
 	) {
 		parent::__construct();
+	}
+
+	/**
+	 * НБ-7: после добавления/дублирования урока в курсе — дописать его в КТП уже
+	 * назначенных групп. Best-effort: сбой ре-синка не должен ронять создание урока.
+	 */
+	private function syncCourseToGroups( int $courseId ): void {
+		try {
+			$this->assignment->syncCourseLessons( $courseId, get_current_user_id() );
+		} catch ( \Throwable $e ) {
+			PluginLogger::exception( 'CourseBuilder', $e, array( 'course_id' => $courseId ) );
+		}
 	}
 
 	/**
@@ -98,6 +113,7 @@ class CourseBuilderCallbacks extends BaseController {
 			return;
 		}
 
+		$this->syncCourseToGroups( $course_id );
 		$this->success( $node );
 	}
 
@@ -117,6 +133,7 @@ class CourseBuilderCallbacks extends BaseController {
 			return;
 		}
 
+		$this->syncCourseToGroups( $course_id );
 		$this->success( $node );
 	}
 

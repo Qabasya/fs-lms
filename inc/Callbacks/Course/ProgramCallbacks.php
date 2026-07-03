@@ -348,6 +348,64 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	/**
+	 * НБ-9: индивидуальные занятия группы для режима КТП «Индивидуальные занятия»
+	 * (ФИО + дата + урок/тема). Params: group_id.
+	 */
+	public function ajaxGetIndividualSlots(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->success( array( 'items' => $this->scheduleService->getIndividualProgram( $groupId ) ) );
+	}
+
+	/**
+	 * НБ-9: уроки предмета группы (курс-первыми) для назначения инд. занятию.
+	 * Params: group_id [, search].
+	 */
+	public function ajaxGetLessonCandidates(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$search  = $this->sanitizeText( 'search' );
+		$userId  = get_current_user_id();
+
+		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+
+		$this->success( array( 'lessons' => $this->scheduleService->lessonCandidatesForGroup( $groupId, $search ) ) );
+	}
+
+	/**
+	 * НБ-9: привязывает урок банка к индивидуальному занятию.
+	 * Params: group_lesson_id, lesson_id.
+	 */
+	public function ajaxAssignIndividualLesson(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$lessonId      = $this->requireInt( 'lesson_id' );
+		$userId        = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к занятию.', 'fs-lms' ) );
+		}
+
+		try {
+			$this->scheduleService->assignLessonToIndividual( $groupLessonId, $lessonId, $userId );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success();
+	}
+
+	/**
 	 * Ростер группы для экрана «Группы» (Эпик 10 T10.7): активные ученики + их
 	 * индивидуальные занятия. Params: group_id.
 	 */

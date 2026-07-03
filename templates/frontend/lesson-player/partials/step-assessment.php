@@ -4,8 +4,10 @@
  * времени, попытки) и кнопкой перехода на страницу контрольной (attempt-флоу).
  * Статус passed приходит из LessonProgressService и отражается в ленте/дереве.
  *
- * @var array $step   Шаг из LessonPlayerService::buildView.
- * @var array $render Render-данные шага (LessonPlayerService::renderAssessmentData).
+ * @var array  $step       Шаг из LessonPlayerService::buildView.
+ * @var array  $render     Render-данные шага (LessonPlayerService::renderAssessmentData).
+ * @var bool   $is_preview Признак preview-плеера курса (Фаза 5) — блокирует переход к попытке.
+ * @var string $edit_url   Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
  *
  * @package FS LMS
  */
@@ -25,6 +27,9 @@ $asm_passed = 'completed' === $step['status'];
 <div class="card16">
 	<div class="kick">
 		<span class="tbadge" data-step-type="assessment"><?php echo esc_html( StepType::fromValueOrDefault( $step['type'] )->label() ); ?></span>
+		<?php if ( ! empty( $edit_url ) ) : ?>
+			<a class="b b-gh b-sm pv-edit" href="<?php echo esc_url( $edit_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></a>
+		<?php endif; ?>
 	</div>
 	<h2><?php echo esc_html( $asm_title ); ?></h2>
 
@@ -64,12 +69,19 @@ $asm_passed = 'completed' === $step['status'];
 			<p class="step-muted"><?php esc_html_e( 'Контрольная проходится на отдельной странице с таймером и попытками.', 'fs-lms' ); ?></p>
 		<?php endif; ?>
 
-		<?php if ( '' !== $asm_url ) : ?>
+		<?php if ( '' !== $asm_url && empty( $is_preview ) ) : ?>
 			<div>
 				<a class="b b-pri b-lg" href="<?php echo esc_url( $asm_url ); ?>">
 					<?php echo $asm_passed ? esc_html__( 'Открыть контрольную', 'fs-lms' ) : esc_html__( 'Перейти к контрольной', 'fs-lms' ); ?>
 					<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 				</a>
+			</div>
+		<?php elseif ( '' !== $asm_url && ! empty( $is_preview ) ) : ?>
+			<div>
+				<span class="b b-pri b-lg b-dis">
+					<?php esc_html_e( 'Перейти к контрольной', 'fs-lms' ); ?>
+				</span>
+				<p class="step-muted pv-note"><?php esc_html_e( 'Предпросмотр — попытка недоступна.', 'fs-lms' ); ?></p>
 			</div>
 		<?php else : ?>
 			<p class="step-muted"><?php esc_html_e( 'Контрольная ещё не опубликована.', 'fs-lms' ); ?></p>

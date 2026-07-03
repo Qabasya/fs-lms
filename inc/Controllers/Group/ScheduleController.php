@@ -44,6 +44,9 @@ class ScheduleController extends AjaxController {
 			array( AjaxHook::GetGroupRoster,          $this->callbacks ),
 			array( AjaxHook::GetStudentSummary,       $this->callbacks ),
 			array( AjaxHook::GetSubjectCourses,       $this->callbacks ),
+			array( AjaxHook::GetIndividualSlots,      $this->callbacks ),
+			array( AjaxHook::GetLessonCandidates,     $this->callbacks ),
+			array( AjaxHook::AssignIndividualLesson,  $this->callbacks ),
 		);
 	}
 }

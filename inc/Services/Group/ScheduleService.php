@@ -8,6 +8,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Log\LogEvent;
+use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -26,6 +27,7 @@ class ScheduleService {
 		private readonly StudentRecordRepository     $records,
 		private readonly RoomRepository              $rooms,
 		private readonly RoomAvailabilityService     $roomAvailability,
+		private readonly CourseManager               $courses,
 	) {}
 
 	/**
@@ -479,6 +481,115 @@ class ScheduleService {
 
 	public function getProgramRow( int $groupLessonId ): ?\Inc\DTO\Course\GroupLessonDTO {
 		return $this->groupLessons->find( $groupLessonId );
+	}
+
+	/**
+	 * НБ-9: индивидуальные занятия группы для режима КТП «Индивидуальные занятия».
+	 * Каждый слот: ФИО ученика, дата/время, эффективный кабинет, привязанный урок
+	 * (тема) либо пусто. Порядок — по дате.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function getIndividualProgram( int $groupId ): array {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			return array();
+		}
+
+		$names = array();
+		foreach ( $this->records->findActiveByGroupId( $groupId ) as $rec ) {
+			$names[ $rec->studentPersonId ] = trim( $rec->snapshotLastName . ' ' . $rec->snapshotFirstName );
+		}
+
+		$roomNames = array();
+		foreach ( $this->rooms->findAll() as $r ) {
+			$roomNames[ $r->id ] = $r->name;
+		}
+		$groupRoomId = ( ! empty( $group->room_id ) ) ? (int) $group->room_id : 0;
+
+		$items = array();
+		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
+			if ( 'individual' !== $row->kind || null === $row->studentPersonId ) {
+				continue;
+			}
+			$lesson    = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
+			$effRoomId = ! empty( $row->roomId ) ? (int) $row->roomId : $groupRoomId;
+			$items[]   = array(
+				'group_lesson_id'   => $row->id,
+				'group_id'          => $groupId,
+				'group_name'        => $group->name,
+				'subject'           => $group->subject_key,
+				'student_person_id' => $row->studentPersonId,
+				'student_name'      => $names[ $row->studentPersonId ] ?? '—',
+				'scheduled_at'      => $row->scheduledAt,
+				'room'              => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
+				'lesson_id'         => $row->lessonId,
+				'topic'             => $lesson?->topic ?? ( $row->label ?? '' ),
+			);
+		}
+
+		usort( $items, static fn( $a, $b ) => strcmp( (string) $a['scheduled_at'], (string) $b['scheduled_at'] ) );
+		return $items;
+	}
+
+	/**
+	 * НБ-9: уроки предмета группы для назначения индивидуальному занятию — сперва
+	 * уроки назначенного курса (`in_course`), затем остальные уроки предмета;
+	 * фильтр по названию.
+	 *
+	 * @return array<int, array{id:int, title:string, in_course:bool}>
+	 */
+	public function lessonCandidatesForGroup( int $groupId, string $search = '' ): array {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			return array();
+		}
+
+		$courseLessonIds = array();
+		if ( ! empty( $group->course_id ) ) {
+			$course = $this->courses->get( (int) $group->course_id );
+			if ( $course ) {
+				foreach ( $course->lessonIds() as $lid ) {
+					$courseLessonIds[ (int) $lid ] = true;
+				}
+			}
+		}
+
+		$args = array( 'limit' => 100 );
+		if ( '' !== $search ) {
+			$args['search'] = $search;
+		}
+
+		$out = array();
+		foreach ( $this->lessonManager->getBankBySubject( (string) $group->subject_key, $args ) as $lesson ) {
+			$out[] = array(
+				'id'        => $lesson->id,
+				'title'     => $lesson->topic,
+				'in_course' => isset( $courseLessonIds[ (int) $lesson->id ] ),
+			);
+		}
+
+		// Уроки курса — первыми (стабильная сортировка сохраняет исходный порядок внутри групп).
+		usort( $out, static fn( $a, $b ) => ( $b['in_course'] <=> $a['in_course'] ) );
+		return $out;
+	}
+
+	/**
+	 * НБ-9: привязывает урок банка к индивидуальному занятию (`group_lessons.lesson_id`).
+	 *
+	 * @throws \InvalidArgumentException если строка не найдена/не индивидуальная или урок не найден.
+	 */
+	public function assignLessonToIndividual( int $groupLessonId, int $lessonId, int $actorUserId ): void {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row || 'individual' !== $row->kind ) {
+			throw new \InvalidArgumentException( 'Индивидуальное занятие не найдено.' );
+		}
+		if ( null === $this->lessonManager->get( $lessonId ) ) {
+			throw new \InvalidArgumentException( 'Урок не найден.' );
+		}
+
+		$this->groupLessons->setLessonId( $groupLessonId, $lessonId );
+		$this->dispatchScheduleChanged( $row->groupId, $actorUserId );
 	}
 
 	/** @return array{row: \Inc\DTO\Course\GroupLessonDTO, topic: string, subject: string}[] */

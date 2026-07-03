@@ -54,6 +54,25 @@ body.admin-bar .prof-app {
   font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
   color: var(--muted-2); padding: 14px 10px 6px;
 }
+/* #15-C: сворачиваемые секции сайдбара («Мои группы»/«Мои курсы»). */
+.prof-nav-label--toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.pnl-caret { display: flex; transition: transform $tr; color: var(--muted-2); }
+.pnl-caret.collapsed { transform: rotate(-90deg); }
+
+.prof-side-search { padding: 4px 10px 8px; }
+.prof-side-search input {
+  width: 100%; box-sizing: border-box;
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line); background: var(--surface-2);
+  font-size: 12.5px; color: var(--ink-2); font-family: inherit;
+  transition: border-color $tr;
+}
+.prof-side-search input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+
+.prof-side-empty { padding: 8px 10px; font-size: 12px; color: var(--muted-2); }
 .prof-nav-item {
   display: flex; align-items: center; gap: 11px;
   padding: 9px 10px; border-radius: var(--radius-sm);
@@ -67,13 +86,13 @@ body.admin-bar .prof-app {
 .prof-nav-item .ni-ico svg { stroke: currentColor; }
 .prof-nav-item.active .ni-ico { color: var(--accent); }
 
-.prof-group-item {
+.prof-group-item, .prof-course-item {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px; border-radius: var(--radius-sm);
   cursor: pointer; user-select: none; transition: background $tr;
 }
-.prof-group-item:hover { background: var(--surface-2); }
-.prof-group-item.active { background: var(--accent-soft); }
+.prof-group-item:hover, .prof-course-item:hover { background: var(--surface-2); }
+.prof-group-item.active, .prof-course-item.active { background: var(--accent-soft); }
 .prof-group-chip {
   width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;

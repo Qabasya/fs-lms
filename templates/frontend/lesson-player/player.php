@@ -7,9 +7,11 @@
  * лента шагов. Шаги отрендерены сервером в скрытые панели; навигацию, ленту
  * и рейку строит бандл player.min.js (Enqueue грузит по fs_lms_is_player_route).
  *
- * @var array  $view        {group_lesson_id, lesson_id, topic, steps[], shell?}
- * @var int    $groupId
- * @var string $active_step Ключ шага из deep-link ?step= (может быть пустым).
+ * @var array    $view        {group_lesson_id, lesson_id, topic, steps[], shell?, preview?}
+ * @var int      $groupId     0 в preview-режиме (курс не привязан к группе, Фаза 5).
+ * @var string   $active_step Ключ шага из deep-link ?step= (может быть пустым).
+ * @var bool|null $can_edit   Право на кнопку «Редактировать» шага; ставит только
+ *                            CoursePreviewController, в реальном плеере не задаётся.
  *
  * @package FS LMS
  */
@@ -26,6 +28,11 @@ $profile_url = PageRoutes::UserProfile->url();
 
 // ── Оболочка (T14.2): read-модель shell с безопасными фолбэками ──────────
 $shell           = is_array( $view['shell'] ?? null ) ? $view['shell'] : array();
+// Preview-плеер курса (Фаза 5, D3/D4): без ученика/занятия — контент активен,
+// но без сохранения/проверки/прогресса/гейтов. $can_edit ставит только
+// CoursePreviewController (наличие права AuthorLmsCourses), реальный плеер его не задаёт.
+$is_preview      = (bool) ( $view['preview'] ?? false );
+$can_edit        = $is_preview && ! empty( $can_edit );
 $course_title    = (string) ( $shell['course_title'] ?? '' );
 $module_label    = (string) ( $shell['module_label'] ?? '' );
 $course_progress = is_array( $shell['course_progress'] ?? null ) ? $shell['course_progress'] : null;
@@ -94,9 +101,10 @@ $next_url    = null !== $next_lesson
 	: '';
 ?>
 <div class="app" id="fsPlayerApp"
-	data-group-lesson-id="<?php echo esc_attr( (string) $view['group_lesson_id'] ); ?>"
+	data-group-lesson-id="<?php echo esc_attr( (string) ( $view['group_lesson_id'] ?? $view['lesson_id'] ?? 0 ) ); ?>"
 	data-group-id="<?php echo esc_attr( (string) $groupId ); ?>"
 	data-active-step="<?php echo esc_attr( $active_step ?? '' ); ?>"
+	data-preview="<?php echo $is_preview ? '1' : '0'; ?>"
 	<?php echo '' !== $next_url ? 'data-next-url="' . esc_url( $next_url ) . '"' : ''; ?>
 	<?php echo null !== $next_lesson ? 'data-next-available="' . esc_attr( $next_lesson['available'] ? '1' : '0' ) . '"' : ''; ?>>
 
@@ -170,6 +178,9 @@ $next_url    = null !== $next_lesson
 				<div class="s-title"><?php echo esc_html( $view['topic'] ); ?></div>
 			</div>
 			<div class="s-right">
+				<?php if ( $is_preview ) : ?>
+					<span class="pv-banner"><?php esc_html_e( 'Предпросмотр курса', 'fs-lms' ); ?></span>
+				<?php endif; ?>
 				<div class="s-prog">
 					<span class="sp-txt" id="fsProgTxt">
 						<?php
@@ -208,6 +219,20 @@ $next_url    = null !== $next_lesson
 								<?php
 								// Ручное задание проходится как инлайн-шаг: «Далее» отмечает его пройденным.
 								$is_manual_task = 'task' === $step['type'] && empty( $step['render']['auto_grade'] );
+
+								// Кнопка «Редактировать» (Фаза 5, #15-E) — только в preview для роли с
+								// правом редактирования курса. Ссылочные шаги (task/work/assessment) —
+								// по ref (post id, как и раньше); text/video — по стабильному step.key.
+								$edit_url = '';
+								if ( $can_edit ) {
+									$ref      = (int) ( $step['render']['ref'] ?? 0 );
+									$edit_url = admin_url( sprintf(
+										'admin.php?page=fs_lms_course_builder&course=%d&lesson=%d%s',
+										(int) ( $view['course_id'] ?? 0 ),
+										(int) $view['lesson_id'],
+										$ref > 0 ? '&step_ref=' . $ref : '&step_key=' . rawurlencode( $step['key'] )
+									) );
+								}
 								?>
 								<section
 									class="pstep"

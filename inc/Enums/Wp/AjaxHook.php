@@ -234,6 +234,10 @@ enum AjaxHook: string {
 	// ==== Индивидуальные занятия (ЛК преподавателя, Эпик 4) ====
 	case CreateIndividualLesson  = 'create_individual_lesson'; // params: group_id, student_person_id, scheduled_at[, ends_at, lesson_id, label, teacher_user_id, room_id]
 	case GetFreeRooms            = 'get_free_rooms'; // params: group_id, scheduled_at[, ends_at] — свободные кабинеты по предмету+времени (Эпик 11 T11.3)
+	// НБ-9: режим КТП «Индивидуальные занятия» — слоты + назначение урока из банка.
+	case GetIndividualSlots      = 'get_individual_slots'; // params: group_id — инд. занятия группы (ФИО + дата + урок/тема)
+	case GetLessonCandidates     = 'get_lesson_candidates'; // params: group_id[, search] — уроки предмета (курс-первыми) для назначения инд. занятию
+	case AssignIndividualLesson  = 'assign_individual_lesson'; // params: group_lesson_id, lesson_id — привязать урок банка к инд. занятию
 
 	// ==== Экран «Группы» / ростер (ЛК преподавателя, Эпик 10 T10.7) ====
 	case GetGroupRoster          = 'get_group_roster'; // params: group_id — активные ученики + их индивидуальные занятия

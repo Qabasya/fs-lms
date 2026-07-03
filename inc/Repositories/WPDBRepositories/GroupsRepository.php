@@ -174,6 +174,24 @@ class GroupsRepository {
 	}
 
 	/**
+	 * Возвращает все группы, которым назначен указанный курс (по course_id).
+	 * Используется для ре-синка новых уроков курса в КТП (НБ-7).
+	 *
+	 * @param int $courseId ID курса
+	 *
+	 * @return array
+	 */
+	public function findByCourse( int $courseId ): array {
+		return $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE course_id = %d ORDER BY name ASC',
+				$this->table,
+				$courseId
+			)
+		) ?: array();
+	}
+
+	/**
 	 * Возвращает все группы, отсортированные по предмету и названию.
 	 *
 	 * @return array
@@ -309,5 +327,10 @@ class GroupsRepository {
 			array( 'program_locked_at' => $lockedAt ),
 			array( 'id' => $groupId )
 		);
+	}
+
+	/** Снимает ссылку на удаляемый кабинет со всех групп (RoomAssignmentService). */
+	public function clearRoomId( int $roomId ): int {
+		return (int) $this->wpdb->update( $this->table, array( 'room_id' => null ), array( 'room_id' => $roomId ) );
 	}
 }

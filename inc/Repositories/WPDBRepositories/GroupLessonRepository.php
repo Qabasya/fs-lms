@@ -231,4 +231,9 @@ class GroupLessonRepository {
 	public function deleteAllByGroup( int $groupId ): int {
 		return (int) $this->wpdb->delete( $this->table, array( 'group_id' => $groupId ) );
 	}
+
+	/** Снимает ссылку на удаляемый кабинет со всех занятий (RoomAssignmentService). */
+	public function clearRoomId( int $roomId ): int {
+		return (int) $this->wpdb->update( $this->table, array( 'room_id' => null ), array( 'room_id' => $roomId ) );
+	}
 }

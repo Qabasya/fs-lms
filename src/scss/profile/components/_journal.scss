@@ -46,7 +46,6 @@ table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; 
 .hd-col { width: 44px; min-width: 44px; padding: 7px 2px 8px; text-align: center; cursor: pointer; position: relative; }
 .hd-col:hover { background: var(--accent-soft); }
 .hd-date { font-size: 12px; font-weight: 700; color: var(--ink); line-height: 1; }
-.hd-dow { font-size: 10px; color: var(--muted-2); margin-top: 2px; }
 
 .jgrid tbody tr { height: 34px; }
 .jgrid tbody tr:hover td { background: var(--accent-soft); }
@@ -114,18 +113,6 @@ table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; 
 }
 .jf-chip.on { background: var(--accent-soft); border-color: var(--accent-soft-2); color: var(--accent-700); }
 .jf-chip input { display: none; }
-
-/* T11.2: эффективный кабинет занятия в шапке столбца журнала */
-.jgrid .hd-col .hd-room {
-  margin-top: 2px;
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--muted);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* T12.6 (D14): метка продолжения темы в шапке второго столбца */
 .jgrid .hd-col .hd-cont {

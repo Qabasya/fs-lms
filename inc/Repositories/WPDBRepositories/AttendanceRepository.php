@@ -80,4 +80,9 @@ class AttendanceRepository {
 		);
 		return array_map( array( AttendanceDTO::class, 'fromArray' ), $rows ?: array() );
 	}
+
+	/** Каскадная очистка при удалении занятия (GroupDeletionHandler). */
+	public function deleteAllByGroupLesson( int $groupLessonId ): int {
+		return (int) $this->wpdb->delete( $this->table, array( 'group_lesson_id' => $groupLessonId ) );
+	}
 }

@@ -4,7 +4,7 @@
  * счётчик попыток, «Попробовать ещё раз», показ эталона после исчерпания (D20).
  */
 import { initTaskWidget } from '../frontend/components/task-widget.js';
-import { getCore, onPanelShow } from './core.js';
+import { getCore, onPanelShow, isPreview } from './core.js';
 import { esc, ICO } from './icons.js';
 
 const vars = window.fs_lms_player_vars;
@@ -48,6 +48,9 @@ function wire( panel, widget ) {
 	submitBtn.after( retryBtn );
 
 	const syncSubmit = () => {
+		// Preview (Фаза 5): кнопка «Ответить» отрисована сервером disabled — виджет
+		// остаётся активным, но syncSubmit не должен её снова включать при вводе.
+		if ( isPreview() ) { return; }
 		submitBtn.disabled = ! widget.hasAnswer();
 		submitBtn.classList.toggle( 'b-dis', submitBtn.disabled );
 	};
@@ -82,7 +85,7 @@ function wire( panel, widget ) {
 }
 
 async function submit( panel, widget, submitBtn, retryBtn, resultEl ) {
-	if ( submitBtn.disabled ) { return; }
+	if ( isPreview() || submitBtn.disabled ) { return; }
 	submitBtn.disabled = true;
 
 	const core = getCore();

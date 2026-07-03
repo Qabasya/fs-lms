@@ -262,8 +262,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 			$script_handle,
 			'fs_lms_vars',
 			array(
-				'ajaxurl'      => admin_url( 'admin-ajax.php' ),
-				'nonces'       => array(
+				'ajaxurl'          => admin_url( 'admin-ajax.php' ),
+				'nonces'           => array(
 					'subject'           => Nonce::Subject->create(),
 					'manager'           => Nonce::Manager->create(),
 					'expulsion'         => Nonce::Expulsion->create(),
@@ -277,7 +277,9 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'authorCourse'      => Nonce::AuthorCourse->create(),
 					'room'              => Nonce::Room->create(),
 				),
-				'ajax_actions' => AjaxHook::toJsArray(),
+				'ajax_actions'      => AjaxHook::toJsArray(),
+				// Фаза 5, D3/D4: URL preview-плеера курса (кнопка «Просмотр» в конструкторе).
+				'coursePreviewUrl' => PageRoutes::CoursePreview->url(),
 			)
 		);
 	}
@@ -317,8 +319,10 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * Подключение изолированного бандла плеера курса (Эпик 14, D18).
 	 *
 	 * Грузит только player.min.css/js + MathJax и локализует fs_lms_player_vars.
-	 * Маршрут определяет LessonPlayerController: перед рендером player.php он
-	 * взводит фильтр `fs_lms_is_player_route` (роут кокпита + ?gl= + ученик).
+	 * Общий для двух маршрутов, оба взводят фильтр `fs_lms_is_player_route`
+	 * перед рендером player.php: LessonPlayerController (кокпит + ?gl=, ученик)
+	 * и CoursePreviewController (/course-preview/?course=, Фаза 5 — предпросмотр
+	 * для преподавателя/офиса/автора, без ученика и сохранения прогресса).
 	 *
 	 * @return void
 	 */

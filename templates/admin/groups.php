@@ -22,8 +22,8 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 		<div class="fs-page-header__content">
 			<h1 class="fs-page-header__title">Работа с группами</h1>
 			<div class="fs-page-header__actions">
-				<button type="button" class=" page-title-action js-open-group-modal">Добавить группу</button>
-				<button type="button" class="page-title-action js-export-groups">
+				<button type="button" class="button button-primary js-open-group-modal">Добавить группу</button>
+				<button type="button" class="button js-export-groups">
 					<span class="dashicons dashicons-download"></span>
 					Экспорт CSV
 				</button>

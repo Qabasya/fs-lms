@@ -12,6 +12,7 @@
 }
 .prof-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .prof-toast svg { stroke: var(--toast-ok); }
+.prof-toast.error svg { stroke: var(--absent); }
 
 .prof-ctx-backdrop { position: fixed; inset: 0; z-index: $z-ctx; display: none; }
 .prof-ctx-backdrop.open { display: block; }
@@ -47,11 +48,15 @@
 .prof-grade-pop {
   position: fixed; z-index: $z-ctx + 1; background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); padding: 10px; width: 188px; display: none;
+  max-height: calc(100vh - 20px); overflow-y: auto;
 }
 .prof-grade-pop.open { display: block; animation: profCtxIn $tr ease; }
 .gp-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); margin-bottom: 8px; }
 .gp-row { display: flex; gap: 6px; }
 .gp-row .prof-btn { flex: 1; }
 .gp-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--muted); }
-.gp-field input { flex: 0 0 108px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; font-size: 13px; color: var(--ink); }
-.gp-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.gp-field input,
+.gp-field select { flex: 0 0 108px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); }
+.gp-field select { cursor: pointer; }
+.gp-field input:focus,
+.gp-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
