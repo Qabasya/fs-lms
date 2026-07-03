@@ -50,6 +50,35 @@ class CorrectAnswerResolver {
 		return '' === $answer ? null : $answer;
 	}
 
+	/**
+	 * Id правильных опций choice-задачи — для подсветки «Правильный ответ»
+	 * в виджете плеера после исчерпания попыток (D20, T14.8).
+	 * Для остальных шаблонов — пустой массив.
+	 *
+	 * @return string[]
+	 */
+	public function choiceCorrectIds( int $taskId ): array {
+		$tplRaw = $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value );
+		if ( TaskTemplate::Choice !== TaskTemplate::fromDatabase( is_string( $tplRaw ) ? $tplRaw : null ) ) {
+			return array();
+		}
+
+		$metaRaw = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
+		$options = is_array( $metaRaw ) ? ( $metaRaw['task_options']['options'] ?? array() ) : array();
+		if ( ! is_array( $options ) ) {
+			return array();
+		}
+
+		$ids = array();
+		foreach ( $options as $opt ) {
+			if ( is_array( $opt ) && ! empty( $opt['correct'] ) && '' !== (string) ( $opt['id'] ?? '' ) ) {
+				$ids[] = (string) $opt['id'];
+			}
+		}
+
+		return $ids;
+	}
+
 	private function triple( array $meta ): string {
 		$parts = array();
 		foreach ( array( '19', '20', '21' ) as $n ) {

@@ -12,6 +12,7 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\FillTextParser;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
@@ -36,6 +37,7 @@ class LessonPlayerService {
 		private readonly EffectiveStepSettingsResolver $settingsResolver,
 		private readonly TemplateResolver             $templateResolver,
 		private readonly TaskCheckerRegistry          $checkerRegistry,
+		private readonly CorrectAnswerResolver        $correctAnswers,
 	) {}
 
 	/**
@@ -150,7 +152,7 @@ class LessonPlayerService {
 		$hintHtml   = wp_kses_post( (string) ( $meta['task_hint'] ?? '' ) );
 		$revealHint = '' !== $hintHtml && ( $settings->hintAfterErrors === 0 || $wrongCount >= $settings->hintAfterErrors );
 
-		return array(
+		$data = array(
 			'auto_grade'     => $autoGrade,
 			'template'       => $template->value,
 			'condition_html' => $this->buildConditionHtml( $meta, $template ),
@@ -160,6 +162,21 @@ class LessonPlayerService {
 			'attempts_used'  => $usedCount,
 			'reveal_hint'    => $revealHint,
 		);
+
+		// D20 (T14.8): шаг провален с исчерпанием попыток — эталон виден и после
+		// перезагрузки страницы (в submit-ответе его отдаёт SubmitTaskAnswerCallbacks).
+		$exhausted  = $settings->maxAttempts > 0 && $usedCount >= $settings->maxAttempts;
+		$hasCorrect = array() !== array_filter( $attempts, static fn( $a ) => true === $a->isCorrect );
+		if ( $autoGrade && $exhausted && ! $hasCorrect ) {
+			$data['correct_answer'] = $this->correctAnswers->resolve( $taskId );
+
+			$correctIds = $this->correctAnswers->choiceCorrectIds( $taskId );
+			if ( array() !== $correctIds ) {
+				$data['correct_answer_ids'] = $correctIds;
+			}
+		}
+
+		return $data;
 	}
 
 	/**

@@ -17,6 +17,7 @@ use Inc\Services\Course\EffectiveStepSettingsResolver;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonPlayerService;
 use Inc\Services\Course\LessonProgressService;
+use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
@@ -31,6 +32,7 @@ class LessonPlayerServiceTest extends TestCase {
 	private EffectiveStepSettingsResolver $settingsResolver;
 	private TemplateResolver              $templateResolver;
 	private TaskCheckerRegistry           $checkerRegistry;
+	private CorrectAnswerResolver         $correctAnswers;
 	private LessonPlayerService           $service;
 
 	protected function setUp(): void {
@@ -43,6 +45,7 @@ class LessonPlayerServiceTest extends TestCase {
 		$this->settingsResolver = $this->createMock( EffectiveStepSettingsResolver::class );
 		$this->templateResolver = $this->createMock( TemplateResolver::class );
 		$this->checkerRegistry  = $this->createMock( TaskCheckerRegistry::class );
+		$this->correctAnswers   = $this->createMock( CorrectAnswerResolver::class );
 		$this->service          = new LessonPlayerService(
 			$this->lessons,
 			$this->gate,
@@ -52,6 +55,7 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->settingsResolver,
 			$this->templateResolver,
 			$this->checkerRegistry,
+			$this->correctAnswers,
 		);
 	}
 
@@ -186,6 +190,73 @@ class LessonPlayerServiceTest extends TestCase {
 		$render = $view['steps'][0]['render'];
 
 		self::assertSame( 'vimeo', $render['provider'] );
+	}
+
+	// ── D20 (T14.8): эталон в render-данных task-шага после исчерпания ──────
+
+	/**
+	 * Контекст task-шага: задача 77 (choice, авто-проверка), лимит 2 попытки.
+	 *
+	 * @param \Inc\DTO\Task\TaskAttemptDTO[] $attempts
+	 */
+	private function arrangeTaskStep( array $attempts ): GroupLessonDTO {
+		$step   = new StepDTO( 's1', StepType::Task, array( 'ref' => 77 ) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+		$this->stubGateAndProgress( $step );
+
+		$this->posts->method( 'get' )->with( 77 )->willReturn( new \WP_Post( array( 'ID' => 77 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( array() );
+		$this->templateResolver->method( 'resolveEnum' )->willReturn( \Inc\Enums\Subject\TaskTemplate::Choice );
+		$this->checkerRegistry->method( 'has' )->willReturn( true );
+		$this->settingsResolver->method( 'resolve' )
+			->willReturn( new \Inc\DTO\Course\StepSettingsDTO( maxAttempts: 2 ) );
+		$this->taskAttempts->method( 'listByStep' )->willReturn( $attempts );
+
+		return $this->makeGroupLesson( lessonId: 10 );
+	}
+
+	private function attempt( int $number, bool $correct ): \Inc\DTO\Task\TaskAttemptDTO {
+		return \Inc\DTO\Task\TaskAttemptDTO::fromArray( array(
+			'id'                => $number,
+			'student_person_id' => 1,
+			'group_lesson_id'   => 1,
+			'step_key'          => 's1',
+			'task_id'           => 77,
+			'attempt_number'    => $number,
+			'is_correct'        => $correct ? 1 : 0,
+			'created_at'        => '2026-01-01 00:00:00',
+		) );
+	}
+
+	public function test_task_render_includes_correct_answer_when_exhausted_and_failed(): void {
+		$groupLesson = $this->arrangeTaskStep( array( $this->attempt( 1, false ), $this->attempt( 2, false ) ) );
+		$this->correctAnswers->method( 'resolve' )->with( 77 )->willReturn( 'Вариант Б' );
+		$this->correctAnswers->method( 'choiceCorrectIds' )->with( 77 )->willReturn( array( 'o2' ) );
+
+		$render = $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
+
+		self::assertSame( 'Вариант Б', $render['correct_answer'] );
+		self::assertSame( array( 'o2' ), $render['correct_answer_ids'] );
+	}
+
+	public function test_task_render_hides_correct_answer_while_attempts_remain(): void {
+		$groupLesson = $this->arrangeTaskStep( array( $this->attempt( 1, false ) ) );
+		$this->correctAnswers->expects( $this->never() )->method( 'resolve' );
+
+		$render = $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
+
+		self::assertArrayNotHasKey( 'correct_answer', $render );
+	}
+
+	public function test_task_render_hides_correct_answer_when_solved(): void {
+		// Попытки формально исчерпаны, но среди них есть верная — шаг completed, эталон не нужен.
+		$groupLesson = $this->arrangeTaskStep( array( $this->attempt( 1, false ), $this->attempt( 2, true ) ) );
+		$this->correctAnswers->expects( $this->never() )->method( 'resolve' );
+
+		$render = $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
+
+		self::assertArrayNotHasKey( 'correct_answer', $render );
 	}
 
 	public function test_video_slot_prefers_recording_url_over_payload_url(): void {

@@ -261,7 +261,9 @@ $nav_icons = array(
 														<div class="fs-task-widget"
 															data-template="<?php echo esc_attr( $tmpl ); ?>"
 															data-widget='<?php echo esc_attr( (string) wp_json_encode( $render['widget_data'] ?? array() ) ); ?>'
-															<?php echo $is_done ? 'data-done="1"' : ''; ?>></div>
+															<?php echo $is_done ? 'data-done="1"' : ''; ?>
+															<?php echo ! empty( $render['correct_answer'] ) ? 'data-correct-text="' . esc_attr( (string) $render['correct_answer'] ) . '"' : ''; ?>
+															<?php echo ! empty( $render['correct_answer_ids'] ) ? "data-correct-ids='" . esc_attr( (string) wp_json_encode( $render['correct_answer_ids'] ) ) . "'" : ''; ?>></div>
 
 														<?php
 														$max_att  = (int) ( $render['settings']['max_attempts'] ?? 0 );

@@ -47,7 +47,8 @@ if (!class_exists('WP_User')) {
 
 // WP function stubs
 if (!function_exists('get_current_user_id')) {
-    function get_current_user_id(): int { return 0; }
+    // Управляется $GLOBALS['_fs_test_user_id'] (сбрасывается в fs_test_reset_ajax).
+    function get_current_user_id(): int { return $GLOBALS['_fs_test_user_id'] ?? 0; }
 }
 if (!function_exists('is_user_logged_in')) {
     function is_user_logged_in(): bool { return $GLOBALS['_test_logged_in'] ?? true; }
@@ -390,6 +391,7 @@ function get_the_post_thumbnail_url( int $post_id, string $size = 'post-thumbnai
 function fs_test_reset_ajax(): void {
     $GLOBALS['_fs_test_can']      = true;
     $GLOBALS['_fs_test_nonce_ok'] = true;
+    unset($GLOBALS['_fs_test_user_id']);
     $_POST = [];
     $_GET  = [];
 }
