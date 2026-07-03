@@ -484,15 +484,119 @@ export function createStepEditor( opts ) {
 			}
 		} else if ( 'video' === step.type ) {
 			ed.innerHTML = `
-				<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://youtube.com/watch?v=…"></div>
-				<div class="field-row"><label>Описание под видео</label><textarea class="field-input" data-desc placeholder="Краткое описание…"></textarea></div>`;
+				<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://…mp4 (нативный плеер) или YouTube/VK/Rutube (встраивание)"></div>
+				<div class="field-row"><label>Описание под видео</label><textarea class="field-input" data-desc placeholder="Краткое описание…"></textarea></div>
+				<div class="field-row"><label>Главы (D21: перемотка — только для прямых видеофайлов)</label>
+					<div class="fs-cb-chapters" data-chapters></div>
+					<button type="button" class="button" data-chapter-add>+ Глава</button>
+				</div>
+				<div class="field-row"><label>Вложения-конспекты (скачивание под плеером)</label>
+					<div class="fs-cb-attachments" data-attach-list></div>
+					<button type="button" class="button" data-attach-add>+ Файл из медиабиблиотеки</button>
+				</div>`;
 			const url  = ed.querySelector( '[data-url]' );
 			const desc = ed.querySelector( '[data-desc]' );
 			url.value  = step.payload.url || '';
 			desc.value = step.payload.description || '';
 			url.addEventListener( 'input', () => { step.payload.url = url.value; clearReviewFlag( step ); scheduleSave(); } );
 			desc.addEventListener( 'input', () => { step.payload.description = desc.value; clearReviewFlag( step ); scheduleSave(); } );
+
+			renderChapterRows( ed.querySelector( '[data-chapters]' ), step );
+			renderAttachmentRows( ed.querySelector( '[data-attach-list]' ), step );
+
+			ed.querySelector( '[data-chapter-add]' ).addEventListener( 'click', () => {
+				step.payload.chapters = step.payload.chapters || [];
+				step.payload.chapters.push( { t: 0, title: '' } );
+				renderChapterRows( ed.querySelector( '[data-chapters]' ), step );
+				scheduleSave();
+			} );
+
+			ed.querySelector( '[data-attach-add]' ).addEventListener( 'click', () => {
+				if ( ! window.wp?.media ) { return; }
+				const frame = window.wp.media( { title: 'Вложения к видео', multiple: true } );
+				frame.on( 'select', () => {
+					const picked = frame.state().get( 'selection' ).toJSON().map( ( a ) => a.id );
+					const ids    = ( step.payload.attachments || [] ).concat( picked );
+					step.payload.attachments = ids.filter( ( v, i ) => ids.indexOf( v ) === i );
+					renderAttachmentRows( ed.querySelector( '[data-attach-list]' ), step );
+					scheduleSave();
+				} );
+				frame.open();
+			} );
 		}
+	}
+
+	// ── Видео-шаг: главы и вложения (D21, T14.12) ─────────────────────────
+
+	function fmtChapterTime( sec ) {
+		sec = Math.max( 0, parseInt( sec, 10 ) || 0 );
+		return `${ Math.floor( sec / 60 ) }:${ String( sec % 60 ).padStart( 2, '0' ) }`;
+	}
+
+	function parseChapterTime( raw ) {
+		const parts = String( raw ).trim().split( ':' ).map( ( p ) => parseInt( p, 10 ) || 0 );
+		if ( 1 === parts.length ) { return parts[ 0 ]; }
+		if ( 2 === parts.length ) { return parts[ 0 ] * 60 + parts[ 1 ]; }
+		return parts[ 0 ] * 3600 + parts[ 1 ] * 60 + parts[ 2 ];
+	}
+
+	function renderChapterRows( box, step ) {
+		const chapters = step.payload.chapters || [];
+		box.innerHTML  = chapters.map( ( ch, i ) => `
+			<div class="fs-cb-chapter-row">
+				<input class="field-input fs-cb-ch-time" data-ch-time="${ i }" value="${ fmtChapterTime( ch.t ) }" placeholder="мм:сс">
+				<input class="field-input fs-cb-ch-title" data-ch-title="${ i }" value="${ esc( ch.title || '' ) }" placeholder="Название главы">
+				<button type="button" class="button fs-sb-btn-danger" data-ch-del="${ i }">✕</button>
+			</div>` ).join( '' );
+
+		box.querySelectorAll( '[data-ch-time]' ).forEach( ( input ) => {
+			input.addEventListener( 'change', () => {
+				chapters[ parseInt( input.dataset.chTime, 10 ) ].t = parseChapterTime( input.value );
+				input.value = fmtChapterTime( chapters[ parseInt( input.dataset.chTime, 10 ) ].t );
+				scheduleSave();
+			} );
+		} );
+		box.querySelectorAll( '[data-ch-title]' ).forEach( ( input ) => {
+			input.addEventListener( 'input', () => {
+				chapters[ parseInt( input.dataset.chTitle, 10 ) ].title = input.value;
+				scheduleSave();
+			} );
+		} );
+		box.querySelectorAll( '[data-ch-del]' ).forEach( ( btn ) => {
+			btn.addEventListener( 'click', () => {
+				chapters.splice( parseInt( btn.dataset.chDel, 10 ), 1 );
+				renderChapterRows( box, step );
+				scheduleSave();
+			} );
+		} );
+	}
+
+	function renderAttachmentRows( box, step ) {
+		const ids     = step.payload.attachments || [];
+		box.innerHTML = ids.map( ( id, i ) => `
+			<div class="fs-cb-attach-row">
+				<span class="fs-cb-attach-title" data-att-title="${ id }">#${ id }</span>
+				<button type="button" class="button fs-sb-btn-danger" data-att-del="${ i }">✕</button>
+			</div>` ).join( '' );
+
+		// Название файла — лениво из медиабиблиотеки (в payload храним только id).
+		if ( window.wp?.media ) {
+			ids.forEach( ( id ) => {
+				const model = window.wp.media.attachment( id );
+				model.fetch().then( () => {
+					const el = box.querySelector( `[data-att-title="${ id }"]` );
+					if ( el ) { el.textContent = model.get( 'title' ) || model.get( 'filename' ) || `#${ id }`; }
+				} ).catch( () => {} );
+			} );
+		}
+
+		box.querySelectorAll( '[data-att-del]' ).forEach( ( btn ) => {
+			btn.addEventListener( 'click', () => {
+				ids.splice( parseInt( btn.dataset.attDel, 10 ), 1 );
+				renderAttachmentRows( box, step );
+				scheduleSave();
+			} );
+		} );
 	}
 
 	function refEditor( ed, step ) {

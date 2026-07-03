@@ -104,12 +104,7 @@ class LessonPlayerService {
 	private function renderData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId ): array {
 		return match ( $step->type->value ) {
 			'text'  => array( 'content' => (string) ( $step->payload['content'] ?? '' ) ),
-			'video' => array(
-				'url'            => $this->resolveVideoUrl( $step, $groupLesson ),
-				'description'    => (string) ( $step->payload['description'] ?? '' ),
-				'provider'       => (string) ( $step->payload['provider'] ?? '' ),
-				'recording_slot' => (bool) ( $step->payload['recording_slot'] ?? false ),
-			),
+			'video' => $this->renderVideoData( $step, $groupLesson ),
 			'task'     => $this->renderTaskData( $step, $groupLesson, $studentPersonId ),
 			'work'     => $this->renderWorkData( $step, $groupLesson, $studentPersonId ),
 			default    => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
@@ -411,6 +406,94 @@ class LessonPlayerService {
 		}
 		$url = wp_get_attachment_url( $attachmentId );
 		return $url ?: '';
+	}
+
+	/**
+	 * Данные видео-шага (D21, T14.12): режим по источнику (прямой файл → нативный
+	 * плеер с кастомным хромом, иначе oembed-карточка), главы и вложения-конспекты.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function renderVideoData( StepDTO $step, GroupLessonDTO $groupLesson ): array {
+		$url = $this->resolveVideoUrl( $step, $groupLesson );
+
+		return array(
+			'url'            => $url,
+			'description'    => (string) ( $step->payload['description'] ?? '' ),
+			'provider'       => (string) ( $step->payload['provider'] ?? '' ),
+			'recording_slot' => (bool) ( $step->payload['recording_slot'] ?? false ),
+			'mode'           => $this->resolveVideoMode( $url ),
+			'chapters'       => $this->videoChapters( $step ),
+			'attachments'    => $this->videoAttachments( $step ),
+		);
+	}
+
+	/**
+	 * Режим плеера по источнику (D21): прямой файл (S3: mp4/hls и т.п.) — нативный
+	 * `<video>`; всё остальное (VK/Rutube/YouTube) — oembed-карточка.
+	 */
+	private function resolveVideoMode( string $url ): string {
+		if ( '' === $url ) {
+			return 'none';
+		}
+
+		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
+		$ext  = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+
+		return in_array( $ext, array( 'mp4', 'webm', 'ogv', 'mov', 'm4v', 'm3u8' ), true ) ? 'native' : 'embed';
+	}
+
+	/**
+	 * @return array<int, array{t:int, title:string}>
+	 */
+	private function videoChapters( StepDTO $step ): array {
+		$raw = is_array( $step->payload['chapters'] ?? null ) ? $step->payload['chapters'] : array();
+
+		$chapters = array();
+		foreach ( $raw as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$chapters[] = array(
+				't'     => max( 0, (int) ( $row['t'] ?? 0 ) ),
+				'title' => (string) ( $row['title'] ?? '' ),
+			);
+		}
+
+		return $chapters;
+	}
+
+	/**
+	 * Вложения-конспекты видео-шага: карточки для скачивания.
+	 *
+	 * @return array<int, array{id:int, title:string, url:string, ext:string, size:string}>
+	 */
+	private function videoAttachments( StepDTO $step ): array {
+		$ids = is_array( $step->payload['attachments'] ?? null ) ? $step->payload['attachments'] : array();
+
+		$attachments = array();
+		foreach ( $ids as $id ) {
+			$id  = (int) $id;
+			$url = $id > 0 ? (string) wp_get_attachment_url( $id ) : '';
+			if ( '' === $url ) {
+				continue;
+			}
+
+			$path  = (string) wp_parse_url( $url, PHP_URL_PATH );
+			$title = get_the_title( $id );
+			$file  = get_attached_file( $id );
+			$size  = ( $file && file_exists( $file ) ) ? size_format( (int) filesize( $file ) ) : '';
+
+			$attachments[] = array(
+				'id'    => $id,
+				'title' => '' !== $title ? $title : basename( $path ),
+				'url'   => $url,
+				'ext'   => strtoupper( pathinfo( $path, PATHINFO_EXTENSION ) ),
+				'size'  => (string) $size,
+			);
+		}
+
+		return $attachments;
 	}
 
 	/**

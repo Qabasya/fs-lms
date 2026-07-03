@@ -185,6 +185,53 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertFalse( $render['recording_slot'] );
 	}
 
+	// ── D21 (T14.12): режим плеера, главы, вложения ─────────────────────────
+
+	public function test_video_mode_native_for_direct_file(): void {
+		$step   = $this->makeVideoStep( 's1', array( 'url' => 'https://s3.example.com/lesson/video.mp4' ) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+		$this->stubGateAndProgress( $step );
+
+		$render = $this->service->buildView( 1, $this->makeGroupLesson( lessonId: 10 ) )['steps'][0]['render'];
+
+		self::assertSame( 'native', $render['mode'] );
+	}
+
+	public function test_video_mode_embed_for_platform_url(): void {
+		$step   = $this->makeVideoStep( 's1', array( 'url' => 'https://vk.com/video-1_2' ) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+		$this->stubGateAndProgress( $step );
+
+		$render = $this->service->buildView( 1, $this->makeGroupLesson( lessonId: 10 ) )['steps'][0]['render'];
+
+		self::assertSame( 'embed', $render['mode'] );
+	}
+
+	public function test_video_render_includes_chapters_and_attachments(): void {
+		$GLOBALS['_fs_test_attachment_urls'] = array( 7 => 'http://example.com/uploads/konspekt.pdf' );
+
+		$step = $this->makeVideoStep( 's1', array(
+			'url'         => 'https://s3.example.com/v.mp4',
+			'chapters'    => array( array( 't' => 72, 'title' => 'range(stop)' ) ),
+			'attachments' => array( 7, 999 ), // 999 — без URL, отбрасывается
+		) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+		$this->stubGateAndProgress( $step );
+
+		$render = $this->service->buildView( 1, $this->makeGroupLesson( lessonId: 10 ) )['steps'][0]['render'];
+
+		self::assertSame( array( array( 't' => 72, 'title' => 'range(stop)' ) ), $render['chapters'] );
+		self::assertCount( 1, $render['attachments'] );
+		self::assertSame( 7, $render['attachments'][0]['id'] );
+		self::assertSame( 'konspekt.pdf', $render['attachments'][0]['title'] );
+		self::assertSame( 'PDF', $render['attachments'][0]['ext'] );
+
+		unset( $GLOBALS['_fs_test_attachment_urls'] );
+	}
+
 	public function test_video_render_includes_provider_field(): void {
 		$step   = $this->makeVideoStep( 's1', array(
 			'url'      => 'https://vimeo.com/123',
