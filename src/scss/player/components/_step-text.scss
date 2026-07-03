@@ -1,0 +1,130 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Текст-шаг (T14.6): стили wp-контента под дизайн — код, callout-цитаты,
+   таблицы, списки, изображения. Применяются к .wpc (контент из редактора).
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.wpc {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  > * { margin: 0; }
+
+  h3,
+  h4 {
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin-top: 6px;
+  }
+
+  h3 { font-size: 17px; }
+  h4 { font-size: 15px; }
+
+  b,
+  strong { color: var(--ink); }
+
+  a { color: var(--accent-700); }
+
+  ul,
+  ol { padding-left: 22px; }
+
+  li { margin-top: 4px; }
+
+  /* код: как .code из дизайна */
+  pre {
+    background: #f8f9fc;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font: 13px/1.7 var(--mono);
+    color: #2b3244;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  code {
+    font: 600 0.92em var(--mono);
+    color: var(--accent-700);
+    background: var(--surface-2);
+    border: 1px solid var(--line-2);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+
+  pre code {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  /* цитата → callout */
+  blockquote {
+    display: flex;
+    gap: 12px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-soft-2);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+
+    p { margin: 0; }
+
+    b,
+    strong { color: var(--ink); }
+  }
+
+  /* таблицы */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13.5px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  th,
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line-2);
+    text-align: left;
+  }
+
+  th {
+    background: var(--surface-2);
+    font: 600 12px var(--font);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+  }
+}
+
+/* видео-встраивание (до T14.12 — простой oembed в карточке) */
+.video-embed {
+  border-radius: 14px;
+  overflow: hidden;
+  background: #12152b;
+
+  iframe {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 0;
+  }
+}

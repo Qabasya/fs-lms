@@ -1,10 +1,17 @@
 <?php
 /**
- * Пошаговый плеер урока (★, T1.5.12). DOM-driven: данные — в data-атрибутах, навигация
- * и запись прогресса — в `src/js/frontend/services/lesson-player.js`.
+ * Плеер курса (Эпик 14, D18) — полноэкранный app-shell в оболочке ЛК ученика.
  *
- * @var array  $view    {group_lesson_id, lesson_id, topic, steps[]}
+ * Свой <html> (без темы сайта, как profile.php): сайдбар кабинета со ссылками
+ * в /profile/, топбар (крамб, заголовок урока, прогресс), рейка дерева курса,
+ * лента шагов. Шаги отрендерены сервером в скрытые панели; навигацию, ленту
+ * и рейку строит бандл player.min.js (Enqueue грузит по fs_lms_is_player_route).
+ *
+ * @var array  $view        {group_lesson_id, lesson_id, topic, steps[], shell?}
  * @var int    $groupId
+ * @var string $active_step Ключ шага из deep-link ?step= (может быть пустым).
+ *
+ * @package FS LMS
  */
 
 declare( strict_types=1 );
@@ -14,177 +21,326 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Inc\Enums\Course\StepType;
+use Inc\Enums\Wp\PageRoutes;
 
-$cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRoutes::GroupCockpit->url() );
+$profile_url = PageRoutes::UserProfile->url();
+
+// ── Оболочка (T14.2): read-модель shell с безопасными фолбэками ──────────
+$shell           = is_array( $view['shell'] ?? null ) ? $view['shell'] : array();
+$course_title    = (string) ( $shell['course_title'] ?? '' );
+$module_label    = (string) ( $shell['module_label'] ?? '' );
+$course_progress = is_array( $shell['course_progress'] ?? null ) ? $shell['course_progress'] : null;
+$current_user    = wp_get_current_user();
+$student_name    = (string) ( $shell['student_name'] ?? '' );
+if ( '' === $student_name ) {
+	$student_name = $current_user->display_name ?: $current_user->user_login;
+}
+$student_role = (string) ( $shell['student_role'] ?? '' );
+if ( '' === $student_role ) {
+	$student_role = __( 'Ученик', 'fs-lms' );
+}
+
+$name_parts       = array_values( array_filter( explode( ' ', $student_name ) ) );
+$student_initials = mb_strtoupper( mb_substr( $name_parts[0] ?? '', 0, 1 ) . mb_substr( $name_parts[1] ?? '', 0, 1 ) );
+
+// Прогресс урока для топбара: пройденные шаги (completed; failed закрывает
+// шаг, но в прогресс не зачитывается — как в ProgressStatus::isComplete()).
+$steps_total = count( $view['steps'] );
+$steps_done  = count(
+	array_filter(
+		$view['steps'],
+		static fn( array $s ): bool => 'completed' === $s['status']
+	)
+);
+$lesson_pct  = $steps_total > 0 ? (int) round( $steps_done / $steps_total * 100 ) : 0;
+
+// Пункты сайдбара — экраны ЛК ученика (LearnerProfileView).
+$nav_items = array(
+	array( 'key' => 'learner-home',       'label' => __( 'Главная', 'fs-lms' ) ),
+	array( 'key' => 'learner-lessons',    'label' => __( 'Мои курсы', 'fs-lms' ) ),
+	array( 'key' => 'learner-grades',     'label' => __( 'Мои оценки', 'fs-lms' ) ),
+	array( 'key' => 'learner-attendance', 'label' => __( 'Посещаемость', 'fs-lms' ) ),
+);
+
+$nav_icons = array(
+	'learner-home'       => '<svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 9.5 10 4l7 5.5M5 8.5V16h10V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+	'learner-lessons'    => '<svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M4 4h7v12H4zM11 4h5v12h-5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+	'learner-grades'     => '<svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 3 12 7l4.5.6-3.3 3.2.8 4.5L10 13.2 6 15.5l.8-4.5L3.5 7.7 8 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+	'learner-attendance' => '<svg width="19" height="19" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h14M7 2.5v3M13 2.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+);
 ?>
-<div class="wrap fs-player" data-group-lesson-id="<?php echo esc_attr( (string) $view['group_lesson_id'] ); ?>" data-active-step="<?php echo esc_attr( $active_step ?? '' ); ?>">
+<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+	<meta charset="<?php bloginfo( 'charset' ); ?>">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title><?php echo esc_html( $view['topic'] ); ?></title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+	<?php wp_head(); ?>
+</head>
+<body class="fs-player-page">
 
-	<a class="fs-player__back" href="<?php echo esc_url( $cockpit_url ); ?>">← <?php esc_html_e( 'К программе группы', 'fs-lms' ); ?></a>
-	<h1 class="fs-player__title"><?php echo esc_html( $view['topic'] ); ?></h1>
+<div class="app" id="fsPlayerApp"
+	data-group-lesson-id="<?php echo esc_attr( (string) $view['group_lesson_id'] ); ?>"
+	data-group-id="<?php echo esc_attr( (string) $groupId ); ?>"
+	data-active-step="<?php echo esc_attr( $active_step ?? '' ); ?>">
 
-	<div class="fs-player__body">
-		<nav class="fs-player__stepper" aria-label="<?php esc_attr_e( 'Шаги урока', 'fs-lms' ); ?>">
-			<ol class="fs-player__steplist">
-				<?php foreach ( $view['steps'] as $i => $step ) : ?>
-					<li
-						class="fs-player__stepnav"
-						data-step="<?php echo esc_attr( $step['key'] ); ?>"
-						data-index="<?php echo esc_attr( (string) $i ); ?>"
-						data-type="<?php echo esc_attr( $step['type'] ); ?>"
-						data-gate="<?php echo esc_attr( $step['gate'] ); ?>"
-						data-status="<?php echo esc_attr( $step['status'] ); ?>"
-					>
-						<span class="fs-player__stepnum"><?php echo esc_html( (string) ( $i + 1 ) ); ?></span>
-						<span class="fs-player__steptitle"><?php echo esc_html( $step['title'] ); ?></span>
-						<span class="fs-player__stepmark" aria-hidden="true"></span>
-					</li>
-				<?php endforeach; ?>
-			</ol>
-		</nav>
-
-		<main class="fs-player__stage">
-			<?php foreach ( $view['steps'] as $i => $step ) : ?>
-				<section
-					class="fs-player__panel"
-					data-step="<?php echo esc_attr( $step['key'] ); ?>"
-					data-index="<?php echo esc_attr( (string) $i ); ?>"
-					data-type="<?php echo esc_attr( $step['type'] ); ?>"
-					data-gate="<?php echo esc_attr( $step['gate'] ); ?>"
-					data-status="<?php echo esc_attr( $step['status'] ); ?>"
-					<?php echo 0 === $i ? '' : 'hidden'; ?>
-				>
-					<header class="fs-player__panelhead">
-						<span class="fs-player__paneltype" data-type="<?php echo esc_attr( $step['type'] ); ?>">
-							<?php echo esc_html( StepType::fromValueOrDefault( $step['type'] )->label() ); ?>
-						</span>
-						<h2 class="fs-player__panelname"><?php echo esc_html( $step['title'] ); ?></h2>
-						<button type="button" class="fs-player__copylink" data-step="<?php echo esc_attr( $step['key'] ); ?>" aria-label="<?php esc_attr_e( 'Скопировать ссылку на шаг', 'fs-lms' ); ?>" title="<?php esc_attr_e( 'Скопировать ссылку на шаг', 'fs-lms' ); ?>">🔗</button>
-					</header>
-
-					<div class="fs-player__panelbody">
-						<?php
-						$render = $step['render'] ?? array();
-						switch ( $step['type'] ) {
-							case 'text':
-								echo wp_kses_post( (string) ( $render['content'] ?? '' ) );
-								break;
-
-							case 'video':
-								$url     = (string) ( $render['url'] ?? '' );
-								$is_slot = (bool) ( $render['recording_slot'] ?? false );
-								if ( '' !== $url ) {
-									$embed = wp_oembed_get( $url );
-									echo $embed
-										? '<div class="fs-player__video">' . $embed . '</div>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-										: '<a class="fs-player__videolink" href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $url ) . '</a>';
-									if ( ! empty( $render['description'] ) ) {
-										echo '<p class="fs-player__videodesc">' . esc_html( (string) $render['description'] ) . '</p>';
-									}
-								} elseif ( $is_slot ) {
-									echo '<p class="fs-player__muted">' . esc_html__( 'Запись занятия ещё не доступна.', 'fs-lms' ) . '</p>';
-								}
-								break;
-
-							case 'task':
-								if ( ! empty( $render['auto_grade'] ) ) :
-									$tmpl    = (string) ( $render['template'] ?? '' );
-									$is_done = in_array( $step['status'], array( 'completed', 'failed' ), true );
-									?>
-
-									<?php
-									// Condition(s)
-									if ( 'triple_task' === $tmpl && is_array( $render['condition_html'] ) ) :
-										foreach ( $render['condition_html'] as $num => $cond ) :
-											echo '<div class="fs-task-subpart"><h3 class="fs-task-subpart__label">'
-												. esc_html__( 'Задание №', 'fs-lms' ) . esc_html( (string) $num )
-												. '</h3><div class="fs-task-subpart__body">'
-												. wp_kses_post( (string) $cond )
-												. '</div></div>';
-										endforeach;
-									elseif ( 'fill_task' !== $tmpl && ! empty( $render['condition_html'] ) ) :
-										echo '<div class="fs-task-condition">' . wp_kses_post( (string) $render['condition_html'] ) . '</div>';
-									endif;
-									?>
-
-									<div class="fs-task-widget"
-										data-template="<?php echo esc_attr( $tmpl ); ?>"
-										data-widget='<?php echo esc_attr( (string) wp_json_encode( $render['widget_data'] ?? array() ) ); ?>'
-										<?php echo $is_done ? 'data-done="1"' : ''; ?>></div>
-
-									<?php
-									$max_att  = (int) ( $render['settings']['max_attempts'] ?? 0 );
-									$used_att = (int) ( $render['attempts_used'] ?? 0 );
-									if ( $max_att > 0 ) :
-									?>
-									<div class="fs-attempt-indicator"
-										data-used="<?php echo esc_attr( (string) $used_att ); ?>"
-										data-max="<?php echo esc_attr( (string) $max_att ); ?>">
-										<?php printf(
-											/* translators: 1: attempts used, 2: max attempts */
-											esc_html__( 'Попыток использовано: %1$d из %2$d', 'fs-lms' ),
-											$used_att,
-											$max_att
-										); ?>
-									</div>
-									<?php endif; ?>
-
-									<div class="fs-task-footer">
-										<button type="button"
-											class="button button-primary fs-task-submit"
-											data-step="<?php echo esc_attr( $step['key'] ); ?>"
-											<?php echo $is_done ? 'disabled' : ''; ?>>
-											<?php esc_html_e( 'Проверить', 'fs-lms' ); ?>
-										</button>
-										<div class="fs-task-result" aria-live="polite"></div>
-									</div>
-
-									<?php if ( ! empty( $render['hint_html'] ) ) : ?>
-									<details class="fs-hint"<?php echo ! empty( $render['reveal_hint'] ) ? ' open' : ''; ?>>
-										<summary class="fs-hint__toggle"><?php esc_html_e( 'Подсказка', 'fs-lms' ); ?></summary>
-										<div class="fs-hint__body"><?php echo wp_kses_post( (string) $render['hint_html'] ); ?></div>
-									</details>
-									<?php endif; ?>
-
-									<?php
-								else :
-									// Manual task (Code, File, TextSolution) — no auto-checking
-									echo '<p class="fs-player__muted">'
-										. esc_html__( 'Это задание проверяется вручную. Выполните задание и сдайте в кабинете.', 'fs-lms' )
-										. '</p>';
-									echo '<a class="button fs-player__tocockpit" href="' . esc_url( $cockpit_url ) . '">' . esc_html__( 'Перейти в кабинет', 'fs-lms' ) . '</a>';
-								endif;
-								break;
-
-							case 'work':
-							case 'assessment':
-								echo '<p class="fs-player__muted">'
-									. esc_html__( 'Этот шаг выполняется в кабинете группы (сдача / прохождение). Зачёт отметится автоматически.', 'fs-lms' )
-									. '</p>';
-								echo '<a class="button fs-player__tocockpit" href="' . esc_url( $cockpit_url ) . '">' . esc_html__( 'Перейти в кабинет', 'fs-lms' ) . '</a>';
-								break;
-						}
-						?>
-					</div>
-
-					<?php
-					// "Отметить пройденным" for non-interactive steps + manual tasks.
-					$is_auto_grade_task = 'task' === $step['type'] && ! empty( $step['render']['auto_grade'] );
-					$show_complete = in_array( $step['type'], array( 'text', 'video' ), true )
-						|| ( 'task' === $step['type'] && ! $is_auto_grade_task );
-					if ( $show_complete ) :
-					?>
-						<button type="button" class="button button-primary fs-player__complete" data-step="<?php echo esc_attr( $step['key'] ); ?>">
-							<?php esc_html_e( 'Отметить пройденным', 'fs-lms' ); ?>
-						</button>
-					<?php endif; ?>
-				</section>
-			<?php endforeach; ?>
-
-			<div class="fs-player__nav">
-				<button type="button" class="button fs-player__prev" disabled>← <?php esc_html_e( 'Назад', 'fs-lms' ); ?></button>
-				<span class="fs-player__count" data-count></span>
-				<button type="button" class="button fs-player__next"><?php esc_html_e( 'Далее', 'fs-lms' ); ?> →</button>
+	<!-- ══ Сайдбар кабинета ученика (сворачивается в кнопку) ══ -->
+	<aside class="s-side">
+		<div class="s-inner">
+			<div class="s-brand">
+				<div class="s-mark">
+					<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 5.5 10 2l7 3.5L10 9 3 5.5z" fill="#fff"/><path d="M6 8v3.5c0 1.2 1.8 2.2 4 2.2s4-1 4-2.2V8" stroke="#fff" stroke-width="1.4" fill="none"/></svg>
+				</div>
+				<div>
+					<div class="s-name"><?php esc_html_e( 'Шаг в будущее', 'fs-lms' ); ?></div>
+					<div class="s-bsub"><?php esc_html_e( 'Личный кабинет', 'fs-lms' ); ?></div>
+				</div>
+				<button type="button" class="s-collapse" id="sCollapse" title="<?php esc_attr_e( 'Свернуть меню', 'fs-lms' ); ?>">
+					<svg width="17" height="17" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 3.5v13" stroke="currentColor" stroke-width="1.5"/><path d="M13.8 8 11.8 10l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</button>
 			</div>
-		</main>
+
+			<nav class="s-nav">
+				<div class="s-navlabel"><?php esc_html_e( 'Меню', 'fs-lms' ); ?></div>
+				<?php foreach ( $nav_items as $item ) : ?>
+					<a class="s-item<?php echo 'learner-lessons' === $item['key'] ? ' on' : ''; ?>"
+						href="<?php echo esc_url( add_query_arg( 'screen', $item['key'], $profile_url ) ); ?>">
+						<?php echo $nav_icons[ $item['key'] ]; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- статичный SVG. ?>
+						<?php echo esc_html( $item['label'] ); ?>
+					</a>
+				<?php endforeach; ?>
+
+				<?php if ( '' !== $course_title ) : ?>
+					<div class="s-now">
+						<div class="sn-lbl"><?php esc_html_e( 'Сейчас проходите', 'fs-lms' ); ?></div>
+						<div class="sn-course"><?php echo esc_html( $course_title ); ?></div>
+						<?php if ( null !== $course_progress ) : ?>
+							<div class="sn-bar"><span data-width="<?php echo esc_attr( (string) (int) $course_progress['percent'] ); ?>"></span></div>
+							<div class="sn-pct">
+								<?php
+								printf(
+									/* translators: 1: percent, 2: module label */
+									esc_html__( 'Пройдено %1$d%%%2$s', 'fs-lms' ),
+									(int) $course_progress['percent'],
+									'' !== $module_label ? esc_html( ' · ' . $module_label ) : ''
+								);
+								?>
+							</div>
+						<?php endif; ?>
+					</div>
+				<?php endif; ?>
+			</nav>
+
+			<div class="s-foot">
+				<div class="s-ava"><?php echo esc_html( $student_initials ); ?></div>
+				<div>
+					<div class="s-uname"><?php echo esc_html( $student_name ); ?></div>
+					<div class="s-urole"><?php echo esc_html( $student_role ); ?></div>
+				</div>
+			</div>
+		</div>
+	</aside>
+
+	<!-- ══ Основная область ══ -->
+	<div class="s-main">
+		<header class="s-top">
+			<button type="button" class="mtoggle" id="mtoggle" title="<?php esc_attr_e( 'Развернуть меню', 'fs-lms' ); ?>">
+				<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 3.5v13" stroke="currentColor" stroke-width="1.5"/><path d="M11.6 8l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+			</button>
+			<div>
+				<div class="s-crumb">
+					<?php esc_html_e( 'Мои курсы', 'fs-lms' ); ?><?php if ( '' !== $course_title ) : ?> · <b><?php echo esc_html( $course_title ); ?></b><?php endif; ?><?php if ( '' !== $module_label ) : ?> · <?php echo esc_html( $module_label ); ?><?php endif; ?>
+				</div>
+				<div class="s-title"><?php echo esc_html( $view['topic'] ); ?></div>
+			</div>
+			<div class="s-right">
+				<div class="s-prog">
+					<span class="sp-txt" id="fsProgTxt">
+						<?php
+						printf(
+							/* translators: 1: completed steps, 2: total steps */
+							esc_html__( 'Урок · %1$d из %2$d', 'fs-lms' ),
+							$steps_done,
+							$steps_total
+						);
+						?>
+					</span>
+					<span class="sp-bar"><span id="fsProgBar" data-width="<?php echo esc_attr( (string) $lesson_pct ); ?>"></span></span>
+				</div>
+				<button type="button" class="s-ibtn" data-toast="<?php esc_attr_e( 'Уведомлений нет', 'fs-lms' ); ?>">
+					<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3a4 4 0 0 0-4 4c0 4-1.5 5-1.5 5h11S14 11 14 7a4 4 0 0 0-4-4zM8.5 15a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</button>
+				<a class="s-ibtn" href="<?php echo esc_url( add_query_arg( 'screen', 'learner-lessons', $profile_url ) ); ?>" title="<?php esc_attr_e( 'К списку курсов', 'fs-lms' ); ?>">
+					<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 9.5 10 4l7 5.5M5 8.5V16h10V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</a>
+			</div>
+		</header>
+
+		<!-- плеер: рейка дерева + контент -->
+		<div class="player">
+			<div class="railwrap"><div class="rail" id="fsRail"></div></div>
+			<div class="content">
+				<div class="cscroll" id="fsScroll">
+					<div class="col">
+						<div class="strip" id="fsStrip"></div>
+						<div class="steproot" id="fsStepRoot">
+							<?php foreach ( $view['steps'] as $i => $step ) : ?>
+								<?php
+								// Ручное задание проходится как инлайн-шаг: «Далее» отмечает его пройденным.
+								$is_manual_task = 'task' === $step['type'] && empty( $step['render']['auto_grade'] );
+								?>
+								<section
+									class="pstep"
+									data-step="<?php echo esc_attr( $step['key'] ); ?>"
+									data-index="<?php echo esc_attr( (string) $i ); ?>"
+									data-step-type="<?php echo esc_attr( $step['type'] ); ?>"
+									data-title="<?php echo esc_attr( $step['title'] ); ?>"
+									data-gate="<?php echo esc_attr( $step['gate'] ); ?>"
+									data-status="<?php echo esc_attr( $step['status'] ); ?>"
+									<?php echo $is_manual_task ? 'data-manual="1"' : ''; ?>
+									hidden
+								>
+									<div class="card16">
+										<div class="kick">
+											<span class="tbadge" data-step-type="<?php echo esc_attr( $step['type'] ); ?>">
+												<?php echo esc_html( StepType::fromValueOrDefault( $step['type'] )->label() ); ?>
+											</span>
+										</div>
+										<h2><?php echo esc_html( $step['title'] ); ?></h2>
+
+										<div class="gap16">
+											<?php
+											$render = $step['render'] ?? array();
+											switch ( $step['type'] ) {
+												case 'text':
+													echo '<div class="wpc">' . wp_kses_post( (string) ( $render['content'] ?? '' ) ) . '</div>';
+													break;
+
+												case 'video':
+													$url     = (string) ( $render['url'] ?? '' );
+													$is_slot = (bool) ( $render['recording_slot'] ?? false );
+													if ( '' !== $url ) {
+														$embed = wp_oembed_get( $url );
+														echo $embed
+															? '<div class="video-embed">' . $embed . '</div>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+															: '<a class="b" href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html( $url ) . '</a>';
+														if ( ! empty( $render['description'] ) ) {
+															echo '<p class="step-muted">' . esc_html( (string) $render['description'] ) . '</p>';
+														}
+													} elseif ( $is_slot ) {
+														echo '<p class="step-muted">' . esc_html__( 'Запись занятия ещё не доступна.', 'fs-lms' ) . '</p>';
+													}
+													break;
+
+												case 'task':
+													if ( ! empty( $render['auto_grade'] ) ) :
+														$tmpl    = (string) ( $render['template'] ?? '' );
+														$is_done = in_array( $step['status'], array( 'completed', 'failed' ), true );
+
+														// Condition(s)
+														if ( 'triple_task' === $tmpl && is_array( $render['condition_html'] ) ) :
+															foreach ( $render['condition_html'] as $num => $cond ) :
+																echo '<div class="fs-task-subpart"><h3 class="fs-task-subpart__label">'
+																	. esc_html__( 'Задание №', 'fs-lms' ) . esc_html( (string) $num )
+																	. '</h3><div class="fs-task-subpart__body">'
+																	. wp_kses_post( (string) $cond )
+																	. '</div></div>';
+															endforeach;
+														elseif ( 'fill_task' !== $tmpl && ! empty( $render['condition_html'] ) ) :
+															echo '<div class="fs-task-condition wpc">' . wp_kses_post( (string) $render['condition_html'] ) . '</div>';
+														endif;
+														?>
+
+														<div class="fs-task-widget"
+															data-template="<?php echo esc_attr( $tmpl ); ?>"
+															data-widget='<?php echo esc_attr( (string) wp_json_encode( $render['widget_data'] ?? array() ) ); ?>'
+															<?php echo $is_done ? 'data-done="1"' : ''; ?>></div>
+
+														<?php
+														$max_att  = (int) ( $render['settings']['max_attempts'] ?? 0 );
+														$used_att = (int) ( $render['attempts_used'] ?? 0 );
+														if ( $max_att > 0 ) :
+														?>
+														<div class="fs-attempt-indicator"
+															data-used="<?php echo esc_attr( (string) $used_att ); ?>"
+															data-max="<?php echo esc_attr( (string) $max_att ); ?>">
+															<?php
+															printf(
+																/* translators: 1: attempts used, 2: max attempts */
+																esc_html__( 'Попыток использовано: %1$d из %2$d', 'fs-lms' ),
+																$used_att,
+																$max_att
+															);
+															?>
+														</div>
+														<?php endif; ?>
+
+														<div class="fs-task-footer">
+															<button type="button"
+																class="b b-pri fs-task-submit"
+																data-step="<?php echo esc_attr( $step['key'] ); ?>"
+																<?php echo $is_done ? 'disabled' : ''; ?>>
+																<?php esc_html_e( 'Ответить', 'fs-lms' ); ?>
+															</button>
+															<div class="fs-task-result" aria-live="polite"></div>
+														</div>
+
+														<?php if ( ! empty( $render['hint_html'] ) ) : ?>
+														<details class="fs-hint"<?php echo ! empty( $render['reveal_hint'] ) ? ' open' : ''; ?>>
+															<summary class="fs-hint__toggle"><?php esc_html_e( 'Подсказка', 'fs-lms' ); ?></summary>
+															<div class="fs-hint__body"><?php echo wp_kses_post( (string) $render['hint_html'] ); ?></div>
+														</details>
+														<?php endif; ?>
+
+														<?php
+													else :
+														// Ручное задание (Code, File, TextSolution) — без автопроверки.
+														echo '<p class="step-muted">'
+															. esc_html__( 'Это задание проверяется вручную. Выполните задание и сдайте в кабинете.', 'fs-lms' )
+															. '</p>';
+													endif;
+													break;
+
+												case 'work':
+												case 'assessment':
+													echo '<p class="step-muted">'
+														. esc_html__( 'Этот шаг выполняется отдельно (сдача / прохождение). Зачёт отметится автоматически.', 'fs-lms' )
+														. '</p>';
+													break;
+											}
+											?>
+										</div>
+									</div>
+								</section>
+							<?php endforeach; ?>
+						</div>
+
+						<div class="cnav" id="fsNav">
+							<button type="button" class="b b-gh" id="fsNavPrev">
+								<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M12 4.5 6.5 10l5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								<?php esc_html_e( 'Назад', 'fs-lms' ); ?>
+							</button>
+							<span class="pos" id="fsNavPos"></span>
+							<button type="button" class="b b-pri" id="fsNavNext">
+								<?php esc_html_e( 'Далее', 'fs-lms' ); ?>
+								<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 </div>
+
+<div class="toast" id="fsToast">
+	<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+	<span><?php esc_html_e( 'Готово', 'fs-lms' ); ?></span>
+</div>
+
+<?php wp_footer(); ?>
+</body>
+</html>

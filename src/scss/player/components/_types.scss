@@ -1,0 +1,27 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Цвета типов шагов: элемент с data-step-type получает --tc/--tcs,
+   которыми красятся бейджи, квадраты ленты и иконки дерева.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+[data-step-type='text'] { --tc: #{$type-text}; --tcs: #{$type-text-soft}; }
+[data-step-type='video'] { --tc: #{$type-video}; --tcs: #{$type-video-soft}; }
+[data-step-type='task'] { --tc: #{$type-task}; --tcs: #{$type-task-soft}; }
+[data-step-type='work'] { --tc: #{$type-work}; --tcs: #{$type-work-soft}; }
+[data-step-type='assessment'] { --tc: #{$type-assessment}; --tcs: #{$type-assessment-soft}; }
+
+/* Бейдж типа шага (цветной) */
+.tbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font: 700 11px var(--font);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: var(--tcs);
+  color: var(--tc);
+
+  svg { flex-shrink: 0; }
+}

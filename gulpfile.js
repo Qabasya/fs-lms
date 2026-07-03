@@ -27,6 +27,7 @@ const paths = {
         frontend: './src/scss/frontend/frontend.scss',
         common: './src/scss/common/common.scss',
         profile: './src/scss/profile/profile.scss',
+        player: './src/scss/player/player.scss',
         watch: './src/scss/**/*.scss'
     },
     js: {
@@ -35,6 +36,7 @@ const paths = {
         frontend: './src/js/frontend/frontend.js',
         common: './src/js/common/common.js',
         profile: './src/js/profile/profile.js',
+        player: './src/js/player/player.js',
         watch: './src/js/**/*.js'
     },
     output: {
@@ -136,6 +138,17 @@ function stylesProfile() {
         .pipe(gulp.dest(paths.output.css));
 }
 
+function stylesPlayer() {
+    return gulp.src(paths.scss.player)
+        .pipe(plumber({errorHandler}))
+        .pipe(sourcemaps.init())
+        .pipe(sass())
+        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(rename('player.min.css'))
+        .pipe(sourcemaps.write(paths.output.maps))
+        .pipe(gulp.dest(paths.output.css));
+}
+
 /**
  * GUARD: строгая проверка сборки всех SCSS-бандлов.
  * Без plumber/errorHandler — любая ошибка SASS роняет процесс (exit != 0),
@@ -143,7 +156,7 @@ function stylesProfile() {
  * Вывод — во временный каталог (.scss-check, в .gitignore), реальные бандлы не трогаются.
  */
 function stylesCheck() {
-    return gulp.src([paths.scss.admin, paths.scss.frontend, paths.scss.common, paths.scss.profile])
+    return gulp.src([paths.scss.admin, paths.scss.frontend, paths.scss.common, paths.scss.profile, paths.scss.player])
         .pipe(sass({ includePaths: [paths.scss.common] }))
         .pipe(gulp.dest('./.scss-check'));
 }
@@ -152,7 +165,7 @@ function stylesCheck() {
  * ОБРАБОТКА JS (AdminController & Frontend)
  */
 function scripts() {
-    return gulp.src([paths.js.admin, paths.js.frontend, paths.js.common, paths.js.profile])
+    return gulp.src([paths.js.admin, paths.js.frontend, paths.js.common, paths.js.profile, paths.js.player])
         .pipe(plumber({errorHandler}))
         .pipe(named())
         .pipe(webpack(webpackConfig))
@@ -165,18 +178,19 @@ function scripts() {
  * WATCHER
  */
 function watchFiles() {
-    gulp.watch(paths.scss.watch, gulp.parallel(stylesAdmin, stylesFrontend, stylesProfile));
+    gulp.watch(paths.scss.watch, gulp.parallel(stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer));
     gulp.watch(paths.js.watch, scripts);
     console.log('Gulp is watching and building modules...');
 }
 
 // Экспорт задач
-const build = gulp.parallel(stylesCommon, stylesAdmin, stylesFrontend, stylesProfile, scripts);
+const build = gulp.parallel(stylesCommon, stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer, scripts);
 
 exports['styles:common']   = stylesCommon;
 exports['styles:admin']    = stylesAdmin;
 exports['styles:frontend'] = stylesFrontend;
 exports['styles:profile']  = stylesProfile;
+exports['styles:player']   = stylesPlayer;
 exports['styles:check']    = stylesCheck;
 exports['scripts'] = scripts;
 exports.build = build;
