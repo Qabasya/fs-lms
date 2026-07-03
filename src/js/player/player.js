@@ -9,10 +9,12 @@ import { initShell } from './shell.js';
 import { initCore } from './core.js';
 import { initRail } from './rail.js';
 import { initStepTask } from './step-task.js';
+import { initStepWork } from './step-work.js';
 
 document.addEventListener( 'DOMContentLoaded', () => {
 	initShell();
 	initCore();
 	initRail();
 	initStepTask();
+	initStepWork();
 } );

@@ -70,7 +70,33 @@ class CourseNavService {
 			'student_role'    => '' !== $grade
 				? sprintf( '%s · %s', __( 'Ученик', 'fs-lms' ), $grade )
 				: __( 'Ученик', 'fs-lms' ),
+			'next_lesson'     => $this->nextLesson( $studentPersonId, $groupLesson ),
 		);
+	}
+
+	/**
+	 * Следующий урок программы после текущего (для «К следующему уроку» с гейтом).
+	 *
+	 * @return array{group_lesson_id:int, available:bool}|null NULL — текущий урок последний.
+	 */
+	private function nextLesson( int $studentPersonId, GroupLessonDTO $current ): ?array {
+		$rows = $this->programRows( $current->groupId );
+		foreach ( $rows as $i => $row ) {
+			if ( $row->id !== $current->id ) {
+				continue;
+			}
+			$next = $rows[ $i + 1 ] ?? null;
+			if ( null === $next ) {
+				return null;
+			}
+
+			return array(
+				'group_lesson_id' => $next->id,
+				'available'       => $this->gate->resolveLesson( $studentPersonId, $next )->isAvailable(),
+			);
+		}
+
+		return null;
 	}
 
 	/**

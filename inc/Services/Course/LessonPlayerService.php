@@ -6,10 +6,12 @@ namespace Inc\Services\Course;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\StepDTO;
+use Inc\DTO\Course\SubmissionDTO;
 use Inc\Enums\Course\ProgressStatus;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Task\CorrectAnswerResolver;
@@ -38,6 +40,8 @@ class LessonPlayerService {
 		private readonly TemplateResolver             $templateResolver,
 		private readonly TaskCheckerRegistry          $checkerRegistry,
 		private readonly CorrectAnswerResolver        $correctAnswers,
+		private readonly WorkManager                  $works,
+		private readonly SubmissionService            $submissionService,
 	) {}
 
 	/**
@@ -107,8 +111,121 @@ class LessonPlayerService {
 				'recording_slot' => (bool) ( $step->payload['recording_slot'] ?? false ),
 			),
 			'task'     => $this->renderTaskData( $step, $groupLesson, $studentPersonId ),
+			'work'     => $this->renderWorkData( $step, $groupLesson, $studentPersonId ),
 			default    => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
 		};
+	}
+
+	/**
+	 * Данные work-шага для прохождения в плеере (D19, T14.9): задачи работы
+	 * (условия + виджеты БЕЗ ответов, как task-шаги), мета работы и текущая
+	 * сдача (агрегат + пооответные вердикты/баллы/фидбек).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function renderWorkData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId ): array {
+		$workId = (int) ( $step->payload['ref'] ?? 0 );
+		$empty  = array(
+			'ref'        => $workId,
+			'work_found' => false,
+		);
+
+		if ( ! $workId ) {
+			return $empty;
+		}
+
+		$work = $this->works->get( $workId );
+		if ( null === $work ) {
+			return $empty;
+		}
+
+		$tasks = array();
+		foreach ( $work->itemIds as $taskId ) {
+			$post = $this->posts->get( $taskId );
+			if ( ! $post ) {
+				continue;
+			}
+
+			$template  = $this->templateResolver->resolveEnum( $post );
+			$autoGrade = $this->checkerRegistry->has( $template );
+			$metaRaw   = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
+			$meta      = is_array( $metaRaw ) ? $metaRaw : array();
+
+			$tasks[] = array(
+				'task_id'        => $taskId,
+				'title'          => $post->post_title,
+				'template'       => $template->value,
+				'auto_grade'     => $autoGrade,
+				'condition_html' => $this->buildConditionHtml( $meta, $template ),
+				// Ручные шаблоны в работе сдаются свободным текстом (проверит преподаватель).
+				'widget_data'    => $autoGrade
+					? $this->buildWidgetData( $meta, $template, false )
+					: array( 'type' => 'text_answer' ),
+			);
+		}
+
+		return array(
+			'ref'             => $workId,
+			'work_found'      => true,
+			'title'           => $work->title,
+			'work_type'       => $work->workType->value,
+			'work_type_label' => $work->workType->label(),
+			'instructions'    => wp_kses_post( $work->instructions ),
+			'task_count'      => count( $tasks ),
+			// Батч-проверка без явных весов — вес каждой задачи равен 1.
+			'total_points'    => count( $tasks ),
+			'tasks'           => $tasks,
+		) + $this->currentSubmission( $studentPersonId, $groupLesson->id, $workId );
+	}
+
+	/**
+	 * Текущая сдача работы учеником: агрегатная строка (task_id = null, в ней
+	 * вердикты батч-проверки) + пооответные строки (статус/баллы/фидбек).
+	 *
+	 * @return array{submission: array<string,mixed>|null, task_results: array<int, array<string,mixed>>}
+	 */
+	private function currentSubmission( int $studentPersonId, int $groupLessonId, int $workId ): array {
+		$aggregate   = null;
+		$taskResults = array();
+
+		foreach ( $this->submissionService->getSubmissionsForView( $studentPersonId, $groupLessonId ) as $submission ) {
+			if ( $submission->workId !== $workId ) {
+				continue;
+			}
+
+			if ( null === $submission->taskId ) {
+				$verdicts  = json_decode( (string) $submission->answerText, true );
+				$aggregate = array(
+					'status'       => $submission->status->value,
+					'status_label' => $submission->status->label(),
+					'score'        => $submission->score,
+					'max_score'    => $submission->maxScore,
+					'submitted_at' => $submission->submittedAt,
+					'verdicts'     => is_array( $verdicts ) ? $verdicts : array(),
+				);
+				continue;
+			}
+
+			$taskResults[ $submission->taskId ] = $this->taskResult( $submission );
+		}
+
+		return array(
+			'submission'   => $aggregate,
+			'task_results' => $taskResults,
+		);
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function taskResult( SubmissionDTO $submission ): array {
+		return array(
+			'status'    => $submission->status->value,
+			'answer'    => $submission->answerText,
+			'score'     => $submission->score,
+			'max_score' => $submission->maxScore,
+			'feedback'  => null !== $submission->feedback ? wp_kses_post( $submission->feedback ) : null,
+		);
 	}
 
 	/**

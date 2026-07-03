@@ -5,6 +5,7 @@
  * initTaskWidget(panel) reads .fs-task-widget data attributes, renders the
  * correct input widget and returns the widget API:
  *   collectAnswer() → JSON string — ответ для SubmitTaskAnswer (контракт чекеров, НЕ менять);
+ *   setAnswer(value)              — восстановить ответ (черновики/повторная сдача работы);
  *   hasAnswer()     → bool        — есть ли что отправлять («Ответить» disabled без выбора);
  *   onChange(cb)                  — подписка на изменение ввода;
  *   applyVerdict(ok)              — пометить выбор ok/no после проверки (choice);
@@ -47,6 +48,7 @@ function parseWidgetData( raw ) {
 function widgetApi( overrides ) {
 	return Object.assign(
 		{
+			setAnswer: () => {},
 			hasAnswer: () => true,
 			onChange: () => {},
 			applyVerdict: () => {},
@@ -77,10 +79,13 @@ function buildTextAnswerWidget( container, isDone ) {
 	if ( isDone ) { textarea.disabled = true; }
 	container.appendChild( textarea );
 
-	return inputsApi(
-		[ textarea ],
-		() => JSON.stringify( textarea.value.trim() ),
-		() => '' !== textarea.value.trim()
+	return Object.assign(
+		inputsApi(
+			[ textarea ],
+			() => JSON.stringify( textarea.value.trim() ),
+			() => '' !== textarea.value.trim()
+		),
+		{ setAnswer: ( v ) => { textarea.value = 'string' === typeof v ? v : ''; } }
 	);
 }
 
@@ -100,10 +105,13 @@ function buildAudioWidget( container, data, isDone ) {
 	if ( isDone ) { textarea.disabled = true; }
 	container.appendChild( textarea );
 
-	return inputsApi(
-		[ textarea ],
-		() => JSON.stringify( textarea.value.trim() ),
-		() => '' !== textarea.value.trim()
+	return Object.assign(
+		inputsApi(
+			[ textarea ],
+			() => JSON.stringify( textarea.value.trim() ),
+			() => '' !== textarea.value.trim()
+		),
+		{ setAnswer: ( v ) => { textarea.value = 'string' === typeof v ? v : ''; } }
 	);
 }
 
@@ -124,14 +132,17 @@ function buildTripleWidget( container, isDone ) {
 		container.appendChild( group );
 	} );
 
-	return inputsApi(
-		Object.values( inputs ),
-		() => JSON.stringify( {
-			'19': inputs[ '19' ].value.trim(),
-			'20': inputs[ '20' ].value.trim(),
-			'21': inputs[ '21' ].value.trim(),
-		} ),
-		() => Object.values( inputs ).some( ( el ) => '' !== el.value.trim() )
+	return Object.assign(
+		inputsApi(
+			Object.values( inputs ),
+			() => JSON.stringify( {
+				'19': inputs[ '19' ].value.trim(),
+				'20': inputs[ '20' ].value.trim(),
+				'21': inputs[ '21' ].value.trim(),
+			} ),
+			() => Object.values( inputs ).some( ( el ) => '' !== el.value.trim() )
+		),
+		{ setAnswer: ( v ) => keys.forEach( ( key ) => { inputs[ key ].value = String( v?.[ key ] ?? '' ); } ) }
 	);
 }
 
@@ -190,6 +201,14 @@ function buildChoiceWidget( container, data, isDone ) {
 		collectAnswer: () => JSON.stringify(
 			Array.from( list.querySelectorAll( 'input:checked' ) ).map( el => el.value )
 		),
+		setAnswer: ( v ) => {
+			const ids = ( Array.isArray( v ) ? v : [] ).map( String );
+			rows().forEach( ( row ) => {
+				const input   = row.querySelector( 'input' );
+				input.checked = ids.includes( String( input.value ) );
+			} );
+			syncSel();
+		},
 		hasAnswer: () => !! list.querySelector( 'input:checked' ),
 		onChange: ( cb ) => list.addEventListener( 'change', cb ),
 		applyVerdict: ( ok ) => rows().forEach( ( row ) => {
@@ -263,6 +282,13 @@ function buildMatchingWidget( container, data, isDone ) {
 		collectAnswer: () => JSON.stringify(
 			selects.map( ( { leftText, select } ) => ( { left: leftText, right: select.value } ) )
 		),
+		setAnswer: ( v ) => {
+			const pairs = Array.isArray( v ) ? v : [];
+			selects.forEach( ( { leftText, select } ) => {
+				const pair   = pairs.find( ( p ) => p && p.left === leftText );
+				select.value = pair ? String( pair.right ?? '' ) : '';
+			} );
+		},
 		hasAnswer: () => selects.some( ( { select } ) => '' !== select.value ),
 		onChange: ( cb ) => selects.forEach( ( { select } ) => select.addEventListener( 'change', cb ) ),
 		lock: () => selects.forEach( ( { select } ) => { select.disabled = true; } ),
@@ -305,6 +331,13 @@ function buildOrderingWidget( container, data, isDone ) {
 			Array.from( list.querySelectorAll( '.fs-widget-ordering-item' ) )
 				.map( el => el.dataset.text )
 		),
+		setAnswer: ( v ) => {
+			if ( ! Array.isArray( v ) ) { return; }
+			v.forEach( ( text ) => {
+				const li = Array.from( list.children ).find( ( el ) => el.dataset.text === text );
+				if ( li ) { list.appendChild( li ); }
+			} );
+		},
 		onChange: ( cb ) => { notifyChange = cb; },
 		lock: () => list.querySelectorAll( '.fs-widget-ordering-item' ).forEach( ( li ) => {
 			li.draggable = false;
@@ -365,16 +398,19 @@ function buildFillWidget( container, data, isDone ) {
 
 	container.appendChild( wrapper );
 
-	return inputsApi(
-		gapInputs,
-		() => {
-			const answers = {};
-			gapInputs.forEach( inp => {
-				answers[ inp.dataset.gapIndex ] = inp.value.trim();
-			} );
-			return JSON.stringify( answers );
-		},
-		() => gapInputs.some( ( inp ) => '' !== inp.value.trim() )
+	return Object.assign(
+		inputsApi(
+			gapInputs,
+			() => {
+				const answers = {};
+				gapInputs.forEach( inp => {
+					answers[ inp.dataset.gapIndex ] = inp.value.trim();
+				} );
+				return JSON.stringify( answers );
+			},
+			() => gapInputs.some( ( inp ) => '' !== inp.value.trim() )
+		),
+		{ setAnswer: ( v ) => gapInputs.forEach( ( inp ) => { inp.value = String( v?.[ inp.dataset.gapIndex ] ?? '' ); } ) }
 	);
 }
 

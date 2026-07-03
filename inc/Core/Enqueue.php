@@ -344,12 +344,14 @@ class Enqueue extends BaseController implements ServiceInterface {
 			array(
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
 				'actions'  => array(
-					'markStep'   => AjaxHook::MarkStepProgress->jsAction(),
-					'submitTask' => AjaxHook::SubmitTaskAnswer->jsAction(),
+					'markStep'        => AjaxHook::MarkStepProgress->jsAction(),
+					'submitTask'      => AjaxHook::SubmitTaskAnswer->jsAction(),
+					'submitBatchWork' => AjaxHook::SubmitBatchWork->jsAction(),
 				),
 				'nonces'   => array(
-					'markStep'   => Nonce::MarkStepProgress->create(),
-					'submitTask' => Nonce::SubmitTaskAnswer->create(),
+					'markStep'        => Nonce::MarkStepProgress->create(),
+					'submitTask'      => Nonce::SubmitTaskAnswer->create(),
+					'submitBatchWork' => Nonce::SubmitBatchWork->create(),
 				),
 			)
 		);
