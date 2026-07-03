@@ -29,6 +29,9 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 				</button>
 			</div>
 		</div>
+        <p class="fs-page-header__desc">
+            Здесь создаются и изменяются группы, задаётся их расписание и прикрепляется преподаватель.
+        </p>
 	</div>
 
 	<hr class="wp-header-end">

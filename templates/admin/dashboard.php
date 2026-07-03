@@ -25,6 +25,10 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
             <h1 class="fs-page-header__title">Главное меню плагина</h1>
 
         </div>
+        <p class="fs-page-header__desc">
+            Здесь можно получить актуальные данные по статистике использования плагина.<br>
+            Также здесь подключаются дополнительные модули.
+        </p>
     </div>
 
 	<?php if ( ! empty( $modules ) ) : ?>
