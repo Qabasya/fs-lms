@@ -17,6 +17,7 @@ use Inc\Enums\Auth\AuthResult;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Services\Application\ApplicationService;
@@ -83,6 +84,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly FormGuardService             $formGuard,
 		private readonly PersonDocumentsRepository    $personDocumentsRepository,
 		private readonly ApplicationSettingsService   $applicationSettings,
+		private readonly SubjectRepository            $subjects,
 	) {
 		parent::__construct();
 	}
@@ -308,7 +310,8 @@ class ApplicationCallbacks extends BaseController {
 
 		// Неверный код: фиксируем попытку и душим перебор. Лимит считается только на
 		// промахи — верный код общий для направления и не должен жечь лимит на общих IP.
-		if ( null === $this->applicationSettings->resolveSubjectByCode( $this->sanitizeText( 'direction_code' ) ) ) {
+		$subjectKey = $this->applicationSettings->resolveSubjectByCode( $this->sanitizeText( 'direction_code' ) );
+		if ( null === $subjectKey ) {
 			$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
 			if ( ! $this->rateLimitService->allowDirectionCode( $ip ) ) {
 				$this->error( 'Слишком много попыток. Попробуйте позже.' );
@@ -322,7 +325,10 @@ class ApplicationCallbacks extends BaseController {
 		$this->render( 'frontend/apply-fields', array() );
 		$formHtml = (string) ob_get_clean();
 
-		$this->success( array( 'valid' => true, 'form_html' => $formHtml ) );
+		// #6: имя направления (предмета) — под заголовком карточки заявки.
+		$directionName = $this->subjects->getByKey( $subjectKey )?->name ?? '';
+
+		$this->success( array( 'valid' => true, 'form_html' => $formHtml, 'direction_name' => $directionName ) );
 	}
 
 	public function ajaxCreateApplication(): void {

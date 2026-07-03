@@ -125,6 +125,26 @@ class TaskPublishValidatorTest extends TestCase {
 		self::assertNull( $error );
 	}
 
+	public function test_soft_error_skips_optional_field_even_when_empty(): void {
+		// #9: поле с флагом 'optional' (эталон FileAnswer) не блокирует публикацию,
+		// хотя его editorType требовал бы непустое значение.
+		$template = new class extends BaseTemplate {
+			public function get_id(): string { return 'test_optional'; }
+			public function get_name(): string { return 'Test Optional'; }
+		};
+		$field = new class {
+			public function editorType(): string { return 'rich_text'; }
+		};
+		$template->fields['solution_text'] = [
+			'label'    => 'Решение для проверяющего',
+			'object'   => $field,
+			'optional' => true,
+		];
+		$this->templateRegistry->method( 'get' )->willReturn( $template );
+
+		self::assertNull( $this->validator->getSoftError( [ 'solution_text' => '' ], 'test_optional' ) );
+	}
+
 	// ── findEmptyRequired() ──────────────────────────────────────────────────────
 
 	public function test_find_empty_required_returns_only_required_taxonomies_with_zero_terms(): void {

@@ -16,6 +16,7 @@ use Inc\MetaBoxes\Templates\AssessmentTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
@@ -37,6 +38,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		private readonly AssessmentTemplate $template,
 		private readonly PostManager        $postManager,
 		private readonly AssessmentManager  $assessmentManager,
+		private readonly TaskPublishGuard   $guard,
 	) {
 		parent::__construct();
 	}
@@ -45,6 +47,39 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
 		add_action( 'add_meta_boxes', array( $this, 'handleTidyMetaBoxes' ), 20 );
 		add_action( 'save_post', array( $this, 'handleAssessmentSave' ) );
+		// #10: не даём опубликовать контрольную без названия (откат в draft + notice).
+		add_filter( 'wp_insert_post_data', array( $this, 'validateAssessmentTitle' ), 10, 2 );
+		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
+	}
+
+	/**
+	 * Блокирует публикацию контрольной без названия (`wp_insert_post_data`).
+	 *
+	 * @param array<string, mixed> $data
+	 * @param array<string, mixed> $postarr
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function validateAssessmentTitle( array $data, array $postarr ): array {
+		if ( ! PostTypeResolver::isAssessmentPostType( $data['post_type'] ?? '' ) ) {
+			return $data;
+		}
+
+		return $this->guard->enforce(
+			$data,
+			'fs_lms_assessment_publish_error_',
+			'Укажите название контрольной.',
+			static fn(): ?string => null
+		);
+	}
+
+	/** Выводит отложенную ошибку публикации контрольной на экране редактирования. */
+	public function showPublishError(): void {
+		$screen = get_current_screen();
+		if ( ! $screen || ! PostTypeResolver::isAssessmentPostType( $screen->post_type ) ) {
+			return;
+		}
+		$this->guard->renderDeferredError( 'fs_lms_assessment_publish_error_', __( 'Невозможно опубликовать контрольную', 'fs-lms' ) );
 	}
 
 	public function handleAddMetaBoxes(): void {

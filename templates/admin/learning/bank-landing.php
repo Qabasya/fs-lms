@@ -23,14 +23,14 @@ defined( 'ABSPATH' ) || exit;
 
 	<?php else : ?>
 
-		<nav class="nav-tab-wrapper fs-lms-subject-tabs">
+		<h2 class="nav-tab-wrapper">
 			<?php foreach ( $tabs as $tab ) : ?>
 				<a class="nav-tab<?php echo $tab['active'] ? ' nav-tab-active' : ''; ?>"
 					href="<?php echo esc_url( $tab['url'] ); ?>">
 					<?php echo esc_html( $tab['name'] ); ?>
 				</a>
 			<?php endforeach; ?>
-		</nav>
+		</h2>
 
 		<?php if ( '' !== $list_url ) : ?>
 			<div class="fs-lms-bank-actions">

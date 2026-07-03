@@ -66,16 +66,27 @@ export function todayIso() {
 /* ── Colors (shared) ───────────────────────────────────────────── */
 
 /**
- * Цвет группы: индекс в fsProfile.groups → GROUP_COLORS (согласован между
- * сайдбаром, пикерами и дашбордом); для группы вне списка — стабильный хэш id.
+ * Цвет группы — по ПРЕДМЕТУ (#17): все группы одного предмета красятся одинаково.
+ * Индекс предмета в порядке появления в fsProfile.groups → GROUP_COLORS;
+ * для группы/предмета вне списка — стабильный хэш ключа. Согласован между
+ * сайдбаром, пикерами и дашбордом.
  */
 export function groupColor(gid) {
     const groups = (window.fsProfile && window.fsProfile.groups) || [];
-    const idx = groups.findIndex(g => String(g.id) === String(gid));
-    if (idx >= 0) return GROUP_COLORS[idx % GROUP_COLORS.length];
+    const g = groups.find(x => String(x.id) === String(gid));
+    const key = (g && (g.subject || g.subject_key)) || String(gid);
+
+    // Различные предметы в порядке появления → стабильный индекс цвета.
+    const subjects = [];
+    for (const x of groups) {
+        const s = x.subject || x.subject_key;
+        if (s && !subjects.includes(s)) { subjects.push(s); }
+    }
+    const idx = subjects.indexOf(key);
+    if (idx >= 0) { return GROUP_COLORS[idx % GROUP_COLORS.length]; }
+
     let h = 0;
-    const s = String(gid);
-    for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+    for (let i = 0; i < key.length; i++) { h = (h * 31 + key.charCodeAt(i)) | 0; }
     return GROUP_COLORS[Math.abs(h) % GROUP_COLORS.length];
 }
 

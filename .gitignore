@@ -37,8 +37,10 @@ build/
 # Coverage
 coverage/
 
-# Assets
-assets/
+# Assets (билд-выход gulp в КОРНЕ плагина). Якорь `/` обязателен: без него
+# паттерн `assets/` игнорировал бы и `inc/Modules/*/assets/` — рукописные
+# исходники модулей (DaData/SmartCaptcha/AdSync), которые НИЧЕМ не собираются.
+/assets/
 
 # Приватная документация по этапам разработки
 

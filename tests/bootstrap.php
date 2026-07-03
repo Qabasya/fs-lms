@@ -63,6 +63,11 @@ if (!function_exists('home_url')) {
         return 'http://example.com' . $path;
     }
 }
+if (!function_exists('admin_url')) {
+    function admin_url(string $path = ''): string {
+        return 'http://example.com/wp-admin/' . $path;
+    }
+}
 if (!function_exists('set_transient')) {
     function set_transient(string $transient, mixed $value, int $expiration = 0): bool {
         $GLOBALS['_test_transients'][$transient] = $value;

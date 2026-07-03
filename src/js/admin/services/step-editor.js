@@ -486,7 +486,7 @@ export function createStepEditor( opts ) {
 			ed.innerHTML = `
 				<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://…mp4 (нативный плеер) или YouTube/VK/Rutube (встраивание)"></div>
 				<div class="field-row"><label>Описание под видео</label><textarea class="field-input" data-desc placeholder="Краткое описание…"></textarea></div>
-				<div class="field-row"><label>Главы (D21: перемотка — только для прямых видеофайлов)</label>
+				<div class="field-row"><label>Таймкоды с главами</label>
 					<div class="fs-cb-chapters" data-chapters></div>
 					<button type="button" class="button" data-chapter-add>+ Глава</button>
 				</div>

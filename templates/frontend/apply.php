@@ -19,6 +19,8 @@ $gated = ! empty( $gated );
 <main class="fs-lms-apply-page">
     <div class="fs-apply-card">
         <h2 class="fs-apply-card__title"><?php esc_html_e( 'Подать заявку на обучение', 'fs-lms' ); ?></h2>
+        <?php /* #6: имя направления (заполняет JS после верного кода направления). */ ?>
+        <p class="fs-apply-card__direction" id="fs-apply-direction" hidden></p>
 
         <?php if ( $gated ) : ?>
 

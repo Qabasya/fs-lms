@@ -19,6 +19,7 @@ class LessonAccessPolicy {
 		private readonly StudentRecordRepository   $studentRecords,
 		private readonly GroupLessonRepository     $groupLessons,
 		private readonly ExpulsionPolicyRepository $expulsionPolicy,
+		private readonly LessonVisibilityService   $visibility,
 	) {}
 
 	/**
@@ -26,14 +27,28 @@ class LessonAccessPolicy {
 	 * Полная матрица: видимость × статус × даты × политика ретеншна.
 	 */
 	public function resolve( StudentRecordDTO $record, GroupLessonDTO $lesson ): AccessLevel {
-		// hidden — никому.
-		if ( LessonVisibility::Hidden->value === $lesson->visibility ) {
+		// #13 (T2.34): скрытый урок с наступившей датой занятия авто-открывается —
+		// все прошедшие уроки доступны сразу, без ручной публикации.
+		$effectiveVisibility = $this->visibility->effectiveVisibility( $lesson );
+
+		// hidden (и после авто-открытия всё ещё hidden — дата не наступила) — никому.
+		if ( LessonVisibility::Hidden->value === $effectiveVisibility ) {
 			return AccessLevel::None;
+		}
+
+		// Эффективная дата открытия: авто-открытый урок «открылся» в момент занятия
+		// (scheduled_at), даже если openedAt не проставлялся ручной публикацией.
+		$openedAt = $lesson->openedAt;
+		if ( null === $openedAt
+			&& LessonVisibility::Hidden->value === $lesson->visibility
+			&& LessonVisibility::Open->value === $effectiveVisibility
+		) {
+			$openedAt = $lesson->scheduledAt;
 		}
 
 		if ( $record->status === EnrollmentStatus::Active ) {
 			// Поздний ученик видит весь бэк-каталог; сдавать может только с даты своего зачисления.
-			if ( null !== $lesson->openedAt && $lesson->openedAt >= $record->enrolledAt ) {
+			if ( null !== $openedAt && $openedAt >= $record->enrolledAt ) {
 				return AccessLevel::ReadSubmit;
 			}
 			return AccessLevel::Read;
@@ -46,7 +61,7 @@ class LessonAccessPolicy {
 			}
 			// retain: видит уроки, опубликованные до даты отчисления.
 			$expelledAt = $record->expelledAt;
-			if ( null !== $expelledAt && null !== $lesson->openedAt && $lesson->openedAt <= $expelledAt ) {
+			if ( null !== $expelledAt && null !== $openedAt && $openedAt <= $expelledAt ) {
 				return AccessLevel::Read;
 			}
 			return AccessLevel::None;

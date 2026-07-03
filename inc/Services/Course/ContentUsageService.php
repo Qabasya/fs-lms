@@ -52,7 +52,13 @@ class ContentUsageService {
 	 * @return int
 	 */
 	public function usageCount( string $type, int $postId ): int {
-		return count( $this->usageList( $type, $postId ) ) + $this->deliveryCount( $type, $postId );
+		$count = count( $this->usageList( $type, $postId ) ) + $this->deliveryCount( $type, $postId );
+		// Задача (или задача банка) может быть вопросом контрольной (task_ids) —
+		// это тоже использование, иначе задача считалась бы неиспользуемой.
+		if ( 'task' === $type || 'problem' === $type ) {
+			$count += count( $this->assessmentsUsingTask( $postId ) );
+		}
+		return $count;
 	}
 
 	/** Количество delivery-потребителей из БД-таблиц (group_lessons, groups). */
@@ -132,6 +138,40 @@ class ContentUsageService {
 						'tooltip' => $course['title'] . ' / ' . $lesson['title'],
 						'url'     => admin_url( 'admin.php?page=fs_lms_course_builder&course=' . $course['id'] . '&lesson=' . $lesson['id'] . '&step_ref=' . $postId ),
 					);
+				}
+			}
+		}
+
+		// Задача как вопрос контрольной: задача → контрольная → урок → курс.
+		foreach ( $this->assessmentsUsingTask( $postId ) as $assessment ) {
+			$lessons = $this->usageList( 'assessment', $assessment['id'] );
+			if ( empty( $lessons ) ) {
+				$fallbacks[ 'a' . $assessment['id'] ] = array(
+					'display' => $assessment['title'],
+					'tooltip' => $assessment['title'],
+					'url'     => admin_url( 'post.php?post=' . $assessment['id'] . '&action=edit' ),
+				);
+				continue;
+			}
+			foreach ( $lessons as $lesson ) {
+				$lesson_courses = $this->usageList( 'lesson', $lesson['id'] );
+				if ( empty( $lesson_courses ) ) {
+					$fallbacks[ 'l' . $lesson['id'] ] = array(
+						'display' => $lesson['title'],
+						'tooltip' => $lesson['title'] . ' / ' . $assessment['title'],
+						'url'     => admin_url( 'post.php?post=' . $lesson['id'] . '&action=edit' ),
+					);
+					continue;
+				}
+				foreach ( $lesson_courses as $course ) {
+					$key = (string) $course['id'];
+					if ( ! isset( $courses[ $key ] ) ) {
+						$courses[ $key ] = array(
+							'display' => $course['title'],
+							'tooltip' => $course['title'] . ' / ' . $lesson['title'] . ' / ' . $assessment['title'],
+							'url'     => admin_url( 'admin.php?page=fs_lms_course_builder&course=' . $course['id'] . '&lesson=' . $lesson['id'] . '&step_ref=' . $assessment['id'] ),
+						);
+					}
 				}
 			}
 		}
@@ -260,6 +300,32 @@ class ContentUsageService {
 	}
 
 	/**
+	 * Кросс-предметный поиск контрольных, у которых задача (или задача банка) —
+	 * вопрос (`task_ids`). ID постов глобальны, поэтому скан по всем предметам корректен.
+	 *
+	 * @param int $taskId
+	 * @return array<int, array{id: int, title: string, type: string}>
+	 */
+	private function assessmentsUsingTask( int $taskId ): array {
+		$result = array();
+		foreach ( $this->subjects->readAll() as $subject ) {
+			foreach ( $this->consumers( PostTypeResolver::assessments( $subject->key ) ) as $assessment ) {
+				$meta = $this->posts->getMeta( $assessment->ID, PostMetaName::Meta->value );
+				$meta = is_array( $meta ) ? $meta : array();
+				$ids  = array_map( 'intval', is_array( $meta['task_ids'] ?? null ) ? $meta['task_ids'] : array() );
+				if ( in_array( $taskId, $ids, true ) ) {
+					$result[] = array(
+						'id'    => $assessment->ID,
+						'title' => $assessment->post_title,
+						'type'  => $assessment->post_type,
+					);
+				}
+			}
+		}
+		return $result;
+	}
+
+	/**
 	 * Строит хлебные крошки по списку работ: работа → урок → курс.
 	 * Возвращает [$courses, $fallbacks], оба keyed — дедупликация по ID.
 	 *
@@ -333,11 +399,14 @@ class ContentUsageService {
 	 */
 	private function relationFor( string $type, string $post_type ): array {
 		return match ( $type ) {
-			'task'    => array( PostTypeResolver::works( PostTypeResolver::subjectFromTaskPostType( $post_type ) ), 'item_ids', false ),
-			'problem' => array( '', 'item_ids', false ), // кросс-предметный поиск — TODO Этап 2 (SubjectRepository needed)
-			'work'    => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromWorkPostType( $post_type ) ), 'steps:work', false ),
-			'lesson'  => array( PostTypeResolver::courses( PostTypeResolver::subjectFromLessonPostType( $post_type ) ), 'modules:lesson', false ),
-			default   => array( '', '', false ), // course → groups (Этап 2)
+			'task'       => array( PostTypeResolver::works( PostTypeResolver::subjectFromTaskPostType( $post_type ) ), 'item_ids', false ),
+			'problem'    => array( '', 'item_ids', false ), // кросс-предметный поиск — TODO Этап 2 (SubjectRepository needed)
+			'work'       => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromWorkPostType( $post_type ) ), 'steps:work', false ),
+			// Контрольная используется как шаг урока (StepType::Assessment) — как и работа.
+			// Без этой ветки usageList('assessment') был пуст: «использование в курсе» не подтягивалось.
+			'assessment' => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromAssessmentPostType( $post_type ) ), 'steps:assessment', false ),
+			'lesson'     => array( PostTypeResolver::courses( PostTypeResolver::subjectFromLessonPostType( $post_type ) ), 'modules:lesson', false ),
+			default      => array( '', '', false ), // course → groups (Этап 2)
 		};
 	}
 

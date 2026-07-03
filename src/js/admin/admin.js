@@ -53,10 +53,15 @@ import { RolesSettings } from './services/roles-settings.js';
 
     $(document).ready(function () {
         setTimeout(() => {
-            $('.notice-success, .notice-warning, .notice-info').not('.notice-error').each(function () {
-                const $n = $(this);
-                $n.fadeTo(100, 0, () => $n.slideUp(100, () => $n.remove()));
-            });
+            // Флеш-уведомления гасим через 5с, но НЕ структурные плашки-пустышки
+            // («Вы ещё не создали ни одного предмета» и т.п. — .fs-table__no-items):
+            // они постоянные, а не временные сообщения (#3).
+            $('.notice-success, .notice-warning, .notice-info')
+                .not('.notice-error, .fs-table__no-items')
+                .each(function () {
+                    const $n = $(this);
+                    $n.fadeTo(100, 0, () => $n.slideUp(100, () => $n.remove()));
+                });
         }, 5000);
 
         UI.init();

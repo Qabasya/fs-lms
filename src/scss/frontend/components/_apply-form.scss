@@ -24,6 +24,15 @@
     margin: 0 0 $spacing-xl;
   }
 
+  // #6: название направления под заголовком (после верного кода направления).
+  &__direction {
+    margin: -#{$spacing-md} 0 $spacing-xl;
+    text-align: center;
+    font-size: $font-size-base;
+    font-weight: $font-bold;
+    color: $color-accent;
+  }
+
   &__step {
     display: none;
 
@@ -35,6 +44,14 @@
   &__field-group {
     position: relative;
     margin-bottom: 14px;
+
+    // #7: иконка/toggle позиционируются относительно .fs-field-control (тесная
+    // обёртка вокруг инпута), поэтому центрируются по инпуту, а не по всей группе
+    // (label сверху + ошибка снизу). Высота обёртки = высоте инпута (иконка/toggle
+    // абсолютны и в поток не входят).
+    .fs-field-control {
+      position: relative;
+    }
 
     .dashicons {
       @include fs-field-icon;
