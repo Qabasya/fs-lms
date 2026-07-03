@@ -30,16 +30,28 @@ $tabs = array(
 );
 ?>
 
+
+
 	<div class="wrap">
-		<!-- Навигация по вкладкам -->
-		<h2 class="nav-tab-wrapper">
-			<?php foreach ( $tabs as $tab_id => $tab ) : ?>
-				<a href="?page=<?php echo esc_attr( $_GET['page'] ?? '' ); ?>&tab=<?php echo esc_attr( $tab_id ); ?>"
-				   class="nav-tab <?php echo $active_tab === $tab_id ? 'nav-tab-active' : ''; ?>">
-					<?php echo esc_html( $tab['title'] ); ?>
-				</a>
-			<?php endforeach; ?>
-		</h2>
+        <div class="fs-page-header">
+            <div class="fs-page-header__content">
+                <h1 class="fs-page-header__title">Работа с пользователями</h1>
+
+            </div>
+
+            <p class="fs-page-header__desc">
+                Здесь обрабатываются заявки и происходит зачисление и отчисление учеников
+            </p>
+
+        </div>
+        <h2 class="nav-tab-wrapper">
+            <?php foreach ( $tabs as $tab_id => $tab ) : ?>
+                <a href="?page=<?php echo esc_attr( $_GET['page'] ?? '' ); ?>&tab=<?php echo esc_attr( $tab_id ); ?>"
+                   class="nav-tab <?php echo $active_tab === $tab_id ? 'nav-tab-active' : ''; ?>">
+                    <?php echo esc_html( $tab['title'] ); ?>
+                </a>
+            <?php endforeach; ?>
+        </h2>
 
 		<!-- Содержимое активной вкладки -->
 		<div class="tab-content">

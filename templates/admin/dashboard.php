@@ -20,7 +20,12 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 ?>
 
 <div class="wrap">
-	<h1><?php echo esc_html__( 'Dashboard', 'fs-lms' ); ?></h1>
+    <div class="fs-page-header">
+        <div class="fs-page-header__content">
+            <h1 class="fs-page-header__title">Главное меню плагина</h1>
+
+        </div>
+    </div>
 
 	<?php if ( ! empty( $modules ) ) : ?>
 		<div class="fs-modules-section">

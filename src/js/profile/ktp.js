@@ -439,9 +439,13 @@ function attachDrop(cell) {
         if (!state.dragGlid) return;
         const glid = state.dragGlid;
         const day = cell.dataset.day;
+        // Время слота — из расписания группы (lessonTimes: 'HH:MM–HH:MM').
+        // Никаких 09:00-заглушек: нет времени слота — не закрепляем.
+        const start = (((state.data.lessonTimes || {})[day] || '').match(/\d{1,2}:\d{2}/) || [])[0];
+        if (!start) { toast('У этого дня нет слота занятия'); return; }
         try {
-            await api('pin', { group_lesson_id: glid, scheduled_at: `${day} 09:00:00` });
-            toast(`Тема закреплена на ${day}`);
+            await api('pin', { group_lesson_id: glid, scheduled_at: `${day} ${start}:00` });
+            toast(`Тема закреплена на ${day} ${start}`);
             await loadCalendar();
         } catch (err) {
             toast(err.message);

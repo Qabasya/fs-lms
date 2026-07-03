@@ -47,6 +47,12 @@ $tabs = apply_filters(
 ?>
 
 	<div class="wrap">
+        <div class="fs-page-header">
+            <div class="fs-page-header__content">
+                <h1 class="fs-page-header__title">Настройки плагина</h1>
+
+            </div>
+        </div>
 		<!-- Навигация по вкладкам -->
 		<h2 class="nav-tab-wrapper">
 			<?php foreach ( $tabs as $tab_id => $tab ) : ?>

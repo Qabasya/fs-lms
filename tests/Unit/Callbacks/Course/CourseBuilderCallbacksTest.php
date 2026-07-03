@@ -10,6 +10,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\ContentCloneService;
 use Inc\Services\Course\CourseBuilderService;
+use Inc\Services\Course\CoursePublishValidator;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -32,7 +33,8 @@ class CourseBuilderCallbacksTest extends TestCase {
 		$this->lessons      = new LessonManager( $posts );
 		$this->cloneService = $this->createMock( ContentCloneService::class );
 		$this->callbacks    = new CourseBuilderCallbacks(
-			new CourseBuilderService( $this->courses, $this->lessons, $posts, $this->cloneService )
+			new CourseBuilderService( $this->courses, $this->lessons, $posts, $this->cloneService ),
+			new CoursePublishValidator( $this->courses, $this->lessons )
 		);
 	}
 
@@ -154,5 +156,77 @@ class CourseBuilderCallbacksTest extends TestCase {
 		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxCreateCourseDraft() );
 
 		self::assertFalse( $r->success );
+	}
+
+	// ── #11: запрет публикации курса с пустым шагом ──────────────────────────
+
+	/** Урок с заданным набором шагов, статус draft. */
+	private function seedLessonWithSteps( int $id, string $subject, array $steps, string $title ): void {
+		fs_test_seed_post(
+			array( 'ID' => $id, 'post_type' => $subject . '_lessons', 'post_title' => $title, 'post_status' => 'draft' ),
+			array( 'fs_lms_meta' => array( 'steps' => $steps ) )
+		);
+	}
+
+	/** Курс со статусом draft (чтобы «не опубликован после блокировки» был осмысленным). */
+	private function seedDraftCourse( int $id, string $subject, array $modules ): void {
+		fs_test_seed_post(
+			array( 'ID' => $id, 'post_type' => $subject . '_courses', 'post_title' => 'Курс ' . $id, 'post_status' => 'draft' ),
+			array( 'fs_lms_meta' => array( 'modules' => $modules ) )
+		);
+	}
+
+	public function test_publish_course_with_empty_text_step_is_blocked(): void {
+		$this->seedLessonWithSteps( 10, 'inf', array(
+			array( 'key' => 's1', 'type' => 'text', 'payload' => array( 'content' => '' ) ),
+		), 'Урок А' );
+		$this->seedDraftCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ) ) );
+		$_POST = array( 'course_id' => '1', 'title' => 'Курс', 'status' => 'publish' );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveCourseMeta() );
+
+		self::assertFalse( $r->success );
+		self::assertStringContainsString( 'Урок А', json_encode( $r->payload, JSON_UNESCAPED_UNICODE ) );
+		self::assertNotSame( 'publish', get_post( 1 )->post_status ); // курс НЕ опубликован
+	}
+
+	public function test_publish_course_with_ref_step_missing_is_blocked(): void {
+		$this->seedLessonWithSteps( 10, 'inf', array(
+			array( 'key' => 's1', 'type' => 'task', 'payload' => array( 'ref' => 0 ) ),
+		), 'Урок Б' );
+		$this->seedDraftCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ) ) );
+		$_POST = array( 'course_id' => '1', 'title' => 'Курс', 'status' => 'publish' );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveCourseMeta() );
+
+		self::assertFalse( $r->success );
+		self::assertStringContainsString( 'Урок Б', json_encode( $r->payload, JSON_UNESCAPED_UNICODE ) );
+	}
+
+	public function test_publish_course_with_filled_steps_succeeds(): void {
+		$this->seedLessonWithSteps( 10, 'inf', array(
+			array( 'key' => 's1', 'type' => 'text', 'payload' => array( 'content' => 'Привет' ) ),
+			array( 'key' => 's2', 'type' => 'task', 'payload' => array( 'ref' => 55 ) ),
+		), 'Урок В' );
+		$this->seedDraftCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ) ) );
+		$_POST = array( 'course_id' => '1', 'title' => 'Курс', 'status' => 'publish' );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveCourseMeta() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 'publish', get_post( 1 )->post_status );
+	}
+
+	public function test_save_draft_with_empty_step_is_not_blocked(): void {
+		// Сохранение черновика пустые шаги не проверяет — блокировка только при публикации.
+		$this->seedLessonWithSteps( 10, 'inf', array(
+			array( 'key' => 's1', 'type' => 'text', 'payload' => array( 'content' => '' ) ),
+		), 'Урок Г' );
+		$this->seedDraftCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ) ) );
+		$_POST = array( 'course_id' => '1', 'title' => 'Курс', 'status' => 'draft' );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveCourseMeta() );
+
+		self::assertTrue( $r->success );
 	}
 }

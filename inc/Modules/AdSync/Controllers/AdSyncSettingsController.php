@@ -85,12 +85,18 @@ class AdSyncSettingsController extends BaseController {
 			return;
 		}
 
-		$rel = 'inc/Modules/AdSync/assets/admin.js';
+		// Выключенный модуль свой JS не грузит (секция настроек всё равно скрыта).
+		if ( ! $this->config->isEnabled() ) {
+			return;
+		}
+
+		$rel  = 'inc/Modules/AdSync/assets/admin.js';
+		$path = $this->path( $rel );
 		wp_enqueue_script(
 			'fs-lms-ad-sync',
 			$this->url( $rel ),
 			array( 'jquery' ),
-			(string) filemtime( $this->path( $rel ) ),
+			file_exists( $path ) ? (string) filemtime( $path ) : $this->plugin_version,
 			true
 		);
 		wp_localize_script( 'fs-lms-ad-sync', 'fsLmsAdSync', array(

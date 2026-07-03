@@ -57,11 +57,13 @@ class SessionCalendarService {
 		// ISO weekday: 1=Mon … 7=Sun  (PHP N format)
 		foreach ( $meetings as $meeting ) {
 			$weekday     = (int) ( $meeting['weekday'] ?? 0 );
-			$time        = (string) ( $meeting['time'] ?? '09:00' );
+			$time        = (string) ( $meeting['time'] ?? '' );
 			$durationMin = (int) ( $meeting['duration_min'] ?? 60 );
 			$roomId      = (int) ( $meeting['room'] ?? 0 );
 
-			if ( $weekday < 1 || $weekday > 7 ) {
+			// Встреча без корректного дня недели или времени — не слот. Никаких
+			// 09:00-заглушек: время занятия берётся только из расписания группы.
+			if ( $weekday < 1 || $weekday > 7 || ! preg_match( '/^\d{1,2}:\d{2}$/', $time ) ) {
 				continue;
 			}
 
