@@ -22,13 +22,16 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 		<div class="fs-page-header__content">
 			<h1 class="fs-page-header__title">Работа с группами</h1>
 			<div class="fs-page-header__actions">
-				<button type="button" class="page-title-action js-open-group-modal">Добавить группу</button>
+				<button type="button" class=" page-title-action js-open-group-modal">Добавить группу</button>
 				<button type="button" class="page-title-action js-export-groups">
 					<span class="dashicons dashicons-download"></span>
 					Экспорт CSV
 				</button>
 			</div>
 		</div>
+        <p class="fs-page-header__desc">
+            Здесь создаются и изменяются группы, задаётся их расписание и прикрепляется преподаватель.
+        </p>
 	</div>
 
 	<hr class="wp-header-end">

@@ -52,6 +52,10 @@ $tabs = apply_filters(
                 <h1 class="fs-page-header__title">Настройки плагина</h1>
 
             </div>
+
+            <p class="fs-page-header__desc">
+                Здесь можно изменить основные настройки плагина.
+            </p>
         </div>
 		<!-- Навигация по вкладкам -->
 		<h2 class="nav-tab-wrapper">
