@@ -328,6 +328,13 @@ function initGate() {
         slot.innerHTML = res.data.form_html;
         gate.remove();
 
+        // #6: показываем название направления под заголовком карточки.
+        const dirEl = document.getElementById( 'fs-apply-direction' );
+        if ( dirEl && res.data.direction_name ) {
+            dirEl.textContent = res.data.direction_name;
+            dirEl.hidden = false;
+        }
+
         bindFormBehaviors();
 
         // Капча рендерится в #fs-captcha-slot, который существует только после

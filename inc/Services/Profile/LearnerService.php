@@ -12,6 +12,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
@@ -41,11 +42,18 @@ class LearnerService {
 		private readonly LessonGateResolver      $gate,
 		private readonly LessonProgressService   $progress,
 		private readonly SubjectRepository       $subjects,
+		private readonly RoomRepository          $rooms,
 	) {}
 
 	/** @return array<string, mixed> */
 	public function build( int $personId ): array {
 		$now = $this->clock->now( 'mysql' );
+
+		// #14: карта кабинетов id→имя (для «Каб N» в расписании). Один запрос на всё.
+		$roomNames = array();
+		foreach ( $this->rooms->findAll() as $roomDto ) {
+			$roomNames[ (int) $roomDto->id ] = $roomDto->name;
+		}
 
 		// Группы ученика.
 		$groups   = array();
@@ -63,6 +71,7 @@ class LearnerService {
 					'name'        => $g->name,
 					'subject'     => $subjectName,
 					'subject_key' => $g->subject_key,
+					'room_id'     => isset( $g->room_id ) ? (int) $g->room_id : 0, // дефолтный кабинет группы
 				);
 				$groupIds[]              = (int) $g->id;
 			}
@@ -80,6 +89,8 @@ class LearnerService {
 				}
 				$topic      = $this->topicOf( $row );
 				$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
+				// #14: эффективный кабинет занятия = кабинет строки ?? дефолтный кабинет группы.
+				$roomId     = ! empty( $row->roomId ) ? (int) $row->roomId : (int) ( $groups[ $gid ]['room_id'] ?? 0 );
 				$item       = array(
 					'group_lesson_id' => $row->id,
 					'group_id'        => $gid,
@@ -91,6 +102,7 @@ class LearnerService {
 					'homework_due_at' => $row->homeworkDueAt,
 					'visibility'      => $row->visibility,
 					'kind'            => $row->kind,
+					'room'            => $roomId > 0 ? ( $roomNames[ $roomId ] ?? '' ) : '',
 					// Вход в плеер курса (T14.13): урок с контентом получает ссылку
 					// в плеер и статус прохождения (done / available / locked).
 					'player_url'      => $hasContent ? $this->playerUrl( $gid, $row->id ) : '',

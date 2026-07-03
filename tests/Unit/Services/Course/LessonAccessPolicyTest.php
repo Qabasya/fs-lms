@@ -12,9 +12,13 @@ use Inc\Repositories\OptionsRepositories\ExpulsionPolicyRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\LessonAccessPolicy;
+use Inc\Services\Course\LessonVisibilityService;
 use PHPUnit\Framework\TestCase;
 
 class LessonAccessPolicyTest extends TestCase {
+
+	/** Фиксированное «сейчас» для правила авто-открытия по дате (#13). */
+	private const NOW = '2024-06-01 00:00:00';
 
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $studentRecords;
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
@@ -24,10 +28,27 @@ class LessonAccessPolicyTest extends TestCase {
 		parent::setUp();
 		$this->studentRecords   = $this->createMock( StudentRecordRepository::class );
 		$this->groupLessons     = $this->createMock( GroupLessonRepository::class );
+
+		// Мок повторяет правило LessonVisibilityService::effectiveVisibility против NOW:
+		// hidden + наступившая scheduled_at → open; иначе — сырая видимость.
+		$visibility = $this->createMock( LessonVisibilityService::class );
+		$visibility->method( 'effectiveVisibility' )->willReturnCallback(
+			static function ( GroupLessonDTO $lesson ): string {
+				if ( 'hidden' === $lesson->visibility
+					&& null !== $lesson->scheduledAt
+					&& self::NOW >= $lesson->scheduledAt
+				) {
+					return 'open';
+				}
+				return $lesson->visibility;
+			}
+		);
+
 		$this->policy           = new LessonAccessPolicy(
 			$this->studentRecords,
 			$this->groupLessons,
 			new ExpulsionPolicyRepository(),
+			$visibility,
 		);
 		$GLOBALS['_test_options'] = [];
 	}
@@ -39,6 +60,32 @@ class LessonAccessPolicyTest extends TestCase {
 		$lesson = $this->makeLesson( visibility: 'hidden', openedAt: '2024-01-10 10:00:00' );
 
 		self::assertSame( AccessLevel::None, $this->policy->resolve( $record, $lesson ) );
+	}
+
+	// --- #13: авто-открытие скрытого урока по наступившей дате ---
+
+	public function test_hidden_lesson_with_past_scheduled_date_auto_opens_read_submit(): void {
+		// Скрытый урок с прошедшей датой занятия (зачислен раньше даты) → сдача доступна.
+		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-01-01 00:00:00' );
+		$lesson = $this->makeLesson( visibility: 'hidden', openedAt: null, scheduledAt: '2024-03-01 09:00:00' );
+
+		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
+	}
+
+	public function test_hidden_lesson_with_future_scheduled_date_stays_none(): void {
+		// Дата занятия ещё не наступила → урок остаётся закрытым.
+		$record = $this->makeRecord( EnrollmentStatus::Active );
+		$lesson = $this->makeLesson( visibility: 'hidden', openedAt: null, scheduledAt: '2024-09-01 09:00:00' );
+
+		self::assertSame( AccessLevel::None, $this->policy->resolve( $record, $lesson ) );
+	}
+
+	public function test_hidden_lesson_auto_open_before_enrollment_is_read_only(): void {
+		// Урок открылся по дате ДО зачисления ученика (бэк-каталог) → только чтение.
+		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-04-01 00:00:00' );
+		$lesson = $this->makeLesson( visibility: 'hidden', openedAt: null, scheduledAt: '2024-03-01 09:00:00' );
+
+		self::assertSame( AccessLevel::Read, $this->policy->resolve( $record, $lesson ) );
 	}
 
 	public function test_active_student_lesson_opened_after_enrollment_gets_read_submit(): void {
@@ -154,6 +201,7 @@ class LessonAccessPolicyTest extends TestCase {
 		?string $openedAt,
 		int $groupId = 10,
 		?array $workIdsSnapshot = null,
+		?string $scheduledAt = null,
 	): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id              : 42,
@@ -162,7 +210,7 @@ class LessonAccessPolicyTest extends TestCase {
 			position        : 0,
 			workIdsSnapshot : $workIdsSnapshot,
 			extraWorkIds    : [],
-			scheduledAt     : null,
+			scheduledAt     : $scheduledAt,
 			endsAt          : null,
 			isPinned        : false,
 			teacherUserId   : null,

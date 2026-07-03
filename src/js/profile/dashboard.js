@@ -112,18 +112,37 @@ function renderSched(mode) {
     if (mode === 'week') {
         const byDate = {};
         d.week.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
-        const dates = Object.keys(byDate).sort();
-        body.innerHTML = dates.length
-            ? `<div class="prof-week-grid">${dates.map(date => `
-                <div class="prof-week-col">
-                    <div class="prof-week-dow">${DOW_JS[new Date(date).getDay()]} ${date.slice(8, 10)}.${date.slice(5, 7)}</div>
-                    ${byDate[date].map(it => `<div class="prof-week-card" style="border-left-color:${it.kind === 'individual' ? 'var(--t-zachet)' : groupColor(it.group_id)}" data-grp="${it.group_id}">
+
+        // #18: выводим ВСЕ 7 дней недели (Пн–Вс), даже пустые. Понедельник берём
+        // от первого занятия (все в одной неделе) либо от сегодня. Формат дат —
+        // локальный (без сдвига часового пояса, как у toISOString).
+        const fmtIso = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        const anchorStr = Object.keys(byDate).sort()[0];
+        const monday = anchorStr ? new Date(anchorStr + 'T00:00:00') : new Date();
+        monday.setHours(0, 0, 0, 0);
+        monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7)); // к понедельнику
+
+        const weekDates = [];
+        for (let i = 0; i < 7; i++) {
+            const dt = new Date(monday);
+            dt.setDate(monday.getDate() + i);
+            weekDates.push(fmtIso(dt));
+        }
+
+        body.innerHTML = `<div class="prof-week-grid">${weekDates.map(date => {
+            const items = byDate[date] || [];
+            const cards = items.length
+                ? items.map(it => `<div class="prof-week-card" style="border-left-color:${it.kind === 'individual' ? 'var(--t-zachet)' : groupColor(it.group_id)}" data-grp="${it.group_id}">
                         <div class="wc-time">${esc(it.start)}</div>
                         <div class="wc-grp">${esc(it.group_name)}${it.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}</div>
                         <div class="wc-topic">${esc(it.topic || '—')}</div>
-                    </div>`).join('')}
-                </div>`).join('')}</div>`
-            : `<div class="rev-empty">На этой неделе занятий нет.</div>`;
+                    </div>`).join('')
+                : `<div class="prof-week-empty">Занятий нет</div>`;
+            return `<div class="prof-week-col">
+                    <div class="prof-week-dow">${DOW_JS[new Date(date + 'T00:00:00').getDay()]} ${date.slice(8, 10)}.${date.slice(5, 7)}</div>
+                    ${cards}
+                </div>`;
+        }).join('')}</div>`;
     } else {
         body.innerHTML = d.today.length
             ? d.today.map(schedRow).join('')

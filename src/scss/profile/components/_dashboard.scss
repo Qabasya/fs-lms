@@ -27,8 +27,13 @@
 .prof-sched-card { margin-bottom: 18px; }
 
 .prof-week-grid {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
   background: var(--line-2); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden;
+}
+/* #18: пустой день недели («Занятий нет»). */
+.prof-week-empty {
+  font-size: 11px; color: var(--muted-2); text-align: center;
+  margin: auto 0; padding: 8px 0;
 }
 .prof-week-col {
   background: var(--surface); padding: 12px 10px; min-height: 150px;

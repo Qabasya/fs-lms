@@ -24,6 +24,15 @@
     margin: 0 0 $spacing-xl;
   }
 
+  // #6: название направления под заголовком (после верного кода направления).
+  &__direction {
+    margin: -#{$spacing-md} 0 $spacing-xl;
+    text-align: center;
+    font-size: $font-size-base;
+    font-weight: $font-bold;
+    color: $color-accent;
+  }
+
   &__step {
     display: none;
 

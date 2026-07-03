@@ -126,7 +126,7 @@ function renderGrades(root, d) {
     root.innerHTML = `
     <div class="prof-dash">
         ${childBar()}
-        <div class="prof-dash-hello"><h1>Мои оценки</h1><p>Сырые результаты: решённые задачи и баллы. Без 5-балльных отметок.</p></div>
+        <div class="prof-dash-hello"><h1>Мои оценки</h1><p>Решённые задачи и баллы за экзамены.</p></div>
         <div class="prof-card">
             <div class="prof-card-head"><h3>Работы и контрольные</h3><span class="ch-sub">${d.grades.length}</span></div>
             <div>${d.grades.length ? d.grades.map(gradeFullRow).join('') : empty('Оценок пока нет.')}</div>
@@ -156,13 +156,18 @@ function renderAttendance(root, d) {
 }
 
 /* ── Rows ─────────────────────────────────────────────────────────────── */
+/** #14: пометка кабинета «· Каб. N» (пусто, если кабинет не задан). */
+function roomTag(l) {
+    return l.room ? ` · Каб. ${esc(l.room)}` : '';
+}
+
 function schedRow(l) {
     return `<div class="prof-lesson-row">
         <div class="prof-lesson-time"><div class="lt-start">${esc(l.start || '')}</div><div class="lt-end">${fmtDayMonth(l.date)}</div></div>
         <div class="prof-lesson-bar"></div>
         <div class="prof-lesson-body">
             <div class="prof-lesson-grp">${esc(l.group_name)}${l.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
-            <div class="prof-lesson-topic">${esc(l.topic || '—')}</div>
+            <div class="prof-lesson-topic">${esc(l.topic || '—')}${roomTag(l)}</div>
         </div>
     </div>`;
 }
@@ -199,7 +204,7 @@ function lessonRow(l) {
     // прохождения; занятие без контента — прежний род-онли ряд по видимости.
     const status = l.status || '';
     const inner = `
-        <div class="prof-work-main"><div class="prof-work-title">${esc(l.topic || '—')}</div><div class="prof-work-sub">${l.date ? fmtDayMonth(l.date) : 'без даты'}</div></div>
+        <div class="prof-work-main"><div class="prof-work-title">${esc(l.topic || '—')}</div><div class="prof-work-sub">${l.date ? fmtDayMonth(l.date) : 'без даты'}${roomTag(l)}</div></div>
         ${lessonChip(l, status)}`;
 
     if (l.player_url && ('done' === status || 'available' === status)) {
