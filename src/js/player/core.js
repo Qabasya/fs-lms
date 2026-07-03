@@ -15,11 +15,17 @@ const INLINE = [ 'text', 'video' ];
 const vars = window.fs_lms_player_vars;
 
 const showListeners = [];
+const refreshListeners = [];
 let core = null;
 
 /** Подписка шаговых модулей (task/work/video…) на показ панели. */
 export function onPanelShow( cb ) {
 	showListeners.push( cb );
+}
+
+/** Подписка на каждое обновление состояния (смена шага/статуса) — рейка и т.п. */
+export function onRefresh( cb ) {
+	refreshListeners.push( cb );
 }
 
 /** Доступ к ядру для шаговых модулей (после initCore). */
@@ -94,6 +100,7 @@ export function initCore() {
 		renderStrip( { panels, active, onGoto: show } );
 		updateNav();
 		updateTopbar();
+		refreshListeners.forEach( ( cb ) => cb( core ) );
 	}
 
 	function markViewedIfInline() {

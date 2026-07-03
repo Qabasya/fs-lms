@@ -84,8 +84,9 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 			exit;
 		}
 
-		// Оболочка плеера (T14.2): курс/модуль/прогресс курса/ученик.
+		// Оболочка плеера (T14.2) и дерево курса для рейки (T14.3).
 		$view['shell'] = $this->nav->shell( $person->id, $row );
+		$view['tree']  = $this->nav->tree( $person->id, $row );
 
 		// Плеер — полноэкранный app-shell со своим <html> (Эпик 14, D18):
 		// без темы сайта; Enqueue по этому флагу грузит только бандл плеера.

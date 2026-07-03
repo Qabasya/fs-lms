@@ -181,7 +181,11 @@ $nav_icons = array(
 
 		<!-- плеер: рейка дерева + контент -->
 		<div class="player">
-			<div class="railwrap"><div class="rail" id="fsRail"></div></div>
+			<div class="railwrap">
+				<div class="rail" id="fsRail">
+					<?php include __DIR__ . '/partials/rail.php'; ?>
+				</div>
+			</div>
 			<div class="content">
 				<div class="cscroll" id="fsScroll">
 					<div class="col">

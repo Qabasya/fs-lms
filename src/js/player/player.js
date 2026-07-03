@@ -7,8 +7,10 @@
  */
 import { initShell } from './shell.js';
 import { initCore } from './core.js';
+import { initRail } from './rail.js';
 
 document.addEventListener( 'DOMContentLoaded', () => {
 	initShell();
 	initCore();
+	initRail();
 } );
