@@ -314,11 +314,76 @@ class Enqueue extends BaseController implements ServiceInterface {
 	}
 
 	/**
+	 * Подключение изолированного бандла плеера курса (Эпик 14, D18).
+	 *
+	 * Грузит только player.min.css/js + MathJax и локализует fs_lms_player_vars.
+	 * Маршрут определяет LessonPlayerController: перед рендером player.php он
+	 * взводит фильтр `fs_lms_is_player_route` (роут кокпита + ?gl= + ученик).
+	 *
+	 * @return void
+	 */
+	private function enqueue_player_assets(): void {
+		wp_enqueue_style(
+			'fs-lms-player-style',
+			$this->url( 'assets/css/player.min.css' ),
+			array(),
+			filemtime( $this->path( 'assets/css/player.min.css' ) )
+		);
+
+		wp_enqueue_script(
+			'fs-lms-player-script',
+			$this->url( 'assets/js/player.min.js' ),
+			array(),
+			filemtime( $this->path( 'assets/js/player.min.js' ) ),
+			true
+		);
+
+		wp_localize_script(
+			'fs-lms-player-script',
+			'fs_lms_player_vars',
+			array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'actions'  => array(
+					'markStep'        => AjaxHook::MarkStepProgress->jsAction(),
+					'submitTask'      => AjaxHook::SubmitTaskAnswer->jsAction(),
+					'submitBatchWork' => AjaxHook::SubmitBatchWork->jsAction(),
+				),
+				'nonces'   => array(
+					'markStep'        => Nonce::MarkStepProgress->create(),
+					'submitTask'      => Nonce::SubmitTaskAnswer->create(),
+					'submitBatchWork' => Nonce::SubmitBatchWork->create(),
+				),
+			)
+		);
+
+		// MathJax v3 — рендеринг LaTeX-формул \(...\) и \[...\] в контенте шагов.
+		wp_enqueue_script(
+			'fs-lms-mathjax',
+			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
+			array(),
+			null,
+			true
+		);
+		wp_add_inline_script(
+			'fs-lms-mathjax',
+			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
+			'before'
+		);
+	}
+
+	/**
 	 * Подключение ресурсов на фронтенде (публичная часть сайта).
 	 *
 	 * @return void
 	 */
 	public function enqueue_frontend_assets(): void {
+		// Плеер курса — изолированный полноэкранный SPA (как /profile/):
+		// только бандл плеера, без frontend/theme-стека.
+		if ( apply_filters( 'fs_lms_is_player_route', false ) ) {
+			$this->enqueue_player_assets();
+			return;
+		}
+
 		// Личный кабинет — изолированный полноэкранный SPA: грузим только его бандл,
 		// без общего frontend/theme-стека, чтобы не мешать вёрстке кабинета.
 		if ( is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
@@ -442,21 +507,11 @@ class Enqueue extends BaseController implements ServiceInterface {
 				)
 			);
 
-			// Пошаговый плеер урока (?gl=)
-			wp_localize_script(
-				'fs-lms-frontend-script',
-				'fs_lms_player_vars',
-				array(
-					'ajax_url'           => admin_url( 'admin-ajax.php' ),
-					'action'             => AjaxHook::MarkStepProgress->jsAction(),
-					'nonce'              => Nonce::MarkStepProgress->create(),
-					'submit_task_action' => AjaxHook::SubmitTaskAnswer->jsAction(),
-					'submit_task_nonce'  => Nonce::SubmitTaskAnswer->create(),
-				)
-			);
+			// Плеер урока живёт на своём изолированном бандле (Эпик 14, D18) —
+			// см. enqueue_player_assets(); здесь остаётся только кокпит.
 
-			// MathJax v3 — рендеринг LaTeX-формул \(...\) и \[...\] в тексте шагов урока.
-			// Конфиг должен быть до загрузки скрипта, поэтому 'before'.
+			// MathJax v3 — рендеринг LaTeX-формул \(...\) и \[...\] в контенте
+			// кокпита (инструкции работ и т.п.). Конфиг — до скрипта ('before').
 			wp_enqueue_script(
 				'fs-lms-mathjax',
 				'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',

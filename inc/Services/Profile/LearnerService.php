@@ -5,6 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Services\Profile;
 
 use Inc\Contracts\ClockInterface;
+use Inc\DTO\Course\GroupLessonDTO;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -13,6 +15,8 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GradebookService;
+use Inc\Services\Course\LessonGateResolver;
+use Inc\Services\Course\LessonProgressService;
 
 /**
  * Read-модель профиля учащегося (Эпик 7). Собирает по одному `student_person_id`
@@ -33,6 +37,8 @@ class LearnerService {
 		private readonly ClockInterface          $clock,
 		private readonly SubmissionRepository    $submissions,
 		private readonly EffectiveWorksResolver  $worksResolver,
+		private readonly LessonGateResolver      $gate,
+		private readonly LessonProgressService   $progress,
 	) {}
 
 	/** @return array<string, mixed> */
@@ -63,8 +69,9 @@ class LearnerService {
 				if ( 'individual' === $row->kind && $row->studentPersonId !== $personId ) {
 					continue;
 				}
-				$topic = $this->topicOf( $row );
-				$item  = array(
+				$topic      = $this->topicOf( $row );
+				$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
+				$item       = array(
 					'group_lesson_id' => $row->id,
 					'group_id'        => $gid,
 					'group_name'      => $gname,
@@ -75,6 +82,10 @@ class LearnerService {
 					'homework_due_at' => $row->homeworkDueAt,
 					'visibility'      => $row->visibility,
 					'kind'            => $row->kind,
+					// Вход в плеер курса (T14.13): урок с контентом получает ссылку
+					// в плеер и статус прохождения (done / available / locked).
+					'player_url'      => $hasContent ? $this->playerUrl( $gid, $row->id ) : '',
+					'status'          => $hasContent ? $this->lessonStatus( $personId, $row ) : '',
 				);
 				$lessonMap[ $row->id ] = $item;
 				$allLessons[]          = $item;
@@ -168,8 +179,28 @@ class LearnerService {
 		);
 	}
 
-	private function topicOf( \Inc\DTO\Course\GroupLessonDTO $row ): string {
+	private function topicOf( GroupLessonDTO $row ): string {
 		$lesson = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
 		return $lesson?->topic ?? ( $row->label ?? '' );
+	}
+
+	/** Deep-link в плеер курса: маршрут кокпита группы + ?gl=. */
+	private function playerUrl( int $groupId, int $groupLessonId ): string {
+		return add_query_arg(
+			array(
+				'gid' => $groupId,
+				'gl'  => $groupLessonId,
+			),
+			PageRoutes::GroupCockpit->url()
+		);
+	}
+
+	/** Статус занятия для «Мои курсы»: пройден / доступен / закрыт (T14.13). */
+	private function lessonStatus( int $personId, GroupLessonDTO $row ): string {
+		if ( $this->progress->isLessonCompleted( $personId, $row->id ) ) {
+			return 'done';
+		}
+
+		return $this->gate->resolveLesson( $personId, $row )->isAvailable() ? 'available' : 'locked';
 	}
 }

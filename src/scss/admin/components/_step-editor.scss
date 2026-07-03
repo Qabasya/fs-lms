@@ -77,6 +77,19 @@
 		&:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
 	}
 	textarea.field-input { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+	// видео-шаг: главы и вложения (D21, T14.12)
+	.fs-cb-chapters, .fs-cb-attachments { display: flex; flex-direction: column; gap: $spacing-xs; margin-bottom: $spacing-xs; }
+	.fs-cb-chapter-row {
+		display: flex; gap: $spacing-xs; align-items: center;
+		.fs-cb-ch-time { width: 84px; flex-shrink: 0; text-align: center; }
+		.fs-cb-ch-title { flex: 1; }
+	}
+	.fs-cb-attach-row {
+		display: flex; gap: $spacing-sm; align-items: center;
+		padding: $spacing-xs 11px; border: 1px solid $color-border-input; border-radius: 5px; background: $color-bg-modal;
+		.fs-cb-attach-title { flex: 1; min-width: 0; font-size: $font-size-wp; color: $color-text-primary; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	}
 	.rte-area {
 		padding: $spacing-lg $spacing-xl; min-height: 260px; line-height: 1.7; font-size: $font-size; color: $color-text-primary;
 		outline: none; background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: $border-radius-l;

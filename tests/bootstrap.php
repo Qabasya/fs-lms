@@ -47,7 +47,8 @@ if (!class_exists('WP_User')) {
 
 // WP function stubs
 if (!function_exists('get_current_user_id')) {
-    function get_current_user_id(): int { return 0; }
+    // Управляется $GLOBALS['_fs_test_user_id'] (сбрасывается в fs_test_reset_ajax).
+    function get_current_user_id(): int { return $GLOBALS['_fs_test_user_id'] ?? 0; }
 }
 if (!function_exists('is_user_logged_in')) {
     function is_user_logged_in(): bool { return $GLOBALS['_test_logged_in'] ?? true; }
@@ -386,10 +387,40 @@ function get_the_post_thumbnail_url( int $post_id, string $size = 'post-thumbnai
     return '';
 }
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
+}
+if (!function_exists('esc_url')) {
+    function esc_url(string $url): string { return $url; }
+}
+if (!function_exists('add_query_arg')) {
+    function add_query_arg(array $args, string $url): string {
+        $sep = str_contains($url, '?') ? '&' : '?';
+        return $url . $sep . http_build_query($args);
+    }
+}
+if (!function_exists('get_permalink')) {
+    function get_permalink(int|object $post = 0): string|false {
+        $id = is_object($post) ? $post->ID : $post;
+        return get_post($id) instanceof WP_Post ? "http://example.com/?p={$id}" : false;
+    }
+}
+if (!function_exists('wp_get_attachment_url')) {
+    // Управляется $GLOBALS['_fs_test_attachment_urls'][id] (нет записи — false, как в WP).
+    function wp_get_attachment_url(int $id): string|false { return $GLOBALS['_fs_test_attachment_urls'][$id] ?? false; }
+}
+if (!function_exists('get_attached_file')) {
+    function get_attached_file(int $id): string|false { return $GLOBALS['_fs_test_attached_files'][$id] ?? false; }
+}
+if (!function_exists('size_format')) {
+    function size_format(int|float $bytes, int $decimals = 0): string|false { return $bytes . ' B'; }
+}
+
 /** Сбрасывает флаги авторизации харнесса к «всё разрешено» (вызывать в setUp). */
 function fs_test_reset_ajax(): void {
     $GLOBALS['_fs_test_can']      = true;
     $GLOBALS['_fs_test_nonce_ok'] = true;
+    unset($GLOBALS['_fs_test_user_id']);
     $_POST = [];
     $_GET  = [];
 }

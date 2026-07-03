@@ -16,6 +16,8 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GradebookService;
+use Inc\Services\Course\LessonGateResolver;
+use Inc\Services\Course\LessonProgressService;
 use Inc\Services\Profile\LearnerService;
 use PHPUnit\Framework\TestCase;
 
@@ -30,6 +32,8 @@ class LearnerServiceTest extends TestCase {
 	private $clock;
 	private $submissions;
 	private $worksResolver;
+	private $gate;
+	private $progress;
 	private LearnerService $service;
 
 	protected function setUp(): void {
@@ -46,10 +50,13 @@ class LearnerServiceTest extends TestCase {
 		// для нестабленных вызовов (тип возврата array); так тестовые overrides не глушатся.
 		$this->submissions   = $this->createMock( SubmissionRepository::class );
 		$this->worksResolver = $this->createMock( EffectiveWorksResolver::class );
+		$this->gate          = $this->createMock( LessonGateResolver::class );
+		$this->progress      = $this->createMock( LessonProgressService::class );
+		$this->gate->method( 'resolveLesson' )->willReturn( \Inc\Enums\Course\GateState::Available );
 		$this->service = new LearnerService(
 			$this->records, $this->groups, $this->groupLessons, $this->lessons,
 			$this->gradebook, $this->attendance, $this->clock,
-			$this->submissions, $this->worksResolver,
+			$this->submissions, $this->worksResolver, $this->gate, $this->progress,
 		);
 	}
 
@@ -161,13 +168,40 @@ class LearnerServiceTest extends TestCase {
 		);
 	}
 
-	private function row( int $id, string $scheduledAt, ?string $homeworkDueAt = null ): GroupLessonDTO {
+	private function row( int $id, string $scheduledAt, ?string $homeworkDueAt = null, ?int $lessonId = null ): GroupLessonDTO {
 		return new GroupLessonDTO(
-			id: $id, groupId: 1, lessonId: null, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			id: $id, groupId: 1, lessonId: $lessonId, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: $scheduledAt, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'open',
 			openedAt: null, homeworkDueAt: $homeworkDueAt, allowLate: true, recordingUrl: null,
 			createdByUserId: null, updatedByUserId: null, label: 'Тема ' . $id,
 		);
+	}
+
+	/* ── T14.13: вход в плеер из «Мои курсы» ─────────────────────────────── */
+
+	public function test_build_lessons_carry_player_url_and_status(): void {
+		$this->records->method( 'findActiveByStudent' )->with( 9001 )->willReturn( array(
+			(object) array( 'groupId' => 1 ),
+		) );
+		$this->groups->method( 'findById' )->with( 1 )
+			->willReturn( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf' ) );
+		$this->groupLessons->method( 'listByGroup' )->with( 1 )->willReturn( array(
+			$this->row( 10, '2026-05-10 09:00:00', null, 500 ), // с контентом → плеер
+			$this->row( 11, '2026-05-25 09:00:00' ),            // без lessonId → без плеера
+		) );
+		$this->lessons->method( 'get' )->willReturn( null );
+		$this->gradebook->method( 'forStudent' )->willReturn( array() );
+		$this->attendance->method( 'listByStudent' )->willReturn( array() );
+		$this->progress->method( 'isLessonCompleted' )->with( 9001, 10 )->willReturn( true );
+
+		$lessons = $this->service->build( 9001 )['lessons'];
+		$byId    = array_column( $lessons, null, 'group_lesson_id' );
+
+		self::assertSame( 'done', $byId[10]['status'] );
+		self::assertStringContainsString( 'gid=1', $byId[10]['player_url'] );
+		self::assertStringContainsString( 'gl=10', $byId[10]['player_url'] );
+		self::assertSame( '', $byId[11]['player_url'] );
+		self::assertSame( '', $byId[11]['status'] );
 	}
 
 	private function att( int $glid, bool $present ): AttendanceDTO {

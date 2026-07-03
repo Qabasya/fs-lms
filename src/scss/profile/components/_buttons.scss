@@ -25,6 +25,7 @@
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);
 }
 .prof-chip.ok { background: var(--ok-bg); border-color: var(--ok-border); color: var(--ok-ink); }
+.prof-chip.go { background: var(--accent-soft); border-color: var(--accent-soft-2); color: var(--accent-700); }
 .prof-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .prof-dot-good { background: var(--g-good); }
 .prof-dot-accent { background: var(--accent); }

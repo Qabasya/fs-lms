@@ -214,6 +214,12 @@ class LessonCallbacks extends BaseController {
 				'title'       => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
 				'url'         => $this->sanitizeTextValue( $raw_payload['url'] ?? '' ),
 				'description' => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
+				// D21 (T14.12): главы (перемотка в нативном плеере) и вложения-конспекты.
+				'chapters'    => $this->sanitizeChapters( $raw_payload['chapters'] ?? array() ),
+				'attachments' => array_values( array_filter( array_map(
+					'intval',
+					is_array( $raw_payload['attachments'] ?? null ) ? $raw_payload['attachments'] : array()
+				) ) ),
 			),
 			'task'               => array(
 				'ref'      => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
@@ -232,5 +238,39 @@ class LessonCallbacks extends BaseController {
 		}
 
 		return array( 'key' => $key, 'type' => $type, 'payload' => $payload );
+	}
+
+	/**
+	 * Главы видео-шага (D21): [{t: секунды, title}], отсортированы по времени.
+	 * Пустые строки (без названия и с нулевым временем) отбрасываются.
+	 *
+	 * @param mixed $raw
+	 *
+	 * @return array<int, array{t:int, title:string}>
+	 */
+	private function sanitizeChapters( mixed $raw ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$chapters = array();
+		foreach ( $raw as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$title = $this->sanitizeTextValue( $row['title'] ?? '' );
+			$t     = max( 0, (int) ( $row['t'] ?? 0 ) );
+			if ( '' === $title && 0 === $t ) {
+				continue;
+			}
+			$chapters[] = array(
+				't'     => $t,
+				'title' => $title,
+			);
+		}
+
+		usort( $chapters, static fn( array $a, array $b ): int => $a['t'] <=> $b['t'] );
+
+		return $chapters;
 	}
 }

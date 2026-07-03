@@ -1,0 +1,45 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Карточка шага (T14.6): card16 — kick (бейдж типа), заголовок, контент.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.card16 {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 34px 40px;
+
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin-bottom: 6px;
+  }
+
+  > .gap16 > p,
+  p { font-size: 14.5px; line-height: 1.7; color: var(--ink-2); }
+}
+
+.kick {
+  font: 700 11px var(--font);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-bottom: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.gap16 {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.step-muted {
+  color: var(--muted);
+  font-size: 14px;
+}

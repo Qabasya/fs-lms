@@ -1,0 +1,24 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Базовые стили плеера: reset, body-холст
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+*,
+*::before,
+*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html,
+body { height: 100%; }
+
+body.fs-player-page {
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button { font-family: inherit; }
+
+::selection { background: var(--accent-soft-2); }

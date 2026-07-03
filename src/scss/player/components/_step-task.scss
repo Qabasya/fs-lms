@@ -1,0 +1,323 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Задача-шаг (T14.7): opt-строки вариантов (sel/ok/no + tail-метки),
+   вердикт-блоки vd-ok/vd-no, поле ответа (ansbox), счётчик попыток,
+   подсказка. Порт cp-base.css (.opt/.vd/.ansbox) + стили виджетов.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+/* ── Варианты ответа (choice) ───────────────────────────────────────── */
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--ink-2);
+  cursor: pointer;
+
+  + .opt { margin-top: 10px; }
+
+  &:hover { border-color: var(--accent-soft-2); }
+
+  .radio {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid #cdd1da;
+    flex-shrink: 0;
+    position: relative;
+    background: #fff;
+  }
+
+  .opt-body { flex: 1; min-width: 0; }
+
+  &.sel {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--ink);
+
+    .radio { border-color: var(--accent); }
+
+    .radio::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+  }
+
+  &.ok {
+    border-color: var(--ok);
+    background: var(--ok-soft);
+    color: var(--ink);
+
+    .radio { border-color: var(--ok); }
+
+    .radio::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: var(--ok);
+    }
+  }
+
+  &.no {
+    border-color: var(--err);
+    background: var(--err-soft);
+    color: var(--ink);
+
+    .radio { border-color: var(--err); }
+
+    .radio::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: var(--err);
+    }
+  }
+
+  &.dis { pointer-events: none; }
+
+  .tail {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font: 600 12px var(--font);
+    flex-shrink: 0;
+
+    &.t-ok { color: var(--ok); }
+    &.t-no { color: var(--err); }
+  }
+}
+
+/* ── Вердикты ───────────────────────────────────────────────────────── */
+.vd {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin-top: 14px;
+
+  .vi {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    margin-top: 1px;
+  }
+
+  b {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .vmeta {
+    margin-top: 7px;
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font: 600 12px var(--font);
+    opacity: 0.85;
+  }
+}
+
+.vd-ok {
+  background: var(--ok-soft);
+  border: 1px solid var(--ok-line);
+  color: #2b6a3c;
+
+  .vi { background: var(--ok); }
+
+  b { color: #237032; }
+}
+
+.vd-no {
+  background: var(--err-soft);
+  border: 1px solid var(--err-line);
+  color: #9c3535;
+
+  .vi { background: var(--err); }
+
+  b { color: #c92a2a; }
+}
+
+.vd-wait {
+  background: var(--wait-soft);
+  border: 1px solid var(--wait-line);
+  color: #8a5a10;
+
+  .vi { background: #f08c00; }
+
+  b { color: var(--wait); }
+}
+
+/* ── Поле ответа ────────────────────────────────────────────────────── */
+.ansbox {
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 13px 16px;
+  font: 13px/1.7 var(--mono);
+  color: #2b3244;
+  width: 100%;
+  display: block;
+  resize: vertical;
+  outline: none;
+
+  &.txt {
+    font: 14px/1.65 var(--font);
+    color: var(--ink-2);
+  }
+
+  &:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  &.lock,
+  &:disabled { background: var(--surface-2); }
+}
+
+/* ── Прочие виджеты ─────────────────────────────────────────────────── */
+.fs-widget-audio {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.fs-widget-triple-group + .fs-widget-triple-group { margin-top: 10px; }
+
+.fs-widget-matching-row {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  align-items: center;
+
+  + .fs-widget-matching-row { margin-top: 10px; }
+}
+
+.fs-widget-matching-left { font-size: 14px; color: var(--ink-2); }
+
+.fs-widget-matching-select {
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 9px 12px;
+  font: 500 13px var(--font);
+  color: var(--ink-2);
+  outline: none;
+
+  &:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+}
+
+.fs-widget-ordering {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fs-widget-ordering-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--ink-2);
+  cursor: grab;
+
+  &.fs-dragging {
+    opacity: 0.55;
+    border-style: dashed;
+  }
+}
+
+.fs-widget-ordering-grip {
+  color: var(--muted-2);
+  cursor: grab;
+  user-select: none;
+}
+
+.fs-widget-fill {
+  font-size: 14.5px;
+  line-height: 2.1;
+  color: var(--ink-2);
+}
+
+.fs-widget-fill-gap {
+  border: none;
+  border-bottom: 2px solid var(--accent-soft-2);
+  background: var(--accent-soft);
+  border-radius: 6px 6px 0 0;
+  margin: 0 4px;
+  padding: 2px 8px;
+  font: 600 13.5px var(--mono);
+  color: var(--accent-700);
+  outline: none;
+
+  &:focus { border-bottom-color: var(--accent); }
+}
+
+/* ── Условие, попытки, подсказка, футер ─────────────────────────────── */
+.fs-task-subpart + .fs-task-subpart { margin-top: 8px; }
+
+.fs-task-subpart__label {
+  font-size: 15px;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.fs-attempt-indicator {
+  font: 600 12px var(--font);
+  color: var(--muted-2);
+}
+
+.fs-task-footer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.fs-task-result { flex-basis: 100%; }
+
+.fs-task-result .vd { margin-top: 0; }
+
+.fs-hint {
+  border: 1px solid var(--wait-line);
+  background: var(--wait-soft);
+  border-radius: 12px;
+  padding: 12px 16px;
+
+  summary {
+    cursor: pointer;
+    font: 600 13px var(--font);
+    color: var(--wait);
+  }
+
+  .fs-hint__body {
+    margin-top: 8px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+}

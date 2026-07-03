@@ -1,0 +1,285 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Рейка-дерево (T14.4): slim-полоска 64px → разворот 316px по hover/pin.
+   Порт final.css из дизайн-хэндоффа (rail-slim / rail-full / t-*).
+   Базовый контейнер .rail — в _shell.scss.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.rail:hover,
+.rail.pin {
+  width: 316px;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ── Slim-полоска ───────────────────────────────────────────────────── */
+.rail-slim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 64px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 8px;
+  transition: opacity 0.14s;
+}
+
+.rail:hover .rail-slim,
+.rail.pin .rail-slim {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rs-x {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px dashed var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-2);
+  margin-bottom: 2px;
+  cursor: pointer;
+}
+
+.rs-les {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font: 700 12.5px var(--font);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+  flex-shrink: 0;
+
+  &.done {
+    background: var(--ok-soft);
+    border-color: var(--ok-line);
+    color: var(--ok);
+  }
+
+  &.cur {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 0 3px var(--accent-soft-2);
+  }
+
+  &.lk {
+    background: var(--surface-2);
+    color: var(--muted-2);
+  }
+}
+
+.rs-sep {
+  width: 26px;
+  height: 1px;
+  background: var(--line);
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+
+/* ── Полный разворот ────────────────────────────────────────────────── */
+.rail-full {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 316px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s 0.06s;
+}
+
+.rail:hover .rail-full,
+.rail.pin .rail-full {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.rf-h {
+  padding: 14px 14px 13px 16px;
+  border-bottom: 1px solid var(--line-2);
+  display: flex;
+  gap: 10px;
+
+  .rf-t {
+    flex: 1;
+    min-width: 0;
+  }
+
+  b {
+    font-size: 13.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    display: block;
+  }
+
+  .bar {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--line-2);
+    margin-top: 9px;
+    overflow: hidden;
+
+    span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+    }
+  }
+
+  .pct {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 5px;
+  }
+}
+
+.rf-pin {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &:hover { background: var(--surface-2); }
+
+  &.on {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+}
+
+.rf-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+  scrollbar-width: thin;
+}
+
+/* ── Дерево: модули / уроки / шаги ──────────────────────────────────── */
+.t-mod {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  font: 600 13px var(--font);
+  color: var(--ink);
+
+  &.dim {
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .tmi {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font: 700 11px var(--font);
+    background: var(--surface-2);
+    color: var(--muted-2);
+
+    &.ok { background: var(--ok-soft); color: var(--ok); }
+    &.cur { background: var(--accent-soft); color: var(--accent-700); }
+    &.lk { background: var(--surface-2); color: var(--muted-2); }
+  }
+
+  .chev {
+    margin-left: auto;
+    color: var(--muted-2);
+    display: flex;
+  }
+}
+
+.t-les {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px 7px 24px;
+  font: 500 12.5px var(--font);
+  color: var(--ink-2);
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover { background: var(--surface-2); }
+
+  &.cur { font-weight: 600; cursor: default; }
+
+  &.dim { color: var(--muted-2); }
+
+  .ls {
+    margin-left: auto;
+    display: flex;
+    color: var(--muted-2);
+
+    &.ok { color: var(--ok); }
+  }
+}
+
+.t-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  margin-left: 32px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+
+  &:hover { background: var(--surface-2); }
+
+  &.on {
+    background: var(--accent-soft);
+    color: var(--accent-700);
+    font-weight: 600;
+  }
+
+  .tsi {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .txt {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  .tick {
+    margin-left: auto;
+    color: var(--ok);
+    display: flex;
+    flex-shrink: 0;
+  }
+}

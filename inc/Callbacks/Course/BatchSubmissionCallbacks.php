@@ -66,6 +66,10 @@ class BatchSubmissionCallbacks extends BaseController {
 				$answers,
 			);
 
+			// T14.11: пооответные вердикты батч-проверки (агрегатная строка хранит
+			// их JSON в answer_text) — плеер строит из них экран результатов.
+			$perTask = json_decode( (string) $aggregate->answerText, true );
+
 			$this->success( array(
 				'submission_id' => $aggregate->id,
 				'status'        => $aggregate->status->value,
@@ -73,6 +77,8 @@ class BatchSubmissionCallbacks extends BaseController {
 				'correct'       => (int) ( $aggregate->score ?? 0 ),
 				'total'         => (int) ( $aggregate->maxScore ?? 0 ),
 				'tally'         => ( (int) ( $aggregate->score ?? 0 ) ) . '/' . ( (int) ( $aggregate->maxScore ?? 0 ) ),
+				'per_task'      => is_array( $perTask ) ? $perTask : array(),
+				'submitted_at'  => $aggregate->submittedAt,
 			) );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );

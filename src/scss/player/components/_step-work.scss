@@ -1,0 +1,306 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Работа-шаг (T14.10/T14.11): воркбар, стек карточек задач, чипы статуса
+   ответа, сводка результатов, модалка подтверждения.
+   Порт cp-screens.css (вариант A) + cp-base.css (.stc/.res/.cp-modal).
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+/* ── Воркбар ────────────────────────────────────────────────────────── */
+.a-workbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  padding: 12px 18px;
+  margin-bottom: 14px;
+
+  .wb-t {
+    min-width: 0;
+
+    b {
+      font-size: 14.5px;
+      font-weight: 700;
+      display: block;
+    }
+
+    span { font-size: 12px; color: var(--muted); }
+  }
+
+  .wb-sp { flex: 1; }
+}
+
+.a-prog {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  .ap-txt {
+    font: 600 12.5px var(--font);
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+
+  .ap-bar {
+    width: 90px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--line-2);
+    overflow: hidden;
+
+    span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+    }
+  }
+}
+
+/* ── Стек карточек задач ────────────────────────────────────────────── */
+.wstack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.a-task {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 22px 28px;
+
+  .th {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+
+    b { font-size: 15px; font-weight: 700; flex: 1; }
+
+    .pts { font: 600 12px var(--font); color: var(--muted-2); white-space: nowrap; }
+  }
+
+  .q {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--ink-2);
+    margin-bottom: 14px;
+  }
+
+  .tgap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+.work-instructions { margin-bottom: 14px; }
+
+/* номер задачи */
+.tkn {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent-700);
+  font: 700 13px/30px var(--font);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* статус ответа */
+.stc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font: 600 11.5px var(--font);
+  white-space: nowrap;
+
+  &.stc-saved { background: var(--accent-soft); color: var(--accent-700); }
+
+  &.stc-none {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+}
+
+.wnote {
+  font: 500 12px var(--font);
+  color: var(--muted-2);
+}
+
+/* ── Сводка результатов ─────────────────────────────────────────────── */
+.res {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  background: linear-gradient(120deg, #e9f7ee, #f6fbf7 55%, #fff);
+  border: 1px solid var(--ok-line);
+  margin-bottom: 14px;
+
+  .ri {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--ok);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 6px 16px rgba(47, 158, 68, 0.3);
+  }
+
+  .rt {
+    flex: 1;
+    min-width: 0;
+
+    b { font-size: 16.5px; font-weight: 700; display: block; }
+
+    span {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 2px;
+      display: block;
+    }
+  }
+
+  .rstats { display: flex; gap: 26px; }
+
+  .rs {
+    text-align: right;
+
+    b {
+      font: 700 20px var(--font);
+      letter-spacing: -0.01em;
+      font-variant-numeric: tabular-nums;
+      display: block;
+    }
+
+    span { font-size: 11px; color: var(--muted-2); }
+  }
+}
+
+.work-resfoot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+
+  .work-resfoot-sp { flex: 1; }
+}
+
+/* ── Модалка подтверждения ──────────────────────────────────────────── */
+.cp-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(14, 18, 33, 0.46);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: $z-modal;
+  animation: dim-in 0.16s ease;
+}
+
+.cp-modal {
+  width: 470px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: var(--shadow-pop);
+  padding: 26px 28px;
+  animation: pop-in 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  .mi {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+  }
+
+  h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+
+  p {
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  .mm {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0 20px;
+    flex-wrap: wrap;
+  }
+
+  .mm .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    font: 600 12px var(--font);
+    color: var(--ink-2);
+
+    &.warn {
+      background: var(--wait-soft);
+      border-color: var(--wait-line);
+      color: var(--wait);
+    }
+  }
+
+  .macts {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+}
+
+@keyframes dim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── Контрольная-шаг (T14.14): мета-чипы ────────────────────────────── */
+.asm-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.asm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font: 600 12.5px var(--font);
+  color: var(--ink-2);
+
+  svg { color: var(--muted-2); }
+}

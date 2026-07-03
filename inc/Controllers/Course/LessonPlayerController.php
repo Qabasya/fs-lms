@@ -10,6 +10,7 @@ use Inc\Enums\Course\GateState;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Course\CourseNavService;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonPlayerService;
@@ -32,6 +33,7 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		private readonly GroupLessonRepository $groupLessons,
 		private readonly LessonGateResolver    $gate,
 		private readonly LessonPlayerService   $player,
+		private readonly CourseNavService      $nav,
 	) {
 		parent::__construct();
 	}
@@ -75,13 +77,21 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		$groupId     = $row->groupId;
 		$active_step = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( $_GET['step'] ) ) : '';
 
-		ThemeCompatService::header();
 		if ( GateState::Locked === $lessonGate || null === $view ) {
+			ThemeCompatService::header();
 			include $this->path( 'templates/frontend/lesson-player/locked.php' );
-		} else {
-			include $this->path( 'templates/frontend/lesson-player/player.php' );
+			ThemeCompatService::footer();
+			exit;
 		}
-		ThemeCompatService::footer();
+
+		// Оболочка плеера (T14.2) и дерево курса для рейки (T14.3).
+		$view['shell'] = $this->nav->shell( $person->id, $row );
+		$view['tree']  = $this->nav->tree( $person->id, $row );
+
+		// Плеер — полноэкранный app-shell со своим <html> (Эпик 14, D18):
+		// без темы сайта; Enqueue по этому флагу грузит только бандл плеера.
+		add_filter( 'fs_lms_is_player_route', '__return_true' );
+		include $this->path( 'templates/frontend/lesson-player/player.php' );
 		exit;
 	}
 

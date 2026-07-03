@@ -1,14 +1,25 @@
 /**
- * Interactive task widgets for the lesson player (Этап 6, Phase E).
+ * Interactive task widgets for the course player (Этап 6, Phase E; Эпик 14 T14.7).
  * Pure-JS, function pattern. No jQuery, no external deps.
  *
  * initTaskWidget(panel) reads .fs-task-widget data attributes, renders the
- * correct input widget, and returns { collectAnswer() → JSON string }.
+ * correct input widget and returns the widget API:
+ *   collectAnswer() → JSON string — ответ для SubmitTaskAnswer (контракт чекеров, НЕ менять);
+ *   setAnswer(value)              — восстановить ответ (черновики/повторная сдача работы);
+ *   hasAnswer()     → bool        — есть ли что отправлять («Ответить» disabled без выбора);
+ *   onChange(cb)                  — подписка на изменение ввода;
+ *   applyVerdict(ok)              — пометить выбор ok/no после проверки (choice);
+ *   resetAttempt()                — сброс выбора для «Попробовать ещё раз»;
+ *   reveal(correct)               — подсветить эталон после исчерпания попыток (D20);
+ *   lock()                        — задизейблить ввод.
  */
 
+const CHECK_SVG = '<svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CROSS_SVG = '<svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5 5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
 /**
- * @param {HTMLElement} panel  — the .fs-player__panel element
- * @returns {{ collectAnswer: () => string }|null}
+ * @param {HTMLElement} panel  — панель шага с .fs-task-widget внутри
+ * @returns {object|null} widget API (см. шапку файла)
  */
 export function initTaskWidget( panel ) {
 	const container = panel.querySelector( '.fs-task-widget' );
@@ -33,16 +44,49 @@ function parseWidgetData( raw ) {
 	try { return JSON.parse( raw || '{}' ); } catch { return {}; }
 }
 
+/** Базовый API виджета: билдеры переопределяют только то, что умеют. */
+function widgetApi( overrides ) {
+	return Object.assign(
+		{
+			setAnswer: () => {},
+			hasAnswer: () => true,
+			onChange: () => {},
+			applyVerdict: () => {},
+			resetAttempt: () => {},
+			reveal: () => {},
+			lock: () => {},
+		},
+		overrides
+	);
+}
+
+/** Текстовые контролы: общий API поверх списка инпутов/textarea. */
+function inputsApi( inputs, collectAnswer, hasAnswer ) {
+	return widgetApi( {
+		collectAnswer,
+		hasAnswer,
+		onChange: ( cb ) => inputs.forEach( ( el ) => el.addEventListener( 'input', cb ) ),
+		lock: () => inputs.forEach( ( el ) => { el.disabled = true; el.classList.add( 'lock' ); } ),
+	} );
+}
+
 // ── Text answer (Standard / Common) ───────────────────────────────────────
 
 function buildTextAnswerWidget( container, isDone ) {
-	const textarea = make( 'textarea', 'fs-widget-text' );
+	const textarea = make( 'textarea', 'fs-widget-text ansbox txt' );
 	textarea.rows        = 4;
 	textarea.placeholder = 'Введите ответ…';
 	if ( isDone ) { textarea.disabled = true; }
 	container.appendChild( textarea );
 
-	return { collectAnswer: () => JSON.stringify( textarea.value.trim() ) };
+	return Object.assign(
+		inputsApi(
+			[ textarea ],
+			() => JSON.stringify( textarea.value.trim() ),
+			() => '' !== textarea.value.trim()
+		),
+		{ setAnswer: ( v ) => { textarea.value = 'string' === typeof v ? v : ''; } }
+	);
 }
 
 // ── Audio + text answer ────────────────────────────────────────────────────
@@ -55,13 +99,20 @@ function buildAudioWidget( container, data, isDone ) {
 		container.appendChild( audio );
 	}
 
-	const textarea       = make( 'textarea', 'fs-widget-text' );
+	const textarea       = make( 'textarea', 'fs-widget-text ansbox txt' );
 	textarea.rows        = 3;
 	textarea.placeholder = 'Введите ответ…';
 	if ( isDone ) { textarea.disabled = true; }
 	container.appendChild( textarea );
 
-	return { collectAnswer: () => JSON.stringify( textarea.value.trim() ) };
+	return Object.assign(
+		inputsApi(
+			[ textarea ],
+			() => JSON.stringify( textarea.value.trim() ),
+			() => '' !== textarea.value.trim()
+		),
+		{ setAnswer: ( v ) => { textarea.value = 'string' === typeof v ? v : ''; } }
+	);
 }
 
 // ── Triple (три отдельных инпута: задания 19, 20, 21) ──────────────────────
@@ -72,7 +123,7 @@ function buildTripleWidget( container, isDone ) {
 
 	keys.forEach( key => {
 		const group       = make( 'div', 'fs-widget-triple-group' );
-		const input       = make( 'input', 'fs-widget-triple-input' );
+		const input       = make( 'input', 'fs-widget-triple-input ansbox txt' );
 		input.type        = 'text';
 		input.placeholder = `Ответ на задание ${ key }…`;
 		if ( isDone ) { input.disabled = true; }
@@ -81,16 +132,21 @@ function buildTripleWidget( container, isDone ) {
 		container.appendChild( group );
 	} );
 
-	return {
-		collectAnswer: () => JSON.stringify( {
-			'19': inputs[ '19' ].value.trim(),
-			'20': inputs[ '20' ].value.trim(),
-			'21': inputs[ '21' ].value.trim(),
-		} ),
-	};
+	return Object.assign(
+		inputsApi(
+			Object.values( inputs ),
+			() => JSON.stringify( {
+				'19': inputs[ '19' ].value.trim(),
+				'20': inputs[ '20' ].value.trim(),
+				'21': inputs[ '21' ].value.trim(),
+			} ),
+			() => Object.values( inputs ).some( ( el ) => '' !== el.value.trim() )
+		),
+		{ setAnswer: ( v ) => keys.forEach( ( key ) => { inputs[ key ].value = String( v?.[ key ] ?? '' ); } ) }
+	);
 }
 
-// ── Choice (radio / checkbox) ──────────────────────────────────────────────
+// ── Choice (radio / checkbox) — opt-строки по дизайну плеера ───────────────
 
 function buildChoiceWidget( container, data, isDone ) {
 	const multiple = !! data.multiple;
@@ -98,37 +154,89 @@ function buildChoiceWidget( container, data, isDone ) {
 	const type     = multiple ? 'checkbox' : 'radio';
 	const name     = `fs-choice-${ Date.now() }`;
 
-	const list = make( 'ul', 'fs-widget-choice-list' );
+	const list = make( 'div', 'fs-widget-choice-list opt-list' );
 
 	options.forEach( opt => {
-		const li      = make( 'li', 'fs-widget-choice-item' );
-		const id      = `fs-opt-${ name }-${ opt.id }`;
-		const input   = make( 'input', 'fs-widget-choice-input' );
-		const label   = make( 'label', 'fs-widget-choice-label' );
+		const row     = make( 'label', 'opt' );
+		const input   = make( 'input', 'opt-input' );
+		const radio   = make( 'span', 'radio' );
+		const body    = make( 'span', 'opt-body' );
 
 		input.type    = type;
 		input.name    = name;
 		input.value   = opt.id;
-		input.id      = id;
-		if ( isDone ) { input.disabled = true; }
+		input.hidden  = true;
+		if ( isDone ) { input.disabled = true; row.classList.add( 'dis' ); }
 
-		label.htmlFor     = id;
-		label.textContent = opt.text;
+		body.textContent = opt.text;
 
-		li.appendChild( input );
-		li.appendChild( label );
-		list.appendChild( li );
+		row.appendChild( input );
+		row.appendChild( radio );
+		row.appendChild( body );
+		list.appendChild( row );
 	} );
+
+	const syncSel = () => {
+		list.querySelectorAll( '.opt' ).forEach( ( row ) => {
+			row.classList.toggle( 'sel', row.querySelector( 'input' ).checked );
+		} );
+	};
+	list.addEventListener( 'change', syncSel );
 
 	container.appendChild( list );
 
-	return {
-		collectAnswer: () => {
-			const checked = Array.from( list.querySelectorAll( 'input:checked' ) )
-				.map( el => el.value );
-			return JSON.stringify( checked );
-		},
+	const rows       = () => Array.from( list.querySelectorAll( '.opt' ) );
+	const addTail    = ( row, ok, label ) => {
+		row.querySelector( '.tail' )?.remove();
+		const tail     = make( 'span', `tail ${ ok ? 't-ok' : 't-no' }` );
+		tail.innerHTML = `${ ok ? CHECK_SVG : CROSS_SVG }<span>${ label }</span>`;
+		row.appendChild( tail );
 	};
+	const lock = () => rows().forEach( ( row ) => {
+		row.querySelector( 'input' ).disabled = true;
+		row.classList.add( 'dis' );
+	} );
+
+	return widgetApi( {
+		collectAnswer: () => JSON.stringify(
+			Array.from( list.querySelectorAll( 'input:checked' ) ).map( el => el.value )
+		),
+		setAnswer: ( v ) => {
+			const ids = ( Array.isArray( v ) ? v : [] ).map( String );
+			rows().forEach( ( row ) => {
+				const input   = row.querySelector( 'input' );
+				input.checked = ids.includes( String( input.value ) );
+			} );
+			syncSel();
+		},
+		hasAnswer: () => !! list.querySelector( 'input:checked' ),
+		onChange: ( cb ) => list.addEventListener( 'change', cb ),
+		applyVerdict: ( ok ) => rows().forEach( ( row ) => {
+			if ( ! row.querySelector( 'input' ).checked ) { return; }
+			row.classList.remove( 'sel' );
+			row.classList.add( ok ? 'ok' : 'no' );
+			addTail( row, ok, 'Ваш ответ' );
+		} ),
+		resetAttempt: () => rows().forEach( ( row ) => {
+			const input   = row.querySelector( 'input' );
+			input.checked  = false;
+			input.disabled = false;
+			row.classList.remove( 'sel', 'ok', 'no', 'dis' );
+			row.querySelector( '.tail' )?.remove();
+		} ),
+		reveal: ( correct ) => {
+			const ids = ( Array.isArray( correct ) ? correct : [ correct ] ).map( String );
+			rows().forEach( ( row ) => {
+				const input = row.querySelector( 'input' );
+				if ( ids.includes( String( input.value ) ) && ! input.checked ) {
+					row.classList.add( 'ok' );
+					addTail( row, true, 'Правильный ответ' );
+				}
+			} );
+			lock();
+		},
+		lock,
+	} );
 }
 
 // ── Matching (select dropdowns) ────────────────────────────────────────────
@@ -170,11 +278,21 @@ function buildMatchingWidget( container, data, isDone ) {
 
 	container.appendChild( wrapper );
 
-	return {
+	return widgetApi( {
 		collectAnswer: () => JSON.stringify(
 			selects.map( ( { leftText, select } ) => ( { left: leftText, right: select.value } ) )
 		),
-	};
+		setAnswer: ( v ) => {
+			const pairs = Array.isArray( v ) ? v : [];
+			selects.forEach( ( { leftText, select } ) => {
+				const pair   = pairs.find( ( p ) => p && p.left === leftText );
+				select.value = pair ? String( pair.right ?? '' ) : '';
+			} );
+		},
+		hasAnswer: () => selects.some( ( { select } ) => '' !== select.value ),
+		onChange: ( cb ) => selects.forEach( ( { select } ) => select.addEventListener( 'change', cb ) ),
+		lock: () => selects.forEach( ( { select } ) => { select.disabled = true; } ),
+	} );
 }
 
 // ── Ordering (drag-and-drop list) ──────────────────────────────────────────
@@ -182,6 +300,7 @@ function buildMatchingWidget( container, data, isDone ) {
 function buildOrderingWidget( container, data, isDone ) {
 	const items = Array.isArray( data.items ) ? data.items : [];
 	const list  = make( 'ul', 'fs-widget-ordering' );
+	let notifyChange = () => {};
 
 	items.forEach( item => {
 		const li        = make( 'li', 'fs-widget-ordering-item' );
@@ -202,20 +321,32 @@ function buildOrderingWidget( container, data, isDone ) {
 	} );
 
 	if ( ! isDone ) {
-		attachOrderingDragDrop( list );
+		attachOrderingDragDrop( list, () => notifyChange() );
 	}
 
 	container.appendChild( list );
 
-	return {
+	return widgetApi( {
 		collectAnswer: () => JSON.stringify(
 			Array.from( list.querySelectorAll( '.fs-widget-ordering-item' ) )
 				.map( el => el.dataset.text )
 		),
-	};
+		setAnswer: ( v ) => {
+			if ( ! Array.isArray( v ) ) { return; }
+			v.forEach( ( text ) => {
+				const li = Array.from( list.children ).find( ( el ) => el.dataset.text === text );
+				if ( li ) { list.appendChild( li ); }
+			} );
+		},
+		onChange: ( cb ) => { notifyChange = cb; },
+		lock: () => list.querySelectorAll( '.fs-widget-ordering-item' ).forEach( ( li ) => {
+			li.draggable = false;
+			li.querySelector( '.fs-widget-ordering-grip' )?.remove();
+		} ),
+	} );
 }
 
-function attachOrderingDragDrop( list ) {
+function attachOrderingDragDrop( list, onDrop ) {
 	let dragEl = null;
 
 	list.addEventListener( 'dragstart', ( e ) => {
@@ -238,6 +369,7 @@ function attachOrderingDragDrop( list ) {
 	list.addEventListener( 'dragend', () => {
 		dragEl?.classList.remove( 'fs-dragging' );
 		dragEl = null;
+		onDrop();
 	} );
 }
 
@@ -266,15 +398,20 @@ function buildFillWidget( container, data, isDone ) {
 
 	container.appendChild( wrapper );
 
-	return {
-		collectAnswer: () => {
-			const answers = {};
-			gapInputs.forEach( inp => {
-				answers[ inp.dataset.gapIndex ] = inp.value.trim();
-			} );
-			return JSON.stringify( answers );
-		},
-	};
+	return Object.assign(
+		inputsApi(
+			gapInputs,
+			() => {
+				const answers = {};
+				gapInputs.forEach( inp => {
+					answers[ inp.dataset.gapIndex ] = inp.value.trim();
+				} );
+				return JSON.stringify( answers );
+			},
+			() => gapInputs.some( ( inp ) => '' !== inp.value.trim() )
+		),
+		{ setAnswer: ( v ) => gapInputs.forEach( ( inp ) => { inp.value = String( v?.[ inp.dataset.gapIndex ] ?? '' ); } ) }
+	);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

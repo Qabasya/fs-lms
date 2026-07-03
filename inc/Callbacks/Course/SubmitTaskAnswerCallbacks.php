@@ -16,6 +16,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\EffectiveStepSettingsResolver;
 use Inc\Services\Course\LessonProgressService;
+use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
 use Inc\Shared\Traits\Sanitizer;
@@ -43,6 +44,7 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 		private readonly LessonProgressService        $progress,
 		private readonly TemplateResolver             $resolver,
 		private readonly EffectiveStepSettingsResolver $settingsResolver,
+		private readonly CorrectAnswerResolver        $correctAnswers,
 	) {
 		parent::__construct();
 	}
@@ -157,7 +159,7 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 			default            => ProgressStatus::Available->value,
 		};
 
-		$this->success( array(
+		$payload = array(
 			'is_correct'     => $result->isCorrect,
 			'score'          => $result->score,
 			'max_score'      => $result->maxScore,
@@ -167,6 +169,19 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 			'max_attempts'   => $settings->maxAttempts,
 			'reveal_hint'    => $revealHint,
 			'step_status'    => $stepStatus,
-		) );
+		);
+
+		// D20 (T14.8): эталон отдаётся ТОЛЬКО при исчерпании попыток с провалом —
+		// пересдач у task-шага нет, слива правильного ответа не происходит.
+		if ( $exhausted && ! $result->isCorrect ) {
+			$payload['correct_answer'] = $this->correctAnswers->resolve( $taskId );
+
+			$correctIds = $this->correctAnswers->choiceCorrectIds( $taskId );
+			if ( array() !== $correctIds ) {
+				$payload['correct_answer_ids'] = $correctIds;
+			}
+		}
+
+		$this->success( $payload );
 	}
 }
