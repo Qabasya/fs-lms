@@ -102,13 +102,29 @@
 }
 
 /* контейнер активного шага; сам шаг (панель) анимируется и при переключении —
-   hidden-toggle перезапускает анимацию (плавные переходы между шагами). */
+   hidden-toggle перезапускает анимацию. Переход между шагами направленный:
+   «Далее» въезжает справа, «Назад» — слева (классы step-anim-* ставит
+   core.js show()); первый показ без класса — мягкий fade-up. */
 .steproot { animation: step-in 0.2s ease; }
 
 .pstep:not([hidden]) { animation: step-in 0.2s ease; }
 
+.pstep.step-anim-fwd:not([hidden]) { animation: step-slide-fwd 0.28s cubic-bezier(0.2, 0.7, 0.3, 1); }
+
+.pstep.step-anim-back:not([hidden]) { animation: step-slide-back 0.28s cubic-bezier(0.2, 0.7, 0.3, 1); }
+
 @keyframes step-in {
   from { opacity: 0; transform: translateY(rem(5)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes step-slide-fwd {
+  from { opacity: 0; transform: translateX(rem(18)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes step-slide-back {
+  from { opacity: 0; transform: translateX(rem(-18)); }
   to { opacity: 1; transform: none; }
 }
 

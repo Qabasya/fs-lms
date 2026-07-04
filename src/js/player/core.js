@@ -119,9 +119,14 @@ export function initCore() {
 
 	function show( i ) {
 		if ( i < 0 || i >= panels.length || ! isAvailable( i ) ) { return; }
+		// Направление перехода — для анимации въезда панели (CSS step-slide-*
+		// в _strip.scss; display-toggle через hidden перезапускает анимацию).
+		const dir = i > active ? 'fwd' : 'back';
 		panels[ active ].hidden = true;
 		active = i;
 		const panel = panels[ active ];
+		panel.classList.remove( 'step-anim-fwd', 'step-anim-back' );
+		panel.classList.add( 'step-anim-' + dir );
 		panel.hidden = false;
 		refresh();
 		if ( scroll ) { scroll.scrollTop = 0; }
