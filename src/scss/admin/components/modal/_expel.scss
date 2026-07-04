@@ -1,0 +1,46 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+/* =================================================================
+   EXPEL MODAL (предупреждение об отчислении)
+   ================================================================= */
+
+.fs-expel-warning {
+  @include callout($color-danger, 0.06, $wp-admin-red-text);
+
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-lg;
+  font-size: $font-size-wp;
+
+  .dashicons {
+    color: $color-danger;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
+.fs-expel-student-name {
+  font-weight: $font-bold;
+  font-size: $font-size-wp;
+  color: $color-text-primary;
+  margin-bottom: $spacing-lg;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.fs-expel-bulk-list {
+  margin: $spacing-xs 0 0 0;
+  padding-left: $spacing-xl;
+  font-weight: 400;
+  font-size: $font-size-wp;
+  color: $color-text-primary;
+
+  li {
+    margin-bottom: $spacing-xs;
+    list-style: disc;
+  }
+}
