@@ -30,6 +30,11 @@ $wp-admin-blue-bg:  #c5d9ed; // blue 5
 $wp-admin-blue-bg-light:  #f0f6fc; // blue 0
 $wp-admin-blue-text:  #0a4b78; // 70
 
+// WP-core .nav-tab цвета текста (для восстановления нативного вида табов,
+// когда они лежат внутри div.notice — см. _learning-bank.scss).
+$wp-nav-tab-text:         #50575e; // .nav-tab
+$wp-nav-tab-text-active:  #000;    // .nav-tab-active
+
 // CSS custom property bridge — follows WP admin color scheme automatically
 :root {
     --color-primary:       var(--wp-admin-theme-color, #{$color-primary});

@@ -20,7 +20,24 @@
 }
 
 // НБ-1: таб-бар предметов внутри того же нотиса — отделяем от описания сверху.
-// Нотис прозрачный (см. выше), поэтому nav-tab-wrapper сохраняет нативный вид WP.
 .fs-lms-learning-notice .fs-lms-subject-tabs {
   margin-top: $spacing-md;
+}
+
+// WP-core `div.notice a { text-decoration: underline; color: тема }` (common.css)
+// специфичнее, чем `.nav-tab`, поэтому таб-бар предметов внутри нотиса выглядел
+// как список подчёркнутых ссылок. Возвращаем табам нативный вид WP — идентично
+// табам в меню «FS LMS» (которые живут в `.wrap`, а не в нотисе).
+.fs-lms-learning-notice .nav-tab {
+  color: $wp-nav-tab-text;
+  text-decoration: none;
+
+  &:hover,
+  &:focus {
+    text-decoration: none;
+  }
+
+  &.nav-tab-active {
+    color: $wp-nav-tab-text-active;
+  }
 }
