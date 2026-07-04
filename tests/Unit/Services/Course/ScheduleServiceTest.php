@@ -8,6 +8,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
 use Inc\Enums\Log\LogEvent;
+use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -28,6 +29,7 @@ class ScheduleServiceTest extends TestCase {
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $records;
 	private RoomRepository&\PHPUnit\Framework\MockObject\MockObject $rooms;
 	private RoomAvailabilityService&\PHPUnit\Framework\MockObject\MockObject $roomAvailability;
+	private CourseManager&\PHPUnit\Framework\MockObject\MockObject $courses;
 	private ScheduleService $service;
 
 	protected function setUp(): void {
@@ -40,6 +42,7 @@ class ScheduleServiceTest extends TestCase {
 		$this->records       = $this->createMock( StudentRecordRepository::class );
 		$this->rooms         = $this->createMock( RoomRepository::class );
 		$this->roomAvailability = $this->createMock( RoomAvailabilityService::class );
+		$this->courses       = $this->createMock( CourseManager::class );
 		$this->service       = new ScheduleService(
 			$this->groupLessons,
 			$this->lessonManager,
@@ -49,6 +52,7 @@ class ScheduleServiceTest extends TestCase {
 			$this->records,
 			$this->rooms,
 			$this->roomAvailability,
+			$this->courses,
 		);
 	}
 

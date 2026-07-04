@@ -5,7 +5,7 @@
    маркеры замен (Эпик 5). Демо-слой (data.js) убран.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, plural, fmtDayMonth, groupColor, shortName, emptyState } from './utils.js';
+import { esc, plural, fmtDayMonth, chipBg, chipBorder, groupSubjectKey, shortName, emptyState } from './utils.js';
 import { createApi } from './api.js';
 import { DOW_JS } from './constants.js';
 
@@ -140,7 +140,7 @@ function renderSched(mode) {
         const grid = `<div class="prof-week-grid">${weekDates.map(date => {
             const items = byDate[date] || [];
             const cards = items.length
-                ? items.map(it => `<div class="prof-week-card" style="border-left-color:${it.kind === 'individual' ? 'var(--t-zachet)' : groupColor(it.group_id)}" data-grp="${it.group_id}">
+                ? items.map(it => `<div class="prof-week-card ${it.kind === 'individual' ? 'chip-bd-indi' : chipBorder(groupSubjectKey(it.group_id))}" data-grp="${it.group_id}">
                         <div class="wc-time">${esc(it.start)}</div>
                         <div class="wc-grp">${esc(it.kind === 'individual' && it.student_name ? it.student_name : it.group_name)}${it.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}${it.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
                         <div class="wc-topic">${esc(it.topic || '—')}</div>
@@ -198,7 +198,7 @@ function schedRow(l) {
             <div class="lt-start">${esc(l.start)}</div>
             <div class="lt-end">${esc(l.end || '')}</div>
         </div>
-        <div class="prof-lesson-bar" style="background:${l.kind === 'individual' ? 'var(--t-zachet)' : groupColor(l.group_id)}"></div>
+        <div class="prof-lesson-bar ${l.kind === 'individual' ? 'chip-indi' : chipBg(groupSubjectKey(l.group_id))}"></div>
         <div class="prof-lesson-body">
             <div class="prof-lesson-grp">${esc(l.kind === 'individual' && l.student_name ? l.student_name : l.group_name)}${l.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}${l.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
             <div class="prof-lesson-topic">${esc(l.topic || '—')}</div>
@@ -239,7 +239,7 @@ function grpCard(g) {
         ? `<span class="prof-sub-tag">замещаете до ${fmtDayMonth(g.covering_until)}</span>`
         : ( g.covered_until ? `<span class="prof-sub-tag warn">замена до ${fmtDayMonth(g.covered_until)}</span>` : '' );
     return `<div class="prof-grp-card" data-grp="${g.id}">
-        <span class="prof-group-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
+        <span class="prof-group-chip ${chipBg(groupSubjectKey(g.id))}">${esc(shortName(g.name))}</span>
         <div class="prof-group-meta">
             <div class="prof-group-name">${esc(g.name)} · ${esc(g.subject)}</div>
             <div class="prof-group-sub">${g.students} ${plural(g.students, 'ученик', 'ученика', 'учеников')} ${badge}</div>

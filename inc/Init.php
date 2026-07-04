@@ -60,6 +60,7 @@ use Inc\Controllers\Profile\LearnerProfileController;
 use Inc\Controllers\Group\JournalController;
 use Inc\Controllers\Group\GroupCockpitController;
 use Inc\Controllers\Course\CoursePreviewController;
+use Inc\Controllers\Course\PreviewSolveController;
 use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
@@ -157,6 +158,7 @@ final class Init {
 			JournalController::class,         // AJAX журнала и посещаемости (Эпик 2)
 			LessonPlayerController::class,    // пошаговый плеер урока (до кокпита: ?gl=)
 			CoursePreviewController::class,   // preview-плеер курса (Фаза 5, D3/D4): /course-preview/?course=
+			PreviewSolveController::class,    // dry-run проверка заданий/работ/контрольных в предпросмотре (#5)
 			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
 			LessonProgressController::class,  // AJAX записи прогресса шага
 			LearningEventSubscriber::class,   // лента событий обучения

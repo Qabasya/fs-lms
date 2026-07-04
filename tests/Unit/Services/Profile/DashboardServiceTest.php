@@ -8,6 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
 use Inc\Managers\Course\LessonManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
@@ -45,7 +46,8 @@ class DashboardServiceTest extends TestCase {
 		$this->clock         = $this->createMock( ClockInterface::class );
 		$this->service       = new DashboardService(
 			$this->groups, $this->groupLessons, $this->lessons, $this->attendance,
-			$this->records, $this->submissions, $this->substitutions, $this->rooms, $this->clock
+			$this->records, $this->submissions, $this->substitutions, $this->rooms, $this->clock,
+			$this->createMock( SubjectRepository::class )
 		);
 		$this->clock->method( 'now' )->willReturn( '2026-05-20 10:00:00' );
 	}
@@ -73,7 +75,7 @@ class DashboardServiceTest extends TestCase {
 		self::assertSame( 1, $d['stats']['groups'] );
 		self::assertCount( 1, $d['today'] );
 		self::assertSame( 'done', $d['today'][0]['state'] );
-		self::assertCount( 2, $d['week'] );                 // сегодня + будущее в пределах +6д
+		self::assertCount( 3, $d['week'] );                 // НБ-11: week = всё расписание (окно недели режет клиент)
 		self::assertSame( 1, $d['worklist']['to_review'][0]['count'] );
 	}
 

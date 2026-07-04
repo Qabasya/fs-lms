@@ -1,4 +1,4 @@
-import { esc, shortName, groupColor, courseColor, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
+import { esc, shortName, chipBg, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
@@ -139,7 +139,7 @@ function courseItemsHtml() {
     if (!list.length) { return '<div class="prof-side-empty">Ничего не найдено.</div>'; }
     return list.map(c => `
         <div class="prof-course-item" data-course="${c.id}" data-lesson="${c.first_lesson_id || ''}">
-            <span class="prof-group-chip" style="background:${courseColor(c.subject_key)}">${esc(shortName(c.title))}</span>
+            <span class="prof-group-chip ${chipBg(c.subject_key)}">${esc(shortName(c.title))}</span>
             <div class="prof-group-meta">
                 <div class="prof-group-name">${esc(c.title)}</div>
             </div>
@@ -162,7 +162,7 @@ function buildSidebar() {
         if (!sidebarState.groupsCollapsed) {
             html += cfg.groups.map(g => `
                 <div class="prof-group-item" data-grp="${g.id}">
-                    <span class="prof-group-chip" style="background:${groupColor(g.id)}">${esc(shortName(g.name))}</span>
+                    <span class="prof-group-chip ${chipBg(g.subject_key || g.subject)}">${esc(shortName(g.name))}</span>
                     <div class="prof-group-meta">
                         <div class="prof-group-name">${esc(g.name)}</div>
                         <div class="prof-group-sub">${esc(g.subject)}</div>
@@ -187,15 +187,17 @@ function buildSidebar() {
     const user = document.getElementById('profUser');
     if (user) {
         const u = cfg.user || { name: '', initials: '' };
-        const roleLabel = ROLE_LABELS[cfg.role] || 'Пользователь';
+        // Роль показываем всем, кроме ученика/родителя (им — только имя).
+        const hideRole = ['lms_student', 'lms_student_free', 'lms_parent'].includes(cfg.role);
+        const roleLabel = hideRole ? '' : (ROLE_LABELS[cfg.role] || 'Пользователь');
         user.innerHTML = `
             <div class="prof-avatar">${esc(u.initials)}</div>
             <div class="su-meta">
                 <div class="su-name">${esc(u.name)}</div>
-                <div class="su-role">${esc(roleLabel)}</div>
+                ${roleLabel ? `<div class="su-role">${esc(roleLabel)}</div>` : ''}
             </div>
             <button class="prof-icon-ghost" id="profUserGear" title="Настройки">
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="2.4" stroke="currentColor" stroke-width="1.5"/><path d="M10 3v2M10 15v2M3 10h2M15 10h2M5 5l1.4 1.4M13.6 13.6 15 15M15 5l-1.4 1.4M6.4 13.6 5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M8.94 2.5a1 1 0 0 0-.98.8l-.24 1.19a5.6 5.6 0 0 0-1.28.74l-1.15-.4a1 1 0 0 0-1.19.45L3.04 7.11a1 1 0 0 0 .2 1.25l.9.79a5.7 5.7 0 0 0 0 1.5l-.9.79a1 1 0 0 0-.2 1.25l1.06 1.84a1 1 0 0 0 1.19.45l1.15-.4c.39.3.82.55 1.28.74l.24 1.19a1 1 0 0 0 .98.8h2.12a1 1 0 0 0 .98-.8l.24-1.19c.46-.19.89-.44 1.28-.74l1.15.4a1 1 0 0 0 1.19-.45l1.06-1.84a1 1 0 0 0-.2-1.25l-.9-.79a5.7 5.7 0 0 0 0-1.5l.9-.79a1 1 0 0 0 .2-1.25l-1.06-1.84a1 1 0 0 0-1.19-.45l-1.15.4a5.6 5.6 0 0 0-1.28-.74l-.24-1.19a1 1 0 0 0-.98-.8H8.94zM10 12.8a2.8 2.8 0 1 1 0-5.6 2.8 2.8 0 0 1 0 5.6z"/></svg>
             </button>`;
     }
 }
@@ -284,6 +286,27 @@ function defaultConfig() {
     };
 }
 
+/* ── Сворачивание сайдбара (зеркало плеера: body-класс + localStorage) ── */
+const MENU_KEY = 'fsProfileMenuOff';
+
+function initCollapse() {
+    let off = false;
+    try { off = '1' === localStorage.getItem(MENU_KEY); } catch { /* private mode */ }
+    document.body.classList.toggle('prof-menu-off', off);
+
+    // Анимацию включаем после первичной отрисовки — без «проигрывания» на загрузке.
+    requestAnimationFrame(() =>
+        requestAnimationFrame(() => document.body.classList.add('prof-anim')));
+
+    const toggle = () => {
+        const now = !document.body.classList.contains('prof-menu-off');
+        document.body.classList.toggle('prof-menu-off', now);
+        try { localStorage.setItem(MENU_KEY, now ? '1' : '0'); } catch { /* private mode */ }
+    };
+    document.getElementById('profCollapse')?.addEventListener('click', toggle);
+    document.getElementById('profMenuOn')?.addEventListener('click', toggle);
+}
+
 export function initProfile() {
     cfg = window.fsProfile || defaultConfig();
     if (!cfg.screens || !cfg.screens.length) cfg = defaultConfig();
@@ -292,8 +315,17 @@ export function initProfile() {
     buildStage();
     mountScreens();
     wire();
+    initCollapse();
 
     // Deep-link на экран: /profile/?screen=learner-lessons (ссылки из плеера курса, T14.13).
-    const wanted = new URLSearchParams(window.location.search).get('screen');
-    go(wanted && cfg.screens.includes(wanted) ? wanted : cfg.screens[0]);
+    // С gid (?screen=groups&gid=2) — открыть «Группы» на конкретной группе, как клик
+    // по группе в сайдбаре (ссылки из сайдбара предпросмотра курса).
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get('screen');
+    const gid = params.get('gid');
+    if (gid && cfg.screens.includes('groups')) {
+        openGroupsFor(gid);
+    } else {
+        go(wanted && cfg.screens.includes(wanted) ? wanted : cfg.screens[0]);
+    }
 }

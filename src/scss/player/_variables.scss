@@ -10,7 +10,6 @@
 // ── Тайминги
 $tr:      0.12s;                          // быстрые ховеры
 $tr-rail: 0.24s cubic-bezier(0.2, 0.7, 0.3, 1); // разворот рейки
-$tr-menu: 0.3s  cubic-bezier(0.2, 0.7, 0.3, 1); // сворачивание сайдбара
 
 // ── Z-index
 $z-rail:  45;  // рейка дерева поверх контента при hover/pin
@@ -72,6 +71,7 @@ $type-assessment-soft: #fdecec;
   --font: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
 
-  // ── Ширина контентной колонки
-  --colw: 900px;
+  // ── Ширина контентной колонки (B4: адаптив от экрана — ниже; сайдбара в
+  // плеере больше нет, поэтому база — «широкий» вариант)
+  --colw: 1402px; /* контент шага = colw − 82 (padding 40×2 + border 1×2) = 1320px */
 }

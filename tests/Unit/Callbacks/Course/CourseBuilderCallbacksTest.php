@@ -9,6 +9,7 @@ use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\ContentCloneService;
+use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\CourseBuilderService;
 use Inc\Services\Course\CoursePublishValidator;
 use PHPUnit\Framework\TestCase;
@@ -34,7 +35,8 @@ class CourseBuilderCallbacksTest extends TestCase {
 		$this->cloneService = $this->createMock( ContentCloneService::class );
 		$this->callbacks    = new CourseBuilderCallbacks(
 			new CourseBuilderService( $this->courses, $this->lessons, $posts, $this->cloneService ),
-			new CoursePublishValidator( $this->courses, $this->lessons )
+			new CoursePublishValidator( $this->courses, $this->lessons ),
+			$this->createMock( CourseAssignmentService::class )
 		);
 	}
 

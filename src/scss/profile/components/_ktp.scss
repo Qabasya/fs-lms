@@ -139,6 +139,18 @@
 .prof-indi-list::-webkit-scrollbar { width: 8px; }
 .prof-indi-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
 .prof-indi-empty { padding: 40px; text-align: center; color: var(--muted-2); font-size: 14px; }
+.prof-indi-empty p { margin-bottom: 14px; }
+
+/* B2: правка инд. занятия — карандаш на слоте (появляется на hover). */
+.indi-slot .indi-edit {
+  position: absolute; top: 2px; right: 3px;
+  width: 18px; height: 18px; padding: 0;
+  border: none; background: transparent; cursor: pointer;
+  font-size: 11px; line-height: 1; color: var(--muted-2);
+  opacity: 0; transition: opacity $tr;
+}
+.indi-slot:hover .indi-edit { opacity: 1; }
+.indi-slot .indi-edit:hover { color: var(--accent); }
 
 .prof-indi-slot {
   display: flex; align-items: stretch; gap: 12px; overflow: hidden;
@@ -178,3 +190,18 @@
 .pil-item:hover { background: var(--surface-2); }
 .pil-item.current { color: var(--accent-700); font-weight: 600; background: var(--accent-soft); }
 .pil-empty { padding: 14px; font-size: 12.5px; color: var(--muted-2); text-align: center; }
+
+/* #1: банк уроков (индивидуальный режим) — поиск + слоты на сквозном календаре */
+.prof-theme-bank .indi-search {
+  margin: 10px 10px 0; padding: 7px 10px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); font-family: inherit; font-size: 13px; color: var(--ink-2);
+}
+.prof-theme-bank .indi-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+.prof-theme-bank .indi-search:disabled { opacity: .55; cursor: not-allowed; }
+
+.indi-slot { cursor: pointer; }
+.indi-slot .pt-num { color: var(--accent-700); }
+.indi-slot.unassigned { border-left-color: var(--absent); }
+.indi-slot.unassigned .pt-num { color: var(--absent); }
+.indi-slot.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }

@@ -406,6 +406,35 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	/**
+	 * Правка индивидуального занятия (B2): дата/время, кабинет, ученик, урок (тема).
+	 * Отсутствующие/пустые поля не меняются; room_id='0' очищает кабинет.
+	 */
+	public function ajaxUpdateIndividualLesson(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId   = $this->requireInt( 'group_lesson_id' );
+		$scheduledAt     = isset( $_POST['scheduled_at'] ) && '' !== $_POST['scheduled_at'] ? $this->sanitizeText( 'scheduled_at' ) : null;
+		$endsAt          = isset( $_POST['ends_at'] ) && '' !== $_POST['ends_at'] ? $this->sanitizeText( 'ends_at' ) : null;
+		$roomId          = isset( $_POST['room_id'] ) && '' !== $_POST['room_id'] ? $this->sanitizeInt( 'room_id' ) : null;
+		$studentPersonId = isset( $_POST['student_person_id'] ) && '' !== $_POST['student_person_id'] ? $this->sanitizeInt( 'student_person_id' ) : null;
+		$lessonId        = isset( $_POST['lesson_id'] ) && '' !== $_POST['lesson_id'] ? $this->sanitizeInt( 'lesson_id' ) : null;
+		$userId          = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к занятию.', 'fs-lms' ) );
+		}
+
+		try {
+			$this->scheduleService->updateIndividualLesson( $groupLessonId, $scheduledAt, $endsAt, $roomId, $studentPersonId, $lessonId, $userId );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success();
+	}
+
+	/**
 	 * Ростер группы для экрана «Группы» (Эпик 10 T10.7): активные ученики + их
 	 * индивидуальные занятия. Params: group_id.
 	 */

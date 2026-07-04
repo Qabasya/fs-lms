@@ -20,9 +20,13 @@ export function initStepWork() {
 }
 
 function setup( panel ) {
-	if ( 'work' !== panel.dataset.stepType || mounted.has( panel ) ) { return; }
+	const st = panel.dataset.stepType;
+	// #5: step-work.js драйвит и работу, и контрольную-в-предпросмотре — у обеих
+	// одинаковый инлайн-UI (.work-root). У реальной контрольной .work-root нет:
+	// она уходит на отдельный attempt-флоу, поэтому просто пропускаем панель.
+	if ( ( 'work' !== st && 'assessment' !== st ) || mounted.has( panel ) ) { return; }
 	const root = panel.querySelector( '.work-root' );
-	if ( ! root ) { return; } // работа не найдена — статичная карточка
+	if ( ! root ) { return; } // .work-root нет — статичная карточка / attempt-флоу
 	mounted.add( panel );
 	mountWork( panel, root );
 }
@@ -117,20 +121,27 @@ function mountWork( panel, root ) {
 
 	// ── Сдача одной кнопкой (SubmitBatchWork) ─────────────────────────────
 	async function submit() {
-		// Preview (Фаза 5): кнопка «Завершить работу» отрисована сервером disabled —
-		// защита на случай программного вызова submit() в обход клика по кнопке.
-		if ( isPreview() ) { return; }
+		const preview = isPreview();
 		const answers = {};
 		widgets.forEach( ( widget, taskId ) => {
 			answers[ taskId ] = parseAnswer( widget.collectAnswer() ) ?? '';
 		} );
 
 		const fd = new FormData();
-		fd.append( 'action', vars.actions.submitBatchWork );
-		fd.append( 'security', vars.nonces.submitBatchWork );
-		fd.append( 'group_lesson_id', core.groupLessonId );
-		fd.append( 'work_id', workId );
-		fd.append( 'answers', JSON.stringify( answers ) );
+		if ( preview ) {
+			// #5: dry-run проверка — работа или контрольная (по типу шага), без сохранения.
+			const isAssessment = 'assessment' === panel.dataset.stepType;
+			fd.append( 'action', isAssessment ? vars.actions.previewCheckAssessment : vars.actions.previewCheckWork );
+			fd.append( 'security', vars.nonces.previewSolve );
+			fd.append( 'ref', workId );
+			fd.append( 'answers', JSON.stringify( answers ) );
+		} else {
+			fd.append( 'action', vars.actions.submitBatchWork );
+			fd.append( 'security', vars.nonces.submitBatchWork );
+			fd.append( 'group_lesson_id', core.groupLessonId );
+			fd.append( 'work_id', workId );
+			fd.append( 'answers', JSON.stringify( answers ) );
+		}
 
 		let res;
 		try {

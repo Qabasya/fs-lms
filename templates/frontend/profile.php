@@ -25,7 +25,7 @@ if ( ! is_user_logged_in() ) {
 	<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
 	<?php wp_head(); ?>
 </head>
-<body class="fs-profile-page">
+<body <?php body_class( 'fs-profile-page' ); ?>>
 
 <div class="prof-app">
 
@@ -39,6 +39,9 @@ if ( ! is_user_logged_in() ) {
 				<div class="prof-brand-name"><span>Шаг в будущее</span></div>
 				<div class="prof-brand-sub">Личный кабинет</div>
 			</div>
+			<button type="button" class="prof-collapse" id="profCollapse" title="Свернуть меню">
+				<svg width="17" height="17" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 3.5v13" stroke="currentColor" stroke-width="1.5"/><path d="M13.8 8 11.8 10l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+			</button>
 		</div>
 
 		<!-- Навигация + группы наполняет JS из window.fsProfile -->
@@ -50,6 +53,9 @@ if ( ! is_user_logged_in() ) {
 
 	<div class="prof-main">
 		<header class="prof-topbar">
+			<button type="button" class="prof-mtoggle" id="profMenuOn" title="Развернуть меню">
+				<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 3.5v13" stroke="currentColor" stroke-width="1.5"/><path d="M11.6 8l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+			</button>
 			<div class="prof-tb-titles">
 				<div class="prof-tb-crumb" id="profTbCrumb">Личный кабинет</div>
 				<div class="prof-tb-title" id="profTbTitle">Главная</div>

@@ -92,6 +92,9 @@ $video_fmt = static fn( int $sec ): string => floor( $sec / 60 ) . ':' . str_pad
 
 		<?php elseif ( $video_is_slot ) : ?>
 			<p class="step-muted"><?php esc_html_e( 'Запись занятия ещё не доступна.', 'fs-lms' ); ?></p>
+		<?php elseif ( 'none' === $video_mode ) : ?>
+			<?php // B3: видео ещё не загружено (пустой url) — 16:9-плейсхолдер вместо пустого плеера. ?>
+			<div class="vp vp-empty"><span><?php esc_html_e( 'Видео скоро появится', 'fs-lms' ); ?></span></div>
 		<?php endif; ?>
 
 		<?php if ( ! empty( $render['description'] ) ) : ?>

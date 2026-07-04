@@ -8,6 +8,7 @@ use Inc\DTO\Course\CourseDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Course\GateState;
 use Inc\Enums\Course\ProgressStatus;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
@@ -29,6 +30,7 @@ class CoursePreviewService {
 		private readonly CourseManager       $courses,
 		private readonly LessonManager       $lessons,
 		private readonly WorkManager         $works,
+		private readonly AssessmentManager   $assessments,
 		private readonly StepContentRenderer $stepRenderer,
 	) {}
 
@@ -80,7 +82,7 @@ class CoursePreviewService {
 			'module_label'    => $this->moduleLabel( $course, $lessonId ),
 			'course_progress' => null,
 			'student_name'    => '',
-			'student_role'    => __( 'Предпросмотр', 'fs-lms' ),
+			'student_role'    => '',
 			'next_lesson'     => null,
 		);
 	}
@@ -144,7 +146,7 @@ class CoursePreviewService {
 			'video'      => $this->stepRenderer->renderVideoData( $step, null ),
 			'task'       => $this->renderTaskData( $step ),
 			'work'       => $this->renderWorkData( $step ),
-			'assessment' => $this->stepRenderer->renderAssessmentData( $step ),
+			'assessment' => $this->renderAssessmentData( $step ),
 			default      => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
 		};
 	}
@@ -153,9 +155,11 @@ class CoursePreviewService {
 	 * @return array<string, mixed>
 	 */
 	private function renderTaskData( StepDTO $step ): array {
-		$bundle = $this->stepRenderer->taskBundle( (int) ( $step->payload['ref'] ?? 0 ) );
+		$taskId = (int) ( $step->payload['ref'] ?? 0 );
+		$bundle = $this->stepRenderer->taskBundle( $taskId );
 		if ( null === $bundle ) {
 			return array(
+				'ref'            => $taskId,
 				'auto_grade'     => false,
 				'template'       => '',
 				'condition_html' => '',
@@ -168,6 +172,8 @@ class CoursePreviewService {
 		}
 
 		return array(
+			// #5: ref нужен клиенту для dry-run проверки (PreviewCheckTask).
+			'ref'            => $taskId,
 			'auto_grade'     => $bundle['auto_grade'],
 			'template'       => $bundle['template'],
 			'condition_html' => $bundle['condition_html'],
@@ -217,6 +223,46 @@ class CoursePreviewService {
 			'tasks'           => $tasks,
 			'submission'      => null,
 			'task_results'    => array(),
+		);
+	}
+
+	/**
+	 * Preview-рендер контрольной: как renderWorkData, но по AssessmentDTO —
+	 * набор тех же задач (fs_lms_problems), собранных через taskBundle (эталоны
+	 * в них не попадают). Позволяет автору прорешать контрольную в предпросмотре
+	 * инлайном, без attempt-флоу/таймера/сохранения (#5, D-2).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function renderAssessmentData( StepDTO $step ): array {
+		$asmId = (int) ( $step->payload['ref'] ?? 0 );
+		$asm   = $asmId ? $this->assessments->get( $asmId ) : null;
+		if ( null === $asm || 'publish' !== $asm->status ) {
+			return array( 'ref' => $asmId, 'assessment_found' => false );
+		}
+
+		$tasks = array();
+		foreach ( $asm->taskIds as $taskId ) {
+			$bundle = $this->stepRenderer->taskBundle( (int) $taskId );
+			if ( null === $bundle ) {
+				continue;
+			}
+			if ( ! $bundle['auto_grade'] ) {
+				$bundle['widget_data'] = array( 'type' => 'text_answer' );
+			}
+			unset( $bundle['meta'] );
+			$tasks[] = $bundle;
+		}
+
+		return array(
+			'ref'              => $asmId,
+			'assessment_found' => true,
+			'title'            => $asm->title,
+			'time_limit_min'   => $asm->timeLimit,
+			'max_attempts'     => $asm->attemptsAllowed,
+			'task_count'       => count( $tasks ),
+			'total_points'     => (int) $asm->maxPrimary(),
+			'tasks'            => $tasks,
 		);
 	}
 }

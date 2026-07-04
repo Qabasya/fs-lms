@@ -11,6 +11,7 @@ use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -38,7 +39,13 @@ class ProfileViewResolver {
 		private readonly TeacherProfileView      $teacherView,
 		private readonly LearnerProfileView      $learnerView,
 		private readonly CourseManager           $courses,
+		private readonly SubjectRepository       $subjects,
 	) {}
+
+	/** Человекочитаемое имя предмета (fallback — слаг), как в LearnerService (#12). */
+	private function subjectName( string $key ): string {
+		return $this->subjects->getByKey( $key )?->name ?? $key;
+	}
 
 	/**
 	 * Собирает контекст кабинета для WP-пользователя.
@@ -154,10 +161,11 @@ class ProfileViewResolver {
 
 		$config = array(
 			'groups'   => array_map(
-				static fn( $g ): array => array(
-					'id'      => (int) $g->id,
-					'name'    => $g->name,
-					'subject' => $g->subject_key,
+				fn( $g ): array => array(
+					'id'          => (int) $g->id,
+					'name'        => $g->name,
+					'subject'     => $this->subjectName( (string) $g->subject_key ),
+					'subject_key' => (string) $g->subject_key, // ключ цвета чипа (chipIndex, utils.js)
 				),
 				$rows
 			),
@@ -180,6 +188,10 @@ class ProfileViewResolver {
 					'getIndividual'    => AjaxHook::GetIndividualSlots->jsAction(),
 					'lessonCandidates' => AjaxHook::GetLessonCandidates->jsAction(),
 					'assignLesson'     => AjaxHook::AssignIndividualLesson->jsAction(),
+					'createIndividual' => AjaxHook::CreateIndividualLesson->jsAction(),
+					'getFreeRooms'     => AjaxHook::GetFreeRooms->jsAction(),
+					'updateIndividual' => AjaxHook::UpdateIndividualLesson->jsAction(),
+					'getRoster'        => AjaxHook::GetGroupRoster->jsAction(),
 				),
 			),
 			// Курс-пикер КТП (T11.1) — отдельный блок: `assign_course` требует Nonce::AssignCourse.
@@ -206,6 +218,8 @@ class ProfileViewResolver {
 					'getRoster'        => AjaxHook::GetGroupRoster->jsAction(),
 					'createIndividual' => AjaxHook::CreateIndividualLesson->jsAction(),
 					'getFreeRooms'     => AjaxHook::GetFreeRooms->jsAction(),
+					'lessonCandidates' => AjaxHook::GetLessonCandidates->jsAction(),
+					'updateIndividual' => AjaxHook::UpdateIndividualLesson->jsAction(),
 				),
 			),
 			// «Сводка по ученику» (T10.8, D8) — ростер для выбора + занятия ученика.

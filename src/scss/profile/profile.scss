@@ -4,11 +4,13 @@
 // исходной монолитной _core.scss: base → оболочка → примитивы → экраны.
 @use 'variables';
 
+@use '../shared/chip-palette';
 @use 'components/base';
 @use 'components/layout';
 @use 'components/buttons';
 @use 'components/card';
 @use 'components/dashboard';
+@use 'components/student-courses';
 @use 'components/ktp';
 @use 'components/overlays';
 @use 'components/journal';

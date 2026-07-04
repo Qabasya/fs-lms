@@ -8,6 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\AttendanceDTO;
 use Inc\DTO\Course\GradebookEntryDTO;
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -38,6 +39,7 @@ class LearnerServiceTest extends TestCase {
 	private $progress;
 	private $subjects;
 	private $rooms;
+	private $courses;
 	private LearnerService $service;
 
 	protected function setUp(): void {
@@ -46,6 +48,7 @@ class LearnerServiceTest extends TestCase {
 		$this->groups       = $this->createMock( GroupsRepository::class );
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
 		$this->lessons      = $this->createMock( LessonManager::class );
+		$this->courses      = $this->createMock( CourseManager::class );
 		$this->gradebook    = $this->createMock( GradebookService::class );
 		$this->attendance   = $this->createMock( AttendanceRepository::class );
 		$this->clock        = $this->createMock( ClockInterface::class );
@@ -61,7 +64,7 @@ class LearnerServiceTest extends TestCase {
 		$this->rooms->method( 'findAll' )->willReturn( array() );
 		$this->gate->method( 'resolveLesson' )->willReturn( \Inc\Enums\Course\GateState::Available );
 		$this->service = new LearnerService(
-			$this->records, $this->groups, $this->groupLessons, $this->lessons,
+			$this->records, $this->groups, $this->groupLessons, $this->lessons, $this->courses,
 			$this->gradebook, $this->attendance, $this->clock,
 			$this->submissions, $this->worksResolver, $this->gate, $this->progress,
 			$this->subjects, $this->rooms,

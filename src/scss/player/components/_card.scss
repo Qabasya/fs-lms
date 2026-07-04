@@ -10,6 +10,8 @@
   box-shadow: var(--shadow-sm);
   padding: 34px 40px;
 
+  @media (max-width: 640px) { padding: 20px 16px; }
+
   h2 {
     font-size: 22px;
     font-weight: 700;

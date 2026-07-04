@@ -1,0 +1,27 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Палитра предметов/курсов — 12 цветов, ЕДИНСТВЕННЫЙ источник истины.
+   Индекс цвета = стабильный хэш subject_key: JS chipIndex() (profile/utils.js)
+   и PHP ProfileViewResolver::chipColorIndex() дают одинаковый результат, поэтому
+   цвет закреплён за предметом (не зависит от порядка групп) и совпадает во всех
+   поверхностях: сайдбар кабинета, плеер, дашборд, пикеры, «Мои курсы» ученика.
+   Варианты: .chip-cN (фон), .chip-tc-cN (текст), .chip-bd-cN (левая граница),
+   .chip-soft-cN (мягкий фон + цветной текст — «оттенок» для бейджей).
+   Подключается в profile.scss и player.scss.
+   ══════════════════════════════════════════════════════════════════════ */
+
+$chip-colors: #3b5bdb, #0ca678, #7048e8, #f08c00, #e8590c, #1c7ed6,
+              #e64980, #2f9e44, #9c36b5, #0c8599, #66a80f, #c92a2a;
+
+@for $i from 1 through length($chip-colors) {
+  $c: nth($chip-colors, $i);
+  $n: $i - 1;
+
+  .chip-c#{$n}      { background: $c; }
+  .chip-tc-c#{$n}   { color: $c; }
+  .chip-bd-c#{$n}   { border-left-color: $c; }
+  .chip-soft-c#{$n} { background: mix($c, #fff, 12%); color: $c; }
+}
+
+/* Индивидуальные занятия — токен-цвет кабинета (класс используется только там). */
+.chip-indi    { background: var(--t-zachet); }
+.chip-bd-indi { border-left-color: var(--t-zachet); }

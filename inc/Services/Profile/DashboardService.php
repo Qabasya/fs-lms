@@ -6,6 +6,7 @@ namespace Inc\Services\Profile;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Managers\Course\LessonManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
@@ -34,7 +35,13 @@ class DashboardService {
 		private readonly SubstitutionRepository  $substitutions,
 		private readonly RoomRepository          $rooms,
 		private readonly ClockInterface          $clock,
+		private readonly SubjectRepository       $subjects,
 	) {}
+
+	/** Человекочитаемое имя предмета (fallback — слаг), как в LearnerService (#12). */
+	private function subjectName( string $key ): string {
+		return $this->subjects->getByKey( $key )?->name ?? $key;
+	}
 
 	/**
 	 * @param bool $allGroups офис видит все группы (findAll), препод — свои + замены.
@@ -118,7 +125,7 @@ class DashboardService {
 			$groupCards[] = array(
 				'id'            => $gid,
 				'name'          => $g->name,
-				'subject'       => $g->subject_key,
+				'subject'       => $this->subjectName( (string) $g->subject_key ),
 				'students'      => $activeCount,
 				'covered_until' => $coveredUntil,
 				'covering_until' => $covering[ $gid ] ?? null,
@@ -213,7 +220,7 @@ class DashboardService {
 			'group_lesson_id' => $row->id,
 			'group_id'        => $gid,
 			'group_name'      => $g->name,
-			'subject'         => $g->subject_key,
+			'subject'         => $this->subjectName( (string) $g->subject_key ),
 			'topic'           => $this->topicOf( $row ),
 			'date'            => substr( (string) $row->scheduledAt, 0, 10 ),
 			'start'           => substr( (string) $row->scheduledAt, 11, 5 ),

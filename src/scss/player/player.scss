@@ -4,6 +4,7 @@
 // на маршруте плеера (/group/?gid&gl, ученик), без frontend-стека.
 @use 'variables';
 
+@use '../shared/chip-palette';
 @use 'components/base';
 @use 'components/types';
 @use 'components/shell';

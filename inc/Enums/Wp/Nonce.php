@@ -95,6 +95,7 @@ enum Nonce: string {
 	// ==== Этап 6 — интерактивные задания ====
 	case SubmitTaskAnswer = 'fs_lms_submit_task_answer';
 	case UploadAnswerFile = 'fs_lms_upload_answer_file';
+	case PreviewSolve     = 'fs_lms_preview_solve';
 	case StepSettings     = 'fs_lms_step_settings';
 	case TaskContent      = 'fs_lms_task_content';
 

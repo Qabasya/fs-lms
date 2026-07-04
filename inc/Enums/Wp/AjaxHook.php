@@ -186,6 +186,10 @@ enum AjaxHook: string {
 	case GetTaskAttempts   = 'get_task_attempts';   // params: group_lesson_id, step_key → список попыток всех студентов
 	case UploadAnswerFile  = 'upload_answer_file';  // params: attempt_id + $_FILES[answer_file] → attachment_id (Эпик 13, D16: двухшаговая загрузка файла ответа для «Развёрнутого ответа» в контрольных)
 
+	// ==== Предпросмотр курса: «сухой прогон» решения (#5, D-2) ====
+	// Только на /course-preview/, capability AuthorLmsCourses. Проверяют ответ и
+	// возвращают вердикт БЕЗ сохранения (нет попыток/прогресса/оценок/гейтов).
+
 	// ==== Контрольные и экзамены (Этап 4) ====
 	case StartAttempt      = 'start_attempt';
 	case SaveAttemptAnswer = 'save_attempt_answer';
@@ -204,6 +208,11 @@ enum AjaxHook: string {
 	// ==== Пакетная сдача / ручная оценка (Этап 7) ====
 	case SubmitBatchWork = 'submit_batch_work'; // params: group_lesson_id, work_id, answers (JSON)
 	case GradeBatchTask  = 'grade_batch_task';  // params: submission_id, score, feedback
+
+	// ==== Предпросмотр курса — dry-run проверка (#5), без сохранения ====
+	case PreviewCheckTask       = 'preview_check_task';       // params: ref (task id), answer (JSON)
+	case PreviewCheckWork       = 'preview_check_work';       // params: ref (work id), answers (JSON)
+	case PreviewCheckAssessment = 'preview_check_assessment'; // params: ref (assessment id), answers (JSON)
 
 	// ==== Таблица перевода ЕГЭ (Этап 7, T7.16) ====
 	case ParseScoreMap  = 'parse_score_map';   // params: text (сырой текст из Excel/Word)
@@ -238,6 +247,7 @@ enum AjaxHook: string {
 	case GetIndividualSlots      = 'get_individual_slots'; // params: group_id — инд. занятия группы (ФИО + дата + урок/тема)
 	case GetLessonCandidates     = 'get_lesson_candidates'; // params: group_id[, search] — уроки предмета (курс-первыми) для назначения инд. занятию
 	case AssignIndividualLesson  = 'assign_individual_lesson'; // params: group_lesson_id, lesson_id — привязать урок банка к инд. занятию
+	case UpdateIndividualLesson  = 'update_individual_lesson'; // params: group_lesson_id[, scheduled_at, room_id, student_person_id, lesson_id] — правка инд. занятия (B2)
 
 	// ==== Экран «Группы» / ростер (ЛК преподавателя, Эпик 10 T10.7) ====
 	case GetGroupRoster          = 'get_group_roster'; // params: group_id — активные ученики + их индивидуальные занятия

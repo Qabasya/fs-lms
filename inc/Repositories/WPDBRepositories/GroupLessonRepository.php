@@ -214,6 +214,17 @@ class GroupLessonRepository {
 		return false !== $result;
 	}
 
+	/** B2: смена ученика индивидуального занятия. */
+	public function setStudentPersonId( int $id, int $personId ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'student_person_id' => $personId ),
+			array( 'id' => $id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+	}
+
 	public function remove( int $id ): bool {
 		return (bool) $this->wpdb->delete( $this->table, array( 'id' => $id ) );
 	}

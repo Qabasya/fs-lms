@@ -1,6 +1,6 @@
 /**
  * Задача-шаг (T14.7): виджет ответа (task-widget.js), «Ответить» disabled без
- * выбора, мгновенная проверка через SubmitTaskAnswer, вердикт-блоки vd-ok/vd-no,
+ * выбора, автопроверка через SubmitTaskAnswer, вердикт-блоки vd-ok/vd-no,
  * счётчик попыток, «Попробовать ещё раз», показ эталона после исчерпания (D20).
  */
 import { initTaskWidget } from '../frontend/components/task-widget.js';
@@ -48,9 +48,8 @@ function wire( panel, widget ) {
 	submitBtn.after( retryBtn );
 
 	const syncSubmit = () => {
-		// Preview (Фаза 5): кнопка «Ответить» отрисована сервером disabled — виджет
-		// остаётся активным, но syncSubmit не должен её снова включать при вводе.
-		if ( isPreview() ) { return; }
+		// #5: в preview кнопка «Ответить» активна (dry-run прогон), как и в реальном
+		// плеере — включаем/выключаем её по наличию ответа в виджете.
 		submitBtn.disabled = ! widget.hasAnswer();
 		submitBtn.classList.toggle( 'b-dis', submitBtn.disabled );
 	};
@@ -85,16 +84,25 @@ function wire( panel, widget ) {
 }
 
 async function submit( panel, widget, submitBtn, retryBtn, resultEl ) {
-	if ( isPreview() || submitBtn.disabled ) { return; }
+	if ( submitBtn.disabled ) { return; }
 	submitBtn.disabled = true;
 
-	const core = getCore();
-	const fd   = new FormData();
-	fd.append( 'action', vars.actions.submitTask );
-	fd.append( 'security', vars.nonces.submitTask );
-	fd.append( 'group_lesson_id', core.groupLessonId );
-	fd.append( 'step_key', panel.dataset.step );
-	fd.append( 'answer', widget.collectAnswer() );
+	const core    = getCore();
+	const preview = isPreview();
+	const fd      = new FormData();
+	if ( preview ) {
+		// #5: dry-run проверка — по ref задания, без занятия и без сохранения.
+		fd.append( 'action', vars.actions.previewCheckTask );
+		fd.append( 'security', vars.nonces.previewSolve );
+		fd.append( 'ref', submitBtn.dataset.previewRef || '' );
+		fd.append( 'answer', widget.collectAnswer() );
+	} else {
+		fd.append( 'action', vars.actions.submitTask );
+		fd.append( 'security', vars.nonces.submitTask );
+		fd.append( 'group_lesson_id', core.groupLessonId );
+		fd.append( 'step_key', panel.dataset.step );
+		fd.append( 'answer', widget.collectAnswer() );
+	}
 
 	let res;
 	try {
@@ -127,7 +135,6 @@ async function submit( panel, widget, submitBtn, retryBtn, resultEl ) {
 		resultEl.innerHTML = vd( 'ok', 'Верно!', '', [
 			`Балл: ${ d.score } из ${ d.max_score }`,
 			attemptMeta( d ),
-			'Проверено мгновенно',
 		] );
 		widget.lock();
 		submitBtn.hidden = true;

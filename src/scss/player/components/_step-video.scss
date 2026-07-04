@@ -6,10 +6,14 @@
 
 .vp {
   position: relative;
+  width: 100%;
+  height: 0;
+  padding-top: 56.25%; /* 16:9. Надёжнее aspect-ratio: во flex-колонке .gap16 тот
+                          схлопывался в ~281px по высоте — padding-hack всегда даёт 16:9. */
+  flex-shrink: 0;
   border-radius: 14px;
   overflow: hidden;
   background: #12152b;
-  aspect-ratio: 16 / 9;
 
   .vp-el {
     position: absolute;
@@ -18,6 +22,37 @@
     height: 100%;
     object-fit: contain;
     cursor: pointer;
+  }
+}
+
+/* B3: видео-шаг — обычная карточка (.card16), внутри 16:9-плеер по ширине
+   карточки. Пока видео не загружено (S3 пусто, mode='none') — плейсхолдер. */
+.vp.vp-empty > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c9cde4;
+  font: 500 14px var(--font);
+}
+
+/* Встраиваемое видео (VK/Rutube/YouTube, mode='embed') — тоже 16:9 по ширине. */
+.video-embed {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-top: 56.25%;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #12152b;
+
+  iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
   }
 }
 

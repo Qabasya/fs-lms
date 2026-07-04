@@ -77,7 +77,8 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		$groupId     = $row->groupId;
 		$active_step = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( $_GET['step'] ) ) : '';
 
-		if ( GateState::Locked === $lessonGate || null === $view ) {
+		// Урок без контента (нет уроков-шагов) — прежний themed-фолбэк.
+		if ( null === $view ) {
 			ThemeCompatService::header();
 			include $this->path( 'templates/frontend/lesson-player/locked.php' );
 			ThemeCompatService::footer();
@@ -87,6 +88,17 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		// Оболочка плеера (T14.2) и дерево курса для рейки (T14.3).
 		$view['shell'] = $this->nav->shell( $person->id, $row );
 		$view['tree']  = $this->nav->tree( $person->id, $row );
+
+		// #3b (редизайн): при блокировке по времени/предусловию НЕ уводим на
+		// отдельную страницу — показываем сам плеер с размытым контентом и
+		// оверлеем «Урок ещё не доступен» (+ таймер D-4). Реальные шаги при этом
+		// не рендерятся (см. player.php $locked) — контент не утекает раньше даты.
+		$locked           = ( GateState::Locked === $lessonGate );
+		$locked_scheduled = $row->scheduledAt ?? null;
+		$locked_seconds   = ( $locked && null !== $locked_scheduled && '' !== $locked_scheduled )
+			? strtotime( $locked_scheduled ) - strtotime( current_time( 'mysql' ) )
+			: null;
+		$locked_soon = null !== $locked_seconds && $locked_seconds > 0 && $locked_seconds <= HOUR_IN_SECONDS;
 
 		// Плеер — полноэкранный app-shell со своим <html> (Эпик 14, D18):
 		// без темы сайта; Enqueue по этому флагу грузит только бандл плеера.

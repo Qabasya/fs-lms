@@ -522,7 +522,9 @@ class ScheduleService {
 				'student_person_id' => $row->studentPersonId,
 				'student_name'      => $names[ $row->studentPersonId ] ?? '—',
 				'scheduled_at'      => $row->scheduledAt,
+				'ends_at'           => $row->endsAt, // B2: время окончания (префилл правки)
 				'room'              => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
+				'room_id'           => ! empty( $row->roomId ) ? (int) $row->roomId : 0, // B2: для префилла правки
 				'lesson_id'         => $row->lessonId,
 				'topic'             => $lesson?->topic ?? ( $row->label ?? '' ),
 			);
@@ -589,6 +591,53 @@ class ScheduleService {
 		}
 
 		$this->groupLessons->setLessonId( $groupLessonId, $lessonId );
+		$this->dispatchScheduleChanged( $row->groupId, $actorUserId );
+	}
+
+	/**
+	 * Правка индивидуального занятия (B2): дата/время, кабинет, ученик, урок (тема).
+	 * null-поля не меняются. Новый ученик должен состоять в группе занятия.
+	 */
+	public function updateIndividualLesson(
+		int     $groupLessonId,
+		?string $scheduledAt,
+		?string $endsAt,
+		?int    $roomId,
+		?int    $studentPersonId,
+		?int    $lessonId,
+		int     $actorUserId
+	): void {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row || 'individual' !== $row->kind ) {
+			throw new \InvalidArgumentException( 'Индивидуальное занятие не найдено.' );
+		}
+
+		if ( null !== $scheduledAt && '' !== $scheduledAt ) {
+			$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId, $endsAt );
+		}
+		if ( null !== $roomId ) {
+			$this->groupLessons->setRoom( $groupLessonId, $roomId > 0 ? $roomId : null );
+		}
+		if ( null !== $studentPersonId && $studentPersonId > 0 ) {
+			$isMember = false;
+			foreach ( $this->records->findActiveByGroupId( $row->groupId ) as $rec ) {
+				if ( $rec->studentPersonId === $studentPersonId ) {
+					$isMember = true;
+					break;
+				}
+			}
+			if ( ! $isMember ) {
+				throw new \InvalidArgumentException( 'Ученик не состоит в этой группе.' );
+			}
+			$this->groupLessons->setStudentPersonId( $groupLessonId, $studentPersonId );
+		}
+		if ( null !== $lessonId && $lessonId > 0 ) {
+			if ( null === $this->lessonManager->get( $lessonId ) ) {
+				throw new \InvalidArgumentException( 'Урок не найден.' );
+			}
+			$this->groupLessons->setLessonId( $groupLessonId, $lessonId );
+		}
+
 		$this->dispatchScheduleChanged( $row->groupId, $actorUserId );
 	}
 

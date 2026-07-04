@@ -11,9 +11,19 @@ import { initRail } from './rail.js';
 import { initStepTask } from './step-task.js';
 import { initStepWork } from './step-work.js';
 import { initStepVideo } from './step-video.js';
+import { initLessonCountdown } from '../frontend/components/lesson-countdown.js';
 
 document.addEventListener( 'DOMContentLoaded', () => {
 	initShell();
+
+	// #3b: экран блокировки урока — плеер без реальных шагов (контент размыт +
+	// оверлей). Инициализируем только сайдбар и таймер обратного отсчёта.
+	const app = document.getElementById( 'fsPlayerApp' );
+	if ( app && '1' === app.dataset.locked ) {
+		initLessonCountdown();
+		return;
+	}
+
 	initCore();
 	initRail();
 	initStepTask();

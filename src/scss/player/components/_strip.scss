@@ -109,11 +109,11 @@
   to { opacity: 1; transform: none; }
 }
 
-/* строка навигации под шагом */
+/* строка навигации над шагом (#2a: закреплена сверху, чтобы не прыгать по высоте контента) */
 .cnav {
   display: flex;
   align-items: center;
-  margin-top: 16px;
+  margin: 0 0 20px;
 
   .pos {
     margin: 0 auto;

@@ -182,6 +182,32 @@
 	}
 
 	&--locked { max-width: 720px; }
+
+	// ── #3b: экран ожидания старта занятия + обратный отсчёт ──
+	&__lock {
+		text-align: center;
+		padding: $spacing-lg 0;
+	}
+
+	&__lock-title {
+		font-size: $font-size-title;
+		font-weight: $font-bold;
+		color: $color-text;
+		margin-bottom: $spacing-sm;
+	}
+
+	&__lock-sub {
+		color: $color-muted;
+		font-size: $font-size-base;
+		margin: 0 0 $spacing-lg;
+	}
+
+	&__countdown {
+		font-size: $font-size-title;
+		font-weight: $font-bold;
+		font-variant-numeric: tabular-nums;
+		color: $color-accent;
+	}
 }
 
 @media (max-width: $bp-md) {

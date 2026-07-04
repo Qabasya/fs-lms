@@ -225,12 +225,22 @@ class LessonCallbacks extends BaseController {
 				'ref'      => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
 				'source'   => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
 				'settings' => array(
-					'max_attempts' => max( 0, (int) ( $raw_payload['settings']['max_attempts'] ?? 0 ) ),
+					'max_attempts'      => max( 0, (int) ( $raw_payload['settings']['max_attempts'] ?? 0 ) ),
+					'hint_after_errors' => max( 0, (int) ( $raw_payload['settings']['hint_after_errors'] ?? 0 ) ),
 				),
 			),
 			'work', 'assessment' => array( 'ref' => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ) ),
 			default              => array(),
 		};
+
+		// Подсказку показываем строго до исчерпания попыток: N ошибок < max_attempts
+		// (0 = ∞ — ограничения нет). Клампим на сервере, не доверяя клиенту.
+		if ( 'task' === $type ) {
+			$max_att = (int) $payload['settings']['max_attempts'];
+			if ( $max_att > 0 && $payload['settings']['hint_after_errors'] >= $max_att ) {
+				$payload['settings']['hint_after_errors'] = $max_att - 1;
+			}
+		}
 
 		// Метка «дубликат — контент не изменён»: переживает сохранение (напоминание преподавателю).
 		if ( filter_var( $raw_payload['needs_review'] ?? false, FILTER_VALIDATE_BOOLEAN ) ) {

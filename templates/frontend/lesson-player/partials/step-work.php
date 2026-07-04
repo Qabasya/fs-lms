@@ -71,7 +71,7 @@ $work_meta_line = sprintf(
 				<span class="ap-txt" data-work-prog-txt></span>
 				<span class="ap-bar"><span data-work-prog-bar></span></span>
 			</div>
-			<button type="button" class="b b-pri" data-work-finish <?php echo ! empty( $is_preview ) ? 'disabled' : ''; ?>>
+			<button type="button" class="b b-pri" data-work-finish>
 				<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 17V3.5M5 4h9.5l-2 3 2 3H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
 				<?php esc_html_e( 'Завершить работу', 'fs-lms' ); ?>
 			</button>

@@ -8,6 +8,7 @@ import { esc, toast, emptyState, openCtxMenuRaw, closeCtxMenu } from './utils.js
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
+import { openIndiModal } from './indi-modal.js';
 
 let root = null;
 let state = null;
@@ -28,7 +29,11 @@ export function renderKTP(r) {
         months:  [],
         cursor:  0,
         dragGlid: null,
-        individual: [], // НБ-9: инд. занятия всех групп в режиме «Индивидуальные занятия»
+        individual: [],      // #1: инд. занятия всех групп (сквозной календарь)
+        indiMonths: [],      // месяцы диапазона инд. занятий
+        indiCursor: 0,       // текущий месяц календаря инд. занятий
+        indiSelected: null,  // выбранный слот (group_lesson_id) для назначения урока
+        indiCandidates: null, // кандидаты-уроки для выбранного слота (null = не загружены)
     };
     api = createApi(state.sched);
     coursesApi = p.courses ? createApi(p.courses) : null;
@@ -303,24 +308,57 @@ function openGroupMenu() {
     openGroupPicker(document.getElementById('ktpGroupBtn'), state.groups, state.groupId, id => {
         state.groupId = id;
         if (INDI_ID === id) { loadIndividual(); } else { loadCalendar(); }
-    }, [{ v: String(INDI_ID), label: 'Индивидуальные занятия', swatch: 'var(--t-zachet)', chip: 'Инд' }]);
+    }, [{ v: String(INDI_ID), label: 'Индивидуальные занятия', swatchClass: 'chip-indi', chip: 'Инд' }]);
 }
 
-/* ── Режим «Индивидуальные занятия» (НБ-9) ────────────────────────────────
-   Псевдо-пункт пикера групп → плоский список инд. занятий всех групп препода;
-   к каждому слоту привязывается урок из банка предмета (курс-первыми) с поиском. */
+/* ── Режим «Индивидуальные занятия» (#1) ──────────────────────────────────
+   Дизайн повторяет групповую КТП: слева сайдбар уроков (поиск + «Уроки курса»
+   / разделитель / «Все уроки предмета»), справа СКВОЗНОЙ календарь всех инд.
+   занятий всех групп препода (D-1). Поток: клик по занятию в календаре →
+   сайдбар грузит кандидатов этого слота → клик по уроку назначает его. */
+async function fetchIndividual() {
+    const perGroup = await Promise.all(state.groups.map(g =>
+        api('getIndividual', { group_id: g.id }).then(d => (d && d.items) || []).catch(() => [])));
+    state.individual = perGroup.flat().sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+    state.indiMonths = indiMonths(state.individual);
+}
+
 async function loadIndividual() {
     state.groupId = INDI_ID;
+    state.indiSelected = null;
+    state.indiCandidates = null;
     root.innerHTML = `<div class="prof-ktp"><div class="rev-loading">Загрузка…</div></div>`;
     try {
-        const perGroup = await Promise.all(state.groups.map(g =>
-            api('getIndividual', { group_id: g.id }).then(d => (d && d.items) || []).catch(() => [])));
-        state.individual = perGroup.flat().sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+        await fetchIndividual();
     } catch (e) {
         root.innerHTML = errorHtml(e.message);
         return;
     }
+    state.indiCursor = indiInitialCursor();
     renderIndividual();
+}
+
+/* Месяцы диапазона всех инд. занятий (min..max scheduled_at). */
+function indiMonths(items) {
+    const ym = items.map(it => String(it.scheduled_at || '').slice(0, 7)).filter(Boolean).sort();
+    if (!ym.length) return [];
+    const [sy, sm] = ym[0].split('-').map(Number);
+    const [ey, em] = ym[ym.length - 1].split('-').map(Number);
+    const months = [];
+    let y = sy, m = sm - 1;
+    while (y < ey || (y === ey && m <= em - 1)) {
+        months.push({ y, m });
+        m++; if (m > 11) { m = 0; y++; }
+    }
+    return months;
+}
+
+/* Открываем календарь на текущем месяце, если он в диапазоне, иначе на первом. */
+function indiInitialCursor() {
+    if (!state.indiMonths.length) return 0;
+    const now = new Date();
+    const idx = state.indiMonths.findIndex(mm => mm.y === now.getFullYear() && mm.m === now.getMonth());
+    return idx >= 0 ? idx : 0;
 }
 
 function renderIndividual() {
@@ -332,76 +370,210 @@ function renderIndividual() {
                 <div class="prof-ktp-pick">
                     <span class="kp-label">Группа</span>
                     <button type="button" class="kp-btn" id="ktpGroupBtn">
-                        <span class="kp-chip" style="background:var(--t-zachet)">Инд</span>
+                        <span class="kp-chip chip-indi">Инд</span>
                         <span class="kp-txt">Индивидуальные занятия</span>
                         <svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>
                     </button>
                 </div>
             </div>
+            <span class="prof-spacer"></span>
+            <div class="prof-ktp-legend">
+                <span class="kl"><span class="prof-dot prof-dot-accent"></span>Урок назначен</span>
+                <span class="kl"><span class="prof-dot prof-dot-absent"></span>Не назначен</span>
+            </div>
         </div>
-        <div class="prof-indi-list">
-            ${items.length ? items.map(indiSlotHtml).join('') : `<div class="prof-indi-empty">Индивидуальных занятий нет. Создайте их на экране «Группы».</div>`}
-        </div>
+        ${items.length ? `
+        <div class="prof-ktp-grid">
+            <div class="prof-theme-bank">
+                <div class="tb-head"><h3>Уроки</h3><span class="tbh-count" id="indiBankHint"></span></div>
+                <input type="text" class="indi-search" id="indiSearch" placeholder="Поиск урока по названию…" ${state.indiSelected ? '' : 'disabled'}>
+                <div class="prof-theme-list" id="indiBank"></div>
+            </div>
+            <div class="prof-kal">
+                <div class="kal-head">
+                    <button class="prof-icon-ghost" id="ktpPrev"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <div class="kal-month" id="ktpMonth"></div>
+                    <button class="prof-icon-ghost" id="ktpNext"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <span class="prof-spacer"></span>
+                    <span class="kal-hint">Клик по дню — добавить · ✎ на занятии — изменить</span>
+                </div>
+                <div class="kal-grid-wrap">
+                    <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
+                    <div class="kal-grid" id="ktpGrid"></div>
+                </div>
+            </div>
+        </div>` : `<div class="prof-indi-empty"><p>Индивидуальных занятий пока нет.</p><button class="prof-btn prof-btn-primary" id="indiAddFirst">+ Добавить занятие</button></div>`}
     </div>`;
 
     document.getElementById('ktpGroupBtn').onclick = openGroupMenu;
-    root.querySelectorAll('.pis-action').forEach(btn => btn.addEventListener('click', () => {
-        const item = items.find(x => String(x.group_lesson_id) === btn.dataset.glid);
-        if (item) openLessonPicker(item, btn);
+    if (!items.length) {
+        const add = document.getElementById('indiAddFirst');
+        if (add) { add.addEventListener('click', () => openIndiModal({ api, anchor: add, groups: state.groups, onSaved: loadIndividual })); }
+        return;
+    }
+
+    document.getElementById('ktpPrev').onclick = () => shiftIndiMonth(-1);
+    document.getElementById('ktpNext').onclick = () => shiftIndiMonth(1);
+    const search = document.getElementById('indiSearch');
+    let deb;
+    search.addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(loadIndiCandidates, 250); });
+
+    renderIndiCalendar();
+    renderIndiBank();
+}
+
+function shiftIndiMonth(d) {
+    state.indiCursor = Math.max(0, Math.min(state.indiMonths.length - 1, state.indiCursor + d));
+    renderIndiCalendar();
+}
+
+function renderIndiCalendar() {
+    if (!state.indiMonths.length) return;
+    const { y, m } = state.indiMonths[state.indiCursor];
+    document.getElementById('ktpMonth').textContent = `${MONTHS_RU[m]} ${y}`;
+    document.getElementById('ktpPrev').disabled = state.indiCursor <= 0;
+    document.getElementById('ktpNext').disabled = state.indiCursor >= state.indiMonths.length - 1;
+
+    const byDate = {};
+    (state.individual || []).forEach(it => {
+        const ds = String(it.scheduled_at || '').slice(0, 10);
+        if (ds) (byDate[ds] = byDate[ds] || []).push(it);
+    });
+
+    const first = new Date(y, m, 1);
+    const offset = (first.getDay() + 6) % 7;
+    const last = new Date(y, m + 1, 0).getDate();
+
+    let cells = '';
+    for (let i = 0; i < offset; i++) cells += `<div class="kal-cell empty"></div>`;
+    for (let d = 1; d <= last; d++) {
+        const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const slots = (byDate[ds] || []).sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+        cells += `<div class="kal-cell${slots.length ? '' : ' no-lesson'}" data-day="${ds}">
+            <div class="kal-date"><span class="kd-num">${d}</span></div>
+            ${slots.map(indiSlotChip).join('')}
+        </div>`;
+    }
+
+    const grid = document.getElementById('ktpGrid');
+    grid.innerHTML = cells;
+    // Клик по слоту — выбрать для назначения урока (сайдбар, НБ-9); ✎ — правка (B2).
+    grid.querySelectorAll('.indi-slot').forEach(el => el.addEventListener('click', (e) => {
+        if (e.target.closest('.indi-edit')) { return; }
+        e.stopPropagation();
+        selectIndiSlot(el.dataset.glid);
+    }));
+    grid.querySelectorAll('.indi-edit').forEach(btn => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEditIndi(btn.dataset.glid, btn);
+    }));
+    // Клик по свободному месту дня — создать инд. занятие на эту дату (B2).
+    grid.querySelectorAll('.kal-cell[data-day]').forEach(cell => cell.addEventListener('click', (e) => {
+        if (e.target.closest('.indi-slot')) { return; }
+        openAddIndi(cell.dataset.day, cell);
     }));
 }
 
-function indiSlotHtml(it) {
-    const [d, t] = String(it.scheduled_at || '').split(' ');
-    const date = d ? `${d.slice(8, 10)}.${d.slice(5, 7)}` : '—';
+function indiSlotChip(it) {
+    const t = String(it.scheduled_at || '').split(' ')[1];
     const time = t ? t.slice(0, 5) : '';
-    const hasLesson = !!it.lesson_id;
-    return `<div class="prof-indi-slot" data-glid="${it.group_lesson_id}">
-        <div class="pis-stripe"></div>
-        <div class="pis-when"><div class="pis-date">${esc(date)}</div><div class="pis-time">${esc(time)}</div></div>
-        <div class="pis-body">
-            <div class="pis-student">${esc(it.student_name || '—')}</div>
-            <div class="pis-topic${hasLesson ? '' : ' empty'}">${hasLesson ? esc(it.topic || 'Без названия') : 'Урок не назначен'}</div>
-            <div class="pis-meta">${esc(it.group_name || '')}${it.room ? ` · ауд. ${esc(it.room)}` : ''}</div>
-        </div>
-        <button type="button" class="pis-action prof-btn prof-btn-sm ${hasLesson ? '' : 'prof-btn-primary'}" data-glid="${it.group_lesson_id}">${hasLesson ? 'Изменить урок' : 'Назначить урок'}</button>
+    const has = !!it.lesson_id;
+    const sel = String(it.group_lesson_id) === String(state.indiSelected) ? ' selected' : '';
+    const sub = has ? esc(it.topic || 'Без названия') : 'Урок не назначен';
+    return `<div class="placed-theme indi-slot${has ? '' : ' unassigned'}${sel}" data-glid="${it.group_lesson_id}" title="${esc(it.student_name || '')} · ${esc(sub)}">
+        <button class="indi-edit" data-glid="${it.group_lesson_id}" title="Изменить занятие" aria-label="Изменить">✎</button>
+        <span class="pt-num">${esc(time)} · ${esc(it.student_name || '—')}</span>
+        <span class="pt-title">${sub}</span>
     </div>`;
 }
 
-async function openLessonPicker(item, anchorEl) {
-    const html = `
-        <div class="pil-pop">
-            <div class="ctx-title">Урок для ${esc(item.student_name || 'занятия')}</div>
-            <input type="text" class="pil-search" placeholder="Поиск урока…">
-            <div class="pil-list" id="pilList"><div class="pil-empty">Загрузка…</div></div>
-        </div>`;
-    openCtxMenuRaw(html, anchorEl);
-    const menu = document.getElementById('profCtxMenu');
-    if (!menu) return;
-    const search = menu.querySelector('.pil-search');
-    const list = menu.querySelector('#pilList');
+// B2: создать инд. занятие на выбранную дату календаря (группа/ученик — в модалке).
+function openAddIndi(ds, anchor) {
+    openIndiModal({
+        api,
+        anchor,
+        groups: state.groups,
+        fixed: { date: ds },
+        onSaved: loadIndividual,
+    });
+}
 
-    const pick = async (lid) => {
-        try {
-            await api('assignLesson', { group_lesson_id: item.group_lesson_id, lesson_id: lid });
-            toast('Урок назначен');
-            closeCtxMenu();
-            loadIndividual();
-        } catch (e) { toast(e.message); }
-    };
+// B2: правка инд. занятия (группа фиксирована, ученик/дата/время/кабинет/тема — меняются).
+function openEditIndi(glid, anchor) {
+    const slot = (state.individual || []).find(x => String(x.group_lesson_id) === String(glid));
+    if (!slot) { return; }
+    const parts = String(slot.scheduled_at || '').split(' ');
+    openIndiModal({
+        api,
+        anchor,
+        groups: state.groups,
+        edit: {
+            glid: slot.group_lesson_id,
+            group_id: slot.group_id,
+            student_person_id: slot.student_person_id,
+            student_name: slot.student_name,
+            date: parts[0] || '',
+            time: parts[1] ? parts[1].slice(0, 5) : '15:00',
+            time_end: (String(slot.ends_at || '').split(' ')[1] || '').slice(0, 5),
+            room_id: slot.room_id || '',
+            room_name: slot.room || '',
+            lesson_id: slot.lesson_id || '',
+        },
+        onSaved: loadIndividual,
+    });
+}
 
-    const load = async (q) => {
-        try {
-            const d = await api('lessonCandidates', { group_id: item.group_id, search: q || '' });
-            list.innerHTML = renderLessonCandidates((d && d.lessons) || [], item.lesson_id);
-            list.querySelectorAll('.pil-item').forEach(el => el.addEventListener('click', () => pick(el.dataset.lid)));
-        } catch (e) { list.innerHTML = `<div class="pil-empty">${esc(e.message)}</div>`; }
-    };
+function selectIndiSlot(glid) {
+    state.indiSelected = glid;
+    state.indiCandidates = null;
+    const search = document.getElementById('indiSearch');
+    if (search) { search.disabled = false; search.value = ''; }
+    renderIndiCalendar(); // подсветить выбранный слот
+    renderIndiBank();     // показать «Загрузка…»
+    loadIndiCandidates();
+}
 
-    let deb;
-    search.addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(() => load(search.value.trim()), 250); });
-    load('');
-    search.focus();
+async function loadIndiCandidates() {
+    const slot = (state.individual || []).find(x => String(x.group_lesson_id) === String(state.indiSelected));
+    const bank = document.getElementById('indiBank');
+    if (!slot || !bank) return;
+    const q = (document.getElementById('indiSearch')?.value || '').trim();
+    bank.innerHTML = '<div class="pil-empty">Загрузка…</div>';
+    try {
+        const d = await api('lessonCandidates', { group_id: slot.group_id, search: q });
+        state.indiCandidates = (d && d.lessons) || [];
+        renderIndiBank();
+    } catch (e) { bank.innerHTML = `<div class="pil-empty">${esc(e.message)}</div>`; }
+}
+
+function renderIndiBank() {
+    const bank = document.getElementById('indiBank');
+    if (!bank) return;
+    const hint = document.getElementById('indiBankHint');
+    const slot = (state.individual || []).find(x => String(x.group_lesson_id) === String(state.indiSelected));
+
+    if (!slot) {
+        bank.innerHTML = '<div class="pil-empty">Выберите занятие в календаре, чтобы назначить урок.</div>';
+        if (hint) hint.textContent = '';
+        return;
+    }
+    if (hint) hint.textContent = slot.student_name || '';
+    if (state.indiCandidates === null) { bank.innerHTML = '<div class="pil-empty">Загрузка…</div>'; return; }
+
+    bank.innerHTML = renderLessonCandidates(state.indiCandidates, slot.lesson_id);
+    bank.querySelectorAll('.pil-item').forEach(el => el.addEventListener('click', () => assignIndiLesson(el.dataset.lid)));
+}
+
+async function assignIndiLesson(lid) {
+    const glid = state.indiSelected;
+    if (!glid) return;
+    try {
+        await api('assignLesson', { group_lesson_id: glid, lesson_id: lid });
+        toast('Урок назначен');
+        await fetchIndividual();   // обновить темы/lesson_id слотов
+        renderIndiCalendar();      // перерисовать календарь с новым уроком
+        renderIndiBank();          // обновить пометку «текущий»
+    } catch (e) { toast(e.message); }
 }
 
 function renderLessonCandidates(lessons, currentId) {

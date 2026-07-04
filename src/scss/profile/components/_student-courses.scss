@@ -1,0 +1,127 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Экран «Мои курсы» (ученик) — вкладки курсов + карточка курса + программа.
+   Явное разделение курсов (дизайн Student Courses). Классы sc-*.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+// Ширину/паддинги даёт .prof-dash (max-width:1320 + padding:24 → контент 1272),
+// как на остальных страницах кабинета — свой max-width не задаём.
+
+/* ── Вкладки курсов ──────────────────────────────────────────────────── */
+.sc-tabs { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.sc-tab {
+  display: flex; align-items: center; gap: 11px; text-align: left;
+  padding: 11px 16px 15px 12px; min-width: 240px; position: relative;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); cursor: pointer;
+  box-shadow: var(--shadow-sm); transition: border-color $tr, box-shadow $tr;
+}
+.sc-tab:hover { border-color: var(--line-3, var(--muted-2)); }
+.sc-tab.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow-md); }
+.sc-chip {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--ink-inverse); letter-spacing: .02em;
+}
+.sc-tb { min-width: 0; flex: 1; }
+.sc-tname {
+  display: block; font-size: 14px; font-weight: 600; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sc-tab.on .sc-tname { color: var(--accent-700); }
+.sc-tsub { display: block; font-size: 12px; color: var(--muted-2); margin-top: 2px; white-space: nowrap; }
+.sc-tbar {
+  position: absolute; left: 12px; right: 12px; bottom: 6px; height: 3px;
+  border-radius: 2px; background: var(--line-2); overflow: hidden;
+}
+.sc-tbar span { display: block; height: 100%; border-radius: 2px; }
+
+/* ── Карточка выбранного курса ───────────────────────────────────────── */
+.sc-hero { margin-bottom: 16px; }
+.sc-hero-top { display: flex; align-items: flex-start; gap: 20px; padding: 20px 22px 18px; }
+.sc-hinfo { flex: 1; min-width: 0; }
+.sc-code {
+  display: inline-flex; padding: 3px 9px; border-radius: 6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .03em; margin-bottom: 7px;
+}
+.sc-htitle { font-size: 20px; font-weight: 700; letter-spacing: -.015em; line-height: 1.2; color: var(--ink); }
+.sc-hmeta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--muted); }
+.sc-sep { color: var(--line); }
+.sc-hprog { margin-top: 15px; max-width: 460px; }
+.sc-hpl { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.sc-hpt { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.sc-hpct { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sc-hpbar { height: 7px; border-radius: 4px; background: var(--line-2); overflow: hidden; }
+.sc-hpbar span { display: block; height: 100%; border-radius: 4px; transition: width .3s; }
+.sc-hact { display: flex; flex-direction: column; gap: 9px; flex-shrink: 0; min-width: 210px; }
+.sc-hbtn { justify-content: center; text-decoration: none; padding: 11px 18px; font-size: 14px; }
+.sc-dis { opacity: .55; cursor: default; }
+.sc-hint { font-size: 11.5px; color: var(--muted-2); text-align: center; }
+
+/* ── Заголовок программы + поиск ─────────────────────────────────────── */
+.sc-prog-head { flex-wrap: wrap; row-gap: 10px; }
+.sc-search {
+  display: flex; align-items: center; gap: 7px; margin-left: auto;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 12px; width: 230px; color: var(--muted-2);
+}
+.sc-search input { border: none; background: transparent; outline: none; font: inherit; font-size: 13px; color: var(--ink); width: 100%; }
+.sc-search svg { flex-shrink: 0; }
+
+/* ── Модуль ──────────────────────────────────────────────────────────── */
+.sc-mod { border-bottom: 1px solid var(--line-2); }
+.sc-mod:last-child { border-bottom: none; }
+.sc-mhead { display: flex; align-items: center; gap: 12px; padding: 13px 18px; cursor: pointer; user-select: none; transition: background $tr; }
+.sc-mhead:hover { background: var(--surface-2); }
+.sc-mhead.static { cursor: default; }
+.sc-mhead.static:hover { background: transparent; }
+.sc-caret { color: var(--muted-2); flex-shrink: 0; display: flex; transition: transform .15s; }
+.sc-mod.open .sc-caret { transform: rotate(90deg); }
+.sc-mnum { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-2); width: 66px; flex-shrink: 0; }
+.sc-mname { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+.sc-mdone { color: var(--g-good); font-weight: 700; flex-shrink: 0; }
+.sc-mcnt { font-size: 12px; color: var(--muted-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sc-mmini { width: 72px; height: 5px; border-radius: 3px; background: var(--line-2); overflow: hidden; flex-shrink: 0; }
+.sc-mmini span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.sc-mod.done .sc-mmini span { background: var(--g-good); }
+.sc-mbody { display: none; }
+.sc-mod.open .sc-mbody { display: block; padding-bottom: 6px; }
+
+/* ── Строка урока ────────────────────────────────────────────────────── */
+.sc-row { display: flex; align-items: center; gap: 13px; padding: 10px 18px 10px 24px; transition: background $tr; }
+.sc-row.click { cursor: pointer; }
+.sc-row.click:hover { background: var(--accent-soft); }
+.sc-row.click:hover .sc-go { opacity: 1; transform: translateX(0); }
+.sc-num {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+}
+.sc-row.done .sc-num { background: var(--good-bg); border-color: var(--ok-line, var(--line)); color: var(--g-good); }
+.sc-row.open .sc-num { background: var(--accent); border-color: var(--accent); color: var(--ink-inverse); }
+.sc-lb { flex: 1; min-width: 0; }
+.sc-ltitle { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-row.lock .sc-ltitle { color: var(--muted); font-weight: 500; }
+.sc-lsub { display: block; font-size: 12px; color: var(--muted-2); margin-top: 1px; }
+.sc-go {
+  display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+  color: var(--accent-700); opacity: 0; transform: translateX(-4px);
+  transition: opacity $tr, transform $tr; white-space: nowrap;
+}
+
+/* ── Пилюли статуса ──────────────────────────────────────────────────── */
+.sc-pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.sc-pill.done { background: var(--good-bg); color: var(--g-good); }
+.sc-pill.open { background: var(--accent-soft); color: var(--accent-700); }
+.sc-pill.lock { background: var(--surface-2); color: var(--muted-2); border: 1px solid var(--line); }
+
+/* ── Состояния ───────────────────────────────────────────────────────── */
+.sc-notice { display: flex; align-items: center; gap: 12px; margin: 14px 18px; padding: 13px 16px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-700); font-size: 13px; font-weight: 500; }
+.sc-empty { padding: 20px 18px; font-size: 13px; color: var(--muted-2); text-align: center; }
+
+@media (max-width: 900px) {
+  .sc-hero-top { flex-direction: column; }
+  .sc-hact { min-width: 0; }
+  .sc-tab { min-width: 0; flex: 1 1 220px; }
+}

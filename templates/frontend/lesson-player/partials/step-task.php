@@ -24,9 +24,6 @@ use Inc\Enums\Course\StepType;
 		<span class="tbadge" data-step-type="<?php echo esc_attr( $step['type'] ); ?>">
 			<?php echo esc_html( StepType::fromValueOrDefault( $step['type'] )->label() ); ?>
 		</span>
-		<?php if ( ! empty( $render['auto_grade'] ) ) : ?>
-			<span>· <?php esc_html_e( 'мгновенная проверка', 'fs-lms' ); ?></span>
-		<?php endif; ?>
 		<?php if ( ! empty( $edit_url ) ) : ?>
 			<a class="b b-gh b-sm pv-edit" href="<?php echo esc_url( $edit_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></a>
 		<?php endif; ?>
@@ -85,7 +82,8 @@ use Inc\Enums\Course\StepType;
 				<button type="button"
 					class="b b-pri fs-task-submit"
 					data-step="<?php echo esc_attr( $step['key'] ); ?>"
-					<?php echo ( ! empty( $is_preview ) || $task_is_done ) ? 'disabled' : ''; ?>>
+					<?php echo ! empty( $is_preview ) && ! empty( $render['ref'] ) ? 'data-preview-ref="' . esc_attr( (string) $render['ref'] ) . '"' : ''; ?>
+					<?php echo $task_is_done ? 'disabled' : ''; ?>>
 					<?php esc_html_e( 'Ответить', 'fs-lms' ); ?>
 				</button>
 				<div class="fs-task-result" aria-live="polite"></div>

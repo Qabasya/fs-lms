@@ -1,6 +1,6 @@
 /* Shared utilities: toast, HTML escaping, formatting, context menu state */
 
-import { GROUP_COLORS, AVA_COLORS } from './constants.js';
+import { AVA_COLORS } from './constants.js';
 
 let toastTimer;
 
@@ -73,47 +73,29 @@ export function todayIso() {
 /* ── Colors (shared) ───────────────────────────────────────────── */
 
 /**
- * Цвет по ключу предмета — общий движок для groupColor()/courseColor() (#17, #15-B):
- * индекс предмета в порядке появления в allSubjectKeys → GROUP_COLORS; для ключа
- * вне списка — стабильный хэш.
+ * Индекс цвета предмета/курса (0..11): стабильный хэш subject_key.
+ * Палитра — src/scss/shared/_chip-palette.scss (.chip-cN и варианты);
+ * PHP-зеркало — ProfileViewResolver::chipColorIndex(). Цвет закреплён за
+ * ПРЕДМЕТОМ (#17: группы и курсы одного предмета красятся одинаково), не
+ * зависит от порядка групп и совпадает в кабинете и плеере. Без инлайна.
  */
-export function colorForSubject(subjectKey, allSubjectKeys) {
-    const idx = allSubjectKeys.indexOf(subjectKey);
-    if (idx >= 0) { return GROUP_COLORS[idx % GROUP_COLORS.length]; }
-
+export function chipIndex(key) {
+    const s = String(key || '');
     let h = 0;
-    for (let i = 0; i < subjectKey.length; i++) { h = (h * 31 + subjectKey.charCodeAt(i)) | 0; }
-    return GROUP_COLORS[Math.abs(h) % GROUP_COLORS.length];
+    for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+    return Math.abs(h) % 12;
 }
 
-/** Различные предметы групп сайдбара, в порядке появления (для colorForSubject). */
-function sidebarSubjects() {
-    const groups = (window.fsProfile && window.fsProfile.groups) || [];
-    const subjects = [];
-    for (const x of groups) {
-        const s = x.subject || x.subject_key;
-        if (s && !subjects.includes(s)) { subjects.push(s); }
-    }
-    return subjects;
-}
+export const chipBg     = (key) => `chip-c${chipIndex(key)}`;
+export const chipText   = (key) => `chip-tc-c${chipIndex(key)}`;
+export const chipBorder = (key) => `chip-bd-c${chipIndex(key)}`;
+export const chipSoft   = (key) => `chip-soft-c${chipIndex(key)}`;
 
-/**
- * Цвет группы — по ПРЕДМЕТУ (#17): все группы одного предмета красятся одинаково.
- * Согласован между сайдбаром, пикерами и дашбордом.
- */
-export function groupColor(gid) {
+/** Ключ предмета группы сайдбара по id (fallback — id, чтобы цвет был стабилен). */
+export function groupSubjectKey(gid) {
     const groups = (window.fsProfile && window.fsProfile.groups) || [];
     const g = groups.find(x => String(x.id) === String(gid));
-    const key = (g && (g.subject || g.subject_key)) || String(gid);
-    return colorForSubject(key, sidebarSubjects());
-}
-
-/**
- * Цвет курса в сайдбаре «Мои курсы» (#15-B) — тем же ключом предмета, что и
- * groupColor(), поэтому курс красится в цвет своих групп того же предмета.
- */
-export function courseColor(subjectKey) {
-    return colorForSubject(subjectKey, sidebarSubjects());
+    return (g && (g.subject_key || g.subject)) || String(gid);
 }
 
 /** Цвет аватара ученика по индексу в переданном списке ({person_id}). */
@@ -150,7 +132,7 @@ export function openCtxMenu(anchor, items, onPick) {
 
     menu.innerHTML = items.map(it => `<div class="ctx-item ${it.active ? 'on' : ''}" data-v="${esc(it.v)}">
         <span class="ctx-check">${it.active ? '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}</span>
-        ${it.swatch ? `<span class="ctx-sw" style="background:${it.swatch}">${esc(it.chip || '')}</span>` : ''}
+        ${it.swatch || it.swatchClass ? `<span class="ctx-sw${it.swatchClass ? ' ' + esc(it.swatchClass) : ''}"${it.swatch ? ` style="background:${it.swatch}"` : ''}>${esc(it.chip || '')}</span>` : ''}
         <span class="ctx-lbl">${esc(it.label)}</span>
     </div>`).join('');
 
@@ -199,7 +181,7 @@ export function closeCtxMenu() {
 export function openGradePopPositioned(pop, anchor) {
     pop.classList.add('open');
     const r = anchor.getBoundingClientRect();
-    const pw = 188, ph = pop.offsetHeight;
+    const pw = pop.offsetWidth, ph = pop.offsetHeight;
     let left = r.left + r.width / 2 - pw / 2;
     left = Math.max(10, Math.min(left, window.innerWidth - pw - 10));
     let top = r.bottom + 6;

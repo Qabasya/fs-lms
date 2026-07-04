@@ -55,8 +55,10 @@ class RoomCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveRoom() )->success );
 	}
 
-	public function test_delete_room_soft_deletes(): void {
-		$this->rooms->expects( $this->once() )->method( 'softDelete' )->with( 7 );
+	public function test_delete_room_hard_deletes(): void {
+		// Каскадная очистка: удаление кабинета — hard-delete + отвязка от всех групп.
+		$this->assignment->expects( $this->once() )->method( 'unassignFromAll' )->with( 7 );
+		$this->rooms->expects( $this->once() )->method( 'hardDelete' )->with( 7 );
 		$_POST = array( 'room_id' => '7' );
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxDeleteRoom() )->success );

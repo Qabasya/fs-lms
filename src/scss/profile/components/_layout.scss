@@ -22,17 +22,45 @@ body.admin-bar .prof-app {
   }
 }
 
+/* ── Сворачивание сайдбара (зеркало плеера): body-класс из app.js ───── */
+body.prof-anim .prof-app { transition: grid-template-columns $tr-menu; }
+body.prof-menu-off .prof-app { grid-template-columns: 0 1fr; }
+body.prof-menu-off .prof-sidebar { border-right-color: transparent; }
+
 /* ══ SIDEBAR ══════════════════════════════════════════════════════════ */
 .prof-sidebar {
   background: var(--surface);
   border-right: 1px solid var(--line);
   display: flex; flex-direction: column;
   min-height: 0;
+  overflow: hidden; /* при схлопнутой колонке контент клипается, не сжимается */
 }
+/* Дети держат полную ширину — при анимации колонки контент не «мнётся». */
+.prof-brand, .prof-side-scroll, .prof-side-user { width: var(--side-w); }
 .prof-brand {
   display: flex; align-items: center; gap: 10px;
   padding: 18px 18px 16px;
 }
+.prof-collapse {
+  margin-left: auto;
+  width: 28px; height: 28px; flex-shrink: 0;
+  border: none; border-radius: 8px;
+  background: transparent; color: var(--muted-2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background $tr, color $tr;
+}
+.prof-collapse:hover { background: var(--surface-2); color: var(--ink-2); }
+
+.prof-mtoggle {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--muted);
+  box-shadow: var(--shadow-sm); cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  margin-right: 12px; transition: color $tr;
+}
+.prof-mtoggle:hover { color: var(--ink-2); }
+body.prof-menu-off .prof-mtoggle { display: flex; }
 .prof-brand-mark {
   width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
   background: linear-gradient(135deg, var(--accent), var(--accent-700));

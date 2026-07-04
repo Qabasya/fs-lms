@@ -1,7 +1,8 @@
 /**
- * Иконки и мета типов шагов плеера (по дизайн-хэндоффу lms-course-player).
- * Цвета типов продублированы в SCSS (player/_variables.scss) — здесь они
- * нужны для SVG-заливки в ленте/дереве.
+ * Иконки и мета типов шагов плеера. Глифы типов (typeIco) — 1-в-1 с
+ * конструктором курса (admin/services/step-editor.js `ICON`), дизайн из
+ * lms-course-player не используем. Цвета типов продублированы в SCSS
+ * (player/_variables.scss) — здесь они нужны для SVG-заливки в ленте/дереве.
  */
 
 export const TYPES = {
@@ -16,39 +17,20 @@ export function typeMeta( type ) {
 	return TYPES[ type ] || TYPES.text;
 }
 
+// Глифы типов шага — 1-в-1 с конструктором курса (step-editor.js `ICON`, 24×24).
+// Наш StepType → UI-тип конструктора: text→lecture, video→video, task→task,
+// work→practice, assessment→assessment. Дизайн из lms-course-player игнорируем.
+const GLYPH = {
+	text:       '<path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1.5V8h3.5L14 4.5zM8 12h8v1.6H8V12zm0 3.4h8V17H8v-1.6zM8 8.6h4v1.6H8V8.6z"/>',
+	video:      '<path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm6 3.2v7.6l6-3.8-6-3.8z"/>',
+	task:       '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>',
+	work:       '<path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>',
+	assessment: '<path d="M4 5h7v2H4V5zm0 6h7v2H4v-2zm0 6h7v2H4v-2zm14.3-9.3 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6zm0 6 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6z"/>',
+};
+
 export function typeIco( type, color, s = 22 ) {
-	const head = `<svg width="${ s }" height="${ s }" viewBox="0 0 20 20" fill="none">`;
-	const tail = '</svg>';
-	if ( 'text' === type ) {
-		return head +
-			`<path d="M5 2.5h6.2L15.5 6.8V17.5H5V2.5z" fill="${ color }"/>` +
-			'<path d="M11.2 2.5v4.3h4.3L11.2 2.5z" fill="#fff" opacity=".45"/>' +
-			'<rect x="7" y="10" width="6.4" height="1.4" rx=".7" fill="#fff" opacity=".9"/>' +
-			'<rect x="7" y="13" width="4.6" height="1.4" rx=".7" fill="#fff" opacity=".9"/>' + tail;
-	}
-	if ( 'video' === type ) {
-		return head +
-			`<rect x="2.5" y="4.2" width="15" height="11.6" rx="2.6" fill="${ color }"/>` +
-			'<path d="M8.4 7.3v5.4L13 10 8.4 7.3z" fill="#fff"/>' + tail;
-	}
-	if ( 'task' === type ) {
-		return head +
-			`<circle cx="10" cy="10" r="7.6" fill="${ color }"/>` +
-			'<path d="M7.9 7.9a2.15 2.15 0 1 1 3.3 1.85c-.65.42-1.2.85-1.2 1.65v.25" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/>' +
-			'<circle cx="10" cy="14.1" r="1" fill="#fff"/>' + tail;
-	}
-	if ( 'work' === type ) {
-		return head +
-			`<path d="M7 5.5 3.4 10 7 14.5M13 5.5 16.6 10 13 14.5" stroke="${ color }" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` + tail;
-	}
-	// assessment — список с галочками
-	return head +
-		`<path d="M3.4 5.2l1.2 1.2 2-2.1" stroke="${ color }" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` +
-		`<rect x="8.6" y="4.6" width="8" height="1.6" rx=".8" fill="${ color }"/>` +
-		`<path d="M3.4 10.2l1.2 1.2 2-2.1" stroke="${ color }" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` +
-		`<rect x="8.6" y="9.6" width="8" height="1.6" rx=".8" fill="${ color }"/>` +
-		`<path d="M3.4 15.2l1.2 1.2 2-2.1" stroke="${ color }" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` +
-		`<rect x="8.6" y="14.6" width="8" height="1.6" rx=".8" fill="${ color }"/>` + tail;
+	const glyph = GLYPH[ type ] || GLYPH.text;
+	return `<svg width="${ s }" height="${ s }" viewBox="0 0 24 24" fill="${ color }">${ glyph }</svg>`;
 }
 
 export const ICO = {

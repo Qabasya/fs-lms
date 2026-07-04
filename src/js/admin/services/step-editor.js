@@ -623,7 +623,8 @@ export function createStepEditor( opts ) {
 					'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
 					'</div>';
 			} else {
-				const attVal = parseInt( ( step.payload.settings || {} ).max_attempts ?? 0, 10 );
+				const attVal  = parseInt( ( step.payload.settings || {} ).max_attempts ?? 0, 10 );
+				const hintVal = parseInt( ( step.payload.settings || {} ).hint_after_errors ?? 0, 10 );
 				ed.innerHTML =
 					'<div class="fs-cb-ref">' +
 					'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
@@ -632,15 +633,37 @@ export function createStepEditor( opts ) {
 					'</div>' +
 					'<div class="fs-cb-task-preview" data-task-preview></div>' +
 					'<div class="fs-cb-step-attempts">' +
+					'<div class="fs-cb-ss-row">' +
 					'<label class="fs-cb-ss-label">Попыток (0 = ∞)' +
 					'<input type="number" min="0" class="fs-cb-ss-num" data-attempts value="' + attVal + '">' +
 					'</label>' +
+					'<label class="fs-cb-ss-label">Отображать подсказку после ошибок (0 = сразу)' +
+					'<input type="number" min="0" class="fs-cb-ss-num" data-hint value="' + hintVal + '">' +
+					'</label>' +
+					'</div>' +
 					'</div>';
 
-				const attInput = ed.querySelector( '[data-attempts]' );
+				const attInput  = ed.querySelector( '[data-attempts]' );
+				const hintInput = ed.querySelector( '[data-hint]' );
+				// Число ошибок для показа подсказки всегда меньше числа попыток
+				// (max_attempts = 0 = ∞ — ограничения нет).
+				const clampHint = () => {
+					const mx = parseInt( attInput.value, 10 ) || 0;
+					let h    = parseInt( hintInput.value, 10 ) || 0;
+					if ( h < 0 ) { h = 0; }
+					if ( mx > 0 && h >= mx ) { h = mx - 1; }
+					hintInput.value = h;
+					return h;
+				};
 				attInput.addEventListener( 'change', () => {
-					step.payload.settings                = step.payload.settings || {};
-					step.payload.settings.max_attempts   = parseInt( attInput.value, 10 ) || 0;
+					step.payload.settings                   = step.payload.settings || {};
+					step.payload.settings.max_attempts      = parseInt( attInput.value, 10 ) || 0;
+					step.payload.settings.hint_after_errors = clampHint();
+					scheduleSave();
+				} );
+				hintInput.addEventListener( 'change', () => {
+					step.payload.settings                   = step.payload.settings || {};
+					step.payload.settings.hint_after_errors = clampHint();
 					scheduleSave();
 				} );
 
