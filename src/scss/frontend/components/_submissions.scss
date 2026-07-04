@@ -48,6 +48,7 @@
 .fs-submission-form__submit {
 	padding: 8px 20px;
 	font-size: $font-size-base;
+
 	@include fs-btn-primary(0.88);
 
 	&:disabled { @include fs-disabled; }
@@ -152,6 +153,7 @@
 	button {
 		padding: 6px 16px;
 		font-size: $font-size-sm;
+
 		@include fs-btn-primary(0.88);
 
 		&.fs-btn-return {

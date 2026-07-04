@@ -9,17 +9,20 @@
    Подключается в profile.scss и player.scss.
    ══════════════════════════════════════════════════════════════════════ */
 
+@use 'sass:color';
+@use 'sass:list';
+
 $chip-colors: #3b5bdb, #0ca678, #7048e8, #f08c00, #e8590c, #1c7ed6,
               #e64980, #2f9e44, #9c36b5, #0c8599, #66a80f, #c92a2a;
 
-@for $i from 1 through length($chip-colors) {
-  $c: nth($chip-colors, $i);
+@for $i from 1 through list.length($chip-colors) {
+  $c: list.nth($chip-colors, $i);
   $n: $i - 1;
 
   .chip-c#{$n}      { background: $c; }
   .chip-tc-c#{$n}   { color: $c; }
   .chip-bd-c#{$n}   { border-left-color: $c; }
-  .chip-soft-c#{$n} { background: mix($c, #fff, 12%); color: $c; }
+  .chip-soft-c#{$n} { background: color.mix($c, #fff, 12%); color: $c; }
 }
 
 /* Индивидуальные занятия — токен-цвет кабинета (класс используется только там). */

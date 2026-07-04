@@ -21,6 +21,7 @@
 
   &__title {
     @include fs-card-title;
+
     margin: 0 0 $spacing-xl;
   }
 
@@ -55,6 +56,7 @@
 
     .dashicons {
       @include fs-field-icon;
+
       pointer-events: none;
     }
 
@@ -89,6 +91,7 @@
 
   &__submit {
     @include fs-form-submit(10px 16px);
+
     box-sizing: border-box;
   }
 
@@ -150,6 +153,7 @@
     @include fs-form-error($font-size-xs, $spacing-md);
   }
 }
+
 // ── Гейт кода направления (серверный, инлайн-блок карточки /lms/apply, Этап 0) ──
 // Не оверлей-модалка: форма приходит по AJAX только после верного кода, поэтому гейт —
 // обычный контент карточки. Поле и кнопка переиспользуют стили .fs-apply-card__*.

@@ -47,6 +47,7 @@
 
   &__arrow {
     @include circle-btn(36px);
+
     flex-shrink: 0;
     font-size: 20px;
 

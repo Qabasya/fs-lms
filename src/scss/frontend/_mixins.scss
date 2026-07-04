@@ -72,18 +72,22 @@
   } @else {
     width: 100%;
   }
+
   box-sizing: border-box;
+
   @if $important {
     padding: 10px 12px 10px 38px !important;
   } @else {
     padding: 10px 12px 10px 38px;
   }
+
   font-size: $font-size-sm;
   border: 1px solid $color-border;
   border-radius: $radius;
   background-color: $color-bg-subtle;
   color: $color-text;
   transition: border-color $transition, background-color $transition;
+
   @if not $important {
     font-family: $font-family;
   }

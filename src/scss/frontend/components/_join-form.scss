@@ -10,6 +10,7 @@
 
   &__title {
     @include fs-card-title;
+
     margin: 0 0 $spacing-sm;
   }
 
@@ -58,6 +59,7 @@
 
     .dashicons {
       @include fs-field-icon;
+
       pointer-events: none;
     }
 
@@ -106,6 +108,7 @@
 
   &__submit {
     @include fs-form-submit(10px 16px);
+
     box-sizing: border-box;
     margin-top: $spacing-sm;
   }
@@ -122,7 +125,9 @@
     border-top: none;
     border-radius: 0 0 $radius $radius;
     box-shadow: $shadow-hover;
+
     @include fs-list-reset;
+
     max-height: 220px;
     overflow-y: auto;
 

@@ -74,6 +74,8 @@
   font-size: $font-size-xxs;
   color: $color-muted;
   line-height: $line-height-tight;
+
   @include line-clamp(2);
+
   transition: color $transition;
 }

@@ -9,6 +9,7 @@
 
 /* ── Вкладки курсов ──────────────────────────────────────────────────── */
 .sc-tabs { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+
 .sc-tab {
   display: flex; align-items: center; gap: 11px; text-align: left;
   padding: 11px 16px 15px 12px; min-width: 240px; position: relative;
@@ -18,18 +19,21 @@
 }
 .sc-tab:hover { border-color: var(--line-3, var(--muted-2)); }
 .sc-tab.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow-md); }
+
 .sc-chip {
   width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 700; color: var(--ink-inverse); letter-spacing: .02em;
 }
 .sc-tb { min-width: 0; flex: 1; }
+
 .sc-tname {
   display: block; font-size: 14px; font-weight: 600; line-height: 1.2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .sc-tab.on .sc-tname { color: var(--accent-700); }
 .sc-tsub { display: block; font-size: 12px; color: var(--muted-2); margin-top: 2px; white-space: nowrap; }
+
 .sc-tbar {
   position: absolute; left: 12px; right: 12px; bottom: 6px; height: 3px;
   border-radius: 2px; background: var(--line-2); overflow: hidden;
@@ -40,6 +44,7 @@
 .sc-hero { margin-bottom: 16px; }
 .sc-hero-top { display: flex; align-items: flex-start; gap: 20px; padding: 20px 22px 18px; }
 .sc-hinfo { flex: 1; min-width: 0; }
+
 .sc-code {
   display: inline-flex; padding: 3px 9px; border-radius: 6px;
   font-size: 11.5px; font-weight: 700; letter-spacing: .03em; margin-bottom: 7px;
@@ -60,6 +65,7 @@
 
 /* ── Заголовок программы + поиск ─────────────────────────────────────── */
 .sc-prog-head { flex-wrap: wrap; row-gap: 10px; }
+
 .sc-search {
   display: flex; align-items: center; gap: 7px; margin-left: auto;
   background: var(--surface-2); border: 1px solid var(--line);
@@ -92,6 +98,7 @@
 .sc-row.click { cursor: pointer; }
 .sc-row.click:hover { background: var(--accent-soft); }
 .sc-row.click:hover .sc-go { opacity: 1; transform: translateX(0); }
+
 .sc-num {
   width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -104,6 +111,7 @@
 .sc-ltitle { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-row.lock .sc-ltitle { color: var(--muted); font-weight: 500; }
 .sc-lsub { display: block; font-size: 12px; color: var(--muted-2); margin-top: 1px; }
+
 .sc-go {
   display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
   color: var(--accent-700); opacity: 0; transform: translateX(-4px);

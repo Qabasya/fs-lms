@@ -42,6 +42,7 @@
     opacity: 0;
     transform: translate(-50%, -48%) scale(0.97);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
@@ -58,7 +59,7 @@
 // для компенсации ширины скроллбара и предотвращения "прыжка" контента
 html.modal-open {
   overflow: hidden;
-  padding-right: var(--scrollbar-width, 0px);
+  padding-right: var(--scrollbar-width, 0);
 }
 
 // ── Контейнер модального окна (оверлей на весь экран)
@@ -85,6 +86,7 @@ html.modal-open {
     inset: 0;
     background: $color-bg-backdrop;
     z-index: $z-modal-backdrop;
+
     // 💡 Tip: для кликов "мимо" модалки добавить: pointer-events: none;
     //        и включить их у .fs-lms-modal-content
   }
@@ -146,6 +148,7 @@ html.modal-open {
     .fs-lms-modal-close,
     .fs-close {
       @include reset-button;
+
       color: $color-text-inverse;
       font-size: $font-size-l;
       line-height: 1;
@@ -173,7 +176,7 @@ html.modal-open {
 
     // Базовые стили для параграфов
     p {
-      margin: 0 0 $spacing-xl 0;
+      margin: 0 0 $spacing-xl;
       line-height: $line-height-base;
       color: $color-text-primary;
 
@@ -198,6 +201,7 @@ html.modal-open {
     justify-content: space-between;
     gap: $spacing-md;
     flex-shrink: 0;
+
     &:has(> button:only-child),
     &:has(> .button:only-child),
     &:has(> :only-child) {
@@ -264,6 +268,7 @@ html.modal-open {
 
   // Поля ввода: text, email, password и т.д.
   $input-types: text, number, email, url, password;
+
   @each $type in $input-types {
     input[type="#{$type}"] {
       @include wp-input($height: $input-height-sm, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
@@ -287,6 +292,7 @@ html.modal-open {
   // Особые стили для textarea
   textarea {
     @include textarea-base;
+
     padding: $spacing-md $spacing-md;
   }
 
@@ -486,11 +492,12 @@ html.modal-open {
 
   &__title-group {
     h3 {
-      margin: 0 0 $spacing-xs 0 !important;
+      margin: 0 0 $spacing-xs !important;
       font-size: $font-size-m !important;
       font-weight: $font-bold !important;
       color: $color-text-primary !important;
     }
+
     p {
       margin: 0 !important;
       font-size: $font-size !important;
@@ -553,7 +560,9 @@ html.modal-open {
         position: absolute;
         left: 0;
         top: 2px;
+
         @include badge-circle(26px, $wp-admin-blue);
+
         font-weight: $font-bold;
         font-size: $font-size-xs;
         z-index: 2;
@@ -593,6 +602,7 @@ html.modal-open {
 
   &__badge {
     @include badge-circle(28px, $wp-admin-green);
+
     flex-shrink: 0;
 
     .dashicons {
@@ -605,11 +615,12 @@ html.modal-open {
 
   &__text {
     h4 {
-      margin: 0 0 $spacing-xs 0 !important;
+      margin: 0 0 $spacing-xs !important;
       font-size: $font-size-m!important;
       font-weight: $font-bold !important;
       color: $color-text-primary !important;
     }
+
     p {
       margin: 0 !important;
       font-size: $font-size !important;
@@ -649,9 +660,6 @@ html.modal-open {
     color: $color-text-primary;
     word-break: break-all;
     user-select: all;
-    -moz-user-select: all;
-    -webkit-user-select: all;
-    -ms-user-select: all;
     line-height: 1.2;
     cursor: pointer;
   }
@@ -668,6 +676,7 @@ html.modal-open {
   // Информационная плашка (Иконка "i" и текст в одну строку)
   &__info {
     @include callout($wp-admin-blue, 0.08);
+
     display: flex;
     align-items: flex-start;
     gap: $spacing-sm;
@@ -711,6 +720,7 @@ html.modal-open {
 
   &__btn {
     @include reset-button;
+
     color: $color-text-secondary;
     display: flex;
     align-items: center;
@@ -804,6 +814,7 @@ html.modal-open {
 
   &__header {
     @include reset-button;
+
     width: 100%;
     display: flex;
     justify-content: space-between;
@@ -947,6 +958,7 @@ html.modal-open {
 
     select {
       @include wp-input($height: $input-height, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
+
       flex: 1 1 0;
       min-width: 0;
       width: auto;
@@ -975,6 +987,7 @@ html.modal-open {
     .fs-schedule-day-row {
       grid-template-columns: 1fr;
     }
+
     .fs-schedule-day-times {
       flex-wrap: wrap;
     }
@@ -988,6 +1001,7 @@ html.modal-open {
 
 .fs-expel-warning {
   @include callout($color-danger, 0.06, $wp-admin-red-text);
+
   display: flex;
   align-items: flex-start;
   gap: $spacing-sm;
@@ -1142,7 +1156,8 @@ html.modal-open {
 
 .fs-modal-error {
   @include callout($color-danger, 0.06, $color-danger);
-  margin: 0 0 $spacing-lg 0;
+
+  margin: 0 0 $spacing-lg;
   font-size: $font-size-wp;
   display: none;
 

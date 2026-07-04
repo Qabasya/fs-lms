@@ -4,6 +4,7 @@
 @use '../variables' as *;
 
 .prof-dash { padding: 24px; max-width: 1320px; margin: 0 auto; }
+
 .prof-sub-tag {
   display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 10px;
   background: var(--accent-soft); color: var(--accent-700);
@@ -11,6 +12,7 @@
 }
 .prof-sub-tag.warn { background: var(--warn-bg); color: var(--warn-ink); }
 .prof-sub-tag.indi { background: var(--indi-bg); color: var(--indi-ink); }
+
 .prof-cover-banner {
   display: flex; align-items: center; gap: 9px; margin-bottom: 18px;
   padding: 11px 15px; border-radius: var(--radius-sm);
@@ -28,6 +30,7 @@
 
 /* НБ-11: пагинатор недели (‹ диапазон ›) над сеткой расписания. */
 .prof-week-nav { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 0 14px; }
+
 .prof-week-nav .pwn-arrow {
   width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
@@ -41,19 +44,23 @@
   display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
   background: var(--line-2); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden;
 }
+
 /* #18: пустой день недели («Занятий нет»). */
 .prof-week-empty {
   font-size: 11px; color: var(--muted-2); text-align: center;
   margin: auto 0; padding: 8px 0;
 }
+
 .prof-week-col {
   background: var(--surface); padding: 12px 10px; min-height: 150px;
   display: flex; flex-direction: column; gap: 8px;
 }
+
 .prof-week-dow {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   color: var(--muted-2); text-align: center; padding-bottom: 8px; border-bottom: 1px solid var(--line-2);
 }
+
 .prof-week-card {
   border-left: 3px solid var(--accent); background: var(--surface-2);
   border-radius: 7px; padding: 8px 10px; cursor: pointer; transition: background $tr;
@@ -75,6 +82,7 @@
 .prof-lesson-bar { width: 3px; border-radius: 2px; flex-shrink: 0; background: var(--accent); }
 .prof-lesson-body { flex: 1; min-width: 0; }
 .prof-lesson-grp { font-size: 14px; font-weight: 600; }
+
 .prof-lesson-topic {
   font-size: 13px; color: var(--muted); margin-top: 1px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -99,6 +107,7 @@
 /* занятие-ссылка в плеер курса (T14.13) */
 a.prof-lesson-go { text-decoration: none; color: inherit; cursor: pointer; }
 .prof-work-item.is-clickable { cursor: pointer; }
+
 .prof-work-ico {
   width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -109,8 +118,10 @@ a.prof-lesson-go { text-decoration: none; color: inherit; cursor: pointer; }
 .prof-work-main { flex: 1; min-width: 0; }
 .prof-work-title { font-size: 13px; font-weight: 600; }
 .prof-work-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
 /* T12.2 (D13): дедлайн прошёл, но решать всё ещё можно — просто отмечаем. */
 .prof-dl-overdue { color: var(--absent); font-weight: 700; }
+
 .prof-work-count {
   font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);
@@ -125,6 +136,7 @@ a.prof-lesson-go { text-decoration: none; color: inherit; cursor: pointer; }
 .prof-grp-card:hover { background: var(--surface-2); }
 
 .prof-stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+
 .prof-stat-tile {
   background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow-sm);

@@ -12,6 +12,7 @@
 	// steps row
 	.steps-label { @include cb-eyebrow($font-size-code); margin-bottom: $spacing-sm; }
 	.steps-row { display: flex; align-items: flex-start; gap: $spacing-md; padding-top: $spacing-xs; padding-bottom: $spacing-lg; overflow-x: auto; }
+
 	.step-chip {
 		width: 60px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: $spacing-xs; cursor: pointer;
 		color: $color-secondary-hover;
@@ -20,7 +21,7 @@
 			width: 60px; height: 52px; border-radius: 9px; background: $cb-chip-bg; border: 1.5px solid transparent;
 			display: flex; align-items: center; justify-content: center; position: relative;
 			transition: transform 0.12s, box-shadow 0.12s; color: inherit;
-			svg { width: 30px; height: 30px; fill: currentColor; }
+			svg { width: 30px; height: 30px; fill: currentcolor; }
 			.sc-num { position: absolute; top: 3px; left: 5px; font-size: $font-size-sm; font-weight: $font-heavy; color: $color-secondary-hover; }
 			.sc-warn { position: absolute; top: 1px; right: 2px; margin: 0; line-height: 1; text-shadow: 0 0 2px $color-bg-modal; }
 		}
@@ -30,11 +31,11 @@
 		@include step-type-colors(color);
 
 		&.active {
-			.step-chip-box { border-color: currentColor; background: currentColor;
+			.step-chip-box { border-color: currentcolor; background: currentcolor;
 				svg { fill: $color-text-inverse; }
 				.sc-num { color: $cb-chip-num-active-color; }
 				.sc-warn { color: $color-text-inverse; text-shadow: none; } }
-			.sc-type { font-weight: $font-heavy; color: currentColor; }
+			.sc-type { font-weight: $font-heavy; color: currentcolor; }
 		}
 	}
 	.step-add .step-chip-box { background: $color-bg-modal; border: 1.5px dashed var(--color-primary); color: var(--color-primary); }
@@ -46,12 +47,16 @@
 
 		.sh-badge {
 			@include cb-chip;
+
 			border: none; color: $color-text-inverse;
 		}
+
 		.sh-controls { margin-left: auto; display: flex; gap: 6px;
+
 			.sh-btn {
 				@include cb-chip;
-				border: 1.5px solid currentColor; background: transparent; cursor: pointer; transition: background 0.12s;
+
+				border: 1.5px solid currentcolor; background: transparent; cursor: pointer; transition: background 0.12s;
 				&:hover { background: rgba(0, 0, 0, 0.05); }
 			}
 			.sh-btn-dup { color: var(--color-primary); }
@@ -61,6 +66,7 @@
 		@include step-type-colors(background, '.sh-badge');
 	}
 	.field-input--title { max-width: 280px; height: 32px; padding: 0 11px; box-sizing: border-box; }
+
 	.icon-btn {
 		width: 30px; height: 30px; border: 1px solid $color-border-input; background: $wp-admin-gray-bg-light;
 		border-radius: 5px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: $color-text-secondary;
@@ -70,8 +76,10 @@
 
 	// fields
 	.sb-label { @include cb-eyebrow($letter-spacing: 0.03em); }
+
 	.field-row { margin-bottom: 14px;
 		label { display: block; font-size: $font-size-xs; font-weight: $font-bold; color: $color-text-secondary; margin-bottom: 5px; } }
+
 	.field-input {
 		width: 100%; padding: $spacing-sm 11px; border: 1px solid $color-border-input; border-radius: 5px; font-size: $font-size-wp; color: $color-text-primary;
 		&:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }
@@ -80,16 +88,19 @@
 
 	// видео-шаг: главы и вложения (D21, T14.12)
 	.fs-cb-chapters, .fs-cb-attachments { display: flex; flex-direction: column; gap: $spacing-xs; margin-bottom: $spacing-xs; }
+
 	.fs-cb-chapter-row {
 		display: flex; gap: $spacing-xs; align-items: center;
 		.fs-cb-ch-time { width: 84px; flex-shrink: 0; text-align: center; }
 		.fs-cb-ch-title { flex: 1; }
 	}
+
 	.fs-cb-attach-row {
 		display: flex; gap: $spacing-sm; align-items: center;
 		padding: $spacing-xs 11px; border: 1px solid $color-border-input; border-radius: 5px; background: $color-bg-modal;
 		.fs-cb-attach-title { flex: 1; min-width: 0; font-size: $font-size-wp; color: $color-text-primary; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	}
+
 	.rte-area {
 		padding: $spacing-lg $spacing-xl; min-height: 260px; line-height: 1.7; font-size: $font-size; color: $color-text-primary;
 		outline: none; background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: $border-radius-l;
@@ -104,6 +115,7 @@
 	// ref / library attach
 	.fs-cb-ref { display: flex; align-items: flex-start; gap: $spacing-sm; flex-wrap: wrap; padding: $spacing-xs 0;
 		.fs-cb-ref-title { font-size: $font-size-l; font-weight: $font-bold; color: $color-text-primary; flex: 1; min-width: 0; line-height: 1.4; }
+
 		.button {
 			@include cb-ghost-button;
 		}
@@ -154,20 +166,25 @@
 		border-radius: $border-radius-l;
 		overflow: hidden;
 	}
+
 	.fs-cb-tp-section {
 		padding: $spacing-sm $spacing-md;
 		border-bottom: 1px solid $color-border-input;
 		&:last-child { border-bottom: none; }
 	}
+
 	.fs-cb-tp-label {
 		@include cb-eyebrow;
+
 		margin-bottom: $spacing-xs;
 	}
+
 	.fs-cb-tp-body {
 		font-size: $font-size-wp; color: $color-text-primary; line-height: 1.6;
 		p { margin: 0 0 $spacing-xs; &:last-child { margin-bottom: 0; } }
 	}
 	.fs-cb-tp-options { @include cb-qa-stack(4px); }
+
 	.fs-cb-tp-option {
 		@include cb-qa-option('.fs-cb-tp-opt-mark');
 	}

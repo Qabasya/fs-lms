@@ -89,7 +89,9 @@
 
   strong {
     display: block;
+
     @include section-label;
+
     margin-bottom: $spacing-sm;
   }
 }

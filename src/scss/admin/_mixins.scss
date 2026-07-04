@@ -1,6 +1,6 @@
 @use 'variables' as *;
-
 @use "sass:color";
+
 // Глобальные миксины для админки FS-LMS
 
 // ── Кнопки в сайдбаре (постбокс)
@@ -16,6 +16,7 @@
 @mixin focus-ring($color: var(--color-primary), $outline: true) {
   border-color: $color;
   box-shadow: 0 0 0 1px $color;
+
   @if $outline {
     outline: none;
   }
@@ -32,11 +33,15 @@
   $box-sizing: null
 ) {
   width: 100%;
-  @if $height != null { height: $height; }
+
+  @if $height { height: $height; }
+
   padding: 0 $spacing-md;
   border: 1px solid $color-border-input;
   border-radius: $radius;
-  @if $box-sizing != null { box-sizing: $box-sizing; }
+
+  @if $box-sizing { box-sizing: $box-sizing; }
+
   font-size: $fs;
   transition: $transition;
 
@@ -93,6 +98,7 @@
       }
     }
   }
+
   .trash {
     a, button {
       color: $danger-color !important;
@@ -128,7 +134,8 @@
   border-left: 4px solid $accent;
   border-radius: 0 $border-radius-md $border-radius-md 0;
   padding: $spacing-sm $spacing-md;
-  @if $text != null {
+
+  @if $text {
     color: $text;
   }
 }
@@ -159,7 +166,8 @@
 @mixin badge-colors($bg, $fg, $border: null) {
   background: $bg;
   color: $fg;
-  @if $border != null {
+
+  @if $border {
     border: 1px solid $border;
   }
 }
@@ -186,7 +194,7 @@
 //    $prop — свойство (background/color). $child — опц. потомок (.sh-badge)
 @mixin step-type-colors($prop, $child: null) {
   @each $name, $colour in $step-type-colors {
-    @if $child == null {
+    @if not $child {
       &[data-type="#{$name}"] { #{$prop}: $colour; }
     } @else {
       &[data-type="#{$name}"] { #{$child} { #{$prop}: $colour; } }
@@ -254,6 +262,7 @@
   position: relative;
 
   &:hover { background: $cb-bg-hover; }
+
   &.active {
     background: $cb-bg-active;
     &::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: var(--color-primary); border-radius: 2px; }
@@ -295,6 +304,7 @@
 //    $flex:false — вариант step-editor (без flex:1); $min-height разный.
 @mixin cb-empty($min-height, $flex: true) {
   @if $flex { flex: 1; }
+
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -311,6 +321,7 @@
 //    split cb-chip→svg→plain. :hover добавляется в файле при необходимости.
 @mixin cb-ghost-button {
   @include cb-chip;
+
   border: 1px solid $wp-admin-gray-bg;
   background: transparent;
   color: $color-text-secondary;
@@ -344,6 +355,7 @@
   font-size: $font-size-wp;
   color: $color-text-secondary;
   #{$mark} { width: 14px; text-align: center; flex-shrink: 0; }
+
   &.is-correct {
     color: $color-text-primary;
     font-weight: $font-bold;
@@ -376,6 +388,7 @@
   line-height: 1.8;
   color: $color-text-primary;
 }
+
 @mixin cb-qa-gap-fill {
   display: inline-block;
   min-width: 50px;

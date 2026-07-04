@@ -14,6 +14,7 @@
 
 .fs-email-templates {
   @include settings-stack;
+
   margin-top: $spacing-xl;
 }
 
@@ -32,6 +33,7 @@
 
 .fs-email-status {
   @include micro-label;
+
   font-size: $font-size-sm;
   padding: 2px $spacing-sm;
   border-radius: $border-radius-md;
@@ -53,6 +55,7 @@
 
   .label {
     @include micro-label;
+
     font-size: $font-size-sm;
     color: $color-text-secondary;
     margin-right: $spacing-xs;

@@ -14,11 +14,12 @@
   padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
   background: var(--accent-soft); color: var(--accent-700); border: 1px solid var(--accent-soft-2);
 }
-.ktp-lock-badge svg { stroke: currentColor; flex-shrink: 0; }
+.ktp-lock-badge svg { stroke: currentcolor; flex-shrink: 0; }
 
 .prof-ktp-pickers { display: flex; align-items: flex-end; gap: 12px; }
 .prof-ktp-pick { display: flex; flex-direction: column; gap: 5px; }
 .kp-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); padding-left: 2px; }
+
 .kp-btn {
   display: inline-flex; align-items: center; gap: 9px;
   padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
@@ -56,6 +57,7 @@
 .prof-theme-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; }
 .prof-theme-list::-webkit-scrollbar { width: 8px; }
 .prof-theme-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
 .prof-theme-card {
   border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px;
   background: var(--surface); cursor: grab; transition: box-shadow $tr, border-color $tr, transform $tr;
@@ -85,6 +87,7 @@
 .kal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 8px; }
 .kal-dow span { font-size: 11px; font-weight: 600; color: var(--muted-2); text-align: center; text-transform: uppercase; letter-spacing: .03em; }
 .kal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+
 .kal-cell {
   min-height: 92px; border: 1px solid var(--line); border-radius: var(--radius-xs);
   background: var(--surface-2); padding: 6px; display: flex; flex-direction: column; gap: 4px;
@@ -99,10 +102,12 @@
 .kal-date .kd-tag { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; letter-spacing: .02em; }
 .kd-tag.hol { background: var(--holiday-tag-bg); color: var(--absent); }
 .kal-cell.holiday .kd-num { color: var(--absent); }
+
 .kal-date .kd-lesson {
   font-size: 9.5px; color: var(--muted-2); margin-left: auto; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
 }
+
 // Палитра расписания/КТП (D12): тема по плану — зелёный, закреплено — синий, выходной — красный.
 .placed-theme {
   background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--g-good);
@@ -115,8 +120,10 @@
 .placed-theme .pt-pin { position: absolute; top: 3px; right: 4px; color: var(--accent); display: none; }
 .placed-theme.pinned .pt-pin { display: block; }
 .placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; color: var(--ink-2); }
+
 /* T11.2: кабинет на карточке темы КТП */
 .placed-theme .pt-room { display: block; font-size: 9px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* T12.6 (D14): «⋮» действия темы (продолжить на другую дату) — видно при наведении */
 .placed-theme .pt-more {
   position: absolute; bottom: 2px; right: 3px; width: 16px; height: 16px; line-height: 14px;
@@ -170,6 +177,7 @@
 
 /* Пикер урока для инд. занятия (поповер поверх #profCtxMenu) */
 .pil-pop { width: 300px; max-width: 92vw; padding: 2px 0; }
+
 .pil-pop .pil-search {
   width: calc(100% - 20px); margin: 6px 10px 8px; height: 34px; padding: 0 10px;
   border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; font-size: 13px;
@@ -179,10 +187,12 @@
 .pil-list { max-height: 320px; overflow-y: auto; padding: 0 6px 6px; scrollbar-width: thin; }
 .pil-list::-webkit-scrollbar { width: 8px; }
 .pil-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
 .pil-divider {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   color: var(--muted-2); padding: 8px 8px 4px;
 }
+
 .pil-item {
   padding: 7px 9px; border-radius: var(--radius-xs); font-size: 13px; color: var(--ink-2);
   cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

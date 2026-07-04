@@ -3,7 +3,6 @@
 // компоненты — в components/. Порядок подключения сохраняет каскад
 // исходной монолитной _core.scss: base → оболочка → примитивы → экраны.
 @use 'variables';
-
 @use '../shared/chip-palette';
 @use 'components/base';
 @use 'components/layout';

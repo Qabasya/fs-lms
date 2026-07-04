@@ -67,7 +67,9 @@
       font-size: $font-size-xs;
       color: $color-muted;
       line-height: 1.5;
+
       @include line-clamp(3);
+
       margin: 0;
     }
 
@@ -91,6 +93,7 @@
 
 .fs-task-carousel .fs-carousel-btn {
   @include circle-btn(36px);
+
   position: absolute;
   top: 50%;
   transform: translateY(-50%);

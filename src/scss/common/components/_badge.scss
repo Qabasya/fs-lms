@@ -3,6 +3,7 @@
 
 .fs-badge {
   @include m.center-flex;
+
   height: 26px;
   padding: 0 $spacing-sm;
   border-radius: $border-radius-md;

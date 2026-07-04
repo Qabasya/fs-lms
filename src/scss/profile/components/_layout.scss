@@ -16,6 +16,7 @@
 body.admin-bar .prof-app {
   height: calc(100vh - 32px);
 }
+
 @media screen and (max-width: 782px) {
   body.admin-bar .prof-app {
     height: calc(100vh - 46px);
@@ -35,12 +36,15 @@ body.prof-menu-off .prof-sidebar { border-right-color: transparent; }
   min-height: 0;
   overflow: hidden; /* при схлопнутой колонке контент клипается, не сжимается */
 }
+
 /* Дети держат полную ширину — при анимации колонки контент не «мнётся». */
 .prof-brand, .prof-side-scroll, .prof-side-user { width: var(--side-w); }
+
 .prof-brand {
   display: flex; align-items: center; gap: 10px;
   padding: 18px 18px 16px;
 }
+
 .prof-collapse {
   margin-left: auto;
   width: 28px; height: 28px; flex-shrink: 0;
@@ -61,6 +65,7 @@ body.prof-menu-off .prof-sidebar { border-right-color: transparent; }
 }
 .prof-mtoggle:hover { color: var(--ink-2); }
 body.prof-menu-off .prof-mtoggle { display: flex; }
+
 .prof-brand-mark {
   width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
   background: linear-gradient(135deg, var(--accent), var(--accent-700));
@@ -82,6 +87,7 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
   font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
   color: var(--muted-2); padding: 14px 10px 6px;
 }
+
 /* #15-C: сворачиваемые секции сайдбара («Мои группы»/«Мои курсы»). */
 .prof-nav-label--toggle {
   display: flex; align-items: center; justify-content: space-between;
@@ -91,6 +97,7 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 .pnl-caret.collapsed { transform: rotate(-90deg); }
 
 .prof-side-search { padding: 4px 10px 8px; }
+
 .prof-side-search input {
   width: 100%; box-sizing: border-box;
   padding: 6px 10px; border-radius: var(--radius-sm);
@@ -101,6 +108,7 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 .prof-side-search input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 
 .prof-side-empty { padding: 8px 10px; font-size: 12px; color: var(--muted-2); }
+
 .prof-nav-item {
   display: flex; align-items: center; gap: 11px;
   padding: 9px 10px; border-radius: var(--radius-sm);
@@ -110,8 +118,8 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 }
 .prof-nav-item:hover { background: var(--surface-2); color: var(--ink); }
 .prof-nav-item.active { background: var(--accent-soft); color: var(--accent-700); font-weight: 600; }
-.prof-nav-item .ni-ico { display: flex; flex-shrink: 0; color: currentColor; }
-.prof-nav-item .ni-ico svg { stroke: currentColor; }
+.prof-nav-item .ni-ico { display: flex; flex-shrink: 0; color: currentcolor; }
+.prof-nav-item .ni-ico svg { stroke: currentcolor; }
 .prof-nav-item.active .ni-ico { color: var(--accent); }
 
 .prof-group-item, .prof-course-item {
@@ -121,14 +129,17 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 }
 .prof-group-item:hover, .prof-course-item:hover { background: var(--surface-2); }
 .prof-group-item.active, .prof-course-item.active { background: var(--accent-soft); }
+
 .prof-group-chip {
   width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
+
   /* #17: 10px, чтобы помещалось до 4 букв (shortName режет до 4). */
   font-size: 10px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink-inverse);
 }
 .prof-group-meta { flex: 1; min-width: 0; }
 .prof-group-name { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+
 .prof-group-sub {
   font-size: 11px; color: var(--muted-2); margin-top: 1px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -139,6 +150,7 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
   border-top: 1px solid var(--line); padding: 12px;
   display: flex; align-items: center; gap: 10px;
 }
+
 .prof-avatar {
   width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -148,6 +160,7 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 .prof-side-user .su-meta { flex: 1; min-width: 0; }
 .prof-side-user .su-name { font-size: 13px; font-weight: 600; }
 .prof-side-user .su-role { font-size: 11px; color: var(--muted-2); }
+
 .prof-icon-ghost {
   width: 30px; height: 30px; border-radius: 8px; border: none; background: transparent;
   color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -177,5 +190,6 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 .prof-screen.active { display: block; }
 .prof-screen::-webkit-scrollbar { width: 11px; }
 .prof-screen::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: 6px; border: 3px solid var(--bg); }
+
 .prof-screen[data-screen="journal"],
 .prof-screen[data-screen="ktp"] { overflow: hidden; }

@@ -4,6 +4,7 @@
 // Flex column wrapper — ставит gap между дочерними form/div секциями
 .fs-lms-config {
   @include settings-stack;
+
   margin-top: $spacing-lg;
 }
 

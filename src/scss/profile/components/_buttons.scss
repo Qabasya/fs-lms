@@ -10,7 +10,7 @@
   cursor: pointer; white-space: nowrap; transition: background $tr, border-color $tr, box-shadow $tr;
 }
 .prof-btn:hover { background: var(--surface-2); border-color: var(--line-3); }
-.prof-btn svg { stroke: currentColor; flex-shrink: 0; }
+.prof-btn svg { stroke: currentcolor; flex-shrink: 0; }
 .prof-btn-primary { background: var(--accent); border-color: var(--accent); color: var(--ink-inverse); box-shadow: var(--shadow-sm); }
 .prof-btn-primary:hover { background: var(--accent-600); border-color: var(--accent-600); }
 .prof-btn-danger { background: var(--absent); border-color: var(--absent); color: var(--ink-inverse); }
@@ -34,11 +34,13 @@
 /* Учащийся/родитель (Эпик 7) */
 .prof-child-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .prof-child-pick { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
 .prof-child-pick select {
   height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-xs);
   font: inherit; font-size: 13px; color: var(--ink); background: var(--surface);
 }
 .prof-child-pick select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
 .prof-att-mark {
   min-width: 34px; height: 24px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center;
   border-radius: 12px; font-size: 12px; font-weight: 700;
@@ -50,6 +52,7 @@
   display: inline-flex; background: var(--surface-2); border: 1px solid var(--line);
   border-radius: var(--radius-sm); padding: 3px; gap: 2px;
 }
+
 .prof-seg button {
   border: none; background: transparent; padding: 6px 14px; border-radius: 7px;
   font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all $tr;

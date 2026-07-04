@@ -4,6 +4,7 @@
 .fs-lms-consent-page {
   background: $color-bg-subtle;
   min-height: 60vh;
+
   @include fs-page-pad;
 
   &__container {
