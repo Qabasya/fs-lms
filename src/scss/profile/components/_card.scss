@@ -7,12 +7,12 @@
 .prof-card { @include cab-card; }
 
 .prof-card-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 16px 18px; border-bottom: 1px solid var(--line-2);
+  display: flex; align-items: center; gap: rem(10);
+  padding: rem(16) rem(18); border-bottom: 1px solid var(--line-2);
 }
-.prof-card-head h3 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
-.prof-card-head .ch-sub { font-size: 12px; color: var(--muted); }
+.prof-card-head h3 { font-size: rem(15); font-weight: 700; letter-spacing: -.01em; }
+.prof-card-head .ch-sub { font-size: rem(12); color: var(--muted); }
 .prof-card-head .ch-act { margin-left: auto; }
 
 /* Пустое состояние внутри карточки (learner: «Нет активных групп»). */
-.prof-card-empty { padding: 18px; color: var(--muted); }
+.prof-card-empty { padding: rem(18); color: var(--muted); }

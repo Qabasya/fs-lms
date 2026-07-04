@@ -2,7 +2,7 @@
 @use '../variables' as *;
 
 .fs-assessment-page {
-	max-width: 800px;
+	max-width: rem(800);
 	margin: 0 auto;
 	padding: $spacing-lg 0;
 }
@@ -188,7 +188,7 @@
 	&__n {
 		font-weight:  $font-semibold;
 		color:        $color-accent;
-		min-width:    24px;
+		min-width:    rem(24);
 		flex-shrink:  0;
 	}
 
@@ -234,7 +234,7 @@
 
 	&__preview {
 		display:       block;
-		max-width:     240px;
+		max-width:     rem(240);
 		border-radius: $radius-sm;
 		border:        1px solid $color-border;
 		margin-bottom: $spacing-xs;
@@ -263,7 +263,7 @@
 		display:       inline-flex;
 		align-items:   center;
 		gap:           $spacing-xs;
-		padding:       2px $spacing-sm;
+		padding:       rem(2) $spacing-sm;
 		border:        1px solid $color-border;
 		border-radius: $radius-md;
 		font-size:     $font-size-sm;

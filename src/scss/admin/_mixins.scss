@@ -27,7 +27,7 @@
 @mixin wp-input(
   $focus-color: var(--color-primary),
   $height: null,
-  $radius: 2px,
+  $radius: rem(2),
   $fs: $font-size,
   $transition: border-color 0.1s ease-in-out,
   $box-sizing: null
@@ -117,13 +117,13 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23646970' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right $spacing-md center;
-  padding-right: 35px;
+  padding-right: rem(35);
 }
 
 // ── Базовые стили textarea (высота тянется по контенту)
 @mixin textarea-base {
   height: auto;
-  min-height: 100px;
+  min-height: rem(100);
   resize: vertical;
 }
 
@@ -131,7 +131,7 @@
 @mixin callout($accent, $bg-alpha, $text: null) {
   background: rgba($accent, $bg-alpha);
   border: 1px solid rgba($accent, 0.2);
-  border-left: 4px solid $accent;
+  border-left: rem(4) solid $accent;
   border-radius: 0 $border-radius-md $border-radius-md 0;
   padding: $spacing-sm $spacing-md;
 
@@ -156,7 +156,7 @@
 // ── Бейдж-пилюля: общая база формы (статусы заявок .fs-lms-status и т.п.)
 @mixin badge-base {
   display: inline-block;
-  padding: 2px $spacing-sm;
+  padding: rem(2) $spacing-sm;
   border-radius: $border-radius-md;
   white-space: nowrap;
 }
@@ -215,13 +215,13 @@
 // ── D1: каркас two-pane конструктора (.builder ≡ .fs-sb-builder)
 @mixin cb-builder-shell {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: rem(320) 1fr;
   background: $color-bg-modal;
   border: 1px solid $wp-admin-gray-bg;
   box-shadow: $shadow-cb-builder;
   border-radius: $border-radius-l;
   overflow: hidden;
-  min-height: 640px;
+  min-height: rem(640);
 }
 
 // ── D2: левая панель-рельса (.tree-pane ≡ .fs-sb-tree)
@@ -235,7 +235,7 @@
 
 // ── D3: шапка рельсы (.tree-head ≡ .fs-sb-tree-head) — только plain-декларации
 @mixin cb-tree-head {
-  padding: $spacing-md 14px;
+  padding: $spacing-md rem(14);
   border-bottom: 1px solid $wp-admin-gray-bg;
   display: flex;
   align-items: center;
@@ -254,9 +254,9 @@
 @mixin cb-tree-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px $spacing-sm;
-  border-radius: 5px;
+  gap: rem(7);
+  padding: rem(6) $spacing-sm;
+  border-radius: rem(5);
   cursor: pointer;
   margin: 1px 0;
   position: relative;
@@ -265,7 +265,7 @@
 
   &.active {
     background: $cb-bg-active;
-    &::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: var(--color-primary); border-radius: 2px; }
+    &::before { content: ""; position: absolute; left: rem(-7.5); top: $spacing-xs; bottom: $spacing-xs; width: rem(3); background: var(--color-primary); border-radius: rem(2); }
   }
 }
 
@@ -297,7 +297,7 @@
   display: flex;
   align-items: center;
   gap: rem(10);
-  margin-bottom: 14px;
+  margin-bottom: rem(14);
 }
 
 // ── пустое состояние (.editor-empty / .fs-sb-empty).
@@ -311,7 +311,7 @@
   justify-content: center;
   color: $color-secondary-hover;
   text-align: center;
-  padding: 40px;
+  padding: rem(40);
   gap: $spacing-md;
   min-height: $min-height;
 }
@@ -331,8 +331,8 @@
 
 // ── D12: точка статуса сохранения (.saved-dot ≡ .fs-sb-dot)
 @mixin cb-status-dot {
-  width: 7px;
-  height: 7px;
+  width: rem(7);
+  height: rem(7);
   border-radius: 50%;
   background: $wp-admin-green;
 }
@@ -354,7 +354,7 @@
   gap: $spacing-sm;
   font-size: $font-size-wp;
   color: $color-text-secondary;
-  #{$mark} { width: 14px; text-align: center; flex-shrink: 0; }
+  #{$mark} { width: rem(14); text-align: center; flex-shrink: 0; }
 
   &.is-correct {
     color: $color-text-primary;
@@ -391,8 +391,8 @@
 
 @mixin cb-qa-gap-fill {
   display: inline-block;
-  min-width: 50px;
-  padding: 0 4px;
+  min-width: rem(50);
+  padding: 0 rem(4);
   border-bottom: 2px solid var(--color-primary);
   border-radius: 2px;
   background: $wp-admin-blue-bg-light;
@@ -404,7 +404,7 @@
 @mixin cb-qa-subtask-ans {
   color: $wp-admin-green;
   font-weight: $font-bold;
-  margin-top: 2px;
+  margin-top: rem(2);
 }
 
 // ── cb-chip — общий стиль чип/бейдж/кнопка (lesson-flag, sh-badge,

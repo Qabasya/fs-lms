@@ -14,41 +14,41 @@
 .prof-btn-lg { @include cab-btn-lg; }
 
 .prof-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: rem(6);
+  padding: rem(4) rem(10); border-radius: 999px; font-size: rem(12); font-weight: 600;
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);
 }
 .prof-chip.ok { background: var(--ok-soft); border-color: var(--ok-line); color: var(--ok-ink); }
 .prof-chip.go { background: var(--accent-soft); border-color: var(--accent-soft-2); color: var(--accent-700); }
-.prof-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.prof-dot { width: rem(8); height: rem(8); border-radius: 50%; flex-shrink: 0; }
 .prof-dot-good { background: var(--ok); }
 .prof-dot-accent { background: var(--accent); }
 .prof-dot-absent { background: var(--err); }
 
 /* Учащийся/родитель (Эпик 7) */
-.prof-child-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-.prof-child-pick { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.prof-child-bar { display: flex; align-items: center; gap: rem(12); margin-bottom: rem(16); flex-wrap: wrap; }
+.prof-child-pick { display: inline-flex; align-items: center; gap: rem(8); font-size: rem(13); color: var(--muted); }
 
 .prof-child-pick select {
-  height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-xs);
-  font: inherit; font-size: 13px; color: var(--ink); background: var(--surface);
+  height: rem(34); padding: 0 rem(10); border: 1px solid var(--line); border-radius: var(--radius-xs);
+  font: inherit; font-size: rem(13); color: var(--ink); background: var(--surface);
 }
 .prof-child-pick select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 .prof-att-mark {
-  min-width: 34px; height: 24px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 12px; font-size: 12px; font-weight: 700;
+  min-width: rem(34); height: rem(24); padding: 0 rem(8); display: inline-flex; align-items: center; justify-content: center;
+  border-radius: rem(12); font-size: rem(12); font-weight: 700;
 }
 .prof-att-mark.p { background: var(--ok-soft); color: var(--ok); }
 .prof-att-mark.a { background: var(--err-soft); color: var(--err); }
 
 .prof-seg {
   display: inline-flex; background: var(--surface-2); border: 1px solid var(--line);
-  border-radius: var(--radius-sm); padding: 3px; gap: 2px;
+  border-radius: var(--radius-sm); padding: rem(3); gap: rem(2);
 }
 
 .prof-seg button {
-  border: none; background: transparent; padding: 6px 14px; border-radius: 7px;
-  font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all $tr;
+  border: none; background: transparent; padding: rem(6) rem(14); border-radius: rem(7);
+  font-size: rem(13); font-weight: 600; color: var(--muted); cursor: pointer; transition: all $tr;
 }
 .prof-seg button.on { background: var(--surface); color: var(--accent-700); box-shadow: var(--shadow-sm); }

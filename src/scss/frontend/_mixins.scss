@@ -1,7 +1,7 @@
 @use 'variables' as *;
 
 // ── Круглая кнопка-иконка с hover-акцентом
-@mixin circle-btn($size: 42px) {
+@mixin circle-btn($size: rem(42)) {
   width: $size;
   height: $size;
   border-radius: 50%;
@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: rem(22);
   line-height: 1;
   transition: border-color $transition, color $transition;
 
@@ -23,7 +23,7 @@
   font-weight: 700;
   color: $color-muted;
   text-transform: uppercase;
-  letter-spacing: 0.7px;
+  letter-spacing: rem(0.7);
 }
 
 // ── Многострочный клэмп
@@ -58,7 +58,7 @@
 // ── Иконка-дэшиконка внутри поля формы (left:12px — намеренный инсет)
 @mixin fs-field-icon {
   position: absolute;
-  left: 12px;
+  left: rem(12);
   top: 50%;
   transform: translateY(-50%);
   color: $color-muted;
@@ -76,9 +76,9 @@
   box-sizing: border-box;
 
   @if $important {
-    padding: 10px 12px 10px 38px !important;
+    padding: rem(10) rem(12) rem(10) rem(38) !important;
   } @else {
-    padding: 10px 12px 10px 38px;
+    padding: rem(10) rem(12) rem(10) rem(38);
   }
 
   font-size: $font-size-sm;
@@ -108,7 +108,7 @@
 // ── Кнопка показать/скрыть пароль (right:12px — намеренный инсет)
 @mixin fs-toggle-secret {
   position: absolute;
-  right: 12px;
+  right: rem(12);
   top: 50%;
   transform: translateY(-50%);
   background: none;
@@ -145,7 +145,7 @@
 }
 
 @mixin fs-form-success-icon {
-  font-size: 48px;
+  font-size: rem(48);
   color: $color-accent;
   display: block;
   margin-bottom: $spacing-md;
@@ -195,5 +195,5 @@
 
 // ── Базовый паддинг страницы-обёртки
 @mixin fs-page-pad {
-  padding: 44px $spacing-2xl 96px;
+  padding: rem(44) $spacing-2xl rem(96);
 }

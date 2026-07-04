@@ -2,7 +2,7 @@
 @use '../mixins' as *;
 
 .fs-lms-cockpit-wrap {
-	max-width: 1100px;
+	max-width: rem(1100);
 	margin: 0 auto;
 	font-family: $font-family;
 	color: $color-text;
@@ -15,7 +15,7 @@
 
 .fs-cockpit-layout {
 	display: grid;
-	grid-template-columns: 1fr 280px;
+	grid-template-columns: 1fr rem(280);
 	gap: $spacing-xl;
 
 	@media (max-width: 768px) {
@@ -69,7 +69,7 @@
 	display: flex;
 	align-items: center;
 	gap: $spacing-md;
-	padding: 10px 12px;
+	padding: rem(10) rem(12);
 	border: 1px solid $color-border;
 	border-radius: $radius;
 	margin-bottom: $spacing-sm;
@@ -77,7 +77,7 @@
 	cursor: grab;
 
 	&.fs-cockpit-visibility-open {
-		border-left: 3px solid $color-accent;
+		border-left: rem(3) solid $color-accent;
 	}
 
 	&.fs-cockpit-visibility-archived {
@@ -111,8 +111,8 @@
 .fs-cockpit-btn-duplicate,
 .fs-cockpit-btn-remove {
 	font-size: $font-size-sm;
-	padding: 4px 10px;
-	border-radius: 3px;
+	padding: rem(4) rem(10);
+	border-radius: rem(3);
 	cursor: pointer;
 
 	@include fs-btn-secondary;
@@ -124,7 +124,7 @@
 .fs-cockpit-lesson-label {
 	display: inline-block;
 	margin-right: $spacing-xs;
-	padding: 1px 6px;
+	padding: 1px rem(6);
 	border-radius: $radius;
 	background: $color-accent;
 	color: $color-white;
@@ -158,7 +158,7 @@
 	@include fs-list-reset;
 
 	li {
-		padding: 6px 0;
+		padding: rem(6) 0;
 		border-bottom: 1px solid $color-border-light;
 		font-size: $font-size-sm;
 	}
@@ -173,7 +173,7 @@
 	align-items: center;
 
 	select {
-		padding: 6px 10px;
+		padding: rem(6) rem(10);
 		border: 1px solid $color-border;
 		border-radius: $radius;
 		font-size: $font-size-sm;
@@ -183,7 +183,7 @@
 }
 
 .fs-cockpit-btn-primary {
-	padding: 6px 16px;
+	padding: rem(6) rem(16);
 	font-size: $font-size-sm;
 
 	@include fs-btn-primary(0.85);
@@ -192,7 +192,7 @@
 }
 
 .fs-cockpit-btn-secondary {
-	padding: 6px 14px;
+	padding: rem(6) rem(14);
 	border-radius: $radius;
 	font-size: $font-size-sm;
 	cursor: pointer;
@@ -202,7 +202,7 @@
 
 // Ручка перетаскивания
 .fs-lesson-grip {
-	font-size: 18px;
+	font-size: rem(18);
 	color: $color-muted;
 	cursor: grab;
 	user-select: none;
@@ -213,7 +213,7 @@
 
 // Поле даты
 .fs-lesson-date {
-	padding: 4px 6px;
+	padding: rem(4) rem(6);
 	border: 1px solid $color-border;
 	border-radius: $radius;
 	font-size: $font-size-sm;
@@ -261,7 +261,7 @@
 
 	input[type="search"] {
 		flex: 1;
-		padding: 6px 10px;
+		padding: rem(6) rem(10);
 		border: 1px solid $color-border;
 		border-radius: $radius;
 		font-size: $font-size-sm;
@@ -284,7 +284,7 @@
 .fs-picker-results {
 	@include fs-list-reset;
 
-	max-height: 260px;
+	max-height: rem(260);
 	overflow-y: auto;
 }
 
@@ -304,7 +304,7 @@
 }
 
 .fs-picker-add-btn {
-	padding: 3px 10px;
+	padding: rem(3) rem(10);
 	font-size: $font-size-sm;
 	flex-shrink: 0;
 
@@ -341,7 +341,7 @@
 
 #fs-cockpit-load-more {
 	margin-top: $spacing-lg;
-	padding: 8px 20px;
+	padding: rem(8) rem(20);
 	font-size: $font-size-sm;
 	border-radius: $radius;
 	cursor: pointer;
@@ -401,7 +401,7 @@
 .fs-answers-attempt {
 	font-size: $font-size-xs;
 	padding: $spacing-xs $spacing-sm;
-	border-left: 3px solid $color-border;
+	border-left: rem(3) solid $color-border;
 	margin-bottom: $spacing-xs;
 
 	small {

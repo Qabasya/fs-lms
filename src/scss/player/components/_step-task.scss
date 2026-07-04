@@ -9,22 +9,22 @@
 .opt {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 13px 16px;
+  gap: rem(12);
+  padding: rem(13) rem(16);
   border: 1.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: rem(12);
   background: var(--surface);
-  font-size: 14px;
+  font-size: rem(14);
   color: var(--ink-2);
   cursor: pointer;
 
-  + .opt { margin-top: 10px; }
+  + .opt { margin-top: rem(10); }
 
   &:hover { border-color: var(--accent-soft-2); }
 
   .radio {
-    width: 18px;
-    height: 18px;
+    width: rem(18);
+    height: rem(18);
     border-radius: 50%;
     border: 2px solid var(--line-3);
     flex-shrink: 0;
@@ -44,7 +44,7 @@
     .radio::after {
       content: '';
       position: absolute;
-      inset: 3px;
+      inset: rem(3);
       border-radius: 50%;
       background: var(--accent);
     }
@@ -60,7 +60,7 @@
     .radio::after {
       content: '';
       position: absolute;
-      inset: 3px;
+      inset: rem(3);
       border-radius: 50%;
       background: var(--ok);
     }
@@ -76,7 +76,7 @@
     .radio::after {
       content: '';
       position: absolute;
-      inset: 3px;
+      inset: rem(3);
       border-radius: 50%;
       background: var(--err);
     }
@@ -88,8 +88,8 @@
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 6px;
-    font: 600 12px var(--font);
+    gap: rem(6);
+    font: 600 rem(12) var(--font);
     flex-shrink: 0;
 
     &.t-ok { color: var(--ok); }
@@ -100,16 +100,16 @@
 /* ── Вердикты ───────────────────────────────────────────────────────── */
 .vd {
   display: flex;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  font-size: 13.5px;
+  gap: rem(12);
+  padding: rem(14) rem(16);
+  border-radius: rem(12);
+  font-size: rem(13.5);
   line-height: 1.55;
-  margin-top: 14px;
+  margin-top: rem(14);
 
   .vi {
-    width: 24px;
-    height: 24px;
+    width: rem(24);
+    height: rem(24);
     border-radius: 50%;
     flex-shrink: 0;
     display: flex;
@@ -121,16 +121,16 @@
 
   b {
     display: block;
-    font-size: 14px;
-    margin-bottom: 2px;
+    font-size: rem(14);
+    margin-bottom: rem(2);
   }
 
   .vmeta {
-    margin-top: 7px;
+    margin-top: rem(7);
     display: flex;
-    gap: 14px;
+    gap: rem(14);
     flex-wrap: wrap;
-    font: 600 12px var(--font);
+    font: 600 rem(12) var(--font);
     opacity: 0.85;
   }
 }
@@ -168,10 +168,10 @@
 /* ── Поле ответа ────────────────────────────────────────────────────── */
 .ansbox {
   border: 1.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: rem(12);
   background: var(--surface);
-  padding: 13px 16px;
-  font: 13px/1.7 var(--mono);
+  padding: rem(13) rem(16);
+  font: #{rem(13)}/1.7 var(--mono);
   color: var(--ink-2);
   width: 100%;
   display: block;
@@ -179,7 +179,7 @@
   outline: none;
 
   &.txt {
-    font: 14px/1.65 var(--font);
+    font: #{rem(14)}/1.65 var(--font);
     color: var(--ink-2);
   }
 
@@ -195,28 +195,28 @@
 /* ── Прочие виджеты ─────────────────────────────────────────────────── */
 .fs-widget-audio {
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: rem(12);
 }
 
-.fs-widget-triple-group + .fs-widget-triple-group { margin-top: 10px; }
+.fs-widget-triple-group + .fs-widget-triple-group { margin-top: rem(10); }
 
 .fs-widget-matching-row {
   display: grid;
-  grid-template-columns: 1fr 220px;
-  gap: 12px;
+  grid-template-columns: 1fr rem(220);
+  gap: rem(12);
   align-items: center;
 
-  + .fs-widget-matching-row { margin-top: 10px; }
+  + .fs-widget-matching-row { margin-top: rem(10); }
 }
 
-.fs-widget-matching-left { font-size: 14px; color: var(--ink-2); }
+.fs-widget-matching-left { font-size: rem(14); color: var(--ink-2); }
 
 .fs-widget-matching-select {
   border: 1.5px solid var(--line);
-  border-radius: 10px;
+  border-radius: rem(10);
   background: var(--surface);
-  padding: 9px 12px;
-  font: 500 13px var(--font);
+  padding: rem(9) rem(12);
+  font: 500 rem(13) var(--font);
   color: var(--ink-2);
   outline: none;
 
@@ -230,18 +230,18 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: rem(10);
 }
 
 .fs-widget-ordering-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: rem(12);
+  padding: rem(12) rem(16);
   border: 1.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: rem(12);
   background: var(--surface);
-  font-size: 14px;
+  font-size: rem(14);
   color: var(--ink-2);
   cursor: grab;
 
@@ -258,7 +258,7 @@
 }
 
 .fs-widget-fill {
-  font-size: 14.5px;
+  font-size: rem(14.5);
   line-height: 2.1;
   color: var(--ink-2);
 }
@@ -267,10 +267,10 @@
   border: none;
   border-bottom: 2px solid var(--accent-soft-2);
   background: var(--accent-soft);
-  border-radius: 6px 6px 0 0;
-  margin: 0 4px;
-  padding: 2px 8px;
-  font: 600 13.5px var(--mono);
+  border-radius: rem(6) rem(6) 0 0;
+  margin: 0 rem(4);
+  padding: rem(2) rem(8);
+  font: 600 rem(13.5) var(--mono);
   color: var(--accent-700);
   outline: none;
 
@@ -278,22 +278,22 @@
 }
 
 /* ── Условие, попытки, подсказка, футер ─────────────────────────────── */
-.fs-task-subpart + .fs-task-subpart { margin-top: 8px; }
+.fs-task-subpart + .fs-task-subpart { margin-top: rem(8); }
 
 .fs-task-subpart__label {
-  font-size: 15px;
+  font-size: rem(15);
   color: var(--ink);
-  margin-bottom: 6px;
+  margin-bottom: rem(6);
 }
 
 .fs-attempt-indicator {
-  font: 600 12px var(--font);
+  font: 600 rem(12) var(--font);
   color: var(--muted-2);
 }
 
 .fs-task-footer {
   display: flex;
-  gap: 12px;
+  gap: rem(12);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -305,18 +305,18 @@
 .fs-hint {
   border: 1px solid var(--wait-line);
   background: var(--wait-soft);
-  border-radius: 12px;
-  padding: 12px 16px;
+  border-radius: rem(12);
+  padding: rem(12) rem(16);
 
   summary {
     cursor: pointer;
-    font: 600 13px var(--font);
+    font: 600 rem(13) var(--font);
     color: var(--wait);
   }
 
   .fs-hint__body {
-    margin-top: 8px;
-    font-size: 13.5px;
+    margin-top: rem(8);
+    font-size: rem(13.5);
     line-height: 1.6;
     color: var(--ink-2);
   }

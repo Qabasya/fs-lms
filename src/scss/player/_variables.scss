@@ -36,5 +36,5 @@ $type-assessment-soft: map.get(t.$step-type-palette-soft, assessment);
 :root {
   // Ширина контентной колонки (B4: адаптив от экрана — в _shell.scss;
   // сайдбара в плеере нет, поэтому база — «широкий» вариант).
-  --colw: 1402px; /* контент шага = colw − 82 (padding 40×2 + border 1×2) = 1320px */
+  --colw: #{t.rem(1402)}; /* контент шага = colw − 82px (padding 40×2 + border 1×2) = 1320px */
 }

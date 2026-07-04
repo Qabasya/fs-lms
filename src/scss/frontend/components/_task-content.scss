@@ -5,10 +5,10 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px 6px;
+  gap: rem(4) rem(6);
   font-size: $font-size-xs;
   color: $color-muted;
-  margin-bottom: 18px;
+  margin-bottom: rem(18);
 
   a { transition: color $transition; &:hover { color: $color-accent; } }
   &__sep     { color: $color-separator; user-select: none; }
@@ -20,21 +20,21 @@
   font-weight: $font-bold;
   line-height: 1.2;
   letter-spacing: -.02em;
-  margin-bottom: 28px;
+  margin-bottom: rem(28);
 }
 
 .fs-task-tags {
   display: flex;
   flex-wrap: wrap;
   gap: $spacing-sm;
-  margin: 28px 0;
+  margin: rem(28) 0;
 }
 
 .fs-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 26px;
+  gap: rem(6);
+  height: rem(26);
   padding: 0 $spacing-md;
   background: $color-white;
   border: 1px solid $color-border;
@@ -46,8 +46,8 @@
 
   &::before {
     content: '';
-    width: 5px;
-    height: 5px;
+    width: rem(5);
+    height: rem(5);
     border-radius: 50%;
     background: $color-border;
     flex-shrink: 0;
@@ -70,7 +70,7 @@
 }
 
 .fs-task-card__body {
-  padding: $spacing-2xl 36px 28px;
+  padding: $spacing-2xl rem(36) rem(28);
 }
 
 .fs-task-condition {
@@ -81,7 +81,7 @@
   * { color: $color-text; }
   img    { max-width: 100%; height: auto; display: block; }
   table  { border-collapse: collapse; margin: $spacing-md 0; }
-  td, th { border: 1px solid $color-border; padding: 5px 10px; font-size: $font-size-sm; }
+  td, th { border: 1px solid $color-border; padding: rem(5) rem(10); font-size: $font-size-sm; }
 }
 
 .fs-task-files {
@@ -99,11 +99,11 @@
 .fs-file-link {
   display: inline-flex;
   align-items: center;
-  padding: 5px 12px;
+  padding: rem(5) rem(12);
   border: 1px solid $color-border;
   border-radius: $radius;
   font-size: $font-size-xs;
-  margin: 0 6px 6px 0;
+  margin: 0 rem(6) rem(6) 0;
   transition: border-color $transition, color $transition;
 
   &:hover { border-color: $color-accent; color: $color-accent; }

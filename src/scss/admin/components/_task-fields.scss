@@ -155,7 +155,7 @@
 		border-radius: v.$border-radius-md;
 
 		audio {
-			max-width: 280px;
+			max-width: v.rem(280);
 		}
 
 		.js-audio-title {

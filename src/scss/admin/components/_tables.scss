@@ -114,7 +114,7 @@
     user-select: none;
 
     &::after {
-      font: normal 14px/1 dashicons; // stylelint-disable-line font-family-no-missing-generic-family-keyword -- иконочный шрифт WP, generic-fallback бессмыслен
+      font: normal #{rem(14)}/1 dashicons; // stylelint-disable-line font-family-no-missing-generic-family-keyword -- иконочный шрифт WP, generic-fallback бессмыслен
       speak: never;
       content: '\f140';
       display: inline-block;
@@ -266,14 +266,14 @@
     cursor: default;
     text-decoration: underline;
     text-decoration-style: dotted;
-    text-underline-offset: 2px;
+    text-underline-offset: rem(2);
     text-decoration-color: $color-secondary;
   }
 
   &[data-tooltip]::after {
     content: attr(data-tooltip);
     position: absolute;
-    bottom: calc(100% + 5px);
+    bottom: calc(100% + rem(5));
     left: 50%;
     transform: translateX(-50%);
     background: $color-text-primary;

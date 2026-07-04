@@ -9,24 +9,24 @@
 .a-workbar {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: rem(14);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: rem(14);
   box-shadow: var(--shadow-sm);
-  padding: 12px 18px;
-  margin-bottom: 14px;
+  padding: rem(12) rem(18);
+  margin-bottom: rem(14);
 
   .wb-t {
     min-width: 0;
 
     b {
-      font-size: 14.5px;
+      font-size: rem(14.5);
       font-weight: 700;
       display: block;
     }
 
-    span { font-size: 12px; color: var(--muted); }
+    span { font-size: rem(12); color: var(--muted); }
   }
 
   .wb-sp { flex: 1; }
@@ -35,17 +35,17 @@
 .a-prog {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: rem(9);
 
   .ap-txt {
-    font: 600 12.5px var(--font);
+    font: 600 rem(12.5) var(--font);
     color: var(--ink-2);
     white-space: nowrap;
   }
 
   .ap-bar {
-    width: 90px;
-    height: 6px;
+    width: rem(90);
+    height: rem(6);
     border-radius: 999px;
     background: var(--line-2);
     overflow: hidden;
@@ -63,51 +63,51 @@
 .wstack {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: rem(14);
 }
 
 .a-task {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: rem(16);
   box-shadow: var(--shadow-sm);
-  padding: 22px 28px;
+  padding: rem(22) rem(28);
 
   .th {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: rem(12);
+    margin-bottom: rem(14);
 
-    b { font-size: 15px; font-weight: 700; flex: 1; }
+    b { font-size: rem(15); font-weight: 700; flex: 1; }
 
-    .pts { font: 600 12px var(--font); color: var(--muted-2); white-space: nowrap; }
+    .pts { font: 600 rem(12) var(--font); color: var(--muted-2); white-space: nowrap; }
   }
 
   .q {
-    font-size: 14px;
+    font-size: rem(14);
     line-height: 1.65;
     color: var(--ink-2);
-    margin-bottom: 14px;
+    margin-bottom: rem(14);
   }
 
   .tgap {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: rem(12);
   }
 }
 
-.work-instructions { margin-bottom: 14px; }
+.work-instructions { margin-bottom: rem(14); }
 
 /* номер задачи */
 .tkn {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
+  width: rem(30);
+  height: rem(30);
+  border-radius: rem(9);
   background: var(--accent-soft);
   color: var(--accent-700);
-  font: 700 13px/30px var(--font);
+  font: 700 #{rem(13)}/rem(30) var(--font);
   text-align: center;
   flex-shrink: 0;
 }
@@ -116,10 +116,10 @@
 .stc {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: rem(6);
+  padding: rem(4) rem(10);
   border-radius: 999px;
-  font: 600 11.5px var(--font);
+  font: 600 rem(11.5) var(--font);
   white-space: nowrap;
 
   &.stc-saved { background: var(--accent-soft); color: var(--accent-700); }
@@ -132,7 +132,7 @@
 }
 
 .wnote {
-  font: 500 12px var(--font);
+  font: 500 rem(12) var(--font);
   color: var(--muted-2);
 }
 
@@ -140,16 +140,16 @@
 .res {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 20px 24px;
+  gap: rem(18);
+  padding: rem(20) rem(24);
   border-radius: var(--radius);
   background: linear-gradient(120deg, var(--ok-soft), var(--ok-soft-2) 55%, var(--surface));
   border: 1px solid var(--ok-line);
-  margin-bottom: 14px;
+  margin-bottom: rem(14);
 
   .ri {
-    width: 48px;
-    height: 48px;
+    width: rem(48);
+    height: rem(48);
     border-radius: 50%;
     background: var(--ok);
     color: var(--ink-inverse);
@@ -164,37 +164,37 @@
     flex: 1;
     min-width: 0;
 
-    b { font-size: 16.5px; font-weight: 700; display: block; }
+    b { font-size: rem(16.5); font-weight: 700; display: block; }
 
     span {
-      font-size: 13px;
+      font-size: rem(13);
       color: var(--muted);
-      margin-top: 2px;
+      margin-top: rem(2);
       display: block;
     }
   }
 
-  .rstats { display: flex; gap: 26px; }
+  .rstats { display: flex; gap: rem(26); }
 
   .rs {
     text-align: right;
 
     b {
-      font: 700 20px var(--font);
+      font: 700 rem(20) var(--font);
       letter-spacing: -0.01em;
       font-variant-numeric: tabular-nums;
       display: block;
     }
 
-    span { font-size: 11px; color: var(--muted-2); }
+    span { font-size: rem(11); color: var(--muted-2); }
   }
 }
 
 .work-resfoot {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 16px;
+  gap: rem(12);
+  margin-top: rem(16);
 
   .work-resfoot-sp { flex: 1; }
 }
@@ -213,51 +213,51 @@
 }
 
 .cp-modal {
-  width: 470px;
-  max-width: calc(100vw - 32px);
+  width: rem(470);
+  max-width: calc(100vw - rem(32));
   background: var(--surface);
-  border-radius: 18px;
+  border-radius: rem(18);
   box-shadow: var(--shadow-pop);
-  padding: 26px 28px;
+  padding: rem(26) rem(28);
   animation: pop-in 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
 
   .mi {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: rem(44);
+    height: rem(44);
+    border-radius: rem(12);
     background: var(--accent-soft);
     color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 14px;
+    margin-bottom: rem(14);
   }
 
-  h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  h3 { font-size: rem(18); font-weight: 700; letter-spacing: -0.01em; }
 
   p {
-    font-size: 13.5px;
+    font-size: rem(13.5);
     line-height: 1.65;
     color: var(--muted);
-    margin-top: 8px;
+    margin-top: rem(8);
   }
 
   .mm {
     display: flex;
-    gap: 8px;
-    margin: 16px 0 20px;
+    gap: rem(8);
+    margin: rem(16) 0 rem(20);
     flex-wrap: wrap;
   }
 
   .mm .chip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 11px;
+    gap: rem(6);
+    padding: rem(5) rem(11);
     border-radius: 999px;
     background: var(--surface-2);
     border: 1px solid var(--line);
-    font: 600 12px var(--font);
+    font: 600 rem(12) var(--font);
     color: var(--ink-2);
 
     &.warn {
@@ -270,7 +270,7 @@
   .macts {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
+    gap: rem(10);
   }
 }
 
@@ -280,26 +280,26 @@
 }
 
 @keyframes pop-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  from { opacity: 0; transform: translateY(rem(8)) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
 
 /* ── Контрольная-шаг (T14.14): мета-чипы ────────────────────────────── */
 .asm-meta {
   display: flex;
-  gap: 8px;
+  gap: rem(8);
   flex-wrap: wrap;
 }
 
 .asm-chip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
+  gap: rem(7);
+  padding: rem(6) rem(12);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
-  font: 600 12.5px var(--font);
+  font: 600 rem(12.5) var(--font);
   color: var(--ink-2);
 
   svg { color: var(--muted-2); }

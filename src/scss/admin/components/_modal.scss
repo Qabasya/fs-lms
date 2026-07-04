@@ -108,7 +108,7 @@ html.modal-open {
   // Визуальное оформление
   background: $color-bg-modal;
   width: 100%;
-  max-width: 800px; // 🔧 Переопределяется через модификаторы .fs-modal-*
+  max-width: rem(800); // 🔧 Переопределяется через модификаторы .fs-modal-*
   max-height: 90vh;
   border-radius: $border-radius-sm;
   box-shadow: $shadow-modal;
@@ -412,8 +412,8 @@ html.modal-open {
 @media (max-width: $breakpoint-mobile) {
   .fs-lms-modal-content {
     // Отступы по краям экрана + уменьшенная высота
-    max-width: calc(100% - 40px);
-    max-height: calc(100vh - 40px);
+    max-width: calc(100% - rem(40));
+    max-height: calc(100vh - rem(40));
 
     .fs-lms-modal-header {
       padding: $spacing-md $spacing-lg;
@@ -423,7 +423,7 @@ html.modal-open {
       }
 
       .fs-lms-modal-close {
-        font-size: 22px;
+        font-size: rem(22);
       }
     }
 
@@ -437,7 +437,7 @@ html.modal-open {
 
       button {
         flex: 1;           // Равная ширина кнопок
-        min-width: 100px;  // Минимальная удобная ширина для тапа
+        min-width: rem(100);  // Минимальная удобная ширина для тапа
       }
     }
   }
@@ -547,7 +547,7 @@ html.modal-open {
 
     li {
       position: relative;
-      padding-left: 45px !important;
+      padding-left: rem(45) !important;
       margin: 0 !important;
       font-size: $font-size !important;
       line-height: 1.6 !important;
@@ -559,9 +559,9 @@ html.modal-open {
         content: counter(my-counter);
         position: absolute;
         left: 0;
-        top: 2px;
+        top: rem(2);
 
-        @include badge-circle(26px, $wp-admin-blue);
+        @include badge-circle(rem(26), $wp-admin-blue);
 
         font-weight: $font-bold;
         font-size: $font-size-xs;
@@ -572,10 +572,10 @@ html.modal-open {
       &:not(:last-child)::after {
         content: '';
         position: absolute;
-        left: 12px;
-        top: 30px;
-        bottom: -22px;
-        width: 2px;
+        left: rem(12);
+        top: rem(30);
+        bottom: rem(-22);
+        width: rem(2);
         background: rgba($color-border-input, 0.6);
         z-index: 1;
       }
@@ -583,7 +583,7 @@ html.modal-open {
       // Стилизация внутренних тегов списка
       strong { color: $color-text-primary; }
       a { color: $wp-admin-blue; text-decoration: none; &:hover { text-decoration: underline; } }
-      code { background: $wp-admin-gray-2; padding: 2px 6px; border-radius: $border-radius-md; font-size: $font-size-wp; }
+      code { background: $wp-admin-gray-2; padding: rem(2) rem(6); border-radius: $border-radius-md; font-size: $font-size-wp; }
     }
   }
 
@@ -601,14 +601,14 @@ html.modal-open {
   align-items: flex-start;
 
   &__badge {
-    @include badge-circle(28px, $wp-admin-green);
+    @include badge-circle(rem(28), $wp-admin-green);
 
     flex-shrink: 0;
 
     .dashicons {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      font-size: rem(18);
+      width: rem(18);
+      height: rem(18);
       font-weight: $font-heavy;
     }
   }
@@ -779,7 +779,7 @@ html.modal-open {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: $spacing-xs $spacing-md;
-  max-height: 220px;
+  max-height: rem(220);
   overflow-y: auto;
   padding: $spacing-sm;
   border: 1px solid $color-border-input;
@@ -866,13 +866,13 @@ html.modal-open {
    Из макета взяты расположение и размеры; цвета/токены — плагина. ── */
 #fs-lms-group-modal {
   .fs-lms-modal-content {
-    max-width: 880px;
+    max-width: rem(880);
   }
 
   // 2×2 сетка: Название/Период · Предмет/Преподаватель (поля 400px)
   .fs-group-meta {
     display: grid;
-    grid-template-columns: 400px 400px;
+    grid-template-columns: rem(400) rem(400);
     gap: $spacing-xl;
     margin-bottom: $spacing-xl;
 
@@ -904,7 +904,7 @@ html.modal-open {
   // Строка = плашка дня (400px, как поле) | время+кабинет (остаток)
   .fs-schedule-day-row {
     display: grid;
-    grid-template-columns: 400px 1fr;
+    grid-template-columns: rem(400) 1fr;
     gap: $spacing-xl;
     align-items: center;
     min-height: $input-height;
@@ -914,7 +914,7 @@ html.modal-open {
     display: flex;
     align-items: center;
     gap: $spacing-md;
-    box-sizing: border-box; // ширина включает паддинги+границу → ровно 410px
+    box-sizing: border-box; // ширина включает паддинги+границу → ровно rem(410)
     width: 100%;
     height: $input-height;
     padding: 0 $spacing-md;
@@ -1061,7 +1061,7 @@ html.modal-open {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    padding: 2px $spacing-sm !important;
+    padding: rem(2) $spacing-sm !important;
     margin: 0 !important;
     font-size: $font-size-wp;
     color: $color-text-primary;

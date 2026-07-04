@@ -12,14 +12,14 @@
 
 /* #20: при видимой WP admin-bar тело сдвинуто вниз (html margin-top), а .prof-app
    в 100vh уезжает за нижний край и «съедает» prof-side-user. Вычитаем высоту бара
-   (32px / 46px на узких экранах — стандартные значения WP). */
+   (rem(32) / rem(46) на узких экранах — стандартные значения WP). */
 body.admin-bar .prof-app {
-  height: calc(100vh - 32px);
+  height: calc(100vh - rem(32));
 }
 
 @media screen and (max-width: $bp-wp) {
   body.admin-bar .prof-app {
-    height: calc(100vh - 46px);
+    height: calc(100vh - rem(46));
   }
 }
 
@@ -41,14 +41,14 @@ body.prof-menu-off .prof-sidebar { border-right-color: transparent; }
 .prof-brand, .prof-side-scroll, .prof-side-user { width: var(--side-w); }
 
 .prof-brand {
-  display: flex; align-items: center; gap: 10px;
-  padding: 18px 18px 16px;
+  display: flex; align-items: center; gap: rem(10);
+  padding: rem(18) rem(18) rem(16);
 }
 
 .prof-collapse {
   margin-left: auto;
-  width: 28px; height: 28px; flex-shrink: 0;
-  border: none; border-radius: 8px;
+  width: rem(28); height: rem(28); flex-shrink: 0;
+  border: none; border-radius: rem(8);
   background: transparent; color: var(--muted-2);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: background $tr, color $tr;
@@ -56,36 +56,36 @@ body.prof-menu-off .prof-sidebar { border-right-color: transparent; }
 .prof-collapse:hover { background: var(--surface-2); color: var(--ink-2); }
 
 .prof-mtoggle {
-  width: 36px; height: 36px; flex-shrink: 0;
-  border: 1px solid var(--line); border-radius: 10px;
+  width: rem(36); height: rem(36); flex-shrink: 0;
+  border: 1px solid var(--line); border-radius: rem(10);
   background: var(--surface); color: var(--muted);
   box-shadow: var(--shadow-sm); cursor: pointer;
   display: none; align-items: center; justify-content: center;
-  margin-right: 12px; transition: color $tr;
+  margin-right: rem(12); transition: color $tr;
 }
 .prof-mtoggle:hover { color: var(--ink-2); }
 body.prof-menu-off .prof-mtoggle { display: flex; }
 
 .prof-brand-mark {
-  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  width: rem(34); height: rem(34); border-radius: rem(10); flex-shrink: 0;
   background: linear-gradient(135deg, var(--accent), var(--accent-700));
   display: flex; align-items: center; justify-content: center;
   color: var(--ink-inverse); box-shadow: var(--shadow-sm);
 }
-.prof-brand-name { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+.prof-brand-name { font-size: rem(16); font-weight: 700; letter-spacing: -.01em; }
 .prof-brand-name span { color: var(--accent); }
-.prof-brand-sub { font-size: 11px; color: var(--muted-2); margin-top: 1px; }
+.prof-brand-sub { font-size: rem(11); color: var(--muted-2); margin-top: 1px; }
 
 .prof-side-scroll {
-  flex: 1; overflow-y: auto; padding: 6px 12px 12px;
+  flex: 1; overflow-y: auto; padding: rem(6) rem(12) rem(12);
   scrollbar-width: thin; scrollbar-color: var(--line) transparent;
 }
-.prof-side-scroll::-webkit-scrollbar { width: 8px; }
-.prof-side-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.prof-side-scroll::-webkit-scrollbar { width: rem(8); }
+.prof-side-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: rem(4); }
 
 .prof-nav-label {
-  font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
-  color: var(--muted-2); padding: 14px 10px 6px;
+  font-size: rem(11); font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted-2); padding: rem(14) rem(10) rem(6);
 }
 
 /* #15-C: сворачиваемые секции сайдбара («Мои группы»/«Мои курсы»). */
@@ -96,24 +96,24 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 .pnl-caret { display: flex; transition: transform $tr; color: var(--muted-2); }
 .pnl-caret.collapsed { transform: rotate(-90deg); }
 
-.prof-side-search { padding: 4px 10px 8px; }
+.prof-side-search { padding: rem(4) rem(10) rem(8); }
 
 .prof-side-search input {
   width: 100%; box-sizing: border-box;
-  padding: 6px 10px; border-radius: var(--radius-sm);
+  padding: rem(6) rem(10); border-radius: var(--radius-sm);
   border: 1px solid var(--line); background: var(--surface-2);
-  font-size: 12.5px; color: var(--ink-2); font-family: inherit;
+  font-size: rem(12.5); color: var(--ink-2); font-family: inherit;
   transition: border-color $tr;
 }
 .prof-side-search input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 
-.prof-side-empty { padding: 8px 10px; font-size: 12px; color: var(--muted-2); }
+.prof-side-empty { padding: rem(8) rem(10); font-size: rem(12); color: var(--muted-2); }
 
 .prof-nav-item {
-  display: flex; align-items: center; gap: 11px;
-  padding: 9px 10px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: rem(11);
+  padding: rem(9) rem(10); border-radius: var(--radius-sm);
   color: var(--ink-2); cursor: pointer; user-select: none;
-  font-size: 14px; font-weight: 500; position: relative;
+  font-size: rem(14); font-weight: 500; position: relative;
   transition: background $tr, color $tr;
 }
 .prof-nav-item:hover { background: var(--surface-2); color: var(--ink); }
@@ -123,46 +123,46 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 .prof-nav-item.active .ni-ico { color: var(--accent); }
 
 .prof-group-item, .prof-course-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: rem(10);
+  padding: rem(8) rem(10); border-radius: var(--radius-sm);
   cursor: pointer; user-select: none; transition: background $tr;
 }
 .prof-group-item:hover, .prof-course-item:hover { background: var(--surface-2); }
 .prof-group-item.active, .prof-course-item.active { background: var(--accent-soft); }
 
 .prof-group-chip {
-  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  width: rem(30); height: rem(30); border-radius: rem(8); flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 
   /* #17: 10px, чтобы помещалось до 4 букв (shortName режет до 4). */
-  font-size: 10px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink-inverse);
+  font-size: rem(10); font-weight: 700; letter-spacing: -0.02em; color: var(--ink-inverse);
 }
 .prof-group-meta { flex: 1; min-width: 0; }
-.prof-group-name { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+.prof-group-name { font-size: rem(13); font-weight: 600; color: var(--ink); line-height: 1.2; }
 
 .prof-group-sub {
-  font-size: 11px; color: var(--muted-2); margin-top: 1px;
+  font-size: rem(11); color: var(--muted-2); margin-top: 1px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .prof-group-item.active .prof-group-name { color: var(--accent-700); }
 
 .prof-side-user {
-  border-top: 1px solid var(--line); padding: 12px;
-  display: flex; align-items: center; gap: 10px;
+  border-top: 1px solid var(--line); padding: rem(12);
+  display: flex; align-items: center; gap: rem(10);
 }
 
 .prof-avatar {
-  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  width: rem(34); height: rem(34); border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; color: var(--ink-inverse);
+  font-size: rem(13); font-weight: 700; color: var(--ink-inverse);
   background: linear-gradient(135deg, var(--ava-from), var(--ava-to));
 }
 .prof-side-user .su-meta { flex: 1; min-width: 0; }
-.prof-side-user .su-name { font-size: 13px; font-weight: 600; }
-.prof-side-user .su-role { font-size: 11px; color: var(--muted-2); }
+.prof-side-user .su-name { font-size: rem(13); font-weight: 600; }
+.prof-side-user .su-role { font-size: rem(11); color: var(--muted-2); }
 
 .prof-icon-ghost {
-  width: 30px; height: 30px; border-radius: 8px; border: none; background: transparent;
+  width: rem(30); height: rem(30); border-radius: rem(8); border: none; background: transparent;
   color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .prof-icon-ghost:hover { background: var(--surface-2); color: var(--ink); }
@@ -172,14 +172,14 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 
 .prof-topbar {
   height: var(--top-h); flex-shrink: 0;
-  background: var(--topbar-bg); backdrop-filter: blur(8px);
+  background: var(--topbar-bg); backdrop-filter: blur(rem(8));
   border-bottom: 1px solid var(--line);
-  display: flex; align-items: center; gap: 16px; padding: 0 24px;
+  display: flex; align-items: center; gap: rem(16); padding: 0 rem(24);
   position: relative; z-index: $z-topbar;
 }
 .prof-tb-titles { min-width: 0; }
-.prof-tb-crumb { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-.prof-tb-title { font-size: 18px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15; }
+.prof-tb-crumb { font-size: rem(12); color: var(--muted); display: flex; align-items: center; gap: rem(6); }
+.prof-tb-title { font-size: rem(18); font-weight: 700; letter-spacing: -.01em; line-height: 1.15; }
 .prof-tb-spacer { flex: 1; }
 
 /* Универсальная распорка флекс-рядов (вместо inline style="flex:1"). */
@@ -188,8 +188,8 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 .prof-stage { flex: 1; min-height: 0; position: relative; }
 .prof-screen { position: absolute; inset: 0; display: none; overflow-y: auto; }
 .prof-screen.active { display: block; }
-.prof-screen::-webkit-scrollbar { width: 11px; }
-.prof-screen::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: 6px; border: 3px solid var(--bg); }
+.prof-screen::-webkit-scrollbar { width: rem(11); }
+.prof-screen::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: rem(6); border: rem(3) solid var(--bg); }
 
 .prof-screen[data-screen="journal"],
 .prof-screen[data-screen="ktp"] { overflow: hidden; }

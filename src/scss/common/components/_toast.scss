@@ -3,22 +3,22 @@
 
 .fs-toast-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: rem(24);
+  right: rem(24);
   z-index: $z-toast;
   display: flex;
   flex-direction: column;
   gap: $spacing-sm;
   pointer-events: none;
-  max-width: 380px;
-  width: calc(100% - 48px);
+  max-width: rem(380);
+  width: calc(100% - rem(48));
 }
 
 .fs-toast {
   display: flex;
   align-items: flex-start;
   gap: $spacing-sm;
-  padding: 10px $spacing-lg;
+  padding: rem(10) $spacing-lg;
 
   @include m.dark-bubble;
 
@@ -26,7 +26,7 @@
   font-size: $font-size-wp;
   pointer-events: auto;
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(rem(8));
   transition: opacity 0.25s ease, transform 0.25s ease;
 
   &--visible {
@@ -34,10 +34,10 @@
     transform: translateY(0);
   }
 
-  &--success { border-left: 3px solid $wp-admin-green; }
-  &--warning { border-left: 3px solid $color-warning; }
-  &--error   { border-left: 3px solid $color-danger; }
-  &--info    { border-left: 3px solid $wp-admin-blue; }
+  &--success { border-left: rem(3) solid $wp-admin-green; }
+  &--warning { border-left: rem(3) solid $color-warning; }
+  &--error   { border-left: rem(3) solid $color-danger; }
+  &--info    { border-left: rem(3) solid $wp-admin-blue; }
 
   &__message { flex: 1; }
 
@@ -45,7 +45,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 18px;
+    font-size: rem(18);
     line-height: 1;
     padding: 0;
     color: $color-text-inverse;

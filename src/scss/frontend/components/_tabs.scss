@@ -3,7 +3,7 @@
 .fs-tabs-toolbar {
   display: flex;
   align-items: center;
-  padding: 14px 20px;
+  padding: rem(14) rem(20);
   background: $color-bg-subtle;
   border-top: 1px solid $color-border;
 }
@@ -14,7 +14,7 @@
   background: $color-white;
   border: 1px solid $color-border;
   border-radius: $radius-md;
-  padding: 2px;
+  padding: rem(2);
   gap: 0;
 }
 
@@ -22,7 +22,7 @@
   display: inline-block;
   font-size: $font-size-xs;
   font-weight: 500;
-  padding: 5px 14px;
+  padding: rem(5) rem(14);
   border-radius: $radius-sm;
   border: 0;
   background: transparent;
@@ -45,7 +45,7 @@
 
 .fs-tab-panel {
   display: none;
-  padding: 28px 36px;
+  padding: rem(28) rem(36);
   font-size: $font-size-base;
   line-height: $line-height-base;
 
@@ -55,7 +55,7 @@
     background: $color-bg-subtle;
     color: $color-text;
     border-radius: $radius;
-    padding: 14px 16px;
+    padding: rem(14) rem(16);
     overflow-x: auto;
     font-family: $font-mono;
     font-size: $font-size-sm;
@@ -73,7 +73,7 @@
   code {
     background: $color-bg-subtle;
     border-radius: $radius;
-    padding: 1px 5px;
+    padding: 1px rem(5);
     font-family: $font-mono;
     font-size: $font-size-sm;
     color: $color-text;

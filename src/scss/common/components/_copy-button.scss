@@ -19,7 +19,7 @@
     background: transparent;
     border: none;
     box-shadow: none;
-    padding: 2px 0;
+    padding: rem(2) 0;
     margin: 0;
     height: auto;
     font-size: $font-size-wp;
@@ -52,9 +52,9 @@
   border: 1px solid $color-border-input;
   border-radius: $border-radius-md;
   cursor: pointer;
-  height: 28px;
+  height: rem(28);
   padding: 0 $spacing-xs;
-  width: 28px;
+  width: rem(28);
   color: $color-text-secondary;
   transition:
     width        0.28s ease-out,
@@ -73,7 +73,7 @@
   }
 
   &.is-copied {
-    width: 148px;
+    width: rem(148);
     border-color: $wp-admin-green;
     color: $wp-admin-green;
     background: rgba($wp-admin-green, 0.06);
@@ -82,8 +82,8 @@
 
 .fs-copy-field__icon {
   font-size: $font-size-m;
-  width: 16px;
-  height: 16px;
+  width: rem(16);
+  height: rem(16);
   flex-shrink: 0;
 }
 
@@ -98,7 +98,7 @@
     opacity   0.18s 0.1s;
 
   .is-copied & {
-    max-width: 110px;
+    max-width: rem(110);
     opacity: 1;
   }
 }

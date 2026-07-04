@@ -11,26 +11,26 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 10px;
-  padding: 10px 4px;
+  gap: rem(10);
+  padding: rem(10) rem(4);
 
   &__side {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: rem(10);
 
     &--next {
       justify-self: end;
       flex-direction: row-reverse;
       text-align: right;
-      padding: 5px 15px;
+      padding: rem(5) rem(15);
     }
 
     &--prev {
       justify-self: start;
       flex-direction: row;
       text-align: left;
-      padding: 5px 15px;
+      padding: rem(5) rem(15);
     }
 
     &:is(a) {
@@ -46,10 +46,10 @@
   }
 
   &__arrow {
-    @include circle-btn(36px);
+    @include circle-btn(rem(36));
 
     flex-shrink: 0;
-    font-size: 20px;
+    font-size: rem(20);
 
     &--disabled { color: $color-separator; border-color: $color-border-light; cursor: default; pointer-events: none; }
   }
@@ -57,7 +57,7 @@
   &__info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: rem(2);
     min-width: 0;
 
     &--right { text-align: right; }
@@ -83,8 +83,8 @@
   }
 
   &__circle {
-    width: 18px;
-    height: 18px;
+    width: rem(18);
+    height: rem(18);
     border: 1.5px solid $color-muted;
     border-radius: 50%;
   }

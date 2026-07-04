@@ -22,14 +22,14 @@
 }
 
 .s-top {
-  height: 60px;
+  height: rem(60);
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.86);
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 24px;
+  gap: rem(16);
+  padding: 0 rem(24);
 
   > div { min-width: 0; }
 }
@@ -39,12 +39,12 @@
 .s-back {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: rem(8);
   flex-shrink: 0;
-  padding: 8px 12px;
+  padding: rem(8) rem(12);
   border-radius: var(--radius-sm);
   color: var(--ink-2);
-  font-size: 13.5px;
+  font-size: rem(13.5);
   font-weight: 600;
   text-decoration: none;
   transition: background $tr, color $tr;
@@ -55,7 +55,7 @@
 }
 
 .s-crumb {
-  font-size: 12px;
+  font-size: rem(12);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -65,7 +65,7 @@
 }
 
 .s-title {
-  font-size: 17px;
+  font-size: rem(17);
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.15;
@@ -78,29 +78,29 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: rem(12);
   flex-shrink: 0;
 }
 
 .s-prog {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 6px 12px;
+  gap: rem(9);
+  padding: rem(6) rem(12);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
 
   .sp-txt {
-    font-size: 12px;
+    font-size: rem(12);
     font-weight: 600;
     color: var(--ink-2);
     white-space: nowrap;
   }
 
   .sp-bar {
-    width: 62px;
-    height: 6px;
+    width: rem(62);
+    height: rem(6);
     border-radius: 999px;
     background: var(--line-2);
     overflow: hidden;
@@ -115,9 +115,9 @@
 }
 
 .s-ibtn {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: rem(34);
+  height: rem(34);
+  border-radius: rem(9);
   border: none;
   background: transparent;
   display: flex;
@@ -134,12 +134,12 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  padding: 18px 22px 18px 18px;
+  padding: rem(18) rem(22) rem(18) rem(18);
   position: relative;
 }
 
 .railwrap {
-  width: 64px;
+  width: rem(64);
   flex-shrink: 0;
   position: relative;
   z-index: $z-rail;
@@ -150,7 +150,7 @@
   top: 0;
   left: 0;
   bottom: 0;
-  width: 64px;
+  width: rem(64);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -162,7 +162,7 @@
 .content {
   flex: 1;
   min-width: 0;
-  margin-left: 18px;
+  margin-left: rem(18);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -175,12 +175,12 @@
   scrollbar-width: thin;
   scrollbar-color: var(--line-3) transparent;
 
-  &::-webkit-scrollbar { width: 10px; }
+  &::-webkit-scrollbar { width: rem(10); }
 
   &::-webkit-scrollbar-thumb {
     background: var(--line-3);
-    border-radius: 6px;
-    border: 3px solid var(--bg);
+    border-radius: rem(6);
+    border: rem(3) solid var(--bg);
   }
 }
 
@@ -188,7 +188,7 @@
   width: var(--colw);
   max-width: 100%;
   margin: 0 auto;
-  padding-bottom: 28px;
+  padding-bottom: rem(28);
 }
 
 /* ── #3b: экран блокировки урока — размытый скелет контента + оверлей ── */
@@ -199,17 +199,17 @@
 }
 
 .lock-skeleton {
-  padding: 34px 40px;
+  padding: rem(34) rem(40);
 
   .lsk {
-    height: 15px;
-    border-radius: 6px;
+    height: rem(15);
+    border-radius: rem(6);
     background: var(--line);
-    margin: 16px 0;
+    margin: rem(16) 0;
   }
-  .lsk-title { height: 28px; width: 55%; margin-bottom: 24px; }
+  .lsk-title { height: rem(28); width: 55%; margin-bottom: rem(24); }
   .lsk-short { width: 42%; }
-  .lsk-box { height: 220px; border-radius: 14px; background: var(--line-2); margin: 24px 0; }
+  .lsk-box { height: rem(220); border-radius: rem(14); background: var(--line-2); margin: rem(24) 0; }
 }
 
 /* Оверлей поверх .player (сайдбар и топбар остаются доступны — есть выход). */
@@ -220,7 +220,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: rem(24);
   background: rgba(243, 244, 247, 0.45);
 }
 
@@ -229,14 +229,14 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
-  padding: 32px 38px;
-  max-width: 420px;
+  padding: rem(32) rem(38);
+  max-width: rem(420);
   text-align: center;
 
   .lock-ico {
-    width: 54px;
-    height: 54px;
-    margin: 0 auto 14px;
+    width: rem(54);
+    height: rem(54);
+    margin: 0 auto rem(14);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -246,22 +246,22 @@
   }
 
   .lock-title {
-    font-size: 20px;
+    font-size: rem(20);
     font-weight: 700;
     color: var(--ink);
     letter-spacing: -0.01em;
   }
 
   .lock-sub {
-    margin: 8px 0 0;
+    margin: rem(8) 0 0;
     color: var(--muted);
-    font-size: 14px;
+    font-size: rem(14);
     line-height: 1.5;
   }
 
   .lock-countdown {
-    margin-top: 18px;
-    font: 700 34px var(--mono);
+    margin-top: rem(18);
+    font: 700 rem(34) var(--mono);
     color: var(--accent);
     font-variant-numeric: tabular-nums;
   }
@@ -284,12 +284,12 @@
    на узких экранах достаточно ужать жёлоба; на мобильном прячем рейку дерева,
    чтобы шаг занял всю ширину. */
 @media (max-width: 1100px) {
-  .player { padding: 12px 14px; }
-  .content { margin-left: 12px; }
+  .player { padding: rem(12) rem(14); }
+  .content { margin-left: rem(12); }
 }
 
 @media (max-width: 640px) {
-  .player { padding: 8px; }
+  .player { padding: rem(8); }
   .content { margin-left: 0; }
   .railwrap { display: none; }
 }

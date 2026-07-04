@@ -8,22 +8,22 @@
   &-switch {
     position: relative;
     display: block;
-    width: 40px;
-    height: 20px;
+    width: rem(40);
+    height: rem(20);
     background-color: $color-secondary;
-    border-radius: 15px;
+    border-radius: rem(15);
     cursor: pointer;
     transition: all 0.3s ease;
-    text-indent: -9999px;
+    text-indent: rem(-9999);
 
     // Внутренний кружок
     &::after {
       content: '';
       position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 16px;
-      height: 16px;
+      top: rem(2);
+      left: rem(2);
+      width: rem(16);
+      height: rem(16);
       background: $color-bg-modal;
       border-radius: 50%;
       transition: all 0.3s ease;
@@ -39,7 +39,7 @@
       opacity: 1 !important;
 
       &::after {
-        left: 22px; // Смещение кружка вправо
+        left: rem(22); // Смещение кружка вправо
       }
     }
   }

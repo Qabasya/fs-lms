@@ -8,40 +8,40 @@
 .card16 {
   @include cab-card;
 
-  padding: 34px 40px;
+  padding: rem(34) rem(40);
 
   @media (max-width: 640px) { padding: 20px 16px; }
 
   h2 {
-    font-size: 22px;
+    font-size: rem(22);
     font-weight: 700;
     letter-spacing: -0.015em;
-    margin-bottom: 6px;
+    margin-bottom: rem(6);
   }
 
   > .gap16 > p,
-  p { font-size: 14.5px; line-height: 1.7; color: var(--ink-2); }
+  p { font-size: rem(14.5); line-height: 1.7; color: var(--ink-2); }
 }
 
 .kick {
-  font: 700 11px var(--font);
+  font: 700 rem(11) var(--font);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--muted-2);
-  margin-bottom: 10px;
+  margin-bottom: rem(10);
   display: flex;
-  gap: 10px;
+  gap: rem(10);
   align-items: center;
 }
 
 .gap16 {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 16px;
+  gap: rem(16);
+  margin-top: rem(16);
 }
 
 .step-muted {
   color: var(--muted);
-  font-size: 14px;
+  font-size: rem(14);
 }

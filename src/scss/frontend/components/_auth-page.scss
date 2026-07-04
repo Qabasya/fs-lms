@@ -2,7 +2,7 @@
 @use '../mixins' as *;
 
 .fs-auth-card {
-  @include fs-card-shell(400px, 30px, $radius, 40px auto);
+  @include fs-card-shell(rem(400), rem(30), $radius, rem(40) auto);
 
   &__title {
     @include fs-card-title;
@@ -31,12 +31,12 @@
 
     .js-toggle-secret {
       @include fs-toggle-secret;
-      &:focus-visible { outline: 2px solid $color-accent; outline-offset: 2px; }
+      &:focus-visible { outline: rem(2) solid $color-accent; outline-offset: rem(2); }
     }
   }
 
   &__meta {
-    margin-bottom: 20px;
+    margin-bottom: rem(20);
     font-size: $font-size-xs;
 
     a {
@@ -61,7 +61,7 @@
   }
 
   &__submit {
-    @include fs-form-submit(6px 12px);
+    @include fs-form-submit(rem(6) rem(12));
   }
 
   &__divider {
@@ -70,20 +70,20 @@
     text-align: center;
     color: $color-muted;
     font-size: $font-size-xs;
-    margin: 20px 0;
+    margin: rem(20) 0;
 
     &::before, &::after {
       content: '';
       flex: 1;
       border-bottom: 1px solid $color-border-light;
     }
-    span { padding: 0 10px; }
+    span { padding: 0 rem(10); }
   }
 
   &__socials {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: rem(10);
   }
 
   &__btn-social {
@@ -92,7 +92,7 @@
     justify-content: center;
     width: 100%;
     box-sizing: border-box;
-    padding: 10px 16px;
+    padding: rem(10) rem(16);
     background-color: $color-bg-subtle;
     color: $color-text;
     text-decoration: none;
@@ -108,9 +108,9 @@
     }
 
     .fs-social-icon {
-      width: 16px;
-      height: 16px;
-      margin-right: 10px;
+      width: rem(16);
+      height: rem(16);
+      margin-right: rem(10);
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
@@ -130,7 +130,7 @@
     font-size: $font-size-xxs;
     color: $color-muted;
     line-height: $line-height-base;
-    margin-top: 20px;
+    margin-top: rem(20);
 
     a {
       color: $color-muted;

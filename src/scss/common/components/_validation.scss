@@ -5,7 +5,7 @@
     color: $color-danger;
     font-size: $font-size-wp;
     font-style: italic;
-    margin: 5px 0 0;
+    margin: rem(5) 0 0;
     display: block;
   }
 
@@ -31,7 +31,7 @@
   &--inline {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: rem(10);
 
     input,
     select,

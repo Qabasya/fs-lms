@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Рейка-дерево (T14.4): slim-полоска 64px → разворот 316px по hover/pin.
+   Рейка-дерево (T14.4): slim-полоска rem(64) → разворот rem(316) по hover/pin.
    Порт final.css из дизайн-хэндоффа (rail-slim / rail-full / t-*).
    Базовый контейнер .rail — в _shell.scss.
    ══════════════════════════════════════════════════════════════════════ */
@@ -7,7 +7,7 @@
 
 .rail:hover,
 .rail.pin {
-  width: 316px;
+  width: rem(316);
   box-shadow: var(--shadow-lg);
 }
 
@@ -16,13 +16,13 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 64px;
+  width: rem(64);
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 0;
-  gap: 8px;
+  padding: rem(12) 0;
+  gap: rem(8);
   transition: opacity 0.14s;
 }
 
@@ -33,26 +33,26 @@
 }
 
 .rs-x {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: rem(34);
+  height: rem(34);
+  border-radius: rem(10);
   border: 1px dashed var(--line);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--muted-2);
-  margin-bottom: 2px;
+  margin-bottom: rem(2);
   cursor: pointer;
 }
 
 .rs-les {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: rem(38);
+  height: rem(38);
+  border-radius: rem(11);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--muted);
-  font: 700 12.5px var(--font);
+  font: 700 rem(12.5) var(--font);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -80,10 +80,10 @@
 }
 
 .rs-sep {
-  width: 26px;
+  width: rem(26);
   height: 1px;
   background: var(--line);
-  margin: 4px 0;
+  margin: rem(4) 0;
   flex-shrink: 0;
 }
 
@@ -92,7 +92,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 316px;
+  width: rem(316);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -108,10 +108,10 @@
 }
 
 .rf-h {
-  padding: 14px 14px 13px 16px;
+  padding: rem(14) rem(14) rem(13) rem(16);
   border-bottom: 1px solid var(--line-2);
   display: flex;
-  gap: 10px;
+  gap: rem(10);
 
   .rf-t {
     flex: 1;
@@ -119,17 +119,17 @@
   }
 
   b {
-    font-size: 13.5px;
+    font-size: rem(13.5);
     font-weight: 700;
     line-height: 1.3;
     display: block;
   }
 
   .bar {
-    height: 6px;
+    height: rem(6);
     border-radius: 999px;
     background: var(--line-2);
-    margin-top: 9px;
+    margin-top: rem(9);
     overflow: hidden;
 
     span {
@@ -141,17 +141,17 @@
   }
 
   .pct {
-    font-size: 11px;
+    font-size: rem(11);
     color: var(--muted);
-    margin-top: 5px;
+    margin-top: rem(5);
   }
 }
 
 .rf-pin {
-  width: 28px;
-  height: 28px;
+  width: rem(28);
+  height: rem(28);
   border: none;
-  border-radius: 8px;
+  border-radius: rem(8);
   background: transparent;
   color: var(--muted-2);
   cursor: pointer;
@@ -172,7 +172,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 10px;
+  padding: rem(10);
   scrollbar-width: thin;
 }
 
@@ -180,10 +180,10 @@
 .t-mod {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 10px;
-  border-radius: 9px;
-  font: 600 13px var(--font);
+  gap: rem(9);
+  padding: rem(9) rem(10);
+  border-radius: rem(9);
+  font: 600 rem(13) var(--font);
   color: var(--ink);
 
   &.dim {
@@ -192,14 +192,14 @@
   }
 
   .tmi {
-    width: 20px;
-    height: 20px;
-    border-radius: 6px;
+    width: rem(20);
+    height: rem(20);
+    border-radius: rem(6);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    font: 700 11px var(--font);
+    font: 700 rem(11) var(--font);
     background: var(--surface-2);
     color: var(--muted-2);
 
@@ -218,11 +218,11 @@
 .t-les {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px 7px 24px;
-  font: 500 12.5px var(--font);
+  gap: rem(8);
+  padding: rem(7) rem(10) rem(7) rem(24);
+  font: 500 rem(12.5) var(--font);
   color: var(--ink-2);
-  border-radius: 8px;
+  border-radius: rem(8);
   text-decoration: none;
   cursor: pointer;
 
@@ -244,11 +244,11 @@
 .t-step {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 10px;
-  margin-left: 32px;
-  border-radius: 8px;
-  font-size: 12.5px;
+  gap: rem(9);
+  padding: rem(7) rem(10);
+  margin-left: rem(32);
+  border-radius: rem(8);
+  font-size: rem(12.5);
   color: var(--ink-2);
   cursor: pointer;
 
@@ -261,8 +261,8 @@
   }
 
   .tsi {
-    width: 18px;
-    height: 18px;
+    width: rem(18);
+    height: rem(18);
     display: flex;
     align-items: center;
     justify-content: center;

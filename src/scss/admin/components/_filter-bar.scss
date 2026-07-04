@@ -14,8 +14,8 @@
   margin-bottom: $spacing-lg;
 
   &__search {
-    flex: 0 1 260px;
-    min-width: 160px;
+    flex: 0 1 rem(260);
+    min-width: rem(160);
   }
 
   &__selects {

@@ -15,14 +15,14 @@
 .fs-task-page {
   display: grid;
   grid-template-columns: $sidebar-width 1fr;
-  gap: 40px;
+  gap: rem(40);
   align-items: start;
 }
 
 .fs-task-main { min-width: 0; }
 
 @media (max-width: $bp-md) {
-  .fs-page-wrapper { padding: 16px 16px 48px; }
+  .fs-page-wrapper { padding: rem(16) rem(16) rem(48); }
 
   .fs-task-page { grid-template-columns: 1fr; }
 
@@ -42,7 +42,7 @@
 @media (max-width: $bp-sm) {
   .fs-task-title { font-size: $font-size-base !important; }
 
-  .fs-task-nav__info { max-width: 90px; }
+  .fs-task-nav__info { max-width: rem(90); }
 
   .fs-task-nav__title {
     font-size: $font-size-xxs;

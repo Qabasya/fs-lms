@@ -8,7 +8,7 @@
 // ── Микро-лейбл: капс + трекинг + полужирный (статус шаблона, подпись плейсхолдеров)
 @mixin micro-label {
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: rem(0.5);
   font-weight: $font-bold;
 }
 
@@ -35,7 +35,7 @@
   @include micro-label;
 
   font-size: $font-size-sm;
-  padding: 2px $spacing-sm;
+  padding: rem(2) $spacing-sm;
   border-radius: $border-radius-md;
 
   &--custom {
@@ -63,7 +63,7 @@
 
   code {
     font-size: $font-size-xs;
-    padding: 1px 6px;
+    padding: 1px rem(6);
     background: $wp-admin-gray-bg;
     border-radius: $border-radius-sm;
     color: $color-text-primary;
