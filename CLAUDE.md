@@ -343,6 +343,17 @@ form.addEventListener( 'submit', async ( e ) => {
 
 ---
 
+## SVG-иконки
+
+Два единственных источника иконок — по одному на язык. **Инлайновые `<svg>` в JS-шаблонных строках и PHP-шаблонах запрещены.**
+
+- **JS: `src/js/common/icons.js`** — именованные функции-фабрики (`icoCheck( 16 )`, `icoChevronRight( 18, 'var(--muted-2)' )`, `icoCaret( 12, 'kp-caret' )`), возвращают строку `<svg>…</svg>`. Импортируются любым бандлом (admin/frontend/profile/player); Webpack вкопирует только используемое (named exports → tree-shaking). Нет нужной иконки — добавить фабрику туда, не рисовать по месту.
+- **PHP: enum `Inc\Enums\Ui\Icon`** — `Icon::Check->svg( 16 )` (без аргумента — размер по умолчанию кейса). В шаблонах: `<?php echo Icon::X->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>`.
+- Глифы типов шагов урока — `STEP_GLYPHS` / `stepIcon( ui )` в `common/icons.js`; конструктор курса (`step-editor.js`) и плеер (`player/icons.js` → `typeIco`) используют один набор. `player/icons.js` — только мета типов (TYPES/typeMeta) и совместимый фасад `ICO` поверх common.
+- Цвет всегда `currentColor` (наследуется от родителя); размер — аргумент фабрики. Общие глифы (check/chevron/lock/…) в JS- и PHP-источниках должны визуально совпадать.
+
+---
+
 ## WordPress Rules
 
 ### Naming

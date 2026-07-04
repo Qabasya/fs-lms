@@ -5,6 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, emptyState, openCtxMenuRaw, closeCtxMenu } from './utils.js';
+import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoGrip, icoPinFilled, icoCaret, icoContinue, icoCalendarBoard, icoAlert } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
@@ -112,12 +113,12 @@ function render() {
                 </div>
                 ${locked ? `
                 <span class="ktp-lock-badge" title="Опубликовано${state.data.locked_at ? ' ' + esc(state.data.locked_at) : ''}">
-                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3.5 6V4.5a3.5 3.5 0 0 1 7 0V6M2.75 6h8.5v6h-8.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                    ${icoLock(13)}
                     Опубликовано
                 </span>
                 <button class="prof-btn prof-btn-sm" id="ktpUnpublish">Снять публикацию</button>` : `
                 <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
-                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 7h9m0 0-3-3m3 3-3 3M16 13H7m0 0 3-3m-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    ${icoSwap(15)}
                     Распределить
                 </button>
                 <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
@@ -131,9 +132,9 @@ function render() {
             </div>
             <div class="prof-kal">
                 <div class="kal-head">
-                    <button class="prof-icon-ghost" id="ktpPrev"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button class="prof-icon-ghost" id="ktpPrev">${icoChevronLeft(18)}</button>
                     <div class="kal-month" id="ktpMonth"></div>
-                    <button class="prof-icon-ghost" id="ktpNext"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button class="prof-icon-ghost" id="ktpNext">${icoChevronRight(18)}</button>
                     <span class="prof-spacer"></span>
                     <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : 'Перетащите тему на дату, чтобы закрепить'}</span>
                 </div>
@@ -280,7 +281,7 @@ function themeCardHtml(t) {
             <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
             <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}</div>
         </div>
-        <span class="tc-grip"><svg width="14" height="14" viewBox="0 0 14 14"><path fill="currentColor" d="M5 3h1v1H5zm3 0h1v1H8zM5 6.5h1v1H5zm3 0h1v1H8zM5 10h1v1H5zm3 0h1v1H8z"/></svg></span>
+        <span class="tc-grip">${icoGrip(14)}</span>
     </div>`;
 }
 
@@ -290,7 +291,7 @@ function placedThemeHtml(t) {
     // T12.6: «Продолжить» доступно только для «родных» строк (part 1) — не для уже-продолжений.
     const canContinue = 1 === t.part;
     return `<div class="placed-theme${pinned}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
-        <span class="pt-pin"><svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><path d="M9.5 1.5 12.5 4.5 10 7l.5 3-3-2-3.5 3.5L4.5 8 2 7.5 4.5 5 7 4z"/></svg></span>
+        <span class="pt-pin">${icoPinFilled(11)}</span>
         <span class="pt-num">№${t.n}${partLabel(t)}</span>
         <span class="pt-title">${esc(t.topic || 'Без названия')}</span>
         ${t.room ? `<span class="pt-room">ауд. ${esc(t.room)}</span>` : ''}
@@ -372,7 +373,7 @@ function renderIndividual() {
                     <button type="button" class="kp-btn" id="ktpGroupBtn">
                         <span class="kp-chip chip-indi">Инд</span>
                         <span class="kp-txt">Индивидуальные занятия</span>
-                        <svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>
+                        ${icoCaret(12, 'kp-caret')}
                     </button>
                 </div>
             </div>
@@ -391,9 +392,9 @@ function renderIndividual() {
             </div>
             <div class="prof-kal">
                 <div class="kal-head">
-                    <button class="prof-icon-ghost" id="ktpPrev"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button class="prof-icon-ghost" id="ktpPrev">${icoChevronLeft(18)}</button>
                     <div class="kal-month" id="ktpMonth"></div>
-                    <button class="prof-icon-ghost" id="ktpNext"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button class="prof-icon-ghost" id="ktpNext">${icoChevronRight(18)}</button>
                     <span class="prof-spacer"></span>
                     <span class="kal-hint">Клик по дню — добавить · ✎ на занятии — изменить</span>
                 </div>
@@ -682,7 +683,7 @@ function attachThemeActionsClick(btn) {
 function openThemeActionsMenu(glid, anchorEl) {
     const html = `
         <div class="ctx-item" data-act="continue">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10h9m0 0-3-3m3 3-3 3M16 10h.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            ${icoContinue(16)}
             Продолжить на другую дату
         </div>`;
     openCtxMenuRaw(html, anchorEl);
@@ -740,7 +741,7 @@ function attachDrop(cell) {
 function emptyStateHtml(g) {
     return `<div class="prof-ktp-empty">
         <div class="ke-ico">
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M8 2.5v4M16 2.5v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            ${icoCalendarBoard(34)}
         </div>
         <h3>Для группы ${esc(g.name)} не назначен курс</h3>
         <p>Выберите курс предмета — появятся темы и календарь для распределения.</p>
@@ -752,11 +753,9 @@ function emptyStateHtml(g) {
 }
 
 function noGroupsHtml() {
-    const icon = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.6"/></svg>';
-    return emptyState('prof-ktp', icon, 'Нет групп', 'За вами пока не закреплены группы.');
+    return emptyState('prof-ktp', icoCalendarBoard(34), 'Нет групп', 'За вами пока не закреплены группы.');
 }
 
 function errorHtml(msg) {
-    const icon = '<svg width="30" height="30" viewBox="0 0 20 20" fill="none"><path d="M10 4v7M10 14.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-    return emptyState('prof-ktp', icon, 'Не удалось загрузить КТП', msg || '', true);
+    return emptyState('prof-ktp', icoAlert(30), 'Не удалось загрузить КТП', msg || '', true);
 }

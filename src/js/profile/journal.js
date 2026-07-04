@@ -7,6 +7,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, initials, avaColor, todayIso, emptyState, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
+import { icoCheck, icoCross, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
 import { MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
@@ -292,11 +293,11 @@ function openAttPopover(glid, pid, td) {
 function openColumnMenu(glid, th) {
     const html = `
         <div class="ctx-item" data-bulk="1">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            ${icoCheck(16)}
             Все присутствуют
         </div>
         <div class="ctx-item danger" data-bulk="0">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            ${icoCross(16)}
             Все отсутствуют
         </div>`;
     openCtxMenuRaw(html, th);
@@ -323,10 +324,8 @@ function refreshAttCell(glid, pid) {
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="3.5" width="18" height="17" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h18M9 8v12" stroke="currentColor" stroke-width="1.6"/></svg>';
-
 function emptyHtml(title, text) {
-    return emptyState('prof-journal', EMPTY_ICON, title, text);
+    return emptyState('prof-journal', icoJournal(34), title, text);
 }
 function emptyInline(text) {
     return `<div class="j-empty">${esc(text)}</div>`;

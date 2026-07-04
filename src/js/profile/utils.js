@@ -1,6 +1,7 @@
 /* Shared utilities: toast, HTML escaping, formatting, context menu state */
 
 import { AVA_COLORS } from './constants.js';
+import { PATH_CHECK, PATH_CROSS, icoCheck } from '../common/icons.js';
 
 let toastTimer;
 
@@ -13,7 +14,7 @@ export function toast(msg, type = 'ok') {
     if (!t) return;
     t.classList.toggle('error', type === 'error');
     const path = t.querySelector('svg path');
-    if (path) { path.setAttribute('d', type === 'error' ? 'M6 6l8 8M14 6l-8 8' : 'M4 10.5 8 14l8-8.5'); }
+    if (path) { path.setAttribute('d', type === 'error' ? PATH_CROSS : PATH_CHECK); }
     t.querySelector('span').textContent = msg;
     t.classList.add('show');
     clearTimeout(toastTimer);
@@ -131,7 +132,7 @@ export function openCtxMenu(anchor, items, onPick) {
     if (!menu || !backdrop) return;
 
     menu.innerHTML = items.map(it => `<div class="ctx-item ${it.active ? 'on' : ''}" data-v="${esc(it.v)}">
-        <span class="ctx-check">${it.active ? '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}</span>
+        <span class="ctx-check">${it.active ? icoCheck(15) : ''}</span>
         ${it.swatch || it.swatchClass ? `<span class="ctx-sw${it.swatchClass ? ' ' + esc(it.swatchClass) : ''}"${it.swatch ? ` style="background:${it.swatch}"` : ''}>${esc(it.chip || '')}</span>` : ''}
         <span class="ctx-lbl">${esc(it.label)}</span>
     </div>`).join('');

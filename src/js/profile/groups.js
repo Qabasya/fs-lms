@@ -7,6 +7,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, initials, firstWord, avaColor, emptyState } from './utils.js';
+import { icoUsers } from '../common/icons.js';
 import { createApi } from './api.js';
 import { openIndiModal } from './indi-modal.js';
 
@@ -126,8 +127,6 @@ function fmtDate(iso) {
     return `${dd}.${m}${t ? ' ' + t : ''}`;
 }
 
-const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6M21 20c0-2.5-1.5-4.6-3.6-5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-
 function empty(title, text) {
-    return emptyState('prof-roster', EMPTY_ICON, title, text);
+    return emptyState('prof-roster', icoUsers(34), title, text);
 }

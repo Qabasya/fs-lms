@@ -3,8 +3,9 @@
    продублированы в каждом экране. */
 
 import { esc, shortName, initials, chipBg, groupSubjectKey, avaColor, openCtxMenu } from './utils.js';
+import { icoCaret } from '../common/icons.js';
 
-const CARET = '<svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>';
+const CARET = icoCaret(12, 'kp-caret');
 
 /** Кнопка выбора группы (чип с цветом группы + «Название · предмет»). */
 export function groupPickerBtnHtml(group, btnId) {

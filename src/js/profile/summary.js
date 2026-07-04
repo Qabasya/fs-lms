@@ -7,6 +7,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, fmtNum, emptyState } from './utils.js';
+import { icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_JS } from './constants.js';
 import { groupPickerBtnHtml, studentPickerBtnHtml, openGroupPicker, openStudentPicker } from './picker.js';
@@ -370,8 +371,6 @@ function fmtDate(iso) {
     return `${d}.${m} · ${dow}`;
 }
 
-const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 3h9l5 5v13H5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3v5h5M8 13l2 2 4-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
 function empty(title, text) {
-    return emptyState('prof-summary', EMPTY_ICON, title, text);
+    return emptyState('prof-summary', icoDocCheck(34), title, text);
 }

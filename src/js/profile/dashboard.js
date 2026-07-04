@@ -6,6 +6,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, plural, fmtDayMonth, chipBg, chipBorder, groupSubjectKey, shortName, emptyState } from './utils.js';
+import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoHome } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_JS } from './constants.js';
 
@@ -172,14 +173,10 @@ function weekNav(fromIso, toIso) {
 }
 
 function statTile(label, val, delta, color, ico) {
-    const icons = {
-        cal:   '<path d="M4 6h12v10H4zM4 9h12M7 4v3M13 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-        check: '<path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
-        alert: '<path d="M10 4v7M10 14.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
-    };
+    const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert };
     return `<div class="prof-stat-tile">
         <div class="st-top">
-            <span class="st-ico" style="background:${color}1a;color:${color}"><svg width="16" height="16" viewBox="0 0 20 20" fill="none">${icons[ico]}</svg></span>
+            <span class="st-ico" style="background:${color}1a;color:${color}">${icons[ico](16)}</span>
             ${esc(label)}
         </div>
         <div class="st-val">${esc(val)}</div>
@@ -202,7 +199,7 @@ function schedRow(l) {
         <div class="prof-lesson-body">
             <div class="prof-lesson-grp">${esc(l.kind === 'individual' && l.student_name ? l.student_name : l.group_name)}${l.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}${l.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
             <div class="prof-lesson-topic">${esc(l.topic || '—')}</div>
-            <div class="prof-lesson-meta"><span class="lm">${esc(l.subject)}</span>${l.room ? `<span class="lm"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2C5.5 2 4 3.8 4 6c0 3 4 8 4 8s4-5 4-8c0-2.2-1.5-4-4-4z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="6" r="1.4" fill="currentColor"/></svg>${esc(l.room)}</span>` : ''}</div>
+            <div class="prof-lesson-meta"><span class="lm">${esc(l.subject)}</span>${l.room ? `<span class="lm">${icoMapPin(13)}${esc(l.room)}</span>` : ''}</div>
         </div>
         <div class="prof-lesson-state">${stateMap[l.state] || ''}</div>
     </div>`;
@@ -210,27 +207,27 @@ function schedRow(l) {
 
 function fillRow(w) {
     return `<div class="prof-work-item is-clickable" data-grp="${w.group_id}">
-        <div class="prof-work-ico att"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M4 6h12v10H4zM4 9h12M7 4v3M13 4v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+        <div class="prof-work-ico att">${icoCalendar(18)}</div>
         <div class="prof-work-main">
             <div class="prof-work-title">Заполнить посещаемость · ${esc(w.group_name)}</div>
             <div class="prof-work-sub">${esc(w.topic || '—')} · ${fmtDayMonth(w.date)}</div>
         </div>
         <span class="prof-work-count">${w.missing}</span>
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M7 5l5 5-5 5" stroke="var(--muted-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        ${icoChevronRight(18, 'var(--muted-2)')}
     </div>`;
 }
 
 function reviewRow(w) {
     return `<div class="prof-work-item is-clickable" data-review="1">
         <div class="prof-work-ico grade">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 4h10v12l-5-2.5L5 16z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            ${icoBookmark(18)}
         </div>
         <div class="prof-work-main">
             <div class="prof-work-title">Проверить работы · ${esc(w.group_name)}</div>
             <div class="prof-work-sub">в очереди на проверку</div>
         </div>
         <span class="prof-work-count">${w.count}</span>
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M7 5l5 5-5 5" stroke="var(--muted-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        ${icoChevronRight(18, 'var(--muted-2)')}
     </div>`;
 }
 
@@ -244,20 +241,18 @@ function grpCard(g) {
             <div class="prof-group-name">${esc(g.name)} · ${esc(g.subject)}</div>
             <div class="prof-group-sub">${g.students} ${plural(g.students, 'ученик', 'ученика', 'учеников')} ${badge}</div>
         </div>
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M7 5l5 5-5 5" stroke="var(--muted-2)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        ${icoChevronRight(18, 'var(--muted-2)')}
     </div>`;
 }
 
 function coveringBanner(covering) {
     return `<div class="prof-cover-banner">
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 2l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        ${icoShield(18)}
         <span>Вы замещаете: ${covering.map(c => `${esc(c.group_name)} <b>до ${fmtDayMonth(c.valid_to)}</b>`).join(', ')}</span>
     </div>`;
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M3 9.5 12 3l9 6.5M6 8.5V20h12V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
 function emptyHtml(title, text) {
-    return emptyState('prof-dash', EMPTY_ICON, title, text);
+    return emptyState('prof-dash', icoHome(34), title, text);
 }

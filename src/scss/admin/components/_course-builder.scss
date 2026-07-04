@@ -58,6 +58,7 @@
 		b { color: $color-text-primary; font-weight: $font-bold; }
 	}
 	.course-strip-actions { display: flex; gap: $spacing-sm; align-items: center; }
+	.course-strip-actions .button svg { vertical-align: -2px; margin-right: 4px; }
 
 	// создание курса
 	.fs-cb-create {

@@ -5,6 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, fmtDayMonth, emptyState, chipBg, chipText, chipSoft } from './utils.js';
+import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoClock, icoStar, icoHome } from '../common/icons.js';
 import { createApi } from './api.js';
 
 const RENDERERS = {
@@ -141,7 +142,7 @@ function renderLessons(root, d) {
                 <div class="prof-card-head sc-prog-head">
                     <div><h3>Программа курса</h3><span class="ch-sub" id="scProgSub"></span></div>
                     <div class="sc-search" id="scSearchWrap">
-                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.6"/><path d="m13.5 13.5 3.2 3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                        ${icoSearch(14)}
                         <input type="text" id="scSearch" placeholder="Поиск по урокам">
                     </div>
                     <button class="prof-btn prof-btn-sm" id="scExpand"></button>
@@ -298,7 +299,7 @@ function scRenderProgram(courses) {
         const pct = m.lessons.length ? Math.round(done / m.lessons.length * 100) : 0;
         return `<div class="sc-mod${open ? ' open' : ''}${allDone ? ' done' : ''}" data-mi="${mi}">
             <div class="sc-mhead" role="button">
-                <span class="sc-caret"><svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="m7.5 4.5 5.5 5.5-5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span class="sc-caret">${icoChevronRight(14)}</span>
                 <span class="sc-mnum">Модуль ${mi + 1}</span>
                 <span class="sc-mname">${esc(m.name)}</span>
                 ${allDone ? '<span class="sc-mdone">✓</span>' : ''}
@@ -404,14 +405,14 @@ function dlRow(d) {
         ? `${esc(d.group_name)} · <span class="prof-dl-overdue">Просрочено</span> ${fmtDateTime(d.due_at)}`
         : `${esc(d.group_name)} · до ${fmtDateTime(d.due_at)}`;
     return `<div class="prof-work-item${d.overdue ? ' overdue' : ''}">
-        <div class="prof-work-ico att"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 5v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/></svg></div>
+        <div class="prof-work-ico att">${icoClock(18)}</div>
         <div class="prof-work-main"><div class="prof-work-title">${esc(d.topic || 'Домашнее задание')}</div><div class="prof-work-sub">${sub}</div></div>
     </div>`;
 }
 
 function gradeRow(g) {
     return `<div class="prof-work-item">
-        <div class="prof-work-ico grade"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 3l2 4 4.5.6-3.3 3.2.8 4.5L10 13.2 6 15.5l.8-4.5L3.5 7.6 8 7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
+        <div class="prof-work-ico grade">${icoStar(18)}</div>
         <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${esc(g.group_name)} · ${fmtDayMonth(g.graded_at)}</div></div>
         <span class="prof-work-count">${esc(g.value)}</span>
     </div>`;
@@ -433,13 +434,9 @@ function attRow(r) {
 }
 
 function homeTile(label, val, color, ico) {
-    const icons = {
-        cal:   '<path d="M4 6h12v10H4zM4 9h12M7 4v3M13 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-        check: '<path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
-        alert: '<path d="M10 4v7M10 14.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
-    };
+    const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert };
     return `<div class="prof-stat-tile">
-        <div class="st-top"><span class="st-ico" style="background:${color}1a;color:${color}"><svg width="16" height="16" viewBox="0 0 20 20" fill="none">${icons[ico]}</svg></span>${esc(label)}</div>
+        <div class="st-top"><span class="st-ico" style="background:${color}1a;color:${color}">${icons[ico](16)}</span>${esc(label)}</div>
         <div class="st-val">${esc(val)}</div>
     </div>`;
 }
@@ -455,8 +452,6 @@ function fmtDateTime(s) { if (!s) return ''; return fmtDayMonth(s) + ' ' + Strin
 function empty(t) { return `<div class="rev-empty">${esc(t)}</div>`; }
 function emptyCard(t) { return `<div class="prof-card"><div class="prof-card-empty">${esc(t)}</div></div>`; }
 
-const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M3 9.5 12 3l9 6.5M6 8.5V20h12V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
 function emptyHtml(title, text) {
-    return emptyState('prof-dash', EMPTY_ICON, title, text);
+    return emptyState('prof-dash', icoHome(34), title, text);
 }
