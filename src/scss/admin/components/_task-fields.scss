@@ -84,7 +84,7 @@
 		margin-bottom: v.$spacing-xs;
 		padding-left: v.$spacing-xl; // align under inputs
 
-		@media (max-width: 782px) {
+		@media (max-width: v.$bp-wp) {
 			display: none;
 		}
 	}

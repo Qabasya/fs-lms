@@ -296,7 +296,7 @@
 @mixin cb-title-row {
   display: flex;
   align-items: center;
-  gap: $spacing-sm + 2px;
+  gap: rem(10);
   margin-bottom: 14px;
 }
 

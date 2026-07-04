@@ -31,7 +31,7 @@
 
 	.fs-sb-tree-add {
 		border-top: 1px solid $wp-admin-gray-bg;
-		padding: $spacing-sm $spacing-sm + 2px;
+		padding: $spacing-sm rem(10);
 		display: flex;
 		gap: $spacing-sm;
 		flex-wrap: wrap;

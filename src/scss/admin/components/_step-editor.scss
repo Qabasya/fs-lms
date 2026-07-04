@@ -106,7 +106,7 @@
 		outline: none; background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: $border-radius-l;
 		&:focus { box-shadow: inset 0 0 0 2px $cb-bg-active; }
 		h2 { font-size: 22px; margin: 0 0 $spacing-md; font-weight: $font-heavy; }
-		h3 { font-size: 17px; margin: $spacing-lg + 2px 0 $spacing-sm; font-weight: $font-heavy; }
+		h3 { font-size: 17px; margin: rem(18) 0 $spacing-sm; font-weight: $font-heavy; }
 		p { margin: 0 0 $spacing-md; }
 		ol, ul { margin: 0 0 $spacing-md; padding-left: 24px; }
 		li { margin-bottom: 5px; }
@@ -204,7 +204,7 @@
 	// статус-строка метабокса (в курс-билдере setStatus передаётся снаружи)
 	.se-footer {
 		border-top: 1px solid $wp-admin-gray-bg; padding: $spacing-md $spacing-lg;
-		display: flex; align-items: center; gap: $spacing-sm + 2px;
+		display: flex; align-items: center; gap: rem(10);
 		.ef-status { font-size: $font-size-xs; color: $color-secondary-hover; display: flex; align-items: center; gap: 6px; }
 		.saved-dot { @include cb-status-dot; }
 	}

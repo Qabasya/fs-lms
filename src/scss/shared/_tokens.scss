@@ -1,0 +1,124 @@
+// =================================================================
+// SHARED DESIGN TOKENS — ядро дизайн-системы (Фаза 1 refactor.md)
+// =================================================================
+// Единственный кросс-доменный источник: шкалы (отступы/радиусы/шрифты в rem),
+// брейкпоинты, z-index, семантические цвета и WP-статусная палитра.
+// Потребители:
+//   - admin/_variables.scss  → @forward (компоненты админки видят всё как раньше);
+//   - common/components/*    → @use '../../shared/tokens' as * (вместо admin/variables);
+//   - profile/player         → выборочно, через namespace (Фаза 2, cabinet-тема).
+// Правила:
+//   - px здесь допустим ТОЛЬКО в брейкпоинтах (стандарт media) и тенях;
+//   - размерные шкалы — в rem через rem(): при дефолтном root 16px значения
+//     пиксель-в-пиксель совпадают с историческими.
+
+@use 'sass:math';
+
+// ── rem(): макетные px → rem (база 16px) ─────────────────────────
+@function rem($px) {
+	@return math.div($px, 16) * 1rem;
+}
+
+// ── Брейкпоинты (единый набор проекта) ───────────────────────────
+$bp-mobile: 640px;  // телефоны
+$bp-wp: 782px;  // WP admin-bar breakpoint (совместимость с ядром WP)
+$bp-tablet: 960px;  // планшет / two-pane → single-column
+$bp-wide: 1180px; // широкие сетки → узкие варианты
+
+@mixin below($bp) {
+	@media (max-width: $bp) {
+		@content;
+	}
+}
+
+// ── Отступы ──────────────────────────────────────────────────────
+$spacing-xs: rem(4);
+$spacing-sm: rem(8);
+$spacing-md: rem(12);
+$spacing-lg: rem(16);
+$spacing-xl: rem(20);
+$spacing-xxl: rem(28);
+
+// ── Радиусы ──────────────────────────────────────────────────────
+$border-radius-sm: rem(3);
+$border-radius-md: rem(4);
+$border-radius-l: rem(6);
+$border-radius-lg: rem(8);
+$border-radius-pill: rem(12);
+
+// ── Типографика ──────────────────────────────────────────────────
+$font-regular: 450;
+$font-bold: 600;
+$font-heavy: 700;
+$font-size-sm: rem(10);
+$font-size-code: rem(11);
+$font-size-xs: rem(12);
+$font-size-wp: rem(13);
+$font-size: rem(14);
+$font-size-m: rem(16);
+$font-size-l: rem(24);
+$line-height-base: 1.5;
+$font-ui: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; // кабинет/плеер
+$font-mono: 'JetBrains Mono', consolas, monaco, monospace; // код, join-коды, таймкоды
+
+// ── Тайминги ─────────────────────────────────────────────────────
+$transition-fast: 0.2s ease-out;
+$transition-default: all $transition-fast;
+
+// ── Тени ─────────────────────────────────────────────────────────
+$shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
+$shadow-toast: 0 2px 12px rgba(0, 0, 0, 0.18);
+$shadow-modal: 0 2px 20px rgba(0, 0, 0, 0.3);
+
+// ── Z-index (admin/common контекст — поверх WP-хрома) ────────────
+$z-modal-backdrop: 1;
+$z-modal-content: 2;
+$z-modal-root: 999999;
+$z-modal-alert: 1000050;
+$z-tooltip: 1000060; // выше модалок, ниже тостов
+$z-toast: 1000100;
+
+// ── Семантические цвета (ядро) ───────────────────────────────────
+$color-primary: #2271b1; // blue 50
+$color-primary-hover: #135e96; // blue 60
+$color-danger: #d63638; // red 50
+$color-danger-hover: #8a2424; // red 70
+$color-warning: #e08a00; // orange — предупреждение (toast)
+$color-secondary: #a7aaad; // gray 20
+$color-secondary-hover: #787c82; // gray 40
+$color-text-primary: #2c3338;
+$color-text-secondary: #646970;
+$color-text-inverse: #fff;
+$color-bg-modal: #fff;
+$color-bg-backdrop: rgba(0, 0, 0, 0.6);
+$color-bg-footer: #f9f9f9;
+$color-border-input: #c3c4c7;
+$color-border-footer: #e0e0e0;
+
+// ── WP-статусная палитра (бейджи, статусы; common + admin) ───────
+$wp-admin-blue: $color-primary;
+$wp-admin-blue-bg: #c5d9ed; // blue 5
+$wp-admin-blue-bg-light: #f0f6fc; // blue 0
+$wp-admin-blue-text: #0a4b78; // 70
+
+$wp-admin-green: #008a20; // green 50
+$wp-admin-green-dk: #006b18; // green 60
+$wp-admin-green-bg: #b8e6bf; // green 5
+$wp-admin-green-text: #005c12; // 70
+
+$wp-admin-gray: $color-text-secondary;
+$wp-admin-gray-bg: #dcdcde; // gray 5
+$wp-admin-gray-bg-light: #f6f7f7; // gray 0
+$wp-admin-gray-text: #3c434a; // 70
+
+$wp-admin-yellow: #996800; // yellow 50
+$wp-admin-yellow-bg: #f5e6ab; // yellow 5
+$wp-admin-yellow-text: #614200; // 70
+
+$wp-admin-red: $color-danger;
+$wp-admin-red-bg: #facfd2; // red 5
+$wp-admin-red-text: #691c1c; // 80
+
+$wp-admin-purple: #7c3aed;
+$wp-admin-purple-bg: #ede9fe;
+$wp-admin-purple-text: #4c1d95;

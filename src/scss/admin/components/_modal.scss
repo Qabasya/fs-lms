@@ -982,7 +982,7 @@ html.modal-open {
   }
 
   // Узкие экраны — в один столбец
-  @media (max-width: 782px) {
+  @media (max-width: $bp-wp) {
     .fs-group-meta,
     .fs-schedule-day-row {
       grid-template-columns: 1fr;

@@ -97,7 +97,7 @@
 
 	.tree-add {
 		border-top: 1px solid $wp-admin-gray-bg;
-		padding: $spacing-sm $spacing-sm + 2px;
+		padding: $spacing-sm rem(10);
 		display: flex; flex-direction: column; gap: $spacing-sm;
 
 		.tree-add-main { width: 100%; justify-content: center; }
@@ -133,7 +133,7 @@
 	}
 
 	// module
-	.module { margin-bottom: $spacing-xs + 2px; }
+	.module { margin-bottom: rem(6); }
 
 	.module-head {
 		display: flex; align-items: center; gap: 7px; padding: 7px $spacing-sm;
@@ -185,7 +185,7 @@
 	.editor-pane { @include cb-editor-pane; }
 	.editor-top { @include cb-editor-top; }
 
-	.editor-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: $font-size-xs; color: $color-text-secondary; margin-bottom: $spacing-sm + 2px; flex-wrap: wrap;
+	.editor-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: $font-size-xs; color: $color-text-secondary; margin-bottom: rem(10); flex-wrap: wrap;
 		b { color: $color-text-primary; font-weight: $font-bold; } }
 	.lesson-title-row { @include cb-title-row; }
 
@@ -232,7 +232,7 @@
 	.sp-title { @include cb-eyebrow($font-size-code); padding: 6px $spacing-sm $spacing-sm; }
 
 	.sp-option {
-		display: flex; align-items: center; gap: $spacing-sm + 2px; padding: 9px $spacing-sm; border-radius: 6px; cursor: pointer;
+		display: flex; align-items: center; gap: rem(10); padding: 9px $spacing-sm; border-radius: 6px; cursor: pointer;
 		&:hover { background: $cb-bg-hover; }
 
 		.spo-ico {
