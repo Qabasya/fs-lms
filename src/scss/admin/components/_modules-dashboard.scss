@@ -66,11 +66,11 @@
 		transition: $transition-default;
 
 		&--success {
-			color: #008a00;
+			color: $wp-admin-green;
 		}
 	}
 
 	&--locked {
-		background: #fafafa;
+		background: $wp-admin-gray-bg-light;
 	}
 }

@@ -27,9 +27,8 @@
         "scale-unlimited/declaration-strict-value": [
           ["/color$/", "fill", "stroke"],
           {
-            "ignoreValues": ["currentColor", "inherit", "transparent", "none", "initial", "unset"],
-            "message": "Цвет только токеном (var(--…) / $token) — см. refactor.md §2 и CLAUDE.md «CSS / SCSS Rules»",
-            "severity": "warning"
+            "ignoreValues": ["currentColor", "currentcolor", "inherit", "transparent", "none", "initial", "unset"],
+            "message": "Цвет только токеном (var(--…) / $token) — см. refactor.md §2 и CLAUDE.md «CSS / SCSS Rules»"
           }
         ]
       }

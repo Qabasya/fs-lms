@@ -7,8 +7,8 @@
 > - ✅ Фаза 0 — stylelint + конвенции (правило «цвет только токеном» пока warning)
 > - ✅ Фаза 1 — `shared/_tokens.scss` (rem-шкалы, брейкпоинты, z); common отвязан от admin/variables; 782px → `$bp-wp`
 > - ✅ Фаза 2 — cabinet-слой: `shared/cabinet/_theme.scss` (единый :root profile+player, словарь статусов плеера), `_ui.scss` (cab-btn/card/toast/reset — `.prof-btn` ≡ `.b`), hex плеера токенизированы, палитра типов шагов едина (`$step-type-palette` в tokens; admin приведён к плееру; JS-зеркало — player/icons.js)
-> - ⬜ Фаза 3 — токенизация остатков (admin/frontend hex, font-size шкала profile/player)
-> - ⬜ Фаза 4 — px → rem + гибкие контейнеры
+> - ✅ Фаза 3 — цветовые хардкоды добиты (в компонентах не осталось hex, кроме data-uri стрелки select; правило «цвет только токеном» переведено в **error**); `$wp-admin-gray-2` в ядре; `cb-chip` переехал в `_mixins`. Полупрозрачные rgba-оверлеи (скримы видео, backdrop) оставлены осознанно. Перевод 167 `font-size: NNpx` profile/player на шкалу перенесён в Фазу 4 (единый механический проход с px→rem)
+> - ⬜ Фаза 4 — px → rem + гибкие контейнеры (+ font-size шкала profile/player)
 > - ⬜ Фаза 5 — адаптив frontend/profile/player
 > - ⬜ Фаза 6 — санация admin (_modal, !important)
 >

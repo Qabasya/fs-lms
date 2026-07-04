@@ -341,7 +341,8 @@ form.addEventListener( 'submit', async ( e ) => {
 - **Variables required** — all SCSS component files must use tokens from `src/scss/admin/_variables.scss` (or frontend equivalent); no hardcoded colors, spacing, font sizes, or transition values
 - **No raw values in components** — if a needed token doesn't exist in `_variables.scss`, add it there first, then use it
 - **stylelint обязателен**: `npm run lint:css` (авто-фикс — `npm run fix:css`); конфиг — `.stylelintrc.json`. Входит в `npm run ci`
-- **Цвета в компонентах** — только `var(--…)` / `$token` (правило `scale-unlimited/declaration-strict-value`; сейчас warning, станет error после Фазы 3 refactor.md). Hex/rgba разрешены только в `_variables.scss`, `shared/_tokens.scss`, `shared/_chip-palette.scss`
+- **Цвета в компонентах** — только `var(--…)` / `$token` (правило `scale-unlimited/declaration-strict-value` — **error**). Hex разрешён только в `_variables.scss`, `shared/_tokens.scss`, `shared/cabinet/_theme.scss`, `shared/_chip-palette.scss`; полупрозрачные `rgba()`-оверлеи/тени в компонентах допустимы
+- **profile + player** — общая тема `shared/cabinet/_theme.scss` (один `:root`, словарь статусов `--ok/--err/--wait`) и примитивы `shared/cabinet/_ui.scss` (`.prof-btn` ≡ `.b`, тост, карточка). Цвета типов шагов — `$step-type-palette` в `shared/_tokens.scss` (JS-зеркало: `src/js/player/icons.js` TYPES)
 - **`!important`** — только в utility-классах (`common/_widths.scss`) и для перебивания WP-core, всегда с комментарием-причиной
 - **Вложенность** ≤ 4 уровней; deprecated `@import` запрещён (только `@use`/`@forward`)
 - План рефактора стилей (rem, адаптив, слияние profile+player) — `refactor.md`

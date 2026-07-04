@@ -42,7 +42,7 @@ $step-type-colors: (
 
 // ── Course Builder bespoke shades (subtle UI fills from canonical design)
 $cb-bg-tree: #fbfbfc; // фон рельсы/футера
-$cb-bg-hover: #f0f0f1; // hover строки дерева
+$cb-bg-hover: $wp-admin-gray-2; // hover строки дерева
 $cb-bg-active: #e7f0f8; // активный урок
 $cb-chip-bg: #f0f1f3; // плитка шага (неактивная)
 $cb-num-bg: #e0e7ef; // номер модуля
@@ -83,7 +83,7 @@ $dashboard-tabs-padding: rem(12) rem(24);
 $dashboard-tabs-content-padding: rem(30);
 $dashboard-tabs-min-height: rem(400);
 $dashboard-tabs-bg-inactive: $wp-admin-gray-bg;
-$dashboard-tabs-bg-hover: #f0f0f1;
+$dashboard-tabs-bg-hover: $wp-admin-gray-2;
 $dashboard-tabs-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 $dashboard-tabs-transition: $transition-default;
 
@@ -108,15 +108,4 @@ $table-add-btn-height: rem(30);
 $table-add-icon-size: rem(22);
 $table-add-container-height: rem(48);
 
-// =================================================================
-// MIXIN: cb-chip — общий стиль чип/бейдж/кнопка (lesson-flag,
-// sh-badge, sh-btn, fs-cb-ref .button, fs-cb-ref-title)
-// =================================================================
-
-@mixin cb-chip {
-	height: rem(32); min-height: 0; padding: 0 rem(11); box-sizing: border-box; appearance: none;
-	display: inline-flex; align-items: center; gap: rem(5);
-	font-size: $font-size-wp; font-weight: $font-bold; white-space: nowrap;
-	border-radius: $border-radius-pill;
-	svg { fill: currentcolor; width: rem(14); height: rem(14); flex-shrink: 0; }
-}
+// Миксин cb-chip переехал в _mixins.scss (variables — только токены).

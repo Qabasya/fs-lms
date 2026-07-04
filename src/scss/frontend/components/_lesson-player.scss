@@ -54,7 +54,7 @@
 
 		&:first-child { border-top: 0; }
 		&:hover { background: $color-bg-subtle; }
-		&.is-active { background: color-mix(in srgb, $color-accent 12%, #fff); }
+		&.is-active { background: color-mix(in srgb, $color-accent 12%, $color-white); }
 
 		&[data-gate="locked"] {
 			cursor: not-allowed;

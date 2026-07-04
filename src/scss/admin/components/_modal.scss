@@ -583,7 +583,7 @@ html.modal-open {
       // Стилизация внутренних тегов списка
       strong { color: $color-text-primary; }
       a { color: $wp-admin-blue; text-decoration: none; &:hover { text-decoration: underline; } }
-      code { background: #f0f0f1; padding: 2px 6px; border-radius: $border-radius-md; font-size: $font-size-wp; } // #f0f0f1: нет чистого семантического токена
+      code { background: $wp-admin-gray-2; padding: 2px 6px; border-radius: $border-radius-md; font-size: $font-size-wp; }
     }
   }
 

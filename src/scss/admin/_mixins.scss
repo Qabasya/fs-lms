@@ -406,3 +406,22 @@
   font-weight: $font-bold;
   margin-top: 2px;
 }
+
+// ── cb-chip — общий стиль чип/бейдж/кнопка (lesson-flag, sh-badge,
+//    sh-btn, fs-cb-ref .button, fs-cb-ref-title). Переехал из _variables.
+@mixin cb-chip {
+  height: rem(32);
+  min-height: 0;
+  padding: 0 rem(11);
+  box-sizing: border-box;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: rem(5);
+  font-size: $font-size-wp;
+  font-weight: $font-bold;
+  white-space: nowrap;
+  border-radius: $border-radius-pill;
+
+  svg { fill: currentcolor; width: rem(14); height: rem(14); flex-shrink: 0; }
+}
