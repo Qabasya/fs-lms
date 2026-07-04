@@ -42,7 +42,10 @@
 .ke-ico--danger { background: var(--err-soft); color: var(--err); }
 .prof-ktp-empty h3 { font-size: rem(17); font-weight: 700; }
 .prof-ktp-empty p { font-size: rem(13.5); color: var(--muted); line-height: 1.55; }
-.prof-ktp-empty .prof-btn { margin-top: rem(10); }
+
+/* Отступ — только одиночной кнопке пустого состояния («+ Добавить занятие»),
+   не кнопке в ряду курс-пикера .ke-assign (иначе она съезжает ниже селекта). */
+.prof-ktp-empty > .prof-btn { margin-top: rem(10); }
 
 .prof-ktp-grid { display: grid; grid-template-columns: rem(340) 1fr; gap: rem(18); flex: 1; min-height: 0; }
 
@@ -134,7 +137,7 @@
 .placed-theme .pt-more:hover { color: var(--accent-700); background: var(--accent-soft); }
 
 /* T11.1: курс-пикер в пустом состоянии КТП */
-.ke-assign { display: flex; gap: rem(8); margin-top: rem(14); flex-wrap: wrap; justify-content: center; }
+.ke-assign { display: flex; align-items: center; gap: rem(8); margin-top: rem(14); flex-wrap: wrap; justify-content: center; }
 .ke-course-sel { min-width: rem(220); height: rem(38); padding: 0 rem(10); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: rem(13.5); cursor: pointer; }
 .ke-course-sel:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
