@@ -203,14 +203,21 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 .prof-screen[data-screen="ktp"] { overflow: hidden; }
 
 /* ── Мобильный (Фаза 5): сайдбар — off-canvas поверх контента.
-   Колонка грида схлопнута всегда; панель ВСЕГДА fixed и ездит transform'ом
-   (translateX(-100%) в закрытом состоянии) — закрытие/открытие плавное.
-   Транзишен включается только после первой отрисовки (body.prof-anim,
-   как у десктопного сворачивания) — без «проигрывания» на загрузке.
-   Закрытие — кнопкой prof-collapse или автоматически при переходе
-   (app.js closeMenuOnMobile); дефолт на мобильном — скрыт (initCollapse). */
+   Панель ВСЕГДА fixed (вне потока грида!), поэтому грид — ОДНА колонка
+   1fr (иначе .prof-main авторазмещается в схлопнутую колонку и вёрстка
+   ломается; перекрываем и более специфичное desktop-правило
+   body.prof-menu-off). Панель ездит transform'ом (translateX(-100%) в
+   закрытом состоянии) — закрытие/открытие плавное; транзишен включается
+   только после первой отрисовки (body.prof-anim) — без «проигрывания»
+   на загрузке. Закрытие — кнопкой prof-collapse или автоматически при
+   переходе (app.js closeMenuOnMobile); дефолт на мобильном — скрыт. */
 @media (max-width: $breakpoint-mobile) {
-  .prof-app { grid-template-columns: 0 1fr; }
+  .prof-app,
+  body.prof-menu-off .prof-app { grid-template-columns: 1fr; }
+
+  /* Грид-колонки на мобильном не анимируются (ширина постоянна 1fr) —
+     анимация целиком на transform панели. */
+  body.prof-anim .prof-app { transition: none; }
 
   .prof-sidebar {
     position: fixed;
@@ -232,7 +239,7 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
   }
 
   /* Пока панель уезжает — она ещё видима (visibility переключится по концу
-     транзишена сама, т.к. transition распространяется и на visibility). */
+     транзишена сама: у visibility нулевая длительность и задержка $tr-menu). */
   body.prof-anim.prof-menu-off .prof-sidebar { transition: transform $tr-menu, box-shadow $tr-menu, visibility 0s $tr-menu; }
 
   body.admin-bar .prof-sidebar { top: rem(46); }
