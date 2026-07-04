@@ -206,3 +206,10 @@
 @keyframes fs-apply-spin {
   to { transform: rotate( 360deg ); }
 }
+
+// ── Мобильный (Фаза 5): компактные поля страницы и карточки
+@media (max-width: $bp-mobile) {
+  .fs-lms-apply-page { padding: rem(20) rem(12) rem(40); }
+
+  .fs-apply-card { padding: rem(20) rem(16); }
+}

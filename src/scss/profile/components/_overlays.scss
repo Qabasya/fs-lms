@@ -85,3 +85,8 @@
 .gp-indi .gp-time { display: flex; align-items: center; gap: rem(8); flex: 1 1 auto; }
 .gp-indi .gp-time input { flex: 1; height: rem(36); }
 .gp-indi .gp-dash { flex: 0 0 auto; color: var(--muted-2); }
+
+/* ── Мобильный (Фаза 5): форма инд. занятия не упирается в 500px ─────── */
+@media (max-width: $breakpoint-mobile) {
+  .gp-form { min-width: 0; width: 100%; }
+}

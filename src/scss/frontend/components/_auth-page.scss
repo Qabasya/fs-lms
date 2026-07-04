@@ -170,3 +170,8 @@ body:has(.fs-auth-card) {
     display: none !important;
   }
 }
+
+// ── Мобильный (Фаза 5): карточка входа во всю ширину, компактные поля
+@media (max-width: $bp-mobile) {
+  .fs-auth-card { margin: rem(16) auto; padding: rem(20) rem(16); }
+}

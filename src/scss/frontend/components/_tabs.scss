@@ -79,3 +79,20 @@
     color: $color-text;
   }
 }
+
+// ── Мобильный (Фаза 5): ряд табов скроллится горизонтально, панель компактнее
+@media (max-width: $bp-mobile) {
+  .fs-tabs-toolbar { padding: rem(10) rem(12); }
+
+  .fs-tabs-nav {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .fs-task-page .fs-tab-btn { white-space: nowrap; }
+
+  .fs-tab-panel { padding: rem(18) rem(14); }
+}

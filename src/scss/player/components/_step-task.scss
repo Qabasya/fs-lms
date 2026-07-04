@@ -321,3 +321,8 @@
     color: var(--ink-2);
   }
 }
+
+/* ── Мобильный (Фаза 5): сопоставление — селект под условием, не сбоку ─ */
+@media (max-width: $bp-mobile) {
+  .fs-widget-matching-row { grid-template-columns: 1fr; gap: rem(6); }
+}

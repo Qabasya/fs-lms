@@ -150,3 +150,13 @@ a.prof-lesson-go { text-decoration: none; color: inherit; cursor: pointer; }
   .prof-dash-grid2 { grid-template-columns: 1fr; }
   .prof-week-col { min-height: rem(120); }
 }
+
+/* ── Мобильный (Фаза 5): плитки в столбец, недельная сетка скроллится ── */
+@media (max-width: $breakpoint-mobile) {
+  .prof-stat-tiles { grid-template-columns: 1fr; gap: rem(10); }
+
+  .prof-week-grid {
+    grid-template-columns: repeat(7, minmax(rem(132), 1fr));
+    overflow-x: auto;
+  }
+}

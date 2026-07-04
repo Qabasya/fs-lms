@@ -121,3 +121,17 @@
     color: var(--muted-2);
   }
 }
+
+/* ── Мобильный (Фаза 5): лента шагов скроллится горизонтально ───────── */
+@media (max-width: $bp-mobile) {
+  .strip {
+    overflow-x: auto;
+    gap: rem(10);
+    padding-bottom: rem(4);
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .stp { flex-shrink: 0; }
+}

@@ -18,7 +18,7 @@
 	grid-template-columns: 1fr rem(280);
 	gap: $spacing-xl;
 
-	@media (max-width: 768px) {
+	@media (max-width: $bp-wp) {
 		grid-template-columns: 1fr;
 	}
 }

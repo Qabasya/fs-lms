@@ -296,3 +296,15 @@
 		color:      $color-muted;
 	}
 }
+
+// ── Мобильный (Фаза 5): кнопки попытки в столбец, компактные вопросы
+@media (max-width: $bp-mobile) {
+	.fs-assessment-page { padding: $spacing-md 0; }
+
+	.fs-assessment-title { font-size: 1.35rem; }
+
+	.fs-attempt-actions {
+		flex-direction: column;
+		align-items: stretch;
+	}
+}

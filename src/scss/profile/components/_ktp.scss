@@ -218,3 +218,23 @@
 .indi-slot.unassigned { border-left-color: var(--err); }
 .indi-slot.unassigned .pt-num { color: var(--err); }
 .indi-slot.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* ── Планшет/мобильный (Фаза 5): банк тем сжимается, затем встаёт над
+   календарём (стек); сам календарь скроллится по горизонтали при нехватке. */
+@media (max-width: $breakpoint-tablet) {
+  .prof-ktp-grid { grid-template-columns: rem(260) 1fr; }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .prof-ktp { padding: rem(12); }
+
+  .prof-ktp-grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+
+  .prof-theme-bank { max-height: rem(240); }
+
+  .kal-grid-wrap { overflow-x: auto; }
+
+  .kal-grid { min-width: rem(560); }
+
+  .kal-dow { min-width: rem(560); }
+}

@@ -291,8 +291,13 @@ function defaultConfig() {
 const MENU_KEY = 'fsProfileMenuOff';
 
 function initCollapse() {
-    let off = false;
-    try { off = '1' === localStorage.getItem(MENU_KEY); } catch { /* private mode */ }
+    // На мобильном (сайдбар — off-canvas, см. _layout.scss) без сохранённого
+    // выбора меню по умолчанию скрыто, на десктопе — открыто.
+    let off = window.matchMedia('(max-width: 720px)').matches;
+    try {
+        const stored = localStorage.getItem(MENU_KEY);
+        if (stored !== null) { off = '1' === stored; }
+    } catch { /* private mode */ }
     document.body.classList.toggle('prof-menu-off', off);
 
     // Анимацию включаем после первичной отрисовки — без «проигрывания» на загрузке.

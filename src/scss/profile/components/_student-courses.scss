@@ -128,7 +128,7 @@
 .sc-notice { display: flex; align-items: center; gap: rem(12); margin: rem(14) rem(18); padding: rem(13) rem(16); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-700); font-size: rem(13); font-weight: 500; }
 .sc-empty { padding: rem(20) rem(18); font-size: rem(13); color: var(--muted-2); text-align: center; }
 
-@media (max-width: 900px) {
+@media (max-width: $breakpoint-tablet) {
   .sc-hero-top { flex-direction: column; }
   .sc-hact { min-width: 0; }
   .sc-tab { min-width: 0; flex: 1 1 rem(220); }

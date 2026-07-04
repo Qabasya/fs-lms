@@ -304,3 +304,10 @@
 
   svg { color: var(--muted-2); }
 }
+
+/* ── Мобильный (Фаза 5): воркбар и баннер результата складываются ────── */
+@media (max-width: $bp-mobile) {
+  .a-workbar { flex-wrap: wrap; }
+
+  .res { flex-wrap: wrap; gap: rem(12); padding: rem(14) rem(16); }
+}

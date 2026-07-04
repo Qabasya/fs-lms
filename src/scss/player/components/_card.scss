@@ -10,7 +10,7 @@
 
   padding: rem(34) rem(40);
 
-  @media (max-width: 640px) { padding: 20px 16px; }
+  @media (max-width: $bp-mobile) { padding: rem(20) rem(16); }
 
   h2 {
     font-size: rem(22);

@@ -127,3 +127,17 @@ table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; 
   margin-top: 1px; font-size: rem(8.5); font-weight: 700; text-transform: uppercase;
   letter-spacing: .02em; color: var(--accent);
 }
+
+/* ── Мобильный (Фаза 5): компактная шапка, узкая липкая колонка имени;
+   сама сетка уже скроллится в .j-scroll со sticky-столбцами. ─────────── */
+@media (max-width: $breakpoint-mobile) {
+  .prof-journal { padding: rem(10); }
+
+  .j-monthnav { flex-wrap: wrap; row-gap: rem(8); }
+
+  .jm-label { min-width: 0; }
+
+  .col-name { width: rem(140); min-width: rem(140); }
+
+  .j-legend-bottom { padding: rem(8) rem(12); gap: rem(10); }
+}

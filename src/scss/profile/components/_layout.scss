@@ -193,3 +193,23 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 
 .prof-screen[data-screen="journal"],
 .prof-screen[data-screen="ktp"] { overflow: hidden; }
+
+/* ── Мобильный (Фаза 5): сайдбар — off-canvas поверх контента.
+   Колонка грида схлопнута всегда; открытый сайдбар (нет body.prof-menu-off)
+   становится fixed-панелью. Закрытие — той же кнопкой prof-collapse;
+   дефолт на мобильном — скрыт (app.js initCollapse). ─────────────────── */
+@media (max-width: $breakpoint-mobile) {
+  .prof-app { grid-template-columns: 0 1fr; }
+
+  body:not(.prof-menu-off) .prof-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--side-w);
+    z-index: $z-topbar + 10;
+    box-shadow: var(--shadow-lg);
+  }
+
+  body.admin-bar:not(.prof-menu-off) .prof-sidebar { top: rem(46); }
+}
