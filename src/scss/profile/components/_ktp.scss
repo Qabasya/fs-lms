@@ -52,6 +52,7 @@
 .prof-theme-bank {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-height: 0;
+  min-width: 0;
 }
 .tb-head { padding: rem(14) rem(16); border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: rem(8); }
 .tb-head h3 { font-size: rem(14); font-weight: 700; }
@@ -77,9 +78,12 @@
 .tc-pinned { color: var(--accent); font-weight: 600; }
 .tc-grip { color: var(--muted-2); display: flex; cursor: grab; }
 
+/* min-width: 0 — грид-ребёнок 1fr не должен распираться контентом календаря
+   (7 колонок с темами); иначе весь экран уезжает за вьюпорт по ширине. */
 .prof-kal {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-height: 0;
+  min-width: 0;
 }
 .kal-head { padding: rem(12) rem(16); border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: rem(10); }
 .kal-month { font-size: rem(14); font-weight: 700; min-width: rem(130); text-align: center; }
@@ -232,9 +236,10 @@
 
   .prof-theme-bank { max-height: rem(240); }
 
+  /* Календарь скроллится внутри своей карточки: скролл-контейнер получает
+     и горизонталь, а сетка/шапка дней держат общий минимум ширины. */
   .kal-grid-wrap { overflow-x: auto; }
 
-  .kal-grid { min-width: rem(560); }
-
-  .kal-dow { min-width: rem(560); }
+  .kal-grid,
+  .kal-dow { width: max-content; min-width: 100%; grid-template-columns: repeat(7, minmax(rem(76), 1fr)); }
 }

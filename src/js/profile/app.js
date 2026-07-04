@@ -64,12 +64,22 @@ const sidebarState = { groupsCollapsed: false, coursesCollapsed: false, courseFi
 const COURSE_SEARCH_THRESHOLD = 6;
 
 /* ── Routing ─────────────────────────────────────────────────────────── */
+/* На мобильном сайдбар — off-canvas поверх контента (_layout.scss):
+   после любого перехода закрываем его, иначе он заслоняет выбранный экран.
+   Только body-класс, localStorage не трогаем (это навигация, не выбор юзера). */
+function closeMenuOnMobile() {
+    if (window.matchMedia('(max-width: 720px)').matches) {
+        document.body.classList.add('prof-menu-off');
+    }
+}
+
 function go(screen) {
     document.querySelectorAll('.prof-screen').forEach(s =>
         s.classList.toggle('active', s.dataset.screen === screen));
     document.querySelectorAll('.prof-nav-item[data-go]').forEach(n =>
         n.classList.toggle('active', n.dataset.go === screen));
     setTopbar(screen);
+    closeMenuOnMobile();
     const act = document.querySelector(`.prof-screen[data-screen="${screen}"]`);
     if (act) act.scrollTop = 0;
 }

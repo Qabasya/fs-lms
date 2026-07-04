@@ -281,8 +281,8 @@
 
 /* ── B4: адаптив ширины шага и жёлобов ───────────────────────────────────
    База --colw:1402 (контент 1320). Колонка ограничена max-width:100%, поэтому
-   на узких экранах достаточно ужать жёлоба; на мобильном прячем рейку дерева,
-   чтобы шаг занял всю ширину. */
+   на узких экранах достаточно ужать жёлоба; на мобильном рейка сжимается до
+   узкой slim-полоски, дерево открывается тапом (rs-x → pin). */
 @media (max-width: $bp-shell-narrow) {
   .player { padding: rem(12) rem(14); }
   .content { margin-left: rem(12); }
@@ -290,6 +290,26 @@
 
 @media (max-width: $bp-mobile) {
   .player { padding: rem(8); }
-  .content { margin-left: 0; }
-  .railwrap { display: none; }
+  .content { margin-left: rem(8); min-width: 0; }
+
+  /* Рейка сжимается до slim-полоски rem(44) — сами правила .rail* живут в
+     _rail.scss (он позже в каскаде); здесь — только ширина контейнера. */
+  .railwrap { width: rem(44); }
+
+  /* Топбар: убираем второстепенное (крамб, колокольчик, текст прогресса),
+     заголовок урока обрезается, прогресс — только полоска. */
+  .s-top { gap: rem(8); padding: 0 rem(10); }
+
+  .s-crumb,
+  .s-ibtn { display: none; }
+
+  .s-back { padding: rem(8); }
+
+  .s-right { gap: rem(8); }
+
+  .s-prog { padding: rem(5) rem(9); gap: 0; }
+
+  .s-prog .sp-txt { display: none; }
+
+  .s-prog .sp-bar { width: rem(44); }
 }

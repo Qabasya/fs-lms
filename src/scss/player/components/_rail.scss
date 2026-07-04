@@ -283,3 +283,22 @@
     flex-shrink: 0;
   }
 }
+
+/* ── Мобильный (Фаза 5): slim-полоска rem(44), дерево — оверлей по пину.
+   Hover-разворот отключён (на таче «залипает»): раскрытие только тапом по
+   rs-x (rail.js → setPin(true)), пин в шапке дерева сворачивает обратно. */
+@media (max-width: $bp-mobile) {
+  .rail,
+  .rail-slim { width: rem(44); }
+
+  .rail:hover:not(.pin) {
+    width: rem(44);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .rail:hover:not(.pin) .rail-slim { opacity: 1; pointer-events: auto; }
+
+  .rail:hover:not(.pin) .rail-full { opacity: 0; pointer-events: none; }
+
+  .rail.pin { width: min(#{rem(316)}, calc(100vw - #{rem(24)})); }
+}
