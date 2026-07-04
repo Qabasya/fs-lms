@@ -101,8 +101,11 @@
   }
 }
 
-/* контейнер активного шага */
+/* контейнер активного шага; сам шаг (панель) анимируется и при переключении —
+   hidden-toggle перезапускает анимацию (плавные переходы между шагами). */
 .steproot { animation: step-in 0.2s ease; }
+
+.pstep:not([hidden]) { animation: step-in 0.2s ease; }
 
 @keyframes step-in {
   from { opacity: 0; transform: translateY(rem(5)); }

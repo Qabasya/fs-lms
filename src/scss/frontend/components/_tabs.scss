@@ -96,3 +96,6 @@
 
   .fs-tab-panel { padding: rem(18) rem(14); }
 }
+
+/* Плавное появление активной панели таба (kейфрейм — в _reset). */
+.fs-tab-panel.is-active { animation: fs-fade-up 0.2s ease; }

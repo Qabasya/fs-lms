@@ -213,3 +213,6 @@
 
   .fs-apply-card { padding: rem(20) rem(16); }
 }
+
+/* Плавное появление шага формы (kейфрейм — в _reset). */
+.fs-apply-card__step--active { animation: fs-fade-up 0.2s ease; }

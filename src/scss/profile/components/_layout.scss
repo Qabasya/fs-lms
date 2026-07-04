@@ -2,6 +2,7 @@
    Оболочка SPA: грид приложения, сайдбар, топбар, сцена экранов
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
 
 /* ── App grid ───────────────────────────────────────────────────────── */
 .prof-app {
@@ -187,7 +188,14 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 
 .prof-stage { flex: 1; min-height: 0; position: relative; }
 .prof-screen { position: absolute; inset: 0; display: none; overflow-y: auto; }
-.prof-screen.active { display: block; }
+
+/* Плавное появление экрана при переключении (display-toggle перезапускает
+   анимацию); при reduced-motion гасится глобальным правилом cab-reset. */
+.prof-screen.active {
+  display: block;
+
+  @include cab-enter;
+}
 .prof-screen::-webkit-scrollbar { width: rem(11); }
 .prof-screen::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: rem(6); border: rem(3) solid var(--bg); }
 
@@ -195,13 +203,16 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 .prof-screen[data-screen="ktp"] { overflow: hidden; }
 
 /* ── Мобильный (Фаза 5): сайдбар — off-canvas поверх контента.
-   Колонка грида схлопнута всегда; открытый сайдбар (нет body.prof-menu-off)
-   становится fixed-панелью. Закрытие — той же кнопкой prof-collapse;
-   дефолт на мобильном — скрыт (app.js initCollapse). ─────────────────── */
+   Колонка грида схлопнута всегда; панель ВСЕГДА fixed и ездит transform'ом
+   (translateX(-100%) в закрытом состоянии) — закрытие/открытие плавное.
+   Транзишен включается только после первой отрисовки (body.prof-anim,
+   как у десктопного сворачивания) — без «проигрывания» на загрузке.
+   Закрытие — кнопкой prof-collapse или автоматически при переходе
+   (app.js closeMenuOnMobile); дефолт на мобильном — скрыт (initCollapse). */
 @media (max-width: $breakpoint-mobile) {
   .prof-app { grid-template-columns: 0 1fr; }
 
-  body:not(.prof-menu-off) .prof-sidebar {
+  .prof-sidebar {
     position: fixed;
     top: 0;
     bottom: 0;
@@ -209,7 +220,20 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
     width: var(--side-w);
     z-index: $z-topbar + 10;
     box-shadow: var(--shadow-lg);
+    border-right-color: var(--line);
   }
 
-  body.admin-bar:not(.prof-menu-off) .prof-sidebar { top: rem(46); }
+  body.prof-anim .prof-sidebar { transition: transform $tr-menu, box-shadow $tr-menu, visibility 0s; }
+
+  body.prof-menu-off .prof-sidebar {
+    transform: translateX(-100%);
+    box-shadow: none;
+    visibility: hidden;
+  }
+
+  /* Пока панель уезжает — она ещё видима (visibility переключится по концу
+     транзишена сама, т.к. transition распространяется и на visibility). */
+  body.prof-anim.prof-menu-off .prof-sidebar { transition: transform $tr-menu, box-shadow $tr-menu, visibility 0s $tr-menu; }
+
+  body.admin-bar .prof-sidebar { top: rem(46); }
 }

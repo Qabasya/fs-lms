@@ -22,6 +22,29 @@
   button { font-family: inherit; }
 
   ::selection { background: var(--accent-soft-2); }
+
+  // Доступность: при reduced-motion гасим все анимации/переходы.
+  // !important осознан — правило обязано перебить любые компонентные тайминги.
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  // Кейфрейм появления контента — один на бандл (cab-reset включается один раз).
+  @keyframes cab-enter {
+    from { opacity: 0; transform: translateY(t.rem(6)); }
+
+    to { opacity: 1; transform: none; }
+  }
+}
+
+// ── Появление контента (экран кабинета, шаг плеера): лёгкий fade-up.
+@mixin cab-enter($duration: 0.22s) {
+  animation: cab-enter $duration ease;
 }
 
 @mixin cab-body {
