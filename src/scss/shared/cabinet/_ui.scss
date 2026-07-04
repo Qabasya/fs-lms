@@ -1,0 +1,136 @@
+// =================================================================
+// CABINET UI — общие примитивы кабинета и плеера (Фаза 2 refactor.md)
+// =================================================================
+// Только миксины (CSS не эмитится): классы-словари бандлов остаются
+// (.prof-btn в кабинете, .b в плеере — разметка рендерится из JS/PHP),
+// но ДЕКЛАРАЦИИ у них единые. Меняешь примитив — правь здесь, оба
+// бандла пересоберутся одинаково.
+
+@use '../tokens' as t;
+
+// ── Reset + холст ─────────────────────────────────────────────────
+// $tr — длительность переходов бандла не нужна здесь; body-селектор
+// у бандлов свой (body / body.fs-player-page) — оформление едино.
+@mixin cab-reset {
+  *,
+  *::before,
+  *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html,
+  body { height: 100%; }
+
+  button { font-family: inherit; }
+
+  ::selection { background: var(--accent-soft-2); }
+}
+
+@mixin cab-body {
+  font-family: var(--font);
+  font-size: t.rem(14);
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+// ── Кнопка (канон — плеер: 9×16, 600 13) ─────────────────────────
+@mixin cab-btn($tr: 0.12s) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: t.rem(7);
+  padding: t.rem(9) t.rem(16);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: t.$font-bold t.rem(13) var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background $tr, border-color $tr, box-shadow $tr;
+
+  svg { flex-shrink: 0; }
+
+  &:hover {
+    background: var(--surface-2);
+    border-color: var(--line-3);
+  }
+}
+
+@mixin cab-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink-inverse);
+  box-shadow: var(--shadow-sm);
+
+  &:hover {
+    background: var(--accent-600);
+    border-color: var(--accent-600);
+  }
+}
+
+@mixin cab-btn-danger {
+  background: var(--err);
+  border-color: var(--err);
+  color: var(--ink-inverse);
+}
+
+@mixin cab-btn-ghost {
+  border-color: transparent;
+  background: transparent;
+
+  &:hover { background: var(--surface-2); }
+}
+
+@mixin cab-btn-sm {
+  padding: t.rem(6) t.rem(12);
+  font-size: t.rem(12.5);
+  gap: t.rem(5);
+}
+
+@mixin cab-btn-lg {
+  padding: t.rem(11) t.rem(20);
+  font-size: t.rem(14);
+}
+
+@mixin cab-btn-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+// ── Карточка ──────────────────────────────────────────────────────
+@mixin cab-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+// ── Тост (нижний центр; svg-галка красится --toast-ok) ───────────
+@mixin cab-toast($z) {
+  position: fixed;
+  bottom: t.rem(24);
+  left: 50%;
+  transform: translateX(-50%) translateY(t.rem(16));
+  background: var(--ink);
+  color: var(--ink-inverse);
+  padding: t.rem(11) t.rem(18);
+  border-radius: t.rem(10);
+  font: 500 t.rem(13) var(--font);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
+  z-index: $z;
+  display: flex;
+  align-items: center;
+  gap: t.rem(9);
+
+  svg { color: var(--toast-ok); }
+
+  &.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}

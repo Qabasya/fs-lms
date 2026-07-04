@@ -2,11 +2,9 @@
    Универсальная карточка кабинета
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
 
-.prof-card {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); box-shadow: var(--shadow-sm);
-}
+.prof-card { @include cab-card; }
 
 .prof-card-head {
   display: flex; align-items: center; gap: 10px;

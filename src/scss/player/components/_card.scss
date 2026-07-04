@@ -2,12 +2,12 @@
    Карточка шага (T14.6): card16 — kick (бейдж типа), заголовок, контент.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
 
+/* Карточка шага = единая карточка кабинета (cab-card) + крупный паддинг. */
 .card16 {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: var(--shadow-sm);
+  @include cab-card;
+
   padding: 34px 40px;
 
   @media (max-width: 640px) { padding: 20px 16px; }

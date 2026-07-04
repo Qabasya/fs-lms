@@ -69,7 +69,7 @@
   &.cur {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--ink-inverse);
     box-shadow: 0 0 0 3px var(--accent-soft-2);
   }
 

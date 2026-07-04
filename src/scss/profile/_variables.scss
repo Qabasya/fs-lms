@@ -1,21 +1,24 @@
 // =================================================================
-// PROFILE DESIGN TOKENS — личный кабинет (по аналогии с admin/_variables.scss)
+// PROFILE BUNDLE TOKENS — только специфика кабинета
 // =================================================================
-// Цвета — CSS custom properties в :root: они нужны в рантайме (JS красит
-// динамические элементы через inline `var(--…)`), поэтому остаются кастом-
-// свойствами, а не SCSS-переменными. Тайминги, брейкпоинты и z-index —
-// SCSS-переменные: var() не работает в media queries, а z-index удобнее
-// держать числами на этапе сборки.
+// Цвета/тени/радиусы/шрифты — в общей теме кабинета
+// (shared/cabinet/_theme.scss, подключается в profile.scss) — они ОБЩИЕ
+// с плеером и правятся только там. Здесь: тайминги, брейкпоинты,
+// z-index и геометрия оболочки. rem()/брейкпоинты ядра — реэкспорт
+// из shared/_tokens.scss.
+
+@forward '../shared/tokens' show rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide;
+@use '../shared/tokens' as t;
 
 // ── Тайминги
 $tr: 0.12s; // единая длительность переходов кабинета
 $tr-menu: 0.3s cubic-bezier(0.2, 0.7, 0.3, 1); // сворачивание сайдбара (как в плеере)
 
-// ── Брейкпоинты
-$breakpoint-wide: 1180px; // дашборд: сетки → узкие варианты
+// ── Брейкпоинты (экранные пороги кабинета)
+$breakpoint-wide: t.$bp-wide; // дашборд: сетки → узкие варианты
 $breakpoint-tablet: 900px;  // замены: 2 карточки → 1 колонка
 $breakpoint-mobile: 720px;  // ростер/сводка: компактные отступы
-$breakpoint-narrow: 640px;  // модалка детали работы → fullscreen
+$breakpoint-narrow: t.$bp-mobile; // модалка детали работы → fullscreen
 
 // ── Z-index
 $z-journal-sticky-col: 5; // липкие столбцы журнала (#, имя)
@@ -26,64 +29,8 @@ $z-ctx: 300; // backdrop контекстного меню; само меню и
 $z-toast: 400;
 $z-modal: 1000; // модалка детали работы (summary)
 
+// ── Геометрия оболочки кабинета (bundle-специфика; тема — общая)
 :root {
-  // ── Акцент
-  --accent:        #3b5bdb;
-  --accent-600:    #364fc7;
-  --accent-700:    #2f44b3;
-  --accent-soft:   #edf0fe;
-  --accent-soft-2: #dde3fb;
-  --accent-soft-3: #f6f8ff; // подсветка липких ячеек активной строки журнала
-
-  // ── Поверхности и текст
-  --bg:          #f3f4f7;
-  --surface:     #fff;
-  --surface-2:   #fafbfc;
-  --ink:         #181b23;
-  --ink-2:       #3c424e;
-  --ink-inverse: #fff;
-  --muted:       #6b7280;
-  --muted-2:     #9aa1ad;
-  --line:        #e7e9ef;
-  --line-2:      #eef0f4;
-  --line-3:      #d8dbe2; // ховер-границы кнопок, скроллбар-теки
-
-  // ── Типы занятий/работ (палитра D12; используется и из JS)
-  --t-zachet: #7048e8; // индивидуальное / зачёт
-
-  // ── Семантика состояний
-  --g-good:        #2f9e44;
-  --good-bg:       #e7f5ec; // фон «идёт сейчас», отметка «Был»
-  --good-bg-soft:  #f3faf5; // градиент строки текущего занятия
-  --ok-bg:     #ebfbee; // chip.ok / отметка посещения
-  --ok-border: #d3f9d8;
-  --ok-ink:    #2b8a3e;
-  --warn-bg:  #fff4e6; // тег «замена до…»
-  --warn-ink: #d9480f;
-  --indi-bg:  #e6fcf5; // тег «инд.»
-  --indi-ink: #087f5b;
-  --absent:    #e03131;
-  --absent-bg: #fdecec;
-  --holiday-bg:     #fdf0f0; // ячейка-выходной в календаре КТП
-  --holiday-border: #f7d6d6;
-  --holiday-tag-bg: #ffe3e3;
-
-  // ── Аватар/тост/оверлеи
-  --ava-from:  #5c7cfa; // градиент аватара пользователя
-  --ava-to:    #7048e8;
-  --toast-ok:  #69db7c;
-  --backdrop:  rgba(20, 24, 33, 0.5);
-  --topbar-bg: rgba(255, 255, 255, 0.82);
-
-  // ── Геометрия
-  --radius:    14px;
-  --radius-sm: 9px;
-  --radius-xs: 6px;
-  --shadow-sm: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.05);
-  --shadow-md: 0 4px 12px rgba(16,24,40,.08), 0 2px 4px rgba(16,24,40,.04);
-  --shadow-lg: 0 12px 32px rgba(16,24,40,.16), 0 4px 8px rgba(16,24,40,.06);
-  --shadow-pop:0 16px 48px rgba(16,24,40,.20);
-  --font: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --side-w: 244px;
-  --top-h:  60px;
+  --top-h: 60px;
 }

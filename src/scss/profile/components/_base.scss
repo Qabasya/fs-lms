@@ -1,24 +1,16 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Базовые стили кабинета: reset, body, общие состояния загрузки/пустоты
+   Базовые стили кабинета: reset/холст — общие с плеером (cabinet/_ui),
+   плюс общие состояния загрузки/пустоты экранов.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+// Reset + холст — общий примитив (правки — в cabinet/_ui.scss).
+@include cab-reset;
 
-html, body { height: 100%; }
-
-body {
-  font-family: var(--font);
-  font-size: 14px;
-  color: var(--ink);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
-}
-button { font-family: inherit; }
-::selection { background: var(--accent-soft-2); }
+body { @include cab-body; }
 
 /* Общие состояния загрузки/пустоты — используются в нескольких экранах
    (dashboard/substitutions/learner). */
-.rev-loading { color: var(--muted);   font-size: 14px; padding: 40px 20px; text-align: center; }
-.rev-empty   { color: var(--muted-2); font-size: 14px; padding: 40px 20px; text-align: center; }
+.rev-loading { color: var(--muted);   font-size: rem(14); padding: rem(40) rem(20); text-align: center; }
+.rev-empty   { color: var(--muted-2); font-size: rem(14); padding: rem(40) rem(20); text-align: center; }

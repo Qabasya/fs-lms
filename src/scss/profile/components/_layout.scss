@@ -17,7 +17,7 @@ body.admin-bar .prof-app {
   height: calc(100vh - 32px);
 }
 
-@media screen and (max-width: 782px) {
+@media screen and (max-width: $bp-wp) {
   body.admin-bar .prof-app {
     height: calc(100vh - 46px);
   }

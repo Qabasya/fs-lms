@@ -4,6 +4,7 @@
    контента, тост. Порт cp-base.css + final.css из дизайн-хэндоффа.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
 
 .app {
   display: flex;
@@ -172,12 +173,12 @@
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #d8dbe2 transparent;
+  scrollbar-color: var(--line-3) transparent;
 
   &::-webkit-scrollbar { width: 10px; }
 
   &::-webkit-scrollbar-thumb {
-    background: #d8dbe2;
+    background: var(--line-3);
     border-radius: 6px;
     border: 3px solid var(--bg);
   }
@@ -266,75 +267,17 @@
   }
 }
 
-/* ══ Общие атомы: кнопки ═════════════════════════════════════════════ */
-.b {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 9px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink-2);
-  font: 600 13px var(--font);
-  white-space: nowrap;
-  cursor: pointer;
-  text-decoration: none;
+/* ══ Общие атомы: кнопки — единый примитив кабинета+плеера
+      (cabinet/_ui: .b ≡ .prof-btn) ══════════════════════════════════════ */
+.b { @include cab-btn($tr); }
+.b-pri { @include cab-btn-primary; }
+.b-gh { @include cab-btn-ghost; }
+.b-sm { @include cab-btn-sm; }
+.b-lg { @include cab-btn-lg; }
+.b-dis { @include cab-btn-disabled; }
 
-  svg { flex-shrink: 0; }
-
-  &:hover { background: var(--surface-2); }
-}
-
-.b-pri {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: var(--shadow-sm);
-
-  &:hover { background: var(--accent-600); }
-}
-
-.b-gh {
-  border-color: transparent;
-  background: transparent;
-
-  &:hover { background: var(--surface-2); }
-}
-
-.b-sm { padding: 6px 12px; font-size: 12.5px; }
-.b-lg { padding: 11px 20px; font-size: 14px; border-radius: 11px; }
-
-.b-dis { opacity: 0.45; pointer-events: none; }
-
-/* ══ Тост ════════════════════════════════════════════════════════════ */
-.toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(16px);
-  background: var(--ink);
-  color: #fff;
-  padding: 11px 18px;
-  border-radius: 10px;
-  font: 500 13px var(--font);
-  box-shadow: var(--shadow-lg);
-  opacity: 0;
-  pointer-events: none;
-  transition: all 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
-  z-index: $z-toast;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-
-  svg { color: #69db7c; }
-
-  &.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
+/* ══ Тост — единый примитив кабинета+плеера (cabinet/_ui) ═══════════ */
+.toast { @include cab-toast($z-toast); }
 
 /* ── B4: адаптив ширины шага и жёлобов ───────────────────────────────────
    База --colw:1402 (контент 1320). Колонка ограничена max-width:100%, поэтому

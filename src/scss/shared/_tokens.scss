@@ -95,6 +95,26 @@ $color-bg-footer: #f9f9f9;
 $color-border-input: #c3c4c7;
 $color-border-footer: #e0e0e0;
 
+// ── Цвета типов шагов урока — ЕДИНСТВЕННЫЙ источник ──────────────
+// Один и тот же тип обязан быть одного цвета в конструкторе курса
+// (admin $step-type-colors), плеере (player $type-*/_types.scss) и JS
+// (src/js/player/icons.js TYPES — зеркало, править синхронно!).
+// Ключи — UI-типы конструктора; StepType→UI: text→lecture, work→practice.
+$step-type-palette: (
+	lecture:    #1c7ed6,
+	video:      #7048e8,
+	task:       #099268,
+	practice:   #e8590c,
+	assessment: #e03131,
+);
+$step-type-palette-soft: (
+	lecture:    #e7f2fb,
+	video:      #f1ecfd,
+	task:       #e6f7f1,
+	practice:   #fdeee3,
+	assessment: #fdecec,
+);
+
 // ── WP-статусная палитра (бейджи, статусы; common + admin) ───────
 $wp-admin-blue: $color-primary;
 $wp-admin-blue-bg: #c5d9ed; // blue 5

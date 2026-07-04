@@ -85,11 +85,11 @@
 .sc-mod.open .sc-caret { transform: rotate(90deg); }
 .sc-mnum { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-2); width: 66px; flex-shrink: 0; }
 .sc-mname { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
-.sc-mdone { color: var(--g-good); font-weight: 700; flex-shrink: 0; }
+.sc-mdone { color: var(--ok); font-weight: 700; flex-shrink: 0; }
 .sc-mcnt { font-size: 12px; color: var(--muted-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sc-mmini { width: 72px; height: 5px; border-radius: 3px; background: var(--line-2); overflow: hidden; flex-shrink: 0; }
 .sc-mmini span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
-.sc-mod.done .sc-mmini span { background: var(--g-good); }
+.sc-mod.done .sc-mmini span { background: var(--ok); }
 .sc-mbody { display: none; }
 .sc-mod.open .sc-mbody { display: block; padding-bottom: 6px; }
 
@@ -105,7 +105,7 @@
   font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
   background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
 }
-.sc-row.done .sc-num { background: var(--good-bg); border-color: var(--ok-line, var(--line)); color: var(--g-good); }
+.sc-row.done .sc-num { background: var(--good-bg); border-color: var(--ok-line, var(--line)); color: var(--ok); }
 .sc-row.open .sc-num { background: var(--accent); border-color: var(--accent); color: var(--ink-inverse); }
 .sc-lb { flex: 1; min-width: 0; }
 .sc-ltitle { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -120,7 +120,7 @@
 
 /* ── Пилюли статуса ──────────────────────────────────────────────────── */
 .sc-pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
-.sc-pill.done { background: var(--good-bg); color: var(--g-good); }
+.sc-pill.done { background: var(--good-bg); color: var(--ok); }
 .sc-pill.open { background: var(--accent-soft); color: var(--accent-700); }
 .sc-pill.lock { background: var(--surface-2); color: var(--muted-2); border: 1px solid var(--line); }
 

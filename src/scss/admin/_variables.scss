@@ -5,6 +5,7 @@
 // в shared/_tokens.scss; здесь только admin-специфика: WP-bridge,
 // цвета типов шагов, Course Builder, размеры контролов, секции компонентов.
 
+@use 'sass:map';
 @use '../shared/tokens' as *;
 @forward '../shared/tokens';
 
@@ -20,11 +21,13 @@ $wp-nav-tab-text-active: #000;    // .nav-tab-active
     --color-primary-dark:  var(--wp-admin-theme-color-darker-20, #{$wp-admin-blue-text});
 }
 
-// ── Step-type accents (Course Builder, canonical design — design_handoff_course_builder/)
-$step-lecture: $color-primary; // text/лекция
-$step-video: #8c3bca;        // видео
-$step-practice: #c9540a;        // практика (work)
-$step-quiz: #00834a;        // тест (assessment)
+// ── Step-type accents — из ЕДИНОЙ палитры shared/_tokens.scss
+//    $step-type-palette: конструктор обязан красить типы шагов так же,
+//    как плеер (player/_types.scss) и JS (player/icons.js TYPES).
+$step-lecture: map.get($step-type-palette, lecture); // text/лекция
+$step-video: map.get($step-type-palette, video);
+$step-practice: map.get($step-type-palette, practice); // работа
+$step-quiz: map.get($step-type-palette, assessment); // legacy-ключ (UI-тип quiz не используется)
 
 // ── Step-type → accent colour map (D11: drives [data-type] colour rules
 //    in course-builder/.spo-ico, step-editor/.step-chip + .sh-badge)
@@ -33,8 +36,8 @@ $step-type-colors: (
 	video:      $step-video,
 	practice:   $step-practice,
 	quiz:       $step-quiz,
-	task:       $wp-admin-green,
-	assessment: $color-danger,
+	task:       map.get($step-type-palette, task),
+	assessment: map.get($step-type-palette, assessment),
 );
 
 // ── Course Builder bespoke shades (subtle UI fills from canonical design)

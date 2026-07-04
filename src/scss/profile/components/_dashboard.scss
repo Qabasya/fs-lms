@@ -91,11 +91,11 @@
 .prof-lesson-meta .lm { display: inline-flex; align-items: center; gap: 4px; }
 .prof-lesson-state { align-self: center; flex-shrink: 0; }
 .prof-state-pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
-.prof-state-now { background: var(--good-bg); color: var(--g-good); }
+.prof-state-now { background: var(--good-bg); color: var(--ok); }
 .prof-state-soon { background: var(--accent-soft); color: var(--accent-700); }
 .prof-state-done { background: var(--surface-2); color: var(--muted-2); border: 1px solid var(--line); }
 .prof-lesson-row.is-now { background: linear-gradient(90deg, var(--good-bg-soft), transparent 60%); }
-.prof-lesson-row.is-now .prof-lesson-bar { background: var(--g-good); }
+.prof-lesson-row.is-now .prof-lesson-bar { background: var(--ok); }
 
 .prof-work-item {
   display: flex; align-items: center; gap: 12px; padding: 12px 18px;
@@ -112,15 +112,15 @@ a.prof-lesson-go { text-decoration: none; color: inherit; cursor: pointer; }
   width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
-.prof-work-ico.att { background: var(--absent-bg); color: var(--absent); }
+.prof-work-ico.att { background: var(--err-soft); color: var(--err); }
 .prof-work-ico.rev { background: var(--accent-soft); color: var(--accent); }
-.prof-work-ico.grade { background: rgba(112, 72, 232, 0.1); color: var(--t-zachet); }
+.prof-work-ico.grade { background: var(--t-zachet-soft); color: var(--t-zachet); }
 .prof-work-main { flex: 1; min-width: 0; }
 .prof-work-title { font-size: 13px; font-weight: 600; }
 .prof-work-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
 
 /* T12.2 (D13): дедлайн прошёл, но решать всё ещё можно — просто отмечаем. */
-.prof-dl-overdue { color: var(--absent); font-weight: 700; }
+.prof-dl-overdue { color: var(--err); font-weight: 700; }
 
 .prof-work-count {
   font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px;

@@ -39,7 +39,7 @@
   border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 40px;
 }
 .ke-ico { width: 64px; height: 64px; border-radius: 18px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
-.ke-ico--danger { background: var(--absent-bg); color: var(--absent); }
+.ke-ico--danger { background: var(--err-soft); color: var(--err); }
 .prof-ktp-empty h3 { font-size: 17px; font-weight: 700; }
 .prof-ktp-empty p { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
 .prof-ktp-empty .prof-btn { margin-top: 10px; }
@@ -65,7 +65,7 @@
 }
 .prof-theme-card:hover { border-color: var(--accent-soft-2); box-shadow: var(--shadow-sm); }
 .prof-theme-card.placed { opacity: .5; }
-.prof-theme-card.placed .tc-num { background: var(--g-good); }
+.prof-theme-card.placed .tc-num { background: var(--ok); }
 .prof-theme-card.dragging { opacity: .4; }
 .tc-num { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; background: var(--accent-soft); color: var(--accent-700); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .tc-body { flex: 1; min-width: 0; }
@@ -100,8 +100,8 @@
 .kal-date { display: flex; align-items: center; gap: 5px; }
 .kal-date .kd-num { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .kal-date .kd-tag { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; letter-spacing: .02em; }
-.kd-tag.hol { background: var(--holiday-tag-bg); color: var(--absent); }
-.kal-cell.holiday .kd-num { color: var(--absent); }
+.kd-tag.hol { background: var(--holiday-tag-bg); color: var(--err); }
+.kal-cell.holiday .kd-num { color: var(--err); }
 
 .kal-date .kd-lesson {
   font-size: 9.5px; color: var(--muted-2); margin-left: auto; white-space: nowrap;
@@ -110,12 +110,12 @@
 
 // Палитра расписания/КТП (D12): тема по плану — зелёный, закреплено — синий, выходной — красный.
 .placed-theme {
-  background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--g-good);
+  background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--ok);
   border-radius: 5px; padding: 5px 7px; font-size: 11px; line-height: 1.25; cursor: grab;
   position: relative; box-shadow: var(--shadow-sm);
 }
 .placed-theme.pinned { border-left-color: var(--accent); }
-.placed-theme .pt-num { font-weight: 700; color: var(--g-good); }
+.placed-theme .pt-num { font-weight: 700; color: var(--ok); }
 .placed-theme.pinned .pt-num { color: var(--accent-700); }
 .placed-theme .pt-pin { position: absolute; top: 3px; right: 4px; color: var(--accent); display: none; }
 .placed-theme.pinned .pt-pin { display: block; }
@@ -212,6 +212,6 @@
 
 .indi-slot { cursor: pointer; }
 .indi-slot .pt-num { color: var(--accent-700); }
-.indi-slot.unassigned { border-left-color: var(--absent); }
-.indi-slot.unassigned .pt-num { color: var(--absent); }
+.indi-slot.unassigned { border-left-color: var(--err); }
+.indi-slot.unassigned .pt-num { color: var(--err); }
 .indi-slot.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }

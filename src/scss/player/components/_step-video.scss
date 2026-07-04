@@ -13,7 +13,7 @@
   flex-shrink: 0;
   border-radius: 14px;
   overflow: hidden;
-  background: #12152b;
+  background: var(--video-canvas);
 
   .vp-el {
     position: absolute;
@@ -33,7 +33,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #c9cde4;
+  color: var(--video-ink);
   font: 500 14px var(--font);
 }
 
@@ -45,7 +45,7 @@
   padding-top: 56.25%;
   border-radius: 14px;
   overflow: hidden;
-  background: #12152b;
+  background: var(--video-canvas);
 
   iframe {
     position: absolute;
@@ -104,7 +104,7 @@
     bottom: 0;
     width: 0%;
     border-radius: 999px;
-    background: #fff;
+    background: var(--ink-inverse);
   }
 
   .knob {
@@ -115,7 +115,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--ink-inverse);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   }
 }
@@ -125,7 +125,7 @@
   align-items: center;
   gap: 12px;
   margin-top: 11px;
-  color: #e8eaf4;
+  color: var(--video-ink-2);
 
   .grow { flex: 1; }
 }
@@ -133,14 +133,14 @@
 .vp-cbtn {
   border: none;
   background: transparent;
-  color: #e8eaf4;
+  color: var(--video-ink-2);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   padding: 2px;
 
-  &:hover { color: #fff; }
+  &:hover { color: var(--ink-inverse); }
 }
 
 /* плей/пауза: иконка по состоянию .vp.playing */
@@ -151,7 +151,7 @@
 
 .vp-time {
   font: 500 12px var(--mono);
-  color: #c9cde4;
+  color: var(--video-ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

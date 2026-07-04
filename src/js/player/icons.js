@@ -1,8 +1,9 @@
 /**
  * Мета типов шагов плеера + адаптер иконок. Сами SVG живут в едином модуле
  * `src/js/common/icons.js` (STEP_GLYPHS едины с конструктором курса,
- * admin/services/step-editor.js). Цвета типов продублированы в SCSS
- * (player/_variables.scss) — здесь они нужны для SVG-заливки в ленте/дереве.
+ * admin/services/step-editor.js). Цвета типов — ЗЕРКАЛО единой палитры
+ * `src/scss/shared/_tokens.scss` ($step-type-palette / -soft): править
+ * синхронно! Здесь они нужны для SVG-заливки в ленте/дереве.
  */
 
 import {
