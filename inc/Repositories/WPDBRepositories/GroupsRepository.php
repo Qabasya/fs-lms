@@ -192,6 +192,20 @@ class GroupsRepository {
 	}
 
 	/**
+	 * Возвращает открытые группы (Эпик 15): каталог курсов свободного прохождения.
+	 *
+	 * @return array
+	 */
+	public function findOpen(): array {
+		return $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE access_mode = 'open' AND deleted_at IS NULL ORDER BY name ASC",
+				$this->table
+			)
+		) ?: array();
+	}
+
+	/**
 	 * Возвращает все группы, отсортированные по предмету и названию.
 	 *
 	 * @return array

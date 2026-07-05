@@ -65,6 +65,13 @@ use Inc\Enums\Course\WeekDay;
 							<?php endforeach; ?>
 						</select>
 					</div>
+
+					<div class="fs-form-group fs-access-mode-group">
+						<label class="fs-access-mode-toggle">
+							<input type="checkbox" id="group-access-mode" name="access_mode_open" value="1" data-edit-readonly>
+							<span>Открытая группа — весь курс доступен сразу, без расписания (свободное прохождение)</span>
+						</label>
+					</div>
 				</div>
 
 				<div class="fs-form-group fs-schedule-group">

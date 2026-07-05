@@ -69,7 +69,7 @@ function render() {
     const lessons = (state.data && state.data.lessons) || [];
     const cards = lessons.length
         ? lessons.map(lessonCard).join('')
-        : '<div class="j-empty">У ученика пока нет датированных занятий.</div>';
+        : `<div class="j-empty">${state.data && state.data.open ? 'В программе нет занятий.' : 'У ученика пока нет датированных занятий.'}</div>`;
 
     const g = state.groups.find(x => x.id === state.groupId) || state.groups[0];
     const student = state.roster.find(s => s.person_id === state.personId);
@@ -119,6 +119,7 @@ function strip(l) {
 }
 
 function lessonCard(l) {
+    const open = !!(state.data && state.data.open);
     const st = strip(l);
     const works = l.works.length
         ? `<div class="sum-works">${l.works.map(w => `
@@ -133,9 +134,9 @@ function lessonCard(l) {
         <span class="sum-strip sum-strip-${esc(st)}" title="${esc(ATT_LABEL[st] || KIND_LABEL[l.kind] || '')}"></span>
         <div class="sum-card-body">
             <div class="sum-card-top">
-                <span class="sum-date">${esc(fmtDate(l.date))}</span>
+                ${l.date ? `<span class="sum-date">${esc(fmtDate(l.date))}</span>` : ''}
                 <span class="sum-kind sum-kind-${esc(l.kind)}">${esc(KIND_LABEL[l.kind] || l.kind)}</span>
-                ${l.kind !== 'individual' ? `<span class="sum-att sum-att-${esc(l.attendance)}">${esc(ATT_LABEL[l.attendance])}</span>` : ''}
+                ${l.kind !== 'individual' && !open ? `<span class="sum-att sum-att-${esc(l.attendance)}">${esc(ATT_LABEL[l.attendance])}</span>` : ''}
             </div>
             <div class="sum-topic">${esc(l.topic || '—')}</div>
             ${works}

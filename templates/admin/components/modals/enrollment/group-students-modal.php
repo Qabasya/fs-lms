@@ -17,6 +17,15 @@ defined( 'ABSPATH' ) || exit;
 		<div class="fs-lms-modal-body">
 			<p class="fs-group-students-count description"></p>
 
+			<div class="fs-group-add-students hidden">
+				<div class="fs-group-add-students__controls">
+					<input type="search" class="regular-text js-add-student-query" placeholder="Поиск ученика по имени, email или логину…">
+					<button type="button" class="button js-add-student-search">Найти</button>
+					<button type="button" class="button button-primary js-add-students-submit" disabled>Добавить выбранных</button>
+				</div>
+				<div class="fs-group-add-students__results"></div>
+			</div>
+
 			<div class="fs-group-students-content">
 				<p class="description">Загрузка…</p>
 			</div>

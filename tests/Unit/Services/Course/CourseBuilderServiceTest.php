@@ -7,8 +7,10 @@ namespace Unit\Services\Course;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\ContentCloneService;
 use Inc\Services\Course\CourseBuilderService;
+use Inc\Services\Course\OpenCourseValidator;
 use PHPUnit\Framework\TestCase;
 
 class CourseBuilderServiceTest extends TestCase {
@@ -25,7 +27,14 @@ class CourseBuilderServiceTest extends TestCase {
 		$this->courses      = new CourseManager( $posts );
 		$this->lessons      = new LessonManager( $posts );
 		$this->cloneService = $this->createMock( ContentCloneService::class );
-		$this->service      = new CourseBuilderService( $this->courses, $this->lessons, $posts, $this->cloneService );
+		$this->service      = new CourseBuilderService(
+			$this->courses,
+			$this->lessons,
+			$posts,
+			$this->cloneService,
+			$this->createMock( GroupsRepository::class ),
+			$this->createMock( OpenCourseValidator::class ),
+		);
 	}
 
 	private function seedCourse( int $id, string $subject, array $modules ): void {

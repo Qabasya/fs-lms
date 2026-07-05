@@ -124,6 +124,16 @@
 .sc-pill.open { background: var(--accent-soft); color: var(--accent-700); }
 .sc-pill.lock { background: var(--surface-2); color: var(--muted-2); border: 1px solid var(--line); }
 
+/* ── Каталог открытых курсов (Эпик 15, П10): самозапись ─────────────────── */
+.sc-catalog { margin-top: rem(14); }
+.sc-cat-row {
+  display: flex; align-items: center; gap: rem(13);
+  padding: rem(10) rem(18);
+  border-top: 1px solid var(--line);
+
+  &:first-of-type { border-top: 0; }
+}
+
 /* ── Состояния ───────────────────────────────────────────────────────── */
 .sc-notice { display: flex; align-items: center; gap: rem(12); margin: rem(14) rem(18); padding: rem(13) rem(16); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-700); font-size: rem(13); font-weight: 500; }
 .sc-empty { padding: rem(20) rem(18); font-size: rem(13); color: var(--muted-2); text-align: center; }

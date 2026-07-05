@@ -4,14 +4,19 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
+use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Course\AssignmentPolicy;
+use Inc\Enums\Course\LessonVisibility;
 use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\CourseManager;
+use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Shared\PluginLogger;
 
 class CourseAssignmentService {
 
@@ -20,6 +25,9 @@ class CourseAssignmentService {
 		private readonly GroupsRepository            $groups,
 		private readonly GroupLessonRepository       $groupLessons,
 		private readonly LogEventDispatcherInterface $dispatcher,
+		private readonly LessonManager               $lessonManager,
+		private readonly ClockInterface              $clock,
+		private readonly OpenCourseValidator         $openCourseValidator,
 	) {}
 
 	/**
@@ -55,6 +63,12 @@ class CourseAssignmentService {
 			throw new \InvalidArgumentException( 'Курс принадлежит другому предмету.' );
 		}
 
+		$openMode = $this->isOpenGroup( $group );
+		if ( $openMode ) {
+			// D-C: открытый курс проходится без преподавателя — только автопроверка.
+			$this->openCourseValidator->assertSelfCheckable( $course );
+		}
+
 		if ( AssignmentPolicy::Replace === $policy ) {
 			$this->groupLessons->deleteAllByGroup( $groupId );
 		}
@@ -62,12 +76,7 @@ class CourseAssignmentService {
 		$position = $this->groupLessons->nextPosition( $groupId );
 		$added    = 0;
 		foreach ( $course->lessonIds() as $lessonId ) {
-			$this->groupLessons->add( new GroupLessonInputDTO(
-				groupId         : $groupId,
-				lessonId        : $lessonId,
-				position        : $position,
-				createdByUserId : $actorUserId,
-			) );
+			$this->groupLessons->add( $this->programRow( $groupId, $lessonId, $position, $actorUserId, $openMode ) );
 			$position++;
 			$added++;
 		}
@@ -120,6 +129,19 @@ class CourseAssignmentService {
 			}
 
 			$groupId  = (int) $group->id;
+			$openMode = $this->isOpenGroup( $group );
+			if ( $openMode ) {
+				// D-C: в открытую группу нельзя дозаливать контент без автопроверки — группа пропускается.
+				try {
+					$this->openCourseValidator->assertSelfCheckable( $course );
+				} catch ( \InvalidArgumentException $e ) {
+					PluginLogger::warning( 'CourseAssignment', 'Синк уроков: открытая группа пропущена', array(
+						'group_id' => $groupId,
+						'error'    => $e->getMessage(),
+					) );
+					continue;
+				}
+			}
 			$existing = array();
 			foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
 				if ( null !== $row->lessonId ) {
@@ -132,12 +154,7 @@ class CourseAssignmentService {
 				if ( isset( $existing[ (int) $lessonId ] ) ) {
 					continue;
 				}
-				$this->groupLessons->add( new GroupLessonInputDTO(
-					groupId         : $groupId,
-					lessonId        : $lessonId,
-					position        : $position,
-					createdByUserId : $actorUserId,
-				) );
+				$this->groupLessons->add( $this->programRow( $groupId, $lessonId, $position, $actorUserId, $openMode ) );
 				$existing[ (int) $lessonId ] = true;
 				$position++;
 				$added++;
@@ -145,5 +162,39 @@ class CourseAssignmentService {
 		}
 
 		return $added;
+	}
+
+	private function isOpenGroup( object $group ): bool {
+		return AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
+	}
+
+	/**
+	 * Строка программы для снапшота урока.
+	 *
+	 * Открытая группа (Эпик 15): строка создаётся сразу опубликованной —
+	 * visibility=open + copy-on-publish снапшот работ + opened_at, без даты
+	 * занятия (scheduled_at=NULL гейт трактует как «доступно сразу»).
+	 */
+	private function programRow( int $groupId, int $lessonId, int $position, int $actorUserId, bool $openMode ): GroupLessonInputDTO {
+		if ( ! $openMode ) {
+			return new GroupLessonInputDTO(
+				groupId         : $groupId,
+				lessonId        : $lessonId,
+				position        : $position,
+				createdByUserId : $actorUserId,
+			);
+		}
+
+		$lesson = $this->lessonManager->get( $lessonId );
+
+		return new GroupLessonInputDTO(
+			groupId         : $groupId,
+			lessonId        : $lessonId,
+			position        : $position,
+			workIdsSnapshot : $lesson?->workIds() ?? array(),
+			visibility      : LessonVisibility::Open->value,
+			openedAt        : $this->clock->now(),
+			createdByUserId : $actorUserId,
+		);
 	}
 }

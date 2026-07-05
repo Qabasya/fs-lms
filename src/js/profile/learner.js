@@ -4,7 +4,7 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDayMonth, emptyState, chipBg, chipText, chipSoft } from './utils.js';
+import { esc, fmtDayMonth, emptyState, chipBg, chipText, chipSoft, toast } from './utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoClock, icoStar, icoHome } from '../common/icons.js';
 import { createApi } from './api.js';
 
@@ -150,8 +150,10 @@ function renderLessons(root, d) {
                 <div id="scProgBody"></div>
             </div>
         ` : emptyCard('Активных курсов пока нет.')}
+        ${catalogHtml(d)}
     </div>`;
     wireChild(root);
+    wireCatalog(root);
     if (!courses.length) { return; }
 
     if (!scState || !courses.some(c => c.id === scState.active)) {
@@ -165,6 +167,46 @@ function renderLessons(root, d) {
     });
 }
 
+/* ── Каталог открытых курсов (Эпик 15, П10): самозапись учеником ───────── */
+function catalogHtml(d) {
+    const items = Array.isArray(d.catalog) ? d.catalog : [];
+    if (!items.length) { return ''; }
+    // Родитель — read-only: каталог виден, но записываться может только сам ученик.
+    const canEnroll = !isParent();
+    return `
+    <div class="prof-card sc-catalog">
+        <div class="prof-card-head">
+            <div><h3>Доступные курсы</h3><span class="ch-sub">свободное прохождение — весь курс открыт сразу</span></div>
+        </div>
+        ${items.map(c => `
+        <div class="sc-cat-row">
+            <span class="sc-chip ${chipBg(c.subject_key)}">${esc(c.abbr)}</span>
+            <span class="sc-lb">
+                <span class="sc-ltitle">${esc(c.title)}</span>
+                <span class="sc-lsub">${[c.subject, c.teacher, c.lessons_total ? c.lessons_total + ' ' + scPlural(c.lessons_total, ['урок', 'урока', 'уроков']) : ''].filter(Boolean).map(esc).join(' · ')}</span>
+            </span>
+            ${canEnroll ? `<button class="prof-btn prof-btn-sm prof-btn-primary js-cat-enroll" data-gid="${c.group_id}">Записаться</button>` : ''}
+        </div>`).join('')}
+    </div>`;
+}
+
+function wireCatalog(root) {
+    root.querySelectorAll('.js-cat-enroll').forEach(btn => btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'Записываем…';
+        try {
+            await api('selfEnroll', { group_id: btn.dataset.gid });
+            toast('Вы записаны на курс');
+            load(true);
+            rerenderAll();
+        } catch (e) {
+            toast(e.message);
+            btn.disabled = false;
+            btn.textContent = 'Записаться';
+        }
+    }));
+}
+
 const scCourse = (courses) => courses.find(c => c.id === scState.active) || courses[0];
 
 function scRenderAll(courses) { scRenderTabs(courses); scRenderHero(courses); scRenderProgram(courses); }
@@ -174,7 +216,7 @@ function scRenderTabs(courses) {
     wrap.innerHTML = courses.map(c => {
         const pct = c.total ? Math.round(c.passed / c.total * 100) : 0;
         const sub = c.not_started
-            ? (c.start ? 'старт ' + fmtDayMonth(c.start) : 'скоро')
+            ? (c.open ? 'свободное прохождение' : (c.start ? 'старт ' + fmtDayMonth(c.start) : 'скоро'))
             : `${esc(c.code)} · ${c.passed} из ${c.total} ${scPlural(c.total, ['урок', 'урока', 'уроков'])}`;
         return `<button class="sc-tab${c.id === scState.active ? ' on' : ''}" data-id="${c.id}">
             <span class="sc-chip ${chipBg(c.subject_key)}">${esc(c.abbr)}</span>
@@ -203,7 +245,9 @@ function scRenderHero(courses) {
     } else {
         actions = `<span class="prof-btn sc-hbtn sc-dis">${pct === 100 ? 'Курс пройден' : 'Нет доступных уроков'}</span>`;
     }
-    const meta = [c.teacher, c.room].filter(Boolean).map(esc).join('<span class="sc-sep">·</span>');
+    // Открытый курс (Эпик 15): вместо дат — пометка о свободном прохождении.
+    const meta = [c.open ? 'Свободное прохождение — весь курс доступен сразу' : '', c.teacher, c.room]
+        .filter(Boolean).map(esc).join('<span class="sc-sep">·</span>');
 
     document.getElementById('scHero').innerHTML = `
         <div class="sc-hero-top">

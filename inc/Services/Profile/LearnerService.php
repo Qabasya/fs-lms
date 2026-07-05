@@ -76,6 +76,7 @@ class LearnerService {
 					'room_id'     => isset( $g->room_id ) ? (int) $g->room_id : 0, // дефолтный кабинет группы
 					'course_id'   => isset( $g->course_id ) ? (int) $g->course_id : 0,
 					'teacher_id'  => isset( $g->teacher_id ) ? (int) $g->teacher_id : 0,
+					'access_mode' => (string) ( $g->access_mode ?? 'scheduled' ), // Эпик 15: открытая группа
 				);
 				$groupIds[]              = (int) $g->id;
 			}
@@ -191,6 +192,8 @@ class LearnerService {
 		return array(
 			'groups'    => array_values( $groups ),
 			'courses'   => $this->buildCourses( $groups, $rawRows, $lessonMap, $roomNames ),
+			// Эпик 15 (П10): каталог открытых курсов для самозаписи.
+			'catalog'   => $this->buildCatalog( array_keys( $groups ) ),
 			'upcoming'  => array_slice( $upcoming, 0, 6 ),
 			'deadlines' => array_slice( $deadlines, 0, 6 ),
 			'recent'    => array_slice( $recent, 0, 5 ),
@@ -203,6 +206,40 @@ class LearnerService {
 				'percent' => $total > 0 ? (int) round( $present / $total * 100 ) : null,
 			),
 		);
+	}
+
+	/**
+	 * Каталог открытых курсов для самозаписи (Эпик 15, П10): открытые группы с
+	 * назначенным курсом, в которых ученик ещё не состоит.
+	 *
+	 * @param int[] $memberGroupIds ID групп, где ученик уже активен.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function buildCatalog( array $memberGroupIds ): array {
+		$catalog = array();
+		foreach ( $this->groups->findOpen() as $g ) {
+			$gid      = (int) $g->id;
+			$courseId = (int) ( $g->course_id ?? 0 );
+			if ( $courseId <= 0 || in_array( $gid, $memberGroupIds, true ) ) {
+				continue;
+			}
+			$course = $this->courses->get( $courseId );
+			if ( null === $course ) {
+				continue;
+			}
+			$subjectName = $this->subjects->getByKey( $g->subject_key )?->name ?? $g->subject_key;
+			$catalog[]   = array(
+				'group_id'      => $gid,
+				'title'         => '' !== $course->title ? $course->title : $subjectName,
+				'subject'       => $subjectName,
+				'subject_key'   => (string) $g->subject_key,
+				'abbr'          => $this->subjectAbbr( $subjectName ),
+				'teacher'       => ! empty( $g->teacher_id ) ? ( get_userdata( (int) $g->teacher_id )->display_name ?? '' ) : '',
+				'lessons_total' => count( $course->lessonIds() ),
+			);
+		}
+
+		return $catalog;
 	}
 
 	/**
@@ -287,6 +324,7 @@ class LearnerService {
 			$result[] = array(
 				'id'           => $gid,
 				'code'         => $g['name'],
+				'open'         => 'open' === ( $g['access_mode'] ?? 'scheduled' ), // Эпик 15: бейдж «свободное прохождение»
 				'title'        => null !== $course && '' !== $course->title ? $course->title : $g['subject'],
 				'subject'      => $g['subject'],
 				'subject_key'  => $g['subject_key'], // ключ цвета чипа (chipIndex, utils.js)

@@ -122,6 +122,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			teacher_id         int unsigned      DEFAULT NULL,
 			meetings           json              DEFAULT NULL,
 			program_locked_at  datetime          DEFAULT NULL,
+			access_mode        enum('scheduled','open') NOT NULL DEFAULT 'scheduled',
 			created_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			deleted_at         datetime          DEFAULT NULL,
@@ -659,6 +660,8 @@ class Migration_1_0_0 implements MigrationInterface {
 		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `room_id` int unsigned DEFAULT NULL" );
 		// T1.8 — lock КТП: публикация программы фиксирует дату блокировки (NULL = редактируемо).
 		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `program_locked_at` datetime DEFAULT NULL" );
+		// Эпик 15 — открытые группы (self-paced): вся программа публикуется сразу, без дат занятий.
+		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `access_mode` enum('scheduled','open') NOT NULL DEFAULT 'scheduled'" );
 		// T12.2 (D13) — дедлайны работ занятия: {work_id: 'Y-m-d H:i:s'}, per-work; legacy homework_due_at — фолбэк.
 		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `work_deadlines` json DEFAULT NULL" );
 		// T12.6 (D14) — продолжение темы на вторую дату: связь на исходную строку (не мультидаты, не независимый дубль).

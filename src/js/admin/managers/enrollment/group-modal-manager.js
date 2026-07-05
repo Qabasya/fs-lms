@@ -60,11 +60,12 @@ export const GroupModalManager = {
             try { return JSON.parse($row.attr('data-schedule') || '[]'); } catch { return []; }
         })();
         GroupModal.open('edit', {
-            id:         $row.data('group-id'),
-            title:      $row.data('group-name'),
-            period_id:  $row.data('period-id'),
-            subject_id: $row.data('subject-key'),
-            teacher_id: $row.data('teacher-id') || '',
+            id:          $row.data('group-id'),
+            title:       $row.data('group-name'),
+            period_id:   $row.data('period-id'),
+            subject_id:  $row.data('subject-key'),
+            teacher_id:  $row.data('teacher-id') || '',
+            access_mode: $row.data('access-mode') || 'scheduled',
             schedule,
         });
     },
@@ -83,9 +84,10 @@ export const GroupModalManager = {
         if (isEdit) {
             payload.id = formData.id;
         } else {
-            payload.title     = formData.title;
-            payload.period_id = formData.period_id;
-            payload.subject_id = formData.subject_id;
+            payload.title       = formData.title;
+            payload.period_id   = formData.period_id;
+            payload.subject_id  = formData.subject_id;
+            payload.access_mode = formData.access_mode; // режим фиксируется при создании (Эпик 15)
         }
 
         $.post(fs_lms_vars.ajaxurl, payload)

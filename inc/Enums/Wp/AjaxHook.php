@@ -59,6 +59,9 @@ enum AjaxHook: string {
 	case UpdateStudentGroup      = 'update_student_group';
 	case DeleteStudentGroup      = 'delete_student_group';
 	case GetGroupStudentsDetail  = 'get_group_students_detail';
+	// Эпик 15 — открытые группы: пикер учеников + лёгкая запись существующих.
+	case SearchStudentsForGroup  = 'search_students_for_group';  // params: group_id, query
+	case AddStudentsToOpenGroup  = 'add_students_to_open_group'; // params: group_id, student_person_ids (CSV из id)
 
 	// ==================== Каскадное удаление ====================
 	case CheckGroupDeletion   = 'check_group_deletion';
@@ -275,6 +278,7 @@ enum AjaxHook: string {
 
 	// ==== ЛК учащегося/родителя (Эпик 7) ====
 	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит
+	case SelfEnrollOpenGroup     = 'self_enroll_open_group';   // params: group_id — самозапись ученика в открытую группу (Эпик 15, П10)
 
 	// ==== Кабинеты / аудитории (офис, Эпик 9) ====
 	case GetRooms                = 'get_rooms';                // список кабинетов + группы (для назначения)

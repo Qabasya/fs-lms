@@ -117,6 +117,10 @@ function createApp( mount ) {
 	function renderShell() {
 		mount.innerHTML = `
 			${ renderCourseStrip() }
+			${ state.course.open_warning ? `
+			<div class="notice notice-warning inline fs-cb-open-warning">
+				<p>${ esc( state.course.open_warning ) }</p>
+			</div>` : '' }
 			<div class="builder">
 				<div class="tree-pane">
 					<div class="tree-head">

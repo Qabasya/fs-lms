@@ -94,6 +94,9 @@ function render() {
     const g = currentGroup();
     const assigned = state.data.assigned;
     const locked = isLocked();
+    // Эпик 15: открытая группа — расписания нет, программа опубликована целиком.
+    // Вместо КТП-доски (drag-drop/reflow/publish) — программа списком.
+    const open = !!state.data.open;
 
     root.innerHTML = `
     <div class="prof-ktp">
@@ -105,7 +108,7 @@ function render() {
                 </div>
             </div>
             <span class="prof-spacer"></span>
-            ${assigned ? `
+            ${assigned && !open ? `
                 <div class="prof-ktp-legend">
                     <span class="kl"><span class="prof-dot prof-dot-good"></span>Тема по плану</span>
                     <span class="kl"><span class="prof-dot prof-dot-accent"></span>Закреплено</span>
@@ -124,7 +127,7 @@ function render() {
                 <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
         </div>
 
-        ${assigned ? `
+        ${assigned ? (open ? openProgramHtml() : `
         <div class="prof-ktp-grid">
             <div class="prof-theme-bank">
                 <div class="tb-head"><h3>Темы курса</h3><span class="tbh-count" id="ktpBankCount"></span></div>
@@ -143,12 +146,12 @@ function render() {
                     <div class="kal-grid" id="ktpGrid"></div>
                 </div>
             </div>
-        </div>` : emptyStateHtml(g)}
+        </div>`) : emptyStateHtml(g)}
     </div>`;
 
     document.getElementById('ktpGroupBtn').onclick = openGroupMenu;
 
-    if (assigned) {
+    if (assigned && !open) {
         if (locked) {
             document.getElementById('ktpUnpublish').onclick = doUnpublish;
         } else {
@@ -159,9 +162,25 @@ function render() {
         document.getElementById('ktpNext').onclick = () => shiftMonth(1);
         renderBank();
         renderCalendar();
-    } else {
+    } else if (!assigned) {
         wireCoursePicker();
     }
+}
+
+/* Эпик 15: открытая группа — программа опубликована целиком и доступна ученикам
+   сразу; дат/drag-drop/публикации нет, показываем темы курса списком. */
+function openProgramHtml() {
+    const themes = state.data.themes || [];
+    return `
+        <div class="prof-theme-bank ktp-open-program">
+            <div class="tb-head">
+                <h3>Программа курса</h3>
+                <span class="tbh-count">${themes.length} тем · открыто ученикам сразу, расписание не ведётся</span>
+            </div>
+            <div class="prof-theme-list">${themes.length
+                ? themes.map(themeCardHtml).join('')
+                : '<div class="tb-empty">В курсе нет уроков.</div>'}</div>
+        </div>`;
 }
 
 /* Курс-пикер в пустом состоянии (T11.1): список курсов предмета → назначить. */

@@ -4,8 +4,10 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Enums\Course\AccessMode;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 
 /**
  * Class StudentSummaryService
@@ -24,6 +26,7 @@ class StudentSummaryService {
 		private readonly LessonManager         $lessons,
 		private readonly AttendanceService     $attendance,
 		private readonly GradebookService      $gradebook,
+		private readonly GroupsRepository      $groups,
 	) {}
 
 	/**
@@ -36,18 +39,23 @@ class StudentSummaryService {
 	public function forStudent( int $groupId, int $personId ): array {
 		$lessons = array();
 
+		// Эпик 15: открытая группа — занятия не датируются, включаем всю программу
+		// (порядок программы), посещаемость не показывается.
+		$group  = $this->groups->findById( $groupId );
+		$isOpen = $group && AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
+
 		// Занятия: групповые датированные + личные индивидуальные этого ученика.
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $gl ) {
 			if ( 'individual' === $gl->kind && $gl->studentPersonId !== $personId ) {
 				continue;
 			}
-			if ( ! $gl->scheduledAt ) {
+			if ( ! $gl->scheduledAt && ! $isOpen ) {
 				continue;
 			}
 			$lesson              = $gl->lessonId ? $this->lessons->get( $gl->lessonId ) : null;
 			$lessons[ $gl->id ] = array(
 				'group_lesson_id' => $gl->id,
-				'date'            => substr( $gl->scheduledAt, 0, 10 ),
+				'date'            => $gl->scheduledAt ? substr( $gl->scheduledAt, 0, 10 ) : '',
 				'topic'           => $lesson?->topic ?? ( $gl->label ?? '' ),
 				'kind'            => $gl->kind,
 				'attendance'      => 'none',
@@ -84,10 +92,15 @@ class StudentSummaryService {
 			);
 		}
 
-		// Свежие занятия сверху.
 		$out = array_values( $lessons );
+		if ( $isOpen ) {
+			// Открытая группа: дат нет — сохраняем порядок программы (position).
+			return array( 'lessons' => $out, 'open' => true );
+		}
+
+		// Свежие занятия сверху.
 		usort( $out, static fn( array $a, array $b ): int => strcmp( $b['date'], $a['date'] ) );
 
-		return array( 'lessons' => $out );
+		return array( 'lessons' => $out, 'open' => false );
 	}
 }

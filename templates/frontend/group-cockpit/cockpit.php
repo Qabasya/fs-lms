@@ -12,6 +12,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 // $total      — int
 // $subjectKey — string
 // $courses    — CourseDTO[]
+
+// Эпик 15: открытая группа — занятия не датируются (контент открыт целиком),
+// поле даты и «Дублировать на другую дату» не показываются.
+$is_open_group = 'open' === ( $group->access_mode ?? 'scheduled' );
 ?>
 <main class="fs-page-wrapper">
 <div id="fs-group-cockpit" class="fs-lms-cockpit-wrap"
@@ -25,6 +29,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<!-- Программа -->
 		<section class="fs-cockpit-section fs-cockpit-program">
 			<h2><?php esc_html_e( 'Программа', 'fs-lms' ); ?></h2>
+			<?php if ( $is_open_group ) : ?>
+				<p class="description"><?php esc_html_e( 'Открытая группа: программа доступна ученикам сразу целиком, расписание не ведётся.', 'fs-lms' ); ?></p>
+			<?php endif; ?>
 
 			<!-- Назначение курса -->
 			<?php if ( ! empty( $courses ) ) : ?>
@@ -70,10 +77,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 								<?php echo esc_html( $topic ); ?>
 							</span>
 
+							<?php if ( ! $is_open_group ) : ?>
 							<input class="fs-lesson-date" type="date"
 								value="<?php echo esc_attr( $dateVal ); ?>"
 								data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>"
 								aria-label="<?php esc_attr_e( 'Дата занятия', 'fs-lms' ); ?>">
+							<?php endif; ?>
 
 							<div class="fs-cockpit-lesson-actions">
 								<button class="fs-cockpit-btn-step-settings" type="button"
@@ -93,12 +102,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 									data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>">
 									<?php echo esc_html( $row->visibility ); ?>
 								</button>
+								<?php if ( ! $is_open_group ) : ?>
 								<button class="fs-cockpit-btn-duplicate" type="button"
 									data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>"
 									aria-label="<?php esc_attr_e( 'Дублировать урок', 'fs-lms' ); ?>"
 									title="<?php esc_attr_e( 'Провести ещё раз на другую дату', 'fs-lms' ); ?>">
 									&#10697;
 								</button>
+								<?php endif; ?>
 								<button class="fs-cockpit-btn-remove" type="button"
 									data-group-lesson-id="<?php echo esc_attr( (string) $row->id ); ?>"
 									aria-label="<?php esc_attr_e( 'Удалить урок', 'fs-lms' ); ?>">
