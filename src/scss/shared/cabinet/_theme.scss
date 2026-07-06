@@ -1,0 +1,94 @@
+// =================================================================
+// CABINET THEME — единый :root кабинета (/profile/) и плеера урока
+// (Фаза 2 refactor.md: profile и player обязаны выглядеть одинаково)
+// =================================================================
+// Цвета — CSS custom properties: нужны в рантайме (JS красит динамические
+// элементы через inline `var(--…)`), поэтому кастом-свойства, а не SCSS.
+// Статусный словарь ЕДИНЫЙ (нейминг плеера): --ok/--err/--wait + -soft
+// (фон), -line (рамка), -ink (сильный текст), -text (обычный текст на
+// мягком фоне). Историческая profile-лексика (--g-good/--absent/--ok-bg…)
+// УДАЛЕНА — компоненты используют канонические имена.
+// Bundle-специфика НЕ здесь: --side-w/--top-h — в profile/_variables,
+// --colw — в player/_variables.
+
+@use '../tokens' as t;
+
+:root {
+  // ── Акцент
+  --accent:        #3b5bdb;
+  --accent-600:    #364fc7;
+  --accent-700:    #2f44b3;
+  --accent-soft:   #edf0fe;
+  --accent-soft-2: #dde3fb;
+  --accent-soft-3: #f6f8ff; // подсветка липких ячеек активной строки журнала
+
+  // ── Поверхности и текст
+  --bg:          #f3f4f7;
+  --surface:     #fff;
+  --surface-2:   #fafbfc;
+  --ink:         #181b23;
+  --ink-2:       #3c424e;
+  --ink-inverse: #fff;
+  --muted:       #6b7280;
+  --muted-2:     #9aa1ad;
+  --line:        #e7e9ef;
+  --line-2:      #eef0f4;
+  --line-3:      #d8dbe2; // ховер-границы кнопок, скроллбар-теки, контролы
+
+  // ── Статусы (единый словарь)
+  --ok:        #2f9e44;
+  --ok-soft:   #e9f7ee;
+  --ok-soft-2: #f6fbf7; // светлый край градиентов успеха (баннер результата)
+  --ok-line:   #c4e8d1;
+  --ok-ink:    #237032;
+  --ok-text:   #2b6a3c;
+  --err:      #e03131;
+  --err-soft: #fdecec;
+  --err-line: #f5c9c9;
+  --err-ink:  #c92a2a;
+  --err-text: #9c3535;
+  --wait:        #b36b00;
+  --wait-ink:    #b36b00;
+  --wait-soft:   #fdf3e3;
+  --wait-line:   #f3ddb5;
+  --wait-text:   #8a5a10;
+  --wait-accent: #f08c00; // иконка «на проверке»
+
+  // ── Доменные цвета кабинета (посещаемость/расписание/замены)
+  --good-bg:      #e7f5ec; // фон «идёт сейчас», отметка «Был»
+  --good-bg-soft: #f3faf5; // градиент строки текущего занятия
+  --warn-bg:      #fff4e6; // тег «замена до…»
+  --warn-ink:     #d9480f;
+  --indi-bg:      #e6fcf5; // тег «инд.»
+  --indi-ink:     #087f5b;
+  --t-zachet:      #7048e8; // индивидуальное / зачёт (палитра D12; используется и из JS)
+  --t-zachet-soft: rgba(112, 72, 232, 0.1);
+  --holiday-bg:     #fdf0f0; // ячейка-выходной в календаре КТП
+  --holiday-border: #f7d6d6;
+  --holiday-tag-bg: #ffe3e3;
+
+  // ── Видео-канва (тёмный хром нативного плеера)
+  --video-canvas: #12152b;
+  --video-ink:    #c9cde4;
+  --video-ink-2:  #e8eaf4;
+
+  // ── Аватар/тост/оверлеи
+  --ava-from:  #5c7cfa; // градиент аватара пользователя
+  --ava-to:    #7048e8;
+  --toast-ok:  #69db7c;
+  --backdrop:  rgba(20, 24, 33, 0.5);
+  --topbar-bg: rgba(255, 255, 255, 0.82);
+
+  // ── Геометрия
+  --radius:    #{t.rem(14)};
+  --radius-sm: #{t.rem(9)};
+  --radius-xs: #{t.rem(6)};
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 4px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.16), 0 4px 8px rgba(16, 24, 40, 0.06);
+  --shadow-pop: 0 16px 48px rgba(16, 24, 40, 0.2);
+
+  // ── Шрифты (стеки — из ядра токенов)
+  --font: #{t.$font-ui};
+  --mono: #{t.$font-mono};
+}

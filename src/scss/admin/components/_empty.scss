@@ -34,7 +34,7 @@
     font-size: $font-size;
     color: $color-text-secondary;
     line-height: $line-height-base;
-    max-width: 360px;
+    max-width: rem(360);
   }
 
   &__action { margin-top: $spacing-xs; }

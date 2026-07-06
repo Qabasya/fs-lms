@@ -22,6 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use Inc\Enums\Ui\Icon;
 use Inc\Enums\Wp\PageRoutes;
 
 $profile_url = PageRoutes::UserProfile->url();
@@ -96,7 +97,7 @@ $next_url    = null !== $next_lesson
 	<div class="s-main">
 		<header class="s-top">
 			<a class="s-back" href="<?php echo esc_url( $profile_url ); ?>">
-				<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M15 5v4a4 4 0 0 1-4 4H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9.5 4.3 13 8 16.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				<?php esc_html_e( 'Вернуться', 'fs-lms' ); ?>
 			</a>
 			<div>
@@ -123,7 +124,7 @@ $next_url    = null !== $next_lesson
 					<span class="sp-bar"><span id="fsProgBar" data-width="<?php echo esc_attr( (string) $lesson_pct ); ?>"></span></span>
 				</div>
 				<button type="button" class="s-ibtn" data-toast="<?php esc_attr_e( 'Уведомлений нет', 'fs-lms' ); ?>">
-					<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3a4 4 0 0 0-4 4c0 4-1.5 5-1.5 5h11S14 11 14 7a4 4 0 0 0-4-4zM8.5 15a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+					<?php echo Icon::Bell->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				</button>
 			</div>
 		</header>
@@ -152,13 +153,13 @@ $next_url    = null !== $next_lesson
 
 						<div class="cnav" id="fsNav">
 							<button type="button" class="b b-gh" id="fsNavPrev">
-								<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M12 4.5 6.5 10l5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								<?php echo Icon::ChevronLeft->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 								<?php esc_html_e( 'Назад', 'fs-lms' ); ?>
 							</button>
 							<span class="pos" id="fsNavPos"></span>
 							<button type="button" class="b b-pri" id="fsNavNext">
 								<?php esc_html_e( 'Далее', 'fs-lms' ); ?>
-								<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								<?php echo Icon::ChevronRight->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							</button>
 						</div>
 
@@ -225,7 +226,7 @@ $next_url    = null !== $next_lesson
 			<div class="lock-overlay">
 				<div class="lock-modal">
 					<div class="lock-ico">
-						<svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="5" y="10.5" width="14" height="10" rx="2.2" stroke="currentColor" stroke-width="1.7"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" stroke-width="1.7"/></svg>
+						<?php echo Icon::Lock->svg( 28 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					</div>
 					<?php if ( $locked_soon ) : ?>
 						<div class="lock-title"><?php esc_html_e( 'Занятие скоро начнётся', 'fs-lms' ); ?></div>
@@ -265,7 +266,7 @@ $next_url    = null !== $next_lesson
 </div>
 
 <div class="toast" id="fsToast">
-	<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+	<?php echo Icon::Check->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	<span><?php esc_html_e( 'Готово', 'fs-lms' ); ?></span>
 </div>
 

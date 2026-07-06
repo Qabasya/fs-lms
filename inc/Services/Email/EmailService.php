@@ -73,6 +73,32 @@ readonly class EmailService {
 	}
 
 	/**
+	 * Уведомляет ученика об открытом доступе к курсу (открытая группа, Эпик 15).
+	 *
+	 * @param int    $userId      WP-пользователь ученика
+	 * @param string $courseTitle Название курса
+	 * @param int    $personId    ID лица (для журнала писем)
+	 *
+	 * @return bool
+	 */
+	public function sendCourseGranted( int $userId, string $courseTitle, ?int $personId = null ): bool {
+		$user = $this->userManager->find( $userId );
+
+		if ( null === $user ) {
+			return false;
+		}
+
+		$t      = $this->template->get( EmailTemplateType::CourseGranted, array(
+			'display_name' => $user->display_name,
+			'course_title' => $courseTitle,
+			'profile_url'  => \Inc\Enums\Wp\PageRoutes::UserProfile->url(),
+		) );
+		$result = $this->send( $user->user_email, $t->subject, $t->body );
+		$this->logEvents->dispatch( LogEvent::EmailSent, new EmailSentEvent( get_current_user_id() ?: null, EmailTemplateType::CourseGranted, $personId, $user->user_email, $result ) );
+		return $result;
+	}
+
+	/**
 	 * Отправляет OTP-код для подтверждения email.
 	 *
 	 * @param string $email Email получателя

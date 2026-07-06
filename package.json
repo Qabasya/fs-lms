@@ -11,7 +11,9 @@
     "lint:js": "eslint .",
     "fix:js": "eslint . --fix",
     "build:check": "gulp styles:check",
-    "ci": "npm run lint:js && npm run build:check && npm test"
+    "ci": "npm run lint:js && npm run lint:css && npm run build:check && npm test",
+    "lint:css": "stylelint \"src/scss/**/*.scss\"",
+    "fix:css": "stylelint \"src/scss/**/*.scss\" --fix"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
@@ -32,6 +34,9 @@
     "gulp-sourcemaps": "^2.6.5",
     "gulp-uglify": "^3.0.2",
     "sass": "^1.93.2",
+    "stylelint": "^17.14.0",
+    "stylelint-config-standard-scss": "^17.0.0",
+    "stylelint-declaration-strict-value": "^1.11.1",
     "vinyl-named": "^1.1.0",
     "webpack": "^5.105.4",
     "webpack-stream": "^7.0.0"

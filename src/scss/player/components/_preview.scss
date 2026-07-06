@@ -1,13 +1,15 @@
+@use '../variables' as *;
+
 // Preview-плеер курса (Фаза 5, D3/D4): бейдж режима в топбаре + кнопка
 // «Редактировать» на шаге (видна только с правом AuthorLmsCourses).
 
 .pv-banner {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: rem(6);
+  padding: rem(4) rem(10);
   border-radius: 999px;
-  font: 700 11px var(--font);
+  font: 700 rem(11) var(--font);
   background: var(--wait-soft);
   color: var(--wait-ink);
   border: 1px solid var(--wait-line);

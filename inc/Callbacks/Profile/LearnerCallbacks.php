@@ -6,6 +6,7 @@ namespace Inc\Callbacks\Profile;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
+use Inc\Services\Enrollment\OpenGroupEnrollmentService;
 use Inc\Services\Profile\LearnerService;
 use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Shared\Traits\AjaxResponse;
@@ -27,8 +28,9 @@ class LearnerCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly LearnerService      $service,
-		private readonly ProfileViewResolver $resolver,
+		private readonly LearnerService             $service,
+		private readonly ProfileViewResolver        $resolver,
+		private readonly OpenGroupEnrollmentService $openGroupEnrollment,
 	) {
 		parent::__construct();
 	}
@@ -51,5 +53,42 @@ class LearnerCallbacks extends BaseController {
 		}
 
 		$this->success( $this->service->build( $personId ) );
+	}
+
+	/**
+	 * Самозапись ученика в открытую группу (Эпик 15, П10). Params: group_id.
+	 *
+	 * Только сам ученик (родитель — read-only); группа обязана быть открытой —
+	 * гард и события зачисления в OpenGroupEnrollmentService.
+	 */
+	public function ajaxSelfEnrollOpenGroup(): void {
+		Nonce::LearnerProfile->verify();
+
+		if ( ! is_user_logged_in() ) {
+			$this->error( __( 'Требуется вход.', 'fs-lms' ) );
+			return;
+		}
+
+		$ctx = $this->resolver->context( get_current_user_id() );
+		if ( $ctx->readOnly || null === $ctx->personId ) {
+			$this->error( __( 'Записаться на курс может только ученик.', 'fs-lms' ) );
+			return;
+		}
+
+		$groupId = $this->requireInt( 'group_id' );
+
+		try {
+			$summary = $this->openGroupEnrollment->enrollMany( array( $ctx->personId ), $groupId, get_current_user_id() );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		if ( 0 === $summary['added'] ) {
+			$this->error( __( 'Вы уже записаны на этот курс.', 'fs-lms' ) );
+			return;
+		}
+
+		$this->success( $summary );
 	}
 }

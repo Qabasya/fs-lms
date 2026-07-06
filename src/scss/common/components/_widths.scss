@@ -1,3 +1,5 @@
+@use '../../shared/tokens' as *;
+
 .tw-3 {
   width: 3% !important;
 }
@@ -32,7 +34,7 @@
 }
 
 .tw-33 {
-  width: 33.333333% !important;
+  width: 33.3333% !important;
 }
 
 .tw-40 {
@@ -48,7 +50,7 @@
 }
 
 .tw-66 {
-  width: 66.666666% !important;
+  width: 66.6667% !important;
 }
 
 .tw-70 {
@@ -89,7 +91,7 @@
 }
 
 .min-tw-33 {
-  min-width: 33.333333% !important;
+  min-width: 33.3333% !important;
 }
 
 .min-tw-50 {
@@ -105,13 +107,13 @@
 }
 
 .input-width-sm {
-  width: 90px !important;
+  width: rem(90) !important;
 }
 
 .input-width-md {
-  width: 120px !important;
+  width: rem(120) !important;
 }
 
 .input-width-lg {
-  width: 240px !important;
+  width: rem(240) !important;
 }

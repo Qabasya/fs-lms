@@ -12,6 +12,7 @@ enum EmailTemplateType: string {
 	case Rejection               = 'rejection';
 	case NewRepresentative       = 'new_representative';
 	case WelcomeWithCredentials  = 'welcome_with_credentials';
+	case CourseGranted           = 'course_granted';
 
 	public function label(): string {
 		return match ( $this ) {
@@ -22,6 +23,7 @@ enum EmailTemplateType: string {
 			self::Rejection               => 'Отказ',
 			self::NewRepresentative       => 'Новый представитель',
 			self::WelcomeWithCredentials  => 'Приветствие с данными для входа',
+			self::CourseGranted           => 'Открыт доступ к курсу',
 		};
 	}
 }

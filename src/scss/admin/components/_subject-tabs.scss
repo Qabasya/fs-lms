@@ -7,7 +7,7 @@
 
 // Ссылки действий в таблицах (редактировать, удалить и т.д.)
 .row-actions {
-  @include row-action-links();
+  @include row-action-links;
 
   &.visible {
     opacity: 1;

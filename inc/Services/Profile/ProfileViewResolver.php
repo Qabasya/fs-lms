@@ -109,6 +109,9 @@ class ProfileViewResolver {
 				'nonce'   => Nonce::LearnerProfile->create(),
 				'actions' => array(
 					'getProfile' => AjaxHook::GetLearnerProfile->jsAction(),
+					// Эпик 15 (П10): самозапись в открытую группу (нонс профиля переиспользуется,
+					// как SaveSchedule в блоках преподавателя).
+					'selfEnroll' => AjaxHook::SelfEnrollOpenGroup->jsAction(),
 				),
 			);
 		}
@@ -166,6 +169,8 @@ class ProfileViewResolver {
 					'name'        => $g->name,
 					'subject'     => $this->subjectName( (string) $g->subject_key ),
 					'subject_key' => (string) $g->subject_key, // ключ цвета чипа (chipIndex, utils.js)
+					// Эпик 15: открытая группа — фронт скрывает КТП/посещаемость.
+					'access_mode' => \Inc\Enums\Course\AccessMode::fromValueOrDefault( (string) ( $g->access_mode ?? '' ) )->value,
 				),
 				$rows
 			),

@@ -7,12 +7,17 @@ namespace Inc\Callbacks\Group;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Access\UserRole;
+use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Log\OperationType;
+use Inc\Services\Enrollment\OpenGroupEnrollmentService;
 use Inc\Services\Group\MeetingsNormalizer;
+use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -56,6 +61,8 @@ class StudentGroupCallbacks extends BaseController {
 		private readonly StudentRecordRepository     $studentRecordRepository,
 		private readonly PersonRepository            $personRepository,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly UserRepository              $userRepository,
+		private readonly OpenGroupEnrollmentService  $openGroupEnrollment,
 	) {
 		parent::__construct();
 	}
@@ -105,6 +112,10 @@ class StudentGroupCallbacks extends BaseController {
 			$this->error( 'Группа с таким названием в этом периоде уже существует.' );
 		}
 
+		// Режим доступа задаётся только при создании (Эпик 15): открытая группа —
+		// без расписания, программа публикуется целиком при назначении курса.
+		$access_mode = AccessMode::fromValueOrDefault( $this->sanitizeKey( 'access_mode' ) );
+
 		// Создание группы в БД
 		$id = $this->groupsRepository->create( array(
 			'subject_key'        => $subject_key,
@@ -112,7 +123,8 @@ class StudentGroupCallbacks extends BaseController {
 			'name'               => $title,
 			'teacher_id'         => $teacher_id,
 			'room_id'            => $room_id,
-			'meetings'           => (string) wp_json_encode( $schedule ),
+			'meetings'           => (string) wp_json_encode( AccessMode::Open === $access_mode ? array() : $schedule ),
+			'access_mode'        => $access_mode->value,
 		) );
 
 		if ( ! $id ) {
@@ -250,6 +262,65 @@ class StudentGroupCallbacks extends BaseController {
 		}
 
 		$this->success( array( 'id' => $id ) );
+	}
+
+	/**
+	 * Пикер учеников для добавления в открытую группу (Эпик 15).
+	 *
+	 * Ищет по WP-пользователям роли ученика (display_name/email/login — они не
+	 * шифруются, в отличие от ПДн в persons) и отфильтровывает уже активных в группе.
+	 *
+	 * @return void
+	 */
+	public function ajaxSearchStudentsForGroup(): void {
+		$this->authorize( Nonce::Manager, Capability::EnrollStudent );
+
+		$group_id = $this->sanitizeInt( 'group_id' );
+		$query    = $this->sanitizeText( 'query' );
+
+		$result = array();
+		foreach ( $this->userRepository->searchByRole( UserRole::FSStudent, $query ) as $user ) {
+			$person = $this->personRepository->findByWpUserId( $user->id );
+			if ( null === $person ) {
+				continue;
+			}
+			if ( $group_id && $this->studentRecordRepository->existsActive( $person->id, $group_id ) ) {
+				continue;
+			}
+			$result[] = array(
+				'person_id' => $person->id,
+				'name'      => $user->displayName,
+			);
+		}
+
+		$this->success( $result );
+	}
+
+	/**
+	 * Лёгкая запись существующих учеников в ОТКРЫТУЮ группу (Эпик 15).
+	 *
+	 * Гард по режиму группы и события зачисления — в OpenGroupEnrollmentService.
+	 *
+	 * @return void
+	 */
+	public function ajaxAddStudentsToOpenGroup(): void {
+		$this->authorize( Nonce::Manager, Capability::EnrollStudent );
+
+		$group_id = $this->sanitizeInt( 'group_id' );
+		$ids      = array_filter( array_map( 'intval', explode( ',', $this->sanitizeText( 'student_person_ids' ) ) ) );
+
+		if ( ! $group_id || empty( $ids ) ) {
+			$this->error( 'Не выбраны ученики.' );
+		}
+
+		try {
+			$summary = $this->openGroupEnrollment->enrollMany( $ids, $group_id, get_current_user_id() );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success( $summary );
 	}
 
 	/**

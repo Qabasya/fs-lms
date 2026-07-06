@@ -3,24 +3,25 @@
 @use '../mixins' as *;
 
 .fs-lms-apply-page {
-  padding: 40px 16px;
+  padding: rem(40) rem(16);
 }
 
 // Honeypot-ловушка: убрана из видимого потока и недоступна для людей,
 // но присутствует в DOM — примитивные боты её автозаполняют.
 .fs-hp {
   position: absolute;
-  left: -9999px;
+  left: rem(-9999);
   width: 1px;
   height: 1px;
   overflow: hidden;
 }
 
 .fs-apply-card {
-  @include fs-card-shell(480px, $spacing-2xl 30px);
+  @include fs-card-shell(rem(480), $spacing-2xl rem(30));
 
   &__title {
     @include fs-card-title;
+
     margin: 0 0 $spacing-xl;
   }
 
@@ -43,7 +44,7 @@
 
   &__field-group {
     position: relative;
-    margin-bottom: 14px;
+    margin-bottom: rem(14);
 
     // #7: иконка/toggle позиционируются относительно .fs-field-control (тесная
     // обёртка вокруг инпута), поэтому центрируются по инпуту, а не по всей группе
@@ -55,6 +56,7 @@
 
     .dashicons {
       @include fs-field-icon;
+
       pointer-events: none;
     }
 
@@ -84,11 +86,12 @@
   }
 
   &__captcha {
-    margin-bottom: 14px;
+    margin-bottom: rem(14);
   }
 
   &__submit {
-    @include fs-form-submit(10px 16px);
+    @include fs-form-submit(rem(10) rem(16));
+
     box-sizing: border-box;
   }
 
@@ -105,7 +108,7 @@
 
   &__resend {
     text-align: center;
-    margin-top: 14px;
+    margin-top: rem(14);
     font-size: $font-size-xs;
 
     .js-resend-otp {
@@ -150,6 +153,7 @@
     @include fs-form-error($font-size-xs, $spacing-md);
   }
 }
+
 // ── Гейт кода направления (серверный, инлайн-блок карточки /lms/apply, Этап 0) ──
 // Не оверлей-модалка: форма приходит по AJAX только после верного кода, поэтому гейт —
 // обычный контент карточки. Поле и кнопка переиспользуют стили .fs-apply-card__*.
@@ -183,8 +187,8 @@
 }
 
 .fs-apply-card__spinner {
-  width: 18px;
-  height: 18px;
+  width: rem(18);
+  height: rem(18);
   flex-shrink: 0;
   border: 2px solid $color-border;
   border-top-color: $color-accent;
@@ -202,3 +206,13 @@
 @keyframes fs-apply-spin {
   to { transform: rotate( 360deg ); }
 }
+
+// ── Мобильный (Фаза 5): компактные поля страницы и карточки
+@media (max-width: $bp-mobile) {
+  .fs-lms-apply-page { padding: rem(20) rem(12) rem(40); }
+
+  .fs-apply-card { padding: rem(20) rem(16); }
+}
+
+/* Плавное появление шага формы (kейфрейм — в _reset). */
+.fs-apply-card__step--active { animation: fs-fade-up 0.2s ease; }

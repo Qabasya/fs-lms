@@ -1,24 +1,10 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Базовые стили плеера: reset, body-холст
+   Базовые стили плеера: reset/холст — общие с кабинетом (cabinet/_ui).
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
 
-*,
-*::before,
-*::after { box-sizing: border-box; margin: 0; padding: 0; }
+// Reset + холст — общий примитив (правки — в cabinet/_ui.scss).
+@include cab-reset;
 
-html,
-body { height: 100%; }
-
-body.fs-player-page {
-  font-family: var(--font);
-  font-size: 14px;
-  color: var(--ink);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
-}
-
-button { font-family: inherit; }
-
-::selection { background: var(--accent-soft-2); }
+body.fs-player-page { @include cab-body; }

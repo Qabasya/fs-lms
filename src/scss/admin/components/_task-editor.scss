@@ -21,7 +21,7 @@
 	border-radius: $border-radius-l;
 	box-shadow:    $shadow-modal;
 	width:         100%;
-	max-width:     680px;
+	max-width:     rem(680);
 	max-height:    90vh;
 	display:       flex;
 	flex-direction: column;
@@ -50,10 +50,10 @@
 	background:  none;
 	border:      none;
 	cursor:      pointer;
-	font-size:   22px;
+	font-size:   rem(22);
 	line-height: 1;
 	color:       $color-text-secondary;
-	padding:     2px 6px;
+	padding:     rem(2) rem(6);
 	border-radius: $border-radius-sm;
 
 	&:hover { color: $color-text-primary; background: $wp-admin-gray-bg; }
@@ -168,7 +168,7 @@
 }
 
 .fs-cb-ss-num {
-	width:   70px;
+	width:   rem(70);
 	padding: $spacing-xs $spacing-sm;
 	border:  1px solid $color-border-input;
 	border-radius: $border-radius-sm;

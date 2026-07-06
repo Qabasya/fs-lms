@@ -1,9 +1,10 @@
-@use '../../admin/variables' as *;
+@use '../../shared/tokens' as *;
 @use '../mixins' as m;
 
 .fs-badge {
   @include m.center-flex;
-  height: 26px;
+
+  height: rem(26);
   padding: 0 $spacing-sm;
   border-radius: $border-radius-md;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);

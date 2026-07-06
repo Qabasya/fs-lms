@@ -26,7 +26,7 @@
 		flex-direction: column;
 		gap: $spacing-xs;
 		margin-bottom: $spacing-sm;
-		min-height: 32px;
+		min-height: rem(32);
 	}
 
 	.fs-lms-ref-chip {
@@ -64,7 +64,7 @@
 			cursor: pointer;
 			font-size: $font-size;
 			line-height: 1;
-			padding: 0 2px;
+			padding: 0 rem(2);
 			opacity: 0.8;
 			transition: $transition-default;
 
@@ -92,7 +92,7 @@
 		border: 1px solid $color-border-input;
 		border-radius: $border-radius-md;
 		box-shadow: $shadow-modal;
-		max-height: 220px;
+		max-height: rem(220);
 		overflow-y: auto;
 	}
 

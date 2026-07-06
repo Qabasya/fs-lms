@@ -129,21 +129,29 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 					data-teacher-id="<?php echo esc_attr( (string) ( $group['teacher_id'] ?? '' ) ); ?>"
 					data-schedule="<?php echo esc_attr( $group['schedule_raw'] ); ?>"
 					data-period-id="<?php echo esc_attr( $group['period_id'] ); ?>"
-					data-subject-key="<?php echo esc_attr( $group['subject_key'] ); ?>">
+					data-subject-key="<?php echo esc_attr( $group['subject_key'] ); ?>"
+					data-access-mode="<?php echo esc_attr( $group['access_mode'] ); ?>">
 					<td class="column-title">
 						<strong><?php echo esc_html( $group['title'] ); ?></strong>
 					</td>
 					<td><?php echo esc_html( $group['period_name'] ); ?></td>
 					<td><?php echo esc_html( $group['subject_name'] ); ?></td>
 					<td><?php echo esc_html( $group['teacher_name'] ); ?></td>
-					<td><?php echo nl2br( esc_html( $group['schedule'] ) ); ?></td>
+					<td>
+						<?php if ( 'open' === $group['access_mode'] ) : ?>
+							<em>Открытая — свободное прохождение</em>
+						<?php else : ?>
+							<?php echo nl2br( esc_html( $group['schedule'] ) ); ?>
+						<?php endif; ?>
+					</td>
 					<td><?php echo (int) $group['active_count']; ?></td>
 					<td>
 						<div class="row-actions visible">
 							<span class="view">
 								<a href="#" class="js-view-group-students"
 									data-group-id="<?php echo esc_attr( $group['id'] ); ?>"
-									data-group-name="<?php echo esc_attr( $group['title'] ); ?>">Просмотреть</a>
+									data-group-name="<?php echo esc_attr( $group['title'] ); ?>"
+									data-access-mode="<?php echo esc_attr( $group['access_mode'] ); ?>">Просмотреть</a>
 							</span>
 							|
 							<span class="edit">

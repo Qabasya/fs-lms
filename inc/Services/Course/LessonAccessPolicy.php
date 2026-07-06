@@ -7,19 +7,25 @@ namespace Inc\Services\Course;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Enums\Access\AccessLevel;
+use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Enums\Course\LessonVisibility;
 use Inc\Repositories\OptionsRepositories\ExpulsionPolicyRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 class LessonAccessPolicy {
+
+	/** @var array<int, bool> Per-request кэш «группа открытая» (resolve() зовётся на каждый урок). */
+	private array $openModeCache = array();
 
 	public function __construct(
 		private readonly StudentRecordRepository   $studentRecords,
 		private readonly GroupLessonRepository     $groupLessons,
 		private readonly ExpulsionPolicyRepository $expulsionPolicy,
 		private readonly LessonVisibilityService   $visibility,
+		private readonly GroupsRepository          $groups,
 	) {}
 
 	/**
@@ -47,6 +53,11 @@ class LessonAccessPolicy {
 		}
 
 		if ( $record->status === EnrollmentStatus::Active ) {
+			// Открытая группа (Эпик 15): контент проходится в своём темпе, сравнение
+			// даты открытия урока с датой зачисления не имеет смысла — активному всегда сдача.
+			if ( $this->isOpenGroup( $lesson->groupId ) ) {
+				return AccessLevel::ReadSubmit;
+			}
 			// Поздний ученик видит весь бэк-каталог; сдавать может только с даты своего зачисления.
 			if ( null !== $openedAt && $openedAt >= $record->enrolledAt ) {
 				return AccessLevel::ReadSubmit;
@@ -96,6 +107,18 @@ class LessonAccessPolicy {
 			}
 		}
 		return false;
+	}
+
+	/** Режим группы с кэшем на время запроса. */
+	private function isOpenGroup( int $groupId ): bool {
+		if ( ! isset( $this->openModeCache[ $groupId ] ) ) {
+			$group = $this->groups->findById( $groupId );
+
+			$this->openModeCache[ $groupId ] = AccessMode::Open === AccessMode::fromValueOrDefault(
+				(string) ( $group->access_mode ?? '' )
+			);
+		}
+		return $this->openModeCache[ $groupId ];
 	}
 
 	/** @return GroupLessonDTO[] Видимые уроки группы с учётом политики доступа. */

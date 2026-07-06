@@ -91,6 +91,31 @@ class UserRepository {
 	}
 
 	/**
+	 * Поиск пользователей роли по имени/email/логину (для пикеров).
+	 *
+	 * @param UserRole $role  Роль пользователя
+	 * @param string   $query Поисковая строка (пустая — первые $limit пользователей роли)
+	 * @param int      $limit Максимум результатов
+	 *
+	 * @return UserDTO[]
+	 */
+	public function searchByRole( UserRole $role, string $query, int $limit = 20 ): array {
+		$args = array(
+			'role'   => $role->value,
+			'number' => $limit,
+		);
+		if ( '' !== $query ) {
+			$args['search']         = '*' . $query . '*';
+			$args['search_columns'] = array( 'display_name', 'user_email', 'user_login' );
+		}
+
+		return array_map(
+			fn( \WP_User $user ) => UserDTO::fromWPUser( $user ),
+			get_users( $args )
+		);
+	}
+
+	/**
 	 * Поиск пользователя по социальному ID (для авторизации через соцсети).
 	 *
 	 * @param string $provider   Название соцсети (google, vk, github)

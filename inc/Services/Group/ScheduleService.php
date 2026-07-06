@@ -426,6 +426,9 @@ class ScheduleService {
 
 		return array(
 			'assigned'    => $group ? ! empty( $group->course_id ) : false,
+			// Эпик 15: открытая группа — расписание не ведётся, фронт показывает
+			// программу списком вместо КТП-доски (reflow/publish неприменимы).
+			'open'        => $group && \Inc\Enums\Course\AccessMode::Open === \Inc\Enums\Course\AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) ),
 			'period'      => $meta['period'],
 			'holidays'    => $meta['holidays'],
 			'lessonDays'  => $meta['lessonDays'],

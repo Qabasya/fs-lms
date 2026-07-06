@@ -2,14 +2,15 @@
 @use '../mixins' as *;
 
 .fs-lms-join-page {
-  padding: 40px 16px;
+  padding: rem(40) rem(16);
 }
 
 .fs-join-card {
-  @include fs-card-shell(560px, $spacing-2xl 30px);
+  @include fs-card-shell(rem(560), $spacing-2xl rem(30));
 
   &__title {
     @include fs-card-title;
+
     margin: 0 0 $spacing-sm;
   }
 
@@ -24,11 +25,11 @@
   &__section {
     border: none;
     padding: 0;
-    margin: 0 0 20px;
+    margin: 0 0 rem(20);
 
     & + & {
       border-top: 1px solid $color-border-light;
-      padding-top: 20px;
+      padding-top: rem(20);
     }
 
     &--consents {
@@ -42,7 +43,7 @@
     color: $color-text;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    margin-bottom: 14px;
+    margin-bottom: rem(14);
     display: block;
   }
 
@@ -58,6 +59,7 @@
 
     .dashicons {
       @include fs-field-icon;
+
       pointer-events: none;
     }
 
@@ -81,7 +83,7 @@
     label {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
+      gap: rem(10);
       font-size: $font-size-sm;
       color: $color-text;
       cursor: pointer;
@@ -89,11 +91,11 @@
     }
 
     input[type="checkbox"] {
-      margin-top: 3px;
+      margin-top: rem(3);
       flex-shrink: 0;
       accent-color: $color-accent;
-      width: 16px;
-      height: 16px;
+      width: rem(16);
+      height: rem(16);
     }
 
     a {
@@ -105,7 +107,8 @@
   }
 
   &__submit {
-    @include fs-form-submit(10px 16px);
+    @include fs-form-submit(rem(10) rem(16));
+
     box-sizing: border-box;
     margin-top: $spacing-sm;
   }
@@ -122,12 +125,14 @@
     border-top: none;
     border-radius: 0 0 $radius $radius;
     box-shadow: $shadow-hover;
+
     @include fs-list-reset;
-    max-height: 220px;
+
+    max-height: rem(220);
     overflow-y: auto;
 
     &__item {
-      padding: 9px 12px 9px 38px;
+      padding: rem(9) rem(12) rem(9) rem(38);
       font-size: $font-size-sm;
       color: $color-text;
       cursor: pointer;
@@ -152,9 +157,9 @@
   &__locked-notice {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: rem(6);
     background: $color-bg-subtle;
-    border-left: 3px solid $color-accent;
+    border-left: rem(3) solid $color-accent;
     padding: $spacing-sm $spacing-md;
     margin-bottom: $spacing-lg;
     font-size: $font-size-sm;
@@ -176,4 +181,11 @@
     color: $color-text;
     margin: 0 0 $spacing-sm;
   }
+}
+
+// ── Мобильный (Фаза 5): компактные поля страницы и карточки
+@media (max-width: $bp-mobile) {
+  .fs-lms-join-page { padding: rem(20) rem(12) rem(40); }
+
+  .fs-join-card { padding: rem(20) rem(16); }
 }

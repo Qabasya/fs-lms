@@ -6,8 +6,10 @@ namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\AttendanceService;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\JournalService;
@@ -34,6 +36,7 @@ class JournalCallbacks extends BaseController {
 		private readonly JournalService        $journal,
 		private readonly GroupLessonRepository $groupLessons,
 		private readonly GroupAccessGuard      $guard,
+		private readonly GroupsRepository      $groups,
 	) {
 		parent::__construct();
 	}
@@ -95,8 +98,13 @@ class JournalCallbacks extends BaseController {
 	/**
 	 * Защита журнала (D11): нельзя отмечать посещаемость на ещё не прошедшем занятии
 	 * (дата > сегодня). Редактируемы только занятия с датой ≤ текущей.
+	 * Эпик 15: в открытой группе занятия не датируются — посещаемость не ведётся вовсе.
 	 */
 	private function guardNotFuture( \Inc\DTO\Course\GroupLessonDTO $row ): void {
+		$group = $this->groups->findById( $row->groupId );
+		if ( AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) ) ) {
+			$this->error( __( 'В открытой группе посещаемость не ведётся.', 'fs-lms' ) );
+		}
 		if ( $row->scheduledAt && substr( $row->scheduledAt, 0, 10 ) > current_time( 'Y-m-d' ) ) {
 			$this->error( __( 'Занятие ещё не прошло — отметить посещаемость нельзя.', 'fs-lms' ) );
 		}

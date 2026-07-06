@@ -3,94 +3,102 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 
-.prof-dash { padding: 24px; max-width: 1320px; margin: 0 auto; }
+.prof-dash { padding: rem(24); max-width: rem(1320); margin: 0 auto; }
+
 .prof-sub-tag {
-  display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 10px;
+  display: inline-block; margin-left: rem(4); padding: 1px rem(7); border-radius: rem(10);
   background: var(--accent-soft); color: var(--accent-700);
-  font-size: 10px; font-weight: 600; vertical-align: middle;
+  font-size: rem(10); font-weight: 600; vertical-align: middle;
 }
 .prof-sub-tag.warn { background: var(--warn-bg); color: var(--warn-ink); }
 .prof-sub-tag.indi { background: var(--indi-bg); color: var(--indi-ink); }
+
 .prof-cover-banner {
-  display: flex; align-items: center; gap: 9px; margin-bottom: 18px;
-  padding: 11px 15px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: rem(9); margin-bottom: rem(18);
+  padding: rem(11) rem(15); border-radius: var(--radius-sm);
   background: var(--accent-soft); color: var(--accent-700);
-  font-size: 13px; font-weight: 500;
+  font-size: rem(13); font-weight: 500;
 }
 .prof-cover-banner b { font-weight: 700; }
 
-.prof-dash-hello { margin-bottom: 20px; }
-.prof-dash-hello h1 { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
-.prof-dash-hello p { color: var(--muted); font-size: 14px; margin-top: 3px; }
+.prof-dash-hello { margin-bottom: rem(20); }
+.prof-dash-hello h1 { font-size: rem(24); font-weight: 700; letter-spacing: -.02em; }
+.prof-dash-hello p { color: var(--muted); font-size: rem(14); margin-top: rem(3); }
 
-.prof-dash-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
-.prof-sched-card { margin-bottom: 18px; }
+.prof-dash-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: rem(18); align-items: start; }
+.prof-sched-card { margin-bottom: rem(18); }
 
 /* НБ-11: пагинатор недели (‹ диапазон ›) над сеткой расписания. */
-.prof-week-nav { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 0 14px; }
+.prof-week-nav { display: flex; align-items: center; justify-content: center; gap: rem(10); padding: rem(10) 0 rem(14); }
+
 .prof-week-nav .pwn-arrow {
-  width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+  width: rem(30); height: rem(30); display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
-  color: var(--ink-2); font-size: 18px; line-height: 1; cursor: pointer;
+  color: var(--ink-2); font-size: rem(18); line-height: 1; cursor: pointer;
   transition: background $tr, border-color $tr;
 }
 .prof-week-nav .pwn-arrow:hover { background: var(--surface-2); border-color: var(--line-3); }
-.prof-week-nav .pwn-label { font-size: 14px; font-weight: 700; letter-spacing: -.01em; min-width: 120px; text-align: center; font-variant-numeric: tabular-nums; }
+.prof-week-nav .pwn-label { font-size: rem(14); font-weight: 700; letter-spacing: -.01em; min-width: rem(120); text-align: center; font-variant-numeric: tabular-nums; }
 
 .prof-week-grid {
   display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
   background: var(--line-2); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden;
 }
+
 /* #18: пустой день недели («Занятий нет»). */
 .prof-week-empty {
-  font-size: 11px; color: var(--muted-2); text-align: center;
-  margin: auto 0; padding: 8px 0;
+  font-size: rem(11); color: var(--muted-2); text-align: center;
+  margin: auto 0; padding: rem(8) 0;
 }
+
 .prof-week-col {
-  background: var(--surface); padding: 12px 10px; min-height: 150px;
-  display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface); padding: rem(12) rem(10); min-height: rem(150);
+  display: flex; flex-direction: column; gap: rem(8);
 }
+
 .prof-week-dow {
-  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted-2); text-align: center; padding-bottom: 8px; border-bottom: 1px solid var(--line-2);
+  font-size: rem(11); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted-2); text-align: center; padding-bottom: rem(8); border-bottom: 1px solid var(--line-2);
 }
+
 .prof-week-card {
-  border-left: 3px solid var(--accent); background: var(--surface-2);
-  border-radius: 7px; padding: 8px 10px; cursor: pointer; transition: background $tr;
+  border-left: rem(3) solid var(--accent); background: var(--surface-2);
+  border-radius: rem(7); padding: rem(8) rem(10); cursor: pointer; transition: background $tr;
 }
 .prof-week-card:hover { background: var(--accent-soft); }
-.wc-time { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.wc-grp { font-size: 12.5px; font-weight: 600; margin-top: 1px; }
-.wc-topic { font-size: 11.5px; color: var(--muted); margin-top: 1px; line-height: 1.3; }
+.wc-time { font-size: rem(12); font-weight: 700; font-variant-numeric: tabular-nums; }
+.wc-grp { font-size: rem(12.5); font-weight: 600; margin-top: 1px; }
+.wc-topic { font-size: rem(11.5); color: var(--muted); margin-top: 1px; line-height: 1.3; }
 
 .prof-lesson-row {
-  display: flex; align-items: stretch; gap: 12px; padding: 12px 18px;
+  display: flex; align-items: stretch; gap: rem(12); padding: rem(12) rem(18);
   border-bottom: 1px solid var(--line-2); cursor: pointer; transition: background $tr;
 }
 .prof-lesson-row:last-child { border-bottom: none; }
 .prof-lesson-row:hover { background: var(--surface-2); }
-.prof-lesson-time { width: 50px; flex-shrink: 0; text-align: right; }
-.prof-lesson-time .lt-start { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.prof-lesson-time .lt-end { font-size: 12px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
-.prof-lesson-bar { width: 3px; border-radius: 2px; flex-shrink: 0; background: var(--accent); }
+.prof-lesson-time { width: rem(50); flex-shrink: 0; text-align: right; }
+.prof-lesson-time .lt-start { font-size: rem(14); font-weight: 700; font-variant-numeric: tabular-nums; }
+.prof-lesson-time .lt-end { font-size: rem(12); color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.prof-lesson-bar { width: rem(3); border-radius: rem(2); flex-shrink: 0; background: var(--accent); }
 .prof-lesson-body { flex: 1; min-width: 0; }
-.prof-lesson-grp { font-size: 14px; font-weight: 600; }
+.prof-lesson-grp { font-size: rem(14); font-weight: 600; }
+
 .prof-lesson-topic {
-  font-size: 13px; color: var(--muted); margin-top: 1px;
+  font-size: rem(13); color: var(--muted); margin-top: 1px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.prof-lesson-meta { display: flex; align-items: center; gap: 12px; margin-top: 5px; font-size: 12px; color: var(--muted-2); }
-.prof-lesson-meta .lm { display: inline-flex; align-items: center; gap: 4px; }
+.prof-lesson-meta { display: flex; align-items: center; gap: rem(12); margin-top: rem(5); font-size: rem(12); color: var(--muted-2); }
+.prof-lesson-meta .lm { display: inline-flex; align-items: center; gap: rem(4); }
 .prof-lesson-state { align-self: center; flex-shrink: 0; }
-.prof-state-pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
-.prof-state-now { background: var(--good-bg); color: var(--g-good); }
+.prof-state-pill { font-size: rem(11); font-weight: 700; padding: rem(3) rem(9); border-radius: 999px; }
+.prof-state-now { background: var(--good-bg); color: var(--ok); }
 .prof-state-soon { background: var(--accent-soft); color: var(--accent-700); }
 .prof-state-done { background: var(--surface-2); color: var(--muted-2); border: 1px solid var(--line); }
 .prof-lesson-row.is-now { background: linear-gradient(90deg, var(--good-bg-soft), transparent 60%); }
-.prof-lesson-row.is-now .prof-lesson-bar { background: var(--g-good); }
+.prof-lesson-row.is-now .prof-lesson-bar { background: var(--ok); }
 
 .prof-work-item {
-  display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+  display: flex; align-items: center; gap: rem(12); padding: rem(12) rem(18);
   border-bottom: 1px solid var(--line-2); transition: background $tr;
 }
 .prof-work-item:last-child { border-bottom: none; }
@@ -99,42 +107,56 @@
 /* занятие-ссылка в плеер курса (T14.13) */
 a.prof-lesson-go { text-decoration: none; color: inherit; cursor: pointer; }
 .prof-work-item.is-clickable { cursor: pointer; }
+
 .prof-work-ico {
-  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  width: rem(36); height: rem(36); border-radius: rem(10); flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
-.prof-work-ico.att { background: var(--absent-bg); color: var(--absent); }
+.prof-work-ico.att { background: var(--err-soft); color: var(--err); }
 .prof-work-ico.rev { background: var(--accent-soft); color: var(--accent); }
-.prof-work-ico.grade { background: rgba(112, 72, 232, 0.1); color: var(--t-zachet); }
+.prof-work-ico.grade { background: var(--t-zachet-soft); color: var(--t-zachet); }
 .prof-work-main { flex: 1; min-width: 0; }
-.prof-work-title { font-size: 13px; font-weight: 600; }
-.prof-work-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.prof-work-title { font-size: rem(13); font-weight: 600; }
+.prof-work-sub { font-size: rem(12); color: var(--muted); margin-top: 1px; }
+
 /* T12.2 (D13): дедлайн прошёл, но решать всё ещё можно — просто отмечаем. */
-.prof-dl-overdue { color: var(--absent); font-weight: 700; }
+.prof-dl-overdue { color: var(--err); font-weight: 700; }
+
 .prof-work-count {
-  font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+  font-size: rem(12); font-weight: 700; padding: rem(2) rem(9); border-radius: 999px;
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);
 }
-.prof-work-count--pending { font-size: 10px; color: var(--muted); }
+.prof-work-count--pending { font-size: rem(10); color: var(--muted); }
 
 .prof-grp-card {
-  display: flex; align-items: center; gap: 12px; padding: 13px 18px;
+  display: flex; align-items: center; gap: rem(12); padding: rem(13) rem(18);
   border-bottom: 1px solid var(--line-2); cursor: pointer; transition: background $tr;
 }
 .prof-grp-card:last-child { border-bottom: none; }
 .prof-grp-card:hover { background: var(--surface-2); }
 
-.prof-stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+.prof-stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: rem(14); margin-bottom: rem(18); }
+
 .prof-stat-tile {
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow-sm);
+  border-radius: var(--radius); padding: rem(16) rem(18); box-shadow: var(--shadow-sm);
 }
-.prof-stat-tile .st-top { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; font-weight: 500; }
-.prof-stat-tile .st-ico { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
-.prof-stat-tile .st-val { font-size: 28px; font-weight: 700; letter-spacing: -.02em; margin-top: 8px; font-variant-numeric: tabular-nums; }
-.prof-stat-tile .st-delta { font-size: 12px; margin-top: 2px; }
+.prof-stat-tile .st-top { display: flex; align-items: center; gap: rem(8); color: var(--muted); font-size: rem(12.5); font-weight: 500; }
+.prof-stat-tile .st-ico { width: rem(28); height: rem(28); border-radius: rem(8); display: flex; align-items: center; justify-content: center; }
+.prof-stat-tile .st-val { font-size: rem(28); font-weight: 700; letter-spacing: -.02em; margin-top: rem(8); font-variant-numeric: tabular-nums; }
+.prof-stat-tile .st-delta { font-size: rem(12); margin-top: rem(2); }
 
 @media (max-width: $breakpoint-wide) {
   .prof-dash-grid2 { grid-template-columns: 1fr; }
-  .prof-week-col { min-height: 120px; }
+  .prof-week-col { min-height: rem(120); }
+}
+
+/* ── Мобильный (Фаза 5): плитки в столбец, недельная сетка скроллится ── */
+@media (max-width: $breakpoint-mobile) {
+  .prof-stat-tiles { grid-template-columns: 1fr; gap: rem(10); }
+
+  .prof-week-grid {
+    grid-template-columns: repeat(7, minmax(rem(132), 1fr));
+    overflow-x: auto;
+  }
 }

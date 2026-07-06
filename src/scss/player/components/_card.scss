@@ -2,46 +2,46 @@
    Карточка шага (T14.6): card16 — kick (бейдж типа), заголовок, контент.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
 
+/* Карточка шага = единая карточка кабинета (cab-card) + крупный паддинг. */
 .card16 {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  box-shadow: var(--shadow-sm);
-  padding: 34px 40px;
+  @include cab-card;
 
-  @media (max-width: 640px) { padding: 20px 16px; }
+  padding: rem(34) rem(40);
+
+  @media (max-width: $bp-mobile) { padding: rem(20) rem(16); }
 
   h2 {
-    font-size: 22px;
+    font-size: rem(22);
     font-weight: 700;
     letter-spacing: -0.015em;
-    margin-bottom: 6px;
+    margin-bottom: rem(6);
   }
 
   > .gap16 > p,
-  p { font-size: 14.5px; line-height: 1.7; color: var(--ink-2); }
+  p { font-size: rem(14.5); line-height: 1.7; color: var(--ink-2); }
 }
 
 .kick {
-  font: 700 11px var(--font);
+  font: 700 rem(11) var(--font);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--muted-2);
-  margin-bottom: 10px;
+  margin-bottom: rem(10);
   display: flex;
-  gap: 10px;
+  gap: rem(10);
   align-items: center;
 }
 
 .gap16 {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 16px;
+  gap: rem(16);
+  margin-top: rem(16);
 }
 
 .step-muted {
   color: var(--muted);
-  font-size: 14px;
+  font-size: rem(14);
 }

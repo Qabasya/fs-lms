@@ -5,7 +5,7 @@
 // ---- Форма сдачи ----
 
 .fs-submission-form {
-	margin-top: 20px;
+	margin-top: rem(20);
 	padding: $spacing-lg;
 	border: 1px solid $color-border;
 	border-radius: $radius-sm;
@@ -19,7 +19,7 @@
 }
 
 .fs-submission-form__field {
-	margin-bottom: 14px;
+	margin-bottom: rem(14);
 
 	label {
 		display: block;
@@ -30,8 +30,8 @@
 
 	textarea {
 		width: 100%;
-		min-height: 100px;
-		padding: 8px 10px;
+		min-height: rem(100);
+		padding: rem(8) rem(10);
 		border: 1px solid $color-border;
 		border-radius: $radius;
 		font-family: $font-family;
@@ -46,8 +46,9 @@
 }
 
 .fs-submission-form__submit {
-	padding: 8px 20px;
+	padding: rem(8) rem(20);
 	font-size: $font-size-base;
+
 	@include fs-btn-primary(0.88);
 
 	&:disabled { @include fs-disabled; }
@@ -63,7 +64,7 @@
 
 .fs-submission-result {
 	margin-top: $spacing-md;
-	padding: 12px 14px;
+	padding: rem(12) rem(14);
 	border-radius: $radius;
 	font-size: $font-size-sm;
 
@@ -92,7 +93,7 @@
 }
 
 .fs-submission-result__feedback {
-	margin-top: 6px;
+	margin-top: rem(6);
 	color: $color-muted;
 }
 
@@ -110,10 +111,10 @@
 }
 
 .fs-grading-queue__item {
-	padding: 14px 16px;
+	padding: rem(14) rem(16);
 	border: 1px solid $color-border;
 	border-radius: $radius-sm;
-	margin-bottom: 10px;
+	margin-bottom: rem(10);
 	background: $color-white;
 }
 
@@ -125,14 +126,14 @@
 
 .fs-grading-form {
 	display: flex;
-	gap: 10px;
+	gap: rem(10);
 	align-items: flex-end;
 	flex-wrap: wrap;
-	margin-top: 10px;
+	margin-top: rem(10);
 
 	input[type="number"] {
-		width: 80px;
-		padding: 6px 8px;
+		width: rem(80);
+		padding: rem(6) rem(8);
 		border: 1px solid $color-border;
 		border-radius: $radius;
 		font-size: $font-size-sm;
@@ -140,18 +141,19 @@
 
 	textarea {
 		flex: 1;
-		min-width: 200px;
-		padding: 6px 8px;
+		min-width: rem(200);
+		padding: rem(6) rem(8);
 		border: 1px solid $color-border;
 		border-radius: $radius;
 		font-size: $font-size-sm;
-		min-height: 60px;
+		min-height: rem(60);
 		resize: vertical;
 	}
 
 	button {
-		padding: 6px 16px;
+		padding: rem(6) rem(16);
 		font-size: $font-size-sm;
+
 		@include fs-btn-primary(0.88);
 
 		&.fs-btn-return {
@@ -171,14 +173,14 @@
 
 	th {
 		text-align: left;
-		padding: 8px 10px;
+		padding: rem(8) rem(10);
 		border-bottom: 2px solid $color-border;
 		color: $color-muted;
 		font-weight: $font-semibold;
 	}
 
 	td {
-		padding: 8px 10px;
+		padding: rem(8) rem(10);
 		border-bottom: 1px solid $color-border-light;
 		color: $color-text;
 	}

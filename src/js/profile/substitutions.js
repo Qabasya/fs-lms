@@ -5,6 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, emptyState } from './utils.js';
+import { icoCaret, icoSwap } from '../common/icons.js';
 import { createApi } from './api.js';
 import { openGroupPicker } from './picker.js';
 
@@ -62,7 +63,7 @@ function wrap(inner) {
             <div class="subs-title">Замены</div>
             <button class="prof-btn prof-btn-sm subs-group-btn" id="subsGroupBtn">
                 ${esc(g ? g.name + ' · ' + g.subject : 'Группа')}
-                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>
+                ${icoCaret(12)}
             </button>
         </div>
         ${inner}
@@ -188,8 +189,6 @@ async function setRoom(form, clear) {
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 function fmt(s) { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : s; }
 
-const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M4 7h11m0 0-3-3m3 3-3 3M20 17H9m0 0 3-3m-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
 function emptyHtml(title, text) {
-    return emptyState('prof-subs', EMPTY_ICON, title, text);
+    return emptyState('prof-subs', icoSwap(34), title, text);
 }

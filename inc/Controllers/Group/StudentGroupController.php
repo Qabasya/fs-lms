@@ -51,11 +51,14 @@ class StudentGroupController extends AjaxController {
 	 */
 	protected function ajaxActions(): array {
 		return array(
-			array( AjaxHook::SaveStudentGroup,       $this->student_group_callbacks ),
-			array( AjaxHook::UpdateStudentGroup,     $this->student_group_callbacks ),
-			array( AjaxHook::DeleteStudentGroup,     $this->student_group_callbacks ),
-			array( AjaxHook::GetStudentsByGroup,     $this->student_group_callbacks ),
-			array( AjaxHook::GetGroupStudentsDetail, $this->student_group_callbacks ),
+			array( AjaxHook::SaveStudentGroup,        $this->student_group_callbacks ),
+			array( AjaxHook::UpdateStudentGroup,      $this->student_group_callbacks ),
+			array( AjaxHook::DeleteStudentGroup,      $this->student_group_callbacks ),
+			array( AjaxHook::GetStudentsByGroup,      $this->student_group_callbacks ),
+			array( AjaxHook::GetGroupStudentsDetail,  $this->student_group_callbacks ),
+			// Эпик 15 — открытые группы: пикер учеников + лёгкая запись существующих.
+			array( AjaxHook::SearchStudentsForGroup,  $this->student_group_callbacks ),
+			array( AjaxHook::AddStudentsToOpenGroup,  $this->student_group_callbacks ),
 		);
 	}
 }

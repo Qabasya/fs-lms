@@ -3,11 +3,11 @@
 
 .fs-carousel-divider {
   max-width: $max-width;
-  margin: 56px auto 0;
+  margin: rem(56) auto 0;
 }
 
 .fs-carousel-header {
-  margin-bottom: 20px;
+  margin-bottom: rem(20);
 }
 
 .fs-carousel-title {
@@ -22,7 +22,7 @@
 .fs-task-carousel {
   position: relative;
   max-width: $max-width;
-  margin: 28px auto 0;
+  margin: rem(28) auto 0;
   padding: 0 $carousel-padding;
 }
 
@@ -42,12 +42,12 @@
   a {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    min-height: 140px;
+    gap: rem(10);
+    min-height: rem(140);
     background: $color-white;
     border: 1px solid $color-border;
     border-radius: $radius-lg;
-    padding: 22px 24px;
+    padding: rem(22) rem(24);
     transition: border-color $transition, box-shadow $transition;
 
     &:hover {
@@ -67,7 +67,9 @@
       font-size: $font-size-xs;
       color: $color-muted;
       line-height: 1.5;
+
       @include line-clamp(3);
+
       margin: 0;
     }
 
@@ -90,35 +92,36 @@
 }
 
 .fs-task-carousel .fs-carousel-btn {
-  @include circle-btn(36px);
+  @include circle-btn(rem(36));
+
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
   color: $color-text;
 
-  &.fs-carousel-btn--prev { left: 4px; }
-  &.fs-carousel-btn--next { right: 4px; }
+  &.fs-carousel-btn--prev { left: rem(4); }
+  &.fs-carousel-btn--next { right: rem(4); }
 }
 
 .fs-carousel-dots {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 6px;
+  gap: rem(6);
   margin-top: $spacing-lg;
 }
 
 .fs-task-carousel .fs-carousel-dot {
-  height: 4px;
-  width: 20px;
+  height: rem(4);
+  width: rem(20);
   border-radius: 2px;
   background: $color-border;
   cursor: pointer;
   transition: width .25s ease, background .25s ease;
 
   &.is-active {
-    width: 36px;
+    width: rem(36);
     background: $color-accent;
   }
 }

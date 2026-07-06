@@ -255,6 +255,7 @@ class AdminCallbacks extends BaseController {
 				'schedule_raw' => $g->meetings ?? '[]',
 				'period_id'    => $g->academic_period_id,
 				'subject_key'  => $g->subject_key,
+				'access_mode'  => (string) ( $g->access_mode ?? 'scheduled' ),
 				'active_count' => $this->studentRecordRepository->countActiveByGroup( (int) $g->id ),
 			),
 			$groups

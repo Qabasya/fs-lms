@@ -23,7 +23,9 @@ class LearnerProfileController extends AjaxController {
 
 	protected function ajaxActions(): array {
 		return array(
-			array( AjaxHook::GetLearnerProfile, $this->callbacks ),
+			array( AjaxHook::GetLearnerProfile,   $this->callbacks ),
+			// Эпик 15 (П10): самозапись ученика в открытую группу.
+			array( AjaxHook::SelfEnrollOpenGroup, $this->callbacks ),
 		);
 	}
 }

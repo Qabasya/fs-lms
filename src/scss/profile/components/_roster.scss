@@ -5,31 +5,31 @@
 @use '../variables' as *;
 
 .prof-roster {
-  padding: 22px 26px 40px;
+  padding: rem(22) rem(26) rem(40);
 }
 
 .pr-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: rem(16);
+  margin-bottom: rem(18);
 }
 
-.pr-title { font-size: 18px; font-weight: 700; color: var(--ink); }
-.pr-sub   { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.pr-title { font-size: rem(18); font-weight: 700; color: var(--ink); }
+.pr-sub   { font-size: rem(13); color: var(--muted); margin-top: rem(2); }
 
 .pr-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: rem(8);
 }
 
 .pr-row {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
+  gap: rem(14);
+  padding: rem(12) rem(16);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -39,29 +39,29 @@
 
 .pr-ava {
   flex: none;
-  width: 38px; height: 38px;
+  width: rem(38); height: rem(38);
   border-radius: 50%;
   display: grid; place-items: center;
-  color: var(--ink-inverse); font-size: 13px; font-weight: 700;
+  color: var(--ink-inverse); font-size: rem(13); font-weight: 700;
 }
 
 .pr-info { flex: 1 1 auto; min-width: 0; }
-.pr-name { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.pr-name { font-size: rem(14.5); font-weight: 600; color: var(--ink); }
 
 .pr-indis {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: rem(6);
+  margin-top: rem(6);
 }
-.pr-indis-empty { font-size: 12px; color: var(--muted-2); }
+.pr-indis-empty { font-size: rem(12); color: var(--muted-2); }
 
 .pr-indi {
   display: inline-flex;
   align-items: baseline;
-  gap: 2px;
-  font-size: 11.5px;
-  padding: 2px 8px;
+  gap: rem(2);
+  font-size: rem(11.5);
+  padding: rem(2) rem(8);
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--ink-2);
@@ -76,6 +76,6 @@
 .pr-indi-cancelled { text-decoration: line-through; color: var(--muted-2); }
 
 @media (max-width: $breakpoint-mobile) {
-  .prof-roster { padding: 16px 14px 32px; }
+  .prof-roster { padding: rem(16) rem(14) rem(32); }
   .pr-row { flex-wrap: wrap; }
 }

@@ -1,4 +1,4 @@
-@use '../../admin/variables' as *;
+@use '../../shared/tokens' as *;
 
 .fs-confirm-overlay {
   position: fixed;
@@ -16,7 +16,7 @@
   border-radius: $border-radius-l;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
   padding: $spacing-xl $spacing-xxl;
-  max-width: 420px;
+  max-width: rem(420);
   width: 100%;
 }
 

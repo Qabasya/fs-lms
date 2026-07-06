@@ -1,6 +1,6 @@
 @use 'variables' as *;
-
 @use "sass:color";
+
 // Глобальные миксины для админки FS-LMS
 
 // ── Кнопки в сайдбаре (постбокс)
@@ -16,6 +16,7 @@
 @mixin focus-ring($color: var(--color-primary), $outline: true) {
   border-color: $color;
   box-shadow: 0 0 0 1px $color;
+
   @if $outline {
     outline: none;
   }
@@ -26,17 +27,21 @@
 @mixin wp-input(
   $focus-color: var(--color-primary),
   $height: null,
-  $radius: 2px,
+  $radius: rem(2),
   $fs: $font-size,
   $transition: border-color 0.1s ease-in-out,
   $box-sizing: null
 ) {
   width: 100%;
-  @if $height != null { height: $height; }
+
+  @if $height { height: $height; }
+
   padding: 0 $spacing-md;
   border: 1px solid $color-border-input;
   border-radius: $radius;
-  @if $box-sizing != null { box-sizing: $box-sizing; }
+
+  @if $box-sizing { box-sizing: $box-sizing; }
+
   font-size: $fs;
   transition: $transition;
 
@@ -93,6 +98,7 @@
       }
     }
   }
+
   .trash {
     a, button {
       color: $danger-color !important;
@@ -111,13 +117,13 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23646970' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right $spacing-md center;
-  padding-right: 35px;
+  padding-right: rem(35);
 }
 
 // ── Базовые стили textarea (высота тянется по контенту)
 @mixin textarea-base {
   height: auto;
-  min-height: 100px;
+  min-height: rem(100);
   resize: vertical;
 }
 
@@ -125,10 +131,11 @@
 @mixin callout($accent, $bg-alpha, $text: null) {
   background: rgba($accent, $bg-alpha);
   border: 1px solid rgba($accent, 0.2);
-  border-left: 4px solid $accent;
+  border-left: rem(4) solid $accent;
   border-radius: 0 $border-radius-md $border-radius-md 0;
   padding: $spacing-sm $spacing-md;
-  @if $text != null {
+
+  @if $text {
     color: $text;
   }
 }
@@ -149,7 +156,7 @@
 // ── Бейдж-пилюля: общая база формы (статусы заявок .fs-lms-status и т.п.)
 @mixin badge-base {
   display: inline-block;
-  padding: 2px $spacing-sm;
+  padding: rem(2) $spacing-sm;
   border-radius: $border-radius-md;
   white-space: nowrap;
 }
@@ -159,7 +166,8 @@
 @mixin badge-colors($bg, $fg, $border: null) {
   background: $bg;
   color: $fg;
-  @if $border != null {
+
+  @if $border {
     border: 1px solid $border;
   }
 }
@@ -186,7 +194,7 @@
 //    $prop — свойство (background/color). $child — опц. потомок (.sh-badge)
 @mixin step-type-colors($prop, $child: null) {
   @each $name, $colour in $step-type-colors {
-    @if $child == null {
+    @if not $child {
       &[data-type="#{$name}"] { #{$prop}: $colour; }
     } @else {
       &[data-type="#{$name}"] { #{$child} { #{$prop}: $colour; } }
@@ -207,13 +215,13 @@
 // ── D1: каркас two-pane конструктора (.builder ≡ .fs-sb-builder)
 @mixin cb-builder-shell {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: rem(320) 1fr;
   background: $color-bg-modal;
   border: 1px solid $wp-admin-gray-bg;
   box-shadow: $shadow-cb-builder;
   border-radius: $border-radius-l;
   overflow: hidden;
-  min-height: 640px;
+  min-height: rem(640);
 }
 
 // ── D2: левая панель-рельса (.tree-pane ≡ .fs-sb-tree)
@@ -227,7 +235,7 @@
 
 // ── D3: шапка рельсы (.tree-head ≡ .fs-sb-tree-head) — только plain-декларации
 @mixin cb-tree-head {
-  padding: $spacing-md 14px;
+  padding: $spacing-md rem(14);
   border-bottom: 1px solid $wp-admin-gray-bg;
   display: flex;
   align-items: center;
@@ -246,17 +254,18 @@
 @mixin cb-tree-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px $spacing-sm;
-  border-radius: 5px;
+  gap: rem(7);
+  padding: rem(6) $spacing-sm;
+  border-radius: rem(5);
   cursor: pointer;
   margin: 1px 0;
   position: relative;
 
   &:hover { background: $cb-bg-hover; }
+
   &.active {
     background: $cb-bg-active;
-    &::before { content: ""; position: absolute; left: -7.5px; top: $spacing-xs; bottom: $spacing-xs; width: 3px; background: var(--color-primary); border-radius: 2px; }
+    &::before { content: ""; position: absolute; left: rem(-7.5); top: $spacing-xs; bottom: $spacing-xs; width: rem(3); background: var(--color-primary); border-radius: rem(2); }
   }
 }
 
@@ -287,21 +296,22 @@
 @mixin cb-title-row {
   display: flex;
   align-items: center;
-  gap: $spacing-sm + 2px;
-  margin-bottom: 14px;
+  gap: rem(10);
+  margin-bottom: rem(14);
 }
 
 // ── пустое состояние (.editor-empty / .fs-sb-empty).
 //    $flex:false — вариант step-editor (без flex:1); $min-height разный.
 @mixin cb-empty($min-height, $flex: true) {
   @if $flex { flex: 1; }
+
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: $color-secondary-hover;
   text-align: center;
-  padding: 40px;
+  padding: rem(40);
   gap: $spacing-md;
   min-height: $min-height;
 }
@@ -311,6 +321,7 @@
 //    split cb-chip→svg→plain. :hover добавляется в файле при необходимости.
 @mixin cb-ghost-button {
   @include cb-chip;
+
   border: 1px solid $wp-admin-gray-bg;
   background: transparent;
   color: $color-text-secondary;
@@ -337,8 +348,8 @@
 
 // ── D12: точка статуса сохранения (.saved-dot ≡ .fs-sb-dot)
 @mixin cb-status-dot {
-  width: 7px;
-  height: 7px;
+  width: rem(7);
+  height: rem(7);
   border-radius: 50%;
   background: $wp-admin-green;
 }
@@ -360,7 +371,8 @@
   gap: $spacing-sm;
   font-size: $font-size-wp;
   color: $color-text-secondary;
-  #{$mark} { width: 14px; text-align: center; flex-shrink: 0; }
+  #{$mark} { width: rem(14); text-align: center; flex-shrink: 0; }
+
   &.is-correct {
     color: $color-text-primary;
     font-weight: $font-bold;
@@ -393,10 +405,11 @@
   line-height: 1.8;
   color: $color-text-primary;
 }
+
 @mixin cb-qa-gap-fill {
   display: inline-block;
-  min-width: 50px;
-  padding: 0 4px;
+  min-width: rem(50);
+  padding: 0 rem(4);
   border-bottom: 2px solid var(--color-primary);
   border-radius: 2px;
   background: $wp-admin-blue-bg-light;
@@ -408,5 +421,24 @@
 @mixin cb-qa-subtask-ans {
   color: $wp-admin-green;
   font-weight: $font-bold;
-  margin-top: 2px;
+  margin-top: rem(2);
+}
+
+// ── cb-chip — общий стиль чип/бейдж/кнопка (lesson-flag, sh-badge,
+//    sh-btn, fs-cb-ref .button, fs-cb-ref-title). Переехал из _variables.
+@mixin cb-chip {
+  height: rem(32);
+  min-height: 0;
+  padding: 0 rem(11);
+  box-sizing: border-box;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: rem(5);
+  font-size: $font-size-wp;
+  font-weight: $font-bold;
+  white-space: nowrap;
+  border-radius: $border-radius-pill;
+
+  svg { fill: currentcolor; width: rem(14); height: rem(14); flex-shrink: 0; }
 }

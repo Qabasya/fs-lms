@@ -7,6 +7,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, initials, avaColor, todayIso, emptyState, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
+import { icoCheck, icoCross, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
 import { MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
@@ -56,6 +57,12 @@ async function load() {
 /* ── Помесячная пагинация (T11.5) ─────────────────────────────────────── */
 /** Собирает отсортированный список месяцев из занятий и выбирает активный. */
 function computeMonths() {
+    // Эпик 15: открытая группа — занятия без дат, помесячная пагинация не применима.
+    if (state.data.open) {
+        state.months = [];
+        state.monthIdx = 0;
+        return;
+    }
     const set = new Set((state.data.lessons || []).map(l => l.date.slice(0, 7)));
     state.months = [...set].sort();
     // По умолчанию — текущий месяц, иначе последний прошедший, иначе первый.
@@ -113,7 +120,7 @@ function render() {
 
     const lessons = lessonsForMonth();
     if (!lessons.length) {
-        root.innerHTML = wrap(g, emptyInline('В этом месяце нет занятий.'));
+        root.innerHTML = wrap(g, emptyInline(state.data.open ? 'В программе нет занятий.' : 'В этом месяце нет занятий.'));
         bindChrome();
         return;
     }
@@ -123,7 +130,7 @@ function render() {
             <tr>
                 <th class="col-idx"><div class="hd-idx">#</div></th>
                 <th class="col-name"><div class="hd-name">Ученик</div></th>
-                ${lessons.map(lessonHead).join('')}
+                ${lessons.map((l, i) => lessonHead(l, i)).join('')}
             </tr>
         </thead>`;
 
@@ -176,9 +183,10 @@ function wrap(g, inner) {
         </div>
         <div class="prof-journal-wrap">${inner}</div>
         <div class="j-legend-bottom">
+            ${d.open ? '<span class="jlb-label">Открытая группа — посещаемость не ведётся.</span>' : `
             <span class="jlb-label">Посещаемость:</span>
             <span class="jl"><span class="jl-sw jl-sw--present"></span>Присутствовал</span>
-            <span class="jl"><span class="jl-sw jl-sw--absent"></span>Отсутствовал</span>
+            <span class="jl"><span class="jl-sw jl-sw--absent"></span>Отсутствовал</span>`}
             <span class="jlb-label">Работы:</span>
             <span class="jl">СР/ПР/ДЗ/КР/ЭКЗ — сырые баллы за занятие</span>
         </div>
@@ -194,7 +202,13 @@ function filterBar() {
     </div>`;
 }
 
-function lessonHead(l) {
+function lessonHead(l, i) {
+    // Эпик 15: открытая группа — занятия без дат, в шапке порядковый номер урока.
+    if (state.data.open || !l.date) {
+        return `<th class="hd-col" data-glid="${l.group_lesson_id}" title="${esc(l.topic)}">
+            <div class="hd-date">№${i + 1}</div>
+        </th>`;
+    }
     const [, m, dd] = l.date.split('-');
     const future = isFutureDate(l.date);
     // НБ-3: в шапке столбца — только дата; день недели и кабинет убраны из
@@ -230,12 +244,17 @@ function worksFor(glid, pid) {
 
 function attCell(pid, l) {
     const glid = l.group_lesson_id;
-    const st = attState(glid, pid);
-    const cls = ['gc', 'att'];
-    if (isFutureDate(l.date)) cls.push('future');
+    const open = !!state.data.open;
+    // Эпик 15: открытая группа — ячейка без посещаемости (класс att не ставится,
+    // клики-попапы отметки не работают), только результаты работ.
+    const cls = open ? ['gc'] : ['gc', 'att'];
     let att = '';
-    if (st === 'present') { cls.push('present'); att = '<span class="g-val att-y">+</span>'; }
-    else if (st === 'absent') { cls.push('absent'); att = '<span class="g-val att-n">Н</span>'; }
+    if (!open) {
+        const st = attState(glid, pid);
+        if (isFutureDate(l.date)) cls.push('future');
+        if (st === 'present') { cls.push('present'); att = '<span class="g-val att-y">+</span>'; }
+        else if (st === 'absent') { cls.push('absent'); att = '<span class="g-val att-n">Н</span>'; }
+    }
 
     const works = worksFor(glid, pid);
     if (works.length) cls.push('has-works');
@@ -244,11 +263,12 @@ function attCell(pid, l) {
             `<span class="cw${w.display === 'pending' ? ' pending' : ''}${w.overdue ? ' overdue' : ''}"${w.overdue ? ' title="Сдано после дедлайна"' : ''}><b>${esc(w.badge)}</b>${w.display === 'pending' ? '' : ' ' + esc(w.value)}</span>`).join('')}</div>`
         : '';
 
-    return `<td class="${cls.join(' ')}" data-glid="${glid}" data-pid="${pid}"><div class="cell-att">${att}</div>${worksHtml}</td>`;
+    return `<td class="${cls.join(' ')}" data-glid="${glid}" data-pid="${pid}">${open ? '' : `<div class="cell-att">${att}</div>`}${worksHtml}</td>`;
 }
 
 /* ── Interactions ─────────────────────────────────────────────────────── */
 function onGridClick(e) {
+    if (state.data.open) return; // открытая группа: посещаемость не ведётся
     const td = e.target.closest('td.gc.att');
     if (td) {
         if (isFutureLesson(+td.dataset.glid)) { toast('Занятие ещё не прошло', 'error'); return; }
@@ -292,11 +312,11 @@ function openAttPopover(glid, pid, td) {
 function openColumnMenu(glid, th) {
     const html = `
         <div class="ctx-item" data-bulk="1">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            ${icoCheck(16)}
             Все присутствуют
         </div>
         <div class="ctx-item danger" data-bulk="0">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            ${icoCross(16)}
             Все отсутствуют
         </div>`;
     openCtxMenuRaw(html, th);
@@ -323,10 +343,8 @@ function refreshAttCell(glid, pid) {
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="3.5" width="18" height="17" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 8h18M9 8v12" stroke="currentColor" stroke-width="1.6"/></svg>';
-
 function emptyHtml(title, text) {
-    return emptyState('prof-journal', EMPTY_ICON, title, text);
+    return emptyState('prof-journal', icoJournal(34), title, text);
 }
 function emptyInline(text) {
     return `<div class="j-empty">${esc(text)}</div>`;

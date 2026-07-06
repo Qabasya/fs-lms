@@ -3,17 +3,17 @@
 
 .fs-task-sidebar {
   position: sticky;
-  top: 28px;
+  top: rem(28);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: rem(14);
 }
 
 .fs-sidebar-block {
   background: $color-white;
   border: 1px solid $color-border-light;
   border-radius: $radius-lg;
-  padding: 20px 22px 22px;
+  padding: rem(20) rem(22) rem(22);
 }
 
 .fs-sidebar-title {
@@ -22,7 +22,7 @@
   text-transform: uppercase;
   letter-spacing: .08em;
   color: $color-separator;
-  margin: 0 0 10px;
+  margin: 0 0 rem(10);
 }
 
 .fs-sidebar-stub {
@@ -36,7 +36,7 @@
   font-size: $font-size-xxs;
   color: $color-separator;
   transition: color $transition;
-  margin-top: 20px;
+  margin-top: rem(20);
 
   &:hover { color: $color-accent; }
 }
@@ -44,7 +44,7 @@
 .fs-sidebar-articles {
   list-style: none;
   padding: 0;
-  margin: 0 0 14px;
+  margin: 0 0 rem(14);
 
   li {
     padding: $spacing-md 0;
@@ -56,7 +56,7 @@
     a {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: rem(3);
       transition: color $transition;
 
       &:hover { color: $color-accent; }
@@ -74,6 +74,8 @@
   font-size: $font-size-xxs;
   color: $color-muted;
   line-height: $line-height-tight;
+
   @include line-clamp(2);
+
   transition: color $transition;
 }

@@ -1,9 +1,9 @@
 // Личный кабинет — сборка бандла profile.min.css.
-// Токены — в _variables.scss (по аналогии с admin/_variables.scss),
-// компоненты — в components/. Порядок подключения сохраняет каскад
+// Токены бандла — _variables.scss; ОБЩАЯ тема кабинета+плеера —
+// shared/cabinet/_theme.scss. Порядок подключения сохраняет каскад
 // исходной монолитной _core.scss: base → оболочка → примитивы → экраны.
 @use 'variables';
-
+@use '../shared/cabinet/theme';
 @use '../shared/chip-palette';
 @use 'components/base';
 @use 'components/layout';
