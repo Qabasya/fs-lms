@@ -130,6 +130,9 @@
 			@include cb-ghost-button;
 			&:hover { background: $cb-bg-hover; }
 		}
+		.button.button-primary {
+			@include cb-chip-solid;
+		}
 		.button.fs-sb-btn-danger { border-color: $color-danger; color: $color-danger;
 			&:hover { background: $cb-danger-hover-bg; }
 		}

@@ -16,6 +16,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Services\Course\EffectiveTeacherResolver;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\LessonGateResolver;
@@ -45,6 +46,7 @@ class LearnerService {
 		private readonly LessonProgressService   $progress,
 		private readonly SubjectRepository       $subjects,
 		private readonly RoomRepository          $rooms,
+		private readonly EffectiveTeacherResolver $effectiveTeacher,
 	) {}
 
 	/** @return array<string, mixed> */
@@ -82,9 +84,10 @@ class LearnerService {
 		}
 
 		// Карта занятий групп ученика (+ его индивидуальные).
-		$lessonMap = array();
-		$allLessons = array();
-		$rawRows    = array(); // T12.2: сырые строки — нужны для per-work дедлайнов ниже.
+		$lessonMap    = array();
+		$allLessons   = array();
+		$rawRows      = array(); // T12.2: сырые строки — нужны для per-work дедлайнов ниже.
+		$teacherNames = array(); // кэш id→display_name на всё построение.
 		foreach ( $groupIds as $gid ) {
 			$gname = $groups[ $gid ]['name'];
 			foreach ( $this->groupLessons->listByGroup( $gid ) as $row ) {
@@ -95,6 +98,11 @@ class LearnerService {
 				$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
 				// #14: эффективный кабинет занятия = кабинет строки ?? дефолтный кабинет группы.
 				$roomId     = ! empty( $row->roomId ) ? (int) $row->roomId : (int) ( $groups[ $gid ]['room_id'] ?? 0 );
+				// Фактический препод занятия (Эпик 5, D5): разовый override › замена › препод группы.
+				$teacherId = $this->effectiveTeacher->forLesson( $row );
+				if ( $teacherId && ! isset( $teacherNames[ $teacherId ] ) ) {
+					$teacherNames[ $teacherId ] = get_userdata( $teacherId )->display_name ?? '';
+				}
 				$item       = array(
 					'group_lesson_id' => $row->id,
 					'group_id'        => $gid,
@@ -107,6 +115,7 @@ class LearnerService {
 					'visibility'      => $row->visibility,
 					'kind'            => $row->kind,
 					'room'            => $roomId > 0 ? ( $roomNames[ $roomId ] ?? '' ) : '',
+					'teacher'         => $teacherId ? ( $teacherNames[ $teacherId ] ?? '' ) : '',
 					// Вход в плеер курса (T14.13): урок с контентом получает ссылку
 					// в плеер и статус прохождения (done / available / locked).
 					'player_url'      => $hasContent ? $this->playerUrl( $gid, $row->id ) : '',

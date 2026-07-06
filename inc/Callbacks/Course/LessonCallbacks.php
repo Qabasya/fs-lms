@@ -11,6 +11,7 @@ use Inc\Enums\Subject\TemplateCategory;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\LessonManager;
 use Inc\Services\Course\LessonAuthoringService;
+use Inc\Services\Course\LessonVisibilityService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -27,8 +28,9 @@ class LessonCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly LessonAuthoringService $authoringService,
-		private readonly LessonManager          $lessonManager,
+		private readonly LessonAuthoringService  $authoringService,
+		private readonly LessonManager           $lessonManager,
+		private readonly LessonVisibilityService $visibilityService,
 	) {
 		parent::__construct();
 	}
@@ -185,6 +187,8 @@ class LessonCallbacks extends BaseController {
 			status    : $lesson->status,
 		);
 		$this->lessonManager->update( $lesson_id, $dto );
+		// Уже открытым для групп занятиям — доложить новые работы урока (copy-on-publish).
+		$this->visibilityService->syncExtraWorksForOpenOccurrences( $lesson_id );
 
 		$this->success( array( 'count' => count( $steps ) ) );
 	}

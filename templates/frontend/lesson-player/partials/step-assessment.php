@@ -30,6 +30,18 @@ $asm_url     = (string) ( $render['url'] ?? '' );
 $asm_passed  = 'completed' === $step['status'];
 $asm_tasks   = is_array( $render['tasks'] ?? null ) ? $render['tasks'] : array();
 $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
+
+// T15.7: возврат «Вернуться» со страницы контрольной — в этот же шаг плеера
+// (AssessmentPageController::resolveBackUrl), не только на /profile/.
+if ( '' !== $asm_url && empty( $is_preview ) ) {
+	$asm_url = (string) add_query_arg(
+		array(
+			'from_gid' => (int) ( $groupId ?? 0 ),
+			'from_gl'  => (int) ( $view['group_lesson_id'] ?? $view['lesson_id'] ?? 0 ),
+		),
+		$asm_url
+	);
+}
 ?>
 <div class="card16">
 	<div class="kick">
@@ -143,7 +155,7 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 			<?php if ( '' !== $asm_url ) : ?>
 				<div>
 					<a class="b b-pri b-lg" href="<?php echo esc_url( $asm_url ); ?>">
-						<?php echo $asm_passed ? esc_html__( 'Открыть контрольную', 'fs-lms' ) : esc_html__( 'Перейти к контрольной', 'fs-lms' ); ?>
+						<?php echo $asm_passed ? esc_html__( 'Открыть контрольную', 'fs-lms' ) : esc_html__( 'Начать контрольную', 'fs-lms' ); ?>
 						<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 					</a>
 				</div>

@@ -229,6 +229,19 @@ class GroupLessonRepository {
 		return (bool) $this->wpdb->delete( $this->table, array( 'id' => $id ) );
 	}
 
+	/** @return GroupLessonDTO[] Все строки программы (всех групп), ссылающиеся на эталонный урок. */
+	public function listByLessonId( int $lessonId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE lesson_id = %d',
+				$this->table,
+				$lessonId
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
 	public function countUsageByLesson( int $lessonId ): int {
 		return (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(

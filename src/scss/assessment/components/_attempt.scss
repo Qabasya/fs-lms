@@ -1,0 +1,326 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Прохождение контрольной/экзамена (Эпик 15, T15.2/T15.4) — визуальный
+   язык 1:1 со степ-карточками плеера (card16/.b-атомы, токены _variables).
+   Разметка и классы — те же, что были в frontend/components/_assessment.scss
+   (JS-логика в src/js/frontend/services/assessment.js не менялась, T15.5),
+   здесь только новые значения на токенах плеера вместо frontend-токенов.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../../player/variables' as *;
+
+.fs-assessment-page {
+  width: var(--colw);
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 28px 0 40px;
+}
+
+.fs-assessment-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+
+.fs-assessment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.fs-assessment-meta-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font: 600 12.5px var(--font);
+  color: var(--ink-2);
+}
+
+.fs-assessment-notice {
+  padding: 16px 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+/* ── Таймер ─────────────────────────────────────────────────────────── */
+.fs-assessment-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  margin-bottom: 16px;
+  font: 700 19px var(--mono);
+  color: var(--ink);
+
+  &.fs-timer--warning {
+    color: var(--err);
+    border-color: var(--err-line);
+    background: var(--err-soft);
+  }
+
+  &.fs-timer--expired {
+    color: var(--err);
+    border-color: var(--err-line);
+  }
+}
+
+/* ── Вопросы ────────────────────────────────────────────────────────── */
+.fs-attempt-question {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px 28px;
+  margin-bottom: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.fs-attempt-question-number {
+  font-weight: 700;
+  color: var(--accent-700);
+  margin-bottom: 6px;
+}
+
+.fs-attempt-question-content {
+  margin-bottom: 12px;
+  color: var(--ink-2);
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.fs-attempt-answer {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font: 14px/1.5 var(--font);
+  color: var(--ink);
+  transition: border-color $tr;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+}
+
+.fs-save-status {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 8px;
+}
+
+/* ── Действия ───────────────────────────────────────────────────────── */
+.fs-attempt-actions {
+  margin-top: 22px;
+  display: flex;
+  gap: 10px;
+}
+
+/* ── Результат (текущая попытка после Сдать) ───────────────────────────── */
+#fs-assessment-result {
+  padding: 22px 26px;
+  background: var(--ok-soft);
+  border: 1px solid var(--ok-line);
+  border-radius: var(--radius);
+  margin-top: 22px;
+
+  h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+}
+
+.fs-result-score {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.fs-start-notice {
+  font-size: 13px;
+  color: var(--err);
+  margin-top: 10px;
+}
+
+/* ── Развёрнутый ответ: файлы + материалы (Эпик 13, D16) ──────────────── */
+.fs-attempt-materials {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+
+  &__title { font-weight: 600; margin-bottom: 6px; }
+
+  &__link {
+    display: block;
+    margin-bottom: 6px;
+    word-break: break-all;
+    color: var(--accent-700);
+  }
+}
+
+/* ── T13.7: результат завершённой попытки ──────────────────────────────── */
+.fs-assessment-result-page {
+  padding: 22px 26px;
+  background: var(--ok-soft);
+  border: 1px solid var(--ok-line);
+  border-radius: var(--radius);
+  margin-top: 22px;
+
+  h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+}
+
+.fs-result-tasks { margin-top: 14px; }
+
+.fs-result-task {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-2);
+
+  &:last-child { border-bottom: none; }
+
+  &__n {
+    font-weight: 600;
+    color: var(--accent-700);
+    min-width: 24px;
+    flex-shrink: 0;
+  }
+
+  &__body { flex: 1; min-width: 0; }
+
+  &__score,
+  &__verdict {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+  }
+}
+
+.fs-result-criteria {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    font-size: 13px;
+    color: var(--ink-2);
+    margin-bottom: 6px;
+
+    &::before {
+      content: '•';
+      color: var(--accent);
+      margin-right: 6px;
+    }
+  }
+}
+
+.fs-result-files {
+  margin-top: 10px;
+
+  &__title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+
+  &__preview {
+    display: block;
+    max-width: 240px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    margin-bottom: 6px;
+  }
+
+  &__link {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 6px;
+    word-break: break-all;
+    color: var(--accent-700);
+  }
+}
+
+/* ── Развёрнутый ответ: прикладываемые файлы (Эпик 13, D16) ────────────── */
+.fs-attempt-files {
+  margin: 10px 0;
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 13px;
+  }
+
+  &__chip-remove {
+    border: none;
+    background: transparent;
+    color: var(--err);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  &__status { font-size: 13px; color: var(--err); }
+
+  &__hint {
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+}
+
+/* ── Кнопки (те же fs-btn* классы, что использует assessment.js —
+     ничего не переименовываем, только визуал на атомах плеера .b/.b-pri/.b-gh) ── */
+.fs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: 600 13px var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover { background: var(--surface-2); }
+}
+
+.fs-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+
+  &:hover { background: var(--accent-600); }
+}
+
+.fs-btn--secondary {
+  background: transparent;
+  border-color: var(--line);
+
+  &:hover { background: var(--surface-2); }
+}

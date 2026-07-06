@@ -14,6 +14,10 @@ use Inc\Enums\Assessment\AttemptStatus;
 <div class="fs-page-wrapper">
 	<div class="fs-assessment-page">
 
+		<div class="kick">
+			<span class="tbadge" data-step-type="assessment"><?php echo esc_html( $assessment->kind->label() ); ?></span>
+		</div>
+
 		<h1 class="fs-assessment-title"><?php echo esc_html( $assessment->title ); ?></h1>
 
 		<div class="fs-assessment-meta">

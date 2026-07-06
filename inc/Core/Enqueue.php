@@ -381,6 +381,67 @@ class Enqueue extends BaseController implements ServiceInterface {
 	}
 
 	/**
+	 * Подключение изолированного бандла страницы контрольной/экзамена (Эпик 15,
+	 * T15.1/T15.2) — bare-шелл на токенах плеера, без темы сайта. Взводится
+	 * только для дефолтного рендерера `AssessmentPageController` (см. ROUTE_FILTER);
+	 * модульные скины (EgeComputer и т.п.) остаются на старом frontend-стеке
+	 * ниже — см. ветку `is_singular() && isAssessmentPostType()`.
+	 *
+	 * @return void
+	 */
+	private function enqueue_assessment_assets(): void {
+		wp_enqueue_style(
+			'fs-lms-assessment-style',
+			$this->url( 'assets/css/assessment.min.css' ),
+			array(),
+			filemtime( $this->path( 'assets/css/assessment.min.css' ) )
+		);
+
+		wp_enqueue_script(
+			'fs-lms-assessment-script',
+			$this->url( 'assets/js/assessment.min.js' ),
+			array(),
+			filemtime( $this->path( 'assets/js/assessment.min.js' ) ),
+			true
+		);
+
+		wp_localize_script(
+			'fs-lms-assessment-script',
+			'fs_lms_assessment_vars',
+			array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'actions'  => array(
+					'startAttempt'      => AjaxHook::StartAttempt->jsAction(),
+					'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
+					'submitAttempt'     => AjaxHook::SubmitAttempt->jsAction(),
+					'getAttemptResult'  => AjaxHook::GetAttemptResult->jsAction(),
+					// Эпик 13 (D16): двухшаговая загрузка файла ответа («Развёрнутый ответ»).
+					'uploadAnswerFile'  => AjaxHook::UploadAnswerFile->jsAction(),
+				),
+				'nonces'   => array(
+					'startAttempt'     => Nonce::StartAttempt->create(),
+					'submitAttempt'    => Nonce::SubmitAttempt->create(),
+					'uploadAnswerFile' => Nonce::UploadAnswerFile->create(),
+				),
+			)
+		);
+
+		// MathJax v3 — рендеринг LaTeX-формул в условиях заданий (как в плеере).
+		wp_enqueue_script(
+			'fs-lms-mathjax',
+			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
+			array(),
+			null,
+			true
+		);
+		wp_add_inline_script(
+			'fs-lms-mathjax',
+			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
+			'before'
+		);
+	}
+
+	/**
 	 * Подключение ресурсов на фронтенде (публичная часть сайта).
 	 *
 	 * @return void
@@ -390,6 +451,13 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// только бандл плеера, без frontend/theme-стека.
 		if ( apply_filters( 'fs_lms_is_player_route', false ) ) {
 			$this->enqueue_player_assets();
+			return;
+		}
+
+		// Страница прохождения контрольной/экзамена (Эпик 15, T15.1/T15.2) —
+		// изолированный bare-шелл, только для дефолтного рендерера attempt.php.
+		if ( apply_filters( 'fs_lms_is_assessment_route', false ) ) {
+			$this->enqueue_assessment_assets();
 			return;
 		}
 

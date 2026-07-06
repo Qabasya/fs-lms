@@ -17,6 +17,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Services\Course\EffectiveTeacherResolver;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\LessonGateResolver;
@@ -40,6 +41,7 @@ class LearnerServiceTest extends TestCase {
 	private $subjects;
 	private $rooms;
 	private $courses;
+	private $effectiveTeacher;
 	private LearnerService $service;
 
 	protected function setUp(): void {
@@ -63,11 +65,12 @@ class LearnerServiceTest extends TestCase {
 		$this->rooms         = $this->createMock( RoomRepository::class );
 		$this->rooms->method( 'findAll' )->willReturn( array() );
 		$this->gate->method( 'resolveLesson' )->willReturn( \Inc\Enums\Course\GateState::Available );
+		$this->effectiveTeacher = $this->createMock( EffectiveTeacherResolver::class );
 		$this->service = new LearnerService(
 			$this->records, $this->groups, $this->groupLessons, $this->lessons, $this->courses,
 			$this->gradebook, $this->attendance, $this->clock,
 			$this->submissions, $this->worksResolver, $this->gate, $this->progress,
-			$this->subjects, $this->rooms,
+			$this->subjects, $this->rooms, $this->effectiveTeacher,
 		);
 	}
 

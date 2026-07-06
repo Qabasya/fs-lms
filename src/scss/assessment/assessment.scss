@@ -1,0 +1,13 @@
+// Страница прохождения контрольной/экзамена (Эпик 15) — сборка assessment.min.css.
+// Изолированный бандл: грузится только на bare-шелле контрольной
+// (AssessmentPageController, дефолтный рендерер — см. T15.1/T15.2).
+// Переиспользует токены/атомы плеера напрямую из src/scss/player/ (единый
+// источник для .card16/.b*/.s-top и т.п.), не подключая player.min.js/остальной
+// player-стек — только то, что нужно для bare-шелла + карточек ответа.
+@use '../player/variables';
+
+@use '../player/components/base';
+@use '../player/components/types';
+@use '../player/components/shell';
+@use '../player/components/card';
+@use 'components/attempt';

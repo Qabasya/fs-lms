@@ -9,6 +9,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Subject\TaskTemplate;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
@@ -35,6 +36,16 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 	 *   add_filter('fs_lms_assessment_renderer', fn($tpl, $kind, $subject) => 'путь/к/скину.php', 10, 3)
 	 */
 	public const RENDERER_FILTER = 'fs_lms_assessment_renderer';
+
+	/**
+	 * WP filter: признак «страница прохождения контрольной на bare-шелле плеера»
+	 * (Эпик 15, T15.1/T15.2) — по нему `Enqueue::enqueue_frontend_assets()`
+	 * подключает изолированный бандл `assessment.min.css/js` вместо темы сайта.
+	 * Взводится только для дефолтного рендерера (attempt.php); модульные скины
+	 * (напр. EgeComputer) намеренно оставлены на старом ThemeCompatService-флоу —
+	 * см. T15.9.
+	 */
+	public const ROUTE_FILTER = 'fs_lms_is_assessment_route';
 
 	public function __construct(
 		private readonly AssessmentManager           $assessments,
@@ -121,10 +132,46 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 			$template = $defaultTemplate;
 		}
 
+		// T15.1/T15.9: дефолтный рендерер получает bare-шелл плеера (см. ROUTE_FILTER);
+		// модульные скины (EgeComputer и т.п.) намеренно остаются на старом
+		// ThemeCompatService-флоу — их визуальный порт в шелл плеера не входит в Эпик 15.
+		if ( $defaultTemplate === $template ) {
+			add_filter( self::ROUTE_FILTER, '__return_true' );
+
+			$backUrl = $this->resolveBackUrl();
+
+			include $this->path( 'templates/frontend/assessment/attempt-shell-header.php' );
+			include $template;
+			include $this->path( 'templates/frontend/assessment/attempt-shell-footer.php' );
+			exit;
+		}
+
 		ThemeCompatService::header();
 		include $template;
 		ThemeCompatService::footer();
 		exit;
+	}
+
+	/**
+	 * Ссылка «Вернуться» в шапке bare-шелла (T15.7): возврат в исходный шаг
+	 * плеера, если контрольная была открыта из него (`?from_gid=&from_gl=`,
+	 * см. `partials/step-assessment.php`), иначе — на `/profile/`.
+	 */
+	private function resolveBackUrl(): string {
+		$fromGid = isset( $_GET['from_gid'] ) ? absint( wp_unslash( $_GET['from_gid'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$fromGl  = isset( $_GET['from_gl'] ) ? absint( wp_unslash( $_GET['from_gl'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( $fromGid > 0 && $fromGl > 0 ) {
+			return (string) add_query_arg(
+				array(
+					'gid' => $fromGid,
+					'gl'  => $fromGl,
+				),
+				PageRoutes::GroupCockpit->url()
+			);
+		}
+
+		return PageRoutes::UserProfile->url();
 	}
 
 	/**

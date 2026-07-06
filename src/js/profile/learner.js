@@ -376,9 +376,14 @@ function renderAttendance(root, d) {
 }
 
 /* ── Rows ─────────────────────────────────────────────────────────────── */
-/** #14: пометка кабинета «· Каб. N» (пусто, если кабинет не задан). */
+/** #14: пометка аудитории «· Название» (пусто, если аудитория не задана). */
 function roomTag(l) {
-    return l.room ? ` · Каб. ${esc(l.room)}` : '';
+    return l.room ? ` · ${esc(l.room)}` : '';
+}
+
+/** Имя преподавателя занятия (полностью, с учётом замены — Эпик 5). */
+function teacherTag(l) {
+    return l.teacher ? ` · ${esc(l.teacher)}` : '';
 }
 
 function schedRow(l) {
@@ -387,7 +392,7 @@ function schedRow(l) {
         <div class="prof-lesson-bar"></div>
         <div class="prof-lesson-body">
             <div class="prof-lesson-grp">${esc(l.group_name)}${l.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
-            <div class="prof-lesson-topic">${esc(l.topic || '—')}${roomTag(l)}</div>
+            <div class="prof-lesson-topic">${esc(l.topic || '—')}${roomTag(l)}${teacherTag(l)}</div>
         </div>`;
     // #3: клик по занятию в расписании ведёт прямо в плеер курса — даже если урок
     // ещё заблокирован по времени (там ученика встретит экран ожидания + таймер).

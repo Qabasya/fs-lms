@@ -175,19 +175,51 @@
 	}
 }
 
-// ── Материалы задания (Эпик 13, D16) ──────────────────────────────────────────
+// ── Ссылка на файл (LinkField): инпут + кнопка «из библиотеки» в одну строку ──
 
-.fs-task-materials-field {
-	.fs-task-materials__list {
-		@extend %task-list-reset;
+.fs-lms-file-group {
+	.fs-lms-input-wrapper {
+		display: flex;
+		align-items: center;
+		gap: v.$spacing-sm;
 	}
 
-	.fs-task-materials__item {
-		@extend %task-field-row;
-		margin-bottom: v.$spacing-xs;
+	.fs-lms-file-input {
+		flex: 1;
+		height: v.$input-height;
+		box-sizing: border-box;
+	}
+
+	.js-file-link-select {
+		flex-shrink: 0;
+		height: v.$input-height;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+}
+
+// ── Материалы задания (Эпик 13, D16 → одиночный файл) ─────────────────────────
+
+.fs-task-materials-field {
+	.fs-task-materials__preview {
+		display: flex;
+		align-items: center;
+		gap: v.$spacing-md;
+		margin-bottom: v.$spacing-md;
+		padding: v.$spacing-sm v.$spacing-md;
+		background: v.$wp-admin-gray-bg-light;
+		border: 1px solid v.$color-border-input;
+		border-radius: v.$border-radius-md;
+	}
+
+	.fs-task-materials__actions {
+		display: flex;
+		align-items: center;
+		gap: v.$spacing-sm;
 
 		.js-materials-remove {
-			@extend %task-row-remove;
+			color: v.$color-danger;
 		}
 	}
 }

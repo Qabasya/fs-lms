@@ -318,6 +318,23 @@
   text-decoration: none;
 }
 
+// ── Primary pill-кнопка (та же геометрия cb-chip, но акцентный цвет —
+//    для «Создать задачу» и т.п., чтобы не выпадать из чип-ряда через button-primary)
+@mixin cb-chip-solid {
+  @include cb-chip;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  line-height: 1;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    color: #fff;
+  }
+}
+
 // ── D12: точка статуса сохранения (.saved-dot ≡ .fs-sb-dot)
 @mixin cb-status-dot {
   width: 7px;
