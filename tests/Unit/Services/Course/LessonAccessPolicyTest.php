@@ -92,12 +92,13 @@ class LessonAccessPolicyTest extends TestCase {
 		self::assertSame( AccessLevel::None, $this->policy->resolve( $record, $lesson ) );
 	}
 
-	public function test_hidden_lesson_auto_open_before_enrollment_is_read_only(): void {
-		// Урок открылся по дате ДО зачисления ученика (бэк-каталог) → только чтение.
+	public function test_active_student_auto_open_before_enrollment_can_submit(): void {
+		// Право сдачи «позднего» ученика: занятие открылось по дате ДО зачисления —
+		// активный всё равно может сдавать (правило изменено).
 		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-04-01 00:00:00' );
 		$lesson = $this->makeLesson( visibility: 'hidden', openedAt: null, scheduledAt: '2024-03-01 09:00:00' );
 
-		self::assertSame( AccessLevel::Read, $this->policy->resolve( $record, $lesson ) );
+		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
 	}
 
 	public function test_active_student_lesson_opened_after_enrollment_gets_read_submit(): void {
@@ -107,18 +108,20 @@ class LessonAccessPolicyTest extends TestCase {
 		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
 	}
 
-	public function test_active_student_lesson_opened_before_enrollment_gets_read(): void {
+	public function test_active_student_lesson_opened_before_enrollment_can_submit(): void {
+		// Урок открыт до зачисления — «поздний» активный ученик тоже вправе сдавать.
 		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-02-01 00:00:00' );
 		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-10 00:00:00' );
 
-		self::assertSame( AccessLevel::Read, $this->policy->resolve( $record, $lesson ) );
+		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
 	}
 
-	public function test_active_student_not_yet_opened_lesson_gets_read(): void {
+	public function test_active_student_open_lesson_without_opened_at_can_submit(): void {
+		// visibility=open без opened_at → урок открыт, активный ученик может сдавать.
 		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-01-01 00:00:00' );
 		$lesson = $this->makeLesson( visibility: 'open', openedAt: null );
 
-		self::assertSame( AccessLevel::Read, $this->policy->resolve( $record, $lesson ) );
+		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
 	}
 
 	public function test_expelled_retain_lesson_opened_before_expulsion_gets_read(): void {
@@ -223,13 +226,14 @@ class LessonAccessPolicyTest extends TestCase {
 		self::assertTrue( $this->policy->canRead( 5, 42 ) );
 	}
 
-	public function test_can_submit_returns_false_for_back_catalog(): void {
+	public function test_can_submit_true_for_back_catalog_late_student(): void {
+		// «Поздний» активный ученик тоже может сдавать бэк-каталог (правило изменено).
 		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-02-01 00:00:00' );
 		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-01 00:00:00', groupId: 10 );
 		$this->groupLessons->method( 'find' )->with( 42 )->willReturn( $lesson );
 		$this->studentRecords->method( 'findAllByStudentAndGroup' )->willReturn( [ $record ] );
 
-		self::assertFalse( $this->policy->canSubmit( 5, 42 ) );
+		self::assertTrue( $this->policy->canSubmit( 5, 42 ) );
 	}
 
 	public function test_can_read_returns_false_when_lesson_not_found(): void {

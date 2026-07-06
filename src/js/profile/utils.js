@@ -66,6 +66,13 @@ export function fmtDayMonth(s) {
     return p.length === 3 ? `${p[2]}.${p[1]}` : s;
 }
 
+/** Полная дата 'ДД.ММ.ГГГГ'. */
+export function fmtDate(s) {
+    if (!s) return '';
+    const p = String(s).slice(0, 10).split('-');
+    return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : s;
+}
+
 /** Сегодняшняя дата 'YYYY-MM-DD'. */
 export function todayIso() {
     return new Date().toISOString().slice(0, 10);

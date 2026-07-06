@@ -442,6 +442,63 @@ class Enqueue extends BaseController implements ServiceInterface {
 	}
 
 	/**
+	 * Подключение изолированного бандла станции КЕГЭ (T15.10) — bare-документ
+	 * на токенах плеера, свой JS/CSS. Модуль EgeComputer (опциональный, см.
+	 * inc/Modules/EgeComputer/) взводит fs_lms_is_kege_route в
+	 * AssessmentPageController; ядро о модуле не знает, только читает фильтр.
+	 *
+	 * @return void
+	 */
+	private function enqueue_kege_assets(): void {
+		wp_enqueue_style(
+			'fs-lms-kege-style',
+			$this->url( 'assets/css/kege.min.css' ),
+			array(),
+			filemtime( $this->path( 'assets/css/kege.min.css' ) )
+		);
+
+		wp_enqueue_script(
+			'fs-lms-kege-script',
+			$this->url( 'assets/js/kege.min.js' ),
+			array(),
+			filemtime( $this->path( 'assets/js/kege.min.js' ) ),
+			true
+		);
+
+		wp_localize_script(
+			'fs-lms-kege-script',
+			'fs_lms_kege_vars',
+			array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'actions'  => array(
+					'startAttempt'      => AjaxHook::StartAttempt->jsAction(),
+					'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
+					'submitAttempt'     => AjaxHook::SubmitAttempt->jsAction(),
+					'getAttemptResult'  => AjaxHook::GetAttemptResult->jsAction(),
+				),
+				'nonces'   => array(
+					'startAttempt'  => Nonce::StartAttempt->create(),
+					'submitAttempt' => Nonce::SubmitAttempt->create(),
+				),
+			)
+		);
+
+		// MathJax v3 — рендеринг LaTeX-формул в условиях заданий (как в плеере).
+		wp_enqueue_script(
+			'fs-lms-mathjax',
+			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
+			array(),
+			null,
+			true
+		);
+		wp_add_inline_script(
+			'fs-lms-mathjax',
+			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
+			'before'
+		);
+	}
+
+	/**
 	 * Подключение ресурсов на фронтенде (публичная часть сайта).
 	 *
 	 * @return void
@@ -451,6 +508,14 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// только бандл плеера, без frontend/theme-стека.
 		if ( apply_filters( 'fs_lms_is_player_route', false ) ) {
 			$this->enqueue_player_assets();
+			return;
+		}
+
+		// Станция КЕГЭ (T15.10) — свой изолированный бандл, взводится модулем
+		// EgeComputer через AssessmentPageController::KEGE_ROUTE_FILTER.
+		// Проверяется раньше générique fs_lms_is_assessment_route.
+		if ( apply_filters( 'fs_lms_is_kege_route', false ) ) {
+			$this->enqueue_kege_assets();
 			return;
 		}
 

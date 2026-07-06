@@ -16,6 +16,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Services\Assessment\ExamLockService;
 use Inc\Services\Course\EffectiveTeacherResolver;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GradebookService;
@@ -47,6 +48,7 @@ class LearnerService {
 		private readonly SubjectRepository       $subjects,
 		private readonly RoomRepository          $rooms,
 		private readonly EffectiveTeacherResolver $effectiveTeacher,
+		private readonly ExamLockService         $examLock,
 	) {}
 
 	/** @return array<string, mixed> */
@@ -147,6 +149,10 @@ class LearnerService {
 			foreach ( $this->submissions->listByStudentAndGroupLesson( $personId, $glid ) as $sub ) {
 				$submittedWorkIds[ $sub->workId ] = true;
 			}
+			// Урок строки — для deep-link к конкретной работе (ключ шага); базовый
+			// URL плеера уже посчитан в lessonMap (для уроков с контентом).
+			$lesson  = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
+			$baseUrl = (string) ( $lessonMap[ $glid ]['player_url'] ?? '' );
 			foreach ( $this->worksResolver->resolve( $row ) as $work ) {
 				if ( isset( $submittedWorkIds[ $work->id ] ) ) {
 					continue;
@@ -155,11 +161,17 @@ class LearnerService {
 				if ( null === $due ) {
 					continue;
 				}
+				// Bug 2: ссылка «сразу к нужной работе» — плеер урока + ?step=<ключ шага>.
+				$stepKey = $lesson?->stepKeyForWork( $work->id );
+				$workUrl = ( '' !== $baseUrl && $stepKey )
+					? (string) add_query_arg( 'step', $stepKey, $baseUrl )
+					: $baseUrl;
 				$deadlines[] = array(
 					'due_at'     => $due,
 					'topic'      => $work->title,
 					'group_name' => $lessonMap[ $glid ]['group_name'],
 					'overdue'    => $due < $now,
+					'player_url' => $workUrl,
 				);
 			}
 		}
@@ -169,12 +181,14 @@ class LearnerService {
 		$grades = array();
 		foreach ( $this->gradebook->forStudent( $personId ) as $e ) {
 			$grades[] = array(
-				'title'      => $e->title,
-				'category'   => $e->category,
-				'value'      => $e->displayValue(),
-				'display'    => $e->displayType,
-				'graded_at'  => $e->gradedAt,
-				'group_name' => $groups[ $e->groupId ]['name'] ?? '',
+				'title'       => $e->title,
+				'category'    => $e->category,
+				'type'        => $e->badge?->label() ?? '', // Домашнее задание / Практическая / Контрольная / Экзамен…
+				'group_key'   => $e->groupKey ?? ( $e->sourceType . ':' . $e->sourceId ), // группировка попыток одной работы
+				'value'       => $e->displayValue(),
+				'display'     => $e->displayType,
+				'graded_at'   => $e->gradedAt,
+				'group_name'  => $groups[ $e->groupId ]['name'] ?? '',
 			);
 		}
 		$recent = array_values( array_filter( $grades, static fn( $g ) => ! empty( $g['graded_at'] ) ) );
@@ -198,7 +212,20 @@ class LearnerService {
 		}
 		usort( $rows, static fn( $a, $b ) => strcmp( (string) $b['date'], (string) $a['date'] ) );
 
+		// Активная контрольная блокирует ВЕСЬ контент (ExamLockService). Отдаём это
+		// явно, чтобы кабинет писал «Недоступно, пока идёт контрольная» + ссылку на
+		// неё, а не вводящее в заблуждение «курс стартует / откроется по дате».
+		$lockAttempt = $this->examLock->getActiveLockingAttempt( $personId );
+		$examLock    = null;
+		if ( null !== $lockAttempt ) {
+			$examLock = array(
+				'title' => get_the_title( $lockAttempt->assessmentId ) ?: 'Контрольная',
+				'url'   => (string) get_permalink( $lockAttempt->assessmentId ),
+			);
+		}
+
 		return array(
+			'exam_lock' => $examLock,
 			'groups'    => array_values( $groups ),
 			'courses'   => $this->buildCourses( $groups, $rawRows, $lessonMap, $roomNames ),
 			// Эпик 15 (П10): каталог открытых курсов для самозаписи.

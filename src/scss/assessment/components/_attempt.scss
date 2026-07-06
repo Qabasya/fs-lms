@@ -7,6 +7,23 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../../player/variables' as *;
 
+/* Индикатор «идёт контрольная» вместо кнопки «Вернуться» в шапке bare-шелла:
+   пока идёт незавершённая попытка, выхода со страницы нет — только сдать работу. */
+.s-locked {
+  display: flex;
+  align-items: center;
+  gap: rem(8);
+  flex-shrink: 0;
+  padding: rem(8) rem(12);
+  color: var(--muted);
+  font-size: rem(13.5);
+  font-weight: 600;
+  cursor: default;
+  user-select: none;
+
+  svg { flex-shrink: 0; }
+}
+
 .fs-assessment-page {
   width: var(--colw);
   max-width: 100%;
@@ -49,28 +66,32 @@
   font-size: 14.5px;
 }
 
-/* ── Таймер ─────────────────────────────────────────────────────────── */
-.fs-assessment-timer {
+/* ── Таймер в липкой шапке .s-top (всегда виден при скролле) ─────────── */
+.s-timer {
+  margin-left: auto; // прижать вправо в шапке
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: var(--surface);
+  gap: 7px;
+  padding: 6px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 8px 16px;
-  margin-bottom: 16px;
-  font: 700 19px var(--mono);
+  background: var(--surface);
+  font: 700 15px var(--mono);
   color: var(--ink);
+  font-variant-numeric: tabular-nums;
 
-  &.fs-timer--warning {
-    color: var(--err);
+  svg { flex-shrink: 0; color: var(--muted-2); }
+
+  // JS вешает классы состояния на внутренний #fs-timer-display.
+  .fs-timer--warning,
+  .fs-timer--expired { color: var(--err); }
+
+  &:has(.fs-timer--warning),
+  &:has(.fs-timer--expired) {
     border-color: var(--err-line);
     background: var(--err-soft);
-  }
 
-  &.fs-timer--expired {
-    color: var(--err);
-    border-color: var(--err-line);
+    svg { color: var(--err); }
   }
 }
 
@@ -91,10 +112,9 @@
 }
 
 .fs-attempt-question-content {
+  // Типографику (шрифт/цвет/интерлиньяж, код/таблицы/картинки) задаёт .wpc —
+  // единый с плеером стиль контента; здесь только внешний отступ.
   margin-bottom: 12px;
-  color: var(--ink-2);
-  line-height: 1.65;
-  font-size: 14px;
 }
 
 .fs-attempt-answer {
@@ -124,6 +144,15 @@
   margin-top: 22px;
   display: flex;
   gap: 10px;
+  justify-content: flex-end; // «Сдать контрольную» по правому краю
+}
+
+/* Кнопки под плашкой результата: «Пройти ещё раз» слева, «Вернуться» справа. */
+.fs-result-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 /* ── Результат (текущая попытка после Сдать) ───────────────────────────── */
@@ -169,12 +198,16 @@
 /* ── T13.7: результат завершённой попытки ──────────────────────────────── */
 .fs-assessment-result-page {
   padding: 22px 26px;
-  background: var(--ok-soft);
-  border: 1px solid var(--ok-line);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   margin-top: 22px;
 
   h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+
+  // Цвет плашки по исходу (модификатор ставит attempt.php).
+  &--ok     { background: var(--ok-soft);   border-color: var(--ok-line);   h2 { color: var(--ok-ink); } }
+  &--fail   { background: var(--err-soft);  border-color: var(--err-line);  h2 { color: var(--err-ink); } }
+  &--review { background: var(--wait-soft); border-color: var(--wait-line); h2 { color: var(--wait-ink); } }
 }
 
 .fs-result-tasks { margin-top: 14px; }
@@ -307,6 +340,9 @@
   text-decoration: none;
 
   &:hover { background: var(--surface-2); }
+
+  &:disabled,
+  &[disabled] { opacity: 0.5; cursor: default; pointer-events: none; }
 }
 
 .fs-btn--primary {

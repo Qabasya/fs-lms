@@ -45,6 +45,16 @@ class EgeComputerModule implements ServiceInterface {
 			. '../../..' // → plugins/fs-lms
 			. '/templates/frontend/assessment/ege-computer.php';
 
-		return realpath( $template ) ?: $default;
+		$resolved = realpath( $template );
+		if ( ! $resolved ) {
+			return $default;
+		}
+
+		// Своя станция КЕГЭ рендерится как bare-документ (собственная шапка/
+		// таймер/сайдбар — не совпадает с générique-шеллом Эпика 15), см.
+		// AssessmentPageController::KEGE_ROUTE_FILTER + Enqueue::enqueue_kege_assets().
+		add_filter( AssessmentPageController::KEGE_ROUTE_FILTER, '__return_true' );
+
+		return $resolved;
 	}
 }

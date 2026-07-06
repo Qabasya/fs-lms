@@ -42,27 +42,20 @@ class LessonAccessPolicy {
 			return AccessLevel::None;
 		}
 
-		// Эффективная дата открытия: авто-открытый урок «открылся» в момент занятия
-		// (scheduled_at), даже если openedAt не проставлялся ручной публикацией.
+		// Эффективная дата открытия: открытый урок без явного opened_at «открылся»
+		// в момент занятия (scheduled_at). Покрывает и авто-открытие (было hidden,
+		// дата наступила), и урок с visibility=open, которому opened_at не проставили
+		// (иначе активный ученик получал бы только Read и не мог сдать — баг сдачи).
 		$openedAt = $lesson->openedAt;
-		if ( null === $openedAt
-			&& LessonVisibility::Hidden->value === $lesson->visibility
-			&& LessonVisibility::Open->value === $effectiveVisibility
-		) {
+		if ( null === $openedAt && LessonVisibility::Open->value === $effectiveVisibility ) {
 			$openedAt = $lesson->scheduledAt;
 		}
 
 		if ( $record->status === EnrollmentStatus::Active ) {
-			// Открытая группа (Эпик 15): контент проходится в своём темпе, сравнение
-			// даты открытия урока с датой зачисления не имеет смысла — активному всегда сдача.
-			if ( $this->isOpenGroup( $lesson->groupId ) ) {
-				return AccessLevel::ReadSubmit;
-			}
-			// Поздний ученик видит весь бэк-каталог; сдавать может только с даты своего зачисления.
-			if ( null !== $openedAt && $openedAt >= $record->enrolledAt ) {
-				return AccessLevel::ReadSubmit;
-			}
-			return AccessLevel::Read;
+			// Активный ученик может сдавать любой доступный (открытый) урок —
+			// в т.ч. занятия, прошедшие ДО его зачисления: «поздний» ученик тоже
+			// вправе сдавать работы (скрытые/будущие уроки отсекаются выше как None).
+			return AccessLevel::ReadSubmit;
 		}
 
 		// Терминальный статус.

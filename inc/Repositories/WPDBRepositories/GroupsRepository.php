@@ -6,6 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Enums\Settings\TableName;
 use Inc\Services\Group\MeetingsNormalizer;
+use Inc\Shared\PluginLogger;
 
 /**
  * Class GroupsRepository
@@ -262,7 +263,25 @@ class GroupsRepository {
 	 * @return int ID созданной группы
 	 */
 	public function create( array $data ): int {
-		$this->wpdb->insert( $this->table, $data );
+		$result = $this->wpdb->insert( $this->table, $data );
+
+		// Не проглатываем ошибку БД: при провале insert (например, отсутствует
+		// колонка/невалидное enum-значение — так проявлялся баг с access_mode на
+		// стендах без применённой миграции) логируем last_error, чтобы причина
+		// не терялась за общим «Не удалось создать группу».
+		if ( false === $result ) {
+			PluginLogger::warning(
+				'GroupsRepository',
+				'insert failed',
+				array(
+					'table'      => $this->table,
+					'columns'    => array_keys( $data ),
+					'last_error' => $this->wpdb->last_error,
+				)
+			);
+			return 0;
+		}
+
 		return (int) $this->wpdb->insert_id;
 	}
 

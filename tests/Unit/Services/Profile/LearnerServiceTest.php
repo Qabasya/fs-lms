@@ -42,6 +42,7 @@ class LearnerServiceTest extends TestCase {
 	private $rooms;
 	private $courses;
 	private $effectiveTeacher;
+	private $examLock;
 	private LearnerService $service;
 
 	protected function setUp(): void {
@@ -66,11 +67,12 @@ class LearnerServiceTest extends TestCase {
 		$this->rooms->method( 'findAll' )->willReturn( array() );
 		$this->gate->method( 'resolveLesson' )->willReturn( \Inc\Enums\Course\GateState::Available );
 		$this->effectiveTeacher = $this->createMock( EffectiveTeacherResolver::class );
+		$this->examLock         = $this->createMock( \Inc\Services\Assessment\ExamLockService::class );
 		$this->service = new LearnerService(
 			$this->records, $this->groups, $this->groupLessons, $this->lessons, $this->courses,
 			$this->gradebook, $this->attendance, $this->clock,
 			$this->submissions, $this->worksResolver, $this->gate, $this->progress,
-			$this->subjects, $this->rooms, $this->effectiveTeacher,
+			$this->subjects, $this->rooms, $this->effectiveTeacher, $this->examLock,
 		);
 	}
 

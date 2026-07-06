@@ -5,6 +5,39 @@
 
 .prof-dash { padding: rem(24); max-width: rem(1320); margin: 0 auto; }
 
+/* Баннер «идёт контрольная»: весь кабинет заблокирован запирающей попыткой. */
+.prof-exam-lock {
+  display: flex;
+  align-items: center;
+  gap: rem(14);
+  margin-bottom: rem(18);
+  padding: rem(14) rem(18);
+  border: 1px solid var(--wait-line);
+  border-radius: var(--radius);
+  background: var(--wait-soft);
+  color: var(--wait-text);
+  text-decoration: none;
+  transition: background $tr, border-color $tr;
+
+  &:hover { background: color-mix(in oklab, var(--wait-soft) 80%, var(--wait) 8%); border-color: var(--wait); }
+
+  &__ico {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: rem(38);
+    height: rem(38);
+    border-radius: rem(10);
+    background: var(--wait-line);
+    color: var(--wait-ink);
+  }
+
+  &__body { flex: 1; min-width: 0; }
+  &__title { display: block; font-weight: 700; font-size: rem(14.5); color: var(--wait-ink); }
+  &__sub { display: block; font-size: rem(12.5); margin-top: 1px; }
+}
+
 .prof-sub-tag {
   display: inline-block; margin-left: rem(4); padding: 1px rem(7); border-radius: rem(10);
   background: var(--accent-soft); color: var(--accent-700);
@@ -127,6 +160,32 @@ a.prof-lesson-go { text-decoration: none; color: inherit; cursor: pointer; }
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);
 }
 .prof-work-count--pending { font-size: rem(10); color: var(--muted); }
+
+/* Тип работы рядом с названием (Домашнее задание / Практическая / Контрольная / Экзамен). */
+.prof-type-tag {
+  display: inline-block; margin-left: rem(6); padding: 1px rem(7); border-radius: rem(10);
+  background: var(--accent-soft); color: var(--accent-700);
+  font-size: rem(10.5); font-weight: 600; vertical-align: middle;
+}
+
+/* Группа оценок с аккордеоном попыток («Мои оценки»). */
+.prof-grade-group { border-bottom: 1px solid var(--line-2); }
+.prof-grade-group:last-child { border-bottom: none; }
+.prof-grade-group .prof-work-item { border-bottom: none; }
+
+.prof-grade-chev {
+  flex-shrink: 0; color: var(--muted-2); display: flex; align-items: center;
+  transition: transform $tr;
+}
+.prof-work-item.open .prof-grade-chev { transform: rotate(180deg); }
+
+.prof-grade-more { background: var(--surface-2); padding: rem(2) 0; }
+
+.prof-grade-attempt {
+  display: flex; align-items: center; justify-content: space-between; gap: rem(12);
+  padding: rem(8) rem(18) rem(8) rem(66);
+}
+.prof-grade-att-label { font-size: rem(12); color: var(--muted); }
 
 .prof-grp-card {
   display: flex; align-items: center; gap: rem(12); padding: rem(13) rem(18);

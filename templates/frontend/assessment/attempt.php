@@ -14,10 +14,6 @@ use Inc\Enums\Assessment\AttemptStatus;
 <div class="fs-page-wrapper">
 	<div class="fs-assessment-page">
 
-		<div class="kick">
-			<span class="tbadge" data-step-type="assessment"><?php echo esc_html( $assessment->kind->label() ); ?></span>
-		</div>
-
 		<h1 class="fs-assessment-title"><?php echo esc_html( $assessment->title ); ?></h1>
 
 		<div class="fs-assessment-meta">
@@ -43,11 +39,9 @@ use Inc\Enums\Assessment\AttemptStatus;
 			<?php /* ===== ФОРМА АКТИВНОЙ ПОПЫТКИ ===== */ ?>
 			<div id="fs-assessment-form"
 				data-attempt-id="<?php echo esc_attr( (string) $activeAttempt->id ); ?>"
-				data-deadline="<?php echo esc_attr( $activeAttempt->deadlineAt ); ?>">
+				<?php if ( $assessment->timeLimit > 0 ) : ?>data-deadline="<?php echo esc_attr( $activeAttempt->deadlineAt ); ?>"<?php endif; ?>>
 
-				<div class="fs-assessment-timer" id="fs-assessment-timer">
-					<span id="fs-timer-display">—</span>
-				</div>
+				<?php /* Таймер вынесен в липкую шапку .s-top (attempt-shell-header.php) — всегда виден при скролле. */ ?>
 
 				<form class="fs-attempt-form" novalidate>
 					<?php foreach ( $assessment->taskIds as $i => $taskId ) : ?>
@@ -55,15 +49,15 @@ use Inc\Enums\Assessment\AttemptStatus;
 						<?php if ( ! $task ) : continue; endif; ?>
 						<?php
 						// T13.5 (Эпик 13, D16): «Развёрнутый ответ» — файловый блок + материалы.
-						$taskView     = $taskViews[ (int) $taskId ] ?? array( 'template' => '', 'materials' => array() );
+						$taskView     = $taskViews[ (int) $taskId ] ?? array( 'template' => '', 'materials' => array(), 'condition' => '' );
 						$isFileAnswer = 'file_answer_task' === $taskView['template'];
 						?>
 						<div class="fs-attempt-question"
 							data-task-id="<?php echo esc_attr( (string) $taskId ); ?>"
 							<?php echo $isFileAnswer ? 'data-template="file_answer"' : ''; ?>>
 							<div class="fs-attempt-question-number"><?php echo esc_html( (string) ( $i + 1 ) ); ?>.</div>
-							<div class="fs-attempt-question-content">
-								<?php echo wp_kses_post( apply_filters( 'the_content', $task->post_content ) ); ?>
+							<div class="fs-attempt-question-content wpc">
+								<?php echo wp_kses_post( $taskView['condition'] ); ?>
 							</div>
 
 							<?php if ( $isFileAnswer && ! empty( $taskView['materials'] ) ) : ?>
@@ -104,10 +98,6 @@ use Inc\Enums\Assessment\AttemptStatus;
 									</div>
 								<?php endif; ?>
 
-								<button type="button" class="fs-btn fs-btn--secondary fs-autosave-btn">
-									Сохранить
-								</button>
-								<span class="fs-save-status" aria-live="polite"></span>
 							</div>
 						</div>
 					<?php endforeach; ?>
@@ -133,12 +123,28 @@ use Inc\Enums\Assessment\AttemptStatus;
 
 		<?php elseif ( $lastAttempt ) : ?>
 			<?php /* ===== T13.7: РЕЗУЛЬТАТ ЗАВЕРШЁННОЙ ПОПЫТКИ ===== */ ?>
-			<div class="fs-assessment-result-page">
+			<?php
+			// Максимум: из попытки (после автопроверки), иначе — из состава работы.
+			$resultMax = ( null !== $lastAttempt->maxScore && $lastAttempt->maxScore > 0 )
+				? (float) $lastAttempt->maxScore
+				: $assessment->maxPrimary();
+			$outcome   = $lastAttempt->outcomeLabel( $assessment->passScore );
+			// Цвет плашки: зелёный — успешно, красный — неуспешно/не сдана,
+			// жёлтый — ждёт ручной проверки (есть задание с развёрнутым ответом).
+			if ( AttemptStatus::Submitted === $lastAttempt->status ) {
+				$outcomeState = 'review';
+			} elseif ( AttemptStatus::Graded === $lastAttempt->status ) {
+				$outcomeState = ( $lastAttempt->totalScore ?? 0.0 ) >= $assessment->passScore ? 'ok' : 'fail';
+			} else {
+				$outcomeState = 'fail'; // expired / не сдана
+			}
+			?>
+			<div class="fs-assessment-result-page fs-assessment-result-page--<?php echo esc_attr( $outcomeState ); ?>">
 				<h2>Результат</h2>
 				<p class="fs-result-score">
-					Баллов: <?php echo esc_html( null !== $lastAttempt->totalScore ? (string) $lastAttempt->totalScore : '—' ); ?>
-					/ <?php echo esc_html( null !== $lastAttempt->maxScore ? (string) $lastAttempt->maxScore : '—' ); ?>
-					&bull; Статус: <?php echo esc_html( $lastAttempt->status->value ); ?>
+					Баллов: <?php echo esc_html( null !== $lastAttempt->totalScore ? (string) (float) $lastAttempt->totalScore : '—' ); ?>
+					/ <?php echo esc_html( (string) $resultMax ); ?>
+					&bull; <?php echo esc_html( $outcome ); ?>
 				</p>
 				<?php if ( ! empty( $resultPerTask ) ) : ?>
 					<div class="fs-result-tasks">
@@ -188,10 +194,22 @@ use Inc\Enums\Assessment\AttemptStatus;
 					</div>
 				<?php endif; ?>
 			</div>
-			<button class="fs-btn fs-btn--secondary" id="fs-start-attempt-btn"
-				data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>">
-				Пройти ещё раз
-			</button>
+			<div class="fs-result-actions">
+				<?php if ( $canRetry ) : ?>
+					<button class="fs-btn fs-btn--secondary" id="fs-start-attempt-btn"
+						data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>">
+						Пройти ещё раз
+					</button>
+				<?php else : ?>
+					<button class="fs-btn fs-btn--secondary" disabled
+						title="<?php esc_attr_e( 'Лимит попыток исчерпан', 'fs-lms' ); ?>">
+						Пройти ещё раз
+					</button>
+				<?php endif; ?>
+				<a class="fs-btn fs-btn--primary" href="<?php echo esc_url( $backUrl ); ?>">
+					Вернуться к курсу
+				</a>
+			</div>
 			<p class="fs-start-notice" id="fs-start-notice" aria-live="polite"></p>
 
 		<?php else : ?>

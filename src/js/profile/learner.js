@@ -4,8 +4,8 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDayMonth, emptyState, chipBg, chipText, chipSoft, toast } from './utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoClock, icoStar, icoHome } from '../common/icons.js';
+import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipText, chipSoft, toast } from './utils.js';
+import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
 
 const RENDERERS = {
@@ -80,6 +80,7 @@ function renderHome(root, d) {
     root.innerHTML = `
     <div class="prof-dash">
         ${childBar()}
+        ${examLockBanner(d)}
         <div class="prof-dash-hello">
             <h1>Здравствуйте, ${esc(name)} 👋</h1>
             <p>${d.groups.map(g => esc(g.name) + ' · ' + esc(g.subject)).join(' · ') || 'Нет активных групп'}</p>
@@ -113,6 +114,7 @@ function renderHome(root, d) {
    (LearnerService::buildCourses). Состояние (активный курс/раскрытие/поиск) —
    scState, переживает re-render экрана. ── */
 let scState = null;
+let scExamLock = null; // активная запирающая контрольная (см. examLockBanner / scRenderHero)
 
 function scPlural(n, forms) {
     const a = n % 10, b = n % 100;
@@ -128,9 +130,11 @@ const SC_PILL = {
 
 function renderLessons(root, d) {
     const courses = Array.isArray(d.courses) ? d.courses : [];
+    scExamLock = d.exam_lock || null;
     root.innerHTML = `
     <div class="prof-dash sc">
         ${childBar()}
+        ${examLockBanner(d)}
         <div class="prof-dash-hello">
             <h1>Мои курсы</h1>
             ${courses.length ? `<p>${courses.length} ${scPlural(courses.length, ['курс', 'курса', 'курсов'])}</p>` : ''}
@@ -236,7 +240,11 @@ function scRenderHero(courses) {
     const pct = c.total ? Math.round(c.passed / c.total * 100) : 0;
 
     let actions;
-    if (c.not_started) {
+    if (scExamLock) {
+        // Контент недоступен не по дате, а потому что идёт контрольная.
+        actions = `<a class="prof-btn prof-btn-primary sc-hbtn" href="${esc(scExamLock.url)}">Вернуться к контрольной</a>
+            <div class="sc-hint">курс недоступен, пока идёт контрольная</div>`;
+    } else if (c.not_started) {
         actions = `<span class="prof-btn sc-hbtn sc-dis">Старт ${c.start ? fmtDayMonth(c.start) : 'скоро'}</span>
             <div class="sc-hint">курс откроется после первого занятия</div>`;
     } else if (c.continue_url) {
@@ -388,16 +396,71 @@ function scSyncExpand(courses) {
 
 /* ── Grades (дневник, сырые баллы) ────────────────────────────────────── */
 function renderGrades(root, d) {
+    const groups = groupGrades(d.grades || []);
     root.innerHTML = `
     <div class="prof-dash">
         ${childBar()}
         <div class="prof-dash-hello"><h1>Мои оценки</h1><p>Решённые задачи и баллы за экзамены.</p></div>
         <div class="prof-card">
-            <div class="prof-card-head"><h3>Работы и контрольные</h3><span class="ch-sub">${d.grades.length}</span></div>
-            <div>${d.grades.length ? d.grades.map(gradeFullRow).join('') : empty('Оценок пока нет.')}</div>
+            <div class="prof-card-head"><h3>Работы и контрольные</h3><span class="ch-sub">${groups.length}</span></div>
+            <div>${groups.length ? groups.map(gradeGroupHtml).join('') : empty('Оценок пока нет.')}</div>
         </div>
     </div>`;
     wireChild(root);
+    // Аккордеон попыток: клик по строке разворачивает прошлые попытки.
+    root.querySelectorAll('[data-grade-toggle]').forEach((row) => {
+        row.addEventListener('click', () => {
+            const more = row.parentElement.querySelector('.prof-grade-more');
+            if (more) { more.hidden = !more.hidden; row.classList.toggle('open'); }
+        });
+    });
+}
+
+/** Группировка оценок по работе/контрольной (source_type:source_id); попытки — последняя первой. */
+function groupGrades(grades) {
+    const map = new Map();
+    grades.forEach((g) => {
+        const key = g.group_key || g.title;
+        if (!map.has(key)) { map.set(key, { title: g.title, type: g.type || '', group_name: g.group_name || '', attempts: [] }); }
+        map.get(key).attempts.push(g);
+    });
+    const groups = [...map.values()];
+    const byDateDesc = (a, b) => String(b.graded_at || '').localeCompare(String(a.graded_at || ''));
+    groups.forEach((gr) => gr.attempts.sort(byDateDesc));
+    groups.sort((a, b) => byDateDesc(a.attempts[0] || {}, b.attempts[0] || {}));
+    return groups;
+}
+
+function gradeGroupHtml(gr) {
+    const latest     = gr.attempts[0];
+    const more       = gr.attempts.slice(1);
+    const expandable = more.length > 0;
+    const pending    = latest.display === 'pending';
+    const typeTag    = gr.type ? `<span class="prof-type-tag">${esc(gr.type)}</span>` : '';
+    const cnt        = expandable ? ` · попыток: ${gr.attempts.length}` : '';
+    const sub        = [ esc(gr.group_name), fmtDateTime(latest.graded_at) ].filter(Boolean).join(' · ') + cnt;
+
+    const main = `<div class="prof-work-item${expandable ? ' is-clickable' : ''}"${expandable ? ' data-grade-toggle' : ''}>
+        <div class="prof-work-ico grade">${icoStar(18)}</div>
+        <div class="prof-work-main"><div class="prof-work-title">${esc(gr.title)}${typeTag}</div><div class="prof-work-sub">${sub}</div></div>
+        <span class="prof-work-count${pending ? ' prof-work-count--pending' : ''}">${esc(latest.value)}</span>
+        ${expandable ? `<span class="prof-grade-chev">${icoChevronDown(16)}</span>` : ''}
+    </div>`;
+
+    const moreHtml = expandable
+        ? `<div class="prof-grade-more" hidden>${more.map((a, i) => gradeAttemptRow(a, gr.attempts.length - 1 - i)).join('')}</div>`
+        : '';
+
+    return `<div class="prof-grade-group">${main}${moreHtml}</div>`;
+}
+
+/** Строка прошлой попытки в аккордеоне. n — номер попытки (1 = самая ранняя). */
+function gradeAttemptRow(a, n) {
+    const pending = a.display === 'pending';
+    return `<div class="prof-grade-attempt">
+        <span class="prof-grade-att-label">Попытка ${n}${a.graded_at ? ' · ' + esc(fmtDateTime(a.graded_at)) : ''}</span>
+        <span class="prof-work-count${pending ? ' prof-work-count--pending' : ''}">${esc(a.value)}</span>
+    </div>`;
 }
 
 /* ── Attendance ───────────────────────────────────────────────────────── */
@@ -448,32 +511,50 @@ function schedRow(l) {
     return `<div class="prof-lesson-row">${inner}</div>`;
 }
 
+// Баннер «идёт контрольная»: весь контент кабинета недоступен, пока активна
+// запирающая попытка (ExamLockService). Явно объясняет причину (а не «по дате»)
+// и ведёт обратно на контрольную, чтобы её завершить.
+function examLockBanner(d) {
+    if (!d.exam_lock) { return ''; }
+    return `<a class="prof-exam-lock" href="${esc(d.exam_lock.url)}">
+        <span class="prof-exam-lock__ico">${icoLock(20)}</span>
+        <span class="prof-exam-lock__body">
+            <span class="prof-exam-lock__title">Идёт контрольная «${esc(d.exam_lock.title)}»</span>
+            <span class="prof-exam-lock__sub">Курс недоступен, пока вы её не завершите. Нажмите, чтобы вернуться к работе.</span>
+        </span>
+        ${icoChevronRight(18)}
+    </a>`;
+}
+
 function dlRow(d) {
     // T12.2 (D13): прошедший дедлайн не скрываем — решать можно, помечаем «Просрочено».
-    const sub = d.overdue
-        ? `${esc(d.group_name)} · <span class="prof-dl-overdue">Просрочено</span> ${fmtDateTime(d.due_at)}`
-        : `${esc(d.group_name)} · до ${fmtDateTime(d.due_at)}`;
-    return `<div class="prof-work-item${d.overdue ? ' overdue' : ''}">
+    // Части соединяем через « · » с фильтром пустых — иначе при пустом названии
+    // группы строка начиналась с висячей точки «· …».
+    const when = d.overdue
+        ? `<span class="prof-dl-overdue">Просрочено</span> ${fmtDateTime(d.due_at)}`
+        : `до ${fmtDateTime(d.due_at)}`;
+    const sub = [ esc(d.group_name), when ].filter(Boolean).join(' · ');
+    const inner = `
         <div class="prof-work-ico att">${icoClock(18)}</div>
-        <div class="prof-work-main"><div class="prof-work-title">${esc(d.topic || 'Домашнее задание')}</div><div class="prof-work-sub">${sub}</div></div>
-    </div>`;
+        <div class="prof-work-main"><div class="prof-work-title">${esc(d.topic || 'Домашнее задание')}</div><div class="prof-work-sub">${sub}</div></div>`;
+    // Bug 2: клик по дедлайну ведёт прямо к нужной работе в плеере урока
+    // (?step=<ключ>); без player_url (урок без контента) — некликабельная строка.
+    if (d.player_url) {
+        return `<a class="prof-work-item prof-lesson-go is-clickable${d.overdue ? ' overdue' : ''}" href="${esc(d.player_url)}">${inner}</a>`;
+    }
+    return `<div class="prof-work-item${d.overdue ? ' overdue' : ''}">${inner}</div>`;
 }
 
 function gradeRow(g) {
+    // Дата + время сдачи (ДД.ММ.ГГГГ ЧЧ:ММ).
+    const sub = [ esc(g.group_name), fmtDateTime(g.graded_at) ].filter(Boolean).join(' · ');
     return `<div class="prof-work-item">
         <div class="prof-work-ico grade">${icoStar(18)}</div>
-        <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${esc(g.group_name)} · ${fmtDayMonth(g.graded_at)}</div></div>
+        <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${sub}</div></div>
         <span class="prof-work-count">${esc(g.value)}</span>
     </div>`;
 }
 
-function gradeFullRow(g) {
-    const pending = g.display === 'pending';
-    return `<div class="prof-work-item">
-        <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${esc(g.group_name)}${g.graded_at ? ' · ' + fmtDayMonth(g.graded_at) : ''}</div></div>
-        <span class="prof-work-count${pending ? ' prof-work-count--pending' : ''}">${esc(g.value)}</span>
-    </div>`;
-}
 
 function attRow(r) {
     return `<div class="prof-work-item">
@@ -497,7 +578,7 @@ function childName() {
     const c = children.find(x => String(x.personId) === String(cur));
     return c ? c.name : '';
 }
-function fmtDateTime(s) { if (!s) return ''; return fmtDayMonth(s) + ' ' + String(s).slice(11, 16); }
+function fmtDateTime(s) { if (!s) return ''; return fmtDate(s) + ' ' + String(s).slice(11, 16); }
 function empty(t) { return `<div class="rev-empty">${esc(t)}</div>`; }
 function emptyCard(t) { return `<div class="prof-card"><div class="prof-card-empty">${esc(t)}</div></div>`; }
 

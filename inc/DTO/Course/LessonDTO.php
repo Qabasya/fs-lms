@@ -100,6 +100,20 @@ readonly class LessonDTO {
 	}
 
 	/**
+	 * Ключ шага-работы по её id (для deep-link в плеер: ?step=<key>).
+	 * null, если работа не входит в этот урок.
+	 */
+	public function stepKeyForWork( int $workId ): ?string {
+		foreach ( $this->steps as $step ) {
+			if ( StepType::Work === $step->type && (int) ( $step->payload['ref'] ?? 0 ) === $workId ) {
+				return $step->key;
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Собирает refs шагов указанного типа (payload['ref']).
 	 *
 	 * @return int[]

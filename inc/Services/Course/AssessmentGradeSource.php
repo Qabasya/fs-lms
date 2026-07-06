@@ -60,6 +60,7 @@ class AssessmentGradeSource implements GradeSourceInterface {
 				displayType     : $displayType,
 				groupLessonId   : $attempt->groupLessonId,
 				badge           : $assessment ? GradeBadge::fromAssessmentKind( $assessment->kind ) : null,
+				groupKey        : 'assessment:' . $attempt->assessmentId,
 			);
 		}
 		return $entries;

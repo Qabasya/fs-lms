@@ -7,9 +7,12 @@
 
 .strip {
   display: flex;
-  gap: rem(16);
+  gap: rem(22);
   align-items: flex-start;
   margin: rem(4) 0 rem(18);
+  // Запас под done-галку (.sq::after: top:-5/right:-6) и лифт при hover,
+  // иначе значок частично обрезался верхним/правым краем контейнера.
+  padding: rem(8) rem(10) 0;
 }
 
 .stp {
@@ -17,7 +20,9 @@
   flex-direction: column;
   align-items: center;
   gap: rem(6);
-  width: rem(58);
+  // min-width, а не width: длинная подпись («Контрольная») раздвигает свой
+  // чип, короткие остаются компактными; квадрат остаётся по центру (align-items).
+  min-width: rem(58);
   user-select: none;
   cursor: pointer;
 

@@ -2,7 +2,7 @@
  * Работа-шаг (D19, T14.10/T14.11): прохождение стеком карточек задач с
  * виджетами, чипы «Ответ сохранён / Нет ответа», черновики в localStorage,
  * модалка подтверждения → SubmitBatchWork; экран результатов с per-task
- * вердиктами (без эталонов — D19), «Пройти заново», «К следующему уроку».
+ * вердиктами (без эталонов — D19) и кнопкой «Пройти заново».
  */
 import { initTaskWidget } from '../frontend/components/task-widget.js';
 import { getCore, onPanelShow, isPreview } from './core.js';
@@ -194,10 +194,10 @@ function mountWork( panel, root ) {
 		let h = '<div class="res">' +
 			`<span class="ri">${ ICO.check( 22 ) }</span>` +
 			'<span class="rt"><b>Работа завершена</b>' +
-				`<span>${ okCount } из ${ autoTotal } автопроверяемых задач — верно` +
+				`<span>${ okCount } из ${ autoTotal } задач решено верно` +
 				( manualCount ? ' · развёрнутые ответы на проверке у преподавателя' : '' ) + '</span></span>' +
 			'<span class="rstats">' +
-				`<span class="rs"><b>${ sub?.score ?? 0 } / ${ sub?.max_score ?? 0 }</b><span>баллы автопроверки</span></span>` +
+				`<span class="rs"><b>${ sub?.score ?? 0 } / ${ sub?.max_score ?? 0 }</b><span>баллов</span></span>` +
 				( manualCount ? `<span class="rs"><b>до ${ manualCount }</b><span>за ручную проверку</span></span>` : '' ) +
 			'</span></div>';
 
@@ -212,8 +212,6 @@ function mountWork( panel, root ) {
 
 		h += '<div class="work-resfoot">' +
 			'<button type="button" class="b" data-work-retry>Пройти заново</button>' +
-			'<span class="work-resfoot-sp"></span>' +
-			nextLessonButton() +
 			'</div>';
 
 		resultsRoot.innerHTML = h;
@@ -221,7 +219,6 @@ function mountWork( panel, root ) {
 		resultsRoot.hidden    = false;
 
 		resultsRoot.querySelector( '[data-work-retry]' )?.addEventListener( 'click', retry );
-		resultsRoot.querySelector( '[data-work-next]' )?.addEventListener( 'click', gotoNextLesson );
 	}
 
 	function resultCard( n, title, verdict, result ) {
@@ -261,21 +258,6 @@ function mountWork( panel, root ) {
 		toast( 'Ответы можно изменить и сдать работу заново' );
 	}
 
-	// ── «К следующему уроку» с гейтом ─────────────────────────────────────
-	function nextLessonButton() {
-		const app = document.getElementById( 'fsPlayerApp' );
-		if ( ! app?.dataset.nextUrl ) { return ''; }
-		return `<button type="button" class="b b-pri" data-work-next>К следующему уроку${ ICO.chevR( 15 ) }</button>`;
-	}
-
-	function gotoNextLesson() {
-		const app = document.getElementById( 'fsPlayerApp' );
-		if ( '1' === app.dataset.nextAvailable ) {
-			window.location.href = app.dataset.nextUrl;
-		} else {
-			toast( 'Следующий урок откроется после проверки или по расписанию' );
-		}
-	}
 
 	// Уже сдана (перезагрузка) — сразу результаты.
 	if ( state.submission ) { renderResults(); }

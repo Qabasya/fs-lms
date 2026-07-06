@@ -23,18 +23,30 @@ class EffectiveWorksResolver {
 	) {}
 
 	/**
-	 * Вычисляет эффективный набор работ строки программы:
-	 *   опубликован → work_ids_snapshot + extra_work_ids
-	 *   не открыт   → lesson.work_ids + extra_work_ids
+	 * Вычисляет эффективный набор работ строки программы — объединение:
+	 *   work_ids_snapshot (заморожен при публикации, если опубликован)
+	 *   ∪ lesson.work_ids (ТЕКУЩИЙ живой набор урока)
+	 *   ∪ extra_work_ids  (добавленные вручную)
+	 *
+	 * Живой набор урока включается всегда: плеер рендерит и гейтит шаги по
+	 * живому уроку (LessonPlayerService/LessonGateResolver), поэтому
+	 * эффективный набор для гейта сдачи не должен быть строже — иначе работа,
+	 * добавленная/обновлённая в уроке уже ПОСЛЕ публикации занятия, видна и
+	 * «сдаётся» в UI, но отклоняется сервером («Работа не входит в эффективный
+	 * набор урока»). Read-time объединение чинит и уже «застрявшие» строки,
+	 * не полагаясь только на write-time syncExtraWorksForOpenOccurrences.
+	 * Снапшот при этом сохраняется как надмножество: работа, УДАЛЁННАЯ из
+	 * урока после публикации, остаётся сдаваемой (не теряем назначенное).
 	 *
 	 * @return WorkDTO[]
 	 */
 	public function resolve( GroupLessonDTO $row ): array {
-		$base = $row->isPublished()
-			? $row->workIdsSnapshot
-			: ( $row->lessonId ? ( $this->lessonManager->get( $row->lessonId )?->workIds() ?? array() ) : array() );
+		$snapshot = $row->isPublished() ? ( $row->workIdsSnapshot ?? array() ) : array();
+		$live     = $row->lessonId
+			? ( $this->lessonManager->get( $row->lessonId )?->workIds() ?? array() )
+			: array();
 
-		$all     = array_unique( array_merge( $base, $row->extraWorkIds ) );
+		$all     = array_unique( array_merge( $snapshot, $live, $row->extraWorkIds ) );
 		$works   = array();
 		foreach ( $all as $workId ) {
 			$work = $this->workManager->get( $workId );

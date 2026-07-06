@@ -38,6 +38,12 @@ readonly class GradebookEntryDTO {
 		public ?GradeBadge $badge = null,
 		/** Сдано после дедлайна работы (T12.2, D13) — постоянная метка, не пересчитывается. */
 		public bool    $isLate = false,
+		/**
+		 * Ключ группировки попыток одной работы/контрольной (напр. 'assessment:16691',
+		 * 'work:16675'). В отличие от sourceId (id попытки/сдачи — уникален у каждой
+		 * попытки), стабилен между попытками. null → группируется по sourceType:sourceId.
+		 */
+		public ?string $groupKey = null,
 	) {}
 
 	/** Форматированное значение для отображения в журнале. */
