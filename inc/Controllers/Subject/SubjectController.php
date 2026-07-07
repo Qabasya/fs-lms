@@ -287,7 +287,7 @@ class SubjectController extends AjaxController {
 		$assessment_args = $this->getDefaultCptArgs( 'assessments', $subject );
 		$this->cpt_registrar->addStandardType(
 			$assessment_cpt,
-			'Контрольные',
+			'Экзамены',
 			$assessment_args['labels'],
 			$assessment_args['options']
 		);
@@ -432,10 +432,10 @@ class SubjectController extends AjaxController {
 			),
 			'assessments' => array(
 				'labels'  => array(
-					'nom'    => 'Контрольная',
-					'acc'    => 'контрольную',
-					'gen'    => 'контрольной',
-					'gender' => 'feminine',
+					'nom'    => 'Экзамен',
+					'acc'    => 'экзамен',
+					'gen'    => 'экзамена',
+					'gender' => 'masculine',
 				),
 				// Плеер экзамена отдаётся по singular-пермалинку (AssessmentPageController),
 				// поэтому остаётся publicly_queryable; доступ закрывает гард-404 в контроллере.

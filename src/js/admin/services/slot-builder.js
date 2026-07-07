@@ -460,7 +460,11 @@ export function createSlotBuilder( el, config ) {
 	function save() {
 		setStatus( 'saving' );
 		Promise.resolve( config.persist( slots ) )
-			.then( () => setStatus( 'saved' ) )
+			.then( ( data ) => {
+				setStatus( 'saved' );
+				// Хук получения ответа сохранения (например, вердикт полноты ЕГЭ).
+				if ( typeof config.onPersisted === 'function' ) { config.onPersisted( data ); }
+			} )
 			.catch( ( msg ) => {
 				showToast( String( msg ) || 'Ошибка сохранения', 'error' );
 				setStatus( 'saved' );

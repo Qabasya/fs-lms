@@ -16,6 +16,8 @@ if (!defined('WP_DEBUG')) { define('WP_DEBUG', false); }
 if (!defined('MINUTE_IN_SECONDS')) { define('MINUTE_IN_SECONDS', 60); }
 if (!defined('HOUR_IN_SECONDS'))   { define('HOUR_IN_SECONDS', 3600); }
 if (!defined('DAY_IN_SECONDS'))    { define('DAY_IN_SECONDS', 86400); }
+if (!defined('WEEK_IN_SECONDS'))   { define('WEEK_IN_SECONDS', 604800); }
+if (!defined('YEAR_IN_SECONDS'))   { define('YEAR_IN_SECONDS', 31536000); }
 
 // WP class stubs
 if (!class_exists('wpdb')) {
@@ -88,6 +90,26 @@ if (!function_exists('delete_transient')) {
 if (!function_exists('wp_count_terms')) {
     function wp_count_terms(array $args = []): int {
         return $GLOBALS['_test_wp_count_terms'] ?? 0;
+    }
+}
+// Термы таксономии {key}_task_number для EgeCompletenessChecker.
+// Хранилище: $GLOBALS['_fs_test_terms'][taxonomy] = [ ['slug'=>.., 'name'=>..], ... ]
+//            $GLOBALS['_fs_test_post_terms'][postId][taxonomy] = ['slug', ...]
+if (!function_exists('get_terms')) {
+    function get_terms(array $args = []): array {
+        $taxonomy = is_array($args['taxonomy'] ?? null) ? ($args['taxonomy'][0] ?? '') : ($args['taxonomy'] ?? '');
+        $rows     = $GLOBALS['_fs_test_terms'][$taxonomy] ?? [];
+        return array_map(static function (array $r) {
+            $o = new stdClass();
+            $o->slug = (string) $r['slug'];
+            $o->name = (string) ($r['name'] ?? $r['slug']);
+            return $o;
+        }, $rows);
+    }
+}
+if (!function_exists('wp_get_post_terms')) {
+    function wp_get_post_terms(int $postId, string $taxonomy = '', array $args = []): array {
+        return $GLOBALS['_fs_test_post_terms'][$postId][$taxonomy] ?? [];
     }
 }
 if (!function_exists('apply_filters')) {

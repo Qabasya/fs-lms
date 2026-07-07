@@ -25,6 +25,7 @@ class AttemptService {
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly ClockInterface              $clock,
 		private readonly AssessmentAccessPolicy      $access,
+		private readonly EgeCompletenessChecker      $completeness,
 	) {}
 
 	/**
@@ -35,11 +36,20 @@ class AttemptService {
 	public function start( int $studentPersonId, int $assessmentId, ?int $groupId ): AttemptDTO {
 		$assessment = $this->assessments->get( $assessmentId );
 		if ( ! $assessment ) {
-			throw new \InvalidArgumentException( "Контрольная {$assessmentId} не найдена." );
+			throw new \InvalidArgumentException( "Экзамен {$assessmentId} не найден." );
 		}
 
 		if ( ! $this->access->canAccess( $studentPersonId, $assessmentId ) ) {
 			throw new \RuntimeException( 'Нет доступа к этой контрольной.' );
+		}
+
+		// D16.3.б: незавершённую ЕГЭ/КЕГЭ-работу (нет биекции задание↔номер) нельзя
+		// начать. Control не касается. Опубликованная работа обычно уже прошла
+		// блок публикации (D16.3.а), но проверяем и здесь — на случай прямого старта.
+		if ( $assessment->kind->needsCompletenessCheck()
+			&& ! $this->completeness->validate( $assessment, $assessment->subjectKey )->isStrictlyComplete()
+		) {
+			throw new \RuntimeException( 'Работа не укомплектована — обратитесь к преподавателю.' );
 		}
 
 		if ( $assessment->attemptsAllowed > 0 ) {

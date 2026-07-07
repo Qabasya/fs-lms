@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\AssessmentKindField;
+use Inc\MetaBoxes\Fields\EditorField;
 use Inc\MetaBoxes\Fields\NumberInputField;
 use Inc\MetaBoxes\Fields\ScoreMapField;
 
@@ -39,6 +40,10 @@ class AssessmentTemplate extends BaseTemplate {
 				'label'  => 'Таблица перевода баллов',
 				'object' => new ScoreMapField(),
 			),
+			'intro_html'         => array(
+				'label'  => 'Описание перед началом (показывается на стартовом экране)',
+				'object' => new EditorField(),
+			),
 		);
 	}
 
@@ -51,6 +56,6 @@ class AssessmentTemplate extends BaseTemplate {
 	}
 
 	public function get_name(): string {
-		return 'Контрольная / ЕГЭ';
+		return 'Экзамен';
 	}
 }

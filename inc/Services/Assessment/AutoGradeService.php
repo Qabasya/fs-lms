@@ -34,6 +34,11 @@ class AutoGradeService {
 	 * Вызывается после ручной оценки отдельного ответа преподавателем.
 	 */
 	public function finalize( AttemptDTO $attempt ): AttemptDTO {
+		$assessment = $this->assessments->get( $attempt->assessmentId );
+		// D16.1: контрольная — бинарный балл, max каждого задания = 1 (иначе после
+		// ручной оценки развёрнутого ответа max «поехал» бы с логики критериев).
+		$binary = null !== $assessment && $assessment->kind->binaryScoring();
+
 		$answerList = $this->answers->listByAttempt( $attempt->id );
 		$totalScore = 0.0;
 		$totalMax   = 0.0;
@@ -43,8 +48,10 @@ class AutoGradeService {
 			if ( null === $answer->isCorrect ) {
 				$hasManual = true;
 			}
-			$totalScore += $answer->score ?? 0.0;
-			$totalMax   += $answer->maxScore ?? 0.0;
+			$totalScore += $binary
+				? ( ( $answer->score ?? 0.0 ) > 0.0 ? 1.0 : 0.0 )
+				: ( $answer->score ?? 0.0 );
+			$totalMax   += $binary ? 1.0 : ( $answer->maxScore ?? 0.0 );
 		}
 
 		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );
@@ -64,6 +71,11 @@ class AutoGradeService {
 		$taskIds = null !== $assessment
 			? $assessment->taskIds
 			: array_map( static fn( $a ) => $a->taskId, $this->answers->listByAttempt( $attempt->id ) );
+
+		// D16.1: контрольная (Control) — бинарный балл «верно/неверно»: каждое
+		// задание весит ровно 1 (max = 1), частичный балл чекера и критерии
+		// ручного задания игнорируются. ЕГЭ/КЕГЭ — прежнее взвешенное поведение.
+		$binary = null !== $assessment && $assessment->kind->binaryScoring();
 
 		// Сохранённые ответы по task_id — чтобы сопоставить с полным списком заданий.
 		$answersByTask = array();
@@ -91,12 +103,13 @@ class AutoGradeService {
 
 			if ( null === $checker ) {
 				$hasManual = true;
-				// Эпик 13 (D17): если у задачи заданы критерии — начальный max_score
-				// сразу равен их сумме (сырых баллов), а не заглушке «1».
+				// D16.1: контрольная — max ручного задания = 1 (0/1 при ручной проверке),
+				// критерии игнорируются. Иначе (ЕГЭ, Эпик 13/D17) — начальный max_score
+				// равен сумме критериев (сырых баллов), либо заглушке «1».
 				$criteriaDefs = is_array( $metaArr['task_criteria']['criteria'] ?? null )
 					? $metaArr['task_criteria']['criteria']
 					: array();
-				$defaultMax   = ! empty( $criteriaDefs )
+				$defaultMax   = ( ! $binary && ! empty( $criteriaDefs ) )
 					? array_sum( array_map( static fn( $d ) => (float) ( $d['max_points'] ?? 0 ), $criteriaDefs ) )
 					: 1.0;
 				$this->answers->upsert( $attempt->id, $taskId, array( 'max_score' => $defaultMax ) );
@@ -106,14 +119,19 @@ class AutoGradeService {
 
 			$result = $checker->check( $metaArr, (string) ( $answerText ?? '' ) );
 
+			// D16.1: бинарный балл — верно→1, иначе→0, max = 1 (игнорируем
+			// CheckResult::score/maxScore и частичный балл композитов).
+			$score = $binary ? ( $result->isCorrect ? 1.0 : 0.0 ) : $result->score;
+			$max   = $binary ? 1.0 : $result->maxScore;
+
 			$this->answers->upsert( $attempt->id, $taskId, array(
 				'is_correct' => $result->isCorrect ? 1 : 0,
-				'score'      => $result->score,
-				'max_score'  => $result->maxScore,
+				'score'      => $score,
+				'max_score'  => $max,
 			) );
 
-			$totalScore += $result->score;
-			$totalMax   += $result->maxScore;
+			$totalScore += $score;
+			$totalMax   += $max;
 		}
 
 		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );

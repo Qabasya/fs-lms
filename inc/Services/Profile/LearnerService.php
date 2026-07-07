@@ -219,7 +219,7 @@ class LearnerService {
 		$examLock    = null;
 		if ( null !== $lockAttempt ) {
 			$examLock = array(
-				'title' => get_the_title( $lockAttempt->assessmentId ) ?: 'Контрольная',
+				'title' => get_the_title( $lockAttempt->assessmentId ) ?: 'Экзамен',
 				'url'   => (string) get_permalink( $lockAttempt->assessmentId ),
 			);
 		}

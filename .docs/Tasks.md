@@ -34,6 +34,17 @@
 
 ---
 
+## Статус реализации (2026-07-07) — ✅ ВЫПОЛНЕНО
+
+Все части A/B/B2/C реализованы, CI зелёный (ESLint 0, stylelint 0 ошибок, PHPUnit 783 ✓, +19 тестов).
+
+- **A** (D16.1): `AssessmentKind::binaryScoring()`; `AutoGradeService::gradeAttempt()`/`finalize()` — Control нормирует 0/1, max = count(taskIds); ЕГЭ-взвешенное сохранено. Тесты: `AssessmentKindTest`, `AutoGradeServiceTest`.
+- **B** (D16.2/D16.3): `EgeCompletenessResult` DTO + `EgeCompletenessChecker::validate()` (строгая биекция); блок публикации в `AssessmentMetaBoxController::resolveCompletenessError()` (через `TaskPublishGuard`); блок старта в `AttemptService::start()`; конструктор возвращает вердикт (`ajaxSaveAssessmentItems`), индикатор X/N + гейт публикации в `assessment-builder.js`. Тесты: `EgeCompletenessCheckerTest`, `AttemptServiceTest`, `AssessmentPublishGuardTest`.
+- **B2** (D16.7): станция-навигатор Ege — `partials/attempt-form-nav.php` (+ общий `attempt-question.php`, `attempt-form-list.php`); `attempt.php` ветвит по kind; core-JS `assessment/ege-navigator.js`; SCSS `assessment/components/_ege-nav.scss`. Тест: `AttemptFormRenderTest`.
+- **C** (D16.4): конвейер стадий `[intro]→[tasks]→[result]` + `INTRO_FILTER` в `AssessmentPageController`; `attempt-intro.php`; `AssessmentIntroConfig`; WYSIWYG-поле `intro_html` (`EditorField`) → `AssessmentDTO::introHtml`; SCSS `.fs-assessment-intro`.
+
+---
+
 ## Задачи
 
 ### Часть A. Контрольная: 1 задание = 1 балл (D16.1)

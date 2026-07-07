@@ -5,7 +5,10 @@
  * не тянущая остальной frontend-стек.
  */
 import { initAssessment } from '../frontend/services/assessment.js';
+import { initEgeNavigator } from './ege-navigator.js';
 
 document.addEventListener( 'DOMContentLoaded', () => {
 	initAssessment();
+	// D16.7: станция-навигатор обычного ЕГЭ (активна только при .fs-ege-nav).
+	initEgeNavigator();
 } );

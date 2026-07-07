@@ -31,7 +31,7 @@ enum Menu: string
 
 	public function page_title(): string {
 		return match ( $this ) {
-			self::Main      => 'Статистика',
+			self::Main      => 'Консоль',
 			self::Subjects => 'Управление предметами',
 			self::Settings        => 'Настройки',
 			self::BoilerplateManager         => 'Управление типовыми условиями',
@@ -42,7 +42,7 @@ enum Menu: string
 			self::LearningCourses  => 'Курсы',
 			self::LearningLessons  => 'Уроки',
 			self::LearningWorks       => 'Работы',
-			self::LearningAssessments => 'Контрольные',
+			self::LearningAssessments => 'Экзамены',
 			self::LearningTasks       => 'Задания предмета',
 			self::LearningArticles    => 'Статьи предмета',
 			self::LearningProblems    => 'Банк задач',
@@ -51,7 +51,7 @@ enum Menu: string
 	}
 	public function menu_title(): string {
 		return match ( $this ) {
-			self::Main               => 'Статистика',
+			self::Main               => 'Консоль',
 			self::Subjects           => 'Предметы',
 			self::Settings           => 'Настройки',
 			self::BoilerplateManager => 'Boilerplate Manager',
@@ -62,7 +62,7 @@ enum Menu: string
 			self::LearningCourses    => 'Курсы',
 			self::LearningLessons    => 'Уроки',
 			self::LearningWorks       => 'Работы',
-			self::LearningAssessments => 'Контрольные',
+			self::LearningAssessments => 'Экзамены',
 			self::LearningTasks       => 'Задания предмета',
 			self::LearningArticles    => 'Статьи предмета',
 			self::LearningProblems    => 'Банк задач',
@@ -71,6 +71,7 @@ enum Menu: string
 	}
 
 	public function callback(): string {
+
 		return match ( $this ) {
 			self::Main               => 'adminDashboard',
 			self::Subjects           => 'subjectsRoot',
@@ -89,7 +90,6 @@ enum Menu: string
 			self::_Options            => '',
 		};
 	}
-
 
 
 

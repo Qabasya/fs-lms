@@ -32,7 +32,7 @@ class AssessmentGradeSource implements GradeSourceInterface {
 		$entries = [];
 		foreach ( $attempts as $attempt ) {
 			$assessment = $this->assessments->get( $attempt->assessmentId );
-			$title      = $assessment ? $assessment->title : "Контрольная #{$attempt->assessmentId}";
+			$title      = $assessment ? $assessment->title : "Экзамен #{$attempt->assessmentId}";
 
 			$isPending   = $attempt->status === AttemptStatus::Submitted;
 			$displayType = 'score';

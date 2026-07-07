@@ -1,6 +1,7 @@
 /**
  * Лента шагов (T14.5): горизонтальные квадратики с иконками/цветами типов,
- * done-галки, текущий залит цветом типа; мета «Шаг N из M» справа.
+ * done-галки, текущий залит цветом типа. Номер/тип/название текущего шага
+ * показывает топбар (#fsNavPos), не сама лента.
  * Перерисовывается ядром при каждой смене шага/статуса.
  */
 import { esc, typeIco, typeMeta } from './icons.js';
@@ -20,10 +21,6 @@ export function renderStrip( ctx ) {
 			`<span class="sq"><span class="num">${ i + 1 }</span>${ typeIco( type, cur ? '#fff' : meta.c, 22 ) }</span>` +
 			`<span class="lbl">${ esc( meta.label ) }</span></div>`;
 	} );
-
-	const at = ctx.panels[ ctx.active ];
-	h += `<div class="smeta"><b>Шаг ${ ctx.active + 1 } из ${ ctx.panels.length } · ${ esc( typeMeta( at.dataset.stepType ).label ) }</b>` +
-		`<span>${ esc( at.dataset.title ) }</span></div>`;
 
 	strip.innerHTML = h;
 

@@ -53,7 +53,7 @@ class StepTypeTest extends TestCase {
 	public function test_options_map_value_to_label(): void {
 		$options = StepType::options();
 		self::assertCount( 5, $options );
-		self::assertSame( 'Контрольная', $options['assessment'] );
+		self::assertSame( 'Экзамен', $options['assessment'] );
 		self::assertSame( 'Текст', $options['text'] );
 	}
 }

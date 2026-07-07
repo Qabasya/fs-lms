@@ -128,7 +128,7 @@ class PreviewSolveCallbacks extends BaseController {
 		$assessment = $this->assessments->get( $this->requireInt( 'ref' ) );
 		$answers    = json_decode( $this->sanitizeText( 'answers' ), true );
 		if ( null === $assessment || ! is_array( $answers ) ) {
-			$this->error( 'Контрольная не найдена или ответы некорректны.' );
+			$this->error( 'Экзамен не найден или ответы некорректны.' );
 			return;
 		}
 

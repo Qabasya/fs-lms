@@ -134,21 +134,21 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 			<?php if ( $asm_passed ) : ?>
 				<div class="vd vd-ok">
 					<span class="vi"><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-					<div><b><?php esc_html_e( 'Контрольная сдана', 'fs-lms' ); ?></b><span><?php esc_html_e( 'Результат учтён в прогрессе урока.', 'fs-lms' ); ?></span></div>
+					<div><b><?php esc_html_e( 'Экзамен сдан', 'fs-lms' ); ?></b><span><?php esc_html_e( 'Результат учтён в прогрессе урока.', 'fs-lms' ); ?></span></div>
 				</div>
 			<?php else : ?>
-				<p class="step-muted"><?php esc_html_e( 'Контрольная проходится на отдельной странице с таймером и попытками.', 'fs-lms' ); ?></p>
+				<p class="step-muted"><?php esc_html_e( 'Экзамен проходится на отдельной странице с таймером и попытками.', 'fs-lms' ); ?></p>
 			<?php endif; ?>
 
 			<?php if ( '' !== $asm_url ) : ?>
 				<div>
 					<a class="b b-pri b-lg" href="<?php echo esc_url( $asm_url ); ?>">
-						<?php echo $asm_passed ? esc_html__( 'Открыть контрольную', 'fs-lms' ) : esc_html__( 'Перейти к контрольной', 'fs-lms' ); ?>
+						<?php echo $asm_passed ? esc_html__( 'Открыть экзамен', 'fs-lms' ) : esc_html__( 'Перейти к экзамену', 'fs-lms' ); ?>
 						<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 					</a>
 				</div>
 			<?php else : ?>
-				<p class="step-muted"><?php esc_html_e( 'Контрольная ещё не опубликована.', 'fs-lms' ); ?></p>
+				<p class="step-muted"><?php esc_html_e( 'Экзамен ещё не опубликован.', 'fs-lms' ); ?></p>
 			<?php endif; ?>
 		<?php endif; ?>
 	</div>

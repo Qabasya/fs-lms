@@ -15,6 +15,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\MetaBoxes\Templates\AssessmentTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
@@ -36,9 +37,10 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		private readonly MetaBoxRegistrar   $registrar,
 		private readonly MetaBoxManager     $metaBoxManager,
 		private readonly AssessmentTemplate $template,
-		private readonly PostManager        $postManager,
-		private readonly AssessmentManager  $assessmentManager,
-		private readonly TaskPublishGuard   $guard,
+		private readonly PostManager           $postManager,
+		private readonly AssessmentManager     $assessmentManager,
+		private readonly TaskPublishGuard      $guard,
+		private readonly EgeCompletenessChecker $completeness,
 	) {
 		parent::__construct();
 	}
@@ -65,12 +67,47 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			return $data;
 		}
 
+		$postId = (int) ( $postarr['ID'] ?? 0 );
+
 		return $this->guard->enforce(
 			$data,
 			'fs_lms_assessment_publish_error_',
 			'Укажите название контрольной.',
-			static fn(): ?string => null
+			fn(): ?string => $this->resolveCompletenessError( $postId )
 		);
+	}
+
+	/**
+	 * Доменная ошибка публикации (D16.3.а): для ЕГЭ/КЕГЭ запрещаем публиковать
+	 * неукомплектованную работу (строгая биекция задание↔номер). Тип берётся из
+	 * присланной формы (может меняться в этом же запросе) с фолбэком на сохранённый;
+	 * состав задач — из уже сохранённого meta (степ-лист автосейвится по AJAX).
+	 */
+	private function resolveCompletenessError( int $postId ): ?string {
+		if ( $postId <= 0 ) {
+			return null;
+		}
+
+		$assessment = $this->assessmentManager->get( $postId );
+		if ( null === $assessment ) {
+			return null;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- ранний хук; фактический сейв c нонсом в handleAssessmentSave().
+		$rawKind    = isset( $_POST['fs_lms_meta']['kind'] ) ? sanitize_key( (string) wp_unslash( $_POST['fs_lms_meta']['kind'] ) ) : '';
+		$postedKind = '' !== $rawKind ? AssessmentKind::tryFrom( $rawKind ) : null;
+		$kind       = $postedKind ?? $assessment->kind;
+
+		if ( ! $kind->needsCompletenessCheck() ) {
+			return null;
+		}
+
+		$result = $this->completeness->validate( $assessment, $assessment->subjectKey );
+		if ( $result->isStrictlyComplete() ) {
+			return null;
+		}
+
+		return 'Работа не укомплектована — ' . $result->summary() . '.';
 	}
 
 	/** Выводит отложенную ошибку публикации контрольной на экране редактирования. */

@@ -27,6 +27,9 @@ class LessonCallbacks extends BaseController {
 	use Authorizer;
 	use Sanitizer;
 
+	/** Максимум шагов в одном уроке (совпадает с клиентским лимитом step-editor.js). */
+	private const int MAX_STEPS_PER_LESSON = 20;
+
 	public function __construct(
 		private readonly LessonAuthoringService  $authoringService,
 		private readonly LessonManager           $lessonManager,
@@ -177,6 +180,11 @@ class LessonCallbacks extends BaseController {
 
 		$sanitized = array_map( array( $this, 'sanitizeStep' ), $raw_steps );
 		$steps     = $this->authoringService->buildSteps( $sanitized );
+
+		if ( count( $steps ) > self::MAX_STEPS_PER_LESSON ) {
+			$this->error( sprintf( 'В одном уроке не может быть больше %d шагов.', self::MAX_STEPS_PER_LESSON ) );
+			return;
+		}
 
 		$dto = new LessonDTO(
 			id        : $lesson_id,

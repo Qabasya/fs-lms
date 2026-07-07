@@ -25,7 +25,7 @@
 			.sc-num { position: absolute; top: rem(3); left: rem(5); font-size: $font-size-sm; font-weight: $font-heavy; color: $color-secondary-hover; }
 			.sc-warn { position: absolute; top: 1px; right: rem(2); margin: 0; line-height: 1; text-shadow: 0 0 2px $color-bg-modal; }
 		}
-		.sc-type { font-size: $font-size-sm; color: $color-secondary-hover; line-height: 1; }
+		.sc-type { font-size: $font-size-xs; color: $color-secondary-hover; line-height: 1; }
 		&:hover .step-chip-box { transform: translateY(rem(-2)); box-shadow: $shadow-cb-chip-hover; }
 
 		@include step-type-colors(color);
