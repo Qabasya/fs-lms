@@ -19,7 +19,7 @@ class CodeField extends BaseField {
 	/**
 	 * Рендерит HTML-разметку поля для ввода кода.
 	 *
-	 * Выводит textarea с моноширинным оформлением и описанием.
+	 * Выводит textarea с моноширинным оформлением на всю ширину контейнера.
 	 *
 	 * @param WP_Post $post  Текущий пост (не используется, но обязателен для интерфейса)
 	 * @param string  $id    Уникальный идентификатор поля
@@ -34,14 +34,12 @@ class CodeField extends BaseField {
 			<label class="fs-lms-label" for="<?php echo esc_attr( $id ); ?>">
 				<?php echo esc_html( $label ); ?>
 			</label>
-			<div class="fs-lms-input-wrapper">
-				<textarea id="<?php echo esc_attr( $id ); ?>"
-							name="<?php echo esc_attr( $this->get_field_name( $id ) ); ?>"
-							rows="12"
-							spellcheck="false"
-							class="large-text fs-lms-textarea fs-lms-code-editor"><?php echo esc_textarea( $value ); ?></textarea>
-				<p class="description">Введите код решения</p>
-			</div>
+			<textarea id="<?php echo esc_attr( $id ); ?>"
+						name="<?php echo esc_attr( $this->get_field_name( $id ) ); ?>"
+						rows="12"
+						spellcheck="false"
+						placeholder="Введите код решения"
+						class="large-text fs-lms-textarea fs-lms-code-editor"><?php echo esc_textarea( $value ); ?></textarea>
 		</div>
 		<?php
 	}

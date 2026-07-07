@@ -121,6 +121,13 @@ if (!function_exists('do_action')) {
     function do_action(string $hook, mixed ...$args): void {
     }
 }
+if (!function_exists('add_filter')) {
+    // apply_filters() выше — заглушка-passthrough, зарегистрированные колбэки
+    // никогда не вызываются, поэтому add_filter() здесь тоже no-op.
+    function add_filter(string $hook, callable $callback, int $priority = 10, int $acceptedArgs = 1): bool {
+        return true;
+    }
+}
 if (!function_exists('current_time')) {
     function current_time(string $type, bool $gmt = false): string {
         return '2024-01-01 12:00:00';

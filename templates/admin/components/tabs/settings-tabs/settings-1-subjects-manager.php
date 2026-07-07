@@ -71,26 +71,37 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 
 				<tbody id="the-list">
 				<?php foreach ( $rows as $subject ) :
-					$tasks_cpt    = PostTypeResolver::tasks( $subject->key );
-					$articles_cpt = PostTypeResolver::articles( $subject->key );
+					// Эпик 18: у безбанкового предмета CPT tasks/articles не зарегистрированы —
+					// считать нечего, колонки показывают «—» без обращения к wp_count_posts().
+					$tasks_total    = null;
+					$articles_total = null;
 
-					$tasks_counts    = wp_count_posts( $tasks_cpt );
-					$articles_counts = wp_count_posts( $articles_cpt );
+					if ( $subject->hasBank ) {
+						$tasks_cpt    = PostTypeResolver::tasks( $subject->key );
+						$articles_cpt = PostTypeResolver::articles( $subject->key );
 
-					// Считаем только реальные статусы контента — array_sum(all)-trash ошибочно
-					// включает auto-draft (черновики автосохранения), раздувая счётчик.
-					$real_statuses  = array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' );
-					$tasks_total    = array_sum( array_intersect_key( (array) $tasks_counts, array_flip( $real_statuses ) ) );
-					$articles_total = array_sum( array_intersect_key( (array) $articles_counts, array_flip( $real_statuses ) ) );
+						$tasks_counts    = wp_count_posts( $tasks_cpt );
+						$articles_counts = wp_count_posts( $articles_cpt );
+
+						// Считаем только реальные статусы контента — array_sum(all)-trash ошибочно
+						// включает auto-draft (черновики автосохранения), раздувая счётчик.
+						$real_statuses  = array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' );
+						$tasks_total    = array_sum( array_intersect_key( (array) $tasks_counts, array_flip( $real_statuses ) ) );
+						$articles_total = array_sum( array_intersect_key( (array) $articles_counts, array_flip( $real_statuses ) ) );
+					}
 
 					$groups_total = count( $groupsRepo->findBySubjectKey( $subject->key ) );
 				?>
 					<tr id="subject-row-<?php echo esc_attr( $subject->key ); ?>">
 						<td class="column-title">
 							<strong>
+								<?php if ( $subject->hasBank ) : ?>
 								<a class="row-title" href="?page=fs_subject_<?php echo esc_attr( $subject->key ); ?>">
 									<?php echo esc_html( $subject->name ); ?>
 								</a>
+								<?php else : ?>
+									<?php echo esc_html( $subject->name ); ?>
+								<?php endif; ?>
 							</strong>
 						</td>
 
@@ -98,8 +109,8 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 							<?php render_fs_badge( $subject->key, 'gray' ); ?>
 						</td>
 
-						<td><?php echo esc_html( (string) $tasks_total ); ?></td>
-						<td><?php echo esc_html( (string) $articles_total ); ?></td>
+						<td><?php echo null === $tasks_total ? '—' : esc_html( (string) $tasks_total ); ?></td>
+						<td><?php echo null === $articles_total ? '—' : esc_html( (string) $articles_total ); ?></td>
 						<td><?php echo esc_html( (string) $groups_total ); ?></td>
 
 						<td class="column-actions">

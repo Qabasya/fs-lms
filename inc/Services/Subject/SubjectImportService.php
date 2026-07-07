@@ -87,8 +87,10 @@ class SubjectImportService {
 			throw new \InvalidArgumentException( "Предмет с ключом «{$key}» уже существует. Импорт невозможен." );
 		}
 
-		// Создание предмета
-		if ( ! $this->subjects->save( new SubjectDTO( $key, $name ) ) ) {
+		// Создание предмета; hasBank переносим из экспорта (по умолчанию true — старые
+		// файлы экспорта, созданные до Эпика 18, этого поля не содержат).
+		$hasBank = (bool) ( $data['subject']['hasBank'] ?? true );
+		if ( ! $this->subjects->save( new SubjectDTO( $key, $name, hasBank: $hasBank ) ) ) {
 			throw new \RuntimeException( 'Критическая ошибка при создании записи предмета в БД' );
 		}
 

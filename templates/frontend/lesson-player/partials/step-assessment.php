@@ -24,6 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Inc\Enums\Course\StepType;
+use Inc\Enums\Ui\Icon;
 
 $asm_title   = (string) ( $render['title'] ?? $step['title'] );
 $asm_url     = (string) ( $render['url'] ?? '' );
@@ -116,6 +117,14 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 								<?php if ( ! empty( $asm_task['condition_html'] ) && is_string( $asm_task['condition_html'] ) ) : ?>
 									<div class="q wpc"><?php echo wp_kses_post( $asm_task['condition_html'] ); ?></div>
 								<?php endif; ?>
+
+								<?php foreach ( (array) ( $asm_task['files'] ?? array() ) as $asm_task_file ) : ?>
+									<a class="attach" href="<?php echo esc_url( (string) $asm_task_file['url'] ); ?>" download>
+										<span class="ai"><?php echo Icon::File->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+										<span class="at"><b><?php echo esc_html( (string) $asm_task_file['name'] ); ?></b></span>
+										<span class="adl"><?php echo Icon::Download->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+									</a>
+								<?php endforeach; ?>
 
 								<div class="tgap">
 									<div class="fs-task-widget"

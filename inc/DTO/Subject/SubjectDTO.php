@@ -28,19 +28,25 @@ readonly class SubjectDTO
 	/**
 	 * Конструктор DTO.
 	 *
-	 * @param string $key  Уникальный идентификатор предмета (slug), например 'math' или 'physics'
-	 * @param string $name Отображаемое название предмета, например 'Математика' или 'Физика'
+	 * @param string $key      Уникальный идентификатор предмета (slug), например 'math' или 'physics'
+	 * @param string $name     Отображаемое название предмета, например 'Математика' или 'Физика'
+	 * @param bool   $archived В архиве (скрыт из UI авторинга, CPT/данные/группы целы)
+	 * @param bool   $hasBank  Есть ли у предмета собственный банк заданий/статей (Эпик 18). Ставится
+	 *                         один раз при создании (tasks_count > 0) и не редактируется — false
+	 *                         означает, что CPT tasks/articles и таксономия task_number не регистрируются.
+	 *                         По умолчанию true — предметы, созданные до Эпика 18, банк не теряют.
 	 */
 	public function __construct(
 		public string $key,
 		public string $name,
 		public bool   $archived = false,
+		public bool   $hasBank = true,
 	) {}
 
 	/**
 	 * Создаёт DTO из массива.
 	 *
-	 * @param array<string, mixed> $data Массив с ключами 'key', 'name', опц. 'archived'
+	 * @param array<string, mixed> $data Массив с ключами 'key', 'name', опц. 'archived', 'hasBank'
 	 *
 	 * @return self
 	 */
@@ -49,6 +55,7 @@ readonly class SubjectDTO
 			key:      (string) ( $data['key'] ?? '' ),
 			name:     (string) ( $data['name'] ?? '' ),
 			archived: (bool) ( $data['archived'] ?? false ),
+			hasBank:  (bool) ( $data['hasBank'] ?? true ),
 		);
 	}
 
@@ -62,6 +69,7 @@ readonly class SubjectDTO
 			'key'      => $this->key,
 			'name'     => $this->name,
 			'archived' => $this->archived,
+			'hasBank'  => $this->hasBank,
 		);
 	}
 }

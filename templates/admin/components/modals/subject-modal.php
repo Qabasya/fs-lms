@@ -39,10 +39,10 @@
 				</div>
 
 				<div class="fs-form-group">
-					<label for="subj_tasks_count">Количество типов заданий (от 1 до 100)</label>
+					<label for="subj_tasks_count">Количество типов заданий (от 0 до 100)</label>
 					<input type="number" id="subj_tasks_count" name="tasks_count"
-							min="1" max="100" value="1" required>
-					<p class="description">Сколько уникальных номеров заданий будет в курсе.</p>
+							min="0" max="100" value="1" required>
+					<p class="description">Сколько уникальных номеров заданий будет в курсе. 0 — предмет без собственного банка заданий и статей; этот выбор нельзя изменить позже.</p>
 				</div>
 
 				<?php wp_nonce_field( Nonce::Subject->value, 'security' ); ?>

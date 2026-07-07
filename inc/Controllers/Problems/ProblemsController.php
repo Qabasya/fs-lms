@@ -14,6 +14,7 @@ use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
+use Inc\Services\Course\ContentUsageService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Task\TaskPublishGuard;
@@ -43,6 +44,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		private readonly TaskPublishValidator  $validator,
 		private readonly TaskPublishGuard      $guard,
 		private readonly SubjectRepository     $subjects,
+		private readonly ContentUsageService   $usage,
 	) {
 		parent::__construct();
 	}
@@ -272,19 +274,21 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		}
 
 		if ( 'fs_lms_usage' === $query->get( 'orderby' ) ) {
-			$usage_count = array();
-			foreach ( $this->workProblemIndex() as [ , , $pids ] ) {
-				foreach ( $pids as $pid ) {
-					$usage_count[ $pid ] = ( $usage_count[ $pid ] ?? 0 ) + 1;
-				}
-			}
-
 			$all = $this->posts->search( PostTypeResolver::problems(), array(
 				'status' => array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' ),
 				'limit'  => -1,
 			) );
 
-			usort( $all, static fn( $a, $b ) => ( $usage_count[ $a->ID ] ?? 0 ) <=> ( $usage_count[ $b->ID ] ?? 0 ) );
+			// Сортируем по тому же тексту, что показывает колонка (названия
+			// курсов/тестов через ContentUsageService), а не по числу использований —
+			// иначе порядок строк не совпадает с видимыми в колонке подписями.
+			$labels = array();
+			foreach ( $all as $post ) {
+				$paths            = $this->usage->usagePathList( 'problem', $post->ID );
+				$labels[ $post->ID ] = mb_strtolower( implode( ', ', array_column( $paths, 'display' ) ), 'UTF-8' );
+			}
+
+			usort( $all, static fn( $a, $b ) => $labels[ $a->ID ] <=> $labels[ $b->ID ] );
 
 			if ( 'DESC' === strtoupper( $query->get( 'order' ) ?: 'ASC' ) ) {
 				$all = array_reverse( $all );

@@ -119,6 +119,20 @@ class SubjectPageCallbacks extends BaseController {
 		// str_replace() — удаляет префикс 'fs_subject_' из слага страницы
 		$key  = str_replace( 'fs_subject_', '', $page );
 
+		$subject = $this->subjects->getByKey( $key );
+		if ( ! $subject ) {
+			echo 'Предмет не найден';
+			return;
+		}
+
+		// Эпик 18: у безбанкового предмета нет CPT tasks/articles — строить для них
+		// список-таблицы (buildListTable) не на чём, страница и не показывается в
+		// меню (SubjectsMenuBuilder), но остаётся доступна по прямой ссылке.
+		if ( ! $subject->hasBank ) {
+			echo 'У предмета «' . esc_html( $subject->name ) . '» нет собственного банка заданий и статей.';
+			return;
+		}
+
 		$dto = $this->prepareSubjectViewData( $key );
 
 		if ( ! $dto ) {

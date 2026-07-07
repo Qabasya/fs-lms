@@ -78,12 +78,20 @@ class SubjectCrudCallbacks extends BaseController {
 			$this->error( 'Предмет с таким техническим ключом уже существует.', array( 'error_code' => 'duplicate_key' ) );
 		}
 
-		// Сохранение предмета через репозиторий
-		$result = $this->subjects->save( new SubjectDTO( $key, $name ) );
+		// Эпик 18: 0 — предмет без собственного банка заданий/статей (открытые курсы).
+		// Флаг ставится один раз здесь и дальше не редактируется (D18.1).
+		$hasBank = $count > 0;
 
-		// seedTaskNumbers() — создаёт термины таксономии (1, 2, 3... $count)
-		if ( $result ) {
+		// Сохранение предмета через репозиторий
+		$result = $this->subjects->save( new SubjectDTO( $key, $name, hasBank: $hasBank ) );
+
+		// seedTaskNumbers() — создаёт термины таксономии (1, 2, 3... $count); для безбанкового
+		// предмета таксономии task_number не существует (SubjectController её не регистрирует).
+		if ( $result && $hasBank ) {
 			$this->seedTaskNumbers( "{$key}_task_number", $count, $key );
+		}
+
+		if ( $result ) {
 			// flush_rewrite_rules() — перестраивает правила ЧПУ после регистрации новых CPT/таксономий
 			flush_rewrite_rules();
 			$this->logEvents->dispatch(
@@ -117,7 +125,14 @@ class SubjectCrudCallbacks extends BaseController {
 		$oldSubject = $this->subjects->getByKey( $key );
 		$oldLabel   = $oldSubject?->name;
 
-		$result = $this->subjects->save( new SubjectDTO( $key, $name ) );
+		// archived/hasBank переносим из текущей записи — это не форма переименования
+		// этих флагов, их меняют отдельные действия (toggle-архив, только при создании).
+		$result = $this->subjects->save( new SubjectDTO(
+			key:      $key,
+			name:     $name,
+			archived: $oldSubject?->archived ?? false,
+			hasBank:  $oldSubject?->hasBank ?? true,
+		) );
 
 		if ( $result ) {
 			$this->logEvents->dispatch(

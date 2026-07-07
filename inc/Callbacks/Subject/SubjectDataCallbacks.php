@@ -80,6 +80,13 @@ class SubjectDataCallbacks extends BaseController {
 
 		// Определение типа поста
 		$post_type = 'tab-2' === $tab ? PostTypeResolver::tasks( $subject_key ) : PostTypeResolver::articles( $subject_key );
+
+		// Эпик 18: у предмета без банка (hasBank=false) этот CPT не зарегистрирован —
+		// post_type_object был бы null, а WP_ListTable упал бы на labels->search_items.
+		if ( ! post_type_exists( $post_type ) ) {
+			$this->error( 'У этого предмета нет собственного банка заданий/статей.' );
+		}
+
 		// buildListTable() — создаёт объект WP_ListTable для указанного типа поста
 		$t = $this->posts->buildListTable( $post_type, $page_slug, $tab );
 

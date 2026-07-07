@@ -75,7 +75,11 @@ class SubjectsMenuBuilder {
 	 * }>
 	 */
 	public function buildPages(): array {
-		if ( empty( $this->getSubjects() ) ) {
+		// Эпик 18: у безбанковых предметов нет своей подстраницы (buildSubPages()),
+		// поэтому если банковых предметов нет вообще — верхний пункт меню вести
+		// некуда (subjectsRoot-колбэка не существует, страница подменяется первой
+		// подстраницей через remove_submenu_page() в AdminController).
+		if ( empty( $this->getBankSubjects() ) ) {
 			return array();
 		}
 
@@ -109,7 +113,7 @@ class SubjectsMenuBuilder {
 	public function buildSubPages(): array {
 		$subpages = array();
 
-		foreach ( $this->getSubjects() as $subject ) {
+		foreach ( $this->getBankSubjects() as $subject ) {
 			$subpages[] = array(
 				'parent_slug' => Menu::Subjects->value,
 				'page_title'  => $subject->name, // Используем -> вместо ['name']
@@ -134,5 +138,15 @@ class SubjectsMenuBuilder {
 		}
 
 		return $this->subjects;
+	}
+
+	/**
+	 * Активные предметы С банком заданий/статей — только у них есть подстраница
+	 * «Предметы → {имя}» (Эпик 18, D18.2).
+	 *
+	 * @return SubjectDTO[]
+	 */
+	private function getBankSubjects(): array {
+		return array_filter( $this->getSubjects(), static fn( SubjectDTO $s ): bool => $s->hasBank );
 	}
 }

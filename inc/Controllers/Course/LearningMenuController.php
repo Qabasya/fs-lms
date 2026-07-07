@@ -281,15 +281,20 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 	/**
 	 * Строит слаг пункта банка предмета.
 	 *
-	 * При наличии предметов — прямая ссылка на нативную таблицу первого предмета;
-	 * иначе — слаг плагин-страницы (лендинг-фолбэк с предупреждением «нет предметов»).
+	 * Прямая ссылка на нативную таблицу первого предмета, у которого для этого банка
+	 * реально зарегистрирован CPT (Эпик 18: безбанковый предмет не имеет tasks/articles
+	 * CPT — пропускаем его при выборе «первого доступного», см. T18.4). Если ни у кого
+	 * из предметов нужного CPT нет — слаг плагин-страницы (лендинг-фолбэк).
 	 */
 	private function subjectBankSlug( BankType $bankType, array $subjects ): string {
-		$first = $subjects[0] ?? null;
+		foreach ( $subjects as $subject ) {
+			$cpt = $bankType->cpt( $subject->key );
+			if ( post_type_exists( $cpt ) ) {
+				return 'edit.php?post_type=' . $cpt;
+			}
+		}
 
-		return null !== $first
-			? 'edit.php?post_type=' . $bankType->cpt( $first->key )
-			: $bankType->menu()->value;
+		return $bankType->menu()->value;
 	}
 
 	/**
@@ -508,7 +513,11 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		}
 
 		$tabs     = array();
-		$subjects = $this->teacher_subjects->subjectsForUser( get_current_user_id() );
+		// Эпик 18: не предлагаем переключиться на предмет без CPT этого банка (T18.4).
+		$subjects = array_filter(
+			$this->teacher_subjects->subjectsForUser( get_current_user_id() ),
+			static fn( $s ) => post_type_exists( $bankType->cpt( $s->key ) )
+		);
 		if ( count( $subjects ) >= 2 ) {
 			$active = $bankType->subjectFromPostType( get_current_screen()->post_type );
 			foreach ( $subjects as $subject ) {
@@ -535,7 +544,12 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 	 */
 	private function renderBank( BankType $bankType ): void {
 		$user     = get_current_user_id();
-		$subjects = $this->teacher_subjects->subjectsForUser( $user );
+		// Эпик 18: только предметы, у которых реально зарегистрирован CPT этого банка
+		// (T18.4) — иначе список/добавление вели бы на несуществующий post_type.
+		$subjects = array_values( array_filter(
+			$this->teacher_subjects->subjectsForUser( $user ),
+			static fn( $s ) => post_type_exists( $bankType->cpt( $s->key ) )
+		) );
 
 		$active = sanitize_key( wp_unslash( $_GET['fs_subject'] ?? '' ) );
 		$keys   = array_map( static fn( $s ) => $s->key, $subjects );
