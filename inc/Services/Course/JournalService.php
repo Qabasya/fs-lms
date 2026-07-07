@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Enums\Course\AccessMode;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -63,18 +64,25 @@ class JournalService {
 			$roomNames[ $r->id ] = $r->name;
 		}
 
-		// Столбцы-занятия (только датированные).
+		// Эпик 15: открытая группа — занятия без дат, столбцы формируются по порядку
+		// программы (посещаемость в таком журнале не ведётся).
+		$isOpen = $group && AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
+
+		// Столбцы-занятия (в обычной группе — только датированные).
 		$lessons = array();
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
 			// Индивидуальные (на одного ученика) не образуют столбец группового журнала.
-			if ( ! $row->scheduledAt || 'individual' === $row->kind ) {
+			if ( 'individual' === $row->kind ) {
+				continue;
+			}
+			if ( ! $row->scheduledAt && ! $isOpen ) {
 				continue;
 			}
 			$lesson    = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
 			$effRoomId = ! empty( $row->roomId ) ? (int) $row->roomId : $groupRoomId;
 			$lessons[] = array(
 				'group_lesson_id' => $row->id,
-				'date'            => substr( $row->scheduledAt, 0, 10 ),
+				'date'            => $row->scheduledAt ? substr( $row->scheduledAt, 0, 10 ) : '',
 				'topic'           => $lesson?->topic ?? ( $row->label ?? '' ),
 				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
 				// T12.6 (D14): продолжение темы — второй столбец той же темы, помечается «(прод.)».
@@ -113,6 +121,7 @@ class JournalService {
 			'attendance' => $attendance,
 			'cell_works' => (object) $cellWorks,
 			'types'      => $types,
+			'open'       => $isOpen,
 		);
 	}
 }

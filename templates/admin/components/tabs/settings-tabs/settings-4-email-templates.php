@@ -37,7 +37,7 @@ $types = array(
 
 	<div class="fs-page-header">
 		<div class="fs-page-header__content">
-			<h1 class="fs-page-header__title">Шаблоны писем</h1>
+			<h2 class="fs-page-header__title">Шаблоны писем</h2>
 		</div>
 		<p class="fs-page-header__desc">
 			Переопределите текст и тему письма. Если поля пусты — используется PHP-шаблон по умолчанию.<br>

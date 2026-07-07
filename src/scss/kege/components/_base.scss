@@ -1,0 +1,168 @@
+// Станция КЕГЭ — сброс, типографика, кнопки, поля-«ячейки», тост, стрелки
+// навигации. Общее для ритуала входа (_entry.scss) и экрана экзамена
+// (_exam.scss).
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body.kege-page {
+  font-family: var(--kege-font);
+  background: var(--kege-bg);
+  color: var(--kege-text);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.kege-app button { font: inherit; cursor: pointer; color: inherit; background: none; border: none; }
+.kege-app input { font: inherit; }
+.kege-app b { font-weight: 500; }
+
+// ── Кнопки станции
+.kege-btn {
+  padding: 11px 26px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border: none;
+  color: var(--kege-on);
+  transition: filter 0.12s;
+
+  &:hover { filter: brightness(1.08); }
+  &:disabled { opacity: 0.45; cursor: default; filter: none; }
+
+  &--cyan { background: var(--kege-cyan-ink); }
+  &--green { background: var(--kege-green); }
+  &--red { background: var(--kege-red); }
+  &--up { text-transform: uppercase; letter-spacing: 0.09em; font-size: 13px; }
+}
+
+.kege-next-fab { position: absolute; right: 34px; bottom: 26px; min-width: 120px; }
+
+.kege-ghost-link {
+  font-size: 12.5px;
+  color: var(--kege-cyan-ink);
+  border-bottom: 1px dashed color-mix(in oklab, var(--kege-cyan-ink) 50%, transparent);
+  padding: 2px 0;
+  margin-top: 16px;
+}
+
+.kege-reset-link {
+  color: var(--kege-dim);
+  font-size: 12.5px;
+  border-bottom: 1px dashed var(--kege-dim);
+  padding-bottom: 1px;
+  margin-top: 18px;
+
+  &:hover { color: var(--kege-muted); }
+}
+
+// ── Цифровые ячейки (номер бланка / КИМ / код активации)
+.kege-dbox { display: flex; gap: 10px; align-items: center; margin-bottom: 26px; }
+
+.kege-dcell {
+  height: 62px;
+  background: var(--kege-field-bg);
+  border: 1px solid var(--kege-field-border);
+  color: var(--kege-text);
+  font-size: 34px;
+  text-align: center;
+  letter-spacing: 0.25em;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+input.kege-dcell:focus { border-color: var(--kege-cyan); }
+
+.kege-w1 { width: 60px; letter-spacing: 0; }
+.kege-w3 { width: 130px; }
+.kege-w4 { width: 165px; }
+.kege-w6 { width: 235px; }
+
+.kege-field-label {
+  font-size: 13px;
+  color: var(--kege-muted);
+  margin-bottom: 10px;
+
+  &--sm { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+}
+
+.kege-hint { font-size: 13px; line-height: 1.6; color: var(--kege-muted); margin-top: 14px; max-width: 420px; }
+
+// ── Круглые стрелки навигации (слайды инструкции / задания экзамена)
+.kege-nav-c {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--kege-cyan) 45%, var(--kege-line));
+  color: var(--kege-blue);
+  background: var(--kege-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  transition: background 0.12s, border-color 0.12s;
+  z-index: 5;
+
+  &:hover { background: color-mix(in oklab, var(--kege-cyan) 12%, var(--kege-surface)); border-color: var(--kege-cyan); }
+  &[hidden] { display: none; }
+  &--left { left: 22px; }
+  &--right { right: 22px; }
+}
+
+// ── Тост
+.kege-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 12px);
+  background: #16181b;
+  color: var(--kege-on);
+  font-size: 13px;
+  padding: 10px 18px;
+  border: 1px solid #3a3f46;
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s;
+  z-index: 90;
+
+  &.show { opacity: 1; transform: translate(-50%, 0); }
+}
+
+// ── Модалка подтверждения (завершение экзамена)
+.kege-ovl {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 28, 40, 0.45);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kege-mcard {
+  background: var(--kege-surface);
+  border: 1px solid var(--kege-line-2);
+  padding: 26px 28px;
+  width: 460px;
+  box-shadow: 0 18px 60px rgba(15, 25, 40, 0.3);
+
+  h4 { font-size: 17px; font-weight: 500; margin-bottom: 10px; }
+  p { font-size: 13.5px; color: var(--kege-muted); line-height: 1.6; margin-bottom: 22px; }
+}
+
+.kege-m-row { display: flex; gap: 12px; justify-content: flex-end; }
+
+.kege-m-ghost {
+  padding: 10px 18px;
+  border: 1px solid var(--kege-field-border);
+  color: var(--kege-text);
+  font-size: 13.5px;
+
+  &:hover { border-color: var(--kege-dim); }
+}

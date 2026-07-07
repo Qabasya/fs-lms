@@ -1,0 +1,119 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+/* =================================================================
+   MODAL SIZE MODIFIERS (опционально)
+   ================================================================= */
+
+// Классы-модификаторы для изменения ширины модалки
+// Использование: <div class="fs-lms-modal-content fs-modal-lg">
+.fs-lms-modal-content {
+  &.fs-modal-sm { max-width: 15vw; }
+  &.fs-modal-md { max-width: 30vw; }
+  &.fs-modal-lg { max-width: 45vw; }
+  &.fs-modal-xl { max-width: 65vw; }
+}
+
+
+/* =================================================================
+   UTILITIES & OVERRIDES
+   ================================================================= */
+
+// ── Сброс стилей WPBakery postbox внутри модалки
+// Чтобы встроенные виджеты не ломали верстку
+.fs-lms-modal-content {
+  .postbox {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+
+    .postbox-header {
+      display: none; // Скрываем дублирующий заголовок
+    }
+
+    .inside {
+      padding: 0; // Убираем лишние отступы
+    }
+  }
+}
+
+// ── Группа радио-кнопок
+.fs-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin-top: $spacing-xs;
+}
+
+.fs-radio-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  cursor: pointer;
+  font-size: $font-size-wp;
+  color: $color-text-primary;
+
+  input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--color-primary); // Нативная окраска (современные браузеры)
+  }
+
+  &:hover span {
+    color: var(--color-primary);
+  }
+
+  &--disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+
+    input[type="radio"] { cursor: not-allowed; }
+    &:hover span { color: $color-text-primary; }
+  }
+}
+
+// ── Сохранение переносов строк в сообщениях
+.fs-lms-modal-message {
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: $line-height-base;
+}
+
+
+/* =================================================================
+   RESPONSIVE: Mobile Adaptation
+   ================================================================= */
+
+@media (max-width: $breakpoint-mobile) {
+  .fs-lms-modal-content {
+    // Отступы по краям экрана + уменьшенная высота
+    max-width: calc(100% - rem(40));
+    max-height: calc(100vh - rem(40));
+
+    .fs-lms-modal-header {
+      padding: $spacing-md $spacing-lg;
+
+      h2.fs-lms-modal-title {
+        font-size: $font-size-m;
+      }
+
+      .fs-lms-modal-close {
+        font-size: rem(22);
+      }
+    }
+
+    .fs-lms-modal-body {
+      padding: $spacing-lg;
+    }
+
+    .fs-lms-modal-footer {
+      padding: $spacing-md $spacing-lg;
+      flex-wrap: wrap; // Кнопки переносятся на новую строку
+
+      button {
+        flex: 1;           // Равная ширина кнопок
+        min-width: rem(100);  // Минимальная удобная ширина для тапа
+      }
+    }
+  }
+}

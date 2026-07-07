@@ -1,34 +1,18 @@
 // =================================================================
-// GLOBAL DESIGN TOKENS
+// ADMIN DESIGN TOKENS
 // =================================================================
+// Ядро (шкалы, палитра, WP-статусные цвета, z, тени, брейкпоинты) —
+// в shared/_tokens.scss; здесь только admin-специфика: WP-bridge,
+// цвета типов шагов, Course Builder, размеры контролов, секции компонентов.
 
-// ── Цветовая палитра
+@use 'sass:map';
+@use '../shared/tokens' as *;
+@forward '../shared/tokens';
 
-$color-primary: #2271b1; // blue 50
-$color-primary-hover:  #135e96; // blue 60
-
-$color-danger:         #d63638; // red 50
-$color-danger-hover:   #8a2424; // red 70
-$color-warning:        #e08a00; // orange — предупреждение (toast)
-
-$color-secondary:      #a7aaad; // gray 20
-$color-secondary-hover:#787c82; // gray 40
-
-$color-text-primary:   #2c3338;
-$color-text-secondary: #646970;
-$color-text-inverse:   #ffffff;
-
-$color-bg-modal:       #ffffff;
-$color-bg-backdrop:    rgba(0, 0, 0, 0.6);
-$color-bg-footer:      #f9f9f9;
-
-$color-border-input:   #c3c4c7;
-$color-border-footer:  #e0e0e0;
-
-$wp-admin-blue:  $color-primary; // blue 50
-$wp-admin-blue-bg:  #c5d9ed; // blue 5
-$wp-admin-blue-bg-light:  #f0f6fc; // blue 0
-$wp-admin-blue-text:  #0a4b78; // 70
+// WP-core .nav-tab цвета текста (для восстановления нативного вида табов,
+// когда они лежат внутри div.notice — см. _learning-bank.scss).
+$wp-nav-tab-text: #50575e; // .nav-tab
+$wp-nav-tab-text-active: #000;    // .nav-tab-active
 
 // CSS custom property bridge — follows WP admin color scheme automatically
 :root {
@@ -37,33 +21,13 @@ $wp-admin-blue-text:  #0a4b78; // 70
     --color-primary-dark:  var(--wp-admin-theme-color-darker-20, #{$wp-admin-blue-text});
 }
 
-$wp-admin-green:     #008a20; // green 50
-$wp-admin-green-dk:  #006b18; // green 60
-$wp-admin-green-bg:  #b8e6bf; // green 5
-$wp-admin-green-text: #005c12; // 70
-
-$wp-admin-gray:  $color-text-secondary; // gray 50
-$wp-admin-gray-bg:  #dcdcde; // gray 5
-$wp-admin-gray-bg-light:  #f6f7f7; // gray 0
-$wp-admin-gray-text:  #3c434a; // 70
-
-$wp-admin-yellow:  #996800; // yellow 50
-$wp-admin-yellow-bg:  #f5e6ab; // yellow 5
-$wp-admin-yellow-text:  #614200; // 70
-
-$wp-admin-red:  $color-danger; // red 50
-$wp-admin-red-bg:  #facfd2; // red 5
-$wp-admin-red-text:  #691c1c; // 80
-
-$wp-admin-purple:       #7c3aed;
-$wp-admin-purple-bg:    #ede9fe;
-$wp-admin-purple-text:  #4c1d95;
-
-// ── Step-type accents (Course Builder, canonical design — design_handoff_course_builder/)
-$step-lecture:    $color-primary; // text/лекция
-$step-video:      #8c3bca;        // видео
-$step-practice:   #c9540a;        // практика (work)
-$step-quiz:       #00834a;        // тест (assessment)
+// ── Step-type accents — из ЕДИНОЙ палитры shared/_tokens.scss
+//    $step-type-palette: конструктор обязан красить типы шагов так же,
+//    как плеер (player/_types.scss) и JS (player/icons.js TYPES).
+$step-lecture: map.get($step-type-palette, lecture); // text/лекция
+$step-video: map.get($step-type-palette, video);
+$step-practice: map.get($step-type-palette, practice); // работа
+$step-quiz: map.get($step-type-palette, assessment); // legacy-ключ (UI-тип quiz не используется)
 
 // ── Step-type → accent colour map (D11: drives [data-type] colour rules
 //    in course-builder/.spo-ico, step-editor/.step-chip + .sh-badge)
@@ -72,134 +36,76 @@ $step-type-colors: (
 	video:      $step-video,
 	practice:   $step-practice,
 	quiz:       $step-quiz,
-	task:       $wp-admin-green,
-	assessment: $color-danger,
+	task:       map.get($step-type-palette, task),
+	assessment: map.get($step-type-palette, assessment),
 );
 
 // ── Course Builder bespoke shades (subtle UI fills from canonical design)
-$cb-bg-tree:    #fbfbfc; // фон рельсы/футера
-$cb-bg-hover:   #f0f0f1; // hover строки дерева
-$cb-bg-active:  #e7f0f8; // активный урок
-$cb-chip-bg:    #f0f1f3; // плитка шага (неактивная)
-$cb-num-bg:     #e0e7ef; // номер модуля
-$cb-badge-bg:   #eceef0; // бейдж числа шагов
+$cb-bg-tree: #fbfbfc; // фон рельсы/футера
+$cb-bg-hover: $wp-admin-gray-2; // hover строки дерева
+$cb-bg-active: #e7f0f8; // активный урок
+$cb-chip-bg: #f0f1f3; // плитка шага (неактивная)
+$cb-num-bg: #e0e7ef; // номер модуля
+$cb-badge-bg: #eceef0; // бейдж числа шагов
 
 // ── Course Builder shadows & computed colours
-$shadow-cb-strip:      0 1px 1px rgba(0, 0, 0, 0.04);
-$shadow-cb-builder:    0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-cb-strip: 0 1px 1px rgba(0, 0, 0, 0.04);
+$shadow-cb-builder: 0 1px 2px rgba(0, 0, 0, 0.05);
 $shadow-cb-chip-hover: 0 4px 10px rgba(0, 0, 0, 0.1);
-$shadow-cb-popover:    0 12px 40px rgba(0, 0, 0, 0.2);
+$shadow-cb-popover: 0 12px 40px rgba(0, 0, 0, 0.2);
 $cb-danger-border-color: rgba($color-danger, 0.4);
-$cb-danger-hover-bg:     rgba($color-danger, 0.1);
+$cb-danger-hover-bg: rgba($color-danger, 0.1);
 $cb-chip-num-active-color: rgba(255, 255, 255, 0.85);
-$cb-pane-px: 22px; // горизонтальный padding правой панели редактора
+$cb-pane-px: rem(22); // горизонтальный padding правой панели редактора
 
-// ── Размеры и отступы
-$spacing-xs: 4px;
-$spacing-sm: 8px;
-$spacing-md: 12px;
-$spacing-lg: 16px;
-$spacing-xl: 20px;
-$spacing-xxl: 28px;
+// ── Размеры контролов
+$input-height: rem(40);
+$input-height-sm: rem(35);  // компактная высота полей: модальный form-input, editable-field, fs-pfield
+$field-max-width: rem(320);
+$settings-max-width: rem(860); // единая ширина для страниц настроек
 
-$border-radius-sm:   3px;
-$border-radius-md:   4px;
-$border-radius-l:    6px;
-$border-radius-lg:   8px;
-$border-radius-pill: 12px;
+$size-icon-xl: rem(48); // крупная иконка-заглушка: empty-state, modal redirect-box провайдер
 
-$shadow-card:  0 1px 3px rgba(0, 0, 0, 0.04);
-$shadow-toast: 0 2px 12px rgba(0, 0, 0, 0.18);
-$shadow-modal: 0 2px 20px rgba(0, 0, 0, 0.3);
+$gap-sm: rem(50);
+$gap-md: rem(100);
+$tr-height: rem(42);
 
-$input-height:    40px;
-$input-height-sm: 35px;  // компактная высота полей: модальный form-input, editable-field, fs-pfield
-$field-max-width:    320px;
-$settings-max-width: 860px; // единая ширина для страниц настроек
-
-$size-icon-xl: 48px; // крупная иконка-заглушка: empty-state, modal redirect-box провайдер
-
-$gap-sm: 50px;
-$gap-md: 100px;
-
-$tr-height: 42px;
-
-// ── Шрифты
-$font-bold:    600;
-$font-heavy:   700;
-$font-regular: 450;
-
-$font-size-sm:   10px;
-$font-size-code: 11px;
-$font-size-xs:   12px;
-$font-size-wp:   13px;
-$font-size:      14px;
-$font-size-m:    16px;
-$font-size-l:    24px;
-
-$line-height-base: 1.5; // базовая высота строки для текстовых блоков (тост, тултип, диалоги)
-
-$font-mono: Consolas, Monaco, monospace; // моноширинный стек (код, join-коды)
-
-// ── Тайминги
-$transition-fast:    0.2s ease-out;
-$transition-default: all $transition-fast;
-
-// ── Брейкпоинты
+// ── Брейкпоинты (алиасы ядра; admin-адаптив ограничен билдерами и модалками)
 $breakpoint-mobile: 768px;
-$breakpoint-builder: 960px; // course/slot builder two-pane → single-column collapse
-
-// ── Z-index
-$z-modal-backdrop: 1;
-$z-modal-content:  2;
-$z-modal-root:     999999;
-$z-modal-alert:    1000050;
-$z-tooltip:        1000060; // выше модалок, ниже тостов — тултип в модалке не перекрывается
-$z-toast:          1000100;
+$breakpoint-builder: $bp-tablet; // course/slot builder two-pane → single-column collapse
 
 // =================================================================
 // COMPONENT: Subject Tabs
 // =================================================================
 
-$dashboard-tabs-max-width:        95vw;
-$dashboard-tabs-padding:          12px 24px;
-$dashboard-tabs-content-padding:  30px;
-$dashboard-tabs-min-height:       400px;
-$dashboard-tabs-bg-inactive:      $wp-admin-gray-bg;
-$dashboard-tabs-bg-hover:         #f0f0f1;
-$dashboard-tabs-shadow:           0 2px 5px rgba(0, 0, 0, 0.05);
-$dashboard-tabs-transition:       $transition-default;
+$dashboard-tabs-max-width: 95vw;
+$dashboard-tabs-padding: rem(12) rem(24);
+$dashboard-tabs-content-padding: rem(30);
+$dashboard-tabs-min-height: rem(400);
+$dashboard-tabs-bg-inactive: $wp-admin-gray-bg;
+$dashboard-tabs-bg-hover: $wp-admin-gray-2;
+$dashboard-tabs-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+$dashboard-tabs-transition: $transition-default;
 
 // =================================================================
 // COMPONENT: Subject Table
 // =================================================================
 
-$task-col-name-width:     45%;
+$task-col-name-width: 45%;
 $task-col-template-width: 35%;
-$task-col-actions-width:  15%;
-$task-select-max-width:   350px;
+$task-col-actions-width: 15%;
+$task-select-max-width: rem(350);
 
 // =================================================================
 // COMPONENT: Tables (shared)
 // =================================================================
 
-$table-row-border:           $dashboard-tabs-bg-hover; // gray 2 (#f0f0f1)
-$table-header-bg:            #f8f9fa;
-$table-row-add-bg:           $wp-admin-gray-bg-light;  // gray 0 (#f6f7f7)
-$table-add-btn-width:        32px;
-$table-add-btn-height:       30px;
-$table-add-icon-size:        22px;
-$table-add-container-height: 48px;
+$table-row-border: $dashboard-tabs-bg-hover; // gray 2 (#f0f0f1)
+$table-header-bg: #f8f9fa;
+$table-row-add-bg: $wp-admin-gray-bg-light;  // gray 0 (#f6f7f7)
+$table-add-btn-width: rem(32);
+$table-add-btn-height: rem(30);
+$table-add-icon-size: rem(22);
+$table-add-container-height: rem(48);
 
-// =================================================================
-// MIXIN: cb-chip — общий стиль чип/бейдж/кнопка (lesson-flag,
-// sh-badge, sh-btn, fs-cb-ref .button, fs-cb-ref-title)
-// =================================================================
-
-@mixin cb-chip {
-	height: 32px; min-height: 0; padding: 0 11px; box-sizing: border-box; appearance: none;
-	display: inline-flex; align-items: center; gap: 5px;
-	font-size: $font-size-wp; font-weight: $font-bold; white-space: nowrap;
-	border-radius: $border-radius-pill;
-	svg { fill: currentColor; width: 14px; height: 14px; flex-shrink: 0; }
-}
+// Миксин cb-chip переехал в _mixins.scss (variables — только токены).

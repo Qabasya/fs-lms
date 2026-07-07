@@ -6,6 +6,7 @@ namespace Inc\Services\Profile;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Managers\Course\LessonManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
@@ -34,7 +35,13 @@ class DashboardService {
 		private readonly SubstitutionRepository  $substitutions,
 		private readonly RoomRepository          $rooms,
 		private readonly ClockInterface          $clock,
+		private readonly SubjectRepository       $subjects,
 	) {}
+
+	/** Человекочитаемое имя предмета (fallback — слаг), как в LearnerService (#12). */
+	private function subjectName( string $key ): string {
+		return $this->subjects->getByKey( $key )?->name ?? $key;
+	}
 
 	/**
 	 * @param bool $allGroups офис видит все группы (findAll), препод — свои + замены.
@@ -43,7 +50,6 @@ class DashboardService {
 	public function build( int $userId, bool $allGroups ): array {
 		$now     = $this->clock->now( 'mysql' );      // 'Y-m-d H:i:s'
 		$today   = substr( $now, 0, 10 );
-		$weekEnd = ( new \DateTimeImmutable( $today ) )->modify( '+6 days' )->format( 'Y-m-d' );
 
 		[ $groups, $covering ] = $this->collectGroups( $userId, $allGroups, $today );
 
@@ -56,6 +62,9 @@ class DashboardService {
 		$groupCards  = array();
 		$lessonsTd   = 0;
 		$reviewTotal = 0;
+		// НБ-10: счётчики «на сегодня» — уникальные группы с занятием и число инд.
+		$todayGroupIds   = array();
+		$todayIndividual = 0;
 
 		foreach ( $groups as $gid => $g ) {
 			$isCovering = isset( $covering[ $gid ] );
@@ -64,21 +73,34 @@ class DashboardService {
 			$matrix       = $this->attendance->matrixForGroup( $gid );
 			$activeCount  = $this->records->countActiveByGroup( $gid );
 
+			// НБ-9: ФИО учеников группы — для подписи индивидуальных занятий в расписании.
+			$studentNames = array();
+			foreach ( $this->records->findActiveByGroupId( $gid ) as $rec ) {
+				$studentNames[ $rec->studentPersonId ] = trim( $rec->snapshotLastName . ' ' . $rec->snapshotFirstName );
+			}
+
 			foreach ( $this->groupLessons->listByGroup( $gid ) as $row ) {
 				if ( ! $row->scheduledAt ) {
 					continue;
 				}
 				$date = substr( $row->scheduledAt, 0, 10 );
-				$item = $this->lessonItem( $row, $gid, $g, $isCovering, $roomNames );
+				$item = $this->lessonItem( $row, $gid, $g, $isCovering, $roomNames, $studentNames );
 
 				if ( $date === $today ) {
 					$item['state'] = $this->stateOf( (string) $row->scheduledAt, $row->endsAt, $now );
 					$todayItems[]  = $item;
 					++$lessonsTd;
+					// НБ-10: группы — по уникальным group_id групповых занятий, инд. —
+					// отдельно; иначе «занятий» и «групп» расходятся с расписанием.
+					if ( 'individual' === $row->kind ) {
+						++$todayIndividual;
+					} else {
+						$todayGroupIds[ $gid ] = true;
+					}
 				}
-				if ( $date >= $today && $date <= $weekEnd ) {
-					$weekItems[] = $item;
-				}
+				// НБ-11: всё расписание (у каждого item есть date) — клиент сам
+				// вырезает окно недели и листает его пагинацией.
+				$weekItems[] = $item;
 
 				// «Заполнить»: прошедшее групповое занятие без единой отметки.
 				if ( 'individual' !== $row->kind && $row->scheduledAt < $now && ! isset( $matrix[ $row->id ] ) ) {
@@ -103,7 +125,7 @@ class DashboardService {
 			$groupCards[] = array(
 				'id'            => $gid,
 				'name'          => $g->name,
-				'subject'       => $g->subject_key,
+				'subject'       => $this->subjectName( (string) $g->subject_key ),
 				'students'      => $activeCount,
 				'covered_until' => $coveredUntil,
 				'covering_until' => $covering[ $gid ] ?? null,
@@ -120,7 +142,8 @@ class DashboardService {
 				'lessons_today' => $lessonsTd,
 				'to_review'     => $reviewTotal,
 				'to_fill'       => count( $toFill ),
-				'groups'        => count( $groups ),
+				'groups'        => count( $todayGroupIds ),
+				'individual'    => $todayIndividual,
 			),
 			'today'    => $todayItems,
 			'week'     => $weekItems,
@@ -192,12 +215,12 @@ class DashboardService {
 	 * @param array<int,string> $roomNames
 	 * @return array<string, mixed>
 	 */
-	private function lessonItem( \Inc\DTO\Course\GroupLessonDTO $row, int $gid, object $g, bool $isCovering, array $roomNames ): array {
+	private function lessonItem( \Inc\DTO\Course\GroupLessonDTO $row, int $gid, object $g, bool $isCovering, array $roomNames, array $studentNames = array() ): array {
 		return array(
 			'group_lesson_id' => $row->id,
 			'group_id'        => $gid,
 			'group_name'      => $g->name,
-			'subject'         => $g->subject_key,
+			'subject'         => $this->subjectName( (string) $g->subject_key ),
 			'topic'           => $this->topicOf( $row ),
 			'date'            => substr( (string) $row->scheduledAt, 0, 10 ),
 			'start'           => substr( (string) $row->scheduledAt, 11, 5 ),
@@ -205,6 +228,9 @@ class DashboardService {
 			'kind'            => $row->kind,
 			'is_substitute'   => $isCovering,
 			'room'            => $this->roomName( $row, $g, $roomNames ),
+			// НБ-9: ФИО ученика для индивидуального занятия (для группового — пусто).
+			'student_name'    => ( 'individual' === $row->kind && null !== $row->studentPersonId )
+				? ( $studentNames[ $row->studentPersonId ] ?? '' ) : '',
 		);
 	}
 

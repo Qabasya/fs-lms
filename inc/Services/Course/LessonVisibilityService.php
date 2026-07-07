@@ -74,6 +74,34 @@ class LessonVisibilityService {
 		return $row->visibility;
 	}
 
+	/**
+	 * Домешивает новые work-шаги эталонного урока в уже открытые оккурренсы (Course Builder).
+	 *
+	 * copy-on-publish замораживает набор работ строго на момент открытия — если после
+	 * этого в урок добавили работу, уже открытые для групп занятия её не увидят
+	 * (`work_ids_snapshot` не меняется). Идемпотентно докладывает недостающие id
+	 * в `extra_work_ids` (снапшот не трогаем — уже сданное/оценённое не задеваем).
+	 */
+	public function syncExtraWorksForOpenOccurrences( int $lessonId ): void {
+		$lesson = $this->lessonManager->get( $lessonId );
+		if ( ! $lesson ) {
+			return;
+		}
+		$liveWorkIds = $lesson->workIds();
+		foreach ( $this->groupLessons->listByLessonId( $lessonId ) as $row ) {
+			if ( ! $row->isPublished() ) {
+				continue;
+			}
+			$effective = array_merge( $row->workIdsSnapshot ?? array(), $row->extraWorkIds );
+			$missing   = array_diff( $liveWorkIds, $effective );
+			if ( empty( $missing ) ) {
+				continue;
+			}
+			$merged = array_values( array_unique( array_merge( $row->extraWorkIds, $missing ) ) );
+			$this->groupLessons->setExtraWorkIds( $row->id, $merged );
+		}
+	}
+
 	/** Явно подтянуть новую версию work_ids из эталонного урока (перезаписывает снапшот). */
 	public function refreshFromLesson( int $groupLessonId, int $actorUserId ): void {
 		$row    = $this->groupLessons->find( $groupLessonId );

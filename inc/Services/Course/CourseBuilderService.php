@@ -10,9 +10,11 @@ use Inc\DTO\Course\ModuleDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Course\StepType;
+use Inc\Enums\Course\AccessMode;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Subject\PostTypeResolver;
 
 /**
@@ -31,6 +33,8 @@ class CourseBuilderService {
 		private readonly LessonManager        $lessons,
 		private readonly PostManager          $posts,
 		private readonly ContentCloneService  $cloneService,
+		private readonly GroupsRepository     $groups,
+		private readonly OpenCourseValidator  $openCourseValidator,
 	) {}
 
 	/**
@@ -88,15 +92,41 @@ class CourseBuilderService {
 		$author_name = $author instanceof \WP_User ? $author->display_name : '';
 
 		return array(
-			'id'          => $course->id,
-			'title'       => $course->title,
-			'subject_key' => $course->subjectKey,
-			'status'      => $course->status,
-			'author_id'   => $course->authorId,
-			'author_name' => $author_name,
-			'thumbnail'   => get_the_post_thumbnail_url( $course->id, 'medium' ) ?: '',
-			'modules'     => $modules,
+			'id'           => $course->id,
+			'title'        => $course->title,
+			'subject_key'  => $course->subjectKey,
+			'status'       => $course->status,
+			'author_id'    => $course->authorId,
+			'author_name'  => $author_name,
+			'thumbnail'    => get_the_post_thumbnail_url( $course->id, 'medium' ) ?: '',
+			'modules'      => $modules,
+			// Эпик 15 (follow-up П6): курс уже ведётся открытой группой, но содержит
+			// контент без автопроверки — предупреждение автору (новые уроки в открытую
+			// группу не дозальются, syncCourseLessons такую группу пропускает).
+			'open_warning' => $this->openGroupWarning( $course ),
 		);
+	}
+
+	/** @return string|null Текст предупреждения или null, если всё в порядке. */
+	private function openGroupWarning( CourseDTO $course ): ?string {
+		$hasOpenGroup = false;
+		foreach ( $this->groups->findByCourse( $course->id ) as $g ) {
+			if ( AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $g->access_mode ?? '' ) ) ) {
+				$hasOpenGroup = true;
+				break;
+			}
+		}
+		if ( ! $hasOpenGroup ) {
+			return null;
+		}
+
+		$problems = $this->openCourseValidator->problems( $course );
+		if ( empty( $problems ) ) {
+			return null;
+		}
+
+		return 'Курс ведётся открытой группой, но содержит контент без автопроверки — '
+			. 'эти уроки не попадут ученикам открытой группы: ' . implode( '; ', $problems );
 	}
 
 	/**

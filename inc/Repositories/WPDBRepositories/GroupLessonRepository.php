@@ -214,8 +214,32 @@ class GroupLessonRepository {
 		return false !== $result;
 	}
 
+	/** B2: смена ученика индивидуального занятия. */
+	public function setStudentPersonId( int $id, int $personId ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'student_person_id' => $personId ),
+			array( 'id' => $id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+	}
+
 	public function remove( int $id ): bool {
 		return (bool) $this->wpdb->delete( $this->table, array( 'id' => $id ) );
+	}
+
+	/** @return GroupLessonDTO[] Все строки программы (всех групп), ссылающиеся на эталонный урок. */
+	public function listByLessonId( int $lessonId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE lesson_id = %d',
+				$this->table,
+				$lessonId
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 
 	public function countUsageByLesson( int $lessonId ): int {
@@ -230,5 +254,10 @@ class GroupLessonRepository {
 
 	public function deleteAllByGroup( int $groupId ): int {
 		return (int) $this->wpdb->delete( $this->table, array( 'group_id' => $groupId ) );
+	}
+
+	/** Снимает ссылку на удаляемый кабинет со всех занятий (RoomAssignmentService). */
+	public function clearRoomId( int $roomId ): int {
+		return (int) $this->wpdb->update( $this->table, array( 'room_id' => null ), array( 'room_id' => $roomId ) );
 	}
 }

@@ -1,12 +1,20 @@
 /* Shared utilities: toast, HTML escaping, formatting, context menu state */
 
-import { GROUP_COLORS, AVA_COLORS } from './constants.js';
+import { AVA_COLORS } from './constants.js';
+import { PATH_CHECK, PATH_CROSS, icoCheck } from '../common/icons.js';
 
 let toastTimer;
 
-export function toast(msg) {
+/**
+ * Показывает тост. type='ok' (по умолчанию) — зелёная галка; type='error' —
+ * красный крестик (НБ-4). Иконка/цвет переключаются на общем элементе #profToast.
+ */
+export function toast(msg, type = 'ok') {
     const t = document.getElementById('profToast');
     if (!t) return;
+    t.classList.toggle('error', type === 'error');
+    const path = t.querySelector('svg path');
+    if (path) { path.setAttribute('d', type === 'error' ? PATH_CROSS : PATH_CHECK); }
     t.querySelector('span').textContent = msg;
     t.classList.add('show');
     clearTimeout(toastTimer);
@@ -58,6 +66,13 @@ export function fmtDayMonth(s) {
     return p.length === 3 ? `${p[2]}.${p[1]}` : s;
 }
 
+/** Полная дата 'ДД.ММ.ГГГГ'. */
+export function fmtDate(s) {
+    if (!s) return '';
+    const p = String(s).slice(0, 10).split('-');
+    return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : s;
+}
+
 /** Сегодняшняя дата 'YYYY-MM-DD'. */
 export function todayIso() {
     return new Date().toISOString().slice(0, 10);
@@ -66,28 +81,29 @@ export function todayIso() {
 /* ── Colors (shared) ───────────────────────────────────────────── */
 
 /**
- * Цвет группы — по ПРЕДМЕТУ (#17): все группы одного предмета красятся одинаково.
- * Индекс предмета в порядке появления в fsProfile.groups → GROUP_COLORS;
- * для группы/предмета вне списка — стабильный хэш ключа. Согласован между
- * сайдбаром, пикерами и дашбордом.
+ * Индекс цвета предмета/курса (0..11): стабильный хэш subject_key.
+ * Палитра — src/scss/shared/_chip-palette.scss (.chip-cN и варианты);
+ * PHP-зеркало — ProfileViewResolver::chipColorIndex(). Цвет закреплён за
+ * ПРЕДМЕТОМ (#17: группы и курсы одного предмета красятся одинаково), не
+ * зависит от порядка групп и совпадает в кабинете и плеере. Без инлайна.
  */
-export function groupColor(gid) {
+export function chipIndex(key) {
+    const s = String(key || '');
+    let h = 0;
+    for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+    return Math.abs(h) % 12;
+}
+
+export const chipBg     = (key) => `chip-c${chipIndex(key)}`;
+export const chipText   = (key) => `chip-tc-c${chipIndex(key)}`;
+export const chipBorder = (key) => `chip-bd-c${chipIndex(key)}`;
+export const chipSoft   = (key) => `chip-soft-c${chipIndex(key)}`;
+
+/** Ключ предмета группы сайдбара по id (fallback — id, чтобы цвет был стабилен). */
+export function groupSubjectKey(gid) {
     const groups = (window.fsProfile && window.fsProfile.groups) || [];
     const g = groups.find(x => String(x.id) === String(gid));
-    const key = (g && (g.subject || g.subject_key)) || String(gid);
-
-    // Различные предметы в порядке появления → стабильный индекс цвета.
-    const subjects = [];
-    for (const x of groups) {
-        const s = x.subject || x.subject_key;
-        if (s && !subjects.includes(s)) { subjects.push(s); }
-    }
-    const idx = subjects.indexOf(key);
-    if (idx >= 0) { return GROUP_COLORS[idx % GROUP_COLORS.length]; }
-
-    let h = 0;
-    for (let i = 0; i < key.length; i++) { h = (h * 31 + key.charCodeAt(i)) | 0; }
-    return GROUP_COLORS[Math.abs(h) % GROUP_COLORS.length];
+    return (g && (g.subject_key || g.subject)) || String(gid);
 }
 
 /** Цвет аватара ученика по индексу в переданном списке ({person_id}). */
@@ -123,8 +139,8 @@ export function openCtxMenu(anchor, items, onPick) {
     if (!menu || !backdrop) return;
 
     menu.innerHTML = items.map(it => `<div class="ctx-item ${it.active ? 'on' : ''}" data-v="${esc(it.v)}">
-        <span class="ctx-check">${it.active ? '<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}</span>
-        ${it.swatch ? `<span class="ctx-sw" style="background:${it.swatch}">${esc(it.chip || '')}</span>` : ''}
+        <span class="ctx-check">${it.active ? icoCheck(15) : ''}</span>
+        ${it.swatch || it.swatchClass ? `<span class="ctx-sw${it.swatchClass ? ' ' + esc(it.swatchClass) : ''}"${it.swatch ? ` style="background:${it.swatch}"` : ''}>${esc(it.chip || '')}</span>` : ''}
         <span class="ctx-lbl">${esc(it.label)}</span>
     </div>`).join('');
 
@@ -173,11 +189,15 @@ export function closeCtxMenu() {
 export function openGradePopPositioned(pop, anchor) {
     pop.classList.add('open');
     const r = anchor.getBoundingClientRect();
-    const pw = 188, ph = pop.offsetHeight;
+    const pw = pop.offsetWidth, ph = pop.offsetHeight;
     let left = r.left + r.width / 2 - pw / 2;
     left = Math.max(10, Math.min(left, window.innerWidth - pw - 10));
     let top = r.bottom + 6;
     if (top + ph > window.innerHeight - 10) top = r.top - ph - 6;
+    // НБ-8: верх/низ-clamp — высокий поповер (форма инд. занятия) у нижних/верхних
+    // якорей не должен уходить за вьюпорт; при нехватке высоты прижимаем к верху
+    // (переполнение гасит max-height/overflow на .prof-grade-pop).
+    top = Math.max(10, Math.min(top, window.innerHeight - ph - 10));
     pop.style.left = left + 'px';
     pop.style.top = top + 'px';
     const backdrop = document.getElementById('profCtxBackdrop');

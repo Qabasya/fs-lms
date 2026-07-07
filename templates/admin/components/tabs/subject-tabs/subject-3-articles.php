@@ -22,15 +22,15 @@ if ( $dto->articles_table ) :
 
 	<div class="fs-page-header">
 		<div class="fs-page-header__content">
-			<h1 class="fs-page-header__title">Статьи</h1>
+			<h2 class="fs-page-header__title">Статьи</h2>
 			<div class="fs-page-header__actions">
 				<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=' . $t->post_type ) ); ?>"
 					target="_blank"
-					class="page-title-action btn-filled">
+					class="button button-primary">
 					<?php echo esc_html( $t->post_type_object->labels->add_new ); ?>
 				</a>
 				<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=' . $articles_cpt ) ); ?>"
-					class="page-title-action"
+					class="button"
 					target="_blank">
 					<?php esc_html_e( 'Перейти к статьям', 'fs-lms' ); ?>
 				</a>

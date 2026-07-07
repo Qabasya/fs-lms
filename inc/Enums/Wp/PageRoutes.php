@@ -40,6 +40,9 @@ enum PageRoutes: string {
 	/** Кокпит группы преподавателя (параметр ?gid=N) */
 	case GroupCockpit = 'group';
 
+	/** Preview-плеер курса для преподавателя/офиса/автора (Фаза 5, ?course=N) */
+	case CoursePreview = 'course-preview';
+
 	/**
 	 * Возвращает полный абсолютный URL для текущего маршрута.
 	 *

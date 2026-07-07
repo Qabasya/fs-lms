@@ -3,130 +3,243 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 
-.prof-ktp { padding: 20px 24px; height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.prof-ktp-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; flex-shrink: 0; }
-.prof-ktp-legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-.prof-ktp-legend .kl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.prof-ktp { padding: rem(20) rem(24); height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.prof-ktp-head { display: flex; align-items: center; gap: rem(14); margin-bottom: rem(16); flex-wrap: wrap; flex-shrink: 0; }
+.prof-ktp-legend { display: flex; gap: rem(14); align-items: center; flex-wrap: wrap; }
+.prof-ktp-legend .kl { display: inline-flex; align-items: center; gap: rem(6); font-size: rem(12); color: var(--muted); }
 
 /* T1.8: бейдж «опубликовано» (КТП заблокирована) */
 .ktp-lock-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: rem(5);
+  padding: rem(4) rem(10); border-radius: 999px; font-size: rem(12); font-weight: 600;
   background: var(--accent-soft); color: var(--accent-700); border: 1px solid var(--accent-soft-2);
 }
-.ktp-lock-badge svg { stroke: currentColor; flex-shrink: 0; }
+.ktp-lock-badge svg { stroke: currentcolor; flex-shrink: 0; }
 
-.prof-ktp-pickers { display: flex; align-items: flex-end; gap: 12px; }
-.prof-ktp-pick { display: flex; flex-direction: column; gap: 5px; }
-.kp-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); padding-left: 2px; }
+.prof-ktp-pickers { display: flex; align-items: flex-end; gap: rem(12); }
+.prof-ktp-pick { display: flex; flex-direction: column; gap: rem(5); }
+.kp-label { font-size: rem(11); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); padding-left: rem(2); }
+
 .kp-btn {
-  display: inline-flex; align-items: center; gap: 9px;
-  padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--ink); font: 600 14px var(--font); cursor: pointer;
-  box-shadow: var(--shadow-sm); transition: border-color $tr, background $tr; max-width: 320px;
+  display: inline-flex; align-items: center; gap: rem(9);
+  padding: rem(8) rem(12); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink); font: 600 rem(14) var(--font); cursor: pointer;
+  box-shadow: var(--shadow-sm); transition: border-color $tr, background $tr; max-width: rem(320);
 }
 .kp-btn:hover { border-color: var(--accent-soft-2); background: var(--surface-2); }
 .kp-btn:disabled { cursor: default; color: var(--muted-2); background: var(--surface-2); box-shadow: none; }
 .kp-btn:disabled:hover { border-color: var(--line); }
-.kp-chip { width: 28px; height: 26px; border-radius: 7px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--ink-inverse); }
+.kp-chip { width: rem(28); height: rem(26); border-radius: rem(7); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: rem(11); font-weight: 700; color: var(--ink-inverse); }
 .kp-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kp-caret { color: var(--muted-2); margin-left: 2px; flex-shrink: 0; }
+.kp-caret { color: var(--muted-2); margin-left: rem(2); flex-shrink: 0; }
 
 .prof-ktp-empty {
   flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; gap: 6px; background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 40px;
+  text-align: center; gap: rem(6); background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: rem(40);
 }
-.ke-ico { width: 64px; height: 64px; border-radius: 18px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
-.ke-ico--danger { background: var(--absent-bg); color: var(--absent); }
-.prof-ktp-empty h3 { font-size: 17px; font-weight: 700; }
-.prof-ktp-empty p { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
-.prof-ktp-empty .prof-btn { margin-top: 10px; }
+.ke-ico { width: rem(64); height: rem(64); border-radius: rem(18); background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; margin-bottom: rem(8); }
+.ke-ico--danger { background: var(--err-soft); color: var(--err); }
+.prof-ktp-empty h3 { font-size: rem(17); font-weight: 700; }
+.prof-ktp-empty p { font-size: rem(13.5); color: var(--muted); line-height: 1.55; }
 
-.prof-ktp-grid { display: grid; grid-template-columns: 340px 1fr; gap: 18px; flex: 1; min-height: 0; }
+/* Отступ — только одиночной кнопке пустого состояния («+ Добавить занятие»),
+   не кнопке в ряду курс-пикера .ke-assign (иначе она съезжает ниже селекта). */
+.prof-ktp-empty > .prof-btn { margin-top: rem(10); }
+
+.prof-ktp-grid { display: grid; grid-template-columns: rem(340) 1fr; gap: rem(18); flex: 1; min-height: 0; }
 
 .prof-theme-bank {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-height: 0;
+  min-width: 0;
 }
-.tb-head { padding: 14px 16px; border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: 8px; }
-.tb-head h3 { font-size: 14px; font-weight: 700; }
-.tb-head .tbh-count { font-size: 12px; color: var(--muted-2); margin-left: auto; }
-.tb-empty { padding: 18px; color: var(--muted-2); font-size: 13px; }
-.prof-theme-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; }
-.prof-theme-list::-webkit-scrollbar { width: 8px; }
-.prof-theme-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.tb-head { padding: rem(14) rem(16); border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: rem(8); }
+.tb-head h3 { font-size: rem(14); font-weight: 700; }
+.tb-head .tbh-count { font-size: rem(12); color: var(--muted-2); margin-left: auto; }
+.tb-empty { padding: rem(18); color: var(--muted-2); font-size: rem(13); }
+.prof-theme-list { flex: 1; overflow-y: auto; padding: rem(10); display: flex; flex-direction: column; gap: rem(8); scrollbar-width: thin; }
+.prof-theme-list::-webkit-scrollbar { width: rem(8); }
+.prof-theme-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: rem(4); }
+
 .prof-theme-card {
-  border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); padding: rem(10) rem(12);
   background: var(--surface); cursor: grab; transition: box-shadow $tr, border-color $tr, transform $tr;
-  display: flex; align-items: flex-start; gap: 10px;
+  display: flex; align-items: flex-start; gap: rem(10);
 }
 .prof-theme-card:hover { border-color: var(--accent-soft-2); box-shadow: var(--shadow-sm); }
 .prof-theme-card.placed { opacity: .5; }
-.prof-theme-card.placed .tc-num { background: var(--g-good); }
+.prof-theme-card.placed .tc-num { background: var(--ok); }
 .prof-theme-card.dragging { opacity: .4; }
-.tc-num { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; background: var(--accent-soft); color: var(--accent-700); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.tc-num { width: rem(22); height: rem(22); border-radius: rem(6); flex-shrink: 0; background: var(--accent-soft); color: var(--accent-700); font-size: rem(11); font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .tc-body { flex: 1; min-width: 0; }
-.tc-title { font-size: 13px; font-weight: 600; line-height: 1.3; }
-.tc-meta { font-size: 11px; color: var(--muted-2); margin-top: 2px; display: flex; gap: 8px; }
+.tc-title { font-size: rem(13); font-weight: 600; line-height: 1.3; }
+.tc-meta { font-size: rem(11); color: var(--muted-2); margin-top: rem(2); display: flex; gap: rem(8); }
 .tc-pinned { color: var(--accent); font-weight: 600; }
 .tc-grip { color: var(--muted-2); display: flex; cursor: grab; }
 
+/* min-width: 0 — грид-ребёнок 1fr не должен распираться контентом календаря
+   (7 колонок с темами); иначе весь экран уезжает за вьюпорт по ширине. */
 .prof-kal {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-height: 0;
+  min-width: 0;
 }
-.kal-head { padding: 12px 16px; border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: 10px; }
-.kal-month { font-size: 14px; font-weight: 700; min-width: 130px; text-align: center; }
-.kal-hint { font-size: 12px; color: var(--muted); }
-.kal-grid-wrap { flex: 1; overflow-y: auto; padding: 12px; scrollbar-width: thin; }
-.kal-grid-wrap::-webkit-scrollbar { width: 10px; }
-.kal-grid-wrap::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; border: 2px solid var(--surface); }
-.kal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 8px; }
-.kal-dow span { font-size: 11px; font-weight: 600; color: var(--muted-2); text-align: center; text-transform: uppercase; letter-spacing: .03em; }
-.kal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.kal-head { padding: rem(12) rem(16); border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: rem(10); }
+.kal-month { font-size: rem(14); font-weight: 700; min-width: rem(130); text-align: center; }
+.kal-hint { font-size: rem(12); color: var(--muted); }
+.kal-grid-wrap { flex: 1; overflow-y: auto; padding: rem(12); scrollbar-width: thin; }
+.kal-grid-wrap::-webkit-scrollbar { width: rem(10); }
+.kal-grid-wrap::-webkit-scrollbar-thumb { background: var(--line); border-radius: rem(5); border: rem(2) solid var(--surface); }
+.kal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: rem(8); margin-bottom: rem(8); }
+.kal-dow span { font-size: rem(11); font-weight: 600; color: var(--muted-2); text-align: center; text-transform: uppercase; letter-spacing: .03em; }
+.kal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: rem(8); }
+
 .kal-cell {
-  min-height: 92px; border: 1px solid var(--line); border-radius: var(--radius-xs);
-  background: var(--surface-2); padding: 6px; display: flex; flex-direction: column; gap: 4px;
+  min-height: rem(92); border: 1px solid var(--line); border-radius: var(--radius-xs);
+  background: var(--surface-2); padding: rem(6); display: flex; flex-direction: column; gap: rem(4);
   transition: border-color $tr, background $tr;
 }
 .kal-cell.empty { background: transparent; border-color: transparent; }
 .kal-cell.holiday { background: var(--holiday-bg); border-color: var(--holiday-border); }
 .kal-cell.no-lesson { background: var(--surface-2); opacity: .55; }
 .kal-cell.drop-ok { border-color: var(--accent); border-style: dashed; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
-.kal-date { display: flex; align-items: center; gap: 5px; }
-.kal-date .kd-num { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.kal-date .kd-tag { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; letter-spacing: .02em; }
-.kd-tag.hol { background: var(--holiday-tag-bg); color: var(--absent); }
-.kal-cell.holiday .kd-num { color: var(--absent); }
+.kal-date { display: flex; align-items: center; gap: rem(5); }
+.kal-date .kd-num { font-size: rem(12); font-weight: 700; font-variant-numeric: tabular-nums; }
+.kal-date .kd-tag { font-size: rem(9.5); font-weight: 700; padding: 1px rem(5); border-radius: rem(4); text-transform: uppercase; letter-spacing: .02em; }
+.kd-tag.hol { background: var(--holiday-tag-bg); color: var(--err); }
+.kal-cell.holiday .kd-num { color: var(--err); }
+
 .kal-date .kd-lesson {
-  font-size: 9.5px; color: var(--muted-2); margin-left: auto; white-space: nowrap;
+  font-size: rem(9.5); color: var(--muted-2); margin-left: auto; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
 }
+
 // Палитра расписания/КТП (D12): тема по плану — зелёный, закреплено — синий, выходной — красный.
 .placed-theme {
-  background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--g-good);
-  border-radius: 5px; padding: 5px 7px; font-size: 11px; line-height: 1.25; cursor: grab;
+  background: var(--surface); border: 1px solid var(--line); border-left: rem(3) solid var(--ok);
+  border-radius: rem(5); padding: rem(5) rem(7); font-size: rem(11); line-height: 1.25; cursor: grab;
   position: relative; box-shadow: var(--shadow-sm);
 }
 .placed-theme.pinned { border-left-color: var(--accent); }
-.placed-theme .pt-num { font-weight: 700; color: var(--g-good); }
+.placed-theme .pt-num { font-weight: 700; color: var(--ok); }
 .placed-theme.pinned .pt-num { color: var(--accent-700); }
-.placed-theme .pt-pin { position: absolute; top: 3px; right: 4px; color: var(--accent); display: none; }
+.placed-theme .pt-pin { position: absolute; top: rem(3); right: rem(4); color: var(--accent); display: none; }
 .placed-theme.pinned .pt-pin { display: block; }
 .placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; color: var(--ink-2); }
+
 /* T11.2: кабинет на карточке темы КТП */
-.placed-theme .pt-room { display: block; font-size: 9px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.placed-theme .pt-room { display: block; font-size: rem(9); color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* T12.6 (D14): «⋮» действия темы (продолжить на другую дату) — видно при наведении */
 .placed-theme .pt-more {
-  position: absolute; bottom: 2px; right: 3px; width: 16px; height: 16px; line-height: 14px;
-  border: none; background: transparent; color: var(--muted-2); font-size: 12px; font-weight: 700;
-  cursor: pointer; opacity: 0; transition: opacity $tr, color $tr; border-radius: 3px;
+  position: absolute; bottom: rem(2); right: rem(3); width: rem(16); height: rem(16); line-height: rem(14);
+  border: none; background: transparent; color: var(--muted-2); font-size: rem(12); font-weight: 700;
+  cursor: pointer; opacity: 0; transition: opacity $tr, color $tr; border-radius: rem(3);
 }
 .placed-theme:hover .pt-more { opacity: 1; }
 .placed-theme .pt-more:hover { color: var(--accent-700); background: var(--accent-soft); }
 
 /* T11.1: курс-пикер в пустом состоянии КТП */
-.ke-assign { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
-.ke-course-sel { min-width: 220px; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer; }
+.ke-assign { display: flex; align-items: center; gap: rem(8); margin-top: rem(14); flex-wrap: wrap; justify-content: center; }
+.ke-course-sel { min-width: rem(220); height: rem(38); padding: 0 rem(10); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: rem(13.5); cursor: pointer; }
 .ke-course-sel:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ── НБ-9: режим «Индивидуальные занятия» ──────────────────────────────── */
+.prof-indi-list {
+  flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: rem(10);
+  padding-right: rem(2); scrollbar-width: thin;
+}
+.prof-indi-list::-webkit-scrollbar { width: rem(8); }
+.prof-indi-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: rem(4); }
+.prof-indi-empty { padding: rem(40); text-align: center; color: var(--muted-2); font-size: rem(14); }
+.prof-indi-empty p { margin-bottom: rem(14); }
+
+/* B2: правка инд. занятия — карандаш на слоте (появляется на hover). */
+.indi-slot .indi-edit {
+  position: absolute; top: rem(2); right: rem(3);
+  width: rem(18); height: rem(18); padding: 0;
+  border: none; background: transparent; cursor: pointer;
+  font-size: rem(11); line-height: 1; color: var(--muted-2);
+  opacity: 0; transition: opacity $tr;
+}
+.indi-slot:hover .indi-edit { opacity: 1; }
+.indi-slot .indi-edit:hover { color: var(--accent); }
+
+.prof-indi-slot {
+  display: flex; align-items: stretch; gap: rem(12); overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm); padding: rem(12) rem(14) rem(12) 0;
+}
+.prof-indi-slot .pis-stripe { width: rem(4); flex-shrink: 0; background: var(--t-zachet); border-radius: 0 rem(3) rem(3) 0; }
+.pis-when { width: rem(56); flex-shrink: 0; text-align: center; padding-left: rem(6); }
+.pis-when .pis-date { font-size: rem(14); font-weight: 700; font-variant-numeric: tabular-nums; }
+.pis-when .pis-time { font-size: rem(12); color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.prof-indi-slot .pis-body { flex: 1; min-width: 0; }
+.pis-student { font-size: rem(14); font-weight: 600; }
+.pis-topic { font-size: rem(13); color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pis-topic.empty { color: var(--muted-2); font-style: italic; }
+.pis-meta { font-size: rem(12); color: var(--muted-2); margin-top: rem(4); }
+.prof-indi-slot .pis-action { align-self: center; flex-shrink: 0; }
+
+/* Пикер урока для инд. занятия (поповер поверх #profCtxMenu) */
+.pil-pop { width: rem(300); max-width: 92vw; padding: rem(2) 0; }
+
+.pil-pop .pil-search {
+  width: calc(100% - rem(20)); margin: rem(6) rem(10) rem(8); height: rem(34); padding: 0 rem(10);
+  border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; font-size: rem(13);
+  color: var(--ink); background: var(--surface);
+}
+.pil-pop .pil-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pil-list { max-height: rem(320); overflow-y: auto; padding: 0 rem(6) rem(6); scrollbar-width: thin; }
+.pil-list::-webkit-scrollbar { width: rem(8); }
+.pil-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: rem(4); }
+
+.pil-divider {
+  font-size: rem(10.5); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted-2); padding: rem(8) rem(8) rem(4);
+}
+
+.pil-item {
+  padding: rem(7) rem(9); border-radius: var(--radius-xs); font-size: rem(13); color: var(--ink-2);
+  cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pil-item:hover { background: var(--surface-2); }
+.pil-item.current { color: var(--accent-700); font-weight: 600; background: var(--accent-soft); }
+.pil-empty { padding: rem(14); font-size: rem(12.5); color: var(--muted-2); text-align: center; }
+
+/* #1: банк уроков (индивидуальный режим) — поиск + слоты на сквозном календаре */
+.prof-theme-bank .indi-search {
+  margin: rem(10) rem(10) 0; padding: rem(7) rem(10);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); font-family: inherit; font-size: rem(13); color: var(--ink-2);
+}
+.prof-theme-bank .indi-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+.prof-theme-bank .indi-search:disabled { opacity: .55; cursor: not-allowed; }
+
+.indi-slot { cursor: pointer; }
+.indi-slot .pt-num { color: var(--accent-700); }
+.indi-slot.unassigned { border-left-color: var(--err); }
+.indi-slot.unassigned .pt-num { color: var(--err); }
+.indi-slot.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* ── Планшет/мобильный (Фаза 5): банк тем сжимается, затем встаёт над
+   календарём (стек); сам календарь скроллится по горизонтали при нехватке. */
+@media (max-width: $breakpoint-tablet) {
+  .prof-ktp-grid { grid-template-columns: rem(260) 1fr; }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .prof-ktp { padding: rem(12); }
+
+  .prof-ktp-grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+
+  .prof-theme-bank { max-height: rem(240); }
+
+  /* Календарь скроллится внутри своей карточки: скролл-контейнер получает
+     и горизонталь, а сетка/шапка дней держат общий минимум ширины. */
+  .kal-grid-wrap { overflow-x: auto; }
+
+  .kal-grid,
+  .kal-dow { width: max-content; min-width: 100%; grid-template-columns: repeat(7, minmax(rem(76), 1fr)); }
+}

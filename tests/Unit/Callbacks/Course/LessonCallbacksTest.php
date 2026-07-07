@@ -8,6 +8,7 @@ use Inc\Callbacks\Course\LessonCallbacks;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\LessonAuthoringService;
+use Inc\Services\Course\LessonVisibilityService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -24,7 +25,11 @@ class LessonCallbacksTest extends TestCase {
 		fs_test_reset_ajax();
 		$posts           = new PostManager();
 		$this->lessons   = new LessonManager( $posts );
-		$this->callbacks = new LessonCallbacks( new LessonAuthoringService( $posts, $this->lessons, new \Inc\Services\Template\TemplateRegistry() ), $this->lessons );
+		$this->callbacks = new LessonCallbacks(
+			new LessonAuthoringService( $posts, $this->lessons, new \Inc\Services\Template\TemplateRegistry() ),
+			$this->lessons,
+			$this->createMock( LessonVisibilityService::class ),
+		);
 	}
 
 	private function seedLesson( int $id, string $subject, array $stepKeys ): void {

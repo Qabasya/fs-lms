@@ -28,7 +28,7 @@
 
 	&__body {
 		display: grid;
-		grid-template-columns: 280px 1fr;
+		grid-template-columns: rem(280) 1fr;
 		gap: $spacing-lg;
 		align-items: start;
 	}
@@ -54,7 +54,7 @@
 
 		&:first-child { border-top: 0; }
 		&:hover { background: $color-bg-subtle; }
-		&.is-active { background: color-mix(in srgb, $color-accent 12%, #fff); }
+		&.is-active { background: color-mix(in srgb, $color-accent 12%, $color-white); }
 
 		&[data-gate="locked"] {
 			cursor: not-allowed;
@@ -64,8 +64,8 @@
 
 	&__stepnum {
 		flex-shrink: 0;
-		width: 24px;
-		height: 24px;
+		width: rem(24);
+		height: rem(24);
 		border-radius: $radius-pill;
 		background: $color-bg-subtle;
 		color: $color-muted;
@@ -86,7 +86,7 @@
 
 	&__stepmark {
 		flex-shrink: 0;
-		width: 18px;
+		width: rem(18);
 		text-align: center;
 	}
 
@@ -102,7 +102,7 @@
 		border: 1px solid $color-border-light;
 		border-radius: $radius-md;
 		background: $color-white;
-		min-height: 420px;
+		min-height: rem(420);
 		display: flex;
 		flex-direction: column;
 	}
@@ -128,7 +128,7 @@
 		letter-spacing: 0.04em;
 		color: $color-white;
 		background: $color-accent;
-		padding: 2px $spacing-sm;
+		padding: rem(2) $spacing-sm;
 		border-radius: $radius;
 	}
 
@@ -144,7 +144,7 @@
 		border: 1px solid $color-border-light;
 		background: transparent;
 		border-radius: $radius;
-		padding: 2px $spacing-sm;
+		padding: rem(2) $spacing-sm;
 		font-size: $font-size-xxs;
 		cursor: pointer;
 
@@ -181,7 +181,33 @@
 		font-size: $font-size-sm;
 	}
 
-	&--locked { max-width: 720px; }
+	&--locked { max-width: rem(720); }
+
+	// ── #3b: экран ожидания старта занятия + обратный отсчёт ──
+	&__lock {
+		text-align: center;
+		padding: $spacing-lg 0;
+	}
+
+	&__lock-title {
+		font-size: $font-size-title;
+		font-weight: $font-bold;
+		color: $color-text;
+		margin-bottom: $spacing-sm;
+	}
+
+	&__lock-sub {
+		color: $color-muted;
+		font-size: $font-size-base;
+		margin: 0 0 $spacing-lg;
+	}
+
+	&__countdown {
+		font-size: $font-size-title;
+		font-weight: $font-bold;
+		font-variant-numeric: tabular-nums;
+		color: $color-accent;
+	}
 }
 
 @media (max-width: $bp-md) {

@@ -5,14 +5,19 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, emptyState, openCtxMenuRaw, closeCtxMenu } from './utils.js';
+import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoGrip, icoPinFilled, icoCaret, icoContinue, icoCalendarBoard, icoAlert } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
+import { openIndiModal } from './indi-modal.js';
 
 let root = null;
 let state = null;
 let api = null;
 let coursesApi = null;
+
+/* НБ-9: sentinel-id псевдо-«группы» = режим «Индивидуальные занятия». */
+const INDI_ID = -1;
 
 export function renderKTP(r) {
     root = r;
@@ -25,6 +30,11 @@ export function renderKTP(r) {
         months:  [],
         cursor:  0,
         dragGlid: null,
+        individual: [],      // #1: инд. занятия всех групп (сквозной календарь)
+        indiMonths: [],      // месяцы диапазона инд. занятий
+        indiCursor: 0,       // текущий месяц календаря инд. занятий
+        indiSelected: null,  // выбранный слот (group_lesson_id) для назначения урока
+        indiCandidates: null, // кандидаты-уроки для выбранного слота (null = не загружены)
     };
     api = createApi(state.sched);
     coursesApi = p.courses ? createApi(p.courses) : null;
@@ -84,6 +94,9 @@ function render() {
     const g = currentGroup();
     const assigned = state.data.assigned;
     const locked = isLocked();
+    // Эпик 15: открытая группа — расписания нет, программа опубликована целиком.
+    // Вместо КТП-доски (drag-drop/reflow/publish) — программа списком.
+    const open = !!state.data.open;
 
     root.innerHTML = `
     <div class="prof-ktp">
@@ -95,7 +108,7 @@ function render() {
                 </div>
             </div>
             <span class="prof-spacer"></span>
-            ${assigned ? `
+            ${assigned && !open ? `
                 <div class="prof-ktp-legend">
                     <span class="kl"><span class="prof-dot prof-dot-good"></span>Тема по плану</span>
                     <span class="kl"><span class="prof-dot prof-dot-accent"></span>Закреплено</span>
@@ -103,18 +116,18 @@ function render() {
                 </div>
                 ${locked ? `
                 <span class="ktp-lock-badge" title="Опубликовано${state.data.locked_at ? ' ' + esc(state.data.locked_at) : ''}">
-                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3.5 6V4.5a3.5 3.5 0 0 1 7 0V6M2.75 6h8.5v6h-8.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                    ${icoLock(13)}
                     Опубликовано
                 </span>
                 <button class="prof-btn prof-btn-sm" id="ktpUnpublish">Снять публикацию</button>` : `
                 <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
-                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M4 7h9m0 0-3-3m3 3-3 3M16 13H7m0 0 3-3m-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    ${icoSwap(15)}
                     Распределить
                 </button>
                 <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
         </div>
 
-        ${assigned ? `
+        ${assigned ? (open ? openProgramHtml() : `
         <div class="prof-ktp-grid">
             <div class="prof-theme-bank">
                 <div class="tb-head"><h3>Темы курса</h3><span class="tbh-count" id="ktpBankCount"></span></div>
@@ -122,9 +135,9 @@ function render() {
             </div>
             <div class="prof-kal">
                 <div class="kal-head">
-                    <button class="prof-icon-ghost" id="ktpPrev"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button class="prof-icon-ghost" id="ktpPrev">${icoChevronLeft(18)}</button>
                     <div class="kal-month" id="ktpMonth"></div>
-                    <button class="prof-icon-ghost" id="ktpNext"><svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button class="prof-icon-ghost" id="ktpNext">${icoChevronRight(18)}</button>
                     <span class="prof-spacer"></span>
                     <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : 'Перетащите тему на дату, чтобы закрепить'}</span>
                 </div>
@@ -133,12 +146,12 @@ function render() {
                     <div class="kal-grid" id="ktpGrid"></div>
                 </div>
             </div>
-        </div>` : emptyStateHtml(g)}
+        </div>`) : emptyStateHtml(g)}
     </div>`;
 
     document.getElementById('ktpGroupBtn').onclick = openGroupMenu;
 
-    if (assigned) {
+    if (assigned && !open) {
         if (locked) {
             document.getElementById('ktpUnpublish').onclick = doUnpublish;
         } else {
@@ -149,9 +162,25 @@ function render() {
         document.getElementById('ktpNext').onclick = () => shiftMonth(1);
         renderBank();
         renderCalendar();
-    } else {
+    } else if (!assigned) {
         wireCoursePicker();
     }
+}
+
+/* Эпик 15: открытая группа — программа опубликована целиком и доступна ученикам
+   сразу; дат/drag-drop/публикации нет, показываем темы курса списком. */
+function openProgramHtml() {
+    const themes = state.data.themes || [];
+    return `
+        <div class="prof-theme-bank ktp-open-program">
+            <div class="tb-head">
+                <h3>Программа курса</h3>
+                <span class="tbh-count">${themes.length} тем · открыто ученикам сразу, расписание не ведётся</span>
+            </div>
+            <div class="prof-theme-list">${themes.length
+                ? themes.map(themeCardHtml).join('')
+                : '<div class="tb-empty">В курсе нет уроков.</div>'}</div>
+        </div>`;
 }
 
 /* Курс-пикер в пустом состоянии (T11.1): список курсов предмета → назначить. */
@@ -271,7 +300,7 @@ function themeCardHtml(t) {
             <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
             <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}</div>
         </div>
-        <span class="tc-grip"><svg width="14" height="14" viewBox="0 0 14 14"><path fill="currentColor" d="M5 3h1v1H5zm3 0h1v1H8zM5 6.5h1v1H5zm3 0h1v1H8zM5 10h1v1H5zm3 0h1v1H8z"/></svg></span>
+        <span class="tc-grip">${icoGrip(14)}</span>
     </div>`;
 }
 
@@ -281,7 +310,7 @@ function placedThemeHtml(t) {
     // T12.6: «Продолжить» доступно только для «родных» строк (part 1) — не для уже-продолжений.
     const canContinue = 1 === t.part;
     return `<div class="placed-theme${pinned}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
-        <span class="pt-pin"><svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><path d="M9.5 1.5 12.5 4.5 10 7l.5 3-3-2-3.5 3.5L4.5 8 2 7.5 4.5 5 7 4z"/></svg></span>
+        <span class="pt-pin">${icoPinFilled(11)}</span>
         <span class="pt-num">№${t.n}${partLabel(t)}</span>
         <span class="pt-title">${esc(t.topic || 'Без названия')}</span>
         ${t.room ? `<span class="pt-room">ауд. ${esc(t.room)}</span>` : ''}
@@ -298,8 +327,282 @@ function shiftMonth(d) {
 function openGroupMenu() {
     openGroupPicker(document.getElementById('ktpGroupBtn'), state.groups, state.groupId, id => {
         state.groupId = id;
-        loadCalendar();
+        if (INDI_ID === id) { loadIndividual(); } else { loadCalendar(); }
+    }, [{ v: String(INDI_ID), label: 'Индивидуальные занятия', swatchClass: 'chip-indi', chip: 'Инд' }]);
+}
+
+/* ── Режим «Индивидуальные занятия» (#1) ──────────────────────────────────
+   Дизайн повторяет групповую КТП: слева сайдбар уроков (поиск + «Уроки курса»
+   / разделитель / «Все уроки предмета»), справа СКВОЗНОЙ календарь всех инд.
+   занятий всех групп препода (D-1). Поток: клик по занятию в календаре →
+   сайдбар грузит кандидатов этого слота → клик по уроку назначает его. */
+async function fetchIndividual() {
+    const perGroup = await Promise.all(state.groups.map(g =>
+        api('getIndividual', { group_id: g.id }).then(d => (d && d.items) || []).catch(() => [])));
+    state.individual = perGroup.flat().sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+    state.indiMonths = indiMonths(state.individual);
+}
+
+async function loadIndividual() {
+    state.groupId = INDI_ID;
+    state.indiSelected = null;
+    state.indiCandidates = null;
+    root.innerHTML = `<div class="prof-ktp"><div class="rev-loading">Загрузка…</div></div>`;
+    try {
+        await fetchIndividual();
+    } catch (e) {
+        root.innerHTML = errorHtml(e.message);
+        return;
+    }
+    state.indiCursor = indiInitialCursor();
+    renderIndividual();
+}
+
+/* Месяцы диапазона всех инд. занятий (min..max scheduled_at). */
+function indiMonths(items) {
+    const ym = items.map(it => String(it.scheduled_at || '').slice(0, 7)).filter(Boolean).sort();
+    if (!ym.length) return [];
+    const [sy, sm] = ym[0].split('-').map(Number);
+    const [ey, em] = ym[ym.length - 1].split('-').map(Number);
+    const months = [];
+    let y = sy, m = sm - 1;
+    while (y < ey || (y === ey && m <= em - 1)) {
+        months.push({ y, m });
+        m++; if (m > 11) { m = 0; y++; }
+    }
+    return months;
+}
+
+/* Открываем календарь на текущем месяце, если он в диапазоне, иначе на первом. */
+function indiInitialCursor() {
+    if (!state.indiMonths.length) return 0;
+    const now = new Date();
+    const idx = state.indiMonths.findIndex(mm => mm.y === now.getFullYear() && mm.m === now.getMonth());
+    return idx >= 0 ? idx : 0;
+}
+
+function renderIndividual() {
+    const items = state.individual || [];
+    root.innerHTML = `
+    <div class="prof-ktp prof-ktp-indi">
+        <div class="prof-ktp-head">
+            <div class="prof-ktp-pickers">
+                <div class="prof-ktp-pick">
+                    <span class="kp-label">Группа</span>
+                    <button type="button" class="kp-btn" id="ktpGroupBtn">
+                        <span class="kp-chip chip-indi">Инд</span>
+                        <span class="kp-txt">Индивидуальные занятия</span>
+                        ${icoCaret(12, 'kp-caret')}
+                    </button>
+                </div>
+            </div>
+            <span class="prof-spacer"></span>
+            <div class="prof-ktp-legend">
+                <span class="kl"><span class="prof-dot prof-dot-accent"></span>Урок назначен</span>
+                <span class="kl"><span class="prof-dot prof-dot-absent"></span>Не назначен</span>
+            </div>
+        </div>
+        ${items.length ? `
+        <div class="prof-ktp-grid">
+            <div class="prof-theme-bank">
+                <div class="tb-head"><h3>Уроки</h3><span class="tbh-count" id="indiBankHint"></span></div>
+                <input type="text" class="indi-search" id="indiSearch" placeholder="Поиск урока по названию…" ${state.indiSelected ? '' : 'disabled'}>
+                <div class="prof-theme-list" id="indiBank"></div>
+            </div>
+            <div class="prof-kal">
+                <div class="kal-head">
+                    <button class="prof-icon-ghost" id="ktpPrev">${icoChevronLeft(18)}</button>
+                    <div class="kal-month" id="ktpMonth"></div>
+                    <button class="prof-icon-ghost" id="ktpNext">${icoChevronRight(18)}</button>
+                    <span class="prof-spacer"></span>
+                    <span class="kal-hint">Клик по дню — добавить · ✎ на занятии — изменить</span>
+                </div>
+                <div class="kal-grid-wrap">
+                    <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
+                    <div class="kal-grid" id="ktpGrid"></div>
+                </div>
+            </div>
+        </div>` : `<div class="prof-indi-empty"><p>Индивидуальных занятий пока нет.</p><button class="prof-btn prof-btn-primary" id="indiAddFirst">+ Добавить занятие</button></div>`}
+    </div>`;
+
+    document.getElementById('ktpGroupBtn').onclick = openGroupMenu;
+    if (!items.length) {
+        const add = document.getElementById('indiAddFirst');
+        if (add) { add.addEventListener('click', () => openIndiModal({ api, anchor: add, groups: state.groups, onSaved: loadIndividual })); }
+        return;
+    }
+
+    document.getElementById('ktpPrev').onclick = () => shiftIndiMonth(-1);
+    document.getElementById('ktpNext').onclick = () => shiftIndiMonth(1);
+    const search = document.getElementById('indiSearch');
+    let deb;
+    search.addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(loadIndiCandidates, 250); });
+
+    renderIndiCalendar();
+    renderIndiBank();
+}
+
+function shiftIndiMonth(d) {
+    state.indiCursor = Math.max(0, Math.min(state.indiMonths.length - 1, state.indiCursor + d));
+    renderIndiCalendar();
+}
+
+function renderIndiCalendar() {
+    if (!state.indiMonths.length) return;
+    const { y, m } = state.indiMonths[state.indiCursor];
+    document.getElementById('ktpMonth').textContent = `${MONTHS_RU[m]} ${y}`;
+    document.getElementById('ktpPrev').disabled = state.indiCursor <= 0;
+    document.getElementById('ktpNext').disabled = state.indiCursor >= state.indiMonths.length - 1;
+
+    const byDate = {};
+    (state.individual || []).forEach(it => {
+        const ds = String(it.scheduled_at || '').slice(0, 10);
+        if (ds) (byDate[ds] = byDate[ds] || []).push(it);
     });
+
+    const first = new Date(y, m, 1);
+    const offset = (first.getDay() + 6) % 7;
+    const last = new Date(y, m + 1, 0).getDate();
+
+    let cells = '';
+    for (let i = 0; i < offset; i++) cells += `<div class="kal-cell empty"></div>`;
+    for (let d = 1; d <= last; d++) {
+        const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const slots = (byDate[ds] || []).sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+        cells += `<div class="kal-cell${slots.length ? '' : ' no-lesson'}" data-day="${ds}">
+            <div class="kal-date"><span class="kd-num">${d}</span></div>
+            ${slots.map(indiSlotChip).join('')}
+        </div>`;
+    }
+
+    const grid = document.getElementById('ktpGrid');
+    grid.innerHTML = cells;
+    // Клик по слоту — выбрать для назначения урока (сайдбар, НБ-9); ✎ — правка (B2).
+    grid.querySelectorAll('.indi-slot').forEach(el => el.addEventListener('click', (e) => {
+        if (e.target.closest('.indi-edit')) { return; }
+        e.stopPropagation();
+        selectIndiSlot(el.dataset.glid);
+    }));
+    grid.querySelectorAll('.indi-edit').forEach(btn => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEditIndi(btn.dataset.glid, btn);
+    }));
+    // Клик по свободному месту дня — создать инд. занятие на эту дату (B2).
+    grid.querySelectorAll('.kal-cell[data-day]').forEach(cell => cell.addEventListener('click', (e) => {
+        if (e.target.closest('.indi-slot')) { return; }
+        openAddIndi(cell.dataset.day, cell);
+    }));
+}
+
+function indiSlotChip(it) {
+    const t = String(it.scheduled_at || '').split(' ')[1];
+    const time = t ? t.slice(0, 5) : '';
+    const has = !!it.lesson_id;
+    const sel = String(it.group_lesson_id) === String(state.indiSelected) ? ' selected' : '';
+    const sub = has ? esc(it.topic || 'Без названия') : 'Урок не назначен';
+    return `<div class="placed-theme indi-slot${has ? '' : ' unassigned'}${sel}" data-glid="${it.group_lesson_id}" title="${esc(it.student_name || '')} · ${esc(sub)}">
+        <button class="indi-edit" data-glid="${it.group_lesson_id}" title="Изменить занятие" aria-label="Изменить">✎</button>
+        <span class="pt-num">${esc(time)} · ${esc(it.student_name || '—')}</span>
+        <span class="pt-title">${sub}</span>
+    </div>`;
+}
+
+// B2: создать инд. занятие на выбранную дату календаря (группа/ученик — в модалке).
+function openAddIndi(ds, anchor) {
+    openIndiModal({
+        api,
+        anchor,
+        groups: state.groups,
+        fixed: { date: ds },
+        onSaved: loadIndividual,
+    });
+}
+
+// B2: правка инд. занятия (группа фиксирована, ученик/дата/время/кабинет/тема — меняются).
+function openEditIndi(glid, anchor) {
+    const slot = (state.individual || []).find(x => String(x.group_lesson_id) === String(glid));
+    if (!slot) { return; }
+    const parts = String(slot.scheduled_at || '').split(' ');
+    openIndiModal({
+        api,
+        anchor,
+        groups: state.groups,
+        edit: {
+            glid: slot.group_lesson_id,
+            group_id: slot.group_id,
+            student_person_id: slot.student_person_id,
+            student_name: slot.student_name,
+            date: parts[0] || '',
+            time: parts[1] ? parts[1].slice(0, 5) : '15:00',
+            time_end: (String(slot.ends_at || '').split(' ')[1] || '').slice(0, 5),
+            room_id: slot.room_id || '',
+            room_name: slot.room || '',
+            lesson_id: slot.lesson_id || '',
+        },
+        onSaved: loadIndividual,
+    });
+}
+
+function selectIndiSlot(glid) {
+    state.indiSelected = glid;
+    state.indiCandidates = null;
+    const search = document.getElementById('indiSearch');
+    if (search) { search.disabled = false; search.value = ''; }
+    renderIndiCalendar(); // подсветить выбранный слот
+    renderIndiBank();     // показать «Загрузка…»
+    loadIndiCandidates();
+}
+
+async function loadIndiCandidates() {
+    const slot = (state.individual || []).find(x => String(x.group_lesson_id) === String(state.indiSelected));
+    const bank = document.getElementById('indiBank');
+    if (!slot || !bank) return;
+    const q = (document.getElementById('indiSearch')?.value || '').trim();
+    bank.innerHTML = '<div class="pil-empty">Загрузка…</div>';
+    try {
+        const d = await api('lessonCandidates', { group_id: slot.group_id, search: q });
+        state.indiCandidates = (d && d.lessons) || [];
+        renderIndiBank();
+    } catch (e) { bank.innerHTML = `<div class="pil-empty">${esc(e.message)}</div>`; }
+}
+
+function renderIndiBank() {
+    const bank = document.getElementById('indiBank');
+    if (!bank) return;
+    const hint = document.getElementById('indiBankHint');
+    const slot = (state.individual || []).find(x => String(x.group_lesson_id) === String(state.indiSelected));
+
+    if (!slot) {
+        bank.innerHTML = '<div class="pil-empty">Выберите занятие в календаре, чтобы назначить урок.</div>';
+        if (hint) hint.textContent = '';
+        return;
+    }
+    if (hint) hint.textContent = slot.student_name || '';
+    if (state.indiCandidates === null) { bank.innerHTML = '<div class="pil-empty">Загрузка…</div>'; return; }
+
+    bank.innerHTML = renderLessonCandidates(state.indiCandidates, slot.lesson_id);
+    bank.querySelectorAll('.pil-item').forEach(el => el.addEventListener('click', () => assignIndiLesson(el.dataset.lid)));
+}
+
+async function assignIndiLesson(lid) {
+    const glid = state.indiSelected;
+    if (!glid) return;
+    try {
+        await api('assignLesson', { group_lesson_id: glid, lesson_id: lid });
+        toast('Урок назначен');
+        await fetchIndividual();   // обновить темы/lesson_id слотов
+        renderIndiCalendar();      // перерисовать календарь с новым уроком
+        renderIndiBank();          // обновить пометку «текущий»
+    } catch (e) { toast(e.message); }
+}
+
+function renderLessonCandidates(lessons, currentId) {
+    if (!lessons.length) return '<div class="pil-empty">Уроки не найдены.</div>';
+    const section = (title, list) => list.length
+        ? `<div class="pil-divider">${esc(title)}</div>` + list.map(l =>
+            `<div class="pil-item${String(l.id) === String(currentId) ? ' current' : ''}" data-lid="${l.id}">${esc(l.title || 'Без названия')}</div>`).join('')
+        : '';
+    return section('Уроки курса', lessons.filter(l => l.in_course)) + section('Все уроки предмета', lessons.filter(l => !l.in_course));
 }
 
 async function doReflow() {
@@ -399,7 +702,7 @@ function attachThemeActionsClick(btn) {
 function openThemeActionsMenu(glid, anchorEl) {
     const html = `
         <div class="ctx-item" data-act="continue">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10h9m0 0-3-3m3 3-3 3M16 10h.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            ${icoContinue(16)}
             Продолжить на другую дату
         </div>`;
     openCtxMenuRaw(html, anchorEl);
@@ -457,7 +760,7 @@ function attachDrop(cell) {
 function emptyStateHtml(g) {
     return `<div class="prof-ktp-empty">
         <div class="ke-ico">
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M8 2.5v4M16 2.5v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            ${icoCalendarBoard(34)}
         </div>
         <h3>Для группы ${esc(g.name)} не назначен курс</h3>
         <p>Выберите курс предмета — появятся темы и календарь для распределения.</p>
@@ -469,11 +772,9 @@ function emptyStateHtml(g) {
 }
 
 function noGroupsHtml() {
-    const icon = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.6"/></svg>';
-    return emptyState('prof-ktp', icon, 'Нет групп', 'За вами пока не закреплены группы.');
+    return emptyState('prof-ktp', icoCalendarBoard(34), 'Нет групп', 'За вами пока не закреплены группы.');
 }
 
 function errorHtml(msg) {
-    const icon = '<svg width="30" height="30" viewBox="0 0 20 20" fill="none"><path d="M10 4v7M10 14.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-    return emptyState('prof-ktp', icon, 'Не удалось загрузить КТП', msg || '', true);
+    return emptyState('prof-ktp', icoAlert(30), 'Не удалось загрузить КТП', msg || '', true);
 }

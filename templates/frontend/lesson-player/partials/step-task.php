@@ -3,8 +3,10 @@
  * Задача-шаг плеера (T14.7/T14.8): условие + виджет (step-task.js),
  * счётчик попыток, подсказка, кнопка «Ответить», эталон после исчерпания (D20).
  *
- * @var array $step   Шаг из LessonPlayerService::buildView.
- * @var array $render Render-данные шага.
+ * @var array $step       Шаг из LessonPlayerService::buildView.
+ * @var array $render     Render-данные шага.
+ * @var bool  $is_preview Признак preview-плеера курса (Фаза 5) — блокирует «Ответить».
+ * @var string $edit_url  Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
  *
  * @package FS LMS
  */
@@ -22,8 +24,8 @@ use Inc\Enums\Course\StepType;
 		<span class="tbadge" data-step-type="<?php echo esc_attr( $step['type'] ); ?>">
 			<?php echo esc_html( StepType::fromValueOrDefault( $step['type'] )->label() ); ?>
 		</span>
-		<?php if ( ! empty( $render['auto_grade'] ) ) : ?>
-			<span>· <?php esc_html_e( 'мгновенная проверка', 'fs-lms' ); ?></span>
+		<?php if ( ! empty( $edit_url ) ) : ?>
+			<a class="b b-gh b-sm pv-edit" href="<?php echo esc_url( $edit_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></a>
 		<?php endif; ?>
 	</div>
 	<h2><?php echo esc_html( $step['title'] ); ?></h2>
@@ -32,6 +34,8 @@ use Inc\Enums\Course\StepType;
 		<?php if ( ! empty( $render['auto_grade'] ) ) : ?>
 			<?php
 			$task_tmpl    = (string) ( $render['template'] ?? '' );
+			// data-done блокирует ВИДЖЕТ (task-widget.js) — в preview виджет должен
+			// оставаться активным, поэтому здесь preview НЕ учитывается.
 			$task_is_done = in_array( $step['status'], array( 'completed', 'failed' ), true );
 
 			// Условие(я)
@@ -78,10 +82,14 @@ use Inc\Enums\Course\StepType;
 				<button type="button"
 					class="b b-pri fs-task-submit"
 					data-step="<?php echo esc_attr( $step['key'] ); ?>"
+					<?php echo ! empty( $is_preview ) && ! empty( $render['ref'] ) ? 'data-preview-ref="' . esc_attr( (string) $render['ref'] ) . '"' : ''; ?>
 					<?php echo $task_is_done ? 'disabled' : ''; ?>>
 					<?php esc_html_e( 'Ответить', 'fs-lms' ); ?>
 				</button>
 				<div class="fs-task-result" aria-live="polite"></div>
+				<?php if ( ! empty( $is_preview ) ) : ?>
+					<p class="step-muted pv-note"><?php esc_html_e( 'Это предпросмотр — ответ не сохраняется.', 'fs-lms' ); ?></p>
+				<?php endif; ?>
 			</div>
 
 			<?php if ( ! empty( $render['hint_html'] ) ) : ?>

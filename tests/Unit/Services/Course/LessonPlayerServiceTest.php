@@ -19,6 +19,7 @@ use Inc\Services\Course\EffectiveStepSettingsResolver;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonPlayerService;
 use Inc\Services\Course\LessonProgressService;
+use Inc\Services\Course\StepContentRenderer;
 use Inc\Services\Course\SubmissionService;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
@@ -39,6 +40,7 @@ class LessonPlayerServiceTest extends TestCase {
 	private WorkManager                   $works;
 	private SubmissionService             $submissionService;
 	private AssessmentManager             $assessments;
+	private StepContentRenderer           $stepRenderer;
 	private LessonPlayerService           $service;
 
 	protected function setUp(): void {
@@ -55,19 +57,27 @@ class LessonPlayerServiceTest extends TestCase {
 		$this->works            = $this->createMock( WorkManager::class );
 		$this->submissionService = $this->createMock( SubmissionService::class );
 		$this->assessments      = $this->createMock( AssessmentManager::class );
-		$this->service          = new LessonPlayerService(
+
+		// Рендер контента шага вынесен в StepContentRenderer — собираем реальный
+		// из тех же моков (posts/templateResolver/checkerRegistry/assessments),
+		// чтобы buildView реально прогонял рендер, а стабы в тестах работали.
+		$this->stepRenderer = new StepContentRenderer(
+			$this->posts,
+			$this->templateResolver,
+			$this->checkerRegistry,
+			$this->assessments,
+		);
+
+		$this->service = new LessonPlayerService(
 			$this->lessons,
 			$this->gate,
 			$this->progress,
-			$this->posts,
 			$this->taskAttempts,
 			$this->settingsResolver,
-			$this->templateResolver,
-			$this->checkerRegistry,
 			$this->correctAnswers,
 			$this->works,
 			$this->submissionService,
-			$this->assessments,
+			$this->stepRenderer,
 		);
 	}
 

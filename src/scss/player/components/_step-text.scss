@@ -5,12 +5,12 @@
 @use '../variables' as *;
 
 .wpc {
-  font-size: 14.5px;
+  font-size: rem(14.5);
   line-height: 1.7;
   color: var(--ink-2);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: rem(16);
 
   > * { margin: 0; }
 
@@ -18,11 +18,11 @@
   h4 {
     color: var(--ink);
     letter-spacing: -0.01em;
-    margin-top: 6px;
+    margin-top: rem(6);
   }
 
-  h3 { font-size: 17px; }
-  h4 { font-size: 15px; }
+  h3 { font-size: rem(17); }
+  h4 { font-size: rem(15); }
 
   b,
   strong { color: var(--ink); }
@@ -30,18 +30,18 @@
   a { color: var(--accent-700); }
 
   ul,
-  ol { padding-left: 22px; }
+  ol { padding-left: rem(22); }
 
-  li { margin-top: 4px; }
+  li { margin-top: rem(4); }
 
   /* код: как .code из дизайна */
   pre {
-    background: #f8f9fc;
+    background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 14px 18px;
-    font: 13px/1.7 var(--mono);
-    color: #2b3244;
+    border-radius: rem(10);
+    padding: rem(14) rem(18);
+    font: #{rem(13)}/1.7 var(--mono);
+    color: var(--ink-2);
     overflow-x: auto;
     white-space: pre;
   }
@@ -51,8 +51,8 @@
     color: var(--accent-700);
     background: var(--surface-2);
     border: 1px solid var(--line-2);
-    border-radius: 5px;
-    padding: 1px 5px;
+    border-radius: rem(5);
+    padding: 1px rem(5);
   }
 
   pre code {
@@ -66,12 +66,12 @@
   /* цитата → callout */
   blockquote {
     display: flex;
-    gap: 12px;
+    gap: rem(12);
     background: var(--accent-soft);
     border: 1px solid var(--accent-soft-2);
-    border-radius: 12px;
-    padding: 14px 16px;
-    font-size: 13.5px;
+    border-radius: rem(12);
+    padding: rem(14) rem(16);
+    font-size: rem(13.5);
     line-height: 1.6;
     color: var(--ink-2);
 
@@ -85,22 +85,22 @@
   table {
     border-collapse: collapse;
     width: 100%;
-    font-size: 13.5px;
+    font-size: rem(13.5);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: rem(12);
     overflow: hidden;
   }
 
   th,
   td {
-    padding: 10px 14px;
+    padding: rem(10) rem(14);
     border-bottom: 1px solid var(--line-2);
     text-align: left;
   }
 
   th {
     background: var(--surface-2);
-    font: 600 12px var(--font);
+    font: 600 rem(12) var(--font);
     letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--muted);
@@ -111,15 +111,15 @@
   img {
     max-width: 100%;
     height: auto;
-    border-radius: 12px;
+    border-radius: rem(12);
   }
 }
 
 /* видео-встраивание (до T14.12 — простой oembed в карточке) */
 .video-embed {
-  border-radius: 14px;
+  border-radius: rem(14);
   overflow: hidden;
-  background: #12152b;
+  background: var(--video-canvas);
 
   iframe {
     display: block;

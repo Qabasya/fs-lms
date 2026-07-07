@@ -5,32 +5,42 @@
 
 const vars = window.fs_lms_assessment_vars;
 
-function escHtml( str ) {
+/**
+ * Общие примитивы (таймер/debounce/autosave/рендер результата) — переиспользуются
+ * бандлом станции КЕГЭ (src/js/kege/, T15.10) через именованный импорт, чтобы не
+ * дублировать логику попытки. `saveAnswer()`/`renderResultTask()` не зависят от
+ * модульного `vars` — принимают его параметром, поэтому годятся для любого
+ * бандла, локализующего свой собственный `fs_lms_*_vars` с теми же полями
+ * (ajax_url, actions.saveAttemptAnswer, nonces.startAttempt).
+ */
+export function escHtml( str ) {
 	const d = document.createElement( 'div' );
 	d.textContent = str;
 	return d.innerHTML;
 }
 
-/** Countdown timer that auto-submits when deadline is reached. */
-function initTimer( form, deadlineAt ) {
-	const display = document.getElementById( 'fs-timer-display' );
-	if ( ! display || ! deadlineAt ) { return null; }
+/**
+ * Универсальный обратный отсчёт: обновляет displayEl каждую секунду, вызывает
+ * onExpire() один раз по достижении нуля. Возвращает id интервала (для очистки).
+ */
+export function startCountdown( displayEl, deadlineAt, { onExpire, warnAt = 60 } = {} ) {
+	if ( ! displayEl || ! deadlineAt ) { return null; }
 
 	const deadline = new Date( deadlineAt.replace( ' ', 'T' ) ).getTime();
 
 	const tick = () => {
 		const remaining = Math.floor( ( deadline - Date.now() ) / 1000 );
 		if ( remaining <= 0 ) {
-			display.textContent = '00:00';
-			display.classList.add( 'fs-timer--expired' );
-			form.dispatchEvent( new Event( 'submit' ) );
+			displayEl.textContent = '00:00';
+			displayEl.classList.add( 'fs-timer--expired' );
+			if ( onExpire ) { onExpire(); }
 			return;
 		}
 		const m = String( Math.floor( remaining / 60 ) ).padStart( 2, '0' );
 		const s = String( remaining % 60 ).padStart( 2, '0' );
-		display.textContent = `${ m }:${ s }`;
-		if ( remaining < 60 ) {
-			display.classList.add( 'fs-timer--warning' );
+		displayEl.textContent = `${ m }:${ s }`;
+		if ( remaining < warnAt ) {
+			displayEl.classList.add( 'fs-timer--warning' );
 		}
 	};
 
@@ -38,16 +48,28 @@ function initTimer( form, deadlineAt ) {
 	return setInterval( tick, 1000 );
 }
 
+/** Countdown timer that auto-submits when deadline is reached. */
+function initTimer( form, deadlineAt ) {
+	const display = document.getElementById( 'fs-timer-display' );
+	if ( ! display ) { return null; }
+	return startCountdown( display, deadlineAt, {
+		onExpire: () => form.dispatchEvent( new Event( 'submit' ) ),
+	} );
+}
+
 /** Debounce helper. */
-function debounce( fn, ms ) {
+export function debounce( fn, ms ) {
 	let t;
 	return ( ...args ) => { clearTimeout( t ); t = setTimeout( () => fn( ...args ), ms ); };
 }
 
-/** Autosave a single answer via AJAX. */
-async function saveAnswer( attemptId, taskId, answerText, statusEl ) {
+/**
+ * Autosave a single answer via AJAX. `vars` — localized bundle vars (ajax_url/actions/nonces).
+ * `statusEl` необязателен — если передан, показывает статус; без него сохраняет молча.
+ */
+export async function saveAnswer( vars, attemptId, taskId, answerText, statusEl ) {
 	if ( ! vars ) { return; }
-	statusEl.textContent = 'Сохраняется…';
+	if ( statusEl ) { statusEl.textContent = 'Сохраняется…'; }
 	try {
 		const fd = new FormData();
 		fd.append( 'action', vars.actions.saveAttemptAnswer );
@@ -57,9 +79,9 @@ async function saveAnswer( attemptId, taskId, answerText, statusEl ) {
 		fd.append( 'answer_text', answerText );
 		const res = await fetch( vars.ajax_url, { method: 'POST', body: fd } );
 		const json = await res.json();
-		statusEl.textContent = json.success ? '✓' : ( json.data || 'Ошибка' );
+		if ( statusEl ) { statusEl.textContent = json.success ? '✓' : ( json.data || 'Ошибка' ); }
 	} catch ( e ) {
-		statusEl.textContent = 'Сетевая ошибка';
+		if ( statusEl ) { statusEl.textContent = 'Сетевая ошибка'; }
 	}
 }
 
@@ -77,25 +99,37 @@ function answerValue( block, textarea ) {
 	return JSON.stringify( { text: textarea.value.trim(), files } );
 }
 
-/** Bind autosave handlers to all answer textareas. */
+/** Bind autosave handlers to all answer textareas (кнопки «Сохранить» нет — сохраняется само). */
 function bindAutosave( form, attemptId ) {
 	form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
 		const taskId   = block.dataset.taskId;
 		const textarea = block.querySelector( '.fs-attempt-answer' );
-		const statusEl = block.querySelector( '.fs-save-status' );
-		const btn      = block.querySelector( '.fs-autosave-btn' );
-		if ( ! textarea || ! statusEl ) { return; }
+		const statusEl = block.querySelector( '.fs-save-status' ); // необязателен (индикатор убран)
+		if ( ! textarea ) { return; }
 
-		const debouncedSave = debounce(
-			() => saveAnswer( attemptId, taskId, answerValue( block, textarea ), statusEl ),
-			3000
-		);
+		const save = () => saveAnswer( vars, attemptId, taskId, answerValue( block, textarea ), statusEl );
 
-		textarea.addEventListener( 'input', debouncedSave );
-		if ( btn ) {
-			btn.addEventListener( 'click', () => saveAnswer( attemptId, taskId, answerValue( block, textarea ), statusEl ) );
-		}
+		// Дебаунс при вводе + немедленное сохранение при уходе из поля (blur).
+		textarea.addEventListener( 'input', debounce( save, 1200 ) );
+		textarea.addEventListener( 'blur', save );
 	} );
+}
+
+/**
+ * Сохраняет ВСЕ ответы (await) — вызывается перед сдачей, чтобы не потерять
+ * несохранённое: кнопки «Сохранить» нет, а последний ввод мог не успеть
+ * автосохраниться (дебаунс) до нажатия «Сдать».
+ */
+async function saveAll( form, attemptId ) {
+	const jobs = [];
+	form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
+		const taskId   = block.dataset.taskId;
+		const textarea = block.querySelector( '.fs-attempt-answer' );
+		const statusEl = block.querySelector( '.fs-save-status' ); // необязателен (индикатор убран)
+		if ( ! textarea ) { return; }
+		jobs.push( saveAnswer( vars, attemptId, taskId, answerValue( block, textarea ), statusEl ) );
+	} );
+	await Promise.all( jobs );
 }
 
 /**
@@ -114,7 +148,7 @@ function bindFileAnswers( form, attemptId ) {
 		const statusEl = block.querySelector( '.fs-attempt-files__status' );
 		if ( ! chips || ! input || ! addBtn || ! textarea ) { return; }
 
-		const persist = () => saveAnswer( attemptId, taskId, answerValue( block, textarea ), saveEl );
+		const persist = () => saveAnswer( vars, attemptId, taskId, answerValue( block, textarea ), saveEl );
 
 		const addChip = ( id, name ) => {
 			const chip      = document.createElement( 'span' );
@@ -256,25 +290,17 @@ async function submitAttempt( attemptId, form, resultEl, timerInterval ) {
 
 		if ( timerInterval ) { clearInterval( timerInterval ); }
 
+		if ( json.success ) {
+			// Попытка завершена → контент разблокирован. Перезагружаем страницу,
+			// чтобы сервер отрисовал экран результата (T13.7) уже с кнопкой
+			// «Вернуться» (во время попытки её нет — выход только через сдачу).
+			window.location.reload();
+			return;
+		}
+
 		form.hidden = true;
 		resultEl.removeAttribute( 'hidden' );
-
-		if ( json.success ) {
-			const d = json.data;
-			resultEl.querySelector( '.fs-result-score' ).textContent =
-				`Баллов: ${ d.total_score ?? '—' } / ${ d.max_score ?? '—' } • Статус: ${ escHtml( d.status ) }`;
-
-			if ( d.per_task && d.per_task.length ) {
-				const tasksEl = document.createElement( 'div' );
-				tasksEl.className = 'fs-result-tasks';
-				for ( const task of d.per_task ) {
-					tasksEl.appendChild( renderResultTask( task ) );
-				}
-				resultEl.appendChild( tasksEl );
-			}
-		} else {
-			resultEl.querySelector( '.fs-result-score' ).textContent = json.data || 'Ошибка при сдаче.';
-		}
+		resultEl.querySelector( '.fs-result-score' ).textContent = json.data || 'Ошибка при сдаче.';
 	} catch ( e ) {
 		resultEl.removeAttribute( 'hidden' );
 		resultEl.querySelector( '.fs-result-score' ).textContent = 'Сетевая ошибка при отправке.';
@@ -297,8 +323,13 @@ function initRunningAttempt() {
 	bindAutosave( form, attemptId );
 	bindFileAnswers( form, attemptId );
 
-	form.addEventListener( 'submit', ( e ) => {
+	let submitting = false;
+	form.addEventListener( 'submit', async ( e ) => {
 		e.preventDefault();
+		if ( submitting ) { return; }
+		submitting = true;
+		// Досохраняем всё перед сдачей (кнопки «Сохранить» нет).
+		try { await saveAll( form, attemptId ); } catch ( err ) { /* сохранение не критично для сдачи */ }
 		submitAttempt( attemptId, form, resultEl, timerInterval );
 	} );
 }

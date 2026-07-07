@@ -1,4 +1,5 @@
 import '../_types.js';
+import { icoGrip, icoCaret, icoPlus, icoImport, icoModule, icoDuplicate, icoEye } from '../../common/icons.js';
 import { createStepEditor, esc, ajax, tmpKey, openPicker } from './step-editor.js';
 import { createPersistence } from './course-persistence.js';
 import { showToast } from '../modules/toast.js';
@@ -20,7 +21,7 @@ const $ = jQuery;
 // `step-editor.js` — единый источник UI для курс-билдера и метабокса урока.
 const acts = () => fs_lms_vars.ajax_actions;
 
-const GRIP_SVG = '<svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M4 2.5h1v1H4zm3 0h1v1H7zM4 5.5h1v1H4zm3 0h1v1H7zM4 8.5h1v1H4zm3 0h1v1H7z"/></svg>';
+const GRIP_SVG = icoGrip( 12 );
 
 export const CourseBuilder = {
 	init() {
@@ -39,6 +40,7 @@ function createApp( mount ) {
 	const state = { course: null, activeLessonId: null, activeModuleId: null };
 	let stepEditor    = null; // активный экземпляр createStepEditor() для выбранного урока
 	let initialStepRef = 0;  // step_ref из URL — используется однократно при первом renderLessonEditor
+	let initialStepKey = ''; // step_key из URL (#15-E, deep-link на text/video-шаг без ref)
 	const persist  = createPersistence( { courseId, mount, state, onPublishToggle: () => renderEditor() } );
 
 	if ( courseId > 0 ) {
@@ -78,6 +80,7 @@ function createApp( mount ) {
 		const params       = new URLSearchParams( window.location.search );
 		const lessonParam  = parseInt( params.get( 'lesson' ), 10 ) || 0;
 		initialStepRef     = parseInt( params.get( 'step_ref' ), 10 ) || 0;
+		initialStepKey     = String( params.get( 'step_key' ) || '' );
 
 		const first = firstLesson();
 		state.activeLessonId = lessonParam > 0 ? lessonParam : ( first ? first.id : null );
@@ -114,6 +117,10 @@ function createApp( mount ) {
 	function renderShell() {
 		mount.innerHTML = `
 			${ renderCourseStrip() }
+			${ state.course.open_warning ? `
+			<div class="notice notice-warning inline fs-cb-open-warning">
+				<p>${ esc( state.course.open_warning ) }</p>
+			</div>` : '' }
 			<div class="builder">
 				<div class="tree-pane">
 					<div class="tree-head">
@@ -123,19 +130,19 @@ function createApp( mount ) {
 					<div class="tree-scroll" data-tree></div>
 					<div class="tree-add">
 						<button type="button" class="button button-primary tree-add-main" data-add-lesson>
-							<svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 4v6H4v2h6v6h2v-6h6v-2h-6V4z"/></svg>
+							${ icoPlus( 13 ) }
 							Добавить урок
 						</button>
 						<div class="tree-add-row">
 							<div class="import-wrap">
 								<button type="button" class="button" data-import-toggle>
-									<svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2 5 7h3v5h4V7h3l-5-5zM3 14h14v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3z"/></svg>
+									${ icoImport( 13 ) }
 									Импорт
-									<svg class="import-caret" width="10" height="10" viewBox="0 0 12 12" fill="currentColor"><path d="M3 4.5 6 8l3-3.5z"/></svg>
+									${ icoCaret( 10, 'import-caret' ) }
 								</button>
 							</div>
 							<button type="button" class="button" data-add-module>
-								<svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h6v6H3V3zm8 0h6v6h-6V3zM3 11h6v6H3v-6zm8 4h6v2h-6v-2zm2-2h2v-2h-2v2z"/></svg>
+								${ icoModule( 13 ) }
 								Модуль
 							</button>
 						</div>
@@ -154,10 +161,13 @@ function createApp( mount ) {
 		// Блокируем нативный submit формы — сохранение только через AJAX
 		document.getElementById( 'post' )?.addEventListener( 'submit', ( e ) => e.preventDefault() );
 
-		// Strip: просмотр курса на фронте
+		// Strip: просмотр курса в preview-плеере (Фаза 5, D3/D4) — свой маршрут,
+		// не зависит от статуса поста (черновик открывается так же, как публикация).
 		mount.querySelector( '[data-strip-preview]' )?.addEventListener( 'click', ( e ) => {
-			const id = e.currentTarget.dataset.courseId;
-			window.open( `?p=${ id }&preview=true`, '_blank' );
+			const id  = e.currentTarget.dataset.courseId;
+			const url = new URL( fs_lms_vars.coursePreviewUrl );
+			url.searchParams.set( 'course', id );
+			window.open( url.toString(), '_blank' );
 		} );
 
 		// Strip: "Опубликовать / Сохранить курс" → AJAX, без перезагрузки
@@ -247,7 +257,7 @@ function createApp( mount ) {
 				</div>
 				<div class="course-strip-actions">
 					<button type="button" class="button" data-strip-preview data-course-id="${ c.id }">
-						<svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-2px;margin-right:4px"><path d="M10 4C5.5 4 2 10 2 10s3.5 6 8 6 8-6 8-6-3.5-6-8-6zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" fill="currentColor"/></svg>Просмотр
+						${ icoEye( 14 ) }Просмотр
 					</button>
 					<button type="button" class="button button-green" data-strip-publish>
 						${ 'publish' === c.status ? 'Сохранить курс' : 'Опубликовать курс' }
@@ -288,7 +298,7 @@ function createApp( mount ) {
 			head.className = 'module-head';
 			head.innerHTML = `
 				<span class="mod-grip">${ GRIP_SVG }</span>
-				<span class="mod-caret"><svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M3 4.5 6 8l3-3.5z"/></svg></span>
+				<span class="mod-caret">${ icoCaret( 12 ) }</span>
 				<span class="mod-num">${ mi + 1 }</span>
 				<span class="mod-main"><span class="mod-title"></span><span class="mod-desc"></span></span>
 				<span class="mod-lessons">${ mod.lessons.length }</span>`;
@@ -454,7 +464,7 @@ function createApp( mount ) {
 					<button type="button" class="lesson-flag ${ lesson.published ? 'published' : '' }" data-toggle-publish>
 						${ lesson.published ? 'Опубликован' : 'Черновик' }
 					</button>
-					<button type="button" class="lesson-flag lesson-flag--dup" data-les-dup><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> Дублировать урок</button>
+					<button type="button" class="lesson-flag lesson-flag--dup" data-les-dup>${ icoDuplicate( 13 ) } Дублировать урок</button>
 					<button type="button" class="lesson-flag danger" data-les-del>Убрать урок</button>
 				</div>
 			</div>
@@ -472,7 +482,9 @@ function createApp( mount ) {
 
 		// Единый редактор шагов (общий модуль). Статус автосейва — в подвал курс-билдера.
 		const stepRef  = initialStepRef;
-		initialStepRef = 0; // однократное потребление
+		const stepKey  = initialStepKey;
+		initialStepRef = 0;  // однократное потребление
+		initialStepKey = ''; // однократное потребление
 
 		stepEditor = createStepEditor( {
 			mount:          pane.querySelector( '[data-step-mount]' ),
@@ -480,6 +492,7 @@ function createApp( mount ) {
 			subjectKey:     state.course.subject_key,
 			setStatus:      persist.setStatus,
 			initialStepRef: stepRef || undefined,
+			initialStepKey: stepKey || undefined,
 		} );
 	}
 

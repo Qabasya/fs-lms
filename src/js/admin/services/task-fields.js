@@ -12,7 +12,7 @@ export const TaskFields = {
 	 *                                     или контейнер модалки-редактора задач.
 	 */
 	init( root = document ) {
-		if ( ! root.querySelector( '.fs-task-options-field, .fs-task-pairs-field, .fs-task-order-field, .fs-task-audio-field, .fs-task-materials-field, .fs-task-criteria-field' ) ) {
+		if ( ! root.querySelector( '.fs-task-options-field, .fs-task-pairs-field, .fs-task-order-field, .fs-task-audio-field, .fs-task-materials-field, .fs-task-criteria-field, .fs-lms-file-group' ) ) {
 			return;
 		}
 		this.bindOptions( root );
@@ -21,6 +21,7 @@ export const TaskFields = {
 		this.bindAudio( root );
 		this.bindMaterials( root );
 		this.bindCriteria( root );
+		this.bindFileLink( root );
 	},
 
 	// ── Варианты ответа ──────────────────────────────────────────────────────
@@ -257,57 +258,75 @@ export const TaskFields = {
 		} );
 	},
 
-	// ── Материалы задания (Эпик 13, D16): мульти-выбор файлов из медиабиблиотеки ──
+	// ── Материалы задания (Эпик 13, D16 → одиночный файл): выбор файла из медиабиблиотеки ──
 
 	bindMaterials( root = document ) {
 		root.querySelectorAll( '.fs-task-materials-field' ).forEach( ( wrap ) => {
-			const list   = wrap.querySelector( '.fs-task-materials__list' );
-			const addBtn = wrap.querySelector( '.js-materials-add' );
-			const base   = wrap.dataset.base;
+			const idInput   = wrap.querySelector( '.js-materials-attachment-id' );
+			const preview   = wrap.querySelector( '.fs-task-materials__preview' );
+			const link      = wrap.querySelector( '.js-materials-link' );
+			const selectBtn = wrap.querySelector( '.js-materials-select' );
+			const removeBtn = wrap.querySelector( '.js-materials-remove' );
 
-			if ( ! list || ! addBtn || ! base ) return;
+			if ( ! idInput || ! selectBtn ) return;
 
-			addBtn.addEventListener( 'click', () => {
+			selectBtn.addEventListener( 'click', () => {
 				const frame = wp.media( {
-					title:    'Материалы задания',
-					button:   { text: 'Добавить' },
-					multiple: true,
+					title:    'Выбрать файл',
+					button:   { text: 'Использовать' },
+					multiple: false,
 				} );
 
 				frame.on( 'select', () => {
-					frame.state().get( 'selection' ).toJSON().forEach( ( att ) => {
-						if ( list.querySelector( `input[value="${ att.id }"]` ) ) { return; } // без дублей
-						const li = document.createElement( 'li' );
-						li.className = 'fs-task-materials__item';
-
-						const input = document.createElement( 'input' );
-						input.type  = 'hidden';
-						input.name  = `${ base }[attachment_ids][]`;
-						input.value = String( att.id );
-
-						const link = document.createElement( 'a' );
-						link.href   = att.url;
-						link.target = '_blank';
-						link.rel    = 'noopener noreferrer';
+					const att = frame.state().get( 'selection' ).first().toJSON();
+					idInput.value = att.id;
+					if ( link ) {
+						link.href        = att.url;
 						link.textContent = att.title || att.filename || `Файл #${ att.id }`;
-
-						const removeBtn = document.createElement( 'button' );
-						removeBtn.type = 'button';
-						removeBtn.className = 'button-link js-materials-remove';
-						removeBtn.textContent = '✕';
-
-						li.append( input, ' ', link, ' ', removeBtn );
-						list.appendChild( li );
-					} );
+					}
+					if ( preview ) { preview.style.display = ''; }
+					selectBtn.textContent = 'Заменить файл';
+					if ( removeBtn ) { removeBtn.style.display = ''; }
 				} );
 
 				frame.open();
 			} );
 
-			list.addEventListener( 'click', ( e ) => {
-				if ( e.target.closest( '.js-materials-remove' ) ) {
-					e.target.closest( '.fs-task-materials__item' ).remove();
-				}
+			if ( removeBtn ) {
+				removeBtn.addEventListener( 'click', () => {
+					idInput.value = 0;
+					if ( link ) { link.href = '#'; link.textContent = ''; }
+					if ( preview ) { preview.style.display = 'none'; }
+					selectBtn.textContent = 'Выбрать файл';
+					removeBtn.style.display = 'none';
+				} );
+			}
+		} );
+	},
+
+	// ── Ссылка на файл (LinkField): выбор файла из медиабиблиотеки в URL-инпут ──
+
+	bindFileLink( root = document ) {
+		root.querySelectorAll( '.fs-lms-file-group' ).forEach( ( wrap ) => {
+			const input     = wrap.querySelector( '.fs-lms-file-input' );
+			const selectBtn = wrap.querySelector( '.js-file-link-select' );
+
+			if ( ! input || ! selectBtn ) return;
+
+			selectBtn.addEventListener( 'click', () => {
+				const frame = wp.media( {
+					title:    'Выбрать файл',
+					button:   { text: 'Использовать' },
+					multiple: false,
+				} );
+
+				frame.on( 'select', () => {
+					const att = frame.state().get( 'selection' ).first().toJSON();
+					input.value = att.url;
+					input.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+				} );
+
+				frame.open();
 			} );
 		} );
 	},

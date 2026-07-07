@@ -110,4 +110,9 @@ class SubstitutionRepository {
 	public function delete( int $id ): bool {
 		return (bool) $this->wpdb->delete( $this->table, array( 'id' => $id ) );
 	}
+
+	/** Каскадная очистка при удалении группы (GroupDeletionHandler). */
+	public function deleteAllByGroup( int $groupId ): int {
+		return (int) $this->wpdb->delete( $this->table, array( 'group_id' => $groupId ) );
+	}
 }

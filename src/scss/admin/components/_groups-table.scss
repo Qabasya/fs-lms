@@ -6,3 +6,33 @@
   font-weight: $font-bold;
   color: $color-text-primary;
 }
+
+.fs-group-students-content {
+  padding-top: $spacing-lg;
+  padding-bottom: $spacing-lg;
+}
+
+// Эпик 15: панель добавления существующих учеников в открытую группу
+.fs-group-add-students {
+  margin-bottom: $spacing-md;
+
+  &__controls {
+    display: flex;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-sm;
+
+    .js-add-student-query {
+      flex: 1;
+    }
+  }
+
+  &__results {
+    max-height: 200px;
+    overflow-y: auto;
+
+    label {
+      display: block;
+      padding: $spacing-xs 0;
+    }
+  }
+}

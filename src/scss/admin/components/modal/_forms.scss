@@ -1,0 +1,81 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+/* =================================================================
+   FORM ELEMENTS (для форм внутри модалок)
+   ================================================================= */
+
+.fs-form-group {
+  margin-bottom: $spacing-xl;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  // Подпись к полю
+  label {
+    display: block;
+    font-weight: $font-bold;
+    margin-bottom: $spacing-sm;
+    color: $color-text-primary;
+    font-size: $font-size-wp;
+  }
+
+  // Поля ввода: text, email, password и т.д.
+  $input-types: text, number, email, url, password;
+
+  @each $type in $input-types {
+    input[type="#{$type}"] {
+      @include wp-input($height: $input-height-sm, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
+    }
+  }
+
+  // Select и textarea
+  select,
+  textarea {
+    @include wp-input($height: $input-height-sm, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
+  }
+
+  // Одинаковая ширина основных полей (название/период/предмет/преподаватель) —
+  // только прямые дети, чтобы не задеть компактные селекты расписания.
+  > input,
+  > select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  // Особые стили для textarea
+  textarea {
+    @include textarea-base;
+
+    padding: $spacing-md $spacing-md;
+  }
+
+  // Кастомный select со стрелочкой (SVG inline)
+  select {
+    @include select-arrow;
+  }
+
+  // Подсказка под полем
+  .description {
+    font-size: $font-size;
+    font-style: italic;
+    color: $color-text-secondary;
+    margin-top: $spacing-xs;
+    line-height: 1.4;
+  }
+
+  // Состояние ошибки валидации
+  .error {
+    border-color: $color-danger !important;
+
+    + .error-message {
+      color: $color-danger;
+      font-size: $font-size;
+      margin-top: $spacing-xs;
+      display: block;
+    }
+  }
+
+  &--full { flex: 0 0 100%; }
+}

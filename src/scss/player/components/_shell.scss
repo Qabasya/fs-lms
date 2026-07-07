@@ -1,199 +1,16 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Оболочка плеера (D18): каркас с сворачиваемым сайдбаром ЛК,
-   топбар с крамбом/прогрессом, контейнеры рейки и контента, тост.
-   Порт cp-base.css + final.css из дизайн-хэндоффа.
+   Оболочка плеера (D18): полноэкранный каркас без сайдбара кабинета —
+   топбар с кнопкой «Вернуться», крамбом/прогрессом, контейнеры рейки и
+   контента, тост. Порт cp-base.css + final.css из дизайн-хэндоффа.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
 
-/* ── Каркас: сайдбар сворачивается в 0 ──────────────────────────────── */
 .app {
-  display: grid;
-  grid-template-columns: 244px 1fr;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
 }
-
-/* Анимация разворота — только после инициализации JS (без FOUC на загрузке) */
-body.player-anim .app { transition: grid-template-columns $tr-menu; }
-body.menu-off .app { grid-template-columns: 0 1fr; }
-
-/* ══ Сайдбар кабинета ученика ════════════════════════════════════════ */
-.s-side {
-  background: var(--surface);
-  border-right: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
-body.menu-off .s-side { border-right-color: transparent; }
-
-.s-inner {
-  width: 244px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.s-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 18px 16px;
-}
-
-.s-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, var(--accent), var(--accent-700));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  box-shadow: var(--shadow-sm);
-}
-
-.s-name {
-  font-size: 15.5px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--accent-700);
-}
-
-.s-bsub {
-  font-size: 11px;
-  color: var(--muted-2);
-  margin-top: 1px;
-}
-
-.s-collapse {
-  margin-left: auto;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted-2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-
-  &:hover { background: var(--surface-2); color: var(--ink); }
-}
-
-.s-nav {
-  flex: 1;
-  padding: 6px 12px;
-  min-height: 0;
-}
-
-.s-navlabel {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-  padding: 14px 10px 6px;
-}
-
-.s-item {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 9px 10px;
-  border-radius: var(--radius-sm);
-  color: var(--ink-2);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-
-  svg { flex-shrink: 0; }
-
-  &:hover { background: var(--surface-2); }
-
-  &.on {
-    background: var(--accent-soft);
-    color: var(--accent-700);
-    font-weight: 600;
-
-    svg { color: var(--accent); }
-  }
-}
-
-/* мини-карточка «сейчас проходите» в сайдбаре */
-.s-now {
-  margin: 14px 10px 0;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface-2);
-  padding: 12px 13px;
-
-  .sn-lbl {
-    font-size: 10.5px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--muted-2);
-  }
-
-  .sn-course {
-    font-size: 13px;
-    font-weight: 600;
-    margin-top: 5px;
-    line-height: 1.35;
-  }
-
-  .sn-bar {
-    height: 5px;
-    border-radius: 999px;
-    background: var(--line-2);
-    margin-top: 9px;
-    overflow: hidden;
-
-    span {
-      display: block;
-      height: 100%;
-      border-radius: 999px;
-      background: var(--accent);
-    }
-  }
-
-  .sn-pct {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 6px;
-  }
-}
-
-.s-foot {
-  border-top: 1px solid var(--line);
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.s-ava {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #5c7cfa, #7048e8);
-}
-
-.s-uname { font-size: 13px; font-weight: 600; }
-.s-urole { font-size: 11px; color: var(--muted-2); }
 
 /* ══ Топбар ══════════════════════════════════════════════════════════ */
 .s-main {
@@ -201,46 +18,44 @@ body.menu-off .s-side { border-right-color: transparent; }
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  flex: 1;
 }
 
 .s-top {
-  height: 60px;
+  height: rem(60);
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.86);
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 24px;
+  gap: rem(16);
+  padding: 0 rem(24);
 
   > div { min-width: 0; }
 }
 
-.mtoggle {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  display: none;
+/* Кнопка «Вернуться» — единственный выход из плеера в кабинет (сайдбар
+   кабинета в плеере не дублируется, см. решение по упрощению навигации). */
+.s-back {
+  display: flex;
   align-items: center;
-  justify-content: center;
+  gap: rem(8);
   flex-shrink: 0;
+  padding: rem(8) rem(12);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: rem(13.5);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background $tr, color $tr;
 
-  &:hover {
-    color: var(--accent-700);
-    border-color: var(--accent-soft-2);
-    background: var(--accent-soft);
-  }
+  svg { flex-shrink: 0; }
+
+  &:hover { background: var(--surface-2); color: var(--accent-700); }
 }
 
-body.menu-off .mtoggle { display: flex; }
-
 .s-crumb {
-  font-size: 12px;
+  font-size: rem(12);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -250,7 +65,7 @@ body.menu-off .mtoggle { display: flex; }
 }
 
 .s-title {
-  font-size: 17px;
+  font-size: rem(17);
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.15;
@@ -263,29 +78,29 @@ body.menu-off .mtoggle { display: flex; }
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: rem(12);
   flex-shrink: 0;
 }
 
 .s-prog {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 6px 12px;
+  gap: rem(9);
+  padding: rem(6) rem(12);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
 
   .sp-txt {
-    font-size: 12px;
+    font-size: rem(12);
     font-weight: 600;
     color: var(--ink-2);
     white-space: nowrap;
   }
 
   .sp-bar {
-    width: 62px;
-    height: 6px;
+    width: rem(62);
+    height: rem(6);
     border-radius: 999px;
     background: var(--line-2);
     overflow: hidden;
@@ -300,9 +115,9 @@ body.menu-off .mtoggle { display: flex; }
 }
 
 .s-ibtn {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: rem(34);
+  height: rem(34);
+  border-radius: rem(9);
   border: none;
   background: transparent;
   display: flex;
@@ -319,12 +134,12 @@ body.menu-off .mtoggle { display: flex; }
   flex: 1;
   min-height: 0;
   display: flex;
-  padding: 18px 22px 18px 18px;
+  padding: rem(18) rem(22) rem(18) rem(18);
   position: relative;
 }
 
 .railwrap {
-  width: 64px;
+  width: rem(64);
   flex-shrink: 0;
   position: relative;
   z-index: $z-rail;
@@ -335,7 +150,7 @@ body.menu-off .mtoggle { display: flex; }
   top: 0;
   left: 0;
   bottom: 0;
-  width: 64px;
+  width: rem(64);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -347,7 +162,7 @@ body.menu-off .mtoggle { display: flex; }
 .content {
   flex: 1;
   min-width: 0;
-  margin-left: 18px;
+  margin-left: rem(18);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -358,14 +173,14 @@ body.menu-off .mtoggle { display: flex; }
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #d8dbe2 transparent;
+  scrollbar-color: var(--line-3) transparent;
 
-  &::-webkit-scrollbar { width: 10px; }
+  &::-webkit-scrollbar { width: rem(10); }
 
   &::-webkit-scrollbar-thumb {
-    background: #d8dbe2;
-    border-radius: 6px;
-    border: 3px solid var(--bg);
+    background: var(--line-3);
+    border-radius: rem(6);
+    border: rem(3) solid var(--bg);
   }
 }
 
@@ -373,75 +188,128 @@ body.menu-off .mtoggle { display: flex; }
   width: var(--colw);
   max-width: 100%;
   margin: 0 auto;
-  padding-bottom: 28px;
+  padding-bottom: rem(28);
 }
 
-/* ══ Общие атомы: кнопки ═════════════════════════════════════════════ */
-.b {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 9px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink-2);
-  font: 600 13px var(--font);
-  white-space: nowrap;
-  cursor: pointer;
-  text-decoration: none;
-
-  svg { flex-shrink: 0; }
-
-  &:hover { background: var(--surface-2); }
-}
-
-.b-pri {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: var(--shadow-sm);
-
-  &:hover { background: var(--accent-600); }
-}
-
-.b-gh {
-  border-color: transparent;
-  background: transparent;
-
-  &:hover { background: var(--surface-2); }
-}
-
-.b-sm { padding: 6px 12px; font-size: 12.5px; }
-.b-lg { padding: 11px 20px; font-size: 14px; border-radius: 11px; }
-
-.b-dis { opacity: 0.45; pointer-events: none; }
-
-/* ══ Тост ════════════════════════════════════════════════════════════ */
-.toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(16px);
-  background: var(--ink);
-  color: #fff;
-  padding: 11px 18px;
-  border-radius: 10px;
-  font: 500 13px var(--font);
-  box-shadow: var(--shadow-lg);
-  opacity: 0;
+/* ── #3b: экран блокировки урока — размытый скелет контента + оверлей ── */
+.content.is-locked .cscroll {
+  filter: blur(6px);
   pointer-events: none;
-  transition: all 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
-  z-index: $z-toast;
+  user-select: none;
+}
+
+.lock-skeleton {
+  padding: rem(34) rem(40);
+
+  .lsk {
+    height: rem(15);
+    border-radius: rem(6);
+    background: var(--line);
+    margin: rem(16) 0;
+  }
+  .lsk-title { height: rem(28); width: 55%; margin-bottom: rem(24); }
+  .lsk-short { width: 42%; }
+  .lsk-box { height: rem(220); border-radius: rem(14); background: var(--line-2); margin: rem(24) 0; }
+}
+
+/* Оверлей поверх .player (сайдбар и топбар остаются доступны — есть выход). */
+.lock-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: $z-modal;
   display: flex;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
+  padding: rem(24);
+  background: rgba(243, 244, 247, 0.45);
+}
 
-  svg { color: #69db7c; }
+.lock-modal {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: rem(32) rem(38);
+  max-width: rem(420);
+  text-align: center;
 
-  &.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
+  .lock-ico {
+    width: rem(54);
+    height: rem(54);
+    margin: 0 auto rem(14);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent);
   }
+
+  .lock-title {
+    font-size: rem(20);
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .lock-sub {
+    margin: rem(8) 0 0;
+    color: var(--muted);
+    font-size: rem(14);
+    line-height: 1.5;
+  }
+
+  .lock-countdown {
+    margin-top: rem(18);
+    font: 700 rem(34) var(--mono);
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ══ Общие атомы: кнопки — единый примитив кабинета+плеера
+      (cabinet/_ui: .b ≡ .prof-btn) ══════════════════════════════════════ */
+.b { @include cab-btn($tr); }
+.b-pri { @include cab-btn-primary; }
+.b-gh { @include cab-btn-ghost; }
+.b-sm { @include cab-btn-sm; }
+.b-lg { @include cab-btn-lg; }
+.b-dis { @include cab-btn-disabled; }
+
+/* ══ Тост — единый примитив кабинета+плеера (cabinet/_ui) ═══════════ */
+.toast { @include cab-toast($z-toast); }
+
+/* ── B4: адаптив ширины шага и жёлобов ───────────────────────────────────
+   База --colw:1402 (контент 1320). Колонка ограничена max-width:100%, поэтому
+   на узких экранах достаточно ужать жёлоба; на мобильном рейка сжимается до
+   узкой slim-полоски, дерево открывается тапом (rs-x → pin). */
+@media (max-width: $bp-shell-narrow) {
+  .player { padding: rem(12) rem(14); }
+  .content { margin-left: rem(12); }
+}
+
+@media (max-width: $bp-mobile) {
+  .player { padding: rem(8); }
+  .content { margin-left: rem(8); min-width: 0; }
+
+  /* Рейка сжимается до slim-полоски rem(44) — сами правила .rail* живут в
+     _rail.scss (он позже в каскаде); здесь — только ширина контейнера. */
+  .railwrap { width: rem(44); }
+
+  /* Топбар: убираем второстепенное (крамб, колокольчик, текст прогресса),
+     заголовок урока обрезается, прогресс — только полоска. */
+  .s-top { gap: rem(8); padding: 0 rem(10); }
+
+  .s-crumb,
+  .s-ibtn { display: none; }
+
+  .s-back { padding: rem(8); }
+
+  .s-right { gap: rem(8); }
+
+  .s-prog { padding: rem(5) rem(9); gap: 0; }
+
+  .s-prog .sp-txt { display: none; }
+
+  .s-prog .sp-bar { width: rem(44); }
 }

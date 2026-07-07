@@ -35,13 +35,14 @@ class PostManager {
 	public function getIds( string $post_type ): array {
 		// get_posts() — возвращает массив постов по параметрам
 		// 'numberposts' => -1 — получить все посты без ограничения
-		// 'post_status' => 'any' — все статусы (publish, draft, trash)
+		// 'post_status' => явный список — 'any' НЕ включает trash/auto-draft, из-за чего
+		// эти посты переживают deleteAll() и остаются мусором в wp_posts
 		// 'fields' => 'ids' — возвращать только ID (экономия памяти)
 		return get_posts(
 			array(
 				'post_type'   => $post_type,
 				'numberposts' => - 1,
-				'post_status' => 'any',
+				'post_status' => array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived', 'trash', 'auto-draft' ),
 				'fields'      => 'ids',
 			)
 		);

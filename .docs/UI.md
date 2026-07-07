@@ -73,6 +73,9 @@
 ## 4. Поток работ (фазы)
 
 ### Фаза 0 — Аудит ✅
+> ⚠️ Синк (НБ-5, 2026-07-03): `.docs/UI-Audit.md` (источник ссылок 0.1–0.4) удалён коммитом `89775e9`
+> (2026-06-29) и не восстановлен — числа инвентаризации не верифицируемы напрямую, но косвенно
+> подтверждаются результатом 0.2–0.4.
 - [x] 0.1 **Инвентаризация классов.** Отчёт → `.docs/UI-Audit.md §0.1`. ~85 LIVE, ~55 JS-DYNAMIC, 9 DEAD удалены.
 - [x] 0.2 **Dead CSS.** Удалены: `_subject-tabs.scss` (строки 8–63), `_toast.scss` (целиком, дубликат common),
   `.fs-adsync-dep-warning`, `.fs-cb-mat-actions`, `.fs-consent-tab`, `.fs-detail-grid/row/label/value`,
@@ -93,23 +96,35 @@
   - `_filter-bar.scss` + `.fs-filter-bar` — `__search/__selects/__actions`
   - `_buttons.scss` расширен: добавлен `.fs-btn` — `--primary/--secondary/--danger/--ghost/--link/--link-sm`
   - badge/toggle/table/add-row уже были готовы
-- [x] 1.3 Адаптив: `flex-wrap` + `gap` во всех примитивах; `container-type: inline-size` на `.fs-card`;
-  `.fs-field-row` адаптивен через `flex-wrap` + `min-width: 200px`.
+- [x] 1.3 Адаптив: `flex-wrap` + `gap` во всех примитивах; `.fs-field-row` адаптивен через `flex-wrap`
+  + `min-width: 200px`. ⚠️ Синк (НБ-5): `container-type: inline-size` НЕ реализован (0 вхождений
+  `container-type`/`@container` в `src/scss`) — container-queries остаются планом (§7), не фактом.
 - [x] 1.4 Варианты задокументированы в заголовочных комментариях каждого SCSS-файла.
 
 ### Фаза 2 — Пилот: три страницы настроек ✅
 - [x] 2.1 Переведены «Настройки → Авторизация», «→ Шаблоны писем», «→ Конфигурация» + шаблоны модулей DaData/SmartCaptcha/AdSync.
   Старые классы удалены из SCSS (`_auth-manager`, `_email-templates`, `_config`).
+  ⚠️ Синк (НБ-5): карточки провайдеров на `.fs-card`, но шапка «Авторизации»
+  (`inc/Modules/SocialAuth/templates/settings-tab.php:13-14`) всё ещё на сыром
+  `<h1 class="wp-heading-inline">` — не переведена на `render_fs_page_header()`.
 - [x] 2.2 Визуальная сверка каждой страницы (скрин/глаз). ← сделай сам в браузере.
 
 ### Фаза 3 — Раскатка постранично
-- [ ] 3.1 Остальные табы настроек (subjects, periods, consents, import).
-- [ ] 3.2 Списки/таблицы (заявки, группы, логи, банк), включая аккордеон-строки и фильтр-бары.
+- [x] 3.1 Остальные табы настроек (subjects, periods, consents, import) — на примитивах `.fs-page-header`/`.fs-card`
+  (`settings-1/3/5/6/8/9-*.php`). Синк (НБ-5): было выполнено, но не отмечено. NB (НБ-1): таб-партиалы
+  переведены на `<h2 class="fs-page-header__title">` (устранён двойной `<h1>` с обёрткой `settings.php`/`subject.php`).
+- [ ] 3.2 Списки/таблицы (заявки, группы, логи, банк). Синк (НБ-5): **частично** — page-header раскатан
+  (`groups.php`, `logs.php`, `userlist.php`, `subject-2-tasks.php`); кнопки шапок сведены к стандартным
+  `.button`/`.button-primary` (НБ-6, убран легаси `.btn-filled`). Осталось: `.fs-filter-bar` (нигде не внедрён —
+  `groups.php`/`logs-1-audit.php` на сыром `.fs-logs-filters`); generic `.fs-table--accordion` (не существует —
+  согласия на самописном `.consent-accordion-row`); `.fs-btn`-варианты (пока только `userlist-1-applications.php`).
 - [ ] 3.3 Удалять старые фрагментированные классы по мере переноса (не оставлять «на потом»).
 
 ### Фаза 4 — JS-двойники рендереров
-- [ ] 4.1 Ввести JS-хелперы, формирующие ту же разметку/классы примитивов (поля, кнопки, плашки).
-- [ ] 4.2 Перевести модалки (`src/js/admin/modals/`) и динамические таблицы на хелперы.
+- [ ] 4.1 JS-хелперы примитивов. Синк (НБ-5): **частично** — `src/js/admin/modules/ui-helpers.js` уже есть
+  (`fsBadge()`, `fsEmpty()`); поле/кнопка/карточка/page-header/filter-bar — ещё нет.
+- [ ] 4.2 Модалки + динамические таблицы на хелперы. Синк (НБ-5): **частично** — `fsBadge()` используется
+  в `groups-table.js`; модалки (`src/js/admin/modals/`) — не начаты.
 
 ### Фаза 5 — Конструкторы (в конце)
 - [ ] 5.1 Конструкторы курса/работы/экзамена и урока: заменить сырые значения на токены, обвес — на примитивы.

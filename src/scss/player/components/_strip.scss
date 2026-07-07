@@ -7,24 +7,31 @@
 
 .strip {
   display: flex;
-  gap: 16px;
+  gap: rem(22);
   align-items: flex-start;
-  margin: 4px 0 18px;
+  margin: rem(4) 0 rem(18);
+
+  // Запас под done-галку (.sq::after: top:-5/right:-6) и лифт при hover,
+  // иначе значок частично обрезался верхним/правым краем контейнера.
+  padding: rem(8) rem(10) 0;
 }
 
 .stp {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  width: 58px;
+  gap: rem(6);
+
+  // min-width, а не width: длинная подпись («Контрольная») раздвигает свой
+  // чип, короткие остаются компактными; квадрат остаётся по центру (align-items).
+  min-width: rem(58);
   user-select: none;
   cursor: pointer;
 
   .sq {
-    width: 52px;
-    height: 52px;
-    border-radius: 13px;
+    width: rem(52);
+    height: rem(52);
+    border-radius: rem(13);
     background: var(--surface);
     border: 1px solid var(--line);
     box-shadow: var(--shadow-sm);
@@ -42,14 +49,14 @@
 
   .num {
     position: absolute;
-    top: 4px;
-    left: 7px;
-    font: 600 9.5px var(--font);
+    top: rem(4);
+    left: rem(7);
+    font: 600 rem(9.5) var(--font);
     color: var(--muted-2);
   }
 
   .lbl {
-    font: 500 11.5px var(--font);
+    font: 500 rem(11.5) var(--font);
     color: var(--muted);
     white-space: nowrap;
   }
@@ -69,14 +76,14 @@
   &.done .sq::after {
     content: '✓';
     position: absolute;
-    top: -5px;
-    right: -6px;
-    width: 16px;
-    height: 16px;
+    top: rem(-5);
+    right: rem(-6);
+    width: rem(16);
+    height: rem(16);
     border-radius: 50%;
     background: var(--ok);
-    color: #fff;
-    font: 700 9.5px/16px var(--font);
+    color: var(--ink-inverse);
+    font: 700 #{rem(9.5)}/rem(16) var(--font);
     text-align: center;
     box-shadow: 0 0 0 2px var(--bg);
   }
@@ -85,39 +92,72 @@
 .strip .smeta {
   margin-left: auto;
   text-align: right;
-  padding-top: 5px;
+  padding-top: rem(5);
 
   b {
     display: block;
-    font-size: 14px;
+    font-size: rem(14);
     font-weight: 700;
   }
 
   span {
-    font-size: 12px;
+    font-size: rem(12);
     color: var(--muted);
     margin-top: 1px;
     display: block;
   }
 }
 
-/* контейнер активного шага */
+/* контейнер активного шага; сам шаг (панель) анимируется и при переключении —
+   hidden-toggle перезапускает анимацию. Переход между шагами направленный:
+   «Далее» въезжает справа, «Назад» — слева (классы step-anim-* ставит
+   core.js show()); первый показ без класса — мягкий fade-up. */
 .steproot { animation: step-in 0.2s ease; }
 
+.pstep:not([hidden]) { animation: step-in 0.2s ease; }
+
+.pstep.step-anim-fwd:not([hidden]) { animation: step-slide-fwd 0.28s cubic-bezier(0.2, 0.7, 0.3, 1); }
+
+.pstep.step-anim-back:not([hidden]) { animation: step-slide-back 0.28s cubic-bezier(0.2, 0.7, 0.3, 1); }
+
 @keyframes step-in {
-  from { opacity: 0; transform: translateY(5px); }
+  from { opacity: 0; transform: translateY(rem(5)); }
   to { opacity: 1; transform: none; }
 }
 
-/* строка навигации под шагом */
+@keyframes step-slide-fwd {
+  from { opacity: 0; transform: translateX(rem(18)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes step-slide-back {
+  from { opacity: 0; transform: translateX(rem(-18)); }
+  to { opacity: 1; transform: none; }
+}
+
+/* строка навигации над шагом (#2a: закреплена сверху, чтобы не прыгать по высоте контента) */
 .cnav {
   display: flex;
   align-items: center;
-  margin-top: 16px;
+  margin: 0 0 rem(20);
 
   .pos {
     margin: 0 auto;
-    font: 600 12.5px var(--font);
+    font: 600 rem(12.5) var(--font);
     color: var(--muted-2);
   }
+}
+
+/* ── Мобильный (Фаза 5): лента шагов скроллится горизонтально ───────── */
+@media (max-width: $bp-mobile) {
+  .strip {
+    overflow-x: auto;
+    gap: rem(10);
+    padding-bottom: rem(4);
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .stp { flex-shrink: 0; }
 }

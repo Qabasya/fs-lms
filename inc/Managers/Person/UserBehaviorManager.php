@@ -107,6 +107,14 @@ class UserBehaviorManager {
 			return $redirect_to;
 		}
 
+		// Интерим-логин (модалка wp-auth-check при истёкшей сессии): не навязываем
+		// свой URL. Ядро WP само покажет экран успеха и закроет модалку; любой
+		// принудительный редирект здесь прогрузил бы полноценную админку внутрь
+		// модального окна поверх текущей страницы.
+		if ( isset( $_REQUEST['interim-login'] ) ) {
+			return $redirect_to;
+		}
+
 		// Администраторы и редакторы — в админку
 		if ( array_intersect( array( 'administrator', 'editor' ), $user->roles ) ) {
 			return admin_url();

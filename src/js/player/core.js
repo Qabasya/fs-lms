@@ -33,6 +33,11 @@ export function getCore() {
 	return core;
 }
 
+/** Preview-плеер курса (Фаза 5, D3/D4): без сохранения/проверки/прогресса. */
+export function isPreview() {
+	return '1' === document.getElementById( 'fsPlayerApp' )?.dataset.preview;
+}
+
 export function initCore() {
 	const app = document.getElementById( 'fsPlayerApp' );
 	if ( ! app || ! vars ) { return; }
@@ -53,6 +58,7 @@ export function initCore() {
 	const isInlineLike = ( p ) => INLINE.includes( p.dataset.stepType ) || '1' === p.dataset.manual;
 
 	function mark( stepKey, status ) {
+		if ( isPreview() ) { return Promise.resolve( null ); }
 		const fd = new FormData();
 		fd.append( 'action', vars.actions.markStep );
 		fd.append( 'security', vars.nonces.markStep );
@@ -113,9 +119,14 @@ export function initCore() {
 
 	function show( i ) {
 		if ( i < 0 || i >= panels.length || ! isAvailable( i ) ) { return; }
+		// Направление перехода — для анимации въезда панели (CSS step-slide-*
+		// в _strip.scss; display-toggle через hidden перезапускает анимацию).
+		const dir = i > active ? 'fwd' : 'back';
 		panels[ active ].hidden = true;
 		active = i;
 		const panel = panels[ active ];
+		panel.classList.remove( 'step-anim-fwd', 'step-anim-back' );
+		panel.classList.add( 'step-anim-' + dir );
 		panel.hidden = false;
 		refresh();
 		if ( scroll ) { scroll.scrollTop = 0; }

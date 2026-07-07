@@ -64,9 +64,10 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		add_filter( 'parent_file', array( $this, 'highlightLearningParent' ) );
 		add_filter( 'submenu_file', array( $this, 'highlightLearningSubmenu' ) );
 
-		// Над таблицей банка: описание (всегда) + таб-бар предметов (при 2+ предметах).
-		add_action( 'admin_notices', array( $this, 'renderBankDescription' ) );
-		add_action( 'admin_notices', array( $this, 'renderSubjectBankTabs' ) );
+		// Над таблицей банка: описание + таб-бар предметов ОДНИМ блоком-нотисом.
+		// НБ-1: единый `.notice` штатный JS WP переносит под заголовок целиком, поэтому
+		// табы не «прыгают» отдельно от описания при загрузке страницы.
+		add_action( 'admin_notices', array( $this, 'renderBankChrome' ) );
 
 		// Фильтры по типу работы / виду контрольной / использованию / автору в list table.
 		add_action( 'restrict_manage_posts', array( $this, 'renderTypeFilter' ), 10, 2 );
@@ -493,47 +494,39 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 	}
 
 	/**
-	 * Выводит описание-абзац над таблицей банка (как в «Банке задач»).
+	 * Выводит «шапку» банка над нативной таблицей ОДНИМ блоком: описание-абзац +
+	 * таб-бар предметов (при 2+ предметах, курсы/уроки/работы/задания/статьи).
 	 *
-	 * Хук admin_notices штатно переносится JS под заголовок (перед фильтрами-views).
+	 * НБ-1: и описание, и табы лежат в одном `.notice`, который штатный JS WP
+	 * целиком переносит под заголовок (перед `subsubsub`-views), поэтому табы не
+	 * «прыгают» отдельно от описания при загрузке. Хук admin_notices.
 	 */
-	public function renderBankDescription(): void {
+	public function renderBankChrome(): void {
 		$bankType = $this->currentBankType();
 		if ( null === $bankType ) {
 			return;
 		}
 
-		$this->render( 'admin/components/bank-notice', array( 'text' => $bankType->description() ) );
-	}
-
-	/**
-	 * Выводит таб-бар предметов над таблицей банка (курсы/уроки/работы/задания/статьи).
-	 *
-	 * Показываем только на списках CPT банков и только при 2+ предметах.
-	 */
-	public function renderSubjectBankTabs(): void {
-		$bankType = $this->currentBankType();
-		if ( null === $bankType ) {
-			return;
-		}
-
+		$tabs     = array();
 		$subjects = $this->teacher_subjects->subjectsForUser( get_current_user_id() );
-		if ( count( $subjects ) < 2 ) {
-			return;
+		if ( count( $subjects ) >= 2 ) {
+			$active = $bankType->subjectFromPostType( get_current_screen()->post_type );
+			foreach ( $subjects as $subject ) {
+				$tabs[] = array(
+					'name'   => $subject->name,
+					'url'    => admin_url( 'edit.php?post_type=' . $bankType->cpt( $subject->key ) ),
+					'active' => $subject->key === $active,
+				);
+			}
 		}
 
-		$active = $bankType->subjectFromPostType( get_current_screen()->post_type );
-
-		$tabs = array();
-		foreach ( $subjects as $subject ) {
-			$tabs[] = array(
-				'name'   => $subject->name,
-				'url'    => admin_url( 'edit.php?post_type=' . $bankType->cpt( $subject->key ) ),
-				'active' => $subject->key === $active,
-			);
-		}
-
-		$this->render( 'admin/components/subject-bank-tabs', array( 'tabs' => $tabs ) );
+		$this->render(
+			'admin/components/bank-notice',
+			array(
+				'text' => $bankType->description(),
+				'tabs' => $tabs,
+			)
+		);
 	}
 
 	/**

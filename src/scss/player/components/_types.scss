@@ -14,10 +14,10 @@
 .tbadge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: rem(6);
+  padding: rem(4) rem(10);
   border-radius: 999px;
-  font: 700 11px var(--font);
+  font: 700 rem(11) var(--font);
   letter-spacing: 0.03em;
   text-transform: uppercase;
   background: var(--tcs);

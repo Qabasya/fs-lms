@@ -1,61 +1,65 @@
+@forward '../shared/tokens' show rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide;
+@use '../shared/tokens' as t;
+
 // ── Цвета
-$color-accent:        #28c0f1;
-$color-text:          #242424;
-$color-muted:         #888;
-$color-border:        #ddd;
-$color-border-light:  #eee;
-$color-separator:     #ccc;
-$color-white:         #fff;
-$color-bg-subtle:     #f4f4f4;
-$color-success:       #2e7d32;
-$color-danger:        #d63638;
+$color-accent: #28c0f1;
+$color-text: #242424;
+$color-muted: #888;
+$color-border: #ddd;
+$color-border-light: #eee;
+$color-separator: #ccc;
+$color-white: #fff;
+$color-bg-subtle: #f4f4f4;
+$color-success: #2e7d32;
+$color-danger: #d63638;
+
 // Поверхность ошибки в формах (apply/join/auth) — намеренно иной красный, чем $color-danger
-$color-error-text:    #c0392b;
-$color-error-bg:      #fdf0ef;
-$color-error-border:  #f5c6c3;
+$color-error-text: #c0392b;
+$color-error-bg: #fdf0ef;
+$color-error-border: #f5c6c3;
 
 // ── Типографика
-$font-family:         'Ubuntu', Arial, Helvetica, sans-serif;
-$font-mono:           'Courier New', Courier, monospace;
-$font-size-title:     28px;
-$font-size-heading:   22px;
-$font-size-base:      16px;
-$font-size-sm:        14px;
-$font-size-xs:        13px;
-$font-size-xxs:       12px;
-$line-height-base:    1.6;
-$line-height-tight:   1.4;
-$font-semibold:       600;
-$font-bold:           700;
+$font-family: 'Ubuntu', arial, helvetica, sans-serif;
+$font-mono: 'Courier New', courier, monospace;
+$font-size-title: t.rem(28);
+$font-size-heading: t.rem(22);
+$font-size-base: t.rem(16);
+$font-size-sm: t.rem(14);
+$font-size-xs: t.rem(13);
+$font-size-xxs: t.rem(12);
+$line-height-base: 1.6;
+$line-height-tight: 1.4;
+$font-semibold: 600;
+$font-bold: 700;
 
 // ── Компоновка
-$max-width:           1160px;
-$sidebar-width:       300px;
-$carousel-padding:    60px;
+$max-width: t.rem(1160);
+$sidebar-width: t.rem(300);
+$carousel-padding: t.rem(60);
 
 // ── Отступы
-$spacing-xs:          4px;
-$spacing-sm:          8px;
-$spacing-md:          12px;
-$spacing-lg:          16px;
-$spacing-xl:          24px;
-$spacing-2xl:         32px;
+$spacing-xs: t.rem(4);
+$spacing-sm: t.rem(8);
+$spacing-md: t.rem(12);
+$spacing-lg: t.rem(16);
+$spacing-xl: t.rem(24);
+$spacing-2xl: t.rem(32);
 
 // ── Форма
-$radius:              4px;
-$radius-sm:           6px;
-$radius-md:           8px;
-$radius-lg:           12px;
-$radius-xl:           16px;
-$radius-pill:         999px;
+$radius: t.rem(4);
+$radius-sm: t.rem(6);
+$radius-md: t.rem(8);
+$radius-lg: t.rem(12);
+$radius-xl: t.rem(16);
+$radius-pill: 999px;
 
 // ── Тени
-$shadow-card:         0 1px 0 rgba(0, 0, 0, .03), 0 8px 24px -10px rgba(0, 0, 0, .08), 0 2px 6px -2px rgba(0, 0, 0, .05);
-$shadow-hover:        0 4px 16px rgba(0, 0, 0, .07);
+$shadow-card: 0 1px 0 rgba(0, 0, 0, .03), 0 t.rem(8) t.rem(24) t.rem(-10) rgba(0, 0, 0, .08), 0 t.rem(2) t.rem(6) t.rem(-2) rgba(0, 0, 0, .05);
+$shadow-hover: 0 t.rem(4) t.rem(16) rgba(0, 0, 0, .07);
 
 // ── Анимации
-$transition:          0.15s ease;
+$transition: 0.15s ease;
 
 // ── Брейкпоинты
-$bp-md:               900px;
-$bp-sm:               600px;
+$bp-md: t.rem(900);
+$bp-sm: t.rem(600);

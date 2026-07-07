@@ -4,21 +4,23 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 
-.prof-journal { padding: 18px 24px 24px; height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.prof-journal { padding: rem(18) rem(24) rem(24); height: 100%; display: flex; flex-direction: column; min-height: 0; }
 
-.j-monthnav { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; flex-shrink: 0; }
+.j-monthnav { display: flex; align-items: center; gap: rem(6); margin-bottom: rem(14); flex-shrink: 0; }
+
 /* T12.8: дропдаун группы в шапке — переиспользует .kp-btn/.kp-chip/.kp-txt/.kp-caret из _ktp.scss. */
-.j-monthnav .kp-btn { margin-right: 4px; }
+.j-monthnav .kp-btn { margin-right: rem(4); }
+
 .j-monthnav .jm-arrow {
-  width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+  width: rem(30); height: rem(30); display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
-  color: var(--ink-2); font-size: 18px; line-height: 1; cursor: pointer; flex-shrink: 0;
+  color: var(--ink-2); font-size: rem(18); line-height: 1; cursor: pointer; flex-shrink: 0;
   transition: background $tr, border-color $tr;
 }
 .j-monthnav .jm-arrow:hover { background: var(--surface-2); border-color: var(--line-3); }
 .j-monthnav .jm-arrow[disabled] { opacity: .35; pointer-events: none; }
-.jm-label { font-size: 15px; font-weight: 700; letter-spacing: -.01em; min-width: 132px; text-align: center; }
-.jm-count { font-size: 12.5px; color: var(--muted); margin-left: 6px; font-variant-numeric: tabular-nums; }
+.jm-label { font-size: rem(15); font-weight: 700; letter-spacing: -.01em; min-width: rem(132); text-align: center; }
+.jm-count { font-size: rem(12.5); color: var(--muted); margin-left: rem(6); font-variant-numeric: tabular-nums; }
 
 .prof-journal-wrap {
   flex: 1; min-height: 0; background: var(--surface);
@@ -26,109 +28,116 @@
   box-shadow: var(--shadow-sm); overflow: hidden; display: flex; flex-direction: column;
 }
 .j-scroll { overflow: auto; flex: 1; min-height: 0; scrollbar-width: thin; }
-.j-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
-.j-scroll::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: 6px; border: 3px solid var(--surface); }
+.j-scroll::-webkit-scrollbar { width: rem(12); height: rem(12); }
+.j-scroll::-webkit-scrollbar-thumb { background: var(--line-3); border-radius: rem(6); border: rem(3) solid var(--surface); }
 .j-scroll::-webkit-scrollbar-corner { background: var(--surface); }
 
 table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-variant-numeric: tabular-nums; }
 
 .jgrid thead th { position: sticky; top: 0; z-index: $z-journal-sticky-head; background: var(--surface-2); }
 .jgrid .col-idx, .jgrid .col-name { position: sticky; left: 0; z-index: $z-journal-sticky-col; background: var(--surface); }
-.jgrid .col-name { left: 38px; box-shadow: 1px 0 0 var(--line); }
+.jgrid .col-name { left: rem(38); box-shadow: 1px 0 0 var(--line); }
 .jgrid thead .col-idx, .jgrid thead .col-name { z-index: $z-journal-sticky-corner; }
 
 .jgrid thead th { padding: 0; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line-2); vertical-align: bottom; }
-.col-idx { width: 38px; min-width: 38px; }
-.col-name { width: 188px; min-width: 188px; }
-.hd-name { padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
-.hd-idx { text-align: center; font-size: 11px; font-weight: 600; color: var(--muted-2); padding: 8px 0; }
+.col-idx { width: rem(38); min-width: rem(38); }
+.col-name { width: rem(188); min-width: rem(188); }
+.hd-name { padding: rem(8) rem(12); text-align: left; font-size: rem(11); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
+.hd-idx { text-align: center; font-size: rem(11); font-weight: 600; color: var(--muted-2); padding: rem(8) 0; }
 
-.hd-col { width: 44px; min-width: 44px; padding: 7px 2px 8px; text-align: center; cursor: pointer; position: relative; }
+.hd-col { width: rem(44); min-width: rem(44); padding: rem(7) rem(2) rem(8); text-align: center; cursor: pointer; position: relative; }
 .hd-col:hover { background: var(--accent-soft); }
-.hd-date { font-size: 12px; font-weight: 700; color: var(--ink); line-height: 1; }
-.hd-dow { font-size: 10px; color: var(--muted-2); margin-top: 2px; }
+.hd-date { font-size: rem(12); font-weight: 700; color: var(--ink); line-height: 1; }
 
-.jgrid tbody tr { height: 34px; }
+.jgrid tbody tr { height: rem(34); }
 .jgrid tbody tr:hover td { background: var(--accent-soft); }
+
 .jgrid tbody tr:hover .col-idx,
 .jgrid tbody tr:hover .col-name { background: var(--accent-soft-3); }
-.jgrid td { border-bottom: 1px solid var(--line-2); border-right: 1px solid var(--line-2); padding: 0; text-align: center; height: 34px; }
+.jgrid td { border-bottom: 1px solid var(--line-2); border-right: 1px solid var(--line-2); padding: 0; text-align: center; height: rem(34); }
 
-.cell-idx { font-size: 12px; color: var(--muted-2); }
-.cell-name { text-align: left; padding: 0 12px; }
-.cn-wrap { display: flex; align-items: center; gap: 9px; }
-.cn-ava { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--ink-inverse); }
-.cn-name { font-size: 13px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-idx { font-size: rem(12); color: var(--muted-2); }
+.cell-name { text-align: left; padding: 0 rem(12); }
+.cn-wrap { display: flex; align-items: center; gap: rem(9); }
+.cn-ava { width: rem(24); height: rem(24); border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: rem(10); font-weight: 700; color: var(--ink-inverse); }
+.cn-name { font-size: rem(13); font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.gc { position: relative; width: 44px; cursor: pointer; font-size: 13px; font-weight: 600; user-select: none; }
+.gc { position: relative; width: rem(44); cursor: pointer; font-size: rem(13); font-weight: 600; user-select: none; }
 .gc:hover { box-shadow: inset 0 0 0 2px var(--accent-soft-2); }
 .gc .g-val { display: inline-flex; align-items: center; justify-content: center; }
 
-.att-y { color: var(--g-good); font-weight: 700; }
-.att-n { color: var(--absent); font-weight: 700; }
-.gc.absent { background: var(--absent-bg); }
+.att-y { color: var(--ok); font-weight: 700; }
+.att-n { color: var(--err); font-weight: 700; }
+.gc.absent { background: var(--err-soft); }
 
-.j-empty { padding: 40px; text-align: center; color: var(--muted-2); font-size: 14px; }
+.j-empty { padding: rem(40); text-align: center; color: var(--muted-2); font-size: rem(14); }
 
 .j-legend-bottom {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 12px 18px; margin-top: 12px; flex-shrink: 0;
+  display: flex; align-items: center; gap: rem(16); flex-wrap: wrap;
+  padding: rem(12) rem(18); margin-top: rem(12); flex-shrink: 0;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm);
 }
-.j-legend-bottom .jlb-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
-.j-legend-bottom .jlb-label:not(:first-child) { margin-left: 8px; }
-.j-legend-bottom .jl { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
-.j-legend-bottom .jl-sw { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
-.jl-sw--present { background: var(--g-good); }
-.jl-sw--absent { background: var(--absent); }
+.j-legend-bottom .jlb-label { font-size: rem(11); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
+.j-legend-bottom .jlb-label:not(:first-child) { margin-left: rem(8); }
+.j-legend-bottom .jl { display: inline-flex; align-items: center; gap: rem(7); font-size: rem(13); color: var(--ink-2); font-weight: 500; }
+.j-legend-bottom .jl-sw { width: rem(12); height: rem(12); border-radius: rem(4); flex-shrink: 0; }
+.jl-sw--present { background: var(--ok); }
+.jl-sw--absent { background: var(--err); }
 
 /* D11: занятия в будущем — недоступны для отметки (визуальный замок) */
 .jgrid .hd-col.future { opacity: .5; }
+
 .jgrid .gc.att.future {
   cursor: default;
-  background: repeating-linear-gradient(45deg, transparent, transparent 4px, var(--surface-2) 4px, var(--surface-2) 8px);
+  background: repeating-linear-gradient(45deg, transparent, transparent rem(4), var(--surface-2) rem(4), var(--surface-2) rem(8));
 }
 
 /* T10.5: ячейка = посещаемость + результаты работ по типам + фильтры */
 .jgrid .gc.att { vertical-align: middle; }
-.jgrid .gc.att.has-works { vertical-align: top; padding-top: 4px; }
+.jgrid .gc.att.has-works { vertical-align: top; padding-top: rem(4); }
 .cell-att { text-align: center; }
+
 .cell-works {
-  display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 3px;
+  display: flex; flex-wrap: wrap; gap: rem(2); justify-content: center; margin-top: rem(3);
 }
+
 .cell-works .cw {
-  font-size: 9px; line-height: 1.3; padding: 0 3px; border-radius: 3px;
+  font-size: rem(9); line-height: 1.3; padding: 0 rem(3); border-radius: rem(3);
   background: var(--surface-2); color: var(--ink-2); white-space: nowrap;
 }
 .cell-works .cw b { color: var(--accent); font-weight: 700; }
 .cell-works .cw.pending b { color: var(--muted-2); }
-/* T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы. */
-.cell-works .cw.overdue { background: var(--absent-bg); box-shadow: inset 2px 0 0 var(--absent); padding-left: 4px; }
 
-.j-filters { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
-.jf-label { font-size: 11px; color: var(--muted); }
+/* T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы. */
+.cell-works .cw.overdue { background: var(--err-soft); box-shadow: inset 2px 0 0 var(--err); padding-left: rem(4); }
+
+.j-filters { display: flex; align-items: center; gap: rem(6); margin-left: auto; flex-wrap: wrap; }
+.jf-label { font-size: rem(11); color: var(--muted); }
+
 .jf-chip {
-  display: inline-flex; align-items: center; font-size: 11px; font-weight: 600;
-  padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line);
+  display: inline-flex; align-items: center; font-size: rem(11); font-weight: 600;
+  padding: rem(2) rem(9); border-radius: 999px; border: 1px solid var(--line);
   background: var(--surface); color: var(--muted); cursor: pointer; user-select: none;
 }
 .jf-chip.on { background: var(--accent-soft); border-color: var(--accent-soft-2); color: var(--accent-700); }
 .jf-chip input { display: none; }
 
-/* T11.2: эффективный кабинет занятия в шапке столбца журнала */
-.jgrid .hd-col .hd-room {
-  margin-top: 2px;
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--muted);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* T12.6 (D14): метка продолжения темы в шапке второго столбца */
 .jgrid .hd-col .hd-cont {
-  margin-top: 1px; font-size: 8.5px; font-weight: 700; text-transform: uppercase;
+  margin-top: 1px; font-size: rem(8.5); font-weight: 700; text-transform: uppercase;
   letter-spacing: .02em; color: var(--accent);
+}
+
+/* ── Мобильный (Фаза 5): компактная шапка, узкая липкая колонка имени;
+   сама сетка уже скроллится в .j-scroll со sticky-столбцами. ─────────── */
+@media (max-width: $breakpoint-mobile) {
+  .prof-journal { padding: rem(10); }
+
+  .j-monthnav { flex-wrap: wrap; row-gap: rem(8); }
+
+  .jm-label { min-width: 0; }
+
+  .col-name { width: rem(140); min-width: rem(140); }
+
+  .j-legend-bottom { padding: rem(8) rem(12); gap: rem(10); }
 }

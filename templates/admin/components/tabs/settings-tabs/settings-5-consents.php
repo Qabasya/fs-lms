@@ -11,7 +11,7 @@ $definitions = (array) get_option( 'fs_lms_consent_definitions', array() );
 
 	<div class="fs-page-header">
 		<div class="fs-page-header__content">
-			<h1 class="fs-page-header__title">Согласия</h1>
+			<h2 class="fs-page-header__title">Согласия</h2>
 			<div class="fs-page-header__actions">
 				<button type="button" class="page-title-action js-open-consent-modal">
 					Добавить согласие

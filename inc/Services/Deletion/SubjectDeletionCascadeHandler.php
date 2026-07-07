@@ -11,6 +11,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Subject\SubjectDeletionService;
 
 class SubjectDeletionCascadeHandler {
@@ -19,6 +20,7 @@ class SubjectDeletionCascadeHandler {
 		private readonly GroupsRepository            $groups,
 		private readonly SubjectDeletionService      $subjectDeletion,
 		private readonly SubjectRepository           $subjects,
+		private readonly RoomRepository              $rooms,
 		private readonly DeletionEventDispatcher     $dispatcher,
 		private readonly LogEventDispatcherInterface $logEvents,
 	) {}
@@ -34,6 +36,7 @@ class SubjectDeletionCascadeHandler {
 		}
 
 		$this->subjectDeletion->deleteWithCascade( $subjectKey );
+		$this->rooms->removeSubjectFromAll( $subjectKey );
 		$this->subjects->remove( $subjectKey );
 		flush_rewrite_rules();
 

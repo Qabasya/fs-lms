@@ -1,4 +1,5 @@
 import '../_types.js';
+import { stepIcon, icoPlus, icoDuplicate, icoX, icoReplace } from '../../common/icons.js';
 import { showToast } from '../modules/toast.js';
 import { TaskEditor } from './task-editor.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
@@ -19,16 +20,8 @@ const $ = jQuery;
  * глобально в `fs_lms_vars`). Контент шага — модель `LessonDTO.steps[]`.
  */
 
-// ── SVG-иконки типов (keyed by UI-тип) ─────────────────────────
-const ICON = {
-	lecture:    '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1.5V8h3.5L14 4.5zM8 12h8v1.6H8V12zm0 3.4h8V17H8v-1.6zM8 8.6h4v1.6H8V8.6z"/></svg>',
-	video:      '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm6 3.2v7.6l6-3.8-6-3.8z"/></svg>',
-	practice:   '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>',
-	quiz:       '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h7v2H4V5zm0 6h7v2H4v-2zm0 6h7v2H4v-2zm14.3-9.3 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6zm0 6 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6z"/></svg>',
-	question:   '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>',
-	task:       '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>',
-	assessment: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 5h7v2H4V5zm0 6h7v2H4v-2zm0 6h7v2H4v-2zm14.3-9.3 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6zm0 6 1.4 1.4-5 5-3-3 1.4-1.4 1.6 1.6 3.6-3.6z"/></svg>',
-};
+// SVG-глифы типов шага — единый источник `common/icons.js` (STEP_GLYPHS/stepIcon),
+// общий с плеером (player/icons.js → typeIco).
 
 /**
  * Наш StepType → UI-метаданные. Пять типов шага урока: Текст, Видео,
@@ -53,12 +46,12 @@ const ADD_TYPES = [
 ];
 
 export const uiMeta = ( ourType ) => TYPE_UI[ ourType ] || TYPE_UI.text;
-export const icon   = ( ourType ) => ICON[ uiMeta( ourType ).ui ] || ICON.lecture;
+export const icon   = ( ourType ) => stepIcon( uiMeta( ourType ).ui );
 const acts          = () => fs_lms_vars.ajax_actions;
 
 /** UI-меты шага по его типу (Задача сама подстраивается под любую задачу). */
 const stepMeta = ( step ) => uiMeta( step ? step.type : 'text' );
-const iconForStep = ( step ) => ICON[ stepMeta( step ).ui ] || ICON.lecture;
+const iconForStep = ( step ) => stepIcon( stepMeta( step ).ui );
 
 let _idc = 5000;
 export const tmpKey = ( p ) => `${ p }_tmp_${ Date.now() }_${ ++_idc }`;
@@ -234,6 +227,8 @@ function renderTaskPreview( box, data ) {
  * @param {Function}   [opts.setStatus]    (text) => void — внешний индикатор; иначе модуль рисует свой
  * @param {string[]}   [opts.allowedTypes] фильтр пунктов меню «Добавить шаг» (напр. ['task'] — только задачи)
  * @param {Function}   [opts.persist]      (steps) => Promise — своё сохранение; иначе дефолтный saveLessonSteps
+ * @param {number}     [opts.initialStepRef] deep-link на ссылочный шаг (task/work/assessment) по ref (post id)
+ * @param {string}     [opts.initialStepKey] deep-link на text/video-шаг по стабильному step.key (#15-E)
  * @returns {{ destroy: Function }}
  */
 export function createStepEditor( opts ) {
@@ -254,6 +249,12 @@ export function createStepEditor( opts ) {
 	if ( opts.initialStepRef ) {
 		const refStep = lesson.steps.find( ( s ) => Number( s.payload?.ref ) === Number( opts.initialStepRef ) );
 		if ( refStep ) { activeKey = refStep.key; }
+	}
+
+	// #15-E: deep-link на text/video-шаг (нет payload.ref — адресуем по стабильному step.key).
+	if ( opts.initialStepKey ) {
+		const keyStep = lesson.steps.find( ( s ) => s.key === opts.initialStepKey );
+		if ( keyStep ) { activeKey = keyStep.key; }
 	}
 
 	render();
@@ -315,7 +316,7 @@ export function createStepEditor( opts ) {
 
 		const add = document.createElement( 'div' );
 		add.className = 'step-chip step-add';
-		add.innerHTML = '<div class="step-chip-box"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></div><span class="sc-type">Добавить</span>';
+		add.innerHTML = '<div class="step-chip-box">' + icoPlus( 22 ) + '</div><span class="sc-type">Добавить</span>';
 		add.addEventListener( 'click', openPopover );
 		row.appendChild( add );
 	}
@@ -355,8 +356,8 @@ export function createStepEditor( opts ) {
 				<span class="sh-badge">${ iconForStep( step ) } Шаг ${ index }: ${ esc( meta.name ) }</span>
 				${ meta.inline ? `<input class="field-input field-input--title" data-step-title value="${ esc( step.payload.title || step.title || '' ) }" placeholder="Название шага">` : '' }
 				<div class="sh-controls">
-					<button type="button" class="sh-btn sh-btn-dup" data-dup><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> Дублировать шаг</button>
-					<button type="button" class="sh-btn sh-btn-del" data-del><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> Удалить шаг</button>
+					<button type="button" class="sh-btn sh-btn-dup" data-dup>${ icoDuplicate( 13 ) } Дублировать шаг</button>
+					<button type="button" class="sh-btn sh-btn-del" data-del>${ icoX( 13 ) } Удалить шаг</button>
 				</div>
 			</div>
 			<div class="step-editor" data-step-editor></div>`;
@@ -615,24 +616,47 @@ export function createStepEditor( opts ) {
 					'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
 					'</div>';
 			} else {
-				const attVal = parseInt( ( step.payload.settings || {} ).max_attempts ?? 0, 10 );
+				const attVal  = parseInt( ( step.payload.settings || {} ).max_attempts ?? 0, 10 );
+				const hintVal = parseInt( ( step.payload.settings || {} ).hint_after_errors ?? 0, 10 );
 				ed.innerHTML =
 					'<div class="fs-cb-ref">' +
 					'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
 					'<a class="button" href="post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
-					'<button type="button" class="button fs-sb-btn-danger" data-pick><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></svg> Заменить</button>' +
+					'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 					'</div>' +
 					'<div class="fs-cb-task-preview" data-task-preview></div>' +
 					'<div class="fs-cb-step-attempts">' +
+					'<div class="fs-cb-ss-row">' +
 					'<label class="fs-cb-ss-label">Попыток (0 = ∞)' +
 					'<input type="number" min="0" class="fs-cb-ss-num" data-attempts value="' + attVal + '">' +
 					'</label>' +
+					'<label class="fs-cb-ss-label">Отображать подсказку после ошибок (0 = сразу)' +
+					'<input type="number" min="0" class="fs-cb-ss-num" data-hint value="' + hintVal + '">' +
+					'</label>' +
+					'</div>' +
 					'</div>';
 
-				const attInput = ed.querySelector( '[data-attempts]' );
+				const attInput  = ed.querySelector( '[data-attempts]' );
+				const hintInput = ed.querySelector( '[data-hint]' );
+				// Число ошибок для показа подсказки всегда меньше числа попыток
+				// (max_attempts = 0 = ∞ — ограничения нет).
+				const clampHint = () => {
+					const mx = parseInt( attInput.value, 10 ) || 0;
+					let h    = parseInt( hintInput.value, 10 ) || 0;
+					if ( h < 0 ) { h = 0; }
+					if ( mx > 0 && h >= mx ) { h = mx - 1; }
+					hintInput.value = h;
+					return h;
+				};
 				attInput.addEventListener( 'change', () => {
-					step.payload.settings                = step.payload.settings || {};
-					step.payload.settings.max_attempts   = parseInt( attInput.value, 10 ) || 0;
+					step.payload.settings                   = step.payload.settings || {};
+					step.payload.settings.max_attempts      = parseInt( attInput.value, 10 ) || 0;
+					step.payload.settings.hint_after_errors = clampHint();
+					scheduleSave();
+				} );
+				hintInput.addEventListener( 'change', () => {
+					step.payload.settings                   = step.payload.settings || {};
+					step.payload.settings.hint_after_errors = clampHint();
 					scheduleSave();
 				} );
 
@@ -704,7 +728,7 @@ export function createStepEditor( opts ) {
 				'<div class="fs-cb-ref">' +
 				'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
 				'<a class="button" href="post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
-				'<button type="button" class="button fs-sb-btn-danger" data-pick><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></svg> Заменить</button>' +
+				'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 				'</div>' +
 				'<div class="fs-cb-ref-tasks"></div>';
 			loadRefPreview( ed.querySelector( '.fs-cb-ref-tasks' ), refId, isWork ? 'work' : 'assessment' );

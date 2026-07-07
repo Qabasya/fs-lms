@@ -1,9 +1,10 @@
 // Плеер курса (Эпик 14) — сборка бандла player.min.css.
-// Токены — в _variables.scss (по аналогии с profile/_variables.scss),
-// компоненты — в components/. Изолированный бандл: грузится только
+// Токены бандла — _variables.scss; ОБЩАЯ тема кабинета+плеера —
+// shared/cabinet/_theme.scss. Изолированный бандл: грузится только
 // на маршруте плеера (/group/?gid&gl, ученик), без frontend-стека.
 @use 'variables';
-
+@use '../shared/cabinet/theme';
+@use '../shared/chip-palette';
 @use 'components/base';
 @use 'components/types';
 @use 'components/shell';
@@ -14,3 +15,4 @@
 @use 'components/step-task';
 @use 'components/step-work';
 @use 'components/step-video';
+@use 'components/preview';

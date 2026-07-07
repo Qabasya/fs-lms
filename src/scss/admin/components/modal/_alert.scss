@@ -1,0 +1,22 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+/* =================================================================
+   ALERT MODAL (stacked above regular modals)
+   ================================================================= */
+
+.fs-lms-alert-modal {
+  z-index: $z-modal-alert;
+}
+
+.fs-modal-error {
+  @include callout($color-danger, 0.06, $color-danger);
+
+  margin: 0 0 $spacing-lg;
+  font-size: $font-size-wp;
+  display: none;
+
+  &:not(:empty) {
+    display: block;
+  }
+}

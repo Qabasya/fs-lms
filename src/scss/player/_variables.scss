@@ -1,76 +1,43 @@
 // =================================================================
-// PLAYER DESIGN TOKENS — плеер курса (Эпик 14, D18)
+// PLAYER BUNDLE TOKENS — только специфика плеера (Эпик 14, D18)
 // =================================================================
-//
-// По образцу profile/_variables.scss: цвета — CSS custom properties в :root
-// (нужны в рантайме: типы шагов красятся через var(--tc)/var(--tcs)),
-// тайминги/брейкпоинты/z-index — SCSS-переменные.
-// Значения — из дизайн-хэндоффа lms-course-player (cp-base.css).
+// Цвета/тени/радиусы/шрифты — в общей теме кабинета
+// (shared/cabinet/_theme.scss, подключается в player.scss) — они ОБЩИЕ
+// с кабинетом и правятся только там. Здесь: тайминги, z-index, ширина
+// контентной колонки и цвета типов шагов (значения — из единой палитры
+// shared/_tokens.scss $step-type-palette; JS-зеркало — player/icons.js TYPES).
+
+@forward '../shared/tokens' show rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide;
+@use 'sass:map';
+@use '../shared/tokens' as t;
+
+// ── Брейкпоинт оболочки (сужение жёлоба контента)
+$bp-shell-narrow: 1100px;
 
 // ── Тайминги
-$tr:      0.12s;                          // быстрые ховеры
+$tr: 0.12s;                          // быстрые ховеры
 $tr-rail: 0.24s cubic-bezier(0.2, 0.7, 0.3, 1); // разворот рейки
-$tr-menu: 0.3s  cubic-bezier(0.2, 0.7, 0.3, 1); // сворачивание сайдбара
 
 // ── Z-index
-$z-rail:  45;  // рейка дерева поверх контента при hover/pin
+$z-rail: 45;  // рейка дерева поверх контента при hover/pin
 $z-modal: 400; // модалка подтверждения (работа)
 $z-toast: 500;
 
-// ── Цвета типов шагов (T14.5: текст/видео/задача/работа/контрольная)
-$type-text:            #1c7ed6;
-$type-text-soft:       #e7f2fb;
-$type-video:           #7048e8;
-$type-video-soft:      #f1ecfd;
-$type-task:            #099268;
-$type-task-soft:       #e6f7f1;
-$type-work:            #e8590c;
-$type-work-soft:       #fdeee3;
-$type-assessment:      #e03131;
-$type-assessment-soft: #fdecec;
+// ── Цвета типов шагов (T14.5) — из единой палитры ядра
+$type-text: map.get(t.$step-type-palette, lecture);
+$type-text-soft: map.get(t.$step-type-palette-soft, lecture);
+$type-video: map.get(t.$step-type-palette, video);
+$type-video-soft: map.get(t.$step-type-palette-soft, video);
+$type-task: map.get(t.$step-type-palette, task);
+$type-task-soft: map.get(t.$step-type-palette-soft, task);
+$type-work: map.get(t.$step-type-palette, practice);
+$type-work-soft: map.get(t.$step-type-palette-soft, practice);
+$type-assessment: map.get(t.$step-type-palette, assessment);
+$type-assessment-soft: map.get(t.$step-type-palette-soft, assessment);
 
+// ── Геометрия плеера (bundle-специфика; тема — общая)
 :root {
-  // ── Акцент
-  --accent:        #3b5bdb;
-  --accent-600:    #364fc7;
-  --accent-700:    #2f44b3;
-  --accent-soft:   #edf0fe;
-  --accent-soft-2: #dde3fb;
-
-  // ── Поверхности и текст
-  --bg:        #f3f4f7;
-  --surface:   #ffffff;
-  --surface-2: #fafbfc;
-  --ink:       #181b23;
-  --ink-2:     #3c424e;
-  --muted:     #6b7280;
-  --muted-2:   #9aa1ad;
-  --line:      #e7e9ef;
-  --line-2:    #eef0f4;
-
-  // ── Статусы
-  --ok:        #2f9e44;
-  --ok-soft:   #e9f7ee;
-  --ok-line:   #c4e8d1;
-  --err:       #e03131;
-  --err-soft:  #fdecec;
-  --err-line:  #f5c9c9;
-  --wait:      #b36b00;
-  --wait-soft: #fdf3e3;
-  --wait-line: #f3ddb5;
-
-  // ── Радиусы и тени
-  --radius:    14px;
-  --radius-sm: 9px;
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.05);
-  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 4px rgba(16, 24, 40, 0.04);
-  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.16), 0 4px 8px rgba(16, 24, 40, 0.06);
-  --shadow-pop: 0 16px 48px rgba(16, 24, 40, 0.2);
-
-  // ── Шрифты
-  --font: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
-
-  // ── Ширина контентной колонки
-  --colw: 900px;
+  // Ширина контентной колонки (B4: адаптив от экрана — в _shell.scss;
+  // сайдбара в плеере нет, поэтому база — «широкий» вариант).
+  --colw: #{t.rem(1402)}; /* контент шага = colw − 82px (padding 40×2 + border 1×2) = 1320px */
 }

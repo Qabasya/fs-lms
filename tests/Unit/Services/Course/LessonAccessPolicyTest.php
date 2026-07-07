@@ -10,6 +10,7 @@ use Inc\Enums\Access\AccessLevel;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Repositories\OptionsRepositories\ExpulsionPolicyRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\LessonAccessPolicy;
 use Inc\Services\Course\LessonVisibilityService;
@@ -22,12 +23,15 @@ class LessonAccessPolicyTest extends TestCase {
 
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $studentRecords;
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
+	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private LessonAccessPolicy $policy;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->studentRecords   = $this->createMock( StudentRecordRepository::class );
 		$this->groupLessons     = $this->createMock( GroupLessonRepository::class );
+		$this->groups           = $this->createMock( GroupsRepository::class );
+		$this->setGroupAccessMode( 'scheduled' );
 
 		// Мок повторяет правило LessonVisibilityService::effectiveVisibility против NOW:
 		// hidden + наступившая scheduled_at → open; иначе — сырая видимость.
@@ -49,8 +53,16 @@ class LessonAccessPolicyTest extends TestCase {
 			$this->groupLessons,
 			new ExpulsionPolicyRepository(),
 			$visibility,
+			$this->groups,
 		);
 		$GLOBALS['_test_options'] = [];
+	}
+
+	/** Группа в моке репозитория отдаёт заданный access_mode. */
+	private function setGroupAccessMode( string $mode ): void {
+		$group              = new \stdClass();
+		$group->access_mode = $mode;
+		$this->groups->method( 'findById' )->willReturn( $group );
 	}
 
 	// --- resolve() matrix ---
@@ -80,12 +92,13 @@ class LessonAccessPolicyTest extends TestCase {
 		self::assertSame( AccessLevel::None, $this->policy->resolve( $record, $lesson ) );
 	}
 
-	public function test_hidden_lesson_auto_open_before_enrollment_is_read_only(): void {
-		// Урок открылся по дате ДО зачисления ученика (бэк-каталог) → только чтение.
+	public function test_active_student_auto_open_before_enrollment_can_submit(): void {
+		// Право сдачи «позднего» ученика: занятие открылось по дате ДО зачисления —
+		// активный всё равно может сдавать (правило изменено).
 		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-04-01 00:00:00' );
 		$lesson = $this->makeLesson( visibility: 'hidden', openedAt: null, scheduledAt: '2024-03-01 09:00:00' );
 
-		self::assertSame( AccessLevel::Read, $this->policy->resolve( $record, $lesson ) );
+		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
 	}
 
 	public function test_active_student_lesson_opened_after_enrollment_gets_read_submit(): void {
@@ -95,18 +108,20 @@ class LessonAccessPolicyTest extends TestCase {
 		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
 	}
 
-	public function test_active_student_lesson_opened_before_enrollment_gets_read(): void {
+	public function test_active_student_lesson_opened_before_enrollment_can_submit(): void {
+		// Урок открыт до зачисления — «поздний» активный ученик тоже вправе сдавать.
 		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-02-01 00:00:00' );
 		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-10 00:00:00' );
 
-		self::assertSame( AccessLevel::Read, $this->policy->resolve( $record, $lesson ) );
+		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
 	}
 
-	public function test_active_student_not_yet_opened_lesson_gets_read(): void {
+	public function test_active_student_open_lesson_without_opened_at_can_submit(): void {
+		// visibility=open без opened_at → урок открыт, активный ученик может сдавать.
 		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-01-01 00:00:00' );
 		$lesson = $this->makeLesson( visibility: 'open', openedAt: null );
 
-		self::assertSame( AccessLevel::Read, $this->policy->resolve( $record, $lesson ) );
+		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
 	}
 
 	public function test_expelled_retain_lesson_opened_before_expulsion_gets_read(): void {
@@ -148,6 +163,58 @@ class LessonAccessPolicyTest extends TestCase {
 		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
 	}
 
+	// --- Эпик 15: открытая группа (access_mode=open) ---
+
+	public function test_open_group_active_student_gets_read_submit_regardless_of_dates(): void {
+		// Урок открылся ДО зачисления (в scheduled-группе это read-only бэк-каталог).
+		$this->groups = $this->createMock( GroupsRepository::class );
+		$this->setGroupAccessMode( 'open' );
+		$this->policy = $this->rebuildPolicy();
+
+		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-02-01 00:00:00' );
+		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-10 00:00:00' );
+
+		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
+	}
+
+	public function test_open_group_hidden_lesson_still_none(): void {
+		// Ручное сокрытие урока автором уважается и в открытой группе.
+		$this->groups = $this->createMock( GroupsRepository::class );
+		$this->setGroupAccessMode( 'open' );
+		$this->policy = $this->rebuildPolicy();
+
+		$record = $this->makeRecord( EnrollmentStatus::Active );
+		$lesson = $this->makeLesson( visibility: 'hidden', openedAt: null );
+
+		self::assertSame( AccessLevel::None, $this->policy->resolve( $record, $lesson ) );
+	}
+
+	public function test_open_group_expelled_student_follows_retention_policy(): void {
+		$GLOBALS['_test_options']['fs_lms_expulsion_retention_policy'] = 'block';
+		$this->groups = $this->createMock( GroupsRepository::class );
+		$this->setGroupAccessMode( 'open' );
+		$this->policy = $this->rebuildPolicy();
+
+		$record = $this->makeRecord( EnrollmentStatus::Expelled, expelledAt: '2024-03-01 00:00:00' );
+		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-01 00:00:00' );
+
+		self::assertSame( AccessLevel::None, $this->policy->resolve( $record, $lesson ) );
+	}
+
+	private function rebuildPolicy(): LessonAccessPolicy {
+		$visibility = $this->createMock( LessonVisibilityService::class );
+		$visibility->method( 'effectiveVisibility' )->willReturnCallback(
+			static fn( GroupLessonDTO $lesson ): string => $lesson->visibility
+		);
+		return new LessonAccessPolicy(
+			$this->studentRecords,
+			$this->groupLessons,
+			new ExpulsionPolicyRepository(),
+			$visibility,
+			$this->groups,
+		);
+	}
+
 	// --- canRead() / canSubmit() delegation ---
 
 	public function test_can_read_returns_true_when_record_grants_access(): void {
@@ -159,13 +226,14 @@ class LessonAccessPolicyTest extends TestCase {
 		self::assertTrue( $this->policy->canRead( 5, 42 ) );
 	}
 
-	public function test_can_submit_returns_false_for_back_catalog(): void {
+	public function test_can_submit_true_for_back_catalog_late_student(): void {
+		// «Поздний» активный ученик тоже может сдавать бэк-каталог (правило изменено).
 		$record = $this->makeRecord( EnrollmentStatus::Active, enrolledAt: '2024-02-01 00:00:00' );
 		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-01 00:00:00', groupId: 10 );
 		$this->groupLessons->method( 'find' )->with( 42 )->willReturn( $lesson );
 		$this->studentRecords->method( 'findAllByStudentAndGroup' )->willReturn( [ $record ] );
 
-		self::assertFalse( $this->policy->canSubmit( 5, 42 ) );
+		self::assertTrue( $this->policy->canSubmit( 5, 42 ) );
 	}
 
 	public function test_can_read_returns_false_when_lesson_not_found(): void {

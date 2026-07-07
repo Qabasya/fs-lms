@@ -2,56 +2,91 @@
    Оверлеи: тост, контекстное меню, поповер оценки, поповер дедлайнов
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
 
-.prof-toast {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(16px);
-  background: var(--ink); color: var(--ink-inverse); padding: 11px 18px; border-radius: 10px;
-  font-size: 13px; font-weight: 500; box-shadow: var(--shadow-lg);
-  opacity: 0; pointer-events: none; transition: all .22s cubic-bezier(.2,.7,.3,1); z-index: $z-toast;
-  display: flex; align-items: center; gap: 9px;
-}
-.prof-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.prof-toast svg { stroke: var(--toast-ok); }
+/* Тост — единый примитив кабинета+плеера (cabinet/_ui: .prof-toast ≡ .toast). */
+.prof-toast { @include cab-toast($z-toast); }
+.prof-toast.error svg { color: var(--err); }
 
 .prof-ctx-backdrop { position: fixed; inset: 0; z-index: $z-ctx; display: none; }
 .prof-ctx-backdrop.open { display: block; }
+
 .prof-ctx-menu {
   position: fixed; z-index: $z-ctx + 1; background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); padding: 6px; min-width: 200px; display: none;
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); padding: rem(6); min-width: rem(200); display: none;
 }
 .prof-ctx-menu.open { display: block; animation: profCtxIn $tr ease; }
-@keyframes profCtxIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-.ctx-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-xs); font-size: 13px; color: var(--ink-2); cursor: pointer; }
+
+@keyframes profCtxIn { from { opacity: 0; transform: translateY(rem(-4)); } to { opacity: 1; transform: translateY(0); } }
+.ctx-item { display: flex; align-items: center; gap: rem(10); padding: rem(8) rem(10); border-radius: var(--radius-xs); font-size: rem(13); color: var(--ink-2); cursor: pointer; }
 .ctx-item:hover { background: var(--surface-2); }
-.ctx-item.danger { color: var(--absent); }
-.ctx-item.danger:hover { background: var(--absent-bg); }
-.ctx-item svg { stroke: currentColor; flex-shrink: 0; }
+.ctx-item.danger { color: var(--err); }
+.ctx-item.danger:hover { background: var(--err-soft); }
+.ctx-item svg { stroke: currentcolor; flex-shrink: 0; }
 .ctx-item.on { color: var(--accent-700); font-weight: 600; }
-.ctx-item .ctx-check { width: 16px; flex-shrink: 0; display: inline-flex; align-items: center; color: var(--accent); }
-.ctx-item .ctx-sw { width: 22px; height: 20px; border-radius: 5px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--ink-inverse); }
+.ctx-item .ctx-check { width: rem(16); flex-shrink: 0; display: inline-flex; align-items: center; color: var(--accent); }
+.ctx-item .ctx-sw { width: rem(22); height: rem(20); border-radius: rem(5); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: rem(10); font-weight: 700; color: var(--ink-inverse); }
 .ctx-item .ctx-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ctx-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); padding: 6px 10px 4px; }
+.ctx-title { font-size: rem(11); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); padding: rem(6) rem(10) rem(4); }
 
 /* T12.3 (D13): поповер дедлайнов работ занятия — клик по размещённой теме в КТП. */
-.wd-pop { width: 260px; padding: 2px 0; }
-.wd-row { display: flex; flex-direction: column; gap: 4px; padding: 6px 10px; }
-.wd-title { font-size: 12.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-pop { width: rem(260); padding: rem(2) 0; }
+.wd-row { display: flex; flex-direction: column; gap: rem(4); padding: rem(6) rem(10); }
+.wd-title { font-size: rem(12.5); font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .wd-input {
-  height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs);
-  font: inherit; font-size: 12.5px; color: var(--ink); background: var(--surface); width: 100%;
+  height: rem(32); padding: 0 rem(8); border: 1px solid var(--line); border-radius: var(--radius-xs);
+  font: inherit; font-size: rem(12.5); color: var(--ink); background: var(--surface); width: 100%;
 }
 .wd-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.wd-empty { padding: 10px; font-size: 12.5px; color: var(--muted-2); }
-.wd-pop .wd-save { width: calc(100% - 20px); margin: 8px 10px 4px; }
+.wd-empty { padding: rem(10); font-size: rem(12.5); color: var(--muted-2); }
+.wd-pop .wd-save { width: calc(100% - rem(20)); margin: rem(8) rem(10) rem(4); }
 
 .prof-grade-pop {
   position: fixed; z-index: $z-ctx + 1; background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); padding: 10px; width: 188px; display: none;
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); padding: rem(10); display: none;
+
+  /* B1: ширина по контенту (узкая для отметки посещаемости, широкая для формы
+     инд. занятия ниже) с потолком по вьюпорту — контент не режется у края. */
+  width: max-content; max-width: calc(100vw - rem(20));
+  max-height: calc(100vh - rem(20)); overflow-y: auto;
 }
 .prof-grade-pop.open { display: block; animation: profCtxIn $tr ease; }
-.gp-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); margin-bottom: 8px; }
-.gp-row { display: flex; gap: 6px; }
+
+/* B1: форма инд. занятия — не уже 500px (в отметке посещаемости обёртки нет). */
+.gp-form { min-width: rem(500); }
+.gp-title { font-size: rem(11); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); margin-bottom: rem(8); }
+.gp-row { display: flex; gap: rem(6); }
 .gp-row .prof-btn { flex: 1; }
-.gp-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--muted); }
-.gp-field input { flex: 0 0 108px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; font-size: 13px; color: var(--ink); }
-.gp-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.gp-field { display: flex; align-items: center; justify-content: space-between; gap: rem(8); margin-bottom: rem(8); font-size: rem(12); color: var(--muted); }
+
+.gp-field input,
+.gp-field select { flex: 1 1 rem(160); height: rem(32); padding: 0 rem(8); border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; font-size: rem(13); color: var(--ink); background: var(--surface); }
+.gp-field select { cursor: pointer; }
+
+.gp-field input:focus,
+.gp-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.gp-fixed { flex: 1 1 rem(160); text-align: right; font-size: rem(13); font-weight: 600; color: var(--ink); }
+
+/* Модалка инд. занятия (B2): метки фиксированной ширины → все контролы стартуют
+   с одной вертикали (выровнены по левому краю); строки одинаковой высоты (~rem(40)). */
+.gp-indi .gp-field {
+  justify-content: flex-start;
+  gap: rem(12);
+  min-height: rem(40);
+  margin-bottom: rem(4);
+}
+.gp-indi .gp-field > span { flex: 0 0 rem(92); text-align: left; font-weight: 500; }
+
+.gp-indi .gp-field input,
+.gp-indi .gp-field select,
+.gp-indi .gp-fixed { flex: 1 1 auto; width: auto; height: rem(36); }
+.gp-indi .gp-fixed { display: flex; align-items: center; text-align: left; }
+.gp-indi .gp-time { display: flex; align-items: center; gap: rem(8); flex: 1 1 auto; }
+.gp-indi .gp-time input { flex: 1; height: rem(36); }
+.gp-indi .gp-dash { flex: 0 0 auto; color: var(--muted-2); }
+
+/* ── Мобильный (Фаза 5): форма инд. занятия не упирается в 500px ─────── */
+@media (max-width: $breakpoint-mobile) {
+  .gp-form { min-width: 0; width: 100%; }
+}

@@ -4,19 +4,19 @@
 @use '../variables' as *;
 
 .prof-subs {
-  padding: 22px 26px 40px;
-  max-width: 1040px;
+  padding: rem(22) rem(26) rem(40);
+  max-width: rem(1040);
 }
 
 .subs-head {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: rem(14);
+  margin-bottom: rem(18);
 }
 
 .subs-title {
-  font-size: 20px;
+  font-size: rem(20);
   font-weight: 700;
   color: var(--ink);
 }
@@ -24,13 +24,13 @@
 .subs-group-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: rem(6);
 }
 
 .subs-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: rem(16);
 }
 
 @media (max-width: $breakpoint-tablet) {
@@ -39,20 +39,21 @@
 
 /* #16: контент карточки замен (список/заметка/форма) прижат к краям — сама
    .prof-card паддингов не имеет, только шапка. Отбиваем тело от краёв по
-   горизонтали (18px — как у .prof-card-head) и добавляем нижний отступ. */
+   горизонтали (rem(18) — как у .prof-card-head) и добавляем нижний отступ. */
 .prof-subs .prof-card {
-  padding-bottom: 16px;
+  padding-bottom: rem(16);
 }
+
 .prof-subs .prof-card > .subs-list,
 .prof-subs .prof-card > .subs-note,
 .prof-subs .prof-card > .subs-form {
-  margin-left: 18px;
-  margin-right: 18px;
+  margin-left: rem(18);
+  margin-right: rem(18);
 }
 
 .subs-note {
-  margin: 0 0 12px;
-  font-size: 12px;
+  margin: 0 0 rem(12);
+  font-size: rem(12);
   color: var(--muted);
   line-height: 1.5;
 }
@@ -61,53 +62,53 @@
 .subs-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: rem(8);
+  margin-bottom: rem(14);
 }
 
 .subs-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
+  gap: rem(10);
+  padding: rem(9) rem(12);
   background: var(--surface-2);
   border: 1px solid var(--line-2);
   border-radius: var(--radius-xs);
 }
 
 .subs-row-main { flex: 1 1 auto; min-width: 0; }
-.subs-row-title { font-size: 13px; font-weight: 600; color: var(--ink); }
-.subs-row-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.subs-row-title { font-size: rem(13); font-weight: 600; color: var(--ink); }
+.subs-row-sub { font-size: rem(12); color: var(--muted); margin-top: 1px; }
 
 /* ── Форма ─────────────────────────────────────────────────────────────── */
 .subs-form {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 10px;
-  padding-top: 12px;
+  gap: rem(10);
+  padding-top: rem(12);
   border-top: 1px solid var(--line-2);
 }
 
 .subs-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
+  gap: rem(4);
+  font-size: rem(11);
   color: var(--muted);
 }
 
-.subs-field--grow { flex: 1 1 160px; }
+.subs-field--grow { flex: 1 1 rem(160); }
 
 .subs-field select,
 .subs-field input,
 .subs-reason {
-  height: 34px;
-  padding: 0 9px;
+  height: rem(34);
+  padding: 0 rem(9);
   border: 1px solid var(--line);
   border-radius: var(--radius-xs);
   font: inherit;
-  font-size: 13px;
+  font-size: rem(13);
   color: var(--ink);
   background: var(--surface);
 }
@@ -126,6 +127,6 @@
 
 .subs-actions {
   display: flex;
-  gap: 8px;
+  gap: rem(8);
   margin-left: auto;
 }

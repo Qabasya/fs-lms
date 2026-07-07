@@ -1,0 +1,99 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+@use 'mixins' as *;
+
+/* =================================================================
+   EDITABLE FIELD (pencil toggle)
+   ================================================================= */
+
+.fs-editable-field {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &__display {
+    flex: 1;
+    min-height: $input-height-sm;
+    line-height: $input-height-sm;
+    font-size: $font-size-wp;
+    color: $color-text-primary;
+    padding: 0 $spacing-sm;
+  }
+
+  &__btn {
+    @include reset-button;
+
+    color: $color-text-secondary;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: var(--color-primary);
+    }
+
+    .dashicons {
+      font-size: $font-size-m;
+      width: $font-size-m;
+      height: $font-size-m;
+    }
+  }
+
+  input,
+  select {
+    flex: 1;
+  }
+}
+
+.fs-form-row {
+  display: flex;
+  gap: $spacing-lg;
+  margin-bottom: $spacing-lg;
+
+  .fs-form-group {
+    flex: 1;
+    margin-bottom: 0;
+  }
+}
+
+
+
+.fs-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  cursor: pointer;
+  font-size: $font-size-wp;
+  color: $color-text-primary;
+
+  input[type="checkbox"] {
+    width: $font-size-m;
+    height: $font-size-m;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--color-primary);
+  }
+}
+
+// Кабинеты (Эпик 9): сетка чекбоксов допустимых предметов.
+.fs-room-subjects {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $spacing-xs $spacing-md;
+  max-height: rem(220);
+  overflow-y: auto;
+  padding: $spacing-sm;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-md;
+
+  .fs-checkbox-label {
+    min-width: 0;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}

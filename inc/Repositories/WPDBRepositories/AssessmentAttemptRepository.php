@@ -193,4 +193,17 @@ class AssessmentAttemptRepository {
 		);
 		return $row ? AttemptDTO::fromArray( $row ) : null;
 	}
+
+	/** @return int[] Для каскадной очистки answers перед удалением попыток группы. */
+	public function listIdsByGroup( int $groupId ): array {
+		$ids = $this->wpdb->get_col(
+			$this->wpdb->prepare( 'SELECT id FROM %i WHERE group_id = %d', $this->table, $groupId )
+		);
+		return array_map( 'intval', $ids ?: array() );
+	}
+
+	/** Каскадная очистка при удалении группы (GroupDeletionHandler). */
+	public function deleteAllByGroup( int $groupId ): int {
+		return (int) $this->wpdb->delete( $this->table, array( 'group_id' => $groupId ) );
+	}
 }

@@ -6,8 +6,10 @@
    Клик по группе в сайдбаре открывает этот экран (см. app.js openGroupsFor).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, initials, firstWord, avaColor, todayIso, emptyState, openGradePopPositioned, closeGradePop } from './utils.js';
+import { esc, toast, initials, firstWord, avaColor, emptyState } from './utils.js';
+import { icoUsers } from '../common/icons.js';
 import { createApi } from './api.js';
+import { openIndiModal } from './indi-modal.js';
 
 const STATUS_LABEL = { scheduled: 'запланировано', done: 'проведено', cancelled: 'отменено' };
 
@@ -99,62 +101,21 @@ function studentRow(s) {
 }
 
 /* ── Создание индивидуального занятия (перенос из журнала, T10.5→T10.7) ── */
+// Инд. занятие из «Группы»: общая модалка (B2) с фиксированными группой и учеником;
+// дата/время/кабинет/тема выбираются, тема = урок банка (lesson_id).
 function openIndiForm(pid, anchor) {
-    const pop = document.getElementById('profGradePop');
-    if (!pop) return;
     const s = state.data.students.find(x => x.person_id === pid);
-    const today = todayIso();
-
-    pop.innerHTML = `
-        <div class="gp-title">Инд. занятие · ${esc(s ? firstWord(s.name) : '')}</div>
-        <label class="gp-field"><span>Дата</span><input type="date" id="giDate" value="${today}"></label>
-        <label class="gp-field"><span>Время</span><input type="time" id="giTime" value="15:00"></label>
-        <label class="gp-field"><span>Кабинет</span><select id="giRoom"><option value="">Без кабинета</option></select></label>
-        <label class="gp-field"><span>Тема (необязательно)</span><input type="text" id="giLabel" placeholder="Напр. Разбор ошибок"></label>
-        <div class="gp-row">
-            <button class="prof-btn prof-btn-sm prof-btn-primary" data-gi="create">Создать</button>
-            <button class="prof-btn prof-btn-sm" data-gi="cancel">Отмена</button>
-        </div>`;
-
-    const roomSel = pop.querySelector('#giRoom');
-    // Свободные кабинеты (T11.3): по предмету группы + выбранному окну времени.
-    const loadFreeRooms = async () => {
-        const date = pop.querySelector('#giDate').value;
-        const time = pop.querySelector('#giTime').value || '15:00';
-        if (!date) { roomSel.innerHTML = '<option value="">Без кабинета</option>'; return; }
-        roomSel.innerHTML = '<option value="">— загрузка… —</option>';
-        try {
-            const d = await api('getFreeRooms', { group_id: state.groupId, scheduled_at: `${date} ${time}:00` });
-            const rooms = (d && d.rooms) || [];
-            roomSel.innerHTML = '<option value="">Без кабинета</option>' +
-                rooms.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
-        } catch { roomSel.innerHTML = '<option value="">Без кабинета</option>'; }
-    };
-    pop.querySelector('#giDate').addEventListener('change', loadFreeRooms);
-    pop.querySelector('#giTime').addEventListener('change', loadFreeRooms);
-    loadFreeRooms();
-
-    pop.querySelector('[data-gi="cancel"]').addEventListener('click', closeGradePop);
-    pop.querySelector('[data-gi="create"]').addEventListener('click', async () => {
-        const date = pop.querySelector('#giDate').value;
-        const time = pop.querySelector('#giTime').value || '15:00';
-        const label = pop.querySelector('#giLabel').value.trim();
-        if (!date) { toast('Укажите дату'); return; }
-        closeGradePop();
-        try {
-            await api('createIndividual', {
-                group_id: state.groupId,
-                student_person_id: pid,
-                scheduled_at: `${date} ${time}:00`,
-                label,
-                room_id: roomSel.value || '',
-            });
-            toast('Индивидуальное занятие создано');
-            load();
-        } catch (err) { toast(err.message); }
+    const groups = window.fsProfile?.groups || [];
+    openIndiModal({
+        api,
+        anchor,
+        groups,
+        fixed: {
+            group: groups.find(g => g.id === state.groupId) || { id: state.groupId, name: '' },
+            student: { person_id: pid, name: s ? s.name : '' },
+        },
+        onSaved: load,
     });
-
-    openGradePopPositioned(pop, anchor);
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
@@ -166,8 +127,6 @@ function fmtDate(iso) {
     return `${dd}.${m}${t ? ' ' + t : ''}`;
 }
 
-const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6M21 20c0-2.5-1.5-4.6-3.6-5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-
 function empty(title, text) {
-    return emptyState('prof-roster', EMPTY_ICON, title, text);
+    return emptyState('prof-roster', icoUsers(34), title, text);
 }

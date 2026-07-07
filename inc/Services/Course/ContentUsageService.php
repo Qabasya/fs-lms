@@ -53,10 +53,14 @@ class ContentUsageService {
 	 */
 	public function usageCount( string $type, int $postId ): int {
 		$count = count( $this->usageList( $type, $postId ) ) + $this->deliveryCount( $type, $postId );
-		// Задача (или задача банка) может быть вопросом контрольной (task_ids) —
-		// это тоже использование, иначе задача считалась бы неиспользуемой.
+		// Задача (или задача банка) может быть вопросом контрольной (task_ids) ИЛИ
+		// прямым task-шагом урока (StepType::Task, payload.ref) — оба это тоже
+		// использование. Без них usageList покрывает только задачи внутри работ,
+		// поэтому задача, стоящая в уроке напрямую, ошибочно считалась удаляемой
+		// (B5): гейт удаления её не защищал.
 		if ( 'task' === $type || 'problem' === $type ) {
 			$count += count( $this->assessmentsUsingTask( $postId ) );
+			$count += count( $this->directLessonConsumers( $postId, $type ) );
 		}
 		return $count;
 	}

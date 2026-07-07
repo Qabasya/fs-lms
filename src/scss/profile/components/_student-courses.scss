@@ -1,0 +1,146 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Экран «Мои курсы» (ученик) — вкладки курсов + карточка курса + программа.
+   Явное разделение курсов (дизайн Student Courses). Классы sc-*.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+// Ширину/паддинги даёт .prof-dash (max-width:1320 + padding:24 → контент 1272),
+// как на остальных страницах кабинета — свой max-width не задаём.
+
+/* ── Вкладки курсов ──────────────────────────────────────────────────── */
+.sc-tabs { display: flex; gap: rem(10); margin-bottom: rem(16); flex-wrap: wrap; }
+
+.sc-tab {
+  display: flex; align-items: center; gap: rem(11); text-align: left;
+  padding: rem(11) rem(16) rem(15) rem(12); min-width: rem(240); position: relative;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); cursor: pointer;
+  box-shadow: var(--shadow-sm); transition: border-color $tr, box-shadow $tr;
+}
+.sc-tab:hover { border-color: var(--line-3, var(--muted-2)); }
+.sc-tab.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow-md); }
+
+.sc-chip {
+  width: rem(38); height: rem(38); border-radius: rem(10); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: rem(12); font-weight: 700; color: var(--ink-inverse); letter-spacing: .02em;
+}
+.sc-tb { min-width: 0; flex: 1; }
+
+.sc-tname {
+  display: block; font-size: rem(14); font-weight: 600; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sc-tab.on .sc-tname { color: var(--accent-700); }
+.sc-tsub { display: block; font-size: rem(12); color: var(--muted-2); margin-top: rem(2); white-space: nowrap; }
+
+.sc-tbar {
+  position: absolute; left: rem(12); right: rem(12); bottom: rem(6); height: rem(3);
+  border-radius: 2px; background: var(--line-2); overflow: hidden;
+}
+.sc-tbar span { display: block; height: 100%; border-radius: rem(2); }
+
+/* ── Карточка выбранного курса ───────────────────────────────────────── */
+.sc-hero { margin-bottom: rem(16); }
+.sc-hero-top { display: flex; align-items: flex-start; gap: rem(20); padding: rem(20) rem(22) rem(18); }
+.sc-hinfo { flex: 1; min-width: 0; }
+
+.sc-code {
+  display: inline-flex; padding: rem(3) rem(9); border-radius: rem(6);
+  font-size: rem(11.5); font-weight: 700; letter-spacing: .03em; margin-bottom: rem(7);
+}
+.sc-htitle { font-size: rem(20); font-weight: 700; letter-spacing: -.015em; line-height: 1.2; color: var(--ink); }
+.sc-hmeta { display: flex; align-items: center; gap: rem(7); flex-wrap: wrap; margin-top: rem(8); font-size: rem(13); color: var(--muted); }
+.sc-sep { color: var(--line); }
+.sc-hprog { margin-top: rem(15); max-width: rem(460); }
+.sc-hpl { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: rem(6); }
+.sc-hpt { font-size: rem(13); font-weight: 600; color: var(--ink-2); }
+.sc-hpct { font-size: rem(12.5); font-weight: 700; font-variant-numeric: tabular-nums; }
+.sc-hpbar { height: rem(7); border-radius: rem(4); background: var(--line-2); overflow: hidden; }
+.sc-hpbar span { display: block; height: 100%; border-radius: rem(4); transition: width .3s; }
+.sc-hact { display: flex; flex-direction: column; gap: rem(9); flex-shrink: 0; min-width: rem(210); }
+.sc-hbtn { justify-content: center; text-decoration: none; padding: rem(11) rem(18); font-size: rem(14); }
+.sc-dis { opacity: .55; cursor: default; }
+.sc-hint { font-size: rem(11.5); color: var(--muted-2); text-align: center; }
+
+/* ── Заголовок программы + поиск ─────────────────────────────────────── */
+.sc-prog-head { flex-wrap: wrap; row-gap: rem(10); }
+
+.sc-search {
+  display: flex; align-items: center; gap: rem(7); margin-left: auto;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: rem(6) rem(12); width: rem(230); color: var(--muted-2);
+}
+.sc-search input { border: none; background: transparent; outline: none; font: inherit; font-size: rem(13); color: var(--ink); width: 100%; }
+.sc-search svg { flex-shrink: 0; }
+
+/* ── Модуль ──────────────────────────────────────────────────────────── */
+.sc-mod { border-bottom: 1px solid var(--line-2); }
+.sc-mod:last-child { border-bottom: none; }
+.sc-mhead { display: flex; align-items: center; gap: rem(12); padding: rem(13) rem(18); cursor: pointer; user-select: none; transition: background $tr; }
+.sc-mhead:hover { background: var(--surface-2); }
+.sc-mhead.static { cursor: default; }
+.sc-mhead.static:hover { background: transparent; }
+.sc-caret { color: var(--muted-2); flex-shrink: 0; display: flex; transition: transform .15s; }
+.sc-mod.open .sc-caret { transform: rotate(90deg); }
+.sc-mnum { font-size: rem(11); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-2); width: rem(66); flex-shrink: 0; }
+.sc-mname { font-size: rem(14); font-weight: 600; flex: 1; min-width: 0; }
+.sc-mdone { color: var(--ok); font-weight: 700; flex-shrink: 0; }
+.sc-mcnt { font-size: rem(12); color: var(--muted-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sc-mmini { width: rem(72); height: rem(5); border-radius: rem(3); background: var(--line-2); overflow: hidden; flex-shrink: 0; }
+.sc-mmini span { display: block; height: 100%; background: var(--accent); border-radius: rem(3); }
+.sc-mod.done .sc-mmini span { background: var(--ok); }
+.sc-mbody { display: none; }
+.sc-mod.open .sc-mbody { display: block; padding-bottom: rem(6); }
+
+/* ── Строка урока ────────────────────────────────────────────────────── */
+.sc-row { display: flex; align-items: center; gap: rem(13); padding: rem(10) rem(18) rem(10) rem(24); transition: background $tr; }
+.sc-row.click { cursor: pointer; }
+.sc-row.click:hover { background: var(--accent-soft); }
+.sc-row.click:hover .sc-go { opacity: 1; transform: translateX(0); }
+
+.sc-num {
+  width: rem(30); height: rem(30); border-radius: rem(8); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: rem(12); font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+}
+.sc-row.done .sc-num { background: var(--good-bg); border-color: var(--ok-line, var(--line)); color: var(--ok); }
+.sc-row.open .sc-num { background: var(--accent); border-color: var(--accent); color: var(--ink-inverse); }
+.sc-lb { flex: 1; min-width: 0; }
+.sc-ltitle { display: block; font-size: rem(13.5); font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-row.lock .sc-ltitle { color: var(--muted); font-weight: 500; }
+.sc-lsub { display: block; font-size: rem(12); color: var(--muted-2); margin-top: 1px; }
+
+.sc-go {
+  display: flex; align-items: center; gap: rem(5); font-size: rem(12); font-weight: 600;
+  color: var(--accent-700); opacity: 0; transform: translateX(rem(-4));
+  transition: opacity $tr, transform $tr; white-space: nowrap;
+}
+
+/* ── Пилюли статуса ──────────────────────────────────────────────────── */
+.sc-pill { font-size: rem(11); font-weight: 700; padding: rem(3) rem(9); border-radius: 999px; display: inline-flex; align-items: center; gap: rem(5); flex-shrink: 0; }
+.sc-pill.done { background: var(--good-bg); color: var(--ok); }
+.sc-pill.open { background: var(--accent-soft); color: var(--accent-700); }
+.sc-pill.lock { background: var(--surface-2); color: var(--muted-2); border: 1px solid var(--line); }
+
+/* ── Каталог открытых курсов (Эпик 15, П10): самозапись ─────────────────── */
+.sc-catalog { margin-top: rem(14); }
+
+.sc-cat-row {
+  display: flex; align-items: center; gap: rem(13);
+  padding: rem(10) rem(18);
+  border-top: 1px solid var(--line);
+
+  &:first-of-type { border-top: 0; }
+}
+
+/* ── Состояния ───────────────────────────────────────────────────────── */
+.sc-notice { display: flex; align-items: center; gap: rem(12); margin: rem(14) rem(18); padding: rem(13) rem(16); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-700); font-size: rem(13); font-weight: 500; }
+.sc-empty { padding: rem(20) rem(18); font-size: rem(13); color: var(--muted-2); text-align: center; }
+
+@media (max-width: $breakpoint-tablet) {
+  .sc-hero-top { flex-direction: column; }
+  .sc-hact { min-width: 0; }
+  .sc-tab { min-width: 0; flex: 1 1 rem(220); }
+}

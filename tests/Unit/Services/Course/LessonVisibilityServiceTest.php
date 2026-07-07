@@ -150,16 +150,51 @@ class LessonVisibilityServiceTest extends TestCase {
 		$this->service->refreshFromLesson( 42, 1 );
 	}
 
+	public function test_sync_adds_new_lesson_works_to_open_occurrences(): void {
+		$row    = $this->makeRow( workIdsSnapshot: [ 10 ], extraWorkIds: [] );
+		$lesson = $this->makeLesson( workIds: [ 10, 20 ] ); // 20 added after publish
+		$this->lessonManager->method( 'get' )->willReturn( $lesson );
+		$this->groupLessons->method( 'listByLessonId' )->with( 1 )->willReturn( [ $row ] );
+
+		$this->groupLessons->expects( self::once() )
+			->method( 'setExtraWorkIds' )
+			->with( 42, [ 20 ] );
+
+		$this->service->syncExtraWorksForOpenOccurrences( 1 );
+	}
+
+	public function test_sync_skips_unpublished_occurrences(): void {
+		$row    = $this->makeRow( workIdsSnapshot: null, extraWorkIds: [] );
+		$lesson = $this->makeLesson( workIds: [ 10, 20 ] );
+		$this->lessonManager->method( 'get' )->willReturn( $lesson );
+		$this->groupLessons->method( 'listByLessonId' )->with( 1 )->willReturn( [ $row ] );
+
+		$this->groupLessons->expects( self::never() )->method( 'setExtraWorkIds' );
+
+		$this->service->syncExtraWorksForOpenOccurrences( 1 );
+	}
+
+	public function test_sync_is_noop_when_nothing_missing(): void {
+		$row    = $this->makeRow( workIdsSnapshot: [ 10, 20 ], extraWorkIds: [] );
+		$lesson = $this->makeLesson( workIds: [ 10, 20 ] );
+		$this->lessonManager->method( 'get' )->willReturn( $lesson );
+		$this->groupLessons->method( 'listByLessonId' )->with( 1 )->willReturn( [ $row ] );
+
+		$this->groupLessons->expects( self::never() )->method( 'setExtraWorkIds' );
+
+		$this->service->syncExtraWorksForOpenOccurrences( 1 );
+	}
+
 	// --- helpers ---
 
-	private function makeRow( ?array $workIdsSnapshot ): GroupLessonDTO {
+	private function makeRow( ?array $workIdsSnapshot, array $extraWorkIds = [] ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id              : 42,
 			groupId         : 5,
 			lessonId        : 1,
 			position        : 0,
 			workIdsSnapshot : $workIdsSnapshot,
-			extraWorkIds    : [],
+			extraWorkIds    : $extraWorkIds,
 			scheduledAt     : null,
 			endsAt          : null,
 			isPinned        : false,

@@ -1,4 +1,4 @@
-@use '../../admin/variables' as *;
+@use '../../shared/tokens' as *;
 @use '../mixins' as m;
 
 .fs-lms-label-row {
@@ -24,8 +24,9 @@
 
 .fs-lms-tooltip-icon {
   @include m.center-flex;
-  width: 16px;
-  height: 16px;
+
+  width: rem(16);
+  height: rem(16);
   border-radius: 50%;
   background: $color-text-secondary;
   color: $color-text-inverse;
@@ -37,12 +38,14 @@
 
 .fs-lms-tooltip-body {
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + rem(6));
   left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  width: 280px;
+  transform: translateX(-50%) translateY(rem(4));
+  width: rem(280);
   padding: $spacing-sm $spacing-md;
+
   @include m.dark-bubble;
+
   font-size: $font-size-xs;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); // одиночный поповер-шэдоу
   opacity: 0;
@@ -58,7 +61,7 @@
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    border: 5px solid transparent;
+    border: rem(5) solid transparent;
     border-top-color: $color-text-primary;
   }
 }

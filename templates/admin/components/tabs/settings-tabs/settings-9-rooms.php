@@ -18,7 +18,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 	<div class="fs-page-header">
 		<div class="fs-page-header__content">
-			<h1 class="fs-page-header__title">Кабинеты</h1>
+			<h2 class="fs-page-header__title">Кабинеты</h2>
 		</div>
 	</div>
 

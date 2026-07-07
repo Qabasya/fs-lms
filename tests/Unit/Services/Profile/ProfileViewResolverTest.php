@@ -5,6 +5,8 @@ declare( strict_types=1 );
 namespace Unit\Services\Profile;
 
 use Inc\Enums\Access\UserRole;
+use Inc\Managers\Course\CourseManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -30,6 +32,8 @@ class ProfileViewResolverTest extends TestCase {
 			$this->createMock( GroupsRepository::class ),
 			new TeacherProfileView(),
 			new LearnerProfileView(),
+			$this->createMock( CourseManager::class ),
+			$this->createMock( SubjectRepository::class ),
 		);
 	}
 

@@ -9,16 +9,10 @@ use Inc\DTO\Course\StepDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\Enums\Course\ProgressStatus;
 use Inc\Enums\Subject\TaskTemplate;
-use Inc\Enums\Wp\PostMetaName;
-use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
-use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Task\CorrectAnswerResolver;
-use Inc\Services\Task\FillTextParser;
-use Inc\Services\Task\TaskCheckerRegistry;
-use Inc\Services\Template\TemplateResolver;
 
 /**
  * Class LessonPlayerService
@@ -26,6 +20,9 @@ use Inc\Services\Template\TemplateResolver;
  * Сборка view-модели пошагового плеера урока (★, T1.5.12): упорядоченные шаги с
  * гейтом (доступ) и статусом (прогресс) для конкретного ученика в уроке программы.
  * Инлайн-шаги отдают контент для рендера; task-шаги — данные виджета без правильных ответов (Этап 6).
+ * Чистый рендер контента шага (условие/виджет/видео/контрольная) — в `StepContentRenderer`,
+ * общем с preview-плеером курса (Фаза 5); здесь остаётся то, что завязано на ученика/занятие
+ * (гейт, прогресс, попытки, сдачи, эталон после исчерпания).
  *
  * @package Inc\Services\Course
  */
@@ -35,15 +32,12 @@ class LessonPlayerService {
 		private readonly LessonManager                $lessons,
 		private readonly LessonGateResolver           $gate,
 		private readonly LessonProgressService        $progress,
-		private readonly PostManager                  $posts,
 		private readonly TaskAttemptRepository        $taskAttempts,
 		private readonly EffectiveStepSettingsResolver $settingsResolver,
-		private readonly TemplateResolver             $templateResolver,
-		private readonly TaskCheckerRegistry          $checkerRegistry,
 		private readonly CorrectAnswerResolver        $correctAnswers,
 		private readonly WorkManager                  $works,
 		private readonly SubmissionService            $submissionService,
-		private readonly AssessmentManager            $assessments,
+		private readonly StepContentRenderer          $stepRenderer,
 	) {}
 
 	/**
@@ -65,7 +59,7 @@ class LessonPlayerService {
 			$steps[] = array(
 				'key'    => $step->key,
 				'type'   => $step->type->value,
-				'title'  => $this->resolveTitle( $step ),
+				'title'  => $this->stepRenderer->resolveTitle( $step ),
 				'gate'   => $gate->value,
 				'status' => $status->value,
 				'render' => $this->renderData( $step, $groupLesson, $studentPersonId ),
@@ -80,24 +74,6 @@ class LessonPlayerService {
 		);
 	}
 
-	/** Заголовок шага: инлайн — из payload/типа, ссылочный — из связанной сущности. */
-	private function resolveTitle( StepDTO $step ): string {
-		$title = (string) ( $step->payload['title'] ?? '' );
-		if ( '' !== $title ) {
-			return $title;
-		}
-
-		$refId = (int) ( $step->payload['ref'] ?? $step->payload['article_id'] ?? 0 );
-		if ( $refId > 0 ) {
-			$post = $this->posts->get( $refId );
-			if ( $post instanceof \WP_Post && '' !== $post->post_title ) {
-				return $post->post_title;
-			}
-		}
-
-		return $step->type->label();
-	}
-
 	/**
 	 * Данные для рендера шага по типу.
 	 *
@@ -106,41 +82,12 @@ class LessonPlayerService {
 	private function renderData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId ): array {
 		return match ( $step->type->value ) {
 			'text'  => array( 'content' => (string) ( $step->payload['content'] ?? '' ) ),
-			'video' => $this->renderVideoData( $step, $groupLesson ),
+			'video' => $this->stepRenderer->renderVideoData( $step, $groupLesson->recordingUrl ),
 			'task'       => $this->renderTaskData( $step, $groupLesson, $studentPersonId ),
 			'work'       => $this->renderWorkData( $step, $groupLesson, $studentPersonId ),
-			'assessment' => $this->renderAssessmentData( $step ),
+			'assessment' => $this->stepRenderer->renderAssessmentData( $step ),
 			default      => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
 		};
-	}
-
-	/**
-	 * Данные контрольной-шага (T14.14): мета для карточки (название, лимит,
-	 * попытки) + ссылка на страницу прохождения (attempt-флоу, отдельный UI).
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function renderAssessmentData( StepDTO $step ): array {
-		$assessmentId = (int) ( $step->payload['ref'] ?? 0 );
-		$empty        = array( 'ref' => $assessmentId, 'url' => '' );
-
-		if ( ! $assessmentId ) {
-			return $empty;
-		}
-
-		$assessment = $this->assessments->get( $assessmentId );
-		if ( null === $assessment || 'publish' !== $assessment->status ) {
-			return $empty;
-		}
-
-		return array(
-			'ref'            => $assessmentId,
-			'title'          => $assessment->title,
-			'url'            => (string) get_permalink( $assessmentId ),
-			'time_limit_min' => $assessment->timeLimit,
-			'max_attempts'   => $assessment->attemptsAllowed,
-			'task_count'     => count( $assessment->taskIds ),
-		);
 	}
 
 	/**
@@ -168,27 +115,18 @@ class LessonPlayerService {
 
 		$tasks = array();
 		foreach ( $work->itemIds as $taskId ) {
-			$post = $this->posts->get( $taskId );
-			if ( ! $post ) {
+			$bundle = $this->stepRenderer->taskBundle( (int) $taskId );
+			if ( null === $bundle ) {
 				continue;
 			}
 
-			$template  = $this->templateResolver->resolveEnum( $post );
-			$autoGrade = $this->checkerRegistry->has( $template );
-			$metaRaw   = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
-			$meta      = is_array( $metaRaw ) ? $metaRaw : array();
+			// Ручные шаблоны в работе сдаются свободным текстом (проверит преподаватель).
+			if ( ! $bundle['auto_grade'] ) {
+				$bundle['widget_data'] = array( 'type' => 'text_answer' );
+			}
+			unset( $bundle['meta'] );
 
-			$tasks[] = array(
-				'task_id'        => $taskId,
-				'title'          => $post->post_title,
-				'template'       => $template->value,
-				'auto_grade'     => $autoGrade,
-				'condition_html' => $this->buildConditionHtml( $meta, $template ),
-				// Ручные шаблоны в работе сдаются свободным текстом (проверит преподаватель).
-				'widget_data'    => $autoGrade
-					? $this->buildWidgetData( $meta, $template, false )
-					: array( 'type' => 'text_answer' ),
-			);
+			$tasks[] = $bundle;
 		}
 
 		return array(
@@ -277,19 +215,19 @@ class LessonPlayerService {
 			return $empty;
 		}
 
-		$post = $this->posts->get( $taskId );
-		if ( ! $post ) {
+		$bundle = $this->stepRenderer->taskBundle( $taskId );
+		if ( null === $bundle ) {
 			return $empty;
 		}
 
-		$template  = $this->templateResolver->resolveEnum( $post );
-		$autoGrade = $this->checkerRegistry->has( $template );
-		$meta      = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
-		if ( ! is_array( $meta ) ) {
-			$meta = array();
-		}
+		$template  = TaskTemplate::from( $bundle['template'] );
+		$autoGrade = $bundle['auto_grade'];
+		$meta      = $bundle['meta'];
 
 		$settings   = $this->settingsResolver->resolve( $step, $groupLesson, $template );
+		// Шафл (если включён настройками шага) не зашит в bundle — считаем виджет заново
+		// с нужным shuffle, а не берём bundle['widget_data'] с shuffle=false по умолчанию.
+		$widgetData = $autoGrade ? $this->stepRenderer->buildWidgetData( $meta, $template, $settings->shuffle ) : array();
 		$attempts   = $this->taskAttempts->listByStep( $studentPersonId, $groupLesson->id, $step->key );
 		$usedCount  = count( $attempts );
 		$wrongCount = count( array_filter( $attempts, static fn( $a ) => false === $a->isCorrect ) );
@@ -298,9 +236,9 @@ class LessonPlayerService {
 
 		$data = array(
 			'auto_grade'     => $autoGrade,
-			'template'       => $template->value,
-			'condition_html' => $this->buildConditionHtml( $meta, $template ),
-			'widget_data'    => $autoGrade ? $this->buildWidgetData( $meta, $template, $settings->shuffle ) : array(),
+			'template'       => $bundle['template'],
+			'condition_html' => $bundle['condition_html'],
+			'widget_data'    => $widgetData,
 			'hint_html'      => $hintHtml,
 			'settings'       => $settings->toArray(),
 			'attempts_used'  => $usedCount,
@@ -321,222 +259,5 @@ class LessonPlayerService {
 		}
 
 		return $data;
-	}
-
-	/**
-	 * Безопасный HTML условия задания (без правильных ответов).
-	 * Для Fill — пустая строка (условие встроено в сегменты виджета).
-	 * Для Triple — ассоциативный массив [num => html].
-	 *
-	 * @return string|array<string, string>
-	 */
-	private function buildConditionHtml( array $meta, TaskTemplate $template ): string|array {
-		if ( TaskTemplate::Triple === $template ) {
-			return array(
-				'19' => wp_kses_post( (string) ( $meta['task_19_condition'] ?? '' ) ),
-				'20' => wp_kses_post( (string) ( $meta['task_20_condition'] ?? '' ) ),
-				'21' => wp_kses_post( (string) ( $meta['task_21_condition'] ?? '' ) ),
-			);
-		}
-
-		if ( TaskTemplate::Fill === $template ) {
-			return '';
-		}
-
-		return wp_kses_post( (string) ( $meta['task_condition'] ?? '' ) );
-	}
-
-	/**
-	 * Данные для JS-виджета: только отображаемая структура, без правильных ответов.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function buildWidgetData( array $meta, TaskTemplate $template, bool $shuffle ): array {
-		return match ( $template ) {
-			TaskTemplate::Standard, TaskTemplate::Common =>
-				array( 'type' => 'text_answer' ),
-
-			TaskTemplate::Audio =>
-				array(
-					'type'      => 'audio',
-					'audio_url' => $this->resolveAudioUrl( (int) ( $meta['task_audio']['attachment_id'] ?? 0 ) ),
-				),
-
-			TaskTemplate::Triple =>
-				array( 'type' => 'triple' ),
-
-			TaskTemplate::Choice =>
-				$this->buildChoiceData( $meta, $shuffle ),
-
-			TaskTemplate::Matching =>
-				$this->buildMatchingData( $meta, $shuffle ),
-
-			TaskTemplate::Ordering =>
-				$this->buildOrderingData( $meta, $shuffle ),
-
-			TaskTemplate::Fill =>
-				$this->buildFillData( $meta ),
-
-			// Эпик 13 (D16): FileAnswer здесь намеренно НЕ обрабатывается — шаговые
-			// задания урока (task_attempts) требуют авто-проверки (SubmitTaskAnswerCallbacks
-			// жёстко отклоняет шаблоны без чекера в TaskCheckerRegistry) и не имеют
-			// поверхности ручной проверки для учителя. FileAnswer живёт только в
-			// экзаменах/контрольных (AssessmentPageController, T13.5).
-			default => array( 'type' => 'text_answer' ),
-		};
-	}
-
-	private function buildChoiceData( array $meta, bool $shuffle ): array {
-		$opts     = is_array( $meta['task_options'] ?? null ) ? $meta['task_options'] : array();
-		$multiple = (bool) ( $opts['multiple'] ?? false );
-		$options  = array_values( array_map(
-			static fn( $o ) => array( 'id' => (string) ( $o['id'] ?? '' ), 'text' => (string) ( $o['text'] ?? '' ) ),
-			is_array( $opts['options'] ?? null ) ? $opts['options'] : array()
-		) );
-		if ( $shuffle ) {
-			shuffle( $options );
-		}
-		return array( 'type' => 'choice', 'multiple' => $multiple, 'options' => $options );
-	}
-
-	private function buildMatchingData( array $meta, bool $shuffle ): array {
-		$rawPairs = is_array( $meta['task_pairs']['pairs'] ?? null ) ? $meta['task_pairs']['pairs'] : array();
-		$lefts    = array_values( array_map(
-			static fn( $p, $i ) => array( 'id' => $i, 'text' => (string) ( $p['left'] ?? '' ) ),
-			$rawPairs,
-			array_keys( $rawPairs )
-		) );
-		$rights   = array_values( array_map( static fn( $p ) => (string) ( $p['right'] ?? '' ), $rawPairs ) );
-		if ( $shuffle ) {
-			shuffle( $rights );
-		}
-		return array( 'type' => 'matching', 'lefts' => $lefts, 'rights' => $rights );
-	}
-
-	private function buildOrderingData( array $meta, bool $shuffle ): array {
-		$items = is_array( $meta['task_order_items']['items'] ?? null ) ? $meta['task_order_items']['items'] : array();
-		$data  = array_values( array_map(
-			static fn( $text, $i ) => array( 'id' => $i, 'text' => (string) $text ),
-			$items,
-			array_keys( $items )
-		) );
-		if ( $shuffle ) {
-			shuffle( $data );
-		}
-		return array( 'type' => 'ordering', 'items' => $data );
-	}
-
-	private function buildFillData( array $meta ): array {
-		$text     = (string) ( $meta['task_gap_text']['text'] ?? '' );
-		$parsed   = FillTextParser::parse( $text );
-		return array( 'type' => 'fill', 'segments' => $parsed->segments );
-	}
-
-	private function resolveAudioUrl( int $attachmentId ): string {
-		if ( ! $attachmentId ) {
-			return '';
-		}
-		$url = wp_get_attachment_url( $attachmentId );
-		return $url ?: '';
-	}
-
-	/**
-	 * Данные видео-шага (D21, T14.12): режим по источнику (прямой файл → нативный
-	 * плеер с кастомным хромом, иначе oembed-карточка), главы и вложения-конспекты.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function renderVideoData( StepDTO $step, GroupLessonDTO $groupLesson ): array {
-		$url = $this->resolveVideoUrl( $step, $groupLesson );
-
-		return array(
-			'url'            => $url,
-			'description'    => (string) ( $step->payload['description'] ?? '' ),
-			'provider'       => (string) ( $step->payload['provider'] ?? '' ),
-			'recording_slot' => (bool) ( $step->payload['recording_slot'] ?? false ),
-			'mode'           => $this->resolveVideoMode( $url ),
-			'chapters'       => $this->videoChapters( $step ),
-			'attachments'    => $this->videoAttachments( $step ),
-		);
-	}
-
-	/**
-	 * Режим плеера по источнику (D21): прямой файл (S3: mp4/hls и т.п.) — нативный
-	 * `<video>`; всё остальное (VK/Rutube/YouTube) — oembed-карточка.
-	 */
-	private function resolveVideoMode( string $url ): string {
-		if ( '' === $url ) {
-			return 'none';
-		}
-
-		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
-		$ext  = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
-
-		return in_array( $ext, array( 'mp4', 'webm', 'ogv', 'mov', 'm4v', 'm3u8' ), true ) ? 'native' : 'embed';
-	}
-
-	/**
-	 * @return array<int, array{t:int, title:string}>
-	 */
-	private function videoChapters( StepDTO $step ): array {
-		$raw = is_array( $step->payload['chapters'] ?? null ) ? $step->payload['chapters'] : array();
-
-		$chapters = array();
-		foreach ( $raw as $row ) {
-			if ( ! is_array( $row ) ) {
-				continue;
-			}
-			$chapters[] = array(
-				't'     => max( 0, (int) ( $row['t'] ?? 0 ) ),
-				'title' => (string) ( $row['title'] ?? '' ),
-			);
-		}
-
-		return $chapters;
-	}
-
-	/**
-	 * Вложения-конспекты видео-шага: карточки для скачивания.
-	 *
-	 * @return array<int, array{id:int, title:string, url:string, ext:string, size:string}>
-	 */
-	private function videoAttachments( StepDTO $step ): array {
-		$ids = is_array( $step->payload['attachments'] ?? null ) ? $step->payload['attachments'] : array();
-
-		$attachments = array();
-		foreach ( $ids as $id ) {
-			$id  = (int) $id;
-			$url = $id > 0 ? (string) wp_get_attachment_url( $id ) : '';
-			if ( '' === $url ) {
-				continue;
-			}
-
-			$path  = (string) wp_parse_url( $url, PHP_URL_PATH );
-			$title = get_the_title( $id );
-			$file  = get_attached_file( $id );
-			$size  = ( $file && file_exists( $file ) ) ? size_format( (int) filesize( $file ) ) : '';
-
-			$attachments[] = array(
-				'id'    => $id,
-				'title' => '' !== $title ? $title : basename( $path ),
-				'url'   => $url,
-				'ext'   => strtoupper( pathinfo( $path, PATHINFO_EXTENSION ) ),
-				'size'  => (string) $size,
-			);
-		}
-
-		return $attachments;
-	}
-
-	/**
-	 * URL видео-шага: для слота записи подставляет recordingUrl группового урока.
-	 */
-	private function resolveVideoUrl( StepDTO $step, GroupLessonDTO $groupLesson ): string {
-		$isSlot = (bool) ( $step->payload['recording_slot'] ?? false );
-		if ( $isSlot && null !== $groupLesson->recordingUrl && '' !== $groupLesson->recordingUrl ) {
-			return $groupLesson->recordingUrl;
-		}
-
-		return (string) ( $step->payload['url'] ?? '' );
 	}
 }

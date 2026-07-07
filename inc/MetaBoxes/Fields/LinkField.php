@@ -18,8 +18,8 @@ class LinkField extends InputField {
 	/**
 	 * Рендерит HTML-разметку поля для ввода PageRoutes.
 	 *
-	 * Выводит input с типом url, кнопку проверки ссылки
-	 * (если значение уже заполнено) и подсказку для пользователя.
+	 * Выводит input с типом url, кнопку выбора файла из медиабиблиотеки
+	 * и подсказку для пользователя.
 	 *
 	 * @param WP_Post $post  Текущий пост (не используется, но обязателен для интерфейса)
 	 * @param string  $id    Уникальный идентификатор поля
@@ -42,16 +42,11 @@ class LinkField extends InputField {
 						placeholder="https://..."
 						class="large-text fs-lms-input fs-lms-file-input">
 
-				<?php if ( $value ) : ?>
-					<a href="<?php echo esc_url( $value ); ?>"
-						target="_blank"
-						class="button button-secondary"
-						title="Проверить ссылку">
-						<span class="dashicons dashicons-external" style="margin-top: 4px;"></span>
-					</a>
-				<?php endif; ?>
+				<button type="button" class="button button-primary js-file-link-select">
+					Выбрать файл
+				</button>
 			</div>
-			<p class="description">Вставьте прямую ссылку на файл</p>
+			<p class="description">Вставьте прямую ссылку на файл или выберите из библиотеки</p>
 		</div>
 		<?php
 	}

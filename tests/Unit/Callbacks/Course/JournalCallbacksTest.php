@@ -7,6 +7,7 @@ namespace Unit\Callbacks\Course;
 use Inc\Callbacks\Course\JournalCallbacks;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\AttendanceService;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\JournalService;
@@ -18,6 +19,7 @@ class JournalCallbacksTest extends TestCase {
 	private JournalService&\PHPUnit\Framework\MockObject\MockObject $journal;
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
 	private GroupAccessGuard&\PHPUnit\Framework\MockObject\MockObject $guard;
+	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private JournalCallbacks $cb;
 
 	protected function setUp(): void {
@@ -27,7 +29,8 @@ class JournalCallbacksTest extends TestCase {
 		$this->journal      = $this->createMock( JournalService::class );
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
 		$this->guard        = $this->createMock( GroupAccessGuard::class );
-		$this->cb           = new JournalCallbacks( $this->attendance, $this->journal, $this->groupLessons, $this->guard );
+		$this->groups       = $this->createMock( GroupsRepository::class );
+		$this->cb           = new JournalCallbacks( $this->attendance, $this->journal, $this->groupLessons, $this->guard, $this->groups );
 	}
 
 	public function test_get_journal_returns_payload_when_allowed(): void {
@@ -74,6 +77,18 @@ class JournalCallbacksTest extends TestCase {
 			createdByUserId: null, updatedByUserId: null,
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $future );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+		$this->attendance->expects( $this->never() )->method( 'mark' );
+		$_POST = array( 'group_lesson_id' => '10', 'student_person_id' => '900', 'is_present' => '1' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveAttendance() )->success );
+	}
+
+	public function test_save_attendance_blocked_for_open_group(): void {
+		$openGroup              = new \stdClass();
+		$openGroup->access_mode = 'open';
+		$this->groups->method( 'findById' )->with( 5 )->willReturn( $openGroup );
+		$this->groupLessons->method( 'find' )->willReturn( $this->row( 10, 5 ) );
 		$this->guard->method( 'canWriteJournal' )->willReturn( true );
 		$this->attendance->expects( $this->never() )->method( 'mark' );
 		$_POST = array( 'group_lesson_id' => '10', 'student_person_id' => '900', 'is_present' => '1' );

@@ -6,6 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Enums\Settings\TableName;
 use Inc\Services\Group\MeetingsNormalizer;
+use Inc\Shared\PluginLogger;
 
 /**
  * Class GroupsRepository
@@ -174,6 +175,38 @@ class GroupsRepository {
 	}
 
 	/**
+	 * Возвращает все группы, которым назначен указанный курс (по course_id).
+	 * Используется для ре-синка новых уроков курса в КТП (НБ-7).
+	 *
+	 * @param int $courseId ID курса
+	 *
+	 * @return array
+	 */
+	public function findByCourse( int $courseId ): array {
+		return $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE course_id = %d ORDER BY name ASC',
+				$this->table,
+				$courseId
+			)
+		) ?: array();
+	}
+
+	/**
+	 * Возвращает открытые группы (Эпик 15): каталог курсов свободного прохождения.
+	 *
+	 * @return array
+	 */
+	public function findOpen(): array {
+		return $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE access_mode = 'open' AND deleted_at IS NULL ORDER BY name ASC",
+				$this->table
+			)
+		) ?: array();
+	}
+
+	/**
 	 * Возвращает все группы, отсортированные по предмету и названию.
 	 *
 	 * @return array
@@ -230,7 +263,25 @@ class GroupsRepository {
 	 * @return int ID созданной группы
 	 */
 	public function create( array $data ): int {
-		$this->wpdb->insert( $this->table, $data );
+		$result = $this->wpdb->insert( $this->table, $data );
+
+		// Не проглатываем ошибку БД: при провале insert (например, отсутствует
+		// колонка/невалидное enum-значение — так проявлялся баг с access_mode на
+		// стендах без применённой миграции) логируем last_error, чтобы причина
+		// не терялась за общим «Не удалось создать группу».
+		if ( false === $result ) {
+			PluginLogger::warning(
+				'GroupsRepository',
+				'insert failed',
+				array(
+					'table'      => $this->table,
+					'columns'    => array_keys( $data ),
+					'last_error' => $this->wpdb->last_error,
+				)
+			);
+			return 0;
+		}
+
 		return (int) $this->wpdb->insert_id;
 	}
 
@@ -309,5 +360,10 @@ class GroupsRepository {
 			array( 'program_locked_at' => $lockedAt ),
 			array( 'id' => $groupId )
 		);
+	}
+
+	/** Снимает ссылку на удаляемый кабинет со всех групп (RoomAssignmentService). */
+	public function clearRoomId( int $roomId ): int {
+		return (int) $this->wpdb->update( $this->table, array( 'room_id' => null ), array( 'room_id' => $roomId ) );
 	}
 }

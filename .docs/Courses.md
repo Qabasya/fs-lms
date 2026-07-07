@@ -269,3 +269,40 @@ CREATE TABLE fs_lms_substitutions (
 7. **Взвешивание оценок** — в v1 или позже.
 8. **Lock КТП** после публикации (Дневник.ру) — нужен ли.
 9. **Модель ДЗ** (на `submissions` или поле на занятии).
+
+---
+
+## 10. Задачи: багфиксы конструктора + Эпик 15 (бесшовные контрольные/экзамены в плеере)
+
+### 10.0 Багфиксы конструктора (вне очереди, перед Эпиком 15)
+
+| ID | Задача | Файлы | Объём |
+|---|---|---|---|
+| B1 | «Создать задачу» в контрольных/работах должна выглядеть как чип, в стиле «Выбрать из банка» / «Удалить слот» | `src/js/admin/services/slot-builder.js:355-358` (`createBtn.className`, сейчас `button button-primary` — селектор `.button:not(.button-primary)` в `src/scss/admin/components/_slot-builder.scss:127-136` даёт чип-стиль (`cb-ghost-button`/`cb-chip`, `src/scss/admin/_mixins.scss:312-319`, `src/scss/admin/_variables.scss:204-210`) двум другим кнопкам, но явно **исключает** `.button-primary`) · единственная точка кода — используется и `assessment-builder.js:51-53`, и `work-builder.js:22-24` через общий `createSlotBuilder()`, дублировать фикс не нужно | XS |
+| B2 | В задании с файлами кнопка выбора файла — переделать текущий мульти-пикер «+ Добавить файлы» в одиночный «Выбрать файл» (выбор/замена/удаление одного файла, а не список) | `inc/MetaBoxes/Fields/FileAttachmentsField.php:49` (кнопка, лейбл) · `src/js/admin/services/task-fields.js:262-313` (`bindMaterials()`, `wp.media` мульти-пикер — переделать под `multiple:false` режим) · паттерн для одиночного файла уже есть рядом — `bindAudio()` в том же файле, `task-fields.js:193-236` (select/replace/remove для одного вложения) · поле сохраняется в `fs_lms_meta[task_materials][attachment_ids][]` (`BaseField::get_field_name()`) — при переходе на одиночный файл уточнить формат меты | S |
+
+### 10.1 Эпик 15 — контекст и развилка
+
+Сейчас в плеере (`/group/?gl=`) шаг-«контрольная» (`step-assessment.php`) — статичная карточка с кнопкой, которая уводит на **отдельную** страницу (`AssessmentPageController` → `templates/frontend/assessment/attempt.php`), отрендеренную **внутри темы сайта** (`ThemeCompatService::header()/footer()`) со старыми классами `frontend.scss`. Плеер же — полностью изолированный SPA-шелл: свой `<html>` без темы, свои токены (`src/scss/player/_variables.scss`), свой бандл (`player.min.css/js`), включается флагом `fs_lms_is_player_route`.
+
+**Выбран Вариант 1** (обсуждено и согласовано): не переносить прохождение контрольной внутрь DOM плеера, а оставить текущий CPT/attempt-флоу (таймер, автосохранение, `ExamLockService`, проверка — всё рабочее) как отдельный переход по URL, но **полностью снять тему сайта** и одеть страницу в шелл/токены плеера — тогда переход ощущается как часть одного продукта, а не «уход с сайта». Отклонённая альтернатива — встраивание прохождения прямо в DOM плеера (полноценный «exam mode» без навигации) — отклонена как дублирующая уже рабочую логику таймера/автосохранения/блокировки из `assessment.js` без архитектурного выигрыша.
+
+### 10.2 Эпик 15 — задачи
+
+| ID | Задача | Файлы | Статус |
+|---|---|---|---|
+| T15.1 | Убрать `ThemeCompatService::header()/footer()` со страницы контрольной, дать ей собственный bare-`<html>` шелл (без темы, `wp_head()/wp_footer()` только） — по образцу `templates/frontend/lesson-player/player.php` | `inc/Controllers/Pages/AssessmentPageController.php` (строки ~124-127, вызов рендера) · новый `templates/frontend/assessment/attempt-shell.php` (шапка/обёртка) | 🔴 |
+| T15.2 | Изолированный бандл для страницы контрольной на токенах плеера — новый SCSS-энтрипоинт, `@use`-ит `player/_variables.scss` и общие компоненты (`card16`, чипы, кнопки), не тянет `frontend.scss` | новый `src/scss/assessment/assessment.scss` (или `src/scss/player/components/_assessment-attempt.scss`, если решаем буквально шарить `player.min.css`, см. 🔶 ниже) · `gulpfile`/`styles:*` таск · `inc/Core/Enqueue.php` — новая ветка регистрации вместо текущей `enqueue_frontend_assets()` (~строка 539) | 🔴 |
+| T15.3 | Топбар страницы контрольной в стиле плеера — «Вернуться» ссылка (как `.s-back` в `player.php`), без рельсы/степ-ленты (это не урок) | `templates/frontend/assessment/attempt-shell.php` · SCSS из T15.2 | 🔴 |
+| T15.4 | Переверстать `attempt.php` (все 4 состояния: старт/активная попытка/просрочено/результат) на компоненты плеера вместо `fs-attempt-*`/`fs-btn--*` из `frontend.scss` | `templates/frontend/assessment/attempt.php` (203 строки, все состояния) | 🔴 |
+| T15.5 | `assessment.js` (таймер/автосохранение/сабмит/файлы/результат) оставить как есть по логике, переподключить к новой разметке/классам из T15.4, грузить отдельно от `frontend.min.js` | `src/js/frontend/services/assessment.js` · подключение в `Enqueue.php` | 🔴 |
+| T15.6 | В плеере: карточка `step-assessment.php` — кнопка «Перейти к контрольной» → «Начать контрольную» (per ТЗ), стиль привести к workbar-паттерну `step-work.php` (бейдж/прогресс/кнопка) для визуальной параллели «работы vs контрольной» | `templates/frontend/lesson-player/partials/step-assessment.php` · SCSS `src/scss/player/components/_step-work.scss` (переиспользовать паттерн, не дублировать) | 🔴 |
+| T15.7 | Обратная навигация: с новой страницы контрольной — возврат в исходный урок/шаг плеера (deep-link `?gl=&step=`), а не просто на `/profile/`. Нужно явно прокинуть referring lesson/step в URL при переходе из step-assessment.php и прочитать на возврате | `templates/frontend/lesson-player/partials/step-assessment.php` (формирование ссылки) · `templates/frontend/assessment/attempt-shell.php` (кнопка «Вернуться») | 🔴 |
+| T15.8 | `ExamLockService`/`LessonGateResolver` — убедиться, что блокировка контента на время активной запирающей попытки (экзамен) не нуждается в правках после смены шелла (проверка сработает на уровне плеера/`/profile/`, сама страница контрольной уже единственный экран без сайт-навигации) | `inc/Services/Assessment/ExamLockService.php`, `inc/Services/Course/LessonGateResolver.php` — только регрессионная проверка, без изменений кода, если гипотеза верна | 🔴 (проверить) |
+| T15.9 | `ege-computer.php` (альтернативный скин модуля EgeComputer) — решить, тянем ли его тем же рефакторингом в этом эпике или выносим отдельным тикетом модуля | `templates/frontend/assessment/ege-computer.php` | 🔶 см. §10.3 |
+
+### 10.3 Открытые вопросы Эпика 15 (🔶)
+
+1. **Бандл**: отдельный `assessment.scss`, переиспользующий токены плеера через `@use` (изоляция версий, чуть больше кода), vs буквально грузить `player.min.css` на странице контрольной (гарантированная идентичность стиля, но связывает бандлы). *Рек.: отдельный энтрипоинт с `@use` — соответствует текущему паттерну «у каждой поверхности свой бандл» (player/profile).*
+2. **`ege-computer.php`**: рефакторить в этом эпике или отдельным тикетом модуля EgeComputer (фича-флаг) — решить перед T15.9.
+3. **Обратная навигация (T15.7)**: возврат строго в исходный `?gl=&step=` или достаточно fallback на `/profile/`, если реферер не сохранён (например прямой заход по ссылке из уведомления) — уточнить ожидаемое поведение edge-case.

@@ -13,7 +13,22 @@ defined( 'ABSPATH' ) || exit;
  */
 ?>
 <div class="wrap fs-lms-learning">
-	<h1><?php echo esc_html( $title ); ?></h1>
+
+	<div class="fs-page-header">
+		<div class="fs-page-header__content">
+			<h1 class="fs-page-header__title"><?php echo esc_html( $title ); ?></h1>
+			<?php if ( ! empty( $subjects ) && '' !== $list_url ) : ?>
+				<div class="fs-page-header__actions">
+					<a class="button button-primary" href="<?php echo esc_url( $list_url ); ?>">
+						<?php esc_html_e( 'Открыть список', 'fs-lms' ); ?>
+					</a>
+					<a class="button" href="<?php echo esc_url( $new_url ); ?>">
+						<?php esc_html_e( 'Добавить', 'fs-lms' ); ?>
+					</a>
+				</div>
+			<?php endif; ?>
+		</div>
+	</div>
 
 	<?php if ( empty( $subjects ) ) : ?>
 
@@ -31,17 +46,6 @@ defined( 'ABSPATH' ) || exit;
 				</a>
 			<?php endforeach; ?>
 		</h2>
-
-		<?php if ( '' !== $list_url ) : ?>
-			<div class="fs-lms-bank-actions">
-				<a class="button button-primary" href="<?php echo esc_url( $list_url ); ?>">
-					<?php esc_html_e( 'Открыть список', 'fs-lms' ); ?>
-				</a>
-				<a class="button" href="<?php echo esc_url( $new_url ); ?>">
-					<?php esc_html_e( 'Добавить', 'fs-lms' ); ?>
-				</a>
-			</div>
-		<?php endif; ?>
 
 	<?php endif; ?>
 </div>

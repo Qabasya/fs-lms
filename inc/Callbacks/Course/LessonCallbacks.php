@@ -11,6 +11,7 @@ use Inc\Enums\Subject\TemplateCategory;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\LessonManager;
 use Inc\Services\Course\LessonAuthoringService;
+use Inc\Services\Course\LessonVisibilityService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -27,8 +28,9 @@ class LessonCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly LessonAuthoringService $authoringService,
-		private readonly LessonManager          $lessonManager,
+		private readonly LessonAuthoringService  $authoringService,
+		private readonly LessonManager           $lessonManager,
+		private readonly LessonVisibilityService $visibilityService,
 	) {
 		parent::__construct();
 	}
@@ -185,6 +187,8 @@ class LessonCallbacks extends BaseController {
 			status    : $lesson->status,
 		);
 		$this->lessonManager->update( $lesson_id, $dto );
+		// Уже открытым для групп занятиям — доложить новые работы урока (copy-on-publish).
+		$this->visibilityService->syncExtraWorksForOpenOccurrences( $lesson_id );
 
 		$this->success( array( 'count' => count( $steps ) ) );
 	}
@@ -225,12 +229,22 @@ class LessonCallbacks extends BaseController {
 				'ref'      => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
 				'source'   => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
 				'settings' => array(
-					'max_attempts' => max( 0, (int) ( $raw_payload['settings']['max_attempts'] ?? 0 ) ),
+					'max_attempts'      => max( 0, (int) ( $raw_payload['settings']['max_attempts'] ?? 0 ) ),
+					'hint_after_errors' => max( 0, (int) ( $raw_payload['settings']['hint_after_errors'] ?? 0 ) ),
 				),
 			),
 			'work', 'assessment' => array( 'ref' => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ) ),
 			default              => array(),
 		};
+
+		// Подсказку показываем строго до исчерпания попыток: N ошибок < max_attempts
+		// (0 = ∞ — ограничения нет). Клампим на сервере, не доверяя клиенту.
+		if ( 'task' === $type ) {
+			$max_att = (int) $payload['settings']['max_attempts'];
+			if ( $max_att > 0 && $payload['settings']['hint_after_errors'] >= $max_att ) {
+				$payload['settings']['hint_after_errors'] = $max_att - 1;
+			}
+		}
 
 		// Метка «дубликат — контент не изменён»: переживает сохранение (напоминание преподавателю).
 		if ( filter_var( $raw_payload['needs_review'] ?? false, FILTER_VALIDATE_BOOLEAN ) ) {

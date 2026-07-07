@@ -1,0 +1,139 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+/* =================================================================
+   SCHEDULE GROUP (group modal — days + time range)
+   ================================================================= */
+
+/* ── Add Group Modal — раскладка по дизайн-макету (Add Group Modal.html):
+   2×2 сетка метаданных + строка расписания «плашка дня | время+кабинет».
+   Из макета взяты расположение и размеры; цвета/токены — плагина. ── */
+#fs-lms-group-modal {
+  .fs-lms-modal-content {
+    max-width: rem(880);
+  }
+
+  // 2×2 сетка: Название/Период · Предмет/Преподаватель (поля 400px)
+  .fs-group-meta {
+    display: grid;
+    grid-template-columns: rem(400) rem(400);
+    gap: $spacing-xl;
+    margin-bottom: $spacing-xl;
+
+    .fs-form-group {
+      margin-bottom: 0;
+    }
+  }
+
+  // Крупнее поля (размер из макета)
+  .fs-form-group > input,
+  .fs-form-group > select {
+    height: $input-height;
+  }
+
+  .fs-schedule-title {
+    display: block;
+    font-weight: $font-bold;
+    font-size: $font-size-wp;
+    color: $color-text-primary;
+    margin-bottom: $spacing-md;
+  }
+
+  .fs-schedule-days {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  // Строка = плашка дня (400px, как поле) | время+кабинет (остаток)
+  .fs-schedule-day-row {
+    display: grid;
+    grid-template-columns: rem(400) 1fr;
+    gap: $spacing-xl;
+    align-items: center;
+    min-height: $input-height;
+  }
+
+  .fs-schedule-day-label {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    box-sizing: border-box; // ширина включает паддинги+границу → ровно rem(410)
+    width: 100%;
+    height: $input-height;
+    padding: 0 $spacing-md;
+    cursor: pointer;
+    font-size: $font-size-wp;
+    color: $color-text-primary;
+    background: $wp-admin-gray-bg-light;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-md;
+    transition: background $transition-fast, border-color $transition-fast;
+    user-select: none;
+
+    input[type="checkbox"] {
+      margin: 0;
+      cursor: pointer;
+      accent-color: var(--color-primary);
+    }
+
+    &:has(input:checked) {
+      background: $wp-admin-blue-bg-light;
+      border-color: var(--color-primary);
+      color: $wp-admin-blue-text;
+      font-weight: $font-bold;
+    }
+
+    &:hover {
+      border-color: var(--color-primary);
+    }
+  }
+
+  // Время + кабинет — правая колонка, в одну строку
+  .fs-schedule-day-times {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    min-width: 0;
+
+    &.hidden {
+      display: none;
+    }
+
+    select {
+      @include wp-input($height: $input-height, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
+
+      flex: 1 1 0;
+      min-width: 0;
+      width: auto;
+      padding: 0 $spacing-sm;
+    }
+
+    select.js-day-room {
+      flex: 1.3 1 0;
+    }
+  }
+
+  .fs-schedule-room-lbl {
+    font-size: $font-size-wp;
+    color: $color-text-secondary;
+    white-space: nowrap;
+  }
+
+  .fs-schedule-separator {
+    font-size: $font-size-wp;
+    color: $color-text-secondary;
+  }
+
+  // Узкие экраны — в один столбец
+  @media (max-width: $bp-wp) {
+    .fs-group-meta,
+    .fs-schedule-day-row {
+      grid-template-columns: 1fr;
+    }
+
+    .fs-schedule-day-times {
+      flex-wrap: wrap;
+    }
+  }
+}

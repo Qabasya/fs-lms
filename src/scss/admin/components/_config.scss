@@ -4,6 +4,7 @@
 // Flex column wrapper — ставит gap между дочерними form/div секциями
 .fs-lms-config {
   @include settings-stack;
+
   margin-top: $spacing-lg;
 }
 
@@ -14,7 +15,7 @@
 
 // Широкие поля в config-секциях (больше field-max-width по умолчанию)
 .fs-lms-config .fs-field__control input[type='text'] {
-  max-width: 480px;
+  max-width: rem(480);
 }
 
 // Ссылка «Как подключить?» в заголовке карточки (auth + config + модули)
@@ -81,7 +82,7 @@
 
 .fs-config-key-output {
   width: 100%;
-  max-width: 560px;
+  max-width: rem(560);
   font-family: monospace;
   font-size: $font-size-code;
   resize: none;
@@ -99,7 +100,7 @@
     flex-direction: column;
     gap: $spacing-sm;
     margin: $spacing-sm 0;
-    max-width: 560px;
+    max-width: rem(560);
   }
 
   &__row {
@@ -109,7 +110,7 @@
   }
 
   &__name {
-    flex: 0 0 200px;
+    flex: 0 0 rem(200);
     color: $color-text-primary;
   }
 

@@ -4,14 +4,15 @@
 .fs-lms-consent-page {
   background: $color-bg-subtle;
   min-height: 60vh;
+
   @include fs-page-pad;
 
   &__container {
-    max-width: 780px;
+    max-width: rem(780);
     margin: 0 auto;
     background: $color-white;
     border-radius: $radius-md;
-    padding: 40px 48px;
+    padding: rem(40) rem(48);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
   }
 
@@ -19,8 +20,8 @@
     font-size: $font-size-title;
     font-weight: $font-bold;
     color: $color-text;
-    margin: 0 0 28px;
-    padding-bottom: 20px;
+    margin: 0 0 rem(28);
+    padding-bottom: rem(20);
     border-bottom: 1px solid $color-border-light;
     line-height: $line-height-tight;
   }
@@ -30,7 +31,7 @@
     line-height: 1.75;
     color: $color-text;
 
-    p { margin: 0 0 16px; }
+    p { margin: 0 0 rem(16); }
     p:last-child { margin-bottom: 0; }
 
     h2, h3, h4 {
@@ -40,14 +41,14 @@
     }
 
     h2 { font-size: $font-size-heading; }
-    h3 { font-size: 18px; }
+    h3 { font-size: rem(18); }
     h4 { font-size: $font-size-base; }
 
     ul, ol {
-      margin: 0 0 16px;
+      margin: 0 0 rem(16);
       padding-left: $spacing-xl;
 
-      li { margin-bottom: 6px; }
+      li { margin-bottom: rem(6); }
     }
 
     strong { font-weight: $font-semibold; }
@@ -55,11 +56,11 @@
     em { color: $color-muted; }
   }
 
-  @media (max-width: 640px) {
-    padding: 16px 16px 48px;
+  @media (max-width: $bp-mobile) {
+    padding: rem(16) rem(16) rem(48);
 
     &__container {
-      padding: 24px 20px;
+      padding: rem(24) rem(20);
     }
 
     &__title {

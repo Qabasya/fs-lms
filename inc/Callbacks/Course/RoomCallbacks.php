@@ -98,7 +98,8 @@ class RoomCallbacks extends BaseController {
 		$this->authorize( Nonce::Room, Capability::ManageLmsPlatform );
 
 		$roomId = $this->requireInt( 'room_id' );
-		$this->rooms->softDelete( $roomId );
+		$this->assignment->unassignFromAll( $roomId );
+		$this->rooms->hardDelete( $roomId );
 
 		$this->success( array( 'room_id' => $roomId ) );
 	}

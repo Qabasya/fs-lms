@@ -340,6 +340,23 @@ form.addEventListener( 'submit', async ( e ) => {
 - **No inline styles** — never use `style=""` attributes in PHP templates or JS DOM manipulation
 - **Variables required** — all SCSS component files must use tokens from `src/scss/admin/_variables.scss` (or frontend equivalent); no hardcoded colors, spacing, font sizes, or transition values
 - **No raw values in components** — if a needed token doesn't exist in `_variables.scss`, add it there first, then use it
+- **stylelint обязателен**: `npm run lint:css` (авто-фикс — `npm run fix:css`); конфиг — `.stylelintrc.json`. Входит в `npm run ci`
+- **Цвета в компонентах** — только `var(--…)` / `$token` (правило `scale-unlimited/declaration-strict-value` — **error**). Hex разрешён только в `_variables.scss`, `shared/_tokens.scss`, `shared/cabinet/_theme.scss`, `shared/_chip-palette.scss`; полупрозрачные `rgba()`-оверлеи/тени в компонентах допустимы
+- **profile + player** — общая тема `shared/cabinet/_theme.scss` (один `:root`, словарь статусов `--ok/--err/--wait`) и примитивы `shared/cabinet/_ui.scss` (`.prof-btn` ≡ `.b`, тост, карточка). Цвета типов шагов — `$step-type-palette` в `shared/_tokens.scss` (JS-зеркало: `src/js/player/icons.js` TYPES)
+- **`!important`** — только в utility-классах (`common/_widths.scss`) и для перебивания WP-core, всегда с комментарием-причиной
+- **Вложенность** ≤ 4 уровней; deprecated `@import` запрещён (только `@use`/`@forward`)
+- План рефактора стилей (rem, адаптив, слияние profile+player) — `refactor.md`
+
+---
+
+## SVG-иконки
+
+Два единственных источника иконок — по одному на язык. **Инлайновые `<svg>` в JS-шаблонных строках и PHP-шаблонах запрещены.**
+
+- **JS: `src/js/common/icons.js`** — именованные функции-фабрики (`icoCheck( 16 )`, `icoChevronRight( 18, 'var(--muted-2)' )`, `icoCaret( 12, 'kp-caret' )`), возвращают строку `<svg>…</svg>`. Импортируются любым бандлом (admin/frontend/profile/player); Webpack вкопирует только используемое (named exports → tree-shaking). Нет нужной иконки — добавить фабрику туда, не рисовать по месту.
+- **PHP: enum `Inc\Enums\Ui\Icon`** — `Icon::Check->svg( 16 )` (без аргумента — размер по умолчанию кейса). В шаблонах: `<?php echo Icon::X->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>`.
+- Глифы типов шагов урока — `STEP_GLYPHS` / `stepIcon( ui )` в `common/icons.js`; конструктор курса (`step-editor.js`) и плеер (`player/icons.js` → `typeIco`) используют один набор. `player/icons.js` — только мета типов (TYPES/typeMeta) и совместимый фасад `ICO` поверх common.
+- Цвет всегда `currentColor` (наследуется от родителя); размер — аргумент фабрики. Общие глифы (check/chevron/lock/…) в JS- и PHP-источниках должны визуально совпадать.
 
 ---
 

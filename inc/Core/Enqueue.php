@@ -262,8 +262,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 			$script_handle,
 			'fs_lms_vars',
 			array(
-				'ajaxurl'      => admin_url( 'admin-ajax.php' ),
-				'nonces'       => array(
+				'ajaxurl'          => admin_url( 'admin-ajax.php' ),
+				'nonces'           => array(
 					'subject'           => Nonce::Subject->create(),
 					'manager'           => Nonce::Manager->create(),
 					'expulsion'         => Nonce::Expulsion->create(),
@@ -277,7 +277,9 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'authorCourse'      => Nonce::AuthorCourse->create(),
 					'room'              => Nonce::Room->create(),
 				),
-				'ajax_actions' => AjaxHook::toJsArray(),
+				'ajax_actions'      => AjaxHook::toJsArray(),
+				// Фаза 5, D3/D4: URL preview-плеера курса (кнопка «Просмотр» в конструкторе).
+				'coursePreviewUrl' => PageRoutes::CoursePreview->url(),
 			)
 		);
 	}
@@ -317,8 +319,10 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * Подключение изолированного бандла плеера курса (Эпик 14, D18).
 	 *
 	 * Грузит только player.min.css/js + MathJax и локализует fs_lms_player_vars.
-	 * Маршрут определяет LessonPlayerController: перед рендером player.php он
-	 * взводит фильтр `fs_lms_is_player_route` (роут кокпита + ?gl= + ученик).
+	 * Общий для двух маршрутов, оба взводят фильтр `fs_lms_is_player_route`
+	 * перед рендером player.php: LessonPlayerController (кокпит + ?gl=, ученик)
+	 * и CoursePreviewController (/course-preview/?course=, Фаза 5 — предпросмотр
+	 * для преподавателя/офиса/автора, без ученика и сохранения прогресса).
 	 *
 	 * @return void
 	 */
@@ -344,19 +348,142 @@ class Enqueue extends BaseController implements ServiceInterface {
 			array(
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
 				'actions'  => array(
-					'markStep'        => AjaxHook::MarkStepProgress->jsAction(),
-					'submitTask'      => AjaxHook::SubmitTaskAnswer->jsAction(),
-					'submitBatchWork' => AjaxHook::SubmitBatchWork->jsAction(),
+					'markStep'          => AjaxHook::MarkStepProgress->jsAction(),
+					'submitTask'        => AjaxHook::SubmitTaskAnswer->jsAction(),
+					'submitBatchWork'   => AjaxHook::SubmitBatchWork->jsAction(),
+					// #5: dry-run проверка в предпросмотре (гейт AuthorLmsCourses в коллбеке).
+					'previewCheckTask'       => AjaxHook::PreviewCheckTask->jsAction(),
+					'previewCheckWork'       => AjaxHook::PreviewCheckWork->jsAction(),
+					'previewCheckAssessment' => AjaxHook::PreviewCheckAssessment->jsAction(),
 				),
 				'nonces'   => array(
 					'markStep'        => Nonce::MarkStepProgress->create(),
 					'submitTask'      => Nonce::SubmitTaskAnswer->create(),
 					'submitBatchWork' => Nonce::SubmitBatchWork->create(),
+					'previewSolve'    => Nonce::PreviewSolve->create(),
 				),
 			)
 		);
 
 		// MathJax v3 — рендеринг LaTeX-формул \(...\) и \[...\] в контенте шагов.
+		wp_enqueue_script(
+			'fs-lms-mathjax',
+			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
+			array(),
+			null,
+			true
+		);
+		wp_add_inline_script(
+			'fs-lms-mathjax',
+			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
+			'before'
+		);
+	}
+
+	/**
+	 * Подключение изолированного бандла страницы контрольной/экзамена (Эпик 15,
+	 * T15.1/T15.2) — bare-шелл на токенах плеера, без темы сайта. Взводится
+	 * только для дефолтного рендерера `AssessmentPageController` (см. ROUTE_FILTER);
+	 * модульные скины (EgeComputer и т.п.) остаются на старом frontend-стеке
+	 * ниже — см. ветку `is_singular() && isAssessmentPostType()`.
+	 *
+	 * @return void
+	 */
+	private function enqueue_assessment_assets(): void {
+		wp_enqueue_style(
+			'fs-lms-assessment-style',
+			$this->url( 'assets/css/assessment.min.css' ),
+			array(),
+			filemtime( $this->path( 'assets/css/assessment.min.css' ) )
+		);
+
+		wp_enqueue_script(
+			'fs-lms-assessment-script',
+			$this->url( 'assets/js/assessment.min.js' ),
+			array(),
+			filemtime( $this->path( 'assets/js/assessment.min.js' ) ),
+			true
+		);
+
+		wp_localize_script(
+			'fs-lms-assessment-script',
+			'fs_lms_assessment_vars',
+			array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'actions'  => array(
+					'startAttempt'      => AjaxHook::StartAttempt->jsAction(),
+					'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
+					'submitAttempt'     => AjaxHook::SubmitAttempt->jsAction(),
+					'getAttemptResult'  => AjaxHook::GetAttemptResult->jsAction(),
+					// Эпик 13 (D16): двухшаговая загрузка файла ответа («Развёрнутый ответ»).
+					'uploadAnswerFile'  => AjaxHook::UploadAnswerFile->jsAction(),
+				),
+				'nonces'   => array(
+					'startAttempt'     => Nonce::StartAttempt->create(),
+					'submitAttempt'    => Nonce::SubmitAttempt->create(),
+					'uploadAnswerFile' => Nonce::UploadAnswerFile->create(),
+				),
+			)
+		);
+
+		// MathJax v3 — рендеринг LaTeX-формул в условиях заданий (как в плеере).
+		wp_enqueue_script(
+			'fs-lms-mathjax',
+			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
+			array(),
+			null,
+			true
+		);
+		wp_add_inline_script(
+			'fs-lms-mathjax',
+			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
+			'before'
+		);
+	}
+
+	/**
+	 * Подключение изолированного бандла станции КЕГЭ (T15.10) — bare-документ
+	 * на токенах плеера, свой JS/CSS. Модуль EgeComputer (опциональный, см.
+	 * inc/Modules/EgeComputer/) взводит fs_lms_is_kege_route в
+	 * AssessmentPageController; ядро о модуле не знает, только читает фильтр.
+	 *
+	 * @return void
+	 */
+	private function enqueue_kege_assets(): void {
+		wp_enqueue_style(
+			'fs-lms-kege-style',
+			$this->url( 'assets/css/kege.min.css' ),
+			array(),
+			filemtime( $this->path( 'assets/css/kege.min.css' ) )
+		);
+
+		wp_enqueue_script(
+			'fs-lms-kege-script',
+			$this->url( 'assets/js/kege.min.js' ),
+			array(),
+			filemtime( $this->path( 'assets/js/kege.min.js' ) ),
+			true
+		);
+
+		wp_localize_script(
+			'fs-lms-kege-script',
+			'fs_lms_kege_vars',
+			array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'actions'  => array(
+					'startAttempt'      => AjaxHook::StartAttempt->jsAction(),
+					'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
+					'submitAttempt'     => AjaxHook::SubmitAttempt->jsAction(),
+					'getAttemptResult'  => AjaxHook::GetAttemptResult->jsAction(),
+				),
+				'nonces'   => array(
+					'startAttempt'  => Nonce::StartAttempt->create(),
+					'submitAttempt' => Nonce::SubmitAttempt->create(),
+				),
+			)
+		);
+
+		// MathJax v3 — рендеринг LaTeX-формул в условиях заданий (как в плеере).
 		wp_enqueue_script(
 			'fs-lms-mathjax',
 			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
@@ -381,6 +508,21 @@ class Enqueue extends BaseController implements ServiceInterface {
 		// только бандл плеера, без frontend/theme-стека.
 		if ( apply_filters( 'fs_lms_is_player_route', false ) ) {
 			$this->enqueue_player_assets();
+			return;
+		}
+
+		// Станция КЕГЭ (T15.10) — свой изолированный бандл, взводится модулем
+		// EgeComputer через AssessmentPageController::KEGE_ROUTE_FILTER.
+		// Проверяется раньше générique fs_lms_is_assessment_route.
+		if ( apply_filters( 'fs_lms_is_kege_route', false ) ) {
+			$this->enqueue_kege_assets();
+			return;
+		}
+
+		// Страница прохождения контрольной/экзамена (Эпик 15, T15.1/T15.2) —
+		// изолированный bare-шелл, только для дефолтного рендерера attempt.php.
+		if ( apply_filters( 'fs_lms_is_assessment_route', false ) ) {
+			$this->enqueue_assessment_assets();
 			return;
 		}
 

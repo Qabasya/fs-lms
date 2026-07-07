@@ -9,7 +9,7 @@
 // ──────────────────────────────────────────────────────────────
 
 .fs-table {
-  @include m.table-base();
+  @include m.table-base;
 
   thead tr {
     height: $tr-height;
@@ -76,7 +76,7 @@
 
   .column-actions {
     text-align: left;
-    .row-actions { @include m.row-action-links(); }
+    .row-actions { @include m.row-action-links; }
   }
 }
 
@@ -87,18 +87,20 @@
   .column-task-name {
     width: $task-col-name-width;
     max-width: $task-col-name-width;
-    word-wrap: break-word;
+    overflow-wrap: break-word;
     font-weight: $font-regular;
   }
 
   .column-template-select {
     width: $task-col-template-width;
+
     select {
       width: 100%;
       max-width: $task-select-max-width;
       box-sizing: border-box;
+
       &:focus {
-        @include m.focus-ring();
+        @include m.focus-ring;
       }
     }
   }
@@ -110,8 +112,9 @@
     padding: $spacing-sm $spacing-md;
     cursor: pointer;
     user-select: none;
+
     &::after {
-      font: normal 14px/1 dashicons;
+      font: normal #{rem(14)}/1 dashicons; // stylelint-disable-line font-family-no-missing-generic-family-keyword -- иконочный шрифт WP, generic-fallback бессмыслен
       speak: never;
       content: '\f140';
       display: inline-block;
@@ -122,11 +125,13 @@
     }
     &:hover { background: $table-header-bg; }
     &:hover::after { opacity: 0.6; }
+
     &.sort-asc::after {
       content: '\f142';
       opacity: 1;
       color: var(--color-primary);
     }
+
     &.sort-desc::after {
       content: '\f140';
       opacity: 1;
@@ -208,10 +213,12 @@
       line-height: 1;
       width: $table-add-icon-size;
       height: $table-add-icon-size;
+
       // Визуальная коррекция центрирования иконки Dashicons
       transform: translate(0, 1px);
     }
   }
+
   // scss-lint enable ImportantRule
 }
 
@@ -259,14 +266,14 @@
     cursor: default;
     text-decoration: underline;
     text-decoration-style: dotted;
-    text-underline-offset: 2px;
+    text-underline-offset: rem(2);
     text-decoration-color: $color-secondary;
   }
 
   &[data-tooltip]::after {
     content: attr(data-tooltip);
     position: absolute;
-    bottom: calc(100% + 5px);
+    bottom: calc(100% + rem(5));
     left: 50%;
     transform: translateX(-50%);
     background: $color-text-primary;

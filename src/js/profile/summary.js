@@ -7,6 +7,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, fmtNum, emptyState } from './utils.js';
+import { icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_JS } from './constants.js';
 import { groupPickerBtnHtml, studentPickerBtnHtml, openGroupPicker, openStudentPicker } from './picker.js';
@@ -68,7 +69,7 @@ function render() {
     const lessons = (state.data && state.data.lessons) || [];
     const cards = lessons.length
         ? lessons.map(lessonCard).join('')
-        : '<div class="j-empty">У ученика пока нет датированных занятий.</div>';
+        : `<div class="j-empty">${state.data && state.data.open ? 'В программе нет занятий.' : 'У ученика пока нет датированных занятий.'}</div>`;
 
     const g = state.groups.find(x => x.id === state.groupId) || state.groups[0];
     const student = state.roster.find(s => s.person_id === state.personId);
@@ -118,6 +119,7 @@ function strip(l) {
 }
 
 function lessonCard(l) {
+    const open = !!(state.data && state.data.open);
     const st = strip(l);
     const works = l.works.length
         ? `<div class="sum-works">${l.works.map(w => `
@@ -132,9 +134,9 @@ function lessonCard(l) {
         <span class="sum-strip sum-strip-${esc(st)}" title="${esc(ATT_LABEL[st] || KIND_LABEL[l.kind] || '')}"></span>
         <div class="sum-card-body">
             <div class="sum-card-top">
-                <span class="sum-date">${esc(fmtDate(l.date))}</span>
+                ${l.date ? `<span class="sum-date">${esc(fmtDate(l.date))}</span>` : ''}
                 <span class="sum-kind sum-kind-${esc(l.kind)}">${esc(KIND_LABEL[l.kind] || l.kind)}</span>
-                ${l.kind !== 'individual' ? `<span class="sum-att sum-att-${esc(l.attendance)}">${esc(ATT_LABEL[l.attendance])}</span>` : ''}
+                ${l.kind !== 'individual' && !open ? `<span class="sum-att sum-att-${esc(l.attendance)}">${esc(ATT_LABEL[l.attendance])}</span>` : ''}
             </div>
             <div class="sum-topic">${esc(l.topic || '—')}</div>
             ${works}
@@ -370,8 +372,6 @@ function fmtDate(iso) {
     return `${d}.${m} · ${dow}`;
 }
 
-const EMPTY_ICON = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 3h9l5 5v13H5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3v5h5M8 13l2 2 4-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
 function empty(title, text) {
-    return emptyState('prof-summary', EMPTY_ICON, title, text);
+    return emptyState('prof-summary', icoDocCheck(34), title, text);
 }

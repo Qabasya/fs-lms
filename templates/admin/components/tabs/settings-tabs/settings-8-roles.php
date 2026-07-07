@@ -34,7 +34,7 @@ $ajax_action = AjaxHook::SaveUserRoles->jsAction();
 
 	<div class="fs-page-header">
 		<div class="fs-page-header__content">
-			<h1 class="fs-page-header__title">Роли персонала</h1>
+			<h2 class="fs-page-header__title">Роли персонала</h2>
 		</div>
 	</div>
 

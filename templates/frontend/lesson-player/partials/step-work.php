@@ -4,8 +4,10 @@
  * стек карточек задач с виджетами и чипами «сохранён/нет ответа».
  * Прохождение/результаты переключает step-work.js; сдача — SubmitBatchWork.
  *
- * @var array $step   Шаг из LessonPlayerService::buildView.
- * @var array $render Render-данные шага (LessonPlayerService::renderWorkData).
+ * @var array  $step       Шаг из LessonPlayerService::buildView.
+ * @var array  $render     Render-данные шага (LessonPlayerService::renderWorkData).
+ * @var bool   $is_preview Признак preview-плеера курса (Фаза 5) — блокирует «Завершить работу».
+ * @var string $edit_url   Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
  *
  * @package FS LMS
  */
@@ -17,11 +19,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Inc\Enums\Course\StepType;
+use Inc\Enums\Ui\Icon;
 
 if ( empty( $render['work_found'] ) ) : ?>
 	<div class="card16">
 		<div class="kick">
 			<span class="tbadge" data-step-type="work"><?php echo esc_html( StepType::Work->label() ); ?></span>
+			<?php if ( ! empty( $edit_url ) ) : ?>
+				<a class="b b-gh b-sm pv-edit" href="<?php echo esc_url( $edit_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></a>
+			<?php endif; ?>
 		</div>
 		<h2><?php echo esc_html( $step['title'] ); ?></h2>
 		<div class="gap16">
@@ -59,15 +65,22 @@ $work_meta_line = sprintf(
 				<span><?php echo esc_html( $work_meta_line ); ?></span>
 			</div>
 			<span class="wb-sp"></span>
+			<?php if ( ! empty( $edit_url ) ) : ?>
+				<a class="b b-gh b-sm pv-edit" href="<?php echo esc_url( $edit_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></a>
+			<?php endif; ?>
 			<div class="a-prog">
 				<span class="ap-txt" data-work-prog-txt></span>
 				<span class="ap-bar"><span data-work-prog-bar></span></span>
 			</div>
 			<button type="button" class="b b-pri" data-work-finish>
-				<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 17V3.5M5 4h9.5l-2 3 2 3H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				<?php echo Icon::Flag->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				<?php esc_html_e( 'Завершить работу', 'fs-lms' ); ?>
 			</button>
 		</div>
+
+		<?php if ( ! empty( $is_preview ) ) : ?>
+			<p class="step-muted pv-note"><?php esc_html_e( 'Это предпросмотр — ответы не сохраняются.', 'fs-lms' ); ?></p>
+		<?php endif; ?>
 
 		<?php if ( ! empty( $render['instructions'] ) ) : ?>
 			<div class="a-task work-instructions">

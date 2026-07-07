@@ -1,0 +1,109 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+/* =================================================================
+   PERSON FIELD — инпут с кнопкой копирования «внутри»
+   Два состояния: read (plain text) ↔ edit (обычный инпут)
+   ================================================================= */
+
+.fs-pfield {
+  display: flex;
+  align-items: center;
+  min-height: $input-height-sm;            // совпадает с высотой form-input
+  background: $wp-admin-gray-bg-light;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-md;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+
+  // Инпут: прозрачный, без рамки — выглядит как текст
+  > input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: rem(2) $spacing-sm !important;
+    margin: 0 !important;
+    font-size: $font-size-wp;
+    color: $color-text-primary;
+    cursor: default;
+
+    &:focus   { outline: none !important; box-shadow: none !important; }
+    &[readonly] { cursor: default; }
+  }
+
+  // Кнопка копирования: невидима по умолчанию, появляется при наведении
+  .fs-copy-field__btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-color: transparent !important;
+    background: transparent !important;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity      0.15s,
+      width        0.28s ease-out,
+      color        0.18s,
+      border-color 0.18s,
+      background   0.18s;
+
+    .fs-copy-field__icon {
+      font-size: $font-size-m;
+      width: $font-size-m;
+      height: $font-size-m;
+    }
+  }
+
+  &:hover .fs-copy-field__btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  // Состояние «Скопировано» — остаётся видимым и зелёным
+  .fs-copy-field__btn.is-copied {
+    opacity: 1;
+    pointer-events: auto;
+    border-color: $wp-admin-green !important;
+    background: rgba($wp-admin-green, 0.06) !important;
+  }
+}
+
+// Режим редактирования: поле выглядит как обычный инпут
+.fs-pfield--editing {
+  background: $color-bg-modal;
+  border-color: $color-border-input;
+
+  &:focus-within {
+    @include focus-ring($outline: false);
+  }
+
+  > input { cursor: text !important; }
+}
+
+// ПДн-поля: кнопка скрыта до нажатия «Показать данные»
+.fs-pfield--pii .fs-copy-field__btn {
+  display: none;
+}
+
+// Режим редактирования: скрываем все кнопки копирования
+.is-editing .fs-pfield .fs-copy-field__btn {
+  display: none !important;
+  pointer-events: none;
+}
+
+// ПДн раскрыты: кнопки становятся hover-видимыми (но не в edit-режиме)
+.is-pii-revealed .fs-pfield--pii .fs-copy-field__btn {
+  display: inline-flex;
+}
+
+// Readonly-инпуты внутри fs-pfield не должны перебивать фон обёртки
+#fs-student-person-modal .fs-pfield .fs-person-field[readonly],
+#fs-parent-person-modal .fs-pfield .fs-person-field[readonly] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: default;
+}

@@ -1,0 +1,10 @@
+// Станция КЕГЭ (T15.10) — bare-документ, изолированный бандл.
+// Собственная навигационная/цветовая палитра станции (см. _variables.scss —
+// имитирует реальное экзаменационное ПО, сознательно отличается от
+// акцентно-поверхностного набора кабинета/плеера). Грузится только на
+// странице станции (Enqueue::enqueue_kege_assets(), fs_lms_is_kege_route).
+@use 'variables';
+@use 'components/base';
+@use 'components/entry';
+@use 'components/exam';
+@use 'components/finish';

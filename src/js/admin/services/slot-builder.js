@@ -1,4 +1,5 @@
 import '../_types.js';
+import { icoPlus, icoX, icoReplace, icoImport, icoCaret, icoTrash } from '../../common/icons.js';
 import { openPicker, esc, readSteps } from './step-editor.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
@@ -126,7 +127,7 @@ export function createSlotBuilder( el, config ) {
 				</div>
 				<div class="fs-sb-tree-scroll" data-slot-list></div>
 				<div class="fs-sb-tree-add">
-					<button type="button" class="button button-primary" data-add-slot><svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 4v6H4v2h6v6h2v-6h6v-2h-6V4z"/></svg> Добавить задачу</button>
+					<button type="button" class="button button-primary" data-add-slot>${ icoPlus( 13 ) } Добавить задачу</button>
 				</div>
 			</div>
 			<div class="fs-sb-editor" data-editor></div>
@@ -275,7 +276,7 @@ export function createSlotBuilder( el, config ) {
 		const removeBtn = document.createElement( 'button' );
 		removeBtn.type      = 'button';
 		removeBtn.className = 'button fs-sb-btn-danger';
-		removeBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> Удалить слот';
+		removeBtn.innerHTML = icoX( 13 ) + ' Удалить слот';
 		removeBtn.addEventListener( 'click', () => removeSlot( index ) );
 		titleRow.appendChild( removeBtn );
 
@@ -339,8 +340,8 @@ export function createSlotBuilder( el, config ) {
 		pickBtn.type      = 'button';
 		pickBtn.className = 'button';
 		pickBtn.innerHTML = slot.taskId
-			? '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></svg> Заменить задачу'
-			: '<svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2 5 7h3v5h4V7h3l-5-5zM3 14h14v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3z"/></svg> Выбрать из банка <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor"><path d="M3 4.5 6 8l3-3.5z"/></svg>';
+			? icoReplace( 13 ) + ' Заменить задачу'
+			: icoImport( 13 ) + ' Выбрать из банка ' + icoCaret( 10 );
 		pickBtn.addEventListener( 'click', () => {
 			openPicker( pickBtn, {
 				placeholder: 'Поиск задачи…',
@@ -386,7 +387,7 @@ export function createSlotBuilder( el, config ) {
 			const clearBtn = document.createElement( 'button' );
 			clearBtn.type      = 'button';
 			clearBtn.className = 'button fs-sb-btn-danger';
-			clearBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> Очистить';
+			clearBtn.innerHTML = icoTrash( 13 ) + ' Очистить';
 			clearBtn.addEventListener( 'click', () => { assignTask( index, 0, '' ); showToast( 'Задача удалена', 'success' ); } );
 			actions.appendChild( clearBtn );
 		}

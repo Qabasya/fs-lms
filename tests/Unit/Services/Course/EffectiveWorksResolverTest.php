@@ -39,17 +39,19 @@ class EffectiveWorksResolverTest extends TestCase {
 		);
 	}
 
-	public function test_published_row_uses_snapshot_not_live_lesson(): void {
-		$row = $this->makeRow( workIdsSnapshot: [ 10, 20 ], extraWorkIds: [] );
-		// lessonManager must NOT be called when snapshot is present.
-		$this->lessonManager->expects( self::never() )->method( 'get' );
+	public function test_published_row_unions_snapshot_with_live_lesson(): void {
+		// Bug 3: работа, добавленная в урок ПОСЛЕ публикации занятия, должна
+		// попасть в эффективный набор — иначе плеер её рендерит (живой урок), а
+		// сдача отклоняется. Снапшот [10,20] + живой урок [10,20,30] → [10,20,30].
+		$row    = $this->makeRow( workIdsSnapshot: [ 10, 20 ], extraWorkIds: [] );
+		$lesson = $this->makeLesson( workIds: [ 10, 20, 30 ] );
+		$this->lessonManager->method( 'get' )->willReturn( $lesson );
 		$this->workManager->method( 'get' )->willReturnCallback( fn( $id ) => $this->makeWork( $id ) );
 
 		$works = $this->resolver->resolve( $row );
 
-		self::assertCount( 2, $works );
-		self::assertSame( 10, $works[0]->id );
-		self::assertSame( 20, $works[1]->id );
+		$ids = array_map( static fn( $w ) => $w->id, $works );
+		self::assertEqualsCanonicalizing( [ 10, 20, 30 ], $ids );
 	}
 
 	public function test_unpublished_row_uses_live_lesson_work_ids(): void {
@@ -74,16 +76,19 @@ class EffectiveWorksResolverTest extends TestCase {
 		self::assertCount( 3, $works );
 	}
 
-	public function test_published_row_editing_lesson_does_not_change_result(): void {
-		// Snapshot is frozen; changing lesson.work_ids has no effect.
-		$row = $this->makeRow( workIdsSnapshot: [ 10 ], extraWorkIds: [] );
-		$this->lessonManager->expects( self::never() )->method( 'get' );
-		$this->workManager->method( 'get' )->willReturn( $this->makeWork( 10 ) );
+	public function test_published_row_keeps_snapshot_work_removed_from_lesson(): void {
+		// Обратная гарантия: работа, УДАЛЁННАЯ из урока после публикации, остаётся
+		// сдаваемой — снапшот это надмножество, назначенное не теряем. Снапшот
+		// [10,20], живой урок теперь только [10] → результат всё ещё [10,20].
+		$row    = $this->makeRow( workIdsSnapshot: [ 10, 20 ], extraWorkIds: [] );
+		$lesson = $this->makeLesson( workIds: [ 10 ] );
+		$this->lessonManager->method( 'get' )->willReturn( $lesson );
+		$this->workManager->method( 'get' )->willReturnCallback( fn( $id ) => $this->makeWork( $id ) );
 
 		$works = $this->resolver->resolve( $row );
 
-		self::assertCount( 1, $works );
-		self::assertSame( 10, $works[0]->id );
+		$ids = array_map( static fn( $w ) => $w->id, $works );
+		self::assertEqualsCanonicalizing( [ 10, 20 ], $ids );
 	}
 
 	public function test_missing_work_id_is_skipped(): void {

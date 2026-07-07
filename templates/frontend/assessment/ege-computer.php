@@ -1,79 +1,82 @@
 <?php
 /**
- * Шаблон плеера КЕГЭ — Inc\Modules\EgeComputer.
- * Переменные идентичны attempt.php (T7.19 — тот же контроллер).
+ * Станция КЕГЭ (Компьютерный ЕГЭ) — Inc\Modules\EgeComputer (T15.10).
+ *
+ * Bare-документ: свой <html>, без темы сайта и без générique-шелла Эпика 15
+ * (attempt-shell-header/footer.php) — по образцу lesson-player/player.php.
+ * Переиспользует токены плеера через src/scss/kege/ (@use '../player/variables'),
+ * свой изолированный бандл kege.min.css/js (Enqueue::enqueue_kege_assets(),
+ * fs_lms_is_kege_route).
+ *
+ * Ритуал станции (вход/инструкция/регистрация/активация) существует только
+ * на клиенте (localStorage) — бэкенду ничего не известно до реального вызова
+ * StartAttempt. Экзамен и результат — реальные AttemptDTO/AJAX, как в attempt.php.
  *
  * @var \Inc\DTO\Assessment\AssessmentDTO      $assessment
  * @var \Inc\DTO\Assessment\AttemptDTO|null    $activeAttempt
+ * @var \Inc\DTO\Assessment\AttemptDTO|null    $lastAttempt
+ * @var array<int, mixed>                      $resultPerTask
  * @var \Inc\DTO\Person\PersonDTO|null         $person
+ * @var array<int, array{template: string, materials: array, taskNumber: int}> $taskViews
+ * @var string                                 $backUrl
  */
 declare( strict_types=1 );
 
-use Inc\Enums\Assessment\AttemptStatus;
-use Inc\Services\Shared\ThemeCompatService;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
-// guard: неавторизованный пользователь
+use Inc\Enums\Assessment\AttemptStatus;
+
 if ( ! $person ) {
 	wp_redirect( wp_login_url( get_permalink() ) );
 	exit;
 }
+
+$isRunning  = $activeAttempt && AttemptStatus::InProgress === $activeAttempt->status;
+$isFinished = ! $isRunning && null !== $lastAttempt;
 ?>
-<div class="fs-page-wrapper">
-	<div class="fs-assessment-page fs-assessment-page--ege-computer">
+<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+	<meta charset="<?php bloginfo( 'charset' ); ?>">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title><?php echo esc_html( $assessment->title ); ?> — Станция КЕГЭ</title>
+	<meta name="robots" content="noindex, nofollow">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+	<?php wp_head(); ?>
+</head>
+<body class="kege-page">
 
-		<h1 class="fs-assessment-title">
-			<?php echo esc_html( $assessment->title ); ?>
-			<span class="fs-assessment-badge">ЕГЭ Компьютер</span>
-		</h1>
-
-		<div class="fs-assessment-meta">
-			<?php if ( $assessment->timeLimit > 0 ) : ?>
-				<span class="fs-assessment-meta-item">
-					Время: <?php echo esc_html( (string) $assessment->timeLimit ); ?> мин
-				</span>
-			<?php endif; ?>
-			<span class="fs-assessment-meta-item">
-				Заданий: <?php echo esc_html( (string) count( $assessment->taskIds ) ); ?>
-			</span>
-		</div>
-
-		<?php if ( $activeAttempt && $activeAttempt->status === AttemptStatus::InProgress ) : ?>
-
-			<div
-				id="fs-ege-computer-player"
-				class="fs-ege-computer-player"
-				data-attempt-id="<?php echo esc_attr( (string) $activeAttempt->id ); ?>"
-				data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>"
-				data-subject-key="<?php echo esc_attr( $assessment->subjectKey ); ?>"
-				data-time-limit="<?php echo esc_attr( (string) $assessment->timeLimit ); ?>"
-				data-task-count="<?php echo esc_attr( (string) count( $assessment->taskIds ) ); ?>"
-			>
-				<div class="fs-ege-computer-player__loading">Загрузка…</div>
-			</div>
-
-		<?php elseif ( $activeAttempt && $activeAttempt->status === AttemptStatus::Submitted ) : ?>
-
-			<div class="fs-assessment-result fs-assessment-result--pending">
-				<p>Работа сдана. Результаты будут доступны после проверки.</p>
-			</div>
-
-		<?php else : ?>
-
-			<div class="fs-assessment-start">
-				<p>
-					Это компьютерный вариант ЕГЭ. После начала вы не сможете открыть другие страницы
-					до завершения работы.
-				</p>
-				<button
-					type="button"
-					class="fs-btn fs-btn--primary js-fs-start-attempt"
-					data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>"
-				>
-					Начать работу
-				</button>
-			</div>
-
+<div class="kege-app"
+	id="kegeApp"
+	data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>"
+	data-time-limit="<?php echo esc_attr( (string) $assessment->timeLimit ); ?>"
+	data-task-count="<?php echo esc_attr( (string) count( $assessment->taskIds ) ); ?>"
+	data-back-url="<?php echo esc_url( $backUrl ); ?>"
+	<?php if ( $isRunning ) : ?>
+		data-attempt-id="<?php echo esc_attr( (string) $activeAttempt->id ); ?>"
+		<?php if ( $assessment->timeLimit > 0 ) : ?>
+			data-deadline="<?php echo esc_attr( $activeAttempt->deadlineAt ); ?>"
 		<?php endif; ?>
+	<?php endif; ?>
+>
 
-	</div>
+<?php if ( $isRunning ) : ?>
+	<?php include __DIR__ . '/kege/exam.php'; ?>
+<?php else : ?>
+	<?php if ( $isFinished ) : ?>
+		<?php include __DIR__ . '/kege/finish.php'; ?>
+	<?php endif; ?>
+	<?php include __DIR__ . '/kege/entry.php'; ?>
+<?php endif; ?>
+
 </div>
+
+<div class="kege-toast" id="kegeToast"></div>
+
+<?php wp_footer(); ?>
+</body>
+</html>

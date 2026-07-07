@@ -2,15 +2,17 @@
 @use '../mixins' as *;
 
 .fs-auth-card {
-  @include fs-card-shell(400px, 30px, $radius, 40px auto);
+  @include fs-card-shell(rem(400), rem(30), $radius, rem(40) auto);
 
   &__title {
     @include fs-card-title;
-    margin: 0 0 $spacing-xl 0;
+
+    margin: 0 0 $spacing-xl;
   }
 
   &__error {
     @include fs-form-error($font-size-sm, $spacing-lg);
+
     text-align: center;
   }
 
@@ -29,12 +31,12 @@
 
     .js-toggle-secret {
       @include fs-toggle-secret;
-      &:focus-visible { outline: 2px solid $color-accent; outline-offset: 2px; }
+      &:focus-visible { outline: rem(2) solid $color-accent; outline-offset: rem(2); }
     }
   }
 
   &__meta {
-    margin-bottom: 20px;
+    margin-bottom: rem(20);
     font-size: $font-size-xs;
 
     a {
@@ -57,29 +59,31 @@
       &:hover { color: $color-accent; }
     }
   }
+
   &__submit {
-    @include fs-form-submit(6px 12px);
+    @include fs-form-submit(rem(6) rem(12));
   }
+
   &__divider {
     display: flex;
     align-items: center;
     text-align: center;
     color: $color-muted;
     font-size: $font-size-xs;
-    margin: 20px 0;
+    margin: rem(20) 0;
 
     &::before, &::after {
       content: '';
       flex: 1;
       border-bottom: 1px solid $color-border-light;
     }
-    span { padding: 0 10px; }
+    span { padding: 0 rem(10); }
   }
 
   &__socials {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: rem(10);
   }
 
   &__btn-social {
@@ -88,7 +92,7 @@
     justify-content: center;
     width: 100%;
     box-sizing: border-box;
-    padding: 10px 16px;
+    padding: rem(10) rem(16);
     background-color: $color-bg-subtle;
     color: $color-text;
     text-decoration: none;
@@ -104,9 +108,9 @@
     }
 
     .fs-social-icon {
-      width: 16px;
-      height: 16px;
-      margin-right: 10px;
+      width: rem(16);
+      height: rem(16);
+      margin-right: rem(10);
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
@@ -114,6 +118,7 @@
       &--google {
         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="%23EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="%234285F4" d="M46.5 24c0-1.61-.15-3.16-.42-4.69H24v8.87h12.62c-.54 2.9-2.18 5.37-4.63 7.01l7.2 5.58C43.4 36.57 46.5 30.86 46.5 24z"/><path fill="%23FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z"/><path fill="%2334A853" d="M24 44c6.47 0 11.9-2.13 15.89-5.81l-7.2-5.58c-2 1.34-4.55 2.13-7.69 2.13-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 44 24 44z"/></svg>');
       }
+
       &--github {
         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%23181717" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>');
       }
@@ -125,7 +130,7 @@
     font-size: $font-size-xxs;
     color: $color-muted;
     line-height: $line-height-base;
-    margin-top: 20px;
+    margin-top: rem(20);
 
     a {
       color: $color-muted;
@@ -164,4 +169,9 @@ body:has(.fs-auth-card) {
   .entry-header {
     display: none !important;
   }
+}
+
+// ── Мобильный (Фаза 5): карточка входа во всю ширину, компактные поля
+@media (max-width: $bp-mobile) {
+  .fs-auth-card { margin: rem(16) auto; padding: rem(20) rem(16); }
 }

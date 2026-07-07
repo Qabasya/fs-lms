@@ -101,19 +101,3 @@
     &:hover, &:focus { color: var(--color-primary-hover); text-decoration: underline; }
   }
 }
-
-// ── Легаси: WP-кнопка с заливкой (осталась для совместимости)
-.btn-filled {
-  background-color: var(--color-primary) !important;
-  color: $color-text-inverse !important;
-  border-color: var(--color-primary) !important;
-  text-shadow: none;
-  box-shadow: none;
-
-  &:hover,
-  &:focus {
-    background-color: var(--color-primary-hover) !important;
-    border-color: var(--color-primary-hover) !important;
-    color: $color-text-inverse !important;
-  }
-}

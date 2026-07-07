@@ -81,6 +81,28 @@ class RoomRepository {
 		return false !== $this->wpdb->update( $this->table, array( 'deleted_at' => current_time( 'mysql' ) ), array( 'id' => $id ) );
 	}
 
+	/** Физическое удаление строки кабинета (D2: hard-delete вместо soft). */
+	public function hardDelete( int $id ): bool {
+		return false !== $this->wpdb->delete( $this->table, array( 'id' => $id ) );
+	}
+
+	/**
+	 * Вычищает ключ предмета из `allowed_subjects` всех кабинетов (при удалении предмета).
+	 * Поле — longtext с JSON-массивом, а не нативный JSON-тип, поэтому правка построчно в PHP.
+	 */
+	public function removeSubjectFromAll( string $subjectKey ): void {
+		foreach ( $this->findAll() as $room ) {
+			if ( ! in_array( $subjectKey, $room->allowedSubjects, true ) ) {
+				continue;
+			}
+			$this->wpdb->update(
+				$this->table,
+				array( 'allowed_subjects' => wp_json_encode( array_values( array_diff( $room->allowedSubjects, array( $subjectKey ) ) ) ) ),
+				array( 'id' => $room->id )
+			);
+		}
+	}
+
 	/**
 	 * Занят ли кабинет в окне [$start,$end) кем-то, кроме $excludeGroupLessonId.
 	 *

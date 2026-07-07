@@ -2,14 +2,15 @@
    T12.8, используется в журнале, КТП и сводке. Раньше разметка и меню были
    продублированы в каждом экране. */
 
-import { esc, shortName, initials, groupColor, avaColor, openCtxMenu } from './utils.js';
+import { esc, shortName, initials, chipBg, groupSubjectKey, avaColor, openCtxMenu } from './utils.js';
+import { icoCaret } from '../common/icons.js';
 
-const CARET = '<svg class="kp-caret" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg>';
+const CARET = icoCaret(12, 'kp-caret');
 
 /** Кнопка выбора группы (чип с цветом группы + «Название · предмет»). */
 export function groupPickerBtnHtml(group, btnId) {
     return `<button type="button" class="kp-btn" id="${btnId}">
-        <span class="kp-chip" style="background:${groupColor(group.id)}">${esc(shortName(group.name))}</span>
+        <span class="kp-chip ${chipBg(groupSubjectKey(group.id))}">${esc(shortName(group.name))}</span>
         <span class="kp-txt">${esc(group.name)} · ${esc(group.subject)}</span>
         ${CARET}
     </button>`;
@@ -25,18 +26,24 @@ export function studentPickerBtnHtml(student, roster, btnId) {
     </button>`;
 }
 
-/** Меню выбора группы под якорем; onPick получает числовой id (только при смене). */
-export function openGroupPicker(anchor, groups, currentId, onPick) {
+/**
+ * Меню выбора группы под якорем; onPick получает числовой id (только при смене).
+ * extra — доп. псевдо-пункты (НБ-9: «Индивидуальные занятия», sentinel-id -1),
+ * добавляются в конец списка; каждый: {v, label, swatch, chip}.
+ */
+export function openGroupPicker(anchor, groups, currentId, onPick, extra = []) {
     if (!anchor) return;
+    const items = groups.map(g => ({
+        v: String(g.id),
+        label: `${g.name} · ${g.subject}`,
+        active: g.id === currentId,
+        swatchClass: chipBg(groupSubjectKey(g.id)),
+        chip: shortName(g.name),
+    }));
+    extra.forEach(e => items.push({ ...e, active: String(e.v) === String(currentId) }));
     openCtxMenu(
         anchor,
-        groups.map(g => ({
-            v: String(g.id),
-            label: `${g.name} · ${g.subject}`,
-            active: g.id === currentId,
-            swatch: groupColor(g.id),
-            chip: shortName(g.name),
-        })),
+        items,
         v => {
             const id = parseInt(v, 10);
             if (id !== currentId) onPick(id);

@@ -6,10 +6,14 @@
 
 .vp {
   position: relative;
-  border-radius: 14px;
+  width: 100%;
+  height: 0;
+  padding-top: 56.25%; /* 16:9. Надёжнее aspect-ratio: во flex-колонке .gap16 тот
+                          схлопывался в ~rem(281) по высоте — padding-hack всегда даёт 16:9. */
+  flex-shrink: 0;
+  border-radius: rem(14);
   overflow: hidden;
-  background: #12152b;
-  aspect-ratio: 16 / 9;
+  background: var(--video-canvas);
 
   .vp-el {
     position: absolute;
@@ -21,13 +25,44 @@
   }
 }
 
+/* B3: видео-шаг — обычная карточка (.card16), внутри 16:9-плеер по ширине
+   карточки. Пока видео не загружено (S3 пусто, mode='none') — плейсхолдер. */
+.vp.vp-empty > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--video-ink);
+  font: 500 rem(14) var(--font);
+}
+
+/* Встраиваемое видео (VK/Rutube/YouTube, mode='embed') — тоже 16:9 по ширине. */
+.video-embed {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-top: 56.25%;
+  border-radius: rem(14);
+  overflow: hidden;
+  background: var(--video-canvas);
+
+  iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+}
+
 .vp-play {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 76px;
-  height: 76px;
+  width: rem(76);
+  height: rem(76);
   border: none;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.97);
@@ -51,13 +86,13 @@
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 26px 20px 14px;
+  padding: rem(26) rem(20) rem(14);
   background: linear-gradient(transparent, rgba(8, 10, 22, 0.72));
 }
 
 .vp-line {
   position: relative;
-  height: 4px;
+  height: rem(4);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.26);
   cursor: pointer;
@@ -69,7 +104,7 @@
     bottom: 0;
     width: 0%;
     border-radius: 999px;
-    background: #fff;
+    background: var(--ink-inverse);
   }
 
   .knob {
@@ -77,10 +112,10 @@
     left: 0%;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 12px;
-    height: 12px;
+    width: rem(12);
+    height: rem(12);
     border-radius: 50%;
-    background: #fff;
+    background: var(--ink-inverse);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   }
 }
@@ -88,9 +123,9 @@
 .vp-ctrls {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 11px;
-  color: #e8eaf4;
+  gap: rem(12);
+  margin-top: rem(11);
+  color: var(--video-ink-2);
 
   .grow { flex: 1; }
 }
@@ -98,14 +133,14 @@
 .vp-cbtn {
   border: none;
   background: transparent;
-  color: #e8eaf4;
+  color: var(--video-ink-2);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding: 2px;
+  padding: rem(2);
 
-  &:hover { color: #fff; }
+  &:hover { color: var(--ink-inverse); }
 }
 
 /* плей/пауза: иконка по состоянию .vp.playing */
@@ -115,8 +150,8 @@
 .vp.playing .vp-ico-pause { display: flex; }
 
 .vp-time {
-  font: 500 12px var(--mono);
-  color: #c9cde4;
+  font: 500 rem(12) var(--mono);
+  color: var(--video-ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -124,26 +159,26 @@
 /* ── Главы ──────────────────────────────────────────────────────────── */
 .chaps {
   display: flex;
-  gap: 8px;
+  gap: rem(8);
   flex-wrap: wrap;
 }
 
 .chap {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
+  gap: rem(7);
+  padding: rem(6) rem(12);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
-  font: 500 12.5px var(--font);
+  font: 500 rem(12.5) var(--font);
   color: var(--ink-2);
   cursor: pointer;
 
   &:hover { border-color: var(--accent-soft-2); background: var(--accent-soft); }
 
   b {
-    font: 600 11.5px var(--mono);
+    font: 600 rem(11.5) var(--mono);
     color: var(--accent-700);
   }
 }
@@ -152,10 +187,10 @@
 .attach {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: rem(12);
+  padding: rem(12) rem(16);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: rem(12);
   background: var(--surface);
   text-decoration: none;
   cursor: pointer;
@@ -163,9 +198,9 @@
   &:hover { border-color: var(--accent-soft-2); }
 
   .ai {
-    width: 36px;
-    height: 36px;
-    border-radius: 9px;
+    width: rem(36);
+    height: rem(36);
+    border-radius: rem(9);
     background: var(--err-soft);
     color: var(--err);
     display: flex;
@@ -179,13 +214,13 @@
     min-width: 0;
 
     b {
-      font-size: 13px;
+      font-size: rem(13);
       font-weight: 600;
       display: block;
       color: var(--ink);
     }
 
-    span { font-size: 11.5px; color: var(--muted-2); }
+    span { font-size: rem(11.5); color: var(--muted-2); }
   }
 
   .adl { color: var(--muted); display: flex; }

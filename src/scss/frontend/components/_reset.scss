@@ -1,6 +1,5 @@
 @use '../variables' as *;
-
-@import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap');
+@import 'https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap';
 
 // Глобальное скрытие мета-данных автора, даты и категорий
 .entry-meta,
@@ -20,13 +19,12 @@
   font-size: $font-size-base;
   color: $color-text;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  text-rendering: optimizelegibility;
 
   *, *::before, *::after { box-sizing: border-box; }
 
   button {
     appearance: none;
-    -webkit-appearance: none;
     background: none;
     border: none;
     border-radius: 0;
@@ -45,4 +43,22 @@
   ul, ol { list-style: none; margin: 0; padding: 0; }
   p       { margin: 0; }
   h1, h2, h3, h4, h5, h6 { margin: 0; padding: 0; font: inherit; }
+}
+
+/* ── Анимации (Фаза 5+): единый кейфрейм появления контента и
+   reduced-motion-глушилка. !important осознан — правило обязано
+   перебить любые компонентные тайминги (доступность). */
+@keyframes fs-fade-up {
+  from { opacity: 0; transform: translateY(rem(5)); }
+
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
