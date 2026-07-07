@@ -7,6 +7,11 @@
   color: $color-text-primary;
 }
 
+.fs-group-students-content {
+  padding-top: $spacing-lg;
+  padding-bottom: $spacing-lg;
+}
+
 // Эпик 15: панель добавления существующих учеников в открытую группу
 .fs-group-add-students {
   margin-bottom: $spacing-md;

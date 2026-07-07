@@ -11,7 +11,6 @@
 // ══════════════════════════════════════════════════════════════
 
 .fs-sb-wrap {
-
 	// ── two-pane builder ──
 	.fs-sb-builder {
 		@include cb-builder-shell;
@@ -21,6 +20,7 @@
 	.fs-sb-tree {
 		@include cb-tree-pane;
 	}
+
 	.fs-sb-tree-head {
 		@include cb-tree-head;
 
@@ -28,9 +28,10 @@
 		.fs-sb-th-count { font-size: $font-size-code; color: $color-secondary-hover; }
 	}
 	.fs-sb-tree-scroll { @include cb-tree-scroll; }
+
 	.fs-sb-tree-add {
 		border-top: 1px solid $wp-admin-gray-bg;
-		padding: $spacing-sm $spacing-sm + 2px;
+		padding: $spacing-sm calc(#{$spacing-sm} + 2px);
 		display: flex;
 		gap: $spacing-sm;
 		flex-wrap: wrap;
@@ -54,6 +55,7 @@
 	.fs-sb-editor { @include cb-editor-pane; }
 	.fs-sb-editor-top { @include cb-editor-top; }
 	.fs-sb-title-row { @include cb-title-row; }
+
 	.fs-sb-flag {
 		font-size: $font-size-code; font-weight: $font-bold; padding: 3px 9px; border-radius: $border-radius-pill;
 		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg;
@@ -61,6 +63,7 @@
 		text-decoration: none;
 	}
 	.fs-sb-body { @include cb-editor-body; }
+
 	.fs-sb-empty {
 		@include cb-empty(320px);
 	}
@@ -70,17 +73,21 @@
 		font-size: $font-size-m; font-weight: $font-bold; margin: 0; flex: 1; min-width: 0;
 		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 	}
+
 	.fs-sb-task-section {
 		margin-bottom: $spacing-lg; font-size: $font-size-wp; line-height: 1.6; color: $color-text-primary;
 		p, ul, ol { margin: 0 0 $spacing-sm; }
 		img { max-width: 100%; height: auto; border-radius: $border-radius-sm; }
 	}
+
 	.fs-sb-section-label {
 		@include cb-eyebrow($font-size-code);
+
 		margin: 0 0 $spacing-sm;
 	}
 	.fs-sb-task-answer { padding: $spacing-md; background: $cb-bg-tree; border: 1px solid $wp-admin-gray-bg; border-radius: $border-radius-md; }
 	.fs-sb-task-options { @include cb-qa-stack(4px); }
+
 	.fs-sb-task-option {
 		@include cb-qa-option('.fs-sb-opt-mark');
 	}
@@ -130,6 +137,7 @@
 			@include cb-ghost-button;
 			&:hover { background: $cb-bg-hover; }
 		}
+
 		.button.fs-sb-btn-danger { border-color: $color-danger; color: $color-danger;
 			&:hover { background: $cb-danger-hover-bg; }
 		}
@@ -150,6 +158,7 @@
 @media (max-width: $breakpoint-builder) {
 	.fs-sb-wrap {
 		.fs-sb-builder { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+
 		.fs-sb-tree {
 			border-right: none;
 			border-bottom: 1px solid $wp-admin-gray-bg;

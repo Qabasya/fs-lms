@@ -333,6 +333,7 @@
 //    для «Создать задачу» и т.п., чтобы не выпадать из чип-ряда через button-primary)
 @mixin cb-chip-solid {
   @include cb-chip;
+
   border: 1px solid var(--color-primary);
   background: var(--color-primary);
   color: #fff;

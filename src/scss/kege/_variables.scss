@@ -23,11 +23,11 @@
 
   // ── Поверхности
   --kege-bg:      #e9edf5;
-  --kege-surface: #ffffff;
+  --kege-surface: #fff;
   --kege-side:    #f2f4f8;
 
   // ── Поля ввода
-  --kege-field-bg:     #ffffff;
+  --kege-field-bg:     #fff;
   --kege-field-border: #b6bdc8;
   --kege-line:         #c6cdd7;
   --kege-line-2:       #dee3ea;
@@ -36,6 +36,12 @@
   --kege-text:  #23282e;
   --kege-muted: #59626e;
   --kege-dim:   #8a919b;
+
+  // ── Текст на тёмных акцентных поверхностях (шапка, кнопки)
+  --kege-on:         #fff;     // белый текст на навигации/кнопках
+  --kege-timer:      #c9ecf7;  // текст таймера на шапке
+  --kege-timer-warn: #ffd4d4;  // текст таймера при предупреждении/истечении
+  --kege-head-link:  #e2e9f2;  // ссылки в шапке
 
   // ── Таблицы/код в условиях заданий
   --kege-tbl-border: #8f96a0;

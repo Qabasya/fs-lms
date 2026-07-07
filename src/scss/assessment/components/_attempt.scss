@@ -348,7 +348,7 @@
 .fs-btn--primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--ink-inverse);
   box-shadow: var(--shadow-sm);
 
   &:hover { background: var(--accent-600); }
