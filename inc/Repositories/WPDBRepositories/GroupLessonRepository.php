@@ -32,6 +32,24 @@ class GroupLessonRepository {
 		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 
+	/**
+	 * Все строки доставки конкретного урока (по всем группам). D17.3: нужно для
+	 * orphan-aware учёта использования и reconcile при удалении урока из курса.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listByLesson( int $lessonId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE lesson_id = %d',
+				$this->table,
+				$lessonId
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
 	/** @return GroupLessonDTO[] */
 	public function listOpenByGroup( int $groupId ): array {
 		$rows = $this->wpdb->get_results(

@@ -19,6 +19,12 @@ use Inc\Services\Task\Checkers\TripleAnswerChecker;
  * Реестр авто-проверщиков: TaskTemplate → TaskCheckerInterface.
  * Шаблоны без записи в реестре требуют ручной проверки.
  *
+ * Единственный ручной тип во всём плагине — «Развёрнутый ответ»
+ * ({@see TaskTemplate::FileAnswer}): у него нет поля `task_answer`, только
+ * материалы/критерии для преподавателя. У ВСЕХ остальных шаблонов есть строка
+ * ответа `task_answer` (в т.ч. код/файловые: код и файл не автопроверяются —
+ * сверяется ТОЛЬКО ответ), поэтому они привязаны к {@see TextAnswerChecker}.
+ *
  * @package Inc\Services\Task
  */
 class TaskCheckerRegistry {
@@ -35,14 +41,22 @@ class TaskCheckerRegistry {
 		FillChecker        $fill,
 	) {
 		$this->map = array(
-			TaskTemplate::Standard->value => $text,
-			TaskTemplate::Common->value   => $text,
-			TaskTemplate::Audio->value    => $text,
-			TaskTemplate::Triple->value   => $triple,
-			TaskTemplate::Choice->value   => $choice,
-			TaskTemplate::Matching->value => $matching,
-			TaskTemplate::Ordering->value => $ordering,
-			TaskTemplate::Fill->value     => $fill,
+			// Текстовый ответ (`task_answer`) — сверяется строка ответа.
+			// Код/файловые шаблоны: сам код/файл НЕ автопроверяется, только ответ.
+			TaskTemplate::Standard->value     => $text,
+			TaskTemplate::Common->value       => $text,
+			TaskTemplate::Audio->value        => $text,
+			TaskTemplate::Code->value         => $text,
+			TaskTemplate::FileCode->value     => $text,
+			TaskTemplate::File->value         => $text,
+			TaskTemplate::TwoFile->value      => $text,
+			TaskTemplate::TextSolution->value => $text,
+			TaskTemplate::Triple->value       => $triple,
+			TaskTemplate::Choice->value       => $choice,
+			TaskTemplate::Matching->value     => $matching,
+			TaskTemplate::Ordering->value     => $ordering,
+			TaskTemplate::Fill->value         => $fill,
+			// TaskTemplate::FileAnswer — намеренно НЕ в реестре: единственный ручной.
 		);
 	}
 

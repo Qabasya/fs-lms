@@ -216,3 +216,21 @@
 		}
 	}
 }
+
+// ── №4 (D17.4): поле ссылки на файл (LinkField) — инпут + кнопка в одну строку ─
+// Обёртка .fs-lms-input-wrapper без правил складывала элементы вертикально;
+// теперь инпут слева тянется, кнопка справа не сжимается, между ними паддинг.
+.fs-lms-input-wrapper {
+	display: flex;
+	align-items: center;
+	gap: v.$spacing-md;
+
+	.fs-lms-input {
+		flex: 1 1 auto;
+	}
+
+	.button {
+		flex: 0 0 auto;
+		white-space: nowrap;
+	}
+}

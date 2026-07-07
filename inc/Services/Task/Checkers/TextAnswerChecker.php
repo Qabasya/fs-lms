@@ -10,8 +10,11 @@ use Inc\DTO\Task\CheckResultDTO;
 /**
  * Class TextAnswerChecker
  *
- * Проверяет текстовый ответ (регистронезависимо).
- * Покрывает: Standard, Common, Audio — все имеют `task_answer` как строку.
+ * Проверяет текстовый ответ (регистронезависимо) по полю `task_answer`.
+ * Покрывает все шаблоны с полем ответа: Standard, Common, Audio, а также
+ * код/файловые (Code, FileCode, File, TwoFile) и TextSolution — у них сверяется
+ * ТОЛЬКО ответ, сам код/файл не автопроверяется. Ручной лишь FileAnswer (без
+ * `task_answer`).
  *
  * @package Inc\Services\Task\Checkers
  */

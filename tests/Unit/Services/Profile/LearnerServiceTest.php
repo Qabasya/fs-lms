@@ -223,4 +223,82 @@ class LearnerServiceTest extends TestCase {
 	private function att( int $glid, bool $present ): AttendanceDTO {
 		return new AttendanceDTO( 1, $glid, 9001, $present, 99, '2026-05-10 12:00:00' );
 	}
+
+	/* ── №1 (D17.1): recency-сортировка «Мои курсы» ──────────────────────── */
+
+	public function test_courses_sorted_by_recent_activity_first(): void {
+		// Порядок зачисления: сначала группа 1, затем 2.
+		$this->records->method( 'findActiveByStudent' )->willReturn( array(
+			(object) array( 'groupId' => 1 ),
+			(object) array( 'groupId' => 2 ),
+		) );
+		$this->groups->method( 'findById' )->willReturnCallback(
+			fn( int $id ) => (object) array( 'id' => $id, 'name' => 'Г' . $id, 'subject_key' => 'inf' )
+		);
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
+		$this->courses->method( 'get' )->willReturn( null );
+		$this->gradebook->method( 'forStudent' )->willReturn( array() );
+		$this->attendance->method( 'listByStudent' )->willReturn( array() );
+		// Группа 2 — более свежая активность, чем 1.
+		$this->progress->method( 'latestActivityByStudent' )->with( 9001 )->willReturn( array(
+			1 => '2026-05-01 10:00:00',
+			2 => '2026-05-19 10:00:00',
+		) );
+
+		$courses = $this->service->build( 9001 )['courses'];
+
+		self::assertSame( 2, $courses[0]['id'] );
+		self::assertSame( 1, $courses[1]['id'] );
+	}
+
+	public function test_courses_without_activity_keep_enrollment_order(): void {
+		$this->records->method( 'findActiveByStudent' )->willReturn( array(
+			(object) array( 'groupId' => 1 ),
+			(object) array( 'groupId' => 2 ),
+		) );
+		$this->groups->method( 'findById' )->willReturnCallback(
+			fn( int $id ) => (object) array( 'id' => $id, 'name' => 'Г' . $id, 'subject_key' => 'inf' )
+		);
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
+		$this->courses->method( 'get' )->willReturn( null );
+		$this->gradebook->method( 'forStudent' )->willReturn( array() );
+		$this->attendance->method( 'listByStudent' )->willReturn( array() );
+		$this->progress->method( 'latestActivityByStudent' )->willReturn( array() );
+
+		$courses = $this->service->build( 9001 )['courses'];
+
+		self::assertSame( 1, $courses[0]['id'] );
+		self::assertSame( 2, $courses[1]['id'] );
+	}
+
+	/* ── №2 (D17.2): открытые группы вне блока групп, но остаются курсами ── */
+
+	public function test_open_groups_hidden_from_groups_but_kept_as_courses(): void {
+		$this->records->method( 'findActiveByStudent' )->willReturn( array(
+			(object) array( 'groupId' => 1 ),
+			(object) array( 'groupId' => 2 ),
+		) );
+		$this->groups->method( 'findById' )->willReturnCallback(
+			fn( int $id ) => (object) array(
+				'id'          => $id,
+				'name'        => 'Г' . $id,
+				'subject_key' => 'inf',
+				'access_mode' => 2 === $id ? 'open' : 'scheduled',
+			)
+		);
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
+		$this->courses->method( 'get' )->willReturn( null );
+		$this->gradebook->method( 'forStudent' )->willReturn( array() );
+		$this->attendance->method( 'listByStudent' )->willReturn( array() );
+
+		$d = $this->service->build( 9001 );
+
+		// В блоке групп — только не-open (Г1).
+		self::assertCount( 1, $d['groups'] );
+		self::assertSame( 'Г1', $d['groups'][0]['name'] );
+		// Курсы — оба; открытая группа помечена бейджем open.
+		self::assertCount( 2, $d['courses'] );
+		$open = array_values( array_filter( $d['courses'], static fn( $c ) => 2 === $c['id'] ) )[0];
+		self::assertTrue( $open['open'] );
+	}
 }

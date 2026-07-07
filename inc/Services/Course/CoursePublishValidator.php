@@ -66,7 +66,10 @@ class CoursePublishValidator {
 	private function stepHasContent( StepDTO $step ): bool {
 		return match ( $step->type ) {
 			StepType::Text  => '' !== trim( (string) ( $step->payload['content'] ?? '' ) ),
-			StepType::Video => '' !== trim( (string) ( $step->payload['url'] ?? '' ) ),
+			// №5 (D17.5): видео-шаг допустим к публикации даже пустым — плеер
+			// показывает плейсхолдер «Видео скоро появится», ссылка (в т.ч. S3)
+			// добавляется позже. Блок публикации на пустое видео снят.
+			StepType::Video => true,
 			// task / work / assessment — привязана сущность.
 			default         => (int) ( $step->payload['ref'] ?? 0 ) > 0,
 		};

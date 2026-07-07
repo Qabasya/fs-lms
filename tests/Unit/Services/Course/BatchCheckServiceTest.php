@@ -124,14 +124,15 @@ public function test_empty_answers_returns_zero_counts(): void {
 	}
 
 	public function test_manual_task_type_marked_pending(): void {
+		// Единственный ручной тип — «Развёрнутый ответ» (FileAnswer): нет чекера.
 		$post = new WP_Post( [ 'ID' => 3, 'post_type' => 'inf_tasks' ] );
 		$this->posts->method( 'get' )->willReturn( $post );
-		$this->resolver->method( 'resolveId' )->willReturn( 'code' );
-		$this->resolver->method( 'resolveEnum' )->willReturn( TT::Code );
+		$this->resolver->method( 'resolveId' )->willReturn( 'file_answer' );
+		$this->resolver->method( 'resolveEnum' )->willReturn( TT::FileAnswer );
 		$this->templates->method( 'get' )->willReturn( null );
 		$this->posts->method( 'getMeta' )->willReturn( [] );
 
-		$result = $this->svc->check( [ 3 => 'some code' ] );
+		$result = $this->svc->check( [ 3 => 'развёрнутый ответ' ] );
 
 		self::assertTrue( $result->hasManual );
 		self::assertSame( 'pending', $result->perTask[3]['verdict'] );

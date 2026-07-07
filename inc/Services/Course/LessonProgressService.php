@@ -38,6 +38,16 @@ class LessonProgressService {
 	) {}
 
 	/**
+	 * Время последней активности ученика по каждой группе (D17.1) — для
+	 * recency-сортировки «Мои курсы». Делегирует в репозиторий прогресса.
+	 *
+	 * @return array<int, string> group_id => 'Y-m-d H:i:s'
+	 */
+	public function latestActivityByStudent( int $studentPersonId ): array {
+		return $this->progress->latestActivityByStudent( $studentPersonId );
+	}
+
+	/**
 	 * Отметить шаг просмотренным (инлайн-контент в плеере).
 	 */
 	public function markViewed( int $studentPersonId, int $groupLessonId, string $stepKey ): void {
