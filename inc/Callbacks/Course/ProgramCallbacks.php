@@ -57,8 +57,18 @@ class ProgramCallbacks extends BaseController {
 		}
 		$this->denyIfProgramLocked( $groupId );
 
-		$added = $this->assignmentService->assign( $groupId, $courseId, $userId, $policy );
-		$this->success( array( 'added' => $added ) );
+		try {
+			$added = $this->assignmentService->assign( $groupId, $courseId, $userId, $policy );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		// D-C: для открытой группы курс с задачами без автопроверки назначается
+		// (не критично — там просто некому проверить вручную), но предупреждаем.
+		$warnings = $this->assignmentService->warningsFor( $groupId, $courseId );
+
+		$this->success( array( 'added' => $added, 'warnings' => $warnings ) );
 	}
 
 	/**

@@ -32,6 +32,7 @@ class JournalService {
 		private readonly GradebookService        $gradebook,
 		private readonly RoomRepository          $rooms,
 		private readonly GroupsRepository        $groups,
+		private readonly LessonProgressService   $progress,
 	) {}
 
 	/**
@@ -90,8 +91,11 @@ class JournalService {
 			);
 		}
 
-		// Посещаемость (+/−).
-		$attendance = $this->attendance->matrixForGroup( $groupId );
+		// Посещаемость (+/−). В открытой группе учителя нет — вручную никто не отмечает,
+		// «+» синтезируется из фактического прохождения ВСЕХ шагов урока (D-C продолжение).
+		$attendance = $isOpen
+			? $this->openCompletionMatrix( $lessons, $students )
+			: $this->attendance->matrixForGroup( $groupId );
 
 		// Результаты работ, разложенные по занятию (T10.5): cell_works[glid][pid] = [{badge,value}].
 		$cellWorks = array();
@@ -123,5 +127,31 @@ class JournalService {
 			'types'      => $types,
 			'open'       => $isOpen,
 		);
+	}
+
+	/**
+	 * Матрица «+» для открытой группы: студент × занятие, true — только если
+	 * ВСЕ шаги урока пройдены (LessonProgressService::isLessonCompleted). Незавершённые
+	 * ячейки намеренно отсутствуют в матрице (а не false) — это «ещё не пройдено», а
+	 * не «отсутствовал», такого статуса в открытой группе не существует.
+	 *
+	 * @param array<int,array{group_lesson_id:int}> $lessons
+	 * @param array<int,array{person_id:int}>       $students
+	 *
+	 * @return array<int,array<int,bool>>
+	 */
+	private function openCompletionMatrix( array $lessons, array $students ): array {
+		$matrix = array();
+		foreach ( $lessons as $lesson ) {
+			$glid = (int) $lesson['group_lesson_id'];
+			foreach ( $students as $student ) {
+				$pid = (int) $student['person_id'];
+				if ( $this->progress->isLessonCompleted( $pid, $glid ) ) {
+					$matrix[ $glid ][ $pid ] = true;
+				}
+			}
+		}
+
+		return $matrix;
 	}
 }

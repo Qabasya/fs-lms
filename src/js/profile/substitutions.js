@@ -152,7 +152,7 @@ async function assignTeacher(e) {
     e.preventDefault();
     const f = e.currentTarget;
     const sub = f.querySelector('[name="substitute_teacher_id"]').value;
-    if (!sub) { toast('Выберите замещающего'); return; }
+    if (!sub) { toast('Выберите замещающего', 'error'); return; }
     try {
         await api('assign', {
             group_id: state.groupId,
@@ -163,7 +163,7 @@ async function assignTeacher(e) {
         });
         toast('Замена преподавателя назначена');
         load();
-    } catch (err) { toast(err.message); }
+    } catch (err) { toast(err.message, 'error'); }
 }
 
 async function revokeTeacher(id) {
@@ -171,19 +171,19 @@ async function revokeTeacher(id) {
         await api('revoke', { substitution_id: id });
         toast('Замена снята');
         load();
-    } catch (err) { toast(err.message); }
+    } catch (err) { toast(err.message, 'error'); }
 }
 
 async function setRoom(form, clear) {
     const from = form.querySelector('[name="valid_from"]').value;
     const to = form.querySelector('[name="valid_to"]').value;
-    if (!from || !to) { toast('Укажите период'); return; }
+    if (!from || !to) { toast('Укажите период', 'error'); return; }
     const roomId = clear ? '' : form.querySelector('[name="room_id"]').value;
     try {
         const res = await api('setRoom', { group_id: state.groupId, room_id: roomId, valid_from: from, valid_to: to });
         const msg = clear ? `Кабинет возвращён (${res.applied})` : `Кабинет заменён на ${res.applied} занятиях`;
         toast(res.warnings && res.warnings.length ? res.warnings.join('; ') : msg);
-    } catch (err) { toast(err.message); }
+    } catch (err) { toast(err.message, 'error'); }
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */

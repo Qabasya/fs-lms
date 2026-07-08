@@ -146,11 +146,11 @@ function lessonCard(l) {
 
 /* ── Деталь работы + оценивание (T10.9) ──────────────────────────────── */
 async function openWorkDetail(sourceType, sourceId) {
-    if (!reviewApi) { toast('Оценивание недоступно'); return; }
+    if (!reviewApi) { toast('Оценивание недоступно', 'error'); return; }
     let d;
     try {
         d = await reviewApi('getDetail', { source_type: sourceType, source_id: sourceId });
-    } catch (e) { toast(e.message); return; }
+    } catch (e) { toast(e.message, 'error'); return; }
     renderDetailModal(d);
 }
 
@@ -326,7 +326,7 @@ function wireAttemptGrading(modal, d) {
                 }
                 toast('Оценка сохранена');
                 loadSummary();
-            } catch (e) { toast(e.message); }
+            } catch (e) { toast(e.message, 'error'); }
             btn.disabled = false;
         });
     });
@@ -348,18 +348,18 @@ function wireGrading(modal, submissionId) {
             toast('Оценка сохранена');
             closeDetailModal();
             loadSummary();
-        } catch (e) { toast(e.message); }
+        } catch (e) { toast(e.message, 'error'); }
     });
 
     modal.querySelector('[data-grade="return"]').addEventListener('click', async () => {
         const fb = fbEl.value.trim();
-        if (!fb) { toast('Укажите комментарий для возврата'); fbEl.focus(); return; }
+        if (!fb) { toast('Укажите комментарий для возврата', 'error'); fbEl.focus(); return; }
         try {
             await reviewApi('returnSubmission', { submission_id: submissionId, feedback: fb });
             toast('Работа возвращена на доработку');
             closeDetailModal();
             loadSummary();
-        } catch (e) { toast(e.message); }
+        } catch (e) { toast(e.message, 'error'); }
     });
 }
 

@@ -79,6 +79,11 @@
     background: var(--surface-2);
     border-color: var(--line-3);
   }
+
+  // display:inline-flex — авторское правило, оно перебивает UA-правило
+  // [hidden]{display:none} независимо от specificity (origin важнее). Без
+  // этого JS-переключение btn.hidden визуально ничего не делало.
+  &[hidden] { display: none; }
 }
 
 @mixin cab-btn-primary {

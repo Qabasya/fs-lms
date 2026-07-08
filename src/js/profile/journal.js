@@ -183,7 +183,7 @@ function wrap(g, inner) {
         </div>
         <div class="prof-journal-wrap">${inner}</div>
         <div class="j-legend-bottom">
-            ${d.open ? '<span class="jlb-label">Открытая группа — посещаемость не ведётся.</span>' : `
+            ${d.open ? '<span class="jlb-label">Открытая группа — «+» проставляется автоматически, когда ученик проходит все шаги урока.</span>' : `
             <span class="jlb-label">Посещаемость:</span>
             <span class="jl"><span class="jl-sw jl-sw--present"></span>Присутствовал</span>
             <span class="jl"><span class="jl-sw jl-sw--absent"></span>Отсутствовал</span>`}
@@ -245,12 +245,17 @@ function worksFor(glid, pid) {
 function attCell(pid, l) {
     const glid = l.group_lesson_id;
     const open = !!state.data.open;
-    // Эпик 15: открытая группа — ячейка без посещаемости (класс att не ставится,
-    // клики-попапы отметки не работают), только результаты работ.
+    // Эпик 15 (продолжение): открытая группа — учитель посещаемость не отмечает
+    // (класс att не ставится, клики-попапы не работают), но «+» показывается
+    // read-only, когда ученик прошёл ВСЕ шаги урока (сервер: JournalService
+    // синтезирует это из LessonProgressService::isLessonCompleted). Отсутствия
+    // («Н») для открытой группы не существует — есть только «пройдено»/«ещё нет».
     const cls = open ? ['gc'] : ['gc', 'att'];
+    const st = attState(glid, pid);
     let att = '';
-    if (!open) {
-        const st = attState(glid, pid);
+    if (open) {
+        if (st === 'present') { cls.push('present'); att = '<span class="g-val att-y">+</span>'; }
+    } else {
         if (isFutureDate(l.date)) cls.push('future');
         if (st === 'present') { cls.push('present'); att = '<span class="g-val att-y">+</span>'; }
         else if (st === 'absent') { cls.push('absent'); att = '<span class="g-val att-n">Н</span>'; }
@@ -263,7 +268,7 @@ function attCell(pid, l) {
             `<span class="cw${w.display === 'pending' ? ' pending' : ''}${w.overdue ? ' overdue' : ''}"${w.overdue ? ' title="Сдано после дедлайна"' : ''}><b>${esc(w.badge)}</b>${w.display === 'pending' ? '' : ' ' + esc(w.value)}</span>`).join('')}</div>`
         : '';
 
-    return `<td class="${cls.join(' ')}" data-glid="${glid}" data-pid="${pid}">${open ? '' : `<div class="cell-att">${att}</div>`}${worksHtml}</td>`;
+    return `<td class="${cls.join(' ')}" data-glid="${glid}" data-pid="${pid}">${att ? `<div class="cell-att">${att}</div>` : ''}${worksHtml}</td>`;
 }
 
 /* ── Interactions ─────────────────────────────────────────────────────── */
@@ -303,7 +308,7 @@ function openAttPopover(glid, pid, td) {
             await api('saveAttendance', { group_lesson_id: glid, student_person_id: pid, is_present: present ? '1' : '0' });
             (state.data.attendance[glid] = state.data.attendance[glid] || {})[pid] = present;
             refreshAttCell(glid, pid);
-        } catch (err) { toast(err.message); }
+        } catch (err) { toast(err.message, 'error'); }
     }));
 
     openGradePopPositioned(pop, td);
@@ -331,7 +336,7 @@ function openColumnMenu(glid, th) {
             state.data.students.forEach(s => { row[s.person_id] = present; });
             state.data.students.forEach(s => refreshAttCell(glid, s.person_id));
             toast(present ? 'Все отмечены присутствующими' : 'Все отмечены отсутствующими');
-        } catch (err) { toast(err.message); }
+        } catch (err) { toast(err.message, 'error'); }
     }));
 }
 

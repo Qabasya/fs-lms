@@ -16,7 +16,6 @@ use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Shared\PluginLogger;
 
 class CourseAssignmentService {
 
@@ -65,10 +64,6 @@ class CourseAssignmentService {
 		}
 
 		$openMode = $this->isOpenGroup( $group );
-		if ( $openMode ) {
-			// D-C: открытый курс проходится без преподавателя — только автопроверка.
-			$this->openCourseValidator->assertSelfCheckable( $course );
-		}
 
 		if ( AssignmentPolicy::Replace === $policy ) {
 			$this->groupLessons->deleteAllByGroup( $groupId );
@@ -97,6 +92,25 @@ class CourseAssignmentService {
 		);
 
 		return $added;
+	}
+
+	/**
+	 * Предупреждения самопроверки для открытой группы (D-C) — назначение курса без
+	 * автопроверяемого контента больше НЕ блокируется (ручная проверка в открытой
+	 * группе не критична — там просто некому её сделать), но админ/учитель должен
+	 * увидеть, в каких уроках есть такие задачи. Пустой массив — группа не открытая
+	 * или проблем нет.
+	 *
+	 * @return string[]
+	 */
+	public function warningsFor( int $groupId, int $courseId ): array {
+		$group  = $this->groups->findById( $groupId );
+		$course = $this->courseManager->get( $courseId );
+		if ( ! $group || ! $course || ! $this->isOpenGroup( $group ) ) {
+			return array();
+		}
+
+		return $this->openCourseValidator->problems( $course );
 	}
 
 	/**
@@ -131,18 +145,6 @@ class CourseAssignmentService {
 
 			$groupId  = (int) $group->id;
 			$openMode = $this->isOpenGroup( $group );
-			if ( $openMode ) {
-				// D-C: в открытую группу нельзя дозаливать контент без автопроверки — группа пропускается.
-				try {
-					$this->openCourseValidator->assertSelfCheckable( $course );
-				} catch ( \InvalidArgumentException $e ) {
-					PluginLogger::warning( 'CourseAssignment', 'Синк уроков: открытая группа пропущена', array(
-						'group_id' => $groupId,
-						'error'    => $e->getMessage(),
-					) );
-					continue;
-				}
-			}
 			$existing = array();
 			foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
 				if ( null !== $row->lessonId ) {

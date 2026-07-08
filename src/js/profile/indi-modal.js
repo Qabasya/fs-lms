@@ -136,8 +136,8 @@ export function openIndiModal( o ) {
         const studentId = studentFixed ? initStudent : ( Number( $( '#giStudent' ).value ) || 0 );
         const roomVal   = $( '#giRoom' ).value;
         const lessonVal = $( '#giLesson' ).value;
-        if ( ! at ) { toast( 'Укажите дату' ); return; }
-        if ( ! studentId ) { toast( 'Выберите ученика' ); return; }
+        if ( ! at ) { toast( 'Укажите дату', 'error' ); return; }
+        if ( ! studentId ) { toast( 'Выберите ученика', 'error' ); return; }
         closeGradePop();
         try {
             if ( edit ) {
@@ -162,7 +162,7 @@ export function openIndiModal( o ) {
                 toast( 'Индивидуальное занятие создано' );
             }
             if ( o.onSaved ) { o.onSaved(); }
-        } catch ( err ) { toast( err.message ); }
+        } catch ( err ) { toast( err.message, 'error' ); }
     } );
 
     openGradePopPositioned( pop, o.anchor );

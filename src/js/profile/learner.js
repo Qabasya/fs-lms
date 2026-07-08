@@ -204,7 +204,7 @@ function wireCatalog(root) {
             load(true);
             rerenderAll();
         } catch (e) {
-            toast(e.message);
+            toast(e.message, 'error');
             btn.disabled = false;
             btn.textContent = 'Записаться';
         }

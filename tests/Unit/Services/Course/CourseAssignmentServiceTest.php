@@ -184,24 +184,44 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->service->assign( 1, 5, 99 );
 	}
 
-	public function test_assign_to_open_group_rejects_course_without_autocheck(): void {
+	public function test_assign_to_open_group_does_not_reject_course_without_autocheck(): void {
+		// Ручная проверка в открытой группе не критична (некому проверять) —
+		// назначение больше не блокируется, только предупреждение (warningsFor()).
 		$this->setupGroupAndCourse( lessonIds: [ 10 ], accessMode: 'open' );
-		$this->openCourseValidator->method( 'assertSelfCheckable' )
-			->willThrowException( new \InvalidArgumentException( 'нет автопроверки' ) );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 0 );
+		$this->openCourseValidator->method( 'problems' )->willReturn( array( 'нет автопроверки' ) );
 
-		$this->groupLessons->expects( self::never() )->method( 'add' );
-		$this->expectException( \InvalidArgumentException::class );
+		$this->groupLessons->expects( self::once() )->method( 'add' );
 
-		$this->service->assign( 1, 5, 99 );
+		$count = $this->service->assign( 1, 5, 99 );
+
+		self::assertSame( 1, $count );
 	}
 
-	public function test_assign_to_scheduled_group_skips_autocheck_validation(): void {
-		$this->setupGroupAndCourse( lessonIds: [ 10 ] );
+	public function test_assign_never_calls_assert_self_checkable(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10 ], accessMode: 'open' );
 		$this->groupLessons->method( 'nextPosition' )->willReturn( 0 );
 
 		$this->openCourseValidator->expects( self::never() )->method( 'assertSelfCheckable' );
 
 		$this->service->assign( 1, 5, 99 );
+	}
+
+	public function test_warnings_for_returns_problems_for_open_group(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10 ], accessMode: 'open' );
+		$this->openCourseValidator->method( 'problems' )->willReturn( array( '«Урок»: задач без автопроверки — 2' ) );
+
+		$warnings = $this->service->warningsFor( 1, 5 );
+
+		self::assertSame( array( '«Урок»: задач без автопроверки — 2' ), $warnings );
+	}
+
+	public function test_warnings_for_returns_empty_for_scheduled_group(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10 ], accessMode: 'scheduled' );
+
+		$this->openCourseValidator->expects( self::never() )->method( 'problems' );
+
+		self::assertSame( array(), $this->service->warningsFor( 1, 5 ) );
 	}
 
 	// --- D17.3: reconcile осиротевших строк доставки ---
