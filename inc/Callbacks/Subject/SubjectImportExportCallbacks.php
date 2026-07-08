@@ -70,7 +70,7 @@ class SubjectImportExportCallbacks extends BaseController {
 
 		// Формирование ответа: данные предмета + результат экспорта
 		$this->success( array_merge(
-			array( 'subject' => array( 'key' => $subject->key, 'name' => $subject->name ) ),
+			array( 'subject' => array( 'key' => $subject->key, 'name' => $subject->name, 'hasBank' => $subject->hasBank ) ),
 			$this->export_service->export( $key )
 		) );
 	}

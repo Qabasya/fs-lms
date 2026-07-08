@@ -24,6 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Inc\Enums\Course\StepType;
+use Inc\Enums\Ui\Icon;
 
 $asm_title   = (string) ( $render['title'] ?? $step['title'] );
 $asm_url     = (string) ( $render['url'] ?? '' );
@@ -117,6 +118,14 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 									<div class="q wpc"><?php echo wp_kses_post( $asm_task['condition_html'] ); ?></div>
 								<?php endif; ?>
 
+								<?php foreach ( (array) ( $asm_task['files'] ?? array() ) as $asm_task_file ) : ?>
+									<a class="attach" href="<?php echo esc_url( (string) $asm_task_file['url'] ); ?>" download>
+										<span class="ai"><?php echo Icon::File->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+										<span class="at"><b><?php echo esc_html( (string) $asm_task_file['name'] ); ?></b></span>
+										<span class="adl"><?php echo Icon::Download->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+									</a>
+								<?php endforeach; ?>
+
 								<div class="tgap">
 									<div class="fs-task-widget"
 										data-template="<?php echo esc_attr( (string) $asm_task['template'] ); ?>"
@@ -134,21 +143,21 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 			<?php if ( $asm_passed ) : ?>
 				<div class="vd vd-ok">
 					<span class="vi"><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-					<div><b><?php esc_html_e( 'Контрольная сдана', 'fs-lms' ); ?></b><span><?php esc_html_e( 'Результат учтён в прогрессе урока.', 'fs-lms' ); ?></span></div>
+					<div><b><?php esc_html_e( 'Экзамен сдан', 'fs-lms' ); ?></b><span><?php esc_html_e( 'Результат учтён в прогрессе урока.', 'fs-lms' ); ?></span></div>
 				</div>
 			<?php else : ?>
-				<p class="step-muted"><?php esc_html_e( 'Контрольная проходится на отдельной странице с таймером и попытками.', 'fs-lms' ); ?></p>
+				<p class="step-muted"><?php esc_html_e( 'Экзамен проходится на отдельной странице с таймером и попытками.', 'fs-lms' ); ?></p>
 			<?php endif; ?>
 
 			<?php if ( '' !== $asm_url ) : ?>
 				<div>
 					<a class="b b-pri b-lg" href="<?php echo esc_url( $asm_url ); ?>">
-						<?php echo $asm_passed ? esc_html__( 'Открыть контрольную', 'fs-lms' ) : esc_html__( 'Перейти к контрольной', 'fs-lms' ); ?>
+						<?php echo $asm_passed ? esc_html__( 'Открыть экзамен', 'fs-lms' ) : esc_html__( 'Перейти к экзамену', 'fs-lms' ); ?>
 						<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 					</a>
 				</div>
 			<?php else : ?>
-				<p class="step-muted"><?php esc_html_e( 'Контрольная ещё не опубликована.', 'fs-lms' ); ?></p>
+				<p class="step-muted"><?php esc_html_e( 'Экзамен ещё не опубликован.', 'fs-lms' ); ?></p>
 			<?php endif; ?>
 		<?php endif; ?>
 	</div>

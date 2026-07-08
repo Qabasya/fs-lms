@@ -105,6 +105,14 @@ $work_meta_line = sprintf(
 						<div class="q wpc"><?php echo wp_kses_post( $work_task['condition_html'] ); ?></div>
 					<?php endif; ?>
 
+					<?php foreach ( (array) ( $work_task['files'] ?? array() ) as $work_task_file ) : ?>
+						<a class="attach" href="<?php echo esc_url( (string) $work_task_file['url'] ); ?>" download>
+							<span class="ai"><?php echo Icon::File->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+							<span class="at"><b><?php echo esc_html( (string) $work_task_file['name'] ); ?></b></span>
+							<span class="adl"><?php echo Icon::Download->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+						</a>
+					<?php endforeach; ?>
+
 					<div class="tgap">
 						<div class="fs-task-widget"
 							data-template="<?php echo esc_attr( (string) $work_task['template'] ); ?>"

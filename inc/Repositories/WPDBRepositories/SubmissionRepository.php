@@ -67,6 +67,17 @@ class SubmissionRepository {
 	}
 
 	/** @return SubmissionDTO[] */
+	/** Есть ли хотя бы одна сдача по строке доставки (D17.3: guard вовлечённости). */
+	public function hasAnyByGroupLesson( int $groupLessonId ): bool {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT EXISTS(SELECT 1 FROM %i WHERE group_lesson_id = %d)',
+				$this->table,
+				$groupLessonId
+			)
+		) > 0;
+	}
+
 	public function listByStudentAndGroupLesson( int $studentPersonId, int $groupLessonId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(

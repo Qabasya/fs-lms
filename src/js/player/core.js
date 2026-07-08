@@ -98,7 +98,9 @@ export function initCore() {
 		nextBtn.disabled = ! nextOk;
 		nextBtn.classList.toggle( 'b-dis', ! nextOk );
 		if ( posEl ) {
-			posEl.textContent = `Шаг ${ active + 1 } из ${ panels.length } · ${ typeMeta( panels[ active ].dataset.stepType ).label }`;
+			const p       = panels[ active ];
+			const title   = p.dataset.title ? ` · ${ p.dataset.title }` : '';
+			posEl.textContent = `Шаг ${ active + 1 } из ${ panels.length } · ${ typeMeta( p.dataset.stepType ).label }${ title }`;
 		}
 	}
 

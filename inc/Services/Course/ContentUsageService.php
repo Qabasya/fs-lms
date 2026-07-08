@@ -8,6 +8,7 @@ use Inc\DTO\Course\ModuleDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Course\StepType;
+use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -38,10 +39,12 @@ class ContentUsageService {
 	private const STATUSES = array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' );
 
 	public function __construct(
-		private readonly PostManager            $posts,
-		private readonly SubjectRepository      $subjects,
-		private readonly ?GroupLessonRepository $groupLessons = null,
-		private readonly ?GroupsRepository      $groups       = null,
+		private readonly PostManager             $posts,
+		private readonly SubjectRepository       $subjects,
+		private readonly ?GroupLessonRepository  $groupLessons = null,
+		private readonly ?GroupsRepository       $groups       = null,
+		private readonly ?CourseManager          $courses      = null,
+		private readonly ?GroupLessonUsageGuard  $deliveryGuard = null,
 	) {}
 
 	/**
@@ -68,6 +71,14 @@ class ContentUsageService {
 	/** Количество delivery-потребителей из БД-таблиц (group_lessons, groups). */
 	private function deliveryCount( string $type, int $postId ): int {
 		if ( 'lesson' === $type && null !== $this->groupLessons ) {
+			// D17.3: считаем только РЕАЛЬНУЮ доставку. Осиротевшие строки (урок
+			// вышел из курса, КТП не заблокирована, нет вовлечённости) — не
+			// использование: иначе ошибочно дублированный черновик навсегда
+			// блокировал бы удаление урока. Когда course/guard доступны (боевой
+			// DI) — фильтруем; иначе (упрощённые тесты) — прежний грубый счёт.
+			if ( null !== $this->courses && null !== $this->deliveryGuard ) {
+				return $this->realLessonDeliveryCount( $postId );
+			}
 			return $this->groupLessons->countUsageByLesson( $postId );
 		}
 		if ( 'course' === $type && null !== $this->groups ) {
@@ -78,6 +89,47 @@ class ContentUsageService {
 			) );
 		}
 		return 0;
+	}
+
+	/**
+	 * D17.3: число РЕАЛЬНЫХ строк доставки урока — исключая осиротевшие снапшоты.
+	 * Строка реальна, если КТП группы заблокирована (доставка заморожена), ИЛИ за
+	 * ней есть вовлечённость ученика, ИЛИ урок всё ещё входит в курс группы. Иначе
+	 * это стейл-снапшот (например, ошибочно дублированный черновик, убранный из
+	 * курса) — он не должен считаться использованием и блокировать удаление.
+	 */
+	private function realLessonDeliveryCount( int $lessonId ): int {
+		$count = 0;
+		foreach ( $this->groupLessons->listByLesson( $lessonId ) as $row ) {
+			if ( $this->isRealLessonDelivery( $row, $lessonId ) ) {
+				$count++;
+			}
+		}
+		return $count;
+	}
+
+	/** Реальна ли строка доставки урока (не осиротевший снапшот). */
+	private function isRealLessonDelivery( \Inc\DTO\Course\GroupLessonDTO $row, int $lessonId ): bool {
+		$group = $this->groups?->findById( (int) $row->groupId );
+		if ( null === $group ) {
+			return false; // группа удалена — не использование.
+		}
+		if ( ! empty( $group->program_locked_at ) ) {
+			return true; // заблокированная КТП — доставка заморожена.
+		}
+		if ( $this->deliveryGuard?->hasEngagement( (int) $row->id ) ) {
+			return true; // есть данные журнала.
+		}
+
+		$courseId = (int) ( $group->course_id ?? 0 );
+		if ( $courseId > 0 ) {
+			$course = $this->courses?->get( $courseId );
+			if ( $course && in_array( $lessonId, array_map( 'intval', $course->lessonIds() ), true ) ) {
+				return true; // урок всё ещё в курсе группы.
+			}
+		}
+
+		return false;
 	}
 
 	/**

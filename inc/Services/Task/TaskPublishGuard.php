@@ -84,6 +84,13 @@ class TaskPublishGuard {
 		$data['post_status'] = 'draft';
 		set_transient( $transientPrefix . get_current_user_id(), $message, self::TTL );
 
+		// WP core сам добавит в редирект message=10 ("Черновик обновлён") — вместе с нашей
+		// ошибкой на admin_notices это давало два противоречащих друг другу уведомления.
+		add_filter(
+			'redirect_post_location',
+			static fn( string $location ): string => remove_query_arg( 'message', $location )
+		);
+
 		return $data;
 	}
 }

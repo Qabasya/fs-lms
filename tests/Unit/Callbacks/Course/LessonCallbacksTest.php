@@ -138,4 +138,32 @@ class LessonCallbacksTest extends TestCase {
 		);
 		self::assertSame( array( 7, 9 ), $payload['attachments'] );
 	}
+
+	public function test_save_lesson_steps_rejects_more_than_max(): void {
+		$this->seedLesson( 5, 'inf', array( 's1' ) );
+		$steps = array();
+		for ( $i = 1; $i <= 21; $i++ ) {
+			$steps[] = array( 'key' => 's' . $i, 'type' => 'text', 'payload' => array( 'title' => 'T' . $i ) );
+		}
+		$_POST = array( 'lesson_id' => '5', 'subject_key' => 'inf', 'steps' => $steps );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveLessonSteps() );
+
+		self::assertFalse( $r->success );
+		self::assertCount( 1, $this->lessons->get( 5 )->steps ); // урок не перезаписан
+	}
+
+	public function test_save_lesson_steps_accepts_exactly_max(): void {
+		$this->seedLesson( 5, 'inf', array( 's1' ) );
+		$steps = array();
+		for ( $i = 1; $i <= 20; $i++ ) {
+			$steps[] = array( 'key' => 's' . $i, 'type' => 'text', 'payload' => array( 'title' => 'T' . $i ) );
+		}
+		$_POST = array( 'lesson_id' => '5', 'subject_key' => 'inf', 'steps' => $steps );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveLessonSteps() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 20, $r->payload['count'] );
+	}
 }

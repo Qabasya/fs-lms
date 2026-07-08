@@ -7,6 +7,7 @@ namespace Unit\Services\Course;
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\CourseDTO;
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Course\ModuleDTO;
 use Inc\Enums\Course\AssignmentPolicy;
@@ -16,6 +17,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\CourseAssignmentService;
+use Inc\Services\Course\GroupLessonUsageGuard;
 use Inc\Services\Course\OpenCourseValidator;
 use PHPUnit\Framework\TestCase;
 
@@ -29,6 +31,7 @@ class CourseAssignmentServiceTest extends TestCase {
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
 	private LessonManager&\PHPUnit\Framework\MockObject\MockObject $lessonManager;
 	private OpenCourseValidator&\PHPUnit\Framework\MockObject\MockObject $openCourseValidator;
+	private GroupLessonUsageGuard&\PHPUnit\Framework\MockObject\MockObject $usageGuard;
 	private CourseAssignmentService $service;
 
 	protected function setUp(): void {
@@ -39,6 +42,7 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->dispatcher          = $this->createMock( LogEventDispatcherInterface::class );
 		$this->lessonManager       = $this->createMock( LessonManager::class );
 		$this->openCourseValidator = $this->createMock( OpenCourseValidator::class );
+		$this->usageGuard          = $this->createMock( GroupLessonUsageGuard::class );
 
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( self::NOW );
@@ -51,6 +55,7 @@ class CourseAssignmentServiceTest extends TestCase {
 			$this->lessonManager,
 			$clock,
 			$this->openCourseValidator,
+			$this->usageGuard,
 		);
 	}
 
@@ -179,19 +184,22 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->service->assign( 1, 5, 99 );
 	}
 
-	public function test_assign_to_open_group_rejects_course_without_autocheck(): void {
+	public function test_assign_to_open_group_does_not_reject_course_without_autocheck(): void {
+		// Ручная проверка в открытой группе не критична (некому проверять) —
+		// назначение больше не блокируется, только предупреждение (warningsFor()).
 		$this->setupGroupAndCourse( lessonIds: [ 10 ], accessMode: 'open' );
-		$this->openCourseValidator->method( 'assertSelfCheckable' )
-			->willThrowException( new \InvalidArgumentException( 'нет автопроверки' ) );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 0 );
+		$this->openCourseValidator->method( 'problems' )->willReturn( array( 'нет автопроверки' ) );
 
-		$this->groupLessons->expects( self::never() )->method( 'add' );
-		$this->expectException( \InvalidArgumentException::class );
+		$this->groupLessons->expects( self::once() )->method( 'add' );
 
-		$this->service->assign( 1, 5, 99 );
+		$count = $this->service->assign( 1, 5, 99 );
+
+		self::assertSame( 1, $count );
 	}
 
-	public function test_assign_to_scheduled_group_skips_autocheck_validation(): void {
-		$this->setupGroupAndCourse( lessonIds: [ 10 ] );
+	public function test_assign_never_calls_assert_self_checkable(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10 ], accessMode: 'open' );
 		$this->groupLessons->method( 'nextPosition' )->willReturn( 0 );
 
 		$this->openCourseValidator->expects( self::never() )->method( 'assertSelfCheckable' );
@@ -199,7 +207,85 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->service->assign( 1, 5, 99 );
 	}
 
+	public function test_warnings_for_returns_problems_for_open_group(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10 ], accessMode: 'open' );
+		$this->openCourseValidator->method( 'problems' )->willReturn( array( '«Урок»: задач без автопроверки — 2' ) );
+
+		$warnings = $this->service->warningsFor( 1, 5 );
+
+		self::assertSame( array( '«Урок»: задач без автопроверки — 2' ), $warnings );
+	}
+
+	public function test_warnings_for_returns_empty_for_scheduled_group(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10 ], accessMode: 'scheduled' );
+
+		$this->openCourseValidator->expects( self::never() )->method( 'problems' );
+
+		self::assertSame( array(), $this->service->warningsFor( 1, 5 ) );
+	}
+
+	// --- D17.3: reconcile осиротевших строк доставки ---
+
+	public function test_reconcile_removes_safe_orphan_delivery_row(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => null );
+		$this->groups->method( 'findByCourse' )->with( 5 )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 5 );
+		// Строка урока 10 — в курсе (оставить); урок 99 — сирота (ошибочная копия).
+		$this->groupLessons->method( 'listByGroup' )->with( 1 )->willReturn( array(
+			$this->glRow( id: 100, lessonId: 10 ),
+			$this->glRow( id: 200, lessonId: 99 ),
+		) );
+		$this->usageGuard->method( 'isSafeToRemove' )->with( 200 )->willReturn( true );
+
+		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 200 )->willReturn( true );
+
+		$res = $this->service->reconcileCourseLessons( 5, 99 );
+
+		self::assertSame( 1, $res['removed'] );
+	}
+
+	public function test_reconcile_keeps_orphan_with_engagement(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => null );
+		$this->groups->method( 'findByCourse' )->with( 5 )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 5 );
+		$this->groupLessons->method( 'listByGroup' )->with( 1 )->willReturn( array(
+			$this->glRow( id: 200, lessonId: 99 ),
+		) );
+		// За строкой есть данные журнала → не удаляем.
+		$this->usageGuard->method( 'isSafeToRemove' )->with( 200 )->willReturn( false );
+
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
+
+		$res = $this->service->reconcileCourseLessons( 5, 99 );
+
+		self::assertSame( 0, $res['removed'] );
+	}
+
+	public function test_reconcile_skips_locked_program(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => '2026-01-01 00:00:00' );
+		$this->groups->method( 'findByCourse' )->with( 5 )->willReturn( array( $group ) );
+
+		// Заблокированную КТП вообще не читаем и не трогаем.
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
+
+		$res = $this->service->reconcileCourseLessons( 5, 99 );
+
+		self::assertSame( 0, $res['removed'] );
+	}
+
 	// --- helpers ---
+
+	private function glRow( int $id, int $lessonId, string $kind = 'group' ): GroupLessonDTO {
+		return new GroupLessonDTO(
+			id: $id, groupId: 1, lessonId: $lessonId, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: null, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'hidden',
+			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null, label: null, kind: $kind,
+		);
+	}
 
 	private function setupGroupAndCourse( array $lessonIds = [ 10 ], string $accessMode = 'scheduled' ): void {
 		$group              = new \stdClass();

@@ -25,6 +25,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\ContentCacheService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Subject\TaskNumberTermGuard;
 use Inc\Shared\Traits\NumericSorter;
 
 /**
@@ -66,6 +67,7 @@ class SubjectController extends AjaxController {
 	 * @param SubjectValidationCallbacks   $validation_callbacks     Коллбеки валидации
 	 * @param ContentCacheService          $cache_service            Сервис кеширования
 	 * @param TemplateCallbacks            $task_page_callbacks      Коллбеки фронтенда заданий
+	 * @param TaskNumberTermGuard          $task_number_guard        Валидация терминов таксономии "Номера заданий"
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -83,6 +85,7 @@ class SubjectController extends AjaxController {
 		private readonly ContentCacheService $cache_service,
 		private readonly TemplateCallbacks $task_page_callbacks,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly TaskNumberTermGuard $task_number_guard,
 	) {
 		parent::__construct();
 	}
@@ -106,6 +109,10 @@ class SubjectController extends AjaxController {
 
 		add_action( 'admin_notices', array( $this->validation_callbacks, 'showEmptyRequiredTaxNotice' ) );
 		add_action( 'created_term', array( $this, 'onTermCreated' ), 10, 3 );
+
+		// Валидация терминов "Номера заданий" при добавлении через нативный экран WP (edit-tags.php)
+		add_filter( 'pre_insert_term', array( $this->task_number_guard, 'validateInsert' ), 10, 2 );
+		add_filter( 'wp_insert_term_data', array( $this->task_number_guard, 'normalizeSlug' ), 10, 2 );
 
 
 
@@ -225,7 +232,7 @@ class SubjectController extends AjaxController {
 	/**
 	 * Добавляет CPT и таксономии одного предмета в очередь регистраторов.
 	 *
-	 * @param object $subject DTO предмета (содержит поля key и name)
+	 * @param object $subject DTO предмета (содержит поля key, name, hasBank)
 	 *
 	 * @return void
 	 */
@@ -234,23 +241,29 @@ class SubjectController extends AjaxController {
 		$task_cpt    = PostTypeResolver::tasks( $key );
 		$article_cpt = PostTypeResolver::articles( $key );
 
-		// 1. Регистрация Заданий (только заголовок)
-		$task_args = $this->getDefaultCptArgs( 'tasks', $subject );
-		$this->cpt_registrar->addStandardType(
-			$task_cpt,
-			'Задания',
-			$task_args['labels'],
-			$task_args['options']
-		);
+		// Эпик 18: предмет без собственного банка заданий/статей (tasks_count=0 при
+		// создании, D18.1) — CPT tasks/articles и таксономия "Номера заданий" ему не
+		// нужны. Уроки/работы/курсы/контрольные регистрируются как обычно ниже —
+		// такой предмет всё ещё может иметь лекционные/видео-курсы и группы.
+		if ( $subject->hasBank ) {
+			// 1. Регистрация Заданий (только заголовок)
+			$task_args = $this->getDefaultCptArgs( 'tasks', $subject );
+			$this->cpt_registrar->addStandardType(
+				$task_cpt,
+				'Задания',
+				$task_args['labels'],
+				$task_args['options']
+			);
 
-		// 2. Регистрация Статей (заголовок, редактор, миниатюра)
-		$article_args = $this->getDefaultCptArgs( 'articles', $subject );
-		$this->cpt_registrar->addStandardType(
-			$article_cpt,
-			'Статьи',
-			$article_args['labels'],
-			$article_args['options']
-		);
+			// 2. Регистрация Статей (заголовок, редактор, миниатюра)
+			$article_args = $this->getDefaultCptArgs( 'articles', $subject );
+			$this->cpt_registrar->addStandardType(
+				$article_cpt,
+				'Статьи',
+				$article_args['labels'],
+				$article_args['options']
+			);
+		}
 
 		// 3. Регистрация Уроков (заголовок, редактор, автор, миниатюра)
 		$lesson_cpt  = PostTypeResolver::lessons( $key );
@@ -287,46 +300,48 @@ class SubjectController extends AjaxController {
 		$assessment_args = $this->getDefaultCptArgs( 'assessments', $subject );
 		$this->cpt_registrar->addStandardType(
 			$assessment_cpt,
-			'Контрольные',
+			'Экзамены',
 			$assessment_args['labels'],
 			$assessment_args['options']
 		);
 
-		// 4. Регистрация фиксированной таксономии "Номера заданий"
-		$fixed_tax_slug = "{$key}_task_number";
-		$this->tax_registrar->addFixedTaxonomy(
-			$fixed_tax_slug,
-			array( $task_cpt, $article_cpt ),
-			'Номера заданий',
-			'Номер задания',
-			array(
-				'public'       => true,
-				'show_ui'      => true,
-				// buildMetaBoxCallback() — создаёт коллбек для отображения метабокса
-				'meta_box_cb'  => $this->tax_registrar->buildMetaBoxCallback( 'select' ),
-				'show_in_menu' => true,
-				'rewrite'      => array( 'slug' => $fixed_tax_slug ),
-			)
-		);
-
-		// remove_meta_box() — удаляет стандартный метабокс таксономии
-		// Для заданий скрываем метабокс (выбор номера через модальное окно)
-		add_action(
-			'add_meta_boxes',
-			static function () use ( $task_cpt, $fixed_tax_slug ): void {
-				remove_meta_box( "tagsdiv-{$fixed_tax_slug}", $task_cpt, 'side' );
-			}
-		);
-
-		// 5. Регистрация пользовательских таксономий (только для заданий)
-		foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
-			$this->tax_registrar->addStandardTaxonomy(
-				$tax_dto->slug,
-				array( $task_cpt ),
-				$tax_dto->name,
-				$tax_dto->name,
-				$tax_dto->display_type
+		if ( $subject->hasBank ) {
+			// 4. Регистрация фиксированной таксономии "Номера заданий"
+			$fixed_tax_slug = "{$key}_task_number";
+			$this->tax_registrar->addFixedTaxonomy(
+				$fixed_tax_slug,
+				array( $task_cpt, $article_cpt ),
+				'Номера заданий',
+				'Номер задания',
+				array(
+					'public'       => true,
+					'show_ui'      => true,
+					// buildMetaBoxCallback() — создаёт коллбек для отображения метабокса
+					'meta_box_cb'  => $this->tax_registrar->buildMetaBoxCallback( 'select' ),
+					'show_in_menu' => true,
+					'rewrite'      => array( 'slug' => $fixed_tax_slug ),
+				)
 			);
+
+			// remove_meta_box() — удаляет стандартный метабокс таксономии
+			// Для заданий скрываем метабокс (выбор номера через модальное окно)
+			add_action(
+				'add_meta_boxes',
+				static function () use ( $task_cpt, $fixed_tax_slug ): void {
+					remove_meta_box( "tagsdiv-{$fixed_tax_slug}", $task_cpt, 'side' );
+				}
+			);
+
+			// 5. Регистрация пользовательских таксономий (только для заданий)
+			foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
+				$this->tax_registrar->addStandardTaxonomy(
+					$tax_dto->slug,
+					array( $task_cpt ),
+					$tax_dto->name,
+					$tax_dto->name,
+					$tax_dto->display_type
+				);
+			}
 		}
 
 		// 6. Фильтр для валидации обязательных таксономий при сохранении поста
@@ -432,10 +447,10 @@ class SubjectController extends AjaxController {
 			),
 			'assessments' => array(
 				'labels'  => array(
-					'nom'    => 'Контрольная',
-					'acc'    => 'контрольную',
-					'gen'    => 'контрольной',
-					'gender' => 'feminine',
+					'nom'    => 'Экзамен',
+					'acc'    => 'экзамен',
+					'gen'    => 'экзамена',
+					'gender' => 'masculine',
 				),
 				// Плеер экзамена отдаётся по singular-пермалинку (AssessmentPageController),
 				// поэтому остаётся publicly_queryable; доступ закрывает гард-404 в контроллере.

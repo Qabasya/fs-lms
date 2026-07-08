@@ -48,6 +48,19 @@ class CourseBuilderCallbacks extends BaseController {
 	}
 
 	/**
+	 * D17.3: после изменения структуры курса — полная синхронизация КТП групп
+	 * (добавить новые уроки + удалить осиротевшие безопасные строки доставки для
+	 * уроков, убранных из курса). Best-effort: сбой не должен ронять сохранение.
+	 */
+	private function reconcileCourseToGroups( int $courseId ): void {
+		try {
+			$this->assignment->reconcileCourseLessons( $courseId, get_current_user_id() );
+		} catch ( \Throwable $e ) {
+			PluginLogger::exception( 'CourseBuilder', $e, array( 'course_id' => $courseId ) );
+		}
+	}
+
+	/**
 	 * Создаёт черновик курса. Params: subject_key, title
 	 */
 	public function ajaxCreateCourseDraft(): void {
@@ -91,6 +104,9 @@ class CourseBuilderCallbacks extends BaseController {
 		$modules   = $this->sanitizeModules( wp_unslash( $_POST['modules'] ?? array() ) );
 
 		if ( $this->builder->saveStructure( $course_id, $modules ) ) {
+			// D17.3: урок мог быть убран из курса — ре-синк снимает осиротевшие
+			// строки доставки (иначе они ложно блокируют удаление урока).
+			$this->reconcileCourseToGroups( $course_id );
 			$this->success( array( 'saved' => true ) );
 		} else {
 			$this->error( 'Не удалось сохранить структуру.' );

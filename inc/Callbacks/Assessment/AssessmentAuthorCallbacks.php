@@ -10,6 +10,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\WorkManager;
+use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Course\LessonAuthoringService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\Authorizer;
@@ -31,6 +32,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 		private readonly AssessmentManager      $assessmentManager,
 		private readonly WorkManager            $workManager,
 		private readonly LessonAuthoringService $authoringService,
+		private readonly EgeCompletenessChecker $completeness,
 	) {
 		parent::__construct();
 	}
@@ -55,11 +57,30 @@ class AssessmentAuthorCallbacks extends BaseController {
 			}
 		}
 
-		if ( $this->assessmentManager->setItemIds( $assessment_id, $item_ids, $task_points ) ) {
-			$this->success( array( 'count' => count( $item_ids ) ) );
-		} else {
-			$this->error( 'Контрольная не найдена.' );
+		if ( ! $this->assessmentManager->setItemIds( $assessment_id, $item_ids, $task_points ) ) {
+			$this->error( 'Экзамен не найден.' );
+			return;
 		}
+
+		$response = array( 'count' => count( $item_ids ) );
+
+		// T16.10: для ЕГЭ/КЕГЭ возвращаем строгий вердикт полноты (D16.2) —
+		// живой индикатор «заполнено X/N» и подсветка пропусков/дублей в конструкторе.
+		$assessment = $this->assessmentManager->get( $assessment_id );
+		if ( null !== $assessment && $assessment->kind->needsCompletenessCheck() ) {
+			$result                   = $this->completeness->validate( $assessment, $assessment->subjectKey );
+			$response['completeness'] = array(
+				'isComplete'    => $result->isStrictlyComplete(),
+				'expectedCount' => $result->expectedCount,
+				'actualCount'   => $result->actualCount,
+				'missing'       => $result->missing,
+				'duplicated'    => $result->duplicated,
+				'orphans'       => $result->orphans,
+				'summary'       => $result->summary(),
+			);
+		}
+
+		$this->success( $response );
 	}
 
 	/**

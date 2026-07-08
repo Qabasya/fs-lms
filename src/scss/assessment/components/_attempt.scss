@@ -39,24 +39,6 @@
   margin-bottom: 14px;
 }
 
-.fs-assessment-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 22px;
-}
-
-.fs-assessment-meta-item {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  font: 600 12.5px var(--font);
-  color: var(--ink-2);
-}
-
 .fs-assessment-notice {
   padding: 16px 20px;
   background: var(--surface-2);
@@ -64,6 +46,51 @@
   border-radius: var(--radius);
   color: var(--muted);
   font-size: 14.5px;
+}
+
+/* ── Стадия [intro]: стартовый экран (D16.4) ─────────────────────────── */
+.fs-assessment-intro {
+  &__desc {
+    margin-bottom: 22px;
+    color: var(--ink-2);
+    font: 15px/1.6 var(--font);
+
+    p { margin: 0 0 10px; }
+    p:last-child { margin-bottom: 0; }
+  }
+
+  &__rules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 26px;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__rule {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  &__rule-label {
+    font: 600 12.5px var(--font);
+    color: var(--muted);
+  }
+
+  &__rule-value {
+    font: 700 13.5px var(--font);
+    color: var(--ink);
+  }
+
+  &__actions {
+    margin-bottom: 10px;
+  }
 }
 
 /* ── Таймер в липкой шапке .s-top (всегда виден при скролле) ─────────── */

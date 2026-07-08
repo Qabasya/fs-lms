@@ -130,4 +130,35 @@ class LessonProgressRepository {
 	public function deleteByGroupLesson( int $groupLessonId ): void {
 		$this->wpdb->delete( $this->table, array( 'group_lesson_id' => $groupLessonId ) );
 	}
+
+	/**
+	 * Время последней активности ученика по каждой группе (D17.1): MAX(updated_at)
+	 * прогресса шагов, сгруппированный по группе через связь group_lesson_id → group_id.
+	 * Используется для recency-сортировки «Мои курсы» (свежий курс — первым).
+	 *
+	 * @return array<int, string> group_id => 'Y-m-d H:i:s'
+	 */
+	public function latestActivityByStudent( int $studentPersonId ): array {
+		$groupLessons = TableName::GroupLessons->prefixed();
+		$rows         = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT gl.group_id AS group_id, MAX(lp.updated_at) AS last_activity
+				 FROM %i lp
+				 INNER JOIN %i gl ON gl.id = lp.group_lesson_id
+				 WHERE lp.student_person_id = %d
+				 GROUP BY gl.group_id',
+				$this->table,
+				$groupLessons,
+				$studentPersonId
+			),
+			ARRAY_A
+		);
+
+		$map = array();
+		foreach ( $rows ?: array() as $row ) {
+			$map[ (int) $row['group_id'] ] = (string) $row['last_activity'];
+		}
+
+		return $map;
+	}
 }

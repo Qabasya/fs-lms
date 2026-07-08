@@ -33,7 +33,7 @@ export const TYPE_UI = {
 	video:      { ui: 'video',    name: 'Видео',       inline: true },
 	task:       { ui: 'task',       name: 'Задача',      inline: false, candKind: 'task' },
 	work:       { ui: 'practice',  name: 'Работа',      inline: false, candKind: 'work' },
-	assessment: { ui: 'assessment', name: 'Контрольная', inline: false, candKind: 'assessment' },
+	assessment: { ui: 'assessment', name: 'Экзамен', inline: false, candKind: 'assessment' },
 };
 
 /** Опции поповера «Добавить шаг» (плоский type-first). */
@@ -42,8 +42,11 @@ const ADD_TYPES = [
 	{ type: 'video',      desc: 'YouTube, Vimeo, файл' },
 	{ type: 'task',       desc: 'Задача из предмета или банка — любого типа' },
 	{ type: 'work',       desc: 'Работа из библиотеки' },
-	{ type: 'assessment', desc: 'Контрольная из библиотеки' },
+	{ type: 'assessment', desc: 'Экзамен из библиотеки' },
 ];
+
+/** Максимум шагов в одном уроке (зеркалит серверный LessonCallbacks::MAX_STEPS_PER_LESSON). */
+export const MAX_STEPS = 20;
 
 export const uiMeta = ( ourType ) => TYPE_UI[ ourType ] || TYPE_UI.text;
 export const icon   = ( ourType ) => stepIcon( uiMeta( ourType ).ui );
@@ -314,11 +317,14 @@ export function createStepEditor( opts ) {
 			row.appendChild( chip );
 		} );
 
-		const add = document.createElement( 'div' );
-		add.className = 'step-chip step-add';
-		add.innerHTML = '<div class="step-chip-box">' + icoPlus( 22 ) + '</div><span class="sc-type">Добавить</span>';
-		add.addEventListener( 'click', openPopover );
-		row.appendChild( add );
+		// Кнопка «Добавить» скрывается при достижении лимита шагов.
+		if ( lesson.steps.length < MAX_STEPS ) {
+			const add = document.createElement( 'div' );
+			add.className = 'step-chip step-add';
+			add.innerHTML = '<div class="step-chip-box">' + icoPlus( 22 ) + '</div><span class="sc-type">Добавить</span>';
+			add.addEventListener( 'click', openPopover );
+			row.appendChild( add );
+		}
 	}
 
 	// ── drag шагов (в пределах урока) ──
@@ -816,6 +822,10 @@ export function createStepEditor( opts ) {
 		}
 	}
 	function dupStep( step ) {
+		if ( lesson.steps.length >= MAX_STEPS ) {
+			showToast( `В уроке не может быть больше ${ MAX_STEPS } шагов`, 'error' );
+			return;
+		}
 		const i = lesson.steps.indexOf( step );
 		const copy = { key: tmpKey( 's' ), type: step.type, title: step.title, payload: Object.assign( {}, step.payload ) };
 		if ( copy.payload.title ) { copy.payload.title += ' (копия)'; }
@@ -857,6 +867,10 @@ export function createStepEditor( opts ) {
 	}
 
 	function addStep( menuType ) {
+		if ( lesson.steps.length >= MAX_STEPS ) {
+			showToast( `В уроке не может быть больше ${ MAX_STEPS } шагов`, 'error' );
+			return;
+		}
 		const meta = uiMeta( menuType );
 		const step = meta.inline
 			? { key: tmpKey( 's' ), type: menuType, title: meta.name, payload: { title: '' } }

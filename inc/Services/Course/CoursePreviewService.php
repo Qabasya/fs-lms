@@ -164,6 +164,7 @@ class CoursePreviewService {
 				'template'       => '',
 				'condition_html' => '',
 				'widget_data'    => array(),
+				'files'          => array(),
 				'hint_html'      => '',
 				'settings'       => array(),
 				'attempts_used'  => 0,
@@ -178,6 +179,7 @@ class CoursePreviewService {
 			'template'       => $bundle['template'],
 			'condition_html' => $bundle['condition_html'],
 			'widget_data'    => $bundle['widget_data'],
+			'files'          => $bundle['files'],
 			// D4: в preview нет попыток/сдач — подсказка-после-N-ошибок неприменима.
 			'hint_html'      => '',
 			'settings'       => array(),

@@ -25,6 +25,8 @@ readonly class AssessmentDTO {
 		public array          $taskPoints,
 		/** @var array<int, int> primary_score => secondary_score */
 		public array          $scoreMap,
+		/** Per-work WYSIWYG-описание для интро-шага (D16.4); пусто → дефолты AssessmentIntroConfig. */
+		public string         $introHtml = '',
 	) {}
 
 	public static function fromPost( \WP_Post $post, array $meta ): self {
@@ -63,6 +65,7 @@ readonly class AssessmentDTO {
 			kind            : $kind,
 			taskPoints      : $taskPoints,
 			scoreMap        : $scoreMap,
+			introHtml       : is_string( $meta['intro_html'] ?? null ) ? $meta['intro_html'] : '',
 		);
 	}
 

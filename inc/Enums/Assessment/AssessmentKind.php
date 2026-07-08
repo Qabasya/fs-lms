@@ -36,6 +36,18 @@ enum AssessmentKind: string {
 		};
 	}
 
+	/**
+	 * Бинарное оценивание «верно/неверно»: каждое задание весит ровно 1 балл
+	 * (max = 1), частичный балл и критерии игнорируются (D16.1). Только для
+	 * Control; ЕГЭ/КЕГЭ используют взвешенный балл (см. {@see usesWeightedScore()}).
+	 */
+	public function binaryScoring(): bool {
+		return match ( $this ) {
+			self::Control => true,
+			default       => false,
+		};
+	}
+
 	/** Первичный балл переводится во вторичный по score_map работы. */
 	public function needsSecondaryScore(): bool {
 		return match ( $this ) {

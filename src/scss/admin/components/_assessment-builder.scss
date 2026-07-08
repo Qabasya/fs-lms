@@ -14,8 +14,8 @@
 		grid-template-columns: repeat(4, 1fr);
 		gap: $spacing-md $spacing-xl;
 
-		// score_map — всегда последний, занимает всю ширину
-		.fs-lms-field-group:last-child {
+		// score_map и intro_html (WYSIWYG) занимают всю ширину сетки
+		.fs-lms-field-group {
 			grid-column: 1 / -1;
 		}
 	}
@@ -25,4 +25,46 @@
 .fs-lms-score-map-field {
 	font-family: monospace;
 	font-size: $font-size-xs;
+}
+
+// Утилита скрытия (замена инлайновому display:none в JS).
+.fs-hidden {
+	display: none;
+}
+
+// ── Индикатор укомплектованности ЕГЭ (D16.5) ──────────────────
+.fs-ege-status {
+	display: flex;
+	flex-wrap: wrap;
+	gap: $spacing-sm;
+	align-items: center;
+	margin-bottom: $spacing-md;
+	padding: $spacing-sm $spacing-md;
+	border: 1px solid $wp-admin-gray-bg;
+	border-radius: $border-radius-md;
+	background: $cb-bg-tree;
+	font-size: $font-size-xs;
+
+	&.is-complete {
+		border-color: $wp-admin-green;
+		background: $wp-admin-green-bg;
+	}
+
+	&.is-incomplete {
+		border-color: $cb-danger-border-color;
+		background: $cb-danger-hover-bg;
+	}
+
+	&__count {
+		font-weight: 600;
+	}
+
+	&__warn {
+		color: $color-danger;
+	}
+
+	&__ok {
+		color: $wp-admin-green-text;
+		font-weight: 600;
+	}
 }

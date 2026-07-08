@@ -219,15 +219,23 @@ class LearnerService {
 		$examLock    = null;
 		if ( null !== $lockAttempt ) {
 			$examLock = array(
-				'title' => get_the_title( $lockAttempt->assessmentId ) ?: 'Контрольная',
+				'title' => get_the_title( $lockAttempt->assessmentId ) ?: 'Экзамен',
 				'url'   => (string) get_permalink( $lockAttempt->assessmentId ),
 			);
 		}
 
+		// №2 (D17.2): открытые группы существуют только как курсы в «Мои курсы» —
+		// как ГРУППЫ в блоке приветствия/статистике ученика их не показываем
+		// (видны лишь в админке). Полный $groups сохраняем для курсов и оценок ниже.
+		$visibleGroups = array_values( array_filter(
+			$groups,
+			static fn( $g ) => 'open' !== ( $g['access_mode'] ?? 'scheduled' )
+		) );
+
 		return array(
 			'exam_lock' => $examLock,
-			'groups'    => array_values( $groups ),
-			'courses'   => $this->buildCourses( $groups, $rawRows, $lessonMap, $roomNames ),
+			'groups'    => $visibleGroups,
+			'courses'   => $this->buildCourses( $groups, $rawRows, $lessonMap, $roomNames, $personId ),
 			// Эпик 15 (П10): каталог открытых курсов для самозаписи.
 			'catalog'   => $this->buildCatalog( array_keys( $groups ) ),
 			'upcoming'  => array_slice( $upcoming, 0, 6 ),
@@ -291,7 +299,7 @@ class LearnerService {
 	 * @param array<int, string>              $roomNames id → имя кабинета
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function buildCourses( array $groups, array $rawRows, array $lessonMap, array $roomNames ): array {
+	private function buildCourses( array $groups, array $rawRows, array $lessonMap, array $roomNames, int $personId ): array {
 		// lessonId → item ученика, по группе (групповые занятия с контентом).
 		$byLesson = array();
 		foreach ( $rawRows as $glid => $row ) {
@@ -377,6 +385,17 @@ class LearnerService {
 				'continue_num' => $next['num'] ?? 0,
 			);
 		}
+
+		// №1 (D17.1): recency-сортировка — курс с недавно открытым уроком первым
+		// (MAX(lesson_progress.updated_at) по группе). Курсы без активности идут
+		// после, сохраняя порядок зачисления (usort стабилен в PHP 8+). Пустой
+		// timestamp сортируется ниже любого реального времени.
+		$activity = $this->progress->latestActivityByStudent( $personId );
+		usort( $result, static function ( array $a, array $b ) use ( $activity ): int {
+			$ta = $activity[ (int) $a['id'] ] ?? '';
+			$tb = $activity[ (int) $b['id'] ] ?? '';
+			return strcmp( $tb, $ta );
+		} );
 
 		return $result;
 	}

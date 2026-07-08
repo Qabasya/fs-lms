@@ -23,7 +23,7 @@ export const TYPES = {
 	video: { label: 'Видео', c: '#7048e8', soft: '#f1ecfd' },
 	task: { label: 'Задача', c: '#099268', soft: '#e6f7f1' },
 	work: { label: 'Работа', c: '#e8590c', soft: '#fdeee3' },
-	assessment: { label: 'Контрольная', c: '#e03131', soft: '#fdecec' },
+	assessment: { label: 'Экзамен', c: '#e03131', soft: '#fdecec' },
 };
 
 export function typeMeta( type ) {

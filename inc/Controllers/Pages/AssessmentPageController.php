@@ -28,6 +28,23 @@ use Inc\Services\Shared\ThemeCompatService;
  *
  * Подменяет шаблон для CPT {key}_assessments на фронтенде.
  *
+ * ── Конвейер стадий прохождения (D16.4) ───────────────────────────────────────
+ * Страница экзамена проходит три декуплированные стадии, разведённые по партиалам:
+ *
+ *   [intro]  → attempt-intro.php   (стартовый экран: описание + правила + «Начать»)
+ *   [tasks]  → attempt.php         (форма активной попытки / рендерер kind)
+ *   [result] → attempt.php         (экран результата завершённой попытки)
+ *
+ * Дефолтный рендерер `attempt.php` сам выбирает стадию по состоянию попытки и
+ * подключает интро-партиал только в ветке «нет активной/последней попытки».
+ *
+ * ── Точки замены (фильтры) ────────────────────────────────────────────────────
+ * Чтобы поменять шаг ДО заданий — правится ОДНО место: партиал интро или фильтр.
+ *   - {@see RENDERER_FILTER} — заменить весь плеер (стадию tasks/result целиком);
+ *   - {@see INTRO_FILTER}    — заменить только стартовый экран (стадию intro).
+ * КЕГЭ-модуль уже имеет свой интро (kege/entry.php) и рендерер — он остаётся на
+ * своём контракте (D16.6) и не задействует INTRO_FILTER.
+ *
  * @package Inc\Controllers\Pages
  */
 class AssessmentPageController extends BaseController implements ServiceInterface {
@@ -38,6 +55,14 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 	 *   add_filter('fs_lms_assessment_renderer', fn($tpl, $kind, $subject) => 'путь/к/скину.php', 10, 3)
 	 */
 	public const RENDERER_FILTER = 'fs_lms_assessment_renderer';
+
+	/**
+	 * WP filter: выбор партиала интро-шага (стартового экрана) — зеркало
+	 * {@see RENDERER_FILTER} (D16.4, T16.13). Позволяет модулю/скину заменить
+	 * ТОЛЬКО стартовый экран, не трогая рендерер заданий:
+	 *   add_filter('fs_lms_assessment_intro', fn($partial, $kind, $subject) => 'путь/к/intro.php', 10, 3)
+	 */
+	public const INTRO_FILTER = 'fs_lms_assessment_intro';
 
 	/**
 	 * WP filter: признак «страница прохождения контрольной на bare-шелле плеера»
@@ -155,6 +180,18 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 
 		if ( ! file_exists( $template ) ) {
 			$template = $defaultTemplate;
+		}
+
+		// D16.4: стадия intro — отдельный партиал, заменяемый через INTRO_FILTER.
+		$defaultIntro = $this->path( 'templates/frontend/assessment/attempt-intro.php' );
+		$introTemplate = (string) apply_filters(
+			self::INTRO_FILTER,
+			$defaultIntro,
+			$assessment->kind->value,
+			$assessment->subjectKey
+		);
+		if ( ! file_exists( $introTemplate ) ) {
+			$introTemplate = $defaultIntro;
 		}
 
 		$backUrl = $this->resolveBackUrl();

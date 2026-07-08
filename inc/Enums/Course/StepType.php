@@ -48,7 +48,7 @@ enum StepType: string {
 			self::Video      => 'Видео',
 			self::Task       => 'Задача',
 			self::Work       => 'Работа',
-			self::Assessment => 'Контрольная',
+			self::Assessment => 'Экзамен',
 		};
 	}
 

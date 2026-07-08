@@ -34,12 +34,25 @@ class TaskCheckerRegistryTest extends TestCase {
 		self::assertTrue( $this->registry->has( TaskTemplate::Matching ) );
 		self::assertTrue( $this->registry->has( TaskTemplate::Ordering ) );
 		self::assertTrue( $this->registry->has( TaskTemplate::Fill ) );
+		self::assertTrue( $this->registry->has( TaskTemplate::Standard ) );
 	}
 
-	public function test_has_returns_false_for_code_tasks(): void {
-		// Code/File task types require manual review — no auto-checker registered.
-		self::assertFalse( $this->registry->has( TaskTemplate::Code ) );
-		self::assertFalse( $this->registry->has( TaskTemplate::File ) );
+	/**
+	 * Код/файловые и текст-решение шаблоны имеют поле ответа (`task_answer`) —
+	 * сверяется ТОЛЬКО ответ, поэтому они автопроверяемы (не ручные).
+	 */
+	public function test_has_returns_true_for_code_and_file_tasks(): void {
+		self::assertTrue( $this->registry->has( TaskTemplate::Code ) );
+		self::assertTrue( $this->registry->has( TaskTemplate::FileCode ) );
+		self::assertTrue( $this->registry->has( TaskTemplate::File ) );
+		self::assertTrue( $this->registry->has( TaskTemplate::TwoFile ) );
+		self::assertTrue( $this->registry->has( TaskTemplate::TextSolution ) );
+	}
+
+	/** Единственный ручной тип во всём плагине — «Развёрнутый ответ». */
+	public function test_only_file_answer_is_manual(): void {
+		self::assertFalse( $this->registry->has( TaskTemplate::FileAnswer ) );
+		self::assertNull( $this->registry->get( TaskTemplate::FileAnswer ) );
 	}
 
 	public function test_get_returns_correct_checker_type(): void {
@@ -49,7 +62,9 @@ class TaskCheckerRegistryTest extends TestCase {
 		self::assertInstanceOf( FillChecker::class,     $this->registry->get( TaskTemplate::Fill ) );
 	}
 
-	public function test_get_returns_null_for_code_task(): void {
-		self::assertNull( $this->registry->get( TaskTemplate::Code ) );
+	public function test_code_and_file_tasks_use_text_answer_checker(): void {
+		self::assertInstanceOf( TextAnswerChecker::class, $this->registry->get( TaskTemplate::Code ) );
+		self::assertInstanceOf( TextAnswerChecker::class, $this->registry->get( TaskTemplate::FileCode ) );
+		self::assertInstanceOf( TextAnswerChecker::class, $this->registry->get( TaskTemplate::TextSolution ) );
 	}
 }

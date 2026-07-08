@@ -4,9 +4,16 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Course;
 
+use Inc\DTO\Course\CourseDTO;
+use Inc\DTO\Course\GroupLessonDTO;
+use Inc\DTO\Course\ModuleDTO;
+use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\ContentUsageService;
+use Inc\Services\Course\GroupLessonUsageGuard;
 use PHPUnit\Framework\TestCase;
 
 class ContentUsageServiceTest extends TestCase {
@@ -89,5 +96,59 @@ class ContentUsageServiceTest extends TestCase {
 		fs_test_seed_post( array( 'ID' => 31, 'post_type' => 'inf_works' ), array( 'fs_lms_meta' => array( 'item_ids' => array( 999 ) ) ) );
 
 		self::assertSame( 0, $this->usage->usageCount( 'task', 30 ) );
+	}
+
+	/* ── D17.3: orphan-aware учёт доставки урока ──────────────────────────── */
+
+	private function glRow( int $id, int $lessonId ): GroupLessonDTO {
+		return new GroupLessonDTO(
+			id: $id, groupId: 1, lessonId: $lessonId, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: null, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'hidden',
+			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null, label: null,
+		);
+	}
+
+	/** ContentUsageService со стаб-зависимостями доставки (одна строка урока 500 в группе 1). */
+	private function usageWithDelivery( int $courseLessonId, bool $engagement, ?string $lockedAt = null ): ContentUsageService {
+		fs_test_seed_post( array( 'ID' => 500, 'post_type' => 'inf_lessons' ) );
+
+		$groupLessons = $this->createMock( GroupLessonRepository::class );
+		$groups       = $this->createMock( GroupsRepository::class );
+		$courses      = $this->createMock( CourseManager::class );
+		$guard        = $this->createMock( GroupLessonUsageGuard::class );
+
+		$groupLessons->method( 'listByLesson' )->with( 500 )->willReturn( array( $this->glRow( 200, 500 ) ) );
+		$groups->method( 'findById' )->with( 1 )->willReturn(
+			(object) array( 'id' => 1, 'course_id' => 5, 'program_locked_at' => $lockedAt )
+		);
+		$courses->method( 'get' )->with( 5 )->willReturn( new CourseDTO(
+			id: 5, subjectKey: 'inf', title: 'C', descriptionHtml: '',
+			modules: array( new ModuleDTO( 'm', 'M', array( $courseLessonId ) ) ), authorId: 1, status: 'publish',
+		) );
+		$guard->method( 'hasEngagement' )->with( 200 )->willReturn( $engagement );
+
+		return new ContentUsageService( new PostManager(), new SubjectRepository(), $groupLessons, $groups, $courses, $guard );
+	}
+
+	public function test_lesson_orphan_delivery_not_counted(): void {
+		// Курс группы содержит урок 10, а не 500 → строка 500 осиротела, нет вовлечённости.
+		$usage = $this->usageWithDelivery( courseLessonId: 10, engagement: false );
+
+		self::assertSame( 0, $usage->usageCount( 'lesson', 500 ) );
+	}
+
+	public function test_lesson_delivery_counts_when_course_contains_it(): void {
+		// Курс группы всё ещё содержит урок 500 → реальная доставка.
+		$usage = $this->usageWithDelivery( courseLessonId: 500, engagement: false );
+
+		self::assertSame( 1, $usage->usageCount( 'lesson', 500 ) );
+	}
+
+	public function test_lesson_orphan_with_engagement_counts(): void {
+		// Урок вышел из курса, но за строкой есть данные журнала → считаем использованием.
+		$usage = $this->usageWithDelivery( courseLessonId: 10, engagement: true );
+
+		self::assertSame( 1, $usage->usageCount( 'lesson', 500 ) );
 	}
 }

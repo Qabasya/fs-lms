@@ -134,4 +134,15 @@ class TaskAttemptRepository {
 	public function deleteAllByGroupLesson( int $groupLessonId ): int {
 		return (int) $this->wpdb->delete( $this->table, array( 'group_lesson_id' => $groupLessonId ) );
 	}
+
+	/** Есть ли хотя бы одна попытка задания по строке доставки (D17.3: guard вовлечённости). */
+	public function hasAnyByGroupLesson( int $groupLessonId ): bool {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT EXISTS(SELECT 1 FROM %i WHERE group_lesson_id = %d)',
+				$this->table,
+				$groupLessonId
+			)
+		) > 0;
+	}
 }

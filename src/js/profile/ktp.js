@@ -197,7 +197,7 @@ async function wireCoursePicker() {
             : '<option value="">Нет курсов по этому предмету</option>';
     } catch (e) {
         sel.innerHTML = '<option value="">Не удалось загрузить курсы</option>';
-        toast(e.message);
+        toast(e.message, 'error');
     }
 
     sel.addEventListener('change', () => { btn.disabled = !sel.value; });
@@ -205,10 +205,13 @@ async function wireCoursePicker() {
         if (!sel.value) { return; }
         btn.disabled = true;
         try {
-            await coursesApi('assignCourse', { group_id: state.groupId, course_id: sel.value });
-            toast('Курс назначен');
+            const res = await coursesApi('assignCourse', { group_id: state.groupId, course_id: sel.value });
+            const warnings = (res && res.warnings) || [];
+            toast(warnings.length
+                ? `Курс назначен. Внимание: ${warnings.join('; ')}`
+                : 'Курс назначен', warnings.length ? 'error' : 'ok');
             await loadCalendar();
-        } catch (e) { toast(e.message); btn.disabled = false; }
+        } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });
 }
 
@@ -593,7 +596,7 @@ async function assignIndiLesson(lid) {
         await fetchIndividual();   // обновить темы/lesson_id слотов
         renderIndiCalendar();      // перерисовать календарь с новым уроком
         renderIndiBank();          // обновить пометку «текущий»
-    } catch (e) { toast(e.message); }
+    } catch (e) { toast(e.message, 'error'); }
 }
 
 function renderLessonCandidates(lessons, currentId) {
@@ -614,7 +617,7 @@ async function doReflow() {
             : 'Темы распределены автоматически');
         await loadCalendar();
     } catch (e) {
-        toast(e.message);
+        toast(e.message, 'error');
     }
 }
 
@@ -624,7 +627,7 @@ async function doPublish() {
         await api('publish', { group_id: state.groupId });
         toast('КТП опубликована — редактирование заблокировано');
         await loadCalendar();
-    } catch (e) { toast(e.message); }
+    } catch (e) { toast(e.message, 'error'); }
 }
 
 async function doUnpublish() {
@@ -632,7 +635,7 @@ async function doUnpublish() {
         await api('unpublish', { group_id: state.groupId });
         toast('Публикация снята — редактирование доступно');
         await loadCalendar();
-    } catch (e) { toast(e.message); }
+    } catch (e) { toast(e.message, 'error'); }
 }
 
 /* ── Дедлайны работ занятия (T12.3, D13) ─────────────────────────────────
@@ -648,7 +651,7 @@ async function openDeadlinesPopover(glid, anchorEl) {
     try {
         const res = await api('getDeadlines', { group_lesson_id: glid });
         works = res.works || [];
-    } catch (e) { toast(e.message); return; }
+    } catch (e) { toast(e.message, 'error'); return; }
 
     const html = `
         <div class="wd-pop">
@@ -675,7 +678,7 @@ async function openDeadlinesPopover(glid, anchorEl) {
             await api('saveDeadlines', { group_lesson_id: glid, deadlines: JSON.stringify(deadlines) });
             toast('Дедлайны сохранены');
             closeCtxMenu();
-        } catch (e) { toast(e.message); saveBtn.disabled = false; }
+        } catch (e) { toast(e.message, 'error'); saveBtn.disabled = false; }
     });
 }
 
@@ -715,7 +718,7 @@ function openThemeActionsMenu(glid, anchorEl) {
             await api('continue', { group_lesson_id: glid });
             toast('Тема продолжена — перетащите копию из банка тем на вторую дату');
             await loadCalendar();
-        } catch (e) { toast(e.message); }
+        } catch (e) { toast(e.message, 'error'); }
     });
 }
 
@@ -745,13 +748,13 @@ function attachDrop(cell) {
         // Время слота — из расписания группы (lessonTimes: 'HH:MM–HH:MM').
         // Никаких 09:00-заглушек: нет времени слота — не закрепляем.
         const start = (((state.data.lessonTimes || {})[day] || '').match(/\d{1,2}:\d{2}/) || [])[0];
-        if (!start) { toast('У этого дня нет слота занятия'); return; }
+        if (!start) { toast('У этого дня нет слота занятия', 'error'); return; }
         try {
             await api('pin', { group_lesson_id: glid, scheduled_at: `${day} ${start}:00` });
             toast(`Тема закреплена на ${day} ${start}`);
             await loadCalendar();
         } catch (err) {
-            toast(err.message);
+            toast(err.message, 'error');
         }
     });
 }

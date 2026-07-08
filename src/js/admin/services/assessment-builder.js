@@ -33,11 +33,62 @@ function mount( el ) {
 	const blankSlot    = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '', points: 0 } );
 	const buildEgeSlots = ( count ) => Array.from( { length: count }, ( _, i ) => blankSlot( i ) );
 
+	// D16.5: живой индикатор укомплектованности ЕГЭ — вставляется рядом с
+	// конструктором (в .fs-sb-wrap), т.к. createSlotBuilder очищает innerHTML el.
+	let statusBar = null;
+	if ( egeSlots > 0 && el.parentElement ) {
+		statusBar = document.createElement( 'div' );
+		statusBar.className = 'fs-ege-status';
+		statusBar.hidden    = ! isEge( prevKind );
+		el.parentElement.insertBefore( statusBar, el );
+	}
+
 	function toggleKindFields( kind ) {
 		const scoreMapRow = document.querySelector( '#score_map' )?.closest( '.fs-lms-field-group' );
 		if ( scoreMapRow ) {
-			scoreMapRow.style.display = isEge( kind ) ? '' : 'none';
+			scoreMapRow.classList.toggle( 'fs-hidden', ! isEge( kind ) );
 		}
+		if ( statusBar ) { statusBar.hidden = ! isEge( kind ); }
+		if ( ! isEge( kind ) ) { gatePublish( true ); }
+	}
+
+	/**
+	 * Гейт публикации (D16.5): для неукомплектованной ЕГЭ-работы блокируем кнопку
+	 * «Опубликовать/Обновить». Черновик (Сохранить) остаётся доступен. Серверный
+	 * гард (T16.7) — жёсткая страховка; здесь мягкий UX-барьер.
+	 */
+	function gatePublish( ok ) {
+		const btn = document.getElementById( 'publish' );
+		if ( ! btn ) { return; }
+		btn.disabled = ! ok;
+		btn.classList.toggle( 'disabled', ! ok );
+		btn.setAttribute( 'aria-disabled', ok ? 'false' : 'true' );
+	}
+
+	/** Обновляет индикатор «Заполнено X/N» и подсветку пропусков/дублей/сирот. */
+	function renderCompleteness( verdict ) {
+		if ( ! statusBar || ! verdict ) { return; }
+
+		const covered = Math.max( 0, verdict.expectedCount - ( verdict.missing?.length || 0 ) );
+		statusBar.classList.toggle( 'is-complete', !! verdict.isComplete );
+		statusBar.classList.toggle( 'is-incomplete', ! verdict.isComplete );
+
+		const chips = [ `<span class="fs-ege-status__count">Заполнено ${ covered }/${ verdict.expectedCount }</span>` ];
+		if ( verdict.missing?.length ) {
+			chips.push( `<span class="fs-ege-status__warn">Не хватает номеров: ${ verdict.missing.join( ', ' ) }</span>` );
+		}
+		if ( verdict.duplicated?.length ) {
+			chips.push( `<span class="fs-ege-status__warn">Дубли номеров: ${ verdict.duplicated.join( ', ' ) }</span>` );
+		}
+		if ( verdict.orphans?.length ) {
+			chips.push( `<span class="fs-ege-status__warn">Заданий без номера: ${ verdict.orphans.length }</span>` );
+		}
+		if ( verdict.isComplete ) {
+			chips.push( '<span class="fs-ege-status__ok">Работа укомплектована</span>' );
+		}
+		statusBar.innerHTML = chips.join( '' );
+
+		gatePublish( !! verdict.isComplete );
 	}
 
 	function buildTaskPoints( slots ) {
@@ -68,6 +119,12 @@ function mount( el ) {
 			item_ids:      slots.map( ( s ) => s.taskId ),
 			task_points:   buildTaskPoints( slots ),
 		} ),
+
+		// D16.5: ответ сохранения несёт строгий вердикт полноты (T16.10) —
+		// обновляем индикатор и гейт публикации.
+		onPersisted: ( data ) => {
+			if ( data && data.completeness ) { renderCompleteness( data.completeness ); }
+		},
 
 		search: ( q ) => post( acts.getStepCandidates, nonces.authorLesson, {
 			subject_key: subject,
@@ -144,6 +201,9 @@ function mount( el ) {
 			// Авто-заполнение слотов под число заданий ЕГЭ при первом открытии.
 			if ( egeSlots > 0 && api.getSlots().length === 0 && isEge( prevKind ) ) {
 				api.replaceSlots( buildEgeSlots( egeSlots ), 0 );
+				api.save();
+			} else if ( isEge( prevKind ) ) {
+				// Слоты уже есть — тихо запрашиваем начальный вердикт полноты для индикатора.
 				api.save();
 			}
 		},

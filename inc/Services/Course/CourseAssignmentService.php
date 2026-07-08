@@ -16,7 +16,6 @@ use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Shared\PluginLogger;
 
 class CourseAssignmentService {
 
@@ -28,6 +27,7 @@ class CourseAssignmentService {
 		private readonly LessonManager               $lessonManager,
 		private readonly ClockInterface              $clock,
 		private readonly OpenCourseValidator         $openCourseValidator,
+		private readonly GroupLessonUsageGuard       $usageGuard,
 	) {}
 
 	/**
@@ -64,10 +64,6 @@ class CourseAssignmentService {
 		}
 
 		$openMode = $this->isOpenGroup( $group );
-		if ( $openMode ) {
-			// D-C: открытый курс проходится без преподавателя — только автопроверка.
-			$this->openCourseValidator->assertSelfCheckable( $course );
-		}
 
 		if ( AssignmentPolicy::Replace === $policy ) {
 			$this->groupLessons->deleteAllByGroup( $groupId );
@@ -96,6 +92,25 @@ class CourseAssignmentService {
 		);
 
 		return $added;
+	}
+
+	/**
+	 * Предупреждения самопроверки для открытой группы (D-C) — назначение курса без
+	 * автопроверяемого контента больше НЕ блокируется (ручная проверка в открытой
+	 * группе не критична — там просто некому её сделать), но админ/учитель должен
+	 * увидеть, в каких уроках есть такие задачи. Пустой массив — группа не открытая
+	 * или проблем нет.
+	 *
+	 * @return string[]
+	 */
+	public function warningsFor( int $groupId, int $courseId ): array {
+		$group  = $this->groups->findById( $groupId );
+		$course = $this->courseManager->get( $courseId );
+		if ( ! $group || ! $course || ! $this->isOpenGroup( $group ) ) {
+			return array();
+		}
+
+		return $this->openCourseValidator->problems( $course );
 	}
 
 	/**
@@ -130,18 +145,6 @@ class CourseAssignmentService {
 
 			$groupId  = (int) $group->id;
 			$openMode = $this->isOpenGroup( $group );
-			if ( $openMode ) {
-				// D-C: в открытую группу нельзя дозаливать контент без автопроверки — группа пропускается.
-				try {
-					$this->openCourseValidator->assertSelfCheckable( $course );
-				} catch ( \InvalidArgumentException $e ) {
-					PluginLogger::warning( 'CourseAssignment', 'Синк уроков: открытая группа пропущена', array(
-						'group_id' => $groupId,
-						'error'    => $e->getMessage(),
-					) );
-					continue;
-				}
-			}
 			$existing = array();
 			foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
 				if ( null !== $row->lessonId ) {
@@ -162,6 +165,66 @@ class CourseAssignmentService {
 		}
 
 		return $added;
+	}
+
+	/**
+	 * D17.3: полная синхронизация КТП групп с составом курса — дописать недостающие
+	 * уроки ({@see syncCourseLessons()}) И удалить осиротевшие строки доставки для
+	 * уроков, которых больше нет в курсе. Удаляем ТОЛЬКО в незаблокированных группах
+	 * и ТОЛЬКО строки без вовлечённости ученика (guard) — иначе за строкой стоят
+	 * данные журнала (реально проведённый урок), и её нельзя трогать.
+	 *
+	 * Вызывается при сохранении структуры курса (урок убрали из курса) — чинит
+	 * ложный блок удаления и фантомный урок в КТП/журнале.
+	 *
+	 * @return array{added: int, removed: int}
+	 */
+	public function reconcileCourseLessons( int $courseId, int $actorUserId ): array {
+		$added   = $this->syncCourseLessons( $courseId, $actorUserId );
+		$removed = $this->removeOrphanCourseLessons( $courseId );
+
+		return array( 'added' => $added, 'removed' => $removed );
+	}
+
+	/**
+	 * Удаляет осиротевшие строки доставки: уроки, которых больше нет в курсе, из
+	 * КТП незаблокированных групп этого курса — только строки без вовлечённости.
+	 *
+	 * @return int Число удалённых строк.
+	 */
+	private function removeOrphanCourseLessons( int $courseId ): int {
+		$course = $this->courseManager->get( $courseId );
+		if ( ! $course ) {
+			return 0;
+		}
+
+		$courseLessonIds = array_flip( array_map( 'intval', $course->lessonIds() ) );
+
+		$removed = 0;
+		foreach ( $this->groups->findByCourse( $courseId ) as $group ) {
+			// Опубликованную (заблокированную) КТП не трогаем — доставка заморожена.
+			if ( ! empty( $group->program_locked_at ) ) {
+				continue;
+			}
+
+			foreach ( $this->groupLessons->listByGroup( (int) $group->id ) as $row ) {
+				$lessonId = (int) ( $row->lessonId ?? 0 );
+				if ( $lessonId <= 0 || 'individual' === $row->kind ) {
+					continue; // индивидуальные/безурочные строки — не из курса.
+				}
+				if ( isset( $courseLessonIds[ $lessonId ] ) ) {
+					continue; // урок всё ещё в курсе — это реальная доставка.
+				}
+				if ( ! $this->usageGuard->isSafeToRemove( (int) $row->id ) ) {
+					continue; // за строкой есть данные журнала — не трогаем.
+				}
+				if ( $this->groupLessons->remove( (int) $row->id ) ) {
+					$removed++;
+				}
+			}
+		}
+
+		return $removed;
 	}
 
 	private function isOpenGroup( object $group ): bool {

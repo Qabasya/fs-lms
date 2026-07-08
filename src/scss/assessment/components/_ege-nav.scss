@@ -1,0 +1,76 @@
+// Станция-навигатор обычного ЕГЭ (D16.7): боковое меню номеров + одно задание
+// на экран. Разметка задания общая с одностраничным списком (.fs-attempt-question).
+// Режим «одно за раз» включается классом .is-ready (навешивает ege-navigator.js) —
+// без JS все задания видны списком (прогрессивное улучшение).
+
+.fs-ege-nav {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+
+  &__menu {
+    position: sticky;
+    top: 16px;
+    display: grid;
+    grid-template-columns: repeat(4, 40px);
+    gap: 6px;
+  }
+
+  &__num {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font: 600 13px var(--font);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+
+    &:hover { border-color: var(--line-3); }
+
+    &.is-answered {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent-700);
+    }
+
+    &.is-current {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--ink-inverse);
+    }
+  }
+
+  &__stage {
+    min-width: 0;
+  }
+
+  &__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-top: 24px;
+  }
+
+  // Режим одного задания за раз — только после init JS.
+  &.is-ready {
+    .fs-attempt-question { display: none; }
+    .fs-attempt-question.is-active { display: block; }
+  }
+}
+
+// Узкий экран — меню сверху, задание под ним.
+@media (max-width: 640px) {
+  .fs-ege-nav {
+    grid-template-columns: minmax(0, 1fr);
+
+    &__menu {
+      position: static;
+      grid-template-columns: repeat(auto-fill, 40px);
+    }
+  }
+}

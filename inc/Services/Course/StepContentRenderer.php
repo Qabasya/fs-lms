@@ -84,7 +84,7 @@ class StepContentRenderer {
 	 * task-шагов (`LessonPlayerService::renderTaskData`/`CoursePreviewService`) и
 	 * задач внутри work-шага (`renderWorkData`). `null`, если пост задачи не найден.
 	 *
-	 * @return array{task_id:int, title:string, template:string, auto_grade:bool, condition_html:string|array<string,string>, widget_data:array<string,mixed>, meta:array<string,mixed>}|null
+	 * @return array{task_id:int, title:string, template:string, auto_grade:bool, condition_html:string|array<string,string>, widget_data:array<string,mixed>, files:array<int,array{name:string,url:string}>, meta:array<string,mixed>}|null
 	 */
 	public function taskBundle( int $taskId, bool $shuffle = false ): ?array {
 		$post = $this->posts->get( $taskId );
@@ -104,8 +104,40 @@ class StepContentRenderer {
 			'auto_grade'     => $autoGrade,
 			'condition_html' => $this->buildConditionHtml( $meta, $template ),
 			'widget_data'    => $autoGrade ? $this->buildWidgetData( $meta, $template, $shuffle ) : array(),
+			'files'          => $this->buildFiles( $meta ),
 			'meta'           => $meta,
 		);
+	}
+
+	/**
+	 * Файлы-материалы задания (шаблоны File/FileCode/TwoFileCode) — имя + ссылка на
+	 * скачивание, выводятся в плеере сразу после условия.
+	 *
+	 * @return array<int, array{name:string, url:string}>
+	 */
+	public function buildFiles( array $meta ): array {
+		$files = array();
+
+		foreach ( array( 'file', 'file_primary', 'file_secondary' ) as $key ) {
+			$url = (string) ( $meta[ $key ] ?? '' );
+			if ( '' === $url ) {
+				continue;
+			}
+
+			$files[] = array(
+				'name' => $this->fileNameFromUrl( $url ),
+				'url'  => esc_url_raw( $url ),
+			);
+		}
+
+		return $files;
+	}
+
+	private function fileNameFromUrl( string $url ): string {
+		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
+		$name = rawurldecode( basename( $path ) );
+
+		return '' !== $name ? $name : $url;
 	}
 
 	/**
@@ -128,7 +160,16 @@ class StepContentRenderer {
 			return '';
 		}
 
-		return wp_kses_post( (string) ( $meta['task_condition'] ?? '' ) );
+		$condition = wp_kses_post( (string) ( $meta['task_condition'] ?? '' ) );
+
+		if ( TaskTemplate::Common === $template ) {
+			$common = wp_kses_post( (string) ( $meta['common_condition'] ?? '' ) );
+			if ( '' !== $common ) {
+				return '' !== $condition ? $common . '<br>' . $condition : $common;
+			}
+		}
+
+		return $condition;
 	}
 
 	/**
