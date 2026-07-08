@@ -27,10 +27,6 @@
     background-position: center;
     flex-shrink: 0;
 
-    &--google { background-image: url('../../img/google.svg'); }
-    &--vk     { background-image: url('../../img/vk.svg'); }
-    &--github { background-image: url('../../img/github.svg'); }
-
     // Иконка на основе dashicon (для провайдеров без SVG-ассета).
     &--generic {
       display: flex;
