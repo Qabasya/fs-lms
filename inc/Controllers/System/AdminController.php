@@ -138,7 +138,7 @@ class AdminController extends BaseController implements ServiceInterface {
 				'capability' => Capability::ManageLmsPlatform->value,
 				'menu_slug'  => Menu::Main->value,
 				'callback'   => array( $this->callbacks, Menu::Main->callback() ),
-				'icon_url'   => 'dashicons-welcome-learn-more',
+				'icon_url'   => 'dashicons-dashboard',
 				'position'   => 4,
 			),
 		);
