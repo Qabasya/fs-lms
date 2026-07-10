@@ -126,10 +126,13 @@
 .placed-theme.pinned .pt-num { color: var(--accent-700); }
 .placed-theme .pt-pin { position: absolute; top: rem(3); right: rem(4); color: var(--accent); display: none; }
 .placed-theme.pinned .pt-pin { display: block; }
-.placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; color: var(--ink-2); }
 
-/* T11.2: кабинет на карточке темы КТП */
-.placed-theme .pt-room { display: block; font-size: rem(9); color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* #16: тема — жирная, в стиле бывшего номера (pt-num); закреплённая — акцентная. */
+.placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--ok); }
+.placed-theme.pinned .pt-title { color: var(--accent-700); }
+
+/* #16: мета-строки карточки урока (кабинет + преподаватель), друг под другом. */
+.placed-theme .pt-meta { display: block; font-size: rem(9); color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* T12.6 (D14): «⋮» действия темы (продолжить на другую дату) — видно при наведении */
 .placed-theme .pt-more {

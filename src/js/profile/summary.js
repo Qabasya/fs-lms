@@ -151,7 +151,7 @@ async function openWorkDetail(sourceType, sourceId) {
     try {
         d = await reviewApi('getDetail', { source_type: sourceType, source_id: sourceId });
     } catch (e) { toast(e.message, 'error'); return; }
-    renderDetailModal(d);
+    renderDetailModal(d, { sourceType, sourceId });
 }
 
 function closeDetailModal() {
@@ -161,7 +161,7 @@ function closeDetailModal() {
 }
 function onDetailEsc(e) { if (e.key === 'Escape') closeDetailModal(); }
 
-function renderDetailModal(d) {
+function renderDetailModal(d, src) {
     closeDetailModal();
     const tasks = d.tasks.length
         ? d.tasks.map(t => taskBlock(t, d)).join('')
@@ -194,7 +194,10 @@ function renderDetailModal(d) {
                     <div class="smh-title">${esc(d.title)}</div>
                     <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}${d.is_late ? ' · <span class="smh-late">Просрочено</span>' : ''}</div>
                 </div>
-                <button class="sum-modal-x" aria-label="Закрыть">&times;</button>
+                <div class="smh-actions">
+                    ${src ? '<button class="prof-btn prof-btn-sm sum-reset" data-armed="0">Сбросить попытки</button>' : ''}
+                    <button class="sum-modal-x" aria-label="Закрыть">&times;</button>
+                </div>
             </div>
             <div class="sum-modal-body">
                 ${tasks}
@@ -211,6 +214,36 @@ function renderDetailModal(d) {
 
     if (d.gradable) wireGrading(modal, d.submission_id);
     if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) wireAttemptGrading(modal, d);
+    if (src) wireReset(modal, src);
+}
+
+/* Задача 11: сброс попыток/сдач ученика (необратимо) — двойной клик для подтверждения. */
+function wireReset(modal, src) {
+    const btn = modal.querySelector('.sum-reset');
+    if (!btn) return;
+    let armTimer;
+    btn.addEventListener('click', async () => {
+        if (btn.dataset.armed !== '1') {
+            btn.dataset.armed = '1';
+            btn.classList.add('sum-reset--armed');
+            btn.textContent = 'Точно сбросить? Ещё раз';
+            clearTimeout(armTimer);
+            armTimer = setTimeout(() => {
+                btn.dataset.armed = '0';
+                btn.classList.remove('sum-reset--armed');
+                btn.textContent = 'Сбросить попытки';
+            }, 4000);
+            return;
+        }
+        clearTimeout(armTimer);
+        btn.disabled = true;
+        try {
+            await reviewApi('resetAttempts', { source_type: src.sourceType, source_id: src.sourceId });
+            toast('Попытки сброшены');
+            closeDetailModal();
+            loadSummary();
+        } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
+    });
 }
 
 /* T13.1: вложение ученика (фото/файл решения) — форма одиночной сдачи уже

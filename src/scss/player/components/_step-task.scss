@@ -32,6 +32,13 @@
     background: var(--ink-inverse);
   }
 
+  // Множественный выбор (multiple) — квадратный чекбокс вместо круглого radio.
+  .radio.is-checkbox {
+    border-radius: rem(4);
+
+    &::after { border-radius: rem(1); }
+  }
+
   .opt-body { flex: 1; min-width: 0; }
 
   &.sel {

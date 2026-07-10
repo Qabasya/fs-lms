@@ -20,10 +20,11 @@
 .sc-tab:hover { border-color: var(--line-3, var(--muted-2)); }
 .sc-tab.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow-md); }
 
+/* #15: эталон — .prof-group-chip (кабинет преподавателя): 30×30, 10px, до 4 букв. */
 .sc-chip {
-  width: rem(38); height: rem(38); border-radius: rem(10); flex-shrink: 0;
+  width: rem(30); height: rem(30); border-radius: rem(8); flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: rem(12); font-weight: 700; color: var(--ink-inverse); letter-spacing: .02em;
+  font-size: rem(10); font-weight: 700; color: var(--ink-inverse); letter-spacing: -0.02em;
 }
 .sc-tb { min-width: 0; flex: 1; }
 

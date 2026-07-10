@@ -16,5 +16,6 @@ readonly class AttemptInputDTO {
 		public string        $startedAt,
 		public string        $deadlineAt,
 		public AttemptStatus $status = AttemptStatus::InProgress,
+		public ?int          $groupLessonId = null,
 	) {}
 }

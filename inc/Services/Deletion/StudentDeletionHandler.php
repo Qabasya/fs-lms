@@ -60,7 +60,7 @@ class StudentDeletionHandler {
 
 		$this->logEvents->dispatch(
 			LogEvent::EntityHardDeleted,
-			new EntityHardDeletedEvent( $actorId, 'person', $personId, 'consents, applications, person_documents, student_records:' . (int) $recordsDeleted )
+			new EntityHardDeletedEvent( $actorId, 'person', $personId, 'Согласия, заявки, документы персоны, записи об обучении:' . (int) $recordsDeleted )
 		);
 
 		if ( $wpUserId ) {

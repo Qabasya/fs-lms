@@ -4,8 +4,8 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipText, chipSoft, toast } from './utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
+import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipText, chipSoft, shortName, toast } from './utils.js';
+import { icoCalendar, icoCheck, icoCross, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock, icoX } from '../common/icons.js';
 import { createApi } from './api.js';
 
 const RENDERERS = {
@@ -106,6 +106,7 @@ function renderHome(root, d) {
         </div>
     </div>`;
     wireChild(root);
+    wireOwnDetail(root);
 }
 
 /* ── Мои курсы (дизайн Student Courses) ───────────────────────────────────
@@ -184,7 +185,7 @@ function catalogHtml(d) {
         </div>
         ${items.map(c => `
         <div class="sc-cat-row">
-            <span class="sc-chip ${chipBg(c.subject_key)}">${esc(c.abbr)}</span>
+            <span class="sc-chip ${chipBg(c.subject_key)}">${esc(shortName(c.title))}</span>
             <span class="sc-lb">
                 <span class="sc-ltitle">${esc(c.title)}</span>
                 <span class="sc-lsub">${[c.subject, c.teacher, c.lessons_total ? c.lessons_total + ' ' + scPlural(c.lessons_total, ['урок', 'урока', 'уроков']) : ''].filter(Boolean).map(esc).join(' · ')}</span>
@@ -223,7 +224,7 @@ function scRenderTabs(courses) {
             ? (c.open ? 'свободное прохождение' : (c.start ? 'старт ' + fmtDayMonth(c.start) : 'скоро'))
             : `${esc(c.code)} · ${c.passed} из ${c.total} ${scPlural(c.total, ['урок', 'урока', 'уроков'])}`;
         return `<button class="sc-tab${c.id === scState.active ? ' on' : ''}" data-id="${c.id}">
-            <span class="sc-chip ${chipBg(c.subject_key)}">${esc(c.abbr)}</span>
+            <span class="sc-chip ${chipBg(c.subject_key)}">${esc(shortName(c.title))}</span>
             <span class="sc-tb"><span class="sc-tname">${esc(c.title)}</span><span class="sc-tsub">${esc(sub)}</span></span>
             <span class="sc-tbar"><span class="${chipBg(c.subject_key)}" style="width:${pct}%"></span></span>
         </button>`;
@@ -407,13 +408,129 @@ function renderGrades(root, d) {
         </div>
     </div>`;
     wireChild(root);
-    // Аккордеон попыток: клик по строке разворачивает прошлые попытки.
-    root.querySelectorAll('[data-grade-toggle]').forEach((row) => {
-        row.addEventListener('click', () => {
-            const more = row.parentElement.querySelector('.prof-grade-more');
-            if (more) { more.hidden = !more.hidden; row.classList.toggle('open'); }
+    // Аккордеон попыток: клик по шеврону разворачивает прошлые попытки (не открывая деталь).
+    root.querySelectorAll('[data-grade-toggle]').forEach((chev) => {
+        chev.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const group = chev.closest('.prof-grade-group');
+            const more  = group ? group.querySelector('.prof-grade-more') : null;
+            if (more) { more.hidden = !more.hidden; chev.classList.toggle('open'); }
         });
     });
+    wireOwnDetail(root);
+}
+
+/** #12/#13: клик по результату (работа/попытка) → read-only модалка результата. */
+function wireOwnDetail(root) {
+    root.querySelectorAll('[data-own-detail]').forEach((el) => {
+        el.addEventListener('click', () => openOwnDetail(el.dataset.srcType, el.dataset.srcId));
+    });
+}
+
+async function openOwnDetail(sourceType, sourceId) {
+    if (!api) { return; }
+    let d;
+    try {
+        d = await api('getOwnDetail', {
+            source_type: sourceType,
+            source_id: sourceId,
+            ...(childId ? { student_person_id: childId } : {}),
+        });
+    } catch (e) { toast(e.message, 'error'); return; }
+    renderOwnDetailModal(d);
+}
+
+const OWN_STATUS_LABEL = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
+
+function closeOwnModal() {
+    const m = document.getElementById('ownDetailModal');
+    if (m) { m.remove(); }
+    document.removeEventListener('keydown', onOwnEsc);
+}
+function onOwnEsc(e) { if (e.key === 'Escape') { closeOwnModal(); } }
+
+/** #13: verdict-блок задачи — «Решено верно» / «Решено неверно, Правильный ответ: …». */
+function ownTaskBlock(t) {
+    const v = t.verdict;
+    const label = v === 'correct' ? 'Решено верно'
+        : v === 'pending' ? 'На проверке'
+        : 'Решено неверно';
+    const cls = v === 'correct' ? 't-ok' : v === 'pending' ? 't-wait' : 't-no';
+    const ico = v === 'correct' ? icoCheck(15) : v === 'pending' ? '' : icoCross(13);
+    // Правильный ответ показываем только для неверных ответов и только если он пришёл
+    // (для ЕГЭ — лишь после завершения попытки, гейт на бэкенде).
+    const correct = (v !== 'correct' && t.correct)
+        ? `, Правильный ответ: <span class="own-correct">${esc(t.correct)}</span>`
+        : '';
+    return `<div class="sum-task">
+        <div class="sum-task-head">
+            <span class="st-n">Задача ${t.n}</span>
+            <span class="own-verdict ${cls}">${ico} ${esc(label)}${correct}</span>
+        </div>
+        <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
+        <div class="sum-task-ans"><span class="sta-label">Ваш ответ:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>
+    </div>`;
+}
+
+/** #13: футер результата — попытка, время, первичный/вторичный балл. */
+function ownFooter(f) {
+    if (!f) { return ''; }
+    const parts = [];
+    if (f.attempt_number) { parts.push(`Попытка ${esc(f.attempt_number)}`); }
+    if (f.duration_seconds != null) { parts.push(`Время: ${fmtDuration(f.duration_seconds)}`); }
+    if (f.primary_score != null) {
+        const max = f.max_score != null ? ' / ' + fmtNum(f.max_score) : '';
+        parts.push(`Баллы: ${fmtNum(f.primary_score)}${max}`);
+    }
+    if (f.secondary_score != null) { parts.push(`Вторичный балл: ${esc(f.secondary_score)}`); }
+    if (f.outcome) { parts.push(esc(f.outcome)); }
+    if (!parts.length) { return ''; }
+    const state = f.outcome_state ? ` own-foot--${esc(f.outcome_state)}` : '';
+    return `<div class="own-detail-foot${state}">${parts.join(' · ')}</div>`;
+}
+
+function fmtNum(n) {
+    return String(Math.round(Number(n) * 100) / 100);
+}
+
+function fmtDuration(sec) {
+    const s = Math.max(0, parseInt(sec, 10) || 0);
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return m ? `${m} мин ${r} с` : `${r} с`;
+}
+
+function renderOwnDetailModal(d) {
+    closeOwnModal();
+    const tasks = (d.tasks && d.tasks.length)
+        ? d.tasks.map(ownTaskBlock).join('')
+        : '<div class="sum-detail-empty">В работе нет задач.</div>';
+    const scoreLine = (d.score !== null && d.score !== undefined)
+        ? `${fmtNum(d.score)}${d.max_score != null ? ' / ' + fmtNum(d.max_score) : ''} б.`
+        : 'без оценки';
+
+    const modal = document.createElement('div');
+    modal.className = 'sum-modal';
+    modal.id = 'ownDetailModal';
+    modal.innerHTML = `
+        <div class="sum-modal-backdrop"></div>
+        <div class="sum-modal-box" role="dialog" aria-modal="true">
+            <div class="sum-modal-head">
+                <div>
+                    <div class="smh-title">${esc(d.title)}</div>
+                    <div class="smh-meta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(OWN_STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}</div>
+                </div>
+                <button class="sum-modal-x" aria-label="Закрыть">${icoX(15)}</button>
+            </div>
+            <div class="sum-modal-body">
+                ${tasks}
+                ${ownFooter(d.footer)}
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('.sum-modal-backdrop').addEventListener('click', closeOwnModal);
+    modal.querySelector('.sum-modal-x').addEventListener('click', closeOwnModal);
+    document.addEventListener('keydown', onOwnEsc);
 }
 
 /** Группировка оценок по работе/контрольной (source_type:source_id); попытки — последняя первой. */
@@ -440,11 +557,14 @@ function gradeGroupHtml(gr) {
     const cnt        = expandable ? ` · попыток: ${gr.attempts.length}` : '';
     const sub        = [ esc(gr.group_name), fmtDateTime(latest.graded_at) ].filter(Boolean).join(' · ') + cnt;
 
-    const main = `<div class="prof-work-item${expandable ? ' is-clickable' : ''}"${expandable ? ' data-grade-toggle' : ''}>
+    // #12: клик по строке открывает результат последней попытки; шеврон (если есть
+    // прошлые попытки) разворачивает аккордеон, не открывая деталь.
+    const srcAttrs = detailAttrs(latest);
+    const main = `<div class="prof-work-item is-clickable"${srcAttrs}>
         <div class="prof-work-ico grade">${icoStar(18)}</div>
         <div class="prof-work-main"><div class="prof-work-title">${esc(gr.title)}${typeTag}</div><div class="prof-work-sub">${sub}</div></div>
         <span class="prof-work-count${pending ? ' prof-work-count--pending' : ''}">${esc(latest.value)}</span>
-        ${expandable ? `<span class="prof-grade-chev">${icoChevronDown(16)}</span>` : ''}
+        ${expandable ? `<span class="prof-grade-chev" data-grade-toggle>${icoChevronDown(16)}</span>` : ''}
     </div>`;
 
     const moreHtml = expandable
@@ -457,10 +577,16 @@ function gradeGroupHtml(gr) {
 /** Строка прошлой попытки в аккордеоне. n — номер попытки (1 = самая ранняя). */
 function gradeAttemptRow(a, n) {
     const pending = a.display === 'pending';
-    return `<div class="prof-grade-attempt">
+    return `<div class="prof-grade-attempt is-clickable"${detailAttrs(a)}>
         <span class="prof-grade-att-label">Попытка ${n}${a.graded_at ? ' · ' + esc(fmtDateTime(a.graded_at)) : ''}</span>
         <span class="prof-work-count${pending ? ' prof-work-count--pending' : ''}">${esc(a.value)}</span>
     </div>`;
+}
+
+/** #12: data-атрибуты источника результата (пусто, если источник неизвестен). */
+function detailAttrs(g) {
+    if (!g || !g.source_type || !g.source_id) { return ''; }
+    return ` data-own-detail data-src-type="${esc(g.source_type)}" data-src-id="${esc(g.source_id)}"`;
 }
 
 /* ── Attendance ───────────────────────────────────────────────────────── */
@@ -548,7 +674,8 @@ function dlRow(d) {
 function gradeRow(g) {
     // Дата + время сдачи (ДД.ММ.ГГГГ ЧЧ:ММ).
     const sub = [ esc(g.group_name), fmtDateTime(g.graded_at) ].filter(Boolean).join(' · ');
-    return `<div class="prof-work-item">
+    const attrs = detailAttrs(g);
+    return `<div class="prof-work-item${attrs ? ' is-clickable' : ''}"${attrs}>
         <div class="prof-work-ico grade">${icoStar(18)}</div>
         <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${sub}</div></div>
         <span class="prof-work-count">${esc(g.value)}</span>
@@ -557,8 +684,10 @@ function gradeRow(g) {
 
 
 function attRow(r) {
+    // #14: к названию занятия добавляем название курса (тот же текст, что во вкладке «Мои курсы»).
+    const sub = [ r.course, fmtDayMonth(r.date) ].filter(Boolean).map(esc).join(' · ');
     return `<div class="prof-work-item">
-        <div class="prof-work-main"><div class="prof-work-title">${esc(r.topic || '—')}</div><div class="prof-work-sub">${fmtDayMonth(r.date)}</div></div>
+        <div class="prof-work-main"><div class="prof-work-title">${esc(r.topic || '—')}</div><div class="prof-work-sub">${sub}</div></div>
         <span class="prof-att-mark ${r.present ? 'p' : 'a'}">${r.present ? 'Был' : 'Н'}</span>
     </div>`;
 }

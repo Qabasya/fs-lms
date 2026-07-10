@@ -15,13 +15,48 @@ if ( ! $task ) {
 	return;
 }
 
-$taskView     = $taskViews[ (int) $taskId ] ?? array( 'template' => '', 'materials' => array(), 'condition' => '' );
+$taskView     = $taskViews[ (int) $taskId ] ?? array( 'template' => '', 'materials' => array(), 'condition' => '', 'subparts' => array() );
 $isFileAnswer = 'file_answer_task' === $taskView['template'];
+$subparts     = is_array( $taskView['subparts'] ?? null ) ? $taskView['subparts'] : array();
+if ( ! isset( $fs_seq ) ) {
+	$fs_seq = 0;
+}
 ?>
+
+<?php if ( ! empty( $subparts ) ) : ?>
+	<?php /* Задача 3: составное задание (Triple) — 3 подпункта, одно сохранение (JSON на родительский task_id). */ ?>
+	<div class="fs-attempt-question fs-attempt-question--triple"
+		data-task-id="<?php echo esc_attr( (string) $taskId ); ?>"
+		data-template="triple">
+		<?php foreach ( $subparts as $sub ) : ?>
+			<?php ++$fs_seq; ?>
+			<div class="fs-attempt-subpart">
+				<div class="fs-attempt-question-number">
+					<?php echo esc_html( (string) $fs_seq ); ?>.
+					<span class="fs-attempt-subpart-tag">задание <?php echo esc_html( (string) $sub['number'] ); ?></span>
+				</div>
+				<div class="fs-attempt-question-content wpc">
+					<?php echo wp_kses_post( $sub['condition'] ); ?>
+				</div>
+				<div class="fs-form-group">
+					<textarea
+						class="fs-attempt-answer"
+						data-sub="<?php echo esc_attr( (string) $sub['key'] ); ?>"
+						rows="3"
+						placeholder="Ваш ответ…"
+					></textarea>
+				</div>
+			</div>
+		<?php endforeach; ?>
+	</div>
+	<?php return; ?>
+<?php endif; ?>
+
+<?php ++$fs_seq; ?>
 <div class="fs-attempt-question"
 	data-task-id="<?php echo esc_attr( (string) $taskId ); ?>"
 	<?php echo $isFileAnswer ? 'data-template="file_answer"' : ''; ?>>
-	<div class="fs-attempt-question-number"><?php echo esc_html( (string) ( $i + 1 ) ); ?>.</div>
+	<div class="fs-attempt-question-number"><?php echo esc_html( (string) $fs_seq ); ?>.</div>
 	<div class="fs-attempt-question-content wpc">
 		<?php echo wp_kses_post( $taskView['condition'] ); ?>
 	</div>

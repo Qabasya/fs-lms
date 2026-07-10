@@ -475,6 +475,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			assessment_id       bigint unsigned      NOT NULL,
 			student_person_id   int unsigned         NOT NULL,
 			group_id            smallint unsigned    DEFAULT NULL,
+			group_lesson_id     int unsigned         DEFAULT NULL,
 			attempt_number      smallint unsigned    NOT NULL,
 			started_at          datetime             NOT NULL,
 			deadline_at         datetime             NOT NULL,
@@ -645,6 +646,9 @@ class Migration_1_0_0 implements MigrationInterface {
 			ADD COLUMN IF NOT EXISTS `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
 			ADD COLUMN IF NOT EXISTS `label`     varchar(150) DEFAULT NULL,
 			MODIFY COLUMN `lesson_id` bigint unsigned DEFAULT NULL" );
+		// Задача 5 — привязка попытки экзамена к конкретному занятию группы (для сводки по ученику).
+		$assessment_attempts = TableName::AssessmentAttempts->prefixed();
+		$wpdb->query( "ALTER TABLE `$assessment_attempts` ADD COLUMN IF NOT EXISTS `group_lesson_id` int unsigned DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `grader_note` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `criteria_scores` json DEFAULT NULL" ); // Эпик 13 (D17)
 		$wpdb->query( "ALTER TABLE `$lesson_progress` MODIFY COLUMN `status` enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked'" );

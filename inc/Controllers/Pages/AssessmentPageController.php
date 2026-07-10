@@ -17,6 +17,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Assessment\AssessmentAccessPolicy;
+use Inc\Services\Assessment\AttemptOutcomeService;
 use Inc\Services\Assessment\AttemptResultService;
 use Inc\Services\Assessment\ExamPayloadFilter;
 use Inc\Services\Course\StepContentRenderer;
@@ -93,6 +94,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		private readonly PostManager                 $posts,
 		private readonly AttemptResultService        $resultService,
 		private readonly StepContentRenderer         $content,
+		private readonly AttemptOutcomeService       $outcomeService,
 	) {
 		parent::__construct();
 	}
@@ -151,15 +153,19 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 			&& ! $activeAttempt->isExpired( $now );
 
 		// T13.5 (Эпик 13, D16): per-task view-данные для шаблона.
-		$taskViews = $this->buildTaskViews( $assessment->taskIds, $assessment->subjectKey );
+		$taskViews = $this->buildTaskViews( $assessment->taskIds, $assessment->subjectKey, $assessment->kind );
 
 		// T13.7: если нет активной попытки — ищем последнюю завершённую для показа результата.
 		$lastAttempt   = null;
 		$resultPerTask = array();
+		$outcome       = '';    // Задача 10: метка исхода (по вторичному баллу для ЕГЭ).
+		$outcomeState  = 'fail';
 		if ( ! $activeAttempt ) {
 			$lastAttempt = $this->attemptRepo->findLastSubmitted( $person->id, $assessment->id );
 			if ( $lastAttempt ) {
 				$resultPerTask = $this->resultService->studentPerTask( $lastAttempt->id, $person->id );
+				$outcome       = $this->outcomeService->label( $lastAttempt, $assessment );
+				$outcomeState  = $this->outcomeService->state( $lastAttempt, $assessment );
 			}
 		}
 
@@ -260,7 +266,10 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 	 * @param int[] $taskIds
 	 * @return array<int, array{template: string, materials: array<int, array{url: string, name: string}>, taskNumber: int, condition: string}>
 	 */
-	private function buildTaskViews( array $taskIds, string $subjectKey = '' ): array {
+	private function buildTaskViews( array $taskIds, string $subjectKey = '', ?\Inc\Enums\Assessment\AssessmentKind $kind = null ): array {
+		// Задача 3: в режиме ЕГЭ составное задание (Triple 19-21) разворачивается в
+		// три отдельных подпункта — каждый со своим условием, номером и полем ответа.
+		$expandComposites = null !== $kind && $kind->expandsComposites();
 		$taxonomy = $subjectKey !== '' ? PostTypeResolver::getTaskTaxonomy( $subjectKey ) : '';
 
 		$views = array();
@@ -302,7 +311,21 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 				'materials'  => $materials,
 				'taskNumber' => $taskNumber,
 				'condition'  => $this->buildCondition( $taskId, $meta, $template ),
+				'subparts'   => array(),
 			);
+
+			// Разворот Triple → подпункты 19/20/21 (каждый со своим условием и номером).
+			if ( $expandComposites && TaskTemplate::Triple === $template ) {
+				$parts = $this->content->buildConditionHtml( $meta, $template );
+				$parts = is_array( $parts ) ? $parts : array();
+				foreach ( array( '19', '20', '21' ) as $subKey ) {
+					$views[ $taskId ]['subparts'][] = array(
+						'key'       => $subKey,
+						'number'    => (int) $subKey,
+						'condition' => (string) ( $parts[ $subKey ] ?? '' ),
+					);
+				}
+			}
 		}
 		return $views;
 	}

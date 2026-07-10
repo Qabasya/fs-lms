@@ -8,6 +8,7 @@
  *
  * @var \Inc\DTO\Assessment\AssessmentDTO   $assessment
  * @var \Inc\DTO\Assessment\AttemptDTO      $lastAttempt
+ * @var string                              $outcome     Задача 10: исход по вторичному баллу
  */
 declare( strict_types=1 );
 
@@ -28,7 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<div class="kege-fin-cnt">
 				Баллов: <b><?php echo esc_html( null !== $lastAttempt->totalScore ? (string) (float) $lastAttempt->totalScore : '—' ); ?></b>
 				/ <?php echo esc_html( (string) $kegeMax ); ?>
-				&bull; <?php echo esc_html( $lastAttempt->outcomeLabel( $assessment->passScore ) ); ?>
+				&bull; <?php echo esc_html( $outcome ); // Задача 10: исход по вторичному баллу (AttemptOutcomeService). ?>
 			</div>
 			<div class="kege-fin-sum">
 				<div class="kege-fin-sum__lbl">Контрольная сумма</div>

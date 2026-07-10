@@ -129,6 +129,11 @@
 .smh-late  { color: var(--err); font-weight: 700; }
 .sum-modal-x { border: 0; background: transparent; font-size: rem(24); line-height: 1; color: var(--muted); cursor: pointer; padding: 0 rem(4); }
 .sum-modal-x:hover { color: var(--ink); }
+
+/* Задача 11: действия в шапке модалки (сброс попыток + закрытие). */
+.smh-actions { display: flex; align-items: center; gap: rem(10); flex: none; }
+.sum-reset { color: var(--err); border-color: var(--err-line); }
+.sum-reset--armed { background: var(--err); border-color: var(--err); color: var(--ink-inverse); }
 .sum-modal-body { flex: 1 1 auto; overflow-y: auto; padding: rem(16) rem(20); display: flex; flex-direction: column; gap: rem(12); }
 
 .sum-task { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: rem(12) rem(14); }
@@ -146,6 +151,23 @@
 .sta-val { color: var(--ink); font-weight: 600; white-space: pre-wrap; }
 .sum-fb { font-size: rem(13); color: var(--ink-2); background: var(--surface-2); border-radius: var(--radius-sm); padding: rem(10) rem(12); }
 .sum-detail-empty { color: var(--muted-2); font-size: rem(14); text-align: center; padding: rem(30); }
+
+/* Задачи 12/13: read-only результат ученика — вердикт текстом + эталонный ответ + футер. */
+.own-verdict { display: inline-flex; align-items: center; gap: rem(5); font-size: rem(12.5); font-weight: 600; }
+.own-verdict.t-ok   { color: var(--ok); }
+.own-verdict.t-no   { color: var(--err); }
+.own-verdict.t-wait { color: var(--muted); }
+.own-correct { color: var(--ink); font-weight: 700; }
+
+.own-detail-foot {
+  display: flex; flex-wrap: wrap; gap: rem(4) rem(10); align-items: center;
+  margin-top: rem(4); padding: rem(12) rem(14);
+  border-radius: var(--radius-sm); background: var(--surface-2);
+  font-size: rem(12.5); font-weight: 600; color: var(--ink-2);
+}
+.own-detail-foot.own-foot--ok   { background: var(--ok-soft); color: var(--ok-text); }
+.own-detail-foot.own-foot--fail { background: var(--err-soft); color: var(--err-text); }
+.own-detail-foot.own-foot--review { background: var(--wait-soft); color: var(--wait-text); }
 
 /* T13.1: вложение ученика (фото/файл решения) в детали работы */
 .sum-attachment { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: rem(12) rem(14); }

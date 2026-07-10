@@ -6,6 +6,7 @@ namespace Inc\Callbacks\Profile;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
+use Inc\Services\Course\OwnWorkDetailService;
 use Inc\Services\Enrollment\OpenGroupEnrollmentService;
 use Inc\Services\Profile\LearnerService;
 use Inc\Services\Profile\ProfileViewResolver;
@@ -31,8 +32,41 @@ class LearnerCallbacks extends BaseController {
 		private readonly LearnerService             $service,
 		private readonly ProfileViewResolver        $resolver,
 		private readonly OpenGroupEnrollmentService $openGroupEnrollment,
+		private readonly OwnWorkDetailService       $ownDetail,
 	) {
 		parent::__construct();
+	}
+
+	/**
+	 * Деталь СВОЕЙ работы/попытки (задачи 12/13): ученик — своё, родитель — ребёнка
+	 * (ProfileContext). Эталонные ответы отдаются только для завершённых попыток.
+	 * Params: source_type, source_id, [student_person_id].
+	 */
+	public function ajaxGetOwnWorkDetail(): void {
+		Nonce::LearnerProfile->verify();
+
+		if ( ! is_user_logged_in() ) {
+			$this->error( __( 'Требуется вход.', 'fs-lms' ) );
+			return;
+		}
+
+		$ctx      = $this->resolver->context( get_current_user_id() );
+		$personId = $ctx->resolveSubjectPersonId( $this->sanitizeInt( 'student_person_id' ) );
+		if ( ! $personId ) {
+			$this->error( __( 'Профиль учащегося не найден.', 'fs-lms' ) );
+			return;
+		}
+
+		$sourceType = $this->sanitizeText( 'source_type' );
+		$sourceId   = $this->requireInt( 'source_id' );
+
+		$detail = $this->ownDetail->forOwner( $sourceType, $sourceId, $personId );
+		if ( null === $detail ) {
+			$this->error( __( 'Результат недоступен.', 'fs-lms' ) );
+			return;
+		}
+
+		$this->success( $detail );
 	}
 
 	public function ajaxGetLearnerProfile(): void {

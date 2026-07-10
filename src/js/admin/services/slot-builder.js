@@ -183,6 +183,12 @@ export function createSlotBuilder( el, config ) {
 	}
 
 	function assignTask( index, taskId, title ) {
+		// Запрет дублей: одна и та же задача не может стоять в двух слотах (задача 6).
+		const dup = slots.some( ( slot, i ) => i !== index && slot.taskId === taskId );
+		if ( dup ) {
+			showToast( 'Эта задача уже добавлена', 'error' );
+			return;
+		}
 		slots[ index ].taskId = taskId;
 		slots[ index ].title  = title;
 		activeIndex = index;

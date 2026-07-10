@@ -46,6 +46,10 @@ export function initCore() {
 	if ( ! panels.length ) { return; }
 
 	const groupLessonId = app.dataset.groupLessonId;
+	// Навигация на следующий урок с последнего шага (задача 2): данные рендерятся
+	// в player.php на #fsPlayerApp (data-next-url / data-next-available).
+	const nextLessonUrl       = app.dataset.nextUrl || '';
+	const nextLessonAvailable = '1' === app.dataset.nextAvailable && '' !== nextLessonUrl;
 	const prevBtn = document.getElementById( 'fsNavPrev' );
 	const nextBtn = document.getElementById( 'fsNavNext' );
 	const posEl   = document.getElementById( 'fsNavPos' );
@@ -94,7 +98,10 @@ export function initCore() {
 		const last = active === panels.length - 1;
 		prevBtn.disabled = 0 === active;
 		prevBtn.classList.toggle( 'b-dis', 0 === active );
-		const nextOk = ! last && ( isAvailable( active + 1 ) || isInlineLike( panels[ active ] ) );
+		// На последнем шаге кнопка активна, если доступен следующий урок (задача 2).
+		const nextOk = last
+			? nextLessonAvailable
+			: ( isAvailable( active + 1 ) || isInlineLike( panels[ active ] ) );
 		nextBtn.disabled = ! nextOk;
 		nextBtn.classList.toggle( 'b-dis', ! nextOk );
 		if ( posEl ) {
@@ -147,6 +154,9 @@ export function initCore() {
 		}
 		if ( active < panels.length - 1 ) {
 			show( active + 1 );
+		} else if ( nextLessonAvailable ) {
+			// Последний шаг + доступен следующий урок → переход к нему (первый шаг).
+			window.location.href = nextLessonUrl;
 		} else {
 			refresh();
 		}

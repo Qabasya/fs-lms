@@ -71,8 +71,9 @@ class BatchCheckService {
 				$studentAnswers = is_array( $answer ) ? $answer : [];
 				foreach ( $subItems as $sub ) {
 					$subKey       = "{$taskId}:{$sub['key']}";
-					$pointsKey    = $subKey;
-					$subWeight    = isset( $taskPoints[ $pointsKey ] ) ? (float) $taskPoints[ $pointsKey ] : 1.0;
+					// Вес под-задания: точечный ("taskId:key"), иначе — общий вес слота
+					// (task_points[taskId]), иначе — 1 (задача 3: единое поле балла на весь Triple).
+					$subWeight    = (float) ( $taskPoints[ $subKey ] ?? $taskPoints[ $taskId ] ?? 1.0 );
 					$subAnswer    = (string) ( $studentAnswers[ $sub['key'] ] ?? '' );
 					$correctAnswer = (string) ( $metaArr[ $sub['answer_field'] ] ?? '' );
 

@@ -261,6 +261,9 @@ enum AjaxHook: string {
 	// ==== Деталь работы из сводки (ЛК преподавателя, Эпик 10 T10.9) ====
 	case GetWorkDetail           = 'get_work_detail'; // params: source_type (submission|attempt), source_id — условия/ответы/вердикты
 
+	// ==== Сброс попыток ученика преподавателем (задача 11) ====
+	case ResetAttempts           = 'reset_attempts'; // params: source_type (submission|attempt), source_id — удаляет попытки/сдачи ученика по этой работе/экзамену
+
 	// ==== Курс-пикер КТП (ЛК преподавателя, Эпик 11 T11.1) ====
 	case GetSubjectCourses       = 'get_subject_courses'; // params: group_id — курсы предмета группы для назначения
 
@@ -279,6 +282,7 @@ enum AjaxHook: string {
 	// ==== ЛК учащегося/родителя (Эпик 7) ====
 	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит
 	case SelfEnrollOpenGroup     = 'self_enroll_open_group';   // params: group_id — самозапись ученика в открытую группу (Эпик 15, П10)
+	case GetOwnWorkDetail        = 'get_own_work_detail';      // params: source_type, source_id, [student_person_id] — деталь своей работы/попытки (задачи 12/13)
 
 	// ==== Кабинеты / аудитории (офис, Эпик 9) ====
 	case GetRooms                = 'get_rooms';                // список кабинетов + группы (для назначения)

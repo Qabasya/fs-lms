@@ -33,20 +33,6 @@ readonly class AttemptDTO {
 		return $this->deadlineAt < $now;
 	}
 
-	/**
-	 * Человекочитаемый исход попытки для ученика.
-	 * Оценена: «Успешно», если набран проходной балл, иначе «Неудачно».
-	 * Сдана, но ждёт ручной проверки → «На проверке»; просрочена → «Не сдана».
-	 */
-	public function outcomeLabel( float $passScore ): string {
-		return match ( $this->status ) {
-			AttemptStatus::Graded    => ( $this->totalScore ?? 0.0 ) >= $passScore ? 'Успешно' : 'Неудачно',
-			AttemptStatus::Submitted => 'На проверке',
-			AttemptStatus::Expired   => 'Не сдана',
-			AttemptStatus::InProgress => 'В процессе',
-		};
-	}
-
 	/** Фактическое время решения в секундах (null — пока не сдана). */
 	public function actualDurationSeconds(): ?int {
 		if ( null === $this->submittedAt ) {

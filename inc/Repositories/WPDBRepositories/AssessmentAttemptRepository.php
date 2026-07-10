@@ -24,6 +24,7 @@ class AssessmentAttemptRepository {
 			'assessment_id'     => $dto->assessmentId,
 			'student_person_id' => $dto->studentPersonId,
 			'group_id'          => $dto->groupId,
+			'group_lesson_id'   => $dto->groupLessonId,
 			'attempt_number'    => $dto->attemptNumber,
 			'started_at'        => $dto->startedAt,
 			'deadline_at'       => $dto->deadlineAt,
@@ -205,5 +206,10 @@ class AssessmentAttemptRepository {
 	/** Каскадная очистка при удалении группы (GroupDeletionHandler). */
 	public function deleteAllByGroup( int $groupId ): int {
 		return (int) $this->wpdb->delete( $this->table, array( 'group_id' => $groupId ) );
+	}
+
+	/** Удаление одной попытки по id (задача 11: сброс попыток ученика преподавателем). */
+	public function delete( int $id ): bool {
+		return false !== $this->wpdb->delete( $this->table, array( 'id' => $id ) );
 	}
 }

@@ -33,7 +33,7 @@ class AttemptService {
 	 *
 	 * @throws \RuntimeException Если исчерпан лимит попыток или дублирующий INSERT (двойной клик).
 	 */
-	public function start( int $studentPersonId, int $assessmentId, ?int $groupId ): AttemptDTO {
+	public function start( int $studentPersonId, int $assessmentId, ?int $groupId, ?int $groupLessonId = null ): AttemptDTO {
 		$assessment = $this->assessments->get( $assessmentId );
 		if ( ! $assessment ) {
 			throw new \InvalidArgumentException( "Экзамен {$assessmentId} не найден." );
@@ -72,6 +72,7 @@ class AttemptService {
 			attemptNumber   : $attemptNumber,
 			startedAt       : $now,
 			deadlineAt      : $deadlineAt,
+			groupLessonId   : $groupLessonId,
 		);
 
 		$id = $this->attempts->create( $dto );

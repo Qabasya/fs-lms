@@ -168,6 +168,7 @@ function buildChoiceWidget( container, data, isDone ) {
 		input.name    = name;
 		input.value   = opt.id;
 		input.hidden  = true;
+		radio.classList.toggle( 'is-checkbox', multiple );
 		if ( isDone ) { input.disabled = true; row.classList.add( 'dis' ); }
 
 		body.textContent = opt.text;

@@ -138,6 +138,20 @@
   margin-bottom: 6px;
 }
 
+/* Задача 3: составное задание (Triple) — подпункты 19/20/21 внутри одного блока. */
+.fs-attempt-subpart + .fs-attempt-subpart {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--line);
+}
+
+.fs-attempt-subpart-tag {
+  margin-left: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .fs-attempt-question-content {
   // Типографику (шрифт/цвет/интерлиньяж, код/таблицы/картинки) задаёт .wpc —
   // единый с плеером стиль контента; здесь только внешний отступ.
@@ -386,4 +400,13 @@
   border-color: var(--line);
 
   &:hover { background: var(--surface-2); }
+}
+
+.fs-btn--danger {
+  background: var(--err);
+  border-color: var(--err);
+  color: var(--ink-inverse);
+  box-shadow: var(--shadow-sm);
+
+  &:hover { background: var(--err-ink); }
 }

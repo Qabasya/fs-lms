@@ -179,4 +179,16 @@ class SubmissionRepository {
 	public function deleteAllByGroupLesson( int $groupLessonId ): int {
 		return (int) $this->wpdb->delete( $this->table, array( 'group_lesson_id' => $groupLessonId ) );
 	}
+
+	/**
+	 * Удаляет все сдачи ученика по одной работе занятия (агрегат + per-task строки).
+	 * Задача 11: сброс попыток ученика преподавателем.
+	 */
+	public function deleteAllByStudentWorkLesson( int $studentPersonId, int $groupLessonId, int $workId ): int {
+		return (int) $this->wpdb->delete( $this->table, array(
+			'student_person_id' => $studentPersonId,
+			'group_lesson_id'   => $groupLessonId,
+			'work_id'           => $workId,
+		) );
+	}
 }

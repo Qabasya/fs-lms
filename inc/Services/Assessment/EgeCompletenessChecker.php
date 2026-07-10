@@ -40,10 +40,12 @@ class EgeCompletenessChecker {
 		) );
 		$terms = ( is_wp_error( $terms ) || ! is_array( $terms ) ) ? array() : $terms;
 
-		// slug => name для номеров таксономии (эталонный набор).
-		$termNames = array();
+		// slug => name для номеров таксономии (эталонный набор) + обратная карта name => slug.
+		$termNames  = array();
+		$nameToSlug = array();
 		foreach ( $terms as $term ) {
 			$termNames[ $term->slug ] = $term->name;
+			$nameToSlug[ $term->name ] = $term->slug;
 		}
 
 		// slug => сколько заданий его покрывают; список сирот (без валидного номера).
@@ -56,6 +58,15 @@ class EgeCompletenessChecker {
 				(array) $taskTerms,
 				static fn( $slug ) => isset( $termNames[ $slug ] )
 			) );
+
+			// Задача 8: у банковских (fs_lms_problems) задач нет таксономического терма —
+			// номер берём из карты task_numbers работы (fallback), сверяя с эталоном.
+			if ( empty( $slugs ) ) {
+				$number = $assessment->taskNumbers[ $taskId ] ?? '';
+				if ( '' !== $number && isset( $nameToSlug[ $number ] ) ) {
+					$slugs = array( $nameToSlug[ $number ] );
+				}
+			}
 
 			if ( empty( $slugs ) ) {
 				$orphans[] = $taskId;
@@ -108,13 +119,29 @@ class EgeCompletenessChecker {
 			return [];
 		}
 
+		// name => slug (для fallback банковских задач по task_numbers).
+		$nameToSlug = [];
+		foreach ( $terms as $term ) {
+			$nameToSlug[ $term->name ] = $term->slug;
+		}
+
 		// Собираем номера заданий, которые встречаются в задачах работы.
 		$coveredNumbers = [];
 		foreach ( $assessment->taskIds as $taskId ) {
+			$taskId    = (int) $taskId;
 			$taskTerms = wp_get_post_terms( $taskId, $taxonomy, [ 'fields' => 'slugs' ] );
+			$hasTerm   = false;
 			if ( ! is_wp_error( $taskTerms ) ) {
 				foreach ( $taskTerms as $slug ) {
 					$coveredNumbers[ $slug ] = true;
+					$hasTerm                 = true;
+				}
+			}
+			// Задача 8: банковская задача без терма — по номеру из task_numbers.
+			if ( ! $hasTerm ) {
+				$number = $assessment->taskNumbers[ $taskId ] ?? '';
+				if ( '' !== $number && isset( $nameToSlug[ $number ] ) ) {
+					$coveredNumbers[ $nameToSlug[ $number ] ] = true;
 				}
 			}
 		}

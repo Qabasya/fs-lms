@@ -58,7 +58,7 @@ class ParentDeletionHandler {
 
 		$this->logEvents->dispatch(
 			LogEvent::EntityHardDeleted,
-			new EntityHardDeletedEvent( $actorId, 'person', $personId, 'consents, applications, person_documents' )
+			new EntityHardDeletedEvent( $actorId, 'person', $personId, 'Согласия, заявки, документы персоны' )
 		);
 
 		if ( $wpUserId ) {

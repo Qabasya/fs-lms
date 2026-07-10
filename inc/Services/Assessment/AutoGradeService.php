@@ -14,7 +14,8 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
-use Inc\Services\Task\TaskCheckerRegistry;
+use Inc\Services\Course\BatchCheckService;
+use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 
 class AutoGradeService {
@@ -24,9 +25,10 @@ class AutoGradeService {
 		private readonly AssessmentAnswerRepository  $answers,
 		private readonly PostManager                 $posts,
 		private readonly TemplateResolver            $resolver,
-		private readonly TaskCheckerRegistry         $checkers,
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly AssessmentManager           $assessments,
+		private readonly BatchCheckService           $batchCheck,
+		private readonly TemplateRegistry            $templates,
 	) {}
 
 	/**
@@ -67,65 +69,91 @@ class AutoGradeService {
 	 */
 	public function gradeAttempt( AttemptDTO $attempt ): AttemptDTO {
 		$assessment = $this->assessments->get( $attempt->assessmentId );
-		// Фолбэк: если работа не найдена — старое поведение (по заполненным ответам).
+		// Фолбэк: если работа не найдена — оцениваем по заполненным ответам.
 		$taskIds = null !== $assessment
 			? $assessment->taskIds
-			: array_map( static fn( $a ) => $a->taskId, $this->answers->listByAttempt( $attempt->id ) );
+			: array_map( static fn( $a ) => (int) $a->taskId, $this->answers->listByAttempt( $attempt->id ) );
 
 		// D16.1: контрольная (Control) — бинарный балл «верно/неверно»: каждое
-		// задание весит ровно 1 (max = 1), частичный балл чекера и критерии
-		// ручного задания игнорируются. ЕГЭ/КЕГЭ — прежнее взвешенное поведение.
-		$binary = null !== $assessment && $assessment->kind->binaryScoring();
+		// задание весит ровно 1 (max = 1). ЕГЭ/КЕГЭ — взвешенный балл + разворот
+		// составных заданий (ThreeInOne → 19/20/21) через BatchCheckService.
+		$binary     = null !== $assessment && $assessment->kind->binaryScoring();
+		$kind       = $assessment?->kind;
+		$taskPoints = $assessment?->taskPoints ?? array();
 
-		// Сохранённые ответы по task_id — чтобы сопоставить с полным списком заданий.
-		$answersByTask = array();
+		// Сохранённые ответы по task_id (сырой текст) — для сопоставления с полным списком.
+		$rawByTask = array();
 		foreach ( $this->answers->listByAttempt( $attempt->id ) as $a ) {
-			$answersByTask[ $a->taskId ] = $a;
+			$rawByTask[ (int) $a->taskId ] = $a->answerText;
+		}
+
+		// Строим вход BatchCheckService: строка для обычных задач, массив {19,20,21}
+		// (json_decode) для составных (Triple) — их ответ хранится JSON на родительском task_id.
+		$taskAnswers  = array();
+		$existingTasks = array();
+		foreach ( $taskIds as $taskId ) {
+			$taskId = (int) $taskId;
+			$post   = $this->posts->get( $taskId );
+			if ( ! $post ) {
+				continue; // Задание удалено из банка — не учитываем в максимуме.
+			}
+			$existingTasks[ $taskId ] = true;
+			$raw = $rawByTask[ $taskId ] ?? '';
+
+			if ( $this->isComposite( $post, $kind ) ) {
+				$decoded              = is_string( $raw ) && '' !== $raw ? json_decode( $raw, true ) : null;
+				$taskAnswers[ $taskId ] = is_array( $decoded ) ? $decoded : array();
+			} else {
+				$taskAnswers[ $taskId ] = (string) ( $raw ?? '' );
+			}
+		}
+
+		$batch = $this->batchCheck->check( $taskAnswers, $taskPoints, $kind );
+
+		// Свод составных под-ключей ("taskId:19") обратно в одну строку на родительский
+		// task_id: таблица assessment_answers хранит один ряд на task_id (без под-ключей).
+		$agg = array();
+		foreach ( $batch->perTask as $key => $r ) {
+			$parent = (int) ( is_string( $key ) && str_contains( $key, ':' ) ? strstr( $key, ':', true ) : $key );
+			if ( ! isset( $agg[ $parent ] ) ) {
+				$agg[ $parent ] = array( 'score' => 0.0, 'max' => 0.0, 'correct' => true, 'pending' => false );
+			}
+			$agg[ $parent ]['score'] += (float) $r['score'];
+			$agg[ $parent ]['max']   += (float) $r['maxScore'];
+			if ( 'pending' === $r['verdict'] ) {
+				$agg[ $parent ]['pending'] = true;
+			}
+			if ( 'correct' !== $r['verdict'] ) {
+				$agg[ $parent ]['correct'] = false;
+			}
 		}
 
 		$totalScore = 0.0;
 		$totalMax   = 0.0;
 		$hasManual  = false;
 
-		foreach ( $taskIds as $taskId ) {
-			$taskId = (int) $taskId;
-			$post   = $this->posts->get( $taskId );
-			if ( ! $post ) {
-				// Задание удалено из банка — не учитываем в максимуме.
+		foreach ( $agg as $taskId => $a ) {
+			if ( ! isset( $existingTasks[ $taskId ] ) ) {
 				continue;
 			}
 
-			$template   = $this->resolver->resolveEnum( $post );
-			$checker    = $this->checkers->get( $template );
-			$meta       = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
-			$metaArr    = is_array( $meta ) ? $meta : array();
-			$answerText = $answersByTask[ $taskId ]->answerText ?? null;
-
-			if ( null === $checker ) {
+			if ( $a['pending'] ) {
+				// Ручное задание (нет чекера) — уходит на проверку. D16.1: контрольная —
+				// max = 1; ЕГЭ — сумма критериев (Эпик 13/D17), иначе вес слота.
 				$hasManual = true;
-				// D16.1: контрольная — max ручного задания = 1 (0/1 при ручной проверке),
-				// критерии игнорируются. Иначе (ЕГЭ, Эпик 13/D17) — начальный max_score
-				// равен сумме критериев (сырых баллов), либо заглушке «1».
-				$criteriaDefs = is_array( $metaArr['task_criteria']['criteria'] ?? null )
-					? $metaArr['task_criteria']['criteria']
-					: array();
-				$defaultMax   = ( ! $binary && ! empty( $criteriaDefs ) )
-					? array_sum( array_map( static fn( $d ) => (float) ( $d['max_points'] ?? 0 ), $criteriaDefs ) )
-					: 1.0;
-				$this->answers->upsert( $attempt->id, $taskId, array( 'max_score' => $defaultMax ) );
-				$totalMax += $defaultMax;
+				$max       = $binary ? 1.0 : $this->manualMax( $taskId, $a['max'] );
+				$this->answers->upsert( $attempt->id, $taskId, array( 'max_score' => $max ) );
+				$totalMax += $max;
 				continue;
 			}
 
-			$result = $checker->check( $metaArr, (string) ( $answerText ?? '' ) );
-
-			// D16.1: бинарный балл — верно→1, иначе→0, max = 1 (игнорируем
-			// CheckResult::score/maxScore и частичный балл композитов).
-			$score = $binary ? ( $result->isCorrect ? 1.0 : 0.0 ) : $result->score;
-			$max   = $binary ? 1.0 : $result->maxScore;
+			$isCorrect = $a['correct'];
+			// D16.1: бинарный балл — верно→1, иначе→0, max = 1.
+			$score = $binary ? ( $isCorrect ? 1.0 : 0.0 ) : $a['score'];
+			$max   = $binary ? 1.0 : $a['max'];
 
 			$this->answers->upsert( $attempt->id, $taskId, array(
-				'is_correct' => $result->isCorrect ? 1 : 0,
+				'is_correct' => $isCorrect ? 1 : 0,
 				'score'      => $score,
 				'max_score'  => $max,
 			) );
@@ -135,6 +163,28 @@ class AutoGradeService {
 		}
 
 		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );
+	}
+
+	/** Составное ли задание (ThreeInOne) в режиме ЕГЭ — разворачивается на под-пункты. */
+	private function isComposite( \WP_Post $post, ?\Inc\Enums\Assessment\AssessmentKind $kind ): bool {
+		if ( null === $kind || ! $kind->expandsComposites() ) {
+			return false;
+		}
+		$templateObj = $this->templates->get( $this->resolver->resolveId( $post ) );
+		return null !== $templateObj && ! empty( $templateObj->expandsForExam() );
+	}
+
+	/** Начальный max ручного задания (ЕГЭ): сумма критериев (Эпик 13/D17), иначе вес из BatchCheck. */
+	private function manualMax( int $taskId, float $weightFromBatch ): float {
+		$meta         = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
+		$metaArr      = is_array( $meta ) ? $meta : array();
+		$criteriaDefs = is_array( $metaArr['task_criteria']['criteria'] ?? null )
+			? $metaArr['task_criteria']['criteria']
+			: array();
+		if ( ! empty( $criteriaDefs ) ) {
+			return array_sum( array_map( static fn( $d ) => (float) ( $d['max_points'] ?? 0 ), $criteriaDefs ) );
+		}
+		return $weightFromBatch > 0 ? $weightFromBatch : 1.0;
 	}
 
 	/**

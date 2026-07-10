@@ -15,6 +15,7 @@ use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\ReviewQueueService;
 use Inc\Services\Course\SubmissionService;
 use Inc\Services\Course\WorkDetailService;
+use Inc\Services\Course\WorkResetService;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -33,6 +34,7 @@ class GradingCallbacks extends BaseController {
 		private readonly GroupLessonRepository $groupLessons,
 		private readonly ReviewQueueService    $reviewQueue,
 		private readonly WorkDetailService     $workDetail,
+		private readonly WorkResetService      $workReset,
 	) {
 		parent::__construct();
 	}
@@ -59,6 +61,35 @@ class GradingCallbacks extends BaseController {
 		unset( $detail['group_id'] );
 
 		$this->success( $detail );
+	}
+
+	/**
+	 * Сброс попыток/сдач ученика по работе или экзамену (задача 11): удаляет все
+	 * попытки/сдачи с результатами, чтобы ученик прошёл заново. Params: source_type, source_id.
+	 */
+	public function ajaxResetAttempts(): void {
+		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
+
+		$sourceType = $this->sanitizeText( 'source_type' );
+		$sourceId   = $this->requireInt( 'source_id' );
+
+		$groupId = $this->workReset->groupIdFor( $sourceType, $sourceId );
+		if ( null === $groupId ) {
+			$this->error( 'Работа не найдена.' );
+			return;
+		}
+		if ( ! $this->guard->canWriteJournal( $groupId, get_current_user_id() ) ) {
+			$this->error( 'Нет доступа к этой группе.' );
+			return;
+		}
+
+		$deleted = $this->workReset->reset( $sourceType, $sourceId );
+		if ( $deleted < 0 ) {
+			$this->error( 'Не удалось сбросить попытки.' );
+			return;
+		}
+
+		$this->success( array( 'deleted' => $deleted ) );
 	}
 
 	public function ajaxSaveGrade(): void {
