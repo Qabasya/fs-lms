@@ -11,6 +11,7 @@ use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\ReviewQueueService;
 use Inc\Services\Course\WorkDetailService;
+use Inc\Services\Course\WorkResetService;
 use Inc\Services\Course\SubmissionService;
 use PHPUnit\Framework\TestCase;
 
@@ -23,6 +24,7 @@ class GradingCallbacksTest extends TestCase {
 	private GroupLessonRepository $groupLessons;
 	private ReviewQueueService    $reviewQueue;
 	private WorkDetailService     $workDetail;
+	private WorkResetService      $workReset;
 	private GradingCallbacks      $cb;
 
 	protected function setUp(): void {
@@ -35,8 +37,9 @@ class GradingCallbacksTest extends TestCase {
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
 		$this->reviewQueue  = $this->createMock( ReviewQueueService::class );
 		$this->workDetail   = $this->createMock( WorkDetailService::class );
+		$this->workReset    = $this->createMock( WorkResetService::class );
 		$this->cb           = new GradingCallbacks(
-			$this->service, $this->gradebook, $this->guard, $this->submissions, $this->groupLessons, $this->reviewQueue, $this->workDetail
+			$this->service, $this->gradebook, $this->guard, $this->submissions, $this->groupLessons, $this->reviewQueue, $this->workDetail, $this->workReset
 		);
 	}
 

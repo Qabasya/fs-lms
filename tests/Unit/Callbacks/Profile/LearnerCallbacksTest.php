@@ -7,6 +7,7 @@ namespace Unit\Callbacks\Profile;
 use Inc\Callbacks\Profile\LearnerCallbacks;
 use Inc\DTO\Profile\ProfileContext;
 use Inc\Enums\Access\UserRole;
+use Inc\Services\Course\OwnWorkDetailService;
 use Inc\Services\Enrollment\OpenGroupEnrollmentService;
 use Inc\Services\Profile\LearnerService;
 use Inc\Services\Profile\ProfileViewResolver;
@@ -17,6 +18,7 @@ class LearnerCallbacksTest extends TestCase {
 	private LearnerService&\PHPUnit\Framework\MockObject\MockObject $service;
 	private ProfileViewResolver&\PHPUnit\Framework\MockObject\MockObject $resolver;
 	private OpenGroupEnrollmentService&\PHPUnit\Framework\MockObject\MockObject $openEnroll;
+	private OwnWorkDetailService&\PHPUnit\Framework\MockObject\MockObject $ownDetail;
 	private LearnerCallbacks $cb;
 
 	protected function setUp(): void {
@@ -26,7 +28,8 @@ class LearnerCallbacksTest extends TestCase {
 		$this->service    = $this->createMock( LearnerService::class );
 		$this->resolver   = $this->createMock( ProfileViewResolver::class );
 		$this->openEnroll = $this->createMock( OpenGroupEnrollmentService::class );
-		$this->cb         = new LearnerCallbacks( $this->service, $this->resolver, $this->openEnroll );
+		$this->ownDetail  = $this->createMock( OwnWorkDetailService::class );
+		$this->cb         = new LearnerCallbacks( $this->service, $this->resolver, $this->openEnroll, $this->ownDetail );
 	}
 
 	public function test_student_sees_only_self_ignoring_param(): void {

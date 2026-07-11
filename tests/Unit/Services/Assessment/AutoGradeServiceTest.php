@@ -5,19 +5,18 @@ declare( strict_types=1 );
 namespace Unit\Services\Assessment;
 
 use Inc\Contracts\LogEventDispatcherInterface;
-use Inc\Contracts\TaskCheckerInterface;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
-use Inc\DTO\Task\CheckResultDTO;
+use Inc\DTO\Course\BatchCheckResultDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\ScoringPolicy;
-use Inc\Enums\Subject\TaskTemplate;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Services\Assessment\AutoGradeService;
-use Inc\Services\Task\TaskCheckerRegistry;
+use Inc\Services\Course\BatchCheckService;
+use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -31,7 +30,8 @@ class AutoGradeServiceTest extends TestCase {
 	private AssessmentAnswerRepository&MockObject  $answers;
 	private PostManager&MockObject                 $posts;
 	private TemplateResolver&MockObject            $resolver;
-	private TaskCheckerRegistry&MockObject         $checkers;
+	private BatchCheckService&MockObject           $batchCheck;
+	private TemplateRegistry&MockObject            $templates;
 	private LogEventDispatcherInterface&MockObject $dispatcher;
 	private AssessmentManager&MockObject           $assessments;
 	private AutoGradeService                       $service;
@@ -47,7 +47,8 @@ class AutoGradeServiceTest extends TestCase {
 		$this->answers     = $this->createMock( AssessmentAnswerRepository::class );
 		$this->posts       = $this->createMock( PostManager::class );
 		$this->resolver    = $this->createMock( TemplateResolver::class );
-		$this->checkers    = $this->createMock( TaskCheckerRegistry::class );
+		$this->batchCheck  = $this->createMock( BatchCheckService::class );
+		$this->templates   = $this->createMock( TemplateRegistry::class );
 		$this->dispatcher  = $this->createMock( LogEventDispatcherInterface::class );
 		$this->assessments = $this->createMock( AssessmentManager::class );
 
@@ -56,9 +57,10 @@ class AutoGradeServiceTest extends TestCase {
 			$this->answers,
 			$this->posts,
 			$this->resolver,
-			$this->checkers,
 			$this->dispatcher,
 			$this->assessments,
+			$this->batchCheck,
+			$this->templates,
 		);
 
 		// Нет сохранённых ответов — оцениваем по полному составу работы.
@@ -104,10 +106,11 @@ class AutoGradeServiceTest extends TestCase {
 	}
 
 	/**
-	 * Настраивает posts/resolver/checkers на три задания:
-	 *  - #10 авто, верно (CheckResult 2/2);
-	 *  - #20 ручное (чекера нет; критерии на сумму 3);
-	 *  - #30 авто-композит, частично (1 из 2, isCorrect=false).
+	 * Настраивает posts + BatchCheckService (собственные тесты — BatchCheckServiceTest)
+	 * на три задания:
+	 *  - #10 авто, верно (2/2);
+	 *  - #20 ручное (pending; критерии на сумму 3 читает manualMax());
+	 *  - #30 авто, частично (1 из 2, verdict=incorrect).
 	 */
 	private function seedThreeTasks(): void {
 		fs_test_seed_post( array( 'ID' => 10, 'post_type' => 'test_tasks' ) );
@@ -121,27 +124,22 @@ class AutoGradeServiceTest extends TestCase {
 				: array()
 		);
 
-		$this->resolver->method( 'resolveEnum' )->willReturnCallback(
-			fn( \WP_Post $p ): TaskTemplate => match ( $p->ID ) {
-				20      => TaskTemplate::FileAnswer,
-				30      => TaskTemplate::Triple,
-				default => TaskTemplate::Standard,
-			}
-		);
+		// isComposite() → false для всех: шаблон не разворачивается на экзамене.
+		$this->resolver->method( 'resolveId' )->willReturn( '' );
+		$this->templates->method( 'get' )->willReturn( null );
 
-		$correct = $this->createMock( TaskCheckerInterface::class );
-		$correct->method( 'check' )->willReturn( CheckResultDTO::correct( 2.0 ) );
-
-		$partial = $this->createMock( TaskCheckerInterface::class );
-		$partial->method( 'check' )->willReturn( CheckResultDTO::partial( 1.0, 2.0 ) );
-
-		$this->checkers->method( 'get' )->willReturnCallback(
-			fn( TaskTemplate $t ): ?TaskCheckerInterface => match ( $t ) {
-				TaskTemplate::FileAnswer => null,       // ручное задание
-				TaskTemplate::Triple     => $partial,
-				default                  => $correct,
-			}
-		);
+		$this->batchCheck->method( 'check' )->willReturn( new BatchCheckResultDTO(
+			perTask          : array(
+				10 => array( 'verdict' => 'correct',   'score' => 2.0, 'maxScore' => 2.0 ),
+				20 => array( 'verdict' => 'pending',   'score' => 0.0, 'maxScore' => 1.0 ),
+				30 => array( 'verdict' => 'incorrect', 'score' => 1.0, 'maxScore' => 2.0 ),
+			),
+			correctCount     : 1,
+			totalCount       : 3,
+			weightedScore    : 3.0,
+			maxWeightedScore : 5.0,
+			hasManual        : true,
+		) );
 	}
 
 	public function test_control_scores_each_task_as_binary_one_or_zero(): void {
