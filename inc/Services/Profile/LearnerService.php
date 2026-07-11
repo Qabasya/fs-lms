@@ -82,6 +82,8 @@ class LearnerService {
 					'teacher_id'  => isset( $g->teacher_id ) ? (int) $g->teacher_id : 0,
 					'access_mode' => (string) ( $g->access_mode ?? 'scheduled' ), // Эпик 15: открытая группа
 				);
+				// #14: название курса группы (тот же текст, что во вкладке «Мои курсы»).
+				$groups[ $rec->groupId ]['course_title'] = $this->courseTitleForGroup( $groups[ $rec->groupId ] );
 				$groupIds[]              = (int) $g->id;
 			}
 		}
@@ -119,6 +121,7 @@ class LearnerService {
 					'kind'            => $row->kind,
 					'room'            => $roomId > 0 ? ( $roomNames[ $roomId ] ?? '' ) : '',
 					'teacher'         => $teacherId ? ( $teacherNames[ $teacherId ] ?? '' ) : '',
+					'course'          => (string) ( $groups[ $gid ]['course_title'] ?? '' ),
 					// Вход в плеер курса (T14.13): урок с контентом получает ссылку
 					// в плеер и статус прохождения (done / available / locked).
 					'player_url'      => $hasContent ? $this->playerUrl( $gid, $row->id ) : '',
@@ -189,6 +192,9 @@ class LearnerService {
 				'display'     => $e->displayType,
 				'graded_at'   => $e->gradedAt,
 				'group_name'  => $groups[ $e->groupId ]['name'] ?? '',
+				// #12: источник результата — для перехода к деталям работы/попытки.
+				'source_type' => $e->sourceType,
+				'source_id'   => $e->sourceId,
 			);
 		}
 		$recent = array_values( array_filter( $grades, static fn( $g ) => ! empty( $g['graded_at'] ) ) );
@@ -203,6 +209,7 @@ class LearnerService {
 			$rows[] = array(
 				'date'    => $l ? $l['date'] : substr( $a->markedAt, 0, 10 ),
 				'topic'   => $l ? $l['topic'] : '—',
+				'course'  => $l ? ( $l['course'] ?? '' ) : '',
 				'present' => $a->isPresent,
 			);
 			++$total;
@@ -369,10 +376,9 @@ class LearnerService {
 				'id'           => $gid,
 				'code'         => $g['name'],
 				'open'         => 'open' === ( $g['access_mode'] ?? 'scheduled' ), // Эпик 15: бейдж «свободное прохождение»
-				'title'        => null !== $course && '' !== $course->title ? $course->title : $g['subject'],
+				'title'        => $this->courseTitleForGroup( $g ),
 				'subject'      => $g['subject'],
 				'subject_key'  => $g['subject_key'], // ключ цвета чипа (chipIndex, utils.js)
-				'abbr'         => $this->subjectAbbr( $g['subject'] ),
 				'teacher'      => $teacher,
 				'room'         => $roomName,
 				'start'        => $start,
@@ -431,11 +437,16 @@ class LearnerService {
 		);
 	}
 
-	/** Аббревиатура предмета для чипа вкладки курса (первые 3 буквы, верхний регистр). */
-	private function subjectAbbr( string $subject ): string {
-		$s = trim( $subject );
-		return '' === $s ? '—' : mb_strtoupper( mb_substr( $s, 0, 3 ) );
-	}
+		/**
+		 * Название курса группы (fallback — название предмета). Единый источник для
+		 * вкладки «Мои курсы» (#15: чип) и посещаемости (#14: подпись занятия).
+		 *
+		 * @param array<string, mixed> $g
+		 */
+		private function courseTitleForGroup( array $g ): string {
+			$course = ( (int) ( $g['course_id'] ?? 0 ) ) > 0 ? $this->courses->get( (int) $g['course_id'] ) : null;
+			return ( null !== $course && '' !== $course->title ) ? $course->title : (string) ( $g['subject'] ?? '' );
+		}
 
 	private function topicOf( GroupLessonDTO $row ): string {
 		$lesson = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;

@@ -8,6 +8,7 @@
 declare( strict_types=1 );
 ?>
 <form class="fs-attempt-form" novalidate>
+	<?php $fs_seq = 0; // Сквозная нумерация (Triple разворачивается на 3 позиции, задача 3). ?>
 	<?php foreach ( $assessment->taskIds as $i => $taskId ) : ?>
 		<?php require __DIR__ . '/attempt-question.php'; ?>
 	<?php endforeach; ?>

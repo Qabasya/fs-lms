@@ -96,9 +96,15 @@ class WorkManager {
 			return false;
 		}
 
+		// Гард дублей: одна задача не может стоять в двух слотах (задача 6).
+		$ids = array_values( array_filter( array_map( 'intval', $itemIds ) ) );
+		if ( count( $ids ) !== count( array_unique( $ids ) ) ) {
+			return false;
+		}
+
 		$meta = $this->posts->getMeta( $workId, PostMetaName::Meta->value );
 		$meta = is_array( $meta ) ? $meta : array();
-		$meta['item_ids'] = array_values( array_filter( array_map( 'intval', $itemIds ) ) );
+		$meta['item_ids'] = $ids;
 
 		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, $meta );
 		return true;

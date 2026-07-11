@@ -28,8 +28,9 @@ class AttemptCallbacks extends BaseController {
 	public function ajaxStartAttempt(): void {
 		Nonce::StartAttempt->verify();
 
-		$assessmentId = $this->requireInt( 'assessment_id' );
-		$groupId      = $this->sanitizeInt( 'group_id' ) ?: null;
+		$assessmentId  = $this->requireInt( 'assessment_id' );
+		$groupId       = $this->sanitizeInt( 'group_id' ) ?: null;
+		$groupLessonId = $this->sanitizeInt( 'group_lesson_id' ) ?: null;
 
 		$userId = get_current_user_id();
 		$person = $this->personRepository->findByWpUserId( $userId );
@@ -39,7 +40,7 @@ class AttemptCallbacks extends BaseController {
 		}
 
 		try {
-			$attempt = $this->attemptService->start( $person->id, $assessmentId, $groupId );
+			$attempt = $this->attemptService->start( $person->id, $assessmentId, $groupId, $groupLessonId );
 			$this->success( [
 				'attempt_id'  => $attempt->id,
 				'deadline_at' => $attempt->deadlineAt,

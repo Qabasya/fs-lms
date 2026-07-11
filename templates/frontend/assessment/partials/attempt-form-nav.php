@@ -21,17 +21,26 @@ declare( strict_types=1 );
 			if ( ! get_post( $taskId ) ) {
 				continue;
 			}
-			$num = (int) ( $taskViews[ (int) $taskId ]['taskNumber'] ?? 0 );
-			$num = $num > 0 ? $num : ( $i + 1 );
+			$subparts = is_array( $taskViews[ (int) $taskId ]['subparts'] ?? null ) ? $taskViews[ (int) $taskId ]['subparts'] : array();
+			if ( ! empty( $subparts ) ) {
+				// Задача 3: составное задание — диапазон номеров (19–21).
+				$first = (int) $subparts[0]['number'];
+				$last  = (int) $subparts[ count( $subparts ) - 1 ]['number'];
+				$label = $first . '–' . $last;
+			} else {
+				$num   = (int) ( $taskViews[ (int) $taskId ]['taskNumber'] ?? 0 );
+				$label = (string) ( $num > 0 ? $num : ( $i + 1 ) );
+			}
 			?>
 			<button type="button" class="fs-ege-nav__num" data-nav-index="<?php echo esc_attr( (string) $i ); ?>">
-				<?php echo esc_html( (string) $num ); ?>
+				<?php echo esc_html( $label ); ?>
 			</button>
 		<?php endforeach; ?>
 	</aside>
 
 	<div class="fs-ege-nav__stage">
 		<form class="fs-attempt-form" novalidate>
+			<?php $fs_seq = 0; // Сквозная нумерация (Triple разворачивается на 3 позиции, задача 3). ?>
 			<?php foreach ( $assessment->taskIds as $i => $taskId ) : ?>
 				<?php require __DIR__ . '/attempt-question.php'; ?>
 			<?php endforeach; ?>

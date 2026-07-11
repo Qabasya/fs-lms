@@ -40,19 +40,28 @@ class AssessmentManager {
 	 * @param int[] $itemIds
 	 */
 	/**
-	 * @param int[]   $itemIds
-	 * @param float[] $taskPoints taskId => points
+	 * @param int[]    $itemIds
+	 * @param float[]  $taskPoints  taskId => points
+	 * @param string[] $taskNumbers taskId => номер задания (задача 8: fallback-номер для
+	 *                              банковских fs_lms_problems-задач без таксономического терма).
 	 */
-	public function setItemIds( int $assessmentId, array $itemIds, array $taskPoints = [] ): bool {
+	public function setItemIds( int $assessmentId, array $itemIds, array $taskPoints = [], array $taskNumbers = [] ): bool {
 		$post = get_post( $assessmentId );
 		if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isAssessmentPostType( $post->post_type ) ) {
 			return false;
 		}
 
-		$meta               = $this->posts->getMeta( $assessmentId, PostMetaName::Meta->value, true );
-		$meta               = is_array( $meta ) ? $meta : array();
-		$meta['task_ids']   = array_values( array_map( 'intval', $itemIds ) );
-		$meta['task_points'] = $taskPoints;
+		// Гард дублей: одна задача не может стоять в двух слотах (задача 6).
+		$ids = array_values( array_map( 'intval', $itemIds ) );
+		if ( count( $ids ) !== count( array_unique( $ids ) ) ) {
+			return false;
+		}
+
+		$meta                 = $this->posts->getMeta( $assessmentId, PostMetaName::Meta->value, true );
+		$meta                 = is_array( $meta ) ? $meta : array();
+		$meta['task_ids']     = $ids;
+		$meta['task_points']  = $taskPoints;
+		$meta['task_numbers'] = $taskNumbers;
 
 		$this->posts->updateMeta( $assessmentId, PostMetaName::Meta->value, $meta );
 		return true;

@@ -73,7 +73,7 @@ class GroupDeletionHandler {
 		$parentsCount  = count( $affected['parents'] ?? array() );
 		$this->logEvents->dispatch(
 			LogEvent::EntityHardDeleted,
-			new EntityHardDeletedEvent( $actorId, 'group', $groupId, "students:{$studentsCount}, parents:{$parentsCount}" )
+			new EntityHardDeletedEvent( $actorId, 'group', $groupId, "Учеников:{$studentsCount}, Родителей:{$parentsCount}" )
 		);
 
 		foreach ( $affected['students'] as $studentPersonId ) {

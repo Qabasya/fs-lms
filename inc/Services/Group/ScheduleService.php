@@ -10,6 +10,7 @@ use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
+use Inc\Services\Course\EffectiveTeacherResolver;
 use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -28,6 +29,7 @@ class ScheduleService {
 		private readonly RoomRepository              $rooms,
 		private readonly RoomAvailabilityService     $roomAvailability,
 		private readonly CourseManager               $courses,
+		private readonly EffectiveTeacherResolver    $effectiveTeacher,
 	) {}
 
 	/**
@@ -406,10 +408,16 @@ class ScheduleService {
 			$roomNames[ $r->id ] = $r->name;
 		}
 
-		$themes = array();
+		$themes        = array();
+		$teacherNames  = array(); // кэш id→display_name.
 		foreach ( $this->numberThemes( $this->getProgram( $groupId ) ) as $entry ) {
 			$row       = $entry['row'];
 			$effRoomId = ! empty( $row->roomId ) ? (int) $row->roomId : $groupRoomId;
+			// #16: эффективный преподаватель занятия (Эпик 5): override › замена › препод группы.
+			$teacherId = $this->effectiveTeacher->forLesson( $row );
+			if ( $teacherId && ! isset( $teacherNames[ $teacherId ] ) ) {
+				$teacherNames[ $teacherId ] = get_userdata( $teacherId )->display_name ?? '';
+			}
 			$themes[]  = array(
 				'group_lesson_id' => $row->id,
 				'lesson_id'       => $row->lessonId,
@@ -421,6 +429,7 @@ class ScheduleService {
 				'scheduled_at'    => $row->scheduledAt,
 				'is_pinned'       => $row->isPinned,
 				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
+				'teacher'         => $teacherId ? ( $teacherNames[ $teacherId ] ?? '' ) : '',
 			);
 		}
 

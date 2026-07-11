@@ -216,6 +216,12 @@ function initActStage( root, state, persist, kegeVars, assessmentId ) {
 			fd.append( 'action', kegeVars.actions.startAttempt );
 			fd.append( 'security', kegeVars.nonces.startAttempt );
 			fd.append( 'assessment_id', String( assessmentId ) );
+			// Задача 5: контекст группы/занятия из URL (from_gid/from_gl) — привязка попытки.
+			const kegeQs   = new URLSearchParams( window.location.search );
+			const kegeGid  = kegeQs.get( 'from_gid' );
+			const kegeGl   = kegeQs.get( 'from_gl' );
+			if ( kegeGid ) { fd.append( 'group_id', kegeGid ); }
+			if ( kegeGl ) { fd.append( 'group_lesson_id', kegeGl ); }
 			const res  = await fetch( kegeVars.ajax_url, { method: 'POST', body: fd } );
 			const json = await res.json();
 			if ( json.success ) {

@@ -7,10 +7,10 @@
  * @var \Inc\DTO\Person\PersonDTO|null         $person
  * @var array<int, array{template: string, materials: array}> $taskViews  T13.5: per-task тип шаблона + материалы
  * @var string                                 $introTemplate  D16.4: путь к партиалу интро-шага (стадия [intro])
+ * @var string                                 $outcome        Задача 10: метка исхода попытки
+ * @var string                                 $outcomeState   Задача 10: состояние плашки (ok/fail/review)
  */
 declare( strict_types=1 );
-
-use Inc\Enums\Assessment\AttemptStatus;
 ?>
 <div class="fs-page-wrapper">
 	<div class="fs-assessment-page">
@@ -61,16 +61,8 @@ use Inc\Enums\Assessment\AttemptStatus;
 			$resultMax = ( null !== $lastAttempt->maxScore && $lastAttempt->maxScore > 0 )
 				? (float) $lastAttempt->maxScore
 				: $assessment->maxPrimary();
-			$outcome   = $lastAttempt->outcomeLabel( $assessment->passScore );
-			// Цвет плашки: зелёный — успешно, красный — неуспешно/не сдана,
-			// жёлтый — ждёт ручной проверки (есть задание с развёрнутым ответом).
-			if ( AttemptStatus::Submitted === $lastAttempt->status ) {
-				$outcomeState = 'review';
-			} elseif ( AttemptStatus::Graded === $lastAttempt->status ) {
-				$outcomeState = ( $lastAttempt->totalScore ?? 0.0 ) >= $assessment->passScore ? 'ok' : 'fail';
-			} else {
-				$outcomeState = 'fail'; // expired / не сдана
-			}
+			// Задача 10: $outcome / $outcomeState вычислены в контроллере через
+			// AttemptOutcomeService — для ЕГЭ/КЕГЭ порог сверяется по ВТОРИЧНОМУ баллу.
 			?>
 			<div class="fs-assessment-result-page fs-assessment-result-page--<?php echo esc_attr( $outcomeState ); ?>">
 				<h2>Результат</h2>
@@ -101,8 +93,17 @@ use Inc\Enums\Assessment\AttemptStatus;
 											/ <?php echo esc_html( null !== $task['max_score'] ? (string) $task['max_score'] : '?' ); ?>
 										</span>
 									<?php else : ?>
-										<span class="fs-result-task__verdict">
-											<?php echo esc_html( $task['verdict'] ); ?>
+										<?php
+										// Задача 13: перевод вердикта на русский. Эталонные ответы на этом
+										// экране НЕ показываем (только в «Мои оценки», п.13).
+										$fs_verdict_ru = array(
+											'correct'   => 'Решено верно',
+											'incorrect' => 'Решено неверно',
+											'pending'   => 'На проверке',
+										);
+										?>
+										<span class="fs-result-task__verdict fs-result-task__verdict--<?php echo esc_attr( (string) $task['verdict'] ); ?>">
+											<?php echo esc_html( $fs_verdict_ru[ $task['verdict'] ] ?? (string) $task['verdict'] ); ?>
 										</span>
 									<?php endif; ?>
 									<?php if ( ! empty( $task['files'] ) ) : ?>
@@ -129,13 +130,8 @@ use Inc\Enums\Assessment\AttemptStatus;
 			</div>
 			<div class="fs-result-actions">
 				<?php if ( $canRetry ) : ?>
-					<button class="fs-btn fs-btn--secondary" id="fs-start-attempt-btn"
+					<button class="fs-btn fs-btn--danger" id="fs-start-attempt-btn"
 						data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>">
-						Пройти ещё раз
-					</button>
-				<?php else : ?>
-					<button class="fs-btn fs-btn--secondary" disabled
-						title="<?php esc_attr_e( 'Лимит попыток исчерпан', 'fs-lms' ); ?>">
 						Пройти ещё раз
 					</button>
 				<?php endif; ?>

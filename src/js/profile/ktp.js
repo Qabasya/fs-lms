@@ -309,14 +309,16 @@ function themeCardHtml(t) {
 
 function placedThemeHtml(t) {
     const pinned = t.is_pinned ? ' pinned' : '';
-    const roomTip = t.room ? ` · ауд. ${t.room}` : '';
+    const roomTip = t.room ? ` · ${t.room}` : '';
     // T12.6: «Продолжить» доступно только для «родных» строк (part 1) — не для уже-продолжений.
     const canContinue = 1 === t.part;
+    // #16: карточка урока = тема (жирная) / кабинет / преподаватель, друг под другом.
+    // Номер убран; метка продолжения (part/total) прикреплена к теме.
     return `<div class="placed-theme${pinned}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
         <span class="pt-pin">${icoPinFilled(11)}</span>
-        <span class="pt-num">№${t.n}${partLabel(t)}</span>
-        <span class="pt-title">${esc(t.topic || 'Без названия')}</span>
-        ${t.room ? `<span class="pt-room">ауд. ${esc(t.room)}</span>` : ''}
+        <span class="pt-title">${esc(t.topic || 'Без названия')}${partLabel(t)}</span>
+        ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}
+        ${t.teacher ? `<span class="pt-meta">${esc(t.teacher)}</span>` : ''}
         ${canContinue ? `<button type="button" class="pt-more" data-glid="${t.group_lesson_id}" aria-label="Действия">⋮</button>` : ''}
     </div>`;
 }

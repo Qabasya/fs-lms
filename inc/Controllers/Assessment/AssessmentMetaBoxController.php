@@ -162,8 +162,9 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 	public function renderBuilderContent( \WP_Post $post ): void {
 		$subject     = PostTypeResolver::subjectFromAssessmentPostType( $post->post_type );
 		$assessment  = $this->assessmentManager->get( $post->ID );
-		$task_ids    = null !== $assessment ? $assessment->taskIds : array();
-		$task_points = null !== $assessment ? $assessment->taskPoints : array();
+		$task_ids     = null !== $assessment ? $assessment->taskIds : array();
+		$task_points  = null !== $assessment ? $assessment->taskPoints : array();
+		$task_numbers = null !== $assessment ? $assessment->taskNumbers : array();
 
 		$steps = array();
 		foreach ( $task_ids as $i => $id ) {
@@ -175,8 +176,9 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 				'_title'  => $id > 0 ? get_the_title( $id ) : '',
 			);
 		}
-		$json        = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
-		$points_json = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		$json         = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		$points_json  = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		$numbers_json = wp_json_encode( $task_numbers, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 
 		$ege_slots = (int) wp_count_terms( array(
 			'taxonomy'   => $subject . '_task_number',
@@ -191,7 +193,8 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			. 'data-subject="' . esc_attr( $subject ) . '" '
 			. 'data-ege-slots="' . esc_attr( (string) $ege_slots ) . '" '
 			. 'data-ege-kinds="' . esc_attr( $ege_kinds_json ?: '[]' ) . '" '
-			. 'data-task-points="' . esc_attr( $points_json ?: '{}' ) . '">';
+			. 'data-task-points="' . esc_attr( $points_json ?: '{}' ) . '" '
+			. 'data-task-numbers="' . esc_attr( $numbers_json ?: '{}' ) . '">';
 		echo '<script type="application/json" class="fs-sb-data">' . ( $json ?: '[]' ) . '</script>';
 		echo '</div>';
 		echo '</div>';

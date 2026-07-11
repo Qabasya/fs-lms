@@ -86,12 +86,24 @@ export async function saveAnswer( vars, attemptId, taskId, answerText, statusEl 
 }
 
 /**
- * Значение ответа блока: для «Развёрнутого ответа» (Эпик 13, D16) — JSON
- * {"text","files":[attachment_ids]}, для остальных — как раньше, текст.
+ * Значение ответа блока:
+ *  - «Развёрнутый ответ» (Эпик 13, D16) — JSON {"text","files":[attachment_ids]};
+ *  - составное задание (Triple, задача 3) — JSON {"19":..,"20":..,"21":..} со всех
+ *    под-полей, отправляется одним вызовом на родительский task_id;
+ *  - остальные — просто текст.
  */
-function answerValue( block, textarea ) {
+function answerValue( block ) {
+	if ( 'triple' === block.dataset.template ) {
+		const out = {};
+		block.querySelectorAll( '.fs-attempt-answer[data-sub]' ).forEach( ( t ) => {
+			out[ t.dataset.sub ] = t.value.trim();
+		} );
+		return JSON.stringify( out );
+	}
+
+	const textarea = block.querySelector( '.fs-attempt-answer' );
 	if ( 'file_answer' !== block.dataset.template ) {
-		return textarea.value;
+		return textarea ? textarea.value : '';
 	}
 	const files = Array.from( block.querySelectorAll( '.fs-attempt-files__chip' ) )
 		.map( ( chip ) => parseInt( chip.dataset.id, 10 ) )
@@ -102,16 +114,20 @@ function answerValue( block, textarea ) {
 /** Bind autosave handlers to all answer textareas (кнопки «Сохранить» нет — сохраняется само). */
 function bindAutosave( form, attemptId ) {
 	form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
-		const taskId   = block.dataset.taskId;
-		const textarea = block.querySelector( '.fs-attempt-answer' );
-		const statusEl = block.querySelector( '.fs-save-status' ); // необязателен (индикатор убран)
-		if ( ! textarea ) { return; }
+		const taskId    = block.dataset.taskId;
+		// Составное задание (Triple) содержит несколько под-полей — вешаем на все;
+		// сохраняем весь блок одним вызовом (answerValue собирает JSON).
+		const textareas = block.querySelectorAll( '.fs-attempt-answer' );
+		const statusEl  = block.querySelector( '.fs-save-status' ); // необязателен (индикатор убран)
+		if ( ! textareas.length ) { return; }
 
-		const save = () => saveAnswer( vars, attemptId, taskId, answerValue( block, textarea ), statusEl );
+		const save = () => saveAnswer( vars, attemptId, taskId, answerValue( block ), statusEl );
 
-		// Дебаунс при вводе + немедленное сохранение при уходе из поля (blur).
-		textarea.addEventListener( 'input', debounce( save, 1200 ) );
-		textarea.addEventListener( 'blur', save );
+		textareas.forEach( ( textarea ) => {
+			// Дебаунс при вводе + немедленное сохранение при уходе из поля (blur).
+			textarea.addEventListener( 'input', debounce( save, 1200 ) );
+			textarea.addEventListener( 'blur', save );
+		} );
 	} );
 }
 
@@ -124,10 +140,9 @@ async function saveAll( form, attemptId ) {
 	const jobs = [];
 	form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
 		const taskId   = block.dataset.taskId;
-		const textarea = block.querySelector( '.fs-attempt-answer' );
 		const statusEl = block.querySelector( '.fs-save-status' ); // необязателен (индикатор убран)
-		if ( ! textarea ) { return; }
-		jobs.push( saveAnswer( vars, attemptId, taskId, answerValue( block, textarea ), statusEl ) );
+		if ( ! block.querySelector( '.fs-attempt-answer' ) ) { return; }
+		jobs.push( saveAnswer( vars, attemptId, taskId, answerValue( block ), statusEl ) );
 	} );
 	await Promise.all( jobs );
 }
@@ -148,7 +163,7 @@ function bindFileAnswers( form, attemptId ) {
 		const statusEl = block.querySelector( '.fs-attempt-files__status' );
 		if ( ! chips || ! input || ! addBtn || ! textarea ) { return; }
 
-		const persist = () => saveAnswer( vars, attemptId, taskId, answerValue( block, textarea ), saveEl );
+		const persist = () => saveAnswer( vars, attemptId, taskId, answerValue( block ), saveEl );
 
 		const addChip = ( id, name ) => {
 			const chip      = document.createElement( 'span' );
@@ -349,6 +364,13 @@ function initStartButton() {
 			fd.append( 'action', vars.actions.startAttempt );
 			fd.append( 'security', vars.nonces.startAttempt );
 			fd.append( 'assessment_id', String( btn.dataset.assessmentId || '' ) );
+			// Задача 5: контекст группы/занятия из URL (from_gid/from_gl, проставлены
+			// плеером) — чтобы попытка привязалась к занятию и попала в сводку ученика.
+			const qs = new URLSearchParams( window.location.search );
+			const fromGid = qs.get( 'from_gid' );
+			const fromGl  = qs.get( 'from_gl' );
+			if ( fromGid ) { fd.append( 'group_id', fromGid ); }
+			if ( fromGl ) { fd.append( 'group_lesson_id', fromGl ); }
 			const res  = await fetch( vars.ajax_url, { method: 'POST', body: fd } );
 			const json = await res.json();
 			if ( json.success ) {

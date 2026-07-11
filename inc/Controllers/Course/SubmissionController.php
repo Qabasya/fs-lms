@@ -31,6 +31,7 @@ class SubmissionController extends AjaxController {
 			array( AjaxHook::GetGroupSubmissions, $this->gradingCallbacks ),
 			array( AjaxHook::GetGradebook,        $this->gradingCallbacks ),
 			array( AjaxHook::GetWorkDetail,       $this->gradingCallbacks ),
+			array( AjaxHook::ResetAttempts,       $this->gradingCallbacks ),
 			array( AjaxHook::SubmitBatchWork,     $this->batchCallbacks ),
 			array( AjaxHook::GradeBatchTask,      $this->batchCallbacks ),
 		);

@@ -71,21 +71,40 @@ $taskCount = count( $assessment->taskIds );
 						'materials'  => array(),
 						'taskNumber' => 0,
 						'condition'  => '',
+						'subparts'   => array(),
 					);
-					$isTable = in_array( $view['taskNumber'], array( 25, 27 ), true );
-					$n       = $i + 1;
+					$subparts = is_array( $view['subparts'] ?? null ) ? $view['subparts'] : array();
+					$isTriple = ! empty( $subparts );
+					$isTable  = ! $isTriple && in_array( $view['taskNumber'], array( 25, 27 ), true );
+					$shape    = $isTriple ? 'triple' : ( $isTable ? 'table' : 'text' );
+					$n        = $i + 1;
+					// Задача 3: составное — заголовок показывает диапазон номеров (19–21),
+					// ключи под-ответов уходят в JS для сбора JSON на родительский task_id.
+					$headNum  = $isTriple
+						? ( (int) $subparts[0]['number'] . '–' . (int) $subparts[ count( $subparts ) - 1 ]['number'] )
+						: ( $view['taskNumber'] > 0 ? '№' . (int) $view['taskNumber'] : '' );
 					?>
 					<div class="kege-t-body"
 						data-kege-panel="<?php echo esc_attr( (string) $n ); ?>"
 						data-task-id="<?php echo esc_attr( (string) $taskId ); ?>"
-						data-answer-shape="<?php echo esc_attr( $isTable ? 'table' : 'text' ); ?>"
+						data-answer-shape="<?php echo esc_attr( $shape ); ?>"
 						data-task-number="<?php echo esc_attr( (string) $view['taskNumber'] ); ?>"
+						<?php echo $isTriple ? 'data-triple-subs="' . esc_attr( implode( ',', array_map( static fn( $s ) => (string) $s['key'], $subparts ) ) ) . '"' : ''; ?>
 						hidden>
 						<div class="kege-t-head">
-							Задание <?php echo esc_html( (string) $n ); ?><?php echo $view['taskNumber'] > 0 ? ' (№' . esc_html( (string) $view['taskNumber'] ) . ')' : ''; ?>.
+							Задание <?php echo esc_html( (string) $n ); ?><?php echo '' !== $headNum ? ' (' . esc_html( $headNum ) . ')' : ''; ?>.
 						</div>
 						<div class="kege-t-content">
-							<?php echo wp_kses_post( $view['condition'] ); ?>
+							<?php if ( $isTriple ) : ?>
+								<?php foreach ( $subparts as $sub ) : ?>
+									<div class="kege-t-subpart">
+										<div class="kege-t-subpart-tag">Задание <?php echo esc_html( (string) $sub['number'] ); ?></div>
+										<?php echo wp_kses_post( $sub['condition'] ); ?>
+									</div>
+								<?php endforeach; ?>
+							<?php else : ?>
+								<?php echo wp_kses_post( $view['condition'] ); ?>
+							<?php endif; ?>
 						</div>
 						<?php if ( ! empty( $view['materials'] ) ) : ?>
 							<div class="kege-t-materials">

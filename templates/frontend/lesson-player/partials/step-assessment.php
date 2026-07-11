@@ -28,6 +28,18 @@ use Inc\Enums\Ui\Icon;
 
 $asm_title   = (string) ( $render['title'] ?? $step['title'] );
 $asm_url     = (string) ( $render['url'] ?? '' );
+// Задача 5: прокидываем контекст группы/занятия (from_gid/from_gl) на страницу
+// экзамена — оттуда JS отправит его в StartAttempt, чтобы попытка привязалась к
+// занятию (иначе результат экзамена теряется в сводке по ученику). Также служит
+// для «Вернуться» (resolveBackUrl). В preview группы нет — параметры не добавляем.
+$asm_gid = isset( $groupId ) ? (int) $groupId : 0;
+$asm_gl  = (int) ( $view['group_lesson_id'] ?? 0 );
+if ( '' !== $asm_url && $asm_gid > 0 && $asm_gl > 0 ) {
+	$asm_url = (string) add_query_arg(
+		array( 'from_gid' => $asm_gid, 'from_gl' => $asm_gl ),
+		$asm_url
+	);
+}
 $asm_passed  = 'completed' === $step['status'];
 $asm_tasks   = is_array( $render['tasks'] ?? null ) ? $render['tasks'] : array();
 $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );

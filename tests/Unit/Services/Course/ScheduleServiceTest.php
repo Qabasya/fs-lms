@@ -14,6 +14,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Course\EffectiveTeacherResolver;
 use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Services\Group\ScheduleService;
 use Inc\Services\Group\SessionCalendarService;
@@ -30,6 +31,7 @@ class ScheduleServiceTest extends TestCase {
 	private RoomRepository&\PHPUnit\Framework\MockObject\MockObject $rooms;
 	private RoomAvailabilityService&\PHPUnit\Framework\MockObject\MockObject $roomAvailability;
 	private CourseManager&\PHPUnit\Framework\MockObject\MockObject $courses;
+	private EffectiveTeacherResolver&\PHPUnit\Framework\MockObject\MockObject $effectiveTeacher;
 	private ScheduleService $service;
 
 	protected function setUp(): void {
@@ -43,6 +45,7 @@ class ScheduleServiceTest extends TestCase {
 		$this->rooms         = $this->createMock( RoomRepository::class );
 		$this->roomAvailability = $this->createMock( RoomAvailabilityService::class );
 		$this->courses       = $this->createMock( CourseManager::class );
+		$this->effectiveTeacher = $this->createMock( EffectiveTeacherResolver::class );
 		$this->service       = new ScheduleService(
 			$this->groupLessons,
 			$this->lessonManager,
@@ -53,6 +56,7 @@ class ScheduleServiceTest extends TestCase {
 			$this->rooms,
 			$this->roomAvailability,
 			$this->courses,
+			$this->effectiveTeacher,
 		);
 	}
 

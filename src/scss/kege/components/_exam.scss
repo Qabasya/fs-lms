@@ -227,6 +227,45 @@
   }
 }
 
+/* Задача 3: составное задание (Triple) — подпункты в условии + поля ответов. */
+.kege-t-subpart + .kege-t-subpart {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--kege-tbl-border);
+}
+
+.kege-t-subpart-tag {
+  font-size: 12px;
+  color: var(--kege-cyan);
+  margin-bottom: 6px;
+}
+
+.kege-ap-triple-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+
+  input {
+    flex: 1;
+    height: 34px;
+    background: var(--kege-surface);
+    border: 1px solid var(--kege-tbl-border);
+    outline: none;
+    color: var(--kege-text);
+    padding: 0 10px;
+    font-size: 14px;
+
+    &:focus { border-color: var(--kege-cyan); }
+  }
+}
+
+.kege-ap-triple-lab {
+  min-width: 28px;
+  font-size: 13px;
+  color: var(--kege-muted);
+}
+
 .kege-ap-actions { margin-top: auto; display: flex; gap: 12px; }
 
 .kege-clear-btn {

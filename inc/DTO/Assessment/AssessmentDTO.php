@@ -25,6 +25,8 @@ readonly class AssessmentDTO {
 		public array          $taskPoints,
 		/** @var array<int, int> primary_score => secondary_score */
 		public array          $scoreMap,
+		/** @var array<int, string> task_id => номер задания (задача 8: fallback для банковских задач без таксономии) */
+		public array          $taskNumbers = [],
 		/** Per-work WYSIWYG-описание для интро-шага (D16.4); пусто → дефолты AssessmentIntroConfig. */
 		public string         $introHtml = '',
 	) {}
@@ -52,6 +54,16 @@ readonly class AssessmentDTO {
 			}
 		}
 
+		$taskNumbers = [];
+		if ( ! empty( $meta['task_numbers'] ) && is_array( $meta['task_numbers'] ) ) {
+			foreach ( $meta['task_numbers'] as $taskId => $number ) {
+				$num = trim( (string) $number );
+				if ( (int) $taskId > 0 && '' !== $num ) {
+					$taskNumbers[ (int) $taskId ] = $num;
+				}
+			}
+		}
+
 		return new self(
 			id              : $post->ID,
 			subjectKey      : PostTypeResolver::subjectFromAssessmentPostType( $post->post_type ),
@@ -65,6 +77,7 @@ readonly class AssessmentDTO {
 			kind            : $kind,
 			taskPoints      : $taskPoints,
 			scoreMap        : $scoreMap,
+			taskNumbers     : $taskNumbers,
 			introHtml       : is_string( $meta['intro_html'] ?? null ) ? $meta['intro_html'] : '',
 		);
 	}

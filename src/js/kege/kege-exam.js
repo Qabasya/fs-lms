@@ -126,7 +126,61 @@ export function initKegeExam() {
 		const statusEl = document.createElement( 'span' );
 		statusEl.className = 'kege-save-status';
 
-		if ( 'table' === shape ) {
+		if ( 'triple' === shape ) {
+			// Задача 3: составное задание — 3 поля ответа (19/20/21), сбор в JSON,
+			// одно сохранение на родительский task_id.
+			panelWrap.hidden = false;
+			panelWrap.innerHTML = '';
+
+			const subs = String( taskPanel.dataset.tripleSubs || '' ).split( ',' ).filter( Boolean );
+			let savedMap = {};
+			try { savedMap = saved ? JSON.parse( saved ) : {}; } catch ( _e ) { savedMap = {}; }
+			if ( 'object' !== typeof savedMap || null === savedMap ) { savedMap = {}; }
+
+			const head = document.createElement( 'div' );
+			head.className = 'kege-ap-head';
+			head.textContent = 'Ответы на задания ' + subs.join( ', ' );
+			panelWrap.appendChild( head );
+
+			const inputs = {};
+			subs.forEach( ( key ) => {
+				const row = document.createElement( 'label' );
+				row.className = 'kege-ap-triple-row';
+				const lab = document.createElement( 'span' );
+				lab.className = 'kege-ap-triple-lab';
+				lab.textContent = key;
+				const input = document.createElement( 'input' );
+				input.value = String( savedMap[ key ] ?? '' );
+				row.append( lab, input );
+				panelWrap.appendChild( row );
+				inputs[ key ] = input;
+			} );
+
+			const actions = document.createElement( 'div' );
+			actions.className = 'kege-ap-actions';
+			const saveBtn = document.createElement( 'button' );
+			saveBtn.type = 'button';
+			saveBtn.className = 'kege-save2';
+			saveBtn.textContent = 'Сохранить ответ';
+			actions.append( saveBtn );
+			panelWrap.append( actions, statusEl );
+
+			const persistTriple = async () => {
+				const out = {};
+				let any = false;
+				subs.forEach( ( key ) => {
+					const v = inputs[ key ].value.trim();
+					out[ key ] = v;
+					if ( v ) { any = true; }
+				} );
+				const text = any ? JSON.stringify( out ) : '';
+				await saveAnswer( kegeVars, attemptId, taskId, text, statusEl );
+				if ( text ) { savedAnswers.set( taskId, text ); } else { savedAnswers.delete( taskId ); }
+				markSaved( taskId, savedAnswers.has( taskId ) );
+				syncCount();
+			};
+			saveBtn.addEventListener( 'click', persistTriple );
+		} else if ( 'table' === shape ) {
 			panelWrap.hidden = false;
 			panelWrap.innerHTML = '';
 

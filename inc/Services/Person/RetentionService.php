@@ -39,7 +39,7 @@ class RetentionService {
 
 			$this->logEvents->dispatch(
 				LogEvent::EntityHardDeleted,
-				new EntityHardDeletedEvent( 0, 'person', $person->id, 'pii_anonymized' )
+				new EntityHardDeletedEvent( 0, 'person', $person->id, 'ПДн обезличены' )
 			);
 
 			$count++;
