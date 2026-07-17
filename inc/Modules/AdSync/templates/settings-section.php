@@ -47,7 +47,7 @@ $ad_secret_set = '' !== $config->hmacSecret();
 					<textarea class="fs-config-key-output" id="fs-adsync-secret-value" rows="2" readonly></textarea>
 					<button type="button" class="button js-copy-key" data-target="fs-adsync-secret-value">Скопировать</button>
 
-					<p class="description fs-adsync-env-label">Эту HMAC-подпись вставьте в <code>.env</code> файл вашего Python-сервиса:</p>
+					<p class="description fs-config-key-row__env-label">Эту HMAC-подпись вставьте в <code>.env</code> файл вашего Python-сервиса:</p>
 					<input type="text" class="fs-config-key-output" id="fs-adsync-secret-raw" readonly>
 					<button type="button" class="button js-copy-key" data-target="fs-adsync-secret-raw">Скопировать</button>
 				</div>

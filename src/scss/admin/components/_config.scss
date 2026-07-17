@@ -117,5 +117,5 @@
   &__input { flex: 1; }
 }
 
-// Подпись над полем raw-секрета для .env Python (раздел AD).
-.fs-adsync-env-label { margin-top: $spacing-md; }
+// Подпись над полем raw-секрета для .env внешнего сервиса (AD-синк, VideoLibrary).
+.fs-config-key-row__env-label { margin-top: $spacing-md; }

@@ -56,7 +56,7 @@ $video_s3_consts  = array(
 					<textarea class="fs-config-key-output" id="fs-videolib-secret-value" rows="2" readonly></textarea>
 					<button type="button" class="button js-copy-key" data-target="fs-videolib-secret-value">Скопировать</button>
 
-					<p class="description fs-videolib-env-label">Этот секрет вставьте в <code>.env</code> сервиса fs-video-uploader (<code>LMS_HMAC_SECRET</code>):</p>
+					<p class="description fs-config-key-row__env-label">Этот секрет вставьте в <code>.env</code> сервиса fs-video-uploader (<code>LMS_HMAC_SECRET</code>):</p>
 					<input type="text" class="fs-config-key-output" id="fs-videolib-secret-raw" readonly>
 					<button type="button" class="button js-copy-key" data-target="fs-videolib-secret-raw">Скопировать</button>
 				</div>
