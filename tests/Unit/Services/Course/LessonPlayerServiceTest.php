@@ -489,6 +489,29 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertArrayNotHasKey( 'correct_answer', $render );
 	}
 
+	// ── V4 (VideoLibrary): graceful absence указателя s3:// ──────────────────
+
+	public function test_video_slot_hides_non_http_recording_pointer(): void {
+		// Модуль VideoLibrary выключен: фильтр fs_lms_recording_url — passthrough
+		// (как и стаб apply_filters в bootstrap), указатель s3://… дошёл до рендера —
+		// guard не отдаёт его в плеер, payload-URL тоже не подставляется.
+		$step   = $this->makeVideoStep( 's1', array(
+			'url'            => 'https://fallback.example.com/video',
+			'recording_slot' => true,
+		) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+		$this->stubGateAndProgress( $step );
+
+		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: 's3://bucket/videos/kege-1/rec.webm' );
+		$view        = $this->service->buildView( 1, $groupLesson );
+
+		$render = $view['steps'][0]['render'];
+		self::assertSame( '', $render['url'] );
+		self::assertSame( 'none', $render['mode'] );
+		self::assertTrue( $render['recording_slot'] );
+	}
+
 	public function test_video_slot_prefers_recording_url_over_payload_url(): void {
 		$step   = $this->makeVideoStep( 's1', array(
 			'url'            => 'https://payload.example.com/video',

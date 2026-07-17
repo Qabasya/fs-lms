@@ -284,7 +284,6 @@ class LearnerService {
 				'title'         => '' !== $course->title ? $course->title : $subjectName,
 				'subject'       => $subjectName,
 				'subject_key'   => (string) $g->subject_key,
-				'abbr'          => $this->subjectAbbr( $subjectName ),
 				'teacher'       => ! empty( $g->teacher_id ) ? ( get_userdata( (int) $g->teacher_id )->display_name ?? '' ) : '',
 				'lessons_total' => count( $course->lessonIds() ),
 			);

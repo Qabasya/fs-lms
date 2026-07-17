@@ -1,261 +1,174 @@
-## Замечания (исходные)
+# Tasks — текущий этап: Видеозаписи занятий (S3 + REST, модуль VideoLibrary)
 
-1.	В задачах с выбором нескольких вариантов ответа в плеере смени круглые радио-кнопки на квадратные чекбоксы
-2.	На последнем шаге кнопка «Далее» не должна блокироваться если доступен следующий урок. Если он доступен, то кнопка «Далее» переносит к следующему уроку (в первый шаг)
-3.	«Распаковка» заданий типа ThreeInOneTemplate – в экзаменах она должна превратиться в три задания подряд со своим текстом условием и полем для ответа. Например, если такое задание стоит под номером 1, а следующее под номером 2, то получается такая нумерация: 1 (задание 19), 2 (задание 20), 3 (задание 21), 4 – следующее задание. Следовательно за это задание даётся 3 балла, если все три решены правильно (за каждое задание по 1 баллу).
-4.	Кнопка «Пройти еще раз» - пусть она будет с красным фоном и белым текстом. Активна при наличии попыток, если попыток больше нет, то кнопка hidden.
-5. В сводке по ученику открытого курса не отображается результат прохождения работ и экзамена учеником (ученик max, курс 16724)
-6. В экзаменах и работах требуется проверять, что нет повторяющихся задач
-7. По умолчанию проставь во всех работах 1 балл за задание (fs-sb-task-score)
-8. Какие задания учитываются в типе экзамена ЕГЭ/Компьютерный ЕГЭ? Я добавил 2 публичных задания и 8 приватных из банка, но вижу ошибку "Заполнено 2/10 Не хватает номеров: 2, 4, 5, 6, 7, 8, 9, 10 Заданий без номера: 8" (работа 16736). Здесь все должно быть корректно
-9. Где мне оформлять интро экзамена ЕГЭ? Только в коде?
-10. Убедись что проходной балл считается по ВТОРИЧНОМУ баллу для ЕГЭ/Комп. ЕГЭ
-11. (после пункта 5) Добавь еще для преподавателя, при просмотре результатов работ учеников возможность сбрасывать его попытки (с удалением результатов)
-12. В Разделе "Мои оценки" у ученика должна быть возможность открыть результаты работы. Аналогично у преподавателя должны отображаться результаты в пункте "Сводка по ученику" (клик по работе и переход на страницу с результатами). К этим же работам должен быть переход из пункта "Дедлайны и оценки" из профиля ученика
-13. Проверь что результаты работы отображаются корректно: формат тот же самый, но вместо поля ввода там как в работах "vd" написано: "Решено верно" или "Решено неверно, Правильный ответ: " и цветом отмечено, решено верно или нет. В конце футер с результатами: с какой попытки решено, за сколько времени, сколько баллов получено (и первичных и вторичных если это егэ). Напомню, что именно в ЕГЭ результаты с правильными ответами должны появляться только в "Мои оценки", после окончания видна только таблица с ответами ученика, верно решено задание или нет и итоговые баллы, без лишних подробностей.
-14. В Посещаемости у учеников к названию занятия добавить название курса
-15. В профиле ученика есть чипы курсов (sc-chip chip-c5), но ранее мы уже условились, что такие чипы должны содержать 3-4 буквы, и размер шрифта должен быть именно под 4 буквы ровно так же, как у преподавателя в prof-group-chip chip-c5. Убедись, что эти чипы одинаковые, что у преподавателя, что у ученика (по цвету, размеру шрифта и тексту) - эталон у преподавателя
-16. В расписании (вкладка КТП и расписание) нужно для каждого урока выводить: Тему, аудиторию, преподавателя. Сейчас есть номер (убрать), тема (оставить, но сделать жирным в стиле номера pt-num), аудитория (убрать слово ауд.). Все 3 поля должны быть друг под другом, для кабинета и ФИО препода использовать стиль pt-room (переименовать класс, чтобы он отражал суть)
-17. Проверь в таблице wp_fs_lms_entity_audit_log лог под номером 169 почему там прежнее значение записано на английском: "students:2, parents:2". Сделай везде только русские слова, например "Учеников:2, Родителей:2"
+## Статус предыдущего этапа (17 багфиксов) — ✅ выполнен
+
+Проверено по коду 2026-07-17: все 17 задач реализованы (сверка файл-в-файл по разбивке).
+Найденная при проверке регрессия задачи 15 — висячий вызов удалённого метода
+`LearnerService::subjectAbbr()` (`inc/Services/Profile/LearnerService.php:287`, фатал на живом пути
+`build()→buildCatalog()` при наличии открытых групп с курсом) — **устранена в ходе проверки**
+(строка `'abbr' => …` удалена; поле в JS никем не читалось).
+
+**Хвосты этапа (мелочь, не блокируют):**
+
+- Задача 8, этап 6: юнит-тест fallback'а `task_numbers` так и не написан —
+  `tests/Unit/Services/Assessment/EgeCompletenessCheckerTest.php` покрывает только таксономические кейсы.
+- Задача 1: внутренняя точка `.radio::after` в состояниях `.sel/.ok/.no` остаётся круглой внутри
+  квадратного чекбокса (`_step-task.scss` — правила состояний ниже по исходнику перекрывают `rem(1)`).
+- Задача 6: пограничный кейс двух пустых слотов (`taskId=0`) — ложный тост «Эта задача уже добавлена»
+  (`slot-builder.js:186-191`) и `false` из `AssessmentManager::setItemIds()` (нет `array_filter` перед
+  `array_unique`, в отличие от `WorkManager.php:99-103`).
+- `ExamResultService`/`ExamResultDTO` — подтверждённый мёртвый код (0 вызовов) со старым сравнением
+  порога по первичному баллу; удалить при случае.
 
 ---
 
-## Разбивка задач на исправление
+## Этап: интеграция видеозаписей занятий (S3 Beget + fs-video-uploader)
 
-Каждая задача исследована по коду перед разбивкой (файлы + строки указаны точно). Там, где найден корневой баг — отмечено явно; там, где нужен архитектурный выбор — отмечено вопросом.
+**Статус 2026-07-17: V1–V10 реализованы** (модуль `Inc\Modules\VideoLibrary`, швы ядра V4,
+тесты зелёные — 863 в контейнере, e2e по чек-листу V10 прогнан: matched/повтор/unmatched/
+индивидуальная ветка/401/400/404 при выключенном модуле, ручная привязка-отвязка, presigned-фильтр
+с фиктивными ключами). **Хвост: V8 этап 4** — смоук против реального Beget (curl подписанного
+URL → 200, после TTL → 403) — после покупки S3 и прописывания реальных `FS_LMS_S3_*`.
+Отступление от V9.3: JS ручной привязки — не в `src/js/admin/`, а self-contained asset модуля
+`inc/Modules/VideoLibrary/assets/admin.js` (паттерн AdSync: core-бандл не знает о модуле, §4.6).
 
-### Задача 1 — квадратные чекбоксы для multi-choice в плеере
+**Контекст.** Внешний сервис `fs-video-uploader` переносит записи занятий с SMB-шары в S3 и после
+загрузки шлёт push-регистрацию в плагин. Контракты: сторона сервиса — `.docs/video-uploader.md`
+(«LMS REST (push)», «TODO интеграции»), сторона плагина — `.docs/FS_LMS_API.md` §7.
 
-**Текущее поведение:** `src/js/frontend/components/task-widget.js:151-179` (`buildChoiceWidget`) — визуальный маркер варианта всегда `<span class="radio">` независимо от `multiple`; реальный `<input type="radio|checkbox">` скрыт (`input.hidden = true`). CSS `src/scss/player/components/_step-task.scss` — класс `.radio` всегда `border-radius: 50%` (круг), включая состояния `:checked`/verdict (`::after`, строки ~44-48, 60-64, 76-80).
+**Зафиксированные решения:**
 
-**Этапы:**
-1. В `buildChoiceWidget()` добавить модификатор на визуальный маркер в зависимости от `multiple`, например `radio.classList.toggle('is-checkbox', multiple)` (строка ~164).
-2. В `_step-task.scss` добавить вариант `.radio.is-checkbox { border-radius: rem(4); }` и скорректировать квадратный индикатор в блоках `::after` состояний accent/ok/err (те же строки, что и круглый).
-3. `npx gulp build`, визуально проверить одновариантный (radio, круг) и многовариантный (checkbox, квадрат) вопрос в плеере.
+1. Новый **лист-модуль `Inc\Modules\VideoLibrary`** (чек-лист `ModularArchitecture.md` §8); ядро на модуль не ссылается.
+2. Аутентификация — **HMAC** (схема AdSync: `X-Fs-Timestamp` + `X-Fs-Signature`, окно ±300 с), свой секрет `FS_LMS_VIDEO_HMAC_SECRET`.
+3. Бакет **приватный**; выдача ученикам — **presigned SigV4** ссылки, генерит плагин (чистый PHP, без SDK; плеер уже понимает URL c query-string — `StepContentRenderer::resolveVideoMode()` парсит расширение из path).
+4. Реестр записей — своя таблица `fs_lms_video_recordings` (upsert по `s3_key` = идемпотентность), version-gated схемой модуля (паттерн `AdSchema`).
+5. Резолв занятия: `recorded_at` (нормализация к TZ сайта) + ветка по составу `lms`-блока: `group_id` → занятия группы того дня; `teacher_username` → `kind='individual'` занятия препода того дня по всем его группам. «Не нашли» → регистрация со статусом `unmatched` и **ответ 200** (4xx сервис трактует как терминальный fail).
+6. При успешной привязке занятие помечается **`status='held'`** («запись есть → занятие состоялось») — `reflow` такие строки не сдвигает (`GroupLessonRepository::applySlots():139-143`), дата фиксируется.
+7. В `group_lessons.recording_url` пишется стабильный указатель `s3://{bucket}/{key}`; в presigned-URL его превращает модуль через новый generic-фильтр `fs_lms_recording_url` (graceful absence: без модуля не-http указатель не рендерится).
 
-### Задача 2 — кнопка «Далее» на последнем шаге не должна блокироваться, если следующий урок доступен
+**Вне кода (закупка/инфраструктура):** купить S3 у Beget (приватный бакет; в идеале два ключа —
+write для сервиса, read-only для плагина, если Beget разрешает раздельные ключи), NTP на LXC сервиса.
 
-**Текущее поведение:** `src/js/player/core.js:93-99` (`updateNav`) — `nextBtn.disabled = ! nextOk`, где `nextOk` учитывает только `last`/gate текущего урока, НЕ доступность следующего урока. `core.js:141-153` — клик на последнем шаге просто вызывает `refresh()`, навигации на следующий урок нет. При этом `data-next-url` / `data-next-available` уже рендерятся в DOM (`templates/frontend/lesson-player/player.php:75-93`, на `#fsPlayerApp`), но **ни один JS-файл плеера их не читает** (проверено grep — 0 совпадений). PHP-логика доступности следующего урока уже есть: `CourseNavService::nextLesson()` (строки 82-100) + `LessonGateResolver::resolveLesson()` (строки 41-55).
+**Порядок:** V1 → V2+V3 (параллельно) → V4 → V5 → V6 → V7 → V10 (без S3-ключей всё, кроме V8);
+V8 — после покупки S3; V9 — после V7.
 
-**Этапы:**
-1. В `core.js` прочитать `data-next-url` / `data-next-available` с `#fsPlayerApp` при инициализации.
-2. В `updateNav()` (строки 93-99): если `last === true` и `data-next-available === '1'` — кнопка не должна быть disabled.
-3. В обработчике клика (строки 141-153): добавить ветку — если `last && nextAvailable` → `window.location.href = nextUrl` вместо `refresh()`.
-4. Если следующий урок недоступен — прежнее поведение (disabled) сохраняется.
-5. Проверить: последний шаг последнего урока курса (next_lesson === null) — кнопка остаётся disabled как раньше.
+---
 
-### Задача 3 — «распаковка» ThreeInOneTemplate в экзаменах
+### Задача V1 — каркас модуля VideoLibrary
 
-**⚠️ Корневая причина уточнена после повторной проверки — исходный анализ указывал не на тот сервис.**
-
-- Рендеринг (визуальная часть исходного анализа верна): Triple рендерится ОДНИМ блоком `.fs-attempt-question` с ОДНИМ текстовым полем `answer_{taskId}` (`templates/frontend/assessment/partials/attempt-question.php:21-49`), условия трёх подзаданий склеены в один HTML через `AssessmentPageController::buildCondition()` (строки 314-329), нумерация (`attempt-form-nav.php:19-30`, `attempt-question.php:24`) считает по `taskId` — один Triple-task занимает одну позицию, а не три.
-- **Но реальная проверка ответа при сдаче попытки идёт НЕ через `BatchCheckService`.** `AttemptService::submit()` (`inc/Services/Assessment/AttemptService.php:142`) вызывает `AutoGradeService::gradeAttempt()` — это и есть фактический путь проверки экзамена/работы. `BatchCheckService::check()` (в т.ч. его составная ветка `67-96`, ожидающая массив `'19'/'20'/'21'`) в этом потоке **не используется вообще** — она задействована только в `SubmissionService::submitBatch()` (обычные работы урока) и `PreviewSolveCallbacks` (предпросмотр автора).
-- В `AutoGradeService::gradeAttempt()` (строки 90-135) на строке 120: `$checker->check($metaArr, (string)($answerText ?? ''))` — ответ всегда приводится к строке. `TripleAnswerChecker::check()` (`inc/Services/Task/Checkers/TripleAnswerChecker.php:24-25`) ожидает `array{'19':...,'20':...,'21':...}`; `is_array($studentAnswer) ? $studentAnswer : []` на строке кастинга всегда получает пустой массив → **все 3 подответа Triple всегда 0 баллов**, что и подтверждает исходный вывод пользователя, только виновник другой.
-- **Обнаружена вторая, более широкая проблема того же метода** — важно учитывать вместе с «разным количеством баллов за задание» (Задача 7): `AutoGradeService::gradeAttempt()` вообще не читает `$assessment->taskPoints` (веса, настроенные автором в конструкторе). Score/max берутся напрямую из `CheckResultDTO`, а `CheckResultDTO::correct()/incorrect()` по умолчанию всегда `max = 1.0` (`inc/DTO/Task/CheckResultDTO.php:30-36`). То есть **реальная проверка попытки прямо сейчас игнорирует индивидуальные баллы за задание для ЛЮБОГО типа задания**, не только Triple — настройка «Баллов за задание» (fs-sb-task-score, задача 7) сейчас не влияет на фактический результат экзамена/работы.
-- Уже есть рабочий, протестированный код с обоими нужными свойствами (веса + разворот составных заданий) — `BatchCheckService::check()`: применяет `$taskPoints[$taskId]` для обычных заданий (строка 100) и при `$kind->expandsComposites()` разворачивает Triple на под-пункты с ключами `"{$taskId}:{$sub['key']}"` и собственным весом каждого (строки 67-96).
-
-**Решение: перенести проверку `AutoGradeService::gradeAttempt()` на `BatchCheckService`, а не чинить её отдельно.**
-
-**Этапы:**
-1. Рендеринг — в `AssessmentPageController::buildTaskViews()`/`buildCondition()` для Triple при `kind->expandsComposites()` не склеивать условия в один блок, а разворачивать `$taskViews` на 3 виртуальных пункта (своё условие + номер); `attempt-question.php`/`attempt-form-nav.php` — рендерить 3 независимых блока-подусловия с отдельными видимыми полями ответа (19/20/21).
-2. В `src/js/frontend/services/assessment.js::answerValue()` — по аналогии с уже существующим JSON-конвертом для `file_answer` (строки 92-99) добавить ветку для Triple: собрать 3 под-ответа в `JSON.stringify({'19':...,'20':...,'21':...})` и отправить ОДНИМ вызовом `saveAnswer(vars, attemptId, taskId, jsonString)` на родительский `taskId` — контракт AJAX (`answer_text` на один `taskId`) не меняется.
-3. **Ключевое исправление бэкенда** — переработать `AutoGradeService::gradeAttempt()`, чтобы он делегировал проверку `BatchCheckService::check()` вместо собственного цикла: собрать `$answers` (taskId → строка, либо `json_decode`-массив для Triple), передать `$assessment->taskPoints` и `$assessment->kind`; персистить `is_correct/score/max_score` в `assessment_answers` из `$result->perTask` — для составных под-ключей (`"{taskId}:19"` и т.п.) агрегировать 3 под-результата обратно в ОДНУ строку по родительскому `taskId` (сумма score/max, `is_correct` = все 3 верны), т.к. таблица `assessment_answers` хранит один ряд на `task_id`, без под-ключей. Это одним изменением чинит и Triple, и общую проблему «баллы за задание игнорируются при реальной проверке».
-4. В `BatchCheckService::check()` (строка 75) добавить fallback для составных под-заданий: `$taskPoints[$pointsKey] ?? $taskPoints[$taskId] ?? 1.0`. Сейчас в конструкторе работы есть только ОДНО поле «баллов за задание» на весь Triple-слот (`task_points[taskId]`, задача 7), отдельного ввода на 19/20/21 нет — с фолбэком единое значение будет применяться к каждому из трёх под-заданий (соответствует и реальной схеме ЕГЭ по информатике — по умолчанию 1 балл за 19/20/21). Разный балл именно между 19/20/21 внутри одного Triple — отдельная доработка UI конструктора, вне текущего скоупа.
-5. Пересчитать сквозную нумерацию: Triple на «слоте 1» → 3 последовательных номера, следующее обычное задание — со следующим (учесть `fs-ege-nav` и `attempt-question.php:24`, `$i+1`).
-6. Регресс-тест: а) Triple с дефолтным баллом — 3 из 3 при верных ответах; б) Triple с кастомным баллом слота (например 2) — 6 из 6; в) обычное (не-Triple) задание с кастомным `task_points` — теперь корректно учитывается при реальной сдаче (регресс на ранее незамеченный баг весов); г) ЕГЭ/КЕГЭ — после исправления весов проверить, что `total_score`/`max_score` попытки по-прежнему корректно конвертируются в `SecondaryScoreService`/`scoreMap` (задача 10) — сумма первичных баллов не должна измениться в сценариях без Triple/custom-points, чтобы не сломать уже работающие настроенные работы.
-
-### Задача 4 — кнопка «Пройти ещё раз»: красный фон + белый текст
-
-**⚠️ Уточнение по итогам повторной проверки:** в плеере есть ДВЕ похожих, но разных кнопки повторной попытки, с разным текстом:
-- `src/js/player/step-task.js:56` — кнопка отдельного задания-шага внутри урока, текст **«Попробовать ещё раз»** (класс `fs-task-retry`, видимость через `retryBtn.hidden` в `canRetryPanel()`/`canRetryData()`, строки 256-279) — здесь и текст, и логика видимости (`hidden`, не `disabled`) уже соответствуют требованию «hidden, если попыток нет»; нужен только цвет.
-- `templates/frontend/assessment/attempt.php:130-141` и `templates/frontend/assessment/kege/finish.php:40` — кнопка на экране результата ЦЕЛОЙ работы/экзамена, текст дословно **«Пройти ещё раз»** (полностью совпадает с формулировкой в задаче пользователя) — класс `fs-btn fs-btn--secondary`, при исчерпанных попытках рендерится `disabled` (не `hidden`!) с тултипом «Лимит попыток исчерпан» (строки 136-140). `_attempt.scss:354-390` не содержит варианта кнопки с красным фоном (`--primary`/`--secondary` только).
-
-Так как формулировка задачи слово-в-слово совпадает с текстом на экране результата работы (`attempt.php`), правки нужны именно там — а не в `step-task.js` (та кнопка технически уже полностью корректна, кроме цвета, но называется иначе и находится в другом месте UI).
+**Образец:** `inc/Modules/AdSync/` (эталон листа по `ModularArchitecture.md`).
 
 **Этапы:**
-1. В `_attempt.scss` добавить модификатор, например `.fs-btn--danger`: `background: var(--err)`, `color: var(--ink-inverse)`, hover — на тон темнее (по аналогии с `.fs-btn--primary`, строки 375-382).
-2. В `attempt.php:131-135` — заменить класс активной кнопки с `fs-btn fs-btn--secondary` на `fs-btn fs-btn--danger`.
-3. В `attempt.php:136-140` — при `! $canRetry` вообще не рендерить кнопку (убрать `else`-ветку с `disabled`+tooltip), а не просто её дизейблить — по формулировке задачи должно быть `hidden`.
-4. Проверить `kege/finish.php:40` (`kege-reset-link`, свой отдельный стиль) — привести к единому виду, если он визуально должен совпадать с обычным экраном результата.
-5. Отдельно (не обязательно в этом же тикете, но стоит отметить пользователю) — кнопка `fs-task-retry` в `step-task.js` использует акцентный `b-pri` (`var(--accent)`), не красный; если пользователь имел в виду обе кнопки — применить тот же `--danger`-модификатор и здесь (заменить класс `b-pri` на `fs-task-retry--danger` в `step-task.js:55`, добавить стиль в `_shell.scss` рядом со строками 272-273). Логику `hidden` там трогать не нужно — она уже корректна.
-6. Пересобрать CSS (`npx gulp styles`), проверить оба сценария (есть попытки / попытки исчерпаны) на обоих экранах.
+1. `inc/Modules/VideoLibrary/VideoLibraryModule.php` — `implements ServiceInterface`, по `AdSyncModule.php:28-59`: settings-контроллер регистрируется всегда; рантайм (schema/REST/фильтр выдачи) — только при `config->isEnabled()`.
+2. `inc/Modules/VideoLibrary/Config/VideoLibraryConfig.php` — по `AdSyncConfig.php`: опция модуля `fs_lms_video_library` (`['enabled' => false]`); `isEnabled()` с перекрытием константой `FS_LMS_VIDEO_LIBRARY`; `hmacSecret()` → константа `FS_LMS_VIDEO_HMAC_SECRET`; `s3()` → константы `FS_LMS_S3_ENDPOINT` (default `https://s3.ru1.storage.beget.cloud`), `FS_LMS_S3_REGION` (`ru-1`), `FS_LMS_S3_BUCKET`, `FS_LMS_S3_KEY`, `FS_LMS_S3_SECRET`; `presignTtl()` (default 6 ч, опция).
+3. Секция настроек в «Настройки → Конфигурация» — по AdSync (`AdSyncSettingsController` + `Callbacks` + `templates/settings-section.php`): тумблер модуля, генератор секрета (кнопка «Сгенерировать» → строка `define('FS_LMS_VIDEO_HMAC_SECRET', '…');`), бейджи «задан/нет» для секрета и S3-констант.
+4. Зарегистрировать `VideoLibraryModule::class` в `Init::getServices()` (`inc/Init.php:169-173`, рядом с `AdSyncModule::class`).
 
-### Задача 5 — сводка по ученику открытого курса не показывает результаты работ/экзамена
+### Задача V2 — схема и репозиторий реестра записей
 
-**Корневая причина подтверждена вживую (Docker DB) — баг УНИВЕРСАЛЬНЫЙ, не только для открытых курсов:**
-
-`StudentSummaryService::forStudent()` (строки 76-93) требует `null !== $entry->groupLessonId` и совпадение с ключом `$lessons` — это действительно фильтрует записи. Но реальная причина глубже и касается **экзаменов/контрольных вообще, в любой группе**:
-
-- Таблица `wp_fs_lms_assessment_attempts` **не содержит колонку `group_lesson_id` вообще** (проверено `DESCRIBE`); `AttemptDTO::fromArray()` читает `$row['group_lesson_id']` (`inc/DTO/Assessment/AttemptDTO.php:74`), которого физически нет в строке — значение всегда `null`.
-- `group_id` формально в таблице есть, но тоже всегда пуст: `AttemptCallbacks::ajaxStartAttempt()` (`inc/Callbacks/Assessment/AttemptCallbacks.php:28-42`) читает его из `$_POST['group_id']`, а `src/js/frontend/services/assessment.js` (запуск попытки, ~строка 349) **никогда не добавляет `group_id` в FormData** — grep подтверждает 0 совпадений.
-- Прямая проверка в БД: у ученика max (`person_id=2`) **все 13** попыток экзаменов имеют `group_id = NULL`, без единого исключения, независимо от того, к какой группе/курсу они относятся.
-- Следствие: `AssessmentAttemptRepository::listByGroupForGradebook()` (`WHERE group_id = %d`, строка 138) никогда не находит ни одной попытки ни для одной группы → `AssessmentGradeSource` никогда не отдаёт экзамен в gradebook → `StudentSummaryService` никогда не видит результат экзамена — ни в открытых, ни в обычных группах.
-- Отдельно по курсу 16724 (группа id=6, `access_mode=open`): submissions (обычные работы) у ученика max есть в БД, но привязаны к `group_lesson_id=16` — занятию **другой** группы, не группы 6 (её занятия — id 25-29); т.е. в конкретно этом кейсе, вероятно, у ученика есть именно результат ЭКЗАМЕНА по курсу 16724, который теряется по причине выше, а не результат обычной работы.
+**Образец:** `inc/Modules/AdSync/Schema/AdSchema.php:16-61` (version-gated `ensure()`, своя опция версии).
 
 **Этапы:**
-1. Определить, откуда фронтенд может взять `group_id` в контексте прохождения экзамена (аналогично `?from_gid=&from_gl=`, уже используемому в `AssessmentPageController::resolveBackUrl()`) — прокинуть его в data-атрибут шапки/формы попытки.
-2. В `frontend/services/assessment.js` — при вызове `ajaxStartAttempt` добавить `fd.append('group_id', ...)` из этого атрибута.
-3. Для точной привязки к занятию — добавить колонку `group_lesson_id` в `wp_fs_lms_assessment_attempts` (по правилу CLAUDE.md — колонка добавляется в `Migration_1_0_0::up()` + сброс `fs_lms_schema_version` в dev), прокинуть значение через `AttemptService::start()` → insert в репозитории (DTO уже читает `$row['group_lesson_id']`, не хватает только сохранения).
-4. `AssessmentGradeSource`/`StudentSummaryService` менять не нужно — они уже корректно ждут `groupLessonId`, заработают сами после починки пп. 1-3.
-5. Регресс: обычные (не-open) группы — поведение должно тоже исправиться (баг их тоже затрагивал, просто не был так заметен).
-6. Тест: PHPUnit на `StudentSummaryService::forStudent()` с фикстурой attempt с проставленным `group_id`/`group_lesson_id`; проверить вживую на ученике max / курсе 16724.
+1. `Schema/VideoSchema.php` — опция `fs_lms_video_schema_version`, таблица:
 
-### Задача 6 — проверка дублей задач в экзаменах и работах
+```sql
+CREATE TABLE {prefix}fs_lms_video_recordings (
+    id              bigint unsigned   NOT NULL AUTO_INCREMENT,
+    s3_bucket       varchar(100)      NOT NULL,
+    s3_key          varchar(500)      NOT NULL,            -- ключ идемпотентности
+    manifest_key    varchar(510)      DEFAULT NULL,
+    group_slug      varchar(100)      NOT NULL DEFAULT '', -- slug папки-источника (диагностика)
+    group_id        smallint unsigned DEFAULT NULL,        -- из lms-блока (групповая ветка)
+    teacher_user_id bigint unsigned   DEFAULT NULL,        -- резолв teacher_username (индив. ветка)
+    group_lesson_id int unsigned      DEFAULT NULL,        -- привязка; NULL = unmatched
+    status          varchar(20)       NOT NULL DEFAULT 'unmatched',  -- matched|unmatched
+    recorded_at     datetime          NOT NULL,            -- нормализовано к TZ сайта
+    size_bytes      bigint unsigned   NOT NULL DEFAULT 0,
+    sha256          char(64)          NOT NULL DEFAULT '',
+    duration_sec    int unsigned      DEFAULT NULL,
+    payload         longtext          DEFAULT NULL,        -- сырой JSON запроса (аудит/переразбор)
+    created_at      datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY  (id),
+    UNIQUE KEY s3_key (s3_key),
+    KEY group_lesson_id (group_lesson_id),
+    KEY status (status),
+    KEY group_recorded (group_id, recorded_at)
+);
+```
 
-**Текущее поведение:** Дублей нигде не проверяют. Клиент: `src/js/admin/services/slot-builder.js::assignTask()` (строки 185-192) присваивает `taskId` слоту без проверки, есть ли он уже в других слотах. Сервер: `AssessmentAuthorCallbacks` (сохранение `item_ids`) и `WorkManager`/`AssessmentManager::setItemIds()` принимают массив id без `array_unique`/валидации — тот же паттерн используется и для работ (`WorkManager.php`, `WorkCallbacks.php`), и для экзаменов.
+2. `DTO/VideoRecordingDTO.php` (readonly, `fromRow()`), `DTO/VideoRecordingInputDTO.php`.
+3. `Repositories/VideoRecordingRepository.php`: `findByS3Key()`, `upsertByS3Key()` (select → insert/update; вернуть id + признак «новая»), `attach(int $id, int $groupLessonId)`, `detach(int $id)`, `listUnmatched(int $limit = 50)`, `listByGroupLesson(int $glId)`, `countByStatus()`.
+4. Тест репозитория на `FakeWpdb` — по образцу `tests/Integration/Repositories/*`.
 
-**Этапы:**
-1. Client-side: в `assignTask()` перед присвоением проверить, нет ли уже такого `taskId` в других слотах — если есть, показать `showToast('Эта задача уже добавлена', 'error')` и не присваивать.
-2. Server-side (обязательный гард): в `AssessmentManager::setItemIds()` и `WorkManager::setItemIds()` — валидировать `count($item_ids) === count(array_unique($item_ids))`, отклонять сохранение при нарушении.
-3. `EgeCompletenessChecker` уже считает дубли НОМЕРОВ таксономии (`duplicated`), но не дубль одного и того же `task_id` — держать это отдельной проверкой, независимой от вида assessment (актуально и для Control/обычных работ, где номер таксономии не участвует).
-4. Написать unit-тест на `setItemIds()` с повторяющимся `task_id`.
-5. Пересобрать JS (`npx gulp scripts`) после клиентской правки.
-
-### Задача 7 — балл по умолчанию 1 за задание (fs-sb-task-score)
-
-**Текущее поведение — подтверждено на реальных данных (работа 16736, Docker DB):** `src/js/admin/services/assessment-builder.js:33` — `blankSlot = (i) => ({..., points: 0})`; `slot-builder.js::assignTask()` (строки 185-192) при выборе задачи никогда не трогает `.points`, оно остаётся 0. В meta работы 16736 видно ровно это: первые 3 задачи имеют `task_points = 1` (правились вручную), остальные 7 — `0` (нетронутый дефолт).
-
-**Этапы:**
-1. В `assessment-builder.js` изменить `blankSlot` (строка 33): `points: 1` вместо `points: 0`.
-2. НЕ трогать общий `slot-builder.js::assignTask()` — он переиспользуется билдерами без баллов (`work-builder.js` и т.п.), фикс должен остаться локальным для `assessment-builder.js`.
-3. Не менять уже сохранённые с `0` баллы существующих работ — фикс касается только новых слотов.
-4. Пересобрать JS, добавить новую задачу в работу — поле «Баллов за задание» должно показывать 1 по умолчанию.
-
-### Задача 8 — приватные задания из банка не считаются в заполненности ЕГЭ-слотов
-
-**Корневая причина найдена и подтверждена (Docker DB, работа 16736):** приватные «банковские» задания имеют `post_type = fs_lms_problems` — это ГЛОБАЛЬНЫЙ кросс-предметный CPT (`inc/Controllers/Problems/ProblemsController.php:88`), для которого зарегистрирована ТОЛЬКО таксономия `problem_tag` (строка 110) — таксономия `{subject}_task_number` для этого CPT **вообще не зарегистрирована**. `EgeCompletenessChecker::validate()` (строки 52-58) ищет термин именно этой таксономии через `wp_get_post_terms()` — для `fs_lms_problems`-постов такого термина структурно быть не может, поэтому они навсегда попадают в «сироты» («Заданий без номера»). Проверено в БД: все 8 задач работы 16736 с `post_type=fs_lms_problems` не имеют ни одной записи в `wp_term_relationships` с taxonomy `inf_ege_task_number`, а 2 «публичных» (`post_type=inf_ege_tasks`) — имеют.
-
-**✅ Решение зафиксировано — Вариант А.** Номер задания для банковских (`fs_lms_problems`) задач хранится не в таксономии поста, а в составе конкретной ЕГЭ-работы — по аналогии с уже существующим `task_points` (`AssessmentManager::setItemIds()`, `inc/Managers/Assessment/AssessmentManager.php:46,55`). Таксономия `{subject}_task_number` остаётся ЕДИНСТВЕННЫМ источником номера для обычных (subject-CPT) заданий — она используется широко за пределами ЕГЭ-заполненности (админка предмета, `TaskNumberTermGuard`, `TaxonomySeeder`, экспорт/импорт предмета) и не трогается. Новая карта `task_numbers` — это ТОЛЬКО fallback для заданий без таксономического терма (структурно это всегда банковские `fs_lms_problems`-задания).
-
-**Этапы:**
-1. `AssessmentManager::setItemIds()` — добавить параметр `array $taskNumbers = []`, сохранять `$meta['task_numbers']` рядом с `task_points` (тот же паттерн, `inc/Managers/Assessment/AssessmentManager.php:46-56`).
-2. `AssessmentDTO` — добавить `public array $taskNumbers` (читать `$meta['task_numbers']`), по аналогии с `taskPoints` (`inc/DTO/Assessment/AssessmentDTO.php:24-25,36-41,66`).
-3. `AssessmentAuthorCallbacks` — принимать `$_POST['task_numbers']` (taskId → номер-строка) рядом с `task_points` (`inc/Callbacks/Assessment/AssessmentAuthorCallbacks.php:50-60`).
-4. Конструктор (`assessment-builder.js`/`slot-builder.js`) — при добавлении в слот задачи БЕЗ таксономического номера (банковское задание) показывать доп. поле «Номер задания» рядом с «Баллов за задание» (только для ЕГЭ/КЕГЭ-работ, `kind->expandsComposites()`/аналог); для обычных subject-CPT-заданий номер по-прежнему берётся автоматически из таксономии, поле не показывать/не редактируемо.
-5. `EgeCompletenessChecker::validate()`/`getMissingTaskNumbers()` — для каждого `taskId` без термина таксономии (текущая ветка «orphans») проверять `$assessment->taskNumbers[$taskId]` — если задан и совпадает с одним из ожидаемых номеров (`$termNames`), засчитывать в `coverage` вместо `orphans`.
-6. Обновить/написать unit-тест `EgeCompletenessChecker` со смешанным набором задач (subject CPT с термином + `fs_lms_problems` с номером из `task_numbers`).
-7. Проверить вживую на работе 16736 — ожидаемо «Заполнено 10/10».
-
-### Задача 9 — где оформлять интро экзамена ЕГЭ
-
-**Это уже реализовано, багом не является.** `inc/MetaBoxes/Templates/AssessmentTemplate.php:43-46` — поле `intro_html` типа `EditorField` (WYSIWYG `wp_editor()`), подпись «Описание перед началом (показывается на стартовом экране)» — доступно прямо в нативном метабоксе поста экзамена/работы.
+### Задача V3 — HMAC-аутентификация модуля
 
 **Этапы:**
-1. Убедиться, что поле реально показывается в админке для `kind=ege`/`ege_computer` (открыть метабокс редактирования Assessment-поста).
-2. Если не показывается — проверить регистрацию `AssessmentTemplate` в `TemplateRegistry`/`TemplateResolver` для CPT экзамена.
-3. Ответить пользователю, где именно искать поле — не нужно ничего кодить, разве что поле почему-то не отображается.
+1. `Services/VideoHmacAuth.php` — схема `AdHmacAuth.php:20-49` один-в-один (timestamp + "." + rawBody, `hash_equals`, skew 300 с), секрет из `VideoLibraryConfig`. Класс копируется, не импортируется из AdSync — листья не ссылаются друг на друга (`ModularArchitecture.md` §3.3); при третьем потребителе — вынести общий `HmacAuth` в Kernel (`inc/Services/Security/`), отдельным рефакторингом.
 
-### Задача 10 — проходной балл должен считаться по вторичному баллу для ЕГЭ/КЕГЭ
+### Задача V4 — швы ядра: GroupLessonRepository + фильтр рендера
 
-**Подтверждённый баг сразу в нескольких местах — везде сравнение идёт с первичным баллом:**
-- `inc/Services/Assessment/ExamResultService.php:64-66`: `$passed = $passScore > 0 ? $primaryScore >= $passScore : ...` — вторичный балл (`$secondaryScore`, вычисляется строкой ниже, 68-71) в сравнении не участвует вообще.
-- `inc/DTO/Assessment/AttemptDTO.php:41-43` (`outcomeLabel()`): `($this->totalScore ?? 0.0) >= $passScore` — тоже первичный.
-- `templates/frontend/assessment/attempt.php:64,70` и `kege/finish.php:31` — используют тот же `outcomeLabel()`/прямое сравнение с `totalScore`.
-
-`AssessmentKind::needsSecondaryScore()` (`inc/Enums/Assessment/AssessmentKind.php:52-57`) уже верно указывает, что Ege/EgeComputer нужен перевод через `SecondaryScoreService` — но это только влияет на *отображение* вторичного балла, не на сравнение с порогом.
+**Правки ядра (вне модуля):** модуль работает с чужой таблицей только через публичный репозиторий (`ModularArchitecture.md` §3.4).
 
 **Этапы:**
-1. В `ExamResultService::buildForStudent()` — переставить вычисление `$secondaryScore` (строки 68-71) выше `$passed`, и использовать его вместо `$primaryScore` при `$kind->needsSecondaryScore()`.
-2. `AttemptDTO::outcomeLabel()` сравнивает только с первичным баллом — вынести «сдано/не сдано» в отдельный сервис вместо метода DTO (обязательный шаг, а не альтернатива): DTO не должен тянуть зависимость на `SecondaryScoreService`, поэтому сравнение должно жить в сервисе, а не в `outcomeLabel()`.
-3. Поправить все точки вызова (`attempt.php:64,70`, `kege/finish.php:31`) на единый источник вычисления из нового сервиса.
-4. Уточнить у пользователя: вводится ли `pass_score` для ЕГЭ уже во вторичных баллах (тогда фикс корректен как есть) — и явно подписать единицы в UI (`AssessmentIntroConfig.php:56-57`, «Проходной балл»), чтобы не запутать при вводе.
-5. Регресс: Control (без вторичного балла) — сравнение остаётся по primaryScore/correctCount, как раньше.
+1. `GroupLessonRepository::listByGroupAndDay( int $groupId, string $day ): array` — `WHERE group_id = %d AND DATE(scheduled_at) = %s` (day `Y-m-d`), возврат `GroupLessonDTO[]`.
+2. `GroupLessonRepository::listIndividualByTeacherAndDay( int $teacherUserId, string $day ): array` — `kind='individual'`, тот же день, эффективный препод: `gl.teacher_user_id = %d OR (gl.teacher_user_id IS NULL AND g.teacher_id = %d)` (JOIN `fs_lms_groups g`).
+3. `GroupLessonRepository::setRecordingUrl( int $id, ?string $url ): bool` — зеркало `setRoom()` (`GroupLessonRepository.php:216`); колонка `recording_url` уже есть, писателя не было.
+4. `GroupLessonRepository::setStatus( int $id, LessonStatus $status ): bool` — писателя `status` в кодовой базе нет вообще (проверено grep: только DDL, enum `Inc\Enums\Course\LessonStatus` и чтение в `applySlots():140`).
+5. Шов выдачи: в `LessonPlayerService.php:85` прокинуть URL через `apply_filters( 'fs_lms_recording_url', $groupLesson->recordingUrl, $groupLesson )`; в `StepContentRenderer::resolveVideoUrl()` (`:363-370`) — guard для ветки recording-slot: URL не начинается с `http` → вернуть `''` (без модуля указатель `s3://…` не рендерится — graceful absence §4.5).
+6. Дополнить `tests/Integration/Repositories/GroupLessonRepositoryTest.php` (новые методы) и `tests/Unit/Services/Course/LessonPlayerServiceTest.php` (фильтр + guard).
 
-### Задача 11 — сброс попыток ученика преподавателем (после задачи 5)
-
-**Текущее поведение:** модалка деталей работы в «Сводке по ученику» уже существует — `src/js/profile/summary.js::renderDetailModal()` (строки 164-214), блок `grading` (173-184) с полями балла и кнопками «Вернуть на доработку»/«Сохранить оценку» — но кнопки сброса попыток нет. В `AssessmentAttemptRepository` есть только `deleteAllByGroup()` (bulk) — метода удаления ОДНОЙ попытки по id нет, его нужно завести отдельно.
-
-**Этапы:**
-1. Определить Capability — вероятно та же `ManageLmsTeaching`, что уже используется в `ProgramCallbacks::ajaxGetStudentSummary`.
-2. Добавить новый случай в `AjaxHook` (например `ResetAttempt`), зарегистрировать в контроллере.
-3. Добавить в `AssessmentAttemptRepository` метод `delete(int $id)` (сейчас есть только bulk `deleteAllByGroup()`) — реализовать callback, который удаляет попытку(и)/ответы ученика (`AssessmentAttemptRepository::delete()`/`AssessmentAnswerRepository::deleteByAttempt()`, последний уже есть) либо Work-эквивалент, для конкретных `source_type/source_id/student_person_id`.
-4. Добавить кнопку «Сбросить попытки» в `renderDetailModal()` (рядом со строками 181-183) с обязательным подтверждением (необратимое действие).
-5. После сброса — обновить модалку/карточку в сводке.
-6. Логирование: определиться явно, каким механизмом — `PluginLogger::warning()` (debug.log) для операционного лога ДОСТАТОЧНО для этого действия; таблица `wp_fs_lms_entity_audit_log` пишется отдельным механизмом через `LogEventInterface`-события (`EntityHardDeletedEvent` и подобные, см. `inc/Services/Deletion/*`) — они рассчитаны на GDPR-подобное hard-delete персон/групп и семантически не подходят для сброса попытки один-в-один; заводить туда новый event-тип — по желанию, не обязательно для этой задачи.
-
-### Задача 12 — клик по работе → переход к результатам (Мои оценки / Сводка по ученику / Дедлайны и оценки)
-
-**Текущее поведение:**
-- Преподаватель («Сводка по ученику») — **уже реализовано**: `summary.js:97-98` вешает клик на `.sum-work[data-src-id]` → `openWorkDetail()` → модалка с деталями (164-214), данные — `WorkDetailService::forWork()` через teacher-only AJAX (`GradingCallbacks`, `Nonce::GradeWork` + `Capability::ManageLmsTeaching`). Ничего добавлять не нужно, кроме кнопки из задачи 11.
-- Ученик («Мои оценки») — **не реализовано**: `learner.js::gradeGroupHtml()`/`gradeAttemptRow()` (строки 434-464) вешают клик только на `data-grade-toggle` (разворачивает прошлые попытки аккордеоном) — перехода к детальному результату конкретной попытки нет.
-- «Дедлайны и оценки» (`learner.js:99`, карточка на главной) — по коду похоже на статичный блок без ссылок на конкретные работы.
+### Задача V5 — резолвер занятия
 
 **Этапы:**
-1. Реализовать student-side экран результата попытки — переиспользовать тот же бэкенд, что уже отдаёт полную версию преподавателю, `WorkDetailService::forWork()` (не `AttemptResultService::studentPerTask()` — та версия НЕ содержит эталонных ответов и не подходит для «Мои оценки», см. уточнённую задачу 13), через новый ученический AJAX-эндпоинт с проверкой владения (задача 13, п.1-2).
-2. В `gradeGroupHtml()`/`gradeAttemptRow()` — добавить клик по конкретной попытке, открывающий модалку/панель результата в режиме «только просмотр» (по аналогии с `summary.js::renderDetailModal()`, но без полей оценивания).
-3. В карточке «Дедлайны и оценки» — сделать строки кликабельными, ведущими в тот же экран результата (переиспользовать компонент из шага 2).
-4. Формат экрана — именно тот, что описан и реализуется в задаче 13 («Решено верно/неверно» + футер + эталонные ответы только после завершения попытки).
+1. `Services/VideoLessonResolver.php` (модуль). Вход: нормализованный `recorded_at` (`DateTimeImmutable` из ISO-offset → `wp_timezone()`; `scheduled_at` в БД — локальный wall-clock), `group_id|null`, `teacher_user_id|null`.
+2. Ветка A (`group_id`): кандидаты `listByGroupAndDay()` минус `status='cancelled'` (включая `kind='individual'` этой группы — покрывает «индивидуальную запись положили в папку группы»).
+3. Ветка B (`teacher_user_id`): кандидаты `listIndividualByTeacherAndDay()` минус cancelled.
+4. Выбор: приоритет — попадание в окно `[scheduled_at − 45 мин; ends_at + 45 мин]` (`ends_at IS NULL` → `scheduled_at + 3 ч`); из нескольких — минимум `|recorded_at − scheduled_at|`; строгая ничья → неоднозначность.
+5. Результат: `{group_lesson_id|null, reason: matched|no_candidates|ambiguous}`.
+6. Юнит-тесты: обе ветки, окно/вне окна, два занятия в день, ничья, cancelled-скип, индивидуальное в папке группы.
 
-### Задача 13 — формат результатов работы: verdict-текст + футер
-
-**Текущее поведение (уточнено после повторной проверки):**
-- `templates/frontend/assessment/attempt.php:82-128` + `AttemptResultService::studentPerTask()` (`inc/Services/Assessment/AttemptResultService.php`) — verdict выводится КАК ЕСТЬ, сырым английским словом `correct`/`incorrect`/`pending` (строки шаблона 104-106), без перевода. Эталонный ответ здесь НЕ передаётся клиенту — сервис специально построен для короткого режима сразу после сдачи.
-- Футер сейчас — только общий балл/максимум/статус (строки 77-81): нет номера попытки, нет времени прохождения, нет раздельного первичного/вторичного балла.
-- **Уточнение:** правильный ответ уже показывается — но только преподавателю в «Сводке по ученику», через `WorkDetailService::forWork()` (`inc/Services/Course/WorkDetailService.php:50-186`, оба режима — `submission`/`attempt`) + `GradingCallbacks` (teacher-only AJAX, `Nonce::GradeWork`+`Capability::ManageLmsTeaching`) + `summary.js::taskBlock()`/`VERDICT_LABEL` (уже переведён на русский, строка 17). Требование «эталонный ответ — только в Мои оценки» не реализовано именно со стороны ученика — переиспользуем готовый рабочий сервис вместо того, чтобы строить с нуля.
-- `ExamResultService`/`ExamResultDTO` — по-прежнему мёртвый код (0 внешних обращений, кроме собственного файла); к тому же беднее `WorkDetailService` — нет критериев, файлов, `CorrectAnswerResolver`. **Решение: не реанимировать, полный режим строить на `WorkDetailService`.**
+### Задача V6 — сервис регистрации (upsert + привязка + held)
 
 **Этапы:**
-1. В `WorkDetailService` (или обёртке над ней) добавить ownership-проверку для ученика: для `source_type='attempt'` сверить `AttemptDTO->studentPersonId` с текущим person_id (или его ребёнком — для родителя, паттерн уже есть в child-switcher `LearnerService`), для `submission` — аналогично по `studentPersonId`; отдавать полный ответ (включая `correct`) ТОЛЬКО когда попытка завершена (`status` = Submitted/Graded) — до этого 403 или урезанный без `correct` (важно для ЕГЭ, п.13 исходных замечаний: правильные ответы видны исключительно после окончания, только в «Мои оценки»).
-2. Новый AJAX-хук (например `GetOwnWorkDetail`) — `Nonce::X->verify()` (без capability, публичный/no-priv) + ownership-проверка из п.1 внутри колбэка; вызывает `WorkDetailService::forWork($sourceType, $sourceId)`.
-3. Перевести verdict на русский в духе «vd»-виджетов плеера: «Решено верно» / «Решено неверно, Правильный ответ: {текст}», с цветовой индикацией — переиспользовать карту вида `VERDICT_LABEL` (уже есть в `summary.js:17`; при необходимости вынести в общий модуль `common/`, если понадобится и в student-side JS) и `.t-ok`/`.t-no` + `icoCheck()`/`icoCross()` из `common/icons.js` (уже фабрики, не инлайн-SVG — соответствует правилу CLAUDE.md).
-4. Добавить футер в «полном» режиме: номер попытки, затраченное время (`AttemptDTO`/`actualDurationSeconds()`, если ещё не выведено), баллы — первичный и (для ЕГЭ/КЕГЭ) вторичный через `SecondaryScoreService` (тот же пересчитанный `secondaryScore`, см. задачу 10).
-5. Режим «сразу после экзамена» (`attempt.php`, короткий, на `AttemptResultService::studentPerTask()`) — не менять состав данных, только перевести verdict на русский (шаг 3); эталонные ответы туда не добавлять.
-6. Экран ученика из задачи 12 и карточка «Дедлайны и оценки» — использовать эндпоинт из п.2, рендерить в режиме «только просмотр» (без кнопок оценивания, в отличие от `summary.js::renderDetailModal()` у преподавателя).
-7. Преподаватель в «Сводке по ученику» уже видит полную версию (существующий `WorkDetailService`-путь через `GradingCallbacks`) — менять не нужно.
+1. `Services/VideoRegistrationService.php`: валидация → `upsertByS3Key()` → резолв (только если строка новая или была `unmatched`; существующую привязку, в т.ч. ручную, повторная отправка **не** перерезолвливает — обновляются лишь метаданные).
+2. При матче: `attach()` + `setRecordingUrl( $glId, "s3://{bucket}/{key}" )` + `setStatus( $glId, LessonStatus::Held )` — held ставить только если текущий статус `scheduled` (cancelled/moved не перетирать).
+3. Кросс-чек группового `lms`-блока против `fs_lms_groups` (`course_id`/`teacher_id` расходятся → `PluginLogger::warning()`, не отказ). `teacher_username` → `get_user_by( 'login' )`; не найден → `unmatched` + WARNING.
+4. `do_action( 'fs_lms_video_registered', int $recordingId, ?int $groupLessonId )` — generic-шов (Notifier и др.).
+5. Юнит-тесты: идемпотентность (повтор → без дублей, привязка не сбита), unmatched-путь, held не ставится поверх cancelled.
 
-### Задача 14 — посещаемость: добавить название курса к занятию
+### Задача V7 — REST-контроллер `POST /videos`
 
-**Текущее поведение (уточнено):** `attRow()` (`src/js/profile/learner.js:559-564`) выводит только `r.topic` + дату; `LearnerService::build()` строит `$rows` для посещаемости (строки 197-213) из `$lessonMap[$a->groupLessonId]` (строится около строк 89-131) — этот item НЕ содержит названия курса, только `group_name`/`room`/`teacher`. **Название курса уже резолвится в этом же сервисе** — `buildCourses()` (строка 372): `'title' => null !== $course && '' !== $course->title ? $course->title : $g['subject']` — именно этот текст пользователь имеет в виду («уже резолвится на той же странице, в описании» — вкладка «Мои курсы» той же страницы профиля ученика).
+**Образец:** `AdSyncRestController.php:31-58`.
 
 **Этапы:**
-1. В `LearnerService` вынести резолюцию названия курса в приватный хелпер (например `courseTitleForGroup(array $g): string`, логика 1:1 с текущей строкой 372) и посчитать его сразу после построения `$groups` (после строки 87) — добавить `'course_title' => $this->courseTitleForGroup($groupData)` в каждый элемент `$groups[$rec->groupId]` (рядом с существующими `subject`/`subject_key`, строки 75-84); `buildCourses()` (строка 372) переиспользовать тот же хелпер вместо инлайн-тернарника.
-2. В построении `$lessonMap`-item (строки 109-126) добавить поле `'course' => $groups[$gid]['course_title']`.
-3. В построении `$rows` посещаемости (строки 201-207) добавить `'course' => $l ? $l['course'] : ''`.
-4. В JS `attRow()` (`learner.js:559-564`) — вывести название курса рядом с темой, по аналогии с существующими `roomTag()`/`teacherTag()` (строки 488-495).
-5. Пересобрать JS, проверить в разделе «Посещаемость» кабинета ученика — что название курса отображается и совпадает с тем, что показано на вкладке «Мои курсы» для той же группы.
+1. `Controllers/VideoRestController.php`: `register_rest_route( 'fs-lms/v1', '/videos', … )`, `permission_callback` → `VideoHmacAuth::verify()`.
+2. Валидация тела: обязательные `s3_bucket`, `s3_key`, `recorded_at` (парсится как ISO-8601), `lms` — плоский объект, содержащий `group_id` (int>0) **или** `teacher_username` (строка); иначе `400 {ok:false, error}`.
+3. Ответы строго по `FS_LMS_API.md` §7.3: `200 {ok:true, matched:bool, group_lesson_id:int|null}`; «занятие не найдено» — это `200 matched:false`, **не** 4xx.
+4. Юнит-тест колбэков по образцу `tests/Unit/Modules/AdSync/*`.
 
-### Задача 15 — унификация чипов курсов ученик/преподаватель
-
-**Подтверждённое расхождение по ВСЕМ параметрам (не только шрифт):**
-- **Текст:** ученик — `c.abbr`, вычисляется на бэкенде `LearnerService::subjectAbbr()` (строки 435-438) — первые **3** буквы названия ПРЕДМЕТА, в верхнем регистре (`mb_strtoupper(mb_substr($s, 0, 3))`). Преподаватель — `shortName(c.title)`/`shortName(g.name)` (JS, `src/js/profile/utils.js:35-37`) — первые **4** символа названия КУРСА/ГРУППЫ, без изменения регистра, с удалением «» и пробелов.
-- **Размер бокса:** `.sc-chip` — `38×38px`, `border-radius: rem(10)` (`_student-courses.scss:23-27`); `.prof-group-chip` — `30×30px`, `border-radius: rem(8)` (`_layout.scss:134-140`).
-- **Шрифт:** `.sc-chip` — `font-size: rem(12)`, `letter-spacing: .02em`; `.prof-group-chip` — `font-size: rem(10)`, `letter-spacing: -0.02em` (комментарий в коде прямо поясняет: «10px, чтобы помещалось до 4 букв»).
+### Задача V8 — presigned-выдача в плеер (требует S3-ключи)
 
 **Этапы:**
-1. Убрать серверное вычисление `LearnerService::subjectAbbr()` и вместо `c.abbr` передавать в JS сырое название курса, применяя тот же `shortName()` (`utils.js:35-37`), что и у преподавателя — единый источник логики вместо дублирования в PHP и JS по отдельности.
-2. В `_student-courses.scss` привести `.sc-chip` (строки 23-27) к параметрам `.prof-group-chip`: `width/height: rem(30)`, `border-radius: rem(8)`, `font-size: rem(10)`, `letter-spacing: -0.02em` — полностью, не только font-size.
-3. Свериться, что `chipBg(subject_key)` в `learner.js` и в `dashboard.js`/`app.js` — одна и та же реализация палитры, не две независимые копии.
-4. Пересобрать CSS/JS, визуально сравнить чип курса у ученика и группы у преподавателя бок о бок.
+1. `Services/S3UrlSigner.php` — SigV4 **query presign** на чистом PHP (`hash_hmac`-цепочка AWS4: date → region → service → aws4_request; параметры `X-Amz-Algorithm/Credential/Date/Expires/SignedHeaders/Signature`), path-style URL (`{endpoint}/{bucket}/{key}`), TTL из конфига. Без SDK — по правилам CLAUDE.md «только встроенные API».
+2. Подписчик фильтра `fs_lms_recording_url` в модуле: указатель `s3://{bucket}/{key}` → presigned https; прочие URL — как есть. Регистрировать только при заполненных S3-константах.
+3. Юнит-тест подписи по эталонному вектору (зафиксировать known-good пример: фикс. ключи/дата/ключ объекта → ожидаемая подпись).
+4. Смоук против реального Beget — руками после покупки (curl подписанного URL → 200, после TTL → 403).
 
-### Задача 16 — расписание (КТП): тема жирным, аудитория без «ауд.», + преподаватель
-
-**Текущее поведение:** `placedThemeHtml()` (`src/js/profile/ktp.js:310-322`) — `pt-num` = «№{n}» (номер, убрать), `pt-title` = тема (оставить, сделать жирным как `pt-num`), `pt-room` = «ауд. {room}» (оставить кабинет, убрать слово «ауд.»), преподавателя нет вообще. CSS (`_ktp.scss:125-132`): `.pt-num` — `font-weight:700; color:var(--ok)`; `.pt-title` — обычный текст; `.pt-room` — `font-size:9px; color:var(--muted)`, `display:block`. Бэкенд `ScheduleService::getCalendar()` (строки 398-440) строит `$themes[]` только с полем `room` (через эффективный кабинет `$effRoomId`) — поля преподавателя нет, хотя нужный резолвер для эффективного преподавателя уже существует (Epic 5, `EffectiveTeacherResolver`).
+### Задача V9 — ручная привязка unmatched (админ)
 
 **Этапы:**
-1. В `ScheduleService::getCalendar()` (около строк 413-424) добавить в `$themes[]` поле `teacher` — эффективное имя преподавателя занятия через `EffectiveTeacherResolver`, по аналогии с вычислением `$effRoomId`.
-2. В `placedThemeHtml()`:
-   - убрать вывод `<span class="pt-num">№${t.n}${partLabel(t)}</span>` (строка 317) — проверить, не используется ли `t.n`/`partLabel` для чего-то ещё (drag&drop/сортировка) — если да, оставить как data-атрибут без визуального вывода.
-   - сделать тему жирной — добавить в CSS правило `font-weight:700` для `.pt-title` (взять из `.pt-num`, `_ktp.scss:125`) — оставить семантическое имя класса `pt-title`, не переименовывать.
-   - убрать префикс «ауд. » — оставить только `esc(t.room)`.
-   - добавить новую строку для преподавателя.
-3. Переименовать класс `.pt-room` в нейтральное имя (например `.pt-meta`), т.к. теперь он используется для ДВУХ строк (кабинет + преподаватель) — обновить JS и CSS (`_ktp.scss:132`), проверить, не задета ли строка 221/223 (`.pt-num` также переиспользуется в `.indi-slot` — не путать с переименовываемым `.pt-room`).
-4. Убедиться, что тема/кабинет/преподаватель — блочные элементы (друг под другом).
-5. Пересобрать JS/CSS, проверить карточку урока в «КТП и расписание».
+1. В секции настроек модуля (или отдельная вкладка) — таблица unmatched-записей: `recorded_at`, источник (`group_slug`/препод), `s3_key`, размер; выбор «группа → занятие дня» → привязка тем же путём, что V6 (включая `recording_url` + held). Возможность отвязать/перепривязать matched-запись.
+2. AJAX-действия — константами в контроллере модуля (паттерн `AdSyncController::STATUS_ACTION`, без правки core-enum `AjaxHook` — §4.6), `authorize()` с `Capability::Admin`.
+3. JS — в `src/js/admin/` по существующим паттернам (объектный jQuery-модуль).
 
-### Задача 17 — audit log: английские слова → русские
-
-**Подтверждено 3 места:**
-- `inc/Services/Deletion/GroupDeletionHandler.php:76` — `"students:{$studentsCount}, parents:{$parentsCount}"`.
-- `inc/Services/Deletion/StudentDeletionHandler.php:63` — `'consents, applications, person_documents, student_records:' . (int) $recordsDeleted`.
-- `inc/Services/Deletion/ParentDeletionHandler.php:61` — `'consents, applications, person_documents'`.
-
-**+ найдено ещё одно место при повторной проверке:**
-- `inc/Services/Deletion/RetentionService.php:42` — `new EntityHardDeletedEvent(0, 'person', $person->id, 'pii_anonymized')` — строка-причина `'pii_anonymized'` тоже английская, той же природы, что и остальные.
+### Задача V10 — сквозная проверка (docker)
 
 **Этапы:**
-1. `GroupDeletionHandler.php:76` → `"Учеников:{$studentsCount}, Родителей:{$parentsCount}"`.
-2. `StudentDeletionHandler.php:63` → русский аналог (например «Согласия, заявки, документы персоны, записи об обучении:{N}») — сверить точные русские названия сущностей с уже существующими лейблами в админке, чтобы не изобретать новую терминологию.
-3. `ParentDeletionHandler.php:61` → аналогичный русский текст без `student_records` (у родителя её нет).
-4. `RetentionService.php:42` → `'pii_anonymized'` перевести на русский аналог (например `'обезличено_pii'` или человекочитаемая фраза — согласовать с форматом остальных причин в этом же событии).
-5. Новые записи в `wp_fs_lms_entity_audit_log` после фикса будут на русском; существующие записи (в т.ч. №169) не переписывать задним числом без явного запроса пользователя.
-6. Дополнительно проверить `EntityHardDeletedEvent`/`EntityChangedEvent` usage во всех `inc/Services/Deletion/*` и смежных местах на другие необнаруженные английские строки — поиск по конкретным словам «students:»/«parents:» мог не покрыть все сущности.
+1. Поднять стек, включить модуль, задать `FS_LMS_VIDEO_HMAC_SECRET`; подписанный запрос (python/bash сниппет из `FS_LMS_API.md` §2) с валидным `group_id`+`recorded_at` под существующее занятие → `matched:true`; проверить в БД `recording_url` + `status='held'` + строку реестра.
+2. Повторить тот же запрос → тот же `group_lesson_id`, без дублей в реестре.
+3. Запрос с датой без занятий → `matched:false`, строка `unmatched`; привязать руками (V9).
+4. Индивидуальная ветка: `lms:{teacher_username}` → матч `kind='individual'`.
+5. `reflow` группы → held-занятие с видео не сдвинулось.
+6. Плеер: шаг с `recording_slot=true` отдаёт presigned-ссылку (после V8); при выключенном модуле — шаг без записи, ничего не падает.
+7. `composer` тесты + `npm run ci` — зелёные.

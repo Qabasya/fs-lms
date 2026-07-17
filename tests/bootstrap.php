@@ -118,7 +118,10 @@ if (!function_exists('apply_filters')) {
     }
 }
 if (!function_exists('do_action')) {
+    // Колбэки не вызываются (как и в apply_filters выше), но факт вызова записывается —
+    // тесты могут проверить, что сервис дёрнул generic-шов (например, fs_lms_video_registered).
     function do_action(string $hook, mixed ...$args): void {
+        $GLOBALS['_fs_test_actions'][] = ['hook' => $hook, 'args' => $args];
     }
 }
 if (!function_exists('add_filter')) {
@@ -411,9 +414,9 @@ if (!function_exists('esc_attr'))     { function esc_attr($text) { return $text;
 if (!function_exists('esc_html__'))   { function esc_html__($text, $domain = null) { return $text; } }
 if (!function_exists('esc_attr__'))   { function esc_attr__($text, $domain = null) { return $text; } }
 
-/** Возвращает false — в unit-тестах WP-пользователи не нужны. */
-function get_user_by( string $field, mixed $value ): false {
-    return false;
+/** Управляется $GLOBALS['_fs_test_users_by'][$field][$value] (WP_User); нет записи — false. */
+function get_user_by( string $field, mixed $value ): WP_User|false {
+    return $GLOBALS['_fs_test_users_by'][$field][(string) $value] ?? false;
 }
 
 /** Возвращает пустую строку — миниатюры не нужны в unit-тестах. */
@@ -423,6 +426,39 @@ function get_the_post_thumbnail_url( int $post_id, string $size = 'post-thumbnai
 
 if (!function_exists('wp_parse_url')) {
     function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
+}
+if (!function_exists('wp_timezone')) {
+    // Таймзона сайта; управляется $GLOBALS['_fs_test_timezone'] (по умолчанию UTC).
+    function wp_timezone(): DateTimeZone { return new DateTimeZone($GLOBALS['_fs_test_timezone'] ?? 'UTC'); }
+}
+if (!function_exists('update_option')) {
+    function update_option(string $option, mixed $value, mixed $autoload = null): bool {
+        $GLOBALS['_test_options'][$option] = $value;
+        return true;
+    }
+}
+
+// ---- REST-стабы (модульные REST-контроллеры: AdSync, VideoLibrary) ----
+if (!class_exists('WP_REST_Request')) {
+    class WP_REST_Request {
+        private array $headers = [];
+        private array $params  = [];
+        private string $body   = '';
+        public function set_header(string $key, string $value): void { $this->headers[strtolower($key)] = $value; }
+        public function get_header(string $key): ?string { return $this->headers[strtolower($key)] ?? null; }
+        public function set_body(string $body): void { $this->body = $body; }
+        public function get_body(): string { return $this->body; }
+        public function set_param(string $key, mixed $value): void { $this->params[$key] = $value; }
+        public function get_param(string $key): mixed { return $this->params[$key] ?? ($this->get_json_params()[$key] ?? null); }
+        public function get_json_params(): mixed { return '' !== $this->body ? json_decode($this->body, true) : $this->params; }
+    }
+}
+if (!class_exists('WP_REST_Response')) {
+    class WP_REST_Response {
+        public function __construct(private mixed $data = null, private int $status = 200) {}
+        public function get_data(): mixed { return $this->data; }
+        public function get_status(): int { return $this->status; }
+    }
 }
 if (!function_exists('esc_url')) {
     function esc_url(string $url): string { return $url; }
