@@ -16,7 +16,8 @@ use Inc\Modules\AdSync\Schema\AdSchema;
  *
  * Bootstrap изолируемого модуля AdSync (создание учёток в AD через заявки).
  * Единственная точка входа модуля; регистрируется одной строкой в `Init::getServices()`.
- * Ядро о внутренностях модуля не знает — связь только через generic-хуки (см. .docs/WpToADTasks.md).
+ * Ядро о внутренностях модуля не знает — связь только через generic-хуки
+ * (см. .docs/AdSyncPythonService.md, .docs/FS_LMS_API.md).
  *
  * Уровни выключения (§2.3):
  *  1) тумблер в опции `fs_lms_ad_sync.enabled`;

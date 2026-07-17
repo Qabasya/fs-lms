@@ -8,8 +8,8 @@
 > | Active Directory (учётки учеников) | `AdSync` | **pull** — Python на DC в локалке без белого IP сам опрашивает WP исходящим HTTPS; WordPress наружу не ходит | §3–6 |
 > | Видеозаписи занятий (S3 Beget) | `VideoLibrary` | **push** — сервис `fs-video-uploader` после загрузки видео в S3 шлёт регистрацию в WP | §7 |
 >
-> Связанные доки: AD — `WpToADTasks.md` (настройка AD-стороны — там же, Приложение A);
-> видео-сервис — `video-uploader.md`; задачи плагина по видео — `Tasks.md`.
+> Связанные доки: AD — `AdSyncPythonService.md` (требования к Python-сервису, операции в AD,
+> настройка AD-стороны); видео-сервис — `video-uploader.md`; задачи плагина по видео — `Tasks.md`.
 
 ---
 
@@ -172,7 +172,7 @@ def sign(secret: str, body: str = "") -> dict[str, str]:
 
 ```python
 import time, hmac, hashlib, json, requests
-# from ldap3 import Server, Connection, MODIFY_ADD, MODIFY_REPLACE  # см. §4.2 WpToADTasks.md
+# from ldap3 import Server, Connection, MODIFY_ADD, MODIFY_REPLACE  # см. §4.1 AdSyncPythonService.md
 
 BASE   = "https://example.com/wp-json/fs-lms/v1"
 SECRET = "СЕКРЕТ_КАК_В_wp-config"   # FS_LMS_AD_HMAC_SECRET
@@ -197,7 +197,7 @@ def active_usernames() -> list[str]:
     r.raise_for_status()
     return r.json().get("usernames", [])
 
-# --- AD-операции (заглушки; реализация через ldap3, см. §4.2 WpToADTasks.md) ---
+# --- AD-операции (заглушки; реализация через ldap3, см. §4.1 AdSyncPythonService.md) ---
 def ad_provision(job: dict) -> str: ...   # create user, set password, add to группе по job["subject_key"]
 def ad_disable(username: str) -> None: ... # userAccountControl=514, move to OU=Disabled
 def ad_promote(username: str) -> None: ... # move to OU=Active (зачислен)
@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
 > **AD-операции (ldap3):** bind сервис-аккаунтом (LDAPS:636), `unicodePwd` (UTF-16LE в кавычках),
 > `userAccountControl` (512/514), членство в группе через `member`
-> группы (`MODIFY_ADD`/`MODIFY_DELETE`). Детали — `WpToADTasks.md` §4.2 и §4.6 (парольная политика OU).
+> группы (`MODIFY_ADD`/`MODIFY_DELETE`). Детали — `AdSyncPythonService.md` §4.1 и §5 (парольная политика OU).
 
 ---
 
