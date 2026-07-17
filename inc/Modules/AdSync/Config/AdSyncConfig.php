@@ -11,7 +11,7 @@ namespace Inc\Modules\AdSync\Config;
  * Модуль владеет СВОЕЙ опцией `fs_lms_ad_sync` — ядро о ней не знает.
  *
  * Флаг включения: константа `FS_LMS_AD_SYNC` в wp-config.php перекрывает тумблер из опции
- * (3 уровня выключения — см. .docs/WpToADTasks.md §2.3).
+ * (3 уровня выключения — см. .docs/AdSyncPythonService.md).
  * Секрет HMAC живёт в `FS_LMS_AD_HMAC_SECRET` (wp-config), не в опции.
  *
  * @package Inc\Modules\AdSync\Config

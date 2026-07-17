@@ -363,7 +363,9 @@ class StepContentRenderer {
 	private function resolveVideoUrl( StepDTO $step, ?string $recordingUrl ): string {
 		$isSlot = (bool) ( $step->payload['recording_slot'] ?? false );
 		if ( $isSlot && null !== $recordingUrl && '' !== $recordingUrl ) {
-			return $recordingUrl;
+			// Graceful absence (V4): при выключенном модуле VideoLibrary указатель
+			// `s3://{bucket}/{key}` никто не превратил в presigned-ссылку — не рендерим.
+			return str_starts_with( $recordingUrl, 'http' ) ? $recordingUrl : '';
 		}
 
 		return (string) ( $step->payload['url'] ?? '' );

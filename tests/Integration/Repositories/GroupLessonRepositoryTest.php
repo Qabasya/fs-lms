@@ -234,6 +234,54 @@ class GroupLessonRepositoryTest extends TestCase {
 		self::assertSame( '2026-09-01 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
 	}
 
+	/* ── V4 (VideoLibrary): выборки дня + писатели recording_url/status ───── */
+
+	public function test_list_by_group_and_day_filters_by_date(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->listByGroupAndDay( 3, '2026-07-08' );
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'group_id = 3', $q );
+		self::assertStringContainsString( "DATE(scheduled_at) = '2026-07-08'", $q );
+	}
+
+	public function test_list_individual_by_teacher_and_day_uses_effective_teacher(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->listIndividualByTeacherAndDay( 7, '2026-07-08' );
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( "gl.kind = 'individual'", $q );
+		self::assertStringContainsString( "DATE(gl.scheduled_at) = '2026-07-08'", $q );
+		self::assertStringContainsString( 'gl.teacher_user_id = 7', $q );
+		self::assertStringContainsString( 'gl.teacher_user_id IS NULL AND g.teacher_id = 7', $q );
+		self::assertStringContainsString( 'fs_lms_groups', $q );
+	}
+
+	public function test_set_recording_url_writes_pointer(): void {
+		$this->repo->setRecordingUrl( 42, 's3://bucket/videos/rec.webm' );
+
+		self::assertSame(
+			[ 'recording_url' => 's3://bucket/videos/rec.webm' ],
+			$this->wpdb->updates[0]['data']
+		);
+		self::assertSame( [ 'id' => 42 ], $this->wpdb->updates[0]['where'] );
+	}
+
+	public function test_set_recording_url_accepts_null(): void {
+		$this->repo->setRecordingUrl( 42, null );
+
+		self::assertSame( [ 'recording_url' => null ], $this->wpdb->updates[0]['data'] );
+	}
+
+	public function test_set_status_writes_enum_value(): void {
+		$this->repo->setStatus( 42, \Inc\Enums\Course\LessonStatus::Held );
+
+		self::assertSame( [ 'status' => 'held' ], $this->wpdb->updates[0]['data'] );
+		self::assertSame( [ 'id' => 42 ], $this->wpdb->updates[0]['where'] );
+	}
+
 	/** @param array<string,mixed> $over */
 	private function slotRow( int $id, int $position, array $over = [] ): array {
 		return array_merge( [

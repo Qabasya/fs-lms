@@ -221,6 +221,73 @@ class GroupLessonRepository {
 		);
 	}
 
+	/** Указатель записи занятия (модуль VideoLibrary пишет `s3://{bucket}/{key}`). */
+	public function setRecordingUrl( int $id, ?string $url ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'recording_url' => $url ),
+			array( 'id' => $id )
+		);
+	}
+
+	/** План/факт занятия (V4: `held` при привязке записи фиксирует дату от reflow). */
+	public function setStatus( int $id, LessonStatus $status ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'status' => $status->value ),
+			array( 'id' => $id )
+		);
+	}
+
+	/**
+	 * Занятия группы в календарный день (кандидаты резолва записи, V4).
+	 *
+	 * @param string $day День 'Y-m-d' в TZ сайта (scheduled_at — локальный wall-clock).
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listByGroupAndDay( int $groupId, string $day ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE group_id = %d AND DATE(scheduled_at) = %s ORDER BY scheduled_at ASC',
+				$this->table,
+				$groupId,
+				$day
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
+	/**
+	 * Индивидуальные занятия преподавателя в календарный день по всем его группам (V4).
+	 * Эффективный препод: `teacher_user_id` занятия, иначе `teacher_id` группы.
+	 *
+	 * @param string $day День 'Y-m-d' в TZ сайта.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listIndividualByTeacherAndDay( int $teacherUserId, string $day ): array {
+		$groups = TableName::Groups->prefixed();
+		$rows   = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT gl.* FROM %i gl
+				 JOIN %i g ON g.id = gl.group_id
+				 WHERE gl.kind = 'individual'
+				   AND DATE(gl.scheduled_at) = %s
+				   AND ( gl.teacher_user_id = %d OR ( gl.teacher_user_id IS NULL AND g.teacher_id = %d ) )
+				 ORDER BY gl.scheduled_at ASC",
+				$this->table,
+				$groups,
+				$day,
+				$teacherUserId,
+				$teacherUserId
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
 	public function setLessonId( int $id, int $lessonId ): bool {
 		$result = $this->wpdb->update(
 			$this->table,

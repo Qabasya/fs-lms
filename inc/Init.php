@@ -8,6 +8,7 @@ use Inc\Modules\DaData\DaDataModule;
 use Inc\Modules\EgeComputer\EgeComputerModule;
 use Inc\Modules\SmartCaptcha\SmartCaptchaModule;
 use Inc\Modules\SocialAuth\SocialAuthModule;
+use Inc\Modules\VideoLibrary\VideoLibraryModule;
 use Inc\Controllers\Enrollment\ApplicationController;
 use Inc\Controllers\Pages\ApplyPageController;
 use Inc\Controllers\Person\ConsentController;
@@ -171,6 +172,7 @@ final class Init {
 			EgeComputerModule::class,         // Inc\Modules\EgeComputer — плеер ЕГЭ (Компьютер) (флаг-гейт, T7.20)
 			DaDataModule::class,              // Inc\Modules\DaData — автодополнение DaData на /lms/join (флаг-гейт)
 			SmartCaptchaModule::class,        // Inc\Modules\SmartCaptcha — капча Yandex на /lms/apply (флаг-гейт)
+			VideoLibraryModule::class,        // Inc\Modules\VideoLibrary — видеозаписи занятий S3 + REST (флаг-гейт)
 		);
 	}
 
