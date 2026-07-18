@@ -157,8 +157,16 @@ class VideoRegistrationService {
 		return $parsed->setTimezone( wp_timezone() );
 	}
 
-	/** `teacher_username` → WP user_login; не найден → unmatched-путь + WARNING. */
+	/**
+	 * `lms.teacher_id` — готовый WP user ID, приоритетный путь (groups.yaml с V1.5.15
+	 * экспортирует именно его). `teacher_username` — переходный fallback для конфигов,
+	 * ещё не смигрировавших на teacher_id; не найден → unmatched-путь + WARNING.
+	 */
 	private function resolveTeacherUserId( VideoRecordingInputDTO $input ): ?int {
+		if ( null !== $input->teacherId && $input->teacherId > 0 ) {
+			return $input->teacherId;
+		}
+
 		if ( null === $input->teacherUsername || '' === $input->teacherUsername ) {
 			return null;
 		}

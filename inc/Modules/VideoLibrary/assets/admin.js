@@ -40,11 +40,7 @@
 			} );
 
 			$form.on( 'click', '[data-videolib-export-groups]', function () {
-				self.exportGroups();
-			} );
-
-			$form.on( 'click', '[data-videolib-download-groups]', function () {
-				self.downloadGroupsYaml();
+				self.exportGroups( $( this ) );
 			} );
 		},
 
@@ -55,33 +51,24 @@
 			}, data || {} ) );
 		},
 
-		exportGroups: function () {
+		// Клик сразу качает файл — без промежуточного показа/копирования.
+		exportGroups: function ( $btn ) {
+			$btn.prop( 'disabled', true );
 			this.post( this.cfg.actions.exportGroups ).done( function ( res ) {
 				if ( ! res || ! res.success ) {
 					window.alert( ( res && res.data && res.data.message ) || 'Не удалось сформировать экспорт.' );
 					return;
 				}
 
-				var data    = res.data;
-				var summary = data.count + ' ' + 'групп(ы) с курсом и преподавателем';
-				if ( data.skipped ) {
-					summary += ', пропущено без курса/преподавателя: ' + data.skipped;
-				}
-
-				$( '#fs-videolib-groups-summary' ).text( summary );
-				$( '#fs-videolib-groups-value' ).val( data.yaml );
-				$( '#fs-videolib-groups-output' ).removeAttr( 'hidden' );
+				var blob = new Blob( [ res.data.yaml ], { type: 'text/yaml' } );
+				var url  = URL.createObjectURL( blob );
+				var $a   = $( '<a>', { href: url, download: 'groups.yaml' } ).appendTo( 'body' );
+				$a[ 0 ].click();
+				$a.remove();
+				URL.revokeObjectURL( url );
+			} ).always( function () {
+				$btn.prop( 'disabled', false );
 			} );
-		},
-
-		downloadGroupsYaml: function () {
-			var yaml = $( '#fs-videolib-groups-value' ).val() || '';
-			var blob = new Blob( [ yaml ], { type: 'text/yaml' } );
-			var url  = URL.createObjectURL( blob );
-			var $a   = $( '<a>', { href: url, download: 'groups.yaml' } ).appendTo( 'body' );
-			$a[ 0 ].click();
-			$a.remove();
-			URL.revokeObjectURL( url );
 		},
 	};
 

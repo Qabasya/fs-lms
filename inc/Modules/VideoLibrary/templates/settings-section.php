@@ -80,19 +80,11 @@ $video_s3_consts  = array(
 					<span class="fs-config-key-row__name">groups.yaml для fs-video-uploader</span>
 				</div>
 				<p class="description">
-					Экспорт групповой части конфига сервиса: для каждой группы с назначенным курсом и преподавателем —
-					блок <code>lms: {group_id, course_id, teacher_id}</code>. Ключ записи — название группы (папку с таким именем
-					нужно завести в <code>VIDEO_ROOT</code>). Личные папки преподавателей для индивидуальных занятий
-					в экспорт не попадают — добавьте их в файл вручную.
+					Группы с назначенным курсом и преподавателем + личные папки всех преподавателей
+					(для индивидуальных занятий) — в формате конфига сервиса.
 				</p>
 				<div class="fs-config-key-row__actions">
 					<button type="button" class="button" data-videolib-export-groups>Экспорт YAML</button>
-				</div>
-				<div class="fs-config-key-row__output" id="fs-videolib-groups-output" hidden>
-					<p class="description" id="fs-videolib-groups-summary"></p>
-					<textarea class="fs-config-key-output" id="fs-videolib-groups-value" rows="10" readonly></textarea>
-					<button type="button" class="button js-copy-key" data-target="fs-videolib-groups-value">Скопировать</button>
-					<button type="button" class="button" data-videolib-download-groups>Скачать groups.yaml</button>
 				</div>
 			</div>
 
