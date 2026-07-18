@@ -22,7 +22,6 @@ use Inc\Modules\VideoLibrary\Services\S3UrlSigner;
  */
 class VideoLibraryController {
 
-	public const LIST_ACTION    = 'fs_lms_video_list';
 	public const LESSONS_ACTION = 'fs_lms_video_lessons';
 	public const ATTACH_ACTION  = 'fs_lms_video_attach';
 	public const DETACH_ACTION  = 'fs_lms_video_detach';
@@ -34,7 +33,6 @@ class VideoLibraryController {
 	) {}
 
 	public function register(): void {
-		add_action( 'wp_ajax_' . self::LIST_ACTION, array( $this->callbacks, 'ajaxList' ) );
 		add_action( 'wp_ajax_' . self::LESSONS_ACTION, array( $this->callbacks, 'ajaxLessons' ) );
 		add_action( 'wp_ajax_' . self::ATTACH_ACTION, array( $this->callbacks, 'ajaxAttach' ) );
 		add_action( 'wp_ajax_' . self::DETACH_ACTION, array( $this->callbacks, 'ajaxDetach' ) );

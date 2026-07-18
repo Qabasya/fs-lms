@@ -75,25 +75,19 @@ $video_s3_consts  = array(
 				</div>
 			<?php endforeach; ?>
 
-			<div class="fs-config-key-row" id="fs-videolib-recordings">
+			<div class="fs-config-key-row">
 				<div class="fs-config-key-row__header">
-					<span class="fs-config-key-row__name">Записи без занятия</span>
-					<span id="fs-videolib-unmatched-count"></span>
+					<span class="fs-config-key-row__name">groups.yaml для fs-video-uploader</span>
 				</div>
 				<p class="description">
-					Записи, для которых занятие не нашлось по дате/времени (или нашлось несколько).
-					Выберите группу и занятие дня — привязка проставит занятию запись и статус «проведено».
+					Группы с назначенным курсом и преподавателем + личные папки всех преподавателей
+					(для индивидуальных занятий) — в формате конфига сервиса.
 				</p>
 				<div class="fs-config-key-row__actions">
-					<button type="button" class="button" data-videolib-refresh>Обновить список</button>
+					<button type="button" class="button" data-videolib-export-groups>Экспорт YAML</button>
 				</div>
-				<div id="fs-videolib-unmatched"></div>
-
-				<div class="fs-config-key-row__header">
-					<span class="fs-config-key-row__name">Привязанные записи</span>
-				</div>
-				<div id="fs-videolib-matched"></div>
 			</div>
+
 		</div>
 
 	</div>

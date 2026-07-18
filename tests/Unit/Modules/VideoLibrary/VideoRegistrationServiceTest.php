@@ -62,7 +62,7 @@ class VideoRegistrationServiceTest extends TestCase {
 			groupSlug:       'kege-1',
 			groupId:         array_key_exists( 'group_id', $over ) ? $over['group_id'] : 3,
 			courseId:        $over['course_id'] ?? 42,
-			teacherId:       $over['teacher_id'] ?? 7,
+			teacherId:       array_key_exists( 'teacher_id', $over ) ? $over['teacher_id'] : 7,
 			teacherUsername: $over['teacher_username'] ?? null,
 			recordedAt:      $over['recorded_at'] ?? '2026-07-08T16:04:45+03:00',
 			sizeBytes:       100,
@@ -208,7 +208,17 @@ class VideoRegistrationServiceTest extends TestCase {
 
 	// ── Индивидуальная ветка ─────────────────────────────────────────────────
 
-	public function test_teacher_username_is_resolved_to_user_id(): void {
+	public function test_teacher_id_takes_priority_over_username(): void {
+		$this->upsertReturns( 10, true );
+		// teacher_id задан — get_user_by не должен даже понадобиться (не стабим _fs_test_users_by).
+		$this->resolver->expects( self::once() )->method( 'resolve' )
+			->with( self::anything(), null, 7 )
+			->willReturn( array( 'group_lesson_id' => null, 'reason' => 'no_candidates' ) );
+
+		$this->service->register( $this->input( array( 'group_id' => null, 'teacher_id' => 7, 'teacher_username' => 'i.petrov' ) ) );
+	}
+
+	public function test_teacher_username_is_resolved_to_user_id_when_teacher_id_absent(): void {
 		$user             = new \WP_User();
 		$user->ID         = 7;
 		$user->user_login = 'i.petrov';
@@ -219,7 +229,7 @@ class VideoRegistrationServiceTest extends TestCase {
 			->with( self::anything(), null, 7 )
 			->willReturn( array( 'group_lesson_id' => null, 'reason' => 'no_candidates' ) );
 
-		$this->service->register( $this->input( array( 'group_id' => null, 'teacher_username' => 'i.petrov' ) ) );
+		$this->service->register( $this->input( array( 'group_id' => null, 'teacher_id' => null, 'teacher_username' => 'i.petrov' ) ) );
 	}
 
 	public function test_unknown_teacher_username_goes_unmatched(): void {
@@ -228,7 +238,7 @@ class VideoRegistrationServiceTest extends TestCase {
 			->with( self::anything(), null, null )
 			->willReturn( array( 'group_lesson_id' => null, 'reason' => 'no_candidates' ) );
 
-		$result = $this->service->register( $this->input( array( 'group_id' => null, 'teacher_username' => 'ghost' ) ) );
+		$result = $this->service->register( $this->input( array( 'group_id' => null, 'teacher_id' => null, 'teacher_username' => 'ghost' ) ) );
 
 		self::assertFalse( $result['matched'] );
 	}

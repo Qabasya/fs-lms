@@ -223,9 +223,12 @@ class LessonCallbacks extends BaseController {
 				'content' => $this->sanitizeHtmlValue( $raw_payload['content'] ?? '' ),
 			),
 			'video'              => array(
-				'title'       => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
-				'url'         => $this->sanitizeTextValue( $raw_payload['url'] ?? '' ),
-				'description' => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
+				'title'          => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
+				'url'            => $this->sanitizeTextValue( $raw_payload['url'] ?? '' ),
+				'description'    => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
+				// Слот для записи занятия (модуль VideoLibrary): true — плеер подменяет
+				// url на recording_url привязанного group_lesson, когда он появится.
+				'recording_slot' => $this->sanitizeBoolValue( $raw_payload['recording_slot'] ?? false ),
 				// D21 (T14.12): главы (перемотка в нативном плеере) и вложения-конспекты.
 				'chapters'    => $this->sanitizeChapters( $raw_payload['chapters'] ?? array() ),
 				'attachments' => array_values( array_filter( array_map(

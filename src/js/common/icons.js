@@ -69,6 +69,10 @@ export const icoSwap = ( s = 15 ) =>
 export const icoContinue = ( s = 16 ) =>
 	stroke20( '<path d="M4 10h9m0 0-3-3m3 3-3 3M16 10h.01" stroke="{c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>', s );
 
+/** Индикатор записи занятия (КТП): зелёная — запись есть, красная — занятие прошло без записи. */
+export const icoCamera = ( s = 14, c = 'currentColor' ) =>
+	stroke20( '<rect x="2.5" y="6" width="10" height="8" rx="1.5" stroke="{c}" stroke-width="1.5"/><path d="M12.5 9.2 17 6.5v7l-4.5-2.7" stroke="{c}" stroke-width="1.5" stroke-linejoin="round"/>', s, c );
+
 export const icoLogout = ( s = 16 ) =>
 	stroke20( '<path d="M8 5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-1M11 10H3m0 0 3-3m-3 3 3 3" stroke="{c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>', s );
 

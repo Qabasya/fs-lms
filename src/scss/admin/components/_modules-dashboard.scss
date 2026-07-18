@@ -13,9 +13,11 @@
 
 .fs-module-cards {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(rem(280), 1fr));
+
+	// minmax подобран так, чтобы при полной ширине .wrap помещалось ровно 3 карточки в ряд;
+	// на более узких экранах auto-fit сам уменьшает число колонок.
+	grid-template-columns: repeat(auto-fit, minmax(rem(480), 1fr));
 	gap: $spacing-xl;
-	max-width: rem(720);
 }
 
 .fs-module-card {

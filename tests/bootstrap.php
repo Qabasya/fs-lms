@@ -131,6 +131,13 @@ if (!function_exists('add_filter')) {
         return true;
     }
 }
+if (!function_exists('has_filter')) {
+    // add_filter() выше не запоминает регистрации — по умолчанию считаем «не подписан»
+    // (модуль выключен/не настроен); тест может переопределить через $GLOBALS.
+    function has_filter(string $hook, callable|bool $callback = false): int|bool {
+        return $GLOBALS['_fs_test_has_filter'][$hook] ?? false;
+    }
+}
 if (!function_exists('current_time')) {
     function current_time(string $type, bool $gmt = false): string {
         return '2024-01-01 12:00:00';

@@ -278,16 +278,19 @@ class StepContentRenderer {
 	 * @return array<string, mixed>
 	 */
 	public function renderVideoData( StepDTO $step, ?string $recordingUrl ): array {
-		$url = $this->resolveVideoUrl( $step, $recordingUrl );
+		$isSlot = (bool) ( $step->payload['recording_slot'] ?? false );
+		$url    = $this->resolveVideoUrl( $step, $recordingUrl );
 
+		// Слот записи занятия — черновая видеозапись, не подготовленный материал:
+		// описание/главы/вложения для неё не заполняются и не показываются.
 		return array(
 			'url'            => $url,
-			'description'    => (string) ( $step->payload['description'] ?? '' ),
+			'description'    => $isSlot ? '' : (string) ( $step->payload['description'] ?? '' ),
 			'provider'       => (string) ( $step->payload['provider'] ?? '' ),
-			'recording_slot' => (bool) ( $step->payload['recording_slot'] ?? false ),
+			'recording_slot' => $isSlot,
 			'mode'           => $this->resolveVideoMode( $url ),
-			'chapters'       => $this->videoChapters( $step ),
-			'attachments'    => $this->videoAttachments( $step ),
+			'chapters'       => $isSlot ? array() : $this->videoChapters( $step ),
+			'attachments'    => $isSlot ? array() : $this->videoAttachments( $step ),
 		);
 	}
 
