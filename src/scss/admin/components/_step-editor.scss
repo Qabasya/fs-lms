@@ -80,6 +80,9 @@
 	.field-row { margin-bottom: rem(14);
 		label { display: block; font-size: $font-size-xs; font-weight: $font-bold; color: $color-text-secondary; margin-bottom: rem(5); } }
 
+	// D-recording-slot: пояснение под чекбоксом «Это запись занятия» (видео-шаг)
+	.field-hint { font-size: $font-size-xs; color: $color-text-secondary; line-height: 1.5; margin: 0 0 rem(14); }
+
 	.field-input {
 		width: 100%; padding: $spacing-sm rem(11); border: 1px solid $color-border-input; border-radius: rem(5); font-size: $font-size-wp; color: $color-text-primary;
 		&:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 1px var(--color-primary); }

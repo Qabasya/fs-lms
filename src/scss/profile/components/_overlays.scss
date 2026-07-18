@@ -42,6 +42,12 @@
 .wd-empty { padding: rem(10); font-size: rem(12.5); color: var(--muted-2); }
 .wd-pop .wd-save { width: calc(100% - rem(20)); margin: rem(8) rem(10) rem(4); }
 
+/* Поповер ручной ссылки на запись занятия (VideoLibrary/КТП). */
+.rec-pop { padding: rem(6) rem(10) rem(10); }
+.rec-pop .rec-input { margin-top: rem(2); }
+.rec-actions { display: flex; gap: rem(6); margin-top: rem(8); }
+.rec-actions .prof-btn { flex: 1; }
+
 .prof-grade-pop {
   position: fixed; z-index: $z-ctx + 1; background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); padding: rem(10); display: none;

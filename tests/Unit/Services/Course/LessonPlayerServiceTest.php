@@ -199,6 +199,27 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertFalse( $render['recording_slot'] );
 	}
 
+	public function test_video_slot_suppresses_description_chapters_attachments(): void {
+		$GLOBALS['_fs_test_attachment_urls'] = array( 7 => 'http://example.com/uploads/konspekt.pdf' );
+
+		$step   = $this->makeVideoStep( 's1', array(
+			'recording_slot' => true,
+			'description'    => 'Черновое описание, оставшееся до включения слота',
+			'chapters'       => array( array( 't' => 72, 'title' => 'range(stop)' ) ),
+			'attachments'    => array( 7 ),
+		) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+		$this->stubGateAndProgress( $step );
+
+		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: 'https://s3.example.com/rec.mp4' );
+		$render      = $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
+
+		self::assertSame( '', $render['description'] );
+		self::assertSame( array(), $render['chapters'] );
+		self::assertSame( array(), $render['attachments'] );
+	}
+
 	// ── D21 (T14.12): режим плеера, главы, вложения ─────────────────────────
 
 	public function test_video_mode_native_for_direct_file(): void {

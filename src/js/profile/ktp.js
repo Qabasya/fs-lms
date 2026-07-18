@@ -5,7 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, emptyState, openCtxMenuRaw, closeCtxMenu } from './utils.js';
-import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoGrip, icoPinFilled, icoCaret, icoContinue, icoCalendarBoard, icoAlert } from '../common/icons.js';
+import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoGrip, icoPinFilled, icoCaret, icoContinue, icoCalendarBoard, icoAlert, icoCamera } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
@@ -283,6 +283,8 @@ function renderCalendar() {
     grid.innerHTML = cells;
     // T12.3: дедлайны — delivery, не структура/расписание — доступны даже при lock КТП (T1.8).
     grid.querySelectorAll('.placed-theme').forEach(attachDeadlinesClick);
+    // Ссылка на запись — тоже delivery, не структура: доступна даже при lock КТП.
+    grid.querySelectorAll('.pt-recording').forEach(attachRecordingClick);
     if (!isLocked()) {
         grid.querySelectorAll('.kal-cell[data-lesson="1"]').forEach(attachDrop);
         grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
@@ -307,6 +309,22 @@ function themeCardHtml(t) {
     </div>`;
 }
 
+/** Индикатор записи занятия: зелёная камера — запись есть, красная — занятие прошло, записи нет.
+    Модуль «Видеозаписи занятий» выключен/не настроен (video_enabled=false) — фронт ведёт себя
+    так, будто про записи занятий вообще не знает: ни иконки, ни ручной правки ссылки. */
+function recordingIconHtml(t) {
+    if (!state.data.video_enabled) {
+        return '';
+    }
+    if (t.recording_url) {
+        return `<button type="button" class="pt-recording pt-recording--ok" data-glid="${t.group_lesson_id}" data-url="${esc(t.recording_url)}" title="Есть запись занятия — открыть/изменить ссылку" aria-label="Запись занятия есть">${icoCamera(13, 'var(--ok)')}</button>`;
+    }
+    if ('held' === t.status) {
+        return `<button type="button" class="pt-recording pt-recording--err" data-glid="${t.group_lesson_id}" data-url="" title="Занятие прошло, записи нет — добавить ссылку вручную" aria-label="Записи нет">${icoCamera(13, 'var(--err)')}</button>`;
+    }
+    return '';
+}
+
 function placedThemeHtml(t) {
     const pinned = t.is_pinned ? ' pinned' : '';
     const roomTip = t.room ? ` · ${t.room}` : '';
@@ -319,6 +337,7 @@ function placedThemeHtml(t) {
         <span class="pt-title">${esc(t.topic || 'Без названия')}${partLabel(t)}</span>
         ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}
         ${t.teacher ? `<span class="pt-meta">${esc(t.teacher)}</span>` : ''}
+        ${recordingIconHtml(t)}
         ${canContinue ? `<button type="button" class="pt-more" data-glid="${t.group_lesson_id}" aria-label="Действия">⋮</button>` : ''}
     </div>`;
 }
@@ -682,6 +701,47 @@ async function openDeadlinesPopover(glid, anchorEl) {
             closeCtxMenu();
         } catch (e) { toast(e.message, 'error'); saveBtn.disabled = false; }
     });
+}
+
+/* ── Ссылка на запись занятия (модуль VideoLibrary) ───────────────────────
+   Клик по камере — просмотр текущей ссылки и ручная правка/снятие. Ядро
+   ничего не знает о VideoLibrary — просто хранит и отдаёт строку-указатель. */
+function attachRecordingClick(el) {
+    el.addEventListener('click', e => {
+        e.stopPropagation(); // не открывать поповер дедлайнов родительской темы
+        openRecordingPopover(el.dataset.glid, el, el.dataset.url || '');
+    });
+}
+
+function openRecordingPopover(glid, anchorEl, currentUrl) {
+    const html = `
+        <div class="wd-pop rec-pop">
+            <div class="ctx-title">Ссылка на запись занятия</div>
+            <input type="text" class="wd-input rec-input" value="${esc(currentUrl)}" placeholder="https://… или s3://bucket/key">
+            <div class="rec-actions">
+                <button type="button" class="prof-btn prof-btn-sm prof-btn-primary rec-save">Сохранить</button>
+                ${currentUrl ? '<button type="button" class="prof-btn prof-btn-sm rec-clear">Снять ссылку</button>' : ''}
+            </div>
+        </div>`;
+    openCtxMenuRaw(html, anchorEl);
+    const menu = document.getElementById('profCtxMenu');
+    const input = menu?.querySelector('.rec-input');
+    const saveBtn = menu?.querySelector('.rec-save');
+    const clearBtn = menu?.querySelector('.rec-clear');
+    if (!saveBtn) return;
+
+    const save = async (url) => {
+        saveBtn.disabled = true;
+        try {
+            await api('setRecordingUrl', { group_lesson_id: glid, recording_url: url });
+            toast(url ? 'Ссылка сохранена' : 'Ссылка снята');
+            closeCtxMenu();
+            await loadCalendar();
+        } catch (e) { toast(e.message, 'error'); saveBtn.disabled = false; }
+    };
+
+    saveBtn.addEventListener('click', () => save(input.value.trim()));
+    clearBtn?.addEventListener('click', () => save(''));
 }
 
 /** '2026-08-01 12:00:00' → '2026-08-01T12:00' (значение <input type="datetime-local">). */

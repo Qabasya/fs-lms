@@ -491,22 +491,55 @@ export function createStepEditor( opts ) {
 			}
 		} else if ( 'video' === step.type ) {
 			ed.innerHTML = `
-				<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://…mp4 (нативный плеер) или YouTube/VK/Rutube (встраивание)"></div>
-				<div class="field-row"><label>Описание под видео</label><textarea class="field-input" data-desc placeholder="Краткое описание…"></textarea></div>
-				<div class="field-row"><label>Таймкоды с главами</label>
-					<div class="fs-cb-chapters" data-chapters></div>
-					<button type="button" class="button" data-chapter-add>+ Глава</button>
+				<div class="field-row field-row--checkbox">
+					<label><input type="checkbox" data-recording-slot> Это запись занятия — видео подставится автоматически из привязанной записи модуля «Видеозаписи занятий»</label>
 				</div>
-				<div class="field-row"><label>Вложения-конспекты (скачивание под плеером)</label>
-					<div class="fs-cb-attachments" data-attach-list></div>
-					<button type="button" class="button" data-attach-add>+ Файл из медиабиблиотеки</button>
+				<p class="field-hint" data-slot-hint hidden>
+					Пока запись не появится, ученик увидит заглушку «Запись занятия ещё не доступна» — после привязки здесь будет само видео.
+					Ссылка, описание, главы и вложения не нужны: это черновая запись, а не подготовленный материал, и разбить её на главы заранее нельзя.
+				</p>
+				<div data-slot-fields>
+					<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://…mp4 (нативный плеер) или YouTube/VK/Rutube (встраивание)"></div>
+					<div class="field-row"><label>Описание под видео</label><textarea class="field-input" data-desc placeholder="Краткое описание…"></textarea></div>
+					<div class="field-row"><label>Таймкоды с главами</label>
+						<div class="fs-cb-chapters" data-chapters></div>
+						<button type="button" class="button" data-chapter-add>+ Глава</button>
+					</div>
+					<div class="field-row"><label>Вложения-конспекты (скачивание под плеером)</label>
+						<div class="fs-cb-attachments" data-attach-list></div>
+						<button type="button" class="button" data-attach-add>+ Файл из медиабиблиотеки</button>
+					</div>
 				</div>`;
-			const url  = ed.querySelector( '[data-url]' );
-			const desc = ed.querySelector( '[data-desc]' );
+			const url        = ed.querySelector( '[data-url]' );
+			const desc       = ed.querySelector( '[data-desc]' );
+			const slot       = ed.querySelector( '[data-recording-slot]' );
+			const slotHint   = ed.querySelector( '[data-slot-hint]' );
+			const slotFields = ed.querySelector( '[data-slot-fields]' );
 			url.value  = step.payload.url || '';
 			desc.value = step.payload.description || '';
+			slot.checked = !! step.payload.recording_slot;
+			slotHint.hidden   = ! slot.checked;
+			slotFields.hidden = slot.checked;
 			url.addEventListener( 'input', () => { step.payload.url = url.value; clearReviewFlag( step ); scheduleSave(); } );
 			desc.addEventListener( 'input', () => { step.payload.description = desc.value; clearReviewFlag( step ); scheduleSave(); } );
+			slot.addEventListener( 'change', () => {
+				step.payload.recording_slot = slot.checked;
+				slotHint.hidden   = ! slot.checked;
+				slotFields.hidden = slot.checked;
+				// Ссылка/описание/главы/вложения смысла не имеют для записи занятия — очищаем.
+				if ( slot.checked ) {
+					step.payload.url         = '';
+					step.payload.description = '';
+					step.payload.chapters    = [];
+					step.payload.attachments = [];
+					url.value  = '';
+					desc.value = '';
+					renderChapterRows( ed.querySelector( '[data-chapters]' ), step );
+					renderAttachmentRows( ed.querySelector( '[data-attach-list]' ), step );
+				}
+				clearReviewFlag( step );
+				scheduleSave();
+			} );
 
 			renderChapterRows( ed.querySelector( '[data-chapters]' ), step );
 			renderAttachmentRows( ed.querySelector( '[data-attach-list]' ), step );

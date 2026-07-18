@@ -430,6 +430,9 @@ class ScheduleService {
 				'is_pinned'       => $row->isPinned,
 				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
 				'teacher'         => $teacherId ? ( $teacherNames[ $teacherId ] ?? '' ) : '',
+				// Индикатор записи занятия в КТП (модуль VideoLibrary или ручная ссылка).
+				'recording_url'   => $row->recordingUrl,
+				'status'          => $row->status,
 			);
 		}
 
@@ -438,6 +441,11 @@ class ScheduleService {
 			// Эпик 15: открытая группа — расписание не ведётся, фронт показывает
 			// программу списком вместо КТП-доски (reflow/publish неприменимы).
 			'open'        => $group && \Inc\Enums\Course\AccessMode::Open === \Inc\Enums\Course\AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) ),
+			// Graceful absence (V4): фильтр вешает VideoLibraryController только при
+			// включённом модуле и заполненных S3-ключах — ядро модуль не импортирует,
+			// а просто спрашивает, подписался ли кто-то. Гейтит иконку/попап записи в КТП:
+			// выключен модуль → фронт ведёт себя так, будто про записи занятий вообще не знает.
+			'video_enabled' => has_filter( 'fs_lms_recording_url' ),
 			'period'      => $meta['period'],
 			'holidays'    => $meta['holidays'],
 			'lessonDays'  => $meta['lessonDays'],

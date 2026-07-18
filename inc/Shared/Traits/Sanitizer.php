@@ -240,4 +240,8 @@ trait Sanitizer {
 	protected function sanitizeIntValue( mixed $value ): int {
 		return absint( is_scalar( $value ) ? $value : 0 );
 	}
+
+	protected function sanitizeBoolValue( mixed $value ): bool {
+		return in_array( $value, array( '1', 'on', 'true', true, 1 ), true );
+	}
 }

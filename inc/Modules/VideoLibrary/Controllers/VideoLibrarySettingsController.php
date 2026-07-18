@@ -26,6 +26,9 @@ class VideoLibrarySettingsController extends BaseController {
 	/** Собственное имя AJAX-действия сохранения (вне core AjaxHook — изоляция). */
 	public const SAVE_ACTION = 'fs_lms_video_library_save';
 
+	/** Экспорт групповой части `groups.yaml` сервиса fs-video-uploader. */
+	public const EXPORT_GROUPS_ACTION = 'fs_lms_video_library_export_groups';
+
 	public function __construct(
 		private readonly VideoLibrarySettingsCallbacks $callbacks,
 		private readonly VideoLibraryConfig            $config,
@@ -35,6 +38,7 @@ class VideoLibrarySettingsController extends BaseController {
 
 	public function register(): void {
 		add_action( 'wp_ajax_' . self::SAVE_ACTION, array( $this->callbacks, 'ajaxSaveSettings' ) );
+		add_action( 'wp_ajax_' . self::EXPORT_GROUPS_ACTION, array( $this->callbacks, 'ajaxExportGroups' ) );
 		add_action( 'fs_lms_config_sections', array( $this, 'renderSection' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueueAssets' ) );
 		add_filter( 'fs_lms_dashboard_modules', array( $this, 'registerDashboardModule' ) );
@@ -99,11 +103,11 @@ class VideoLibrarySettingsController extends BaseController {
 			'ajaxurl' => admin_url( 'admin-ajax.php' ),
 			'nonce'   => Nonce::Config->create(),
 			'actions' => array(
-				'save'    => self::SAVE_ACTION,
-				'list'    => VideoLibraryController::LIST_ACTION,
-				'lessons' => VideoLibraryController::LESSONS_ACTION,
-				'attach'  => VideoLibraryController::ATTACH_ACTION,
-				'detach'  => VideoLibraryController::DETACH_ACTION,
+				'save'         => self::SAVE_ACTION,
+				'exportGroups' => self::EXPORT_GROUPS_ACTION,
+				'lessons'      => VideoLibraryController::LESSONS_ACTION,
+				'attach'       => VideoLibraryController::ATTACH_ACTION,
+				'detach'       => VideoLibraryController::DETACH_ACTION,
 			),
 		) );
 	}
