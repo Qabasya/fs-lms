@@ -11,6 +11,5 @@ namespace Inc\Modules\AdSync\Enums;
  */
 enum AdSyncEvent: string {
 	case Provision   = 'provision';
-	case Promote     = 'promote';
 	case Deprovision = 'deprovision';
 }

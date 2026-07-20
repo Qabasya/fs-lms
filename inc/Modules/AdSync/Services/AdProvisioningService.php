@@ -19,9 +19,15 @@ use Inc\Services\Security\PiiCryptoService;
  * сети сам забирает их (`pendingJobs()`) и отчитывается (`ack()`). WP наружу не ходит.
  *
  * Идентификатор учётки в AD — `username` (sAMAccountName). Для provision он (и пароль) читаются из
- * зашифрованного блоба заявки в момент выдачи задания. Для deprovision/promote `username` резолвится
+ * зашифрованного блоба заявки в момент выдачи задания. Для deprovision `username` резолвится
  * **при enqueue** и кладётся в `target` (устойчиво к последующему удалению заявки/пользователя).
  * Пароль в очереди не хранится никогда.
+ *
+ * Учётка создаётся сразу в целевой OU направления (по `subject_key`, карту `subject_key → OU` держит
+ * Python-сервис) — отдельной стадии «зачислен» в OU-структуре нет, `promote`-событий не существует.
+ * `deprovision` переносит учётку в OU=Отчисленные: по истечении/удалению заявки (до зачисления,
+ * см. {@see enqueueDeprovisionByApplication()}) либо по факту отчисления зачисленного ученика
+ * (см. {@see enqueueDeprovisionByPerson()}).
  *
  * @package Inc\Modules\AdSync\Services
  */
@@ -61,17 +67,17 @@ class AdProvisioningService {
 		) );
 	}
 
-	/** Promote при зачислении: username из WP-пользователя person'а. */
-	public function enqueuePromoteByPerson( int $personId ): void {
+	/** Deprovision по факту отчисления зачисленного ученика: username из WP-пользователя person'а. */
+	public function enqueueDeprovisionByPerson( int $personId ): void {
 		$username = $this->usernameFromPerson( $personId );
 		if ( '' === $username ) {
 			return;
 		}
 		$this->outbox->enqueue( array(
-			'event'           => AdSyncEvent::Promote->value,
+			'event'           => AdSyncEvent::Deprovision->value,
 			'person_id'       => $personId,
 			'target'          => $username,
-			'idempotency_key' => 'promote:person:' . $personId,
+			'idempotency_key' => 'deprovision:person:' . $personId,
 		) );
 	}
 
@@ -122,7 +128,7 @@ class AdProvisioningService {
 		if ( AdSyncEvent::Provision->value === $row->event ) {
 			return $this->provisionPayload( $row );
 		}
-		// deprovision / promote — нужен только username (из target).
+		// deprovision — нужен только username (из target).
 		$username = (string) ( $row->target ?? '' );
 		if ( '' === $username ) {
 			return null;

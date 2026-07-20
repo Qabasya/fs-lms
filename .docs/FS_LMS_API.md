@@ -91,7 +91,7 @@ def sign(secret: str, body: str = "") -> dict[str, str]:
       "subject_key": "inf"
     },
     { "id": 8, "event": "deprovision", "idempotency_key": "deprovision:app:9", "username": "a.sidorov" },
-    { "id": 9, "event": "promote",     "idempotency_key": "promote:person:3",  "username": "p.orlov" }
+    { "id": 9, "event": "deprovision", "idempotency_key": "deprovision:person:3", "username": "p.orlov" }
   ]
 }
 ```
@@ -100,18 +100,22 @@ def sign(secret: str, body: str = "") -> dict[str, str]:
 
 | event | поля | что сделать в AD |
 |---|---|---|
-| `provision` | `username, password, first, last, subject_key` | создать учётку в `OU=Pending`, включить, задать пароль, **добавить в группу направления (Python сам выбирает её по `subject_key`)** |
-| `deprovision` | `username` | отключить учётку (disable), перенести в `OU=Disabled` |
-| `promote` | `username` | перенести в `OU=Active` (зачислен) |
+| `provision` | `username, password, first, last, subject_key` | создать учётку **сразу в целевой OU направления** (Python сам выбирает OU по `subject_key`), включить, задать пароль |
+| `deprovision` | `username` | отключить учётку (disable), перенести в `OU=Отчисленные` |
 
+> Стадии «зачислен» в OU-структуре нет — событие `promote` не используется. Учётка создаётся один раз
+> сразу в OU своего направления и остаётся там до отчисления.
+>
 > `password` присутствует **только** у `provision`. Это постоянный пароль, заданный учеником в форме —
 > один и тот же для WordPress и для AD (без «сменить при входе»).
 >
-> **Группа направления решается на стороне Python:** WP отдаёт `subject_key` (стабильный слаг, напр. `inf`).
-> Карту `предмет → DN security-группы` держите в конфиге Python — в WP она не хранится.
+> **OU направления решается на стороне Python:** WP отдаёт `subject_key` (стабильный слаг, напр. `inf`).
+> Карту `предмет → DN OU` (напр. ЕГЭ по информатике → `OU=КЕГЭ`) держите в конфиге Python — в WP она
+> не хранится.
 >
-> **Чистка учёток** (брошенные заявки, удалённые/отчисленные) — через `deprovision` и регулярную сверку
-> `GET /ad/active-usernames` (см. ниже). Авто-истечения по TTL на стороне WP нет.
+> **Чистка учёток** (брошенные заявки, отчисленные ученики, удалённые) — через `deprovision` (шлётся
+> и по заявке до зачисления, и по факту отчисления зачисленного ученика — обработка в AD одинаковая)
+> и регулярную сверку `GET /ad/active-usernames` (см. ниже). Авто-истечения по TTL на стороне WP нет.
 
 ---
 
@@ -198,17 +202,15 @@ def active_usernames() -> list[str]:
     return r.json().get("usernames", [])
 
 # --- AD-операции (заглушки; реализация через ldap3, см. §4.1 AdSyncPythonService.md) ---
-def ad_provision(job: dict) -> str: ...   # create user, set password, add to группе по job["subject_key"]
-def ad_disable(username: str) -> None: ... # userAccountControl=514, move to OU=Disabled
-def ad_promote(username: str) -> None: ... # move to OU=Active (зачислен)
-def ad_disable_absent(keep: list[str]) -> None: ...  # disable в управляемой OU всё, чего нет в keep
+def ad_provision(job: dict) -> str: ...   # create user in OU по job["subject_key"], set password
+def ad_disable(username: str) -> None: ... # userAccountControl=514, move to OU=Отчисленные
+def ad_disable_absent(keep: list[str]) -> None: ...  # disable+move в OU=Отчисленные всё, чего нет в keep
 
 def run_jobs_once() -> None:
     for job in fetch_jobs():
         try:
             if   job["event"] == "provision":   sam = ad_provision(job); ack(job["id"], True, sam=sam)
             elif job["event"] == "deprovision": ad_disable(job["username"]); ack(job["id"], True)
-            elif job["event"] == "promote":     ad_promote(job["username"]); ack(job["id"], True)
             else:                                ack(job["id"], False, error=f"unknown event {job['event']}")
         except Exception as e:                   ack(job["id"], False, error=str(e))
 
@@ -226,8 +228,8 @@ if __name__ == "__main__":
 ```
 
 > **AD-операции (ldap3):** bind сервис-аккаунтом (LDAPS:636), `unicodePwd` (UTF-16LE в кавычках),
-> `userAccountControl` (512/514), членство в группе через `member`
-> группы (`MODIFY_ADD`/`MODIFY_DELETE`). Детали — `AdSyncPythonService.md` §4.1 и §5 (парольная политика OU).
+> `userAccountControl` (512/514), перенос между OU через `modify_dn`. Детали — `AdSyncPythonService.md`
+> §4.1 и §5 (парольная политика OU).
 
 ---
 
@@ -239,7 +241,7 @@ if __name__ == "__main__":
 2. Админка → **Настройки → Конфигурация**: сначала включить **«Привязать заявку к направлению»**
    (раздел «Настройка заявок») и задать коды направлений — без этого у заявок не будет `subject_key`
    и AD-синхронизацию включить нельзя. Затем в **«Синхронизация с доменом (AD)»** включить тумблер.
-   (Карта `предмет → группа` и срок жизни учёток в WP не задаются — это на стороне Python/reconcile.)
+   (Карта `предмет → OU` и срок жизни учёток в WP не задаются — это на стороне Python/reconcile.)
 3. Python-сервис в локалке настроить на `BASE` (адрес сайта) + секрет и запустить поллер.
 
 ---
