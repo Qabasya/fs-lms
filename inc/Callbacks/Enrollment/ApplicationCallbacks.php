@@ -21,7 +21,6 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Services\Application\ApplicationService;
-use Inc\Services\Application\ApplicationSettingsService;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Email\EmailOtpService;
@@ -31,7 +30,6 @@ use Inc\Services\Security\PiiCryptoService;
 use Inc\Services\Security\RateLimitService;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Sanitizer;
-use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class ApplicationCallbacks
@@ -55,7 +53,6 @@ use Inc\Shared\Traits\TemplateRenderer;
 class ApplicationCallbacks extends BaseController {
 
 	use Sanitizer;
-	use TemplateRenderer;
 
 	/**
 	 * Конструктор коллбеков.
@@ -83,7 +80,6 @@ class ApplicationCallbacks extends BaseController {
 		private readonly PluginConfig                 $pluginConfig,
 		private readonly FormGuardService             $formGuard,
 		private readonly PersonDocumentsRepository    $personDocumentsRepository,
-		private readonly ApplicationSettingsService   $applicationSettings,
 		private readonly SubjectRepository            $subjects,
 	) {
 		parent::__construct();
@@ -294,43 +290,6 @@ class ApplicationCallbacks extends BaseController {
 	 *
 	 * @return void
 	 */
-	/**
-	 * Проверка кода направления для модалки-гейта на /lms/apply.
-	 * Возвращает success, если привязка выключена или код валиден; иначе — ошибку.
-	 *
-	 * @return void
-	 */
-	public function ajaxValidateDirectionCode(): void {
-		Nonce::Apply->verify();
-
-		// Привязка выключена — форма отрендерена инлайн, гейта нет.
-		if ( ! $this->applicationSettings->isBindToSubject() ) {
-			$this->success( array( 'valid' => true ) );
-		}
-
-		// Неверный код: фиксируем попытку и душим перебор. Лимит считается только на
-		// промахи — верный код общий для направления и не должен жечь лимит на общих IP.
-		$subjectKey = $this->applicationSettings->resolveSubjectByCode( $this->sanitizeText( 'direction_code' ) );
-		if ( null === $subjectKey ) {
-			$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
-			if ( ! $this->rateLimitService->allowDirectionCode( $ip ) ) {
-				$this->error( 'Слишком много попыток. Попробуйте позже.' );
-			}
-			$this->error( 'Неверный код направления.' );
-		}
-
-		// Код верный — рендерим форму на сервере и отдаём её HTML. До этого момента
-		// разметки формы в браузере нет: гейт нельзя снять через DevTools/adblock.
-		ob_start();
-		$this->render( 'frontend/apply-fields', array() );
-		$formHtml = (string) ob_get_clean();
-
-		// #6: имя направления (предмета) — под заголовком карточки заявки.
-		$directionName = $this->subjects->getByKey( $subjectKey )?->name ?? '';
-
-		$this->success( array( 'valid' => true, 'form_html' => $formHtml, 'direction_name' => $directionName ) );
-	}
-
 	public function ajaxCreateApplication(): void {
 		Nonce::VerifyOtp->verify();
 
@@ -354,13 +313,11 @@ class ApplicationCallbacks extends BaseController {
 		$password   = $this->requireText( 'password' );
 		$ua         = (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' );
 
-		// Привязка к направлению по коду (если включена в настройках заявок).
-		$subjectKey = '';
-		if ( $this->applicationSettings->isBindToSubject() ) {
-			$subjectKey = (string) $this->applicationSettings->resolveSubjectByCode( $this->sanitizeText( 'direction_code' ) );
-			if ( '' === $subjectKey ) {
-				$this->error( 'Неверный код направления.' );
-			}
+		// Направление: обязательное поле формы, ключ должен существовать среди активных предметов.
+		$subjectKey = $this->requireKey( 'subject_key', 'POST', 'Выберите направление.' );
+		$subject    = $this->subjects->getByKey( $subjectKey );
+		if ( null === $subject || $subject->archived ) {
+			$this->error( 'Направление не найдено. Обновите страницу и попробуйте снова.' );
 		}
 
 		$dto = new ApplicationInputDTO(

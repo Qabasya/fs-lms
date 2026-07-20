@@ -27,5 +27,39 @@
 			$( '#fs-adsync-secret-output' ).removeAttr( 'hidden' );
 		} );
 
+		// Сохранение настроек секции (сейчас: список направлений с доменными учётками).
+		$form.on( 'submit', function ( e ) {
+			e.preventDefault();
+
+			var $status = $( '#fs-adsync-status' );
+			var $btn    = $( '#fs-adsync-save' );
+
+			var subjects = $form.find( 'input[name="provision_subjects[]"]:checked' )
+				.map( function () { return this.value; } )
+				.get();
+
+			$btn.prop( 'disabled', true );
+			$status.text( '' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
+
+			$.post( window.fsLmsAdSync.ajaxurl, {
+				action:             window.fsLmsAdSync.action,
+				security:           window.fsLmsAdSync.nonce,
+				provision_subjects: subjects,
+			} )
+				.done( function ( res ) {
+					if ( res && res.success ) {
+						$status.text( 'Сохранено.' ).addClass( 'fs-config-status--ok' );
+					} else {
+						$status.text( ( res && res.data ) || 'Ошибка.' ).addClass( 'fs-config-status--err' );
+					}
+				} )
+				.fail( function () {
+					$status.text( 'Ошибка сети.' ).addClass( 'fs-config-status--err' );
+				} )
+				.always( function () {
+					$btn.prop( 'disabled', false );
+				} );
+		} );
+
 	} );
 }( jQuery ) );

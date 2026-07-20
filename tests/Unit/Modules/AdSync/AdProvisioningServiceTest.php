@@ -7,6 +7,7 @@ namespace Unit\Modules\AdSync;
 use Inc\DTO\Application\ApplicationDTO;
 use Inc\DTO\Person\PersonDTO;
 use Inc\Managers\Person\UserManager;
+use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
 use Inc\Modules\AdSync\Repositories\AdOutboxRepository;
 use Inc\Modules\AdSync\Services\AdProvisioningService;
@@ -50,18 +51,23 @@ class AdProvisioningServiceTest extends TestCase {
 
 	/** @return array<string, mixed> */
 	private function mocks(): array {
+		$config = $this->createMock( AdSyncConfig::class );
+		// По умолчанию направление разрешено — negative-кейсы переопределяют явно.
+		$config->method( 'shouldProvision' )->willReturn( true );
+
 		return array(
 			'outbox'  => $this->createMock( AdOutboxRepository::class ),
 			'apps'    => $this->createMock( ApplicationRepository::class ),
 			'crypto'  => $this->createMock( PiiCryptoService::class ),
 			'persons' => $this->createMock( PersonRepository::class ),
 			'users'   => $this->createMock( UserManager::class ),
+			'config'  => $config,
 		);
 	}
 
 	private function service( array $m ): AdProvisioningService {
 		return new AdProvisioningService(
-			$m['outbox'], $m['apps'], $m['crypto'], $m['persons'], $m['users']
+			$m['outbox'], $m['apps'], $m['crypto'], $m['persons'], $m['users'], $m['config']
 		);
 	}
 
@@ -91,6 +97,15 @@ class AdProvisioningServiceTest extends TestCase {
 		$this->service( $m )->enqueueProvision( 999 );
 	}
 
+	public function test_enqueue_provision_skips_when_subject_not_in_list(): void {
+		$m = $this->mocks();
+		$m['config'] = $this->createMock( AdSyncConfig::class );
+		$m['config']->method( 'shouldProvision' )->with( 'inf' )->willReturn( false );
+		$m['apps']->method( 'find' )->willReturn( $this->app() );
+		$m['outbox']->expects( self::never() )->method( 'enqueue' );
+		$this->service( $m )->enqueueProvision( 5 );
+	}
+
 	public function test_pending_provision_job_has_minimal_fields(): void {
 		$m = $this->mocks();
 		$m['apps']->method( 'find' )->willReturn( $this->app() );
@@ -116,6 +131,8 @@ class AdProvisioningServiceTest extends TestCase {
 	public function test_enqueue_deprovision_stores_username_in_target_without_password(): void {
 		$enqueued = null;
 		$m = $this->mocks();
+		// Ранее по заявке ставился provision — deprovision разрешён.
+		$m['outbox']->method( 'latestByApplication' )->willReturn( $this->row( 'provision', array( 'app' => 5, 'idem' => 'app:5' ) ) );
 		$m['apps']->method( 'find' )->willReturn( $this->app() );
 		$m['crypto']->method( 'decrypt' )->willReturn( $this->blobJson() );
 		$m['outbox']->method( 'enqueue' )->willReturnCallback( function ( array $d ) use ( &$enqueued ) {
@@ -129,6 +146,13 @@ class AdProvisioningServiceTest extends TestCase {
 		self::assertSame( 'i.petrov', $enqueued['target'] );
 		self::assertSame( 'deprovision:app:5', $enqueued['idempotency_key'] );
 		self::assertStringNotContainsString( 'secret123', strtolower( (string) json_encode( $enqueued ) ) );
+	}
+
+	public function test_enqueue_deprovision_by_application_skips_without_prior_provision(): void {
+		$m = $this->mocks();
+		$m['outbox']->method( 'latestByApplication' )->willReturn( null );
+		$m['outbox']->expects( self::never() )->method( 'enqueue' );
+		$this->service( $m )->enqueueDeprovisionByApplication( 5 );
 	}
 
 	public function test_pending_deprovision_job_has_username_only(): void {

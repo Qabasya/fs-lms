@@ -9,16 +9,13 @@
 
 import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
-import { getCaptchaToken, resetCaptcha, initCaptcha } from './captcha.js';
+import { getCaptchaToken, resetCaptcha } from './captcha.js';
 
 /** @type {{ ajax_url: string, captcha_key: string, hp_field: string, form_token: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
 const vars = window.fs_lms_apply_vars;
 
 /** Данные формы этапа 1, сохраняются для передачи на этапе 2 */
 let _formData = null;
-
-/** Код направления, введённый в гейте (если включена привязка к направлению) */
-let _directionCode = '';
 
 /**
  * Читает значение honeypot-поля (должно быть пустым у людей).
@@ -51,6 +48,7 @@ function collectFormData() {
         birth_date:  document.getElementById( 'fs_birth_date' )?.value        ?? '',
         school:      document.getElementById( 'fs_school' )?.value.trim()     ?? '',
         grade:       document.getElementById( 'fs_grade' )?.value             ?? '',
+        subject_key: document.getElementById( 'fs_subject' )?.value           ?? '',
     };
 }
 
@@ -199,7 +197,6 @@ async function handleOtpSubmit( e ) {
             security: vars.nonces.verify_otp,
             ..._formData,
             otp_code: otpCode,
-            direction_code: _directionCode,
         } );
     } catch {
         setLoading( btn, false );
@@ -277,86 +274,7 @@ async function checkUsernameAvailable( input ) {
 }
 
 /**
- * Серверный гейт кода направления. Форма НЕ присутствует в DOM, пока сервер не
- * подтвердит код: vars.actions.validate_code возвращает HTML формы только на верный
- * код, JS вставляет его в слот и навешивает поведение. Снять гейт через DevTools/
- * adblock нельзя — до верного кода разметки формы попросту нет.
- */
-function initGate() {
-    const gate = document.getElementById( 'fs-apply-gate' );
-    if ( ! gate ) { return; }
-
-    const input = document.getElementById( 'fs-direction-code-input' );
-    const btn   = document.getElementById( 'fs-direction-gate-submit' );
-    const err   = document.getElementById( 'fs-direction-gate-error' );
-    const slot  = document.getElementById( 'fs-apply-form-slot' );
-
-    const submit = async () => {
-        const code = input.value.trim();
-        err.hidden = true;
-
-        if ( ! code ) {
-            err.textContent = 'Введите код направления.';
-            err.hidden = false;
-            return;
-        }
-
-        btn.disabled = true;
-
-        let res;
-        try {
-            res = await ajaxPost( vars.actions.validate_code, {
-                security:       vars.nonces.apply,
-                direction_code: code,
-            } );
-        } catch {
-            btn.disabled = false;
-            err.textContent = 'Ошибка соединения. Попробуйте позже.';
-            err.hidden = false;
-            return;
-        }
-
-        if ( ! res?.success || ! res.data?.form_html ) {
-            btn.disabled = false;
-            err.textContent = extractError( res, 'Неверный код направления.' );
-            err.hidden = false;
-            return;
-        }
-
-        // Код верный — форма появляется в DOM только сейчас.
-        _directionCode = code;
-        slot.innerHTML = res.data.form_html;
-        gate.remove();
-
-        // #6: показываем название направления под заголовком карточки.
-        const dirEl = document.getElementById( 'fs-apply-direction' );
-        if ( dirEl && res.data.direction_name ) {
-            dirEl.textContent = res.data.direction_name;
-            dirEl.hidden = false;
-        }
-
-        bindFormBehaviors();
-
-        // Капча рендерится в #fs-captcha-slot, который существует только после
-        // инъекции формы. initCaptcha идемпотентен — повторный вызов безопасен.
-        initCaptcha();
-
-        document.getElementById( 'fs_last_name' )?.focus();
-    };
-
-    btn.addEventListener( 'click', submit );
-    input.addEventListener( 'keydown', ( e ) => {
-        if ( 'Enter' === e.key ) {
-            e.preventDefault();
-            submit();
-        }
-    } );
-    input.focus();
-}
-
-/**
  * Навешивает поведение на форму заявки (валидация, маска, проверка логина, сабмиты).
- * Вызывается либо сразу (форма инлайн), либо после инъекции формы из гейта.
  */
 function bindFormBehaviors() {
     const applyForm = document.getElementById( 'fs-lms-apply-form' );
@@ -430,16 +348,11 @@ function bindFormBehaviors() {
 }
 
 /**
- * Точка входа формы заявки. Если включена привязка к направлению — показываем
- * серверный гейт (форма придёт по AJAX после верного кода); иначе форма уже в DOM.
+ * Точка входа формы заявки.
  */
 export function initApplyForm() {
     if ( ! window.fs_lms_apply_vars ) { return; }
     if ( ! document.querySelector( '.fs-lms-apply-page' ) ) { return; }
 
-    if ( vars.bind_to_subject ) {
-        initGate();
-    } else {
-        bindFormBehaviors();
-    }
+    bindFormBehaviors();
 }

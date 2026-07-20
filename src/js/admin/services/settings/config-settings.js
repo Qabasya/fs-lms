@@ -19,11 +19,6 @@ export const ConfigSettings = {
 			this.saveConfig();
 		} );
 
-		$( '#fs-applications-form' ).on( 'submit', ( e ) => {
-			e.preventDefault();
-			this.saveApplicationSettings();
-		} );
-
 		$( document ).on( 'click', '.js-generate-key', ( e ) => {
 			const type = $( e.currentTarget ).data( 'type' );
 			this.generateKey( type );
@@ -48,56 +43,6 @@ export const ConfigSettings = {
 			security:      fs_lms_vars.nonces.config,
 			otp_bypass_code: $form.find( '[name=otp_bypass_code]' ).val(),
 			test_env:      $form.find( '[name=test_env]' ).is( ':checked' ) ? 1 : 0,
-		} )
-			.done( ( res ) => {
-				if ( res.success ) {
-					$status.text( 'Сохранено.' ).addClass( 'fs-config-status--ok' );
-				} else {
-					$status.text( res.data || 'Ошибка.' ).addClass( 'fs-config-status--err' );
-				}
-			} )
-			.fail( () => {
-				$status.text( 'Ошибка сети.' ).addClass( 'fs-config-status--err' );
-			} )
-			.always( () => {
-				$btn.prop( 'disabled', false );
-			} );
-	},
-
-	saveApplicationSettings() {
-		const $form   = $( '#fs-applications-form' );
-		const $status = $( '#fs-applications-status' );
-		const $btn    = $( '#fs-applications-save' );
-
-		const bind = $form.find( '[name=applications_bind_to_subject]' ).is( ':checked' );
-
-		// Сбор кодов направлений: { subject_key: code } из строк раздела «Настройка заявок».
-		const directionCodes = {};
-		$form.find( '[data-direction-code]' ).each( function () {
-			const key = this.dataset.subject;
-			if ( key ) {
-				directionCodes[ key ] = this.value;
-			}
-		} );
-
-		// Инвариант: привязка включена ⟹ нужен хотя бы один код направления, иначе форму
-		// заявки нельзя будет открыть. Блокируем сохранение до ввода кода.
-		const hasCode = Object.values( directionCodes ).some( ( c ) => c.trim() !== '' );
-		if ( bind && ! hasCode ) {
-			$status.text( 'Введите хотя бы один код направления — иначе форму заявки нельзя будет открыть.' )
-				.removeClass( 'fs-config-status--ok' )
-				.addClass( 'fs-config-status--err' );
-			return;
-		}
-
-		$btn.prop( 'disabled', true );
-		$status.text( '' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
-
-		$.post( fs_lms_vars.ajaxurl, {
-			action:   fs_lms_vars.ajax_actions.saveApplicationSettings,
-			security: fs_lms_vars.nonces.config,
-			applications_bind_to_subject: bind ? 1 : 0,
-			direction_codes: directionCodes,
 		} )
 			.done( ( res ) => {
 				if ( res.success ) {

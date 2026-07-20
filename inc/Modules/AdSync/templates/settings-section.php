@@ -52,6 +52,39 @@ $ad_secret_set = '' !== $config->hmacSecret();
 					<button type="button" class="button js-copy-key" data-target="fs-adsync-secret-raw">Скопировать</button>
 				</div>
 			</div>
+
+			<div class="fs-field">
+				<span class="fs-field__label">Направления с доменными учётками</span>
+				<?php if ( empty( $subjects ) ) : ?>
+					<p class="fs-field__desc">Сначала создайте предметы в разделе «Предметы».</p>
+				<?php else : ?>
+					<?php $provision_subjects = $config->provisionSubjects(); ?>
+					<div class="fs-adsync-subjects">
+						<?php foreach ( $subjects as $subject ) : ?>
+							<label class="fs-adsync-subjects__item">
+								<input
+									type="checkbox"
+									name="provision_subjects[]"
+									value="<?php echo esc_attr( $subject->key ); ?>"
+									<?php checked( in_array( $subject->key, $provision_subjects, true ) ); ?>
+								/>
+								<?php echo esc_html( $subject->name ); ?>
+							</label>
+						<?php endforeach; ?>
+					</div>
+					<p class="fs-field__desc">
+						Учётные записи в домене создаются только по заявкам отмеченных направлений.
+						Ничего не отмечено — учётки не создаются ни для кого.
+					</p>
+				<?php endif; ?>
+			</div>
+		</div>
+
+		<div class="fs-card__footer">
+			<button type="submit" id="fs-adsync-save" class="button button-primary">
+				Сохранить настройки AD
+			</button>
+			<span class="fs-config-status" id="fs-adsync-status"></span>
 		</div>
 
 	</div>

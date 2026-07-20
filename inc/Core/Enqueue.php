@@ -9,7 +9,6 @@ use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
-use Inc\Services\Application\ApplicationSettingsService;
 use Inc\Services\Security\FormGuardService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Profile\ProfileViewResolver;
@@ -50,7 +49,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 		private readonly TaxonomyRepository $taxonomy_repository,
 		private readonly PluginConfig       $pluginConfig,
 		private readonly FormGuardService   $formGuard,
-		private readonly ApplicationSettingsService $applicationSettings,
 		private readonly TemplateRegistry   $templateRegistry,
 		private readonly ProfileViewResolver $profileResolver,
 	) {
@@ -581,14 +579,12 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'send_otp'       => AjaxHook::SendOtpCode->jsAction(),
 					'create'         => AjaxHook::CreateApplication->jsAction(),
 					'check_username' => AjaxHook::CheckUsernameAvailable->jsAction(),
-					'validate_code'  => AjaxHook::ValidateDirectionCode->jsAction(),
 				),
 				'nonces'     => array(
 					'apply'          => Nonce::Apply->create(),
 					'verify_otp'     => Nonce::VerifyOtp->create(),
 					'check_username' => Nonce::CheckUsernameAvailable->create(),
 				),
-				'bind_to_subject' => $this->applicationSettings->isBindToSubject(),
 			);
 
 			// Опциональные модули (напр. SmartCaptcha) дописывают свои переменные (captcha_key)

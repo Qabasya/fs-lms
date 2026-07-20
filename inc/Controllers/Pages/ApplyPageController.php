@@ -7,7 +7,7 @@ namespace Inc\Controllers\Pages;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\ShortCode;
-use Inc\Services\Application\ApplicationSettingsService;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -27,7 +27,7 @@ class ApplyPageController extends BaseController implements ServiceInterface {
 	use TemplateRenderer;
 
 	public function __construct(
-		private readonly ApplicationSettingsService $applicationSettings,
+		private readonly SubjectRepository $subjects,
 	) {
 		parent::__construct();
 	}
@@ -48,10 +48,8 @@ class ApplyPageController extends BaseController implements ServiceInterface {
 	 */
 	public function renderApplyForm(): string {
 		ob_start();
-		// Гейт включён при привязке к направлению: тогда форма не рендерится здесь,
-		// а приходит по AJAX после верного кода (см. apply.php / apply-fields.php).
 		$this->render( 'frontend/apply', array(
-			'gated' => $this->applicationSettings->isBindToSubject(),
+			'subjects' => $this->subjects->readActive(),
 		) );
 		return (string) ob_get_clean();
 	}

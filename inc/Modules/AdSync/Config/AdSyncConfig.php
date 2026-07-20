@@ -22,7 +22,9 @@ class AdSyncConfig {
 	public const OPTION = 'fs_lms_ad_sync';
 
 	private const DEFAULTS = array(
-		'enabled' => false,
+		'enabled'            => false,
+		// Ключи предметов, по которым создаются доменные учётки. Пустой список = никого.
+		'provision_subjects' => array(),
 	);
 
 	/** @return array<string, mixed> */
@@ -51,5 +53,21 @@ class AdSyncConfig {
 	/** Секрет HMAC из wp-config (для подписи запросов к Python). */
 	public function hmacSecret(): string {
 		return defined( 'FS_LMS_AD_HMAC_SECRET' ) ? (string) constant( 'FS_LMS_AD_HMAC_SECRET' ) : '';
+	}
+
+	/** @return string[] Ключи предметов, по которым создаются доменные учётки. */
+	public function provisionSubjects(): array {
+		$list = $this->get()['provision_subjects'] ?? array();
+		return is_array( $list ) ? array_values( array_map( 'strval', $list ) ) : array();
+	}
+
+	/**
+	 * Нужно ли ставить provision-задание для заявки с данным направлением.
+	 * Пустой список предметов = не провижнить никого (админ выбирает направления явно).
+	 */
+	public function shouldProvision( ?string $subjectKey ): bool {
+		return null !== $subjectKey
+			&& '' !== $subjectKey
+			&& in_array( $subjectKey, $this->provisionSubjects(), true );
 	}
 }
