@@ -58,7 +58,7 @@ class AdSyncRestController {
 		) );
 	}
 
-	/** GET /ad/jobs → { jobs: [ {id, event, idempotency_key, username, password, first, last, subject_key}, … ] } (deprovision/promote: только username) */
+	/** GET /ad/jobs → { jobs: [ {id, event, idempotency_key, username, password, first, last, subject_key}, … ] } (deprovision: только username) */
 	public function getJobs( \WP_REST_Request $request ): \WP_REST_Response {
 		$limit = (int) ( $request->get_param( 'limit' ) ?: 50 );
 		$limit = max( 1, min( 200, $limit ) );

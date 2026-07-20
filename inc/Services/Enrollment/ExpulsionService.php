@@ -35,6 +35,7 @@ use RuntimeException;
  * Делегирует операции с БД репозиториям PersonRepository и StudentRecordRepository.
  * Использует LogEventDispatcherInterface для логирования события отчисления.
  * Использует ClockInterface для получения точного времени отчисления.
+ * Генерирует generic-хук `fs_lms_student_expelled` (AdSync и др. модули).
  *
  * ### Примечания:
  *
@@ -137,6 +138,9 @@ readonly class ExpulsionService {
 			LogEvent::StudentExpelled,
 			new EnrollmentStatusEvent( get_current_user_id(), AuditAction::StudentExpelled, $studentPerson->id, $record->id, $record->groupId ?? null )
 		);
+
+		// Generic-хук отчисления (AdSync и др. модули), симметричен fs_lms_student_enrolled.
+		do_action( 'fs_lms_student_expelled', $record->id, $studentPerson->id );
 
 		return array(
 			'archive_id'               => $record->id,

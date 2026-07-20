@@ -144,9 +144,9 @@ class AdProvisioningServiceTest extends TestCase {
 		self::assertArrayNotHasKey( 'password', $job );
 	}
 
-	// ── promote ──────────────────────────────────────────────────────────────
+	// ── deprovision by person (отчисление зачисленного ученика) ────────────────
 
-	public function test_enqueue_promote_resolves_username_from_person(): void {
+	public function test_enqueue_deprovision_by_person_resolves_username_from_person(): void {
 		$enqueued = null;
 		$m = $this->mocks();
 		$m['persons']->method( 'find' )->willReturn( new PersonDTO(
@@ -162,19 +162,19 @@ class AdProvisioningServiceTest extends TestCase {
 			return 9;
 		} );
 
-		$this->service( $m )->enqueuePromoteByPerson( 42 );
+		$this->service( $m )->enqueueDeprovisionByPerson( 42 );
 
-		self::assertSame( 'promote', $enqueued['event'] );
+		self::assertSame( 'deprovision', $enqueued['event'] );
 		self::assertSame( 42, $enqueued['person_id'] );
 		self::assertSame( 'i.petrov', $enqueued['target'] );
-		self::assertSame( 'promote:person:42', $enqueued['idempotency_key'] );
+		self::assertSame( 'deprovision:person:42', $enqueued['idempotency_key'] );
 	}
 
-	public function test_enqueue_promote_skips_when_no_wp_user(): void {
+	public function test_enqueue_deprovision_by_person_skips_when_no_wp_user(): void {
 		$m = $this->mocks();
 		$m['persons']->method( 'find' )->willReturn( null );
 		$m['outbox']->expects( self::never() )->method( 'enqueue' );
-		$this->service( $m )->enqueuePromoteByPerson( 42 );
+		$this->service( $m )->enqueueDeprovisionByPerson( 42 );
 	}
 
 	// ── ack / status ─────────────────────────────────────────────────────────

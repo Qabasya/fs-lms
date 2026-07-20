@@ -54,7 +54,7 @@ class AdSyncModule implements ServiceInterface {
 		$this->runtime->register();
 
 		// REST-эндпоинты для Python-сервиса (pull): GET /ad/jobs, POST /ad/ack.
-		// [Этап 3+: deprovision/promote — fs_lms_student_enrolled / fs_lms_application_expired / ...]
+		// [Этап 3+: deprovision — fs_lms_student_expelled / fs_lms_application_expired / fs_lms_application_trashed]
 		$this->rest->register();
 	}
 }

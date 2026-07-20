@@ -193,7 +193,7 @@ readonly class EnrollmentService {
 			new EnrollmentStatusEvent( get_current_user_id(), AuditAction::EnrollStudent, $studentPersonId, $recordId, $input->groupId )
 		);
 
-		// Generic-сейм для опциональных модулей (напр. AdSync promote). Без подписчиков — no-op.
+		// Generic-сейм для опциональных модулей. Без подписчиков — no-op.
 		do_action( 'fs_lms_student_enrolled', $recordId, $studentPersonId );
 
 		try {

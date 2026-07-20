@@ -33,10 +33,10 @@ class AdSyncController {
 		add_action( 'wp_ajax_nopriv_' . self::STATUS_ACTION, array( $this, 'ajaxStatus' ) );
 		add_action( 'wp_ajax_' . self::STATUS_ACTION, array( $this, 'ajaxStatus' ) );
 
-		// Этап 3: deprovision (заявка истекла / в корзину) + promote (зачисление).
+		// Этап 3: deprovision — заявка истекла/в корзину (до зачисления) либо ученик отчислен (после).
 		add_action( 'fs_lms_application_expired', array( $this, 'onApplicationExpired' ) );
 		add_action( 'fs_lms_application_trashed', array( $this, 'onApplicationTrashed' ) );
-		add_action( 'fs_lms_student_enrolled', array( $this, 'onStudentEnrolled' ), 10, 2 );
+		add_action( 'fs_lms_student_expelled', array( $this, 'onStudentExpelled' ), 10, 2 );
 	}
 
 	public function onApplicationCreated( int $applicationId ): void {
@@ -51,8 +51,8 @@ class AdSyncController {
 		$this->service->enqueueDeprovisionByApplication( $applicationId );
 	}
 
-	public function onStudentEnrolled( int $recordId, int $personId ): void {
-		$this->service->enqueuePromoteByPerson( $personId );
+	public function onStudentExpelled( int $recordId, int $personId ): void {
+		$this->service->enqueueDeprovisionByPerson( $personId );
 	}
 
 	/**
