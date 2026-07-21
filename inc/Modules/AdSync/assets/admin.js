@@ -27,6 +27,42 @@
 			$( '#fs-adsync-secret-output' ).removeAttr( 'hidden' );
 		} );
 
+		// Дропдаун «Направления с доменными учётками»: кнопка открывает панель с чекбоксами,
+		// клик снаружи закрывает, текст на кнопке отражает текущий выбор.
+		var $subjectsDropdown = $form.find( '[data-fs-dropdown].fs-adsync-subjects' );
+		var $subjectsToggle   = $subjectsDropdown.find( '.fs-adsync-subjects__toggle' );
+		var $subjectsPanel    = $subjectsDropdown.find( '.fs-adsync-subjects__panel' );
+		var $subjectsSummary  = $subjectsDropdown.find( '.fs-adsync-subjects__summary' );
+
+		function updateSubjectsSummary() {
+			var count = $subjectsPanel.find( 'input[name="provision_subjects[]"]:checked' ).length;
+			$subjectsSummary.text( count > 0 ? 'Выбрано направлений: ' + count : 'Ничего не выбрано' );
+		}
+
+		function closeSubjectsDropdown() {
+			$subjectsPanel.attr( 'hidden', true );
+			$subjectsToggle.attr( 'aria-expanded', 'false' );
+		}
+
+		$subjectsToggle.on( 'click', function ( e ) {
+			e.stopPropagation();
+			var isOpen = ! $subjectsPanel.attr( 'hidden' );
+			if ( isOpen ) {
+				closeSubjectsDropdown();
+			} else {
+				$subjectsPanel.removeAttr( 'hidden' );
+				$subjectsToggle.attr( 'aria-expanded', 'true' );
+			}
+		} );
+
+		$subjectsPanel.on( 'click', function ( e ) {
+			e.stopPropagation();
+		} );
+
+		$subjectsPanel.on( 'change', 'input[name="provision_subjects[]"]', updateSubjectsSummary );
+
+		$( document ).on( 'click', closeSubjectsDropdown );
+
 		// Сохранение настроек секции (сейчас: список направлений с доменными учётками).
 		$form.on( 'submit', function ( e ) {
 			e.preventDefault();

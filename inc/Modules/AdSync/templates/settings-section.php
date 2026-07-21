@@ -11,6 +11,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\Ui\Icon;
+
 defined( 'ABSPATH' ) || exit;
 
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
@@ -58,19 +60,31 @@ $ad_secret_set = '' !== $config->hmacSecret();
 				<?php if ( empty( $subjects ) ) : ?>
 					<p class="fs-field__desc">Сначала создайте предметы в разделе «Предметы».</p>
 				<?php else : ?>
-					<?php $provision_subjects = $config->provisionSubjects(); ?>
-					<div class="fs-adsync-subjects">
-						<?php foreach ( $subjects as $subject ) : ?>
-							<label class="fs-adsync-subjects__item">
-								<input
-									type="checkbox"
-									name="provision_subjects[]"
-									value="<?php echo esc_attr( $subject->key ); ?>"
-									<?php checked( in_array( $subject->key, $provision_subjects, true ) ); ?>
-								/>
-								<?php echo esc_html( $subject->name ); ?>
-							</label>
-						<?php endforeach; ?>
+					<?php
+						$provision_subjects = $config->provisionSubjects();
+						$selected_count     = count( $provision_subjects );
+						$summary_label      = $selected_count > 0
+							? sprintf( 'Выбрано направлений: %d', $selected_count )
+							: 'Ничего не выбрано';
+					?>
+					<div class="fs-adsync-subjects" data-fs-dropdown>
+						<button type="button" class="fs-adsync-subjects__toggle" aria-expanded="false">
+							<span class="fs-adsync-subjects__summary"><?php echo esc_html( $summary_label ); ?></span>
+							<?php echo Icon::ChevronDown->svg( 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+						</button>
+						<div class="fs-adsync-subjects__panel" hidden>
+							<?php foreach ( $subjects as $subject ) : ?>
+								<label class="fs-adsync-subjects__item">
+									<input
+										type="checkbox"
+										name="provision_subjects[]"
+										value="<?php echo esc_attr( $subject->key ); ?>"
+										<?php checked( in_array( $subject->key, $provision_subjects, true ) ); ?>
+									/>
+									<?php echo esc_html( $subject->name ); ?>
+								</label>
+							<?php endforeach; ?>
+						</div>
 					</div>
 					<p class="fs-field__desc">
 						Учётные записи в домене создаются только по заявкам отмеченных направлений.

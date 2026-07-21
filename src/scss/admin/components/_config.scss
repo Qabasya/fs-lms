@@ -96,17 +96,66 @@
 // Подпись над полем raw-секрета для .env внешнего сервиса (AD-синк, VideoLibrary).
 .fs-config-key-row__env-label { margin-top: $spacing-md; }
 
-// Секция AdSync: чекбокс-список направлений с доменными учётками.
+// Поле сразу после строки ключа (например «Направления...» под HMAC-секретом AdSync) —
+// отступ сверху, чтобы отлепить подпись от border-bottom предыдущей .fs-config-key-row.
+.fs-config-key-row + .fs-field .fs-field__label {
+  margin-top: $spacing-lg;
+}
+
+// Секция AdSync: выпадающий список с чекбоксами направлений с доменными учётками.
 .fs-adsync-subjects {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-sm;
+  position: relative;
+  display: inline-block;
   margin: $spacing-sm 0;
+
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+    min-width: rem(280);
+    padding: $spacing-sm $spacing-md;
+    background: $color-bg-modal;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-md;
+    color: $color-text-primary;
+    font-size: $font-size;
+    cursor: pointer;
+
+    svg { flex-shrink: 0; color: $color-text-secondary; }
+
+    &[aria-expanded='true'] svg { transform: rotate(180deg); }
+  }
+
+  &__panel {
+    position: absolute;
+    z-index: 100;
+    top: calc(100% + #{$spacing-xs});
+    left: 0;
+    min-width: rem(280);
+    max-height: rem(280);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    padding: $spacing-sm;
+    background: $color-bg-modal;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-cb-popover;
+
+    &[hidden] { display: none; }
+  }
 
   &__item {
     display: flex;
     align-items: center;
     gap: $spacing-sm;
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $border-radius-sm;
     color: $color-text-primary;
+    cursor: pointer;
+
+    &:hover { background: $wp-admin-gray-bg-light; }
   }
 }
