@@ -9,11 +9,8 @@ use Inc\Enums\Settings\OptionName;
 readonly class PluginConfigRepository {
 
 	private const DEFAULTS = array(
-		'test_env'                     => false,
-		'otp_bypass_code'              => '',
-		// Привязка заявки к направлению (Этап 0 / WpToADTasks).
-		'applications_bind_to_subject' => false,
-		'direction_codes'              => array(), // [ subject_key => code ]
+		'test_env'        => false,
+		'otp_bypass_code' => '',
 	);
 
 	public function get(): array {

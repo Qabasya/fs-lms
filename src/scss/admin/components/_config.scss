@@ -93,29 +93,20 @@
   color: $color-text-primary;
 }
 
-// Раздел «Настройка заявок»
-.fs-direction-codes {
-  &__rows {
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-sm;
-    margin: $spacing-sm 0;
-    max-width: rem(560);
-  }
-
-  &__row {
-    display: flex;
-    align-items: center;
-    gap: $spacing-md;
-  }
-
-  &__name {
-    flex: 0 0 rem(200);
-    color: $color-text-primary;
-  }
-
-  &__input { flex: 1; }
-}
-
 // Подпись над полем raw-секрета для .env внешнего сервиса (AD-синк, VideoLibrary).
 .fs-config-key-row__env-label { margin-top: $spacing-md; }
+
+// Секция AdSync: чекбокс-список направлений с доменными учётками.
+.fs-adsync-subjects {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  margin: $spacing-sm 0;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    color: $color-text-primary;
+  }
+}

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Modules\AdSync\Services;
 
 use Inc\Managers\Person\UserManager;
+use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
 use Inc\Modules\AdSync\Enums\AdSyncEvent;
 use Inc\Modules\AdSync\Repositories\AdOutboxRepository;
@@ -39,11 +40,16 @@ class AdProvisioningService {
 		private readonly PiiCryptoService      $crypto,
 		private readonly PersonRepository      $persons,
 		private readonly UserManager           $users,
+		private readonly AdSyncConfig          $config,
 	) {}
 
-	/** Provision: задание создания учётки (логин/пароль читаются при выдаче из блоба заявки). */
+	/**
+	 * Provision: задание создания учётки (логин/пароль читаются при выдаче из блоба заявки).
+	 * Ставится только для направлений из provision_subjects — остальным доменная учётка не нужна.
+	 */
 	public function enqueueProvision( int $applicationId ): void {
-		if ( null === $this->applications->find( $applicationId ) ) {
+		$app = $this->applications->find( $applicationId );
+		if ( null === $app || ! $this->config->shouldProvision( $app->subjectKey ?? null ) ) {
 			return;
 		}
 		$this->outbox->enqueue( array(
@@ -55,6 +61,10 @@ class AdProvisioningService {
 
 	/** Deprovision по заявке (истекла/в корзину): username резолвим из блоба сейчас и кладём в target. */
 	public function enqueueDeprovisionByApplication( int $applicationId ): void {
+		// Provision по этой заявке не ставился (направление вне provision_subjects) — деправижнить нечего.
+		if ( null === $this->outbox->latestByApplication( $applicationId ) ) {
+			return;
+		}
 		$username = $this->usernameFromApplication( $applicationId );
 		if ( '' === $username ) {
 			return;

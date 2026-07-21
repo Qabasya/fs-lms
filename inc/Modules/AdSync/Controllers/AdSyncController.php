@@ -60,6 +60,12 @@ class AdSyncController {
 	 * Ядро (apply-form.js) покажет notice + спиннер и будет опрашивать poll.action до терминального статуса.
 	 */
 	public function filterApplyResponse( array $response, int $applicationId ): array {
+		// Провижн не ставился (направление вне provision_subjects) — спиннер/поллинг не нужны.
+		// Порядок гарантирован: fs_lms_application_created срабатывает до этого фильтра в том же запросе.
+		if ( 'none' === $this->service->statusForApplication( $applicationId ) ) {
+			return $response;
+		}
+
 		// TODO(текст): сообщение под «Заявка отправлена», пока создаётся учётка.
 		$response['notice'] = 'Создаём учётную запись в домене…';
 		$response['poll']   = array(

@@ -154,27 +154,6 @@
   }
 }
 
-// ── Гейт кода направления (серверный, инлайн-блок карточки /lms/apply, Этап 0) ──
-// Не оверлей-модалка: форма приходит по AJAX только после верного кода, поэтому гейт —
-// обычный контент карточки. Поле и кнопка переиспользуют стили .fs-apply-card__*.
-.fs-apply-gate {
-  text-align: center;
-
-  &__hint {
-    margin: 0 0 $spacing-lg;
-    font-size: $font-size-sm;
-    color: $color-muted;
-  }
-
-  &__error {
-    margin-bottom: $spacing-md;
-    font-size: $font-size-sm;
-    color: $color-danger;
-
-    &[hidden] { display: none; }
-  }
-}
-
 // ── Статус создания доменной учётки на экране успеха (Этап 2, pull) ──
 .fs-apply-card__status {
   display: flex;

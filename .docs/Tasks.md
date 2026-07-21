@@ -172,3 +172,62 @@ CREATE TABLE {prefix}fs_lms_video_recordings (
 5. `reflow` группы → held-занятие с видео не сдвинулось.
 6. Плеер: шаг с `recording_slot=true` отдаёт presigned-ссылку (после V8); при выключенном модуле — шаг без записи, ничего не падает.
 7. `composer` тесты + `npm run ci` — зелёные.
+
+# AdSync: селект «Направление» в apply-форме вместо код-гейта + фильтр provisioning по предметам
+
+## Контекст
+
+Сейчас `subject_key` попадает в заявку только через «гейт кода направления» на `/lms/apply`: при включённом тумблере `applications_bind_to_subject` ученик обязан ввести цифровой код (карта `direction_codes` в `fs_lms_plugin_config`), иначе форма не рендерится. Модуль AdSync при `fs_lms_application_created` ставит **каждую** заявку в очередь `fs_lms_ad_outbox`, и Python-сервис создаёт AD-учётку всем — включая онлайн-учеников и «не компьютерные» предметы, которым домен не нужен.
+
+Решение:
+1. Код-гейт удалить полностью — вместо него **обязательный селект «Направление»** в apply-форме (опции из `fs_lms_subjects_list`).
+2. Список «доменных» предметов — **чекбоксы в секции AdSync** таба «Конфигурация» (`provision_subjects` в опции `fs_lms_ad_sync`).
+3. AdSync ставит provision-задание только по этим предметам; спиннер/поллинг «создаём аккаунт» — только если задание реально поставлено.
+
+## Этап 1. Ядро: убрать гейт, добавить селект
+
+- [x] `templates/frontend/apply.php` — удалить `$gated`, блок `#fs-apply-gate`, `#fs-apply-direction`; безусловный `require apply-fields.php`
+- [x] `templates/frontend/apply-fields.php` — field-group «Направление»: `<select name="subject_key" id="fs_subject" required>` по образцу `fs_grade`; `data-validate` не нужен (нативный `valueMissing`)
+- [x] `inc/Controllers/Pages/ApplyPageController.php` — зависимость `ApplicationSettingsService` → `SubjectRepository`; передавать `'subjects' => readActive()`
+- [x] `inc/Callbacks/Enrollment/ApplicationCallbacks.php` — удалить `ajaxValidateDirectionCode()` и `ApplicationSettingsService`; в `ajaxCreateApplication()` валидация `requireKey('subject_key')` + `getByKey` (не null, не archived)
+- [x] `src/js/frontend/services/apply-form.js` — удалить `_directionCode`, `initGate()`, ветку `bind_to_subject`; `subject_key` в `collectFormData()`
+- [x] `inc/Controllers/Enrollment/ApplicationController.php` — убрать регистрацию `ValidateDirectionCode`
+- [x] `inc/Enums/Wp/AjaxHook.php` — удалить кейсы `ValidateDirectionCode`, `SaveApplicationSettings`
+- [x] `inc/Core/Enqueue.php` — удалить `validate_code`, `bind_to_subject`, зависимость `ApplicationSettingsService`
+- [x] `inc/Services/Security/RateLimitService.php` — удалить `allowDirectionCode()` + `LIMIT_DIRECTION_CODE`
+- [x] `src/scss/frontend/components/_apply-form.scss` — удалить блок `.fs-apply-gate`
+
+## Этап 2. Ядро: удалить настройки гейта в админке
+
+- [x] `templates/admin/components/tabs/settings-tabs/settings-7-config.php` — удалить форму `#fs-applications-form`; хук `fs_lms_config_sections` оставить
+- [x] `src/js/admin/services/settings/config-settings.js` — удалить биндинг + `saveApplicationSettings()`
+- [x] `inc/Callbacks/Settings/ConfigCallbacks.php` — удалить `ajaxSaveApplicationSettings()`, `sanitizeDirectionCodes()`, зависимость `SubjectRepository`
+- [x] `inc/Controllers/Settings/ConfigController.php` — убрать регистрацию `SaveApplicationSettings`
+- [x] `PluginConfigRepository::DEFAULTS` + `PluginConfig::viewState()` — удалить ключи `applications_bind_to_subject`, `direction_codes`
+- [x] Удалить `inc/Services/Application/ApplicationSettingsService.php` + его тест
+- [x] `src/scss/admin/components/_config.scss` — удалить блок `.fs-direction-codes`
+- [x] Финальный grep `direction_code|bind_to_subject|directionCode|bindToSubject|validate_code|ValidateDirectionCode|ApplicationSettingsService` = 0 (кроме .docs до этапа 4)
+
+## Этап 3. Модуль AdSync: фильтр по предметам
+
+- [x] `AdSyncConfig` — `'provision_subjects' => array()` в DEFAULTS; методы `provisionSubjects(): array`, `shouldProvision(?string): bool` (пустой список = никого)
+- [x] `AdProvisioningService` — `+ AdSyncConfig $config`; guard в `enqueueProvision()`; guard `latestByApplication()` в `enqueueDeprovisionByApplication()`; `enqueueDeprovisionByPerson()` и reconcile не фильтровать (комментарий в докблок)
+- [x] `AdSyncController::filterApplyResponse()` — ранний return при `statusForApplication() === 'none'`
+- [x] `templates/settings-section.php` — чекбокс-список `provision_subjects[]` + submit + статус
+- [x] `assets/admin.js` — submit-обработчик (`SAVE_ACTION`, `Nonce::Config`)
+- [x] `AdSyncSettingsCallbacks::ajaxSaveSettings()` — реальное сохранение (Sanitizer, валидация по `readAll()`)
+
+## Этап 4. Тесты и документация
+
+- [x] Удалить `tests/Unit/Services/Application/ApplicationSettingsServiceTest.php`
+- [x] `AdProvisioningServiceTest` — мок `AdSyncConfig`, правки существующих + 2 новых negative-теста
+- [x] `.docs/FS_LMS_API.md` §6, `.docs/AdSyncPythonService.md` — «коды направлений» → «направление из формы + provision_subjects»
+
+## Этап 5. Верификация
+
+- [x] `npx gulp build`, `npm run lint:js`, `npm run lint:css`, `vendor/bin/phpunit` (861 OK); phpcs — новых ошибок сверх исторических нет
+- [x] `docker restart wp_app`; /lms/apply отдаёт селект `fs_subject`, гейта в разметке нет (HTTP 200)
+- [x] `AdSyncConfig::shouldProvision` проверен в рантайме (math=true, inf/пусто/null=false); enqueue-guard'ы покрыты юнит-тестами
+- [ ] Ручной прогон полного OTP-флоу с проверкой `subject_key` и строки в `fs_lms_ad_outbox` — сделать руками в браузере
+- [ ] Админка: секция «Настройка заявок» исчезла, чекбоксы AdSync сохраняются — проверить в UI
+- [ ] Регресс: предвыбор subject_key в модалке зачисления — проверить в UI

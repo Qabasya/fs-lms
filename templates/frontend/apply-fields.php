@@ -2,17 +2,13 @@
 /**
  * Партиал формы заявки (/lms/apply): Этап 1 (поля) + Этап 2 (OTP).
  *
- * Рендерится двумя путями:
- *  - инлайн из apply.php, когда привязка к направлению выключена;
- *  - по AJAX (ValidateDirectionCode) после верного кода направления, когда гейт
- *    включён — до этого момента разметки формы в браузере нет, поэтому снять
- *    запрос кода через devtools/adblock нельзя (раскрывать нечего).
- *
  * Разметка поля: label → .fs-field-control (иконка + инпут [+ toggle]) → ошибка.
  * Иконка позиционируется относительно .fs-field-control (только инпут), поэтому
  * центрируется по инпуту независимо от высоты label и наличия ошибки снизу (#7).
  *
  * @package FS LMS
+ *
+ * @var \Inc\DTO\Subject\SubjectDTO[] $subjects Активные предметы для селекта «Направление».
  */
 
 use Inc\Enums\Wp\Nonce;
@@ -158,6 +154,27 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         minlength="3"
                         maxlength="100"
                 >
+            </div>
+        </div>
+
+        <div class="fs-apply-card__field-group fs-form-group">
+            <label for="fs_subject"><?php esc_html_e( 'Направление', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
+            <div class="fs-field-control">
+                <span class="dashicons dashicons-welcome-learn-more" aria-hidden="true"></span>
+                <select
+                        name="subject_key"
+                        id="fs_subject"
+                        required
+                        aria-required="true"
+                        autocomplete="off"
+                >
+                    <option value="" disabled selected><?php esc_html_e( 'Выберите направление', 'fs-lms' ); ?></option>
+                    <?php foreach ( ( $subjects ?? array() ) as $subject ) : ?>
+                        <option value="<?php echo esc_attr( $subject->key ); ?>">
+                            <?php echo esc_html( $subject->name ); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
         </div>
 

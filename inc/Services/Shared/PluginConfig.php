@@ -65,9 +65,6 @@ readonly class PluginConfig {
 			),
 			'enc_key_set'     => $this->isEncKeySet(),
 			'hash_salt_set'   => $this->isHashSaltSet(),
-			// Настройка заявок (привязка к направлению).
-			'applications_bind_to_subject' => (bool) ( $data['applications_bind_to_subject'] ?? false ),
-			'direction_codes'              => is_array( $data['direction_codes'] ?? null ) ? $data['direction_codes'] : array(),
 		);
 	}
 }
