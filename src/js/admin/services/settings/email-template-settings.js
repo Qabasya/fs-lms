@@ -159,9 +159,10 @@ export const EmailTemplateSettings = {
 					// Обновляем статус на "По умолчанию"
 					this._setStatus( $card, false );
 
-					// Очищаем поля — теперь в них нет пользовательских значений
+					// Возвращаем поля к PHP-дефолту (не к пустой строке), чтобы админ
+					// по-прежнему видел актуальный текст письма и мог сразу его редактировать.
 					$card.find( '.js-email-subject' ).val( '' );
-					$card.find( '.js-email-body' ).val( '' );
+					$card.find( '.js-email-body' ).val( $card.data( 'defaultBody' ) || '' );
 
 					// Блокируем кнопку сброса — сбрасывать больше нечего, шаблон уже дефолтный
 					$btn.prop( 'disabled', true );

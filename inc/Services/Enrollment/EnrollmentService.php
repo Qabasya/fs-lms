@@ -286,12 +286,13 @@ readonly class EnrollmentService {
 			$this->applicationRepository->forceDelete( $app->id );
 
 			if ( $input->sendEmailAuto ) {
+				// Письмо с данными для входа уходит только родителю — учётные данные ученика
+				// родитель передаёт ему сам (учитель/офис видят их в карточке зачисления).
 				$sharedVars = array(
 					'student_full_name'  => $studentDto->fullName(),
 					'parent_first_name'  => $parentDto->firstName,
 					'parent_middle_name' => $parentDto->middleName,
 				);
-				$this->emailService->sendWelcomeWithCredentials( $studentUserId, $studentPassword, $sharedVars );
 				$this->emailService->sendWelcomeWithCredentials( $guardianUserId, $guardianPassword, $sharedVars );
 			}
 

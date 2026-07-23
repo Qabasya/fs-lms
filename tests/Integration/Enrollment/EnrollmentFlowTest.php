@@ -242,7 +242,7 @@ class EnrollmentFlowTest extends TestCase {
 
 	// ── Case 3: Авто-отправка писем обоим ─────────────────────────────────────────
 
-	public function test_auto_email_sends_welcome_credentials_to_both(): void {
+	public function test_auto_email_sends_welcome_credentials_to_guardian_only(): void {
 		$this->appRepo->method( 'find' )->willReturn( $this->app() );
 		$this->personService->method( 'findByDocNumberHash' )->willReturn( null );
 		$this->userManager->method( 'findByEmail' )->willReturn( null );
@@ -252,7 +252,10 @@ class EnrollmentFlowTest extends TestCase {
 		$this->personRepo->method( 'find' )->willReturnCallback( fn( int $id ) => $this->person( $id, null ) );
 		$this->userManager->method( 'create' )->willReturnOnConsecutiveCalls( 1001, 1002 );
 
-		$this->emailService->expects( self::exactly( 2 ) )->method( 'sendWelcomeWithCredentials' );
+		// Письмо с логином/паролем уходит только родителю — ученику данные для входа
+		// передаёт родитель сам, автоматической рассылки ученику нет.
+		$this->emailService->expects( self::once() )->method( 'sendWelcomeWithCredentials' )
+			->with( 1002, self::anything(), self::anything() );
 
 		$result = $this->service->enroll( $this->input( sendEmailAuto: true ) );
 
