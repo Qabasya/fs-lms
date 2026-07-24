@@ -63,6 +63,9 @@ export const icoShield = ( s = 18 ) =>
 export const icoSearch = ( s = 14 ) =>
 	stroke20( '<circle cx="9" cy="9" r="5.5" stroke="{c}" stroke-width="1.6"/><path d="m13.5 13.5 3.2 3.2" stroke="{c}" stroke-width="1.6" stroke-linecap="round"/>', s );
 
+export const icoCopy = ( s = 14 ) =>
+	stroke20( '<rect x="7" y="7" width="9" height="9" rx="1.5" stroke="{c}" stroke-width="1.6"/><path d="M4 13V5a1 1 0 0 1 1-1h8" stroke="{c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>', s );
+
 export const icoSwap = ( s = 15 ) =>
 	stroke20( '<path d="M4 7h9m0 0-3-3m3 3-3 3M16 13H7m0 0 3-3m-3 3 3 3" stroke="{c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>', s );
 

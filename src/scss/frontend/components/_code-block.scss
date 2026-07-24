@@ -1,0 +1,118 @@
+@use '../variables' as *;
+
+// Блок кода (read-only). code-block.js заменяет <pre><code> на .fs-code-editor:
+//   header (бейдж языка + copy) | body → gutter + area(highlight).
+// Метрики шрифта (font-size, line-height, padding-y) у highlight и gutter обязаны
+// совпадать, иначе номера строк расходятся с кодом. Текст выделяется и копируется.
+
+$code-font-size: $font-size-sm;
+$code-pad-y: rem(16);
+$code-pad-x: rem(18);
+
+.fs-code-editor {
+  margin: rem(4) 0;
+  overflow: hidden;
+  font-family: $font-mono;
+  background: $color-white;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+}
+
+// ── Шапка ──
+.fs-code-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: rem(8) rem(12);
+  background: $code-header-bg;
+  border-bottom: 1px solid $color-border;
+}
+
+.fs-code-editor__lang {
+  font-family: $font-family;
+  font-size: $font-size-xxs;
+  font-weight: $font-semibold;
+  color: $color-muted;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.fs-code-editor__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: rem(28);
+  height: rem(28);
+  padding: 0;
+  color: $color-muted;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: $radius-sm;
+  transition: color $transition, background $transition;
+
+  &:hover {
+    color: $color-text;
+    background: rgba(0, 0, 0, .05);
+  }
+
+  &.is-copied { color: $color-success; }
+
+  svg { display: block; }
+}
+
+// ── Тело ──
+.fs-code-editor__body {
+  display: flex;
+  overflow: hidden;
+  background: $code-body-bg;
+}
+
+.fs-code-gutter {
+  flex: 0 0 auto;
+  padding: $code-pad-y rem(10);
+  font-size: $code-font-size;
+  line-height: $line-height-base;
+  color: $code-gutter-text;
+  text-align: right;
+  user-select: none;
+  background: $code-body-bg;
+  border-right: 1px solid $color-border-light;
+
+  span { display: block; }
+}
+
+// min-width: 0 позволяет области сжиматься во flex и включает горизонтальный скролл <pre>.
+.fs-code-area {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fs-code-highlight {
+  margin: 0;
+  padding: $code-pad-y $code-pad-x;
+  overflow-x: auto;
+  font-family: $font-mono;
+  font-size: $code-font-size;
+  line-height: $line-height-base;
+  tab-size: 4;
+  white-space: pre;
+  color: $color-text;
+
+  &::selection,
+  *::selection { background: $code-selection-bg; }
+}
+
+// ── Токены подсветки (Python) ──
+.fs-hl-keyword  { color: $hl-keyword; }
+.fs-hl-builtin  { color: $hl-builtin; }
+.fs-hl-function { color: $hl-function; font-weight: $font-semibold; }
+.fs-hl-string   { color: $hl-string; }
+.fs-hl-number   { color: $hl-number; }
+.fs-hl-comment  { color: $hl-comment; font-style: italic; }
+
+@media (max-width: $bp-mobile) {
+  .fs-code-highlight { padding: rem(12) rem(14); }
+
+  .fs-code-gutter { padding: rem(12) rem(8); }
+}
