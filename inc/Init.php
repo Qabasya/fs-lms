@@ -18,6 +18,7 @@ use Inc\Controllers\System\ModulesDashboardController;
 use Inc\Controllers\Task\BoilerplateController;
 use Inc\Controllers\Enrollment\EnrollmentController;
 use Inc\Controllers\Course\LessonController;
+use Inc\Controllers\Course\TeacherLessonController;
 use Inc\Controllers\Course\LessonMetaBoxController;
 use Inc\Controllers\Course\WorkController;
 use Inc\Controllers\Course\WorkMetaBoxController;
@@ -112,6 +113,7 @@ final class Init {
 			LearningMenuController::class,   // Меню «Обучение» (банки контента)
 			LessonMetaBoxController::class,  // Метабокс урока
 			LessonController::class,         // AJAX конструктора урока
+			TeacherLessonController::class,  // AJAX преподавателя над уроком занятия своей группы (COW-форк, Этап 3)
 			WorkMetaBoxController::class,    // Метабокс работы
 			WorkController::class,           // AJAX конструктора работы
 			CourseController::class,             // AJAX конструктора курса

@@ -14,16 +14,25 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class LessonAuthoringService
  *
- * Бизнес-логика авторинга урока: кандидаты-работы для селектора, статьи, валидация.
+ * Бизнес-логика авторинга урока: кандидаты-работы для селектора, статьи, валидация,
+ * санитайз/сборка шагов. Единая точка входа для методиста (`LessonCallbacks`) и
+ * преподавателя (`TeacherLessonCallbacks`, Этап 3) — оба санитайзят сырой ввод билдера
+ * одинаково, отличается только слой авторизации над вызовом.
  * Урок ссылается на работы, не на задачи. Доступ к данным — через PostManager.
  *
  * @package Inc\Services\Course
  */
 class LessonAuthoringService {
+
+	use Sanitizer;
+
+	/** Максимум шагов в одном уроке (совпадает с клиентским лимитом step-editor.js). */
+	public const int MAX_STEPS_PER_LESSON = 20;
 
 	public function __construct(
 		private readonly PostManager      $posts,
@@ -255,5 +264,108 @@ class LessonAuthoringService {
 			$post = $this->posts->get( $id );
 			return $post instanceof \WP_Post && $post->post_type === $post_type;
 		} ) );
+	}
+
+	/**
+	 * Санитайз одного сырого шага по типу (поля очищаются trait-методами Sanitizer).
+	 * Общий для методиста (`LessonCallbacks::ajaxSaveLessonSteps`) и преподавателя
+	 * (`TeacherLessonCallbacks::ajaxSaveGroupLessonSteps`, Этап 3).
+	 *
+	 * @param mixed $raw
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function sanitizeStep( mixed $raw ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$type        = $this->sanitizeKeyValue( $raw['type'] ?? '' );
+		$key         = $this->sanitizeKeyValue( $raw['key'] ?? '' );
+		$raw_payload = is_array( $raw['payload'] ?? null ) ? $raw['payload'] : array();
+
+		$payload = match ( $type ) {
+			'text'               => array(
+				'title'   => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
+				'content' => $this->sanitizeHtmlValue( $raw_payload['content'] ?? '' ),
+			),
+			'video'              => array(
+				'title'       => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
+				'url'         => $this->sanitizeTextValue( $raw_payload['url'] ?? '' ),
+				'description' => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
+				// D21 (T14.12): главы (перемотка в нативном плеере) и вложения-конспекты.
+				'chapters'    => $this->sanitizeChapters( $raw_payload['chapters'] ?? array() ),
+				'attachments' => array_values( array_filter( array_map(
+					'intval',
+					is_array( $raw_payload['attachments'] ?? null ) ? $raw_payload['attachments'] : array()
+				) ) ),
+			),
+			// Трансляция (Этап 1): ссылка-заглушка до появления записи занятия
+			// (плеер подменяет её на recording_url привязанного group_lesson).
+			'broadcast'          => array(
+				'title'      => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
+				'stream_url' => $this->sanitizeTextValue( $raw_payload['stream_url'] ?? '' ),
+			),
+			'task'               => array(
+				'ref'      => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
+				'source'   => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
+				'settings' => array(
+					'max_attempts'      => max( 0, (int) ( $raw_payload['settings']['max_attempts'] ?? 0 ) ),
+					'hint_after_errors' => max( 0, (int) ( $raw_payload['settings']['hint_after_errors'] ?? 0 ) ),
+				),
+			),
+			'work', 'assessment' => array( 'ref' => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ) ),
+			default              => array(),
+		};
+
+		// Подсказку показываем строго до исчерпания попыток: N ошибок < max_attempts
+		// (0 = ∞ — ограничения нет). Клампим на сервере, не доверяя клиенту.
+		if ( 'task' === $type ) {
+			$max_att = (int) $payload['settings']['max_attempts'];
+			if ( $max_att > 0 && $payload['settings']['hint_after_errors'] >= $max_att ) {
+				$payload['settings']['hint_after_errors'] = $max_att - 1;
+			}
+		}
+
+		// Метка «дубликат — контент не изменён»: переживает сохранение (напоминание преподавателю).
+		if ( filter_var( $raw_payload['needs_review'] ?? false, FILTER_VALIDATE_BOOLEAN ) ) {
+			$payload['needs_review'] = true;
+		}
+
+		return array( 'key' => $key, 'type' => $type, 'payload' => $payload );
+	}
+
+	/**
+	 * Главы видео-шага (D21): [{t: секунды, title}], отсортированы по времени.
+	 * Пустые строки (без названия и с нулевым временем) отбрасываются.
+	 *
+	 * @param mixed $raw
+	 *
+	 * @return array<int, array{t:int, title:string}>
+	 */
+	public function sanitizeChapters( mixed $raw ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$chapters = array();
+		foreach ( $raw as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$title = $this->sanitizeTextValue( $row['title'] ?? '' );
+			$t     = max( 0, (int) ( $row['t'] ?? 0 ) );
+			if ( '' === $title && 0 === $t ) {
+				continue;
+			}
+			$chapters[] = array(
+				't'     => $t,
+				'title' => $title,
+			);
+		}
+
+		usort( $chapters, static fn( array $a, array $b ): int => $a['t'] <=> $b['t'] );
+
+		return $chapters;
 	}
 }
