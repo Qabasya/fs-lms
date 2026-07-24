@@ -186,4 +186,46 @@ class TeacherLessonCallbacksTest extends TestCase {
 		self::assertFalse( $r->success );
 		self::assertCount( 1, $this->lessons->get( 1 )->steps ); // урок не перезаписан
 	}
+
+	// ── ajaxResetLessonFork (Этап 5) ────────────────────────────────────────
+
+	public function test_reset_fork_restores_master_and_deletes_fork(): void {
+		// Мастер (id=1) + форк группы 10 (id=2); занятие 5 сидит на форке.
+		$this->seedLesson( 1, 'inf' );
+		$this->seedLesson( 2, 'inf', array( 's1' ), array(
+			PostMetaName::ForkedFrom->value     => 1,
+			PostMetaName::ForkedForGroup->value => 10,
+		) );
+		// Первый find() — guard-проверка коллбека; второй — внутри resetLessonFork.
+		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 2 );
+		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 2 );
+		$this->guard->method( 'canManage' )->willReturn( true );
+
+		$_POST = array( 'group_lesson_id' => '5' );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxResetLessonFork() );
+
+		self::assertTrue( $r->success );
+		self::assertTrue( $r->payload['reset'] );
+		self::assertSame( array( 'lesson_id' => 1 ), $this->wpdb->updates[0]['data'] ?? null );
+		self::assertNull( $this->lessons->get( 2 ) );    // форк удалён
+		self::assertNotNull( $this->lessons->get( 1 ) ); // мастер жив
+	}
+
+	public function test_reset_fork_denies_when_cannot_manage_group(): void {
+		$this->seedLesson( 2, 'inf', array( 's1' ), array(
+			PostMetaName::ForkedFrom->value     => 1,
+			PostMetaName::ForkedForGroup->value => 10,
+		) );
+		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 2 );
+		$this->guard->method( 'canManage' )->willReturn( false );
+
+		$_POST = array( 'group_lesson_id' => '5' );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxResetLessonFork() );
+
+		self::assertFalse( $r->success );
+		self::assertEmpty( $this->wpdb->updates );
+		self::assertNotNull( $this->lessons->get( 2 ) ); // форк не тронут
+	}
 }

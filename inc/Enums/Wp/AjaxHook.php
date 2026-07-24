@@ -307,6 +307,7 @@ enum AjaxHook: string {
 	case TeacherStepCandidates = 'teacher_step_candidates'; // params: group_lesson_id, kind, source, search — read-only банк (без создания черновиков)
 	case TeacherTaskPreview    = 'teacher_task_preview';    // params: task_id
 	case TeacherRefPreview     = 'teacher_ref_preview';     // params: ref_id, ref_type (work|assessment)
+	case ResetLessonFork       = 'reset_lesson_fork';       // params: group_lesson_id — сброс форка к версии курса (Этап 5)
 
 	// ==== VideoLibrary: ручная привязка записи преподавателем (Этап 3) ====
 	case TeacherListRecordings = 'teacher_list_recordings'; // params: group_lesson_id → {current[], candidates[]}

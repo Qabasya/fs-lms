@@ -19,6 +19,7 @@ import { showToast } from '../common/components/toast.js';
 
 		const btn      = document.getElementById( 'fsTeacherEditBtn' );
 		const closeBtn = document.getElementById( 'fsTeacherEditorClose' );
+		const resetBtn = document.getElementById( 'fsTeacherEditorReset' );
 		const panel    = document.getElementById( 'fsTeacherEditor' );
 		const mount    = document.getElementById( 'fsTeacherEditorMount' );
 		if ( ! btn || ! panel || ! mount ) { return; }
@@ -47,6 +48,7 @@ import { showToast } from '../common/components/toast.js';
 			ajax( vars.actions.getSteps, { group_lesson_id: vars.groupLessonId }, cfg )
 				.then( ( resp ) => {
 					everForked = !! resp.is_forked;
+					toggleResetBtn( everForked );
 					mount.innerHTML = '';
 
 					createStepEditor( {
@@ -86,9 +88,34 @@ import { showToast } from '../common/components/toast.js';
 				if ( resp.forked && ! everForked && ! didReload ) {
 					didReload = true;
 					everForked = true;
+					toggleResetBtn( true );
 					showToast( 'Урок скопирован для вашей группы — изменения не затронут курс', 'success' );
 					window.setTimeout( () => window.location.reload(), 900 );
 				}
+			} );
+		}
+
+		// ── Сброс форка к версии курса (Этап 5) ─────────────────────────────
+		function toggleResetBtn( show ) {
+			if ( resetBtn ) { resetBtn.hidden = ! show; }
+		}
+
+		if ( resetBtn ) {
+			resetBtn.addEventListener( 'click', () => {
+				confirmDialog(
+					'Правки группы будут удалены, урок вернётся к версии курса. Прогресс учеников по шагам, добавленным для группы, будет потерян.',
+					'Сбросить',
+					'Отмена'
+				).then( ( ok ) => {
+					if ( ! ok ) { return; }
+					resetBtn.disabled = true;
+					ajax( vars.actions.resetFork, { group_lesson_id: vars.groupLessonId }, cfg )
+						.then( () => window.location.reload() )
+						.catch( ( msg ) => {
+							resetBtn.disabled = false;
+							showToast( msg || 'Ошибка', 'error' );
+						} );
+				} );
 			} );
 		}
 

@@ -301,12 +301,17 @@ function partLabel(t) {
     return (t.total_parts && t.total_parts > 1) ? ` · ${t.part}/${t.total_parts}` : '';
 }
 
+/** Этап 5: бейдж «изменён» — урок занятия является COW-форком этой группы. */
+function forkedBadgeHtml(t, cls) {
+    return t.is_forked ? `<span class="${cls}" title="Урок изменён для этой группы">изменён</span>` : '';
+}
+
 function themeCardHtml(t) {
     return `<div class="prof-theme-card" draggable="true" data-glid="${t.group_lesson_id}">
         <span class="tc-num">${t.n}${partLabel(t)}</span>
         <div class="tc-body">
             <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
-            <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}</div>
+            <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}${forkedBadgeHtml(t, 'tc-forked')}</div>
         </div>
         <span class="tc-grip">${icoGrip(14)}</span>
     </div>`;
@@ -341,6 +346,7 @@ function placedThemeHtml(t) {
         <span class="pt-pin">${icoPinFilled(11)}</span>
         <button type="button" class="pt-deadlines" data-glid="${t.group_lesson_id}" title="Дедлайны работ" aria-label="Дедлайны работ">${icoCalendar(12)}</button>
         <span class="pt-title">${esc(t.topic || 'Без названия')}${partLabel(t)}</span>
+        ${forkedBadgeHtml(t, 'pt-forked')}
         ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}
         ${t.teacher ? `<span class="pt-meta">${esc(t.teacher)}</span>` : ''}
         ${recordingIconHtml(t)}

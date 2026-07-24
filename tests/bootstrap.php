@@ -320,6 +320,18 @@ if (!function_exists('wp_insert_post')) {
         return $id;
     }
 }
+if (!function_exists('wp_delete_post')) {
+    function wp_delete_post(int $id, bool $force = false): WP_Post|false {
+        $post = $GLOBALS['_fs_test_posts'][$id] ?? null;
+        if (null === $post) { return false; }
+        unset($GLOBALS['_fs_test_posts'][$id], $GLOBALS['_fs_test_meta'][$id]);
+        return $post;
+    }
+}
+if (!function_exists('update_postmeta_cache')) {
+    // In-memory хранилище кэша не имеет — no-op (PostManager::primeMetaCache).
+    function update_postmeta_cache(array $ids): bool { return true; }
+}
 
 // ---- Простые функции санитайзинга (для полей и Sanitizer-трейта) ----
 if (!function_exists('wp_unslash')) {

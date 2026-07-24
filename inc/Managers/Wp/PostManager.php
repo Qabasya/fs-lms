@@ -398,6 +398,22 @@ class PostManager {
 	}
 
 	/**
+	 * Прогревает meta-кэш списка постов одним запросом (батч без N+1):
+	 * последующие getMeta() по этим ID читают из object cache, а не из БД.
+	 * Обёртка над `update_postmeta_cache()` (алиас `update_meta_cache('post', …)`).
+	 *
+	 * @param int[] $post_ids ID постов
+	 *
+	 * @return void
+	 */
+	public function primeMetaCache( array $post_ids ): void {
+		$ids = array_filter( array_map( 'intval', $post_ids ) );
+		if ( array() !== $ids ) {
+			update_postmeta_cache( $ids );
+		}
+	}
+
+	/**
 	 * Гибкая выборка постов типа (для селекторов банков и read-моделей).
 	 *
 	 * @param string $post_type Тип записи.

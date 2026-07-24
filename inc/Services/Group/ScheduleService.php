@@ -9,8 +9,10 @@ use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\PageRoutes;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\EffectiveTeacherResolver;
 use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -31,6 +33,7 @@ class ScheduleService {
 		private readonly RoomAvailabilityService     $roomAvailability,
 		private readonly CourseManager               $courses,
 		private readonly EffectiveTeacherResolver    $effectiveTeacher,
+		private readonly PostManager                 $posts,
 	) {}
 
 	/**
@@ -409,9 +412,21 @@ class ScheduleService {
 			$roomNames[ $r->id ] = $r->name;
 		}
 
+		$entries = $this->numberThemes( $this->getProgram( $groupId ) );
+
+		// Бейдж «изменён для группы» (Этап 5): meta ForkedForGroup всех уроков программы
+		// читается после одного батч-прогрева кэша — без N+1 по wp_postmeta.
+		$lessonIds = array();
+		foreach ( $entries as $entry ) {
+			if ( ! empty( $entry['row']->lessonId ) ) {
+				$lessonIds[] = (int) $entry['row']->lessonId;
+			}
+		}
+		$this->posts->primeMetaCache( array_unique( $lessonIds ) );
+
 		$themes        = array();
 		$teacherNames  = array(); // кэш id→display_name.
-		foreach ( $this->numberThemes( $this->getProgram( $groupId ) ) as $entry ) {
+		foreach ( $entries as $entry ) {
 			$row       = $entry['row'];
 			$effRoomId = ! empty( $row->roomId ) ? (int) $row->roomId : $groupRoomId;
 			// #16: эффективный преподаватель занятия (Эпик 5): override › замена › препод группы.
@@ -438,6 +453,10 @@ class ScheduleService {
 				'recording_url'   => $row->recordingUrl,
 				'status'          => $row->status,
 				'player_url'      => $hasContent ? $this->playerUrl( $groupId, $row->id ) : '',
+				// Урок занятия — COW-форк этой группы (Этап 5): бейдж «изменён» в КТП.
+				// Критерий тот же, что в TeacherLessonCallbacks::ajaxGetGroupLessonSteps.
+				'is_forked'       => $hasContent && $groupId > 0
+					&& (int) $this->posts->getMeta( (int) $row->lessonId, PostMetaName::ForkedForGroup->value ) === $groupId,
 			);
 		}
 

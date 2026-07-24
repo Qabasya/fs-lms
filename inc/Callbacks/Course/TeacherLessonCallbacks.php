@@ -221,4 +221,28 @@ class TeacherLessonCallbacks extends BaseController {
 
 		$this->success( $data );
 	}
+
+	/**
+	 * Сброс форка к версии курса (Этап 5): занятие возвращается на мастер-урок,
+	 * форк-пост удаляется. Прогресс по добавленным преподавателем шагам теряется
+	 * (конфирм на клиенте это озвучивает).
+	 * Params: group_lesson_id
+	 */
+	public function ajaxResetLessonFork(): void {
+		$this->authorize( Nonce::TeachLesson, Capability::ManageLmsTeaching );
+
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$row           = $this->groupLessons->find( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
+			$this->error( 'Занятие не найдено.' );
+			return;
+		}
+
+		if ( ! $this->cloneService->resetLessonFork( $row->groupId, $groupLessonId ) ) {
+			$this->error( 'Урок этой группы не был изменён.' );
+			return;
+		}
+
+		$this->success( array( 'reset' => true ) );
+	}
 }

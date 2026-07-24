@@ -32,6 +32,7 @@ class TeacherLessonController extends AjaxController {
 			array( AjaxHook::TeacherStepCandidates, $this->callbacks ),
 			array( AjaxHook::TeacherTaskPreview,    $this->callbacks ),
 			array( AjaxHook::TeacherRefPreview,     $this->callbacks ),
+			array( AjaxHook::ResetLessonFork,       $this->callbacks ),
 		);
 	}
 }

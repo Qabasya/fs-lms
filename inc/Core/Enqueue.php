@@ -421,6 +421,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'listRecordings'    => AjaxHook::TeacherListRecordings->jsAction(),
 					'attachRecording'   => AjaxHook::TeacherAttachRecording->jsAction(),
 					'detachRecording'   => AjaxHook::TeacherDetachRecording->jsAction(),
+					'resetFork'         => AjaxHook::ResetLessonFork->jsAction(),
 				),
 			)
 		);
