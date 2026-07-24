@@ -39,6 +39,7 @@ const paths = {
         common: './src/js/common/common.js',
         profile: './src/js/profile/profile.js',
         player: './src/js/player/player.js',
+        teacherEditor: './src/js/teacher-editor/teacher-editor.js',
         assessment: './src/js/assessment/assessment.js',
         kege: './src/js/kege/kege.js',
         watch: './src/js/**/*.js'
@@ -191,7 +192,7 @@ function stylesCheck() {
  * ОБРАБОТКА JS (AdminController & Frontend)
  */
 function scripts() {
-    return gulp.src([paths.js.admin, paths.js.frontend, paths.js.common, paths.js.profile, paths.js.player, paths.js.assessment, paths.js.kege])
+    return gulp.src([paths.js.admin, paths.js.frontend, paths.js.common, paths.js.profile, paths.js.player, paths.js.teacherEditor, paths.js.assessment, paths.js.kege])
         .pipe(plumber({errorHandler}))
         .pipe(named())
         .pipe(webpack(webpackConfig))

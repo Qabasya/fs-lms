@@ -61,4 +61,10 @@ $stream_url  = (string) ( $render['stream_url'] ?? '' );
 			</div>
 		<?php endif; ?>
 	</div>
+
+	<?php if ( ! empty( $is_teacher ) ) : ?>
+		<div class="broadcast-teacher-panel" data-glid="<?php echo esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ); ?>">
+			<div class="btp-loading"><?php esc_html_e( 'Загрузка записей…', 'fs-lms' ); ?></div>
+		</div>
+	<?php endif; ?>
 </div>
