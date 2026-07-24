@@ -164,6 +164,12 @@ class VideoLibraryCallbacks extends BaseController {
 			return;
 		}
 
+		$recording = $this->recordings->find( $recordingId );
+		if ( null === $recording || $recording->groupId !== $row->groupId ) {
+			$this->error( 'Запись не найдена.' );
+			return;
+		}
+
 		if ( ! $this->registration->detachManually( $recordingId ) ) {
 			$this->error( 'Запись не найдена.' );
 			return;
