@@ -223,18 +223,21 @@ class LessonCallbacks extends BaseController {
 				'content' => $this->sanitizeHtmlValue( $raw_payload['content'] ?? '' ),
 			),
 			'video'              => array(
-				'title'          => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
-				'url'            => $this->sanitizeTextValue( $raw_payload['url'] ?? '' ),
-				'description'    => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
-				// Слот для записи занятия (модуль VideoLibrary): true — плеер подменяет
-				// url на recording_url привязанного group_lesson, когда он появится.
-				'recording_slot' => $this->sanitizeBoolValue( $raw_payload['recording_slot'] ?? false ),
+				'title'       => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
+				'url'         => $this->sanitizeTextValue( $raw_payload['url'] ?? '' ),
+				'description' => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
 				// D21 (T14.12): главы (перемотка в нативном плеере) и вложения-конспекты.
 				'chapters'    => $this->sanitizeChapters( $raw_payload['chapters'] ?? array() ),
 				'attachments' => array_values( array_filter( array_map(
 					'intval',
 					is_array( $raw_payload['attachments'] ?? null ) ? $raw_payload['attachments'] : array()
 				) ) ),
+			),
+			// Трансляция (Этап 1): ссылка-заглушка до появления записи занятия
+			// (плеер подменяет её на recording_url привязанного group_lesson).
+			'broadcast'          => array(
+				'title'      => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
+				'stream_url' => $this->sanitizeTextValue( $raw_payload['stream_url'] ?? '' ),
 			),
 			'task'               => array(
 				'ref'      => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),

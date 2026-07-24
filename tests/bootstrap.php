@@ -280,6 +280,11 @@ if (!function_exists('get_posts')) {
             if (!in_array('any', $statuses, true) && !in_array($post->post_status, $statuses, true)) { continue; }
             $out[] = $post;
         }
+        // 'fields' => 'ids' — как в реальном WP, возвращаем массив ID вместо объектов
+        // (нужно PostManager::getIds()/countByTerm()).
+        if ('ids' === ($args['fields'] ?? '')) {
+            return array_map(static fn (WP_Post $p): int => $p->ID, $out);
+        }
         return $out;
     }
 }

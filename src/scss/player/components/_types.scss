@@ -6,6 +6,7 @@
 
 [data-step-type='text'] { --tc: #{$type-text}; --tcs: #{$type-text-soft}; }
 [data-step-type='video'] { --tc: #{$type-video}; --tcs: #{$type-video-soft}; }
+[data-step-type='broadcast'] { --tc: #{$type-broadcast}; --tcs: #{$type-broadcast-soft}; }
 [data-step-type='task'] { --tc: #{$type-task}; --tcs: #{$type-task-soft}; }
 [data-step-type='work'] { --tc: #{$type-work}; --tcs: #{$type-work-soft}; }
 [data-step-type='assessment'] { --tc: #{$type-assessment}; --tcs: #{$type-assessment-soft}; }

@@ -20,7 +20,7 @@ class StepTypeTest extends TestCase {
 	}
 
 	public function test_inline_and_ref_partition(): void {
-		foreach ( array( StepType::Text, StepType::Video ) as $inline ) {
+		foreach ( array( StepType::Text, StepType::Video, StepType::Broadcast ) as $inline ) {
 			self::assertTrue( $inline->isInline(), $inline->value );
 			self::assertFalse( $inline->isRef(), $inline->value );
 		}
@@ -52,8 +52,9 @@ class StepTypeTest extends TestCase {
 
 	public function test_options_map_value_to_label(): void {
 		$options = StepType::options();
-		self::assertCount( 5, $options );
+		self::assertCount( 6, $options );
 		self::assertSame( 'Экзамен', $options['assessment'] );
 		self::assertSame( 'Текст', $options['text'] );
+		self::assertSame( 'Трансляция', $options['broadcast'] );
 	}
 }

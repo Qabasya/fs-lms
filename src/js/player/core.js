@@ -9,8 +9,8 @@
 import { renderStrip } from './strip.js';
 import { typeMeta } from './icons.js';
 
-// Только текст/видео отмечаются «viewed» при показе (авто-грейд задач — через submit).
-const INLINE = [ 'text', 'video' ];
+// Только текст/видео/трансляция отмечаются «viewed» при показе (авто-грейд задач — через submit).
+const INLINE = [ 'text', 'video', 'broadcast' ];
 
 const vars = window.fs_lms_player_vars;
 

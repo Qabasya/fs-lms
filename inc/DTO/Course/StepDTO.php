@@ -24,6 +24,7 @@ readonly class StepDTO {
 	 * @param array<string, mixed> $payload Поля по типу:
 	 *   text:       { content }
 	 *   video:      { url }
+	 *   broadcast:  { title, stream_url }
 	 *   task:       { ref, source }   source: subject|bank
 	 *   work:       { ref }
 	 *   assessment: { ref }

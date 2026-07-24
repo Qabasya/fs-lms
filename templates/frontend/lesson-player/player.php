@@ -203,6 +203,9 @@ $next_url    = null !== $next_lesson
 										case 'video':
 											include __DIR__ . '/partials/step-video.php';
 											break;
+										case 'broadcast':
+											include __DIR__ . '/partials/step-broadcast.php';
+											break;
 										case 'task':
 											include __DIR__ . '/partials/step-task.php';
 											break;

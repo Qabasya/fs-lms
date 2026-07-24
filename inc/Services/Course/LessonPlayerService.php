@@ -82,8 +82,9 @@ class LessonPlayerService {
 	private function renderData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId ): array {
 		return match ( $step->type->value ) {
 			'text'  => array( 'content' => (string) ( $step->payload['content'] ?? '' ) ),
+			'video' => $this->stepRenderer->renderVideoData( $step ),
 			// Generic-шов V4: модуль VideoLibrary подменяет указатель s3://… presigned-ссылкой.
-			'video' => $this->stepRenderer->renderVideoData(
+			'broadcast' => $this->stepRenderer->renderBroadcastData(
 				$step,
 				apply_filters( 'fs_lms_recording_url', $groupLesson->recordingUrl, $groupLesson )
 			),

@@ -1,0 +1,31 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Трансляция без записи (Этап 1): плашка-заглушка вместо видео-хрома —
+   иконка, текст, кнопка-ссылка на stream_url (интеграция с плагином
+   трансляций — отдельный, более поздний этап). С записью — используется
+   тот же хром, что у видео (components/_step-video.scss, video-chrome.php).
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.broadcast-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: rem(14);
+  padding: rem(48) rem(24);
+  border-radius: rem(14);
+  background: var(--video-canvas);
+  text-align: center;
+
+  .bp-ico {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: rem(56);
+    height: rem(56);
+    border-radius: 50%;
+    background: var(--tcs);
+    color: var(--tc);
+  }
+
+  .step-muted { margin: 0; }
+}

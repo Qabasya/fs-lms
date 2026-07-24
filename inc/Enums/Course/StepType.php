@@ -21,6 +21,9 @@ enum StepType: string {
 	/** Видео (url/embed; позже — запись из S3). */
 	case Video = 'video';
 
+	/** Трансляция занятия (инлайн): запись (если есть) или заглушка со ссылкой. */
+	case Broadcast = 'broadcast';
+
 	/** Одна задача (ссылка): самопроверка, без записи сдачи. */
 	case Task = 'task';
 
@@ -46,6 +49,7 @@ enum StepType: string {
 		return match ( $this ) {
 			self::Text       => 'Текст',
 			self::Video      => 'Видео',
+			self::Broadcast  => 'Трансляция',
 			self::Task       => 'Задача',
 			self::Work       => 'Работа',
 			self::Assessment => 'Экзамен',
@@ -58,8 +62,8 @@ enum StepType: string {
 	 */
 	public function isInline(): bool {
 		return match ( $this ) {
-			self::Text, self::Video => true,
-			default                                 => false,
+			self::Text, self::Video, self::Broadcast => true,
+			default                                  => false,
 		};
 	}
 

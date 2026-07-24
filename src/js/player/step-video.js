@@ -2,10 +2,13 @@
  * Видео-шаг (D21, T14.12): кастомный хром нативного <video> для прямых URL —
  * play/pause, ±10 сек, ползунок, время, fullscreen; главы-чипы = перемотка
  * (только нативный режим). По окончании ролика шаг отмечается пройденным.
+ * Тот же хром переиспользует шаг-трансляция (broadcast, Этап 1), когда у
+ * занятия уже есть запись — see partials/video-chrome.php.
  */
 import { getCore, onPanelShow } from './core.js';
 
 const mounted = new WeakSet();
+const CHROME_TYPES = [ 'video', 'broadcast' ];
 
 export function initStepVideo() {
 	onPanelShow( setup );
@@ -14,9 +17,9 @@ export function initStepVideo() {
 }
 
 function setup( panel ) {
-	if ( 'video' !== panel.dataset.stepType || mounted.has( panel ) ) { return; }
+	if ( ! CHROME_TYPES.includes( panel.dataset.stepType ) || mounted.has( panel ) ) { return; }
 	const root = panel.querySelector( '[data-video-root]' );
-	if ( ! root ) { return; } // oembed-режим — хром не нужен
+	if ( ! root ) { return; } // oembed-режим/заглушка без записи — хром не нужен
 	mounted.add( panel );
 	mountChrome( panel, root );
 }

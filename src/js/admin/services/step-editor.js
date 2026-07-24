@@ -31,6 +31,7 @@ const $ = jQuery;
 export const TYPE_UI = {
 	text:       { ui: 'lecture',  name: 'Текст',       inline: true },
 	video:      { ui: 'video',    name: 'Видео',       inline: true },
+	broadcast:  { ui: 'broadcast', name: 'Трансляция',  inline: true },
 	task:       { ui: 'task',       name: 'Задача',      inline: false, candKind: 'task' },
 	work:       { ui: 'practice',  name: 'Работа',      inline: false, candKind: 'work' },
 	assessment: { ui: 'assessment', name: 'Экзамен', inline: false, candKind: 'assessment' },
@@ -40,6 +41,7 @@ export const TYPE_UI = {
 const ADD_TYPES = [
 	{ type: 'text',       desc: 'Текст, формулы, картинки' },
 	{ type: 'video',      desc: 'YouTube, Vimeo, файл' },
+	{ type: 'broadcast',  desc: 'Ссылка на трансляцию, после занятия — запись' },
 	{ type: 'task',       desc: 'Задача из предмета или банка — любого типа' },
 	{ type: 'work',       desc: 'Работа из библиотеки' },
 	{ type: 'assessment', desc: 'Экзамен из библиотеки' },
@@ -491,55 +493,22 @@ export function createStepEditor( opts ) {
 			}
 		} else if ( 'video' === step.type ) {
 			ed.innerHTML = `
-				<div class="field-row field-row--checkbox">
-					<label><input type="checkbox" data-recording-slot> Это запись занятия — видео подставится автоматически из привязанной записи модуля «Видеозаписи занятий»</label>
+				<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://…mp4 (нативный плеер) или YouTube/VK/Rutube (встраивание)"></div>
+				<div class="field-row"><label>Описание под видео</label><textarea class="field-input" data-desc placeholder="Краткое описание…"></textarea></div>
+				<div class="field-row"><label>Таймкоды с главами</label>
+					<div class="fs-cb-chapters" data-chapters></div>
+					<button type="button" class="button" data-chapter-add>+ Глава</button>
 				</div>
-				<p class="field-hint" data-slot-hint hidden>
-					Пока запись не появится, ученик увидит заглушку «Запись занятия ещё не доступна» — после привязки здесь будет само видео.
-					Ссылка, описание, главы и вложения не нужны: это черновая запись, а не подготовленный материал, и разбить её на главы заранее нельзя.
-				</p>
-				<div data-slot-fields>
-					<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://…mp4 (нативный плеер) или YouTube/VK/Rutube (встраивание)"></div>
-					<div class="field-row"><label>Описание под видео</label><textarea class="field-input" data-desc placeholder="Краткое описание…"></textarea></div>
-					<div class="field-row"><label>Таймкоды с главами</label>
-						<div class="fs-cb-chapters" data-chapters></div>
-						<button type="button" class="button" data-chapter-add>+ Глава</button>
-					</div>
-					<div class="field-row"><label>Вложения-конспекты (скачивание под плеером)</label>
-						<div class="fs-cb-attachments" data-attach-list></div>
-						<button type="button" class="button" data-attach-add>+ Файл из медиабиблиотеки</button>
-					</div>
+				<div class="field-row"><label>Вложения-конспекты (скачивание под плеером)</label>
+					<div class="fs-cb-attachments" data-attach-list></div>
+					<button type="button" class="button" data-attach-add>+ Файл из медиабиблиотеки</button>
 				</div>`;
-			const url        = ed.querySelector( '[data-url]' );
-			const desc       = ed.querySelector( '[data-desc]' );
-			const slot       = ed.querySelector( '[data-recording-slot]' );
-			const slotHint   = ed.querySelector( '[data-slot-hint]' );
-			const slotFields = ed.querySelector( '[data-slot-fields]' );
+			const url  = ed.querySelector( '[data-url]' );
+			const desc = ed.querySelector( '[data-desc]' );
 			url.value  = step.payload.url || '';
 			desc.value = step.payload.description || '';
-			slot.checked = !! step.payload.recording_slot;
-			slotHint.hidden   = ! slot.checked;
-			slotFields.hidden = slot.checked;
 			url.addEventListener( 'input', () => { step.payload.url = url.value; clearReviewFlag( step ); scheduleSave(); } );
 			desc.addEventListener( 'input', () => { step.payload.description = desc.value; clearReviewFlag( step ); scheduleSave(); } );
-			slot.addEventListener( 'change', () => {
-				step.payload.recording_slot = slot.checked;
-				slotHint.hidden   = ! slot.checked;
-				slotFields.hidden = slot.checked;
-				// Ссылка/описание/главы/вложения смысла не имеют для записи занятия — очищаем.
-				if ( slot.checked ) {
-					step.payload.url         = '';
-					step.payload.description = '';
-					step.payload.chapters    = [];
-					step.payload.attachments = [];
-					url.value  = '';
-					desc.value = '';
-					renderChapterRows( ed.querySelector( '[data-chapters]' ), step );
-					renderAttachmentRows( ed.querySelector( '[data-attach-list]' ), step );
-				}
-				clearReviewFlag( step );
-				scheduleSave();
-			} );
 
 			renderChapterRows( ed.querySelector( '[data-chapters]' ), step );
 			renderAttachmentRows( ed.querySelector( '[data-attach-list]' ), step );
@@ -562,6 +531,17 @@ export function createStepEditor( opts ) {
 					scheduleSave();
 				} );
 				frame.open();
+			} );
+		} else if ( 'broadcast' === step.type ) {
+			ed.innerHTML = `
+				<div class="field-row"><label>Ссылка на трансляцию</label><input class="field-input" data-stream-url placeholder="https://…"></div>
+				<p class="field-hint">После занятия сюда автоматически привяжется запись.</p>`;
+			const streamUrl = ed.querySelector( '[data-stream-url]' );
+			streamUrl.value = step.payload.stream_url || '';
+			streamUrl.addEventListener( 'input', () => {
+				step.payload.stream_url = streamUrl.value;
+				clearReviewFlag( step );
+				scheduleSave();
 			} );
 		}
 	}
@@ -875,6 +855,7 @@ export function createStepEditor( opts ) {
 		const p = step.payload || {};
 		if ( 'text' === step.type ) { return !! String( p.content || '' ).trim(); }
 		if ( 'video' === step.type ) { return !! String( p.url || '' ).trim(); }
+		if ( 'broadcast' === step.type ) { return !! String( p.stream_url || '' ).trim(); }
 		return parseInt( p.ref || 0, 10 ) > 0; // task / work / assessment — прикреплена сущность
 	}
 
