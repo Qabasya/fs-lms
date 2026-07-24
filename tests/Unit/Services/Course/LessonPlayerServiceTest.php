@@ -504,4 +504,42 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertArrayNotHasKey( 'correct_answer', $render );
 	}
 
+	// ── Teacher-режим (Этап 2, ★): без ученика — гейт открыт, прогресс не читается ──
+
+	public function test_build_teacher_view_returns_null_when_lesson_missing(): void {
+		$this->lessons->method( 'get' )->willReturn( null );
+
+		self::assertNull( $this->service->buildTeacherView( $this->makeGroupLesson() ) );
+	}
+
+	public function test_build_teacher_view_opens_gate_and_skips_progress_reads(): void {
+		$step   = $this->makeVideoStep( 's1', array( 'url' => 'https://example.com/video' ) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+
+		// Teacher-режим не читает и не пишет прогресс/гейт ученика.
+		$this->gate->expects( $this->never() )->method( 'resolveStep' );
+		$this->progress->expects( $this->never() )->method( 'getStepStatuses' );
+		$this->progress->expects( $this->never() )->method( 'markViewed' );
+		$this->progress->expects( $this->never() )->method( 'markCompleted' );
+
+		$view = $this->service->buildTeacherView( $this->makeGroupLesson( lessonId: 10 ) );
+
+		self::assertNotNull( $view );
+		self::assertSame( 10, $view['lesson_id'] );
+		self::assertSame( 'available', $view['steps'][0]['gate'] );
+		self::assertSame( 'available', $view['steps'][0]['status'] );
+	}
+
+	public function test_build_teacher_view_task_step_has_no_attempts_for_person_zero(): void {
+		// arrangeTaskStep стабит taskAttempts->listByStep(...) пустым списком для
+		// любого вызова — для studentPersonId=0 реальных попыток и не существует.
+		$groupLesson = $this->arrangeTaskStep( array() );
+		$this->correctAnswers->expects( $this->never() )->method( 'resolve' );
+
+		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
+
+		self::assertSame( 0, $render['attempts_used'] );
+		self::assertArrayNotHasKey( 'correct_answer', $render );
+	}
 }

@@ -7,6 +7,7 @@ namespace Inc\Services\Course;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\DTO\Course\SubmissionDTO;
+use Inc\Enums\Course\GateState;
 use Inc\Enums\Course\ProgressStatus;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Managers\Course\LessonManager;
@@ -63,6 +64,41 @@ class LessonPlayerService {
 				'gate'   => $gate->value,
 				'status' => $status->value,
 				'render' => $this->renderData( $step, $groupLesson, $studentPersonId ),
+			);
+		}
+
+		return array(
+			'group_lesson_id' => $groupLesson->id,
+			'lesson_id'       => $lesson->id,
+			'topic'           => $lesson->topic,
+			'steps'           => $steps,
+		);
+	}
+
+	/**
+	 * View урока для преподавателя (Этап 2, teacher-режим плеера): без ученика —
+	 * прогресс не читается (гейты открыты, статусы Available). Попытки/сдачи
+	 * фактически пусты — рендер-хелперы читают их по `studentPersonId = 0`,
+	 * для которого строк в `task_attempts`/`submissions` не существует, поэтому
+	 * ничего лишнего не подгружается и НИЧЕГО не пишется (эти хелперы — read-only).
+	 *
+	 * @return array{group_lesson_id:int, lesson_id:int, topic:string, steps:array<int, array<string,mixed>>}|null
+	 */
+	public function buildTeacherView( GroupLessonDTO $groupLesson ): ?array {
+		$lesson = $groupLesson->lessonId ? $this->lessons->get( $groupLesson->lessonId ) : null;
+		if ( null === $lesson ) {
+			return null;
+		}
+
+		$steps = array();
+		foreach ( $lesson->steps as $step ) {
+			$steps[] = array(
+				'key'    => $step->key,
+				'type'   => $step->type->value,
+				'title'  => $this->stepRenderer->resolveTitle( $step ),
+				'gate'   => GateState::Available->value,
+				'status' => ProgressStatus::Available->value,
+				'render' => $this->renderData( $step, $groupLesson, 0 ),
 			);
 		}
 

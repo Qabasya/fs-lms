@@ -190,4 +190,62 @@ class CourseNavServiceTest extends TestCase {
 	private function lessonIdOf( array $node ): int {
 		return 4 === $node['group_lesson_id'] ? 400 : 0;
 	}
+
+	/* ── Teacher-режим (Этап 2, ★): studentPersonId=0 — без ученика/прогресса ── */
+
+	/** Как arrangeProgram(), но БЕЗ стаба gate/progress — тест сам проверяет, что их не зовут. */
+	private function arrangeProgramWithoutGateOrProgressStub(): void {
+		$this->groups->method( 'findById' )->with( 1 )
+			->willReturn( (object) array( 'id' => 1, 'name' => 'Г1', 'course_id' => 77 ) );
+
+		$this->courses->method( 'get' )->with( 77 )->willReturn( new CourseDTO(
+			id: 77, subjectKey: 'inf', title: 'Python с нуля', descriptionHtml: '',
+			modules: array(
+				new ModuleDTO( 'm1', 'Начала', array( 100, 200 ) ),
+				new ModuleDTO( 'm2', 'Циклы', array( 300 ) ),
+			),
+			authorId: 1, status: 'publish',
+		) );
+
+		$this->groupLessons->method( 'listByGroup' )->with( 1 )->willReturn( array(
+			$this->row( 1, 100 ),
+			$this->row( 2, 200 ),
+			$this->row( 3, 300 ),
+		) );
+
+		$this->lessons->method( 'get' )->willReturnCallback(
+			static fn( int $id ): LessonDTO => new LessonDTO(
+				id: $id, subjectKey: 'inf', topic: "Тема {$id}", steps: array(), authorId: 1, status: 'publish'
+			)
+		);
+	}
+
+	public function test_shell_teacher_mode_skips_progress_and_opens_next_lesson(): void {
+		$this->arrangeProgramWithoutGateOrProgressStub();
+		$this->records->expects( $this->never() )->method( 'findByStudent' );
+		$this->progress->expects( $this->never() )->method( 'isLessonCompleted' );
+		$this->gate->expects( $this->never() )->method( 'resolveLesson' );
+
+		$shell = $this->service->shell( 0, $this->row( 2, 200 ) );
+
+		self::assertNull( $shell['course_progress'] );
+		self::assertSame( '', $shell['student_name'] );
+		// Teacher-режим: гейт всегда открыт — следующий урок доступен.
+		self::assertSame( 3, $shell['next_lesson']['group_lesson_id'] );
+		self::assertTrue( $shell['next_lesson']['available'] );
+	}
+
+	public function test_tree_teacher_mode_marks_non_current_lessons_available(): void {
+		$this->arrangeProgramWithoutGateOrProgressStub();
+		$this->progress->expects( $this->never() )->method( 'isLessonCompleted' );
+		$this->gate->expects( $this->never() )->method( 'resolveLesson' );
+
+		$tree    = $this->service->tree( 0, $this->row( 2, 200 ) );
+		$modules = $tree['modules'];
+
+		// Текущий урок — current; остальные — available (не locked, не done: без ученика прогресса нет).
+		self::assertSame( 'available', $modules[0]['lessons'][0]['state'] );
+		self::assertSame( 'current', $modules[0]['lessons'][1]['state'] );
+		self::assertSame( 'available', $modules[1]['state'] );
+	}
 }

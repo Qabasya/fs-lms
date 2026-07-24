@@ -190,7 +190,7 @@ function schedRow(l) {
         soon: '<span class="prof-state-pill prof-state-soon">Скоро</span>',
         done: '<span class="prof-state-pill prof-state-done">Завершён</span>',
     };
-    return `<div class="prof-lesson-row ${l.state === 'now' ? 'is-now' : ''}" data-grp="${l.group_id}">
+    const inner = `
         <div class="prof-lesson-time">
             <div class="lt-start">${esc(l.start)}</div>
             <div class="lt-end">${esc(l.end || '')}</div>
@@ -201,8 +201,13 @@ function schedRow(l) {
             <div class="prof-lesson-topic">${esc(l.topic || '—')}</div>
             <div class="prof-lesson-meta"><span class="lm">${esc(l.subject)}</span>${l.room ? `<span class="lm">${icoMapPin(13)}${esc(l.room)}</span>` : ''}</div>
         </div>
-        <div class="prof-lesson-state">${stateMap[l.state] || ''}</div>
-    </div>`;
+        <div class="prof-lesson-state">${stateMap[l.state] || ''}</div>`;
+    // Этап 2 (★): занятие с контентом ведёт в плеер курса (teacher-режим), как и у
+    // ученика (learner.js); без контента — прежнее поведение (клик открывает журнал).
+    if (l.player_url) {
+        return `<a class="prof-lesson-row prof-lesson-go ${l.state === 'now' ? 'is-now' : ''}" href="${esc(l.player_url)}">${inner}</a>`;
+    }
+    return `<div class="prof-lesson-row ${l.state === 'now' ? 'is-now' : ''}" data-grp="${l.group_id}">${inner}</div>`;
 }
 
 function fillRow(w) {

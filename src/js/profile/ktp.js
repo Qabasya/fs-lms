@@ -5,7 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, emptyState, openCtxMenuRaw, closeCtxMenu } from './utils.js';
-import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoGrip, icoPinFilled, icoCaret, icoContinue, icoCalendarBoard, icoAlert, icoCamera } from '../common/icons.js';
+import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoGrip, icoPinFilled, icoCaret, icoContinue, icoCalendarBoard, icoAlert, icoCamera, icoCalendar } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
@@ -281,8 +281,13 @@ function renderCalendar() {
 
     const grid = document.getElementById('ktpGrid');
     grid.innerHTML = cells;
+    // Этап 2 (★): клик по карточке занятия — переход в плеер курса (teacher-режим).
+    // Навигация к контенту, не правка структуры/расписания — доступна даже при lock КТП.
+    grid.querySelectorAll('.placed-theme').forEach(attachPlacedThemeClick);
     // T12.3: дедлайны — delivery, не структура/расписание — доступны даже при lock КТП (T1.8).
-    grid.querySelectorAll('.placed-theme').forEach(attachDeadlinesClick);
+    grid.querySelectorAll('.pt-deadlines').forEach(attachDeadlinesClick);
+    // Индикатор записи занятия — тоже ведёт в плеер (Этап 2, ★); тоже delivery, доступен даже при lock КТП.
+    grid.querySelectorAll('.pt-recording').forEach(attachRecordingClick);
     if (!isLocked()) {
         grid.querySelectorAll('.kal-cell[data-lesson="1"]').forEach(attachDrop);
         grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
@@ -330,8 +335,11 @@ function placedThemeHtml(t) {
     const canContinue = 1 === t.part;
     // #16: карточка урока = тема (жирная) / кабинет / преподаватель, друг под другом.
     // Номер убран; метка продолжения (part/total) прикреплена к теме.
+    // Этап 2 (★): клик по карточке ведёт в плеер курса (teacher-режим) — карточка
+    // кликабельна, только если у занятия есть контент (player_url из getCalendar).
     return `<div class="placed-theme${pinned}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
         <span class="pt-pin">${icoPinFilled(11)}</span>
+        <button type="button" class="pt-deadlines" data-glid="${t.group_lesson_id}" title="Дедлайны работ" aria-label="Дедлайны работ">${icoCalendar(12)}</button>
         <span class="pt-title">${esc(t.topic || 'Без названия')}${partLabel(t)}</span>
         ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}
         ${t.teacher ? `<span class="pt-meta">${esc(t.teacher)}</span>` : ''}
@@ -662,7 +670,19 @@ async function doUnpublish() {
    datetime-local на каждую (по умолчанию пусто = дедлайна нет). Доступно
    даже при lock КТП — дедлайны это delivery, не структура/расписание. */
 function attachDeadlinesClick(el) {
-    el.addEventListener('click', () => openDeadlinesPopover(el.dataset.glid, el));
+    el.addEventListener('click', e => {
+        e.stopPropagation(); // не запускать переход в плеер по клику на родительскую карточку
+        openDeadlinesPopover(el.dataset.glid, el);
+    });
+}
+
+/** Клик по карточке занятия — переход в плеер курса (Этап 2, ★): та же ссылка,
+    что у ученика (LearnerService::playerUrl). Занятие без контента — некликабельно. */
+function attachPlacedThemeClick(el) {
+    el.addEventListener('click', () => {
+        const t = (state.data.themes || []).find(x => String(x.group_lesson_id) === el.dataset.glid);
+        if (t && t.player_url) { window.location.href = t.player_url; }
+    });
 }
 
 async function openDeadlinesPopover(glid, anchorEl) {
@@ -698,6 +718,18 @@ async function openDeadlinesPopover(glid, anchorEl) {
             toast('Дедлайны сохранены');
             closeCtxMenu();
         } catch (e) { toast(e.message, 'error'); saveBtn.disabled = false; }
+    });
+}
+
+/* ── Индикатор записи занятия (модуль VideoLibrary) ───────────────────────
+   Клик по камере — переход в плеер курса (Этап 2, ★), как и клик по карточке;
+   иконка лишь подсказывает, есть ли запись. Ядро ничего не знает о
+   VideoLibrary — просто хранит и отдаёт строку-указатель (recordingIconHtml). */
+function attachRecordingClick(el) {
+    el.addEventListener('click', e => {
+        e.stopPropagation(); // не дублировать переход клика по родительской карточке
+        const t = (state.data.themes || []).find(x => String(x.group_lesson_id) === el.dataset.glid);
+        if (t && t.player_url) { window.location.href = t.player_url; }
     });
 }
 

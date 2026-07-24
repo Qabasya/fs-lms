@@ -8,6 +8,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Log\LogEvent;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Services\Course\EffectiveTeacherResolver;
@@ -418,6 +419,9 @@ class ScheduleService {
 			if ( $teacherId && ! isset( $teacherNames[ $teacherId ] ) ) {
 				$teacherNames[ $teacherId ] = get_userdata( $teacherId )->display_name ?? '';
 			}
+			// Вход в плеер курса (Этап 2, ★): урок с контентом (lesson_id) получает
+			// ссылку в плеер teacher-режима — как player_url у ученика (LearnerService).
+			$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
 			$themes[]  = array(
 				'group_lesson_id' => $row->id,
 				'lesson_id'       => $row->lessonId,
@@ -433,6 +437,7 @@ class ScheduleService {
 				// Индикатор записи занятия в КТП (модуль VideoLibrary или ручная ссылка).
 				'recording_url'   => $row->recordingUrl,
 				'status'          => $row->status,
+				'player_url'      => $hasContent ? $this->playerUrl( $groupId, $row->id ) : '',
 			);
 		}
 
@@ -455,6 +460,20 @@ class ScheduleService {
 			// T1.8: заблокирована ли КТП (опубликована) — фронт скрывает правки.
 			'locked'      => $group ? ! empty( $group->program_locked_at ) : false,
 			'locked_at'   => $group && ! empty( $group->program_locked_at ) ? (string) $group->program_locked_at : null,
+		);
+	}
+
+	/**
+	 * Deep-link в teacher-режим плеера курса (Этап 2, ★): маршрут кокпита группы +
+	 * ?gl=. Тот же формат, что `LearnerService::playerUrl()` у ученика.
+	 */
+	private function playerUrl( int $groupId, int $groupLessonId ): string {
+		return add_query_arg(
+			array(
+				'gid' => $groupId,
+				'gl'  => $groupLessonId,
+			),
+			PageRoutes::GroupCockpit->url()
 		);
 	}
 

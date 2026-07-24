@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Profile;
 
 use Inc\Contracts\ClockInterface;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -216,6 +217,10 @@ class DashboardService {
 	 * @return array<string, mixed>
 	 */
 	private function lessonItem( \Inc\DTO\Course\GroupLessonDTO $row, int $gid, object $g, bool $isCovering, array $roomNames, array $studentNames = array() ): array {
+		// Вход в плеер курса (Этап 2, ★): урок с контентом получает ссылку в
+		// teacher-режим плеера — тот же формат, что у ученика (LearnerService::playerUrl).
+		$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
+
 		return array(
 			'group_lesson_id' => $row->id,
 			'group_id'        => $gid,
@@ -231,6 +236,18 @@ class DashboardService {
 			// НБ-9: ФИО ученика для индивидуального занятия (для группового — пусто).
 			'student_name'    => ( 'individual' === $row->kind && null !== $row->studentPersonId )
 				? ( $studentNames[ $row->studentPersonId ] ?? '' ) : '',
+			'player_url'      => $hasContent ? $this->playerUrl( $gid, $row->id ) : '',
+		);
+	}
+
+	/** Deep-link в teacher-режим плеера курса (Этап 2, ★): маршрут кокпита группы + ?gl=. */
+	private function playerUrl( int $groupId, int $groupLessonId ): string {
+		return add_query_arg(
+			array(
+				'gid' => $groupId,
+				'gl'  => $groupLessonId,
+			),
+			PageRoutes::GroupCockpit->url()
 		);
 	}
 

@@ -151,6 +151,17 @@
 }
 .placed-theme .pt-recording:hover { background: var(--accent-soft); }
 
+/* Этап 2 (★): дедлайны работ (T12.3, D13) переехали с клика по всей карточке
+   (теперь ведёт в плеер курса) на отдельную иконку — видно при наведении. */
+.placed-theme .pt-deadlines {
+  position: absolute; top: rem(3); left: rem(4); width: rem(15); height: rem(15);
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; padding: 0; color: var(--muted-2);
+  cursor: pointer; opacity: 0; transition: opacity $tr, color $tr, background $tr; border-radius: rem(3);
+}
+.placed-theme:hover .pt-deadlines { opacity: 1; }
+.placed-theme .pt-deadlines:hover { color: var(--accent-700); background: var(--accent-soft); }
+
 /* T11.1: курс-пикер в пустом состоянии КТП */
 .ke-assign { display: flex; align-items: center; gap: rem(8); margin-top: rem(14); flex-wrap: wrap; justify-content: center; }
 .ke-course-sel { min-width: rem(220); height: rem(38); padding: 0 rem(10); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: rem(13.5); cursor: pointer; }
