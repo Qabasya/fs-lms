@@ -21,10 +21,8 @@ use Inc\Shared\Traits\Sanitizer;
  * Class LessonAuthoringService
  *
  * Бизнес-логика авторинга урока: кандидаты-работы для селектора, статьи, валидация,
- * санитайз/сборка шагов. Единая точка входа для методиста (`LessonCallbacks`) и
- * преподавателя (`TeacherLessonCallbacks`, Этап 3) — оба санитайзят сырой ввод билдера
- * одинаково, отличается только слой авторизации над вызовом.
- * Урок ссылается на работы, не на задачи. Доступ к данным — через PostManager.
+ * санитайз/сборка шагов. Единая точка входа для авторинга урока методистом
+ * (`LessonCallbacks`). Урок ссылается на работы, не на задачи. Доступ к данным — через PostManager.
  *
  * @package Inc\Services\Course
  */
@@ -307,8 +305,7 @@ class LessonAuthoringService {
 
 	/**
 	 * Санитайз одного сырого шага по типу (поля очищаются trait-методами Sanitizer).
-	 * Общий для методиста (`LessonCallbacks::ajaxSaveLessonSteps`) и преподавателя
-	 * (`TeacherLessonCallbacks::ajaxSaveGroupLessonSteps`, Этап 3).
+	 * Вызывается из `LessonCallbacks::ajaxSaveLessonSteps`.
 	 *
 	 * @param mixed $raw
 	 *

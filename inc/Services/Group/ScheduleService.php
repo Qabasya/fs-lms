@@ -11,7 +11,6 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
-use Inc\Services\Course\ContentCloneService;
 use Inc\Services\Course\EffectiveTeacherResolver;
 use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -32,7 +31,6 @@ class ScheduleService {
 		private readonly RoomAvailabilityService     $roomAvailability,
 		private readonly CourseManager               $courses,
 		private readonly EffectiveTeacherResolver    $effectiveTeacher,
-		private readonly ContentCloneService         $cloneService,
 	) {}
 
 	/**
@@ -413,16 +411,6 @@ class ScheduleService {
 
 		$entries = $this->numberThemes( $this->getProgram( $groupId ) );
 
-		// Бейдж «изменён для группы» (Этап 5): какие уроки программы — COW-форки этой
-		// группы. Батч-прогрев кэша меты — внутри forkedLessonIds(), без N+1 (Р2.2).
-		$lessonIds = array();
-		foreach ( $entries as $entry ) {
-			if ( ! empty( $entry['row']->lessonId ) ) {
-				$lessonIds[] = (int) $entry['row']->lessonId;
-			}
-		}
-		$forkedLessons = array_flip( $this->cloneService->forkedLessonIds( $groupId, $lessonIds ) );
-
 		$themes        = array();
 		$teacherNames  = array(); // кэш id→display_name.
 		foreach ( $entries as $entry ) {
@@ -452,9 +440,6 @@ class ScheduleService {
 				'recording_url'   => $row->recordingUrl,
 				'status'          => $row->status,
 				'player_url'      => $hasContent ? PageRoutes::GroupCockpit->lessonUrl( $groupId, $row->id ) : '',
-				// Урок занятия — COW-форк этой группы (Этап 5): бейдж «изменён» в КТП.
-				// Критерий — единый ContentCloneService::isForkedForGroup (через батч выше).
-				'is_forked'       => $hasContent && isset( $forkedLessons[ (int) $row->lessonId ] ),
 			);
 		}
 

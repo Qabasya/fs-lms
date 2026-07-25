@@ -102,11 +102,6 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		// Плеер — полноэкранный app-shell со своим <html> (Эпик 14, D18):
 		// без темы сайта; Enqueue по этому флагу грузит только бандл плеера.
 		add_filter( 'fs_lms_is_player_route', '__return_true' );
-		// Тич-редактор шагов (Этап 4): авторизационное решение уже принято выше —
-		// Enqueue просто читает готовый флаг, не пересчитывает canManage повторно.
-		if ( $isTeacher ) {
-			add_filter( 'fs_lms_player_is_teacher', '__return_true' );
-		}
 		include $this->path( 'templates/frontend/lesson-player/player.php' );
 		exit;
 	}

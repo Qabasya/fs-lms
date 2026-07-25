@@ -75,16 +75,10 @@ function nonceFor( action ) {
 /**
  * @param {string}      action
  * @param {Object}      data
- * @param {Object}     [cfg]          Переопределение транспорта (тич-редактор плеера, Этап 4);
- *                                    без него — поведение как раньше (fs_lms_vars + nonceFor()).
- * @param {string}     [cfg.nonce]    Свой nonce вместо nonceFor( action ).
- * @param {string}     [cfg.ajaxurl]  Свой ajaxurl вместо fs_lms_vars.ajaxurl.
  */
-export function ajax( action, data, cfg ) {
-	const ajaxurl  = ( cfg && cfg.ajaxurl ) || fs_lms_vars.ajaxurl;
-	const security = ( cfg && cfg.nonce ) || nonceFor( action );
+export function ajax( action, data ) {
 	return new Promise( ( resolve, reject ) => {
-		$.post( ajaxurl, Object.assign( { action, security }, data ) )
+		$.post( fs_lms_vars.ajaxurl, Object.assign( { action, security: nonceFor( action ) }, data ) )
 			.done( ( resp ) => ( resp && resp.success ) ? resolve( resp.data ) : reject( ( resp && resp.data ) || 'Ошибка' ) )
 			.fail( () => reject( 'Ошибка сети' ) );
 	} );
@@ -152,9 +146,9 @@ function buildRefTaskBody( task ) {
 	return html || '<div class="fs-cb-tp-section"><div class="fs-cb-tp-loading">Нет содержимого</div></div>';
 }
 
-function loadRefPreview( container, refId, type, action, cfg ) {
+function loadRefPreview( container, refId, type ) {
 	container.innerHTML = '<div class="fs-cb-tp-loading">Загрузка задач…</div>';
-	ajax( action || acts().getRefPreview, { ref_id: refId, ref_type: type }, cfg )
+	ajax( acts().getRefPreview, { ref_id: refId, ref_type: type } )
 		.then( ( data ) => {
 			if ( ! data.tasks || ! data.tasks.length ) {
 				container.innerHTML = '<div class="fs-cb-tp-loading">Задачи не добавлены</div>';
@@ -186,11 +180,11 @@ function loadRefPreview( container, refId, type, action, cfg ) {
 		} );
 }
 
-function loadTaskPreview( container, taskId, action, cfg ) {
+function loadTaskPreview( container, taskId ) {
 	const box = container.querySelector( '[data-task-preview]' );
 	if ( ! box ) { return; }
 	box.innerHTML = '<div class="fs-cb-tp-loading">…</div>';
-	ajax( action || acts().getTaskPreview, { task_id: taskId }, cfg )
+	ajax( acts().getTaskPreview, { task_id: taskId } )
 		.then( ( data ) => renderTaskPreview( box, data ) )
 		.catch( () => { box.innerHTML = ''; } );
 }
@@ -251,22 +245,6 @@ function renderTaskPreview( box, data ) {
  * @param {string[]}   [opts.allowedTypes] фильтр пунктов меню «Добавить шаг» (напр. ['task'] — только задачи)
  * @param {number}     [opts.initialStepRef] deep-link на ссылочный шаг (task/work/assessment) по ref (post id)
  * @param {string}     [opts.initialStepKey] deep-link на text/video-шаг по стабильному step.key (#15-E)
- * @param {string}     [opts.adminBase]    база wp-admin для ссылок post.php/post-new.php
- *                                         (тич-редактор плеера: admin_url(); иначе из fs_lms_vars.ajaxurl)
- * @param {Object}     [opts.transport]    транспорт AJAX (тич-редактор плеера, Р2.5). Без него —
- *                                         админ-поведение: fs_lms_vars + дефолтный saveLessonSteps.
- * @param {Object}     [opts.transport.actions] карта имён экшенов (getStepCandidates/getTaskPreview/getRefPreview)
- * @param {string}     [opts.transport.nonce]   nonce для запросов транспорта
- * @param {string}     [opts.transport.ajaxurl] ajaxurl вместо fs_lms_vars.ajaxurl
- * @param {Object}     [opts.transport.params]  доп. параметры запроса кандидатов (напр. { group_lesson_id })
- * @param {Function}   [opts.transport.persist] (steps) => Promise — своё сохранение вместо saveLessonSteps
- * @param {boolean}    [opts.readOnlyBank] true — скрыть кнопки «Добавить новую» в пикере (только выбор из банка)
- * @param {boolean}    [opts.canAuthor]    true — автор банка (AuthorLmsBank): создание/правка задачи
- *                                          инлайновой модалкой (перекрывает readOnlyBank для задач)
- * @param {Function}   [opts.openTaskEditor] (o) => void — открыть task-модалку { subjectKey, postId?, onSave(id,title) };
- *                                          нужна при canAuthor (teacher-editor передаёт TaskEditor.openModal)
- * @param {Function}   [opts.confirmFn]    (cfg) => Promise — своё окно подтверждения удаления шага;
- *                                         иначе дефолтный ConfirmModal.confirm (admin-only компонент)
  * @returns {{ destroy: Function }}
  */
 export function createStepEditor( opts ) {
@@ -275,31 +253,12 @@ export function createStepEditor( opts ) {
 	const subjectKey = String( opts.subjectKey || '' );
 	const onChange   = typeof opts.onChange === 'function' ? opts.onChange : () => {};
 	const setStatusE = typeof opts.setStatus === 'function' ? opts.setStatus : null;
-	const allowed         = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
-	// Транспорт AJAX (Р2.5): actions/nonce/ajaxurl/params/persist сгруппированы в
-	// opts.transport (тич-редактор плеера, свои эндпоинты/нонс/сейв). Без transport —
-	// админ-поведение: fs_lms_vars + дефолтный saveLessonSteps (course-builder,
-	// lesson-step-editor не передают транспорт). teacherCfg передаётся в ajax() как
-	// переопределение; extraCandidateParams — доп. параметры запроса кандидатов.
-	const transport            = opts.transport || {};
-	const persist              = typeof transport.persist === 'function' ? transport.persist : null;
-	const A                    = transport.actions || acts();
-	const teacherCfg           = transport.actions ? { nonce: transport.nonce, ajaxurl: transport.ajaxurl } : null;
-	const extraCandidateParams = transport.params || {};
-	const confirmFn         = typeof opts.confirmFn === 'function' ? opts.confirmFn : ( cfg ) => ConfirmModal.confirm( cfg );
-	const readOnlyBank      = !! opts.readOnlyBank;
-	// Авторинг банка на фронте (Фаза 1): преподаватель с AuthorLmsBank создаёт/правит
-	// задачи инлайновой модалкой (opts.openTaskEditor из teacher-editor.js → TaskEditor),
-	// а не через wp-admin. canAuthor перекрывает readOnlyBank для задач.
-	const canAuthor         = !! opts.canAuthor && typeof opts.openTaskEditor === 'function';
-	const openTaskEditor    = canAuthor ? opts.openTaskEditor : null;
-	// База wp-admin для ссылок «Редактировать ↗»/«Добавить новую». В админке —
-	// из fs_lms_vars.ajaxurl; на маршруте плеера (тич-редактор) fs_lms_vars нет,
-	// относительный post.php уводит на /group/post.php (404) — поэтому opts.adminBase (Р0.4).
-	const adminBase = opts.adminBase
-		|| ( ( typeof fs_lms_vars !== 'undefined' && fs_lms_vars )
-			? fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' )
-			: '' );
+	const allowed    = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
+	// База wp-admin для ссылок «Редактировать ↗»/«Добавить новую» — из fs_lms_vars.ajaxurl
+	// (редактор шагов живёт только в админке: курс-билдер + метабокс урока).
+	const adminBase  = ( typeof fs_lms_vars !== 'undefined' && fs_lms_vars )
+		? fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' )
+		: '';
 
 	let activeKey = lesson.steps.length ? lesson.steps[ 0 ].key : null;
 	let saveTimer = null;
@@ -687,7 +646,7 @@ export function createStepEditor( opts ) {
 				ed.innerHTML =
 					'<div class="fs-cb-task-pick">' +
 					'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
-					( ( ! readOnlyBank || canAuthor ) ? '<button type="button" class="button button-primary" data-create>Добавить новую</button>' : '' ) +
+					'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
 					'</div>';
 			} else {
 				const attVal  = parseInt( ( step.payload.settings || {} ).max_attempts ?? 0, 10 );
@@ -695,11 +654,7 @@ export function createStepEditor( opts ) {
 				ed.innerHTML =
 					'<div class="fs-cb-ref">' +
 					'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
-					// canAuthor — правка инлайновой модалкой; методист — ссылка в wp-admin;
-					// преподаватель без авторинга (readOnlyBank) правку не видит.
-					( canAuthor
-						? '<button type="button" class="button" data-edit-task>Редактировать</button>'
-						: ( readOnlyBank ? '' : '<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' ) ) +
+					'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
 					'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 					'</div>' +
 					'<div class="fs-cb-task-preview" data-task-preview></div>' +
@@ -738,7 +693,7 @@ export function createStepEditor( opts ) {
 					scheduleSave();
 				} );
 
-				loadTaskPreview( ed, refId, A.getTaskPreview, teacherCfg );
+				loadTaskPreview( ed, refId );
 			}
 
 			const pickBtn = ed.querySelector( '[data-pick]' );
@@ -753,37 +708,9 @@ export function createStepEditor( opts ) {
 				} ) );
 			}
 
-			const editTaskBtn = ed.querySelector( '[data-edit-task]' );
-			if ( editTaskBtn && openTaskEditor ) {
-				editTaskBtn.addEventListener( 'click', () => openTaskEditor( {
-					subjectKey,
-					postId: refId,
-					onSave: ( id, title ) => {
-						step._title = title || step._title;
-						step.title  = step._title;
-						renderStepsRow(); renderStepBody(); saveSteps();
-					},
-				} ) );
-			}
-
 			const createBtn = ed.querySelector( '[data-create]' );
 			if ( createBtn ) {
 				createBtn.addEventListener( 'click', () => {
-					if ( openTaskEditor ) {
-						openTaskEditor( {
-							subjectKey,
-							onSave: ( id, title ) => {
-								step.payload.ref    = parseInt( id, 10 );
-								step.payload.source = 'subject';
-								step._title         = title || ( 'Задача #' + id );
-								step.title          = step._title;
-								delete step.payload.needs_review;
-								renderStepsRow(); renderStepBody(); saveSteps();
-								showToast( 'Задача создана и добавлена в шаг', 'success' );
-							},
-						} );
-						return;
-					}
 					const newWin = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
 					let lastHref    = '';
 					const poll = setInterval( () => {
@@ -795,7 +722,7 @@ export function createStepEditor( opts ) {
 						const postId    = params.get( 'post' );
 						if ( postId && params.get( 'action' ) === 'edit' ) {
 							clearInterval( poll );
-							ajax( A.getTaskPreview, { task_id: postId }, teacherCfg )
+							ajax( acts().getTaskPreview, { task_id: postId } )
 								.then( ( data ) => {
 									step.payload.ref    = parseInt( postId, 10 );
 									step.payload.source = 'bank';
@@ -826,18 +753,17 @@ export function createStepEditor( opts ) {
 			ed.innerHTML =
 				'<div class="fs-cb-task-pick">' +
 				'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
-				( readOnlyBank ? '' : '<button type="button" class="button button-primary" data-create>Добавить новую</button>' ) +
+				'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
 				'</div>';
 		} else {
 			ed.innerHTML =
 				'<div class="fs-cb-ref">' +
 				'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
-				// Преподавателю (readOnlyBank) правка работы/экзамена в wp-admin недоступна — ссылку прячем.
-				( readOnlyBank ? '' : '<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' ) +
+				'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
 				'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 				'</div>' +
 				'<div class="fs-cb-ref-tasks"></div>';
-			loadRefPreview( ed.querySelector( '.fs-cb-ref-tasks' ), refId, isWork ? 'work' : 'assessment', A.getRefPreview, teacherCfg );
+			loadRefPreview( ed.querySelector( '.fs-cb-ref-tasks' ), refId, isWork ? 'work' : 'assessment' );
 		}
 
 		const pickBtn = ed.querySelector( '[data-pick]' );
@@ -916,7 +842,7 @@ export function createStepEditor( opts ) {
 	function delStep( step ) {
 		if ( lesson.steps.length <= 1 ) { showToast( 'Нельзя удалить единственный шаг', 'error' ); return; }
 		if ( ! stepHasContent( step ) ) { removeStep( step ); return; }
-		confirmFn( {
+		ConfirmModal.confirm( {
 			title:       'Удалить шаг?',
 			message:     'В шаге есть содержимое. Удалить его?',
 			confirmText: 'Удалить',
@@ -985,9 +911,8 @@ export function createStepEditor( opts ) {
 		openPicker( e.currentTarget, {
 			placeholder: 'Поиск в библиотеке…',
 			fetchFn:     ( search ) => ajax(
-				A.getStepCandidates,
-				Object.assign( { subject_key: subjectKey, kind, source, search }, extraCandidateParams ),
-				teacherCfg
+				acts().getStepCandidates,
+				{ subject_key: subjectKey, kind, source, search }
 			),
 			onPick,
 		} );
@@ -1000,10 +925,7 @@ export function createStepEditor( opts ) {
 	function saveSteps() {
 		if ( ! lesson.id ) { return; }
 		setStatus( 'Сохранение…' );
-		const p = persist
-			? persist( payloadForSave() )
-			: ajax( acts().saveLessonSteps, { lesson_id: lesson.id, subject_key: subjectKey, steps: payloadForSave() } );
-		Promise.resolve( p )
+		ajax( acts().saveLessonSteps, { lesson_id: lesson.id, subject_key: subjectKey, steps: payloadForSave() } )
 			.then( () => setStatus( 'Все изменения сохранены' ) )
 			.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg || 'Ошибка', 'error' ); } );
 	}

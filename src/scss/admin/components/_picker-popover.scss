@@ -2,7 +2,7 @@
 // Вынесено из _course-builder.scss (Р1.5): тич-редактору плеера нужен ТОЛЬКО
 // этот поповер/пикер, а не всё дерево конструктора (.fs-lms-cb-wrap, ~89 правил).
 // Раньше плеер @use'ил весь course-builder и тянул дерево мёртвым грузом в
-// player.min.css. Теперь и course-builder, и _teacher-editor @use'ят этот партиал.
+// player.min.css.
 @use '../variables' as *;
 @use '../mixins' as *;
 

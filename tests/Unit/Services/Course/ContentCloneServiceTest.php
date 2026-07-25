@@ -288,9 +288,7 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertSame( 0, $result );
 	}
 
-	// ── resetLessonFork (Этап 5) ────────────────────────────────────────────
-
-	/** Мастер (id=1) + форк группы 10 (id=2, ForkedFrom=1) — типовая пара для сброса. */
+	/** Мастер (id=1) + форк группы 10 (id=2, ForkedFrom=1) — типовая пара для гигиены форков. */
 	private function seedMasterAndFork(): void {
 		fs_test_seed_post(
 			array( 'ID' => 1, 'post_type' => 'inf_lessons', 'post_title' => 'Мастер', 'post_status' => 'publish' ),
@@ -306,63 +304,7 @@ class ContentCloneServiceTest extends TestCase {
 		);
 	}
 
-	public function test_reset_lesson_fork_restores_master_and_deletes_fork(): void {
-		$this->seedMasterAndFork();
-		$this->queueGroupLessonRow( id: 5, groupId: 10, lessonId: 2 );
-
-		self::assertTrue( $this->service->resetLessonFork( groupId: 10, groupLessonId: 5 ) );
-
-		// group_lessons.lesson_id перецеплен обратно на мастер.
-		$update = $this->wpdb->updates[0] ?? null;
-		self::assertNotNull( $update );
-		self::assertSame( array( 'lesson_id' => 1 ), $update['data'] );
-		self::assertSame( array( 'id' => 5 ), $update['where'] );
-
-		// Форк-пост удалён, мастер жив.
-		self::assertNull( $this->lessons->get( 2 ) );
-		self::assertNotNull( $this->lessons->get( 1 ) );
-	}
-
-	public function test_reset_lesson_fork_refuses_when_not_forked(): void {
-		// Обычный мастер-урок без мет форка.
-		fs_test_seed_post(
-			array( 'ID' => 1, 'post_type' => 'inf_lessons', 'post_title' => 'Мастер', 'post_status' => 'publish' ),
-			array( PostMetaName::Meta->value => array( 'steps' => array() ) )
-		);
-		$this->queueGroupLessonRow( id: 5, groupId: 10, lessonId: 1 );
-
-		self::assertFalse( $this->service->resetLessonFork( groupId: 10, groupLessonId: 5 ) );
-		self::assertEmpty( $this->wpdb->updates );
-		self::assertNotNull( $this->lessons->get( 1 ) );
-	}
-
-	public function test_reset_lesson_fork_refuses_for_wrong_group(): void {
-		$this->seedMasterAndFork();
-		$this->queueGroupLessonRow( id: 5, groupId: 10, lessonId: 2 );
-
-		self::assertFalse( $this->service->resetLessonFork( groupId: 99, groupLessonId: 5 ) );
-		self::assertEmpty( $this->wpdb->updates );
-		self::assertNotNull( $this->lessons->get( 2 ) );
-	}
-
-	public function test_reset_lesson_fork_refuses_when_master_deleted(): void {
-		// Форк есть, но мастер-пост удалён методистом — сброс оставил бы занятие без урока.
-		fs_test_seed_post(
-			array( 'ID' => 2, 'post_type' => 'inf_lessons', 'post_title' => 'Форк', 'post_status' => 'publish' ),
-			array(
-				PostMetaName::Meta->value           => array( 'steps' => array() ),
-				PostMetaName::ForkedFrom->value     => 1,
-				PostMetaName::ForkedForGroup->value => 10,
-			)
-		);
-		$this->queueGroupLessonRow( id: 5, groupId: 10, lessonId: 2 );
-
-		self::assertFalse( $this->service->resetLessonFork( groupId: 10, groupLessonId: 5 ) );
-		self::assertEmpty( $this->wpdb->updates );
-		self::assertNotNull( $this->lessons->get( 2 ) );
-	}
-
-	// ── deleteForksForGroup (Этап 5) ────────────────────────────────────────
+	// ── deleteForksForGroup ─────────────────────────────────────────────────
 
 	public function test_delete_forks_for_group_deletes_only_this_groups_forks(): void {
 		// Мастер (id=1, не форк), форк группы 10 (id=2), форк ЧУЖОЙ группы 20 (id=3).

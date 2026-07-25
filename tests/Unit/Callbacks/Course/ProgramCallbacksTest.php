@@ -452,4 +452,44 @@ class ProgramCallbacksTest extends TestCase {
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxContinueProgramLesson() )->success );
 	}
+
+	// ── Ручная ссылка на запись занятия (З3) ────────────────────────────────
+
+	public function test_set_recording_url_saves_pointer(): void {
+		$this->schedule->method( 'getProgramRow' )->with( 42 )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->with( 5, $this->anything() )->willReturn( true );
+		$this->groupLessons->expects( $this->once() )
+			->method( 'setRecordingUrl' )
+			->with( 42, 's3://bucket/videos/rec.webm' );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording_url' => 's3://bucket/videos/rec.webm' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 's3://bucket/videos/rec.webm', $r->payload['recording_url'] );
+	}
+
+	public function test_set_recording_url_empty_clears_pointer(): void {
+		$this->schedule->method( 'getProgramRow' )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->groupLessons->expects( $this->once() )->method( 'setRecordingUrl' )->with( 42, null );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording_url' => '' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() );
+
+		self::assertTrue( $r->success );
+		self::assertNull( $r->payload['recording_url'] );
+	}
+
+	public function test_set_recording_url_denied_for_foreign_group(): void {
+		$this->schedule->method( 'getProgramRow' )->willReturn( $this->rowWithDeadlines() );
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->groupLessons->expects( $this->never() )->method( 'setRecordingUrl' );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording_url' => 'https://example.com/rec.mp4' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() )->success );
+	}
 }

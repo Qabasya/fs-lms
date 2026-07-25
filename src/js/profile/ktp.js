@@ -301,17 +301,12 @@ function partLabel(t) {
     return (t.total_parts && t.total_parts > 1) ? ` · ${t.part}/${t.total_parts}` : '';
 }
 
-/** Этап 5: бейдж «изменён» — урок занятия является COW-форком этой группы. */
-function forkedBadgeHtml(t, cls) {
-    return t.is_forked ? `<span class="${cls}" title="Урок изменён для этой группы">изменён</span>` : '';
-}
-
 function themeCardHtml(t) {
     return `<div class="prof-theme-card" draggable="true" data-glid="${t.group_lesson_id}">
         <span class="tc-num">${t.n}${partLabel(t)}</span>
         <div class="tc-body">
             <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
-            <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}${forkedBadgeHtml(t, 'tc-forked')}</div>
+            <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}</div>
         </div>
         <span class="tc-grip">${icoGrip(14)}</span>
     </div>`;
@@ -325,10 +320,10 @@ function recordingIconHtml(t) {
         return '';
     }
     if (t.recording_url) {
-        return `<button type="button" class="pt-recording pt-recording--ok" data-glid="${t.group_lesson_id}" title="Есть запись занятия — открыть в плеере" aria-label="Запись занятия есть">${icoCamera(13, 'var(--ok)')}</button>`;
+        return `<button type="button" class="pt-recording pt-recording--ok" data-glid="${t.group_lesson_id}" data-url="${esc(t.recording_url)}" title="Есть запись занятия — изменить ссылку" aria-label="Запись занятия есть">${icoCamera(13, 'var(--ok)')}</button>`;
     }
     if ('held' === t.status) {
-        return `<button type="button" class="pt-recording pt-recording--err" data-glid="${t.group_lesson_id}" title="Занятие прошло, записи нет — открыть в плеере" aria-label="Записи нет">${icoCamera(13, 'var(--err)')}</button>`;
+        return `<button type="button" class="pt-recording pt-recording--err" data-glid="${t.group_lesson_id}" data-url="" title="Занятие прошло, записи нет — добавить ссылку вручную" aria-label="Записи нет">${icoCamera(13, 'var(--err)')}</button>`;
     }
     return '';
 }
@@ -346,7 +341,6 @@ function placedThemeHtml(t) {
         <span class="pt-pin">${icoPinFilled(11)}</span>
         <button type="button" class="pt-deadlines" data-glid="${t.group_lesson_id}" title="Дедлайны работ" aria-label="Дедлайны работ">${icoCalendar(12)}</button>
         <span class="pt-title">${esc(t.topic || 'Без названия')}${partLabel(t)}</span>
-        ${forkedBadgeHtml(t, 'pt-forked')}
         ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}
         ${t.teacher ? `<span class="pt-meta">${esc(t.teacher)}</span>` : ''}
         ${recordingIconHtml(t)}
@@ -727,16 +721,47 @@ async function openDeadlinesPopover(glid, anchorEl) {
     });
 }
 
-/* ── Индикатор записи занятия (модуль VideoLibrary) ───────────────────────
-   Клик по камере — переход в плеер курса (Этап 2, ★), как и клик по карточке;
-   иконка лишь подсказывает, есть ли запись. Ядро ничего не знает о
-   VideoLibrary — просто хранит и отдаёт строку-указатель (recordingIconHtml). */
+/* ── Ссылка на запись занятия (модуль VideoLibrary) ───────────────────────
+   Клик по карточке ведёт в плеер (там видно шаги урока), а клик по камере —
+   правка/снятие ссылки записи (З3): авто-матч VideoLibrary мог не сработать,
+   тогда ссылку вставляют руками. Ядро ничего не знает о VideoLibrary — просто
+   хранит и отдаёт строку-указатель. Delivery, не структура — доступно при lock КТП. */
 function attachRecordingClick(el) {
     el.addEventListener('click', e => {
-        e.stopPropagation(); // не дублировать переход клика по родительской карточке
-        const t = (state.data.themes || []).find(x => String(x.group_lesson_id) === el.dataset.glid);
-        if (t && t.player_url) { window.location.href = t.player_url; }
+        e.stopPropagation(); // не запускать переход в плеер по клику на родительскую карточку
+        openRecordingPopover(el.dataset.glid, el, el.dataset.url || '');
     });
+}
+
+function openRecordingPopover(glid, anchorEl, currentUrl) {
+    const html = `
+        <div class="wd-pop rec-pop">
+            <div class="ctx-title">Ссылка на запись занятия</div>
+            <input type="text" class="wd-input rec-input" value="${esc(currentUrl)}" placeholder="https://… или s3://bucket/key">
+            <div class="rec-actions">
+                <button type="button" class="prof-btn prof-btn-sm prof-btn-primary rec-save">Сохранить</button>
+                ${currentUrl ? '<button type="button" class="prof-btn prof-btn-sm rec-clear">Снять ссылку</button>' : ''}
+            </div>
+        </div>`;
+    openCtxMenuRaw(html, anchorEl);
+    const menu = document.getElementById('profCtxMenu');
+    const input = menu?.querySelector('.rec-input');
+    const saveBtn = menu?.querySelector('.rec-save');
+    const clearBtn = menu?.querySelector('.rec-clear');
+    if (!saveBtn) return;
+
+    const save = async (url) => {
+        saveBtn.disabled = true;
+        try {
+            await api('setRecordingUrl', { group_lesson_id: glid, recording_url: url });
+            toast(url ? 'Ссылка сохранена' : 'Ссылка снята');
+            closeCtxMenu();
+            await loadCalendar();
+        } catch (e) { toast(e.message, 'error'); saveBtn.disabled = false; }
+    };
+
+    saveBtn.addEventListener('click', () => save(input.value.trim()));
+    clearBtn?.addEventListener('click', () => save(''));
 }
 
 /** '2026-08-01 12:00:00' → '2026-08-01T12:00' (значение <input type="datetime-local">). */

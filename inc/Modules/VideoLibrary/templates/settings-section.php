@@ -75,6 +75,22 @@ $video_s3_consts  = array(
 				</div>
 			<?php endforeach; ?>
 
+			<?php // З3: алёрт «занятие прошло, записи нет» — список наполняет admin.js модуля. ?>
+			<div class="fs-config-key-row" id="fs-videolib-pending">
+				<div class="fs-config-key-row__header">
+					<span class="fs-config-key-row__name">Занятия без записи</span>
+					<span data-videolib-pending-badge></span>
+				</div>
+				<p class="description">
+					Занятия со статусом «проведено», у которых не привязалась запись. Выберите
+					подходящую запись группы или вставьте ссылку вручную
+					(<code>https://…</code> либо указатель <code>s3://bucket/key</code>).
+				</p>
+				<div class="fs-videolib-pending-list" data-videolib-pending-list>
+					<p class="description">Загрузка…</p>
+				</div>
+			</div>
+
 			<div class="fs-config-key-row">
 				<div class="fs-config-key-row__header">
 					<span class="fs-config-key-row__name">groups.yaml для fs-video-uploader</span>

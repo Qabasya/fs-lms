@@ -96,6 +96,48 @@
 // Подпись над полем raw-секрета для .env внешнего сервиса (AD-синк, VideoLibrary).
 .fs-config-key-row__env-label { margin-top: $spacing-md; }
 
+// ── Алёрт «Занятия без записи» (VideoLibrary, З3): строка = занятие + два действия
+// (привязать запись реестра / вставить ссылку руками). Разметку рисует admin.js модуля.
+.fs-videolib-pending-list {
+  margin-top: $spacing-md;
+  display: grid;
+  gap: $spacing-sm;
+}
+
+.fs-videolib-pending-row {
+  padding: $spacing-md;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-sm;
+  background: $wp-admin-gray-bg-light;
+  display: grid;
+  gap: $spacing-sm;
+
+  &__meta {
+    display: flex;
+    align-items: baseline;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+    font-size: $font-size;
+    color: $color-text-secondary;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+
+    select { max-width: rem(420); }
+
+    input[type='text'] {
+      flex: 1;
+      min-width: rem(260);
+      font-family: monospace;
+      font-size: $font-size-code;
+    }
+  }
+}
+
 // Поле сразу после строки ключа (например «Направления...» под HMAC-секретом AdSync) —
 // отступ сверху, чтобы отлепить подпись от border-bottom предыдущей .fs-config-key-row.
 .fs-config-key-row + .fs-field .fs-field__label {

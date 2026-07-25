@@ -13,11 +13,8 @@ use Inc\Services\Subject\PostTypeResolver;
  * Class TaskPreviewService
  *
  * Сборка read-only превью задачи/работы/контрольной для степ-редактора урока
- * (пикер шага "task"/"work"/"assessment"). Вынесена из `AssessmentAuthorCallbacks`
- * (Этап 3): нужна двум Callback-классам — методисту (`AssessmentAuthorCallbacks`,
- * capability `AuthorLmsCourses`) и преподавателю (`TeacherLessonCallbacks`,
- * capability `ManageLmsTeaching`) — оба показывают один и тот же контент, отличается
- * только слой авторизации над вызовом, поэтому сама сборка данных здесь одна.
+ * (пикер шага "task"/"work"/"assessment"). Вынесена из `AssessmentAuthorCallbacks`:
+ * сборка данных превью не зависит от слоя авторизации над вызовом.
  *
  * @package Inc\Services\Assessment
  */

@@ -6,6 +6,7 @@
  * @var array $step       Шаг из LessonPlayerService::buildView.
  * @var array $render     Render-данные шага.
  * @var bool  $is_preview Признак preview-плеера курса (Фаза 5) — блокирует «Ответить».
+ * @var bool|null $is_teacher Teacher-режим: блок «Показать решение» (render.solution).
  * @var string $edit_url  Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
  *
  * @package FS LMS
@@ -118,5 +119,13 @@ use Inc\Enums\Ui\Icon;
 				<?php esc_html_e( 'Это задание проверяется вручную. Выполните его и отметьте шаг кнопкой «Далее» — преподаватель проверит работу.', 'fs-lms' ); ?>
 			</p>
 		<?php endif; ?>
+
+		<?php
+		// Эталон преподавателю (teacher-режим): ответ + решение под «Показать решение».
+		if ( ! empty( $is_teacher ) && ! empty( $render['solution'] ) ) :
+			$teacher_solution = $render['solution'];
+			include __DIR__ . '/teacher-solution.php';
+		endif;
+		?>
 	</div>
 </div>

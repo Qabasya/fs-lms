@@ -32,9 +32,9 @@
   justify-content: flex-end;
   gap: $spacing-sm;
 
-  // Кнопки .button/.button-primary из wp-admin: на фронте (плеер/кокпит) wp-admin
+  // Кнопки .button/.button-primary из wp-admin: на фронте (кокпит) wp-admin
   // CSS не грузится, поэтому стилизуем сами (диалог используется только на фронте —
-  // group-cockpit.js и teacher-editor.js; в админке свой ConfirmModal).
+  // group-cockpit.js; в админке свой ConfirmModal).
   .button {
     display: inline-flex;
     align-items: center;

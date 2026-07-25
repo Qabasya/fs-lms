@@ -329,6 +329,51 @@
   }
 }
 
+/* ── Эталон преподавателю (teacher-режим): «Показать решение» ─────────
+   Рендерится только при $is_teacher (partials/teacher-solution.php) —
+   ученику разметки нет вовсе, а не спрятана стилями. */
+.fs-solution {
+  border: 1px solid var(--accent-soft-2);
+  background: var(--accent-soft);
+  border-radius: rem(12);
+  padding: rem(12) rem(16);
+
+  .fs-solution__toggle {
+    cursor: pointer;
+    font: 600 rem(13) var(--font);
+    color: var(--accent);
+  }
+
+  .fs-solution__body {
+    display: grid;
+    gap: rem(10);
+    margin-top: rem(10);
+  }
+
+  .fs-solution__row {
+    display: grid;
+    gap: rem(4);
+  }
+
+  .fs-solution__label {
+    font: 700 rem(11) var(--font);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-2);
+  }
+
+  .fs-solution__answer {
+    font: 600 rem(14) var(--font);
+    color: var(--ink);
+  }
+
+  .fs-solution__html {
+    font-size: rem(13.5);
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+}
+
 /* ── Мобильный (Фаза 5): сопоставление — селект под условием, не сбоку ─ */
 @media (max-width: $bp-mobile) {
   .fs-widget-matching-row { grid-template-columns: 1fr; gap: rem(6); }

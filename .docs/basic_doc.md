@@ -1185,7 +1185,7 @@ form.addEventListener( 'submit', ( e ) => {
 | `UserProfile` | `/profile/` | SPA личного кабинета | `ProfileController` (§36) |
 | `ConsentPage` | `/consent/` | Текст согласия | `ConsentController` |
 | `GroupCockpit` | `/group/?gid=N` | Кокпит группы; с `?gl=` — плеер урока | `GroupCockpitController` / `LessonPlayerController` |
-| `CoursePreview` | `/course-preview/?course=N` | Preview-плеер курса для авторов | `CoursePreviewController` |
+| `CoursePreview` | `/course-preview/?course=N` | Preview-плеер: прохождение курса «от роли ученика» (методист/преподаватель) | `CoursePreviewController` |
 
 Страницы создаются автоматически при активации (`PageGeneratorService`, идемпотентно).
 Дополнительно существует rewrite-маршрут родительской формы `/lms/join/{JOIN-код}`
@@ -1675,10 +1675,17 @@ public function register(): void {
 бандл `player` + MathJax и локализует `fs_lms_player_vars`
 (`actions{markStep, submitTask, submitBatchWork}` + nonces).
 
-**Preview-плеер** (для авторов): `/course-preview/?course=N&lesson=…` →
+**Preview-плеер** (прохождение курса «от роли ученика»): `/course-preview/?course=N&lesson=…` →
 `CoursePreviewController` + `CoursePreviewService` + свой гейт `CoursePreviewAccessGuard`
-(право `AuthorLmsCourses`, статус поста не важен). Тот же `player.php` в режиме
-`preview` — без ученика, прогресса и сохранений.
+(сотрудник по праву `AuthorLmsCourses`/`ManageLmsPlatform`/админ — любой курс; преподаватель —
+курсы своих групп; статус поста не важен). Тот же `player.php` в режиме `preview` — без
+ученика, прогресса и сохранений; эталоны не показываются (это не teacher-режим занятия).
+
+Входы: секция «Мои курсы» в сайдбаре ЛК (`ProfileViewResolver::coursesTaught()` → `app.js`)
+и кнопка «Просмотр» в шапке курс-билдера. Ответы проверяются dry-run
+(`PreviewSolveCallbacks`, `PreviewCheckTask/Work/Assessment`): те же чекеры, что у штатной
+сдачи, но без записи попыток/оценок/прогресса. Гейт dry-run — `canSolvePreview()` того же
+гуарда (не капабилити: курс должен проходить и преподаватель, у которого нет `AuthorLmsCourses`).
 
 ### JS плеера (`src/js/player/`)
 
@@ -1827,29 +1834,34 @@ JS красит виджет (зелёный/красный, пофрагмен�
 темы. Дедлайны работ занятия — `work_deadlines` (JSON). `program_locked_at` на группе —
 блокировка КТП после публикации.
 
-### COW-форк урока группы (Этапы 2–5)
+### Форк урока для группы (методист)
 
-Курс методиста — мастер; правки методиста доезжают до всех групп, пока преподаватель
-не менял состав шагов. При первой правке шагов преподавателем (`SaveGroupLessonSteps`,
-`TeacherLessonCallbacks`) сервер делает copy-on-write форк
-(`ContentCloneService::forkLessonForGroup`, идемпотентен): копия `{key}_lessons` с метами
-`ForkedFrom` (id мастера) + `ForkedForGroup` (id группы), `group_lessons.lesson_id`
-перецепляется на форк. Клиент всегда передаёт `group_lesson_id`, никогда `lesson_id` —
-сервер сам резолвит урок и проверяет `GroupAccessGuard::canManage`. Форки скрыты из
-банка уроков (`LessonManager::getBankBySubject`). Преподавателю доступен только состав
-шагов урока своей группы (`ManageLmsTeaching`) и read-only банк кандидатов — билдер
-курса остаётся методисту (`AuthorLmsCourses`). Редактор шагов монтируется в плеере
-(бандл `teacher-editor.min.js`, только под `fs_lms_player_is_teacher`).
+**Курс составляет только методист в админке** — задачи, уроки, шаги, работы и контрольные.
+Преподаватель курс не редактирует: он проводит занятия (посещаемость, демонстрация урока
+через teacher-режим плеера) и не имеет ни редактора шагов, ни авторинга банка.
 
-Гигиена (Этап 5): в КТП форкнутая тема помечается бейджем «изменён» (`is_forked` в
-`ScheduleService::getCalendar`, meta читается после батч-прогрева
-`PostManager::primeMetaCache` — без N+1); «Сбросить к версии курса» в панели редактора —
-`ContentCloneService::resetLessonFork` (возврат `lesson_id` на `ForkedFrom`, форк-пост
-удаляется; прогресс по шагам с теми же `key` сохраняется, по добавленным преподавателем —
-теряется); при удалении группы `GroupDeletionHandler` зовёт
+Форк урока под конкретную группу остаётся инструментом методиста
+(`ContentCloneService::forkLessonForGroup`, AJAX `ForkLessonForGroup`, `AuthorLmsCourses`):
+копия `{key}_lessons` с метами `ForkedFrom` (id мастера) + `ForkedForGroup` (id группы),
+`group_lessons.lesson_id` перецепляется на форк. Форки скрыты из банка уроков
+(`LessonManager::getBankBySubject`). При удалении группы `GroupDeletionHandler` зовёт
 `ContentCloneService::deleteForksForGroup` до чистки `group_lessons`.
 
-### Шаг «Трансляция» (`broadcast`, Этап 1)
+### Teacher-режим плеера
+
+Преподаватель группы, открывший занятие своей группы (`?gid&gl`), попадает в плеер урока
+вместо кокпита: `LessonPlayerController` отличает teacher-режим (`personId = 0`) от
+ученического, `LessonPlayerService::buildTeacherView()` собирает view с открытыми гейтами
+и статусами `Available`, попытки/сдачи не подгружаются, прогресс не пишется
+(`core.js`, `data-teacher="1"`). Это режим демонстрации урока на занятии — не редактор.
+
+Эталон задач в этом режиме доступен всегда, но спрятан под «Показать решение»
+(`LessonPlayerService::solutionFor()` → `render.solution` у task-шага и `tasks[].solution`
+у work-шага; UI — `partials/teacher-solution.php`): преподаватель показывает урок классу,
+ответ не должен светиться сразу. Ученический канал эталона (`correct_answer` после
+исчерпания попыток, D20) не изменён — ключа `solution` в ученическом view нет.
+
+### Шаг «Трансляция» (`broadcast`)
 
 Инлайн-шаг урока вместо прежнего чекбокса «запись занятия» у видео-шага
 (миграция в `Migration_1_0_0`: `video` + `payload.recording_slot` → `broadcast`,
@@ -1857,9 +1869,23 @@ JS красит виджет (зелёный/красный, пофрагмен�
 `{title, stream_url}`. Рендер (`StepContentRenderer::renderBroadcastData`): у занятия
 есть `recording_url` (через фильтр `fs_lms_recording_url`, модуль VideoLibrary
 подписывает `s3://`) — видео-хром как у видео-шага; нет — плашка со ссылкой на
-трансляцию. Видео-шаг записью больше не подменяется. Привязка записи — тич-панель
-broadcast-шага в плеере (`TeacherListRecordings`/`TeacherAttachRecording`/
-`TeacherDetachRecording`, только своя группа).
+трансляцию. Видео-шаг записью больше не подменяется. Запись привязывается автоматически
+(авто-матч V6 модуля VideoLibrary).
+
+**Если не привязалась (З3).** Два пути починки:
+
+1. **Админка** — блок «Занятия без записи» в секции модуля («Настройки → Конфигурация»):
+   `RecordingAlertService` собирает занятия `status = held` с пустым `recording_url`
+   (`GroupLessonRepository::listHeldWithoutRecording()`), к каждому — непривязанные записи той
+   же группы. Действия: привязать запись реестра (`fs_lms_video_attach`, статус записи →
+   matched) или вставить ссылку руками, когда записи в реестре нет вовсе
+   (`fs_lms_video_set_url`). На страницах плагина висит `admin_notices` со счётчиком
+   (кэш 5 мин, `countPendingCached()`).
+2. **КТП группы** — иконка камеры на карточке занятия открывает попап «Ссылка на запись
+   занятия» (`AjaxHook::SetRecordingUrl` → `ProgramCallbacks::ajaxSetRecordingUrl`,
+   `ManageLmsTeaching` + `canManage`): зелёная камера — запись есть, красная — занятие прошло,
+   записи нет. Клик по самой карточке ведёт в плеер (там видны шаги урока). КТП всех групп
+   доступно офису и чистому WP-админу (`UserRole::primaryForCabinet` → FSOffice).
 
 ### Посещаемость
 

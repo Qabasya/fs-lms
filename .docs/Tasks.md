@@ -1,64 +1,116 @@
-# План: авторинг банка контента преподавателем на фронте
+# Парадигма: курс — методисту, занятие — преподавателю
 
-> 2026-07-25. Цель: преподаватель в плеере («Настроить урок») получает **тот же** инлайновый
-> авторинг, что методист в админке — создание/редактирование **задач, работ, экзаменов** в
-> общем банке предмета, с авторством (`post_author`). Структура курса (модули, дерево, 72 урока)
-> остаётся методисту (`AuthorLmsCourses`). Экзамены преподавателю **разрешены** (потом при нужде
-> отключим отдельной капой).
->
-> **Ключевое решение (капабилити):** новая капа **`AuthorLmsBank`** = «авторинг контента банка»
-> (задачи/работы/экзамены, subject-scoped, БЕЗ структуры курса). Выдаётся **и методисту, и
-> преподавателю**. Bank-content-эндпоинты (`GetTaskEditorForm`/`SaveTaskContent`/create-draft
-> работ/экзаменов) переводятся с `AuthorLmsCourses` → `AuthorLmsBank`; course-structure остаётся
-> на `AuthorLmsCourses`. Так один и тот же код авторинга обслуживает обоих.
->
-> **Что уже готово (переиспользуем):** админский авторинг **инлайновый AJAX**, не wp-admin:
-> задача = `task-editor.js` + `GetTaskEditorForm` + `SaveTaskContent` (post_id=0 создаёт);
-> черновики — `Create{Work,Assessment}Draft`; поля — PHP `Fields/*` (единый источник).
->
-> **UX-фиксы тич-редактора (сделаны 2026-07-25, до фаз):** полноэкранная панель вместо 640px-drawer;
-> `.fs-cb-ss-*` перенесены в `_step-editor.scss` (были в `_task-editor.scss`, не грузились в плеер);
-> `fs-confirm-dialog` кнопки застилены (`shared/tokens`) + диалог подключён во frontend; «Редактировать ↗»
-> скрыта в readOnlyBank; кнопка «← Вернуться» (текст) + перезагрузка плеера при возврате.
+> 2026-07-25. Прежний план «авторинг банка / редактирование урока преподавателем»
+> (Этапы 2–5 + Фаза 1) **откачен** — противоречит бизнес-процессу: составление курса
+> требует методических навыков и является зоной ответственности методиста.
 
-## Фаза 1 — задачи (tasks) ✅ ГОТОВО (2026-07-25, нужна браузер-проверка)
+## Зафиксированная парадигма
 
-_Капа `AuthorLmsBank` + роли (методист/офис/преподаватель), эндпоинты `GetTaskEditorForm`/`SaveTaskContent`
-переведены на неё + `post_author`=создатель; `task-editor.js`/`task-fields.js` + `fs_lms_task_editor_vars` +
-`capabilities.authorBank` в teacher-бандле; `.fs-te-*` модалка подключена в плеер; step-editor: `canAuthor`+
-`openTaskEditor` — «Добавить новую»/«Редактировать» задачу открывают инлайновую модалку (subject-задача,
-`post_author`). +1 тест (post_author). teacher-бандл 38.7→51.2 КБ (task-editor вернулся). 890/890._
+1. **Курс составляет только методист в админке.** Задачи, уроки, шаги, работы и контрольные
+   добавляет только он. У преподавателя нет ни редактора шагов урока, ни авторинга банка.
+2. **Преподаватель только проводит занятия**: отмечает посещаемость, видит курс как ученик —
+   для демонстрации на занятии (teacher-режим плеера, `?gid&gl`), но с доступом к ответам
+   и эталонным решениям (кнопка «Показать решение»). Вписывать ответы в режиме демонстрации
+   не нужно.
+3. **КТП уроки не изменяет** — только расписание/размещение тем.
+4. **Записи занятий**: тип шага «Трансляция» остаётся. Ссылка либо привязывается автоматически
+   (авто-матч VideoLibrary), либо методист видит в админке алёрт «запись не привязалась»
+   и вставляет ссылку вручную.
 
-### Детали (для справки)
+## Что уже откачено (сделано)
 
-- **Капа `AuthorLmsBank`** — `inc/Enums/Access/Capability.php` (`case AuthorLmsBank = 'author_lms_bank';`).
-  `RoleManager`: выдать ролям, у которых есть `AuthorLmsCourses` (методист), И `FSTeacher`. Bump `fs_lms_caps_version` (Init) — синхронизирует капы.
-- **Перевести bank-content-эндпоинты** `AuthorLmsCourses → AuthorLmsBank`: `TaskContentCallbacks::ajaxGetTaskEditorForm`/`ajaxSaveTaskContent` (subject-scoped, не group). Проверить, что методист (получит `AuthorLmsBank`) не теряет доступ. `SaveTaskContent` ставит `post_author` = текущий юзер при создании (post_id=0).
-- **Teacher-бандл**: вернуть `task-editor.js`+`task-fields.js` в бандл (Enqueue `enqueue_teacher_editor_assets` — уже грузит `wp_enqueue_editor()`); локализовать в `fs_lms_teacher_editor_vars` действия `getTaskEditorForm`/`saveTaskContent` + `nonces.taskContent`. Дать `createStepEditor` доступ к task-modal.
-- **step-editor.js**: для преподавателя-автора (`canAuthor`, не `readOnlyBank`) — «Добавить новую»/«Редактировать» задачу открывают **инлайновую task-модалку** (`task-editor.js`), а НЕ wp-admin `post-new.php`/`post.php`. На сохранение (SaveTaskContent → post_id) — выставить `payload.ref` шага. Вернуть «Редактировать ↗» как инлайновую правку.
-- **Флаг режима**: teacher vars — `capabilities.authorBank` (из PHP `current_user_can(AuthorLmsBank)`); `createStepEditor` получает `canAuthor` → снимает `readOnlyBank`.
-- **Тесты**: `TaskContentCallbacksTest` — доступ по `AuthorLmsBank` (методист+преподаватель), запрет без капы; создание ставит author.
-- Сборка teacher-бандла подрастёт (task-editor вернётся) — ок, это осознанно.
+- `TeacherLessonCallbacks` / `TeacherLessonController` / бандл `teacher-editor.min.js` /
+  `_teacher-editor.scss` — удалены; 9 AJAX-хуков (`GetGroupLessonSteps`, `SaveGroupLessonSteps`,
+  `TeacherStepCandidates`, `TeacherTaskPreview`, `TeacherRefPreview`, `ResetLessonFork`,
+  `Teacher{List,Attach,Detach}Recording*`) и `Nonce::TeachLesson` убраны.
+- Капа `AuthorLmsBank` удалена; `TaskContentCallbacks` вернулся на `AuthorLmsCourses`;
+  `RoleManager` снимает капу со всех ролей (`fs_lms_caps_version` = 5.3).
+- `step-editor.js` де-параметризован (убраны `transport`/`readOnlyBank`/`canAuthor`/
+  `openTaskEditor`/`confirmFn`/`adminBase`) — снова чисто админский модуль.
+- Плеер: кнопка «Настроить урок», панель `#fsTeacherEditor` и тич-панель записи
+  в broadcast-шаге убраны; teacher-режим (просмотр без прогресса) сохранён.
+- КТП: бейдж «изменён» (`is_forked`) убран из `ScheduleService::getCalendar` и `ktp.js`.
+- `ContentCloneService::resetLessonFork` удалён; `forkLessonForGroup`/`deleteForksForGroup`
+  остались как инструмент методиста.
 
-## Фаза 2 — работы (works)
+## Осталось сделать
 
-- `CreateWorkDraft` + редактор работы (набор задач + мета: тип homework/practice, дедлайны) на фронте — тот же паттерн. Эндпоинты сборки работы (add/remove задач) → `AuthorLmsBank`.
-- В тич-редакторе шага `work`: «Добавить новую» открывает редактор работы инлайново; «Редактировать» — правка набора/меты.
-- Тесты на teacher-доступ к work-авторингу.
+### З1. «Показать решение» в teacher-режиме плеера ✅ ГОТОВО (нужна браузер-проверка)
 
-## Фаза 3 — экзамены (assessments)
+`LessonPlayerService::assembleView()` определяет teacher-режим (`$statuses === null`) и
+прокидывает `$isTeacher` в `renderData`/`renderTaskData`/`renderWorkData`. Новый приватный
+`solutionFor( $taskId, $meta )` собирает `{answer, html}` — человекочитаемый эталон
+(`CorrectAnswerResolver::resolve`) + авторское решение (`task_text`); `null`, если ни того,
+ни другого нет (ручной шаблон без решения).
 
-- `CreateAssessmentDraft` + редактор экзамена (набор задач + правила: scoring binary/ЕГЭ, intro) на фронте → `AuthorLmsBank` (по решению — экзамены разрешены).
-- Учесть: секретный банк экзаменов станет виден/редактируем преподавателю (осознанно). Целостность (`AssessmentAccessPolicy`/`ExamLockService`) не меняется — экзамен препода идёт через ту же машинерию.
-- Задел на будущее: отдельная капа `AuthorLmsExams` для точечного отключения — НЕ делаем сейчас, только оставить место в `Capability`/gate-хелпере.
-- Тесты на teacher-доступ к assessment-авторингу.
+- task-шаг → `render.solution`; задачи work-шага → `tasks[].solution` (мета задачи в ответ
+  по-прежнему не попадает — `unset( $bundle['meta'] )` остался).
+- Ученический контракт не тронут: `correct_answer`/`correct_answer_ids` как и раньше только
+  при исчерпании попыток (D20), ключа `solution` в ученическом view нет вовсе.
+- UI — общий партиал `partials/teacher-solution.php` (`<details class="fs-solution">`,
+  «Показать решение» → «Правильный ответ» + «Решение»), подключается из `step-task.php` и
+  `step-work.php` только при `$is_teacher`. Стили — `.fs-solution` в `player/components/_step-task.scss`.
+- +5 тестов (`LessonPlayerServiceTest`): эталон в teacher-view task/work, отсутствие ключа
+  в ученическом view, отсутствие блока у ручного шаблона без решения.
 
-## Порядок
+**Не покрыто:** assessment-шаг — в реальном плеере он рендерится карточкой со ссылкой на
+страницу экзамена, задачи в плеере не выводятся, показывать там нечего. Если нужен разбор
+экзамена преподавателем — это отдельная поверхность (`AssessmentPageController`).
 
-Фаза 1 (задачи) — фундамент (капа + переключение эндпоинтов + бандл + task-модалка в step-editor).
-Фаза 2 и 3 переиспользуют капу и паттерн бандла; отличаются редакторами работы/экзамена.
-После каждой фазы: `npx gulp build`, `npm run lint:js/css`, PHPUnit, проверка в браузере (авторинг — визуальный).
+### З2. «Мои курсы» — прохождение курса без прогресса ✅ ГОТОВО (нужна браузер-проверка)
 
+Вход уже был: секция «Мои курсы» в сайдбаре ЛК (`ProfileViewResolver::coursesTaught()` —
+курсы, назначенные группам преподавателя) → клик открывает preview-плеер
+(`app.js::openCoursePreview` → `/course-preview/?course=&lesson=`); методисту тот же
+предпросмотр открывает кнопка «Просмотр» в шапке курс-билдера.
+
+Реальный пробел был в другом: dry-run проверка ответов (`PreviewSolveCallbacks`) гейтилась
+капой `AuthorLmsCourses`, которой у преподавателя нет — предпросмотр открывался, но «Ответить»
+возвращал 403. Исправлено:
+
+- `CoursePreviewAccessGuard::canSolvePreview( $wpUserId )` — гейт по пользователю, а не по
+  курсу (эндпоинты принимают `ref` задачи, не `course_id`): сотрудник (админ/платформа/автор)
+  ИЛИ преподаватель, чьей группе назначен хотя бы один курс. Общая часть с `canPreview()`
+  вынесена в `isStaffPreviewer()`.
+- `PreviewSolveCallbacks::authorizePreviewSolve()` — `Nonce::PreviewSolve->verify()` + гуард
+  вместо `authorize( …, AuthorLmsCourses )`. Эндпоинты priv-only, ученику dry-run по-прежнему
+  закрыт (иначе через них можно было бы прорешивать задания в обход сохранения сдачи).
+- +7 тестов: `CoursePreviewAccessGuardTest` (новый) + отказ гуарда в `PreviewSolveCallbacksTest`.
+
+Разделение поверхностей осталось прежним и совпадает с парадигмой: **предпросмотр курса** —
+прохождение «от роли ученика» (без прогресса, без эталонов, без кнопок «Редактировать» —
+`$can_edit` требует `AuthorLmsCourses`); **teacher-режим плеера занятия** — демонстрация урока
+с «Показать решение» (З1).
+
+### З3. Алёрты «запись не привязалась» + правка ссылки записи ✅ ГОТОВО (нужна браузер-проверка)
+
+**Правка ссылки из КТП.** Попап камеры в КТП был в Этапе 2 заменён на переход в плеер, а сам
+эндпоинт вырезан как «неиспользуемый» (Р1) — ручной правки ссылки не осталось нигде. Возвращено
+и разведено по разным целям клика: клик по **карточке занятия** → плеер (там видны шаги урока),
+клик по **иконке камеры** → попап «Ссылка на запись занятия» (сохранить/снять).
+`AjaxHook::SetRecordingUrl` + `ProgramCallbacks::ajaxSetRecordingUrl` (`Nonce::SaveSchedule` +
+`ManageLmsTeaching` + `GroupAccessGuard::canManage` — своя группа), регистрация в
+`ScheduleController`, экшен в `ProfileViewResolver`, `.rec-pop` в `_overlays.scss`.
+Кабинет с КТП всех групп есть у офиса и чистого WP-админа (`primaryForCabinet` → FSOffice).
+
+**Алёрт в админке** (модуль VideoLibrary, секция «Конфигурация»):
+- `GroupLessonRepository::listHeldWithoutRecording()` / `countHeldWithoutRecording()` —
+  занятия `status = held` с пустым `recording_url`.
+- `RecordingAlertService` (модуль): строка списка = группа + дата + тема + непривязанные записи
+  ТОЙ ЖЕ группы (`VideoRecordingRepository::listByGroup()` — метод наконец используется по
+  назначению); группа и её кандидаты читаются по одному разу, а не на каждое занятие.
+  `countPendingCached()` — 5-минутный transient для нотиса (COUNT идёт по всей таблице занятий).
+- AJAX модуля (свои константы, изоляция §4.6): `PENDING_ACTION` — список,
+  `SET_URL_ACTION` — ручная ссылка, когда записи в реестре нет вовсе; привязка записи, которая
+  в реестре есть, идёт прежним `ATTACH_ACTION` (там ещё и статус записи → matched).
+- UI: блок «Занятия без записи» в секции модуля (бейдж-счётчик, селект кандидатов + «Привязать»,
+  поле ссылки + «Сохранить») — рисует `assets/admin.js` модуля; стили — `_config.scss`.
+- `admin_notices` на страницах плагина (кроме самой страницы настроек): «N проведённых занятий
+  остались без записи» → ссылка в секцию.
+- +13 тестов: `RecordingAlertServiceTest`, `VideoLibraryCallbacksTest` (оба новые) +
+  `ajaxSetRecordingUrl` в `ProgramCallbacksTest`.
+
+---
 ---
 
 # План: импорт с полным зачислением (CSV → ученик + учётки)

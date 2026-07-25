@@ -24,9 +24,7 @@ class CoursePreviewAccessGuard {
 	) {}
 
 	public function canPreview( int $wpUserId, int $courseId ): bool {
-		if ( user_can( $wpUserId, Capability::Admin->value )
-			|| user_can( $wpUserId, Capability::ManageLmsPlatform->value )
-			|| user_can( $wpUserId, Capability::AuthorLmsCourses->value ) ) {
+		if ( $this->isStaffPreviewer( $wpUserId ) ) {
 			return true;
 		}
 
@@ -37,5 +35,35 @@ class CoursePreviewAccessGuard {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Может ли пользователь ПРОРЕШИВАТЬ предпросмотр — dry-run проверка ответов
+	 * (`PreviewSolveCallbacks`, #5). Гейт по пользователю, а не по курсу: эндпоинты
+	 * принимают `ref` задачи/работы/экзамена, а не `course_id`, и связать ref с
+	 * курсом дёшево нельзя. Достаточное условие — пользователю доступен хотя бы
+	 * один предпросмотр: у сотрудника это так по праву, у преподавателя — если
+	 * хотя бы одной его группе назначен курс. У ученика ни того, ни другого нет,
+	 * поэтому обойти сохранение штатной сдачи через dry-run он не может.
+	 */
+	public function canSolvePreview( int $wpUserId ): bool {
+		if ( $this->isStaffPreviewer( $wpUserId ) ) {
+			return true;
+		}
+
+		foreach ( $this->groups->findByTeacherId( $wpUserId ) as $g ) {
+			if ( (int) ( $g->course_id ?? 0 ) > 0 ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/** Сотрудник, которому предпросмотр открыт целиком: админ, платформа, автор курсов. */
+	private function isStaffPreviewer( int $wpUserId ): bool {
+		return user_can( $wpUserId, Capability::Admin->value )
+			|| user_can( $wpUserId, Capability::ManageLmsPlatform->value )
+			|| user_can( $wpUserId, Capability::AuthorLmsCourses->value );
 	}
 }

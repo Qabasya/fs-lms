@@ -7,6 +7,7 @@
  * @var array  $step       Шаг из LessonPlayerService::buildView.
  * @var array  $render     Render-данные шага (LessonPlayerService::renderWorkData).
  * @var bool   $is_preview Признак preview-плеера курса (Фаза 5) — блокирует «Завершить работу».
+ * @var bool|null $is_teacher Teacher-режим: блок «Показать решение» у каждой задачи работы.
  * @var string $edit_url   Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
  *
  * @package FS LMS
@@ -124,6 +125,13 @@ $work_meta_line = sprintf(
 								: esc_html__( 'Развёрнутый ответ оценивает преподаватель после завершения работы', 'fs-lms' );
 							?>
 						</span>
+						<?php
+						// Эталон преподавателю (teacher-режим) — по задаче работы.
+						if ( ! empty( $is_teacher ) && ! empty( $work_task['solution'] ) ) :
+							$teacher_solution = $work_task['solution'];
+							include __DIR__ . '/teacher-solution.php';
+						endif;
+						?>
 					</div>
 				</div>
 			<?php endforeach; ?>

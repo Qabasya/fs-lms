@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Inc\Core;
 
 use Inc\Contracts\ServiceInterface;
-use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PageRoutes;
@@ -368,7 +367,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'markStep'          => AjaxHook::MarkStepProgress->jsAction(),
 					'submitTask'        => AjaxHook::SubmitTaskAnswer->jsAction(),
 					'submitBatchWork'   => AjaxHook::SubmitBatchWork->jsAction(),
-					// #5: dry-run проверка в предпросмотре (гейт AuthorLmsCourses в коллбеке).
+					// #5: dry-run проверка в предпросмотре (гейт canSolvePreview в коллбеке).
 					'previewCheckTask'       => AjaxHook::PreviewCheckTask->jsAction(),
 					'previewCheckWork'       => AjaxHook::PreviewCheckWork->jsAction(),
 					'previewCheckAssessment' => AjaxHook::PreviewCheckAssessment->jsAction(),
@@ -383,78 +382,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 		);
 
 		$this->enqueueMathJax();
-
-		// Тич-редактор шагов (Этап 4): грузится ТОЛЬКО преподавателю группы занятия —
-		// авторизационное решение принято в LessonPlayerController::loadTemplate(),
-		// здесь просто читаем готовый флаг (не пересчитываем canManage повторно).
-		if ( apply_filters( 'fs_lms_player_is_teacher', false ) ) {
-			$this->enqueue_teacher_editor_assets();
-		}
-	}
-
-	/**
-	 * Тич-редактор шагов урока занятия (Этап 4): jQuery-бандл, отдельный от
-	 * player.min.js (плеер сам без jQuery), монтирует `createStepEditor` из
-	 * общего `admin/services/step-editor.js` в teacher-режиме (read-only банк,
-	 * свой персист/нонс через `?group_lesson_id`).
-	 *
-	 * @return void
-	 */
-	private function enqueue_teacher_editor_assets(): void {
-		wp_enqueue_media();  // вложения видео-шага (window.wp.media в step-editor.js)
-		wp_enqueue_editor(); // TinyMCE для text-шагов (window.wp.editor.initialize)
-
-		wp_enqueue_script(
-			'fs-lms-teacher-editor',
-			$this->url( 'assets/js/teacher-editor.min.js' ),
-			array( 'jquery' ),
-			filemtime( $this->path( 'assets/js/teacher-editor.min.js' ) ),
-			true
-		);
-
-		wp_localize_script(
-			'fs-lms-teacher-editor',
-			'fs_lms_teacher_editor_vars',
-			array(
-				'ajaxurl'       => admin_url( 'admin-ajax.php' ),
-				'adminBase'     => admin_url(),
-				'nonce'         => Nonce::TeachLesson->create(),
-				'groupLessonId' => $this->sanitizeGetInt( 'gl' ),
-				'actions'       => array(
-					'getSteps'          => AjaxHook::GetGroupLessonSteps->jsAction(),
-					'saveSteps'         => AjaxHook::SaveGroupLessonSteps->jsAction(),
-					'getStepCandidates' => AjaxHook::TeacherStepCandidates->jsAction(),
-					'getTaskPreview'    => AjaxHook::TeacherTaskPreview->jsAction(),
-					'getRefPreview'     => AjaxHook::TeacherRefPreview->jsAction(),
-					'listRecordings'    => AjaxHook::TeacherListRecordings->jsAction(),
-					'attachRecording'   => AjaxHook::TeacherAttachRecording->jsAction(),
-					'detachRecording'   => AjaxHook::TeacherDetachRecording->jsAction(),
-					'resetFork'         => AjaxHook::ResetLessonFork->jsAction(),
-				),
-				// Авторинг банка на фронте (Фаза 1): показывать ли инлайновый task-редактор.
-				'capabilities'  => array(
-					'authorBank' => current_user_can( Capability::AuthorLmsBank->value ),
-				),
-			)
-		);
-
-		// Инлайновый редактор задач (тот же, что в админке) — для авторинга задач банка
-		// прямо из тич-редактора шага. Схема шаблонов + экшены/нонс TaskContent.
-		wp_localize_script(
-			'fs-lms-teacher-editor',
-			'fs_lms_task_editor_vars',
-			array(
-				'ajax_url' => admin_url( 'admin-ajax.php' ),
-				'schema'   => $this->templateRegistry->allEditorSchemas(),
-				'nonces'   => array(
-					'taskContent' => Nonce::TaskContent->create(),
-				),
-				'actions'  => array(
-					'saveTaskContent'   => AjaxHook::SaveTaskContent->jsAction(),
-					'getTaskEditorForm' => AjaxHook::GetTaskEditorForm->jsAction(),
-				),
-			)
-		);
 	}
 
 	/**

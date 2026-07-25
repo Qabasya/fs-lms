@@ -579,6 +579,29 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	/**
+	 * Ручная правка ссылки на запись занятия (попап камеры в КТП, З3). Нужна, когда
+	 * авто-матч VideoLibrary не привязал запись: методист/офис (а для своей группы —
+	 * преподаватель) вставляет ссылку руками. Ядро о модуле не знает — просто хранит
+	 * и отдаёт строку-указатель (`https://…` или `s3://bucket/key`).
+	 * Params: group_lesson_id, recording_url (пусто — снять ссылку)
+	 */
+	public function ajaxSetRecordingUrl(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$url           = $this->sanitizeText( 'recording_url' );
+		$userId        = get_current_user_id();
+
+		$row = $this->scheduleService->getProgramRow( $groupLessonId );
+		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+			return;
+		}
+
+		$this->groupLessons->setRecordingUrl( $groupLessonId, '' !== $url ? $url : null );
+		$this->success( array( 'saved' => true, 'recording_url' => '' !== $url ? $url : null ) );
+	}
+
+	/**
 	 * Возвращает список task-шагов урока с базовыми настройками и переопределениями группы.
 	 * Используется в панели настроек шагов кокпита (Этап 6, Фаза D).
 	 * Params: group_lesson_id
