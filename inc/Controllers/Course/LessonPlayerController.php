@@ -6,15 +6,13 @@ namespace Inc\Controllers\Course;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\Course\GateState;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Services\Course\CourseNavService;
 use Inc\Services\Course\GroupAccessGuard;
-use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonPlayerService;
 use Inc\Services\Shared\ThemeCompatService;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class LessonPlayerController
@@ -27,13 +25,13 @@ use Inc\Services\Shared\ThemeCompatService;
  */
 class LessonPlayerController extends BaseController implements ServiceInterface {
 
+	use Sanitizer;
+
 	public function __construct(
 		private readonly PersonRepository      $persons,
 		private readonly GroupAccessGuard      $guard,
 		private readonly GroupLessonRepository $groupLessons,
-		private readonly LessonGateResolver    $gate,
 		private readonly LessonPlayerService   $player,
-		private readonly CourseNavService      $nav,
 	) {
 		parent::__construct();
 	}
@@ -56,7 +54,7 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 			exit;
 		}
 
-		$row = $this->groupLessons->find( (int) $_GET['gl'] );
+		$row = $this->groupLessons->find( $this->sanitizeGetInt( 'gl' ) );
 		if ( null === $row ) {
 			return $this->notFound();
 		}
@@ -75,39 +73,31 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 			$isTeacher = true;
 		}
 
-		// Teacher-режим: studentPersonId=0 — нет ученика, гейт всегда открыт,
-		// прогресс не читается (buildTeacherView/shell/tree read-only на personId=0).
-		$personId    = $isTeacher ? 0 : $person->id;
-		$lessonGate  = $isTeacher ? GateState::Available : $this->gate->resolveLesson( $personId, $row );
-		$view        = $isTeacher ? $this->player->buildTeacherView( $row ) : $this->player->buildView( $personId, $row );
-		$groupId     = $row->groupId;
-		$active_step = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( $_GET['step'] ) ) : '';
+		// Teacher-режим: personId=0 — нет ученика, прогресс не читается. Вся сборка
+		// данных (view/shell/tree + расчёт блокировки) — в сервисе (Р2.7).
+		$personId = $isTeacher ? 0 : $person->id;
+		$data     = $this->player->buildRouteView( $personId, $row, $isTeacher );
 
 		// Урок без контента (нет уроков-шагов) — прежний themed-фолбэк.
-		if ( null === $view ) {
+		if ( null === $data ) {
 			ThemeCompatService::header();
 			include $this->path( 'templates/frontend/lesson-player/locked.php' );
 			ThemeCompatService::footer();
 			exit;
 		}
 
-		// Оболочка плеера (T14.2) и дерево курса для рейки (T14.3).
-		$view['shell'] = $this->nav->shell( $personId, $row );
-		$view['tree']  = $this->nav->tree( $personId, $row );
-
-		// #3b (редизайн): при блокировке по времени/предусловию НЕ уводим на
-		// отдельную страницу — показываем сам плеер с размытым контентом и
-		// оверлеем «Урок ещё не доступен» (+ таймер D-4). Реальные шаги при этом
-		// не рендерятся (см. player.php $locked) — контент не утекает раньше даты.
-		// Teacher-режим: гейт всегда открыт — блокировки по времени нет.
-		$locked           = ( ! $isTeacher && GateState::Locked === $lessonGate );
-		$locked_scheduled = $row->scheduledAt ?? null;
-		$locked_seconds   = ( $locked && null !== $locked_scheduled && '' !== $locked_scheduled )
-			? strtotime( $locked_scheduled ) - strtotime( current_time( 'mysql' ) )
-			: null;
-		$locked_soon = null !== $locked_seconds && $locked_seconds > 0 && $locked_seconds <= HOUR_IN_SECONDS;
-
-		$is_teacher = $isTeacher;
+		// Локали для player.php (контракт шаблона неизменен). #3b: при блокировке по
+		// времени/предусловию НЕ уводим на отдельную страницу — показываем плеер с
+		// размытым контентом и оверлеем (+ таймер D-4); реальные шаги при $locked не
+		// рендерятся (см. player.php) — контент не утекает раньше даты.
+		$view             = $data['view'];
+		$locked           = $data['locked'];
+		$locked_scheduled = $data['locked_scheduled'];
+		$locked_seconds   = $data['locked_seconds'];
+		$locked_soon      = $data['locked_soon'];
+		$groupId          = $row->groupId;
+		$active_step      = $this->sanitizeGetKey( 'step' );
+		$is_teacher       = $isTeacher;
 
 		// Плеер — полноэкранный app-shell со своим <html> (Эпик 14, D18):
 		// без темы сайта; Enqueue по этому флагу грузит только бандл плеера.
@@ -123,9 +113,10 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 
 	/** Текущая глубокая ссылка на урок/шаг (для возврата после логина). */
 	private function currentDeepLink(): string {
-		$args = array( 'gl' => (int) ( $_GET['gl'] ?? 0 ) );
-		if ( isset( $_GET['step'] ) ) {
-			$args['step'] = sanitize_key( wp_unslash( $_GET['step'] ) );
+		$args = array( 'gl' => $this->sanitizeGetInt( 'gl' ) );
+		$step = $this->sanitizeGetKey( 'step' );
+		if ( '' !== $step ) {
+			$args['step'] = $step;
 		}
 
 		return add_query_arg( $args, PageRoutes::GroupCockpit->url() );

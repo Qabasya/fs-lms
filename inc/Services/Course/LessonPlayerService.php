@@ -40,7 +40,45 @@ class LessonPlayerService {
 		private readonly WorkManager                  $works,
 		private readonly SubmissionService            $submissionService,
 		private readonly StepContentRenderer          $stepRenderer,
+		private readonly CourseNavService             $nav,
 	) {}
+
+	/**
+	 * Полная сборка данных плеера для маршрута (Р2.7): view (ученик/teacher) +
+	 * оболочка + дерево курса + расчёт блокировки по времени. Контроллер отвечает
+	 * только за авторизацию, выбор шаблона и include — вся сборка данных здесь.
+	 *
+	 * @param int            $personId  ID person ученика (0 в teacher-режиме)
+	 * @param GroupLessonDTO $row       Занятие группы
+	 * @param bool           $isTeacher Teacher-режим (гейты открыты, прогресс не читается)
+	 *
+	 * @return array{view:array<string,mixed>, locked:bool, locked_scheduled:?string, locked_seconds:?int, locked_soon:bool}|null
+	 *         null — у урока нет контента (контроллер рендерит themed-фолбэк locked.php)
+	 */
+	public function buildRouteView( int $personId, GroupLessonDTO $row, bool $isTeacher ): ?array {
+		$view = $isTeacher ? $this->buildTeacherView( $row ) : $this->buildView( $personId, $row );
+		if ( null === $view ) {
+			return null;
+		}
+
+		$view['shell'] = $this->nav->shell( $personId, $row );
+		$view['tree']  = $this->nav->tree( $personId, $row );
+
+		// Блокировка по времени/предусловию: teacher-режим всегда открыт (гейта нет).
+		$locked    = ! $isTeacher && GateState::Locked === $this->gate->resolveLesson( $personId, $row );
+		$scheduled = $row->scheduledAt ?? null;
+		$seconds   = ( $locked && null !== $scheduled && '' !== $scheduled )
+			? strtotime( $scheduled ) - strtotime( current_time( 'mysql' ) )
+			: null;
+
+		return array(
+			'view'             => $view,
+			'locked'           => $locked,
+			'locked_scheduled' => $scheduled,
+			'locked_seconds'   => $seconds,
+			'locked_soon'      => null !== $seconds && $seconds > 0 && $seconds <= HOUR_IN_SECONDS,
+		);
+	}
 
 	/**
 	 * @return array{group_lesson_id:int, lesson_id:int, topic:string, steps:array<int, array<string,mixed>>}|null

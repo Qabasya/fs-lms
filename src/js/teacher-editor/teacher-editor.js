@@ -61,18 +61,22 @@ import { showToast } from '../common/components/toast.js';
 						lesson:             { id: resp.lesson_id, steps: resp.steps },
 						subjectKey:         resp.subject_key,
 						readOnlyBank:       true,
-						actions:            {
-							getStepCandidates: vars.actions.getStepCandidates,
-							getTaskPreview:    vars.actions.getTaskPreview,
-							getRefPreview:     vars.actions.getRefPreview,
-						},
-						nonce:              vars.nonce,
-						ajaxurl:            vars.ajaxurl,
 						adminBase:          vars.adminBase,
-						extraAjaxParams:    { group_lesson_id: vars.groupLessonId },
 						confirmFn:          ( c ) => confirmDialog( c.message, c.confirmText || 'Подтвердить', 'Отмена' )
 							.then( ( ok ) => { if ( ! ok ) { throw null; } } ),
-						persist:            persistSteps,
+						// Транспорт AJAX плеера (Р2.5): свои эндпоинты/нонс/ajaxurl + доп.
+						// параметр group_lesson_id для запросов + свой сейв (COW-форк).
+						transport: {
+							actions: {
+								getStepCandidates: vars.actions.getStepCandidates,
+								getTaskPreview:    vars.actions.getTaskPreview,
+								getRefPreview:     vars.actions.getRefPreview,
+							},
+							nonce:   vars.nonce,
+							ajaxurl: vars.ajaxurl,
+							params:  { group_lesson_id: vars.groupLessonId },
+							persist: persistSteps,
+						},
 					} );
 				} )
 				.catch( ( msg ) => {

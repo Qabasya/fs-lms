@@ -377,7 +377,7 @@
   (новый инлайн-тип = правка одного файла). Заодно `_title`-петля с прямым
   `get_the_title` из `TeacherLessonCallbacks:80-87` → в сервис
   (есть `StepContentRenderer::resolveTitle`).
-- ⏸️ **Р2.4 [M] `TaskPreviewService` поверх существующих сервисов. ОТЛОЖЕНО.** _Меняет контракт GetTaskPreview + требует синхронного переписывания buildAnswerSection в JS — верифицируется только в браузере. Под-пункт buildFiles→getTaskFiles НЕ безопасен: методы разошлись (buildFiles экранирует esc_url_raw и без лимита; getTaskFiles без экранирования, лимит 2) — слияние = регресс. Делать отдельным браузер-верифицируемым проходом._
+- ⏸️ **Р2.4 [M] `TaskPreviewService` поверх существующих сервисов. ОТЛОЖЕНО (нужен браузер).** _В отличие от Р2.7/Р2.5 (поведение-сохраняющие) — это **меняет рендер**: `taskBundle` даёт answer-less `widget_data` (player-safe), а превью методисту/преподавателю ПОКАЗЫВАЕТ правильные ответы → нужен merge `taskBundle` + `CorrectAnswerResolver` в НОВЫЙ JS-контракт `buildAnswerSection`. Корректность виджетов (choice/matching/ordering/fill + correct-маркеры) проверяется только визуально. Под-пункт buildFiles→getTaskFiles НЕ безопасен: методы разошлись (buildFiles экранирует esc_url_raw, без лимита; getTaskFiles без экранирования, лимит 2). Делать в браузер-сессии._
   После Р0.6: сейчас это 4-е PHP-место (+5-е в JS `buildAnswerSection`) со
   знанием схемы `fs_lms_meta` задачи. Строить превью через
   `StepContentRenderer::taskBundle()` (шаблон через `TemplateResolver`, не
@@ -386,7 +386,7 @@
   Меняет контракт `GetTaskPreview`/`TeacherTaskPreview`/Ref-вариантов — делать
   отдельным коммитом с синхронной правкой JS. Заодно:
   `StepContentRenderer::buildFiles` → `TaskMetaService::getTaskFiles` (дубль).
-- ◑ **Р2.5 [M] `step-editor.js`: транспорт вместо пакета флагов.** _(мёртвые showStepSettings/renderStepSettings + export nonceFor убраны; консолидация opts.transport ОТЛОЖЕНА — API-изменение критичного редактора без браузерной проверки, риск>выгода)_
+- ✅ **Р2.5 [M] `step-editor.js`: транспорт вместо пакета флагов.** _мёртвые showStepSettings/renderStepSettings + export nonceFor убраны; opts.transport-консолидация (поведение идентично — admin-call-site глобалы не трогались, teacher-editor обновлён). Единая request()-точка не делалась (module-level хелперы берут cfg параметром — приемлемо)._
   `opts.actions/nonce/ajaxurl/extraAjaxParams/persist` связаны скрытыми
   инвариантами (nonce игнорируется без actions; extraAjaxParams только для
   кандидатов) → один `opts.transport = { actions, nonce, ajaxurl, params, persist }`
@@ -395,7 +395,7 @@
 - ✅ **Р2.6 [S] `Enqueue::enqueueBundle()`.** _(+enqueueMathJax(); gl→sanitizeGetInt)_ Пять почти одинаковых блоков
   «style+script+filemtime+localize» (profile/player/teacher/assessment/kege) →
   приватный хелпер. Заодно `(int) $_GET['gl']` (`Enqueue:422`) → `sanitizeGetInt('gl')`.
-- ⏸️ **Р2.7 [M] Разгрузить `LessonPlayerController::loadTemplate()`. ОТЛОЖЕНО.** _Требует инъекции CourseNavService в LessonPlayerService (конструктор+тест) + переборки контракта локалей player.php ($shell выводится из $view['shell']) на самом нагруженном пути плеера. Выгода (−15 строк контроллера) не оправдывает регресс-риск без браузерной проверки._
+- ✅ **Р2.7 [M] Разгрузить `LessonPlayerController::loadTemplate()`.** _LessonPlayerService::buildRouteView (view+shell+tree+lock); контроллер — auth+include, локали player.php идентичны; $_GET→Sanitizer; gate/nav убраны из контроллера; +2 теста. ⚠️ рекомендуется браузер-проверка входа плеера (ученик+преподаватель)._
   Ветвление режимов, сборка view/shell/tree, расчёт lock-таймера, сырые `$_GET` —
   вынести в `LessonPlayerService::buildRouteView(int $userId, GroupLessonDTO $row)`,
   в контроллере оставить маршрут + include. `$_GET` → Sanitizer-методы.

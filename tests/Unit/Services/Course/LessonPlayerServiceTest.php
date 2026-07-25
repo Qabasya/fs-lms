@@ -15,6 +15,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Services\Course\CourseNavService;
 use Inc\Services\Course\EffectiveStepSettingsResolver;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonPlayerService;
@@ -78,6 +79,7 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->works,
 			$this->submissionService,
 			$this->stepRenderer,
+			$this->createMock( CourseNavService::class ),
 		);
 	}
 
@@ -148,6 +150,30 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertNotNull( $view );
 		self::assertSame( 10, $view['lesson_id'] );
 		self::assertCount( 1, $view['steps'] );
+	}
+
+	// ── buildRouteView (Р2.7) ────────────────────────────────────────────────
+
+	public function test_build_route_view_teacher_wraps_with_shell_tree_unlocked(): void {
+		$step   = $this->makeVideoStep( 's1', array( 'url' => 'https://example.com/v' ) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+
+		$data = $this->service->buildRouteView( 0, $this->makeGroupLesson( lessonId: 10 ), true );
+
+		self::assertNotNull( $data );
+		self::assertSame( 10, $data['view']['lesson_id'] );
+		self::assertArrayHasKey( 'shell', $data['view'] );
+		self::assertArrayHasKey( 'tree', $data['view'] );
+		self::assertFalse( $data['locked'] );      // teacher — блокировки по времени нет
+		self::assertNull( $data['locked_seconds'] );
+		self::assertFalse( $data['locked_soon'] );
+	}
+
+	public function test_build_route_view_null_when_lesson_missing(): void {
+		$this->lessons->method( 'get' )->willReturn( null );
+
+		self::assertNull( $this->service->buildRouteView( 1, $this->makeGroupLesson(), false ) );
 	}
 
 	// ── broadcast-шаг (Этап 1): запись занятия / заглушка ────────────────────

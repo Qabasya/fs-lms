@@ -249,17 +249,17 @@ function renderTaskPreview( box, data ) {
  * @param {Function}   [opts.onChange]     () => void — после любой правки шагов (хост обновляет дерево/счётчики)
  * @param {Function}   [opts.setStatus]    (text) => void — внешний индикатор; иначе модуль рисует свой
  * @param {string[]}   [opts.allowedTypes] фильтр пунктов меню «Добавить шаг» (напр. ['task'] — только задачи)
- * @param {Function}   [opts.persist]      (steps) => Promise — своё сохранение; иначе дефолтный saveLessonSteps
  * @param {number}     [opts.initialStepRef] deep-link на ссылочный шаг (task/work/assessment) по ref (post id)
  * @param {string}     [opts.initialStepKey] deep-link на text/video-шаг по стабильному step.key (#15-E)
- * @param {Object}     [opts.actions]      карта имён экшенов (getStepCandidates/getTaskPreview/getRefPreview) —
- *                                         иначе дефолтная fs_lms_vars.ajax_actions (тич-редактор плеера, Этап 4)
- * @param {string}     [opts.nonce]        свой nonce для всех запросов выше, вместо nonceFor()
- * @param {string}     [opts.ajaxurl]      свой ajaxurl, вместо fs_lms_vars.ajaxurl
  * @param {string}     [opts.adminBase]    база wp-admin для ссылок post.php/post-new.php
  *                                         (тич-редактор плеера: admin_url(); иначе из fs_lms_vars.ajaxurl)
- * @param {Object}     [opts.extraAjaxParams] доп. параметры, подмешиваемые в запрос кандидатов-шагов
- *                                            (напр. { group_lesson_id } для тич-редактора)
+ * @param {Object}     [opts.transport]    транспорт AJAX (тич-редактор плеера, Р2.5). Без него —
+ *                                         админ-поведение: fs_lms_vars + дефолтный saveLessonSteps.
+ * @param {Object}     [opts.transport.actions] карта имён экшенов (getStepCandidates/getTaskPreview/getRefPreview)
+ * @param {string}     [opts.transport.nonce]   nonce для запросов транспорта
+ * @param {string}     [opts.transport.ajaxurl] ajaxurl вместо fs_lms_vars.ajaxurl
+ * @param {Object}     [opts.transport.params]  доп. параметры запроса кандидатов (напр. { group_lesson_id })
+ * @param {Function}   [opts.transport.persist] (steps) => Promise — своё сохранение вместо saveLessonSteps
  * @param {boolean}    [opts.readOnlyBank] true — скрыть кнопки «Добавить новую» в пикере (только выбор из банка)
  * @param {Function}   [opts.confirmFn]    (cfg) => Promise — своё окно подтверждения удаления шага;
  *                                         иначе дефолтный ConfirmModal.confirm (admin-only компонент)
@@ -272,12 +272,18 @@ export function createStepEditor( opts ) {
 	const onChange   = typeof opts.onChange === 'function' ? opts.onChange : () => {};
 	const setStatusE = typeof opts.setStatus === 'function' ? opts.setStatus : null;
 	const allowed         = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
-	const persist         = typeof opts.persist === 'function' ? opts.persist : null;
-	const A                = opts.actions || acts();
-	const teacherCfg        = opts.actions ? { nonce: opts.nonce, ajaxurl: opts.ajaxurl } : null;
+	// Транспорт AJAX (Р2.5): actions/nonce/ajaxurl/params/persist сгруппированы в
+	// opts.transport (тич-редактор плеера, свои эндпоинты/нонс/сейв). Без transport —
+	// админ-поведение: fs_lms_vars + дефолтный saveLessonSteps (course-builder,
+	// lesson-step-editor не передают транспорт). teacherCfg передаётся в ajax() как
+	// переопределение; extraCandidateParams — доп. параметры запроса кандидатов.
+	const transport            = opts.transport || {};
+	const persist              = typeof transport.persist === 'function' ? transport.persist : null;
+	const A                    = transport.actions || acts();
+	const teacherCfg           = transport.actions ? { nonce: transport.nonce, ajaxurl: transport.ajaxurl } : null;
+	const extraCandidateParams = transport.params || {};
 	const confirmFn         = typeof opts.confirmFn === 'function' ? opts.confirmFn : ( cfg ) => ConfirmModal.confirm( cfg );
 	const readOnlyBank      = !! opts.readOnlyBank;
-	const extraCandidateParams = opts.extraAjaxParams || {};
 	// База wp-admin для ссылок «Редактировать ↗»/«Добавить новую». В админке —
 	// из fs_lms_vars.ajaxurl; на маршруте плеера (тич-редактор) fs_lms_vars нет,
 	// относительный post.php уводит на /group/post.php (404) — поэтому opts.adminBase (Р0.4).
