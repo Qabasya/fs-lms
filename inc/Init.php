@@ -208,7 +208,7 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '5.1';
+		$capsVersion = '5.2'; // 5.2: + AuthorLmsBank (авторинг банка преподавателем, Фаза 1)
 		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
 			$roleManager->registerAll();

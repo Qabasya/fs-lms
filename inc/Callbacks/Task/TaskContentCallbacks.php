@@ -37,7 +37,7 @@ class TaskContentCallbacks extends BaseController {
 	 * POST: subject_key, template, post_id? (0 = новая задача → пустые поля).
 	 */
 	public function ajaxGetTaskEditorForm(): void {
-		$this->authorize( Nonce::TaskContent, Capability::AuthorLmsCourses );
+		$this->authorize( Nonce::TaskContent, Capability::AuthorLmsBank );
 
 		$subjectKey = $this->requireKey( 'subject_key' );
 		$templateId = $this->requireKey( 'template' );
@@ -74,7 +74,7 @@ class TaskContentCallbacks extends BaseController {
 	 * POST: subject_key, template, title, post_id? (0 = создать), fs_lms_meta[...] (поля шаблона).
 	 */
 	public function ajaxSaveTaskContent(): void {
-		$this->authorize( Nonce::TaskContent, Capability::AuthorLmsCourses );
+		$this->authorize( Nonce::TaskContent, Capability::AuthorLmsBank );
 
 		$subjectKey = $this->requireKey( 'subject_key' );
 		$templateId = $this->requireKey( 'template' );
@@ -97,6 +97,8 @@ class TaskContentCallbacks extends BaseController {
 				'post_type'   => $postType,
 				'post_title'  => $title,
 				'post_status' => 'publish',
+				// Авторство банка (общий банк, фильтр по автору — потом): создатель = текущий юзер.
+				'post_author' => get_current_user_id(),
 			) );
 
 			if ( is_wp_error( $result ) || ! $result ) {

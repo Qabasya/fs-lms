@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Inc\Core;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PageRoutes;
@@ -429,6 +430,28 @@ class Enqueue extends BaseController implements ServiceInterface {
 					'attachRecording'   => AjaxHook::TeacherAttachRecording->jsAction(),
 					'detachRecording'   => AjaxHook::TeacherDetachRecording->jsAction(),
 					'resetFork'         => AjaxHook::ResetLessonFork->jsAction(),
+				),
+				// Авторинг банка на фронте (Фаза 1): показывать ли инлайновый task-редактор.
+				'capabilities'  => array(
+					'authorBank' => current_user_can( Capability::AuthorLmsBank->value ),
+				),
+			)
+		);
+
+		// Инлайновый редактор задач (тот же, что в админке) — для авторинга задач банка
+		// прямо из тич-редактора шага. Схема шаблонов + экшены/нонс TaskContent.
+		wp_localize_script(
+			'fs-lms-teacher-editor',
+			'fs_lms_task_editor_vars',
+			array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'schema'   => $this->templateRegistry->allEditorSchemas(),
+				'nonces'   => array(
+					'taskContent' => Nonce::TaskContent->create(),
+				),
+				'actions'  => array(
+					'saveTaskContent'   => AjaxHook::SaveTaskContent->jsAction(),
+					'getTaskEditorForm' => AjaxHook::GetTaskEditorForm->jsAction(),
 				),
 			)
 		);

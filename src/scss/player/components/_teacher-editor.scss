@@ -18,6 +18,9 @@
 @use '../../admin/mixins' as m;
 @use '../../admin/components/step-editor';
 @use '../../admin/components/picker-popover'; // только поповер/пикер, не всё дерево конструктора (Р1.5)
+@use '../../admin/components/task-editor';    // модалка авторинга задачи (.fs-te-*, Фаза 1)
+@use '../../admin/components/task-fields';    // сложные поля задачи (options/pairs/order/audio)
+@use '../../common/components/tooltip';       // .fs-lms-tooltip-* в полях
 @use '../../admin/components/modal/accordion';
 @use '../../common/components/confirm-dialog';
 @use '../../common/components/toast';
@@ -42,16 +45,23 @@
   white-space: nowrap;
 }
 
-/* ── Панель редактора: drawer справа, поверх контента плеера ────────── */
+/* Кнопка «← Вернуться» в шапке редактора: иконка + текст. */
+.tep-back {
+  display: inline-flex;
+  align-items: center;
+  gap: rem(6);
+
+  svg { width: rem(16); height: rem(16); }
+}
+
+/* ── Панель редактора: полноэкранный оверлей поверх плеера (как в админке) ──
+   Раньше был узкий 640px-drawer справа, из-за чего .fs-se и особенно TinyMCE
+   зажимались. Теперь — своя «страница» на весь экран с центрированной колонкой
+   контента, чтобы редактор шагов выглядел и работал как на бэке. */
 .teacher-editor-panel {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(100%, rem(640));
+  inset: 0;
   background: var(--surface);
-  border-left: 1px solid var(--line);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.16);
   z-index: $z-teacher-panel;
   display: flex;
   flex-direction: column;
@@ -62,16 +72,17 @@
 .tep-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: rem(12);
-  padding: rem(16) rem(20);
+  padding: rem(12) rem(24);
   border-bottom: 1px solid var(--line);
+  background: var(--surface);
   flex-shrink: 0;
 
   .tep-title {
-    font-size: rem(15);
-    font-weight: 600;
+    font-size: rem(16);
+    font-weight: 700;
     color: var(--ink);
+    margin-right: auto; // толкает «Сбросить»/«Закрыть» вправо
   }
 }
 
@@ -79,7 +90,14 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: rem(16) rem(20);
+  padding: rem(24) rem(24) rem(64);
+}
+
+/* Редактор шагов — центрированная колонка как контент админки: .fs-se (ряд
+   чипов + тело шага) и TinyMCE получают полную ширину, без зажатия. */
+.teacher-editor-mount {
+  max-width: rem(1040);
+  margin: 0 auto;
 }
 
 /* ── Панель записи занятия (broadcast-шаг, teacher-only) ─────────────── */
@@ -115,11 +133,13 @@
 }
 
 /* ── WP-admin-кнопки редактора без wp-admin/common.css (Р1.3) ──────────
-   Скоуп на панель редактора и панель записи; базовый .button — призрачная
-   pill (cb-ghost-button), .button-primary — акцентная (cb-chip-solid),
-   .fs-sb-btn-danger («Отвязать») — красная-призрачная. */
+   Скоуп на панель редактора, панель записи И модалку авторинга (.fs-te-modal
+   рендерится в <body>, вне #fsTeacherEditor). Базовый .button — призрачная pill
+   (cb-ghost-button), .button-primary — акцентная (cb-chip-solid), .fs-sb-btn-danger
+   («Отвязать») — красная-призрачная, .button-link — текстовая (× / удалить). */
 #fsTeacherEditor,
-.broadcast-teacher-panel {
+.broadcast-teacher-panel,
+.fs-te-modal {
   .button {
     @include m.cb-ghost-button;
 
@@ -130,6 +150,18 @@
 
   .button.button-primary {
     @include m.cb-chip-solid;
+  }
+
+  .button-link {
+    padding: 0 rem(4);
+    border: none;
+    background: none;
+    color: var(--muted-2);
+    font-size: rem(15);
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover { color: var(--err); }
   }
 
   .button.fs-sb-btn-danger {
@@ -143,3 +175,83 @@
 
 /* Загрузка/ошибка в mount редактора (.btp-loading — свой, у панели записи). */
 .tep-loading { padding: rem(24); text-align: center; color: var(--muted); font-size: rem(13); }
+
+/* ── Поля задачи внутри модалки авторинга (.fs-te-modal, Фаза 1) ────────────
+   PHP-рендер полей (Fields/*) рассчитан на wp-admin form CSS + контекст метабокса,
+   которых на фронте нет (form-контролы, отступы полей — оттуда). Воспроизводим
+   базовый вид скоупом на модалку, токенами кабинета. Сложные поля (options/pairs/
+   order/audio) стилит подключённый выше _task-fields.scss. Скоуп на .fs-te-fields
+   (сами PHP-поля), чтобы не задеть тайтл/заголовок самой модалки (.fs-te-*). */
+.fs-te-fields {
+  // Секции-заголовки шаблонов (напр. ThreeInOne рендерит сырые <h3>) — на фронте
+  // без wp-admin/темы они разъезжаются в браузерный дефолт (огромные). Клампим.
+  h2, h3, h4 {
+    margin: rem(18) 0 rem(8);
+    font-size: rem(15);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+
+  .fs-lms-field-group { margin-bottom: rem(18); }
+
+  .fs-lms-label,
+  .fs-lms-label-row {
+    display: block;
+    font-size: rem(14);
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 rem(6);
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="url"],
+  input[type="email"],
+  textarea,
+  select,
+  .fs-lms-input,
+  .fs-lms-textarea,
+  .regular-text {
+    box-sizing: border-box;
+    width: 100%;
+    padding: rem(8) rem(11);
+    border: 1px solid var(--line);
+    border-radius: rem(6);
+    background: var(--surface);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: rem(14);
+    line-height: 1.4;
+
+    &:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+      outline: none;
+    }
+  }
+
+  textarea,
+  .fs-lms-textarea {
+    min-height: rem(90);
+    resize: vertical;
+  }
+
+  select { height: rem(38); cursor: pointer; }
+
+  .fs-lms-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: rem(10);
+
+    .fs-lms-input { flex: 1 1 auto; }
+  }
+
+  .fs-lms-editor-wrapper { margin-top: rem(4); }
+
+  p.description {
+    margin: rem(5) 0 0;
+    font-size: rem(12.5);
+    color: var(--muted);
+  }
+}

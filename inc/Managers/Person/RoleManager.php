@@ -117,6 +117,16 @@ class RoleManager {
 				$teacher->remove_cap( $cap );
 			}
 		}
+
+		// Авторинг КОНТЕНТА банка (задачи/работы/экзамены) — методист, офис И преподаватель.
+		// Отдельно от структуры курса (AuthorLmsCourses) и от lessonCaps (CPT edit_post):
+		// преподаватель авторит банк на фронте, но билдер курса не трогает.
+		foreach ( array( 'administrator', 'lms_methodist', 'lms_office', 'lms_teacher' ) as $slug ) {
+			$role = get_role( $slug );
+			if ( null !== $role ) {
+				$role->add_cap( Capability::AuthorLmsBank->value );
+			}
+		}
 		foreach ( array( 'administrator', 'lms_office', 'lms_methodist', 'lms_market', 'lms_teacher' ) as $slug ) {
 			$r = get_role( $slug );
 			if ( null !== $r ) {

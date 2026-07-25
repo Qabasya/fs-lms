@@ -1,4 +1,5 @@
 import { createStepEditor, ajax, esc } from '../admin/services/step-editor.js';
+import { TaskEditor } from '../admin/services/task-editor.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { showToast } from '../common/components/toast.js';
 
@@ -18,6 +19,9 @@ import { showToast } from '../common/components/toast.js';
 		if ( ! vars ) { return; }
 
 		const cfg = { nonce: vars.nonce, ajaxurl: vars.ajaxurl };
+
+		// Инлайновый редактор задач (авторинг банка, Фаза 1) — читает fs_lms_task_editor_vars.
+		TaskEditor.init();
 
 		// Панель записи занятия (broadcast-шаг) рендерится сервером для преподавателя и
 		// грузит записи на входе в плеер — независимо от drawer тич-редактора (Р0.3).
@@ -40,7 +44,9 @@ import { showToast } from '../common/components/toast.js';
 			if ( ! mounted ) { bootstrap(); }
 		}
 		function closePanel() {
-			panel.hidden = true;
+			// Возврат в плеер с перезагрузкой: правки шагов автосохранены, но плеер
+			// под панелью отрендерен сервером — перезагрузка сразу показывает изменения.
+			window.location.reload();
 		}
 
 		btn.addEventListener( 'click', () => { panel.hidden ? openPanel() : closePanel(); } );
@@ -62,6 +68,9 @@ import { showToast } from '../common/components/toast.js';
 						subjectKey:         resp.subject_key,
 						readOnlyBank:       true,
 						adminBase:          vars.adminBase,
+						// Авторинг задач банка инлайновой модалкой (Фаза 1) — если есть AuthorLmsBank.
+						canAuthor:          !! ( vars.capabilities && vars.capabilities.authorBank ),
+						openTaskEditor:     ( o ) => TaskEditor.openModal( o ),
 						confirmFn:          ( c ) => confirmDialog( c.message, c.confirmText || 'Подтвердить', 'Отмена' )
 							.then( ( ok ) => { if ( ! ok ) { throw null; } } ),
 						// Транспорт AJAX плеера (Р2.5): свои эндпоинты/нонс/ajaxurl + доп.

@@ -287,8 +287,9 @@ $next_url    = null !== $next_lesson
 			<button type="button" class="b b-gh b-sm tep-reset" id="fsTeacherEditorReset" hidden>
 				<?php esc_html_e( 'Сбросить к версии курса', 'fs-lms' ); ?>
 			</button>
-			<button type="button" class="s-ibtn" id="fsTeacherEditorClose" aria-label="<?php esc_attr_e( 'Закрыть', 'fs-lms' ); ?>">
+			<button type="button" class="s-ibtn s-ibtn-text tep-back" id="fsTeacherEditorClose" aria-label="<?php esc_attr_e( 'Вернуться к уроку', 'fs-lms' ); ?>">
 				<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				<?php esc_html_e( 'Вернуться', 'fs-lms' ); ?>
 			</button>
 		</div>
 		<div class="tep-body">

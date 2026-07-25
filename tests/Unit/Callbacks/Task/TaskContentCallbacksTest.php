@@ -46,14 +46,17 @@ class TaskContentCallbacksTest extends TestCase {
 	}
 
 	public function test_save_task_content_creates_subject_task(): void {
+		$GLOBALS['_fs_test_user_id'] = 42; // авторство банка (Фаза 1): создатель = текущий юзер
 		$_POST = array( 'subject_key' => 'inf', 'template' => 'standard_task', 'title' => 'Новая задача', 'post_id' => 0 );
 
 		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveTaskContent() );
 
 		self::assertTrue( $r->success );
 		self::assertGreaterThan( 0, $r->payload['id'] );
-		self::assertSame( 'inf_tasks', get_post( $r->payload['id'] )->post_type );
+		$post = get_post( $r->payload['id'] );
+		self::assertSame( 'inf_tasks', $post->post_type );
 		self::assertSame( 'Новая задача', $r->payload['title'] );
+		self::assertSame( 42, $post->post_author ); // post_author проставлен создателем
 	}
 
 	public function test_save_task_content_missing_subject_errors(): void {

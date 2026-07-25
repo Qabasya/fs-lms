@@ -1,3 +1,66 @@
+# План: авторинг банка контента преподавателем на фронте
+
+> 2026-07-25. Цель: преподаватель в плеере («Настроить урок») получает **тот же** инлайновый
+> авторинг, что методист в админке — создание/редактирование **задач, работ, экзаменов** в
+> общем банке предмета, с авторством (`post_author`). Структура курса (модули, дерево, 72 урока)
+> остаётся методисту (`AuthorLmsCourses`). Экзамены преподавателю **разрешены** (потом при нужде
+> отключим отдельной капой).
+>
+> **Ключевое решение (капабилити):** новая капа **`AuthorLmsBank`** = «авторинг контента банка»
+> (задачи/работы/экзамены, subject-scoped, БЕЗ структуры курса). Выдаётся **и методисту, и
+> преподавателю**. Bank-content-эндпоинты (`GetTaskEditorForm`/`SaveTaskContent`/create-draft
+> работ/экзаменов) переводятся с `AuthorLmsCourses` → `AuthorLmsBank`; course-structure остаётся
+> на `AuthorLmsCourses`. Так один и тот же код авторинга обслуживает обоих.
+>
+> **Что уже готово (переиспользуем):** админский авторинг **инлайновый AJAX**, не wp-admin:
+> задача = `task-editor.js` + `GetTaskEditorForm` + `SaveTaskContent` (post_id=0 создаёт);
+> черновики — `Create{Work,Assessment}Draft`; поля — PHP `Fields/*` (единый источник).
+>
+> **UX-фиксы тич-редактора (сделаны 2026-07-25, до фаз):** полноэкранная панель вместо 640px-drawer;
+> `.fs-cb-ss-*` перенесены в `_step-editor.scss` (были в `_task-editor.scss`, не грузились в плеер);
+> `fs-confirm-dialog` кнопки застилены (`shared/tokens`) + диалог подключён во frontend; «Редактировать ↗»
+> скрыта в readOnlyBank; кнопка «← Вернуться» (текст) + перезагрузка плеера при возврате.
+
+## Фаза 1 — задачи (tasks) ✅ ГОТОВО (2026-07-25, нужна браузер-проверка)
+
+_Капа `AuthorLmsBank` + роли (методист/офис/преподаватель), эндпоинты `GetTaskEditorForm`/`SaveTaskContent`
+переведены на неё + `post_author`=создатель; `task-editor.js`/`task-fields.js` + `fs_lms_task_editor_vars` +
+`capabilities.authorBank` в teacher-бандле; `.fs-te-*` модалка подключена в плеер; step-editor: `canAuthor`+
+`openTaskEditor` — «Добавить новую»/«Редактировать» задачу открывают инлайновую модалку (subject-задача,
+`post_author`). +1 тест (post_author). teacher-бандл 38.7→51.2 КБ (task-editor вернулся). 890/890._
+
+### Детали (для справки)
+
+- **Капа `AuthorLmsBank`** — `inc/Enums/Access/Capability.php` (`case AuthorLmsBank = 'author_lms_bank';`).
+  `RoleManager`: выдать ролям, у которых есть `AuthorLmsCourses` (методист), И `FSTeacher`. Bump `fs_lms_caps_version` (Init) — синхронизирует капы.
+- **Перевести bank-content-эндпоинты** `AuthorLmsCourses → AuthorLmsBank`: `TaskContentCallbacks::ajaxGetTaskEditorForm`/`ajaxSaveTaskContent` (subject-scoped, не group). Проверить, что методист (получит `AuthorLmsBank`) не теряет доступ. `SaveTaskContent` ставит `post_author` = текущий юзер при создании (post_id=0).
+- **Teacher-бандл**: вернуть `task-editor.js`+`task-fields.js` в бандл (Enqueue `enqueue_teacher_editor_assets` — уже грузит `wp_enqueue_editor()`); локализовать в `fs_lms_teacher_editor_vars` действия `getTaskEditorForm`/`saveTaskContent` + `nonces.taskContent`. Дать `createStepEditor` доступ к task-modal.
+- **step-editor.js**: для преподавателя-автора (`canAuthor`, не `readOnlyBank`) — «Добавить новую»/«Редактировать» задачу открывают **инлайновую task-модалку** (`task-editor.js`), а НЕ wp-admin `post-new.php`/`post.php`. На сохранение (SaveTaskContent → post_id) — выставить `payload.ref` шага. Вернуть «Редактировать ↗» как инлайновую правку.
+- **Флаг режима**: teacher vars — `capabilities.authorBank` (из PHP `current_user_can(AuthorLmsBank)`); `createStepEditor` получает `canAuthor` → снимает `readOnlyBank`.
+- **Тесты**: `TaskContentCallbacksTest` — доступ по `AuthorLmsBank` (методист+преподаватель), запрет без капы; создание ставит author.
+- Сборка teacher-бандла подрастёт (task-editor вернётся) — ок, это осознанно.
+
+## Фаза 2 — работы (works)
+
+- `CreateWorkDraft` + редактор работы (набор задач + мета: тип homework/practice, дедлайны) на фронте — тот же паттерн. Эндпоинты сборки работы (add/remove задач) → `AuthorLmsBank`.
+- В тич-редакторе шага `work`: «Добавить новую» открывает редактор работы инлайново; «Редактировать» — правка набора/меты.
+- Тесты на teacher-доступ к work-авторингу.
+
+## Фаза 3 — экзамены (assessments)
+
+- `CreateAssessmentDraft` + редактор экзамена (набор задач + правила: scoring binary/ЕГЭ, intro) на фронте → `AuthorLmsBank` (по решению — экзамены разрешены).
+- Учесть: секретный банк экзаменов станет виден/редактируем преподавателю (осознанно). Целостность (`AssessmentAccessPolicy`/`ExamLockService`) не меняется — экзамен препода идёт через ту же машинерию.
+- Задел на будущее: отдельная капа `AuthorLmsExams` для точечного отключения — НЕ делаем сейчас, только оставить место в `Capability`/gate-хелпере.
+- Тесты на teacher-доступ к assessment-авторингу.
+
+## Порядок
+
+Фаза 1 (задачи) — фундамент (капа + переключение эндпоинтов + бандл + task-модалка в step-editor).
+Фаза 2 и 3 переиспользуют капу и паттерн бандла; отличаются редакторами работы/экзамена.
+После каждой фазы: `npx gulp build`, `npm run lint:js/css`, PHPUnit, проверка в браузере (авторинг — визуальный).
+
+---
+
 # План: импорт с полным зачислением (CSV → ученик + учётки)
 
 > Аудит: ветка `stage_11`, 2026-07-25.

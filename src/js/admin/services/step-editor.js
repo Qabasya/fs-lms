@@ -261,6 +261,10 @@ function renderTaskPreview( box, data ) {
  * @param {Object}     [opts.transport.params]  доп. параметры запроса кандидатов (напр. { group_lesson_id })
  * @param {Function}   [opts.transport.persist] (steps) => Promise — своё сохранение вместо saveLessonSteps
  * @param {boolean}    [opts.readOnlyBank] true — скрыть кнопки «Добавить новую» в пикере (только выбор из банка)
+ * @param {boolean}    [opts.canAuthor]    true — автор банка (AuthorLmsBank): создание/правка задачи
+ *                                          инлайновой модалкой (перекрывает readOnlyBank для задач)
+ * @param {Function}   [opts.openTaskEditor] (o) => void — открыть task-модалку { subjectKey, postId?, onSave(id,title) };
+ *                                          нужна при canAuthor (teacher-editor передаёт TaskEditor.openModal)
  * @param {Function}   [opts.confirmFn]    (cfg) => Promise — своё окно подтверждения удаления шага;
  *                                         иначе дефолтный ConfirmModal.confirm (admin-only компонент)
  * @returns {{ destroy: Function }}
@@ -284,6 +288,11 @@ export function createStepEditor( opts ) {
 	const extraCandidateParams = transport.params || {};
 	const confirmFn         = typeof opts.confirmFn === 'function' ? opts.confirmFn : ( cfg ) => ConfirmModal.confirm( cfg );
 	const readOnlyBank      = !! opts.readOnlyBank;
+	// Авторинг банка на фронте (Фаза 1): преподаватель с AuthorLmsBank создаёт/правит
+	// задачи инлайновой модалкой (opts.openTaskEditor из teacher-editor.js → TaskEditor),
+	// а не через wp-admin. canAuthor перекрывает readOnlyBank для задач.
+	const canAuthor         = !! opts.canAuthor && typeof opts.openTaskEditor === 'function';
+	const openTaskEditor    = canAuthor ? opts.openTaskEditor : null;
 	// База wp-admin для ссылок «Редактировать ↗»/«Добавить новую». В админке —
 	// из fs_lms_vars.ajaxurl; на маршруте плеера (тич-редактор) fs_lms_vars нет,
 	// относительный post.php уводит на /group/post.php (404) — поэтому opts.adminBase (Р0.4).
@@ -678,7 +687,7 @@ export function createStepEditor( opts ) {
 				ed.innerHTML =
 					'<div class="fs-cb-task-pick">' +
 					'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
-					( readOnlyBank ? '' : '<button type="button" class="button button-primary" data-create>Добавить новую</button>' ) +
+					( ( ! readOnlyBank || canAuthor ) ? '<button type="button" class="button button-primary" data-create>Добавить новую</button>' : '' ) +
 					'</div>';
 			} else {
 				const attVal  = parseInt( ( step.payload.settings || {} ).max_attempts ?? 0, 10 );
@@ -686,7 +695,11 @@ export function createStepEditor( opts ) {
 				ed.innerHTML =
 					'<div class="fs-cb-ref">' +
 					'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
-					'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
+					// canAuthor — правка инлайновой модалкой; методист — ссылка в wp-admin;
+					// преподаватель без авторинга (readOnlyBank) правку не видит.
+					( canAuthor
+						? '<button type="button" class="button" data-edit-task>Редактировать</button>'
+						: ( readOnlyBank ? '' : '<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' ) ) +
 					'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 					'</div>' +
 					'<div class="fs-cb-task-preview" data-task-preview></div>' +
@@ -740,9 +753,37 @@ export function createStepEditor( opts ) {
 				} ) );
 			}
 
+			const editTaskBtn = ed.querySelector( '[data-edit-task]' );
+			if ( editTaskBtn && openTaskEditor ) {
+				editTaskBtn.addEventListener( 'click', () => openTaskEditor( {
+					subjectKey,
+					postId: refId,
+					onSave: ( id, title ) => {
+						step._title = title || step._title;
+						step.title  = step._title;
+						renderStepsRow(); renderStepBody(); saveSteps();
+					},
+				} ) );
+			}
+
 			const createBtn = ed.querySelector( '[data-create]' );
 			if ( createBtn ) {
 				createBtn.addEventListener( 'click', () => {
+					if ( openTaskEditor ) {
+						openTaskEditor( {
+							subjectKey,
+							onSave: ( id, title ) => {
+								step.payload.ref    = parseInt( id, 10 );
+								step.payload.source = 'subject';
+								step._title         = title || ( 'Задача #' + id );
+								step.title          = step._title;
+								delete step.payload.needs_review;
+								renderStepsRow(); renderStepBody(); saveSteps();
+								showToast( 'Задача создана и добавлена в шаг', 'success' );
+							},
+						} );
+						return;
+					}
 					const newWin = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
 					let lastHref    = '';
 					const poll = setInterval( () => {
@@ -791,7 +832,8 @@ export function createStepEditor( opts ) {
 			ed.innerHTML =
 				'<div class="fs-cb-ref">' +
 				'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
-				'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
+				// Преподавателю (readOnlyBank) правка работы/экзамена в wp-admin недоступна — ссылку прячем.
+				( readOnlyBank ? '' : '<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' ) +
 				'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 				'</div>' +
 				'<div class="fs-cb-ref-tasks"></div>';
