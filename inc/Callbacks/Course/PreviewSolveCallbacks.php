@@ -14,7 +14,6 @@ use Inc\Services\Course\BatchCheckService;
 use Inc\Services\Course\CoursePreviewAccessGuard;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
-use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -36,7 +35,6 @@ use Inc\Shared\Traits\Sanitizer;
  */
 class PreviewSolveCallbacks extends BaseController {
 
-	use Authorizer;
 	use Sanitizer;
 
 	public function __construct(

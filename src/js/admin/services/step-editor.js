@@ -27,7 +27,7 @@ const $ = jQuery;
  * Задача (один ссылочный тип — подстраивается под любую задачу: вопрос с
  * выбором, ЕГЭ с сайта, приватная задача с интерпретатором), Работа, Контрольная.
  */
-export const TYPE_UI = {
+const TYPE_UI = {
 	text:       { ui: 'lecture',  name: 'Текст',       inline: true },
 	video:      { ui: 'video',    name: 'Видео',       inline: true },
 	broadcast:  { ui: 'broadcast', name: 'Трансляция',  inline: true },
@@ -46,12 +46,12 @@ const ADD_TYPES = [
 	{ type: 'assessment', desc: 'Экзамен из библиотеки' },
 ];
 
-/** Максимум шагов в одном уроке (зеркалит серверный LessonCallbacks::MAX_STEPS_PER_LESSON). */
-export const MAX_STEPS = 20;
+/** Максимум шагов в одном уроке (зеркалит серверный LessonAuthoringService::MAX_STEPS_PER_LESSON). */
+const MAX_STEPS = 20;
 
-export const uiMeta = ( ourType ) => TYPE_UI[ ourType ] || TYPE_UI.text;
-export const icon   = ( ourType ) => stepIcon( uiMeta( ourType ).ui );
-const acts          = () => fs_lms_vars.ajax_actions;
+const uiMeta = ( ourType ) => TYPE_UI[ ourType ] || TYPE_UI.text;
+const icon   = ( ourType ) => stepIcon( uiMeta( ourType ).ui );
+const acts   = () => fs_lms_vars.ajax_actions;
 
 /** UI-меты шага по его типу (Задача сама подстраивается под любую задачу). */
 const stepMeta = ( step ) => uiMeta( step ? step.type : 'text' );

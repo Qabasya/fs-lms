@@ -32,6 +32,12 @@
 - КТП: бейдж «изменён» (`is_forked`) убран из `ScheduleService::getCalendar` и `ktp.js`.
 - `ContentCloneService::resetLessonFork` удалён; `forkLessonForGroup`/`deleteForksForGroup`
   остались как инструмент методиста.
+- Зачистка осиротевшего после отката кода: `GroupAccessGuard::findManageableLesson` (Р2.1 —
+  все 7 call-site'ов были в удалённых teacher-коллбеках), `VideoRecordingRepository::
+  listUnmatched/listMatched/listByGroupLesson/countByStatus` (UI полного списка записей
+  выпилен ещё в 3dd47af), трейт `Authorizer` в `PreviewSolveCallbacks` (гейт теперь через
+  гуард), лишние export'ы `step-editor.js` (TYPE_UI/MAX_STEPS/uiMeta/icon — только
+  внутренние).
 
 ## Осталось сделать
 
