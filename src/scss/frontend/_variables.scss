@@ -18,6 +18,18 @@ $color-error-text: #c0392b;
 $color-error-bg: #fdf0ef;
 $color-error-border: #f5c6c3;
 
+// ── Подсветка кода (светлая тема, редактор в _code-block.scss)
+$code-header-bg: #fafafa;
+$code-body-bg: $color-bg-subtle;           // #f4f4f4 — как pre в _tabs
+$code-gutter-text: #a0a4a8;
+$code-selection-bg: rgba(40, 192, 241, .18);
+$hl-keyword: #7c3aed;                       // def, return, if, for…
+$hl-builtin: #2563eb;                       // print, len, range…
+$hl-function: #1d4ed8;                      // имя функции после def
+$hl-string: #15803d;                        // строковые литералы
+$hl-number: #0e7490;                        // числа
+$hl-comment: #6b7280;                       // комментарии
+
 // ── Типографика
 $font-family: 'Ubuntu', arial, helvetica, sans-serif;
 $font-mono: 'Courier New', courier, monospace;

@@ -223,7 +223,7 @@ $nav_next    = $navigation['next'] ?? null;
 		<hr class="fs-task-divider fs-carousel-divider">
 		<div class="fs-task-carousel">
 			<div class="fs-carousel-header">
-				<h3 class="fs-carousel-title">Похожие статьи</h3>
+				<h3 class="fs-carousel-title">Случайные статьи</h3>
 			</div>
 			<button class="fs-carousel-btn fs-carousel-btn--prev" aria-label="Назад">&#8249;</button>
 
