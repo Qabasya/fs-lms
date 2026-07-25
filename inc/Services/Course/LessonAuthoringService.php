@@ -14,16 +14,15 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
+use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class LessonAuthoringService
  *
  * Бизнес-логика авторинга урока: кандидаты-работы для селектора, статьи, валидация,
- * санитайз/сборка шагов. Единая точка входа для методиста (`LessonCallbacks`) и
- * преподавателя (`TeacherLessonCallbacks`, Этап 3) — оба санитайзят сырой ввод билдера
- * одинаково, отличается только слой авторизации над вызовом.
- * Урок ссылается на работы, не на задачи. Доступ к данным — через PostManager.
+ * санитайз/сборка шагов. Единая точка входа для авторинга урока методистом
+ * (`LessonCallbacks`). Урок ссылается на работы, не на задачи. Доступ к данным — через PostManager.
  *
  * @package Inc\Services\Course
  */
@@ -219,10 +218,12 @@ class LessonAuthoringService {
 	 * Шаги с неизвестным типом отбрасываются.
 	 *
 	 * @param array<int, mixed> $rawSteps
+	 * @param string            $subjectKey Предмет урока — для проверки принадлежности ref
+	 *                                       (пусто = без проверки, обратная совместимость)
 	 *
 	 * @return StepDTO[]
 	 */
-	public function buildSteps( array $rawSteps ): array {
+	public function buildSteps( array $rawSteps, string $subjectKey = '' ): array {
 		$steps = array();
 		foreach ( $rawSteps as $raw ) {
 			if ( ! is_array( $raw ) ) {
@@ -237,10 +238,46 @@ class LessonAuthoringService {
 			$key     = (string) ( $raw['key'] ?? '' );
 			$payload = is_array( $raw['payload'] ?? null ) ? $raw['payload'] : array();
 
+			// Хардненинг: ref шага (task/work/assessment) обязан принадлежать предмету урока
+			// (task+source=bank — общему банку задач). Кривой ref из crafted-запроса прицепил бы
+			// к уроку чужой контент — обнуляем ref (шаг остаётся пустым «Выбрать существующую»).
+			$ref = (int) ( $payload['ref'] ?? 0 );
+			if ( '' !== $subjectKey && $ref > 0
+				&& ! $this->refBelongsToSubject( $type, $ref, (string) ( $payload['source'] ?? '' ), $subjectKey ) ) {
+				PluginLogger::warning( 'LessonAuthoring', 'Ref шага не принадлежит предмету урока — отброшен', array(
+					'ref'     => $ref,
+					'type'    => $type->value,
+					'subject' => $subjectKey,
+				) );
+				$payload['ref'] = 0;
+			}
+
 			$steps[] = new StepDTO( '' !== $key ? $key : $this->generateStepKey(), $type, $payload );
 		}
 
 		return $steps;
+	}
+
+	/**
+	 * Принадлежит ли ref-пост предмету урока (для task/work/assessment).
+	 * task+source=bank — общему банку задач (fs_lms_problems). Прочие типы шагов
+	 * ref не имеют — считаются валидными.
+	 */
+	private function refBelongsToSubject( StepType $type, int $refId, string $source, string $subjectKey ): bool {
+		$expected = match ( $type ) {
+			StepType::Task       => 'bank' === $source ? PostTypeResolver::problems() : PostTypeResolver::tasks( $subjectKey ),
+			StepType::Work       => PostTypeResolver::works( $subjectKey ),
+			StepType::Assessment => PostTypeResolver::assessments( $subjectKey ),
+			default              => null,
+		};
+
+		if ( null === $expected ) {
+			return true;
+		}
+
+		$post = $this->posts->get( $refId );
+
+		return $post instanceof \WP_Post && $post->post_type === $expected;
 	}
 
 	/**
@@ -268,8 +305,7 @@ class LessonAuthoringService {
 
 	/**
 	 * Санитайз одного сырого шага по типу (поля очищаются trait-методами Sanitizer).
-	 * Общий для методиста (`LessonCallbacks::ajaxSaveLessonSteps`) и преподавателя
-	 * (`TeacherLessonCallbacks::ajaxSaveGroupLessonSteps`, Этап 3).
+	 * Вызывается из `LessonCallbacks::ajaxSaveLessonSteps`.
 	 *
 	 * @param mixed $raw
 	 *
@@ -343,7 +379,7 @@ class LessonAuthoringService {
 	 *
 	 * @return array<int, array{t:int, title:string}>
 	 */
-	public function sanitizeChapters( mixed $raw ): array {
+	private function sanitizeChapters( mixed $raw ): array {
 		if ( ! is_array( $raw ) ) {
 			return array();
 		}

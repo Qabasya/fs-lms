@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Enums\Wp;
 
 /**
@@ -58,9 +60,6 @@ enum Nonce: string {
 
 	/** AJAX-запросы конструктора контрольной (степ-лист заданий). */
 	case AuthorAssessment = 'fs_lms_author_assessment';
-
-	/** AJAX-запросы преподавателя над уроком своей группы (COW-форк, состав шагов, банк, записи). */
-	case TeachLesson = 'fs_lms_teach_lesson';
 
 	// ==== Этап 2 — программа группы ====
 	case AssignCourse         = 'fs_lms_assign_course';

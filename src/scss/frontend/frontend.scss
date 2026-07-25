@@ -17,3 +17,4 @@
 @use 'components/assessment';
 @use 'components/lesson-player';
 @use 'components/task-widget';
+@use '../common/components/confirm-dialog'; // group-cockpit.js использует confirmDialog

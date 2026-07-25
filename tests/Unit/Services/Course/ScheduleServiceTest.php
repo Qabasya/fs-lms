@@ -10,7 +10,6 @@ use Inc\DTO\Course\LessonDTO;
 use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
-use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
@@ -58,7 +57,6 @@ class ScheduleServiceTest extends TestCase {
 			$this->roomAvailability,
 			$this->courses,
 			$this->effectiveTeacher,
-			new PostManager(),
 		);
 	}
 

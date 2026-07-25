@@ -119,7 +119,6 @@ $next_url    = null !== $next_lesson
 				<?php endif; ?>
 				<?php if ( $is_teacher ) : ?>
 					<span class="pv-banner"><?php esc_html_e( 'Режим преподавателя', 'fs-lms' ); ?></span>
-					<button type="button" class="s-ibtn s-ibtn-text" id="fsTeacherEditBtn"><?php esc_html_e( 'Настроить урок', 'fs-lms' ); ?></button>
 				<?php else : ?>
 					<div class="s-prog">
 						<span class="sp-txt" id="fsProgTxt">
@@ -279,23 +278,6 @@ $next_url    = null !== $next_lesson
 		</div>
 	</div>
 
-	<?php if ( $is_teacher ) : ?>
-	<div id="fsTeacherEditor" class="teacher-editor-panel" hidden>
-		<div class="tep-head">
-			<span class="tep-title"><?php esc_html_e( 'Шаги урока (только ваша группа)', 'fs-lms' ); ?></span>
-			<?php // Сброс форка к версии курса (Этап 5): показывает teacher-editor.js, когда is_forked. ?>
-			<button type="button" class="b b-gh b-sm tep-reset" id="fsTeacherEditorReset" hidden>
-				<?php esc_html_e( 'Сбросить к версии курса', 'fs-lms' ); ?>
-			</button>
-			<button type="button" class="s-ibtn" id="fsTeacherEditorClose" aria-label="<?php esc_attr_e( 'Закрыть', 'fs-lms' ); ?>">
-				<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-			</button>
-		</div>
-		<div class="tep-body">
-			<div class="teacher-editor-mount" id="fsTeacherEditorMount"></div>
-		</div>
-	</div>
-	<?php endif; ?>
 </div>
 
 <div class="toast" id="fsToast">

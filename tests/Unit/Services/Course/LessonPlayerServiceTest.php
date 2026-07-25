@@ -15,6 +15,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Services\Course\CourseNavService;
 use Inc\Services\Course\EffectiveStepSettingsResolver;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonPlayerService;
@@ -78,6 +79,7 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->works,
 			$this->submissionService,
 			$this->stepRenderer,
+			$this->createMock( CourseNavService::class ),
 		);
 	}
 
@@ -148,6 +150,30 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertNotNull( $view );
 		self::assertSame( 10, $view['lesson_id'] );
 		self::assertCount( 1, $view['steps'] );
+	}
+
+	// ── buildRouteView (Р2.7) ────────────────────────────────────────────────
+
+	public function test_build_route_view_teacher_wraps_with_shell_tree_unlocked(): void {
+		$step   = $this->makeVideoStep( 's1', array( 'url' => 'https://example.com/v' ) );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+
+		$data = $this->service->buildRouteView( 0, $this->makeGroupLesson( lessonId: 10 ), true );
+
+		self::assertNotNull( $data );
+		self::assertSame( 10, $data['view']['lesson_id'] );
+		self::assertArrayHasKey( 'shell', $data['view'] );
+		self::assertArrayHasKey( 'tree', $data['view'] );
+		self::assertFalse( $data['locked'] );      // teacher — блокировки по времени нет
+		self::assertNull( $data['locked_seconds'] );
+		self::assertFalse( $data['locked_soon'] );
+	}
+
+	public function test_build_route_view_null_when_lesson_missing(): void {
+		$this->lessons->method( 'get' )->willReturn( null );
+
+		self::assertNull( $this->service->buildRouteView( 1, $this->makeGroupLesson(), false ) );
 	}
 
 	// ── broadcast-шаг (Этап 1): запись занятия / заглушка ────────────────────
@@ -535,11 +561,68 @@ class LessonPlayerServiceTest extends TestCase {
 		// arrangeTaskStep стабит taskAttempts->listByStep(...) пустым списком для
 		// любого вызова — для studentPersonId=0 реальных попыток и не существует.
 		$groupLesson = $this->arrangeTaskStep( array() );
-		$this->correctAnswers->expects( $this->never() )->method( 'resolve' );
+		$this->correctAnswers->method( 'resolve' )->willReturn( null );
 
 		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
 
 		self::assertSame( 0, $render['attempts_used'] );
+		// Ученический канал эталона (D20) в teacher-режиме не используется —
+		// эталон приходит отдельным ключом `solution` (см. ниже).
 		self::assertArrayNotHasKey( 'correct_answer', $render );
+	}
+
+	// ── «Показать решение» (З1): эталон в teacher-режиме ────────────────────
+
+	public function test_teacher_view_task_step_includes_solution(): void {
+		$groupLesson = $this->arrangeTaskStep( array() );
+		$this->correctAnswers->method( 'resolve' )->with( 77 )->willReturn( 'Вариант Б' );
+
+		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
+
+		self::assertSame( 'Вариант Б', $render['solution']['answer'] );
+		self::assertSame( '', $render['solution']['html'] );
+	}
+
+	public function test_teacher_view_task_solution_absent_when_manual_template_has_no_answer(): void {
+		// Ручной шаблон (код/файл/развёрнутый): эталона нет и поля «Решение» тоже.
+		$groupLesson = $this->arrangeTaskStep( array() );
+		$this->correctAnswers->method( 'resolve' )->willReturn( null );
+
+		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
+
+		self::assertArrayNotHasKey( 'solution', $render );
+	}
+
+	public function test_student_view_task_step_never_includes_solution(): void {
+		$groupLesson = $this->arrangeTaskStep( array( $this->attempt( 1, false ), $this->attempt( 2, false ) ) );
+		$this->correctAnswers->method( 'resolve' )->willReturn( 'Вариант Б' );
+		$this->correctAnswers->method( 'choiceCorrectIds' )->willReturn( array( 'o2' ) );
+
+		$render = $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
+
+		// Ученику эталон приходит только штатным каналом D20 — ключа `solution` нет.
+		self::assertArrayNotHasKey( 'solution', $render );
+		self::assertSame( 'Вариант Б', $render['correct_answer'] );
+	}
+
+	public function test_teacher_view_work_step_includes_solution_per_task(): void {
+		$groupLesson = $this->arrangeWorkStep();
+		$this->correctAnswers->method( 'resolve' )->willReturn( 'Пять' );
+
+		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
+
+		self::assertSame( 'Пять', $render['tasks'][0]['solution']['answer'] );
+		// Мета задачи из ответа не утекает — только собранный эталон.
+		self::assertArrayNotHasKey( 'meta', $render['tasks'][0] );
+	}
+
+	public function test_student_view_work_step_never_includes_solution(): void {
+		$groupLesson = $this->arrangeWorkStep();
+		$this->submissionService->method( 'getSubmissionsForView' )->willReturn( array() );
+		$this->correctAnswers->method( 'resolve' )->willReturn( 'Пять' );
+
+		$render = $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
+
+		self::assertArrayNotHasKey( 'solution', $render['tasks'][0] );
 	}
 }

@@ -1,5 +1,6 @@
 @use '../variables' as *;
 @use '../mixins' as *;
+@use 'picker-popover'; // add-step popover / library picker (вынесен, Р1.5)
 
 // ══════════════════════════════════════════════════════════════
 //  Course Builder — Stepik-style конструктор курса.
@@ -220,39 +221,6 @@
 
 	.editor-empty {
 		@include cb-empty(rem(320));
-	}
-}
-
-// ── add-step popover / library picker (рендерится в <body>, вне .wrap) ──
-.fs-cb-popover {
-	position: absolute; z-index: 100001;
-	background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: rem(9);
-	box-shadow: $shadow-cb-popover; padding: $spacing-sm; width: rem(240);
-
-	.sp-title { @include cb-eyebrow($font-size-code); padding: rem(6) $spacing-sm $spacing-sm; }
-
-	.sp-option {
-		display: flex; align-items: center; gap: rem(10); padding: rem(9) $spacing-sm; border-radius: rem(6); cursor: pointer;
-		&:hover { background: $cb-bg-hover; }
-
-		.spo-ico {
-			width: rem(30); height: rem(30); border-radius: rem(7); display: flex; align-items: center; justify-content: center; color: $color-text-inverse; flex-shrink: 0;
-			svg { fill: $color-text-inverse; width: rem(16); height: rem(16); }
-
-			@include step-type-colors(background);
-		}
-		.spo-name { font-size: $font-size-wp; font-weight: $font-bold; }
-		.spo-desc { font-size: $font-size-code; color: $color-secondary-hover; }
-	}
-
-	&.fs-cb-picker { width: rem(320);
-		.field-input { width: 100%; padding: rem(6) $spacing-sm; border: 1px solid $color-border-input; border-radius: $border-radius-md; font-size: $font-size-wp; }
-		.fs-cb-pick-results { margin-top: rem(6); max-height: rem(260); overflow-y: auto; }
-
-		.fs-cb-pick-opt { display: flex; align-items: center; justify-content: space-between; gap: $spacing-sm; padding: rem(6) $spacing-sm; border-radius: $border-radius-md; cursor: pointer;
-			&:hover { background: $cb-bg-hover; } }
-		.fs-cb-pick-origin { flex: 0 0 auto; font-size: $font-size-code; color: $color-secondary-hover; background: $cb-bg-hover; padding: 1px rem(7); border-radius: $border-radius-md; }
-		.fs-cb-pick-empty { padding: $spacing-sm; color: $color-secondary-hover; font-size: $font-size-xs; }
 	}
 }
 

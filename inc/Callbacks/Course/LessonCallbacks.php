@@ -176,7 +176,9 @@ class LessonCallbacks extends BaseController {
 		}
 
 		$sanitized = array_map( array( $this->authoringService, 'sanitizeStep' ), $raw_steps );
-		$steps     = $this->authoringService->buildSteps( $sanitized );
+		// Предмет берём из самого урока (тип поста), а не из клиентского subject_key —
+		// чтобы проверка принадлежности ref не опиралась на подделываемый ввод (Р0.7).
+		$steps     = $this->authoringService->buildSteps( $sanitized, $lesson->subjectKey );
 
 		if ( count( $steps ) > LessonAuthoringService::MAX_STEPS_PER_LESSON ) {
 			$this->error( sprintf( 'В одном уроке не может быть больше %d шагов.', LessonAuthoringService::MAX_STEPS_PER_LESSON ) );

@@ -6,10 +6,6 @@ namespace Inc\Migrations;
 
 use Inc\Contracts\MigrationInterface;
 use Inc\Enums\Settings\TableName;
-use Inc\Enums\Wp\PostMetaName;
-use Inc\Managers\Wp\PostManager;
-use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Services\Subject\PostTypeResolver;
 
 /**
  * Class Migration_1_0_0
@@ -684,67 +680,9 @@ class Migration_1_0_0 implements MigrationInterface {
 		// phpcs:enable
 
 		// Этап 1 — чекбокс «запись занятия» у видео-шага заменён отдельным типом
-		// «Трансляция» (broadcast): переносим уже сохранённые recording_slot-шаги.
-		$this->migrateRecordingSlotToBroadcast();
-	}
-
-	/**
-	 * Данные (Этап 1): `video`-шаг с `payload.recording_slot` → тип `broadcast`,
-	 * `payload = {title, stream_url: ''}`. Идемпотентно — повторный прогон не
-	 * находит больше подходящих шагов (тип уже не 'video'). `key` шага не
-	 * меняется — на него завязаны прогресс (`lesson_progress`) и
-	 * `step_settings_overrides`. Проходит все посты `{key}_lessons` каждого
-	 * предмета (включая форки групп и любой статус, вплоть до trash/auto-draft).
-	 */
-	private function migrateRecordingSlotToBroadcast(): void {
-		$subjects = ( new SubjectRepository() )->readAll();
-		if ( array() === $subjects ) {
-			return;
-		}
-
-		$posts = new PostManager();
-
-		foreach ( $subjects as $subject ) {
-			$postType = PostTypeResolver::lessons( $subject->key );
-			foreach ( $posts->getIds( $postType ) as $postId ) {
-				$this->migrateLessonStepsMeta( $posts, (int) $postId );
-			}
-		}
-	}
-
-	/**
-	 * Переносит recording_slot-шаги одного урока (поста). No-op, если у поста
-	 * нет мета `fs_lms_meta.steps` или подходящих шагов не нашлось.
-	 */
-	private function migrateLessonStepsMeta( PostManager $posts, int $postId ): void {
-		$meta = $posts->getMeta( $postId, PostMetaName::Meta->value );
-		if ( ! is_array( $meta ) || ! is_array( $meta['steps'] ?? null ) ) {
-			return;
-		}
-
-		$changed = false;
-		foreach ( $meta['steps'] as &$step ) {
-			if ( ! is_array( $step ) ) {
-				continue;
-			}
-
-			$type    = (string) ( $step['type'] ?? '' );
-			$payload = is_array( $step['payload'] ?? null ) ? $step['payload'] : array();
-
-			if ( 'video' === $type && ! empty( $payload['recording_slot'] ) ) {
-				$step['type']    = 'broadcast';
-				$step['payload'] = array(
-					'title'      => (string) ( $payload['title'] ?? '' ),
-					'stream_url' => '',
-				);
-				$changed = true;
-			}
-		}
-		unset( $step );
-
-		if ( $changed ) {
-			$posts->updateMeta( $postId, PostMetaName::Meta->value, $meta );
-		}
+		// «Трансляция» (broadcast). Перенос recording_slot-шагов вынесен в
+		// одноразовую {@see BroadcastStepMigration} (version-gated, срабатывает на
+		// обычной загрузке из Init::run() — этот up() на живых установках не гоняется).
 	}
 
 	public function down(): void {

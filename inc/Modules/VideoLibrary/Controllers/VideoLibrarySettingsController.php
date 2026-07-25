@@ -5,9 +5,12 @@ declare( strict_types=1 );
 namespace Inc\Modules\VideoLibrary\Controllers;
 
 use Inc\Core\BaseController;
+use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\Menu;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\VideoLibrary\Callbacks\VideoLibrarySettingsCallbacks;
 use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
+use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
 
 /**
  * Class VideoLibrarySettingsController
@@ -32,6 +35,7 @@ class VideoLibrarySettingsController extends BaseController {
 	public function __construct(
 		private readonly VideoLibrarySettingsCallbacks $callbacks,
 		private readonly VideoLibraryConfig            $config,
+		private readonly RecordingAlertService         $alerts,
 	) {
 		parent::__construct();
 	}
@@ -41,8 +45,52 @@ class VideoLibrarySettingsController extends BaseController {
 		add_action( 'wp_ajax_' . self::EXPORT_GROUPS_ACTION, array( $this->callbacks, 'ajaxExportGroups' ) );
 		add_action( 'fs_lms_config_sections', array( $this, 'renderSection' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueueAssets' ) );
+		add_action( 'admin_notices', array( $this, 'renderPendingNotice' ) );
 		add_filter( 'fs_lms_dashboard_modules', array( $this, 'registerDashboardModule' ) );
 		add_action( 'fs_lms_module_toggle_video_library', array( $this, 'onToggle' ) );
+	}
+
+	/**
+	 * Алёрт З3: на страницах плагина — плашка «N занятий прошли без записи» со ссылкой
+	 * в секцию модуля, где их можно починить. На самой странице настроек не дублируется
+	 * (там живёт сам блок). Счётчик — из кэша (`countPendingCached`), точное число
+	 * показывает блок в секции.
+	 */
+	public function renderPendingNotice(): void {
+		if ( ! $this->config->isEnabled() || ! current_user_can( Capability::Admin->value ) ) {
+			return;
+		}
+
+		$page = sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! str_starts_with( $page, 'fs_' ) || Menu::Settings->value === $page ) {
+			return;
+		}
+
+		$count = $this->alerts->countPendingCached();
+		if ( $count <= 0 ) {
+			return;
+		}
+
+		$url = add_query_arg(
+			array( 'page' => Menu::Settings->value, 'tab' => 'tab-7' ),
+			admin_url( 'admin.php' )
+		);
+
+		printf(
+			'<div class="notice notice-warning"><p>%s <a href="%s">%s</a></p></div>',
+			esc_html( sprintf(
+				/* translators: %d: количество занятий без записи. */
+				_n(
+					'FS LMS: %d проведённое занятие осталось без записи.',
+					'FS LMS: %d проведённых занятий остались без записи.',
+					$count,
+					'fs-lms'
+				),
+				$count
+			) ),
+			esc_url( $url ),
+			esc_html__( 'Привязать запись', 'fs-lms' )
+		);
 	}
 
 	/**
@@ -108,6 +156,8 @@ class VideoLibrarySettingsController extends BaseController {
 				'lessons'      => VideoLibraryController::LESSONS_ACTION,
 				'attach'       => VideoLibraryController::ATTACH_ACTION,
 				'detach'       => VideoLibraryController::DETACH_ACTION,
+				'pending'      => VideoLibraryController::PENDING_ACTION,
+				'setUrl'       => VideoLibraryController::SET_URL_ACTION,
 			),
 		) );
 	}

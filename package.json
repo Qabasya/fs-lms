@@ -6,6 +6,7 @@
   "author": "kelechek, qabasya",
   "type": "commonjs",
   "main": "index.js",
+  "sideEffects": ["*.scss"],
   "scripts": {
     "test": "vendor/bin/phpunit",
     "lint:js": "eslint .",

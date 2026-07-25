@@ -8,22 +8,19 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\LessonManager;
-use Inc\Modules\VideoLibrary\DTO\VideoRecordingDTO;
-use Inc\Modules\VideoLibrary\Repositories\VideoRecordingRepository;
+use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
 use Inc\Modules\VideoLibrary\Services\VideoRegistrationService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
-use Inc\Services\Course\GroupAccessGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class VideoLibraryCallbacks
  *
- * AJAX-обработчики ручной привязки записей: админские (V9, ниже — `Nonce::Config`+
- * `Capability::Admin`) и преподавательские (Этап 3 — `Nonce::TeachLesson`+
- * `Capability::ManageLmsTeaching`, только своя группа занятия). Привязка в обоих
- * случаях идёт тем же путём, что авто-матч V6 (`recording_url` + `held`) —
- * через VideoRegistrationService.
+ * AJAX-обработчики ручной привязки записей (V9): только админ/офис в админке
+ * (`Nonce::Config` + `Capability::Admin`). Привязка идёт тем же путём, что
+ * авто-матч V6 (`recording_url` + `held`) — через VideoRegistrationService.
+ * Сюда же — алёрт «занятие прошло, записи нет» (З3) и ручная вставка ссылки.
  *
  * @package Inc\Modules\VideoLibrary\Callbacks
  */
@@ -36,8 +33,7 @@ class VideoLibraryCallbacks extends BaseController {
 		private readonly VideoRegistrationService $registration,
 		private readonly GroupLessonRepository    $groupLessons,
 		private readonly LessonManager            $lessons,
-		private readonly VideoRecordingRepository $recordings,
-		private readonly GroupAccessGuard         $guard,
+		private readonly RecordingAlertService    $alerts,
 	) {
 		parent::__construct();
 	}
@@ -97,95 +93,39 @@ class VideoLibraryCallbacks extends BaseController {
 	}
 
 	/**
-	 * Записи занятия своей группы для тич-панели broadcast-шага (Этап 3, будущая
-	 * поверхность — Этап 4): текущая привязка + непривязанные кандидаты той же группы.
-	 * Params: group_lesson_id
+	 * Алёрт З3: проведённые занятия без записи + кандидаты привязки по каждой группе.
+	 * Params: limit (опц.)
 	 */
-	public function ajaxTeacherListRecordings(): void {
-		$this->authorize( Nonce::TeachLesson, Capability::ManageLmsTeaching );
+	public function ajaxPendingRecordings(): void {
+		$this->authorize( Nonce::Config, Capability::Admin );
 
-		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$row           = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
-			$this->error( 'Занятие не найдено.' );
-			return;
-		}
+		$limit = $this->sanitizeInt( 'limit' );
 
 		$this->success( array(
-			'current'    => array_map( array( $this, 'recordingToArray' ), $this->recordings->listByGroupLesson( $groupLessonId ) ),
-			'candidates' => array_map( array( $this, 'recordingToArray' ), $this->recordings->listByGroup( $row->groupId ) ),
+			'count'   => $this->alerts->countPending(),
+			'lessons' => $this->alerts->pending( $limit > 0 ? min( $limit, 100 ) : 30 ),
 		) );
 	}
 
 	/**
-	 * Ручная привязка записи преподавателем — тот же путь, что у админа (V9),
-	 * но только в пределах своей группы (запись обязана быть из той же группы).
-	 * Params: group_lesson_id, recording_id
+	 * Ручная вставка ссылки на запись, когда записи в реестре нет вовсе (внешний
+	 * файл, перезалив мимо сервиса). Привязка записи, которая в реестре ЕСТЬ, идёт
+	 * через `ajaxAttach` — там ещё и статус самой записи переводится в matched.
+	 * Params: group_lesson_id, recording_url (пусто — снять ссылку)
 	 */
-	public function ajaxTeacherAttachRecording(): void {
-		$this->authorize( Nonce::TeachLesson, Capability::ManageLmsTeaching );
+	public function ajaxSetLessonRecordingUrl(): void {
+		$this->authorize( Nonce::Config, Capability::Admin );
 
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$recordingId   = $this->requireInt( 'recording_id' );
+		$url           = $this->sanitizeText( 'recording_url' );
 
-		$row = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
+		if ( null === $this->groupLessons->find( $groupLessonId ) ) {
 			$this->error( 'Занятие не найдено.' );
 			return;
 		}
 
-		$recording = $this->recordings->find( $recordingId );
-		if ( null === $recording || $recording->groupId !== $row->groupId ) {
-			$this->error( 'Запись не найдена.' );
-			return;
-		}
+		$this->groupLessons->setRecordingUrl( $groupLessonId, '' !== $url ? $url : null );
 
-		if ( ! $this->registration->attachManually( $recordingId, $groupLessonId ) ) {
-			$this->error( 'Запись или занятие не найдены.' );
-			return;
-		}
-
-		$this->success( array( 'message' => 'Запись привязана к занятию.' ) );
-	}
-
-	/**
-	 * Ручная отвязка преподавателем — в пределах своей группы.
-	 * Params: group_lesson_id, recording_id
-	 */
-	public function ajaxTeacherDetachRecording(): void {
-		$this->authorize( Nonce::TeachLesson, Capability::ManageLmsTeaching );
-
-		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$recordingId   = $this->requireInt( 'recording_id' );
-
-		$row = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
-			$this->error( 'Занятие не найдено.' );
-			return;
-		}
-
-		$recording = $this->recordings->find( $recordingId );
-		if ( null === $recording || $recording->groupId !== $row->groupId ) {
-			$this->error( 'Запись не найдена.' );
-			return;
-		}
-
-		if ( ! $this->registration->detachManually( $recordingId ) ) {
-			$this->error( 'Запись не найдена.' );
-			return;
-		}
-
-		$this->success( array( 'message' => 'Запись отвязана.' ) );
-	}
-
-	/** @return array<string, mixed> */
-	private function recordingToArray( VideoRecordingDTO $recording ): array {
-		return array(
-			'id'           => $recording->id,
-			's3_key'       => $recording->s3Key,
-			'recorded_at'  => $recording->recordedAt,
-			'duration_sec' => $recording->durationSec,
-			'status'       => $recording->status,
-		);
+		$this->success( array( 'message' => '' !== $url ? 'Ссылка сохранена.' : 'Ссылка снята.' ) );
 	}
 }

@@ -116,31 +116,7 @@ class VideoRecordingRepository {
 		);
 	}
 
-	/** @return VideoRecordingDTO[] Непривязанные записи (для ручной привязки), новые сверху. */
-	public function listUnmatched( int $limit = 50 ): array {
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare(
-				"SELECT * FROM {$this->table} WHERE status = %s ORDER BY recorded_at DESC LIMIT %d",
-				VideoRecordingStatus::Unmatched->value,
-				$limit
-			)
-		);
-		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
-	}
-
-	/** @return VideoRecordingDTO[] Привязанные записи, новые сверху (для отвязки/перепривязки). */
-	public function listMatched( int $limit = 50 ): array {
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare(
-				"SELECT * FROM {$this->table} WHERE status = %s ORDER BY recorded_at DESC LIMIT %d",
-				VideoRecordingStatus::Matched->value,
-				$limit
-			)
-		);
-		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
-	}
-
-	/** @return VideoRecordingDTO[] Непривязанные записи этой группы (кандидаты ручной привязки преподавателем, Этап 3), новые сверху. */
+	/** @return VideoRecordingDTO[] Непривязанные записи этой группы (кандидаты ручной привязки в алёрте З3), новые сверху. */
 	public function listByGroup( int $groupId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
@@ -152,27 +128,4 @@ class VideoRecordingRepository {
 		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
 	}
 
-	/** @return VideoRecordingDTO[] Записи, привязанные к занятию. */
-	public function listByGroupLesson( int $groupLessonId ): array {
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare(
-				"SELECT * FROM {$this->table} WHERE group_lesson_id = %d ORDER BY recorded_at ASC",
-				$groupLessonId
-			)
-		);
-		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
-	}
-
-	/** @return array<string, int> Количество записей по статусам: ['matched' => n, 'unmatched' => m]. */
-	public function countByStatus(): array {
-		$rows = $this->wpdb->get_results(
-			"SELECT status, COUNT(*) AS cnt FROM {$this->table} GROUP BY status"
-		);
-
-		$counts = array();
-		foreach ( $rows ?: array() as $row ) {
-			$counts[ (string) $row->status ] = (int) $row->cnt;
-		}
-		return $counts;
-	}
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Enums\Wp;
 
 /**
@@ -188,7 +190,8 @@ enum AjaxHook: string {
 	case UploadAnswerFile  = 'upload_answer_file';  // params: attempt_id + $_FILES[answer_file] → attachment_id (Эпик 13, D16: двухшаговая загрузка файла ответа для «Развёрнутого ответа» в контрольных)
 
 	// ==== Предпросмотр курса: «сухой прогон» решения (#5, D-2) ====
-	// Только на /course-preview/, capability AuthorLmsCourses. Проверяют ответ и
+	// Только на /course-preview/, гейт CoursePreviewAccessGuard::canSolvePreview()
+	// (сотрудник или преподаватель с назначенным группе курсом). Проверяют ответ и
 	// возвращают вердикт БЕЗ сохранения (нет попыток/прогресса/оценок/гейтов).
 
 	// ==== Контрольные и экзамены (Этап 4) ====
@@ -240,7 +243,7 @@ enum AjaxHook: string {
 	case GetGroupCalendar        = 'get_group_calendar'; // params: group_id — слоты периода + выходные + размещённые темы
 	case GetWorkDeadlines        = 'get_work_deadlines';  // params: group_lesson_id — работы занятия + текущие per-work дедлайны (T12.3, D13)
 	case SaveWorkDeadlines       = 'save_work_deadlines'; // params: group_lesson_id, deadlines (JSON {work_id:'Y-m-d H:i:s'|''}) — не блокируется lock КТП (T12.3, D13)
-	case SetRecordingUrl         = 'set_recording_url';   // params: group_lesson_id, recording_url — ручная правка ссылки на запись занятия (VideoLibrary)
+	case SetRecordingUrl         = 'set_recording_url';   // params: group_lesson_id, recording_url — ручная правка ссылки на запись занятия (З3)
 
 	// ==== Индивидуальные занятия (ЛК преподавателя, Эпик 4) ====
 	case CreateIndividualLesson  = 'create_individual_lesson'; // params: group_id, student_person_id, scheduled_at[, ends_at, lesson_id, label, teacher_user_id, room_id]
@@ -300,19 +303,6 @@ enum AjaxHook: string {
 	case CloneAssessment     = 'clone_assessment';
 	case CloneCourse         = 'clone_course';
 	case ForkLessonForGroup  = 'fork_lesson_for_group';
-
-	// ==== Урок группы для преподавателя: COW-форк + read-only банк (Этап 3) ====
-	case GetGroupLessonSteps  = 'get_group_lesson_steps';  // params: group_lesson_id → {lesson_id, subject_key, is_forked, steps[]}
-	case SaveGroupLessonSteps = 'save_group_lesson_steps'; // params: group_lesson_id, steps[] — COW-форк при первой правке
-	case TeacherStepCandidates = 'teacher_step_candidates'; // params: group_lesson_id, kind, source, search — read-only банк (без создания черновиков)
-	case TeacherTaskPreview    = 'teacher_task_preview';    // params: task_id
-	case TeacherRefPreview     = 'teacher_ref_preview';     // params: ref_id, ref_type (work|assessment)
-	case ResetLessonFork       = 'reset_lesson_fork';       // params: group_lesson_id — сброс форка к версии курса (Этап 5)
-
-	// ==== VideoLibrary: ручная привязка записи преподавателем (Этап 3) ====
-	case TeacherListRecordings = 'teacher_list_recordings'; // params: group_lesson_id → {current[], candidates[]}
-	case TeacherAttachRecording = 'teacher_attach_recording'; // params: group_lesson_id, recording_id
-	case TeacherDetachRecording = 'teacher_detach_recording'; // params: group_lesson_id, recording_id
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\Enums\Course\GateState;
@@ -39,7 +40,45 @@ class LessonPlayerService {
 		private readonly WorkManager                  $works,
 		private readonly SubmissionService            $submissionService,
 		private readonly StepContentRenderer          $stepRenderer,
+		private readonly CourseNavService             $nav,
 	) {}
+
+	/**
+	 * Полная сборка данных плеера для маршрута (Р2.7): view (ученик/teacher) +
+	 * оболочка + дерево курса + расчёт блокировки по времени. Контроллер отвечает
+	 * только за авторизацию, выбор шаблона и include — вся сборка данных здесь.
+	 *
+	 * @param int            $personId  ID person ученика (0 в teacher-режиме)
+	 * @param GroupLessonDTO $row       Занятие группы
+	 * @param bool           $isTeacher Teacher-режим (гейты открыты, прогресс не читается)
+	 *
+	 * @return array{view:array<string,mixed>, locked:bool, locked_scheduled:?string, locked_seconds:?int, locked_soon:bool}|null
+	 *         null — у урока нет контента (контроллер рендерит themed-фолбэк locked.php)
+	 */
+	public function buildRouteView( int $personId, GroupLessonDTO $row, bool $isTeacher ): ?array {
+		$view = $isTeacher ? $this->buildTeacherView( $row ) : $this->buildView( $personId, $row );
+		if ( null === $view ) {
+			return null;
+		}
+
+		$view['shell'] = $this->nav->shell( $personId, $row );
+		$view['tree']  = $this->nav->tree( $personId, $row );
+
+		// Блокировка по времени/предусловию: teacher-режим всегда открыт (гейта нет).
+		$locked    = ! $isTeacher && GateState::Locked === $this->gate->resolveLesson( $personId, $row );
+		$scheduled = $row->scheduledAt ?? null;
+		$seconds   = ( $locked && null !== $scheduled && '' !== $scheduled )
+			? strtotime( $scheduled ) - strtotime( current_time( 'mysql' ) )
+			: null;
+
+		return array(
+			'view'             => $view,
+			'locked'           => $locked,
+			'locked_scheduled' => $scheduled,
+			'locked_seconds'   => $seconds,
+			'locked_soon'      => null !== $seconds && $seconds > 0 && $seconds <= HOUR_IN_SECONDS,
+		);
+	}
 
 	/**
 	 * @return array{group_lesson_id:int, lesson_id:int, topic:string, steps:array<int, array<string,mixed>>}|null
@@ -50,28 +89,11 @@ class LessonPlayerService {
 			return null;
 		}
 
-		$statuses = $this->progress->getStepStatuses( $studentPersonId, $groupLesson->id );
-
-		$steps = array();
-		foreach ( $lesson->steps as $step ) {
-			$status = $statuses[ $step->key ] ?? ProgressStatus::Available;
-			$gate   = $this->gate->resolveStep( $studentPersonId, $groupLesson, $step->key );
-
-			$steps[] = array(
-				'key'    => $step->key,
-				'type'   => $step->type->value,
-				'title'  => $this->stepRenderer->resolveTitle( $step ),
-				'gate'   => $gate->value,
-				'status' => $status->value,
-				'render' => $this->renderData( $step, $groupLesson, $studentPersonId ),
-			);
-		}
-
-		return array(
-			'group_lesson_id' => $groupLesson->id,
-			'lesson_id'       => $lesson->id,
-			'topic'           => $lesson->topic,
-			'steps'           => $steps,
+		return $this->assembleView(
+			$lesson,
+			$groupLesson,
+			$studentPersonId,
+			$this->progress->getStepStatuses( $studentPersonId, $groupLesson->id )
 		);
 	}
 
@@ -90,15 +112,37 @@ class LessonPlayerService {
 			return null;
 		}
 
-		$steps = array();
+		// $statuses === null → teacher-режим: прогресс не читается, гейты/статусы Available.
+		return $this->assembleView( $lesson, $groupLesson, 0, null );
+	}
+
+	/**
+	 * Собирает view урока. `$statuses === null` — teacher-режим (гейты/статусы
+	 * Available, прогресс не читается); иначе ученический (статусы из прогресса,
+	 * гейт по {@see LessonGateResolver::resolveStep}). Дедуп buildView/buildTeacherView (Р2.3).
+	 *
+	 * @param array<string, ProgressStatus>|null $statuses
+	 *
+	 * @return array{group_lesson_id:int, lesson_id:int, topic:string, steps:array<int, array<string,mixed>>}
+	 */
+	private function assembleView( LessonDTO $lesson, GroupLessonDTO $groupLesson, int $studentPersonId, ?array $statuses ): array {
+		$isTeacher = null === $statuses;
+		$steps     = array();
 		foreach ( $lesson->steps as $step ) {
+			$status = $isTeacher
+				? ProgressStatus::Available
+				: ( $statuses[ $step->key ] ?? ProgressStatus::Available );
+			$gate   = $isTeacher
+				? GateState::Available
+				: $this->gate->resolveStep( $studentPersonId, $groupLesson, $step->key );
+
 			$steps[] = array(
 				'key'    => $step->key,
 				'type'   => $step->type->value,
 				'title'  => $this->stepRenderer->resolveTitle( $step ),
-				'gate'   => GateState::Available->value,
-				'status' => ProgressStatus::Available->value,
-				'render' => $this->renderData( $step, $groupLesson, 0 ),
+				'gate'   => $gate->value,
+				'status' => $status->value,
+				'render' => $this->renderData( $step, $groupLesson, $studentPersonId, $isTeacher ),
 			);
 		}
 
@@ -113,22 +157,48 @@ class LessonPlayerService {
 	/**
 	 * Данные для рендера шага по типу.
 	 *
+	 * @param bool $isTeacher Teacher-режим: к задачам добавляется эталон («Показать решение»).
+	 *
 	 * @return array<string, mixed>
 	 */
-	private function renderData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId ): array {
+	private function renderData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId, bool $isTeacher ): array {
 		return match ( $step->type->value ) {
-			'text'  => array( 'content' => (string) ( $step->payload['content'] ?? '' ) ),
-			'video' => $this->stepRenderer->renderVideoData( $step ),
+			'text', 'video' => $this->stepRenderer->renderInlineData( $step ),
 			// Generic-шов V4: модуль VideoLibrary подменяет указатель s3://… presigned-ссылкой.
-			'broadcast' => $this->stepRenderer->renderBroadcastData(
+			// Фильтр дёргаем только для broadcast (не для каждого text/video-шага).
+			'broadcast'  => $this->stepRenderer->renderInlineData(
 				$step,
 				apply_filters( 'fs_lms_recording_url', $groupLesson->recordingUrl, $groupLesson )
 			),
-			'task'       => $this->renderTaskData( $step, $groupLesson, $studentPersonId ),
-			'work'       => $this->renderWorkData( $step, $groupLesson, $studentPersonId ),
+			'task'       => $this->renderTaskData( $step, $groupLesson, $studentPersonId, $isTeacher ),
+			'work'       => $this->renderWorkData( $step, $groupLesson, $studentPersonId, $isTeacher ),
 			'assessment' => $this->stepRenderer->renderAssessmentData( $step ),
 			default      => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
 		};
+	}
+
+	/**
+	 * Эталон задачи для teacher-режима плеера: человекочитаемый правильный ответ
+	 * (`CorrectAnswerResolver`) + авторское решение (`task_text`). Отдаётся ТОЛЬКО
+	 * преподавателю (`$isTeacher`) — на клиент ученика правильные ответы уходят
+	 * лишь после исчерпания попыток (D20, см. {@see self::renderTaskData()}).
+	 *
+	 * @param array<string, mixed> $meta Мета задачи из `StepContentRenderer::taskBundle()`.
+	 *
+	 * @return array{answer:string, html:string}|null null — эталона нет (ручной шаблон без решения).
+	 */
+	private function solutionFor( int $taskId, array $meta ): ?array {
+		$answer = (string) ( $this->correctAnswers->resolve( $taskId ) ?? '' );
+		$html   = wp_kses_post( (string) ( $meta['task_text'] ?? '' ) );
+
+		if ( '' === $answer && '' === $html ) {
+			return null;
+		}
+
+		return array(
+			'answer' => $answer,
+			'html'   => $html,
+		);
 	}
 
 	/**
@@ -136,9 +206,11 @@ class LessonPlayerService {
 	 * (условия + виджеты БЕЗ ответов, как task-шаги), мета работы и текущая
 	 * сдача (агрегат + пооответные вердикты/баллы/фидбек).
 	 *
+	 * @param bool $isTeacher Teacher-режим: к каждой задаче добавляется эталон.
+	 *
 	 * @return array<string, mixed>
 	 */
-	private function renderWorkData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId ): array {
+	private function renderWorkData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId, bool $isTeacher ): array {
 		$workId = (int) ( $step->payload['ref'] ?? 0 );
 		$empty  = array(
 			'ref'        => $workId,
@@ -165,7 +237,13 @@ class LessonPlayerService {
 			if ( ! $bundle['auto_grade'] ) {
 				$bundle['widget_data'] = array( 'type' => 'text_answer' );
 			}
+
+			// Эталон каждой задачи работы — только преподавателю («Показать решение»).
+			$solution = $isTeacher ? $this->solutionFor( (int) $taskId, $bundle['meta'] ) : null;
 			unset( $bundle['meta'] );
+			if ( null !== $solution ) {
+				$bundle['solution'] = $solution;
+			}
 
 			$tasks[] = $bundle;
 		}
@@ -237,9 +315,11 @@ class LessonPlayerService {
 	/**
 	 * Данные task-шага: условие, виджет (без ответов), подсказка, настройки, прогресс.
 	 *
+	 * @param bool $isTeacher Teacher-режим: добавляется эталон («Показать решение»).
+	 *
 	 * @return array<string, mixed>
 	 */
-	private function renderTaskData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId ): array {
+	private function renderTaskData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId, bool $isTeacher ): array {
 		$empty = array(
 			'auto_grade'     => false,
 			'template'       => '',
@@ -287,6 +367,17 @@ class LessonPlayerService {
 			'attempts_used'  => $usedCount,
 			'reveal_hint'    => $revealHint,
 		);
+
+		// Teacher-режим: эталон доступен всегда, но за кнопкой «Показать решение» —
+		// преподаватель демонстрирует урок классу, ответ не должен светиться сразу.
+		if ( $isTeacher ) {
+			$solution = $this->solutionFor( $taskId, $meta );
+			if ( null !== $solution ) {
+				$data['solution'] = $solution;
+			}
+
+			return $data;
+		}
 
 		// D20 (T14.8): шаг провален с исчерпанием попыток — эталон виден и после
 		// перезагрузки страницы (в submit-ответе его отдаёт SubmitTaskAnswerCallbacks).

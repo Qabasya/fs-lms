@@ -13,11 +13,8 @@ use Inc\Services\Subject\PostTypeResolver;
  * Class TaskPreviewService
  *
  * Сборка read-only превью задачи/работы/контрольной для степ-редактора урока
- * (пикер шага "task"/"work"/"assessment"). Вынесена из `AssessmentAuthorCallbacks`
- * (Этап 3): нужна двум Callback-классам — методисту (`AssessmentAuthorCallbacks`,
- * capability `AuthorLmsCourses`) и преподавателю (`TeacherLessonCallbacks`,
- * capability `ManageLmsTeaching`) — оба показывают один и тот же контент, отличается
- * только слой авторизации над вызовом, поэтому сама сборка данных здесь одна.
+ * (пикер шага "task"/"work"/"assessment"). Вынесена из `AssessmentAuthorCallbacks`:
+ * сборка данных превью не зависит от слоя авторизации над вызовом.
  *
  * @package Inc\Services\Assessment
  */
@@ -100,12 +97,11 @@ class TaskPreviewService {
 			$common_html = wp_kses_post( $meta['common_condition'] );
 		}
 
+		// Условие — только task_condition (+ common_condition как префикс). task_text — это
+		// поле «Решение», не условие; problem_text/question_text/content в шаблонах не существуют.
 		$condition_html = '';
-		foreach ( array( 'task_condition', 'task_text', 'problem_text', 'question_text', 'content' ) as $key ) {
-			if ( ! empty( $meta[ $key ] ) && is_string( $meta[ $key ] ) ) {
-				$condition_html = wp_kses_post( $meta[ $key ] );
-				break;
-			}
+		if ( ! empty( $meta['task_condition'] ) && is_string( $meta['task_condition'] ) ) {
+			$condition_html = wp_kses_post( $meta['task_condition'] );
 		}
 		if ( $common_html ) {
 			$condition_html = $common_html . ( $condition_html ? '<br>' . $condition_html : '' );
@@ -130,20 +126,22 @@ class TaskPreviewService {
 			}
 		}
 
+		// Ответ — только task_answer (answer/answer_text/correct_answer в шаблонах нет).
 		$answer_html = '';
-		foreach ( array( 'task_answer', 'answer', 'answer_text', 'correct_answer' ) as $key ) {
-			if ( ! empty( $meta[ $key ] ) && is_string( $meta[ $key ] ) ) {
-				$answer_html = wp_kses_post( $meta[ $key ] );
-				break;
-			}
+		if ( ! empty( $meta['task_answer'] ) && is_string( $meta['task_answer'] ) ) {
+			$answer_html = wp_kses_post( $meta['task_answer'] );
 		}
 
+		// Решение — поле «Решение/пояснение» (task_text, есть у TaskTextSolution).
 		$solution_html = '';
-		foreach ( array( 'task_solution', 'solution', 'task_hint', 'hint' ) as $key ) {
-			if ( ! empty( $meta[ $key ] ) && is_string( $meta[ $key ] ) ) {
-				$solution_html = wp_kses_post( $meta[ $key ] );
-				break;
-			}
+		if ( ! empty( $meta['task_text'] ) && is_string( $meta['task_text'] ) ) {
+			$solution_html = wp_kses_post( $meta['task_text'] );
+		}
+
+		// Подсказка (task_hint) — отдельная секция; раньше уезжала в блок «Решение».
+		$hint_html = '';
+		if ( ! empty( $meta['task_hint'] ) && is_string( $meta['task_hint'] ) ) {
+			$hint_html = wp_kses_post( $meta['task_hint'] );
 		}
 
 		$audio_url = '';
@@ -168,6 +166,7 @@ class TaskPreviewService {
 			'three_in_one'   => $three_in_one,
 			'answer_html'    => $answer_html,
 			'solution_html'  => $solution_html,
+			'hint_html'      => $hint_html,
 			'audio_url'      => $audio_url,
 		);
 	}

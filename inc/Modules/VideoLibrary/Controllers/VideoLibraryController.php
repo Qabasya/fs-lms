@@ -4,7 +4,6 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\VideoLibrary\Controllers;
 
-use Inc\Enums\Wp\AjaxHook;
 use Inc\Modules\VideoLibrary\Callbacks\VideoLibraryCallbacks;
 use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
 use Inc\Modules\VideoLibrary\Services\S3UrlSigner;
@@ -27,6 +26,10 @@ class VideoLibraryController {
 	public const ATTACH_ACTION  = 'fs_lms_video_attach';
 	public const DETACH_ACTION  = 'fs_lms_video_detach';
 
+	/** Алёрт «занятие прошло, записи нет» + ручная вставка ссылки (З3). */
+	public const PENDING_ACTION = 'fs_lms_video_pending';
+	public const SET_URL_ACTION = 'fs_lms_video_set_url';
+
 	public function __construct(
 		private readonly VideoLibraryCallbacks $callbacks,
 		private readonly S3UrlSigner           $signer,
@@ -37,12 +40,8 @@ class VideoLibraryController {
 		add_action( 'wp_ajax_' . self::LESSONS_ACTION, array( $this->callbacks, 'ajaxLessons' ) );
 		add_action( 'wp_ajax_' . self::ATTACH_ACTION, array( $this->callbacks, 'ajaxAttach' ) );
 		add_action( 'wp_ajax_' . self::DETACH_ACTION, array( $this->callbacks, 'ajaxDetach' ) );
-
-		// Ручная привязка преподавателем (Этап 3) — через core AjaxHook, в отличие
-		// от локальных string-констант выше (те — админские V9, изоляция §4.6 не про них).
-		add_action( AjaxHook::TeacherListRecordings->action(), array( $this->callbacks, AjaxHook::TeacherListRecordings->callbackMethod() ) );
-		add_action( AjaxHook::TeacherAttachRecording->action(), array( $this->callbacks, AjaxHook::TeacherAttachRecording->callbackMethod() ) );
-		add_action( AjaxHook::TeacherDetachRecording->action(), array( $this->callbacks, AjaxHook::TeacherDetachRecording->callbackMethod() ) );
+		add_action( 'wp_ajax_' . self::PENDING_ACTION, array( $this->callbacks, 'ajaxPendingRecordings' ) );
+		add_action( 'wp_ajax_' . self::SET_URL_ACTION, array( $this->callbacks, 'ajaxSetLessonRecordingUrl' ) );
 
 		// Без S3-ключей указатель s3://… не подписать — фильтр не регистрируем,
 		// guard в StepContentRenderer скроет запись из плеера.

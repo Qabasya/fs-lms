@@ -5,16 +5,15 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Access\Capability;
 use Inc\Enums\Course\ProgressStatus;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\BatchCheckService;
+use Inc\Services\Course\CoursePreviewAccessGuard;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
-use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -26,24 +25,40 @@ use Inc\Shared\Traits\Sanitizer;
  * что и штатная сдача (`TaskCheckerRegistry`, `BatchCheckService`), только не
  * пишет результат.
  *
- * Гейт — право `AuthorLmsCourses`: у обычного ученика его нет, поэтому обойти
- * сохранение штатной сдачи через эти эндпоинты он не может.
+ * Гейт — `CoursePreviewAccessGuard::canSolvePreview()`, тот же владелец правила,
+ * что и у самого маршрута предпросмотра: сотрудник (админ/платформа/автор) или
+ * преподаватель, чьей группе назначен курс. Капабилити здесь не хватило бы —
+ * `AuthorLmsCourses` есть только у методиста, а курс «от роли ученика» должен
+ * проходить и преподаватель (З2).
  *
  * @package Inc\Callbacks\Course
  */
 class PreviewSolveCallbacks extends BaseController {
 
-	use Authorizer;
 	use Sanitizer;
 
 	public function __construct(
-		private readonly PostManager         $posts,
-		private readonly TaskCheckerRegistry $checkers,
-		private readonly TemplateResolver    $resolver,
-		private readonly BatchCheckService   $batchCheck,
-		private readonly AssessmentManager   $assessments,
+		private readonly PostManager              $posts,
+		private readonly TaskCheckerRegistry      $checkers,
+		private readonly TemplateResolver         $resolver,
+		private readonly BatchCheckService        $batchCheck,
+		private readonly AssessmentManager        $assessments,
+		private readonly CoursePreviewAccessGuard $access,
 	) {
 		parent::__construct();
+	}
+
+	/**
+	 * Нонс + право прорешивать предпросмотр. Отдельный метод вместо `authorize()`:
+	 * правило доступа выражается гуардом, а не одной капабилити (см. класс-док).
+	 * Эндпоинты priv-only (`ajaxActions()` в `PreviewSolveController`, без nopriv).
+	 */
+	private function authorizePreviewSolve(): void {
+		Nonce::PreviewSolve->verify();
+
+		if ( ! $this->access->canSolvePreview( get_current_user_id() ) ) {
+			$this->error( 'У вас недостаточно прав' );
+		}
 	}
 
 	/**
@@ -52,7 +67,7 @@ class PreviewSolveCallbacks extends BaseController {
 	 * POST: ref (task post id), answer (JSON-encoded mixed).
 	 */
 	public function ajaxPreviewCheckTask(): void {
-		$this->authorize( Nonce::PreviewSolve, Capability::AuthorLmsCourses );
+		$this->authorizePreviewSolve();
 
 		$taskId    = $this->requireInt( 'ref' );
 		$rawAnswer = $this->sanitizeText( 'answer' );
@@ -95,7 +110,7 @@ class PreviewSolveCallbacks extends BaseController {
 	 * (JSON: {"taskId": answer, ...}).
 	 */
 	public function ajaxPreviewCheckWork(): void {
-		$this->authorize( Nonce::PreviewSolve, Capability::AuthorLmsCourses );
+		$this->authorizePreviewSolve();
 
 		$answers = json_decode( $this->sanitizeText( 'answers' ), true );
 		if ( ! is_array( $answers ) ) {
@@ -123,7 +138,7 @@ class PreviewSolveCallbacks extends BaseController {
 	 * доверяем (ЕГЭ-композит и per-task-баллы считаются корректно).
 	 */
 	public function ajaxPreviewCheckAssessment(): void {
-		$this->authorize( Nonce::PreviewSolve, Capability::AuthorLmsCourses );
+		$this->authorizePreviewSolve();
 
 		$assessment = $this->assessments->get( $this->requireInt( 'ref' ) );
 		$answers    = json_decode( $this->sanitizeText( 'answers' ), true );

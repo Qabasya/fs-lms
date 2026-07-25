@@ -117,6 +117,16 @@ class RoleManager {
 				$teacher->remove_cap( $cap );
 			}
 		}
+
+		// Откат авторинга банка преподавателем: курс (включая банк задач/работ/
+		// контрольных) составляет только методист в админке — cap снимается со всех
+		// ролей на живых установках, где он успел выдаться.
+		foreach ( array( 'administrator', 'lms_methodist', 'lms_office', 'lms_teacher' ) as $slug ) {
+			$role = get_role( $slug );
+			if ( null !== $role ) {
+				$role->remove_cap( 'author_lms_bank' );
+			}
+		}
 		foreach ( array( 'administrator', 'lms_office', 'lms_methodist', 'lms_market', 'lms_teacher' ) as $slug ) {
 			$r = get_role( $slug );
 			if ( null !== $r ) {

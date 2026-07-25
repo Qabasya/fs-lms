@@ -15,6 +15,7 @@ use Inc\Enums\Subject\TaskTemplate;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\BatchCheckService;
+use Inc\Services\Course\CoursePreviewAccessGuard;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
@@ -22,8 +23,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * Покрытие dry-run проверки в предпросмотре курса (#5). Гарантирует: вердикт
  * возвращается теми же проверяющими, что и штатная сдача; ничего не пишется
- * (у коллбека нет ни одной пишущей зависимости); доступ закрыт без права
- * AuthorLmsCourses. Регрессия на key-based Sanitizer (вход реально читается).
+ * (у коллбека нет ни одной пишущей зависимости); доступ закрыт тем, кому закрыт
+ * сам предпросмотр (`CoursePreviewAccessGuard::canSolvePreview`, З2).
+ * Регрессия на key-based Sanitizer (вход реально читается).
  */
 class PreviewSolveCallbacksTest extends TestCase {
 
@@ -32,26 +34,30 @@ class PreviewSolveCallbacksTest extends TestCase {
 	private $resolver;
 	private $batch;
 	private $assessments;
+	private $access;
 	private PreviewSolveCallbacks $cb;
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_ajax();
 		fs_test_reset_posts();
-		$GLOBALS['_fs_test_can'] = true; // по умолчанию право есть; тест отзыва ставит false
 
 		$this->posts       = $this->createMock( PostManager::class );
 		$this->checkers    = $this->createMock( TaskCheckerRegistry::class );
 		$this->resolver    = $this->createMock( TemplateResolver::class );
 		$this->batch       = $this->createMock( BatchCheckService::class );
 		$this->assessments = $this->createMock( AssessmentManager::class );
+		$this->access      = $this->createMock( CoursePreviewAccessGuard::class );
+		// По умолчанию доступ есть; тест отзыва переопределяет отдельным моком.
+		$this->access->method( 'canSolvePreview' )->willReturn( true );
 
 		$this->cb = new PreviewSolveCallbacks(
 			$this->posts,
 			$this->checkers,
 			$this->resolver,
 			$this->batch,
-			$this->assessments
+			$this->assessments,
+			$this->access
 		);
 	}
 
@@ -112,11 +118,44 @@ class PreviewSolveCallbacksTest extends TestCase {
 		self::assertFalse( $r->success );
 	}
 
-	public function test_check_task_denied_without_capability(): void {
-		$GLOBALS['_fs_test_can'] = false; // нет AuthorLmsCourses
+	public function test_check_task_denied_when_guard_rejects(): void {
+		// Ученик: предпросмотр ему недоступен, значит и dry-run — тоже (иначе через
+		// эти эндпоинты можно было бы прорешивать задания в обход сохранения сдачи).
+		$access = $this->createMock( CoursePreviewAccessGuard::class );
+		$access->method( 'canSolvePreview' )->willReturn( false );
+		$cb = new PreviewSolveCallbacks(
+			$this->posts,
+			$this->checkers,
+			$this->resolver,
+			$this->batch,
+			$this->assessments,
+			$access
+		);
+
+		$this->checkers->expects( self::never() )->method( 'get' );
 		$_POST = array( 'ref' => '77', 'answer' => json_encode( 'a' ) );
 
-		$r = fs_test_capture_json( fn() => $this->cb->ajaxPreviewCheckTask() );
+		$r = fs_test_capture_json( fn() => $cb->ajaxPreviewCheckTask() );
+
+		self::assertFalse( $r->success );
+	}
+
+	public function test_check_work_denied_when_guard_rejects(): void {
+		$access = $this->createMock( CoursePreviewAccessGuard::class );
+		$access->method( 'canSolvePreview' )->willReturn( false );
+		$cb = new PreviewSolveCallbacks(
+			$this->posts,
+			$this->checkers,
+			$this->resolver,
+			$this->batch,
+			$this->assessments,
+			$access
+		);
+
+		$this->batch->expects( self::never() )->method( 'check' );
+		$_POST = array( 'ref' => '55', 'answers' => json_encode( array( '1' => 'a' ) ) );
+
+		$r = fs_test_capture_json( fn() => $cb->ajaxPreviewCheckWork() );
 
 		self::assertFalse( $r->success );
 	}

@@ -9,10 +9,8 @@ use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\PageRoutes;
-use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
-use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\EffectiveTeacherResolver;
 use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -33,7 +31,6 @@ class ScheduleService {
 		private readonly RoomAvailabilityService     $roomAvailability,
 		private readonly CourseManager               $courses,
 		private readonly EffectiveTeacherResolver    $effectiveTeacher,
-		private readonly PostManager                 $posts,
 	) {}
 
 	/**
@@ -414,16 +411,6 @@ class ScheduleService {
 
 		$entries = $this->numberThemes( $this->getProgram( $groupId ) );
 
-		// Бейдж «изменён для группы» (Этап 5): meta ForkedForGroup всех уроков программы
-		// читается после одного батч-прогрева кэша — без N+1 по wp_postmeta.
-		$lessonIds = array();
-		foreach ( $entries as $entry ) {
-			if ( ! empty( $entry['row']->lessonId ) ) {
-				$lessonIds[] = (int) $entry['row']->lessonId;
-			}
-		}
-		$this->posts->primeMetaCache( array_unique( $lessonIds ) );
-
 		$themes        = array();
 		$teacherNames  = array(); // кэш id→display_name.
 		foreach ( $entries as $entry ) {
@@ -452,11 +439,7 @@ class ScheduleService {
 				// Индикатор записи занятия в КТП (модуль VideoLibrary или ручная ссылка).
 				'recording_url'   => $row->recordingUrl,
 				'status'          => $row->status,
-				'player_url'      => $hasContent ? $this->playerUrl( $groupId, $row->id ) : '',
-				// Урок занятия — COW-форк этой группы (Этап 5): бейдж «изменён» в КТП.
-				// Критерий тот же, что в TeacherLessonCallbacks::ajaxGetGroupLessonSteps.
-				'is_forked'       => $hasContent && $groupId > 0
-					&& (int) $this->posts->getMeta( (int) $row->lessonId, PostMetaName::ForkedForGroup->value ) === $groupId,
+				'player_url'      => $hasContent ? PageRoutes::GroupCockpit->lessonUrl( $groupId, $row->id ) : '',
 			);
 		}
 
@@ -479,20 +462,6 @@ class ScheduleService {
 			// T1.8: заблокирована ли КТП (опубликована) — фронт скрывает правки.
 			'locked'      => $group ? ! empty( $group->program_locked_at ) : false,
 			'locked_at'   => $group && ! empty( $group->program_locked_at ) ? (string) $group->program_locked_at : null,
-		);
-	}
-
-	/**
-	 * Deep-link в teacher-режим плеера курса (Этап 2, ★): маршрут кокпита группы +
-	 * ?gl=. Тот же формат, что `LearnerService::playerUrl()` у ученика.
-	 */
-	private function playerUrl( int $groupId, int $groupLessonId ): string {
-		return add_query_arg(
-			array(
-				'gid' => $groupId,
-				'gl'  => $groupLessonId,
-			),
-			PageRoutes::GroupCockpit->url()
 		);
 	}
 

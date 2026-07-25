@@ -1,7 +1,6 @@
 import '../_types.js';
 import { stepIcon, icoPlus, icoDuplicate, icoX, icoReplace } from '../../common/icons.js';
 import { showToast } from '../modules/toast.js';
-import { TaskEditor } from './task-editor.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
 
 /* global jQuery, fs_lms_vars */
@@ -28,7 +27,7 @@ const $ = jQuery;
  * Задача (один ссылочный тип — подстраивается под любую задачу: вопрос с
  * выбором, ЕГЭ с сайта, приватная задача с интерпретатором), Работа, Контрольная.
  */
-export const TYPE_UI = {
+const TYPE_UI = {
 	text:       { ui: 'lecture',  name: 'Текст',       inline: true },
 	video:      { ui: 'video',    name: 'Видео',       inline: true },
 	broadcast:  { ui: 'broadcast', name: 'Трансляция',  inline: true },
@@ -47,12 +46,12 @@ const ADD_TYPES = [
 	{ type: 'assessment', desc: 'Экзамен из библиотеки' },
 ];
 
-/** Максимум шагов в одном уроке (зеркалит серверный LessonCallbacks::MAX_STEPS_PER_LESSON). */
-export const MAX_STEPS = 20;
+/** Максимум шагов в одном уроке (зеркалит серверный LessonAuthoringService::MAX_STEPS_PER_LESSON). */
+const MAX_STEPS = 20;
 
-export const uiMeta = ( ourType ) => TYPE_UI[ ourType ] || TYPE_UI.text;
-export const icon   = ( ourType ) => stepIcon( uiMeta( ourType ).ui );
-const acts          = () => fs_lms_vars.ajax_actions;
+const uiMeta = ( ourType ) => TYPE_UI[ ourType ] || TYPE_UI.text;
+const icon   = ( ourType ) => stepIcon( uiMeta( ourType ).ui );
+const acts   = () => fs_lms_vars.ajax_actions;
 
 /** UI-меты шага по его типу (Задача сама подстраивается под любую задачу). */
 const stepMeta = ( step ) => uiMeta( step ? step.type : 'text' );
@@ -64,7 +63,7 @@ export const esc = ( s ) => String( s == null ? '' : s )
 	.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' ).replace( /"/g, '&quot;' );
 
 // ── AJAX (нонс по экшену; оба нонса в fs_lms_vars глобально) ────
-export function nonceFor( action ) {
+function nonceFor( action ) {
 	const a = acts();
 	const lessonScoped     = [ a.saveLessonSteps, a.getStepCandidates ];
 	const assessmentScoped = [ a.getTaskPreview, a.getRefPreview ];
@@ -76,16 +75,10 @@ export function nonceFor( action ) {
 /**
  * @param {string}      action
  * @param {Object}      data
- * @param {Object}     [cfg]          Переопределение транспорта (тич-редактор плеера, Этап 4);
- *                                    без него — поведение как раньше (fs_lms_vars + nonceFor()).
- * @param {string}     [cfg.nonce]    Свой nonce вместо nonceFor( action ).
- * @param {string}     [cfg.ajaxurl]  Свой ajaxurl вместо fs_lms_vars.ajaxurl.
  */
-export function ajax( action, data, cfg ) {
-	const ajaxurl  = ( cfg && cfg.ajaxurl ) || fs_lms_vars.ajaxurl;
-	const security = ( cfg && cfg.nonce ) || nonceFor( action );
+export function ajax( action, data ) {
 	return new Promise( ( resolve, reject ) => {
-		$.post( ajaxurl, Object.assign( { action, security }, data ) )
+		$.post( fs_lms_vars.ajaxurl, Object.assign( { action, security: nonceFor( action ) }, data ) )
 			.done( ( resp ) => ( resp && resp.success ) ? resolve( resp.data ) : reject( ( resp && resp.data ) || 'Ошибка' ) )
 			.fail( () => reject( 'Ошибка сети' ) );
 	} );
@@ -153,9 +146,9 @@ function buildRefTaskBody( task ) {
 	return html || '<div class="fs-cb-tp-section"><div class="fs-cb-tp-loading">Нет содержимого</div></div>';
 }
 
-function loadRefPreview( container, refId, type, action, cfg ) {
+function loadRefPreview( container, refId, type ) {
 	container.innerHTML = '<div class="fs-cb-tp-loading">Загрузка задач…</div>';
-	ajax( action || acts().getRefPreview, { ref_id: refId, ref_type: type }, cfg )
+	ajax( acts().getRefPreview, { ref_id: refId, ref_type: type } )
 		.then( ( data ) => {
 			if ( ! data.tasks || ! data.tasks.length ) {
 				container.innerHTML = '<div class="fs-cb-tp-loading">Задачи не добавлены</div>';
@@ -187,11 +180,11 @@ function loadRefPreview( container, refId, type, action, cfg ) {
 		} );
 }
 
-function loadTaskPreview( container, taskId, action, cfg ) {
+function loadTaskPreview( container, taskId ) {
 	const box = container.querySelector( '[data-task-preview]' );
 	if ( ! box ) { return; }
 	box.innerHTML = '<div class="fs-cb-tp-loading">…</div>';
-	ajax( action || acts().getTaskPreview, { task_id: taskId }, cfg )
+	ajax( acts().getTaskPreview, { task_id: taskId } )
 		.then( ( data ) => renderTaskPreview( box, data ) )
 		.catch( () => { box.innerHTML = ''; } );
 }
@@ -228,6 +221,15 @@ function renderTaskPreview( box, data ) {
 		);
 	}
 
+	if ( data.hint_html ) {
+		parts.push(
+			'<div class="fs-cb-tp-section">' +
+			'<div class="fs-cb-tp-label">Подсказка</div>' +
+			'<div class="fs-cb-tp-body">' + data.hint_html + '</div>' +
+			'</div>'
+		);
+	}
+
 	box.innerHTML = parts.join( '' );
 }
 
@@ -241,18 +243,8 @@ function renderTaskPreview( box, data ) {
  * @param {Function}   [opts.onChange]     () => void — после любой правки шагов (хост обновляет дерево/счётчики)
  * @param {Function}   [opts.setStatus]    (text) => void — внешний индикатор; иначе модуль рисует свой
  * @param {string[]}   [opts.allowedTypes] фильтр пунктов меню «Добавить шаг» (напр. ['task'] — только задачи)
- * @param {Function}   [opts.persist]      (steps) => Promise — своё сохранение; иначе дефолтный saveLessonSteps
  * @param {number}     [opts.initialStepRef] deep-link на ссылочный шаг (task/work/assessment) по ref (post id)
  * @param {string}     [opts.initialStepKey] deep-link на text/video-шаг по стабильному step.key (#15-E)
- * @param {Object}     [opts.actions]      карта имён экшенов (getStepCandidates/getTaskPreview/getRefPreview) —
- *                                         иначе дефолтная fs_lms_vars.ajax_actions (тич-редактор плеера, Этап 4)
- * @param {string}     [opts.nonce]        свой nonce для всех запросов выше, вместо nonceFor()
- * @param {string}     [opts.ajaxurl]      свой ajaxurl, вместо fs_lms_vars.ajaxurl
- * @param {Object}     [opts.extraAjaxParams] доп. параметры, подмешиваемые в запрос кандидатов-шагов
- *                                            (напр. { group_lesson_id } для тич-редактора)
- * @param {boolean}    [opts.readOnlyBank] true — скрыть кнопки «Добавить новую» в пикере (только выбор из банка)
- * @param {Function}   [opts.confirmFn]    (cfg) => Promise — своё окно подтверждения удаления шага;
- *                                         иначе дефолтный ConfirmModal.confirm (admin-only компонент)
  * @returns {{ destroy: Function }}
  */
 export function createStepEditor( opts ) {
@@ -261,14 +253,12 @@ export function createStepEditor( opts ) {
 	const subjectKey = String( opts.subjectKey || '' );
 	const onChange   = typeof opts.onChange === 'function' ? opts.onChange : () => {};
 	const setStatusE = typeof opts.setStatus === 'function' ? opts.setStatus : null;
-	const allowed         = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
-	const persist         = typeof opts.persist === 'function' ? opts.persist : null;
-	const showStepSettings = opts.showStepSettings !== false;
-	const A                = opts.actions || acts();
-	const teacherCfg        = opts.actions ? { nonce: opts.nonce, ajaxurl: opts.ajaxurl } : null;
-	const confirmFn         = typeof opts.confirmFn === 'function' ? opts.confirmFn : ( cfg ) => ConfirmModal.confirm( cfg );
-	const readOnlyBank      = !! opts.readOnlyBank;
-	const extraCandidateParams = opts.extraAjaxParams || {};
+	const allowed    = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
+	// База wp-admin для ссылок «Редактировать ↗»/«Добавить новую» — из fs_lms_vars.ajaxurl
+	// (редактор шагов живёт только в админке: курс-билдер + метабокс урока).
+	const adminBase  = ( typeof fs_lms_vars !== 'undefined' && fs_lms_vars )
+		? fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' )
+		: '';
 
 	let activeKey = lesson.steps.length ? lesson.steps[ 0 ].key : null;
 	let saveTimer = null;
@@ -656,7 +646,7 @@ export function createStepEditor( opts ) {
 				ed.innerHTML =
 					'<div class="fs-cb-task-pick">' +
 					'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
-					( readOnlyBank ? '' : '<button type="button" class="button button-primary" data-create>Добавить новую</button>' ) +
+					'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
 					'</div>';
 			} else {
 				const attVal  = parseInt( ( step.payload.settings || {} ).max_attempts ?? 0, 10 );
@@ -664,7 +654,7 @@ export function createStepEditor( opts ) {
 				ed.innerHTML =
 					'<div class="fs-cb-ref">' +
 					'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
-					'<a class="button" href="post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
+					'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
 					'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 					'</div>' +
 					'<div class="fs-cb-task-preview" data-task-preview></div>' +
@@ -703,7 +693,7 @@ export function createStepEditor( opts ) {
 					scheduleSave();
 				} );
 
-				loadTaskPreview( ed, refId, A.getTaskPreview, teacherCfg );
+				loadTaskPreview( ed, refId );
 			}
 
 			const pickBtn = ed.querySelector( '[data-pick]' );
@@ -721,8 +711,7 @@ export function createStepEditor( opts ) {
 			const createBtn = ed.querySelector( '[data-create]' );
 			if ( createBtn ) {
 				createBtn.addEventListener( 'click', () => {
-					const adminBase = fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' );
-					const newWin    = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
+					const newWin = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
 					let lastHref    = '';
 					const poll = setInterval( () => {
 						if ( newWin && ! newWin.closed ) {
@@ -733,7 +722,7 @@ export function createStepEditor( opts ) {
 						const postId    = params.get( 'post' );
 						if ( postId && params.get( 'action' ) === 'edit' ) {
 							clearInterval( poll );
-							ajax( A.getTaskPreview, { task_id: postId }, teacherCfg )
+							ajax( acts().getTaskPreview, { task_id: postId } )
 								.then( ( data ) => {
 									step.payload.ref    = parseInt( postId, 10 );
 									step.payload.source = 'bank';
@@ -764,17 +753,17 @@ export function createStepEditor( opts ) {
 			ed.innerHTML =
 				'<div class="fs-cb-task-pick">' +
 				'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
-				( readOnlyBank ? '' : '<button type="button" class="button button-primary" data-create>Добавить новую</button>' ) +
+				'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
 				'</div>';
 		} else {
 			ed.innerHTML =
 				'<div class="fs-cb-ref">' +
 				'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
-				'<a class="button" href="post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
+				'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
 				'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 				'</div>' +
 				'<div class="fs-cb-ref-tasks"></div>';
-			loadRefPreview( ed.querySelector( '.fs-cb-ref-tasks' ), refId, isWork ? 'work' : 'assessment', A.getRefPreview, teacherCfg );
+			loadRefPreview( ed.querySelector( '.fs-cb-ref-tasks' ), refId, isWork ? 'work' : 'assessment' );
 		}
 
 		const pickBtn = ed.querySelector( '[data-pick]' );
@@ -788,7 +777,6 @@ export function createStepEditor( opts ) {
 		const createBtn = ed.querySelector( '[data-create]' );
 		if ( createBtn ) {
 			createBtn.addEventListener( 'click', () => {
-				const adminBase = fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' );
 				const postType  = isWork
 					? subjectKey + '_works'
 					: subjectKey + '_assessments';
@@ -814,38 +802,6 @@ export function createStepEditor( opts ) {
 				}, 800 );
 			} );
 		}
-	}
-
-	function renderStepSettings( body, step ) {
-		const settings = step.payload.settings || {};
-		const $ss      = document.createElement( 'div' );
-		$ss.className  = 'fs-cb-step-settings';
-		$ss.innerHTML  = `
-			<h4 class="fs-cb-ss-title">Настройки шага</h4>
-			<div class="fs-cb-ss-row">
-				<label class="fs-cb-ss-label">Попыток (0 = ∞)
-					<input type="number" min="0" class="field-input fs-cb-ss-num" data-ss="max_attempts"
-						value="${ parseInt( settings.max_attempts ?? 0, 10 ) }">
-				</label>
-				<label class="fs-cb-ss-label">
-					<input type="checkbox" data-ss="shuffle" ${ settings.shuffle ? 'checked' : '' }>
-					Перемешать варианты
-				</label>
-			</div>`;
-
-		body.appendChild( $ss );
-
-		$ss.querySelectorAll( '[data-ss]' ).forEach( ( el ) => {
-			el.addEventListener( 'change', () => {
-				step.payload.settings = step.payload.settings || {};
-				if ( 'checkbox' === el.type ) {
-					step.payload.settings[ el.dataset.ss ] = el.checked;
-				} else {
-					step.payload.settings[ el.dataset.ss ] = parseInt( el.value, 10 ) || 0;
-				}
-				scheduleSave();
-			} );
-		} );
 	}
 
 	// ══════════ STEP actions ══════════
@@ -886,7 +842,7 @@ export function createStepEditor( opts ) {
 	function delStep( step ) {
 		if ( lesson.steps.length <= 1 ) { showToast( 'Нельзя удалить единственный шаг', 'error' ); return; }
 		if ( ! stepHasContent( step ) ) { removeStep( step ); return; }
-		confirmFn( {
+		ConfirmModal.confirm( {
 			title:       'Удалить шаг?',
 			message:     'В шаге есть содержимое. Удалить его?',
 			confirmText: 'Удалить',
@@ -955,9 +911,8 @@ export function createStepEditor( opts ) {
 		openPicker( e.currentTarget, {
 			placeholder: 'Поиск в библиотеке…',
 			fetchFn:     ( search ) => ajax(
-				A.getStepCandidates,
-				Object.assign( { subject_key: subjectKey, kind, source, search }, extraCandidateParams ),
-				teacherCfg
+				acts().getStepCandidates,
+				{ subject_key: subjectKey, kind, source, search }
 			),
 			onPick,
 		} );
@@ -970,10 +925,7 @@ export function createStepEditor( opts ) {
 	function saveSteps() {
 		if ( ! lesson.id ) { return; }
 		setStatus( 'Сохранение…' );
-		const p = persist
-			? persist( payloadForSave() )
-			: ajax( acts().saveLessonSteps, { lesson_id: lesson.id, subject_key: subjectKey, steps: payloadForSave() } );
-		Promise.resolve( p )
+		ajax( acts().saveLessonSteps, { lesson_id: lesson.id, subject_key: subjectKey, steps: payloadForSave() } )
 			.then( () => setStatus( 'Все изменения сохранены' ) )
 			.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg || 'Ошибка', 'error' ); } );
 	}

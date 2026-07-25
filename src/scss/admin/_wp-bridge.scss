@@ -1,0 +1,15 @@
+// =================================================================
+// WP-ADMIN CSS CUSTOM PROPERTY BRIDGE
+// =================================================================
+// `--color-primary*` следуют за выбранной пользователем цветовой схемой
+// wp-admin (var(--wp-admin-theme-color…)). Этот :root-блок ЭМИТИТ CSS,
+// поэтому его нельзя держать в _variables.scss: компонентные партиалы
+// (`@use '../variables'`) протащили бы его в чужие бандлы — admin-синий
+// утекал в плеер (player.min.css). Подключается ТОЛЬКО из admin.scss (Р1.4).
+@use 'variables' as *;
+
+:root {
+    --color-primary:       var(--wp-admin-theme-color, #{$color-primary});
+    --color-primary-hover: var(--wp-admin-theme-color-darker-10, #{$color-primary-hover});
+    --color-primary-dark:  var(--wp-admin-theme-color-darker-20, #{$wp-admin-blue-text});
+}

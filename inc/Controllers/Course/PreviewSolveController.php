@@ -12,7 +12,7 @@ use Inc\Enums\Wp\AjaxHook;
  * Class PreviewSolveController
  *
  * Регистрирует dry-run эндпоинты предпросмотра курса (#5): проверка заданий и
- * работ без сохранения. Гейт (нонс + право `AuthorLmsCourses`) — в самих
+ * работ без сохранения. Гейт (нонс + `CoursePreviewAccessGuard`) — в самих
  * коллбеках, поэтому это priv-only AJAX (ученику недоступно).
  *
  * @package Inc\Controllers\Course

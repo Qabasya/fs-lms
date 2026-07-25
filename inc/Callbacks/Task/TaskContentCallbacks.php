@@ -97,6 +97,8 @@ class TaskContentCallbacks extends BaseController {
 				'post_type'   => $postType,
 				'post_title'  => $title,
 				'post_status' => 'publish',
+				// Авторство банка (общий банк, фильтр по автору — потом): создатель = текущий юзер.
+				'post_author' => get_current_user_id(),
 			) );
 
 			if ( is_wp_error( $result ) || ! $result ) {

@@ -31,4 +31,37 @@
   display: flex;
   justify-content: flex-end;
   gap: $spacing-sm;
+
+  // Кнопки .button/.button-primary из wp-admin: на фронте (кокпит) wp-admin
+  // CSS не грузится, поэтому стилизуем сами (диалог используется только на фронте —
+  // group-cockpit.js; в админке свой ConfirmModal).
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: rem(36);
+    padding: $spacing-sm $spacing-lg;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-md;
+    background: $color-bg-modal;
+    color: $color-text-primary;
+    font-size: $font-size;
+    font-weight: $font-bold;
+    line-height: 1;
+    cursor: pointer;
+    transition: background $transition-fast, border-color $transition-fast, color $transition-fast;
+
+    &:hover { border-color: $color-text-secondary; }
+  }
+
+  .button.button-primary {
+    border-color: $color-primary;
+    background: $color-primary;
+    color: $color-text-inverse;
+
+    &:hover {
+      background: $color-primary-hover;
+      border-color: $color-primary-hover;
+    }
+  }
 }

@@ -260,6 +260,36 @@ class GroupLessonRepository {
 	}
 
 	/**
+	 * Проведённые занятия без записи (З3): `status = held`, `recording_url` пуст.
+	 * Источник алёрта «запись не привязалась» в админке — авто-матч VideoLibrary
+	 * мог не сработать, ссылку вставляют вручную. Свежие сверху.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listHeldWithoutRecording( int $limit = 50 ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE status = 'held' AND ( recording_url IS NULL OR recording_url = '' )
+				 ORDER BY scheduled_at DESC LIMIT %d",
+				$this->table,
+				$limit
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
+	/** Сколько проведённых занятий осталось без записи (счётчик алёрта, З3). */
+	public function countHeldWithoutRecording(): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				"SELECT COUNT(*) FROM %i WHERE status = 'held' AND ( recording_url IS NULL OR recording_url = '' )",
+				$this->table
+			)
+		);
+	}
+
+	/**
 	 * Индивидуальные занятия преподавателя в календарный день по всем его группам (V4).
 	 * Эффективный препод: `teacher_user_id` занятия, иначе `teacher_id` группы.
 	 *

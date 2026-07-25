@@ -126,32 +126,14 @@ class VideoRecordingRepositoryTest extends TestCase {
 		);
 	}
 
-	public function test_list_unmatched_filters_by_status_with_limit(): void {
+	public function test_list_by_group_filters_unmatched_of_group(): void {
 		$this->wpdb->queueResults( array( $this->row() ) );
 
-		$list = $this->repo->listUnmatched( 25 );
+		$list = $this->repo->listByGroup( 5 );
 
 		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'group_id = 5', $q );
 		self::assertStringContainsString( "status = 'unmatched'", $q );
-		self::assertStringContainsString( 'LIMIT 25', $q );
 		self::assertCount( 1, $list );
-		self::assertSame( 'unmatched', $list[0]->status );
-	}
-
-	public function test_list_by_group_lesson_builds_query(): void {
-		$this->wpdb->queueResults( array() );
-
-		$this->repo->listByGroupLesson( 55 );
-
-		self::assertStringContainsString( 'group_lesson_id = 55', $this->wpdb->lastQuery() );
-	}
-
-	public function test_count_by_status_maps_rows(): void {
-		$this->wpdb->queueResults( array(
-			(object) array( 'status' => 'matched', 'cnt' => 4 ),
-			(object) array( 'status' => 'unmatched', 'cnt' => 2 ),
-		) );
-
-		self::assertSame( array( 'matched' => 4, 'unmatched' => 2 ), $this->repo->countByStatus() );
 	}
 }

@@ -124,7 +124,7 @@ class LearnerService {
 					'course'          => (string) ( $groups[ $gid ]['course_title'] ?? '' ),
 					// Вход в плеер курса (T14.13): урок с контентом получает ссылку
 					// в плеер и статус прохождения (done / available / locked).
-					'player_url'      => $hasContent ? $this->playerUrl( $gid, $row->id ) : '',
+					'player_url'      => $hasContent ? PageRoutes::GroupCockpit->lessonUrl( $gid, $row->id ) : '',
 					'status'          => $hasContent ? $this->lessonStatus( $personId, $row ) : '',
 				);
 				$lessonMap[ $row->id ] = $item;
@@ -450,17 +450,6 @@ class LearnerService {
 	private function topicOf( GroupLessonDTO $row ): string {
 		$lesson = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
 		return $lesson?->topic ?? ( $row->label ?? '' );
-	}
-
-	/** Deep-link в плеер курса: маршрут кокпита группы + ?gl=. */
-	private function playerUrl( int $groupId, int $groupLessonId ): string {
-		return add_query_arg(
-			array(
-				'gid' => $groupId,
-				'gl'  => $groupLessonId,
-			),
-			PageRoutes::GroupCockpit->url()
-		);
 	}
 
 	/** Статус занятия для «Мои курсы»: пройден / доступен / закрыт (T14.13). */

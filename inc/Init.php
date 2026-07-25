@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
@@ -18,7 +20,6 @@ use Inc\Controllers\System\ModulesDashboardController;
 use Inc\Controllers\Task\BoilerplateController;
 use Inc\Controllers\Enrollment\EnrollmentController;
 use Inc\Controllers\Course\LessonController;
-use Inc\Controllers\Course\TeacherLessonController;
 use Inc\Controllers\Course\LessonMetaBoxController;
 use Inc\Controllers\Course\WorkController;
 use Inc\Controllers\Course\WorkMetaBoxController;
@@ -73,6 +74,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
+use Inc\Migrations\BroadcastStepMigration;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
 
@@ -113,7 +115,6 @@ final class Init {
 			LearningMenuController::class,   // Меню «Обучение» (банки контента)
 			LessonMetaBoxController::class,  // Метабокс урока
 			LessonController::class,         // AJAX конструктора урока
-			TeacherLessonController::class,  // AJAX преподавателя над уроком занятия своей группы (COW-форк, Этап 3)
 			WorkMetaBoxController::class,    // Метабокс работы
 			WorkController::class,           // AJAX конструктора работы
 			CourseController::class,             // AJAX конструктора курса
@@ -205,11 +206,17 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '5.1';
+		$capsVersion = '5.3'; // 5.3: − AuthorLmsBank (откат авторинга банка преподавателем)
 		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
 			$roleManager->registerAll();
 			update_option( 'fs_lms_caps_version', $capsVersion );
 		}
+
+		// Одноразовая data-миграция recording_slot → broadcast (Этап 1), version-gated
+		// собственной опцией (дешёвый option-read при уже выполненной). Здесь, а не в
+		// MigrationRunner: тот вызывается только при активации, а на установках с
+		// fs_lms_schema_version=1.0.0 его up() уже не запускается.
+		( new BroadcastStepMigration() )->ensure();
 	}
 }
