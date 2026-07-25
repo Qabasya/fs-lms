@@ -280,6 +280,11 @@ if (!function_exists('get_posts')) {
             if (!in_array('any', $statuses, true) && !in_array($post->post_status, $statuses, true)) { continue; }
             $out[] = $post;
         }
+        // 'fields' => 'ids' — как в реальном WP, возвращаем массив ID вместо объектов
+        // (нужно PostManager::getIds()/countByTerm()).
+        if ('ids' === ($args['fields'] ?? '')) {
+            return array_map(static fn (WP_Post $p): int => $p->ID, $out);
+        }
         return $out;
     }
 }
@@ -314,6 +319,18 @@ if (!function_exists('wp_insert_post')) {
         $GLOBALS['_fs_test_posts'][$id] = $post;
         return $id;
     }
+}
+if (!function_exists('wp_delete_post')) {
+    function wp_delete_post(int $id, bool $force = false): WP_Post|false {
+        $post = $GLOBALS['_fs_test_posts'][$id] ?? null;
+        if (null === $post) { return false; }
+        unset($GLOBALS['_fs_test_posts'][$id], $GLOBALS['_fs_test_meta'][$id]);
+        return $post;
+    }
+}
+if (!function_exists('update_postmeta_cache')) {
+    // In-memory хранилище кэша не имеет — no-op (PostManager::primeMetaCache).
+    function update_postmeta_cache(array $ids): bool { return true; }
 }
 
 // ---- Простые функции санитайзинга (для полей и Sanitizer-трейта) ----

@@ -26,6 +26,7 @@ use Inc\Services\Subject\PostTypeResolver;
  * - cloneCourse(shallow|deep) — копия курса; deep рекурсивно форкает уроки
  * - forkLessonForGroup — групповой форк урока (meta forked_from + forked_for_group)
  * - forkModuleForGroup / forkCourseForGroup — массовый форк
+ * - resetLessonFork / deleteForksForGroup — гигиена форков (сброс к мастеру, чистка при удалении группы)
  *
  * @package Inc\Services\Course
  */
@@ -224,6 +225,65 @@ class ContentCloneService {
 		$this->groupLessons->setLessonId( $groupLessonId, $forkId );
 
 		return $forkId;
+	}
+
+	/**
+	 * Сброс форка к версии курса (Этап 5): `group_lessons.lesson_id` возвращается
+	 * на мастер (meta `forked_from`), форк-пост удаляется. Прогресс учеников по
+	 * шагам с теми же `key` сохраняется (он привязан к group_lesson + step.key),
+	 * по добавленным преподавателем шагам — теряется.
+	 *
+	 * @return bool false — строка не найдена / чужая группа / урок не форк этой
+	 *              группы / мастер удалён методистом (сброс оставил бы занятие без урока).
+	 */
+	public function resetLessonFork( int $groupId, int $groupLessonId ): bool {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( null === $row || $row->groupId !== $groupId || $groupId <= 0 || empty( $row->lessonId ) ) {
+			return false;
+		}
+
+		$forkedFor = (int) $this->posts->getMeta( $row->lessonId, PostMetaName::ForkedForGroup->value );
+		if ( $forkedFor !== $groupId ) {
+			return false;
+		}
+
+		$masterId = (int) $this->posts->getMeta( $row->lessonId, PostMetaName::ForkedFrom->value );
+		if ( $masterId <= 0 || null === $this->lessons->get( $masterId ) ) {
+			return false;
+		}
+
+		$this->groupLessons->setLessonId( $groupLessonId, $masterId );
+		$this->posts->delete( $row->lessonId );
+
+		return true;
+	}
+
+	/**
+	 * Удаляет все форк-посты уроков группы (Этап 5) — вызывается из флоу удаления
+	 * группы (`GroupDeletionHandler`) ДО удаления строк `group_lessons`. Орфанов
+	 * «форк есть, а строка перецеплена на другой урок» в системе не бывает by design:
+	 * единственный путь перецепления обратно — `resetLessonFork()`, который сам
+	 * удаляет форк-пост.
+	 *
+	 * @return int Количество удалённых форков.
+	 */
+	public function deleteForksForGroup( int $groupId ): int {
+		if ( $groupId <= 0 ) {
+			return 0;
+		}
+
+		$deleted = 0;
+		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
+			if ( empty( $row->lessonId ) ) {
+				continue;
+			}
+			if ( (int) $this->posts->getMeta( $row->lessonId, PostMetaName::ForkedForGroup->value ) === $groupId ) {
+				$this->posts->delete( $row->lessonId );
+				++$deleted;
+			}
+		}
+
+		return $deleted;
 	}
 
 	/**

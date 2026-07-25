@@ -139,6 +139,36 @@ class LessonCallbacksTest extends TestCase {
 		self::assertSame( array( 7, 9 ), $payload['attachments'] );
 	}
 
+	public function test_save_lesson_steps_persists_broadcast_payload(): void {
+		// Этап 1: тип «Трансляция» — только title/stream_url, без recording_slot.
+		$this->seedLesson( 5, 'inf', array( 's1' ) );
+		$_POST = array(
+			'lesson_id'   => '5',
+			'subject_key' => 'inf',
+			'steps'       => array(
+				array(
+					'key'     => 's1',
+					'type'    => 'broadcast',
+					'payload' => array(
+						'title'          => 'Трансляция занятия',
+						'stream_url'     => 'https://stream.example.com/live',
+						'recording_slot' => '1', // мусор — не должен просочиться в payload
+					),
+				),
+			),
+		);
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveLessonSteps() );
+
+		self::assertTrue( $r->success );
+		$step = $this->lessons->get( 5 )->steps[0];
+		self::assertSame( 'broadcast', $step->type->value );
+		self::assertSame(
+			array( 'title' => 'Трансляция занятия', 'stream_url' => 'https://stream.example.com/live' ),
+			$step->payload
+		);
+	}
+
 	public function test_save_lesson_steps_rejects_more_than_max(): void {
 		$this->seedLesson( 5, 'inf', array( 's1' ) );
 		$steps = array();

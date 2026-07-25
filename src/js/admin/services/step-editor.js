@@ -31,6 +31,7 @@ const $ = jQuery;
 export const TYPE_UI = {
 	text:       { ui: 'lecture',  name: 'Текст',       inline: true },
 	video:      { ui: 'video',    name: 'Видео',       inline: true },
+	broadcast:  { ui: 'broadcast', name: 'Трансляция',  inline: true },
 	task:       { ui: 'task',       name: 'Задача',      inline: false, candKind: 'task' },
 	work:       { ui: 'practice',  name: 'Работа',      inline: false, candKind: 'work' },
 	assessment: { ui: 'assessment', name: 'Экзамен', inline: false, candKind: 'assessment' },
@@ -40,6 +41,7 @@ export const TYPE_UI = {
 const ADD_TYPES = [
 	{ type: 'text',       desc: 'Текст, формулы, картинки' },
 	{ type: 'video',      desc: 'YouTube, Vimeo, файл' },
+	{ type: 'broadcast',  desc: 'Ссылка на трансляцию, после занятия — запись' },
 	{ type: 'task',       desc: 'Задача из предмета или банка — любого типа' },
 	{ type: 'work',       desc: 'Работа из библиотеки' },
 	{ type: 'assessment', desc: 'Экзамен из библиотеки' },
@@ -71,9 +73,19 @@ export function nonceFor( action ) {
 	return fs_lms_vars.nonces.authorCourse;
 }
 
-export function ajax( action, data ) {
+/**
+ * @param {string}      action
+ * @param {Object}      data
+ * @param {Object}     [cfg]          Переопределение транспорта (тич-редактор плеера, Этап 4);
+ *                                    без него — поведение как раньше (fs_lms_vars + nonceFor()).
+ * @param {string}     [cfg.nonce]    Свой nonce вместо nonceFor( action ).
+ * @param {string}     [cfg.ajaxurl]  Свой ajaxurl вместо fs_lms_vars.ajaxurl.
+ */
+export function ajax( action, data, cfg ) {
+	const ajaxurl  = ( cfg && cfg.ajaxurl ) || fs_lms_vars.ajaxurl;
+	const security = ( cfg && cfg.nonce ) || nonceFor( action );
 	return new Promise( ( resolve, reject ) => {
-		$.post( fs_lms_vars.ajaxurl, Object.assign( { action, security: nonceFor( action ) }, data ) )
+		$.post( ajaxurl, Object.assign( { action, security }, data ) )
 			.done( ( resp ) => ( resp && resp.success ) ? resolve( resp.data ) : reject( ( resp && resp.data ) || 'Ошибка' ) )
 			.fail( () => reject( 'Ошибка сети' ) );
 	} );
@@ -141,9 +153,9 @@ function buildRefTaskBody( task ) {
 	return html || '<div class="fs-cb-tp-section"><div class="fs-cb-tp-loading">Нет содержимого</div></div>';
 }
 
-function loadRefPreview( container, refId, type ) {
+function loadRefPreview( container, refId, type, action, cfg ) {
 	container.innerHTML = '<div class="fs-cb-tp-loading">Загрузка задач…</div>';
-	ajax( acts().getRefPreview, { ref_id: refId, ref_type: type } )
+	ajax( action || acts().getRefPreview, { ref_id: refId, ref_type: type }, cfg )
 		.then( ( data ) => {
 			if ( ! data.tasks || ! data.tasks.length ) {
 				container.innerHTML = '<div class="fs-cb-tp-loading">Задачи не добавлены</div>';
@@ -175,11 +187,11 @@ function loadRefPreview( container, refId, type ) {
 		} );
 }
 
-function loadTaskPreview( container, taskId ) {
+function loadTaskPreview( container, taskId, action, cfg ) {
 	const box = container.querySelector( '[data-task-preview]' );
 	if ( ! box ) { return; }
 	box.innerHTML = '<div class="fs-cb-tp-loading">…</div>';
-	ajax( acts().getTaskPreview, { task_id: taskId } )
+	ajax( action || acts().getTaskPreview, { task_id: taskId }, cfg )
 		.then( ( data ) => renderTaskPreview( box, data ) )
 		.catch( () => { box.innerHTML = ''; } );
 }
@@ -232,6 +244,15 @@ function renderTaskPreview( box, data ) {
  * @param {Function}   [opts.persist]      (steps) => Promise — своё сохранение; иначе дефолтный saveLessonSteps
  * @param {number}     [opts.initialStepRef] deep-link на ссылочный шаг (task/work/assessment) по ref (post id)
  * @param {string}     [opts.initialStepKey] deep-link на text/video-шаг по стабильному step.key (#15-E)
+ * @param {Object}     [opts.actions]      карта имён экшенов (getStepCandidates/getTaskPreview/getRefPreview) —
+ *                                         иначе дефолтная fs_lms_vars.ajax_actions (тич-редактор плеера, Этап 4)
+ * @param {string}     [opts.nonce]        свой nonce для всех запросов выше, вместо nonceFor()
+ * @param {string}     [opts.ajaxurl]      свой ajaxurl, вместо fs_lms_vars.ajaxurl
+ * @param {Object}     [opts.extraAjaxParams] доп. параметры, подмешиваемые в запрос кандидатов-шагов
+ *                                            (напр. { group_lesson_id } для тич-редактора)
+ * @param {boolean}    [opts.readOnlyBank] true — скрыть кнопки «Добавить новую» в пикере (только выбор из банка)
+ * @param {Function}   [opts.confirmFn]    (cfg) => Promise — своё окно подтверждения удаления шага;
+ *                                         иначе дефолтный ConfirmModal.confirm (admin-only компонент)
  * @returns {{ destroy: Function }}
  */
 export function createStepEditor( opts ) {
@@ -243,6 +264,11 @@ export function createStepEditor( opts ) {
 	const allowed         = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
 	const persist         = typeof opts.persist === 'function' ? opts.persist : null;
 	const showStepSettings = opts.showStepSettings !== false;
+	const A                = opts.actions || acts();
+	const teacherCfg        = opts.actions ? { nonce: opts.nonce, ajaxurl: opts.ajaxurl } : null;
+	const confirmFn         = typeof opts.confirmFn === 'function' ? opts.confirmFn : ( cfg ) => ConfirmModal.confirm( cfg );
+	const readOnlyBank      = !! opts.readOnlyBank;
+	const extraCandidateParams = opts.extraAjaxParams || {};
 
 	let activeKey = lesson.steps.length ? lesson.steps[ 0 ].key : null;
 	let saveTimer = null;
@@ -491,55 +517,22 @@ export function createStepEditor( opts ) {
 			}
 		} else if ( 'video' === step.type ) {
 			ed.innerHTML = `
-				<div class="field-row field-row--checkbox">
-					<label><input type="checkbox" data-recording-slot> Это запись занятия — видео подставится автоматически из привязанной записи модуля «Видеозаписи занятий»</label>
+				<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://…mp4 (нативный плеер) или YouTube/VK/Rutube (встраивание)"></div>
+				<div class="field-row"><label>Описание под видео</label><textarea class="field-input" data-desc placeholder="Краткое описание…"></textarea></div>
+				<div class="field-row"><label>Таймкоды с главами</label>
+					<div class="fs-cb-chapters" data-chapters></div>
+					<button type="button" class="button" data-chapter-add>+ Глава</button>
 				</div>
-				<p class="field-hint" data-slot-hint hidden>
-					Пока запись не появится, ученик увидит заглушку «Запись занятия ещё не доступна» — после привязки здесь будет само видео.
-					Ссылка, описание, главы и вложения не нужны: это черновая запись, а не подготовленный материал, и разбить её на главы заранее нельзя.
-				</p>
-				<div data-slot-fields>
-					<div class="field-row"><label>Ссылка на видео</label><input class="field-input" data-url placeholder="https://…mp4 (нативный плеер) или YouTube/VK/Rutube (встраивание)"></div>
-					<div class="field-row"><label>Описание под видео</label><textarea class="field-input" data-desc placeholder="Краткое описание…"></textarea></div>
-					<div class="field-row"><label>Таймкоды с главами</label>
-						<div class="fs-cb-chapters" data-chapters></div>
-						<button type="button" class="button" data-chapter-add>+ Глава</button>
-					</div>
-					<div class="field-row"><label>Вложения-конспекты (скачивание под плеером)</label>
-						<div class="fs-cb-attachments" data-attach-list></div>
-						<button type="button" class="button" data-attach-add>+ Файл из медиабиблиотеки</button>
-					</div>
+				<div class="field-row"><label>Вложения-конспекты (скачивание под плеером)</label>
+					<div class="fs-cb-attachments" data-attach-list></div>
+					<button type="button" class="button" data-attach-add>+ Файл из медиабиблиотеки</button>
 				</div>`;
-			const url        = ed.querySelector( '[data-url]' );
-			const desc       = ed.querySelector( '[data-desc]' );
-			const slot       = ed.querySelector( '[data-recording-slot]' );
-			const slotHint   = ed.querySelector( '[data-slot-hint]' );
-			const slotFields = ed.querySelector( '[data-slot-fields]' );
+			const url  = ed.querySelector( '[data-url]' );
+			const desc = ed.querySelector( '[data-desc]' );
 			url.value  = step.payload.url || '';
 			desc.value = step.payload.description || '';
-			slot.checked = !! step.payload.recording_slot;
-			slotHint.hidden   = ! slot.checked;
-			slotFields.hidden = slot.checked;
 			url.addEventListener( 'input', () => { step.payload.url = url.value; clearReviewFlag( step ); scheduleSave(); } );
 			desc.addEventListener( 'input', () => { step.payload.description = desc.value; clearReviewFlag( step ); scheduleSave(); } );
-			slot.addEventListener( 'change', () => {
-				step.payload.recording_slot = slot.checked;
-				slotHint.hidden   = ! slot.checked;
-				slotFields.hidden = slot.checked;
-				// Ссылка/описание/главы/вложения смысла не имеют для записи занятия — очищаем.
-				if ( slot.checked ) {
-					step.payload.url         = '';
-					step.payload.description = '';
-					step.payload.chapters    = [];
-					step.payload.attachments = [];
-					url.value  = '';
-					desc.value = '';
-					renderChapterRows( ed.querySelector( '[data-chapters]' ), step );
-					renderAttachmentRows( ed.querySelector( '[data-attach-list]' ), step );
-				}
-				clearReviewFlag( step );
-				scheduleSave();
-			} );
 
 			renderChapterRows( ed.querySelector( '[data-chapters]' ), step );
 			renderAttachmentRows( ed.querySelector( '[data-attach-list]' ), step );
@@ -562,6 +555,17 @@ export function createStepEditor( opts ) {
 					scheduleSave();
 				} );
 				frame.open();
+			} );
+		} else if ( 'broadcast' === step.type ) {
+			ed.innerHTML = `
+				<div class="field-row"><label>Ссылка на трансляцию</label><input class="field-input" data-stream-url placeholder="https://…"></div>
+				<p class="field-hint">После занятия сюда автоматически привяжется запись.</p>`;
+			const streamUrl = ed.querySelector( '[data-stream-url]' );
+			streamUrl.value = step.payload.stream_url || '';
+			streamUrl.addEventListener( 'input', () => {
+				step.payload.stream_url = streamUrl.value;
+				clearReviewFlag( step );
+				scheduleSave();
 			} );
 		}
 	}
@@ -652,7 +656,7 @@ export function createStepEditor( opts ) {
 				ed.innerHTML =
 					'<div class="fs-cb-task-pick">' +
 					'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
-					'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
+					( readOnlyBank ? '' : '<button type="button" class="button button-primary" data-create>Добавить новую</button>' ) +
 					'</div>';
 			} else {
 				const attVal  = parseInt( ( step.payload.settings || {} ).max_attempts ?? 0, 10 );
@@ -699,7 +703,7 @@ export function createStepEditor( opts ) {
 					scheduleSave();
 				} );
 
-				loadTaskPreview( ed, refId );
+				loadTaskPreview( ed, refId, A.getTaskPreview, teacherCfg );
 			}
 
 			const pickBtn = ed.querySelector( '[data-pick]' );
@@ -729,7 +733,7 @@ export function createStepEditor( opts ) {
 						const postId    = params.get( 'post' );
 						if ( postId && params.get( 'action' ) === 'edit' ) {
 							clearInterval( poll );
-							ajax( acts().getTaskPreview, { task_id: postId } )
+							ajax( A.getTaskPreview, { task_id: postId }, teacherCfg )
 								.then( ( data ) => {
 									step.payload.ref    = parseInt( postId, 10 );
 									step.payload.source = 'bank';
@@ -760,7 +764,7 @@ export function createStepEditor( opts ) {
 			ed.innerHTML =
 				'<div class="fs-cb-task-pick">' +
 				'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
-				'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
+				( readOnlyBank ? '' : '<button type="button" class="button button-primary" data-create>Добавить новую</button>' ) +
 				'</div>';
 		} else {
 			ed.innerHTML =
@@ -770,7 +774,7 @@ export function createStepEditor( opts ) {
 				'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 				'</div>' +
 				'<div class="fs-cb-ref-tasks"></div>';
-			loadRefPreview( ed.querySelector( '.fs-cb-ref-tasks' ), refId, isWork ? 'work' : 'assessment' );
+			loadRefPreview( ed.querySelector( '.fs-cb-ref-tasks' ), refId, isWork ? 'work' : 'assessment', A.getRefPreview, teacherCfg );
 		}
 
 		const pickBtn = ed.querySelector( '[data-pick]' );
@@ -875,13 +879,14 @@ export function createStepEditor( opts ) {
 		const p = step.payload || {};
 		if ( 'text' === step.type ) { return !! String( p.content || '' ).trim(); }
 		if ( 'video' === step.type ) { return !! String( p.url || '' ).trim(); }
+		if ( 'broadcast' === step.type ) { return !! String( p.stream_url || '' ).trim(); }
 		return parseInt( p.ref || 0, 10 ) > 0; // task / work / assessment — прикреплена сущность
 	}
 
 	function delStep( step ) {
 		if ( lesson.steps.length <= 1 ) { showToast( 'Нельзя удалить единственный шаг', 'error' ); return; }
 		if ( ! stepHasContent( step ) ) { removeStep( step ); return; }
-		ConfirmModal.confirm( {
+		confirmFn( {
 			title:       'Удалить шаг?',
 			message:     'В шаге есть содержимое. Удалить его?',
 			confirmText: 'Удалить',
@@ -949,7 +954,11 @@ export function createStepEditor( opts ) {
 		const source = 'task' === kind ? 'all' : 'subject';
 		openPicker( e.currentTarget, {
 			placeholder: 'Поиск в библиотеке…',
-			fetchFn:     ( search ) => ajax( acts().getStepCandidates, { subject_key: subjectKey, kind, source, search } ),
+			fetchFn:     ( search ) => ajax(
+				A.getStepCandidates,
+				Object.assign( { subject_key: subjectKey, kind, source, search }, extraCandidateParams ),
+				teacherCfg
+			),
 			onPick,
 		} );
 	}

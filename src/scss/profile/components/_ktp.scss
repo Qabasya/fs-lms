@@ -78,6 +78,17 @@
 .tc-pinned { color: var(--accent); font-weight: 600; }
 .tc-grip { color: var(--muted-2); display: flex; cursor: grab; }
 
+/* Этап 5: бейдж «изменён» — урок занятия является COW-форком этой группы
+   (статусный словарь --wait-*, как «на проверке» в кабинете). */
+.tc-forked,
+.pt-forked {
+  display: inline-flex; align-items: center; align-self: flex-start;
+  padding: 0 rem(6); border-radius: 999px;
+  font-size: rem(10); font-weight: 700; line-height: rem(15);
+  background: var(--wait-soft); color: var(--wait-text); border: 1px solid var(--wait-line);
+}
+.pt-forked { margin-top: rem(2); }
+
 /* min-width: 0 — грид-ребёнок 1fr не должен распираться контентом календаря
    (7 колонок с темами); иначе весь экран уезжает за вьюпорт по ширине. */
 .prof-kal {
@@ -150,6 +161,17 @@
   border: none; background: transparent; padding: 0; cursor: pointer; border-radius: rem(3);
 }
 .placed-theme .pt-recording:hover { background: var(--accent-soft); }
+
+/* Этап 2 (★): дедлайны работ (T12.3, D13) переехали с клика по всей карточке
+   (теперь ведёт в плеер курса) на отдельную иконку — видно при наведении. */
+.placed-theme .pt-deadlines {
+  position: absolute; top: rem(3); left: rem(4); width: rem(15); height: rem(15);
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; padding: 0; color: var(--muted-2);
+  cursor: pointer; opacity: 0; transition: opacity $tr, color $tr, background $tr; border-radius: rem(3);
+}
+.placed-theme:hover .pt-deadlines { opacity: 1; }
+.placed-theme .pt-deadlines:hover { color: var(--accent-700); background: var(--accent-soft); }
 
 /* T11.1: курс-пикер в пустом состоянии КТП */
 .ke-assign { display: flex; align-items: center; gap: rem(8); margin-top: rem(14); flex-wrap: wrap; justify-content: center; }

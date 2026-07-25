@@ -140,6 +140,18 @@ class VideoRecordingRepository {
 		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
 	}
 
+	/** @return VideoRecordingDTO[] Непривязанные записи этой группы (кандидаты ручной привязки преподавателем, Этап 3), новые сверху. */
+	public function listByGroup( int $groupId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM {$this->table} WHERE group_id = %d AND status = %s ORDER BY recorded_at DESC",
+				$groupId,
+				VideoRecordingStatus::Unmatched->value
+			)
+		);
+		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
+	}
+
 	/** @return VideoRecordingDTO[] Записи, привязанные к занятию. */
 	public function listByGroupLesson( int $groupLessonId ): array {
 		$rows = $this->wpdb->get_results(

@@ -269,28 +269,46 @@ class StepContentRenderer {
 	/**
 	 * Данные видео-шага (D21, T14.12): режим по источнику (прямой файл → нативный
 	 * плеер с кастомным хромом, иначе oembed-карточка), главы и вложения-конспекты.
-	 *
-	 * @param string|null $recordingUrl Запись занятия для recording_slot-шагов
-	 *                                  (`GroupLessonDTO::recordingUrl`); `null` вне
-	 *                                  контекста занятия (preview курса, Фаза 5) —
-	 *                                  тогда recording_slot-шаг падает на payload['url'].
+	 * С Этапа 1 видео больше не подменяется записью занятия — для этого есть
+	 * отдельный тип шага `broadcast` (см. {@see self::renderBroadcastData()}).
 	 *
 	 * @return array<string, mixed>
 	 */
-	public function renderVideoData( StepDTO $step, ?string $recordingUrl ): array {
-		$isSlot = (bool) ( $step->payload['recording_slot'] ?? false );
-		$url    = $this->resolveVideoUrl( $step, $recordingUrl );
+	public function renderVideoData( StepDTO $step ): array {
+		$url = $this->resolveVideoUrl( $step );
 
-		// Слот записи занятия — черновая видеозапись, не подготовленный материал:
-		// описание/главы/вложения для неё не заполняются и не показываются.
 		return array(
-			'url'            => $url,
-			'description'    => $isSlot ? '' : (string) ( $step->payload['description'] ?? '' ),
-			'provider'       => (string) ( $step->payload['provider'] ?? '' ),
-			'recording_slot' => $isSlot,
-			'mode'           => $this->resolveVideoMode( $url ),
-			'chapters'       => $isSlot ? array() : $this->videoChapters( $step ),
-			'attachments'    => $isSlot ? array() : $this->videoAttachments( $step ),
+			'url'         => $url,
+			'description' => (string) ( $step->payload['description'] ?? '' ),
+			'provider'    => (string) ( $step->payload['provider'] ?? '' ),
+			'mode'        => $this->resolveVideoMode( $url ),
+			'chapters'    => $this->videoChapters( $step ),
+			'attachments' => $this->videoAttachments( $step ),
+		);
+	}
+
+	/**
+	 * Данные шага-трансляции (Этап 1, `broadcast`): если у занятия есть запись
+	 * (через фильтр `fs_lms_recording_url`) — рендерится тем же видео-хромом, что
+	 * и video-шаг; иначе — плашка-заглушка со ссылкой `stream_url` (интеграция с
+	 * плагином трансляций — отдельный, более поздний этап). Описание/главы/
+	 * вложения для трансляции не поддерживаются.
+	 *
+	 * @param string|null $recordingUrl Запись занятия (`GroupLessonDTO::recordingUrl`
+	 *                                  через фильтр); `null` вне контекста занятия
+	 *                                  (preview курса, Фаза 5) — тогда рендерится заглушка.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function renderBroadcastData( StepDTO $step, ?string $recordingUrl ): array {
+		// Graceful absence (V4): при выключенном модуле VideoLibrary указатель
+		// `s3://{bucket}/{key}` никто не превратил в presigned-ссылку — не рендерим.
+		$url = ( null !== $recordingUrl && str_starts_with( $recordingUrl, 'http' ) ) ? $recordingUrl : '';
+
+		return array(
+			'url'        => $url,
+			'mode'       => $this->resolveVideoMode( $url ),
+			'stream_url' => (string) ( $step->payload['stream_url'] ?? '' ),
 		);
 	}
 
@@ -362,15 +380,8 @@ class StepContentRenderer {
 		return $attachments;
 	}
 
-	/** URL видео-шага: для слота записи подставляет переданную запись занятия. */
-	private function resolveVideoUrl( StepDTO $step, ?string $recordingUrl ): string {
-		$isSlot = (bool) ( $step->payload['recording_slot'] ?? false );
-		if ( $isSlot && null !== $recordingUrl && '' !== $recordingUrl ) {
-			// Graceful absence (V4): при выключенном модуле VideoLibrary указатель
-			// `s3://{bucket}/{key}` никто не превратил в presigned-ссылку — не рендерим.
-			return str_starts_with( $recordingUrl, 'http' ) ? $recordingUrl : '';
-		}
-
+	/** URL видео-шага. */
+	private function resolveVideoUrl( StepDTO $step ): string {
 		return (string) ( $step->payload['url'] ?? '' );
 	}
 }

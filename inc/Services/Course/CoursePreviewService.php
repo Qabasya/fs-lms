@@ -143,7 +143,9 @@ class CoursePreviewService {
 	private function renderData( StepDTO $step ): array {
 		return match ( $step->type->value ) {
 			'text'       => array( 'content' => (string) ( $step->payload['content'] ?? '' ) ),
-			'video'      => $this->stepRenderer->renderVideoData( $step, null ),
+			'video'      => $this->stepRenderer->renderVideoData( $step ),
+			// Preview без занятия — записи нет, рендерится заглушка со stream_url.
+			'broadcast'  => $this->stepRenderer->renderBroadcastData( $step, null ),
 			'task'       => $this->renderTaskData( $step ),
 			'work'       => $this->renderWorkData( $step ),
 			'assessment' => $this->renderAssessmentData( $step ),

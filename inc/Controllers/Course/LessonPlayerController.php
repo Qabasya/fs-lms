@@ -63,17 +63,23 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 
 		$person    = $this->persons->findByWpUserId( $userId );
 		$isStudent = null !== $person && $this->guard->isMemberEver( $row->groupId, $person->id );
+		$isTeacher = false;
+
 		if ( ! $isStudent ) {
-			// Преподаватель группы — пусть кокпит отрисует свой обзор;
-			// постороннему не раскрываем наличие урока (404).
-			if ( $this->guard->canManage( $row->groupId, $userId ) ) {
-				return $template;
+			// Преподаватель группы — смотрит урок СВОЕЙ группы в teacher-режиме
+			// плеера (Этап 2, ★): без прогресса ученика, все гейты открыты.
+			// Постороннему не раскрываем наличие урока (404).
+			if ( ! $this->guard->canManage( $row->groupId, $userId ) ) {
+				return $this->notFound();
 			}
-			return $this->notFound();
+			$isTeacher = true;
 		}
 
-		$lessonGate  = $this->gate->resolveLesson( $person->id, $row );
-		$view        = $this->player->buildView( $person->id, $row );
+		// Teacher-режим: studentPersonId=0 — нет ученика, гейт всегда открыт,
+		// прогресс не читается (buildTeacherView/shell/tree read-only на personId=0).
+		$personId    = $isTeacher ? 0 : $person->id;
+		$lessonGate  = $isTeacher ? GateState::Available : $this->gate->resolveLesson( $personId, $row );
+		$view        = $isTeacher ? $this->player->buildTeacherView( $row ) : $this->player->buildView( $personId, $row );
 		$groupId     = $row->groupId;
 		$active_step = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( $_GET['step'] ) ) : '';
 
@@ -86,23 +92,31 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		}
 
 		// Оболочка плеера (T14.2) и дерево курса для рейки (T14.3).
-		$view['shell'] = $this->nav->shell( $person->id, $row );
-		$view['tree']  = $this->nav->tree( $person->id, $row );
+		$view['shell'] = $this->nav->shell( $personId, $row );
+		$view['tree']  = $this->nav->tree( $personId, $row );
 
 		// #3b (редизайн): при блокировке по времени/предусловию НЕ уводим на
 		// отдельную страницу — показываем сам плеер с размытым контентом и
 		// оверлеем «Урок ещё не доступен» (+ таймер D-4). Реальные шаги при этом
 		// не рендерятся (см. player.php $locked) — контент не утекает раньше даты.
-		$locked           = ( GateState::Locked === $lessonGate );
+		// Teacher-режим: гейт всегда открыт — блокировки по времени нет.
+		$locked           = ( ! $isTeacher && GateState::Locked === $lessonGate );
 		$locked_scheduled = $row->scheduledAt ?? null;
 		$locked_seconds   = ( $locked && null !== $locked_scheduled && '' !== $locked_scheduled )
 			? strtotime( $locked_scheduled ) - strtotime( current_time( 'mysql' ) )
 			: null;
 		$locked_soon = null !== $locked_seconds && $locked_seconds > 0 && $locked_seconds <= HOUR_IN_SECONDS;
 
+		$is_teacher = $isTeacher;
+
 		// Плеер — полноэкранный app-shell со своим <html> (Эпик 14, D18):
 		// без темы сайта; Enqueue по этому флагу грузит только бандл плеера.
 		add_filter( 'fs_lms_is_player_route', '__return_true' );
+		// Тич-редактор шагов (Этап 4): авторизационное решение уже принято выше —
+		// Enqueue просто читает готовый флаг, не пересчитывает canManage повторно.
+		if ( $isTeacher ) {
+			add_filter( 'fs_lms_player_is_teacher', '__return_true' );
+		}
 		include $this->path( 'templates/frontend/lesson-player/player.php' );
 		exit;
 	}

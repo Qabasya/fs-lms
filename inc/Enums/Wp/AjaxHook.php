@@ -301,6 +301,19 @@ enum AjaxHook: string {
 	case CloneCourse         = 'clone_course';
 	case ForkLessonForGroup  = 'fork_lesson_for_group';
 
+	// ==== Урок группы для преподавателя: COW-форк + read-only банк (Этап 3) ====
+	case GetGroupLessonSteps  = 'get_group_lesson_steps';  // params: group_lesson_id → {lesson_id, subject_key, is_forked, steps[]}
+	case SaveGroupLessonSteps = 'save_group_lesson_steps'; // params: group_lesson_id, steps[] — COW-форк при первой правке
+	case TeacherStepCandidates = 'teacher_step_candidates'; // params: group_lesson_id, kind, source, search — read-only банк (без создания черновиков)
+	case TeacherTaskPreview    = 'teacher_task_preview';    // params: task_id
+	case TeacherRefPreview     = 'teacher_ref_preview';     // params: ref_id, ref_type (work|assessment)
+	case ResetLessonFork       = 'reset_lesson_fork';       // params: group_lesson_id — сброс форка к версии курса (Этап 5)
+
+	// ==== VideoLibrary: ручная привязка записи преподавателем (Этап 3) ====
+	case TeacherListRecordings = 'teacher_list_recordings'; // params: group_lesson_id → {current[], candidates[]}
+	case TeacherAttachRecording = 'teacher_attach_recording'; // params: group_lesson_id, recording_id
+	case TeacherDetachRecording = 'teacher_detach_recording'; // params: group_lesson_id, recording_id
+
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 

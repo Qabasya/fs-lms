@@ -21,6 +21,7 @@ import {
 export const TYPES = {
 	text: { label: 'Текст', c: '#1c7ed6', soft: '#e7f2fb' },
 	video: { label: 'Видео', c: '#7048e8', soft: '#f1ecfd' },
+	broadcast: { label: 'Трансляция', c: '#d6336c', soft: '#fbe4ec' },
 	task: { label: 'Задача', c: '#099268', soft: '#e6f7f1' },
 	work: { label: 'Работа', c: '#e8590c', soft: '#fdeee3' },
 	assessment: { label: 'Экзамен', c: '#e03131', soft: '#fdecec' },
@@ -31,7 +32,7 @@ export function typeMeta( type ) {
 }
 
 // Наш StepType → UI-тип конструктора (ключ STEP_GLYPHS).
-const TYPE_UI = { text: 'lecture', video: 'video', task: 'task', work: 'practice', assessment: 'assessment' };
+const TYPE_UI = { text: 'lecture', video: 'video', broadcast: 'broadcast', task: 'task', work: 'practice', assessment: 'assessment' };
 
 export function typeIco( type, color, s = 22 ) {
 	const glyph = STEP_GLYPHS[ TYPE_UI[ type ] ] || STEP_GLYPHS.lecture;

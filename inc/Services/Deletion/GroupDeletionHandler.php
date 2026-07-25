@@ -18,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Services\Course\ContentCloneService;
 use Inc\Shared\Traits\TransactionRunner;
 
 class GroupDeletionHandler {
@@ -38,6 +39,7 @@ class GroupDeletionHandler {
 		private readonly SubstitutionRepository $substitutions,
 		private readonly DeletionEventDispatcher    $dispatcher,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly ContentCloneService $cloneService,
 	) {}
 
 	public function handle( DeleteGroupEvent $event ): void {
@@ -54,6 +56,9 @@ class GroupDeletionHandler {
 				$this->lessonProgress->deleteByGroupLesson( $lesson->id );
 				$this->taskAttempts->deleteAllByGroupLesson( $lesson->id );
 			}
+			// COW-форки уроков группы (Этап 5) — до удаления строк group_lessons,
+			// иначе форки уже не найти (deleteForksForGroup идёт по этим строкам).
+			$this->cloneService->deleteForksForGroup( $groupId );
 			$this->groupLessons->deleteAllByGroup( $groupId );
 
 			foreach ( $this->assessmentAttempts->listIdsByGroup( $groupId ) as $attemptId ) {

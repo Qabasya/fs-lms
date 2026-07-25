@@ -34,6 +34,7 @@ $step-quiz: map.get($step-type-palette, assessment); // legacy-ключ (UI-ти
 $step-type-colors: (
 	lecture:    $step-lecture,
 	video:      $step-video,
+	broadcast:  map.get($step-type-palette, broadcast),
 	practice:   $step-practice,
 	quiz:       $step-quiz,
 	task:       map.get($step-type-palette, task),

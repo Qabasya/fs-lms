@@ -27,9 +27,6 @@ class LessonCallbacks extends BaseController {
 	use Authorizer;
 	use Sanitizer;
 
-	/** Максимум шагов в одном уроке (совпадает с клиентским лимитом step-editor.js). */
-	private const int MAX_STEPS_PER_LESSON = 20;
-
 	public function __construct(
 		private readonly LessonAuthoringService  $authoringService,
 		private readonly LessonManager           $lessonManager,
@@ -178,11 +175,11 @@ class LessonCallbacks extends BaseController {
 			return;
 		}
 
-		$sanitized = array_map( array( $this, 'sanitizeStep' ), $raw_steps );
+		$sanitized = array_map( array( $this->authoringService, 'sanitizeStep' ), $raw_steps );
 		$steps     = $this->authoringService->buildSteps( $sanitized );
 
-		if ( count( $steps ) > self::MAX_STEPS_PER_LESSON ) {
-			$this->error( sprintf( 'В одном уроке не может быть больше %d шагов.', self::MAX_STEPS_PER_LESSON ) );
+		if ( count( $steps ) > LessonAuthoringService::MAX_STEPS_PER_LESSON ) {
+			$this->error( sprintf( 'В одном уроке не может быть больше %d шагов.', LessonAuthoringService::MAX_STEPS_PER_LESSON ) );
 			return;
 		}
 
@@ -199,103 +196,5 @@ class LessonCallbacks extends BaseController {
 		$this->visibilityService->syncExtraWorksForOpenOccurrences( $lesson_id );
 
 		$this->success( array( 'count' => count( $steps ) ) );
-	}
-
-	/**
-	 * Санитайз одного сырого шага по типу (поля очищаются trait-методами Sanitizer).
-	 *
-	 * @param mixed $raw
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function sanitizeStep( mixed $raw ): array {
-		if ( ! is_array( $raw ) ) {
-			return array();
-		}
-
-		$type        = $this->sanitizeKeyValue( $raw['type'] ?? '' );
-		$key         = $this->sanitizeKeyValue( $raw['key'] ?? '' );
-		$raw_payload = is_array( $raw['payload'] ?? null ) ? $raw['payload'] : array();
-
-		$payload = match ( $type ) {
-			'text'               => array(
-				'title'   => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
-				'content' => $this->sanitizeHtmlValue( $raw_payload['content'] ?? '' ),
-			),
-			'video'              => array(
-				'title'          => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
-				'url'            => $this->sanitizeTextValue( $raw_payload['url'] ?? '' ),
-				'description'    => $this->sanitizeTextValue( $raw_payload['description'] ?? '' ),
-				// Слот для записи занятия (модуль VideoLibrary): true — плеер подменяет
-				// url на recording_url привязанного group_lesson, когда он появится.
-				'recording_slot' => $this->sanitizeBoolValue( $raw_payload['recording_slot'] ?? false ),
-				// D21 (T14.12): главы (перемотка в нативном плеере) и вложения-конспекты.
-				'chapters'    => $this->sanitizeChapters( $raw_payload['chapters'] ?? array() ),
-				'attachments' => array_values( array_filter( array_map(
-					'intval',
-					is_array( $raw_payload['attachments'] ?? null ) ? $raw_payload['attachments'] : array()
-				) ) ),
-			),
-			'task'               => array(
-				'ref'      => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
-				'source'   => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
-				'settings' => array(
-					'max_attempts'      => max( 0, (int) ( $raw_payload['settings']['max_attempts'] ?? 0 ) ),
-					'hint_after_errors' => max( 0, (int) ( $raw_payload['settings']['hint_after_errors'] ?? 0 ) ),
-				),
-			),
-			'work', 'assessment' => array( 'ref' => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ) ),
-			default              => array(),
-		};
-
-		// Подсказку показываем строго до исчерпания попыток: N ошибок < max_attempts
-		// (0 = ∞ — ограничения нет). Клампим на сервере, не доверяя клиенту.
-		if ( 'task' === $type ) {
-			$max_att = (int) $payload['settings']['max_attempts'];
-			if ( $max_att > 0 && $payload['settings']['hint_after_errors'] >= $max_att ) {
-				$payload['settings']['hint_after_errors'] = $max_att - 1;
-			}
-		}
-
-		// Метка «дубликат — контент не изменён»: переживает сохранение (напоминание преподавателю).
-		if ( filter_var( $raw_payload['needs_review'] ?? false, FILTER_VALIDATE_BOOLEAN ) ) {
-			$payload['needs_review'] = true;
-		}
-
-		return array( 'key' => $key, 'type' => $type, 'payload' => $payload );
-	}
-
-	/**
-	 * Главы видео-шага (D21): [{t: секунды, title}], отсортированы по времени.
-	 * Пустые строки (без названия и с нулевым временем) отбрасываются.
-	 *
-	 * @param mixed $raw
-	 *
-	 * @return array<int, array{t:int, title:string}>
-	 */
-	private function sanitizeChapters( mixed $raw ): array {
-		if ( ! is_array( $raw ) ) {
-			return array();
-		}
-
-		$chapters = array();
-		foreach ( $raw as $row ) {
-			if ( ! is_array( $row ) ) {
-				continue;
-			}
-			$title = $this->sanitizeTextValue( $row['title'] ?? '' );
-			$t     = max( 0, (int) ( $row['t'] ?? 0 ) );
-			if ( '' === $title && 0 === $t ) {
-				continue;
-			}
-			$chapters[] = array(
-				't'     => $t,
-				'title' => $title,
-			);
-		}
-
-		usort( $chapters, static fn( array $a, array $b ): int => $a['t'] <=> $b['t'] );
-
-		return $chapters;
 	}
 }

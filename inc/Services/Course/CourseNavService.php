@@ -54,7 +54,10 @@ class CourseNavService {
 			? $this->courses->get( (int) $group->course_id )
 			: null;
 
-		$record = $this->findRecord( $studentPersonId, $groupLesson->groupId );
+		// Teacher-режим (Этап 2, ★): studentPersonId=0 — нет ученика, нет прогресса.
+		$isTeacher = 0 === $studentPersonId;
+
+		$record = $isTeacher ? null : $this->findRecord( $studentPersonId, $groupLesson->groupId );
 		$name   = null !== $record
 			? trim( $record->snapshotLastName . ' ' . $record->snapshotFirstName )
 			: '';
@@ -65,7 +68,7 @@ class CourseNavService {
 			'module_label'    => null !== $course
 				? $this->moduleLabel( $course, (int) $groupLesson->lessonId )
 				: '',
-			'course_progress' => $this->courseProgress( $studentPersonId, $groupLesson->groupId ),
+			'course_progress' => $isTeacher ? null : $this->courseProgress( $studentPersonId, $groupLesson->groupId ),
 			'student_name'    => $name,
 			'student_role'    => '' !== $grade
 				? sprintf( '%s · %s', __( 'Ученик', 'fs-lms' ), $grade )
@@ -92,7 +95,8 @@ class CourseNavService {
 
 			return array(
 				'group_lesson_id' => $next->id,
-				'available'       => $this->gate->resolveLesson( $studentPersonId, $next )->isAvailable(),
+				// Teacher-режим (Этап 2): без ученика гейт всегда открыт.
+				'available'       => 0 === $studentPersonId || $this->gate->resolveLesson( $studentPersonId, $next )->isAvailable(),
 			);
 		}
 
@@ -121,7 +125,8 @@ class CourseNavService {
 			: null;
 
 		$rows       = $this->programRows( $current->groupId );
-		$completion = $this->completionMap( $studentPersonId, $current->groupId );
+		// Teacher-режим (Этап 2): без ученика — прогресс не читаем вовсе.
+		$completion = 0 !== $studentPersonId ? $this->completionMap( $studentPersonId, $current->groupId ) : array();
 
 		// Урок программы → узел дерева; нумерация — сквозная позиция в программе.
 		$byLesson = array();
@@ -177,6 +182,9 @@ class CourseNavService {
 	private function lessonNode( GroupLessonDTO $row, int $number, int $studentPersonId, GroupLessonDTO $current, array $completion ): array {
 		if ( $row->id === $current->id ) {
 			$state = 'current';
+		} elseif ( 0 === $studentPersonId ) {
+			// Teacher-режим (Этап 2): без ученика — гейты открыты, прогресса нет.
+			$state = 'available';
 		} elseif ( $completion[ $row->id ] ?? false ) {
 			$state = 'done';
 		} else {

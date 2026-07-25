@@ -12,6 +12,9 @@
  * @var string   $active_step Ключ шага из deep-link ?step= (может быть пустым).
  * @var bool|null $can_edit   Право на кнопку «Редактировать» шага; ставит только
  *                            CoursePreviewController, в реальном плеере не задаётся.
+ * @var bool|null $is_teacher Teacher-режим (Этап 2): преподаватель просматривает
+ *                             урок своей группы без ученика/прогресса. Ставит
+ *                             только LessonPlayerController; для ученика не задаётся.
  *
  * @package FS LMS
  */
@@ -34,6 +37,9 @@ $shell           = is_array( $view['shell'] ?? null ) ? $view['shell'] : array()
 // CoursePreviewController (наличие права AuthorLmsCourses), реальный плеер его не задаёт.
 $is_preview      = (bool) ( $view['preview'] ?? false );
 $can_edit        = $is_preview && ! empty( $can_edit );
+// Teacher-режим (Этап 2): преподаватель смотрит урок своей группы без ученика —
+// прогресс-бар в топбаре заменяется бейджем, «Далее» не пишет прогресс (core.js).
+$is_teacher      = ! empty( $is_teacher );
 $course_title    = (string) ( $shell['course_title'] ?? '' );
 $module_label    = (string) ( $shell['module_label'] ?? '' );
 $course_progress = is_array( $shell['course_progress'] ?? null ) ? $shell['course_progress'] : null;
@@ -88,6 +94,7 @@ $next_url    = null !== $next_lesson
 	data-group-id="<?php echo esc_attr( (string) $groupId ); ?>"
 	data-active-step="<?php echo esc_attr( $active_step ?? '' ); ?>"
 	data-preview="<?php echo $is_preview ? '1' : '0'; ?>"
+	data-teacher="<?php echo $is_teacher ? '1' : '0'; ?>"
 	data-locked="<?php echo $locked ? '1' : '0'; ?>"
 	<?php echo '' !== $next_url ? 'data-next-url="' . esc_url( $next_url ) . '"' : ''; ?>
 	<?php echo null !== $next_lesson ? 'data-next-available="' . esc_attr( $next_lesson['available'] ? '1' : '0' ) . '"' : ''; ?>>
@@ -110,19 +117,24 @@ $next_url    = null !== $next_lesson
 				<?php if ( $is_preview ) : ?>
 					<span class="pv-banner"><?php esc_html_e( 'Предпросмотр курса', 'fs-lms' ); ?></span>
 				<?php endif; ?>
-				<div class="s-prog">
-					<span class="sp-txt" id="fsProgTxt">
-						<?php
-						printf(
-							/* translators: 1: completed steps, 2: total steps */
-							esc_html__( 'Урок · %1$d из %2$d', 'fs-lms' ),
-							$steps_done,
-							$steps_total
-						);
-						?>
-					</span>
-					<span class="sp-bar"><span id="fsProgBar" data-width="<?php echo esc_attr( (string) $lesson_pct ); ?>"></span></span>
-				</div>
+				<?php if ( $is_teacher ) : ?>
+					<span class="pv-banner"><?php esc_html_e( 'Режим преподавателя', 'fs-lms' ); ?></span>
+					<button type="button" class="s-ibtn s-ibtn-text" id="fsTeacherEditBtn"><?php esc_html_e( 'Настроить урок', 'fs-lms' ); ?></button>
+				<?php else : ?>
+					<div class="s-prog">
+						<span class="sp-txt" id="fsProgTxt">
+							<?php
+							printf(
+								/* translators: 1: completed steps, 2: total steps */
+								esc_html__( 'Урок · %1$d из %2$d', 'fs-lms' ),
+								$steps_done,
+								$steps_total
+							);
+							?>
+						</span>
+						<span class="sp-bar"><span id="fsProgBar" data-width="<?php echo esc_attr( (string) $lesson_pct ); ?>"></span></span>
+					</div>
+				<?php endif; ?>
 				<button type="button" class="s-ibtn" data-toast="<?php esc_attr_e( 'Уведомлений нет', 'fs-lms' ); ?>">
 					<?php echo Icon::Bell->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				</button>
@@ -203,6 +215,9 @@ $next_url    = null !== $next_lesson
 										case 'video':
 											include __DIR__ . '/partials/step-video.php';
 											break;
+										case 'broadcast':
+											include __DIR__ . '/partials/step-broadcast.php';
+											break;
 										case 'task':
 											include __DIR__ . '/partials/step-task.php';
 											break;
@@ -263,6 +278,24 @@ $next_url    = null !== $next_lesson
 			<?php endif; ?>
 		</div>
 	</div>
+
+	<?php if ( $is_teacher ) : ?>
+	<div id="fsTeacherEditor" class="teacher-editor-panel" hidden>
+		<div class="tep-head">
+			<span class="tep-title"><?php esc_html_e( 'Шаги урока (только ваша группа)', 'fs-lms' ); ?></span>
+			<?php // Сброс форка к версии курса (Этап 5): показывает teacher-editor.js, когда is_forked. ?>
+			<button type="button" class="b b-gh b-sm tep-reset" id="fsTeacherEditorReset" hidden>
+				<?php esc_html_e( 'Сбросить к версии курса', 'fs-lms' ); ?>
+			</button>
+			<button type="button" class="s-ibtn" id="fsTeacherEditorClose" aria-label="<?php esc_attr_e( 'Закрыть', 'fs-lms' ); ?>">
+				<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+			</button>
+		</div>
+		<div class="tep-body">
+			<div class="teacher-editor-mount" id="fsTeacherEditorMount"></div>
+		</div>
+	</div>
+	<?php endif; ?>
 </div>
 
 <div class="toast" id="fsToast">

@@ -1827,6 +1827,40 @@ JS красит виджет (зелёный/красный, пофрагмен�
 темы. Дедлайны работ занятия — `work_deadlines` (JSON). `program_locked_at` на группе —
 блокировка КТП после публикации.
 
+### COW-форк урока группы (Этапы 2–5)
+
+Курс методиста — мастер; правки методиста доезжают до всех групп, пока преподаватель
+не менял состав шагов. При первой правке шагов преподавателем (`SaveGroupLessonSteps`,
+`TeacherLessonCallbacks`) сервер делает copy-on-write форк
+(`ContentCloneService::forkLessonForGroup`, идемпотентен): копия `{key}_lessons` с метами
+`ForkedFrom` (id мастера) + `ForkedForGroup` (id группы), `group_lessons.lesson_id`
+перецепляется на форк. Клиент всегда передаёт `group_lesson_id`, никогда `lesson_id` —
+сервер сам резолвит урок и проверяет `GroupAccessGuard::canManage`. Форки скрыты из
+банка уроков (`LessonManager::getBankBySubject`). Преподавателю доступен только состав
+шагов урока своей группы (`ManageLmsTeaching`) и read-only банк кандидатов — билдер
+курса остаётся методисту (`AuthorLmsCourses`). Редактор шагов монтируется в плеере
+(бандл `teacher-editor.min.js`, только под `fs_lms_player_is_teacher`).
+
+Гигиена (Этап 5): в КТП форкнутая тема помечается бейджем «изменён» (`is_forked` в
+`ScheduleService::getCalendar`, meta читается после батч-прогрева
+`PostManager::primeMetaCache` — без N+1); «Сбросить к версии курса» в панели редактора —
+`ContentCloneService::resetLessonFork` (возврат `lesson_id` на `ForkedFrom`, форк-пост
+удаляется; прогресс по шагам с теми же `key` сохраняется, по добавленным преподавателем —
+теряется); при удалении группы `GroupDeletionHandler` зовёт
+`ContentCloneService::deleteForksForGroup` до чистки `group_lessons`.
+
+### Шаг «Трансляция» (`broadcast`, Этап 1)
+
+Инлайн-шаг урока вместо прежнего чекбокса «запись занятия» у видео-шага
+(миграция в `Migration_1_0_0`: `video` + `payload.recording_slot` → `broadcast`,
+`key` шага не меняется — на нём прогресс и `step_settings_overrides`). Payload:
+`{title, stream_url}`. Рендер (`StepContentRenderer::renderBroadcastData`): у занятия
+есть `recording_url` (через фильтр `fs_lms_recording_url`, модуль VideoLibrary
+подписывает `s3://`) — видео-хром как у видео-шага; нет — плашка со ссылкой на
+трансляцию. Видео-шаг записью больше не подменяется. Привязка записи — тич-панель
+broadcast-шага в плеере (`TeacherListRecordings`/`TeacherAttachRecording`/
+`TeacherDetachRecording`, только своя группа).
+
 ### Посещаемость
 
 `fs_lms_attendance`: одна запись на (занятие, ученик), `is_present` + кто/когда отметил.

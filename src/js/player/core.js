@@ -9,8 +9,8 @@
 import { renderStrip } from './strip.js';
 import { typeMeta } from './icons.js';
 
-// Только текст/видео отмечаются «viewed» при показе (авто-грейд задач — через submit).
-const INLINE = [ 'text', 'video' ];
+// Только текст/видео/трансляция отмечаются «viewed» при показе (авто-грейд задач — через submit).
+const INLINE = [ 'text', 'video', 'broadcast' ];
 
 const vars = window.fs_lms_player_vars;
 
@@ -38,6 +38,12 @@ export function isPreview() {
 	return '1' === document.getElementById( 'fsPlayerApp' )?.dataset.preview;
 }
 
+/** Teacher-режим плеера (Этап 2, ★): преподаватель смотрит урок своей группы
+ *  без ученика — прогресс шага не пишется (нет person, писать некуда/некому). */
+export function isTeacherMode() {
+	return '1' === document.getElementById( 'fsPlayerApp' )?.dataset.teacher;
+}
+
 export function initCore() {
 	const app = document.getElementById( 'fsPlayerApp' );
 	if ( ! app || ! vars ) { return; }
@@ -62,7 +68,7 @@ export function initCore() {
 	const isInlineLike = ( p ) => INLINE.includes( p.dataset.stepType ) || '1' === p.dataset.manual;
 
 	function mark( stepKey, status ) {
-		if ( isPreview() ) { return Promise.resolve( null ); }
+		if ( isPreview() || isTeacherMode() ) { return Promise.resolve( null ); }
 		const fd = new FormData();
 		fd.append( 'action', vars.actions.markStep );
 		fd.append( 'security', vars.nonces.markStep );

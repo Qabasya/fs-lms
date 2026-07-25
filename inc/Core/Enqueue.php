@@ -376,6 +376,55 @@ class Enqueue extends BaseController implements ServiceInterface {
 			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
 			'before'
 		);
+
+		// Тич-редактор шагов (Этап 4): грузится ТОЛЬКО преподавателю группы занятия —
+		// авторизационное решение принято в LessonPlayerController::loadTemplate(),
+		// здесь просто читаем готовый флаг (не пересчитываем canManage повторно).
+		if ( apply_filters( 'fs_lms_player_is_teacher', false ) ) {
+			$this->enqueue_teacher_editor_assets();
+		}
+	}
+
+	/**
+	 * Тич-редактор шагов урока занятия (Этап 4): jQuery-бандл, отдельный от
+	 * player.min.js (плеер сам без jQuery), монтирует `createStepEditor` из
+	 * общего `admin/services/step-editor.js` в teacher-режиме (read-only банк,
+	 * свой персист/нонс через `?group_lesson_id`).
+	 *
+	 * @return void
+	 */
+	private function enqueue_teacher_editor_assets(): void {
+		wp_enqueue_media();  // вложения видео-шага (window.wp.media в step-editor.js)
+		wp_enqueue_editor(); // TinyMCE для text-шагов (window.wp.editor.initialize)
+
+		wp_enqueue_script(
+			'fs-lms-teacher-editor',
+			$this->url( 'assets/js/teacher-editor.min.js' ),
+			array( 'jquery' ),
+			filemtime( $this->path( 'assets/js/teacher-editor.min.js' ) ),
+			true
+		);
+
+		wp_localize_script(
+			'fs-lms-teacher-editor',
+			'fs_lms_teacher_editor_vars',
+			array(
+				'ajaxurl'       => admin_url( 'admin-ajax.php' ),
+				'nonce'         => Nonce::TeachLesson->create(),
+				'groupLessonId' => (int) ( $_GET['gl'] ?? 0 ),
+				'actions'       => array(
+					'getSteps'          => AjaxHook::GetGroupLessonSteps->jsAction(),
+					'saveSteps'         => AjaxHook::SaveGroupLessonSteps->jsAction(),
+					'getStepCandidates' => AjaxHook::TeacherStepCandidates->jsAction(),
+					'getTaskPreview'    => AjaxHook::TeacherTaskPreview->jsAction(),
+					'getRefPreview'     => AjaxHook::TeacherRefPreview->jsAction(),
+					'listRecordings'    => AjaxHook::TeacherListRecordings->jsAction(),
+					'attachRecording'   => AjaxHook::TeacherAttachRecording->jsAction(),
+					'detachRecording'   => AjaxHook::TeacherDetachRecording->jsAction(),
+					'resetFork'         => AjaxHook::ResetLessonFork->jsAction(),
+				),
+			)
+		);
 	}
 
 	/**

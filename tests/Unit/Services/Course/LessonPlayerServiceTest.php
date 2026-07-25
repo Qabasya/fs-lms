@@ -118,6 +118,10 @@ class LessonPlayerServiceTest extends TestCase {
 		return new StepDTO( $key, StepType::Video, $payload );
 	}
 
+	private function makeBroadcastStep( string $key, array $payload = array() ): StepDTO {
+		return new StepDTO( $key, StepType::Broadcast, $payload );
+	}
+
 	private function stubGateAndProgress( StepDTO ...$steps ): void {
 		$this->gate->method( 'resolveStep' )->willReturn( GateState::Available );
 		$this->progress->method( 'getStepStatuses' )->willReturn( array() );
@@ -146,13 +150,10 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertCount( 1, $view['steps'] );
 	}
 
-	// ── recording slot (T1.5.13) ─────────────────────────────────────────────
+	// ── broadcast-шаг (Этап 1): запись занятия / заглушка ────────────────────
 
-	public function test_video_slot_uses_recording_url_when_available(): void {
-		$step   = $this->makeVideoStep( 's1', array(
-			'url'            => 'https://fallback.com/video',
-			'recording_slot' => true,
-		) );
+	public function test_broadcast_uses_recording_url_when_available(): void {
+		$step   = $this->makeBroadcastStep( 's1', array( 'stream_url' => 'https://stream.example.com/live' ) );
 		$lesson = $this->makeLesson( 10, array( $step ) );
 		$this->lessons->method( 'get' )->willReturn( $lesson );
 		$this->stubGateAndProgress( $step );
@@ -162,14 +163,12 @@ class LessonPlayerServiceTest extends TestCase {
 
 		$render = $view['steps'][0]['render'];
 		self::assertSame( 'https://s3.example.com/rec.mp4', $render['url'] );
-		self::assertTrue( $render['recording_slot'] );
+		self::assertSame( 'native', $render['mode'] );
+		self::assertSame( 'https://stream.example.com/live', $render['stream_url'] );
 	}
 
-	public function test_video_slot_returns_empty_url_when_no_recording(): void {
-		$step   = $this->makeVideoStep( 's1', array(
-			'url'            => '',
-			'recording_slot' => true,
-		) );
+	public function test_broadcast_returns_empty_url_when_no_recording(): void {
+		$step   = $this->makeBroadcastStep( 's1', array( 'stream_url' => 'https://stream.example.com/live' ) );
 		$lesson = $this->makeLesson( 10, array( $step ) );
 		$this->lessons->method( 'get' )->willReturn( $lesson );
 		$this->stubGateAndProgress( $step );
@@ -179,14 +178,30 @@ class LessonPlayerServiceTest extends TestCase {
 
 		$render = $view['steps'][0]['render'];
 		self::assertSame( '', $render['url'] );
-		self::assertTrue( $render['recording_slot'] );
+		self::assertSame( 'none', $render['mode'] );
+		self::assertSame( 'https://stream.example.com/live', $render['stream_url'] );
 	}
 
-	public function test_non_slot_video_ignores_recording_url(): void {
-		$step   = $this->makeVideoStep( 's1', array(
-			'url'            => 'https://youtube.com/watch?v=abc',
-			'recording_slot' => false,
-		) );
+	public function test_broadcast_hides_non_http_recording_pointer(): void {
+		// Модуль VideoLibrary выключен: фильтр fs_lms_recording_url — passthrough,
+		// указатель s3://… дошёл до рендера — guard не отдаёт его в плеер.
+		$step   = $this->makeBroadcastStep( 's1' );
+		$lesson = $this->makeLesson( 10, array( $step ) );
+		$this->lessons->method( 'get' )->willReturn( $lesson );
+		$this->stubGateAndProgress( $step );
+
+		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: 's3://bucket/videos/kege-1/rec.webm' );
+		$view        = $this->service->buildView( 1, $groupLesson );
+
+		$render = $view['steps'][0]['render'];
+		self::assertSame( '', $render['url'] );
+		self::assertSame( 'none', $render['mode'] );
+	}
+
+	// ── видео-шаг (Этап 1): больше не подменяется записью занятия ───────────
+
+	public function test_video_ignores_recording_url(): void {
+		$step   = $this->makeVideoStep( 's1', array( 'url' => 'https://youtube.com/watch?v=abc' ) );
 		$lesson = $this->makeLesson( 10, array( $step ) );
 		$this->lessons->method( 'get' )->willReturn( $lesson );
 		$this->stubGateAndProgress( $step );
@@ -196,28 +211,7 @@ class LessonPlayerServiceTest extends TestCase {
 
 		$render = $view['steps'][0]['render'];
 		self::assertSame( 'https://youtube.com/watch?v=abc', $render['url'] );
-		self::assertFalse( $render['recording_slot'] );
-	}
-
-	public function test_video_slot_suppresses_description_chapters_attachments(): void {
-		$GLOBALS['_fs_test_attachment_urls'] = array( 7 => 'http://example.com/uploads/konspekt.pdf' );
-
-		$step   = $this->makeVideoStep( 's1', array(
-			'recording_slot' => true,
-			'description'    => 'Черновое описание, оставшееся до включения слота',
-			'chapters'       => array( array( 't' => 72, 'title' => 'range(stop)' ) ),
-			'attachments'    => array( 7 ),
-		) );
-		$lesson = $this->makeLesson( 10, array( $step ) );
-		$this->lessons->method( 'get' )->willReturn( $lesson );
-		$this->stubGateAndProgress( $step );
-
-		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: 'https://s3.example.com/rec.mp4' );
-		$render      = $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
-
-		self::assertSame( '', $render['description'] );
-		self::assertSame( array(), $render['chapters'] );
-		self::assertSame( array(), $render['attachments'] );
+		self::assertArrayNotHasKey( 'recording_slot', $render );
 	}
 
 	// ── D21 (T14.12): режим плеера, главы, вложения ─────────────────────────
@@ -510,42 +504,42 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertArrayNotHasKey( 'correct_answer', $render );
 	}
 
-	// ── V4 (VideoLibrary): graceful absence указателя s3:// ──────────────────
+	// ── Teacher-режим (Этап 2, ★): без ученика — гейт открыт, прогресс не читается ──
 
-	public function test_video_slot_hides_non_http_recording_pointer(): void {
-		// Модуль VideoLibrary выключен: фильтр fs_lms_recording_url — passthrough
-		// (как и стаб apply_filters в bootstrap), указатель s3://… дошёл до рендера —
-		// guard не отдаёт его в плеер, payload-URL тоже не подставляется.
-		$step   = $this->makeVideoStep( 's1', array(
-			'url'            => 'https://fallback.example.com/video',
-			'recording_slot' => true,
-		) );
-		$lesson = $this->makeLesson( 10, array( $step ) );
-		$this->lessons->method( 'get' )->willReturn( $lesson );
-		$this->stubGateAndProgress( $step );
+	public function test_build_teacher_view_returns_null_when_lesson_missing(): void {
+		$this->lessons->method( 'get' )->willReturn( null );
 
-		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: 's3://bucket/videos/kege-1/rec.webm' );
-		$view        = $this->service->buildView( 1, $groupLesson );
-
-		$render = $view['steps'][0]['render'];
-		self::assertSame( '', $render['url'] );
-		self::assertSame( 'none', $render['mode'] );
-		self::assertTrue( $render['recording_slot'] );
+		self::assertNull( $this->service->buildTeacherView( $this->makeGroupLesson() ) );
 	}
 
-	public function test_video_slot_prefers_recording_url_over_payload_url(): void {
-		$step   = $this->makeVideoStep( 's1', array(
-			'url'            => 'https://payload.example.com/video',
-			'recording_slot' => true,
-		) );
+	public function test_build_teacher_view_opens_gate_and_skips_progress_reads(): void {
+		$step   = $this->makeVideoStep( 's1', array( 'url' => 'https://example.com/video' ) );
 		$lesson = $this->makeLesson( 10, array( $step ) );
 		$this->lessons->method( 'get' )->willReturn( $lesson );
-		$this->stubGateAndProgress( $step );
 
-		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: 'https://s3.example.com/rec.mp4' );
-		$view        = $this->service->buildView( 1, $groupLesson );
+		// Teacher-режим не читает и не пишет прогресс/гейт ученика.
+		$this->gate->expects( $this->never() )->method( 'resolveStep' );
+		$this->progress->expects( $this->never() )->method( 'getStepStatuses' );
+		$this->progress->expects( $this->never() )->method( 'markViewed' );
+		$this->progress->expects( $this->never() )->method( 'markCompleted' );
 
-		// recordingUrl must win over payload url when slot is enabled.
-		self::assertSame( 'https://s3.example.com/rec.mp4', $view['steps'][0]['render']['url'] );
+		$view = $this->service->buildTeacherView( $this->makeGroupLesson( lessonId: 10 ) );
+
+		self::assertNotNull( $view );
+		self::assertSame( 10, $view['lesson_id'] );
+		self::assertSame( 'available', $view['steps'][0]['gate'] );
+		self::assertSame( 'available', $view['steps'][0]['status'] );
+	}
+
+	public function test_build_teacher_view_task_step_has_no_attempts_for_person_zero(): void {
+		// arrangeTaskStep стабит taskAttempts->listByStep(...) пустым списком для
+		// любого вызова — для studentPersonId=0 реальных попыток и не существует.
+		$groupLesson = $this->arrangeTaskStep( array() );
+		$this->correctAnswers->expects( $this->never() )->method( 'resolve' );
+
+		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
+
+		self::assertSame( 0, $render['attempts_used'] );
+		self::assertArrayNotHasKey( 'correct_answer', $render );
 	}
 }
