@@ -9,10 +9,7 @@ use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
-use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Course\LessonManager;
-use Inc\Managers\Wp\PostManager;
-use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Services\Assessment\TaskPreviewService;
 use Inc\Services\Course\ContentCloneService;
 use Inc\Services\Course\GroupAccessGuard;
@@ -42,13 +39,11 @@ class TeacherLessonCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly GroupLessonRepository   $groupLessons,
 		private readonly GroupAccessGuard        $guard,
 		private readonly LessonManager           $lessons,
 		private readonly ContentCloneService     $cloneService,
 		private readonly LessonAuthoringService  $authoringService,
 		private readonly LessonVisibilityService $visibilityService,
-		private readonly PostManager             $posts,
 		private readonly TaskPreviewService      $taskPreview,
 	) {
 		parent::__construct();
@@ -62,8 +57,8 @@ class TeacherLessonCallbacks extends BaseController {
 		$this->authorize( Nonce::TeachLesson, Capability::ManageLmsTeaching );
 
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$row           = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
+		$row = $this->guard->findManageableLesson( $groupLessonId, get_current_user_id() );
+		if ( null === $row ) {
 			$this->error( 'Занятие не найдено.' );
 			return;
 		}
@@ -74,8 +69,7 @@ class TeacherLessonCallbacks extends BaseController {
 			return;
 		}
 
-		$isForked = $row->groupId > 0
-			&& (int) $this->posts->getMeta( $row->lessonId, PostMetaName::ForkedForGroup->value ) === $row->groupId;
+		$isForked = $this->cloneService->isForkedForGroup( $row->lessonId, $row->groupId );
 
 		$steps = StepDTO::toList( $lesson->steps );
 		foreach ( $steps as &$step ) {
@@ -104,8 +98,8 @@ class TeacherLessonCallbacks extends BaseController {
 		$this->authorize( Nonce::TeachLesson, Capability::ManageLmsTeaching );
 
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$row           = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
+		$row = $this->guard->findManageableLesson( $groupLessonId, get_current_user_id() );
+		if ( null === $row ) {
 			$this->error( 'Занятие не найдено.' );
 			return;
 		}
@@ -130,7 +124,8 @@ class TeacherLessonCallbacks extends BaseController {
 		$raw_steps = is_array( $raw_steps ) ? $raw_steps : array();
 
 		$sanitized = array_map( array( $this->authoringService, 'sanitizeStep' ), $raw_steps );
-		$steps     = $this->authoringService->buildSteps( $sanitized );
+		// Предмет — из урока-форка (тип поста), для проверки принадлежности ref (Р0.7).
+		$steps     = $this->authoringService->buildSteps( $sanitized, $lesson->subjectKey );
 
 		if ( count( $steps ) > LessonAuthoringService::MAX_STEPS_PER_LESSON ) {
 			$this->error( sprintf( 'В одном уроке не может быть больше %d шагов.', LessonAuthoringService::MAX_STEPS_PER_LESSON ) );
@@ -166,8 +161,8 @@ class TeacherLessonCallbacks extends BaseController {
 		$this->authorize( Nonce::TeachLesson, Capability::ManageLmsTeaching );
 
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$row           = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) || null === $row->lessonId ) {
+		$row = $this->guard->findManageableLesson( $groupLessonId, get_current_user_id() );
+		if ( null === $row || null === $row->lessonId ) {
 			$this->error( 'Занятие не найдено.' );
 			return;
 		}
@@ -232,8 +227,8 @@ class TeacherLessonCallbacks extends BaseController {
 		$this->authorize( Nonce::TeachLesson, Capability::ManageLmsTeaching );
 
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$row           = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
+		$row = $this->guard->findManageableLesson( $groupLessonId, get_current_user_id() );
+		if ( null === $row ) {
 			$this->error( 'Занятие не найдено.' );
 			return;
 		}

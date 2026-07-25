@@ -1,7 +1,6 @@
 import '../_types.js';
 import { stepIcon, icoPlus, icoDuplicate, icoX, icoReplace } from '../../common/icons.js';
 import { showToast } from '../modules/toast.js';
-import { TaskEditor } from './task-editor.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
 
 /* global jQuery, fs_lms_vars */
@@ -64,7 +63,7 @@ export const esc = ( s ) => String( s == null ? '' : s )
 	.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' ).replace( /"/g, '&quot;' );
 
 // ── AJAX (нонс по экшену; оба нонса в fs_lms_vars глобально) ────
-export function nonceFor( action ) {
+function nonceFor( action ) {
 	const a = acts();
 	const lessonScoped     = [ a.saveLessonSteps, a.getStepCandidates ];
 	const assessmentScoped = [ a.getTaskPreview, a.getRefPreview ];
@@ -228,6 +227,15 @@ function renderTaskPreview( box, data ) {
 		);
 	}
 
+	if ( data.hint_html ) {
+		parts.push(
+			'<div class="fs-cb-tp-section">' +
+			'<div class="fs-cb-tp-label">Подсказка</div>' +
+			'<div class="fs-cb-tp-body">' + data.hint_html + '</div>' +
+			'</div>'
+		);
+	}
+
 	box.innerHTML = parts.join( '' );
 }
 
@@ -248,6 +256,8 @@ function renderTaskPreview( box, data ) {
  *                                         иначе дефолтная fs_lms_vars.ajax_actions (тич-редактор плеера, Этап 4)
  * @param {string}     [opts.nonce]        свой nonce для всех запросов выше, вместо nonceFor()
  * @param {string}     [opts.ajaxurl]      свой ajaxurl, вместо fs_lms_vars.ajaxurl
+ * @param {string}     [opts.adminBase]    база wp-admin для ссылок post.php/post-new.php
+ *                                         (тич-редактор плеера: admin_url(); иначе из fs_lms_vars.ajaxurl)
  * @param {Object}     [opts.extraAjaxParams] доп. параметры, подмешиваемые в запрос кандидатов-шагов
  *                                            (напр. { group_lesson_id } для тич-редактора)
  * @param {boolean}    [opts.readOnlyBank] true — скрыть кнопки «Добавить новую» в пикере (только выбор из банка)
@@ -263,12 +273,18 @@ export function createStepEditor( opts ) {
 	const setStatusE = typeof opts.setStatus === 'function' ? opts.setStatus : null;
 	const allowed         = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
 	const persist         = typeof opts.persist === 'function' ? opts.persist : null;
-	const showStepSettings = opts.showStepSettings !== false;
 	const A                = opts.actions || acts();
 	const teacherCfg        = opts.actions ? { nonce: opts.nonce, ajaxurl: opts.ajaxurl } : null;
 	const confirmFn         = typeof opts.confirmFn === 'function' ? opts.confirmFn : ( cfg ) => ConfirmModal.confirm( cfg );
 	const readOnlyBank      = !! opts.readOnlyBank;
 	const extraCandidateParams = opts.extraAjaxParams || {};
+	// База wp-admin для ссылок «Редактировать ↗»/«Добавить новую». В админке —
+	// из fs_lms_vars.ajaxurl; на маршруте плеера (тич-редактор) fs_lms_vars нет,
+	// относительный post.php уводит на /group/post.php (404) — поэтому opts.adminBase (Р0.4).
+	const adminBase = opts.adminBase
+		|| ( ( typeof fs_lms_vars !== 'undefined' && fs_lms_vars )
+			? fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' )
+			: '' );
 
 	let activeKey = lesson.steps.length ? lesson.steps[ 0 ].key : null;
 	let saveTimer = null;
@@ -664,7 +680,7 @@ export function createStepEditor( opts ) {
 				ed.innerHTML =
 					'<div class="fs-cb-ref">' +
 					'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
-					'<a class="button" href="post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
+					'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
 					'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 					'</div>' +
 					'<div class="fs-cb-task-preview" data-task-preview></div>' +
@@ -721,8 +737,7 @@ export function createStepEditor( opts ) {
 			const createBtn = ed.querySelector( '[data-create]' );
 			if ( createBtn ) {
 				createBtn.addEventListener( 'click', () => {
-					const adminBase = fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' );
-					const newWin    = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
+					const newWin = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
 					let lastHref    = '';
 					const poll = setInterval( () => {
 						if ( newWin && ! newWin.closed ) {
@@ -770,7 +785,7 @@ export function createStepEditor( opts ) {
 			ed.innerHTML =
 				'<div class="fs-cb-ref">' +
 				'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
-				'<a class="button" href="post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
+				'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
 				'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 				'</div>' +
 				'<div class="fs-cb-ref-tasks"></div>';
@@ -788,7 +803,6 @@ export function createStepEditor( opts ) {
 		const createBtn = ed.querySelector( '[data-create]' );
 		if ( createBtn ) {
 			createBtn.addEventListener( 'click', () => {
-				const adminBase = fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' );
 				const postType  = isWork
 					? subjectKey + '_works'
 					: subjectKey + '_assessments';
@@ -814,38 +828,6 @@ export function createStepEditor( opts ) {
 				}, 800 );
 			} );
 		}
-	}
-
-	function renderStepSettings( body, step ) {
-		const settings = step.payload.settings || {};
-		const $ss      = document.createElement( 'div' );
-		$ss.className  = 'fs-cb-step-settings';
-		$ss.innerHTML  = `
-			<h4 class="fs-cb-ss-title">Настройки шага</h4>
-			<div class="fs-cb-ss-row">
-				<label class="fs-cb-ss-label">Попыток (0 = ∞)
-					<input type="number" min="0" class="field-input fs-cb-ss-num" data-ss="max_attempts"
-						value="${ parseInt( settings.max_attempts ?? 0, 10 ) }">
-				</label>
-				<label class="fs-cb-ss-label">
-					<input type="checkbox" data-ss="shuffle" ${ settings.shuffle ? 'checked' : '' }>
-					Перемешать варианты
-				</label>
-			</div>`;
-
-		body.appendChild( $ss );
-
-		$ss.querySelectorAll( '[data-ss]' ).forEach( ( el ) => {
-			el.addEventListener( 'change', () => {
-				step.payload.settings = step.payload.settings || {};
-				if ( 'checkbox' === el.type ) {
-					step.payload.settings[ el.dataset.ss ] = el.checked;
-				} else {
-					step.payload.settings[ el.dataset.ss ] = parseInt( el.value, 10 ) || 0;
-				}
-				scheduleSave();
-			} );
-		} );
 	}
 
 	// ══════════ STEP actions ══════════

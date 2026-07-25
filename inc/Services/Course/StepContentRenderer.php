@@ -267,6 +267,27 @@ class StepContentRenderer {
 	}
 
 	/**
+	 * Данные инлайн-шага (text/video/broadcast) — единая точка для плеера
+	 * ({@see \Inc\Services\Course\LessonPlayerService}) и предпросмотра
+	 * ({@see \Inc\Services\Course\CoursePreviewService}), Р2.3. Новый инлайн-тип
+	 * добавляется правкой только этого метода. Для не-инлайн типов — пустой массив.
+	 *
+	 * @param StepDTO     $step         Шаг урока
+	 * @param string|null $recordingUrl Ссылка записи занятия для `broadcast` (плеер —
+	 *                                  через фильтр `fs_lms_recording_url`; preview — null)
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function renderInlineData( StepDTO $step, ?string $recordingUrl = null ): array {
+		return match ( $step->type->value ) {
+			'text'      => array( 'content' => (string) ( $step->payload['content'] ?? '' ) ),
+			'video'     => $this->renderVideoData( $step ),
+			'broadcast' => $this->renderBroadcastData( $step, $recordingUrl ),
+			default     => array(),
+		};
+	}
+
+	/**
 	 * Данные видео-шага (D21, T14.12): режим по источнику (прямой файл → нативный
 	 * плеер с кастомным хромом, иначе oembed-карточка), главы и вложения-конспекты.
 	 * С Этапа 1 видео больше не подменяется записью занятия — для этого есть

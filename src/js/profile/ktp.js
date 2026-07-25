@@ -325,10 +325,10 @@ function recordingIconHtml(t) {
         return '';
     }
     if (t.recording_url) {
-        return `<button type="button" class="pt-recording pt-recording--ok" data-glid="${t.group_lesson_id}" data-url="${esc(t.recording_url)}" title="Есть запись занятия — открыть/изменить ссылку" aria-label="Запись занятия есть">${icoCamera(13, 'var(--ok)')}</button>`;
+        return `<button type="button" class="pt-recording pt-recording--ok" data-glid="${t.group_lesson_id}" title="Есть запись занятия — открыть в плеере" aria-label="Запись занятия есть">${icoCamera(13, 'var(--ok)')}</button>`;
     }
     if ('held' === t.status) {
-        return `<button type="button" class="pt-recording pt-recording--err" data-glid="${t.group_lesson_id}" data-url="" title="Занятие прошло, записи нет — добавить ссылку вручную" aria-label="Записи нет">${icoCamera(13, 'var(--err)')}</button>`;
+        return `<button type="button" class="pt-recording pt-recording--err" data-glid="${t.group_lesson_id}" title="Занятие прошло, записи нет — открыть в плеере" aria-label="Записи нет">${icoCamera(13, 'var(--err)')}</button>`;
     }
     return '';
 }

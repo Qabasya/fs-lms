@@ -4,30 +4,28 @@ declare( strict_types=1 );
 
 namespace Unit\Migrations;
 
-use Inc\Migrations\Migration_1_0_0;
+use Inc\Migrations\BroadcastStepMigration;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Покрытие data-миграции Этапа 1: `video`-шаг с `payload.recording_slot` → тип
- * `broadcast`. Точечный тест самой миграции данных (`migrateRecordingSlotToBroadcast`),
- * БЕЗ вызова `up()` — тот гоняет dbDelta/ALTER TABLE поверх реальной схемы и не
- * рассчитан на unit-окружение (нет ABSPATH/dbDelta-стаба). Метод приватный —
- * вызывается через Reflection, публичный контракт миграции не расширяется ради теста.
+ * Покрытие одноразовой data-миграции Этапа 1: `video`-шаг с `payload.recording_slot`
+ * → тип `broadcast`.
+ *
+ * Логика трансформации проверяется прогоном {@see BroadcastStepMigration::migrate()}
+ * по явному списку post-id (поиск кандидатов — тонкая SQL-обёртка, не unit-уровень).
+ * Отдельно проверяется version-gate в {@see BroadcastStepMigration::ensure()} через
+ * подкласс, подставляющий список кандидатов.
  */
-class Migration_1_0_0Test extends TestCase {
+class BroadcastStepMigrationTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_posts();
-		$GLOBALS['_test_options']['fs_lms_subjects_list'] = array(
-			'inf' => array( 'key' => 'inf', 'name' => 'Информатика' ),
-			'mat' => array( 'key' => 'mat', 'name' => 'Математика' ),
-		);
+		unset( $GLOBALS['_test_options']['fs_lms_broadcast_migration'] );
 	}
 
-	private function runMigration(): void {
-		$migration = new Migration_1_0_0();
-		( new \ReflectionMethod( $migration, 'migrateRecordingSlotToBroadcast' ) )->invoke( $migration );
+	private function migrate( array $postIds ): void {
+		( new BroadcastStepMigration() )->migrate( $postIds );
 	}
 
 	private function steps( int $postId ): array {
@@ -53,7 +51,7 @@ class Migration_1_0_0Test extends TestCase {
 			) ) )
 		);
 
-		$this->runMigration();
+		$this->migrate( array( 10 ) );
 
 		$steps = $this->steps( 10 );
 		self::assertCount( 1, $steps );
@@ -74,7 +72,7 @@ class Migration_1_0_0Test extends TestCase {
 			) ) )
 		);
 
-		$this->runMigration();
+		$this->migrate( array( 11 ) );
 
 		$steps = $this->steps( 11 );
 		self::assertSame( 'video', $steps[0]['type'] );
@@ -90,9 +88,9 @@ class Migration_1_0_0Test extends TestCase {
 			) ) )
 		);
 
-		$this->runMigration();
+		$this->migrate( array( 12 ) );
 		$firstRun = $this->steps( 12 );
-		$this->runMigration();
+		$this->migrate( array( 12 ) );
 		$secondRun = $this->steps( 12 );
 
 		self::assertSame( $firstRun, $secondRun );
@@ -100,7 +98,7 @@ class Migration_1_0_0Test extends TestCase {
 		self::assertSame( 'broadcast', $secondRun[0]['type'] );
 	}
 
-	public function test_covers_all_subjects_and_skips_lessons_without_meta(): void {
+	public function test_skips_lessons_without_meta(): void {
 		fs_test_seed_post(
 			array( 'ID' => 20, 'post_type' => 'mat_lessons' ),
 			array( 'fs_lms_meta' => array( 'steps' => array(
@@ -110,23 +108,36 @@ class Migration_1_0_0Test extends TestCase {
 		// Урок без fs_lms_meta вообще — не должен приводить к фатальной ошибке.
 		fs_test_seed_post( array( 'ID' => 21, 'post_type' => 'mat_lessons' ) );
 
-		$this->runMigration();
+		$this->migrate( array( 20, 21 ) );
 
 		self::assertSame( 'broadcast', $this->steps( 20 )[0]['type'] );
 	}
 
-	public function test_forked_and_trashed_lessons_are_included(): void {
-		// Форки группы и посты в любом статусе (trash/auto-draft) тоже мигрируют —
-		// PostManager::getIds() специально возвращает их все.
+	public function test_ensure_is_version_gated_and_runs_once(): void {
 		fs_test_seed_post(
-			array( 'ID' => 30, 'post_type' => 'inf_lessons', 'post_status' => 'trash' ),
+			array( 'ID' => 30, 'post_type' => 'inf_lessons' ),
 			array( 'fs_lms_meta' => array( 'steps' => array(
 				array( 'key' => 's1', 'type' => 'video', 'payload' => array( 'recording_slot' => true ) ),
 			) ) )
 		);
 
-		$this->runMigration();
+		$migration = new class( array( 30 ) ) extends BroadcastStepMigration {
+			public int $scanCalls = 0;
+			/** @param int[] $ids */
+			public function __construct( private array $ids ) {}
+			protected function candidatePostIds(): array {
+				++$this->scanCalls;
+				return $this->ids;
+			}
+		};
 
+		$migration->ensure();
 		self::assertSame( 'broadcast', $this->steps( 30 )[0]['type'] );
+		self::assertSame( '1', get_option( 'fs_lms_broadcast_migration' ) );
+		self::assertSame( 1, $migration->scanCalls );
+
+		// Повторный вызов — no-op по опции-гейту, кандидатов больше не сканирует.
+		$migration->ensure();
+		self::assertSame( 1, $migration->scanCalls );
 	}
 }

@@ -105,8 +105,8 @@ class VideoLibraryCallbacks extends BaseController {
 		$this->authorize( Nonce::TeachLesson, Capability::ManageLmsTeaching );
 
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$row           = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
+		$row           = $this->guard->findManageableLesson( $groupLessonId, get_current_user_id() );
+		if ( null === $row ) {
 			$this->error( 'Занятие не найдено.' );
 			return;
 		}
@@ -128,8 +128,8 @@ class VideoLibraryCallbacks extends BaseController {
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$recordingId   = $this->requireInt( 'recording_id' );
 
-		$row = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
+		$row = $this->guard->findManageableLesson( $groupLessonId, get_current_user_id() );
+		if ( null === $row ) {
 			$this->error( 'Занятие не найдено.' );
 			return;
 		}
@@ -158,8 +158,8 @@ class VideoLibraryCallbacks extends BaseController {
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$recordingId   = $this->requireInt( 'recording_id' );
 
-		$row = $this->groupLessons->find( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, get_current_user_id() ) ) {
+		$row = $this->guard->findManageableLesson( $groupLessonId, get_current_user_id() );
+		if ( null === $row ) {
 			$this->error( 'Занятие не найдено.' );
 			return;
 		}

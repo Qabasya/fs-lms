@@ -6,6 +6,7 @@ namespace Unit\Callbacks\Course;
 
 use FakeWpdb;
 use Inc\Callbacks\Course\TeacherLessonCallbacks;
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\CourseManager;
@@ -57,13 +58,11 @@ class TeacherLessonCallbacksTest extends TestCase {
 		);
 
 		$this->callbacks = new TeacherLessonCallbacks(
-			$this->groupLessons,
 			$this->guard,
 			$this->lessons,
 			$cloneService,
 			new LessonAuthoringService( $posts, $this->lessons, new TemplateRegistry() ),
 			$this->createMock( LessonVisibilityService::class ),
-			$posts,
 			$this->createMock( TaskPreviewService::class ),
 		);
 	}
@@ -89,6 +88,17 @@ class TeacherLessonCallbacksTest extends TestCase {
 		) );
 	}
 
+	/** GroupLessonDTO для стаба guard->findManageableLesson() (Р2.1). */
+	private function manageableDto( int $groupId = 10, int $lessonId = 1 ): GroupLessonDTO {
+		return new GroupLessonDTO(
+			id: 5, groupId: $groupId, lessonId: $lessonId, position: 1,
+			workIdsSnapshot: null, extraWorkIds: array(), scheduledAt: null, endsAt: null,
+			isPinned: false, teacherUserId: null, visibility: 'open', openedAt: null,
+			homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+	}
+
 	private function seedLesson( int $id, string $subject, array $stepKeys = array( 's1' ), array $extraMeta = array() ): void {
 		$steps = array_map(
 			static fn ( string $k ): array => array( 'key' => $k, 'type' => 'text', 'payload' => array( 'title' => $k ) ),
@@ -105,7 +115,7 @@ class TeacherLessonCallbacksTest extends TestCase {
 		// Первый find() — собственная guard-проверка коллбека; второй — внутри forkLessonForGroup.
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 1 );
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 1 );
-		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->guard->method( 'findManageableLesson' )->willReturn( $this->manageableDto() );
 
 		$_POST = array(
 			'group_lesson_id' => '5',
@@ -135,7 +145,7 @@ class TeacherLessonCallbacksTest extends TestCase {
 		$this->seedLesson( 1, 'inf', array( 's1' ), array( PostMetaName::ForkedForGroup->value => 10 ) );
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 1 );
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 1 );
-		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->guard->method( 'findManageableLesson' )->willReturn( $this->manageableDto() );
 
 		$_POST = array(
 			'group_lesson_id' => '5',
@@ -155,7 +165,7 @@ class TeacherLessonCallbacksTest extends TestCase {
 		$this->seedLesson( 1, 'inf' );
 		// Guard блокирует до вызова forkLessonForGroup — второй find() не понадобится.
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 1 );
-		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->guard->method( 'findManageableLesson' )->willReturn( null );
 
 		$_POST = array(
 			'group_lesson_id' => '5',
@@ -173,7 +183,7 @@ class TeacherLessonCallbacksTest extends TestCase {
 		$this->seedLesson( 1, 'inf', array( 's1' ), array( PostMetaName::ForkedForGroup->value => 10 ) );
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 1 );
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 1 );
-		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->guard->method( 'findManageableLesson' )->willReturn( $this->manageableDto() );
 
 		$steps = array();
 		for ( $i = 1; $i <= 21; $i++ ) {
@@ -199,7 +209,7 @@ class TeacherLessonCallbacksTest extends TestCase {
 		// Первый find() — guard-проверка коллбека; второй — внутри resetLessonFork.
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 2 );
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 2 );
-		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->guard->method( 'findManageableLesson' )->willReturn( $this->manageableDto() );
 
 		$_POST = array( 'group_lesson_id' => '5' );
 
@@ -218,7 +228,7 @@ class TeacherLessonCallbacksTest extends TestCase {
 			PostMetaName::ForkedForGroup->value => 10,
 		) );
 		$this->queueGroupLessonRow( 5, groupId: 10, lessonId: 2 );
-		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->guard->method( 'findManageableLesson' )->willReturn( null );
 
 		$_POST = array( 'group_lesson_id' => '5' );
 

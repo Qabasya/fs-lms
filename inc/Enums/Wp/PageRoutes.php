@@ -55,6 +55,27 @@ enum PageRoutes: string {
 	}
 
 	/**
+	 * Deep-link в плеер урока занятия: маршрут кокпита группы + `?gid=&gl=`.
+	 * Единый владелец формата (Р2.2) — раньше был скопирован в LearnerService/
+	 * DashboardService/ScheduleService и inline в AssessmentPageController.
+	 * Осмысленно для {@see self::GroupCockpit}.
+	 *
+	 * @param int $groupId       ID группы
+	 * @param int $groupLessonId ID занятия группы (group_lessons.id)
+	 *
+	 * @return string
+	 */
+	public function lessonUrl( int $groupId, int $groupLessonId ): string {
+		return (string) add_query_arg(
+			array(
+				'gid' => $groupId,
+				'gl'  => $groupLessonId,
+			),
+			$this->url()
+		);
+	}
+
+	/**
 	 * Проверяет, находится ли пользователь сейчас на этой странице.
 	 *
 	 * @return bool

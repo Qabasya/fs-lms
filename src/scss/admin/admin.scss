@@ -1,4 +1,5 @@
 @use 'variables' as *;
+@use 'wp-bridge'; // :root-мост --color-primary → wp-admin-theme-color (вынесен из variables, Р1.4)
 @use 'mixins' as m;
 
 // ── Примитивы дизайн-системы (Фаза 1)

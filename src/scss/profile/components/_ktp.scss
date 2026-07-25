@@ -145,13 +145,14 @@
 /* #16: мета-строки карточки урока (кабинет + преподаватель), друг под другом. */
 .placed-theme .pt-meta { display: block; font-size: rem(9); color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* T12.6 (D14): «⋮» действия темы (продолжить на другую дату) — видно при наведении */
+/* T12.6 (D14): «⋮» действия темы (продолжить на другую дату) — видно при наведении.
+   pointer-events:none, пока кнопка невидима (opacity:0), иначе перехватывает клик по краю .pt-title. */
 .placed-theme .pt-more {
   position: absolute; bottom: rem(2); right: rem(3); width: rem(16); height: rem(16); line-height: rem(14);
   border: none; background: transparent; color: var(--muted-2); font-size: rem(12); font-weight: 700;
-  cursor: pointer; opacity: 0; transition: opacity $tr, color $tr; border-radius: rem(3);
+  cursor: pointer; opacity: 0; pointer-events: none; transition: opacity $tr, color $tr; border-radius: rem(3);
 }
-.placed-theme:hover .pt-more { opacity: 1; }
+.placed-theme:hover .pt-more { opacity: 1; pointer-events: auto; }
 .placed-theme .pt-more:hover { color: var(--accent-700); background: var(--accent-soft); }
 
 /* Индикатор записи занятия (модуль VideoLibrary): всегда видим, в отличие от pt-more. */
@@ -163,14 +164,16 @@
 .placed-theme .pt-recording:hover { background: var(--accent-soft); }
 
 /* Этап 2 (★): дедлайны работ (T12.3, D13) переехали с клика по всей карточке
-   (теперь ведёт в плеер курса) на отдельную иконку — видно при наведении. */
+   (теперь ведёт в плеер курса) на отдельную иконку — видно при наведении.
+   pointer-events:none, пока иконка невидима (opacity:0), иначе перехватывает клик по началу
+   .pt-title и открывает поповер дедлайнов вместо перехода в плеер (Р0.5). */
 .placed-theme .pt-deadlines {
   position: absolute; top: rem(3); left: rem(4); width: rem(15); height: rem(15);
   display: flex; align-items: center; justify-content: center;
   border: none; background: transparent; padding: 0; color: var(--muted-2);
-  cursor: pointer; opacity: 0; transition: opacity $tr, color $tr, background $tr; border-radius: rem(3);
+  cursor: pointer; opacity: 0; pointer-events: none; transition: opacity $tr, color $tr, background $tr; border-radius: rem(3);
 }
-.placed-theme:hover .pt-deadlines { opacity: 1; }
+.placed-theme:hover .pt-deadlines { opacity: 1; pointer-events: auto; }
 .placed-theme .pt-deadlines:hover { color: var(--accent-700); background: var(--accent-soft); }
 
 /* T11.1: курс-пикер в пустом состоянии КТП */

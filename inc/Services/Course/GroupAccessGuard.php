@@ -4,7 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Access\Capability;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
@@ -15,7 +17,25 @@ class GroupAccessGuard {
 		private readonly GroupsRepository        $groups,
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly SubstitutionRepository  $substitutions,
+		private readonly GroupLessonRepository   $groupLessons,
 	) {}
+
+	/**
+	 * Находит занятие группы и проверяет право управления его группой одним вызовом.
+	 * Дедуп повторявшегося блока «find → canManage → error» (Р2.1). `error()` остаётся
+	 * в Callback-слое: guard не знает о транспорте.
+	 *
+	 * @return GroupLessonDTO|null null — занятия нет ЛИБО нет прав на его группу
+	 */
+	public function findManageableLesson( int $groupLessonId, int $userId ): ?GroupLessonDTO {
+		$row = $this->groupLessons->find( $groupLessonId );
+
+		if ( null === $row || ! $this->canManage( $row->groupId, $userId ) ) {
+			return null;
+		}
+
+		return $row;
+	}
 
 	/** Может ли пользователь управлять группой (teacher_id || Admin || активная замена). */
 	public function canManage( int $groupId, int $userId ): bool {

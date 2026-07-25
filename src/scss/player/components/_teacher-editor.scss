@@ -8,20 +8,29 @@
    Этап 4) — тоже переиспользуются: `common.min.css` в плеере не грузится
    (изоляция бандла), поэтому их стили нужно затянуть сюда же.
 
-   ВАЖНО: разметка step-editor.js использует нативные WP-admin классы
-   `.button`/`.button-primary` (Выбрать существующую/Заменить и т.п.) —
-   их базовые стили дают `wp-admin/css/common.css`, который на фронтенде
-   не грузится нигде в проекте (тот же пробел уже есть у существующего
-   `common/components/confirm-dialog.js` на фронтенд-кокпите). Кнопки
-   останутся в браузерном дефолте — функционально рабочие, не полированные;
-   косметика вне рамок Этапа 4.
+   Р1.3: разметка step-editor.js использует нативные WP-admin классы
+   `.button`/`.button-primary`/`.fs-sb-btn-danger` (Выбрать существующую/
+   Привязать/Отвязать) — их базовых стилей из `wp-admin/css/common.css` на
+   фронтенде нет, поэтому стилизуем ниже через admin-миксины (cb-ghost-button/
+   cb-chip-solid) со скоупом на панель редактора.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../admin/mixins' as m;
 @use '../../admin/components/step-editor';
-@use '../../admin/components/course-builder';
+@use '../../admin/components/picker-popover'; // только поповер/пикер, не всё дерево конструктора (Р1.5)
 @use '../../admin/components/modal/accordion';
 @use '../../common/components/confirm-dialog';
 @use '../../common/components/toast';
+
+// Р1.4: компонентные партиалы (step-editor/course-builder) красят акценты и
+// фокус-ринги инпутов через var(--color-primary). admin-:root-мост вынесен в
+// admin/_wp-bridge.scss (подключается только из admin.scss), поэтому в плеере
+// маппим --color-primary на тему кабинета — иначе они брали бы admin-синий.
+:root {
+  --color-primary:       var(--accent);
+  --color-primary-hover: var(--accent-600);
+  --color-primary-dark:  var(--accent-700);
+}
 
 /* ── Кнопка «Настроить урок» в топбаре (текстовый вариант .s-ibtn) ─── */
 .s-ibtn-text {
@@ -104,3 +113,33 @@
   .btp-rec-meta { font-size: rem(13); color: var(--ink-2); }
   .btp-rec-empty { font-size: rem(13); color: var(--muted); }
 }
+
+/* ── WP-admin-кнопки редактора без wp-admin/common.css (Р1.3) ──────────
+   Скоуп на панель редактора и панель записи; базовый .button — призрачная
+   pill (cb-ghost-button), .button-primary — акцентная (cb-chip-solid),
+   .fs-sb-btn-danger («Отвязать») — красная-призрачная. */
+#fsTeacherEditor,
+.broadcast-teacher-panel {
+  .button {
+    @include m.cb-ghost-button;
+
+    cursor: pointer;
+
+    &:hover { border-color: var(--accent); color: var(--accent); }
+  }
+
+  .button.button-primary {
+    @include m.cb-chip-solid;
+  }
+
+  .button.fs-sb-btn-danger {
+    border-color: var(--err);
+    color: var(--err);
+    background: transparent;
+
+    &:hover { background: var(--err); border-color: var(--err); color: var(--surface); }
+  }
+}
+
+/* Загрузка/ошибка в mount редактора (.btp-loading — свой, у панели записи). */
+.tep-loading { padding: rem(24); text-align: center; color: var(--muted); font-size: rem(13); }

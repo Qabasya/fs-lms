@@ -94,6 +94,51 @@ class LessonAuthoringServiceTest extends TestCase {
 		self::assertSame( StepType::Video, $steps[0]->type );
 	}
 
+	public function test_build_steps_zeroes_ref_of_foreign_subject(): void {
+		fs_test_seed_post( array( 'ID' => 7, 'post_type' => 'mat_works' ) ); // работа чужого предмета
+
+		$steps = $this->service->buildSteps(
+			array( array( 'type' => 'work', 'payload' => array( 'ref' => 7 ) ) ),
+			'inf'
+		);
+
+		self::assertSame( 0, $steps[0]->payload['ref'] );
+	}
+
+	public function test_build_steps_keeps_ref_of_matching_subject(): void {
+		fs_test_seed_post( array( 'ID' => 8, 'post_type' => 'inf_works' ) );
+
+		$steps = $this->service->buildSteps(
+			array( array( 'type' => 'work', 'payload' => array( 'ref' => 8 ) ) ),
+			'inf'
+		);
+
+		self::assertSame( 8, $steps[0]->payload['ref'] );
+	}
+
+	public function test_build_steps_keeps_bank_task_ref(): void {
+		fs_test_seed_post( array( 'ID' => 9, 'post_type' => 'fs_lms_problems' ) );
+
+		$steps = $this->service->buildSteps(
+			array( array( 'type' => 'task', 'payload' => array( 'ref' => 9, 'source' => 'bank' ) ) ),
+			'inf'
+		);
+
+		self::assertSame( 9, $steps[0]->payload['ref'] );
+	}
+
+	public function test_build_steps_zeroes_subject_task_ref_pointing_to_bank(): void {
+		fs_test_seed_post( array( 'ID' => 10, 'post_type' => 'fs_lms_problems' ) );
+
+		// source=subject ожидает inf_tasks, ref указывает на банк → обнуляется.
+		$steps = $this->service->buildSteps(
+			array( array( 'type' => 'task', 'payload' => array( 'ref' => 10, 'source' => 'subject' ) ) ),
+			'inf'
+		);
+
+		self::assertSame( 0, $steps[0]->payload['ref'] );
+	}
+
 	public function test_step_candidates_work(): void {
 		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_works', 'post_title' => 'ДЗ' ) );
 

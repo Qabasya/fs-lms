@@ -4,6 +4,9 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Course;
 
+use Inc\DTO\Course\GroupLessonDTO;
+use Inc\Enums\Access\Capability;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
@@ -15,6 +18,7 @@ class GroupAccessGuardTest extends TestCase {
 	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $studentRecords;
 	private SubstitutionRepository&\PHPUnit\Framework\MockObject\MockObject $substitutions;
+	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
 	private GroupAccessGuard $guard;
 
 	protected function setUp(): void {
@@ -22,8 +26,42 @@ class GroupAccessGuardTest extends TestCase {
 		$this->groups         = $this->createMock( GroupsRepository::class );
 		$this->studentRecords = $this->createMock( StudentRecordRepository::class );
 		$this->substitutions  = $this->createMock( SubstitutionRepository::class );
-		$this->guard          = new GroupAccessGuard( $this->groups, $this->studentRecords, $this->substitutions );
+		$this->groupLessons   = $this->createMock( GroupLessonRepository::class );
+		$this->guard          = new GroupAccessGuard( $this->groups, $this->studentRecords, $this->substitutions, $this->groupLessons );
 		$GLOBALS['_test_user_can'] = [];
+	}
+
+	/** Минимальный GroupLessonDTO для стабов find(). */
+	private function lessonDto( int $groupId, int $lessonId = 1 ): GroupLessonDTO {
+		return new GroupLessonDTO(
+			id: 5, groupId: $groupId, lessonId: $lessonId, position: 1,
+			workIdsSnapshot: null, extraWorkIds: array(), scheduledAt: null, endsAt: null,
+			isPinned: false, teacherUserId: null, visibility: 'open', openedAt: null,
+			homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+	}
+
+	public function test_find_manageable_lesson_returns_row_when_authorized(): void {
+		$row = $this->lessonDto( 10 );
+		$this->groupLessons->method( 'find' )->with( 5 )->willReturn( $row );
+		$GLOBALS['_test_user_can'][7][ Capability::Admin->value ] = true; // canManage → true
+
+		self::assertSame( $row, $this->guard->findManageableLesson( 5, 7 ) );
+	}
+
+	public function test_find_manageable_lesson_null_when_missing(): void {
+		$this->groupLessons->method( 'find' )->willReturn( null );
+
+		self::assertNull( $this->guard->findManageableLesson( 5, 7 ) );
+	}
+
+	public function test_find_manageable_lesson_null_when_cannot_manage(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->lessonDto( 10 ) );
+		$this->groups->method( 'findById' )->willReturn( null );      // не препод
+		$this->substitutions->method( 'hasActiveGrant' )->willReturn( false );
+
+		self::assertNull( $this->guard->findManageableLesson( 5, 7 ) ); // нет прав → null
 	}
 
 	public function test_can_manage_active_substitute_grant(): void {

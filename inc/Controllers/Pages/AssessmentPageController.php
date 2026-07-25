@@ -235,13 +235,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		$fromGl  = isset( $_GET['from_gl'] ) ? absint( wp_unslash( $_GET['from_gl'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( $fromGid > 0 && $fromGl > 0 ) {
-			return (string) add_query_arg(
-				array(
-					'gid' => $fromGid,
-					'gl'  => $fromGl,
-				),
-				PageRoutes::GroupCockpit->url()
-			);
+			return PageRoutes::GroupCockpit->lessonUrl( $fromGid, $fromGl );
 		}
 
 		return PageRoutes::UserProfile->url();

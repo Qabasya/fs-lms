@@ -14,12 +14,10 @@
 $wp-nav-tab-text: #50575e; // .nav-tab
 $wp-nav-tab-text-active: #000;    // .nav-tab-active
 
-// CSS custom property bridge — follows WP admin color scheme automatically
-:root {
-    --color-primary:       var(--wp-admin-theme-color, #{$color-primary});
-    --color-primary-hover: var(--wp-admin-theme-color-darker-10, #{$color-primary-hover});
-    --color-primary-dark:  var(--wp-admin-theme-color-darker-20, #{$wp-admin-blue-text});
-}
+// CSS custom property bridge (--color-primary → wp-admin-theme-color) вынесен в
+// admin/_wp-bridge.scss и подключается только из admin.scss: :root-блок эмитит CSS,
+// а этот файл тянут `@use '../variables'` компонентные партиалы, которые
+// переиспользуются в плеере — иначе admin-палитра утекала в player.min.css (Р1.4).
 
 // ── Step-type accents — из ЕДИНОЙ палитры shared/_tokens.scss
 //    $step-type-palette: конструктор обязан красить типы шагов так же,

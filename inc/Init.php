@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
@@ -73,6 +75,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
+use Inc\Migrations\BroadcastStepMigration;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
 
@@ -211,5 +214,11 @@ final class Init {
 			$roleManager->registerAll();
 			update_option( 'fs_lms_caps_version', $capsVersion );
 		}
+
+		// Одноразовая data-миграция recording_slot → broadcast (Этап 1), version-gated
+		// собственной опцией (дешёвый option-read при уже выполненной). Здесь, а не в
+		// MigrationRunner: тот вызывается только при активации, а на установках с
+		// fs_lms_schema_version=1.0.0 его up() уже не запускается.
+		( new BroadcastStepMigration() )->ensure();
 	}
 }

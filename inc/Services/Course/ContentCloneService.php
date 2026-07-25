@@ -194,8 +194,7 @@ class ContentCloneService {
 		}
 
 		// Уже является форком для этой группы — идемпотентность.
-		$existingGroup = (int) $this->posts->getMeta( $row->lessonId, PostMetaName::ForkedForGroup->value );
-		if ( $existingGroup === $groupId && $groupId > 0 ) {
+		if ( $this->isForkedForGroup( $row->lessonId, $groupId ) ) {
 			return $row->lessonId;
 		}
 
@@ -242,8 +241,7 @@ class ContentCloneService {
 			return false;
 		}
 
-		$forkedFor = (int) $this->posts->getMeta( $row->lessonId, PostMetaName::ForkedForGroup->value );
-		if ( $forkedFor !== $groupId ) {
+		if ( ! $this->isForkedForGroup( $row->lessonId, $groupId ) ) {
 			return false;
 		}
 
@@ -272,18 +270,49 @@ class ContentCloneService {
 			return 0;
 		}
 
-		$deleted = 0;
+		$lessonIds = array();
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
-			if ( empty( $row->lessonId ) ) {
-				continue;
-			}
-			if ( (int) $this->posts->getMeta( $row->lessonId, PostMetaName::ForkedForGroup->value ) === $groupId ) {
-				$this->posts->delete( $row->lessonId );
-				++$deleted;
+			if ( ! empty( $row->lessonId ) ) {
+				$lessonIds[] = (int) $row->lessonId;
 			}
 		}
 
-		return $deleted;
+		$forkIds = $this->forkedLessonIds( $groupId, $lessonIds );
+		foreach ( $forkIds as $forkId ) {
+			$this->posts->delete( $forkId );
+		}
+
+		return count( $forkIds );
+	}
+
+	/**
+	 * Урок — COW-форк указанной группы? (meta `ForkedForGroup` === $groupId).
+	 * Единый владелец критерия (Р2.2) — раньше повторялся дословно в 5 местах.
+	 */
+	public function isForkedForGroup( int $lessonId, int $groupId ): bool {
+		return $groupId > 0
+			&& (int) $this->posts->getMeta( $lessonId, PostMetaName::ForkedForGroup->value ) === $groupId;
+	}
+
+	/**
+	 * Из списка lesson-id возвращает те, что являются форками указанной группы.
+	 * Один батч-прогрев кэша меты вместо N+1 `getMeta` по одному (Р2.2).
+	 *
+	 * @param int[] $lessonIds
+	 * @return int[] подмножество $lessonIds — форки группы $groupId
+	 */
+	public function forkedLessonIds( int $groupId, array $lessonIds ): array {
+		if ( $groupId <= 0 || array() === $lessonIds ) {
+			return array();
+		}
+
+		$lessonIds = array_values( array_unique( array_map( 'intval', $lessonIds ) ) );
+		$this->posts->primeMetaCache( $lessonIds );
+
+		return array_values( array_filter(
+			$lessonIds,
+			fn ( int $id ): bool => $this->isForkedForGroup( $id, $groupId )
+		) );
 	}
 
 	/**

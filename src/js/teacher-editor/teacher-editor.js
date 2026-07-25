@@ -1,4 +1,4 @@
-import { createStepEditor, ajax } from '../admin/services/step-editor.js';
+import { createStepEditor, ajax, esc } from '../admin/services/step-editor.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { showToast } from '../common/components/toast.js';
 
@@ -17,14 +17,19 @@ import { showToast } from '../common/components/toast.js';
 		const vars = window.fs_lms_teacher_editor_vars;
 		if ( ! vars ) { return; }
 
+		const cfg = { nonce: vars.nonce, ajaxurl: vars.ajaxurl };
+
+		// Панель записи занятия (broadcast-шаг) рендерится сервером для преподавателя и
+		// грузит записи на входе в плеер — независимо от drawer тич-редактора (Р0.3).
+		// Функция-объявление ниже хойстится; cfg/vars уже определены.
+		initBroadcastPanels();
+
 		const btn      = document.getElementById( 'fsTeacherEditBtn' );
 		const closeBtn = document.getElementById( 'fsTeacherEditorClose' );
 		const resetBtn = document.getElementById( 'fsTeacherEditorReset' );
 		const panel    = document.getElementById( 'fsTeacherEditor' );
 		const mount    = document.getElementById( 'fsTeacherEditorMount' );
 		if ( ! btn || ! panel || ! mount ) { return; }
-
-		const cfg = { nonce: vars.nonce, ajaxurl: vars.ajaxurl };
 
 		let mounted      = false;
 		let everForked    = false; // урок уже был форкнут ДО открытия редактора (is_forked при загрузке)
@@ -63,13 +68,12 @@ import { showToast } from '../common/components/toast.js';
 						},
 						nonce:              vars.nonce,
 						ajaxurl:            vars.ajaxurl,
+						adminBase:          vars.adminBase,
 						extraAjaxParams:    { group_lesson_id: vars.groupLessonId },
 						confirmFn:          ( c ) => confirmDialog( c.message, c.confirmText || 'Подтвердить', 'Отмена' )
 							.then( ( ok ) => { if ( ! ok ) { throw null; } } ),
 						persist:            persistSteps,
 					} );
-
-					initBroadcastPanels();
 				} )
 				.catch( ( msg ) => {
 					mount.innerHTML = '<div class="tep-loading">Не удалось загрузить шаги урока.</div>';
@@ -142,8 +146,8 @@ import { showToast } from '../common/components/toast.js';
 			if ( current.length ) {
 				current.forEach( ( r ) => {
 					html += `<div class="btp-row">
-						<span class="btp-rec-meta">${ r.s3_key } · ${ r.recorded_at }</span>
-						<button type="button" class="button fs-sb-btn-danger" data-detach="${ r.id }">Отвязать</button>
+						<span class="btp-rec-meta">${ esc( r.s3_key ) } · ${ esc( r.recorded_at ) }</span>
+						<button type="button" class="button fs-sb-btn-danger" data-detach="${ parseInt( r.id, 10 ) || 0 }">Отвязать</button>
 					</div>`;
 				} );
 			} else {
@@ -154,8 +158,8 @@ import { showToast } from '../common/components/toast.js';
 				html += '<div class="btp-title">Доступные записи</div>';
 				candidates.forEach( ( r ) => {
 					html += `<div class="btp-row">
-						<span class="btp-rec-meta">${ r.s3_key } · ${ r.recorded_at }</span>
-						<button type="button" class="button button-primary" data-attach="${ r.id }">Привязать</button>
+						<span class="btp-rec-meta">${ esc( r.s3_key ) } · ${ esc( r.recorded_at ) }</span>
+						<button type="button" class="button button-primary" data-attach="${ parseInt( r.id, 10 ) || 0 }">Привязать</button>
 					</div>`;
 				} );
 			}

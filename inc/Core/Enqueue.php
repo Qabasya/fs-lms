@@ -283,6 +283,58 @@ class Enqueue extends BaseController implements ServiceInterface {
 	}
 
 	/**
+	 * Единый скелет подключения изолированного бандла: style + script + localize.
+	 * Дедуп почти одинаковых блоков (profile/player/assessment/kege) — Р2.6.
+	 * Хендлы фиксированы паттерном `fs-lms-{$slug}-style` / `fs-lms-{$slug}-script`.
+	 *
+	 * @param string               $slug    базовое имя файлов и хендлов (profile/player/…)
+	 * @param string               $varName имя window-переменной для wp_localize_script
+	 * @param array<string, mixed> $data    данные локализации
+	 * @param string[]             $deps    зависимости скрипта (напр. ['jquery'])
+	 *
+	 * @return void
+	 */
+	private function enqueueBundle( string $slug, string $varName, array $data, array $deps = array() ): void {
+		wp_enqueue_style(
+			"fs-lms-{$slug}-style",
+			$this->url( "assets/css/{$slug}.min.css" ),
+			array(),
+			filemtime( $this->path( "assets/css/{$slug}.min.css" ) )
+		);
+
+		wp_enqueue_script(
+			"fs-lms-{$slug}-script",
+			$this->url( "assets/js/{$slug}.min.js" ),
+			$deps,
+			filemtime( $this->path( "assets/js/{$slug}.min.js" ) ),
+			true
+		);
+
+		wp_localize_script( "fs-lms-{$slug}-script", $varName, $data );
+	}
+
+	/**
+	 * MathJax v3 (tex-chtml) + инлайн-конфиг делимитеров \(…\)/\[…\]. Общий для
+	 * плеера, контрольной и станции КЕГЭ (Р2.6).
+	 *
+	 * @return void
+	 */
+	private function enqueueMathJax(): void {
+		wp_enqueue_script(
+			'fs-lms-mathjax',
+			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
+			array(),
+			null,
+			true
+		);
+		wp_add_inline_script(
+			'fs-lms-mathjax',
+			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
+			'before'
+		);
+	}
+
+	/**
 	 * Подключение изолированного бандла личного кабинета (/profile/).
 	 *
 	 * Грузит только profile.min.css/js и локализует window.fsProfile
@@ -291,26 +343,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	private function enqueue_profile_assets(): void {
-		wp_enqueue_style(
-			'fs-lms-profile-style',
-			$this->url( 'assets/css/profile.min.css' ),
-			array(),
-			filemtime( $this->path( 'assets/css/profile.min.css' ) )
-		);
-
-		wp_enqueue_script(
-			'fs-lms-profile-script',
-			$this->url( 'assets/js/profile.min.js' ),
-			array(),
-			filemtime( $this->path( 'assets/js/profile.min.js' ) ),
-			true
-		);
-
-		wp_localize_script(
-			'fs-lms-profile-script',
-			'fsProfile',
-			$this->profileResolver->jsConfig( get_current_user_id() )
-		);
+		$this->enqueueBundle( 'profile', 'fsProfile', $this->profileResolver->jsConfig( get_current_user_id() ) );
 	}
 
 	/**
@@ -325,23 +358,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	private function enqueue_player_assets(): void {
-		wp_enqueue_style(
-			'fs-lms-player-style',
-			$this->url( 'assets/css/player.min.css' ),
-			array(),
-			filemtime( $this->path( 'assets/css/player.min.css' ) )
-		);
-
-		wp_enqueue_script(
-			'fs-lms-player-script',
-			$this->url( 'assets/js/player.min.js' ),
-			array(),
-			filemtime( $this->path( 'assets/js/player.min.js' ) ),
-			true
-		);
-
-		wp_localize_script(
-			'fs-lms-player-script',
+		$this->enqueueBundle(
+			'player',
 			'fs_lms_player_vars',
 			array(
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
@@ -363,19 +381,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 			)
 		);
 
-		// MathJax v3 — рендеринг LaTeX-формул \(...\) и \[...\] в контенте шагов.
-		wp_enqueue_script(
-			'fs-lms-mathjax',
-			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
-			array(),
-			null,
-			true
-		);
-		wp_add_inline_script(
-			'fs-lms-mathjax',
-			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
-			'before'
-		);
+		$this->enqueueMathJax();
 
 		// Тич-редактор шагов (Этап 4): грузится ТОЛЬКО преподавателю группы занятия —
 		// авторизационное решение принято в LessonPlayerController::loadTemplate(),
@@ -410,8 +416,9 @@ class Enqueue extends BaseController implements ServiceInterface {
 			'fs_lms_teacher_editor_vars',
 			array(
 				'ajaxurl'       => admin_url( 'admin-ajax.php' ),
+				'adminBase'     => admin_url(),
 				'nonce'         => Nonce::TeachLesson->create(),
-				'groupLessonId' => (int) ( $_GET['gl'] ?? 0 ),
+				'groupLessonId' => $this->sanitizeGetInt( 'gl' ),
 				'actions'       => array(
 					'getSteps'          => AjaxHook::GetGroupLessonSteps->jsAction(),
 					'saveSteps'         => AjaxHook::SaveGroupLessonSteps->jsAction(),
@@ -437,23 +444,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	private function enqueue_assessment_assets(): void {
-		wp_enqueue_style(
-			'fs-lms-assessment-style',
-			$this->url( 'assets/css/assessment.min.css' ),
-			array(),
-			filemtime( $this->path( 'assets/css/assessment.min.css' ) )
-		);
-
-		wp_enqueue_script(
-			'fs-lms-assessment-script',
-			$this->url( 'assets/js/assessment.min.js' ),
-			array(),
-			filemtime( $this->path( 'assets/js/assessment.min.js' ) ),
-			true
-		);
-
-		wp_localize_script(
-			'fs-lms-assessment-script',
+		$this->enqueueBundle(
+			'assessment',
 			'fs_lms_assessment_vars',
 			array(
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
@@ -473,19 +465,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 			)
 		);
 
-		// MathJax v3 — рендеринг LaTeX-формул в условиях заданий (как в плеере).
-		wp_enqueue_script(
-			'fs-lms-mathjax',
-			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
-			array(),
-			null,
-			true
-		);
-		wp_add_inline_script(
-			'fs-lms-mathjax',
-			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
-			'before'
-		);
+		$this->enqueueMathJax();
 	}
 
 	/**
@@ -497,23 +477,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	private function enqueue_kege_assets(): void {
-		wp_enqueue_style(
-			'fs-lms-kege-style',
-			$this->url( 'assets/css/kege.min.css' ),
-			array(),
-			filemtime( $this->path( 'assets/css/kege.min.css' ) )
-		);
-
-		wp_enqueue_script(
-			'fs-lms-kege-script',
-			$this->url( 'assets/js/kege.min.js' ),
-			array(),
-			filemtime( $this->path( 'assets/js/kege.min.js' ) ),
-			true
-		);
-
-		wp_localize_script(
-			'fs-lms-kege-script',
+		$this->enqueueBundle(
+			'kege',
 			'fs_lms_kege_vars',
 			array(
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
@@ -530,19 +495,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 			)
 		);
 
-		// MathJax v3 — рендеринг LaTeX-формул в условиях заданий (как в плеере).
-		wp_enqueue_script(
-			'fs-lms-mathjax',
-			'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
-			array(),
-			null,
-			true
-		);
-		wp_add_inline_script(
-			'fs-lms-mathjax',
-			'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
-			'before'
-		);
+		$this->enqueueMathJax();
 	}
 
 	/**
@@ -697,20 +650,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 			// Плеер урока живёт на своём изолированном бандле (Эпик 14, D18) —
 			// см. enqueue_player_assets(); здесь остаётся только кокпит.
 
-			// MathJax v3 — рендеринг LaTeX-формул \(...\) и \[...\] в контенте
-			// кокпита (инструкции работ и т.п.). Конфиг — до скрипта ('before').
-			wp_enqueue_script(
-				'fs-lms-mathjax',
-				'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js',
-				array(),
-				null,
-				true
-			);
-			wp_add_inline_script(
-				'fs-lms-mathjax',
-				'window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\[", "\\\\]"]] } };',
-				'before'
-			);
+			// MathJax v3 — рендеринг LaTeX-формул в контенте кокпита (инструкции работ и т.п.).
+			$this->enqueueMathJax();
 		}
 
 		// === Страница прохождения контрольной / экзамена ===

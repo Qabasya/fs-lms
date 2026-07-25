@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\Enums\Course\GateState;
@@ -50,12 +51,51 @@ class LessonPlayerService {
 			return null;
 		}
 
-		$statuses = $this->progress->getStepStatuses( $studentPersonId, $groupLesson->id );
+		return $this->assembleView(
+			$lesson,
+			$groupLesson,
+			$studentPersonId,
+			$this->progress->getStepStatuses( $studentPersonId, $groupLesson->id )
+		);
+	}
 
+	/**
+	 * View урока для преподавателя (Этап 2, teacher-режим плеера): без ученика —
+	 * прогресс не читается (гейты открыты, статусы Available). Попытки/сдачи
+	 * фактически пусты — рендер-хелперы читают их по `studentPersonId = 0`,
+	 * для которого строк в `task_attempts`/`submissions` не существует, поэтому
+	 * ничего лишнего не подгружается и НИЧЕГО не пишется (эти хелперы — read-only).
+	 *
+	 * @return array{group_lesson_id:int, lesson_id:int, topic:string, steps:array<int, array<string,mixed>>}|null
+	 */
+	public function buildTeacherView( GroupLessonDTO $groupLesson ): ?array {
+		$lesson = $groupLesson->lessonId ? $this->lessons->get( $groupLesson->lessonId ) : null;
+		if ( null === $lesson ) {
+			return null;
+		}
+
+		// $statuses === null → teacher-режим: прогресс не читается, гейты/статусы Available.
+		return $this->assembleView( $lesson, $groupLesson, 0, null );
+	}
+
+	/**
+	 * Собирает view урока. `$statuses === null` — teacher-режим (гейты/статусы
+	 * Available, прогресс не читается); иначе ученический (статусы из прогресса,
+	 * гейт по {@see LessonGateResolver::resolveStep}). Дедуп buildView/buildTeacherView (Р2.3).
+	 *
+	 * @param array<string, ProgressStatus>|null $statuses
+	 *
+	 * @return array{group_lesson_id:int, lesson_id:int, topic:string, steps:array<int, array<string,mixed>>}
+	 */
+	private function assembleView( LessonDTO $lesson, GroupLessonDTO $groupLesson, int $studentPersonId, ?array $statuses ): array {
 		$steps = array();
 		foreach ( $lesson->steps as $step ) {
-			$status = $statuses[ $step->key ] ?? ProgressStatus::Available;
-			$gate   = $this->gate->resolveStep( $studentPersonId, $groupLesson, $step->key );
+			$status = null === $statuses
+				? ProgressStatus::Available
+				: ( $statuses[ $step->key ] ?? ProgressStatus::Available );
+			$gate   = null === $statuses
+				? GateState::Available
+				: $this->gate->resolveStep( $studentPersonId, $groupLesson, $step->key );
 
 			$steps[] = array(
 				'key'    => $step->key,
@@ -76,51 +116,16 @@ class LessonPlayerService {
 	}
 
 	/**
-	 * View урока для преподавателя (Этап 2, teacher-режим плеера): без ученика —
-	 * прогресс не читается (гейты открыты, статусы Available). Попытки/сдачи
-	 * фактически пусты — рендер-хелперы читают их по `studentPersonId = 0`,
-	 * для которого строк в `task_attempts`/`submissions` не существует, поэтому
-	 * ничего лишнего не подгружается и НИЧЕГО не пишется (эти хелперы — read-only).
-	 *
-	 * @return array{group_lesson_id:int, lesson_id:int, topic:string, steps:array<int, array<string,mixed>>}|null
-	 */
-	public function buildTeacherView( GroupLessonDTO $groupLesson ): ?array {
-		$lesson = $groupLesson->lessonId ? $this->lessons->get( $groupLesson->lessonId ) : null;
-		if ( null === $lesson ) {
-			return null;
-		}
-
-		$steps = array();
-		foreach ( $lesson->steps as $step ) {
-			$steps[] = array(
-				'key'    => $step->key,
-				'type'   => $step->type->value,
-				'title'  => $this->stepRenderer->resolveTitle( $step ),
-				'gate'   => GateState::Available->value,
-				'status' => ProgressStatus::Available->value,
-				'render' => $this->renderData( $step, $groupLesson, 0 ),
-			);
-		}
-
-		return array(
-			'group_lesson_id' => $groupLesson->id,
-			'lesson_id'       => $lesson->id,
-			'topic'           => $lesson->topic,
-			'steps'           => $steps,
-		);
-	}
-
-	/**
 	 * Данные для рендера шага по типу.
 	 *
 	 * @return array<string, mixed>
 	 */
 	private function renderData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId ): array {
 		return match ( $step->type->value ) {
-			'text'  => array( 'content' => (string) ( $step->payload['content'] ?? '' ) ),
-			'video' => $this->stepRenderer->renderVideoData( $step ),
+			'text', 'video' => $this->stepRenderer->renderInlineData( $step ),
 			// Generic-шов V4: модуль VideoLibrary подменяет указатель s3://… presigned-ссылкой.
-			'broadcast' => $this->stepRenderer->renderBroadcastData(
+			// Фильтр дёргаем только для broadcast (не для каждого text/video-шага).
+			'broadcast'  => $this->stepRenderer->renderInlineData(
 				$step,
 				apply_filters( 'fs_lms_recording_url', $groupLesson->recordingUrl, $groupLesson )
 			),

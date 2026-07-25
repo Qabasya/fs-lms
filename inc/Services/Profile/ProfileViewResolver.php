@@ -191,7 +191,6 @@ class ProfileViewResolver {
 					'unpublish'     => AjaxHook::UnpublishProgram->jsAction(),
 					'getDeadlines'  => AjaxHook::GetWorkDeadlines->jsAction(),
 					'saveDeadlines' => AjaxHook::SaveWorkDeadlines->jsAction(),
-				'setRecordingUrl' => AjaxHook::SetRecordingUrl->jsAction(),
 					'continue'      => AjaxHook::ContinueProgramLesson->jsAction(),
 					'getIndividual'    => AjaxHook::GetIndividualSlots->jsAction(),
 					'lessonCandidates' => AjaxHook::GetLessonCandidates->jsAction(),
