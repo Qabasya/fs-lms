@@ -1,0 +1,9 @@
+@use '../variables' as *;
+
+.tcr-header-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
