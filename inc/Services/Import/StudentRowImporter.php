@@ -7,6 +7,7 @@ namespace Inc\Services\Import;
 use DateTime;
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\Contracts\RowImporterInterface;
 use Inc\DTO\Enrollment\StudentRecordInputDTO;
 use Inc\DTO\Import\ImportContextDTO;
 use Inc\DTO\Import\ImportRowResultDTO;
@@ -15,10 +16,10 @@ use Inc\DTO\Person\PersonInputDTO;
 use Inc\Enums\Log\AuditAction;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Enums\Import\ImportColumn;
+use Inc\Enums\Import\ImportMode;
 use Inc\Enums\Log\LogEvent;
-use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\Person\PersonService;
+use Inc\Shared\Traits\TransactionRunner;
 use InvalidArgumentException;
 
 /**
@@ -29,20 +30,24 @@ use InvalidArgumentException;
  *
  * ### Особенности
  *
- * - **WP-учётки не создаются** — появятся позже при зачислении из архива.
+ * - **WP-учётки не создаются** — появятся позже при зачислении из архива
+ *   (или сразу — режим {@see \Inc\Services\Import\EnrolledStudentRowImporter}).
  * - **Статус записи** определяется по строке: есть дата/причина отчисления →
  *   запись в архиве (`finished`/`transferred`/`expelled`), иначе `active`.
  * - **Идемпотентность** — дубль по ученик+группа+договор → skipped.
  * - **Dry-run** — все резолвы/проверки выполняются, запись пропускается.
+ * - **Транзакция** — только сама запись (группа+persons+student_records);
+ *   этот импортёр не вызывает WP-функций с side-эффектами, поэтому весь
+ *   блок записи безопасно оборачивается целиком.
  *
  * Предмет и период берутся из {@see ImportContextDTO} (выбор в UI), а не из CSV.
  */
-readonly class StudentRowImporter {
+readonly class StudentRowImporter implements RowImporterInterface {
+
+	use TransactionRunner;
 
 	/**
-	 * @param GroupsRepository            $groups          Репозиторий групп (find-or-create)
-	 * @param PersonImportResolver        $personResolver  Дедуп persons по doc/email/ФИО
-	 * @param PersonService               $personService   Создание persons + person_documents
+	 * @param StudentRecordWriter         $writer          Резолв/создание группы и persons
 	 * @param StudentRecordRepository     $studentRecords  Дедуп и создание записей
 	 * @param ExpulsionResolver           $expulsionResolver Причина → статус
 	 * @param DocTypeResolver             $docTypeResolver Тип документа → значение enum
@@ -50,9 +55,7 @@ readonly class StudentRowImporter {
 	 * @param LogEventDispatcherInterface $logEvents       Шина событий логирования
 	 */
 	public function __construct(
-		private GroupsRepository            $groups,
-		private PersonImportResolver        $personResolver,
-		private PersonService               $personService,
+		private StudentRecordWriter         $writer,
 		private StudentRecordRepository     $studentRecords,
 		private ExpulsionResolver           $expulsionResolver,
 		private DocTypeResolver             $docTypeResolver,
@@ -66,7 +69,7 @@ readonly class StudentRowImporter {
 	 * @return string[]
 	 */
 	public function requiredHeaders(): array {
-		return ImportColumn::required();
+		return ImportColumn::required( ImportMode::Archive );
 	}
 
 	/**
@@ -133,10 +136,9 @@ readonly class StudentRowImporter {
 		);
 
 		// Резолв существующих сущностей (только чтение)
-		$existingGroup = $this->groups->findByNameSubjectPeriod( $groupName, $ctx->subjectKey, $ctx->periodId );
-		$groupId       = $existingGroup ? (int) $existingGroup->id : null;
-		$studentId     = $this->personResolver->resolve( $studentInput );
-		$parentId      = $this->personResolver->resolve( $parentInput );
+		$groupId   = $this->writer->resolveGroupId( $groupName, $ctx );
+		$studentId = $this->writer->resolvePersonId( $studentInput );
+		$parentId  = $this->writer->resolvePersonId( $parentInput );
 
 		// Дедуп записи (если ученик и группа уже известны)
 		if ( null !== $studentId && null !== $groupId
@@ -150,49 +152,40 @@ readonly class StudentRowImporter {
 
 		$now = $this->clock->now( 'mysql', true );
 
-		if ( null === $groupId ) {
-			$groupId = $this->groups->create( array(
-				'name'               => $groupName,
-				'subject_key'        => $ctx->subjectKey,
-				'academic_period_id' => $ctx->periodId,
-				'teacher_id'         => null,
-				'meetings'           => null,
-				'created_at'         => $now,
-				'updated_at'         => $now,
-			) );
-		}
+		[ $recordId, $studentId, $parentId, $groupId ] = $this->inTransaction(
+			function () use ( $groupId, $studentId, $parentId, $groupName, $ctx, $studentInput, $parentInput, $get, $now, $lastName, $firstName, $contractNo ): array {
+				$groupId   ??= $this->writer->createGroup( $groupName, $ctx );
+				$parentId  ??= $this->writer->createPerson( $parentInput );
+				$studentId ??= $this->writer->createPerson( $studentInput );
 
-		if ( null === $parentId ) {
-			$parentId = $this->personService->createOrFindBy( $parentInput );
-		}
-		if ( null === $studentId ) {
-			$studentId = $this->personService->createOrFindBy( $studentInput );
-		}
+				[ $status, $reason, $expelledAt, $expelledBy ] = $this->resolveLifecycle( $get, $ctx, $now );
 
-		[ $status, $reason, $expelledAt, $expelledBy ] = $this->resolveLifecycle( $get, $ctx, $now );
+				$recordId = $this->studentRecords->create( new StudentRecordInputDTO(
+					studentPersonId:    $studentId,
+					parentPersonId:     $parentId,
+					status:             $status,
+					enrolledAt:         $this->toDateTime( $get( ImportColumn::EnrolledAt ) ) ?? $now,
+					createdAt:          $now,
+					updatedAt:          $now,
+					groupId:            $groupId,
+					snapshotLastName:   $lastName,
+					snapshotFirstName:  $firstName,
+					snapshotMiddleName: $get( ImportColumn::MiddleName ) ?: null,
+					snapshotSchool:     $get( ImportColumn::School ) ?: null,
+					snapshotGrade:      $get( ImportColumn::Grade ) ?: null,
+					contractNo:         $contractNo,
+					contractDate:       $this->toDate( $get( ImportColumn::ContractDate ) ),
+					orderNo:            $get( ImportColumn::OrderNo ) ?: null,
+					orderDate:          $this->toDate( $get( ImportColumn::OrderDate ) ),
+					enrolledByUserId:   $ctx->actorId ?: null,
+					expelledAt:         $expelledAt,
+					expelReason:        $reason,
+					expelledByUserId:   $expelledBy,
+				) );
 
-		$recordId = $this->studentRecords->create( new StudentRecordInputDTO(
-			studentPersonId:    $studentId,
-			parentPersonId:     $parentId,
-			status:             $status,
-			enrolledAt:         $this->toDateTime( $get( ImportColumn::EnrolledAt ) ) ?? $now,
-			createdAt:          $now,
-			updatedAt:          $now,
-			groupId:            $groupId,
-			snapshotLastName:   $lastName,
-			snapshotFirstName:  $firstName,
-			snapshotMiddleName: $get( ImportColumn::MiddleName ) ?: null,
-			snapshotSchool:     $get( ImportColumn::School ) ?: null,
-			snapshotGrade:      $get( ImportColumn::Grade ) ?: null,
-			contractNo:         $contractNo,
-			contractDate:       $this->toDate( $get( ImportColumn::ContractDate ) ),
-			orderNo:            $get( ImportColumn::OrderNo ) ?: null,
-			orderDate:          $this->toDate( $get( ImportColumn::OrderDate ) ),
-			enrolledByUserId:   $ctx->actorId ?: null,
-			expelledAt:         $expelledAt,
-			expelReason:        $reason,
-			expelledByUserId:   $expelledBy,
-		) );
+				return array( $recordId, $studentId, $parentId, $groupId );
+			}
+		);
 
 		$this->logEvents->dispatch(
 			LogEvent::StudentEnrolled,

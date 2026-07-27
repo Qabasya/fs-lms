@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Import;
 
+use Inc\Enums\Import\ImportMode;
+
 /**
  * Контекст запуска импорта одной строки CSV.
  *
@@ -15,18 +17,22 @@ namespace Inc\DTO\Import;
 readonly class ImportContextDTO {
 
 	/**
-	 * @param string $subjectKey Ключ выбранного предмета
-	 * @param string $periodId   ID выбранного учебного периода
-	 * @param bool   $dryRun     Режим «только проверить» — без записи в БД
-	 * @param int    $actorId    WP-ID администратора, запустившего импорт
-	 * @param int    $rowNumber  Номер обрабатываемой строки (1 — первая строка данных)
+	 * @param string     $subjectKey Ключ выбранного предмета
+	 * @param string     $periodId   ID выбранного учебного периода
+	 * @param bool       $dryRun     Режим «только проверить» — без записи в БД
+	 * @param int        $actorId    WP-ID администратора, запустившего импорт
+	 * @param int        $rowNumber  Номер обрабатываемой строки (1 — первая строка данных)
+	 * @param ImportMode $mode       Режим импорта (архив/полное зачисление)
+	 * @param bool       $sendEmails Отправлять письма с кредами (только режим Enrolled)
 	 */
 	public function __construct(
-		public string $subjectKey,
-		public string $periodId,
-		public bool   $dryRun,
-		public int    $actorId,
-		public int    $rowNumber = 0,
+		public string     $subjectKey,
+		public string     $periodId,
+		public bool       $dryRun,
+		public int        $actorId,
+		public int        $rowNumber  = 0,
+		public ImportMode $mode       = ImportMode::Archive,
+		public bool       $sendEmails = false,
 	) {}
 
 	/**
@@ -43,6 +49,8 @@ readonly class ImportContextDTO {
 			dryRun:     $this->dryRun,
 			actorId:    $this->actorId,
 			rowNumber:  $rowNumber,
+			mode:       $this->mode,
+			sendEmails: $this->sendEmails,
 		);
 	}
 }
