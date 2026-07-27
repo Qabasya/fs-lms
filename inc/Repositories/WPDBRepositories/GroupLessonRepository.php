@@ -375,4 +375,42 @@ class GroupLessonRepository {
 	public function clearRoomId( int $roomId ): int {
 		return (int) $this->wpdb->update( $this->table, array( 'room_id' => null ), array( 'room_id' => $roomId ) );
 	}
+
+	/**
+	 * Запланированные занятия, начинающиеся в интервале ($from, $to] — cron-продюсер
+	 * уведомления «занятие скоро» ({@see \Inc\Services\Profile\NotificationCronService}).
+	 * `visibility` намеренно не фильтруется — расписание ученику видно всегда.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listStartingBetween( string $from, string $to ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE status = 'scheduled' AND scheduled_at > %s AND scheduled_at <= %s",
+				$this->table,
+				$from,
+				$to
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
+	/**
+	 * Открытые (видимые ученику) занятия с каким-либо дедлайном — кандидаты cron-продюсера
+	 * «дедлайн скоро/просрочен» ({@see \Inc\Services\Profile\NotificationCronService}).
+	 * Per-work разбор (какие именно работы и какой у них эффективный дедлайн) — на сервисе.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listWithDeadlines(): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE visibility = 'open' AND ( homework_due_at IS NOT NULL OR work_deadlines IS NOT NULL )",
+				$this->table
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
 }

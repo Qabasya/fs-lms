@@ -1,0 +1,97 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Колокольчик уведомлений: badge на кнопке топбара + выпадающая лента
+   плиток (#profNotifPop). Свой контейнер — не .prof-ctx-menu (та занята
+   select-подобными выпадашками с anchor-позиционированием через JS; тут —
+   лента фиксированной ширины у правого края топбара).
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
+
+/* ── Badge на колокольчике ─────────────────────────────────────────────── */
+#profBell { position: relative; }
+
+.prof-bell-badge {
+  position: absolute; top: rem(2); right: rem(2);
+  min-width: rem(14); height: rem(14); padding: 0 rem(3);
+  border-radius: rem(7); background: var(--err); color: var(--ink-inverse);
+  font-size: rem(9.5); font-weight: 700; line-height: rem(14); text-align: center;
+  pointer-events: none;
+}
+.prof-bell-badge[hidden] { display: none; }
+
+/* ── Поповер ───────────────────────────────────────────────────────────── */
+.prof-notif-pop {
+  @include cab-card;
+
+  position: fixed; top: calc(var(--top-h) + #{rem(8)}); right: rem(24);
+  width: rem(380); max-height: 70vh;
+  z-index: $z-ctx;
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: cab-enter $tr ease;
+}
+.prof-notif-pop[hidden] { display: none; }
+
+.prof-notif-head {
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  padding: rem(12) rem(14); border-bottom: 1px solid var(--line);
+  font-size: rem(13); font-weight: 700; color: var(--ink);
+}
+
+.prof-notif-readall {
+  border: none; background: none; padding: 0; cursor: pointer;
+  font: inherit; font-size: rem(12.5); font-weight: 600; color: var(--accent);
+}
+.prof-notif-readall:hover { color: var(--accent-600); }
+
+.prof-notif-loading { padding: rem(28) rem(16); text-align: center; font-size: rem(13); color: var(--muted); }
+
+.prof-notif-list { overflow-y: auto; }
+
+.prof-notif-section {
+  padding: rem(8) rem(14) rem(4);
+  font-size: rem(11); font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted-2);
+}
+
+.prof-notif-item {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: flex-start; gap: rem(10);
+  padding: rem(9) rem(14); text-decoration: none; color: inherit;
+}
+.prof-notif-item:hover { background: var(--surface-2); }
+
+.ni-ico {
+  width: rem(30); height: rem(30); border-radius: rem(9); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent);
+}
+
+/* Цвет кружка по tone (NotificationType::tone()) — словарь статусов кабинета+плеера. */
+.prof-notif-item[data-tone="ok"] .ni-ico   { background: var(--ok-soft);   color: var(--ok-ink); }
+.prof-notif-item[data-tone="warn"] .ni-ico { background: var(--wait-soft); color: var(--wait-ink); }
+.prof-notif-item[data-tone="err"] .ni-ico  { background: var(--err-soft);  color: var(--err-ink); }
+
+.ni-body { min-width: 0; display: flex; flex-direction: column; gap: rem(2); }
+
+.ni-title {
+  display: flex; align-items: center; gap: rem(6);
+  font-size: rem(13); font-weight: 600; color: var(--ink);
+}
+.ni-dot { width: rem(7); height: rem(7); border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+.ni-sub {
+  font-size: rem(12); color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.ni-time { font-size: rem(11); color: var(--muted-2); white-space: nowrap; }
+
+.prof-notif-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: rem(8); padding: rem(32) rem(20); color: var(--muted-2); text-align: center;
+}
+.prof-notif-empty p { font-size: rem(13); color: var(--muted); }
+
+/* ── Мобилка: от края до края ──────────────────────────────────────────── */
+@include below($bp-mobile) {
+  .prof-notif-pop { left: rem(10); right: rem(10); width: auto; }
+}

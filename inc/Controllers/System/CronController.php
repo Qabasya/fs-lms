@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\CronHook;
 use Inc\Managers\Wp\CronManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Services\Profile\NotificationCronService;
 
 /**
  * Class CronController
@@ -34,6 +35,7 @@ class CronController extends BaseController implements ServiceInterface {
 	public function __construct(
 		private readonly CronManager                 $cron_manager,
 		private readonly AssessmentAttemptRepository $attemptRepo,
+		private readonly NotificationCronService     $notificationCron,
 	) {
 		parent::__construct();
 	}
@@ -48,6 +50,9 @@ class CronController extends BaseController implements ServiceInterface {
 			wp_schedule_event( time(), 'hourly', CronHook::ExpireAttempts->value );
 		}
 
+		add_action( CronHook::NotificationsTick->value, array( $this, 'handleNotificationsTick' ) );
+		$this->cron_manager->schedule( CronHook::NotificationsTick->value, 'every_15_minutes' );
+
 		// Callback-хуки будут подключены по мере реализации:
 		// add_action( CronHook::ExpireApplications->value, [ $application_callbacks, 'cronExpireApplications' ] );
 		// add_action( CronHook::RetentionCleanup->value,   [ $retention_callbacks, 'cronRetentionCleanup' ] );
@@ -56,5 +61,9 @@ class CronController extends BaseController implements ServiceInterface {
 
 	public function handleExpireAttempts(): void {
 		$this->attemptRepo->expireOverdue();
+	}
+
+	public function handleNotificationsTick(): void {
+		$this->notificationCron->tick();
 	}
 }

@@ -58,7 +58,7 @@ Kernel ◄── Content ◄── Enrollment ◄── Lms
 | **Enrollment** | заявки, persons, группы, PII, зачисление/отчисление | Kernel (+soft: `subject_key`→Content) | «+ регистрация» |
 | **Lms** | программа группы, сдачи, контрольные, плеер, прогресс, кокпит | Kernel, Content, **Enrollment** | «+ полноценная ЛМС» |
 | **SocialAuth** | OAuth-провайдеры, привязка аккаунтов | Kernel | лист |
-| **Notifier** | Telegram-уведомления (подписчик шины) | Kernel + шина | лист |
+| **Notifier** | Telegram-уведомления (подписчик шины) — контракт зафиксирован in-app системой уведомлений: слушает `do_action('fs_lms_notification_created', $recipientUserId, $type, $payload)` (фактическая вставка строки — `NotificationService::push()`) и/или читает `fs_lms_notifications` (таблица, ключ — `recipient_user_id`+`dedupe_key`) для догоняющей доставки/истории | Kernel + шина | лист |
 | **AdSync** | провижн учёток в AD через заявки | Kernel + события Enrollment | лист |
 
 ### 2.3. Будущие модули (пишем сразу как листья)

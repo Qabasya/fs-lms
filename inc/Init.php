@@ -53,6 +53,7 @@ use Inc\Controllers\Subscribers\ConsentChangeSubscriber;
 use Inc\Controllers\Subscribers\EmailSubscriber;
 use Inc\Controllers\Subscribers\DeletionSubscriber;
 use Inc\Controllers\Subscribers\LearningEventSubscriber;
+use Inc\Controllers\Subscribers\NotificationSubscriber;
 use Inc\Controllers\Deletion\DeletionController;
 use Inc\Controllers\Assessment\AssessmentController;
 use Inc\Controllers\Group\ScheduleController;
@@ -60,6 +61,7 @@ use Inc\Controllers\Group\SubstitutionController;
 use Inc\Controllers\Group\RoomController;
 use Inc\Controllers\Profile\ProfileDashboardController;
 use Inc\Controllers\Profile\LearnerProfileController;
+use Inc\Controllers\Profile\NotificationController;
 use Inc\Controllers\Group\JournalController;
 use Inc\Controllers\Group\GroupCockpitController;
 use Inc\Controllers\Course\CoursePreviewController;
@@ -159,6 +161,7 @@ final class Init {
 			RoomController::class,            // AJAX справочника кабинетов (Эпик 9)
 			ProfileDashboardController::class,// AJAX «Главной» кабинета (Эпик 6)
 			LearnerProfileController::class,  // AJAX профиля учащегося/родителя (Эпик 7)
+			NotificationController::class,    // AJAX уведомлений кабинета (колокольчик)
 			JournalController::class,         // AJAX журнала и посещаемости (Эпик 2)
 			LessonPlayerController::class,    // пошаговый плеер урока (до кокпита: ?gl=)
 			CoursePreviewController::class,   // preview-плеер курса (Фаза 5, D3/D4): /course-preview/?course=
@@ -166,6 +169,7 @@ final class Init {
 			GroupCockpitController::class,    // фронт-страница кокпита (/group/)
 			LessonProgressController::class,  // AJAX записи прогресса шага
 			LearningEventSubscriber::class,   // лента событий обучения
+			NotificationSubscriber::class,    // событийные продюсеры уведомлений кабинета
 			// ==== Этап 3 — сдача работ ====
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных

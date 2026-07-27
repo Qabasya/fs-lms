@@ -300,4 +300,26 @@ class GroupLessonRepositoryTest extends TestCase {
 	private function slot( string $scheduledAt ): array {
 		return [ 'scheduled_at' => $scheduledAt, 'ends_at' => $scheduledAt, 'room' => 0 ];
 	}
+
+	public function test_list_starting_between_filters_scheduled_status_and_window(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->listStartingBetween( '2026-01-15 12:00:00', '2026-01-15 12:30:00' );
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( "status = 'scheduled'", $q );
+		self::assertStringContainsString( "scheduled_at > '2026-01-15 12:00:00'", $q );
+		self::assertStringContainsString( "scheduled_at <= '2026-01-15 12:30:00'", $q );
+	}
+
+	public function test_list_with_deadlines_filters_open_visibility_and_deadline_columns(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->listWithDeadlines();
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( "visibility = 'open'", $q );
+		self::assertStringContainsString( 'homework_due_at IS NOT NULL', $q );
+		self::assertStringContainsString( 'work_deadlines IS NOT NULL', $q );
+	}
 }

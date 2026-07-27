@@ -131,6 +131,13 @@ if (!function_exists('add_filter')) {
         return true;
     }
 }
+if (!function_exists('add_action')) {
+    // Как add_filter() выше — do_action() не хранит подписчиков, поэтому это тоже no-op;
+    // достаточно, чтобы register()-методы контроллеров/подписчиков не падали в тестах.
+    function add_action(string $hook, callable $callback, int $priority = 10, int $acceptedArgs = 1): bool {
+        return true;
+    }
+}
 if (!function_exists('has_filter')) {
     // add_filter() выше не запоминает регистрации — по умолчанию считаем «не подписан»
     // (модуль выключен/не настроен); тест может переопределить через $GLOBALS.

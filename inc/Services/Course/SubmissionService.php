@@ -250,8 +250,9 @@ class SubmissionService {
 				'status'       => $status,
 				'submitted_at' => $now,
 			] );
+			$aggregateId = $aggregate->id;
 		} else {
-			$newId = $this->submissions->create( new SubmissionInputDTO(
+			$aggregateId = $this->submissions->create( new SubmissionInputDTO(
 				studentPersonId : $studentPersonId,
 				groupLessonId   : $groupLessonId,
 				workId          : $workId,
@@ -262,12 +263,16 @@ class SubmissionService {
 				status          : $status,
 				submittedAt     : $now,
 			) );
-			$this->submissions->update( $newId, [
+			$this->submissions->update( $aggregateId, [
 				'score'     => (float) $result->correctCount,
 				'max_score' => (float) $result->totalCount,
 			] );
 		}
 
+		// entityId — id самой (агрегатной) сдачи, как и в single-пути submit(): значение
+		// должно однозначно резолвиться через SubmissionRepository::find() независимо от
+		// пути сдачи (нужно NotificationSubscriber::handleSubmissionMade() для фильтра
+		// «ручная часть — нужна проверка»).
 		$this->dispatcher->dispatch(
 			LogEvent::SubmissionMade,
 			new LearningEvent(
@@ -275,7 +280,7 @@ class SubmissionService {
 				actorUserId: $studentPersonId,
 				groupId    : $row->groupId,
 				entityType : 'submission',
-				entityId   : (string) $workId,
+				entityId   : (string) $aggregateId,
 				isPublic   : true,
 			)
 		);

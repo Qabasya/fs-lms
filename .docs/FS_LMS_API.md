@@ -359,11 +359,12 @@ if __name__ == "__main__":
 
 ```js
 window.fsProfile = {
-  ajax:     { url: '…/admin-ajax.php' },
-  groups:   [ { id, name, subject }, … ],
-  schedule: { nonce, actions: { getCalendar, reflow, pin, getProgram, assignCourse } }, // КТП
-  journal:  { nonce, actions: { getJournal, saveAttendance, bulkAttendance } },         // Журнал
-  review:   { nonce, actions: { getSubmissions, saveGrade, returnSubmission } },        // Проверка работ
+  ajax:          { url: '…/admin-ajax.php' },
+  groups:        [ { id, name, subject }, … ],
+  schedule:      { nonce, actions: { getCalendar, reflow, pin, getProgram, assignCourse } }, // КТП
+  journal:       { nonce, actions: { getJournal, saveAttendance, bulkAttendance } },         // Журнал
+  review:        { nonce, actions: { getSubmissions, saveGrade, returnSubmission } },        // Проверка работ
+  notifications: { nonce, actions: { list, count, markRead, markAllRead } },                 // Колокольчик (общий для всех ролей)
 };
 ```
 
@@ -391,6 +392,56 @@ window.FS_LMS_API.request = async (action, _nonce, params) => {
   return json.data;
 };
 ```
+
+### 8.1. Уведомления кабинета (колокольчик)
+
+> In-app уведомления `/profile/` — плитки-события (запись занятия, дедлайны, оценки, замена,
+> пропуск занятия…). Блок `fsProfile.notifications` присутствует **для всех ролей кабинета**
+> (не только препода/ученика) — собирается безусловно в `ProfileViewResolver::jsConfig()`.
+> Домен: `Inc\Services\Profile\NotificationService` + `Inc\Repositories\WPDBRepositories\NotificationRepository`
+> (таблица `fs_lms_notifications`). Событийные продюсеры — `Inc\Controllers\Subscribers\NotificationSubscriber`
+> (шина `LogEventDispatcher` + WP-хук `fs_lms_recording_attached`) и cron-продюсер
+> `Inc\Services\Profile\NotificationCronService` (`fs_lms_notifications_tick`, раз в 15 минут).
+
+**Действия** (`fsProfile.notifications.actions`):
+
+| actionKey     | AJAX-хук                       | Params | Возвращает |
+|---|---|---|---|
+| `list`        | `get_notifications`            | — | `{ items: Tile[], unseen: 0 }` — 30 последних + сервер сразу помечает их **seen** |
+| `count`       | `get_notifications_count`      | — | `{ unseen: number }` — для поллинга badge (раз в 60 с) |
+| `markRead`    | `mark_notification_read`       | `id` | `{}` — помечает одну плитку **read** |
+| `markAllRead` | `mark_all_notifications_read`  | — | `{}` — помечает **read** все уведомления получателя |
+
+Получатель везде — `get_current_user_id()` на сервере; клиентский id не принимается ни в одном действии
+(чужие уведомления недостижимы — репозиторий скоупит по `recipient_user_id`).
+
+**Формат плитки `Tile`** (`NotificationService::toClientArray()` — единственная точка сборки текста;
+клиент по `type`/`tone` выбирает только иконку/цвет, русский текст уже готов):
+
+```ts
+{
+  id:     number,   // id строки fs_lms_notifications
+  type:   string,   // 'video_uploaded'|'deadline_soon'|'deadline_missed'|'lesson_soon'|
+                     // 'work_graded'|'work_returned'|'attempt_graded'|'review_needed'|
+                     // 'substitute_assigned'|'attendance_missed'
+  tone:   string,   // 'ok'|'warn'|'err'|'info' — цвет кружка (NotificationType::tone())
+  title:  string,   // заголовок плитки (готовый русский текст)
+  body:   string,   // подпись плитки (тема/группа/балл/имя — из payload, готовый текст)
+  url:    string,   // deep-link (плеер занятия, /profile/?screen=…)
+  time:   string,   // created_at, 'Y-m-d H:i:s' (локальное время сайта)
+  unread: boolean,  // read_at === null
+}
+```
+
+**Двухступенчатое прочтение (как в macOS):** `seen_at` проставляется всем непрочитанным строкам
+получателя при первом же вызове `list` (открытие поповера гасит badge колокольчика, независимо от того,
+кликнул ли пользователь на конкретную плитку); `read_at` — точечно через `markRead`/`markAllRead` (клик
+по плитке/кнопка «Прочитать все», гасит точку непрочитанного на самой плитке). `unseen` в ответе `list`
+всегда `0` — эта пометка уже произошла внутри того же запроса.
+
+**Идемпотентность на сервере** (важно для будущего REST-фасада/Telegram-порта, п. 3 ниже): вставка
+уведомлений идёт через `INSERT IGNORE` по `UNIQUE(recipient_user_id, dedupe_key)` — повторный cron-тик
+или повторная доставка одного и того же доменного события не плодят дубли плиток.
 
 **Путь к внешним клиентам (Telegram / мобилка).** Чтобы кабинет заработал вне WP-куки, нужны три вещи;
 логику (Services/Repositories) **не трогаем** — только фасад транспорта и авторизации:

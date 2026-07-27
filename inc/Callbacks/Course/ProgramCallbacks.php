@@ -598,6 +598,9 @@ class ProgramCallbacks extends BaseController {
 		}
 
 		$this->groupLessons->setRecordingUrl( $groupLessonId, '' !== $url ? $url : null );
+		if ( '' !== $url ) {
+			do_action( 'fs_lms_recording_attached', $groupLessonId );
+		}
 		$this->success( array( 'saved' => true, 'recording_url' => '' !== $url ? $url : null ) );
 	}
 

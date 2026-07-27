@@ -98,6 +98,17 @@ class ProfileViewResolver {
 		$ctx    = $this->context( $wpUserId );
 		$config = $this->baseConfig( $wpUserId, $ctx );
 
+		// Колокольчик уведомлений — общий для всех ролей кабинета (не только препода/ученика).
+		$config['notifications'] = array(
+			'nonce'   => Nonce::Notifications->create(),
+			'actions' => array(
+				'list'        => AjaxHook::GetNotifications->jsAction(),
+				'count'       => AjaxHook::GetNotificationsCount->jsAction(),
+				'markRead'    => AjaxHook::MarkNotificationRead->jsAction(),
+				'markAllRead' => AjaxHook::MarkAllNotificationsRead->jsAction(),
+			),
+		);
+
 		// Препод и офис работают с группами (КТП/журнал).
 		if ( UserRole::FSTeacher === $ctx->role || UserRole::FSOffice === $ctx->role ) {
 			$config = array_merge( $config, $this->teacherConfig( $wpUserId, $ctx ) );

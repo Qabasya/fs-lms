@@ -47,6 +47,9 @@ enum TableName: string {
 	// ==== Кабинеты / аудитории (Эпик 9) ====
 	case Rooms = 'fs_lms_rooms';
 
+	// ==== In-app уведомления кабинета ====
+	case Notifications = 'fs_lms_notifications';
+
 	public function prefixed(): string {
 		global $wpdb;
 		return $wpdb->prefix . $this->value;

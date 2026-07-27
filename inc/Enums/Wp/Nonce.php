@@ -101,6 +101,9 @@ enum Nonce: string {
 	case StepSettings     = 'fs_lms_step_settings';
 	case TaskContent      = 'fs_lms_task_content';
 
+	// ==== Уведомления кабинета ====
+	case Notifications = 'fs_lms_notifications';
+
 	/**
 	 * Создает защитный токен.
 	 *

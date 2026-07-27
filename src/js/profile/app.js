@@ -7,6 +7,7 @@ import { renderSummary } from './summary.js';
 import { renderSubstitutions } from './substitutions.js';
 import { renderKTP } from './ktp.js';
 import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
+import { initNotifications } from './notifications.js';
 
 /* ── Screen registry: key → renderer ─────────────────────────────────── */
 const SCREENS = {
@@ -331,6 +332,7 @@ export function initProfile() {
     buildStage();
     mountScreens();
     wire();
+    initNotifications();
     initCollapse();
 
     // Deep-link на экран: /profile/?screen=learner-lessons (ссылки из плеера курса, T14.13).
