@@ -136,6 +136,9 @@ class VideoRegistrationService {
 		if ( null !== $lesson && LessonStatus::Scheduled->value === $lesson->status ) {
 			$this->groupLessons->setStatus( $groupLessonId, LessonStatus::Held );
 		}
+
+		// Единый хук для уведомлений кабинета — покрывает и авто-матч (register()), и ручную привязку (attachManually()).
+		do_action( 'fs_lms_recording_attached', $groupLessonId );
 	}
 
 	private function s3Pointer( string $bucket, string $key ): string {

@@ -35,6 +35,15 @@ class FakeWpdb extends \wpdb {
 	/** @var array<int, array{table:string,where:array}> */
 	public array $deletes = array();
 
+	/** @var array<int, int> Очередь возвратов для query() (affected rows); пусто — дефолт 1. */
+	private array $queryReturns = array();
+
+	/** Задаёт результат следующего query() — для различения INSERT IGNORE «вставлено»/«дубль пропущен». */
+	public function queueQuery( int $affectedRows ): self {
+		$this->queryReturns[] = $affectedRows;
+		return $this;
+	}
+
 	public function queueRow( mixed $row ): self {
 		$this->rowReturns[] = $row;
 		return $this;
@@ -79,7 +88,7 @@ class FakeWpdb extends \wpdb {
 
 	public function query( string $query ): bool|int {
 		$this->queries[] = $query;
-		return 1;
+		return empty( $this->queryReturns ) ? 1 : array_shift( $this->queryReturns );
 	}
 
 	public function get_row( string $query, string $output = 'OBJECT', int $y = 0 ): mixed {

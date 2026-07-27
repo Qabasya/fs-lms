@@ -63,8 +63,9 @@ if ( ! is_user_logged_in() ) {
 				<div class="prof-tb-title" id="profTbTitle">Главная</div>
 			</div>
 			<span class="prof-tb-spacer"></span>
-			<button class="prof-icon-ghost" title="Уведомлений нет">
+			<button class="prof-icon-ghost" id="profBell" aria-haspopup="true" title="Уведомления">
 				<?php echo Icon::Bell->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				<span class="prof-bell-badge" id="profBellBadge" hidden></span>
 			</button>
 			<a class="prof-icon-ghost prof-home-btn" href="<?php echo esc_url( home_url( '/' ) ); ?>" title="Вернуться на главную">
 				<?php echo Icon::Home->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
@@ -80,6 +81,8 @@ if ( ! is_user_logged_in() ) {
 <div class="prof-ctx-backdrop" id="profCtxBackdrop"></div>
 <div class="prof-ctx-menu" id="profCtxMenu"></div>
 <div class="prof-grade-pop" id="profGradePop"></div>
+<!-- Поповер уведомлений (свой контейнер — не переиспользует prof-ctx-menu) -->
+<div class="prof-notif-pop" id="profNotifPop" hidden></div>
 <div class="prof-toast" id="profToast">
 	<?php echo Icon::Check->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	<span>Готово</span>

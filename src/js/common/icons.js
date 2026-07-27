@@ -54,6 +54,10 @@ export const icoCalendar = ( s = 16 ) =>
 export const icoAlert = ( s = 16 ) =>
 	stroke20( '<path d="M10 4v7M10 14.5v.5" stroke="{c}" stroke-width="1.8" stroke-linecap="round"/>', s );
 
+/** Колокольчик уведомлений — зеркало Icon::Bell (inc/Enums/Ui/Icon.php). */
+export const icoBell = ( s = 20 ) =>
+	stroke20( '<path d="M10 3a4 4 0 0 0-4 4c0 4-1.5 5-1.5 5h11S14 11 14 7a4 4 0 0 0-4-4zM8.5 15a1.5 1.5 0 0 0 3 0" stroke="{c}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>', s );
+
 export const icoBookmark = ( s = 18 ) =>
 	stroke20( '<path d="M5 4h10v12l-5-2.5L5 16z" stroke="{c}" stroke-width="1.5" stroke-linejoin="round"/>', s );
 

@@ -4,8 +4,11 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Enums\Profile\NotificationType;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
+use Inc\Services\Profile\NotificationService;
 
 /**
  * Управление заменами преподавателя (Эпик 5, D5).
@@ -20,6 +23,7 @@ class SubstitutionService {
 	public function __construct(
 		private readonly SubstitutionRepository $repo,
 		private readonly GroupsRepository       $groups,
+		private readonly NotificationService    $notifications,
 	) {}
 
 	/**
@@ -52,7 +56,7 @@ class SubstitutionService {
 			throw new \InvalidArgumentException( 'Дата начала позже даты окончания.' );
 		}
 
-		return $this->repo->create( array(
+		$id = $this->repo->create( array(
 			'group_id'              => $groupId,
 			'original_teacher_id'   => null !== $group->teacher_id ? (int) $group->teacher_id : null,
 			'substitute_teacher_id' => $substituteTeacherId,
@@ -61,6 +65,24 @@ class SubstitutionService {
 			'reason'                => $reason,
 			'approved_by'           => $approvedBy,
 		) );
+
+		$this->notifications->push(
+			array( $substituteTeacherId ),
+			NotificationType::SubstituteAssigned,
+			"sub:{$id}",
+			array(
+				'group_name' => (string) ( $group->name ?? '' ),
+				'valid_from' => $validFrom,
+				'valid_to'   => $validTo,
+				'reason'     => $reason,
+			),
+			(string) add_query_arg( array( 'screen' => 'dashboard' ), PageRoutes::UserProfile->url() ),
+			$groupId,
+			'substitution',
+			$id
+		);
+
+		return $id;
 	}
 
 	public function revoke( int $id ): void {

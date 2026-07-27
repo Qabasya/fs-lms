@@ -304,8 +304,15 @@ enum AjaxHook: string {
 	case CloneCourse         = 'clone_course';
 	case ForkLessonForGroup  = 'fork_lesson_for_group';
 
-	// ==== Публичная страница «Все задания» (тренажёр) ====
+
+	// ==== Уведомления кабинета ====
+	case GetNotifications         = 'get_notifications';          // список 30 последних + пометить seen
+	case GetNotificationsCount    = 'get_notifications_count';     // badge-поллинг
+	case MarkNotificationRead     = 'mark_notification_read';      // params: id
+	case MarkAllNotificationsRead = 'mark_all_notifications_read';
+
 	case FetchAllTasks = 'fetch_all_tasks'; // params: subject_key, offset, per_page, search, filters[taxonomy][]=term_slug
+
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

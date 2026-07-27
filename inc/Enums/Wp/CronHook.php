@@ -16,4 +16,7 @@ enum CronHook: string {
 
 	/** Просрочка попыток контрольных / экзаменов с истёкшим deadline_at */
 	case ExpireAttempts = 'fs_lms_expire_attempts';
+
+	/** Временны́е продюсеры in-app уведомлений: занятие скоро, дедлайны, purge */
+	case NotificationsTick = 'fs_lms_notifications_tick';
 }

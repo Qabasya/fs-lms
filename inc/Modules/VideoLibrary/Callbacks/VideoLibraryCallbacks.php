@@ -125,6 +125,9 @@ class VideoLibraryCallbacks extends BaseController {
 		}
 
 		$this->groupLessons->setRecordingUrl( $groupLessonId, '' !== $url ? $url : null );
+		if ( '' !== $url ) {
+			do_action( 'fs_lms_recording_attached', $groupLessonId );
+		}
 
 		$this->success( array( 'message' => '' !== $url ? 'Ссылка сохранена.' : 'Ссылка снята.' ) );
 	}

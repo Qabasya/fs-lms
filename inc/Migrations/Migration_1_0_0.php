@@ -610,6 +610,29 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 25. notifications — in-app уведомления кабинета =====
+		$notifications = TableName::Notifications->prefixed();
+		dbDelta(
+			"CREATE TABLE $notifications (
+			id                 bigint unsigned NOT NULL AUTO_INCREMENT,
+			recipient_user_id  bigint unsigned NOT NULL,
+			type               varchar(40)  NOT NULL,
+			group_id           smallint unsigned DEFAULT NULL,
+			entity_type        varchar(30)  DEFAULT NULL,
+			entity_id          bigint unsigned DEFAULT NULL,
+			payload            longtext     DEFAULT NULL,
+			url                varchar(500) DEFAULT NULL,
+			dedupe_key         varchar(120) NOT NULL,
+			created_at         datetime     NOT NULL,
+			seen_at            datetime     DEFAULT NULL,
+			read_at            datetime     DEFAULT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY recipient_dedupe (recipient_user_id, dedupe_key),
+			KEY recipient_created (recipient_user_id, created_at),
+			KEY recipient_seen (recipient_user_id, seen_at)
+		) $cc;"
+		);
+
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "ALTER TABLE `$student_records`
@@ -652,6 +675,9 @@ class Migration_1_0_0 implements MigrationInterface {
 		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `grader_note` text DEFAULT NULL" );
 		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `criteria_scores` json DEFAULT NULL" ); // Эпик 13 (D17)
 		$wpdb->query( "ALTER TABLE `$lesson_progress` MODIFY COLUMN `status` enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked'" );
+		// Этап 7 (пакетная сдача): SubmissionStatus::PendingReview — колонка отставала от enum'а
+		// (INSERT/UPDATE со status='pending_review' падал под STRICT_TRANS_TABLES: "Data truncated for column 'status'").
+		$wpdb->query( "ALTER TABLE `$submissions` MODIFY COLUMN `status` enum('assigned','submitted','pending_review','graded','returned') NOT NULL DEFAULT 'assigned'" );
 		$group_lessons = TableName::GroupLessons->prefixed();
 		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `step_settings_overrides` json DEFAULT NULL" );
 		// Эпик 4 — индивидуальные занятия (эволюция group_lessons).
@@ -689,6 +715,7 @@ class Migration_1_0_0 implements MigrationInterface {
 		global $wpdb;
 
 		$tables = array(
+			TableName::Notifications->prefixed(),
 			TableName::Rooms->prefixed(),
 			TableName::Substitutions->prefixed(),
 			TableName::Attendance->prefixed(),
