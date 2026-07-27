@@ -23,6 +23,9 @@ class ImportReportDTO {
 	/** @var array<int, string> Ошибки в формате [номер строки => сообщение] */
 	public array $errors = array();
 
+	/** @var RowCredentialsDTO[] Учётные данные созданных строк (режим Enrolled) */
+	public array $credentials = array();
+
 	/**
 	 * @param bool $dryRun Режим «только проверить» (без записи в БД)
 	 */
@@ -38,10 +41,15 @@ class ImportReportDTO {
 	 * @return void
 	 */
 	public function addResult( ImportRowResultDTO $result ): void {
-		if ( $result->isCreated() ) {
-			++$this->created;
-		} else {
+		if ( ! $result->isCreated() ) {
 			++$this->skipped;
+			return;
+		}
+
+		++$this->created;
+
+		if ( null !== $result->credentials ) {
+			$this->credentials[] = $result->credentials;
 		}
 	}
 
@@ -60,14 +68,18 @@ class ImportReportDTO {
 	/**
 	 * Представление для AJAX-ответа.
 	 *
-	 * @return array{created:int, skipped:int, errors:array<int,string>, dry_run:bool}
+	 * @return array{created:int, skipped:int, errors:array<int,string>, dry_run:bool, credentials:array<int,array<string,?string>>}
 	 */
 	public function toArray(): array {
 		return array(
-			'created' => $this->created,
-			'skipped' => $this->skipped,
-			'errors'  => $this->errors,
-			'dry_run' => $this->dryRun,
+			'created'     => $this->created,
+			'skipped'     => $this->skipped,
+			'errors'      => $this->errors,
+			'dry_run'     => $this->dryRun,
+			'credentials' => array_map(
+				static fn( RowCredentialsDTO $c ): array => $c->toArray(),
+				$this->credentials
+			),
 		);
 	}
 }

@@ -6,18 +6,23 @@ namespace Unit\Services\Import;
 
 use Generator;
 use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\Contracts\RowImporterInterface;
+use Inc\DTO\Import\ImportReportDTO;
 use Inc\DTO\Import\ImportRowResultDTO;
+use Inc\DTO\Import\RowCredentialsDTO;
+use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\Enums\Import\ImportMode;
 use Inc\Enums\Log\LogEvent;
 use Inc\Services\Import\CsvParseService;
 use Inc\Services\Import\ImportService;
-use Inc\Services\Import\StudentRowImporter;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class ImportServiceTest extends TestCase {
 
 	private CsvParseService $parser;
-	private StudentRowImporter $importer;
+	private RowImporterInterface $importer;
 	private LogEventDispatcherInterface $logEvents;
 	private ImportService $service;
 
@@ -25,11 +30,11 @@ class ImportServiceTest extends TestCase {
 		parent::setUp();
 
 		$this->parser    = $this->createMock( CsvParseService::class );
-		$this->importer  = $this->createMock( StudentRowImporter::class );
+		$this->importer  = $this->createMock( RowImporterInterface::class );
 		$this->logEvents = $this->createMock( LogEventDispatcherInterface::class );
 		$this->importer->method( 'requiredHeaders' )->willReturn( array( 'Фамилия', 'Имя' ) );
 
-		$this->service = new ImportService( $this->parser, $this->importer, $this->logEvents );
+		$this->service = new ImportService( $this->parser, $this->logEvents );
 	}
 
 	/** @param array<int, array<string,string>> $rows */
@@ -37,6 +42,14 @@ class ImportServiceTest extends TestCase {
 		foreach ( $rows as $row ) {
 			yield $row;
 		}
+	}
+
+	private function runImport(
+		bool $dryRun = false,
+		ImportMode $mode = ImportMode::Archive,
+		bool $sendEmails = false
+	): ImportReportDTO {
+		return $this->service->run( $this->importer, $mode, $sendEmails, 'math', '2024', '/tmp/x.csv', $dryRun );
 	}
 
 	public function testCountsCreatedAndSkipped(): void {
@@ -48,7 +61,7 @@ class ImportServiceTest extends TestCase {
 			ImportRowResultDTO::skipped(),
 		);
 
-		$report = $this->service->run( 'math', '2024', '/tmp/x.csv' );
+		$report = $this->runImport();
 
 		$this->assertSame( 1, $report->created );
 		$this->assertSame( 1, $report->skipped );
@@ -71,11 +84,49 @@ class ImportServiceTest extends TestCase {
 			}
 		);
 
-		$report = $this->service->run( 'math', '2024', '/tmp/x.csv' );
+		$report = $this->runImport();
 
 		$this->assertSame( 1, $report->created );
 		$this->assertArrayHasKey( 1, $report->errors );
 		$this->assertSame( 'битая строка', $report->errors[1] );
+	}
+
+	public function testProvisioningRuntimeErrorGoesToReport(): void {
+		$this->parser->method( 'parse' )->willReturn(
+			$this->generatorFrom( array( array( 'Фамилия' => 'A' ), array( 'Фамилия' => 'B' ) ) )
+		);
+
+		$calls = 0;
+		$this->importer->method( 'import' )->willReturnCallback(
+			function () use ( &$calls ): ImportRowResultDTO {
+				++$calls;
+				if ( 1 === $calls ) {
+					throw new RuntimeException( 'Логин уже занят.' );
+				}
+				return ImportRowResultDTO::created();
+			}
+		);
+
+		$report = $this->runImport( mode: ImportMode::Enrolled );
+
+		$this->assertSame( 1, $report->created );
+		$this->assertSame( 'Логин уже занят.', $report->errors[1] );
+	}
+
+	public function testCollectsCredentialsFromCreatedRows(): void {
+		$this->parser->method( 'parse' )->willReturn(
+			$this->generatorFrom( array( array( 'Фамилия' => 'A' ), array( 'Фамилия' => 'B' ) ) )
+		);
+		$creds = new RowCredentialsDTO( 'Иванов Иван', 'ivanov', 'p1', 'maria@example.com', 'p2' );
+		$this->importer->method( 'import' )->willReturnOnConsecutiveCalls(
+			ImportRowResultDTO::created( null, $creds ),
+			ImportRowResultDTO::skipped(),
+		);
+
+		$report = $this->runImport( mode: ImportMode::Enrolled );
+
+		$this->assertSame( array( $creds ), $report->credentials );
+		$this->assertSame( 'ivanov', $report->toArray()['credentials'][0]['student_login'] );
 	}
 
 	public function testDryRunDoesNotDispatchSummary(): void {
@@ -86,7 +137,7 @@ class ImportServiceTest extends TestCase {
 
 		$this->logEvents->expects( $this->never() )->method( 'dispatch' );
 
-		$report = $this->service->run( 'math', '2024', '/tmp/x.csv', true );
+		$report = $this->runImport( dryRun: true );
 
 		$this->assertTrue( $report->dryRun );
 	}
@@ -101,7 +152,25 @@ class ImportServiceTest extends TestCase {
 			->method( 'dispatch' )
 			->with( LogEvent::CsvImported, $this->anything() );
 
-		$this->service->run( 'math', '2024', '/tmp/x.csv' );
+		$this->runImport();
+	}
+
+	public function testSummaryTextDependsOnMode(): void {
+		$this->parser->method( 'parse' )->willReturn(
+			$this->generatorFrom( array( array( 'Фамилия' => 'A' ) ) )
+		);
+		$this->importer->method( 'import' )->willReturn( ImportRowResultDTO::created() );
+
+		$captured = null;
+		$this->logEvents->method( 'dispatch' )->willReturnCallback(
+			function ( LogEvent $event, EntityChangedEvent $payload ) use ( &$captured ): void {
+				$captured = $payload;
+			}
+		);
+
+		$this->runImport( mode: ImportMode::Enrolled );
+
+		$this->assertStringStartsWith( 'Зачисление учеников', $captured->oldLabel );
 	}
 
 	public function testEmptyFileThrows(): void {
@@ -109,6 +178,6 @@ class ImportServiceTest extends TestCase {
 
 		$this->expectException( InvalidArgumentException::class );
 
-		$this->service->run( 'math', '2024', '/tmp/x.csv' );
+		$this->runImport();
 	}
 }

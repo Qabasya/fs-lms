@@ -176,6 +176,10 @@ Transient-based cache for recent tasks/articles. Hooks `save_post` and `delete_p
 - `EmailOtpService` — generates, stores, and verifies OTP codes for email confirmation
 - `PhpEmailTemplate` / `WpOptionsEmailTemplate` — template strategies (PHP file fallback → DB overrides)
 
+### Import (`inc/Services/Import/`)
+
+CSV-импорт учеников, два режима (`Inc\Enums\Import\ImportMode`): `archive` — записи прошлых лет без WP-учёток; `enrolled` — полное зачисление с созданием учёток ученика (логин/пароль — обязательные колонки CSV) и родителя (логин = email, пароль генерируется) через `AccountProvisioningService`. Импортёры строк реализуют `RowImporterInterface`, оркестратор — `ImportService::run()`; выбор импортёра по `mode` — в `ImportCallbacks`.
+
 ### Auth (`inc/Modules/SocialAuth/Services/`)
 
 OAuth via Hybridauth, extracted into the disable-able `SocialAuth` module (`inc/Modules/SocialAuth/`). `AuthService` orchestrates the full flow: find user by social ID → find by email (account linking) → register new → WP login. Provider strategies in `Services/AuthStrategies/` (Google, VK, GitHub) implement `AuthStrategyInterface`. Auth settings (client IDs, secrets) stored in `OptionName::AUTH_SETTINGS`. Social user meta keys follow the pattern `fs_social_{provider}_id`.

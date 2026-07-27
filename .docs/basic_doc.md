@@ -394,7 +394,7 @@ Repository/Manager → DTO/Enum`. Правила, которые **нельзя*
 | `Application` | Логика самой заявки (детализация `Enrollment`) | Services, DTO |
 | `Person` | Люди: PII, согласия, пользователи, представители | Controllers, Callbacks, Services, Managers, DTO, Enums |
 | `Deletion` | Каскадные удаления и их обработчики | Controllers, Callbacks, Services |
-| `Import` / `Export` | CSV-импорт учеников / CSV-экспорт (в т.ч. логов) | Controllers, Callbacks, Services, DTO, Enums |
+| `Import` / `Export` | CSV-импорт учеников (архив / полное зачисление с учётками) / CSV-экспорт (в т.ч. логов) | Controllers, Callbacks, Services, DTO, Enums |
 | `Log` | Логирование и аудит: шина, каналы, писатели | Controllers, Callbacks, Services, DTO, Enums |
 | `Email` | Письма и шаблоны | Services, DTO, Enums |
 | `Settings` | Конфигурация плагина | Controllers, Callbacks, DTO, Enums |
@@ -1305,6 +1305,27 @@ current_user_can( Capability::ViewPII->value );                     // в шаб
 | `RateLimitService` (`Security/`) | Лимиты действий по IP/email/user (см. §21) |
 | `PasswordGeneratorService` (`Security/`) | Пароли LMS-пользователей: `user_pass` + зашифрованная копия в usermeta `fs_lms_enc_password` для «Раскрыть учётные данные»; при ручной смене пароля копия автоматически удаляется (`profile_update`-хук) |
 | `CsvExportService` (`Export/`) | CSV + одноразовые ссылки скачивания (Column Projection: колонки описывает вызывающий код) |
+
+### CSV-импорт учеников
+
+Таб «Импорт» в Настройках, один AJAX-хук `ImportStudentsCsv`. Оркестратор
+`ImportService::run()` (parse → валидация заголовков → строка за строкой → отчёт)
+принимает импортёр строки (`RowImporterInterface`) — его выбирает `ImportCallbacks`
+по режиму `ImportMode`:
+
+- **`archive`** (`StudentRowImporter`) — записи прошлых лет: группа + persons +
+  `student_records` (статус по колонкам отчисления), **без** WP-учёток.
+- **`enrolled`** (`EnrolledStudentRowImporter`) — полное зачисление: то же, но запись
+  всегда `active`, колонки `Логин`/`Пароль`/`Родитель: Email` обязательны, и создаются
+  WP-учётки ученика (креды из CSV) и родителя (логин = email, пароль генерируется) через
+  `AccountProvisioningService`. Провизия — после COMMIT записи (wp_insert_user не
+  откатывается); коллизия логина → ошибка строки, запись остаётся. По чекбоксу —
+  письмо родителю `WelcomeWithCredentials`. Отчёт дополняется таблицей кредов
+  (`ImportReportDTO::$credentials`) с выгрузкой CSV на клиенте.
+
+Общая для обоих режимов логика резолва/создания группы и persons — `StudentRecordWriter`;
+дедуп — по ученик+группа+договор (`existsByContract`, повторный импорт → `skipped`).
+Набор колонок и обязательность — `ImportColumn::headers()/required()` по режиму.
 
 ### Согласия на обработку ПД
 

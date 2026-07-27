@@ -17,23 +17,26 @@ readonly class ImportRowResultDTO {
 	public const STATUS_SKIPPED = 'skipped';
 
 	/**
-	 * @param string      $status Один из STATUS_CREATED|STATUS_SKIPPED
-	 * @param string|null $note   Пояснение (например, причина пропуска)
+	 * @param string                 $status      Один из STATUS_CREATED|STATUS_SKIPPED
+	 * @param string|null            $note        Пояснение (например, причина пропуска)
+	 * @param RowCredentialsDTO|null $credentials Созданные учётные данные (только режим Enrolled)
 	 */
 	public function __construct(
-		public string  $status,
-		public ?string $note = null,
+		public string             $status,
+		public ?string            $note = null,
+		public ?RowCredentialsDTO $credentials = null,
 	) {}
 
 	/**
 	 * Запись успешно создана.
 	 *
-	 * @param string|null $note Необязательное пояснение
+	 * @param string|null            $note        Необязательное пояснение
+	 * @param RowCredentialsDTO|null $credentials Учётные данные строки (режим Enrolled)
 	 *
 	 * @return self
 	 */
-	public static function created( ?string $note = null ): self {
-		return new self( self::STATUS_CREATED, $note );
+	public static function created( ?string $note = null, ?RowCredentialsDTO $credentials = null ): self {
+		return new self( self::STATUS_CREATED, $note, $credentials );
 	}
 
 	/**

@@ -2,8 +2,11 @@
  * @fileoverview Импорт учеников из CSV (таб «Импорт» в Настройках).
  *
  * @module ImportCsv
- * @description Отправляет выбранный CSV вместе с предметом/периодом и флагом dry-run
+ * @description Отправляет выбранный CSV вместе с предметом/периодом, режимом импорта
+ *              (архив / полное зачисление), флагами dry-run и «отправить письма»
  *              на сервер (FormData), затем рендерит отчёт created/skipped/ошибки.
+ *              В режиме полного зачисления отчёт дополняется таблицей созданных
+ *              логинов/паролей с выгрузкой в CSV.
  *
  * @requires jQuery
  * @requires escapeHtml, showNotice, toggleButton — утилиты
@@ -36,6 +39,17 @@ export const ImportCsv = {
     },
 
     /**
+     * Текущий режим импорта: значение выбранного радио, фолбэк — архив
+     * (когда формы нет, доступна только кнопка шаблона).
+     *
+     * @return {string} 'archive' | 'enrolled'
+     */
+    currentMode() {
+        const mode = this.$container.find( 'input[name="mode"]:checked' ).val();
+        return 'enrolled' === mode ? 'enrolled' : 'archive';
+    },
+
+    /**
      * Привязка скачивания шаблона CSV (генерируется на клиенте из заголовков).
      */
     bindTemplate() {
@@ -47,19 +61,21 @@ export const ImportCsv = {
     },
 
     /**
-     * Генерирует и скачивает CSV-шаблон (BOM + строка заголовков, разделитель «;»).
+     * Генерирует и скачивает CSV-шаблон выбранного режима
+     * (BOM + строка заголовков + строки-образцы, разделитель «;»).
      *
-     * @param {jQuery} $btn Кнопка с data-headers.
+     * @param {jQuery} $btn Кнопка с data-headers-{mode} / data-examples-{mode}.
      */
     downloadTemplate( $btn ) {
-        const headers = String( $btn.data( 'headers' ) || '' );
+        const mode = this.currentMode();
+        const headers = String( $btn.data( 'headers-' + mode ) || '' );
         if ( '' === headers ) {
             return;
         }
 
-        // data-examples \u2014 JSON-\u043C\u0430\u0441\u0441\u0438\u0432 \u0441\u0442\u0440\u043E\u043A-\u043E\u0431\u0440\u0430\u0437\u0446\u043E\u0432; jQuery \u043C\u043E\u0436\u0435\u0442 \u0432\u0435\u0440\u043D\u0443\u0442\u044C \u0435\u0433\u043E
-        // \u0443\u0436\u0435 \u0440\u0430\u0441\u043F\u0430\u0440\u0441\u0435\u043D\u043D\u044B\u043C (\u043C\u0430\u0441\u0441\u0438\u0432) \u043B\u0438\u0431\u043E \u0441\u0442\u0440\u043E\u043A\u043E\u0439 \u2014 \u043E\u0431\u0440\u0430\u0431\u0430\u0442\u044B\u0432\u0430\u0435\u043C \u043E\u0431\u0430 \u0441\u043B\u0443\u0447\u0430\u044F.
-        let examples = $btn.data( 'examples' ) || [];
+        // data-examples-{mode} — JSON-массив строк-образцов; jQuery может вернуть его
+        // уже распарсенным (массив) либо строкой — обрабатываем оба случая.
+        let examples = $btn.data( 'examples-' + mode ) || [];
         if ( 'string' === typeof examples ) {
             try {
                 examples = JSON.parse( examples );
@@ -68,23 +84,44 @@ export const ImportCsv = {
             }
         }
 
-        let csv = '\uFEFF' + headers + '\r\n';
+        let csv = headers + '\r\n';
         ( Array.isArray( examples ) ? examples : [] ).forEach( ( rowValues ) => {
             if ( Array.isArray( rowValues ) ) {
                 csv += rowValues.join( ';' ) + '\r\n';
             }
         } );
 
-        const blob = new Blob( [ csv ], { type: 'text/csv;charset=utf-8;' } );
+        this.downloadCsv( 'fs-lms-import-template-' + mode + '.csv', csv );
+    },
+
+    /**
+     * Скачивает CSV-содержимое файлом (добавляет BOM для Excel).
+     *
+     * @param {string} filename Имя файла.
+     * @param {string} csv      Содержимое без BOM.
+     */
+    downloadCsv( filename, csv ) {
+        const blob = new Blob( [ '\uFEFF' + csv ], { type: 'text/csv;charset=utf-8;' } );
         const url = URL.createObjectURL( blob );
         const link = document.createElement( 'a' );
 
         link.href = url;
-        link.download = 'fs-lms-import-template.csv';
+        link.download = filename;
         document.body.appendChild( link );
         link.click();
         link.remove();
         URL.revokeObjectURL( url );
+    },
+
+    /**
+     * Экранирует значение ячейки CSV (кавычки — при «;», кавычках, переводах строк).
+     *
+     * @param {*} value Значение.
+     * @return {string} Ячейка CSV.
+     */
+    csvCell( value ) {
+        const s = String( value ?? '' );
+        return /[";\r\n]/.test( s ) ? '"' + s.replace( /"/g, '""' ) + '"' : s;
     },
 
     /**
@@ -95,6 +132,19 @@ export const ImportCsv = {
             e.preventDefault();
             this.submit();
         } );
+
+        this.$form.find( 'input[name="mode"]' ).on( 'change', () => this.applyMode() );
+        this.applyMode();
+    },
+
+    /**
+     * Показывает элементы выбранного режима: чекбокс писем — только для
+     * полного зачисления, заметка про колонки отчисления — только для архива.
+     */
+    applyMode() {
+        const enrolled = 'enrolled' === this.currentMode();
+        $( '#fs-import-send-emails-field' ).prop( 'hidden', ! enrolled );
+        $( '#fs-import-archive-note' ).prop( 'hidden', enrolled );
     },
 
     /**
@@ -118,6 +168,8 @@ export const ImportCsv = {
         data.append( 'security', fs_lms_vars.nonces.manager );
         data.append( 'subject_key', $subject.val() );
         data.append( 'period_id', $period.val() );
+        data.append( 'mode', this.currentMode() );
+        data.append( 'send_emails', $( '#fs-import-send-emails' ).is( ':checked' ) ? '1' : '0' );
         data.append( 'dry_run', $( '#fs-import-dry-run' ).is( ':checked' ) ? '1' : '0' );
         data.append( 'file', fileInput.files[ 0 ] );
 
@@ -145,7 +197,7 @@ export const ImportCsv = {
     /**
      * Рендерит отчёт импорта.
      *
-     * @param {{created:number, skipped:number, errors:Object, dry_run:boolean}} report   Отчёт.
+     * @param {{created:number, skipped:number, errors:Object, dry_run:boolean, credentials:Array<Object>}} report Отчёт.
      * @param {string} subjectName Название предмета.
      * @param {string} periodName  Название периода.
      */
@@ -153,6 +205,7 @@ export const ImportCsv = {
         const errors = report.errors || {};
         const rows = Object.keys( errors );
         const mode = report.dry_run ? 'Проверка (dry-run)' : 'Импорт';
+        const credentials = Array.isArray( report.credentials ) ? report.credentials : [];
 
         let html = '<h2 class="fs-import-report__title">' + escapeHtml( mode ) + ' завершён</h2>';
         html += '<ul class="fs-import-report__summary">';
@@ -175,6 +228,61 @@ export const ImportCsv = {
             html += '</ul>';
         }
 
+        if ( credentials.length ) {
+            html += this.renderCredentials( credentials );
+        }
+
         this.$report.html( html ).prop( 'hidden', false );
+
+        this.$report.find( '#fs-import-creds-download' )
+            .on( 'click', () => this.downloadCredentials( credentials ) );
+    },
+
+    /**
+     * Таблица созданных учётных данных + кнопка выгрузки в CSV.
+     *
+     * @param {Array<{student_name:string, student_login:string, student_password:string, parent_login:?string, parent_password:?string}>} credentials Креды строк.
+     * @return {string} HTML.
+     */
+    renderCredentials( credentials ) {
+        let html = '<h3 class="fs-import-report__title">Учётные данные</h3>';
+        html += '<p><button type="button" class="button" id="fs-import-creds-download">';
+        html += '<span class="dashicons dashicons-download"></span> Скачать логины и пароли (CSV)</button></p>';
+        html += '<table class="widefat striped fs-import-report__creds"><thead><tr>';
+        html += '<th>Ученик</th><th>Логин</th><th>Пароль</th><th>Родитель: логин</th><th>Родитель: пароль</th>';
+        html += '</tr></thead><tbody>';
+
+        credentials.forEach( ( c ) => {
+            html += '<tr>';
+            html += '<td>' + escapeHtml( String( c.student_name || '' ) ) + '</td>';
+            html += '<td>' + escapeHtml( String( c.student_login || '' ) ) + '</td>';
+            html += '<td>' + escapeHtml( String( c.student_password || '' ) ) + '</td>';
+            html += '<td>' + escapeHtml( String( c.parent_login || '' ) ) + '</td>';
+            html += '<td>' + escapeHtml( String( c.parent_password || '' ) ) + '</td>';
+            html += '</tr>';
+        } );
+
+        html += '</tbody></table>';
+        return html;
+    },
+
+    /**
+     * Скачивает таблицу учётных данных CSV-файлом (BOM + «;», как шаблон).
+     *
+     * @param {Array<Object>} credentials Креды строк.
+     */
+    downloadCredentials( credentials ) {
+        let csv = 'Ученик;Логин;Пароль;Родитель: логин;Родитель: пароль\r\n';
+        credentials.forEach( ( c ) => {
+            csv += [
+                this.csvCell( c.student_name ),
+                this.csvCell( c.student_login ),
+                this.csvCell( c.student_password ),
+                this.csvCell( c.parent_login ),
+                this.csvCell( c.parent_password ),
+            ].join( ';' ) + '\r\n';
+        } );
+
+        this.downloadCsv( 'fs-lms-import-credentials.csv', csv );
     },
 };
