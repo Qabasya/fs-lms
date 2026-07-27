@@ -26,6 +26,10 @@ enum ImportColumn: string {
 	case DocNumber        = 'Номер документа';
 	case Inn              = 'ИНН';
 
+	// Учётная запись ученика (только режим Enrolled — полное зачисление)
+	case Username         = 'Логин';
+	case Password         = 'Пароль';
+
 	// Родитель
 	case ParentLastName      = 'Родитель: Фамилия';
 	case ParentFirstName     = 'Родитель: Имя';
@@ -51,21 +55,43 @@ enum ImportColumn: string {
 	case ExpelReason  = 'Причина отчисления';
 
 	/**
-	 * Все заголовки в порядке файла.
-	 *
-	 * @return string[]
+	 * Режим, к которому колонка привязана исключительно; null — колонка общая для обоих режимов.
 	 */
-	public static function headers(): array {
-		return array_map( static fn( self $c ): string => $c->value, self::cases() );
+	private function onlyFor(): ?ImportMode {
+		return match ( $this ) {
+			self::Username, self::Password   => ImportMode::Enrolled,
+			self::ExpelledAt, self::ExpelReason => ImportMode::Archive,
+			default                              => null,
+		};
 	}
 
 	/**
-	 * Обязательные заголовки (минимум для создания записи).
+	 * true, если колонка входит в файл/шаблон указанного режима.
+	 */
+	public function appliesTo( ImportMode $mode ): bool {
+		$only = $this->onlyFor();
+		return null === $only || $only === $mode;
+	}
+
+	/**
+	 * Все заголовки в порядке файла для указанного режима импорта.
 	 *
 	 * @return string[]
 	 */
-	public static function required(): array {
-		return array(
+	public static function headers( ImportMode $mode ): array {
+		return array_values( array_map(
+			static fn( self $c ): string => $c->value,
+			array_filter( self::cases(), static fn( self $c ): bool => $c->appliesTo( $mode ) )
+		) );
+	}
+
+	/**
+	 * Обязательные заголовки (минимум для создания записи) для указанного режима.
+	 *
+	 * @return string[]
+	 */
+	public static function required( ImportMode $mode ): array {
+		$required = array(
 			self::LastName->value,
 			self::FirstName->value,
 			self::Group->value,
@@ -73,6 +99,14 @@ enum ImportColumn: string {
 			self::ParentLastName->value,
 			self::ParentFirstName->value,
 		);
+
+		if ( ImportMode::Enrolled === $mode ) {
+			$required[] = self::Username->value;
+			$required[] = self::Password->value;
+			$required[] = self::ParentEmail->value;
+		}
+
+		return $required;
 	}
 
 	/**
@@ -93,6 +127,8 @@ enum ImportColumn: string {
 			self::DocType             => array( 'Паспорт', 'Свидетельство о рождении' ),
 			self::DocNumber           => array( '4500 123456', 'IV-АБ 654321' ),
 			self::Inn                 => array( '500100732259', '390100732259' ),
+			self::Username            => array( 'ivanov2024', 'petrov2024' ),
+			self::Password            => array( 'Passw0rd!7', 'Qwerty12x' ),
 			self::ParentLastName      => array( 'Иванова', 'Петрова' ),
 			self::ParentFirstName     => array( 'Мария', 'Ольга' ),
 			self::ParentMiddleName    => array( 'Петровна', 'Сергеевна' ),
@@ -117,14 +153,17 @@ enum ImportColumn: string {
 	}
 
 	/**
-	 * Строки-образцы в порядке колонок.
+	 * Строки-образцы в порядке колонок для указанного режима импорта.
 	 *
 	 * @return array<int, string[]> Каждый элемент — строка значений по колонкам
 	 */
-	public static function exampleRows(): array {
+	public static function exampleRows( ImportMode $mode ): array {
 		$rows = array( array(), array() );
 
 		foreach ( self::cases() as $column ) {
+			if ( ! $column->appliesTo( $mode ) ) {
+				continue;
+			}
 			$values     = $column->examples();
 			$rows[0][] = $values[0] ?? '';
 			$rows[1][] = $values[1] ?? '';

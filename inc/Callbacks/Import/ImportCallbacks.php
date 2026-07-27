@@ -7,8 +7,11 @@ namespace Inc\Callbacks\Import;
 use DomainException;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Import\ImportMode;
 use Inc\Enums\Wp\Nonce;
+use Inc\Services\Import\EnrolledStudentRowImporter;
 use Inc\Services\Import\ImportService;
+use Inc\Services\Import\StudentRowImporter;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use InvalidArgumentException;
@@ -34,10 +37,14 @@ class ImportCallbacks extends BaseController {
 	private const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 	/**
-	 * @param ImportService $importService Оркестратор импорта
+	 * @param StudentRowImporter         $archiveImporter  Импортёр строки: архивные записи
+	 * @param EnrolledStudentRowImporter $enrolledImporter Импортёр строки: полное зачисление
+	 * @param ImportService              $importService    Оркестратор импорта
 	 */
 	public function __construct(
-		private readonly ImportService $importService,
+		private readonly StudentRowImporter         $archiveImporter,
+		private readonly EnrolledStudentRowImporter $enrolledImporter,
+		private readonly ImportService              $importService,
 	) {
 		parent::__construct();
 	}
@@ -53,11 +60,16 @@ class ImportCallbacks extends BaseController {
 		$subjectKey = $this->requireKey( 'subject_key', error: 'Не выбран предмет.' );
 		$periodId   = $this->requireKey( 'period_id', error: 'Не выбран учебный период.' );
 
+		$mode       = ImportMode::fromRequest( $this->sanitizeKey( 'mode' ) );
+		$sendEmails = $this->sanitizeBool( 'send_emails' );
+
 		$tmpPath = $this->validateUploadedFile();
 		$dryRun  = $this->sanitizeBool( 'dry_run' );
 
+		$importer = ImportMode::Enrolled === $mode ? $this->enrolledImporter : $this->archiveImporter;
+
 		try {
-			$report = $this->importService->run( $subjectKey, $periodId, $tmpPath, $dryRun );
+			$report = $this->importService->run( $importer, $mode, $sendEmails, $subjectKey, $periodId, $tmpPath, $dryRun );
 		} catch ( InvalidArgumentException | DomainException $e ) {
 			$this->error( $e->getMessage() );
 			return;

@@ -11,54 +11,63 @@ use Inc\Contracts\RowImporterInterface;
 use Inc\DTO\Enrollment\StudentRecordInputDTO;
 use Inc\DTO\Import\ImportContextDTO;
 use Inc\DTO\Import\ImportRowResultDTO;
+use Inc\DTO\Import\RowCredentialsDTO;
 use Inc\DTO\Log\Events\EnrollmentStatusEvent;
 use Inc\DTO\Person\PersonInputDTO;
-use Inc\Enums\Log\AuditAction;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Enums\Import\ImportColumn;
 use Inc\Enums\Import\ImportMode;
+use Inc\Enums\Log\AuditAction;
 use Inc\Enums\Log\LogEvent;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Email\EmailService;
+use Inc\Services\Enrollment\AccountProvisioningService;
 use Inc\Shared\Traits\TransactionRunner;
 use InvalidArgumentException;
 
 /**
- * Class StudentRowImporter
+ * Class EnrolledStudentRowImporter
  *
- * Импортирует одну строку CSV: каскадно создаёт группу, persons ученика и
- * родителя (+ person_documents с шифрованием PII) и запись student_records.
+ * Импортирует одну строку CSV в режиме «полное зачисление»: как
+ * {@see StudentRowImporter}, но запись всегда `active` (колонок отчисления
+ * в этом режиме нет) и **создаются WP-учётки** ученика и родителя.
  *
  * ### Особенности
  *
- * - **WP-учётки не создаются** — появятся позже при зачислении из архива
- *   (или сразу — режим {@see \Inc\Services\Import\EnrolledStudentRowImporter}).
- * - **Статус записи** определяется по строке: есть дата/причина отчисления →
- *   запись в архиве (`finished`/`transferred`/`expelled`), иначе `active`.
- * - **Идемпотентность** — дубль по ученик+группа+договор → skipped.
- * - **Dry-run** — все резолвы/проверки выполняются, запись пропускается.
- * - **Транзакция** — только сама запись (группа+persons+student_records);
- *   этот импортёр не вызывает WP-функций с side-эффектами, поэтому весь
- *   блок записи безопасно оборачивается целиком.
+ * - **Логин/пароль ученика — обязательные колонки CSV** (генерации нет);
+ *   пустые значения → ошибка строки. Родителю логин = email (обязателен),
+ *   пароль генерируется ({@see AccountProvisioningService::provisionParent()}).
+ * - **Идемпотентность** — дубль по ученик+группа+договор → skipped,
+ *   учётки при этом не трогаются.
+ * - **Dry-run** — все резолвы/проверки выполняются; ни записи, ни учёток.
+ * - **Транзакция** — только запись (группа+persons+student_records).
+ *   Провизия учёток — после COMMIT: `wp_insert_user()` не поддерживает
+ *   откат, а его падение (коллизия логина) не должно откатывать
+ *   корректную запись — оно превращается в ошибку строки.
+ * - **Письмо родителю** (`WelcomeWithCredentials`) — только при
+ *   `ctx->sendEmails` (чекбокс в UI, по умолчанию выкл).
  *
  * Предмет и период берутся из {@see ImportContextDTO} (выбор в UI), а не из CSV.
  */
-readonly class StudentRowImporter implements RowImporterInterface {
+readonly class EnrolledStudentRowImporter implements RowImporterInterface {
 
 	use TransactionRunner;
 
 	/**
-	 * @param StudentRecordWriter         $writer          Резолв/создание группы и persons
-	 * @param StudentRecordRepository     $studentRecords  Дедуп и создание записей
-	 * @param ExpulsionResolver           $expulsionResolver Причина → статус
+	 * @param StudentRecordWriter         $writer         Резолв/создание группы и persons
+	 * @param StudentRecordRepository     $studentRecords Дедуп и создание записей
 	 * @param DocTypeResolver             $docTypeResolver Тип документа → значение enum
-	 * @param ClockInterface              $clock           Текущее время
-	 * @param LogEventDispatcherInterface $logEvents       Шина событий логирования
+	 * @param AccountProvisioningService  $provisioning   Создание/привязка WP-учёток
+	 * @param EmailService                $emailService   Письмо родителю с кредами
+	 * @param ClockInterface              $clock          Текущее время
+	 * @param LogEventDispatcherInterface $logEvents      Шина событий логирования
 	 */
 	public function __construct(
 		private StudentRecordWriter         $writer,
 		private StudentRecordRepository     $studentRecords,
-		private ExpulsionResolver           $expulsionResolver,
 		private DocTypeResolver             $docTypeResolver,
+		private AccountProvisioningService  $provisioning,
+		private EmailService                $emailService,
 		private ClockInterface              $clock,
 		private LogEventDispatcherInterface $logEvents,
 	) {}
@@ -69,28 +78,32 @@ readonly class StudentRowImporter implements RowImporterInterface {
 	 * @return string[]
 	 */
 	public function requiredHeaders(): array {
-		return ImportColumn::required( ImportMode::Archive );
+		return ImportColumn::required( ImportMode::Enrolled );
 	}
 
 	/**
-	 * Импортирует одну строку.
+	 * Импортирует одну строку: active-запись + WP-учётки ученика и родителя.
 	 *
 	 * @param array<string, string> $row Ассоц-массив «заголовок → значение»
-	 * @param ImportContextDTO       $ctx Контекст запуска
+	 * @param ImportContextDTO      $ctx Контекст запуска
 	 *
 	 * @return ImportRowResultDTO
 	 *
 	 * @throws InvalidArgumentException При отсутствии обязательных значений
+	 * @throws \RuntimeException        Коллизия логина/email при создании учётки
 	 */
 	public function import( array $row, ImportContextDTO $ctx ): ImportRowResultDTO {
 		$get = static fn( ImportColumn $col ): string => trim( (string) ( $row[ $col->value ] ?? '' ) );
 
-		$lastName   = $get( ImportColumn::LastName );
-		$firstName  = $get( ImportColumn::FirstName );
-		$groupName  = $get( ImportColumn::Group );
-		$contractNo = $get( ImportColumn::ContractNo );
-		$pLastName  = $get( ImportColumn::ParentLastName );
-		$pFirstName = $get( ImportColumn::ParentFirstName );
+		$lastName    = $get( ImportColumn::LastName );
+		$firstName   = $get( ImportColumn::FirstName );
+		$groupName   = $get( ImportColumn::Group );
+		$contractNo  = $get( ImportColumn::ContractNo );
+		$pLastName   = $get( ImportColumn::ParentLastName );
+		$pFirstName  = $get( ImportColumn::ParentFirstName );
+		$username    = $get( ImportColumn::Username );
+		$password    = $get( ImportColumn::Password );
+		$parentEmail = $get( ImportColumn::ParentEmail );
 
 		$this->requireValues( array(
 			ImportColumn::LastName->value        => $lastName,
@@ -99,10 +112,12 @@ readonly class StudentRowImporter implements RowImporterInterface {
 			ImportColumn::ContractNo->value      => $contractNo,
 			ImportColumn::ParentLastName->value  => $pLastName,
 			ImportColumn::ParentFirstName->value => $pFirstName,
+			ImportColumn::Username->value        => $username,
+			ImportColumn::Password->value        => $password,
+			ImportColumn::ParentEmail->value     => $parentEmail,
 		) );
 
 		$studentEmail = $get( ImportColumn::Email );
-		$parentEmail  = $get( ImportColumn::ParentEmail );
 
 		$studentInput = new PersonInputDTO(
 			lastName:   $lastName,
@@ -132,7 +147,7 @@ readonly class StudentRowImporter implements RowImporterInterface {
 			phone:         $get( ImportColumn::ParentPhone ),
 			docIssuedBy:   $get( ImportColumn::ParentDocIssuedBy ),
 			docIssuedDate: $this->toDate( $get( ImportColumn::ParentDocIssuedDate ) ) ?? '',
-			email:         '' !== $parentEmail ? $parentEmail : null,
+			email:         $parentEmail,
 		);
 
 		// Резолв существующих сущностей (только чтение)
@@ -140,14 +155,14 @@ readonly class StudentRowImporter implements RowImporterInterface {
 		$studentId = $this->writer->resolvePersonId( $studentInput );
 		$parentId  = $this->writer->resolvePersonId( $parentInput );
 
-		// Дедуп записи (если ученик и группа уже известны)
+		// Дедуп записи: повторный импорт не задваивает ни записи, ни учётки
 		if ( null !== $studentId && null !== $groupId
 			&& $this->studentRecords->existsByContract( $studentId, $groupId, $contractNo ) ) {
 			return ImportRowResultDTO::skipped( 'Запись с таким договором уже существует.' );
 		}
 
 		if ( $ctx->dryRun ) {
-			return ImportRowResultDTO::created( 'Будет создано (dry-run).' );
+			return ImportRowResultDTO::created( 'Будет зачислено (dry-run).' );
 		}
 
 		$now = $this->clock->now( 'mysql', true );
@@ -158,12 +173,10 @@ readonly class StudentRowImporter implements RowImporterInterface {
 				$parentId  ??= $this->writer->createPerson( $parentInput );
 				$studentId ??= $this->writer->createPerson( $studentInput );
 
-				[ $status, $reason, $expelledAt, $expelledBy ] = $this->resolveLifecycle( $get, $ctx, $now );
-
 				$recordId = $this->studentRecords->create( new StudentRecordInputDTO(
 					studentPersonId:    $studentId,
 					parentPersonId:     $parentId,
-					status:             $status,
+					status:             EnrollmentStatus::Active->value,
 					enrolledAt:         $this->toDateTime( $get( ImportColumn::EnrolledAt ) ) ?? $now,
 					createdAt:          $now,
 					updatedAt:          $now,
@@ -178,51 +191,41 @@ readonly class StudentRowImporter implements RowImporterInterface {
 					orderNo:            $get( ImportColumn::OrderNo ) ?: null,
 					orderDate:          $this->toDate( $get( ImportColumn::OrderDate ) ),
 					enrolledByUserId:   $ctx->actorId ?: null,
-					expelledAt:         $expelledAt,
-					expelReason:        $reason,
-					expelledByUserId:   $expelledBy,
 				) );
 
 				return array( $recordId, $studentId, $parentId, $groupId );
 			}
 		);
 
+		// Провизия учёток — после COMMIT: падение wp_insert_user не откатывает запись
+		$studentCreds = $this->provisioning->provisionStudent( $studentId, $studentInput, $username, $password );
+		$parentCreds  = $this->provisioning->provisionParent( $parentId, $parentInput );
+
+		if ( $ctx->sendEmails ) {
+			$this->emailService->sendWelcomeWithCredentials(
+				$parentCreds->userId,
+				$parentCreds->password,
+				array(
+					'student_full_name'  => $studentInput->fullName(),
+					'parent_first_name'  => $parentInput->firstName,
+					'parent_middle_name' => $parentInput->middleName,
+				),
+				$parentId
+			);
+		}
+
 		$this->logEvents->dispatch(
 			LogEvent::StudentEnrolled,
 			new EnrollmentStatusEvent( $ctx->actorId, AuditAction::EnrollStudent, $studentId, $recordId, $groupId )
 		);
 
-		return ImportRowResultDTO::created();
-	}
-
-	/**
-	 * Определяет статус записи и поля отчисления.
-	 *
-	 * Запись попадает в архив, если задана дата ИЛИ причина отчисления.
-	 *
-	 * @param callable         $get Геттер значения колонки
-	 * @param ImportContextDTO $ctx Контекст
-	 * @param string           $now Текущее время (mysql)
-	 *
-	 * @return array{0:string, 1:?string, 2:?string, 3:?int} [status, reason, expelledAt, expelledBy]
-	 */
-	private function resolveLifecycle( callable $get, ImportContextDTO $ctx, string $now ): array {
-		$expulsion = $this->expulsionResolver->resolve( $get( ImportColumn::ExpelReason ) );
-		$expelDate = $this->toDateTime( $get( ImportColumn::ExpelledAt ) );
-
-		if ( null === $expulsion && null === $expelDate ) {
-			return array( EnrollmentStatus::Active->value, null, null, null );
-		}
-
-		$status = $expulsion['status'] ?? EnrollmentStatus::Expelled;
-		$reason = $expulsion['reason'] ?? null;
-
-		return array(
-			$status->value,
-			$reason,
-			$expelDate ?? $now,
-			$ctx->actorId ?: null,
-		);
+		return ImportRowResultDTO::created( null, new RowCredentialsDTO(
+			studentName:     $studentInput->fullName(),
+			studentLogin:    $studentCreds->login,
+			studentPassword: $studentCreds->password,
+			parentLogin:     $parentCreds->login,
+			parentPassword:  $parentCreds->password,
+		) );
 	}
 
 	/**
