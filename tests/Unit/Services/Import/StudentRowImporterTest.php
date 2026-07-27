@@ -11,21 +11,17 @@ use Inc\DTO\Import\ImportContextDTO;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Enums\Import\ImportColumn;
 use Inc\Enums\Log\LogEvent;
-use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Import\DocTypeResolver;
 use Inc\Services\Import\ExpulsionResolver;
-use Inc\Services\Import\PersonImportResolver;
+use Inc\Services\Import\StudentRecordWriter;
 use Inc\Services\Import\StudentRowImporter;
-use Inc\Services\Person\PersonService;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 class StudentRowImporterTest extends TestCase {
 
-	private GroupsRepository $groups;
-	private PersonImportResolver $personResolver;
-	private PersonService $personService;
+	private StudentRecordWriter $writer;
 	private StudentRecordRepository $studentRecords;
 	private ExpulsionResolver $expulsionResolver;
 	private DocTypeResolver $docTypeResolver;
@@ -34,14 +30,13 @@ class StudentRowImporterTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$GLOBALS['wpdb'] = new \wpdb();
 
-		$this->groups            = $this->createMock( GroupsRepository::class );
-		$this->personResolver    = $this->createMock( PersonImportResolver::class );
-		$this->personService     = $this->createMock( PersonService::class );
-		$this->studentRecords    = $this->createMock( StudentRecordRepository::class );
-		$this->expulsionResolver = $this->createMock( ExpulsionResolver::class );
-		$this->docTypeResolver   = $this->createMock( DocTypeResolver::class );
-		$this->logEvents         = $this->createMock( LogEventDispatcherInterface::class );
+		$this->writer             = $this->createMock( StudentRecordWriter::class );
+		$this->studentRecords     = $this->createMock( StudentRecordRepository::class );
+		$this->expulsionResolver  = $this->createMock( ExpulsionResolver::class );
+		$this->docTypeResolver    = $this->createMock( DocTypeResolver::class );
+		$this->logEvents          = $this->createMock( LogEventDispatcherInterface::class );
 
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( '2024-01-01 00:00:00' );
@@ -50,9 +45,7 @@ class StudentRowImporterTest extends TestCase {
 		$this->expulsionResolver->method( 'resolve' )->willReturn( null );
 
 		$this->importer = new StudentRowImporter(
-			$this->groups,
-			$this->personResolver,
-			$this->personService,
+			$this->writer,
 			$this->studentRecords,
 			$this->expulsionResolver,
 			$this->docTypeResolver,
@@ -80,10 +73,11 @@ class StudentRowImporterTest extends TestCase {
 	}
 
 	public function testCreatesActiveRecord(): void {
-		$this->groups->method( 'findByNameSubjectPeriod' )->willReturn( null );
-		$this->groups->method( 'create' )->willReturn( 50 );
-		$this->personResolver->method( 'resolve' )->willReturn( null );
-		$this->personService->method( 'createOrFindBy' )->willReturnOnConsecutiveCalls( 101, 202 );
+		$this->writer->method( 'resolveGroupId' )->willReturn( null );
+		$this->writer->method( 'resolvePersonId' )->willReturn( null );
+		$this->writer->method( 'createGroup' )->willReturn( 50 );
+		// Порядок создания в import(): сначала родитель, потом ученик.
+		$this->writer->method( 'createPerson' )->willReturnOnConsecutiveCalls( 101, 202 );
 
 		$captured = null;
 		$this->studentRecords->method( 'create' )->willReturnCallback(
@@ -109,10 +103,13 @@ class StudentRowImporterTest extends TestCase {
 	}
 
 	public function testSkipsDuplicateByContract(): void {
-		$this->groups->method( 'findByNameSubjectPeriod' )->willReturn( (object) array( 'id' => 50 ) );
-		$this->personResolver->method( 'resolve' )->willReturnOnConsecutiveCalls( 5, 6 );
+		$this->writer->method( 'resolveGroupId' )->willReturn( 50 );
+		// Порядок резолва в import(): сначала ученик, потом родитель.
+		$this->writer->method( 'resolvePersonId' )->willReturnOnConsecutiveCalls( 5, 6 );
 		$this->studentRecords->method( 'existsByContract' )->with( 5, 50, 'C-1' )->willReturn( true );
 
+		$this->writer->expects( $this->never() )->method( 'createPerson' );
+		$this->writer->expects( $this->never() )->method( 'createGroup' );
 		$this->studentRecords->expects( $this->never() )->method( 'create' );
 
 		$result = $this->importer->import( $this->row(), $this->ctx() );
@@ -121,11 +118,11 @@ class StudentRowImporterTest extends TestCase {
 	}
 
 	public function testDryRunDoesNotWrite(): void {
-		$this->groups->method( 'findByNameSubjectPeriod' )->willReturn( null );
-		$this->personResolver->method( 'resolve' )->willReturn( null );
+		$this->writer->method( 'resolveGroupId' )->willReturn( null );
+		$this->writer->method( 'resolvePersonId' )->willReturn( null );
 
-		$this->groups->expects( $this->never() )->method( 'create' );
-		$this->personService->expects( $this->never() )->method( 'createOrFindBy' );
+		$this->writer->expects( $this->never() )->method( 'createGroup' );
+		$this->writer->expects( $this->never() )->method( 'createPerson' );
 		$this->studentRecords->expects( $this->never() )->method( 'create' );
 
 		$result = $this->importer->import( $this->row(), $this->ctx( dryRun: true ) );
@@ -152,9 +149,7 @@ class StudentRowImporterTest extends TestCase {
 		$clock->method( 'now' )->willReturn( '2024-01-01 00:00:00' );
 
 		$importer = new StudentRowImporter(
-			$this->groups,
-			$this->personResolver,
-			$this->personService,
+			$this->writer,
 			$this->studentRecords,
 			$this->expulsionResolver,
 			$this->docTypeResolver,
@@ -162,10 +157,10 @@ class StudentRowImporterTest extends TestCase {
 			$this->logEvents,
 		);
 
-		$this->groups->method( 'findByNameSubjectPeriod' )->willReturn( null );
-		$this->groups->method( 'create' )->willReturn( 50 );
-		$this->personResolver->method( 'resolve' )->willReturn( null );
-		$this->personService->method( 'createOrFindBy' )->willReturnOnConsecutiveCalls( 101, 202 );
+		$this->writer->method( 'resolveGroupId' )->willReturn( null );
+		$this->writer->method( 'resolvePersonId' )->willReturn( null );
+		$this->writer->method( 'createGroup' )->willReturn( 50 );
+		$this->writer->method( 'createPerson' )->willReturnOnConsecutiveCalls( 101, 202 );
 
 		$captured = null;
 		$this->studentRecords->method( 'create' )->willReturnCallback(
