@@ -301,6 +301,9 @@ enum AjaxHook: string {
 	case CloneCourse         = 'clone_course';
 	case ForkLessonForGroup  = 'fork_lesson_for_group';
 
+	// ==== Публичная страница «Все задания» (тренажёр) ====
+	case FetchAllTasks = 'fetch_all_tasks'; // params: subject_key, offset, per_page, search, filters[taxonomy][]=term_slug
+
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 

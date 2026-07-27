@@ -44,7 +44,7 @@ class TaskMetaService {
 	 *
 	 * @param array $meta
 	 *
-	 * @return array Список файлов в формате name/url.
+	 * @return array Список файлов в формате name/url/size.
 	 */
 	public function getTaskFiles( array $meta ): array {
 		$file_keys = array(
@@ -65,6 +65,7 @@ class TaskMetaService {
 			$files[] = array(
 				'name' => $this->getFileNameFromUrl( $url ),
 				'url'  => $url,
+				'size' => $this->getFileSize( $url ),
 			);
 
 			if ( count( $files ) === 2 ) {
@@ -73,6 +74,40 @@ class TaskMetaService {
 		}
 
 		return $files;
+	}
+
+	/**
+	 * Возвращает человекочитаемый размер файла по его URL (напр. «1,2 КБ»).
+	 *
+	 * Определяется только для локальных файлов из каталога загрузок WordPress —
+	 * URL резолвится в путь на диске. Для внешних/неразрешимых ссылок — пустая строка.
+	 *
+	 * @param string $url URL файла.
+	 *
+	 * @return string
+	 */
+	private function getFileSize( string $url ): string {
+		$uploads = wp_get_upload_dir();
+
+		if ( ! empty( $uploads['baseurl'] ) && str_starts_with( $url, $uploads['baseurl'] ) ) {
+			$path = $uploads['basedir'] . substr( $url, strlen( $uploads['baseurl'] ) );
+
+			if ( is_file( $path ) ) {
+				return (string) size_format( (int) filesize( $path ), 1 );
+			}
+		}
+
+		$attachment_id = attachment_url_to_postid( $url );
+
+		if ( $attachment_id > 0 ) {
+			$path = get_attached_file( $attachment_id );
+
+			if ( is_string( $path ) && is_file( $path ) ) {
+				return (string) size_format( (int) filesize( $path ), 1 );
+			}
+		}
+
+		return '';
 	}
 
 	/**

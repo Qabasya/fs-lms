@@ -60,6 +60,12 @@ enum Icon: string {
 
 	case Download = 'download';
 
+	/** Лупа поиска (тулбар страницы «Все задания»). */
+	case Search = 'search';
+
+	/** Стрелка-вправо в кнопке действия (напр. «Смотреть решение»). */
+	case ArrowRight = 'arrow_right';
+
 	/**
 	 * Готовая SVG-разметка иконки.
 	 *
@@ -99,6 +105,8 @@ enum Icon: string {
 			self::SeekForward10,
 			self::File,
 			self::Download        => 17,
+			self::Search,
+			self::ArrowRight      => 16,
 		};
 	}
 
@@ -129,6 +137,8 @@ enum Icon: string {
 			self::Fullscreen      => '<path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
 			self::File            => '<path d="M5 2.5h6.2L15.5 6.8V17.5H5V2.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M11 3v4.3h4.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
 			self::Download        => '<path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+			self::Search          => '<circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.6"/><path d="m13.5 13.5 3.2 3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+			self::ArrowRight      => '<path d="M4 10h11m0 0-4-4m4 4-4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
 		};
 	}
 }
