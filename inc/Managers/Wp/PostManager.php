@@ -222,6 +222,31 @@ class PostManager {
 	}
 
 	/**
+	 * Низкоуровневое обновление post_content без запуска жизненного цикла сохранения.
+	 *
+	 * Пишет напрямую в таблицу, минуя wp_update_post и фильтры wp_insert_post_data
+	 * (напр. валидацию обязательных таксономий, которая в неформенном контексте
+	 * понижает статус). Предназначено для поддержки денормализованного поискового
+	 * индекса ({@see \Inc\Services\Task\TaskSearchIndexer}).
+	 *
+	 * @param int    $post_id ID поста.
+	 * @param string $content Новое значение post_content.
+	 *
+	 * @return void
+	 */
+	public function updatePostContent( int $post_id, string $content ): void {
+		global $wpdb;
+
+		$wpdb->update(
+			$wpdb->posts,
+			array( 'post_content' => $content ),
+			array( 'ID' => $post_id )
+		);
+
+		clean_post_cache( $post_id );
+	}
+
+	/**
 	 * Возвращает все мета-поля поста в виде ассоциативного массива.
 	 *
 	 * @param int $post_id ID поста
@@ -453,6 +478,36 @@ class PostManager {
 		}
 
 		return get_posts( $args );
+	}
+
+	/**
+	 * Постраничный запрос постов с общим числом найденных.
+	 *
+	 * Обёртка над WP_Query для списков с пагинацией (напр. страница «Все задания»):
+	 * возвращает и срез постов, и полное число совпадений (found_posts) для infinite scroll.
+	 *
+	 * @param string $post_type Тип записи.
+	 * @param array  $args      Доп. аргументы WP_Query (posts_per_page, offset, tax_query, s, orderby…).
+	 *
+	 * @return array{posts: \WP_Post[], total: int}
+	 */
+	public function query( string $post_type, array $args = array() ): array {
+		$defaults = array(
+			'post_type'           => $post_type,
+			'post_status'         => 'publish',
+			'orderby'             => 'date',
+			'order'               => 'DESC',
+			'ignore_sticky_posts' => true,
+			'no_found_rows'       => false,
+			'suppress_filters'    => false,
+		);
+
+		$query = new \WP_Query( array_merge( $defaults, $args ) );
+
+		return array(
+			'posts' => $query->posts,
+			'total' => (int) $query->found_posts,
+		);
 	}
 
 	/**

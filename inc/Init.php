@@ -40,6 +40,7 @@ use Inc\Controllers\Subject\SubjectController;
 use Inc\Controllers\Task\TaskCreationController;
 use Inc\Controllers\Pages\AssessmentPageController;
 use Inc\Controllers\Pages\TaskPageController;
+use Inc\Controllers\AllTasksPageController;
 use Inc\Controllers\Log\LogsController;
 use Inc\Controllers\Settings\ConfigController;
 use Inc\Controllers\Settings\SettingsController;
@@ -127,6 +128,7 @@ final class Init {
 			ContentDeletionGuard::class,     // Гейт удаления / архивации банков
 			TaskCreationController::class, // Создание заданий
 			TaskPageController::class,       // Frontend-страница задания
+			AllTasksPageController::class,   // Frontend-страница «Все задания» (тренажёр)
 			AssessmentPageController::class, // Frontend-страница контрольной
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,
