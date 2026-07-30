@@ -43,7 +43,7 @@ ThemeCompatService::header();
 				<section class="side-card filters-side">
 					<div class="filters-side-head">
 						<span class="filters-side-title">Фильтры</span>
-						<button class="filters-side-clear js-filters-clear" hidden>Сбросить</button>
+						<button class="filters-side-clear js-filters-clear" disabled>Сбросить</button>
 					</div>
 
 					<?php foreach ( $page_data->filters as $group ) : ?>
@@ -51,7 +51,7 @@ ThemeCompatService::header();
 							<button class="filter-sec-head" aria-expanded="false">
 								<span class="filter-sec-title"><?php echo esc_html( $group['name'] ); ?></span>
 								<span class="filter-sec-right">
-									<span class="filter-sec-summary"><?php echo esc_html( (string) count( $group['terms'] ) ); ?></span>
+									<span class="filter-sec-summary"><?php echo esc_html( $group['summary'] ); ?></span>
 									<span class="filter-sec-chev" aria-hidden="true">
 										<?php echo Icon::ChevronRight->svg( 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 									</span>
@@ -85,7 +85,7 @@ ThemeCompatService::header();
 				<nav class="crumbs" aria-label="Хлебные крошки">
 					<a href="#" class="crumb"><?php echo esc_html( $page_data->subject_name ); ?></a>
 					<span class="crumb-sep">/</span>
-					<span class="crumb crumb--current">Все задания</span>
+					<span class="crumb crumb--current">Тренажёр</span>
 				</nav>
 
 				<h1 class="page-title">Все задания</h1>
@@ -128,10 +128,9 @@ ThemeCompatService::header();
 						<article class="task-card-row" data-task-id="<?php echo esc_attr( (string) $task->id ); ?>">
 							<header class="tcr-header">
 								<div class="tcr-header-inner">
-									<div class="tcr-id">№ <?php echo esc_html( (string) $task->id ); ?></div>
 									<div class="tcr-meta">
 										<?php if ( $task->task_number > 0 && $task->task_number_slug ) : ?>
-											<button type="button" class="tcr-tag tcr-tag-mono js-tag-filter"
+											<button type="button" class="tcr-tag js-tag-filter"
 												data-filter="<?php echo esc_attr( $task->task_number_taxonomy ); ?>"
 												data-value="<?php echo esc_attr( $task->task_number_slug ); ?>">
 												Задание №<?php echo esc_html( (string) $task->task_number ); ?>
@@ -172,13 +171,6 @@ ThemeCompatService::header();
 								</div>
 							<?php endif; ?>
 
-							<?php if ( $task->answer ) : ?>
-								<div class="tcr-answer js-answer-panel" hidden>
-									<div class="tcr-answer-label">Правильный ответ</div>
-									<div class="tcr-answer-value"><?php echo esc_html( $task->answer ); ?></div>
-								</div>
-							<?php endif; ?>
-
 							<footer class="tcr-foot">
 								<?php if ( $task->answer ) : ?>
 									<button type="button" class="tcr-answer-toggle js-answer-toggle" aria-expanded="false">Ответ</button>
@@ -190,6 +182,13 @@ ThemeCompatService::header();
 									</a>
 								</div>
 							</footer>
+
+							<?php if ( $task->answer ) : ?>
+								<div class="tcr-answer js-answer-panel" hidden>
+									<div class="tcr-answer-label">Правильный ответ</div>
+									<div class="tcr-answer-value"><?php echo esc_html( $task->answer ); ?></div>
+								</div>
+							<?php endif; ?>
 						</article>
 					<?php endforeach; ?>
 				</div>
@@ -197,8 +196,8 @@ ThemeCompatService::header();
 				<!-- Пустое состояние -->
 				<div class="tasks-empty js-tasks-empty" <?php echo empty( $page_data->tasks ) ? '' : 'hidden'; ?>>
 					<h3>Ничего не нашли</h3>
-					<p>Попробуйте ослабить фильтры или поискать по другому ключу.</p>
-					<button class="results-clear js-filters-clear">Сбросить фильтры</button>
+					<p>Попробуйте сбросить фильтры или поискать по другому ключу.</p>
+					<button class="results-clear js-filters-clear">Сбросить</button>
 				</div>
 
 				<!-- Infinite scroll -->

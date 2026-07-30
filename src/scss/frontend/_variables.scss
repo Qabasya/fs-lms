@@ -4,6 +4,7 @@
 // ── Цвета
 $color-accent: #28c0f1;
 $color-text: #242424;
+$color-text-secondary: #444;                // вторичный текст (условие, чипы) — между text и muted
 $color-muted: #888;
 $color-border: #ddd;
 $color-border-light: #eee;
@@ -32,7 +33,7 @@ $hl-comment: #6b7280;                       // комментарии
 
 // ── Типографика
 $font-family: 'Ubuntu', arial, helvetica, sans-serif;
-$font-mono: 'Courier New', courier, monospace;
+$font-mono: 'Consolas', 'SFMono-Regular', 'Menlo', 'DejaVu Sans Mono', 'Courier New', monospace;
 $font-size-title: t.rem(28);
 $font-size-heading: t.rem(22);
 $font-size-base: t.rem(16);
@@ -41,6 +42,7 @@ $font-size-xs: t.rem(13);
 $font-size-xxs: t.rem(12);
 $line-height-base: 1.6;
 $line-height-tight: 1.4;
+$font-medium: 500;
 $font-semibold: 600;
 $font-bold: 700;
 
