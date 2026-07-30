@@ -30,10 +30,8 @@ defined( 'ABSPATH' ) || exit;
 					type="button"
 					class="button"
 					id="fs-import-template"
-					data-headers-archive="<?php echo esc_attr( implode( ';', ImportColumn::headers( ImportMode::Archive ) ) ); ?>"
-					data-examples-archive="<?php echo esc_attr( (string) wp_json_encode( ImportColumn::exampleRows( ImportMode::Archive ), JSON_UNESCAPED_UNICODE ) ); ?>"
-					data-headers-enrolled="<?php echo esc_attr( implode( ';', ImportColumn::headers( ImportMode::Enrolled ) ) ); ?>"
-					data-examples-enrolled="<?php echo esc_attr( (string) wp_json_encode( ImportColumn::exampleRows( ImportMode::Enrolled ), JSON_UNESCAPED_UNICODE ) ); ?>">
+					data-headers="<?php echo esc_attr( implode( ';', ImportColumn::headers() ) ); ?>"
+					data-examples="<?php echo esc_attr( (string) wp_json_encode( ImportColumn::exampleRows(), JSON_UNESCAPED_UNICODE ) ); ?>">
 					<span class="dashicons dashicons-download"></span>
 					Скачать шаблон CSV
 				</button>
@@ -45,6 +43,8 @@ defined( 'ABSPATH' ) || exit;
 			применяются ко всем строкам. Режим «Архивные записи» учётных записей WP не создаёт;
 			режим «Полное зачисление» создаёт учётки ученика (логин и пароль — из файла)
 			и родителя (логин — email, пароль генерируется).
+			Шаблон один на оба режима: колонки, не нужные выбранному режиму, можно оставить
+			пустыми — они не читаются.
 		</p>
 	</div>
 
@@ -70,6 +70,11 @@ defined( 'ABSPATH' ) || exit;
 						Колонки отчисления необязательны: если они заполнены, запись создаётся в архиве.
 						Причина отчисления: <code>Окончание курса</code>, <code>Перевод</code>,
 						<code>По собственному желанию</code>; все остальные значения попадают в причину «Другое».
+						Колонки <code>Логин</code> и <code>Пароль</code> в этом режиме не читаются — оставьте их пустыми.
+					</p>
+					<p class="fs-card__desc" id="fs-import-enrolled-note" hidden>
+						Колонки <code>Логин</code>, <code>Пароль</code> и <code>Родитель: Email</code> обязательны —
+						из них создаются учётки. Колонки отчисления в этом режиме не читаются: запись всегда активная.
 					</p>
 
 					<div class="fs-field">

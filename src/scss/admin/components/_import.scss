@@ -1,6 +1,54 @@
 @use '../variables' as *;
 
 // =================================================================
+// Поле выбора CSV-файла (settings-6-import)
+// =================================================================
+// Нативный input[type="file"]: кнопку выбора приводим к виду WP-кнопки
+// `.button` (как #fs-import-template на этой же вкладке).
+
+.fs-lms-import {
+  // Радиокнопки режима и прочие контролы внутри одного поля — с отступами
+  .fs-field__control {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm $spacing-lg;
+  }
+
+  input[type="file"] {
+    max-width: $field-max-width;
+    font-size: $font-size-wp;
+    color: $color-text-secondary;
+    background: $color-bg-modal;
+
+    &::file-selector-button {
+      margin-right: $spacing-md;
+      padding: $spacing-xs $spacing-md;
+      font-size: $font-size-wp;
+      line-height: 1.5;
+      color: $color-primary;
+      background: $wp-admin-gray-bg-light;
+      border: 1px solid $color-primary;
+      border-radius: $border-radius-sm;
+      cursor: pointer;
+      transition: $transition-default;
+    }
+
+    &:hover::file-selector-button {
+      color: $color-primary-hover;
+      background: $wp-admin-blue-bg-light;
+      border-color: $color-primary-hover;
+    }
+
+    &:focus {
+      border-color: $color-primary;
+      outline: none;
+      box-shadow: 0 0 0 1px $color-primary;
+    }
+  }
+}
+
+// =================================================================
 // Отчёт импорта CSV (settings-6-import)
 // =================================================================
 
@@ -23,6 +71,34 @@
     margin: $spacing-md 0;
     padding: 0;
     list-style: none;
+  }
+
+  // Предпросмотр dry-run: вводные строки + нумерованный список записей
+  &__intro {
+    margin: $spacing-md 0 $spacing-sm;
+    font-size: $font-size-wp;
+    color: $color-text-primary;
+  }
+
+  &__preview {
+    margin: 0 0 $spacing-md;
+    padding: $spacing-md $spacing-md $spacing-md $spacing-xxl;
+    background: $color-bg-modal;
+    border: 1px solid $color-border-footer;
+    border-radius: $border-radius-md;
+    font-size: $font-size-wp;
+
+    li {
+      margin: 0 0 $spacing-xs;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    &--skipped {
+      color: $color-text-secondary;
+    }
   }
 
   &__errors {

@@ -61,21 +61,21 @@ export const ImportCsv = {
     },
 
     /**
-     * Генерирует и скачивает CSV-шаблон выбранного режима
-     * (BOM + строка заголовков + строки-образцы, разделитель «;»).
+     * Генерирует и скачивает CSV-шаблон (BOM + строка заголовков + строки-образцы,
+     * разделитель «;»). Шаблон один на оба режима: лишние для режима колонки
+     * импортёр не читает.
      *
-     * @param {jQuery} $btn Кнопка с data-headers-{mode} / data-examples-{mode}.
+     * @param {jQuery} $btn Кнопка с data-headers / data-examples.
      */
     downloadTemplate( $btn ) {
-        const mode = this.currentMode();
-        const headers = String( $btn.data( 'headers-' + mode ) || '' );
+        const headers = String( $btn.data( 'headers' ) || '' );
         if ( '' === headers ) {
             return;
         }
 
-        // data-examples-{mode} — JSON-массив строк-образцов; jQuery может вернуть его
+        // data-examples — JSON-массив строк-образцов; jQuery может вернуть его
         // уже распарсенным (массив) либо строкой — обрабатываем оба случая.
-        let examples = $btn.data( 'examples-' + mode ) || [];
+        let examples = $btn.data( 'examples' ) || [];
         if ( 'string' === typeof examples ) {
             try {
                 examples = JSON.parse( examples );
@@ -91,7 +91,7 @@ export const ImportCsv = {
             }
         } );
 
-        this.downloadCsv( 'fs-lms-import-template-' + mode + '.csv', csv );
+        this.downloadCsv( 'fs-lms-import-template.csv', csv );
     },
 
     /**
@@ -139,12 +139,13 @@ export const ImportCsv = {
 
     /**
      * Показывает элементы выбранного режима: чекбокс писем — только для
-     * полного зачисления, заметка про колонки отчисления — только для архива.
+     * полного зачисления, заметки про режимные колонки — по режиму.
      */
     applyMode() {
         const enrolled = 'enrolled' === this.currentMode();
         $( '#fs-import-send-emails-field' ).prop( 'hidden', ! enrolled );
         $( '#fs-import-archive-note' ).prop( 'hidden', enrolled );
+        $( '#fs-import-enrolled-note' ).prop( 'hidden', ! enrolled );
     },
 
     /**
@@ -162,6 +163,7 @@ export const ImportCsv = {
 
         this._subjectName = $subject.find( 'option:selected' ).text().trim();
         this._periodName  = $period.find( 'option:selected' ).text().trim();
+        this._mode        = this.currentMode();
 
         const data = new FormData();
         data.append( 'action', fs_lms_vars.ajax_actions.importStudentsCsv );
@@ -197,17 +199,18 @@ export const ImportCsv = {
     /**
      * Рендерит отчёт импорта.
      *
-     * @param {{created:number, skipped:number, errors:Object, dry_run:boolean, credentials:Array<Object>}} report Отчёт.
+     * @param {{created:number, skipped:number, errors:Object, dry_run:boolean, credentials:Array<Object>, preview:Array<Object>}} report Отчёт.
      * @param {string} subjectName Название предмета.
      * @param {string} periodName  Название периода.
      */
     renderReport( report, subjectName = '', periodName = '' ) {
         const errors = report.errors || {};
         const rows = Object.keys( errors );
-        const mode = report.dry_run ? 'Проверка (dry-run)' : 'Импорт';
+        const dryRun = !! report.dry_run;
+        const title = dryRun ? 'Проверка (dry-run)' : 'Импорт';
         const credentials = Array.isArray( report.credentials ) ? report.credentials : [];
 
-        let html = '<h2 class="fs-import-report__title">' + escapeHtml( mode ) + ' завершён</h2>';
+        let html = '<h2 class="fs-import-report__title">' + escapeHtml( title ) + ' завершён</h2>';
         html += '<ul class="fs-import-report__summary">';
         if ( subjectName ) {
             html += '<li>Предмет: <strong>' + escapeHtml( subjectName ) + '</strong></li>';
@@ -215,8 +218,8 @@ export const ImportCsv = {
         if ( periodName ) {
             html += '<li>Период: <strong>' + escapeHtml( periodName ) + '</strong></li>';
         }
-        html += '<li>Создано: <strong>' + ( report.created || 0 ) + '</strong></li>';
-        html += '<li>Пропущено: <strong>' + ( report.skipped || 0 ) + '</strong></li>';
+        html += '<li>' + ( dryRun ? 'Будет создано' : 'Создано' ) + ': <strong>' + ( report.created || 0 ) + '</strong></li>';
+        html += '<li>' + ( dryRun ? 'Будет пропущено' : 'Пропущено' ) + ': <strong>' + ( report.skipped || 0 ) + '</strong></li>';
         html += '<li>Ошибок: <strong>' + rows.length + '</strong></li>';
         html += '</ul>';
 
@@ -228,6 +231,10 @@ export const ImportCsv = {
             html += '</ul>';
         }
 
+        if ( dryRun ) {
+            html += this.renderPreview( report.preview, rows.length );
+        }
+
         if ( credentials.length ) {
             html += this.renderCredentials( credentials );
         }
@@ -236,6 +243,54 @@ export const ImportCsv = {
 
         this.$report.find( '#fs-import-creds-download' )
             .on( 'click', () => this.downloadCredentials( credentials ) );
+    },
+
+    /**
+     * Предпросмотр разобранных строк (только dry-run): что будет добавлено
+     * и что будет пропущено как дубль.
+     *
+     * @param {Array<{label:string, status:string, note:?string}>} preview   Строки предпросмотра.
+     * @param {number}                                            errorCount Количество строк с ошибками.
+     * @return {string} HTML.
+     */
+    renderPreview( preview, errorCount ) {
+        const items = Array.isArray( preview ) ? preview : [];
+        if ( ! items.length ) {
+            return '';
+        }
+
+        const created = items.filter( ( item ) => 'created' === item.status );
+        const skipped = items.filter( ( item ) => 'created' !== item.status );
+        const enrolled = 'enrolled' === this._mode;
+
+        let html = '<p class="fs-import-report__intro">';
+        html += errorCount
+            ? 'Из файла извлечено ' + items.length + ' записей, строк с ошибками: ' + errorCount + '.'
+            : 'Все записи успешно извлечены из файла.';
+        html += '</p>';
+
+        if ( created.length ) {
+            html += '<p class="fs-import-report__intro">';
+            html += enrolled
+                ? 'Будут зачислены следующие ученики (с созданием учёток):'
+                : 'Будут добавлены следующие архивные записи:';
+            html += '</p><ol class="fs-import-report__preview">';
+            created.forEach( ( item ) => {
+                html += '<li>' + escapeHtml( String( item.label || '' ) ) + '</li>';
+            } );
+            html += '</ol>';
+        }
+
+        if ( skipped.length ) {
+            html += '<p class="fs-import-report__intro">Будут пропущены (запись уже существует):</p>';
+            html += '<ol class="fs-import-report__preview fs-import-report__preview--skipped">';
+            skipped.forEach( ( item ) => {
+                html += '<li>' + escapeHtml( String( item.label || '' ) ) + '</li>';
+            } );
+            html += '</ol>';
+        }
+
+        return html;
     },
 
     /**

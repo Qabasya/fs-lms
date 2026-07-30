@@ -10,6 +10,11 @@ namespace Inc\Enums\Import;
  * Порядок cases() = порядок колонок в файле/шаблоне. Используется
  * импортёром (чтение строки + валидация заголовков), шаблоном таба
  * импорта (генерация образца CSV) и описанием формата.
+ *
+ * **Шаблон один на оба режима** ({@see headers()} — все колонки): режимные
+ * колонки в «чужом» режиме просто не читаются импортёром и могут быть пустыми
+ * (логин/пароль — в архиве, колонки отчисления — при полном зачислении).
+ * Обязательность значений — режимная, см. {@see required()}.
  */
 enum ImportColumn: string {
 
@@ -55,38 +60,19 @@ enum ImportColumn: string {
 	case ExpelReason  = 'Причина отчисления';
 
 	/**
-	 * Режим, к которому колонка привязана исключительно; null — колонка общая для обоих режимов.
-	 */
-	private function onlyFor(): ?ImportMode {
-		return match ( $this ) {
-			self::Username, self::Password   => ImportMode::Enrolled,
-			self::ExpelledAt, self::ExpelReason => ImportMode::Archive,
-			default                              => null,
-		};
-	}
-
-	/**
-	 * true, если колонка входит в файл/шаблон указанного режима.
-	 */
-	public function appliesTo( ImportMode $mode ): bool {
-		$only = $this->onlyFor();
-		return null === $only || $only === $mode;
-	}
-
-	/**
-	 * Все заголовки в порядке файла для указанного режима импорта.
+	 * Все заголовки в порядке файла — единый набор для обоих режимов.
 	 *
 	 * @return string[]
 	 */
-	public static function headers( ImportMode $mode ): array {
-		return array_values( array_map(
-			static fn( self $c ): string => $c->value,
-			array_filter( self::cases(), static fn( self $c ): bool => $c->appliesTo( $mode ) )
-		) );
+	public static function headers(): array {
+		return array_map( static fn( self $c ): string => $c->value, self::cases() );
 	}
 
 	/**
-	 * Обязательные заголовки (минимум для создания записи) для указанного режима.
+	 * Обязательные колонки (минимум для создания записи) для указанного режима.
+	 *
+	 * Шаблон содержит все колонки, поэтому проверка заголовков проходит всегда;
+	 * значение имеет обязательность значений в строке.
 	 *
 	 * @return string[]
 	 */
@@ -153,18 +139,15 @@ enum ImportColumn: string {
 	}
 
 	/**
-	 * Строки-образцы в порядке колонок для указанного режима импорта.
+	 * Строки-образцы в порядке колонок (единый шаблон для обоих режимов).
 	 *
 	 * @return array<int, string[]> Каждый элемент — строка значений по колонкам
 	 */
-	public static function exampleRows( ImportMode $mode ): array {
+	public static function exampleRows(): array {
 		$rows = array( array(), array() );
 
 		foreach ( self::cases() as $column ) {
-			if ( ! $column->appliesTo( $mode ) ) {
-				continue;
-			}
-			$values     = $column->examples();
+			$values    = $column->examples();
 			$rows[0][] = $values[0] ?? '';
 			$rows[1][] = $values[1] ?? '';
 		}

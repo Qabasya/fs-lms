@@ -130,6 +130,30 @@ class StudentRowImporterTest extends TestCase {
 		$this->assertTrue( $result->isCreated() );
 	}
 
+	public function testDryRunLabelDescribesRow(): void {
+		$this->writer->method( 'resolveGroupId' )->willReturn( null );
+		$this->writer->method( 'resolvePersonId' )->willReturn( null );
+
+		$result = $this->importer->import(
+			$this->row( array( ImportColumn::MiddleName->value => 'Иванович' ) ),
+			$this->ctx( dryRun: true )
+		);
+
+		$this->assertSame( 'Иванов Иван Иванович — группа «G-1», договор № C-1', $result->label );
+	}
+
+	public function testDryRunLabelMarksArchiveRow(): void {
+		$this->writer->method( 'resolveGroupId' )->willReturn( null );
+		$this->writer->method( 'resolvePersonId' )->willReturn( null );
+
+		$result = $this->importer->import(
+			$this->row( array( ImportColumn::ExpelReason->value => 'Окончание курса' ) ),
+			$this->ctx( dryRun: true )
+		);
+
+		$this->assertStringEndsWith( ', в архив', (string) $result->label );
+	}
+
 	public function testMissingRequiredValueThrows(): void {
 		$this->expectException( InvalidArgumentException::class );
 
