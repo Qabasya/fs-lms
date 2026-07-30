@@ -27,6 +27,14 @@ class ImportReportDTO {
 	public array $credentials = array();
 
 	/**
+	 * Предпросмотр разобранных строк — только в dry-run: что именно будет
+	 * добавлено (и что будет пропущено) при боевом запуске.
+	 *
+	 * @var array<int, array{label:string, status:string, note:?string}>
+	 */
+	public array $preview = array();
+
+	/**
 	 * @param bool $dryRun Режим «только проверить» (без записи в БД)
 	 */
 	public function __construct(
@@ -41,6 +49,14 @@ class ImportReportDTO {
 	 * @return void
 	 */
 	public function addResult( ImportRowResultDTO $result ): void {
+		if ( $this->dryRun && null !== $result->label ) {
+			$this->preview[] = array(
+				'label'  => $result->label,
+				'status' => $result->status,
+				'note'   => $result->note,
+			);
+		}
+
 		if ( ! $result->isCreated() ) {
 			++$this->skipped;
 			return;
@@ -68,7 +84,7 @@ class ImportReportDTO {
 	/**
 	 * Представление для AJAX-ответа.
 	 *
-	 * @return array{created:int, skipped:int, errors:array<int,string>, dry_run:bool, credentials:array<int,array<string,?string>>}
+	 * @return array{created:int, skipped:int, errors:array<int,string>, dry_run:bool, credentials:array<int,array<string,?string>>, preview:array<int,array{label:string, status:string, note:?string}>}
 	 */
 	public function toArray(): array {
 		return array(
@@ -80,6 +96,7 @@ class ImportReportDTO {
 				static fn( RowCredentialsDTO $c ): array => $c->toArray(),
 				$this->credentials
 			),
+			'preview'     => $this->preview,
 		);
 	}
 }

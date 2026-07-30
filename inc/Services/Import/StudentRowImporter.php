@@ -32,6 +32,8 @@ use InvalidArgumentException;
  *
  * - **WP-учётки не создаются** — появятся позже при зачислении из архива
  *   (или сразу — режим {@see \Inc\Services\Import\EnrolledStudentRowImporter}).
+ * - **Единый шаблон CSV** — колонки `Логин`/`Пароль` в этом режиме не читаются
+ *   и могут быть пустыми.
  * - **Статус записи** определяется по строке: есть дата/причина отчисления →
  *   запись в архиве (`finished`/`transferred`/`expelled`), иначе `active`.
  * - **Идемпотентность** — дубль по ученик+группа+договор → skipped.
@@ -140,14 +142,16 @@ readonly class StudentRowImporter implements RowImporterInterface {
 		$studentId = $this->writer->resolvePersonId( $studentInput );
 		$parentId  = $this->writer->resolvePersonId( $parentInput );
 
+		$label = $this->rowLabel( $studentInput, $groupName, $contractNo, $get );
+
 		// Дедуп записи (если ученик и группа уже известны)
 		if ( null !== $studentId && null !== $groupId
 			&& $this->studentRecords->existsByContract( $studentId, $groupId, $contractNo ) ) {
-			return ImportRowResultDTO::skipped( 'Запись с таким договором уже существует.' );
+			return ImportRowResultDTO::skipped( 'Запись с таким договором уже существует.', $label );
 		}
 
 		if ( $ctx->dryRun ) {
-			return ImportRowResultDTO::created( 'Будет создано (dry-run).' );
+			return ImportRowResultDTO::created( 'Будет создано (dry-run).', null, $label );
 		}
 
 		$now = $this->clock->now( 'mysql', true );
@@ -193,6 +197,32 @@ readonly class StudentRowImporter implements RowImporterInterface {
 		);
 
 		return ImportRowResultDTO::created();
+	}
+
+	/**
+	 * Человекочитаемое описание строки для предпросмотра dry-run.
+	 *
+	 * @param PersonInputDTO $student    Ученик
+	 * @param string         $groupName  Название группы
+	 * @param string         $contractNo Номер договора
+	 * @param callable       $get        Геттер значения колонки
+	 *
+	 * @return string «Иванов Иван Иванович — группа «ОГЭ-1», договор № 2024-001, в архив»
+	 */
+	private function rowLabel( PersonInputDTO $student, string $groupName, string $contractNo, callable $get ): string {
+		$label = sprintf(
+			'%s — группа «%s», договор № %s',
+			$student->fullName(),
+			$groupName,
+			$contractNo
+		);
+
+		// Признак архива определяется так же, как в resolveLifecycle(): дата ИЛИ причина
+		if ( '' !== $get( ImportColumn::ExpelledAt ) || '' !== $get( ImportColumn::ExpelReason ) ) {
+			$label .= ', в архив';
+		}
+
+		return $label;
 	}
 
 	/**

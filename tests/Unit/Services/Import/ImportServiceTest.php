@@ -142,6 +142,37 @@ class ImportServiceTest extends TestCase {
 		$this->assertTrue( $report->dryRun );
 	}
 
+	public function testDryRunCollectsPreviewOfRows(): void {
+		$this->parser->method( 'parse' )->willReturn(
+			$this->generatorFrom( array( array( 'Фамилия' => 'A' ), array( 'Фамилия' => 'B' ) ) )
+		);
+		$this->importer->method( 'import' )->willReturnOnConsecutiveCalls(
+			ImportRowResultDTO::created( 'Будет создано (dry-run).', null, 'Иванов Иван — группа «Г-1», договор № C-1' ),
+			ImportRowResultDTO::skipped( 'Запись с таким договором уже существует.', 'Петров Пётр — группа «Г-1», договор № C-2' ),
+		);
+
+		$report = $this->runImport( dryRun: true );
+
+		$this->assertCount( 2, $report->preview );
+		$this->assertSame( 'Иванов Иван — группа «Г-1», договор № C-1', $report->preview[0]['label'] );
+		$this->assertSame( ImportRowResultDTO::STATUS_CREATED, $report->preview[0]['status'] );
+		$this->assertSame( ImportRowResultDTO::STATUS_SKIPPED, $report->preview[1]['status'] );
+		$this->assertSame( $report->preview, $report->toArray()['preview'] );
+	}
+
+	public function testRealRunCollectsNoPreview(): void {
+		$this->parser->method( 'parse' )->willReturn(
+			$this->generatorFrom( array( array( 'Фамилия' => 'A' ) ) )
+		);
+		$this->importer->method( 'import' )->willReturn(
+			ImportRowResultDTO::created( null, null, 'Иванов Иван — группа «Г-1», договор № C-1' )
+		);
+
+		$report = $this->runImport();
+
+		$this->assertSame( array(), $report->preview );
+	}
+
 	public function testDispatchesSummaryWhenNotDryRun(): void {
 		$this->parser->method( 'parse' )->willReturn(
 			$this->generatorFrom( array( array( 'Фамилия' => 'A' ) ) )

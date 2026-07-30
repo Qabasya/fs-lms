@@ -34,6 +34,8 @@ use InvalidArgumentException;
  *
  * ### Особенности
  *
+ * - **Единый шаблон CSV** — колонки отчисления (`Дата отчисления`, `Причина
+ *   отчисления`) в этом режиме не читаются: запись всегда `active`.
  * - **Логин/пароль ученика — обязательные колонки CSV** (генерации нет);
  *   пустые значения → ошибка строки. Родителю логин = email (обязателен),
  *   пароль генерируется ({@see AccountProvisioningService::provisionParent()}).
@@ -155,14 +157,22 @@ readonly class EnrolledStudentRowImporter implements RowImporterInterface {
 		$studentId = $this->writer->resolvePersonId( $studentInput );
 		$parentId  = $this->writer->resolvePersonId( $parentInput );
 
+		$label = sprintf(
+			'%s — группа «%s», договор № %s, логин %s',
+			$studentInput->fullName(),
+			$groupName,
+			$contractNo,
+			$username
+		);
+
 		// Дедуп записи: повторный импорт не задваивает ни записи, ни учётки
 		if ( null !== $studentId && null !== $groupId
 			&& $this->studentRecords->existsByContract( $studentId, $groupId, $contractNo ) ) {
-			return ImportRowResultDTO::skipped( 'Запись с таким договором уже существует.' );
+			return ImportRowResultDTO::skipped( 'Запись с таким договором уже существует.', $label );
 		}
 
 		if ( $ctx->dryRun ) {
-			return ImportRowResultDTO::created( 'Будет зачислено (dry-run).' );
+			return ImportRowResultDTO::created( 'Будет зачислено (dry-run).', null, $label );
 		}
 
 		$now = $this->clock->now( 'mysql', true );
