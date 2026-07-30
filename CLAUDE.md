@@ -49,9 +49,10 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 | Enums | `inc/Enums/` | Typed constants (slugs, capabilities, option names, AJAX hooks) |
 | Services | `inc/Services/` | Stateless services; subdirs mirror domain groups; `Security/` — PiiCrypto, PasswordGenerator, RateLimit; `Shared/` — WpClock; `Captcha/` — CaptchaService |
 | Shared | `inc/Shared/` | Traits (`inc/Shared/Traits/`) + static utility `PluginLogger` |
+| Cli | `inc/Cli/` | WP-CLI команды; реализуют `ServiceInterface` и сами выходят из `register()`, если `WP_CLI` не определён |
 
 **Callbacks subdirectories:**
-- `inc/Callbacks/Subject/` — SubjectCrudCallbacks, SubjectDataCallbacks, SubjectImportExportCallbacks, SubjectPageCallbacks, SubjectValidationCallbacks, TaxonomySettingsCallbacks
+- `inc/Callbacks/Subject/` — SubjectCrudCallbacks, SubjectDataCallbacks, SubjectImportExportCallbacks, SubjectBundleCallbacks, SubjectPageCallbacks, SubjectValidationCallbacks, TaxonomySettingsCallbacks
 - `inc/Callbacks/Person/` — PersonViewCallbacks, PersonUpdateCallbacks, PiiRevealCallbacks, RepresentativeCallbacks
 - `inc/Callbacks/Settings/` — AcademicPeriodCallbacks, ConsentSettingsCallbacks, EmailTemplateSettingsCallbacks
 - `inc/Callbacks/Enrollment/` — ApplicationCallbacks, EnrollmentCallbacks, ExpulsionCallbacks, RecoveryCallbacks, DeletionCallbacks
@@ -79,6 +80,11 @@ Subjects are stored in `wp_options` (key: `fs_lms_subjects_list`) as `['subject_
 
 **Other key enums:**
 - `Capability` — `Admin` (`manage_options`), `ViewLMSStats`, `ManageLMSAssignments`, `ManageApplications`, `EnrollStudent`, `ViewPII`, `ExportPII`, `ManagePersons`
+  - **Стандарт прав на выгрузку ПД:** любой экспорт персональных данных
+    (`students`, `parents`, `archive`, точечная выгрузка записи об отчислении)
+    требует **обеих** проверок — `ManageLmsPlatform` (доступ к разделу) и
+    `ExportPII` (право выгружать ПД), через `authorizeAll()`. Одного
+    `ManageLmsPlatform` недостаточно.
 - `PostMetaName` — `TemplateType` (`fs_lms_template_type`), `Meta` (`fs_lms_meta`) — use these instead of raw strings when reading/writing post meta
 - `UserRole` — internal roles (`FSTeacher`, `FSStudent`, `FSParent`) and external/free roles (`Student`, `Teacher`); each has a `->label()` method
 - `EmailTemplateType` — `OtpCode`, `PasswordSetup`, `ApplicationConfirmation`, `ApplicationReady`, `Rejection`, `NewRepresentative`, `WelcomeWithCredentials`; use instead of raw strings when calling `EmailService` or `EmailTemplateInterface::get()`
@@ -91,7 +97,7 @@ Subjects are stored in `wp_options` (key: `fs_lms_subjects_list`) as `['subject_
 - `create(): string` — generates nonce
 - `verify(string $queryArg = 'security'): void` — validates request
 
-Available nonces: `TaskCreation`, `Subject`, `Manager`, `SaveMeta`, `SaveBoilerplate`, `Apply`, `ParentSubmit`, `Enroll`, `RevealPii`, `AddRepresentative`, `ReplaceRepresentative`, `UpdatePerson`, `WithdrawConsent`, `RequestPiiDeletion`, `ExportPii`, `VerifyOtp`, `TrashApplication`, `EditApplication`, `ReviewApplication`.
+Available nonces: `TaskCreation`, `Subject`, `SubjectBundle`, `Manager`, `SaveMeta`, `SaveBoilerplate`, `Apply`, `ParentSubmit`, `Enroll`, `RevealPii`, `AddRepresentative`, `ReplaceRepresentative`, `UpdatePerson`, `WithdrawConsent`, `RequestPiiDeletion`, `VerifyOtp`, `TrashApplication`, `EditApplication`, `ReviewApplication`.
 
 **Usage in admin AJAX callbacks (with capability check):** always `$this->authorize(Nonce::X, Capability::Y)` — never call `check_ajax_referer()` or `current_user_can()` directly.
 
@@ -100,6 +106,7 @@ Available nonces: `TaskCreation`, `Subject`, `Manager`, `SaveMeta`, `SaveBoilerp
 ## Shared Traits
 
 **`Authorizer`** — `$this->authorize(Nonce::X, Capability::Y)` checks nonce + capability in one call and sends a JSON 403 on failure. Declare `use Authorizer;` + `use Inc\Shared\Traits\Authorizer;` in every Callback class that handles admin AJAX. Never call `check_ajax_referer()` or `current_user_can()` directly in Callback methods.
+`$this->authorizeAll(Nonce::X, [Capability::A, Capability::B])` — та же проверка, но требует **все** права. Использовать там, где одно право открывает раздел, а второе — конкретную чувствительную операцию внутри него.
 
 **`Sanitizer`** — use these instead of raw WP functions:
 - `sanitizeText()`, `sanitizeKey()`, `sanitizeInt()`, `sanitizeHtml()`, `sanitizeEditorContent()`, `sanitizeBool()`
@@ -179,6 +186,46 @@ Transient-based cache for recent tasks/articles. Hooks `save_post` and `delete_p
 ### Import (`inc/Services/Import/`)
 
 CSV-импорт учеников, два режима (`Inc\Enums\Import\ImportMode`): `archive` — записи прошлых лет без WP-учёток; `enrolled` — полное зачисление с созданием учёток ученика (логин/пароль — обязательные колонки CSV) и родителя (логин = email, пароль генерируется) через `AccountProvisioningService`. Импортёры строк реализуют `RowImporterInterface`, оркестратор — `ImportService::run()`; выбор импортёра по `mode` — в `ImportCallbacks`.
+
+### Перенос предмета между сайтами (`inc/Services/Subject/Bundle/`)
+
+Полный пакет переноса — **ZIP**: `manifest.json` + `media/{attachment_id}__{file}`
+(`BundleSchema`; версия формата `schema_version`, совместимость по major).
+
+- **Ссылки внутри пакета — `_export_id`, не WP ID.** Ключ вида `tasks:123`
+  (`ExportIdMapper`), подмена ссылок — `RefRemapper` (обход меты по имени ключа:
+  `item_ids`, `task_ids`, `lesson_ids`, `ref`, `attachment_id(s)`). Нерезолвимая
+  ссылка **выбрасывается**, а не переносится как чужой ID.
+- **Порядок импорта = порядок кейсов `Inc\Enums\Subject\BundleSection`** — это
+  топологическая сортировка графа (`tasks/articles → problems → works →
+  assessments → lessons → courses`). Отдельного резолвера зависимостей нет и не нужно.
+- **Общая инфраструктура**: `PostCollector` (снять запись) / `PostRestorer`
+  (создать запись) — одна операция для всех семи разделов; их же использует
+  «лёгкий» `SubjectExportService`.
+- **Глобальный банк `fs_lms_problems`** подтягивается автоматически (только
+  задачи, на которые реально ссылаются works/assessments) и дедуплицируется при
+  импорте (`ProblemDeduplicator`: метка происхождения + отпечаток контента).
+- **Откат.** `wp_insert_post`/`wp_insert_term`/`wp_options` не откатываются
+  транзакцией, поэтому всё созданное пишется в `ImportedEntitiesDTO`, а при
+  ошибке `ImportRollbackService` удаляет ровно это. **Переиспользованные**
+  сущности (существующий термин, найденная задача банка, привязанный
+  пользователь) в журнал не пишутся — иначе откат сотрёт чужие данные.
+- **Прогресс не переносится** (зафиксированное решение): ни посещаемость, ни
+  сдачи, ни попытки, ни оценки. Раздел `students` (опциональный) переносит
+  учётки, группы и факт зачисления — через тот же `StudentRecordWriter` /
+  `AccountProvisioningService`, что и CSV-импорт.
+- **Пароли переносятся**: на источнике они лежат в мете `fs_lms_enc_password`
+  (шифр + base64), при сборке пакета расшифровываются и на целевом сайте
+  ставятся как есть — семья входит по прежним логину и паролю. Следствие:
+  архив с разделом `students` содержит ПД и пароли **открытым текстом**, о чём
+  обязана предупреждать модалка экспорта. Новый пароль генерируется только
+  когда в пакете его нет.
+- **Безопасность распаковки**: `BundleArchive` отвергает архив с path traversal,
+  посторонними файлами и превышением распакованного объёма; `sha256` каждого
+  медиафайла проверяется **до** первой записи в БД. MIME-белый список
+  `MediaSideloader` — зеркало `MediaManager`, расширять его ради импорта нельзя.
+- **Большие предметы** — WP-CLI (`inc/Cli/SubjectBundleCommand.php`):
+  `wp fs-lms subject export <key> --out=file.zip`, `wp fs-lms subject import file.zip [--dry-run]`.
 
 ### Auth (`inc/Modules/SocialAuth/Services/`)
 

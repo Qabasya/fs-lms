@@ -70,6 +70,7 @@ use Inc\Controllers\Course\PreviewSolveController;
 use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
+use Inc\Cli\SubjectBundleCommand;
 use Inc\Controllers\Import\ImportController;
 use Inc\Controllers\Person\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
@@ -144,6 +145,7 @@ final class Init {
 			ExpulsionController::class,
 			DeletionController::class,
 			ImportController::class,   // Импорт учеников из CSV
+			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			ConfigController::class,
 			SettingsController::class,
 			LogsController::class,

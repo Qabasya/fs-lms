@@ -98,7 +98,9 @@ class ExpulsionCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxExportExpelledRecord(): void {
-		$this->authorize( Nonce::Expulsion, Capability::ExportPII );
+		// Единый стандарт выгрузки ПД (A1): доступ к разделу + право выгружать
+		// персональные данные. Тот же набор — у экспорта учеников и родителей.
+		$this->authorizeAll( Nonce::Expulsion, array( Capability::ManageLmsPlatform, Capability::ExportPII ) );
 
 		$recordId = $this->requireInt( 'archive_id', error: 'Не указан ID записи.' );
 

@@ -35,6 +35,15 @@ use Inc\DTO\Export\CsvColumn;
 class CsvExportService {
 
 	/**
+	 * Конструктор сервиса.
+	 *
+	 * @param OneTimeDownloadService $downloads Одноразовые ссылки на скачивание
+	 */
+	public function __construct(
+		private readonly OneTimeDownloadService $downloads,
+	) {}
+
+	/**
 	 * Генерирует CSV-строку из произвольных данных.
 	 *
 	 * @param iterable   $rows    Строки данных — любой iterable
@@ -73,21 +82,6 @@ class CsvExportService {
 	 * @return string Одноразовый URL вида /lms/export/{token}
 	 */
 	public function createDownloadLink( string $csv, string $filename = 'export.csv' ): string {
-		$token     = wp_generate_password( 32, false );
-		$uploadDir = wp_upload_dir();
-		$dir       = $uploadDir['basedir'] . '/lms-exports/';
-
-		wp_mkdir_p( $dir );
-
-		$path = $dir . $token . '.csv';
-		file_put_contents( $path, $csv );
-
-		set_transient( 'fs_lms_export_' . $token, array(
-			'file'         => $path,
-			'filename'     => $filename,
-			'content_type' => 'text/csv; charset=utf-8',
-		), HOUR_IN_SECONDS );
-
-		return home_url( '/lms/export/' . $token );
+		return $this->downloads->forContent( $csv, $filename, 'text/csv; charset=utf-8' );
 	}
 }

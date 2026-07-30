@@ -245,7 +245,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 						'manager'                 => Nonce::Manager->create(),
 						'revealPii'               => Nonce::RevealPii->create(),
 						'updatePerson'            => Nonce::UpdatePerson->create(),
-						'exportPii'               => Nonce::ExportPii->create(),
 						'deletePii'               => Nonce::RequestPiiDeletion->create(),
 						'restoreFromArchive'      => Nonce::RestoreFromArchive->create(),
 						'selectExistingParent'    => Nonce::SelectExistingParent->create(),
@@ -263,6 +262,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'ajaxurl'          => admin_url( 'admin-ajax.php' ),
 				'nonces'           => array(
 					'subject'           => Nonce::Subject->create(),
+					'subjectBundle'     => Nonce::SubjectBundle->create(),
 					'manager'           => Nonce::Manager->create(),
 					'expulsion'         => Nonce::Expulsion->create(),
 					'deleteGroup'       => Nonce::DeleteGroup->create(),

@@ -15,6 +15,7 @@
  */
 
 import { StudentPersonModal } from '../../../modals/enrollment/person/student-person-modal.js';
+import { PiiExportService } from '../../../services/pii-export-service.js';
 
 const $ = jQuery;
 
@@ -400,16 +401,9 @@ export const StudentPersonModalManager = {
     _export( personId ) {
         if ( ! personId ) return;
 
-        // Единичный экспорт через тот же эндпоинт, что и массовый (поддерживает single-режим
-        // при передаче ids). Хук export_pii в плагине не реализован — используем exportStudents.
-        $.post( AJAX_URL(), {
-            action:   ACTIONS().exportStudents,
-            ids:      [ personId ],
-            security: NONCES().manager,
-        } ).done( r => {
-            // Сервер возвращает временную ссылку на файл — инициируем скачивание редиректом.
-            if ( r.success && r.data.url ) window.location.href = r.data.url;
-        } );
+        // Единичный экспорт идёт через тот же сервис, что и массовый: одно
+        // предупреждение о ПД и один флаг паролей на все точки выгрузки (A2).
+        PiiExportService.exportStudents( [ personId ] );
     },
 
     /**

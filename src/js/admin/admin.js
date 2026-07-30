@@ -32,6 +32,7 @@ import {AcademicPeriodModalManager} from "./managers/enrollment/academic-period-
 import {RoomModalManager} from "./managers/enrollment/room-modal-manager.js";
 import {GroupModalManager} from "./managers/enrollment/group-modal-manager.js";
 import {SubjectModalManager} from "./managers/subject-modal-manager";
+import {SubjectBundleService} from "./services/subject-bundle-service";
 import {TaskModalManager} from "./managers/task-modal-manager";
 import {HelpModalManager} from "./managers/help-modal-manager";
 import { ApplicationModalManager } from './managers/enrollment/applications/application-modal-manager.js';
@@ -69,6 +70,10 @@ import { RolesSettings } from './services/roles-settings.js';
 
         if ($('#fs-add-subject-form').length || $('.open-quick-edit').length) {
             SubjectModalManager.init();
+        }
+
+        if ($('.js-export-subject-bundle').length || $('#fs-bundle-import-trigger').length) {
+            SubjectBundleService.init();
         }
 
         if ($('.js-add-period').length || $('.js-edit-period').length) {

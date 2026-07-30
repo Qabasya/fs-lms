@@ -57,15 +57,30 @@ class ExportLogWriter {
 	/**
 	 * Записывает экспорт данных в журнал.
 	 *
-	 * @param string   $dataType    Тип экспортируемых данных (groups, students, parents, archive, log_*)
-	 * @param string   $actionType  Тип действия (single — единичный, bulk — массовый)
-	 * @param int[]    $targetIds   Массив ID экспортированных сущностей
+	 * @param string             $dataType      Тип экспортируемых данных (groups, students, parents, archive, log_*)
+	 * @param string             $actionType    Тип действия (single — единичный, bulk — массовый)
+	 * @param int[]              $targetIds     Массив ID экспортированных сущностей
+	 * @param string             $operationType export | import
+	 * @param array<string, int> $details       Объём операции ([раздел => количество]). Пишется вместо
+	 *                                          списка ID там, где перечислять цели поштучно бессмысленно:
+	 *                                          у переноса предмета «цель» — это сотни записей семи типов,
+	 *                                          и в аудите полезен их состав, а не портянка ID.
 	 *
 	 * @return void
 	 */
-	public function record( string $dataType, string $actionType, array $targetIds = array(), string $operationType = 'export' ): void {
+	public function record(
+		string $dataType,
+		string $actionType,
+		array $targetIds = array(),
+		string $operationType = 'export',
+		array $details = array()
+	): void {
 		$ctx = $this->requestContext();
 		$role = $this->resolveRole( $ctx->actorUserId );
+
+		$payload = array() !== $details
+			? wp_json_encode( array_filter( $details, static fn( $count ): bool => $count > 0 ) )
+			: ( ! empty( $targetIds ) ? wp_json_encode( $targetIds ) : null );
 
 		$this->repository->create( new ExportLogInputDTO(
 			actorUserId:   $ctx->actorUserId > 0 ? $ctx->actorUserId : 0,
@@ -73,7 +88,7 @@ class ExportLogWriter {
 			operationType: $operationType,
 			dataType:      $dataType,
 			actionType:    $actionType,
-			targetIdsJson: ! empty( $targetIds ) ? wp_json_encode( $targetIds ) : null,
+			targetIdsJson: false !== $payload ? $payload : null,
 			actorIp:       $ctx->ip,
 			actorUa:       '' !== $ctx->userAgent ? $ctx->userAgent : null,
 			createdAt:     $this->clock->now( 'mysql', true ),

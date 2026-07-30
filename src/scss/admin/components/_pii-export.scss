@@ -1,0 +1,28 @@
+@use '../variables' as *;
+
+// =================================================================
+// Модалка подтверждения выгрузки персональных данных (A2)
+// =================================================================
+// Живёт внутри общего скелета `.fs-lms-modal`; здесь только специфика
+// блока «предупреждение + выбор режима паролей».
+
+.fs-pii-export {
+  &__warning {
+    margin: $spacing-md 0;
+  }
+
+  &__option {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-top: $spacing-md;
+    font-weight: $font-bold;
+    cursor: pointer;
+  }
+
+  &__hint {
+    margin-top: $spacing-xs;
+    font-size: $font-size-xs;
+    color: $color-text-secondary;
+  }
+}

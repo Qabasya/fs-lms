@@ -364,6 +364,34 @@ if (!function_exists('get_post_mime_type')) {
 if (!function_exists('user_can')) {
     function user_can(int $userId, string $cap): bool { return $GLOBALS['_fs_test_user_caps'][$userId][$cap] ?? false; }
 }
+if (!function_exists('sanitize_user')) {
+    function sanitize_user(string $username, bool $strict = false): string {
+        return preg_replace('/[^a-zA-Z0-9 _.\-@]/', '', $username);
+    }
+}
+if (!function_exists('sanitize_email')) {
+    function sanitize_email(string $email): string {
+        return filter_var(trim($email), FILTER_VALIDATE_EMAIL) ?: '';
+    }
+}
+if (!function_exists('wp_defer_term_counting')) {
+    function wp_defer_term_counting(bool $defer): bool { return $defer; }
+}
+if (!function_exists('wp_cache_flush')) {
+    function wp_cache_flush(): bool { return true; }
+}
+if (!function_exists('taxonomy_exists')) {
+    // Управляется $GLOBALS['_fs_test_taxonomies'] (список зарегистрированных слагов).
+    function taxonomy_exists(string $taxonomy): bool {
+        return in_array($taxonomy, $GLOBALS['_fs_test_taxonomies'] ?? [], true);
+    }
+}
+if (!function_exists('sanitize_file_name')) {
+    function sanitize_file_name(string $name): string {
+        $name = preg_replace('#[^A-Za-z0-9._\-]#', '-', $name);
+        return trim($name, '.-');
+    }
+}
 if (!function_exists('sanitize_title')) {
     function sanitize_title(string $title): string {
         $title = strtolower(trim($title));

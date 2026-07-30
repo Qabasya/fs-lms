@@ -27,6 +27,12 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 			<div class="fs-page-header__actions">
 				<a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
 				<input type="file" id="fs-import-file" accept=".json" class="hidden">
+
+				<a class="page-title-action" id="fs-bundle-import-trigger"
+					title="ZIP-пакет со всем содержимым предмета: контент, медиа и (опционально) ученики">
+					Импортировать пакет
+				</a>
+				<input type="file" id="fs-bundle-import-file" accept=".zip" class="hidden">
 			</div>
 			<?php endif; ?>
 		</div>
@@ -126,8 +132,18 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
                                                         <span class="export">
                                     <a href="#"
                                         class="js-export-subject"
-                                        data-key="<?php echo esc_attr( $subject->key ); ?>">
+                                        data-key="<?php echo esc_attr( $subject->key ); ?>"
+                                        title="JSON: структуры предмета и банк заданий/статей">
                                         Экспорт
+                                    </a>
+                                </span> |
+                                <span class="export">
+                                    <a href="#"
+                                        class="js-export-subject-bundle"
+                                        data-key="<?php echo esc_attr( $subject->key ); ?>"
+                                        data-name="<?php echo esc_attr( $subject->name ); ?>"
+                                        title="ZIP-пакет: весь контент предмета, медиафайлы и (опционально) ученики">
+                                        Экспорт пакета
                                     </a>
                                 </span> |
                                 <?php if ( ! empty( $subject->archived ) ) : ?>
@@ -236,3 +252,4 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 
 	</div>
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/confirm-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/bundle-export-modal.php'; ?>

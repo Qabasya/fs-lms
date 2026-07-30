@@ -245,8 +245,22 @@ class LogNameResolver {
 			return '—';
 		}
 
-		$ids = json_decode( $targetIdsJson, true );
-		$ids = is_array( $ids ) ? array_values( array_filter( array_map( 'intval', $ids ) ) ) : array();
+		$decoded = json_decode( $targetIdsJson, true );
+		if ( ! is_array( $decoded ) || array() === $decoded ) {
+			return '—';
+		}
+
+		// Объект вместо списка ID — сводка объёма операции (перенос предмета
+		// пакетом): в аудите полезен состав, а не перечисление сотен ID.
+		if ( ! array_is_list( $decoded ) ) {
+			$parts = array();
+			foreach ( $decoded as $section => $count ) {
+				$parts[] = $section . ': ' . (int) $count;
+			}
+			return implode( ', ', $parts );
+		}
+
+		$ids = array_values( array_filter( array_map( 'intval', $decoded ) ) );
 		if ( empty( $ids ) ) {
 			return '—';
 		}

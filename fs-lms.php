@@ -30,6 +30,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'FS_LMS_PATH', plugin_dir_path( __FILE__ ) );
 
+// Версия плагина — попадает в манифест пакета переноса предмета, чтобы при
+// разборе чужого архива было видно, какой сборкой он выгружен.
+define( 'FS_LMS_VERSION', '0.0.1' );
+
 require_once FS_LMS_PATH . 'vendor/autoload.php';
 
 register_activation_hook( __FILE__, array( Activate::class, 'activate' ) );

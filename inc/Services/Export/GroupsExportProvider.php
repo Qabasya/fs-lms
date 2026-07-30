@@ -63,7 +63,7 @@ class GroupsExportProvider implements CsvExportProviderInterface {
 	 *
 	 * @return CsvColumn[]
 	 */
-	public function columns(): array {
+	public function columns( array $context = array() ): array {
 		return array(
 			new CsvColumn( 'ID группы',       fn( $r ) => $r->id ),
 			new CsvColumn( 'Название',         fn( $r ) => $r->name ),

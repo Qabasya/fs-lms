@@ -1,0 +1,30 @@
+@use '../variables' as *;
+
+// =================================================================
+// Модалка объёма пакета переноса предмета (Этап 6)
+// =================================================================
+// Живёт внутри общего скелета `.fs-lms-modal`; здесь только специфика
+// списка «что включить в пакет».
+
+.fs-bundle {
+  &__option {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-top: $spacing-lg;
+    font-weight: $font-bold;
+    cursor: pointer;
+  }
+
+  &__hint {
+    margin-top: $spacing-xs;
+    padding-left: $spacing-xl;
+    font-size: $font-size-xs;
+    color: $color-text-secondary;
+  }
+
+  &__warning,
+  &__notice {
+    margin: $spacing-md 0 0;
+  }
+}

@@ -4,6 +4,7 @@ namespace Inc\Controllers\Subject;
 
 use Inc\Controllers\System\AjaxController;
 
+use Inc\Callbacks\Subject\SubjectBundleCallbacks;
 use Inc\Callbacks\Subject\SubjectCrudCallbacks;
 use Inc\Callbacks\Subject\SubjectDataCallbacks;
 use Inc\Callbacks\Subject\SubjectImportExportCallbacks;
@@ -68,6 +69,7 @@ class SubjectController extends AjaxController {
 	 * @param ContentCacheService          $cache_service            Сервис кеширования
 	 * @param TemplateCallbacks            $task_page_callbacks      Коллбеки фронтенда заданий
 	 * @param TaskNumberTermGuard          $task_number_guard        Валидация терминов таксономии "Номера заданий"
+	 * @param SubjectBundleCallbacks       $bundle_callbacks         Коллбеки полного пакета переноса предмета
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -86,6 +88,7 @@ class SubjectController extends AjaxController {
 		private readonly TemplateCallbacks $task_page_callbacks,
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly TaskNumberTermGuard $task_number_guard,
+		private readonly SubjectBundleCallbacks $bundle_callbacks,
 	) {
 		parent::__construct();
 	}
@@ -179,6 +182,11 @@ class SubjectController extends AjaxController {
 			// Импорт/экспорт предметов
 			array( AjaxHook::ExportSubject, $this->import_export_callbacks ),
 			array( AjaxHook::ImportSubject, $this->import_export_callbacks ),
+			array( AjaxHook::PreviewSubjectImport, $this->import_export_callbacks ),
+			// Полный пакет переноса предмета (ZIP)
+			array( AjaxHook::ExportSubjectBundle, $this->bundle_callbacks ),
+			array( AjaxHook::PreviewSubjectBundle, $this->bundle_callbacks ),
+			array( AjaxHook::ImportSubjectBundle, $this->bundle_callbacks ),
 			// Управление таксономиями
 			array( AjaxHook::StoreTaxonomy, $this->taxonomy_callbacks ),
 			array( AjaxHook::UpdateTaxonomy, $this->taxonomy_callbacks ),

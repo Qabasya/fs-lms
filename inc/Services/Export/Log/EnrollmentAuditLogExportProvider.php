@@ -60,7 +60,7 @@ class EnrollmentAuditLogExportProvider implements CsvExportProviderInterface {
 	 *
 	 * @return CsvColumn[]
 	 */
-	public function columns(): array {
+	public function columns( array $context = array() ): array {
 		return array(
 			new CsvColumn( 'ID',           fn( $r ) => $r->id ),
 			new CsvColumn( 'Дата',         fn( $r ) => LogNameResolver::date( $r->createdAt ) ),

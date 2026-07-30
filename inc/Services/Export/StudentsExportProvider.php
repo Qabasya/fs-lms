@@ -47,6 +47,13 @@ use Inc\Services\Security\PiiCryptoService;
  * - Email и телефон расшифровываются из person_documents (если есть)
  * - Пароль расшифровывается из мета-поля пользователя (если сохранён)
  * - Расшифровка выполняется только для администраторов (экспорт)
+ *
+ * ### Колонка «Пароль» (A2)
+ *
+ * Пароль — самое чувствительное поле выгрузки, поэтому колонка появляется
+ * в файле **только** при `$context['include_passwords'] === true` (явный
+ * чекбокс в UI). По умолчанию файл содержит лишь контактные данные, и
+ * расшифровка пароля вообще не выполняется.
  */
 class StudentsExportProvider implements CsvExportProviderInterface {
 
@@ -74,10 +81,12 @@ class StudentsExportProvider implements CsvExportProviderInterface {
 	/**
 	 * Возвращает структуру колонок CSV-файла.
 	 *
+	 * @param array<string, mixed> $context Контекст экспорта (include_passwords)
+	 *
 	 * @return CsvColumn[]
 	 */
-	public function columns(): array {
-		return array(
+	public function columns( array $context = array() ): array {
+		$columns = array(
 			new CsvColumn( 'ID ученика',   fn( $r ) => $r['person_id'] ),
 			new CsvColumn( 'Фамилия',      fn( $r ) => $r['last_name'] ),
 			new CsvColumn( 'Имя',          fn( $r ) => $r['first_name'] ),
@@ -88,22 +97,44 @@ class StudentsExportProvider implements CsvExportProviderInterface {
 			new CsvColumn( 'Email',        fn( $r ) => $r['email'] ),
 			new CsvColumn( 'Телефон',      fn( $r ) => $r['phone'] ),
 			new CsvColumn( 'Логин',        fn( $r ) => $r['login'] ),
-			new CsvColumn( 'Пароль',       fn( $r ) => $r['password'] ),
-			new CsvColumn( 'Группы',       fn( $r ) => $r['groups'] ),
-			new CsvColumn( 'Предметы',     fn( $r ) => $r['subjects'] ),
 		);
+
+		if ( self::wantsPasswords( $context ) ) {
+			$columns[] = new CsvColumn( 'Пароль', fn( $r ) => $r['password'] );
+		}
+
+		$columns[] = new CsvColumn( 'Группы',   fn( $r ) => $r['groups'] );
+		$columns[] = new CsvColumn( 'Предметы', fn( $r ) => $r['subjects'] );
+
+		return $columns;
+	}
+
+	/**
+	 * Запрошена ли выгрузка паролей.
+	 *
+	 * Единый предикат для {@see columns()} и {@see rows()} — колонка и её
+	 * значение обязаны включаться/выключаться синхронно.
+	 *
+	 * @param array<string, mixed> $context Контекст экспорта
+	 *
+	 * @return bool
+	 */
+	public static function wantsPasswords( array $context ): bool {
+		return true === ( $context['include_passwords'] ?? false );
 	}
 
 	/**
 	 * Генерирует строки для CSV-файла.
 	 * Поддерживает экспорт выбранных студентов или всех.
 	 *
-	 * @param array $context Контекст экспорта (ids — массив ID студентов)
+	 * @param array $context Контекст экспорта (ids — массив ID студентов,
+	 *                       include_passwords — выгружать ли пароли)
 	 *
 	 * @return iterable
 	 */
 	public function rows( array $context ): iterable {
-		$ids = $context['ids'] ?? array();
+		$ids            = $context['ids'] ?? array();
+		$withPasswords  = self::wantsPasswords( $context );
 
 		// Получение списка студентов (is_student = true)
 		$persons = $ids
@@ -129,9 +160,9 @@ class StudentsExportProvider implements CsvExportProviderInterface {
 				}
 			}
 
-			// Расшифровка пароля (если сохранён в мета-поле)
+			// Расшифровка пароля — только если пароли реально попадут в файл
 			$password = '';
-			if ( $person->wpUserId ) {
+			if ( $withPasswords && $person->wpUserId ) {
 				$enc = $this->userRepository->getMeta( $person->wpUserId, MetaKeys::EncPassword->value );
 				if ( $enc ) {
 					try {

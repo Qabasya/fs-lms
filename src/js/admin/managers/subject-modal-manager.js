@@ -276,49 +276,30 @@ export const SubjectModalManager = {
 
         // Обработчик успешного чтения файла
         reader.onload = (ev) => {
-            let data;
-
-            // Безопасный парсинг JSON. Если файл поврежден или не является JSON,
-            // показываем понятную ошибку пользователю вместо падения всего скрипта.
+            // Ранняя проверка на стороне клиента: битый файл отсеиваем до запроса,
+            // чтобы пользователь получил внятный текст вместо серверной ошибки.
             try {
-                data = JSON.parse(ev.target.result);
+                JSON.parse(ev.target.result);
             } catch {
                 showNotice('Не удалось прочитать файл. Убедитесь, что это корректный JSON.', 'error', $('#fs-import-trigger').parent());
                 return;
             }
 
-            // Извлекаем название предмета для отображения в подтверждении.
-            // Fallback-цепочка: сначала пытаемся взять name, затем key, затем общее слово.
-            const name = data?.subject?.name || data?.subject?.key || 'предмет';
-            const safeName = escapeHtml(name);
-
-            // Показываем модальное окно подтверждения импорта
-            ConfirmModal.confirm({
-                title: 'Импорт предмета',
-                message: `Импортировать «${safeName}»?\nБудут восстановлены: таксономии, термины, шаблоны, boilerplates и записи.`,
-                confirmText: 'Импортировать',
-                cancelText: 'Отмена',
+            // Сначала dry-run: сервер считает, что будет создано, и находит
+            // конфликты — подтверждение показываем уже с этими цифрами (A7).
+            $.post(fs_lms_vars.ajaxurl, {
+                action:   fs_lms_vars.ajax_actions.previewSubjectImport,
+                json:     ev.target.result,
+                security: this._getNonce(),
             })
-                .then(() => {
-                    // Отправляем ВЕСЬ JSON-контент файла на сервер.
-                    // Сервер сам распарсит его и восстановит все связанные данные.
-                    $.post(fs_lms_vars.ajaxurl, {
-                        action:   fs_lms_vars.ajax_actions.importSubject,
-                        json:     ev.target.result,
-                        security: this._getNonce(),
-                    })
-                        .done((res) => {
-                            if (res.success) {
-                                location.reload();
-                            } else {
-                                showNotice(res.data || 'Ошибка импорта', 'error', $('#fs-import-trigger').parent());
-                            }
-                        })
-                        .fail(() => {
-                            apiError('Failed to import subject');
-                        });
+                .done((res) => {
+                    if (!res.success) {
+                        showNotice(res.data || 'Не удалось проверить файл импорта', 'error', $('#fs-import-trigger').parent());
+                        return;
+                    }
+                    this._confirmImport(res.data, ev.target.result);
                 })
-                .catch(() => {});
+                .fail(() => apiError('Failed to preview subject import'));
         };
 
         // Обработчик ошибки чтения файла (например, нет прав доступа)
@@ -329,6 +310,68 @@ export const SubjectModalManager = {
         // Запускаем чтение файла как текст (UTF-8).
         // Результат будет доступен в reader.onload как ev.target.result (строка).
         reader.readAsText(file);
+    },
+
+    /**
+     * Подтверждение импорта по результатам dry-run.
+     * Показывает, что именно будет создано, и блокирует импорт при конфликтах.
+     * @private
+     * @param {Object} preview - Отчёт SubjectImportReportDTO (counts/collisions/warnings/importable).
+     * @param {string} rawJson - Исходное содержимое файла для реального импорта.
+     */
+    _confirmImport(preview, rawJson) {
+        const $anchor  = $('#fs-import-trigger').parent();
+        const safeName = escapeHtml(preview.subject_name || preview.subject_key || 'предмет');
+
+        // Блокирующие конфликты: импорт невозможен, показываем причину и выходим.
+        if (!preview.importable) {
+            ConfirmModal.confirm({
+                title: 'Импорт невозможен',
+                message: preview.collisions.join('\n\n'),
+                size: 'lg',
+                isDanger: true,
+                confirmText: 'Понятно',
+                cancelText: 'Закрыть',
+            }).catch(() => {});
+            return;
+        }
+
+        const lines = Object.entries(preview.counts || {})
+            .filter(([ , count ]) => count > 0)
+            .map(([ section, count ]) => `• ${escapeHtml(section)}: ${count}`);
+
+        const warnings = (preview.warnings || []).length
+            ? `\n\nПредупреждения:\n${preview.warnings.slice(0, 10).join('\n')}`
+            : '';
+
+        ConfirmModal.confirm({
+            title: 'Импорт предмета',
+            message:
+                `Импортировать «${safeName}»?\n\nБудет создано (${preview.total}):\n${lines.join('\n')}` +
+                `${warnings}\n\nПри ошибке в середине импорта всё созданное будет удалено автоматически.`,
+            size: 'lg',
+            isDanger: false,
+            confirmText: 'Импортировать',
+            cancelText: 'Отмена',
+        })
+            .then(() => {
+                // Отправляем ВЕСЬ JSON-контент файла на сервер.
+                // Сервер сам распарсит его и восстановит все связанные данные.
+                $.post(fs_lms_vars.ajaxurl, {
+                    action:   fs_lms_vars.ajax_actions.importSubject,
+                    json:     rawJson,
+                    security: this._getNonce(),
+                })
+                    .done((res) => {
+                        if (res.success) {
+                            location.reload();
+                        } else {
+                            showNotice(res.data || 'Ошибка импорта', 'error', $anchor);
+                        }
+                    })
+                    .fail(() => apiError('Failed to import subject'));
+            })
+            .catch(() => {});
     },
 
     /**

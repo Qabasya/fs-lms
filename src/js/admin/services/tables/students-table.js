@@ -21,18 +21,13 @@
  *
  * @requires jQuery
  * @requires ExpelModal - модальное окно отчисления студентов
+ * @requires PiiExportService - выгрузка ПД с предупреждением и выбором режима паролей
  */
 
 import { ExpelModal } from '../../modals/enrollment/expel-modal.js';
+import { PiiExportService } from '../pii-export-service.js';
 
 const $ = jQuery;
-
-// Геттеры для глобальных переменных WordPress.
-// Использование функций вместо прямого обращения позволяет избежать ошибок, 
-// если объект fs_lms_vars еще не инициализирован на момент объявления модуля.
-const NONCES   = () => fs_lms_applications_vars.nonces;
-const ACTIONS  = () => fs_lms_vars.ajax_actions;
-const AJAX_URL = () => fs_lms_vars.ajaxurl;
 
 /**
  * Менеджер таблицы студентов.
@@ -356,19 +351,8 @@ export const StudentsTable = {
 
         if ( ! ids.length ) return;
 
-        $.post( AJAX_URL(), {
-            action:   ACTIONS().exportStudents,
-            ids:      ids,
-            security: NONCES().manager,
-        } ).done( ( r ) => {
-            if ( r.success && r.data.url ) {
-                const a = document.createElement( 'a' );
-                a.href = r.data.url;
-                document.body.appendChild( a );
-                a.click();
-                document.body.removeChild( a );
-            }
-        } );
+        // Предупреждение о ПД и выбор режима паролей — в общем сервисе (A2).
+        PiiExportService.exportStudents( ids );
     },
 
     /**

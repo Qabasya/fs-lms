@@ -73,10 +73,15 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 	/**
 	 * Возвращает структуру колонок CSV-файла.
 	 *
+	 * Колонка «Пароль» включается только по явному запросу
+	 * ({@see StudentsExportProvider::wantsPasswords()}, A2).
+	 *
+	 * @param array<string, mixed> $context Контекст экспорта (include_passwords)
+	 *
 	 * @return CsvColumn[]
 	 */
-	public function columns(): array {
-		return array(
+	public function columns( array $context = array() ): array {
+		$columns = array(
 			new CsvColumn( 'ID родителя',  fn( $r ) => $r['person_id'] ),
 			new CsvColumn( 'Фамилия',      fn( $r ) => $r['last_name'] ),
 			new CsvColumn( 'Имя',          fn( $r ) => $r['first_name'] ),
@@ -84,23 +89,31 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 			new CsvColumn( 'Email',        fn( $r ) => $r['email'] ),
 			new CsvColumn( 'Телефон',      fn( $r ) => $r['phone'] ),
 			new CsvColumn( 'Логин',        fn( $r ) => $r['login'] ),
-			new CsvColumn( 'Пароль',       fn( $r ) => $r['password'] ),
-			new CsvColumn( 'Ученики',      fn( $r ) => $r['students'] ),
-			new CsvColumn( 'Группы',       fn( $r ) => $r['groups'] ),
-			new CsvColumn( 'Предметы',     fn( $r ) => $r['subjects'] ),
 		);
+
+		if ( StudentsExportProvider::wantsPasswords( $context ) ) {
+			$columns[] = new CsvColumn( 'Пароль', fn( $r ) => $r['password'] );
+		}
+
+		$columns[] = new CsvColumn( 'Ученики',  fn( $r ) => $r['students'] );
+		$columns[] = new CsvColumn( 'Группы',   fn( $r ) => $r['groups'] );
+		$columns[] = new CsvColumn( 'Предметы', fn( $r ) => $r['subjects'] );
+
+		return $columns;
 	}
 
 	/**
 	 * Генерирует строки для CSV-файла.
 	 * Поддерживает экспорт выбранных родителей или всех.
 	 *
-	 * @param array $context Контекст экспорта (ids — массив ID родителей)
+	 * @param array $context Контекст экспорта (ids — массив ID родителей,
+	 *                       include_passwords — выгружать ли пароли)
 	 *
 	 * @return iterable
 	 */
 	public function rows( array $context ): iterable {
-		$ids = $context['ids'] ?? array();
+		$ids           = $context['ids'] ?? array();
+		$withPasswords = StudentsExportProvider::wantsPasswords( $context );
 
 		// Получение списка родителей (is_student = false)
 		$persons = $ids
@@ -132,9 +145,9 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 				}
 			}
 
-			// Расшифровка пароля (если сохранён в мета-поле)
+			// Расшифровка пароля — только если пароли реально попадут в файл
 			$password = '';
-			if ( $parent->wpUserId ) {
+			if ( $withPasswords && $parent->wpUserId ) {
 				$enc = $this->userRepository->getMeta( $parent->wpUserId, MetaKeys::EncPassword->value );
 				if ( $enc ) {
 					try {

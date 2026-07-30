@@ -23,6 +23,11 @@ enum AjaxHook: string {
 	case ToggleSubjectArchive = 'toggle_subject_archive';
 	case ExportSubject = 'export_subject';
 	case ImportSubject = 'import_subject';
+	case PreviewSubjectImport = 'preview_subject_import';
+	// Полный пакет переноса предмета (ZIP: контент + медиа + опц. ученики)
+	case ExportSubjectBundle  = 'export_subject_bundle';
+	case PreviewSubjectBundle = 'preview_subject_bundle';
+	case ImportSubjectBundle  = 'import_subject_bundle';
 
 	// ==================== SubjectController (Таксономии) ====================
 	case StoreTaxonomy  = 'store_taxonomy';
@@ -89,7 +94,6 @@ enum AjaxHook: string {
 	// ==================== Журналы ====================
 	case ExportEntityAuditLog  = 'export_entity_audit_log';
 	case ExportEnrollmentLog   = 'export_enrollment_log';
-	case ExportAuditLog        = 'export_audit_log';
 	case ExportPiiLog          = 'export_pii_log';
 	case ExportExportLog       = 'export_export_log';
 	case ExportDataChangeLog   = 'export_data_change_log';
@@ -124,7 +128,6 @@ enum AjaxHook: string {
 	case UpdatePerson                = 'update_person';
 	case WithdrawConsent             = 'withdraw_consent';
 	case RequestPiiDeletion          = 'request_pii_deletion';
-	case ExportPii                   = 'export_pii';
 	case SendOtpCode                 = 'send_otp_code';
 	case MoveApplicationToTrash      = 'move_application_to_trash';
 	case RestoreApplicationFromTrash = 'restore_application_from_trash';
