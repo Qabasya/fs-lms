@@ -273,17 +273,51 @@ class ProblemsController extends BaseController implements ServiceInterface {
 			return $data;
 		}
 
+		$postId = (int) ( $postarr['ID'] ?? 0 );
+
 		return $this->guard->enforce(
 			$data,
 			'fs_lms_problem_publish_error_',
 			'Название задачи обязательно для заполнения.',
-			function () {
-				$postMeta   = (array) ( $_POST[ PostMetaName::Meta->value ] ?? array() );
+			function () use ( $postId ) {
+				$hasMetaForm = isset( $_POST[ PostMetaName::Meta->value ] );
+
+				// Программная вставка (импорт пакета, рестор банка): формы нет, поста
+				// ещё нет — мета запишется сразу после insert, валидировать нечего.
+				if ( $postId <= 0 && ! $hasMetaForm ) {
+					return null;
+				}
+
+				// Быстрое/массовое редактирование и программный wp_update_post форму
+				// метабокса не шлют — берём сохранённое состояние, иначе валидатор
+				// видел пустую мету, сваливался на «Стандартный» шаблон и откатывал
+				// опубликованную задачу в черновик.
+				$postMeta = $hasMetaForm
+					? $this->unslashArray( PostMetaName::Meta->value )
+					: $this->storedMeta( $postId );
+
 				$templateId = $this->sanitizeKey( PostMetaName::TemplateType->value );
+				if ( '' === $templateId && $postId > 0 ) {
+					$stored     = $this->posts->getMeta( $postId, PostMetaName::TemplateType->value );
+					$templateId = is_string( $stored ) ? $stored : '';
+				}
 
 				return $this->validator->getSoftError( $postMeta, $templateId );
 			}
 		);
+	}
+
+	/**
+	 * Сохранённая мета задачи (пустой массив, если меты ещё нет).
+	 *
+	 * @param int $postId ID задачи банка.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function storedMeta( int $postId ): array {
+		$meta = $postId > 0 ? $this->posts->getMeta( $postId, PostMetaName::Meta->value ) : null;
+
+		return is_array( $meta ) ? $meta : array();
 	}
 
 	/**
