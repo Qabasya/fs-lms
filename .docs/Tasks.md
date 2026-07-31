@@ -1,293 +1,165 @@
-﻿# Перенос контента между сайтами: аудит текущего импорта/экспорта + план полного экспорта/импорта
+# План рефакторинга по итогам аудита (2026-07-31)
 
-> Черновой план. Зафиксированные архитектурные решения (см. раздел «Развилки»):
-> прогресс/факты учеников **не переносятся** (только контент + учётки); пакет экспорта —
-> **ZIP** (JSON-манифест + физические медиафайлы); ссылки на глобальный банк `fs_lms_problems`
-> **подтягиваются автоматически**.
+Аудит: архитектура PHP, SOLID/дизайн, JS-конвенции, SCSS/шаблоны, мёртвый код.
+Приоритеты: **P1** — высокая выгода / источник багов, **P2** — системный долг, **P3** — точечные правки, **P4** — решения/политика (обсудить, зафиксировать в CLAUDE.md).
 
 ---
 
-## Развилки (зафиксировано)
+## P1. Первая волна — высокая выгода, ограниченный риск
 
-| Вопрос | Решение |
-|---|---|
-| Прогресс/факты (посещаемость, сдачи, попытки, оценки) | **Не переносятся.** Экспортируется только контент (предмет/курсы/уроки/задания/работы/контрольные) + учётные записи учеников/родителей и их зачисление в группы. История обучения на новом сайте начинается с нуля. |
-| Медиа-вложения (task_materials, аудио/файловые задания) | **Физически переносятся.** Пакет — ZIP: `manifest.json` + `media/{attachment_id}__{filename}`. При импорте файлы заливаются в Media Library целевого сайта, ID ремаппится. |
-| Глобальный банк `fs_lms_problems` | **Подтягивается автоматически.** Экспортёр обходит `works.item_ids[]`/`assessments.task_ids[]`, находит записи вне `{subject}_tasks`, включает их в пакет отдельным разделом `problems[]`. |
+### 1.1 Log-инфраструктура: убрать ~400 строк копипасты
+- [ ] Ввести `AbstractLogRepository` (общие `list()`, `countFiltered()`, `listAll()`, скелет `buildConditions()`; абстрактные `hydrate()`, `filterMap()`), отнаследовать 8 репозиториев `inc/Repositories/WPDBRepositories/Log/`
+- [ ] Вынести дублированный `resolveRole()` из 7 Log-writer'ов (`inc/Services/Log/*Writer.php`) в `ActorRoleResolver` (или трейт)
+- [ ] `AdminCallbacks::logsPage()` (`inc/Callbacks/System/AdminCallbacks.php:301`, 185 строк, 8 elseif по `LogChannel`) → реестр `LogPageProvider` по каналу; минус 8 из 19 зависимостей конструктора
 
-Явно вне охвата этого плана: видеозаписи занятий (`fs_lms_video_recordings`, S3-хранилище модуля VideoLibrary) — отдельный домен, не часть контента предмета/курса.
+### 1.2 Разбить главные god-классы
+- [ ] `inc/Callbacks/Course/ProgramCallbacks.php` (708 строк, 31 ajax-метод, 10 зависимостей) → 4–5 классов: программа / расписание-reflow / индивидуальные занятия / ростер / дедлайны работ
+- [ ] `inc/Services/Group/ScheduleService.php` (744 строки, 23 метода, 11 зависимостей) → `ProgramCompositionService` + `ScheduleReflowService` + `IndividualLessonService` + `GroupCalendarService` (синхронно с разбиением ProgramCallbacks)
+- [ ] `inc/Controllers/Subject/SubjectController.php` — 18 зависимостей, из них 8 Callbacks-классов: диспетчеризация ajax через реестр вместо инъекции всех коллбеков; `getDefaultCptArgs()` (:367, 125 строк) и `registerForSubject()` (:247) → `SubjectCptArgsFactory` / Builders
 
----
+### 1.3 Слои, которые «врут» о себе
+- [ ] `inc/DTO/Task/PostsListTableDTO.php` — не DTO: держит `WP_Posts_List_Table`, рендерит HTML через `ob_start()`, мутирует `$_SERVER` → перенести в презентационный слой (`Controllers/Builders/` или `View/`) как `PostsListTablePresenter`
+- [ ] `inc/DTO/Subject/ImportedEntitiesDTO.php` — мутабельный аккумулятор с 8 мутаторами → переименовать в `ImportedEntitiesCollector`, переместить в `Services/Subject/`
 
-## Часть A. Что исправить в существующем импорте/экспорте
+### 1.4 Токены SCSS: одинаковые имена — разные значения (источник багов)
+- [ ] Устранить конфликт имён между `shared/_tokens.scss` и `frontend/_variables.scss`: `$spacing-xl` (20 vs 24), **`$font-size-sm` (10px vs 14px!)**, `$font-size-xs`, `$radius-pill`/`$border-radius-pill`, `$line-height-base`, `$font-mono` — либо переименовать с доменным префиксом, либо свести к одной шкале
+- [ ] Согласовать две лестницы радиусов (tokens: 3/4/6/8/12 vs frontend: 4/6/8/12/16/999); схлопнуть неразличимые `$border-radius-sm`/`$border-radius-md` (3px vs 4px)
+- [ ] Убрать точные дубли hex под разными именами: `#7048e8` ×3 (`_tokens.scss:105`, `_theme.scss:64,77`), `#b36b00` (`--wait` ≡ `--wait-ink`), `#d63638` (`$color-danger` скопирован в frontend), `#fdecec`, `#7c3aed`
+- [ ] Почистить почти-дубли (правило памяти «не плодить близкие токены»): 4 бледно-зелёных в `_theme.scss:40,41,58,59`; `--line`/`--line-2` (:34-35); `--accent-soft`/`--accent-soft-3`; 3 неразличимых серых (`$cb-chip-bg`/`$cb-badge-bg`/`$wp-admin-gray-2`); 4 почти-белых
 
-Это должно идти **первым этапом** — часть находок (несогласованность прав, отсутствие транзакций) станет фундаментом для нового функционала, и чинить их после расширения будет дороже.
-
-### A1. Несогласованность прав доступа к PII-экспорту — приоритет высокий
-- `Capability::ExportPII` реально проверяется только в `ExpulsionCallbacks::ajaxExportExpelledRecord`
-  (`inc/Callbacks/Enrollment/ExpulsionCallbacks.php`).
-- Экспорт студентов/родителей (`StudentsExportProvider`, `ParentsExportProvider` — содержат email,
-  телефон, **пароль в открытом виде**) защищён более широким `Capability::ManageLmsPlatform`
-  в `LogsCallbacks`.
-- **Действие:** привести к единому стандарту — либо все PII-экспорты (`students`, `parents`,
-  `archive` в части ФИО) требуют `Capability::ExportPII` (дополнительно к `ManageLmsPlatform`,
-  двойная проверка), либо сознательно задокументировать в CLAUDE.md, что `ExportPII` относится
-  только к точечному экспорту записи об отчислении, а массовые доменные экспорты — отдельная
-  капа. Рекомендация: ввести проверку **обеих** — `ManageLmsPlatform` (доступ к разделу) +
-  `ExportPII` (право выгружать персональные данные) для `students`/`parents`.
-
-### A2. Пароли в открытом виде в CSV-экспорте — приоритет высокий (security)
-- `StudentsExportProvider`/`ParentsExportProvider` расшифровывают и пишут пароль ученика/родителя
-  в CSV открытым текстом.
-- **Действие:**
-    - Добавить явное предупреждение в UI перед экспортом («файл содержит пароли, храните и
-      передавайте защищённым каналом, удалите после использования»);
-    - Рассмотреть опциональный режим экспорта «без паролей» (чекбокс) для случаев, когда нужны
-      только контактные данные;
-    - Убедиться, что одноразовая ссылка (`PiiController`) — единственный канал раздачи файла
-      (сейчас так и есть, файл + транзиент удаляются после первого скачивания — оставить как есть,
-      это работает правильно).
-
-### A3. Мёртвый код `AjaxHook::ExportPii` / `Nonce::ExportPii` — приоритет низкий
-- Nonce генерируется и уходит в JS (`fs_lms_applications_vars.nonces.exportPii`), но обработчика
-  AJAX нет, во фронтенде не используется.
-- **Действие:** либо удалить (enum-кейс, генерацию nonce в `Enqueue.php`), либо, если это был
-  задел под будущий «экспорт всех PII одного лица» (GDPR-портирование данных) — реализовать.
-  Не оставлять как есть: мёртвые nonce-точки — риск (генерируют валидный nonce для
-  незарегистрированного действия, вводят в заблуждение при аудите).
-
-### A4. Дублирующийся `ExportTarget` в `ajaxExportAuditLog()` — приоритет средний
-- `LogsCallbacks::ajaxExportAuditLog()` использует тот же `ExportTarget::LogEnrollment`, что и
-  `ajaxExportEnrollmentLog()` — похоже на copy-paste баг, а не два разных провайдера.
-- **Действие:** проверить намерение (нужен ли отдельный «общий журнал аудита» —
-  `EntityAuditLogExportProvider` уже зарегистрирован под `ExportTarget::LogEntityAudit`, но,
-  похоже, нигде не вызывается через AJAX) и поправить хук на правильный `ExportTarget`.
-
-### A5. Импорт предмета — нет транзакционности — приоритет высокий (фундамент для части B)
-- `SubjectImportService::importSubject()` пишет таксономии → метабоксы → boilerplates → термины
-  → посты последовательно, без отката при ошибке на середине — предмет может остаться в
-  частично импортированном состоянии.
-- **Действие:** обернуть весь импорт в `TransactionRunner` там, где это применимо к БД-операциям
-  (термины, wp_options-структуры), и явно смириться с тем, что `wp_insert_post`/
-  `register_taxonomy` не транзакционны (как это уже сделано и осознанно принято в
-  `EnrolledStudentRowImporter`) — но при любой ошибке **откатывать частично созданный предмет
-  целиком** (удалить уже вставленные посты/термины/опции) вместо простого исключения. Это
-  обязательно нужно для части B, где граф импорта на порядок больше (7 типов сущностей вместо 2).
-
-### A6. Импорт предмета не поддерживает merge/update — приоритет низкий, зафиксировать как есть
-- Сейчас импорт только создаёт новый предмет с уникальным `key`. Для сценария «перенос между
-  сайтами» это ограничение — норма (переносим на чистый сайт), но стоит явно
-  задокументировать в UI импорта: «повторный импорт того же предмета невозможен, сначала
-  удалите предмет на целевом сайте» — сейчас ошибка технического вида, не подсказка пользователю.
-
-### A7. Нет dry-run/предпросмотра для импорта предмета — приоритет средний
-- В отличие от импорта учеников (есть `dry_run` с превью), импорт предмета сразу пишет в БД.
-- **Действие:** добавить dry-run режим (валидация структуры JSON, проверка коллизий `key`/
-  `slug` терминов, подсчёт объектов к созданию) — по аналогии с `ImportService`. Обязательно для
-  части B, где ошибка на 500-м посте после часа импорта — неприемлемый UX без предпросмотра.
+### 1.5 Мёртвая фича «Все задания» (JS)
+- [ ] Решить судьбу цепочки из 5 неподключённых файлов (~350 строк): `frontend/services/all-tasks-page.js`, `all-tasks-api.js`, `components/filter-section.js`, `task-card.js`, `modules/card-tabs.js` — PHP-страница жива (`AllTasksPageController`, `templates/frontend/all-tasks.php`), JS не импортируется ни одной точкой входа
+- [ ] Если фичу оживлять: починить рассогласование селекторов (`task-card.js` генерирует `.js-tab-btn`, `card-tabs.js` ищет `.js-answer-toggle`); если нет — удалить все 5 файлов
 
 ---
 
-## Часть B. Полноценный экспорт/импорт контента (предмет + курсы + ученики)
+## P2. Вторая волна — системный долг
 
-### Целевой сценарий пользователя
+### 2.1 Бизнес-логика в Controllers → Services + templates
+- [ ] `inc/Controllers/Course/LearningMenuController.php` (581 строка): usage-индексы (:426-487) → отдельный сервис индексации; фильтры списков (:174, :397) → `ListTableFilters`; рендер банков (:545) → шаблон
+- [ ] `inc/Controllers/Problems/ProblemsController.php` (536 строк): `applyColumnSort()` (:263), `courseProblemIndex()`/`workProblemIndex()` (:429, :481) → сервис; `renderProblemsFilters()` (:332, 86 строк echo) → шаблон; регистрация CPT → Registrar
+- [ ] `inc/Controllers/Pages/AssessmentPageController.php`: `loadTemplate()` (:106, ~127 строк — гарды, 404, заголовки, расчёт canRetry) и `buildTaskViews()` (:263) → сервис
+- [ ] `inc/Controllers/Subject/ContentDeletionGuard.php` — расчёт ссылочности и transient-журнал (:124, :189-218) → сервис
+- [ ] Убрать ручной `echo`/`printf` HTML из контроллеров (8 файлов, 25+ мест: MetaBox-контроллеры Assessment/Course/Lesson/Work/Task, ProblemsController, BoilerplatePageController, AdminController) → `TemplateRenderer`; отдельно `CourseMetaBoxController.php:62` — инлайновый `<style>`
 
-1. На сайте-источнике: «Экспортировать предмет» → получить один ZIP-файл со всем содержимым
-   предмета (задания, статьи, работы, контрольные, уроки, курсы, глобальные problems, медиа).
-2. На сайте-цели: «Импортировать предмет» → загрузить ZIP → предпросмотр (что будет создано,
-   конфликты) → подтвердить → предмет с полным содержимым готов.
-3. Отдельно: «Экспортировать учеников» (для этого предмета/групп) → CSV/ZIP с учётками,
-   зачислением, привязкой к группам и курсу → импорт на целевом сайте создаёт группы, зачисляет
-   учеников, назначает курс группе. Без истории обучения.
+### 2.2 Длинные методы (200+ строк) + array→DTO
+- [ ] `EnrollmentService::enroll()` (`inc/Services/Enrollment/EnrollmentService.php:69`, 258 строк, 15 зависимостей) → `PersonResolver` + `EnrollmentTransaction`, декомпозиция на приватные шаги
+- [ ] `LearnerService::build()` (`inc/Services/Profile/LearnerService.php:55`, 214 строк, 17 зависимостей, возвращает array) → билдеры секций + `LearnerDashboardDTO`
+- [ ] `Enqueue::enqueue_admin_assets()` / `enqueue_frontend_assets()` (`inc/Core/Enqueue.php:77, :456`, 220/203 строки) → реестр asset-бандлов с `shouldEnqueue()`/`data()`
 
-### Граф зависимостей контента (порядок экспорта/импорта)
+### 2.3 Дублирование PHP
+- [ ] `AbstractRowImporter` для `StudentRowImporter` / `EnrolledStudentRowImporter` — `requireValues()`, `toDate()`, `toDateTime()` побайтово идентичны (`inc/Services/Import/`)
+- [ ] `ProfileViewResolver::teacherConfig()` (:173, 127 строк) → перенести в `TeacherProfileView::build()`; резолвер только выбирает стратегию
 
-```
-1. subject (taxonomies, metaboxes, boilerplates, terms)
-2. tasks, articles                        (текущий SubjectExportService — без изменений по сути)
-3. problems[]  (только те, что реально используются в works/assessments данного предмета)
-4. works        → ref: item_ids[]  → tasks | problems
-5. assessments  → ref: task_ids[]  → tasks | problems
-6. lessons      → ref: steps[].payload.ref → tasks | works | assessments | problems
-7. courses      → ref: modules[].lessonIds[] → lessons
-```
-Импорт обязан идти строго в этом порядке (каждый следующий уровень ссылается только на
-предыдущие) — это уже топологическая сортировка, дополнительный резолвер зависимостей не нужен.
+### 2.4 Расширить трейт `Sanitizer` и закрыть сырые санитайзеры
+- [ ] Добавить методы: `sanitizeIntList()`, `sanitizeKeyList()`, `unslashArray()` (или аналог) — текущий трейт не покрывает массивы/JSON
+- [ ] Заменить ~30 сырых вызовов в 17 Callbacks-файлах (`AllTasksCallbacks`, `StudentGroupCallbacks`, `LogsCallbacks` ×4, `ProgramCallbacks`, `CourseBuilderCallbacks`, `LessonCallbacks` и др.)
 
----
+### 2.5 Транзиенты: ввести абстракцию
+- [ ] Нет `TransientManager`/`CacheRepository` — сырые `get/set/delete_transient` со строковыми ключами в `PiiController:142,154`, `ContentDeletionGuard:189-218`, `SubjectDataCallbacks:158-209`; ключи `fs_lms_export_`, `fs_lms_delete_blocked_` продублированы строками в двух слоях
 
-### Этап 0 — Проектирование формата пакета
+### 2.6 Modules: параллельная архитектура → общий стандарт
+- [ ] 5 модульных `*Config`-классов (`SocialAuth`, `SmartCaptcha`, `DaData`, `VideoLibrary`, `AdSync`) с прямыми `get_option/update_option` → репозитории/OptionName
+- [ ] 5 `wp_localize_script` вне `Enqueue.php` (`ModulesDashboardController:38` + 4 модульных Settings-контроллера) → перенести в Enqueue или легализовать модульный паттерн в CLAUDE.md
+- [ ] `AdSyncController.php:97` — `wp_send_json_success()` напрямую → трейт `AjaxResponse`
+- [ ] `SocialAuth/templates/settings-tab.php:19` — `get_option('fs_lms_auth_settings')` сырой строкой прямо в шаблоне
+- [ ] `SmartCaptchaModule.php:34` — конкретный `YandexSmartCaptchaProvider` вместо `CaptchaProviderInterface` → биндинг в контейнере
 
-- [x] Определить схему `manifest.json` (версионируемая, `schema_version` в шапке — как у
-  `fs_lms_schema_version`, чтобы формат можно было эволюционировать без поломки старых
-  экспортов):
-  ```
-  {
-    "schema_version": "1.0.0",
-    "plugin_version": "...",
-    "exported_at": "...",
-    "subject": {...},
-    "taxonomies": [...], "metaboxes": [...], "boilerplates": [...], "terms": [...],
-    "posts": { "tasks": [...], "articles": [...], "problems": [...], "works": [...],
-               "assessments": [...], "lessons": [...], "courses": [...] },
-    "media": [ { "attachment_id": 123, "file": "media/123__photo.jpg", "mime": "...",
-                 "used_in": [...] } ]
-  }
-  ```
-- [x] Каждый пост в `posts.*` хранит **стабильный экспортный ключ** (не WP ID — тот на целевом
-  сайте будет другим): использовать `"_export_id"` — либо оригинальный `post_id` источника
-  с префиксом типа (`task:123`), либо (лучше, если есть) уже существующий `uid` — как у
-  boilerplates. Проверить, есть ли у tasks/works/lessons/courses собственный `uid` в мете —
-  если нет, ввести перед экспортом (не обязательно постоянный, можно синтетический на время
-  экспорта).
-    - Все ref-поля (`item_ids`, `task_ids`, `steps[].payload.ref`, `lessonIds`) в пакете хранятся
-      как эти `_export_id`, **не** как исходные WP post ID.
-- [x] Формат архива: ZIP, корень — `manifest.json` + папка `media/`. Ограничить входные файлы
-  импорта тем же белым списком MIME, что и `MediaManager` (jpeg/png/gif/webp/heic/pdf/doc/
-  docx/pptx/txt/py) — не расширять список ради импорта.
-- [x] Заложить контрольную сумму (`sha256` каждого файла в `media[]`) для проверки целостности
-  после распаковки.
+### 2.7 DIP: точечные нарушения
+- [ ] `ImportCallbacks.php:45-46` — инъекция конкретных импортёров вместо реестра `array<ImportMode, RowImporterInterface>`
+- [ ] `ProfileViewResolver.php:39-40` — конкретные view-классы вместо `ProfileViewInterface`
+- [ ] `ContentUsageService::kindOf()` — статика в DI-сервисе (вызовы из `ContentDeletionGuard:94,217,235`) → выделить `ContentKindResolver` по образцу `PostTypeResolver`
+- [ ] `'submission'|'attempt'` — строковые литералы в 4 match трёх файлов (`WorkDetailService:51`, `OwnWorkDetailService:42`, `WorkResetService:40,52`) → enum `WorkSourceType` + стратегия
 
-### Этап 1 — Фундамент: доработки части A как обязательное условие
+### 2.8 JS: общий слой утилит
+- [ ] Создать `common/utils` (строки/даты) и свести дубли: `escapeHtml`/`esc` — **11 реализаций**, `toast` — 5 (в т.ч. две побайтово идентичные в `kege/`), `fmtDate` — 4 внутри `profile/` при живом `profile/utils.js`, `debounce` — 3
+- [ ] AJAX из UI-слоя: `admin/modals/enrollment/select-parent-modal.js:190,268,335` и `admin/modals/draft-creator-modal.js:112` → вынести в managers/services
+- [ ] `alert-modal.js` — двойная инициализация (явно из `admin.js:66` + автозагрузка `ui.js`) → добавить `_initialized`-guard; заодно guard'ы в `bundle-export-modal`, `confirm-modal`, `pii-export-modal`
+- [ ] Мёртвые экспорты: `utils.js:181 toggleButtonExtended`, `:236 apiErrorEnhanced`, `ui-helpers.js:25 fsEmpty`, `input-masks.js:74 bindInnMask`, `icons.js` — `icoFlag`/`icoFile`/`icoArrowRight` (последние два при этом продублированы инлайном в `task-card.js`)
 
-- [x] A5 (транзакционность/откат) и A7 (dry-run) — сделать до начала работы над Этапом 2,
-  иначе тот же долг унаследует в разы больший объём кода.
-- [x] Вынести общую инфраструктуру `SubjectExportService`/`SubjectImportService` в переиспользуемые
-  компоненты: `PostCollector` (по типу CPT + мета + термины), `PostRestorer` (создание поста
-  из DTO с сохранением мета/терминов) — это одна и та же операция для tasks/articles/problems/
-  works/assessments/lessons/courses, различается только источник данных.
-
-### Этап 2 — Расширение экспорта: полный граф контента
-
-- [x] `SubjectExportService::collectPosts()` — добавить сбор `works`, `assessments`, `lessons`,
-  `courses` (используя тот же `PostTypeResolver`-паттерн, добавить туда методы, если их ещё
-  нет: `works($key)`, `assessments($key)`, `lessons($key)`, `courses($key)` — часть уже
-  обнаружена в исследовании, часть возможно потребуется добавить).
-- [x] Сборщик `problems[]`: после сбора works/assessments — пройтись по `item_ids`/`task_ids`,
-  отфильтровать те ID, что не входят в `{subject}_tasks` данного предмета → это ссылки на
-  `fs_lms_problems` → включить сами посты в раздел `problems`.
-- [x] Присвоить каждому собранному посту `_export_id`, построить карту `WP ID → _export_id` на
-  время экспорта, пройтись по всем ref-полям (`item_ids`, `task_ids`, `steps[].payload.ref`,
-  `modules[].lessonIds`) и заменить WP ID на `_export_id`.
-- [x] Собрать список медиа: обойти мета всех экспортируемых постов на предмет полей с
-  `attachment_ids` (`task_materials`, аудио/файловые типы заданий — те же поля, что уже
-  перечислены в исследовании архитектуры) → уникальный список `attachment_id` → положить
-  файлы в `media/` ZIP-архива (`wp_get_attachment_url`/путь на диске через
-  `get_attached_file()`).
-- [x] Callback: расширить `SubjectImportExportCallbacks::ajaxExportSubject` — вместо
-  JSON-ответа отдавать ссылку на сгенерированный ZIP (переиспользовать существующий паттерн
-  одноразовой ссылки из `ExportService`/`PiiController`, не изобретать новый).
-
-### Этап 3 — Импорт: ремаппинг ID и порядок восстановления
-
-- [x] `SubjectImportService` — распаковка ZIP, валидация `schema_version`, dry-run режим (A7):
-  посчитать, что будет создано, проверить коллизию `subject.key`.
-- [x] Импорт в строгом порядке графа зависимостей (см. выше): taxonomies/metaboxes/boilerplates/
-  terms → tasks/articles → problems → works → assessments → lessons → courses.
-    - После каждого уровня — пополнять карту `_export_id → новый WP ID`.
-    - Перед вставкой поста следующего уровня — резолвить все ref-поля через эту карту.
-- [x] Обработка `problems[]` на целевом сайте: т.к. это глобальный (не привязанный к предмету)
-  банк — перед созданием проверить, нет ли уже record с тем же `_export_id`/контрольной
-  суммой контента (на случай повторного импорта другого предмета, ссылающегося на ту же
-  задачу) — не плодить дубликаты глобального банка при множественных импортах предметов на
-  один сайт.
-- [x] Откат при ошибке (A5): если импорт упал на любом уровне — удалить все уже созданные посты/
-  термины/опции/медиа этого запуска (хранить список созданных ID в рамках запроса).
-
-### Этап 4 — Медиа: перенос вложений
-
-- [x] При импорте — залить файлы из `media/` в Media Library целевого сайта
-  (`media_handle_sideload`-эквивалент, тот же MIME-контроль, что в `MediaManager`), получить
-  новые attachment ID.
-- [x] Построить карту `_export_id медиа (по attachment_id источника) → новый attachment ID`.
-- [x] Пройтись по мете уже вставленных постов (tasks/works/...) и заменить все
-  `attachment_ids`/поля файловых заданий на новые ID.
-- [x] Проверить контрольные суммы (`sha256` из манифеста) после распаковки — прервать импорт
-  при несовпадении (повреждённый архив) до записи чего-либо в БД.
-
-### Этап 5 — Перенос учеников (без прогресса)
-
-- [x] Новый экспортёр (переиспользовать паттерн `ExportTarget`/`CsvExportProviderInterface`, но
-  выходной формат — тоже часть ZIP-пакета, не отдельный CSV, если нужно тянуть вместе с
-  группами и назначением курса): по выбранным группам/предмету собрать —
-  - `persons` (ученик + родитель, включая `person_documents` — с расшифровкой на экспорте
-  и повторным шифрованием на импорте, **не** передавать plaintext внутри архива дольше,
-  чем на время процесса);
-  - `student_records` (статус, договор — без `group_lesson`-привязанных фактов);
-  - `groups` (включая `course_id`, если экспортируется вместе с курсом).
-- [x] Импортёр: переиспользовать `PersonImportResolver`/`GroupsRepository`/
-  `AccountProvisioningService` из существующего CSV-импорта учеников (`inc/Services/Import/`)
-  — **не писать новый механизм создания учёток**, только новый источник входных данных
-  (не CSV-строка, а объект из ZIP-манифеста). Режим соответствует текущему `enrolled`
-  (WP-учётки создаются) — переиспользовать `EnrolledStudentRowImporter`'а логику максимально.
-    - Если группа ссылается на `course_id` из этого же пакета — резолвить через ту же карту
-      `_export_id → новый WP ID` из Этапа 3.
-- [x] Явно не переносить: `fs_lms_group_lessons`, `fs_lms_lesson_progress`, `fs_lms_submissions`,
-  `fs_lms_assessment_attempts/answers`, `fs_lms_task_attempts`, `fs_lms_attendance`,
-  `fs_lms_learning_events` — зафиксированное решение (см. «Развилки»). Ученик на целевом
-  сайте зачислен и видит курс, но начинает прохождение с нуля.
-
-### Этап 6 — Orchestration UI / UX
-
-- [x] Экран «Экспорт/импорт предмета» (расширение существующего UI, где сейчас уже есть
-  Export/Import Subject) — добавить чекбоксы «включить работы/уроки/курсы» (не всегда нужен
-  максимальный охват — иногда достаточно перенести банк заданий) и «включить учеников этого
-  предмета» (запускает Этап 5 как опциональный доп. шаг того же мастера).
-- [x] Прогресс-бар для длительной операции (генерация ZIP с медиа может занимать минуты) —
-  AJAX с поллингом статуса, аналогично тому, как это может понадобиться для больших
-  CSV-импортов (сверить, есть ли уже похожий паттерн для длительных операций в проекте —
-  если нет, ввести простой job-статус в transient, аналогично `ExportService`).
-- [x] Экран предпросмотра импорта (dry-run, Этап 3): список сущностей к созданию по типам,
-  предупреждения о коллизиях (`subject.key` уже занят, дубликаты `problems` по контрольной
-  сумме), кнопка «Импортировать» становится активной только после явного подтверждения.
-- [x] Индикация в UI, что прогресс/факты не переносятся (чтобы администратор не был удивлён
-  пустой статистикой на новом сайте).
-
-### Этап 7 — Надёжность и большие объёмы
-
-- [x] Ограничение размера ZIP на загрузку — определить реалистичный лимит (текущий CSV-импорт
-  ограничен 5 МБ — для медиа-пакетов этого категорически недостаточно; проверить
-  `upload_max_filesize`/`post_max_size`/WP `wp_max_upload_size()`, предусмотреть чанкованную
-  загрузку большого файла, если лимит хостинга ниже нужного).
-    - Рассмотреть альтернативный путь для очень больших сайтов: WP-CLI команда
-      (`wp fs-lms subject export <key> --out=file.zip` / `wp fs-lms subject import file.zip`) —
-      в проекте уже есть прецедент прямого использования WP-CLI (`docker compose run --rm wpcli`),
-      это снимает ограничения PHP `max_execution_time`/upload-лимитов для крупных предметов.
-- [x] Импорт больших пакетов — обрабатывать посты батчами (как `ArchiveExportProvider` уже
-  пагинирует по 200), а не одним проходом, чтобы не упереться в memory_limit/timeout.
-- [x] Защита от zip-slip / path traversal при распаковке архива (проверка, что пути внутри ZIP
-  не выходят за пределы целевой директории распаковки) — обязательный пункт security-ревью,
-  т.к. вход — файл, загруженный пользователем.
-- [x] Права: весь функционал (экспорт/импорт полного пакета, включая учеников) — только
-  `Capability::Admin`, отдельный nonce (можно переиспользовать `Nonce::Subject`, либо завести
-  `Nonce::SubjectBundle`, если операции должны логически отличаться в аудите).
-- [x] Логирование каждого экспорта/импорта в `fs_lms_export_log` (уже используется —
-  `ExportLogWriter::record`), с типом `'subject_bundle'`/`'subject_bundle_import'` и деталями
-  объёма (число постов по типам, число учеников, размер медиа).
-
-### Этап 8 — Тестирование
-
-- [x] Round-trip тест: экспорт реального тестового предмета с курсами/уроками/работами/
-  контрольными/медиа → импорт на чистую БД → сверить структуру (число постов, ref-целостность,
-  отсутствие битых `payload.ref`/`item_ids`, доступность медиафайлов).
-- [x] Тест отката при ошибке в середине импорта (например, повреждённый пост в середине массива
-  `lessons`) — проверить, что частично созданные сущности удаляются.
-- [x] Тест на дубли `problems[]` при повторном импорте другого предмета, ссылающегося на те же
-  глобальные задачи.
-- [x] Тест переноса учеников: зачисление, привязка к группе/курсу, создание WP-учёток, письмо
-  родителю (или его отсутствие, если чекбокс выключен) — переиспользовать существующие тесты
-  `EnrolledStudentRowImporter` как основу.
-- [x] Security-тест загрузки ZIP: попытка path traversal, недопустимый MIME внутри архива,
-  превышение лимита размера, испорченный `manifest.json`.
+### 2.9 SCSS: недостающие слои токенов
+- [ ] Завести размерную шкалу для `assessment/` (нет своего `_variables.scss`; `_attempt.scss` — 89 сырых px, дробные кегли 12.5/13.5/14.5px) и `kege/` (в `_variables` только цвета и `--kege-tfs`)
+- [ ] `_redirect-box.scss` (27 `!important`) и `_person-field.scss` (15) → переписать через один родительский сброс по образцу `modal/_base.scss:111`; попутно `:173` — `$font-size-m!important` без пробела
 
 ---
 
-## Порядок исполнения (сводно)
+## P3. Точечные правки (дёшево, можно между делом)
 
-1. **Часть A** (A1–A7) — все пункты, приоритет high/medium сначала.
-2. **Часть B, Этап 0–1** — формат пакета + рефакторинг общей инфраструктуры сбора/восстановления
-   постов.
-3. **Этап 2–4** — расширение экспорта/импорта на полный граф + медиа (самая объёмная часть).
-4. **Этап 5** — перенос учеников поверх готового ремаппинга ID.
-5. **Этап 6–7** — UI, надёжность, большие объёмы.
-6. **Этап 8** — тесты, security-ревью перед выкаткой на прод.
+### PHP
+- [ ] `TaskContentCallbacks.php:94,96,110` — `wp_update_post`/`wp_insert_post`/`update_post_meta` напрямую → `PostManager`
+- [ ] `ConsentSettingsCallbacks.php:73` — `wp_insert_post` из коллбэка → `PageGeneratorService`/Manager
+- [ ] `SubjectValidationCallbacks.php:109` — `current_user_can('manage_categories')` сырой строкой → `Capability` + Authorizer
+- [ ] `SubjectPageCallbacks.php:124,132,139` — `echo` из коллбэка → шаблоны
+- [ ] `WpOptionsEmailTemplate.php:37` → существующий `EmailTemplatesRepository`
+- [ ] `ProfileController.php:84` → существующий `ExpulsionPolicyRepository`
+- [ ] `Init.php:218,221` — `'fs_lms_caps_version'` → кейс в `OptionName`
+- [ ] Сырые meta-ключи → `PostMetaName`: `'fs_lms_person_id'` (`EnrollmentCallbacks:623`, `LogNameResolver:85`), `'fs_lms_forked_from'`/`'fs_lms_forked_for_group'` (`PostCollector:46-47`), константы `ProblemDeduplicator:43,48`, legacy `'_fs_lms_template_type'` (`TemplateResolver:78`)
+- [ ] `NumericSorter.php:35` — трейт сам регистрирует `add_filter` → перенести регистрацию в контроллер
+- [ ] templates: `subject-1-stats.php:99,117` — два `new WP_Query()` в шаблоне; `application-enrollment-modal.php:26`, `settings-4-email-templates.php:9`, `settings-5-consents.php:7` — `get_option()` в шаблонах → данные передавать из контроллера
+- [ ] `ApplicationRepository.php:265-285, 353-364` — валидация переходов статусов и правило trash-удаления → `ApplicationService`
+
+### JS/SCSS/шаблоны
+- [ ] `apply-fields.php:303`, `join.php:551` — `style="display:none"` → `hidden`
+- [ ] Инлайновые SVG: `step-assessment.php:60,112,157,168`, `attempt-shell-header.php:43,54` → `Icon::` (файл `step-assessment` мигрирован наполовину); логотипы провайдеров в `help-modal.php` — вынести в партиал
+- [ ] Хардкод-цвета: `kege/components/_base.scss:123,127`, `_exam.scss:24`, `admin/_mixins.scss:339,346` → токены
+- [ ] `frontend/components/_reset.scss:2` — CSS `@import` шрифта Ubuntu → `wp_enqueue_style` + preconnect; заодно решить конфликт двух базовых шрифтов (Ubuntu vs Golos Text в `_tokens.scss:61`)
+- [ ] `utils.js:538` — `.css('background', '#ff8d8d')` хардкод-цвет; `select-parent-modal.js:414-430`, `utils.js:359` — `style="..."` в шаблонных строках
+- [ ] `.css('opacity')` как индикатор загрузки (`recent-posts.js:124,146,181`, `posts-table.js:239,268,326`) → класс
+- [ ] Дубль HTML письма: `templates/emails/otp_code.php` ≡ heredoc в `settings-4-email-templates.php:20+` → один источник
+
+---
+
+## P4. Решения / политика (обсудить и зафиксировать в CLAUDE.md)
+
+- [ ] **Scoped-фильтры**: временные `add_filter/remove_filter` в `SubjectDeletionService`, `MediaSideloader`, `MediaManager`, `TaskPublishGuard` — легализовать как исключение или вынести в `Shared/Traits/ScopedFilter`
+- [ ] **`LogNameResolver` как статика** — добавить в белый список статических утилит (рефакторинг не окупится)
+- [ ] **`style.display` в JS** (~14 мест) — либо явно разрешить, либо ввести утилиту `toggleVisible()`
+- [ ] **Правило `_types.js`** — 15 админ-файлов используют глобалы без импорта типов: автоматизировать (ESLint) или признать декоративным
+- [ ] **`add_action` в Managers** (`CPTManager:45`, `TaxonomyManager:40`, `MenuManager:88`, `MetaBoxManager:73`, `MediaManager:67`) — сложившийся паттерн «менеджер сам вешает свой хук»: легализовать или переносить в контроллеры
+- [ ] **Инлайн-стили в email-шаблонах** — исключить `templates/emails/` из запрета (требование почтовых клиентов)
+- [ ] **`require.context` в `ui.js:59`** — нерекурсивный: модалки в `modals/enrollment/**` не автозагружаются (сейчас все инициализируются вручную — работает, но контракт из CLAUDE.md верен только для верхнего уровня); фолбэк `ui.js:82` берёт первый экспорт файла — хрупко
+
+---
+
+## Мёртвый PHP-код
+
+### Точно мёртвое — удалить
+- [ ] `inc/Enums/Wp/AjaxHook.php:129` `WithdrawConsent` + `inc/Enums/Wp/Nonce.php:41` `WithdrawConsent` — фича «отзыв согласия» не реализована: нет регистрации, нет `ajaxWithdrawConsent`, нет JS-вызова
+- [ ] `inc/Enums/Wp/AjaxHook.php:57` `SaveTemplateAssignment` — хук нигде не зарегистрирован; заодно убрать мёртвую запись из JSDoc `src/js/admin/_types.js:20` (сам `TaskTemplateAssignmentDTO` жив по другой ветке — не трогать)
+- [ ] `inc/Controllers/System/CronController.php:56-59` — устаревший комментарий «будут подключены по мере реализации»: все три хука уже зарегистрированы в `RecoveryController.php:63-65` и запланированы в `Activate.php:56-58`
+
+### Эндпоинты, недостижимые с фронта — проверить и удалить либо доделать UI
+Сервер проверяет nonce, который клиент нигде не создаёт (`->create()` отсутствует) — вызов физически невозможен:
+- [ ] `RepresentativeCallbacks.php:57,91` — `AddRepresentative`, `ReplaceRepresentative`
+- [ ] `BatchSubmissionCallbacks.php:94` — `GradeBatch` (хук `GradeBatchTask`)
+
+Хуки зарегистрированы, но ни одного JS-потребителя (вероятно, недоделанные или брошенные фичи — решить по каждому):
+- [ ] `PiiController.php:83-91` — `RevealPiiField`, `RequestPiiDeletion`, `AddRepresentative`, `ReplaceRepresentative`
+- [ ] `CourseController.php:41-45` — весь блок клонирования `CloneLesson`/`CloneWork`/`CloneAssessment`/`CloneCourse`/`ForkLessonForGroup` (сервисный слой `ContentCloneService` при этом жив и используется из `CourseBuilderService`)
+- [ ] `SettingsController.php:91,99` — `LookupConsentByHash`, `DeleteAcademicPeriod`
+- [ ] `StudentGroupController.php:56` — `DeleteStudentGroup` (JS использует `checkGroupDeletion`/`deleteGroup`)
+- [ ] `ExpulsionController.php:71` — `ExportExpelledRecord`; `EnrollmentController.php:72` — `EmptyApplicationsTrash`
+- [ ] `WorkController.php:29` — `GetWorkTaskCandidates`; `LessonController.php:30,36` — `GetLessonArticles`, `CreateArticleDraft`
+- [ ] `AssessmentController.php:37,38` — `ParseScoreMap`, `CopyScoreMap`; `ScheduleController.php:29` — `SetLessonExtraWorks`
+- [ ] `SubstitutionController.php:28` — `GetGroupSubstitutions`; `RoomController.php:26,29` — `GetRooms`, `AssignGroupRoom`
+
+### Проверить вручную
+- [ ] `inc/Services/Email/EmailOtpService.php:64-67` — закомментированный ранний return для `FS_LMS_TEST_ENV`; комментарий-описание противоречит коду — проверить, не полагаются ли тесты на обход отправки
+
+### Чисто (проверено, мёртвого нет)
+- Init::getServices() ↔ диск: все контроллеры/модули зарегистрированы или инжектятся (модули регистрируются вручную в `Init.php:181-186`)
+- DTO (90+ классов), `inc/Shared/`, `inc/Contracts/`, все 114 шаблонов `templates/` — используются
+- Трейты с единственным потребителем (кандидаты на инлайн, не на удаление): `ErrorHandler` (только SocialAuthController), `NumericSorter` (только SubjectController)
+
+---
+
+## Что трогать не нужно (проверено, вердикт «оставить»)
+
+- `Migration_1_0_0::up()` (675 строк DDL) — снимок схемы, риск/выгода плохие
+- `StudentRecordRepository` (28 методов) — узкие query-методы одной таблицы, SRP не нарушен
+- `PostManager` — широкий фасад, не god-класс (кроме `buildListTable():154` — вынести)
+- Log-export-провайдеры (`inc/Services/Export/Log/`) — здоровая Strategy
+- Все 11 трейтов `inc/Shared/Traits/` — чистые, без state
+- `match` на енумах в сервисах — идиоматичный PHP 8
+- `error_log`, `get_header/get_footer`, `check_ajax_referer`/`wp_send_json` в Callbacks, хуки в Repositories/Registrars/Cli — нарушений нет
+- SCSS: вложенность (0 нарушений), `@use`/`@forward` везде, инлайн-`<script>` в шаблонах отсутствует
