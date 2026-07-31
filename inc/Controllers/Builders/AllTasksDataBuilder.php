@@ -227,6 +227,7 @@ readonly class AllTasksDataBuilder {
 				'taxonomy' => $number_tax,
 				'name'     => 'Тип задания',
 				'terms'    => $number_terms,
+				'summary'  => $this->filterSummary( $number_terms, true ),
 			);
 		}
 
@@ -240,10 +241,61 @@ readonly class AllTasksDataBuilder {
 				'taxonomy' => $taxonomy->slug,
 				'name'     => $taxonomy->name,
 				'terms'    => $terms,
+				'summary'  => $this->filterSummary( $terms, false ),
 			);
 		}
 
 		return $groups;
+	}
+
+	/**
+	 * Текст-сводка группы фильтров (виден, когда секция свёрнута и ничего не выбрано).
+	 * Год (все термины — 4-значные числа) → диапазон «min—max»; тип → «Все N типов»;
+	 * прочее → «Все N».
+	 *
+	 * @param array $terms   Опции группы: [{slug,name,count,url}].
+	 * @param bool  $is_type Группа типа задания (для склонения «тип/типа/типов»).
+	 *
+	 * @return string
+	 */
+	private function filterSummary( array $terms, bool $is_type ): string {
+		$count = count( $terms );
+
+		$years = array_filter( $terms, static fn( $t ) => (bool) preg_match( '/^\d{4}$/', (string) $t['name'] ) );
+		if ( $count > 0 && count( $years ) === $count ) {
+			$nums = array_map( static fn( $t ) => (int) $t['name'], $terms );
+			$min  = min( $nums );
+			$max  = max( $nums );
+
+			return $min === $max ? (string) $min : "{$min}—{$max}";
+		}
+
+		if ( $is_type ) {
+			return sprintf( 'Все %d %s', $count, $this->pluralTypes( $count ) );
+		}
+
+		return sprintf( 'Все %d', $count );
+	}
+
+	/**
+	 * Склонение слова «тип» по числу: 1 тип, 2–4 типа, 5+ типов.
+	 *
+	 * @param int $n Количество.
+	 *
+	 * @return string
+	 */
+	private function pluralTypes( int $n ): string {
+		$m10  = $n % 10;
+		$m100 = $n % 100;
+
+		if ( 1 === $m10 && 11 !== $m100 ) {
+			return 'тип';
+		}
+		if ( $m10 >= 2 && $m10 <= 4 && ( $m100 < 12 || $m100 > 14 ) ) {
+			return 'типа';
+		}
+
+		return 'типов';
 	}
 
 	/**
