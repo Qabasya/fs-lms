@@ -12,7 +12,7 @@
   align-items: flex-start;
   gap: $spacing-sm;
   margin-bottom: $spacing-lg;
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
 
   .dashicons {
     color: $color-danger;
@@ -22,8 +22,8 @@
 }
 
 .fs-expel-student-name {
-  font-weight: $font-bold;
-  font-size: $font-size-wp;
+  font-weight: $font-semibold;
+  font-size: $font-size-sm;
   color: $color-text-primary;
   margin-bottom: $spacing-lg;
 
@@ -36,7 +36,7 @@
   margin: $spacing-xs 0 0 0;
   padding-left: $spacing-xl;
   font-weight: 400;
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
   color: $color-text-primary;
 
   li {

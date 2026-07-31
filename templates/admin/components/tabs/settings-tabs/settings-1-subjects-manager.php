@@ -25,8 +25,12 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 			<h2 class="fs-page-header__title"><?php echo 'archived' === $view ? 'Архив предметов' : 'Активные предметы'; ?></h2>
 			<?php if ( 'archived' !== $view ) : ?>
 			<div class="fs-page-header__actions">
-				<a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
-				<input type="file" id="fs-import-file" accept=".json" class="hidden">
+				<?php // Формат определяется по расширению файла — отдельная кнопка для пакета не нужна. ?>
+				<a class="page-title-action" id="fs-import-trigger"
+					title="JSON — структура и банк предмета, ZIP — предмет целиком с медиа и (опционально) учениками">
+					Импортировать предмет
+				</a>
+				<input type="file" id="fs-import-file" accept=".json,.zip" class="hidden">
 			</div>
 			<?php endif; ?>
 		</div>
@@ -126,7 +130,9 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
                                                         <span class="export">
                                     <a href="#"
                                         class="js-export-subject"
-                                        data-key="<?php echo esc_attr( $subject->key ); ?>">
+                                        data-key="<?php echo esc_attr( $subject->key ); ?>"
+                                        data-name="<?php echo esc_attr( $subject->name ); ?>"
+                                        title="Формат выбирается в окне: JSON — структура и банк, ZIP — предмет целиком">
                                         Экспорт
                                     </a>
                                 </span> |
@@ -236,3 +242,4 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 
 	</div>
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/confirm-modal.php'; ?>
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/bundle-export-modal.php'; ?>

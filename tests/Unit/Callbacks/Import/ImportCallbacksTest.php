@@ -20,6 +20,7 @@ namespace Unit\Callbacks\Import {
 	use Inc\Enums\Import\ImportMode;
 	use Inc\Services\Import\EnrolledStudentRowImporter;
 	use Inc\Services\Import\ImportService;
+use Inc\Services\Import\RowImporterRegistry;
 	use Inc\Services\Import\StudentRowImporter;
 	use InvalidArgumentException;
 	use PHPUnit\Framework\TestCase;
@@ -40,7 +41,10 @@ namespace Unit\Callbacks\Import {
 			$this->enrolledImporter = $this->createMock( EnrolledStudentRowImporter::class );
 			$this->importService    = $this->createMock( ImportService::class );
 
-			$this->cb = new ImportCallbacks( $this->archiveImporter, $this->enrolledImporter, $this->importService );
+			$this->cb = new ImportCallbacks(
+			new RowImporterRegistry( $this->archiveImporter, $this->enrolledImporter ),
+			$this->importService
+		);
 		}
 
 		protected function tearDown(): void {

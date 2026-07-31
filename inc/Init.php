@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\Settings\OptionName;
 use Inc\Modules\AdSync\AdSyncModule;
 use Inc\Modules\DaData\DaDataModule;
 use Inc\Modules\EgeComputer\EgeComputerModule;
@@ -70,6 +71,7 @@ use Inc\Controllers\Course\PreviewSolveController;
 use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
+use Inc\Cli\SubjectBundleCommand;
 use Inc\Controllers\Import\ImportController;
 use Inc\Controllers\Person\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
@@ -144,6 +146,7 @@ final class Init {
 			ExpulsionController::class,
 			DeletionController::class,
 			ImportController::class,   // Импорт учеников из CSV
+			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			ConfigController::class,
 			SettingsController::class,
 			LogsController::class,
@@ -213,10 +216,10 @@ final class Init {
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
 		$capsVersion = '5.3'; // 5.3: − AuthorLmsBank (откат авторинга банка преподавателем)
-		if ( get_option( 'fs_lms_caps_version' ) !== $capsVersion ) {
+		if ( get_option( OptionName::CapsVersion->value ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
 			$roleManager->registerAll();
-			update_option( 'fs_lms_caps_version', $capsVersion );
+			update_option( OptionName::CapsVersion->value, $capsVersion );
 		}
 
 		// Одноразовая data-миграция recording_slot → broadcast (Этап 1), version-gated

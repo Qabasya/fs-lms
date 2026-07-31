@@ -9,7 +9,8 @@
 $active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'tab-1';
 
 // Базовый массив вкладок; модули добавляют свои через фильтр fs_lms_settings_tabs.
-// Поддерживается ключ 'path' (абсолютный путь к файлу) или 'file' (относительно templates/admin/).
+// Поддерживается ключ 'path' (абсолютный путь к файлу) или 'file' (относительно templates/admin/);
+// необязательный 'data' — массив переменных, доступных партиалу вкладки.
 $tabs = apply_filters(
 	'fs_lms_settings_tabs',
 	array(
@@ -76,6 +77,12 @@ $tabs = apply_filters(
 					$file_path = $tabs[ $active_tab ]['path'];
 				} else {
 					$file_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . $tabs[ $active_tab ]['file'];
+				}
+
+				// Вкладка может принести свои данные ('data'), чтобы партиал не лез
+				// в опции сам — так модуль отдаёт настройки из своего репозитория.
+				if ( ! empty( $tabs[ $active_tab ]['data'] ) && is_array( $tabs[ $active_tab ]['data'] ) ) {
+					extract( $tabs[ $active_tab ]['data'], EXTR_SKIP ); // phpcs:ignore WordPress.PHP.DontExtract.extract_extract
 				}
 
 				if ( file_exists( $file_path ) ) {

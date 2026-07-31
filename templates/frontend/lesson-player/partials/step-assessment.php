@@ -57,7 +57,7 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 		<div class="asm-meta">
 			<?php if ( ! empty( $render['time_limit_min'] ) ) : ?>
 				<span class="asm-chip">
-					<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4.2l2.8 1.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+					<?php echo Icon::Clock->svg( 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					<?php
 					printf(
 						/* translators: %d: minutes */
@@ -109,7 +109,7 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 							<span class="ap-bar"><span data-work-prog-bar></span></span>
 						</div>
 						<button type="button" class="b b-pri" data-work-finish>
-							<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 17V3.5M5 4h9.5l-2 3 2 3H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+							<?php echo Icon::Flag->svg( 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							<?php esc_html_e( 'Завершить и проверить', 'fs-lms' ); ?>
 						</button>
 					</div>
@@ -154,7 +154,7 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 		<?php else : ?>
 			<?php if ( $asm_passed ) : ?>
 				<div class="vd vd-ok">
-					<span class="vi"><svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M4 10.5 8 14l8-8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+					<span class="vi"><?php echo Icon::Check->svg( 13 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
 					<div><b><?php esc_html_e( 'Экзамен сдан', 'fs-lms' ); ?></b><span><?php esc_html_e( 'Результат учтён в прогрессе урока.', 'fs-lms' ); ?></span></div>
 				</div>
 			<?php else : ?>
@@ -165,7 +165,7 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 				<div>
 					<a class="b b-pri b-lg" href="<?php echo esc_url( $asm_url ); ?>">
 						<?php echo $asm_passed ? esc_html__( 'Открыть экзамен', 'fs-lms' ) : esc_html__( 'Перейти к экзамену', 'fs-lms' ); ?>
-						<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						<?php echo Icon::ChevronRight->svg( 15 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					</a>
 				</div>
 			<?php else : ?>

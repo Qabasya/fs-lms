@@ -1,12 +1,12 @@
 @use '../variables' as *;
 
 .fs-modules-section {
-	margin-top: $spacing-xxl;
+	margin-top: $spacing-3xl;
 
 	&__title {
 		margin: 0 0 $spacing-lg;
-		font-size: $font-size-m;
-		font-weight: $font-bold;
+		font-size: $font-size-md;
+		font-weight: $font-semibold;
 		color: $color-text-primary;
 	}
 }
@@ -25,7 +25,7 @@
 	flex-direction: column;
 	background: $color-bg-modal;
 	border: 1px solid $color-border-input;
-	border-radius: $border-radius-l;
+	border-radius: $border-radius-md;
 	padding: $spacing-xl;
 	transition: $transition-default;
 
@@ -39,15 +39,15 @@
 
 	&__title {
 		margin: 0;
-		font-size: $font-size-m;
-		font-weight: $font-bold;
+		font-size: $font-size-md;
+		font-weight: $font-semibold;
 		color: $color-text-primary;
 	}
 
 	&__description {
 		flex: 1;
 		margin: 0 0 $spacing-xl;
-		font-size: $font-size;
+		font-size: $font-size-base;
 		color: $color-text-secondary;
 		line-height: $line-height-base;
 	}
@@ -62,7 +62,7 @@
 	}
 
 	&__status {
-		font-size: $font-size-sm;
+		font-size: $font-size-2xs;
 		color: $color-text-secondary;
 		font-style: italic;
 		transition: $transition-default;

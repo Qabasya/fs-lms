@@ -10,7 +10,6 @@ enum EmailTemplateType: string {
 	case ApplicationConfirmation = 'application_confirmation';
 	case ApplicationReady        = 'application_ready';
 	case Rejection               = 'rejection';
-	case NewRepresentative       = 'new_representative';
 	case WelcomeWithCredentials  = 'welcome_with_credentials';
 	case CourseGranted           = 'course_granted';
 
@@ -21,7 +20,6 @@ enum EmailTemplateType: string {
 			self::ApplicationConfirmation => 'Подтверждение заявки',
 			self::ApplicationReady        => 'Заявка готова к рассмотрению',
 			self::Rejection               => 'Отказ',
-			self::NewRepresentative       => 'Новый представитель',
 			self::WelcomeWithCredentials  => 'Приветствие с данными для входа',
 			self::CourseGranted           => 'Открыт доступ к курсу',
 		};

@@ -12,6 +12,7 @@ use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\TidiesCoreMetaBoxes;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class LessonMetaBoxController
@@ -25,6 +26,7 @@ use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 class LessonMetaBoxController extends BaseController implements ServiceInterface {
 
 	use TidiesCoreMetaBoxes;
+	use TemplateRenderer;
 
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -102,11 +104,11 @@ class LessonMetaBoxController extends BaseController implements ServiceInterface
 			JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
 		);
 
-		echo '<div class="fs-lms-step-builder" '
-			. 'data-lesson-id="' . esc_attr( (string) $post->ID ) . '" '
-			. 'data-subject="' . esc_attr( $subject ) . '" '
-			. 'data-level="lesson">';
-		echo '<script type="application/json" class="fs-sb-data">' . ( $json ?: '[]' ) . '</script>';
-		echo '</div>';
+		$this->render( 'admin/metaboxes/builder-shell', array(
+			'root_class' => 'fs-lms-step-builder',
+			'data'       => array( 'lesson-id' => $post->ID, 'subject' => $subject, 'level' => 'lesson' ),
+			'json'       => (string) $json,
+			'outer_wrap' => false,
+		) );
 	}
 }

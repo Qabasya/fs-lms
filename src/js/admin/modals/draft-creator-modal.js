@@ -1,4 +1,5 @@
 import '../_types.js';
+import { createDraft } from '../managers/draft-api.js';
 import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
 
 /* global jQuery, fs_lms_vars */
@@ -109,14 +110,14 @@ export const DraftCreatorModal = {
 		this._submitting = true;
 		this.$submit.prop( 'disabled', true ).text( 'Создание…' );
 
-		$.post( fs_lms_vars.ajaxurl, data )
-			.done( ( resp ) => {
+		createDraft( data )
+			.then( ( resp ) => {
 				if ( resp && resp.success ) {
 					onCreated( resp.data.id, resp.data.title );
 					this.close();
 				}
 			} )
-			.always( () => {
+			.finally( () => {
 				this._submitting = false;
 				this.$submit.prop( 'disabled', false ).text( 'Создать' );
 			} );

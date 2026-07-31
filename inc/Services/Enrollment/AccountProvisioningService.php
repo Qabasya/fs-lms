@@ -26,12 +26,10 @@ use Inc\Services\Security\PasswordGeneratorService;
  * ### Зачем отдельный сервис
  *
  * Логика «найти существующую учётку по wpUserId/email → иначе создать» была
- * зашита внутри {@see \Inc\Services\Enrollment\EnrollmentService::enroll()} (строки 199–297)
- * и намертво связана с потоком заявок. Этот сервис — тот же паттерн, вынесенный
- * в переиспользуемый вид для CSV-импорта с полным зачислением.
- *
- * `enroll()` в этой итерации не трогается (экзамен-критичный поток под тестами);
- * его переезд на этот сервис — опциональный follow-up.
+ * зашита внутри {@see EnrollmentService::enroll()} и намертво связана с потоком
+ * заявок. Сначала сервис появился ради CSV-импорта с полным зачислением, затем
+ * (аудит §2.2) на него переехал и сам `enroll()` — теперь это единственная
+ * реализация провизии учёток.
  *
  * ### Ветки провизии (обе ветки provisionStudent/provisionParent)
  *
@@ -91,16 +89,22 @@ readonly class AccountProvisioningService {
 	/**
 	 * Провизия учётки родителя. Логин = email, пароль генерируется.
 	 *
-	 * @param int                        $personId ID person родителя
-	 * @param ParentDataDTO|PersonInputDTO $data   Данные родителя (email, ФИО)
+	 * @param int                          $personId ID person родителя
+	 * @param ParentDataDTO|PersonInputDTO $data     Данные родителя (email, ФИО)
+	 * @param string|null                  $password Явный пароль; `null` — сгенерировать.
+	 *                                               Задаётся при переносе предмета между
+	 *                                               сайтами: пароль родителя приезжает в
+	 *                                               пакете, и менять его при импорте нельзя —
+	 *                                               иначе на новом сайте семья не войдёт по
+	 *                                               прежним данным.
 	 *
 	 * @throws \RuntimeException Коллизия логина/email при создании
 	 */
-	public function provisionParent( int $personId, ParentDataDTO|PersonInputDTO $data ): AccountCredentialsDTO {
+	public function provisionParent( int $personId, ParentDataDTO|PersonInputDTO $data, ?string $password = null ): AccountCredentialsDTO {
 		$person = $this->personRepository->find( $personId );
 
 		if ( null !== $person && null !== $person->wpUserId ) {
-			$password = $this->passwordGenerator->generateAndSet( $person->wpUserId );
+			$password = $this->applyPassword( $person->wpUserId, $password );
 			$login    = $this->userManager->find( $person->wpUserId )?->user_login ?? '';
 			return new AccountCredentialsDTO( $person->wpUserId, $login, $password, false );
 		}
@@ -109,13 +113,13 @@ readonly class AccountProvisioningService {
 		$existingUser = '' !== $email ? $this->userManager->findByEmail( $email ) : null;
 
 		if ( null !== $existingUser ) {
-			$password = $this->passwordGenerator->generateAndSet( $existingUser->ID );
+			$password = $this->applyPassword( $existingUser->ID, $password );
 			$this->linkPerson( $personId, $existingUser->ID );
 			return new AccountCredentialsDTO( $existingUser->ID, $existingUser->user_login, $password, false );
 		}
 
 		$login    = '' !== $email ? $email : ( 'parent_' . $personId );
-		$password = $this->passwordGenerator->generatePlain();
+		$password = ( null !== $password && '' !== $password ) ? $password : $this->passwordGenerator->generatePlain();
 		$userId   = $this->createUser( $login, $email, $password, $data->fullName(), $data->firstName, $data->lastName, UserRole::FSParent );
 
 		$this->logEvents->dispatch(
@@ -125,6 +129,24 @@ readonly class AccountProvisioningService {
 		$this->linkPerson( $personId, $userId );
 
 		return new AccountCredentialsDTO( $userId, $login, $password, true );
+	}
+
+	/**
+	 * Ставит существующему пользователю заданный пароль либо генерирует новый.
+	 *
+	 * @param int         $userId   ID WP-пользователя
+	 * @param string|null $password Явный пароль; `null`/пусто — сгенерировать
+	 *
+	 * @return string Установленный пароль в открытом виде
+	 */
+	private function applyPassword( int $userId, ?string $password ): string {
+		if ( null === $password || '' === $password ) {
+			return $this->passwordGenerator->generateAndSet( $userId );
+		}
+
+		$this->passwordGenerator->setFromPlain( $userId, $password );
+
+		return $password;
 	}
 
 	/**

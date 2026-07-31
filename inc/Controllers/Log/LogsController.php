@@ -70,7 +70,6 @@ class LogsController extends AjaxController {
 			// Журналы
 			array( AjaxHook::ExportEntityAuditLog,   $this->logsCallbacks ),
 			array( AjaxHook::ExportEnrollmentLog,    $this->logsCallbacks ),
-			array( AjaxHook::ExportAuditLog,         $this->logsCallbacks ),
 			array( AjaxHook::ExportPiiLog,            $this->logsCallbacks ),
 			array( AjaxHook::ExportExportLog,         $this->logsCallbacks ),
 			array( AjaxHook::ExportDataChangeLog,     $this->logsCallbacks ),

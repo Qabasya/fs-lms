@@ -13,14 +13,14 @@
 		display: inline-block;
 		margin-bottom: $spacing-sm;
 		color: $color-muted;
-		font-size: $font-size-sm;
+		font-size: $font-size-base;
 		text-decoration: none;
 
 		&:hover { color: $color-accent; }
 	}
 
 	&__title {
-		font-size: $font-size-title;
+		font-size: $font-size-2xl;
 		font-weight: $font-bold;
 		color: $color-text;
 		margin: 0 0 $spacing-lg;
@@ -39,7 +39,7 @@
 		margin: 0;
 		padding: 0;
 		border: 1px solid $color-border-light;
-		border-radius: $radius-md;
+		border-radius: $border-radius-lg;
 		overflow: hidden;
 	}
 
@@ -66,10 +66,10 @@
 		flex-shrink: 0;
 		width: rem(24);
 		height: rem(24);
-		border-radius: $radius-pill;
+		border-radius: $border-radius-pill;
 		background: $color-bg-subtle;
 		color: $color-muted;
-		font-size: $font-size-xs;
+		font-size: $font-size-sm;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -77,7 +77,7 @@
 
 	&__steptitle {
 		flex: 1;
-		font-size: $font-size-sm;
+		font-size: $font-size-base;
 		color: $color-text;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -100,7 +100,7 @@
 	// ── сцена шага ──
 	&__stage {
 		border: 1px solid $color-border-light;
-		border-radius: $radius-md;
+		border-radius: $border-radius-lg;
 		background: $color-white;
 		min-height: rem(420);
 		display: flex;
@@ -122,18 +122,18 @@
 	}
 
 	&__paneltype {
-		font-size: $font-size-xxs;
+		font-size: $font-size-xs;
 		font-weight: $font-bold;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		color: $color-white;
 		background: $color-accent;
 		padding: rem(2) $spacing-sm;
-		border-radius: $radius;
+		border-radius: $border-radius-sm;
 	}
 
 	&__panelname {
-		font-size: $font-size-base;
+		font-size: $font-size-md;
 		font-weight: $font-semibold;
 		margin: 0;
 	}
@@ -143,23 +143,23 @@
 		flex: 0 0 auto;
 		border: 1px solid $color-border-light;
 		background: transparent;
-		border-radius: $radius;
+		border-radius: $border-radius-sm;
 		padding: rem(2) $spacing-sm;
-		font-size: $font-size-xxs;
+		font-size: $font-size-xs;
 		cursor: pointer;
 
 		&:hover { border-color: $color-accent; }
 	}
 
 	&__panelbody {
-		line-height: $line-height-base;
+		line-height: $line-height-relaxed;
 		color: $color-text;
 
 		img { max-width: 100%; height: auto; }
 	}
 
 	&__video iframe { max-width: 100%; }
-	&__videodesc { color: $color-muted; font-size: $font-size-sm; margin-top: $spacing-sm; }
+	&__videodesc { color: $color-muted; font-size: $font-size-base; margin-top: $spacing-sm; }
 	&__muted { color: $color-muted; }
 
 	&__complete { margin-top: $spacing-lg; }
@@ -178,7 +178,7 @@
 		flex: 1;
 		text-align: center;
 		color: $color-muted;
-		font-size: $font-size-sm;
+		font-size: $font-size-base;
 	}
 
 	&--locked { max-width: rem(720); }
@@ -190,7 +190,7 @@
 	}
 
 	&__lock-title {
-		font-size: $font-size-title;
+		font-size: $font-size-2xl;
 		font-weight: $font-bold;
 		color: $color-text;
 		margin-bottom: $spacing-sm;
@@ -198,12 +198,12 @@
 
 	&__lock-sub {
 		color: $color-muted;
-		font-size: $font-size-base;
+		font-size: $font-size-md;
 		margin: 0 0 $spacing-lg;
 	}
 
 	&__countdown {
-		font-size: $font-size-title;
+		font-size: $font-size-2xl;
 		font-weight: $font-bold;
 		font-variant-numeric: tabular-nums;
 		color: $color-accent;

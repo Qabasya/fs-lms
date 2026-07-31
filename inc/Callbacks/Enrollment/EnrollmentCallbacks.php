@@ -17,12 +17,14 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Person\DocumentType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
+use Inc\Enums\Wp\MetaKeys;
 use Inc\Enums\Person\PiiAccessReason;
 use Inc\Enums\Person\PiiField;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Enrollment\EnrollmentService;
+use Inc\Services\Application\ApplicationService;
 use Inc\Services\Security\PasswordGeneratorService;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Services\Person\PiiMaskingService;
@@ -74,6 +76,7 @@ class EnrollmentCallbacks extends BaseController {
 		private readonly GroupsRepository             $studentGroupRepository,
 		private readonly PasswordGeneratorService     $passwordGenerator,
 		private readonly UserManager                  $userManager,
+		private readonly ApplicationService $applications,
 	) {
 		parent::__construct();
 	}
@@ -138,7 +141,7 @@ class EnrollmentCallbacks extends BaseController {
 
 		$id = $this->sanitizeInt( 'application_id' );
 
-		$this->applicationRepository->setStatus( $id, ApplicationStatus::Trash );
+		$this->applications->changeStatus( $id, ApplicationStatus::Trash );
 
 		$this->logEvents->dispatch( LogEvent::ApplicationTrashed, new ApplicationStatusEvent(
 			get_current_user_id(), AuditAction::MoveToTrash, $id
@@ -171,7 +174,7 @@ class EnrollmentCallbacks extends BaseController {
 			? ApplicationStatus::ReadyForReview
 			: ApplicationStatus::PendingParent;
 
-		$this->applicationRepository->setStatus( $id, $target );
+		$this->applications->changeStatus( $id, $target );
 
 		$this->logEvents->dispatch( LogEvent::ApplicationRestored, new ApplicationStatusEvent(
 			get_current_user_id(), AuditAction::RestoreFromTrash, $id
@@ -195,7 +198,7 @@ class EnrollmentCallbacks extends BaseController {
 			$this->error( 'Заявка не найдена или не в корзине.' );
 		}
 
-		$this->applicationRepository->delete( $id );
+		$this->applications->deleteFromTrash( $id );
 
 		$this->logEvents->dispatch( LogEvent::ApplicationTrashed, new ApplicationStatusEvent(
 			get_current_user_id(), AuditAction::EmptyTrash, $id
@@ -487,7 +490,7 @@ class EnrollmentCallbacks extends BaseController {
 		foreach ( $trashApps as $app ) {
 			try {
 				// Физическое удаление записи из БД
-				$this->applicationRepository->delete( $app->id );
+				$this->applications->deleteFromTrash( $app->id );
 				$this->logEvents->dispatch( LogEvent::ApplicationTrashed, new ApplicationStatusEvent(
 					$actor, AuditAction::EmptyTrash, $app->id
 				) );
@@ -620,7 +623,7 @@ class EnrollmentCallbacks extends BaseController {
 
 		$result = array();
 		foreach ( $users as $user ) {
-			$personId = (int) get_user_meta( $user->ID, 'fs_lms_person_id', true );
+			$personId = (int) get_user_meta( $user->ID, MetaKeys::PersonID->value, true );
 			$result[] = array(
 				'person_id'    => $personId ?: null,
 				'wp_user_id'   => $user->ID,

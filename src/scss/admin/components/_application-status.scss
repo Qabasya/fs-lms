@@ -4,7 +4,7 @@
 .fs-lms-status {
   @include badge-base;
 
-  font-size: $font-size;
+  font-size: $font-size-base;
   font-weight: $font-regular;
 
   &--pending-parent {

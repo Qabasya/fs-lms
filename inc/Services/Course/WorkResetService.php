@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
+use Inc\Enums\Course\WorkSourceType;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
@@ -37,9 +38,9 @@ class WorkResetService {
 	 * null, если источник не найден / тип неизвестен.
 	 */
 	public function groupIdFor( string $sourceType, int $sourceId ): ?int {
-		return match ( $sourceType ) {
-			'attempt'    => $this->attempts->find( $sourceId )?->groupId,
-			'submission' => $this->groupIdOfSubmission( $sourceId ),
+		return match ( WorkSourceType::fromValueOrNull( $sourceType ) ) {
+			WorkSourceType::Attempt    => $this->attempts->find( $sourceId )?->groupId,
+			WorkSourceType::Submission => $this->groupIdOfSubmission( $sourceId ),
 			default      => null,
 		};
 	}
@@ -49,9 +50,9 @@ class WorkResetService {
 	 * удалённых строк (>= 0); -1 — источник не найден / тип неизвестен.
 	 */
 	public function reset( string $sourceType, int $sourceId ): int {
-		return match ( $sourceType ) {
-			'attempt'    => $this->resetAttempt( $sourceId ),
-			'submission' => $this->resetSubmission( $sourceId ),
+		return match ( WorkSourceType::fromValueOrNull( $sourceType ) ) {
+			WorkSourceType::Attempt    => $this->resetAttempt( $sourceId ),
+			WorkSourceType::Submission => $this->resetSubmission( $sourceId ),
 			default      => -1,
 		};
 	}

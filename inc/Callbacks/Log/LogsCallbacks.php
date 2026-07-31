@@ -29,11 +29,26 @@ use Inc\Shared\Traits\Sanitizer;
  * Делегирует генерацию файлов ExportService.
  * Использует enum ExportTarget для указания типа экспорта.
  * Все методы доступны только администраторам (Capability::ManageLmsPlatform).
+ *
+ * ### Права на PII-экспорт (A1)
+ *
+ * Датасеты `students` / `parents` / `archive` содержат персональные данные
+ * (ФИО, email, телефон, у первых двух — ещё и учётные данные), поэтому
+ * требуют **двух** прав сразу: `ManageLmsPlatform` (доступ к разделу) +
+ * `ExportPII` (право выгружать ПД) — {@see Authorizer::authorizeAll()}.
+ * Тот же стандарт действует в `ExpulsionCallbacks::ajaxExportExpelledRecord`.
  */
 class LogsCallbacks extends BaseController {
 
 	use Authorizer;  // Трейт с методами authorize()
 	use Sanitizer;   // Трейт с методами sanitizeInt(), sanitizeKey(), sanitizeText()
+
+	/**
+	 * Права, необходимые для выгрузки персональных данных.
+	 *
+	 * @var Capability[]
+	 */
+	private const PII_EXPORT_CAPS = array( Capability::ManageLmsPlatform, Capability::ExportPII );
 
 	/**
 	 * Конструктор коллбеков.
@@ -53,19 +68,22 @@ class LogsCallbacks extends BaseController {
 	 */
 	public function ajaxExportGroups(): void {
 		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
-		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
+		$ids = array_filter( $this->sanitizeIntList( 'ids' ) );
 		$url = $this->exportService->run( ExportTarget::Groups, $ids ? array( 'ids' => $ids ) : array() );
 		$this->success( array( 'url' => $url ) );
 	}
 
 	/**
 	 * Экспорт студентов (CSV). Поддерживает единичный и массовый режим.
+	 *
+	 * Файл содержит ПД и (если не снят чекбокс) пароль в открытом виде —
+	 * отсюда двойная проверка прав и флаг `include_passwords` (A2).
 	 */
 	public function ajaxExportStudents(): void {
-		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
-		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
+		$this->authorizeAll( Nonce::Manager, self::PII_EXPORT_CAPS );
+		$ids  = array_filter( $this->sanitizeIntList( 'ids' ) );
 		$mode = $ids ? 'single' : 'bulk';
-		$url  = $this->exportService->run( ExportTarget::Students, $ids ? array( 'ids' => $ids ) : array(), $mode );
+		$url  = $this->exportService->run( ExportTarget::Students, $this->piiContext( $ids ), $mode );
 		$this->success( array( 'url' => $url ) );
 	}
 
@@ -73,10 +91,10 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт родителей (CSV). Поддерживает единичный и массовый режим.
 	 */
 	public function ajaxExportParents(): void {
-		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
-		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
+		$this->authorizeAll( Nonce::Manager, self::PII_EXPORT_CAPS );
+		$ids  = array_filter( $this->sanitizeIntList( 'ids' ) );
 		$mode = $ids ? 'single' : 'bulk';
-		$url  = $this->exportService->run( ExportTarget::Parents, $ids ? array( 'ids' => $ids ) : array(), $mode );
+		$url  = $this->exportService->run( ExportTarget::Parents, $this->piiContext( $ids ), $mode );
 		$this->success( array( 'url' => $url ) );
 	}
 
@@ -84,10 +102,30 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт архивных записей (отчисленные студенты, CSV).
 	 */
 	public function ajaxExportArchive(): void {
-		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
-		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
+		$this->authorizeAll( Nonce::Manager, self::PII_EXPORT_CAPS );
+		$ids = array_filter( $this->sanitizeIntList( 'ids' ) );
 		$url = $this->exportService->run( ExportTarget::Archive, $ids ? array( 'ids' => $ids ) : array() );
 		$this->success( array( 'url' => $url ) );
+	}
+
+	/**
+	 * Контекст доменного PII-экспорта: выбранные ID + режим выгрузки паролей.
+	 *
+	 * `include_passwords` по умолчанию **выключен**: пароли попадают в файл
+	 * только по явному запросу из UI (A2), а не «за компанию» с контактами.
+	 *
+	 * @param int[] $ids Выбранные ID лиц (пусто — весь датасет)
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function piiContext( array $ids ): array {
+		$context = array( 'include_passwords' => $this->sanitizeBool( 'include_passwords' ) );
+
+		if ( $ids ) {
+			$context['ids'] = $ids;
+		}
+
+		return $context;
 	}
 
 	// ==================== Экспорт системных журналов ====================
@@ -106,16 +144,6 @@ class LogsCallbacks extends BaseController {
 	 * Экспорт журнала зачислений (enrollment_log).
 	 */
 	public function ajaxExportEnrollmentLog(): void {
-		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
-		$filters = $this->logFilters( array( 'action_filter', 'actor_user_id', 'date_from', 'date_to' ) );
-		$url     = $this->exportService->run( ExportTarget::LogEnrollment, $filters );
-		$this->success( array( 'url' => $url ) );
-	}
-
-	/**
-	 * Экспорт общего журнала аудита (audit_log).
-	 */
-	public function ajaxExportAuditLog(): void {
 		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 		$filters = $this->logFilters( array( 'action_filter', 'actor_user_id', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogEnrollment, $filters );

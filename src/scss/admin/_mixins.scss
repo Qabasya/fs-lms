@@ -28,7 +28,7 @@
   $focus-color: var(--color-primary),
   $height: null,
   $radius: rem(2),
-  $fs: $font-size,
+  $fs: $font-size-base,
   $transition: border-color 0.1s ease-in-out,
   $box-sizing: null
 ) {
@@ -62,7 +62,7 @@
 
   tbody td {
     vertical-align: middle !important;
-    font-size: $font-size;
+    font-size: $font-size-base;
   }
 }
 
@@ -77,7 +77,7 @@
     border: none;
     padding: 0;
     cursor: pointer;
-    font-size: $font-size;
+    font-size: $font-size-base;
     line-height: inherit;
 
     &:hover {
@@ -132,7 +132,7 @@
   background: rgba($accent, $bg-alpha);
   border: 1px solid rgba($accent, 0.2);
   border-left: rem(4) solid $accent;
-  border-radius: 0 $border-radius-md $border-radius-md 0;
+  border-radius: 0 $border-radius-sm $border-radius-sm 0;
   padding: $spacing-sm $spacing-md;
 
   @if $text {
@@ -157,7 +157,7 @@
 @mixin badge-base {
   display: inline-block;
   padding: rem(2) $spacing-sm;
-  border-radius: $border-radius-md;
+  border-radius: $border-radius-sm;
   white-space: nowrap;
 }
 
@@ -204,8 +204,8 @@
 
 // ── D7: eyebrow/overline-метка (uppercase, tracking, secondary).
 //    font-size/вес/letter-spacing различаются по сайтам → параметры.
-@mixin cb-eyebrow($font-size: $font-size-xs, $weight: $font-heavy, $letter-spacing: 0.04em) {
-  font-size: $font-size;
+@mixin cb-eyebrow($font-size-base: $font-size-xs, $weight: $font-bold, $letter-spacing: 0.04em) {
+  font-size: $font-size-base;
   font-weight: $weight;
   text-transform: uppercase;
   letter-spacing: $letter-spacing;
@@ -219,7 +219,7 @@
   background: $color-bg-modal;
   border: 1px solid $wp-admin-gray-bg;
   box-shadow: $shadow-cb-builder;
-  border-radius: $border-radius-l;
+  border-radius: $border-radius-md;
   overflow: hidden;
   min-height: rem(640);
 }
@@ -288,7 +288,7 @@
 @mixin cb-editor-body {
   flex: 1;
   overflow-y: auto;
-  padding: $spacing-xl $cb-pane-px $spacing-xxl;
+  padding: $spacing-xl $cb-pane-px $spacing-3xl;
   min-height: 0;
 }
 
@@ -336,14 +336,14 @@
 
   border: 1px solid var(--color-primary);
   background: var(--color-primary);
-  color: #fff;
+  color: $color-text-inverse;
   line-height: 1;
   text-decoration: none;
 
   &:hover {
     background: var(--color-primary-hover);
     border-color: var(--color-primary-hover);
-    color: #fff;
+    color: $color-text-inverse;
   }
 }
 
@@ -370,13 +370,13 @@
   display: flex;
   align-items: baseline;
   gap: $spacing-sm;
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
   color: $color-text-secondary;
   #{$mark} { width: rem(14); text-align: center; flex-shrink: 0; }
 
   &.is-correct {
     color: $color-text-primary;
-    font-weight: $font-bold;
+    font-weight: $font-semibold;
     #{$mark} { color: $wp-admin-green; }
   }
 }
@@ -386,7 +386,7 @@
   display: flex;
   align-items: baseline;
   gap: $spacing-sm;
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
   #{$columns} { flex: 1; color: $color-text-primary; }
   #{$arrow} { flex-shrink: 0; color: $color-text-secondary; font-size: $font-size-xs; }
 }
@@ -395,14 +395,14 @@
 @mixin cb-qa-order($margin) {
   margin: $margin;
   padding-left: $spacing-xl;
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
   color: $color-text-primary;
   line-height: 1.8;
 }
 
 // проза с пропусками + подсвеченный bланк
 @mixin cb-qa-gap {
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
   line-height: 1.8;
   color: $color-text-primary;
 }
@@ -415,13 +415,13 @@
   border-radius: 2px;
   background: $wp-admin-blue-bg-light;
   color: var(--color-primary);
-  font-weight: $font-bold;
+  font-weight: $font-semibold;
 }
 
 // строка ответа подзадачи
 @mixin cb-qa-subtask-ans {
   color: $wp-admin-green;
-  font-weight: $font-bold;
+  font-weight: $font-semibold;
   margin-top: rem(2);
 }
 
@@ -436,10 +436,10 @@
   display: inline-flex;
   align-items: center;
   gap: rem(5);
-  font-size: $font-size-wp;
-  font-weight: $font-bold;
+  font-size: $font-size-sm;
+  font-weight: $font-semibold;
   white-space: nowrap;
-  border-radius: $border-radius-pill;
+  border-radius: $border-radius-xl;
 
   svg { fill: currentcolor; width: rem(14); height: rem(14); flex-shrink: 0; }
 }

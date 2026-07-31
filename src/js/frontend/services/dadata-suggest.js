@@ -1,3 +1,4 @@
+import { debounce } from '../../common/utils.js';
 /**
  * Универсальный компонент автодополнения через DaData Suggestions API.
  * Инициализируется только при наличии токена — проверка на стороне вызывающего.
@@ -7,13 +8,6 @@ const DADATA_BASE = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/sugges
 const MIN_CHARS   = 3;
 const DEBOUNCE_MS = 300;
 
-function debounce( fn, ms ) {
-	let timer;
-	return ( ...args ) => {
-		clearTimeout( timer );
-		timer = setTimeout( () => fn( ...args ), ms );
-	};
-}
 
 async function fetchSuggestions( endpoint, body, token ) {
 	try {

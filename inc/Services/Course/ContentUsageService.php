@@ -14,6 +14,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Subject\ContentKindResolver;
 
 /**
  * Class ContentUsageService
@@ -435,15 +436,7 @@ class ContentUsageService {
 	 * @return string
 	 */
 	public static function kindOf( string $post_type ): string {
-		return match ( true ) {
-			PostTypeResolver::isWorkPostType( $post_type )                  => 'work',
-			PostTypeResolver::isLessonPostType( $post_type )               => 'lesson',
-			PostTypeResolver::isCoursePostType( $post_type )               => 'course',
-			str_ends_with( $post_type, PostTypeResolver::ARTICLES_SUFFIX ) => 'article',
-			PostTypeResolver::isProblemPostType( $post_type )              => 'problem',
-			PostTypeResolver::isTaskPostType( $post_type )                 => 'task',
-			default                                                        => '',
-		};
+		return ContentKindResolver::of( $post_type );
 	}
 
 	/**

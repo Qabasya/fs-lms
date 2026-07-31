@@ -202,8 +202,8 @@ function collectFormData() {
 function showSuccess() {
     const form    = document.getElementById( 'fs-lms-join-form' );
     const success = document.querySelector( '.js-join-success-block' );
-    if ( form )    { form.style.display    = 'none'; }
-    if ( success ) { success.style.display = ''; }
+    if ( form )    { form.hidden    = true; }
+    if ( success ) { success.hidden = false; }
 }
 
 // ── Обработчик отправки ───────────────────────────────────────────────────────

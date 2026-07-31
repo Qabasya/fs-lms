@@ -4,7 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject;
 
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\DTO\Subject\SubjectDTO;
+use Inc\DTO\Subject\SubjectImportReportDTO;
 use Inc\DTO\Task\TaskTemplateAssignmentDTO;
 use Inc\DTO\Task\TaskTypeBoilerplateDTO;
 use Inc\DTO\Subject\TaxonomyDataDTO;
@@ -14,6 +16,7 @@ use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\Subject\Import\ImportRollbackService;
 
 /**
  * Class SubjectImportService
@@ -25,10 +28,26 @@ use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
  * ### Основные обязанности:
  *
  * 1. **Валидация данных** — проверка структуры и корректности импортируемых данных.
- * 2. **Импорт сущностей** — последовательное создание предмета, таксономий, метабоксов,
+ * 2. **Предпросмотр (dry-run)** — подсчёт объектов и поиск коллизий без записи в БД.
+ * 3. **Импорт сущностей** — последовательное создание предмета, таксономий, метабоксов,
  *    boilerplate, терминов и постов.
- * 3. **Транзакционность** — все операции выполняются последовательно; при ошибке
- *    возникает исключение (отката нет, но данные не сохраняются частично из-за проверок).
+ * 4. **Откат** — при ошибке на любом шаге удаляются все созданные этим запуском сущности.
+ *
+ * ### Атомарность (A5)
+ *
+ * Полноценной транзакции здесь быть не может: `wp_insert_post()`,
+ * `wp_insert_term()` и запись в `wp_options` не откатываются ROLLBACK'ом
+ * (то же ограничение уже осознанно принято в `EnrolledStudentRowImporter`).
+ * Поэтому применяется компенсирующий откат: всё созданное пишется в
+ * {@see ImportedEntitiesCollector}, а при исключении {@see ImportRollbackService}
+ * удаляет ровно это. Наружу исключение перебрасывается — но уже с чистой БД,
+ * без «полупредмета».
+ *
+ * ### Предпросмотр (A7)
+ *
+ * `preview()` выполняет ту же валидацию, что и `import()`, но вместо записи
+ * считает объекты и собирает конфликты. Для графа импорта это единственный
+ * способ не узнать об ошибке после получаса записи.
  *
  * ### Архитектурная роль:
  *
@@ -47,6 +66,7 @@ class SubjectImportService {
 	 * @param BoilerplateRepository $boilerplates Репозиторий типовых условий
 	 * @param TermManager           $terms        Менеджер терминов
 	 * @param PostManager           $posts        Менеджер постов
+	 * @param ImportRollbackService $rollback     Компенсирующее удаление при ошибке
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -55,19 +75,109 @@ class SubjectImportService {
 		private readonly BoilerplateRepository $boilerplates,
 		private readonly TermManager $terms,
 		private readonly PostManager $posts,
+		private readonly ImportRollbackService $rollback,
 	) {}
+
+	/**
+	 * Считает, что даст импорт, ничего не записывая (A7).
+	 *
+	 * @param array $data Декодированный JSON-массив
+	 *
+	 * @return SubjectImportReportDTO Отчёт с counts/collisions/warnings
+	 *
+	 * @throws \InvalidArgumentException При неверном формате файла
+	 */
+	public function preview( array $data ): SubjectImportReportDTO {
+		[ $key, $name ] = $this->readSubjectHeader( $data );
+
+		$collisions = array();
+		$warnings   = array();
+
+		if ( $this->subjects->getByKey( $key ) ) {
+			$collisions[] = $this->duplicateKeyMessage( $key );
+		}
+
+		// Термины импортируются «если ещё нет» — существующие слаги не ломают
+		// импорт, но пользователь должен знать, что они будут переиспользованы.
+		foreach ( $data['terms'] ?? array() as $tax_slug => $term_list ) {
+			$taxonomy = sanitize_title( (string) $tax_slug );
+			foreach ( (array) $term_list as $term_data ) {
+				$term_name = sanitize_text_field( $term_data['name'] ?? '' );
+				if ( '' !== $term_name && taxonomy_exists( $taxonomy ) && $this->terms->exists( $term_name, $taxonomy ) ) {
+					$warnings[] = "Термин «{$term_name}» уже существует в «{$taxonomy}» — будет переиспользован.";
+				}
+			}
+		}
+
+		return new SubjectImportReportDTO(
+			dryRun:      true,
+			subjectKey:  $key,
+			subjectName: $name,
+			counts:      $this->countSections( $data ),
+			collisions:  $collisions,
+			warnings:    $warnings,
+		);
+	}
 
 	/**
 	 * Импортирует предмет из декодированного JSON-массива.
 	 *
 	 * @param array $data Декодированный JSON-массив
 	 *
-	 * @return string Название импортированного предмета
+	 * @return SubjectImportReportDTO Отчёт о созданном
 	 *
 	 * @throws \InvalidArgumentException При неверном формате или дубликате ключа
 	 * @throws \RuntimeException         При ошибке сохранения в БД
 	 */
-	public function import( array $data ): string {
+	public function import( array $data ): SubjectImportReportDTO {
+		[ $key, $name ] = $this->readSubjectHeader( $data );
+
+		// Проверка на дубликат (предмет с таким ключом уже существует)
+		if ( $this->subjects->getByKey( $key ) ) {
+			throw new \InvalidArgumentException( $this->duplicateKeyMessage( $key ) );
+		}
+
+		$created = new ImportedEntitiesCollector();
+
+		try {
+			// Создание предмета; hasBank переносим из экспорта (по умолчанию true — старые
+			// файлы экспорта, созданные до Эпика 18, этого поля не содержат).
+			$hasBank = (bool) ( $data['subject']['hasBank'] ?? true );
+			if ( ! $this->subjects->save( new SubjectDTO( $key, $name, hasBank: $hasBank ) ) ) {
+				throw new \RuntimeException( 'Критическая ошибка при создании записи предмета в БД' );
+			}
+			$created->addSubject( $key );
+
+			// Импорт связанных сущностей
+			$this->importTaxonomies( $key, $data['taxonomies'] ?? array() );
+			$this->importMetaboxes( $key, $data['metaboxes'] ?? array() );
+			$this->importBoilerplates( $key, $data['boilerplates'] ?? array() );
+			$this->importTerms( $data['terms'] ?? array(), $created );
+			$this->importPosts( $data['posts'] ?? array(), $created );
+		} catch ( \Throwable $e ) {
+			// Компенсирующий откат: убираем «полупредмет» и отдаём ошибку наружу.
+			$this->rollback->undo( $created );
+			throw $e;
+		}
+
+		return new SubjectImportReportDTO(
+			dryRun:      false,
+			subjectKey:  $key,
+			subjectName: $name,
+			counts:      $this->countSections( $data ),
+		);
+	}
+
+	/**
+	 * Читает и валидирует шапку файла импорта.
+	 *
+	 * @param array $data Декодированный JSON-массив
+	 *
+	 * @return array{0: string, 1: string} [ключ, название]
+	 *
+	 * @throws \InvalidArgumentException При неверном формате
+	 */
+	private function readSubjectHeader( array $data ): array {
 		// Валидация наличия обязательных полей
 		if ( ! isset( $data['subject']['key'], $data['subject']['name'] ) ) {
 			throw new \InvalidArgumentException( 'Неверный формат файла импорта' );
@@ -82,26 +192,55 @@ class SubjectImportService {
 			throw new \InvalidArgumentException( 'Ключ или название предмета пусты в файле импорта' );
 		}
 
-		// Проверка на дубликат (предмет с таким ключом уже существует)
-		if ( $this->subjects->getByKey( $key ) ) {
-			throw new \InvalidArgumentException( "Предмет с ключом «{$key}» уже существует. Импорт невозможен." );
+		return array( $key, $name );
+	}
+
+	/**
+	 * Сообщение о занятом ключе предмета — с подсказкой, что делать (A6).
+	 *
+	 * Импорт умеет только создавать новый предмет; merge/update в сценарии
+	 * «перенос на чистый сайт» намеренно не поддержан. Поэтому текст обязан
+	 * объяснить выход, а не просто констатировать конфликт.
+	 *
+	 * @param string $key Занятый ключ
+	 *
+	 * @return string
+	 */
+	private function duplicateKeyMessage( string $key ): string {
+		return "Предмет с ключом «{$key}» уже существует на этом сайте. "
+			. 'Повторный импорт того же предмета не поддерживается: импорт всегда создаёт новый предмет, '
+			. 'а не дополняет существующий. Удалите (или переименуйте ключ) предмета на этом сайте '
+			. 'и повторите импорт.';
+	}
+
+	/**
+	 * Считает объекты по разделам файла импорта.
+	 *
+	 * @param array $data Декодированный JSON-массив
+	 *
+	 * @return array<string, int>
+	 */
+	private function countSections( array $data ): array {
+		$counts = array(
+			'taxonomies'   => count( (array) ( $data['taxonomies'] ?? array() ) ),
+			'metaboxes'    => count( (array) ( $data['metaboxes'] ?? array() ) ),
+			'boilerplates' => 0,
+			'terms'        => 0,
+		);
+
+		foreach ( (array) ( $data['boilerplates'] ?? array() ) as $bp_list ) {
+			$counts['boilerplates'] += count( (array) $bp_list );
 		}
 
-		// Создание предмета; hasBank переносим из экспорта (по умолчанию true — старые
-		// файлы экспорта, созданные до Эпика 18, этого поля не содержат).
-		$hasBank = (bool) ( $data['subject']['hasBank'] ?? true );
-		if ( ! $this->subjects->save( new SubjectDTO( $key, $name, hasBank: $hasBank ) ) ) {
-			throw new \RuntimeException( 'Критическая ошибка при создании записи предмета в БД' );
+		foreach ( (array) ( $data['terms'] ?? array() ) as $term_list ) {
+			$counts['terms'] += count( (array) $term_list );
 		}
 
-		// Импорт связанных сущностей
-		$this->importTaxonomies( $key, $data['taxonomies'] ?? array() );
-		$this->importMetaboxes( $key, $data['metaboxes'] ?? array() );
-		$this->importBoilerplates( $key, $data['boilerplates'] ?? array() );
-		$this->importTerms( $data['terms'] ?? array() );
-		$this->importPosts( $data['posts'] ?? array() );
+		foreach ( (array) ( $data['posts'] ?? array() ) as $post_type => $post_list ) {
+			$counts[ (string) $post_type ] = count( (array) $post_list );
+		}
 
-		return $name;
+		return $counts;
 	}
 
 	/**
@@ -174,11 +313,12 @@ class SubjectImportService {
 	/**
 	 * Импортирует термины (элементы таксономий).
 	 *
-	 * @param array $terms_by_taxonomy Массив [tax_slug => [term1, term2, ...]]
+	 * @param array               $terms_by_taxonomy Массив [tax_slug => [term1, term2, ...]]
+	 * @param ImportedEntitiesCollector $created           Журнал созданного (для отката)
 	 *
 	 * @return void
 	 */
-	private function importTerms( array $terms_by_taxonomy ): void {
+	private function importTerms( array $terms_by_taxonomy, ImportedEntitiesCollector $created ): void {
 		foreach ( $terms_by_taxonomy as $tax_slug => $term_list ) {
 			$taxonomy = sanitize_title( (string) $tax_slug );
 			// ensureTaxonomy() — проверяет существование таксономии и регистрирует при необходимости
@@ -189,13 +329,18 @@ class SubjectImportService {
 				if ( empty( $name ) ) {
 					continue;
 				}
-				$this->terms->insert(
-					$name,
-					$taxonomy,
-					array(
-						'slug'        => sanitize_title( $term_data['slug'] ?? $name ),
-						'description' => sanitize_text_field( $term_data['description'] ?? '' ),
-					)
+				// insert() возвращает ID только для реально созданного термина —
+				// переиспользованные существующие в журнал отката не попадают.
+				$created->addTerm(
+					$this->terms->insert(
+						$name,
+						$taxonomy,
+						array(
+							'slug'        => sanitize_title( $term_data['slug'] ?? $name ),
+							'description' => sanitize_text_field( $term_data['description'] ?? '' ),
+						)
+					),
+					$taxonomy
 				);
 			}
 		}
@@ -204,11 +349,12 @@ class SubjectImportService {
 	/**
 	 * Импортирует посты (задания и статьи).
 	 *
-	 * @param array $posts_data Массив постов, сгруппированных по типам [post_type => post_list]
+	 * @param array               $posts_data Массив постов, сгруппированных по типам [post_type => post_list]
+	 * @param ImportedEntitiesCollector $created    Журнал созданного (для отката)
 	 *
 	 * @return void
 	 */
-	private function importPosts( array $posts_data ): void {
+	private function importPosts( array $posts_data, ImportedEntitiesCollector $created ): void {
 		foreach ( $posts_data as $post_type => $post_list ) {
 			foreach ( (array) $post_list as $post_data ) {
 				// Создание поста
@@ -229,6 +375,8 @@ class SubjectImportService {
 				if ( ! $post_id ) {
 					continue;
 				}
+
+				$created->addPost( $post_id );
 
 				// Импорт мета-полей поста
 				foreach ( $post_data['meta'] ?? array() as $meta_key => $meta_value ) {

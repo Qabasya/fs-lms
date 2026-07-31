@@ -4,19 +4,19 @@
 
 .fs-task-condition {
 	margin-bottom: $spacing-lg;
-	line-height:   $line-height-base;
+	line-height:   $line-height-relaxed;
 }
 
 .fs-task-subpart {
-	margin-bottom: $spacing-xl;
+	margin-bottom: $spacing-2xl;
 
 	&__label {
-		font-size:     $font-size-base;
+		font-size:     $font-size-md;
 		font-weight:   $font-semibold;
 		margin-bottom: $spacing-sm;
 	}
 
-	&__body { line-height: $line-height-base; }
+	&__body { line-height: $line-height-relaxed; }
 }
 
 // ── Виджеты ───────────────────────────────────────────────────────────────
@@ -31,8 +31,8 @@
 	max-width:   rem(560);
 	padding:     $spacing-sm $spacing-md;
 	border:      1px solid $color-border;
-	border-radius: $radius-md;
-	font-size:   $font-size-base;
+	border-radius: $border-radius-lg;
+	font-size:   $font-size-md;
 	font-family: $font-family;
 	resize:      vertical;
 	transition:  border-color $transition;
@@ -67,8 +67,8 @@
 	max-width:     rem(400);
 	padding:       $spacing-sm $spacing-md;
 	border:        1px solid $color-border;
-	border-radius: $radius-md;
-	font-size:     $font-size-base;
+	border-radius: $border-radius-lg;
+	font-size:     $font-size-md;
 	transition:    border-color $transition;
 
 	&:focus {
@@ -102,7 +102,7 @@
 
 .fs-widget-choice-label {
 	cursor:    pointer;
-	font-size: $font-size-base;
+	font-size: $font-size-md;
 }
 
 // Matching
@@ -121,15 +121,15 @@
 .fs-widget-matching-left {
 	min-width:   rem(160);
 	flex:        0 0 auto;
-	font-size:   $font-size-base;
+	font-size:   $font-size-md;
 	font-weight: 500;
 }
 
 .fs-widget-matching-select {
 	padding:       $spacing-xs $spacing-sm;
 	border:        1px solid $color-border;
-	border-radius: $radius-md;
-	font-size:     $font-size-base;
+	border-radius: $border-radius-lg;
+	font-size:     $font-size-md;
 	background:    $color-white;
 	cursor:        pointer;
 	transition:    border-color $transition;
@@ -163,7 +163,7 @@
 	padding:       $spacing-sm $spacing-md;
 	background:    $color-white;
 	border:        1px solid $color-border;
-	border-radius: $radius-md;
+	border-radius: $border-radius-lg;
 	user-select:   none;
 	transition:    box-shadow $transition, opacity $transition;
 
@@ -177,17 +177,17 @@
 }
 
 .fs-widget-ordering-grip {
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	color:     $color-muted;
 	flex:      0 0 auto;
 }
 
-.fs-widget-ordering-text { font-size: $font-size-base; }
+.fs-widget-ordering-text { font-size: $font-size-md; }
 
 // Fill (inline gaps)
 .fs-widget-fill {
 	line-height: 2;
-	font-size:   $font-size-base;
+	font-size:   $font-size-md;
 }
 
 .fs-widget-fill-text { white-space: pre-wrap; }
@@ -199,7 +199,7 @@
 	border:        none;
 	border-bottom: 2px solid $color-accent;
 	border-radius: 0;
-	font-size:     $font-size-base;
+	font-size:     $font-size-md;
 	font-family:   $font-family;
 	vertical-align: baseline;
 	background:    transparent;
@@ -217,7 +217,7 @@
 // ── Счётчик попыток ────────────────────────────────────────────────────────
 
 .fs-attempt-indicator {
-	font-size:     $font-size-sm;
+	font-size:     $font-size-base;
 	color:         $color-muted;
 	margin-bottom: $spacing-sm;
 
@@ -238,7 +238,7 @@
 }
 
 .fs-task-result {
-	font-size:   $font-size-sm;
+	font-size:   $font-size-base;
 	font-weight: 500;
 
 	&[data-correct="1"] { color: $color-success; }
@@ -250,12 +250,12 @@
 .fs-hint {
 	margin-top:    $spacing-lg;
 	border:        1px solid $color-border-light;
-	border-radius: $radius-md;
+	border-radius: $border-radius-lg;
 	background:    $color-bg-subtle;
 
 	&__toggle {
 		padding:     $spacing-sm $spacing-md;
-		font-size:   $font-size-sm;
+		font-size:   $font-size-base;
 		font-weight: $font-semibold;
 		cursor:      pointer;
 		user-select: none;
@@ -265,7 +265,7 @@
 
 	&__body {
 		padding:     $spacing-sm $spacing-md $spacing-md;
-		font-size:   $font-size-sm;
-		line-height: $line-height-base;
+		font-size:   $font-size-base;
+		line-height: $line-height-relaxed;
 	}
 }

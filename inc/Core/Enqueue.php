@@ -10,6 +10,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Security\FormGuardService;
+use Inc\Core\Assets\AdminScreenContext;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Services\Shared\PluginConfig;
@@ -38,6 +39,12 @@ use Inc\Shared\Traits\Sanitizer;
  */
 class Enqueue extends BaseController implements ServiceInterface {
 
+	/** Хендл админского бандла — к нему цепляются все window-переменные админки. */
+	private const ADMIN_SCRIPT_HANDLE = 'fs-lms-admin-script';
+
+	/** Хендл публичного бандла — к нему цепляются window-переменные страниц сайта. */
+	private const FRONTEND_SCRIPT_HANDLE = 'fs-lms-frontend-script';
+
 	use Sanitizer;
 
 	/**
@@ -61,6 +68,8 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
+		// preconnect к CDN шрифтов — до самой загрузки стиля (экономит RTT).
+		add_filter( 'wp_resource_hints', array( $this, 'fontResourceHints' ), 10, 2 );
 		// 'admin_enqueue_scripts' — хук для подключения ресурсов в админ-панели
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		// 'wp_enqueue_scripts' — хук для подключения ресурсов на фронтенде
@@ -76,21 +85,10 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 */
 	public function enqueue_admin_assets(): void {
 		// get_current_screen() — возвращает объект текущего экрана админки
-		$screen = get_current_screen();
-		$page   = $this->sanitizeText( 'page', 'GET' );
-
-		// str_starts_with() — проверяет начало строки (PHP 8.0)
-		$is_plugin_page  = str_starts_with( $page, 'fs_' ) || str_starts_with( $page, 'student_' );
-		$is_task_cpt        = $screen && PostTypeResolver::isTaskPostType( $screen->post_type );
-		$is_lesson_cpt      = $screen && PostTypeResolver::isLessonPostType( $screen->post_type );
-		$is_work_cpt        = $screen && PostTypeResolver::isWorkPostType( $screen->post_type );
-		$is_assessment_cpt  = $screen && PostTypeResolver::isAssessmentPostType( $screen->post_type );
-		$is_course_cpt      = $screen && PostTypeResolver::isCoursePostType( $screen->post_type );
-		$is_problems_cpt    = $screen && PostTypeResolver::problems() === $screen->post_type;
-		$is_article_cpt     = $screen && PostTypeResolver::isArticlePostType( $screen->post_type );
+		$ctx = AdminScreenContext::from( get_current_screen(), $this->sanitizeText( 'page', 'GET' ) );
 
 		// Подключаем ресурсы ТОЛЬКО на страницах плагина или наших CPT
-		if ( ! $is_plugin_page && ! $is_task_cpt && ! $is_lesson_cpt && ! $is_work_cpt && ! $is_assessment_cpt && ! $is_course_cpt && ! $is_problems_cpt && ! $is_article_cpt ) {
+		if ( ! $ctx->needsAssets() ) {
 			return;
 		}
 
@@ -99,10 +97,33 @@ class Enqueue extends BaseController implements ServiceInterface {
 
 		// На страницах CPT уроков и курсов нужен полный стек TinyMCE для wp.editor.initialize()
 		// в редакторе шагов. wp_enqueue_editor() гарантирует загрузку tinymce + wp-tinymce.
-		if ( $is_lesson_cpt || $is_course_cpt ) {
+		if ( $ctx->needsEditor() ) {
 			wp_enqueue_editor();
 		}
 
+		$this->enqueueAdminBase();
+
+		// Страница предмета: быстрое редактирование строк нативной таблицы.
+		if ( $ctx->isSubjectPage() ) {
+			// inline-edit-post — скрипт для быстрого редактирования постов в админке
+			wp_enqueue_script( 'inline-edit-post' );
+		}
+
+		foreach ( $this->adminLocalizations( $ctx ) as $varName => $data ) {
+			if ( null !== $data ) {
+				wp_localize_script( self::ADMIN_SCRIPT_HANDLE, $varName, $data );
+			}
+		}
+	}
+
+	/**
+	 * Базовый стек админки: шрифт иконок, общий и админский бандлы.
+	 *
+	 * filemtime() — версионирование (кеш-бастинг).
+	 *
+	 * @return void
+	 */
+	private function enqueueAdminBase(): void {
 		// Font Awesome — иконки для интерфейса
 		wp_enqueue_style(
 			'fs-lms-fontawesome',
@@ -111,7 +132,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 			null
 		);
 
-		// filemtime() — используется для версионирования (кеш-бастинг)
 		wp_enqueue_style(
 			'fs-lms-common-style',
 			$this->url( 'assets/css/common.min.css' ),
@@ -126,8 +146,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 			filemtime( $this->path( 'assets/css/admin.min.css' ) )
 		);
 
-		$script_handle = 'fs-lms-admin-script';
-
 		wp_enqueue_script(
 			'fs-lms-common-script',
 			$this->url( 'assets/js/common.min.js' ),
@@ -137,148 +155,147 @@ class Enqueue extends BaseController implements ServiceInterface {
 		);
 
 		wp_enqueue_script(
-			$script_handle,
+			self::ADMIN_SCRIPT_HANDLE,
 			$this->url( 'assets/js/admin.min.js' ),
 			array( 'jquery', 'wp-api', 'wp-i18n', 'editor', 'quicktags' ),
 			filemtime( $this->path( 'assets/js/admin.min.js' ) ),
 			true
 		);
+	}
 
-		// === Контекстная локализация для страниц CPT уроков ===
-		if ( $is_lesson_cpt ) {
-			$lesson_subject = PostTypeResolver::subjectFromLessonPostType( $screen->post_type );
-			wp_localize_script(
-				$script_handle,
-				'fs_lms_lesson_vars',
-				array(
-					'ajax_url'    => admin_url( 'admin-ajax.php' ),
-					'subject_key' => $lesson_subject,
-					'nonces'      => array(
-						'authorLesson' => Nonce::AuthorLesson->create(),
-					),
-				)
-			);
+	/**
+	 * Реестр window-переменных админки: имя → данные (null — на этом экране не нужна).
+	 *
+	 * @param AdminScreenContext $ctx Признаки текущего экрана
+	 *
+	 * @return array<string, array<string, mixed>|null>
+	 */
+	private function adminLocalizations( AdminScreenContext $ctx ): array {
+		return array(
+			'fs_lms_lesson_vars'       => $ctx->lesson ? $this->lessonVars( $ctx ) : null,
+			// На экране работ нужен task-modal для создания задания.
+			'fs_lms_task_data'         => $this->taskDataVars( $ctx ),
+			'fs_lms_task_editor_vars'  => $ctx->needsTaskEditor() ? $this->taskEditorVars() : null,
+			'fs_lms_applications_vars' => 'fs_lms_userlist' === $ctx->page ? $this->applicationsVars() : null,
+			// Глобальные переменные — на всех страницах админки плагина.
+			'fs_lms_vars'              => $this->globalAdminVars(),
+		);
+	}
+
+	/**
+	 * Переменные экрана CPT уроков.
+	 *
+	 * @param AdminScreenContext $ctx Признаки экрана
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function lessonVars( AdminScreenContext $ctx ): array {
+		return array(
+			'ajax_url'    => admin_url( 'admin-ajax.php' ),
+			'subject_key' => PostTypeResolver::subjectFromLessonPostType( $ctx->postType ),
+			'nonces'      => array(
+				'authorLesson' => Nonce::AuthorLesson->create(),
+			),
+		);
+	}
+
+	/**
+	 * Данные модалки создания задания — на экранах заданий, работ и страницах предмета.
+	 *
+	 * @param AdminScreenContext $ctx Признаки экрана
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function taskDataVars( AdminScreenContext $ctx ): ?array {
+		$subjectKey = match ( true ) {
+			$ctx->task            => PostTypeResolver::subjectFromTaskPostType( $ctx->postType ),
+			$ctx->work            => PostTypeResolver::subjectFromWorkPostType( $ctx->postType ),
+			$ctx->isSubjectPage() => $ctx->subjectPageKey(),
+			default               => '',
+		};
+
+		if ( '' === $subjectKey ) {
+			return null;
 		}
 
-		// === Контекстная локализация для страниц CPT работ (нужен task-modal для создания задания) ===
-		if ( $is_work_cpt ) {
-			$work_subject = PostTypeResolver::subjectFromWorkPostType( $screen->post_type );
-			wp_localize_script(
-				$script_handle,
-				'fs_lms_task_data',
-				array(
-					'ajax_url'            => admin_url( 'admin-ajax.php' ),
-					'security'            => Nonce::TaskCreation->create(),
-					'subject_key'         => $work_subject,
-					'post_type'           => PostTypeResolver::tasks( $work_subject ),
-					'required_taxonomies' => $this->getRequiredTaxonomies( $work_subject ),
-				)
-			);
-		}
+		return array(
+			'ajax_url'            => admin_url( 'admin-ajax.php' ),
+			'security'            => Nonce::TaskCreation->create(),
+			'subject_key'         => $subjectKey,
+			'post_type'           => $ctx->task ? $ctx->postType : PostTypeResolver::tasks( $subjectKey ),
+			'required_taxonomies' => $this->getRequiredTaxonomies( $subjectKey ),
+		);
+	}
 
-		// === Контекстная локализация для страниц CPT заданий ===
-		if ( $is_task_cpt ) {
-			$subject_key = PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
+	/**
+	 * Переменные inline-редактора задач (Phase F, Этап 6).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function taskEditorVars(): array {
+		return array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'schema'   => $this->templateRegistry->allEditorSchemas(),
+			'nonces'   => array(
+				'taskContent' => Nonce::TaskContent->create(),
+			),
+			'actions'  => array(
+				'saveTaskContent'   => AjaxHook::SaveTaskContent->jsAction(),
+				'getTaskEditorForm' => AjaxHook::GetTaskEditorForm->jsAction(),
+			),
+		);
+	}
 
-			wp_localize_script(
-				$script_handle,
-				'fs_lms_task_data',
-				array(
-					'ajax_url'            => admin_url( 'admin-ajax.php' ),
-					'security'            => Nonce::TaskCreation->create(),
-					'subject_key'         => $subject_key,
-					'post_type'           => $screen->post_type,
-					'required_taxonomies' => $this->getRequiredTaxonomies( $subject_key ),
-				)
-			);
-		}
-		// === Контекстная локализация для страниц предметов (fs_subject_*) ===
-		elseif ( str_starts_with( $page, 'fs_subject_' ) ) {
-			$subject_key = substr( $page, strlen( 'fs_subject_' ) );
-			wp_localize_script(
-				$script_handle,
-				'fs_lms_task_data',
-				array(
-					'ajax_url'            => admin_url( 'admin-ajax.php' ),
-					'security'            => Nonce::TaskCreation->create(),
-					'subject_key'         => $subject_key,
-					'post_type'           => PostTypeResolver::tasks( $subject_key ),
-					'required_taxonomies' => $this->getRequiredTaxonomies( $subject_key ),
-				)
-			);
-			// inline-edit-post — скрипт для быстрого редактирования постов в админке
-			wp_enqueue_script( 'inline-edit-post' );
-		}
+	/**
+	 * Переменные таблицы заявок.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function applicationsVars(): array {
+		return array(
+			'nonces' => array(
+				'trash'                  => Nonce::TrashApplication->create(),
+				'edit'                   => Nonce::EditApplication->create(),
+				'review'                 => Nonce::ReviewApplication->create(),
+				'enroll'                 => Nonce::Enroll->create(),
+				'manager'                => Nonce::Manager->create(),
+				'revealPii'              => Nonce::RevealPii->create(),
+				'updatePerson'           => Nonce::UpdatePerson->create(),
+				'deletePii'              => Nonce::RequestPiiDeletion->create(),
+				'restoreFromArchive'     => Nonce::RestoreFromArchive->create(),
+				'selectExistingParent'   => Nonce::SelectExistingParent->create(),
+				'removeParentAssignment' => Nonce::RemoveParentAssignment->create(),
+			),
+		);
+	}
 
-		// === Переменные для inline-редактора задач (Phase F, Этап 6) ===
-		$needs_task_editor = $is_task_cpt || $is_lesson_cpt || $is_work_cpt || $is_course_cpt
-			|| str_starts_with( $page, 'fs_subject_' );
-		if ( $needs_task_editor ) {
-			wp_localize_script(
-				$script_handle,
-				'fs_lms_task_editor_vars',
-				array(
-					'ajax_url' => admin_url( 'admin-ajax.php' ),
-					'schema'   => $this->templateRegistry->allEditorSchemas(),
-					'nonces'   => array(
-						'taskContent' => Nonce::TaskContent->create(),
-					),
-					'actions'  => array(
-						'saveTaskContent'   => AjaxHook::SaveTaskContent->jsAction(),
-						'getTaskEditorForm' => AjaxHook::GetTaskEditorForm->jsAction(),
-					),
-				)
-			);
-		}
-
-		// === Переменные для таблицы заявок ===
-		if ( 'fs_lms_userlist' === $page ) {
-			wp_localize_script(
-				$script_handle,
-				'fs_lms_applications_vars',
-				array(
-					'nonces' => array(
-						'trash'                   => Nonce::TrashApplication->create(),
-						'edit'                    => Nonce::EditApplication->create(),
-						'review'                  => Nonce::ReviewApplication->create(),
-						'enroll'                  => Nonce::Enroll->create(),
-						'manager'                 => Nonce::Manager->create(),
-						'revealPii'               => Nonce::RevealPii->create(),
-						'updatePerson'            => Nonce::UpdatePerson->create(),
-						'exportPii'               => Nonce::ExportPii->create(),
-						'deletePii'               => Nonce::RequestPiiDeletion->create(),
-						'restoreFromArchive'      => Nonce::RestoreFromArchive->create(),
-						'selectExistingParent'    => Nonce::SelectExistingParent->create(),
-						'removeParentAssignment'  => Nonce::RemoveParentAssignment->create(),
-					),
-				)
-			);
-		}
-
-		// === Глобальные переменные для всех страниц админки нашего плагина ===
-		wp_localize_script(
-			$script_handle,
-			'fs_lms_vars',
-			array(
-				'ajaxurl'          => admin_url( 'admin-ajax.php' ),
-				'nonces'           => array(
-					'subject'           => Nonce::Subject->create(),
-					'manager'           => Nonce::Manager->create(),
-					'expulsion'         => Nonce::Expulsion->create(),
-					'deleteGroup'       => Nonce::DeleteGroup->create(),
-					'deletePeriod'      => Nonce::DeletePeriod->create(),
-					'hardDeleteStudent' => Nonce::HardDeleteStudent->create(),
-					'config'            => Nonce::Config->create(),
-					'authorLesson'      => Nonce::AuthorLesson->create(),
-					'authorWork'        => Nonce::AuthorWork->create(),
-					'authorAssessment'  => Nonce::AuthorAssessment->create(),
-					'authorCourse'      => Nonce::AuthorCourse->create(),
-					'room'              => Nonce::Room->create(),
-				),
-				'ajax_actions'      => AjaxHook::toJsArray(),
-				// Фаза 5, D3/D4: URL preview-плеера курса (кнопка «Просмотр» в конструкторе).
-				'coursePreviewUrl' => PageRoutes::CoursePreview->url(),
-			)
+	/**
+	 * Глобальные переменные всех страниц админки плагина.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function globalAdminVars(): array {
+		return array(
+			'ajaxurl'          => admin_url( 'admin-ajax.php' ),
+			'nonces'           => array(
+				'subject'           => Nonce::Subject->create(),
+				'subjectBundle'     => Nonce::SubjectBundle->create(),
+				'manager'           => Nonce::Manager->create(),
+				'expulsion'         => Nonce::Expulsion->create(),
+				'deleteGroup'       => Nonce::DeleteGroup->create(),
+				'deletePeriod'      => Nonce::DeletePeriod->create(),
+				'hardDeleteStudent' => Nonce::HardDeleteStudent->create(),
+				'config'            => Nonce::Config->create(),
+				'authorLesson'      => Nonce::AuthorLesson->create(),
+				'authorWork'        => Nonce::AuthorWork->create(),
+				'authorAssessment'  => Nonce::AuthorAssessment->create(),
+				'authorCourse'      => Nonce::AuthorCourse->create(),
+				'room'              => Nonce::Room->create(),
+				'scoreMap'          => Nonce::ScoreMap->create(),
+			),
+			'ajax_actions'     => AjaxHook::toJsArray(),
+			// Фаза 5, D3/D4: URL preview-плеера курса (кнопка «Просмотр» в конструкторе).
+			'coursePreviewUrl' => PageRoutes::CoursePreview->url(),
 		);
 	}
 
@@ -294,7 +311,28 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Шрифт интерфейса (Ubuntu, $font-ui) — один на все бандлы.
+	 *
+	 * Грузим стилем, а не CSS `@import`: последний блокирует рендер и не даёт
+	 * воспользоваться preconnect (см. fontResourceHints()).
+	 *
+	 * @return void
+	 */
+	private function enqueueUiFont(): void {
+		wp_enqueue_style(
+			'fs-lms-ubuntu',
+			'https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap',
+			array(),
+			null
+		);
+	}
+
 	private function enqueueBundle( string $slug, string $varName, array $data, array $deps = array() ): void {
+		// Изолированные SPA (кабинет, плеер, контрольная, станция) рендерятся на
+		// bare-шелле без общего фронт-стека — шрифт интерфейса подключаем здесь.
+		$this->enqueueUiFont();
+
 		wp_enqueue_style(
 			"fs-lms-{$slug}-style",
 			$this->url( "assets/css/{$slug}.min.css" ),
@@ -454,34 +492,66 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function enqueue_frontend_assets(): void {
-		// Плеер курса — изолированный полноэкранный SPA (как /profile/):
-		// только бандл плеера, без frontend/theme-стека.
-		if ( apply_filters( 'fs_lms_is_player_route', false ) ) {
-			$this->enqueue_player_assets();
-			return;
+		// Изолированные SPA-бандлы: каждый рендерится на своём bare-шелле и
+		// НЕ должен тянуть общий frontend/theme-стек. Порядок важен: станция КЕГЭ
+		// проверяется раньше générique-маршрута контрольной.
+		$isolated = array(
+			'fs_lms_is_player_route'     => fn() => $this->enqueue_player_assets(),
+			'fs_lms_is_kege_route'       => fn() => $this->enqueue_kege_assets(),
+			'fs_lms_is_assessment_route' => fn() => $this->enqueue_assessment_assets(),
+		);
+
+		foreach ( $isolated as $filter => $enqueue ) {
+			if ( apply_filters( $filter, false ) ) {
+				$enqueue();
+				return;
+			}
 		}
 
-		// Станция КЕГЭ (T15.10) — свой изолированный бандл, взводится модулем
-		// EgeComputer через AssessmentPageController::KEGE_ROUTE_FILTER.
-		// Проверяется раньше générique fs_lms_is_assessment_route.
-		if ( apply_filters( 'fs_lms_is_kege_route', false ) ) {
-			$this->enqueue_kege_assets();
-			return;
-		}
-
-		// Страница прохождения контрольной/экзамена (Эпик 15, T15.1/T15.2) —
-		// изолированный bare-шелл, только для дефолтного рендерера attempt.php.
-		if ( apply_filters( 'fs_lms_is_assessment_route', false ) ) {
-			$this->enqueue_assessment_assets();
-			return;
-		}
-
-		// Личный кабинет — изолированный полноэкранный SPA: грузим только его бандл,
-		// без общего frontend/theme-стека, чтобы не мешать вёрстке кабинета.
+		// Личный кабинет — тоже изолированный полноэкранный SPA.
 		if ( is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
 			$this->enqueue_profile_assets();
 			return;
 		}
+
+		$this->enqueueFrontendBase();
+
+		foreach ( $this->frontendLocalizations() as $varName => $data ) {
+			if ( null !== $data ) {
+				wp_localize_script( self::FRONTEND_SCRIPT_HANDLE, $varName, $data );
+			}
+		}
+
+		// MathJax v3 — рендеринг LaTeX-формул в контенте кокпита (инструкции работ и т.п.).
+		if ( PageRoutes::GroupCockpit->isCurrent() ) {
+			$this->enqueueMathJax();
+		}
+	}
+
+	/**
+	 * Базовый публичный стек: шрифт иконок, общий и фронтовый бандлы.
+	 *
+	 * @return void
+	 */
+	/**
+	 * Ранние подключения к CDN шрифтов для публичных страниц.
+	 *
+	 * @param string[] $hints    Текущие подсказки
+	 * @param string   $relation Тип отношения (preconnect/dns-prefetch/…)
+	 *
+	 * @return string[]
+	 */
+	public function fontResourceHints( array $hints, string $relation ): array {
+		if ( 'preconnect' === $relation && ! is_admin() ) {
+			$hints[] = 'https://fonts.googleapis.com';
+			$hints[] = array( 'href' => 'https://fonts.gstatic.com', 'crossorigin' => 'anonymous' );
+		}
+
+		return $hints;
+	}
+
+	private function enqueueFrontendBase(): void {
+		$this->enqueueUiFont();
 
 		wp_enqueue_style(
 			'fs-lms-fontawesome',
@@ -513,140 +583,159 @@ class Enqueue extends BaseController implements ServiceInterface {
 		);
 
 		wp_enqueue_script(
-			'fs-lms-frontend-script',
+			self::FRONTEND_SCRIPT_HANDLE,
 			$this->url( 'assets/js/frontend.min.js' ),
 			array( 'jquery', 'fs-lms-common-script' ),
 			$this->plugin_version,
 			true
 		);
+	}
 
-		// === Переменные для формы создания заявки (/lms/apply) ===
-		// PageRoutes::Apply->isCurrent() — проверка, находимся ли на странице создания заявки
-		if ( PageRoutes::Apply->isCurrent() ) {
-			$apply_vars = array(
-				'ajax_url'   => admin_url( 'admin-ajax.php' ),
-				'hp_field'   => $this->formGuard->honeypotField(),
-				'form_token' => $this->formGuard->timestampToken(),
-				'actions'    => array(
-					'send_otp'       => AjaxHook::SendOtpCode->jsAction(),
-					'create'         => AjaxHook::CreateApplication->jsAction(),
-					'check_username' => AjaxHook::CheckUsernameAvailable->jsAction(),
-				),
-				'nonces'     => array(
-					'apply'          => Nonce::Apply->create(),
-					'verify_otp'     => Nonce::VerifyOtp->create(),
-					'check_username' => Nonce::CheckUsernameAvailable->create(),
-				),
-			);
+	/**
+	 * Реестр window-переменных публичных страниц: имя → данные (null — не нужна здесь).
+	 *
+	 * @return array<string, array<string, mixed>|null>
+	 */
+	private function frontendLocalizations(): array {
+		$isCockpit    = PageRoutes::GroupCockpit->isCurrent();
+		$isAssessment = is_singular() && PostTypeResolver::isAssessmentPostType( (string) get_post_type() );
 
-			// Опциональные модули (напр. SmartCaptcha) дописывают свои переменные (captcha_key)
-			// и сами грузят свои внешние скрипты. Ядро о них не знает.
-			$apply_vars = apply_filters( 'fs_lms_apply_vars', $apply_vars );
+		return array(
+			'fs_lms_apply_vars'      => PageRoutes::Apply->isCurrent() ? $this->applyVars() : null,
+			'fs_lms_cockpit_vars'    => $isCockpit ? $this->cockpitVars() : null,
+			'fs_lms_submission_vars' => $isCockpit ? $this->submissionVars() : null,
+			'fs_lms_assessment_vars' => $isAssessment ? $this->assessmentVars() : null,
+			'fs_lms_join_vars'       => 'join' === get_query_var( 'fs_lms_page' ) ? $this->joinVars() : null,
+		);
+	}
 
-			wp_localize_script( 'fs-lms-frontend-script', 'fs_lms_apply_vars', $apply_vars );
-		}
+	/**
+	 * Форма создания заявки (`/lms/apply`).
+	 *
+	 * Опциональные модули (напр. SmartCaptcha) дописывают свои переменные
+	 * (`captcha_key`) фильтром и сами грузят свои внешние скрипты — ядро о них не знает.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function applyVars(): array {
+		return (array) apply_filters( 'fs_lms_apply_vars', array(
+			'ajax_url'   => admin_url( 'admin-ajax.php' ),
+			'hp_field'   => $this->formGuard->honeypotField(),
+			'form_token' => $this->formGuard->timestampToken(),
+			'actions'    => array(
+				'send_otp'       => AjaxHook::SendOtpCode->jsAction(),
+				'create'         => AjaxHook::CreateApplication->jsAction(),
+				'check_username' => AjaxHook::CheckUsernameAvailable->jsAction(),
+			),
+			'nonces'     => array(
+				'apply'          => Nonce::Apply->create(),
+				'verify_otp'     => Nonce::VerifyOtp->create(),
+				'check_username' => Nonce::CheckUsernameAvailable->create(),
+			),
+		) );
+	}
 
-		// === Кокпит группы преподавателя ===
-		if ( PageRoutes::GroupCockpit->isCurrent() ) {
-			wp_localize_script(
-				'fs-lms-frontend-script',
-				'fs_lms_cockpit_vars',
-				array(
-					'ajax_url' => admin_url( 'admin-ajax.php' ),
-					'actions'  => array(
-						'setLessonVisibility'       => AjaxHook::SetLessonVisibility->jsAction(),
-						'removeLessonFromProgram'   => AjaxHook::RemoveLessonFromProgram->jsAction(),
-						'getGroupActivity'          => AjaxHook::GetGroupActivity->jsAction(),
-						'reorderProgram'            => AjaxHook::ReorderProgram->jsAction(),
-						'assignCourse'              => AjaxHook::AssignCourse->jsAction(),
-						'addLessonToProgram'        => AjaxHook::AddLessonToProgram->jsAction(),
-						'duplicateProgramLesson'    => AjaxHook::DuplicateProgramLesson->jsAction(),
-						'saveLessonSchedule'        => AjaxHook::SaveLessonSchedule->jsAction(),
-						'getCourseLessonCandidates' => AjaxHook::GetCourseLessonCandidates->jsAction(),
-						'getStepSettings'           => AjaxHook::GetStepSettings->jsAction(),
-						'saveStepSettings'          => AjaxHook::SaveStepSettings->jsAction(),
-						'getTaskAttempts'           => AjaxHook::GetTaskAttempts->jsAction(),
-					),
-					'nonces'   => array(
-						'setLessonVisibility' => Nonce::SetLessonVisibility->create(),
-						'saveSchedule'        => Nonce::SaveSchedule->create(),
-						'assignCourse'        => Nonce::AssignCourse->create(),
-						'authorCourse'        => Nonce::AuthorCourse->create(),
-						'stepSettings'        => Nonce::StepSettings->create(),
-					),
-				)
-			);
+	/**
+	 * Кокпит группы преподавателя.
+	 *
+	 * Плеер урока живёт на своём изолированном бандле (Эпик 14, D18) —
+	 * см. {@see enqueue_player_assets()}; здесь остаётся только кокпит.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function cockpitVars(): array {
+		return array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'actions'  => array(
+				'setLessonVisibility'       => AjaxHook::SetLessonVisibility->jsAction(),
+				'removeLessonFromProgram'   => AjaxHook::RemoveLessonFromProgram->jsAction(),
+				'getGroupActivity'          => AjaxHook::GetGroupActivity->jsAction(),
+				'reorderProgram'            => AjaxHook::ReorderProgram->jsAction(),
+				'assignCourse'              => AjaxHook::AssignCourse->jsAction(),
+				'addLessonToProgram'        => AjaxHook::AddLessonToProgram->jsAction(),
+				'duplicateProgramLesson'    => AjaxHook::DuplicateProgramLesson->jsAction(),
+				'saveLessonSchedule'        => AjaxHook::SaveLessonSchedule->jsAction(),
+				'getCourseLessonCandidates' => AjaxHook::GetCourseLessonCandidates->jsAction(),
+				'getStepSettings'           => AjaxHook::GetStepSettings->jsAction(),
+				'saveStepSettings'          => AjaxHook::SaveStepSettings->jsAction(),
+				'getTaskAttempts'           => AjaxHook::GetTaskAttempts->jsAction(),
+			),
+			'nonces'   => array(
+				'setLessonVisibility' => Nonce::SetLessonVisibility->create(),
+				'saveSchedule'        => Nonce::SaveSchedule->create(),
+				'assignCourse'        => Nonce::AssignCourse->create(),
+				'authorCourse'        => Nonce::AuthorCourse->create(),
+				'stepSettings'        => Nonce::StepSettings->create(),
+			),
+		);
+	}
 
-			wp_localize_script(
-				'fs-lms-frontend-script',
-				'fs_lms_submission_vars',
-				array(
-					'ajax_url' => admin_url( 'admin-ajax.php' ),
-					'actions'  => array(
-						'submitWork'          => AjaxHook::SubmitWork->jsAction(),
-						'getMySubmissions'    => AjaxHook::GetMySubmissions->jsAction(),
-						'saveGrade'           => AjaxHook::SaveGrade->jsAction(),
-						'returnSubmission'    => AjaxHook::ReturnSubmission->jsAction(),
-						'getGroupSubmissions' => AjaxHook::GetGroupSubmissions->jsAction(),
-						'getGradebook'        => AjaxHook::GetGradebook->jsAction(),
-					),
-					'nonces'   => array(
-						'submitWork' => Nonce::SubmitWork->create(),
-						'gradeWork'  => Nonce::GradeWork->create(),
-					),
-				)
-			);
+	/**
+	 * Сдача и проверка работ в кокпите.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function submissionVars(): array {
+		return array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'actions'  => array(
+				'submitWork'          => AjaxHook::SubmitWork->jsAction(),
+				'getMySubmissions'    => AjaxHook::GetMySubmissions->jsAction(),
+				'saveGrade'           => AjaxHook::SaveGrade->jsAction(),
+				'returnSubmission'    => AjaxHook::ReturnSubmission->jsAction(),
+				'getGroupSubmissions' => AjaxHook::GetGroupSubmissions->jsAction(),
+				'getGradebook'        => AjaxHook::GetGradebook->jsAction(),
+			),
+			'nonces'   => array(
+				'submitWork' => Nonce::SubmitWork->create(),
+				'gradeWork'  => Nonce::GradeWork->create(),
+			),
+		);
+	}
 
-			// Плеер урока живёт на своём изолированном бандле (Эпик 14, D18) —
-			// см. enqueue_player_assets(); здесь остаётся только кокпит.
+	/**
+	 * Страница прохождения контрольной / экзамена.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function assessmentVars(): array {
+		return array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'actions'  => array(
+				'startAttempt'      => AjaxHook::StartAttempt->jsAction(),
+				'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
+				'submitAttempt'     => AjaxHook::SubmitAttempt->jsAction(),
+				'getAttemptResult'  => AjaxHook::GetAttemptResult->jsAction(),
+				// Эпик 13 (D16): двухшаговая загрузка файла ответа («Развёрнутый ответ»).
+				'uploadAnswerFile'  => AjaxHook::UploadAnswerFile->jsAction(),
+			),
+			'nonces'   => array(
+				'startAttempt'     => Nonce::StartAttempt->create(),
+				'submitAttempt'    => Nonce::SubmitAttempt->create(),
+				'uploadAnswerFile' => Nonce::UploadAnswerFile->create(),
+			),
+		);
+	}
 
-			// MathJax v3 — рендеринг LaTeX-формул в контенте кокпита (инструкции работ и т.п.).
-			$this->enqueueMathJax();
-		}
-
-		// === Страница прохождения контрольной / экзамена ===
-		if ( is_singular() && PostTypeResolver::isAssessmentPostType( (string) get_post_type() ) ) {
-			wp_localize_script(
-				'fs-lms-frontend-script',
-				'fs_lms_assessment_vars',
-				array(
-					'ajax_url' => admin_url( 'admin-ajax.php' ),
-					'actions'  => array(
-						'startAttempt'     => AjaxHook::StartAttempt->jsAction(),
-						'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
-						'submitAttempt'    => AjaxHook::SubmitAttempt->jsAction(),
-						'getAttemptResult' => AjaxHook::GetAttemptResult->jsAction(),
-						// Эпик 13 (D16): двухшаговая загрузка файла ответа («Развёрнутый ответ»).
-						'uploadAnswerFile' => AjaxHook::UploadAnswerFile->jsAction(),
-					),
-					'nonces'   => array(
-						'startAttempt'     => Nonce::StartAttempt->create(),
-						'submitAttempt'    => Nonce::SubmitAttempt->create(),
-						'uploadAnswerFile' => Nonce::UploadAnswerFile->create(),
-					),
-				)
-			);
-		}
-
-		// === Переменные для формы завершения регистрации родителя (/lms/join) ===
-		if ( 'join' === get_query_var( 'fs_lms_page' ) ) {
-			$join_vars = array(
-				'ajax_url' => admin_url( 'admin-ajax.php' ),
-				'actions'  => array(
-					'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
-					'check_email'   => AjaxHook::CheckEmailAvailable->jsAction(),
-				),
-				'nonces'   => array(
-					'parent_submit' => Nonce::ParentSubmit->create(),
-					'check_email'   => Nonce::CheckEmailAvailable->create(),
-				),
-			);
-
-			// Опциональные модули (напр. DaData) дописывают свои переменные. Ядро о них не знает.
-			$join_vars = apply_filters( 'fs_lms_join_vars', $join_vars );
-
-			wp_localize_script( 'fs-lms-frontend-script', 'fs_lms_join_vars', $join_vars );
-		}
+	/**
+	 * Форма завершения регистрации родителя (`/lms/join`).
+	 *
+	 * Опциональные модули (напр. DaData) дописывают свои переменные фильтром.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function joinVars(): array {
+		return (array) apply_filters( 'fs_lms_join_vars', array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'actions'  => array(
+				'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
+				'check_email'   => AjaxHook::CheckEmailAvailable->jsAction(),
+			),
+			'nonces'   => array(
+				'parent_submit' => Nonce::ParentSubmit->create(),
+				'check_email'   => Nonce::CheckEmailAvailable->create(),
+			),
+		) );
 	}
 
 	/**

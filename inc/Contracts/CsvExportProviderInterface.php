@@ -9,15 +9,21 @@ use Inc\DTO\Export\CsvColumn;
 /**
  * Стратегия CSV-экспорта одного датасета.
  *
- * columns() — описание колонок (заголовки + closures).
+ * columns($context) — описание колонок (заголовки + closures). Контекст тот же,
+ *                     что и у rows(): набор колонок может от него зависеть
+ *                     (напр. `include_passwords` скрывает колонку пароля).
  * rows($context) — iterable строк; для доменных провайдеров $context['ids'],
  *                  для лог-провайдеров $context = массив фильтров.
  * filename() — имя файла без даты.
  */
 interface CsvExportProviderInterface {
 
-	/** @return CsvColumn[] */
-	public function columns(): array;
+	/**
+	 * @param array<string, mixed> $context Контекст экспорта (тот же, что в rows()).
+	 *
+	 * @return CsvColumn[]
+	 */
+	public function columns( array $context = array() ): array;
 
 	/** @return iterable<mixed> */
 	public function rows( array $context ): iterable;

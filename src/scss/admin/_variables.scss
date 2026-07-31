@@ -43,9 +43,9 @@ $step-type-colors: (
 $cb-bg-tree: #fbfbfc; // фон рельсы/футера
 $cb-bg-hover: $wp-admin-gray-2; // hover строки дерева
 $cb-bg-active: #e7f0f8; // активный урок
-$cb-chip-bg: #f0f1f3; // плитка шага (неактивная)
+$cb-chip-bg: $wp-admin-gray-2; // плитка шага (неактивная) — тот же серый, что ховер строки
 $cb-num-bg: #e0e7ef; // номер модуля
-$cb-badge-bg: #eceef0; // бейдж числа шагов
+$cb-badge-bg: $wp-admin-gray-2; // бейдж числа шагов
 
 // ── Course Builder shadows & computed colours
 $shadow-cb-strip: 0 1px 1px rgba(0, 0, 0, 0.04);
@@ -100,7 +100,7 @@ $task-select-max-width: rem(350);
 // =================================================================
 
 $table-row-border: $dashboard-tabs-bg-hover; // gray 2 (#f0f0f1)
-$table-header-bg: #f8f9fa;
+$table-header-bg: $wp-admin-gray-bg-light;
 $table-row-add-bg: $wp-admin-gray-bg-light;  // gray 0 (#f6f7f7)
 $table-add-btn-width: rem(32);
 $table-add-btn-height: rem(30);

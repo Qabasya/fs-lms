@@ -172,3 +172,5 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 </div>
 
 <?php require_once FS_LMS_PATH . 'templates/admin/components/modals/enrollment/person/parent-person-modal.php'; ?>
+
+<?php require_once FS_LMS_PATH . 'templates/admin/components/modals/pii-export-modal.php'; ?>

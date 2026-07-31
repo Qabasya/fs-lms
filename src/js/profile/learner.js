@@ -5,6 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipText, chipSoft, shortName, toast } from './utils.js';
+import { toggleVisible } from '../common/utils.js';
 import { icoCalendar, icoCheck, icoCross, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock, icoX } from '../common/icons.js';
 import { createApi } from './api.js';
 
@@ -313,8 +314,8 @@ function scRenderProgram(courses) {
 
     // Курс ещё не начался — превью модулей без раскрытия.
     if (c.not_started && c.modules) {
-        searchWrap.style.display = 'none';
-        expandBtn.style.display = 'none';
+        toggleVisible( searchWrap, false );
+        toggleVisible( expandBtn, false );
         body.innerHTML = `<div class="sc-notice">Курс стартует ${c.start ? '<b>' + esc(fmtDayMonth(c.start)) + '</b>' : 'скоро'}. Уроки откроются после первого занятия.</div>` +
             c.modules.map((m, mi) => `<div class="sc-mod">
                 <div class="sc-mhead static">
@@ -325,8 +326,8 @@ function scRenderProgram(courses) {
                 </div></div>`).join('');
         return;
     }
-    searchWrap.style.display = '';
-    expandBtn.style.display = c.modules ? '' : 'none';
+    toggleVisible( searchWrap, true );
+    toggleVisible( expandBtn, Boolean( c.modules ) );
 
     // Плоский курс без модулей.
     if (!c.modules) {

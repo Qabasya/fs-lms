@@ -7,6 +7,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 use Inc\DTO\Log\DataChangeLogDTO;
 use Inc\DTO\Log\DataChangeLogInputDTO;
 use Inc\Enums\Log\LogChannel;
+use Inc\Enums\Log\LogFilterType;
 
 /**
  * Class DataChangeLogRepository
@@ -23,10 +24,9 @@ use Inc\Enums\Log\LogChannel;
  *
  * ### Архитектурная роль:
  *
- * Инкапсулирует вызовы $wpdb для прямых SQL-запросов.
- * Использует DTO DataChangeLogDTO для чтения и DataChangeLogInputDTO для вставки.
- * Лог изменений данных отслеживает, кто и когда изменял персональные данные,
- * а также старые и новые значения (в зашифрованном виде).
+ * Чтение (list/countFiltered/listAll) — в {@see AbstractLogRepository};
+ * здесь только специфика канала. Лог изменений данных отслеживает, кто и когда
+ * изменял персональные данные, а также старые и новые значения (в зашифрованном виде).
  *
  * ### Фильтры:
  *
@@ -35,20 +35,32 @@ use Inc\Enums\Log\LogChannel;
  * - field_name — название изменённого поля
  * - date_from — дата начала периода
  * - date_to — дата окончания периода
+ *
+ * @method DataChangeLogDTO[] list( array $filters, int $page, int $perPage, string $orderby = 'id', string $order = 'DESC' )
+ * @method DataChangeLogDTO[] listAll( array $filters )
  */
-class DataChangeLogRepository {
+class DataChangeLogRepository extends AbstractLogRepository {
 
-	private \wpdb $wpdb;
-	private string $table;
+	protected function channel(): LogChannel {
+		return LogChannel::DataChange;
+	}
 
 	/**
-	 * Конструктор репозитория.
-	 *
-	 * @param \wpdb|null $wpdb Глобальный объект базы данных WordPress
+	 * @return array<string, array{0: string, 1: LogFilterType}>
 	 */
-	public function __construct( ?\wpdb $wpdb = null ) {
-		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = LogChannel::DataChange->tableName()->prefixed();
+	protected function filterMap(): array {
+		return array(
+			'actor_user_id'    => array( 'actor_user_id', LogFilterType::Number ),
+			'target_person_id' => array( 'target_person_id', LogFilterType::Number ),
+			'field_name'       => array( 'field_name', LogFilterType::Text ),
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $row Строка таблицы
+	 */
+	protected function hydrate( array $row ): DataChangeLogDTO {
+		return DataChangeLogDTO::fromArray( $row );
 	}
 
 	/**
@@ -59,133 +71,24 @@ class DataChangeLogRepository {
 	 * @return int ID созданной записи
 	 */
 	public function create( DataChangeLogInputDTO $input ): int {
-		$this->wpdb->insert( $this->table, $input->toArray() );
-		return (int) $this->wpdb->insert_id;
+		return $this->insertRow( $input->toArray() );
 	}
 
 	/**
-	 * Возвращает список записей с фильтрацией и пагинацией.
+	 * ID пользователей, менявших данные — словарь для фильтра UI.
 	 *
-	 * @param array $filters Массив фильтров (actor_user_id, target_person_id, field_name, date_from, date_to)
-	 * @param int   $page    Номер страницы
-	 * @param int   $perPage Количество записей на страницу
-	 *
-	 * @return DataChangeLogDTO[]
-	 */
-	public function list( array $filters, int $page, int $perPage, string $orderby = 'id', string $order = 'DESC' ): array {
-		$orderby = in_array( $orderby, array( 'id', 'created_at' ), true ) ? $orderby : 'id';
-		$order   = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
-
-		[ $conditions, $bindings ] = $this->buildConditions( $filters );
-		$where      = implode( ' AND ', $conditions );
-		$bindings[] = $perPage;
-		$bindings[] = ( $page - 1 ) * $perPage;
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY $orderby $order LIMIT %d OFFSET %d", $bindings ),
-			ARRAY_A
-		);
-
-		return array_map( fn( array $row ) => DataChangeLogDTO::fromArray( $row ), $rows ?: array() );
-	}
-
-	/**
-	 * Подсчитывает количество записей по заданным фильтрам.
-	 *
-	 * @param array $filters Массив фильтров
-	 *
-	 * @return int
-	 */
-	public function countFiltered( array $filters ): int {
-		[ $conditions, $bindings ] = $this->buildConditions( $filters );
-		$where = implode( ' AND ', $conditions );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return (int) $this->wpdb->get_var(
-			$this->wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE $where", $bindings )
-		);
-	}
-
-	/**
-	 * Возвращает все записи по фильтрам (без пагинации) для экспорта.
-	 *
-	 * @param array $filters Массив фильтров
-	 *
-	 * @return DataChangeLogDTO[]
-	 */
-	public function listAll( array $filters ): array {
-		[ $conditions, $bindings ] = $this->buildConditions( $filters );
-		$where = implode( ' AND ', $conditions );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY id DESC", $bindings ),
-			ARRAY_A
-		);
-
-		return array_map( fn( array $row ) => DataChangeLogDTO::fromArray( $row ), $rows ?: array() );
-	}
-
-	/**
-	 * Формирует WHERE-условие и массив параметров для запроса.
-	 *
-	 * @param array $filters Массив фильтров
-	 *
-	 * @return array{0: string[], 1: array}
+	 * @return int[]
 	 */
 	public function distinctActorUserIds(): array {
-		return array_map(
-			'intval',
-			$this->wpdb->get_col(
-				$this->wpdb->prepare( 'SELECT DISTINCT actor_user_id FROM %i WHERE actor_user_id IS NOT NULL ORDER BY actor_user_id', $this->table )
-			) ?: array()
-		);
+		return $this->distinctIntValues( 'actor_user_id' );
 	}
 
+	/**
+	 * ID лиц, чьи данные менялись — словарь для фильтра UI.
+	 *
+	 * @return int[]
+	 */
 	public function distinctPersonIds(): array {
-		return array_map(
-			'intval',
-			$this->wpdb->get_col(
-				$this->wpdb->prepare( 'SELECT DISTINCT target_person_id FROM %i WHERE target_person_id IS NOT NULL ORDER BY target_person_id', $this->table )
-			) ?: array()
-		);
-	}
-
-	private function buildConditions( array $filters ): array {
-		$conditions = array( '1=1' );
-		$bindings   = array( $this->table );
-
-		// Фильтр по ID пользователя, изменившего данные
-		if ( ! empty( $filters['actor_user_id'] ) ) {
-			$conditions[] = 'actor_user_id = %d';
-			$bindings[]   = (int) $filters['actor_user_id'];
-		}
-
-		// Фильтр по ID лица, чьи данные изменены
-		if ( ! empty( $filters['target_person_id'] ) ) {
-			$conditions[] = 'target_person_id = %d';
-			$bindings[]   = (int) $filters['target_person_id'];
-		}
-
-		// Фильтр по названию поля
-		if ( ! empty( $filters['field_name'] ) ) {
-			$conditions[] = 'field_name = %s';
-			$bindings[]   = $filters['field_name'];
-		}
-
-		// Фильтр по дате начала (с 00:00:00)
-		if ( ! empty( $filters['date_from'] ) ) {
-			$conditions[] = 'created_at >= %s';
-			$bindings[]   = $filters['date_from'] . ' 00:00:00';
-		}
-
-		// Фильтр по дате окончания (до 23:59:59)
-		if ( ! empty( $filters['date_to'] ) ) {
-			$conditions[] = 'created_at <= %s';
-			$bindings[]   = $filters['date_to'] . ' 23:59:59';
-		}
-
-		return array( $conditions, $bindings );
+		return $this->distinctIntValues( 'target_person_id' );
 	}
 }

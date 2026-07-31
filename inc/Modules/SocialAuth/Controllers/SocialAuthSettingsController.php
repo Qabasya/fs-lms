@@ -8,6 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Wp\ShortCode;
 use Inc\Modules\SocialAuth\Config\SocialAuthConfig;
+use Inc\Modules\SocialAuth\Repositories\SocialAuthSettingsRepository;
 use Inc\Services\System\PageGeneratorService;
 
 /**
@@ -25,6 +26,7 @@ class SocialAuthSettingsController implements ServiceInterface {
 	public function __construct(
 		private readonly PageGeneratorService $pages,
 		private readonly SocialAuthConfig     $config,
+		private readonly SocialAuthSettingsRepository $settings,
 	) {}
 
 	public function register(): void {
@@ -48,6 +50,8 @@ class SocialAuthSettingsController implements ServiceInterface {
 			'tab-2' => array(
 				'title' => 'Авторизация',
 				'path'  => FS_LMS_PATH . 'inc/Modules/SocialAuth/templates/settings-tab.php',
+				// Данные вкладки — из репозитория модуля: партиал не читает опции сам.
+				'data'  => array( 'options' => $this->settings->readAll() ),
 			),
 		);
 

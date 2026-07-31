@@ -9,14 +9,14 @@
 }
 
 .fs-cockpit-title {
-	font-size: $font-size-title;
-	margin-bottom: $spacing-xl;
+	font-size: $font-size-2xl;
+	margin-bottom: $spacing-2xl;
 }
 
 .fs-cockpit-layout {
 	display: grid;
 	grid-template-columns: 1fr rem(280);
-	gap: $spacing-xl;
+	gap: $spacing-2xl;
 
 	@media (max-width: $bp-wp) {
 		grid-template-columns: 1fr;
@@ -25,7 +25,7 @@
 
 .fs-cockpit-section {
 	h2 {
-		font-size: $font-size-heading;
+		font-size: $font-size-lg;
 		margin-bottom: $spacing-lg;
 		border-bottom: 1px solid $color-border;
 		padding-bottom: $spacing-sm;
@@ -45,7 +45,7 @@
 	}
 
 	a {
-		font-size: $font-size-base;
+		font-size: $font-size-md;
 		color: $color-accent;
 		text-decoration: none;
 
@@ -56,7 +56,7 @@
 }
 
 .fs-cockpit-group-subject {
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	color: $color-muted;
 }
 
@@ -71,7 +71,7 @@
 	gap: $spacing-md;
 	padding: rem(10) rem(12);
 	border: 1px solid $color-border;
-	border-radius: $radius;
+	border-radius: $border-radius-sm;
 	margin-bottom: $spacing-sm;
 	background: $color-white;
 	cursor: grab;
@@ -87,17 +87,17 @@
 
 .fs-cockpit-lesson-topic {
 	flex: 1;
-	font-size: $font-size-base;
+	font-size: $font-size-md;
 }
 
 .fs-cockpit-lesson-visibility {
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	color: $color-muted;
 	text-transform: uppercase;
 }
 
 .fs-cockpit-lesson-date {
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	color: $color-muted;
 }
 
@@ -110,7 +110,7 @@
 .fs-cockpit-btn-visibility,
 .fs-cockpit-btn-duplicate,
 .fs-cockpit-btn-remove {
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	padding: rem(4) rem(10);
 	border-radius: rem(3);
 	cursor: pointer;
@@ -125,10 +125,10 @@
 	display: inline-block;
 	margin-right: $spacing-xs;
 	padding: 1px rem(6);
-	border-radius: $radius;
+	border-radius: $border-radius-sm;
 	background: $color-accent;
 	color: $color-white;
-	font-size: $font-size-xxs;
+	font-size: $font-size-xs;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 }
@@ -137,7 +137,7 @@
 .fs-picker-result-subject {
 	margin-left: $spacing-xs;
 	color: $color-muted;
-	font-size: $font-size-xxs;
+	font-size: $font-size-xs;
 	text-transform: uppercase;
 }
 
@@ -147,8 +147,8 @@
 	margin-top: $spacing-xs;
 	padding: $spacing-xs $spacing-sm;
 	border: 1px solid $color-border;
-	border-radius: $radius;
-	font-size: $font-size-sm;
+	border-radius: $border-radius-sm;
+	font-size: $font-size-base;
 	color: $color-text;
 	background: $color-white;
 }
@@ -160,7 +160,7 @@
 	li {
 		padding: rem(6) 0;
 		border-bottom: 1px solid $color-border-light;
-		font-size: $font-size-sm;
+		font-size: $font-size-base;
 	}
 }
 
@@ -175,8 +175,8 @@
 	select {
 		padding: rem(6) rem(10);
 		border: 1px solid $color-border;
-		border-radius: $radius;
-		font-size: $font-size-sm;
+		border-radius: $border-radius-sm;
+		font-size: $font-size-base;
 		background: $color-white;
 		color: $color-text;
 	}
@@ -184,7 +184,7 @@
 
 .fs-cockpit-btn-primary {
 	padding: rem(6) rem(16);
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 
 	@include fs-btn-primary(0.85);
 
@@ -193,8 +193,8 @@
 
 .fs-cockpit-btn-secondary {
 	padding: rem(6) rem(14);
-	border-radius: $radius;
-	font-size: $font-size-sm;
+	border-radius: $border-radius-sm;
+	font-size: $font-size-base;
 	cursor: pointer;
 
 	@include fs-btn-secondary;
@@ -215,8 +215,8 @@
 .fs-lesson-date {
 	padding: rem(4) rem(6);
 	border: 1px solid $color-border;
-	border-radius: $radius;
-	font-size: $font-size-sm;
+	border-radius: $border-radius-sm;
+	font-size: $font-size-base;
 	color: $color-text;
 	background: $color-white;
 	flex-shrink: 0;
@@ -224,7 +224,7 @@
 
 // Бейдж видимости
 .fs-cockpit-visibility-badge {
-	font-size: $font-size-xxs;
+	font-size: $font-size-xs;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 
@@ -246,7 +246,7 @@
 .fs-lesson-picker-panel {
 	margin-top: $spacing-sm;
 	border: 1px solid $color-border;
-	border-radius: $radius;
+	border-radius: $border-radius-sm;
 	background: $color-white;
 	overflow: hidden;
 }
@@ -263,8 +263,8 @@
 		flex: 1;
 		padding: rem(6) rem(10);
 		border: 1px solid $color-border;
-		border-radius: $radius;
-		font-size: $font-size-sm;
+		border-radius: $border-radius-sm;
+		font-size: $font-size-base;
 	}
 }
 
@@ -276,7 +276,7 @@
 		display: flex;
 		align-items: center;
 		gap: $spacing-xs;
-		font-size: $font-size-sm;
+		font-size: $font-size-base;
 		cursor: pointer;
 	}
 }
@@ -299,13 +299,13 @@
 }
 
 .fs-picker-result-title {
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	color: $color-text;
 }
 
 .fs-picker-add-btn {
 	padding: rem(3) rem(10);
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	flex-shrink: 0;
 
 	@include fs-btn-primary(0.85);
@@ -315,13 +315,13 @@
 
 .fs-picker-empty {
 	padding: $spacing-lg $spacing-md;
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	color: $color-muted;
 }
 
 // Активность
 .fs-cockpit-activity {
-	margin-top: $spacing-2xl;
+	margin-top: $spacing-4xl;
 }
 
 .fs-cockpit-activity-list {
@@ -330,7 +330,7 @@
 	li {
 		padding: $spacing-sm 0;
 		border-bottom: 1px solid $color-border-light;
-		font-size: $font-size-sm;
+		font-size: $font-size-base;
 		color: $color-text;
 	}
 
@@ -342,8 +342,8 @@
 #fs-cockpit-load-more {
 	margin-top: $spacing-lg;
 	padding: rem(8) rem(20);
-	font-size: $font-size-sm;
-	border-radius: $radius;
+	font-size: $font-size-base;
+	border-radius: $border-radius-sm;
 	cursor: pointer;
 
 	@include fs-btn-secondary;
@@ -358,7 +358,7 @@
 
 .fs-answers-empty,
 .fs-answers-none {
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	color: $color-muted;
 	margin: 0;
 }
@@ -369,13 +369,13 @@
 
 .fs-answers-step-label {
 	display: block;
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	font-weight: $font-semibold;
 	margin-bottom: $spacing-sm;
 }
 
 .fs-answers-load-btn {
-	font-size: $font-size-xs;
+	font-size: $font-size-sm;
 	margin-bottom: $spacing-sm;
 }
 
@@ -388,7 +388,7 @@
 }
 
 .fs-answers-student-name {
-	font-size: $font-size-sm;
+	font-size: $font-size-base;
 	font-weight: $font-semibold;
 }
 
@@ -399,7 +399,7 @@
 }
 
 .fs-answers-attempt {
-	font-size: $font-size-xs;
+	font-size: $font-size-sm;
 	padding: $spacing-xs $spacing-sm;
 	border-left: rem(3) solid $color-border;
 	margin-bottom: $spacing-xs;

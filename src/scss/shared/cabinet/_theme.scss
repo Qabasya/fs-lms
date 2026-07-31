@@ -42,26 +42,26 @@
   --ok-line:   #c4e8d1;
   --ok-ink:    #237032;
   --ok-text:   #2b6a3c;
-  --err:      #e03131;
-  --err-soft: #fdecec;
+  --err:      #{t.$hue-red};
+  --err-soft: #{t.$hue-red-soft};
   --err-line: #f5c9c9;
   --err-ink:  #c92a2a;
   --err-text: #9c3535;
-  --wait:        #b36b00;
-  --wait-ink:    #b36b00;
+  --wait:        #{t.$hue-amber-dk};
+  --wait-ink:    var(--wait); // тот же оттенок: имя оставлено для семантики «сильный текст»
   --wait-soft:   #fdf3e3;
   --wait-line:   #f3ddb5;
   --wait-text:   #8a5a10;
   --wait-accent: #f08c00; // иконка «на проверке»
 
   // ── Доменные цвета кабинета (посещаемость/расписание/замены)
-  --good-bg:      #e7f5ec; // фон «идёт сейчас», отметка «Был»
-  --good-bg-soft: #f3faf5; // градиент строки текущего занятия
+  --good-bg:      var(--ok-soft); // фон «идёт сейчас», отметка «Был» — тот же зелёный, что статус успеха
+  --good-bg-soft: var(--ok-soft-2); // градиент строки текущего занятия
   --warn-bg:      #fff4e6; // тег «замена до…»
   --warn-ink:     #d9480f;
   --indi-bg:      #e6fcf5; // тег «инд.»
   --indi-ink:     #087f5b;
-  --t-zachet:      #7048e8; // индивидуальное / зачёт (палитра D12; используется и из JS)
+  --t-zachet:      #{t.$hue-violet}; // индивидуальное / зачёт (палитра D12; используется и из JS)
   --t-zachet-soft: rgba(112, 72, 232, 0.1);
   --holiday-bg:     #fdf0f0; // ячейка-выходной в календаре КТП
   --holiday-border: #f7d6d6;
@@ -74,7 +74,7 @@
 
   // ── Аватар/тост/оверлеи
   --ava-from:  #5c7cfa; // градиент аватара пользователя
-  --ava-to:    #7048e8;
+  --ava-to:    #{t.$hue-violet};
   --toast-ok:  #69db7c;
   --backdrop:  rgba(20, 24, 33, 0.5);
   --topbar-bg: rgba(255, 255, 255, 0.82);

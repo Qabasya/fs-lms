@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Modules\AdSync\Controllers;
 
 use Inc\Enums\Wp\Nonce;
+use Inc\Shared\Traits\AjaxResponse;
 use Inc\Modules\AdSync\Services\AdProvisioningService;
 
 /**
@@ -18,6 +19,8 @@ use Inc\Modules\AdSync\Services\AdProvisioningService;
  * @package Inc\Modules\AdSync\Controllers
  */
 class AdSyncController {
+
+	use AjaxResponse;
 
 	/** nopriv-AJAX статуса провижна для фронт-поллинга. */
 	public const STATUS_ACTION = 'fs_lms_ad_status';
@@ -94,7 +97,7 @@ class AdSyncController {
 			'none'    => 'Создаём учётную запись в домене…',
 		);
 
-		wp_send_json_success( array(
+		$this->success( array(
 			'state'   => $state,
 			'message' => $messages[ $state ] ?? '',
 		) );

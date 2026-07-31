@@ -19,7 +19,12 @@ const AlertModal = {
      * Инициализация компонента.
      * Находит и кэширует ссылку на модальное окно в DOM.
      */
+    /** Повторный init() — no-op: модалку поднимает и автозагрузчик ui.js, и admin.js. */
+    _initialized: false,
+
     init() {
+        if ( this._initialized ) { return; }
+        this._initialized = true;
         this.$modal = $( '#fs-lms-alert-modal' );
     },
 

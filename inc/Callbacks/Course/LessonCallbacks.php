@@ -166,7 +166,7 @@ class LessonCallbacks extends BaseController {
 
 		$lesson_id   = $this->requireInt( 'lesson_id' );
 		$subject_key = $this->requireKey( 'subject_key' );
-		$raw_steps   = wp_unslash( $_POST['steps'] ?? array() );
+		$raw_steps   = $this->unslashArray( 'steps' );
 		$raw_steps   = is_array( $raw_steps ) ? $raw_steps : array();
 
 		$lesson = $this->lessonManager->get( $lesson_id );

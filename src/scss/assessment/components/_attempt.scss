@@ -28,30 +28,30 @@
   width: var(--colw);
   max-width: 100%;
   margin: 0 auto;
-  padding: 28px 0 40px;
+  padding: rem(28) 0 rem(40);
 }
 
 .fs-assessment-title {
-  font-size: 22px;
+  font-size: rem(22);
   font-weight: 700;
   letter-spacing: -0.015em;
   color: var(--ink);
-  margin-bottom: 14px;
+  margin-bottom: rem(14);
 }
 
 .fs-assessment-notice {
-  padding: 16px 20px;
+  padding: rem(16) rem(20);
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   color: var(--muted);
-  font-size: 14.5px;
+  font-size: rem(14.5);
 }
 
 /* ── Стадия [intro]: стартовый экран (D16.4) ─────────────────────────── */
 .fs-assessment-intro {
   &__desc {
-    margin-bottom: 22px;
+    margin-bottom: rem(22);
     color: var(--ink-2);
     font: 15px/1.6 var(--font);
 
@@ -62,8 +62,8 @@
   &__rules {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin: 0 0 26px;
+    gap: rem(10);
+    margin: 0 0 rem(26);
     padding: 0;
     list-style: none;
   }
@@ -71,8 +71,8 @@
   &__rule {
     display: inline-flex;
     align-items: baseline;
-    gap: 6px;
-    padding: 8px 14px;
+    gap: rem(6);
+    padding: rem(8) rem(14);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--surface);
@@ -89,7 +89,7 @@
   }
 
   &__actions {
-    margin-bottom: 10px;
+    margin-bottom: rem(10);
   }
 }
 
@@ -98,8 +98,8 @@
   margin-left: auto; // прижать вправо в шапке
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
+  gap: rem(7);
+  padding: rem(6) rem(12);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -125,9 +125,9 @@
 /* ── Вопросы ────────────────────────────────────────────────────────── */
 .fs-attempt-question {
   border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 22px 28px;
-  margin-bottom: 14px;
+  border-radius: rem(16);
+  padding: rem(22) rem(28);
+  margin-bottom: rem(14);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
 }
@@ -135,27 +135,27 @@
 .fs-attempt-question-number {
   font-weight: 700;
   color: var(--accent-700);
-  margin-bottom: 6px;
+  margin-bottom: rem(6);
 }
 
 /* Задача 3: составное задание (Triple) — подпункты 19/20/21 внутри одного блока. */
 .fs-attempt-subpart + .fs-attempt-subpart {
-  margin-top: 18px;
-  padding-top: 18px;
+  margin-top: rem(18);
+  padding-top: rem(18);
   border-top: 1px dashed var(--line);
 }
 
 .fs-attempt-subpart-tag {
-  margin-left: 6px;
+  margin-left: rem(6);
   font-weight: 600;
-  font-size: 12px;
+  font-size: rem(12);
   color: var(--muted);
 }
 
 .fs-attempt-question-content {
   // Типографику (шрифт/цвет/интерлиньяж, код/таблицы/картинки) задаёт .wpc —
   // единый с плеером стиль контента; здесь только внешний отступ.
-  margin-bottom: 12px;
+  margin-bottom: rem(12);
 }
 
 .fs-attempt-answer {
@@ -163,7 +163,7 @@
   resize: vertical;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: rem(10) rem(12);
   font: 14px/1.5 var(--font);
   color: var(--ink);
   transition: border-color $tr;
@@ -175,16 +175,16 @@
 }
 
 .fs-save-status {
-  font-size: 12px;
+  font-size: rem(12);
   color: var(--muted);
-  margin-left: 8px;
+  margin-left: rem(8);
 }
 
 /* ── Действия ───────────────────────────────────────────────────────── */
 .fs-attempt-actions {
-  margin-top: 22px;
+  margin-top: rem(22);
   display: flex;
-  gap: 10px;
+  gap: rem(10);
   justify-content: flex-end; // «Сдать контрольную» по правому краю
 }
 
@@ -192,37 +192,37 @@
 .fs-result-actions {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 18px;
+  gap: rem(10);
+  margin-top: rem(18);
 }
 
 /* ── Результат (текущая попытка после Сдать) ───────────────────────────── */
 #fs-assessment-result {
-  padding: 22px 26px;
+  padding: rem(22) rem(26);
   background: var(--ok-soft);
   border: 1px solid var(--ok-line);
   border-radius: var(--radius);
-  margin-top: 22px;
+  margin-top: rem(22);
 
   h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
 }
 
 .fs-result-score {
-  font-size: 15px;
+  font-size: rem(15);
   font-weight: 600;
   color: var(--ink);
 }
 
 .fs-start-notice {
-  font-size: 13px;
+  font-size: rem(13);
   color: var(--err);
-  margin-top: 10px;
+  margin-top: rem(10);
 }
 
 /* ── Развёрнутый ответ: файлы + материалы (Эпик 13, D16) ──────────────── */
 .fs-attempt-materials {
-  margin-bottom: 14px;
-  padding: 10px 14px;
+  margin-bottom: rem(14);
+  padding: rem(10) rem(14);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
 
@@ -230,7 +230,7 @@
 
   &__link {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: rem(6);
     word-break: break-all;
     color: var(--accent-700);
   }
@@ -238,10 +238,10 @@
 
 /* ── T13.7: результат завершённой попытки ──────────────────────────────── */
 .fs-assessment-result-page {
-  padding: 22px 26px;
+  padding: rem(22) rem(26);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  margin-top: 22px;
+  margin-top: rem(22);
 
   h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
 
@@ -255,8 +255,8 @@
 
 .fs-result-task {
   display: flex;
-  gap: 10px;
-  padding: 10px 0;
+  gap: rem(10);
+  padding: rem(10) 0;
   border-bottom: 1px solid var(--line-2);
 
   &:last-child { border-bottom: none; }
@@ -264,7 +264,7 @@
   &__n {
     font-weight: 600;
     color: var(--accent-700);
-    min-width: 24px;
+    min-width: rem(24);
     flex-shrink: 0;
   }
 
@@ -273,7 +273,7 @@
   &__score,
   &__verdict {
     display: block;
-    font-size: 13px;
+    font-size: rem(13);
     color: var(--muted);
   }
 }
@@ -284,35 +284,35 @@
   padding: 0;
 
   li {
-    font-size: 13px;
+    font-size: rem(13);
     color: var(--ink-2);
-    margin-bottom: 6px;
+    margin-bottom: rem(6);
 
     &::before {
       content: '•';
       color: var(--accent);
-      margin-right: 6px;
+      margin-right: rem(6);
     }
   }
 }
 
 .fs-result-files {
-  margin-top: 10px;
+  margin-top: rem(10);
 
   &__title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 
   &__preview {
     display: block;
-    max-width: 240px;
+    max-width: rem(240);
     border-radius: var(--radius-sm);
     border: 1px solid var(--line);
-    margin-bottom: 6px;
+    margin-bottom: rem(6);
   }
 
   &__link {
     display: block;
-    font-size: 13px;
-    margin-bottom: 6px;
+    font-size: rem(13);
+    margin-bottom: rem(6);
     word-break: break-all;
     color: var(--accent-700);
   }
@@ -320,22 +320,22 @@
 
 /* ── Развёрнутый ответ: прикладываемые файлы (Эпик 13, D16) ────────────── */
 .fs-attempt-files {
-  margin: 10px 0;
+  margin: rem(10) 0;
 
   &__chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: rem(6);
   }
 
   &__chip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 10px;
+    gap: rem(6);
+    padding: 2px rem(10);
     border: 1px solid var(--line);
     border-radius: 999px;
-    font-size: 13px;
+    font-size: rem(13);
   }
 
   &__chip-remove {
@@ -350,15 +350,15 @@
   &__controls {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 8px;
+    gap: rem(10);
+    margin-top: rem(8);
   }
 
   &__status { font-size: 13px; color: var(--err); }
 
   &__hint {
-    margin-top: 6px;
-    font-size: 12.5px;
+    margin-top: rem(6);
+    font-size: rem(12.5);
     color: var(--muted);
   }
 }
@@ -369,8 +369,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 9px 16px;
+  gap: rem(7);
+  padding: rem(9) rem(16);
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
   background: var(--surface);

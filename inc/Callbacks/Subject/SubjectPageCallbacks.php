@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inc\Callbacks\Subject;
 
+use Inc\Controllers\Builders\PostsListTablePresenter;
 use Inc\Core\BaseController;
 use Inc\DTO\Subject\SubjectViewDTO;
 use Inc\DTO\Subject\TaxonomyDataDTO;
@@ -88,9 +89,9 @@ class SubjectPageCallbacks extends BaseController {
 		// buildListTable() — создаёт объект WP_ListTable для указанного типа поста
 		// Таблица строится только для активной вкладки (ленивая загрузка)
 		if ( 'tab-2' === $active_tab ) {
-			$tasks_table = $this->posts->buildListTable( PostTypeResolver::tasks( $key ), $page, 'tab-2' );
+			$tasks_table = PostsListTablePresenter::for( PostTypeResolver::tasks( $key ), $page, 'tab-2' );
 		} elseif ( 'tab-3' === $active_tab ) {
-			$articles_table = $this->posts->buildListTable( PostTypeResolver::articles( $key ), $page, 'tab-3' );
+			$articles_table = PostsListTablePresenter::for( PostTypeResolver::articles( $key ), $page, 'tab-3' );
 		}
 
 		// Формирование DTO для шаблона
@@ -106,6 +107,10 @@ class SubjectPageCallbacks extends BaseController {
 			taxonomies:    array_merge( array( $fixed_tax_dto ), $this->taxonomies->getBySubject( $key ) ),
 			tasks_table:   $tasks_table,
 			articles_table: $articles_table,
+			// Счётчики по номерам заданий — одним запросом на CPT (раньше шаблон
+			// строил по два WP_Query на каждый номер).
+			task_counts:    $this->posts->countPublishedByTerms( PostTypeResolver::tasks( $key ), "{$key}_task_number" ),
+			article_counts: $this->posts->countPublishedByTerms( PostTypeResolver::articles( $key ), "{$key}_task_number" ),
 		);
 	}
 
@@ -121,7 +126,7 @@ class SubjectPageCallbacks extends BaseController {
 
 		$subject = $this->subjects->getByKey( $key );
 		if ( ! $subject ) {
-			echo 'Предмет не найден';
+			$this->renderNotice( 'Предмет не найден.' );
 			return;
 		}
 
@@ -129,14 +134,14 @@ class SubjectPageCallbacks extends BaseController {
 		// список-таблицы (buildListTable) не на чём, страница и не показывается в
 		// меню (SubjectsMenuBuilder), но остаётся доступна по прямой ссылке.
 		if ( ! $subject->hasBank ) {
-			echo 'У предмета «' . esc_html( $subject->name ) . '» нет собственного банка заданий и статей.';
+			$this->renderNotice( sprintf( 'У предмета «%s» нет собственного банка заданий и статей.', $subject->name ) );
 			return;
 		}
 
 		$dto = $this->prepareSubjectViewData( $key );
 
 		if ( ! $dto ) {
-			echo 'Предмет не найден';
+			$this->renderNotice( 'Предмет не найден.' );
 			return;
 		}
 
@@ -145,4 +150,15 @@ class SubjectPageCallbacks extends BaseController {
 	}
 
 
+
+	/**
+	 * Сообщение вместо страницы предмета (нет предмета / нет банка).
+	 *
+	 * @param string $message Текст сообщения
+	 *
+	 * @return void
+	 */
+	private function renderNotice( string $message ): void {
+		$this->render( 'admin/components/admin-notice', array( 'type' => 'warning', 'message' => $message ) );
+	}
 }

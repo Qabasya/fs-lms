@@ -2,16 +2,16 @@
 @use '../mixins' as *;
 
 .fs-auth-card {
-  @include fs-card-shell(rem(400), rem(30), $radius, rem(40) auto);
+  @include fs-card-shell(rem(400), rem(30), $border-radius-sm, rem(40) auto);
 
   &__title {
     @include fs-card-title;
 
-    margin: 0 0 $spacing-xl;
+    margin: 0 0 $spacing-2xl;
   }
 
   &__error {
-    @include fs-form-error($font-size-sm, $spacing-lg);
+    @include fs-form-error($font-size-base, $spacing-lg);
 
     text-align: center;
   }
@@ -37,7 +37,7 @@
 
   &__meta {
     margin-bottom: rem(20);
-    font-size: $font-size-xs;
+    font-size: $font-size-sm;
 
     a {
       color: $color-muted;
@@ -49,7 +49,7 @@
   &__switch {
     text-align: center;
     margin-top: $spacing-lg;
-    font-size: $font-size-sm;
+    font-size: $font-size-base;
     color: $color-muted;
 
     a {
@@ -69,7 +69,7 @@
     align-items: center;
     text-align: center;
     color: $color-muted;
-    font-size: $font-size-xs;
+    font-size: $font-size-sm;
     margin: rem(20) 0;
 
     &::before, &::after {
@@ -97,8 +97,8 @@
     color: $color-text;
     text-decoration: none;
     border: 1px solid $color-border-light;
-    border-radius: $radius;
-    font-size: $font-size-sm;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-base;
     font-weight: $font-bold;
     transition: background-color $transition, border-color $transition;
 
@@ -127,9 +127,9 @@
 
   &__footer {
     text-align: center;
-    font-size: $font-size-xxs;
+    font-size: $font-size-xs;
     color: $color-muted;
-    line-height: $line-height-base;
+    line-height: $line-height-relaxed;
     margin-top: rem(20);
 
     a {

@@ -6,6 +6,9 @@ namespace Unit\Services\Profile;
 
 use Inc\DTO\Profile\ProfileContext;
 use Inc\Enums\Access\UserRole;
+use Inc\Managers\Course\CourseManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Profile\TeacherProfileView;
 use PHPUnit\Framework\TestCase;
 
@@ -15,7 +18,15 @@ class TeacherProfileViewTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->view = new TeacherProfileView();
+		$groups = $this->createMock( GroupsRepository::class );
+		$groups->method( 'findAll' )->willReturn( array() );
+		$groups->method( 'findByTeacherId' )->willReturn( array() );
+
+		$this->view = new TeacherProfileView(
+			$groups,
+			$this->createMock( CourseManager::class ),
+			$this->createMock( SubjectRepository::class ),
+		);
 	}
 
 	/** T12.7: пункт «Группы» убран из меню, но экран остаётся в screens (маршрут жив). */

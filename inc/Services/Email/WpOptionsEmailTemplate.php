@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Email;
 
 use Inc\Contracts\EmailTemplateInterface;
+use Inc\Repositories\OptionsRepositories\EmailTemplatesRepository;
 use Inc\DTO\Email\EmailTemplateData;
 use Inc\Enums\Email\EmailTemplateType;
 use Inc\Enums\Settings\OptionName;
@@ -30,11 +31,12 @@ use Inc\Enums\Settings\OptionName;
 class WpOptionsEmailTemplate implements EmailTemplateInterface {
 
 	public function __construct(
-		private readonly PhpEmailTemplate $fallback,
+		private readonly PhpEmailTemplate         $fallback,
+		private readonly EmailTemplatesRepository $templates,
 	) {}
 
 	public function get( EmailTemplateType $type, array $vars = [] ): EmailTemplateData {
-		$all      = (array) get_option( OptionName::EmailTemplates->value, array() );
+		$all      = $this->templates->readAll();
 		$template = $all[ $type->value ] ?? null;
 
 		if ( empty( $template['subject'] ) || empty( $template['body'] ) ) {

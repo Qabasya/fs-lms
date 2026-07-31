@@ -17,6 +17,7 @@ use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class MetaBoxController
@@ -41,6 +42,7 @@ use Inc\Shared\Traits\Authorizer;
 class MetaBoxController extends BaseController implements ServiceInterface {
 
 	use Authorizer;
+	use TemplateRenderer;
 
 	/**
 	 * Конструктор.
@@ -135,7 +137,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		$template    = $this->registry->get( $template_id );
 
 		if ( ! $template ) {
-			echo '<p>Ошибка: шаблон не найден.</p>';
+			$this->render( 'admin/components/admin-notice', array( 'type' => 'error', 'message' => 'Шаблон не найден.' ) );
 			return;
 		}
 
@@ -143,10 +145,12 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		// Значение Nonce::SaveMeta->value — 'fs_lms_save_meta'
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
 
-		echo '<div class="fs-lms-metabox-wrapper">';
-		// Делегирование отрисовки полей конкретному шаблону
-		$template->render( $post );
-		echo '</div>';
+		// Отрисовку полей делегируем конкретному шаблону — обёртку печатает партиал.
+		$this->render( 'admin/metaboxes/fields-wrapper', array(
+			'wrapper_class' => 'fs-lms-metabox-wrapper',
+			'post'          => $post,
+			'template'      => $template,
+		) );
 	}
 
 	/**

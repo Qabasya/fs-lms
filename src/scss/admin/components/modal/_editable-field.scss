@@ -15,7 +15,7 @@
     flex: 1;
     min-height: $input-height-sm;
     line-height: $input-height-sm;
-    font-size: $font-size-wp;
+    font-size: $font-size-sm;
     color: $color-text-primary;
     padding: 0 $spacing-sm;
   }
@@ -34,9 +34,9 @@
     }
 
     .dashicons {
-      font-size: $font-size-m;
-      width: $font-size-m;
-      height: $font-size-m;
+      font-size: $font-size-md;
+      width: $font-size-md;
+      height: $font-size-md;
     }
   }
 
@@ -64,12 +64,12 @@
   align-items: center;
   gap: $spacing-sm;
   cursor: pointer;
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
   color: $color-text-primary;
 
   input[type="checkbox"] {
-    width: $font-size-m;
-    height: $font-size-m;
+    width: $font-size-md;
+    height: $font-size-md;
     margin: 0;
     cursor: pointer;
     accent-color: var(--color-primary);
@@ -85,7 +85,7 @@
   overflow-y: auto;
   padding: $spacing-sm;
   border: 1px solid $color-border-input;
-  border-radius: $border-radius-md;
+  border-radius: $border-radius-sm;
 
   .fs-checkbox-label {
     min-width: 0;

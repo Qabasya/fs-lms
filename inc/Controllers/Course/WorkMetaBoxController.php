@@ -16,6 +16,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\TemplateRenderer;
 use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
 /**
@@ -28,6 +29,7 @@ use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 class WorkMetaBoxController extends BaseController implements ServiceInterface {
 
 	use Authorizer;
+	use TemplateRenderer;
 	use TidiesCoreMetaBoxes;
 
 	public function __construct(
@@ -115,9 +117,11 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 
 	public function renderSettingsContent( \WP_Post $post ): void {
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
-		echo '<div class="fs-lms-work-settings">';
-		$this->template->render( $post );
-		echo '</div>';
+		$this->render( 'admin/metaboxes/fields-wrapper', array(
+			'wrapper_class' => 'fs-lms-work-settings',
+			'post'          => $post,
+			'template'      => $this->template,
+		) );
 	}
 
 	public function renderBuilderContent( \WP_Post $post ): void {
@@ -140,14 +144,11 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		}
 		$json = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 
-		echo '<div class="fs-sb-wrap">';
-		echo '<div class="fs-lms-work-builder" '
-			. 'data-work-id="' . esc_attr( (string) $post->ID ) . '" '
-			. 'data-subject="' . esc_attr( $subject ) . '" '
-			. 'data-level="work">';
-		echo '<script type="application/json" class="fs-sb-data">' . ( $json ?: '[]' ) . '</script>';
-		echo '</div>';
-		echo '</div>';
+		$this->render( 'admin/metaboxes/builder-shell', array(
+			'root_class' => 'fs-lms-work-builder',
+			'data'       => array( 'work-id' => $post->ID, 'subject' => $subject, 'level' => 'work' ),
+			'json'       => (string) $json,
+		) );
 	}
 
 	public function handleWorkPublish( string $new_status, string $old_status, \WP_Post $post ): void {

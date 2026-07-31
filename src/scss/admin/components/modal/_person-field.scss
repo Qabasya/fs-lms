@@ -12,7 +12,7 @@
   min-height: $input-height-sm;            // совпадает с высотой form-input
   background: $wp-admin-gray-bg-light;
   border: 1px solid $color-border-input;
-  border-radius: $border-radius-md;
+  border-radius: $border-radius-sm;
   transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
 
   // Инпут: прозрачный, без рамки — выглядит как текст
@@ -25,7 +25,7 @@
     box-shadow: none !important;
     padding: rem(2) $spacing-sm !important;
     margin: 0 !important;
-    font-size: $font-size-wp;
+    font-size: $font-size-sm;
     color: $color-text-primary;
     cursor: default;
 
@@ -51,9 +51,9 @@
       background   0.18s;
 
     .fs-copy-field__icon {
-      font-size: $font-size-m;
-      width: $font-size-m;
-      height: $font-size-m;
+      font-size: $font-size-md;
+      width: $font-size-md;
+      height: $font-size-md;
     }
   }
 

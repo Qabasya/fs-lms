@@ -6,6 +6,8 @@ namespace Inc\Services\Profile;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\DTO\Profile\LearnerContextDTO;
+use Inc\DTO\Profile\LearnerDashboardDTO;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
@@ -52,7 +54,49 @@ class LearnerService {
 	) {}
 
 	/** @return array<string, mixed> */
-	public function build( int $personId ): array {
+	/**
+	 * Собирает кабинет ученика: группы, расписание, дедлайны, оценки, посещаемость.
+	 *
+	 * Контекст (группы + занятия + сырые строки программы) читается один раз и
+	 * переиспользуется всеми секциями — см. {@see LearnerContextDTO}.
+	 *
+	 * @param int $personId Физлицо ученика
+	 */
+	public function build( int $personId ): LearnerDashboardDTO {
+		$ctx = $this->context( $personId );
+
+		// №2 (D17.2): открытые группы существуют только как курсы в «Мои курсы» —
+		// как ГРУППЫ в блоке приветствия/статистике ученика их не показываем
+		// (видны лишь в админке). Полный список групп нужен курсам и оценкам.
+		$visibleGroups = array_values( array_filter(
+			$ctx->groups,
+			static fn( $g ) => 'open' !== ( $g['access_mode'] ?? 'scheduled' )
+		) );
+
+		$grades = $this->grades( $ctx, $personId );
+
+		return new LearnerDashboardDTO(
+			examLock:   $this->examLock( $personId ),
+			groups:     $visibleGroups,
+			courses:    $this->buildCourses( $ctx->groups, $ctx->rawRows, $ctx->lessonMap, $ctx->roomNames, $personId ),
+			// Эпик 15 (П10): каталог открытых курсов для самозаписи.
+			catalog:    $this->buildCatalog( array_keys( $ctx->groups ) ),
+			upcoming:   array_slice( $this->upcoming( $ctx ), 0, 6 ),
+			deadlines:  array_slice( $this->deadlines( $ctx, $personId ), 0, 6 ),
+			recent:     array_slice( $this->recentGrades( $grades ), 0, 5 ),
+			lessons:    $ctx->allLessons,
+			grades:     $grades,
+			attendance: $this->attendance( $ctx, $personId ),
+		);
+	}
+
+	/**
+	 * Читает всё, что нужно нескольким секциям сразу: группы ученика, их занятия
+	 * (+ его индивидуальные) и карту кабинетов.
+	 *
+	 * @param int $personId Физлицо ученика
+	 */
+	private function context( int $personId ): LearnerContextDTO {
 		$now = $this->clock->now( 'mysql' );
 
 		// #14: карта кабинетов id→имя (для «Каб N» в расписании). Один запрос на всё.
@@ -61,127 +105,199 @@ class LearnerService {
 			$roomNames[ (int) $roomDto->id ] = $roomDto->name;
 		}
 
-		// Группы ученика.
-		$groups   = array();
-		$groupIds = array();
-		foreach ( $this->records->findActiveByStudent( $personId ) as $rec ) {
-			if ( isset( $groups[ $rec->groupId ] ) ) {
-				continue;
-			}
-			$g = $this->groups->findById( $rec->groupId );
-			if ( $g ) {
-				// #12: человекочитаемое название предмета вместо слага (fallback — слаг).
-				$subjectName             = $this->subjects->getByKey( $g->subject_key )?->name ?? $g->subject_key;
-				$groups[ $rec->groupId ] = array(
-					'id'          => (int) $g->id,
-					'name'        => $g->name,
-					'subject'     => $subjectName,
-					'subject_key' => $g->subject_key,
-					'room_id'     => isset( $g->room_id ) ? (int) $g->room_id : 0, // дефолтный кабинет группы
-					'course_id'   => isset( $g->course_id ) ? (int) $g->course_id : 0,
-					'teacher_id'  => isset( $g->teacher_id ) ? (int) $g->teacher_id : 0,
-					'access_mode' => (string) ( $g->access_mode ?? 'scheduled' ), // Эпик 15: открытая группа
-				);
-				// #14: название курса группы (тот же текст, что во вкладке «Мои курсы»).
-				$groups[ $rec->groupId ]['course_title'] = $this->courseTitleForGroup( $groups[ $rec->groupId ] );
-				$groupIds[]              = (int) $g->id;
-			}
-		}
+		$groups = $this->groupCards( $personId );
 
-		// Карта занятий групп ученика (+ его индивидуальные).
 		$lessonMap    = array();
 		$allLessons   = array();
-		$rawRows      = array(); // T12.2: сырые строки — нужны для per-work дедлайнов ниже.
+		$rawRows      = array(); // T12.2: сырые строки — нужны для per-work дедлайнов.
 		$teacherNames = array(); // кэш id→display_name на всё построение.
-		foreach ( $groupIds as $gid ) {
-			$gname = $groups[ $gid ]['name'];
+
+		foreach ( array_keys( $groups ) as $gid ) {
 			foreach ( $this->groupLessons->listByGroup( $gid ) as $row ) {
+				// Чужие индивидуальные занятия ученику не показываем.
 				if ( 'individual' === $row->kind && $row->studentPersonId !== $personId ) {
 					continue;
 				}
-				$topic      = $this->topicOf( $row );
-				$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
-				// #14: эффективный кабинет занятия = кабинет строки ?? дефолтный кабинет группы.
-				$roomId     = ! empty( $row->roomId ) ? (int) $row->roomId : (int) ( $groups[ $gid ]['room_id'] ?? 0 );
-				// Фактический препод занятия (Эпик 5, D5): разовый override › замена › препод группы.
-				$teacherId = $this->effectiveTeacher->forLesson( $row );
-				if ( $teacherId && ! isset( $teacherNames[ $teacherId ] ) ) {
-					$teacherNames[ $teacherId ] = get_userdata( $teacherId )->display_name ?? '';
-				}
-				$item       = array(
-					'group_lesson_id' => $row->id,
-					'group_id'        => $gid,
-					'group_name'      => $gname,
-					'topic'           => $topic,
-					'date'            => $row->scheduledAt ? substr( $row->scheduledAt, 0, 10 ) : '',
-					'start'           => $row->scheduledAt ? substr( $row->scheduledAt, 11, 5 ) : '',
-					'scheduled_at'    => $row->scheduledAt,
-					'homework_due_at' => $row->homeworkDueAt,
-					'visibility'      => $row->visibility,
-					'kind'            => $row->kind,
-					'room'            => $roomId > 0 ? ( $roomNames[ $roomId ] ?? '' ) : '',
-					'teacher'         => $teacherId ? ( $teacherNames[ $teacherId ] ?? '' ) : '',
-					'course'          => (string) ( $groups[ $gid ]['course_title'] ?? '' ),
-					// Вход в плеер курса (T14.13): урок с контентом получает ссылку
-					// в плеер и статус прохождения (done / available / locked).
-					'player_url'      => $hasContent ? PageRoutes::GroupCockpit->lessonUrl( $gid, $row->id ) : '',
-					'status'          => $hasContent ? $this->lessonStatus( $personId, $row ) : '',
-				);
+
+				$item                  = $this->lessonCard( $row, $groups[ $gid ], $personId, $roomNames, $teacherNames );
 				$lessonMap[ $row->id ] = $item;
 				$allLessons[]          = $item;
 				$rawRows[ $row->id ]   = $row;
 			}
 		}
 
-		// Расписание (ближайшие).
-		$upcoming = array();
-		foreach ( $allLessons as $l ) {
-			if ( $l['scheduled_at'] && $l['scheduled_at'] >= $now ) {
-				$upcoming[] = $l;
-			}
-		}
-		usort( $upcoming, static fn( $a, $b ) => strcmp( (string) $a['scheduled_at'], (string) $b['scheduled_at'] ) );
 		usort( $allLessons, static fn( $a, $b ) => strcmp( (string) $b['scheduled_at'], (string) $a['scheduled_at'] ) );
 
-		// Дедлайны работ (T12.2, D13): per-work дедлайн (иначе legacy homeworkDueAt занятия).
-		// Прошедшие НЕ скрываем — помечаем overdue (решать всё равно можно, hard cutoff нет).
-		// Уже сданные работы — не напоминаем.
+		return new LearnerContextDTO( $groups, $lessonMap, $allLessons, $rawRows, $roomNames, $now );
+	}
+
+	/**
+	 * Карточки групп ученика (id → данные группы).
+	 *
+	 * @param int $personId Физлицо ученика
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function groupCards( int $personId ): array {
+		$groups = array();
+
+		foreach ( $this->records->findActiveByStudent( $personId ) as $rec ) {
+			if ( isset( $groups[ $rec->groupId ] ) ) {
+				continue;
+			}
+
+			$g = $this->groups->findById( $rec->groupId );
+			if ( ! $g ) {
+				continue;
+			}
+
+			$groups[ $rec->groupId ] = array(
+				'id'          => (int) $g->id,
+				'name'        => $g->name,
+				// #12: человекочитаемое название предмета вместо слага (fallback — слаг).
+				'subject'     => $this->subjects->getByKey( $g->subject_key )?->name ?? $g->subject_key,
+				'subject_key' => $g->subject_key,
+				'room_id'     => isset( $g->room_id ) ? (int) $g->room_id : 0, // дефолтный кабинет группы
+				'course_id'   => isset( $g->course_id ) ? (int) $g->course_id : 0,
+				'teacher_id'  => isset( $g->teacher_id ) ? (int) $g->teacher_id : 0,
+				'access_mode' => (string) ( $g->access_mode ?? 'scheduled' ), // Эпик 15: открытая группа
+			);
+			// #14: название курса группы (тот же текст, что во вкладке «Мои курсы»).
+			$groups[ $rec->groupId ]['course_title'] = $this->courseTitleForGroup( $groups[ $rec->groupId ] );
+		}
+
+		return $groups;
+	}
+
+	/**
+	 * Карточка занятия для расписания и списка уроков.
+	 *
+	 * @param GroupLessonDTO       $row          Строка программы
+	 * @param array<string, mixed> $group        Карточка группы
+	 * @param int                  $personId     Физлицо ученика
+	 * @param array<int, string>   $roomNames    Кабинеты id → название
+	 * @param array<int, string>   $teacherNames Кэш преподавателей id → имя (по ссылке)
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function lessonCard( GroupLessonDTO $row, array $group, int $personId, array $roomNames, array &$teacherNames ): array {
+		$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
+		// #14: эффективный кабинет занятия = кабинет строки ?? дефолтный кабинет группы.
+		$roomId = ! empty( $row->roomId ) ? (int) $row->roomId : (int) ( $group['room_id'] ?? 0 );
+		// Фактический препод занятия (Эпик 5, D5): разовый override › замена › препод группы.
+		$teacherId = $this->effectiveTeacher->forLesson( $row );
+		if ( $teacherId && ! isset( $teacherNames[ $teacherId ] ) ) {
+			$teacherNames[ $teacherId ] = get_userdata( $teacherId )->display_name ?? '';
+		}
+
+		return array(
+			'group_lesson_id' => $row->id,
+			'group_id'        => (int) $group['id'],
+			'group_name'      => $group['name'],
+			'topic'           => $this->topicOf( $row ),
+			'date'            => $row->scheduledAt ? substr( $row->scheduledAt, 0, 10 ) : '',
+			'start'           => $row->scheduledAt ? substr( $row->scheduledAt, 11, 5 ) : '',
+			'scheduled_at'    => $row->scheduledAt,
+			'homework_due_at' => $row->homeworkDueAt,
+			'visibility'      => $row->visibility,
+			'kind'            => $row->kind,
+			'room'            => $roomId > 0 ? ( $roomNames[ $roomId ] ?? '' ) : '',
+			'teacher'         => $teacherId ? ( $teacherNames[ $teacherId ] ?? '' ) : '',
+			'course'          => (string) ( $group['course_title'] ?? '' ),
+			// Вход в плеер курса (T14.13): урок с контентом получает ссылку
+			// в плеер и статус прохождения (done / available / locked).
+			'player_url'      => $hasContent ? PageRoutes::GroupCockpit->lessonUrl( (int) $group['id'], $row->id ) : '',
+			'status'          => $hasContent ? $this->lessonStatus( $personId, $row ) : '',
+		);
+	}
+
+	/**
+	 * Ближайшие занятия по возрастанию даты.
+	 *
+	 * @param LearnerContextDTO $ctx Контекст сборки
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function upcoming( LearnerContextDTO $ctx ): array {
+		$upcoming = array();
+		foreach ( $ctx->allLessons as $lesson ) {
+			if ( $lesson['scheduled_at'] && $lesson['scheduled_at'] >= $ctx->now ) {
+				$upcoming[] = $lesson;
+			}
+		}
+
+		usort( $upcoming, static fn( $a, $b ) => strcmp( (string) $a['scheduled_at'], (string) $b['scheduled_at'] ) );
+
+		return $upcoming;
+	}
+
+	/**
+	 * Дедлайны работ (T12.2, D13): per-work дедлайн, иначе legacy `homeworkDueAt` занятия.
+	 *
+	 * Прошедшие НЕ скрываем — помечаем `overdue` (решать всё равно можно, hard cutoff нет).
+	 * Уже сданные работы не напоминаем.
+	 *
+	 * @param LearnerContextDTO $ctx      Контекст сборки
+	 * @param int               $personId Физлицо ученика
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function deadlines( LearnerContextDTO $ctx, int $personId ): array {
 		$deadlines = array();
-		foreach ( $rawRows as $glid => $row ) {
+
+		foreach ( $ctx->rawRows as $glid => $row ) {
 			$submittedWorkIds = array();
 			foreach ( $this->submissions->listByStudentAndGroupLesson( $personId, $glid ) as $sub ) {
 				$submittedWorkIds[ $sub->workId ] = true;
 			}
+
 			// Урок строки — для deep-link к конкретной работе (ключ шага); базовый
 			// URL плеера уже посчитан в lessonMap (для уроков с контентом).
 			$lesson  = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
-			$baseUrl = (string) ( $lessonMap[ $glid ]['player_url'] ?? '' );
+			$baseUrl = (string) ( $ctx->lessonMap[ $glid ]['player_url'] ?? '' );
+
 			foreach ( $this->worksResolver->resolve( $row ) as $work ) {
 				if ( isset( $submittedWorkIds[ $work->id ] ) ) {
 					continue;
 				}
+
 				$due = $row->deadlineForWork( $work->id );
 				if ( null === $due ) {
 					continue;
 				}
+
 				// Bug 2: ссылка «сразу к нужной работе» — плеер урока + ?step=<ключ шага>.
 				$stepKey = $lesson?->stepKeyForWork( $work->id );
 				$workUrl = ( '' !== $baseUrl && $stepKey )
 					? (string) add_query_arg( 'step', $stepKey, $baseUrl )
 					: $baseUrl;
+
 				$deadlines[] = array(
 					'due_at'     => $due,
 					'topic'      => $work->title,
-					'group_name' => $lessonMap[ $glid ]['group_name'],
-					'overdue'    => $due < $now,
+					'group_name' => $ctx->lessonMap[ $glid ]['group_name'],
+					'overdue'    => $due < $ctx->now,
 					'player_url' => $workUrl,
 				);
 			}
 		}
+
 		usort( $deadlines, static fn( $a, $b ) => strcmp( $a['due_at'], $b['due_at'] ) );
 
-		// Дневник (сырые баллы).
+		return $deadlines;
+	}
+
+	/**
+	 * Дневник ученика (сырые баллы).
+	 *
+	 * @param LearnerContextDTO $ctx      Контекст сборки
+	 * @param int               $personId Физлицо ученика
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function grades( LearnerContextDTO $ctx, int $personId ): array {
 		$grades = array();
+
 		foreach ( $this->gradebook->forStudent( $personId ) as $e ) {
 			$grades[] = array(
 				'title'       => $e->title,
@@ -191,25 +307,49 @@ class LearnerService {
 				'value'       => $e->displayValue(),
 				'display'     => $e->displayType,
 				'graded_at'   => $e->gradedAt,
-				'group_name'  => $groups[ $e->groupId ]['name'] ?? '',
+				'group_name'  => $ctx->groups[ $e->groupId ]['name'] ?? '',
 				// #12: источник результата — для перехода к деталям работы/попытки.
 				'source_type' => $e->sourceType,
 				'source_id'   => $e->sourceId,
 			);
 		}
+
+		return $grades;
+	}
+
+	/**
+	 * Последние оценённые работы (свежие сверху).
+	 *
+	 * @param array<int, array<string, mixed>> $grades Дневник
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function recentGrades( array $grades ): array {
 		$recent = array_values( array_filter( $grades, static fn( $g ) => ! empty( $g['graded_at'] ) ) );
 		usort( $recent, static fn( $a, $b ) => strcmp( (string) $b['graded_at'], (string) $a['graded_at'] ) );
 
-		// Посещаемость (бинарно + %).
+		return $recent;
+	}
+
+	/**
+	 * Посещаемость: бинарные отметки + процент.
+	 *
+	 * @param LearnerContextDTO $ctx      Контекст сборки
+	 * @param int               $personId Физлицо ученика
+	 *
+	 * @return array{rows: array, present: int, total: int, percent: int|null}
+	 */
+	private function attendance( LearnerContextDTO $ctx, int $personId ): array {
 		$rows    = array();
 		$present = 0;
 		$total   = 0;
+
 		foreach ( $this->attendance->listByStudent( $personId ) as $a ) {
-			$l = $lessonMap[ $a->groupLessonId ] ?? null;
+			$lesson = $ctx->lessonMap[ $a->groupLessonId ] ?? null;
 			$rows[] = array(
-				'date'    => $l ? $l['date'] : substr( $a->markedAt, 0, 10 ),
-				'topic'   => $l ? $l['topic'] : '—',
-				'course'  => $l ? ( $l['course'] ?? '' ) : '',
+				'date'    => $lesson ? $lesson['date'] : substr( $a->markedAt, 0, 10 ),
+				'topic'   => $lesson ? $lesson['topic'] : '—',
+				'course'  => $lesson ? ( $lesson['course'] ?? '' ) : '',
 				'present' => $a->isPresent,
 			);
 			++$total;
@@ -217,45 +357,37 @@ class LearnerService {
 				++$present;
 			}
 		}
+
 		usort( $rows, static fn( $a, $b ) => strcmp( (string) $b['date'], (string) $a['date'] ) );
 
-		// Активная контрольная блокирует ВЕСЬ контент (ExamLockService). Отдаём это
-		// явно, чтобы кабинет писал «Недоступно, пока идёт контрольная» + ссылку на
-		// неё, а не вводящее в заблуждение «курс стартует / откроется по дате».
+		return array(
+			'rows'    => $rows,
+			'present' => $present,
+			'total'   => $total,
+			'percent' => $total > 0 ? (int) round( $present / $total * 100 ) : null,
+		);
+	}
+
+	/**
+	 * Активная контрольная блокирует ВЕСЬ контент (ExamLockService).
+	 *
+	 * Отдаём явно, чтобы кабинет писал «Недоступно, пока идёт контрольная» + ссылку
+	 * на неё, а не вводящее в заблуждение «курс стартует / откроется по дате».
+	 *
+	 * @param int $personId Физлицо ученика
+	 *
+	 * @return array{title: string, url: string}|null
+	 */
+	private function examLock( int $personId ): ?array {
 		$lockAttempt = $this->examLock->getActiveLockingAttempt( $personId );
-		$examLock    = null;
-		if ( null !== $lockAttempt ) {
-			$examLock = array(
-				'title' => get_the_title( $lockAttempt->assessmentId ) ?: 'Экзамен',
-				'url'   => (string) get_permalink( $lockAttempt->assessmentId ),
-			);
+
+		if ( null === $lockAttempt ) {
+			return null;
 		}
 
-		// №2 (D17.2): открытые группы существуют только как курсы в «Мои курсы» —
-		// как ГРУППЫ в блоке приветствия/статистике ученика их не показываем
-		// (видны лишь в админке). Полный $groups сохраняем для курсов и оценок ниже.
-		$visibleGroups = array_values( array_filter(
-			$groups,
-			static fn( $g ) => 'open' !== ( $g['access_mode'] ?? 'scheduled' )
-		) );
-
 		return array(
-			'exam_lock' => $examLock,
-			'groups'    => $visibleGroups,
-			'courses'   => $this->buildCourses( $groups, $rawRows, $lessonMap, $roomNames, $personId ),
-			// Эпик 15 (П10): каталог открытых курсов для самозаписи.
-			'catalog'   => $this->buildCatalog( array_keys( $groups ) ),
-			'upcoming'  => array_slice( $upcoming, 0, 6 ),
-			'deadlines' => array_slice( $deadlines, 0, 6 ),
-			'recent'    => array_slice( $recent, 0, 5 ),
-			'lessons'   => $allLessons,
-			'grades'    => $grades,
-			'attendance' => array(
-				'rows'    => $rows,
-				'present' => $present,
-				'total'   => $total,
-				'percent' => $total > 0 ? (int) round( $present / $total * 100 ) : null,
-			),
+			'title' => get_the_title( $lockAttempt->assessmentId ) ?: 'Экзамен',
+			'url'   => (string) get_permalink( $lockAttempt->assessmentId ),
 		);
 	}
 

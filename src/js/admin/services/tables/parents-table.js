@@ -1,8 +1,6 @@
-const $ = jQuery;
+import { PiiExportService } from '../pii-export-service.js';
 
-const NONCES   = () => fs_lms_applications_vars.nonces;
-const ACTIONS  = () => fs_lms_vars.ajax_actions;
-const AJAX_URL = () => fs_lms_vars.ajaxurl;
+const $ = jQuery;
 
 export const ParentsTable = {
 
@@ -41,18 +39,7 @@ export const ParentsTable = {
 
         if ( ! ids.length ) return;
 
-        $.post( AJAX_URL(), {
-            action:   ACTIONS().exportParents,
-            ids:      ids,
-            security: NONCES().manager,
-        } ).done( ( r ) => {
-            if ( r.success && r.data.url ) {
-                const a = document.createElement( 'a' );
-                a.href = r.data.url;
-                document.body.appendChild( a );
-                a.click();
-                document.body.removeChild( a );
-            }
-        } );
+        // Предупреждение о ПД и выбор режима паролей — в общем сервисе (A2).
+        PiiExportService.exportParents( ids );
     },
 };

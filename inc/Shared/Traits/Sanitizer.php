@@ -42,6 +42,24 @@ trait Sanitizer {
 	}
 	
 	/**
+	 * Получает и санирует многострочный текст (textarea).
+	 *
+	 * Отличие от {@see sanitizeText()}: переводы строк сохраняются — нужно там,
+	 * где сама разбивка на строки несёт смысл (вставка таблицы из Excel и т.п.).
+	 *
+	 * @param string $key    Ключ в суперглобальном массиве
+	 * @param string $source Источник данных: 'POST' или 'GET'
+	 *
+	 * @return string Очищенный многострочный текст
+	 */
+	protected function sanitizeMultilineText( string $key, string $source = 'POST' ): string {
+		$data  = 'POST' === $source ? $_POST : $_GET;
+		$value = $data[ $key ] ?? '';
+
+		return sanitize_textarea_field( wp_unslash( is_string( $value ) ? $value : '' ) );
+	}
+
+	/**
 	 * Получает и санирует ключ/ярлык (slug).
 	 *
 	 * @param string $key    Ключ в суперглобальном массиве
@@ -203,6 +221,56 @@ trait Sanitizer {
 		}
 
 		return array_values( array_filter( array_map( 'sanitize_key', wp_unslash( $value ) ) ) );
+	}
+
+	/**
+	 * Получает и санирует массив целых чисел (списки ID из формы/запроса).
+	 *
+	 * @param string $key    Ключ в суперглобальном массиве
+	 * @param string $source Источник данных: 'POST' или 'GET'
+	 *
+	 * @return int[] Значения в исходном порядке; нули сохраняются (фильтровать — вызывающему коду)
+	 */
+	protected function sanitizeIntList( string $key, string $source = 'POST' ): array {
+		$data  = 'POST' === $source ? $_POST : $_GET;
+		$value = $data[ $key ] ?? array();
+
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		return array_values( array_map( 'intval', wp_unslash( $value ) ) );
+	}
+
+	/**
+	 * Синоним {@see sanitizeKeyArray()} — единообразие с sanitizeIntList().
+	 *
+	 * @param string $key    Ключ в суперглобальном массиве
+	 * @param string $source Источник данных: 'POST' или 'GET'
+	 *
+	 * @return string[]
+	 */
+	protected function sanitizeKeyList( string $key, string $source = 'POST' ): array {
+		return $this->sanitizeKeyArray( $key, $source );
+	}
+
+	/**
+	 * Снимает экранирование WP с массива произвольной структуры (шаги урока,
+	 * модули курса, мета задания, карта фильтров).
+	 *
+	 * Санитайзинг значений — на вызывающем коде: структура доменная, трейт о ней
+	 * не знает. Не-массив (и отсутствующий ключ) даёт пустой массив.
+	 *
+	 * @param string $key    Ключ в суперглобальном массиве
+	 * @param string $source Источник данных: 'POST' или 'GET'
+	 *
+	 * @return array
+	 */
+	protected function unslashArray( string $key, string $source = 'POST' ): array {
+		$data  = 'POST' === $source ? $_POST : $_GET;
+		$value = $data[ $key ] ?? array();
+
+		return is_array( $value ) ? (array) wp_unslash( $value ) : array();
 	}
 
 	protected function sanitizeEmail( string $key, string $source = 'POST' ): string {

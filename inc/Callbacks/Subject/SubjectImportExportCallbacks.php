@@ -76,6 +76,29 @@ class SubjectImportExportCallbacks extends BaseController {
 	}
 
 	/**
+	 * Предпросмотр импорта предмета (dry-run, A7).
+	 *
+	 * Ничего не пишет в БД: считает объекты к созданию и возвращает конфликты,
+	 * чтобы администратор увидел исход до необратимой записи.
+	 *
+	 * @return void
+	 */
+	public function ajaxPreviewSubjectImport(): void {
+		$this->authorize( Nonce::Subject );
+
+		$data = $this->decodeImportPayload();
+
+		try {
+			$report = $this->import_service->preview( $data );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success( $report->toArray() );
+	}
+
+	/**
 	 * Импортирует полные данные предмета из JSON.
 	 *
 	 * @return void
@@ -84,27 +107,20 @@ class SubjectImportExportCallbacks extends BaseController {
 		// Проверка прав доступа
 		$this->authorize( Nonce::Subject );
 
-		// Получение и валидация JSON-данных
-		$raw = wp_unslash( $_POST['json'] ?? '' );
-		if ( empty( $raw ) ) {
-			$this->error( 'JSON не передан' );
-		}
-
-		// json_decode(, true) — преобразует JSON в ассоциативный массив
-		$data = json_decode( $raw, true );
-		if ( ! is_array( $data ) ) {
-			$this->error( 'Неверный формат файла импорта', array( 'raw_length' => strlen( $raw ) ) );
-		}
+		$data = $this->decodeImportPayload();
 
 		try {
 			// Делегирование импорта сервису
-			$name = $this->import_service->import( $data );
+			$report = $this->import_service->import( $data );
 		} catch ( \InvalidArgumentException $e ) {
 			// Ошибка валидации данных (неверный формат, дубликат ключа)
 			$this->error( $e->getMessage() );
-		} catch ( \RuntimeException $e ) {
-			// Ошибка выполнения операции (проблемы с БД)
+			return;
+		} catch ( \Throwable $e ) {
+			// Любая другая ошибка: сервис уже откатил созданное (A5),
+			// пользователю отдаём текст, а не молчаливый 500.
 			$this->error( $e->getMessage() );
+			return;
 		}
 
 		$this->exportLog->record( 'subject', 'single', array(), 'import' );
@@ -113,6 +129,32 @@ class SubjectImportExportCallbacks extends BaseController {
 		flush_rewrite_rules();
 
 		// Отправка ответа об успешном импорте
-		$this->success( array( 'message' => "Предмет «{$name}» успешно импортирован" ) );
+		$this->success( array_merge(
+			$report->toArray(),
+			array( 'message' => "Предмет «{$report->subjectName}» успешно импортирован" )
+		) );
+	}
+
+	/**
+	 * Читает и декодирует JSON-файл импорта из запроса.
+	 *
+	 * Общий вход для dry-run и реального импорта — оба обязаны принимать
+	 * ровно один и тот же payload, иначе предпросмотр перестаёт быть честным.
+	 *
+	 * @return array Декодированные данные
+	 */
+	private function decodeImportPayload(): array {
+		$raw = wp_unslash( $_POST['json'] ?? '' );
+		if ( empty( $raw ) ) {
+			$this->error( 'JSON не передан' );
+		}
+
+		// json_decode(, true) — преобразует JSON в ассоциативный массив
+		$data = json_decode( (string) $raw, true );
+		if ( ! is_array( $data ) ) {
+			$this->error( 'Неверный формат файла импорта', array( 'raw_length' => strlen( (string) $raw ) ) );
+		}
+
+		return $data;
 	}
 }

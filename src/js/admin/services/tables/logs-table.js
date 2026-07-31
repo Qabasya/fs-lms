@@ -42,7 +42,6 @@ const CHANNEL_ACTIONS = {
 	data_change:    'exportDataChangeLog',
 	consent_change: 'exportConsentChangeLog',
 	email:          'exportEmailLog',
-	deletion:       'exportDeletionLog',
 	auth:           'exportAuthLog',
 };
 

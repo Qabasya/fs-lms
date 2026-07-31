@@ -69,7 +69,8 @@ class ThreeInOneTemplate extends BaseTemplate {
 	/**
 	 * В режиме ЕГЭ-экзамена разворачивается в три отдельно оцениваемых задания (T7.12).
 	 * Каждое задание — условие + поле ответа + собственный балл из task_points.
-	 * task_code в экзамене не отображается (ExamPayloadFilter убирает его ранее).
+	 * task_code в экзамене не отображается: AttemptTaskViewBuilder отдаёт только
+	 * условие/материалы/номер, а меты задания на страницу вообще не передаёт.
 	 *
 	 * @return array{key: string, condition_field: string, answer_field: string}[]
 	 */

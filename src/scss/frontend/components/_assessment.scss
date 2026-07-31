@@ -24,7 +24,7 @@
 .fs-assessment-meta-item {
 	background: color.mix($color-white, $color-accent, 88%);
 	color: $color-accent;
-	border-radius: $radius-sm;
+	border-radius: $border-radius-md;
 	padding: $spacing-xs $spacing-sm;
 	font-size: 0.85rem;
 	font-weight: 500;
@@ -33,7 +33,7 @@
 .fs-assessment-notice {
 	padding: $spacing-md;
 	background: color.mix($color-white, $color-muted, 90%);
-	border-radius: $radius;
+	border-radius: $border-radius-sm;
 	color: $color-muted;
 }
 
@@ -44,7 +44,7 @@
 	gap: $spacing-xs;
 	background: $color-white;
 	border: 1px solid $color-border;
-	border-radius: $radius;
+	border-radius: $border-radius-sm;
 	padding: $spacing-xs $spacing-md;
 	margin-bottom: $spacing-md;
 	font-size: 1.25rem;
@@ -66,7 +66,7 @@
 // Questions
 .fs-attempt-question {
 	border: 1px solid $color-border;
-	border-radius: $radius;
+	border-radius: $border-radius-sm;
 	padding: $spacing-md;
 	margin-bottom: $spacing-md;
 	background: $color-white;
@@ -81,14 +81,14 @@
 .fs-attempt-question-content {
 	margin-bottom: $spacing-sm;
 	color: $color-text;
-	line-height: $line-height-base;
+	line-height: $line-height-relaxed;
 }
 
 .fs-attempt-answer {
 	width: 100%;
 	resize: vertical;
 	border: 1px solid $color-border;
-	border-radius: $radius-sm;
+	border-radius: $border-radius-md;
 	padding: $spacing-sm;
 	font-size: 0.95rem;
 	transition: border-color $transition;
@@ -117,7 +117,7 @@
 	padding: $spacing-lg;
 	background: color.mix($color-white, $color-success, 88%);
 	border: 1px solid color.mix($color-white, $color-success, 50%);
-	border-radius: $radius;
+	border-radius: $border-radius-sm;
 	margin-top: $spacing-lg;
 
 	h2 {
@@ -144,7 +144,7 @@
 	margin-bottom: $spacing-md;
 	padding:       $spacing-sm $spacing-md;
 	border:        1px solid $color-border;
-	border-radius: $radius-sm;
+	border-radius: $border-radius-md;
 
 	&__title {
 		font-weight:   $font-semibold;
@@ -164,7 +164,7 @@
 	padding:       $spacing-lg;
 	background:    color.mix($color-white, $color-success, 88%);
 	border:        1px solid color.mix($color-white, $color-success, 50%);
-	border-radius: $radius;
+	border-radius: $border-radius-sm;
 	margin-top:    $spacing-lg;
 
 	h2 {
@@ -200,7 +200,7 @@
 	&__score,
 	&__verdict {
 		display:   block;
-		font-size: $font-size-sm;
+		font-size: $font-size-base;
 		color:     $color-muted;
 	}
 }
@@ -211,7 +211,7 @@
 	padding:    0;
 
 	li {
-		font-size:     $font-size-sm;
+		font-size:     $font-size-base;
 		color:         $color-text;
 		margin-bottom: $spacing-xs;
 
@@ -227,7 +227,7 @@
 	margin-top: $spacing-sm;
 
 	&__title {
-		font-size:     $font-size-sm;
+		font-size:     $font-size-base;
 		font-weight:   $font-semibold;
 		margin-bottom: $spacing-xs;
 	}
@@ -235,14 +235,14 @@
 	&__preview {
 		display:       block;
 		max-width:     rem(240);
-		border-radius: $radius-sm;
+		border-radius: $border-radius-md;
 		border:        1px solid $color-border;
 		margin-bottom: $spacing-xs;
 	}
 
 	&__link {
 		display:       block;
-		font-size:     $font-size-sm;
+		font-size:     $font-size-base;
 		margin-bottom: $spacing-xs;
 		word-break:    break-all;
 	}
@@ -265,8 +265,8 @@
 		gap:           $spacing-xs;
 		padding:       rem(2) $spacing-sm;
 		border:        1px solid $color-border;
-		border-radius: $radius-md;
-		font-size:     $font-size-sm;
+		border-radius: $border-radius-lg;
+		font-size:     $font-size-base;
 	}
 
 	&__chip-remove {
@@ -286,13 +286,13 @@
 	}
 
 	&__status {
-		font-size: $font-size-sm;
+		font-size: $font-size-base;
 		color:     $color-danger;
 	}
 
 	&__hint {
 		margin-top: $spacing-xs;
-		font-size:  $font-size-sm;
+		font-size:  $font-size-base;
 		color:      $color-muted;
 	}
 }

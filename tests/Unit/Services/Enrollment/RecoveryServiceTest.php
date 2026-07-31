@@ -14,6 +14,7 @@ use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Application\ApplicationService;
 use Inc\Services\Enrollment\RecoveryService;
 use PHPUnit\Framework\TestCase;
 
@@ -24,6 +25,7 @@ class RecoveryServiceTest extends TestCase {
 	private PersonRepository $personRepo;
 	private UserManager $userManager;
 	private LogEventDispatcherInterface $logEvents;
+	private ApplicationService $applications;
 	private RecoveryService $service;
 
 	protected function setUp(): void {
@@ -34,12 +36,15 @@ class RecoveryServiceTest extends TestCase {
 		$this->userManager = $this->createMock( UserManager::class );
 		$this->logEvents   = $this->createMock( LogEventDispatcherInterface::class );
 
+		$this->applications = $this->createMock( ApplicationService::class );
+
 		$this->service = new RecoveryService(
 			$this->appRepo,
 			$this->recordRepo,
 			$this->personRepo,
 			$this->userManager,
 			$this->logEvents,
+			$this->applications,
 		);
 	}
 
@@ -115,8 +120,8 @@ class RecoveryServiceTest extends TestCase {
 		$this->appRepo->method( 'findStuckEnrolling' )->willReturn( array( $this->stuckApp( 1, 300 ) ) );
 		$this->recordRepo->method( 'findActiveByStudentFirst' )->willReturn( null );
 
-		$this->appRepo->expects( self::once() )
-			->method( 'setStatus' )
+		$this->applications->expects( self::once() )
+			->method( 'changeStatus' )
 			->with( 1, ApplicationStatus::ReadyForReview );
 		$this->appRepo->expects( self::never() )->method( 'markConverted' );
 

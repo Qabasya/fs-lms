@@ -165,35 +165,6 @@ class StudentGroupCallbacks extends BaseController {
 		$this->success( $students );
 	}
 
-	/**
-	 * Удаляет группу студентов.
-	 *
-	 * @return void
-	 */
-	public function ajaxDeleteStudentGroup(): void {
-		$this->authorize( Nonce::Manager );
-
-		$id = $this->sanitizeInt( 'id' );
-
-		if ( ! $id ) {
-			$this->error( 'Идентификатор группы не указан.' );
-		}
-
-		$group   = $this->groupsRepository->findById( $id );
-		$deleted = $this->groupsRepository->delete( $id );
-
-		if ( ! $deleted ) {
-			$this->error( 'Ошибка удаления. Группа не найдена или уже удалена.' );
-		}
-
-		$this->logEvents->dispatch(
-			LogEvent::GroupDeleted,
-			new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Group, $id, $group?->name )
-		);
-
-		$this->success( array( 'id' => $id ) );
-	}
-
 	public function ajaxGetGroupStudentsDetail(): void {
 		$this->authorize( Nonce::Manager );
 
@@ -337,9 +308,9 @@ class StudentGroupCallbacks extends BaseController {
 				continue;
 			}
 			$sanitized[] = array(
-				'day'   => sanitize_key( (string) ( $entry['day'] ?? '' ) ),
-				'start' => sanitize_text_field( (string) ( $entry['start'] ?? '' ) ),
-				'end'   => sanitize_text_field( (string) ( $entry['end'] ?? '' ) ),
+				'day'   => $this->sanitizeKeyValue( $entry['day'] ?? '' ),
+				'start' => $this->sanitizeTextValue( $entry['start'] ?? '' ),
+				'end'   => $this->sanitizeTextValue( $entry['end'] ?? '' ),
 				'room'  => (int) ( $entry['room'] ?? 0 ),
 			);
 		}

@@ -8,7 +8,6 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\ExportLogInputDTO;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\ExportLogRepository;
-use Inc\Enums\Access\UserRole;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**
@@ -23,7 +22,7 @@ use Inc\Shared\Traits\RequestContextProvider;
  * 1. **Запись экспорта данных** — логирование экспорта групп, студентов, родителей, архива, логов.
  * 2. **Фиксация типа экспорта** — сохранение информации о типе данных и режиме (single/bulk).
  * 3. **Сбор контекста запроса** — получение IP, User-Agent через трейт RequestContextProvider.
- * 4. **Определение роли пользователя** — получение роли через UserManager.
+ * 4. **Определение роли пользователя** — через ActorRoleResolver.
  *
  * ### Архитектурная роль:
  *
@@ -45,27 +44,42 @@ class ExportLogWriter {
 	 * Конструктор райтера.
 	 *
 	 * @param ExportLogRepository $repository  Репозиторий журнала экспорта
-	 * @param UserManager         $userManager Менеджер пользователей
+	 * @param ActorRoleResolver $roleResolver Роль автора действия для журнала
 	 * @param ClockInterface      $clock       Интерфейс часов
 	 */
 	public function __construct(
 		private readonly ExportLogRepository $repository,
-		private readonly UserManager         $userManager,
+		private readonly ActorRoleResolver $roleResolver,
 		private readonly ClockInterface      $clock,
 	) {}
 
 	/**
 	 * Записывает экспорт данных в журнал.
 	 *
-	 * @param string   $dataType    Тип экспортируемых данных (groups, students, parents, archive, log_*)
-	 * @param string   $actionType  Тип действия (single — единичный, bulk — массовый)
-	 * @param int[]    $targetIds   Массив ID экспортированных сущностей
+	 * @param string             $dataType      Тип экспортируемых данных (groups, students, parents, archive, log_*)
+	 * @param string             $actionType    Тип действия (single — единичный, bulk — массовый)
+	 * @param int[]              $targetIds     Массив ID экспортированных сущностей
+	 * @param string             $operationType export | import
+	 * @param array<string, int> $details       Объём операции ([раздел => количество]). Пишется вместо
+	 *                                          списка ID там, где перечислять цели поштучно бессмысленно:
+	 *                                          у переноса предмета «цель» — это сотни записей семи типов,
+	 *                                          и в аудите полезен их состав, а не портянка ID.
 	 *
 	 * @return void
 	 */
-	public function record( string $dataType, string $actionType, array $targetIds = array(), string $operationType = 'export' ): void {
+	public function record(
+		string $dataType,
+		string $actionType,
+		array $targetIds = array(),
+		string $operationType = 'export',
+		array $details = array()
+	): void {
 		$ctx = $this->requestContext();
-		$role = $this->resolveRole( $ctx->actorUserId );
+		$role = $this->roleResolver->resolve( $ctx->actorUserId );
+
+		$payload = array() !== $details
+			? wp_json_encode( array_filter( $details, static fn( $count ): bool => $count > 0 ) )
+			: ( ! empty( $targetIds ) ? wp_json_encode( $targetIds ) : null );
 
 		$this->repository->create( new ExportLogInputDTO(
 			actorUserId:   $ctx->actorUserId > 0 ? $ctx->actorUserId : 0,
@@ -73,28 +87,11 @@ class ExportLogWriter {
 			operationType: $operationType,
 			dataType:      $dataType,
 			actionType:    $actionType,
-			targetIdsJson: ! empty( $targetIds ) ? wp_json_encode( $targetIds ) : null,
+			targetIdsJson: false !== $payload ? $payload : null,
 			actorIp:       $ctx->ip,
 			actorUa:       '' !== $ctx->userAgent ? $ctx->userAgent : null,
 			createdAt:     $this->clock->now( 'mysql', true ),
 		) );
 	}
 
-	/**
-	 * Определяет роль пользователя по ID.
-	 *
-	 * @param int $userId ID пользователя WordPress
-	 *
-	 * @return string|null
-	 */
-	private function resolveRole( int $userId ): ?string {
-		if ( $userId <= 0 ) {
-			return null;
-		}
-		$user = $this->userManager->find( $userId );
-		if ( null === $user || empty( $user->roles ) ) {
-			return null;
-		}
-		return UserRole::primarySlug( (array) $user->roles );
-	}
 }

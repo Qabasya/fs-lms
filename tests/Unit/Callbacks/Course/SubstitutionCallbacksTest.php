@@ -6,6 +6,7 @@ namespace Unit\Callbacks\Course;
 
 use Inc\Callbacks\Course\SubstitutionCallbacks;
 use Inc\Repositories\OptionsRepositories\UserRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Course\RoomAssignmentService;
 use Inc\Services\Course\SubstitutionService;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\TestCase;
 class SubstitutionCallbacksTest extends TestCase {
 
 	private SubstitutionService&\PHPUnit\Framework\MockObject\MockObject $service;
+	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private RoomAssignmentService&\PHPUnit\Framework\MockObject\MockObject $roomAssignment;
 	private SubstitutionCallbacks $cb;
 
@@ -22,11 +24,13 @@ class SubstitutionCallbacksTest extends TestCase {
 		fs_test_reset_ajax();
 		$this->service        = $this->createMock( SubstitutionService::class );
 		$this->roomAssignment = $this->createMock( RoomAssignmentService::class );
+		$this->groups         = $this->createMock( GroupsRepository::class );
 		$this->cb             = new SubstitutionCallbacks(
 			$this->service,
 			$this->createMock( UserRepository::class ),
 			$this->createMock( RoomRepository::class ),
 			$this->roomAssignment,
+			$this->groups,
 		);
 	}
 
@@ -90,5 +94,28 @@ class SubstitutionCallbacksTest extends TestCase {
 
 		self::assertTrue( $r->success );
 		self::assertSame( 3, $r->payload['substitution_id'] );
+	}
+
+	public function test_group_substitutions_returns_group_teacher(): void {
+		$this->groups->method( 'findById' )->with( 7 )->willReturn( (object) array( 'teacher_id' => 42 ) );
+		$this->service->method( 'listByGroup' )->with( 7 )->willReturn( array() );
+		$_POST = array( 'group_id' => '7' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetGroupSubstitutions() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( array(), $r->payload['substitutions'] );
+		self::assertSame( 42, $r->payload['group_teacher']['id'] );
+	}
+
+	public function test_group_substitutions_teacher_is_null_when_group_has_none(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'teacher_id' => null ) );
+		$this->service->method( 'listByGroup' )->willReturn( array() );
+		$_POST = array( 'group_id' => '7' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetGroupSubstitutions() );
+
+		self::assertTrue( $r->success );
+		self::assertNull( $r->payload['group_teacher'] );
 	}
 }

@@ -1,5 +1,6 @@
 import {UI} from './modules/ui.js';
 import {TemplateManager} from './services/template-manager.js';
+import { ContentClone } from './services/content-clone.js';
 import {Boilerplates} from './services/boilerplates.js';
 import {PostsTable} from './services/tables/posts-table.js';
 import {RequiredTaxGuard} from './services/required-tax-guard.js';
@@ -21,6 +22,7 @@ import { RefSelector } from './services/ref-selector.js';
 import { LessonStepEditor } from './services/lesson-step-editor.js';
 import { WorkBuilder } from './services/work-builder.js';
 import { AssessmentBuilder } from './services/assessment-builder.js';
+import { ScoreMap } from './services/score-map.js';
 import { CourseBuilder } from './services/course-builder.js';
 import { TaskTemplateType } from './services/task-template-type.js';
 import { ModuleToggle } from './services/module-toggle.js';
@@ -32,6 +34,7 @@ import {AcademicPeriodModalManager} from "./managers/enrollment/academic-period-
 import {RoomModalManager} from "./managers/enrollment/room-modal-manager.js";
 import {GroupModalManager} from "./managers/enrollment/group-modal-manager.js";
 import {SubjectModalManager} from "./managers/subject-modal-manager";
+import { SubjectTransferService } from "./services/subject-transfer-service";
 import {TaskModalManager} from "./managers/task-modal-manager";
 import {HelpModalManager} from "./managers/help-modal-manager";
 import { ApplicationModalManager } from './managers/enrollment/applications/application-modal-manager.js';
@@ -65,10 +68,16 @@ import { RolesSettings } from './services/roles-settings.js';
         }, 5000);
 
         UI.init();
+
+        ContentClone.init(); // «Дублировать» в таблицах банков
         AlertModal.init();
 
         if ($('#fs-add-subject-form').length || $('.open-quick-edit').length) {
             SubjectModalManager.init();
+        }
+
+        if ($('.js-export-subject').length || $('#fs-import-trigger').length) {
+            SubjectTransferService.init();
         }
 
         if ($('.js-add-period').length || $('.js-edit-period').length) {
@@ -165,6 +174,10 @@ import { RolesSettings } from './services/roles-settings.js';
 
         if ( $( '.fs-lms-assessment-builder' ).length ) {
             AssessmentBuilder.init();
+        }
+
+        if ( $( '.fs-score-map' ).length ) {
+            ScoreMap.init();
         }
 
         if ( document.getElementById( 'fs-lms-course-builder' ) ) {

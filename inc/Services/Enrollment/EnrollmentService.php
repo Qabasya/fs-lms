@@ -64,8 +64,33 @@ readonly class EnrollmentService {
 		private PiiCryptoService             $crypto,
 		private ClockInterface               $clock,
 		private LogEventDispatcherInterface  $logEvents,
+		private EnrollmentPersonResolver     $personResolver,
+		private EnrollmentTransaction        $transaction,
+		private AccountProvisioningService   $provisioning,
 	) {}
 
+	/**
+	 * Зачисляет ученика по заявке.
+	 *
+	 * ### Порядок и почему он такой
+	 *
+	 * 1. Валидация заявки и расшифровка данных ученика/родителя.
+	 * 2. Поиск уже существующих физлиц ({@see EnrollmentPersonResolver}).
+	 * 3. Атомарная запись ({@see EnrollmentTransaction}): физлица + запись о
+	 *    зачислении + согласия.
+	 * 4. После COMMIT — то, что транзакцией не откатывается: WP-учётки
+	 *    ({@see AccountProvisioningService}), удаление заявки, письмо.
+	 *
+	 * Падение шага 4 не отменяет зачисление: заявка помечается `converted`,
+	 * учётки досоздаёт `RecoveryService` (cron), а вызывающему возвращается
+	 * результат с флагом ошибки.
+	 *
+	 * @param EnrollmentInputDTO $input Параметры зачисления
+	 *
+	 * @throws InvalidArgumentException Заявка не найдена
+	 * @throws DomainException          Заявка не в статусе enrolling, email родителя занят,
+	 *                                  ученик уже зачислен в эту группу
+	 */
 	public function enroll( EnrollmentInputDTO $input ): EnrollmentResultDTO {
 		$app = $this->applicationRepository->find( $input->applicationId );
 
@@ -84,33 +109,8 @@ readonly class EnrollmentService {
 			json_decode( $this->crypto->decrypt( (string) $app->parentDataEnc ), true ) ?? array()
 		);
 
-		$existingStudent = null;
-		if ( $app->studentPersonId !== null ) {
-			$existingStudent = $this->personRepository->findIncludingDeleted( $app->studentPersonId );
-			if ( $existingStudent !== null && $existingStudent->expelledAt !== null ) {
-				$this->personRepository->update( $existingStudent->id, array( 'expelled_at' => null ) );
-			}
-		} else {
-			// Поиск только при непустом документе; найденный должен быть учеником (is_student=1).
-			$studentId       = '' !== $studentDto->docNumber
-				? $this->personService->findByDocNumberHash( $this->crypto->hash( $studentDto->docNumber ) )
-				: null;
-			$candidate       = $studentId !== null ? $this->personRepository->find( $studentId ) : null;
-			$existingStudent = ( $candidate !== null && $candidate->isStudent ) ? $candidate : null;
-		}
-
-		$existingGuardian = null;
-		if ( $app->parentPersonId !== null ) {
-			$existingGuardian = $this->personRepository->find( $app->parentPersonId );
-		} else {
-			// Поиск только при непустом документе; найденный НЕ должен быть учеником —
-			// защита от коллизии doc_number_hash, из-за которой родителем становился ученик.
-			$guardianId       = '' !== $parentDto->docNumber
-				? $this->personService->findByDocNumberHash( $this->crypto->hash( $parentDto->docNumber ) )
-				: null;
-			$candidate        = $guardianId !== null ? $this->personRepository->find( $guardianId ) : null;
-			$existingGuardian = ( $candidate !== null && ! $candidate->isStudent ) ? $candidate : null;
-		}
+		$existingStudent  = $this->personResolver->resolveStudent( $app, $studentDto );
+		$existingGuardian = $this->personResolver->resolveGuardian( $app, $parentDto );
 
 		if ( null === $existingGuardian && null !== $this->userManager->findByEmail( $parentDto->email ) ) {
 			throw new DomainException( 'Email родителя уже занят другим пользователем.' );
@@ -120,73 +120,14 @@ readonly class EnrollmentService {
 			throw new DomainException( 'Ученик уже зачислен в эту группу.' );
 		}
 
-		$result = $this->inTransaction( function () use ( $app, $input, $studentDto, $parentDto, $existingStudent, $existingGuardian ): array {
-			$now = $this->clock->now( 'mysql', true );
-
-			$studentPersonId = $existingStudent !== null
-				? $existingStudent->id
-				: $this->personService->createOrFindBy( new PersonInputDTO(
-					lastName:   $studentDto->lastName,
-					firstName:  $studentDto->firstName,
-					docNumber:  $studentDto->docNumber,
-					isStudent:  true,
-					middleName: $studentDto->middleName,
-					docType:    $studentDto->docType,
-					birthDate:  $studentDto->birthDate,
-					inn:        $studentDto->inn,
-					phone:      $studentDto->phone,
-					school:     $studentDto->school,
-					grade:      (string) $studentDto->grade,
-					email:      $studentDto->email !== '' ? $studentDto->email : null,
-				) );
-
-			$guardianPersonId = $existingGuardian !== null
-				? $existingGuardian->id
-				: $this->personService->createOrFindBy( new PersonInputDTO(
-					lastName:      $parentDto->lastName,
-					firstName:     $parentDto->firstName,
-					docNumber:     $parentDto->docNumber,
-					isStudent:     false,
-					middleName:    $parentDto->middleName,
-					docType:       $parentDto->docType,
-					birthDate:     $parentDto->birthDate,
-					inn:           $parentDto->inn,
-					address:       $parentDto->address,
-					phone:         $parentDto->phone,
-					docIssuedBy:   $parentDto->docIssuedBy,
-					docIssuedDate: $parentDto->docIssuedDate,
-					email:         $parentDto->email !== '' ? $parentDto->email : null,
-				) );
-
-			$recordId = $this->studentRecordRepository->create( new StudentRecordInputDTO(
-				studentPersonId:   $studentPersonId,
-				parentPersonId:    $guardianPersonId,
-				status:            'active',
-				enrolledAt:        $input->enrolledAt,
-				createdAt:         $now,
-				updatedAt:         $now,
-				groupId:           $input->groupId ?: null,
-				snapshotLastName:  $studentDto->lastName,
-				snapshotFirstName: $studentDto->firstName,
-				snapshotMiddleName: $studentDto->middleName ?: null,
-				snapshotSchool:    $studentDto->school      ?: null,
-				snapshotGrade:     (string) $studentDto->grade ?: null,
-				contractNo:        $input->contractNo   ?: null,
-				contractDate:      $input->contractDate  ?: null,
-				orderNo:           $input->orderNo      ?: null,
-				orderDate:         $input->orderDate     ?: null,
-				enrolledByUserId:  get_current_user_id() ?: null,
-			) );
-
-			$this->consentService->bindToPersons( $app->id, array(
-				'self'     => $studentPersonId,
-				'guardian' => $guardianPersonId,
-			) );
-
-			return array( $recordId, $studentPersonId, $guardianPersonId );
-		} );
-
-		[ $recordId, $studentPersonId, $guardianPersonId ] = $result;
+		[ $recordId, $studentPersonId, $guardianPersonId ] = $this->transaction->run(
+			$app,
+			$input,
+			$studentDto,
+			$parentDto,
+			$existingStudent,
+			$existingGuardian
+		);
 
 		$this->logEvents->dispatch(
 			LogEvent::StudentEnrolled,
@@ -197,113 +138,34 @@ readonly class EnrollmentService {
 		do_action( 'fs_lms_student_enrolled', $recordId, $studentPersonId );
 
 		try {
-			$studentPerson = $this->personRepository->find( $studentPersonId );
-			if ( null !== $studentPerson && null !== $studentPerson->wpUserId ) {
-				$studentUserId = $studentPerson->wpUserId;
-				$studentLogin  = $this->userManager->find( $studentUserId )?->user_login ?? '';
-				if ( $studentDto->loginPassword !== '' ) {
-					$this->passwordGenerator->setFromPlain( $studentUserId, $studentDto->loginPassword );
-					$studentPassword = $studentDto->loginPassword;
-				} else {
-					$studentPassword = $this->passwordGenerator->generateAndSet( $studentUserId );
-				}
-			} else {
-				$studentEmail = $studentDto->email;
-				$existingUser = $studentEmail !== '' ? $this->userManager->findByEmail( $studentEmail ) : null;
-				if ( null !== $existingUser ) {
-					$studentUserId = $existingUser->ID;
-					$studentLogin  = $existingUser->user_login;
-					if ( $studentDto->loginPassword !== '' ) {
-						$this->passwordGenerator->setFromPlain( $studentUserId, $studentDto->loginPassword );
-						$studentPassword = $studentDto->loginPassword;
-					} else {
-						$studentPassword = $this->passwordGenerator->generateAndSet( $studentUserId );
-					}
-				} else {
-					$studentLogin    = $studentDto->username !== ''
-						? $studentDto->username
-						: ( $studentEmail !== '' ? $studentEmail : 'student_' . $studentPersonId );
-					$studentPassword = $studentDto->loginPassword !== ''
-						? $studentDto->loginPassword
-						: $this->passwordGenerator->generatePlain();
-					$studentUserId   = $this->userManager->create( new UserInputDTO(
-						userLogin:   $studentLogin,
-						userEmail:   $studentEmail,
-						userPass:    $studentPassword,
-						displayName: $studentDto->fullName(),
-						firstName:   $studentDto->firstName,
-						lastName:    $studentDto->lastName,
-						role:        UserRole::FSStudent->value,
-					) );
-					$this->passwordGenerator->storeEncrypted( $studentUserId, $studentPassword );
-					$this->logEvents->dispatch(
-						LogEvent::UserCreated,
-						new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Student, $studentPersonId, $studentDto->fullName() )
-					);
-				}
-				if ( null !== $studentPerson && null === $studentPerson->wpUserId ) {
-					$this->personRepository->setWpUser( $studentPersonId, $studentUserId );
-					$this->userManager->setPersonId( $studentUserId, $studentPersonId );
-				}
-			}
-
-			$guardianPerson = $this->personRepository->find( $guardianPersonId );
-			if ( null !== $guardianPerson && null !== $guardianPerson->wpUserId ) {
-				$guardianUserId   = $guardianPerson->wpUserId;
-				$guardianLogin    = $this->userManager->find( $guardianUserId )?->user_login ?? '';
-				$guardianPassword = $this->passwordGenerator->generateAndSet( $guardianUserId );
-			} else {
-				$guardianEmail        = $parentDto->email;
-				$existingGuardianUser = $this->userManager->findByEmail( $guardianEmail );
-				if ( null !== $existingGuardianUser ) {
-					$guardianUserId   = $existingGuardianUser->ID;
-					$guardianLogin    = $existingGuardianUser->user_login;
-					$guardianPassword = $this->passwordGenerator->generateAndSet( $guardianUserId );
-				} else {
-					$guardianLogin    = $guardianEmail;
-					$guardianPassword = $this->passwordGenerator->generatePlain();
-					$guardianUserId   = $this->userManager->create( new UserInputDTO(
-						userLogin:   $guardianEmail,
-						userEmail:   $guardianEmail,
-						userPass:    $guardianPassword,
-						displayName: $parentDto->fullName(),
-						firstName:   $parentDto->firstName,
-						lastName:    $parentDto->lastName,
-						role:        UserRole::FSParent->value,
-					) );
-					$this->passwordGenerator->storeEncrypted( $guardianUserId, $guardianPassword );
-					$this->logEvents->dispatch(
-						LogEvent::UserCreated,
-						new EntityChangedEvent( get_current_user_id(), OperationType::Create, EntityType::Parent, $guardianPersonId, $parentDto->fullName() )
-					);
-				}
-				if ( null !== $guardianPerson && null === $guardianPerson->wpUserId ) {
-					$this->personRepository->setWpUser( $guardianPersonId, $guardianUserId );
-					$this->userManager->setPersonId( $guardianUserId, $guardianPersonId );
-				}
-			}
+			$student  = $this->provisioning->provisionStudent(
+				$studentPersonId,
+				$this->studentAccountData( $studentDto ),
+				$this->studentLogin( $studentDto, $studentPersonId ),
+				'' !== $studentDto->loginPassword ? $studentDto->loginPassword : $this->passwordGenerator->generatePlain()
+			);
+			$guardian = $this->provisioning->provisionParent( $guardianPersonId, $parentDto );
 
 			$this->applicationRepository->forceDelete( $app->id );
 
 			if ( $input->sendEmailAuto ) {
 				// Письмо с данными для входа уходит только родителю — учётные данные ученика
 				// родитель передаёт ему сам (учитель/офис видят их в карточке зачисления).
-				$sharedVars = array(
+				$this->emailService->sendWelcomeWithCredentials( $guardian->userId, $guardian->password, array(
 					'student_full_name'  => $studentDto->fullName(),
 					'parent_first_name'  => $parentDto->firstName,
 					'parent_middle_name' => $parentDto->middleName,
-				);
-				$this->emailService->sendWelcomeWithCredentials( $guardianUserId, $guardianPassword, $sharedVars );
+				) );
 			}
 
 			return new EnrollmentResultDTO(
 				$recordId,
-				$studentUserId,
-				$guardianUserId,
-				$studentLogin,
-				$studentPassword,
-				$guardianLogin,
-				$guardianPassword,
+				$student->userId,
+				$guardian->userId,
+				$student->login,
+				$student->password,
+				$guardian->login,
+				$guardian->password,
 				false
 			);
 		} catch ( \Throwable $e ) {
@@ -322,6 +184,35 @@ readonly class EnrollmentService {
 
 			return new EnrollmentResultDTO( $recordId, 0, 0, null, null, null, null, true, $e->getMessage() );
 		}
+	}
+
+	/**
+	 * Данные ученика для провизии учётки (email + ФИО).
+	 *
+	 * @param StudentDataDTO $student Данные ученика из заявки
+	 */
+	private function studentAccountData( StudentDataDTO $student ): PersonInputDTO {
+		return new PersonInputDTO(
+			lastName:  $student->lastName,
+			firstName: $student->firstName,
+			docNumber: $student->docNumber,
+			isStudent: true,
+			email:     '' !== $student->email ? $student->email : null,
+		);
+	}
+
+	/**
+	 * Логин новой учётки ученика: явный из заявки → email → служебный по ID физлица.
+	 *
+	 * @param StudentDataDTO $student  Данные ученика
+	 * @param int            $personId Физлицо ученика
+	 */
+	private function studentLogin( StudentDataDTO $student, int $personId ): string {
+		if ( '' !== $student->username ) {
+			return $student->username;
+		}
+
+		return '' !== $student->email ? $student->email : 'student_' . $personId;
 	}
 
 	public function restoreFromArchive( int $recordId, bool $withParent = false ): RestoreResultDTO {

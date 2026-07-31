@@ -6,7 +6,7 @@
 }
 
 .fs-join-card {
-  @include fs-card-shell(rem(560), $spacing-2xl rem(30));
+  @include fs-card-shell(rem(560), $spacing-4xl rem(30));
 
   &__title {
     @include fs-card-title;
@@ -15,11 +15,11 @@
   }
 
   &__subtitle {
-    font-size: $font-size-sm;
+    font-size: $font-size-base;
     color: $color-muted;
     text-align: center;
-    margin: 0 0 $spacing-xl;
-    line-height: $line-height-base;
+    margin: 0 0 $spacing-2xl;
+    line-height: $line-height-relaxed;
   }
 
   &__section {
@@ -38,7 +38,7 @@
   }
 
   &__section-title {
-    font-size: $font-size-sm;
+    font-size: $font-size-base;
     font-weight: $font-bold;
     color: $color-text;
     text-transform: uppercase;
@@ -84,10 +84,10 @@
       display: flex;
       align-items: flex-start;
       gap: rem(10);
-      font-size: $font-size-sm;
+      font-size: $font-size-base;
       color: $color-text;
       cursor: pointer;
-      line-height: $line-height-base;
+      line-height: $line-height-relaxed;
     }
 
     input[type="checkbox"] {
@@ -123,7 +123,7 @@
     background: $color-white;
     border: 1px solid $color-border;
     border-top: none;
-    border-radius: 0 0 $radius $radius;
+    border-radius: 0 0 $border-radius-sm $border-radius-sm;
     box-shadow: $shadow-hover;
 
     @include fs-list-reset;
@@ -133,7 +133,7 @@
 
     &__item {
       padding: rem(9) rem(12) rem(9) rem(38);
-      font-size: $font-size-sm;
+      font-size: $font-size-base;
       color: $color-text;
       cursor: pointer;
       line-height: $line-height-tight;
@@ -151,7 +151,7 @@
   }
 
   &__error {
-    @include fs-form-error($font-size-xs, $spacing-md);
+    @include fs-form-error($font-size-sm, $spacing-md);
   }
 
   &__locked-notice {
@@ -162,9 +162,9 @@
     border-left: rem(3) solid $color-accent;
     padding: $spacing-sm $spacing-md;
     margin-bottom: $spacing-lg;
-    font-size: $font-size-sm;
+    font-size: $font-size-base;
     color: $color-muted;
-    border-radius: 0 $radius-sm $radius-sm 0;
+    border-radius: 0 $border-radius-md $border-radius-md 0;
   }
 
   &__success {
@@ -176,7 +176,7 @@
   }
 
   &__success-title {
-    font-size: $font-size-base;
+    font-size: $font-size-md;
     font-weight: $font-bold;
     color: $color-text;
     margin: 0 0 $spacing-sm;

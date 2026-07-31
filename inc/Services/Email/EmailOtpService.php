@@ -31,8 +31,10 @@ use RuntimeException;
  * - OTP-коды хранятся в хэшированном виде (с солью) для безопасности.
  * - Время жизни OTP-кода — 10 минут (600 секунд).
  * - Cooldown на повторную отправку — 60 секунд.
- * - FS_LMS_TEST_ENV (wp-config.php) — тестовое окружение: письмо не отправляется,
- *   капча в ApplicationCallbacks пропускается. Ученик вводит FS_LMS_OTP_BYPASS_CODE.
+ * - FS_LMS_TEST_ENV (wp-config.php) — тестовое окружение: капча в ApplicationCallbacks
+ *   пропускается. Письмо с кодом при этом ОТПРАВЛЯЕТСЯ как обычно — ранний выход
+ *   из sendCode() был закомментирован и удалён (аудит: код расходился с описанием);
+ *   войти без почты позволяет FS_LMS_OTP_BYPASS_CODE на этапе проверки кода.
  * - FS_LMS_OTP_BYPASS_CODE (wp-config.php) — постоянный bypass-код: принимается вместо
  *   кода с почты в любом окружении. Удобно когда у ученика нет доступа к email.
  */
@@ -61,11 +63,6 @@ readonly class EmailOtpService {
 	 * @return void
 	 */
 	public function sendCode( string $email ): void {
-		// В тестовом окружении письмо не отправляется — используется FS_LMS_OTP_BYPASS_CODE
-//		if ( defined( 'FS_LMS_TEST_ENV' ) ) {
-//			return;
-//		}
-
 		// Проверка возможности повторной отправки
 		if ( ! $this->canResend( $email ) ) {
 			throw new RuntimeException( 'Повторная отправка кода недоступна. Подождите перед следующей попыткой.' );

@@ -9,6 +9,7 @@ use Inc\DTO\Profile\ProfileContext;
 use Inc\Enums\Access\UserRole;
 use Inc\Services\Course\OwnWorkDetailService;
 use Inc\Services\Enrollment\OpenGroupEnrollmentService;
+use Inc\DTO\Profile\LearnerDashboardDTO;
 use Inc\Services\Profile\LearnerService;
 use Inc\Services\Profile\ProfileViewResolver;
 use PHPUnit\Framework\TestCase;
@@ -36,7 +37,7 @@ class LearnerCallbacksTest extends TestCase {
 		$this->resolver->method( 'context' )->willReturn(
 			new ProfileContext( 1, 5, UserRole::FSStudent, 5, false, array() )
 		);
-		$this->service->expects( $this->once() )->method( 'build' )->with( 5 )->willReturn( array( 'groups' => array() ) );
+		$this->service->expects( $this->once() )->method( 'build' )->with( 5 )->willReturn( new LearnerDashboardDTO( null, array(), array(), array(), array(), array(), array(), array(), array(), array() ) );
 		$_POST = array( 'student_person_id' => '777' ); // попытка подмены игнорируется
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetLearnerProfile() )->success );
@@ -46,7 +47,7 @@ class LearnerCallbacksTest extends TestCase {
 		$this->resolver->method( 'context' )->willReturn(
 			new ProfileContext( 1, 3, UserRole::FSParent, 7, true, array( array( 'personId' => 7, 'name' => 'A' ), array( 'personId' => 8, 'name' => 'B' ) ) )
 		);
-		$this->service->expects( $this->once() )->method( 'build' )->with( 8 )->willReturn( array( 'groups' => array() ) );
+		$this->service->expects( $this->once() )->method( 'build' )->with( 8 )->willReturn( new LearnerDashboardDTO( null, array(), array(), array(), array(), array(), array(), array(), array(), array() ) );
 		$_POST = array( 'student_person_id' => '8' );
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetLearnerProfile() )->success );
@@ -56,7 +57,7 @@ class LearnerCallbacksTest extends TestCase {
 		$this->resolver->method( 'context' )->willReturn(
 			new ProfileContext( 1, 3, UserRole::FSParent, 7, true, array( array( 'personId' => 7, 'name' => 'A' ) ) )
 		);
-		$this->service->expects( $this->once() )->method( 'build' )->with( 7 )->willReturn( array( 'groups' => array() ) );
+		$this->service->expects( $this->once() )->method( 'build' )->with( 7 )->willReturn( new LearnerDashboardDTO( null, array(), array(), array(), array(), array(), array(), array(), array(), array() ) );
 		$_POST = array( 'student_person_id' => '999' ); // не свой ребёнок → дефолт
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetLearnerProfile() )->success );

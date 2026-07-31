@@ -19,30 +19,56 @@ use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\LessonVisibilityService;
-use Inc\Services\Course\StudentSummaryService;
-use Inc\Services\Group\GroupRosterService;
-use Inc\Services\Group\ScheduleService;
+use Inc\Services\Group\ProgramCompositionService;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\ProgramAccess;
 use Inc\Shared\Traits\Sanitizer;
 
+/**
+ * Class ProgramCallbacks
+ *
+ * AJAX состава КТП: назначение курса, темы программы, порядок, видимость,
+ * публикация КТП, настройки шагов занятия и лента событий группы.
+ *
+ * @package Inc\Callbacks\Course
+ *
+ * Даты и раскладка — {@see LessonScheduleCallbacks}; индивидуальные занятия —
+ * {@see IndividualLessonCallbacks}; ростер — {@see GroupRosterCallbacks};
+ * дедлайны работ и запись занятия — {@see LessonDeliveryCallbacks}.
+ */
 class ProgramCallbacks extends BaseController {
 
 	use Authorizer;
+	use ProgramAccess;
 	use Sanitizer;
 
+	/**
+	 * @param ProgramCompositionService $program            Состав и публикация программы
+	 * @param LessonVisibilityService   $visibilityService  Видимость занятия для учеников
+	 * @param CourseAssignmentService   $assignmentService  Назначение курса группе
+	 * @param GroupAccessGuard          $guard              Доступ к группе
+	 * @param LearningEventRepository   $eventRepo          Лента событий обучения
+	 * @param GroupLessonRepository     $groupLessons       Строки программы
+	 * @param PostManager               $posts              Записи (уроки, задания)
+	 */
 	public function __construct(
-		private readonly ScheduleService         $scheduleService,
-		private readonly LessonVisibilityService $visibilityService,
-		private readonly CourseAssignmentService $assignmentService,
-		private readonly EffectiveWorksResolver  $worksResolver,
-		private readonly GroupAccessGuard        $guard,
-		private readonly LearningEventRepository $eventRepo,
-		private readonly GroupLessonRepository   $groupLessons,
-		private readonly PostManager             $posts,
-		private readonly GroupRosterService      $roster,
-		private readonly StudentSummaryService   $summary,
+		private readonly ProgramCompositionService $program,
+		private readonly LessonVisibilityService   $visibilityService,
+		private readonly CourseAssignmentService   $assignmentService,
+		private readonly GroupAccessGuard          $guard,
+		private readonly LearningEventRepository   $eventRepo,
+		private readonly GroupLessonRepository     $groupLessons,
+		private readonly PostManager               $posts,
 	) {
 		parent::__construct();
+	}
+
+	protected function accessGuard(): GroupAccessGuard {
+		return $this->guard;
+	}
+
+	protected function programService(): ProgramCompositionService {
+		return $this->program;
 	}
 
 	public function ajaxAssignCourse(): void {
@@ -52,9 +78,7 @@ class ProgramCallbacks extends BaseController {
 		$policy   = AssignmentPolicy::fromValueOrDefault( $this->sanitizeKey( 'policy' ) );
 		$userId   = get_current_user_id();
 
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$this->requireGroupAccess( $groupId );
 		$this->denyIfProgramLocked( $groupId );
 
 		try {
@@ -79,9 +103,7 @@ class ProgramCallbacks extends BaseController {
 		$this->authorize( Nonce::AssignCourse, Capability::ManageLmsTeaching );
 		$groupId = $this->requireInt( 'group_id' );
 
-		if ( ! $this->guard->canManage( $groupId, get_current_user_id() ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$this->requireGroupAccess( $groupId );
 
 		$this->success( array( 'courses' => $this->assignmentService->coursesForGroup( $groupId ) ) );
 	}
@@ -95,12 +117,10 @@ class ProgramCallbacks extends BaseController {
 		$groupId = $this->requireInt( 'group_id' );
 		$userId  = get_current_user_id();
 
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$this->requireGroupAccess( $groupId );
 
-		$this->scheduleService->publishProgram( $groupId, $userId );
-		$this->success( array( 'locked' => true, 'locked_at' => $this->scheduleService->programLockedAt( $groupId ) ) );
+		$this->program->publishProgram( $groupId, $userId );
+		$this->success( array( 'locked' => true, 'locked_at' => $this->program->programLockedAt( $groupId ) ) );
 	}
 
 	/**
@@ -112,21 +132,10 @@ class ProgramCallbacks extends BaseController {
 		$groupId = $this->requireInt( 'group_id' );
 		$userId  = get_current_user_id();
 
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$this->requireGroupAccess( $groupId );
 
-		$this->scheduleService->unpublishProgram( $groupId, $userId );
+		$this->program->unpublishProgram( $groupId, $userId );
 		$this->success( array( 'locked' => false, 'locked_at' => null ) );
-	}
-
-	/**
-	 * T1.8: блокирует правку опубликованной (locked) КТП. Прерывает ответ JSON-ошибкой.
-	 */
-	private function denyIfProgramLocked( int $groupId ): void {
-		if ( $this->scheduleService->isProgramLocked( $groupId ) ) {
-			$this->error( __( 'КТП опубликована и заблокирована для изменений. Снимите публикацию, чтобы редактировать.', 'fs-lms' ) );
-		}
 	}
 
 	public function ajaxAddLessonToProgram(): void {
@@ -136,12 +145,10 @@ class ProgramCallbacks extends BaseController {
 		$label    = $this->sanitizeText( 'label' ) ?: null;
 		$userId   = get_current_user_id();
 
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$this->requireGroupAccess( $groupId );
 		$this->denyIfProgramLocked( $groupId );
 
-		$id = $this->scheduleService->addLesson( $groupId, $lessonId, $userId, $label );
+		$id = $this->program->addLesson( $groupId, $lessonId, $userId, $label );
 		$this->success( array( 'group_lesson_id' => $id ) );
 	}
 
@@ -150,13 +157,10 @@ class ProgramCallbacks extends BaseController {
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$userId        = get_current_user_id();
 
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$row = $this->requireProgramRow( $groupLessonId );
 		$this->denyIfProgramLocked( $row->groupId );
 
-		$id = $this->scheduleService->duplicateLesson( $groupLessonId, $userId );
+		$id = $this->program->duplicateLesson( $groupLessonId, $userId );
 		$this->success( array( 'group_lesson_id' => $id ) );
 	}
 
@@ -170,18 +174,15 @@ class ProgramCallbacks extends BaseController {
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$userId        = get_current_user_id();
 
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-			return;
-		}
+		$row = $this->requireProgramRow( $groupLessonId );
 		$this->denyIfProgramLocked( $row->groupId );
 
-		$id = $this->scheduleService->continueLesson( $groupLessonId, $userId );
+		$id = $this->program->continueLesson( $groupLessonId, $userId );
 		if ( 0 === $id ) {
 			$this->error( __( 'Нельзя продолжить: тема не найдена или уже является продолжением.', 'fs-lms' ) );
 			return;
 		}
+
 		$this->success( array( 'group_lesson_id' => $id ) );
 	}
 
@@ -190,57 +191,23 @@ class ProgramCallbacks extends BaseController {
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$userId        = get_current_user_id();
 
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$row = $this->requireProgramRow( $groupLessonId );
 		$this->denyIfProgramLocked( $row->groupId );
 
-		$this->scheduleService->removeLesson( $groupLessonId, $userId );
+		$this->program->removeLesson( $groupLessonId, $userId );
 		$this->success();
 	}
 
 	public function ajaxReorderProgram(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId    = $this->requireInt( 'group_id' );
-		$orderedIds = array_map( 'intval', (array) ( $_POST['ordered_ids'] ?? array() ) );
+		$orderedIds = $this->sanitizeIntList( 'ordered_ids' );
 		$userId     = get_current_user_id();
 
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$this->requireGroupAccess( $groupId );
 		$this->denyIfProgramLocked( $groupId );
 
-		$this->scheduleService->reorder( $groupId, $orderedIds, $userId );
-		$this->success();
-	}
-
-	public function ajaxSaveLessonSchedule(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupLessonId  = $this->requireInt( 'group_lesson_id' );
-		$scheduledAt    = $this->sanitizeText( 'scheduled_at' ) ?: null;
-		$teacherUserId  = isset( $_POST['teacher_user_id'] ) && '' !== $_POST['teacher_user_id']
-			? $this->sanitizeInt( 'teacher_user_id' )
-			: null;
-		$userId         = get_current_user_id();
-
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-		$this->denyIfProgramLocked( $row->groupId );
-
-		$this->scheduleService->schedule( $groupLessonId, $scheduledAt, $teacherUserId, $userId );
-		$this->success();
-	}
-
-	public function ajaxSetLessonExtraWorks(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$workIds       = array_map( 'intval', (array) ( $_POST['work_ids'] ?? array() ) );
-		$userId        = get_current_user_id();
-
-		$this->worksResolver->setExtraWorks( $groupLessonId, $workIds, $userId );
+		$this->program->reorder( $groupId, $orderedIds, $userId );
 		$this->success();
 	}
 
@@ -261,347 +228,10 @@ class ProgramCallbacks extends BaseController {
 	public function ajaxGetGroupProgram(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId = $this->requireInt( 'group_id' );
-		$userId  = get_current_user_id();
 
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$this->requireGroupAccess( $groupId );
 
-		$this->success( $this->scheduleService->getProgram( $groupId ) );
-	}
-
-	/**
-	 * Авто-распределение тем по слотам периода (кнопка «Распределить» в КТП).
-	 * Params: group_id
-	 */
-	public function ajaxReflowSchedule(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupId = $this->requireInt( 'group_id' );
-		$userId  = get_current_user_id();
-
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-		$this->denyIfProgramLocked( $groupId );
-
-		$conflicts = $this->scheduleService->reflow( $groupId, $userId );
-		$this->success( array( 'room_conflicts' => $conflicts ) );
-	}
-
-	/**
-	 * Закрепляет тему на дату (drag-drop темы на день календаря).
-	 * Params: group_lesson_id, scheduled_at
-	 */
-	public function ajaxPinLesson(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$scheduledAt   = $this->sanitizeText( 'scheduled_at' );
-		$userId        = get_current_user_id();
-
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-		$this->denyIfProgramLocked( $row->groupId );
-		if ( '' === $scheduledAt ) {
-			$this->error( __( 'Не указана дата.', 'fs-lms' ) );
-		}
-
-		try {
-			$this->scheduleService->pinToDate( $groupLessonId, $scheduledAt, $userId );
-		} catch ( \InvalidArgumentException $e ) {
-			$this->error( $e->getMessage() );
-			return;
-		}
-		$this->success();
-	}
-
-	/**
-	 * Создаёт индивидуальное занятие на одного ученика (Эпик 4).
-	 * Params: group_id, student_person_id, scheduled_at [, ends_at, lesson_id, label, teacher_user_id]
-	 */
-	public function ajaxCreateIndividualLesson(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupId         = $this->requireInt( 'group_id' );
-		$studentPersonId = $this->requireInt( 'student_person_id' );
-		$scheduledAt     = $this->sanitizeText( 'scheduled_at' );
-		$endsAt          = $this->sanitizeText( 'ends_at' ) ?: null;
-		$lessonId        = isset( $_POST['lesson_id'] ) && '' !== $_POST['lesson_id']
-			? $this->sanitizeInt( 'lesson_id' )
-			: null;
-		$label           = $this->sanitizeText( 'label' ) ?: null;
-		$teacherUserId   = isset( $_POST['teacher_user_id'] ) && '' !== $_POST['teacher_user_id']
-			? $this->sanitizeInt( 'teacher_user_id' )
-			: null;
-		$roomId          = isset( $_POST['room_id'] ) && '' !== $_POST['room_id']
-			? $this->sanitizeInt( 'room_id' )
-			: null;
-		$userId          = get_current_user_id();
-
-		if ( '' === $scheduledAt ) {
-			$this->error( __( 'Не указана дата занятия.', 'fs-lms' ) );
-		}
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-
-		try {
-			$id = $this->scheduleService->createIndividualLesson(
-				$groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $userId, $roomId
-			);
-		} catch ( \InvalidArgumentException $e ) {
-			$this->error( $e->getMessage() );
-			return;
-		}
-
-		$this->success( array( 'group_lesson_id' => $id ) );
-	}
-
-	/**
-	 * НБ-9: индивидуальные занятия группы для режима КТП «Индивидуальные занятия»
-	 * (ФИО + дата + урок/тема). Params: group_id.
-	 */
-	public function ajaxGetIndividualSlots(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupId = $this->requireInt( 'group_id' );
-		$userId  = get_current_user_id();
-
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-
-		$this->success( array( 'items' => $this->scheduleService->getIndividualProgram( $groupId ) ) );
-	}
-
-	/**
-	 * НБ-9: уроки предмета группы (курс-первыми) для назначения инд. занятию.
-	 * Params: group_id [, search].
-	 */
-	public function ajaxGetLessonCandidates(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupId = $this->requireInt( 'group_id' );
-		$search  = $this->sanitizeText( 'search' );
-		$userId  = get_current_user_id();
-
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-
-		$this->success( array( 'lessons' => $this->scheduleService->lessonCandidatesForGroup( $groupId, $search ) ) );
-	}
-
-	/**
-	 * НБ-9: привязывает урок банка к индивидуальному занятию.
-	 * Params: group_lesson_id, lesson_id.
-	 */
-	public function ajaxAssignIndividualLesson(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$lessonId      = $this->requireInt( 'lesson_id' );
-		$userId        = get_current_user_id();
-
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к занятию.', 'fs-lms' ) );
-		}
-
-		try {
-			$this->scheduleService->assignLessonToIndividual( $groupLessonId, $lessonId, $userId );
-		} catch ( \InvalidArgumentException $e ) {
-			$this->error( $e->getMessage() );
-			return;
-		}
-
-		$this->success();
-	}
-
-	/**
-	 * Правка индивидуального занятия (B2): дата/время, кабинет, ученик, урок (тема).
-	 * Отсутствующие/пустые поля не меняются; room_id='0' очищает кабинет.
-	 */
-	public function ajaxUpdateIndividualLesson(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupLessonId   = $this->requireInt( 'group_lesson_id' );
-		$scheduledAt     = isset( $_POST['scheduled_at'] ) && '' !== $_POST['scheduled_at'] ? $this->sanitizeText( 'scheduled_at' ) : null;
-		$endsAt          = isset( $_POST['ends_at'] ) && '' !== $_POST['ends_at'] ? $this->sanitizeText( 'ends_at' ) : null;
-		$roomId          = isset( $_POST['room_id'] ) && '' !== $_POST['room_id'] ? $this->sanitizeInt( 'room_id' ) : null;
-		$studentPersonId = isset( $_POST['student_person_id'] ) && '' !== $_POST['student_person_id'] ? $this->sanitizeInt( 'student_person_id' ) : null;
-		$lessonId        = isset( $_POST['lesson_id'] ) && '' !== $_POST['lesson_id'] ? $this->sanitizeInt( 'lesson_id' ) : null;
-		$userId          = get_current_user_id();
-
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( ! $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к занятию.', 'fs-lms' ) );
-		}
-
-		try {
-			$this->scheduleService->updateIndividualLesson( $groupLessonId, $scheduledAt, $endsAt, $roomId, $studentPersonId, $lessonId, $userId );
-		} catch ( \InvalidArgumentException $e ) {
-			$this->error( $e->getMessage() );
-			return;
-		}
-
-		$this->success();
-	}
-
-	/**
-	 * Ростер группы для экрана «Группы» (Эпик 10 T10.7): активные ученики + их
-	 * индивидуальные занятия. Params: group_id.
-	 */
-	public function ajaxGetGroupRoster(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupId = $this->requireInt( 'group_id' );
-		$userId  = get_current_user_id();
-
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-
-		$this->success( $this->roster->forGroup( $groupId ) );
-	}
-
-	/**
-	 * Сводка по ученику (Эпик 10 T10.8, D8): занятия ученика с посещаемостью и
-	 * результатами работ. Params: group_id, student_person_id.
-	 */
-	public function ajaxGetStudentSummary(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupId  = $this->requireInt( 'group_id' );
-		$personId = $this->requireInt( 'student_person_id' );
-		$userId   = get_current_user_id();
-
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-
-		$this->success( $this->summary->forStudent( $groupId, $personId ) );
-	}
-
-	/**
-	 * Свободные кабинеты для индивидуального занятия (Эпик 11 T11.3): по предмету
-	 * группы + окну времени. Params: group_id, scheduled_at [, ends_at].
-	 */
-	public function ajaxGetFreeRooms(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupId     = $this->requireInt( 'group_id' );
-		$scheduledAt = $this->sanitizeText( 'scheduled_at' );
-		$endsAt      = $this->sanitizeText( 'ends_at' ) ?: null;
-		$userId      = get_current_user_id();
-
-		if ( '' === $scheduledAt ) {
-			$this->error( __( 'Не указана дата занятия.', 'fs-lms' ) );
-		}
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-
-		$this->success( array( 'rooms' => $this->scheduleService->freeRoomsForGroup( $groupId, $scheduledAt, $endsAt ) ) );
-	}
-
-	/**
-	 * Календарь КТП группы: слоты периода, выходные и размещённые темы.
-	 * Params: group_id
-	 */
-	public function ajaxGetGroupCalendar(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupId = $this->requireInt( 'group_id' );
-		$userId  = get_current_user_id();
-
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
-
-		$this->success( $this->scheduleService->getCalendar( $groupId ) );
-	}
-
-	/**
-	 * Дедлайны работ занятия для поповера в КТП (T12.3, D13): эффективный набор
-	 * работ занятия + текущий per-work дедлайн (только явный override — legacy
-	 * `homeworkDueAt`-фолбэк здесь НЕ показываем, редактируется только per-work).
-	 * Params: group_lesson_id.
-	 */
-	public function ajaxGetWorkDeadlines(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$userId        = get_current_user_id();
-
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-			return;
-		}
-
-		$works = array();
-		foreach ( $this->worksResolver->resolve( $row ) as $work ) {
-			$works[] = array(
-				'id'       => $work->id,
-				'title'    => $work->title,
-				'deadline' => $row->workDeadlines[ $work->id ] ?? null,
-			);
-		}
-
-		$this->success( array( 'works' => $works ) );
-	}
-
-	/**
-	 * Сохраняет per-work дедлайны занятия (T12.3, D13). Delivery, не структура —
-	 * НЕ блокируется публикацией КТП (см. T1.8 `denyIfProgramLocked`).
-	 * Params: group_lesson_id, deadlines (JSON {work_id:'Y-m-d H:i:s'|''}) — пустая
-	 * строка снимает per-work override (эффективный дедлайн падает на legacy-фолбэк).
-	 */
-	public function ajaxSaveWorkDeadlines(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$rawDeadlines  = $this->sanitizeText( 'deadlines' );
-		$userId        = get_current_user_id();
-
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-			return;
-		}
-
-		$decoded = json_decode( $rawDeadlines, true );
-		if ( ! is_array( $decoded ) ) {
-			$this->error( 'Неверный формат данных.' );
-			return;
-		}
-
-		$sanitized = array();
-		foreach ( $decoded as $workId => $deadline ) {
-			if ( is_string( $deadline ) && '' !== $deadline ) {
-				$sanitized[ (int) $workId ] = $deadline;
-			}
-		}
-
-		$this->groupLessons->setWorkDeadlines( $groupLessonId, $sanitized );
-		$this->success( array( 'saved' => true ) );
-	}
-
-	/**
-	 * Ручная правка ссылки на запись занятия (попап камеры в КТП, З3). Нужна, когда
-	 * авто-матч VideoLibrary не привязал запись: методист/офис (а для своей группы —
-	 * преподаватель) вставляет ссылку руками. Ядро о модуле не знает — просто хранит
-	 * и отдаёт строку-указатель (`https://…` или `s3://bucket/key`).
-	 * Params: group_lesson_id, recording_url (пусто — снять ссылку)
-	 */
-	public function ajaxSetRecordingUrl(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$url           = $this->sanitizeText( 'recording_url' );
-		$userId        = get_current_user_id();
-
-		$row = $this->scheduleService->getProgramRow( $groupLessonId );
-		if ( null === $row || ! $this->guard->canManage( $row->groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-			return;
-		}
-
-		$this->groupLessons->setRecordingUrl( $groupLessonId, '' !== $url ? $url : null );
-		if ( '' !== $url ) {
-			do_action( 'fs_lms_recording_attached', $groupLessonId );
-		}
-		$this->success( array( 'saved' => true, 'recording_url' => '' !== $url ? $url : null ) );
+		$this->success( $this->program->getProgram( $groupId ) );
 	}
 
 	/**
@@ -619,8 +249,8 @@ class ProgramCallbacks extends BaseController {
 			return;
 		}
 
-		$meta   = $this->posts->getMeta( $groupLesson->lessonId, PostMetaName::Meta->value );
-		$steps  = StepDTO::fromList( is_array( $meta ) ? ( $meta['steps'] ?? array() ) : array() );
+		$meta      = $this->posts->getMeta( $groupLesson->lessonId, PostMetaName::Meta->value );
+		$steps     = StepDTO::fromList( is_array( $meta ) ? ( $meta['steps'] ?? array() ) : array() );
 		$overrides = $groupLesson->stepSettingsOverrides ?? array();
 
 		$result = array();
@@ -629,21 +259,20 @@ class ProgramCallbacks extends BaseController {
 				continue;
 			}
 
-			$taskId  = (int) ( $step->payload['ref'] ?? 0 );
-			$label   = $taskId ? ( $this->posts->get( $taskId )?->post_title ?? '' ) : '';
-			$base    = array(
+			$taskId = (int) ( $step->payload['ref'] ?? 0 );
+			$label  = $taskId ? ( $this->posts->get( $taskId )?->post_title ?? '' ) : '';
+			$base   = array(
 				'max_attempts'      => (int) ( $step->payload['settings']['max_attempts'] ?? 0 ),
 				'shuffle'           => (bool) ( $step->payload['settings']['shuffle'] ?? false ),
 				'hint_after_errors' => (int) ( $step->payload['settings']['hint_after_errors'] ?? 0 ),
 			);
-			$override = is_array( $overrides[ $step->key ] ?? null ) ? $overrides[ $step->key ] : null;
 
 			$result[] = array(
 				'key'      => $step->key,
 				'label'    => $label ?: $step->key,
 				'task_id'  => $taskId,
 				'settings' => $base,
-				'override' => $override,
+				'override' => is_array( $overrides[ $step->key ] ?? null ) ? $overrides[ $step->key ] : null,
 			);
 		}
 
@@ -670,7 +299,7 @@ class ProgramCallbacks extends BaseController {
 			if ( ! is_string( $stepKey ) || ! is_array( $values ) ) {
 				continue;
 			}
-			$sanitized[ sanitize_key( $stepKey ) ] = array(
+			$sanitized[ $this->sanitizeKeyValue( $stepKey ) ] = array(
 				'max_attempts'      => max( 0, (int) ( $values['max_attempts'] ?? 0 ) ),
 				'shuffle'           => (bool) ( $values['shuffle'] ?? false ),
 				'hint_after_errors' => max( 0, (int) ( $values['hint_after_errors'] ?? 0 ) ),
@@ -685,14 +314,10 @@ class ProgramCallbacks extends BaseController {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId = $this->requireInt( 'group_id' );
 		$page    = max( 1, $this->sanitizeInt( 'page' ) );
-		$userId  = get_current_user_id();
 
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
-			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
-		}
+		$this->requireGroupAccess( $groupId );
 
 		$events = $this->eventRepo->listByGroup( $groupId, $page, 20 );
-		$total  = $this->eventRepo->countByGroup( $groupId );
 
 		$this->success( array(
 			'events' => array_map( fn( $e ) => array(
@@ -701,7 +326,7 @@ class ProgramCallbacks extends BaseController {
 				'created_at' => $e->createdAt,
 				'is_public'  => $e->isPublic,
 			), $events ),
-			'total'  => $total,
+			'total'  => $this->eventRepo->countByGroup( $groupId ),
 			'page'   => $page,
 		) );
 	}

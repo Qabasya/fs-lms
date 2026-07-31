@@ -19,13 +19,13 @@
     input[type="date"],
     select {
       height: rem(30);
-      font-size: $font-size;
+      font-size: $font-size-base;
     }
   }
 
   .fs-logs-summary {
     color: $color-text-secondary;
-    font-size: $font-size;
+    font-size: $font-size-base;
     margin-bottom: $spacing-sm;
   }
 

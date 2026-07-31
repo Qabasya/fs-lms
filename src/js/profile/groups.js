@@ -6,7 +6,7 @@
    Клик по группе в сайдбаре открывает этот экран (см. app.js openGroupsFor).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, initials, firstWord, avaColor, emptyState } from './utils.js';
+import { esc, toast, initials, firstWord, avaColor, emptyState, fmtDate } from './utils.js';
 import { icoUsers } from '../common/icons.js';
 import { createApi } from './api.js';
 import { openIndiModal } from './indi-modal.js';
@@ -119,13 +119,6 @@ function openIndiForm(pid, anchor) {
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-function fmtDate(iso) {
-    // iso "YYYY-MM-DD HH:MM" → "DD.MM HH:MM"
-    const [d, t] = String(iso).split(' ');
-    if (!d) return iso;
-    const [, m, dd] = d.split('-');
-    return `${dd}.${m}${t ? ' ' + t : ''}`;
-}
 
 function empty(title, text) {
     return emptyState('prof-roster', icoUsers(34), title, text);

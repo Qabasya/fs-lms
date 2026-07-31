@@ -5,6 +5,7 @@
  * @var array                       $subjects          Список предметов (передан из коллбека)
  * @var array                       $academic_periods  Список академических периодов (передан из коллбека)
  * @var \Inc\DTO\Person\UserDTO[]     $teachers          Список преподавателей (передан из коллбека)
+ * @var array                       $rooms             Активные кабинеты (передан из коллбека)
  */
 
 use Inc\Enums\Course\WeekDay;
@@ -64,6 +65,19 @@ use Inc\Enums\Course\WeekDay;
 								</option>
 							<?php endforeach; ?>
 						</select>
+					</div>
+
+					<div class="fs-form-group">
+						<label for="group-room">Основной кабинет</label>
+						<select id="group-room" name="room_id">
+							<option value="">— Не назначен —</option>
+							<?php foreach ( $rooms ?? [] as $room ) : ?>
+								<option value="<?php echo esc_attr( (string) $room->id ); ?>">
+									<?php echo esc_html( $room->name ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+						<p class="description">Кабинет по умолчанию для занятий группы; у отдельного дня расписания можно указать свой.</p>
 					</div>
 
 					<div class="fs-form-group fs-access-mode-group">

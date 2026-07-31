@@ -9,7 +9,6 @@ use Inc\DTO\Log\DataChangeLogInputDTO;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\DataChangeLogRepository;
 use Inc\Services\Security\PiiCryptoService;
-use Inc\Enums\Access\UserRole;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**
@@ -24,7 +23,7 @@ use Inc\Shared\Traits\RequestContextProvider;
  * 1. **Запись изменений полей лица** — логирование изменений ФИО, документов, контактов.
  * 2. **Шифрование значений** — старые и новые значения хранятся в зашифрованном виде (BLOB).
  * 3. **Сбор контекста запроса** — получение IP, User-Agent через трейт RequestContextProvider.
- * 4. **Определение роли пользователя** — получение роли через UserManager.
+ * 4. **Определение роли пользователя** — через ActorRoleResolver.
  *
  * ### Архитектурная роль:
  *
@@ -46,13 +45,13 @@ class DataChangeLogWriter {
 	 *
 	 * @param DataChangeLogRepository $repository  Репозиторий журнала изменений данных
 	 * @param PiiCryptoService        $crypto      Сервис шифрования PII
-	 * @param UserManager             $userManager Менеджер пользователей
+	 * @param ActorRoleResolver $roleResolver Роль автора действия для журнала
 	 * @param ClockInterface          $clock       Интерфейс часов
 	 */
 	public function __construct(
 		private readonly DataChangeLogRepository $repository,
 		private readonly PiiCryptoService        $crypto,
-		private readonly UserManager             $userManager,
+		private readonly ActorRoleResolver $roleResolver,
 		private readonly ClockInterface          $clock,
 	) {}
 
@@ -68,7 +67,7 @@ class DataChangeLogWriter {
 	 */
 	public function record( int $targetPersonId, string $fieldName, ?string $oldValue, ?string $newValue ): void {
 		$ctx = $this->requestContext();
-		$role = $this->resolveRole( $ctx->actorUserId );
+		$role = $this->roleResolver->resolve( $ctx->actorUserId );
 
 		// Шифрование значений (пустые строки сохраняются как null)
 		$oldEnc = null !== $oldValue && '' !== $oldValue ? $this->crypto->encrypt( $oldValue ) : null;
@@ -85,21 +84,4 @@ class DataChangeLogWriter {
 		) );
 	}
 
-	/**
-	 * Определяет роль пользователя по ID.
-	 *
-	 * @param int $userId ID пользователя WordPress
-	 *
-	 * @return string|null
-	 */
-	private function resolveRole( int $userId ): ?string {
-		if ( $userId <= 0 ) {
-			return null;
-		}
-		$user = $this->userManager->find( $userId );
-		if ( null === $user || empty( $user->roles ) ) {
-			return null;
-		}
-		return UserRole::primarySlug( (array) $user->roles );
-	}
 }

@@ -86,7 +86,7 @@ class LearnerCallbacks extends BaseController {
 			return;
 		}
 
-		$this->success( $this->service->build( $personId ) );
+		$this->success( $this->service->build( $personId )->toArray() );
 	}
 
 	/**

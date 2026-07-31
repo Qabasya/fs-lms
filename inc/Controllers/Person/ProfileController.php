@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Controllers\Person;
 
 use Inc\Core\BaseController;
+use Inc\Repositories\OptionsRepositories\ExpulsionPolicyRepository;
 use Inc\Contracts\ServiceInterface;
 use Inc\Enums\Settings\OptionName;
 use Inc\Enums\Wp\PageRoutes;
@@ -81,7 +82,7 @@ class ProfileController extends BaseController implements ServiceInterface {
 			}
 
 			// Гейт кабинета для полностью отчисленных (политика 'block').
-			$policy = get_option( OptionName::ExpulsionRetentionPolicy->value, 'retain' );
+			$policy = $this->expulsionPolicy->getRetentionPolicy();
 			if ( 'block' === $policy ) {
 				$person = $this->personRepository->findByWpUserId( get_current_user_id() );
 				if ( $person ) {

@@ -87,6 +87,7 @@ export const GroupModal = {
         this.$periodSelect  = $('#group-period');
         this.$subjectSelect = $('#group-subject');
         this.$teacherSelect = $('#group-teacher');
+        this.$roomSelect     = this.$modal.find('#group-room');
         this.$accessModeCb  = $('#group-access-mode');
 
         this.$actionInput  = this.$modal.find('input[name="action_type"]');
@@ -182,6 +183,7 @@ export const GroupModal = {
             this.$periodSelect.val(data.period_id ?? '').trigger('change');
             this.$subjectSelect.val(data.subject_id ?? '').trigger('change');
             this.$teacherSelect.val(data.teacher_id ?? '').trigger('change');
+            this.$roomSelect.val(data.room_id ? String(data.room_id) : '');
             this.$accessModeCb.prop('checked', data.access_mode === 'open');
             this._toggleScheduleByMode();
             this._restoreSchedule(data.schedule ?? []);
@@ -365,6 +367,7 @@ export const GroupModal = {
             period_id:     this.$periodSelect.val(),
             subject_id:    this.$subjectSelect.val(),
             teacher_id:    this.$teacherSelect.val(),
+            room_id:       this.$roomSelect.length ? this.$roomSelect.val() : '',
             access_mode:   this.$accessModeCb.prop('checked') ? 'open' : 'scheduled',
 
             // Сериализуем массив расписания в JSON-строку для отправки на сервер.

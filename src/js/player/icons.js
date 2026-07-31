@@ -6,6 +6,8 @@
  * синхронно! Здесь они нужны для SVG-заливки в ленте/дереве.
  */
 
+export { escapeHtml as esc } from '../common/utils.js';
+
 import {
 	STEP_GLYPHS,
 	icoCheck,
@@ -51,6 +53,3 @@ export const ICO = {
 	clock: icoClock,
 };
 
-export function esc( s ) {
-	return String( s ).replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' ).replace( /"/g, '&quot;' );
-}

@@ -4,7 +4,8 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-$definitions = (array) get_option( 'fs_lms_consent_definitions', array() );
+// Определения согласий приходят из AdminCallbacks::settingsPage() (репозиторий).
+$definitions = isset( $consent_definitions ) ? (array) $consent_definitions : array();
 ?>
 
 <div id="tab-consents" class="tab-pane active">

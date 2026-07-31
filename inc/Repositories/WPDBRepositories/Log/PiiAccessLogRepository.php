@@ -7,6 +7,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 use Inc\DTO\Person\PiiAccessLogDTO;
 use Inc\DTO\Person\PiiAccessLogInputDTO;
 use Inc\Enums\Log\LogChannel;
+use Inc\Enums\Log\LogFilterType;
 
 /**
  * Class PiiAccessLogRepository
@@ -22,8 +23,8 @@ use Inc\Enums\Log\LogChannel;
  *
  * ### Архитектурная роль:
  *
- * Реализует интерфейс RepositoryInterface для единообразия с другими репозиториями.
- * Использует wpdb для прямых SQL-запросов. Записи журнала PII Access являются
+ * Чтение (list/countFiltered/listAll) — в {@see AbstractLogRepository};
+ * здесь только специфика канала. Записи журнала PII Access являются
  * неизменяемыми для обеспечения compliance (update() выбрасывает исключение).
  *
  * ### Compliance (соответствие законодательству):
@@ -31,20 +32,42 @@ use Inc\Enums\Log\LogChannel;
  * Журнал создаётся для отслеживания каждого случая доступа к персональным данным.
  * Фиксируется: кто запрашивал (actor_user_id), к каким данным (fields_accessed),
  * причина доступа (access_reason), IP-адрес, время.
+ *
+ * @method PiiAccessLogDTO[] list( array $filters, int $page, int $perPage, string $orderby = 'id', string $order = 'DESC' )
+ * @method PiiAccessLogDTO[] listAll( array $filters )
  */
-class PiiAccessLogRepository {
+class PiiAccessLogRepository extends AbstractLogRepository {
 
-	private \wpdb $wpdb;
-	private string $table;
+	protected function channel(): LogChannel {
+		return LogChannel::PiiAccess;
+	}
 
 	/**
-	 * Конструктор репозитория.
-	 *
-	 * @param \wpdb|null $wpdb Глобальный объект базы данных WordPress
+	 * @return array<string, array{0: string, 1: LogFilterType}>
 	 */
-	public function __construct( ?\wpdb $wpdb = null ) {
-		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = LogChannel::PiiAccess->tableName()->prefixed();
+	protected function filterMap(): array {
+		return array(
+			'actor_user_id' => array( 'actor_user_id', LogFilterType::Number ),
+			'person_id'     => array( 'person_id', LogFilterType::Number ),
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $row Строка таблицы
+	 */
+	protected function hydrate( array $row ): PiiAccessLogDTO {
+		return PiiAccessLogDTO::fromArray( $row );
+	}
+
+	/**
+	 * Создаёт новую запись доступа к персональным данным.
+	 *
+	 * @param PiiAccessLogInputDTO $input Входные данные записи доступа
+	 *
+	 * @return int ID созданной записи
+	 */
+	public function create( PiiAccessLogInputDTO $input ): int {
+		return $this->insertRow( $input->toArray() );
 	}
 
 	/**
@@ -60,7 +83,7 @@ class PiiAccessLogRepository {
 			ARRAY_A
 		);
 
-		return $row ? PiiAccessLogDTO::fromArray( $row ) : null;
+		return $row ? $this->hydrate( $row ) : null;
 	}
 
 	/**
@@ -80,96 +103,17 @@ class PiiAccessLogRepository {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => PiiAccessLogDTO::fromArray( $row ), $rows ?: array() );
+		return $this->hydrateAll( $rows );
 	}
 
 	/**
-	 * Создаёт новую запись доступа к персональным данным.
+	 * Последние записи доступа к данным человека.
 	 *
-	 * @param PiiAccessLogInputDTO $input Входные данные записи доступа
+	 * @param int $personId ID человека
+	 * @param int $limit    Ограничение выборки
 	 *
-	 * @return int ID созданной записи
+	 * @return PiiAccessLogDTO[]
 	 */
-	public function create( PiiAccessLogInputDTO $input ): int {
-		$this->wpdb->insert( $this->table, $input->toArray() );
-		return (int) $this->wpdb->insert_id;
-	}
-
-	public function list( array $filters, int $page, int $perPage, string $orderby = 'id', string $order = 'DESC' ): array {
-		$orderby = in_array( $orderby, array( 'id', 'created_at' ), true ) ? $orderby : 'id';
-		$order   = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
-
-		[ $conditions, $bindings ] = $this->buildConditions( $filters );
-		$where      = implode( ' AND ', $conditions );
-		$bindings[] = $perPage;
-		$bindings[] = ( $page - 1 ) * $perPage;
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY $orderby $order LIMIT %d OFFSET %d", $bindings ),
-			ARRAY_A
-		);
-
-		return array_map( fn( array $row ) => PiiAccessLogDTO::fromArray( $row ), $rows ?: array() );
-	}
-
-	public function countFiltered( array $filters ): int {
-		[ $conditions, $bindings ] = $this->buildConditions( $filters );
-		$where = implode( ' AND ', $conditions );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return (int) $this->wpdb->get_var(
-			$this->wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE $where", $bindings )
-		);
-	}
-
-	public function listAll( array $filters ): array {
-		[ $conditions, $bindings ] = $this->buildConditions( $filters );
-		$where = implode( ' AND ', $conditions );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY id DESC", $bindings ),
-			ARRAY_A
-		);
-
-		return array_map( fn( array $row ) => PiiAccessLogDTO::fromArray( $row ), $rows ?: array() );
-	}
-
-	public function countByActorInLastHour( int $userId ): int {
-		return (int) $this->wpdb->get_var(
-			$this->wpdb->prepare(
-				'SELECT COUNT(*) FROM %i WHERE actor_user_id = %d AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)',
-				$this->table,
-				$userId
-			)
-		);
-	}
-
-	private function buildConditions( array $filters ): array {
-		$conditions = array( '1=1' );
-		$bindings   = array( $this->table );
-
-		if ( ! empty( $filters['actor_user_id'] ) ) {
-			$conditions[] = 'actor_user_id = %d';
-			$bindings[]   = (int) $filters['actor_user_id'];
-		}
-		if ( ! empty( $filters['person_id'] ) ) {
-			$conditions[] = 'person_id = %d';
-			$bindings[]   = (int) $filters['person_id'];
-		}
-		if ( ! empty( $filters['date_from'] ) ) {
-			$conditions[] = 'created_at >= %s';
-			$bindings[]   = $filters['date_from'] . ' 00:00:00';
-		}
-		if ( ! empty( $filters['date_to'] ) ) {
-			$conditions[] = 'created_at <= %s';
-			$bindings[]   = $filters['date_to'] . ' 23:59:59';
-		}
-
-		return array( $conditions, $bindings );
-	}
-
 	public function listByPerson( int $personId, int $limit = 50 ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
@@ -181,9 +125,17 @@ class PiiAccessLogRepository {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => PiiAccessLogDTO::fromArray( $row ), $rows ?: array() );
+		return $this->hydrateAll( $rows );
 	}
 
+	/**
+	 * Последние записи доступа, выполненные сотрудником.
+	 *
+	 * @param int $userId ID пользователя WP
+	 * @param int $limit  Ограничение выборки
+	 *
+	 * @return PiiAccessLogDTO[]
+	 */
 	public function listByActor( int $userId, int $limit = 50 ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
@@ -195,19 +147,22 @@ class PiiAccessLogRepository {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => PiiAccessLogDTO::fromArray( $row ), $rows ?: array() );
+		return $this->hydrateAll( $rows );
 	}
 
-	public function purgeOlderThan( int $days ): int {
-		$this->wpdb->query(
+	/**
+	 * Количество обращений сотрудника к ПД за последний час — для рейт-лимита.
+	 *
+	 * @param int $userId ID пользователя WP
+	 */
+	public function countByActorInLastHour( int $userId ): int {
+		return (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(
-				'DELETE FROM %i WHERE created_at < DATE_SUB(NOW(), INTERVAL %d DAY)',
+				'SELECT COUNT(*) FROM %i WHERE actor_user_id = %d AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)',
 				$this->table,
-				$days
+				$userId
 			)
 		);
-
-		return (int) $this->wpdb->rows_affected;
 	}
 
 	/**

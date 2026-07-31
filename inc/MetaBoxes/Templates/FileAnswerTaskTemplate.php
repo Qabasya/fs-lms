@@ -18,8 +18,9 @@ use Inc\MetaBoxes\Fields\FileAttachmentsField;
  * ответ уходит в pending, оценивает преподаватель (при наличии критериев —
  * по критериям, сумма = балл задачи, D17).
  *
- * Поля решения (`solution_text`, `task_code`) ученику не отдаются — оба ключа
- * вырезаются ExamPayloadFilter; материалы (`task_materials`) отдаются ссылками.
+ * Поля решения (`solution_text`, `task_code`) ученику не отдаются: страница экзамена
+ * получает только whitelist полей из AttemptTaskViewBuilder (условие, материалы,
+ * номер, подпункты) — меты задания там нет вовсе. Материалы отдаются ссылками.
  *
  * @package Inc\MetaBoxes\Templates
  * @extends BaseTemplate

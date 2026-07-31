@@ -4,12 +4,11 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject;
 
-use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
-use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Subject\Bundle\PostCollector;
 
 /**
  * Class SubjectExportService
@@ -20,14 +19,23 @@ use Inc\Services\Subject\PostTypeResolver;
  *
  * ### Основные обязанности:
  *
- * 1. **Сбор данных предмета** — экспорт таксономий, метабоксов, boilerplate, терминов и постов.
- * 2. **Структурирование данных** — приведение данных к формату, совместимому с импортом.
+ * 1. **Сбор структур предмета** — таксономии, метабоксы, boilerplate, термины.
+ * 2. **Сбор банка** — задания и статьи через общий {@see PostCollector}.
+ * 3. **Структурирование данных** — приведение данных к формату, совместимому с импортом.
  *
  * ### Архитектурная роль:
  *
  * Делегирует получение данных соответствующим репозиториям и менеджерам.
- * Используется в SubjectImportExportCallbacks для формирования экспортного JSON.
- * Экспортирует все сущности, связанные с предметом, включая кастомные типы постов.
+ * Используется в SubjectImportExportCallbacks для формирования экспортного JSON
+ * и в {@see Bundle\SubjectBundleExportService} — как источник структур предмета
+ * для полного пакета переноса.
+ *
+ * ### Разделение с пакетом
+ *
+ * Здесь остаётся «лёгкий» экспорт: структуры предмета + банк заданий/статей,
+ * один JSON без медиа. Полный граф (работы, контрольные, уроки, курсы, задачи
+ * глобального банка, физические медиафайлы) — в {@see Bundle\SubjectBundleExportService},
+ * который переиспользует {@see structures()} и {@see taxonomySlugs()} отсюда.
  */
 class SubjectExportService {
 
@@ -38,14 +46,14 @@ class SubjectExportService {
 	 * @param MetaBoxRepository     $metaboxes    Репозиторий привязок шаблонов метабоксов
 	 * @param BoilerplateRepository $boilerplates Репозиторий типовых условий
 	 * @param TermManager           $terms        Менеджер терминов
-	 * @param PostManager           $posts        Менеджер постов
+	 * @param PostCollector         $collector    Сборщик представлений записей
 	 */
 	public function __construct(
-		private readonly TaxonomyRepository   $taxonomies,
-		private readonly MetaBoxRepository    $metaboxes,
+		private readonly TaxonomyRepository    $taxonomies,
+		private readonly MetaBoxRepository     $metaboxes,
 		private readonly BoilerplateRepository $boilerplates,
-		private readonly TermManager          $terms,
-		private readonly PostManager          $posts,
+		private readonly TermManager           $terms,
+		private readonly PostCollector         $collector,
 	) {}
 
 	/**
@@ -56,12 +64,42 @@ class SubjectExportService {
 	 * @return array Массив с разделами: taxonomies, metaboxes, boilerplates, terms, posts
 	 */
 	public function export( string $subject_key ): array {
+		return array_merge(
+			$this->structures( $subject_key ),
+			array( 'posts' => $this->collectPosts( $subject_key ) )
+		);
+	}
+
+	/**
+	 * Структуры предмета без записей: таксономии, метабоксы, boilerplate, термины.
+	 *
+	 * Выделено, чтобы пакет переноса собирал ту же шапку предмета, что и обычный
+	 * экспорт, — без копии четырёх приватных методов.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return array{taxonomies: array, metaboxes: array, boilerplates: array, terms: array}
+	 */
+	public function structures( string $subject_key ): array {
 		return array(
 			'taxonomies'   => $this->exportTaxonomies( $subject_key ),
 			'metaboxes'    => $this->exportMetaboxes( $subject_key ),
 			'boilerplates' => $this->exportBoilerplates( $subject_key ),
 			'terms'        => $this->collectTerms( $subject_key ),
-			'posts'        => $this->collectPosts( $subject_key ),
+		);
+	}
+
+	/**
+	 * Слаги всех таксономий предмета: системная «номера заданий» + пользовательские.
+	 *
+	 * @param string $subject_key Ключ предмета
+	 *
+	 * @return string[]
+	 */
+	public function taxonomySlugs( string $subject_key ): array {
+		return array_merge(
+			array( PostTypeResolver::getTaskTaxonomy( $subject_key ) ),
+			array_map( fn( $dto ) => $dto->slug, $this->taxonomies->getBySubject( $subject_key ) )
 		);
 	}
 
@@ -133,15 +171,9 @@ class SubjectExportService {
 	 * @return array<string, array> [tax_slug => [['name', 'slug', 'description', 'parent'], ...]]
 	 */
 	private function collectTerms( string $subject_key ): array {
-		// Сбор всех таксономий предмета (системная + пользовательские)
-		$slugs = array_merge(
-			array( "{$subject_key}_task_number" ),
-			array_map( fn( $dto ) => $dto->slug, $this->taxonomies->getBySubject( $subject_key ) )
-		);
-
 		$result = array();
 
-		foreach ( $slugs as $tax_slug ) {
+		foreach ( $this->taxonomySlugs( $subject_key ) as $tax_slug ) {
 			$result[ $tax_slug ] = array_map(
 				fn( $t ) => array(
 					'name'        => $t->name,
@@ -165,43 +197,13 @@ class SubjectExportService {
 	 * @return array<string, array> [post_type => [['post_title', 'post_content', ...], ...]]
 	 */
 	private function collectPosts( string $subject_key ): array {
-		// Список таксономий для получения привязок терминов
-		$tax_slugs = array_merge(
-			array( "{$subject_key}_task_number" ),
-			array_map( fn( $dto ) => $dto->slug, $this->taxonomies->getBySubject( $subject_key ) )
-		);
-
-		$result = array();
+		$tax_slugs = $this->taxonomySlugs( $subject_key );
+		$result    = array();
 
 		// PostTypeResolver::tasks() — возвращает тип поста заданий (например, 'math_tasks')
 		// PostTypeResolver::articles() — возвращает тип поста статей (например, 'math_articles')
 		foreach ( array( PostTypeResolver::tasks( $subject_key ), PostTypeResolver::articles( $subject_key ) ) as $post_type ) {
-			$result[ $post_type ] = array_map(
-				function ( $post ) use ( $tax_slugs ) {
-					$term_map = array();
-
-					// Сбор слагов терминов для каждой таксономии
-					foreach ( $tax_slugs as $tax_slug ) {
-						$slugs = $this->terms->getPostSlugs( $post->ID, $tax_slug );
-						if ( ! empty( $slugs ) ) {
-							$term_map[ $tax_slug ] = $slugs;
-						}
-					}
-
-					return array(
-						'post_title'   => $post->post_title,
-						'post_content' => $post->post_content,
-						'post_excerpt' => $post->post_excerpt,
-						'post_status'  => $post->post_status,
-						'post_date'    => $post->post_date,
-						'menu_order'   => (int) $post->menu_order,
-						'meta'         => $this->posts->getAllMeta( $post->ID ),
-						'terms'        => $term_map,
-					);
-				},
-				// getAll() — возвращает все посты указанного типа
-				$this->posts->getAll( $post_type )
-			);
+			$result[ $post_type ] = $this->collector->collect( $post_type, $tax_slugs );
 		}
 
 		return $result;

@@ -20,11 +20,11 @@ export class AllTasksApi {
     /**
      * Загружает список заданий с фильтрами и пагинацией.
      *
-     * @param {Object} filters            - Активные фильтры.
-     * @param {string} filters.search     - Поисковая строка.
-     * @param {Object} filters.taxonomies - Карта фильтров-таксономий: { taxSlug: [termSlug, ...] }.
-     * @param {number} offset             - Смещение (для infinite scroll).
-     * @param {number} perPage            - Количество заданий на страницу.
+     * @param {Object}   filters              - Активные фильтры.
+     * @param {string}   filters.search       - Поисковая строка.
+     * @param {string[]} filters.task_types   - Слаги типов заданий.
+     * @param {number}   offset               - Смещение (для infinite scroll).
+     * @param {number}   perPage              - Количество заданий на страницу.
      *
      * @returns {Promise<{tasks: Object[], total: number, has_more: boolean}>}
      */
@@ -38,10 +38,7 @@ export class AllTasksApi {
             search:      filters.search || '',
         });
 
-        const taxonomies = filters.taxonomies || {};
-        Object.keys(taxonomies).forEach(tax => {
-            (taxonomies[tax] || []).forEach(slug => body.append(`filters[${tax}][]`, slug));
-        });
+        (filters.task_types || []).forEach(t => body.append('task_types[]', t));
 
         return fetch(this._url, { method: 'POST', body })
             .then(r => {

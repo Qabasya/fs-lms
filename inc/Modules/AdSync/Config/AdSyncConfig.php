@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\AdSync\Config;
 
+use Inc\Modules\Shared\ModuleConfig;
+
 /**
  * Class AdSyncConfig
  *
@@ -16,7 +18,7 @@ namespace Inc\Modules\AdSync\Config;
  *
  * @package Inc\Modules\AdSync\Config
  */
-class AdSyncConfig {
+class AdSyncConfig extends ModuleConfig {
 
 	/** Ключ опции модуля (вне core OptionName — изоляция). */
 	public const OPTION = 'fs_lms_ad_sync';
@@ -27,17 +29,19 @@ class AdSyncConfig {
 		'provision_subjects' => array(),
 	);
 
-	/** @return array<string, mixed> */
-	public function get(): array {
-		$stored = get_option( self::OPTION, array() );
-		return array_merge( self::DEFAULTS, is_array( $stored ) ? $stored : array() );
+	protected function option(): string {
+		return self::OPTION;
 	}
 
-	/** Мержит $partial поверх текущего значения; неизвестные ключи игнорирует. */
-	public function save( array $partial ): void {
-		$current = $this->get();
-		$updated = array_merge( $current, array_intersect_key( $partial, self::DEFAULTS ) );
-		update_option( self::OPTION, $updated, false );
+	/**
+	 * @return array<string, mixed>
+	 */
+	protected function defaults(): array {
+		return self::DEFAULTS;
+	}
+
+	protected function toggleConstant(): ?string {
+		return 'FS_LMS_AD_SYNC';
 	}
 
 	/**

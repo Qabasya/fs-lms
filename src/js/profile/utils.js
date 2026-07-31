@@ -1,3 +1,8 @@
+// Общие утилиты живут в common/utils.js — здесь только реэкспорт под привычными
+// именами кабинета (esc ≡ escapeHtml) и профиль-специфика (тост, чипы, шкалы).
+export { fmtDate, fmtDayMonth, fmtDateTime, todayIso, initials, debounce } from '../common/utils.js';
+export { escapeHtml as esc } from '../common/utils.js';
+
 /* Shared utilities: toast, HTML escaping, formatting, context menu state */
 
 import { AVA_COLORS } from './constants.js';
@@ -21,13 +26,6 @@ export function toast(msg, type = 'ok') {
     toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
 }
 
-export function esc(s) {
-    return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
 
 /* ── Formatting (shared across screens) ────────────────────────── */
 
@@ -36,10 +34,6 @@ export function shortName(name) {
     return String(name).replace(/[«»]/g, '').replace(/\s+/g, ' ').trim().slice(0, 4);
 }
 
-/** Инициалы из ФИО: «Иванова Софья» → «ИС». */
-export function initials(name) {
-    return String(name).split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-}
 
 /** Первое слово ФИО (фамилия). */
 export function firstWord(name) {
@@ -59,24 +53,8 @@ export function fmtNum(n) {
     return String(Math.round(Number(n) * 100) / 100);
 }
 
-/** 'YYYY-MM-DD…' → 'DD.MM'. */
-export function fmtDayMonth(s) {
-    if (!s) return '';
-    const p = String(s).slice(0, 10).split('-');
-    return p.length === 3 ? `${p[2]}.${p[1]}` : s;
-}
 
-/** Полная дата 'ДД.ММ.ГГГГ'. */
-export function fmtDate(s) {
-    if (!s) return '';
-    const p = String(s).slice(0, 10).split('-');
-    return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : s;
-}
 
-/** Сегодняшняя дата 'YYYY-MM-DD'. */
-export function todayIso() {
-    return new Date().toISOString().slice(0, 10);
-}
 
 /* ── Colors (shared) ───────────────────────────────────────────── */
 

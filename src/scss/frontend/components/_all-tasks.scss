@@ -4,7 +4,6 @@
 // имена .shell/.layout/.sidebar/.main/.page-title дженерик, изолируем от других
 // компонентов. Фон и внешние отступы даёт .fs-page-wrapper (_layout).
 .fs-all-tasks-page {
-
   // Сглаживание — против «пиксельного» вида на Win/Mac.
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -24,7 +23,7 @@
   .side-card {
     background: $color-bg-subtle;
     border: 1px solid $color-border;
-    border-radius: $radius-lg;
+    border-radius: $border-radius-xl;
     padding: rem(16) rem(18) rem(18);
   }
   .filters-side { padding: rem(6) 0 rem(4); }
@@ -61,28 +60,31 @@
 
     &:hover { background: $color-white; }
   }
+
   .filter-sec-title {
     font-size: rem(10.5); font-weight: $font-bold;
     letter-spacing: .14em; text-transform: uppercase;
     color: $color-muted;
   }
   .filter-sec-right { display: inline-flex; align-items: center; gap: rem(8); }
-  .filter-sec-summary { font-size: $font-size-xxs; color: $color-muted; font-variant-numeric: tabular-nums; }
+  .filter-sec-summary { font-size: $font-size-xs; color: $color-muted; font-variant-numeric: tabular-nums; }
 
   .filter-sec-badge {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: rem(18); height: rem(18);
     padding: 0 rem(5);
-    border-radius: $radius-pill;
+    border-radius: $border-radius-pill;
     background: $color-accent; color: $color-white;
     font-size: rem(10.5); font-weight: $font-bold; font-variant-numeric: tabular-nums;
   }
+
   .filter-sec-chev {
     display: inline-flex; color: $color-muted;
     transition: transform .2s ease;
 
     &.is-open { transform: rotate(90deg); color: $color-text; }
   }
+
   .filter-sec-body {
     max-height: rem(240);
     padding: rem(4) rem(12) rem(14);
@@ -96,7 +98,7 @@
     display: flex; align-items: center;
     gap: rem(10);
     padding: rem(7) rem(8);
-    border-radius: $radius-sm;
+    border-radius: $border-radius-md;
     background: transparent; border: 0;
     font-family: inherit; font-size: $font-size-xs; color: $color-muted;
     text-align: left; cursor: pointer;
@@ -107,10 +109,11 @@
   }
   .filter-option-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .filter-option-count { font-size: rem(11); color: $color-muted; font-variant-numeric: tabular-nums; }
+
   .filter-option-check {
     display: grid; place-items: center;
     width: rem(14); height: rem(14); flex: 0 0 rem(14);
-    border: 1.5px solid $color-separator; border-radius: $radius;
+    border: 1.5px solid $color-separator; border-radius: $border-radius-sm;
     color: transparent;
     transition: background $transition, border-color $transition, color $transition;
   }
@@ -123,6 +126,7 @@
     margin-bottom: rem(10);
     font-size: $font-size-xs; color: $color-muted;
   }
+
   .crumb {
     color: $color-muted; text-decoration: none;
     transition: color $transition;
@@ -134,7 +138,7 @@
 
   .page-title {
     margin: rem(4) 0 rem(24);
-    font-size: $font-size-title; font-weight: $font-bold;
+    font-size: $font-size-2xl; font-weight: $font-bold;
     line-height: 1.15;
     color: $color-text;
   }
@@ -148,12 +152,13 @@
     gap: rem(10);
     height: rem(42); padding: 0 rem(14);
     background: $color-white;
-    border: 1px solid $color-border; border-radius: $radius-lg;
+    border: 1px solid $color-border; border-radius: $border-radius-xl;
     transition: border-color $transition;
 
     &:focus-within { border-color: $color-accent; }
   }
   .toolbar-search-icon { display: inline-flex; flex: 0 0 rem(16); color: $color-muted; }
+
   .toolbar-search input {
     flex: 1; min-width: 0;
     background: transparent; border: 0; outline: 0;
@@ -170,10 +175,11 @@
 
     strong { color: $color-text; font-weight: $font-semibold; }
   }
+
   .results-clear {
     padding: 0;
     background: none; border: 0;
-    font-family: inherit; font-size: $font-size-xxs; color: $color-muted;
+    font-family: inherit; font-size: $font-size-xs; color: $color-muted;
     cursor: pointer;
     transition: color $transition;
 
@@ -186,8 +192,8 @@
   .task-card-row {
     overflow: hidden;
     background: $color-white;
-    border: 1px solid $color-border; border-radius: $radius-lg;
-    box-shadow: $shadow-card;
+    border: 1px solid $color-border; border-radius: $border-radius-xl;
+    box-shadow: $shadow-surface;
     transition: box-shadow .2s;
 
     &:hover { box-shadow: $shadow-hover; }
@@ -202,9 +208,9 @@
     gap: rem(6);
     height: rem(24); padding: 0 rem(10);
     background: $color-bg-subtle;
-    border: 1px solid $color-border; border-radius: $radius-pill;
-    font-family: inherit; font-size: rem(11.5); font-weight: $font-medium;
-    color: $color-text-secondary; white-space: nowrap;
+    border: 1px solid $color-border; border-radius: $border-radius-pill;
+    font-family: inherit; font-size: rem(11.5); font-weight: $font-semibold;
+    color: $color-muted; white-space: nowrap;
     cursor: pointer;
     transition: background $transition, color $transition, border-color $transition;
 
@@ -217,31 +223,33 @@
     color: $color-text;
   }
   .tcr-body { padding: rem(10) rem(22) rem(4); }
-  .tcr-condition { margin: 0; font-size: $font-size-xs; line-height: $line-height-base; color: $color-text-secondary; }
+  .tcr-condition { margin: 0; font-size: $font-size-xs; line-height: $line-height-relaxed; color: $color-muted; }
 
   // ── Файлы ─────────────────────────────────────────────────────
   .tcr-files { display: flex; flex-wrap: wrap; gap: rem(8); padding: rem(14) rem(22) rem(4); }
+
   .tcr-file {
     display: inline-flex; align-items: center;
     gap: rem(8);
     padding: rem(7) rem(12) rem(7) rem(10);
     background: $color-bg-subtle;
-    border: 1px solid $color-border; border-radius: $radius-md;
-    font-size: $font-size-xxs; font-weight: $font-medium;
+    border: 1px solid $color-border; border-radius: $border-radius-lg;
+    font-size: $font-size-xs; font-weight: $font-semibold;
     color: $color-text; text-decoration: none;
     transition: background $transition, border-color $transition;
 
     &:hover { background: rgba($color-accent, .12); border-color: $color-accent; }
   }
+
   .tcr-file-icon {
     display: grid; place-items: center;
     width: rem(24); height: rem(24); flex: 0 0 rem(24);
     background: $color-white;
-    border: 1px solid $color-border; border-radius: $radius-sm;
+    border: 1px solid $color-border; border-radius: $border-radius-md;
     color: $color-muted;
   }
   .tcr-file-name { font-weight: $font-semibold; }
-  .tcr-file-size { font-family: $font-mono; font-size: rem(11); font-weight: $font-medium; color: $color-muted; }
+  .tcr-file-size { font-family: $font-code; font-size: rem(11); font-weight: $font-semibold; color: $color-muted; }
 
   // ── Панель ответа ─────────────────────────────────────────────
   .tcr-answer {
@@ -252,15 +260,20 @@
     border-top: 1px solid $color-border;
     animation: fs-at-answer-in .22s ease-out;
   }
+
   .tcr-answer-label {
     flex: 0 0 auto;
     font-size: rem(10.5); font-weight: $font-bold;
     letter-spacing: .14em; text-transform: uppercase;
     color: $color-muted;
   }
+
   .tcr-answer-value {
-    font-family: $font-mono; font-size: $font-size-base; font-weight: $font-semibold;
-    color: $color-text; word-break: break-word;
+    font-family: $font-code; font-size: $font-size-base; font-weight: $font-semibold;
+    color: $color-text;
+
+    // overflow-wrap вместо устаревшего word-break: break-word — поведение то же.
+    overflow-wrap: break-word;
   }
 
   // ── Футер карточки ────────────────────────────────────────────
@@ -271,29 +284,32 @@
     background: $color-bg-subtle;
     border-top: 1px solid $color-border;
   }
+
   .tcr-answer-toggle {
     padding: rem(7) rem(16);
     background: $color-white;
-    border: 1px solid $color-border; border-radius: $radius-md;
-    font-family: inherit; font-size: $font-size-xxs; font-weight: $font-medium;
-    color: $color-text-secondary; cursor: pointer;
+    border: 1px solid $color-border; border-radius: $border-radius-lg;
+    font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
+    color: $color-muted; cursor: pointer;
     transition: background $transition, color $transition, border-color $transition;
 
     &:hover { background: $color-border-light; color: $color-text; }
     &.is-active { background: $color-accent; border-color: $color-accent; color: $color-white; }
   }
   .tcr-actions { display: inline-flex; align-items: center; gap: rem(8); margin-left: auto; }
+
   .tcr-btn {
     display: inline-flex; align-items: center;
     gap: rem(8);
     height: rem(36); padding: 0 rem(14);
-    border-radius: $radius-md;
+    border-radius: $border-radius-lg;
     font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
     text-decoration: none; cursor: pointer;
     transition: filter $transition, transform .1s;
 
     &:active { transform: translateY(1px); }
   }
+
   .tcr-btn-primary {
     background: $color-accent; color: $color-white;
     border: 1px solid $color-accent;
@@ -304,9 +320,9 @@
   // ── Пусто / подгрузка ─────────────────────────────────────────
   .tasks-empty {
     padding: rem(60) rem(24) rem(64);
-    text-align: center; color: $color-text-secondary;
+    text-align: center; color: $color-muted;
     background: $color-white;
-    border: 1px solid $color-border; border-radius: $radius-lg;
+    border: 1px solid $color-border; border-radius: $border-radius-xl;
 
     h3 { margin: 0 0 rem(6); font-size: $font-size-base; font-weight: $font-semibold; color: $color-text; }
     p  { margin: 0 0 rem(14); font-size: $font-size-xs; color: $color-muted; }
@@ -316,14 +332,15 @@
     display: flex; align-items: center; justify-content: center;
     gap: rem(10);
     padding: rem(28) rem(12) rem(12);
-    font-size: $font-size-xxs; color: $color-muted;
+    font-size: $font-size-xs; color: $color-muted;
   }
+
   .infinite-spinner {
     width: rem(14); height: rem(14);
     border: 2px solid $color-separator; border-top-color: $color-accent; border-radius: 50%;
     animation: fs-at-spin .7s linear infinite;
   }
-  .infinite-end { padding: rem(22) rem(12) rem(4); text-align: center; font-size: $font-size-xxs; color: $color-muted; }
+  .infinite-end { padding: rem(22) rem(12) rem(4); text-align: center; font-size: $font-size-xs; color: $color-muted; }
 
   // ── Адаптив: сайдбар под контент ──────────────────────────────
   @media (max-width: $bp-md) {

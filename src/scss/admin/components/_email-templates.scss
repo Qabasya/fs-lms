@@ -9,7 +9,7 @@
 @mixin micro-label {
   text-transform: uppercase;
   letter-spacing: rem(0.5);
-  font-weight: $font-bold;
+  font-weight: $font-semibold;
 }
 
 .fs-email-templates {
@@ -34,9 +34,9 @@
 .fs-email-status {
   @include micro-label;
 
-  font-size: $font-size-sm;
+  font-size: $font-size-2xs;
   padding: rem(2) $spacing-sm;
-  border-radius: $border-radius-md;
+  border-radius: $border-radius-sm;
 
   &--custom {
     @include badge-colors($wp-admin-blue-bg-light, $wp-admin-blue-text, $wp-admin-blue-bg);
@@ -56,7 +56,7 @@
   .label {
     @include micro-label;
 
-    font-size: $font-size-sm;
+    font-size: $font-size-2xs;
     color: $color-text-secondary;
     margin-right: $spacing-xs;
   }
@@ -75,7 +75,7 @@
 // Классы is-success / is-error ставит email-template-settings.js.
 .fs-template-notice {
   margin-left: $spacing-sm;
-  font-size: $font-size;
+  font-size: $font-size-base;
 
   &.is-success { color: $wp-admin-green; }
   &.is-error   { color: $color-danger; }

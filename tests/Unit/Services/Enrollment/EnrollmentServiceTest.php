@@ -22,7 +22,10 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\Person\ConsentService;
 use Inc\Services\Email\EmailService;
+use Inc\Services\Enrollment\AccountProvisioningService;
+use Inc\Services\Enrollment\EnrollmentPersonResolver;
 use Inc\Services\Enrollment\EnrollmentService;
+use Inc\Services\Enrollment\EnrollmentTransaction;
 use Inc\Services\Person\PersonService;
 use Inc\Services\Security\PasswordGeneratorService;
 use Inc\Services\Security\PiiCryptoService;
@@ -66,6 +69,8 @@ class EnrollmentServiceTest extends TestCase {
 		$this->joinCodeService->method( 'generate' )->willReturn( 'JOIN-ABCD-EFGH-1234' );
 		$this->joinCodeService->method( 'hash' )->willReturn( 'code_hash' );
 
+		$consentService = $this->createMock( ConsentService::class );
+
 		$this->service = new EnrollmentService(
 			$this->appRepo,
 			$this->studentRecordRepo,
@@ -74,13 +79,18 @@ class EnrollmentServiceTest extends TestCase {
 			$this->personService,
 			$this->createMock( GroupsRepository::class ),
 			$this->joinCodeService,
-			$this->createMock( ConsentService::class ),
+			$consentService,
 			$this->userManager,
 			$this->passwordGenerator,
 			$this->createMock( EmailService::class ),
 			$this->crypto,
 			$this->clock,
 			$this->logEvents,
+			// Соавторы зачисления собираются из тех же дублей: тесты проверяют
+			// поведение всего потока, а не изоляцию EnrollmentService.
+			new EnrollmentPersonResolver( $this->personRepo, $this->personService, $this->crypto ),
+			new EnrollmentTransaction( $this->studentRecordRepo, $this->personService, $consentService, $this->clock ),
+			new AccountProvisioningService( $this->userManager, $this->passwordGenerator, $this->personRepo, $this->logEvents ),
 		);
 	}
 

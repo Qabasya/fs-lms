@@ -9,7 +9,6 @@ use Inc\DTO\Log\EmailLogInputDTO;
 use Inc\Enums\Email\EmailStatus;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\EmailLogRepository;
-use Inc\Enums\Access\UserRole;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**
@@ -24,7 +23,7 @@ use Inc\Shared\Traits\RequestContextProvider;
  * 1. **Запись отправки email** — логирование отправки писем (OTP, уведомления, сброс пароля).
  * 2. **Фиксация статуса** — сохранение информации об успешной или неудачной отправке.
  * 3. **Сбор контекста запроса** — получение IP, User-Agent через трейт RequestContextProvider.
- * 4. **Определение роли пользователя** — получение роли через UserManager.
+ * 4. **Определение роли пользователя** — через ActorRoleResolver.
  *
  * ### Архитектурная роль:
  *
@@ -45,12 +44,12 @@ class EmailLogWriter {
 	 * Конструктор райтера.
 	 *
 	 * @param EmailLogRepository $repository  Репозиторий журнала отправки email
-	 * @param UserManager        $userManager Менеджер пользователей
+	 * @param ActorRoleResolver $roleResolver Роль автора действия для журнала
 	 * @param ClockInterface     $clock       Интерфейс часов
 	 */
 	public function __construct(
 		private readonly EmailLogRepository $repository,
-		private readonly UserManager        $userManager,
+		private readonly ActorRoleResolver $roleResolver,
 		private readonly ClockInterface     $clock,
 	) {}
 
@@ -66,7 +65,7 @@ class EmailLogWriter {
 	 */
 	public function record( string $emailType, ?int $targetPersonId, ?string $recipientEmail, bool $success, string $errorMessage = '' ): void {
 		$ctx = $this->requestContext();
-		$role = $this->resolveRole( $ctx->actorUserId );
+		$role = $this->roleResolver->resolve( $ctx->actorUserId );
 
 		$this->repository->create( new EmailLogInputDTO(
 			actorUserId:    $ctx->actorUserId > 0 ? $ctx->actorUserId : null,
@@ -80,21 +79,4 @@ class EmailLogWriter {
 		) );
 	}
 
-	/**
-	 * Определяет роль пользователя по ID.
-	 *
-	 * @param int $userId ID пользователя WordPress
-	 *
-	 * @return string|null
-	 */
-	private function resolveRole( int $userId ): ?string {
-		if ( $userId <= 0 ) {
-			return null;
-		}
-		$user = $this->userManager->find( $userId );
-		if ( null === $user || empty( $user->roles ) ) {
-			return null;
-		}
-		return UserRole::primarySlug( (array) $user->roles );
-	}
 }

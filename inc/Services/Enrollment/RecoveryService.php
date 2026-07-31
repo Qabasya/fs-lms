@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Enrollment;
 
 use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\Services\Application\ApplicationService;
 use Inc\DTO\Log\Events\ApplicationStatusEvent;
 use Inc\DTO\Person\UserInputDTO;
 use Inc\Enums\Enrollment\ApplicationStatus;
@@ -24,6 +25,7 @@ readonly class RecoveryService {
 		private PersonRepository             $personRepository,
 		private UserManager                  $userManager,
 		private LogEventDispatcherInterface  $logEvents,
+		private readonly ApplicationService $applications,
 	) {}
 
 	public function resolveStuckEnrollments(): int {
@@ -38,7 +40,7 @@ readonly class RecoveryService {
 				}
 
 				if ( null === $record ) {
-					$this->applicationRepository->setStatus( $app->id, ApplicationStatus::ReadyForReview );
+					$this->applications->changeStatus( $app->id, ApplicationStatus::ReadyForReview );
 					$resolved++;
 					continue;
 				}

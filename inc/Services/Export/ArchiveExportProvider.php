@@ -65,7 +65,7 @@ class ArchiveExportProvider implements CsvExportProviderInterface {
 	 *
 	 * @return CsvColumn[]
 	 */
-	public function columns(): array {
+	public function columns( array $context = array() ): array {
 		return array(
 			new CsvColumn( 'ID записи',       fn( $r ) => $r['id'] ),
 			new CsvColumn( 'ID ученика',      fn( $r ) => $r['student_person_id'] ),

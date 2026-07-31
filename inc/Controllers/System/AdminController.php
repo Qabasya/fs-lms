@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Menu;
 use Inc\Registrars\MenuRegistrar;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class AdminController
@@ -45,6 +46,8 @@ use Inc\Registrars\MenuRegistrar;
  * - **Enums (Capability, MenuSlug, MenuTitle, PageTitle)** — централизованное хранение констант
  */
 class AdminController extends BaseController implements ServiceInterface {
+
+	use TemplateRenderer;
 
 	/**
 	 * Конструктор контроллера.
@@ -253,8 +256,11 @@ class AdminController extends BaseController implements ServiceInterface {
 				if ( ! is_ssl() && ! defined( 'WP_DEBUG' ) ) {
 					add_action(
 						'admin_notices',
-						function () {
-							echo '<div class="notice notice-error"><p>FS LMS: плагин работает без HTTPS. Это недопустимо при обработке персональных данных.</p></div>';
+						function (): void {
+							$this->render( 'admin/components/admin-notice', array(
+								'type'    => 'error',
+								'message' => 'FS LMS: плагин работает без HTTPS. Это недопустимо при обработке персональных данных.',
+							) );
 						}
 					);
 				}

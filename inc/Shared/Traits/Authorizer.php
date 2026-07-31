@@ -54,6 +54,33 @@ trait Authorizer {
 	}
 
 	/**
+	 * Выполняет авторизацию AJAX-запроса, требуя **все** перечисленные права.
+	 *
+	 * Нужен там, где одно право открывает раздел, а второе — конкретную
+	 * чувствительную операцию внутри него (напр. `ManageLmsPlatform` даёт доступ
+	 * к разделу «Ученики», а `ExportPII` — право выгружать персональные данные).
+	 *
+	 * @param Nonce        $nonceEnum    Enum с данными nonce
+	 * @param Capability[] $capabilities Права, каждое из которых обязательно
+	 * @param string       $queryArg     Имя параметра запроса с nonce
+	 *
+	 * @return void
+	 */
+	public function authorizeAll(
+		Nonce $nonceEnum,
+		array $capabilities,
+		string $queryArg = 'security'
+	): void {
+		$nonceEnum->verify( $queryArg );
+
+		foreach ( $capabilities as $capability ) {
+			if ( ! current_user_can( $capability->value ) ) {
+				wp_send_json_error( 'У вас недостаточно прав', 403 );
+			}
+		}
+	}
+
+	/**
 	 * Проверяет право доступа для страниц (не AJAX).
 	 * При отсутствии права вызывает wp_die().
 	 */

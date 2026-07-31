@@ -13,16 +13,16 @@
 
 .fs-confirm-dialog {
   background: $color-bg-modal;
-  border-radius: $border-radius-l;
+  border-radius: $border-radius-md;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
-  padding: $spacing-xl $spacing-xxl;
+  padding: $spacing-xl $spacing-3xl;
   max-width: rem(420);
   width: 100%;
 }
 
 .fs-confirm-message {
   margin: 0 0 $spacing-xl;
-  font-size: $font-size;
+  font-size: $font-size-base;
   line-height: $line-height-base;
   color: $color-text-primary;
 }
@@ -42,11 +42,11 @@
     min-height: rem(36);
     padding: $spacing-sm $spacing-lg;
     border: 1px solid $color-border-input;
-    border-radius: $border-radius-md;
+    border-radius: $border-radius-sm;
     background: $color-bg-modal;
     color: $color-text-primary;
-    font-size: $font-size;
-    font-weight: $font-bold;
+    font-size: $font-size-base;
+    font-weight: $font-semibold;
     line-height: 1;
     cursor: pointer;
     transition: background $transition-fast, border-color $transition-fast, color $transition-fast;

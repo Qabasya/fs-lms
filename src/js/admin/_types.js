@@ -17,7 +17,6 @@
  * @property {string} saveTaskBoilerplate
  * @property {string} getTaskBoilerplate
  * @property {string} updateTermTemplate
- * @property {string} saveTemplateAssignment
  * @property {string} getPostsTable
  */
 

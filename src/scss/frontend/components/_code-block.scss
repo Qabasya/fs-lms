@@ -5,17 +5,17 @@
 // Метрики шрифта (font-size, line-height, padding-y) у highlight и gutter обязаны
 // совпадать, иначе номера строк расходятся с кодом. Текст выделяется и копируется.
 
-$code-font-size: $font-size-sm;
+$code-font-size: $font-size-base;
 $code-pad-y: rem(16);
 $code-pad-x: rem(18);
 
 .fs-code-editor {
   margin: rem(4) 0;
   overflow: hidden;
-  font-family: $font-mono;
+  font-family: $font-code;
   background: $color-white;
   border: 1px solid $color-border;
-  border-radius: $radius-md;
+  border-radius: $border-radius-lg;
 }
 
 // ── Шапка ──
@@ -30,7 +30,7 @@ $code-pad-x: rem(18);
 
 .fs-code-editor__lang {
   font-family: $font-family;
-  font-size: $font-size-xxs;
+  font-size: $font-size-xs;
   font-weight: $font-semibold;
   color: $color-muted;
   text-transform: uppercase;
@@ -48,7 +48,7 @@ $code-pad-x: rem(18);
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: $radius-sm;
+  border-radius: $border-radius-md;
   transition: color $transition, background $transition;
 
   &:hover {
@@ -72,7 +72,7 @@ $code-pad-x: rem(18);
   flex: 0 0 auto;
   padding: $code-pad-y rem(10);
   font-size: $code-font-size;
-  line-height: $line-height-base;
+  line-height: $line-height-relaxed;
   color: $code-gutter-text;
   text-align: right;
   user-select: none;
@@ -92,9 +92,9 @@ $code-pad-x: rem(18);
   margin: 0;
   padding: $code-pad-y $code-pad-x;
   overflow-x: auto;
-  font-family: $font-mono;
+  font-family: $font-code;
   font-size: $code-font-size;
-  line-height: $line-height-base;
+  line-height: $line-height-relaxed;
   tab-size: 4;
   white-space: pre;
   color: $color-text;

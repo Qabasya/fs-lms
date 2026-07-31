@@ -23,7 +23,7 @@
   display: inline-flex;
   align-items: center;
   gap: $spacing-xs;
-  font-size: $font-size;
+  font-size: $font-size-base;
   font-weight: $font-regular;
   text-decoration: none;
   color: var(--color-primary);
@@ -31,15 +31,15 @@
   &:hover { color: var(--color-primary-hover); }
 
   .dashicons {
-    font-size: $font-size;
-    width: $font-size;
-    height: $font-size;
+    font-size: $font-size-base;
+    width: $font-size-base;
+    height: $font-size-base;
   }
 }
 
 // Inline статус результата операции (сохранить/сгенерировать)
 .fs-config-status {
-  font-size: $font-size;
+  font-size: $font-size-base;
 
   &--ok  { color: $wp-admin-green; }
   &--err { color: $color-danger; }
@@ -64,8 +64,8 @@
 
   &__name {
     font-family: monospace;
-    font-size: $font-size;
-    font-weight: $font-bold;
+    font-size: $font-size-base;
+    font-weight: $font-semibold;
     color: $color-text-primary;
   }
 
@@ -117,7 +117,7 @@
     align-items: baseline;
     gap: $spacing-sm;
     flex-wrap: wrap;
-    font-size: $font-size;
+    font-size: $font-size-base;
     color: $color-text-secondary;
   }
 
@@ -159,9 +159,9 @@
     padding: $spacing-sm $spacing-md;
     background: $color-bg-modal;
     border: 1px solid $color-border-input;
-    border-radius: $border-radius-md;
+    border-radius: $border-radius-sm;
     color: $color-text-primary;
-    font-size: $font-size;
+    font-size: $font-size-base;
     cursor: pointer;
 
     svg { flex-shrink: 0; color: $color-text-secondary; }
@@ -183,7 +183,7 @@
     padding: $spacing-sm;
     background: $color-bg-modal;
     border: 1px solid $color-border-input;
-    border-radius: $border-radius-md;
+    border-radius: $border-radius-sm;
     box-shadow: $shadow-cb-popover;
 
     &[hidden] { display: none; }

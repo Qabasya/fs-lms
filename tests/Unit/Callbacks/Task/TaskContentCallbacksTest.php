@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Callbacks\Task;
 
 use Inc\Callbacks\Task\TaskContentCallbacks;
+use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\MetaBoxManager;
 use Inc\Services\Template\TemplateRegistry;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +26,11 @@ class TaskContentCallbacksTest extends TestCase {
 		parent::setUp();
 		fs_test_reset_posts();
 		fs_test_reset_ajax();
-		$this->callbacks = new TaskContentCallbacks( new TemplateRegistry(), new MetaBoxManager() );
+		$this->callbacks = new TaskContentCallbacks(
+			new TemplateRegistry(),
+			new MetaBoxManager(),
+			new PostManager()
+		);
 	}
 
 	public function test_get_task_editor_form_returns_fields_html(): void {

@@ -11,7 +11,7 @@
 }
 
 .fs-carousel-title {
-  font-size: $font-size-xxs;
+  font-size: $font-size-xs;
   font-weight: $font-semibold;
   text-transform: uppercase;
   letter-spacing: .08em;
@@ -28,7 +28,7 @@
 
 .fs-carousel-overflow {
   overflow: hidden;
-  border-radius: $radius-lg;
+  border-radius: $border-radius-xl;
 }
 
 .fs-carousel-track {
@@ -46,7 +46,7 @@
     min-height: rem(140);
     background: $color-white;
     border: 1px solid $color-border;
-    border-radius: $radius-lg;
+    border-radius: $border-radius-xl;
     padding: rem(22) rem(24);
     transition: border-color $transition, box-shadow $transition;
 
@@ -57,14 +57,14 @@
 
     strong {
       display: block;
-      font-size: $font-size-base;
+      font-size: $font-size-md;
       font-weight: $font-bold;
       line-height: $line-height-tight;
       color: $color-text;
     }
 
     p {
-      font-size: $font-size-xs;
+      font-size: $font-size-sm;
       color: $color-muted;
       line-height: 1.5;
 
@@ -78,7 +78,7 @@
 }
 
 .fs-carousel-number {
-  font-size: $font-size-xxs;
+  font-size: $font-size-xs;
   font-weight: 500;
   color: $color-separator;
   line-height: 1;
@@ -86,7 +86,7 @@
 
 .fs-carousel-read {
   margin-top: auto;
-  font-size: $font-size-xs;
+  font-size: $font-size-sm;
   color: $color-muted;
   transition: color $transition;
 }

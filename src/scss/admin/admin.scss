@@ -25,6 +25,8 @@
 @use 'components/utilities';
 @use 'components/consents';
 @use 'components/import';
+@use 'components/pii-export';
+@use 'components/bundle';
 @use 'components/config';
 @use 'components/ref-selector';
 @use 'components/learning-bank';

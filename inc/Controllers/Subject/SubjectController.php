@@ -4,6 +4,7 @@ namespace Inc\Controllers\Subject;
 
 use Inc\Controllers\System\AjaxController;
 
+use Inc\Callbacks\Subject\SubjectBundleCallbacks;
 use Inc\Callbacks\Subject\SubjectCrudCallbacks;
 use Inc\Callbacks\Subject\SubjectDataCallbacks;
 use Inc\Callbacks\Subject\SubjectImportExportCallbacks;
@@ -19,8 +20,7 @@ use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
 use Inc\Managers\Wp\PostManager;
-use Inc\Registrars\SubjectCPTRegistrar;
-use Inc\Registrars\SubjectTaxonomyRegistrar;
+use Inc\Registrars\SubjectContentRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\ContentCacheService;
@@ -54,8 +54,7 @@ class SubjectController extends AjaxController {
 	 * Конструктор.
 	 *
 	 * @param SubjectRepository            $subjects                 Репозиторий предметов
-	 * @param SubjectCPTRegistrar          $cpt_registrar            Регистратор CPT
-	 * @param SubjectTaxonomyRegistrar     $tax_registrar            Регистратор таксономий
+	 * @param SubjectContentRegistrar      $content_registrar        Регистрация CPT и таксономий предметов
 	 * @param TaxonomyRepository           $taxonomies               Репозиторий таксономий
 	 * @param SubjectCrudCallbacks         $crud_callbacks           Коллбеки CRUD
 	 * @param SubjectDataCallbacks         $data_callbacks           Коллбеки получения данных
@@ -68,11 +67,11 @@ class SubjectController extends AjaxController {
 	 * @param ContentCacheService          $cache_service            Сервис кеширования
 	 * @param TemplateCallbacks            $task_page_callbacks      Коллбеки фронтенда заданий
 	 * @param TaskNumberTermGuard          $task_number_guard        Валидация терминов таксономии "Номера заданий"
+	 * @param SubjectBundleCallbacks       $bundle_callbacks         Коллбеки полного пакета переноса предмета
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
-		private readonly SubjectCPTRegistrar $cpt_registrar,
-		private readonly SubjectTaxonomyRegistrar $tax_registrar,
+		private readonly SubjectContentRegistrar $content_registrar,
 		private readonly TaxonomyRepository $taxonomies,
 		private readonly SubjectCrudCallbacks $crud_callbacks,
 		private readonly SubjectDataCallbacks $data_callbacks,
@@ -86,6 +85,7 @@ class SubjectController extends AjaxController {
 		private readonly TemplateCallbacks $task_page_callbacks,
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly TaskNumberTermGuard $task_number_guard,
+		private readonly SubjectBundleCallbacks $bundle_callbacks,
 	) {
 		parent::__construct();
 	}
@@ -99,7 +99,22 @@ class SubjectController extends AjaxController {
 	 */
 	public function register(): void {
 		// Регистрация CPT и таксономий для всех предметов
-		$this->registerCptsAndTaxonomies();
+		$task_post_types = $this->content_registrar->registerAll( $this->subjects->readAll() );
+
+		// Метабокс «Номера заданий» на экране задания скрыт — номер выбирается в модалке
+		if ( ! empty( $task_post_types ) ) {
+			add_action(
+				'add_meta_boxes',
+				static function () use ( $task_post_types ): void {
+					foreach ( $task_post_types as $task_cpt ) {
+						remove_meta_box( 'tagsdiv-' . PostTypeResolver::subjectFromTaskPostType( $task_cpt ) . '_task_number', $task_cpt, 'side' );
+					}
+				}
+			);
+		}
+
+		// Валидация обязательных таксономий при сохранении поста
+		add_filter( 'wp_insert_post_data', array( $this->validation_callbacks, 'validateRequiredTaxonomies' ), 10, 2 );
 
 		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
 		parent::register();
@@ -110,9 +125,14 @@ class SubjectController extends AjaxController {
 		add_action( 'admin_notices', array( $this->validation_callbacks, 'showEmptyRequiredTaxNotice' ) );
 		add_action( 'created_term', array( $this, 'onTermCreated' ), 10, 3 );
 
-		// Валидация терминов "Номера заданий" при добавлении через нативный экран WP (edit-tags.php)
+		// Валидация терминов "Номера заданий" на нативных экранах WP (edit-tags.php):
+		// добавление — pre_insert_term, переименование (в т.ч. быстрое) — edit_terms.
 		add_filter( 'pre_insert_term', array( $this->task_number_guard, 'validateInsert' ), 10, 2 );
 		add_filter( 'wp_insert_term_data', array( $this->task_number_guard, 'normalizeSlug' ), 10, 2 );
+		add_action( 'edit_terms', array( $this->task_number_guard, 'validateUpdate' ), 10, 3 );
+		// Удаление номера с привязанными записями: право прячет ссылку, действие — страховка.
+		add_filter( 'map_meta_cap', array( $this->task_number_guard, 'restrictDeleteCapability' ), 10, 4 );
+		add_action( 'pre_delete_term', array( $this->task_number_guard, 'preventDeleteWithContent' ), 10, 2 );
 
 
 
@@ -179,6 +199,11 @@ class SubjectController extends AjaxController {
 			// Импорт/экспорт предметов
 			array( AjaxHook::ExportSubject, $this->import_export_callbacks ),
 			array( AjaxHook::ImportSubject, $this->import_export_callbacks ),
+			array( AjaxHook::PreviewSubjectImport, $this->import_export_callbacks ),
+			// Полный пакет переноса предмета (ZIP)
+			array( AjaxHook::ExportSubjectBundle, $this->bundle_callbacks ),
+			array( AjaxHook::PreviewSubjectBundle, $this->bundle_callbacks ),
+			array( AjaxHook::ImportSubjectBundle, $this->bundle_callbacks ),
 			// Управление таксономиями
 			array( AjaxHook::StoreTaxonomy, $this->taxonomy_callbacks ),
 			array( AjaxHook::UpdateTaxonomy, $this->taxonomy_callbacks ),
@@ -196,281 +221,25 @@ class SubjectController extends AjaxController {
 	 * @return void
 	 */
 	private function setupTermSorting(): void {
-		// addNumericSort() — метод трейта NumericSorter
-		$this->addNumericSort(
-			'get_terms_orderby',    // Хук WordPress для изменения сортировки терминов
-			't.name',               // Поле для сортировки
-			static function ( $args ): bool {
-				$tax = (array) ( $args['taxonomy'] ?? array() );
-				// str_contains() — проверяет наличие подстроки '_task_number'
-				return str_contains( reset( $tax ), '_task_number' );
-			}
-		);
-	}
-
-	/**
-	 * Перебирает все предметы из БД и регистрирует для каждого CPT и таксономии.
-	 *
-	 * @return void
-	 */
-	private function registerCptsAndTaxonomies(): void {
-		$all_subjects = $this->subjects->readAll();
-
-		if ( empty( $all_subjects ) ) {
-			return;
-		}
-
-		foreach ( $all_subjects as $subject ) {
-			$this->registerForSubject( $subject );
-		}
-
-		// Выполнение регистрации всех накопленных CPT и таксономий
-		$this->cpt_registrar->register();
-		$this->tax_registrar->register();
-	}
-
-	/**
-	 * Добавляет CPT и таксономии одного предмета в очередь регистраторов.
-	 *
-	 * @param object $subject DTO предмета (содержит поля key, name, hasBank)
-	 *
-	 * @return void
-	 */
-	private function registerForSubject( object $subject ): void {
-		$key         = $subject->key;
-		$task_cpt    = PostTypeResolver::tasks( $key );
-		$article_cpt = PostTypeResolver::articles( $key );
-
-		// Эпик 18: предмет без собственного банка заданий/статей (tasks_count=0 при
-		// создании, D18.1) — CPT tasks/articles и таксономия "Номера заданий" ему не
-		// нужны. Уроки/работы/курсы/контрольные регистрируются как обычно ниже —
-		// такой предмет всё ещё может иметь лекционные/видео-курсы и группы.
-		if ( $subject->hasBank ) {
-			// 1. Регистрация Заданий (только заголовок)
-			$task_args = $this->getDefaultCptArgs( 'tasks', $subject );
-			$this->cpt_registrar->addStandardType(
-				$task_cpt,
-				'Задания',
-				$task_args['labels'],
-				$task_args['options']
-			);
-
-			// 2. Регистрация Статей (заголовок, редактор, миниатюра)
-			$article_args = $this->getDefaultCptArgs( 'articles', $subject );
-			$this->cpt_registrar->addStandardType(
-				$article_cpt,
-				'Статьи',
-				$article_args['labels'],
-				$article_args['options']
-			);
-		}
-
-		// 3. Регистрация Уроков (заголовок, редактор, автор, миниатюра)
-		$lesson_cpt  = PostTypeResolver::lessons( $key );
-		$lesson_args = $this->getDefaultCptArgs( 'lessons', $subject );
-		$this->cpt_registrar->addStandardType(
-			$lesson_cpt,
-			'Уроки',
-			$lesson_args['labels'],
-			$lesson_args['options']
-		);
-
-		// 3.1 Регистрация Работ (заголовок, редактор, автор)
-		$work_cpt  = PostTypeResolver::works( $key );
-		$work_args = $this->getDefaultCptArgs( 'works', $subject );
-		$this->cpt_registrar->addStandardType(
-			$work_cpt,
-			'Работы',
-			$work_args['labels'],
-			$work_args['options']
-		);
-
-		// 3.2 Регистрация Курсов (заголовок, редактор, автор)
-		$course_cpt  = PostTypeResolver::courses( $key );
-		$course_args = $this->getDefaultCptArgs( 'courses', $subject );
-		$this->cpt_registrar->addStandardType(
-			$course_cpt,
-			'Курсы',
-			$course_args['labels'],
-			$course_args['options']
-		);
-
-		// 3.3 Регистрация Контрольных / экзаменов (заголовок, редактор, автор)
-		$assessment_cpt  = PostTypeResolver::assessments( $key );
-		$assessment_args = $this->getDefaultCptArgs( 'assessments', $subject );
-		$this->cpt_registrar->addStandardType(
-			$assessment_cpt,
-			'Экзамены',
-			$assessment_args['labels'],
-			$assessment_args['options']
-		);
-
-		if ( $subject->hasBank ) {
-			// 4. Регистрация фиксированной таксономии "Номера заданий"
-			$fixed_tax_slug = "{$key}_task_number";
-			$this->tax_registrar->addFixedTaxonomy(
-				$fixed_tax_slug,
-				array( $task_cpt, $article_cpt ),
-				'Номера заданий',
-				'Номер задания',
-				array(
-					'public'       => true,
-					'show_ui'      => true,
-					// buildMetaBoxCallback() — создаёт коллбек для отображения метабокса
-					'meta_box_cb'  => $this->tax_registrar->buildMetaBoxCallback( 'select' ),
-					'show_in_menu' => true,
-					'rewrite'      => array( 'slug' => $fixed_tax_slug ),
-				)
-			);
-
-			// remove_meta_box() — удаляет стандартный метабокс таксономии
-			// Для заданий скрываем метабокс (выбор номера через модальное окно)
-			add_action(
-				'add_meta_boxes',
-				static function () use ( $task_cpt, $fixed_tax_slug ): void {
-					remove_meta_box( "tagsdiv-{$fixed_tax_slug}", $task_cpt, 'side' );
+		// numericSortFilter() — метод трейта NumericSorter: строит фильтр,
+		// хук вешаем здесь (регистрация хуков — обязанность контроллера).
+		add_filter(
+			'get_terms_orderby', // Хук WordPress для изменения сортировки терминов
+			$this->numericSortFilter(
+				't.name', // Поле для сортировки
+				static function ( $args ): bool {
+					$tax = (array) ( $args['taxonomy'] ?? array() );
+					// str_contains() — проверяет наличие подстроки '_task_number'
+					return str_contains( reset( $tax ), '_task_number' );
 				}
-			);
-
-			// 5. Регистрация пользовательских таксономий (только для заданий)
-			foreach ( $this->taxonomies->getBySubject( $key ) as $tax_dto ) {
-				$this->tax_registrar->addStandardTaxonomy(
-					$tax_dto->slug,
-					array( $task_cpt ),
-					$tax_dto->name,
-					$tax_dto->name,
-					$tax_dto->display_type
-				);
-			}
-		}
-
-		// 6. Фильтр для валидации обязательных таксономий при сохранении поста
-		add_filter( 'wp_insert_post_data', array( $this->validation_callbacks, 'validateRequiredTaxonomies' ), 10, 2 );
-	}
-
-	/**
-	 * Формирует дефолтную конфигурацию для CPT и прогоняет её через фильтр.
-	 *
-	 * @param string $type    Тип (tasks|articles)
-	 * @param object $subject DTO предмета
-	 *
-	 * @return array{labels: array, options: array}
-	 */
-	private function getDefaultCptArgs( string $type, object $subject ): array {
-		// Общий конфиг банка контента: скрыт из top-level (меню «Обучение»),
-		// права через fs_lms_content, без REST/поиска/архива.
-		$bank_options = array(
-			// Контент урока/работы/курса не имеет публичного фронта — отдаётся только
-			// через гейтнутый плеер кокпита. Закрываем прямой пермалинк поста,
-			// сохраняя admin-редактирование (show_ui). Контрольные переопределяют
-			// publicly_queryable ниже (их плеер живёт на singular-пермалинке).
-			'public'              => false,
-			'publicly_queryable'  => false,
-			'show_ui'             => true,
-			'show_in_menu'        => false,
-			'show_in_rest'        => false,
-			'exclude_from_search' => true,
-			'capability_type'     => 'fs_lms_content',
-			'map_meta_cap'        => true,
-			'has_archive'         => false,
+			),
+			10,
+			2
 		);
-
-		$args = match ( $type ) {
-			'tasks' => array(
-				'labels'  => array(
-					'nom'    => 'Задание',
-					'acc'    => 'задание',
-					'gen'    => 'задания',
-					'gender' => 'neuter',
-				),
-				// Задания: заголовок; права fs_lms_content (препод публикует задания); скрыты из top-level.
-				'options' => array(
-					'supports'        => array( 'title' ),
-					'show_in_menu'    => false,
-					'capability_type' => 'fs_lms_content',
-					'map_meta_cap'    => true,
-				),
-			),
-			'articles' => array(
-				'labels'  => array(
-					'nom'    => 'Статья',
-					'acc'    => 'статью',
-					'gen'    => 'статьи',
-					'gender' => 'feminine',
-				),
-				// Статьи: отдельный capability_type 'fs_lms_article' — изолирует права статей
-				// от fs_lms_content (методист): маркетолог (manage_lms_articles) получает
-				// articleCaps в RoleManager, методист — нет.
-				'options' => array(
-					'supports'        => array( 'title', 'editor', 'thumbnail' ),
-					'show_in_menu'    => false,
-					'capability_type' => 'fs_lms_article',
-					'map_meta_cap'    => true,
-				),
-			),
-			'lessons' => array(
-				'labels'  => array(
-					'nom'    => 'Урок',
-					'acc'    => 'урок',
-					'gen'    => 'урока',
-					'gender' => 'masculine',
-				),
-				'options' => array_merge(
-					$bank_options,
-					// Без 'editor' (контент = шаги) и без 'thumbnail' (нет «Изображения записи»).
-					array( 'supports' => array( 'title', 'author' ) )
-				),
-			),
-			'works' => array(
-				'labels'  => array(
-					'nom'    => 'Работа',
-					'acc'    => 'работу',
-					'gen'    => 'работы',
-					'gender' => 'feminine',
-				),
-				'options' => array_merge(
-					$bank_options,
-					array( 'supports' => array( 'title', 'author' ) )
-				),
-			),
-			'courses' => array(
-				'labels'  => array(
-					'nom'    => 'Курс',
-					'acc'    => 'курс',
-					'gen'    => 'курса',
-					'gender' => 'masculine',
-				),
-				'options' => array_merge(
-					$bank_options,
-					array( 'supports' => array( 'title', 'author', 'thumbnail' ) )
-				),
-			),
-			'assessments' => array(
-				'labels'  => array(
-					'nom'    => 'Экзамен',
-					'acc'    => 'экзамен',
-					'gen'    => 'экзамена',
-					'gender' => 'masculine',
-				),
-				// Плеер экзамена отдаётся по singular-пермалинку (AssessmentPageController),
-				// поэтому остаётся publicly_queryable; доступ закрывает гард-404 в контроллере.
-				'options' => array_merge(
-					$bank_options,
-					array( 'supports' => array( 'title', 'author' ), 'publicly_queryable' => true )
-				),
-			),
-			default => array()
-		};
-
-		/**
-		 * apply_filters() — позволяет модифицировать аргументы CPT через сторонние плагины.
-		 *
-		 * @param array  $args    Массив с labels и options
-		 * @param string $type    Тип контента (tasks или articles)
-		 * @param object $subject Объект предмета
-		 */
-		return apply_filters( 'fs_lms_cpt_args', $args, $type, $subject );
 	}
+
+
+
 
 	/**
 	 * Логирует создание терма в плагинной таксономии.

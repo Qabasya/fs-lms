@@ -22,7 +22,7 @@
     padding: rem(2) 0;
     margin: 0;
     height: auto;
-    font-size: $font-size-wp;
+    font-size: $font-size-sm;
     font-family: inherit;
     color: $color-text-primary;
     cursor: default;
@@ -50,7 +50,7 @@
   white-space: nowrap;
   background: transparent;
   border: 1px solid $color-border-input;
-  border-radius: $border-radius-md;
+  border-radius: $border-radius-sm;
   cursor: pointer;
   height: rem(28);
   padding: 0 $spacing-xs;
@@ -81,14 +81,14 @@
 }
 
 .fs-copy-field__icon {
-  font-size: $font-size-m;
+  font-size: $font-size-md;
   width: rem(16);
   height: rem(16);
   flex-shrink: 0;
 }
 
 .fs-copy-field__label {
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
   line-height: 1;
   overflow: hidden;
   max-width: 0;

@@ -152,17 +152,25 @@ class TermManager {
 	/**
 	 * Создаёт термин, если его ещё нет.
 	 *
+	 * Возвращает ID **только для реально созданного** термина: вызывающий код
+	 * (импорт предмета/пакета) обязан уметь откатить лишь то, что создал сам,
+	 * и не трогать уже существовавшие термины.
+	 *
 	 * @param string $name     Название термина
 	 * @param string $taxonomy Слаг таксономии
 	 * @param array  $args     Дополнительные аргументы (slug, description, parent)
 	 *
-	 * @return void
+	 * @return int ID созданного термина; 0 — если термин уже был или вставка не удалась
 	 */
-	public function insert( string $name, string $taxonomy, array $args = array() ): void {
-		if ( ! $this->exists( $name, $taxonomy ) ) {
-			// wp_insert_term() — создаёт термин в базе данных
-			wp_insert_term( $name, $taxonomy, $args );
+	public function insert( string $name, string $taxonomy, array $args = array() ): int {
+		if ( $this->exists( $name, $taxonomy ) ) {
+			return 0;
 		}
+
+		// wp_insert_term() — создаёт термин в базе данных
+		$result = wp_insert_term( $name, $taxonomy, $args );
+
+		return is_wp_error( $result ) ? 0 : (int) ( $result['term_id'] ?? 0 );
 	}
 
 	/**

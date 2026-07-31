@@ -11,13 +11,13 @@
     max-width: rem(780);
     margin: 0 auto;
     background: $color-white;
-    border-radius: $radius-md;
+    border-radius: $border-radius-lg;
     padding: rem(40) rem(48);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
   }
 
   &__title {
-    font-size: $font-size-title;
+    font-size: $font-size-2xl;
     font-weight: $font-bold;
     color: $color-text;
     margin: 0 0 rem(28);
@@ -27,7 +27,7 @@
   }
 
   &__content {
-    font-size: $font-size-base;
+    font-size: $font-size-md;
     line-height: 1.75;
     color: $color-text;
 
@@ -35,18 +35,18 @@
     p:last-child { margin-bottom: 0; }
 
     h2, h3, h4 {
-      margin: $spacing-xl 0 $spacing-md;
+      margin: $spacing-2xl 0 $spacing-md;
       font-weight: $font-semibold;
       line-height: $line-height-tight;
     }
 
-    h2 { font-size: $font-size-heading; }
+    h2 { font-size: $font-size-lg; }
     h3 { font-size: rem(18); }
-    h4 { font-size: $font-size-base; }
+    h4 { font-size: $font-size-md; }
 
     ul, ol {
       margin: 0 0 rem(16);
-      padding-left: $spacing-xl;
+      padding-left: $spacing-2xl;
 
       li { margin-bottom: rem(6); }
     }
@@ -64,7 +64,7 @@
     }
 
     &__title {
-      font-size: $font-size-heading;
+      font-size: $font-size-lg;
     }
   }
 }

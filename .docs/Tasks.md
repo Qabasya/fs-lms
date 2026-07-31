@@ -1,979 +1,243 @@
-# Парадигма: курс — методисту, занятие — преподавателю
+# План рефакторинга по итогам аудита (2026-07-31)
 
-> 2026-07-25. Прежний план «авторинг банка / редактирование урока преподавателем»
-> (Этапы 2–5 + Фаза 1) **откачен** — противоречит бизнес-процессу: составление курса
-> требует методических навыков и является зоной ответственности методиста.
-
-## Зафиксированная парадигма
-
-1. **Курс составляет только методист в админке.** Задачи, уроки, шаги, работы и контрольные
-   добавляет только он. У преподавателя нет ни редактора шагов урока, ни авторинга банка.
-2. **Преподаватель только проводит занятия**: отмечает посещаемость, видит курс как ученик —
-   для демонстрации на занятии (teacher-режим плеера, `?gid&gl`), но с доступом к ответам
-   и эталонным решениям (кнопка «Показать решение»). Вписывать ответы в режиме демонстрации
-   не нужно.
-3. **КТП уроки не изменяет** — только расписание/размещение тем.
-4. **Записи занятий**: тип шага «Трансляция» остаётся. Ссылка либо привязывается автоматически
-   (авто-матч VideoLibrary), либо методист видит в админке алёрт «запись не привязалась»
-   и вставляет ссылку вручную.
-
-## Что уже откачено (сделано)
-
-- `TeacherLessonCallbacks` / `TeacherLessonController` / бандл `teacher-editor.min.js` /
-  `_teacher-editor.scss` — удалены; 9 AJAX-хуков (`GetGroupLessonSteps`, `SaveGroupLessonSteps`,
-  `TeacherStepCandidates`, `TeacherTaskPreview`, `TeacherRefPreview`, `ResetLessonFork`,
-  `Teacher{List,Attach,Detach}Recording*`) и `Nonce::TeachLesson` убраны.
-- Капа `AuthorLmsBank` удалена; `TaskContentCallbacks` вернулся на `AuthorLmsCourses`;
-  `RoleManager` снимает капу со всех ролей (`fs_lms_caps_version` = 5.3).
-- `step-editor.js` де-параметризован (убраны `transport`/`readOnlyBank`/`canAuthor`/
-  `openTaskEditor`/`confirmFn`/`adminBase`) — снова чисто админский модуль.
-- Плеер: кнопка «Настроить урок», панель `#fsTeacherEditor` и тич-панель записи
-  в broadcast-шаге убраны; teacher-режим (просмотр без прогресса) сохранён.
-- КТП: бейдж «изменён» (`is_forked`) убран из `ScheduleService::getCalendar` и `ktp.js`.
-- `ContentCloneService::resetLessonFork` удалён; `forkLessonForGroup`/`deleteForksForGroup`
-  остались как инструмент методиста.
-- Зачистка осиротевшего после отката кода: `GroupAccessGuard::findManageableLesson` (Р2.1 —
-  все 7 call-site'ов были в удалённых teacher-коллбеках), `VideoRecordingRepository::
-  listUnmatched/listMatched/listByGroupLesson/countByStatus` (UI полного списка записей
-  выпилен ещё в 3dd47af), трейт `Authorizer` в `PreviewSolveCallbacks` (гейт теперь через
-  гуард), лишние export'ы `step-editor.js` (TYPE_UI/MAX_STEPS/uiMeta/icon — только
-  внутренние).
-
-## Осталось сделать
-
-### З1. «Показать решение» в teacher-режиме плеера ✅ ГОТОВО (нужна браузер-проверка)
-
-`LessonPlayerService::assembleView()` определяет teacher-режим (`$statuses === null`) и
-прокидывает `$isTeacher` в `renderData`/`renderTaskData`/`renderWorkData`. Новый приватный
-`solutionFor( $taskId, $meta )` собирает `{answer, html}` — человекочитаемый эталон
-(`CorrectAnswerResolver::resolve`) + авторское решение (`task_text`); `null`, если ни того,
-ни другого нет (ручной шаблон без решения).
-
-- task-шаг → `render.solution`; задачи work-шага → `tasks[].solution` (мета задачи в ответ
-  по-прежнему не попадает — `unset( $bundle['meta'] )` остался).
-- Ученический контракт не тронут: `correct_answer`/`correct_answer_ids` как и раньше только
-  при исчерпании попыток (D20), ключа `solution` в ученическом view нет вовсе.
-- UI — общий партиал `partials/teacher-solution.php` (`<details class="fs-solution">`,
-  «Показать решение» → «Правильный ответ» + «Решение»), подключается из `step-task.php` и
-  `step-work.php` только при `$is_teacher`. Стили — `.fs-solution` в `player/components/_step-task.scss`.
-- +5 тестов (`LessonPlayerServiceTest`): эталон в teacher-view task/work, отсутствие ключа
-  в ученическом view, отсутствие блока у ручного шаблона без решения.
-
-**Не покрыто:** assessment-шаг — в реальном плеере он рендерится карточкой со ссылкой на
-страницу экзамена, задачи в плеере не выводятся, показывать там нечего. Если нужен разбор
-экзамена преподавателем — это отдельная поверхность (`AssessmentPageController`).
-
-### З2. «Мои курсы» — прохождение курса без прогресса ✅ ГОТОВО (нужна браузер-проверка)
-
-Вход уже был: секция «Мои курсы» в сайдбаре ЛК (`ProfileViewResolver::coursesTaught()` —
-курсы, назначенные группам преподавателя) → клик открывает preview-плеер
-(`app.js::openCoursePreview` → `/course-preview/?course=&lesson=`); методисту тот же
-предпросмотр открывает кнопка «Просмотр» в шапке курс-билдера.
-
-Реальный пробел был в другом: dry-run проверка ответов (`PreviewSolveCallbacks`) гейтилась
-капой `AuthorLmsCourses`, которой у преподавателя нет — предпросмотр открывался, но «Ответить»
-возвращал 403. Исправлено:
-
-- `CoursePreviewAccessGuard::canSolvePreview( $wpUserId )` — гейт по пользователю, а не по
-  курсу (эндпоинты принимают `ref` задачи, не `course_id`): сотрудник (админ/платформа/автор)
-  ИЛИ преподаватель, чьей группе назначен хотя бы один курс. Общая часть с `canPreview()`
-  вынесена в `isStaffPreviewer()`.
-- `PreviewSolveCallbacks::authorizePreviewSolve()` — `Nonce::PreviewSolve->verify()` + гуард
-  вместо `authorize( …, AuthorLmsCourses )`. Эндпоинты priv-only, ученику dry-run по-прежнему
-  закрыт (иначе через них можно было бы прорешивать задания в обход сохранения сдачи).
-- +7 тестов: `CoursePreviewAccessGuardTest` (новый) + отказ гуарда в `PreviewSolveCallbacksTest`.
-
-Разделение поверхностей осталось прежним и совпадает с парадигмой: **предпросмотр курса** —
-прохождение «от роли ученика» (без прогресса, без эталонов, без кнопок «Редактировать» —
-`$can_edit` требует `AuthorLmsCourses`); **teacher-режим плеера занятия** — демонстрация урока
-с «Показать решение» (З1).
-
-### З3. Алёрты «запись не привязалась» + правка ссылки записи ✅ ГОТОВО (нужна браузер-проверка)
-
-**Правка ссылки из КТП.** Попап камеры в КТП был в Этапе 2 заменён на переход в плеер, а сам
-эндпоинт вырезан как «неиспользуемый» (Р1) — ручной правки ссылки не осталось нигде. Возвращено
-и разведено по разным целям клика: клик по **карточке занятия** → плеер (там видны шаги урока),
-клик по **иконке камеры** → попап «Ссылка на запись занятия» (сохранить/снять).
-`AjaxHook::SetRecordingUrl` + `ProgramCallbacks::ajaxSetRecordingUrl` (`Nonce::SaveSchedule` +
-`ManageLmsTeaching` + `GroupAccessGuard::canManage` — своя группа), регистрация в
-`ScheduleController`, экшен в `ProfileViewResolver`, `.rec-pop` в `_overlays.scss`.
-Кабинет с КТП всех групп есть у офиса и чистого WP-админа (`primaryForCabinet` → FSOffice).
-
-**Алёрт в админке** (модуль VideoLibrary, секция «Конфигурация»):
-- `GroupLessonRepository::listHeldWithoutRecording()` / `countHeldWithoutRecording()` —
-  занятия `status = held` с пустым `recording_url`.
-- `RecordingAlertService` (модуль): строка списка = группа + дата + тема + непривязанные записи
-  ТОЙ ЖЕ группы (`VideoRecordingRepository::listByGroup()` — метод наконец используется по
-  назначению); группа и её кандидаты читаются по одному разу, а не на каждое занятие.
-  `countPendingCached()` — 5-минутный transient для нотиса (COUNT идёт по всей таблице занятий).
-- AJAX модуля (свои константы, изоляция §4.6): `PENDING_ACTION` — список,
-  `SET_URL_ACTION` — ручная ссылка, когда записи в реестре нет вовсе; привязка записи, которая
-  в реестре есть, идёт прежним `ATTACH_ACTION` (там ещё и статус записи → matched).
-- UI: блок «Занятия без записи» в секции модуля (бейдж-счётчик, селект кандидатов + «Привязать»,
-  поле ссылки + «Сохранить») — рисует `assets/admin.js` модуля; стили — `_config.scss`.
-- `admin_notices` на страницах плагина (кроме самой страницы настроек): «N проведённых занятий
-  остались без записи» → ссылка в секцию.
-- +13 тестов: `RecordingAlertServiceTest`, `VideoLibraryCallbacksTest` (оба новые) +
-  `ajaxSetRecordingUrl` в `ProgramCallbacksTest`.
-
----
----
-
-# План: импорт с полным зачислением (CSV → ученик + учётки)
-
-> Аудит: ветка `stage_11`, 2026-07-25.
-> **Статус: выполнено (этапы 1–7), 2026-07-27.** Рантайм-проверка в Docker: 18/18 сценариев
-> (dry-run, реальное зачисление, пароли из CSV работают, письма по чекбоксу, дедуп без
-> задвоения учёток, регресс архивного режима). Отклонения от плана: в `EnrolledStudentRowImporter`
-> добавлена зависимость `DocTypeResolver` (общие колонки типов документов); из `ImportService`
-> убрана пер-строчная транзакция (ею владеют импортёры, вложенный `START TRANSACTION` неявно
-> коммитил внешний), в catch строки добавлен `RuntimeException` (коллизия логина → ошибка строки);
-> попутно починен фатал таба импорта (`ImportColumn::headers()` без `ImportMode` — пропущенный
-> колсайт Этапа 2).
-> Цель: к существующему «сухому» импорту (архивные записи без учёток) добавить второй режим —
-> **полное зачисление**: тот же CSV, но с созданием WP-учёток ученика и родителя, логином/паролем
-> ученика из файла и без колонок отчисления. Сценарий — разовая миграция ~20 действующих учеников.
->
-> Порядок этапов = порядок исполнения; каждый этап — отдельный коммит.
-> После каждого этапа: `npx gulp build`, `npm run lint:js`, PHPUnit, проверка в Docker
-> (`docker restart wp_app` после PHP-правок).
-
-## Зафиксированные решения (подтверждено с заказчиком)
-
-- **Два режима импорта.** Существующий `archive` (записи прошлых лет, без учёток) остаётся как есть.
-  Новый `enrolled` (полное зачисление) — добавляется. Выбор режима — радио на табе «Импорт».
-- **Enrolled всегда создаёт учётки** и ученику (`FSStudent`), и родителю (`FSParent`).
-  Учётки создаются безусловно; чекбокс управляет **только** отправкой писем.
-- **Логин и пароль ученика — обязательные колонки CSV.** Генерации нет: у заказчика есть все
-  логины/пароли учеников. Пустой логин или пароль в enrolled-строке → ошибка строки (в отчёт).
-- **Родитель:** отдельных колонок логин/пароль у родителя нет. Логин = e-mail родителя, пароль —
-  генерируется (как в `EnrollmentService::enroll()`), выдаётся администратору в отчёте/CSV и в письме
-  (если чекбокс включён). Поэтому `Родитель: Email` — обязательная колонка в enrolled-режиме.
-- **Письма — по чекбоксу** «Отправить письма родителям» (по умолчанию **выкл**). Письмо —
-  существующее `WelcomeWithCredentials` (родителю, `EmailService::sendWelcomeWithCredentials`).
-- **Отчёт с учётными данными.** После enrolled-импорта отчёт показывает таблицу
-  ученик → логин/пароль (+ родитель → логин/пароль) и кнопку **«Скачать логины и пароли (CSV)»**.
-- **Колонок отчисления в enrolled-режиме нет** — все зачисляются активными (`status = active`).
-- **Транспорт переиспользуется:** тот же AJAX-хук `ImportStudentsCsv`, `Nonce::Manager`,
-  `Capability::Admin`. Новый режим отличается параметром `mode` и флагом `send_emails`.
-
-## Ключевой факт (упрощает работу)
-
-`StudentRowImporter` при пустых колонках отчисления **уже** создаёт активную запись (группа + persons
-ученика/родителя + зашифрованные документы + `student_records` со `status = active`). Единственная
-дельта enrolled-режима — **создание WP-учёток**. Логика создания учёток сейчас зашита внутри
-`EnrollmentService::enroll()` (строки 199–297) и намертво связана с потоком заявок. Её нужно вынести
-в переиспользуемый сервис.
+Аудит: архитектура PHP, SOLID/дизайн, JS-конвенции, SCSS/шаблоны, мёртвый код.
+Приоритеты: **P1** — высокая выгода / источник багов, **P2** — системный долг, **P3** — точечные правки, **P4** — решения/политика (обсудить, зафиксировать в CLAUDE.md).
 
 ---
 
-## Контекст (что уже есть — переиспользуем, не переписываем)
+## P1. Первая волна — высокая выгода, ограниченный риск
 
-| Механизм | Где | Используем |
-|---|---|---|
-| Скелет импорта | `inc/Services/Import/ImportService.php` (parse → validate headers → per-row transaction → report) | обобщаем: `run()` принимает импортёр + режим |
-| Импорт строки (архив) | `inc/Services/Import/StudentRowImporter.php` | рефактор на общий writer + `RowImporterInterface` |
-| Резолв дублей person | `inc/Services/Import/PersonImportResolver.php` (doc/email/ФИО) | как есть |
-| Создание person + документы | `inc/Services/Person/PersonService.php::createOrFindBy()` | как есть |
-| Группы find-or-create | `GroupsRepository::findByNameSubjectPeriod` / `create` | как есть, через общий writer |
-| Дедуп записи | `StudentRecordRepository::existsByContract()` | как есть, в обоих импортёрах |
-| **Создание WP-учётки** | `EnrollmentService::enroll()` строки 199–297 (ученик+родитель, `loginPassword`/`username`, привязка person↔user, `storeEncrypted`, лог `UserCreated`) | **вынести** в `AccountProvisioningService` |
-| Установка/хранение пароля | `PasswordGeneratorService::setFromPlain()` / `generatePlain()` / `storeEncrypted()` | как есть |
-| Создание WP-пользователя | `UserManager::create(UserInputDTO)` + `setPersonId()`; `findByEmail`/`findByLogin` | как есть |
-| Письмо с кредами | `EmailService::sendWelcomeWithCredentials(userId, password, extraVars, personId)` | как есть, родителю |
-| UI-таб импорта | `templates/admin/components/tabs/settings-tabs/settings-6-import.php` | + режим, чекбокс, mode-aware шаблон |
-| Фронт импорта | `src/js/admin/services/import-csv.js` | + mode/send_emails, таблица кредов, скачивание |
-| Колонки CSV | `inc/Enums/Import/ImportColumn.php` (единый источник) | + `Логин`/`Пароль`, mode-aware `headers()`/`required()` |
+### 1.1 Log-инфраструктура: убрать ~400 строк копипасты ✅
+- [x] Ввести `AbstractLogRepository` (общие `list()`, `countFiltered()`, `listAll()`, скелет `buildConditions()`; абстрактные `hydrate()`, `filterMap()`), отнаследовать 8 репозиториев `inc/Repositories/WPDBRepositories/Log/` — фильтры описываются парой `[колонка, LogFilterType]`, даты общие; 1687 → 1289 строк вместе с базовым классом
+- [x] Вынести дублированный `resolveRole()` из 7 Log-writer'ов (`inc/Services/Log/*Writer.php`) в `ActorRoleResolver` (или трейт) — 8 райтеров, `UserManager` из них ушёл
+- [x] `AdminCallbacks::logsPage()` (`inc/Callbacks/System/AdminCallbacks.php:301`, 185 строк, 8 elseif по `LogChannel`) → реестр `LogPageProvider` по каналу; минус 8 из 19 зависимостей конструктора — `inc/Services/Log/Pages/` (8 провайдеров + `LogPageRegistry` + `LogOptionsResolver`), метод 185 → 38 строк, 19 → 10 зависимостей; попутно удалена недостижимая else-ветка (шаблон рендерит только известные вкладки)
 
----
+### 1.2 Разбить главные god-классы ✅
+- [x] `inc/Callbacks/Course/ProgramCallbacks.php` (708 строк, 31 ajax-метод, 10 зависимостей) → 4–5 классов: программа / расписание-reflow / индивидуальные занятия / ростер / дедлайны работ — `ProgramCallbacks` (состав+публикация+шаги), `LessonScheduleCallbacks`, `IndividualLessonCallbacks`, `GroupRosterCallbacks`, `LessonDeliveryCallbacks`; общие гарды — трейт `Shared/Traits/ProgramAccess`
+- [x] `inc/Services/Group/ScheduleService.php` (744 строки, 23 метода, 11 зависимостей) → `ProgramCompositionService` + `ScheduleReflowService` + `IndividualLessonService` + `GroupCalendarService` (синхронно с разбиением ProgramCallbacks) — плюс `ScheduleEventPublisher` (события КТП в одном месте); старый класс удалён, тесты разложены на 4 файла
+- [x] `inc/Controllers/Subject/SubjectController.php` — `getDefaultCptArgs()` → `Controllers/Builders/SubjectCptArgsBuilder`, `registerForSubject()`/`registerCptsAndTaxonomies()` → `Registrars/SubjectContentRegistrar`; 529 → 280 строк, минус 2 зависимости, хуки `add_meta_boxes`/`wp_insert_post_data` подняты в контроллер (раньше вешались в цикле по предметам)
+  - ⚠️ **не сделано:** «диспетчеризация ajax через реестр вместо инъекции всех коллбеков» — требует ленивого резолва через контейнер (правка `AjaxController` + `Container`, эффект на все ~20 контроллеров). Вынести в отдельный пункт и обсудить: без ленивости реестр не даёт выигрыша, а с ней появляется service-locator
 
-## Этап 1 — вынести создание учётки в сервис (`AccountProvisioningService`)
+### 1.3 Слои, которые «врут» о себе ✅
+- [x] `inc/DTO/Task/PostsListTableDTO.php` — не DTO: держит `WP_Posts_List_Table`, рендерит HTML через `ob_start()`, мутирует `$_SERVER` → перенести в презентационный слой (`Controllers/Builders/` или `View/`) как `PostsListTablePresenter` — заодно `PostManager::buildListTable()` переехал в него статической фабрикой `::for()` (см. «PostManager» в разделе «не трогать»), добавлен `searchBox()`
+- [x] `inc/DTO/Subject/ImportedEntitiesDTO.php` — мутабельный аккумулятор с 8 мутаторами → переименовать в `ImportedEntitiesCollector`, переместить в `Services/Subject/` (положен рядом с потребителем — `Services/Subject/Import/`)
 
-Изолированный, тестируемый сервис создания WP-учётки — общий для будущего использования.
-`EnrollmentService::enroll()` **в этой итерации не трогаем** (экзамен-критичный поток под тестами;
-переезд `enroll()` на этот сервис — опциональный follow-up, вынесен в раздел «После плана»).
+### 1.4 Токены SCSS: одинаковые имена — разные значения (источник багов) ✅
+- [x] Устранить конфликт имён между `shared/_tokens.scss` и `frontend/_variables.scss` — **сведено к одной шкале** (кегли/отступы/радиусы/веса: имя ступени = одно значение во всех бандлах), `frontend/_variables` форвардит общие ступени вместо переопределения. Одноимённые, но разные по смыслу разведены: `$font-code` vs `$font-mono`, `$shadow-surface` vs `$shadow-card`, `$line-height-relaxed` (1.6) vs `$line-height-base` (1.5). Попутно найден и закрыт незамеченный аудитом конфликт **`$font-bold`: 600 в ядре vs 700 во frontend** (теперь `$font-semibold` 600 / `$font-bold` 700)
+- [x] Согласовать две лестницы радиусов — единая `sm 4 / md 6 / lg 8 / xl 12 / 2xl 16 / pill 999px`; ступень 3px удалена (схлопнута в 4px — единственное визуальное изменение, только admin)
+- [x] Убрать точные дубли hex под разными именами — введён слой сырых оттенков `$hue-violet` / `$hue-violet-dk` / `$hue-red` / `$hue-red-soft` / `$hue-amber-dk`; на них ссылаются палитра типов шагов, чип-палитра, cabinet-тема, WP-фиолетовый и подсветка кода; `--wait-ink` → `var(--wait)`; `$color-danger` во frontend — форвард из ядра
+- [x] Почистить почти-дубли — схлопнуты: `$cb-chip-bg`/`$cb-badge-bg` → `$wp-admin-gray-2`, `$table-header-bg` → `$wp-admin-gray-bg-light`, `--good-bg`/`--good-bg-soft` → `--ok-soft`/`--ok-soft-2`. **Оставлены намеренно** (иерархия поверхностей, а не дрейф): `--line`/`--line-2` (внешняя граница vs внутренняя сетка журнала), `--accent-soft`/`--accent-soft-3` (заливка vs подсветка липкой ячейки), `--surface-2`, `$cb-bg-tree`
+- Проверка: CSS всех 7 бандлов сверялся с baseline после каждого шага; чисто-переименовательные шаги дали **побайтово идентичный** результат, визуальные схлопывания — ровно ожидаемый набор изменившихся литералов (`#f0f1f3`/`#eceef0`/`#f8f9fa`/`#e7f5ec`/`#f3faf5` ушли, новых цветов не появилось)
 
-- Новый `inc/DTO/Import/AccountCredentialsDTO.php` (readonly): `{ int userId, string login, string password, bool created }`
-  (`created` — учётка создана в этом вызове против «нашли существующую»).
-- Новый `inc/Services/Enrollment/AccountProvisioningService.php` (зависимости: `UserManager`,
-  `PasswordGeneratorService`, `PersonRepository`, `LogEventDispatcherInterface`):
-  - `provisionStudent(int $personId, PersonInputDTO $data, string $username, string $password): AccountCredentialsDTO`
-    — ветки как в `enroll()`:
-    1. у person есть `wpUserId` → `setFromPlain($userId, $password)`, логин = текущий;
-    2. иначе email занят (`findByEmail`) → привязать существующего + `setFromPlain`;
-    3. иначе `UserManager::create(UserInputDTO{ userLogin: $username, userEmail: $data->email, userPass: $password, role: FSStudent })`
-       + `storeEncrypted` + `personRepository->setWpUser` + `setPersonId` + лог `UserCreated`;
-    - логин/пароль — из аргументов (в enrolled-импорте всегда заданы; генерации нет);
-    - коллизия логина (`wp_insert_user` → `WP_Error`) пробрасывается как `RuntimeException` (импортёр
-      превратит в ошибку строки).
-  - `provisionParent(int $personId, ParentDataDTO|PersonInputDTO $data): AccountCredentialsDTO`
-    — как `enroll()` для родителя: логин = email (фолбэк `parent_{personId}` при пустом),
-    пароль = `PasswordGenerator::generatePlain()` → `create(... FSParent)` → `storeEncrypted`;
-    существующий email/`wpUserId` → привязать + `generateAndSet`.
-- Тесты `tests/Unit/Services/Enrollment/AccountProvisioningServiceTest.php`: новая учётка с заданными
-  кредами; person с `wpUserId` → `setFromPlain` без создания; занятый email → привязка;
-  коллизия логина → исключение; родитель без email → фолбэк-логин.
+### 1.5 Мёртвая фича «Все задания» (JS) ✅
+- [x] Решение (2026-07-31): **удалить все 5 файлов, страницу оставить** — `frontend/services/all-tasks-page.js`, `all-tasks-api.js`, `components/filter-section.js`, `task-card.js`, `modules/card-tabs.js` удалены (каталог `frontend/modules/` исчез вместе с ними)
+- [x] Страница остаётся серверным рендером (`AllTasksPageController` + `templates/frontend/all-tasks.php`): первая порция заданий и фильтры печатаются из PHP
+- ⚠️ Разметка страницы сохранила `js-*`-хуки (`js-filter-option`, `js-search-input`, `js-task-cards`, `js-filters-clear`) и `data-has-more` — интерактива за ними больше нет: фильтры/поиск/догрузка не работают до тех пор, пока фичу не оживят. Хук `AjaxHook::FetchAllTasks` и `AllTasksCallbacks::ajaxFetchAllTasks()` живы, но клиентов у них нет — кандидат в раздел «Эндпоинты, недостижимые с фронта»
 
 ---
 
-## Этап 2 — enum-и режима и колонок
+## P2. Вторая волна — системный долг
 
-- Новый `inc/Enums/Import/ImportMode.php`: `enum ImportMode: string { case Archive = 'archive'; case Enrolled = 'enrolled'; }`
-  + `label()` («Архивные записи» / «Полное зачисление») + `fromRequest(string): self` (фолбэк `Archive`).
-- `inc/Enums/Import/ImportColumn.php`:
-  - новые кейсы в секции «Ученик»: `case Username = 'Логин';`, `case Password = 'Пароль';`
-    (+ `examples()`: `('ivanov','petrov')` / `('Passw0rd!7','Qwerty12x')`);
-  - `headers(ImportMode $mode)` — режим-зависимый порядок:
-    - `Archive` — текущий набор **без** `Username`/`Password`;
-    - `Enrolled` — **без** `ExpelledAt`/`ExpelReason`, **с** `Username`/`Password`;
-  - `required(ImportMode $mode)`:
-    - `Archive` — как сейчас (LastName, FirstName, Group, ContractNo, ParentLastName, ParentFirstName);
-    - `Enrolled` — тот же набор **+** `Username`, `Password`, `ParentEmail`;
-  - `exampleRows(ImportMode $mode)` — строки-образцы по колонкам выбранного режима.
-  - Обратная совместимость: существующие вызовы `headers()`/`required()` (шаблон, `StudentRowImporter`)
-    перевести на явный `ImportMode::Archive`.
-- `inc/DTO/Import/ImportContextDTO.php`: добавить `ImportMode $mode` и `bool $sendEmails` в конструктор
-  и в `withRow()` (пробросить оба).
+### 2.1 Бизнес-логика в Controllers → Services + templates ✅
+- [x] `inc/Controllers/Course/LearningMenuController.php` (581 строка): usage-индексы → `Services/Course/BankUsageIndex`; фильтры списков → `Controllers/Builders/BankListFilters` + шаблон `admin/learning/bank-filters`; 581 → 394 строки, минус зависимость `PostManager`. Рендер банков уже шёл через шаблон (`admin/learning/bank-landing`) — аудит здесь опирался на устаревшее состояние
+- [x] `inc/Controllers/Problems/ProblemsController.php` (536 строк): индексы → `BankUsageIndex::worksByProblem()/coursesByProblem()` (кросс-предметные), сортировка+фильтр → `Controllers/Builders/ProblemListFilters`, разметка (включая optgroup) → шаблон `admin/problems/problem-filters`, регистрация CPT/таксономии → `Registrars/ProblemBankRegistrar`; 536 → 302 строки, конструктор 6 → 4 зависимости
+- [x] `inc/Controllers/Pages/AssessmentPageController.php`: сбор состояния попытки → `Services/Assessment/AttemptPageService` (+ DTO `AttemptPageDTO`), per-task данные → `Services/Assessment/AttemptTaskViewBuilder`; в контроллере остались только HTTP-побочки (редирект гостя, 404, заголовки, выбор рендерера/интро); 347 → 228 строк, 10 → 2 зависимости
+- [x] `inc/Controllers/Subject/ContentDeletionGuard.php` — ссылочность и transient-журнал → `Services/Course/ContentDeletionPolicy` (`isReferenced()`/`blocksDeletion()`/`takeBlockReason()`); ключ `fs_lms_delete_blocked_` больше не дублируется в двух слоях (частично закрывает §2.5)
+- [x] Убрать ручной `echo`/`printf` HTML из контроллеров → партиалы `admin/metaboxes/{fields-wrapper,builder-shell,template-select,course-builder-mount}` и `admin/components/admin-notice`; инлайновый `<style>` в `CourseMetaBoxController` заменён классом body (`admin_body_class` → `.fs-lms-course-screen`) и правилами в `_course-builder.scss`
+  - **Оставлено осознанно:** `sprintf()` со ссылками в `ContentDeletionGuard::rowActions()` — это элементы массива `post_row_actions` (контракт WP ждёт строку-ссылку, а не вывод), и `echo esc_html()` одного значения в `ProblemsController::renderColumn()` (хук колонки таблицы)
+- **Находка:** `Inc\Services\Assessment\ExamPayloadFilter` инжектился в `AssessmentPageController`, но не вызывался ни там, ни где-либо ещё — инъекция убрана, сам сервис остался мёртвым (кандидат в раздел «Мёртвый PHP-код»)
 
----
+### 2.2 Длинные методы (200+ строк) + array→DTO ✅
+- [x] `EnrollmentService::enroll()` (258 строк) → `EnrollmentPersonResolver` (поиск существующих физлиц) + `EnrollmentTransaction` (атомарная часть) + провизия учёток через **уже существовавший** `AccountProvisioningService`: метод 258 → ~95 строк, ~90 строк дублирования с импортом устранены (его докблок прямо предлагал этот переезд как follow-up). Все 50 тестов зачисления, включая интеграционные (откат транзакции, partial failure, письма), зелёные без правки ожиданий
+- [x] `LearnerService::build()` (214 строк, возвращал array) → `LearnerContextDTO` (единожды прочитанные группы/занятия/строки программы) + секции отдельными методами (`upcoming`/`deadlines`/`grades`/`attendance`/`examLock`) + `LearnerDashboardDTO` со схемой ответа в `toArray()`; `build()` — 25 строк, попутно убрано двойное вычисление дневника
+- [x] `Enqueue::enqueue_admin_assets()` / `enqueue_frontend_assets()` (220/203) → `Core/Assets/AdminScreenContext` (признаки экрана) + реестры локализаций `adminLocalizations()` / `frontendLocalizations()` (`имя переменной → данные|null`) + `enqueueAdminBase()`/`enqueueFrontendBase()`; каждая window-переменная собирается своим методом. Методы 220 → 33 и 203 → 37 строк
+  - Проверено в рантайме (Enqueue юнит-тестами не покрыт): на экранах уроков/работ/заявок/предмета/чужом CPT набор window-переменных совпадает с прежним, `/lms/apply` отдаёт `fs_lms_apply_vars` со всеми полями
 
-## Этап 3 — общий writer для обоих импортёров
+### 2.3 Дублирование PHP ✅
+- [x] `AbstractRowImporter` для `StudentRowImporter` / `EnrolledStudentRowImporter` — общие `requireValues()`/`toDate()`/`toDateTime()` в базовом readonly-классе
+- [x] `ProfileViewResolver::teacherConfig()` (127 строк) → `TeacherProfileView::build()` (витрина сама строит и меню, и блоки своих экранов); резолвер 334 → 165 строк, минус зависимость `CourseManager`. В bootstrap тестов добавлена заглушка `wp_create_nonce()`
 
-Чтобы не дублировать резолв/создание группы и persons между архивным и enrolled-импортёром.
+### 2.4 Расширить трейт `Sanitizer` и закрыть сырые санитайзеры ✅
+- [x] Добавлены `sanitizeIntList()`, `sanitizeKeyList()`, `unslashArray()`
+- [x] Сырые вызовы заменены в `AllTasksCallbacks`, `WorkCallbacks`, `AssessmentAuthorCallbacks`, `LogsCallbacks` (×4), `ProgramCallbacks`, `LessonCallbacks`, `CourseBuilderCallbacks`, `TaskContentCallbacks`, `StudentGroupCallbacks`. Остались осознанно: `json_decode( wp_unslash( … ) )` над строковым JSON-полем (не массив запроса)
 
-- Новый `inc/DTO/Import/ImportedRecordDTO.php` (readonly): `{ int studentId, int parentId, int groupId }`.
-- Новый `inc/Services/Import/StudentRecordWriter.php` (зависимости: `GroupsRepository`,
-  `PersonImportResolver`, `PersonService`, `ClockInterface`):
-  - `resolveOrCreateGroup(string $name, ImportContextDTO $ctx): int` — `findByNameSubjectPeriod` else `create`;
-  - `resolveOrCreatePerson(PersonInputDTO $input): int` — `PersonImportResolver::resolve()` else
-    `PersonService::createOrFindBy()`.
-  - (создание самой `student_records` и дедуп по договору остаются в импортёрах — там различается
-    статус/жизненный цикл.)
-- Новый контракт `inc/Contracts/RowImporterInterface.php`:
-  `requiredHeaders(): array`, `import(array $row, ImportContextDTO $ctx): ImportRowResultDTO`.
-- `inc/Services/Import/StudentRowImporter.php` (рефактор): `implements RowImporterInterface`;
-  резолв группы/persons — через `StudentRecordWriter`; `requiredHeaders()` → `ImportColumn::required(ImportMode::Archive)`;
-  архивный `resolveLifecycle()` без изменений. Поведение неизменно (проверяется тестом).
-- Адаптировать `tests/Unit/Services/Import/StudentRowImporterTest.php` под новую зависимость и
-  сигнатуру `ImportContextDTO` (добавились `mode`/`sendEmails`).
+### 2.5 Транзиенты: ввести абстракцию ✅
+- [x] `Managers/Wp/TransientManager` (get/set/delete/take) + `Enums/Wp/TransientKey` (Export, DeleteBlocked, RecentTasks, RecentArticles). Переведены `PiiController`, `SubjectBundleCommand` (CLI), `OneTimeDownloadService`, `SubjectDataCallbacks`, `ContentCacheService`, `ContentDeletionPolicy`
+- **Найдено сверх аудита:** ключ `fs_lms_export_` дублировался в ТРЁХ местах (писал `OneTimeDownloadService`, читали контроллер и CLI) — теперь один источник
+- Оставлены со своими инкапсулированными ключами: `RateLimitService`, `EmailOtpService`, `TaskPublishGuard`, `VideoLibrary/RecordingAlertService` — у каждого ключ уже локализован в одном классе
 
----
+### 2.6 Modules: параллельная архитектура → общий стандарт ✅
+- [x] 5 модульных `*Config` → общий базовый `Modules/Shared/ModuleConfig` (get/save/isEnabled/valueOrConstant/optionExists). Ключи опций осознанно ОСТАЛИСЬ в модулях, а не в core-`OptionName`: ядро не должно знать о модулях, удаление каталога модуля не ломает ядро
+- [x] `AdSyncController` → трейт `AjaxResponse`
+- [x] `SocialAuth/templates/settings-tab.php` — данные приходят из репозитория модуля через новый ключ `'data'` в контракте вкладок настроек (расширение контракта ядра, не знание о модуле)
+- **Решено иначе, чем в аудите:** `SmartCaptchaModule` продолжает зависеть от `YandexSmartCaptchaProvider` — модуль ВЛАДЕЕТ реализацией и публикует её ядру фильтром `fs_lms_captcha_provider`; ядро видит только `CaptchaProviderInterface` (через `CaptchaProviderFactory`). Биндинг интерфейса в core-контейнере заставил бы ядро знать класс модуля
+- ⏳ **Осталось (решение пользователя):** 5 `wp_localize_script` вне `Enqueue.php` — переносить их в ядро нельзя по той же причине; предлагается легализовать модульный паттерн в CLAUDE.md
 
-## Этап 4 — enrolled-импортёр
+### 2.7 DIP: точечные нарушения ✅
+- [x] `ImportCallbacks` → `Services/Import/RowImporterRegistry` (`for( ImportMode )`), коллбэк зависит от контракта
+- [x] `ContentUsageService::kindOf()` → `Services/Subject/ContentKindResolver::of()` (статический резолвер по образцу `PostTypeResolver`); старый метод оставлен делегатом для внешних вызовов
+- [x] `'submission'|'attempt'` → enum `Enums/Course/WorkSourceType` во всех четырёх `match`
+- **Решено иначе, чем в аудите:** `ProfileViewResolver` продолжает принимать конкретные `TeacherProfileView`/`LearnerProfileView` — резолвер является точкой СБОРКИ и обязан различать реализации (два аргумента одного интерфейса автовайринг не разрешит); контракт соблюдён на выходе — `viewFor()` возвращает `ProfileViewInterface`
 
-- `inc/DTO/Import/ImportRowResultDTO.php`: добавить опциональные креды строки —
-  `?RowCredentialsDTO $credentials = null` (новый readonly DTO
-  `{ string studentName, string studentLogin, string studentPassword, ?string parentLogin, ?string parentPassword }`);
-  `created()` — принимать необязательный `?RowCredentialsDTO`.
-- Новый `inc/Services/Import/EnrolledStudentRowImporter.php` (`implements RowImporterInterface`;
-  зависимости: `StudentRecordWriter`, `StudentRecordRepository`, `AccountProvisioningService`,
-  `EmailService`, `ClockInterface`, `LogEventDispatcherInterface`):
-  - `requiredHeaders()` → `ImportColumn::required(ImportMode::Enrolled)`;
-  - `import()`:
-    1. прочитать колонки (включая `Username`, `Password`); требовать непустые логин/пароль ученика,
-       иначе `InvalidArgumentException` (→ ошибка строки);
-    2. резолв группы/persons через writer;
-    3. дедуп по договору (`existsByContract`) → `skipped` (учётки не трогаем);
-    4. dry-run → `created('Будет зачислено (dry-run).')` без записи и без учёток;
-    5. создать `student_records` со `status = active` (без полей отчисления);
-    6. `AccountProvisioningService::provisionStudent(...)` + `provisionParent(...)`;
-    7. если `ctx->sendEmails` и у родителя есть email → `sendWelcomeWithCredentials(parentUserId, parentPassword, {student_full_name, parent_first_name, parent_middle_name}, parentPersonId)`;
-    8. лог `StudentEnrolled`; вернуть `created()` с `RowCredentialsDTO`.
-  - Провизия учёток — **вне** транзакции записи (как в `enroll()`: запись создаётся в транзакции,
-    учётки — после), чтобы падение `wp_insert_user` не откатывало корректную `student_records`.
-- Тесты `tests/Unit/Services/Import/EnrolledStudentRowImporterTest.php`: active-запись + учётки
-  ученика (креды из CSV) и родителя (сген. пароль); пустой логин/пароль → ошибка строки; дедуп →
-  `skipped` без учёток; `sendEmails=false` → письмо не уходит; `sendEmails=true` + email → уходит;
-  dry-run → без записи/учёток.
+### 2.8 JS: общий слой утилит ✅
+- [x] Создан `src/js/common/utils.js` (escapeHtml, fmtDate/fmtDayMonth/fmtDateTime, todayIso, initials, debounce). `profile/utils.js`, `admin/modules/utils.js`, `player/icons.js` реэкспортируют канонические версии под привычными именами (`esc` ≡ `escapeHtml`); локальные `fmtDate` (groups/summary/indi-modal) и `debounce` (dadata-suggest, select-parent-modal) заменены импортами
+- [x] AJAX вынесен из модалок: `admin/managers/enrollment-api.js` (поиск/назначение/снятие родителя) и `admin/managers/draft-api.js`; модалки стали чистым UI
+- [x] Guard `_initialized` в `alert-modal`, `confirm-modal`, `bundle-export-modal`, `pii-export-modal`
+- [x] Удалены мёртвые экспорты: `toggleButtonExtended`, `apiErrorEnhanced`, `fsEmpty`, `bindInnMask`, `icoFile`, `icoArrowRight` (`icoFlag` ЖИВ — используется плеером через `ICO.flag`)
+- Тосты (5 реализаций) оставлены: у каждого своя разметка и свой бандл (`profToast`/`kegeToast`/`fsToast`); сведение требует общего DOM-контракта — отдельная задача
+
+### 2.9 SCSS: недостающие слои токенов 🟡
+- [x] `assessment/_attempt.scss` и все четыре партиала `kege/` переведены на общую rem-шкалу (`rem()` из `shared/tokens`) — 1/1.5/2/3px-хайрлайны и 999px оставлены как есть. **Эквивалентность доказана**: после нормализации rem→px CSS обоих бандлов совпадает с baseline
+- [x] `$font-size-md!important` без пробела — исправлено
+- ⏳ **Не сделано намеренно:** сведение 27+15 `!important` в один родительский сброс. Это тот же случай, что и Фаза 6 в `refactor.md`: `!important` держат перебивку WP-core/WPBakery, а изменение специфичности механически недоказуемо — нужна ручная визуальная проверка каждой модалки
 
 ---
 
-## Этап 5 — оркестратор, отчёт, колбэк
+## P3. Точечные правки (дёшево, можно между делом)
 
-- `inc/Services/Import/ImportService.php`:
-  - убрать `StudentRowImporter` из конструктора; `run()` принимает
-    `RowImporterInterface $importer, ImportMode $mode, bool $sendEmails` (+ существующие
-    `subjectKey, periodId, filePath, dryRun`);
-  - `ImportContextDTO` собирать с `mode`/`sendEmails`;
-  - собирать `RowCredentialsDTO` созданных строк в отчёт;
-  - сводное лог-событие — текст по режиму («Импорт архивных записей…» / «Зачисление учеников…»).
-  - Адаптировать `tests/Unit/Services/Import/ImportServiceTest.php` под новую сигнатуру `run()`.
-- `inc/DTO/Import/ImportReportDTO.php`:
-  - копить `credentials[]` из `ImportRowResultDTO::$credentials`;
-  - `toArray()` — добавить ключ `credentials` (массив `{student_name, student_login, student_password, parent_login, parent_password}`).
-- `inc/Callbacks/Import/ImportCallbacks.php`:
-  - в конструктор — `StudentRowImporter`, `EnrolledStudentRowImporter`, `ImportService`;
-  - в `ajaxImportStudentsCsv()`: прочитать `mode` (`ImportMode::fromRequest($this->sanitizeKey('mode'))`)
-    и `send_emails` (`sanitizeBool`); выбрать импортёр по режиму; вызвать
-    `run($importer, $mode, $sendEmails, $subjectKey, $periodId, $tmpPath, $dryRun)`;
-  - авторизация/валидация файла — без изменений (`Nonce::Manager`, `Capability::Admin`).
-  - Новый тест `tests/Unit/Callbacks/Import/ImportCallbacksTest.php` (по памятке «покрывать колбэки
-    тестами»): выбор импортёра по `mode`, проброс `send_emails`, ошибка при отсутствии предмета/периода.
-- `AjaxHook`/`Nonce`/`ImportController` — без изменений (хук переиспользуется).
+### PHP ✅
+- [x] `TaskContentCallbacks` → `PostManager` (insert/update/updateMeta)
+- [x] `ConsentSettingsCallbacks` → `PostManager::insert()` (`PageGeneratorService` умеет только страницы-маршруты плагина)
+- [x] `SubjectValidationCallbacks` → новый кейс `Capability::ManageTerms`
+- [x] `SubjectPageCallbacks` — `echo` → партиал `admin/components/admin-notice`
+- [x] `WpOptionsEmailTemplate` → `EmailTemplatesRepository`
+- [x] `ProfileController` → `ExpulsionPolicyRepository::getRetentionPolicy()`
+- [x] `Init` → `OptionName::CapsVersion`
+- [x] Сырые meta-ключи: `MetaKeys::PersonID` (`EnrollmentCallbacks`, `LogNameResolver` — там ещё и в SQL через плейсхолдер), `PostMetaName::ForkedFrom/ForkedForGroup` (`PostCollector`), legacy-ключ `TemplateResolver` → именованная константа. `ProblemDeduplicator` уже держал ключи в константах — оставлен
+- [x] `NumericSorter` — трейт отдаёт фильтр (`numericSortFilter()`), `add_filter` вешает `SubjectController`
+- [x] templates: `subject-1-stats.php` — два `WP_Query` НА КАЖДЫЙ терм заменены одним SQL `PostManager::countPublishedByTerms()` (счётчики приходят в DTO); `get_option()` убран из `application-enrollment-modal`, `settings-4-email-templates`, `settings-5-consents`
+- [x] `ApplicationRepository` — правила переходов и trash-удаления → `ApplicationService::changeStatus()` / `deleteFromTrash()`; все 6 вызывающих переключены
 
----
-
-## Этап 6 — UI и фронтенд
-
-- `templates/admin/components/tabs/settings-tabs/settings-6-import.php`:
-  - радио-переключатель «Режим импорта»: «Архивные записи (без учёток)» / «Полное зачисление (с учётками)»
-    (name `mode`, значения `archive`/`enrolled`, дефолт — `archive`);
-  - чекбокс «Отправить письма родителям с логином/паролем» (name `send_emails`, дефолт выкл;
-    визуально относится к enrolled-режиму — гасить/показывать по выбору режима на JS);
-  - кнопка шаблона: два набора в data-атрибутах —
-    `data-headers-archive` / `data-examples-archive` (`ImportColumn::headers(ImportMode::Archive)`),
-    `data-headers-enrolled` / `data-examples-enrolled` (`ImportColumn::headers(ImportMode::Enrolled)`);
-  - обновить тексты: в шапке убрать «Учётные записи WP при импорте не создаются» → описать оба режима;
-    заметку про колонку отчисления показывать только для архивного режима.
-- `src/js/admin/services/import-csv.js`:
-  - `submit()`: добавить в FormData `mode` (выбранное радио) и `send_emails`;
-  - `downloadTemplate()`: брать `data-headers`/`data-examples` по выбранному режиму;
-  - `renderReport()`: если `report.credentials?.length` — отрисовать таблицу
-    (ученик · логин · пароль · родитель-логин · родитель-пароль) + кнопку
-    «Скачать логины и пароли (CSV)» (сборка CSV на клиенте, BOM + `;`, как в `downloadTemplate`);
-  - переключение режима: показывать/прятать чекбокс писем и заметку про отчисление.
-- Сборка: `npx gulp scripts` (bundle `admin.min.js`).
+### JS/SCSS/шаблоны ✅
+- [x] `apply-fields.php`, `join.php` — `style="display:none"` → атрибут `hidden`; JS переключает `.hidden`, а не `style.display`
+- [x] Инлайновые SVG в `step-assessment.php` (4) и `attempt-shell-header.php` (2) → `Icon::Clock/Flag/Check/ChevronRight/Lock`; бренд-логотипы провайдеров → партиал `modals/partials/provider-logo.php` (они фиксированных цветов, поэтому не в `Icon`, где `currentColor`)
+- [x] Хардкод-цвета: `kege` — новые токены станции `--kege-toast-bg/--kege-toast-line/--kege-timer-line`; `admin/_mixins.scss` — `#fff` → `$color-text-inverse`. Скомпилированный CSS не изменился
+- [x] Шрифт Ubuntu: CSS `@import` → `wp_enqueue_style` + `preconnect` (фильтр `wp_resource_hints`). Проверено на живой странице
+- [x] Инлайн-стили в JS: `fadeDeleteRow` → класс `.is-deleting`, кнопки родителя → `.fs-parent-action`, нотис → `.fs-notice`; классы добавлены в `_utilities.scss`
+- [x] `.css('opacity')` → класс `.is-loading` (`recent-posts.js`, `posts-table.js`)
+- [x] Дубль HTML письма → `templates/emails/bodies/{otp_code,welcome_with_credentials}.php` как единственный источник: письмо подставляет значения, вкладка настроек показывает ту же разметку. Проверено рендером обоих писем
+- ⏳ **Не решено (вопрос к владельцу):** конфликт двух базовых шрифтов (Ubuntu на публичных страницах vs Golos Text в кабинете/плеере) — это дизайн-решение
 
 ---
 
-## Этап 7 — документация и проверка
+## P4. Решения / политика (обсудить и зафиксировать в CLAUDE.md)
 
-- Обновить заметку на табе и раздел импорта в `.docs/basic_doc.md`; при необходимости — упоминание
-  в CLAUDE.md, что импорт умеет создавать учётки (enrolled-режим).
-- Ручная проверка в Docker (`docker restart wp_app`):
-  - enrolled dry-run: отчёт «будет зачислено», без записей и учёток в БД;
-  - enrolled реальный: `student_records.status=active`, созданы WP-пользователи ученика (логин/пароль
-    из CSV — вход работает) и родителя; в отчёте — таблица кредов + скачивание CSV;
-  - чекбокс писем выкл → писем нет; вкл → родителю уходит `WelcomeWithCredentials`;
-  - строка без логина/пароля → в ошибках отчёта, остальные проходят;
-  - повторный импорт того же файла → строки `skipped` (дедуп по договору), учётки не задваиваются;
-  - архивный режим — поведение неизменно (регресс не затронул).
-- PHPUnit зелёный; `npm run lint:js`, `npm run lint:css` (если правились стили) чисто.
+- [ ] **Scoped-фильтры**: временные `add_filter/remove_filter` в `SubjectDeletionService`, `MediaSideloader`, `MediaManager`, `TaskPublishGuard` — легализовать как исключение или вынести в `Shared/Traits/ScopedFilter`
+- [ ] **`LogNameResolver` как статика** — добавить в белый список статических утилит (рефакторинг не окупится)
+- [ ] **`style.display` в JS** (~14 мест) — либо явно разрешить, либо ввести утилиту `toggleVisible()`
+- [ ] **Правило `_types.js`** — 15 админ-файлов используют глобалы без импорта типов: автоматизировать (ESLint) или признать декоративным
+- [ ] **`add_action` в Managers** (`CPTManager:45`, `TaxonomyManager:40`, `MenuManager:88`, `MetaBoxManager:73`, `MediaManager:67`) — сложившийся паттерн «менеджер сам вешает свой хук»: легализовать или переносить в контроллеры
+- [ ] **Инлайн-стили в email-шаблонах** — исключить `templates/emails/` из запрета (требование почтовых клиентов)
+- [ ] **`require.context` в `ui.js:59`** — нерекурсивный: модалки в `modals/enrollment/**` не автозагружаются (сейчас все инициализируются вручную — работает, но контракт из CLAUDE.md верен только для верхнего уровня); фолбэк `ui.js:82` берёт первый экспорт файла — хрупко
 
 ---
 
-## Карта файлов
+## Мёртвый PHP-код
 
-**Новые:**
-`inc/Enums/Import/ImportMode.php`, `inc/Contracts/RowImporterInterface.php`,
-`inc/Services/Enrollment/AccountProvisioningService.php`,
-`inc/Services/Import/StudentRecordWriter.php`,
-`inc/Services/Import/EnrolledStudentRowImporter.php`,
-`inc/DTO/Import/AccountCredentialsDTO.php`, `inc/DTO/Import/RowCredentialsDTO.php`,
-`inc/DTO/Import/ImportedRecordDTO.php`,
-+ тесты (`AccountProvisioningServiceTest`, `StudentRecordWriterTest`,
-`EnrolledStudentRowImporterTest`, `ImportCallbacksTest`).
+### Точно мёртвое — удалить 🟡
+- [ ] `inc/Services/Assessment/ExamPayloadFilter.php` — найдено при §2.1: класс нигде не вызывается (единственная инъекция была в `AssessmentPageController`, где он не использовался; остальные упоминания — комментарии в `WorkDetailService`, `FileAnswerTaskTemplate`, `ThreeInOneTemplate`). Проверить, не полагается ли на него модульный скин, и удалить
+- [x] `AjaxHook::WithdrawConsent` + `Nonce::WithdrawConsent` — удалены
+- [x] `AjaxHook::SaveTemplateAssignment` + запись в JSDoc `_types.js` — удалены
+- [x] `CronController` — устаревший комментарий заменён ссылкой на реальное место регистрации (`RecoveryController` + `Activate`)
 
-**Изменяются:**
-`inc/Enums/Import/ImportColumn.php`, `inc/DTO/Import/ImportContextDTO.php`,
-`inc/DTO/Import/ImportRowResultDTO.php`, `inc/DTO/Import/ImportReportDTO.php`,
-`inc/Services/Import/ImportService.php`, `inc/Services/Import/StudentRowImporter.php`,
-`inc/Callbacks/Import/ImportCallbacks.php`,
-`templates/admin/components/tabs/settings-tabs/settings-6-import.php`,
-`src/js/admin/services/import-csv.js`,
-+ адаптация `StudentRowImporterTest`, `ImportServiceTest`.
+### Эндпоинты, недостижимые с фронта — РЕШЕНО: доделываем UI (2026-07-31)
 
-**DI:** новые сервисы автопровязываются контейнером; `ImportCallbacks` уже в `Init::getServices()`
-через `ImportController` — новые импортёры инжектятся конструктором (autowiring), ручной регистрации
-не требуется. Проверить, что `AccountProvisioningService`/`StudentRecordWriter` резолвятся (все
-зависимости — с тайп-хинтами).
+**Сделано:**
+- [x] **Клонирование контента** (`CloneLesson`/`CloneWork`/`CloneAssessment`/`CloneCourse`) — действие «Дублировать» в строке таблицы банка (`LearningMenuController::addCloneRowAction`) + сервис `admin/services/content-clone.js`; для курса спрашивается режим (`deep` — с копиями уроков, `shallow` — со ссылками). Проверено: копия создаётся черновиком, открывается на редактирование
+- [x] **`AssignGroupRoom`** — поле «Основной кабинет» в модалке группы; после сохранения группы вызывается назначение, предупреждения сервиса (кабинет занят / чужой предмет) показываются перед перезагрузкой
 
-## Порядок и зависимости
+**Решения владельца (2026-07-31):**
 
-```
-Этап 1 (provisioner) ──┐
-Этап 2 (enum-ы)      ──┼─→ Этап 4 (enrolled-импортёр) → Этап 5 (оркестратор+колбэк) → Этап 6 (UI/JS) → Этап 7
-Этап 3 (writer)      ──┘
-```
+- [x] **`GetRooms`** — сделано: вкладка «Настройки → Кабинеты» после добавления/правки/удаления перечитывает список и перерисовывает таблицу без перезагрузки (`RoomModalManager.refresh()`)
+- [x] **Представители — фича отменена**: модель — один ученик + один родитель, замена родителя = новое зачисление с новым договором. Удалены `RepresentativeCallbacks`, хуки `AddRepresentative`/`ReplaceRepresentative`, одноимённые нонсы, тип письма `NewRepresentative` и регистрация в `PiiController`. Живой путь смены родителя (`SelectExistingParent` / `RemoveParentAssignment`, UI в модалке заявки) не затронут
+- **`SetLessonExtraWorks`** — UI не нужен (решение владельца)
+- **`GradeBatchTask`, `ExportExpelledRecord`, `EmptyApplicationsTrash`, `LookupConsentByHash`,
+  `ForkLessonForGroup`, `RevealPiiField`, `RequestPiiDeletion`** — оставлены в коде как есть
+  (решение владельца 2026-07-31): UI не делаем, но и не удаляем
+- **`GetWorkTaskCandidates`, `GetLessonArticles`, `CreateArticleDraft`** — UI не нужен (решение владельца)
 
-Этапы 1–3 независимы. Самый содержательный — Этап 4. Риск-точка — рефактор `StudentRowImporter`
-на общий writer (Этап 3): страхуемся существующим `StudentRowImporterTest`.
+### Замены v2 — СДЕЛАНО (2026-07-31)
 
-## После плана (опционально, отдельный коммит)
+Экран `/profile/` → «Замены» (роль «Офис») переписан под одно решение: **кого** заменяем,
+**кто** заменяет, **в каком кабинете** и **на какой период** — одной формой.
 
-- Переезд `EnrollmentService::enroll()` (строки 199–297) на `AccountProvisioningService` — устранит
-  дублирование логики создания учёток. Делать отдельно и осторожно: поток под 561-тестовым сьютом,
-  экзамен-критичный. Не входит в объём миграции.
+- [x] **«Кого заменяем» явно** — подпись «Заменяем: {преподаватель группы}» над формой; если у группы
+  преподавателя нет, форма блокируется с объяснением. Штатный преподаватель приходит с сервера
+  (`SubstitutionCallbacks::groupTeacher()`), он же исключается из списка замещающих
+- [x] **Кабинет в той же форме** — поле «Кабинет на период» рядом с замещающим; один период «С … По»
+  на оба действия, после submit — `AssignSubstitute`, затем `SetRoomOverride` с тем же периодом.
+  Ошибка по кабинету не откатывает уже сохранённую замену, а сообщается отдельно.
+  Кнопка «Вернуть кабинет группы» осталась отдельным действием
+- [x] **`GetGroupSubstitutions` задействован** — при переключении группы тянутся только её замены и её
+  преподаватель; списки преподавателей и кабинетов (от группы не зависят) не перезапрашиваются
+- [x] **Проверки** — на сервере (`SubstitutionService::assign`): замещающий ≠ преподаватель группы,
+  период не в прошлом (`ClockInterface`), пересечение с уже назначенной заменой
+  (`SubstitutionRepository::findOverlapping`, сообщение с датами конфликта). Клиент повторяет их же
+  и показывает текст в форме (`.subs-error`), а не тостом
+- [x] Список замен показывает статус (Активна / Запланирована / Завершена) и «кого → кем»
 
----
+**Затронуто:** `src/js/profile/substitutions.js`, `_substitutions.scss`, `SubstitutionCallbacks`
+(+`GroupsRepository`), `SubstitutionService` (+`ClockInterface`), `SubstitutionRepository`,
+`TeacherProfileView` (action `getGroupSubs`). Тесты: +6 (сервис + коллбэки)
 
-# План рефакторинга по итогам ревью этапов 1–5
+### Пояснения по остальным эндпоинтам (что это такое)
 
-> Ревью 2026-07-25, диапазон `b3cb68b..018c8e2`, 4 независимых прохода
-> (правила PHP · правила JS/SCSS · SOLID/архитектура · мёртвый код).
-> Каждая находка подтверждена по коду (файл:строка). Приоритет: Р0 — баги,
-> чинить до релиза; Р1 — быстрые победы; Р2 — архитектурная дедупликация;
-> Р3 — чистка и документация. Effort: S — до часа, M — полдня.
+- [x] **`CopyScoreMap` + `ParseScoreMap` — СДЕЛАНО (2026-07-31)**: в поле «Таблица перевода баллов»
+  (`ScoreMapField`) добавлена кнопка «Скопировать из другого экзамена» — список ЕГЭ-работ того же
+  предмета с непустой шкалой (новый `GetScoreMapSources`, показывает число пар и диапазон
+  «0–34 → 0–100»), выбор + «Скопировать» пишет шкалу в мету и в поле. `ParseScoreMap` больше не мёртв:
+  он даёт живую подсказку «Распознано пар: N» при вставке из Excel. Поведение — `admin/services/score-map.js`;
+  `sanitize_textarea_field()` в коллбэке заменён на новый `Sanitizer::sanitizeMultilineText()`. Тесты: +6
+- **`GradeBatchTask`** (нонс `GradeBatch`) — пооценочная простановка балла и комментария сразу пачке сдач
+  одного задания («проверка в потоке»); UI нет
+- **`ExportExpelledRecord`** — выгрузка CSV по одной архивной записи об отчислении (массовый экспорт архива есть)
+- **`EmptyApplicationsTrash`** — «Очистить корзину» заявок (одиночное удаление из корзины работает)
+- [x] **`DeleteAcademicPeriod`, `DeleteStudentGroup` — УДАЛЕНЫ (2026-07-31)**: легаси-дубли живых
+  `DeletePeriod` / `DeleteGroup`; убраны кейсы enum, регистрации в контроллерах и методы коллбэков
+- **`LookupConsentByHash`** — поиск согласия по хэшу (проверка подлинности подписанного документа); UI нет
+- **`ForkLessonForGroup`** — «сделать копию урока только для этой группы» (правки не затронут другие группы);
+  сервис используется из конструктора, отдельного входа в UI нет
+- **`RevealPiiField`** — раскрытие ОДНОГО поля ПД; в UI используется более грубый живой `RevealAllPersonPii`
+- **`RequestPiiDeletion`** — мягкое удаление ПД по запросу субъекта (152-ФЗ); UI нет
 
-## Р0 — баги и безопасность (до релиза)
+### (исходный список аудита)
 
-- ✅ **Р0.1 [M] Миграция `recording_slot` не выполнится на живых инсталляциях.**
-  Два дефекта: (а) `MigrationRunner::run()` вызывается ТОЛЬКО из
-  `register_activation_hook` (`Activate.php:60`), гейт `version_compare('1.0.0', $current, '>')` —
-  на установке с `fs_lms_schema_version = 1.0.0` `up()` не запустится никогда
-  (а это ровно те установки, где есть slot-данные); инструкция CLAUDE.md
-  «перезагрузить страницу — миграции перезапустятся» коду не соответствует;
-  (б) даже при активации `PostManager::getIds()` → `get_posts` по CPT, которые
-  на хуке активации ещё не зарегистрированы → WP отсекает чужие черновики
-  (синтетические капы), часть уроков будет молча пропущена.
-  Решение: переписать `migrateRecordingSlotToBroadcast()` на прямой `$wpdb`
-  (`SELECT post_id, meta_value FROM postmeta WHERE meta_key='fs_lms_meta' AND meta_value LIKE '%recording_slot%'`),
-  гейтить собственной опцией-версией по паттерну `VideoSchema`/`AdSchema`
-  (срабатывает на обычной загрузке, не только на активации); адаптировать
-  `Migration_1_0_0Test` (сейчас дёргает приватный метод через Reflection, реальный
-  путь `up()` не покрыт); синхронизировать раздел «Миграции» в CLAUDE.md.
-- ✅ **Р0.2 [S] XSS-зазор в тич-панели записей.** `teacher-editor.js:144-160`
-  (`renderRecordingsPanel`) вставляет `r.s3_key`/`r.recorded_at`/`r.id` в `innerHTML`
-  и `data-*` без экранирования (`s3_key` — внешний ввод из push-регистрации).
-  Обернуть в `esc()` (как в `step-editor.js`), `r.id` — через `parseInt`.
-- ✅ **Р0.3 [S] Тич-панель broadcast-шага мертва до открытия редактора.**
-  `initBroadcastPanels()` вызывается только из `bootstrap()` (первое открытие
-  drawer) — до этого `.broadcast-teacher-panel` вечно «Загрузка записей…».
-  Вызывать на `DOMContentLoaded` независимо от монтирования редактора.
-- ✅ **Р0.4 [S] «Редактировать ↗» из плеера ведёт на 404.** `step-editor.js:667,773` —
-  относительный `href="post.php?post=…"`; в админке ок, на маршруте плеера
-  (`/group/…`) → `/group/post.php`. Добавить `opts.adminBase`
-  (дефолт `fs_lms_vars.ajaxurl.replace('admin-ajax.php','')`), в teacher-бандле
-  локализовать `admin_url()` через `Enqueue`.
-- ✅ **Р0.5 [S] Невидимая кнопка перехватывает клики по карточке КТП.**
-  `_ktp.scss:170-172` — `.pt-deadlines` с `opacity:0` без `pointer-events:none`
-  лежит поверх начала `.pt-title`: клик по первым символам темы открывает
-  поповер дедлайнов вместо перехода в плеер. Фикс: `pointer-events:none` +
-  `:hover → auto`. Тот же дефект у `.pt-more` (преэкзистентный) — заодно.
-- ✅ **Р0.6 [S] `TaskPreviewService` читает неверные/несуществующие ключи меты.**
-  `task_text` — это поле «Решение» (`TaskTextSolution`), а сервис показывает его
-  как условие; ключи `problem_text|question_text|content|answer|answer_text|correct_answer|task_solution|solution|hint`
-  не существуют ни в одном шаблоне (мёртвые ветки); в блок «Решение» уезжает
-  `task_hint` (подсказка). Условие → `['common_condition','task_condition']`,
-  решение → `['task_text']`, подсказку — отдельным `hint_html` (+секция в JS).
-- ✅ **Р0.7 [S] (hardening) `SaveGroupLessonSteps` не валидирует `payload.ref`.**
-  Преподаватель (и методист — зазор преэкзистентный) может прицепить к шагу
-  ref-ид чужого предмета. Проверять принадлежность ref предмету урока в
-  `LessonAuthoringService::buildSteps()` или на сейве.
+### (исходный список аудита)
+Сервер проверяет nonce, который клиент нигде не создаёт (`->create()` отсутствует) — вызов физически невозможен:
+- [ ] `RepresentativeCallbacks.php:57,91` — `AddRepresentative`, `ReplaceRepresentative`
+- [ ] `BatchSubmissionCallbacks.php:94` — `GradeBatch` (хук `GradeBatchTask`)
 
-## Р1 — быстрые победы
+Хуки зарегистрированы, но ни одного JS-потребителя (вероятно, недоделанные или брошенные фичи — решить по каждому):
+- [ ] `PiiController.php:83-91` — `RevealPiiField`, `RequestPiiDeletion`, `AddRepresentative`, `ReplaceRepresentative`
+- [ ] `CourseController.php:41-45` — весь блок клонирования `CloneLesson`/`CloneWork`/`CloneAssessment`/`CloneCourse`/`ForkLessonForGroup` (сервисный слой `ContentCloneService` при этом жив и используется из `CourseBuilderService`)
+- [ ] `SettingsController.php:91,99` — `LookupConsentByHash`, `DeleteAcademicPeriod`
+- [ ] `StudentGroupController.php:56` — `DeleteStudentGroup` (JS использует `checkGroupDeletion`/`deleteGroup`)
+- [ ] `ExpulsionController.php:71` — `ExportExpelledRecord`; `EnrollmentController.php:72` — `EmptyApplicationsTrash`
+- [ ] `WorkController.php:29` — `GetWorkTaskCandidates`; `LessonController.php:30,36` — `GetLessonArticles`, `CreateArticleDraft`
+- [ ] `AssessmentController.php:37,38` — `ParseScoreMap`, `CopyScoreMap`; `ScheduleController.php:29` — `SetLessonExtraWorks`
+- [ ] `SubstitutionController.php:28` — `GetGroupSubstitutions`; `RoomController.php:26,29` — `GetRooms`, `AssignGroupRoom`
 
-- ✅ **Р1.1 [S] Разжать `teacher-editor.min.js` вдвое (59.8 КБ → ~30).** _(58.6→38.7 КБ)_
-  Удалить мёртвый `import { TaskEditor }` из `step-editor.js:4` (не используется,
-  но тащит task-editor+task-fields+confirm-modal+modal-base в оба бандла);
-  добавить `"sideEffects": ["*.scss"]` в `package.json`.
-- ✅ **Р1.2 [S] Судьба `SetRecordingUrl` — единственный невыполненный пункт плана.** _(вариант б: цепочка выпилена, метод репозитория оставлен для VideoLibrary)_
-  Этап 4 обещал ручной ввод URL записи как фолбэк в тич-панели — не сделано;
-  endpoint жив, но фронт-потребителей 0 (`ProgramCallbacks:587`, кейс AjaxHook,
-  регистрация в `ScheduleController:42`, ключ в `ProfileViewResolver:194`).
-  Решить: (а) доделать фолбэк в тич-панели broadcast (рекомендуется — это
-  замысел плана) ИЛИ (б) выпилить всю цепочку. В обоих случаях: убрать
-  `data-url` и «изменить/добавить ссылку вручную»-тайтлы с `.pt-recording`
-  в `ktp.js:328,331` (кнопка теперь просто ведёт в плеер).
-- ✅ **Р1.3 [S] Стили wp-admin `.button` в плеере.** В тич-редакторе без стилей:
-  «Выбрать существующую», «+ Глава», «+ Файл…», «Привязать» (`.button-primary` —
-  0 правил в player.min.css), «Отвязать» (`.fs-sb-btn-danger` не подключён).
-  ~8 строк в `_teacher-editor.scss` со скоупом `#fsTeacherEditor, .broadcast-teacher-panel`
-  через существующие миксины `admin/_mixins.scss` (`cb-ghost-button`/`cb-chip-solid`).
-  Заодно: стили для `.tep-loading`, решить судьбу пустых `.tep-reset`/`.teacher-editor-mount`.
-- ✅ **Р1.4 [S] Admin-палитра утекла в плеер.** `@use admin/_variables` из
-  `_teacher-editor.scss` приносит в `player.min.css` второй `:root` с
-  `--color-primary: var(--wp-admin-theme-color,…)` — фокус инпутов `.fs-se`
-  красится admin-синим вместо `var(--accent)`. Вынести `:root`-мост из
-  `admin/_variables.scss` в `admin/_wp-bridge.scss`, подключаемый только из `admin.scss`.
-- ✅ **Р1.5 [S] Мёртвый CSS в player.min.css.** _(−9.7 КБ)_ `@use admin/components/course-builder`
-  затянул 89 вхождений `.fs-lms-cb-wrap` (дерево модулей, футер билдера), из
-  которых плееру нужны только `.fs-cb-popover/.fs-cb-picker/.fs-cb-pick-*`.
-  Вынести попап-пикер в `admin/components/_picker-popover.scss`, в player
-  подключать только его.
+### Проверить вручную ✅
+- [x] `EmailOtpService` — тесты на обход НЕ полагаются (они проверяют bypass-код на этапе `verify`). Мёртвый закомментированный `return` удалён, докблок приведён к фактическому поведению: в `FS_LMS_TEST_ENV` письмо отправляется, войти без почты позволяет `FS_LMS_OTP_BYPASS_CODE`
 
-## Р2 — архитектурная дедупликация
-
-- ✅ **Р2.1 [S] `GroupAccessGuard::findManageableLesson()`.** _(7 блоков → 1; groupLessons убран из TeacherLessonCallbacks; +3 теста)_ Блок
-  «`groupLessons->find` → `canManage` → `error('Занятие не найдено.')`»
-  повторён 7 раз (`TeacherLessonCallbacks` ×4, `VideoLibraryCallbacks` ×3),
-  с уже начавшимися расхождениями. Guard получает `GroupLessonRepository`,
-  метод возвращает `?GroupLessonDTO`; `error()` остаётся в Callback-слое.
-  (Родственный `canWriteJournal`-вариант ×4 в Journal/GradingCallbacks — опционально.)
-- ✅ **Р2.2 [S] Один владелец deep-link плеера и критерия форка.** _(PageRoutes::lessonUrl ×4; ContentCloneService::isForkedForGroup/forkedLessonIds ×5; ScheduleService: PostManager→ContentCloneService)_
-  `playerUrl()` скопирован в `LearnerService:456`, `DashboardService:244`,
-  `ScheduleService:489` (+инлайн в `AssessmentPageController:238`) →
-  `PageRoutes::GroupCockpit->lessonUrl(int $groupId, int $glId)`.
-  Критерий «урок — форк группы» в 5 местах (`TeacherLessonCallbacks:77`,
-  `ScheduleService:458`, `ContentCloneService:197,245,280`) →
-  `ContentCloneService::isForkedForGroup()` + батч `forkedLessonIds(int $groupId, array $ids)`
-  (внутри `primeMetaCache`). Бонус: из `ScheduleService` уходят `PostManager`/`PostMetaName`,
-  из `deleteForksForGroup()` — N+1 по мете.
-- ✅ **Р2.3 [S] Схлопнуть дубли плеера.** _(assembleView + StepContentRenderer::renderInlineData; _title-петля отложена — array vs StepDTO)_ `buildView`/`buildTeacherView`
-  (22 строки, различие в 2) → приватный `assembleSteps(..., ?array $statuses)`;
-  инлайн-ветки `text|video|broadcast` из `LessonPlayerService::renderData()` и
-  `CoursePreviewService::renderData()` → `StepContentRenderer::renderInlineData()`
-  (новый инлайн-тип = правка одного файла). Заодно `_title`-петля с прямым
-  `get_the_title` из `TeacherLessonCallbacks:80-87` → в сервис
-  (есть `StepContentRenderer::resolveTitle`).
-- ❌ **Р2.4 [M] `TaskPreviewService` поверх существующих сервисов. WON'T DO (premise не держится).**
-  _При реализации выяснилось: `StepContentRenderer::taskBundle` **намеренно answer-less** (`buildWidgetData`
-  не кладёт `correct`-флаги вариантов и ответы в fill-сегменты — рендер ученику). А превью задачи
-  методисту/преподавателю ОБЯЗАНО показывать правильные ответы. Значит «taskBundle как единый источник»
-  противоречит назначению превью: choice/fill из taskBundle воссоздать answer-ful нельзя (только из меты) →
-  дедупа не выходит; либо это ре-дизайн подачи ответов в превью (меняет рендер, только браузер подтвердит,
-  выгода спорная). Текущий код превью корректен после Р0.6. Под-пункт buildFiles→getTaskFiles тоже
-  небезопасен (методы разошлись: esc_url_raw+без лимита vs без экранирования+лимит 2). **Решение: не трогать
-  рабочую фичу.** Если понадобится единый рендер виджетов — делать как отдельную фичу «превью с ответами»
-  поверх taskBundle+CorrectAnswerResolver в браузер-сессии._
-  После Р0.6: сейчас это 4-е PHP-место (+5-е в JS `buildAnswerSection`) со
-  знанием схемы `fs_lms_meta` задачи. Строить превью через
-  `StepContentRenderer::taskBundle()` (шаблон через `TemplateResolver`, не
-  «угадай-ключ») + `CorrectAnswerResolver`; отдавать нормализованный
-  `widget_data.type`, `buildAnswerSection()` в step-editor.js переключить на него.
-  Меняет контракт `GetTaskPreview`/`TeacherTaskPreview`/Ref-вариантов — делать
-  отдельным коммитом с синхронной правкой JS. Заодно:
-  `StepContentRenderer::buildFiles` → `TaskMetaService::getTaskFiles` (дубль).
-- ✅ **Р2.5 [M] `step-editor.js`: транспорт вместо пакета флагов.** _мёртвые showStepSettings/renderStepSettings + export nonceFor убраны; opts.transport-консолидация (поведение идентично — admin-call-site глобалы не трогались, teacher-editor обновлён). Единая request()-точка не делалась (module-level хелперы берут cfg параметром — приемлемо)._
-  `opts.actions/nonce/ajaxurl/extraAjaxParams/persist` связаны скрытыми
-  инвариантами (nonce игнорируется без actions; extraAjaxParams только для
-  кандидатов) → один `opts.transport = { actions, nonce, ajaxurl, params, persist }`
-  с единственной точкой `request()`. Удалить мёртвые `showStepSettings`/`renderStepSettings`
-  (30 строк, 0 вызовов) и `export` у `nonceFor`. Точек вызова две — правка локальная.
-- ✅ **Р2.6 [S] `Enqueue::enqueueBundle()`.** _(+enqueueMathJax(); gl→sanitizeGetInt)_ Пять почти одинаковых блоков
-  «style+script+filemtime+localize» (profile/player/teacher/assessment/kege) →
-  приватный хелпер. Заодно `(int) $_GET['gl']` (`Enqueue:422`) → `sanitizeGetInt('gl')`.
-- ✅ **Р2.7 [M] Разгрузить `LessonPlayerController::loadTemplate()`.** _LessonPlayerService::buildRouteView (view+shell+tree+lock); контроллер — auth+include, локали player.php идентичны; $_GET→Sanitizer; gate/nav убраны из контроллера; +2 теста. ⚠️ рекомендуется браузер-проверка входа плеера (ученик+преподаватель)._
-  Ветвление режимов, сборка view/shell/tree, расчёт lock-таймера, сырые `$_GET` —
-  вынести в `LessonPlayerService::buildRouteView(int $userId, GroupLessonDTO $row)`,
-  в контроллере оставить маршрут + include. `$_GET` → Sanitizer-методы.
-
-## Р3 — чистка и документация
-
-- ◑ **Р3.1 [S] Мёртвый код PHP:** _(сделано: `sanitizeBoolValue` удалён, `sanitizeChapters`→private, `declare(strict_types=1)` в AjaxHook/Nonce/Init. Осталось: `$lessonGate`-тернарник — в отложенном Р2.7; выравнивание error()+return в VideoLibraryCallbacks)_ `Sanitizer::sanitizeBoolValue()` (0 вызовов
-  после выпила recording_slot); `sanitizeChapters()` → `private`; тернарник
-  `$lessonGate` в `LessonPlayerController:81` (teacher-ветка не читается);
-  `declare(strict_types=1)` в `AjaxHook.php`/`Nonce.php`/`Init.php`;
-  стиль `error()`+`return` выровнять внутри `VideoLibraryCallbacks`.
-- ◑ **Р3.2 [S] Мёртвый код JS/SCSS:** _(сделано: `.rec-pop/.rec-input/.rec-actions` удалены из `_overlays.scss`. Осталось: дубль тостов на маршруте плеера; jQuery-ready→DOMContentLoaded в teacher-editor.js)_ `.rec-pop/.rec-input/.rec-actions` из
-  `_overlays.scss:46-49` (rec-pop выпилен); дубль тостов на маршруте плеера
-  (common `.fs-toast` + собственный `#fsToast` из `shell.js` — оставить один);
-  обёртка `teacher-editor.js` — jQuery-ready без единого использования `$` →
-  `DOMContentLoaded` (или зафиксировать выбор в шапке файла).
-- ⬜ **Р3.3 [S] Консистентность:** `match` по сырым строкам типов шага в новых
-  точках (`LessonAuthoringService:290`, `LessonPlayerService:119`,
-  `CoursePreviewService:144`) → кейсы `StepType`; сырой `$_POST['steps']`
-  (LessonCallbacks + TeacherLessonCallbacks) → хелпер в `Sanitizer`;
-  `VideoLibraryController` — 3 teacher-хука ручным `add_action` вместо паттерна
-  `AjaxController` (опционально); embed-ветка `step-broadcast.php` дублирует
-  `step-video.php` → партиал `video-embed.php`.
-- ⬜ **Р3.4 [S] Документация:** `FS_LMS_API.md:327` — абзац про `recording_slot`
-  → `broadcast`/`renderBroadcastData`; `fs_lms_teacher_editor_vars` — typedef в
-  `_types.js` + строка в таблицах глобалов CLAUDE.md и `basic_doc.md:1041`;
-  «189 кейсов AjaxHook» в `basic_doc.md:455,1045` → факт 206; комментарий в
-  `step-editor.js:50` про `LessonCallbacks::MAX_STEPS_PER_LESSON` → `LessonAuthoringService`;
-  раздел «Миграции» CLAUDE.md — вместе с Р0.1. Преэкзистентное: 4 инлайновых
-  `<svg>` в `step-assessment.php` → `Icon`-enum (три глифа уже есть).
-
-## Признано здоровым (перепроверять не нужно)
-
-AJAX-авторизация всех 9 новых обработчиков (двухслойная, без сырых WP-вызовов);
-`AjaxResponse`/`AjaxHook`-паттерн 1:1; `wp_localize_script` только в Enqueue;
-слои в новых сервисах (все через Managers/Repositories, `primeMetaCache` —
-корректная обёртка); `video-chrome.php` — образцовая дедупликация; вынос
-`sanitizeStep`/preview-логики из Callbacks — чистое улучшение; teacher-режим
-через `studentPersonId=0` проведён сквозняком (сервер+клиент); палитра
-JS↔SCSS `broadcast` синхронна посимвольно; SCSS-токены/`@use`/вложенность/
-`!important` — без нарушений; `ContentCloneService` делить не нужно;
-`GroupDeletionHandler` (14 зависимостей) — линейный transaction script,
-рефакторить только при 15-й зависимости; новые интерфейсы не нужны нигде.
-
-## Порядок
-
-```
-Р0 (все, до релиза) → Р1.1-Р1.5 → Р2.1-Р2.3, Р2.6 (S, механика)
-                                → Р2.4 (после Р0.6), Р2.5, Р2.7 (M, отдельными коммитами)
-                                → Р3 (фоном, можно вперемешку)
-```
----
-
-# План: система in-app уведомлений кабинета (колокольчик /profile/)
-
-> **Статус: выполнено (этапы 1–6), 2026-07-27.** Полный e2e-прогон в Docker на реальных данных
-> (13/13): review_needed/work_graded/work_returned по сдаче-оценке-возврату, video_uploaded с
-> дедупом по всем 3 путям привязки записи, attendance_missed + retract при исправлении отметки,
-> substitute_assigned, lesson_soon/deadline_soon/deadline_missed через реальный cron-тик (повторный
-> тик — без дублей). PHPUnit весь сьют зелёный (1003), ESLint/stylelint чистые (кроме
-> предсуществующих `!important`-варнингов в чужих файлах).
->
-> **Побочная находка, исправлена по ходу** (не относится к уведомлениям, но лежала прямо в
-> критическом пути `review_needed`): `submissions.status` enum в схеме не включал
-> `pending_review` (заведён в «Этап 7 — пакетная сдача» без соответствующего `ALTER`) — под
-> `STRICT_TRANS_TABLES` любая попытка сохранить статус пакетной сдачи с ручной частью падала
-> с `Data truncated for column 'status'`. Починено `MODIFY COLUMN` в
-> `Migration_1_0_0::up()` (cleanup-секция) + применено напрямую к dev-БД.
->
-> **Отклонения от плана** (все — по необходимости, не проектные решения): `SubmissionService::submitBatch()`
-> теперь дисптчит `entityId` = id агрегатной сдачи (не `workId`) — без этого `entityId` для
-> `SubmissionMade` означал разное в single/batch-путях и `review_needed` не мог надёжно
-> резолвить сдачу; `NotificationService` получил доп. зависимости `GroupsRepository`/`LessonManager`
-> и хелперы `lessonTopic()/groupName()/studentSnapshotName()/lessonWorkUrl()/lessonStudentPersonIds()`
-> (переиспользуются ≥2 продюсерами — вынесены централизованно, а не продублированы); `NotificationSubscriber`
-> получил `WorkManager/PostManager/TemplateResolver/TaskCheckerRegistry` для фильтра «ручная часть»
-> (единственный способ отличить сдачу с `file_answer_task` от автопроверяемой); `tests/bootstrap.php` —
-> добавлен no-op стаб `add_action()` (был только `add_filter()`), `tests/Support/FakeWpdb.php` —
-> добавлен `queueQuery()` для различения «вставлено/дубль пропущен» в `INSERT IGNORE`.
->
-> Согласовано: 2026-07-27, ветка `stage_11`.
-> Цель: оживить колокольчик в топбаре кабинета (`templates/frontend/profile.php:66-68` — сейчас
-> мёртвая заглушка без `id`, обработчика и badge) — выпадашка с плитками уведомлений в современном
-> стиле (macOS-подобные плитки), badge непрочитанных, серверная генерация событий, выдача строго
-> через шов `FS_LMS_API`.
-> Порядок этапов = порядок исполнения; каждый этап — отдельный коммит.
-> После каждого этапа: PHPUnit; на этапах с JS/SCSS — `npx gulp build`, `npm run lint:js`,
-> `npm run lint:css`; после PHP-правок — `docker restart wp_app`.
-
-## Зафиксированные решения (подтверждено с заказчиком)
-
-**Каталог уведомлений V1** (enum `NotificationType`, backed string, значения snake_case):
-
-| Тип | Заголовок плитки | Получатель | Триггер |
-|---|---|---|---|
-| `video_uploaded` | Появилась запись занятия | ученики группы занятия | новый хук `fs_lms_recording_attached` (все 3 пути привязки записи) |
-| `deadline_soon` | Дедлайн через 24 часа | ученики, не сдавшие работу | cron, окно `(now, now+24h]` |
-| `deadline_missed` | Дедлайн пропущен | ученик **+ родитель** | cron, окно `[now-24h, now)` |
-| `lesson_soon` | Занятие через 30 минут | ученики группы / individual-ученик **и** эффективный учитель | cron, окно `(now, now+30m]`, `status='scheduled'` |
-| `work_graded` | Работа проверена (+ балл) | ученик | шина `LogEvent::SubmissionGraded` |
-| `work_returned` | Работа возвращена на доработку | ученик | шина `LogEvent::SubmissionReturned` |
-| `attempt_graded` | Экзамен проверен | ученик **+ родитель** | шина `LogEvent::AttemptGraded` |
-| `review_needed` | Сдана работа — нужна проверка | учитель занятия | шина `LogEvent::SubmissionMade`, **только при наличии ручной части** |
-| `substitute_assigned` | Вам назначена замена | замещающий учитель | прямой вызов из `SubstitutionService::assign()` |
-| `attendance_missed` | Пропущено занятие | **только родитель** | прямой вызов из `AttendanceService::mark()/markAll()` при `present=false` |
-
-- **Родителю — только критичное**: `deadline_missed`, `attendance_missed`, `attempt_graded`.
-  Никаких «видео появилось» / «работа проверена» родителю.
-- **Пороги**: дедлайн — за 24 часа (одно напоминание), занятие — за 30 минут. Разрешение cron —
-  15 минут, т.е. «за 30 минут» фактически приходит за 15–30 мин; для in-app достаточно.
-- **НЕ делаем в V1**: перенос/отмена занятия (самой фичи нет — `setStatus()` вызывается лишь из
-  `VideoRegistrationService`; уведомление появится вместе с фичей), «назначен экзамен» (сущности
-  назначения не существует — экзамен доходит косвенно через открытие занятия с assessment-шагом),
-  «выдан доступ к курсу», «опубликован урок», email/web-push-дублирование, пользовательские
-  настройки типов уведомлений.
-- **Автопроверенные работы учителя не беспокоят**: `review_needed` только если в сдаче есть задание
-  без авто-чекера (единственный ручной шаблон — `file_answer_task`; источник истины —
-  `TaskCheckerRegistry`, `inc/Services/Task/TaskCheckerRegistry.php:60`).
-- **Двухступенчатое прочтение (как в macOS)**: `seen_at` ставится всем при открытии выпадашки
-  (гасит badge на колокольчике), `read_at` — по клику на плитку или «Прочитать все» (гасит точку
-  на плитке).
-- **Идемпотентность**: `dedupe_key` + `UNIQUE(recipient_user_id, dedupe_key)`, вставка
-  INSERT IGNORE — повторный cron-тик / перепривязка той же записи не плодят дубли. Ошибочная
-  отметка «отсутствовал» отзывается (`retract`) при исправлении на «присутствовал».
-- **Тексты рендерит сервер** при выдаче (единая точка русских строк; имена — PII-safe
-  snapshot-поля `student_records`, как в Эпике 3). Клиент по `type` выбирает только иконку и цвет.
-- **Транспорт** — новый блок `fsProfile.notifications` в `ProfileViewResolver::jsConfig()` +
-  `createApi()` (`src/js/profile/api.js:59`); поллинг счётчика раз в 60 с. Будущий Telegram-модуль
-  Notifier (`.docs/ModularArchitecture.md:61`) подпишется на `do_action('fs_lms_notification_created')`
-  — core на модуль не ссылается.
-- **Ретеншн**: cron удаляет прочитанные старше 30 дней и любые старше 90; выдача — последние 30 строк.
-- **Адресация — WP `user_id`** (колокольчик живёт на логине): у родителя свои строки-зеркала.
-  Ученики без учётки (`persons.wp_user_id IS NULL`, архивные) молча пропускаются.
-
-## Контекст (что уже есть — переиспользуем, не переписываем)
-
-| Механизм | Где | Используем |
-|---|---|---|
-| Колокольчик-заглушка в топбаре | `templates/frontend/profile.php:66-68` (`prof-icon-ghost` + `Icon::Bell`, без id) | оживляем: id + badge + поповер |
-| Шина доменных событий (синхронная, не WP-хуки) | `LogEventDispatcher::subscribe/dispatch` (`inc/Services/Log/LogEventDispatcher.php:70,82`), изоляция ошибок слушателей | подписчик уведомлений |
-| Образец подписчика | `inc/Controllers/Subscribers/LearningEventSubscriber.php` (ServiceInterface, ctor: dispatcher + writer, `register()` = серия `subscribe()`) | копируем паттерн |
-| Хук появления видео (только REST-путь) | `do_action('fs_lms_video_registered', …)` — `VideoRegistrationService.php:64,84` | не трогаем; вводим единый `fs_lms_recording_attached` во всех 3 путях |
-| Cron-каркас + интервал 15 мин | `CronController::register()` (`inc/Controllers/System/CronController.php:41-55`), `addCustomInterval('every_15_minutes', 900, …)` уже есть (:42), `CronManager::schedule()` идемпотентен (`inc/Managers/Wp/CronManager.php:66-70`), `unregisterAll()` снимает все кейсы `CronHook` при деактивации (:87-91) | новая задача `NotificationsTick` |
-| Эталон no-capability AJAX кабинета | `LearnerCallbacks.php:72-90`: `Nonce::X->verify()` + `is_user_logged_in()` + данные только по `get_current_user_id()` | колбэки уведомлений |
-| Шов API + конфиг экранов | `ProfileViewResolver::jsConfig()` (`inc/Services/Profile/ProfileViewResolver.php:97-122`), `createApi()` (`src/js/profile/api.js:59`) | новый блок `notifications` |
-| Родитель → дети | `ProfileViewResolver::context()` → `StudentRecordRepository::findActiveByParent()` (:154) | как есть |
-| Ребёнок → родитель (обратного метода НЕТ) | ручной паттерн `PersonViewCallbacks.php:102-105`: `findActiveByStudentFirst()` → `parentPersonId` → `PersonRepository::find()` → `wpUserId` | оборачиваем в хелпер `guardianUserIds()` |
-| Ученики группы | `StudentRecordRepository::findActiveByGroupId()` (:133); person→user: `PersonRepository::find()/findByIds()` (:52/:69) → `PersonDTO->wpUserId` | fan-out |
-| Эффективный учитель | `group_lessons.teacher_user_id` → `EffectiveTeacherResolver::forGroup(gid, date)` (`inc/Services/Course/EffectiveTeacherResolver.php:32`) → `groups.teacher_id` | адресат `lesson_soon`/`review_needed` |
-| Дедлайны per-work | `GroupLessonDTO::deadlineForWork()` (`inc/DTO/Course/GroupLessonDTO.php:110`); фильтр «уже сдал» — паттерн `LearnerService.php:152-155`; переход к работе — `stepKeyForWork()` + `add_query_arg('step', …)` (`LearnerService.php:167-171`) | cron-продюсер |
-| Deep-link плеера | `PageRoutes::GroupCockpit->lessonUrl($gid, $glid)` (`inc/Enums/Wp/PageRoutes.php:68-76`) — единственный владелец формата `/group/?gid=…&gl=…` | поле `url` уведомления |
-| Deep-link кабинета | `/profile/?screen=<key>` — разбирается в `app.js:336-346` | `url` для summary/оценок/посещаемости |
-| Поповер-паттерн | `openUserMenu()` (`app.js:233-248`) + `openCtxMenuRaw/closeCtxMenu` (`utils.js:160,177`); закрытие: backdrop + Escape (`app.js:278-282`) | по образу и подобию (свой контейнер) |
-| Пустое состояние, тост | `emptyState()`, `toast()` (`src/js/profile/utils.js`) | как есть |
-| UI-примитивы | миксин `cab-card` (`shared/cabinet/_ui.scss:131`), словарь статусов `--ok/--err/--wait` (`shared/cabinet/_theme.scss`), z-шкала профиля `$z-topbar:20 / $z-ctx:300 / $z-toast:400` (`profile/_variables.scss:23-30`) | стили поповера |
-| Иконки | JS-фабрики `common/icons.js` (есть `icoClock`, `icoCamera`, `icoAlert`, `icoCheck`, `icoDocCheck`, `icoSwap`, `icoReplace`; **нет `icoBell`** — добавить зеркало `Icon::Bell` из `inc/Enums/Ui/Icon.php:114`) | иконки плиток + колокольчик |
-| Тестовый харнесс | `fs_test_capture_json()` / `$GLOBALS['_fs_test_nonce_ok']` (`tests/bootstrap.php:382-431`), `FakeWpdb` (`tests/Support/FakeWpdb.php`) | тесты колбэков/репозитория |
+### Чисто (проверено, мёртвого нет)
+- Init::getServices() ↔ диск: все контроллеры/модули зарегистрированы или инжектятся (модули регистрируются вручную в `Init.php:181-186`)
+- DTO (90+ классов), `inc/Shared/`, `inc/Contracts/`, все 114 шаблонов `templates/` — используются
+- Трейты с единственным потребителем (кандидаты на инлайн, не на удаление): `ErrorHandler` (только SocialAuthController), `NumericSorter` (только SubjectController)
 
 ---
 
-## Этап 1 — схема и домен (таблица, enum, DTO, репозиторий, сервис)
+## Что трогать не нужно (проверено, вердикт «оставить»)
 
-- `inc/Enums/Settings/TableName.php`: новый кейс после `Rooms` (:48) со своим комментарием:
-  `case Notifications = 'fs_lms_notifications';`
-- `inc/Migrations/Migration_1_0_0.php`: блок `// ===== 25. fs_lms_notifications` после rooms (:599)
-    + дроп в `down()`:
-
-  ```sql
-  id bigint unsigned NOT NULL AUTO_INCREMENT,
-  recipient_user_id bigint unsigned NOT NULL,
-  type varchar(40) NOT NULL,
-  group_id smallint unsigned DEFAULT NULL,
-  entity_type varchar(30) DEFAULT NULL,
-  entity_id bigint unsigned DEFAULT NULL,
-  payload longtext DEFAULT NULL,          -- JSON: снапшот данных для текста (тема, имя, балл…)
-  url varchar(500) DEFAULT NULL,
-  dedupe_key varchar(120) NOT NULL,
-  created_at datetime NOT NULL,
-  seen_at datetime DEFAULT NULL,
-  read_at datetime DEFAULT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY recipient_dedupe (recipient_user_id, dedupe_key),
-  KEY recipient_created (recipient_user_id, created_at),
-  KEY recipient_seen (recipient_user_id, seen_at)
-  ```
-
-  ⚠️ На dev **НЕ сбрасывать** `fs_lms_schema_version` (повторный `up()` дропнет живые
-  groups/persons/student_records — проверено ранее): выполнить тот же `CREATE TABLE` напрямую
-  через `docker exec wp_db mariadb …`.
-- Новый `inc/Enums/Profile/NotificationType.php`: 10 кейсов из каталога + `title(): string`
-  (заголовок плитки) + `tone(): string` (`ok|warn|err|info` — цвет кружка на клиенте).
-- Новый `inc/DTO/Profile/NotificationDTO.php` (readonly, рядом с `ProfileContext`):
-  `{ int id, int recipientUserId, NotificationType type, ?int groupId, ?string entityType, ?int entityId, array payload, string url, string createdAt, ?string seenAt, ?string readAt }` + `fromArray()`.
-- Новый `inc/Repositories/WPDBRepositories/NotificationRepository.php` (паттерн
-  `AttendanceRepository`: ctor `?\wpdb`, `TableName::Notifications->prefixed()`, `prepare` + `%i`):
-    - `insertIgnore( int $recipientUserId, string $type, string $dedupeKey, array $payload, string $url, ?int $groupId, ?string $entityType, ?int $entityId ): bool` — `INSERT IGNORE`, `true` = реально вставлено;
-    - `listRecent( int $userId, int $limit = 30 ): array` (DESC по `created_at`);
-    - `unseenCount( int $userId ): int`;
-    - `markAllSeen( int $userId ): void`; `markRead( int $userId, int $id ): void`;
-      `markAllRead( int $userId ): void` — везде `WHERE recipient_user_id = %d` (чужое недостижимо);
-    - `deleteByDedupe( array $userIds, string $dedupeKey ): void` — для retract;
-    - `purge( int $readOlderDays = 30, int $allOlderDays = 90 ): void`.
-- Новый `inc/Services/Profile/NotificationService.php` (зависимости: `NotificationRepository`,
-  `StudentRecordRepository`, `PersonRepository`, `GroupsRepository`, `EffectiveTeacherResolver`):
-    - `push( array $userIds, NotificationType $type, string $dedupeKey, array $payload = [], string $url = '', ?int $groupId = null, ?string $entityType = null, ?int $entityId = null ): void`
-      — по каждому получателю `insertIgnore`; для реально вставленных —
-      `do_action( 'fs_lms_notification_created', $recipientUserId, $type->value, $payload )`
-      (шов будущего Telegram-модуля Notifier);
-    - `pushFresh( … )` — `retract()` + `push()` (кейс переоценки работы: старая плитка заменяется свежей непрочитанной);
-    - `retract( array $userIds, string $dedupeKey ): void`;
-    - адресные хелперы: `studentUserId( int $personId ): ?int`;
-      `guardianUserIds( int $studentPersonId ): array` (обратного метода в кодовой базе нет —
-      инкапсулируем двухшаговый паттерн `PersonViewCallbacks.php:102-105`);
-      `groupStudentUserIds( int $groupId ): array` (`findActiveByGroupId` → `findByIds` → `wpUserId`);
-      `lessonStudentUserIds( GroupLessonDTO $l ): array` (individual → один ученик, group → группа);
-      `lessonTeacherUserId( GroupLessonDTO $l ): ?int` (`teacher_user_id` строки → `EffectiveTeacherResolver::forGroup()` → `groups.teacher_id`);
-    - `toClientArray( NotificationDTO $n ): array` — `{ id, type, tone, title, body, url, time, unread }`;
-      русские строки `title`/`body` собираются здесь из `type` + `payload` (единственная точка текстов).
-- Тесты: `tests/Integration/Repositories/NotificationRepositoryIntegrationTest.php` (FakeWpdb:
-  `INSERT IGNORE` в SQL, scoping по recipient, purge-условия);
-  `tests/Unit/Services/Profile/NotificationServiceTest.php` (fan-out адресатов, скип person без
-  `wpUserId`, `pushFresh` = delete+insert, хук создания только для вставленных).
+- `Migration_1_0_0::up()` (675 строк DDL) — снимок схемы, риск/выгода плохие
+- `StudentRecordRepository` (28 методов) — узкие query-методы одной таблицы, SRP не нарушен
+- `PostManager` — широкий фасад, не god-класс (кроме `buildListTable():154` — вынести)
+- Log-export-провайдеры (`inc/Services/Export/Log/`) — здоровая Strategy
+- Все 11 трейтов `inc/Shared/Traits/` — чистые, без state
+- `match` на енумах в сервисах — идиоматичный PHP 8
+- `error_log`, `get_header/get_footer`, `check_ajax_referer`/`wp_send_json` в Callbacks, хуки в Repositories/Registrars/Cli — нарушений нет
+- SCSS: вложенность (0 нарушений), `@use`/`@forward` везде, инлайн-`<script>` в шаблонах отсутствует
 
 ---
-
-## Этап 2 — событийные продюсеры
-
-- **Единый хук привязки записи** `do_action( 'fs_lms_recording_attached', int $groupLessonId )` —
-  диспатчить при непустом URL во всех трёх путях (существующий `fs_lms_video_registered` не трогаем):
-    1. `inc/Modules/VideoLibrary/Services/VideoRegistrationService.php` — в `bindToLesson()`
-       (покрывает REST-автоматч `register()` и ручную привязку `attachManually()`);
-    2. `inc/Callbacks/Course/ProgramCallbacks.php:588` `ajaxSetRecordingUrl()` (ручная ссылка из КТП, core);
-    3. `inc/Modules/VideoLibrary/Callbacks/VideoLibraryCallbacks.php:116` `ajaxSetLessonRecordingUrl()`.
-- Новый `inc/Controllers/Subscribers/NotificationSubscriber.php` (ServiceInterface, образец —
-  `LearningEventSubscriber`; ctor: `LogEventDispatcherInterface`, `NotificationService`,
-  `SubmissionRepository`, `AssessmentAttemptRepository`, `GroupLessonRepository`):
-    - `LogEvent::SubmissionGraded` → загрузить сдачу по `entity_id` (добавить
-      `SubmissionRepository::find(int $id)`, если отсутствует) → `pushFresh` `work_graded` ученику;
-      payload: балл, тема занятия; url: `lessonUrl + &step=` через `stepKeyForWork()`
-      (паттерн `LearnerService.php:167-171`); dedupe `graded:{submissionId}`;
-    - `LogEvent::SubmissionReturned` → `pushFresh` `work_returned` ученику (та же адресация),
-      dedupe `returned:{submissionId}`;
-    - `LogEvent::AttemptGraded` → по `entity_id` попытки взять `student_person_id` →
-      `attempt_graded` ученику **+ `guardianUserIds()`**; url: `/profile/?screen=learner-grades`;
-      dedupe `attempt:{attemptId}`;
-    - `LogEvent::SubmissionMade` → **фильтр ручной части**: статус `pending_review`
-      (batch-путь, `SubmissionService.php:209`) ИЛИ single-путь (`status='submitted'` всегда,
-      `SubmissionService.php:96,110`) с `task_id`, чей шаблон не имеет чекера
-      (`TaskCheckerRegistry::has() === false`) → `review_needed` учителю
-      (`lessonTeacherUserId()`); payload: snapshot-имя ученика, тема; url:
-      `/profile/?screen=summary`; dedupe `review:{submissionId}`.
-- `inc/Services/Course/SubstitutionService.php::assign()` (:33): + `NotificationService` в ctor
-  (autowiring); после `create()` → `push` `substitute_assigned` на `substitute_teacher_id`
-  (это уже WP user id); payload: имя группы, `valid_from–valid_to`, причина; url:
-  `/profile/?screen=dashboard`; dedupe `sub:{substitutionId}`. (Сервис сейчас не диспатчит
-  никаких событий — это первая точка.)
-- `inc/Services/Course/AttendanceService.php` (:27): + `NotificationService` в ctor:
-    - `mark(…, present: false)` → `push` `attendance_missed` на `guardianUserIds()`; payload:
-      snapshot-имя ребёнка (у родителя может быть несколько детей!), дата/тема занятия; url:
-      `/profile/?screen=learner-attendance`; dedupe `att:{groupLessonId}:{studentPersonId}`;
-    - `mark(…, present: true)` → `retract` того же ключа (исправление ошибочной отметки);
-    - `markAll()` — та же логика по каждому ученику. Будущие занятия сюда не доходят
-      (`guardNotFuture`, `JournalCallbacks.php:73`), открытые группы — тоже (:103-110).
-- Тесты: `tests/Unit/Controllers/Subscribers/NotificationSubscriberTest.php` (мок сервиса:
-  graded → ученик; attempt → ученик+родители; made c авто-чекером → НЕ уведомляет; made с
-  `file_answer_task` → учителю); дополнить `AttendanceServiceTest` (absent → push родителям,
-  present → retract) и `SubstitutionServiceTest` (assign → push замещающему).
-
----
-
-## Этап 3 — временны́е продюсеры (cron)
-
-- `inc/Enums/Wp/CronHook.php`: `case NotificationsTick = 'fs_lms_notifications_tick';` (после :18).
-- `inc/Controllers/System/CronController.php::register()`: `add_action` + планирование через
-  существующий идемпотентный `CronManager::schedule( CronHook::NotificationsTick->value, 'every_15_minutes' )`
-  (интервал уже регистрируется на :42, но сейчас никем не используется); хендлер
-  `handleNotificationsTick()` → `NotificationCronService::tick()`. Деактивация — ничего не делать:
-  `CronManager::unregisterAll()` итерирует `CronHook::cases()` и снимет новый хук сам.
-- Новый `inc/Services/Profile/NotificationCronService.php` (зависимости: `GroupLessonRepository`,
-  `SubmissionRepository`, `NotificationRepository`, `NotificationService`, `ClockInterface`):
-    - `tick(): void` = `lessonSoon()` + `deadlines()` + `purge()`; все окна устойчивы к пропущенным
-      тикам WP-Cron (низкий трафик): смотрим назад/вперёд с запасом, дубли гасит `dedupe_key`;
-    - `lessonSoon()`: новый метод `GroupLessonRepository::listStartingBetween( string $from, string $to ): array`
-      (`status='scheduled'`, `scheduled_at` ∈ `(now, now+30m]`; `visibility` НЕ фильтруем —
-      расписание ученику видно всегда) → получатели `lessonStudentUserIds()` + `lessonTeacherUserId()`;
-      payload: тема/label, время; url: `lessonUrl()` при наличии `lesson_id`, иначе `/profile/`;
-      dedupe `lesson_soon:{groupLessonId}`;
-    - `deadlines()`: новый метод `GroupLessonRepository::listWithDeadlines(): array`
-      (`visibility='open'` AND (`homework_due_at` NOT NULL OR `work_deadlines` NOT NULL));
-      per-work разбор — готовый `GroupLessonDTO::deadlineForWork()`; состав работ занятия — как в
-      `LearnerService.php:149-181`; для каждой пары (занятие, работа):
-        - дедлайн ∈ `(now, now+24h]` → `deadline_soon` ученикам занятия **без сдачи** (фильтр —
-          `SubmissionRepository::listByStudentAndGroupLesson()`, паттерн `LearnerService.php:152-155`);
-          url: `lessonUrl + &step=`; dedupe `dl_soon:{groupLessonId}:{workId}`;
-        - дедлайн ∈ `[now-24h, now)` → `deadline_missed` не сдавшим **+ их `guardianUserIds()`**;
-          dedupe `dl_miss:{groupLessonId}:{workId}`;
-    - `purge()`: `NotificationRepository::purge( 30, 90 )`.
-- Тесты `tests/Unit/Services/Profile/NotificationCronServiceTest.php` (фиксированный clock + моки):
-  границы окон (29 мин — да, 31 — нет; и для дедлайнов), сдавший исключён, individual-занятие →
-  один ученик, `deadline_missed` уходит и родителю, dedupe-ключи стабильны между тиками.
-
----
-
-## Этап 4 — AJAX-выдача и конфиг шва
-
-- `inc/Enums/Wp/AjaxHook.php`: новая группа `// ==== Уведомления кабинета ====` после `:305`:
-  `GetNotifications = 'get_notifications'` (без params; список 30 + пометить seen),
-  `GetNotificationsCount = 'get_notifications_count'` (badge-поллинг),
-  `MarkNotificationRead = 'mark_notification_read'` (params: id),
-  `MarkAllNotificationsRead = 'mark_all_notifications_read'`.
-- `inc/Enums/Wp/Nonce.php`: `case Notifications = 'fs_lms_notifications';` — вставить в основной
-  блок после `:102` (⚠️ не в хвост: файл не строго упорядочен, после `create()` (:109) лежат ещё
-  кейсы — новые добавляем до него).
-- Новый `inc/Callbacks/Profile/NotificationCallbacks.php` — no-capability эталон
-  `LearnerCallbacks.php:72-90`: `Nonce::Notifications->verify()` + `is_user_logged_in()`;
-  идентификатор получателя — **всегда** `get_current_user_id()`, клиентские id не принимаются:
-    - `ajaxGetNotifications()`: `listRecent(30)` → `array_map` `toClientArray()` → `markAllSeen()` →
-      `success( { items, unseen: 0 } )` (открытие выпадашки само гасит badge);
-    - `ajaxGetNotificationsCount()`: `success( { unseen: unseenCount() } )`;
-    - `ajaxMarkNotificationRead()`: `requireInt('id')` → `markRead( me, id )`;
-    - `ajaxMarkAllNotificationsRead()`.
-- Новый `inc/Controllers/Profile/NotificationController.php` — `extends AjaxController`,
-  `ajaxActions()` с 4 хуками (только `wp_ajax_`, кабинет всегда залогинен — nopriv не нужен).
-- `inc/Init.php`: `NotificationController::class` (рядом с профильными, :160-161),
-  `NotificationSubscriber::class` (рядом с `LearningEventSubscriber`, :168).
-- `inc/Services/Profile/ProfileViewResolver.php::jsConfig()`: блок для **всех ролей кабинета**:
-  `$config['notifications'] = [ 'nonce' => Nonce::Notifications->create(), 'actions' => [ 'list' => …, 'count' => …, 'markRead' => …, 'markAllRead' => … ] ];`
-- Тест `tests/Unit/Callbacks/Profile/NotificationCallbacksTest.php` (образец —
-  `LearnerCallbacksTest`: `fs_test_reset_ajax()`, `_test_logged_in`, `fs_test_capture_json`):
-  незалогинен → error; list помечает seen и отдаёт `unseen: 0`; markRead передаёт в репозиторий
-  именно `get_current_user_id()`; чужой id в POST игнорируется.
-
----
-
-## Этап 5 — UI: колокольчик, поповер, плитки
-
-- `templates/frontend/profile.php:66-68`: кнопке — `id="profBell"`, `aria-haspopup="true"`,
-  `title="Уведомления"` + внутрь `<span class="prof-bell-badge" id="profBellBadge" hidden></span>`;
-  после блока оверлеев (:80-82) — статичный контейнер
-  `<div class="prof-notif-pop" id="profNotifPop" hidden></div>` (наполняет JS).
-- `src/js/common/icons.js`: + фабрика `icoBell` — JS-зеркало пути `Icon::Bell`
-  (`inc/Enums/Ui/Icon.php:114`; правило зеркалирования — шапка icons.js:5-16). Иконки плиток —
-  только существующие фабрики: `video_uploaded` → `icoCamera`, `deadline_soon`/`lesson_soon` →
-  `icoClock`, `deadline_missed`/`attendance_missed` → `icoAlert`, `work_graded` → `icoCheck`,
-  `work_returned` → `icoReplace`, `attempt_graded`/`review_needed` → `icoDocCheck`,
-  `substitute_assigned` → `icoSwap`.
-- Новый `src/js/profile/notifications.js` (экранный модуль, паттерн кабинета):
-    - `initNotifications()`: гард `#profBell` + `window.fsProfile?.notifications`;
-      `api = createApi( fsProfile.notifications )`;
-    - поллинг: `count` сразу + `setInterval` 60 000 мс, пауза при `document.hidden`
-      (visibilitychange); badge: число, `9+` при переполнении, `hidden` при нуле;
-    - клик по колокольчику → toggle: `list` → рендер плиток → badge скрыт (сервер уже пометил seen);
-      закрытие — клик вне поповера и `Escape` (паттерн `app.js:275-282`);
-    - рендер: группировка «Сегодня / Вчера / Ранее»; плитка — `<a class="prof-notif-item" href=…
-    data-tone=…>` (кружок-иконка по `type`, `title`, `body`, относительное время — локальный
-      хелпер `timeAgo()`, точка непрочитанного при `unread`); клик по плитке → `markRead` → переход
-      по `url`; кнопка «Прочитать все» в шапке поповера → `markAllRead`; пусто — `emptyState()`
-      из `utils.js`;
-    - обработка ошибок — `toast(msg, 'error')`.
-- `src/js/profile/app.js`: импорт + вызов `initNotifications()` в `initProfile()` между `wire()`
-  и `initCollapse()` (:333-334).
-- Новый `src/scss/profile/components/_notifications.scss` + `@use` в `profile.scss` после
-  `overlays` (:15). Только токены (stylelint: hex запрещён вне `_variables`/`_tokens`):
-    - `.prof-bell-badge` — абсолютный кружок в правом-верхнем углу кнопки (родителю `#profBell`
-      добавить `position: relative`), фон `var(--err)`, белый текст, `min-width: rem(14)`;
-    - `.prof-notif-pop` — фиксирован под топбаром у правого края (`top: var(--top-h)`),
-      `width: rem(380)`, `max-height: 70vh`, `overflow-y: auto`, миксин `cab-card`,
-      `z-index: $z-ctx` (шкала бандла profile: топбар 20 < поповер 300 < тост 400);
-      мобилка `@include below($bp-mobile)` — растяжка от края до края;
-    - `.prof-notif-item` — grid «кружок / текст / время», hover `var(--surface-2)`, точка
-      непрочитанного `var(--accent)`; цвет кружка по `data-tone` из словаря `--ok/--err/--wait`
-        + акцент; секции-даты, шапка с «Прочитать все», появление — миксин `cab-enter`.
-- Сборка и линт: `npx gulp build`, `npm run lint:js`, `npm run lint:css`.
-
----
-
-## Этап 6 — документация и сквозная проверка
-
-- `.docs/FS_LMS_API.md`: раздел «Уведомления» — блок `fsProfile.notifications`, 4 действия,
-  формат плитки `toClientArray`, семантика seen/read (для будущего Telegram/mobile-порта).
-- `.docs/ModularArchitecture.md`: у листа Notifier — уточнить контракт: подписка на
-  `fs_lms_notification_created` + чтение `fs_lms_notifications`.
-- Проверка в Docker (`docker restart wp_app`; таблица создана напрямую, версия схемы НЕ сброшена):
-    - событийные: сдать работу с `file_answer_task` учеником (`demoteacher`-стенд, группа №1
-      «Тест-группа 9А») → у препода `review_needed`; оценить → у ученика `work_graded`; вернуть →
-      `work_returned`; привязать запись к занятию всеми тремя путями → `video_uploaded` только раз
-      (dedupe); отметить absent → у родителя `attendance_missed`, исправить на present → плитка
-      исчезла (retract); назначить замену → `substitute_assigned`;
-    - cron: выставить `scheduled_at`/дедлайны в окна и `docker compose … run --rm wpcli wp cron event run fs_lms_notifications_tick`
-      → `deadline_soon`/`deadline_missed` (+родителю)/`lesson_soon` (ученикам и учителю); повторный
-      прогон — дублей нет;
-    - UI: badge-счётчик, открытие гасит badge (seen), клик по плитке — переход по deep-link и
-      гашение точки (read), «Прочитать все», пустое состояние, мобильная ширина;
-    - PHPUnit весь сьют зелёный; линтеры чистые.
-
----
-
-## Карта файлов (уведомления)
-
-**Новые:**
-`inc/Enums/Profile/NotificationType.php`, `inc/DTO/Profile/NotificationDTO.php`,
-`inc/Repositories/WPDBRepositories/NotificationRepository.php`,
-`inc/Services/Profile/NotificationService.php`, `inc/Services/Profile/NotificationCronService.php`,
-`inc/Controllers/Subscribers/NotificationSubscriber.php`,
-`inc/Callbacks/Profile/NotificationCallbacks.php`, `inc/Controllers/Profile/NotificationController.php`,
-`src/js/profile/notifications.js`, `src/scss/profile/components/_notifications.scss`,
-+ тесты (`NotificationRepositoryIntegrationTest`, `NotificationServiceTest`,
-  `NotificationCronServiceTest`, `NotificationSubscriberTest`, `NotificationCallbacksTest`).
-
-**Изменяются:**
-`inc/Enums/Settings/TableName.php`, `inc/Migrations/Migration_1_0_0.php`,
-`inc/Enums/Wp/CronHook.php`, `inc/Controllers/System/CronController.php`,
-`inc/Enums/Wp/AjaxHook.php`, `inc/Enums/Wp/Nonce.php`, `inc/Init.php`,
-`inc/Services/Profile/ProfileViewResolver.php`,
-`inc/Services/Course/SubstitutionService.php`, `inc/Services/Course/AttendanceService.php`,
-`inc/Modules/VideoLibrary/Services/VideoRegistrationService.php`,
-`inc/Modules/VideoLibrary/Callbacks/VideoLibraryCallbacks.php`,
-`inc/Callbacks/Course/ProgramCallbacks.php`,
-`inc/Repositories/WPDBRepositories/GroupLessonRepository.php` (+`listStartingBetween`,
-`+listWithDeadlines`), `inc/Repositories/WPDBRepositories/SubmissionRepository.php` (+`find`,
-если нет), `templates/frontend/profile.php`, `src/js/common/icons.js`, `src/js/profile/app.js`,
-`src/scss/profile/profile.scss`,
-+ дополнение `AttendanceServiceTest`, `SubstitutionServiceTest`.
-
-**DI:** все новые классы автопровязываются контейнером (тайп-хинты в конструкторах);
-ручная регистрация — только class-string'и в `Init::getServices()` (`NotificationController`,
-`NotificationSubscriber`). `CronController` уже зарегистрирован (:134).
-
-## Порядок и зависимости (уведомления)
-
-```
-Этап 1 (схема+домен) ──→ Этап 2 (события) ──┐
-                     └─→ Этап 3 (cron)     ──┼─→ Этап 4 (AJAX+шов) → Этап 5 (UI) → Этап 6 (доки+e2e)
-```
-
-Этапы 2 и 3 независимы (оба зависят только от Этапа 1). Самые содержательные — Этапы 2 и 5.
-Риск-точки: (а) фильтр «ручной части» в `review_needed` — single-сдача всегда пишет `'submitted'`
-(`SubmissionService.php:96,110`), различать по шаблону задания, не по статусу; (б) существующая
-несостыковка очереди проверки (`listQueueByGroup` по умолчанию берёт только `'submitted'` без
-`'pending_review'`, `SubmissionRepository.php:100`) — уведомлений не касается, но всплывёт рядом:
-не чинить молча, зафиксировать отдельно.
-
----
+Баги
+1. Когда задания изначально создаешь и ставишь им статус "Черновик", то на странице заданий предмета они отображаются во вкладке "Черновики". Но если им после создания статус поменять на "Опубликовано", они так и остаются на вкладке "Черновики"

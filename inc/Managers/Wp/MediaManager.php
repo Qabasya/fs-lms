@@ -4,7 +4,11 @@ declare( strict_types=1 );
 
 namespace Inc\Managers\Wp;
 
+use Inc\Shared\Traits\ScopedFilter;
+
 class MediaManager {
+
+	use ScopedFilter;
 
 	private const ALLOWED_MIME_TYPES = array(
 		'image/jpeg',
@@ -64,12 +68,11 @@ class MediaManager {
 			$mimes['heif'] = 'image/heif';
 			return $mimes;
 		};
-		add_filter( 'upload_mimes', $extraMimes );
-		try {
-			$attachmentId = media_handle_upload( $fileKey, $postParent );
-		} finally {
-			remove_filter( 'upload_mimes', $extraMimes );
-		}
+		$attachmentId = $this->withFilter(
+			'upload_mimes',
+			$extraMimes,
+			static fn() => media_handle_upload( $fileKey, $postParent )
+		);
 
 		if ( is_wp_error( $attachmentId ) ) {
 			throw new \RuntimeException( $attachmentId->get_error_message() );

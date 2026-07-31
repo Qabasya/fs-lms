@@ -1,3 +1,5 @@
+import { debounce } from '../../../common/utils.js';
+import { searchParents, selectExistingParent, removeParentAssignment } from '../../managers/enrollment-api.js';
 /**
  * @module SelectParentModal
  * @description UI-компонент модального окна для поиска и назначения существующего родителя
@@ -37,13 +39,6 @@ const SEARCH_DEBOUNCE_MS = 250;
  * @param {number} ms
  * @returns {Function}
  */
-function debounce( fn, ms ) {
-    let timer;
-    return ( ...args ) => {
-        clearTimeout( timer );
-        timer = setTimeout( () => fn( ...args ), ms );
-    };
-}
 
 /**
  * UI-компонент модального окна выбора существующего родителя для заявки.
@@ -183,22 +178,8 @@ export const SelectParentModal = {
         const query = this.$modal.find( '#spm-search' ).val().trim();
 
         // Безопасное получение глобальных переменных WordPress.
-        // Оператор ?? подставляет пустой объект, если fs_lms_applications_vars не определен,
-        // что предотвращает ошибки при обращении к vars.nonces.
-        const vars  = window.fs_lms_applications_vars ?? {};
-
-        $.ajax( {
-            url:    fs_lms_vars.ajaxurl,
-            method: 'POST',
-            data:   {
-                action:   fs_lms_vars.ajax_actions.searchParents,
-                query:    query,
-                // Безопасное получение nonce с опциональной цепочкой ?.:
-                // если vars.nonces равен undefined, выражение вернет undefined, 
-                // а ?? '' подставит пустую строку.
-                security: vars.nonces?.manager ?? '',
-            },
-            success: ( res ) => {
+        searchParents( query ).then(
+            ( res ) => {
                 // Если сервер вернул ошибку, просто выходим — не показываем уведомление,
                 // так как это может быть штатная ситуация (например, слишком короткий запрос).
                 if ( ! res.success ) { return; }
@@ -246,11 +227,10 @@ export const SelectParentModal = {
                 this.$modal.find( '#spm-no-results' ).prop( 'hidden', true );
                 this.$modal.find( '#spm-table' ).prop( 'hidden', false );
             },
-            // Обработчик сетевых ошибок намеренно пустой.
-            // Это "fire and forget" запрос: если поиск упал, просто ничего не показываем.
-            // Пользователь может повторить попытку, нажав "Найти" еще раз.
-            error: () => {},
-        } );
+            // Ошибку поиска намеренно проглатываем: «fire and forget» —
+            // пользователь может повторить попытку, нажав «Найти» ещё раз.
+            () => {}
+        );
     },
 
     /**
@@ -263,18 +243,9 @@ export const SelectParentModal = {
     _selectParent( personId ) {
         // Считываем ID заявки из скрытого поля (установленного при открытии модалки)
         const appId = this.$modal.find( '#spm-application-id' ).val();
-        const vars  = window.fs_lms_applications_vars ?? {};
 
-        $.ajax( {
-            url:    fs_lms_vars.ajaxurl,
-            method: 'POST',
-            data:   {
-                action:           fs_lms_vars.ajax_actions.selectExistingParent,
-                application_id:   appId,
-                parent_person_id: personId,
-                security:         vars.nonces?.selectExistingParent ?? '',
-            },
-            success: ( res ) => {
+        selectExistingParent( appId, personId ).then(
+            ( res ) => {
                 if ( ! res.success ) {
                     // Используем AlertModal для показа ошибки вместо alert().
                     // Это соответствует единому стилю приложения и выглядит профессиональнее.
@@ -296,8 +267,8 @@ export const SelectParentModal = {
                     true                          // Флаг: родитель назначен
                 );
             },
-            error: () => AlertModal.show( 'Сетевая ошибка.' ),
-        } );
+            () => AlertModal.show( 'Сетевая ошибка.' )
+        );
     },
 
     /**
@@ -328,19 +299,9 @@ export const SelectParentModal = {
             return;
         }
 
-        // Если мы дошли до этой строки, значит пользователь подтвердил действие.
-        // Выполняем AJAX-запрос на снятие назначения.
-        const vars = window.fs_lms_applications_vars ?? {};
-
-        $.ajax( {
-            url:    fs_lms_vars.ajaxurl,
-            method: 'POST',
-            data:   {
-                action:         fs_lms_vars.ajax_actions.removeParentAssignment,
-                application_id: appId,
-                security:       vars.nonces?.removeParentAssignment ?? '',
-            },
-            success: ( res ) => {
+        // Пользователь подтвердил — снимаем назначение.
+        removeParentAssignment( appId ).then(
+            ( res ) => {
                 if ( ! res.success ) {
                     AlertModal.show( res.data || 'Ошибка снятия назначения.' );
                     return;
@@ -349,8 +310,8 @@ export const SelectParentModal = {
                 // Обновляем строку таблицы: родитель снят, имя '—', новая JOIN-ссылка
                 this._updateRow( appId, '—', res.data.join_url ?? '', false );
             },
-            error: () => AlertModal.show( 'Сетевая ошибка.' ),
-        } );
+            () => AlertModal.show( 'Сетевая ошибка.' )
+        );
     },
 
     /**
@@ -409,15 +370,13 @@ export const SelectParentModal = {
             // РОДИТЕЛЬ НАЗНАЧЕН: показываем кнопки "Сменить" и "Снять"
             $joinCell.append(
                 `<br><button type="button"
-                    class="button-link js-select-existing-parent"
-                    data-application-id="${ appId }"
-                    style="margin-top: 4px; font-size: 11px;">
+                    class="button-link js-select-existing-parent fs-parent-action"
+                    data-application-id="${ appId }">
                     ✎ Сменить родителя
                 </button>
                 <button type="button"
-                    class="button-link js-remove-parent-assignment"
-                    data-application-id="${ appId }"
-                    style="margin-top: 4px; font-size: 11px; color:#a00;">
+                    class="button-link js-remove-parent-assignment fs-parent-action fs-parent-action--danger"
+                    data-application-id="${ appId }">
                     ✕ Снять назначение
                 </button>`
             );
@@ -425,9 +384,8 @@ export const SelectParentModal = {
             // РОДИТЕЛЬ НЕ НАЗНАЧЕН: показываем только кнопку "Назначить"
             $joinCell.append(
                 `<br><button type="button"
-                    class="button-link js-select-existing-parent"
-                    data-application-id="${ appId }"
-                    style="margin-top: 4px; font-size: 11px;">
+                    class="button-link js-select-existing-parent fs-parent-action"
+                    data-application-id="${ appId }">
                     + Назначить родителя
                 </button>`
             );

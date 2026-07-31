@@ -15,6 +15,9 @@ enum Capability: string {
 	/** Базовое право администратора WordPress для доступа к настройкам */
 	case Admin = 'manage_options';
 
+	/** Управление терминами таксономий — штатная WP-капабилити рубрик. */
+	case ManageTerms = 'manage_categories';
+
 	/** Право управления платформой LMS (административные страницы плагина) */
 	case ManageLmsPlatform = 'manage_lms_platform';
 

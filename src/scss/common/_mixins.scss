@@ -7,7 +7,7 @@
 @mixin dark-bubble {
   background: $color-text-primary;
   color: $color-text-inverse;
-  border-radius: $border-radius-l;
+  border-radius: $border-radius-md;
   line-height: $line-height-base;
 }
 

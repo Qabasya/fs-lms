@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\SmartCaptcha\Config;
 
+use Inc\Modules\Shared\ModuleConfig;
+
 /**
  * Class SmartCaptchaConfig
  *
@@ -20,7 +22,7 @@ namespace Inc\Modules\SmartCaptcha\Config;
  *
  * @package Inc\Modules\SmartCaptcha\Config
  */
-class SmartCaptchaConfig {
+class SmartCaptchaConfig extends ModuleConfig {
 
 	/** Ключ опции модуля (вне core OptionName — изоляция). */
 	public const OPTION = 'fs_lms_smart_captcha';
@@ -34,25 +36,19 @@ class SmartCaptchaConfig {
 		'server_key' => '',
 	);
 
-	/** @return array<string, mixed> */
-	public function get(): array {
-		$stored = get_option( self::OPTION, array() );
-		return array_merge( self::DEFAULTS, is_array( $stored ) ? $stored : array() );
+	protected function option(): string {
+		return self::OPTION;
 	}
 
-	/** Мержит $partial поверх текущего значения; неизвестные ключи игнорирует. */
-	public function save( array $partial ): void {
-		$current = $this->get();
-		$updated = array_merge( $current, array_intersect_key( $partial, self::DEFAULTS ) );
-		update_option( self::OPTION, $updated, false );
+	/**
+	 * @return array<string, mixed>
+	 */
+	protected function defaults(): array {
+		return self::DEFAULTS;
 	}
 
-	/** Включён ли модуль в рантайме. Константа wp-config перекрывает тумблер. */
-	public function isEnabled(): bool {
-		if ( defined( 'FS_LMS_SMART_CAPTCHA' ) ) {
-			return (bool) constant( 'FS_LMS_SMART_CAPTCHA' );
-		}
-		return (bool) ( $this->get()['enabled'] ?? false );
+	protected function toggleConstant(): ?string {
+		return 'FS_LMS_SMART_CAPTCHA';
 	}
 
 	/** Публичный (клиентский) ключ. Константа wp-config перекрывает значение из опции. */
@@ -87,7 +83,7 @@ class SmartCaptchaConfig {
 	 * @return void
 	 */
 	public function maybeMigrateFromCore(): void {
-		if ( false !== get_option( self::OPTION, false ) ) {
+		if ( $this->optionExists() ) {
 			return; // своя опция уже есть — миграция не нужна
 		}
 

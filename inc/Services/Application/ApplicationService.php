@@ -274,7 +274,7 @@ readonly class ApplicationService {
 		$count = 0;
 
 		foreach ( $apps as $app ) {
-			$this->applicationRepository->setStatus( $app->id, ApplicationStatus::Expired );
+			$this->changeStatus( $app->id, ApplicationStatus::Expired );
 
 			$this->logEvents->dispatch(
 				LogEvent::ApplicationExpired,
@@ -288,5 +288,61 @@ readonly class ApplicationService {
 		}
 
 		return $count;
+	}
+
+	/**
+	 * Меняет статус заявки, проверив допустимость перехода.
+	 *
+	 * Правило перехода описано в {@see ApplicationStatus::canTransitionTo()};
+	 * репозиторий только пишет, поэтому владелец правила — этот сервис.
+	 *
+	 * @param int               $id     ID заявки
+	 * @param ApplicationStatus $status Целевой статус
+	 *
+	 * @throws \InvalidArgumentException Заявка не найдена или переход запрещён
+	 */
+	public function changeStatus( int $id, ApplicationStatus $status ): bool {
+		$application = $this->applicationRepository->find( $id );
+
+		if ( null === $application ) {
+			throw new \InvalidArgumentException( "Заявка с ID {$id} не найдена." );
+		}
+
+		if ( ! $application->status->canTransitionTo( $status ) ) {
+			throw new \InvalidArgumentException(
+				sprintf(
+					"Запрещённый переход статуса для заявки #%d: из '%s' в '%s'.",
+					$id,
+					$application->status->value,
+					$status->value
+				)
+			);
+		}
+
+		return $this->applicationRepository->setStatus( $id, $status );
+	}
+
+	/**
+	 * Физически удаляет заявку — только из корзины.
+	 *
+	 * @param int $id ID заявки
+	 *
+	 * @throws \InvalidArgumentException Заявка не найдена
+	 * @throws \LogicException           Заявка не в корзине
+	 */
+	public function deleteFromTrash( int $id ): bool {
+		$application = $this->applicationRepository->find( $id );
+
+		if ( null === $application ) {
+			throw new \InvalidArgumentException( "Заявка с ID {$id} не найдена." );
+		}
+
+		if ( ApplicationStatus::Trash !== $application->status ) {
+			throw new \LogicException(
+				sprintf( "Физическое удаление разрешено только для заявок в статусе 'trash'. Текущий статус: '%s'.", $application->status->value )
+			);
+		}
+
+		return $this->applicationRepository->delete( $id );
 	}
 }

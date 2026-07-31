@@ -16,6 +16,7 @@
 import '../_types.js';
 import { SubjectModal } from '../modals/subject-modal.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
+import { SubjectTransferApi } from './subject-transfer-api.js';
 import {
     toggleButton,
     apiError,
@@ -55,19 +56,12 @@ export const SubjectModalManager = {
         // Удаление предмета
         $(document).on('click', '.delete-subject', (e) => this._handleDelete(e));
 
-        // Экспорт предмета в JSON-файл
-        $(document).on('click', '.js-export-subject', (e) => this._handleExport(e));
+        // Экспорт и импорт предмета — SubjectTransferService (обе кнопки, оба формата).
 
         $(document).on('click', '.js-unarchive-subject', (e) => this._handleUnarchive(e));
 
         // Безвозвратное удаление прямо из «Архива» (минуя предложение архива).
         $(document).on('click', '.js-force-delete-subject', (e) => this._handleForceDelete(e));
-
-        // Импорт предмета: кнопка-триггер открывает стандартный file input
-        $('#fs-import-trigger').on('click', () => $('#fs-import-file').trigger('click'));
-
-        // Обработка выбора файла для импорта
-        $('#fs-import-file').on('change', (e) => this._handleImport(e));
     },
 
     /**
@@ -244,94 +238,6 @@ export const SubjectModalManager = {
     },
 
     /**
-     * Обработчик экспорта предмета.
-     * @private
-     * @param {jQuery.Event} e - Событие клика.
-     */
-    _handleExport(e) {
-        e.preventDefault();
-        const key = $(e.target).data('key');
-        const security = this._getNonce();
-        this._exportSubject(key, security, $(e.target));
-    },
-
-    /**
-     * Обработчик импорта предмета из JSON-файла.
-     * Использует FileReader API для чтения содержимого файла на стороне клиента.
-     * @private
-     * @param {Event} e - Событие change элемента input[type="file"].
-     */
-    _handleImport(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // Очищаем значение input, чтобы событие change сработало повторно,
-        // если пользователь выберет тот же файл снова.
-        // Без этого браузер не вызовет событие change при повторном выборе того же файла.
-        e.target.value = '';
-
-        // FileReader API — встроенный в браузер механизм для чтения содержимого файлов.
-        // Позволяет читать файлы без отправки их на сервер.
-        const reader = new FileReader();
-
-        // Обработчик успешного чтения файла
-        reader.onload = (ev) => {
-            let data;
-
-            // Безопасный парсинг JSON. Если файл поврежден или не является JSON,
-            // показываем понятную ошибку пользователю вместо падения всего скрипта.
-            try {
-                data = JSON.parse(ev.target.result);
-            } catch {
-                showNotice('Не удалось прочитать файл. Убедитесь, что это корректный JSON.', 'error', $('#fs-import-trigger').parent());
-                return;
-            }
-
-            // Извлекаем название предмета для отображения в подтверждении.
-            // Fallback-цепочка: сначала пытаемся взять name, затем key, затем общее слово.
-            const name = data?.subject?.name || data?.subject?.key || 'предмет';
-            const safeName = escapeHtml(name);
-
-            // Показываем модальное окно подтверждения импорта
-            ConfirmModal.confirm({
-                title: 'Импорт предмета',
-                message: `Импортировать «${safeName}»?\nБудут восстановлены: таксономии, термины, шаблоны, boilerplates и записи.`,
-                confirmText: 'Импортировать',
-                cancelText: 'Отмена',
-            })
-                .then(() => {
-                    // Отправляем ВЕСЬ JSON-контент файла на сервер.
-                    // Сервер сам распарсит его и восстановит все связанные данные.
-                    $.post(fs_lms_vars.ajaxurl, {
-                        action:   fs_lms_vars.ajax_actions.importSubject,
-                        json:     ev.target.result,
-                        security: this._getNonce(),
-                    })
-                        .done((res) => {
-                            if (res.success) {
-                                location.reload();
-                            } else {
-                                showNotice(res.data || 'Ошибка импорта', 'error', $('#fs-import-trigger').parent());
-                            }
-                        })
-                        .fail(() => {
-                            apiError('Failed to import subject');
-                        });
-                })
-                .catch(() => {});
-        };
-
-        // Обработчик ошибки чтения файла (например, нет прав доступа)
-        reader.onerror = () => {
-            showNotice('Ошибка чтения файла', 'error', $('#fs-import-trigger').parent());
-        };
-
-        // Запускаем чтение файла как текст (UTF-8).
-        // Результат будет доступен в reader.onload как ev.target.result (строка).
-        reader.readAsText(file);
-    },
-
-    /**
      * Показ первого модального окна предупреждения перед удалением.
      * Предлагает пользователю выбор: сразу удалить ИЛИ экспортировать данные перед удалением.
      * Это UX-паттерн "предложить альтернативу деструктивному действию".
@@ -420,7 +326,7 @@ export const SubjectModalManager = {
                 // Пользователь нажал "Экспортировать и удалить" (кнопка cancelText).
                 // Сначала экспортируем данные, затем показываем финальное подтверждение.
                 if (reason === 'cancel') {
-                    this._exportSubject(key, security, $btn, () => {
+                    this._exportSubject(key, $btn, () => {
                         // Колбэк onComplete вызывается после завершения экспорта.
                         // Снова используем setTimeout для визуального разделения модалок.
                         setTimeout(() => {
@@ -539,47 +445,23 @@ export const SubjectModalManager = {
     },
 
     /**
-     * Экспорт предмета в JSON-файл на стороне клиента.
-     * Использует Blob API для создания файла в браузере без участия сервера в скачивании.
+     * Выгрузка структуры предмета перед удалением — быстрый JSON-снимок.
+     *
+     * Здесь формат не спрашиваем: это страховка на пути удаления, а не полноценный
+     * перенос (он живёт в SubjectTransferService с выбором JSON/ZIP).
+     *
      * @private
      * @param {string} key - Ключ предмета.
-     * @param {string} security - Nonce-токен.
      * @param {jQuery} $btn - jQuery-объект кнопки.
      * @param {Function|null} onComplete - Колбэк, вызываемый после завершения экспорта.
      */
-    _exportSubject(key, security, $btn, onComplete = null) {
+    _exportSubject(key, $btn, onComplete = null) {
         toggleButton($btn, true, 'Экспорт...');
 
-        $.post(fs_lms_vars.ajaxurl, {
-            action:   fs_lms_vars.ajax_actions.exportSubject,
-            key:      key,
-            security: security,
-        })
-            .done((res) => {
-                if (res.success) {
-                    // BLOB API: Создаем файл прямо в браузере из JSON-данных.
-                    // 1. JSON.stringify с параметрами (null, 2) форматирует JSON с отступами для читаемости.
-                    // 2. new Blob создает бинарный объект из строки.
-                    // 3. URL.createObjectURL генерирует временную ссылку на этот blob.
-                    // 4. Создаем невидимую ссылку <a>, кликаем по ней для скачивания, затем удаляем.
-                    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `subject_${key}_export.json`; // Имя скачиваемого файла
-                    a.click();
-
-                    // Освобождаем память: удаляем временную ссылку на blob.
-                    // Это важно, так как blob хранится в памяти браузера.
-                    URL.revokeObjectURL(url);
-                } else {
-                    showNotice(res.data || 'Ошибка экспорта', 'error', $btn.closest('td'));
-                }
-            })
-            .fail(() => apiError('Failed to export subject'))
-            .always(() => {
-                // .always() срабатывает независимо от успеха/ошибки.
-                // Гарантируем, что кнопка разблокируется и вызывается колбэк (если есть).
+        SubjectTransferApi.exportJson(key)
+            .then((data) => SubjectTransferApi.downloadJson(data, `subject_${key}_export.json`))
+            .catch((err) => showNotice(err.message, 'error', $btn.closest('td')))
+            .then(() => {
                 toggleButton($btn, false);
                 if (typeof onComplete === 'function') {
                     onComplete();

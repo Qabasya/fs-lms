@@ -72,8 +72,8 @@ readonly class ExportService {
 		$provider = $this->registry->resolve( $target );
 
 		// Получение данных и метаинформации от провайдера
-		$rows     = $provider->rows( $context );      // Итератор строк
-		$columns  = $provider->columns();              // Структура колонок
+		$rows     = $provider->rows( $context );        // Итератор строк
+		$columns  = $provider->columns( $context );     // Структура колонок (зависит от контекста)
 		$filename = $provider->filename() . '-' . wp_date( 'Y-m-d' ) . '.csv';
 
 		// Генерация CSV-файла и получение ссылки для скачивания

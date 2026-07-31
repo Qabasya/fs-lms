@@ -23,18 +23,34 @@ class ScoreMapField extends BaseField {
 	public function render( \WP_Post $post, string $id, string $label, mixed $value ): void {
 		$content = self::toTsv( $value );
 		?>
-		<div class="fs-lms-field-group">
+		<div class="fs-lms-field-group fs-score-map" data-assessment-id="<?php echo esc_attr( (string) $post->ID ); ?>">
 			<div class="fs-lms-label-row">
 				<label class="fs-lms-label" for="<?php echo esc_attr( $id ); ?>">
 					<?php echo esc_html( $label ); ?>
 				</label>
 				<?php echo self::tooltip( self::TOOLTIP ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				<button type="button" class="button-link fs-score-map__copy-toggle">
+					Скопировать из другого экзамена
+				</button>
 			</div>
+
+			<?php // Панель выбора источника: наполняется по get_score_map_sources при первом раскрытии. ?>
+			<div class="fs-score-map__copy" hidden>
+				<select class="fs-score-map__source" disabled>
+					<option value="">Загрузка…</option>
+				</select>
+				<button type="button" class="button fs-score-map__apply" disabled>Скопировать</button>
+				<span class="fs-score-map__copy-note"></span>
+			</div>
+
 			<textarea id="<?php echo esc_attr( $id ); ?>"
 					name="<?php echo esc_attr( $this->get_field_name( $id ) ); ?>"
 					class="large-text fs-lms-score-map-field"
 					rows="4"
 					placeholder="<?php echo esc_attr( self::PLACEHOLDER ); ?>"><?php echo esc_textarea( $content ); ?></textarea>
+
+			<?php // Живой разбор вставленного текста (parse_score_map) — сколько пар распознано. ?>
+			<p class="fs-score-map__parsed description" aria-live="polite"></p>
 		</div>
 		<?php
 	}

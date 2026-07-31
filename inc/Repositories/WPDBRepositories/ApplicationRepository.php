@@ -259,7 +259,10 @@ class ApplicationRepository {
 	 * @param int               $id     ID заявки
 	 * @param ApplicationStatus $status Целевой статус
 	 *
-	 * @throws \InvalidArgumentException Если переход между статусами невалиден
+	 * Правило допустимости перехода живёт в {@see \Inc\Services\Application\ApplicationService::changeStatus()}
+	 * — хранилище только пишет (аудит §P3).
+	 *
+	 * @throws \InvalidArgumentException Если заявка не найдена
 	 *
 	 * @return bool
 	 */
@@ -268,20 +271,6 @@ class ApplicationRepository {
 
 		if ( null === $currentApplication ) {
 			throw new \InvalidArgumentException( "Заявка с ID {$id} не найдена." );
-		}
-
-		$currentStatus = $currentApplication->status;
-
-		// Валидация перехода через метод Enum
-		if ( ! $currentStatus->canTransitionTo( $status ) ) {
-			throw new \InvalidArgumentException(
-				sprintf(
-					"Запрещённый переход статуса для заявки #%d: из '%s' в '%s'.",
-					$id,
-					$currentStatus->value,
-					$status->value
-				)
-			);
 		}
 
 		// current_time() — возвращает текущее время в формате MySQL
@@ -346,7 +335,8 @@ class ApplicationRepository {
 	 *
 	 * @param int $id ID заявки
 	 *
-	 * @throws \LogicException Если статус заявки не 'trash'
+	 * Правило «удалять только из корзины» — в
+	 * {@see \Inc\Services\Application\ApplicationService::deleteFromTrash()}.
 	 *
 	 * @return bool
 	 */
@@ -355,12 +345,6 @@ class ApplicationRepository {
 
 		if ( null === $application ) {
 			throw new \InvalidArgumentException( "Заявка с ID {$id} не найдена." );
-		}
-
-		if ( ApplicationStatus::Trash !== $application->status ) {
-			throw new \LogicException(
-				sprintf( "Физическое удаление разрешено только для заявок в статусе 'trash'. Текущий статус: '%s'.", $application->status->value )
-			);
 		}
 
 		$result = $this->wpdb->delete( $this->table, array( 'id' => $id ) );
