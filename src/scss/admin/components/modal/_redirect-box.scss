@@ -33,13 +33,13 @@
       align-items: center;
       justify-content: center;
       background: $wp-admin-blue-bg-light;
-      border-radius: $border-radius-md;
+      border-radius: $border-radius-sm;
       color: $wp-admin-blue;
 
       .dashicons {
-        font-size: $font-size-l;
-        width: $font-size-l;
-        height: $font-size-l;
+        font-size: $font-size-xl;
+        width: $font-size-xl;
+        height: $font-size-xl;
       }
     }
   }
@@ -47,14 +47,14 @@
   &__title-group {
     h3 {
       margin: 0 0 $spacing-xs !important;
-      font-size: $font-size-m !important;
-      font-weight: $font-bold !important;
+      font-size: $font-size-md !important;
+      font-weight: $font-semibold !important;
       color: $color-text-primary !important;
     }
 
     p {
       margin: 0 !important;
-      font-size: $font-size !important;
+      font-size: $font-size-base !important;
       color: $color-text-secondary !important;
     }
   }
@@ -68,17 +68,17 @@
     border: 1px solid $wp-admin-blue;
     color: $wp-admin-blue !important;
     padding: $spacing-sm $spacing-lg;
-    border-radius: $border-radius-md;
-    font-size: $font-size;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-base;
     font-weight: $font-regular;
     text-decoration: none;
     transition: $transition-fast;
     white-space: nowrap;
 
     .dashicons {
-      font-size: $font-size-m;
-      width: $font-size-m;
-      height: $font-size-m;
+      font-size: $font-size-md;
+      width: $font-size-md;
+      height: $font-size-md;
     }
 
     &:hover {
@@ -103,7 +103,7 @@
       position: relative;
       padding-left: rem(45) !important;
       margin: 0 !important;
-      font-size: $font-size !important;
+      font-size: $font-size-base !important;
       line-height: 1.6 !important;
       color: $color-text-primary;
 
@@ -117,7 +117,7 @@
 
         @include badge-circle(rem(26), $wp-admin-blue);
 
-        font-weight: $font-bold;
+        font-weight: $font-semibold;
         font-size: $font-size-xs;
         z-index: 2;
       }
@@ -137,7 +137,7 @@
       // Стилизация внутренних тегов списка
       strong { color: $color-text-primary; }
       a { color: $wp-admin-blue; text-decoration: none; &:hover { text-decoration: underline; } }
-      code { background: $wp-admin-gray-2; padding: rem(2) rem(6); border-radius: $border-radius-md; font-size: $font-size-wp; }
+      code { background: $wp-admin-gray-2; padding: rem(2) rem(6); border-radius: $border-radius-sm; font-size: $font-size-sm; }
     }
   }
 
@@ -163,21 +163,21 @@
       font-size: rem(18);
       width: rem(18);
       height: rem(18);
-      font-weight: $font-heavy;
+      font-weight: $font-bold;
     }
   }
 
   &__text {
     h4 {
       margin: 0 0 $spacing-xs !important;
-      font-size: $font-size-m!important;
-      font-weight: $font-bold !important;
+      font-size: $font-size-md !important; // перебивает WP-core
+      font-weight: $font-semibold !important;
       color: $color-text-primary !important;
     }
 
     p {
       margin: 0 !important;
-      font-size: $font-size !important;
+      font-size: $font-size-base !important;
       color: $color-text-secondary !important;
     }
   }
@@ -187,13 +187,13 @@
 .fs-lms-redirect-box {
   background: rgba($wp-admin-gray, 0.08);
   border: 1px solid $color-border-input;
-  border-radius: $border-radius-l;
+  border-radius: $border-radius-md;
   padding: $spacing-md;
   margin: $spacing-md 0;
 
   &__label {
-    font-weight: $font-bold;
-    font-size: $font-size;
+    font-weight: $font-semibold;
+    font-size: $font-size-base;
     color: $color-text-primary;
   }
 
@@ -210,7 +210,7 @@
   // Моноширинная текстовая ссылка
   &__url {
     font-family: $font-mono;
-    font-size: $font-size;
+    font-size: $font-size-base;
     color: $color-text-primary;
     word-break: break-all;
     user-select: all;
@@ -223,7 +223,7 @@
 
   // Мелкий текст-подсказка прямо под ссылкой
   &__subtext {
-    font-size: $font-size-sm;
+    font-size: $font-size-2xs;
     color: $color-text-secondary;
   }
 
@@ -237,9 +237,9 @@
 
     .dashicons {
       color: $wp-admin-blue;
-      font-size: $font-size-l;
-      width: $font-size-l;
-      height: $font-size-l;
+      font-size: $font-size-xl;
+      width: $font-size-xl;
+      height: $font-size-xl;
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -247,7 +247,7 @@
 
     p {
       margin: 0 !important;
-      font-size: $font-size !important;
+      font-size: $font-size-base !important;
       line-height: 1.4 !important;
       color: $color-text-primary !important;
     }

@@ -300,7 +300,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
     </div>
 
     <!-- Показывается вместо формы OTP после успешной отправки -->
-    <div class="js-otp-success-block fs-apply-card__success" style="display:none" role="status">
+    <div class="js-otp-success-block fs-apply-card__success" role="status" hidden>
         <span class="dashicons dashicons-yes-alt fs-apply-card__success-icon" aria-hidden="true"></span>
         <p class="fs-apply-card__success-title">
             <?php esc_html_e( 'Заявка успешно отправлена!', 'fs-lms' ); ?>

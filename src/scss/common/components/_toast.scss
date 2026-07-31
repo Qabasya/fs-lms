@@ -23,7 +23,7 @@
   @include m.dark-bubble;
 
   box-shadow: $shadow-toast;
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
   pointer-events: auto;
   opacity: 0;
   transform: translateY(rem(8));

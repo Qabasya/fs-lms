@@ -43,7 +43,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 		$this->authorize( Nonce::AuthorAssessment, Capability::AuthorLmsCourses );
 
 		$assessment_id = $this->requireInt( 'assessment_id' );
-		$item_ids      = array_map( 'intval', (array) ( $_POST['item_ids'] ?? array() ) );
+		$item_ids      = $this->sanitizeIntList( 'item_ids' );
 
 		$raw_points  = (array) ( $_POST['task_points'] ?? array() );
 		$task_points = array();
@@ -61,7 +61,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 		$task_numbers = array();
 		foreach ( $raw_numbers as $task_id => $number ) {
 			$tid = (int) $task_id;
-			$num = sanitize_text_field( (string) wp_unslash( $number ) );
+			$num = $this->sanitizeTextValue( $number );
 			if ( $tid > 0 && '' !== $num ) {
 				$task_numbers[ $tid ] = $num;
 			}

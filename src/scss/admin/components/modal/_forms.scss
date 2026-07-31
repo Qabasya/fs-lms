@@ -15,10 +15,10 @@
   // Подпись к полю
   label {
     display: block;
-    font-weight: $font-bold;
+    font-weight: $font-semibold;
     margin-bottom: $spacing-sm;
     color: $color-text-primary;
-    font-size: $font-size-wp;
+    font-size: $font-size-sm;
   }
 
   // Поля ввода: text, email, password и т.д.
@@ -26,14 +26,14 @@
 
   @each $type in $input-types {
     input[type="#{$type}"] {
-      @include wp-input($height: $input-height-sm, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
+      @include wp-input($height: $input-height-sm, $radius: $border-radius-sm, $fs: $font-size-sm, $transition: $transition-default, $box-sizing: border-box);
     }
   }
 
   // Select и textarea
   select,
   textarea {
-    @include wp-input($height: $input-height-sm, $radius: $border-radius-md, $fs: $font-size-wp, $transition: $transition-default, $box-sizing: border-box);
+    @include wp-input($height: $input-height-sm, $radius: $border-radius-sm, $fs: $font-size-sm, $transition: $transition-default, $box-sizing: border-box);
   }
 
   // Одинаковая ширина основных полей (название/период/предмет/преподаватель) —
@@ -58,7 +58,7 @@
 
   // Подсказка под полем
   .description {
-    font-size: $font-size;
+    font-size: $font-size-base;
     font-style: italic;
     color: $color-text-secondary;
     margin-top: $spacing-xs;
@@ -71,7 +71,7 @@
 
     + .error-message {
       color: $color-danger;
-      font-size: $font-size;
+      font-size: $font-size-base;
       margin-top: $spacing-xs;
       display: block;
     }

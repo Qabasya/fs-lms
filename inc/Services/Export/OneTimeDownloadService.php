@@ -4,6 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Export;
 
+use Inc\Enums\Wp\TransientKey;
+use Inc\Managers\Wp\TransientManager;
+
 /**
  * Class OneTimeDownloadService
  *
@@ -32,9 +35,15 @@ namespace Inc\Services\Export;
 class OneTimeDownloadService {
 
 	/**
+	 * @param TransientManager $transients Реестр одноразовых ссылок
+	 */
+	public function __construct(
+		private readonly TransientManager $transients,
+	) {}
+
+	/**
 	 * Префикс транзиента с описанием файла.
 	 */
-	private const string TRANSIENT_PREFIX = 'fs_lms_export_';
 
 	/**
 	 * Подкаталог uploads для сгенерированных файлов.
@@ -112,7 +121,7 @@ class OneTimeDownloadService {
 	 * @return string
 	 */
 	private function publish( string $token, string $path, string $filename, string $contentType ): string {
-		set_transient( self::TRANSIENT_PREFIX . $token, array(
+		$this->transients->set( TransientKey::Export, $token, array(
 			'file'         => $path,
 			'filename'     => $filename,
 			'content_type' => $contentType,

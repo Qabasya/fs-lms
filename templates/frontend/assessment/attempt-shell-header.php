@@ -16,6 +16,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\Ui\Icon;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -40,7 +42,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			// результата («Вернуться к курсу»). Пока идёт попытка — индикатор-замок. ?>
 			<?php if ( ! empty( $examInProgress ) ) : ?>
 				<span class="s-locked" title="<?php esc_attr_e( 'Выйти можно только сдав работу', 'fs-lms' ); ?>">
-					<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><rect x="4.5" y="8.5" width="11" height="8" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 8.5V6.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.5"/></svg>
+					<?php echo Icon::Lock->svg( 15 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					<?php esc_html_e( 'Идёт контрольная', 'fs-lms' ); ?>
 				</span>
 			<?php endif; ?>
@@ -51,7 +53,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<?php if ( ! empty( $examInProgress ) && $assessment->timeLimit > 0 ) : ?>
 				<?php /* Таймер в липкой шапке — всегда виден при скролле; заполняется assessment.min.js. */ ?>
 				<span class="s-timer" id="fs-assessment-timer">
-					<svg width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4.2l2.8 1.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+					<?php echo Icon::Clock->svg( 15 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					<span id="fs-timer-display">—</span>
 				</span>
 			<?php endif; ?>

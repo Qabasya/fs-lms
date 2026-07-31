@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Subject;
 
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\DTO\Subject\SubjectDTO;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
@@ -90,7 +90,7 @@ class SubjectImportServiceTest extends TestCase {
 		$rollback = $this->createMock( ImportRollbackService::class );
 		$rollback->expects( self::once() )
 			->method( 'undo' )
-			->willReturnCallback( function ( ImportedEntitiesDTO $created ) use ( &$captured ): void {
+			->willReturnCallback( function ( ImportedEntitiesCollector $created ) use ( &$captured ): void {
 				$captured = $created;
 			} );
 
@@ -103,7 +103,7 @@ class SubjectImportServiceTest extends TestCase {
 			// Исключение перебрасывается наружу — но уже с чистой БД.
 		}
 
-		self::assertInstanceOf( ImportedEntitiesDTO::class, $captured );
+		self::assertInstanceOf( ImportedEntitiesCollector::class, $captured );
 		self::assertSame( array( 'math' ), $captured->subjectKeys() );
 		self::assertSame( 2, $captured->counts()['terms'], 'созданные термины должны попасть в откат' );
 	}
@@ -119,7 +119,7 @@ class SubjectImportServiceTest extends TestCase {
 		$captured = null;
 		$rollback = $this->createMock( ImportRollbackService::class );
 		$rollback->method( 'undo' )->willReturnCallback(
-			function ( ImportedEntitiesDTO $created ) use ( &$captured ): void {
+			function ( ImportedEntitiesCollector $created ) use ( &$captured ): void {
 				$captured = $created;
 			}
 		);

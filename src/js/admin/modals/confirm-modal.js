@@ -33,7 +33,12 @@ const ConfirmModal = {
      * Кэширует DOM-элементы для оптимизации производительности.
      * Должен вызываться один раз после отрисовки страницы (например, в главном файле инициализации).
      */
+    /** Повторный init() — no-op: модалку поднимает и автозагрузчик ui.js, и admin.js. */
+    _initialized: false,
+
     init() {
+        if ( this._initialized ) { return; }
+        this._initialized = true;
         this.$body = $('body');
         this.$modal = $('#fs-lms-confirm-modal');
     },

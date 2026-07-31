@@ -9,9 +9,8 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Import\ImportMode;
 use Inc\Enums\Wp\Nonce;
-use Inc\Services\Import\EnrolledStudentRowImporter;
 use Inc\Services\Import\ImportService;
-use Inc\Services\Import\StudentRowImporter;
+use Inc\Services\Import\RowImporterRegistry;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use InvalidArgumentException;
@@ -37,14 +36,12 @@ class ImportCallbacks extends BaseController {
 	private const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 	/**
-	 * @param StudentRowImporter         $archiveImporter  Импортёр строки: архивные записи
-	 * @param EnrolledStudentRowImporter $enrolledImporter Импортёр строки: полное зачисление
-	 * @param ImportService              $importService    Оркестратор импорта
+	 * @param RowImporterRegistry $importers     Импортёр строки по режиму
+	 * @param ImportService       $importService Оркестратор импорта
 	 */
 	public function __construct(
-		private readonly StudentRowImporter         $archiveImporter,
-		private readonly EnrolledStudentRowImporter $enrolledImporter,
-		private readonly ImportService              $importService,
+		private readonly RowImporterRegistry $importers,
+		private readonly ImportService       $importService,
 	) {
 		parent::__construct();
 	}
@@ -66,7 +63,7 @@ class ImportCallbacks extends BaseController {
 		$tmpPath = $this->validateUploadedFile();
 		$dryRun  = $this->sanitizeBool( 'dry_run' );
 
-		$importer = ImportMode::Enrolled === $mode ? $this->enrolledImporter : $this->archiveImporter;
+		$importer = $this->importers->for( $mode );
 
 		try {
 			$report = $this->importService->run( $importer, $mode, $sendEmails, $subjectKey, $periodId, $tmpPath, $dryRun );

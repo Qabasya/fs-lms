@@ -24,10 +24,10 @@ if ( $dto->articles_table ) :
 		<div class="fs-page-header__content">
 			<h2 class="fs-page-header__title">Статьи</h2>
 			<div class="fs-page-header__actions">
-				<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=' . $t->post_type ) ); ?>"
+				<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=' . $t->postType ) ); ?>"
 					target="_blank"
 					class="button button-primary">
-					<?php echo esc_html( $t->post_type_object->labels->add_new ); ?>
+					<?php echo esc_html( $t->postTypeObject->labels->add_new ); ?>
 				</a>
 				<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=' . $articles_cpt ) ); ?>"
 					class="button"

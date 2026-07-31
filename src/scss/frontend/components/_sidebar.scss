@@ -12,12 +12,12 @@
 .fs-sidebar-block {
   background: $color-white;
   border: 1px solid $color-border-light;
-  border-radius: $radius-lg;
+  border-radius: $border-radius-xl;
   padding: rem(20) rem(22) rem(22);
 }
 
 .fs-sidebar-title {
-  font-size: $font-size-xxs;
+  font-size: $font-size-xs;
   font-weight: $font-semibold;
   text-transform: uppercase;
   letter-spacing: .08em;
@@ -26,14 +26,14 @@
 }
 
 .fs-sidebar-stub {
-  font-size: $font-size-xs;
+  font-size: $font-size-sm;
   color: $color-muted;
   margin-bottom: $spacing-sm;
 }
 
 .fs-sidebar-more {
   display: inline-block;
-  font-size: $font-size-xxs;
+  font-size: $font-size-xs;
   color: $color-separator;
   transition: color $transition;
   margin-top: rem(20);
@@ -65,13 +65,13 @@
 }
 
 .fs-sidebar-article-title {
-  font-size: $font-size-xs;
+  font-size: $font-size-sm;
   font-weight: 500;
   line-height: $line-height-tight;
 }
 
 .fs-sidebar-article-desc {
-  font-size: $font-size-xxs;
+  font-size: $font-size-xs;
   color: $color-muted;
   line-height: $line-height-tight;
 

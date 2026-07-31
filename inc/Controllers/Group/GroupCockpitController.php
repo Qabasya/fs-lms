@@ -17,7 +17,7 @@ use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Managers\Course\CourseManager;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GroupAccessGuard;
-use Inc\Services\Group\ScheduleService;
+use Inc\Services\Group\ProgramCompositionService;
 use Inc\Services\Shared\ThemeCompatService;
 
 class GroupCockpitController extends BaseController implements ServiceInterface {
@@ -25,7 +25,7 @@ class GroupCockpitController extends BaseController implements ServiceInterface 
 	public function __construct(
 		private readonly GroupAccessGuard        $guard,
 		private readonly GroupsRepository        $groups,
-		private readonly ScheduleService         $scheduleService,
+		private readonly ProgramCompositionService $program,
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly LearningEventRepository $eventRepo,
 		private readonly GroupLessonRepository   $groupLessons,
@@ -90,7 +90,7 @@ class GroupCockpitController extends BaseController implements ServiceInterface 
 	private function renderCockpit( int $groupId, int $userId ): void {
 		$group      = $this->groups->findById( $groupId );
 		$subjectKey = $group->subject_key ?? '';
-		$program    = $this->scheduleService->getProgram( $groupId );
+		$program    = $this->program->getProgram( $groupId );
 		$roster     = $this->studentRecords->findActiveByGroupId( $groupId );
 		$events     = $this->eventRepo->listByGroup( $groupId, 1, 20 );
 		$total      = $this->eventRepo->countByGroup( $groupId );
@@ -103,7 +103,7 @@ class GroupCockpitController extends BaseController implements ServiceInterface 
 
 	private function renderStudentCockpit( int $groupId, int $studentPersonId ): void {
 		$group   = $this->groups->findById( $groupId );
-		$program = $this->scheduleService->getProgram( $groupId );
+		$program = $this->program->getProgram( $groupId );
 
 		$lessons = [];
 		foreach ( $program as $item ) {

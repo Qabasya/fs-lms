@@ -14,7 +14,7 @@
    getRoster / getFreeRooms / lessonCandidates / createIndividual / updateIndividual.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, todayIso, openGradePopPositioned, closeGradePop } from './utils.js';
+import { esc, toast, todayIso, openGradePopPositioned, closeGradePop, fmtDate } from './utils.js';
 
 export function openIndiModal( o ) {
     const pop = document.getElementById( 'profGradePop' );
@@ -169,10 +169,6 @@ export function openIndiModal( o ) {
 }
 
 /** 'YYYY-MM-DD' → 'DD.MM'. */
-function fmtDate( iso ) {
-    const p = String( iso ).split( '-' );
-    return p.length === 3 ? `${ p[ 2 ] }.${ p[ 1 ] }` : iso;
-}
 
 /** '15:00' → '16:00' — дефолт времени окончания (начало + 1 час). */
 function addHour( time ) {

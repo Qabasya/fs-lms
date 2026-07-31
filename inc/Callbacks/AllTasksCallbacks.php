@@ -111,7 +111,7 @@ class AllTasksCallbacks extends BaseController {
 	 * @return array<string, string[]>
 	 */
 	private function parseTaxonomyFilters(): array {
-		$raw = isset( $_POST['filters'] ) ? wp_unslash( $_POST['filters'] ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput
+		$raw = $this->unslashArray( 'filters' );
 
 		if ( ! is_array( $raw ) ) {
 			return array();
@@ -120,7 +120,7 @@ class AllTasksCallbacks extends BaseController {
 		$result = array();
 
 		foreach ( $raw as $taxonomy => $slugs ) {
-			$tax = sanitize_key( (string) $taxonomy );
+			$tax = $this->sanitizeKeyValue( $taxonomy );
 
 			if ( '' === $tax || ! is_array( $slugs ) ) {
 				continue;

@@ -7,7 +7,7 @@ namespace Inc\Services\Subject\Bundle;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Enrollment\StudentRecordInputDTO;
 use Inc\DTO\Person\PersonInputDTO;
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
@@ -84,13 +84,13 @@ class StudentBundleImporter {
 	 * @param array               $students   Раздел `students` манифеста
 	 * @param string              $subjectKey Ключ импортированного предмета
 	 * @param ExportIdMapper      $mapper     Карта `_export_id → новый WP ID` (для курса группы)
-	 * @param ImportedEntitiesDTO $created    Журнал созданного (для отката)
+	 * @param ImportedEntitiesCollector $created    Журнал созданного (для отката)
 	 *
 	 * @return array{count: int, warnings: string[], credentials: array<int, array<string, string>>}
 	 *
 	 * @throws RuntimeException При ошибке создания группы
 	 */
-	public function restore( array $students, string $subjectKey, ExportIdMapper $mapper, ImportedEntitiesDTO $created ): array {
+	public function restore( array $students, string $subjectKey, ExportIdMapper $mapper, ImportedEntitiesCollector $created ): array {
 		$warnings    = array();
 		$credentials = array();
 
@@ -132,7 +132,7 @@ class StudentBundleImporter {
 	 * @param string              $subjectKey Ключ предмета
 	 * @param string              $periodId   ID учебного периода целевого сайта
 	 * @param ExportIdMapper      $mapper     Карта записей (для резолва курса)
-	 * @param ImportedEntitiesDTO $created    Журнал созданного
+	 * @param ImportedEntitiesCollector $created    Журнал созданного
 	 * @param string[]            $warnings   Аккумулятор предупреждений (по ссылке)
 	 *
 	 * @return array<int, int>
@@ -144,7 +144,7 @@ class StudentBundleImporter {
 		string $subjectKey,
 		string $periodId,
 		ExportIdMapper $mapper,
-		ImportedEntitiesDTO $created,
+		ImportedEntitiesCollector $created,
 		array &$warnings
 	): array {
 		$map = array();
@@ -197,7 +197,7 @@ class StudentBundleImporter {
 	 * Создаёт (или находит) лица и учётки, возвращает карту «ID источника → новый ID».
 	 *
 	 * @param array               $persons     Лица из манифеста
-	 * @param ImportedEntitiesDTO $created     Журнал созданного
+	 * @param ImportedEntitiesCollector $created     Журнал созданного
 	 * @param array               $credentials Аккумулятор новых учётных данных (по ссылке)
 	 * @param string[]            $warnings    Аккумулятор предупреждений (по ссылке)
 	 *
@@ -205,7 +205,7 @@ class StudentBundleImporter {
 	 */
 	private function restorePersons(
 		array $persons,
-		ImportedEntitiesDTO $created,
+		ImportedEntitiesCollector $created,
 		array &$credentials,
 		array &$warnings
 	): array {
@@ -248,7 +248,7 @@ class StudentBundleImporter {
 	 * @param PersonInputDTO      $input       Подготовленный ввод
 	 * @param int                 $personId    ID лица на целевом сайте
 	 * @param bool                $isNew       Лицо создано этим импортом
-	 * @param ImportedEntitiesDTO $created     Журнал созданного
+	 * @param ImportedEntitiesCollector $created     Журнал созданного
 	 * @param array               $credentials Аккумулятор учётных данных (по ссылке)
 	 * @param string[]            $warnings    Аккумулятор предупреждений (по ссылке)
 	 *
@@ -259,7 +259,7 @@ class StudentBundleImporter {
 		PersonInputDTO $input,
 		int $personId,
 		bool $isNew,
-		ImportedEntitiesDTO $created,
+		ImportedEntitiesCollector $created,
 		array &$credentials,
 		array &$warnings
 	): void {

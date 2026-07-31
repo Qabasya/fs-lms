@@ -7,6 +7,7 @@ namespace Inc\Repositories\WPDBRepositories\Log;
 use Inc\DTO\Log\AuditLogDTO;
 use Inc\DTO\Log\AuditLogInputDTO;
 use Inc\Enums\Log\LogChannel;
+use Inc\Enums\Log\LogFilterType;
 
 /**
  * Class AuditLogRepository
@@ -23,28 +24,51 @@ use Inc\Enums\Log\LogChannel;
  *
  * ### Архитектурная роль:
  *
- * Реализует интерфейс RepositoryInterface для единообразия с другими репозиториями.
- * Использует wpdb для прямых SQL-запросов. Записи аудита являются неизменяемыми
+ * Чтение (list/countFiltered/listAll) — в {@see AbstractLogRepository};
+ * здесь только специфика канала. Записи аудита являются неизменяемыми
  * (update() выбрасывает исключение, delete() не реализован по архитектурным причинам).
  *
  * ### Примечания:
  *
  * - Журнал аудита служит для отслеживания действий пользователей в системе зачисления.
  * - Записи не должны изменяться или удаляться для обеспечения целостности аудита.
+ *
+ * @method AuditLogDTO[] list( array $filters, int $page, int $perPage, string $orderby = 'id', string $order = 'DESC' )
+ * @method AuditLogDTO[] listAll( array $filters )
  */
-class AuditLogRepository {
+class AuditLogRepository extends AbstractLogRepository {
 
-	private \wpdb $wpdb;
-	private string $table;
+	protected function channel(): LogChannel {
+		return LogChannel::EnrollmentAudit;
+	}
 
 	/**
-	 * Конструктор репозитория.
-	 *
-	 * @param \wpdb|null $wpdb Глобальный объект базы данных WordPress
+	 * @return array<string, array{0: string, 1: LogFilterType}>
 	 */
-	public function __construct( ?\wpdb $wpdb = null ) {
-		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
-		$this->table = LogChannel::EnrollmentAudit->tableName()->prefixed();
+	protected function filterMap(): array {
+		return array(
+			'action'        => array( 'action', LogFilterType::Text ),
+			'actor_user_id' => array( 'actor_user_id', LogFilterType::Number ),
+			'actor_ids'     => array( 'actor_user_id', LogFilterType::NumberList ),
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $row Строка таблицы
+	 */
+	protected function hydrate( array $row ): AuditLogDTO {
+		return AuditLogDTO::fromArray( $row );
+	}
+
+	/**
+	 * Создаёт новую запись в журнале аудита.
+	 *
+	 * @param AuditLogInputDTO $dto DTO с полями для вставки
+	 *
+	 * @return int ID созданной записи
+	 */
+	public function create( AuditLogInputDTO $dto ): int {
+		return $this->insertRow( $dto->toArray() );
 	}
 
 	/**
@@ -61,7 +85,7 @@ class AuditLogRepository {
 			ARRAY_A
 		);
 
-		return $row ? AuditLogDTO::fromArray( $row ) : null;
+		return $row ? $this->hydrate( $row ) : null;
 	}
 
 	/**
@@ -83,107 +107,18 @@ class AuditLogRepository {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => AuditLogDTO::fromArray( $row ), $rows ?: array() );
+		return $this->hydrateAll( $rows );
 	}
 
 	/**
-	 * Возвращает постраничный отфильтрованный список записей аудита.
+	 * Последние записи аудита по цели.
 	 *
-	 * @param array $filters Массив фильтров (action, actor_user_id)
-	 * @param int   $page    Номер страницы
-	 * @param int   $perPage Количество элементов на страницу
+	 * @param string $targetType Тип цели
+	 * @param int    $targetId   ID цели
+	 * @param int    $limit      Ограничение выборки
 	 *
 	 * @return AuditLogDTO[]
 	 */
-	public function list( array $filters, int $page, int $perPage, string $orderby = 'id', string $order = 'DESC' ): array {
-		$orderby = in_array( $orderby, array( 'id', 'created_at' ), true ) ? $orderby : 'id';
-		$order   = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
-
-		[ $conditions, $bindings ] = $this->buildConditions( $filters );
-		$where      = implode( ' AND ', $conditions );
-		$bindings[] = $perPage;
-		$bindings[] = ( $page - 1 ) * $perPage;
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY $orderby $order LIMIT %d OFFSET %d", $bindings ),
-			ARRAY_A
-		);
-
-		return array_map( fn( array $row ) => AuditLogDTO::fromArray( $row ), $rows ?: array() );
-	}
-
-	public function countFiltered( array $filters ): int {
-		[ $conditions, $bindings ] = $this->buildConditions( $filters );
-		$where = implode( ' AND ', $conditions );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return (int) $this->wpdb->get_var(
-			$this->wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE $where", $bindings )
-		);
-	}
-
-	public function listAll( array $filters ): array {
-		[ $conditions, $bindings ] = $this->buildConditions( $filters );
-		$where = implode( ' AND ', $conditions );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE $where ORDER BY id DESC", $bindings ),
-			ARRAY_A
-		);
-
-		return array_map( fn( array $row ) => AuditLogDTO::fromArray( $row ), $rows ?: array() );
-	}
-
-	private function buildConditions( array $filters ): array {
-		$conditions = array( '1=1' );
-		$bindings   = array( $this->table );
-
-		if ( ! empty( $filters['action'] ) ) {
-			$conditions[] = 'action = %s';
-			$bindings[]   = $filters['action'];
-		}
-		if ( ! empty( $filters['actor_user_id'] ) ) {
-			$conditions[] = 'actor_user_id = %d';
-			$bindings[]   = (int) $filters['actor_user_id'];
-		}
-		if ( isset( $filters['actor_ids'] ) && is_array( $filters['actor_ids'] ) ) {
-			if ( empty( $filters['actor_ids'] ) ) {
-				$conditions[] = '1=0';
-			} else {
-				$placeholders = implode( ', ', array_fill( 0, count( $filters['actor_ids'] ), '%d' ) );
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$conditions[] = "actor_user_id IN ($placeholders)";
-				foreach ( $filters['actor_ids'] as $uid ) {
-					$bindings[] = (int) $uid;
-				}
-			}
-		}
-		if ( ! empty( $filters['date_from'] ) ) {
-			$conditions[] = 'created_at >= %s';
-			$bindings[]   = $filters['date_from'] . ' 00:00:00';
-		}
-		if ( ! empty( $filters['date_to'] ) ) {
-			$conditions[] = 'created_at <= %s';
-			$bindings[]   = $filters['date_to'] . ' 23:59:59';
-		}
-
-		return array( $conditions, $bindings );
-	}
-
-	/**
-	 * Создаёт новую запись в журнале аудита.
-	 *
-	 * @param AuditLogInputDTO $dto DTO с полями для вставки
-	 *
-	 * @return int ID созданной записи
-	 */
-	public function create( AuditLogInputDTO $dto ): int {
-		$this->wpdb->insert( $this->table, $dto->toArray() );
-		return (int) $this->wpdb->insert_id;
-	}
-
 	public function listByTarget( string $targetType, int $targetId, int $limit = 50 ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
@@ -196,9 +131,17 @@ class AuditLogRepository {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => AuditLogDTO::fromArray( $row ), $rows ?: array() );
+		return $this->hydrateAll( $rows );
 	}
 
+	/**
+	 * Последние записи аудита по автору действия.
+	 *
+	 * @param int $userId ID пользователя WP
+	 * @param int $limit  Ограничение выборки
+	 *
+	 * @return AuditLogDTO[]
+	 */
 	public function listByActor( int $userId, int $limit = 50 ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
@@ -210,47 +153,25 @@ class AuditLogRepository {
 			ARRAY_A
 		);
 
-		return array_map( fn( array $row ) => AuditLogDTO::fromArray( $row ), $rows ?: array() );
+		return $this->hydrateAll( $rows );
 	}
 
-	public function purgeOlderThan( int $days ): int {
-		$this->wpdb->query(
-			$this->wpdb->prepare(
-				'DELETE FROM %i WHERE created_at < DATE_SUB(NOW(), INTERVAL %d DAY)',
-				$this->table,
-				$days
-			)
-		);
-
-		return (int) $this->wpdb->rows_affected;
-	}
-
+	/**
+	 * ID пользователей-авторов действий — словарь для фильтра UI.
+	 *
+	 * @return int[]
+	 */
 	public function distinctActorUserIds(): array {
-		$ids = $this->wpdb->get_col(
-			$this->wpdb->prepare(
-				'SELECT DISTINCT actor_user_id
-			 FROM %i
-			 WHERE actor_user_id IS NOT NULL
-			 ORDER BY actor_user_id',
-				$this->table
-			)
-		);
-
-		return array_map( 'intval', $ids ?: array() );
+		return $this->distinctIntValues( 'actor_user_id' );
 	}
 
+	/**
+	 * Уникальные типы действий — словарь для фильтра UI.
+	 *
+	 * @return string[]
+	 */
 	public function distinctActions(): array {
-		$actions = $this->wpdb->get_col(
-			$this->wpdb->prepare(
-				'SELECT DISTINCT action
-			 FROM %i
-			 WHERE action IS NOT NULL
-			 ORDER BY action',
-				$this->table
-			)
-		);
-
-		return $actions ?: array();
+		return $this->distinctValues( 'action' );
 	}
 
 	/**

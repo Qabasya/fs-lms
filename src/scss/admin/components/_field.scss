@@ -17,8 +17,8 @@
     display: flex;
     align-items: center;
     gap: $spacing-sm;
-    font-weight: $font-bold;
-    font-size: $font-size-wp;
+    font-weight: $font-semibold;
+    font-size: $font-size-sm;
     color: $color-text-primary;
     margin-bottom: $spacing-sm;
   }
@@ -59,7 +59,7 @@
   &__desc {
     margin-top: $spacing-xs;
     margin-bottom: 0;
-    font-size: $font-size;
+    font-size: $font-size-base;
     font-style: italic;
     color: $color-text-secondary;
     line-height: 1.4;
@@ -68,7 +68,7 @@
   &__error {
     display: none;
     margin-top: $spacing-xs;
-    font-size: $font-size;
+    font-size: $font-size-base;
     color: $color-danger;
 
     &.is-visible { display: block; }

@@ -80,7 +80,7 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: v.$spacing-sm;
-		font-weight: v.$font-bold;
+		font-weight: v.$font-semibold;
 		margin-bottom: v.$spacing-xs;
 		padding-left: v.$spacing-xl; // align under inputs
 
@@ -152,7 +152,7 @@
 		padding: v.$spacing-sm v.$spacing-md;
 		background: v.$wp-admin-gray-bg-light;
 		border: 1px solid v.$color-border-input;
-		border-radius: v.$border-radius-md;
+		border-radius: v.$border-radius-sm;
 
 		audio {
 			max-width: 280px;
@@ -160,7 +160,7 @@
 
 		.js-audio-title {
 			color: v.$color-text-secondary;
-			font-size: v.$font-size-sm;
+			font-size: v.$font-size-2xs;
 		}
 	}
 

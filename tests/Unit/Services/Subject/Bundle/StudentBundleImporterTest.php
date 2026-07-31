@@ -7,7 +7,7 @@ namespace Unit\Services\Subject\Bundle;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Import\AccountCredentialsDTO;
 use Inc\DTO\Settings\AcademicPeriodDTO;
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -42,7 +42,7 @@ class StudentBundleImporterTest extends TestCase {
 			$this->students(),
 			'math',
 			$mapper,
-			new ImportedEntitiesDTO()
+			new ImportedEntitiesCollector()
 		);
 
 		self::assertSame( 'Группа А', $captured['name'] );
@@ -65,14 +65,14 @@ class StudentBundleImporterTest extends TestCase {
 			$this->students(),
 			'math',
 			new ExportIdMapper(),
-			new ImportedEntitiesDTO()
+			new ImportedEntitiesCollector()
 		);
 
 		self::assertArrayNotHasKey( 'course_id', $captured, 'чужой ID курса переносить нельзя' );
 	}
 
 	public function test_enrolls_students_and_records_created_entities(): void {
-		$created = new ImportedEntitiesDTO();
+		$created = new ImportedEntitiesCollector();
 
 		$result = $this->makeImporter()->restore( $this->students(), 'math', new ExportIdMapper(), $created );
 
@@ -104,7 +104,7 @@ class StudentBundleImporterTest extends TestCase {
 			$this->students(),
 			'math',
 			new ExportIdMapper(),
-			new ImportedEntitiesDTO()
+			new ImportedEntitiesCollector()
 		);
 
 		// Семья должна войти на новом сайте по прежним данным.
@@ -138,7 +138,7 @@ class StudentBundleImporterTest extends TestCase {
 			$students,
 			'math',
 			new ExportIdMapper(),
-			new ImportedEntitiesDTO()
+			new ImportedEntitiesCollector()
 		);
 
 		self::assertNotEmpty( $captured['student'], 'ученику выдаётся новый пароль' );
@@ -152,7 +152,7 @@ class StudentBundleImporterTest extends TestCase {
 		$writer->method( 'resolvePersonId' )->willReturn( 42 );
 		$writer->expects( self::never() )->method( 'createPerson' );
 
-		$created = new ImportedEntitiesDTO();
+		$created = new ImportedEntitiesCollector();
 		$this->makeImporter( writer: $writer )->restore(
 			$this->students(),
 			'math',
@@ -173,7 +173,7 @@ class StudentBundleImporterTest extends TestCase {
 			$this->students(),
 			'math',
 			new ExportIdMapper(),
-			new ImportedEntitiesDTO()
+			new ImportedEntitiesCollector()
 		);
 
 		self::assertSame( 0, $result['count'] );
@@ -184,7 +184,7 @@ class StudentBundleImporterTest extends TestCase {
 			$this->students(),
 			'math',
 			new ExportIdMapper(),
-			new ImportedEntitiesDTO()
+			new ImportedEntitiesCollector()
 		);
 
 		self::assertStringContainsString( 'учебный период', implode( ' ', $result['warnings'] ) );
@@ -201,7 +201,7 @@ class StudentBundleImporterTest extends TestCase {
 			$this->students(),
 			'math',
 			new ExportIdMapper(),
-			new ImportedEntitiesDTO()
+			new ImportedEntitiesCollector()
 		);
 	}
 

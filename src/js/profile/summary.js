@@ -6,7 +6,7 @@
    работ по типам (badge + сырой балл). Оценивание — в детали работы (T10.9).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, fmtNum, emptyState } from './utils.js';
+import { esc, toast, fmtNum, emptyState, fmtDate } from './utils.js';
 import { icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_JS } from './constants.js';
@@ -397,13 +397,6 @@ function wireGrading(modal, submissionId) {
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-function fmtDate(iso) {
-    const parts = String(iso).split('-');
-    if (parts.length !== 3) return iso;
-    const [y, m, d] = parts;
-    const dow = DOW_JS[new Date(`${y}-${m}-${d}T00:00:00`).getDay()];
-    return `${d}.${m} · ${dow}`;
-}
 
 function empty(title, text) {
     return emptyState('prof-summary', icoDocCheck(34), title, text);

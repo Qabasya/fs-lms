@@ -54,17 +54,14 @@ enum AjaxHook: string {
 	case SaveTaskBoilerplate    = 'save_task_boilerplate';
 	case GetTaskBoilerplate     = 'get_boilerplate';
 	case UpdateTermTemplate     = 'update_term_template';
-	case SaveTemplateAssignment = 'save_template_assignment';
 	case SetTaskTemplateType    = 'set_task_template_type'; // params: post_id, template_type
 
 	// ==================== AcademicPeriod (Учебные периоды) ====================
 	case SaveAcademicPeriod   = 'save_academic_period';
-	case DeleteAcademicPeriod = 'delete_academic_period';
 
 	// ==================== Группы ====================
 	case SaveStudentGroup        = 'save_student_group';
 	case UpdateStudentGroup      = 'update_student_group';
-	case DeleteStudentGroup      = 'delete_student_group';
 	case GetGroupStudentsDetail  = 'get_group_students_detail';
 	// Эпик 15 — открытые группы: пикер учеников + лёгкая запись существующих.
 	case SearchStudentsForGroup  = 'search_students_for_group';  // params: group_id, query
@@ -123,10 +120,7 @@ enum AjaxHook: string {
 	case EnrollStudent               = 'enroll_student';
 	case RevealPiiField              = 'reveal_pii_field';
 	case RevealAllPersonPii          = 'reveal_all_person_pii';
-	case AddRepresentative           = 'add_representative';
-	case ReplaceRepresentative       = 'replace_representative';
 	case UpdatePerson                = 'update_person';
-	case WithdrawConsent             = 'withdraw_consent';
 	case RequestPiiDeletion          = 'request_pii_deletion';
 	case SendOtpCode                 = 'send_otp_code';
 	case MoveApplicationToTrash      = 'move_application_to_trash';
@@ -222,8 +216,9 @@ enum AjaxHook: string {
 	case PreviewCheckAssessment = 'preview_check_assessment'; // params: ref (assessment id), answers (JSON)
 
 	// ==== Таблица перевода ЕГЭ (Этап 7, T7.16) ====
-	case ParseScoreMap  = 'parse_score_map';   // params: text (сырой текст из Excel/Word)
-	case CopyScoreMap   = 'copy_score_map';    // params: source_assessment_id, target_assessment_id
+	case ParseScoreMap      = 'parse_score_map';       // params: text (сырой текст из Excel/Word)
+	case CopyScoreMap       = 'copy_score_map';        // params: source_assessment_id, target_assessment_id
+	case GetScoreMapSources = 'get_score_map_sources'; // params: assessment_id (текущая работа — исключается из списка)
 
 	// ==== Программа группы (Этап 2) ====
 	case AssignCourse            = 'assign_course';

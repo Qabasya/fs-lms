@@ -43,7 +43,7 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 | Managers | `inc/Managers/` | Wrap WP data APIs (CRUD for posts, terms, options, metaboxes) |
 | Controllers | `inc/Controllers/` | Domain controllers in root; `Subscribers/` — 9 log-channel subscribers; `Pages/` — 4 public page controllers |
 | Callbacks | `inc/Callbacks/` | AJAX handlers only; subdirs: `Subject/`, `Person/`, `Settings/`, `Enrollment/`, `Task/` |
-| Repositories | `inc/Repositories/` | Read/write `wp_options` as structured arrays; `WPDBRepositories/Log/` — 9 log repositories |
+| Repositories | `inc/Repositories/` | Read/write `wp_options` as structured arrays; `WPDBRepositories/Log/` — 9 log repositories, 8 из них наследуют `AbstractLogRepository` (общие `list()`/`countFiltered()`/`listAll()`; наследник задаёт `channel()`, `filterMap()`, `hydrate()`) |
 | MetaBoxes | `inc/MetaBoxes/` | Field and template definitions for metaboxes |
 | DTO | `inc/DTO/` | Data transfer between layers; subdirs: `Application/`, `Person/`, `Enrollment/`, `Task/`, `Subject/`, `Log/`, `Export/`, `Email/`, `Settings/` |
 | Enums | `inc/Enums/` | Typed constants (slugs, capabilities, option names, AJAX hooks) |
@@ -51,12 +51,17 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 | Shared | `inc/Shared/` | Traits (`inc/Shared/Traits/`) + static utility `PluginLogger` |
 | Cli | `inc/Cli/` | WP-CLI команды; реализуют `ServiceInterface` и сами выходят из `register()`, если `WP_CLI` не определён |
 
+**Транзиенты** — только через `Managers/Wp/TransientManager` (`get`/`set`/`delete`/`take`); ключ — кейс `Enums/Wp/TransientKey`, сырых строк в вызывающем коде быть не должно. Исключение: сервисы с собственным инкапсулированным префиксом (`RateLimitService`, `EmailOtpService`, `TaskPublishGuard`) — там ключ уже локализован в одном классе.
+
+**Модули** (`inc/Modules/`) — конфигурация наследует `Modules/Shared/ModuleConfig` (опция + дефолты + тумблер с приоритетом константы `wp-config.php`). Ключи модульных опций живут В МОДУЛЕ и НЕ попадают в core-`OptionName`: ядро не должно знать о модулях. По той же причине модуль публикует свои реализации ядру фильтрами (напр. `fs_lms_captcha_provider`), а не биндингом в core-контейнере.
+
 **Callbacks subdirectories:**
 - `inc/Callbacks/Subject/` — SubjectCrudCallbacks, SubjectDataCallbacks, SubjectImportExportCallbacks, SubjectBundleCallbacks, SubjectPageCallbacks, SubjectValidationCallbacks, TaxonomySettingsCallbacks
 - `inc/Callbacks/Person/` — PersonViewCallbacks, PersonUpdateCallbacks, PiiRevealCallbacks, RepresentativeCallbacks
 - `inc/Callbacks/Settings/` — AcademicPeriodCallbacks, ConsentSettingsCallbacks, EmailTemplateSettingsCallbacks
 - `inc/Callbacks/Enrollment/` — ApplicationCallbacks, EnrollmentCallbacks, ExpulsionCallbacks, RecoveryCallbacks, DeletionCallbacks
 - `inc/Callbacks/Task/` — TaskCreationCallbacks, BoilerplateCallbacks, TemplateCallbacks, TemplateManagerCallbacks
+- `inc/Callbacks/Course/` — КТП разложена по ответственностям: `ProgramCallbacks` (состав программы, публикация, настройки шагов), `LessonScheduleCallbacks` (даты, pin, reflow, календарь), `IndividualLessonCallbacks` (D3), `GroupRosterCallbacks`, `LessonDeliveryCallbacks` (работы, дедлайны, запись). Сервисный слой зеркальный: `ProgramCompositionService` / `ScheduleReflowService` / `IndividualLessonService` / `GroupCalendarService` + `ScheduleEventPublisher`
 
 **BaseController** (`Inc\Core\BaseController`): infrastructure utility only — not a domain or architectural base class. Provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Also declares the `AjaxResponse` trait (inherited by all subclasses). Extend this purely to gain access to plugin path helpers and AJAX transport — not to express any domain relationship. Controllers and Callbacks extending it are unrelated to each other beyond sharing these utilities.
 
@@ -110,6 +115,9 @@ Available nonces: `TaskCreation`, `Subject`, `SubjectBundle`, `Manager`, `SaveMe
 
 **`Sanitizer`** — use these instead of raw WP functions:
 - `sanitizeText()`, `sanitizeKey()`, `sanitizeInt()`, `sanitizeHtml()`, `sanitizeEditorContent()`, `sanitizeBool()`
+- `sanitizeIntList()`, `sanitizeKeyList()`/`sanitizeKeyArray()` — массивы из запроса (списки ID/слагов); не собирать их вручную из `$_POST`
+- `unslashArray()` — структуры произвольной формы (шаги урока, модули курса, мета задания): снимает слэши, санитайзинг значений — на доменном коде
+- `sanitizeTextValue()`/`sanitizeKeyValue()`/`sanitizeIntValue()` — для значений внутри уже полученных массивов
 - `requireText()`, `requireInt()`, `requireKey()` — same as above but throw on empty/missing input
 
 **`AjaxResponse`** — `$this->success($data)` / `$this->error($message)` wrap `wp_send_json_*` and log in `WP_DEBUG` mode.
@@ -125,9 +133,21 @@ Available nonces: `TaskCreation`, `Subject`, `SubjectBundle`, `Manager`, `SaveMe
 
 Log format: `[FS LMS] CONTEXT: message | Context: {timestamp, user_id, ip, ...data}` — grep-able with `[FS LMS]`. Never call `error_log()` directly.
 
+**`ProgramAccess`** — гарды AJAX КТП: `requireGroupAccess()`, `requireProgramRow()`, `denyIfProgramLocked()`. Класс-потребитель отдаёт зависимости через `accessGuard()` и `programService()`. Новый мутатор программы обязан звать `denyIfProgramLocked()` (публикация КТП блокирует правки структуры и расписания, T1.8).
+
+**`ScopedFilter`** — `$this->withFilter( $hook, $callback, $operation, $priority )`: временный WP-фильтр ровно на одну операцию (снос предмета обходит референс-гард, загрузка вложений расширяет MIME). Снимается даже при исключении. Это НЕ нарушение правила «хуки — в контроллерах»: там речь о постоянных хуках жизненного цикла.
+
 **`TemplateRenderer`** — `$this->render('template-name', $dataOrDTO)` loads from `templates/`, extracts variables or accepts a DTO.
 
 ---
+
+## Принятые исключения (решено 2026-07-31, аудит P4)
+
+- **`add_action` внутри Managers** (`CPTManager`, `TaxonomyManager`, `MenuManager`, `MetaBoxManager`, `MediaManager`) — легально: менеджер регистрирует хук ТОГО API, которое сам оборачивает, а не доменную логику. Правило «хуки только в контроллерах» относится к доменным хукам.
+- **Статические утилиты** без состояния и зависимостей: `PostTypeResolver`, `ContentKindResolver`, `LogNameResolver`, `Icon`. DI для них не окупается — но добавлять новые можно только в этот список.
+- **Инлайновые стили в `templates/emails/`** — обязательны: почтовые клиенты вырезают `<style>`. Запрет на inline-стили действует только для UI-шаблонов.
+- **`_types.js`** — JSDoc-типизация глобалов; импорт в admin-файлах **необязателен** (нужен лишь для подсказок IDE, на сборку не влияет). ESLint-правило ради этого не заводим.
+- **`require.context` в `ui.js` нерекурсивен** — модалки из подпапок (`modals/enrollment/`) инициализируются явно в `admin.js`: у них есть порядок относительно своих сервисов. Фолбэк автозагрузчика берёт первый экспорт **с методом `init()`**, а не просто первый.
 
 ## Strict Rules
 
@@ -256,6 +276,10 @@ src/js/
     ├── common.js         — entry point
     └── components/       — shared UI components used on both sides
 ```
+
+**Общие утилиты** — `src/js/common/utils.js`: `escapeHtml`, `fmtDate`/`fmtDayMonth`/`fmtDateTime`, `todayIso`, `initials`, `debounce`. Доменные бандлы реэкспортируют их под своими именами (`profile/utils.js` отдаёт `esc` ≡ `escapeHtml`) — своих копий не заводить.
+
+**Модалки не ходят в сеть** — AJAX живёт в `admin/managers/*` (напр. `enrollment-api.js`, `draft-api.js`) и возвращает промисы; модалка только рисует. `init()` модалок идемпотентен (`_initialized`): их поднимает и автозагрузчик `ui.js`, и `admin.js`.
 
 ### Export conventions
 
@@ -391,6 +415,10 @@ form.addEventListener( 'submit', async ( e ) => {
 - **No inline styles** — never use `style=""` attributes in PHP templates or JS DOM manipulation
 - **Variables required** — all SCSS component files must use tokens from `src/scss/admin/_variables.scss` (or frontend equivalent); no hardcoded colors, spacing, font sizes, or transition values
 - **No raw values in components** — if a needed token doesn't exist in `_variables.scss`, add it there first, then use it
+- **Одна лестница токенов на весь проект** — имя ступени значит ОДИН размер/вес во всех бандлах: кегли `$font-size-2xs 10 / -code 11 / -xs 12 / -sm 13 / -base 14 / -md 16 / -lg 22 / -xl 24 / -2xl 28`, отступы `$spacing-xs 4 / -sm 8 / -md 12 / -lg 16 / -xl 20 / -2xl 24 / -3xl 28 / -4xl 32`, радиусы `$border-radius-sm 4 / -md 6 / -lg 8 / -xl 12 / -2xl 16 / -pill 999px`, веса `$font-regular 450 / $font-semibold 600 / $font-bold 700`. Ядро — `shared/_tokens.scss`; `frontend/_variables.scss` общие ступени **форвардит**, а не переопределяет, и добавляет только свои (крупные кегли/отступы, `$border-radius-2xl`, `$border-radius-pill`). Новая ступень → сначала в ядро, потом использование
+- **Одноимённое ≠ разное** — если значение расходится по доменам, имя обязано различаться: `$font-code` (моноширинный публичных страниц) vs `$font-mono` (кабинет/плеер), `$shadow-surface` vs `$shadow-card`, `$line-height-relaxed` 1.6 vs `$line-height-base` 1.5
+- **JS не задаёт стили** — состояния переключаются классами (`.is-loading`, `.is-deleting`, `.fs-parent-action`), показ/скрытие — атрибутом `hidden`, а не `style.display`
+- **Один физический цвет — одно объявление** — сырые оттенки (`$hue-violet`, `$hue-violet-dk`, `$hue-red`, `$hue-red-soft`, `$hue-amber-dk`) объявлены в `shared/_tokens.scss`; палитры (типы шагов, чипы, cabinet-тема, подсветка кода) ссылаются на них, а не копируют hex
 - **stylelint обязателен**: `npm run lint:css` (авто-фикс — `npm run fix:css`); конфиг — `.stylelintrc.json`. Входит в `npm run ci`
 - **Цвета в компонентах** — только `var(--…)` / `$token` (правило `scale-unlimited/declaration-strict-value` — **error**). Hex разрешён только в `_variables.scss`, `shared/_tokens.scss`, `shared/cabinet/_theme.scss`, `shared/_chip-palette.scss`; полупрозрачные `rgba()`-оверлеи/тени в компонентах допустимы
 - **profile + player** — общая тема `shared/cabinet/_theme.scss` (один `:root`, словарь статусов `--ok/--err/--wait`) и примитивы `shared/cabinet/_ui.scss` (`.prof-btn` ≡ `.b`, тост, карточка). Цвета типов шагов — `$step-type-palette` в `shared/_tokens.scss` (JS-зеркало: `src/js/player/icons.js` TYPES)

@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject\Import;
 
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
@@ -16,12 +16,14 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Subject\TaskNumberTermGuard;
 use Inc\Shared\PluginLogger;
+use Inc\Shared\Traits\ScopedFilter;
 
 /**
  * Class ImportRollbackService
  *
- * Удаляет всё, что успел создать упавший импорт ({@see ImportedEntitiesDTO}).
+ * Удаляет всё, что успел создать упавший импорт ({@see ImportedEntitiesCollector}).
  *
  * @package Inc\Services\Subject\Import
  *
@@ -46,6 +48,8 @@ use Inc\Shared\PluginLogger;
  * ошибка только пишется в лог.
  */
 class ImportRollbackService {
+
+	use ScopedFilter;
 
 	/**
 	 * Конструктор сервиса.
@@ -79,11 +83,11 @@ class ImportRollbackService {
 	/**
 	 * Удаляет все сущности из журнала.
 	 *
-	 * @param ImportedEntitiesDTO $created Журнал созданного
+	 * @param ImportedEntitiesCollector $created Журнал созданного
 	 *
 	 * @return void
 	 */
-	public function undo( ImportedEntitiesDTO $created ): void {
+	public function undo( ImportedEntitiesCollector $created ): void {
 		if ( $created->isEmpty() ) {
 			return;
 		}
@@ -114,12 +118,20 @@ class ImportRollbackService {
 			$this->attempt( fn() => $this->posts->delete( $postId ), "post #{$postId}" );
 		}
 
-		foreach ( array_reverse( $created->terms() ) as $term ) {
-			$this->attempt(
-				fn() => $this->terms->delete( $term['term_id'], $term['taxonomy'] ),
-				"term #{$term['term_id']} ({$term['taxonomy']})"
-			);
-		}
+		// Номера заданий, созданные этим импортом, уже могли обрасти его же
+		// записями — гард занятых номеров откату не помеха.
+		$this->withFilter(
+			TaskNumberTermGuard::BYPASS_FILTER,
+			'__return_true',
+			function () use ( $created ): void {
+				foreach ( array_reverse( $created->terms() ) as $term ) {
+					$this->attempt(
+						fn() => $this->terms->delete( $term['term_id'], $term['taxonomy'] ),
+						"term #{$term['term_id']} ({$term['taxonomy']})"
+					);
+				}
+			}
+		);
 
 		foreach ( array_reverse( $created->attachmentIds() ) as $attachmentId ) {
 			$this->attempt( fn() => $this->media->delete( $attachmentId ), "attachment #{$attachmentId}" );

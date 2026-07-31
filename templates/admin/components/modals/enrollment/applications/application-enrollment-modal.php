@@ -6,8 +6,8 @@
  * @package FS LMS
  */
 
-use Inc\Enums\Settings\OptionName;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -23,11 +23,11 @@ $periodsJson = (string) wp_json_encode(
 	) )
 );
 
-$subjectsRaw  = get_option( OptionName::Subjects->value, array() );
+// Предметы — через репозиторий (сырой get_option в шаблоне запрещён).
 $subjectsJson = (string) wp_json_encode(
 	array_values( array_map(
-		static fn( $s ) => array( 'key' => $s['key'] ?? '', 'name' => $s['name'] ?? '' ),
-		is_array( $subjectsRaw ) ? $subjectsRaw : array()
+		static fn( $s ) => array( 'key' => $s->key, 'name' => $s->name ),
+		( new SubjectRepository() )->readAll()
 	) )
 );
 

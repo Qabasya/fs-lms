@@ -23,17 +23,17 @@
 
 			@include step-type-colors(background);
 		}
-		.spo-name { font-size: $font-size-wp; font-weight: $font-bold; }
+		.spo-name { font-size: $font-size-sm; font-weight: $font-semibold; }
 		.spo-desc { font-size: $font-size-code; color: $color-secondary-hover; }
 	}
 
 	&.fs-cb-picker { width: rem(320);
-		.field-input { width: 100%; padding: rem(6) $spacing-sm; border: 1px solid $color-border-input; border-radius: $border-radius-md; font-size: $font-size-wp; }
+		.field-input { width: 100%; padding: rem(6) $spacing-sm; border: 1px solid $color-border-input; border-radius: $border-radius-sm; font-size: $font-size-sm; }
 		.fs-cb-pick-results { margin-top: rem(6); max-height: rem(260); overflow-y: auto; }
 
-		.fs-cb-pick-opt { display: flex; align-items: center; justify-content: space-between; gap: $spacing-sm; padding: rem(6) $spacing-sm; border-radius: $border-radius-md; cursor: pointer;
+		.fs-cb-pick-opt { display: flex; align-items: center; justify-content: space-between; gap: $spacing-sm; padding: rem(6) $spacing-sm; border-radius: $border-radius-sm; cursor: pointer;
 			&:hover { background: $cb-bg-hover; } }
-		.fs-cb-pick-origin { flex: 0 0 auto; font-size: $font-size-code; color: $color-secondary-hover; background: $cb-bg-hover; padding: 1px rem(7); border-radius: $border-radius-md; }
+		.fs-cb-pick-origin { flex: 0 0 auto; font-size: $font-size-code; color: $color-secondary-hover; background: $cb-bg-hover; padding: 1px rem(7); border-radius: $border-radius-sm; }
 		.fs-cb-pick-empty { padding: $spacing-sm; color: $color-secondary-hover; font-size: $font-size-xs; }
 	}
 }

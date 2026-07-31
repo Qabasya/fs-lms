@@ -35,7 +35,7 @@
 
     &:is(a) {
       color: $color-text;
-      border-radius: $radius-md;
+      border-radius: $border-radius-lg;
       transition: background $transition;
 
       &:hover {
@@ -63,10 +63,10 @@
     &--right { text-align: right; }
   }
 
-  &__label { font-size: $font-size-xxs; color: $color-muted; text-transform: uppercase; letter-spacing: .04em; }
+  &__label { font-size: $font-size-xs; color: $color-muted; text-transform: uppercase; letter-spacing: .04em; }
 
   &__title {
-    font-size: $font-size-sm;
+    font-size: $font-size-base;
     font-weight: $font-semibold;
     white-space: nowrap;
     overflow: hidden;
@@ -90,7 +90,7 @@
   }
 
   &__all {
-    font-size: $font-size-xs;
+    font-size: $font-size-sm;
     color: $color-muted;
     white-space: nowrap;
     transition: color $transition;

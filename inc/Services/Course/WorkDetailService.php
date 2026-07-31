@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\Enums\Subject\TaskTemplate;
+use Inc\Enums\Course\WorkSourceType;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\WorkManager;
@@ -25,7 +26,8 @@ use Inc\Services\Task\CorrectAnswerResolver;
  *  - `attempt`    (source_id = id попытки ассессмента)      — экзамен.
  *
  * Правильные ответы НЕ отдаются (чекеры возвращают только вердикт; см.
- * ExamPayloadFilter) — показываем условие + ответ ученика + вердикт/баллы.
+ * страница экзамена отдаёт только whitelist полей) — показываем условие + ответ
+ * ученика + вердикт/баллы.
  * `group_id` в результате — только для проверки доступа в колбэке (удаляется перед отдачей).
  *
  * @package Inc\Services\Course
@@ -48,10 +50,10 @@ class WorkDetailService {
 	 * @return array<string,mixed>|null  null, если работа не найдена / тип неизвестен
 	 */
 	public function forWork( string $sourceType, int $sourceId ): ?array {
-		return match ( $sourceType ) {
-			'submission' => $this->fromSubmission( $sourceId ),
-			'attempt'    => $this->fromAttempt( $sourceId ),
-			default      => null,
+		return match ( WorkSourceType::fromValueOrNull( $sourceType ) ) {
+			WorkSourceType::Submission => $this->fromSubmission( $sourceId ),
+			WorkSourceType::Attempt    => $this->fromAttempt( $sourceId ),
+			default                    => null,
 		};
 	}
 

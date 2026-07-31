@@ -6,12 +6,12 @@ namespace Inc\Callbacks\Assessment;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
-use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Assessment\ScoreMapParser;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
@@ -46,7 +46,7 @@ class ScoreMapCallbacks extends BaseController {
 	public function ajaxParseScoreMap(): void {
 		$this->authorize( Nonce::ScoreMap, Capability::AuthorLmsCourses );
 
-		$text = sanitize_textarea_field( (string) ( $_POST['text'] ?? '' ) );
+		$text = $this->sanitizeMultilineText( 'text' );
 		if ( '' === $text ) {
 			$this->error( 'Текст не передан.' );
 			return;
@@ -100,11 +100,62 @@ class ScoreMapCallbacks extends BaseController {
 			return;
 		}
 
-		$meta              = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
+		$meta              = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value, true );
 		$meta              = is_array( $meta ) ? $meta : [];
 		$meta['score_map'] = $source->scoreMap;
 		$this->posts->updateMeta( $post->ID, PostMetaName::Meta->value, $meta );
 
 		$this->success( [ 'map' => $source->scoreMap ] );
+	}
+
+	/**
+	 * Отдаёт список ЕГЭ-работ того же предмета, из которых можно скопировать шкалу.
+	 *
+	 * Источником считается работа с вторичным баллом (`needsSecondaryScore()`) и
+	 * непустой таблицей перевода; текущая работа из списка исключается.
+	 *
+	 * POST: assessment_id (текущая работа), security
+	 * Возвращает: ['sources' => [['id','title','pairs','range'], ...]]
+	 */
+	public function ajaxGetScoreMapSources(): void {
+		$this->authorize( Nonce::ScoreMap, Capability::AuthorLmsCourses );
+
+		$assessmentId = $this->requireInt( 'assessment_id' );
+
+		$post = $this->posts->get( $assessmentId );
+		if ( ! $post || ! PostTypeResolver::isAssessmentPostType( $post->post_type ) ) {
+			$this->error( 'Работа не найдена.' );
+			return;
+		}
+
+		$subjectKey = PostTypeResolver::subjectFromAssessmentPostType( $post->post_type );
+		$sources    = [];
+
+		foreach ( $this->assessments->getBankBySubject( $subjectKey ) as $candidate ) {
+			if ( $candidate->id === $assessmentId
+				|| ! $candidate->kind->needsSecondaryScore()
+				|| empty( $candidate->scoreMap ) ) {
+				continue;
+			}
+
+			$primaries   = array_map( 'intval', array_keys( $candidate->scoreMap ) );
+			$secondaries = array_map( 'intval', array_values( $candidate->scoreMap ) );
+
+			$sources[] = [
+				'id'    => $candidate->id,
+				'title' => $candidate->title,
+				'pairs' => count( $candidate->scoreMap ),
+				// Подсказка «0–34 → 0–100», чтобы автор понял, ту ли шкалу берёт.
+				'range' => sprintf(
+					'%d–%d → %d–%d',
+					min( $primaries ),
+					max( $primaries ),
+					min( $secondaries ),
+					max( $secondaries )
+				),
+			];
+		}
+
+		$this->success( [ 'sources' => $sources ] );
 	}
 }

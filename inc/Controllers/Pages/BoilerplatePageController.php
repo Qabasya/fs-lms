@@ -60,7 +60,7 @@ class BoilerplatePageController extends BaseController implements ServiceInterfa
 
 		// Валидация обязательных параметров
 		if ( empty( $subject_key ) || empty( $term_slug ) ) {
-			echo '<div class="notice notice-error"><p>Ошибка: недостаточно данных.</p></div>';
+			$this->render( 'admin/components/admin-notice', array( 'type' => 'error', 'message' => 'Ошибка: недостаточно данных.' ) );
 			return;
 		}
 

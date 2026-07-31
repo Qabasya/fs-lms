@@ -40,12 +40,12 @@
 }
 
 @media (max-width: $bp-sm) {
-  .fs-task-title { font-size: $font-size-base !important; }
+  .fs-task-title { font-size: $font-size-md !important; }
 
   .fs-task-nav__info { max-width: rem(90); }
 
   .fs-task-nav__title {
-    font-size: $font-size-xxs;
+    font-size: $font-size-xs;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

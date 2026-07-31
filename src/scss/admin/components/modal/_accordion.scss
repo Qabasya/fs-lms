@@ -8,7 +8,7 @@
 
 .fs-modal-accordion {
   border: 1px solid $color-border-input;
-  border-radius: $border-radius-md;
+  border-radius: $border-radius-sm;
   overflow: hidden;
 
   &__item {
@@ -36,8 +36,8 @@
 
     h3 {
       margin: 0;
-      font-size: $font-size-wp;
-      font-weight: $font-bold;
+      font-size: $font-size-sm;
+      font-weight: $font-semibold;
       color: $color-text-primary;
     }
 

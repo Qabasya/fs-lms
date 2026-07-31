@@ -103,7 +103,7 @@ html.modal-open {
     // Заголовок модалки
     h2.fs-lms-modal-title {
       margin: 0;
-      font-size: $font-size-m;
+      font-size: $font-size-md;
       font-weight: 400;
       line-height: 1.4;
       color: $color-text-inverse !important;
@@ -121,7 +121,7 @@ html.modal-open {
       @include reset-button;
 
       color: $color-text-inverse;
-      font-size: $font-size-l;
+      font-size: $font-size-xl;
       line-height: 1;
       padding: 0 $spacing-xs;
       opacity: 0.8;
@@ -183,7 +183,7 @@ html.modal-open {
     button,
     .button {
       padding: $spacing-sm $spacing-xl;
-      font-size: $font-size;
+      font-size: $font-size-base;
       line-height: $line-height-base;
       border: none;
       border-radius: $border-radius-sm;

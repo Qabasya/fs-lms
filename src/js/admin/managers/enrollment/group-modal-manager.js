@@ -93,7 +93,9 @@ export const GroupModalManager = {
         $.post(fs_lms_vars.ajaxurl, payload)
             .done((res) => {
                 if (res.success) {
-                    location.reload();
+                    // Кабинет назначается отдельным вызовом: сервис проверяет предмет
+                    // кабинета и конфликты по времени и возвращает предупреждения.
+                    this._assignRoom(res.data?.id || formData.id, formData.room_id);
                 } else {
                     showNotice(res.data?.message || res.data || 'Ошибка сохранения группы.', 'error', GroupModal.$modal.find('.fs-lms-modal-body'));
                     GroupModal.setSaveState(false);
@@ -103,6 +105,41 @@ export const GroupModalManager = {
                 apiError('Failed to save student group');
                 GroupModal.setSaveState(false);
             });
+    },
+
+    /**
+     * Назначает группе основной кабинет и перезагружает страницу.
+     *
+     * Предупреждения сервиса (например, кабинет занят в это время) показываем
+     * перед перезагрузкой — иначе пользователь их не увидит.
+     *
+     * @param {number|string} groupId ID группы.
+     * @param {string}        roomId  ID кабинета ('' — снять назначение).
+     * @return {void}
+     */
+    _assignRoom(groupId, roomId) {
+        if (!groupId) {
+            location.reload();
+            return;
+        }
+
+        $.post(fs_lms_vars.ajaxurl, {
+            action:   fs_lms_vars.ajax_actions.assignGroupRoom,
+            security: fs_lms_vars.nonces.room,
+            group_id: groupId,
+            room_id:  roomId || 0,
+        })
+            .done((res) => {
+                const warnings = res?.data?.warnings || [];
+
+                if (warnings.length) {
+                    AlertModal.show(warnings.join(' ')).then(() => location.reload());
+                    return;
+                }
+
+                location.reload();
+            })
+            .fail(() => location.reload());
     },
 
     /**

@@ -8,7 +8,6 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Person\PiiAccessLogInputDTO;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
-use Inc\Enums\Access\UserRole;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**
@@ -23,7 +22,7 @@ use Inc\Shared\Traits\RequestContextProvider;
  * 1. **Запись доступа к PII** — логирование каждого случая раскрытия персональных данных.
  * 2. **Фиксация причины доступа** — обязательное поле accessReason для compliance.
  * 3. **Сбор контекста запроса** — получение IP, User-Agent через трейт RequestContextProvider.
- * 4. **Определение роли пользователя** — получение роли через UserManager.
+ * 4. **Определение роли пользователя** — через ActorRoleResolver.
  *
  * ### Архитектурная роль:
  *
@@ -45,12 +44,12 @@ class PiiAccessLogWriter {
 	 * Конструктор райтера.
 	 *
 	 * @param PiiAccessLogRepository $repository  Репозиторий журнала доступа к PII
-	 * @param UserManager            $userManager Менеджер пользователей
+	 * @param ActorRoleResolver $roleResolver Роль автора действия для журнала
 	 * @param ClockInterface         $clock       Интерфейс часов
 	 */
 	public function __construct(
 		private readonly PiiAccessLogRepository $repository,
-		private readonly UserManager            $userManager,
+		private readonly ActorRoleResolver $roleResolver,
 		private readonly ClockInterface         $clock,
 	) {}
 
@@ -65,7 +64,7 @@ class PiiAccessLogWriter {
 	 */
 	public function record( ?int $personId, string $fieldsAccessed, string $accessReason ): void {
 		$ctx = $this->requestContext();
-		$role = $this->resolveRole( $ctx->actorUserId );
+		$role = $this->roleResolver->resolve( $ctx->actorUserId );
 
 		$this->repository->create( new PiiAccessLogInputDTO(
 			actorUserId:    $ctx->actorUserId > 0 ? $ctx->actorUserId : null,
@@ -79,21 +78,4 @@ class PiiAccessLogWriter {
 		) );
 	}
 
-	/**
-	 * Определяет роль пользователя по ID.
-	 *
-	 * @param int $userId ID пользователя WordPress
-	 *
-	 * @return string|null
-	 */
-	private function resolveRole( int $userId ): ?string {
-		if ( $userId <= 0 ) {
-			return null;
-		}
-		$user = $this->userManager->find( $userId );
-		if ( null === $user || empty( $user->roles ) ) {
-			return null;
-		}
-		return UserRole::primarySlug( (array) $user->roles );
-	}
 }

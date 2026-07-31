@@ -8,7 +8,6 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\ExportLogInputDTO;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\ExportLogRepository;
-use Inc\Enums\Access\UserRole;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**
@@ -23,7 +22,7 @@ use Inc\Shared\Traits\RequestContextProvider;
  * 1. **Запись экспорта данных** — логирование экспорта групп, студентов, родителей, архива, логов.
  * 2. **Фиксация типа экспорта** — сохранение информации о типе данных и режиме (single/bulk).
  * 3. **Сбор контекста запроса** — получение IP, User-Agent через трейт RequestContextProvider.
- * 4. **Определение роли пользователя** — получение роли через UserManager.
+ * 4. **Определение роли пользователя** — через ActorRoleResolver.
  *
  * ### Архитектурная роль:
  *
@@ -45,12 +44,12 @@ class ExportLogWriter {
 	 * Конструктор райтера.
 	 *
 	 * @param ExportLogRepository $repository  Репозиторий журнала экспорта
-	 * @param UserManager         $userManager Менеджер пользователей
+	 * @param ActorRoleResolver $roleResolver Роль автора действия для журнала
 	 * @param ClockInterface      $clock       Интерфейс часов
 	 */
 	public function __construct(
 		private readonly ExportLogRepository $repository,
-		private readonly UserManager         $userManager,
+		private readonly ActorRoleResolver $roleResolver,
 		private readonly ClockInterface      $clock,
 	) {}
 
@@ -76,7 +75,7 @@ class ExportLogWriter {
 		array $details = array()
 	): void {
 		$ctx = $this->requestContext();
-		$role = $this->resolveRole( $ctx->actorUserId );
+		$role = $this->roleResolver->resolve( $ctx->actorUserId );
 
 		$payload = array() !== $details
 			? wp_json_encode( array_filter( $details, static fn( $count ): bool => $count > 0 ) )
@@ -95,21 +94,4 @@ class ExportLogWriter {
 		) );
 	}
 
-	/**
-	 * Определяет роль пользователя по ID.
-	 *
-	 * @param int $userId ID пользователя WordPress
-	 *
-	 * @return string|null
-	 */
-	private function resolveRole( int $userId ): ?string {
-		if ( $userId <= 0 ) {
-			return null;
-		}
-		$user = $this->userManager->find( $userId );
-		if ( null === $user || empty( $user->roles ) ) {
-			return null;
-		}
-		return UserRole::primarySlug( (array) $user->roles );
-	}
 }

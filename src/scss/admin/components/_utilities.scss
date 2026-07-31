@@ -12,7 +12,7 @@
 .fs-mb-0   { margin-bottom: 0 !important; }
 .fs-mb-md  { margin-bottom: $spacing-md !important; }
 .fs-mb-xl  { margin-bottom: $spacing-xl !important; }
-.fs-mb-xxl { margin-bottom: $spacing-xxl !important; }
+.fs-mb-xxl { margin-bottom: $spacing-3xl !important; }
 
 // ── Текст
 
@@ -25,4 +25,26 @@
 .fs-btn-link-sm {
   margin-top: $spacing-xs;
   font-size: $font-size-code;
+}
+
+// ── Состояния, которыми управляет JS (инлайн-стилей в JS нет) ──
+// .is-loading — контейнер ждёт ответ AJAX (recent-posts.js, posts-table.js);
+// .is-deleting — строка таблицы перед удалением (utils.js fadeDeleteRow);
+// .fs-parent-action — кнопки назначения родителя в таблице заявок.
+.is-loading {
+  opacity: 0.5;
+  transition: $transition-default;
+}
+
+.is-deleting {
+  background: $wp-admin-red-bg;
+}
+
+.fs-parent-action {
+  margin-top: $spacing-xs;
+  font-size: $font-size-code;
+
+  &--danger {
+    color: $color-danger;
+  }
 }

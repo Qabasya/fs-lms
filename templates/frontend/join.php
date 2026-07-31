@@ -548,7 +548,7 @@ ThemeCompatService::header();
             </form>
 
             <!-- Блок успешного ответа (будет активирован через JS) -->
-            <div class="js-join-success-block fs-join-card__success" style="display:none">
+            <div class="js-join-success-block fs-join-card__success" hidden>
                 <span class="dashicons dashicons-yes-alt fs-join-card__success-icon"></span>
                 <p class="fs-join-card__success-title">
                     <?php esc_html_e( 'Регистрация успешно завершена!', 'fs-lms' ); ?>

@@ -65,6 +65,13 @@ if (!function_exists('home_url')) {
         return 'http://example.com' . $path;
     }
 }
+if (!function_exists('wp_create_nonce')) {
+    // Витрины кабинета собирают нонсы прямо в конфиге — тестам достаточно детерминированной заглушки.
+    function wp_create_nonce(string $action = '-1'): string {
+        return 'nonce_' . $action;
+    }
+}
+
 if (!function_exists('admin_url')) {
     function admin_url(string $path = ''): string {
         return 'http://example.com/wp-admin/' . $path;
@@ -113,8 +120,13 @@ if (!function_exists('wp_get_post_terms')) {
     }
 }
 if (!function_exists('apply_filters')) {
+    // Passthrough по умолчанию; тест может подменить результат конкретного хука
+    // через $GLOBALS['_fs_test_filter_returns'][$hook] — нужно там, где код
+    // спрашивает разрешение фильтром (напр. байпас гарда удаления термов).
     function apply_filters(string $hook, mixed $value, mixed ...$args): mixed {
-        return $value;
+        return array_key_exists($hook, $GLOBALS['_fs_test_filter_returns'] ?? [])
+            ? $GLOBALS['_fs_test_filter_returns'][$hook]
+            : $value;
     }
 }
 if (!function_exists('do_action')) {
@@ -174,8 +186,18 @@ if (!function_exists('wp_generate_password')) {
 // HTTP API stubs (Yandex SmartCaptcha validation). Per-test response via $GLOBALS['_test_http_response'].
 if (!class_exists('WP_Error')) {
     class WP_Error {
-        public function __construct(private string $msg = 'error') {}
+        private string $code;
+        private string $msg;
+        /**
+         * WP-сигнатура — (code, message). Исторические вызовы в тестах передают
+         * ОДИН аргумент-сообщение, поэтому без второго считаем его сообщением.
+         */
+        public function __construct(string $code = '', string $message = '') {
+            if ('' === $message) { $this->code = ''; $this->msg = '' !== $code ? $code : 'error'; }
+            else                 { $this->code = $code; $this->msg = $message; }
+        }
         public function get_error_message(): string { return $this->msg; }
+        public function get_error_code(): string { return $this->code; }
     }
 }
 if (!function_exists('wp_remote_post')) {
@@ -200,6 +222,8 @@ if (!function_exists('wp_remote_retrieve_body')) {
 
 // Программируемый дубль wpdb для интеграционных тестов репозиториев.
 require_once __DIR__ . '/Support/FakeWpdb.php';
+require_once __DIR__ . '/Support/GroupLessonFixtures.php';
+require_once __DIR__ . '/Support/ProgramRowFixtures.php';
 
 // Global wpdb instance used by TransactionRunner trait
 $GLOBALS['wpdb'] = new wpdb();
@@ -341,8 +365,52 @@ if (!function_exists('update_postmeta_cache')) {
 }
 
 // ---- Простые функции санитайзинга (для полей и Sanitizer-трейта) ----
+/** Объекты терма: $GLOBALS['_fs_test_term_objects'][$term_id] = [post_id, ...]. */
+if (!function_exists('get_objects_in_term')) {
+    function get_objects_in_term(array $term_ids, array $taxonomies, array $args = []): array {
+        $out = [];
+        foreach ($term_ids as $id) { $out = array_merge($out, $GLOBALS['_fs_test_term_objects'][(int) $id] ?? []); }
+        return $out;
+    }
+}
+/** Термы: $GLOBALS['_fs_test_term_objs'][$term_id] = WP_Term. */
+if (!function_exists('get_term')) {
+    function get_term(int $term_id, string $taxonomy = ''): mixed {
+        return $GLOBALS['_fs_test_term_objs'][$term_id] ?? null;
+    }
+}
+if (!class_exists('WP_Term')) {
+    class WP_Term {
+        public int $term_id = 0;
+        public string $name = '';
+        public string $slug = '';
+        public string $taxonomy = '';
+        public function __construct(int $term_id = 0, string $name = '', string $taxonomy = '') {
+            $this->term_id = $term_id;
+            $this->name = $name;
+            $this->taxonomy = $taxonomy;
+        }
+    }
+}
+
+/** wp_die() в тестах — исключение вместо остановки процесса. */
+class FsTestWpDie extends \Exception {}
+if (!function_exists('wp_die')) {
+    function wp_die(mixed $message = '', mixed $title = '', mixed $args = []): never {
+        throw new FsTestWpDie(is_scalar($message) ? (string) $message : 'wp_die');
+    }
+}
+/** Термины задаются через $GLOBALS['_fs_test_terms'][$taxonomy][$name] = term_id. */
+if (!function_exists('term_exists')) {
+    function term_exists(int|string $term, string $taxonomy = '', ?int $parent = null): mixed {
+        return $GLOBALS['_fs_test_terms'][$taxonomy][(string) $term] ?? 0;
+    }
+}
 if (!function_exists('wp_unslash')) {
     function wp_unslash(mixed $value): mixed { return is_string($value) ? stripslashes($value) : $value; }
+}
+if (!function_exists('sanitize_textarea_field')) {
+    function sanitize_textarea_field(string $str): string { return trim(strip_tags($str)); }
 }
 if (!function_exists('sanitize_text_field')) {
     function sanitize_text_field(string $str): string { return trim(preg_replace('/[\r\n\t ]+/', ' ', strip_tags($str))); }

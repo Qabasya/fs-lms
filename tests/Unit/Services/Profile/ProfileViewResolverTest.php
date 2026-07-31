@@ -30,9 +30,12 @@ class ProfileViewResolverTest extends TestCase {
 			$this->createMock( PersonRepository::class ),
 			$this->createMock( StudentRecordRepository::class ),
 			$this->createMock( GroupsRepository::class ),
-			new TeacherProfileView(),
+			new TeacherProfileView(
+				$this->createMock( GroupsRepository::class ),
+				$this->createMock( CourseManager::class ),
+				$this->createMock( SubjectRepository::class ),
+			),
 			new LearnerProfileView(),
-			$this->createMock( CourseManager::class ),
 			$this->createMock( SubjectRepository::class ),
 		);
 	}

@@ -4,6 +4,7 @@
  */
 
 import { renderFieldError } from '../../common/validation-manager.js';
+import { toggleVisible } from '../../common/utils.js';
 
 export const TaskFields = {
 
@@ -215,9 +216,9 @@ export const TaskFields = {
 					idInput.value = att.id;
 					if ( player ) { player.src = att.url; }
 					if ( titleEl ) { titleEl.textContent = att.title || att.filename || ''; }
-					if ( preview ) { preview.style.display = ''; }
+					toggleVisible( preview, true );
 					if ( selectBtn ) { selectBtn.textContent = 'Заменить аудио'; }
-					if ( removeBtn ) { removeBtn.style.display = ''; }
+					toggleVisible( removeBtn, true );
 				} );
 
 				frame.open();
@@ -228,9 +229,9 @@ export const TaskFields = {
 					idInput.value = 0;
 					if ( player ) { player.src = ''; }
 					if ( titleEl ) { titleEl.textContent = ''; }
-					if ( preview ) { preview.style.display = 'none'; }
+					toggleVisible( preview, false );
 					selectBtn.textContent = 'Выбрать аудио';
-					removeBtn.style.display = 'none';
+					toggleVisible( removeBtn, false );
 				} );
 			}
 		} );
@@ -284,9 +285,9 @@ export const TaskFields = {
 						link.href        = att.url;
 						link.textContent = att.title || att.filename || `Файл #${ att.id }`;
 					}
-					if ( preview ) { preview.style.display = ''; }
+					toggleVisible( preview, true );
 					selectBtn.textContent = 'Заменить файл';
-					if ( removeBtn ) { removeBtn.style.display = ''; }
+					toggleVisible( removeBtn, true );
 				} );
 
 				frame.open();
@@ -296,9 +297,9 @@ export const TaskFields = {
 				removeBtn.addEventListener( 'click', () => {
 					idInput.value = 0;
 					if ( link ) { link.href = '#'; link.textContent = ''; }
-					if ( preview ) { preview.style.display = 'none'; }
+					toggleVisible( preview, false );
 					selectBtn.textContent = 'Выбрать файл';
-					removeBtn.style.display = 'none';
+					toggleVisible( removeBtn, false );
 				} );
 			}
 		} );

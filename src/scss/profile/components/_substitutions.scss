@@ -130,3 +130,64 @@
   gap: rem(8);
   margin-left: auto;
 }
+
+/* ── Кого заменяем ─────────────────────────────────────────────────────── */
+.subs-who {
+  margin: 0 rem(18) rem(12);
+  padding: rem(9) rem(12);
+  font-size: rem(13);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-xs);
+}
+
+.subs-who-note {
+  color: var(--muted);
+  font-size: rem(12);
+}
+
+.subs-who--warn {
+  color: var(--wait-ink);
+  background: var(--wait-soft);
+  border-color: var(--wait-line);
+}
+
+/* ── Ошибка формы (зеркало серверных проверок) ─────────────────────────── */
+.subs-error {
+  flex: 1 1 100%;
+  padding: rem(8) rem(10);
+  font-size: rem(12);
+  color: var(--err-text);
+  background: var(--err-soft);
+  border: 1px solid var(--err-line);
+  border-radius: var(--radius-xs);
+}
+
+/* ── Статус замены ─────────────────────────────────────────────────────── */
+.subs-badge {
+  flex: 0 0 auto;
+  padding: rem(2) rem(8);
+  font-size: rem(11);
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.subs-badge--active {
+  color: var(--ok-ink);
+  background: var(--ok-soft);
+  border-color: var(--ok-line);
+}
+
+.subs-badge--planned {
+  color: var(--wait-ink);
+  background: var(--wait-soft);
+  border-color: var(--wait-line);
+}
+
+.subs-badge--done {
+  color: var(--muted);
+  background: var(--surface-2);
+  border-color: var(--line-2);
+}

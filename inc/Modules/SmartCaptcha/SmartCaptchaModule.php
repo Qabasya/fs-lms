@@ -4,12 +4,11 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\SmartCaptcha;
 
-use Inc\Contracts\CaptchaProviderInterface;
+use Inc\Modules\SmartCaptcha\Providers\YandexSmartCaptchaProvider;
 use Inc\Contracts\ServiceInterface;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Modules\SmartCaptcha\Config\SmartCaptchaConfig;
 use Inc\Modules\SmartCaptcha\Controllers\SmartCaptchaSettingsController;
-use Inc\Modules\SmartCaptcha\Providers\YandexSmartCaptchaProvider;
 
 /**
  * Class SmartCaptchaModule
@@ -31,6 +30,10 @@ class SmartCaptchaModule implements ServiceInterface {
 	public function __construct(
 		private readonly SmartCaptchaSettingsController $settings,
 		private readonly SmartCaptchaConfig             $config,
+		// Модуль ВЛАДЕЕТ реализацией: ядро получает её только через фильтр
+		// `fs_lms_captcha_provider` и знает лишь CaptchaProviderInterface
+		// (см. CaptchaProviderFactory). Биндинг интерфейса в core-контейнере
+		// заставил бы ядро знать класс модуля — этого мы избегаем.
 		private readonly YandexSmartCaptchaProvider     $provider,
 	) {}
 

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Inc\Services\Subject;
 
+use Inc\Enums\Wp\TransientKey;
+use Inc\Managers\Wp\TransientManager;
+
 /**
  * Class ContentCacheService
  *
@@ -20,9 +23,17 @@ namespace Inc\Services\Subject;
  * ### Архитектурная роль:
  *
  * Подключается к хукам 'save_post' и 'delete_post' для автоматической инвалидации кешированных данных.
- * Использует WordPress Transients API (set_transient/get_transient/delete_transient).
+ * Работает через {@see \Inc\Managers\Wp\TransientManager} (ключи — {@see \Inc\Enums\Wp\TransientKey}).
  */
 class ContentCacheService {
+
+	/**
+	 * @param TransientManager $transients Кеш готовых HTML-таблиц банка
+	 */
+	public function __construct(
+		private readonly TransientManager $transients,
+	) {}
+
 	
 	/**
 	 * Сбрасывает кеш таблицы "Последние задания/статьи" при сохранении поста.
@@ -77,8 +88,8 @@ class ContentCacheService {
 		$subject_key = $matches[1];  // Ключ предмета (например, 'phys')
 		$type_suffix = $matches[2];  // Тип контента: 'tasks' или 'articles'
 		
-		// delete_transient() — удаляет временные данные из кеша
-		// Формат ключа должен совпадать с тем, что используется в SubjectDataCallbacks
-		delete_transient( "fs_lms_recent_{$type_suffix}_{$subject_key}" );
+		// Ключ общий с SubjectDataCallbacks — оба берут его из TransientKey
+		$key = 'tasks' === $type_suffix ? TransientKey::RecentTasks : TransientKey::RecentArticles;
+		$this->transients->delete( $key, $subject_key );
 	}
 }

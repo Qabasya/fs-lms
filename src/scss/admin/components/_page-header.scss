@@ -22,15 +22,15 @@
 
   &__title {
     margin: 0;
-    font-size: $font-size-l;
-    font-weight: $font-bold;
+    font-size: $font-size-xl;
+    font-weight: $font-semibold;
     color: $color-text-primary;
     line-height: 1.2;
   }
 
   &__desc {
     margin: 0;
-    font-size: $font-size;
+    font-size: $font-size-base;
     color: $color-text-secondary;
     line-height: $line-height-base;
   }

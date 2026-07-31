@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject;
 
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\DTO\Subject\SubjectDTO;
 use Inc\DTO\Subject\SubjectImportReportDTO;
 use Inc\DTO\Task\TaskTemplateAssignmentDTO;
@@ -39,7 +39,7 @@ use Inc\Services\Subject\Import\ImportRollbackService;
  * `wp_insert_term()` и запись в `wp_options` не откатываются ROLLBACK'ом
  * (то же ограничение уже осознанно принято в `EnrolledStudentRowImporter`).
  * Поэтому применяется компенсирующий откат: всё созданное пишется в
- * {@see ImportedEntitiesDTO}, а при исключении {@see ImportRollbackService}
+ * {@see ImportedEntitiesCollector}, а при исключении {@see ImportRollbackService}
  * удаляет ровно это. Наружу исключение перебрасывается — но уже с чистой БД,
  * без «полупредмета».
  *
@@ -137,7 +137,7 @@ class SubjectImportService {
 			throw new \InvalidArgumentException( $this->duplicateKeyMessage( $key ) );
 		}
 
-		$created = new ImportedEntitiesDTO();
+		$created = new ImportedEntitiesCollector();
 
 		try {
 			// Создание предмета; hasBank переносим из экспорта (по умолчанию true — старые
@@ -314,11 +314,11 @@ class SubjectImportService {
 	 * Импортирует термины (элементы таксономий).
 	 *
 	 * @param array               $terms_by_taxonomy Массив [tax_slug => [term1, term2, ...]]
-	 * @param ImportedEntitiesDTO $created           Журнал созданного (для отката)
+	 * @param ImportedEntitiesCollector $created           Журнал созданного (для отката)
 	 *
 	 * @return void
 	 */
-	private function importTerms( array $terms_by_taxonomy, ImportedEntitiesDTO $created ): void {
+	private function importTerms( array $terms_by_taxonomy, ImportedEntitiesCollector $created ): void {
 		foreach ( $terms_by_taxonomy as $tax_slug => $term_list ) {
 			$taxonomy = sanitize_title( (string) $tax_slug );
 			// ensureTaxonomy() — проверяет существование таксономии и регистрирует при необходимости
@@ -350,11 +350,11 @@ class SubjectImportService {
 	 * Импортирует посты (задания и статьи).
 	 *
 	 * @param array               $posts_data Массив постов, сгруппированных по типам [post_type => post_list]
-	 * @param ImportedEntitiesDTO $created    Журнал созданного (для отката)
+	 * @param ImportedEntitiesCollector $created    Журнал созданного (для отката)
 	 *
 	 * @return void
 	 */
-	private function importPosts( array $posts_data, ImportedEntitiesDTO $created ): void {
+	private function importPosts( array $posts_data, ImportedEntitiesCollector $created ): void {
 		foreach ( $posts_data as $post_type => $post_list ) {
 			foreach ( (array) $post_list as $post_data ) {
 				// Создание поста

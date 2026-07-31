@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\SocialAuth\Config;
 
+use Inc\Modules\Shared\ModuleConfig;
+
 /**
  * Конфиг модуля SocialAuth (OAuth-вход через соцсети).
  * Модуль владеет СВОЕЙ опцией `fs_lms_social_auth` — ядро о ней не знает.
@@ -15,7 +17,7 @@ namespace Inc\Modules\SocialAuth\Config;
  *
  * По умолчанию модуль включён (backward-compat с монолитом — соц-вход исторически активен).
  */
-class SocialAuthConfig {
+class SocialAuthConfig extends ModuleConfig {
 
 	/** Ключ опции модуля (вне core OptionName — изоляция). */
 	public const OPTION = 'fs_lms_social_auth';
@@ -25,25 +27,19 @@ class SocialAuthConfig {
 		'enabled' => true,
 	);
 
-	/** @return array<string, mixed> */
-	public function get(): array {
-		$stored = get_option( self::OPTION, array() );
-		return array_merge( self::DEFAULTS, is_array( $stored ) ? $stored : array() );
+	protected function option(): string {
+		return self::OPTION;
 	}
 
-	/** Мержит $partial поверх текущего значения; неизвестные ключи игнорирует. */
-	public function save( array $partial ): void {
-		$current = $this->get();
-		$updated = array_merge( $current, array_intersect_key( $partial, self::DEFAULTS ) );
-		update_option( self::OPTION, $updated, false );
+	/**
+	 * @return array<string, mixed>
+	 */
+	protected function defaults(): array {
+		return self::DEFAULTS;
 	}
 
-	/** Включён ли модуль в рантайме. Константа wp-config перекрывает тумблер. */
-	public function isEnabled(): bool {
-		if ( defined( 'FS_LMS_SOCIAL_AUTH' ) ) {
-			return (bool) constant( 'FS_LMS_SOCIAL_AUTH' );
-		}
-		return (bool) ( $this->get()['enabled'] ?? true );
+	protected function toggleConstant(): ?string {
+		return 'FS_LMS_SOCIAL_AUTH';
 	}
 
 	/**
@@ -54,7 +50,7 @@ class SocialAuthConfig {
 	 * @return void
 	 */
 	public function maybeMigrateFromCore(): void {
-		if ( false !== get_option( self::OPTION, false ) ) {
+		if ( $this->optionExists() ) {
 			return; // своя опция уже есть — миграция не нужна
 		}
 

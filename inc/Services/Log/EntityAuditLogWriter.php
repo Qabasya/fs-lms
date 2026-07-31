@@ -10,7 +10,6 @@ use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\OperationType;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\Log\EntityAuditLogRepository;
-use Inc\Enums\Access\UserRole;
 use Inc\Shared\Traits\RequestContextProvider;
 
 /**
@@ -25,7 +24,7 @@ use Inc\Shared\Traits\RequestContextProvider;
  * 1. **Запись изменений сущностей** — логирование создания, обновления и удаления сущностей
  *    (предметы, таксономии, задания, статьи, группы, периоды, пользователи).
  * 2. **Сбор контекста запроса** — получение IP, User-Agent через трейт RequestContextProvider.
- * 3. **Определение роли пользователя** — получение роли через UserManager.
+ * 3. **Определение роли пользователя** — через ActorRoleResolver.
  *
  * ### Архитектурная роль:
  *
@@ -47,12 +46,12 @@ class EntityAuditLogWriter {
 	 * Конструктор райтера.
 	 *
 	 * @param EntityAuditLogRepository $repository  Репозиторий журнала аудита сущностей
-	 * @param UserManager              $userManager Менеджер пользователей
+	 * @param ActorRoleResolver $roleResolver Роль автора действия для журнала
 	 * @param ClockInterface           $clock       Интерфейс часов
 	 */
 	public function __construct(
 		private readonly EntityAuditLogRepository $repository,
-		private readonly UserManager              $userManager,
+		private readonly ActorRoleResolver $roleResolver,
 		private readonly ClockInterface           $clock,
 	) {}
 
@@ -75,7 +74,7 @@ class EntityAuditLogWriter {
 		?string       $oldLabel = null
 	): void {
 		$ctx = $this->requestContext();
-		$role = $this->resolveRole( $actorUserId );
+		$role = $this->roleResolver->resolve( $actorUserId );
 
 		$this->repository->create( new EntityAuditLogInputDTO(
 			actorUserId: $actorUserId > 0 ? $actorUserId : null,
@@ -89,21 +88,4 @@ class EntityAuditLogWriter {
 		) );
 	}
 
-	/**
-	 * Определяет роль пользователя по ID.
-	 *
-	 * @param int $userId ID пользователя WordPress
-	 *
-	 * @return string|null
-	 */
-	private function resolveRole( int $userId ): ?string {
-		if ( $userId <= 0 ) {
-			return null;
-		}
-		$user = $this->userManager->find( $userId );
-		if ( null === $user || empty( $user->roles ) ) {
-			return null;
-		}
-		return UserRole::primarySlug( (array) $user->roles );
-	}
 }

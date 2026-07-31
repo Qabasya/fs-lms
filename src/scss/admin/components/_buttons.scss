@@ -13,8 +13,8 @@
   gap: $spacing-xs;
   height: $input-height;
   padding: 0 $spacing-lg;
-  border-radius: $border-radius-md;
-  font-size: $font-size;
+  border-radius: $border-radius-sm;
+  font-size: $font-size-base;
   font-weight: $font-regular;
   cursor: pointer;
   text-decoration: none;
@@ -25,9 +25,9 @@
   box-sizing: border-box;
 
   .dashicons {
-    font-size: $font-size;
-    width: $font-size;
-    height: $font-size;
+    font-size: $font-size-base;
+    width: $font-size-base;
+    height: $font-size-base;
   }
 
   &--primary {

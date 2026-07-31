@@ -118,8 +118,8 @@ function showOtpStep( maskedEmail ) {
 }
 
 function showSuccess( notice ) {
-    document.querySelector( '.js-otp-input-block' ).style.display  = 'none';
-    document.querySelector( '.js-otp-success-block' ).style.display = '';
+    document.querySelector( '.js-otp-input-block' ).hidden  = true;
+    document.querySelector( '.js-otp-success-block' ).hidden = false;
 
     // Необязательное серверное сообщение + спиннер (например, статус создания доменной учётки).
     if ( notice ) {

@@ -3,7 +3,7 @@
 declare( strict_types=1 );
 
 namespace Inc\DTO\Subject;
-use Inc\DTO\Task\PostsListTableDTO;
+use Inc\Controllers\Builders\PostsListTablePresenter;
 use Inc\DTO\Task\TaskTypeDTO;
 
 /**
@@ -36,8 +36,10 @@ readonly class SubjectViewDTO {
 	 * @param string                  $articles_url   PageRoutes списка статей (edit.php?post_type=...)
 	 * @param string                  $protected_tax  Слаг защищённой таксономии (номера заданий)
 	 * @param TaxonomyDataDTO[]       $taxonomies     Массив DTO кастомных таксономий предмета
-	 * @param PostsListTableDTO|null  $tasks_table    DTO таблицы заданий (для вкладки tab-2)
-	 * @param PostsListTableDTO|null  $articles_table DTO таблицы статей (для вкладки tab-3)
+	 * @param PostsListTablePresenter|null  $tasks_table    Таблица заданий (для вкладки tab-2)
+	 * @param PostsListTablePresenter|null  $articles_table Таблица статей (для вкладки tab-3)
+	 * @param array<int, int>         $task_counts    Число заданий по номеру: term_id => count
+	 * @param array<int, int>         $article_counts Число статей по номеру: term_id => count
 	 */
 	public function __construct(
 		public string $subject_key,
@@ -48,8 +50,10 @@ readonly class SubjectViewDTO {
 		public string $articles_url,
 		public string $protected_tax,
 		public array $taxonomies,
-		public ?PostsListTableDTO $tasks_table = null,
-		public ?PostsListTableDTO $articles_table = null,
+		public ?PostsListTablePresenter $tasks_table = null,
+		public ?PostsListTablePresenter $articles_table = null,
+		public array $task_counts = array(),
+		public array $article_counts = array(),
 	) {
 	}
 }

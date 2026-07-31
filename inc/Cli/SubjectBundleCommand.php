@@ -5,6 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Cli;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\Wp\TransientKey;
+use Inc\Managers\Wp\TransientManager;
 use Inc\DTO\Subject\BundleOptionsDTO;
 use Inc\Services\Subject\Bundle\SubjectBundlePackager;
 use WP_CLI;
@@ -42,6 +44,7 @@ class SubjectBundleCommand implements ServiceInterface {
 	 */
 	public function __construct(
 		private readonly SubjectBundlePackager $packager,
+		private readonly TransientManager $transients,
 	) {}
 
 	/**
@@ -185,14 +188,14 @@ class SubjectBundleCommand implements ServiceInterface {
 	 */
 	private function moveToTarget( string $url, string $target ): void {
 		$token = basename( (string) wp_parse_url( $url, PHP_URL_PATH ) );
-		$meta  = get_transient( 'fs_lms_export_' . $token );
+		$meta  = $this->transients->get( TransientKey::Export, $token );
 
 		if ( ! is_array( $meta ) || empty( $meta['file'] ) || ! is_readable( (string) $meta['file'] ) ) {
 			WP_CLI::error( 'Пакет собран, но временный файл не найден — проверьте права на каталог uploads.' );
 			return;
 		}
 
-		delete_transient( 'fs_lms_export_' . $token );
+		$this->transients->delete( TransientKey::Export, $token );
 
 		if ( ! @rename( (string) $meta['file'], $target ) ) {
 			copy( (string) $meta['file'], $target );

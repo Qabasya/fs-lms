@@ -41,7 +41,7 @@
 	margin-bottom: $spacing-md;
 	padding: $spacing-sm $spacing-md;
 	border: 1px solid $wp-admin-gray-bg;
-	border-radius: $border-radius-md;
+	border-radius: $border-radius-sm;
 	background: $cb-bg-tree;
 	font-size: $font-size-xs;
 
@@ -66,5 +66,37 @@
 	&__ok {
 		color: $wp-admin-green-text;
 		font-weight: 600;
+	}
+}
+
+// ── Помощники поля score_map (копирование + разбор) ────────────
+.fs-score-map {
+	&__copy-toggle {
+		margin-left: auto;
+		font-size: $font-size-xs;
+	}
+
+	// Панель скрыта атрибутом hidden (инлайновые стили в JS запрещены),
+	// поэтому display задаём только видимому состоянию.
+	&__copy:not([hidden]) {
+		display: flex;
+		flex-wrap: wrap;
+		gap: $spacing-sm;
+		align-items: center;
+		margin-bottom: $spacing-sm;
+	}
+
+	&__source {
+		max-width: 100%;
+	}
+
+	&__copy-note,
+	&__parsed {
+		color: $color-text-secondary;
+		font-size: $font-size-xs;
+	}
+
+	&__parsed:empty {
+		display: none;
 	}
 }

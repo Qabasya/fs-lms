@@ -95,7 +95,7 @@ class LearnerServiceTest extends TestCase {
 			$this->att( 11, false ),
 		) );
 
-		$d = $this->service->build( 9001 );
+		$d = $this->service->build( 9001 )->toArray();
 
 		self::assertCount( 1, $d['groups'] );
 		self::assertSame( 'Г1', $d['groups'][0]['name'] );
@@ -112,7 +112,7 @@ class LearnerServiceTest extends TestCase {
 		$this->gradebook->method( 'forStudent' )->willReturn( array() );
 		$this->attendance->method( 'listByStudent' )->willReturn( array() );
 
-		$d = $this->service->build( 9001 );
+		$d = $this->service->build( 9001 )->toArray();
 
 		self::assertSame( array(), $d['groups'] );
 		self::assertNull( $d['attendance']['percent'] );
@@ -140,7 +140,7 @@ class LearnerServiceTest extends TestCase {
 		);
 		$this->worksResolver->method( 'resolve' )->willReturn( array( $work ) );
 
-		$d = $this->service->build( 9001 );
+		$d = $this->service->build( 9001 )->toArray();
 
 		self::assertCount( 1, $d['deadlines'] );
 		self::assertSame( 'Практика №1', $d['deadlines'][0]['topic'] );
@@ -169,7 +169,7 @@ class LearnerServiceTest extends TestCase {
 			$this->submission( 501 ),
 		) );
 
-		$d = $this->service->build( 9001 );
+		$d = $this->service->build( 9001 )->toArray();
 
 		self::assertSame( array(), $d['deadlines'] );
 	}
@@ -210,7 +210,7 @@ class LearnerServiceTest extends TestCase {
 		$this->attendance->method( 'listByStudent' )->willReturn( array() );
 		$this->progress->method( 'isLessonCompleted' )->with( 9001, 10 )->willReturn( true );
 
-		$lessons = $this->service->build( 9001 )['lessons'];
+		$lessons = $this->service->build( 9001 )->toArray()['lessons'];
 		$byId    = array_column( $lessons, null, 'group_lesson_id' );
 
 		self::assertSame( 'done', $byId[10]['status'] );
@@ -245,7 +245,7 @@ class LearnerServiceTest extends TestCase {
 			2 => '2026-05-19 10:00:00',
 		) );
 
-		$courses = $this->service->build( 9001 )['courses'];
+		$courses = $this->service->build( 9001 )->toArray()['courses'];
 
 		self::assertSame( 2, $courses[0]['id'] );
 		self::assertSame( 1, $courses[1]['id'] );
@@ -265,7 +265,7 @@ class LearnerServiceTest extends TestCase {
 		$this->attendance->method( 'listByStudent' )->willReturn( array() );
 		$this->progress->method( 'latestActivityByStudent' )->willReturn( array() );
 
-		$courses = $this->service->build( 9001 )['courses'];
+		$courses = $this->service->build( 9001 )->toArray()['courses'];
 
 		self::assertSame( 1, $courses[0]['id'] );
 		self::assertSame( 2, $courses[1]['id'] );
@@ -291,7 +291,7 @@ class LearnerServiceTest extends TestCase {
 		$this->gradebook->method( 'forStudent' )->willReturn( array() );
 		$this->attendance->method( 'listByStudent' )->willReturn( array() );
 
-		$d = $this->service->build( 9001 );
+		$d = $this->service->build( 9001 )->toArray();
 
 		// В блоке групп — только не-open (Г1).
 		self::assertCount( 1, $d['groups'] );

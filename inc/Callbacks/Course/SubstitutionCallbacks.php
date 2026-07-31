@@ -9,6 +9,7 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Access\UserRole;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\OptionsRepositories\UserRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Course\RoomAssignmentService;
 use Inc\Services\Course\SubstitutionService;
@@ -36,6 +37,7 @@ class SubstitutionCallbacks extends BaseController {
 		private readonly UserRepository        $users,
 		private readonly RoomRepository        $rooms,
 		private readonly RoomAssignmentService $roomAssignment,
+		private readonly GroupsRepository      $groups,
 	) {
 		parent::__construct();
 	}
@@ -75,11 +77,21 @@ class SubstitutionCallbacks extends BaseController {
 		$this->success( array( 'substitution_id' => $id ) );
 	}
 
+	/**
+	 * Замены одной группы + её штатный преподаватель — при переключении группы
+	 * на экране «Замены» (списки преподавателей и кабинетов от группы не зависят
+	 * и повторно не гоняются).
+	 * Params: group_id
+	 */
 	public function ajaxGetGroupSubstitutions(): void {
 		$this->authorize( Nonce::Substitution, Capability::ManageSchedule );
 
 		$groupId = $this->requireInt( 'group_id' );
-		$this->success( $this->mapSubstitutions( $groupId ) );
+
+		$this->success( array(
+			'substitutions' => $this->mapSubstitutions( $groupId ),
+			'group_teacher' => $this->groupTeacher( $groupId ),
+		) );
 	}
 
 	/**
@@ -102,6 +114,7 @@ class SubstitutionCallbacks extends BaseController {
 
 		$this->success( array(
 			'substitutions' => $this->mapSubstitutions( $groupId ),
+			'group_teacher' => $this->groupTeacher( $groupId ),
 			'teachers'      => $teachers,
 			'rooms'         => $rooms,
 		) );
@@ -131,6 +144,26 @@ class SubstitutionCallbacks extends BaseController {
 		}
 
 		$this->success( $result );
+	}
+
+	/**
+	 * Штатный преподаватель группы — тот, кого заменяют. Показывается в форме,
+	 * а при его отсутствии экран запрещает назначение (замещать некого).
+	 *
+	 * @return array{id:int, name:string}|null
+	 */
+	private function groupTeacher( int $groupId ): ?array {
+		$group     = $this->groups->findById( $groupId );
+		$teacherId = $group && null !== $group->teacher_id ? (int) $group->teacher_id : 0;
+
+		if ( $teacherId <= 0 ) {
+			return null;
+		}
+
+		return array(
+			'id'   => $teacherId,
+			'name' => get_userdata( $teacherId )->display_name ?? ( '#' . $teacherId ),
+		);
 	}
 
 	/** @return array<int,array<string,mixed>> */

@@ -20,44 +20,11 @@ import { showToast } from './toast.js';
 
 const $ = window.jQuery || jQuery;
 
-/**
- * Экранирует строку для безопасной вставки в HTML.
- *
- * ЗАЧЕМ ЭТО НУЖНО (Защита от XSS):
- * Если пользователь введет в поле название "Учебный период <script>alert('XSS')</script>",
- * и мы вставим это напрямую в HTML через .html() или шаблонные строки,
- * браузер выполнит JavaScript-код, что приведет к краже данных или поломке интерфейса.
- *
- * escapeHtml() заменяет специальные символы на их HTML-сущности:
- * - '<' → '&lt;' (отображается как текст, а не как начало тега)
- * - '>' → '&gt;'
- * - '&' → '&amp;'
- * - '"' → '&quot;'
- * - "'" → '&#039;'
- *
- * ПРАВИЛО: Всегда используйте escapeHtml() перед вставкой пользовательских данных
- * в HTML через .html() или шаблонные строки. Если используете .text() — экранирование
- * не нужно, jQuery делает это автоматически.
- *
- * @param {string} str - Исходная строка (может содержать опасные символы)
- * @returns {string} Экранированная строка, безопасная для вставки в HTML
- */
-export function escapeHtml(str) {
-    // Карта замен: ключ — опасный символ, значение — безопасная HTML-сущность
-    const map = {
-        '&': '&amp;',   // Амперсанд заменяется ПЕРВЫМ, чтобы не экранировать '&' в других сущностях
-        '<': '&lt;',    // Меньше чем (начало HTML-тега)
-        '>': '&gt;',    // Больше чем (конец HTML-тега)
-        '"': '&quot;',  // Двойная кавычка (используется в атрибутах HTML)
-        "'": '&#039;',  // Одинарная кавычка (альтернатива для атрибутов)
-    };
+// escapeHtml/debounce — канонические из common/utils.js (аудит §2.8: было
+// 11 копий escapeHtml и 3 debounce). Импорт + реэкспорт: модуль сам ими пользуется.
+import { escapeHtml, debounce } from '../../common/utils.js';
 
-    // String(str) гарантирует, что даже если передано число или null,
-    // мы получим строку и не упадем с ошибкой.
-    // Регулярное выражение /[&<>"']/g находит все вхождения опасных символов (флаг g = global).
-    // Функция замены (m) => map[m] подставляет для каждого найденного символа его безопасный аналог.
-    return String(str).replace(/[&<>"']/g, (m) => map[m]);
-}
+export { escapeHtml, debounce };
 
 /**
  * Переключает кнопку в режим загрузки или возвращает в обычное состояние.
@@ -158,135 +125,6 @@ export function apiError(error, options = {}) {
 }
 
 /**
- * Расширенное переключение кнопки с поддержкой success-состояния и колбэков.
- *
- * ОТЛИЧИЯ ОТ toggleButton():
- * 1. Поддержка successText — временный текст после успешного завершения
- *    (например, "✓ Сохранено" перед возвратом к "Сохранить").
- * 2. Колбэк onComplete, вызываемый после завершения всех анимаций.
- * 3. Настраиваемая длительность показа success-текста.
- *
- * СЦЕНАРИИ ИСПОЛЬЗОВАНИЯ:
- * - Кнопка "Сохранить" → при клике "Сохранение..." → после успеха "✓ Сохранено" (2 сек) → "Сохранить"
- * - Кнопка "Удалить" → при клике "Удаление..." → после успеха вызов onComplete для закрытия модалки
- *
- * @param {jQuery} $btn - jQuery-объект кнопки
- * @param {boolean} isLoading - Флаг режима загрузки
- * @param {Object} [options] - Настройки
- * @param {string} [options.loadingText='...'] - Текст для режима загрузки
- * @param {string} [options.successText] - Временный текст после успеха (например, '✓ Готово')
- * @param {number} [options.successDuration=2000] - Длительность показа success-текста в миллисекундах
- * @param {Function} [options.onComplete] - Колбэк после завершения (после возврата к оригинальному тексту)
- */
-export function toggleButtonExtended($btn, isLoading, options = {}) {
-    const {
-        loadingText = '...',
-        successText = null,
-        successDuration = 2000,
-        onComplete = null
-    } = options;
-
-    if (isLoading) {
-        // Вход в режим загрузки — аналогично toggleButton()
-        $btn.data('original-text', $btn.html())
-            .prop('disabled', true)
-            .text(loadingText);
-    } else {
-        // Выход из режима загрузки
-        $btn.prop('disabled', false)
-            .html($btn.data('original-text'));
-
-        if (successText) {
-            // ЕСЛИ УКАЗАН SUCCESS-ТЕКСТ:
-            // 1. Сохраняем текущий (восстановленный оригинальный) текст
-            const originalText = $btn.html();
-            // 2. Меняем текст на success-вариант (например, "✓ Сохранено")
-            $btn.text(successText);
-            // 3. Через successDuration мс возвращаем оригинальный текст и вызываем колбэк
-            setTimeout(() => {
-                $btn.html(originalText);
-                if (typeof onComplete === 'function') onComplete();
-            }, successDuration);
-        } else if (typeof onComplete === 'function') {
-            // Если success-текст не указан, вызываем колбэк сразу
-            onComplete();
-        }
-    }
-}
-
-/**
- * Расширенная обработка ошибки API с извлечением человекочитаемого сообщения.
- *
- * ОТЛИЧИЯ ОТ apiError():
- * 1. Пытается извлечь конкретное сообщение об ошибке из разных форматов ответа:
- *    - Строка → используется как есть
- *    - Error объект → error.message
- *    - jQuery AJAX ответ → error.responseJSON.message или error.statusText
- * 2. Логирует дополнительные детали в console.debug (доступны только в режиме разработки).
- * 3. Поддерживает колбэк onError для передачи сообщения в вызывающий код.
- * 4. Возвращает человекочитаемое сообщение, чтобы вызывающий код мог использовать его.
- *
- * @param {Error|Object|string} error - Объект ошибки (может быть Error, jQuery jqXHR, строка или объект)
- * @param {Object} [options] - Настройки
- * @param {boolean} [options.silent=false] - Не показывать уведомление пользователю
- * @param {Function} [options.onError] - Колбэк с текстом ошибки (для передачи в другие компоненты)
- * @param {Function} [options.onNotify] - Кастомная функция для показа ошибки
- * @returns {string} Человекочитаемое сообщение об ошибке
- */
-export function apiErrorEnhanced(error, options = {}) {
-    const { silent = false, onError = null, onNotify = null } = options;
-    let userMessage = 'Произошла ошибка при связи с сервером.';
-
-    // ИЗВЛЕЧЕНИЕ СООБЩЕНИЯ ИЗ РАЗНЫХ ФОРМАТОВ:
-    // AJAX-ответы от WordPress могут приходить в разных форматах,
-    // поэтому мы пытаемся достать сообщение из всех возможных мест.
-    if (typeof error === 'string') {
-        // Если передана просто строка — используем её как есть
-        userMessage = error;
-    } else if (error && typeof error === 'object') {
-        // Цепочка fallback-значений через ||:
-        // 1. error.message — стандартное свойство Error объекта
-        // 2. error.responseJSON?.message — тело ответа WordPress (если сервер вернул JSON с message)
-        // 3. error.statusText — HTTP-статус (например, 'Not Found', 'Internal Server Error')
-        // 4. userMessage — дефолтное сообщение, если ничего не найдено
-        userMessage = error.message ||
-            error.responseJSON?.message ||
-            error.statusText ||
-            userMessage;
-
-        // ЛОГИРОВАНИЕ ДЕТАЛЕЙ ДЛЯ РАЗРАБОТЧИКОВ:
-        // console.debug() показывает сообщения только когда в DevTools включен уровень "Verbose".
-        // Это полезно для детальной отладки, но не засоряет обычную консоль.
-        if (error.responseJSON?.data) {
-            console.debug('[API Error Details]:', error.responseJSON.data);
-        }
-        if (error.code) {
-            console.debug('[API Error Code]:', error.code);
-        }
-    }
-
-    console.error('[FS-LMS API Error]:', error);
-    console.debug('[User Message]:', userMessage);
-
-    if (!silent) {
-        if (typeof onNotify === 'function') {
-            onNotify(userMessage, 'error');
-        } else {
-            showToast(userMessage, 'error');
-        }
-    }
-
-    // Вызываем onError-колбэк, если передан.
-    // Это позволяет вызывающему коду получить сообщение и, например,
-    // показать его в специфичном месте (в модалке, в определенном блоке страницы).
-    if (typeof onError === 'function') {
-        onError(userMessage);
-    }
-
-    return userMessage;
-}
-
-/**
  * Показывает уведомление в стиле WordPress Admin Notice.
  *
  * ОТЛИЧИЯ ОТ showToast():
@@ -353,10 +191,10 @@ export function showNotice(message, type = 'info', $container = null, options = 
     // СОЗДАНИЕ HTML УВЕДОМЛЕНИЯ:
     // Используем стандартные классы WordPress (notice, notice-${type}, is-dismissible),
     // чтобы уведомление выглядело нативно в админке WordPress.
-    // style="margin: 10px 0;" добавляет отступы, так как уведомления обычно вставляются
+    // Отступы задаёт класс .fs-notice (инлайн-стили в JS запрещены); уведомления вставляются
     // в контейнеры без стандартных margin WordPress.
     const $notice = $(`
-        <div class="notice notice-${type} is-dismissible fs-notice" style="margin: 10px;">
+        <div class="notice notice-${type} is-dismissible fs-notice">
             <p><strong>${title}</strong> ${safeMessage}</p>
             <button type="button" class="notice-dismiss">
                 <span class="screen-reader-text">Закрыть</span>
@@ -531,11 +369,11 @@ export function toSlug( str ) {
  *        обновления счетчиков, показа альтернативного контента.
  */
 export function fadeDeleteRow($row, onRemoved) {
-    // Устанавливаем красный фон через .css().
+    // Красную подсветку даёт класс (.is-deleting) — инлайн-стилей в JS нет.
     // .fadeOut(400, ...) — анимация исчезновения за 400мс.
     // Колбэк внутри fadeOut вызывается ПОСЛЕ завершения анимации,
     // что гарантирует плавный переход без "прыжков".
-    $row.css('background', '#ff8d8d').fadeOut(400, function () {
+    $row.addClass('is-deleting').fadeOut(400, function () {
         // Удаляем элемент из DOM после завершения анимации.
         // Если не вызвать .remove(), элемент останется в DOM (просто невидимый),
         // что приведет к утечкам памяти при массовом удалении.

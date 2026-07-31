@@ -10,7 +10,6 @@ use Inc\Enums\Access\UserRole;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PageRoutes;
-use Inc\Managers\Course\CourseManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
@@ -36,16 +35,15 @@ class ProfileViewResolver {
 		private readonly PersonRepository        $persons,
 		private readonly StudentRecordRepository $records,
 		private readonly GroupsRepository        $groups,
+		// Витрины инжектятся конкретными типами намеренно: резолвер — точка
+		// СБОРКИ, он обязан различать реализации, чтобы выбрать нужную по роли
+		// (два аргумента одного интерфейса автовайринг не различил бы).
+		// Контракт соблюдён на выходе: viewFor() возвращает ProfileViewInterface.
 		private readonly TeacherProfileView      $teacherView,
 		private readonly LearnerProfileView      $learnerView,
-		private readonly CourseManager           $courses,
 		private readonly SubjectRepository       $subjects,
 	) {}
 
-	/** Человекочитаемое имя предмета (fallback — слаг), как в LearnerService (#12). */
-	private function subjectName( string $key ): string {
-		return $this->subjects->getByKey( $key )?->name ?? $key;
-	}
 
 	/**
 	 * Собирает контекст кабинета для WP-пользователя.
@@ -109,11 +107,6 @@ class ProfileViewResolver {
 			),
 		);
 
-		// Препод и офис работают с группами (КТП/журнал).
-		if ( UserRole::FSTeacher === $ctx->role || UserRole::FSOffice === $ctx->role ) {
-			$config = array_merge( $config, $this->teacherConfig( $wpUserId, $ctx ) );
-		}
-
 		// Учащийся/родитель (Эпик 7): один endpoint профиля (read-only).
 		if ( in_array( $ctx->role, array( UserRole::FSStudent, UserRole::FSParent, UserRole::Student ), true ) ) {
 			$config['learner'] = array(
@@ -161,167 +154,7 @@ class ProfileViewResolver {
 		);
 	}
 
-	/**
-	 * Блоки экранов препода/офиса: группы, расписание, журнал, ростер,
-	 * сводка, оценивание, дашборд; офису дополнительно — «Замены».
-	 *
-	 * Препод видит свои группы; FSOffice — ВСЕ группы (доступ к любой
-	 * и так разрешён `canManage` по `ManageLmsPlatform`).
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function teacherConfig( int $wpUserId, ProfileContext $ctx ): array {
-		$rows = ( UserRole::FSOffice === $ctx->role )
-			? $this->groups->findAll()
-			: $this->groups->findByTeacherId( $wpUserId );
 
-		$config = array(
-			'groups'   => array_map(
-				fn( $g ): array => array(
-					'id'          => (int) $g->id,
-					'name'        => $g->name,
-					'subject'     => $this->subjectName( (string) $g->subject_key ),
-					'subject_key' => (string) $g->subject_key, // ключ цвета чипа (chipIndex, utils.js)
-					// Эпик 15: открытая группа — фронт скрывает КТП/посещаемость.
-					'access_mode' => \Inc\Enums\Course\AccessMode::fromValueOrDefault( (string) ( $g->access_mode ?? '' ) )->value,
-				),
-				$rows
-			),
-			// «Мои курсы» (#15-B): курсы, назначенные хотя бы одной из групп выше —
-			// дедуп по course_id, т.к. несколько групп могут вести один курс.
-			'coursesTaught'    => $this->coursesTaught( $rows ),
-			'coursePreviewUrl' => PageRoutes::CoursePreview->url(),
-			'schedule' => array(
-				'nonce'   => Nonce::SaveSchedule->create(),
-				'actions' => array(
-					'getCalendar'   => AjaxHook::GetGroupCalendar->jsAction(),
-					'reflow'        => AjaxHook::ReflowSchedule->jsAction(),
-					'pin'           => AjaxHook::PinLesson->jsAction(),
-					'getProgram'    => AjaxHook::GetGroupProgram->jsAction(),
-					'publish'       => AjaxHook::PublishProgram->jsAction(),
-					'unpublish'     => AjaxHook::UnpublishProgram->jsAction(),
-					'getDeadlines'  => AjaxHook::GetWorkDeadlines->jsAction(),
-					'saveDeadlines' => AjaxHook::SaveWorkDeadlines->jsAction(),
-					'setRecordingUrl' => AjaxHook::SetRecordingUrl->jsAction(),
-					'continue'      => AjaxHook::ContinueProgramLesson->jsAction(),
-					'getIndividual'    => AjaxHook::GetIndividualSlots->jsAction(),
-					'lessonCandidates' => AjaxHook::GetLessonCandidates->jsAction(),
-					'assignLesson'     => AjaxHook::AssignIndividualLesson->jsAction(),
-					'createIndividual' => AjaxHook::CreateIndividualLesson->jsAction(),
-					'getFreeRooms'     => AjaxHook::GetFreeRooms->jsAction(),
-					'updateIndividual' => AjaxHook::UpdateIndividualLesson->jsAction(),
-					'getRoster'        => AjaxHook::GetGroupRoster->jsAction(),
-				),
-			),
-			// Курс-пикер КТП (T11.1) — отдельный блок: `assign_course` требует Nonce::AssignCourse.
-			'courses'  => array(
-				'nonce'   => Nonce::AssignCourse->create(),
-				'actions' => array(
-					'getCourses'   => AjaxHook::GetSubjectCourses->jsAction(),
-					'assignCourse' => AjaxHook::AssignCourse->jsAction(),
-				),
-			),
-			'journal'  => array(
-				'nonce'   => Nonce::SaveSchedule->create(),
-				'actions' => array(
-					'getJournal'     => AjaxHook::GetGroupJournal->jsAction(),
-					'saveAttendance' => AjaxHook::SaveAttendance->jsAction(),
-					'bulkAttendance' => AjaxHook::BulkAttendance->jsAction(),
-				),
-			),
-			// Экран «Группы» (ростер + создание индивидуальных занятий, T10.7).
-			// Блок назван `roster`, т.к. ключ `groups` занят списком групп сайдбара.
-			'roster'   => array(
-				'nonce'   => Nonce::SaveSchedule->create(),
-				'actions' => array(
-					'getRoster'        => AjaxHook::GetGroupRoster->jsAction(),
-					'createIndividual' => AjaxHook::CreateIndividualLesson->jsAction(),
-					'getFreeRooms'     => AjaxHook::GetFreeRooms->jsAction(),
-					'lessonCandidates' => AjaxHook::GetLessonCandidates->jsAction(),
-					'updateIndividual' => AjaxHook::UpdateIndividualLesson->jsAction(),
-				),
-			),
-			// «Сводка по ученику» (T10.8, D8) — ростер для выбора + занятия ученика.
-			'summary'  => array(
-				'nonce'   => Nonce::SaveSchedule->create(),
-				'actions' => array(
-					'getRoster'  => AjaxHook::GetGroupRoster->jsAction(),
-					'getSummary' => AjaxHook::GetStudentSummary->jsAction(),
-				),
-			),
-			// Деталь работы + оценивание (нонс GradeWork) для «Сводки по ученику» (T10.9).
-			'review'   => array(
-				'nonce'   => Nonce::GradeWork->create(),
-				'actions' => array(
-					'getDetail'        => AjaxHook::GetWorkDetail->jsAction(),
-					'saveGrade'        => AjaxHook::SaveGrade->jsAction(),
-					'returnSubmission' => AjaxHook::ReturnSubmission->jsAction(),
-					'resetAttempts'    => AjaxHook::ResetAttempts->jsAction(),
-				),
-			),
-			// Пооответное оценивание попытки экзамена (T11.9) — отдельный нонс GradeAttempt.
-			'attemptGrade' => array(
-				'nonce'   => Nonce::GradeAttempt->create(),
-				'actions' => array(
-					'gradeAttempt' => AjaxHook::GradeAttempt->jsAction(),
-				),
-			),
-			'dashboard' => array(
-				'nonce'   => Nonce::SaveSchedule->create(),
-				'actions' => array(
-					'getDashboard' => AjaxHook::GetProfileDashboard->jsAction(),
-				),
-			),
-		);
-
-		// Экран «Замены» — только офис (кабинет + педагог).
-		if ( UserRole::FSOffice === $ctx->role ) {
-			$config['substitutions'] = array(
-				'nonce'   => Nonce::Substitution->create(),
-				'actions' => array(
-					'getData' => AjaxHook::GetSubstitutionsData->jsAction(),
-					'assign'  => AjaxHook::AssignSubstitute->jsAction(),
-					'revoke'  => AjaxHook::RevokeSubstitute->jsAction(),
-					'setRoom' => AjaxHook::SetRoomOverride->jsAction(),
-				),
-			);
-		}
-
-		return $config;
-	}
-
-	/**
-	 * Дедуп курсов по `course_id` из сырых строк групп (#15-B): несколько групп
-	 * могут вести один курс — в сайдбаре он должен быть одной строкой.
-	 *
-	 * @param object[] $rows Строки групп (raw stdClass, `GroupsRepository`).
-	 * @return array<int, array{id:int, title:string, subject_key:string, group_ids:int[], first_lesson_id:int}>
-	 */
-	private function coursesTaught( array $rows ): array {
-		$courses = array();
-		foreach ( $rows as $g ) {
-			$courseId = (int) ( $g->course_id ?? 0 );
-			if ( $courseId <= 0 ) {
-				continue;
-			}
-			if ( ! isset( $courses[ $courseId ] ) ) {
-				$course = $this->courses->get( $courseId );
-				if ( null === $course ) {
-					continue;
-				}
-				$courses[ $courseId ] = array(
-					'id'              => $courseId,
-					'title'           => $course->title,
-					'subject_key'     => (string) $g->subject_key,
-					'group_ids'       => array(),
-					'first_lesson_id' => $course->lessonIds()[0] ?? 0,
-				);
-			}
-			$courses[ $courseId ]['group_ids'][] = (int) $g->id;
-		}
-
-		return array_values( $courses );
-	}
 
 	private function initials( string $name ): string {
 		$parts = array_filter( explode( ' ', $name ) );

@@ -1,3 +1,5 @@
+@use '../../shared/tokens' as *;
+
 // Станция КЕГЭ — экран завершения экзамена (checksum + итоговый балл).
 
 .kege-fin-wrap {
@@ -6,14 +8,14 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  gap: 18px;
+  padding: rem(40);
+  gap: rem(18);
 
   &[hidden] { display: none; }
 }
 
 .kege-fin-card {
-  width: 640px;
+  width: rem(640);
   background: var(--kege-surface);
   color: var(--kege-text);
   border: 1px solid var(--kege-line-2);
@@ -23,7 +25,7 @@
 .kege-fin-head { background: var(--kege-navy); color: var(--kege-on); padding: 10px 18px; font-size: 13.5px; }
 
 .kege-fin-body {
-  padding: 42px 40px 38px;
+  padding: rem(42) rem(40) rem(38);
   text-align: center;
   background: var(--kege-side);
 
@@ -35,9 +37,9 @@
 .kege-fin-sum {
   display: inline-block;
   border: 2px solid color-mix(in oklab, var(--kege-red) 45%, transparent);
-  border-radius: 6px;
+  border-radius: rem(6);
   background: var(--kege-surface);
-  padding: 12px 34px;
+  padding: rem(12) rem(34);
 
   &__lbl { font-size: 14px; color: var(--kege-muted); }
   &__val { font-size: 21px; font-weight: 500; letter-spacing: 0.1em; margin-top: 4px; font-variant-numeric: tabular-nums; }

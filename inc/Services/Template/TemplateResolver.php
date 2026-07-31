@@ -34,6 +34,9 @@ use Inc\Services\Subject\PostTypeResolver;
  * 3. **Стандартный шаблон** — значение по умолчанию из Enum TaskTemplate::Standard.
  */
 class TemplateResolver {
+
+	/** Легаси-ключ меты шаблона (до перехода на PostMetaName::TemplateType). */
+	private const LEGACY_TEMPLATE_META = '_fs_lms_template_type';
 	
 	/**
 	 * Конструктор.
@@ -75,7 +78,7 @@ class TemplateResolver {
 		// get_post_meta() — получает мета-поле поста (третий параметр true — одно значение)
 		$saved_meta = get_post_meta( $post->ID, PostMetaName::TemplateType->value, true );
 		if ( empty( $saved_meta ) ) {
-			$saved_meta = get_post_meta( $post->ID, '_fs_lms_template_type', true );
+			$saved_meta = get_post_meta( $post->ID, self::LEGACY_TEMPLATE_META, true );
 		}
 		if ( ! empty( $saved_meta ) ) {
 			return (string) $saved_meta;

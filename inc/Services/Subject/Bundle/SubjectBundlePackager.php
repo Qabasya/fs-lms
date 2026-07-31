@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Subject\Bundle;
 
 use Inc\DTO\Subject\BundleOptionsDTO;
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\DTO\Subject\SubjectImportReportDTO;
 use Inc\Services\Export\OneTimeDownloadService;
 use Inc\Services\Subject\Import\ImportRollbackService;
@@ -142,7 +142,7 @@ class SubjectBundlePackager {
 	 */
 	public function unpack( string $archivePath ): SubjectImportReportDTO {
 		$dir     = $this->makeTempDir();
-		$created = new ImportedEntitiesDTO();
+		$created = new ImportedEntitiesCollector();
 		$mapper  = new ExportIdMapper();
 
 		try {

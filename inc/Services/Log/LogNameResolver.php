@@ -82,7 +82,8 @@ class LogNameResolver {
 		global $wpdb;
 		// Поиск пользователя, связанного с этим лицом
 		$wpUserId = $wpdb->get_var( $wpdb->prepare(
-			"SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'fs_lms_person_id' AND meta_value = %s LIMIT 1",
+			"SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1",
+			MetaKeys::PersonID->value,
 			(string) $personId
 		) );
 

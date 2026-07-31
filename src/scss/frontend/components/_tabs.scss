@@ -13,17 +13,17 @@
   align-items: center;
   background: $color-white;
   border: 1px solid $color-border;
-  border-radius: $radius-md;
+  border-radius: $border-radius-lg;
   padding: rem(2);
   gap: 0;
 }
 
 .fs-task-page .fs-tab-btn {
   display: inline-block;
-  font-size: $font-size-xs;
+  font-size: $font-size-sm;
   font-weight: 500;
   padding: rem(5) rem(14);
-  border-radius: $radius-sm;
+  border-radius: $border-radius-md;
   border: 0;
   background: transparent;
   color: $color-muted;
@@ -46,20 +46,20 @@
 .fs-tab-panel {
   display: none;
   padding: rem(28) rem(36);
-  font-size: $font-size-base;
-  line-height: $line-height-base;
+  font-size: $font-size-md;
+  line-height: $line-height-relaxed;
 
   &.is-active { display: block; }
 
   pre {
     background: $color-bg-subtle;
     color: $color-text;
-    border-radius: $radius;
+    border-radius: $border-radius-sm;
     padding: rem(14) rem(16);
     overflow-x: auto;
-    font-family: $font-mono;
-    font-size: $font-size-sm;
-    line-height: $line-height-base;
+    font-family: $font-code;
+    font-size: $font-size-base;
+    line-height: $line-height-relaxed;
     margin: 0;
   }
 
@@ -72,10 +72,10 @@
 
   code {
     background: $color-bg-subtle;
-    border-radius: $radius;
+    border-radius: $border-radius-sm;
     padding: 1px rem(5);
-    font-family: $font-mono;
-    font-size: $font-size-sm;
+    font-family: $font-code;
+    font-size: $font-size-base;
     color: $color-text;
   }
 }

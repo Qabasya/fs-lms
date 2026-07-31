@@ -9,8 +9,9 @@ use Inc\Controllers\System\AjaxController;
 use Inc\Callbacks\Person\PersonUpdateCallbacks;
 use Inc\Callbacks\Person\PersonViewCallbacks;
 use Inc\Callbacks\Person\PiiRevealCallbacks;
-use Inc\Callbacks\Person\RepresentativeCallbacks;
 use Inc\Enums\Wp\AjaxHook;
+use Inc\Enums\Wp\TransientKey;
+use Inc\Managers\Wp\TransientManager;
 
 /**
  * Class PiiController
@@ -32,7 +33,6 @@ use Inc\Enums\Wp\AjaxHook;
  * - PiiRevealCallbacks — раскрытие PII
  * - PersonViewCallbacks — просмотр данных
  * - PersonUpdateCallbacks — обновление и удаление
- * - RepresentativeCallbacks — управление представителями
  *
  * ### Маршруты:
  *
@@ -46,13 +46,12 @@ class PiiController extends AjaxController {
 	 * @param PiiRevealCallbacks      $revealCallbacks      Коллбеки раскрытия PII
 	 * @param PersonViewCallbacks     $viewCallbacks        Коллбеки просмотра данных
 	 * @param PersonUpdateCallbacks   $updateCallbacks      Коллбеки обновления и удаления
-	 * @param RepresentativeCallbacks $representativeCallbacks Коллбеки управления представителями
 	 */
 	public function __construct(
 		private readonly PiiRevealCallbacks      $revealCallbacks,
 		private readonly PersonViewCallbacks     $viewCallbacks,
 		private readonly PersonUpdateCallbacks   $updateCallbacks,
-		private readonly RepresentativeCallbacks $representativeCallbacks,
+		private readonly TransientManager $transients,
 	) {
 		parent::__construct();
 	}
@@ -86,9 +85,7 @@ class PiiController extends AjaxController {
 			// Запрос на удаление персональных данных (soft delete)
 			array( AjaxHook::RequestPiiDeletion, $this->updateCallbacks ),
 			// Добавление законного представителя
-			array( AjaxHook::AddRepresentative, $this->representativeCallbacks ),
 			// Замена законного представителя
-			array( AjaxHook::ReplaceRepresentative, $this->representativeCallbacks ),
 			// Обновление данных лица
 			array( AjaxHook::UpdatePerson, $this->updateCallbacks ),
 			// Получение данных лица для отображения
@@ -138,8 +135,8 @@ class PiiController extends AjaxController {
 
 		// Получение токена из URL
 		$token = sanitize_key( get_query_var( 'fs_lms_token' ) );
-		// get_transient() — получение мета-информации о файле
-		$meta = get_transient( 'fs_lms_export_' . $token );
+		// Метаданные одноразовой ссылки: путь к файлу, имя, тип
+		$meta = $this->transients->get( TransientKey::Export, $token );
 
 		// Проверка существования файла
 		if ( ! is_array( $meta ) || empty( $meta['file'] ) || ! file_exists( (string) $meta['file'] ) ) {
@@ -150,8 +147,8 @@ class PiiController extends AjaxController {
 			return get_404_template();
 		}
 
-		// Удаление токена (одноразовая ссылка)
-		delete_transient( 'fs_lms_export_' . $token );
+		// Ссылка одноразовая — токен сгорает сразу
+		$this->transients->delete( TransientKey::Export, $token );
 
 		// Отправка заголовков для скачивания файла
 		$filename    = (string) ( $meta['filename']     ?? 'export' );

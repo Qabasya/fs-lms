@@ -67,15 +67,3 @@ export function formatPassportSN( input ) {
     input.value = value;
 }
 
-/**
- * Привязывает маску ИНН к инпуту (только цифры, макс. 12 символов).
- * @param {HTMLInputElement|null} input
- */
-export function bindInnMask( input ) {
-    if ( ! input ) { return; }
-    input.addEventListener( 'input', () => {
-        input.value = input.value
-            .replace( /\D/g, '' )
-            .substring( 0, 12 );
-    } );
-}

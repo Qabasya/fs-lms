@@ -17,14 +17,14 @@
 
   input[type="file"] {
     max-width: $field-max-width;
-    font-size: $font-size-wp;
+    font-size: $font-size-sm;
     color: $color-text-secondary;
     background: $color-bg-modal;
 
     &::file-selector-button {
       margin-right: $spacing-md;
       padding: $spacing-xs $spacing-md;
-      font-size: $font-size-wp;
+      font-size: $font-size-sm;
       line-height: 1.5;
       color: $color-primary;
       background: $wp-admin-gray-bg-light;
@@ -57,7 +57,7 @@
   padding: $spacing-lg;
   background: $wp-admin-gray-bg-light;
   border: 1px solid $color-border-footer;
-  border-radius: $border-radius-l;
+  border-radius: $border-radius-md;
 
   &__title {
     margin-top: 0;
@@ -76,17 +76,17 @@
   // Предпросмотр dry-run: вводные строки + нумерованный список записей
   &__intro {
     margin: $spacing-md 0 $spacing-sm;
-    font-size: $font-size-wp;
+    font-size: $font-size-sm;
     color: $color-text-primary;
   }
 
   &__preview {
     margin: 0 0 $spacing-md;
-    padding: $spacing-md $spacing-md $spacing-md $spacing-xxl;
+    padding: $spacing-md $spacing-md $spacing-md $spacing-3xl;
     background: $color-bg-modal;
     border: 1px solid $color-border-footer;
-    border-radius: $border-radius-md;
-    font-size: $font-size-wp;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
 
     li {
       margin: 0 0 $spacing-xs;
@@ -106,7 +106,7 @@
     padding: $spacing-md;
     background: $wp-admin-red-bg;
     color: $wp-admin-red-text;
-    border-radius: $border-radius-md;
+    border-radius: $border-radius-sm;
     list-style: none;
 
     li {

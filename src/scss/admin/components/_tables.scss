@@ -17,9 +17,9 @@
 
   thead th {
     padding: $spacing-sm $spacing-md;
-    font-weight: $font-bold;
+    font-weight: $font-semibold;
     text-align: left;
-    font-size: $font-size;
+    font-size: $font-size-base;
     color: $color-text-primary;
     vertical-align: middle;
 
@@ -71,7 +71,7 @@
   .column-title strong {
     display: inline-block;
     vertical-align: middle;
-    font-weight: $font-bold;
+    font-weight: $font-semibold;
   }
 
   .column-actions {
@@ -149,9 +149,9 @@
   .column-actions { width: 30%; }
 
   .column-title .dashicons-lock {
-    font-size: $font-size;
-    width: $font-size;
-    height: $font-size;
+    font-size: $font-size-base;
+    width: $font-size-base;
+    height: $font-size-base;
     color: $color-secondary;
     vertical-align: middle;
     margin-left: $spacing-xs;
@@ -193,7 +193,7 @@
     height: $table-add-btn-height;
     background: $color-border-input;
     border: none;
-    border-radius: $border-radius-md;
+    border-radius: $border-radius-sm;
     cursor: pointer;
     padding: 0;
     transition: background 0.15s ease-in-out;
@@ -229,12 +229,12 @@
   .column-date {
     white-space: nowrap;
     color: $color-text-secondary;
-    font-size: $font-size;
+    font-size: $font-size-base;
   }
 
   .fs-lms-join-code {
     font-family: $font-mono;
-    font-size: $font-size;
+    font-size: $font-size-base;
     color: var(--color-primary);
     text-decoration: underline;
   }
@@ -279,7 +279,7 @@
     background: $color-text-primary;
     color: $color-text-inverse;
     padding: $spacing-xs $spacing-sm;
-    border-radius: $border-radius-md;
+    border-radius: $border-radius-sm;
     font-size: $font-size-code;
     white-space: nowrap;
     pointer-events: none;

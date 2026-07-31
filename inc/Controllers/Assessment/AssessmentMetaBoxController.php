@@ -19,6 +19,7 @@ use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\TemplateRenderer;
 use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
 /**
@@ -29,6 +30,8 @@ use Inc\Shared\Traits\TidiesCoreMetaBoxes;
  * @package Inc\Controllers
  */
 class AssessmentMetaBoxController extends BaseController implements ServiceInterface {
+
+	use TemplateRenderer;
 
 	use Authorizer, TidiesCoreMetaBoxes;
 
@@ -154,9 +157,11 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 	public function renderSettingsContent( \WP_Post $post ): void {
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
-		echo '<div class="fs-lms-assessment-settings">';
-		$this->template->render( $post );
-		echo '</div>';
+		$this->render( 'admin/metaboxes/fields-wrapper', array(
+			'wrapper_class' => 'fs-lms-assessment-settings',
+			'post'          => $post,
+			'template'      => $this->template,
+		) );
 	}
 
 	public function renderBuilderContent( \WP_Post $post ): void {
@@ -187,17 +192,18 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 		$ege_kinds_json = wp_json_encode( AssessmentKind::weightedScoreValues() );
 
-		echo '<div class="fs-sb-wrap">';
-		echo '<div class="fs-lms-assessment-builder" '
-			. 'data-assessment-id="' . esc_attr( (string) $post->ID ) . '" '
-			. 'data-subject="' . esc_attr( $subject ) . '" '
-			. 'data-ege-slots="' . esc_attr( (string) $ege_slots ) . '" '
-			. 'data-ege-kinds="' . esc_attr( $ege_kinds_json ?: '[]' ) . '" '
-			. 'data-task-points="' . esc_attr( $points_json ?: '{}' ) . '" '
-			. 'data-task-numbers="' . esc_attr( $numbers_json ?: '{}' ) . '">';
-		echo '<script type="application/json" class="fs-sb-data">' . ( $json ?: '[]' ) . '</script>';
-		echo '</div>';
-		echo '</div>';
+		$this->render( 'admin/metaboxes/builder-shell', array(
+			'root_class' => 'fs-lms-assessment-builder',
+			'data'       => array(
+				'assessment-id' => $post->ID,
+				'subject'       => $subject,
+				'ege-slots'     => $ege_slots,
+				'ege-kinds'     => $ege_kinds_json ?: '[]',
+				'task-points'   => $points_json ?: '{}',
+				'task-numbers'  => $numbers_json ?: '{}',
+			),
+			'json'       => (string) $json,
+		) );
 	}
 
 	public function handleAssessmentSave( int $post_id ): void {

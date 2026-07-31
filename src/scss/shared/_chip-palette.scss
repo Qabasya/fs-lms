@@ -11,8 +11,9 @@
 
 @use 'sass:color';
 @use 'sass:list';
+@use 'tokens' as t;
 
-$chip-colors: #3b5bdb, #0ca678, #7048e8, #f08c00, #e8590c, #1c7ed6,
+$chip-colors: #3b5bdb, #0ca678, t.$hue-violet, #f08c00, #e8590c, #1c7ed6,
               #e64980, #2f9e44, #9c36b5, #0c8599, #66a80f, #c92a2a;
 
 @for $i from 1 through list.length($chip-colors) {

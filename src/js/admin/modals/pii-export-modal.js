@@ -28,7 +28,12 @@ export const PiiExportModal = {
     /**
      * Инициализация: кэширует DOM-узел модалки, если она есть на странице.
      */
+    /** Повторный init() — no-op: модалку поднимает и автозагрузчик ui.js, и admin.js. */
+    _initialized: false,
+
     init() {
+        if ( this._initialized ) { return; }
+        this._initialized = true;
         this.$modal = $( '#fs-lms-pii-export-modal' );
     },
 

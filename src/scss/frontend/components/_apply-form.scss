@@ -17,19 +17,19 @@
 }
 
 .fs-apply-card {
-  @include fs-card-shell(rem(480), $spacing-2xl rem(30));
+  @include fs-card-shell(rem(480), $spacing-4xl rem(30));
 
   &__title {
     @include fs-card-title;
 
-    margin: 0 0 $spacing-xl;
+    margin: 0 0 $spacing-2xl;
   }
 
   // #6: название направления под заголовком (после верного кода направления).
   &__direction {
-    margin: -#{$spacing-md} 0 $spacing-xl;
+    margin: -#{$spacing-md} 0 $spacing-2xl;
     text-align: center;
-    font-size: $font-size-base;
+    font-size: $font-size-md;
     font-weight: $font-bold;
     color: $color-accent;
   }
@@ -80,8 +80,8 @@
 
     &--otp input {
       letter-spacing: 0.2em;
-      font-size: $font-size-base;
-      font-family: $font-mono;
+      font-size: $font-size-md;
+      font-family: $font-code;
     }
   }
 
@@ -96,7 +96,7 @@
   }
 
   &__description {
-    font-size: $font-size-sm;
+    font-size: $font-size-base;
     color: $color-muted;
     margin: 0 0 $spacing-lg;
     text-align: center;
@@ -109,7 +109,7 @@
   &__resend {
     text-align: center;
     margin-top: rem(14);
-    font-size: $font-size-xs;
+    font-size: $font-size-sm;
 
     .js-resend-otp {
       color: $color-muted;
@@ -117,7 +117,7 @@
       background: none;
       border: none;
       padding: 0;
-      font-size: $font-size-xs;
+      font-size: $font-size-sm;
       transition: color $transition;
 
       &:not(:disabled):hover {
@@ -143,14 +143,14 @@
   }
 
   &__success-title {
-    font-size: $font-size-base;
+    font-size: $font-size-md;
     font-weight: $font-bold;
     color: $color-text;
     margin: 0;
   }
 
   &__error {
-    @include fs-form-error($font-size-xs, $spacing-md);
+    @include fs-form-error($font-size-sm, $spacing-md);
   }
 }
 
@@ -171,7 +171,7 @@
   flex-shrink: 0;
   border: 2px solid $color-border;
   border-top-color: $color-accent;
-  border-radius: $radius-pill;
+  border-radius: $border-radius-pill;
   animation: fs-apply-spin 0.8s linear infinite;
 
   &[hidden] { display: none; }

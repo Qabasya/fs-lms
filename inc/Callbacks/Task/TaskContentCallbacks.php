@@ -9,6 +9,7 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\MetaBoxManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\Traits\Authorizer;
@@ -30,6 +31,7 @@ class TaskContentCallbacks extends BaseController {
 	public function __construct(
 		private readonly TemplateRegistry $templateRegistry,
 		private readonly MetaBoxManager   $metaBoxManager,
+		private readonly PostManager      $posts,
 	) {}
 
 	/**
@@ -80,7 +82,7 @@ class TaskContentCallbacks extends BaseController {
 		$templateId = $this->requireKey( 'template' );
 		$title      = $this->requireText( 'title' );
 		$postId     = (int) ( $_POST['post_id'] ?? 0 );
-		$rawMeta    = (array) wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
+		$rawMeta    = $this->unslashArray( PostMetaName::Meta->value );
 
 		$template = $this->templateRegistry->get( $templateId );
 		if ( ! $template ) {
@@ -91,9 +93,9 @@ class TaskContentCallbacks extends BaseController {
 		$postType = PostTypeResolver::tasks( $subjectKey );
 
 		if ( $postId > 0 ) {
-			wp_update_post( array( 'ID' => $postId, 'post_title' => $title ) );
+			$this->posts->update( $postId, array( 'post_title' => $title ) );
 		} else {
-			$result = wp_insert_post( array(
+			$postId = $this->posts->insert( array(
 				'post_type'   => $postType,
 				'post_title'  => $title,
 				'post_status' => 'publish',
@@ -101,13 +103,12 @@ class TaskContentCallbacks extends BaseController {
 				'post_author' => get_current_user_id(),
 			) );
 
-			if ( is_wp_error( $result ) || ! $result ) {
+			if ( 0 === $postId ) {
 				$this->error( 'Не удалось создать задание' );
 				return;
 			}
 
-			$postId = $result;
-			update_post_meta( $postId, PostMetaName::TemplateType->value, $templateId );
+			$this->posts->updateMeta( $postId, PostMetaName::TemplateType->value, $templateId );
 		}
 
 		$this->metaBoxManager->saveFields(

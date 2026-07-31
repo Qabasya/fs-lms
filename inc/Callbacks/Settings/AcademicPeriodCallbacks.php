@@ -101,35 +101,4 @@ class AcademicPeriodCallbacks extends BaseController {
 		);
 	}
 
-	/**
-	 * Удаляет учебный период по ID.
-	 *
-	 * @return void
-	 */
-	public function ajaxDeleteAcademicPeriod(): void {
-		$this->authorize( Nonce::Manager );
-
-		$id = $this->requireKey( 'id', error: 'Не указан идентификатор периода.' );
-
-		// Проверка существования периода перед удалением
-		if ( null === $this->period_service->getById( $id ) ) {
-			$this->error( 'Удаляемый период не найден в системе.' );
-		}
-
-		$oldLabel = $this->period_service->getById( $id )?->name;
-		$deleted  = $this->period_service->deletePeriod( $id );
-
-		if ( $deleted ) {
-			$this->logEvents->dispatch(
-				LogEvent::PeriodDeleted,
-				new EntityChangedEvent( get_current_user_id(), OperationType::Delete, EntityType::Period, $id, $oldLabel )
-			);
-		}
-
-		$this->respond(
-			$deleted,
-			error_msg:   'Не удалось удалить период из базы данных.',
-			success_msg: 'Период успешно удалён.'
-		);
-	}
 }

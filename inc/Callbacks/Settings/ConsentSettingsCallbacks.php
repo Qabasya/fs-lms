@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Settings;
 
 use Inc\Core\BaseController;
+use Inc\Managers\Wp\PostManager;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
@@ -42,6 +43,7 @@ class ConsentSettingsCallbacks extends BaseController {
 	 */
 	public function __construct(
 		private readonly ConsentDefinitionsRepository $definitions,
+		private readonly PostManager $posts,
 	) {
 		parent::__construct();
 	}
@@ -69,8 +71,8 @@ class ConsentSettingsCallbacks extends BaseController {
 			$this->error( "Согласие с ключом «{$key}» уже существует." );
 		}
 
-		// wp_insert_post() — создание страницы в WordPress
-		$pageId = wp_insert_post( array(
+		// Страницу-документ создаём через менеджер записей (прямых WP-вызовов в коллбэках нет)
+		$pageId = $this->posts->insert( array(
 			'post_title'   => $name,
 			'post_name'    => 'lms-consent-' . $key,  // slug страницы
 			'post_status'  => 'draft',                // Черновик (до публикации)
@@ -78,8 +80,8 @@ class ConsentSettingsCallbacks extends BaseController {
 			'post_content' => '',
 		) );
 
-		// is_wp_error() — проверка на ошибку WordPress
-		if ( is_wp_error( $pageId ) || ! $pageId ) {
+		// insert() уже свернул WP_Error в 0
+		if ( 0 === $pageId ) {
 			$this->error( 'Не удалось создать страницу согласия.' );
 		}
 

@@ -4,6 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks\Subject;
 
+use Inc\Controllers\Builders\PostsListTablePresenter;
+use Inc\Managers\Wp\TransientManager;
+use Inc\Enums\Wp\TransientKey;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
@@ -45,6 +48,7 @@ class SubjectDataCallbacks extends BaseController {
 		private BoilerplateRepository $boilerplates,
 		private TermManager $terms,
 		private PostManager $posts,
+		private TransientManager $transients,
 	) {
 		parent::__construct();
 	}
@@ -87,18 +91,12 @@ class SubjectDataCallbacks extends BaseController {
 			$this->error( 'У этого предмета нет собственного банка заданий/статей.' );
 		}
 
-		// buildListTable() — создаёт объект WP_ListTable для указанного типа поста
-		$t = $this->posts->buildListTable( $post_type, $page_slug, $tab );
-
-		// ob_start() — начинает буферизацию вывода
-		ob_start();
-		// search_box() — выводит HTML поисковой формы для таблицы
-		$t->table->search_box( $t->post_type_object->labels->search_items, 'post' );
-		$search_html = ob_get_clean();
+		// Презентер готовит нативную WP-таблицу для страницы плагина
+		$t = PostsListTablePresenter::for( $post_type, $page_slug, $tab );
 
 		// Сборка HTML: представления (views), форма поиска, таблица, контейнер для AJAX, inline-редактор
 		$html = $t->views()
-				. '<form id="posts-filter" method="get">' . $search_html . $t->display() . '</form>'
+				. '<form id="posts-filter" method="get">' . $t->searchBox() . $t->display() . '</form>'
 				. '<div id="ajax-response"></div>'
 				. $t->inlineEdit();
 
@@ -152,10 +150,9 @@ class SubjectDataCallbacks extends BaseController {
 		$this->authorize( Nonce::Subject, Capability::Admin );
 
 		$subject_key = $this->requireKey( 'subject_key' );
-		$cache_key   = "fs_lms_recent_tasks_{$subject_key}";
 
-		// get_transient() — получает временные данные из кеша (хранятся в options таблице)
-		if ( $html = get_transient( $cache_key ) ) {
+		// Кеш готового HTML таблицы — на сутки; сбрасывается ContentCacheService при правках
+		if ( $html = $this->transients->get( TransientKey::RecentTasks, $subject_key ) ) {
 			$this->success( array( 'html' => $html ) );
 		}
 
@@ -174,9 +171,8 @@ class SubjectDataCallbacks extends BaseController {
 			)
 		);
 
-		// set_transient() — сохраняет данные в кеш на указанный срок
 		// DAY_IN_SECONDS — константа WordPress (86400 секунд = 1 сутки)
-		set_transient( $cache_key, $html, DAY_IN_SECONDS );
+		$this->transients->set( TransientKey::RecentTasks, $subject_key, $html, DAY_IN_SECONDS );
 
 		$this->success( array( 'html' => $html ) );
 	}
@@ -190,9 +186,8 @@ class SubjectDataCallbacks extends BaseController {
 		$this->authorize( Nonce::Subject, Capability::Admin );
 
 		$subject_key = $this->requireKey( 'subject_key' );
-		$cache_key   = "fs_lms_recent_articles_{$subject_key}";
 
-		if ( $html = get_transient( $cache_key ) ) {
+		if ( $html = $this->transients->get( TransientKey::RecentArticles, $subject_key ) ) {
 			$this->success( array( 'html' => $html ) );
 		}
 
@@ -206,7 +201,7 @@ class SubjectDataCallbacks extends BaseController {
 			)
 		);
 
-		set_transient( $cache_key, $html, DAY_IN_SECONDS );
+		$this->transients->set( TransientKey::RecentArticles, $subject_key, $html, DAY_IN_SECONDS );
 
 		$this->success( array( 'html' => $html ) );
 	}

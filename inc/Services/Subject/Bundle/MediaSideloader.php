@@ -4,7 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject\Bundle;
 
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
+use Inc\Shared\Traits\ScopedFilter;
 use Inc\Shared\PluginLogger;
 use RuntimeException;
 
@@ -29,6 +30,8 @@ use RuntimeException;
  */
 class MediaSideloader {
 
+	use ScopedFilter;
+
 	/**
 	 * Допустимые MIME-типы — зеркало {@see \Inc\Managers\Wp\MediaManager}.
 	 */
@@ -52,13 +55,13 @@ class MediaSideloader {
 	 *
 	 * @param array               $media      Раздел `media[]` манифеста
 	 * @param string              $extractDir Каталог распаковки
-	 * @param ImportedEntitiesDTO $created    Журнал созданного (для отката)
+	 * @param ImportedEntitiesCollector $created    Журнал созданного (для отката)
 	 *
 	 * @return array{map: MediaIdMap, warnings: string[]}
 	 *
 	 * @throws RuntimeException При недопустимом типе файла внутри архива
 	 */
-	public function sideloadAll( array $media, string $extractDir, ImportedEntitiesDTO $created ): array {
+	public function sideloadAll( array $media, string $extractDir, ImportedEntitiesCollector $created ): array {
 		$map      = new MediaIdMap();
 		$warnings = array();
 
@@ -129,22 +132,25 @@ class MediaSideloader {
 			return $mimes;
 		};
 
-		add_filter( 'upload_mimes', $extraMimes );
+		$attachmentId = $this->withFilter(
+			'upload_mimes',
+			$extraMimes,
+			static function () use ( $filename, $tmp ) {
+				try {
+					return media_handle_sideload(
+						array(
+							'name'     => sanitize_file_name( $filename ),
+							'tmp_name' => $tmp,
+						),
+						0
+					);
+				} catch ( \Throwable $e ) {
+					PluginLogger::exception( 'SUBJECT_BUNDLE', $e, array( 'file' => $filename ), true );
 
-		try {
-			$attachmentId = media_handle_sideload(
-				array(
-					'name'     => sanitize_file_name( $filename ),
-					'tmp_name' => $tmp,
-				),
-				0
-			);
-		} catch ( \Throwable $e ) {
-			PluginLogger::exception( 'SUBJECT_BUNDLE', $e, array( 'file' => $filename ), true );
-			$attachmentId = null;
-		} finally {
-			remove_filter( 'upload_mimes', $extraMimes );
-		}
+					return null;
+				}
+			}
+		);
 
 		if ( is_wp_error( $attachmentId ) || ! is_int( $attachmentId ) ) {
 			// media_handle_sideload() удаляет tmp сам только при успехе.

@@ -4,10 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Import;
 
-use DateTime;
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
-use Inc\Contracts\RowImporterInterface;
 use Inc\DTO\Enrollment\StudentRecordInputDTO;
 use Inc\DTO\Import\ImportContextDTO;
 use Inc\DTO\Import\ImportRowResultDTO;
@@ -51,7 +49,7 @@ use InvalidArgumentException;
  *
  * Предмет и период берутся из {@see ImportContextDTO} (выбор в UI), а не из CSV.
  */
-readonly class EnrolledStudentRowImporter implements RowImporterInterface {
+readonly class EnrolledStudentRowImporter extends AbstractRowImporter {
 
 	use TransactionRunner;
 
@@ -238,61 +236,6 @@ readonly class EnrolledStudentRowImporter implements RowImporterInterface {
 		) );
 	}
 
-	/**
-	 * Бросает исключение, если какое-то обязательное значение пустое.
-	 *
-	 * @param array<string, string> $values [колонка => значение]
-	 *
-	 * @return void
-	 *
-	 * @throws InvalidArgumentException
-	 */
-	private function requireValues( array $values ): void {
-		foreach ( $values as $label => $value ) {
-			if ( '' === $value ) {
-				throw new InvalidArgumentException( "Не заполнена обязательная колонка «{$label}»." );
-			}
-		}
-	}
 
-	/**
-	 * Нормализует дату в формат Y-m-d.
-	 *
-	 * @param string $value Дата в формате Y-m-d / d.m.Y / d/m/Y / d-m-Y
-	 *
-	 * @return string|null Y-m-d или null
-	 */
-	private function toDate( string $value ): ?string {
-		$value = trim( $value );
-		if ( '' === $value ) {
-			return null;
-		}
 
-		foreach ( array( 'Y-m-d', 'd.m.Y', 'd/m/Y', 'd-m-Y' ) as $format ) {
-			$date   = DateTime::createFromFormat( '!' . $format, $value );
-			$errors = DateTime::getLastErrors();
-			$clean  = false === $errors || ( 0 === $errors['warning_count'] && 0 === $errors['error_count'] );
-
-			if ( $date instanceof DateTime && $clean ) {
-				return $date->format( 'Y-m-d' );
-			}
-		}
-
-		$timestamp = strtotime( $value );
-
-		return false !== $timestamp ? gmdate( 'Y-m-d', $timestamp ) : null;
-	}
-
-	/**
-	 * Нормализует дату в datetime (полночь) для колонок типа datetime.
-	 *
-	 * @param string $value Дата
-	 *
-	 * @return string|null Y-m-d 00:00:00 или null
-	 */
-	private function toDateTime( string $value ): ?string {
-		$date = $this->toDate( $value );
-
-		return null === $date ? null : $date . ' 00:00:00';
-	}
 }

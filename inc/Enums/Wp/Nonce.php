@@ -35,10 +35,7 @@ enum Nonce: string {
 	case ParentSubmit          = 'fs_lms_parent_submit';
 	case Enroll                = 'fs_lms_enroll';
 	case RevealPii             = 'fs_lms_reveal_pii';
-	case AddRepresentative     = 'fs_lms_add_representative';
-	case ReplaceRepresentative = 'fs_lms_replace_representative';
 	case UpdatePerson          = 'fs_lms_update_person';
-	case WithdrawConsent       = 'fs_lms_withdraw_consent';
 	case RequestPiiDeletion    = 'fs_lms_request_pii_deletion';
 	case VerifyOtp             = 'fs_lms_verify_otp';
 	case TrashApplication      = 'fs_lms_trash_application';

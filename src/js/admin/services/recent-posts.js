@@ -121,7 +121,7 @@ export const RecentContent = {
         // Добавляем CSS-класс 'is-loading' (может использоваться для показа спиннера)
         // и уменьшаем прозрачность контейнера до 0.5 для визуальной индикации загрузки.
         // Цепочка методов jQuery позволяет выполнить оба действия в одной строке.
-        $container.addClass('is-loading').css('opacity', '0.5');
+        $container.addClass('is-loading');
 
         // ==========================================
         // 6. AJAX-ЗАПРОС К СЕРВЕРУ
@@ -143,7 +143,7 @@ export const RecentContent = {
             // Удаляем CSS-класс 'is-loading' и возвращаем прозрачность к 1 (полная видимость).
             // Это делаем в начале обработчика, чтобы индикатор исчез сразу после получения ответа,
             // а не после обработки данных.
-            $container.removeClass('is-loading').css('opacity', '1');
+            $container.removeClass('is-loading');
 
             // ПРОВЕРКА БИЗНЕС-УСПЕХА:
             // WordPress AJAX всегда возвращает объект { success: boolean, data: any }.
@@ -178,7 +178,7 @@ export const RecentContent = {
             // Это HTTP-ошибка, а не бизнес-ошибка.
 
             // Снимаем индикатор загрузки
-            $container.removeClass('is-loading').css('opacity', '1');
+            $container.removeClass('is-loading');
 
             // Логируем ошибку в консоль для разработчиков.
             // jqXHR — объект jQuery с деталями HTTP-запроса (статус, заголовки, тело ответа).

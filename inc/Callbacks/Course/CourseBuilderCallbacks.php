@@ -101,7 +101,7 @@ class CourseBuilderCallbacks extends BaseController {
 		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
 		$course_id = $this->requireInt( 'course_id' );
-		$modules   = $this->sanitizeModules( wp_unslash( $_POST['modules'] ?? array() ) );
+		$modules   = $this->sanitizeModules( $this->unslashArray( 'modules' ) );
 
 		if ( $this->builder->saveStructure( $course_id, $modules ) ) {
 			// D17.3: урок мог быть убран из курса — ре-синк снимает осиротевшие

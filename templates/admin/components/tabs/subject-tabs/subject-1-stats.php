@@ -95,41 +95,10 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 		if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) :
 			foreach ( $terms as $term ) :
-				// Считаем задачи для этого номера
-				$tasks_query = new WP_Query(
-					array(
-						'post_type'      => $task_cpt,
-						'post_status'    => 'publish',
-						'tax_query'      => array(
-							array(
-								'taxonomy' => $taxonomy,
-								'field'    => 'term_id',
-								'terms'    => $term->term_id,
-							),
-						),
-						'fields'         => 'ids',
-						'posts_per_page' => - 1,
-					)
-				);
-				$tasks_count = $tasks_query->found_posts;
+				// Счётчики приходят из SubjectPageCallbacks (один запрос на CPT).
+				$tasks_count = $dto->task_counts[ $term->term_id ] ?? 0;
 
-				// Считаем статьи для этого номера
-				$articles_query = new WP_Query(
-					array(
-						'post_type'      => $article_cpt,
-						'post_status'    => 'publish',
-						'tax_query'      => array(
-							array(
-								'taxonomy' => $taxonomy,
-								'field'    => 'term_id',
-								'terms'    => $term->term_id,
-							),
-						),
-						'fields'         => 'ids',
-						'posts_per_page' => - 1,
-					)
-				);
-				$articles_count = $articles_query->found_posts;
+				$articles_count = $dto->article_counts[ $term->term_id ] ?? 0;
 				?>
 				<tr>
 					<td class="column-primary">

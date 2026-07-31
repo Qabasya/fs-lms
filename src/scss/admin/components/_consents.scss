@@ -54,7 +54,7 @@
 
   .consent-history-title {
     margin: 0 0 $spacing-sm;
-    font-weight: $font-bold;
+    font-weight: $font-semibold;
     color: $wp-admin-gray-text;
   }
 
@@ -64,7 +64,7 @@
   }
 
   .consent-version-badge {
-    font-size: $font-size-sm;
+    font-size: $font-size-2xs;
     color: $wp-admin-blue;
     margin-left: $spacing-xs;
   }

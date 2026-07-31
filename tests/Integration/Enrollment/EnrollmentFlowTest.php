@@ -21,7 +21,10 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\Person\ConsentService;
 use Inc\Services\Email\EmailService;
+use Inc\Services\Enrollment\AccountProvisioningService;
+use Inc\Services\Enrollment\EnrollmentPersonResolver;
 use Inc\Services\Enrollment\EnrollmentService;
+use Inc\Services\Enrollment\EnrollmentTransaction;
 use Inc\Services\Person\PersonService;
 use Inc\Services\Security\PasswordGeneratorService;
 use Inc\Services\Security\PiiCryptoService;
@@ -109,6 +112,9 @@ class EnrollmentFlowTest extends TestCase {
 			$this->crypto,
 			$this->clock,
 			$this->logEvents,
+			new EnrollmentPersonResolver( $this->personRepo, $this->personService, $this->crypto ),
+			new EnrollmentTransaction( $this->recordRepo, $this->personService, $this->consentService, $this->clock ),
+			new AccountProvisioningService( $this->userManager, $this->passwordGenerator, $this->personRepo, $this->logEvents ),
 		);
 	}
 

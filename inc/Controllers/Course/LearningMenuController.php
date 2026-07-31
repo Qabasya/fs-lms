@@ -6,15 +6,10 @@ namespace Inc\Controllers\Course;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\DTO\Course\ModuleDTO;
 use Inc\Enums\Access\Capability;
-use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Course\BankType;
-use Inc\Enums\Course\StepType;
-use Inc\Enums\Course\WorkType;
 use Inc\Enums\Wp\Menu;
-use Inc\Enums\Wp\PostMetaName;
-use Inc\Managers\Wp\PostManager;
+use Inc\Controllers\Builders\BankListFilters;
 use Inc\Registrars\MenuRegistrar;
 use Inc\Services\Course\TeacherSubjectsService;
 use Inc\Services\Subject\PostTypeResolver;
@@ -50,7 +45,7 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 	public function __construct(
 		private readonly MenuRegistrar          $menu_registrar,
 		private readonly TeacherSubjectsService $teacher_subjects,
-		private readonly PostManager            $posts,
+		private readonly BankListFilters        $filters,
 	) {
 		parent::__construct();
 	}
@@ -76,9 +71,47 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		// «Незавершённая» вместо стандартного «Черновик» для задач банка.
 		add_filter( 'display_post_states', array( $this, 'filterTaskDraftState' ), 10, 2 );
 
+		// «Дублировать» в строке таблицы банка — точка входа к AjaxHook::Clone*
+		// (Эпик: допиливание UI недостижимых эндпоинтов).
+		add_filter( 'post_row_actions', array( $this, 'addCloneRowAction' ), 10, 2 );
+
 		// draft-creator-modal: рендерится на страницах уроков и курсов
 		// (создание работы из урока / урока из курса без перезагрузки).
 		add_action( 'admin_footer', array( $this, 'renderDraftCreatorModal' ) );
+	}
+
+	/**
+	 * Добавляет действие «Дублировать» в строку таблицы банка контента.
+	 *
+	 * Кнопка ничего не делает сама: JS (`admin/services/content-clone.js`) читает
+	 * `data-clone-*` и зовёт соответствующий AJAX-хук клонирования.
+	 *
+	 * @param array<string, string> $actions Действия строки
+	 * @param \WP_Post              $post    Запись банка
+	 *
+	 * @return array<string, string>
+	 */
+	public function addCloneRowAction( array $actions, \WP_Post $post ): array {
+		$type = match ( true ) {
+			PostTypeResolver::isLessonPostType( $post->post_type )     => 'lesson',
+			PostTypeResolver::isWorkPostType( $post->post_type )       => 'work',
+			PostTypeResolver::isAssessmentPostType( $post->post_type ) => 'assessment',
+			PostTypeResolver::isCoursePostType( $post->post_type )     => 'course',
+			default                                                    => '',
+		};
+
+		if ( '' === $type || ! current_user_can( Capability::Admin->value ) ) {
+			return $actions;
+		}
+
+		$actions['fs_lms_clone'] = sprintf(
+			'<a href="#" class="js-fs-clone" data-clone-type="%s" data-clone-id="%d">%s</a>',
+			esc_attr( $type ),
+			$post->ID,
+			esc_html__( 'Дублировать', 'fs-lms' )
+		);
+
+		return $actions;
 	}
 
 	/** Подключает модаль создания черновика на страницах курсов, уроков, работ. */
@@ -120,45 +153,25 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		$this->renderBank( BankType::Assessments );
 	}
 
+	/**
+	 * Фильтры банка над нативной таблицей (хук restrict_manage_posts).
+	 *
+	 * @param string $post_type CPT экрана
+	 * @param string $which     Позиция панели: top|bottom
+	 *
+	 * @return void
+	 */
 	public function renderTypeFilter( string $post_type, string $which = 'top' ): void {
 		if ( 'top' !== $which ) {
 			return;
 		}
 
-		require_once $this->plugin_path . 'templates/admin/components/UI/ui_renderers.php';
-
-		if ( PostTypeResolver::isWorkPostType( $post_type ) ) {
-			$subject = PostTypeResolver::subjectFromWorkPostType( $post_type );
-			render_fs_select( [
-				'name'      => 'fs_work_type',
-				'options'   => WorkType::options(),
-				'selected'  => sanitize_key( $_GET['fs_work_type'] ?? '' ),
-				'all_label' => 'Все типы',
-			] );
-			$this->renderUsageFilter( 'fs_work_usage', $this->lessonWorkIndex( $subject ), 'Все работы' );
-			$this->renderAuthorFilter( $post_type );
+		$selects = $this->filters->selectsFor( $post_type );
+		if ( empty( $selects ) ) {
 			return;
 		}
 
-		if ( PostTypeResolver::isAssessmentPostType( $post_type ) ) {
-			$subject      = PostTypeResolver::subjectFromAssessmentPostType( $post_type );
-			$kind_options = array_column( AssessmentKind::options(), 'label', 'value' );
-			render_fs_select( [
-				'name'      => 'fs_assessment_kind',
-				'options'   => $kind_options,
-				'selected'  => sanitize_key( $_GET['fs_assessment_kind'] ?? '' ),
-				'all_label' => 'Все виды',
-			] );
-			$this->renderUsageFilter( 'fs_assessment_usage', $this->lessonAssessmentIndex( $subject ), 'Все контрольные' );
-			$this->renderAuthorFilter( $post_type );
-			return;
-		}
-
-		if ( PostTypeResolver::isLessonPostType( $post_type ) ) {
-			$subject = PostTypeResolver::subjectFromLessonPostType( $post_type );
-			$this->renderUsageFilter( 'fs_lesson_usage', $this->courseLessonIndex( $subject ), 'Все уроки' );
-			$this->renderAuthorFilter( $post_type );
-		}
+		$this->render( 'admin/learning/bank-filters', compact( 'selects' ) );
 	}
 
 	/**
@@ -171,50 +184,19 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		return $states;
 	}
 
+	/**
+	 * Применяет фильтры банка к списку (хук pre_get_posts).
+	 *
+	 * @param \WP_Query $query Запрос экрана
+	 *
+	 * @return void
+	 */
 	public function applyTypeFilter( \WP_Query $query ): void {
 		if ( ! is_admin() || ! $query->is_main_query() ) {
 			return;
 		}
 
-		$post_type = $query->get( 'post_type' );
-
-		if ( PostTypeResolver::isWorkPostType( $post_type ) ) {
-			$type = sanitize_key( $_GET['fs_work_type'] ?? '' );
-			if ( '' !== $type ) {
-				$query->set( 'meta_query', array(
-					array( 'key' => PostMetaName::WorkType->value, 'value' => $type ),
-				) );
-			}
-			$usage = sanitize_key( $_GET['fs_work_usage'] ?? '' );
-			if ( '' !== $usage ) {
-				$subject = PostTypeResolver::subjectFromWorkPostType( $post_type );
-				$this->applyUsageFilter( $query, $usage, $this->lessonWorkIndex( $subject ) );
-			}
-			return;
-		}
-
-		if ( PostTypeResolver::isAssessmentPostType( $post_type ) ) {
-			$kind = sanitize_key( $_GET['fs_assessment_kind'] ?? '' );
-			if ( '' !== $kind ) {
-				$query->set( 'meta_query', array(
-					array( 'key' => PostMetaName::AssessmentKind->value, 'value' => $kind ),
-				) );
-			}
-			$usage = sanitize_key( $_GET['fs_assessment_usage'] ?? '' );
-			if ( '' !== $usage ) {
-				$subject = PostTypeResolver::subjectFromAssessmentPostType( $post_type );
-				$this->applyUsageFilter( $query, $usage, $this->lessonAssessmentIndex( $subject ) );
-			}
-			return;
-		}
-
-		if ( PostTypeResolver::isLessonPostType( $post_type ) ) {
-			$usage = sanitize_key( $_GET['fs_lesson_usage'] ?? '' );
-			if ( '' !== $usage ) {
-				$subject = PostTypeResolver::subjectFromLessonPostType( $post_type );
-				$this->applyUsageFilter( $query, $usage, $this->courseLessonIndex( $subject ) );
-			}
-		}
+		$this->filters->apply( $query );
 	}
 
 	/**
@@ -346,144 +328,6 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		$bankType = BankType::fromPostType( $post_type );
 
 		return null !== $bankType ? ( $this->bank_slugs[ $bankType->value ] ?? '' ) : '';
-	}
-
-	// ── Фильтры использования / автора ──────────────────────────────────────────
-
-	/**
-	 * @param array<int, array{int, string, int[]}> $index [[id, title, ref_ids[]]]
-	 */
-	private function renderUsageFilter( string $param, array $index, string $all_label ): void {
-		$options = [ 'orphan' => 'Не используется' ];
-		foreach ( $index as [ $id, $title, $ids ] ) {
-			if ( ! empty( $ids ) ) {
-				$options[ $id ] = $title;
-			}
-		}
-		render_fs_select( [
-			'name'      => $param,
-			'options'   => $options,
-			'selected'  => sanitize_key( $_GET[ $param ] ?? '' ),
-			'all_label' => $all_label,
-		] );
-	}
-
-	private function renderAuthorFilter( string $post_type ): void {
-		$posts      = $this->posts->search( $post_type, [
-			'status' => array( 'publish', 'draft', 'pending', 'private', 'fs_archived' ),
-		] );
-		$author_ids = array_unique( array_map( static fn( $p ) => (int) $p->post_author, $posts ) );
-		if ( count( $author_ids ) < 2 ) {
-			return;
-		}
-		$options = [];
-		foreach ( $author_ids as $uid ) {
-			$user = get_user_by( 'id', $uid );
-			if ( false !== $user ) {
-				$options[ $uid ] = $user->display_name;
-			}
-		}
-		render_fs_select( [
-			'name'      => 'author',
-			'options'   => $options,
-			'selected'  => (string) (int) ( $_GET['author'] ?? 0 ),
-			'all_label' => 'Все авторы',
-		] );
-	}
-
-	/**
-	 * @param array<int, array{int, string, int[]}> $index [[id, title, ref_ids[]]]
-	 */
-	private function applyUsageFilter( \WP_Query $query, string $usage, array $index ): void {
-		$all_used = [];
-		$by_id    = [];
-		foreach ( $index as [ $id, , $ids ] ) {
-			$by_id[ $id ] = $ids;
-			foreach ( $ids as $rid ) {
-				$all_used[] = $rid;
-			}
-		}
-
-		if ( 'orphan' === $usage ) {
-			$query->set( 'post__not_in', array_values( array_unique( $all_used ) ) );
-			return;
-		}
-
-		if ( is_numeric( $usage ) ) {
-			$ids = $by_id[ (int) $usage ] ?? [];
-			$query->set( 'post__in', empty( $ids ) ? [ 0 ] : array_values( array_unique( $ids ) ) );
-		}
-	}
-
-	// ── Индексы потребителей контента ────────────────────────────────────────────
-
-	/**
-	 * Строит индекс: [[consumer_id, consumer_title, ref_ids[]]].
-	 *
-	 * @param callable(array): int[] $extract
-	 * @return array<int, array{int, string, int[]}>
-	 */
-	private function usageIndex( string $consumer_cpt, callable $extract ): array {
-		$consumers = $this->posts->search( $consumer_cpt, [
-			'status'  => array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' ),
-			'orderby' => 'title',
-		] );
-		$result = [];
-		foreach ( $consumers as $consumer ) {
-			$meta     = $this->posts->getMeta( $consumer->ID, PostMetaName::Meta->value );
-			$meta     = is_array( $meta ) ? $meta : [];
-			$result[] = [ $consumer->ID, $consumer->post_title, $extract( $meta ) ];
-		}
-		return $result;
-	}
-
-	/** Уроки → курсы: индекс курс → lesson_ids. */
-	private function courseLessonIndex( string $subject ): array {
-		return $this->usageIndex(
-			PostTypeResolver::courses( $subject ),
-			static function ( array $meta ): array {
-				$modules = ModuleDTO::fromList( is_array( $meta['modules'] ?? null ) ? $meta['modules'] : [] );
-				$ids     = [];
-				foreach ( $modules as $module ) {
-					foreach ( $module->lessonIds as $lid ) {
-						$ids[] = $lid;
-					}
-				}
-				return $ids;
-			}
-		);
-	}
-
-	/** Работы → уроки: индекс урок → work_ids из steps. */
-	private function lessonWorkIndex( string $subject ): array {
-		return $this->usageIndex(
-			PostTypeResolver::lessons( $subject ),
-			static fn( array $meta ): array => self::stepRefIds( $meta, StepType::Work )
-		);
-	}
-
-	/** Контрольные → уроки: индекс урок → assessment_ids из steps. */
-	private function lessonAssessmentIndex( string $subject ): array {
-		return $this->usageIndex(
-			PostTypeResolver::lessons( $subject ),
-			static fn( array $meta ): array => self::stepRefIds( $meta, StepType::Assessment )
-		);
-	}
-
-	/** Извлекает ref-идентификаторы шагов указанного типа из meta урока. */
-	private static function stepRefIds( array $meta, StepType $type ): array {
-		$steps = is_array( $meta['steps'] ?? null ) ? $meta['steps'] : [];
-		$ids   = [];
-		foreach ( $steps as $step ) {
-			if ( ! is_array( $step ) || ( $step['type'] ?? '' ) !== $type->value ) {
-				continue;
-			}
-			$ref = (int) ( $step['payload']['ref'] ?? 0 );
-			if ( $ref > 0 ) {
-				$ids[] = $ref;
-			}
-		}
-		return $ids;
 	}
 
 	/**

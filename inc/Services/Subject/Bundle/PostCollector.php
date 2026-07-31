@@ -43,11 +43,22 @@ class PostCollector {
 	 * Мета, не имеющая смысла на целевом сайте.
 	 */
 	private const array SKIPPED_META = array(
-		'fs_lms_forked_from',
-		'fs_lms_forked_for_group',
 		'_edit_lock',
 		'_edit_last',
 	);
+
+	/**
+	 * Мета форков (привязка к исходнику и группе) — из enum, чтобы ключ жил
+	 * в одном месте с остальными мета-именами плагина.
+	 *
+	 * @return string[]
+	 */
+	private static function skippedMeta(): array {
+		return array_merge(
+			self::SKIPPED_META,
+			array( PostMetaName::ForkedFrom->value, PostMetaName::ForkedForGroup->value )
+		);
+	}
 
 	/**
 	 * Конструктор.
@@ -144,7 +155,7 @@ class PostCollector {
 	private function collectMeta( int $postId ): array {
 		$meta = $this->posts->getAllMeta( $postId );
 
-		foreach ( self::SKIPPED_META as $key ) {
+		foreach ( self::skippedMeta() as $key ) {
 			unset( $meta[ $key ] );
 		}
 

@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject\Bundle;
 
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\DTO\Subject\SubjectDTO;
 use Inc\DTO\Subject\SubjectImportReportDTO;
 use Inc\DTO\Task\TaskTemplateAssignmentDTO;
@@ -45,7 +45,7 @@ use RuntimeException;
  *
  * ### Откат (A5)
  *
- * Всё созданное попадает в {@see ImportedEntitiesDTO}; при любой ошибке
+ * Всё созданное попадает в {@see ImportedEntitiesCollector}; при любой ошибке
  * {@see ImportRollbackService} удаляет ровно это. Переиспользованные сущности
  * (существовавший термин, найденная задача глобального банка) в журнал не
  * пишутся — откат обязан убрать только то, что создал сам.
@@ -154,7 +154,7 @@ class SubjectBundleImportService {
 	 *
 	 * @param array               $manifest   Разобранный манифест
 	 * @param string              $extractDir Каталог распаковки (для медиафайлов)
-	 * @param ImportedEntitiesDTO $created    Журнал созданного (владелец — вызывающий код)
+	 * @param ImportedEntitiesCollector $created    Журнал созданного (владелец — вызывающий код)
 	 * @param ExportIdMapper      $mapper     Карта `_export_id → новый WP ID`; заполняется по ходу
 	 *                                        импорта и нужна снаружи, чтобы группы учеников
 	 *                                        смогли сослаться на импортированный курс
@@ -167,7 +167,7 @@ class SubjectBundleImportService {
 	public function import(
 		array $manifest,
 		string $extractDir,
-		ImportedEntitiesDTO $created,
+		ImportedEntitiesCollector $created,
 		ExportIdMapper $mapper
 	): SubjectImportReportDTO {
 		[ $key, $name ] = $this->readHeader( $manifest );
@@ -230,7 +230,7 @@ class SubjectBundleImportService {
 	 * @param ExportIdMapper      $mapper   Карта `_export_id → новый WP ID`
 	 * @param RefRemapper         $remapper Переписыватель ссылок
 	 * @param MediaIdMap          $mediaMap Карта вложений
-	 * @param ImportedEntitiesDTO $created  Журнал созданного
+	 * @param ImportedEntitiesCollector $created  Журнал созданного
 	 *
 	 * @return void
 	 */
@@ -240,7 +240,7 @@ class SubjectBundleImportService {
 		ExportIdMapper $mapper,
 		RefRemapper $remapper,
 		MediaIdMap $mediaMap,
-		ImportedEntitiesDTO $created
+		ImportedEntitiesCollector $created
 	): void {
 		$sourceSite = (string) ( $manifest['site_url'] ?? '' );
 		$inserted   = 0;
@@ -304,7 +304,7 @@ class SubjectBundleImportService {
 	 * @param string              $sourceSite URL сайта-источника
 	 * @param string              $exportId   `_export_id` задачи
 	 * @param BundleSection       $section    Раздел (problems)
-	 * @param ImportedEntitiesDTO $created    Журнал созданного
+	 * @param ImportedEntitiesCollector $created    Журнал созданного
 	 *
 	 * @return int ID задачи на целевом сайте
 	 */
@@ -313,7 +313,7 @@ class SubjectBundleImportService {
 		string $sourceSite,
 		string $exportId,
 		BundleSection $section,
-		ImportedEntitiesDTO $created
+		ImportedEntitiesCollector $created
 	): int {
 		$originId = ProblemDeduplicator::originId( $sourceSite, $exportId );
 
@@ -467,11 +467,11 @@ class SubjectBundleImportService {
 	 * Импортирует термины таксономий.
 	 *
 	 * @param array               $termsByTaxonomy [tax_slug => [term, ...]]
-	 * @param ImportedEntitiesDTO $created         Журнал созданного
+	 * @param ImportedEntitiesCollector $created         Журнал созданного
 	 *
 	 * @return void
 	 */
-	private function importTerms( array $termsByTaxonomy, ImportedEntitiesDTO $created ): void {
+	private function importTerms( array $termsByTaxonomy, ImportedEntitiesCollector $created ): void {
 		foreach ( $termsByTaxonomy as $taxSlug => $list ) {
 			$taxonomy = sanitize_title( (string) $taxSlug );
 			$this->terms->ensureTaxonomy( $taxonomy );

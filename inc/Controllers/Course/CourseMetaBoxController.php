@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Course\CourseBuilderService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class CourseMetaBoxController
@@ -20,6 +21,8 @@ use Inc\Services\Subject\PostTypeResolver;
  */
 class CourseMetaBoxController extends BaseController implements ServiceInterface {
 
+	use TemplateRenderer;
+
 	public function __construct(
 		private readonly SubjectRepository    $subjects,
 		private readonly CourseBuilderService $builder,
@@ -30,7 +33,7 @@ class CourseMetaBoxController extends BaseController implements ServiceInterface
 	public function register(): void {
 		add_action( 'edit_form_after_title', array( $this, 'renderCourseBuilder' ) );
 		add_action( 'add_meta_boxes', array( $this, 'tidyCourseScreen' ), 100 );
-		add_action( 'admin_head', array( $this, 'hideTitleOnCourseScreen' ) );
+		add_filter( 'admin_body_class', array( $this, 'markCourseScreen' ) );
 		add_action( 'transition_post_status', array( $this, 'onCoursePublished' ), 10, 3 );
 	}
 
@@ -38,11 +41,10 @@ class CourseMetaBoxController extends BaseController implements ServiceInterface
 		if ( ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
 			return;
 		}
-		$subject = PostTypeResolver::subjectFromCoursePostType( $post->post_type );
-		echo '<div id="fs-lms-course-builder" class="fs-lms-cb-wrap"'
-			. ' data-course-id="' . esc_attr( (string) $post->ID ) . '"'
-			. ' data-subject="' . esc_attr( $subject ) . '"'
-			. '></div>';
+		$this->render( 'admin/metaboxes/course-builder-mount', array(
+			'course_id' => $post->ID,
+			'subject'   => PostTypeResolver::subjectFromCoursePostType( $post->post_type ),
+		) );
 	}
 
 	public function tidyCourseScreen( string $post_type ): void {
@@ -54,19 +56,23 @@ class CourseMetaBoxController extends BaseController implements ServiceInterface
 		remove_meta_box( 'authordiv', $post_type, 'normal' );
 	}
 
-	public function hideTitleOnCourseScreen(): void {
+	/**
+	 * Помечает экран редактирования курса классом на body.
+	 *
+	 * Конструктор занимает весь экран, поэтому хром WP (заголовок, сайдбар,
+	 * стандартные метабоксы) прячется стилями по этому классу — см.
+	 * `_course-builder.scss`. Инлайновый `<style>` в админ-хеде для этого
+	 * не используется (запрет на inline-стили).
+	 *
+	 * @param string $classes Текущие классы body
+	 */
+	public function markCourseScreen( string $classes ): string {
 		$screen = get_current_screen();
 		if ( null === $screen || 'post' !== $screen->base || ! PostTypeResolver::isCoursePostType( $screen->post_type ?? '' ) ) {
-			return;
+			return $classes;
 		}
-		echo '<style>
-			#titlediv, #submitdiv, #authordiv, #minor-publishing,
-			#normal-sortables, #postbox-container-1,
-			h1.wp-heading-inline, .page-title-action, .wp-header-end { display: none !important; }
-			#post-body.columns-2 { margin-right: 0 !important; }
-			#postbox-container-2 { width: 100% !important; }
-			#poststuff { padding-top: 0 !important; }
-		</style>';
+
+		return $classes . ' fs-lms-course-screen';
 	}
 
 	public function onCoursePublished( string $new_status, string $old_status, \WP_Post $post ): void {

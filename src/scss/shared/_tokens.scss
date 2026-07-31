@@ -32,33 +32,40 @@ $bp-wide: 1180px; // широкие сетки → узкие варианты
 }
 
 // ── Отступы ──────────────────────────────────────────────────────
+// Одна лестница на весь проект: имя ступени всегда значит один и тот же
+// размер. Ступени 2xl/4xl (24/32) нужны только публичным страницам и живут
+// в frontend/_variables.
 $spacing-xs: rem(4);
 $spacing-sm: rem(8);
 $spacing-md: rem(12);
 $spacing-lg: rem(16);
 $spacing-xl: rem(20);
-$spacing-xxl: rem(28);
+$spacing-3xl: rem(28);
 
 // ── Радиусы ──────────────────────────────────────────────────────
-$border-radius-sm: rem(3);
-$border-radius-md: rem(4);
-$border-radius-l: rem(6);
+// 2xl (16) и pill (999px) — только на публичных страницах (frontend/_variables).
+$border-radius-sm: rem(4);
+$border-radius-md: rem(6);
 $border-radius-lg: rem(8);
-$border-radius-pill: rem(12);
+$border-radius-xl: rem(12);
 
 // ── Типографика ──────────────────────────────────────────────────
+// Веса и кегли — одна лестница на весь проект (frontend использует эти же
+// имена). Ступени lg (22) и 2xl (28) — только публичные страницы.
 $font-regular: 450;
-$font-bold: 600;
-$font-heavy: 700;
-$font-size-sm: rem(10);
+$font-semibold: 600;
+$font-bold: 700;
+$font-size-2xs: rem(10);
 $font-size-code: rem(11);
 $font-size-xs: rem(12);
-$font-size-wp: rem(13);
-$font-size: rem(14);
-$font-size-m: rem(16);
-$font-size-l: rem(24);
-$line-height-base: 1.5;
-$font-ui: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; // кабинет/плеер
+$font-size-sm: rem(13); // дефолтный кегль текста WP-админки
+$font-size-base: rem(14);
+$font-size-md: rem(16);
+$font-size-xl: rem(24);
+$line-height-base: 1.5; // «просторный» 1.6 — $line-height-relaxed (frontend)
+// Единый шрифт интерфейса: публичные страницы, кабинет, плеер, контрольная.
+// Грузится через wp_enqueue_style (Enqueue) — CSS @import не используем.
+$font-ui: 'Ubuntu', arial, helvetica, sans-serif;
 $font-mono: 'JetBrains Mono', consolas, monaco, monospace; // код, join-коды, таймкоды
 
 // ── Тайминги ─────────────────────────────────────────────────────
@@ -77,6 +84,16 @@ $z-modal-root: 999999;
 $z-modal-alert: 1000050;
 $z-tooltip: 1000060; // выше модалок, ниже тостов
 $z-toast: 1000100;
+
+// ── Сырые оттенки ────────────────────────────────────────────────
+// Физический цвет объявляется ОДИН раз; всё остальное — семантические имена
+// поверх. Заведено потому, что одни и те же hex расползлись по палитрам
+// (тип шага, чип, статус кабинета, подсветка кода).
+$hue-violet: #7048e8;   // тип шага «видео», чип, «зачёт»/аватар кабинета
+$hue-violet-dk: #7c3aed; // WP-фиолетовый бейдж, ключевые слова в подсветке кода
+$hue-red: #e03131;      // тип шага «контрольная», статус «ошибка» кабинета
+$hue-red-soft: #fdecec; // мягкая подложка под них же
+$hue-amber-dk: #b36b00; // статус «на проверке» кабинета
 
 // ── Семантические цвета (ядро) ───────────────────────────────────
 $color-primary: #2271b1; // blue 50
@@ -102,11 +119,11 @@ $color-border-footer: #e0e0e0;
 // Ключи — UI-типы конструктора; StepType→UI: text→lecture, work→practice.
 $step-type-palette: (
 	lecture:    #1c7ed6,
-	video:      #7048e8,
+	video:      $hue-violet,
 	broadcast:  #d6336c,
 	task:       #099268,
 	practice:   #e8590c,
-	assessment: #e03131,
+	assessment: $hue-red,
 );
 $step-type-palette-soft: (
 	lecture:    #e7f2fb,
@@ -114,7 +131,7 @@ $step-type-palette-soft: (
 	broadcast:  #fbe4ec,
 	task:       #e6f7f1,
 	practice:   #fdeee3,
-	assessment: #fdecec,
+	assessment: $hue-red-soft,
 );
 
 // ── WP-статусная палитра (бейджи, статусы; common + admin) ───────
@@ -142,6 +159,6 @@ $wp-admin-red: $color-danger;
 $wp-admin-red-bg: #facfd2; // red 5
 $wp-admin-red-text: #691c1c; // 80
 
-$wp-admin-purple: #7c3aed;
+$wp-admin-purple: $hue-violet-dk;
 $wp-admin-purple-bg: #ede9fe;
 $wp-admin-purple-text: #4c1d95;

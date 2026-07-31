@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Services\Subject\Bundle;
 
 use Inc\DTO\Subject\BundleOptionsDTO;
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\Enums\Subject\BundleSection;
 use Inc\Services\Subject\Bundle\BundleSchema;
 use Inc\Services\Subject\Bundle\ExportIdMapper;
@@ -153,7 +153,7 @@ class BundleFormatTest extends TestCase {
 	// ── Журнал отката ────────────────────────────────────────────────
 
 	public function test_rollback_log_ignores_reused_entities(): void {
-		$created = new ImportedEntitiesDTO();
+		$created = new ImportedEntitiesCollector();
 
 		// 0 — «термин уже был» / «вставка не удалась»: удалять нечего.
 		$created->addTerm( 0, 'math_task_number' );
@@ -165,7 +165,7 @@ class BundleFormatTest extends TestCase {
 	}
 
 	public function test_rollback_log_counts_created_entities(): void {
-		$created = new ImportedEntitiesDTO();
+		$created = new ImportedEntitiesCollector();
 		$created->addSubject( 'math' );
 		$created->addPost( 10 );
 		$created->addPost( 11 );

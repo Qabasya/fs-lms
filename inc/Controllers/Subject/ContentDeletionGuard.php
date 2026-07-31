@@ -5,8 +5,10 @@ declare( strict_types=1 );
 namespace Inc\Controllers\Subject;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Services\Subject\ContentKindResolver;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
+use Inc\Services\Course\ContentDeletionPolicy;
 use Inc\Services\Course\ContentLifecycleService;
 use Inc\Services\Course\ContentUsageService;
 use Inc\Services\Subject\PostTypeResolver;
@@ -32,6 +34,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	public function __construct(
 		private readonly ContentUsageService     $usage,
 		private readonly ContentLifecycleService $lifecycle,
+		private readonly ContentDeletionPolicy   $deletion,
 	) {
 		parent::__construct();
 	}
@@ -91,7 +94,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		$kind = ContentUsageService::kindOf( $post->post_type );
+		$kind = ContentKindResolver::of( $post->post_type );
 
 		if ( 'task' === $kind || 'problem' === $kind ) {
 			$this->render( 'admin/components/content-usage-badge', array(
@@ -122,7 +125,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	 * @return bool|null false блокирует; null — штатный путь.
 	 */
 	public function guardTrash( ?bool $check, \WP_Post $post ): ?bool {
-		if ( ! $this->isBlocked( $post ) ) {
+		if ( ! $this->deletion->blocksDeletion( $post ) ) {
 			return $check;
 		}
 		$back = wp_get_referer() ?: admin_url( 'edit.php?post_type=' . $post->post_type );
@@ -137,7 +140,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	 * @return \WP_Post|false|null false блокирует; исходное значение — штатный путь.
 	 */
 	public function guardDelete( $check, \WP_Post $post, bool $force_delete ) {
-		return $this->isBlocked( $post ) ? false : $check;
+		return $this->deletion->blocksDeletion( $post ) ? false : $check;
 	}
 
 	/**
@@ -160,7 +163,7 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 			);
 		}
 
-		if ( $this->isReferenced( $post ) ) {
+		if ( $this->deletion->isReferenced( $post ) ) {
 			unset( $actions['trash'], $actions['delete'] );
 			$actions['fs_lms_archive'] = sprintf(
 				'<a href="%s">%s</a>',
@@ -185,60 +188,16 @@ class ContentDeletionGuard extends BaseController implements ServiceInterface {
 	}
 
 	public function maybeRenderBlockedNotice(): void {
-		$transientKey = 'fs_lms_delete_blocked_' . get_current_user_id();
-		$blocked      = get_transient( $transientKey );
+		$blocked = $this->deletion->takeBlockReason();
 
-		if ( ! is_array( $blocked ) ) {
+		if ( null === $blocked ) {
 			return;
 		}
 
-		delete_transient( $transientKey );
-
-		$this->render(
-			'admin/components/content-delete-blocked-notice',
-			array(
-				'title'     => (string) ( $blocked['title'] ?? '' ),
-				'consumers' => (array) ( $blocked['consumers'] ?? array() ),
-			)
-		);
+		$this->render( 'admin/components/content-delete-blocked-notice', $blocked );
 	}
 
-	/**
-	 * Заблокировано ли удаление (для pre_trash/pre_delete): банк + есть ссылки.
-	 *
-	 * @param \WP_Post $post
-	 * @return bool
-	 */
-	private function isBlocked( \WP_Post $post ): bool {
-		if ( ! $this->isReferenced( $post ) ) {
-			return false;
-		}
 
-		$kind = ContentUsageService::kindOf( $post->post_type );
-		set_transient(
-			'fs_lms_delete_blocked_' . get_current_user_id(),
-			array(
-				'title'     => $post->post_title,
-				'consumers' => $this->usage->usageList( $kind, $post->ID ),
-			),
-			30
-		);
-
-		return true;
-	}
-
-	/**
-	 * @param \WP_Post $post
-	 * @return bool
-	 */
-	private function isReferenced( \WP_Post $post ): bool {
-		$kind = ContentUsageService::kindOf( $post->post_type );
-		if ( '' === $kind ) {
-			return false;
-		}
-
-		return $this->usage->usageCount( $kind, $post->ID ) > 0;
-	}
 
 	private function actionUrl( string $action, int $post_id ): string {
 		return wp_nonce_url(

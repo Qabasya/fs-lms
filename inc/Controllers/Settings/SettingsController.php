@@ -96,7 +96,6 @@ class SettingsController extends AjaxController {
 			// Сохранение учебного периода (создание/обновление)
 			array( AjaxHook::SaveAcademicPeriod, $this->academicPeriodCallbacks ),
 			// Удаление учебного периода
-			array( AjaxHook::DeleteAcademicPeriod, $this->academicPeriodCallbacks ),
 			// Сохранение LMS-ролей пользователя
 			array( AjaxHook::SaveUserRoles, $this->rolesCallbacks ),
 		);

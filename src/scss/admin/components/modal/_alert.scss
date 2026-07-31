@@ -13,7 +13,7 @@
   @include callout($color-danger, 0.06, $color-danger);
 
   margin: 0 0 $spacing-lg;
-  font-size: $font-size-wp;
+  font-size: $font-size-sm;
   display: none;
 
   &:not(:empty) {

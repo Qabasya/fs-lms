@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\Enums\Assessment\AttemptStatus;
+use Inc\Enums\Course\WorkSourceType;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
@@ -39,9 +40,9 @@ class OwnWorkDetailService {
 	 * @return array<string,mixed>|null null — не найдено / не принадлежит ученику.
 	 */
 	public function forOwner( string $sourceType, int $sourceId, int $personId ): ?array {
-		return match ( $sourceType ) {
-			'attempt'    => $this->fromAttempt( $sourceId, $personId ),
-			'submission' => $this->fromSubmission( $sourceId, $personId ),
+		return match ( WorkSourceType::fromValueOrNull( $sourceType ) ) {
+			WorkSourceType::Attempt    => $this->fromAttempt( $sourceId, $personId ),
+			WorkSourceType::Submission => $this->fromSubmission( $sourceId, $personId ),
 			default      => null,
 		};
 	}
@@ -52,7 +53,7 @@ class OwnWorkDetailService {
 			return null;
 		}
 
-		$detail = $this->detail->forWork( 'attempt', $attemptId );
+		$detail = $this->detail->forWork( WorkSourceType::Attempt->value, $attemptId );
 		if ( null === $detail ) {
 			return null;
 		}
@@ -93,7 +94,7 @@ class OwnWorkDetailService {
 			return null;
 		}
 
-		$detail = $this->detail->forWork( 'submission', $submissionId );
+		$detail = $this->detail->forWork( WorkSourceType::Submission->value, $submissionId );
 		if ( null === $detail ) {
 			return null;
 		}

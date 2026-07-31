@@ -40,7 +40,7 @@ class WorkCallbacks extends BaseController {
 		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
 
 		$work_id  = $this->requireInt( 'work_id' );
-		$item_ids = array_map( 'intval', (array) ( $_POST['item_ids'] ?? array() ) );
+		$item_ids = $this->sanitizeIntList( 'item_ids' );
 
 		if ( $this->workManager->setItemIds( $work_id, $item_ids ) ) {
 			$this->success( array( 'count' => count( array_filter( $item_ids ) ) ) );

@@ -5,7 +5,11 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Subject;
 
 use Inc\Core\BaseController;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\PostMetaName;
+use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
+use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
@@ -38,12 +42,18 @@ class SubjectValidationCallbacks extends BaseController {
 	/**
 	 * Конструктор коллбеков.
 	 *
-	 * @param TaskPublishValidator $validator Валидатор заданий перед публикацией
-	 * @param TaskPublishGuard     $guard     Общий протокол блокировки публикации
+	 * @param TaskPublishValidator $validator  Валидатор заданий перед публикацией
+	 * @param TaskPublishGuard     $guard      Общий протокол блокировки публикации
+	 * @param PostManager          $posts      Доступ к сохранённой мете задания
+	 * @param TermManager          $terms      Доступ к привязанным терминам
+	 * @param TaxonomyRepository   $taxonomies Таксономии предмета (для сборки состояния)
 	 */
 	public function __construct(
 		private readonly TaskPublishValidator $validator,
 		private readonly TaskPublishGuard     $guard,
+		private readonly PostManager          $posts,
+		private readonly TermManager          $terms,
+		private readonly TaxonomyRepository   $taxonomies,
 	) {
 		parent::__construct();
 	}
@@ -65,19 +75,98 @@ class SubjectValidationCallbacks extends BaseController {
 			return $data;
 		}
 
+		$postId = (int) ( $postarr['ID'] ?? 0 );
+
 		return $this->guard->enforce(
 			$data,
 			'fs_lms_publish_error_',
 			'Укажите название задания.',
-			function () use ( $postType ) {
-				$taxInput   = (array) ( $_POST['tax_input'] ?? array() );
-				$postMeta   = (array) ( $_POST[ PostMetaName::Meta->value ] ?? array() );
-				$templateId = $this->sanitizeKey( PostMetaName::TemplateType->value );
-
-				return $this->validator->getBlockingError( $postType, $taxInput )
-					?? $this->validator->getSoftError( $postMeta, $templateId );
+			function () use ( $postType, $postId ) {
+				return $this->validator->getBlockingError( $postType, $this->effectiveTaxInput( $postId, $postType ) )
+					?? $this->validator->getSoftError(
+						$this->effectiveMeta( $postId ),
+						$this->effectiveTemplateId( $postId )
+					);
 			}
 		);
+	}
+
+	/**
+	 * Термины задания: из формы редактора, а при её отсутствии — уже сохранённые.
+	 *
+	 * Быстрое и массовое редактирование, а также программные `wp_update_post()`
+	 * данных метабоксов не шлют. Без этого фолбэка проверка видела пустой ввод и
+	 * откатывала в черновик задание, у которого на самом деле всё заполнено.
+	 *
+	 * @param int    $postId   ID задания (0 — создаётся новое).
+	 * @param string $postType CPT заданий.
+	 *
+	 * @return array<string, mixed> Карта [слаг таксономии => привязки].
+	 */
+	private function effectiveTaxInput( int $postId, string $postType ): array {
+		if ( isset( $_POST['tax_input'] ) ) {
+			return $this->unslashArray( 'tax_input' );
+		}
+
+		if ( $postId <= 0 ) {
+			return array();
+		}
+
+		$subjectKey = PostTypeResolver::subjectFromTaskPostType( $postType );
+		$stored     = array();
+
+		foreach ( $this->taxonomies->getBySubject( $subjectKey ) as $tax ) {
+			$terms = $this->terms->getPostTerms( $postId, $tax->slug );
+			if ( ! empty( $terms ) ) {
+				$stored[ $tax->slug ] = array_map( static fn( $term ) => (int) $term->term_id, $terms );
+			}
+		}
+
+		return $stored;
+	}
+
+	/**
+	 * Мета задания: из формы редактора, а при её отсутствии — сохранённая.
+	 *
+	 * @param int $postId ID задания.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function effectiveMeta( int $postId ): array {
+		if ( isset( $_POST[ PostMetaName::Meta->value ] ) ) {
+			return $this->unslashArray( PostMetaName::Meta->value );
+		}
+
+		if ( $postId <= 0 ) {
+			return array();
+		}
+
+		$meta = $this->posts->getMeta( $postId, PostMetaName::Meta->value );
+
+		return is_array( $meta ) ? $meta : array();
+	}
+
+	/**
+	 * Шаблон задания: из формы редактора, а при её отсутствии — сохранённый.
+	 *
+	 * Пустая строка уводит реестр шаблонов на «Стандартный», поля которого
+	 * к реальному заданию отношения не имеют, — поэтому фолбэк обязателен.
+	 *
+	 * @param int $postId ID задания.
+	 *
+	 * @return string
+	 */
+	private function effectiveTemplateId( int $postId ): string {
+		$fromForm = $this->sanitizeKey( PostMetaName::TemplateType->value );
+		if ( '' !== $fromForm ) {
+			return $fromForm;
+		}
+
+		$stored = $postId > 0
+			? $this->posts->getMeta( $postId, PostMetaName::TemplateType->value )
+			: '';
+
+		return is_string( $stored ) ? $stored : '';
 	}
 
 	/**
@@ -105,8 +194,8 @@ class SubjectValidationCallbacks extends BaseController {
 		}
 
 		foreach ( $emptyTaxes as $tax ) {
-			// Проверка права на управление таксономиями
-			$canManage = current_user_can( 'manage_categories' );
+			// Право на управление терминами таксономий (WP-капабилити рубрик)
+			$canManage = current_user_can( Capability::ManageTerms->value );
 
 			if ( $canManage ) {
 				$link = sprintf(

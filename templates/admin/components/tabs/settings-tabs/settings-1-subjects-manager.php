@@ -25,14 +25,12 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
 			<h2 class="fs-page-header__title"><?php echo 'archived' === $view ? 'Архив предметов' : 'Активные предметы'; ?></h2>
 			<?php if ( 'archived' !== $view ) : ?>
 			<div class="fs-page-header__actions">
-				<a class="page-title-action" id="fs-import-trigger">Импортировать предмет</a>
-				<input type="file" id="fs-import-file" accept=".json" class="hidden">
-
-				<a class="page-title-action" id="fs-bundle-import-trigger"
-					title="ZIP-пакет со всем содержимым предмета: контент, медиа и (опционально) ученики">
-					Импортировать пакет
+				<?php // Формат определяется по расширению файла — отдельная кнопка для пакета не нужна. ?>
+				<a class="page-title-action" id="fs-import-trigger"
+					title="JSON — структура и банк предмета, ZIP — предмет целиком с медиа и (опционально) учениками">
+					Импортировать предмет
 				</a>
-				<input type="file" id="fs-bundle-import-file" accept=".zip" class="hidden">
+				<input type="file" id="fs-import-file" accept=".json,.zip" class="hidden">
 			</div>
 			<?php endif; ?>
 		</div>
@@ -133,17 +131,9 @@ $rows          = 'archived' === $view ? $archived_list : $active_list;
                                     <a href="#"
                                         class="js-export-subject"
                                         data-key="<?php echo esc_attr( $subject->key ); ?>"
-                                        title="JSON: структуры предмета и банк заданий/статей">
-                                        Экспорт
-                                    </a>
-                                </span> |
-                                <span class="export">
-                                    <a href="#"
-                                        class="js-export-subject-bundle"
-                                        data-key="<?php echo esc_attr( $subject->key ); ?>"
                                         data-name="<?php echo esc_attr( $subject->name ); ?>"
-                                        title="ZIP-пакет: весь контент предмета, медиафайлы и (опционально) ученики">
-                                        Экспорт пакета
+                                        title="Формат выбирается в окне: JSON — структура и банк, ZIP — предмет целиком">
+                                        Экспорт
                                     </a>
                                 </span> |
                                 <?php if ( ! empty( $subject->archived ) ) : ?>

@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Subject\Bundle;
 
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\DTO\Subject\SubjectDTO;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
@@ -118,7 +118,7 @@ class SubjectBundleImportServiceTest extends TestCase {
 		$this->makeService( restorer: $restorer )->import(
 			$this->manifest(),
 			'/tmp/none',
-			new ImportedEntitiesDTO(),
+			new ImportedEntitiesCollector(),
 			new ExportIdMapper()
 		);
 
@@ -157,7 +157,7 @@ class SubjectBundleImportServiceTest extends TestCase {
 			}
 		);
 
-		$created = new ImportedEntitiesDTO();
+		$created = new ImportedEntitiesCollector();
 		$this->makeService( restorer: $restorer, problems: $problems )
 			->import( $this->manifest(), '/tmp/none', $created, new ExportIdMapper() );
 
@@ -173,7 +173,7 @@ class SubjectBundleImportServiceTest extends TestCase {
 		$this->makeService( subjects: $subjects )->import(
 			$this->manifest(),
 			'/tmp/none',
-			new ImportedEntitiesDTO(),
+			new ImportedEntitiesCollector(),
 			new ExportIdMapper()
 		);
 	}
@@ -187,7 +187,7 @@ class SubjectBundleImportServiceTest extends TestCase {
 		$captured = null;
 		$rollback = $this->createMock( ImportRollbackService::class );
 		$rollback->expects( self::once() )->method( 'undo' )->willReturnCallback(
-			function ( ImportedEntitiesDTO $created ) use ( &$captured ): void {
+			function ( ImportedEntitiesCollector $created ) use ( &$captured ): void {
 				$captured = $created;
 			}
 		);
@@ -196,7 +196,7 @@ class SubjectBundleImportServiceTest extends TestCase {
 			$this->makeService( restorer: $restorer, rollback: $rollback )->import(
 				$this->manifest(),
 				'/tmp/none',
-				new ImportedEntitiesDTO(),
+				new ImportedEntitiesCollector(),
 				new ExportIdMapper()
 			);
 			self::fail( 'Ожидалось исключение импорта' );

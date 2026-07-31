@@ -77,6 +77,26 @@ class SubstitutionRepository {
 		return $row ? SubstitutionDTO::fromArray( $row ) : null;
 	}
 
+	/**
+	 * Первая замена группы, пересекающаяся с периодом [from, to] (или null).
+	 *
+	 * Две замены на одну группу в один день — неоднозначность: непонятно, кто
+	 * ведёт занятие. Поэтому пересечения запрещаются на уровне назначения.
+	 */
+	public function findOverlapping( int $groupId, string $from, string $to ): ?SubstitutionDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE group_id = %d AND valid_from <= %s AND valid_to >= %s ORDER BY valid_from ASC LIMIT 1',
+				$this->table,
+				$groupId,
+				$to,
+				$from
+			),
+			ARRAY_A
+		);
+		return $row ? SubstitutionDTO::fromArray( $row ) : null;
+	}
+
 	/** Активные замены, где пользователь — замещающий, на дату (для «Главной» замещающего). */
 	public function findActiveBySubstitute( int $userId, string $date ): array {
 		$rows = $this->wpdb->get_results(

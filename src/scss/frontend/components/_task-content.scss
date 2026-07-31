@@ -6,7 +6,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: rem(4) rem(6);
-  font-size: $font-size-xs;
+  font-size: $font-size-sm;
   color: $color-muted;
   margin-bottom: rem(18);
 
@@ -16,7 +16,7 @@
 }
 
 .fs-task-page .fs-task-title {
-  font-size: $font-size-title;
+  font-size: $font-size-2xl;
   font-weight: $font-bold;
   line-height: 1.2;
   letter-spacing: -.02em;
@@ -38,8 +38,8 @@
   padding: 0 $spacing-md;
   background: $color-white;
   border: 1px solid $color-border;
-  border-radius: $radius-pill;
-  font-size: $font-size-xxs;
+  border-radius: $border-radius-pill;
+  font-size: $font-size-xs;
   color: $color-muted;
   font-weight: 500;
   transition: border-color $transition;
@@ -64,24 +64,24 @@
 .fs-task-card {
   background: $color-white;
   border: 1px solid $color-border;
-  border-radius: $radius-xl;
-  box-shadow: $shadow-card;
+  border-radius: $border-radius-2xl;
+  box-shadow: $shadow-surface;
   overflow: hidden;
 }
 
 .fs-task-card__body {
-  padding: $spacing-2xl rem(36) rem(28);
+  padding: $spacing-4xl rem(36) rem(28);
 }
 
 .fs-task-condition {
-  font-size: $font-size-base;
-  line-height: $line-height-base;
+  font-size: $font-size-md;
+  line-height: $line-height-relaxed;
   color: $color-text;
 
   * { color: $color-text; }
   img    { max-width: 100%; height: auto; display: block; }
   table  { border-collapse: collapse; margin: $spacing-md 0; }
-  td, th { border: 1px solid $color-border; padding: rem(5) rem(10); font-size: $font-size-sm; }
+  td, th { border: 1px solid $color-border; padding: rem(5) rem(10); font-size: $font-size-base; }
 }
 
 .fs-task-files {
@@ -101,8 +101,8 @@
   align-items: center;
   padding: rem(5) rem(12);
   border: 1px solid $color-border;
-  border-radius: $radius;
-  font-size: $font-size-xs;
+  border-radius: $border-radius-sm;
+  font-size: $font-size-sm;
   margin: 0 rem(6) rem(6) 0;
   transition: border-color $transition, color $transition;
 

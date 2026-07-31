@@ -6,9 +6,9 @@
 
   height: rem(26);
   padding: 0 $spacing-sm;
-  border-radius: $border-radius-md;
+  border-radius: $border-radius-sm;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  font-size: $font-size;
+  font-size: $font-size-base;
   font-weight: $font-regular;
   white-space: nowrap;
   max-width: 100%;

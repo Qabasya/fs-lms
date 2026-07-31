@@ -68,7 +68,7 @@ class LogsCallbacks extends BaseController {
 	 */
 	public function ajaxExportGroups(): void {
 		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
-		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
+		$ids = array_filter( $this->sanitizeIntList( 'ids' ) );
 		$url = $this->exportService->run( ExportTarget::Groups, $ids ? array( 'ids' => $ids ) : array() );
 		$this->success( array( 'url' => $url ) );
 	}
@@ -81,7 +81,7 @@ class LogsCallbacks extends BaseController {
 	 */
 	public function ajaxExportStudents(): void {
 		$this->authorizeAll( Nonce::Manager, self::PII_EXPORT_CAPS );
-		$ids  = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
+		$ids  = array_filter( $this->sanitizeIntList( 'ids' ) );
 		$mode = $ids ? 'single' : 'bulk';
 		$url  = $this->exportService->run( ExportTarget::Students, $this->piiContext( $ids ), $mode );
 		$this->success( array( 'url' => $url ) );
@@ -92,7 +92,7 @@ class LogsCallbacks extends BaseController {
 	 */
 	public function ajaxExportParents(): void {
 		$this->authorizeAll( Nonce::Manager, self::PII_EXPORT_CAPS );
-		$ids  = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
+		$ids  = array_filter( $this->sanitizeIntList( 'ids' ) );
 		$mode = $ids ? 'single' : 'bulk';
 		$url  = $this->exportService->run( ExportTarget::Parents, $this->piiContext( $ids ), $mode );
 		$this->success( array( 'url' => $url ) );
@@ -103,7 +103,7 @@ class LogsCallbacks extends BaseController {
 	 */
 	public function ajaxExportArchive(): void {
 		$this->authorizeAll( Nonce::Manager, self::PII_EXPORT_CAPS );
-		$ids = array_filter( array_map( 'intval', (array) ( $_POST['ids'] ?? array() ) ) );
+		$ids = array_filter( $this->sanitizeIntList( 'ids' ) );
 		$url = $this->exportService->run( ExportTarget::Archive, $ids ? array( 'ids' => $ids ) : array() );
 		$this->success( array( 'url' => $url ) );
 	}

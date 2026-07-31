@@ -18,7 +18,7 @@
 
 .fs-te-modal {
 	background:    $color-bg-modal;
-	border-radius: $border-radius-l;
+	border-radius: $border-radius-md;
 	box-shadow:    $shadow-modal;
 	width:         100%;
 	max-width:     rem(680);
@@ -41,8 +41,8 @@
 
 .fs-te-heading {
 	margin:      0;
-	font-size:   $font-size-m;
-	font-weight: $font-bold;
+	font-size:   $font-size-md;
+	font-weight: $font-semibold;
 	color:       $color-text-primary;
 }
 
@@ -79,8 +79,8 @@
 }
 
 .fs-te-label {
-	font-size:   $font-size-wp;
-	font-weight: $font-bold;
+	font-size:   $font-size-sm;
+	font-weight: $font-semibold;
 	color:       $color-text-primary;
 }
 
@@ -91,8 +91,8 @@
 	width:         100%;
 	padding:       $spacing-sm $spacing-md;
 	border:        1px solid $color-border-input;
-	border-radius: $border-radius-md;
-	font-size:     $font-size-wp;
+	border-radius: $border-radius-sm;
+	font-size:     $font-size-sm;
 	color:         $color-text-primary;
 	background:    $color-bg-modal;
 	box-sizing:    border-box;
@@ -119,7 +119,7 @@
 	padding:    $spacing-xl;
 	text-align: center;
 	color:      $color-text-secondary;
-	font-size:  $font-size-wp;
+	font-size:  $font-size-sm;
 }
 
 // ── Подвал ────────────────────────────────────────────────────────────────

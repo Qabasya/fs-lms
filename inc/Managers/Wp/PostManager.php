@@ -142,56 +142,6 @@ class PostManager {
 		);
 	}
 
-	/**
-	 * Строит WP_Posts_List_Table для указанного CPT и вкладки.
-	 *
-	 * @param string $post_type CPT slug (например, "math_tasks")
-	 * @param string $page      Значение GET-параметра page
-	 * @param string $tab       Слаг вкладки (например, "tab-2")
-	 *
-	 * @return \Inc\DTO\Task\PostsListTableDTO
-	 */
-	public function buildListTable( string $post_type, string $page, string $tab ): \Inc\DTO\Task\PostsListTableDTO {
-		// Подключаем класс WP_Posts_List_Table, если не загружен
-		if ( ! class_exists( 'WP_Posts_List_Table' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/class-wp-posts-list-table.php';
-		}
-
-		// set_current_screen() — устанавливает текущий экран для корректной работы ListTable
-		set_current_screen( 'edit-' . $post_type );
-
-		// _get_list_table() — возвращает экземпляр класса таблицы
-		$table = _get_list_table( 'WP_Posts_List_Table', array( 'screen' => 'edit-' . $post_type ) );
-
-		$edit_base   = admin_url( 'edit.php?post_type=' . $post_type );
-		$custom_base = admin_url( 'admin.php?page=' . $page . '&tab=' . $tab );
-
-		// Подмена REQUEST_URI для правильной работы пагинации и фильтров
-		$uri_args = array(
-			'page' => $page,
-			'tab'  => $tab,
-		);
-		if ( ! empty( $_GET['post_status'] ) ) {
-			$uri_args['post_status'] = sanitize_key( $_GET['post_status'] );
-		}
-
-		$original_uri           = $_SERVER['REQUEST_URI'];
-		$_SERVER['REQUEST_URI'] = '/wp-admin/admin.php?' . http_build_query( $uri_args );
-
-		$_GET['post_type'] = $post_type;
-		$table->prepare_items();
-
-		return new \Inc\DTO\Task\PostsListTableDTO(
-			table           : $table,
-			post_type_object: get_post_type_object( $post_type ),
-			post_type       : $post_type,
-			edit_base       : $edit_base,
-			custom_base     : $custom_base,
-			original_uri    : $original_uri,
-			tab             : $tab,
-			page_slug       : $page,
-		);
-	}
 
 	/**
 	 * Создаёт новый пост.
@@ -205,6 +155,42 @@ class PostManager {
 
 		// is_wp_error() — проверяет, является ли результат ошибкой WordPress
 		return is_wp_error( $id ) ? 0 : (int) $id;
+	}
+
+	/**
+	 * Считает опубликованные записи CPT в разрезе термов таксономии.
+	 *
+	 * Один запрос вместо N: раньше шаблон статистики предмета строил по два
+	 * `WP_Query` на КАЖДЫЙ номер задания (аудит §P3).
+	 *
+	 * @param string $post_type Тип записи
+	 * @param string $taxonomy  Таксономия
+	 *
+	 * @return array<int, int> term_id => количество записей
+	 */
+	public function countPublishedByTerms( string $post_type, string $taxonomy ): array {
+		global $wpdb;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT tt.term_id AS term_id, COUNT(p.ID) AS total
+				 FROM {$wpdb->term_taxonomy} tt
+				 INNER JOIN {$wpdb->term_relationships} tr ON tr.term_taxonomy_id = tt.term_taxonomy_id
+				 INNER JOIN {$wpdb->posts} p ON p.ID = tr.object_id
+				 WHERE tt.taxonomy = %s AND p.post_type = %s AND p.post_status = 'publish'
+				 GROUP BY tt.term_id",
+				$taxonomy,
+				$post_type
+			),
+			ARRAY_A
+		);
+
+		$counts = array();
+		foreach ( $rows ?: array() as $row ) {
+			$counts[ (int) $row['term_id'] ] = (int) $row['total'];
+		}
+
+		return $counts;
 	}
 
 	/**

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -24,6 +25,7 @@ class SubstitutionService {
 		private readonly SubstitutionRepository $repo,
 		private readonly GroupsRepository       $groups,
 		private readonly NotificationService    $notifications,
+		private readonly ClockInterface         $clock,
 	) {}
 
 	/**
@@ -56,9 +58,31 @@ class SubstitutionService {
 			throw new \InvalidArgumentException( 'Дата начала позже даты окончания.' );
 		}
 
+		$originalTeacherId = null !== $group->teacher_id ? (int) $group->teacher_id : null;
+
+		// Замещать самого себя бессмысленно: grant не изменит ничего, но создаст
+		// в журнале запись «вместо себя».
+		if ( null !== $originalTeacherId && $originalTeacherId === $substituteTeacherId ) {
+			throw new \InvalidArgumentException( 'Замещающий совпадает с преподавателем группы.' );
+		}
+
+		$today = substr( $this->clock->now(), 0, 10 );
+		if ( $validTo < $today ) {
+			throw new \InvalidArgumentException( 'Период замены уже прошёл — выберите дату не раньше сегодняшней.' );
+		}
+
+		$overlap = $this->repo->findOverlapping( $groupId, $validFrom, $validTo );
+		if ( $overlap ) {
+			throw new \InvalidArgumentException( sprintf(
+				'Период пересекается с уже назначенной заменой (%s — %s). Снимите её или измените даты.',
+				$this->formatDate( $overlap->validFrom ),
+				$this->formatDate( $overlap->validTo )
+			) );
+		}
+
 		$id = $this->repo->create( array(
 			'group_id'              => $groupId,
-			'original_teacher_id'   => null !== $group->teacher_id ? (int) $group->teacher_id : null,
+			'original_teacher_id'   => $originalTeacherId,
 			'substitute_teacher_id' => $substituteTeacherId,
 			'valid_from'            => $validFrom,
 			'valid_to'              => $validTo,
@@ -92,6 +116,12 @@ class SubstitutionService {
 	/** @return \Inc\DTO\Course\SubstitutionDTO[] */
 	public function listByGroup( int $groupId ): array {
 		return $this->repo->listByGroup( $groupId );
+	}
+
+	/** 'Y-m-d' → 'd.m.Y' для текста ошибки. */
+	private function formatDate( string $date ): string {
+		$d = \DateTimeImmutable::createFromFormat( 'Y-m-d', substr( $date, 0, 10 ) );
+		return $d ? $d->format( 'd.m.Y' ) : $date;
 	}
 
 	private function isValidDate( string $date ): bool {

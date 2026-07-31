@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject\Bundle;
 
-use Inc\DTO\Subject\ImportedEntitiesDTO;
+use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 
@@ -46,11 +46,11 @@ class PostRestorer {
 	 *
 	 * @param string              $postType CPT целевой записи
 	 * @param array               $data     Представление записи из манифеста
-	 * @param ImportedEntitiesDTO $created  Журнал созданного (для отката)
+	 * @param ImportedEntitiesCollector $created  Журнал созданного (для отката)
 	 *
 	 * @return int Новый ID; 0 — вставка не удалась
 	 */
-	public function restore( string $postType, array $data, ImportedEntitiesDTO $created ): int {
+	public function restore( string $postType, array $data, ImportedEntitiesCollector $created ): int {
 		$postId = $this->posts->insert( array(
 			'post_type'    => sanitize_key( $postType ),
 			'post_title'   => sanitize_text_field( (string) ( $data['post_title'] ?? '' ) ),

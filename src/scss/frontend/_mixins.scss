@@ -19,7 +19,7 @@
 
 // ── Заголовок секции (uppercase, muted)
 @mixin section-label {
-  font-size: $font-size-xxs;
+  font-size: $font-size-xs;
   font-weight: 700;
   color: $color-muted;
   text-transform: uppercase;
@@ -35,20 +35,20 @@
 }
 
 // ── Оболочка карточки-формы (apply / join / auth)
-@mixin fs-card-shell($max-width, $padding, $radius: $radius-md, $margin: 0 auto) {
+@mixin fs-card-shell($max-width, $padding, $border-radius-sm: $border-radius-lg, $margin: 0 auto) {
   background: $color-white;
   padding: $padding;
   border: 1px solid $color-border-light;
-  border-radius: $radius;
+  border-radius: $border-radius-sm;
   max-width: $max-width;
   margin: $margin;
-  box-shadow: $shadow-card;
+  box-shadow: $shadow-surface;
   font-family: $font-family;
 }
 
 // ── Заголовок карточки-формы (margin задаётся на месте)
 @mixin fs-card-title {
-  font-size: $font-size-heading;
+  font-size: $font-size-lg;
   font-weight: $font-bold;
   line-height: $line-height-tight;
   text-align: center;
@@ -62,7 +62,7 @@
   top: 50%;
   transform: translateY(-50%);
   color: $color-muted;
-  font-size: $font-size-base;
+  font-size: $font-size-md;
 }
 
 // ── Поле ввода карточки-формы; $important — вариант auth (!important + без font-family/placeholder)
@@ -81,9 +81,9 @@
     padding: rem(10) rem(12) rem(10) rem(38);
   }
 
-  font-size: $font-size-sm;
+  font-size: $font-size-base;
   border: 1px solid $color-border;
-  border-radius: $radius;
+  border-radius: $border-radius-sm;
   background-color: $color-bg-subtle;
   color: $color-text;
   transition: border-color $transition, background-color $transition;
@@ -133,7 +133,7 @@
   color: $color-error-text;
   background: $color-error-bg;
   border: 1px solid $color-error-border;
-  border-radius: $radius;
+  border-radius: $border-radius-sm;
   padding: $spacing-sm $spacing-md;
   margin-bottom: $margin-bottom;
 }
@@ -156,7 +156,7 @@
   width: 100% !important;
   padding: $padding !important;
   height: auto !important;
-  font-size: $font-size-sm !important;
+  font-size: $font-size-base !important;
   font-weight: $font-bold;
 }
 
@@ -165,7 +165,7 @@
   background: $color-accent;
   color: $color-white;
   border: none;
-  border-radius: $radius;
+  border-radius: $border-radius-sm;
   cursor: pointer;
 
   &:hover { opacity: $hover-opacity; }
@@ -195,5 +195,5 @@
 
 // ── Базовый паддинг страницы-обёртки
 @mixin fs-page-pad {
-  padding: rem(44) $spacing-2xl rem(96);
+  padding: rem(44) $spacing-4xl rem(96);
 }

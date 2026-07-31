@@ -53,10 +53,8 @@ class CronController extends BaseController implements ServiceInterface {
 		add_action( CronHook::NotificationsTick->value, array( $this, 'handleNotificationsTick' ) );
 		$this->cron_manager->schedule( CronHook::NotificationsTick->value, 'every_15_minutes' );
 
-		// Callback-хуки будут подключены по мере реализации:
-		// add_action( CronHook::ExpireApplications->value, [ $application_callbacks, 'cronExpireApplications' ] );
-		// add_action( CronHook::RetentionCleanup->value,   [ $retention_callbacks, 'cronRetentionCleanup' ] );
-		// add_action( CronHook::RecoveryTick->value,       [ $recovery_callbacks, 'cronRecoveryTick' ] );
+		// ExpireApplications / RetentionCleanup / RecoveryTick подключает
+		// RecoveryController (их расписание ставит Activate) — здесь не дублируем.
 	}
 
 	public function handleExpireAttempts(): void {

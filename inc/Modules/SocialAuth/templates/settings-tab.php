@@ -16,7 +16,8 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 	<form method="post" action="options.php">
 		<?php
 		settings_fields( 'fs_lms_auth_group' );
-		$options = get_option( 'fs_lms_auth_settings', array() );
+		// $options приходит из SocialAuthSettingsController::addSettingsTab() ('data').
+		$options = isset( $options ) && is_array( $options ) ? $options : array();
 		?>
 
 		<div class="fs-lms-auth-cards">

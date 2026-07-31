@@ -15,16 +15,3 @@ export function fsBadge( text, color ) {
 	return `<span class="fs-badge is-${ color }">${ text }</span>`;
 }
 
-/**
- * <span class="fs-empty__title">{text}</span> внутри fs-empty
- *
- * @param {string} title
- * @param {string} [desc]
- * @returns {string}
- */
-export function fsEmpty( title, desc = '' ) {
-	return `<div class="fs-empty">
-		<p class="fs-empty__title">${ title }</p>
-		${ desc ? `<p class="fs-empty__desc">${ desc }</p>` : '' }
-	</div>`;
-}

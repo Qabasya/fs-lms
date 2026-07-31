@@ -43,12 +43,12 @@
 		@include cb-tree-row;
 
 		&.active {
-			.fs-sb-slot-num, .fs-sb-slot-title { color: var(--color-primary-hover); font-weight: $font-bold; }
+			.fs-sb-slot-num, .fs-sb-slot-title { color: var(--color-primary-hover); font-weight: $font-semibold; }
 		}
 		&.empty .fs-sb-slot-title { color: $color-text-secondary; font-style: italic; }
 
 		.fs-sb-slot-num { font-size: $font-size-code; color: $color-secondary-hover; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 24px; }
-		.fs-sb-slot-title { flex: 1; font-size: $font-size-wp; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.fs-sb-slot-title { flex: 1; font-size: $font-size-sm; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	}
 
 	// ── RIGHT: тело слота ──
@@ -57,7 +57,7 @@
 	.fs-sb-title-row { @include cb-title-row; }
 
 	.fs-sb-flag {
-		font-size: $font-size-code; font-weight: $font-bold; padding: 3px 9px; border-radius: $border-radius-pill;
+		font-size: $font-size-code; font-weight: $font-semibold; padding: 3px 9px; border-radius: $border-radius-xl;
 		background: $cb-bg-hover; color: $color-text-secondary; border: 1px solid $wp-admin-gray-bg;
 		display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer;
 		text-decoration: none;
@@ -70,12 +70,12 @@
 
 	// ── Тело задачи (условие / ответ / аудио) ──
 	.fs-sb-task-heading {
-		font-size: $font-size-m; font-weight: $font-bold; margin: 0; flex: 1; min-width: 0;
+		font-size: $font-size-md; font-weight: $font-semibold; margin: 0; flex: 1; min-width: 0;
 		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 	}
 
 	.fs-sb-task-section {
-		margin-bottom: $spacing-lg; font-size: $font-size-wp; line-height: 1.6; color: $color-text-primary;
+		margin-bottom: $spacing-lg; font-size: $font-size-sm; line-height: 1.6; color: $color-text-primary;
 		p, ul, ol { margin: 0 0 $spacing-sm; }
 		img { max-width: 100%; height: auto; border-radius: $border-radius-sm; }
 	}
@@ -85,7 +85,7 @@
 
 		margin: 0 0 $spacing-sm;
 	}
-	.fs-sb-task-answer { padding: $spacing-md; background: $cb-bg-tree; border: 1px solid $wp-admin-gray-bg; border-radius: $border-radius-md; }
+	.fs-sb-task-answer { padding: $spacing-md; background: $cb-bg-tree; border: 1px solid $wp-admin-gray-bg; border-radius: $border-radius-sm; }
 	.fs-sb-task-options { @include cb-qa-stack(4px); }
 
 	.fs-sb-task-option {
@@ -98,8 +98,8 @@
 	.fs-sb-task-gap { @include cb-qa-gap; margin-bottom: $spacing-sm; }
 	.fs-sb-gap-fill { @include cb-qa-gap-fill; }
 	.fs-sb-subtasks { @include cb-qa-stack($spacing-md); margin-bottom: $spacing-sm; }
-	.fs-sb-subtask { font-size: $font-size-wp; }
-	.fs-sb-subtask-num { @include cb-eyebrow($weight: $font-bold); margin-bottom: 2px; }
+	.fs-sb-subtask { font-size: $font-size-sm; }
+	.fs-sb-subtask-num { @include cb-eyebrow($weight: $font-semibold); margin-bottom: 2px; }
 	.fs-sb-subtask-cond { color: $color-text-primary; }
 	.fs-sb-subtask-ans { @include cb-qa-subtask-ans; }
 
@@ -107,14 +107,14 @@
 	.fs-sb-task-score {
 		display: flex; align-items: center; gap: $spacing-sm; margin-bottom: $spacing-md;
 		padding: $spacing-md 0; border-top: 1px solid $wp-admin-gray-bg;
-		label { font-size: $font-size-wp; color: $color-text-secondary; white-space: nowrap; }
+		label { font-size: $font-size-sm; color: $color-text-secondary; white-space: nowrap; }
 		input[type="number"] { width: 80px; }
 	}
 
 	// ── Номер задания для банковских задач (задача 8) ──
 	.fs-sb-task-number {
 		display: flex; align-items: center; gap: $spacing-sm; margin-bottom: $spacing-md;
-		label { font-size: $font-size-wp; color: $color-text-secondary; white-space: nowrap; }
+		label { font-size: $font-size-sm; color: $color-text-secondary; white-space: nowrap; }
 		input[type="text"] { width: 80px; }
 	}
 
@@ -125,7 +125,7 @@
 
 	// ── Inline-форма создания задачи ──
 	.fs-sb-create-form {
-		border: 1px dashed $color-border-input; border-radius: $border-radius-l; padding: $spacing-md; margin-top: $spacing-sm; width: 100%;
+		border: 1px dashed $color-border-input; border-radius: $border-radius-md; padding: $spacing-md; margin-top: $spacing-sm; width: 100%;
 		.fs-sb-create-input { width: 100%; margin-bottom: $spacing-sm; }
 	}
 	.fs-sb-create-btn-row { display: flex; gap: $spacing-sm; }
