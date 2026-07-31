@@ -17,6 +17,7 @@ use Inc\Controllers\Pages\ApplyPageController;
 use Inc\Controllers\Person\ConsentController;
 use Inc\Controllers\System\CronController;
 use Inc\Controllers\System\AdminController;
+use Inc\Controllers\System\MediaUploadController;
 use Inc\Controllers\System\ModulesDashboardController;
 use Inc\Controllers\Task\BoilerplateController;
 use Inc\Controllers\Enrollment\EnrollmentController;
@@ -115,6 +116,7 @@ final class Init {
 			Enqueue::class,                   // Подключение скриптов и стилей
 			AdminController::class,           // Административное меню
 			ModulesDashboardController::class, // AJAX и локализация для Dashboard-модулей
+			MediaUploadController::class,     // Проверка типов загружаемых файлов (.txt, принятый finfo за CSV)
 			SubjectController::class, // Управление предметами и CPT
 			MetaBoxController::class,        // Метабоксы заданий
 			LearningMenuController::class,   // Меню «Обучение» (банки контента)
