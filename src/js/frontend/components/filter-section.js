@@ -18,16 +18,19 @@ export class FilterSection {
         this._onToggle = onToggle;
         this._head     = el.querySelector('.filter-sec-head');
         this._body     = el.querySelector('.filter-sec-body');
+        this._summary  = el.querySelector('.filter-sec-summary');
         this._badge    = null;
 
         this._bindHead();
         this._bindOptions();
+        this._refreshSummary();
     }
 
     /** Сбрасывает все активные опции внутри секции без вызова коллбека. */
     reset() {
         this._el.querySelectorAll('.js-filter-option.is-active').forEach(b => b.classList.remove('is-active'));
         this._updateBadge(0);
+        this._refreshSummary();
     }
 
     _bindHead() {
@@ -37,6 +40,7 @@ export class FilterSection {
             if (this._body) this._body.hidden = open;
             this._head.setAttribute('aria-expanded', String(!open));
             this._head.querySelector('.filter-sec-chev')?.classList.toggle('is-open', !open);
+            this._refreshSummary();
         });
     }
 
@@ -49,9 +53,18 @@ export class FilterSection {
 
                 const activeCount = this._el.querySelectorAll('.js-filter-option.is-active').length;
                 this._updateBadge(activeCount);
+                this._refreshSummary();
                 this._onToggle(key, value, isNowActive);
             });
         });
+    }
+
+    /** Сводка видна только когда секция свёрнута и ни одна опция не выбрана. */
+    _refreshSummary() {
+        if (!this._summary) return;
+        const open   = this._body && !this._body.hidden;
+        const active = this._el.querySelectorAll('.js-filter-option.is-active').length > 0;
+        this._summary.hidden = open || active;
     }
 
     _updateBadge(count) {

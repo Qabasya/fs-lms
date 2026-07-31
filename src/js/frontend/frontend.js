@@ -7,6 +7,7 @@ import { initJoinForm }         from './services/join-form.js';
 import { initGroupCockpit }     from './services/group-cockpit.js';
 import { initSubmissions }      from './services/submission.js';
 import { initAssessment }       from './services/assessment.js';
+import { AllTasksPage }         from './services/all-tasks-page.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
@@ -18,4 +19,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initGroupCockpit();
     initSubmissions();
     initAssessment();
+    new AllTasksPage().init();
 });

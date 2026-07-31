@@ -21,7 +21,7 @@ export class AllTasksPage {
         this._bindRefs();
         this._api = new AllTasksApi(this._ajaxUrl, 'fetch_all_tasks', this._nonce, this._subjectKey);
 
-        this._filters  = { search: '', task_types: [] };
+        this._filters  = { search: '', taxonomies: {} };
         this._offset   = this._root.querySelectorAll('.js-task-cards .task-card-row').length;
         this._loading  = false;
 
@@ -29,6 +29,7 @@ export class AllTasksPage {
         this._initSearch();
         this._initClearBtns();
         this._initInfiniteScroll();
+        this._bindTagFilters();
 
         bindCardTabs(this._cardsWrap);
     }
@@ -41,7 +42,7 @@ export class AllTasksPage {
         this._ajaxUrl    = this._root.dataset.ajaxUrl;
         this._perPage    = parseInt(this._root.dataset.perPage, 10) || 10;
         this._total      = parseInt(this._root.dataset.total,   10) || 0;
-        this._hasMore    = this._total > 0;
+        this._hasMore    = this._root.dataset.hasMore === '1';
     }
 
     _bindRefs() {
@@ -51,6 +52,8 @@ export class AllTasksPage {
         this._infiniteEnd = this._root.querySelector('.js-infinite-end');
         this._countEl     = this._root.querySelector('.js-results-count');
         this._clearBtns   = this._root.querySelectorAll('.js-filters-clear');
+        this._sideClear   = this._root.querySelector('.filters-side-clear');
+        this._metaClear   = this._root.querySelector('.results-meta .js-filters-clear');
         this._searchInput = this._root.querySelector('.js-search-input');
     }
 
@@ -67,16 +70,44 @@ export class AllTasksPage {
         });
     }
 
-    _onFilterOptionToggled(key, value, isActive) {
-        if (key === 'task_types') {
-            if (isActive) {
-                this._filters.task_types.push(value);
+    _onFilterOptionToggled(taxonomy, value, isActive) {
+        const current = this._filters.taxonomies[taxonomy] || [];
+
+        if (isActive) {
+            if (!current.includes(value)) current.push(value);
+            this._filters.taxonomies[taxonomy] = current;
+        } else {
+            const next = current.filter(v => v !== value);
+            if (next.length) {
+                this._filters.taxonomies[taxonomy] = next;
             } else {
-                this._filters.task_types = this._filters.task_types.filter(v => v !== value);
+                delete this._filters.taxonomies[taxonomy];
             }
         }
+
         this._syncClearBtns();
         this._reload();
+    }
+
+    // ── Теги-фильтры на карточках ──────────────────────────────
+
+    /**
+     * Клик по чипу-тегу карточки (.js-tag-filter) переиспользует клик
+     * соответствующей опции сайдбара — единый путь тоггла/бейджа/перезагрузки.
+     * Делегирование на постоянном контейнере: работает и для AJAX-карточек.
+     */
+    _bindTagFilters() {
+        if (!this._cardsWrap) return;
+
+        this._cardsWrap.addEventListener('click', e => {
+            const chip = e.target.closest('.js-tag-filter');
+            if (!chip) return;
+
+            const option = this._root.querySelector(
+                `.js-filter-option[data-filter="${chip.dataset.filter}"][data-value="${chip.dataset.value}"]`
+            );
+            if (option) option.click();
+        });
     }
 
     // ── Search ────────────────────────────────────────────────
@@ -103,7 +134,7 @@ export class AllTasksPage {
     }
 
     _clearAll() {
-        this._filters = { search: '', task_types: [] };
+        this._filters = { search: '', taxonomies: {} };
         if (this._searchInput) this._searchInput.value = '';
         this._filterSections.forEach(s => s.reset());
         this._syncClearBtns();
@@ -111,8 +142,11 @@ export class AllTasksPage {
     }
 
     _syncClearBtns() {
-        const active = this._filters.search || this._filters.task_types.length > 0;
-        this._clearBtns.forEach(btn => { btn.hidden = !active; });
+        // Кнопки сброса отражают ТОЛЬКО выбранные фильтры-таксономии, не поиск
+        // (у поля поиска свой нативный ×). Сайдбарная — disabled, мета — hidden.
+        const active = Object.keys(this._filters.taxonomies).length > 0;
+        if (this._sideClear) this._sideClear.disabled = !active;
+        if (this._metaClear) this._metaClear.hidden   = !active;
     }
 
     // ── Fetch / render ────────────────────────────────────────
