@@ -23,6 +23,10 @@ class MediaManager {
 		'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 		'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 		'text/plain',
+		// Файлы данных с дробями через запятую («1,5») libmagic принимает за CSV —
+		// это тот же плейнтекст (данные ЕГЭ, задание 27).
+		'text/csv',
+		'application/csv',
 		'text/x-python',
 	);
 
@@ -79,6 +83,39 @@ class MediaManager {
 		}
 
 		return (int) $attachmentId;
+	}
+
+	/**
+	 * Фильтр 'wp_check_filetype_and_ext': спасает .txt, который finfo принял за CSV.
+	 *
+	 * Текстовые файлы, где строки вида «1,5» (дробная часть через запятую — данные
+	 * ЕГЭ, задание 27), libmagic определяет как text/csv; ядро видит расхождение
+	 * с заявленным для .txt text/plain и запрещает загрузку («вам не разрешено
+	 * загрузить этот тип файла»). Послабление ядра одностороннее (реальный
+	 * text/plain при заявленном CSV прощается, обратное — нет), поэтому для пары
+	 * «.txt + реальный CSV» возвращаем штатный text/plain.
+	 *
+	 * @param array{ext: string|false, type: string|false, proper_filename: string|false} $check    Результат проверки ядра.
+	 * @param string                                                                      $file     Путь к временному файлу.
+	 * @param string                                                                      $filename Исходное имя файла.
+	 * @param string[]|null                                                               $mimes    Разрешённые MIME-типы.
+	 * @param string|false                                                                $realMime Реальный MIME по finfo.
+	 * @return array{ext: string|false, type: string|false, proper_filename: string|false}
+	 */
+	public function allowTxtDetectedAsCsv( array $check, string $file, string $filename, $mimes, $realMime ): array {
+		if ( false !== $check['type'] ) {
+			return $check;
+		}
+
+		$ext = strtolower( (string) pathinfo( $filename, PATHINFO_EXTENSION ) );
+		if ( 'txt' !== $ext || ! in_array( $realMime, array( 'text/csv', 'application/csv' ), true ) ) {
+			return $check;
+		}
+
+		$check['ext']  = 'txt';
+		$check['type'] = 'text/plain';
+
+		return $check;
 	}
 
 	public function delete( int $attachmentId ): bool {

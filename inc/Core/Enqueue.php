@@ -522,8 +522,10 @@ class Enqueue extends BaseController implements ServiceInterface {
 			}
 		}
 
-		// MathJax v3 — рендеринг LaTeX-формул в контенте кокпита (инструкции работ и т.п.).
-		if ( PageRoutes::GroupCockpit->isCurrent() ) {
+		// MathJax v3 — рендеринг LaTeX-формул: кокпит группы (инструкции работ и т.п.)
+		// и публичная страница задания (условия с формулами).
+		if ( PageRoutes::GroupCockpit->isCurrent()
+			|| ( is_singular() && PostTypeResolver::isTaskPostType( (string) get_post_type() ) ) ) {
 			$this->enqueueMathJax();
 		}
 	}
