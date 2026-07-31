@@ -13,6 +13,7 @@ use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
+use Inc\Services\Template\TemplateResolver;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -42,11 +43,12 @@ class SubjectValidationCallbacks extends BaseController {
 	/**
 	 * Конструктор коллбеков.
 	 *
-	 * @param TaskPublishValidator $validator  Валидатор заданий перед публикацией
-	 * @param TaskPublishGuard     $guard      Общий протокол блокировки публикации
-	 * @param PostManager          $posts      Доступ к сохранённой мете задания
-	 * @param TermManager          $terms      Доступ к привязанным терминам
-	 * @param TaxonomyRepository   $taxonomies Таксономии предмета (для сборки состояния)
+	 * @param TaskPublishValidator $validator        Валидатор заданий перед публикацией
+	 * @param TaskPublishGuard     $guard            Общий протокол блокировки публикации
+	 * @param PostManager          $posts            Доступ к сохранённой мете задания
+	 * @param TermManager          $terms            Доступ к привязанным терминам
+	 * @param TaxonomyRepository   $taxonomies       Таксономии предмета (для сборки состояния)
+	 * @param TemplateResolver     $templateResolver Резолвер шаблона задания (как в метабоксе)
 	 */
 	public function __construct(
 		private readonly TaskPublishValidator $validator,
@@ -54,6 +56,7 @@ class SubjectValidationCallbacks extends BaseController {
 		private readonly PostManager          $posts,
 		private readonly TermManager          $terms,
 		private readonly TaxonomyRepository   $taxonomies,
+		private readonly TemplateResolver     $templateResolver,
 	) {
 		parent::__construct();
 	}
@@ -82,7 +85,22 @@ class SubjectValidationCallbacks extends BaseController {
 			'fs_lms_publish_error_',
 			'Укажите название задания.',
 			function () use ( $postType, $postId ) {
-				return $this->validator->getBlockingError( $postType, $this->effectiveTaxInput( $postId, $postType ) )
+				$hasMetaForm = isset( $_POST[ PostMetaName::Meta->value ] );
+
+				// Программная вставка (импорт пакета, рестор): формы нет, поста ещё
+				// нет — мета и термины будут записаны сразу после insert. Валидация
+				// по пустому состоянию откатывала бы такие записи в черновик.
+				if ( $postId <= 0 && ! $hasMetaForm ) {
+					return null;
+				}
+
+				// Первичная вставка из модалки (post_id=0): терминов ни в форме, ни
+				// в БД ещё нет — проверять таксономии не по чему.
+				$blockingError = ( $postId > 0 || isset( $_POST['tax_input'] ) )
+					? $this->validator->getBlockingError( $postType, $this->effectiveTaxInput( $postId, $postType ) )
+					: null;
+
+				return $blockingError
 					?? $this->validator->getSoftError(
 						$this->effectiveMeta( $postId ),
 						$this->effectiveTemplateId( $postId )
@@ -147,10 +165,11 @@ class SubjectValidationCallbacks extends BaseController {
 	}
 
 	/**
-	 * Шаблон задания: из формы редактора, а при её отсутствии — сохранённый.
-	 *
-	 * Пустая строка уводит реестр шаблонов на «Стандартный», поля которого
-	 * к реальному заданию отношения не имеют, — поэтому фолбэк обязателен.
+	 * Шаблон задания: из формы редактора, а при её отсутствии — резолвером,
+	 * тем же, что рендерит метабокс (TemplateResolver): привязка шаблона к
+	 * терму «номер задания» приоритетнее постметы. Чтение одной лишь постметы
+	 * здесь ломало публикацию: у задания со связкой 19-21 меты нет, валидатор
+	 * сваливался на «Стандартный» и требовал чужое «Условие задания».
 	 *
 	 * @param int $postId ID задания.
 	 *
@@ -162,11 +181,16 @@ class SubjectValidationCallbacks extends BaseController {
 			return $fromForm;
 		}
 
-		$stored = $postId > 0
-			? $this->posts->getMeta( $postId, PostMetaName::TemplateType->value )
-			: '';
+		// Модалка inline-редактора (TaskContentCallbacks) шлёт шаблон параметром
+		// `template`: при первичной вставке (post_id=0) это единственный источник.
+		$fromModal = $this->sanitizeKey( 'template' );
+		if ( '' !== $fromModal ) {
+			return $fromModal;
+		}
 
-		return is_string( $stored ) ? $stored : '';
+		$post = $postId > 0 ? $this->posts->get( $postId ) : null;
+
+		return null !== $post ? $this->templateResolver->resolveId( $post ) : '';
 	}
 
 	/**
