@@ -4,6 +4,8 @@
  * Добавлена поддержка ES6 Модулей (import/export) через Webpack.
  */
 
+const { PassThrough } = require('node:stream');
+
 const gulp = require('gulp');
 const sass = require('gulp-sass')(require('sass'));
 const postcss = require('gulp-postcss');
@@ -96,11 +98,29 @@ const errorHandler = function (err) {
 };
 
 /**
+ * Watch-режим: watcher должен пережить опечатку в SCSS, иначе после первой же
+ * ошибки перестают собираться ВСЕ бандлы до ручного перезапуска.
+ */
+let watching = false;
+
+/**
+ * Перехват ошибок — ТОЛЬКО в watch-режиме.
+ *
+ * В разовой сборке plumber недопустим: он гасит ошибку и задача рапортует
+ * «Finished», а бандл молча остаётся прежним. Так frontend.min.css неделями
+ * собирался из старого кода при сломанном SCSS. Без plumber ошибка роняет
+ * задачу (exit != 0) — поломку видно сразу и в CI, и локально.
+ */
+function guard() {
+    return watching ? plumber({ errorHandler }) : new PassThrough({ objectMode: true });
+}
+
+/**
  * ОБРАБОТКА CSS (AdminController & Frontend & Common)
  */
 function stylesCommon() {
     return gulp.src(paths.scss.common)
-        .pipe(plumber({errorHandler}))
+        .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
         .pipe(postcss([autoprefixer(), cssnano()]))
@@ -111,7 +131,7 @@ function stylesCommon() {
 
 function stylesAdmin() {
     return gulp.src(paths.scss.admin)
-        .pipe(plumber({errorHandler}))
+        .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass({ includePaths: [paths.scss.common] }))
         .pipe(postcss([autoprefixer(), cssnano()]))
@@ -122,7 +142,7 @@ function stylesAdmin() {
 
 function stylesFrontend() {
     return gulp.src(paths.scss.frontend)
-        .pipe(plumber({errorHandler}))
+        .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass({ includePaths: [paths.scss.common] }))
         .pipe(postcss([autoprefixer(), cssnano()]))
@@ -133,7 +153,7 @@ function stylesFrontend() {
 
 function stylesProfile() {
     return gulp.src(paths.scss.profile)
-        .pipe(plumber({errorHandler}))
+        .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
         .pipe(postcss([autoprefixer(), cssnano()]))
@@ -144,7 +164,7 @@ function stylesProfile() {
 
 function stylesPlayer() {
     return gulp.src(paths.scss.player)
-        .pipe(plumber({errorHandler}))
+        .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
         .pipe(postcss([autoprefixer(), cssnano()]))
@@ -155,7 +175,7 @@ function stylesPlayer() {
 
 function stylesAssessment() {
     return gulp.src(paths.scss.assessment)
-        .pipe(plumber({errorHandler}))
+        .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
         .pipe(postcss([autoprefixer(), cssnano()]))
@@ -166,7 +186,7 @@ function stylesAssessment() {
 
 function stylesKege() {
     return gulp.src(paths.scss.kege)
-        .pipe(plumber({errorHandler}))
+        .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
         .pipe(postcss([autoprefixer(), cssnano()]))
@@ -192,7 +212,7 @@ function stylesCheck() {
  */
 function scripts() {
     return gulp.src([paths.js.admin, paths.js.frontend, paths.js.common, paths.js.profile, paths.js.player, paths.js.assessment, paths.js.kege])
-        .pipe(plumber({errorHandler}))
+        .pipe(guard())
         .pipe(named())
         .pipe(webpack(webpackConfig))
         .pipe(sourcemaps.write(paths.output.maps))
@@ -204,6 +224,7 @@ function scripts() {
  * WATCHER
  */
 function watchFiles() {
+    watching = true;
     gulp.watch(paths.scss.watch, gulp.parallel(stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer, stylesAssessment, stylesKege));
     gulp.watch(paths.js.watch, scripts);
     console.log('Gulp is watching and building modules...');
