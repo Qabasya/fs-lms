@@ -88,12 +88,30 @@ export class AllTasksPage {
 
     _initFilterSections() {
         this._filterSections = [];
+        this._sectionByTax   = {};
 
         this._root.querySelectorAll('.js-filter-sec').forEach(el => {
             const section = new FilterSection(el, (key, value, isActive) => {
                 this._onFilterOptionToggled(key, value, isActive);
             });
             this._filterSections.push(section);
+            this._sectionByTax[el.dataset.section] = section;
+        });
+    }
+
+    /**
+     * Раскладывает пересчитанные сервером фасеты по секциям сайдбара: секции,
+     * которых нет в ответе, к текущему срезу неприменимы — скрываем целиком.
+     *
+     * @param {Object[]} groups - Группы фильтров из ответа сервера.
+     * @returns {void}
+     */
+    _applyFilterGroups(groups) {
+        const byTax = new Map(groups.map(group => [group.taxonomy, group]));
+
+        Object.entries(this._sectionByTax).forEach(([taxonomy, section]) => {
+            const group = byTax.get(taxonomy);
+            section.apply(group || { terms: [], summary: '', active: 0, available: 0 });
         });
     }
 
@@ -219,7 +237,7 @@ export class AllTasksPage {
         this._loading = true;
 
         this._api.fetch(this._filters, reset ? 0 : this._offset, this._perPage)
-            .then(({ tasks, total, has_more, articles }) => {
+            .then(({ tasks, total, has_more, articles, filters }) => {
                 this._total   = total;
                 this._hasMore = has_more;
 
@@ -229,6 +247,9 @@ export class AllTasksPage {
                     // Подборка статей зависит от выбранных типов задания —
                     // сервер присылает её только при перезагрузке списка.
                     if (articles) renderSidebarArticles(this._articles, articles);
+                    // Фасеты: оставляем в сайдбаре только те варианты, что ещё
+                    // встречаются в текущем срезе.
+                    if (filters) this._applyFilterGroups(filters);
                 }
 
                 tasks.forEach(task => {

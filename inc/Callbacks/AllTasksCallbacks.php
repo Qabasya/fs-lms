@@ -110,6 +110,9 @@ class AllTasksCallbacks extends BaseController {
 			// Статьи сайдбара зависят от выбранных типов задания — отдаём при
 			// перезагрузке списка (offset = 0), при догрузке они не меняются.
 			'articles' => 0 === $offset ? $this->builder->fetchArticles( $subject_key, $filters['taxonomies'] ) : null,
+			// Фасеты: доступность и счётчики опций сайдбара пересчитываются под
+			// текущий срез. При догрузке страницы срез тот же — не пересылаем.
+			'filters'  => 0 === $offset ? $this->builder->buildFilters( $subject_key, $filters ) : null,
 		) );
 	}
 

@@ -163,12 +163,23 @@ ThemeCompatService::header();
 
 					<!-- Табы -->
 					<?php if ( ! empty( $tabs ) ) : ?>
+						<?php
+						// Ответ не раскрываем при загрузке: активной становится первая вкладка,
+						// кроме него; если других нет — контент закрыт до клика по «Ответ».
+						$active_tab = '';
+						foreach ( $tabs as $tab ) {
+							if ( 'answer' !== $tab['id'] ) {
+								$active_tab = $tab['id'];
+								break;
+							}
+						}
+						?>
 						<div class="fs-task-tabs">
 							<div class="fs-tabs-toolbar">
 								<div class="fs-tabs-nav">
-									<?php foreach ( $tabs as $i => $tab ) : ?>
+									<?php foreach ( $tabs as $tab ) : ?>
 										<button
-											class="fs-tab-btn<?php echo 0 === $i ? ' is-active' : ''; ?>"
+											class="fs-tab-btn<?php echo $active_tab === $tab['id'] ? ' is-active' : ''; ?>"
 											data-tab="<?php echo esc_attr( $tab['id'] ); ?>">
 											<?php echo esc_html( $tab['label'] ); ?>
 										</button>
@@ -176,9 +187,9 @@ ThemeCompatService::header();
 								</div>
 							</div>
 							<div class="fs-tabs-content">
-								<?php foreach ( $tabs as $i => $tab ) : ?>
+								<?php foreach ( $tabs as $tab ) : ?>
 									<div
-										class="fs-tab-panel<?php echo 0 === $i ? ' is-active' : ''; ?>"
+										class="fs-tab-panel<?php echo $active_tab === $tab['id'] ? ' is-active' : ''; ?>"
 										data-panel="<?php echo esc_attr( $tab['id'] ); ?>">
 										<?php echo wp_kses_post( $tab['content'] ); ?>
 									</div>
