@@ -58,6 +58,9 @@ $tabs = apply_filters(
                 Здесь можно изменить основные настройки плагина.
             </p>
         </div>
+
+		<hr class="wp-header-end">
+
 		<!-- Навигация по вкладкам -->
 		<h2 class="nav-tab-wrapper">
 			<?php foreach ( $tabs as $tab_id => $tab ) : ?>

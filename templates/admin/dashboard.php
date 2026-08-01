@@ -31,6 +31,8 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
         </p>
     </div>
 
+	<hr class="wp-header-end">
+
 	<?php if ( ! empty( $modules ) ) : ?>
 		<div class="fs-modules-section">
 			<h2 class="fs-modules-section__title">Модули</h2>

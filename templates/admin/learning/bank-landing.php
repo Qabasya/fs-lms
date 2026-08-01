@@ -30,6 +30,8 @@ defined( 'ABSPATH' ) || exit;
 		</div>
 	</div>
 
+	<hr class="wp-header-end">
+
 	<?php if ( empty( $subjects ) ) : ?>
 
 		<div class="notice notice-warning">

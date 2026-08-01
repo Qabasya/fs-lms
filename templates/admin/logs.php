@@ -46,6 +46,8 @@ $page_slug = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore Wor
         </p>
     </div>
 
+	<hr class="wp-header-end">
+
 	<h2 class="nav-tab-wrapper">
 		<?php foreach ( $tabs as $tab_id => $tab ) : ?>
 			<a href="?page=<?php echo esc_attr( $page_slug ); ?>&tab=<?php echo esc_attr( $tab_id ); ?>"

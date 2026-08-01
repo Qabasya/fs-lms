@@ -429,6 +429,31 @@ if (!function_exists('get_post_mime_type')) {
         return $GLOBALS['_fs_test_post_mime_types'][$postId] ?? false;
     }
 }
+if (!function_exists('get_post_type')) {
+    function get_post_type(int $postId): string|false {
+        return $GLOBALS['_fs_test_post_types'][$postId] ?? false;
+    }
+}
+if (!function_exists('wp_get_upload_dir')) {
+    function wp_get_upload_dir(): array {
+        return $GLOBALS['_fs_test_upload_dir'] ?? ['baseurl' => 'https://source.example/wp-content/uploads'];
+    }
+}
+if (!function_exists('attachment_url_to_postid')) {
+    function attachment_url_to_postid(string $url): int {
+        return (int) ($GLOBALS['_fs_test_url_to_attachment'][$url] ?? 0);
+    }
+}
+if (!function_exists('wp_get_attachment_metadata')) {
+    function wp_get_attachment_metadata(int $postId): array|false {
+        return $GLOBALS['_fs_test_attachment_meta'][$postId] ?? false;
+    }
+}
+if (!function_exists('wp_get_attachment_image_url')) {
+    function wp_get_attachment_image_url(int $postId, string $size = 'thumbnail'): string|false {
+        return $GLOBALS['_fs_test_attachment_size_urls'][$postId][$size] ?? false;
+    }
+}
 if (!function_exists('user_can')) {
     function user_can(int $userId, string $cap): bool { return $GLOBALS['_fs_test_user_caps'][$userId][$cap] ?? false; }
 }
