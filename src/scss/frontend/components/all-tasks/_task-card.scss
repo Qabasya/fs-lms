@@ -31,6 +31,13 @@
     font-size: rem(17); font-weight: $font-bold;
     color: $color-text;
   }
+  // Заголовок ведёт туда же, куда «Смотреть решение» — на страницу задания.
+  .tcr-title-link {
+    color: inherit; text-decoration: none;
+    transition: color $transition;
+
+    &:hover, &:focus-visible { color: $color-accent; }
+  }
   .tcr-body { padding: rem(10) rem(26) rem(22); }
   // font-weight — абсолютно: от наследуемых body{300} темы UA-шный bolder
   // у b/strong даёт лишь 400, и жирный в условии не виден.

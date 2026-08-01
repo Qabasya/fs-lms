@@ -7,7 +7,6 @@ namespace Inc\Controllers\Person;
 use Inc\Core\BaseController;
 use Inc\Repositories\OptionsRepositories\ExpulsionPolicyRepository;
 use Inc\Contracts\ServiceInterface;
-use Inc\Enums\Settings\OptionName;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -40,6 +39,7 @@ class ProfileController extends BaseController implements ServiceInterface {
 		private readonly PersonRepository        $personRepository,
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly ProfileViewResolver     $resolver,
+		private readonly ExpulsionPolicyRepository $expulsionPolicy,
 	) {
 		parent::__construct();
 	}
@@ -83,7 +83,7 @@ class ProfileController extends BaseController implements ServiceInterface {
 
 			// Гейт кабинета для полностью отчисленных (политика 'block').
 			$policy = $this->expulsionPolicy->getRetentionPolicy();
-			if ( 'block' === $policy ) {
+			if ( ExpulsionPolicyRepository::BLOCK === $policy ) {
 				$person = $this->personRepository->findByWpUserId( get_current_user_id() );
 				if ( $person ) {
 					$activeRecords = $this->studentRecords->findActiveByStudent( $person->id );

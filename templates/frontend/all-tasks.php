@@ -52,7 +52,7 @@ ThemeCompatService::header();
 					</div>
 
 					<?php foreach ( $page_data->filters as $group ) : $group_active = (int) ( $group['active'] ?? 0 ); ?>
-						<div class="filter-sec js-filter-sec" data-section="<?php echo esc_attr( $group['taxonomy'] ); ?>">
+						<div class="filter-sec js-filter-sec" data-section="<?php echo esc_attr( $group['taxonomy'] ); ?>" <?php echo empty( $group['available'] ) ? 'hidden' : ''; ?>>
 							<button class="filter-sec-head" aria-expanded="<?php echo $group_active ? 'true' : 'false'; ?>">
 								<span class="filter-sec-title"><?php echo esc_html( $group['name'] ); ?></span>
 								<span class="filter-sec-right">
@@ -68,7 +68,8 @@ ThemeCompatService::header();
 									<?php foreach ( $group['terms'] as $term ) : ?>
 										<button class="filter-option js-filter-option<?php echo ! empty( $term['selected'] ) ? ' is-active' : ''; ?>"
 											data-filter="<?php echo esc_attr( $group['taxonomy'] ); ?>"
-											data-value="<?php echo esc_attr( $term['slug'] ); ?>">
+											data-value="<?php echo esc_attr( $term['slug'] ); ?>"
+											<?php echo empty( $term['available'] ) ? 'hidden' : ''; ?>>
 											<span class="filter-option-label"><?php echo esc_html( $term['name'] ); ?></span>
 											<span class="filter-option-count"><?php echo esc_html( (string) $term['count'] ); ?></span>
 											<span class="filter-option-check" aria-hidden="true">
@@ -150,7 +151,9 @@ ThemeCompatService::header();
 								</div>
 							</header>
 
-							<h2 class="tcr-title"><?php echo esc_html( $task->title ); ?></h2>
+							<h2 class="tcr-title">
+								<a class="tcr-title-link" href="<?php echo esc_url( $task->url ); ?>"><?php echo esc_html( $task->title ); ?></a>
+							</h2>
 
 							<?php if ( $task->condition ) : ?>
 								<div class="tcr-body">

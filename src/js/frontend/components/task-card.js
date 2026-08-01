@@ -22,7 +22,7 @@ export function buildTaskCard(task) {
                 <div class="tcr-meta">${_buildTags(task)}</div>
             </div>
         </header>
-        <h2 class="tcr-title">${esc(task.title)}</h2>
+        <h2 class="tcr-title"><a class="tcr-title-link" href="${esc(task.url)}">${esc(task.title)}</a></h2>
         ${task.condition ? `<div class="tcr-body"><div class="tcr-condition">${task.condition}</div></div>` : ''}
         ${_buildFiles(task.files || [])}
         <footer class="tcr-foot">

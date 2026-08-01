@@ -180,6 +180,13 @@ readonly class TaskDataBuilder {
 		}
 
 		foreach ( $this->taxonomy_repository->getBySubject( $subject_key ) as $taxonomy_dto ) {
+			// Только обязательные таксономии: их термины есть у каждого задания и по
+			// ним фильтруются «Все задания» — тег ведёт именно туда. Необязательные
+			// (служебные пометки автора предмета) посетителю не показываем.
+			if ( ! $taxonomy_dto->is_required ) {
+				continue;
+			}
+
 			$raw_terms = $this->term_manager->getPostTerms( $post_id, $taxonomy_dto->slug );
 
 			foreach ( $raw_terms as $raw_term ) {

@@ -94,6 +94,10 @@
 
     &:hover { background: $color-border-light; color: $color-text; }
     &.is-active { background: rgba($color-accent, .12); color: $color-accent; }
+
+    // Недоступные под текущий срез опции скрывает JS атрибутом hidden —
+    // без этого правила его перебивает display: flex выше.
+    &[hidden] { display: none; }
   }
   .filter-option-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .filter-option-count { font-size: rem(11); color: $color-muted; font-variant-numeric: tabular-nums; }
