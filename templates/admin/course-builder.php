@@ -31,6 +31,8 @@ if ( $post ) {
 ?>
 <div class="wrap fs-lms-cb-wrap">
 
+	<hr class="wp-header-end">
+
 	<div
 		id="fs-lms-course-builder"
 		data-course-id="<?php echo esc_attr( (string) $course_id ); ?>"

@@ -138,7 +138,7 @@ class SubjectBundleExportService {
 		return array(
 			'manifest' => $manifest,
 			'files'    => $mediaResult['files'],
-			'warnings' => array_merge( $mediaResult['missing'], $remapper->droppedRefs() ),
+			'warnings' => array_merge( $mediaResult['missing'], $this->media->unresolvedUrls(), $remapper->droppedRefs() ),
 			'counts'   => $this->counts( $posts, count( $mediaResult['manifest'] ) ),
 		);
 	}

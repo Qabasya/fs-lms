@@ -45,6 +45,8 @@ $tabs = array(
 
         </div>
 
+        <hr class="wp-header-end">
+
         <!-- Навигация по вкладкам -->
 		<h2 class="nav-tab-wrapper">
 			<?php foreach ( $tabs as $tab_id => $tab ) : ?>

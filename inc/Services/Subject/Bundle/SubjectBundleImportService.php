@@ -245,6 +245,11 @@ class SubjectBundleImportService {
 		$sourceSite = (string) ( $manifest['site_url'] ?? '' );
 		$inserted   = 0;
 
+		// Ссылки на медиа, вкраплённые в текст (картинка условия, URL-поля файлов),
+		// переписываются подстрокой — ID-ремапом их не взять.
+		$urlRewriter = new MediaUrlRewriter();
+		$urlMap      = $urlRewriter->buildMap( (array) ( $manifest['media'] ?? array() ), $mediaMap );
+
 		// Пересчёт term_count после каждой вставки — самая дорогая часть импорта
 		// на сотнях записей; откладываем до конца всех разделов.
 		wp_defer_term_counting( true );
@@ -259,6 +264,7 @@ class SubjectBundleImportService {
 
 					// Ссылки резолвятся ПЕРЕД вставкой: все предыдущие уровни уже в карте.
 					$post['meta'] = $remapper->toPostIds( (array) ( $post['meta'] ?? array() ), $mapper, $mediaMap );
+					$post         = $urlRewriter->rewritePost( $post, $urlMap );
 
 					if ( $section->isGlobal() ) {
 						$postId = $this->restoreProblem( $post, $sourceSite, $exportId, $section, $created );

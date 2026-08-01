@@ -34,7 +34,10 @@ namespace Inc\Services\Subject\Bundle;
  *   },
  *   "media": [ { "export_id": "media:123", "file": "media/123__photo.jpg",
  *                "filename": "photo.jpg", "mime": "image/jpeg",
- *                "size": 12345, "sha256": "…" } ],
+ *                "size": 12345, "sha256": "…",
+ *                "source_id": 123,
+ *                "source_urls": { "full": "https://source/…/photo.jpg",
+ *                                 "medium": "https://source/…/photo-300x183.jpg" } } ],
  *   "students": { "persons": [...], "records": [...], "groups": [...] }
  * }
  * ```
@@ -48,8 +51,14 @@ namespace Inc\Services\Subject\Bundle;
  */
 final class BundleSchema {
 
-	/** Текущая версия формата пакета. */
-	public const string VERSION = '1.0.0';
+	/**
+	 * Текущая версия формата пакета.
+	 *
+	 * 1.1.0 — в `media[]` добавлены `source_id` и `source_urls`: по ним импорт
+	 * переписывает ссылки, вкраплённые в HTML условия и в URL-поля файлов.
+	 * Старые пакеты (1.0.0) читаются как есть, только без этой замены.
+	 */
+	public const string VERSION = '1.1.0';
 
 	/** Имя файла манифеста в корне архива. */
 	public const string MANIFEST = 'manifest.json';
