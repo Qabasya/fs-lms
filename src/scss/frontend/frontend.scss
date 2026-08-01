@@ -12,9 +12,6 @@
 @use 'components/join-form';
 @use 'components/consent-page';
 @use 'components/all-tasks';
-@use 'components/group-cockpit';
-@use 'components/submissions';
 @use 'components/assessment';
 @use 'components/lesson-player';
 @use 'components/task-widget';
-@use '../common/components/confirm-dialog'; // group-cockpit.js использует confirmDialog

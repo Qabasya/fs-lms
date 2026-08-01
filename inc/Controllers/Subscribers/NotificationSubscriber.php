@@ -209,7 +209,7 @@ class NotificationSubscriber implements ServiceInterface {
 				'topic'      => $this->notifications->lessonTopic( $lesson ),
 				'group_name' => $this->notifications->groupName( $lesson->groupId ),
 			),
-			PageRoutes::GroupCockpit->lessonUrl( $lesson->groupId, $lesson->id ),
+			PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id ),
 			$lesson->groupId,
 			'group_lesson',
 			$groupLessonId

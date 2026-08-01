@@ -21,11 +21,29 @@ class ThemeCompatService {
 	 */
 	public static function header(): void {
 		if ( self::isBlockTheme() ) {
+			// Шапка рендерится в буфер ДО вывода <head>: блоки на рендере
+			// регистрируют свои script-модули, а WP при блочной теме печатает
+			// import map в wp_head (см. WP_Script_Modules::add_hooks). Отрендерить
+			// шапку после — значит выпустить, например, модуль блока навигации без
+			// записи в import map, и браузер падает на «@wordpress/interactivity».
+			$header = self::renderTemplatePart( 'header' );
 			self::openHtmlSkeleton();
-			block_template_part( 'header' );
+			echo $header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		} else {
 			get_header();
 		}
+	}
+
+	/**
+	 * Рендерит часть блочного шаблона в строку.
+	 *
+	 * @param string $part Имя части шаблона (`header`, `footer`).
+	 */
+	private static function renderTemplatePart( string $part ): string {
+		ob_start();
+		block_template_part( $part );
+
+		return (string) ob_get_clean();
 	}
 
 	/**
@@ -53,12 +71,6 @@ class ThemeCompatService {
 	 * Выводит DOCTYPE, <head> и открывающий <body> для блочных тем.
 	 */
 	private static function openHtmlSkeleton(): void {
-		// block_template_part('header') вызывается ПОСЛЕ wp_head(), поэтому блоки,
-		// использующие Interactivity API, регистрируют модуль слишком поздно —
-		// importmap уже выведен. Принудительно ставим в очередь до wp_head().
-		if ( function_exists( 'wp_enqueue_script_module' ) ) {
-			wp_enqueue_script_module( '@wordpress/interactivity' );
-		}
 		?>
 		<!DOCTYPE html>
 		<html <?php language_attributes(); ?>>

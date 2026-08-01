@@ -1,4 +1,5 @@
 import { icoFile, icoArrowRight } from '../../common/icons.js';
+import { escapeHtml as esc } from '../../common/utils.js';
 
 /**
  * Строит HTML-строку карточки задания для вставки в DOM.
@@ -77,12 +78,4 @@ function _buildAnswerPanel(answer) {
         <div class="tcr-answer-label">Правильный ответ</div>
         <div class="tcr-answer-value">${esc(answer)}</div>
     </div>`;
-}
-
-function esc(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }

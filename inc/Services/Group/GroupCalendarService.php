@@ -115,7 +115,7 @@ readonly class GroupCalendarService {
 				// Индикатор записи занятия в КТП (модуль VideoLibrary или ручная ссылка).
 				'recording_url'   => $row->recordingUrl,
 				'status'          => $row->status,
-				'player_url'      => $hasContent ? PageRoutes::GroupCockpit->lessonUrl( $groupId, $row->id ) : '',
+				'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( $groupId, $row->id ) : '',
 			);
 		}
 

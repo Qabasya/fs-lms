@@ -236,7 +236,7 @@ class DashboardService {
 			// НБ-9: ФИО ученика для индивидуального занятия (для группового — пусто).
 			'student_name'    => ( 'individual' === $row->kind && null !== $row->studentPersonId )
 				? ( $studentNames[ $row->studentPersonId ] ?? '' ) : '',
-			'player_url'      => $hasContent ? PageRoutes::GroupCockpit->lessonUrl( $gid, $row->id ) : '',
+			'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( $gid, $row->id ) : '',
 		);
 	}
 

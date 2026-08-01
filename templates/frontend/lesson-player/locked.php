@@ -8,7 +8,7 @@
  * не доступен» + дата открытия. Иначе (экзамен-блок/предусловие/без даты) —
  * общий текст.
  *
- * @var int    $groupId Идентификатор группы (для ссылки на кокпит).
+ * @var int    $groupId Идентификатор группы (в шаблоне не используется, оставлен контрактом рендера).
  * @var object $row     GroupLessonDTO текущего занятия ($row->scheduledAt).
  */
 
@@ -17,8 +17,6 @@ declare( strict_types=1 );
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-
-$cockpit_url = add_query_arg( array( 'gid' => $groupId ), \Inc\Enums\Wp\PageRoutes::GroupCockpit->url() );
 
 // Секунды до старта: обе метки в локальном времени WP (как WpClock::now()),
 // поэтому разница strtotime корректна независимо от TZ сервера.
@@ -65,5 +63,5 @@ $locked_soon = null !== $locked_seconds && $locked_seconds > 0 && $locked_second
 		</div>
 	<?php endif; ?>
 
-	<a class="button" href="<?php echo esc_url( $cockpit_url ); ?>">← <?php esc_html_e( 'К программе группы', 'fs-lms' ); ?></a>
+	<a class="button" href="<?php echo esc_url( \Inc\Enums\Wp\PageRoutes::UserProfile->url() ); ?>">← <?php esc_html_e( 'В личный кабинет', 'fs-lms' ); ?></a>
 </div>

@@ -137,20 +137,27 @@ class ProfileViewResolver {
 		$user = get_userdata( $wpUserId );
 		$name = $user ? ( $user->display_name ?: $user->user_login ) : '';
 
-		return array(
-			'role'            => $ctx->role->value,
-			'readOnly'        => $ctx->readOnly,
-			'user'            => array(
-				'name'     => $name,
-				'initials' => $this->initials( $name ),
-			),
-			'subjectPersonId' => $ctx->subjectPersonId,
-			'children'        => $ctx->children,
-			'nav'             => $built['nav'],
-			'screens'         => $built['screens'],
-			'ajax'            => array( 'url' => admin_url( 'admin-ajax.php' ) ),
-			'homeUrl'         => home_url( '/' ),
-			'logoutUrl'       => wp_logout_url( home_url( '/' ) ),
+		// Витрина отдаёт не только nav/screens, но и блоки конфига своих экранов
+		// (`groups`, `dashboard`, `journal`, …) — резолвер про их устройство не
+		// знает и переносит как есть; выдёргивать два ключа нельзя, иначе экраны
+		// остаются без nonce и адресов AJAX.
+		return array_merge(
+			$built,
+			array(
+				'role'            => $ctx->role->value,
+				'readOnly'        => $ctx->readOnly,
+				'user'            => array(
+					'name'     => $name,
+					'initials' => $this->initials( $name ),
+				),
+				'subjectPersonId' => $ctx->subjectPersonId,
+				'children'        => $ctx->children,
+				'nav'             => $built['nav'] ?? array(),
+				'screens'         => $built['screens'] ?? array(),
+				'ajax'            => array( 'url' => admin_url( 'admin-ajax.php' ) ),
+				'homeUrl'         => home_url( '/' ),
+				'logoutUrl'       => wp_logout_url( home_url( '/' ) ),
+			)
 		);
 	}
 

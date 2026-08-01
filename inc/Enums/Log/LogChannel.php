@@ -59,7 +59,7 @@ enum LogChannel: string {
 
 	/**
 	 * Показывать ли канал отдельной вкладкой на админ-странице «Журналы».
-	 * LearningEvents — лента событий на фронте/в кокпите, в админ-журналы не выводится.
+	 * LearningEvents — лента событий обучения, в админ-журналы не выводится.
 	 */
 	public function inAdminLogs(): bool {
 		return self::LearningEvents !== $this;

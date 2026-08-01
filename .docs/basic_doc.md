@@ -233,7 +233,7 @@ fs-lms.php
 2. планирует cron-задачи (`ExpireApplications`, `RetentionCleanup` — daily; `RecoveryTick` — каждые 15 минут);
 3. запускает миграции — `MigrationRunner` (§11);
 4. генерирует служебные страницы через `PageGeneratorService`: SignIn, Apply, UserProfile,
-   GroupCockpit, CoursePreview (§19);
+   LessonPlayer, CoursePreview (§19);
 5. создаёт дефолтное согласие `pd_processing` (§22);
 6. `flush_rewrite_rules()`.
 
@@ -298,7 +298,7 @@ ScheduleController (AJAX программы/КТП), SubstitutionController (з�
 RoomController (кабинеты), ProfileDashboardController («Главная» кабинета),
 LearnerProfileController (кабинет ученика/родителя), JournalController (журнал/посещаемость),
 LessonPlayerController (плеер урока), CoursePreviewController (preview-плеер),
-GroupCockpitController (/group/), LessonProgressController (прогресс шагов),
+LessonProgressController (прогресс шагов),
 LearningEventSubscriber (лента событий)
 
 — Этап 3: сдачи и контрольные —
@@ -961,7 +961,7 @@ src/js/
 ├── frontend/                  # бандл frontend (чистый JS, без jQuery)
 │   ├── frontend.js            # entry: DOMContentLoaded
 │   ├── components/            # UI: task-tabs, article-carousel, task-widget
-│   └── services/              # AJAX: apply-form, join-form, group-cockpit, submission,
+│   └── services/              # AJAX: apply-form, join-form,
 │                              #   assessment, captcha, dadata-*
 │
 ├── profile/                   # бандл profile — SPA личного кабинета (§36–39)
@@ -1049,8 +1049,6 @@ export function openModal( $modal ) { … }
 | `fs_lms_applications_vars` | страница `fs_lms_userlist` | `nonces{trash, edit, review, enroll, manager, revealPii, updatePerson, exportPii, deletePii, restoreFromArchive, selectExistingParent, removeParentAssignment}` |
 | `fs_lms_apply_vars` | `/apply/` | `ajax_url`, `hp_field`, `form_token`, `actions`, `nonces` (+ `captcha_key` дописывает модуль SmartCaptcha через фильтр `fs_lms_apply_vars`) |
 | `fs_lms_join_vars` | маршрут `fs_lms_page=join` | `actions{submit_parent, check_email}`, `nonces` (+ `dadata_token` — модуль DaData, фильтр `fs_lms_join_vars`) |
-| `fs_lms_cockpit_vars` | `/group/` | actions/nonces программы группы: visibility, reorder, schedule, step-settings, task-attempts… |
-| `fs_lms_submission_vars` | `/group/` | actions/nonces сдач: submitWork, saveGrade, getGradebook… |
 | `fs_lms_assessment_vars` | одиночная страница контрольной | actions/nonces попыток: startAttempt, submitAttempt, uploadAnswerFile… |
 | `fs_lms_player_vars` | плеер | `actions{markStep, submitTask, submitBatchWork}` + nonces (§32) |
 | `fsProfile` | `/profile/` | конфиг SPA кабинета из `ProfileViewResolver::jsConfig()` (§36) |
@@ -1184,7 +1182,7 @@ form.addEventListener( 'submit', ( e ) => {
 | `Apply` | `/apply/` | Заявка ученика | `ApplyPageController` (шорткод `[fs_lms_apply_form]`) |
 | `UserProfile` | `/profile/` | SPA личного кабинета | `ProfileController` (§36) |
 | `ConsentPage` | `/consent/` | Текст согласия | `ConsentController` |
-| `GroupCockpit` | `/group/?gid=N` | Кокпит группы; с `?gl=` — плеер урока | `GroupCockpitController` / `LessonPlayerController` |
+| `LessonPlayer` | `/lesson/?gid=N&gl=M` | Плеер урока занятия | `LessonPlayerController` |
 | `CoursePreview` | `/course-preview/?course=N` | Preview-плеер: прохождение курса «от роли ученика» (методист/преподаватель) | `CoursePreviewController` |
 
 Страницы создаются автоматически при активации (`PageGeneratorService`, идемпотентно).
@@ -1684,21 +1682,23 @@ public function register(): void {
 - `GroupAccessGuard` — управление группой (свой `teacher_id` или активная замена)
   и членство ученика.
 
-### Кокпит группы `/group/?gid=N`
+### Кокпит группы — удалён
 
-`GroupCockpitController` — страница преподавателя (программа, ростер, лента событий) и
-ученика (его вид). AJAX кокпита — `fs_lms_cockpit_vars` / `fs_lms_submission_vars` (§15):
-видимость уроков, переупорядочивание, расписание, настройки шагов (⚙️), история попыток (📋),
-сдачи и журнал.
+Фронт-страница `/group/` (`GroupCockpitController`, её шаблоны, `group-cockpit.js`,
+`submission.js`, `fs_lms_cockpit_vars` / `fs_lms_submission_vars`) удалена: работу с группой
+ведёт кабинет `/profile/`. AJAX-хуки кокпита (видимость уроков, переупорядочивание,
+добавление/дублирование урока в программе, расписание занятия, настройки шагов, история
+попыток, сдача работ, журнал оценок) **оставлены без фронтового потребителя** — эти функции
+в кабинет пока не перенесены; удалять их вместе с коллбеками — отдельное решение.
 
 ## 32. Плеер урока и прогресс
 
 ### Маршрут и рендеринг
 
-Плеер ученика: `/group/?gid=N&gl=<id занятия>` → `LessonPlayerController`
-(`template_include`, регистрируется до кокпита). Проверки: логин → занятие существует →
-членство (`GroupAccessGuard::isMemberEver`); преподаватель пропускается в кокпит; посторонний
-получает 404. Гейт урока (`LessonGateResolver`) → при `Locked` рендерится `locked.php`.
+Плеер ученика: `/lesson/?gid=N&gl=<id занятия>` → `LessonPlayerController`
+(`template_include`, собственная страница-маршрут `PageRoutes::LessonPlayer`). Проверки:
+логин → занятие существует → членство (`GroupAccessGuard::isMemberEver`); преподаватель
+своей группы (`canManage`) смотрит урок в teacher-режиме; посторонний получает 404. Гейт урока (`LessonGateResolver`) → при `Locked` рендерится `locked.php`.
 
 Шаблон `templates/frontend/lesson-player/player.php` — **изолированная страница** без темы:
 серверные партиалы шагов (`partials/step-{text,video,task,work,assessment}.php`, `rail.php`)

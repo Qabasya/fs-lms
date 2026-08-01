@@ -37,8 +37,8 @@ enum PageRoutes: string {
 	/** Страница согласия на обработку персональных данных */
 	case ConsentPage = 'consent';
 
-	/** Кокпит группы преподавателя (параметр ?gid=N) */
-	case GroupCockpit = 'group';
+	/** Плеер урока: занятие группы по `?gid=N&gl=M` (см. LessonPlayerController) */
+	case LessonPlayer = 'lesson';
 
 	/** Preview-плеер курса для преподавателя/офиса/автора (Фаза 5, ?course=N) */
 	case CoursePreview = 'course-preview';
@@ -55,10 +55,10 @@ enum PageRoutes: string {
 	}
 
 	/**
-	 * Deep-link в плеер урока занятия: маршрут кокпита группы + `?gid=&gl=`.
+	 * Deep-link в плеер урока занятия: маршрут плеера + `?gid=&gl=`.
 	 * Единый владелец формата (Р2.2) — раньше был скопирован в LearnerService/
 	 * DashboardService/ScheduleService и inline в AssessmentPageController.
-	 * Осмысленно для {@see self::GroupCockpit}.
+	 * Осмысленно для {@see self::LessonPlayer}.
 	 *
 	 * @param int $groupId       ID группы
 	 * @param int $groupLessonId ID занятия группы (group_lessons.id)

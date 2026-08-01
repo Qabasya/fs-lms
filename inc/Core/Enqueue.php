@@ -389,7 +389,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 *
 	 * Грузит только player.min.css/js + MathJax и локализует fs_lms_player_vars.
 	 * Общий для двух маршрутов, оба взводят фильтр `fs_lms_is_player_route`
-	 * перед рендером player.php: LessonPlayerController (кокпит + ?gl=, ученик)
+	 * перед рендером player.php: LessonPlayerController (маршрут плеера + ?gl=, ученик)
 	 * и CoursePreviewController (/course-preview/?course=, Фаза 5 — предпросмотр
 	 * для преподавателя/офиса/автора, без ученика и сохранения прогресса).
 	 *
@@ -522,10 +522,9 @@ class Enqueue extends BaseController implements ServiceInterface {
 			}
 		}
 
-		// MathJax v3 — рендеринг LaTeX-формул: кокпит группы (инструкции работ и т.п.)
-		// и публичная страница задания (условия с формулами).
-		if ( PageRoutes::GroupCockpit->isCurrent()
-			|| ( is_singular() && PostTypeResolver::isTaskPostType( (string) get_post_type() ) ) ) {
+		// MathJax v3 — рендеринг LaTeX-формул на публичной странице задания.
+		// Плеер урока грузит MathJax своим бандлом (см. enqueue_player_assets).
+		if ( is_singular() && PostTypeResolver::isTaskPostType( (string) get_post_type() ) ) {
 			$this->enqueueMathJax();
 		}
 	}
@@ -599,13 +598,10 @@ class Enqueue extends BaseController implements ServiceInterface {
 	 * @return array<string, array<string, mixed>|null>
 	 */
 	private function frontendLocalizations(): array {
-		$isCockpit    = PageRoutes::GroupCockpit->isCurrent();
 		$isAssessment = is_singular() && PostTypeResolver::isAssessmentPostType( (string) get_post_type() );
 
 		return array(
 			'fs_lms_apply_vars'      => PageRoutes::Apply->isCurrent() ? $this->applyVars() : null,
-			'fs_lms_cockpit_vars'    => $isCockpit ? $this->cockpitVars() : null,
-			'fs_lms_submission_vars' => $isCockpit ? $this->submissionVars() : null,
 			'fs_lms_assessment_vars' => $isAssessment ? $this->assessmentVars() : null,
 			'fs_lms_join_vars'       => 'join' === get_query_var( 'fs_lms_page' ) ? $this->joinVars() : null,
 		);
@@ -635,64 +631,6 @@ class Enqueue extends BaseController implements ServiceInterface {
 				'check_username' => Nonce::CheckUsernameAvailable->create(),
 			),
 		) );
-	}
-
-	/**
-	 * Кокпит группы преподавателя.
-	 *
-	 * Плеер урока живёт на своём изолированном бандле (Эпик 14, D18) —
-	 * см. {@see enqueue_player_assets()}; здесь остаётся только кокпит.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function cockpitVars(): array {
-		return array(
-			'ajax_url' => admin_url( 'admin-ajax.php' ),
-			'actions'  => array(
-				'setLessonVisibility'       => AjaxHook::SetLessonVisibility->jsAction(),
-				'removeLessonFromProgram'   => AjaxHook::RemoveLessonFromProgram->jsAction(),
-				'getGroupActivity'          => AjaxHook::GetGroupActivity->jsAction(),
-				'reorderProgram'            => AjaxHook::ReorderProgram->jsAction(),
-				'assignCourse'              => AjaxHook::AssignCourse->jsAction(),
-				'addLessonToProgram'        => AjaxHook::AddLessonToProgram->jsAction(),
-				'duplicateProgramLesson'    => AjaxHook::DuplicateProgramLesson->jsAction(),
-				'saveLessonSchedule'        => AjaxHook::SaveLessonSchedule->jsAction(),
-				'getCourseLessonCandidates' => AjaxHook::GetCourseLessonCandidates->jsAction(),
-				'getStepSettings'           => AjaxHook::GetStepSettings->jsAction(),
-				'saveStepSettings'          => AjaxHook::SaveStepSettings->jsAction(),
-				'getTaskAttempts'           => AjaxHook::GetTaskAttempts->jsAction(),
-			),
-			'nonces'   => array(
-				'setLessonVisibility' => Nonce::SetLessonVisibility->create(),
-				'saveSchedule'        => Nonce::SaveSchedule->create(),
-				'assignCourse'        => Nonce::AssignCourse->create(),
-				'authorCourse'        => Nonce::AuthorCourse->create(),
-				'stepSettings'        => Nonce::StepSettings->create(),
-			),
-		);
-	}
-
-	/**
-	 * Сдача и проверка работ в кокпите.
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function submissionVars(): array {
-		return array(
-			'ajax_url' => admin_url( 'admin-ajax.php' ),
-			'actions'  => array(
-				'submitWork'          => AjaxHook::SubmitWork->jsAction(),
-				'getMySubmissions'    => AjaxHook::GetMySubmissions->jsAction(),
-				'saveGrade'           => AjaxHook::SaveGrade->jsAction(),
-				'returnSubmission'    => AjaxHook::ReturnSubmission->jsAction(),
-				'getGroupSubmissions' => AjaxHook::GetGroupSubmissions->jsAction(),
-				'getGradebook'        => AjaxHook::GetGradebook->jsAction(),
-			),
-			'nonces'   => array(
-				'submitWork' => Nonce::SubmitWork->create(),
-				'gradeWork'  => Nonce::GradeWork->create(),
-			),
-		);
 	}
 
 	/**

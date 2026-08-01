@@ -55,4 +55,47 @@ class ProfileViewResolverTest extends TestCase {
 		self::assertNull( $this->resolver->viewFor( UserRole::FSMethodist ) );
 		self::assertNull( $this->resolver->viewFor( UserRole::FSMarket ) );
 	}
+
+	/**
+	 * Витрина отдаёт не только nav/screens, но и блоки конфига своих экранов
+	 * (`groups`, `dashboard`, `journal`, …). Резолвер обязан перенести их в
+	 * `window.fsProfile` целиком: без них SPA рисует «Главная недоступна» и
+	 * «Нет групп» — экраны остаются без nonce и адресов AJAX.
+	 */
+	public function test_js_config_keeps_view_screen_blocks(): void {
+		$user             = new \WP_User();
+		$user->ID         = 5;
+		$user->roles      = array( UserRole::FSTeacher->value );
+		$user->user_login = 'teacher';
+
+		$GLOBALS['_fs_test_userdata'] = array( 5 => $user );
+
+		$groups = $this->createMock( GroupsRepository::class );
+		$groups->method( 'findByTeacherId' )->willReturn(
+			array( (object) array( 'id' => 7, 'name' => 'МЕГЕ-1', 'subject_key' => 'inf', 'access_mode' => '' ) )
+		);
+
+		$resolver = new ProfileViewResolver(
+			$this->createMock( PersonRepository::class ),
+			$this->createMock( StudentRecordRepository::class ),
+			$this->createMock( GroupsRepository::class ),
+			new TeacherProfileView(
+				$groups,
+				$this->createMock( CourseManager::class ),
+				$this->createMock( SubjectRepository::class ),
+			),
+			new LearnerProfileView(),
+			$this->createMock( SubjectRepository::class ),
+		);
+
+		$config = $resolver->jsConfig( 5 );
+
+		unset( $GLOBALS['_fs_test_userdata'] );
+
+		self::assertSame( 'МЕГЕ-1', $config['groups'][0]['name'] ?? null );
+		self::assertArrayHasKey( 'dashboard', $config );
+		self::assertArrayHasKey( 'journal', $config );
+		self::assertContains( 'dashboard', $config['screens'] );
+		self::assertArrayHasKey( 'notifications', $config );
+	}
 }

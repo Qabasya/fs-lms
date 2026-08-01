@@ -73,7 +73,7 @@ readonly class NotificationCronService {
 					'time'       => $lesson->scheduledAt ? substr( $lesson->scheduledAt, 11, 5 ) : '',
 				),
 				$lesson->lessonId
-					? PageRoutes::GroupCockpit->lessonUrl( $lesson->groupId, $lesson->id )
+					? PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id )
 					: PageRoutes::UserProfile->url(),
 				$lesson->groupId,
 				'group_lesson',

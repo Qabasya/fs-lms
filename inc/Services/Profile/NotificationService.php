@@ -216,7 +216,7 @@ readonly class NotificationService {
 	 * (`?step=`), как в {@see \Inc\Services\Profile\LearnerService::deadlines()}.
 	 */
 	public function lessonWorkUrl( GroupLessonDTO $lesson, int $workId ): string {
-		$baseUrl = PageRoutes::GroupCockpit->lessonUrl( $lesson->groupId, $lesson->id );
+		$baseUrl = PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id );
 		$content = $lesson->lessonId ? $this->lessons->get( $lesson->lessonId ) : null;
 		$stepKey = $content?->stepKeyForWork( $workId );
 

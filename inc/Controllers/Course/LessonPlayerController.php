@@ -17,9 +17,9 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class LessonPlayerController
  *
- * Пошаговый плеер урока (★, T1.5.12). Живёт на маршруте кокпита группы по `?gid=X&gl=Y`
- * (урок проходится в контексте программы группы). Регистрируется ДО `GroupCockpitController`:
- * при наличии `gl` рендерит плеер, иначе пропускает дальше (кокпит).
+ * Пошаговый плеер урока (★, T1.5.12). Живёт на своём маршруте `/lesson/?gid=X&gl=Y`
+ * (урок проходится в контексте программы группы). Без `gl` шаблон не подменяется:
+ * страница остаётся обычной страницей WP.
  *
  * @package Inc\Controllers
  */
@@ -41,8 +41,8 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 	}
 
 	public function loadTemplate( string $template ): string {
-		// Обрабатываем только «проигрывание урока»: маршрут кокпита + параметр gl.
-		if ( ! PageRoutes::GroupCockpit->isCurrent() || ! isset( $_GET['gl'] ) ) {
+		// Обрабатываем только «проигрывание урока»: маршрут плеера + параметр gl.
+		if ( ! PageRoutes::LessonPlayer->isCurrent() || ! isset( $_GET['gl'] ) ) {
 			return $template;
 		}
 
@@ -114,7 +114,7 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 			$args['step'] = $step;
 		}
 
-		return add_query_arg( $args, PageRoutes::GroupCockpit->url() );
+		return add_query_arg( $args, PageRoutes::LessonPlayer->url() );
 	}
 
 	/** Отдаёт 404-шаблон (наличие урока постороннему не раскрываем). */
