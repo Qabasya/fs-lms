@@ -19,7 +19,9 @@ export class FilterSection {
         this._head     = el.querySelector('.filter-sec-head');
         this._body     = el.querySelector('.filter-sec-body');
         this._summary  = el.querySelector('.filter-sec-summary');
-        this._badge    = null;
+        // Бейдж мог быть отрисован сервером (фильтр пришёл в URL) — переиспользуем его,
+        // иначе на первом же клике в шапке появился бы второй.
+        this._badge    = el.querySelector('.filter-sec-badge');
 
         this._bindHead();
         this._bindOptions();

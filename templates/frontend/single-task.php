@@ -1,8 +1,22 @@
 <?php
+/**
+ * Страница одного задания (CPT {subject}_tasks).
+ *
+ * Данные — TaskPageDTO из TaskDataBuilder. Крошки, чипы, карточка и чипы файлов
+ * общие со страницей «Все задания»: разметка крошек — партиал partials/breadcrumbs.php,
+ * геометрия — примитивы из `src/scss/frontend/_mixins.scss`.
+ *
+ * @var \Inc\DTO\Task\TaskPageDTO $task_data
+ *
+ * @package FS LMS
+ */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+use Inc\Enums\Ui\Icon;
+use Inc\Services\Shared\ThemeCompatService;
 
 /** @var \Inc\DTO\Task\TaskPageDTO $task_data */
 $task_data   = get_query_var( 'fs_task_data' );
@@ -13,11 +27,12 @@ $tags        = $task_data->tags;
 $articles    = $task_data->articles;
 $navigation  = $task_data->navigation;
 $tabs        = $task_data->tabs;
-$breadcrumbs = $navigation['breadcrumbs'] ?? array();
+$crumbs      = $navigation['breadcrumbs'] ?? array();
+$archive_url = $navigation['archive_url'] ?? '';
 $nav_prev    = $navigation['prev'] ?? null;
 $nav_next    = $navigation['next'] ?? null;
 
-\Inc\Services\Shared\ThemeCompatService::header();
+ThemeCompatService::header();
 ?>
 
 <div class="fs-page-wrapper">
@@ -33,24 +48,12 @@ $nav_next    = $navigation['next'] ?? null;
 					<a href="#" class="fs-sidebar-more">Узнать о курсах →</a>
 				</div>
 
-				<?php if ( ! empty( $articles['related'] ) ) : ?>
-					<div class="fs-sidebar-block">
-						<div class="fs-sidebar-title">Статьи</div>
-						<ul class="fs-sidebar-articles">
-							<?php foreach ( $articles['related'] as $article ) : ?>
-								<li>
-									<a href="<?php echo esc_url( $article['url'] ); ?>">
-										<span class="fs-sidebar-article-title"><?php echo esc_html( $article['title'] ); ?></span>
-										<?php if ( ! empty( $article['excerpt'] ) ) : ?>
-											<span class="fs-sidebar-article-desc"><?php echo esc_html( $article['excerpt'] ); ?></span>
-										<?php endif; ?>
-									</a>
-								</li>
-							<?php endforeach; ?>
-						</ul>
-						<a href="#" class="fs-sidebar-more">Все материалы →</a>
-					</div>
-				<?php endif; ?>
+				<?php
+				// Статьи по типу задания — общий с «Все задания» партиал сайдбара.
+				$sidebar_articles     = $articles['related'];
+				$sidebar_articles_url = $articles['archive_url'] ?? '';
+				include __DIR__ . '/partials/sidebar-articles.php';
+				?>
 
 				<div class="fs-sidebar-block">
                     <div class="fs-sidebar-title">Реклама</div>
@@ -61,45 +64,14 @@ $nav_next    = $navigation['next'] ?? null;
 			<!-- ===================== ОСНОВНОЙ КОНТЕНТ ===================== -->
 			<main class="fs-task-main">
 
-				<!-- Хлебные крошки -->
-				<nav class="fs-breadcrumbs">
-					<?php if ( ! empty( $breadcrumbs['subject']['label'] ) ) : ?>
-						<?php if ( ! empty( $breadcrumbs['subject']['url'] ) ) : ?>
-							<a href="<?php echo esc_url( $breadcrumbs['subject']['url'] ); ?>"><?php echo esc_html( $breadcrumbs['subject']['label'] ); ?></a>
-						<?php else : ?>
-							<span><?php echo esc_html( $breadcrumbs['subject']['label'] ); ?></span>
-						<?php endif; ?>
-						<span class="fs-breadcrumbs__sep">/</span>
-					<?php endif; ?>
-
-					<?php if ( ! empty( $breadcrumbs['trainer']['label'] ) ) : ?>
-						<?php if ( ! empty( $breadcrumbs['trainer']['url'] ) ) : ?>
-							<a href="<?php echo esc_url( $breadcrumbs['trainer']['url'] ); ?>"><?php echo esc_html( $breadcrumbs['trainer']['label'] ); ?></a>
-						<?php else : ?>
-							<span><?php echo esc_html( $breadcrumbs['trainer']['label'] ); ?></span>
-						<?php endif; ?>
-						<span class="fs-breadcrumbs__sep">/</span>
-					<?php endif; ?>
-
-					<?php if ( ! empty( $breadcrumbs['task_type']['label'] ) ) : ?>
-						<?php if ( ! empty( $breadcrumbs['task_type']['url'] ) ) : ?>
-							<a href="<?php echo esc_url( $breadcrumbs['task_type']['url'] ); ?>"><?php echo esc_html( $breadcrumbs['task_type']['label'] ); ?></a>
-						<?php else : ?>
-							<span><?php echo esc_html( $breadcrumbs['task_type']['label'] ); ?></span>
-						<?php endif; ?>
-						<span class="fs-breadcrumbs__sep">/</span>
-					<?php endif; ?>
-
-					<?php if ( ! empty( $breadcrumbs['task']['label'] ) ) : ?>
-						<span class="fs-breadcrumbs__current"><?php echo esc_html( $breadcrumbs['task']['label'] ); ?></span>
-					<?php endif; ?>
-				</nav>
+				<!-- Хлебные крошки (общий партиал со страницей «Все задания») -->
+				<?php include __DIR__ . '/partials/breadcrumbs.php'; ?>
 
 				<!-- Заголовок задания -->
 				<h1 class="fs-task-title"><?php echo esc_html( $task_post?->title ?? '' ); ?></h1>
 
 				<!-- Навигация: предыдущее / все задания / следующее -->
-				<hr class="fs-task-divider">
+                <hr class="fs-task-divider">
 				<nav class="fs-task-nav">
 					<?php if ( $nav_prev ) : ?>
 					<a href="<?php echo esc_url( $nav_prev['url'] ); ?>" class="fs-task-nav__side fs-task-nav__side--prev" aria-label="Предыдущее задание">
@@ -121,8 +93,8 @@ $nav_next    = $navigation['next'] ?? null;
 
 					<div class="fs-task-nav__center">
 						<div class="fs-task-nav__circle"></div>
-						<?php if ( ! empty( $breadcrumbs['subject']['url'] ) ) : ?>
-							<a href="<?php echo esc_url( $breadcrumbs['subject']['url'] ); ?>" class="fs-task-nav__all">Все задания</a>
+						<?php if ( '' !== $archive_url ) : ?>
+							<a href="<?php echo esc_url( $archive_url ); ?>" class="fs-task-nav__all">Все задания</a>
 						<?php else : ?>
 							<span class="fs-task-nav__all fs-task-nav__all--plain">Все задания</span>
 						<?php endif; ?>
@@ -148,23 +120,22 @@ $nav_next    = $navigation['next'] ?? null;
 					</nav>
 					<hr class="fs-task-divider">
 
-				<!-- Теги -->
-				<?php if ( ! empty( $tags ) ) : ?>
-					<div class="fs-task-tags">
-						<?php foreach ( $tags as $tag ) : ?>
-							<?php $class = 'fs-tag fs-tag--' . esc_attr( $tag['type'] ); ?>
-							<?php if ( ! empty( $tag['url'] ) ) : ?>
-								<a href="<?php echo esc_url( $tag['url'] ); ?>" class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $tag['label'] ); ?></a>
-							<?php else : ?>
-								<span class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $tag['label'] ); ?></span>
-							<?php endif; ?>
-						<?php endforeach; ?>
-					</div>
-				<?php endif; ?>
-
 				<!-- Карточка задания -->
 				<div class="fs-task-card">
 					<div class="fs-task-card__body">
+                        <!-- Теги -->
+                        <?php if ( ! empty( $tags ) ) : ?>
+                            <div class="fs-task-tags">
+                                <?php foreach ( $tags as $tag ) : ?>
+                                    <?php $class = 'fs-tag fs-tag--' . esc_attr( $tag['type'] ); ?>
+                                    <?php if ( ! empty( $tag['url'] ) ) : ?>
+                                        <a href="<?php echo esc_url( $tag['url'] ); ?>" class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $tag['label'] ); ?></a>
+                                    <?php else : ?>
+                                        <span class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $tag['label'] ); ?></span>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
 
 						<!-- Условие задачи -->
 						<div class="fs-task-condition">
@@ -174,10 +145,15 @@ $nav_next    = $navigation['next'] ?? null;
 						<!-- Файлы -->
 						<?php if ( ! empty( $files ) ) : ?>
 							<div class="fs-task-files">
-								<strong>Файлы к заданию:</strong>
 								<?php foreach ( $files as $file ) : ?>
 									<a href="<?php echo esc_url( $file['url'] ); ?>" class="fs-file-link">
-										<?php echo esc_html( $file['name'] ); ?>
+										<span class="fs-file-icon" aria-hidden="true">
+                                            <?php echo Icon::File->svg( 13 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+                                        </span>
+                                        <span class="fs-file-name"><?php echo esc_html( $file['name'] ); ?></span>
+                                        <?php if ( ! empty( $file['size'] ) ) : ?>
+                                            <span class="fs-file-size"><?php echo esc_html( $file['size'] ); ?></span>
+                                        <?php endif; ?>
 									</a>
 								<?php endforeach; ?>
 							</div>
@@ -219,17 +195,17 @@ $nav_next    = $navigation['next'] ?? null;
 	</div>
 
 	<!-- Карусель случайных статей -->
-	<?php if ( ! empty( $articles['random'] ) ) : ?>
+	<?php if ( ! empty( $articles['recommended'] ) ) : ?>
 		<hr class="fs-task-divider fs-carousel-divider">
 		<div class="fs-task-carousel">
 			<div class="fs-carousel-header">
-				<h3 class="fs-carousel-title">Случайные статьи</h3>
+				<h3 class="fs-carousel-title">Рекомендуемые статьи</h3>
 			</div>
 			<button class="fs-carousel-btn fs-carousel-btn--prev" aria-label="Назад">&#8249;</button>
 
 			<div class="fs-carousel-overflow">
 				<div class="fs-carousel-track">
-					<?php foreach ( $articles['random'] as $article ) : ?>
+					<?php foreach ( $articles['recommended'] as $article ) : ?>
 						<div class="fs-carousel-item">
 							<a href="<?php echo esc_url( $article['url'] ); ?>">
 								<?php if ( ! empty( $article['task_number'] ) ) : ?>

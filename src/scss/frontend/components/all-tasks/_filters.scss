@@ -1,0 +1,113 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+// Сайдбар с фильтрами-таксономиями: секции-аккордеоны и опции-чекбоксы.
+.fs-all-tasks-page {
+
+  .sidebar {
+    @include fs-sticky;
+
+    display: flex; flex-direction: column;
+    gap: rem(15);
+  }
+
+  .side-card { @include fs-surface-card($padding: rem(16) rem(18) rem(18)); }
+
+  // overflow: hidden — hover-фон крайних .filter-sec-head прямоугольный и вылезал
+  // за скругление карточки ($border-radius-xl).
+  .filters-side { padding: rem(6) rem(0) rem(0); overflow: hidden; }
+
+  .filters-side-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: rem(8);
+    padding: rem(8) rem(16) rem(6);
+  }
+  .filters-side-title { font-size: $font-size-xs; font-weight: $font-bold; color: $color-text; }
+
+  .filters-side-clear {
+    padding: 0;
+    background: none; border: 0;
+    font-family: inherit; font-size: rem(11.5); color: $color-muted;
+    cursor: pointer;
+    transition: color $transition;
+
+    &:hover:not(:disabled) { color: $color-accent; }
+    &:disabled { opacity: .4; cursor: not-allowed; }
+  }
+
+  // ── Секция-аккордеон ──────────────────────────────────────────
+  .filter-sec { border-top: 1px solid $color-border; }
+
+  .filter-sec-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: rem(10);
+    width: 100%;
+    padding: rem(11) rem(16);
+    background: transparent; border: 0;
+    font-family: inherit; text-align: left;
+    cursor: pointer;
+    transition: background $transition;
+    
+    &:hover { background: $color-bg-subtle; }
+  }
+  .filter-sec-title {
+    font-size: rem(10.5); font-weight: $font-bold;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: $color-muted;
+  }
+  .filter-sec-right { display: inline-flex; align-items: center; gap: rem(8); }
+  .filter-sec-summary { font-size: $font-size-xs; color: $color-muted; font-variant-numeric: tabular-nums; }
+
+  .filter-sec-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: rem(18); height: rem(18);
+    padding: 0 rem(5);
+    border-radius: $border-radius-pill;
+    background: $color-accent; color: $color-white;
+    font-size: rem(10.5); font-weight: $font-bold; font-variant-numeric: tabular-nums;
+  }
+  .filter-sec-chev {
+    display: inline-flex; color: $color-muted;
+    transition: transform .2s ease;
+
+    &.is-open { transform: rotate(90deg); color: $color-text; }
+  }
+  .filter-sec-body {
+    max-height: rem(240);
+    padding: rem(4) rem(12) rem(14);
+    overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  // ── Опции фильтра ─────────────────────────────────────────────
+  .filter-options { display: flex; flex-direction: column; gap: 1px; padding: rem(4) 0 rem(2); }
+
+  .filter-option {
+    display: flex; align-items: center;
+    gap: rem(10);
+    padding: rem(7) rem(8);
+    border-radius: $border-radius-md;
+    background: transparent; border: 0;
+    font-family: inherit; font-size: $font-size-xs; color: $color-muted;
+    text-align: left; cursor: pointer;
+    transition: background $transition, color $transition;
+
+    &:hover { background: $color-border-light; color: $color-text; }
+    &.is-active { background: rgba($color-accent, .12); color: $color-accent; }
+  }
+  .filter-option-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-option-count { font-size: rem(11); color: $color-muted; font-variant-numeric: tabular-nums; }
+  .filter-option-check {
+    display: grid; place-items: center;
+    width: rem(14); height: rem(14); flex: 0 0 rem(14);
+    border: 1.5px solid $color-separator; border-radius: $border-radius-sm;
+    color: transparent;
+    transition: background $transition, border-color $transition, color $transition;
+  }
+  .filter-option.is-active .filter-option-check { background: $color-accent; border-color: $color-accent; color: $color-white; }
+
+  // ── Адаптив: сайдбар уезжает под контент и перестаёт липнуть ───
+  @media (max-width: $bp-md) {
+    .sidebar { position: static; order: 2; }
+  }
+}

@@ -65,7 +65,12 @@ class AllTasksCallbacks extends BaseController {
 		}
 
 		$subject_key = PostTypeResolver::subjectFromTaskPostType( $queried->name );
-		set_query_var( 'fs_all_tasks_data', $this->builder->getPageData( $subject_key ) );
+
+		// Фильтры могут прийти в URL (клик по тегу на странице задания) — тем же
+		// форматом filters[<taxonomy>][]=<term>, что и в AJAX-подгрузке.
+		$selected = $this->parseTaxonomyFilters( 'GET' );
+
+		set_query_var( 'fs_all_tasks_data', $this->builder->getPageData( $subject_key, $selected ) );
 
 		return $custom_template;
 	}
@@ -102,16 +107,21 @@ class AllTasksCallbacks extends BaseController {
 			'tasks'    => array_map( static fn( $task ) => $task->toArray(), $tasks ),
 			'total'    => $total,
 			'has_more' => ( $offset + count( $tasks ) ) < $total,
+			// Статьи сайдбара зависят от выбранных типов задания — отдаём при
+			// перезагрузке списка (offset = 0), при догрузке они не меняются.
+			'articles' => 0 === $offset ? $this->builder->fetchArticles( $subject_key, $filters['taxonomies'] ) : null,
 		) );
 	}
 
 	/**
-	 * Разбирает и санитизирует карту фильтров из POST: [taxonomy_slug => term_slugs].
+	 * Разбирает и санитизирует карту фильтров: [taxonomy_slug => term_slugs].
+	 *
+	 * @param string $source Источник данных: 'POST' (AJAX) или 'GET' (ссылка-фильтр).
 	 *
 	 * @return array<string, string[]>
 	 */
-	private function parseTaxonomyFilters(): array {
-		$raw = $this->unslashArray( 'filters' );
+	private function parseTaxonomyFilters( string $source = 'POST' ): array {
+		$raw = $this->unslashArray( 'filters', $source );
 
 		if ( ! is_array( $raw ) ) {
 			return array();

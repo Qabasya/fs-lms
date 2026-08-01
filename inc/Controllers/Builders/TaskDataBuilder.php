@@ -49,6 +49,7 @@ readonly class TaskDataBuilder {
 		private PostManager $post_manager,
 		private ArticleService $article_service,
 		private TermManager $term_manager,
+		private BreadcrumbsBuilder $breadcrumbs_builder,
 	) {}
 
 	/**
@@ -95,6 +96,7 @@ readonly class TaskDataBuilder {
 	): TaskPageDTO {
 		$subject_name = $subject ? $subject->name : $subject_key;
 		$content      = $this->buildContentData( $meta );
+		$archive_url  = $subject_key ? $this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) ) : '';
 
 		return new TaskPageDTO(
 			post:         $post,
@@ -102,9 +104,9 @@ readonly class TaskDataBuilder {
 			subject_name: $subject_name,
 			content:      $content,
 			files:        $this->task_meta_service->getTaskFiles( $meta ),
-			tags:         $this->buildTags( $post?->id ?? 0, $subject_key, $current_task_type ),
+			tags:         $this->buildTags( $post?->id ?? 0, $subject_key, $current_task_type, $archive_url ),
 			articles:     $this->buildArticles( $subject_key, $current_task_type ),
-			navigation:   $this->buildNavigation( $post, $subject_key, $subject_name, $current_task_type ),
+			navigation:   $this->buildNavigation( $post, $subject_name, $archive_url, $current_task_type ),
 			tabs:         $this->buildTabs( $content ),
 		);
 	}
@@ -159,10 +161,11 @@ readonly class TaskDataBuilder {
 	 * @param int              $post_id           ID записи.
 	 * @param string           $subject_key       Ключ предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
+	 * @param string           $archive_url       Ссылка на «Все задания» предмета.
 	 *
 	 * @return array Список тегов задания.
 	 */
-	private function buildTags( int $post_id, string $subject_key, ?TermViewDTO $current_task_type ): array {
+	private function buildTags( int $post_id, string $subject_key, ?TermViewDTO $current_task_type, string $archive_url ): array {
 		$tags = array();
 
 		if ( $current_task_type ) {
@@ -172,7 +175,7 @@ readonly class TaskDataBuilder {
 				'taxonomy' => $current_task_type->taxonomy,
 				'term_id'  => $current_task_type->id,
 				'slug'     => $current_task_type->slug,
-				'url'      => $this->term_manager->getLink( $current_task_type->id, $current_task_type->taxonomy ),
+				'url'      => $this->filterUrl( $archive_url, $current_task_type->taxonomy, $current_task_type->slug ),
 			);
 		}
 
@@ -193,7 +196,7 @@ readonly class TaskDataBuilder {
 					'label'         => $term->name,
 					'term_id'       => $term->id,
 					'slug'          => $term->slug,
-					'url'           => $this->term_manager->getLink( $term->id, $taxonomy_dto->slug ),
+					'url'           => $this->filterUrl( $archive_url, $taxonomy_dto->slug, $term->slug ),
 				);
 			}
 		}
@@ -202,17 +205,42 @@ readonly class TaskDataBuilder {
 	}
 
 	/**
+	 * Ссылка на «Все задания» с предвыбранным фильтром.
+	 *
+	 * Формат параметра тот же, что у AJAX-подгрузки списка:
+	 * `filters[<taxonomy_slug>][]=<term_slug>` — страница разбирает его на SSR
+	 * и отмечает опцию в сайдбаре как активную.
+	 *
+	 * @param string $archive_url Ссылка на архив заданий предмета.
+	 * @param string $taxonomy    Слаг таксономии.
+	 * @param string $term_slug   Слаг термина.
+	 *
+	 * @return string Пустая строка, если архив или термин неизвестны.
+	 */
+	private function filterUrl( string $archive_url, string $taxonomy, string $term_slug ): string {
+		if ( '' === $archive_url || '' === $taxonomy || '' === $term_slug ) {
+			return '';
+		}
+
+		return add_query_arg( array( 'filters' => array( $taxonomy => array( $term_slug ) ) ), $archive_url );
+	}
+
+	/**
 	 * Возвращает статьи для страницы задания.
 	 *
 	 * @param string           $subject_key       Ключ предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
-	 * @return array Массив с ключами 'related' и 'random'.
+	 * @return array Ключи: 'related' (по типу задания), 'recommended' (свежие),
+	 *               'archive_url' (архив статей предмета — ссылка «Все материалы»).
 	 */
 	private function buildArticles( string $subject_key, ?TermViewDTO $current_task_type ): array {
 		return array(
-			'related' => $this->article_service->getRelatedArticles( $subject_key, $current_task_type ),
-			'random'  => $this->article_service->getRandomArticles( $subject_key ),
+			'related'     => $this->article_service->getRelatedArticles( $subject_key, $current_task_type ),
+			'recommended' => $this->article_service->getLatestArticles( $subject_key ),
+			'archive_url' => $subject_key
+				? $this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) )
+				: '',
 		);
 	}
 
@@ -220,56 +248,57 @@ readonly class TaskDataBuilder {
 	 * Возвращает данные навигации, хлебных крошек и соседних постов.
 	 *
 	 * @param PostViewDTO|null $post              DTO записи задания.
-	 * @param string           $subject_key       Ключ предмета.
 	 * @param string           $subject_label     Название предмета.
+	 * @param string           $archive_url       Ссылка на «Все задания» предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
 	 * @return array
 	 */
 	private function buildNavigation(
 		?PostViewDTO $post,
-		string $subject_key,
 		string $subject_label,
+		string $archive_url,
 		?TermViewDTO $current_task_type,
 	): array {
-		$post_id     = $post?->id ?? 0;
-		$archive_url = $subject_key ? $this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) ) : '';
-		$term_url    = $current_task_type ? $this->term_manager->getLink( $current_task_type->id, $current_task_type->taxonomy ) : '';
+		$post_id  = $post?->id ?? 0;
+		$term_url = $current_task_type
+			? $this->filterUrl( $archive_url, $current_task_type->taxonomy, $current_task_type->slug )
+			: '';
 
 		$prev_post = $post_id ? PostViewDTO::normalizePost( $this->post_manager->getAdjacent( $post_id, true ) ) : null;
 		$next_post = $post_id ? PostViewDTO::normalizePost( $this->post_manager->getAdjacent( $post_id, false ) ) : null;
 
 		return array(
-			'breadcrumbs' => array(
-				'subject'   => array(
-					'label' => $subject_label,
-					'url'   => $archive_url,
-				),
-				'trainer'   => array(
-					'label' => 'Тренажер',
-					'url'   => $archive_url,
-				),
-				'task_type' => $current_task_type ? array(
-					'id'    => $current_task_type->id,
-					'label' => $current_task_type->name . ' задание',
-					'slug'  => $current_task_type->slug,
-					'url'   => $term_url,
-				) : null,
-				'task'      => array(
-					'label' => $post ? $post->title : '',
-					'url'   => $post?->url ?? '',
-				),
+			// Общая с «Все задания» цепочка: плоский список для партиала крошек.
+			'breadcrumbs' => $this->breadcrumbs_builder->forTask(
+				$subject_label,
+				$archive_url,
+				$current_task_type ? $current_task_type->name . ' задание' : '',
+				$term_url,
+				$post ? $post->title : ''
 			),
-			'prev'        => $prev_post ? array(
-				'title' => $prev_post->title,
-				'url'   => $prev_post->url,
-				'slug'  => rawurldecode( $prev_post->slug ),
-			) : null,
-			'next'        => $next_post ? array(
-				'title' => $next_post->title,
-				'url'   => $next_post->url,
-				'slug'  => rawurldecode( $next_post->slug ),
-			) : null,
+			'archive_url' => $archive_url,
+			'prev'        => $this->adjacentLink( $prev_post ),
+			'next'        => $this->adjacentLink( $next_post ),
+		);
+	}
+
+	/**
+	 * Ссылка на соседнее задание для блока навигации.
+	 *
+	 * @param PostViewDTO|null $post DTO соседней записи.
+	 *
+	 * @return array<string, string>|null
+	 */
+	private function adjacentLink( ?PostViewDTO $post ): ?array {
+		if ( ! $post ) {
+			return null;
+		}
+
+		return array(
+			'title' => $post->title,
+			'url'   => $post->url,
+			'slug'  => rawurldecode( $post->slug ),
 		);
 	}
 

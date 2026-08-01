@@ -243,4 +243,44 @@ class TermManager {
 		$link = get_term_link( $term_id, $taxonomy );
 		return is_wp_error( $link ) ? '' : $link;
 	}
+
+	/**
+	 * Счётчики терминов таксономии в разрезе ОДНОГО типа записи.
+	 *
+	 * `$term->count` из get_terms() считает все типы записей, привязанные к таксономии
+	 * (напр. `{key}_task_number` зарегистрирована и для заданий, и для статей), поэтому
+	 * для фильтров страницы «Все задания» он завышен. Здесь — прямой сгруппированный
+	 * запрос по связям с ограничением на post_type и статус.
+	 *
+	 * @param string $taxonomy    Слаг таксономии.
+	 * @param string $post_type   Тип записи, который считаем.
+	 * @param string $post_status Статус записей (по умолчанию только опубликованные).
+	 *
+	 * @return array<int, int> Карта term_id => количество записей.
+	 */
+	public function countPostsByType( string $taxonomy, string $post_type, string $post_status = 'publish' ): array {
+		global $wpdb;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT tt.term_id AS term_id, COUNT( p.ID ) AS total
+				 FROM {$wpdb->term_taxonomy} tt
+				 INNER JOIN {$wpdb->term_relationships} tr ON tr.term_taxonomy_id = tt.term_taxonomy_id
+				 INNER JOIN {$wpdb->posts} p ON p.ID = tr.object_id
+				 WHERE tt.taxonomy = %s AND p.post_type = %s AND p.post_status = %s
+				 GROUP BY tt.term_id",
+				$taxonomy,
+				$post_type,
+				$post_status
+			),
+			ARRAY_A
+		);
+
+		$counts = array();
+		foreach ( (array) $rows as $row ) {
+			$counts[ (int) $row['term_id'] ] = (int) $row['total'];
+		}
+
+		return $counts;
+	}
 }

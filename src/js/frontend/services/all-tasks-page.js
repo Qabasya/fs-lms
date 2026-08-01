@@ -2,6 +2,8 @@ import { AllTasksApi }    from './all-tasks-api.js';
 import { FilterSection }  from '../components/filter-section.js';
 import { buildTaskCard }  from '../components/task-card.js';
 import { bindCardTabs }   from '../modules/card-tabs.js';
+import { renderSidebarArticles } from '../components/sidebar-articles.js';
+import { pluralRu }       from '../../common/plural.js';
 
 /**
  * AllTasksPage — оркестратор страницы «Все задания».
@@ -21,7 +23,9 @@ export class AllTasksPage {
         this._bindRefs();
         this._api = new AllTasksApi(this._ajaxUrl, 'fetch_all_tasks', this._nonce, this._subjectKey);
 
-        this._filters  = { search: '', taxonomies: {} };
+        // Состояние берём из разметки: фильтры могли прийти в URL (клик по тегу
+        // на странице задания) и уже отрисованы сервером как активные опции.
+        this._filters  = { search: '', taxonomies: this._readSelectedFilters() };
         this._offset   = this._root.querySelectorAll('.js-task-cards .task-card-row').length;
         this._loading  = false;
 
@@ -51,10 +55,33 @@ export class AllTasksPage {
         this._sentinel    = this._root.querySelector('.js-infinite-sentinel');
         this._infiniteEnd = this._root.querySelector('.js-infinite-end');
         this._countEl     = this._root.querySelector('.js-results-count');
+        this._nounEl      = this._root.querySelector('.js-results-noun');
         this._clearBtns   = this._root.querySelectorAll('.js-filters-clear');
         this._sideClear   = this._root.querySelector('.filters-side-clear');
         this._metaClear   = this._root.querySelector('.results-meta .js-filters-clear');
         this._searchInput = this._root.querySelector('.js-search-input');
+        this._articles    = this._root.querySelector('.js-articles-block');
+    }
+
+    /**
+     * Собирает активные опции сайдбара (SSR-разметка) в карту состояния
+     * {таксономия: [слаги]} — без неё выбор из URL потерялся бы при первом же
+     * запросе к серверу.
+     *
+     * @returns {Object<string, string[]>}
+     */
+    _readSelectedFilters() {
+        const selected = {};
+
+        this._root.querySelectorAll('.js-filter-option.is-active').forEach(btn => {
+            const key   = btn.dataset.filter;
+            const value = btn.dataset.value;
+            if (!key || !value) return;
+
+            (selected[key] = selected[key] || []).push(value);
+        });
+
+        return selected;
     }
 
     // ── Filter sections ───────────────────────────────────────
@@ -86,7 +113,31 @@ export class AllTasksPage {
         }
 
         this._syncClearBtns();
+        this._syncUrl();
         this._reload();
+    }
+
+    /**
+     * Держит адрес страницы в соответствии с выбранными фильтрами
+     * (`filters[<taxonomy>][]=<term>` — тот же формат, что понимает SSR).
+     * Благодаря этому обновление страницы сохраняет выбор, а снятый фильтр
+     * не возвращается из старой ссылки.
+     *
+     * @returns {void}
+     */
+    _syncUrl() {
+        const params = new URLSearchParams(window.location.search);
+
+        [...params.keys()]
+            .filter(key => key.startsWith('filters['))
+            .forEach(key => params.delete(key));
+
+        Object.entries(this._filters.taxonomies).forEach(([taxonomy, terms]) => {
+            terms.forEach(term => params.append(`filters[${taxonomy}][]`, term));
+        });
+
+        const query = params.toString();
+        window.history.replaceState({}, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
     }
 
     // ── Теги-фильтры на карточках ──────────────────────────────
@@ -138,6 +189,7 @@ export class AllTasksPage {
         if (this._searchInput) this._searchInput.value = '';
         this._filterSections.forEach(s => s.reset());
         this._syncClearBtns();
+        this._syncUrl();
         this._reload();
     }
 
@@ -167,13 +219,16 @@ export class AllTasksPage {
         this._loading = true;
 
         this._api.fetch(this._filters, reset ? 0 : this._offset, this._perPage)
-            .then(({ tasks, total, has_more }) => {
+            .then(({ tasks, total, has_more, articles }) => {
                 this._total   = total;
                 this._hasMore = has_more;
 
                 if (reset) {
                     this._cardsWrap.innerHTML = '';
                     this._offset = 0;
+                    // Подборка статей зависит от выбранных типов задания —
+                    // сервер присылает её только при перезагрузке списка.
+                    if (articles) renderSidebarArticles(this._articles, articles);
                 }
 
                 tasks.forEach(task => {
@@ -193,8 +248,10 @@ export class AllTasksPage {
 
     // ── UI helpers ────────────────────────────────────────────
 
+    // Число и форму слова обновляем вместе: «1 задание» / «3 задания» / «12 заданий».
     _updateCountEl(n) {
         if (this._countEl) this._countEl.textContent = n;
+        if (this._nounEl)  this._nounEl.textContent  = pluralRu(Number(n) || 0, 'задание', 'задания', 'заданий');
     }
 
     _toggleEmpty(show) {

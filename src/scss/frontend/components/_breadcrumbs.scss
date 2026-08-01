@@ -1,0 +1,25 @@
+@use '../variables' as *;
+
+// Крошки публичных страниц. Разметку рендерит общий партиал
+// templates/frontend/partials/breadcrumbs.php — классы едины для
+// страницы задания и «Всех заданий».
+.fs-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: rem(4) rem(6);
+  margin-bottom: rem(18);
+  font-size: $font-size-sm;
+  color: $color-muted;
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: color $transition;
+
+    &:hover { color: $color-accent; }
+  }
+
+  &__sep     { color: $color-separator; user-select: none; }
+  &__current { color: $color-text; font-weight: $font-semibold; }
+}

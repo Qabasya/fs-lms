@@ -20,11 +20,11 @@ export class AllTasksApi {
     /**
      * Загружает список заданий с фильтрами и пагинацией.
      *
-     * @param {Object}   filters              - Активные фильтры.
-     * @param {string}   filters.search       - Поисковая строка.
-     * @param {string[]} filters.task_types   - Слаги типов заданий.
-     * @param {number}   offset               - Смещение (для infinite scroll).
-     * @param {number}   perPage              - Количество заданий на страницу.
+     * @param {Object} filters            - Активные фильтры.
+     * @param {string} filters.search     - Поисковая строка.
+     * @param {Object} filters.taxonomies - Карта {слаг таксономии: [слаги терминов]}.
+     * @param {number} offset             - Смещение (для infinite scroll).
+     * @param {number} perPage            - Количество заданий на страницу.
      *
      * @returns {Promise<{tasks: Object[], total: number, has_more: boolean}>}
      */
@@ -38,7 +38,10 @@ export class AllTasksApi {
             search:      filters.search || '',
         });
 
-        (filters.task_types || []).forEach(t => body.append('task_types[]', t));
+        // Дженерик-контракт бэкенда: filters[<taxonomy_slug>][] = <term_slug>.
+        Object.entries(filters.taxonomies || {}).forEach(([taxonomy, terms]) => {
+            (terms || []).forEach(term => body.append(`filters[${taxonomy}][]`, term));
+        });
 
         return fetch(this._url, { method: 'POST', body })
             .then(r => {
