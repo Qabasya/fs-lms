@@ -40,13 +40,8 @@ export function firstWord(name) {
     return String(name).split(' ').filter(Boolean)[0] || '';
 }
 
-/** Русская плюрализация: plural(3, 'занятие', 'занятия', 'занятий'). */
-export function plural(n, one, few, many) {
-    const m10 = n % 10, m100 = n % 100;
-    if (m10 === 1 && m100 !== 11) return one;
-    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
-    return many;
-}
+/** Русская плюрализация: plural(3, 'занятие', 'занятия', 'занятий'). Правило — в common/plural.js. */
+export { pluralRu as plural } from '../common/plural.js';
 
 /** Число с точностью до сотых, без хвостовых нулей. */
 export function fmtNum(n) {

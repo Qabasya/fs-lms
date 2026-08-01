@@ -1,0 +1,127 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+// Карточка задания в списке: шапка с чипами, условие, файлы, ответ, футер.
+.fs-all-tasks-page {
+
+  .task-cards { display: flex; flex-direction: column; gap: rem(14); }
+
+  .task-card-row {
+    @include fs-surface-card($shadow: $shadow-surface);
+
+    overflow: hidden;
+    transition: box-shadow .2s;
+
+    &:hover { box-shadow: $shadow-hover; }
+  }
+
+  // ── Шапка / чипы / условие ────────────────────────────────────
+  .tcr-header { padding: rem(22) rem(26) rem(8); }
+  .tcr-header-inner { display: flex; align-items: flex-start; gap: rem(12); min-width: 0; }
+  .tcr-meta { display: flex; flex-wrap: wrap; gap: rem(8); flex: 1; min-width: 0; }
+
+  .tcr-tag {
+    @include fs-chip;
+
+    cursor: pointer;
+  }
+
+  .tcr-title {
+    padding: rem(4) rem(26) rem(0);
+    font-size: rem(17); font-weight: $font-bold;
+    color: $color-text;
+  }
+  .tcr-body { padding: rem(10) rem(26) rem(22); }
+  // font-weight — абсолютно: от наследуемых body{300} темы UA-шный bolder
+  // у b/strong даёт лишь 400, и жирный в условии не виден.
+  .tcr-condition {
+    margin: 0;
+    font-size: $font-size-md; line-height: $line-height-relaxed;
+    font-weight: $font-normal;
+    color: $color-text-secondary;
+
+    b, strong { font-weight: $font-bold; }
+  }
+
+  // ── Файлы ─────────────────────────────────────────────────────
+  .tcr-files { display: flex; flex-wrap: wrap; gap: rem(8); padding: rem(0) rem(26) rem(22); }
+  .tcr-file      { @include fs-file-chip; }
+  .tcr-file-icon { @include fs-file-chip-icon; }
+  .tcr-file-name { font-weight: $font-semibold; }
+  .tcr-file-size { @include fs-file-chip-size; }
+
+  // ── Панель ответа ─────────────────────────────────────────────
+  .tcr-answer {
+    display: flex; align-items: baseline;
+    gap: rem(14);
+    padding: rem(16) rem(22);
+    background: $color-white;
+    border-top: 1px solid $color-border;
+    animation: fs-at-answer-in .22s ease-out;
+  }
+  .tcr-answer-label {
+    flex: 0 0 auto;
+    font-size: rem(10.5); font-weight: $font-bold;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: $color-muted;
+  }
+  .tcr-answer-value {
+    font-family: $font-code; font-size: $font-size-base; font-weight: $font-semibold;
+    color: $color-text;
+
+    // overflow-wrap вместо устаревшего word-break: break-word — поведение то же.
+    overflow-wrap: break-word;
+  }
+
+  // ── Футер карточки ────────────────────────────────────────────
+  .tcr-foot {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: rem(12);
+    padding: rem(16);
+    background: $color-bg-subtle;
+    border-top: 1px solid $color-border;
+  }
+  .tcr-answer-toggle {
+    padding: rem(7) rem(16);
+    background: $color-white;
+    border: 1px solid $color-border; border-radius: $border-radius-lg;
+    font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
+    color: $color-text-secondary; cursor: pointer;
+    transition: background $transition, color $transition, border-color $transition;
+
+    &:hover { background: $color-border-light; color: $color-text; }
+    &.is-active { background: $color-accent; border-color: $color-accent; color: $color-white; }
+  }
+  .tcr-actions { display: inline-flex; align-items: center; gap: rem(8); margin-left: auto; }
+  .tcr-btn {
+    display: inline-flex; align-items: center;
+    gap: rem(8);
+    height: rem(36); padding: 0 rem(14);
+    border-radius: $border-radius-lg;
+    font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
+    text-decoration: none; cursor: pointer;
+    transition: filter $transition, transform .1s;
+
+    &:active { transform: translateY(1px); }
+  }
+  .tcr-btn-primary {
+    background: $color-accent; color: $color-white;
+    border: 1px solid $color-accent;
+
+    &:hover { filter: brightness(1.06); }
+  }
+
+  @media (max-width: $bp-md) {
+    .tcr-header { padding: rem(14) rem(16) rem(6); }
+    .tcr-title  { margin: 0 rem(16); }
+    .tcr-body   { padding: rem(8) rem(16) 0; }
+    .tcr-files  { padding: rem(12) rem(16) 0; }
+    .tcr-answer { padding: rem(14) rem(16); }
+    .tcr-foot   { padding: rem(14); }
+  }
+}
+
+@keyframes fs-at-answer-in {
+  from { opacity: 0; transform: translateY(rem(-4)); }
+  to   { opacity: 1; transform: translateY(0); }
+}

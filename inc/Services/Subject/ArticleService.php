@@ -54,19 +54,65 @@ class ArticleService {
 	}
 
 	/**
-	 * Возвращает случайные статьи предмета.
+	 * Возвращает последние опубликованные статьи предмета (блок «Рекомендуемые»).
 	 *
 	 * @param string $subject_key Ключ предмета.
 	 *
-	 * @return array Список случайных статей.
+	 * @return array Список статей, свежие первыми.
 	 */
-	public function getRandomArticles( string $subject_key ): array {
+	public function getLatestArticles( string $subject_key ): array {
 		if ( '' === $subject_key ) {
 			return array();
 		}
 
 		$post_type = PostTypeResolver::articles( $subject_key );
-		$posts     = $this->article_repository->findRandom( $post_type );
+		$posts     = $this->article_repository->findLatest( $post_type );
+
+		return $this->formatArticlePosts( $posts );
+	}
+
+	/**
+	 * Статьи для сайдбара «Все задания».
+	 *
+	 * Правило подбора:
+	 *   - тип задания не выбран → случайные статьи предмета;
+	 *   - выбран → статьи выбранных типов, свежие первыми;
+	 *   - если их меньше лимита → добор последними опубликованными (без повторов).
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 * @param array  $type_slugs  Слаги выбранных типов задания (термины {key}_task_number).
+	 * @param int    $limit       Сколько статей показать.
+	 *
+	 * @return array Список статей для шаблона.
+	 */
+	public function getSidebarArticles( string $subject_key, array $type_slugs, int $limit = 4 ): array {
+		if ( '' === $subject_key || $limit < 1 ) {
+			return array();
+		}
+
+		$post_type = PostTypeResolver::articles( $subject_key );
+
+		if ( empty( $type_slugs ) ) {
+			return $this->formatArticlePosts( $this->article_repository->findRandom( $post_type, $limit ) );
+		}
+
+		$posts = $this->article_repository->findByTermSlugs(
+			$post_type,
+			PostTypeResolver::getTaskTaxonomy( $subject_key ),
+			$type_slugs,
+			$limit
+		);
+
+		if ( count( $posts ) < $limit ) {
+			$posts = array_merge(
+				$posts,
+				$this->article_repository->findLatest(
+					$post_type,
+					$limit - count( $posts ),
+					array_map( static fn( \WP_Post $post ) => $post->ID, $posts )
+				)
+			);
+		}
 
 		return $this->formatArticlePosts( $posts );
 	}

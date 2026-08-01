@@ -1,0 +1,32 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+// Состояния списка: пусто и бесконечная подгрузка.
+.fs-all-tasks-page {
+
+  .tasks-empty {
+    @include fs-surface-card($padding: rem(60) rem(24) rem(64));
+
+    text-align: center; color: $color-text-secondary;
+
+    h3 { margin: 0 0 rem(6); font-size: $font-size-base; font-weight: $font-semibold; color: $color-text; }
+    p  { margin: 0 0 rem(14); font-size: $font-size-xs; color: $color-muted; }
+  }
+
+  .infinite-sentinel {
+    display: flex; align-items: center; justify-content: center;
+    gap: rem(10);
+    padding: rem(28) rem(12) rem(12);
+    font-size: $font-size-xs; color: $color-muted;
+  }
+  .infinite-spinner {
+    width: rem(14); height: rem(14);
+    border: 2px solid $color-separator; border-top-color: $color-accent; border-radius: 50%;
+    animation: fs-at-spin .7s linear infinite;
+  }
+  .infinite-end { padding: rem(22) rem(12) rem(4); text-align: center; font-size: $font-size-xs; color: $color-muted; }
+}
+
+@keyframes fs-at-spin {
+  to { transform: rotate(360deg); }
+}
