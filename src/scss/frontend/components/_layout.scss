@@ -15,7 +15,7 @@
 .fs-task-page {
   display: grid;
   grid-template-columns: $sidebar-width 1fr;
-  gap: rem(40);
+  gap: $layout-gap;
   align-items: start;
 }
 
@@ -26,9 +26,9 @@
 
   .fs-task-page { grid-template-columns: 1fr; }
 
+  // Сброс липкости — в _sidebar.scss: он идёт позже в каскаде и его базовое
+  // правило перебило бы медиазапрос отсюда.
   .fs-task-sidebar {
-    position: static;
-    order: 2;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: $spacing-md;

@@ -1,20 +1,6 @@
 @use '../variables' as *;
 @use '../mixins' as *;
 
-.fs-breadcrumbs {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: rem(4) rem(6);
-  font-size: $font-size-sm;
-  color: $color-muted;
-  margin-bottom: rem(18);
-
-  a { transition: color $transition; &:hover { color: $color-accent; } }
-  &__sep     { color: $color-separator; user-select: none; }
-  &__current { color: $color-text; }
-}
-
 .fs-task-page .fs-task-title {
   font-size: $font-size-2xl;
   font-weight: $font-bold;
@@ -27,84 +13,41 @@
   display: flex;
   flex-wrap: wrap;
   gap: $spacing-sm;
-  margin: rem(28) 0;
+  margin: 0 0 rem(22) 0;
 }
 
-.fs-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: rem(6);
-  height: rem(26);
-  padding: 0 $spacing-md;
-  background: $color-white;
-  border: 1px solid $color-border;
-  border-radius: $border-radius-pill;
-  font-size: $font-size-xs;
-  color: $color-muted;
-  font-weight: 500;
-  transition: border-color $transition;
-
-  &::before {
-    content: '';
-    width: rem(5);
-    height: rem(5);
-    border-radius: 50%;
-    background: $color-border;
-    flex-shrink: 0;
-    transition: background $transition;
-  }
-
-  &:hover {
-    border-color: $color-accent;
-    &::before { background: $color-accent; }
-  }
-}
+.fs-tag { @include fs-chip; }
 
 // Task card
 .fs-task-card {
-  background: $color-white;
-  border: 1px solid $color-border;
-  border-radius: $border-radius-2xl;
-  box-shadow: $shadow-surface;
+  @include fs-surface-card($shadow: $shadow-surface);
+
   overflow: hidden;
+  margin: rem(14) 0 0 0;
 }
 
 .fs-task-card__body {
-  padding: $spacing-4xl rem(36) rem(28);
+  padding: $spacing-4xl rem(36) rem(20);
 }
 
 .fs-task-condition {
   font-size: $font-size-md;
   line-height: $line-height-relaxed;
+  // Сброс наследуемого body{font-weight:300} темы: UA-шный bolder у b/strong
+  // от 300 даёт всего 400 — жирный визуально пропадает. Веса задаём абсолютно.
+  font-weight: $font-normal;
   color: $color-text;
 
   * { color: $color-text; }
+  b, strong { font-weight: $font-bold; }
   img    { max-width: 100%; height: auto; display: block; }
   table  { border-collapse: collapse; margin: $spacing-md 0; }
   td, th { border: 1px solid $color-border; padding: rem(5) rem(10); font-size: $font-size-base; }
 }
 
-.fs-task-files {
-  margin-top: $spacing-lg;
+.fs-task-files { display: flex; flex-wrap: wrap; gap: rem(8); }
 
-  strong {
-    display: block;
-
-    @include section-label;
-
-    margin-bottom: $spacing-sm;
-  }
-}
-
-.fs-file-link {
-  display: inline-flex;
-  align-items: center;
-  padding: rem(5) rem(12);
-  border: 1px solid $color-border;
-  border-radius: $border-radius-sm;
-  font-size: $font-size-sm;
-  margin: 0 rem(6) rem(6) 0;
-  transition: border-color $transition, color $transition;
-
-  &:hover { border-color: $color-accent; color: $color-accent; }
-}
+.fs-file-link { @include fs-file-chip; }
+.fs-file-icon { @include fs-file-chip-icon; }
+.fs-file-name { font-weight: $font-semibold; }
+.fs-file-size { @include fs-file-chip-size; }

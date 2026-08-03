@@ -54,6 +54,7 @@ $code-pad-x: rem(18);
   &:hover {
     color: $color-text;
     background: rgba(0, 0, 0, .05);
+    border-radius: $border-radius-md;
   }
 
   &.is-copied { color: $color-success; }

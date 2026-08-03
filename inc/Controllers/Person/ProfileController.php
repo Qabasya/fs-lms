@@ -36,9 +36,10 @@ use Inc\Services\Profile\ProfileViewResolver;
 class ProfileController extends BaseController implements ServiceInterface {
 
 	public function __construct(
-		private readonly PersonRepository          $personRepository,
-		private readonly StudentRecordRepository   $studentRecords,
-		private readonly ProfileViewResolver       $resolver,
+
+		private readonly PersonRepository        $personRepository,
+		private readonly StudentRecordRepository $studentRecords,
+		private readonly ProfileViewResolver     $resolver,
 		private readonly ExpulsionPolicyRepository $expulsionPolicy,
 	) {
 		parent::__construct();

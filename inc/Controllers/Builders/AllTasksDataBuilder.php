@@ -13,6 +13,8 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\Shared\Pluralizer;
+use Inc\Services\Subject\ArticleService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskMetaService;
 
@@ -40,31 +42,56 @@ readonly class AllTasksDataBuilder {
 		private PostManager        $post_manager,
 		private TermManager        $term_manager,
 		private TaskMetaService    $task_meta_service,
+		private BreadcrumbsBuilder $breadcrumbs_builder,
+		private ArticleService     $article_service,
 	) {}
 
 	/**
 	 * Полный DTO страницы для первичного рендера.
 	 *
 	 * @param string $subject_key Ключ предмета.
+	 * @param array  $selected    Предвыбранные фильтры из URL: [taxonomy => term_slugs].
 	 *
 	 * @return AllTasksPageDTO
 	 */
-	public function getPageData( string $subject_key ): AllTasksPageDTO {
+	public function getPageData( string $subject_key, array $selected = array() ): AllTasksPageDTO {
 		$subject      = $this->subject_repository->getByKey( $subject_key );
 		$subject_name = $subject?->name ?? $subject_key;
 
-		[ $tasks, $total ] = $this->fetchTasks( $subject_key, array(), 0, self::PER_PAGE );
+		$filters = array( 'taxonomies' => $selected );
+
+		[ $tasks, $total ] = $this->fetchTasks( $subject_key, $filters, 0, self::PER_PAGE );
 
 		return new AllTasksPageDTO(
 			subject_key:  $subject_key,
 			subject_name: $subject_name,
-			filters:      $this->buildFilters( $subject_key ),
+			breadcrumbs:  $this->breadcrumbs_builder->forArchive( $subject_name ),
+			filters:      $this->buildFilters( $subject_key, $filters ),
+			articles:     $this->fetchArticles( $subject_key, $selected ),
+			articles_url: $this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) ),
 			tasks:        $tasks,
 			total:        $total,
 			per_page:     self::PER_PAGE,
 			has_more:     count( $tasks ) < $total,
 			nonce:        Nonce::AllTasks->create(),
 		);
+	}
+
+	/**
+	 * Статьи сайдбара под текущий выбор типов задания.
+	 *
+	 * Реагирует только на фиксированную таксономию номеров: остальные фильтры
+	 * (год, автор) на подбор статей не влияют.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 * @param array  $selected    Активные фильтры: [taxonomy => term_slugs].
+	 *
+	 * @return array Список статей для шаблона.
+	 */
+	public function fetchArticles( string $subject_key, array $selected ): array {
+		$number_tax = PostTypeResolver::getTaskTaxonomy( $subject_key );
+
+		return $this->article_service->getSidebarArticles( $subject_key, $selected[ $number_tax ] ?? array() );
 	}
 
 	/**
@@ -83,7 +110,7 @@ readonly class AllTasksDataBuilder {
 	 */
 	public function fetchTasks( string $subject_key, array $filters, int $offset, int $per_page ): array {
 		$post_type   = PostTypeResolver::tasks( $subject_key );
-		$taxonomies  = $this->taxonomy_repository->getBySubject( $subject_key );
+		$taxonomies  = $this->requiredTaxonomies( $subject_key );
 
 		$args = array(
 			'posts_per_page' => $per_page,
@@ -108,6 +135,26 @@ readonly class AllTasksDataBuilder {
 		);
 
 		return array( $tasks, $result['total'] );
+	}
+
+	/**
+	 * Обязательные таксономии предмета — единственные, которые видит посетитель.
+	 *
+	 * Обязательная = проставлена у каждого задания, поэтому по ней можно фильтровать
+	 * и показывать её термины тегами. Необязательные (служебные пометки автора
+	 * предмета вроде источника) в фильтры, теги и tax_query не попадают.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 *
+	 * @return TaxonomyDataDTO[]
+	 */
+	private function requiredTaxonomies( string $subject_key ): array {
+		return array_values(
+			array_filter(
+				$this->taxonomy_repository->getBySubject( $subject_key ),
+				static fn( TaxonomyDataDTO $taxonomy ) => $taxonomy->is_required
+			)
+		);
 	}
 
 	/**
@@ -210,42 +257,134 @@ readonly class AllTasksDataBuilder {
 	}
 
 	/**
-	 * Группы фильтров сайдбара: тип задания + пользовательские таксономии предмета.
+	 * Группы фильтров сайдбара: тип задания + обязательные таксономии предмета.
 	 * Пустые (без терминов) группы отбрасываются.
 	 *
+	 * Опции каждой группы считаются как фасеты: доступны только те термины, что
+	 * встречаются среди заданий, прошедших ОСТАЛЬНЫЕ активные фильтры. Собственный
+	 * фильтр группы из ограничения исключён — иначе выбор схлопнул бы её же список
+	 * до единственного значения и снять/сменить его было бы нечем.
+	 *
 	 * @param string $subject_key Ключ предмета.
+	 * @param array  $filters     Активные фильтры: ['search' => string, 'taxonomies' => [tax => term_slugs]].
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function buildFilters( string $subject_key ): array {
-		$groups = array();
+	public function buildFilters( string $subject_key, array $filters = array() ): array {
+		$selected = $filters['taxonomies'] ?? array();
+		$search   = (string) ( $filters['search'] ?? '' );
 
-		$number_tax   = PostTypeResolver::getTaskTaxonomy( $subject_key );
-		$number_terms = $this->buildTermOptions( $number_tax );
-		if ( ! empty( $number_terms ) ) {
-			$groups[] = array(
-				'taxonomy' => $number_tax,
-				'name'     => 'Тип задания',
-				'terms'    => $number_terms,
-				'summary'  => $this->filterSummary( $number_terms, true ),
-			);
+		$number_tax = PostTypeResolver::getTaskTaxonomy( $subject_key );
+		$sources    = array( array( $number_tax, 'Тип задания', true ) );
+
+		foreach ( $this->requiredTaxonomies( $subject_key ) as $taxonomy ) {
+			$sources[] = array( $taxonomy->slug, $taxonomy->name, false );
 		}
 
-		foreach ( $this->taxonomy_repository->getBySubject( $subject_key ) as $taxonomy ) {
-			$terms = $this->buildTermOptions( $taxonomy->slug );
+		$groups    = array();
+		$ids_cache = array();
+
+		foreach ( $sources as [ $tax_slug, $name, $is_type ] ) {
+			$constraint = $selected;
+			unset( $constraint[ $tax_slug ] );
+
+			$counts = $this->facetCounts( $subject_key, $search, $constraint, $tax_slug, $ids_cache );
+			$terms  = $this->buildTermOptions( $tax_slug, $counts, $selected[ $tax_slug ] ?? array(), $tax_slug === $number_tax );
+
 			if ( empty( $terms ) ) {
 				continue;
 			}
 
-			$groups[] = array(
-				'taxonomy' => $taxonomy->slug,
-				'name'     => $taxonomy->name,
-				'terms'    => $terms,
-				'summary'  => $this->filterSummary( $terms, false ),
-			);
+			$groups[] = $this->filterGroup( $tax_slug, $name, $terms, $is_type );
 		}
 
 		return $groups;
+	}
+
+	/**
+	 * Счётчики терминов таксономии в пределах текущего среза заданий.
+	 *
+	 * Без активных фильтров считаем по всему CPT (один дешёвый запрос), иначе —
+	 * по списку ID заданий, прошедших ограничение. Список ID кешируется на время
+	 * сборки: у всех групп, кроме той, чей фильтр активен, ограничение одинаковое.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 * @param string $search      Поисковая строка.
+	 * @param array  $constraint  Фильтры-ограничения: [tax_slug => term_slugs].
+	 * @param string $taxonomy    Таксономия, термины которой считаем.
+	 * @param array  $ids_cache   Кеш списков ID (по ключу ограничения), передаётся по ссылке.
+	 *
+	 * @return array<int, int> [term_id => count]
+	 */
+	private function facetCounts( string $subject_key, string $search, array $constraint, string $taxonomy, array &$ids_cache ): array {
+		if ( '' === $search && empty( $constraint ) ) {
+			return $this->term_manager->countPostsByType( $taxonomy, PostTypeResolver::tasks( $subject_key ) );
+		}
+
+		ksort( $constraint );
+		$cache_key = md5( wp_json_encode( array( $search, $constraint ) ) );
+
+		if ( ! isset( $ids_cache[ $cache_key ] ) ) {
+			$ids_cache[ $cache_key ] = $this->matchingIds( $subject_key, $search, $constraint );
+		}
+
+		return $this->term_manager->countPostsByIds( $taxonomy, $ids_cache[ $cache_key ] );
+	}
+
+	/**
+	 * ID заданий, удовлетворяющих поиску и набору фильтров.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 * @param string $search      Поисковая строка.
+	 * @param array  $selected    Фильтры: [tax_slug => term_slugs].
+	 *
+	 * @return int[]
+	 */
+	private function matchingIds( string $subject_key, string $search, array $selected ): array {
+		$args = array(
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+		);
+
+		if ( '' !== $search ) {
+			$args['s'] = $search;
+		}
+
+		$tax_query = $this->buildTaxQuery( $subject_key, $this->requiredTaxonomies( $subject_key ), $selected );
+		if ( ! empty( $tax_query ) ) {
+			$args['tax_query'] = $tax_query;
+		}
+
+		$result = $this->post_manager->query( PostTypeResolver::tasks( $subject_key ), $args );
+
+		return array_map( 'intval', $result['posts'] );
+	}
+
+	/**
+	 * Собирает группу фильтров вместе со сводкой и числом выбранных опций.
+	 *
+	 * @param string $taxonomy Слаг таксономии.
+	 * @param string $name     Заголовок группы.
+	 * @param array  $terms    Опции группы.
+	 * @param bool   $is_type  Группа типа задания (для склонения в сводке).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function filterGroup( string $taxonomy, string $name, array $terms, bool $is_type ): array {
+		$available = array_values( array_filter( $terms, static fn( array $term ) => ! empty( $term['available'] ) ) );
+
+		return array(
+			'taxonomy'  => $taxonomy,
+			'name'      => $name,
+			'terms'     => $terms,
+			'summary'   => $this->filterSummary( $available, $is_type ),
+			// Сколько опций пришло выбранными из URL — секция раскрывается, появляется бейдж.
+			'active'    => count( array_filter( $terms, static fn( array $term ) => ! empty( $term['selected'] ) ) ),
+			// Ноль доступных опций — группу скрываем целиком (термины остаются
+			// в разметке, чтобы JS вернул их при снятии фильтров).
+			'available' => count( $available ),
+		);
 	}
 
 	/**
@@ -271,48 +410,44 @@ readonly class AllTasksDataBuilder {
 		}
 
 		if ( $is_type ) {
-			return sprintf( 'Все %d %s', $count, $this->pluralTypes( $count ) );
+			return sprintf( 'Все %d %s', $count, Pluralizer::ru( $count, 'тип', 'типа', 'типов' ) );
 		}
 
 		return sprintf( 'Все %d', $count );
 	}
 
 	/**
-	 * Склонение слова «тип» по числу: 1 тип, 2–4 типа, 5+ типов.
+	 * Опции одной группы фильтров: термины таксономии со счётчиками текущего среза.
 	 *
-	 * @param int $n Количество.
+	 * Счётчик берём не из `$term->count` (он суммирует все типы записей таксономии),
+	 * а из фасетного подсчёта строго по заданиям (см. facetCounts()).
 	 *
-	 * @return string
-	 */
-	private function pluralTypes( int $n ): string {
-		$m10  = $n % 10;
-		$m100 = $n % 100;
-
-		if ( 1 === $m10 && 11 !== $m100 ) {
-			return 'тип';
-		}
-		if ( $m10 >= 2 && $m10 <= 4 && ( $m100 < 12 || $m100 > 14 ) ) {
-			return 'типа';
-		}
-
-		return 'типов';
-	}
-
-	/**
-	 * Опции одной группы фильтров: термины таксономии с счётчиками.
-	 *
-	 * @param string $taxonomy Слаг таксономии.
+	 * @param string $taxonomy           Слаг таксономии.
+	 * @param array  $counts             Счётчики [term_id => count] в текущем срезе.
+	 * @param array  $selected_slugs     Слаги выбранных терминов.
+	 * @param bool   $prefer_description Показывать описание термина вместо названия
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function buildTermOptions( string $taxonomy ): array {
+	private function buildTermOptions( string $taxonomy, array $counts, array $selected_slugs = array(), bool $prefer_description = false ): array {
 		return array_map(
-			fn( \WP_Term $term ) => array(
-				'slug'  => $term->slug,
-				'name'  => $term->name,
-				'count' => (int) $term->count,
-				'url'   => $this->term_manager->getLink( $term->term_id, $taxonomy ),
-			),
+			function ( \WP_Term $term ) use ( $taxonomy, $counts, $selected_slugs, $prefer_description ): array {
+				$count    = $counts[ (int) $term->term_id ] ?? 0;
+				$selected = in_array( $term->slug, $selected_slugs, true );
+
+				return array(
+					'slug'     => $term->slug,
+					'name'     => $prefer_description && '' !== trim( (string) $term->description )
+						? trim( (string) $term->description )
+						: $term->name,
+					'count'    => $count,
+					'url'      => $this->term_manager->getLink( $term->term_id, $taxonomy ),
+					'selected' => $selected,
+					// Выбранный термин остаётся видимым даже при нулевом счётчике —
+					// иначе снять несовместимый выбор было бы нечем.
+					'available' => $count > 0 || $selected,
+				);
+			},
 			$this->term_manager->getAll( $taxonomy )
 		);
 	}

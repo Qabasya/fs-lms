@@ -19,7 +19,9 @@ export class FilterSection {
         this._head     = el.querySelector('.filter-sec-head');
         this._body     = el.querySelector('.filter-sec-body');
         this._summary  = el.querySelector('.filter-sec-summary');
-        this._badge    = null;
+        // Бейдж мог быть отрисован сервером (фильтр пришёл в URL) — переиспользуем его,
+        // иначе на первом же клике в шапке появился бы второй.
+        this._badge    = el.querySelector('.filter-sec-badge');
 
         this._bindHead();
         this._bindOptions();
@@ -31,6 +33,41 @@ export class FilterSection {
         this._el.querySelectorAll('.js-filter-option.is-active').forEach(b => b.classList.remove('is-active'));
         this._updateBadge(0);
         this._refreshSummary();
+    }
+
+    /**
+     * Применяет пересчитанную сервером группу: доступность опций, счётчики,
+     * сводку и бейдж. Опции не пересоздаются — недоступные под текущий срез
+     * скрываются атрибутом hidden и возвращаются, когда снова подходят.
+     *
+     * @param {Object} group - Группа фильтров из ответа сервера.
+     * @returns {void}
+     */
+    apply(group) {
+        const bySlug = new Map((group.terms || []).map(term => [term.slug, term]));
+
+        this._el.querySelectorAll('.js-filter-option').forEach(btn => {
+            const term = bySlug.get(btn.dataset.value);
+
+            if (!term) {
+                btn.hidden = true;
+                return;
+            }
+
+            btn.hidden = !term.available;
+            btn.classList.toggle('is-active', !!term.selected);
+
+            const count = btn.querySelector('.filter-option-count');
+            if (count) count.textContent = term.count;
+        });
+
+        if (this._summary) this._summary.textContent = group.summary || '';
+
+        this._updateBadge(group.active || 0);
+        this._refreshSummary();
+
+        // Ни одной доступной опции — группа не применима к текущему срезу.
+        this._el.hidden = !group.available;
     }
 
     _bindHead() {

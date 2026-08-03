@@ -16,12 +16,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Inc\Enums\Ui\Icon;
+use Inc\Services\Shared\Pluralizer;
 use Inc\Services\Shared\ThemeCompatService;
 
 /** @var \Inc\DTO\AllTasksPageDTO $page_data */
 $page_data   = get_query_var( 'fs_all_tasks_data' );
 $subject_key = $page_data->subject_key;
 $total       = $page_data->total;
+
+// Пришли ли фильтры в URL (клик по тегу на странице задания): от этого зависит
+// раскрытие секций сайдбара, бейджи и доступность кнопки «Сбросить».
+$has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) );
 
 ThemeCompatService::header();
 ?>
@@ -43,26 +48,28 @@ ThemeCompatService::header();
 				<section class="side-card filters-side">
 					<div class="filters-side-head">
 						<span class="filters-side-title">Фильтры</span>
-						<button class="filters-side-clear js-filters-clear" disabled>Сбросить</button>
+						<button class="filters-side-clear js-filters-clear" <?php echo $has_selected ? '' : 'disabled'; ?>>Сбросить</button>
 					</div>
 
-					<?php foreach ( $page_data->filters as $group ) : ?>
-						<div class="filter-sec js-filter-sec" data-section="<?php echo esc_attr( $group['taxonomy'] ); ?>">
-							<button class="filter-sec-head" aria-expanded="false">
+					<?php foreach ( $page_data->filters as $group ) : $group_active = (int) ( $group['active'] ?? 0 ); ?>
+						<div class="filter-sec js-filter-sec" data-section="<?php echo esc_attr( $group['taxonomy'] ); ?>" <?php echo empty( $group['available'] ) ? 'hidden' : ''; ?>>
+							<button class="filter-sec-head" aria-expanded="<?php echo $group_active ? 'true' : 'false'; ?>">
 								<span class="filter-sec-title"><?php echo esc_html( $group['name'] ); ?></span>
 								<span class="filter-sec-right">
-									<span class="filter-sec-summary"><?php echo esc_html( $group['summary'] ); ?></span>
-									<span class="filter-sec-chev" aria-hidden="true">
+									<?php if ( $group_active ) : ?><span class="filter-sec-badge"><?php echo esc_html( (string) $group_active ); ?></span><?php endif; ?>
+									<span class="filter-sec-summary" <?php echo $group_active ? 'hidden' : ''; ?>><?php echo esc_html( $group['summary'] ); ?></span>
+									<span class="filter-sec-chev<?php echo $group_active ? ' is-open' : ''; ?>" aria-hidden="true">
 										<?php echo Icon::ChevronRight->svg( 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 									</span>
 								</span>
 							</button>
-							<div class="filter-sec-body" hidden>
+							<div class="filter-sec-body" <?php echo $group_active ? '' : 'hidden'; ?>>
 								<div class="filter-options">
 									<?php foreach ( $group['terms'] as $term ) : ?>
-										<button class="filter-option js-filter-option"
+										<button class="filter-option js-filter-option<?php echo ! empty( $term['selected'] ) ? ' is-active' : ''; ?>"
 											data-filter="<?php echo esc_attr( $group['taxonomy'] ); ?>"
-											data-value="<?php echo esc_attr( $term['slug'] ); ?>">
+											data-value="<?php echo esc_attr( $term['slug'] ); ?>"
+											<?php echo empty( $term['available'] ) ? 'hidden' : ''; ?>>
 											<span class="filter-option-label"><?php echo esc_html( $term['name'] ); ?></span>
 											<span class="filter-option-count"><?php echo esc_html( (string) $term['count'] ); ?></span>
 											<span class="filter-option-check" aria-hidden="true">
@@ -76,17 +83,24 @@ ThemeCompatService::header();
 					<?php endforeach; ?>
 				</section>
 
+				<?php
+				// Статьи: без выбранного типа задания — случайные, с выбором — по нему
+				// (добор свежими до 4). Список перерисовывает JS при смене фильтров.
+				$sidebar_articles     = $page_data->articles;
+				$sidebar_articles_url = $page_data->articles_url;
+				include __DIR__ . '/partials/sidebar-articles.php';
+				?>
+
 			</aside>
 
 			<!-- ===================== ОСНОВНОЙ КОНТЕНТ ===================== -->
 			<main class="main" id="fs-tasks-main">
 
-				<!-- Хлебные крошки -->
-				<nav class="crumbs" aria-label="Хлебные крошки">
-					<a href="#" class="crumb"><?php echo esc_html( $page_data->subject_name ); ?></a>
-					<span class="crumb-sep">/</span>
-					<span class="crumb crumb--current">Тренажёр</span>
-				</nav>
+				<!-- Хлебные крошки (общий партиал со страницей задания) -->
+				<?php
+				$crumbs = $page_data->breadcrumbs;
+				include __DIR__ . '/partials/breadcrumbs.php';
+				?>
 
 				<h1 class="page-title">Все задания</h1>
 
@@ -103,23 +117,13 @@ ThemeCompatService::header();
 					</div>
 				</div>
 
-				<!-- Мета: счётчик + сброс -->
+				<!-- Мета: счётчик + сброс. Форму слова после AJAX пересчитывает JS (common/plural.js). -->
 				<div class="results-meta">
 					<span>
 						<strong class="js-results-count"><?php echo esc_html( (string) $total ); ?></strong>
-						<?php
-						$m10  = $total % 10;
-						$m100 = $total % 100;
-						if ( 1 === $m10 && 11 !== $m100 ) {
-							echo 'задание';
-						} elseif ( $m10 >= 2 && $m10 <= 4 && ( $m100 < 12 || $m100 > 14 ) ) {
-							echo 'задания';
-						} else {
-							echo 'заданий';
-						}
-						?>
+						<span class="js-results-noun"><?php echo esc_html( Pluralizer::ru( $total, 'задание', 'задания', 'заданий' ) ); ?></span>
 					</span>
-					<button class="results-clear js-filters-clear" hidden>Сбросить</button>
+					<button class="results-clear js-filters-clear" <?php echo $has_selected ? '' : 'hidden'; ?>>Сбросить</button>
 				</div>
 
 				<!-- Список карточек заданий -->
@@ -147,7 +151,9 @@ ThemeCompatService::header();
 								</div>
 							</header>
 
-							<h2 class="tcr-title"><?php echo esc_html( $task->title ); ?></h2>
+							<h2 class="tcr-title">
+								<a class="tcr-title-link" href="<?php echo esc_url( $task->url ); ?>"><?php echo esc_html( $task->title ); ?></a>
+							</h2>
 
 							<?php if ( $task->condition ) : ?>
 								<div class="tcr-body">

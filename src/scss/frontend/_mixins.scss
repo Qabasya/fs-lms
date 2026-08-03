@@ -197,3 +197,110 @@
 @mixin fs-page-pad {
   padding: rem(44) $spacing-4xl rem(96);
 }
+
+// =================================================================
+// Примитивы публичных страниц.
+// Один источник геометрии для страницы задания и «Всех заданий»:
+// классы страниц (.fs-task-card / .task-card-row, .fs-tag / .tcr-tag,
+// .fs-file-link / .tcr-file, .fs-sidebar-block / .side-card) только
+// подключают примитив и добавляют позиционирование.
+// =================================================================
+
+// ── Поверхность-карточка: белый фон, рамка, единый радиус
+@mixin fs-surface-card($padding: 0, $shadow: none) {
+  background: $color-white;
+  border: 1px solid $color-border;
+  border-radius: $border-radius-xl;
+  padding: $padding;
+  box-shadow: $shadow;
+}
+
+// ── Чип-метка (тег задания, тег карточки списка) с точкой-маркером
+@mixin fs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: rem(6);
+  height: rem(24);
+  padding: 0 $spacing-md;
+  background: $color-bg-subtle;
+  border: 1px solid $color-border;
+  border-radius: $border-radius-pill;
+  font-family: inherit;
+  font-size: rem(11.5);
+  font-weight: $font-semibold;
+  color: $color-text-secondary;
+  transition: background $transition, color $transition, border-color $transition;
+
+  &::before {
+    content: '';
+    width: rem(5);
+    height: rem(5);
+    border-radius: 50%;
+    background: $color-border;
+    flex-shrink: 0;
+    transition: background $transition;
+  }
+
+  &:hover {
+    background: rgba($color-accent, .12);
+    border-color: $color-accent;
+
+    &::before { background: $color-accent; }
+  }
+}
+
+// ── Чип файла-вложения (иконка + имя + размер)
+@mixin fs-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: rem(8);
+  padding: rem(7) rem(12) rem(7) rem(10);
+  background: $color-bg-subtle;
+  border: 1px solid $color-border;
+  border-radius: $border-radius-lg;
+  font-size: $font-size-xs;
+  font-weight: $font-semibold;
+  color: $color-text;
+  text-decoration: none;
+  transition: background $transition, border-color $transition;
+
+  &:hover { background: rgba($color-accent, .12); border-color: $color-accent; }
+}
+
+// ── Квадрат-иконка внутри чипа файла
+@mixin fs-file-chip-icon {
+  display: grid;
+  place-items: center;
+  width: rem(24);
+  height: rem(24);
+  flex: 0 0 rem(24);
+  background: $color-white;
+  border: 1px solid $color-border;
+  border-radius: $border-radius-md;
+  color: $color-muted;
+}
+
+// ── Подпись размера файла.
+// Шрифт тот же, что у имени файла (моноширинный Courier выглядел пиксельным),
+// line-height как у соседа — иначе подпись «висит» выше имени.
+@mixin fs-file-chip-size {
+  font-family: inherit;
+  font-size: rem(11.5);
+  font-weight: $font-normal;
+  line-height: inherit;
+  color: $color-muted;
+}
+
+// ── Липкий блок с отступом от верха окна.
+// Учитывает фиксированный админ-бар WP: без сдвига залипший блок уходит под него.
+@mixin fs-sticky($gap: rem(28)) {
+  position: sticky;
+  top: $gap;
+
+  .admin-bar & { top: calc(#{$gap} + #{$wp-admin-bar-height}); }
+
+  // 601–782px — админ-бар выше; ниже 601px он не фиксирован, сдвиг не нужен.
+  @media screen and (min-width: 601px) and (max-width: 782px) {
+    .admin-bar & { top: calc(#{$gap} + #{$wp-admin-bar-height-mobile}); }
+  }
+}

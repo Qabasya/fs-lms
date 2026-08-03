@@ -2,19 +2,14 @@
 @use '../mixins' as *;
 
 .fs-task-sidebar {
-  position: sticky;
-  top: rem(28);
+  @include fs-sticky;
+
   display: flex;
   flex-direction: column;
   gap: rem(14);
 }
 
-.fs-sidebar-block {
-  background: $color-white;
-  border: 1px solid $color-border-light;
-  border-radius: $border-radius-xl;
-  padding: rem(20) rem(22) rem(22);
-}
+.fs-sidebar-block { @include fs-surface-card($padding: rem(20) rem(22) rem(22)); }
 
 .fs-sidebar-title {
   font-size: $font-size-xs;
@@ -66,7 +61,7 @@
 
 .fs-sidebar-article-title {
   font-size: $font-size-sm;
-  font-weight: 500;
+  font-weight: $font-medium;
   line-height: $line-height-tight;
 }
 
@@ -78,4 +73,9 @@
   @include line-clamp(2);
 
   transition: color $transition;
+}
+
+// Адаптив: сайдбар уезжает под контент и перестаёт липнуть (сетку задаёт _layout).
+@media (max-width: $bp-md) {
+  .fs-task-sidebar { position: static; order: 2; }
 }
