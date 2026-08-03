@@ -67,7 +67,6 @@ enum Nonce: string {
 	// ==== Этап 2 — программа группы ====
 	case AssignCourse         = 'fs_lms_assign_course';
 	case SaveSchedule         = 'fs_lms_save_schedule';
-	case SetLessonVisibility  = 'fs_lms_set_lesson_visibility';
 
 	// ==== ЛК преподавателя — замены (Эпик 5) ====
 	case Substitution         = 'fs_lms_substitution';
@@ -79,7 +78,6 @@ enum Nonce: string {
 	case Room                 = 'fs_lms_room';
 
 	// ==== Этап 3 — сдача работ ====
-	case SubmitWork = 'fs_lms_submit_work';
 	case GradeWork  = 'fs_lms_grade_work';
 
 	// ==== Этап 7 — пакетная сдача / ручная оценка ====
@@ -101,8 +99,11 @@ enum Nonce: string {
 	case SubmitTaskAnswer = 'fs_lms_submit_task_answer';
 	case UploadAnswerFile = 'fs_lms_upload_answer_file';
 	case PreviewSolve     = 'fs_lms_preview_solve';
-	case StepSettings     = 'fs_lms_step_settings';
 	case TaskContent      = 'fs_lms_task_content';
+
+	// ==== Экран «Активность» кабинета ====
+	case TaskAttempts  = 'fs_lms_task_attempts';
+	case GroupActivity = 'fs_lms_group_activity';
 
 	// ==== Уведомления кабинета ====
 	case Notifications = 'fs_lms_notifications';

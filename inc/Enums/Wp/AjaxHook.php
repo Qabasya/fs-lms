@@ -178,9 +178,7 @@ enum AjaxHook: string {
 	case MarkStepProgress = 'mark_step_progress'; // params: group_lesson_id, step_key, status (viewed|completed)
 
 	// ==== Интерактивные задания (Этап 6) ====
-	case SubmitTaskAnswer  = 'submit_task_answer';  // params: group_lesson_id, step_key, answer (JSON)
-	case GetStepSettings   = 'get_step_settings';   // params: group_lesson_id
-	case SaveStepSettings  = 'save_step_settings';  // params: group_lesson_id, overrides (JSON)
+	case SubmitTaskAnswer  = 'submit_task_answer';  // params: group_lesson_id, step_key, answer (JSON)   // params: group_lesson_id  // params: group_lesson_id, overrides (JSON)
 	case SaveTaskContent   = 'save_task_content';   // params: subject_key, template, title, post_id? (0=create), fs_lms_meta[...] (поля)
 	case GetTaskEditorForm = 'get_task_editor_form'; // params: subject_key, template, post_id? → HTML полей шаблона
 	case GetTaskAttempts   = 'get_task_attempts';   // params: group_lesson_id, step_key → список попыток всех студентов
@@ -199,12 +197,8 @@ enum AjaxHook: string {
 	case GetAttemptResult  = 'get_attempt_result';
 
 	// ==== Сдача работ (Этап 3) ====
-	case SubmitWork          = 'submit_work';
 	case SaveGrade           = 'save_grade';
 	case ReturnSubmission    = 'return_submission';
-	case GetGroupSubmissions = 'get_group_submissions';
-	case GetMySubmissions    = 'get_my_submissions';
-	case GetGradebook        = 'get_gradebook';
 
 	// ==== Пакетная сдача / ручная оценка (Этап 7) ====
 	case SubmitBatchWork = 'submit_batch_work'; // params: group_lesson_id, work_id, answers (JSON)
@@ -222,14 +216,8 @@ enum AjaxHook: string {
 
 	// ==== Программа группы (Этап 2) ====
 	case AssignCourse            = 'assign_course';
-	case AddLessonToProgram      = 'add_lesson_to_program';
-	case DuplicateProgramLesson  = 'duplicate_program_lesson';
 	case ContinueProgramLesson   = 'continue_program_lesson'; // params: group_lesson_id — продолжить тему на вторую дату (T12.6, D14)
-	case RemoveLessonFromProgram = 'remove_lesson_from_program';
-	case ReorderProgram          = 'reorder_program';
-	case SaveLessonSchedule      = 'save_lesson_schedule';
 	case SetLessonExtraWorks     = 'set_lesson_extra_works';
-	case SetLessonVisibility     = 'set_lesson_visibility';
 	case GetGroupProgram         = 'get_group_program';
 	case GetGroupActivity        = 'get_group_activity';
 	case PublishProgram          = 'publish_program';   // params: group_id — опубликовать (заблокировать) КТП (T1.8)

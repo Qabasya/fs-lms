@@ -23,28 +23,21 @@ class ProgramCallbacksTest extends TestCase {
 	use ProgramRowFixtures;
 
 	private ProgramCompositionService $program;
-	private LessonVisibilityService   $visibility;
 	private CourseAssignmentService   $assignment;
 	private GroupAccessGuard          $guard;
 	private LearningEventRepository   $events;
-	private GroupLessonRepository     $groupLessons;
-	private PostManager               $posts;
 	private ProgramCallbacks          $cb;
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_ajax();
 		$this->program      = $this->createMock( ProgramCompositionService::class );
-		$this->visibility   = $this->createMock( LessonVisibilityService::class );
 		$this->assignment   = $this->createMock( CourseAssignmentService::class );
 		$this->guard        = $this->createMock( GroupAccessGuard::class );
 		$this->events       = $this->createMock( LearningEventRepository::class );
-		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
-		$this->posts        = $this->createMock( PostManager::class );
 
 		$this->cb = new ProgramCallbacks(
-			$this->program, $this->visibility, $this->assignment,
-			$this->guard, $this->events, $this->groupLessons, $this->posts,
+			$this->program, $this->assignment, $this->guard, $this->events,
 		);
 	}
 
@@ -76,20 +69,6 @@ class ProgramCallbacksTest extends TestCase {
 		$_POST = array();
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxAssignCourse() )->success );
-	}
-
-	public function test_set_lesson_visibility_valid(): void {
-		$this->visibility->expects( $this->once() )->method( 'setVisibility' )->with( 5, 'open', $this->anything() );
-		$_POST = array( 'group_lesson_id' => '5', 'visibility' => 'open' );
-
-		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSetLessonVisibility() )->success );
-	}
-
-	public function test_set_lesson_visibility_invalid_value_errors(): void {
-		$this->visibility->expects( $this->never() )->method( 'setVisibility' );
-		$_POST = array( 'group_lesson_id' => '5', 'visibility' => 'bogus' );
-
-		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSetLessonVisibility() )->success );
 	}
 
 	public function test_get_subject_courses_returns_courses(): void {
@@ -128,14 +107,6 @@ class ProgramCallbacksTest extends TestCase {
 		self::assertSame( 1, $r->payload['page'] );
 	}
 
-	public function test_reorder_program_passes_int_list(): void {
-		$this->guard->method( 'canManage' )->willReturn( true );
-		$this->program->expects( $this->once() )->method( 'reorder' )->with( 5, array( 3, 1, 2 ), $this->anything() );
-		$_POST = array( 'group_id' => '5', 'ordered_ids' => array( '3', '1', '2' ) );
-
-		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxReorderProgram() )->success );
-	}
-
 	/* ── Lock КТП (T1.8) ─────────────────────────────────────────────────── */
 
 	public function test_publish_program_delegates_and_returns_locked(): void {
@@ -159,15 +130,6 @@ class ProgramCallbacksTest extends TestCase {
 
 		self::assertTrue( $r->success );
 		self::assertFalse( $r->payload['locked'] );
-	}
-
-	public function test_add_lesson_blocked_when_program_locked(): void {
-		$this->guard->method( 'canManage' )->willReturn( true );
-		$this->program->method( 'isProgramLocked' )->with( 5 )->willReturn( true );
-		$this->program->expects( $this->never() )->method( 'addLesson' );
-		$_POST = array( 'group_id' => '5', 'lesson_id' => '10' );
-
-		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxAddLessonToProgram() )->success );
 	}
 
 	/* ── Продолжение темы (T12.6, D14) ───────────────────────────────────── */

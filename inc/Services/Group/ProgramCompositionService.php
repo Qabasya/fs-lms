@@ -42,79 +42,9 @@ readonly class ProgramCompositionService {
 	) {}
 
 	/**
-	 * Добавляет урок в программу группы вручную.
-	 *
-	 * Кросс-предметно: урок может принадлежать любому предмету (доп. занятие).
-	 * Ручное добавление по умолчанию пиннуется — рукотворная дата не сдвигается reflow.
-	 *
-	 * @param int         $groupId     ID группы
-	 * @param int         $lessonId    ID урока банка
-	 * @param int         $actorUserId Автор изменения
-	 * @param string|null $label       Необязательный ярлык строки (напр. «Доп. Python #1»)
-	 * @param bool        $pinned      Зафиксировать строку (по умолчанию true для ручного добавления)
-	 *
-	 * @return int ID созданной строки
-	 *
-	 * @throws \InvalidArgumentException Если группа или урок не найдены
-	 */
-	public function addLesson( int $groupId, int $lessonId, int $actorUserId, ?string $label = null, bool $pinned = true ): int {
-		$group  = $this->groups->findById( $groupId );
-		$lesson = $this->lessonManager->get( $lessonId );
-
-		if ( ! $group || ! $lesson ) {
-			throw new \InvalidArgumentException( 'Группа или урок не найдены.' );
-		}
-
-		$id = $this->groupLessons->add( new GroupLessonInputDTO(
-			groupId         : $groupId,
-			lessonId        : $lessonId,
-			position        : $this->groupLessons->nextPosition( $groupId ),
-			isPinned        : $pinned,
-			createdByUserId : $actorUserId,
-			label           : $label,
-		) );
-
-		$this->events->lessonAdded( $groupId, $lessonId, $lesson->subjectKey, $actorUserId );
-
-		return $id;
-	}
-
-	/**
-	 * Дублирует строку программы: тот же урок ещё раз, новой строкой со своей датой.
-	 * Кейс «провести один урок дважды на две даты». Дата сбрасывается — ставится заново.
-	 *
-	 * @param int $groupLessonId ID исходной строки
-	 * @param int $actorUserId   Автор изменения
-	 *
-	 * @return int ID новой строки или 0, если исходная не найдена
-	 */
-	public function duplicateLesson( int $groupLessonId, int $actorUserId ): int {
-		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row ) {
-			return 0;
-		}
-
-		$newId = $this->groupLessons->add( new GroupLessonInputDTO(
-			groupId         : $row->groupId,
-			lessonId        : $row->lessonId,
-			position        : $this->groupLessons->nextPosition( $row->groupId ),
-			extraWorkIds    : $row->extraWorkIds,
-			isPinned        : true,
-			teacherUserId   : $row->teacherUserId,
-			createdByUserId : $actorUserId,
-			label           : $row->label,
-		) );
-
-		$this->events->lessonAdded( $row->groupId, $row->lessonId, $this->subjectOf( $row->lessonId ), $actorUserId );
-
-		return $newId;
-	}
-
-	/**
 	 * Продолжает тему на вторую дату (T12.6, D14): новая ПИННУТАЯ непристроенная
 	 * строка (дата — заново, вручную через drag) со связью `continuedFromId` →
-	 * исходная. В отличие от {@see self::duplicateLesson()} (независимая копия —
-	 * отдельная тема) связь сохраняется: КТП считает обе строки ОДНОЙ темой
+	 * исходная. Связь сохраняется: КТП считает обе строки ОДНОЙ темой
 	 * (общий номер, части «1/2 · 2/2»), журнал получает второй столбец с меткой.
 	 * Разрешено только для «родных» строк — цепочки из 3+ дат не поддерживаются.
 	 *
@@ -144,40 +74,6 @@ readonly class ProgramCompositionService {
 		$this->events->lessonAdded( $row->groupId, $row->lessonId, $this->subjectOf( $row->lessonId ), $actorUserId );
 
 		return $newId;
-	}
-
-	/**
-	 * Убирает строку из программы группы.
-	 *
-	 * @param int $groupLessonId ID строки программы
-	 * @param int $actorUserId   Автор изменения
-	 *
-	 * @return void
-	 */
-	public function removeLesson( int $groupLessonId, int $actorUserId ): void {
-		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row ) {
-			return;
-		}
-
-		$this->groupLessons->remove( $groupLessonId );
-
-		$lesson = $this->lessonManager->get( $row->lessonId );
-		$this->events->lessonRemoved( $row->groupId, $row->lessonId, $lesson?->subjectKey, $actorUserId );
-	}
-
-	/**
-	 * Переупорядочивает строки программы.
-	 *
-	 * @param int   $groupId     ID группы
-	 * @param int[] $orderedIds  ID строк в новом порядке
-	 * @param int   $actorUserId Автор изменения
-	 *
-	 * @return void
-	 */
-	public function reorder( int $groupId, array $orderedIds, int $actorUserId ): void {
-		$this->groupLessons->reorder( $groupId, $orderedIds );
-		$this->events->groupChanged( $groupId, $actorUserId );
 	}
 
 	/**

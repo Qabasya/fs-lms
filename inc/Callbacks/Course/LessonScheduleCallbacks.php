@@ -54,21 +54,6 @@ class LessonScheduleCallbacks extends BaseController {
 		return $this->program;
 	}
 
-	public function ajaxSaveLessonSchedule(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$scheduledAt   = $this->sanitizeText( 'scheduled_at' ) ?: null;
-		$teacherUserId = isset( $_POST['teacher_user_id'] ) && '' !== $_POST['teacher_user_id']
-			? $this->sanitizeInt( 'teacher_user_id' )
-			: null;
-		$userId        = get_current_user_id();
-
-		$row = $this->requireProgramRow( $groupLessonId );
-		$this->denyIfProgramLocked( $row->groupId );
-
-		$this->schedule->schedule( $groupLessonId, $scheduledAt, $teacherUserId, $userId );
-		$this->success();
-	}
 
 	/**
 	 * Авто-распределение тем по слотам периода (кнопка «Распределить» в КТП).

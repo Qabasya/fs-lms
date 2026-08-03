@@ -1,0 +1,233 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Активность группы: лента событий обучения + история решений задач.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.prof-activity {
+  padding: rem(22) rem(26) rem(40);
+  max-width: rem(1040);
+}
+
+.act-head {
+  display: flex;
+  align-items: center;
+  gap: rem(14);
+  margin-bottom: rem(18);
+  flex-wrap: wrap;
+}
+
+.act-group-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: rem(6);
+}
+
+/* ── Вкладки экрана ───────────────────────────────────────────────────── */
+
+.act-tabs {
+  display: inline-flex;
+  gap: rem(4);
+  padding: rem(3);
+  border-radius: var(--radius-sm);
+  background: var(--line-2);
+}
+
+.act-tab {
+  padding: rem(6) rem(14);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--muted);
+  font-size: rem(13);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { color: var(--ink-2); }
+
+  &.is-active {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+/* ── Лента событий ────────────────────────────────────────────────────── */
+
+.prof-activity .prof-card { padding-bottom: rem(16); }
+
+.act-feed,
+.act-steps {
+  margin: 0 rem(18);
+}
+
+.act-event {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: rem(12);
+  padding: rem(10) 0;
+  border-bottom: 1px solid var(--line-2);
+
+  &:last-child { border-bottom: 0; }
+}
+
+.act-event-main {
+  display: flex;
+  align-items: baseline;
+  gap: rem(8);
+  min-width: 0;
+}
+
+.act-event-label {
+  font-size: rem(13);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.act-event-actor {
+  font-size: rem(12);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.act-event-time {
+  flex-shrink: 0;
+  font-size: rem(12);
+  color: var(--muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.act-more { margin: rem(12) rem(18) 0; }
+
+/* ── Решения задач ────────────────────────────────────────────────────── */
+
+.act-lesson-select {
+  max-width: rem(340);
+  padding: rem(5) rem(10);
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: rem(13);
+}
+
+.act-step {
+  padding: rem(12) 0;
+  border-bottom: 1px solid var(--line-2);
+
+  &:last-child { border-bottom: 0; }
+}
+
+.act-step-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: rem(12);
+  margin-bottom: rem(8);
+}
+
+.act-step-title {
+  font-size: rem(14);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.act-step-stat {
+  flex-shrink: 0;
+  font-size: rem(12);
+  color: var(--muted);
+}
+
+.act-student {
+  display: grid;
+  grid-template-columns: minmax(rem(140), rem(220)) rem(90) 1fr;
+  align-items: center;
+  gap: rem(10);
+  padding: rem(6) 0;
+}
+
+.act-student-name {
+  font-size: rem(13);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.act-student-tries {
+  font-size: rem(12);
+  color: var(--muted);
+}
+
+.act-attempts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(6);
+}
+
+/* Блок отчёта: задания урока / работы / контрольные. */
+.act-section + .act-section { margin-top: rem(18); }
+
+.act-section-title {
+  margin-bottom: rem(4);
+  font-size: rem(12);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted-2);
+}
+
+/* Лучший балл ученика по контрольной — перед чипами попыток. */
+.act-best {
+  align-self: center;
+  margin-right: rem(4);
+  font-size: rem(12);
+  color: var(--muted);
+}
+
+/* Одна попытка: зелёная — верный ответ, красная — неверный. */
+.act-attempt {
+  display: inline-flex;
+  align-items: center;
+  gap: rem(4);
+  padding: rem(2) rem(8);
+  border: 1px solid transparent;
+  border-radius: 999px; // пилюля: единый приём в кабинете (см. _buttons/_journal)
+  font-size: rem(12);
+  font-variant-numeric: tabular-nums;
+
+  &.is-ok {
+    border-color: var(--ok-line);
+    background: var(--ok-soft);
+    color: var(--ok-ink);
+  }
+
+  &.is-err {
+    border-color: var(--err-line);
+    background: var(--err-soft);
+    color: var(--err-ink);
+  }
+
+  /* Контрольная: вердикта «верно/неверно» нет — только балл или статус. */
+  &.is-neutral {
+    border-color: var(--line-3);
+    background: var(--surface-2);
+    color: var(--ink-2);
+  }
+}
+
+.act-attempt-n { line-height: 1; }
+
+@media (max-width: $breakpoint-tablet) {
+  .act-student {
+    grid-template-columns: 1fr;
+    gap: rem(4);
+    padding: rem(8) 0;
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  .act-lesson-select { max-width: 100%; }
+}

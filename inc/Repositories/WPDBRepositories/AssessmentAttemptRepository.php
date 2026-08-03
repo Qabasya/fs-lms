@@ -90,6 +90,25 @@ class AssessmentAttemptRepository {
 	}
 
 	/** @return AttemptDTO[] */
+	/**
+	 * Все попытки занятия — по всем контрольным и ученикам.
+	 * Порядок пригоден для группировки: контрольная → ученик → номер попытки.
+	 *
+	 * @return AttemptDTO[]
+	 */
+	public function listByGroupLesson( int $groupLessonId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE group_lesson_id = %d ORDER BY assessment_id ASC, student_person_id ASC, attempt_number ASC',
+				$this->table,
+				$groupLessonId,
+			),
+			ARRAY_A
+		);
+
+		return array_map( array( AttemptDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
 	public function listByStudentAndAssessment( int $studentPersonId, int $assessmentId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(

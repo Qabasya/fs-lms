@@ -1686,10 +1686,17 @@ public function register(): void {
 
 Фронт-страница `/group/` (`GroupCockpitController`, её шаблоны, `group-cockpit.js`,
 `submission.js`, `fs_lms_cockpit_vars` / `fs_lms_submission_vars`) удалена: работу с группой
-ведёт кабинет `/profile/`. AJAX-хуки кокпита (видимость уроков, переупорядочивание,
-добавление/дублирование урока в программе, расписание занятия, настройки шагов, история
-попыток, сдача работ, журнал оценок) **оставлены без фронтового потребителя** — эти функции
-в кабинет пока не перенесены; удалять их вместе с коллбеками — отдельное решение.
+ведёт кабинет `/profile/`.
+
+Судьба её AJAX-хуков (решение 2026-08-01):
+
+- **удалены как дубликаты** — `GetGroupSubmissions` (+ `ReviewQueueService`), `GetGradebook`,
+  `GetMySubmissions`, `SubmitWork`, `SaveLessonSchedule`;
+- **удалены как ненужные** — `AddLessonToProgram`, `RemoveLessonFromProgram`,
+  `SetLessonVisibility`, `GetStepSettings`, `SaveStepSettings`, `ReorderProgram`,
+  `DuplicateProgramLesson`;
+- **перенесены в кабинет** — `GetTaskAttempts` и `GetGroupActivity` живут на экране
+  «Активность» (§37); отчёт по попыткам строит `TaskAttemptReportService`.
 
 ## 32. Плеер урока и прогресс
 
@@ -1976,7 +1983,7 @@ src/js/profile/profile.js → app.js: строит сайдбар, генери�
     `logoutUrl`;
   - препод/офис: `groups`, `coursesTaught`, `coursePreviewUrl` + конфиг-блоки экранов
     `{nonce, actions}`: `schedule` (КТП), `courses`, `journal`, `roster`, `summary`,
-    `review`, `attemptGrade`, `dashboard`; **только офису** — `substitutions`;
+    `review`, `attemptGrade`, `dashboard`, `activity`; **только офису** — `substitutions`;
   - ученик/родитель: блок `learner` (`actions{getProfile}` — один эндпоинт отдаёт всё).
 
 Витрины (`TeacherProfileView`, `LearnerProfileView`) реализуют `ProfileViewInterface::build()`
@@ -2010,6 +2017,7 @@ src/js/profile/profile.js → app.js: строит сайдбар, генери�
 | `summary` «Сводка по ученику» | `summary.js` | Срез по одному ученику + проверка работ и оценивание попыток | `summary{getRoster, getSummary}`, `review{getDetail, saveGrade, returnSubmission}`, `attemptGrade{gradeAttempt}` |
 | `ktp` «КТП и расписание» | `ktp.js` | Банк тем + календарь: drag → `pin`, «Распределить» → `reflow`, публикация КТП, дедлайны, индивидуальные занятия (`INDI_ID = -1`) | `schedule{getCalendar, reflow, pin, getProgram, publish/unpublish, get/saveDeadlines, continue, getIndividual, lessonCandidates, assignLesson}`, `courses{getCourses, assignCourse}` |
 | `groups` (ростер; без пункта меню — вход кликом по группе) | `groups.js` | Состав группы, создание индивидуального занятия, свободные кабинеты | `roster{getRoster, createIndividual, getFreeRooms}` |
+| `activity` «Активность» | `activity.js` | Две вкладки: лента событий обучения (постранично) и история попыток занятия тремя блоками — задания урока, работы, контрольные | `activity.events{getEvents}`, `activity.program{getProgram}`, `activity.attempts{getAttempts}` |
 | `substitutions` «Замены» (только офис) | `substitutions.js` | Назначить/снять замену, override кабинета | `substitutions{getData, assign, revoke, setRoom}` |
 
 ### Ученик / родитель (`LearnerProfileView`)

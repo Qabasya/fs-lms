@@ -10,9 +10,7 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
-use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\GroupAccessGuard;
-use Inc\Services\Course\ReviewQueueService;
 use Inc\Services\Course\SubmissionService;
 use Inc\Services\Course\WorkDetailService;
 use Inc\Services\Course\WorkResetService;
@@ -28,11 +26,9 @@ class GradingCallbacks extends BaseController {
 
 	public function __construct(
 		private readonly SubmissionService     $submissionService,
-		private readonly GradebookService      $gradebookService,
 		private readonly GroupAccessGuard      $guard,
 		private readonly SubmissionRepository  $submissionRepo,
 		private readonly GroupLessonRepository $groupLessons,
-		private readonly ReviewQueueService    $reviewQueue,
 		private readonly WorkDetailService     $workDetail,
 		private readonly WorkResetService      $workReset,
 	) {
@@ -142,43 +138,5 @@ class GradingCallbacks extends BaseController {
 		$this->success( array( 'submission_id' => $submissionId ) );
 	}
 
-	public function ajaxGetGroupSubmissions(): void {
-		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
 
-		$groupId = $this->requireInt( 'group_id' );
-		if ( ! $this->guard->canManage( $groupId, get_current_user_id() ) ) {
-			$this->error( 'Нет доступа к этой группе.' );
-			return;
-		}
-
-		$this->success( $this->reviewQueue->forGroup( $groupId ) );
-	}
-
-	public function ajaxGetGradebook(): void {
-		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
-
-		$groupId = $this->sanitizeInt( 'group_id' );
-		if ( $groupId && ! $this->guard->canManage( $groupId, get_current_user_id() ) ) {
-			$this->error( 'Нет доступа к этой группе.' );
-			return;
-		}
-
-		$entries = $groupId
-			? $this->gradebookService->forGroup( $groupId )
-			: array();
-
-		$this->success( array_map( fn( $e ) => array(
-			'student_person_id' => $e->studentPersonId,
-			'group_id'          => $e->groupId,
-			'source_type'       => $e->sourceType,
-			'source_id'         => $e->sourceId,
-			'title'             => $e->title,
-			'category'          => $e->category,
-			'score'             => $e->score,
-			'max_score'         => $e->maxScore,
-			'graded_at'         => $e->gradedAt,
-			'display_type'      => $e->displayType,
-			'display_value'     => $e->displayValue(),
-		), $entries ) );
-	}
 }

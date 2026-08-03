@@ -5,10 +5,12 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
+use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Course\WorkSourceType;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Shared\PluginLogger;
 
 /**
@@ -31,6 +33,7 @@ class WorkResetService {
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly AssessmentAnswerRepository  $answers,
 		private readonly GroupLessonRepository       $groupLessons,
+		private readonly TaskAttemptRepository       $taskAttempts,
 	) {}
 
 	/**
@@ -94,6 +97,14 @@ class WorkResetService {
 			$sub->studentPersonId,
 			$sub->groupLessonId,
 			$sub->workId
+		);
+
+		// История пересдач живёт отдельно от строки сдачи — сбрасываем вместе,
+		// иначе после «сброса» ученик видит чистый лист, а преподаватель — старые попытки.
+		$this->taskAttempts->deleteByStudentStep(
+			$sub->studentPersonId,
+			$sub->groupLessonId,
+			AttemptSource::workStepKey( $sub->workId )
 		);
 
 		PluginLogger::warning(

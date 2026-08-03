@@ -49,8 +49,9 @@ final class TeacherProfileView implements ProfileViewInterface {
 			array( 'key' => 'journal',   'label' => 'Журнал' ),
 			array( 'key' => 'summary',   'label' => 'Сводка по ученику' ),
 			array( 'key' => 'ktp',       'label' => 'КТП и расписание' ),
+			array( 'key' => 'activity',  'label' => 'Активность' ),
 		);
-		$screens = array( 'dashboard', 'groups', 'journal', 'summary', 'ktp' );
+		$screens = array( 'dashboard', 'groups', 'journal', 'summary', 'ktp', 'activity' );
 
 		// Замены (кабинет + педагог) — офисный инструмент, препод не видит.
 		if ( UserRole::FSOffice === $context->role ) {
@@ -173,6 +174,23 @@ final class TeacherProfileView implements ProfileViewInterface {
 				'nonce'   => Nonce::SaveSchedule->create(),
 				'actions' => array(
 					'getDashboard' => AjaxHook::GetProfileDashboard->jsAction(),
+				),
+			),
+			// Экран «Активность»: лента событий группы и история решений задач.
+			// Три под-блока, потому что домены разные и нонс у каждого свой —
+			// createApi() принимает ровно пару {nonce, actions}.
+			'activity' => array(
+				'events'   => array(
+					'nonce'   => Nonce::GroupActivity->create(),
+					'actions' => array( 'getEvents' => AjaxHook::GetGroupActivity->jsAction() ),
+				),
+				'program'  => array(
+					'nonce'   => Nonce::SaveSchedule->create(),
+					'actions' => array( 'getProgram' => AjaxHook::GetGroupProgram->jsAction() ),
+				),
+				'attempts' => array(
+					'nonce'   => Nonce::TaskAttempts->create(),
+					'actions' => array( 'getAttempts' => AjaxHook::GetTaskAttempts->jsAction() ),
 				),
 			),
 		);

@@ -11,12 +11,14 @@ use Inc\DTO\Course\GradeDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
+use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Course\SubmissionStatus;
 use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 
 class SubmissionService {
 
@@ -30,103 +32,9 @@ class SubmissionService {
 		private readonly BatchCheckService           $batchChecker,
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly ClockInterface              $clock,
+		private readonly TaskAttemptRepository       $attempts,
 	) {}
 
-	/**
-	 * Ученик сдаёт работу.
-	 *
-	 * @param int     $studentPersonId
-	 * @param int     $groupLessonId
-	 * @param int     $workId
-	 * @param int|null $taskId
-	 * @param string  $answerText
-	 * @param string|null $fileKey  Ключ в $_FILES (null = без файла).
-	 * @return int submission_id
-	 * @throws \InvalidArgumentException При нарушении правил.
-	 * @throws \RuntimeException При проблемах с файлом.
-	 */
-	public function submit(
-		int     $studentPersonId,
-		int     $groupLessonId,
-		int     $workId,
-		?int    $taskId,
-		string  $answerText,
-		?string $fileKey = null,
-	): int {
-		if ( ! $this->accessPolicy->canSubmit( $studentPersonId, $groupLessonId ) ) {
-			throw new \InvalidArgumentException( 'Сдача недоступна для данного ученика и урока.' );
-		}
-
-		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row ) {
-			throw new \InvalidArgumentException( 'Строка программы не найдена.' );
-		}
-
-		$effectiveWorks = $this->worksResolver->resolve( $row );
-		$workIds        = array_map( fn( $w ) => $w->id, $effectiveWorks );
-		if ( ! in_array( $workId, $workIds, true ) ) {
-			throw new \InvalidArgumentException( 'Работа не входит в эффективный набор урока.' );
-		}
-
-		$work = $this->workManager->get( $workId );
-		if ( ! $work ) {
-			throw new \InvalidArgumentException( 'Работа не найдена.' );
-		}
-
-		// T12.2 (D13): дедлайн per-work, иначе legacy homeworkDueAt занятия.
-		$dueAt = $row->deadlineForWork( $workId );
-		if ( ! $row->allowLate && null !== $dueAt ) {
-			$now = $this->clock->now();
-			if ( $now > $dueAt ) {
-				throw new \InvalidArgumentException( 'Срок сдачи истёк, повторная сдача запрещена.' );
-			}
-		}
-
-		$attachmentId = null;
-		if ( null !== $fileKey ) {
-			$attachmentId = $this->mediaManager->uploadFromRequest( $fileKey );
-		}
-
-		$existing = $this->submissions->findForWork( $studentPersonId, $groupLessonId, $workId, $taskId );
-
-		if ( $existing ) {
-			$this->submissions->update( $existing->id, array(
-				'answer_text'  => $answerText,
-				'attachment_id'=> $attachmentId ?? $existing->attachmentId,
-				'status'       => 'submitted',
-				'submitted_at' => $this->clock->now(),
-			) );
-			$submissionId = $existing->id;
-		} else {
-			$dto = new SubmissionInputDTO(
-				studentPersonId : $studentPersonId,
-				groupLessonId   : $groupLessonId,
-				workId          : $workId,
-				workType        : $work->workType->value,
-				taskId          : $taskId,
-				answerText      : $answerText,
-				attachmentId    : $attachmentId,
-				dueAt           : $dueAt,
-				status          : 'submitted',
-				submittedAt     : $this->clock->now(),
-			);
-			$submissionId = $this->submissions->create( $dto );
-		}
-
-		$this->dispatcher->dispatch(
-			LogEvent::SubmissionMade,
-			new LearningEvent(
-				event      : LogEvent::SubmissionMade,
-				actorUserId: $studentPersonId,
-				groupId    : $row->groupId,
-				entityType : 'submission',
-				entityId   : (string) $submissionId,
-				isPublic   : true,
-			)
-		);
-
-		return $submissionId;
-	}
 
 	/** Преподаватель оценивает сдачу. */
 	public function grade( int $submissionId, GradeDTO $grade, int $teacherUserId ): void {
@@ -215,6 +123,10 @@ class SubmissionService {
 
 			$answerStored = is_array( $answer ) ? wp_json_encode( $answer ) : (string) $answer;
 
+			// История пересдач: строка submissions ниже перезапишется, поэтому
+			// каждая попытка отдельно копится в task_attempts (D-хвост Tasks.md).
+			$this->recordWorkAttempt( $studentPersonId, $groupLessonId, $workId, $taskId, $answer, $taskResult );
+
 			$existing = $this->submissions->findForWork( $studentPersonId, $groupLessonId, $workId, $taskId );
 			if ( $existing ) {
 				$this->submissions->update( $existing->id, [
@@ -288,6 +200,38 @@ class SubmissionService {
 		$updated = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
 		assert( $updated !== null );
 		return $updated;
+	}
+
+	/**
+	 * Пишет попытку по задаче работы в общую историю попыток.
+	 *
+	 * Номер считается ПО ЗАДАЧЕ, а не по работе целиком: в одной сдаче задач
+	 * несколько, и сквозная нумерация давала бы задаче №2 номера 2, 4, 6…
+	 *
+	 * @param array{verdict: string, score: float, maxScore: float} $taskResult Итог проверки задачи
+	 */
+	private function recordWorkAttempt(
+		int   $studentPersonId,
+		int   $groupLessonId,
+		int   $workId,
+		int   $taskId,
+		mixed $answer,
+		array $taskResult
+	): void {
+		$stepKey = AttemptSource::workStepKey( $workId );
+
+		$this->attempts->create(
+			studentPersonId: $studentPersonId,
+			groupLessonId  : $groupLessonId,
+			stepKey        : $stepKey,
+			taskId         : $taskId,
+			attemptNumber  : $this->attempts->countByStepTask( $studentPersonId, $groupLessonId, $stepKey, $taskId ) + 1,
+			answer         : $answer,
+			isCorrect      : 'correct' === $taskResult['verdict'],
+			score          : (float) $taskResult['score'],
+			maxScore       : (float) $taskResult['maxScore'],
+			itemFeedback   : array(),
+		);
 	}
 
 	/**
