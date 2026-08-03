@@ -7,54 +7,57 @@ namespace Inc\Callbacks\Task;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
-use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Services\Course\GroupAccessGuard;
+use Inc\Services\Course\TaskAttemptReportService;
+use Inc\Services\Group\ProgramCompositionService;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\ProgramAccess;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
- * AJAX-обработчик для просмотра истории попыток студентов (Этап 6, Phase G).
- * Используется преподавателем в кокпите группы.
+ * Class TaskAttemptCallbacks
+ *
+ * AJAX экрана «Активность» кабинета, вкладка «Решения задач»: история попыток
+ * учеников по заданиям-шагам занятия.
+ *
+ * @package Inc\Callbacks\Task
+ *
+ * Отчёт строится по ЗАНЯТИЮ целиком (а не по одному шагу, как в снятом кокпите):
+ * преподавателю нужен разрез «кто как решал это занятие», а список шагов взять
+ * больше неоткуда — панель настроек шагов удалена вместе с кокпитом.
  */
 class TaskAttemptCallbacks extends BaseController {
 
 	use Authorizer;
+	use ProgramAccess;
 	use Sanitizer;
 
 	public function __construct(
-		private readonly TaskAttemptRepository $attemptRepository,
-	) {}
+		private readonly TaskAttemptReportService  $report,
+		private readonly GroupAccessGuard          $guard,
+		private readonly ProgramCompositionService $program,
+	) {
+		parent::__construct();
+	}
+
+	protected function accessGuard(): GroupAccessGuard {
+		return $this->guard;
+	}
+
+	protected function programService(): ProgramCompositionService {
+		return $this->program;
+	}
 
 	/**
-	 * Возвращает все попытки по шагу урока, сгруппированные по студентам.
-	 * POST: group_lesson_id, step_key.
+	 * Попытки занятия, сгруппированные по шагу и ученику.
+	 * POST: group_lesson_id.
 	 */
 	public function ajaxGetTaskAttempts(): void {
-		$this->authorize( Nonce::StepSettings, Capability::ManageLmsTeaching );
+		$this->authorize( Nonce::TaskAttempts, Capability::ManageLmsTeaching );
 
-		$groupLessonId = (int) $this->requireInt( 'group_lesson_id' );
-		$stepKey       = $this->requireKey( 'step_key' );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$row           = $this->requireProgramRow( $groupLessonId );
 
-		$attempts  = $this->attemptRepository->listByGroupAndStep( $groupLessonId, $stepKey );
-		$byStudent = array();
-
-		foreach ( $attempts as $a ) {
-			$sid = $a->studentPersonId;
-			if ( ! isset( $byStudent[ $sid ] ) ) {
-				$byStudent[ $sid ] = array(
-					'student_id'   => $sid,
-					'student_name' => get_the_title( $sid ) ?: "Ученик #{$sid}",
-					'attempts'     => array(),
-				);
-			}
-			$byStudent[ $sid ]['attempts'][] = array(
-				'attempt_number' => $a->attemptNumber,
-				'is_correct'     => $a->isCorrect,
-				'score'          => $a->score,
-				'max_score'      => $a->maxScore,
-				'created_at'     => $a->createdAt,
-			);
-		}
-
-		$this->success( array_values( $byStudent ) );
+		$this->success( $this->report->forLesson( $row->groupId, $groupLessonId ) );
 	}
 }

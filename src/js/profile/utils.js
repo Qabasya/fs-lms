@@ -1,7 +1,11 @@
 // Общие утилиты живут в common/utils.js — здесь только реэкспорт под привычными
 // именами кабинета (esc ≡ escapeHtml) и профиль-специфика (тост, чипы, шкалы).
 export { fmtDate, fmtDayMonth, fmtDateTime, todayIso, initials, debounce } from '../common/utils.js';
-export { escapeHtml as esc } from '../common/utils.js';
+
+// esc импортируется, а не реэкспортируется: `export ... from` не создаёт
+// локального имени, а esc нужен здесь же — в emptyState() и openCtxMenuRaw().
+import { escapeHtml as esc } from '../common/utils.js';
+export { esc };
 
 /* Shared utilities: toast, HTML escaping, formatting, context menu state */
 

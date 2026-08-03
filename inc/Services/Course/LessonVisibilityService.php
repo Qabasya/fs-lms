@@ -21,37 +21,6 @@ class LessonVisibilityService {
 		private readonly ClockInterface              $clock,
 	) {}
 
-	public function setVisibility( int $groupLessonId, string $visibility, int $actorUserId ): void {
-		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row ) {
-			throw new \InvalidArgumentException( 'Строка программы не найдена.' );
-		}
-
-		$openedAt = null;
-
-		if ( LessonVisibility::Open->value === $visibility ) {
-			// copy-on-publish: заморозить work_ids только при первом открытии.
-			if ( ! $row->isPublished() ) {
-				$lesson = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
-				$this->groupLessons->setWorkIdsSnapshot( $groupLessonId, $lesson?->workIds() ?? array() );
-				$openedAt = $this->clock->now();
-			}
-		}
-
-		$this->groupLessons->setVisibility( $groupLessonId, $visibility, $openedAt );
-
-		$event = LessonVisibility::Open->value === $visibility ? LogEvent::LessonPublished : LogEvent::LessonHidden;
-		$this->dispatcher->dispatch(
-			$event,
-			new LearningEvent(
-				event       : $event,
-				actorUserId : $actorUserId,
-				groupId     : $row->groupId,
-				entityType  : 'group_lesson',
-				entityId    : (string) $groupLessonId,
-			)
-		);
-	}
 
 	/**
 	 * Возвращает эффективную видимость строки программы.

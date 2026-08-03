@@ -44,6 +44,9 @@ if (!class_exists('WP_User')) {
         public int $ID = 0;
         public string $user_login = '';
         public string $user_email = '';
+        public string $display_name = '';
+        /** @var string[] */
+        public array $roles = [];
     }
 }
 
@@ -168,8 +171,10 @@ if (!function_exists('get_option')) {
     }
 }
 if (!function_exists('get_userdata')) {
+    // Управляется $GLOBALS['_fs_test_userdata'][$userId] — объект с полями
+    // WP_User (в т.ч. roles); без записи ведёт себя как «пользователя нет».
     function get_userdata(int $userId): WP_User|false {
-        return false;
+        return $GLOBALS['_fs_test_userdata'][$userId] ?? false;
     }
 }
 if (!function_exists('user_can')) {
@@ -427,6 +432,11 @@ if (!function_exists('wp_kses_post')) {
 if (!function_exists('get_post_mime_type')) {
     function get_post_mime_type(int $postId): string|false {
         return $GLOBALS['_fs_test_post_mime_types'][$postId] ?? false;
+    }
+}
+if (!function_exists('wp_logout_url')) {
+    function wp_logout_url(string $redirect = ''): string {
+        return 'http://example.test/wp-login.php?action=logout&redirect_to=' . rawurlencode($redirect);
     }
 }
 if (!function_exists('get_post_type')) {

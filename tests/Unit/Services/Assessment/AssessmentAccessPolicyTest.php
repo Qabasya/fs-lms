@@ -97,7 +97,53 @@ class AssessmentAccessPolicyTest extends TestCase {
 		) );
 	}
 
-	private function groupLesson( int $id, int $lessonId ): GroupLessonDTO {
+	/**
+	 * Привязка попытки: политика и так нашла занятие — возвращаем его, чтобы
+	 * попытка не осталась без `group_lesson_id` при заходе по прямой ссылке.
+	 */
+	public function test_returns_lesson_that_grants_access(): void {
+		$this->records->method( 'findByStudent' )->willReturn( array( $this->record( 10 ) ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->groupLesson( 42, 7 ) ) );
+		$this->lessons->method( 'get' )->willReturn( $this->lessonWithAssessment( 100 ) );
+		$this->lessonAccess->method( 'canRead' )->willReturn( true );
+
+		self::assertSame( 42, $this->policy->resolveAccessibleLesson( 5, 100 )?->id );
+	}
+
+	/** Контрольная в нескольких занятиях — берём самое позднее по расписанию. */
+	public function test_picks_latest_scheduled_lesson(): void {
+		$this->records->method( 'findByStudent' )->willReturn( array( $this->record( 10 ) ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->groupLesson( 41, 7, '2026-03-01 10:00:00' ),
+			$this->groupLesson( 43, 7, '2026-09-01 10:00:00' ),
+			$this->groupLesson( 42, 7, '2026-05-01 10:00:00' ),
+		) );
+		$this->lessons->method( 'get' )->willReturn( $this->lessonWithAssessment( 100 ) );
+		$this->lessonAccess->method( 'canRead' )->willReturn( true );
+
+		self::assertSame( 43, $this->policy->resolveAccessibleLesson( 5, 100 )?->id );
+	}
+
+	/** Занятие без даты уступает датированному. */
+	public function test_dated_lesson_wins_over_undated(): void {
+		$this->records->method( 'findByStudent' )->willReturn( array( $this->record( 10 ) ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->groupLesson( 41, 7 ),
+			$this->groupLesson( 42, 7, '2026-05-01 10:00:00' ),
+		) );
+		$this->lessons->method( 'get' )->willReturn( $this->lessonWithAssessment( 100 ) );
+		$this->lessonAccess->method( 'canRead' )->willReturn( true );
+
+		self::assertSame( 42, $this->policy->resolveAccessibleLesson( 5, 100 )?->id );
+	}
+
+	public function test_returns_null_when_no_access(): void {
+		$this->records->method( 'findByStudent' )->willReturn( array() );
+
+		self::assertNull( $this->policy->resolveAccessibleLesson( 5, 100 ) );
+	}
+
+	private function groupLesson( int $id, int $lessonId, ?string $scheduledAt = null ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id              : $id,
 			groupId         : 10,
@@ -105,7 +151,7 @@ class AssessmentAccessPolicyTest extends TestCase {
 			position        : 0,
 			workIdsSnapshot : null,
 			extraWorkIds    : array(),
-			scheduledAt     : null,
+			scheduledAt     : $scheduledAt,
 			endsAt          : null,
 			isPinned        : false,
 			teacherUserId   : null,

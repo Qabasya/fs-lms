@@ -68,7 +68,7 @@ export const icoSearch = ( s = 14 ) =>
 	stroke20( '<circle cx="9" cy="9" r="5.5" stroke="{c}" stroke-width="1.6"/><path d="m13.5 13.5 3.2 3.2" stroke="{c}" stroke-width="1.6" stroke-linecap="round"/>', s );
 
 /** Файл-вложение задания (зеркало PHP Icon::File). */
-export const icoFile = ( s = 16 ) =>
+
 	stroke20( '<path d="M5 2.5h6.2L15.5 6.8V17.5H5V2.5z" stroke="{c}" stroke-width="1.5" stroke-linejoin="round"/><path d="M11 3v4.3h4.3" stroke="{c}" stroke-width="1.5" stroke-linejoin="round"/>', s );
 
 /** Стрелка-вправо в кнопке действия (зеркало PHP Icon::ArrowRight). */

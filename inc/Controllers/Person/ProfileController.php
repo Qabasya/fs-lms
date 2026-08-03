@@ -36,6 +36,7 @@ use Inc\Services\Profile\ProfileViewResolver;
 class ProfileController extends BaseController implements ServiceInterface {
 
 	public function __construct(
+
 		private readonly PersonRepository        $personRepository,
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly ProfileViewResolver     $resolver,
@@ -82,8 +83,7 @@ class ProfileController extends BaseController implements ServiceInterface {
 			}
 
 			// Гейт кабинета для полностью отчисленных (политика 'block').
-			$policy = $this->expulsionPolicy->getRetentionPolicy();
-			if ( ExpulsionPolicyRepository::BLOCK === $policy ) {
+			if ( ExpulsionPolicyRepository::BLOCK === $this->expulsionPolicy->getRetentionPolicy() ) {
 				$person = $this->personRepository->findByWpUserId( get_current_user_id() );
 				if ( $person ) {
 					$activeRecords = $this->studentRecords->findActiveByStudent( $person->id );

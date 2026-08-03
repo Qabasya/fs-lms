@@ -34,21 +34,13 @@ class ScheduleController extends AjaxController {
 			// Состав программы и её публикация
 			array( AjaxHook::AssignCourse,            $this->program ),
 			array( AjaxHook::GetSubjectCourses,       $this->program ),
-			array( AjaxHook::AddLessonToProgram,      $this->program ),
-			array( AjaxHook::DuplicateProgramLesson,  $this->program ),
 			array( AjaxHook::ContinueProgramLesson,   $this->program ),
-			array( AjaxHook::RemoveLessonFromProgram, $this->program ),
-			array( AjaxHook::ReorderProgram,          $this->program ),
-			array( AjaxHook::SetLessonVisibility,     $this->program ),
 			array( AjaxHook::GetGroupProgram,         $this->program ),
 			array( AjaxHook::GetGroupActivity,        $this->program ),
 			array( AjaxHook::PublishProgram,          $this->program ),
 			array( AjaxHook::UnpublishProgram,        $this->program ),
-			array( AjaxHook::GetStepSettings,         $this->program ),
-			array( AjaxHook::SaveStepSettings,        $this->program ),
 
 			// Даты и раскладка
-			array( AjaxHook::SaveLessonSchedule,      $this->schedule ),
 			array( AjaxHook::ReflowSchedule,          $this->schedule ),
 			array( AjaxHook::PinLesson,               $this->schedule ),
 			array( AjaxHook::GetGroupCalendar,        $this->schedule ),

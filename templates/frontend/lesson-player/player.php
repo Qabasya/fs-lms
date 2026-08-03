@@ -85,7 +85,7 @@ $next_url    = null !== $next_lesson
 			'gid' => $groupId,
 			'gl'  => (int) $next_lesson['group_lesson_id'],
 		),
-		PageRoutes::GroupCockpit->url()
+		PageRoutes::LessonPlayer->url()
 	)
 	: '';
 ?>

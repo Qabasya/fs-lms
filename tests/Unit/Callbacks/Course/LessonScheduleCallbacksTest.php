@@ -61,17 +61,6 @@ class LessonScheduleCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxReflowSchedule() )->success );
 	}
 
-	public function test_save_lesson_schedule_delegates(): void {
-		$this->program->method( 'getProgramRow' )->with( 42 )->willReturn( $this->programRow() );
-		$this->guard->method( 'canManage' )->willReturn( true );
-		$this->schedule->expects( $this->once() )
-			->method( 'schedule' )
-			->with( 42, '2026-05-20 15:00:00', 7, $this->anything() );
-		$_POST = array( 'group_lesson_id' => '42', 'scheduled_at' => '2026-05-20 15:00:00', 'teacher_user_id' => '7' );
-
-		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSaveLessonSchedule() )->success );
-	}
-
 	public function test_pin_lesson_delegates_to_pin_to_date(): void {
 		$this->program->method( 'getProgramRow' )->with( 42 )->willReturn( $this->programRow() );
 		$this->guard->method( 'canManage' )->willReturn( true );

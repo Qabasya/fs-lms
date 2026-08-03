@@ -71,6 +71,25 @@ class TaskAttemptRepository {
 	}
 
 	/**
+	 * Кол-во попыток студента по конкретной задаче внутри шага.
+	 *
+	 * У шага урока задача одна, поэтому там это то же, что {@see countByStep()};
+	 * у работы задач несколько, и нумерация должна идти по каждой отдельно.
+	 */
+	public function countByStepTask( int $studentPersonId, int $groupLessonId, string $stepKey, int $taskId ): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND group_lesson_id = %d AND step_key = %s AND task_id = %d',
+				$this->table,
+				$studentPersonId,
+				$groupLessonId,
+				$stepKey,
+				$taskId,
+			)
+		);
+	}
+
+	/**
 	 * Все попытки студента по шагу в хронологическом порядке.
 	 *
 	 * @return TaskAttemptDTO[]
@@ -111,6 +130,27 @@ class TaskAttemptRepository {
 	}
 
 	/**
+	 * Все попытки занятия — по всем шагам и всем ученикам.
+	 *
+	 * Порядок сразу пригоден для группировки на стороне вызывающего:
+	 * шаг → ученик → номер попытки.
+	 *
+	 * @return TaskAttemptDTO[]
+	 */
+	public function listByGroupLesson( int $groupLessonId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE group_lesson_id = %d ORDER BY step_key ASC, student_person_id ASC, attempt_number ASC',
+				$this->table,
+				$groupLessonId,
+			),
+			ARRAY_A
+		);
+
+		return array_map( array( TaskAttemptDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
+	/**
 	 * Все попытки всех студентов по заданию в рамках группового занятия.
 	 * Используется в отчёте преподавателя (Этап 6, Фаза G).
 	 *
@@ -128,6 +168,21 @@ class TaskAttemptRepository {
 		);
 
 		return array_map( array( TaskAttemptDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
+	/**
+	 * Удаляет историю попыток ученика по одному шагу занятия.
+	 * Нужна сбросу работы: сдачи и их история должны исчезать вместе.
+	 */
+	public function deleteByStudentStep( int $studentPersonId, int $groupLessonId, string $stepKey ): int {
+		return (int) $this->wpdb->delete(
+			$this->table,
+			array(
+				'student_person_id' => $studentPersonId,
+				'group_lesson_id'   => $groupLessonId,
+				'step_key'          => $stepKey,
+			)
+		);
 	}
 
 	/** Каскадная очистка при удалении занятия (GroupDeletionHandler). */

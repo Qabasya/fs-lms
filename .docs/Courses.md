@@ -42,7 +42,7 @@
 
 - **`SessionCalendarService`** 🟡 — `generate(groupId)`: разворачивает `meetings` × период (минус каникулы) в датированные слоты; `reflow(groupId)`: раскидывает темы по слотам **по порядку**, `is_pinned` сохраняют дату. **Не подключён к UI** (нет AJAX).
 - **`MeetingsNormalizer`** ✅ — приводит расписание к суперсету `{day,start,end,weekday,time,duration_min}`.
-- **`GroupCockpitController`** (`/group/?gid=N`) ✅ — вид препода (программа, ростер, лог событий) и вид ученика; доступ через **`GroupAccessGuard::canManage()/isMemberEver()`**.
+- ~~**`GroupCockpitController`** (`/group/?gid=N`)~~ — удалён (2026-08-01): работу с группой ведёт кабинет `/profile/`, плеер урока переехал на `/lesson/?gid=N&gl=M`.
 - **`SubmissionRepository::listQueueByGroup()`** 🟡 — готовая очередь работ «на проверку».
 - **`ExamResultService::buildForStudent()`** ✅ — результат контрольной для ученика (без раскрытия ответов).
 - **`LessonProgressService::getStepStatuses()`** ✅ — статусы шагов ученика (works/assessments резолвятся из фактов).

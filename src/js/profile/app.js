@@ -1,11 +1,12 @@
 import { esc, shortName, chipBg, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
-import { icoHome, icoUsers, icoJournal, icoDocCheck, icoSwap, icoCalendarBoard, icoBook, icoStar, icoCaret, icoGear, icoLogout } from '../common/icons.js';
+import { icoHome, icoUsers, icoJournal, icoDocCheck, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout } from '../common/icons.js';
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
 import { renderSummary } from './summary.js';
 import { renderSubstitutions } from './substitutions.js';
 import { renderKTP } from './ktp.js';
+import { renderActivity } from './activity.js';
 import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
 import { initNotifications } from './notifications.js';
 
@@ -17,6 +18,7 @@ const SCREENS = {
     summary:              (root) => renderSummary(root),
     substitutions:        (root) => renderSubstitutions(root),
     ktp:                  (root) => renderKTP(root),
+    activity:             (root) => renderActivity(root),
     'learner-home':       renderLearnerHome,
     'learner-lessons':    renderLearnerLessons,
     'learner-grades':     renderLearnerGrades,
@@ -30,6 +32,7 @@ const TOPBAR = {
     summary:              { crumb: 'Успеваемость',      title: 'Сводка по ученику' },
     substitutions:        { crumb: 'Офис',             title: 'Замены' },
     ktp:                  { crumb: 'Планирование',     title: 'КТП и расписание' },
+    activity:             { crumb: 'Аналитика',       title: 'Активность' },
     'learner-home':       { crumb: 'Личный кабинет',   title: 'Главная' },
     'learner-lessons':    { crumb: 'Обучение',         title: 'Мои курсы' },
     'learner-grades':     { crumb: 'Успеваемость',     title: 'Мои оценки' },
@@ -43,6 +46,7 @@ const NAV_ICONS = {
     summary:              icoDocCheck(19),
     substitutions:        icoSwap(19),
     ktp:                  icoCalendarBoard(19),
+    activity:             icoClock(19),
     'learner-home':       icoHome(19),
     'learner-lessons':    icoBook(19),
     'learner-grades':     icoStar(19),

@@ -206,7 +206,7 @@ class LearnerService {
 			'course'          => (string) ( $group['course_title'] ?? '' ),
 			// Вход в плеер курса (T14.13): урок с контентом получает ссылку
 			// в плеер и статус прохождения (done / available / locked).
-			'player_url'      => $hasContent ? PageRoutes::GroupCockpit->lessonUrl( (int) $group['id'], $row->id ) : '',
+			'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( (int) $group['id'], $row->id ) : '',
 			'status'          => $hasContent ? $this->lessonStatus( $personId, $row ) : '',
 		);
 	}

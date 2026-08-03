@@ -50,7 +50,7 @@ $rail_lesson_url = ! empty( $is_preview )
 			'gid' => $groupId,
 			'gl'  => $gl,
 		),
-		PageRoutes::GroupCockpit->url()
+		PageRoutes::LessonPlayer->url()
 	);
 
 $rail_check = Icon::Check->svg( 15 );
