@@ -2,9 +2,9 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Controllers;
+namespace Inc\Controllers\Pages;
 
-use Inc\Callbacks\AllTasksCallbacks;
+use Inc\Callbacks\Task\AllTasksCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\AjaxHook;
@@ -20,7 +20,7 @@ use Inc\Services\Task\TaskSearchIndexer;
  *   - AJAX-хук постраничной подгрузки/фильтрации заданий (priv + nopriv);
  *   - обновление поискового индекса задания (post_content) при сохранении меты.
  *
- * @package Inc\Controllers
+ * @package Inc\Controllers\Pages
  */
 class AllTasksPageController extends BaseController implements ServiceInterface {
 

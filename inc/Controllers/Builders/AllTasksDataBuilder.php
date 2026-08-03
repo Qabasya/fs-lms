@@ -4,18 +4,20 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Builders;
 
-use Inc\DTO\AllTasksPageDTO;
 use Inc\DTO\Subject\TaxonomyDataDTO;
-use Inc\DTO\TaskListItemDTO;
+use Inc\DTO\Task\AllTasksPageDTO;
+use Inc\DTO\Task\TaskListItemDTO;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\Course\PublicCourseService;
 use Inc\Services\Shared\Pluralizer;
 use Inc\Services\Subject\ArticleService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Subject\TagPaletteService;
 use Inc\Services\Task\TaskMetaService;
 
 /**
@@ -36,6 +38,9 @@ readonly class AllTasksDataBuilder {
 
 	public const PER_PAGE = 10;
 
+	/** Сколько статей показывает сайдбар страницы (SSR и AJAX — одно число). */
+	private const SIDEBAR_ARTICLES = 2;
+
 	public function __construct(
 		private SubjectRepository  $subject_repository,
 		private TaxonomyRepository $taxonomy_repository,
@@ -44,6 +49,8 @@ readonly class AllTasksDataBuilder {
 		private TaskMetaService    $task_meta_service,
 		private BreadcrumbsBuilder $breadcrumbs_builder,
 		private ArticleService     $article_service,
+		private PublicCourseService $course_service,
+		private TagPaletteService  $tag_palette,
 	) {}
 
 	/**
@@ -58,17 +65,19 @@ readonly class AllTasksDataBuilder {
 		$subject      = $this->subject_repository->getByKey( $subject_key );
 		$subject_name = $subject?->name ?? $subject_key;
 
-		$filters = array( 'taxonomies' => $selected );
+		$filters     = array( 'taxonomies' => $selected );
+		$archive_url = $this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) );
 
 		[ $tasks, $total ] = $this->fetchTasks( $subject_key, $filters, 0, self::PER_PAGE );
 
 		return new AllTasksPageDTO(
 			subject_key:  $subject_key,
 			subject_name: $subject_name,
-			breadcrumbs:  $this->breadcrumbs_builder->forArchive( $subject_name ),
+			breadcrumbs:  $this->breadcrumbs_builder->forArchive( $subject_name, $archive_url ),
 			filters:      $this->buildFilters( $subject_key, $filters ),
 			articles:     $this->fetchArticles( $subject_key, $selected ),
 			articles_url: $this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) ),
+			courses:      $this->course_service->getSidebarCourses( $subject_key ),
 			tasks:        $tasks,
 			total:        $total,
 			per_page:     self::PER_PAGE,
@@ -91,7 +100,11 @@ readonly class AllTasksDataBuilder {
 	public function fetchArticles( string $subject_key, array $selected ): array {
 		$number_tax = PostTypeResolver::getTaskTaxonomy( $subject_key );
 
-		return $this->article_service->getSidebarArticles( $subject_key, $selected[ $number_tax ] ?? array() );
+		return $this->article_service->getSidebarArticles(
+			$subject_key,
+			$selected[ $number_tax ] ?? array(),
+			self::SIDEBAR_ARTICLES
+		);
 	}
 
 	/**
@@ -223,7 +236,8 @@ readonly class AllTasksDataBuilder {
 			task_type_url:        $number_term ? $this->term_manager->getLink( $number_term->term_id, $number_tax ) : '',
 			task_number_taxonomy: $number_tax,
 			task_number_slug:     $number_term ? $number_term->slug : '',
-			tags:                 $this->buildTags( $post->ID, $taxonomies ),
+			task_number_color:    $this->tag_palette->colorIndex( $subject_key, $number_tax ),
+			tags:                 $this->buildTags( $post->ID, $subject_key, $taxonomies ),
 			condition:     $this->task_meta_service->getCombinedCondition( $meta ),
 			answer:        (string) ( $meta['task_answer'] ?? '' ),
 			files:         $this->task_meta_service->getTaskFiles( $meta ),
@@ -233,15 +247,18 @@ readonly class AllTasksDataBuilder {
 	/**
 	 * Теги-классификаторы задания из пользовательских таксономий предмета.
 	 *
-	 * @param int               $post_id    ID задания.
-	 * @param TaxonomyDataDTO[] $taxonomies Пользовательские таксономии предмета.
+	 * @param int               $post_id     ID задания.
+	 * @param string            $subject_key Ключ предмета (для палитры чипов).
+	 * @param TaxonomyDataDTO[] $taxonomies  Пользовательские таксономии предмета.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function buildTags( int $post_id, array $taxonomies ): array {
+	private function buildTags( int $post_id, string $subject_key, array $taxonomies ): array {
 		$tags = array();
 
 		foreach ( $taxonomies as $taxonomy ) {
+			$color = $this->tag_palette->colorIndex( $subject_key, $taxonomy->slug );
+
 			foreach ( $this->term_manager->getPostTerms( $post_id, $taxonomy->slug ) as $term ) {
 				$tags[] = array(
 					'taxonomy'      => $taxonomy->slug,
@@ -249,6 +266,7 @@ readonly class AllTasksDataBuilder {
 					'label'         => $term->name,
 					'slug'          => $term->slug,
 					'url'           => $this->term_manager->getLink( $term->term_id, $taxonomy->slug ),
+					'color'         => $color,
 				);
 			}
 		}

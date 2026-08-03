@@ -41,7 +41,7 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 | Builders | `inc/Controllers/Builders/` | Build structured config arrays (menus, etc.) |
 | Registrars | `inc/Registrars/` | Wrap WP registration APIs (menus, settings, CPT, taxonomies, metaboxes) |
 | Managers | `inc/Managers/` | Wrap WP data APIs (CRUD for posts, terms, options, metaboxes) |
-| Controllers | `inc/Controllers/` | Domain controllers in root; `Subscribers/` — 9 log-channel subscribers; `Pages/` — 4 public page controllers |
+| Controllers | `inc/Controllers/` | Domain controllers in root; `Subscribers/` — 9 log-channel subscribers; `Pages/` — 5 public page controllers |
 | Callbacks | `inc/Callbacks/` | AJAX handlers only; subdirs: `Subject/`, `Person/`, `Settings/`, `Enrollment/`, `Task/` |
 | Repositories | `inc/Repositories/` | Read/write `wp_options` as structured arrays; `WPDBRepositories/Log/` — 9 log repositories, 8 из них наследуют `AbstractLogRepository` (общие `list()`/`countFiltered()`/`listAll()`; наследник задаёт `channel()`, `filterMap()`, `hydrate()`) |
 | MetaBoxes | `inc/MetaBoxes/` | Field and template definitions for metaboxes |
@@ -60,7 +60,7 @@ Webpack (via gulp-webpack-stream) bundles ES6 modules with Babel. `require.conte
 - `inc/Callbacks/Person/` — PersonViewCallbacks, PersonUpdateCallbacks, PiiRevealCallbacks, RepresentativeCallbacks
 - `inc/Callbacks/Settings/` — AcademicPeriodCallbacks, ConsentSettingsCallbacks, EmailTemplateSettingsCallbacks
 - `inc/Callbacks/Enrollment/` — ApplicationCallbacks, EnrollmentCallbacks, ExpulsionCallbacks, RecoveryCallbacks, DeletionCallbacks
-- `inc/Callbacks/Task/` — TaskCreationCallbacks, BoilerplateCallbacks, TemplateCallbacks, TemplateManagerCallbacks
+- `inc/Callbacks/Task/` — TaskCreationCallbacks, BoilerplateCallbacks, TemplateCallbacks, TemplateManagerCallbacks, AllTasksCallbacks
 - `inc/Callbacks/Course/` — КТП разложена по ответственностям: `ProgramCallbacks` (состав программы, публикация, настройки шагов), `LessonScheduleCallbacks` (даты, pin, reflow, календарь), `IndividualLessonCallbacks` (D3), `GroupRosterCallbacks`, `LessonDeliveryCallbacks` (работы, дедлайны, запись). Сервисный слой зеркальный: `ProgramCompositionService` / `ScheduleReflowService` / `IndividualLessonService` / `GroupCalendarService` + `ScheduleEventPublisher`
 
 **BaseController** (`Inc\Core\BaseController`): infrastructure utility only — not a domain or architectural base class. Provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Also declares the `AjaxResponse` trait (inherited by all subclasses). Extend this purely to gain access to plugin path helpers and AJAX transport — not to express any domain relationship. Controllers and Callbacks extending it are unrelated to each other beyond sharing these utilities.

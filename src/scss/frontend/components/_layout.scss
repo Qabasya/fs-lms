@@ -2,7 +2,7 @@
 @use '../mixins' as *;
 
 .fs-page-wrapper {
-  background: $color-bg-subtle;
+  background: $color-white;
 
   @include fs-page-pad;
 }
@@ -40,8 +40,7 @@
 }
 
 @media (max-width: $bp-sm) {
-  .fs-task-title { font-size: $font-size-md !important; }
-
+  // Мобильный кегль заголовка — в _task-content.scss, рядом с базовым правилом.
   .fs-task-nav__info { max-width: rem(90); }
 
   .fs-task-nav__title {

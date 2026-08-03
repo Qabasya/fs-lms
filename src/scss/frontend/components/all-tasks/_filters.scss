@@ -22,17 +22,18 @@
     gap: rem(8);
     padding: rem(8) rem(16) rem(6);
   }
-  .filters-side-title { font-size: $font-size-xs; font-weight: $font-bold; color: $color-text; }
-
+  .filters-side-title { font-size: $font-size-sm; font-weight: $font-medium; color: $color-text; }
+  
   .filters-side-clear {
     padding: 0;
     background: none; border: 0;
-    font-family: inherit; font-size: rem(11.5); color: $color-muted;
+    font-family: inherit; font-size: $font-size-xs; font-weight: $font-medium;
+    color: rgba($color-accent, .85);
     cursor: pointer;
     transition: color $transition;
 
     &:hover:not(:disabled) { color: $color-accent; }
-    &:disabled { opacity: .4; cursor: not-allowed; }
+    &:disabled { color: $color-muted; opacity: .4; cursor: not-allowed; }
   }
 
   // ── Секция-аккордеон ──────────────────────────────────────────
@@ -51,12 +52,12 @@
     &:hover { background: $color-bg-subtle; }
   }
   .filter-sec-title {
-    font-size: rem(10.5); font-weight: $font-bold;
+    font-size: $font-size-xs; font-weight: $font-medium;
     letter-spacing: .14em; text-transform: uppercase;
     color: $color-muted;
   }
   .filter-sec-right { display: inline-flex; align-items: center; gap: rem(8); }
-  .filter-sec-summary { font-size: $font-size-xs; color: $color-muted; font-variant-numeric: tabular-nums; }
+  .filter-sec-summary { font-size: $font-size-sm; color: $color-muted; font-variant-numeric: tabular-nums; }
 
   .filter-sec-badge {
     display: inline-flex; align-items: center; justify-content: center;
@@ -64,7 +65,7 @@
     padding: 0 rem(5);
     border-radius: $border-radius-pill;
     background: $color-accent; color: $color-white;
-    font-size: rem(10.5); font-weight: $font-bold; font-variant-numeric: tabular-nums;
+    font-size: $font-size-2xs; font-weight: $font-medium; font-variant-numeric: tabular-nums;
   }
   .filter-sec-chev {
     display: inline-flex; color: $color-muted;
@@ -88,7 +89,7 @@
     padding: rem(7) rem(8);
     border-radius: $border-radius-md;
     background: transparent; border: 0;
-    font-family: inherit; font-size: $font-size-xs; color: $color-muted;
+    font-family: inherit; font-size: $font-size-sm; color: $color-muted;
     text-align: left; cursor: pointer;
     transition: background $transition, color $transition;
 
@@ -100,13 +101,17 @@
     &[hidden] { display: none; }
   }
   .filter-option-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .filter-option-count { font-size: rem(11); color: $color-muted; font-variant-numeric: tabular-nums; }
+  .filter-option-count { font-size: $font-size-xs; color: $color-muted; font-variant-numeric: tabular-nums; }
   .filter-option-check {
     display: grid; place-items: center;
     width: rem(14); height: rem(14); flex: 0 0 rem(14);
     border: 1.5px solid $color-separator; border-radius: $border-radius-sm;
     color: transparent;
     transition: background $transition, border-color $transition, color $transition;
+
+    // Инлайновый svg сидит на базовой линии и уезжает вниз — в блочном
+    // потоке grid центрирует его точно по боксу.
+    svg { display: block; }
   }
   .filter-option.is-active .filter-option-check { background: $color-accent; border-color: $color-accent; color: $color-white; }
 

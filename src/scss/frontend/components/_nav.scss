@@ -51,7 +51,7 @@
     flex-shrink: 0;
     font-size: rem(20);
 
-    &--disabled { color: $color-separator; border-color: $color-border-light; cursor: default; pointer-events: none; }
+    &--disabled { color: $color-text-faint; border-color: $color-border-light; cursor: default; pointer-events: none; }
   }
 
   &__info {
@@ -67,7 +67,7 @@
 
   &__title {
     font-size: $font-size-base;
-    font-weight: $font-semibold;
+    font-weight: $font-medium;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

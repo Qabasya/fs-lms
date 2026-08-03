@@ -3,27 +3,98 @@
 // Тулбар (поиск) и строка меты результатов над списком карточек.
 .fs-all-tasks-page {
 
-  // ── Тулбар: поиск ─────────────────────────────────────────────
-  .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: rem(12); margin-bottom: rem(18); }
-
-  .toolbar-search {
-    flex: 1; min-width: rem(260);
+  // ── Строка крошек: слева цепочка, справа свёрнутый поиск ──────
+  .crumbs-row {
     display: flex; align-items: center;
-    gap: rem(10);
-    height: rem(42); padding: 0 rem(14);
+    gap: rem(12);
+    margin-bottom: rem(18);
+
+    // Собственный нижний отступ крошек внутри строки лишний: его задаёт сама
+    // строка, а из-за margin бокс крошек выше текста, и align-items: center
+    // ставил их выше поиска.
+    .fs-breadcrumbs { flex: 0 1 auto; min-width: 0; margin-bottom: 0; }
+  }
+
+  // ── Поиск: в покое одна лупа, по ховеру подпись, по клику поле ─
+  // Ширину анимируем max-width: у flex-элемента с auto-шириной анимировать
+  // нечего, а фиксировать ширину раскрытого поля нельзя — оно тянется до крошек.
+  // Базовое правило описывает ОБРАТНЫЙ ход (сворачивание) — он длиннее, чем
+  // раскрытие в :hover/.is-open, иначе элемент схлопывается рывком.
+  .toolbar-search {
+    display: flex; align-items: center;
+    flex: 0 0 auto; max-width: rem(36);
+    margin-left: auto;
+    height: rem(36);
     background: $color-white;
     border: 1px solid $color-border; border-radius: $border-radius-xl;
-    transition: border-color $transition;
+    overflow: hidden;
+    transition: max-width $transition-collapse, border-color $transition-collapse;
 
-    &:focus-within { border-color: $color-accent; }
+    &:hover {
+      max-width: rem(150); border-color: $color-accent;
+      transition: max-width $transition-slow, border-color $transition-slow;
+    }
+
+    &.is-open {
+      flex: 1 1 auto; max-width: 100%;
+      border-color: $color-accent;
+      transition: max-width $transition-slow, border-color $transition-slow;
+    }
   }
-  .toolbar-search-icon { display: inline-flex; flex: 0 0 rem(16); color: $color-muted; }
-  .toolbar-search input {
-    flex: 1; min-width: 0;
+
+  // Кнопка занимает всю «таблетку» вместе с внутренними отступами: кликом
+  // считается любая точка внутри рамки, а не только сам текст.
+  .toolbar-search-toggle {
+    display: inline-flex; align-items: center;
+    flex: 1 1 auto;
+    gap: rem(8);
+    height: 100%; padding: 0 rem(9);
+    color: $color-muted;
+    transition: color $transition-collapse;
+  }
+  .toolbar-search:hover .toolbar-search-toggle { color: $color-accent; transition: color $transition-slow; }
+  .toolbar-search.is-open .toolbar-search-toggle { flex: 0 0 auto; padding-left: rem(14); }
+  .toolbar-search-icon { display: inline-flex; flex: 0 0 rem(16); }
+
+  .toolbar-search-hint {
+    max-width: 0;
+    font-size: $font-size-xs; white-space: nowrap;
+    opacity: 0; overflow: hidden;
+    transition: max-width $transition-collapse, opacity $transition-collapse;
+  }
+  .toolbar-search:hover .toolbar-search-hint {
+    max-width: rem(90); opacity: 1;
+    transition: max-width $transition-slow, opacity $transition-slow;
+  }
+  .toolbar-search.is-open .toolbar-search-hint { max-width: 0; opacity: 0; }
+
+  // Три точки «печатаются» по очереди, пока курсор на кнопке.
+  .toolbar-search-dots span {
+    opacity: 0;
+    transition: opacity $transition-collapse;
+  }
+  .toolbar-search:hover .toolbar-search-dots span {
+    animation: fs-search-dot 1.2s infinite steps(1, end);
+
+    &:nth-child(2) { animation-delay: .2s; }
+    &:nth-child(3) { animation-delay: .4s; }
+  }
+
+  .toolbar-search-input {
+    width: 0; min-width: 0; margin-left: 0; padding: 0;
     background: transparent; border: 0; outline: 0;
     font-family: inherit; font-size: $font-size-sm; color: $color-text;
+    opacity: 0;
+    transition: opacity $transition-collapse;
+
+    &::placeholder { color: $color-muted; }
   }
-  .toolbar-search input::placeholder { color: $color-muted; }
+  .toolbar-search.is-open .toolbar-search-input {
+    flex: 1 1 auto; width: auto;
+    padding-right: rem(14);
+    opacity: 1;
+    transition: opacity $transition-slow;
+  }
 
   // ── Мета результатов ──────────────────────────────────────────
   .results-meta {
@@ -32,7 +103,7 @@
     padding: 0 rem(2) rem(14);
     font-size: $font-size-xs; color: $color-muted; font-variant-numeric: tabular-nums;
 
-    strong { color: $color-text; font-weight: $font-semibold; }
+    strong { color: $color-text; font-weight: $font-medium; }
   }
   .results-clear {
     padding: 0;
@@ -45,6 +116,14 @@
   }
 
   @media (max-width: $bp-md) {
-    .toolbar-search { min-width: 0; }
+    // Узкий экран: раскрытому полю нужна вся строка, крошки уходят на свою.
+    .crumbs-row { flex-wrap: wrap; }
+    .toolbar-search.is-open { flex-basis: 100%; margin-left: 0; }
   }
+}
+
+// Точки подписи «Поиск…»: каждая проявляется со своей задержкой.
+@keyframes fs-search-dot {
+  0%, 30%   { opacity: 0; }
+  40%, 100% { opacity: 1; }
 }

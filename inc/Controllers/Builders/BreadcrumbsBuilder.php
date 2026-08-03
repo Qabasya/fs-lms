@@ -24,18 +24,20 @@ readonly class BreadcrumbsBuilder {
 	/**
 	 * Крошки архива заданий: предмет / Тренажёр.
 	 *
-	 * Предмет собственной страницы не имеет, а архив — это и есть текущая
-	 * страница, поэтому ссылок в цепочке нет.
+	 * Собственной страницы у предмета нет, поэтому крошка предмета ведёт на
+	 * архив заданий — так же, как на странице одного задания. Текущая крошка
+	 * («Тренажёр») ссылкой не становится: это текущая страница.
 	 *
 	 * @param string $subject_name Название предмета.
+	 * @param string $archive_url  Ссылка на архив заданий предмета.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function forArchive( string $subject_name ): array {
+	public function forArchive( string $subject_name, string $archive_url = '' ): array {
 		$crumbs = array();
 
 		if ( '' !== $subject_name ) {
-			$crumbs[] = $this->crumb( $subject_name );
+			$crumbs[] = $this->crumb( $subject_name, $archive_url );
 		}
 
 		$crumbs[] = $this->crumb( self::TRAINER_LABEL, '', true );

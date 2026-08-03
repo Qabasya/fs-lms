@@ -12,10 +12,10 @@
 
 .fs-carousel-title {
   font-size: $font-size-xs;
-  font-weight: $font-semibold;
+  font-weight: $font-medium;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: $color-separator;
+  color: $color-text-faint;
   margin: 0;
 }
 
@@ -42,12 +42,14 @@
   a {
     display: flex;
     flex-direction: column;
-    gap: rem(10);
     min-height: rem(140);
     background: $color-white;
     border: 1px solid $color-border;
     border-radius: $border-radius-xl;
-    padding: rem(22) rem(24);
+    // Отступов у ссылки нет — миниатюра доходит до рамок; overflow обрезает
+    // её углы по скруглению карточки. Текст отступы берёт из .fs-carousel-body.
+    padding: 0;
+    overflow: hidden;
     transition: border-color $transition, box-shadow $transition;
 
     &:hover {
@@ -58,7 +60,7 @@
     strong {
       display: block;
       font-size: $font-size-md;
-      font-weight: $font-bold;
+      font-weight: $font-medium;
       line-height: $line-height-tight;
       color: $color-text;
     }
@@ -73,18 +75,44 @@
       margin: 0;
     }
 
-    &:hover .fs-carousel-read { color: $color-accent; }
+    // Стрелка «Читать» проявляется при наведении на всю карточку статьи.
+    &:hover .fs-carousel-read {
+      @include fs-arrow-reveal-open;
+
+      color: $color-accent;
+    }
   }
+}
+
+// Текстовая часть карточки: свои отступы, тянется на всю оставшуюся высоту,
+// чтобы «Читать» прижималось к низу (margin-top: auto).
+.fs-carousel-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: rem(10);
+  padding: rem(16) rem(16) rem(20);
+}
+
+// Миниатюра статьи — шапка карточки карусели во всю ширину, вплотную к рамкам
+// (в сайдбаре та же картинка стоит слева, см. .fs-sidebar-article-thumb).
+.fs-carousel-thumb {
+  display: block;
+  width: 100%;
+  height: rem(120);
+  object-fit: cover;
 }
 
 .fs-carousel-number {
   font-size: $font-size-xs;
-  font-weight: 500;
-  color: $color-separator;
+  font-weight: $font-medium;
+  color: $color-text-faint;
   line-height: 1;
 }
 
 .fs-carousel-read {
+  @include fs-arrow-reveal;
+
   margin-top: auto;
   font-size: $font-size-sm;
   color: $color-muted;

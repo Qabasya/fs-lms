@@ -5,19 +5,29 @@
 	rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide,
 	$spacing-xs, $spacing-sm, $spacing-md, $spacing-lg,
 	$border-radius-sm, $border-radius-md, $border-radius-lg, $border-radius-xl,
-	$font-size-xs, $font-size-sm, $font-size-base, $font-size-md,
-	$font-regular, $font-semibold, $font-bold,
-	$color-danger;
+	$font-size-2xs, $font-size-xs, $font-size-sm, $font-size-base, $font-size-md, $font-size-lead,
+	$font-regular, $color-danger;
 @use '../shared/tokens' as t;
 
 // ── Цвета
-$color-accent: #28c0f1;
+$color-accent: #029AE5;
 $color-text: #242424;
-$color-muted: #888;
-$color-text-secondary: #444;                // вторичный текст (условие, чипы) — между text и muted
 $color-border: #ddd;
 $color-border-light: #eee;
-$color-separator: #ccc;
+
+// Приглушённые оттенки — не самостоятельные hex, а прозрачность основного цвета.
+// Так ховер «приглушённый → основной» меняет ТОЛЬКО альфу, и второй цвет нигде
+// не хардкодится. Ступени подобраны под прежние #444/#888/#ccc на белом фоне
+// (все поверхности публичных страниц светлые — $color-white или $color-bg-subtle).
+$alpha-strong: .85; // вторичный текст: условие карточки, чипы
+$alpha-muted: .55;  // подписи, счётчики, плейсхолдеры
+$alpha-faint: .23;  // надзаголовки, разделители, отключённые элементы
+
+$color-text-secondary: rgba($color-text, $alpha-strong);
+$color-muted: rgba($color-text, $alpha-muted);
+$color-text-faint: rgba($color-text, $alpha-faint);
+// Разделитель — тот же оттенок, что и $color-text-faint, но роль другая (граница).
+$color-separator: rgba($color-text, $alpha-faint);
 $color-white: #fff;
 $color-bg-subtle: #f4f4f4;
 $color-success: #2e7d32;
@@ -26,6 +36,13 @@ $color-success: #2e7d32;
 $color-error-text: #c0392b;
 $color-error-bg: #fdf0ef;
 $color-error-border: #f5c6c3;
+
+// ── Палитра чипов-тегов: цвет закреплён за таксономией предмета
+// Порядок ступеней = порядок таксономий (PHP-сторона — TagPaletteService,
+// её COLORS обязана совпадать с длиной этого списка). Классы --c1…--c5
+// генерирует components/_tag-palette.scss.
+// Первая ступень — акцент проекта: её получает номер задания.
+$tag-palette: $color-accent, #f0b300, #bcd555, #4aac6f, #2657a6, #f8e300;
 
 // ── Подсветка кода (светлая тема, редактор в _code-block.scss)
 $code-header-bg: #fafafa;
@@ -52,6 +69,8 @@ $line-height-tight: 1.4;
 // Обычный вес: тема (TT5) ставит body{font-weight:300}, и UA-шный bolder у b/strong
 // от 300 даёт лишь 400 — жирный пропадает. Контентные блоки задают вес абсолютно.
 $font-normal: 400;
+// Единственный «жирный» вес публичных страниц: ядровые $font-semibold (600) и
+// $font-bold (700) намеренно НЕ форвардятся — по фронту весь акцентный текст 500.
 $font-medium: 500;
 
 // ── Компоновка
@@ -79,6 +98,12 @@ $shadow-hover: 0 t.rem(4) t.rem(16) rgba(0, 0, 0, .07);
 
 // ── Анимации
 $transition: 0.15s ease;
+// Медленная ступень — для раскрытий, где 0.15s читается как рывок
+// (свёрнутый поиск в строке крошек).
+$transition-slow: 0.35s ease;
+// Обратный ход: сворачивание тянется дольше раскрытия — иначе элемент
+// «схлопывается» рывком, стоит увести курсор.
+$transition-collapse: 0.55s ease;
 
 // ── Брейкпоинты
 $bp-md: t.rem(900);

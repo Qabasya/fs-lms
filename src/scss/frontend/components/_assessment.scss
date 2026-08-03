@@ -9,7 +9,7 @@
 
 .fs-assessment-title {
 	font-size: 1.75rem;
-	font-weight: $font-bold;
+	font-weight: $font-medium;
 	color: $color-text;
 	margin-bottom: $spacing-md;
 }
@@ -27,12 +27,14 @@
 	border-radius: $border-radius-md;
 	padding: $spacing-xs $spacing-sm;
 	font-size: 0.85rem;
-	font-weight: 500;
+	font-weight: $font-medium;
 }
 
 .fs-assessment-notice {
 	padding: $spacing-md;
-	background: color.mix($color-white, $color-muted, 90%);
+	// Нейтральная подложка — готовый токен: $color-muted теперь полупрозрачный,
+	// и подмешивать его в белый значило бы получить полупрозрачный фон.
+	background: $color-bg-subtle;
 	border-radius: $border-radius-sm;
 	color: $color-muted;
 }
@@ -48,7 +50,7 @@
 	padding: $spacing-xs $spacing-md;
 	margin-bottom: $spacing-md;
 	font-size: 1.25rem;
-	font-weight: $font-bold;
+	font-weight: $font-medium;
 	color: $color-text;
 
 	&.fs-timer--warning {
@@ -73,7 +75,7 @@
 }
 
 .fs-attempt-question-number {
-	font-weight: $font-bold;
+	font-weight: $font-medium;
 	color: $color-accent;
 	margin-bottom: $spacing-xs;
 }
@@ -128,7 +130,7 @@
 
 .fs-result-score {
 	font-size: 1rem;
-	font-weight: $font-semibold;
+	font-weight: $font-medium;
 	color: $color-text;
 }
 
@@ -147,7 +149,7 @@
 	border-radius: $border-radius-md;
 
 	&__title {
-		font-weight:   $font-semibold;
+		font-weight:   $font-medium;
 		margin-bottom: $spacing-xs;
 	}
 
@@ -186,7 +188,7 @@
 	&:last-child { border-bottom: none; }
 
 	&__n {
-		font-weight:  $font-semibold;
+		font-weight:  $font-medium;
 		color:        $color-accent;
 		min-width:    rem(24);
 		flex-shrink:  0;
@@ -228,7 +230,7 @@
 
 	&__title {
 		font-size:     $font-size-base;
-		font-weight:   $font-semibold;
+		font-weight:   $font-medium;
 		margin-bottom: $spacing-xs;
 	}
 

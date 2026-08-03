@@ -31,7 +31,7 @@ $code-pad-x: rem(18);
 .fs-code-editor__lang {
   font-family: $font-family;
   font-size: $font-size-xs;
-  font-weight: $font-semibold;
+  font-weight: $font-medium;
   color: $color-muted;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -107,7 +107,7 @@ $code-pad-x: rem(18);
 // ── Токены подсветки (Python) ──
 .fs-hl-keyword  { color: $hl-keyword; }
 .fs-hl-builtin  { color: $hl-builtin; }
-.fs-hl-function { color: $hl-function; font-weight: $font-semibold; }
+.fs-hl-function { color: $hl-function; font-weight: $font-medium; }
 .fs-hl-string   { color: $hl-string; }
 .fs-hl-number   { color: $hl-number; }
 .fs-hl-comment  { color: $hl-comment; font-style: italic; }

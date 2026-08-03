@@ -5,18 +5,24 @@ export function initTabs() {
     const buttons = container.querySelectorAll('.fs-tab-btn');
     const panels  = container.querySelectorAll('.fs-tab-panel');
 
+    // Клик по активному табу сворачивает панель — состояние «ни один не выбран»
+    // допустимо, поэтому aria-selected снимается со всех кнопок.
+    const setActive = btn => {
+        buttons.forEach(b => {
+            const on = b === btn;
+            b.classList.toggle('is-active', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        panels.forEach(p => p.classList.remove('is-active'));
+
+        if (btn) {
+            container.querySelector(`[data-panel="${btn.dataset.tab}"]`)?.classList.add('is-active');
+        }
+    };
+
     buttons.forEach(btn => {
         btn.addEventListener('click', () => {
-            const target   = btn.dataset.tab;
-            const isActive = btn.classList.contains('is-active');
-
-            buttons.forEach(b => b.classList.remove('is-active'));
-            panels.forEach(p => p.classList.remove('is-active'));
-
-            if (!isActive) {
-                btn.classList.add('is-active');
-                container.querySelector(`[data-panel="${target}"]`)?.classList.add('is-active');
-            }
+            setActive(btn.classList.contains('is-active') ? null : btn);
         });
     });
 }

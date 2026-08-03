@@ -26,13 +26,15 @@ const TOKEN_RE = /[brfuBRFU]{0,2}(?:"""[\s\S]*?"""|'''[\s\S]*?''')|[brfuBRFU]{0,
 
 // ── Точка входа ──────────────────────────────────────────────────────────────
 
+// Хук — класс .js-code на <code>: разметку печатает шаблон (сырой листинг из
+// TaskContentDTO), редактор с подсветкой собирается здесь.
 export function initCodeBlocks() {
-    document.querySelectorAll('.fs-tab-panel[data-panel="code"] pre > code').forEach(code => {
-        const pre  = code.parentElement;
-        const text = normalize(code.textContent);
-        const lang = code.dataset.lang || 'Python';
+    document.querySelectorAll('code.js-code').forEach(code => {
+        const block = code.closest('pre') || code;
+        const text  = normalize(code.textContent);
+        const lang  = code.dataset.lang || 'Python';
 
-        pre.replaceWith(buildEditor(text, lang));
+        block.replaceWith(buildEditor(text, lang));
     });
 }
 

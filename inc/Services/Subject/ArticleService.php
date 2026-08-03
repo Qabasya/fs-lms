@@ -152,6 +152,9 @@ class ArticleService {
 				'url'         => get_permalink( $post->ID ),
 				'excerpt'     => $this->getArticleExcerpt( $post ),
 				'task_number' => $task_number,
+				// Миниатюра: сайдбар обрезает её в квадрат, карусель — в широкую
+				// шапку карточки. Размера medium хватает обоим; пусто — блока нет.
+				'thumbnail'   => (string) get_the_post_thumbnail_url( $post->ID, 'medium' ),
 			);
 		}
 

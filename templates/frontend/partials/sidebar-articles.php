@@ -28,16 +28,27 @@ $sidebar_articles_url   = (string) ( $sidebar_articles_url ?? '' );
 		<?php foreach ( $sidebar_articles as $article ) : ?>
 			<li>
 				<a href="<?php echo esc_url( $article['url'] ); ?>">
-					<span class="fs-sidebar-article-title"><?php echo esc_html( $article['title'] ); ?></span>
-					<?php if ( ! empty( $article['excerpt'] ) ) : ?>
-						<span class="fs-sidebar-article-desc"><?php echo esc_html( $article['excerpt'] ); ?></span>
+					<?php if ( ! empty( $article['thumbnail'] ) ) : ?>
+						<img class="fs-sidebar-article-thumb"
+							src="<?php echo esc_url( $article['thumbnail'] ); ?>"
+							alt="" loading="lazy" decoding="async" />
 					<?php endif; ?>
+					<span class="fs-sidebar-article-text">
+						<span class="fs-sidebar-article-title"><?php echo esc_html( $article['title'] ); ?></span>
+						<?php // Без обложки карточке нужен объём: показываем две строки описания. ?>
+						<?php if ( empty( $article['thumbnail'] ) && ! empty( $article['excerpt'] ) ) : ?>
+							<span class="fs-sidebar-article-desc"><?php echo esc_html( $article['excerpt'] ); ?></span>
+						<?php endif; ?>
+						<?php // Не ссылка, а подпись внутри неё: вложенные <a> недопустимы. ?>
+						<span class="fs-sidebar-article-go">Перейти</span>
+					</span>
 				</a>
 			</li>
 		<?php endforeach; ?>
 	</ul>
 
 	<?php if ( '' !== $sidebar_articles_url ) : ?>
-		<a href="<?php echo esc_url( $sidebar_articles_url ); ?>" class="fs-sidebar-more">Все материалы →</a>
+		<?php // Стрелку рисует CSS (миксин fs-arrow-reveal): в покое её нет, появляется по ховеру. ?>
+		<a href="<?php echo esc_url( $sidebar_articles_url ); ?>" class="fs-sidebar-more">Все материалы</a>
 	<?php endif; ?>
 </section>

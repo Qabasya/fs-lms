@@ -20,7 +20,7 @@
 // ── Заголовок секции (uppercase, muted)
 @mixin section-label {
   font-size: $font-size-xs;
-  font-weight: 700;
+  font-weight: $font-medium;
   color: $color-muted;
   text-transform: uppercase;
   letter-spacing: rem(0.7);
@@ -49,7 +49,7 @@
 // ── Заголовок карточки-формы (margin задаётся на месте)
 @mixin fs-card-title {
   font-size: $font-size-lg;
-  font-weight: $font-bold;
+  font-weight: $font-medium;
   line-height: $line-height-tight;
   text-align: center;
   color: $color-text;
@@ -157,7 +157,7 @@
   padding: $padding !important;
   height: auto !important;
   font-size: $font-size-base !important;
-  font-weight: $font-bold;
+  font-weight: $font-medium;
 }
 
 // ── Первичная кнопка (accent); hover-opacity отличается (.85/.88) → параметр
@@ -227,7 +227,7 @@
   border-radius: $border-radius-pill;
   font-family: inherit;
   font-size: rem(11.5);
-  font-weight: $font-semibold;
+  font-weight: $font-medium;
   color: $color-text-secondary;
   transition: background $transition, color $transition, border-color $transition;
 
@@ -249,6 +249,63 @@
   }
 }
 
+// ── Стрелка-подсказка у ссылок-действий («Все материалы», «Читать»)
+// В покое стрелки нет — ни глифа, ни занятого места; при наведении она
+// проявляется и выезжает вправо. Открытое состояние вешается на ховер
+// того элемента, который его вызывает (сама ссылка или карточка-родитель).
+@mixin fs-arrow-reveal {
+  // Сама ссылка — inline-flex: стрелка выравнивается по центру строки, а не по
+  // базовой линии. С baseline её ломал overflow: hidden (он нужен, чтобы глиф
+  // не торчал при нулевой ширине): элемент вставал то выше строки, то ниже.
+  display: inline-flex;
+  align-items: center;
+
+  &::after {
+    content: '→';
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    line-height: 1;
+    transform: translateX(rem(-4));
+    transition: opacity $transition, transform $transition, max-width $transition, margin-left $transition;
+  }
+}
+
+@mixin fs-arrow-reveal-open {
+  &::after {
+    max-width: rem(20);
+    margin-left: rem(6);
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// ── То же для готовой SVG-стрелки внутри кнопки (Icon::ArrowRight).
+// Отступ даёт margin у самой иконки, а не gap контейнера: gap держал бы
+// пустое место и при скрытой стрелке.
+@mixin fs-arrow-icon-reveal {
+  gap: 0;
+
+  svg {
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    transform: translateX(rem(-4));
+    transition: opacity $transition, transform $transition, max-width $transition, margin-left $transition;
+  }
+}
+
+@mixin fs-arrow-icon-reveal-open {
+  svg {
+    max-width: rem(20);
+    margin-left: rem(8);
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 // ── Чип файла-вложения (иконка + имя + размер)
 @mixin fs-file-chip {
   display: inline-flex;
@@ -259,7 +316,7 @@
   border: 1px solid $color-border;
   border-radius: $border-radius-lg;
   font-size: $font-size-xs;
-  font-weight: $font-semibold;
+  font-weight: $font-medium;
   color: $color-text;
   text-decoration: none;
   transition: background $transition, border-color $transition;

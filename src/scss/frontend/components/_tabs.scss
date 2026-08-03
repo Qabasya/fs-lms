@@ -21,7 +21,7 @@
 .fs-task-page .fs-tab-btn {
   display: inline-block;
   font-size: $font-size-sm;
-  font-weight: 500;
+  font-weight: $font-medium;
   padding: rem(5) rem(14);
   border-radius: $border-radius-md;
   border: 0;
@@ -34,7 +34,6 @@
   &.is-active {
     background: $color-bg-subtle;
     color: $color-text;
-    font-weight: $font-semibold;
     cursor: default;
   }
 }

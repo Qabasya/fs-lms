@@ -1,0 +1,34 @@
+@use 'sass:list';
+@use 'sass:map';
+@use '../variables' as *;
+
+// Цвет чипа закреплён за таксономией задания: ступень палитры печатает PHP
+// классом --c{n} (TagPaletteService), значения живут здесь.
+//
+// Обычное состояние — цветная только точка-маркер: фон и рамка остаются
+// нейтральными из миксина fs-chip. При наведении проявляется рамка и подложка
+// того же цвета, поэтому второй оттенок нигде не хардкодится — только альфа.
+//
+// Скоуп у карточки списка обязателен: базовый ховер объявлен как
+// `.fs-all-tasks-page .tcr-tag:hover` и без него перебил бы цвет по специфичности.
+$tag-chip-scopes: (
+  '.fs-tag': '',
+  '.tcr-tag': '.fs-all-tasks-page ',
+);
+
+@each $chip, $scope in $tag-chip-scopes {
+  @for $i from 1 through list.length($tag-palette) {
+    $color: list.nth($tag-palette, $i);
+
+    #{$scope}#{$chip}--c#{$i} {
+      &::before { background: $color; }
+
+      &:hover {
+        background: rgba($color, .14);
+        border-color: rgba($color, .65);
+
+        &::before { background: $color; }
+      }
+    }
+  }
+}

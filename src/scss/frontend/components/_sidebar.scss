@@ -12,46 +12,54 @@
 .fs-sidebar-block { @include fs-surface-card($padding: rem(20) rem(22) rem(22)); }
 
 .fs-sidebar-title {
-  font-size: $font-size-xs;
-  font-weight: $font-semibold;
+  font-size: $font-size-sm;
+  font-weight: $font-medium;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: $color-separator;
+  color: $color-text-faint;
   margin: 0 0 rem(10);
 }
 
-.fs-sidebar-stub {
-  font-size: $font-size-sm;
-  color: $color-muted;
-  margin-bottom: $spacing-sm;
-}
-
 .fs-sidebar-more {
-  display: inline-block;
-  font-size: $font-size-xs;
-  color: $color-separator;
+  @include fs-arrow-reveal; // задаёт inline-flex
+
+  font-size: $font-size-sm;
+  color: $color-text-faint;
   transition: color $transition;
   margin-top: rem(20);
 
-  &:hover { color: $color-accent; }
+  &:hover {
+    @include fs-arrow-reveal-open;
+
+    color: $color-accent;
+  }
 }
 
-.fs-sidebar-articles {
+// Списки сайдбара — статьи и курсы: одна геометрия, разные данные.
+// Каждый пункт — отдельная карточка: миниатюра слева, текст справа.
+.fs-sidebar-articles,
+.fs-sidebar-courses {
   list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
   padding: 0;
   margin: 0 0 rem(14);
 
   li {
-    padding: $spacing-md 0;
-    border-bottom: 1px solid $color-border-light;
+    border: 1px solid $color-border-light;
+    border-radius: $border-radius-lg;
+    // Отступов у ссылки нет — миниатюра доходит до рамок; overflow обрезает
+    // её углы по скруглению карточки (как в карусели статей).
+    overflow: hidden;
+    transition: border-color $transition;
 
-    &:first-child { padding-top: 0; }
-    &:last-child  { border-bottom: none; padding-bottom: 0; }
+    &:hover { border-color: $color-accent; }
 
     a {
       display: flex;
-      flex-direction: column;
-      gap: rem(3);
+      align-items: stretch;
+      min-height: rem(56);
       transition: color $transition;
 
       &:hover { color: $color-accent; }
@@ -59,21 +67,77 @@
   }
 }
 
-.fs-sidebar-article-title {
-  font-size: $font-size-sm;
-  font-weight: $font-medium;
-  line-height: $line-height-tight;
+// Миниатюра статьи: занимает левую колонку карточки во всю её высоту.
+.fs-sidebar-article-thumb {
+  flex: 0 0 rem(82);
+  width: rem(82);
+  align-self: stretch;
+  object-fit: cover;
+  display: block;
 }
 
-.fs-sidebar-article-desc {
+// Текстовая колонка карточки — свои отступы, по центру относительно миниатюры.
+.fs-sidebar-article-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: rem(3);
+  min-width: 0;
+  padding: rem(8) rem(10);
+}
+
+// «Перейти» — подпись-кнопка карточки: стрелка выезжает при наведении на всю
+// карточку (тот же миксин, что у «Все материалы» и «Читать»).
+.fs-sidebar-article-go {
+  @include fs-arrow-reveal;
+
   font-size: $font-size-xs;
+  color: $color-muted;
+  transition: color $transition;
+}
+
+.fs-sidebar-articles li a:hover .fs-sidebar-article-go {
+  @include fs-arrow-reveal-open;
+
+  color: $color-accent;
+}
+
+// Описание — только у статей без обложки (см. партиал sidebar-articles.php).
+.fs-sidebar-article-desc {
+  font-size: $font-size-sm;
   color: $color-muted;
   line-height: $line-height-tight;
 
   @include line-clamp(2);
-
-  transition: color $transition;
 }
+
+// У курсов нет ссылки «Все материалы» под списком — нижний отступ не нужен,
+// а миниатюры нет вовсе: название и число уроков идут колонкой.
+.fs-sidebar-courses {
+  margin-bottom: 0;
+
+  li a {
+    flex-direction: column; align-items: flex-start;
+    gap: rem(3);
+    min-height: 0; padding: rem(10) rem(12);
+  }
+}
+
+.fs-sidebar-article-title,
+.fs-sidebar-course-title {
+  font-weight: $font-medium;
+  line-height: $line-height-tight;
+}
+
+.fs-sidebar-article-title { font-size: $font-size-sm; }
+.fs-sidebar-course-title  { font-size: $font-size-base; }
+
+.fs-sidebar-course-meta {
+  font-size: $font-size-sm;
+  color: $color-muted;
+  line-height: $line-height-tight;
+}
+
 
 // Адаптив: сайдбар уезжает под контент и перестаёт липнуть (сетку задаёт _layout).
 @media (max-width: $bp-md) {

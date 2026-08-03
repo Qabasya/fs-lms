@@ -18,12 +18,12 @@ export function buildTaskCard(task) {
 
     return `
     <article class="task-card-row" data-task-id="${esc(task.id)}">
+        <h2 class="tcr-title"><a class="tcr-title-link" href="${esc(task.url)}">${esc(task.title)}</a></h2>
         <header class="tcr-header">
             <div class="tcr-header-inner">
                 <div class="tcr-meta">${_buildTags(task)}</div>
             </div>
         </header>
-        <h2 class="tcr-title"><a class="tcr-title-link" href="${esc(task.url)}">${esc(task.title)}</a></h2>
         ${task.condition ? `<div class="tcr-body"><div class="tcr-condition">${task.condition}</div></div>` : ''}
         ${_buildFiles(task.files || [])}
         <footer class="tcr-foot">
@@ -39,18 +39,24 @@ export function buildTaskCard(task) {
     </article>`;
 }
 
+// Ступень палитры чипа приходит из PHP (TagPaletteService): цвет закреплён
+// за таксономией, значения живут в SCSS — здесь только класс.
+function _colorClass(color) {
+    return color > 0 ? ` tcr-tag--c${parseInt(color, 10)}` : '';
+}
+
 function _buildTags(task) {
     const chips = [];
 
     if (task.task_number > 0 && task.task_number_slug) {
         chips.push(
-            `<button type="button" class="tcr-tag js-tag-filter" data-filter="${esc(task.task_number_taxonomy)}" data-value="${esc(task.task_number_slug)}">Задание №${esc(task.task_number)}</button>`
+            `<button type="button" class="tcr-tag js-tag-filter${_colorClass(task.task_number_color)}" data-filter="${esc(task.task_number_taxonomy)}" data-value="${esc(task.task_number_slug)}">Задание №${esc(task.task_number)}</button>`
         );
     }
 
     (task.tags || []).forEach(tag => {
         chips.push(
-            `<button type="button" class="tcr-tag js-tag-filter" data-filter="${esc(tag.taxonomy)}" data-value="${esc(tag.slug)}">${esc(tag.label)}</button>`
+            `<button type="button" class="tcr-tag js-tag-filter${_colorClass(tag.color)}" data-filter="${esc(tag.taxonomy)}" data-value="${esc(tag.slug)}">${esc(tag.label)}</button>`
         );
     });
 
@@ -75,7 +81,7 @@ function _buildAnswerPanel(answer) {
 
     return `
     <div class="tcr-answer js-answer-panel" hidden>
-        <div class="tcr-answer-label">Правильный ответ</div>
+        <div class="tcr-answer-label">Правильный ответ:</div>
         <div class="tcr-answer-value">${esc(answer)}</div>
     </div>`;
 }

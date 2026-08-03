@@ -3,17 +3,23 @@
 
 .fs-task-page .fs-task-title {
   font-size: $font-size-2xl;
-  font-weight: $font-bold;
+  font-weight: $font-medium;
   line-height: 1.2;
   letter-spacing: -.02em;
   margin-bottom: rem(28);
+
+  // Мобильный кегль — здесь же, рядом с базовым правилом: у _layout.scss тот же
+  // селектор проигрывает по порядку каскада и потребовал бы !important.
+  @media (max-width: $bp-sm) {
+    font-size: $font-size-md;
+  }
 }
 
 .fs-task-tags {
   display: flex;
   flex-wrap: wrap;
   gap: $spacing-sm;
-  margin: 0 0 rem(22) 0;
+  margin: 0 0 rem(12) 0;
 }
 
 .fs-tag { @include fs-chip; }
@@ -27,19 +33,20 @@
 }
 
 .fs-task-card__body {
-  padding: $spacing-4xl rem(36) rem(20);
+  padding: rem(22) rem(36) rem(22);
 }
 
 .fs-task-condition {
   font-size: $font-size-md;
   line-height: $line-height-relaxed;
+  text-align: justify;
   // Сброс наследуемого body{font-weight:300} темы: UA-шный bolder у b/strong
   // от 300 даёт всего 400 — жирный визуально пропадает. Веса задаём абсолютно.
   font-weight: $font-normal;
   color: $color-text;
 
   * { color: $color-text; }
-  b, strong { font-weight: $font-bold; }
+  b, strong { font-weight: $font-medium; }
   img    { max-width: 100%; height: auto; display: block; }
   table  { border-collapse: collapse; margin: $spacing-md 0; }
   td, th { border: 1px solid $color-border; padding: rem(5) rem(10); font-size: $font-size-base; }
@@ -49,5 +56,5 @@
 
 .fs-file-link { @include fs-file-chip; }
 .fs-file-icon { @include fs-file-chip-icon; }
-.fs-file-name { font-weight: $font-semibold; }
+.fs-file-name { font-weight: $font-medium; }
 .fs-file-size { @include fs-file-chip-size; }

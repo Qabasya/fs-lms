@@ -35,6 +35,8 @@ class TemplateCallbacks extends BaseController {
 	 *
 	 * Подключается к фильтру 'template_include'. Возвращает путь к шаблону
 	 * плагина, если текущая запись является заданием и файл шаблона существует.
+	 * Если данных задания нет (запись удалена или это не задание) — отдаёт 404
+	 * темы, а не пустую карточку.
 	 *
 	 * @param string $template Путь к текущему шаблону темы.
 	 *
@@ -48,13 +50,41 @@ class TemplateCallbacks extends BaseController {
 				$custom_template = FS_LMS_PATH . 'templates/frontend/single-task.php';
 
 				if ( file_exists( $custom_template ) ) {
-					set_query_var( 'fs_task_data', $this->getTaskData( get_queried_object_id() ) );
+					$task_data = $this->getTaskData( get_queried_object_id() );
+
+					if ( ! $task_data->post ) {
+						return $this->notFound( $template );
+					}
+
+					set_query_var( 'fs_task_data', $task_data );
 					return $custom_template;
 				}
 			}
 		}
 
 		return $template;
+	}
+
+	/**
+	 * Переводит текущий запрос в 404 и возвращает шаблон «не найдено».
+	 *
+	 * @param string $template Путь к текущему шаблону темы (фолбэк).
+	 *
+	 * @return string
+	 */
+	private function notFound( string $template ): string {
+		global $wp_query;
+
+		if ( $wp_query instanceof \WP_Query ) {
+			$wp_query->set_404();
+		}
+
+		status_header( 404 );
+		nocache_headers();
+
+		$not_found = get_404_template();
+
+		return '' !== $not_found ? $not_found : $template;
 	}
 
 	/**
