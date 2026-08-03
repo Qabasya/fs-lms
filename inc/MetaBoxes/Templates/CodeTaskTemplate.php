@@ -4,7 +4,7 @@ namespace Inc\MetaBoxes\Templates;
 
 use Inc\Enums\Subject\TemplateCategory;
 use Inc\MetaBoxes\Fields\CodeField;
-use Inc\MetaBoxes\Fields\InputField;
+use Inc\MetaBoxes\Fields\TextareaField;
 use Inc\MetaBoxes\Fields\ConditionField;
 
 /**
@@ -22,7 +22,7 @@ class CodeTaskTemplate extends BaseTemplate {
 	 *
 	 * Инициализирует набор полей шаблона:
 	 * - task_condition: условие задания (textarea)
-	 * - task_answer: правильный ответ (input)
+	 * - task_answer: правильный ответ (многострочный текст)
 	 * - task_code: листинг кода (code field)
 	 */
 	public function __construct() {
@@ -33,7 +33,7 @@ class CodeTaskTemplate extends BaseTemplate {
 			),
 			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
-				'object' => new InputField(),        // Текстовое поле
+				'object' => new TextareaField(), // Многострочный текст (переносы сохраняются)
 			),
 			'task_code'      => array(
 				'label'  => 'Листинг кода (Python)',

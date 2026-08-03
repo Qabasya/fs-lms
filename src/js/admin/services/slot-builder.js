@@ -74,7 +74,7 @@ function buildSlotAnswerHtml( data ) {
 	}
 
 	if ( data.answer_html ) {
-		return lbl( 'Ответ' ) + data.answer_html;
+		return lbl( 'Ответ' ) + '<div class="fs-sb-task-answer">' + data.answer_html + '</div>';
 	}
 
 	return '';

@@ -157,7 +157,7 @@
 .own-verdict.t-ok   { color: var(--ok); }
 .own-verdict.t-no   { color: var(--err); }
 .own-verdict.t-wait { color: var(--muted); }
-.own-correct { color: var(--ink); font-weight: 700; }
+.own-correct { color: var(--ink); font-weight: 700; white-space: pre-wrap; }
 
 .own-detail-foot {
   display: flex; flex-wrap: wrap; gap: rem(4) rem(10); align-items: center;

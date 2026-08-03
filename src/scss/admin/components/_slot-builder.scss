@@ -85,7 +85,9 @@
 
 		margin: 0 0 $spacing-sm;
 	}
-	.fs-sb-task-answer { padding: $spacing-md; background: $cb-bg-tree; border: 1px solid $wp-admin-gray-bg; border-radius: $border-radius-sm; }
+
+	// Эталонный ответ — простой текст: переносы строк автора значимы.
+	.fs-sb-task-answer { padding: $spacing-md; background: $cb-bg-tree; border: 1px solid $wp-admin-gray-bg; border-radius: $border-radius-sm; white-space: pre-wrap; }
 	.fs-sb-task-options { @include cb-qa-stack(4px); }
 
 	.fs-sb-task-option {

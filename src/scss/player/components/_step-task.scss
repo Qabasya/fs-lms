@@ -132,6 +132,9 @@
     margin-bottom: rem(2);
   }
 
+  // Тело вердикта несёт эталонный ответ — он может быть многострочным.
+  > div > span { white-space: pre-wrap; }
+
   .vmeta {
     margin-top: rem(7);
     display: flex;
@@ -365,6 +368,9 @@
   .fs-solution__answer {
     font: 600 rem(14) var(--font);
     color: var(--ink);
+
+    // Эталон может быть многострочным — переносы автора значимы.
+    white-space: pre-wrap;
   }
 
   .fs-solution__html {

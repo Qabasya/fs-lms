@@ -130,7 +130,7 @@ function buildAnswerSection( data ) {
 	}
 
 	if ( data.answer_html ) {
-		return lbl( 'Ответ' ) + '<div class="fs-cb-tp-body">' + data.answer_html + '</div>';
+		return lbl( 'Ответ' ) + '<div class="fs-cb-tp-body fs-cb-tp-answer">' + data.answer_html + '</div>';
 	}
 
 	return '';

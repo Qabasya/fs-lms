@@ -21,8 +21,8 @@ use Inc\DTO\Task\CheckResultDTO;
 class TextAnswerChecker implements TaskCheckerInterface {
 
 	public function check( array $content, mixed $studentAnswer ): CheckResultDTO {
-		$correct = mb_strtolower( trim( (string) ( $content['task_answer'] ?? '' ) ) );
-		$student = mb_strtolower( trim( (string) $studentAnswer ) );
+		$correct = $this->normalize( (string) ( $content['task_answer'] ?? '' ) );
+		$student = $this->normalize( (string) $studentAnswer );
 
 		if ( '' === $correct ) {
 			return CheckResultDTO::incorrect();
@@ -31,5 +31,17 @@ class TextAnswerChecker implements TaskCheckerInterface {
 		return $correct === $student
 			? CheckResultDTO::correct()
 			: CheckResultDTO::incorrect();
+	}
+
+	/**
+	 * Приводит ответ к сравнимому виду: регистр, пробелы по краям и — для
+	 * многострочных ответов — переводы строк (CRLF/CR браузеров → LF) и
+	 * хвостовые пробелы каждой строки.
+	 */
+	private function normalize( string $value ): string {
+		$value = str_replace( array( "\r\n", "\r" ), "\n", $value );
+		$lines = array_map( 'rtrim', explode( "\n", $value ) );
+
+		return mb_strtolower( trim( implode( "\n", $lines ) ) );
 	}
 }
