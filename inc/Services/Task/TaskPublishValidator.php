@@ -65,7 +65,7 @@ class TaskPublishValidator {
 			$error = match ( $editorType ) {
 				'rich_text'   => trim( strip_tags( (string) $value ) ) === ''
 					? "Заполните «{$label}»." : null,
-				'text', 'code', 'link' => trim( (string) $value ) === ''
+				'text', 'multiline_text', 'code', 'link' => trim( (string) $value ) === ''
 					? "Заполните «{$label}»." : null,
 				'options'     => $this->checkOptions( $value ),
 				'pairs'       => $this->checkPairs( $value ),

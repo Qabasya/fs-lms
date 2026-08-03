@@ -2,7 +2,7 @@
 
 namespace Inc\MetaBoxes\Templates;
 
-use Inc\MetaBoxes\Fields\InputField;
+use Inc\MetaBoxes\Fields\TextareaField;
 use Inc\MetaBoxes\Fields\LinkField;
 use Inc\MetaBoxes\Fields\ConditionField;
 
@@ -21,7 +21,7 @@ class FileTaskTemplate extends BaseTemplate {
 	 *
 	 * Инициализирует набор полей шаблона:
 	 * - task_condition: условие задания (textarea)
-	 * - task_answer: правильный ответ (input)
+	 * - task_answer: правильный ответ (многострочный текст)
 	 * - file: ссылка на файл задания (link field)
 	 */
 	public function __construct() {
@@ -32,7 +32,7 @@ class FileTaskTemplate extends BaseTemplate {
 			),
 			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
-				'object' => new InputField(),        // Текстовое поле
+				'object' => new TextareaField(), // Многострочный текст (переносы сохраняются)
 			),
 			'file'           => array(
 				'label'  => 'Файл задания',

@@ -2,7 +2,7 @@
 
 namespace Inc\MetaBoxes\Templates;
 
-use Inc\MetaBoxes\Fields\InputField;
+use Inc\MetaBoxes\Fields\TextareaField;
 use Inc\MetaBoxes\Fields\ConditionField;
 
 /**
@@ -15,7 +15,7 @@ use Inc\MetaBoxes\Fields\ConditionField;
  * Содержит три поля:
  * - common_condition: базовое неизменяемое условие (textarea)
  * - task_condition: вариативная часть условия (textarea)
- * - task_answer: поле для ответа (input)
+ * - task_answer: поле для ответа (многострочный текст)
  *
  * @package Inc\MetaBoxes\Templates
  * @extends BaseTemplate
@@ -41,7 +41,7 @@ class CommonConditionTemplate extends BaseTemplate {
 			),
 			'task_answer'      => array(
 				'label'  => 'Ответ',
-				'object' => new InputField(),       // Поле для ответа
+				'object' => new TextareaField(), // Многострочный текст (переносы сохраняются)
 			),
 		);
 	}

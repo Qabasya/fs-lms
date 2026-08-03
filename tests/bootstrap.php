@@ -573,6 +573,7 @@ if (!function_exists('__'))           { function __($text, $domain = null) { ret
 if (!function_exists('_e'))           { function _e($text, $domain = null): void { echo $text; } }
 if (!function_exists('esc_html'))     { function esc_html($text) { return $text; } }
 if (!function_exists('esc_attr'))     { function esc_attr($text) { return $text; } }
+if (!function_exists('esc_textarea')) { function esc_textarea($text) { return $text; } }
 if (!function_exists('esc_html__'))   { function esc_html__($text, $domain = null) { return $text; } }
 if (!function_exists('esc_attr__'))   { function esc_attr__($text, $domain = null) { return $text; } }
 
