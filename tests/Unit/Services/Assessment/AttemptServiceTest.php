@@ -14,6 +14,7 @@ use Inc\Enums\Assessment\ScoringPolicy;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Services\Assessment\AssessmentAccessPolicy;
 use Inc\Services\Assessment\AttemptService;
 use Inc\Services\Assessment\AutoGradeService;
@@ -48,7 +49,9 @@ class AttemptServiceTest extends TestCase {
 		$this->completeness = $this->createMock( EgeCompletenessChecker::class );
 
 		$this->clock->method( 'now' )->willReturn( '2026-06-01 10:00:00' );
-		$this->access->method( 'canAccess' )->willReturn( true );
+		// Политика сама возвращает занятие: попытка привязывается к нему, даже если
+		// ученик пришёл по прямому пермалинку без `from_gl`.
+		$this->access->method( 'resolveAccessibleLesson' )->willReturn( $this->accessibleLesson() );
 
 		$this->service = new AttemptService(
 			$this->attempts,
@@ -126,5 +129,50 @@ class AttemptServiceTest extends TestCase {
 		$attempt = $this->service->start( 99, 1, null );
 
 		$this->assertSame( 5, $attempt->id );
+	}
+
+	/**
+	 * Прямой заход (без `from_gl`): занятие и группа берутся из политики,
+	 * иначе попытка осталась бы без привязки и выпала из отчётов.
+	 */
+	public function test_start_binds_attempt_to_accessible_lesson(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::Control ) );
+		$this->attempts->method( 'countByAssessmentAndStudent' )->willReturn( 0 );
+		$this->attempts->method( 'nextAttemptNumber' )->willReturn( 1 );
+		$this->attempts->method( 'find' )->willReturn( $this->seededAttempt() );
+		$this->attempts->expects( $this->once() )
+			->method( 'create' )
+			->with( $this->callback(
+				static fn( $dto ): bool => 77 === $dto->groupLessonId && 9 === $dto->groupId
+			) )
+			->willReturn( 5 );
+
+		$this->service->start( 99, 1, null, null );
+	}
+
+	/** Контекст из плеера важнее: пришёл `from_gl` — используем его. */
+	public function test_explicit_lesson_from_player_wins(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::Control ) );
+		$this->attempts->method( 'countByAssessmentAndStudent' )->willReturn( 0 );
+		$this->attempts->method( 'nextAttemptNumber' )->willReturn( 1 );
+		$this->attempts->method( 'find' )->willReturn( $this->seededAttempt() );
+		$this->attempts->expects( $this->once() )
+			->method( 'create' )
+			->with( $this->callback(
+				static fn( $dto ): bool => 55 === $dto->groupLessonId && 3 === $dto->groupId
+			) )
+			->willReturn( 5 );
+
+		$this->service->start( 99, 1, 3, 55 );
+	}
+
+	/** Занятие, через которое контрольная доступна ученику. */
+	private function accessibleLesson(): GroupLessonDTO {
+		return new GroupLessonDTO(
+			id: 77, groupId: 9, lessonId: 1, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: '2026-08-01 10:00:00', endsAt: null, isPinned: false, teacherUserId: null,
+			visibility: 'open', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null, workDeadlines: array(),
+		);
 	}
 }

@@ -39,9 +39,16 @@ class AttemptService {
 			throw new \InvalidArgumentException( "Экзамен {$assessmentId} не найден." );
 		}
 
-		if ( ! $this->access->canAccess( $studentPersonId, $assessmentId ) ) {
+		// Занятие берём у политики, а не из запроса: `from_gl` есть только при заходе
+		// из плеера, а по прямому пермалинку (закладка, возврат к активной попытке)
+		// его нет — и попытка оставалась без привязки к занятию.
+		$accessibleLesson = $this->access->resolveAccessibleLesson( $studentPersonId, $assessmentId );
+		if ( null === $accessibleLesson ) {
 			throw new \RuntimeException( 'Нет доступа к этой контрольной.' );
 		}
+
+		$groupLessonId ??= $accessibleLesson->id;
+		$groupId       ??= $accessibleLesson->groupId;
 
 		// D16.3.б: незавершённую ЕГЭ/КЕГЭ-работу (нет биекции задание↔номер) нельзя
 		// начать. Control не касается. Опубликованная работа обычно уже прошла
