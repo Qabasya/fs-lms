@@ -1,14 +1,15 @@
 import { AllTasksApi }    from './all-tasks-api.js';
 import { FilterSection }  from '../components/filter-section.js';
 import { buildTaskCard }  from '../components/task-card.js';
-import { bindCardTabs }   from '../modules/card-tabs.js';
+import { bindAnswerToggle } from '../modules/answer-toggle.js';
+import { initTaskConditions } from '../modules/task-condition.js';
 import { renderSidebarArticles } from '../components/sidebar-articles.js';
 import { pluralRu }       from '../../common/plural.js';
 
 /**
  * AllTasksPage — оркестратор страницы «Все задания».
  *
- * Связывает AllTasksApi, FilterSection, buildTaskCard и bindCardTabs.
+ * Связывает AllTasksApi, FilterSection, buildTaskCard и bindAnswerToggle.
  * Управляет состоянием: активные фильтры, offset пагинации, флаг загрузки.
  */
 export class AllTasksPage {
@@ -35,7 +36,8 @@ export class AllTasksPage {
         this._initInfiniteScroll();
         this._bindTagFilters();
 
-        bindCardTabs(this._cardsWrap);
+        bindAnswerToggle(this._cardsWrap);
+        initTaskConditions(this._cardsWrap);
     }
 
     // ── Config ────────────────────────────────────────────────
@@ -58,7 +60,6 @@ export class AllTasksPage {
         this._nounEl      = this._root.querySelector('.js-results-noun');
         this._clearBtns   = this._root.querySelectorAll('.js-filters-clear');
         this._sideClear   = this._root.querySelector('.filters-side-clear');
-        this._metaClear   = this._root.querySelector('.results-meta .js-filters-clear');
         this._searchInput = this._root.querySelector('.js-search-input');
         this._articles    = this._root.querySelector('.js-articles-block');
     }
@@ -212,11 +213,10 @@ export class AllTasksPage {
     }
 
     _syncClearBtns() {
-        // Кнопки сброса отражают ТОЛЬКО выбранные фильтры-таксономии, не поиск
-        // (у поля поиска свой нативный ×). Сайдбарная — disabled, мета — hidden.
+        // Кнопка сброса отражает ТОЛЬКО выбранные фильтры-таксономии, не поиск
+        // (у поля поиска свой нативный ×).
         const active = Object.keys(this._filters.taxonomies).length > 0;
         if (this._sideClear) this._sideClear.disabled = !active;
-        if (this._metaClear) this._metaClear.hidden   = !active;
     }
 
     // ── Fetch / render ────────────────────────────────────────
@@ -258,7 +258,8 @@ export class AllTasksPage {
 
                 this._offset += tasks.length;
 
-                bindCardTabs(this._cardsWrap);
+                bindAnswerToggle(this._cardsWrap);
+                initTaskConditions(this._cardsWrap);
                 this._updateCountEl(total);
                 this._toggleEmpty(this._offset === 0);
                 this._setSentinel(has_more);

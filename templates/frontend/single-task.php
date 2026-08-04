@@ -32,14 +32,18 @@ $archive_url = $navigation->archive_url;
 $nav_prev    = $navigation->prev;
 $nav_next    = $navigation->next;
 
+// Пустой сайдбар (ни курсов, ни статей) не рендерим: контент занимает всю сетку.
+$has_sidebar = ! empty( $task_data->courses ) || ! empty( $articles['related'] );
+
 ThemeCompatService::header();
 ?>
 
 <div class="fs-page-wrapper">
 	<div class="fs-page-shell">
-		<div class="fs-task-page">
+		<div class="fs-task-page<?php echo $has_sidebar ? '' : ' fs-task-page--solo'; ?>">
 
 			<!-- ===================== ЛЕВЫЙ САЙДБАР ===================== -->
+			<?php if ( $has_sidebar ) : ?>
 			<aside class="fs-task-sidebar">
 
 				<?php
@@ -56,6 +60,7 @@ ThemeCompatService::header();
 				?>
 
 			</aside>
+			<?php endif; ?>
 
 			<!-- ===================== ОСНОВНОЙ КОНТЕНТ ===================== -->
 			<main class="fs-task-main">
@@ -67,14 +72,13 @@ ThemeCompatService::header();
 				<h1 class="fs-task-title"><?php echo esc_html( $task_post?->title ?? '' ); ?></h1>
 
 				<!-- Навигация: предыдущее / все задания / следующее -->
-				<hr class="fs-task-divider">
 				<nav class="fs-task-nav">
 					<?php if ( $nav_prev ) : ?>
 					<a href="<?php echo esc_url( $nav_prev->url ); ?>" class="fs-task-nav__side fs-task-nav__side--prev" aria-label="Предыдущее задание">
 					<?php else : ?>
 					<div class="fs-task-nav__side fs-task-nav__side--prev">
 					<?php endif; ?>
-						<span class="fs-task-nav__arrow<?php echo ! $nav_prev ? ' fs-task-nav__arrow--disabled' : ''; ?>" aria-hidden="true">&#8249;</span>
+						<span class="fs-task-nav__arrow<?php echo ! $nav_prev ? ' fs-task-nav__arrow--disabled' : ''; ?>" aria-hidden="true"><?php echo Icon::ChevronLeft->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
 						<div class="fs-task-nav__info">
 							<span class="fs-task-nav__label">Предыдущее</span>
 							<span class="fs-task-nav__title">
@@ -87,21 +91,25 @@ ThemeCompatService::header();
 					</div>
 					<?php endif; ?>
 
-					<div class="fs-task-nav__center">
-						<div class="fs-task-nav__circle"></div>
-						<?php if ( '' !== $archive_url ) : ?>
-							<a href="<?php echo esc_url( $archive_url ); ?>" class="fs-task-nav__all">Все задания</a>
-						<?php else : ?>
+					<?php // Центр кликабелен целиком: точки — маркер «списка», как в макете. ?>
+					<?php if ( '' !== $archive_url ) : ?>
+						<a href="<?php echo esc_url( $archive_url ); ?>" class="fs-task-nav__center">
+							<span class="fs-task-nav__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+							<span class="fs-task-nav__all">Все задания</span>
+						</a>
+					<?php else : ?>
+						<div class="fs-task-nav__center">
+							<span class="fs-task-nav__dots" aria-hidden="true"><i></i><i></i><i></i></span>
 							<span class="fs-task-nav__all fs-task-nav__all--plain">Все задания</span>
-						<?php endif; ?>
-					</div>
+						</div>
+					<?php endif; ?>
 
 					<?php if ( $nav_next ) : ?>
 					<a href="<?php echo esc_url( $nav_next->url ); ?>" class="fs-task-nav__side fs-task-nav__side--next" aria-label="Следующее задание">
 					<?php else : ?>
 					<div class="fs-task-nav__side fs-task-nav__side--next">
 					<?php endif; ?>
-						<span class="fs-task-nav__arrow<?php echo ! $nav_next ? ' fs-task-nav__arrow--disabled' : ''; ?>" aria-hidden="true">&#8250;</span>
+						<span class="fs-task-nav__arrow<?php echo ! $nav_next ? ' fs-task-nav__arrow--disabled' : ''; ?>" aria-hidden="true"><?php echo Icon::ChevronRight->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
 						<div class="fs-task-nav__info fs-task-nav__info--right">
 							<span class="fs-task-nav__label">Следующее</span>
 							<span class="fs-task-nav__title">
@@ -114,7 +122,6 @@ ThemeCompatService::header();
 					</div>
 					<?php endif; ?>
 				</nav>
-				<hr class="fs-task-divider">
 
 				<!-- Карточка задания -->
 				<div class="fs-task-card">
@@ -152,12 +159,15 @@ ThemeCompatService::header();
 								<?php foreach ( $files as $file ) : ?>
 									<a href="<?php echo esc_url( $file['url'] ); ?>" class="fs-file-link">
 										<span class="fs-file-icon" aria-hidden="true">
-											<?php echo Icon::File->svg( 13 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+											<?php echo Icon::File->svg( 17 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 										</span>
 										<span class="fs-file-name"><?php echo esc_html( $file['name'] ); ?></span>
 										<?php if ( ! empty( $file['size'] ) ) : ?>
 											<span class="fs-file-size"><?php echo esc_html( $file['size'] ); ?></span>
 										<?php endif; ?>
+										<span class="fs-file-dl" aria-hidden="true">
+											<?php echo Icon::Download->svg( 17 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+										</span>
 									</a>
 								<?php endforeach; ?>
 							</div>
@@ -166,11 +176,17 @@ ThemeCompatService::header();
 					</div>
 
 					<!-- Табы -->
-					<?php if ( ! empty( $tabs ) ) : ?>
+					<?php if ( ! empty( $tabs ) || '' !== $content->answer ) : ?>
 						<?php // При открытии страницы все табы закрыты — панель раскрывает клик (task-tabs.js). ?>
 						<div class="fs-task-tabs">
 							<div class="fs-tabs-toolbar">
-								<div class="fs-tabs-nav" role="tablist" aria-label="Материалы задания">
+								<?php // Ответ — тот же блок, что в карточке списка: кнопка + панель по aria-controls. ?>
+								<?php if ( '' !== $content->answer ) : ?>
+									<button type="button" class="fs-answer-toggle js-answer-toggle"
+										aria-expanded="false" aria-controls="fs-answer-<?php echo esc_attr( (string) ( $task_post?->id ?? 0 ) ); ?>">Показать ответ</button>
+								<?php endif; ?>
+								<?php if ( ! empty( $tabs ) ) : ?>
+									<div class="fs-tabs-nav" role="tablist" aria-label="Материалы задания">
 									<?php foreach ( $tabs as $tab ) : ?>
 										<button
 											type="button"
@@ -184,7 +200,16 @@ ThemeCompatService::header();
 										</button>
 									<?php endforeach; ?>
 								</div>
+								<?php endif; ?>
 							</div>
+							<?php if ( '' !== $content->answer ) : ?>
+								<div id="fs-answer-<?php echo esc_attr( (string) ( $task_post?->id ?? 0 ) ); ?>" class="fs-answer js-answer-panel" hidden>
+									<div class="fs-answer-label">Правильный ответ:</div>
+									<div class="fs-answer-value"><?php echo esc_html( $content->answer ); ?></div>
+								</div>
+							<?php endif; ?>
+
+							<?php if ( ! empty( $tabs ) ) : ?>
 							<div class="fs-tabs-content">
 								<?php foreach ( $tabs as $tab ) : ?>
 									<div
@@ -202,6 +227,7 @@ ThemeCompatService::header();
 									</div>
 								<?php endforeach; ?>
 							</div>
+							<?php endif; ?>
 						</div>
 					<?php endif; ?>
 
@@ -219,34 +245,39 @@ ThemeCompatService::header();
 			<div class="fs-carousel-header">
 				<h3 class="fs-carousel-title">Рекомендуемые статьи</h3>
 			</div>
-			<button type="button" class="fs-carousel-btn fs-carousel-btn--prev" aria-label="Назад">&#8249;</button>
+			<div class="fs-carousel-row">
+				<button type="button" class="fs-carousel-btn fs-carousel-btn--prev" aria-label="Назад"><?php echo Icon::ChevronLeft->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 
-			<div class="fs-carousel-overflow">
-				<div class="fs-carousel-track">
-					<?php foreach ( $articles['recommended'] as $article ) : ?>
-						<div class="fs-carousel-item">
-							<a href="<?php echo esc_url( $article['url'] ); ?>">
-								<?php if ( ! empty( $article['thumbnail'] ) ) : ?>
-									<img class="fs-carousel-thumb"
-										src="<?php echo esc_url( $article['thumbnail'] ); ?>"
-										alt="" loading="lazy" decoding="async" />
-								<?php endif; ?>
-								<?php // Текст в своей обёртке: у ссылки отступов нет, чтобы миниатюра доходила до рамок. ?>
-								<span class="fs-carousel-body">
-									<strong><?php echo esc_html( $article['title'] ); ?></strong>
-									<?php if ( ! empty( $article['excerpt'] ) ) : ?>
-										<p><?php echo esc_html( $article['excerpt'] ); ?></p>
+				<div class="fs-carousel-overflow">
+					<div class="fs-carousel-track">
+						<?php foreach ( $articles['recommended'] as $article ) : ?>
+							<div class="fs-carousel-item">
+								<a href="<?php echo esc_url( $article['url'] ); ?>">
+									<?php // Нет обложки — заглушка на её месте: карточки карусели равны по высоте. ?>
+									<?php if ( ! empty( $article['thumbnail'] ) ) : ?>
+										<img class="fs-carousel-thumb"
+											src="<?php echo esc_url( $article['thumbnail'] ); ?>"
+											alt="" loading="lazy" decoding="async" />
+									<?php else : ?>
+										<span class="fs-carousel-thumb fs-carousel-thumb--empty" aria-hidden="true"></span>
 									<?php endif; ?>
-									<?php // Стрелку рисует CSS (миксин fs-arrow-reveal) на ховере карточки. ?>
-									<span class="fs-carousel-read">Читать</span>
-								</span>
-							</a>
-						</div>
-					<?php endforeach; ?>
+									<?php // Текст в своей обёртке: у ссылки отступов нет, чтобы миниатюра доходила до рамок. ?>
+									<span class="fs-carousel-body">
+										<strong><?php echo esc_html( $article['title'] ); ?></strong>
+										<?php if ( ! empty( $article['excerpt'] ) ) : ?>
+											<p><?php echo esc_html( $article['excerpt'] ); ?></p>
+										<?php endif; ?>
+										<?php // Стрелку рисует CSS (миксин fs-arrow-reveal) на ховере карточки. ?>
+										<span class="fs-carousel-read">Читать</span>
+									</span>
+								</a>
+							</div>
+						<?php endforeach; ?>
+					</div>
 				</div>
-			</div>
 
-			<button type="button" class="fs-carousel-btn fs-carousel-btn--next" aria-label="Вперёд">&#8250;</button>
+			<button type="button" class="fs-carousel-btn fs-carousel-btn--next" aria-label="Вперёд"><?php echo Icon::ChevronRight->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
+			</div>
 		</div>
 	<?php endif; ?>
 

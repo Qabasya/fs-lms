@@ -12,40 +12,59 @@
 
 .fs-carousel-title {
   font-size: $font-size-xs;
-  font-weight: $font-medium;
+  font-weight: $font-semibold;
   text-transform: uppercase;
-  letter-spacing: .08em;
-  color: $color-text-faint;
+  letter-spacing: .07em;
+  color: $color-muted-2;
   margin: 0;
 }
 
 .fs-task-carousel {
-  position: relative;
   max-width: $max-width;
   margin: rem(28) auto 0;
-  padding: 0 $carousel-padding;
+}
+
+// Стрелки — часть ряда, а не абсолютные накладки: раньше они висели левее
+// заголовка блока и выходили за сетку.
+.fs-carousel-row {
+  display: flex;
+  align-items: center;
+  gap: rem(14);
 }
 
 .fs-carousel-overflow {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
-  border-radius: $border-radius-xl;
+  border-radius: $radius-card;
+  // Тени карточек не должны срезаться краем окна прокрутки.
+  padding: rem(4) 0;
 }
 
 .fs-carousel-track {
   display: flex;
+  // Растягиваем ячейки по высоте самой большой: карточки в ряду одинаковы,
+  // независимо от длины заголовка.
+  align-items: stretch;
 }
 
+// Сколько карточек в кадре — единственный источник правды для CSS и JS:
+// шаг прокрутки в article-carousel.js (visibleCount) обязан совпадать с этими
+// ступенями, иначе трек уезжает не на карточку.
 .fs-carousel-item {
+  display: flex;
   flex: 0 0 calc(100% / 3);
   padding: 0 $spacing-sm;
 
   a {
     display: flex;
+    flex: 1;
     flex-direction: column;
-    min-height: rem(140);
+    min-height: rem(380);
     background: $color-white;
     border: 1px solid $color-border;
-    border-radius: $border-radius-xl;
+    border-radius: $radius-card;
+    box-shadow: $shadow-surface;
     // Отступов у ссылки нет — миниатюра доходит до рамок; overflow обрезает
     // её углы по скруглению карточки. Текст отступы берёт из .fs-carousel-body.
     padding: 0;
@@ -53,20 +72,21 @@
     transition: border-color $transition, box-shadow $transition;
 
     &:hover {
-      border-color: $color-accent;
+      border-color: $color-accent-soft-2;
       box-shadow: $shadow-hover;
     }
 
     strong {
       display: block;
       font-size: $font-size-md;
-      font-weight: $font-medium;
+      font-weight: $font-bold;
       line-height: $line-height-tight;
+      letter-spacing: -.01em;
       color: $color-text;
     }
 
     p {
-      font-size: $font-size-sm;
+      font-size: $font-size-xs;
       color: $color-muted;
       line-height: 1.5;
 
@@ -75,11 +95,16 @@
       margin: 0;
     }
 
+    // Заголовок откликается на наведение вместе со всей карточкой.
+    strong { transition: color $transition; }
+
+    &:hover strong { color: $color-accent-700; }
+
     // Стрелка «Читать» проявляется при наведении на всю карточку статьи.
     &:hover .fs-carousel-read {
       @include fs-arrow-reveal-open;
 
-      color: $color-accent;
+      color: $color-accent-700;
     }
   }
 }
@@ -90,8 +115,8 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: rem(10);
-  padding: rem(16) rem(16) rem(20);
+  gap: rem(9);
+  padding: rem(16) rem(18) rem(18);
 }
 
 // Миниатюра статьи — шапка карточки карусели во всю ширину, вплотную к рамкам
@@ -99,37 +124,42 @@
 .fs-carousel-thumb {
   display: block;
   width: 100%;
-  height: rem(120);
+  height: rem(170);
+  flex: 0 0 rem(170);
+  border-bottom: 1px solid $color-border-light;
   object-fit: cover;
 }
 
-.fs-carousel-number {
-  font-size: $font-size-xs;
-  font-weight: $font-medium;
-  color: $color-text-faint;
-  line-height: 1;
-}
+// Обложки ещё нет — место держит заглушка той же высоты.
+.fs-carousel-thumb--empty { @include fs-thumb-placeholder; }
 
 .fs-carousel-read {
   @include fs-arrow-reveal;
 
   margin-top: auto;
-  font-size: $font-size-sm;
-  color: $color-muted;
+  font-size: $font-size-xs;
+  font-weight: $font-semibold;
+  color: $color-accent;
   transition: color $transition;
 }
 
 .fs-task-carousel .fs-carousel-btn {
-  @include circle-btn(rem(36));
+  @include circle-btn(rem(38));
 
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
-  color: $color-text;
+  flex: 0 0 rem(38);
+  background: $color-white;
+  box-shadow: $shadow-surface;
+  color: $color-text-secondary;
 
-  &.fs-carousel-btn--prev { left: rem(4); }
-  &.fs-carousel-btn--next { right: rem(4); }
+  // Инлайновый svg сидит на базовой линии — в блочном потоке он центрируется
+  // по кнопке точно.
+  svg { display: block; }
+
+  &:hover {
+    background: $color-accent-soft;
+    border-color: $color-accent-soft-2;
+    color: $color-accent-700;
+  }
 }
 
 .fs-carousel-dots {
@@ -140,16 +170,33 @@
   margin-top: $spacing-lg;
 }
 
+// Ступени кадра. Держим их здесь целиком (а не в _layout): файл идёт позже в
+// каскаде, и разбросанные по двум файлам медиазапросы перебивали друг друга.
+@media (max-width: $bp-md) {
+  .fs-carousel-item { flex-basis: 50%; }
+}
+
+@media (max-width: $bp-sm) {
+  .fs-carousel-item { flex-basis: 100%; }
+}
+
 .fs-task-carousel .fs-carousel-dot {
   height: rem(4);
-  width: rem(20);
-  border-radius: 2px;
+  width: rem(26);
+  border-radius: $border-radius-pill;
   background: $color-border;
   cursor: pointer;
-  transition: width .25s ease, background .25s ease;
+  transition: background .25s ease;
 
-  &.is-active {
-    width: rem(36);
-    background: $color-accent;
-  }
+  &.is-active { background: $color-accent; }
+}
+
+// Ступени кадра. Держим их здесь целиком (а не в _layout): файл идёт позже в
+// каскаде, и разбросанные по двум файлам медиазапросы перебивали друг друга.
+@media (max-width: $bp-md) {
+  .fs-carousel-item { flex-basis: 50%; }
+}
+
+@media (max-width: $bp-sm) {
+  .fs-carousel-item { flex-basis: 100%; }
 }

@@ -9,22 +9,28 @@
 
     text-align: center; color: $color-text-secondary;
 
-    h3 { margin: 0 0 rem(6); font-size: $font-size-base; font-weight: $font-medium; color: $color-text; }
-    p  { margin: 0 0 rem(14); font-size: $font-size-xs; color: $color-muted; }
+    h3 { margin: 0 0 rem(6); font-size: $font-size-md; font-weight: $font-bold; color: $color-text; }
+    p  { margin: 0 0 rem(14); font-size: $font-size-sm; color: $color-muted; }
+
+    .results-clear {
+      @include fs-btn-ghost;
+
+      display: inline-flex;
+    }
   }
 
   .infinite-sentinel {
     display: flex; align-items: center; justify-content: center;
     gap: rem(10);
     padding: rem(28) rem(12) rem(12);
-    font-size: $font-size-xs; color: $color-muted;
+    font-size: $font-size-sm; color: $color-muted;
   }
   .infinite-spinner {
     width: rem(14); height: rem(14);
-    border: 2px solid $color-separator; border-top-color: $color-accent; border-radius: 50%;
+    border: 2px solid $color-border; border-top-color: $color-accent; border-radius: 50%;
     animation: fs-at-spin .7s linear infinite;
   }
-  .infinite-end { padding: rem(22) rem(12) rem(4); text-align: center; font-size: $font-size-xs; color: $color-muted; }
+  .infinite-end { padding: rem(22) rem(12) rem(4); text-align: center; font-size: $font-size-sm; color: $color-muted-2; }
 }
 
 @keyframes fs-at-spin {

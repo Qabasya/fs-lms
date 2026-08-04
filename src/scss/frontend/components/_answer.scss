@@ -1,0 +1,65 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+// Блок ответа — один на обе публичные страницы: карточка списка на «Всех
+// заданиях» и карточка одного задания используют одну разметку и эти правила.
+// Раскрытие — card-tabs.js по aria-controls.
+//
+// Скоуп обеих страниц обязателен: сброс кнопок в _reset.scss объявлен как
+// `.fs-all-tasks-page button` (класс + тег) и без него перебивает по
+// специфичности фон, рамку, паддинги и цвет кнопки ответа.
+.fs-all-tasks-page,
+.fs-task-page {
+
+  .fs-answer-toggle { @include fs-btn-toggle; }
+
+  .fs-answer {
+    // display: flex перебивает UA-шное [hidden]{display:none} — свёрнутая
+    // панель без явного сброса оставалась бы видимой.
+    &[hidden] { display: none; }
+
+    display: flex;
+    align-items: baseline;
+    gap: rem(14);
+    margin-top: rem(16);
+    padding: rem(14) rem(16);
+    background: $color-surface-2;
+    border: 1px solid $color-border-light;
+    border-radius: $radius-control;
+    animation: fs-answer-in .22s ease-out;
+  }
+
+  .fs-answer-label {
+    flex: 0 0 auto;
+    font-size: $font-size-code;
+    font-weight: $font-semibold;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: $color-muted-2;
+  }
+
+  .fs-answer-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: $font-code;
+    font-size: $font-size-base;
+    font-weight: $font-semibold;
+    line-height: $line-height-relaxed;
+    color: $color-text;
+
+    // overflow-wrap вместо устаревшего word-break: break-word — поведение то же.
+    overflow-wrap: break-word;
+
+    // Эталонный ответ — многострочный текст: переносы автора значимы.
+    white-space: pre-wrap;
+  }
+
+  @media (max-width: $bp-md) {
+    .fs-answer { flex-direction: column; align-items: stretch; gap: rem(6); }
+  }
+}
+
+@keyframes fs-answer-in {
+  from { opacity: 0; transform: translateY(rem(-4)); }
+  to   { opacity: 1; transform: translateY(0); }
+}

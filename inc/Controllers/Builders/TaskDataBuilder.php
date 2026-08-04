@@ -37,9 +37,11 @@ use Inc\Services\Task\TaskMetaService;
  */
 readonly class TaskDataBuilder {
 
-	private const KEY_ANSWER = 'answer';
-	private const KEY_CODE   = 'code';
-	private const KEY_TEXT   = 'text';
+	private const KEY_CODE = 'code';
+	private const KEY_TEXT = 'text';
+
+	/** Сколько случайных статей показать, если по типу задания их нет. */
+	private const SIDEBAR_ARTICLES = 3;
 
 	/** Язык листинга: поля выбора языка у задания нет, все листинги — Python. */
 	private const CODE_LANG = 'Python';
@@ -152,6 +154,10 @@ readonly class TaskDataBuilder {
 	/**
 	 * Возвращает список табов для шаблона на основе готового контента.
 	 *
+	 * Ответа среди табов нет: он выводится тем же блоком, что и в карточке
+	 * списка на «Всех заданиях» — кнопка в футере карточки плюс панель
+	 * (`$content->answer` шаблон берёт напрямую).
+	 *
 	 * @param TaskContentDTO $content Контент задания из buildContentData().
 	 *
 	 * @return TabDTO[]
@@ -159,9 +165,6 @@ readonly class TaskDataBuilder {
 	private function buildTabs( TaskContentDTO $content ): array {
 		$tabs = array();
 
-		if ( '' !== $content->answer ) {
-			$tabs[] = new TabDTO( id: self::KEY_ANSWER, label: 'Ответ', content: $content->answer );
-		}
 		if ( '' !== $content->code ) {
 			$tabs[] = new TabDTO(
 				id:      self::KEY_CODE,
@@ -267,12 +270,21 @@ readonly class TaskDataBuilder {
 	 * @param string           $subject_key       Ключ предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
-	 * @return array Ключи: 'related' (по типу задания), 'recommended' (свежие),
+	 * @return array Ключи: 'related' (по типу задания, иначе случайные),
+	 *               'recommended' (свежие),
 	 *               'archive_url' (архив статей предмета — ссылка «Все материалы»).
 	 */
 	private function buildArticles( string $subject_key, ?TermViewDTO $current_task_type ): array {
+		$related = $this->article_service->getRelatedArticles( $subject_key, $current_task_type );
+
+		// По типу задания статей нет — показываем случайные статьи предмета,
+		// иначе блок сайдбара пустовал бы (тот же приём, что на «Всех заданиях»).
+		if ( empty( $related ) ) {
+			$related = $this->article_service->getSidebarArticles( $subject_key, array(), self::SIDEBAR_ARTICLES );
+		}
+
 		return array(
-			'related'     => $this->article_service->getRelatedArticles( $subject_key, $current_task_type ),
+			'related'     => $related,
 			'recommended' => $this->article_service->getLatestArticles( $subject_key ),
 			'archive_url' => $subject_key
 				? $this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) )

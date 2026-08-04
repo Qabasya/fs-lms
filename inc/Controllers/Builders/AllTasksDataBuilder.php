@@ -407,7 +407,7 @@ readonly class AllTasksDataBuilder {
 
 	/**
 	 * Текст-сводка группы фильтров (виден, когда секция свёрнута и ничего не выбрано).
-	 * Год (все термины — 4-значные числа) → диапазон «min—max»; тип → «Все N типов»;
+	 * Год (все термины — 4-значные числа) → см. yearSummary(); тип → «Все N типов»;
 	 * прочее → «Все N».
 	 *
 	 * @param array $terms   Опции группы: [{slug,name,count,url}].
@@ -420,11 +420,7 @@ readonly class AllTasksDataBuilder {
 
 		$years = array_filter( $terms, static fn( $t ) => (bool) preg_match( '/^\d{4}$/', (string) $t['name'] ) );
 		if ( $count > 0 && count( $years ) === $count ) {
-			$nums = array_map( static fn( $t ) => (int) $t['name'], $terms );
-			$min  = min( $nums );
-			$max  = max( $nums );
-
-			return $min === $max ? (string) $min : "{$min}—{$max}";
+			return $this->yearSummary( array_map( static fn( $t ) => (int) $t['name'], $terms ) );
 		}
 
 		if ( $is_type ) {
@@ -432,6 +428,37 @@ readonly class AllTasksDataBuilder {
 		}
 
 		return sprintf( 'Все %d', $count );
+	}
+
+	/**
+	 * Сводка группы годов. Диапазон «min—max» годится, только пока годы идут
+	 * подряд: при отборе по типу задания в срезе остаются, например, 2021 и 2026,
+	 * и прежний «2021—2026» выглядел так, будто подпись не отреагировала.
+	 *
+	 * Один год → «2021»; до трёх → перечисление; непрерывный ряд → «2021—2026»;
+	 * остальное → «5 лет».
+	 *
+	 * @param int[] $years Годы доступных опций группы.
+	 *
+	 * @return string
+	 */
+	private function yearSummary( array $years ): string {
+		$years = array_values( array_unique( $years ) );
+		sort( $years );
+
+		$count = count( $years );
+		$min   = $years[0];
+		$max   = $years[ $count - 1 ];
+
+		if ( $count <= 3 ) {
+			return implode( ', ', $years );
+		}
+
+		if ( $max - $min + 1 === $count ) {
+			return "{$min}—{$max}";
+		}
+
+		return sprintf( '%d %s', $count, Pluralizer::ru( $count, 'год', 'года', 'лет' ) );
 	}
 
 	/**

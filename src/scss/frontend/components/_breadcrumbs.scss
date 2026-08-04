@@ -7,7 +7,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: rem(4) rem(6);
+  gap: rem(4) rem(8);
   margin-bottom: rem(18);
   font-size: $font-size-sm;
   color: $color-muted;
@@ -17,9 +17,9 @@
     text-decoration: none;
     transition: color $transition;
 
-    &:hover { color: $color-accent; }
+    &:hover { color: $color-accent-700; }
   }
 
-  &__sep     { color: $color-separator; user-select: none; }
-  &__current { color: $color-text; font-weight: $font-medium; }
+  &__sep     { color: $color-muted-2; user-select: none; }
+  &__current { color: $color-text; font-weight: $font-semibold; }
 }
